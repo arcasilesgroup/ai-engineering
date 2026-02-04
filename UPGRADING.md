@@ -1,5 +1,46 @@
 # Upgrading the AI Engineering Framework
 
+## From v2.0 to v2.1+
+
+### Overview
+
+v2.1 introduces **CLAUDE.md sectioning** for safe automatic updates and **auto-update detection** via hooks.
+
+### New Features
+
+1. **CLAUDE.md Sectioning** — Framework content is now wrapped in markers:
+   - `<!-- BEGIN:AI-FRAMEWORK:vX.X.X -->` ... `<!-- END:AI-FRAMEWORK -->` — Auto-updated
+   - `<!-- BEGIN:TEAM -->` ... `<!-- END:TEAM -->` — Never overwritten
+
+2. **Auto-update Detection** — Version check hook runs on session end, warns if outdated
+
+3. **Deprecation Warnings** — Old versions show warnings (non-blocking)
+
+### Migrating CLAUDE.md
+
+If your CLAUDE.md doesn't have section markers, run:
+
+```
+/migrate-claude-md
+```
+
+This will:
+1. Create a backup of your current CLAUDE.md
+2. Add section markers
+3. Preserve your team customizations in the TEAM section
+
+After migration, future `install.sh --update` runs will automatically update the framework section while preserving your team content.
+
+### Manual Migration
+
+If you prefer to migrate manually:
+
+1. Copy your Project Overview and any custom content
+2. Replace CLAUDE.md with the new template from the framework
+3. Paste your content into the TEAM section
+
+---
+
 ## From v1.x to v2.0
 
 ### Overview
@@ -17,8 +58,9 @@ The update script will:
 1. Read your project's `.ai-version` to determine current version.
 2. Show the changelog between versions.
 3. Update framework-managed files (skills, hooks, agents, standards).
-4. Preserve your customizations (CLAUDE.md, context/, learnings/, custom/).
-5. Write the new `.ai-version`.
+4. Preserve your customizations (context/, learnings/, custom/).
+5. **NEW:** Update CLAUDE.md framework section if markers present (team section preserved).
+6. Write the new `.ai-version`.
 
 ### Manual Upgrade
 
