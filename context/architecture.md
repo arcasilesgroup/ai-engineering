@@ -2,9 +2,7 @@
 
 ## Overview
 
-The platform follows a layered, microservices-inspired architecture with clear separation of concerns and well-defined integration points.
-
-![Architecture Overview](../assets/svg/architecture-overview.svg)
+The platform follows a layered architecture with clear separation of concerns and well-defined integration points.
 
 ## Architecture Principles
 
@@ -26,41 +24,29 @@ Controllers/
 └── Common/                # Shared controllers (health, etc.)
 ```
 
-**Responsibilities:**
-- HTTP request/response handling
-- Input validation
-- Route mapping
-- Error response formatting
+**Responsibilities:** HTTP handling, input validation, route mapping, error response formatting.
 
 ### Business Layer (Providers)
 
 ```
 Business/
-├── {Feature}Provider.cs   # Orchestrates business logic
+├── {Feature}Provider.cs
 └── Interfaces/
     └── I{Feature}Provider.cs
 ```
 
-**Responsibilities:**
-- Business logic orchestration
-- Multiple service coordination
-- Caching decisions
-- Result transformation
+**Responsibilities:** Business logic orchestration, multi-service coordination, caching, Result transformation.
 
 ### Service Layer (External Integration)
 
 ```
 Services/
-├── {External}Service.cs   # Wraps external system
+├── {External}Service.cs
 └── Interfaces/
     └── I{External}Service.cs
 ```
 
-**Responsibilities:**
-- Single external system wrapper
-- HTTP client management
-- Response mapping
-- Retry/resilience policies
+**Responsibilities:** Single external system wrapper, HTTP client management, response mapping, retry/resilience.
 
 ### Domain Layer
 
@@ -71,20 +57,7 @@ Domain/
 └── Contracts/             # Request/Response DTOs
 ```
 
-## Integration Patterns
-
-### HTTP Client Configuration
-
-```csharp
-// Using standard .NET HTTP client factory with typed clients
-services.AddHttpClient<IExternalService, ExternalService>((sp, client) =>
-{
-    var options = sp.GetRequiredService<IOptions<ExternalServiceOptions>>().Value;
-    client.BaseAddress = new Uri(options.BaseUrl);
-}).AddHttpMessageHandler<DependencyHandler>();
-```
-
-### Error Flow
+## Error Flow
 
 ```
 Controller → Provider → Service
@@ -107,37 +80,27 @@ HTTP Response
 | Acceptance | UAT/Staging | appsettings.Acc.json |
 | Production | Live system | appsettings.Pro.json |
 
-### Azure Resources
+### Cloud Resources (Azure)
 
 - **App Service** - Web API hosting
 - **Azure Functions** - Event-driven processing
 - **API Management** - Gateway and policies
-- **API Center** - API catalog and discovery
 - **Key Vault** - Secrets management
 - **Application Insights** - Monitoring and telemetry
 
 ## Security Architecture
 
 ### Authentication
-
 - Azure AD / Entra ID for internal services
 - API keys for external partners
 - JWT tokens for user authentication
 
 ### Authorization
-
 - Role-based access control (RBAC)
 - Scope-based API permissions
 - Resource-level authorization
 
 ### Data Protection
-
 - TLS 1.3 for all communications
 - Encryption at rest for sensitive data
 - Secret rotation policies
-
-## Related Documents
-
-- [Stack Details](stack.md)
-- [Glossary](glossary.md)
-- [Architecture Decisions](decisions/)

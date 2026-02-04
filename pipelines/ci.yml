@@ -1,0 +1,227 @@
+# =============================================================================
+# CI Pipeline - AI Engineering Framework (Azure Pipelines)
+# =============================================================================
+# Multi-stack continuous integration pipeline that supports .NET, TypeScript,
+# Python, and Infrastructure (Terraform) projects using reusable templates.
+#
+# CUSTOMIZATION GUIDE:
+#   1. Update the trigger paths to match your repository structure
+#   2. Enable/disable stages for the stacks your project uses
+#   3. Adjust template parameters to match your project paths and versions
+#   4. Configure variable groups for shared secrets and configuration
+# =============================================================================
+
+trigger:
+  branches:
+    include:
+      - main
+  paths:
+    exclude:
+      - "**.md"
+      - docs/
+
+pr:
+  branches:
+    include:
+      - main
+  paths:
+    exclude:
+      - "**.md"
+      - docs/
+
+# ---------------------------------------------------------------------------
+# CUSTOMIZE: Update these variables for your project
+# ---------------------------------------------------------------------------
+variables:
+  # .NET configuration
+  dotnetVersion: "8.0.x"
+  dotnetSolution: "src/**/*.sln"
+  dotnetConfiguration: "Release"
+  dotnetTestProjects: "tests/**/*.csproj"
+
+  # TypeScript configuration
+  nodeVersion: "20"
+  typescriptWorkingDir: "src/frontend"
+
+  # Python configuration
+  pythonVersion: "3.11"
+  pythonWorkingDir: "src"
+
+  # Terraform configuration
+  terraformWorkingDir: "infrastructure"
+
+  # Build agent
+  vmImageName: "ubuntu-latest"
+
+# ---------------------------------------------------------------------------
+# Stages
+# ---------------------------------------------------------------------------
+stages:
+  # ===========================================================================
+  # Stage 1: Lint - Run linters for all stacks
+  # ===========================================================================
+  - stage: Lint
+    displayName: "Lint"
+    jobs:
+      # --- .NET Lint ---
+      - job: LintDotnet
+        displayName: "Lint (.NET)"
+        pool:
+          vmImage: $(vmImageName)
+        steps:
+          - task: UseDotNet@2
+            displayName: "Setup .NET $(dotnetVersion)"
+            inputs:
+              packageType: sdk
+              version: $(dotnetVersion)
+
+          - script: |
+              dotnet restore
+              dotnet format --verify-no-changes --verbosity diagnostic
+            displayName: "Run dotnet format check"
+
+      # --- TypeScript Lint ---
+      - job: LintTypeScript
+        displayName: "Lint (TypeScript)"
+        pool:
+          vmImage: $(vmImageName)
+        steps:
+          - task: NodeTool@0
+            displayName: "Setup Node.js $(nodeVersion)"
+            inputs:
+              versionSpec: $(nodeVersion)
+
+          - script: npm ci
+            displayName: "Install npm dependencies"
+            workingDirectory: $(typescriptWorkingDir)
+
+          - script: npx eslint . --max-warnings 0
+            displayName: "Run ESLint"
+            workingDirectory: $(typescriptWorkingDir)
+
+          - script: npx prettier --check .
+            displayName: "Run Prettier check"
+            workingDirectory: $(typescriptWorkingDir)
+
+      # --- Python Lint ---
+      - job: LintPython
+        displayName: "Lint (Python)"
+        pool:
+          vmImage: $(vmImageName)
+        steps:
+          - task: UsePythonVersion@0
+            displayName: "Setup Python $(pythonVersion)"
+            inputs:
+              versionSpec: $(pythonVersion)
+
+          - script: |
+              python -m pip install --upgrade pip
+              pip install ruff mypy
+            displayName: "Install linting tools"
+
+          - script: ruff check $(pythonWorkingDir)/
+            displayName: "Run Ruff linter"
+
+          - script: ruff format --check $(pythonWorkingDir)/
+            displayName: "Run Ruff format check"
+
+      # --- Terraform Lint ---
+      - job: LintTerraform
+        displayName: "Lint (Terraform)"
+        pool:
+          vmImage: $(vmImageName)
+        steps:
+          - script: terraform fmt -check -recursive
+            displayName: "Run terraform fmt check"
+            workingDirectory: $(terraformWorkingDir)
+
+  # ===========================================================================
+  # Stage 2: Test - Run tests with coverage using reusable templates
+  # ===========================================================================
+  - stage: Test
+    displayName: "Test"
+    dependsOn: Lint
+    jobs:
+      # --- .NET Tests ---
+      - job: TestDotnet
+        displayName: "Test (.NET)"
+        pool:
+          vmImage: $(vmImageName)
+        steps:
+          - template: templates/dotnet-build.yml
+            parameters:
+              solution: $(dotnetSolution)
+              configuration: $(dotnetConfiguration)
+              testProjects: $(dotnetTestProjects)
+              publishArtifacts: false
+
+      # --- TypeScript Tests ---
+      - job: TestTypeScript
+        displayName: "Test (TypeScript)"
+        pool:
+          vmImage: $(vmImageName)
+        steps:
+          - template: templates/typescript-build.yml
+            parameters:
+              workingDirectory: $(typescriptWorkingDir)
+              nodeVersion: $(nodeVersion)
+              publishArtifacts: false
+
+      # --- Python Tests ---
+      - job: TestPython
+        displayName: "Test (Python)"
+        pool:
+          vmImage: $(vmImageName)
+        steps:
+          - template: templates/python-build.yml
+            parameters:
+              workingDirectory: $(pythonWorkingDir)
+              pythonVersion: $(pythonVersion)
+              publishArtifacts: false
+
+  # ===========================================================================
+  # Stage 3: Build - Build and publish artifacts
+  # ===========================================================================
+  - stage: Build
+    displayName: "Build"
+    dependsOn: Test
+    jobs:
+      # --- .NET Build ---
+      - job: BuildDotnet
+        displayName: "Build (.NET)"
+        pool:
+          vmImage: $(vmImageName)
+        steps:
+          - template: templates/dotnet-build.yml
+            parameters:
+              solution: $(dotnetSolution)
+              configuration: $(dotnetConfiguration)
+              testProjects: $(dotnetTestProjects)
+              runTests: false
+              publishArtifacts: true
+
+      # --- TypeScript Build ---
+      - job: BuildTypeScript
+        displayName: "Build (TypeScript)"
+        pool:
+          vmImage: $(vmImageName)
+        steps:
+          - template: templates/typescript-build.yml
+            parameters:
+              workingDirectory: $(typescriptWorkingDir)
+              nodeVersion: $(nodeVersion)
+              runTests: false
+              publishArtifacts: true
+
+      # --- Python Build ---
+      - job: BuildPython
+        displayName: "Build (Python)"
+        pool:
+          vmImage: $(vmImageName)
+        steps:
+          - template: templates/python-build.yml
+            parameters:
+              workingDirectory: $(pythonWorkingDir)
+              pythonVersion: $(pythonVersion)
+              runTests: false
+              publishArtifacts: true

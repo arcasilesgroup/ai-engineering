@@ -1,149 +1,60 @@
-# Contributing to AI Engineering Framework (ai-engineering)
+# Contributing to AI Engineering Framework
 
-Thank you for your interest in contributing to ai-engineering! This document provides guidelines and information for contributors.
+## How to Contribute
 
-## Development Setup
+### Reporting Issues
 
-### Prerequisites
-
-- Python 3.9 or higher
-- pip (Python package manager)
-- Git
-
-### Setting Up the Development Environment
-
-```bash
-# Clone the repository
-git clone https://github.com/arcasilesgroup/ai-engineering.git
-cd ai-engineering
-
-# Create a virtual environment (recommended)
-python -m venv .venv
-
-# Activate the virtual environment
-# On Windows:
-.venv\Scripts\activate
-# On Linux/macOS:
-source .venv/bin/activate
-
-# Install in development mode with dev dependencies
-pip install -e ".[dev]"
-
-# Verify installation
-ai-engineering --version
-```
-
-### Running Tests
-
-```bash
-# Run all tests
-pytest
-
-# Run with coverage
-pytest --cov=ai_engineering
-
-# Run specific test file
-pytest tests/test_cli.py
-```
-
-### Code Quality
-
-```bash
-# Format code
-ruff format src/
-
-# Lint code
-ruff check src/
-
-# Type checking
-mypy src/
-```
-
-## Project Structure
-
-```
-ai-engineering/
-├── src/ai_engineering/   # Main package
-│   ├── cli.py            # Main CLI entry point
-│   ├── commands/         # CLI commands
-│   │   ├── init.py       # ai-engineering init
-│   │   ├── sync.py       # ai-engineering sync
-│   │   ├── validate.py   # ai-engineering validate
-│   │   └── update.py     # ai-engineering update
-│   ├── utils/            # Utility modules
-│   │   ├── console.py    # Terminal output helpers
-│   │   └── paths.py      # Path utilities
-│   └── templates/        # Template files for init
-├── tests/                # Test files
-├── .github/workflows/    # CI/CD pipelines
-├── install.sh            # Linux/macOS installer
-├── install.ps1           # Windows installer
-└── pyproject.toml        # Package configuration
-```
-
-## Making Changes
-
-### Adding a New Command
-
-1. Create a new file in `src/ai_engineering/commands/`
-2. Use Click decorators for CLI options
-3. Register the command in `src/ai_engineering/cli.py`
-4. Add tests in `tests/`
+Open a GitHub issue with:
+- Description of the problem or suggestion
+- Steps to reproduce (if applicable)
+- Expected vs actual behavior
 
 ### Adding a New Stack
 
-1. Add the stack to the `StackType` literal in `src/ai_engineering/commands/init.py`
-2. Update the Click choice options
-3. Add stack-specific templates if needed
-4. Update documentation
+1. Create `standards/{stack}.md` with coding conventions
+2. Create `.github/instructions/{stack}.instructions.md` with Copilot instructions
+3. Create `learnings/{stack}.md` (can be empty initially)
+4. Update `CLAUDE.md` to reference the new standard
+5. Update `scripts/install.sh` to include the new stack option
+6. Add a pipeline template in `pipelines/templates/{stack}-build.yml`
 
-### Modifying Templates
+### Adding a New Command
 
-Templates are used by `ai-engineering init` to create the `.ai/` structure:
-- Basic templates are created programmatically in `commands/init.py`
-- Complex templates can be added to `src/ai_engineering/templates/`
+1. Create `.claude/commands/{command-name}.md`
+2. Follow the command template (see `workshop/07-customization.md`)
+3. Include: YAML frontmatter with `description`, `## Steps`, and `## Verification`
+4. Update `CLAUDE.md` commands list
+
+### Adding a New Agent
+
+1. Create `.claude/agents/{agent-name}.md`
+2. Follow the agent template (see `workshop/07-customization.md`)
+3. Include: YAML frontmatter with `description` and `tools`, `## Objective`, `## Process`, `## Constraints`
+4. Update `CLAUDE.md` agents list
+
+### Modifying Standards
+
+- Standards should be prescriptive, not aspirational
+- Include code examples for every rule
+- Include anti-pattern examples showing what NOT to do
+- Reference authoritative sources where applicable
+
+## File Conventions
+
+- All instructional content is **markdown**
+- Metadata uses **YAML frontmatter**
+- Maximum directory depth: **3 levels**
+- File names: **kebab-case**
+- No registries or index files — file existence = registration
 
 ## Pull Request Process
 
 1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/amazing-feature`
+2. Create a branch: `feat/add-rust-stack` or `fix/dotnet-standard-typo`
 3. Make your changes
-4. Run tests: `pytest`
-5. Run linting: `ruff check src/`
-6. Commit your changes: `git commit -m 'Add amazing feature'`
-7. Push to the branch: `git push origin feature/amazing-feature`
-8. Open a Pull Request
+4. Run `/validate` to check framework integrity
+5. Submit a PR with a clear description
 
-### PR Guidelines
+## Code of Conduct
 
-- Keep changes focused and atomic
-- Include tests for new functionality
-- Update documentation as needed
-- Follow existing code style
-- Ensure CI passes
-
-## Release Process
-
-Releases are automated via GitHub Actions:
-
-1. Update version in `src/ai_engineering/__init__.py`
-2. Update version in `pyproject.toml`
-3. Create a GitHub release with tag `v{version}`
-4. The CI/CD pipeline will automatically publish to PyPI
-
-## Code Style
-
-- Follow PEP 8 guidelines
-- Use type hints for function signatures
-- Write docstrings for public functions
-- Keep functions focused and small
-- Use meaningful variable names
-
-## Questions?
-
-If you have questions or need help, please:
-- Open an issue on GitHub
-- Check existing issues for similar questions
-- Review the documentation
-
-Thank you for contributing!
+Be respectful, constructive, and inclusive. Focus on technical merit.

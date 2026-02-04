@@ -2,15 +2,14 @@
 
 ## Overview
 
-**Name:** {ProjectName}  
-**Type:** Multi-Project Solution  
-**Domain:** {YourDomain}  
-
-> ℹ️ Replace placeholders with your project details.
+**Name:** {{PROJECT_NAME}}
+**Type:** {{PROJECT_TYPE}}
+**Domain:** {{DOMAIN}}
+**Organization:** {{ORGANIZATION}}
 
 ## Vision
 
-Provide a unified, secure, and scalable platform for your business operations.
+{{PROJECT_VISION}}
 
 ## Objectives
 
@@ -34,22 +33,19 @@ Provide a unified, secure, and scalable platform for your business operations.
 
 | Service | Description | Stack |
 |---------|-------------|-------|
-| {ServiceName} | Your primary service | .NET 8, Azure Functions |
-| Web Portal | Frontend application | React, TypeScript |
-| Shared Libraries | Common patterns and utilities | .NET 8 |
+| {{SERVICE_NAME}} | {{SERVICE_DESCRIPTION}} | {{SERVICE_STACK}} |
 
 ### Supporting Services
 
 | Service | Description |
 |---------|-------------|
-| Cache Service | Centralized caching (Redis) |
-| Communication Service | Email, SMS, notifications |
-| Identity Service | Authentication, authorization |
+| {{SUPPORTING_SERVICE}} | {{SUPPORTING_DESCRIPTION}} |
 
 ## Success Criteria
 
-- [ ] Consistent error handling across services
+- [ ] Consistent error handling across all services
 - [ ] Automated API documentation generation
 - [ ] < 100ms p99 latency for critical paths
 - [ ] Zero critical security vulnerabilities
-- [ ] > 80% test coverage
+- [ ] > 80% test coverage on new code
+- [ ] All quality gates passing

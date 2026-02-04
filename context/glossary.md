@@ -5,8 +5,6 @@
 | Term | Definition |
 |------|------------|
 | **API** | Application Programming Interface - contract for service communication |
-| **API Center** | Azure service for API catalog and discovery |
-| **API Management (APIM)** | Azure API gateway service |
 | **Entity** | Core business object in your domain |
 | **Aggregate** | Cluster of domain objects treated as a single unit |
 | **Value Object** | Object defined by its attributes rather than identity |
@@ -21,6 +19,9 @@
 | **Error Mapping** | Process of converting domain errors to HTTP responses |
 | **DTO** | Data Transfer Object - data structure for API communication |
 | **ADR** | Architecture Decision Record - documented design decision |
+| **Quality Gate** | Automated threshold check that code must pass before merging |
+| **SAST** | Static Application Security Testing - analyzing source code for vulnerabilities |
+| **SCA** | Software Composition Analysis - scanning dependencies for vulnerabilities |
 
 ## Abbreviations
 
@@ -34,16 +35,7 @@
 | **RBAC** | Role-Based Access Control |
 | **SPA** | Single Page Application |
 | **TLS** | Transport Layer Security |
-
-## Project-Specific Terms
-
-> ℹ️ Add your project-specific terms here.
-
-| Term | Definition |
-|------|------------|
-| **{YourService}** | Description of your primary service |
-| **Shared Library** | Common NuGet package with patterns and utilities |
-| **Reference Data** | Master data used across multiple services |
+| **OWASP** | Open Web Application Security Project |
 
 ## Error Types
 
@@ -51,8 +43,16 @@
 |-------|-------------|-------------|
 | **NotFoundError** | 404 | Resource does not exist |
 | **InvalidInputError** | 400 | Request validation failed (simple) |
-| **InvalidInputDetailedError** | 400 | Request validation failed (with details) |
+| **InvalidInputDetailedError** | 400 | Request validation failed (with field details) |
 | **UnauthorizedError** | 401 | Authentication required |
 | **ForbiddenError** | 403 | Insufficient permissions |
 | **ConflictError** | 409 | Resource state conflict |
 | **InternalError** | 500 | Unexpected server error |
+
+## Project-Specific Terms
+
+> Add your project-specific terms below.
+
+| Term | Definition |
+|------|------------|
+| {{TERM}} | {{DEFINITION}} |

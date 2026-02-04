@@ -1,0 +1,168 @@
+# =============================================================================
+# Python Build Template - AI Engineering Framework (Azure Pipelines)
+# =============================================================================
+# Reusable template for Python projects: pip install, ruff linting, pytest
+# with coverage, and package building.
+#
+# Usage:
+#   steps:
+#     - template: templates/python-build.yml
+#       parameters:
+#         workingDirectory: "src"
+#         pythonVersion: "3.11"
+# =============================================================================
+
+parameters:
+  # Working directory containing the Python project
+  - name: workingDirectory
+    type: string
+    default: "src"
+
+  # Python version to use
+  - name: pythonVersion
+    type: string
+    default: "3.11"
+
+  # Whether to run linting
+  - name: runLint
+    type: boolean
+    default: true
+
+  # Whether to run tests (set to false in Build stage if tests ran in Test stage)
+  - name: runTests
+    type: boolean
+    default: true
+
+  # Whether to build the Python package
+  - name: runBuild
+    type: boolean
+    default: true
+
+  # Whether to publish build artifacts
+  - name: publishArtifacts
+    type: boolean
+    default: true
+
+  # Artifact name for published output
+  - name: artifactName
+    type: string
+    default: "python-artifacts"
+
+  # Test directory (relative to repository root)
+  - name: testDirectory
+    type: string
+    default: "tests"
+
+  # Additional pip install arguments
+  - name: pipInstallArgs
+    type: string
+    default: ""
+
+  # Minimum coverage percentage (0 to disable threshold)
+  - name: coverageThreshold
+    type: number
+    default: 0
+
+steps:
+  # ---------------------------------------------------------------------------
+  # Setup
+  # ---------------------------------------------------------------------------
+  - task: UsePythonVersion@0
+    displayName: "Setup Python ${{ parameters.pythonVersion }}"
+    inputs:
+      versionSpec: ${{ parameters.pythonVersion }}
+      addToPath: true
+
+  # ---------------------------------------------------------------------------
+  # Install dependencies
+  # ---------------------------------------------------------------------------
+  - task: Cache@2
+    displayName: "Cache pip packages"
+    inputs:
+      key: 'pip | "$(Agent.OS)" | **/requirements*.txt, **/pyproject.toml'
+      restoreKeys: |
+        pip | "$(Agent.OS)"
+      path: $(Pipeline.Workspace)/.pip
+
+  - script: |
+      python -m pip install --upgrade pip
+      pip install --cache-dir $(Pipeline.Workspace)/.pip -e ".[dev]" 2>/dev/null \
+        || pip install --cache-dir $(Pipeline.Workspace)/.pip -r requirements.txt 2>/dev/null \
+        || true
+      # Ensure linting and testing tools are available
+      pip install --cache-dir $(Pipeline.Workspace)/.pip ruff pytest pytest-cov build twine ${{ parameters.pipInstallArgs }}
+    displayName: "Install Python dependencies"
+
+  # ---------------------------------------------------------------------------
+  # Lint
+  # ---------------------------------------------------------------------------
+  - script: ruff check ${{ parameters.workingDirectory }}/
+    displayName: "Run Ruff linter"
+    condition: eq('${{ parameters.runLint }}', 'true')
+
+  - script: ruff format --check ${{ parameters.workingDirectory }}/
+    displayName: "Run Ruff format check"
+    condition: eq('${{ parameters.runLint }}', 'true')
+
+  # ---------------------------------------------------------------------------
+  # Test with coverage
+  # ---------------------------------------------------------------------------
+  - script: |
+      COVERAGE_ARGS=""
+      if [ "${{ parameters.coverageThreshold }}" -gt 0 ] 2>/dev/null; then
+        COVERAGE_ARGS="--cov-fail-under=${{ parameters.coverageThreshold }}"
+      fi
+
+      pytest ${{ parameters.testDirectory }}/ \
+        --verbose \
+        --cov=${{ parameters.workingDirectory }} \
+        --cov-report=xml:$(Build.SourcesDirectory)/coverage.xml \
+        --cov-report=html:$(Build.SourcesDirectory)/htmlcov \
+        --junitxml=$(Build.SourcesDirectory)/test-results/pytest-results.xml \
+        $COVERAGE_ARGS
+    displayName: "Run pytest with coverage"
+    condition: eq('${{ parameters.runTests }}', 'true')
+
+  # Publish test results to Azure DevOps
+  - task: PublishTestResults@2
+    displayName: "Publish test results"
+    condition: and(eq('${{ parameters.runTests }}', 'true'), always())
+    inputs:
+      testResultsFormat: JUnit
+      testResultsFiles: "$(Build.SourcesDirectory)/test-results/pytest-results.xml"
+      mergeTestResults: true
+      failTaskOnFailedTests: true
+
+  # Publish code coverage to Azure DevOps
+  - task: PublishCodeCoverageResults@2
+    displayName: "Publish code coverage"
+    condition: and(eq('${{ parameters.runTests }}', 'true'), always())
+    inputs:
+      summaryFileLocation: "$(Build.SourcesDirectory)/coverage.xml"
+
+  # ---------------------------------------------------------------------------
+  # Build package
+  # ---------------------------------------------------------------------------
+  - script: |
+      python -m build
+      twine check dist/*
+    displayName: "Build and validate Python package"
+    condition: eq('${{ parameters.runBuild }}', 'true')
+
+  # ---------------------------------------------------------------------------
+  # Publish artifacts
+  # ---------------------------------------------------------------------------
+  - task: CopyFiles@2
+    displayName: "Copy package to staging"
+    condition: and(eq('${{ parameters.publishArtifacts }}', 'true'), eq('${{ parameters.runBuild }}', 'true'))
+    inputs:
+      SourceFolder: dist
+      Contents: "**"
+      TargetFolder: $(Build.ArtifactStagingDirectory)/python
+
+  - task: PublishBuildArtifacts@1
+    displayName: "Upload artifacts"
+    condition: and(eq('${{ parameters.publishArtifacts }}', 'true'), eq('${{ parameters.runBuild }}', 'true'))
+    inputs:
+      PathtoPublish: $(Build.ArtifactStagingDirectory)/python
+      ArtifactName: ${{ parameters.artifactName }}

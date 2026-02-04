@@ -1,0 +1,152 @@
+# =============================================================================
+# .NET Build Template - AI Engineering Framework (Azure Pipelines)
+# =============================================================================
+# Reusable template for .NET projects: restore, build, test with coverage,
+# and publish artifacts.
+#
+# Usage:
+#   steps:
+#     - template: templates/dotnet-build.yml
+#       parameters:
+#         solution: "src/MyApp/MyApp.sln"
+#         configuration: "Release"
+#         testProjects: "tests/**/*.csproj"
+# =============================================================================
+
+parameters:
+  # Path to the .NET solution file or project file
+  - name: solution
+    type: string
+    default: "**/*.sln"
+
+  # Build configuration (Debug, Release)
+  - name: configuration
+    type: string
+    default: "Release"
+
+  # Glob pattern for test projects
+  - name: testProjects
+    type: string
+    default: "tests/**/*.csproj"
+
+  # .NET SDK version to use
+  - name: dotnetVersion
+    type: string
+    default: "8.0.x"
+
+  # Whether to run tests (set to false in Build stage if tests ran in Test stage)
+  - name: runTests
+    type: boolean
+    default: true
+
+  # Whether to publish build artifacts
+  - name: publishArtifacts
+    type: boolean
+    default: true
+
+  # Artifact name for published output
+  - name: artifactName
+    type: string
+    default: "dotnet-artifacts"
+
+  # Additional dotnet build arguments
+  - name: buildArgs
+    type: string
+    default: ""
+
+  # Additional dotnet test arguments
+  - name: testArgs
+    type: string
+    default: ""
+
+steps:
+  # ---------------------------------------------------------------------------
+  # Setup
+  # ---------------------------------------------------------------------------
+  - task: UseDotNet@2
+    displayName: "Setup .NET SDK ${{ parameters.dotnetVersion }}"
+    inputs:
+      packageType: sdk
+      version: ${{ parameters.dotnetVersion }}
+
+  # ---------------------------------------------------------------------------
+  # Restore
+  # ---------------------------------------------------------------------------
+  - task: DotNetCoreCLI@2
+    displayName: "Restore NuGet packages"
+    inputs:
+      command: restore
+      projects: ${{ parameters.solution }}
+      # CUSTOMIZE: Add a NuGet feed if using private packages
+      # feedsToUse: select
+      # vstsFeed: "your-feed-name"
+
+  # ---------------------------------------------------------------------------
+  # Build
+  # ---------------------------------------------------------------------------
+  - task: DotNetCoreCLI@2
+    displayName: "Build solution (${{ parameters.configuration }})"
+    inputs:
+      command: build
+      projects: ${{ parameters.solution }}
+      arguments: >-
+        --no-restore
+        --configuration ${{ parameters.configuration }}
+        ${{ parameters.buildArgs }}
+
+  # ---------------------------------------------------------------------------
+  # Test with coverage
+  # ---------------------------------------------------------------------------
+  - task: DotNetCoreCLI@2
+    displayName: "Run tests with coverage"
+    condition: eq('${{ parameters.runTests }}', 'true')
+    inputs:
+      command: test
+      projects: ${{ parameters.testProjects }}
+      arguments: >-
+        --no-build
+        --configuration ${{ parameters.configuration }}
+        --collect:"XPlat Code Coverage"
+        --logger "trx;LogFileName=test-results.trx"
+        -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
+        ${{ parameters.testArgs }}
+
+  # Publish test results to Azure DevOps
+  - task: PublishTestResults@2
+    displayName: "Publish test results"
+    condition: and(eq('${{ parameters.runTests }}', 'true'), always())
+    inputs:
+      testResultsFormat: VSTest
+      testResultsFiles: "**/*.trx"
+      searchFolder: $(Agent.TempDirectory)
+      mergeTestResults: true
+      failTaskOnFailedTests: true
+
+  # Publish code coverage to Azure DevOps
+  - task: PublishCodeCoverageResults@2
+    displayName: "Publish code coverage"
+    condition: and(eq('${{ parameters.runTests }}', 'true'), always())
+    inputs:
+      summaryFileLocation: "$(Agent.TempDirectory)/**/coverage.cobertura.xml"
+
+  # ---------------------------------------------------------------------------
+  # Publish artifacts
+  # ---------------------------------------------------------------------------
+  - task: DotNetCoreCLI@2
+    displayName: "Publish application"
+    condition: eq('${{ parameters.publishArtifacts }}', 'true')
+    inputs:
+      command: publish
+      projects: ${{ parameters.solution }}
+      arguments: >-
+        --no-build
+        --configuration ${{ parameters.configuration }}
+        --output $(Build.ArtifactStagingDirectory)/publish
+      zipAfterPublish: true
+
+  - task: PublishBuildArtifacts@1
+    displayName: "Upload artifacts"
+    condition: eq('${{ parameters.publishArtifacts }}', 'true')
+    inputs:
+      PathtoPublish: $(Build.ArtifactStagingDirectory)/publish
+      ArtifactName: ${{ parameters.artifactName }}

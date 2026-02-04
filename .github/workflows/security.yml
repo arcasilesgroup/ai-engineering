@@ -1,0 +1,249 @@
+# =============================================================================
+# Security Scanning Pipeline - AI Engineering Framework
+# =============================================================================
+# Comprehensive security scanning workflow that detects secrets, vulnerable
+# dependencies, and static application security issues (SAST).
+#
+# Runs on:
+#   - Every push to main
+#   - Every pull request targeting main
+#   - Weekly schedule (Monday 06:00 UTC) for ongoing monitoring
+#
+# Required secrets:
+#   - SNYK_TOKEN: (Optional) Snyk API token for dependency scanning.
+#                 Falls back to npm audit / pip-audit if not configured.
+# =============================================================================
+
+name: Security
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Run every Monday at 06:00 UTC for ongoing vulnerability monitoring
+    - cron: "0 6 * * 1"
+
+# Cancel in-progress runs for the same branch/PR (except scheduled runs)
+concurrency:
+  group: security-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: ${{ github.event_name != 'schedule' }}
+
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+
+jobs:
+  # ===========================================================================
+  # Secret Detection - Scan for leaked secrets and credentials
+  # ===========================================================================
+  secrets:
+    name: Secret Detection
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # CUSTOMIZE: Set to a specific config file if needed
+          # GITLEAKS_CONFIG: .gitleaks.toml
+
+  # ===========================================================================
+  # Dependency Scanning - Check for vulnerable dependencies
+  # ===========================================================================
+  dependencies:
+    name: "Dependency Scan (${{ matrix.stack }})"
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # CUSTOMIZE: Include only the stacks your project uses
+        stack: [dotnet, typescript, python]
+        include:
+          - stack: dotnet
+            dotnet: true
+          - stack: typescript
+            node: true
+          - stack: python
+            python: true
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # -----------------------------------------------------------------------
+      # .NET Dependency Scanning
+      # -----------------------------------------------------------------------
+      - name: Setup .NET
+        if: matrix.dotnet
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: .NET - Snyk dependency scan
+        if: matrix.dotnet && env.SNYK_TOKEN != ''
+        uses: snyk/actions/dotnet@master
+        continue-on-error: true
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --severity-threshold=high
+
+      - name: .NET - Fallback vulnerability audit
+        if: matrix.dotnet && env.SNYK_TOKEN == ''
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        run: |
+          echo "::notice::Snyk token not configured. Using dotnet list package --vulnerable as fallback."
+          dotnet restore
+          dotnet list package --vulnerable --include-transitive 2>&1 | tee vulnerability-report.txt
+          # Fail if critical/high vulnerabilities are found
+          if grep -qi "critical\|high" vulnerability-report.txt; then
+            echo "::error::High or critical vulnerabilities detected in .NET dependencies"
+            exit 1
+          fi
+
+      # -----------------------------------------------------------------------
+      # TypeScript / Node.js Dependency Scanning
+      # -----------------------------------------------------------------------
+      - name: Setup Node.js
+        if: matrix.node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: TypeScript - Snyk dependency scan
+        if: matrix.node && env.SNYK_TOKEN != ''
+        uses: snyk/actions/node@master
+        continue-on-error: true
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --severity-threshold=high
+
+      - name: TypeScript - Fallback npm audit
+        if: matrix.node && env.SNYK_TOKEN == ''
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        run: |
+          echo "::notice::Snyk token not configured. Using npm audit as fallback."
+          npm audit --audit-level=high || true
+          # npm audit returns non-zero on findings; we use --audit-level to
+          # control the severity threshold that causes a failure
+          npm audit --audit-level=critical
+
+      # -----------------------------------------------------------------------
+      # Python Dependency Scanning
+      # -----------------------------------------------------------------------
+      - name: Setup Python
+        if: matrix.python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Python - Snyk dependency scan
+        if: matrix.python && env.SNYK_TOKEN != ''
+        uses: snyk/actions/python-3.10@master
+        continue-on-error: true
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --severity-threshold=high
+
+      - name: Python - Fallback pip-audit
+        if: matrix.python && env.SNYK_TOKEN == ''
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        run: |
+          echo "::notice::Snyk token not configured. Using pip-audit as fallback."
+          python -m pip install --upgrade pip
+          pip install pip-audit
+          # Install project dependencies so pip-audit can scan them
+          pip install -e ".[dev]" 2>/dev/null || pip install -r requirements.txt 2>/dev/null || true
+          pip-audit --strict --desc on
+
+  # ===========================================================================
+  # SAST - Static Application Security Testing via CodeQL
+  # ===========================================================================
+  sast:
+    name: "SAST (CodeQL - ${{ matrix.language }})"
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # CUSTOMIZE: Include only the languages your project uses
+        # Supported: javascript, typescript, python, csharp, go, java, ruby, etc.
+        language: [javascript, python, csharp]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          # CUSTOMIZE: Use a custom CodeQL config for advanced query suites
+          # config-file: .github/codeql/codeql-config.yml
+          queries: +security-extended
+
+      # CodeQL auto-build handles most languages. For compiled languages
+      # like C# or Java, you may need to configure the build step below.
+      - name: Auto-build
+        uses: github/codeql-action/autobuild@v3
+
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:${{ matrix.language }}"
+
+  # ===========================================================================
+  # Summary - Aggregate results and post status
+  # ===========================================================================
+  security-summary:
+    name: Security Summary
+    runs-on: ubuntu-latest
+    needs: [secrets, dependencies, sast]
+    if: always()
+
+    steps:
+      - name: Evaluate security scan results
+        run: |
+          echo "## Security Scan Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Check each job's outcome
+          if [ "${{ needs.secrets.result }}" == "success" ]; then
+            echo "- :white_check_mark: **Secret Detection**: Passed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- :x: **Secret Detection**: Failed" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [ "${{ needs.dependencies.result }}" == "success" ]; then
+            echo "- :white_check_mark: **Dependency Scan**: Passed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- :x: **Dependency Scan**: Failed" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [ "${{ needs.sast.result }}" == "success" ]; then
+            echo "- :white_check_mark: **SAST (CodeQL)**: Passed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- :x: **SAST (CodeQL)**: Failed" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Fail if any security check failed
+        if: |
+          needs.secrets.result == 'failure' ||
+          needs.dependencies.result == 'failure' ||
+          needs.sast.result == 'failure'
+        run: |
+          echo "::error::One or more security scans failed. Review the results above."
+          exit 1

@@ -1,0 +1,293 @@
+# =============================================================================
+# Security Scanning Pipeline - AI Engineering Framework (Azure Pipelines)
+# =============================================================================
+# Comprehensive security scanning pipeline that detects secrets, vulnerable
+# dependencies, and static application security issues.
+#
+# Runs on:
+#   - Every push to main
+#   - Every pull request targeting main
+#   - Weekly schedule (Monday 06:00 UTC) for ongoing monitoring
+#
+# CUSTOMIZATION GUIDE:
+#   1. Configure the SNYK_TOKEN variable in your pipeline's variable group
+#   2. Adjust the dependency scan matrix for your stacks
+#   3. Configure SAST tools appropriate for your languages
+# =============================================================================
+
+trigger:
+  branches:
+    include:
+      - main
+
+pr:
+  branches:
+    include:
+      - main
+
+schedules:
+  - cron: "0 6 * * 1"
+    displayName: "Weekly Monday 06:00 UTC security scan"
+    branches:
+      include:
+        - main
+    always: true
+
+variables:
+  vmImageName: "ubuntu-latest"
+  # CUSTOMIZE: Set this via variable group or pipeline variables
+  # snykToken: $(SNYK_TOKEN)
+
+stages:
+  # ===========================================================================
+  # Stage 1: Secret Scanning
+  # ===========================================================================
+  - stage: SecretScan
+    displayName: "Secret Scanning"
+    jobs:
+      - job: Gitleaks
+        displayName: "Gitleaks Secret Detection"
+        pool:
+          vmImage: $(vmImageName)
+        steps:
+          - checkout: self
+            fetchDepth: 0
+
+          - script: |
+              # Install gitleaks
+              GITLEAKS_VERSION="8.18.4"
+              wget -q "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" -O gitleaks.tar.gz
+              tar -xzf gitleaks.tar.gz
+              chmod +x gitleaks
+
+              # Run gitleaks detect on the full repository history
+              ./gitleaks detect \
+                --source . \
+                --report-path $(Build.ArtifactStagingDirectory)/gitleaks-report.json \
+                --report-format json \
+                --verbose
+            displayName: "Run Gitleaks"
+
+          - task: PublishBuildArtifacts@1
+            displayName: "Publish Gitleaks report"
+            condition: always()
+            inputs:
+              PathtoPublish: $(Build.ArtifactStagingDirectory)/gitleaks-report.json
+              ArtifactName: gitleaks-report
+            continueOnError: true
+
+  # ===========================================================================
+  # Stage 2: Dependency Scanning
+  # ===========================================================================
+  - stage: DependencyScan
+    displayName: "Dependency Scanning"
+    dependsOn: []
+    jobs:
+      # --- .NET Dependency Scan ---
+      - job: DotnetDependencies
+        displayName: "Dependency Scan (.NET)"
+        pool:
+          vmImage: $(vmImageName)
+        steps:
+          - task: UseDotNet@2
+            displayName: "Setup .NET"
+            inputs:
+              packageType: sdk
+              version: "8.0.x"
+
+          - script: dotnet restore
+            displayName: "Restore .NET packages"
+
+          # Snyk scan (if token available)
+          - script: |
+              if [ -n "$(SNYK_TOKEN)" ]; then
+                npm install -g snyk
+                snyk auth $(SNYK_TOKEN)
+                snyk test --severity-threshold=high --file=*.sln || true
+                snyk test --severity-threshold=critical --file=*.sln
+              else
+                echo "##[warning]Snyk token not configured. Using dotnet list package --vulnerable."
+                dotnet list package --vulnerable --include-transitive 2>&1 | tee vulnerability-report.txt
+                if grep -qi "critical\|high" vulnerability-report.txt; then
+                  echo "##[error]High or critical vulnerabilities found in .NET dependencies"
+                  exit 1
+                fi
+              fi
+            displayName: "Scan .NET dependencies"
+            env:
+              SNYK_TOKEN: $(SNYK_TOKEN)
+
+      # --- TypeScript Dependency Scan ---
+      - job: TypeScriptDependencies
+        displayName: "Dependency Scan (TypeScript)"
+        pool:
+          vmImage: $(vmImageName)
+        steps:
+          - task: NodeTool@0
+            displayName: "Setup Node.js"
+            inputs:
+              versionSpec: "20"
+
+          - script: npm ci
+            displayName: "Install npm dependencies"
+            workingDirectory: src/frontend
+
+          - script: |
+              if [ -n "$(SNYK_TOKEN)" ]; then
+                npm install -g snyk
+                snyk auth $(SNYK_TOKEN)
+                snyk test --severity-threshold=high || true
+                snyk test --severity-threshold=critical
+              else
+                echo "##[warning]Snyk token not configured. Using npm audit as fallback."
+                npm audit --audit-level=critical
+              fi
+            displayName: "Scan npm dependencies"
+            workingDirectory: src/frontend
+            env:
+              SNYK_TOKEN: $(SNYK_TOKEN)
+
+      # --- Python Dependency Scan ---
+      - job: PythonDependencies
+        displayName: "Dependency Scan (Python)"
+        pool:
+          vmImage: $(vmImageName)
+        steps:
+          - task: UsePythonVersion@0
+            displayName: "Setup Python"
+            inputs:
+              versionSpec: "3.11"
+
+          - script: |
+              python -m pip install --upgrade pip
+              pip install pip-audit
+              pip install -e ".[dev]" 2>/dev/null || pip install -r requirements.txt 2>/dev/null || true
+            displayName: "Install dependencies"
+
+          - script: |
+              if [ -n "$(SNYK_TOKEN)" ]; then
+                npm install -g snyk
+                snyk auth $(SNYK_TOKEN)
+                snyk test --severity-threshold=high || true
+                snyk test --severity-threshold=critical
+              else
+                echo "##[warning]Snyk token not configured. Using pip-audit as fallback."
+                pip-audit --strict --desc on
+              fi
+            displayName: "Scan Python dependencies"
+            env:
+              SNYK_TOKEN: $(SNYK_TOKEN)
+
+      # --- OWASP Dependency-Check (optional alternative) ---
+      - job: OWASPDependencyCheck
+        displayName: "OWASP Dependency-Check"
+        pool:
+          vmImage: $(vmImageName)
+        condition: eq(variables['RUN_OWASP'], 'true')
+        steps:
+          - checkout: self
+
+          - script: |
+              DC_VERSION="9.0.9"
+              wget -q "https://github.com/jeremylong/DependencyCheck/releases/download/v${DC_VERSION}/dependency-check-${DC_VERSION}-release.zip" -O dc.zip
+              unzip -q dc.zip
+              ./dependency-check/bin/dependency-check.sh \
+                --project "$(Build.Repository.Name)" \
+                --scan . \
+                --format HTML \
+                --format JSON \
+                --out $(Build.ArtifactStagingDirectory)/dependency-check \
+                --failOnCVSS 7
+            displayName: "Run OWASP Dependency-Check"
+
+          - task: PublishBuildArtifacts@1
+            displayName: "Publish OWASP report"
+            condition: always()
+            inputs:
+              PathtoPublish: $(Build.ArtifactStagingDirectory)/dependency-check
+              ArtifactName: owasp-dependency-check
+
+  # ===========================================================================
+  # Stage 3: SAST - Static Application Security Testing
+  # ===========================================================================
+  - stage: SAST
+    displayName: "SAST"
+    dependsOn: []
+    jobs:
+      - job: StaticAnalysis
+        displayName: "Static Application Security Testing"
+        pool:
+          vmImage: $(vmImageName)
+        steps:
+          - checkout: self
+            fetchDepth: 0
+
+          # Semgrep - lightweight SAST scanner (alternative to CodeQL for Azure Pipelines)
+          - script: |
+              python -m pip install --upgrade pip
+              pip install semgrep
+            displayName: "Install Semgrep"
+
+          - script: |
+              semgrep scan \
+                --config auto \
+                --error \
+                --json \
+                --output $(Build.ArtifactStagingDirectory)/semgrep-results.json \
+                --severity ERROR \
+                . || true
+
+              # Also generate SARIF for integration with Azure DevOps
+              semgrep scan \
+                --config auto \
+                --sarif \
+                --output $(Build.ArtifactStagingDirectory)/semgrep-results.sarif \
+                --severity ERROR \
+                .
+            displayName: "Run Semgrep SAST scan"
+
+          - task: PublishBuildArtifacts@1
+            displayName: "Publish SAST results"
+            condition: always()
+            inputs:
+              PathtoPublish: $(Build.ArtifactStagingDirectory)
+              ArtifactName: sast-results
+
+  # ===========================================================================
+  # Summary stage
+  # ===========================================================================
+  - stage: SecuritySummary
+    displayName: "Security Summary"
+    dependsOn:
+      - SecretScan
+      - DependencyScan
+      - SAST
+    condition: always()
+    jobs:
+      - job: Summary
+        displayName: "Aggregate Security Results"
+        pool:
+          vmImage: $(vmImageName)
+        steps:
+          - script: |
+              echo "====================================="
+              echo "  Security Scan Summary"
+              echo "====================================="
+              echo ""
+              echo "Secret Scan:     $SECRETSCAN_RESULT"
+              echo "Dependency Scan: $DEPENDENCYSCAN_RESULT"
+              echo "SAST:            $SAST_RESULT"
+              echo ""
+              echo "====================================="
+
+              if [ "$SECRETSCAN_RESULT" = "Failed" ] || \
+                 [ "$DEPENDENCYSCAN_RESULT" = "Failed" ] || \
+                 [ "$SAST_RESULT" = "Failed" ]; then
+                echo "##[error]One or more security scans failed. Review results above."
+                exit 1
+              fi
+            displayName: "Evaluate security results"
+            env:
+              SECRETSCAN_RESULT: $[stageDependencies.SecretScan.Gitleaks.result]
+              DEPENDENCYSCAN_RESULT: $[stageDependencies.DependencyScan.DotnetDependencies.result]
+              SAST_RESULT: $[stageDependencies.SAST.StaticAnalysis.result]

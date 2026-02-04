@@ -1,0 +1,18 @@
+# System files
+.DS_Store
+Thumbs.db
+._*
+
+# Editor artifacts
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Local Claude settings (session-specific, not framework)
+.claude/settings.local.json
+
+# OS generated
+ehthumbs.db
+Desktop.ini

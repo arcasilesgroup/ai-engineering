@@ -1,0 +1,121 @@
+# =============================================================================
+# Quality Gate Pipeline - AI Engineering Framework (Azure Pipelines)
+# =============================================================================
+# Runs SonarQube analysis on pull requests and enforces quality gate standards.
+# The quality gate must pass before a PR can be merged.
+#
+# Prerequisites:
+#   1. SonarQube server or SonarQube Cloud configured as a service connection
+#   2. SonarQube service connection name set in variables
+#   3. Project created in SonarQube with the specified project key
+#
+# CUSTOMIZATION GUIDE:
+#   1. Update sonarProjectKey and sonarOrganization variables
+#   2. Configure the SonarQube service connection in Azure DevOps
+#   3. Adjust source and test directory paths for your project
+# =============================================================================
+
+# Only trigger on pull requests - quality gate is a PR check
+trigger: none
+
+pr:
+  branches:
+    include:
+      - main
+
+# ---------------------------------------------------------------------------
+# CUSTOMIZE: Update these variables for your SonarQube project
+# ---------------------------------------------------------------------------
+variables:
+  vmImageName: "ubuntu-latest"
+  sonarProjectKey: "your-organization_your-project"
+  sonarOrganization: "your-organization"
+  # CUSTOMIZE: Name of the SonarQube service connection in Azure DevOps
+  sonarServiceConnection: "SonarQubeCloud"
+  # Stack-specific settings
+  dotnetVersion: "8.0.x"
+  nodeVersion: "20"
+  pythonVersion: "3.11"
+
+stages:
+  # ===========================================================================
+  # SonarQube Analysis
+  # ===========================================================================
+  - stage: QualityGate
+    displayName: "Quality Gate"
+    jobs:
+      - job: SonarQubeAnalysis
+        displayName: "SonarQube Analysis"
+        pool:
+          vmImage: $(vmImageName)
+        steps:
+          - checkout: self
+            fetchDepth: 0
+
+          # -----------------------------------------------------------------
+          # Build and test steps to generate coverage reports
+          # CUSTOMIZE: Enable the sections for your stacks
+          # -----------------------------------------------------------------
+
+          # --- Python build and test ---
+          - task: UsePythonVersion@0
+            displayName: "Setup Python $(pythonVersion)"
+            inputs:
+              versionSpec: $(pythonVersion)
+
+          - script: |
+              python -m pip install --upgrade pip
+              pip install -e ".[dev]" 2>/dev/null || pip install -r requirements.txt 2>/dev/null || true
+              pip install pytest pytest-cov
+              pytest tests/ \
+                --cov=src \
+                --cov-report=xml:$(Build.SourcesDirectory)/coverage.xml \
+                || true
+            displayName: "Run Python tests with coverage"
+            continueOnError: true
+
+          # --- .NET build and test (uncomment if needed) ---
+          # - task: UseDotNet@2
+          #   displayName: "Setup .NET"
+          #   inputs:
+          #     packageType: sdk
+          #     version: $(dotnetVersion)
+          #
+          # - script: |
+          #     dotnet restore
+          #     dotnet build --no-restore --configuration Release
+          #     dotnet test --no-build --configuration Release \
+          #       --collect:"XPlat Code Coverage" \
+          #       --results-directory $(Build.SourcesDirectory)/test-results \
+          #       -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=opencover
+          #   displayName: "Run .NET tests with coverage"
+          #   continueOnError: true
+
+          # --- TypeScript build and test (uncomment if needed) ---
+          # - task: NodeTool@0
+          #   displayName: "Setup Node.js"
+          #   inputs:
+          #     versionSpec: $(nodeVersion)
+          #
+          # - script: |
+          #     npm ci
+          #     npx jest --coverage --ci || true
+          #   displayName: "Run TypeScript tests with coverage"
+          #   workingDirectory: src/frontend
+          #   continueOnError: true
+
+          # -----------------------------------------------------------------
+          # SonarQube Analysis using reusable template
+          # -----------------------------------------------------------------
+          - template: templates/sonarqube-analysis.yml
+            parameters:
+              sonarServiceConnection: $(sonarServiceConnection)
+              sonarProjectKey: $(sonarProjectKey)
+              sonarOrganization: $(sonarOrganization)
+              checkQualityGate: true
+              extraProperties: |
+                sonar.sources=src
+                sonar.tests=tests
+                sonar.python.coverage.reportPaths=$(Build.SourcesDirectory)/coverage.xml
+                sonar.javascript.lcov.reportPaths=src/frontend/coverage/lcov.info
+                sonar.cs.opencover.reportsPaths=**/coverage.opencover.xml

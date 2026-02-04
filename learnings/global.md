@@ -1,30 +1,14 @@
 # Global Learnings
 
-This file captures cross-cutting learnings that apply across all technology stacks.
-
-## Format
-
-Each learning follows this structure:
-
-```markdown
-### [Date] Learning Title
-
-**Context:** Brief description of when this applies
-**Learning:** What was learned
-**Rationale:** Why this matters
-**Examples:** If applicable
-```
+Cross-cutting learnings that apply across all technology stacks.
 
 ---
-
-## Learnings
 
 ### [2024-01] Result Pattern is Non-Negotiable
 
 **Context:** All business logic in providers and services
 **Learning:** Always use Result<T> for operations that can fail, never exceptions for flow control
 **Rationale:** Provides explicit error handling, composable operations, and clear API contracts
-**Examples:** See `.ai/standards/dotnet/patterns/result-pattern.md`
 
 ---
 
@@ -47,7 +31,7 @@ Each learning follows this structure:
 ### [2024-02] Separate Request/Response DTOs for External Services
 
 **Context:** HTTP client integrations with external services
-**Learning:** 
+**Learning:**
 - Requests: Use `required` members for compile-time enforcement
 - Responses: Use nullable properties to prevent deserialization failures
 **Rationale:** Request models should enforce what we send; response models should be lenient about what we receive
@@ -64,14 +48,8 @@ Each learning follows this structure:
 
 ## Adding New Learnings
 
-When a pattern or insight emerges from development work:
-
-1. Determine if it's stack-specific or cross-cutting
-2. If cross-cutting, add here; otherwise add to appropriate `by-stack/*.md`
-3. Include date for temporal context
-4. Keep format consistent
-5. Update related documentation if needed
-
-## Integration with copilot-instructions.md
-
-Significant learnings should be added to the `Learnings` section in `.github/copilot-instructions.md` for AI assistant awareness.
+Use the `/learn` command to add new learnings. Each entry should include:
+1. Date in `[YYYY-MM]` format
+2. Context: when this applies
+3. Learning: what was learned
+4. Rationale: why this matters

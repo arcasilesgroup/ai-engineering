@@ -1,305 +1,216 @@
-# AI Engineering Framework (ai-engineering)
+# AI Engineering Framework
 
-> **Single Source of Truth** for AI-assisted software engineering.
+> Zero-dependency, AI-native framework for software engineering teams. Standards, commands, agents, quality gates, and CI/CD — all in markdown.
 
-[![PyPI version](https://badge.fury.io/py/ai-engineering.svg)](https://badge.fury.io/py/ai-engineering)
-[![CI](https://github.com/arcasilesgroup/ai-engineering/actions/workflows/ci.yml/badge.svg)](https://github.com/arcasilesgroup/ai-engineering/actions/workflows/ci.yml)
-[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+## What Is This?
 
-This framework provides a standardized, tool-agnostic structure for working with AI coding assistants. It integrates seamlessly with GitHub Copilot, Claude, and other AI tools while maintaining consistency across projects.
+A collection of **markdown files** that AI coding agents (Claude Code, GitHub Copilot) read natively to enforce your team's standards, automate workflows, and maintain quality. No CLI, no build step, no dependencies.
 
-## Installation
-
-### Option 1: pip (Recommended)
-
-```bash
-pip install ai-engineering
 ```
-
-### Option 2: One-liner Installation
-
-**Linux/macOS:**
-```bash
-curl -sSL https://raw.githubusercontent.com/arcasilesgroup/ai-engineering/main/install.sh | bash
-```
-
-**Windows (PowerShell):**
-```powershell
-iwr -useb https://raw.githubusercontent.com/arcasilesgroup/ai-engineering/main/install.ps1 | iex
-```
-
-### Option 3: From Source
-
-```bash
-git clone https://github.com/arcasilesgroup/ai-engineering.git
-cd ai-engineering
-pip install -e .
-```
-
-### Option 4: GitHub Template
-
-Use this repository as a template to include the full `.ai/` framework structure:
-
-1. Click "Use this template" on GitHub
-2. Create your new repository
-3. The `.ai/` structure is ready to customize
-
-### Option 5: Git Submodule (Advanced)
-
-For teams wanting independent framework updates:
-
-```bash
-# Add as submodule
-git submodule add https://github.com/arcasilesgroup/ai-engineering.git .ai-framework
-ln -s .ai-framework/.ai .ai
-
-# Update to latest
-git submodule update --remote
+Your Project + AI Engineering Framework = Consistent, Secure, Quality Code
 ```
 
 ## Quick Start
 
-```bash
-# Initialize in a new project
-ai-engineering init --name "MyProject" --stack dotnet
-
-# Sync to GitHub Copilot
-ai-engineering sync github
-
-# Sync to Claude
-ai-engineering sync claude
-
-# Validate framework structure
-ai-engineering validate
-
-# Update to latest version
-ai-engineering update
-```
-
-## CLI Commands
-
-### `ai-engineering init`
-
-Initialize the `.ai/` framework in a new project.
+### 1. Install
 
 ```bash
-ai-engineering init --name "MyAPI" --stack dotnet
-ai-engineering init --name "WebApp" --stack typescript --target ./my-project
-ai-engineering init -n "DataPipeline" -s python --include-examples
+git clone https://github.com/your-org/ai-engineering.git /tmp/ai-engineering
+
+/tmp/ai-engineering/scripts/install.sh \
+  --name "MyProject" \
+  --stacks dotnet,typescript \
+  --cicd github
 ```
 
-**Options:**
-- `--name, -n` - Project name (required)
-- `--stack, -s` - Technology stack: `dotnet`, `typescript`, `python`, `terraform`, `multi` (required)
-- `--target, -t` - Target directory (default: current)
-- `--include-examples, -e` - Include example files
-- `--force, -f` - Overwrite existing `.ai/` directory
+### 2. Customize
 
-### `ai-engineering sync`
+Edit `context/project.md` with your project details and review `CLAUDE.md`.
 
-Synchronize `.ai/` content to AI tool configurations.
+### 3. Use
 
-```bash
-ai-engineering sync github          # Sync to GitHub Copilot (.github/)
-ai-engineering sync claude          # Sync to Claude (.claude/)
-ai-engineering sync all             # Sync to all tools
-ai-engineering sync github --dry-run  # Preview changes
-```
+Open Claude Code and type `/commit`, `/review`, `/test`, or any available command.
 
-**Options:**
-- `--force, -f` - Overwrite existing files
-- `--dry-run, -n` - Preview without making changes
-
-### `ai-engineering validate`
-
-Validate the `.ai/` framework structure and content.
-
-```bash
-ai-engineering validate           # Basic validation
-ai-engineering validate --fix     # Validate and fix issues
-ai-engineering validate -v        # Verbose output
-```
-
-**Options:**
-- `--fix, -f` - Attempt to fix issues
-- `--verbose, -v` - Show detailed results
-
-### `ai-engineering update`
-
-Update ai-engineering to the latest version.
-
-```bash
-ai-engineering update              # Update CLI to latest
-ai-engineering update --check      # Check for updates only
-ai-engineering update --framework  # Update CLI and project templates
-```
-
-### Legacy Script Support
-
-For backwards compatibility, you can still use Python scripts directly:
-
-```bash
-python .ai/tools/sync_github.py
-python .ai/tools/sync_claude.py
-python .ai/tools/validate.py
-```
-
-## Framework Structure
-
-```
-.ai/
-├── README.md                    # This file
-├── config.yaml                  # Global configuration
-│
-├── context/                     # PROJECT CONTEXT
-│   ├── project.md               # Vision, objectives, stakeholders
-│   ├── architecture.md          # System architecture (C4 compatible)
-│   ├── stack.md                 # Technology stack details
-│   ├── glossary.md              # Domain terminology
-│   └── decisions/               # Architecture Decision Records (ADRs)
-│
-├── standards/                   # CODING STANDARDS
-│   ├── _index.yaml              # Standards registry
-│   ├── global.md                # Cross-stack rules
-│   ├── dotnet/                  # .NET specific
-│   ├── typescript/              # TypeScript/React specific
-│   ├── python/                  # Python specific
-│   └── infrastructure/          # Terraform/IaC specific
-│
-├── prompts/                     # REUSABLE PROMPTS
-│   ├── _index.yaml              # Prompts registry
-│   ├── system.md                # Base system prompt
-│   └── templates/               # Prompt templates by use case
-│
-├── skills/                      # MODULAR SKILLS
-│   ├── _index.yaml              # Skills registry
-│   ├── dotnet/                  # .NET skills
-│   ├── typescript/              # TypeScript skills
-│   └── cross-cutting/           # Universal skills
-│
-├── agents/                      # AUTONOMOUS AGENTS
-│   ├── _index.yaml              # Agents registry
-│   ├── feature-builder/         # Multi-step feature creation
-│   ├── code-reviewer/           # Code review automation
-│   └── migrator/                # Version migration assistance
-│
-├── learnings/                   # EVOLUTIONARY LEARNINGS
-│   ├── global.md                # Cross-project learnings
-│   └── by-stack/                # Stack-specific learnings
-│
-└── tools/                       # AUTOMATION SCRIPTS (Legacy)
-    ├── sync_github.py           # Wrapper for ai-engineering sync github
-    ├── sync_claude.py           # Wrapper for ai-engineering sync claude
-    └── validate.py              # Wrapper for ai-engineering validate
-```
-
-## AI Tool Integration
-
-### GitHub Copilot
-
-`ai-engineering sync github` generates:
-- `.github/copilot-instructions.md` - Main instructions from `prompts/system.md`
-- `.github/instructions/*.md` - Stack-specific instructions from `standards/`
-- `.github/prompts/*.md` - Prompt templates
-
-### Claude
-
-`ai-engineering sync claude` generates:
-- `.claude/CLAUDE.md` - Combined project documentation
-- `.claude/commands/*.md` - Prompt templates as commands
-- `.claude/docs/*.md` - Stack-specific standards
-
-### Other Tools
-
-The agnostic `.ai/` structure can be adapted to any AI tool by creating a new sync command.
-
-## Core Concepts
-
-### Hierarchy: Prompts -> Skills -> Agents
-
-![Concept Hierarchy](.ai/assets/svg/prompt-skill-agent.svg)
-
-| Concept | Purpose | Autonomy | Example |
-|---------|---------|----------|---------|
-| **Prompt** | Define AI behavior | None (static) | "Use Result pattern" |
-| **Skill** | Atomic capability | Low (invoked) | "Create API endpoint" |
-| **Agent** | Orchestrate workflows | High (autonomous) | "Build complete feature" |
-
-### When to Use What
-
-| Task | Use |
-|------|-----|
-| Change base behavior | **Prompt** |
-| Repetitive atomic task | **Skill** |
-| Complex multi-step work | **Agent** |
-
-## Cross-Platform Support
-
-ai-engineering works on:
-- **Windows** 10/11 (PowerShell 5.1+, CMD)
-- **macOS** (Intel & Apple Silicon)
-- **Linux** (Ubuntu, Debian, Fedora, Arch, etc.)
-
-**Requirements:**
-- Python 3.9 or higher
-- pip (Python package manager)
-
-## File Format Conventions
-
-### YAML Front Matter (for tool integration)
-
-```yaml
 ---
-id: skill-id
-name: Human Readable Name
-description: Brief description for AI tools
-applyTo: "**/*.cs"              # Glob pattern (optional)
-tags: [dotnet, api]
+
+## Features
+
+### Slash Commands (20)
+
+| Command | Description |
+|---------|-------------|
+| `/commit` | Smart commit with secret scanning |
+| `/pr` | Create structured pull request |
+| `/review` | Code review against standards |
+| `/test` | Generate and run tests |
+| `/fix` | Fix build, test, or lint errors |
+| `/refactor` | Refactor with test verification |
+| `/security-audit` | OWASP Top 10 security review |
+| `/quality-gate` | Run quality gate checks |
+| `/blast-radius` | Analyze impact of changes |
+| `/deploy-check` | Pre-deployment verification |
+| `/document` | Generate documentation |
+| `/create-adr` | Create Architecture Decision Record |
+| `/learn` | Record a learning for future sessions |
+| `/validate` | Validate framework installation |
+| `/setup-project` | Initialize new project |
+| `/add-endpoint` | Scaffold .NET API endpoint |
+| `/add-component` | Scaffold React component |
+| `/migrate-api` | Migrate API version |
+| `/dotnet/add-provider` | Create .NET provider |
+| `/dotnet/add-http-client` | Create typed HTTP client |
+| `/dotnet/add-error-mapping` | Add error type + mapping |
+
+### Background Agents (6)
+
+| Agent | Purpose |
+|-------|---------|
+| `build-validator` | Verify build + tests pass |
+| `test-runner` | Run tests with coverage |
+| `security-scanner` | Scan secrets, deps, OWASP |
+| `quality-checker` | SonarQube quality gate |
+| `doc-generator` | Update docs from code |
+| `code-simplifier` | Reduce complexity |
+
+### Standards (10)
+
+| Standard | Scope |
+|----------|-------|
+| `global.md` | Universal conventions |
+| `dotnet.md` | .NET / ASP.NET Core |
+| `typescript.md` | TypeScript / React |
+| `python.md` | Python |
+| `terraform.md` | Terraform / IaC |
+| `security.md` | OWASP, secrets, deps |
+| `quality-gates.md` | SonarQube, linters |
+| `cicd.md` | GitHub Actions + Azure Pipelines |
+| `testing.md` | Cross-stack testing |
+| `api-design.md` | REST API conventions |
+
+### CI/CD (Dual Platform)
+
+| Platform | Workflows |
+|----------|-----------|
+| **GitHub Actions** | CI, Security, Quality Gate |
+| **Azure Pipelines** | CI, Security, Quality Gate + 6 reusable templates |
+
+### Quality & Security Stack (All Free)
+
+| Tool | Purpose |
+|------|---------|
+| SonarQube Cloud | Code quality + quality gates |
+| SonarLint | IDE real-time quality |
+| gitleaks | Secret detection |
+| Snyk | Dependency scanning |
+| CodeQL | Static analysis (GitHub) |
+| OWASP Dependency-Check | Dependency analysis (Azure) |
+| Dependabot | Automated dependency updates |
+
 ---
+
+## Directory Structure
+
+```
+ai-engineering/
+├── CLAUDE.md                    # Master entry point for Claude Code
+├── .claude/
+│   ├── settings.json            # Permissions config
+│   ├── commands/                # 20 slash commands
+│   │   └── dotnet/              # Stack-specific commands
+│   └── agents/                  # 6 background agents
+├── .github/
+│   ├── copilot-instructions.md  # GitHub Copilot master instructions
+│   ├── instructions/            # File-pattern-matched instructions
+│   └── workflows/               # GitHub Actions CI/CD
+├── pipelines/                   # Azure Pipelines CI/CD
+│   └── templates/               # Reusable pipeline templates
+├── standards/                   # 10 coding standards files
+├── context/                     # Project-specific context
+│   └── decisions/               # Architecture Decision Records
+├── learnings/                   # Accumulated knowledge
+├── workshop/                    # 9-module learning guide
+└── scripts/
+    └── install.sh               # Framework installer
 ```
 
-### Learnings Format
+---
 
-```markdown
-* Learning description with context (weight)
+## How It Works
+
 ```
-- Weight starts at `1`, increases with confirmation
-- Higher weight = higher priority for AI consideration
-
-### ADR Format (Architecture Decision Records)
-
-```markdown
-# ADR-001: Title
-
-## Status
-Accepted | Superseded | Deprecated
-
-## Context
-Why this decision was needed
-
-## Decision
-What was decided
-
-## Consequences
-Impact of the decision
+CLAUDE.md (entry point)
+    │
+    ├── References standards/*.md for coding rules
+    ├── References learnings/*.md for accumulated knowledge
+    ├── Lists available commands in .claude/commands/
+    └── Lists available agents in .claude/agents/
+          │
+          ├── Commands: human-directed, multi-step workflows
+          │   /commit → scan secrets → analyze changes → conventional commit
+          │   /review → read standards → analyze code → generate report
+          │
+          └── Agents: autonomous, focused, background verification
+              build-validator → detect stack → build → test → report
+              security-scanner → gitleaks → dep audit → OWASP scan → report
 ```
+
+---
+
+## Integration Options
+
+### Option A: Install Script (Recommended)
+
+```bash
+./scripts/install.sh --name "MyProject" --stacks dotnet,typescript --cicd github
+```
+
+### Option B: Git Submodule
+
+```bash
+git submodule add <repo-url> .ai-engineering
+ln -s .ai-engineering/CLAUDE.md CLAUDE.md
+ln -s .ai-engineering/.claude .claude
+```
+
+### Option C: GitHub Template Repository
+
+Click "Use this template" on GitHub.
+
+---
+
+## Tool Compatibility
+
+| Tool | Support | How |
+|------|---------|-----|
+| **Claude Code** | Full | CLAUDE.md + .claude/commands/ + .claude/agents/ |
+| **GitHub Copilot** | Full | .github/copilot-instructions.md + .github/instructions/ |
+| **Cursor** | Partial | Reads CLAUDE.md and standards |
+| **VS Code + SonarLint** | Full | Connected mode with SonarQube Cloud |
+
+---
+
+## Workshop
+
+Learn the framework step by step:
+
+| Module | Topic |
+|--------|-------|
+| [00](workshop/00-introduction.md) | Introduction — What and why |
+| [01](workshop/01-installation.md) | Installation — Get started |
+| [02](workshop/02-first-commands.md) | First Commands — Daily workflow |
+| [03](workshop/03-standards-and-learnings.md) | Standards & Learnings |
+| [04](workshop/04-agents.md) | Agents — Background workers |
+| [05](workshop/05-quality-gates.md) | Quality Gates — SonarQube, Snyk |
+| [06](workshop/06-cicd-integration.md) | CI/CD — GitHub Actions + Azure |
+| [07](workshop/07-customization.md) | Customization — Extend the framework |
+| [08](workshop/08-advanced-workflows.md) | Advanced — Parallel Claudes, hooks |
+
+---
 
 ## Contributing
 
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Follow existing patterns when adding new content
-4. Update `_index.yaml` files when adding skills/agents
-5. Run `ai-engineering validate` before committing
-6. Submit a Pull Request
+See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
-MIT - See [LICENSE](LICENSE) file for details.
-
-## Links
-
-- [Documentation](https://github.com/arcasilesgroup/ai-engineering#readme)
-- [Issues](https://github.com/arcasilesgroup/ai-engineering/issues)
-- [PyPI Package](https://pypi.org/project/ai-engineering/)
+MIT - see [LICENSE](LICENSE).

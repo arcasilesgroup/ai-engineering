@@ -9,24 +9,21 @@
 | Runtime | .NET | 8.0 LTS |
 | Web Framework | ASP.NET Core | 8.0 |
 | Serverless | Azure Functions | Isolated Worker |
-| ORM | Entity Framework Core | 8.0 (where used) |
+| ORM | Entity Framework Core | 8.0 |
 | Serialization | Newtonsoft.Json | 13.x |
 
 #### Key Libraries
 
 | Library | Purpose |
 |---------|---------|
-| {ProjectName}.Foundation | Result pattern, error mapping |
 | Polly | Resilience and transient-fault handling |
 | FluentValidation | Input validation |
 | Swashbuckle | OpenAPI/Swagger generation |
 | Asp.Versioning | API versioning |
 
-> ℹ️ Replace `{ProjectName}.Foundation` with your shared library name, or implement the patterns directly.
+#### Patterns
 
-#### Patterns in Use
-
-- **Result Pattern** - Railway-oriented programming (see [standards/dotnet/patterns/result-pattern.md](../standards/dotnet/patterns/result-pattern.md))
+- **Result Pattern** - Railway-oriented programming (see [standards/dotnet.md](../standards/dotnet.md))
 - **Error Mapping** - Domain errors to HTTP responses
 - **Options Pattern** - Strongly-typed configuration
 - **Dependency Injection** - Constructor injection
@@ -40,8 +37,6 @@
 | FluentAssertions | Assertion library |
 | Coverlet | Code coverage |
 
----
-
 ## Frontend
 
 ### TypeScript + React
@@ -54,13 +49,6 @@
 | State | React Query / Zustand | Latest |
 | Styling | Tailwind CSS | 3.x |
 
-### Mobile
-
-| Component | Technology |
-|-----------|------------|
-| Framework | React Native |
-| Navigation | React Navigation |
-
 ### Testing (Frontend)
 
 | Tool | Purpose |
@@ -69,18 +57,15 @@
 | React Testing Library | Component tests |
 | Playwright | E2E tests |
 
----
-
 ## Infrastructure
 
-### Cloud Platform
+### Cloud Platform (Azure)
 
 | Service | Purpose |
 |---------|---------|
 | Azure App Service | Web API hosting |
 | Azure Functions | Serverless compute |
 | Azure API Management | API gateway |
-| Azure API Center | API catalog |
 | Azure Key Vault | Secrets |
 | Azure Storage | Blobs, Tables, Queues |
 | Application Insights | Monitoring |
@@ -92,35 +77,18 @@
 |------|---------|
 | Terraform | Multi-cloud IaC |
 | Bicep | Azure-native IaC |
-| Azure DevOps Pipelines | CI/CD |
 
----
+### CI/CD Platforms
+
+| Platform | Usage |
+|----------|-------|
+| GitHub Actions | Open source, GitHub-hosted repos |
+| Azure Pipelines | Enterprise, Azure DevOps repos |
 
 ## Scripting
 
-### PowerShell
-
-- Version: 7.x (Core) / 5.1 (Windows)
-- Use cases: Build scripts, automation, Azure DevOps tasks
-
-### Bash
-
-- Use cases: Linux scripts, CI/CD pipelines, Docker
-
----
-
-## Development Tools
-
-| Tool | Purpose |
-|------|---------|
-| Visual Studio 2022 | .NET development |
-| VS Code | TypeScript, scripts, IaC |
-| Azure Data Studio | Database management |
-| Postman | API testing |
-| Git | Version control |
-| Azure DevOps | Project management, CI/CD |
-
----
+- **PowerShell** 7.x - Build scripts, automation, Azure DevOps tasks
+- **Bash** - Linux scripts, CI/CD pipelines, Docker
 
 ## Version Compatibility Matrix
 
@@ -131,3 +99,4 @@
 | TypeScript | 5.0 | 5.4+ | 5.x |
 | Terraform | 1.5 | 1.7+ | 1.x |
 | PowerShell | 7.2 | 7.4+ | 7.x |
+| Python | 3.9 | 3.11+ | 3.12 |

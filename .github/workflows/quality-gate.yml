@@ -1,0 +1,147 @@
+# =============================================================================
+# Quality Gate Pipeline - AI Engineering Framework
+# =============================================================================
+# Runs SonarQube Cloud analysis on pull requests to enforce code quality
+# standards. The quality gate must pass before a PR can be merged.
+#
+# Prerequisites:
+#   1. SonarQube Cloud organization and project configured
+#   2. SONAR_TOKEN secret set in GitHub repository settings
+#   3. sonar-project.properties file in the repository root (or configured below)
+#
+# Required secrets:
+#   - SONAR_TOKEN: SonarQube Cloud authentication token
+#
+# CUSTOMIZATION GUIDE:
+#   1. Update SONAR_PROJECT_KEY and SONAR_ORGANIZATION below
+#   2. Adjust source paths in the SonarQube scan step
+#   3. Configure quality gate thresholds in SonarQube Cloud dashboard
+# =============================================================================
+
+name: Quality Gate
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+
+# Cancel in-progress quality gate runs for the same PR
+concurrency:
+  group: quality-gate-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: read
+
+# ---------------------------------------------------------------------------
+# CUSTOMIZE: Update these values for your SonarQube Cloud project
+# ---------------------------------------------------------------------------
+env:
+  SONAR_PROJECT_KEY: "your-organization_your-project"
+  SONAR_ORGANIZATION: "your-organization"
+
+jobs:
+  # ===========================================================================
+  # SonarQube Analysis
+  # ===========================================================================
+  sonarqube:
+    name: SonarQube Analysis
+    runs-on: ubuntu-latest
+    # Only run if SONAR_TOKEN is configured
+    if: github.event.pull_request.head.repo.full_name == github.repository
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # Full history is required for accurate blame information and
+          # new code period detection in SonarQube
+          fetch-depth: 0
+
+      # -----------------------------------------------------------------------
+      # Build and test steps to generate coverage reports
+      # SonarQube uses these reports for its analysis.
+      # CUSTOMIZE: Add build/test steps for your stack(s) below.
+      # -----------------------------------------------------------------------
+
+      # --- Python coverage (example) ---
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies and run tests
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]" 2>/dev/null || pip install -r requirements.txt 2>/dev/null || true
+          pip install pytest pytest-cov
+          pytest tests/ \
+            --cov=src \
+            --cov-report=xml:coverage.xml \
+            || true
+        continue-on-error: true
+
+      # --- Node.js coverage (example, uncomment if needed) ---
+      # - name: Setup Node.js
+      #   uses: actions/setup-node@v4
+      #   with:
+      #     node-version: "20"
+      #
+      # - name: Install and test (TypeScript)
+      #   working-directory: src/frontend
+      #   run: |
+      #     npm ci
+      #     npx jest --coverage --ci || true
+
+      # --- .NET coverage (example, uncomment if needed) ---
+      # - name: Setup .NET
+      #   uses: actions/setup-dotnet@v4
+      #   with:
+      #     dotnet-version: "8.0.x"
+      #
+      # - name: Build and test (.NET)
+      #   run: |
+      #     dotnet restore
+      #     dotnet build --no-restore
+      #     dotnet test --no-build --collect:"XPlat Code Coverage" || true
+
+      # -----------------------------------------------------------------------
+      # SonarQube Scan
+      # -----------------------------------------------------------------------
+      - name: SonarQube Scan
+        uses: SonarSource/sonarqube-scan-action@v5
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: "https://sonarcloud.io"
+        with:
+          args: >
+            -Dsonar.projectKey=${{ env.SONAR_PROJECT_KEY }}
+            -Dsonar.organization=${{ env.SONAR_ORGANIZATION }}
+            -Dsonar.sources=src
+            -Dsonar.tests=tests
+            -Dsonar.python.coverage.reportPaths=coverage.xml
+            -Dsonar.javascript.lcov.reportPaths=src/frontend/coverage/lcov.info
+            -Dsonar.cs.opencover.reportsPaths=**/coverage.opencover.xml
+            -Dsonar.qualitygate.wait=true
+            -Dsonar.pullrequest.key=${{ github.event.pull_request.number }}
+            -Dsonar.pullrequest.branch=${{ github.head_ref }}
+            -Dsonar.pullrequest.base=${{ github.base_ref }}
+
+      # -----------------------------------------------------------------------
+      # Quality Gate Check
+      # -----------------------------------------------------------------------
+      - name: SonarQube Quality Gate check
+        uses: SonarSource/sonarqube-quality-gate-action@v1
+        timeout-minutes: 5
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+      - name: Post quality gate result
+        if: always()
+        run: |
+          echo "## SonarQube Quality Gate" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Project: \`${{ env.SONAR_PROJECT_KEY }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "[View in SonarQube Cloud](https://sonarcloud.io/summary/new_code?id=${{ env.SONAR_PROJECT_KEY }})" >> $GITHUB_STEP_SUMMARY
