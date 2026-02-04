@@ -252,14 +252,3 @@ Multiple Claude instances can work simultaneously. Each should:
 - Use `/blast-radius` before large refactors
 - Record learnings discovered during work
 <!-- END:AI-FRAMEWORK -->
-
-<!-- BEGIN:TEAM -->
-## Project Overview
-
-{{PROJECT_DESCRIPTION}}
-
-See [context/project.md](context/project.md) for full details, [context/architecture.md](context/architecture.md) for system design, and [context/glossary.md](context/glossary.md) for domain terminology.
-
-<!-- Add team-specific rules, danger zones, or overrides below -->
-
-<!-- END:TEAM -->

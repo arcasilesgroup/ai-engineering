@@ -172,6 +172,47 @@ if [[ "$UPDATE_MODE" == true ]]; then
     echo -e "  ${GREEN}✓${NC} Copilot instructions updated"
   fi
 
+  # --- Update CLAUDE.md (section-aware) ---
+  echo -e "${YELLOW}Updating CLAUDE.md...${NC}"
+  if [[ -f "$TARGET_DIR/CLAUDE.md" ]]; then
+    if grep -q "<!-- BEGIN:AI-FRAMEWORK" "$TARGET_DIR/CLAUDE.md"; then
+      # Has markers: extract team section, replace framework section
+      echo -e "  ${GREEN}✓${NC} Found section markers, performing section-aware update"
+
+      # Extract team section (everything between BEGIN:TEAM and END:TEAM)
+      TEAM_SECTION=$(sed -n '/<!-- BEGIN:TEAM -->/,/<!-- END:TEAM -->/p' "$TARGET_DIR/CLAUDE.md")
+
+      # If no team section found, create a default one
+      if [[ -z "$TEAM_SECTION" ]]; then
+        TEAM_SECTION='<!-- BEGIN:TEAM -->
+## Project Overview
+
+See [context/project.md](context/project.md) for full details.
+
+<!-- Add team-specific rules, danger zones, or overrides below -->
+
+<!-- END:TEAM -->'
+      fi
+
+      # Get framework section from source
+      FRAMEWORK_SECTION=$(sed -n '/<!-- BEGIN:AI-FRAMEWORK/,/<!-- END:AI-FRAMEWORK -->/p' "$SCRIPT_DIR/CLAUDE.framework.md")
+
+      # Combine: framework section + newline + team section
+      {
+        echo "$FRAMEWORK_SECTION"
+        echo ""
+        echo "$TEAM_SECTION"
+      } > "$TARGET_DIR/CLAUDE.md"
+
+      echo -e "  ${GREEN}✓${NC} CLAUDE.md updated (team section preserved)"
+    else
+      # No markers: warn, don't touch
+      echo -e "  ${YELLOW}⚠${NC}  CLAUDE.md has no section markers"
+      echo -e "  ${YELLOW}⚠${NC}  Run /migrate-claude-md to add markers, then re-run update"
+      echo -e "  ${YELLOW}⚠${NC}  CLAUDE.md was NOT updated"
+    fi
+  fi
+
   # --- Deep merge settings.json (preserve custom permissions, update hooks) ---
   echo -e "${YELLOW}Updating settings.json...${NC}"
   if [[ -f "$TARGET_DIR/.claude/settings.json" && -f "$SCRIPT_DIR/.claude/settings.json" ]]; then

@@ -67,7 +67,9 @@ Detect and verify platform setup:
 
 - Check for `.ai-version` file
 - Compare with framework `VERSION` if available
-- Warn if outdated
+- **Check for remote updates** (fallback chain: `gh api` → `git ls-remote` → `curl VERSION`)
+- Check `DEPRECATIONS.json` for deprecated version warnings
+- Warn if outdated or deprecated
 
 ### 9. Check CI/CD (if applicable)
 
@@ -95,7 +97,7 @@ Detect and verify platform setup:
     - [x] Auth: Authenticated | Not authenticated
 
     ### Warnings
-    - [Unresolved placeholders, missing optional files, outdated version]
+    - [Unresolved placeholders, missing optional files, outdated version, deprecated version]
 
     ### Errors
     - [Missing required files, invalid content]
