@@ -11,6 +11,7 @@
       "Bash(npm audit:*)",
       "Bash(npx prettier:*)",
       "Bash(npx eslint:*)",
+      "Bash(npx tsc:*)",
       "Bash(pytest:*)",
       "Bash(pip audit:*)",
       "Bash(ruff:*)",
@@ -19,8 +20,53 @@
       "Bash(terraform plan:*)",
       "Bash(gitleaks:*)",
       "Bash(gh:*)",
+      "Bash(az:*)",
       "Bash(tree:*)",
       "Bash(ls:*)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/block-dangerous.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/block-env-edit.sh"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/auto-format.sh"
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/notify.sh"
+          }
+        ]
+      }
     ]
   }
 }
