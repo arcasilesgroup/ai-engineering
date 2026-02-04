@@ -1,0 +1,173 @@
+# Standards Index
+
+version: "1.0"
+description: "Registry of coding standards by technology stack"
+
+standards:
+  # Global Standards
+  - id: global
+    path: global.md
+    description: Cross-stack rules applicable to all code
+    priority: 1
+    
+  # .NET Standards
+  - id: dotnet/coding
+    path: dotnet/coding.md
+    description: C# coding conventions and style
+    applyTo: "**/*.cs"
+    tags: [dotnet, csharp]
+    
+  - id: dotnet/testing
+    path: dotnet/testing.md
+    description: NUnit testing patterns
+    applyTo: "**/tests/**/*.cs"
+    tags: [dotnet, testing, nunit]
+    
+  - id: dotnet/aspnet
+    path: dotnet/aspnet.md
+    description: ASP.NET Core specific patterns
+    applyTo: "**/Controllers/**/*.cs"
+    tags: [dotnet, aspnet, api]
+    
+  - id: dotnet/functions
+    path: dotnet/functions.md
+    description: Azure Functions patterns
+    applyTo: "**/Functions/**/*.cs"
+    tags: [dotnet, azure-functions]
+    
+  - id: dotnet/patterns/result
+    path: dotnet/patterns/result-pattern.md
+    description: Result pattern for error handling
+    tags: [dotnet, patterns, error-handling]
+    
+  - id: dotnet/patterns/error-mapping
+    path: dotnet/patterns/error-mapping.md
+    description: Error to HTTP response mapping
+    tags: [dotnet, patterns, error-handling]
+    
+  - id: dotnet/patterns/di
+    path: dotnet/patterns/dependency-injection.md
+    description: Dependency injection patterns
+    tags: [dotnet, patterns, di]
+
+  # TypeScript Standards
+  - id: typescript/coding
+    path: typescript/coding.md
+    description: TypeScript coding conventions
+    applyTo: "**/*.ts,**/*.tsx"
+    tags: [typescript]
+    
+  - id: typescript/react
+    path: typescript/react.md
+    description: React component patterns
+    applyTo: "**/components/**/*.tsx"
+    tags: [typescript, react]
+    
+  - id: typescript/testing
+    path: typescript/testing.md
+    description: Jest/Vitest testing patterns
+    applyTo: "**/*.test.ts,**/*.spec.ts"
+    tags: [typescript, testing]
+
+  # Python Standards
+  - id: python/coding
+    path: python/coding.md
+    description: Python coding conventions (PEP 8)
+    applyTo: "**/*.py"
+    tags: [python]
+    
+  - id: python/testing
+    path: python/testing.md
+    description: pytest testing patterns
+    applyTo: "**/test_*.py,**/*_test.py"
+    tags: [python, testing]
+
+  # Infrastructure Standards
+  - id: infrastructure/terraform
+    path: infrastructure/terraform.md
+    description: Terraform conventions
+    applyTo: "**/*.tf"
+    tags: [terraform, iac]
+    
+  - id: infrastructure/azure
+    path: infrastructure/azure.md
+    description: Azure resource patterns
+    tags: [azure, cloud]
+
+  # Scripting Standards
+  - id: scripting/python
+    path: scripting/python.md
+    description: Python CLI scripting conventions
+    applyTo: "**/scripts/**/*.py,**/tools/**/*.py"
+    tags: [python, scripting, cli]
+    
+  - id: scripting/bash
+    path: scripting/bash.md
+    description: Bash conventions
+    applyTo: "**/*.sh"
+    tags: [bash, scripting]
+
+  # CI/CD Standards
+  - id: cicd/azure-pipelines
+    path: cicd/azure-pipelines.md
+    description: Azure Pipelines YAML conventions
+    applyTo: "**/azure-pipelines*.yml,**/.azure-pipelines/**/*.yml"
+    tags: [cicd, azure, pipelines]
+    
+  - id: cicd/quality-gates
+    path: cicd/quality-gates.md
+    description: SonarQube and Snyk quality gate thresholds
+    tags: [cicd, quality, sonarqube, snyk]
+    
+  - id: cicd/dependabot
+    path: cicd/dependabot.md
+    description: Dependabot configuration patterns
+    applyTo: "**/.github/dependabot.yml"
+    tags: [cicd, dependencies, security]
+
+  # Linter Configurations
+  - id: linters/dotnet-editorconfig
+    path: linters/dotnet-editorconfig.md
+    description: .NET EditorConfig with Roslyn analyzers
+    applyTo: "**/.editorconfig"
+    tags: [linters, dotnet, editorconfig]
+    
+  - id: linters/eslint-config
+    path: linters/eslint-config.md
+    description: ESLint flat config for TypeScript
+    applyTo: "**/eslint.config.mjs"
+    tags: [linters, typescript, eslint]
+    
+  - id: linters/python-pyproject
+    path: linters/python-pyproject.md
+    description: Python linting with Ruff, Black, mypy
+    applyTo: "**/pyproject.toml"
+    tags: [linters, python, ruff]
+    
+  - id: linters/yamllint
+    path: linters/yamllint.md
+    description: YAML linting configuration
+    applyTo: "**/.yamllint"
+    tags: [linters, yaml]
+    
+  - id: linters/tflint
+    path: linters/tflint.md
+    description: Terraform linting with tflint
+    applyTo: "**/.tflint.hcl"
+    tags: [linters, terraform]
+
+  # Security Standards
+  - id: security/owasp-top10
+    path: security/owasp-top10.md
+    description: OWASP Top 10 2025 prevention guide
+    tags: [security, owasp]
+    
+  - id: security/snyk
+    path: security/snyk.md
+    description: Snyk vulnerability scanning integration
+    tags: [security, snyk, dependencies]
+    
+  - id: security/codeql
+    path: security/codeql.md
+    description: CodeQL static analysis configuration
+    tags: [security, codeql, sast]

@@ -1,0 +1,97 @@
+# Agents Index
+
+version: "1.0"
+description: Registry of AI agents for complex, multi-step workflows
+
+# Agents are orchestrators that combine multiple skills
+# Each agent has a defined workflow and decision-making capabilities
+
+agents:
+  # Feature Development Agent
+  - id: feature-builder
+    name: Feature Builder
+    description: End-to-end feature implementation including code, tests, and documentation
+    path: feature-builder/agent.md
+    workflow: feature-builder/workflow.md
+    skills:
+      - dotnet/create-endpoint
+      - dotnet/create-provider
+      - dotnet/add-http-client
+      - dotnet/generate-tests
+      - dotnet/add-error-mapping
+      - cross-cutting/create-adr
+    triggers:
+      - "implement feature"
+      - "create new endpoint"
+      - "build integration"
+
+  # Code Review Agent
+  - id: code-reviewer
+    name: Code Reviewer
+    description: Comprehensive code review with security and quality checks
+    path: code-reviewer/agent.md
+    skills:
+      - cross-cutting/security-review
+    prompts:
+      - templates/code-review
+      - templates/security-audit
+    triggers:
+      - "review code"
+      - "check PR"
+      - "validate changes"
+
+  # Migration Agent
+  - id: migrator
+    name: API Migrator
+    description: Assists with API version migrations and breaking change management
+    path: migrator/agent.md
+    skills:
+      - dotnet/create-endpoint
+      - dotnet/add-error-mapping
+      - cross-cutting/create-adr
+    triggers:
+      - "migrate api"
+      - "deprecate endpoint"
+      - "version upgrade"
+
+  # Documentation Agent
+  - id: documentor
+    name: Documentation Writer
+    description: Generates and maintains technical documentation
+    path: documentor/agent.md
+    prompts:
+      - templates/documentation
+    triggers:
+      - "document feature"
+      - "update docs"
+      - "generate readme"
+
+  # Test Coverage Agent
+  - id: test-builder
+    name: Test Coverage Builder
+    description: Analyzes coverage gaps and generates missing tests
+    path: test-builder/agent.md
+    skills:
+      - dotnet/generate-tests
+      - typescript/create-component  # for test generation
+    prompts:
+      - templates/test-generation
+    triggers:
+      - "improve coverage"
+      - "generate tests"
+      - "test scenarios"
+
+# Agent Configuration
+defaults:
+  max_iterations: 10
+  require_approval: false
+  log_decisions: true
+  rollback_on_error: true
+
+# Activation keywords
+global_triggers:
+  agent_prefix: "@agent:"
+  examples:
+    - "@agent:feature-builder implement user authentication"
+    - "@agent:code-reviewer check this PR"
+    - "@agent:migrator upgrade to v2"

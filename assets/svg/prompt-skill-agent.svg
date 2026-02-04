@@ -1,0 +1,97 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500">
+  <defs>
+    <style>
+      .title { font: bold 20px sans-serif; fill: #1a1a2e; }
+      .subtitle { font: 12px sans-serif; fill: #666; }
+      .box-title { font: bold 13px sans-serif; fill: #fff; }
+      .box-text { font: 11px sans-serif; fill: #333; }
+      .label { font: bold 12px sans-serif; fill: #333; }
+      .arrow { stroke: #666; stroke-width: 2; fill: none; marker-end: url(#arrowhead); }
+    </style>
+    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#666"/>
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect width="800" height="500" fill="#f8f9fa"/>
+  
+  <!-- Title -->
+  <text x="400" y="30" text-anchor="middle" class="title">Prompts → Skills → Agents Hierarchy</text>
+  <text x="400" y="50" text-anchor="middle" class="subtitle">From simple instructions to complex autonomous workflows</text>
+
+  <!-- Prompts Section -->
+  <rect x="50" y="80" width="200" height="150" rx="10" fill="#e3f2fd" stroke="#1976d2" stroke-width="2"/>
+  <rect x="50" y="80" width="200" height="30" rx="10" fill="#1976d2"/>
+  <text x="150" y="100" text-anchor="middle" class="box-title">PROMPTS</text>
+  
+  <text x="150" y="130" text-anchor="middle" class="box-text">Static text instructions</text>
+  <text x="150" y="150" text-anchor="middle" class="box-text">Templates with variables</text>
+  <text x="150" y="170" text-anchor="middle" class="box-text">No tool execution</text>
+  <text x="150" y="190" text-anchor="middle" class="box-text">Human applies output</text>
+  
+  <text x="150" y="215" text-anchor="middle" class="label">Complexity: Low</text>
+
+  <!-- Arrow 1 -->
+  <path d="M 250 155 L 295 155" class="arrow"/>
+  <text x="272" y="145" class="subtitle">uses</text>
+
+  <!-- Skills Section -->
+  <rect x="300" y="80" width="200" height="150" rx="10" fill="#fff3e0" stroke="#f57c00" stroke-width="2"/>
+  <rect x="300" y="80" width="200" height="30" rx="10" fill="#f57c00"/>
+  <text x="400" y="100" text-anchor="middle" class="box-title">SKILLS</text>
+  
+  <text x="400" y="130" text-anchor="middle" class="box-text">Procedural knowledge</text>
+  <text x="400" y="150" text-anchor="middle" class="box-text">Step-by-step execution</text>
+  <text x="400" y="170" text-anchor="middle" class="box-text">Single-purpose tasks</text>
+  <text x="400" y="190" text-anchor="middle" class="box-text">May invoke tools</text>
+  
+  <text x="400" y="215" text-anchor="middle" class="label">Complexity: Medium</text>
+
+  <!-- Arrow 2 -->
+  <path d="M 500 155 L 545 155" class="arrow"/>
+  <text x="522" y="145" class="subtitle">orchestrates</text>
+
+  <!-- Agents Section -->
+  <rect x="550" y="80" width="200" height="150" rx="10" fill="#f3e5f5" stroke="#7b1fa2" stroke-width="2"/>
+  <rect x="550" y="80" width="200" height="30" rx="10" fill="#7b1fa2"/>
+  <text x="650" y="100" text-anchor="middle" class="box-title">AGENTS</text>
+  
+  <text x="650" y="130" text-anchor="middle" class="box-text">Multi-step workflows</text>
+  <text x="650" y="150" text-anchor="middle" class="box-text">Decision-making logic</text>
+  <text x="650" y="170" text-anchor="middle" class="box-text">Orchestrates skills</text>
+  <text x="650" y="190" text-anchor="middle" class="box-text">Autonomous execution</text>
+  
+  <text x="650" y="215" text-anchor="middle" class="label">Complexity: High</text>
+
+  <!-- Examples Section -->
+  <rect x="50" y="260" width="700" height="220" rx="10" fill="#fff" stroke="#ccc" stroke-width="1"/>
+  <text x="400" y="285" text-anchor="middle" class="label">Examples</text>
+
+  <!-- Prompt Example -->
+  <rect x="70" y="300" width="180" height="160" rx="5" fill="#e3f2fd" stroke="#1976d2"/>
+  <text x="160" y="320" text-anchor="middle" class="box-text" font-weight="bold">Code Review Prompt</text>
+  <text x="80" y="345" class="box-text">• Review checklist</text>
+  <text x="80" y="365" class="box-text">• Focus areas</text>
+  <text x="80" y="385" class="box-text">• Output format</text>
+  <text x="80" y="415" class="box-text" fill="#666">User applies feedback</text>
+  <text x="80" y="435" class="box-text" fill="#666">manually to code</text>
+
+  <!-- Skill Example -->
+  <rect x="310" y="300" width="180" height="160" rx="5" fill="#fff3e0" stroke="#f57c00"/>
+  <text x="400" y="320" text-anchor="middle" class="box-text" font-weight="bold">Create Provider Skill</text>
+  <text x="320" y="345" class="box-text">1. Create interface</text>
+  <text x="320" y="365" class="box-text">2. Create implementation</text>
+  <text x="320" y="385" class="box-text">3. Register in DI</text>
+  <text x="320" y="405" class="box-text">4. Create tests</text>
+  <text x="320" y="435" class="box-text" fill="#666">Single focused task</text>
+
+  <!-- Agent Example -->
+  <rect x="550" y="300" width="180" height="160" rx="5" fill="#f3e5f5" stroke="#7b1fa2"/>
+  <text x="640" y="320" text-anchor="middle" class="box-text" font-weight="bold">Feature Builder Agent</text>
+  <text x="560" y="345" class="box-text">→ Analyze request</text>
+  <text x="560" y="365" class="box-text">→ Plan architecture</text>
+  <text x="560" y="385" class="box-text">→ Execute skills</text>
+  <text x="560" y="405" class="box-text">→ Validate &amp; test</text>
+  <text x="560" y="435" class="box-text" fill="#666">End-to-end automation</text>
+</svg>

@@ -1,0 +1,71 @@
+# Skills Index
+
+version: "1.0"
+description: "Registry of modular, invocable skills"
+
+skills:
+  # .NET Skills
+  - id: dotnet/create-endpoint
+    name: Create API Endpoint
+    description: Creates a versioned ASP.NET Core endpoint with error mapping
+    path: dotnet/create-endpoint/skill.md
+    complexity: medium
+    tags: [dotnet, api, aspnet]
+    
+  - id: dotnet/create-provider
+    name: Create Business Provider
+    description: Creates a provider class with DI registration
+    path: dotnet/create-provider/skill.md
+    complexity: low
+    tags: [dotnet, business-logic]
+    
+  - id: dotnet/generate-tests
+    name: Generate NUnit Tests
+    description: Generates NUnit test fixtures with BaseTest pattern
+    path: dotnet/generate-tests/skill.md
+    complexity: medium
+    tags: [dotnet, testing, nunit]
+    
+  - id: dotnet/add-error-mapping
+    name: Add Error Mapping
+    description: Registers error mappings for new domain errors
+    path: dotnet/add-error-mapping/skill.md
+    complexity: low
+    tags: [dotnet, error-handling]
+    
+  - id: dotnet/add-http-client
+    name: Add HTTP Client
+    description: Configures typed HTTP client with DependencyHandler
+    path: dotnet/add-http-client/skill.md
+    complexity: medium
+    tags: [dotnet, http, integration]
+
+  # TypeScript Skills
+  - id: typescript/create-component
+    name: Create React Component
+    description: Creates React component with TypeScript and tests
+    path: typescript/create-component/skill.md
+    complexity: low
+    tags: [typescript, react, frontend]
+    
+  - id: typescript/create-hook
+    name: Create React Hook
+    description: Creates custom React hook with TypeScript
+    path: typescript/create-hook/skill.md
+    complexity: low
+    tags: [typescript, react, hooks]
+
+  # Cross-cutting Skills
+  - id: cross-cutting/create-adr
+    name: Create ADR
+    description: Creates Architecture Decision Record
+    path: cross-cutting/create-adr/skill.md
+    complexity: low
+    tags: [documentation, architecture]
+    
+  - id: cross-cutting/security-review
+    name: Security Review
+    description: Performs security review of code
+    path: cross-cutting/security-review/skill.md
+    complexity: high
+    tags: [security, review]

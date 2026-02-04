@@ -1,0 +1,109 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600">
+  <defs>
+    <style>
+      .title { font: bold 24px sans-serif; fill: #1a1a2e; }
+      .subtitle { font: 14px sans-serif; fill: #666; }
+      .box-title { font: bold 14px sans-serif; fill: #fff; }
+      .box-text { font: 12px sans-serif; fill: #333; }
+      .arrow { stroke: #666; stroke-width: 2; fill: none; marker-end: url(#arrowhead); }
+      .dashed { stroke-dasharray: 5,5; }
+      .connector { stroke: #999; stroke-width: 1.5; fill: none; }
+    </style>
+    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#666"/>
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect width="900" height="600" fill="#f8f9fa"/>
+  
+  <!-- Title -->
+  <text x="450" y="35" text-anchor="middle" class="title">.ai/ Framework Overview</text>
+  <text x="450" y="55" text-anchor="middle" class="subtitle">Standardized AI-Assisted Development Structure</text>
+
+  <!-- Source of Truth Box (.ai/) -->
+  <rect x="280" y="80" width="340" height="200" rx="10" fill="#e8f4f8" stroke="#0077b6" stroke-width="2"/>
+  <rect x="280" y="80" width="340" height="30" rx="10" fill="#0077b6"/>
+  <text x="450" y="100" text-anchor="middle" class="box-title">.ai/ (Source of Truth)</text>
+  
+  <!-- .ai/ components -->
+  <rect x="295" y="120" width="100" height="35" rx="5" fill="#fff" stroke="#0077b6"/>
+  <text x="345" y="142" text-anchor="middle" class="box-text">context/</text>
+  
+  <rect x="400" y="120" width="100" height="35" rx="5" fill="#fff" stroke="#0077b6"/>
+  <text x="450" y="142" text-anchor="middle" class="box-text">standards/</text>
+  
+  <rect x="505" y="120" width="100" height="35" rx="5" fill="#fff" stroke="#0077b6"/>
+  <text x="555" y="142" text-anchor="middle" class="box-text">prompts/</text>
+  
+  <rect x="295" y="165" width="100" height="35" rx="5" fill="#fff" stroke="#0077b6"/>
+  <text x="345" y="187" text-anchor="middle" class="box-text">skills/</text>
+  
+  <rect x="400" y="165" width="100" height="35" rx="5" fill="#fff" stroke="#0077b6"/>
+  <text x="450" y="187" text-anchor="middle" class="box-text">agents/</text>
+  
+  <rect x="505" y="165" width="100" height="35" rx="5" fill="#fff" stroke="#0077b6"/>
+  <text x="555" y="187" text-anchor="middle" class="box-text">learnings/</text>
+
+  <rect x="345" y="210" width="100" height="35" rx="5" fill="#fff" stroke="#0077b6"/>
+  <text x="395" y="232" text-anchor="middle" class="box-text">tools/</text>
+  
+  <rect x="455" y="210" width="100" height="35" rx="5" fill="#fff" stroke="#0077b6"/>
+  <text x="505" y="232" text-anchor="middle" class="box-text">assets/</text>
+
+  <!-- Sync Arrows -->
+  <path d="M 350 280 L 350 320 L 180 320 L 180 360" class="arrow"/>
+  <path d="M 550 280 L 550 320 L 720 320 L 720 360" class="arrow"/>
+  
+  <text x="265" y="315" class="box-text">sync-github.ps1</text>
+  <text x="595" y="315" class="box-text">sync-claude.ps1</text>
+
+  <!-- GitHub Copilot Box -->
+  <rect x="50" y="360" width="260" height="180" rx="10" fill="#f0f0f0" stroke="#333" stroke-width="2"/>
+  <rect x="50" y="360" width="260" height="30" rx="10" fill="#333"/>
+  <text x="180" y="380" text-anchor="middle" class="box-title">.github/ (Copilot)</text>
+  
+  <rect x="65" y="400" width="115" height="30" rx="5" fill="#fff" stroke="#333"/>
+  <text x="122" y="420" text-anchor="middle" class="box-text">copilot-instructions.md</text>
+  
+  <rect x="185" y="400" width="110" height="30" rx="5" fill="#fff" stroke="#333"/>
+  <text x="240" y="420" text-anchor="middle" class="box-text">instructions/</text>
+  
+  <rect x="65" y="440" width="115" height="30" rx="5" fill="#fff" stroke="#333"/>
+  <text x="122" y="460" text-anchor="middle" class="box-text">prompts/</text>
+  
+  <rect x="185" y="440" width="110" height="30" rx="5" fill="#fff" stroke="#333"/>
+  <text x="240" y="460" text-anchor="middle" class="box-text">agents/</text>
+
+  <text x="180" y="510" text-anchor="middle" class="box-text" fill="#666">Generated from .ai/</text>
+
+  <!-- Claude Box -->
+  <rect x="590" y="360" width="260" height="180" rx="10" fill="#fff5e6" stroke="#d4a574" stroke-width="2"/>
+  <rect x="590" y="360" width="260" height="30" rx="10" fill="#d4a574"/>
+  <text x="720" y="380" text-anchor="middle" class="box-title">.claude/ (Anthropic)</text>
+  
+  <rect x="605" y="400" width="115" height="30" rx="5" fill="#fff" stroke="#d4a574"/>
+  <text x="662" y="420" text-anchor="middle" class="box-text">CLAUDE.md</text>
+  
+  <rect x="725" y="400" width="110" height="30" rx="5" fill="#fff" stroke="#d4a574"/>
+  <text x="780" y="420" text-anchor="middle" class="box-text">settings.json</text>
+  
+  <rect x="645" y="440" width="150" height="30" rx="5" fill="#fff" stroke="#d4a574"/>
+  <text x="720" y="460" text-anchor="middle" class="box-text">commands/</text>
+
+  <text x="720" y="510" text-anchor="middle" class="box-text" fill="#666">Generated from .ai/</text>
+
+  <!-- Legend -->
+  <rect x="50" y="560" width="800" height="30" rx="5" fill="#fff" stroke="#ccc"/>
+  <circle cx="80" cy="575" r="8" fill="#0077b6"/>
+  <text x="95" y="580" class="box-text">Source of Truth</text>
+  
+  <circle cx="220" cy="575" r="8" fill="#333"/>
+  <text x="235" y="580" class="box-text">GitHub Copilot</text>
+  
+  <circle cx="360" cy="575" r="8" fill="#d4a574"/>
+  <text x="375" y="580" class="box-text">Claude/Anthropic</text>
+  
+  <line x1="480" y1="575" x2="520" y2="575" class="arrow"/>
+  <text x="535" y="580" class="box-text">Sync/Generate</text>
+</svg>

@@ -1,0 +1,162 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 650">
+  <defs>
+    <style>
+      .title { font: bold 20px sans-serif; fill: #1a1a2e; }
+      .layer-title { font: bold 14px sans-serif; fill: #fff; }
+      .box-title { font: bold 12px sans-serif; fill: #333; }
+      .box-text { font: 10px sans-serif; fill: #555; }
+      .arrow { stroke: #666; stroke-width: 1.5; fill: none; marker-end: url(#arrowhead); }
+      .label { font: 10px sans-serif; fill: #666; }
+    </style>
+    <marker id="arrowhead" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#666"/>
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect width="900" height="650" fill="#fafafa"/>
+  
+  <!-- Title -->
+  <text x="450" y="30" text-anchor="middle" class="title">Platform Architecture Overview</text>
+
+  <!-- API Layer -->
+  <rect x="50" y="60" width="800" height="100" rx="8" fill="#e3f2fd" stroke="#1976d2" stroke-width="2"/>
+  <rect x="50" y="60" width="800" height="25" rx="8" fill="#1976d2"/>
+  <text x="450" y="78" text-anchor="middle" class="layer-title">API Layer (Controllers)</text>
+  
+  <rect x="70" y="95" width="120" height="50" rx="5" fill="#fff" stroke="#1976d2"/>
+  <text x="130" y="115" text-anchor="middle" class="box-title">V1 Controllers</text>
+  <text x="130" y="130" text-anchor="middle" class="box-text">Versioned endpoints</text>
+  
+  <rect x="210" y="95" width="120" height="50" rx="5" fill="#fff" stroke="#1976d2"/>
+  <text x="270" y="115" text-anchor="middle" class="box-title">V2 Controllers</text>
+  <text x="270" y="130" text-anchor="middle" class="box-text">Newer API versions</text>
+  
+  <rect x="350" y="95" width="130" height="50" rx="5" fill="#fff" stroke="#1976d2"/>
+  <text x="415" y="115" text-anchor="middle" class="box-title">Error Mapping</text>
+  <text x="415" y="130" text-anchor="middle" class="box-text">Domain → HTTP</text>
+  
+  <rect x="500" y="95" width="130" height="50" rx="5" fill="#fff" stroke="#1976d2"/>
+  <text x="565" y="115" text-anchor="middle" class="box-title">Swagger/OpenAPI</text>
+  <text x="565" y="130" text-anchor="middle" class="box-text">API documentation</text>
+  
+  <rect x="650" y="95" width="180" height="50" rx="5" fill="#fff" stroke="#1976d2"/>
+  <text x="740" y="115" text-anchor="middle" class="box-title">Functions (HTTP Triggers)</text>
+  <text x="740" y="130" text-anchor="middle" class="box-text">Azure Functions endpoints</text>
+
+  <!-- Arrow to Business Layer -->
+  <path d="M 450 160 L 450 180" class="arrow"/>
+
+  <!-- Business Layer -->
+  <rect x="50" y="185" width="800" height="100" rx="8" fill="#fff3e0" stroke="#f57c00" stroke-width="2"/>
+  <rect x="50" y="185" width="800" height="25" rx="8" fill="#f57c00"/>
+  <text x="450" y="203" text-anchor="middle" class="layer-title">Business Layer (Providers)</text>
+  
+  <rect x="70" y="220" width="150" height="50" rx="5" fill="#fff" stroke="#f57c00"/>
+  <text x="145" y="240" text-anchor="middle" class="box-title">UserProvider</text>
+  <text x="145" y="255" text-anchor="middle" class="box-text">User management</text>
+  
+  <rect x="240" y="220" width="150" height="50" rx="5" fill="#fff" stroke="#f57c00"/>
+  <text x="315" y="240" text-anchor="middle" class="box-title">OrderProvider</text>
+  <text x="315" y="255" text-anchor="middle" class="box-text">Order processing</text>
+  
+  <rect x="410" y="220" width="150" height="50" rx="5" fill="#fff" stroke="#f57c00"/>
+  <text x="485" y="240" text-anchor="middle" class="box-title">ProductProvider</text>
+  <text x="485" y="255" text-anchor="middle" class="box-text">Product catalog</text>
+  
+  <rect x="580" y="220" width="130" height="50" rx="5" fill="#fff" stroke="#f57c00"/>
+  <text x="645" y="240" text-anchor="middle" class="box-title">Result&lt;T&gt;</text>
+  <text x="645" y="255" text-anchor="middle" class="box-text">Error handling</text>
+  
+  <rect x="730" y="220" width="100" height="50" rx="5" fill="#fff" stroke="#f57c00"/>
+  <text x="780" y="240" text-anchor="middle" class="box-title">Validators</text>
+  <text x="780" y="255" text-anchor="middle" class="box-text">Input validation</text>
+
+  <!-- Arrow to Services Layer -->
+  <path d="M 450 285 L 450 305" class="arrow"/>
+
+  <!-- Services Layer -->
+  <rect x="50" y="310" width="800" height="100" rx="8" fill="#e8f5e9" stroke="#388e3c" stroke-width="2"/>
+  <rect x="50" y="310" width="800" height="25" rx="8" fill="#388e3c"/>
+  <text x="450" y="328" text-anchor="middle" class="layer-title">Services Layer (External Integrations)</text>
+  
+  <rect x="70" y="345" width="120" height="50" rx="5" fill="#fff" stroke="#388e3c"/>
+  <text x="130" y="365" text-anchor="middle" class="box-title">ExternalApiService</text>
+  <text x="130" y="380" text-anchor="middle" class="box-text">External APIs</text>
+  
+  <rect x="200" y="345" width="130" height="50" rx="5" fill="#fff" stroke="#388e3c"/>
+  <text x="265" y="365" text-anchor="middle" class="box-title">PaymentService</text>
+  <text x="265" y="380" text-anchor="middle" class="box-text">Payment gateway</text>
+  
+  <rect x="340" y="345" width="110" height="50" rx="5" fill="#fff" stroke="#388e3c"/>
+  <text x="395" y="365" text-anchor="middle" class="box-title">BlobStorage</text>
+  <text x="395" y="380" text-anchor="middle" class="box-text">Azure Storage</text>
+  
+  <rect x="460" y="345" width="110" height="50" rx="5" fill="#fff" stroke="#388e3c"/>
+  <text x="515" y="365" text-anchor="middle" class="box-title">TableStorage</text>
+  <text x="515" y="380" text-anchor="middle" class="box-text">Azure Tables</text>
+  
+  <rect x="580" y="345" width="120" height="50" rx="5" fill="#fff" stroke="#388e3c"/>
+  <text x="640" y="365" text-anchor="middle" class="box-title">AzureDevOps</text>
+  <text x="640" y="380" text-anchor="middle" class="box-text">Pipelines/Repos</text>
+  
+  <rect x="710" y="345" width="120" height="50" rx="5" fill="#fff" stroke="#388e3c"/>
+  <text x="770" y="365" text-anchor="middle" class="box-title">KeyVault</text>
+  <text x="770" y="380" text-anchor="middle" class="box-text">Secrets mgmt</text>
+
+  <!-- Arrow to Infrastructure Layer -->
+  <path d="M 450 410 L 450 430" class="arrow"/>
+
+  <!-- Infrastructure/Cross-Cutting Layer -->
+  <rect x="50" y="435" width="800" height="85" rx="8" fill="#f3e5f5" stroke="#7b1fa2" stroke-width="2"/>
+  <rect x="50" y="435" width="800" height="25" rx="8" fill="#7b1fa2"/>
+  <text x="450" y="453" text-anchor="middle" class="layer-title">Infrastructure (Cross-Cutting Concerns)</text>
+  
+  <rect x="70" y="470" width="100" height="40" rx="5" fill="#fff" stroke="#7b1fa2"/>
+  <text x="120" y="495" text-anchor="middle" class="box-text">Options</text>
+  
+  <rect x="180" y="470" width="100" height="40" rx="5" fill="#fff" stroke="#7b1fa2"/>
+  <text x="230" y="495" text-anchor="middle" class="box-text">DI Extensions</text>
+  
+  <rect x="290" y="470" width="120" height="40" rx="5" fill="#fff" stroke="#7b1fa2"/>
+  <text x="350" y="495" text-anchor="middle" class="box-text">DependencyHandler</text>
+  
+  <rect x="420" y="470" width="100" height="40" rx="5" fill="#fff" stroke="#7b1fa2"/>
+  <text x="470" y="495" text-anchor="middle" class="box-text">Telemetry</text>
+  
+  <rect x="530" y="470" width="100" height="40" rx="5" fill="#fff" stroke="#7b1fa2"/>
+  <text x="580" y="495" text-anchor="middle" class="box-text">Caching</text>
+  
+  <rect x="640" y="470" width="100" height="40" rx="5" fill="#fff" stroke="#7b1fa2"/>
+  <text x="690" y="495" text-anchor="middle" class="box-text">Logging</text>
+  
+  <rect x="750" y="470" width="80" height="40" rx="5" fill="#fff" stroke="#7b1fa2"/>
+  <text x="790" y="495" text-anchor="middle" class="box-text">Resilience</text>
+
+  <!-- Domain Layer (side) -->
+  <rect x="50" y="535" width="250" height="100" rx="8" fill="#fce4ec" stroke="#c2185b" stroke-width="2"/>
+  <rect x="50" y="535" width="250" height="25" rx="8" fill="#c2185b"/>
+  <text x="175" y="553" text-anchor="middle" class="layer-title">Domain (Models)</text>
+  
+  <text x="70" y="580" class="box-text">• Request/Response DTOs</text>
+  <text x="70" y="598" class="box-text">• Domain Errors (NotFoundError, etc.)</text>
+  <text x="70" y="616" class="box-text">• Business entities</text>
+
+  <!-- Shared Layer (side) -->
+  <rect x="320" y="535" width="250" height="100" rx="8" fill="#e0f2f1" stroke="#00796b" stroke-width="2"/>
+  <rect x="320" y="535" width="250" height="25" rx="8" fill="#00796b"/>
+  <text x="445" y="553" text-anchor="middle" class="layer-title">Shared</text>
+  
+  <text x="340" y="580" class="box-text">• Common services</text>
+  <text x="340" y="598" class="box-text">• Reusable utilities</text>
+  <text x="340" y="616" class="box-text">• Cross-project integration</text>
+
+  <!-- Foundation Layer (side) -->
+  <rect x="590" y="535" width="260" height="100" rx="8" fill="#eceff1" stroke="#455a64" stroke-width="2"/>
+  <rect x="590" y="535" width="260" height="25" rx="8" fill="#455a64"/>
+  <text x="720" y="553" text-anchor="middle" class="layer-title">Shared Library (NuGet)</text>
+  
+  <text x="610" y="580" class="box-text">• Result&lt;T&gt; pattern</text>
+  <text x="610" y="598" class="box-text">• Error mapping infrastructure</text>
+  <text x="610" y="616" class="box-text">• Base domain errors</text>
+</svg>

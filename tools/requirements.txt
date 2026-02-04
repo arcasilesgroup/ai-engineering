@@ -1,0 +1,4 @@
+# .ai/tools Python dependencies
+click>=8.1.0
+pyyaml>=6.0
+rich>=13.0.0

@@ -1,0 +1,37 @@
+# Prompts Index
+
+version: "1.0"
+description: "Registry of reusable prompts"
+
+prompts:
+  # System prompts
+  - id: system
+    path: system.md
+    description: Base system prompt for AI assistants
+    use_case: Default behavior and context
+    
+  # Template prompts
+  - id: code-review
+    path: templates/code-review.md
+    description: Code review assistant prompt
+    use_case: Reviewing PRs and code quality
+    
+  - id: refactor
+    path: templates/refactor.md
+    description: Code refactoring guidance
+    use_case: Improving existing code
+    
+  - id: documentation
+    path: templates/documentation.md
+    description: Documentation generation
+    use_case: Creating or updating docs
+    
+  - id: security-audit
+    path: templates/security-audit.md
+    description: Security review prompt
+    use_case: Identifying security issues
+    
+  - id: test-generation
+    path: templates/test-generation.md
+    description: Test creation guidance
+    use_case: Generating unit/integration tests
