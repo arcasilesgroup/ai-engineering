@@ -1,0 +1,31 @@
+# CLAUDE.local.md — Personal Session Context
+
+> This file is for YOUR personal use. It is NOT committed to the repository.
+> Copy this file to `CLAUDE.local.md` and customize it.
+
+## Current Sprint
+
+- **Sprint:** Sprint XX (YYYY-MM-DD → YYYY-MM-DD)
+- **Goal:** [Sprint goal]
+
+## My Work Items
+
+- [ ] AB#123 — [Description]
+- [ ] AB#456 — [Description]
+- [ ] #789 — [Description]
+
+## Notes
+
+- [Anything relevant to your current work session]
+- [Context that helps Claude assist you better]
+
+## Personal Preferences
+
+- [Override any project defaults here]
+- [e.g., "I prefer verbose test output"]
+- [e.g., "Always run tests after implementation"]
+
+## Local Overrides
+
+- [e.g., "Use port 5001 for local API"]
+- [e.g., "Skip Terraform validation — I don't have az credentials locally"]

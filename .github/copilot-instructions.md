@@ -48,6 +48,94 @@ Controllers/Functions --> Providers --> Services --> External Systems
 - **Services**: Data access and external integrations. Wrap external calls, return Results.
 - **ErrorMapper**: Centralized mapping of domain errors to HTTP status codes and response bodies.
 
+See `context/architecture.md` for full architectural details.
+
+## Reconnaissance Before Writing
+
+Before implementing new code, you MUST search for existing patterns:
+
+1. **Search** for 2+ existing examples of similar patterns in the codebase.
+2. **Read** the matching standards file (`standards/*.md`) for the stack you are working in.
+3. **Read** the matching learnings file (`learnings/*.md`) for known pitfalls and team decisions.
+4. **Explain** the pattern you found and confirm you will follow it.
+5. **Implement** following that exact pattern.
+
+If no similar pattern exists, state that explicitly and propose an approach before writing code.
+
+### Standards Reference
+
+Before making changes to any stack, consult the relevant standards file:
+
+| File | Scope |
+|------|-------|
+| `standards/global.md` | Universal rules: git, naming, security basics |
+| `standards/dotnet.md` | C#/.NET: coding, Result pattern, error mapping, testing |
+| `standards/typescript.md` | TypeScript/React: components, hooks, testing |
+| `standards/python.md` | Python: coding conventions, testing |
+| `standards/terraform.md` | Infrastructure as Code: Terraform, Azure |
+| `standards/security.md` | OWASP, secret scanning, dependency scanning |
+| `standards/quality-gates.md` | SonarQube thresholds, linter rules |
+| `standards/cicd.md` | GitHub Actions, Azure Pipelines standards |
+| `standards/testing.md` | Cross-stack testing philosophy |
+| `standards/api-design.md` | REST conventions, versioning, error responses |
+
+### Learnings Reference
+
+Before working on a stack, check for known pitfalls and team decisions:
+
+- `learnings/global.md` - Cross-cutting learnings
+- `learnings/dotnet.md` - .NET-specific learnings
+- `learnings/typescript.md` - TypeScript learnings
+- `learnings/terraform.md` - Terraform learnings
+
+## Verification Protocol
+
+Never say "should work" or "looks right." Verify with exact commands.
+
+### .NET
+```bash
+dotnet build --no-restore
+dotnet test --no-build --verbosity normal
+dotnet format --verify-no-changes
+```
+
+### TypeScript
+```bash
+npx tsc --noEmit
+npm test
+npx eslint .
+```
+
+### Python
+```bash
+python -m py_compile <file>
+pytest
+ruff check .
+```
+
+### Terraform
+```bash
+terraform validate
+terraform fmt -check
+terraform plan
+```
+
+If any command fails, fix the issue before moving on. Do not skip verification.
+
+## Danger Zones
+
+These areas require extra caution. Read the full context, check blast radius, and verify thoroughly.
+
+| Zone | Risk | Rules |
+|------|------|-------|
+| **Authentication / Authorization** | Security breach | Never bypass auth checks. Test both authorized and unauthorized paths. |
+| **Database Schemas / Migrations** | Data loss | Always create reversible migrations. Test rollback. Never drop columns without data migration plan. |
+| **Payment / Billing** | Financial loss | Idempotency required. Log all transactions. Test edge cases: timeouts, duplicates, partial failures. |
+| **Permissions / RBAC** | Privilege escalation | Default deny. Test every role. Never grant admin implicitly. |
+| **Configuration / Environment** | Outages | Never hardcode environment values. Validate config at startup. Test with missing/invalid config. |
+| **API Contracts** | Breaking clients | Version the API. Never remove or rename fields without deprecation. |
+| **CI/CD Pipelines** | Broken deploys | Test pipeline changes in a branch first. Never modify main pipeline directly. |
+
 ## Key Patterns
 
 ### Result Pattern
@@ -108,6 +196,7 @@ public async Task<Result<Order>> ProcessAsync(OrderRequest request)
 - Private fields: `_camelCase`, Classes: `PascalCase`, Interfaces: `IPrefix`
 - Testing: NUnit with Moq, use `Assert.EnterMultipleScope()` for grouped assertions
 - Test naming: `MethodName_Scenario_ExpectedResult`
+- Full conventions in `standards/dotnet.md`
 
 ### TypeScript (React / Node.js)
 
@@ -118,6 +207,7 @@ public async Task<Result<Order>> ProcessAsync(OrderRequest request)
 - React: functional components, typed props interfaces, hooks prefixed with `use`
 - Testing: Vitest with React Testing Library
 - Files: kebab-case (`user-service.ts`), Components: PascalCase (`UserCard.tsx`)
+- Full conventions in `standards/typescript.md`
 
 ### Python
 
@@ -128,6 +218,7 @@ public async Task<Result<Order>> ProcessAsync(OrderRequest request)
 - Naming: `snake_case` for functions/variables, `PascalCase` for classes, `UPPER_SNAKE_CASE` for constants
 - Testing: pytest with fixtures, use `@pytest.mark.parametrize` for data-driven tests
 - Never use mutable default arguments
+- Full conventions in `standards/python.md`
 
 ### Terraform
 
@@ -137,6 +228,7 @@ public async Task<Result<Order>> ProcessAsync(OrderRequest request)
 - Use remote state with locking (Azure Storage backend)
 - Tag all resources with project, environment, owner, and managed-by
 - Use `for_each` over `count` when iterating
+- Full conventions in `standards/terraform.md`
 
 ## Testing Requirements
 
@@ -147,6 +239,7 @@ public async Task<Result<Order>> ProcessAsync(OrderRequest request)
 - Use Arrange/Act/Assert pattern
 - Test both success and error paths
 - No hardcoded dates in tests (use relative dates)
+- Full testing philosophy in `standards/testing.md`
 
 ## Security Reminders
 
@@ -158,6 +251,7 @@ public async Task<Result<Order>> ProcessAsync(OrderRequest request)
 - Error responses must not expose stack traces or internal details
 - Run gitleaks before committing
 - All dependencies scanned by Snyk and CodeQL
+- Full security standards in `standards/security.md`
 
 ## Quality Gates
 
@@ -167,6 +261,8 @@ Before merging, all code must pass:
 - **Security**: No critical/high vulnerabilities (Snyk, CodeQL, OWASP)
 - **Secrets**: Zero secrets detected (gitleaks)
 - **Tests**: All passing, coverage thresholds met per layer
+
+Full thresholds and rules in `standards/quality-gates.md`.
 
 ## Git Conventions
 
