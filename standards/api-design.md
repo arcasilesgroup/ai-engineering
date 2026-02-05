@@ -130,6 +130,20 @@ All error responses use the Problem Details format:
 - Adding optional query parameters
 - Adding new enum values (if client handles unknown)
 
+### API Version Migration Procedure
+
+When a breaking change requires a new API version:
+
+1. **Copy** the existing endpoint to the new version (e.g., `v1` → `v2`).
+2. **Create new DTOs** for the new version. Never modify existing version DTOs.
+3. **Mark the old version as deprecated**:
+   - Add `[Obsolete("Use v2 endpoint")]` attribute.
+   - Add `Sunset` header to responses: `Sunset: <date 6 months from now>`.
+4. **Update** the new version with the breaking changes.
+5. **Test both versions** to ensure backward compatibility.
+6. **Run impact analysis** (`/assess impact`) to identify affected clients.
+7. **Document** the migration in the changelog.
+
 ---
 
 ## 6. Pagination

@@ -116,12 +116,12 @@ These areas require extra caution. Read the full context, check blast radius, an
 
 | Zone | Risk | Rules |
 |------|------|-------|
-| **Authentication / Authorization** | Security breach | Never bypass auth checks. Test both authorized and unauthorized paths. Review with `/security-audit`. |
+| **Authentication / Authorization** | Security breach | Never bypass auth checks. Test both authorized and unauthorized paths. Review with `/assess security`. |
 | **Database Schemas / Migrations** | Data loss | Always create reversible migrations. Test rollback. Never drop columns without data migration plan. |
 | **Payment / Billing** | Financial loss | Idempotency required. Log all transactions. Test edge cases: timeouts, duplicates, partial failures. |
 | **Permissions / RBAC** | Privilege escalation | Default deny. Test every role. Never grant admin implicitly. |
 | **Configuration / Environment** | Outages | Never hardcode environment values. Validate config at startup. Test with missing/invalid config. |
-| **API Contracts** | Breaking clients | Version the API. Never remove or rename fields without deprecation. Run `/blast-radius` first. |
+| **API Contracts** | Breaking clients | Version the API. Never remove or rename fields without deprecation. Run `/assess impact` first. |
 | **CI/CD Pipelines** | Broken deploys | Test pipeline changes in a branch first. Never modify main pipeline directly. |
 
 ## Layered Memory
@@ -189,48 +189,37 @@ See [standards/quality-gates.md](standards/quality-gates.md) for details.
 ## Workflow
 
 1. **Read** relevant standards and learnings before changing code
-2. **Assess** blast radius — what else might this change affect?
+2. **Assess** blast radius — run `/assess impact` to check what this change affects
 3. **Reconnaissance** — find 2+ existing examples of similar patterns
 4. **Implement** following patterns from existing code in the same area
 5. **Test** write tests alongside code, run with `/test`
-6. **Verify** run the Verification Protocol commands for your stack
-7. **Quality** run `/quality-gate` to check thresholds
-8. **Review** self-review using `/review` before committing
+6. **Verify** run the Verification Protocol commands for your stack, or dispatch `verify-app` agent
+7. **Review** self-review using `/review` before committing
 
 ## Skills
 
 Skills are interactive workflows invoked with `/skill-name`. They run in the current session.
 
 Inner-loop (daily use):
-- `/commit-push` - Stage + conventional commit + push (includes secret scan)
-- `/commit-push-pr` - Full cycle: commit + push + create PR (GitHub + Azure DevOps)
-- `/pr` - Create pull request with description
-- `/review` - Code review against standards
+- `/ship` - Stage + commit + push, optionally create PR (`/ship pr`, `/ship pr-only`)
 - `/test` - Generate and run tests
 - `/fix` - Fix failing tests or lint errors
+- `/review` - Code review against standards
 
-Feature workflows:
-- `/refactor` - Refactor with safety checks
-- `/security-audit` - OWASP-based security review
+Code quality:
+- `/refactor` - Refactor with safety checks and test verification
+- `/assess` - Security audit and/or blast radius analysis (`/assess security`, `/assess impact`)
+
+Documentation:
 - `/document` - Generate/update documentation
-- `/create-adr` - New architecture decision record
-- `/blast-radius` - Assess change impact
-- `/deploy-check` - Pre-deployment validation
-- `/quality-gate` - SonarQube + dependency scan
-- `/validate` - Check framework integrity + platform detection
 - `/learn` - Record a new learning
-- `/migrate-claude-md` - Migrate legacy CLAUDE.md to sectioned format
 
-Stack-specific:
-- `/add-endpoint` - New API endpoint (full vertical slice)
-- `/add-component` - New React component with tests
-- `/migrate-api` - API version migration
+Scaffolding:
+- `/scaffold` - Scaffold code from templates (`/scaffold dotnet endpoint`, `/scaffold react`, etc.)
+
+Framework:
 - `/setup-project` - Initialize framework in a project
-
-.NET-specific:
-- `/dotnet:add-provider` - Create .NET provider
-- `/dotnet:add-http-client` - Create typed HTTP client
-- `/dotnet:add-error-mapping` - Add error type + mapping
+- `/validate` - Check framework integrity + platform detection
 
 ## Agents
 
@@ -238,17 +227,16 @@ Background agents (dispatch for parallel work). They run autonomously and report
 
 | Agent | Purpose | Tools |
 |-------|---------|-------|
-| **verify-app** | The "finisher": build + tests + lint + security + quality in one pass | Bash (read-only) |
-| **code-architect** | Designs before implementing: analyzes codebase, proposes 2 options | Read-only |
-| **oncall-guide** | Production incident debugging: logs, traces, root cause, fix + rollback | Read-only |
-| **doc-generator** | Generates/updates documentation for changed files | Read, Write |
-| **code-simplifier** | Reduces cyclomatic complexity with reconnaissance | Read, Write, Bash |
+| **verify-app** | The "finisher": build + tests + lint + security + quality + config + git status in one pass | Bash, Read, Glob, Grep |
+| **code-architect** | Designs before implementing: analyzes codebase, proposes 2 options | Read, Glob, Grep |
+| **oncall-guide** | Production incident debugging: logs, traces, root cause, fix + rollback | Read, Glob, Grep, Bash |
+| **code-simplifier** | Reduces cyclomatic complexity with reconnaissance | Read, Write, Grep, Glob, Bash |
 
 ## Parallel Work
 
 Multiple Claude instances can work simultaneously. Each should:
 - Work on separate files/features to avoid conflicts
 - Run verify-app agent after making changes
-- Use `/blast-radius` before large refactors
+- Use `/assess impact` before large refactors
 - Record learnings discovered during work
 <!-- END:AI-FRAMEWORK -->

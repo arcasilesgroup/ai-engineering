@@ -136,9 +136,8 @@ exit 0
 To add support for a new git platform (e.g., GitLab):
 
 1. Update `.claude/skills/utils/platform-detection.md` with detection logic
-2. Update `/commit-push-pr` skill with PR creation commands
-3. Update `/pr` skill with PR creation commands
-4. Add CLI permission to `.claude/settings.json`
+2. Update `/ship` skill with PR creation commands for the new platform
+3. Add CLI permission to `.claude/settings.json`
 5. Create `.github/instructions/platform.instructions.md` entry
 6. Update `scripts/install.sh` platform detection
 7. Document in `README.md`
