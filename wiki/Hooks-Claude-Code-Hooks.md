@@ -75,12 +75,21 @@ exit 0
 | `rm -rf ~` | Home directory deletion |
 | `rm -rf .` | Current directory deletion |
 | `:(){ :|:& };:` | Fork bomb |
+| `git commit` (with secrets) | Runs gitleaks on staged files before any commit |
 
 ### How It Works
 
-1. Receives the command as input
-2. Checks against blocked patterns
-3. Returns exit code 2 to block, 0 to allow
+1. Receives the command as JSON input from Claude Code
+2. Checks against blocked patterns (force push, destructive rm, etc.)
+3. For `git commit` commands, runs gitleaks on staged files
+4. Returns exit code 2 to block, 0 to allow
+
+### Gitleaks Enforcement
+
+When any `git commit` command is intercepted:
+- If gitleaks is installed: scans staged files, blocks if secrets found
+- If gitleaks is not installed: prints a warning but allows the commit (fail-open)
+- This ensures AI-initiated commits are always scanned, complementing the git pre-commit hook
 
 ### Script Source
 

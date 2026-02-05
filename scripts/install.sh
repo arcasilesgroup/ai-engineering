@@ -589,6 +589,13 @@ configure_git_hooks() {
         mkdir -p "$hooks_dir"
     fi
 
+    # Install pre-commit hook for secret scanning
+    if [[ -f "$SCRIPT_DIR/scripts/hooks/pre-commit" ]]; then
+        cp "$SCRIPT_DIR/scripts/hooks/pre-commit" "$hooks_dir/pre-commit"
+        chmod +x "$hooks_dir/pre-commit"
+        echo -e "    ${GREEN}✓${NC} Pre-commit secret scanning hook installed"
+    fi
+
     # Install pre-push hook for vulnerability checking
     if [[ -f "$SCRIPT_DIR/scripts/hooks/pre-push" ]]; then
         cp "$SCRIPT_DIR/scripts/hooks/pre-push" "$hooks_dir/pre-push"

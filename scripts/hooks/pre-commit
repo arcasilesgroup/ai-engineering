@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+# =============================================================================
+# Pre-Commit Hook: Secret Scanning with Gitleaks
+# =============================================================================
+# Scans staged files for secrets before allowing commit.
+#
+# Policy:
+#   - Secrets detected: BLOCK commit
+#   - Gitleaks not installed: WARN but allow commit
+#
+# Install: cp scripts/hooks/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
+# Bypass (NOT recommended): git commit --no-verify
+# =============================================================================
+
+set -euo pipefail
+
+# Colors
+RED='\033[0;31m'
+YELLOW='\033[1;33m'
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+NC='\033[0m'
+
+echo -e "${BLUE}🔍 Scanning staged files for secrets...${NC}"
+
+# Check if gitleaks is available
+if ! command -v gitleaks &>/dev/null; then
+    echo -e "${YELLOW}⚠  gitleaks not installed - skipping secret scan${NC}"
+    echo -e "   Install: ${BLUE}brew install gitleaks${NC} (macOS) or see https://github.com/gitleaks/gitleaks"
+    exit 0
+fi
+
+# Run gitleaks on staged files only (gitleaks 8.x: protect --staged)
+if ! gitleaks protect --staged 2>/dev/null; then
+    echo ""
+    echo -e "${RED}╔══════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${RED}║  🚫 Commit BLOCKED: secrets detected in staged files         ║${NC}"
+    echo -e "${RED}╚══════════════════════════════════════════════════════════════╝${NC}"
+    echo ""
+    echo -e "Options:"
+    echo -e "  1. Remove the secrets and try again"
+    echo -e "  2. Add to ${BLUE}.gitleaksignore${NC} if it's a false positive"
+    echo -e "  3. Use ${BLUE}git commit --no-verify${NC} to bypass (NOT recommended)"
+    echo ""
+    echo -e "Review details:"
+    echo -e "  ${BLUE}gitleaks protect --staged --verbose${NC}"
+    exit 1
+fi
+
+echo -e "${GREEN}✅ No secrets detected${NC}"
+exit 0
