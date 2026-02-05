@@ -1,15 +1,15 @@
-# Git Submodule Approach
+# Submodule Approach
 
-This document evaluates using git submodules as an alternative to the install script for managing the AI Engineering Framework.
+> Using git submodules to manage the framework (for power users).
 
 ## TL;DR
 
-**Not recommended as the primary approach.** The install script provides better customization support, simpler CI/CD, and native team content handling. Submodules are documented here for power users who have specific requirements.
+**Not recommended as the primary approach.** The install script provides better customization support, simpler CI/CD, and native team content handling. This document is for power users with specific requirements.
 
 ## Comparison
 
-| Aspect | Install Script (Recommended) | Git Submodule |
-|--------|------------------------------|---------------|
+| Aspect | Install Script | Git Submodule |
+|--------|----------------|---------------|
 | **Customization** | Easy — files are copied, fully editable | Hard — submodule is read-only |
 | **CLAUDE.md editing** | Direct file editing | Cannot edit (symlink to submodule) |
 | **Team content** | Native support via TEAM section | Requires overlay pattern |
@@ -27,39 +27,21 @@ If `CLAUDE.md` is a symlink to the submodule, teams cannot:
 - Add project-specific content
 - Customize Critical Rules
 - Add custom Danger Zones
-- Override any framework defaults
 
-**Workaround:** Don't symlink CLAUDE.md. Copy it and manage separately.
+**Workaround:** Copy CLAUDE.md instead of symlinking.
 
 ### 2. context/ and learnings/ Are Project-Specific
 
 These directories must contain project-specific content:
 - `context/project.md` — Your project description
-- `context/architecture.md` — Your architecture
 - `learnings/*.md` — Accumulated team knowledge
 
-**Workaround:** These directories should NOT be in the submodule. They must be in the main repo.
+**Workaround:** Keep these in the main repo, not the submodule.
 
-### 3. custom/ Directories Need Project Storage
-
-Custom skills and agents (`skills/custom/`, `agents/custom/`) are project-specific:
-- Teams add their own skills
-- These should be version-controlled with the project
-
-**Workaround:** Create overlay directories in the main repo.
-
-### 4. settings.json Needs Per-Project Permissions
-
-Each project has different permission requirements:
-- Which bash commands are allowed
-- Custom hooks
-- Project-specific tool permissions
-
-**Workaround:** Maintain a separate `settings.json` in the main repo.
-
-### 5. CI/CD Complexity
+### 3. CI/CD Complexity
 
 Every CI/CD pipeline needs:
+
 ```yaml
 - uses: actions/checkout@v4
   with:
@@ -68,9 +50,9 @@ Every CI/CD pipeline needs:
 
 Forgetting `recursive` causes cryptic failures.
 
-## Hybrid Pattern (If You Must Use Submodules)
+## Hybrid Pattern (If You Must)
 
-For teams that still want submodules (e.g., ensuring framework consistency across many repos), use this hybrid pattern:
+For teams that still want submodules, use this hybrid pattern:
 
 ### Directory Structure
 
@@ -79,27 +61,22 @@ your-project/
 ├── .ai-engineering/           # Submodule (read-only reference)
 │   ├── .claude/
 │   ├── standards/
-│   ├── CLAUDE.framework.md
 │   └── ...
-├── CLAUDE.md                  # Project file (NOT symlink, copied)
+├── CLAUDE.md                  # Project file (copied, NOT symlink)
 ├── .claude/
 │   ├── settings.json          # Project-specific (NOT symlink)
 │   ├── skills/
 │   │   ├── custom/            # Project custom skills
-│   │   └── -> ../.ai-engineering/.claude/skills/*  # Symlinks OK
+│   │   └── -> ../.ai-engineering/.claude/skills/*
 │   ├── agents/
 │   │   ├── custom/            # Project custom agents
-│   │   └── -> ../.ai-engineering/.claude/agents/*  # Symlinks OK
+│   │   └── -> ../.ai-engineering/.claude/agents/*
 │   └── hooks/
-│       └── -> ../.ai-engineering/.claude/hooks/*   # Symlinks OK
+│       └── -> ../.ai-engineering/.claude/hooks/*
 ├── standards/
-│   └── -> .ai-engineering/standards/*  # Symlinks OK
+│   └── -> .ai-engineering/standards/*
 ├── context/                   # Project-specific (no symlinks)
-│   ├── project.md
-│   ├── architecture.md
-│   └── ...
 └── learnings/                 # Project-specific (no symlinks)
-    └── ...
 ```
 
 ### Setup Script
@@ -114,7 +91,7 @@ SUBMODULE_PATH=".ai-engineering"
 
 # Add submodule if not present
 if [[ ! -d "$SUBMODULE_PATH" ]]; then
-  git submodule add https://github.com/your-org/ai-engineering.git "$SUBMODULE_PATH"
+  git submodule add https://github.com/arcasilesgroup/ai-engineering.git "$SUBMODULE_PATH"
 fi
 
 # Initialize and update
@@ -142,7 +119,7 @@ for skill_dir in "$SUBMODULE_PATH/.claude/skills/"*/; do
   fi
 done
 
-echo "Hybrid setup complete. Edit CLAUDE.md and context/ as needed."
+echo "Hybrid setup complete."
 ```
 
 ### Updating the Submodule
@@ -159,26 +136,23 @@ git commit -m "chore: update ai-engineering framework to v2.1.0"
 
 ### CI/CD Configuration
 
-GitHub Actions:
+**GitHub Actions:**
 ```yaml
-jobs:
-  build:
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-```
-
-Azure Pipelines:
-```yaml
-steps:
-  - checkout: self
+- uses: actions/checkout@v4
+  with:
     submodules: recursive
 ```
 
-## When Submodules Might Make Sense
+**Azure Pipelines:**
+```yaml
+- checkout: self
+  submodules: recursive
+```
+
+## When Submodules Make Sense
 
 Consider submodules if:
+
 1. You have 50+ repos and need guaranteed consistency
 2. You have a dedicated platform team managing the framework
 3. You want to prevent any framework modifications
@@ -199,9 +173,9 @@ scripts/install.sh --update --target .
 Benefits:
 - Simple setup and updates
 - Full customization support
-- Native CLAUDE.md sectioning (framework + team content)
+- Native CLAUDE.md sectioning
 - No CI/CD changes needed
-- No symlink management
 - Works offline after install
 
-The install script with CLAUDE.md sectioning gives you the best of both worlds: automatic framework updates AND full customization.
+---
+**See also:** [Quick Install](Installation-Quick-Install) | [Updating](Installation-Updating)

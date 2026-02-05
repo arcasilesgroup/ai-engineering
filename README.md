@@ -1,47 +1,69 @@
+<div align="center">
+
 # AI Engineering Framework
 
-> Zero-dependency, AI-native framework for software engineering teams. Skills, agents, hooks, quality gates, and CI/CD — all in markdown.
+**The production-ready framework for AI-assisted software development**
 
-## What Is This?
+[![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)](https://github.com/arcasilesgroup/ai-engineering/releases)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Claude Code](https://img.shields.io/badge/Claude%20Code-Compatible-purple.svg)](https://claude.ai/code)
 
-A collection of **markdown files** that AI coding agents (Claude Code, GitHub Copilot) read natively to enforce your team's standards, automate workflows, and maintain quality. No CLI, no build step, no dependencies.
+[Documentation](https://github.com/arcasilesgroup/ai-engineering/wiki) |
+[Quick Start](#quick-start) |
+[Features](#features) |
+[Contributing](CONTRIBUTING.md)
+
+</div>
+
+---
+
+## Why AI Engineering Framework?
+
+Traditional coding standards live in documents nobody reads. **This framework embeds standards directly into your AI assistant.**
 
 ```
-Your Project + AI Engineering Framework = Consistent, Secure, Quality Code
+Before: "Please follow our coding standards" -> AI ignores them
+After:  Standards loaded automatically -> AI enforces them
 ```
+
+**Zero dependencies. Pure markdown. Works with Claude Code out of the box.**
+
+---
 
 ## Quick Start
 
 ### 1. Install
 
 ```bash
-git clone https://github.com/your-org/ai-engineering.git /tmp/ai-engineering
+# Clone the framework
+git clone https://github.com/arcasilesgroup/ai-engineering.git /tmp/ai-framework
 
-/tmp/ai-engineering/scripts/install.sh \
-  --name "MyProject" \
-  --stacks dotnet,typescript \
-  --cicd github
-```
-
-**With automatic tool installation:**
-
-```bash
-/tmp/ai-engineering/scripts/install.sh \
+# Install in your project
+/tmp/ai-framework/scripts/install.sh \
   --name "MyProject" \
   --stacks dotnet,typescript \
   --cicd github \
   --install-tools
 ```
 
-This installs gitleaks, gh CLI, and configures a pre-push vulnerability check hook.
+### 2. Verify
 
-### 2. Customize
+Open Claude Code in your project and run:
 
-Edit `context/project.md` with your project details and review `CLAUDE.md`.
+```
+/validate
+```
 
 ### 3. Use
 
-Open Claude Code and type `/commit`, `/review`, `/test`, or any available skill.
+Type `/` to see available skills:
+
+- `/commit` — Smart commits with secret scanning
+- `/review` — Code review against your standards
+- `/test` — Generate and run tests
+- `/pr` — Create pull requests (GitHub + Azure DevOps)
+
+**[Full documentation](https://github.com/arcasilesgroup/ai-engineering/wiki)**
 
 ---
 
@@ -49,311 +71,130 @@ Open Claude Code and type `/commit`, `/review`, `/test`, or any available skill.
 
 ### Skills (21)
 
-Interactive workflows invoked with `/skill-name`. They run in the current session.
+Interactive workflows that execute in your current session.
 
-| Skill | Description | Auto-invocable |
-|-------|-------------|:--------------:|
-| `/commit` | Smart commit with secret scanning | No |
-| `/commit-push-pr` | Full cycle: commit + push + PR (GitHub + Azure DevOps) | No |
-| `/pr` | Create structured pull request (GitHub + Azure DevOps) | No |
-| `/review` | Code review against standards | Yes |
-| `/test` | Generate and run tests | Yes |
-| `/fix` | Fix build, test, or lint errors | Yes |
-| `/refactor` | Refactor with test verification | No |
-| `/security-audit` | OWASP Top 10 security review | No |
-| `/quality-gate` | Run quality gate checks | No |
-| `/blast-radius` | Analyze impact of changes | Yes |
-| `/deploy-check` | Pre-deployment verification | No |
-| `/document` | Generate documentation | No |
-| `/create-adr` | Create Architecture Decision Record | No |
-| `/learn` | Record a learning for future sessions | Yes |
-| `/validate` | Validate framework + platform detection | Yes |
-| `/setup-project` | Initialize new project | No |
-| `/add-endpoint` | Scaffold .NET API endpoint | No |
-| `/add-component` | Scaffold React component | No |
-| `/migrate-api` | Migrate API version | No |
-| `/dotnet:add-provider` | Create .NET provider | No |
-| `/dotnet:add-http-client` | Create typed HTTP client | No |
-| `/dotnet:add-error-mapping` | Add error type + mapping | No |
+| Category | Skills |
+|----------|--------|
+| **Git** | `/commit`, `/pr`, `/commit-push-pr` |
+| **Quality** | `/review`, `/test`, `/fix`, `/refactor` |
+| **Security** | `/security-audit`, `/quality-gate` |
+| **Documentation** | `/document`, `/create-adr` |
+| **Setup** | `/validate`, `/setup-project`, `/learn` |
 
-### Background Agents (5)
+### Agents (6)
 
-Autonomous agents dispatched for parallel work. They run independently and report results.
+Background workers for autonomous tasks.
 
 | Agent | Purpose |
 |-------|---------|
-| **verify-app** | The "finisher": build + tests + lint + security + quality in one pass |
-| **code-architect** | Designs before implementing: analyzes codebase, proposes 2 options |
-| **oncall-guide** | Production incident debugging: root cause, fix, rollback |
-| **doc-generator** | Update docs from code changes |
-| **code-simplifier** | Reduce complexity with pattern-aware reconnaissance |
-
-### Hooks (4 Claude Code + 1 Git)
-
-Shell scripts that run automatically in response to events.
-
-**Claude Code Hooks:**
-
-| Hook | Trigger | Action |
-|------|---------|--------|
-| `auto-format.sh` | After Edit/Write | Runs formatter for the file type |
-| `block-dangerous.sh` | Before Bash | Blocks force push, rm -rf, etc. |
-| `block-env-edit.sh` | Before Edit/Write | Blocks editing .env and credential files |
-| `notify.sh` | Notification | Desktop notification on macOS/Linux |
-
-**Git Hooks (installed via `--install-tools`):**
-
-| Hook | Trigger | Action |
-|------|---------|--------|
-| `pre-push` | Before git push | Checks dependencies for CRITICAL/HIGH vulnerabilities |
-
-The pre-push hook validates against GitHub Advisory Database:
-- **CRITICAL**: Blocks push until fixed
-- **HIGH**: Warns but allows push
-- Bypass (not recommended): `git push --no-verify`
+| `verify-app` | Build + test + lint + security in one pass |
+| `code-architect` | Design before implementing |
+| `oncall-guide` | Production debugging assistance |
+| `doc-generator` | Auto-update documentation |
+| `code-simplifier` | Reduce complexity |
 
 ### Standards (10)
 
-| Standard | Scope |
-|----------|-------|
-| `global.md` | Universal conventions |
-| `dotnet.md` | .NET / ASP.NET Core |
-| `typescript.md` | TypeScript / React |
-| `python.md` | Python |
-| `terraform.md` | Terraform / IaC |
-| `security.md` | OWASP, secrets, deps |
-| `quality-gates.md` | SonarQube, linters |
-| `cicd.md` | GitHub Actions + Azure Pipelines |
-| `testing.md` | Cross-stack testing |
-| `api-design.md` | REST API conventions |
+Stack-specific coding rules enforced by AI.
 
-### CI/CD (Dual Platform)
+- `.NET` / `TypeScript` / `Python` / `Terraform`
+- `Security` (OWASP) / `API Design` / `Testing`
+- `Quality Gates` (SonarQube thresholds)
+- `CI/CD` (GitHub Actions + Azure Pipelines)
 
-| Platform | Workflows |
-|----------|-----------|
-| **GitHub Actions** | CI, Security, Quality Gate |
-| **Azure Pipelines** | CI, Security, Quality Gate + 6 reusable templates |
+### Hooks (5)
 
-### Multi-Platform Support
+Automatic guards and formatters.
 
-The framework auto-detects your platform from the git remote URL:
-
-| Platform | CLI | PR Command | Work Item Linking |
-|----------|-----|------------|------------------|
-| **GitHub** | `gh` | `gh pr create` | `Closes #123` |
-| **Azure DevOps** | `az` | `az repos pr create` | `AB#123` |
-
----
-
-## Directory Structure
-
-```
-ai-engineering/
-├── CLAUDE.md                    # Master entry point for Claude Code
-├── VERSION                      # Framework version (semver)
-├── CHANGELOG.md                 # Version history
-├── UPGRADING.md                 # Migration guide between versions
-├── .claude/
-│   ├── settings.json            # Permissions + hooks config
-│   ├── skills/                  # 21 interactive skills
-│   │   ├── commit/SKILL.md
-│   │   ├── commit-push-pr/SKILL.md
-│   │   ├── pr/SKILL.md
-│   │   ├── ...
-│   │   ├── dotnet/              # Stack-specific skills
-│   │   ├── utils/               # Shared utilities (platform detection, git helpers)
-│   │   └── custom/              # Team custom skills (never overwritten)
-│   ├── agents/                  # 5 background agents
-│   │   ├── verify-app.md
-│   │   ├── code-architect.md
-│   │   ├── oncall-guide.md
-│   │   ├── doc-generator.md
-│   │   ├── code-simplifier.md
-│   │   └── custom/              # Team custom agents (never overwritten)
-│   └── hooks/                   # 4 hook scripts
-│       ├── auto-format.sh
-│       ├── block-dangerous.sh
-│       ├── block-env-edit.sh
-│       └── notify.sh
-├── .github/
-│   ├── copilot-instructions.md  # GitHub Copilot instructions
-│   ├── instructions/            # File-pattern-matched instructions
-│   └── workflows/               # GitHub Actions CI/CD
-├── pipelines/                   # Azure Pipelines CI/CD
-│   └── templates/               # Reusable pipeline templates
-├── standards/                   # 10 coding standards files
-├── context/                     # Project-specific context
-│   └── decisions/               # Architecture Decision Records
-├── learnings/                   # Accumulated knowledge
-├── workshop/                    # 11-module learning guide
-└── scripts/
-    ├── install.sh               # Framework installer + updater
-    ├── hooks/
-    │   └── pre-push             # Git pre-push vulnerability check
-    └── tool-configs/            # Dev tool configuration templates
-        ├── typescript.json      # npm devDependencies for linting
-        ├── python.txt           # requirements-dev.txt template
-        └── tflint.hcl           # Terraform linter config
-```
+| Hook | Trigger | Action |
+|------|---------|--------|
+| `auto-format` | After edit | Format code |
+| `block-dangerous` | Before bash | Block `rm -rf`, force push |
+| `block-env-edit` | Before edit | Protect `.env` files |
+| `pre-push` | Before push | Block critical vulnerabilities |
 
 ---
 
 ## How It Works
 
 ```
-CLAUDE.md (entry point)
-    │
-    ├── References standards/*.md for coding rules
-    ├── References learnings/*.md for accumulated knowledge
-    ├── Lists available skills in .claude/skills/
-    ├── Lists available agents in .claude/agents/
-    └── Hooks in .claude/hooks/ run automatically
-          │
-          ├── Skills: human-directed, multi-step workflows
-          │   /commit-push-pr → scan → commit → push → create PR
-          │   /review → read standards → analyze code → report
-          │
-          ├── Agents: autonomous, focused, background verification
-          │   verify-app → build → test → lint → security → quality → report
-          │   code-architect → analyze → propose options → plan
-          │
-          └── Hooks: automatic, event-driven guards
-              auto-format → detect type → format
-              block-dangerous → check command → allow/block
+CLAUDE.md (loaded automatically by Claude Code)
+├── References -> standards/*.md
+├── References -> learnings/*.md
+├── Lists -> .claude/skills/
+└── Lists -> .claude/agents/
+
+        |
+        v
+
+AI reads your standards and enforces them
+• "Use Result<T> pattern" -> AI uses Result<T>
+• "Never hardcode secrets" -> AI warns you
+• "Run tests before PR" -> AI runs tests
 ```
 
 ---
 
-## Production Reliability (Boris Cherny Workflow)
+## Installation Options
 
-The framework enforces 6 production reliability practices:
+| Method | Best For | Command |
+|--------|----------|---------|
+| **Script** | New projects | `./install.sh --name X --stacks Y` |
+| **Update** | Existing projects | `./install.sh --update` |
+| **Submodule** | Monorepos | [See wiki](https://github.com/arcasilesgroup/ai-engineering/wiki/Advanced-Submodule-Approach) |
 
-1. **Verification Protocol** — Exact commands per stack. Never "should work."
-2. **Reconnaissance Before Writing** — Search for 2+ existing patterns before implementing.
-3. **Two Options for High Stakes** — Propose A and B with pros/cons. Wait for approval.
-4. **Danger Zones** — Extra caution for auth, DB, payments, permissions, config, API contracts, CI/CD.
-5. **Layered Memory** — Global → Project → Personal context, loaded in order.
-6. **Reliability Template** — Goal → Constraints → Recon → Plan → Wait → Implement → Verify → Summarize.
+### Install Flags
 
-See [workshop/09-boris-cherny-workflow.md](workshop/09-boris-cherny-workflow.md) for the full guide.
-
----
-
-## Three-Layer Architecture
-
-```
-┌──────────────────────────────────────────────┐
-│ LAYER 1: Framework (upstream, versioned)     │
-│ Skills, hooks, agents, standards, workshop   │
-│ → Updated via install.sh --update            │
-├──────────────────────────────────────────────┤
-│ LAYER 2: Team (project, committed)           │
-│ CLAUDE.md, context/, learnings/, custom/     │
-│ → Maintained by the team                     │
-├──────────────────────────────────────────────┤
-│ LAYER 3: Personal (local, NOT committed)     │
-│ CLAUDE.local.md, ~/.claude/CLAUDE.md         │
-│ → Individual engineer preferences            │
-└──────────────────────────────────────────────┘
-```
-
-Update with: `scripts/install.sh --update --target /path/to/project`
+| Flag | Description |
+|------|-------------|
+| `--name` | Project name (required) |
+| `--stacks` | `dotnet`, `typescript`, `python`, `terraform` |
+| `--cicd` | `github`, `azure`, `both` |
+| `--install-tools` | Install gitleaks, gh CLI, hooks |
+| `--skip-sdks` | Skip SDK verification |
+| `--exec` | Run `npm install` / `pip install` after |
 
 ---
 
-## Integration Options
+## Documentation
 
-### Option A: Install Script (Recommended)
+**[View Full Documentation](https://github.com/arcasilesgroup/ai-engineering/wiki)**
 
-```bash
-./scripts/install.sh --name "MyProject" --stacks dotnet,typescript --cicd github
-```
-
-**With tool installation:**
-
-```bash
-./scripts/install.sh \
-  --name "MyProject" \
-  --stacks dotnet,typescript \
-  --cicd github \
-  --install-tools    # Install gitleaks, gh CLI, configure pre-push hook
-```
-
-**All options:**
-
-| Option | Description |
-|--------|-------------|
-| `--name` | Project name (required for install) |
-| `--stacks` | Comma-separated: dotnet, typescript, python, terraform |
-| `--cicd` | Platform: github, azure, both (default: github) |
-| `--target` | Target directory (default: current) |
-| `--install-tools` | Install dev tools (gitleaks, gh/az CLI, pre-push hook) |
-| `--skip-sdks` | Skip SDK verification (dotnet, node, python, terraform) |
-| `--exec` | Run npm install / pip install after setup |
-| `--update` | Update existing installation |
-
-### Option B: Git Submodule
-
-```bash
-git submodule add <repo-url> .ai-engineering
-ln -s .ai-engineering/CLAUDE.md CLAUDE.md
-ln -s .ai-engineering/.claude .claude
-```
-
-### Option C: GitHub Template Repository
-
-Click "Use this template" on GitHub.
+| Section | Description |
+|---------|-------------|
+| [Getting Started](https://github.com/arcasilesgroup/ai-engineering/wiki/Getting-Started) | Install and configure |
+| [Skills](https://github.com/arcasilesgroup/ai-engineering/wiki/Skills-Overview) | All 21 workflows |
+| [Agents](https://github.com/arcasilesgroup/ai-engineering/wiki/Agents-Overview) | Background workers |
+| [Standards](https://github.com/arcasilesgroup/ai-engineering/wiki/Standards-Overview) | Coding rules |
+| [Hooks](https://github.com/arcasilesgroup/ai-engineering/wiki/Hooks-Overview) | Automation |
+| [CI/CD](https://github.com/arcasilesgroup/ai-engineering/wiki/CI-CD-GitHub-Actions) | Pipeline setup |
+| [Advanced](https://github.com/arcasilesgroup/ai-engineering/wiki/Advanced-Parallel-Work) | Power features |
+| [FAQ](https://github.com/arcasilesgroup/ai-engineering/wiki/FAQ) | Common questions |
 
 ---
 
-## Tool Compatibility
+## Compatibility
 
-| Tool | Support | How |
-|------|---------|-----|
-| **Claude Code** | Full | Skills + agents + hooks + standards + learnings + CLAUDE.md |
-| **GitHub Copilot** | Standards | `.github/copilot-instructions.md` + `.github/instructions/` |
-| **Cursor** | Partial | Reads CLAUDE.md and standards |
-| **VS Code + SonarLint** | Full | Connected mode with SonarQube Cloud |
-
-### Claude Code vs GitHub Copilot
-
-| Capability | Claude Code | Copilot |
-|-----------|:-----------:|:-------:|
-| Skills (`/commit`, `/pr`, etc.) | Full | No |
-| Agents (verify-app, code-architect) | Full | No |
-| Hooks (auto-format, security guards) | Full | No |
-| Terminal execution (build, test) | Full | No |
-| Standards enforcement | Active | Passive |
-| Multi-platform PRs (GitHub + AzDO) | Full | No |
-
-Copilot users get value from the framework as a **standards library** via `copilot-instructions.md`. The full automation (skills, agents, hooks, verification) is Claude Code only.
-
----
-
-## Workshop
-
-Learn the framework step by step:
-
-| Module | Topic |
-|--------|-------|
-| [00](workshop/00-introduction.md) | Introduction — What and why |
-| [01](workshop/01-installation.md) | Installation — Get started |
-| [02](workshop/02-first-commands.md) | First Skills — Daily workflow |
-| [03](workshop/03-standards-and-learnings.md) | Standards & Learnings |
-| [04](workshop/04-agents.md) | Agents — Background workers |
-| [05](workshop/05-quality-gates.md) | Quality Gates — SonarQube, Snyk |
-| [06](workshop/06-cicd-integration.md) | CI/CD — GitHub Actions + Azure |
-| [07](workshop/07-customization.md) | Customization — Extend the framework |
-| [08](workshop/08-advanced-workflows.md) | Advanced — Hooks, parallel work, MCP |
-| [09](workshop/09-boris-cherny-workflow.md) | Production Reliability — The Boris Cherny workflow |
-| [10](workshop/10-versioning.md) | Versioning — Updates, personalization |
+| Tool | Support |
+|------|---------|
+| **Claude Code** | Full (skills, agents, hooks) |
+| **GitHub Copilot** | Standards only |
+| **Cursor** | CLAUDE.md only |
 
 ---
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md).
+Contributions welcome! See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
-MIT - see [LICENSE](LICENSE).
+MIT — see [LICENSE](LICENSE).
+
+---
+
+<div align="center">
+
+Made with care for AI-assisted development
+
+</div>
