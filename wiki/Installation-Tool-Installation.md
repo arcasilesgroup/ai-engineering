@@ -38,7 +38,7 @@ sudo mv gitleaks /usr/local/bin/
 ```
 
 **Used by:**
-- `/commit` skill (scans staged files before commit)
+- `/commit-push` skill (scans staged files before commit)
 - `verify-app` agent (scans entire codebase)
 - `/security-audit` skill
 

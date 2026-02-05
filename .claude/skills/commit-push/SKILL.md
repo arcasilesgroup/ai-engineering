@@ -1,12 +1,12 @@
 ---
-name: commit
-description: Stage changes and create a conventional commit with secret scanning
+name: commit-push
+description: Stage changes, create a conventional commit with secret scanning, and push to remote
 disable-model-invocation: true
 ---
 
 ## Context
 
-Smart commit workflow that scans for secrets before staging, generates a conventional commit message based on the changes, and commits.
+Smart commit workflow that scans for secrets before staging, generates a conventional commit message based on the changes, commits, and pushes to the remote branch.
 
 ## Inputs
 
@@ -52,13 +52,21 @@ Keep the description under 72 characters. Use imperative mood ("add" not "added"
 - Stage the identified files
 - Create the commit with the generated message
 
-### 6. Verify
+### 6. Push to Remote
+
+- Determine current branch: `git branch --show-current`
+- Push with tracking: `git push -u origin <branch>`
+- If push fails due to upstream changes, inform the user and suggest `git pull --rebase`
+
+### 7. Verify
 
 - Run `git status` to confirm state
 - Run `git log --oneline -1` to confirm the commit message
+- Confirm push succeeded
 
 ## Verification
 
 - No secrets in the committed files
 - Commit message follows conventional format
 - Only related changes are in the commit (atomic)
+- Changes are pushed to remote

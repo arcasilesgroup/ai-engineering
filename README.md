@@ -58,7 +58,7 @@ Open Claude Code in your project and run:
 
 Type `/` to see available skills:
 
-- `/commit` — Smart commits with secret scanning
+- `/commit-push` — Smart commits with secret scanning + push
 - `/review` — Code review against your standards
 - `/test` — Generate and run tests
 - `/pr` — Create pull requests (GitHub + Azure DevOps)
@@ -75,7 +75,7 @@ Interactive workflows that execute in your current session.
 
 | Category | Skills |
 |----------|--------|
-| **Git** | `/commit`, `/pr`, `/commit-push-pr` |
+| **Git** | `/commit-push`, `/pr`, `/commit-push-pr` |
 | **Quality** | `/review`, `/test`, `/fix`, `/refactor` |
 | **Security** | `/security-audit`, `/quality-gate` |
 | **Documentation** | `/document`, `/create-adr` |

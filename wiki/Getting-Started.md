@@ -94,7 +94,7 @@ Try these commands to get familiar with the framework:
 |---------|--------------|
 | `/validate` | Check framework installation |
 | `/review staged` | Review your staged changes |
-| `/commit` | Smart commit with secret scanning |
+| `/commit-push` | Smart commit with secret scanning + push |
 | `/test` | Generate and run tests |
 | `/pr` | Create a pull request |
 

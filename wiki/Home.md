@@ -23,7 +23,7 @@ git clone https://github.com/arcasilesgroup/ai-engineering.git /tmp/ai-framework
 
 | Feature | Count | Examples |
 |---------|-------|----------|
-| **Skills** | 21 | `/commit`, `/review`, `/test`, `/pr` |
+| **Skills** | 21 | `/commit-push`, `/review`, `/test`, `/pr` |
 | **Agents** | 6 | verify-app, code-architect, oncall-guide |
 | **Standards** | 10 | .NET, TypeScript, Python, Terraform |
 | **Hooks** | 5 | auto-format, vulnerability check |
@@ -37,7 +37,7 @@ git clone https://github.com/arcasilesgroup/ai-engineering.git /tmp/ai-framework
 
 ### Use
 
-- [Skills](Skills-Overview) - Interactive workflows (`/commit`, `/review`, `/test`)
+- [Skills](Skills-Overview) - Interactive workflows (`/commit-push`, `/review`, `/test`)
 - [Agents](Agents-Overview) - Background workers (verify-app, code-architect)
 
 ### Reference
@@ -62,7 +62,7 @@ CLAUDE.md (entry point)
     └── Hooks in .claude/hooks/ run automatically
           │
           ├── Skills: human-directed, multi-step workflows
-          │   /commit → scan → commit
+          │   /commit-push → scan → commit → push
           │   /review → read standards → analyze → report
           │
           ├── Agents: autonomous, focused, background verification

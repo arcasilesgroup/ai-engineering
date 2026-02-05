@@ -2,12 +2,12 @@
 
 > The core skills you'll use every day: commit, review, test, and PR.
 
-## /commit
+## /commit-push
 
-**Smart commit with secret scanning.**
+**Smart commit with secret scanning and automatic push.**
 
 ```
-/commit
+/commit-push
 ```
 
 ### What It Does
@@ -16,6 +16,7 @@
 2. **Analyzes changes** — Reads `git diff` to understand what changed.
 3. **Generates commit message** — Follows Conventional Commits format.
 4. **Creates the commit** — Atomic, logically grouped.
+5. **Pushes to remote** — Pushes to origin with tracking.
 
 ### Conventional Commits Types
 
@@ -51,7 +52,7 @@ feat(auth): add JWT token refresh endpoint
 
 ### What It Does
 
-1. **Commits** — Same as `/commit` (with secret scanning)
+1. **Commits** — Same as `/commit-push` (with secret scanning)
 2. **Pushes** — Pushes to remote branch
 3. **Creates PR** — Opens a pull request with structured description
 

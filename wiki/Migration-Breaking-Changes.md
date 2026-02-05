@@ -118,6 +118,24 @@ cp <framework>/VERSION .ai-version
 echo ".ai-version" >> .gitignore
 ```
 
+### /commit Renamed to /commit-push
+
+**What Changed:**
+- The `/commit` skill is now `/commit-push`
+- The skill now includes automatic push to remote after committing
+- Same secret scanning and conventional commit message generation
+
+**Migration:**
+```
+# Old
+/commit
+
+# New
+/commit-push
+```
+
+**Why:** The new skill combines commit and push into a single workflow, reducing the steps needed for the common case of committing and immediately pushing changes.
+
 ---
 
 ## v1.x Breaking Changes
@@ -144,7 +162,7 @@ No breaking changes from previous versions (initial release).
   - [ ] Create `.ai-version`
   - [ ] Update `.gitignore`
 - [ ] Run `/validate`
-- [ ] Test skills: `/commit`, `/review`, `/test`
+- [ ] Test skills: `/commit-push`, `/review`, `/test`
 - [ ] Test agents: `verify-app`
 - [ ] Verify hooks work (edit a file, check auto-format)
 

@@ -158,7 +158,7 @@ applyTo: "**/Tests/**/*.cs"
 
 | Capability | Claude Code | Copilot |
 |-----------|:-----------:|:-------:|
-| Skills (`/commit`, `/pr`, etc.) | Full | No |
+| Skills (`/commit-push`, `/pr`, etc.) | Full | No |
 | Agents (verify-app, etc.) | Full | No |
 | Hooks (auto-format, guards) | Full | No |
 | Terminal execution | Full | No |

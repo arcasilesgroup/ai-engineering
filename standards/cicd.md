@@ -197,7 +197,7 @@ Feature Branch → PR → main → Staging → Production
     │              │      │        └── Auto-deploy after quality gates
     │              │      └── CI: build + test + security + quality
     │              └── PR checks must pass
-    └── Developer runs /commit, /test, /quality-gate
+    └── Developer runs /commit-push, /test, /quality-gate
 ```
 
 ### Environment Gates

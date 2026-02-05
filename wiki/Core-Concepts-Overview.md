@@ -25,7 +25,7 @@ AI coding agents are powerful but inconsistent without structure. They:
 | Missing tests | `/test` skill + test verification |
 | No quality gates | `/quality-gate` skill + SonarQube integration |
 | Lost knowledge | `learnings/*.md` — Accumulated patterns and gotchas |
-| Manual workflows | `/commit`, `/pr`, `/review` — Automated skills |
+| Manual workflows | `/commit-push`, `/pr`, `/review` — Automated skills |
 | Unsafe operations | `.claude/hooks/` — Auto-format, block dangerous commands |
 
 ## Philosophy
@@ -46,7 +46,7 @@ AI coding agents are powerful but inconsistent without structure. They:
 
 | Component | Count | Purpose |
 |-----------|-------|---------|
-| **Skills** | 21 | Interactive workflows (`/commit`, `/review`, `/test`) |
+| **Skills** | 21 | Interactive workflows (`/commit-push`, `/review`, `/test`) |
 | **Agents** | 6 | Background verification workers |
 | **Standards** | 10 | Stack-specific coding rules |
 | **Hooks** | 5 | Auto-format and safety guards |

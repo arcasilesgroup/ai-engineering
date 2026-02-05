@@ -202,7 +202,7 @@ See [standards/quality-gates.md](standards/quality-gates.md) for details.
 Skills are interactive workflows invoked with `/skill-name`. They run in the current session.
 
 Inner-loop (daily use):
-- `/commit` - Stage + conventional commit (includes secret scan)
+- `/commit-push` - Stage + conventional commit + push (includes secret scan)
 - `/commit-push-pr` - Full cycle: commit + push + create PR (GitHub + Azure DevOps)
 - `/pr` - Create pull request with description
 - `/review` - Code review against standards

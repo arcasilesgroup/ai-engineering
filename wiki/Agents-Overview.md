@@ -13,7 +13,7 @@ Agents are autonomous verification workers that run in the background. Unlike sk
 | Invocation | `/skill-name` | Claude dispatches them |
 | Interaction | Interactive, step-by-step | Autonomous, fire-and-forget |
 | Purpose | Multi-step workflows | Single-purpose verification |
-| Examples | `/commit`, `/review`, `/test` | verify-app, code-architect |
+| Examples | `/commit-push`, `/review`, `/test` | verify-app, code-architect |
 
 ## Available Agents (6)
 

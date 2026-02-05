@@ -62,7 +62,7 @@ See [Updating](Installation-Updating) for details.
 Type the skill name with a slash:
 
 ```
-/commit
+/commit-push
 /review staged
 /test src/services/
 ```
@@ -230,7 +230,7 @@ Run the installer again:
 
 1. Install gitleaks: `brew install gitleaks`
 2. Test: `gitleaks detect --source . --no-git`
-3. Check `/commit` skill is being used
+3. Check `/commit-push` skill is being used
 
 ---
 

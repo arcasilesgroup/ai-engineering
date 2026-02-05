@@ -18,7 +18,7 @@
 ### New Features
 
 #### Skills (21 total)
-- `/commit` — Smart commit with secret scanning
+- `/commit-push` — Smart commit with secret scanning + push
 - `/commit-push-pr` — Full cycle to PR
 - `/pr` — Create pull requests (GitHub + Azure DevOps)
 - `/review` — Code review against standards

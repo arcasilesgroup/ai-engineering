@@ -10,7 +10,7 @@ Skills are multi-step workflows that you invoke interactively. Unlike agents (wh
 
 | Skill | Description | Auto-invocable |
 |-------|-------------|:--------------:|
-| `/commit` | Smart commit with secret scanning | No |
+| `/commit-push` | Smart commit with secret scanning + push | No |
 | `/commit-push-pr` | Full cycle: commit + push + PR | No |
 | `/pr` | Create structured pull request | No |
 | `/review` | Code review against standards | Yes |
@@ -43,7 +43,7 @@ Skills marked "Auto-invocable" can be triggered automatically by Claude when app
 ## Skill Categories
 
 ### Git Workflow
-- [/commit](Skills-Daily-Workflow#commit) - Stage and commit with secret scanning
+- [/commit-push](Skills-Daily-Workflow#commit-push) - Stage, commit, and push with secret scanning
 - [/commit-push-pr](Skills-Daily-Workflow#commit-push-pr) - Full cycle to PR
 - [/pr](Skills-Daily-Workflow#pr) - Create pull requests
 
