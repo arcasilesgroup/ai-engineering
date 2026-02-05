@@ -6,7 +6,7 @@
 
 Skills are multi-step workflows that you invoke interactively. Unlike agents (which run in the background), skills execute step-by-step with your input and feedback.
 
-## Available Skills (21)
+## Available Skills (23)
 
 | Skill | Description | Auto-invocable |
 |-------|-------------|:--------------:|
@@ -29,6 +29,7 @@ Skills are multi-step workflows that you invoke interactively. Unlike agents (wh
 | `/add-endpoint` | Scaffold .NET API endpoint | No |
 | `/add-component` | Scaffold React component | No |
 | `/migrate-api` | Migrate API version | No |
+| `/migrate-claude-md` | Migrate legacy CLAUDE.md to sectioned format | No |
 | `/dotnet:add-provider` | Create .NET provider | No |
 | `/dotnet:add-http-client` | Create typed HTTP client | No |
 | `/dotnet:add-error-mapping` | Add error type + mapping | No |
@@ -65,6 +66,7 @@ Skills marked "Auto-invocable" can be triggered automatically by Claude when app
 - [/validate](Skills-Daily-Workflow#validate) - Check installation
 - [/setup-project](Installation-Quick-Install) - Initialize project
 - [/learn](Skills-Documentation#learn) - Record learnings
+- [/migrate-claude-md](Installation-Manual-Setup) - Migrate legacy CLAUDE.md
 
 ## How Skills Work
 

@@ -46,10 +46,10 @@ AI coding agents are powerful but inconsistent without structure. They:
 
 | Component | Count | Purpose |
 |-----------|-------|---------|
-| **Skills** | 21 | Interactive workflows (`/commit-push`, `/review`, `/test`) |
-| **Agents** | 6 | Background verification workers |
+| **Skills** | 23 | Interactive workflows (`/commit-push`, `/review`, `/test`) |
+| **Agents** | 5 | Background verification workers |
 | **Standards** | 10 | Stack-specific coding rules |
-| **Hooks** | 5 | Auto-format and safety guards |
+| **Hooks** | 5 + 2 Git | Auto-format, safety guards, secret scan |
 | **CI/CD Templates** | 2 platforms | GitHub Actions + Azure Pipelines |
 
 ## Next Steps

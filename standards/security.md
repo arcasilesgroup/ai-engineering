@@ -170,6 +170,8 @@ appsettings.*.json
 
 ### Secret Scanning Anti-Patterns
 
+> See also: CLAUDE.md Critical Rules #2 ("Never hardcode secrets, tokens, or credentials")
+
 | Anti-Pattern | Problem | Correct Approach |
 |-------------|---------|-----------------|
 | Secrets in source code | Exposed in Git history | Use environment variables or vault |

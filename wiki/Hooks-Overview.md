@@ -9,7 +9,7 @@ Hooks are shell scripts that execute automatically when certain events occur. Th
 1. **Claude Code Hooks** — Run during Claude Code sessions
 2. **Git Hooks** — Run during git operations
 
-## Claude Code Hooks (4)
+## Claude Code Hooks (5)
 
 | Hook | Trigger | Purpose |
 |------|---------|---------|
@@ -17,6 +17,7 @@ Hooks are shell scripts that execute automatically when certain events occur. Th
 | `block-dangerous.sh` | Before Bash | Blocks force push, `rm -rf`, etc. |
 | `block-env-edit.sh` | Before Edit/Write | Prevents editing `.env` files |
 | `notify.sh` | Notification | Desktop alerts when Claude needs attention |
+| `version-check.sh` | Session start | Checks for framework updates (24h cache) |
 
 ## Git Hooks (2)
 
@@ -53,7 +54,8 @@ Hooks are shell scripts that execute automatically when certain events occur. Th
     ├── auto-format.sh
     ├── block-dangerous.sh
     ├── block-env-edit.sh
-    └── notify.sh
+    ├── notify.sh
+    └── version-check.sh
 
 .git/
 └── hooks/

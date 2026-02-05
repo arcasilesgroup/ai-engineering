@@ -15,15 +15,15 @@ Agents are autonomous verification workers that run in the background. Unlike sk
 | Purpose | Multi-step workflows | Single-purpose verification |
 | Examples | `/commit-push`, `/review`, `/test` | verify-app, code-architect |
 
-## Available Agents (6)
+## Available Agents (5)
 
 | Agent | Purpose | Tools |
 |-------|---------|-------|
 | [verify-app](Agents-verify-app) | Build + test + lint + security in one pass | Bash, Read, Glob, Grep |
 | [code-architect](Agents-code-architect) | Design before implementing | Read, Glob, Grep |
 | [oncall-guide](Agents-oncall-guide) | Production incident debugging | Read, Glob, Grep, Bash |
-| doc-generator | Update docs from code changes | Read, Write |
-| code-simplifier | Reduce complexity | Read, Write, Bash |
+| [doc-generator](Agents-doc-generator) | Update docs from code changes | Read, Write |
+| [code-simplifier](Agents-code-simplifier) | Reduce complexity | Read, Write, Bash |
 | Custom agents | Your team's agents | Varies |
 
 ## How to Use Agents
@@ -108,4 +108,4 @@ Agents are stored in `.claude/agents/`:
 ```
 
 ---
-**See also:** [verify-app](Agents-verify-app) | [code-architect](Agents-code-architect) | [Custom Agents](Customization-Custom-Agents)
+**See also:** [verify-app](Agents-verify-app) | [code-architect](Agents-code-architect) | [doc-generator](Agents-doc-generator) | [code-simplifier](Agents-code-simplifier) | [Custom Agents](Customization-Custom-Agents)

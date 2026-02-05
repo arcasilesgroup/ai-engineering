@@ -17,8 +17,15 @@ set -euo pipefail
 # ---------------------------------------------------------------------------
 CACHE_FILE="${HOME}/.ai-engineering-version-cache"
 CACHE_TTL=86400  # 24 hours in seconds
-REPO_OWNER="anthropics"  # TODO: Update when repo is public
-REPO_NAME="ai-engineering"
+# Detect repo owner/name from git remote, with fallback
+_remote_url="$(cd "${CLAUDE_PROJECT_DIR:-$(pwd)}" && git config --get remote.origin.url 2>/dev/null || echo "")"
+if [[ "$_remote_url" =~ github\.com[:/]([^/]+)/([^/.]+) ]]; then
+    REPO_OWNER="${BASH_REMATCH[1]}"
+    REPO_NAME="${BASH_REMATCH[2]}"
+else
+    REPO_OWNER="arcasilesgroup"
+    REPO_NAME="ai-engineering"
+fi
 DEPRECATIONS_FILE="${CLAUDE_PROJECT_DIR:-$(pwd)}/DEPRECATIONS.json"
 LOCAL_VERSION_FILE="${CLAUDE_PROJECT_DIR:-$(pwd)}/.ai-version"
 

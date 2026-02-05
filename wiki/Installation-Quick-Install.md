@@ -82,37 +82,16 @@ After installing, open Claude Code and run:
 /validate
 ```
 
-Expected output:
+Expected output (abbreviated):
 ```
 ## Framework Validation Report
-
 **Status:** VALID
 **Version:** 2.0.0
-
-### Files
-- [x] CLAUDE.md
-- [x] .claude/settings.json
-- [x] Skills: 21 found
-- [x] Agents: 6 found
-- [x] Hooks: 4 found (4 executable)
-- [x] Standards: 10 found
-
-### Platform
-- [x] Platform: GitHub
-- [x] CLI: gh installed
-- [x] Auth: Authenticated
-
-### Tools
-- [x] gitleaks: installed
-- [x] Pre-commit hook: installed
-- [x] Pre-push hook: installed
-- [x] Stack tools: configured
-
-### Warnings
-(none)
-
+...
 Framework is correctly installed.
 ```
+
+See [/validate full output example](Skills-Daily-Workflow#validate) for the complete report format.
 
 ## What Gets Installed
 
@@ -122,9 +101,9 @@ your-project/
 ├── CLAUDE.local.md.example      # Template for personal overrides
 ├── .claude/
 │   ├── settings.json            # Permissions + hooks config
-│   ├── skills/                  # 21 interactive skills
-│   ├── agents/                  # 6 background agents
-│   └── hooks/                   # 4 hook scripts
+│   ├── skills/                  # 23 interactive skills
+│   ├── agents/                  # 5 background agents
+│   └── hooks/                   # 5 hook scripts
 ├── standards/                   # 10 coding standards
 ├── context/                     # Project context templates
 ├── learnings/                   # Accumulated knowledge templates

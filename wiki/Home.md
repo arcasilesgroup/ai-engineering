@@ -23,10 +23,10 @@ git clone https://github.com/arcasilesgroup/ai-engineering.git /tmp/ai-framework
 
 | Feature | Count | Examples |
 |---------|-------|----------|
-| **Skills** | 21 | `/commit-push`, `/review`, `/test`, `/pr` |
-| **Agents** | 6 | verify-app, code-architect, oncall-guide |
+| **Skills** | 23 | `/commit-push`, `/review`, `/test`, `/pr` |
+| **Agents** | 5 | verify-app, code-architect, oncall-guide |
 | **Standards** | 10 | .NET, TypeScript, Python, Terraform |
-| **Hooks** | 5 | auto-format, vulnerability check |
+| **Hooks** | 5 + 2 Git | auto-format, secret scan, vulnerability check |
 
 ## Navigation
 

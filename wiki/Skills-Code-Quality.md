@@ -242,4 +242,4 @@ Ready to merge.
 ```
 
 ---
-**See also:** [Daily Workflow Skills](Skills-Daily-Workflow) | [Security Skills](Skills-Security)
+**See also:** [Daily Workflow Skills](Skills-Daily-Workflow) (quick reference for /review, /test, /fix) | [Security Skills](Skills-Security)

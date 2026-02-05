@@ -8,6 +8,8 @@ Stack-specific learnings for C# / .NET / ASP.NET Core development.
 
 ### [2024-01] Accessing Result.Value Without Check
 
+> See also: CLAUDE.md Critical Rules #1, learnings/global.md "Result Pattern is Non-Negotiable"
+
 **Context:** Working with `Result<T>` return types
 **Learning:** NEVER access `.Value` without checking `.IsError` first - throws `InvalidOperationException`
 **Correct Pattern:**

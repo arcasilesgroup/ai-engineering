@@ -69,7 +69,7 @@ Type `/` to see available skills:
 
 ## Features
 
-### Skills (21)
+### Skills (23)
 
 Interactive workflows that execute in your current session.
 
@@ -77,11 +77,12 @@ Interactive workflows that execute in your current session.
 |----------|--------|
 | **Git** | `/commit-push`, `/pr`, `/commit-push-pr` |
 | **Quality** | `/review`, `/test`, `/fix`, `/refactor` |
-| **Security** | `/security-audit`, `/quality-gate` |
-| **Documentation** | `/document`, `/create-adr` |
-| **Setup** | `/validate`, `/setup-project`, `/learn` |
+| **Security** | `/security-audit`, `/quality-gate`, `/blast-radius`, `/deploy-check` |
+| **Documentation** | `/document`, `/create-adr`, `/learn` |
+| **Setup** | `/validate`, `/setup-project`, `/migrate-claude-md` |
+| **Stack-specific** | `/add-endpoint`, `/add-component`, `/migrate-api`, `/dotnet:*` (3) |
 
-### Agents (6)
+### Agents (5)
 
 Background workers for autonomous tasks.
 
@@ -102,16 +103,19 @@ Stack-specific coding rules enforced by AI.
 - `Quality Gates` (SonarQube thresholds)
 - `CI/CD` (GitHub Actions + Azure Pipelines)
 
-### Hooks (5)
+### Hooks (5 Claude Code + 2 Git)
 
 Automatic guards and formatters.
 
-| Hook | Trigger | Action |
-|------|---------|--------|
-| `auto-format` | After edit | Format code |
-| `block-dangerous` | Before bash | Block `rm -rf`, force push |
-| `block-env-edit` | Before edit | Protect `.env` files |
-| `pre-push` | Before push | Block critical vulnerabilities |
+| Hook | Type | Trigger | Action |
+|------|------|---------|--------|
+| `auto-format` | Claude Code | After edit | Format code |
+| `block-dangerous` | Claude Code | Before bash | Block `rm -rf`, force push |
+| `block-env-edit` | Claude Code | Before edit | Protect `.env` files |
+| `notify` | Claude Code | Notification | Desktop alerts |
+| `version-check` | Claude Code | Session start | Check for framework updates |
+| `pre-commit` | Git | Before commit | Scan for secrets (gitleaks) |
+| `pre-push` | Git | Before push | Block critical vulnerabilities |
 
 ---
 
@@ -163,7 +167,7 @@ AI reads your standards and enforces them
 | Section | Description |
 |---------|-------------|
 | [Getting Started](https://github.com/arcasilesgroup/ai-engineering/wiki/Getting-Started) | Install and configure |
-| [Skills](https://github.com/arcasilesgroup/ai-engineering/wiki/Skills-Overview) | All 21 workflows |
+| [Skills](https://github.com/arcasilesgroup/ai-engineering/wiki/Skills-Overview) | All 23 workflows |
 | [Agents](https://github.com/arcasilesgroup/ai-engineering/wiki/Agents-Overview) | Background workers |
 | [Standards](https://github.com/arcasilesgroup/ai-engineering/wiki/Standards-Overview) | Coding rules |
 | [Hooks](https://github.com/arcasilesgroup/ai-engineering/wiki/Hooks-Overview) | Automation |

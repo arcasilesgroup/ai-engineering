@@ -106,7 +106,7 @@ The skill auto-detects your platform from the git remote URL.
 
 ## /review
 
-**Code review against standards.**
+**Code review against standards.** For detailed review dimensions and output examples, see [Code Quality Skills - /review](Skills-Code-Quality#review).
 
 ```
 /review staged
@@ -114,65 +114,17 @@ The skill auto-detects your platform from the git remote URL.
 /review feature-branch
 ```
 
-### What It Does
-
-1. **Reads standards** — Loads relevant `standards/*.md`
-2. **Reads learnings** — Checks `learnings/*.md` for known patterns
-3. **Analyzes code** — Reviews against 6 dimensions
-4. **Reports findings** — APPROVE or REQUEST CHANGES
-
-### Review Dimensions
-
-1. **Correctness** — Does it do what it should?
-2. **Security** — OWASP Top 10 issues?
-3. **Performance** — Obvious inefficiencies?
-4. **Maintainability** — Clear, documented, testable?
-5. **Standards** — Follows project conventions?
-6. **Testing** — Adequate coverage?
-
-### Example Output
-
-```markdown
-## Code Review: Staged Changes
-
-### Summary
-Adding user authentication endpoint. Implementation follows existing patterns.
-
-**Verdict:** APPROVE
-
-### Critical Issues (must fix)
-(none)
-
-### Suggestions (nice to have)
-- [ ] Consider adding rate limiting to prevent brute force
-- [ ] Token expiry could be configurable via settings
-```
-
 ---
 
 ## /test
 
-**Generate and run tests.**
+**Generate and run tests.** For detailed test generation principles and examples, see [Code Quality Skills - /test](Skills-Code-Quality#test).
 
 ```
 /test src/services/UserService.cs
 /test run
 /test coverage
 ```
-
-### What It Does
-
-1. **Detects framework** — NUnit, Vitest, pytest
-2. **Reads the code** — Understands public API
-3. **Generates tests** — Happy path + error paths
-4. **Runs tests** — Reports results
-
-### Test Generation Principles
-
-- Tests edge cases and error conditions
-- Uses existing test patterns from the codebase
-- Names tests clearly: `MethodName_Scenario_ExpectedResult`
-- Follows AAA pattern (Arrange, Act, Assert)
 
 ---
 
@@ -203,9 +155,9 @@ Adding user authentication endpoint. Implementation follows existing patterns.
 ### Files
 - [x] CLAUDE.md
 - [x] .claude/settings.json
-- [x] Skills: 21 found
-- [x] Agents: 6 found
-- [x] Hooks: 4 found (4 executable)
+- [x] Skills: 23 found
+- [x] Agents: 5 found
+- [x] Hooks: 5 found (5 executable)
 - [x] Standards: 10 found
 
 ### Platform
@@ -229,40 +181,12 @@ Framework is correctly installed.
 
 ## /fix
 
-**Fix failing tests, lint errors, or build issues.**
+**Fix failing tests, lint errors, or build issues.** For detailed examples, see [Code Quality Skills - /fix](Skills-Code-Quality#fix).
 
 ```
 /fix tests
 /fix build
 /fix lint
-```
-
-### What It Does
-
-1. **Runs the failing command** — Captures error output
-2. **Identifies root cause** — Analyzes the error
-3. **Applies targeted fixes** — Makes minimal changes
-4. **Re-runs to verify** — Confirms the fix worked
-
-### Example
-
-```
-/fix tests
-```
-
-Output:
-```
-Found 2 failing tests in UserServiceTests.cs:
-- GetUser_WithInvalidId_ThrowsException: Expected exception not thrown
-- CreateUser_WithDuplicateEmail_ReturnsError: Result.IsError was false
-
-Fixing...
-
-1. GetUser_WithInvalidId: Added validation to throw ArgumentException
-2. CreateUser_WithDuplicateEmail: Fixed email uniqueness check in provider
-
-Re-running tests...
-✓ All tests pass (47 passed, 0 failed)
 ```
 
 ---

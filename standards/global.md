@@ -6,6 +6,8 @@
 
 ### 1. Security First
 
+> See also: CLAUDE.md Critical Rules #2, standards/security.md Section 2
+
 - **Never hardcode secrets**, tokens, or credentials
 - Use environment variables or secret managers (Azure Key Vault)
 - Validate all inputs at system boundaries

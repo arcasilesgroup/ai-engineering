@@ -19,12 +19,7 @@ $ARGUMENTS - Optional: target branch for the PR (defaults to default branch: mai
 
 ### 1. Detect Platform
 
-Detect the git platform from remote URL:
-- `git remote get-url origin`
-- If contains `github.com` → GitHub (use `gh` CLI)
-- If contains `dev.azure.com` or `visualstudio.com` → Azure DevOps (use `az repos` CLI)
-- Verify the CLI is available and authenticated
-- If platform cannot be detected, ask the user
+Follow platform detection steps from `.claude/skills/utils/platform-detection.md`.
 
 ### 2. Analyze and Stage Changes
 
@@ -34,13 +29,9 @@ Detect the git platform from remote URL:
 - NEVER stage: `.env`, `*.key`, `*.pem`, `credentials.*`, `*secret*` files
 - Stage with specific `git add <file>` commands (not `git add -A`)
 
-### 3. Scan Staged Changes for Secrets
+### 3. Secret Scanning (handled by hooks)
 
-After staging, scan **only the staged changes** (not the whole repo):
-- If `gitleaks` is available, run: `gitleaks protect --staged --verbose`
-- This scans only the content being committed, not the entire repository
-- If secrets are found, unstage the files (`git restore --staged <files>`) and **STOP**. Do NOT proceed.
-- If `gitleaks` is not available, manually review staged diffs for patterns: API keys (`AKIA`, `sk-`, `ghp_`, `xox`), connection strings, private keys
+Secret scanning is handled automatically by the pre-commit hook and Claude Code's `block-dangerous.sh` hook. No manual scan step is needed here. If secrets are detected, the commit will be blocked by the hooks.
 
 ### 4. Generate Conventional Commit
 
@@ -99,7 +90,7 @@ az repos pr create --title "<title>" --description "<body>" --target-branch <tar
 
 ## Verification
 
-- No secrets in staged changes (verified by `gitleaks protect --staged`)
+- No secrets in staged changes (enforced by pre-commit hook and Claude Code hooks)
 - Commit message follows conventional format
 - Branch is pushed to remote (pre-push vulnerability check passed)
 - PR is created and accessible

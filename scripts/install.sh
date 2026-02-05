@@ -208,8 +208,14 @@ prompt_report_issue() {
             create_github_issue
         fi
     else
-        echo -e "To report this issue, please create an issue at:"
-        echo -e "  ${BLUE}https://github.com/your-org/ai-engineering/issues${NC}"
+        local repo_url_hint
+        repo_url_hint="$(git -C "$SCRIPT_DIR" remote get-url origin 2>/dev/null | sed -E 's|.*github.com[:/]([^/]+/[^/.]+)(\.git)?.*|\1|' || echo "")"
+        if [[ -n "$repo_url_hint" ]]; then
+            echo -e "To report this issue, please create an issue at:"
+            echo -e "  ${BLUE}https://github.com/${repo_url_hint}/issues${NC}"
+        else
+            echo -e "To report this issue, please create an issue in the framework repository."
+        fi
     fi
 }
 
@@ -464,68 +470,50 @@ install_tflint() {
 }
 
 # --- SDK Verification ---
-verify_dotnet_sdk() {
-    echo -e "  Checking .NET SDK..."
+# Generic SDK verification: verify_sdk <command> <display_name> <install_url> [version_cmd]
+verify_sdk() {
+    local cmd="$1"
+    local name="$2"
+    local install_url="$3"
+    local version_cmd="${4:-$cmd --version}"
 
-    if command -v dotnet &>/dev/null; then
+    echo -e "  Checking ${name}..."
+
+    if command -v "$cmd" &>/dev/null; then
         local version
-        version=$(dotnet --version 2>/dev/null || echo "unknown")
-        echo -e "    ${GREEN}✓${NC} dotnet $version"
+        version=$(eval "$version_cmd" 2>/dev/null || echo "unknown")
+        echo -e "    ${GREEN}✓${NC} ${name} $version"
     else
-        echo -e "    ${YELLOW}⚠${NC}  .NET SDK not found"
-        echo -e "    ${BLUE}Install: https://dotnet.microsoft.com/download${NC}"
+        echo -e "    ${YELLOW}⚠${NC}  ${name} not found"
+        echo -e "    ${BLUE}Install: ${install_url}${NC}"
     fi
 }
 
+verify_dotnet_sdk() {
+    verify_sdk "dotnet" ".NET SDK" "https://dotnet.microsoft.com/download" "dotnet --version"
+}
+
 verify_node_sdk() {
-    echo -e "  Checking Node.js..."
-
-    if command -v node &>/dev/null; then
-        local version
-        version=$(node --version 2>/dev/null || echo "unknown")
-        echo -e "    ${GREEN}✓${NC} node $version"
-
-        if command -v npm &>/dev/null; then
-            local npm_version
-            npm_version=$(npm --version 2>/dev/null || echo "unknown")
-            echo -e "    ${GREEN}✓${NC} npm $npm_version"
-        fi
-    else
-        echo -e "    ${YELLOW}⚠${NC}  Node.js not found"
-        echo -e "    ${BLUE}Install: https://nodejs.org/ or use nvm${NC}"
+    verify_sdk "node" "Node.js" "https://nodejs.org/ or use nvm" "node --version"
+    if command -v npm &>/dev/null; then
+        local npm_version
+        npm_version=$(npm --version 2>/dev/null || echo "unknown")
+        echo -e "    ${GREEN}✓${NC} npm $npm_version"
     fi
 }
 
 verify_python_sdk() {
-    echo -e "  Checking Python..."
-
-    if command -v python3 &>/dev/null; then
-        local version
-        version=$(python3 --version 2>/dev/null || echo "unknown")
-        echo -e "    ${GREEN}✓${NC} $version"
-
-        if command -v pip3 &>/dev/null || command -v pip &>/dev/null; then
-            local pip_version
-            pip_version=$(pip3 --version 2>/dev/null || pip --version 2>/dev/null || echo "unknown")
-            echo -e "    ${GREEN}✓${NC} pip $(echo "$pip_version" | awk '{print $2}')"
-        fi
-    else
-        echo -e "    ${YELLOW}⚠${NC}  Python not found"
-        echo -e "    ${BLUE}Install: https://python.org/ or use pyenv${NC}"
+    verify_sdk "python3" "Python" "https://python.org/ or use pyenv" "python3 --version"
+    if command -v pip3 &>/dev/null || command -v pip &>/dev/null; then
+        local pip_version
+        pip_version=$(pip3 --version 2>/dev/null || pip --version 2>/dev/null || echo "unknown")
+        echo -e "    ${GREEN}✓${NC} pip $(echo "$pip_version" | awk '{print $2}')"
     fi
 }
 
 verify_terraform_sdk() {
-    echo -e "  Checking Terraform..."
-
-    if command -v terraform &>/dev/null; then
-        local version
-        version=$(terraform version -json 2>/dev/null | grep -o '"terraform_version":"[^"]*"' | cut -d'"' -f4 || terraform version 2>/dev/null | head -1 || echo "unknown")
-        echo -e "    ${GREEN}✓${NC} terraform $version"
-    else
-        echo -e "    ${YELLOW}⚠${NC}  Terraform not found"
-        echo -e "    ${BLUE}Install: https://terraform.io/downloads or use tfenv${NC}"
-    fi
+    verify_sdk "terraform" "Terraform" "https://terraform.io/downloads or use tfenv" \
+        "terraform version -json 2>/dev/null | grep -o '\"terraform_version\":\"[^\"]*\"' | cut -d'\"' -f4 || terraform version 2>/dev/null | head -1"
 }
 
 # --- Project-Local Configuration ---
@@ -681,6 +669,68 @@ verify_all_tools() {
 }
 
 # =============================================================================
+# SHARED COPY FUNCTIONS (used by both install and update)
+# =============================================================================
+
+# Copy skills from framework source to target.
+# Args: $1=target_dir  $2=preserve_custom (true/false)
+copy_skills() {
+    local target="$1"
+    local preserve_custom="${2:-true}"
+
+    if [[ "$preserve_custom" == true ]]; then
+        # Remove old framework skills (not custom)
+        find "$target/.claude/skills" -maxdepth 2 -name "SKILL.md" -not -path "*/custom/*" -delete 2>/dev/null || true
+        find "$target/.claude/skills" -maxdepth 2 -name "*.md" -not -path "*/custom/*" -not -name ".gitkeep" -delete 2>/dev/null || true
+    fi
+
+    if [[ -d "$SCRIPT_DIR/.claude/skills" ]]; then
+        rsync -a --exclude='custom/' "$SCRIPT_DIR/.claude/skills/" "$target/.claude/skills/"
+    fi
+}
+
+# Copy hooks from framework source to target.
+# Args: $1=target_dir
+copy_hooks() {
+    local target="$1"
+
+    mkdir -p "$target/.claude/hooks"
+    if [[ -d "$SCRIPT_DIR/.claude/hooks" ]]; then
+        cp "$SCRIPT_DIR/.claude/hooks/"*.sh "$target/.claude/hooks/" 2>/dev/null || true
+        chmod +x "$target/.claude/hooks/"*.sh 2>/dev/null || true
+    fi
+}
+
+# Copy agents from framework source to target.
+# Args: $1=target_dir  $2=preserve_custom (true/false)
+copy_agents() {
+    local target="$1"
+    local preserve_custom="${2:-true}"
+
+    if [[ "$preserve_custom" == true ]]; then
+        find "$target/.claude/agents" -maxdepth 1 -name "*.md" -not -path "*/custom/*" -delete 2>/dev/null || true
+    fi
+
+    if [[ -d "$SCRIPT_DIR/.claude/agents" ]]; then
+        for agent in "$SCRIPT_DIR/.claude/agents/"*.md; do
+            [[ -f "$agent" ]] && cp "$agent" "$target/.claude/agents/"
+        done
+        mkdir -p "$target/.claude/agents/custom"
+        [[ -f "$SCRIPT_DIR/.claude/agents/custom/.gitkeep" ]] && cp "$SCRIPT_DIR/.claude/agents/custom/.gitkeep" "$target/.claude/agents/custom/"
+    fi
+}
+
+# Copy standards from framework source to target.
+# Args: $1=target_dir
+copy_standards() {
+    local target="$1"
+
+    for file in "$SCRIPT_DIR/standards/"*.md; do
+        [[ -f "$file" ]] && cp "$file" "$target/standards/"
+    done
+}
+
+# =============================================================================
 # UPDATE MODE
 # =============================================================================
 if [[ "$UPDATE_MODE" == true ]]; then
@@ -714,41 +764,22 @@ if [[ "$UPDATE_MODE" == true ]]; then
 
   # --- Update skills (preserve custom/) ---
   echo -e "${YELLOW}Updating skills...${NC}"
-  # Remove old framework skills (not custom)
-  find "$TARGET_DIR/.claude/skills" -maxdepth 2 -name "SKILL.md" -not -path "*/custom/*" -delete 2>/dev/null || true
-  find "$TARGET_DIR/.claude/skills" -maxdepth 2 -name "*.md" -not -path "*/custom/*" -not -name ".gitkeep" -delete 2>/dev/null || true
-  # Copy new skills
-  if [[ -d "$SCRIPT_DIR/.claude/skills" ]]; then
-    rsync -a --exclude='custom/' "$SCRIPT_DIR/.claude/skills/" "$TARGET_DIR/.claude/skills/"
-  fi
+  copy_skills "$TARGET_DIR" true
   echo -e "  ${GREEN}✓${NC} Skills updated (custom/ preserved)"
 
   # --- Update hooks ---
   echo -e "${YELLOW}Updating hooks...${NC}"
-  if [[ -d "$SCRIPT_DIR/.claude/hooks" ]]; then
-    mkdir -p "$TARGET_DIR/.claude/hooks"
-    cp "$SCRIPT_DIR/.claude/hooks/"*.sh "$TARGET_DIR/.claude/hooks/" 2>/dev/null || true
-    chmod +x "$TARGET_DIR/.claude/hooks/"*.sh 2>/dev/null || true
-  fi
+  copy_hooks "$TARGET_DIR"
   echo -e "  ${GREEN}✓${NC} Hooks updated"
 
   # --- Update agents (preserve custom/) ---
   echo -e "${YELLOW}Updating agents...${NC}"
-  find "$TARGET_DIR/.claude/agents" -maxdepth 1 -name "*.md" -not -path "*/custom/*" -delete 2>/dev/null || true
-  if [[ -d "$SCRIPT_DIR/.claude/agents" ]]; then
-    for agent in "$SCRIPT_DIR/.claude/agents/"*.md; do
-      [[ -f "$agent" ]] && cp "$agent" "$TARGET_DIR/.claude/agents/"
-    done
-    mkdir -p "$TARGET_DIR/.claude/agents/custom"
-    [[ -f "$SCRIPT_DIR/.claude/agents/custom/.gitkeep" ]] && cp "$SCRIPT_DIR/.claude/agents/custom/.gitkeep" "$TARGET_DIR/.claude/agents/custom/"
-  fi
+  copy_agents "$TARGET_DIR" true
   echo -e "  ${GREEN}✓${NC} Agents updated (custom/ preserved)"
 
   # --- Update standards ---
   echo -e "${YELLOW}Updating standards...${NC}"
-  for file in "$SCRIPT_DIR/standards/"*.md; do
-    [[ -f "$file" ]] && cp "$file" "$TARGET_DIR/standards/"
-  done
+  copy_standards "$TARGET_DIR"
   echo -e "  ${GREEN}✓${NC} Standards updated"
 
   # --- Update workshop ---
@@ -972,20 +1003,12 @@ done
 
 # --- Copy hooks ---
 echo -e "${YELLOW}Copying hooks...${NC}"
-
-for hook in "$SCRIPT_DIR/.claude/hooks/"*.sh; do
-  [[ -f "$hook" ]] && cp "$hook" "$TARGET_DIR/.claude/hooks/"
-done
-chmod +x "$TARGET_DIR/.claude/hooks/"*.sh 2>/dev/null || true
+copy_hooks "$TARGET_DIR"
 echo -e "  ${GREEN}✓${NC} Hook scripts (auto-format, security guards, notifications)"
 
 # --- Copy agents ---
 echo -e "${YELLOW}Copying agents...${NC}"
-
-for agent in "$SCRIPT_DIR/.claude/agents/"*.md; do
-  [[ -f "$agent" ]] && cp "$agent" "$TARGET_DIR/.claude/agents/"
-done
-cp "$SCRIPT_DIR/.claude/agents/custom/.gitkeep" "$TARGET_DIR/.claude/agents/custom/.gitkeep"
+copy_agents "$TARGET_DIR" false
 
 # --- Copy standards ---
 echo -e "${YELLOW}Copying standards...${NC}"

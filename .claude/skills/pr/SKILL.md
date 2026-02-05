@@ -26,11 +26,7 @@ $ARGUMENTS - Optional: target branch, PR title hint, or issue/work item number t
 
 ### 2. Detect Platform
 
-Detect the git platform from remote URL:
-- `git remote get-url origin`
-- If contains `github.com` → use `gh` CLI
-- If contains `dev.azure.com` or `visualstudio.com` → use `az repos` CLI
-- Verify the CLI is available and authenticated
+Follow platform detection steps from `.claude/skills/utils/platform-detection.md`.
 
 ### 3. Check Remote
 
