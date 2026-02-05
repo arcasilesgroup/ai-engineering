@@ -60,6 +60,11 @@ Create the commit with the generated message.
 - Determine current branch: `git branch --show-current`
 - Push with tracking: `git push -u origin <branch>`
 
+**Pre-push Hook:** If the pre-push hook is installed (via `--install-tools`), it will automatically run a vulnerability check before pushing:
+- **CRITICAL vulnerabilities**: Push is **blocked** - fix before pushing
+- **HIGH vulnerabilities**: Warning shown but push allowed
+- **Bypass**: `git push --no-verify` (not recommended)
+
 ### 7. Create Pull Request
 
 Determine target branch:
@@ -95,6 +100,7 @@ az repos pr create --title "<title>" --description "<body>" --target-branch <tar
 
 - No secrets in committed files
 - Commit message follows conventional format
-- Branch is pushed to remote
+- Branch is pushed to remote (pre-push vulnerability check passed)
 - PR is created and accessible
 - Work items/issues linked (if detected)
+- No CRITICAL vulnerabilities in dependencies (if pre-push hook installed)

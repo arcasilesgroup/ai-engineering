@@ -23,6 +23,18 @@ git clone https://github.com/your-org/ai-engineering.git /tmp/ai-engineering
   --cicd github
 ```
 
+**With automatic tool installation:**
+
+```bash
+/tmp/ai-engineering/scripts/install.sh \
+  --name "MyProject" \
+  --stacks dotnet,typescript \
+  --cicd github \
+  --install-tools
+```
+
+This installs gitleaks, gh CLI, and configures a pre-push vulnerability check hook.
+
 ### 2. Customize
 
 Edit `context/project.md` with your project details and review `CLAUDE.md`.
@@ -76,9 +88,11 @@ Autonomous agents dispatched for parallel work. They run independently and repor
 | **doc-generator** | Update docs from code changes |
 | **code-simplifier** | Reduce complexity with pattern-aware reconnaissance |
 
-### Hooks (4)
+### Hooks (4 Claude Code + 1 Git)
 
-Shell scripts that run automatically in response to Claude Code events.
+Shell scripts that run automatically in response to events.
+
+**Claude Code Hooks:**
 
 | Hook | Trigger | Action |
 |------|---------|--------|
@@ -86,6 +100,17 @@ Shell scripts that run automatically in response to Claude Code events.
 | `block-dangerous.sh` | Before Bash | Blocks force push, rm -rf, etc. |
 | `block-env-edit.sh` | Before Edit/Write | Blocks editing .env and credential files |
 | `notify.sh` | Notification | Desktop notification on macOS/Linux |
+
+**Git Hooks (installed via `--install-tools`):**
+
+| Hook | Trigger | Action |
+|------|---------|--------|
+| `pre-push` | Before git push | Checks dependencies for CRITICAL/HIGH vulnerabilities |
+
+The pre-push hook validates against GitHub Advisory Database:
+- **CRITICAL**: Blocks push until fixed
+- **HIGH**: Warns but allows push
+- Bypass (not recommended): `git push --no-verify`
 
 ### Standards (10)
 
@@ -162,7 +187,13 @@ ai-engineering/
 ├── learnings/                   # Accumulated knowledge
 ├── workshop/                    # 11-module learning guide
 └── scripts/
-    └── install.sh               # Framework installer + updater
+    ├── install.sh               # Framework installer + updater
+    ├── hooks/
+    │   └── pre-push             # Git pre-push vulnerability check
+    └── tool-configs/            # Dev tool configuration templates
+        ├── typescript.json      # npm devDependencies for linting
+        ├── python.txt           # requirements-dev.txt template
+        └── tflint.hcl           # Terraform linter config
 ```
 
 ---
@@ -237,6 +268,29 @@ Update with: `scripts/install.sh --update --target /path/to/project`
 ```bash
 ./scripts/install.sh --name "MyProject" --stacks dotnet,typescript --cicd github
 ```
+
+**With tool installation:**
+
+```bash
+./scripts/install.sh \
+  --name "MyProject" \
+  --stacks dotnet,typescript \
+  --cicd github \
+  --install-tools    # Install gitleaks, gh CLI, configure pre-push hook
+```
+
+**All options:**
+
+| Option | Description |
+|--------|-------------|
+| `--name` | Project name (required for install) |
+| `--stacks` | Comma-separated: dotnet, typescript, python, terraform |
+| `--cicd` | Platform: github, azure, both (default: github) |
+| `--target` | Target directory (default: current) |
+| `--install-tools` | Install dev tools (gitleaks, gh/az CLI, pre-push hook) |
+| `--skip-sdks` | Skip SDK verification (dotnet, node, python, terraform) |
+| `--exec` | Run npm install / pip install after setup |
+| `--update` | Update existing installation |
 
 ### Option B: Git Submodule
 
