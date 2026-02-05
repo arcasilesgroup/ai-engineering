@@ -76,7 +76,25 @@ Detect and verify platform setup:
 - If `.github/workflows/` exists: verify workflow files are valid YAML.
 - If `pipelines/` exists: verify pipeline files are valid YAML.
 
-### 10. Report
+### 10. Check Development Tools
+
+Verify development tools are installed:
+
+**Global Tools:**
+- `gitleaks --version` - Secret scanning (required)
+- `gh --version` - GitHub CLI (if platform is GitHub)
+- `az --version` - Azure CLI (if platform is Azure)
+
+**Stack-specific Tools:**
+- For TypeScript: `eslint`, `prettier` (check if in package.json devDependencies)
+- For Python: `ruff`, `pip-audit`, `pytest` (check requirements-dev.txt)
+- For Terraform: `tflint --version`
+
+**Git Hooks:**
+- Check if `.git/hooks/pre-push` exists and is executable
+- Verify pre-push hook contains vulnerability check
+
+### 11. Report
 
     ## Framework Validation Report
 
@@ -95,6 +113,11 @@ Detect and verify platform setup:
     - [x] Platform: GitHub | Azure DevOps | Not detected
     - [x] CLI: gh | az | Not found
     - [x] Auth: Authenticated | Not authenticated
+
+    ### Tools
+    - [x] gitleaks: installed | not found
+    - [x] Pre-push hook: installed | not found
+    - [x] Stack tools: configured | missing
 
     ### Warnings
     - [Unresolved placeholders, missing optional files, outdated version, deprecated version]

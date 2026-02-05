@@ -9,16 +9,23 @@
 #   ./install.sh --name "MyProject" --stacks dotnet --cicd azure
 #   ./install.sh --name "MyProject" --stacks dotnet,typescript --cicd both
 #
+# With tool installation:
+#   ./install.sh --name "MyProject" --stacks dotnet,typescript --cicd github --install-tools
+#   ./install.sh --name "MyProject" --stacks typescript --cicd github --install-tools --exec
+#
 # Update (existing project):
 #   ./install.sh --update --target /path/to/project
 #
 # Options:
-#   --name      Project name (required for install, ignored for update)
-#   --stacks    Comma-separated list: dotnet,typescript,python,terraform (required for install)
-#   --cicd      CI/CD platform: github, azure, both (default: github)
-#   --target    Target directory (default: current directory)
-#   --update    Update existing installation (preserves customizations)
-#   --help      Show this help message
+#   --name           Project name (required for install, ignored for update)
+#   --stacks         Comma-separated list: dotnet,typescript,python,terraform (required for install)
+#   --cicd           CI/CD platform: github, azure, both (default: github)
+#   --target         Target directory (default: current directory)
+#   --update         Update existing installation (preserves customizations)
+#   --install-tools  Install required development tools (gitleaks, gh, az, etc.)
+#   --skip-sdks      Skip SDK verification (dotnet, node, python, terraform)
+#   --exec           Run npm install / pip install after setup
+#   --help           Show this help message
 # =============================================================================
 
 set -euo pipefail
@@ -39,6 +46,13 @@ STACKS=""
 CICD="github"
 TARGET_DIR="."
 UPDATE_MODE=false
+INSTALL_TOOLS=false
+SKIP_SDKS=false
+EXEC_INSTALL=false
+
+# Error tracking for reporting
+INSTALL_ERRORS=()
+SYSTEM_INFO=""
 
 # Framework version
 FRAMEWORK_VERSION="$(cat "$SCRIPT_DIR/VERSION" 2>/dev/null || echo "unknown")"
@@ -66,8 +80,20 @@ while [[ $# -gt 0 ]]; do
       UPDATE_MODE=true
       shift
       ;;
+    --install-tools)
+      INSTALL_TOOLS=true
+      shift
+      ;;
+    --skip-sdks)
+      SKIP_SDKS=true
+      shift
+      ;;
+    --exec)
+      EXEC_INSTALL=true
+      shift
+      ;;
     --help)
-      head -25 "$0" | tail -20
+      head -30 "$0" | tail -25
       exit 0
       ;;
     *)
@@ -76,6 +102,576 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+
+# =============================================================================
+# TOOL INSTALLATION FUNCTIONS
+# =============================================================================
+
+# --- System Detection ---
+detect_os() {
+    case "$(uname -s)" in
+        Darwin)
+            echo "macos"
+            ;;
+        Linux)
+            if grep -qi microsoft /proc/version 2>/dev/null; then
+                echo "wsl"
+            else
+                echo "linux"
+            fi
+            ;;
+        MINGW*|MSYS*|CYGWIN*)
+            echo "windows"
+            ;;
+        *)
+            echo "unknown"
+            ;;
+    esac
+}
+
+detect_package_manager() {
+    local os="$1"
+
+    case "$os" in
+        macos)
+            if command -v brew &>/dev/null; then
+                echo "brew"
+            else
+                echo "manual"
+            fi
+            ;;
+        linux|wsl)
+            if command -v apt-get &>/dev/null; then
+                echo "apt"
+            elif command -v dnf &>/dev/null; then
+                echo "dnf"
+            elif command -v yum &>/dev/null; then
+                echo "yum"
+            elif command -v pacman &>/dev/null; then
+                echo "pacman"
+            else
+                echo "manual"
+            fi
+            ;;
+        *)
+            echo "manual"
+            ;;
+    esac
+}
+
+collect_system_info() {
+    local os="$1"
+    local pkg_mgr="$2"
+
+    SYSTEM_INFO="**OS:** $(uname -s) $(uname -r) ($(uname -m))"$'\n'
+    SYSTEM_INFO+="**Package Manager:** $pkg_mgr"$'\n'
+    SYSTEM_INFO+="**Shell:** $SHELL"$'\n'
+    SYSTEM_INFO+="**Framework version:** $FRAMEWORK_VERSION"$'\n'
+    SYSTEM_INFO+="**Stacks:** $STACKS"$'\n'
+    SYSTEM_INFO+="**Platform:** $CICD"
+}
+
+# --- Error Reporting ---
+collect_error_report() {
+    local tool="$1"
+    local error_msg="$2"
+
+    INSTALL_ERRORS+=("$tool:$error_msg")
+}
+
+prompt_report_issue() {
+    if [[ ${#INSTALL_ERRORS[@]} -eq 0 ]]; then
+        return 0
+    fi
+
+    echo ""
+    echo -e "${YELLOW}╔══════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${YELLOW}║  ⚠️  Some tool installations failed                           ║${NC}"
+    echo -e "${YELLOW}╚══════════════════════════════════════════════════════════════╝${NC}"
+    echo ""
+
+    for error in "${INSTALL_ERRORS[@]}"; do
+        local tool="${error%%:*}"
+        echo -e "  • ${RED}$tool${NC} installation failed"
+    done
+
+    echo ""
+
+    # Only offer to create issue if gh is available and authenticated
+    if command -v gh &>/dev/null && gh auth status &>/dev/null 2>&1; then
+        echo -e "Would you like to report this issue to GitHub?"
+        echo -e "This will create an issue with diagnostic information."
+        echo ""
+        read -r -p "Report issue? [y/N] " response
+
+        if [[ "$response" =~ ^[Yy]$ ]]; then
+            create_github_issue
+        fi
+    else
+        echo -e "To report this issue, please create an issue at:"
+        echo -e "  ${BLUE}https://github.com/your-org/ai-engineering/issues${NC}"
+    fi
+}
+
+create_github_issue() {
+    local title="Tool Installation Failure Report"
+    local body="## Tool Installation Failure Report"$'\n\n'
+
+    body+="### Failed Tools"$'\n'
+    for error in "${INSTALL_ERRORS[@]}"; do
+        local tool="${error%%:*}"
+        local msg="${error#*:}"
+        body+="- **$tool**: $msg"$'\n'
+    done
+    body+=$'\n'
+
+    body+="### System Info"$'\n'
+    body+="$SYSTEM_INFO"$'\n'
+
+    body+="### Steps to Reproduce"$'\n'
+    body+='```bash'$'\n'
+    body+="./install.sh --name \"Test\" --stacks $STACKS --cicd $CICD --install-tools"$'\n'
+    body+='```'$'\n\n'
+
+    body+="---"$'\n'
+    body+="*Auto-generated by AI Engineering Framework install.sh*"
+
+    # Try to create issue in the framework repo
+    local repo_url
+    repo_url="$(git -C "$SCRIPT_DIR" remote get-url origin 2>/dev/null || echo "")"
+
+    if [[ "$repo_url" == *"github.com"* ]]; then
+        # Extract owner/repo from URL
+        local repo
+        repo=$(echo "$repo_url" | sed -E 's|.*github.com[:/]([^/]+/[^/.]+)(\.git)?.*|\1|')
+
+        if gh issue create --repo "$repo" --title "$title" --body "$body" 2>/dev/null; then
+            echo -e "${GREEN}✓${NC} Issue created successfully"
+        else
+            echo -e "${YELLOW}Could not create issue automatically${NC}"
+            echo -e "Please create an issue manually with the information above"
+        fi
+    else
+        echo -e "${YELLOW}Framework repo not detected as GitHub${NC}"
+        echo -e "Please create an issue manually"
+    fi
+}
+
+# --- Global Tool Installation ---
+install_gitleaks() {
+    echo -e "  Checking gitleaks..."
+
+    if command -v gitleaks &>/dev/null; then
+        echo -e "    ${GREEN}✓${NC} gitleaks already installed ($(gitleaks version 2>/dev/null || echo 'unknown'))"
+        return 0
+    fi
+
+    local os="$1"
+    local pkg_mgr="$2"
+
+    case "$pkg_mgr" in
+        brew)
+            echo -e "    Installing via Homebrew..."
+            if brew install gitleaks 2>&1; then
+                echo -e "    ${GREEN}✓${NC} gitleaks installed"
+            else
+                echo -e "    ${RED}✗${NC} Failed to install gitleaks"
+                collect_error_report "gitleaks" "brew install failed"
+            fi
+            ;;
+        apt)
+            echo -e "    Installing via GitHub releases..."
+            install_gitleaks_from_github "$os"
+            ;;
+        *)
+            echo -e "    Installing via GitHub releases..."
+            install_gitleaks_from_github "$os"
+            ;;
+    esac
+}
+
+install_gitleaks_from_github() {
+    local os="$1"
+    local arch
+    local platform
+
+    arch="$(uname -m)"
+    case "$arch" in
+        x86_64) arch="x64" ;;
+        aarch64|arm64) arch="arm64" ;;
+    esac
+
+    case "$os" in
+        macos) platform="darwin" ;;
+        linux|wsl) platform="linux" ;;
+        *) platform="linux" ;;
+    esac
+
+    local version
+    version=$(curl -sL "https://api.github.com/repos/gitleaks/gitleaks/releases/latest" | grep '"tag_name"' | sed -E 's/.*"v([^"]+)".*/\1/' || echo "8.18.0")
+
+    local url="https://github.com/gitleaks/gitleaks/releases/download/v${version}/gitleaks_${version}_${platform}_${arch}.tar.gz"
+    local tmp_dir
+    tmp_dir=$(mktemp -d)
+
+    if curl -sL "$url" | tar xz -C "$tmp_dir" 2>/dev/null; then
+        if sudo mv "$tmp_dir/gitleaks" /usr/local/bin/ 2>/dev/null || mv "$tmp_dir/gitleaks" ~/.local/bin/ 2>/dev/null; then
+            chmod +x /usr/local/bin/gitleaks 2>/dev/null || chmod +x ~/.local/bin/gitleaks 2>/dev/null
+            echo -e "    ${GREEN}✓${NC} gitleaks installed"
+        else
+            echo -e "    ${RED}✗${NC} Failed to install gitleaks (permission denied)"
+            collect_error_report "gitleaks" "Failed to copy binary to /usr/local/bin or ~/.local/bin"
+        fi
+    else
+        echo -e "    ${RED}✗${NC} Failed to download gitleaks"
+        collect_error_report "gitleaks" "Failed to download from GitHub releases"
+    fi
+
+    rm -rf "$tmp_dir"
+}
+
+install_gh() {
+    echo -e "  Checking gh (GitHub CLI)..."
+
+    if command -v gh &>/dev/null; then
+        echo -e "    ${GREEN}✓${NC} gh already installed ($(gh --version 2>/dev/null | head -1 || echo 'unknown'))"
+        return 0
+    fi
+
+    local pkg_mgr="$1"
+
+    case "$pkg_mgr" in
+        brew)
+            echo -e "    Installing via Homebrew..."
+            if brew install gh 2>&1; then
+                echo -e "    ${GREEN}✓${NC} gh installed"
+                echo -e "    ${YELLOW}!${NC} Run 'gh auth login' to authenticate"
+            else
+                echo -e "    ${RED}✗${NC} Failed to install gh"
+                collect_error_report "gh" "brew install failed"
+            fi
+            ;;
+        apt)
+            echo -e "    Installing via apt..."
+            if (type -p curl >/dev/null || sudo apt install curl -y) && \
+               curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg 2>/dev/null && \
+               sudo chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg && \
+               echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null && \
+               sudo apt update && sudo apt install gh -y 2>&1; then
+                echo -e "    ${GREEN}✓${NC} gh installed"
+                echo -e "    ${YELLOW}!${NC} Run 'gh auth login' to authenticate"
+            else
+                echo -e "    ${RED}✗${NC} Failed to install gh"
+                collect_error_report "gh" "apt install failed"
+            fi
+            ;;
+        dnf|yum)
+            echo -e "    Installing via $pkg_mgr..."
+            if sudo $pkg_mgr install 'dnf-command(config-manager)' -y 2>/dev/null && \
+               sudo $pkg_mgr config-manager --add-repo https://cli.github.com/packages/rpm/gh-cli.repo && \
+               sudo $pkg_mgr install gh -y 2>&1; then
+                echo -e "    ${GREEN}✓${NC} gh installed"
+            else
+                echo -e "    ${RED}✗${NC} Failed to install gh"
+                collect_error_report "gh" "$pkg_mgr install failed"
+            fi
+            ;;
+        *)
+            echo -e "    ${YELLOW}⚠${NC}  Manual installation required"
+            echo -e "    ${BLUE}https://github.com/cli/cli#installation${NC}"
+            ;;
+    esac
+}
+
+install_az() {
+    echo -e "  Checking az (Azure CLI)..."
+
+    if command -v az &>/dev/null; then
+        echo -e "    ${GREEN}✓${NC} az already installed ($(az version --query '"azure-cli"' -o tsv 2>/dev/null || echo 'unknown'))"
+        return 0
+    fi
+
+    local os="$1"
+    local pkg_mgr="$2"
+
+    case "$pkg_mgr" in
+        brew)
+            echo -e "    Installing via Homebrew..."
+            if brew install azure-cli 2>&1; then
+                echo -e "    ${GREEN}✓${NC} az installed"
+                echo -e "    ${YELLOW}!${NC} Run 'az login' to authenticate"
+            else
+                echo -e "    ${RED}✗${NC} Failed to install az"
+                collect_error_report "az" "brew install failed"
+            fi
+            ;;
+        apt)
+            echo -e "    Installing via Microsoft script..."
+            if curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash 2>&1; then
+                echo -e "    ${GREEN}✓${NC} az installed"
+                echo -e "    ${YELLOW}!${NC} Run 'az login' to authenticate"
+            else
+                echo -e "    ${RED}✗${NC} Failed to install az"
+                collect_error_report "az" "Microsoft install script failed"
+            fi
+            ;;
+        dnf|yum)
+            echo -e "    Installing via Microsoft RPM repo..."
+            if sudo rpm --import https://packages.microsoft.com/keys/microsoft.asc 2>/dev/null && \
+               sudo $pkg_mgr install -y https://packages.microsoft.com/config/rhel/8/packages-microsoft-prod.rpm 2>/dev/null && \
+               sudo $pkg_mgr install azure-cli -y 2>&1; then
+                echo -e "    ${GREEN}✓${NC} az installed"
+            else
+                echo -e "    ${RED}✗${NC} Failed to install az"
+                collect_error_report "az" "$pkg_mgr install failed"
+            fi
+            ;;
+        *)
+            echo -e "    ${YELLOW}⚠${NC}  Manual installation required"
+            echo -e "    ${BLUE}https://docs.microsoft.com/en-us/cli/azure/install-azure-cli${NC}"
+            ;;
+    esac
+}
+
+install_tflint() {
+    echo -e "  Checking tflint..."
+
+    if command -v tflint &>/dev/null; then
+        echo -e "    ${GREEN}✓${NC} tflint already installed ($(tflint --version 2>/dev/null | head -1 || echo 'unknown'))"
+        return 0
+    fi
+
+    local pkg_mgr="$1"
+
+    case "$pkg_mgr" in
+        brew)
+            echo -e "    Installing via Homebrew..."
+            if brew install tflint 2>&1; then
+                echo -e "    ${GREEN}✓${NC} tflint installed"
+            else
+                echo -e "    ${YELLOW}⚠${NC}  Failed to install tflint (optional)"
+            fi
+            ;;
+        *)
+            echo -e "    Installing via install script..."
+            if curl -s https://raw.githubusercontent.com/terraform-linters/tflint/master/install_linux.sh | bash 2>&1; then
+                echo -e "    ${GREEN}✓${NC} tflint installed"
+            else
+                echo -e "    ${YELLOW}⚠${NC}  Failed to install tflint (optional)"
+            fi
+            ;;
+    esac
+}
+
+# --- SDK Verification ---
+verify_dotnet_sdk() {
+    echo -e "  Checking .NET SDK..."
+
+    if command -v dotnet &>/dev/null; then
+        local version
+        version=$(dotnet --version 2>/dev/null || echo "unknown")
+        echo -e "    ${GREEN}✓${NC} dotnet $version"
+    else
+        echo -e "    ${YELLOW}⚠${NC}  .NET SDK not found"
+        echo -e "    ${BLUE}Install: https://dotnet.microsoft.com/download${NC}"
+    fi
+}
+
+verify_node_sdk() {
+    echo -e "  Checking Node.js..."
+
+    if command -v node &>/dev/null; then
+        local version
+        version=$(node --version 2>/dev/null || echo "unknown")
+        echo -e "    ${GREEN}✓${NC} node $version"
+
+        if command -v npm &>/dev/null; then
+            local npm_version
+            npm_version=$(npm --version 2>/dev/null || echo "unknown")
+            echo -e "    ${GREEN}✓${NC} npm $npm_version"
+        fi
+    else
+        echo -e "    ${YELLOW}⚠${NC}  Node.js not found"
+        echo -e "    ${BLUE}Install: https://nodejs.org/ or use nvm${NC}"
+    fi
+}
+
+verify_python_sdk() {
+    echo -e "  Checking Python..."
+
+    if command -v python3 &>/dev/null; then
+        local version
+        version=$(python3 --version 2>/dev/null || echo "unknown")
+        echo -e "    ${GREEN}✓${NC} $version"
+
+        if command -v pip3 &>/dev/null || command -v pip &>/dev/null; then
+            local pip_version
+            pip_version=$(pip3 --version 2>/dev/null || pip --version 2>/dev/null || echo "unknown")
+            echo -e "    ${GREEN}✓${NC} pip $(echo "$pip_version" | awk '{print $2}')"
+        fi
+    else
+        echo -e "    ${YELLOW}⚠${NC}  Python not found"
+        echo -e "    ${BLUE}Install: https://python.org/ or use pyenv${NC}"
+    fi
+}
+
+verify_terraform_sdk() {
+    echo -e "  Checking Terraform..."
+
+    if command -v terraform &>/dev/null; then
+        local version
+        version=$(terraform version -json 2>/dev/null | grep -o '"terraform_version":"[^"]*"' | cut -d'"' -f4 || terraform version 2>/dev/null | head -1 || echo "unknown")
+        echo -e "    ${GREEN}✓${NC} terraform $version"
+    else
+        echo -e "    ${YELLOW}⚠${NC}  Terraform not found"
+        echo -e "    ${BLUE}Install: https://terraform.io/downloads or use tfenv${NC}"
+    fi
+}
+
+# --- Project-Local Configuration ---
+configure_typescript_tools() {
+    local target="$1"
+
+    echo -e "  Generating TypeScript tool configuration..."
+
+    # Create .ai-tools-npm.json for reference
+    if [[ -f "$SCRIPT_DIR/scripts/tool-configs/typescript.json" ]]; then
+        cp "$SCRIPT_DIR/scripts/tool-configs/typescript.json" "$target/.ai-tools-npm.json"
+        echo -e "    ${GREEN}✓${NC} Created .ai-tools-npm.json (merge devDependencies into package.json)"
+    fi
+}
+
+configure_python_tools() {
+    local target="$1"
+
+    echo -e "  Generating Python tool configuration..."
+
+    # Create requirements-dev.txt if it doesn't exist
+    if [[ ! -f "$target/requirements-dev.txt" ]]; then
+        if [[ -f "$SCRIPT_DIR/scripts/tool-configs/python.txt" ]]; then
+            cp "$SCRIPT_DIR/scripts/tool-configs/python.txt" "$target/requirements-dev.txt"
+            echo -e "    ${GREEN}✓${NC} Created requirements-dev.txt"
+        fi
+    else
+        echo -e "    ${YELLOW}⚠${NC}  requirements-dev.txt already exists (not overwritten)"
+    fi
+}
+
+configure_terraform_tools() {
+    local target="$1"
+
+    echo -e "  Generating Terraform tool configuration..."
+
+    # Create .tflint.hcl if it doesn't exist
+    if [[ ! -f "$target/.tflint.hcl" ]]; then
+        if [[ -f "$SCRIPT_DIR/scripts/tool-configs/tflint.hcl" ]]; then
+            cp "$SCRIPT_DIR/scripts/tool-configs/tflint.hcl" "$target/.tflint.hcl"
+            echo -e "    ${GREEN}✓${NC} Created .tflint.hcl"
+        fi
+    else
+        echo -e "    ${YELLOW}⚠${NC}  .tflint.hcl already exists (not overwritten)"
+    fi
+}
+
+# --- Git Hooks Configuration ---
+configure_git_hooks() {
+    local target="$1"
+    local hooks_dir="$target/.git/hooks"
+
+    echo -e "  Configuring git hooks..."
+
+    if [[ ! -d "$target/.git" ]]; then
+        echo -e "    ${YELLOW}⚠${NC}  Not a git repository, skipping hook installation"
+        return 0
+    fi
+
+    if [[ ! -d "$hooks_dir" ]]; then
+        mkdir -p "$hooks_dir"
+    fi
+
+    # Install pre-push hook for vulnerability checking
+    if [[ -f "$SCRIPT_DIR/scripts/hooks/pre-push" ]]; then
+        cp "$SCRIPT_DIR/scripts/hooks/pre-push" "$hooks_dir/pre-push"
+        chmod +x "$hooks_dir/pre-push"
+        echo -e "    ${GREEN}✓${NC} Pre-push vulnerability check hook installed"
+    fi
+}
+
+# --- Execute Package Installs ---
+execute_package_installs() {
+    local target="$1"
+
+    echo -e "${YELLOW}Executing package installations...${NC}"
+
+    # TypeScript/Node
+    if [[ -f "$target/package.json" ]]; then
+        echo -e "  Running npm install..."
+        if (cd "$target" && npm install 2>&1); then
+            echo -e "    ${GREEN}✓${NC} npm install complete"
+        else
+            echo -e "    ${YELLOW}⚠${NC}  npm install failed"
+        fi
+    fi
+
+    # Python
+    if [[ -f "$target/requirements-dev.txt" ]]; then
+        echo -e "  Running pip install..."
+        if (cd "$target" && pip install -r requirements-dev.txt 2>&1); then
+            echo -e "    ${GREEN}✓${NC} pip install complete"
+        else
+            echo -e "    ${YELLOW}⚠${NC}  pip install failed"
+        fi
+    fi
+
+    # .NET
+    if ls "$target"/*.csproj "$target"/*.sln 1>/dev/null 2>&1; then
+        echo -e "  Running dotnet restore..."
+        if (cd "$target" && dotnet restore 2>&1); then
+            echo -e "    ${GREEN}✓${NC} dotnet restore complete"
+        else
+            echo -e "    ${YELLOW}⚠${NC}  dotnet restore failed"
+        fi
+    fi
+}
+
+# --- Tool Summary ---
+verify_all_tools() {
+    echo ""
+    echo -e "${BLUE}╔══════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${BLUE}║   Tool Installation Summary                                  ║${NC}"
+    echo -e "${BLUE}╚══════════════════════════════════════════════════════════════╝${NC}"
+    echo ""
+
+    # Global tools
+    echo -e "  ${YELLOW}Global Tools:${NC}"
+    if command -v gitleaks &>/dev/null; then
+        echo -e "    ${GREEN}✓${NC} gitleaks"
+    else
+        echo -e "    ${RED}✗${NC} gitleaks"
+    fi
+
+    if command -v gh &>/dev/null; then
+        if gh auth status &>/dev/null 2>&1; then
+            echo -e "    ${GREEN}✓${NC} gh (authenticated)"
+        else
+            echo -e "    ${YELLOW}⚠${NC} gh (not authenticated - run 'gh auth login')"
+        fi
+    else
+        echo -e "    ${RED}✗${NC} gh"
+    fi
+
+    if command -v az &>/dev/null; then
+        if az account show &>/dev/null 2>&1; then
+            echo -e "    ${GREEN}✓${NC} az (authenticated)"
+        else
+            echo -e "    ${YELLOW}⚠${NC} az (not authenticated - run 'az login')"
+        fi
+    else
+        echo -e "    ${YELLOW}-${NC} az (not required for GitHub)"
+    fi
+
+    echo ""
+}
 
 # =============================================================================
 # UPDATE MODE
@@ -526,6 +1122,116 @@ GITIGNORE
 fi
 echo -e "  ${GREEN}✓${NC} .gitignore updated"
 
+# =============================================================================
+# TOOL INSTALLATION (when --install-tools is specified)
+# =============================================================================
+if [[ "$INSTALL_TOOLS" == true ]]; then
+  echo ""
+  echo -e "${BLUE}╔══════════════════════════════════════════════════════════════╗${NC}"
+  echo -e "${BLUE}║   Tool Installation                                          ║${NC}"
+  echo -e "${BLUE}╚══════════════════════════════════════════════════════════════╝${NC}"
+  echo ""
+
+  # Detect system
+  DETECTED_OS=$(detect_os)
+  DETECTED_PKG_MGR=$(detect_package_manager "$DETECTED_OS")
+
+  echo -e "  Detected: ${GREEN}$DETECTED_OS${NC} with ${GREEN}$DETECTED_PKG_MGR${NC}"
+  echo ""
+
+  # Check for Windows without WSL
+  if [[ "$DETECTED_OS" == "windows" ]]; then
+    echo -e "${RED}Error: Windows detected without WSL${NC}"
+    echo -e "Git hooks require bash. Please install WSL and run this script from WSL."
+    echo -e "  ${BLUE}https://docs.microsoft.com/en-us/windows/wsl/install${NC}"
+    exit 1
+  fi
+
+  # Collect system info for error reporting
+  collect_system_info "$DETECTED_OS" "$DETECTED_PKG_MGR"
+
+  # --- Install Global Tools ---
+  echo -e "${YELLOW}Installing global tools...${NC}"
+
+  # gitleaks (always)
+  install_gitleaks "$DETECTED_OS" "$DETECTED_PKG_MGR"
+
+  # gh CLI (for GitHub platform)
+  if [[ "$CICD" == "github" || "$CICD" == "both" || "$PLATFORM" == "github" ]]; then
+    install_gh "$DETECTED_PKG_MGR"
+  fi
+
+  # az CLI (for Azure platform)
+  if [[ "$CICD" == "azure" || "$CICD" == "both" || "$PLATFORM" == "azure" ]]; then
+    install_az "$DETECTED_OS" "$DETECTED_PKG_MGR"
+  fi
+
+  echo ""
+
+  # --- Verify SDKs ---
+  if [[ "$SKIP_SDKS" != true ]]; then
+    echo -e "${YELLOW}Verifying SDKs...${NC}"
+
+    for stack in "${STACK_ARRAY[@]}"; do
+      stack=$(echo "$stack" | xargs)
+      case "$stack" in
+        dotnet)
+          verify_dotnet_sdk
+          ;;
+        typescript)
+          verify_node_sdk
+          ;;
+        python)
+          verify_python_sdk
+          ;;
+        terraform)
+          verify_terraform_sdk
+          install_tflint "$DETECTED_PKG_MGR"
+          ;;
+      esac
+    done
+
+    echo ""
+  fi
+
+  # --- Configure Project-Local Tools ---
+  echo -e "${YELLOW}Configuring project-local tools...${NC}"
+
+  for stack in "${STACK_ARRAY[@]}"; do
+    stack=$(echo "$stack" | xargs)
+    case "$stack" in
+      typescript)
+        configure_typescript_tools "$TARGET_DIR"
+        ;;
+      python)
+        configure_python_tools "$TARGET_DIR"
+        ;;
+      terraform)
+        configure_terraform_tools "$TARGET_DIR"
+        ;;
+    esac
+  done
+
+  echo ""
+
+  # --- Configure Git Hooks ---
+  echo -e "${YELLOW}Configuring git hooks...${NC}"
+  configure_git_hooks "$TARGET_DIR"
+  echo ""
+
+  # --- Execute package installs (if --exec) ---
+  if [[ "$EXEC_INSTALL" == true ]]; then
+    execute_package_installs "$TARGET_DIR"
+    echo ""
+  fi
+
+  # --- Tool Summary ---
+  verify_all_tools
+
+  # --- Error Reporting ---
+  prompt_report_issue
+fi
+
 # --- Summary ---
 echo ""
 echo -e "${GREEN}╔══════════════════════════════════════════════╗${NC}"
@@ -548,5 +1254,14 @@ fi
 if [[ "$CICD" == "azure" || "$CICD" == "both" ]]; then
   echo -e "  - Create ${BLUE}SonarCloud${NC} service connection in Azure DevOps"
   echo -e "  - Create ${BLUE}common-variables${NC} variable group"
+fi
+if [[ "$INSTALL_TOOLS" == true ]]; then
+  echo ""
+  echo -e "  For tool setup:"
+  echo -e "  - Run ${BLUE}gh auth login${NC} to authenticate GitHub CLI"
+  if [[ "$CICD" == "azure" || "$CICD" == "both" ]]; then
+    echo -e "  - Run ${BLUE}az login${NC} to authenticate Azure CLI"
+  fi
+  echo -e "  - Pre-push hook will check for vulnerabilities before each push"
 fi
 echo ""
