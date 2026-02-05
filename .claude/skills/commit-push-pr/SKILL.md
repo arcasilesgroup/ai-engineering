@@ -29,9 +29,9 @@ Follow platform detection steps from `.claude/skills/utils/platform-detection.md
 - NEVER stage: `.env`, `*.key`, `*.pem`, `credentials.*`, `*secret*` files
 - Stage with specific `git add <file>` commands (not `git add -A`)
 
-### 3. Secret Scanning (handled by hooks)
+### 3. Secret Scanning (handled by pre-commit hook)
 
-Secret scanning is handled automatically by the pre-commit hook and Claude Code's `block-dangerous.sh` hook. No manual scan step is needed here. If secrets are detected, the commit will be blocked by the hooks.
+Secret scanning is handled automatically by the git pre-commit hook (gitleaks). No manual scan step is needed here. If secrets are detected, the commit will be blocked.
 
 ### 4. Generate Conventional Commit
 
@@ -90,7 +90,7 @@ az repos pr create --title "<title>" --description "<body>" --target-branch <tar
 
 ## Verification
 
-- No secrets in staged changes (enforced by pre-commit hook and Claude Code hooks)
+- No secrets in staged changes (enforced by pre-commit hook)
 - Commit message follows conventional format
 - Branch is pushed to remote (pre-push vulnerability check passed)
 - PR is created and accessible

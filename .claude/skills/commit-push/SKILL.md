@@ -31,9 +31,9 @@ $ARGUMENTS - Optional: specific files to commit, or commit message hint
 
 - Stage the identified files with `git add <file>`
 
-### 4. Secret Scanning (handled by hooks)
+### 4. Secret Scanning (handled by pre-commit hook)
 
-Secret scanning is handled automatically by the pre-commit hook and Claude Code's `block-dangerous.sh` hook. No manual scan step is needed here. If secrets are detected, the commit will be blocked by the hooks.
+Secret scanning is handled automatically by the git pre-commit hook (gitleaks). No manual scan step is needed here. If secrets are detected, the commit will be blocked.
 
 ### 5. Generate Commit Message
 

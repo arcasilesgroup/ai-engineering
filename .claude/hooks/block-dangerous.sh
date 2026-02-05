@@ -10,7 +10,6 @@
 #   - git reset --hard on main/master
 #   - git clean -fd on main/master
 #   - DROP DATABASE / DROP TABLE (case insensitive)
-#   - git commit when gitleaks detects secrets in staged files
 #
 # Exit codes:
 #   0 = allow the command
@@ -90,22 +89,6 @@ fi
 if echo "$CMD_NORMALIZED" | grep -iqE 'drop\s+(database|table)\b'; then
     echo "BLOCKED: DROP DATABASE/TABLE commands are prohibited via CLI hooks." >&2
     exit 2
-fi
-
-# 6. Gitleaks check before git commit
-#    Runs gitleaks on staged files to detect secrets before committing.
-#    Uses 'gitleaks protect --staged' (gitleaks 8.x) to scan only staged content.
-#    Fails open (warns) if gitleaks is not installed.
-if echo "$CMD_NORMALIZED" | grep -qE 'git\s+commit\b'; then
-    if command -v gitleaks &>/dev/null; then
-        if ! gitleaks protect --staged --no-banner 2>/dev/null; then
-            echo "BLOCKED: Secrets detected in staged files." >&2
-            echo "Run 'gitleaks protect --staged --verbose' to see details." >&2
-            exit 2
-        fi
-    else
-        echo "WARNING: gitleaks not installed - skipping secret scan" >&2
-    fi
 fi
 
 # ---------------------------------------------------------------------------

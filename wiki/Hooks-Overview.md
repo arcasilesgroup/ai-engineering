@@ -14,7 +14,7 @@ Hooks are shell scripts that execute automatically when certain events occur. Th
 | Hook | Trigger | Purpose |
 |------|---------|---------|
 | `auto-format.sh` | After Edit/Write | Formats files after Claude edits them |
-| `block-dangerous.sh` | Before Bash | Blocks force push, `rm -rf`, etc. |
+| `block-dangerous.sh` | Before Bash | Blocks force push, `rm -rf`, DROP TABLE, etc. |
 | `block-env-edit.sh` | Before Edit/Write | Prevents editing `.env` files |
 | `notify.sh` | Notification | Desktop alerts when Claude needs attention |
 | `version-check.sh` | Session start | Checks for framework updates (24h cache) |
