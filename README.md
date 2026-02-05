@@ -58,10 +58,10 @@ Open Claude Code in your project and run:
 
 Type `/` to see available skills:
 
-- `/commit-push` — Smart commits with secret scanning + push
+- `/ship` — Smart commits with secret scanning + push (+ optional PR)
 - `/review` — Code review against your standards
 - `/test` — Generate and run tests
-- `/pr` — Create pull requests (GitHub + Azure DevOps)
+- `/assess` — Security audit and blast radius analysis
 
 **[Full documentation](https://github.com/arcasilesgroup/ai-engineering/wiki)**
 
@@ -69,29 +69,27 @@ Type `/` to see available skills:
 
 ## Features
 
-### Skills (23)
+### Skills (11)
 
 Interactive workflows that execute in your current session.
 
 | Category | Skills |
 |----------|--------|
-| **Git** | `/commit-push`, `/pr`, `/commit-push-pr` |
-| **Quality** | `/review`, `/test`, `/fix`, `/refactor` |
-| **Security** | `/security-audit`, `/quality-gate`, `/blast-radius`, `/deploy-check` |
-| **Documentation** | `/document`, `/create-adr`, `/learn` |
-| **Setup** | `/validate`, `/setup-project`, `/migrate-claude-md` |
-| **Stack-specific** | `/add-endpoint`, `/add-component`, `/migrate-api`, `/dotnet:*` (3) |
+| **Inner Loop** | `/ship`, `/test`, `/fix`, `/review` |
+| **Code Quality** | `/refactor`, `/assess` |
+| **Documentation** | `/document`, `/learn` |
+| **Scaffolding** | `/scaffold` |
+| **Framework** | `/validate`, `/setup-project` |
 
-### Agents (5)
+### Agents (4)
 
 Background workers for autonomous tasks.
 
 | Agent | Purpose |
 |-------|---------|
-| `verify-app` | Build + test + lint + security in one pass |
+| `verify-app` | Build + test + lint + security + quality in one pass |
 | `code-architect` | Design before implementing |
 | `oncall-guide` | Production debugging assistance |
-| `doc-generator` | Auto-update documentation |
 | `code-simplifier` | Reduce complexity |
 
 ### Standards (10)

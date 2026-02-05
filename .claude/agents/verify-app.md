@@ -57,7 +57,21 @@ Run the stack-appropriate linter:
 
 Scan for duplicated code blocks (> 10 identical lines across files).
 
-### 8. Report
+### 8. Configuration Check
+
+- Verify no hardcoded environment-specific values.
+- Check that all `{{PLACEHOLDER}}` values are replaced in configuration files.
+- Verify environment variables are documented.
+- Check for TODO/FIXME/HACK comments without issue references.
+- Verify no debug/console.log statements in production code.
+
+### 9. Git Status
+
+- Verify all changes are committed: `git status --porcelain`
+- Verify branch is up to date with base branch.
+- Check for merge conflicts.
+
+### 10. Report
 
 Output a clear report:
 
@@ -75,6 +89,8 @@ Output a clear report:
     | Secrets | PASS/FAIL | X findings |
     | Dependencies | PASS/FAIL | X vulnerabilities |
     | Duplication | PASS/FAIL | X% (threshold: 3%) |
+    | Configuration | PASS/FAIL | X placeholders, Y debug statements |
+    | Git Status | PASS/FAIL | [uncommitted changes, conflicts] |
 
     ### Failures (if any)
     1. **[check:file:line]** [Description]
