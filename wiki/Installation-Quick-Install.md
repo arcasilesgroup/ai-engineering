@@ -83,13 +83,33 @@ After installing, open Claude Code and run:
 
 Expected output:
 ```
-✓ CLAUDE.md present
-✓ .claude/settings.json present
-✓ Skills directory present (21 skills)
-✓ Agents directory present (6 agents)
-✓ Hooks configured
-✓ Standards present
-✓ Platform: GitHub (detected from remote)
+## Framework Validation Report
+
+**Status:** VALID
+**Version:** 2.0.0
+
+### Files
+- [x] CLAUDE.md
+- [x] .claude/settings.json
+- [x] Skills: 21 found
+- [x] Agents: 6 found
+- [x] Hooks: 4 found (4 executable)
+- [x] Standards: 10 found
+
+### Platform
+- [x] Platform: GitHub
+- [x] CLI: gh installed
+- [x] Auth: Authenticated
+
+### Tools
+- [x] gitleaks: installed
+- [x] Pre-push hook: installed
+- [x] Stack tools: configured
+
+### Warnings
+(none)
+
+Framework is correctly installed.
 ```
 
 ## What Gets Installed

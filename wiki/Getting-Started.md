@@ -36,7 +36,38 @@ Open Claude Code in your project and run:
 /validate
 ```
 
-This checks that all required files exist, are correctly configured, and reports the detected CI/CD platform.
+Expected output:
+```
+## Framework Validation Report
+
+**Status:** VALID
+**Version:** 2.0.0
+
+### Files
+- [x] CLAUDE.md
+- [x] .claude/settings.json
+- [x] Skills: 21 found
+- [x] Agents: 6 found
+- [x] Hooks: 4 found (4 executable)
+- [x] Standards: 10 found
+
+### Platform
+- [x] Platform: GitHub
+- [x] CLI: gh installed
+- [x] Auth: Authenticated
+
+### Tools
+- [x] gitleaks: installed
+- [x] Pre-push hook: installed
+- [x] Stack tools: configured
+
+### Warnings
+(none)
+
+Framework is correctly installed.
+```
+
+This checks that all required files exist, are correctly configured, verifies tools are installed, and reports the detected CI/CD platform.
 
 ## What Was Installed
 

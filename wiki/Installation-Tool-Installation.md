@@ -183,6 +183,8 @@ cp scripts/tool-configs/tflint.hcl ~/.tflint.hcl
 
 ## Verifying Tool Installation
 
+### Manual Check
+
 ```bash
 # Check all tools
 gitleaks version
@@ -192,6 +194,32 @@ npx eslint --version
 ruff --version
 tflint --version
 ```
+
+### Using /validate
+
+The `/validate` skill checks tool installation status automatically:
+
+```
+/validate
+```
+
+The **Tools** section of the output shows:
+```
+### Tools
+- [x] gitleaks: installed
+- [x] Pre-push hook: installed
+- [x] Stack tools: configured
+```
+
+If tools are missing, you'll see:
+```
+### Tools
+- [ ] gitleaks: not found
+- [ ] Pre-push hook: not found
+- [ ] Stack tools: missing
+```
+
+Run the installer with `--install-tools` to fix missing tools, or install them manually using the commands above.
 
 ---
 **See also:** [Quick Install](Installation-Quick-Install) | [Hooks Overview](Hooks-Overview)
