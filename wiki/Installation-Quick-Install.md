@@ -45,7 +45,7 @@ rm -rf /tmp/ai-framework
 | `--stacks` | Yes | Comma-separated stacks | `dotnet,typescript,python,terraform` |
 | `--cicd` | No | CI/CD platform | `github`, `azure`, `both` |
 | `--target` | No | Target directory | `/path/to/project` (default: `.`) |
-| `--install-tools` | No | Install dev tools | Installs gitleaks, gh CLI, pre-push hook |
+| `--install-tools` | No | Install dev tools | Installs gitleaks, gh CLI, pre-commit and pre-push hooks |
 | `--skip-sdks` | No | Skip SDK verification | Skips dotnet, node, python checks |
 | `--exec` | No | Run post-install commands | Runs `npm install` / `pip install` |
 
@@ -62,6 +62,7 @@ rm -rf /tmp/ai-framework
 This additionally installs:
 - **gitleaks** - Secret scanning
 - **gh CLI** - GitHub CLI for `/pr` skill
+- **pre-commit hook** - Scans staged files for secrets before commit
 - **pre-push hook** - Blocks pushes with critical vulnerabilities
 
 ## Platform Auto-Detection
@@ -103,6 +104,7 @@ Expected output:
 
 ### Tools
 - [x] gitleaks: installed
+- [x] Pre-commit hook: installed
 - [x] Pre-push hook: installed
 - [x] Stack tools: configured
 

@@ -189,7 +189,7 @@ Adding user authentication endpoint. Implementation follows existing patterns.
 1. **Checks files** — Verifies all required files exist
 2. **Validates config** — Ensures settings.json is valid
 3. **Detects platform** — GitHub or Azure DevOps
-4. **Checks tools** — Verifies gitleaks, CLI tools, and pre-push hook
+4. **Checks tools** — Verifies gitleaks, CLI tools, pre-commit and pre-push hooks
 5. **Reports status** — Shows what's working
 
 ### Example Output
@@ -215,6 +215,7 @@ Adding user authentication endpoint. Implementation follows existing patterns.
 
 ### Tools
 - [x] gitleaks: installed
+- [x] Pre-commit hook: installed
 - [x] Pre-push hook: installed
 - [x] Stack tools: configured
 

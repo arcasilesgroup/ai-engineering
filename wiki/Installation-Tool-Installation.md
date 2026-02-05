@@ -14,7 +14,8 @@ It installs and configures:
 
 1. **gitleaks** - Secret scanning
 2. **gh CLI** - GitHub command line (for `/pr` skill)
-3. **pre-push hook** - Vulnerability check before push
+3. **pre-commit hook** - Secret scanning before commit
+4. **pre-push hook** - Vulnerability check before push
 
 ## What Gets Installed
 
@@ -71,7 +72,23 @@ gh auth login
 - `/pr` skill (creates GitHub PRs)
 - `/commit-push-pr` skill (full commit-push-PR cycle)
 
-### 3. Pre-Push Hook
+### 3. Pre-Commit Hook
+
+A git hook that scans staged files for secrets before commit.
+
+**What it does:**
+- Runs on `git commit`
+- Scans staged files using `gitleaks protect --staged`
+- **Secrets found** → Blocks commit
+
+**Location:** `.git/hooks/pre-commit`
+
+**Bypass (not recommended):**
+```bash
+git commit --no-verify
+```
+
+### 4. Pre-Push Hook
 
 A git hook that checks for vulnerabilities before push.
 
@@ -207,6 +224,7 @@ The **Tools** section of the output shows:
 ```
 ### Tools
 - [x] gitleaks: installed
+- [x] Pre-commit hook: installed
 - [x] Pre-push hook: installed
 - [x] Stack tools: configured
 ```
@@ -215,6 +233,7 @@ If tools are missing, you'll see:
 ```
 ### Tools
 - [ ] gitleaks: not found
+- [ ] Pre-commit hook: not found
 - [ ] Pre-push hook: not found
 - [ ] Stack tools: missing
 ```

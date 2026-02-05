@@ -1269,6 +1269,7 @@ if [[ "$INSTALL_TOOLS" == true ]]; then
   if [[ "$CICD" == "azure" || "$CICD" == "both" ]]; then
     echo -e "  - Run ${BLUE}az login${NC} to authenticate Azure CLI"
   fi
+  echo -e "  - Pre-commit hook will scan for secrets before each commit"
   echo -e "  - Pre-push hook will check for vulnerabilities before each push"
 fi
 echo ""

@@ -18,10 +18,11 @@ Hooks are shell scripts that execute automatically when certain events occur. Th
 | `block-env-edit.sh` | Before Edit/Write | Prevents editing `.env` files |
 | `notify.sh` | Notification | Desktop alerts when Claude needs attention |
 
-## Git Hooks (1)
+## Git Hooks (2)
 
 | Hook | Trigger | Purpose |
 |------|---------|---------|
+| `pre-commit` | Before git commit | Scans staged files for secrets (gitleaks) |
 | `pre-push` | Before git push | Blocks pushes with critical vulnerabilities |
 
 ## How Hooks Work
@@ -56,6 +57,7 @@ Hooks are shell scripts that execute automatically when certain events occur. Th
 
 .git/
 └── hooks/
+    ├── pre-commit
     └── pre-push
 ```
 
@@ -107,6 +109,9 @@ scripts/install.sh --name "MyProject" --stacks dotnet --install-tools
 Or manually:
 
 ```bash
+cp scripts/hooks/pre-commit .git/hooks/pre-commit
+chmod +x .git/hooks/pre-commit
+
 cp scripts/hooks/pre-push .git/hooks/pre-push
 chmod +x .git/hooks/pre-push
 ```
@@ -156,7 +161,8 @@ Cannot be bypassed — they're part of the session configuration.
 ### Git Hooks
 
 ```bash
-git push --no-verify  # Skip pre-push hook (not recommended)
+git commit --no-verify  # Skip pre-commit hook (not recommended)
+git push --no-verify    # Skip pre-push hook (not recommended)
 ```
 
 ---

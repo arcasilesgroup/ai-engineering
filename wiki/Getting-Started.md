@@ -26,7 +26,7 @@ git clone https://github.com/arcasilesgroup/ai-engineering.git /tmp/ai-framework
 rm -rf /tmp/ai-framework
 ```
 
-The `--install-tools` flag automatically installs gitleaks, gh CLI, and configures a pre-push vulnerability check hook.
+The `--install-tools` flag automatically installs gitleaks, gh CLI, and configures a pre-commit secret scanning hook and a pre-push vulnerability check hook.
 
 ## Verify Installation
 
@@ -58,6 +58,7 @@ Expected output:
 
 ### Tools
 - [x] gitleaks: installed
+- [x] Pre-commit hook: installed
 - [x] Pre-push hook: installed
 - [x] Stack tools: configured
 

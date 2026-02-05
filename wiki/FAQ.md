@@ -229,8 +229,10 @@ Run the installer again:
 ### Secret scanning isn't blocking commits
 
 1. Install gitleaks: `brew install gitleaks`
-2. Test: `gitleaks detect --source . --no-git`
-3. Check `/commit-push` skill is being used
+2. Test all files: `gitleaks detect --source . --no-git`
+3. Test staged files only: `gitleaks protect --staged`
+4. Check `/commit-push` skill is being used
+5. Verify pre-commit hook is installed: `test -x .git/hooks/pre-commit && echo "installed"`
 
 ---
 

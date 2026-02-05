@@ -91,6 +91,8 @@ Verify development tools are installed:
 - For Terraform: `tflint --version`
 
 **Git Hooks:**
+- Check if `.git/hooks/pre-commit` exists and is executable
+- Verify pre-commit hook contains secret scanning (gitleaks)
 - Check if `.git/hooks/pre-push` exists and is executable
 - Verify pre-push hook contains vulnerability check
 
@@ -116,6 +118,7 @@ Verify development tools are installed:
 
     ### Tools
     - [x] gitleaks: installed | not found
+    - [x] Pre-commit hook: installed | not found
     - [x] Pre-push hook: installed | not found
     - [x] Stack tools: configured | missing
 
