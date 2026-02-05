@@ -17,14 +17,7 @@ $ARGUMENTS - Optional: target branch for the PR (defaults to default branch: mai
 
 ## Steps
 
-### 1. Secret Scan
-
-Before anything else, scan for leaked secrets:
-- Look for patterns: API keys (`AKIA`, `sk-`, `ghp_`, `xox`), connection strings, private keys
-- If `gitleaks` is available, run: `gitleaks detect --source . --no-git --verbose`
-- If secrets are found, **STOP** and report them. Do NOT proceed.
-
-### 2. Detect Platform
+### 1. Detect Platform
 
 Detect the git platform from remote URL:
 - `git remote get-url origin`
@@ -33,13 +26,21 @@ Detect the git platform from remote URL:
 - Verify the CLI is available and authenticated
 - If platform cannot be detected, ask the user
 
-### 3. Analyze and Stage Changes
+### 2. Analyze and Stage Changes
 
 - Run `git status` to see modified/untracked files
 - Run `git diff` and `git diff --cached` to understand changes
 - Identify logically related changes that form one atomic commit
 - NEVER stage: `.env`, `*.key`, `*.pem`, `credentials.*`, `*secret*` files
 - Stage with specific `git add <file>` commands (not `git add -A`)
+
+### 3. Scan Staged Changes for Secrets
+
+After staging, scan **only the staged changes** (not the whole repo):
+- If `gitleaks` is available, run: `gitleaks protect --staged --verbose`
+- This scans only the content being committed, not the entire repository
+- If secrets are found, unstage the files (`git restore --staged <files>`) and **STOP**. Do NOT proceed.
+- If `gitleaks` is not available, manually review staged diffs for patterns: API keys (`AKIA`, `sk-`, `ghp_`, `xox`), connection strings, private keys
 
 ### 4. Generate Conventional Commit
 
@@ -98,7 +99,7 @@ az repos pr create --title "<title>" --description "<body>" --target-branch <tar
 
 ## Verification
 
-- No secrets in committed files
+- No secrets in staged changes (verified by `gitleaks protect --staged`)
 - Commit message follows conventional format
 - Branch is pushed to remote (pre-push vulnerability check passed)
 - PR is created and accessible
