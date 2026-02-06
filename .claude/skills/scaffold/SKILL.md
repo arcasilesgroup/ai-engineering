@@ -18,6 +18,9 @@ $ARGUMENTS - Stack, type, and type-specific arguments:
 /scaffold dotnet http-client <Name> [BaseURL]
 /scaffold dotnet error <Name> <StatusCode> <Description>
 /scaffold react <ComponentName> [page|feature|ui]
+/scaffold cicd github [stacks]
+/scaffold cicd azure [stacks]
+/scaffold cicd both [stacks]
 ```
 
 ## Steps
@@ -25,8 +28,8 @@ $ARGUMENTS - Stack, type, and type-specific arguments:
 ### 1. Parse Arguments
 
 Extract from $ARGUMENTS:
-- **Stack**: `dotnet` or `react`
-- **Type**: `endpoint`, `provider`, `http-client`, `error`, or component type
+- **Stack**: `dotnet`, `react`, or `cicd`
+- **Type**: `endpoint`, `provider`, `http-client`, `error`, component type, or CI/CD platform (`github`, `azure`, `both`)
 - **Remaining args**: type-specific parameters
 
 If any required arguments are missing, ask the user.
@@ -36,6 +39,7 @@ If any required arguments are missing, ask the user.
 Read the appropriate standards file:
 - **dotnet**: `standards/dotnet.md`
 - **react**: `standards/typescript.md`
+- **cicd**: `standards/cicd.md`, `standards/quality-gates.md`, `standards/security.md`
 
 ### 3. Execute Stack-Specific Scaffold
 
@@ -152,17 +156,54 @@ Determine location based on type:
 
 ---
 
+---
+
+## CI/CD Pipeline
+
+**Input:** Platform (`github`, `azure`, or `both`), stacks (auto-detected from project files if not provided)
+
+1. **Detect Stacks**: Scan the project for stack indicators:
+   - `.csproj` or `.sln` → dotnet
+   - `package.json` → typescript
+   - `pyproject.toml` or `requirements.txt` or `*.py` → python
+   - `*.tf` → terraform
+
+2. **Read Standards**: Read `standards/cicd.md` (especially Section 8: Pipeline Generation Checklist), `standards/quality-gates.md`, and `standards/security.md`.
+
+3. **Generate Platform Files**:
+   - **GitHub** (`github` or `both`):
+     - `.github/workflows/ci.yml` — Lint + Build + Test for detected stacks
+     - `.github/workflows/security.yml` — Gitleaks + Dependency scanning + SAST
+     - `.github/workflows/quality-gate.yml` — SonarQube/SonarCloud analysis
+   - **Azure** (`azure` or `both`):
+     - `pipelines/ci.yml` — Stages: Lint, Test, Build for detected stacks
+     - `pipelines/security.yml` — Secret + Dependency + SAST scanning
+     - `pipelines/quality-gate.yml` — SonarQube integration
+     - `pipelines/templates/` — Reusable templates per detected stack
+
+4. **Customize for Stacks**: Include ONLY the detected/specified stacks in the matrix/stages. Do not generate jobs for stacks that are not present.
+
+5. **Add CUSTOMIZE Markers**: Add clear `# CUSTOMIZE:` comments for values the user must change (solution path, working directories, SonarQube project key, version numbers).
+
+6. **Verify**: Validate YAML syntax of all generated files.
+
+---
+
 ### 4. Verify
 
 Run stack-appropriate verification:
 - **.NET**: `dotnet build --no-restore && dotnet test --no-build`
 - **React**: `npx tsc --noEmit && npm test`
+- **CI/CD**: Validate YAML syntax of generated pipeline files
 
 ## Verification
 
-- Build/compilation succeeds without errors
-- All tests pass
+- Build/compilation succeeds without errors (code scaffolds)
+- All tests pass (code scaffolds)
 - DI registrations complete (if applicable)
 - Error mappings registered (if applicable)
 - Files follow project standards and naming conventions
 - Result pattern correctly implemented (if .NET)
+- YAML syntax valid (CI/CD scaffolds)
+- All detected stacks included in pipeline (CI/CD scaffolds)
+- CUSTOMIZE markers present for project-specific values (CI/CD scaffolds)

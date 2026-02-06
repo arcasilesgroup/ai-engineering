@@ -2,9 +2,11 @@
 
 > CI/CD pipelines for Azure DevOps-hosted projects.
 
-## Included Pipelines
+> **Note:** Pipelines are no longer shipped as static templates. They are generated on demand for your project using the `/scaffold cicd azure` skill. The documentation below remains as a reference for the pipeline structure, naming conventions, and patterns that the scaffolder produces.
 
-The framework includes pipelines and reusable templates:
+## Pipeline Overview
+
+The scaffolder generates pipelines and reusable templates:
 
 | Pipeline | File | Purpose |
 |----------|------|---------|

@@ -9,7 +9,6 @@ git clone https://github.com/arcasilesgroup/ai-engineering.git /tmp/ai-framework
 /tmp/ai-framework/scripts/install.sh \
   --name "MyProject" \
   --stacks dotnet,typescript \
-  --cicd github \
   --install-tools && \
 rm -rf /tmp/ai-framework
 ```
@@ -27,8 +26,7 @@ git clone https://github.com/arcasilesgroup/ai-engineering.git /tmp/ai-framework
 ```bash
 /tmp/ai-framework/scripts/install.sh \
   --name "MyProject" \
-  --stacks dotnet,typescript \
-  --cicd github
+  --stacks dotnet,typescript
 ```
 
 ### 3. Clean Up
@@ -43,11 +41,12 @@ rm -rf /tmp/ai-framework
 |------|----------|-------------|---------|
 | `--name` | Yes | Project name | `"MyProject"` |
 | `--stacks` | Yes | Comma-separated stacks | `dotnet,typescript,python,terraform` |
-| `--cicd` | No | CI/CD platform | `github`, `azure`, `both` |
 | `--target` | No | Target directory | `/path/to/project` (default: `.`) |
 | `--install-tools` | No | Install dev tools | Installs gitleaks, gh CLI, pre-commit and pre-push hooks |
 | `--skip-sdks` | No | Skip SDK verification | Skips dotnet, node, python checks |
 | `--exec` | No | Run post-install commands | Runs `npm install` / `pip install` |
+
+> **CI/CD pipelines** are no longer installed via a flag. Use `/scaffold cicd github` or `/scaffold cicd azure` after installation to generate pipelines on demand. See [GitHub Actions](CI-CD-GitHub-Actions) or [Azure Pipelines](CI-CD-Azure-Pipelines).
 
 ## With Tool Installation (Recommended)
 
@@ -55,7 +54,6 @@ rm -rf /tmp/ai-framework
 /tmp/ai-framework/scripts/install.sh \
   --name "MyProject" \
   --stacks dotnet,typescript \
-  --cicd github \
   --install-tools
 ```
 
@@ -64,15 +62,6 @@ This additionally installs:
 - **gh CLI** - GitHub CLI for `/pr` skill
 - **pre-commit hook** - Scans staged files for secrets before commit
 - **pre-push hook** - Blocks pushes with critical vulnerabilities
-
-## Platform Auto-Detection
-
-If you omit `--cicd`, the installer auto-detects your platform from the git remote URL:
-
-| Remote URL Pattern | Detected Platform |
-|--------------------|-------------------|
-| `github.com` | GitHub |
-| `dev.azure.com` or `visualstudio.com` | Azure DevOps |
 
 ## Verify Installation
 
@@ -99,6 +88,10 @@ See [/validate full output example](Skills-Daily-Workflow#validate) for the comp
 your-project/
 ├── CLAUDE.md                    # AI entry point
 ├── CLAUDE.local.md.example      # Template for personal overrides
+├── .editorconfig                # Baseline formatting rules
+├── .vscode/
+│   ├── settings.json            # IDE linting configuration
+│   └── extensions.json          # Recommended extensions (SonarLint + stack linters)
 ├── .claude/
 │   ├── settings.json            # Permissions + hooks config
 │   ├── skills/                  # 23 interactive skills
@@ -106,10 +99,10 @@ your-project/
 │   └── hooks/                   # 5 hook scripts
 ├── standards/                   # 10 coding standards
 ├── context/                     # Project context templates
-├── learnings/                   # Accumulated knowledge templates
-├── .github/workflows/           # GitHub Actions (if selected)
-└── pipelines/                   # Azure Pipelines (if selected)
+└── learnings/                   # Accumulated knowledge templates
 ```
+
+> CI/CD pipeline files (`.github/workflows/` or `pipelines/`) are generated on demand via `/scaffold cicd github` or `/scaffold cicd azure`.
 
 ## Next Steps
 

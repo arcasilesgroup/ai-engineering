@@ -38,31 +38,22 @@ All projects must pass these thresholds before merging to the main branch:
 
 ---
 
-## 2. SonarLint IDE Setup
+## 2. IDE Linting Setup
 
-### Required IDE Integration
+### EditorConfig (Cross-IDE Baseline)
 
-Every developer must have SonarLint installed and connected to the SonarQube server:
+The framework ships `.editorconfig` for cross-IDE formatting consistency. All major editors (VS Code, JetBrains, Vim) support EditorConfig natively or via plugins. This file defines indent sizes, line endings, and trailing whitespace rules per file type.
 
-**VS Code:**
-```json
-// .vscode/settings.json
-{
-  "sonarlint.connectedMode.connections.sonarqube": [
-    {
-      "connectionId": "company-sonarqube",
-      "serverUrl": "https://sonarqube.company.com",
-      "token": "${env:SONAR_TOKEN}"
-    }
-  ],
-  "sonarlint.connectedMode.project": {
-    "connectionId": "company-sonarqube",
-    "projectKey": "my-project-key"
-  }
-}
-```
+### VS Code (Recommended Extensions + Settings)
 
-**JetBrains (Rider, IntelliJ, PyCharm):**
+The framework includes pre-configured IDE files:
+- **`.vscode/extensions.json`** — Prompts to install SonarLint, ESLint, Prettier, Ruff, Terraform, C# Dev Kit, and EditorConfig extensions.
+- **`.vscode/settings.json`** — Configures format-on-save, linter integration, and SonarLint Connected Mode placeholders.
+
+After installation, configure SonarLint Connected Mode by uncommenting and filling in the connection settings in `.vscode/settings.json` with your SonarQube/SonarCloud server URL and project key. See the `CUSTOMIZE:` comments in the file.
+
+### JetBrains (Rider, IntelliJ, PyCharm)
+
 1. Install SonarLint plugin from Marketplace
 2. Settings > Tools > SonarLint > Connect to SonarQube
 3. Bind project to remote SonarQube project key
@@ -70,9 +61,17 @@ Every developer must have SonarLint installed and connected to the SonarQube ser
 ### Benefits of Connected Mode
 
 - Rules synchronized with server quality profile
-- Issues detected locally before push
+- Issues detected locally before push (instant feedback)
 - Suppressed issues respected locally
 - New rules applied automatically
+
+### IDE Linting Layers
+
+| Layer | Tool | Scope | When |
+|-------|------|-------|------|
+| **Capa 1** | SonarLint (Connected Mode) | Cross-stack, server-synced rules | Real-time in IDE |
+| **Capa 2** | ESLint, Ruff, Roslyn, tflint | Stack-specific rules | Real-time in IDE + format-on-save |
+| **Baseline** | `.editorconfig` | Formatting (indent, line endings) | On every keystroke |
 
 ---
 

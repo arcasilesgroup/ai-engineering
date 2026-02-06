@@ -2,9 +2,11 @@
 
 > CI/CD workflows for GitHub-hosted projects.
 
-## Included Workflows
+> **Note:** Pipelines are no longer shipped as static templates. They are generated on demand for your project using the `/scaffold cicd github` skill. The documentation below remains as a reference for the pipeline structure, naming conventions, and patterns that the scaffolder produces.
 
-The framework includes three GitHub Actions workflows:
+## Workflow Overview
+
+The scaffolder generates three GitHub Actions workflows:
 
 | Workflow | File | Purpose |
 |----------|------|---------|

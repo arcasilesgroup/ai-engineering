@@ -19,7 +19,6 @@ git clone https://github.com/arcasilesgroup/ai-engineering.git /tmp/ai-framework
 /tmp/ai-framework/scripts/install.sh \
   --name "MyProject" \
   --stacks dotnet,typescript \
-  --cicd github \
   --install-tools
 
 # Clean up
@@ -27,6 +26,8 @@ rm -rf /tmp/ai-framework
 ```
 
 The `--install-tools` flag automatically installs gitleaks, gh CLI, and configures a pre-commit secret scanning hook and a pre-push vulnerability check hook.
+
+The installer also creates IDE configuration files (`.editorconfig`, `.vscode/settings.json`, `.vscode/extensions.json`) for built-in linting. See [IDE Linting Setup](Standards-IDE-Linting) for details.
 
 ## Verify Installation
 
@@ -52,6 +53,10 @@ This checks that all required files exist, are correctly configured, verifies to
 ```
 your-project/
 ├── CLAUDE.md                    # AI entry point
+├── .editorconfig                # Baseline formatting rules
+├── .vscode/
+│   ├── settings.json            # IDE linting configuration
+│   └── extensions.json          # Recommended extensions
 ├── .claude/
 │   ├── settings.json            # Permissions + hooks config
 │   ├── skills/                  # 23 interactive skills
@@ -59,9 +64,7 @@ your-project/
 │   └── hooks/                   # 5 hook scripts
 ├── standards/                   # 10 coding standards
 ├── context/                     # Project context
-├── learnings/                   # Accumulated knowledge
-├── .github/workflows/           # GitHub Actions (if selected)
-└── pipelines/                   # Azure Pipelines (if selected)
+└── learnings/                   # Accumulated knowledge
 ```
 
 ## First Commands
@@ -99,7 +102,25 @@ The `CLAUDE.md` file is the main entry point. Review and customize:
 - Critical rules specific to your project
 - Remove references to stacks you don't use
 
-### 3. Personal Overrides (Optional)
+### 3. Configure IDE Linting
+
+The installer creates `.vscode/settings.json` and `.vscode/extensions.json` with recommended linters. To complete the setup:
+
+1. Open VS Code and install the recommended extensions when prompted
+2. Configure **SonarLint Connected Mode** to connect to your SonarCloud/SonarQube instance (see [IDE Linting Setup](Standards-IDE-Linting))
+
+### 4. Generate CI/CD Pipelines (Optional)
+
+Pipelines are generated on demand using the scaffold skill:
+
+```
+/scaffold cicd github    # For GitHub Actions
+/scaffold cicd azure     # For Azure Pipelines
+```
+
+See [GitHub Actions](CI-CD-GitHub-Actions) or [Azure Pipelines](CI-CD-Azure-Pipelines) for pipeline structure details.
+
+### 5. Personal Overrides (Optional)
 
 Create `CLAUDE.local.md` for personal, non-committed settings:
 

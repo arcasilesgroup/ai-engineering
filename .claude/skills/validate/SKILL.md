@@ -71,10 +71,11 @@ Detect and verify platform setup:
 - Check `DEPRECATIONS.json` for deprecated version warnings
 - Warn if outdated or deprecated
 
-### 9. Check CI/CD (if applicable)
+### 9. Check CI/CD (informational)
 
-- If `.github/workflows/` exists: verify workflow files are valid YAML.
-- If `pipelines/` exists: verify pipeline files are valid YAML.
+- If `.github/workflows/` exists: note the workflows found (informational, not a validation failure if absent).
+- If `pipelines/` exists: note the pipeline files found (informational).
+- If neither exists: suggest running `/scaffold cicd github` or `/scaffold cicd azure` to generate pipelines.
 
 ### 10. Check Development Tools
 

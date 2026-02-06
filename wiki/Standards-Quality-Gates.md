@@ -30,6 +30,18 @@ Quality gates are automated checks that verify code meets minimum standards. All
 | **D** | Poor - Significant issues |
 | **E** | Worst - Critical issues |
 
+## IDE Linting (Shift-Left Layer)
+
+Quality enforcement starts in the IDE, before code is committed. The framework installs three config files that provide layered linting:
+
+| Layer | Tool | Scope |
+|-------|------|-------|
+| **Baseline** | `.editorconfig` | Indentation, charset, line endings, trailing whitespace |
+| **Stack Linters** | ESLint, Ruff, Roslyn analyzers, tflint | Language-specific rules, auto-fix on save |
+| **SonarLint Connected Mode** | SonarLint extension | Same rules as SonarCloud/SonarQube, in real time |
+
+This ensures issues are caught at authoring time rather than in CI. See [IDE Linting Setup](Standards-IDE-Linting) for full configuration details.
+
 ## Running Quality Gates
 
 ### Using /quality-gate Skill

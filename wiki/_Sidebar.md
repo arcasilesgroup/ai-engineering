@@ -42,6 +42,7 @@
 - [Standards](Standards-Overview)
 - [By Stack](Standards-By-Stack)
 - [Quality Gates](Standards-Quality-Gates)
+- [IDE Linting Setup](Standards-IDE-Linting)
 - [Hooks Overview](Hooks-Overview)
 - [Claude Code Hooks](Hooks-Claude-Code-Hooks)
 - [Git Hooks](Hooks-Git-Hooks)
