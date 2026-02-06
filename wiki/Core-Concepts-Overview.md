@@ -21,11 +21,11 @@ AI coding agents are powerful but inconsistent without structure. They:
 | Problem | Solution |
 |---------|----------|
 | Inconsistent code style | `standards/*.md` — Stack-specific coding standards |
-| No security checks | `verify-app` agent + `/security-audit` skill |
+| No security checks | `verify-app` agent + `/assess security` skill |
 | Missing tests | `/test` skill + test verification |
-| No quality gates | `/quality-gate` skill + SonarQube integration |
+| No quality gates | `verify-app` agent + SonarQube integration |
 | Lost knowledge | `learnings/*.md` — Accumulated patterns and gotchas |
-| Manual workflows | `/commit-push`, `/pr`, `/review` — Automated skills |
+| Manual workflows | `/ship`, `/review`, `/test` — Automated skills |
 | Unsafe operations | `.claude/hooks/` — Auto-format, block dangerous commands |
 
 ## Philosophy
@@ -46,8 +46,8 @@ AI coding agents are powerful but inconsistent without structure. They:
 
 | Component | Count | Purpose |
 |-----------|-------|---------|
-| **Skills** | 23 | Interactive workflows (`/commit-push`, `/review`, `/test`) |
-| **Agents** | 5 | Background verification workers |
+| **Skills** | 11 | Interactive workflows (`/ship`, `/review`, `/test`) |
+| **Agents** | 4 | Background verification workers |
 | **Standards** | 10 | Stack-specific coding rules |
 | **Hooks** | 5 + 2 Git | Auto-format, safety guards, secret scan |
 | **CI/CD Templates** | 2 platforms | GitHub Actions + Azure Pipelines |

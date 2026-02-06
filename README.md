@@ -165,7 +165,7 @@ AI reads your standards and enforces them
 | Section | Description |
 |---------|-------------|
 | [Getting Started](https://github.com/arcasilesgroup/ai-engineering/wiki/Getting-Started) | Install and configure |
-| [Skills](https://github.com/arcasilesgroup/ai-engineering/wiki/Skills-Overview) | All 23 workflows |
+| [Skills](https://github.com/arcasilesgroup/ai-engineering/wiki/Skills-Overview) | All 11 skills |
 | [Agents](https://github.com/arcasilesgroup/ai-engineering/wiki/Agents-Overview) | Background workers |
 | [Standards](https://github.com/arcasilesgroup/ai-engineering/wiki/Standards-Overview) | Coding rules |
 | [Hooks](https://github.com/arcasilesgroup/ai-engineering/wiki/Hooks-Overview) | Automation |

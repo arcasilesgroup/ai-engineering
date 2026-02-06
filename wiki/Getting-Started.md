@@ -54,8 +54,8 @@ your-project/
 ├── CLAUDE.md                    # AI entry point
 ├── .claude/
 │   ├── settings.json            # Permissions + hooks config
-│   ├── skills/                  # 23 interactive skills
-│   ├── agents/                  # 5 background agents
+│   ├── skills/                  # 11 interactive skills
+│   ├── agents/                  # 4 background agents
 │   └── hooks/                   # 5 hook scripts
 ├── standards/                   # 10 coding standards
 ├── context/                     # Project context
@@ -72,9 +72,9 @@ Try these commands to get familiar with the framework:
 |---------|--------------|
 | `/validate` | Check framework installation |
 | `/review staged` | Review your staged changes |
-| `/commit-push` | Smart commit with secret scanning + push |
+| `/ship` | Smart commit with secret scanning + push |
 | `/test` | Generate and run tests |
-| `/pr` | Create a pull request |
+| `/ship pr` | Commit, push, and create a pull request |
 
 ## Customize Your Installation
 

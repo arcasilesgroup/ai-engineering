@@ -60,26 +60,11 @@ public class UserService : IUserService
     public async Task<Result<User>> GetUser(Guid userId)
 ```
 
----
+### Architecture Decision Records (ADRs)
 
-## /create-adr
+You can also use `/document` to generate ADRs, or ask Claude directly to create one. ADRs document significant architectural decisions and are stored in `context/decisions/`.
 
-**Create an Architecture Decision Record.**
-
-```
-/create-adr "Use Redis for session storage"
-/create-adr "Switch from REST to GraphQL"
-```
-
-### What's an ADR?
-
-Architecture Decision Records document significant architectural decisions:
-- **What** was decided
-- **Why** it was decided
-- **Alternatives** considered
-- **Consequences** of the decision
-
-### ADR Template
+#### ADR Template
 
 ```markdown
 # ADR-NNN: [Title]
@@ -121,16 +106,16 @@ Architecture Decision Records document significant architectural decisions:
 - [Link to relevant documentation]
 ```
 
-### ADR Location
+#### ADR Location
 
 ADRs are stored in `context/decisions/`:
 
 ```
 context/
 └── decisions/
-    ├── 001-use-result-pattern.md
-    ├── 002-adopt-vertical-slice-architecture.md
-    └── 003-use-redis-for-sessions.md
+    ├── ADR-001-result-pattern.md
+    ├── ADR-002-error-mapping.md
+    └── _template.md
 ```
 
 ---
@@ -203,51 +188,9 @@ var user = result.Value; // Safe
 
 ---
 
-## /blast-radius
+## Impact Analysis
 
-**Analyze the impact of proposed changes.**
-
-```
-/blast-radius
-/blast-radius src/services/UserService.cs
-```
-
-### What It Analyzes
-
-1. **Direct dependencies** — What uses this code?
-2. **Indirect dependencies** — What uses the things that use this code?
-3. **Test coverage** — What tests cover this code?
-4. **API surface** — Does this change the public API?
-5. **Database** — Does this affect data models?
-
-### Example Output
-
-```markdown
-## Blast Radius: UserService.cs
-
-### Direct Dependencies (5 files)
-- `UserController.cs` — calls GetUser, CreateUser
-- `AuthService.cs` — calls ValidateUser
-- `OrderService.cs` — calls GetUser
-- `NotificationService.cs` — calls GetUserEmail
-- `ReportService.cs` — calls GetUserStats
-
-### Indirect Dependencies (12 files)
-- All controllers that use OrderService
-- Background jobs that use NotificationService
-
-### Test Coverage
-- `UserServiceTests.cs` — 94% coverage
-- `UserControllerTests.cs` — 87% coverage
-- `AuthServiceTests.cs` — 91% coverage
-
-### Risk Assessment
-- **API Change:** No (internal only)
-- **Database Change:** No
-- **Breaking Change:** No
-
-**Recommendation:** Safe to proceed. Run full test suite after changes.
-```
+For blast radius and impact analysis of code changes, use the [`/assess impact`](Skills-Security#assess-impact) skill.
 
 ---
-**See also:** [Daily Workflow Skills](Skills-Daily-Workflow) | [Standards Overview](Standards-Overview)
+**See also:** [Daily Workflow Skills](Skills-Daily-Workflow) | [Security Skills](Skills-Security) | [Standards Overview](Standards-Overview)

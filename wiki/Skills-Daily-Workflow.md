@@ -1,13 +1,15 @@
 # Daily Workflow Skills
 
-> The core skills you'll use every day: commit, review, test, and PR.
+> The core skills you'll use every day: ship, review, test, fix, and validate.
 
-## /commit-push
+## /ship
 
-**Smart commit with secret scanning and automatic push.**
+**Stage, commit, push, and optionally create a PR.**
 
 ```
-/commit-push
+/ship              # Stage + commit + push (default)
+/ship pr           # Stage + commit + push + create PR
+/ship pr-only      # Create PR from current branch (no commit)
 ```
 
 ### What It Does
@@ -17,6 +19,26 @@
 3. **Generates commit message** — Follows Conventional Commits format.
 4. **Creates the commit** — Atomic, logically grouped.
 5. **Pushes to remote** — Pushes to origin with tracking.
+6. **Creates PR** (if `pr` or `pr-only` mode) — Opens a pull request with structured description.
+
+### Modes
+
+| Mode | Command | What It Does |
+|------|---------|-------------|
+| **Default** | `/ship` | Stage + commit + push |
+| **PR** | `/ship pr` | Stage + commit + push + create PR |
+| **PR Only** | `/ship pr-only` | Create PR from current branch (no new commit) |
+
+### Multi-Platform Support
+
+Works with both GitHub and Azure DevOps:
+
+| Platform | CLI | PR Command |
+|----------|-----|------------|
+| GitHub | `gh` | `gh pr create` |
+| Azure DevOps | `az` | `az repos pr create` |
+
+The skill auto-detects your platform from the git remote URL.
 
 ### Conventional Commits Types
 
@@ -30,7 +52,7 @@
 | `chore` | Maintenance tasks |
 | `ci` | CI/CD changes |
 
-### Example Output
+### Example Commit Output
 
 ```
 feat(auth): add JWT token refresh endpoint
@@ -40,50 +62,7 @@ feat(auth): add JWT token refresh endpoint
 - Add integration tests for refresh flow
 ```
 
----
-
-## /commit-push-pr
-
-**Full cycle: commit + push + create PR.**
-
-```
-/commit-push-pr
-```
-
-### What It Does
-
-1. **Commits** — Same as `/commit-push` (with secret scanning)
-2. **Pushes** — Pushes to remote branch
-3. **Creates PR** — Opens a pull request with structured description
-
-### Multi-Platform Support
-
-Works with both GitHub and Azure DevOps:
-
-| Platform | CLI | PR Command |
-|----------|-----|------------|
-| GitHub | `gh` | `gh pr create` |
-| Azure DevOps | `az` | `az repos pr create` |
-
-The skill auto-detects your platform from the git remote URL.
-
----
-
-## /pr
-
-**Create a structured pull request.**
-
-```
-/pr
-```
-
-### What It Does
-
-1. **Analyzes changes** — Reviews all commits on the branch
-2. **Generates description** — Creates structured PR description
-3. **Creates PR** — Opens on GitHub or Azure DevOps
-
-### PR Structure
+### PR Structure (when using `pr` or `pr-only` mode)
 
 ```markdown
 ## Summary
@@ -155,8 +134,8 @@ The skill auto-detects your platform from the git remote URL.
 ### Files
 - [x] CLAUDE.md
 - [x] .claude/settings.json
-- [x] Skills: 23 found
-- [x] Agents: 5 found
+- [x] Skills: 11 found
+- [x] Agents: 4 found
 - [x] Hooks: 5 found (5 executable)
 - [x] Standards: 10 found
 

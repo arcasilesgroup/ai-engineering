@@ -181,8 +181,8 @@ Expected output:
 ```
 ✓ CLAUDE.md present (v2.0.0)
 ✓ .claude/settings.json present
-✓ Skills directory present (21 skills)
-✓ Agents directory present (6 agents)
+✓ Skills directory present (11 skills)
+✓ Agents directory present (4 agents)
 ✓ Hooks configured
 ✓ Standards present
 ✓ Platform detected
