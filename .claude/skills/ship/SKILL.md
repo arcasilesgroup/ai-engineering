@@ -15,8 +15,9 @@ Reference: `.claude/skills/utils/git-helpers.md` for git operations.
 
 $ARGUMENTS - Optional modifiers and hints:
 - No args: stage + commit + push
-- `pr` or `--pr`: stage + commit + push + create PR
-- `pr-only`: create PR from current branch (no commit)
+- `pr` or `--pr`: stage + commit + push + create PR (auto-merge ON by default)
+- `pr-only`: create PR from current branch (no commit, auto-merge ON by default)
+- `--no-auto-merge`: disable auto-merge when creating PR
 - Additional text is used as commit message hint or PR target branch
 
 ## Steps
@@ -27,6 +28,10 @@ Parse $ARGUMENTS to determine the workflow mode:
 - **commit-push** (default): stage, commit, push
 - **commit-push-pr** (`pr` arg): stage, commit, push, create PR
 - **pr-only** (`pr-only` arg): just create a PR from the current branch
+
+Determine auto-merge setting:
+- If $ARGUMENTS contains `--no-auto-merge`: set **AUTO_MERGE=false**
+- Otherwise: **AUTO_MERGE=true** (default for all PR modes)
 
 If mode is `pr-only`, skip to Step 7.
 
@@ -121,17 +126,36 @@ Follow platform detection steps from `.claude/skills/utils/platform-detection.md
 
 **GitHub:**
 ```bash
-gh pr create --title "<title>" --body "<body>" --base <target>
+PR_URL=$(gh pr create --title "<title>" --body "<body>" --base <target>)
 ```
 
 **Azure DevOps:**
 ```bash
-az repos pr create --title "<title>" --description "<body>" --target-branch <target> [--work-items <id>]
+PR_ID=$(az repos pr create --title "<title>" --description "<body>" --target-branch <target> [--work-items <id>] --query "pullRequestId" -o tsv)
 ```
 
 If an issue/work item number was detected, link it:
 - GitHub: Add `Closes #123` to the body
 - Azure DevOps: Add `--work-items AB#123` to the command
+
+**Enable auto-merge (if AUTO_MERGE=true):**
+
+After the PR is created, enable auto-merge with squash strategy:
+
+**GitHub:**
+```bash
+gh pr merge --auto --squash "$PR_URL"
+```
+
+**Azure DevOps:**
+```bash
+az repos pr update --id "$PR_ID" --auto-complete true --merge-strategy squash
+```
+
+**Error handling:** If auto-merge fails (repo doesn't support it, branch policies prevent it, insufficient permissions):
+- Warn but do NOT fail the PR creation
+- Report: "Auto-merge could not be enabled: [reason]. PR created normally."
+- Common reasons: auto-merge not enabled in repo settings, required reviews not met yet (this is expected — auto-merge will trigger after approval)
 
 ### 9. Report
 
@@ -141,6 +165,7 @@ If an issue/work item number was detected, link it:
     **Commit:** `<hash>` - <message> (if applicable)
     **Branch:** <branch> → <target>
     **PR:** <url> (if applicable)
+    **Auto-merge:** enabled (squash) | disabled | failed: <reason> (if applicable)
     **Changes:** X files changed
     **Linked items:** #123 / AB#456 (if any)
 
@@ -150,4 +175,5 @@ If an issue/work item number was detected, link it:
 - Commit message follows conventional format (if applicable)
 - Branch is pushed to remote
 - PR is created and accessible (if applicable)
+- Auto-merge is enabled (if applicable, verify with `gh pr view --json autoMergeRequest`)
 - Work items/issues linked (if detected)
