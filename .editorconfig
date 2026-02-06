@@ -1,0 +1,109 @@
+# =============================================================================
+# AI Engineering Framework - EditorConfig
+# =============================================================================
+# Cross-IDE formatting baseline. Supported natively by VS Code, JetBrains,
+# Vim (with plugin), and most modern editors.
+# See: https://editorconfig.org
+# =============================================================================
+
+root = true
+
+# -----------------------------------------------------------------------------
+# Universal defaults
+# -----------------------------------------------------------------------------
+[*]
+charset = utf-8
+end_of_line = lf
+trim_trailing_whitespace = true
+insert_final_newline = true
+indent_style = space
+indent_size = 4
+
+# -----------------------------------------------------------------------------
+# C# (.NET)
+# -----------------------------------------------------------------------------
+[*.cs]
+indent_size = 4
+
+# Roslyn analyzer severities (aligned with standards/quality-gates.md)
+dotnet_diagnostic.CA1062.severity = error       # Validate arguments of public methods
+dotnet_diagnostic.CA2007.severity = error       # Use ConfigureAwait
+dotnet_diagnostic.CA1848.severity = warning     # Use LoggerMessage delegates
+dotnet_diagnostic.SA1600.severity = none        # Elements should be documented (too noisy)
+
+# Code style
+csharp_new_line_before_open_brace = all
+csharp_new_line_before_else = true
+csharp_new_line_before_catch = true
+csharp_new_line_before_finally = true
+csharp_indent_case_contents = true
+csharp_space_after_cast = false
+csharp_preserve_single_line_blocks = true
+
+# Naming conventions
+dotnet_naming_rule.public_members_must_be_pascal_case.severity = error
+dotnet_naming_rule.public_members_must_be_pascal_case.symbols = public_symbols
+dotnet_naming_rule.public_members_must_be_pascal_case.style = pascal_case_style
+
+dotnet_naming_symbols.public_symbols.applicable_kinds = property, method, field, event, delegate
+dotnet_naming_symbols.public_symbols.applicable_accessibilities = public, internal
+
+dotnet_naming_style.pascal_case_style.capitalization = pascal_case
+
+# -----------------------------------------------------------------------------
+# TypeScript / JavaScript / React
+# -----------------------------------------------------------------------------
+[*.{ts,tsx,js,jsx}]
+indent_size = 2
+
+# -----------------------------------------------------------------------------
+# Python
+# -----------------------------------------------------------------------------
+[*.py]
+indent_size = 4
+max_line_length = 88
+
+# -----------------------------------------------------------------------------
+# Terraform
+# -----------------------------------------------------------------------------
+[*.tf]
+indent_size = 2
+
+[*.tfvars]
+indent_size = 2
+
+# -----------------------------------------------------------------------------
+# Web / Config files
+# -----------------------------------------------------------------------------
+[*.{yml,yaml}]
+indent_size = 2
+
+[*.json]
+indent_size = 2
+
+[*.{html,css,scss}]
+indent_size = 2
+
+[*.md]
+trim_trailing_whitespace = false
+
+# -----------------------------------------------------------------------------
+# Build files
+# -----------------------------------------------------------------------------
+[Makefile]
+indent_style = tab
+
+[*.{csproj,props,targets,sln}]
+indent_size = 2
+
+[*.xml]
+indent_size = 2
+
+# -----------------------------------------------------------------------------
+# Shell scripts
+# -----------------------------------------------------------------------------
+[*.sh]
+indent_size = 2
+
+[*.ps1]
+indent_size = 4

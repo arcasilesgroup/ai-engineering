@@ -4,11 +4,15 @@ Thumbs.db
 ._*
 
 # Editor artifacts
-.vscode/
 .idea/
 *.swp
 *.swo
 *~
+
+# VS Code personal files (shared settings are tracked)
+.vscode/*.code-workspace
+.vscode/launch.json
+.vscode/tasks.json
 
 # Local Claude settings (session-specific, not framework)
 .claude/settings.local.json

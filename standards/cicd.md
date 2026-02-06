@@ -2,6 +2,8 @@
 
 > Standards for continuous integration and continuous deployment using GitHub Actions and Azure Pipelines. Covers pipeline-as-code patterns, reusable workflows/templates, environment promotion, artifact management, and release gating.
 
+> **Note:** This framework does not ship pre-built pipeline files. Pipelines are generated on demand using `/scaffold cicd github` or `/scaffold cicd azure`. Claude reads this file and `standards/quality-gates.md` to generate correct, project-specific pipelines tailored to your stacks and requirements.
+
 ---
 
 ## 1. General Principles
@@ -266,3 +268,49 @@ Feature Branch → PR → main → Staging → Production
 - **Flaky tests**: Track and quarantine tests that fail intermittently.
 - **Security scan results**: Alert on new critical/high vulnerabilities.
 - **Quality gate trends**: Track quality metrics over time.
+
+---
+
+## 8. Pipeline Generation Checklist
+
+When generating pipelines (via `/scaffold cicd` or manually), every pipeline must include:
+
+### CI Pipeline (`ci.yml`)
+
+| Requirement | Details |
+|-------------|---------|
+| **Concurrency control** | Cancel in-progress runs for same branch/PR |
+| **Minimal permissions** | `contents: read`, `pull-requests: write` only if needed |
+| **Path filters** | Ignore `docs/**`, `*.md`, `.github/ISSUE_TEMPLATE/**` |
+| **Fail-fast ordering** | Lint → Build → Unit Tests → Integration Tests |
+| **Stack detection** | Include only detected stacks (`.csproj` → dotnet, `package.json` → typescript, `pyproject.toml` → python, `*.tf` → terraform) |
+| **Caching** | NuGet (`~/.nuget/packages`), npm (`~/.npm`), pip (`~/.cache/pip`), terraform plugins |
+| **Coverage reports** | Upload test results and coverage artifacts |
+| **CUSTOMIZE markers** | Clear comments for project-specific values (solution path, working directories, version numbers) |
+
+### Security Pipeline (`security.yml`)
+
+| Requirement | Details |
+|-------------|---------|
+| **Secret scanning** | Gitleaks with full history (`fetch-depth: 0`) |
+| **Dependency scanning** | Snyk (if token available) with fallback to native tools (`dotnet list --vulnerable`, `npm audit`, `pip-audit`) |
+| **SAST** | CodeQL (GitHub) or Semgrep (Azure) |
+| **Severity policy** | CRITICAL = block, HIGH = warn, MEDIUM/LOW = report |
+| **Schedule** | Weekly scan in addition to PR triggers |
+
+### Quality Gate Pipeline (`quality-gate.yml`)
+
+| Requirement | Details |
+|-------------|---------|
+| **SonarQube/SonarCloud integration** | Full history checkout, coverage report paths |
+| **Thresholds** | As defined in `standards/quality-gates.md` Section 1 |
+| **PR decoration** | Quality gate status posted to PR |
+| **CUSTOMIZE markers** | Project key, organization, service connection |
+
+### General Requirements
+
+- Pin action/task versions to SHA or major version (`actions/checkout@v4`, not `@master`)
+- Use `npm ci` not `npm install` for deterministic builds
+- Version files (`.nvmrc`, `global.json`) over hardcoded versions in workflows
+- Never echo secrets in logs
+- Mask sensitive values with `::add-mask::` (GitHub) or logging commands (Azure)

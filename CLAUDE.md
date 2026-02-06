@@ -27,7 +27,7 @@ See [context/architecture.md](context/architecture.md) for details.
 - **Frontend:** React 18, TypeScript 5.x, Vite
 - **Infrastructure:** Terraform, Bicep, Azure
 - **Testing:** NUnit (.NET), Vitest (TypeScript), pytest (Python)
-- **CI/CD:** GitHub Actions, Azure Pipelines
+- **CI/CD:** GitHub Actions, Azure Pipelines (generated on demand via `/scaffold cicd`)
 
 See [context/stack.md](context/stack.md) for full version matrix.
 
@@ -122,7 +122,7 @@ These areas require extra caution. Read the full context, check blast radius, an
 | **Permissions / RBAC** | Privilege escalation | Default deny. Test every role. Never grant admin implicitly. |
 | **Configuration / Environment** | Outages | Never hardcode environment values. Validate config at startup. Test with missing/invalid config. |
 | **API Contracts** | Breaking clients | Version the API. Never remove or rename fields without deprecation. Run `/assess impact` first. |
-| **CI/CD Pipelines** | Broken deploys | Test pipeline changes in a branch first. Never modify main pipeline directly. |
+| **CI/CD Pipelines** | Broken deploys | Generate with `/scaffold cicd`. Test pipeline changes in a branch first. Never modify main pipeline directly. |
 
 ## Layered Memory
 
@@ -215,7 +215,7 @@ Documentation:
 - `/learn` - Record a new learning
 
 Scaffolding:
-- `/scaffold` - Scaffold code from templates (`/scaffold dotnet endpoint`, `/scaffold react`, etc.)
+- `/scaffold` - Scaffold code and CI/CD pipelines (`/scaffold dotnet endpoint`, `/scaffold react`, `/scaffold cicd github`, etc.)
 
 Framework:
 - `/setup-project` - Initialize framework in a project

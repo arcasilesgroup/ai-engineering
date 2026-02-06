@@ -5,13 +5,9 @@
 # Installs or updates the AI Engineering Framework in a target project.
 #
 # Install (new project):
-#   ./install.sh --name "MyProject" --stacks dotnet,typescript --cicd github
-#   ./install.sh --name "MyProject" --stacks dotnet --cicd azure
-#   ./install.sh --name "MyProject" --stacks dotnet,typescript --cicd both
-#
-# With tool installation:
-#   ./install.sh --name "MyProject" --stacks dotnet,typescript --cicd github --install-tools
-#   ./install.sh --name "MyProject" --stacks typescript --cicd github --install-tools --exec
+#   ./install.sh --name "MyProject" --stacks dotnet,typescript
+#   ./install.sh --name "MyProject" --stacks dotnet,typescript --install-tools
+#   ./install.sh --name "MyProject" --stacks typescript --install-tools --exec
 #
 # Update (existing project):
 #   ./install.sh --update --target /path/to/project
@@ -19,7 +15,6 @@
 # Options:
 #   --name           Project name (required for install, ignored for update)
 #   --stacks         Comma-separated list: dotnet,typescript,python,terraform (required for install)
-#   --cicd           CI/CD platform: github, azure, both (default: github)
 #   --target         Target directory (default: current directory)
 #   --update         Update existing installation (preserves customizations)
 #   --install-tools  Install required development tools (gitleaks, gh, az, etc.)
@@ -43,7 +38,6 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # Defaults
 PROJECT_NAME=""
 STACKS=""
-CICD="github"
 TARGET_DIR="."
 UPDATE_MODE=false
 INSTALL_TOOLS=false
@@ -66,10 +60,6 @@ while [[ $# -gt 0 ]]; do
       ;;
     --stacks)
       STACKS="$2"
-      shift 2
-      ;;
-    --cicd)
-      CICD="$2"
       shift 2
       ;;
     --target)
@@ -168,7 +158,7 @@ collect_system_info() {
     SYSTEM_INFO+="**Shell:** $SHELL"$'\n'
     SYSTEM_INFO+="**Framework version:** $FRAMEWORK_VERSION"$'\n'
     SYSTEM_INFO+="**Stacks:** $STACKS"$'\n'
-    SYSTEM_INFO+="**Platform:** $CICD"
+    SYSTEM_INFO+="**Platform:** $PLATFORM"
 }
 
 # --- Error Reporting ---
@@ -236,7 +226,7 @@ create_github_issue() {
 
     body+="### Steps to Reproduce"$'\n'
     body+='```bash'$'\n'
-    body+="./install.sh --name \"Test\" --stacks $STACKS --cicd $CICD --install-tools"$'\n'
+    body+="./install.sh --name \"Test\" --stacks $STACKS --install-tools"$'\n'
     body+='```'$'\n\n'
 
     body+="---"$'\n'
@@ -792,6 +782,26 @@ if [[ "$UPDATE_MODE" == true ]]; then
   fi
   echo -e "  ${GREEN}✓${NC} Workshop updated"
 
+  # --- Update IDE configuration ---
+  echo -e "${YELLOW}Updating IDE configuration...${NC}"
+  cp "$SCRIPT_DIR/.editorconfig" "$TARGET_DIR/.editorconfig"
+  echo -e "  ${GREEN}✓${NC} .editorconfig updated"
+
+  mkdir -p "$TARGET_DIR/.vscode"
+  if [[ ! -f "$TARGET_DIR/.vscode/settings.json" ]]; then
+    cp "$SCRIPT_DIR/scripts/tool-configs/vscode-settings.json" "$TARGET_DIR/.vscode/settings.json"
+    echo -e "  ${GREEN}✓${NC} .vscode/settings.json created"
+  else
+    echo -e "  ${YELLOW}⚠${NC}  .vscode/settings.json exists (not overwritten)"
+  fi
+
+  if [[ ! -f "$TARGET_DIR/.vscode/extensions.json" ]]; then
+    cp "$SCRIPT_DIR/scripts/tool-configs/vscode-extensions.json" "$TARGET_DIR/.vscode/extensions.json"
+    echo -e "  ${GREEN}✓${NC} .vscode/extensions.json created"
+  else
+    echo -e "  ${YELLOW}⚠${NC}  .vscode/extensions.json exists (not overwritten)"
+  fi
+
   # --- Update Copilot instructions ---
   echo -e "${YELLOW}Updating Copilot instructions...${NC}"
   if [[ -d "$TARGET_DIR/.github" ]]; then
@@ -895,18 +905,13 @@ fi
 # --- Validate arguments ---
 if [[ -z "$PROJECT_NAME" ]]; then
   echo -e "${RED}Error: --name is required${NC}"
-  echo "Usage: ./install.sh --name \"MyProject\" --stacks dotnet,typescript --cicd github"
+  echo "Usage: ./install.sh --name \"MyProject\" --stacks dotnet,typescript"
   exit 1
 fi
 
 if [[ -z "$STACKS" ]]; then
   echo -e "${RED}Error: --stacks is required${NC}"
   echo "Available stacks: dotnet, typescript, python, terraform"
-  exit 1
-fi
-
-if [[ "$CICD" != "github" && "$CICD" != "azure" && "$CICD" != "both" ]]; then
-  echo -e "${RED}Error: --cicd must be github, azure, or both${NC}"
   exit 1
 fi
 
@@ -920,7 +925,6 @@ echo -e "${BLUE}╚════════════════════�
 echo ""
 echo -e "  Project:  ${GREEN}$PROJECT_NAME${NC}"
 echo -e "  Stacks:   ${GREEN}${STACKS}${NC}"
-echo -e "  CI/CD:    ${GREEN}${CICD}${NC}"
 echo -e "  Target:   ${GREEN}$(realpath "$TARGET_DIR")${NC}"
 echo ""
 
@@ -1060,49 +1064,51 @@ for module in "$SCRIPT_DIR/workshop/"*.md; do
   [[ -f "$module" ]] && cp "$module" "$TARGET_DIR/workshop/"
 done
 
-# --- Copy CI/CD ---
-echo -e "${YELLOW}Setting up CI/CD...${NC}"
+# --- Copy IDE Configuration ---
+echo -e "${YELLOW}Setting up IDE configuration...${NC}"
 
-if [[ "$CICD" == "github" || "$CICD" == "both" ]]; then
-  mkdir -p "$TARGET_DIR/.github/workflows"
-  mkdir -p "$TARGET_DIR/.github/instructions"
+# .editorconfig (always overwrite — framework-managed)
+cp "$SCRIPT_DIR/.editorconfig" "$TARGET_DIR/.editorconfig"
+echo -e "  ${GREEN}✓${NC} .editorconfig"
 
-  for wf in ci.yml security.yml quality-gate.yml; do
-    [[ -f "$SCRIPT_DIR/.github/workflows/$wf" ]] && cp "$SCRIPT_DIR/.github/workflows/$wf" "$TARGET_DIR/.github/workflows/$wf"
-  done
-
-  [[ -f "$SCRIPT_DIR/.github/copilot-instructions.md" ]] && cp "$SCRIPT_DIR/.github/copilot-instructions.md" "$TARGET_DIR/.github/copilot-instructions.md"
-
-  for inst in "$SCRIPT_DIR/.github/instructions/"*.md; do
-    [[ -f "$inst" ]] && cp "$inst" "$TARGET_DIR/.github/instructions/"
-  done
-
-  # Stack-specific Copilot instructions
-  for stack in "${STACK_ARRAY[@]}"; do
-    stack=$(echo "$stack" | xargs)
-    [[ -f "$SCRIPT_DIR/.github/instructions/${stack}.instructions.md" ]] && \
-      cp "$SCRIPT_DIR/.github/instructions/${stack}.instructions.md" "$TARGET_DIR/.github/instructions/"
-  done
-  [[ -f "$SCRIPT_DIR/.github/instructions/security.instructions.md" ]] && \
-    cp "$SCRIPT_DIR/.github/instructions/security.instructions.md" "$TARGET_DIR/.github/instructions/"
-
-  echo -e "  ${GREEN}✓${NC} GitHub Actions workflows"
-  echo -e "  ${GREEN}✓${NC} GitHub Copilot instructions"
+# VS Code settings (don't overwrite if exists)
+mkdir -p "$TARGET_DIR/.vscode"
+if [[ ! -f "$TARGET_DIR/.vscode/settings.json" ]]; then
+  cp "$SCRIPT_DIR/scripts/tool-configs/vscode-settings.json" "$TARGET_DIR/.vscode/settings.json"
+  echo -e "  ${GREEN}✓${NC} .vscode/settings.json (configure SonarLint connected mode)"
+else
+  echo -e "  ${YELLOW}⚠${NC}  .vscode/settings.json already exists (not overwritten)"
 fi
 
-if [[ "$CICD" == "azure" || "$CICD" == "both" ]]; then
-  mkdir -p "$TARGET_DIR/pipelines/templates"
-
-  for pipeline in ci.yml security.yml quality-gate.yml; do
-    [[ -f "$SCRIPT_DIR/pipelines/$pipeline" ]] && cp "$SCRIPT_DIR/pipelines/$pipeline" "$TARGET_DIR/pipelines/$pipeline"
-  done
-
-  for tmpl in "$SCRIPT_DIR/pipelines/templates/"*.yml; do
-    [[ -f "$tmpl" ]] && cp "$tmpl" "$TARGET_DIR/pipelines/templates/"
-  done
-
-  echo -e "  ${GREEN}✓${NC} Azure Pipelines"
+if [[ ! -f "$TARGET_DIR/.vscode/extensions.json" ]]; then
+  cp "$SCRIPT_DIR/scripts/tool-configs/vscode-extensions.json" "$TARGET_DIR/.vscode/extensions.json"
+  echo -e "  ${GREEN}✓${NC} .vscode/extensions.json"
+else
+  echo -e "  ${YELLOW}⚠${NC}  .vscode/extensions.json already exists (not overwritten)"
 fi
+
+# --- Copy AI Assistant Instructions ---
+echo -e "${YELLOW}Setting up AI assistant instructions...${NC}"
+
+mkdir -p "$TARGET_DIR/.github/instructions"
+
+[[ -f "$SCRIPT_DIR/.github/copilot-instructions.md" ]] && \
+  cp "$SCRIPT_DIR/.github/copilot-instructions.md" "$TARGET_DIR/.github/copilot-instructions.md"
+
+for inst in "$SCRIPT_DIR/.github/instructions/"*.md; do
+  [[ -f "$inst" ]] && cp "$inst" "$TARGET_DIR/.github/instructions/"
+done
+
+# Stack-specific Copilot instructions
+for stack in "${STACK_ARRAY[@]}"; do
+  stack=$(echo "$stack" | xargs)
+  [[ -f "$SCRIPT_DIR/.github/instructions/${stack}.instructions.md" ]] && \
+    cp "$SCRIPT_DIR/.github/instructions/${stack}.instructions.md" "$TARGET_DIR/.github/instructions/"
+done
+[[ -f "$SCRIPT_DIR/.github/instructions/security.instructions.md" ]] && \
+  cp "$SCRIPT_DIR/.github/instructions/security.instructions.md" "$TARGET_DIR/.github/instructions/"
+
+echo -e "  ${GREEN}✓${NC} AI assistant instructions (Copilot)"
 
 # --- Detect platform ---
 echo -e "${YELLOW}Detecting platform...${NC}"
@@ -1187,12 +1193,12 @@ if [[ "$INSTALL_TOOLS" == true ]]; then
   install_gitleaks "$DETECTED_OS" "$DETECTED_PKG_MGR"
 
   # gh CLI (for GitHub platform)
-  if [[ "$CICD" == "github" || "$CICD" == "both" || "$PLATFORM" == "github" ]]; then
+  if [[ "$PLATFORM" == "github" ]]; then
     install_gh "$DETECTED_PKG_MGR"
   fi
 
   # az CLI (for Azure platform)
-  if [[ "$CICD" == "azure" || "$CICD" == "both" || "$PLATFORM" == "azure" ]]; then
+  if [[ "$PLATFORM" == "azure" ]]; then
     install_az "$DETECTED_OS" "$DETECTED_PKG_MGR"
   fi
 
@@ -1276,22 +1282,16 @@ echo -e "  4. Review ${BLUE}CLAUDE.md${NC} and customize critical rules"
 echo -e "  5. Copy ${BLUE}CLAUDE.local.md.example${NC} to ${BLUE}CLAUDE.local.md${NC} for personal context"
 echo -e "  6. Run ${BLUE}/validate${NC} in Claude Code to verify setup"
 echo ""
-echo -e "  For CI/CD setup:"
-if [[ "$CICD" == "github" || "$CICD" == "both" ]]; then
-  echo -e "  - Set ${BLUE}SONAR_TOKEN${NC} in GitHub repository secrets"
-  echo -e "  - Set ${BLUE}SNYK_TOKEN${NC} in GitHub repository secrets (optional)"
-fi
-if [[ "$CICD" == "azure" || "$CICD" == "both" ]]; then
-  echo -e "  - Create ${BLUE}SonarCloud${NC} service connection in Azure DevOps"
-  echo -e "  - Create ${BLUE}common-variables${NC} variable group"
-fi
+echo -e "  For IDE linting:"
+echo -e "  - Configure SonarLint connected mode in ${BLUE}.vscode/settings.json${NC}"
+echo -e "  - See ${BLUE}standards/quality-gates.md${NC} Section 2 for setup guide"
+echo ""
+echo -e "  For CI/CD pipelines:"
+echo -e "  - Use ${BLUE}/scaffold cicd github${NC} or ${BLUE}/scaffold cicd azure${NC} to generate pipelines"
+echo -e "  - See ${BLUE}standards/cicd.md${NC} for pipeline standards"
 if [[ "$INSTALL_TOOLS" == true ]]; then
   echo ""
   echo -e "  For tool setup:"
-  echo -e "  - Run ${BLUE}gh auth login${NC} to authenticate GitHub CLI"
-  if [[ "$CICD" == "azure" || "$CICD" == "both" ]]; then
-    echo -e "  - Run ${BLUE}az login${NC} to authenticate Azure CLI"
-  fi
   echo -e "  - Pre-commit hook will scan for secrets before each commit"
   echo -e "  - Pre-push hook will check for vulnerabilities before each push"
 fi
