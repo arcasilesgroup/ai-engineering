@@ -6,33 +6,21 @@
 
 Skills are multi-step workflows that you invoke interactively. Unlike agents (which run in the background), skills execute step-by-step with your input and feedback.
 
-## Available Skills (23)
+## Available Skills (11)
 
 | Skill | Description | Auto-invocable |
 |-------|-------------|:--------------:|
-| `/commit-push` | Smart commit with secret scanning + push | No |
-| `/commit-push-pr` | Full cycle: commit + push + PR | No |
-| `/pr` | Create structured pull request | No |
-| `/review` | Code review against standards | Yes |
-| `/test` | Generate and run tests | Yes |
-| `/fix` | Fix build, test, or lint errors | Yes |
-| `/refactor` | Refactor with test verification | No |
-| `/security-audit` | OWASP Top 10 security review | No |
-| `/quality-gate` | Run quality gate checks | No |
-| `/blast-radius` | Analyze impact of changes | Yes |
-| `/deploy-check` | Pre-deployment verification | No |
-| `/document` | Generate documentation | No |
-| `/create-adr` | Create Architecture Decision Record | No |
-| `/learn` | Record a learning for future sessions | Yes |
-| `/validate` | Validate framework + platform detection | Yes |
-| `/setup-project` | Initialize new project | No |
-| `/add-endpoint` | Scaffold .NET API endpoint | No |
-| `/add-component` | Scaffold React component | No |
-| `/migrate-api` | Migrate API version | No |
-| `/migrate-claude-md` | Migrate legacy CLAUDE.md to sectioned format | No |
-| `/dotnet:add-provider` | Create .NET provider | No |
-| `/dotnet:add-http-client` | Create typed HTTP client | No |
-| `/dotnet:add-error-mapping` | Add error type + mapping | No |
+| `/ship` | Stage, commit, push, and optionally create PR (modes: default, `pr`, `pr-only`) | No |
+| `/review` | Code review against project standards | Yes |
+| `/test` | Generate tests and run the test suite | Yes |
+| `/fix` | Fix failing tests, lint errors, or build issues | Yes |
+| `/refactor` | Refactor code while preserving behavior with test verification | No |
+| `/assess` | Security audit (OWASP Top 10) and/or blast radius analysis (modes: `security`, `impact`) | Yes |
+| `/document` | Generate or update documentation for code | No |
+| `/learn` | Record a new learning or pattern for future AI sessions | Yes |
+| `/scaffold` | Scaffold code from templates for any stack (`dotnet endpoint`, `react`, etc.) | No |
+| `/validate` | Validate framework installation, structure, and platform configuration | Yes |
+| `/setup-project` | Initialize a new project with the framework | No |
 
 ## Auto-Invocable Skills
 
@@ -40,33 +28,31 @@ Skills marked "Auto-invocable" can be triggered automatically by Claude when app
 - `/review` runs after significant code changes
 - `/test` runs when you ask Claude to verify tests
 - `/fix` runs when Claude detects failing tests
+- `/assess` runs when security-sensitive code is involved
+- `/learn` runs when a reusable pattern or gotcha is discovered
 
 ## Skill Categories
 
-### Git Workflow
-- [/commit-push](Skills-Daily-Workflow#commit-push) - Stage, commit, and push with secret scanning
-- [/commit-push-pr](Skills-Daily-Workflow#commit-push-pr) - Full cycle to PR
-- [/pr](Skills-Daily-Workflow#pr) - Create pull requests
-
-### Code Quality
-- [/review](Skills-Code-Quality#review) - Code review
+### Inner Loop (Daily Use)
+- [/ship](Skills-Daily-Workflow#ship) - Stage, commit, push, optionally create PR
 - [/test](Skills-Code-Quality#test) - Generate and run tests
 - [/fix](Skills-Code-Quality#fix) - Fix errors
-- [/refactor](Skills-Code-Quality#refactor) - Safe refactoring
+- [/review](Skills-Code-Quality#review) - Code review
 
-### Security
-- [/security-audit](Skills-Security#security-audit) - OWASP review
-- [/quality-gate](Skills-Security#quality-gate) - Full quality check
+### Code Quality
+- [/refactor](Skills-Code-Quality#refactor) - Safe refactoring with test verification
+- [/assess](Skills-Security#assess) - Security audit and blast radius analysis
 
 ### Documentation
-- [/document](Skills-Documentation#document) - Generate docs
-- [/create-adr](Skills-Documentation#create-adr) - Architecture decisions
+- [/document](Skills-Documentation#document) - Generate or update docs
+- [/learn](Skills-Documentation#learn) - Record learnings
 
-### Setup
+### Scaffolding
+- [/scaffold](Skills-Documentation#scaffold) - Code generation from templates
+
+### Framework
 - [/validate](Skills-Daily-Workflow#validate) - Check installation
 - [/setup-project](Installation-Quick-Install) - Initialize project
-- [/learn](Skills-Documentation#learn) - Record learnings
-- [/migrate-claude-md](Installation-Manual-Setup) - Migrate legacy CLAUDE.md
 
 ## How Skills Work
 
@@ -78,24 +64,26 @@ Skills marked "Auto-invocable" can be triggered automatically by Claude when app
 
 ## Skill Anatomy
 
-Each skill is a markdown file in `.claude/skills/`:
+Each skill is a markdown file in `.claude/skills/{skill-name}/SKILL.md`:
 
 ```markdown
 ---
 description: One-line description
-tools: [Bash, Read, Write, Edit]
-autoInvocable: true|false
+disable-model-invocation: true  # Only if it should NOT be auto-invocable
 ---
 
-## Objective
-What this skill does (one sentence).
+## Context
+What this skill does and when to use it.
 
-## Process
+## Inputs
+$ARGUMENTS - What arguments the skill accepts.
+
+## Steps
 1. Step one
 2. Step two
 3. Step three
 
-## Success Criteria
+## Verification
 How to know it worked.
 ```
 
@@ -109,4 +97,4 @@ What skills are available?
 Or look in `.claude/skills/` directory.
 
 ---
-**See also:** [Daily Workflow](Skills-Daily-Workflow) | [Code Quality](Skills-Code-Quality) | [Custom Skills](Customization-Custom-Skills)
+**See also:** [Daily Workflow](Skills-Daily-Workflow) | [Code Quality](Skills-Code-Quality) | [Security](Skills-Security) | [Custom Skills](Customization-Custom-Skills)

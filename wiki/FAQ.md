@@ -62,14 +62,14 @@ See [Updating](Installation-Updating) for details.
 Type the skill name with a slash:
 
 ```
-/commit-push
+/ship
 /review staged
 /test src/services/
 ```
 
 ### What skills are available?
 
-21 skills covering git workflow, code quality, security, and documentation. See [Skills Overview](Skills-Overview) for the full list.
+11 skills covering git workflow, code quality, security, and documentation. See [Skills Overview](Skills-Overview) for the full list.
 
 ### Can I create my own skills?
 
@@ -231,7 +231,7 @@ Run the installer again:
 1. Install gitleaks: `brew install gitleaks`
 2. Test all files: `gitleaks detect --source . --no-git`
 3. Test staged files only: `gitleaks protect --staged`
-4. Check `/commit-push` skill is being used
+4. Check `/ship` skill is being used
 5. Verify pre-commit hook is installed: `test -x .git/hooks/pre-commit && echo "installed"`
 
 ---

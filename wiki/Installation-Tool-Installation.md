@@ -13,7 +13,7 @@ scripts/install.sh --name "MyProject" --stacks dotnet --cicd github --install-to
 It installs and configures:
 
 1. **gitleaks** - Secret scanning
-2. **gh CLI** - GitHub command line (for `/pr` skill)
+2. **gh CLI** - GitHub command line (for `/ship pr` mode)
 3. **pre-commit hook** - Secret scanning before commit
 4. **pre-push hook** - Vulnerability check before push
 
@@ -39,13 +39,13 @@ sudo mv gitleaks /usr/local/bin/
 ```
 
 **Used by:**
-- `/commit-push` skill (scans staged files before commit)
+- `/ship` skill (scans staged files before commit)
 - `verify-app` agent (scans entire codebase)
-- `/security-audit` skill
+- `/assess security` skill
 
 ### 2. GitHub CLI (gh)
 
-[GitHub CLI](https://cli.github.com/) enables the `/pr` skill to create pull requests.
+[GitHub CLI](https://cli.github.com/) enables the `/ship pr` mode to create pull requests.
 
 **Automatic install:**
 - macOS: `brew install gh`
@@ -69,8 +69,8 @@ gh auth login
 ```
 
 **Used by:**
-- `/pr` skill (creates GitHub PRs)
-- `/commit-push-pr` skill (full commit-push-PR cycle)
+- `/ship pr` mode (creates GitHub PRs)
+- `/ship pr-only` mode (creates PR from current branch)
 
 ### 3. Pre-Commit Hook
 

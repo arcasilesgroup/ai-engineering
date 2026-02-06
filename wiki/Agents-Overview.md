@@ -13,16 +13,15 @@ Agents are autonomous verification workers that run in the background. Unlike sk
 | Invocation | `/skill-name` | Claude dispatches them |
 | Interaction | Interactive, step-by-step | Autonomous, fire-and-forget |
 | Purpose | Multi-step workflows | Single-purpose verification |
-| Examples | `/commit-push`, `/review`, `/test` | verify-app, code-architect |
+| Examples | `/ship`, `/review`, `/test` | verify-app, code-architect |
 
-## Available Agents (5)
+## Available Agents (4)
 
 | Agent | Purpose | Tools |
 |-------|---------|-------|
 | [verify-app](Agents-verify-app) | Build + test + lint + security in one pass | Bash, Read, Glob, Grep |
 | [code-architect](Agents-code-architect) | Design before implementing | Read, Glob, Grep |
 | [oncall-guide](Agents-oncall-guide) | Production incident debugging | Read, Glob, Grep, Bash |
-| [doc-generator](Agents-doc-generator) | Update docs from code changes | Read, Write |
 | [code-simplifier](Agents-code-simplifier) | Reduce complexity | Read, Write, Bash |
 | Custom agents | Your team's agents | Varies |
 
@@ -45,7 +44,7 @@ Use the code-architect agent to design the caching layer before I implement it.
 One of the most powerful patterns — run multiple agents simultaneously:
 
 ```
-Run the verify-app and security-scanner agents in parallel.
+Run the verify-app and code-architect agents in parallel.
 ```
 
 Claude dispatches both as background tasks and reports combined results.
@@ -88,7 +87,6 @@ What NOT to do.
 | Before PR | verify-app |
 | Planning new feature | code-architect |
 | Production incident | oncall-guide |
-| After code changes | doc-generator |
 | High complexity code | code-simplifier |
 
 ## Agent Location
@@ -101,11 +99,10 @@ Agents are stored in `.claude/agents/`:
     ├── verify-app.md
     ├── code-architect.md
     ├── oncall-guide.md
-    ├── doc-generator.md
     ├── code-simplifier.md
     └── custom/              # Team custom agents
         └── deploy-checker.md
 ```
 
 ---
-**See also:** [verify-app](Agents-verify-app) | [code-architect](Agents-code-architect) | [doc-generator](Agents-doc-generator) | [code-simplifier](Agents-code-simplifier) | [Custom Agents](Customization-Custom-Agents)
+**See also:** [verify-app](Agents-verify-app) | [code-architect](Agents-code-architect) | [oncall-guide](Agents-oncall-guide) | [code-simplifier](Agents-code-simplifier) | [Custom Agents](Customization-Custom-Agents)

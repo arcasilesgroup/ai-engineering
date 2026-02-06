@@ -61,7 +61,7 @@ rm -rf /tmp/ai-framework
 
 This additionally installs:
 - **gitleaks** - Secret scanning
-- **gh CLI** - GitHub CLI for `/pr` skill
+- **gh CLI** - GitHub CLI for `/ship pr` mode
 - **pre-commit hook** - Scans staged files for secrets before commit
 - **pre-push hook** - Blocks pushes with critical vulnerabilities
 
@@ -101,8 +101,8 @@ your-project/
 ├── CLAUDE.local.md.example      # Template for personal overrides
 ├── .claude/
 │   ├── settings.json            # Permissions + hooks config
-│   ├── skills/                  # 23 interactive skills
-│   ├── agents/                  # 5 background agents
+│   ├── skills/                  # 11 interactive skills
+│   ├── agents/                  # 4 background agents
 │   └── hooks/                   # 5 hook scripts
 ├── standards/                   # 10 coding standards
 ├── context/                     # Project context templates

@@ -1,18 +1,27 @@
 # Security Skills
 
-> Skills for security auditing and vulnerability management.
+> Skills for security auditing, blast radius analysis, and vulnerability management.
 
-## /security-audit
+## /assess
+
+**Unified risk assessment: security audit and/or blast radius analysis.**
+
+The `/assess` skill consolidates security auditing and impact analysis into a single workflow with two modes.
+
+```
+/assess                    # Run both security audit and blast radius
+/assess security           # OWASP Top 10 security review only
+/assess impact             # Blast radius / impact analysis only
+/assess security src/controllers/
+```
+
+---
+
+### /assess security
 
 **OWASP Top 10 security review.**
 
-```
-/security-audit
-/security-audit src/controllers/
-/security-audit --full
-```
-
-### What It Checks
+#### What It Checks
 
 The security audit reviews code against OWASP Top 10:
 
@@ -29,7 +38,7 @@ The security audit reviews code against OWASP Top 10:
 | 9 | Components | Known vulnerable dependencies |
 | 10 | Logging | Insufficient logging/monitoring |
 
-### Audit Process
+#### Audit Process
 
 1. **Scan codebase** — Identify security-relevant code
 2. **Check patterns** — Look for known vulnerability patterns
@@ -37,7 +46,7 @@ The security audit reviews code against OWASP Top 10:
 4. **Check secrets** — Scan for hardcoded credentials
 5. **Report** — Findings by severity
 
-### Example Output
+#### Example Output
 
 ```markdown
 ## Security Audit Report
@@ -72,58 +81,57 @@ The security audit reviews code against OWASP Top 10:
 
 ---
 
-## /quality-gate
+### /assess impact
 
-**Run comprehensive quality and security checks.**
+**Analyze the blast radius of proposed changes.**
 
 ```
-/quality-gate
+/assess impact
+/assess impact src/services/UserService.cs
 ```
 
-### Quality Gate Checks
+#### What It Analyzes
 
-| Category | Checks |
-|----------|--------|
-| **Build** | Compilation, type checking |
-| **Tests** | All passing, coverage threshold |
-| **Lint** | No errors, style compliance |
-| **Security** | No critical vulnerabilities |
-| **Secrets** | No hardcoded secrets |
-| **Dependencies** | No critical/high CVEs |
-| **Duplication** | Under threshold |
+1. **Direct dependencies** — What uses this code?
+2. **Indirect dependencies** — What uses the things that use this code?
+3. **Test coverage** — What tests cover this code?
+4. **API surface** — Does this change the public API?
+5. **Database** — Does this affect data models?
 
-### Thresholds
+#### Example Output
 
-| Metric | Threshold | Source |
-|--------|-----------|--------|
-| Test Coverage | >= 80% | SonarQube |
-| Duplications | <= 3% | SonarQube |
-| Reliability | A | SonarQube |
-| Security | A | SonarQube |
-| Secrets | 0 | gitleaks |
-| Critical Vulns | 0 | npm audit / pip audit |
+```markdown
+## Blast Radius: UserService.cs
 
-### Integration with CI/CD
+### Direct Dependencies (5 files)
+- `UserController.cs` — calls GetUser, CreateUser
+- `AuthService.cs` — calls ValidateUser
+- `OrderService.cs` — calls GetUser
+- `NotificationService.cs` — calls GetUserEmail
+- `ReportService.cs` — calls GetUserStats
 
-The quality gate can run in CI/CD:
+### Indirect Dependencies (12 files)
+- All controllers that use OrderService
+- Background jobs that use NotificationService
 
-**GitHub Actions:**
-```yaml
-- name: Quality Gate
-  run: |
-    # Run quality checks
-    dotnet test --collect:"XPlat Code Coverage"
-    gitleaks detect --source . --no-git
-    npm audit --audit-level=high
+### Test Coverage
+- `UserServiceTests.cs` — 94% coverage
+- `UserControllerTests.cs` — 87% coverage
+- `AuthServiceTests.cs` — 91% coverage
+
+### Risk Assessment
+- **API Change:** No (internal only)
+- **Database Change:** No
+- **Breaking Change:** No
+
+**Recommendation:** Safe to proceed. Run full test suite after changes.
 ```
 
-**Azure Pipelines:**
-```yaml
-- task: SonarCloudAnalyze@1
-- task: SonarCloudPublish@1
-  inputs:
-    pollingTimeoutSec: '300'
-```
+---
+
+## Quality Gates
+
+Quality gate checks (build, tests, lint, security, secrets, dependencies, duplication) are handled by the **[verify-app agent](Agents-verify-app)** rather than a standalone skill. For quality gate thresholds, see [Standards - Quality Gates](Standards-Quality-Gates).
 
 ---
 
@@ -220,4 +228,4 @@ Push blocked. Fix critical vulnerabilities first.
 ```
 
 ---
-**See also:** [Quality Gates](Standards-Quality-Gates) | [Code Quality Skills](Skills-Code-Quality)
+**See also:** [Quality Gates](Standards-Quality-Gates) | [Code Quality Skills](Skills-Code-Quality) | [verify-app Agent](Agents-verify-app)

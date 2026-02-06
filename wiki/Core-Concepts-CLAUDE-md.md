@@ -102,7 +102,7 @@ Lists what's available for use:
 
 ```markdown
 ## Skills
-- `/commit-push` - Stage + commit + push
+- `/ship` - Stage + commit + push
 - `/review` - Code review against standards
 - `/test` - Generate and run tests
 

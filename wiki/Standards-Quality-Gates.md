@@ -32,13 +32,9 @@ Quality gates are automated checks that verify code meets minimum standards. All
 
 ## Running Quality Gates
 
-### Using /quality-gate Skill
+### Using the verify-app Agent
 
-```
-/quality-gate
-```
-
-This runs all checks and reports pass/fail.
+Quality gate checks are handled by the `verify-app` agent, which runs build, tests, lint, security, and quality checks in one pass.
 
 ### Using verify-app Agent
 
@@ -153,7 +149,7 @@ jobs:
 
 1. Review findings in SonarQube
 2. Prioritize by severity (Critical > High > Medium)
-3. Use `/security-audit` for detailed analysis
+3. Use `/assess security` for detailed analysis
 
 ### Dependency Vulnerabilities
 

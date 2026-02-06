@@ -27,7 +27,7 @@ The AI Engineering Framework uses a layered architecture that separates concerns
 **Scope:** Universal rules and tools that apply to all projects using the framework.
 
 **What's included:**
-- Skills (`/commit-push`, `/review`, `/test`, etc.)
+- Skills (`/ship`, `/review`, `/test`, etc.)
 - Agents (verify-app, code-architect, etc.)
 - Hooks (auto-format, block-dangerous, etc.)
 - Standards templates

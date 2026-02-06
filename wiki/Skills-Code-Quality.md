@@ -203,43 +203,9 @@ Re-running tests...
 
 ---
 
-## /quality-gate
+## Quality Gates
 
-**Run full quality gate checks.**
-
-```
-/quality-gate
-```
-
-### What It Checks
-
-| Check | Threshold | Action on Fail |
-|-------|-----------|----------------|
-| Test Coverage | >= 80% | Block |
-| Duplications | <= 3% | Block |
-| Reliability | A rating | Block |
-| Security | A rating | Block |
-| Maintainability | A rating | Warn |
-| Secrets | 0 findings | Block |
-| Dependencies | 0 critical | Block |
-
-### Example Output
-
-```markdown
-## Quality Gate: PASSED
-
-| Metric | Value | Threshold | Status |
-|--------|-------|-----------|--------|
-| Coverage | 84.2% | >= 80% | ✓ |
-| Duplications | 1.8% | <= 3% | ✓ |
-| Reliability | A | A | ✓ |
-| Security | A | A | ✓ |
-| Maintainability | A | A | ✓ |
-| Secrets | 0 | 0 | ✓ |
-| Critical Vulns | 0 | 0 | ✓ |
-
-Ready to merge.
-```
+Quality gate checks (build, tests, lint, security, secrets, dependencies, duplication) are handled by the **[verify-app agent](Agents-verify-app)**. For quality gate thresholds, see [Standards - Quality Gates](Standards-Quality-Gates).
 
 ---
-**See also:** [Daily Workflow Skills](Skills-Daily-Workflow) (quick reference for /review, /test, /fix) | [Security Skills](Skills-Security)
+**See also:** [Daily Workflow Skills](Skills-Daily-Workflow) (quick reference for /review, /test, /fix) | [Security Skills](Skills-Security) | [verify-app Agent](Agents-verify-app)

@@ -122,7 +122,7 @@ Recommend one. Wait for approval.
 
 When working in a danger zone:
 1. Read the full context first
-2. Run `/blast-radius`
+2. Run `/assess impact`
 3. Use Two Options
 4. Verify thoroughly
 

@@ -34,6 +34,7 @@
 - [verify-app](Agents-verify-app)
 - [code-architect](Agents-code-architect)
 - [oncall-guide](Agents-oncall-guide)
+- [code-simplifier](Agents-code-simplifier)
 - [Custom Agents](Customization-Custom-Agents)
 
 ---
