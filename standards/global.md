@@ -99,15 +99,87 @@ Bad: String concatenation
 
 ## Git Conventions
 
+### Branching Strategy
+
+Trunk-based development with short-lived feature branches. All work branches from the default branch and merges back via Pull Request.
+
+```
+default branch ──────────────────────────────────────────►
+  │                              ▲
+  └── feature/add-login ─────────┘  (PR + merge)
+  │                              ▲
+  └── fix/auth-timeout ──────────┘  (PR + merge)
+  │                                             ▲
+  └── release/v1.2.0 ───────────────────────────┘  (PR + merge)
+```
+
+**Rules:**
+- Always branch from the default branch, unless explicitly told otherwise
+- Always PR to the default branch, unless explicitly told otherwise
+- Keep branches short-lived (< 1 week ideally, < 2 weeks maximum)
+- One logical change per branch
+- Use `/git branch` to create branches with proper naming and base
+
+### Compliance Branches
+
+Protected branches that require PRs, have policy governance, and are never auto-deleted:
+
+| Pattern | Purpose |
+|---------|---------|
+| `main` / `master` | Production (default branch) |
+| `develop` | Integration branch |
+| `dev/*` | Development environment branches |
+| `release/*` | Release preparation |
+| `hotfix/*` | Production emergency fixes |
+
+**Rules for compliance branches:**
+- No direct push — always via Pull Request
+- Never auto-deleted by cleanup tools or agents
+- Health checks verify feature branches are merged into the appropriate compliance branch
+- Branching from a compliance branch (e.g., `develop`, `release/v1.0`) is valid when explicitly required
+
 ### Branch Naming
 
 ```
 feature/    # New functionality
+fix/        # Bug fixes (alias: bugfix/)
 bugfix/     # Bug fixes
 hotfix/     # Production emergency fixes
+release/    # Release preparation
 chore/      # Maintenance tasks
 docs/       # Documentation updates
 ```
+
+**Format:** `<prefix>/<short-description>` or `<prefix>/<ticket-id>-<short-description>`
+
+**Examples:**
+```
+feature/user-preferences
+feature/GH-123-add-login
+fix/AB#456-token-refresh
+release/v1.2.0
+hotfix/critical-auth-bypass
+```
+
+### Branch Lifecycle
+
+1. **Create** — Branch from latest default branch (`/git branch feature/my-work`)
+2. **Work** — Make commits following Conventional Commits
+3. **Push** — Push to remote and create PR (`/ship pr`)
+4. **Review** — Get PR reviewed and approved
+5. **Merge** — Merge PR (squash or merge commit per team preference)
+6. **Cleanup** — Delete branch locally and remotely (`/git cleanup`)
+
+### Before Starting Work
+
+Always synchronize your repository before beginning new work:
+
+1. Fetch and prune remote references
+2. Update the default branch locally
+3. Clean up merged branches
+4. Check for unpushed work and repository health
+
+Use `/git` (runs sync + cleanup + health) or `/git sync` for a quick update.
 
 ### Commit Messages
 
@@ -133,9 +205,13 @@ docs: update API documentation for v2 endpoints
 ### Pull Requests
 
 - Clear, descriptive title
-- Link to related issues
+- Target the default branch unless explicitly specified
+- Link to related issues/work items (GitHub: `Closes #123`, Azure DevOps: `AB#456`)
 - Include test coverage
 - Request appropriate reviewers
+- Auto-merge is enabled by default on PR creation (squash merge strategy)
+- Use `--no-auto-merge` with `/ship pr` to create a PR without auto-merge
+- Delete source branch after merge (handled automatically by platform or `git-hygiene` agent)
 
 ---
 

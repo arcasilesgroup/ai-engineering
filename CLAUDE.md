@@ -49,6 +49,9 @@ See [context/stack.md](context/stack.md) for full version matrix.
 3. Follow existing patterns in the codebase
 4. Check for secrets before committing (gitleaks)
 5. Run quality gates before creating PRs
+6. Sync repository before starting new work (`/git sync`)
+7. Branch from the default branch unless explicitly told otherwise
+8. Delete branches after PR merge (`/git cleanup`)
 
 ## Verification Protocol
 
@@ -188,6 +191,7 @@ See [standards/quality-gates.md](standards/quality-gates.md) for details.
 
 ## Workflow
 
+0. **Sync** — run `/git sync` to update local repo before starting work
 1. **Read** relevant standards and learnings before changing code
 2. **Assess** blast radius — run `/assess impact` to check what this change affects
 3. **Reconnaissance** — find 2+ existing examples of similar patterns
@@ -199,6 +203,13 @@ See [standards/quality-gates.md](standards/quality-gates.md) for details.
 ## Skills
 
 Skills are interactive workflows invoked with `/skill-name`. They run in the current session.
+
+Git workflow:
+- `/git` - Full git workflow: sync + cleanup + health
+- `/git sync` - Fetch, prune, pull latest
+- `/git branch` - Create properly named branch from default branch
+- `/git cleanup` - Delete merged branches (local + remote)
+- `/git health` - Repository health report
 
 Inner-loop (daily use):
 - `/ship` - Stage + commit + push, optionally create PR (`/ship pr`, `/ship pr-only`)
@@ -228,6 +239,7 @@ Background agents (dispatch for parallel work). They run autonomously and report
 | Agent | Purpose | Tools |
 |-------|---------|-------|
 | **verify-app** | The "finisher": build + tests + lint + security + quality + config + git status in one pass | Bash, Read, Glob, Grep |
+| **git-hygiene** | Audits git repo health, auto-cleans safe branches, reports on the rest with full context | Bash, Read, Glob, Grep |
 | **code-architect** | Designs before implementing: analyzes codebase, proposes 2 options | Read, Glob, Grep |
 | **oncall-guide** | Production incident debugging: logs, traces, root cause, fix + rollback | Read, Glob, Grep, Bash |
 | **code-simplifier** | Reduces cyclomatic complexity with reconnaissance | Read, Write, Grep, Glob, Bash |
