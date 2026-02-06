@@ -210,9 +210,10 @@ Code quality:
 - `/refactor` - Refactor with safety checks and test verification
 - `/assess` - Security audit and/or blast radius analysis (`/assess security`, `/assess impact`)
 
-Documentation:
+Documentation & Learning:
 - `/document` - Generate/update documentation
 - `/learn` - Record a new learning
+- `/explain` - Explain code, architecture, or concepts using the Feynman Technique (`/explain result pattern`, `/explain src/Api/Controllers/`, `/explain project`)
 
 Scaffolding:
 - `/scaffold` - Scaffold code and CI/CD pipelines (`/scaffold dotnet endpoint`, `/scaffold react`, `/scaffold cicd github`, etc.)
@@ -231,6 +232,7 @@ Background agents (dispatch for parallel work). They run autonomously and report
 | **code-architect** | Designs before implementing: analyzes codebase, proposes 2 options | Read, Glob, Grep |
 | **oncall-guide** | Production incident debugging: logs, traces, root cause, fix + rollback | Read, Glob, Grep, Bash |
 | **code-simplifier** | Reduces cyclomatic complexity with reconnaissance | Read, Write, Grep, Glob, Bash |
+| **codebase-explainer** | Deep codebase analysis for generating Feynman-style explanations of features and patterns | Read, Glob, Grep |
 
 ## Parallel Work
 
