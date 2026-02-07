@@ -1,6 +1,6 @@
-import { exec } from '../utils/git.js';
-import { logger } from '../utils/logger.js';
-import type { EnforcementLevel, Platform, Stack } from '../utils/config.js';
+import { exec } from "../utils/git.js";
+import { logger } from "../utils/logger.js";
+import type { Platform, Stack } from "../utils/config.js";
 
 export interface ToolRequirement {
   name: string;
@@ -29,85 +29,92 @@ function checkTool(name: string, command: string): ToolInfo {
   const version = exec(command);
   return {
     name,
-    version: version || 'not found',
+    version: version || "not found",
     available: version.length > 0,
   };
 }
 
-function getRequiredTools(stacks: Stack[], level: EnforcementLevel, platform: Platform): ToolRequirement[] {
+function getRequiredTools(
+  stacks: Stack[],
+  platform: Platform,
+): ToolRequirement[] {
   const tools: ToolRequirement[] = [
     {
-      name: 'git',
-      purpose: 'Version control',
-      detectionCommand: 'git --version',
-      installCommand: '',
-      installUrl: 'https://git-scm.com/downloads',
-      requiredFor: 'All levels',
+      name: "git",
+      purpose: "Version control",
+      detectionCommand: "git --version",
+      installCommand: "",
+      installUrl: "https://git-scm.com/downloads",
+      requiredFor: "Core",
+    },
+    {
+      name: "gitleaks",
+      purpose: "Secret scanning",
+      detectionCommand: "gitleaks version",
+      installCommand: "brew install gitleaks",
+      installUrl: "https://github.com/gitleaks/gitleaks",
+      requiredFor: "Security gates",
+    },
+    {
+      name: "lefthook",
+      purpose: "Git hooks",
+      detectionCommand: "lefthook version",
+      installCommand: "npm i -D @evilmartians/lefthook",
+      installUrl: "https://github.com/evilmartians/lefthook",
+      requiredFor: "Git hooks",
+    },
+    {
+      name: "semgrep",
+      purpose: "OWASP SAST security scanning",
+      detectionCommand: "semgrep --version",
+      installCommand: "brew install semgrep",
+      installUrl: "https://semgrep.dev/docs/getting-started/",
+      requiredFor: "Security gates",
     },
   ];
 
-  if (platform === 'github') {
+  if (platform === "github") {
     tools.push({
-      name: 'gh',
-      purpose: 'GitHub CLI',
-      detectionCommand: 'gh --version',
-      installCommand: 'brew install gh',
-      installUrl: 'https://cli.github.com/',
-      requiredFor: 'GitHub platform',
+      name: "gh",
+      purpose: "GitHub CLI",
+      detectionCommand: "gh --version",
+      installCommand: "brew install gh",
+      installUrl: "https://cli.github.com/",
+      requiredFor: "GitHub platform",
     });
   }
 
-  if (platform === 'azure-devops') {
+  if (platform === "azure-devops") {
     tools.push({
-      name: 'az',
-      purpose: 'Azure CLI',
-      detectionCommand: 'az --version',
-      installCommand: 'brew install azure-cli',
-      installUrl: 'https://docs.microsoft.com/en-us/cli/azure/install-azure-cli',
-      requiredFor: 'Azure DevOps platform',
+      name: "az",
+      purpose: "Azure CLI",
+      detectionCommand: "az --version",
+      installCommand: "brew install azure-cli",
+      installUrl:
+        "https://docs.microsoft.com/en-us/cli/azure/install-azure-cli",
+      requiredFor: "Azure DevOps platform",
     });
   }
 
-  if (level === 'standard' || level === 'strict') {
-    tools.push(
-      {
-        name: 'gitleaks',
-        purpose: 'Secret scanning',
-        detectionCommand: 'gitleaks version',
-        installCommand: 'brew install gitleaks',
-        installUrl: 'https://github.com/gitleaks/gitleaks',
-        requiredFor: 'Standard + Strict levels',
-      },
-      {
-        name: 'lefthook',
-        purpose: 'Git hooks',
-        detectionCommand: 'lefthook version',
-        installCommand: 'npm i -D @evilmartians/lefthook',
-        installUrl: 'https://github.com/evilmartians/lefthook',
-        requiredFor: 'Standard + Strict levels',
-      },
-    );
-  }
-
-  if (stacks.includes('python')) {
+  if (stacks.includes("python")) {
     tools.push({
-      name: 'pip-audit',
-      purpose: 'Python dependency audit',
-      detectionCommand: 'pip-audit --version',
-      installCommand: 'pip install pip-audit',
-      installUrl: 'https://github.com/pypa/pip-audit',
-      requiredFor: 'Python stack',
+      name: "pip-audit",
+      purpose: "Python dependency audit",
+      detectionCommand: "pip-audit --version",
+      installCommand: "pip install pip-audit",
+      installUrl: "https://github.com/pypa/pip-audit",
+      requiredFor: "Python stack",
     });
   }
 
-  if (stacks.includes('dotnet')) {
+  if (stacks.includes("dotnet")) {
     tools.push({
-      name: 'dotnet',
-      purpose: '.NET CLI',
-      detectionCommand: 'dotnet --version',
-      installCommand: '',
-      installUrl: 'https://dotnet.microsoft.com/download',
-      requiredFor: '.NET stack',
+      name: "dotnet",
+      purpose: ".NET CLI",
+      detectionCommand: "dotnet --version",
+      installCommand: "",
+      installUrl: "https://dotnet.microsoft.com/download",
+      requiredFor: ".NET stack",
     });
   }
 
@@ -116,12 +123,11 @@ function getRequiredTools(stacks: Stack[], level: EnforcementLevel, platform: Pl
 
 export function runPlatformCheck(
   stacks: Stack[],
-  level: EnforcementLevel,
   platform: Platform,
 ): PlatformCheckResult {
-  logger.step(1, 4, 'Checking platform dependencies...');
+  logger.step(1, 4, "Checking platform dependencies...");
 
-  const requiredTools = getRequiredTools(stacks, level, platform);
+  const requiredTools = getRequiredTools(stacks, platform);
   const results: ToolInfo[] = [];
   const missing: ToolRequirement[] = [];
   const warnings: string[] = [];
@@ -146,20 +152,24 @@ export function runPlatformCheck(
 
   if (missing.length > 0) {
     logger.blank();
-    logger.warn('Missing tools:');
+    logger.warn("Missing tools:");
     for (const tool of missing) {
       const installHint = tool.installCommand
         ? `Install: ${tool.installCommand}`
         : `Download: ${tool.installUrl}`;
       logger.info(`  ${tool.name} (${tool.purpose}) — ${installHint}`);
     }
-    warnings.push(`${missing.length} tool(s) not found. Some features may not work.`);
+    warnings.push(
+      `${missing.length} tool(s) not found. Some features may not work.`,
+    );
   }
 
   // Detect default branch
-  let defaultBranch = 'main';
-  if (platform === 'github') {
-    const detected = exec('gh repo view --json defaultBranchRef --jq .defaultBranchRef.name');
+  let defaultBranch = "main";
+  if (platform === "github") {
+    const detected = exec(
+      "gh repo view --json defaultBranchRef --jq .defaultBranchRef.name",
+    );
     if (detected) defaultBranch = detected;
   }
 

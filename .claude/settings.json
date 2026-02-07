@@ -3,18 +3,34 @@
     "PreToolUse": [
       {
         "matcher": ".*",
-        "hooks": ["bash .ai-engineering/hooks/pre-tool.sh"]
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .ai-engineering/hooks/pre-tool.sh"
+          }
+        ]
       }
     ],
     "PostToolUse": [
       {
         "matcher": ".*",
-        "hooks": ["bash .ai-engineering/hooks/post-tool.sh"]
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .ai-engineering/hooks/post-tool.sh"
+          }
+        ]
       }
     ],
-    "Startup": [
+    "SessionStart": [
       {
-        "hooks": ["bash .ai-engineering/hooks/version-check.sh"]
+        "matcher": "startup",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .ai-engineering/hooks/version-check.sh"
+          }
+        ]
       }
     ]
   }

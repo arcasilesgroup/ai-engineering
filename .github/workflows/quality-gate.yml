@@ -27,7 +27,14 @@ jobs:
           npm run typecheck
           npm test -- --coverage
           npm audit --audit-level=high
+      - name: Semgrep SAST
+        uses: semgrep/semgrep-action@v1
+        with:
+          config: auto
       - name: Check coverage threshold
         run: |
           echo "Coverage threshold check would run here"
           echo "Minimum: 80% statements, branches, functions, lines"
+      - name: SonarQube Quality Gate
+        if: hashFiles('sonar-project.properties') != ''
+        uses: sonarsource/sonarqube-quality-gate-action@v1
