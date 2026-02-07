@@ -1,0 +1,36 @@
+# ai-engineering dogfooding: we use our own hooks
+# https://github.com/evilmartians/lefthook
+
+pre-commit:
+  parallel: true
+  commands:
+    lint:
+      run: pnpm lint
+      glob: "*.ts"
+    format-check:
+      run: pnpm format:check
+      glob: "*.ts"
+    typecheck:
+      run: pnpm typecheck
+    gitleaks:
+      run: gitleaks protect --staged --no-banner
+
+commit-msg:
+  commands:
+    conventional:
+      run: |
+        MSG=$(cat {1})
+        if ! echo "$MSG" | grep -qE '^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\(.+\))?: .{1,}'; then
+          echo "❌ Commit message must follow Conventional Commits format:"
+          echo "   <type>(<scope>): <description>"
+          echo "   Types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert"
+          exit 1
+        fi
+
+pre-push:
+  parallel: true
+  commands:
+    test:
+      run: pnpm test
+    typecheck:
+      run: pnpm typecheck

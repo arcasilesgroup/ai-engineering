@@ -1,184 +1,94 @@
-# Contributing to AI Engineering Framework
+# Contributing to ai-engineering
 
-## How to Contribute
+Thank you for your interest in contributing to ai-engineering! This document provides guidelines and instructions for contributing.
 
-### Reporting Issues
+## Development Setup
 
-Open a GitHub issue with:
-- Description of the problem or suggestion
-- Steps to reproduce (if applicable)
-- Expected vs actual behavior
+### Prerequisites
+- Node.js 20+
+- pnpm 9+
+- Git
 
-### Adding a New Stack
-
-1. Create `standards/{stack}.md` with coding conventions
-2. Create `.github/instructions/{stack}.instructions.md` with Copilot instructions
-3. Create `learnings/{stack}.md` (can be empty initially)
-4. Update `CLAUDE.md` to reference the new standard
-5. Update `scripts/install.sh` to include the new stack option
-6. Add a pipeline template in `pipelines/templates/{stack}-build.yml`
-
-### Adding a New Skill
-
-Skills live in `.claude/skills/{skill-name}/SKILL.md`.
-
-1. Create the directory: `.claude/skills/{skill-name}/`
-2. Create `SKILL.md` with this structure:
-
-```markdown
----
-name: skill-name
-description: Short description of what the skill does
-disable-model-invocation: true  # Only if it should require explicit user invocation
----
-
-## Context
-
-[What this skill does and when to use it]
-
-## Inputs
-
-$ARGUMENTS - [What arguments the skill accepts]
-
-## Steps
-
-### 1. [First Step]
-[Instructions]
-
-### 2. [Second Step]
-[Instructions]
-
-## Verification
-
-- [How to verify the skill worked correctly]
-```
-
-3. Update `CLAUDE.md` skills list
-4. Update `scripts/install.sh` to include the new skill
-
-**Auto-invocable vs Explicit:**
-- Set `disable-model-invocation: true` for skills that should only run when the user explicitly types `/skill-name` (e.g., commit, deploy, scaffold operations).
-- Omit this field for skills the model should invoke proactively when relevant (e.g., review, test, fix).
-
-**Team Custom Skills:**
-Teams can add their own skills in `.claude/skills/custom/` — these are never overwritten by framework updates.
-
-### Adding a New Agent
-
-Agents live in `.claude/agents/{agent-name}.md`.
-
-1. Create the agent file with this structure:
-
-```markdown
----
-description: What the agent does
-tools: [Bash, Read, Glob, Grep]  # Available tools
----
-
-## Objective
-
-[What the agent achieves]
-
-## Process
-
-1. [Step 1]
-2. [Step 2]
-
-## Success Criteria
-
-- [What constitutes success]
-
-## Constraints
-
-- [What the agent must NOT do]
-```
-
-2. Update `CLAUDE.md` agents list
-3. Update `scripts/install.sh` to include the new agent
-
-**Team Custom Agents:**
-Teams can add their own agents in `.claude/agents/custom/` — these are never overwritten by framework updates.
-
-### Adding a New Hook
-
-Hooks live in `.claude/hooks/{hook-name}.sh`.
-
-1. Create the hook script:
+### Getting Started
 
 ```bash
-#!/usr/bin/env bash
-set -euo pipefail
-
-# Read stdin JSON (contains tool_name, file_path, command, etc.)
-INPUT="$(cat)"
-
-# Parse relevant fields
-# Example: TOOL_NAME=$(echo "$INPUT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('tool_name',''))" 2>/dev/null || echo "")
-
-# Your logic here
-
-# Exit codes:
-#   0 = allow (continue)
-#   2 = block (with reason on stderr)
-exit 0
+git clone https://github.com/your-org/ai-engineering.git
+cd ai-engineering
+pnpm install
+pnpm build
 ```
 
-2. Make it executable: `chmod +x .claude/hooks/{hook-name}.sh`
-3. Register it in `.claude/settings.json` under the appropriate trigger:
-   - `PreToolUse` — runs before a tool executes (can block with exit 2)
-   - `PostToolUse` — runs after a tool executes
-   - `Notification` — runs on notifications
+### Development Commands
 
-4. Update `context/hooks.md` documentation
+```bash
+pnpm dev          # Watch mode build
+pnpm test         # Run tests
+pnpm test:watch   # Watch mode tests
+pnpm lint         # Lint code
+pnpm typecheck    # Type check
+pnpm format       # Format code
+```
 
-### Adding a New Platform
+## Project Structure
 
-To add support for a new git platform (e.g., GitLab):
+- `src/cli/` — CLI entry point and commands
+- `src/compiler/` — Standards assembler and IDE target compilers
+- `src/installer/` — Installation orchestration (hooks, gates, knowledge)
+- `src/updater/` — Version check and safe update system
+- `src/hooks/` — Runtime and git hook scripts
+- `src/utils/` — Shared utilities
+- `stacks/` — Technology stack standards (markdown)
+- `agents/` — AI agent definitions (markdown)
+- `skills/` — Interactive workflow definitions (markdown)
+- `templates/` — Handlebars templates for output files
+- `schemas/` — JSON schemas for validation
+- `test/` — Test files mirroring src/ structure
 
-1. Update `.claude/skills/utils/platform-detection.md` with detection logic
-2. Update `/ship` skill with PR creation commands for the new platform
-3. Add CLI permission to `.claude/settings.json`
-5. Create `.github/instructions/platform.instructions.md` entry
-6. Update `scripts/install.sh` platform detection
-7. Document in `README.md`
+## Commit Convention
 
-### Modifying Standards
+We use [Conventional Commits](https://www.conventionalcommits.org/):
 
-- Standards should be prescriptive, not aspirational
-- Include code examples for every rule
-- Include anti-pattern examples showing what NOT to do
-- Reference authoritative sources where applicable
+```
+<type>(<scope>): <description>
 
-## File Conventions
+Types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert
+```
 
-- All instructional content is **markdown**
-- Metadata uses **YAML frontmatter**
-- Maximum directory depth: **3 levels**
-- File names: **kebab-case**
-- No registries or index files — file existence = registration
+Examples:
+- `feat(compiler): add multi-stack assembly`
+- `fix(hooks): correct blocklist regex for Windows paths`
+- `docs(stacks): update Python security standards`
 
-## Versioning Policy
+## Adding a New Stack
 
-The framework follows [Semantic Versioning](https://semver.org/):
+1. Create a directory under `stacks/<stack-name>/`
+2. Add these files: `standards.md`, `patterns.md`, `anti-patterns.md`, `testing.md`, `security.md`
+3. Add the stack name to `src/utils/config.ts` Stack type
+4. Add detection logic in `src/utils/detect.ts`
+5. Update `schemas/config.schema.json`
+6. Add tests in `test/`
 
-- **MAJOR**: Breaking changes (directory structure, skill format, removed features)
-- **MINOR**: New features (skills, agents, hooks, standards) — backward compatible
-- **PATCH**: Bug fixes, typos, corrections
+## Adding a New IDE Target
 
-When making changes:
-1. Update `VERSION` file
-2. Add entry to `CHANGELOG.md`
-3. If breaking: update `UPGRADING.md` with migration instructions
+1. Create `src/compiler/targets/<ide-name>.ts`
+2. Create `templates/project/<ide-name>.hbs`
+3. Add the IDE to `src/utils/config.ts` IDE type
+4. Add detection logic in `src/utils/detect.ts`
+5. Update `schemas/config.schema.json`
+6. Add tests in `test/compiler/targets/`
 
-## Pull Request Process
+## Testing
 
-1. Fork the repository
-2. Create a branch: `feat/add-rust-stack` or `fix/dotnet-standard-typo`
-3. Make your changes
-4. Run `/validate` to check framework integrity
-5. Update version and changelog if appropriate
-6. Submit a PR with a clear description
+- Write tests for all new functionality
+- Place tests in `test/` mirroring the `src/` structure
+- Use fixtures in `test/fixtures/` for integration tests
+- Aim for >80% coverage
 
-## Code of Conduct
+## Code Standards
 
-Be respectful, constructive, and inclusive. Focus on technical merit.
+- TypeScript strict mode
+- ESM modules (no CommonJS)
+- Explicit return types on exported functions
+- No `any` types
+- Prefer `const` over `let`
+- Use descriptive variable names

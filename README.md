@@ -1,202 +1,145 @@
-<div align="center">
+# ai-engineering
 
-# AI Engineering Framework
+AI coding assistant framework with executable enforcement: **prompts + runtime hooks + verification gates**.
 
-**The production-ready framework for AI-assisted software development**
+The first framework that physically blocks dangerous actions and automatically verifies quality — not just suggestions.
 
-[![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)](https://github.com/arcasilesgroup/ai-engineering/releases)
-[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Claude Code](https://img.shields.io/badge/Claude%20Code-Compatible-purple.svg)](https://claude.ai/code)
+## The Problem
 
-[Documentation](https://github.com/arcasilesgroup/ai-engineering/wiki) |
-[Quick Start](#quick-start) |
-[Features](#features) |
-[Contributing](CONTRIBUTING.md)
+AI coding assistants are powerful but undisciplined. Existing frameworks suggest best practices but cannot *prevent* the AI from ignoring them. `ai-engineering` solves this with three layers of enforcement:
 
-</div>
-
----
-
-## Why AI Engineering Framework?
-
-Traditional coding standards live in documents nobody reads. **This framework embeds standards directly into your AI assistant.**
-
-```
-Before: "Please follow our coding standards" -> AI ignores them
-After:  Standards loaded automatically -> AI enforces them
-```
-
-**Zero dependencies. Pure markdown. Works with Claude Code out of the box.**
-
----
+| Layer | What | How |
+|-------|------|-----|
+| **Prompts** | Standards, agents, skills compiled into IDE instructions | AI reads at session start |
+| **Runtime Hooks** | Pre/post tool validation | Blocks dangerous operations in real-time |
+| **Verification Gates** | Git hooks + CI/CD quality gates | Blocks bad code from leaving the machine |
 
 ## Quick Start
 
-### 1. Install
+```bash
+npx ai-engineering init
+```
+
+This interactive wizard:
+1. Detects your stack (TypeScript/React, .NET, Python, CI/CD)
+2. Detects your IDE (Claude Code, GitHub Copilot, Codex)
+3. Asks your enforcement level (Basic, Standard, Strict)
+4. Generates all configuration files
+
+### Non-Interactive
 
 ```bash
-# Clone the framework
-git clone https://github.com/arcasilesgroup/ai-engineering.git /tmp/ai-framework
-
-# Install in your project
-/tmp/ai-framework/scripts/install.sh \
-  --name "MyProject" \
-  --stacks dotnet,typescript \
-  --cicd github \
-  --install-tools
+npx ai-engineering init --stack typescript-react --ide claude-code --level strict --yes
 ```
 
-### 2. Verify
+### Multi-Stack, Multi-IDE
 
-Open Claude Code in your project and run:
-
-```
-/validate
+```bash
+npx ai-engineering init --stack typescript-react dotnet --ide claude-code copilot --level strict --yes
 ```
 
-### 3. Use
+## What Gets Generated
 
-Type `/` to see available skills:
+```
+your-project/
+├── .ai-engineering/           # Framework config, standards, knowledge
+│   ├── config.yml             # Central configuration
+│   ├── standards/             # Compiled standards per stack
+│   ├── knowledge/             # Your project's learnings, patterns, ADRs
+│   └── hooks/                 # Runtime enforcement hooks
+├── CLAUDE.md                  # Claude Code instructions (if selected)
+├── .claude/commands/          # Slash commands (/ai-commit, /ai-review, etc.)
+├── .github/copilot-instructions.md  # Copilot instructions (if selected)
+├── codex.md                   # Codex instructions (if selected)
+├── lefthook.yml               # Git hooks (Standard/Strict levels)
+└── .gitleaks.toml             # Secret scanning config
+```
 
-- `/ship` — Smart commits with secret scanning + push (+ optional PR)
-- `/review` — Code review against your standards
-- `/test` — Generate and run tests
-- `/assess` — Security audit and blast radius analysis
+## Stacks
 
-**[Full documentation](https://github.com/arcasilesgroup/ai-engineering/wiki)**
+| Stack | Coverage |
+|-------|----------|
+| **TypeScript/React** | TS strict, React patterns, Vitest + RTL, XSS prevention |
+| **.NET** | C#, ASP.NET Core, EF Core, Clean Architecture, xUnit |
+| **Python** | Typing, async, FastAPI/Django, pytest, injection prevention |
+| **CI/CD** | GitHub Actions, Azure Pipelines, secrets, caching |
 
----
+## IDE Targets
 
-## Features
+| IDE | Output | Enforcement |
+|-----|--------|-------------|
+| **Claude Code** | CLAUDE.md + commands + settings.json | Prompts + Runtime hooks + Git hooks |
+| **GitHub Copilot** | copilot-instructions.md | Prompts + Git hooks |
+| **Codex** | codex.md | Prompts + Git hooks |
 
-### Skills (11)
+## Enforcement Levels
 
-Interactive workflows that execute in your current session.
+| Level | Prompts | Git Hooks | Runtime Hooks | CI/CD Gates |
+|-------|---------|-----------|---------------|-------------|
+| **Basic** | Yes | - | - | - |
+| **Standard** | Yes | Yes (gitleaks, lint, format, conventional commits) | - | - |
+| **Strict** | Yes | Yes + tests + dep audit | Yes (block dangerous ops) | Yes (PR quality gates) |
 
-| Category | Skills |
-|----------|--------|
-| **Inner Loop** | `/ship`, `/test`, `/fix`, `/review` |
-| **Code Quality** | `/refactor`, `/assess` |
-| **Documentation** | `/document`, `/learn` |
-| **Scaffolding** | `/scaffold` |
-| **Framework** | `/validate`, `/setup-project` |
-
-### Agents (4)
-
-Background workers for autonomous tasks.
+## Agents
 
 | Agent | Purpose |
 |-------|---------|
-| `verify-app` | Build + test + lint + security + quality in one pass |
-| `code-architect` | Design before implementing |
-| `oncall-guide` | Production debugging assistance |
-| `code-simplifier` | Reduce complexity |
+| **Developer** | Implementation with Boris Cherny principles |
+| **Reviewer** | Structured code review with severity ratings |
+| **Code Simplifier** | Post-implementation complexity reduction |
+| **Verify App** | End-to-end testing verification pipeline |
+| **Code Explain** | Feynman-style teaching |
 
-### Standards (10)
+## Skills (Slash Commands)
 
-Stack-specific coding rules enforced by AI.
-
-- `.NET` / `TypeScript` / `Python` / `Terraform`
-- `Security` (OWASP) / `API Design` / `Testing`
-- `Quality Gates` (SonarQube thresholds)
-- `CI/CD` (GitHub Actions + Azure Pipelines)
-
-### Hooks (5 Claude Code + 2 Git)
-
-Automatic guards and formatters.
-
-| Hook | Type | Trigger | Action |
-|------|------|---------|--------|
-| `auto-format` | Claude Code | After edit | Format code |
-| `block-dangerous` | Claude Code | Before bash | Block `rm -rf`, force push |
-| `block-env-edit` | Claude Code | Before edit | Protect `.env` files |
-| `notify` | Claude Code | Notification | Desktop alerts |
-| `version-check` | Claude Code | Session start | Check for framework updates |
-| `pre-commit` | Git | Before commit | Scan for secrets (gitleaks) |
-| `pre-push` | Git | Before push | Block critical vulnerabilities |
-
----
-
-## How It Works
-
-```
-CLAUDE.md (loaded automatically by Claude Code)
-├── References -> standards/*.md
-├── References -> learnings/*.md
-├── Lists -> .claude/skills/
-└── Lists -> .claude/agents/
-
-        |
-        v
-
-AI reads your standards and enforces them
-• "Use Result<T> pattern" -> AI uses Result<T>
-• "Never hardcode secrets" -> AI warns you
-• "Run tests before PR" -> AI runs tests
-```
-
----
-
-## Installation Options
-
-| Method | Best For | Command |
-|--------|----------|---------|
-| **Script** | New projects | `./install.sh --name X --stacks Y` |
-| **Update** | Existing projects | `./install.sh --update` |
-| **Submodule** | Monorepos | [See wiki](https://github.com/arcasilesgroup/ai-engineering/wiki/Advanced-Submodule-Approach) |
-
-### Install Flags
-
-| Flag | Description |
-|------|-------------|
-| `--name` | Project name (required) |
-| `--stacks` | `dotnet`, `typescript`, `python`, `terraform` |
-| `--cicd` | `github`, `azure`, `both` |
-| `--install-tools` | Install gitleaks, gh CLI, hooks |
-| `--skip-sdks` | Skip SDK verification |
-| `--exec` | Run `npm install` / `pip install` after |
-
----
-
-## Documentation
-
-**[View Full Documentation](https://github.com/arcasilesgroup/ai-engineering/wiki)**
-
-| Section | Description |
+| Command | Description |
 |---------|-------------|
-| [Getting Started](https://github.com/arcasilesgroup/ai-engineering/wiki/Getting-Started) | Install and configure |
-| [Skills](https://github.com/arcasilesgroup/ai-engineering/wiki/Skills-Overview) | All 11 skills |
-| [Agents](https://github.com/arcasilesgroup/ai-engineering/wiki/Agents-Overview) | Background workers |
-| [Standards](https://github.com/arcasilesgroup/ai-engineering/wiki/Standards-Overview) | Coding rules |
-| [Hooks](https://github.com/arcasilesgroup/ai-engineering/wiki/Hooks-Overview) | Automation |
-| [CI/CD](https://github.com/arcasilesgroup/ai-engineering/wiki/CI-CD-GitHub-Actions) | Pipeline setup |
-| [Advanced](https://github.com/arcasilesgroup/ai-engineering/wiki/Advanced-Parallel-Work) | Power features |
-| [FAQ](https://github.com/arcasilesgroup/ai-engineering/wiki/FAQ) | Common questions |
+| `/ai-commit` | Verified commit (gitleaks + lint + format + conventional) |
+| `/ai-pr` | Structured PR with risk assessment |
+| `/ai-implement` | Guided implementation workflow |
+| `/ai-review` | Multi-pass code review |
+| `/ai-security` | OWASP security audit |
+| `/ai-git` | Git Way-of-Working (cleanup, health, full report) |
+| `/ai-explain` | Feynman-style code explanation |
 
----
+## Updating
 
-## Compatibility
+```bash
+# Check what would change
+npx ai-engineering update --dry-run
 
-| Tool | Support |
-|------|---------|
-| **Claude Code** | Full (skills, agents, hooks) |
-| **GitHub Copilot** | Standards only |
-| **Cursor** | CLAUDE.md only |
+# Apply update (creates backup automatically)
+npx ai-engineering update
 
----
+# Rollback if needed
+npx ai-engineering update --rollback
+```
 
-## Contributing
+Updates are safe:
+- **Framework files** (hooks, scripts): auto-replaced
+- **Compiled output** (CLAUDE.md, commands): re-compiled
+- **Your customizations** (config, blocklist): 3-way merge
+- **Your knowledge** (learnings, patterns, ADRs): never touched
 
-Contributions welcome! See [CONTRIBUTING.md](CONTRIBUTING.md).
+## Branch Compliance
+
+Protected branches are enforced by git hooks:
+- **main/master**: No direct push, requires PR + review + all checks
+- **develop**: Requires PR + checks
+- **release/\***: PR to default branch required
+- **hotfix/\***: Push allowed, must PR to default + develop
+- **dev/\***: No restrictions
+
+## Development
+
+```bash
+git clone https://github.com/your-org/ai-engineering.git
+cd ai-engineering
+npm install
+npm run build
+npm test
+```
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
-
----
-
-<div align="center">
-
-Made with care for AI-assisted development
-
-</div>
+MIT
