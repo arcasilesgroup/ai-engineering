@@ -10,7 +10,7 @@ interface ClaudeCodeOutput {
   settingsJson: string;
 }
 
-function buildSettingsJson(config: Config): string {
+function buildSettingsJson(_config: Config): string {
   const hooksPath = ".ai-engineering/hooks";
 
   const settings: Record<string, unknown> = {};
