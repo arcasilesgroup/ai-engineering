@@ -6,21 +6,8 @@ import {
 } from "../utils/filesystem.js";
 import { logger } from "../utils/logger.js";
 import { exec } from "../utils/git.js";
+import { getPackageRoot } from "../utils/package-root.js";
 import type { Config } from "../utils/config.js";
-
-function resolveHookSource(relativePath: string): string {
-  const devPath = resolvePath(
-    import.meta.dirname ?? ".",
-    "../../",
-    relativePath,
-  );
-  if (fileExists(devPath)) return devPath;
-
-  const distPath = resolvePath(import.meta.dirname ?? ".", "../", relativePath);
-  if (fileExists(distPath)) return distPath;
-
-  return devPath;
-}
 
 function installRuntimeHooks(projectRoot: string, _config: Config): void {
   const hooksDir = resolvePath(projectRoot, ".ai-engineering/hooks");
@@ -32,7 +19,11 @@ function installRuntimeHooks(projectRoot: string, _config: Config): void {
   ];
 
   for (const hookFile of hookFiles) {
-    const sourcePath = resolveHookSource(`src/hooks/runtime/${hookFile}`);
+    const sourcePath = resolvePath(
+      getPackageRoot(),
+      "src/hooks/runtime",
+      hookFile,
+    );
     const destPath = resolvePath(hooksDir, hookFile);
 
     if (fileExists(sourcePath)) {

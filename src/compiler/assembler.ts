@@ -6,6 +6,7 @@ import {
   resolvePath,
 } from "../utils/filesystem.js";
 import { logger } from "../utils/logger.js";
+import { getPackageRoot } from "../utils/package-root.js";
 import type { Config, Stack } from "../utils/config.js";
 
 export interface AssembledContent {
@@ -23,42 +24,6 @@ export interface IntermediateRepresentation {
   stackSections: Map<Stack, string>;
   agentSections: Map<string, string>;
   skillSections: Map<string, string>;
-}
-
-let _packageRoot: string | null = null;
-
-function getPackageRoot(): string {
-  if (_packageRoot) return _packageRoot;
-
-  let dir = import.meta.dirname ?? process.cwd();
-  while (dir !== "/" && dir !== ".") {
-    const pkgPath = resolvePath(dir, "package.json");
-    if (fileExists(pkgPath)) {
-      try {
-        const pkg = JSON.parse(readFile(pkgPath));
-        if (pkg.name === "ai-engineering") {
-          _packageRoot = dir;
-          return dir;
-        }
-      } catch {
-        /* continue searching */
-      }
-    }
-    dir = resolvePath(dir, "..");
-  }
-
-  // Fallback: try from cwd (npx / global install)
-  const cwdPkg = resolvePath(process.cwd(), "node_modules/ai-engineering");
-  if (isDirectory(cwdPkg)) {
-    _packageRoot = cwdPkg;
-    return cwdPkg;
-  }
-
-  throw new Error(
-    `Could not find ai-engineering package root.\n` +
-      `  import.meta.dirname: ${import.meta.dirname ?? "undefined"}\n` +
-      `  cwd: ${process.cwd()}`,
-  );
 }
 
 function resolveContentPath(relativePath: string): string {

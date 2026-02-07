@@ -49,23 +49,24 @@
   },
   "dependencies": {
     "@clack/prompts": "^0.9.1",
+    "ajv": "^8.17.1",
     "chalk": "^5.4.1",
     "commander": "^13.1.0",
     "handlebars": "^4.7.8",
     "js-yaml": "^4.1.0",
-    "ajv": "^8.17.1",
     "semver": "^7.7.1"
   },
   "devDependencies": {
+    "@evilmartians/lefthook": "^1.10.10",
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^22.13.4",
     "@types/semver": "^7.5.8",
-    "tsup": "^8.4.0",
-    "typescript": "^5.7.3",
-    "vitest": "^3.0.5",
     "@vitest/coverage-v8": "^3.0.5",
     "eslint": "^9.20.0",
     "prettier": "^3.5.1",
-    "@evilmartians/lefthook": "^1.10.10"
+    "tsup": "^8.4.0",
+    "typescript": "^5.7.3",
+    "typescript-eslint": "^8.54.0",
+    "vitest": "^3.0.5"
   }
 }
