@@ -3,7 +3,6 @@ stacks:
   - typescript-react
 ides:
   - claude-code
-level: strict
 platform: github
 branches:
   defaultBranch: main

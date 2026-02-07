@@ -1,4 +1,10 @@
-import { writeFile, ensureDir, resolvePath } from "../../utils/filesystem.js";
+import { rmSync } from "node:fs";
+import {
+  writeFile,
+  ensureDir,
+  resolvePath,
+  listFiles,
+} from "../../utils/filesystem.js";
 import { logger } from "../../utils/logger.js";
 // Template engine available for future Handlebars-based compilation
 import type { IntermediateRepresentation } from "../assembler.js";
@@ -11,20 +17,41 @@ interface ClaudeCodeOutput {
 }
 
 function buildSettingsJson(_config: Config): string {
-  const hooksPath = ".ai-engineering/hooks";
+  const hooksPath = "$CLAUDE_PROJECT_DIR/.ai-engineering/hooks";
 
   const settings: Record<string, unknown> = {};
+
+  settings.permissions = {
+    allow: [
+      "Bash(gh:*)",
+      "Bash(az:*)",
+      "Bash(npx prettier:*)",
+      "Bash(npx eslint:*)",
+      "Bash(npm test:*)",
+      "Bash(npm run:*)",
+    ],
+  };
 
   settings.hooks = {
     PreToolUse: [
       {
-        matcher: ".*",
+        matcher: "Bash",
+        hooks: [
+          { type: "command", command: `bash ${hooksPath}/pre-tool.sh` },
+          {
+            type: "command",
+            command: `bash ${hooksPath}/warn-branch-origin.sh`,
+          },
+        ],
+      },
+      {
+        matcher: "Edit|Write",
         hooks: [{ type: "command", command: `bash ${hooksPath}/pre-tool.sh` }],
       },
     ],
     PostToolUse: [
       {
-        matcher: ".*",
+        matcher: "Edit|Write",
         hooks: [{ type: "command", command: `bash ${hooksPath}/post-tool.sh` }],
       },
     ],
@@ -45,13 +72,9 @@ function buildCommands(ir: IntermediateRepresentation): Map<string, string> {
   const commands = new Map<string, string>();
 
   const skillMap: Record<string, { name: string; description: string }> = {
-    "git/commit-push": {
-      name: "ai-commit-push",
-      description: "Verified commit + push to remote",
-    },
-    "git/commit-push-pr": {
-      name: "ai-commit-push-pr",
-      description: "Commit + push + PR with auto-merge",
+    "git/ship": {
+      name: "ai-ship",
+      description: "Commit + push (+ PR with auto-merge)",
     },
     "git/git": {
       name: "ai-git",
@@ -172,6 +195,12 @@ function buildClaudeMd(ir: IntermediateRepresentation): string {
   sections.push(ir.assembled.skills);
   sections.push("");
 
+  // Shared utilities
+  if (ir.assembled.utils) {
+    sections.push(ir.assembled.utils);
+    sections.push("");
+  }
+
   // Available commands
   sections.push("## Available Commands");
   sections.push("");
@@ -179,9 +208,8 @@ function buildClaudeMd(ir: IntermediateRepresentation): string {
   sections.push("");
   sections.push("| Command | Description |");
   sections.push("|---------|-------------|");
-  sections.push("| `/ai-commit-push` | Verified commit + push to remote |");
   sections.push(
-    "| `/ai-commit-push-pr` | Commit + push + PR with auto-merge |",
+    "| `/ai-ship` | Commit + push (default), `pr` for PR, `pr-only` for PR without commit |",
   );
   sections.push("| `/ai-implement` | Guided implementation workflow |");
   sections.push("| `/ai-review` | Structured code review |");
@@ -245,6 +273,18 @@ export function writeClaudeCodeOutput(
   // Write commands
   const commandsDir = resolvePath(projectRoot, ".claude/commands");
   ensureDir(commandsDir);
+
+  // Clean up stale command files before writing new ones
+  const expectedFiles = new Set(
+    Array.from(output.commands.keys()).map((name) => `${name}.md`),
+  );
+  for (const existingFile of listFiles(commandsDir)) {
+    const fileName = existingFile.split("/").pop() ?? "";
+    if (fileName.endsWith(".md") && !expectedFiles.has(fileName)) {
+      rmSync(existingFile);
+      logger.info(`Removed stale command: ${fileName}`);
+    }
+  }
 
   for (const [name, content] of output.commands) {
     writeFile(resolvePath(commandsDir, `${name}.md`), content);

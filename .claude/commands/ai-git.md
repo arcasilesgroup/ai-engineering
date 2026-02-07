@@ -72,13 +72,36 @@ git fetch --all --prune
 
 ### Step 2: Identify the Default Branch
 
+Use the **3-tier default branch detection** from the Git Helpers shared utility:
+
 ```bash
-# Determine the default branch
-git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@'
+# Tier 1: symbolic-ref (fastest, works when remote HEAD is set)
+DEFAULT_BRANCH="$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@' || true)"
+
+# Tier 2: show-ref for common names
+if [[ -z "$DEFAULT_BRANCH" ]]; then
+  if git show-ref --verify --quiet refs/remotes/origin/main 2>/dev/null; then
+    DEFAULT_BRANCH="main"
+  elif git show-ref --verify --quiet refs/remotes/origin/master 2>/dev/null; then
+    DEFAULT_BRANCH="master"
+  fi
+fi
+
+# Tier 3: Platform CLI
+if [[ -z "$DEFAULT_BRANCH" ]]; then
+  DEFAULT_BRANCH="$(gh repo view --json defaultBranchRef --jq '.defaultBranchRef.name' 2>/dev/null || true)"
+fi
+if [[ -z "$DEFAULT_BRANCH" ]]; then
+  DEFAULT_BRANCH="$(az repos show --query 'defaultBranch' -o tsv 2>/dev/null | sed 's@refs/heads/@@' || true)"
+fi
+
+# Fallback
+if [[ -z "$DEFAULT_BRANCH" ]]; then
+  DEFAULT_BRANCH="main"
+fi
 ```
 
-- If detection fails, try common names: `main`, `master`.
-- If neither exists, ask the user to specify the default branch. Do not guess.
+- If all tiers fail, ask the user to specify the default branch. Do not guess.
 
 ### Step 3: Identify Merged Branches (Safe to Delete)
 

@@ -6,12 +6,14 @@ import {
   resolvePath,
 } from "../utils/filesystem.js";
 import { logger } from "../utils/logger.js";
+import { getPackageRoot } from "../utils/package-root.js";
 import type { Config, Stack } from "../utils/config.js";
 
 export interface AssembledContent {
   standards: string;
   agents: string;
   skills: string;
+  utils: string;
   security: string;
   testing: string;
   git: string;
@@ -23,42 +25,6 @@ export interface IntermediateRepresentation {
   stackSections: Map<Stack, string>;
   agentSections: Map<string, string>;
   skillSections: Map<string, string>;
-}
-
-let _packageRoot: string | null = null;
-
-function getPackageRoot(): string {
-  if (_packageRoot) return _packageRoot;
-
-  let dir = import.meta.dirname ?? process.cwd();
-  while (dir !== "/" && dir !== ".") {
-    const pkgPath = resolvePath(dir, "package.json");
-    if (fileExists(pkgPath)) {
-      try {
-        const pkg = JSON.parse(readFile(pkgPath));
-        if (pkg.name === "ai-engineering") {
-          _packageRoot = dir;
-          return dir;
-        }
-      } catch {
-        /* continue searching */
-      }
-    }
-    dir = resolvePath(dir, "..");
-  }
-
-  // Fallback: try from cwd (npx / global install)
-  const cwdPkg = resolvePath(process.cwd(), "node_modules/ai-engineering");
-  if (isDirectory(cwdPkg)) {
-    _packageRoot = cwdPkg;
-    return cwdPkg;
-  }
-
-  throw new Error(
-    `Could not find ai-engineering package root.\n` +
-      `  import.meta.dirname: ${import.meta.dirname ?? "undefined"}\n` +
-      `  cwd: ${process.cwd()}`,
-  );
 }
 
 function resolveContentPath(relativePath: string): string {
@@ -151,6 +117,23 @@ function assembleSkills(): Map<string, string> {
   return skills;
 }
 
+function assembleUtils(): string {
+  const dir = resolveContentPath("skills/utils");
+  const files = listMarkdownFiles(dir);
+
+  if (files.length === 0) {
+    return "";
+  }
+
+  const parts: string[] = ["# Shared Utilities\n"];
+  for (const file of files.sort()) {
+    parts.push(readFile(file));
+    parts.push("");
+  }
+
+  return parts.join("\n");
+}
+
 export function assemble(config: Config): IntermediateRepresentation {
   logger.step(1, 3, "Assembling standards...");
 
@@ -185,6 +168,9 @@ export function assemble(config: Config): IntermediateRepresentation {
     skillsContent += content + "\n\n";
   }
 
+  // Shared utilities
+  const utilsContent = assembleUtils();
+
   logger.step(3, 3, "Assembly complete");
 
   // Validate assembly produced real content
@@ -218,6 +204,7 @@ export function assemble(config: Config): IntermediateRepresentation {
       standards: allStandards,
       agents: agentsContent,
       skills: skillsContent,
+      utils: utilsContent,
       security: base.security,
       testing: base.testing,
       git: base.git,
