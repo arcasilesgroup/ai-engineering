@@ -3,7 +3,7 @@
   "title": "ai-engineering Configuration",
   "description": "Configuration schema for ai-engineering framework",
   "type": "object",
-  "required": ["version", "stacks", "ides", "level", "platform", "branches"],
+  "required": ["version", "stacks", "ides", "platform", "branches"],
   "properties": {
     "version": {
       "type": "string",
@@ -32,7 +32,7 @@
     "level": {
       "type": "string",
       "enum": ["basic", "standard", "strict"],
-      "description": "Enforcement level"
+      "description": "Deprecated — enforcement is always maximum. Kept for backwards compatibility."
     },
     "platform": {
       "type": "string",
