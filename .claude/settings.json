@@ -1,0 +1,21 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": ".*",
+        "hooks": ["bash .ai-engineering/hooks/pre-tool.sh"]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": ".*",
+        "hooks": ["bash .ai-engineering/hooks/post-tool.sh"]
+      }
+    ],
+    "Startup": [
+      {
+        "hooks": ["bash .ai-engineering/hooks/version-check.sh"]
+      }
+    ]
+  }
+}
