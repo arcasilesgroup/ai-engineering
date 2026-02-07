@@ -9345,8 +9345,8 @@ Ask the user before writing to these files. Never modify them silently.
 
 ## What This Skill Does NOT Do
 
-- It does not commit code. Use `/ai-commit-push` when ready.
-- It does not create pull requests. Use `/ai-commit-push-pr` when ready.
+- It does not commit code. Use `/ai-ship` when ready.
+- It does not create pull requests. Use `/ai-ship pr` when ready.
 - It does not deploy code. Deployment is a separate pipeline.
 - It does not make architectural decisions. It follows existing patterns and asks when patterns are unclear.
 - It does not refactor unrelated code. Scope discipline is absolute.
@@ -10013,656 +10013,9 @@ Ask the user before writing to these files. Never modify them silently.
 
 - It does not fix the issues it finds. The reviewer reports; the author fixes.
 - It does not approve or merge PRs. That is a human decision.
-- It does not run tests. It analyzes test coverage from the code, but execution is done via `/ai-commit-push` or CI.
+- It does not run tests. It analyzes test coverage from the code, but execution is done via `/ai-ship` or CI.
 - It does not perform architecture reviews. It reviews the code as written, within its existing architectural context.
 - It does not review dependencies in depth. Dependency auditing is handled by `/ai-security`.
-
-# /ai-commit-push-pr — Commit + Push + PR with Auto-merge
-
-This skill composes `/ai-commit-push` with PR creation and optional auto-merge. It is the full workflow from staged changes to a merge-ready pull request. The commit and push phases are handled by `/ai-commit-push` — this skill adds PR creation, reviewer assignment, and auto-merge on top.
-
----
-
-## Session Preamble (execute silently)
-
-Before any user-visible action, silently internalize project context:
-
-1. Read `.ai-engineering/knowledge/learnings.md` — lessons learned during development
-2. Read `.ai-engineering/knowledge/patterns.md` — established conventions
-3. Read `.ai-engineering/knowledge/anti-patterns.md` — known mistakes to avoid
-4. Detect the project stack from package.json, .csproj, pyproject.toml, or equivalent
-5. Identify the current branch and working tree state
-
-Do not report this step to the user. Internalize it as context for decision-making.
-
----
-
-## Trigger
-
-- User invokes `/ai-commit-push-pr`
-- User says "commit push and create PR", "commit and PR", "ship it", or similar intent
-
----
-
-## Phase 1: Commit + Push
-
-Execute the **complete `/ai-commit-push` workflow** (Steps 1–11 from that skill).
-
-- If any step fails (hooks block the push, secrets detected, lint fails, tests fail, etc.): **STOP**. Report the error clearly using the error recovery table from `/ai-commit-push`. Do not proceed to PR creation.
-- If the push succeeds: proceed to Phase 2.
-
----
-
-## Phase 2: PR Creation
-
-### Step 1: Analyze the Diff
-
-Gather the full picture of what this PR contains:
-
-```bash
-# Identify the target branch
-git symbolic-ref refs/remotes/origin/HEAD | sed 's@^refs/remotes/origin/@@'
-
-# List all commits in this branch
-git log <target-branch>..HEAD --oneline --no-merges
-
-# Full diff summary
-git diff <target-branch>..HEAD --stat
-
-# Full diff for analysis
-git diff <target-branch>..HEAD
-```
-
-### Analysis Checklist
-
-- **Files changed:** Count and categorize (source, tests, config, docs, migrations).
-- **Lines added/removed:** Gauge the size of the change.
-- **Commit history:** Understand the logical progression of changes.
-- **Breaking changes:** Identify API changes, schema migrations, configuration changes that affect consumers.
-- **Dependencies:** Note any added, removed, or updated dependencies.
-
----
-
-### Step 2: Generate PR Title
-
-Create a short, descriptive title:
-
-- Maximum 70 characters.
-- Use imperative mood: "Add user authentication" not "Added user authentication."
-- If the project uses conventional commit prefixes in PR titles, follow that pattern: `feat: add user authentication`.
-- Do not include issue numbers in the title — those go in the body.
-- Be specific. Do not use vague titles: "Updates", "Changes", "WIP", "Misc fixes" are not acceptable.
-
----
-
-### Step 3: Generate PR Body
-
-Produce a structured PR description using this enhanced template:
-
-```markdown
-## Summary
-
-<1-3 bullet points: what this PR does and why>
-
-## Motivation
-
-<Why this change is needed. Link to issue/ticket if applicable.>
-
-## Changes
-
-<Bulleted list of specific changes, grouped by area>
-
-## Test Plan
-
-- [ ] <Verification step 1>
-- [ ] <Verification step 2>
-- [ ] <Edge case tested>
-
-## Risk Assessment
-
-<Risks, edge cases, areas needing careful review>
-```
-
-Additional sections when applicable:
-
-- **Breaking Changes:** Migration instructions with before/after examples.
-- **Dependencies:** Justification for each new dependency.
-- **Related Issues:** Closing keywords (`Closes #142`, `Fixes #87`).
-- **Screenshots:** If UI changes are involved.
-
-### Auto-Label Suggestion
-
-Based on the paths modified, suggest PR labels:
-
-| Path Pattern                    | Suggested Label         |
-| ------------------------------- | ----------------------- |
-| `src/` with new functions/files | `feat` or `enhancement` |
-| `src/` fixing existing behavior | `fix` or `bugfix`       |
-| `test/` only                    | `test`                  |
-| `docs/`, `*.md`, `README`       | `docs`                  |
-| `*.yml`, `*.json` (config)      | `config` or `ci`        |
-| `package.json` deps changed     | `dependencies`          |
-
-### Reviewer Suggestion
-
-Suggest reviewers using this priority:
-
-1. If `CODEOWNERS` file exists, use it (platform auto-assigns).
-2. If not, run `git log --format='%ae' -- <changed-files> | sort | uniq -c | sort -rn | head -3` to identify the top 3 contributors to the changed files.
-3. Present the suggestions to the user — never add reviewers without confirmation.
-
----
-
-### Step 4: Determine Target Branch
-
-1. If the project has branch protection rules or a documented branching strategy, follow it.
-2. If the branch name starts with `release/` or `hotfix/`, target `main` or `master`.
-3. If the project uses a `develop` branch as integration branch, feature branches target `develop`.
-4. Otherwise, target the repository's default branch.
-5. If unsure, ask the user. Do not guess.
-
----
-
-### Step 5: Check for Missing Tests
-
-Analyze the diff for untested changes:
-
-- New functions or methods without corresponding tests.
-- New API endpoints without integration tests.
-- Modified business logic without updated assertions.
-- New error handling paths without coverage.
-
-If missing tests are detected, report them as advisory. Include a note in the PR body under "Known Gaps" if the user proceeds.
-
----
-
-### Step 6: Present PR for Approval
-
-```
-Pull Request Preview:
-─────────────────────
-Title: feat: add JWT token refresh endpoint
-
-Target: main ← feature/token-refresh
-Commits: 4
-Files changed: 8 (+342, -12)
-
-Body:
-[full PR body]
-
-─────────────────────
-Options:
-  1. Create this PR (with auto-merge)
-  2. Create this PR (without auto-merge)
-  3. Edit title or body
-  4. Change target branch
-  5. Abort
-```
-
-- If the user edits: accept changes and re-validate title length and format.
-- If the user aborts: stop cleanly.
-- Do not create a PR without explicit user approval.
-
----
-
-### Step 7: Create the PR
-
-#### GitHub (gh)
-
-```bash
-gh pr create \
-  --title "<approved-title>" \
-  --body "<approved-body>" \
-  --base <target-branch> \
-  --head <current-branch>
-```
-
-#### Azure DevOps (az)
-
-```bash
-az repos pr create \
-  --title "<approved-title>" \
-  --description "<approved-body>" \
-  --source-branch <current-branch> \
-  --target-branch <target-branch>
-```
-
-Capture and display the PR URL and number.
-
----
-
-### Step 8: Add Reviewers
-
-#### GitHub
-
-```bash
-gh pr edit <pr-number> --add-reviewer <reviewer1>,<reviewer2>
-```
-
-#### Azure DevOps
-
-```bash
-az repos pr update --id <pr-id> --reviewers <reviewer1> <reviewer2>
-```
-
-#### Reviewer Selection Logic
-
-1. If `CODEOWNERS` file exists, the platform auto-assigns. Report who was auto-assigned.
-2. If the project configuration specifies default reviewers, add them.
-3. If no reviewers are configured, inform the user.
-4. Never add reviewers that are not configured. Do not guess.
-
----
-
-## Phase 3: Auto-merge + Cleanup (default)
-
-### Step 9: Enable Auto-merge
-
-```bash
-# GitHub
-gh pr merge --auto --squash <pr-url>
-```
-
-- Auto-merge means: the PR will merge automatically once all required checks pass and reviews are approved.
-- If the user selected "without auto-merge" in Step 6, skip this step.
-
-### Step 10: Post-merge Cleanup
-
-After enabling auto-merge:
-
-```bash
-git checkout <default-branch>
-git pull
-git branch -d <feature-branch>
-```
-
-- If the user selected "without auto-merge", skip this step.
-- If deletion fails (branch not merged yet), inform the user and skip.
-
-### Step 11: Final Report
-
-```
-Pull request created successfully:
-  PR #143: feat: add JWT token refresh endpoint
-  URL: https://github.com/org/repo/pull/143
-  Target: main ← feature/token-refresh
-  Reviewers: @alice, @bob (from CODEOWNERS)
-  Auto-merge: enabled (squash)
-  Status: Open, checks pending
-```
-
----
-
-## Error Recovery
-
-| Failure                  | What to report                         | How to report                                       |
-| ------------------------ | -------------------------------------- | --------------------------------------------------- |
-| Phase 1 failure          | See `/ai-commit-push` error table      | Same format as `/ai-commit-push`                    |
-| CLI not installed        | "gh/az not found"                      | Installation instructions                           |
-| Not authenticated        | "Authentication required"              | `gh auth login` / `az login` instructions           |
-| PR creation fails        | "PR creation failed"                   | Common causes: PR already exists, permission denied |
-| Auto-merge not available | "Auto-merge not enabled for this repo" | Instruct user to enable in repo settings            |
-| Reviewer not found       | "Reviewer X not found"                 | Suggest checking CODEOWNERS or team config          |
-
----
-
-## Learning Capture (on completion)
-
-If during execution you discovered something useful for the project:
-
-1. **New pattern** (e.g., PR template preference, reviewer convention) → Propose adding to `knowledge/patterns.md`
-2. **Recurring error** (e.g., CI check always fails for a specific reason) → Propose adding to `knowledge/anti-patterns.md`
-3. **Lesson learned** (e.g., auto-merge not enabled in repo settings) → Propose adding to `knowledge/learnings.md`
-
-Ask the user before writing to these files. Never modify them silently.
-
----
-
-## What This Skill Does NOT Do
-
-- It does not merge the PR immediately. Auto-merge waits for checks and reviews.
-- It does not resolve review comments.
-- It does not rebase or squash commits before creating the PR.
-- It does not create branches. The user must be on the correct branch before invoking.
-
-# /ai-commit-push — Verified Commit + Push Workflow
-
-This skill defines the step-by-step workflow for creating a verified, standards-compliant git commit and pushing it to the remote. Every commit passes through security scanning, linting, formatting, and conventional commit validation. The push triggers pre-push hooks (lint, typecheck, test, build, gitleaks branch scan, dependency audit, semgrep SAST). No shortcuts. No `--no-verify`.
-
----
-
-## Session Preamble (execute silently)
-
-Before any user-visible action, silently internalize project context:
-
-1. Read `.ai-engineering/knowledge/learnings.md` — lessons learned during development
-2. Read `.ai-engineering/knowledge/patterns.md` — established conventions
-3. Read `.ai-engineering/knowledge/anti-patterns.md` — known mistakes to avoid
-4. Detect the project stack from package.json, .csproj, pyproject.toml, or equivalent
-5. Identify the current branch and working tree state (`git branch --show-current`, `git status --short`)
-
-Do not report this step to the user. Internalize it as context for decision-making.
-
----
-
-## Trigger
-
-- User invokes `/ai-commit-push`
-- User says "commit and push", "commit push", or similar intent
-
----
-
-## Specification Gate
-
-BEFORE executing any git operations, present a concise summary to the user:
-
-1. **Branch:** current branch name
-2. **Files staged:** list of staged files (categorized: source, tests, config, docs)
-3. **Potential commit type:** inferred from the diff (feat/fix/refactor/etc.)
-4. **Suggested scope:** inferred from primary directories modified
-5. **Breaking change risk:** yes/no based on API surface changes, dependency updates, or config schema changes
-
-Present this as a quick summary and get user confirmation before proceeding.
-
----
-
-## Step 1: Verify Hooks Are Installed
-
-Check that the enforcement infrastructure is in place:
-
-```bash
-# Check lefthook.yml exists
-test -f lefthook.yml
-
-# Check lefthook is installed
-lefthook version
-```
-
-- If `lefthook.yml` does not exist: **STOP**. Inform the user: "lefthook.yml not found. Run `npx ai-engineering init` or `npx ai-engineering update` to generate it."
-- If `lefthook` is not installed: **STOP**. Inform the user: "Lefthook not found. Install it: `npm i -D @evilmartians/lefthook && npx lefthook install`"
-- If both are present: proceed.
-
----
-
-## Step 2: Prerequisites
-
-Before starting, verify:
-
-- The current directory is a git repository (`git rev-parse --git-dir`).
-- There are staged changes (`git diff --cached --name-only`). If nothing is staged, inform the user and ask what to stage. Do not auto-stage with `git add -A` or `git add .` unless the user explicitly requests it.
-- The current branch is not a protected branch (see Protected Branches below). If it is, stop and inform the user.
-
----
-
-## Step 3: Secrets Scan
-
-Run `gitleaks` on the staged files to detect hardcoded secrets, API keys, tokens, and credentials.
-
-```bash
-git diff --cached --name-only -z | xargs -0 gitleaks detect --no-git --verbose -f json --source
-```
-
-- If `gitleaks` is not installed, warn the user and recommend installing it. Do not skip this step silently.
-- If secrets are detected: **STOP immediately**. Display the findings with file, line number, and rule ID. Do not proceed to commit. Instruct the user to remove the secrets before retrying.
-- If no secrets are detected: report "Secrets scan passed" and proceed.
-
-**Hard rule:** Never commit files that contain secrets, API keys, passwords, tokens, or credentials. Never override this check.
-
----
-
-## Step 4: Lint
-
-Run the stack-appropriate linter on the staged files. Detect the stack from the project context:
-
-| Stack                | Linter Command                           |
-| -------------------- | ---------------------------------------- |
-| Node.js / TypeScript | `npx eslint --fix <staged-files>`        |
-| .NET / C#            | `dotnet format --include <staged-files>` |
-| Python               | `ruff check --fix <staged-files>`        |
-
-- Run the linter with auto-fix enabled where supported.
-- If the linter produces errors that cannot be auto-fixed: display the errors with file, line, and rule. Ask the user whether to proceed with warnings or stop to fix.
-- If the linter auto-fixed files: re-stage the fixed files (`git add <fixed-files>`) and inform the user what was changed.
-- If no linter is detected or configured: warn the user that no linter ran. Do not silently skip.
-
----
-
-## Step 5: Format
-
-Run the stack-appropriate formatter on the staged files:
-
-| Stack                | Formatter Command                                      |
-| -------------------- | ------------------------------------------------------ |
-| Node.js / TypeScript | `npx prettier --write <staged-files>`                  |
-| .NET / C#            | `dotnet format --include <staged-files>`               |
-| Python               | `black <staged-files>` or `ruff format <staged-files>` |
-
-- Formatting is always auto-applied. The formatter is authoritative.
-- After formatting, re-stage any modified files (`git add <formatted-files>`).
-- Report which files were reformatted. If no files changed, report "Formatting check passed — no changes needed."
-- If the formatter is not installed or configured: warn the user. Do not silently skip.
-
----
-
-## Step 6: Conventional Commit Validation
-
-Ensure the commit message will follow the [Conventional Commits](https://www.conventionalcommits.org/) specification:
-
-```
-<type>(<scope>): <description>
-
-[optional body]
-
-[optional footer(s)]
-```
-
-### Valid Types
-
-| Type       | Usage                                                |
-| ---------- | ---------------------------------------------------- |
-| `feat`     | A new feature or user-facing capability              |
-| `fix`      | A bug fix                                            |
-| `docs`     | Documentation-only changes                           |
-| `style`    | Formatting, whitespace, semicolons — no logic change |
-| `refactor` | Code restructuring with no behavior change           |
-| `perf`     | Performance improvement                              |
-| `test`     | Adding or updating tests                             |
-| `build`    | Build system or dependency changes                   |
-| `ci`       | CI/CD configuration changes                          |
-| `chore`    | Maintenance tasks that do not modify src or test     |
-| `revert`   | Reverts a previous commit                            |
-
-### Rules
-
-- Type is mandatory and must be lowercase.
-- Scope is optional but recommended. It should identify the module, component, or area affected.
-- Description is mandatory, lowercase (except proper nouns), imperative mood ("add" not "added"), and no trailing period.
-- Description must not exceed 72 characters (type + scope + description combined).
-- If breaking changes are introduced, the footer must include `BREAKING CHANGE:` or the type must be suffixed with `!`.
-
----
-
-## Step 7: Generate Commit Message
-
-Analyze the staged diff to generate a commit message:
-
-```bash
-git diff --cached --stat
-git diff --cached
-```
-
-### Analysis Process
-
-1. **Identify the type:** What kind of change is this? New feature, bug fix, refactor, test, docs, etc.
-2. **Identify the scope:** Which module, component, or area is primarily affected?
-3. **Summarize the change:** What does this change do, in imperative mood, in one line?
-4. **Assess body need:** If the change is non-trivial (more than 3 files, complex logic, or behavioral change), draft a body explaining the motivation and approach.
-5. **Check for breaking changes:** Does this change break existing APIs, configurations, or contracts?
-
----
-
-## Step 8: Present for Approval
-
-Present the generated commit message to the user. Display it clearly:
-
-```
-Proposed commit message:
-───────────────────────
-feat(auth): add JWT token refresh endpoint
-
-Add automatic token refresh when access tokens expire within 5 minutes
-of a request. Refresh tokens are rotated on each use to prevent replay.
-
-Closes #142
-───────────────────────
-
-Options:
-  1. Commit and push with this message
-  2. Edit the message
-  3. Abort
-```
-
-- If the user chooses to edit: accept their revised message and re-validate it against conventional commit rules (Step 6).
-- If the user aborts: stop the workflow cleanly. Do not commit anything.
-- Do not commit without explicit user approval.
-
----
-
-## Step 9: Execute Commit
-
-Run the commit command:
-
-```bash
-git commit -m "<approved-message>"
-```
-
-**Hard rules:**
-
-- Never use `--no-verify`. The pre-commit hooks exist for a reason.
-- Never use `--amend` unless the user explicitly requests it.
-- Never use `--allow-empty` unless the user explicitly requests it.
-- If the commit fails due to a pre-commit hook: report the failure, display the hook output, and ask the user how to proceed. Do not automatically retry or bypass.
-
----
-
-## Step 10: Push to Remote
-
-Push the branch to the remote:
-
-```bash
-git push -u origin HEAD
-```
-
-This triggers **pre-push hooks automatically** via lefthook:
-
-- Full project lint
-- TypeScript type checking
-- All tests
-- Build verification
-- Gitleaks branch-diff scan
-- Dependency audit
-- Semgrep OWASP SAST scan
-
-**Do NOT duplicate these checks in the skill** — the hooks handle them.
-
----
-
-## Step 11: Verify and Report
-
-After the push completes, verify and report:
-
-```bash
-git log --oneline -1
-git status
-```
-
-Report the final state to the user:
-
-```
-Commit + push successful:
-  abc1234 feat(auth): add JWT token refresh endpoint
-  Branch: feature/token-refresh → origin/feature/token-refresh
-  Working tree: clean
-```
-
----
-
-## Protected Branches
-
-The following branches are protected by default. Never commit directly to them:
-
-- `main`
-- `master`
-- `production`
-- `release/*`
-
-If the project defines additional protected branches in its configuration (e.g., `develop`, `staging`), respect those as well.
-
-If the user is on a protected branch:
-
-1. Stop before committing.
-2. Inform the user: "You are on a protected branch (`main`). Direct commits are not allowed."
-3. Suggest creating a feature branch: `git checkout -b <branch-name>`
-
----
-
-## Blocklist — Files That Must Never Be Committed
-
-The following file patterns must never be included in a commit, regardless of user intent:
-
-- `.env`, `.env.*` (environment files with secrets)
-- `*.pem`, `*.key`, `*.p12`, `*.pfx` (private keys and certificates)
-- `credentials.json`, `service-account.json`, `secrets.yaml`, `secrets.json`
-- `**/node_modules/**`, `**/.venv/**`, `**/bin/Debug/**`, `**/bin/Release/**` (dependency/build artifacts)
-- `*.sqlite`, `*.db` (local databases with potential PII)
-
-If any staged file matches these patterns:
-
-1. Warn the user with the specific file names.
-2. Recommend unstaging them: `git reset HEAD <file>`.
-3. Do not proceed until the user resolves the issue.
-
----
-
-## Error Recovery
-
-| Failure                    | What to report                      | How to report                              |
-| -------------------------- | ----------------------------------- | ------------------------------------------ |
-| Hooks not installed        | "lefthook not detected"             | Exact installation instructions            |
-| Pre-commit hook fails      | Which hook failed + full output     | File, line, rule violated                  |
-| Push blocked by lint hook  | "Full project lint failed" + errors | List each error with file:line:rule        |
-| Push blocked by typecheck  | "TypeScript compilation failed"     | Show type errors with location             |
-| Push blocked by test hook  | "Tests failed" + test names         | Show failing tests and assertions          |
-| Push blocked by build hook | "Build failed"                      | Show compilation error                     |
-| Push blocked by gitleaks   | "Secrets detected in branch"        | Show file, line, type of secret            |
-| Push blocked by audit      | "Vulnerable dependencies"           | List package, CVE, severity, fix available |
-| Push blocked by semgrep    | "OWASP security issue detected"     | Show OWASP rule, file, line, explanation   |
-| Push auth failure          | "Authentication failed"             | Instructions: `gh auth login` / `az login` |
-| Push branch protection     | "Direct push to X blocked"          | Suggest creating feature branch            |
-| On protected branch        | "Direct commits not allowed"        | Suggest: `git checkout -b <branch-name>`   |
-| Blocked file staged        | "Prohibited file in staging"        | List files, recommend unstaging            |
-| No staged changes          | "Nothing to commit"                 | Ask what to stage                          |
-
----
-
-## Learning Capture (on completion)
-
-If during execution you discovered something useful for the project:
-
-1. **New pattern** (e.g., recurring commit scope, naming convention) → Propose adding to `knowledge/patterns.md`
-2. **Recurring error** (e.g., hook always fails on a specific check) → Propose adding to `knowledge/anti-patterns.md`
-3. **Lesson learned** (e.g., dependency that breaks lint) → Propose adding to `knowledge/learnings.md`
-
-Ask the user before writing to these files. Never modify them silently.
-
----
-
-## What This Skill Does NOT Do
-
-- It does not create branches. The user must be on the correct branch before invoking.
-- It does not squash or rebase. Those are separate operations.
-- It does not modify unstaged files. Only staged changes are processed.
-- It does not create pull requests. Use `/ai-commit-push-pr` for that.
 
 # /ai-git — Git Way-of-Working Skill
 
@@ -10738,13 +10091,36 @@ git fetch --all --prune
 
 ### Step 2: Identify the Default Branch
 
+Use the **3-tier default branch detection** from the Git Helpers shared utility:
+
 ```bash
-# Determine the default branch
-git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@'
+# Tier 1: symbolic-ref (fastest, works when remote HEAD is set)
+DEFAULT_BRANCH="$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@' || true)"
+
+# Tier 2: show-ref for common names
+if [[ -z "$DEFAULT_BRANCH" ]]; then
+  if git show-ref --verify --quiet refs/remotes/origin/main 2>/dev/null; then
+    DEFAULT_BRANCH="main"
+  elif git show-ref --verify --quiet refs/remotes/origin/master 2>/dev/null; then
+    DEFAULT_BRANCH="master"
+  fi
+fi
+
+# Tier 3: Platform CLI
+if [[ -z "$DEFAULT_BRANCH" ]]; then
+  DEFAULT_BRANCH="$(gh repo view --json defaultBranchRef --jq '.defaultBranchRef.name' 2>/dev/null || true)"
+fi
+if [[ -z "$DEFAULT_BRANCH" ]]; then
+  DEFAULT_BRANCH="$(az repos show --query 'defaultBranch' -o tsv 2>/dev/null | sed 's@refs/heads/@@' || true)"
+fi
+
+# Fallback
+if [[ -z "$DEFAULT_BRANCH" ]]; then
+  DEFAULT_BRANCH="main"
+fi
 ```
 
-- If detection fails, try common names: `main`, `master`.
-- If neither exists, ask the user to specify the default branch. Do not guess.
+- If all tiers fail, ask the user to specify the default branch. Do not guess.
 
 ### Step 3: Identify Merged Branches (Safe to Delete)
 
@@ -11107,6 +10483,710 @@ Ask the user before writing to these files. Never modify them silently.
 - It does not push code changes. It only pushes branch deletions (with confirmation).
 - It does not resolve merge conflicts. That requires human judgment.
 - It does not modify any files in the working tree. It operates only on git metadata.
+
+# /ai-ship — Unified Ship Workflow
+
+This skill handles the complete shipping workflow: commit, push, and optionally create a pull request with auto-merge. It replaces the separate commit-push and commit-push-pr skills with a single, unified command that supports three modes.
+
+---
+
+## Modes
+
+| Mode                  | Trigger            | What It Does                                      |
+| --------------------- | ------------------ | ------------------------------------------------- |
+| **Default** (no args) | `/ai-ship`         | Stage → commit → push                             |
+| **PR**                | `/ai-ship pr`      | Stage → commit → push → create PR (auto-merge ON) |
+| **PR-only**           | `/ai-ship pr-only` | Create PR from current branch (no commit)         |
+
+**Flags:**
+
+- `--no-auto-merge` — Disable auto-merge when creating a PR (applies to `pr` and `pr-only` modes)
+
+---
+
+## Session Preamble (execute silently)
+
+Before any user-visible action, silently internalize project context:
+
+1. Read `.ai-engineering/knowledge/learnings.md` — lessons learned during development
+2. Read `.ai-engineering/knowledge/patterns.md` — established conventions
+3. Read `.ai-engineering/knowledge/anti-patterns.md` — known mistakes to avoid
+4. Detect the project stack from package.json, .csproj, pyproject.toml, or equivalent
+5. Identify the current branch and working tree state (`git branch --show-current`, `git status --short`)
+
+Do not report this step to the user. Internalize it as context for decision-making.
+
+---
+
+## Trigger
+
+- User invokes `/ai-ship` — default mode (commit + push)
+- User invokes `/ai-ship pr` — commit + push + create PR
+- User invokes `/ai-ship pr-only` — create PR only (no commit)
+- User says "commit and push", "ship it", "commit push and create PR", "create a PR", or similar intent
+
+---
+
+## Mode Detection
+
+Parse the argument to determine the mode:
+
+| Argument          | Mode                                      |
+| ----------------- | ----------------------------------------- |
+| (none)            | Default — commit + push                   |
+| `pr`              | PR — commit + push + create PR            |
+| `pr-only`         | PR-only — create PR from current branch   |
+| `--no-auto-merge` | Flag — can combine with `pr` or `pr-only` |
+
+If the argument is unrecognized, ask the user which mode they intended.
+
+---
+
+## Specification Gate
+
+BEFORE executing any git operations, present a concise summary to the user:
+
+1. **Mode:** default / pr / pr-only
+2. **Branch:** current branch name
+3. **Files staged:** list of staged files (categorized: source, tests, config, docs)
+4. **Potential commit type:** inferred from the diff (feat/fix/refactor/etc.)
+5. **Suggested scope:** inferred from primary directories modified
+6. **Breaking change risk:** yes/no based on API surface changes, dependency updates, or config schema changes
+
+For `pr-only` mode, skip items 3-6 and instead show the commit history on the current branch vs. the target branch.
+
+Present this as a quick summary and get user confirmation before proceeding.
+
+---
+
+# Phase 1: Commit + Push (Default and PR modes)
+
+Skip this entire phase for `pr-only` mode — jump directly to Phase 2.
+
+## Step 1: Verify Hooks Are Installed
+
+Check that the enforcement infrastructure is in place:
+
+```bash
+# Check lefthook.yml exists
+test -f lefthook.yml
+
+# Check lefthook is installed
+lefthook version
+```
+
+- If `lefthook.yml` does not exist: **STOP**. Inform the user: "lefthook.yml not found. Run `npx ai-engineering init` or `npx ai-engineering update` to generate it."
+- If `lefthook` is not installed: **STOP**. Inform the user: "Lefthook not found. Install it: `npm i -D @evilmartians/lefthook && npx lefthook install`"
+- If both are present: proceed.
+
+---
+
+## Step 2: Prerequisites
+
+Before starting, verify:
+
+- The current directory is a git repository (`git rev-parse --git-dir`).
+- There are staged changes (`git diff --cached --name-only`). If nothing is staged, inform the user and ask what to stage. Do not auto-stage with `git add -A` or `git add .` unless the user explicitly requests it.
+- The current branch is not a protected branch (see Protected Branches below). If it is, stop and inform the user.
+
+---
+
+## Step 3: Secrets Scan
+
+Run `gitleaks` on the staged files to detect hardcoded secrets, API keys, tokens, and credentials.
+
+```bash
+git diff --cached --name-only -z | xargs -0 gitleaks detect --no-git --verbose -f json --source
+```
+
+- If `gitleaks` is not installed, warn the user and recommend installing it. Do not skip this step silently.
+- If secrets are detected: **STOP immediately**. Display the findings with file, line number, and rule ID. Do not proceed to commit. Instruct the user to remove the secrets before retrying.
+- If no secrets are detected: report "Secrets scan passed" and proceed.
+
+**Hard rule:** Never commit files that contain secrets, API keys, passwords, tokens, or credentials. Never override this check.
+
+---
+
+## Step 4: Lint
+
+Run the stack-appropriate linter on the staged files. Detect the stack from the project context:
+
+| Stack                | Linter Command                           |
+| -------------------- | ---------------------------------------- |
+| Node.js / TypeScript | `npx eslint --fix <staged-files>`        |
+| .NET / C#            | `dotnet format --include <staged-files>` |
+| Python               | `ruff check --fix <staged-files>`        |
+
+- Run the linter with auto-fix enabled where supported.
+- If the linter produces errors that cannot be auto-fixed: display the errors with file, line, and rule. Ask the user whether to proceed with warnings or stop to fix.
+- If the linter auto-fixed files: re-stage the fixed files (`git add <fixed-files>`) and inform the user what was changed.
+- If no linter is detected or configured: warn the user that no linter ran. Do not silently skip.
+
+---
+
+## Step 5: Format
+
+Run the stack-appropriate formatter on the staged files:
+
+| Stack                | Formatter Command                                      |
+| -------------------- | ------------------------------------------------------ |
+| Node.js / TypeScript | `npx prettier --write <staged-files>`                  |
+| .NET / C#            | `dotnet format --include <staged-files>`               |
+| Python               | `black <staged-files>` or `ruff format <staged-files>` |
+
+- Formatting is always auto-applied. The formatter is authoritative.
+- After formatting, re-stage any modified files (`git add <formatted-files>`).
+- Report which files were reformatted. If no files changed, report "Formatting check passed — no changes needed."
+- If the formatter is not installed or configured: warn the user. Do not silently skip.
+
+---
+
+## Step 6: Conventional Commit Validation
+
+Ensure the commit message will follow the [Conventional Commits](https://www.conventionalcommits.org/) specification:
+
+```
+<type>(<scope>): <description>
+
+[optional body]
+
+[optional footer(s)]
+```
+
+### Valid Types
+
+| Type       | Usage                                                |
+| ---------- | ---------------------------------------------------- |
+| `feat`     | A new feature or user-facing capability              |
+| `fix`      | A bug fix                                            |
+| `docs`     | Documentation-only changes                           |
+| `style`    | Formatting, whitespace, semicolons — no logic change |
+| `refactor` | Code restructuring with no behavior change           |
+| `perf`     | Performance improvement                              |
+| `test`     | Adding or updating tests                             |
+| `build`    | Build system or dependency changes                   |
+| `ci`       | CI/CD configuration changes                          |
+| `chore`    | Maintenance tasks that do not modify src or test     |
+| `revert`   | Reverts a previous commit                            |
+
+### Rules
+
+- Type is mandatory and must be lowercase.
+- Scope is optional but recommended. It should identify the module, component, or area affected.
+- Description is mandatory, lowercase (except proper nouns), imperative mood ("add" not "added"), and no trailing period.
+- Description must not exceed 72 characters (type + scope + description combined).
+- If breaking changes are introduced, the footer must include `BREAKING CHANGE:` or the type must be suffixed with `!`.
+
+---
+
+## Step 7: Generate Commit Message
+
+Analyze the staged diff to generate a commit message:
+
+```bash
+git diff --cached --stat
+git diff --cached
+```
+
+### Analysis Process
+
+1. **Identify the type:** What kind of change is this? New feature, bug fix, refactor, test, docs, etc.
+2. **Identify the scope:** Which module, component, or area is primarily affected?
+3. **Summarize the change:** What does this change do, in imperative mood, in one line?
+4. **Assess body need:** If the change is non-trivial (more than 3 files, complex logic, or behavioral change), draft a body explaining the motivation and approach.
+5. **Check for breaking changes:** Does this change break existing APIs, configurations, or contracts?
+
+---
+
+## Step 8: Present for Approval
+
+Present the generated commit message to the user:
+
+```
+Proposed commit message:
+───────────────────────
+feat(auth): add JWT token refresh endpoint
+
+Add automatic token refresh when access tokens expire within 5 minutes
+of a request. Refresh tokens are rotated on each use to prevent replay.
+
+Closes #142
+───────────────────────
+
+Options:
+  1. Commit and push with this message
+  2. Edit the message
+  3. Abort
+```
+
+- If the user chooses to edit: accept their revised message and re-validate it against conventional commit rules (Step 6).
+- If the user aborts: stop the workflow cleanly. Do not commit anything.
+- Do not commit without explicit user approval.
+
+---
+
+## Step 9: Execute Commit
+
+Run the commit command:
+
+```bash
+git commit -m "<approved-message>"
+```
+
+**Hard rules:**
+
+- Never use `--no-verify`. The pre-commit hooks exist for a reason.
+- Never use `--amend` unless the user explicitly requests it.
+- Never use `--allow-empty` unless the user explicitly requests it.
+- If the commit fails due to a pre-commit hook: report the failure, display the hook output, and ask the user how to proceed. Do not automatically retry or bypass.
+
+---
+
+## Step 10: Push to Remote
+
+Push the branch to the remote. Use the Git Helpers utility for remote tracking detection:
+
+```bash
+# Check if current branch tracks a remote (see Git Helpers — Remote Tracking)
+UPSTREAM="$(git rev-parse --abbrev-ref @{upstream} 2>/dev/null || echo "")"
+
+if [[ -z "$UPSTREAM" ]]; then
+  git push -u origin HEAD
+else
+  git push
+fi
+```
+
+This triggers **pre-push hooks automatically** via lefthook:
+
+- Full project lint
+- TypeScript type checking
+- All tests
+- Build verification
+- Gitleaks branch-diff scan
+- Dependency audit
+- Semgrep OWASP SAST scan
+
+**Do NOT duplicate these checks in the skill** — the hooks handle them.
+
+---
+
+## Step 11: Verify Push
+
+After the push completes, verify:
+
+```bash
+git log --oneline -1
+git status
+```
+
+Report the result:
+
+```
+Commit + push successful:
+  abc1234 feat(auth): add JWT token refresh endpoint
+  Branch: feature/token-refresh → origin/feature/token-refresh
+  Working tree: clean
+```
+
+- **If mode is default:** The workflow is complete. Produce the final report (see Final Report section).
+- **If mode is PR:** Proceed to Phase 2.
+
+---
+
+# Phase 2: PR Creation (PR and PR-only modes)
+
+Skip this entire phase for default mode.
+
+## Step 12: Detect Platform
+
+Use the Platform Detection utility (see Shared Utilities — Platform Detection) to determine the git hosting platform and available CLI:
+
+```bash
+# Detect platform from remote URL
+REMOTE_URL="$(git remote get-url origin 2>/dev/null || echo "")"
+
+PLATFORM="unknown"
+if echo "$REMOTE_URL" | grep -qE 'github\.com'; then
+  PLATFORM="github"
+elif echo "$REMOTE_URL" | grep -qE 'dev\.azure\.com|visualstudio\.com'; then
+  PLATFORM="azdo"
+fi
+
+# Verify CLI availability
+if [[ "$PLATFORM" == "github" ]]; then
+  if ! command -v gh &>/dev/null || ! gh auth status &>/dev/null 2>&1; then
+    echo "GitHub CLI not available or not authenticated. Run: gh auth login"
+    exit 1
+  fi
+elif [[ "$PLATFORM" == "azdo" ]]; then
+  if ! command -v az &>/dev/null || ! az account show &>/dev/null 2>&1; then
+    echo "Azure CLI not available or not authenticated. Run: az login"
+    exit 1
+  fi
+fi
+```
+
+If the platform cannot be detected or the CLI is not available, **STOP** and provide installation instructions.
+
+---
+
+## Step 13: Determine Target Branch
+
+Use the Git Helpers utility (see Shared Utilities — Default Branch Detection) to find the target branch:
+
+```bash
+# 3-tier fallback for default branch detection
+DEFAULT_BRANCH="$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@' || true)"
+
+if [[ -z "$DEFAULT_BRANCH" ]]; then
+  if git show-ref --verify --quiet refs/remotes/origin/main 2>/dev/null; then
+    DEFAULT_BRANCH="main"
+  elif git show-ref --verify --quiet refs/remotes/origin/master 2>/dev/null; then
+    DEFAULT_BRANCH="master"
+  fi
+fi
+
+if [[ -z "$DEFAULT_BRANCH" ]]; then
+  DEFAULT_BRANCH="main"
+fi
+```
+
+Override logic:
+
+1. If the branch name starts with `release/` or `hotfix/`, target `main` or `master`.
+2. If the project uses a `develop` branch as integration branch, feature branches target `develop`.
+3. Otherwise, target the detected default branch.
+4. If unsure, ask the user. Do not guess.
+
+---
+
+## Step 14: Analyze the Diff
+
+Gather the full picture of what this PR contains:
+
+```bash
+# List all commits in this branch
+git log $DEFAULT_BRANCH..HEAD --oneline --no-merges
+
+# Full diff summary
+git diff $DEFAULT_BRANCH..HEAD --stat
+
+# Full diff for analysis
+git diff $DEFAULT_BRANCH..HEAD
+```
+
+### Analysis Checklist
+
+- **Files changed:** Count and categorize (source, tests, config, docs, migrations).
+- **Lines added/removed:** Gauge the size of the change.
+- **Commit history:** Understand the logical progression of changes.
+- **Breaking changes:** Identify API changes, schema migrations, configuration changes that affect consumers.
+- **Dependencies:** Note any added, removed, or updated dependencies.
+- **Work items:** Extract linked issues from branch name and commit messages (see Git Helpers — Work Item Extraction).
+
+---
+
+## Step 15: Generate PR Title
+
+Create a short, descriptive title:
+
+- Maximum 70 characters.
+- Use imperative mood: "Add user authentication" not "Added user authentication."
+- If the project uses conventional commit prefixes in PR titles, follow that pattern: `feat: add user authentication`.
+- Do not include issue numbers in the title — those go in the body.
+- Be specific. Do not use vague titles: "Updates", "Changes", "WIP", "Misc fixes" are not acceptable.
+
+---
+
+## Step 16: Generate PR Body
+
+Produce a structured PR description:
+
+```markdown
+## Summary
+
+<1-3 bullet points: what this PR does and why>
+
+## Motivation
+
+<Why this change is needed. Link to issue/ticket if applicable.>
+
+## Changes
+
+<Bulleted list of specific changes, grouped by area>
+
+## Test Plan
+
+- [ ] <Verification step 1>
+- [ ] <Verification step 2>
+- [ ] <Edge case tested>
+
+## Risk Assessment
+
+<Risks, edge cases, areas needing careful review>
+```
+
+Additional sections when applicable:
+
+- **Breaking Changes:** Migration instructions with before/after examples.
+- **Dependencies:** Justification for each new dependency.
+- **Related Issues:** Closing keywords (`Closes #142`, `Fixes #87`, or `AB#123` for Azure DevOps).
+- **Screenshots:** If UI changes are involved.
+
+### Auto-Label Suggestion
+
+Based on the paths modified, suggest PR labels:
+
+| Path Pattern                    | Suggested Label         |
+| ------------------------------- | ----------------------- |
+| `src/` with new functions/files | `feat` or `enhancement` |
+| `src/` fixing existing behavior | `fix` or `bugfix`       |
+| `test/` only                    | `test`                  |
+| `docs/`, `*.md`, `README`       | `docs`                  |
+| `*.yml`, `*.json` (config)      | `config` or `ci`        |
+| `package.json` deps changed     | `dependencies`          |
+
+### Reviewer Suggestion
+
+Suggest reviewers using this priority:
+
+1. If `CODEOWNERS` file exists, use it (platform auto-assigns).
+2. If not, run `git log --format='%ae' -- <changed-files> | sort | uniq -c | sort -rn | head -3` to identify the top 3 contributors to the changed files.
+3. Present the suggestions to the user — never add reviewers without confirmation.
+
+---
+
+## Step 17: Present PR for Approval
+
+```
+Pull Request Preview:
+─────────────────────
+Title: feat: add JWT token refresh endpoint
+
+Target: main ← feature/token-refresh
+Commits: 4
+Files changed: 8 (+342, -12)
+Auto-merge: enabled (use --no-auto-merge to disable)
+
+Body:
+[full PR body]
+
+─────────────────────
+Options:
+  1. Create this PR (with auto-merge)
+  2. Create this PR (without auto-merge)
+  3. Edit title or body
+  4. Change target branch
+  5. Abort
+```
+
+- If `--no-auto-merge` flag was provided, default to option 2.
+- If the user edits: accept changes and re-validate title length and format.
+- If the user aborts: stop cleanly.
+- Do not create a PR without explicit user approval.
+
+---
+
+## Step 18: Create the PR
+
+### GitHub
+
+```bash
+gh pr create \
+  --title "<approved-title>" \
+  --body "<approved-body>" \
+  --base <target-branch> \
+  --head <current-branch>
+```
+
+### Azure DevOps
+
+```bash
+# Extract work item IDs from branch name (see Git Helpers — Work Item Extraction)
+WORK_ITEMS="$(echo "$CURRENT_BRANCH" | grep -oE 'AB#[0-9]+' | sed 's/AB#//' | tr '\n' ',' | sed 's/,$//' || true)"
+
+az repos pr create \
+  --title "<approved-title>" \
+  --description "<approved-body>" \
+  --source-branch <current-branch> \
+  --target-branch <target-branch> \
+  ${WORK_ITEMS:+--work-items "$WORK_ITEMS"}
+```
+
+Capture and display the PR URL and number.
+
+---
+
+## Step 19: Add Reviewers
+
+### GitHub
+
+```bash
+gh pr edit <pr-number> --add-reviewer <reviewer1>,<reviewer2>
+```
+
+### Azure DevOps
+
+```bash
+az repos pr update --id <pr-id> --reviewers <reviewer1> <reviewer2>
+```
+
+### Reviewer Selection Logic
+
+1. If `CODEOWNERS` file exists, the platform auto-assigns. Report who was auto-assigned.
+2. If the project configuration specifies default reviewers, add them.
+3. If no reviewers are configured, inform the user.
+4. Never add reviewers that are not configured. Do not guess.
+
+---
+
+## Step 20: Enable Auto-merge (default ON)
+
+If the user selected auto-merge (or did not explicitly disable it):
+
+### GitHub
+
+```bash
+gh pr merge --auto --squash <pr-number>
+```
+
+### Azure DevOps
+
+```bash
+az repos pr update --id <pr-id> --auto-complete true --merge-strategy squash
+```
+
+- Auto-merge means: the PR will merge automatically once all required checks pass and reviews are approved.
+- If `--no-auto-merge` flag was provided or the user selected "without auto-merge", skip this step.
+- If auto-merge is not available for the repository, inform the user and continue.
+
+---
+
+# Final Report
+
+Produce the appropriate report based on the mode:
+
+### Default Mode Report
+
+```
+Ship complete (commit + push):
+  abc1234 feat(auth): add JWT token refresh endpoint
+  Branch: feature/token-refresh → origin/feature/token-refresh
+  Working tree: clean
+```
+
+### PR Mode Report
+
+```
+Ship complete (commit + push + PR):
+  Commit: abc1234 feat(auth): add JWT token refresh endpoint
+  PR #143: feat: add JWT token refresh endpoint
+  URL: https://github.com/org/repo/pull/143
+  Target: main ← feature/token-refresh
+  Reviewers: @alice, @bob (from CODEOWNERS)
+  Auto-merge: enabled (squash)
+  Status: Open, checks pending
+```
+
+### PR-only Mode Report
+
+```
+Ship complete (PR created):
+  PR #143: feat: add JWT token refresh endpoint
+  URL: https://github.com/org/repo/pull/143
+  Target: main ← feature/token-refresh
+  Commits: 4
+  Reviewers: @alice, @bob (from CODEOWNERS)
+  Auto-merge: enabled (squash)
+  Status: Open, checks pending
+```
+
+---
+
+## Protected Branches
+
+The following branches are protected by default. Never commit directly to them:
+
+- `main`
+- `master`
+- `production`
+- `release/*`
+
+If the project defines additional protected branches in its configuration (e.g., `develop`, `staging`), respect those as well.
+
+If the user is on a protected branch:
+
+1. Stop before committing.
+2. Inform the user: "You are on a protected branch (`main`). Direct commits are not allowed."
+3. Suggest creating a feature branch: `git checkout -b <branch-name>`
+
+---
+
+## Blocklist — Files That Must Never Be Committed
+
+The following file patterns must never be included in a commit, regardless of user intent:
+
+- `.env`, `.env.*` (environment files with secrets)
+- `*.pem`, `*.key`, `*.p12`, `*.pfx` (private keys and certificates)
+- `credentials.json`, `service-account.json`, `secrets.yaml`, `secrets.json`
+- `**/node_modules/**`, `**/.venv/**`, `**/bin/Debug/**`, `**/bin/Release/**` (dependency/build artifacts)
+- `*.sqlite`, `*.db` (local databases with potential PII)
+
+If any staged file matches these patterns:
+
+1. Warn the user with the specific file names.
+2. Recommend unstaging them: `git reset HEAD <file>`.
+3. Do not proceed until the user resolves the issue.
+
+---
+
+## Error Recovery
+
+| Failure                    | What to report                      | How to report                                       |
+| -------------------------- | ----------------------------------- | --------------------------------------------------- |
+| Hooks not installed        | "lefthook not detected"             | Exact installation instructions                     |
+| Pre-commit hook fails      | Which hook failed + full output     | File, line, rule violated                           |
+| Push blocked by lint hook  | "Full project lint failed" + errors | List each error with file:line:rule                 |
+| Push blocked by typecheck  | "TypeScript compilation failed"     | Show type errors with location                      |
+| Push blocked by test hook  | "Tests failed" + test names         | Show failing tests and assertions                   |
+| Push blocked by build hook | "Build failed"                      | Show compilation error                              |
+| Push blocked by gitleaks   | "Secrets detected in branch"        | Show file, line, type of secret                     |
+| Push blocked by audit      | "Vulnerable dependencies"           | List package, CVE, severity, fix available          |
+| Push blocked by semgrep    | "OWASP security issue detected"     | Show OWASP rule, file, line, explanation            |
+| Push auth failure          | "Authentication failed"             | Instructions: `gh auth login` / `az login`          |
+| Push branch protection     | "Direct push to X blocked"          | Suggest creating feature branch                     |
+| On protected branch        | "Direct commits not allowed"        | Suggest: `git checkout -b <branch-name>`            |
+| Blocked file staged        | "Prohibited file in staging"        | List files, recommend unstaging                     |
+| No staged changes          | "Nothing to commit"                 | Ask what to stage                                   |
+| CLI not installed          | "gh/az not found"                   | Installation instructions                           |
+| Not authenticated          | "Authentication required"           | `gh auth login` / `az login` instructions           |
+| PR creation fails          | "PR creation failed"                | Common causes: PR already exists, permission denied |
+| Auto-merge not available   | "Auto-merge not enabled for repo"   | Instruct user to enable in repo settings            |
+| Reviewer not found         | "Reviewer X not found"              | Suggest checking CODEOWNERS or team config          |
+
+---
+
+## Learning Capture (on completion)
+
+If during execution you discovered something useful for the project:
+
+1. **New pattern** (e.g., recurring commit scope, PR template preference, reviewer convention) → Propose adding to `knowledge/patterns.md`
+2. **Recurring error** (e.g., hook always fails on a specific check, CI issue) → Propose adding to `knowledge/anti-patterns.md`
+3. **Lesson learned** (e.g., dependency that breaks lint, auto-merge not enabled) → Propose adding to `knowledge/learnings.md`
+
+Ask the user before writing to these files. Never modify them silently.
+
+---
+
+## What This Skill Does NOT Do
+
+- It does not create branches. The user must be on the correct branch before invoking.
+- It does not squash or rebase. Those are separate operations.
+- It does not modify unstaged files. Only staged changes are processed (in default and PR modes).
+- It does not merge the PR immediately. Auto-merge waits for checks and reviews.
+- It does not resolve review comments.
+- It does not rebase or squash commits before creating the PR.
 
 # /ai-security — Security Audit Workflow
 
@@ -12079,20 +12159,301 @@ Ask the user before writing to these files. Never modify them silently.
 - It does not teach entire courses. It explains specific things well. If the user needs a curriculum, suggest resources rather than trying to compress a course into one response.
 - It does not assume the reader's skill level. It starts from the One-Liner (accessible to everyone) and builds up. The reader self-selects depth by asking for more or moving on.
 
+# Shared Utilities
+
+# Git Helpers — Shared Utilities
+
+These utilities are referenced by multiple skills. Use them instead of duplicating git logic.
+
+---
+
+## Default Branch Detection (3-Tier Fallback)
+
+Always detect the default branch using this sequence. Never hardcode `main` or `master`.
+
+```bash
+# Tier 1: symbolic-ref (fastest, works when remote HEAD is set)
+DEFAULT_BRANCH="$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@' || true)"
+
+# Tier 2: show-ref for common names
+if [[ -z "$DEFAULT_BRANCH" ]]; then
+  if git show-ref --verify --quiet refs/remotes/origin/main 2>/dev/null; then
+    DEFAULT_BRANCH="main"
+  elif git show-ref --verify --quiet refs/remotes/origin/master 2>/dev/null; then
+    DEFAULT_BRANCH="master"
+  fi
+fi
+
+# Tier 3: Platform CLI
+if [[ -z "$DEFAULT_BRANCH" ]]; then
+  DEFAULT_BRANCH="$(gh repo view --json defaultBranchRef --jq '.defaultBranchRef.name' 2>/dev/null || true)"
+fi
+if [[ -z "$DEFAULT_BRANCH" ]]; then
+  DEFAULT_BRANCH="$(az repos show --query 'defaultBranch' -o tsv 2>/dev/null | sed 's@refs/heads/@@' || true)"
+fi
+
+# Fallback
+if [[ -z "$DEFAULT_BRANCH" ]]; then
+  DEFAULT_BRANCH="main"
+fi
+```
+
+---
+
+## Current Branch and Status
+
+```bash
+# Current branch name
+CURRENT_BRANCH="$(git branch --show-current 2>/dev/null || echo "")"
+
+# Check for uncommitted changes
+if ! git diff --quiet 2>/dev/null || ! git diff --cached --quiet 2>/dev/null; then
+  echo "You have uncommitted changes."
+fi
+
+# Check for untracked files
+UNTRACKED="$(git ls-files --others --exclude-standard 2>/dev/null)"
+```
+
+---
+
+## Remote Tracking
+
+```bash
+# Check if current branch tracks a remote
+UPSTREAM="$(git rev-parse --abbrev-ref @{upstream} 2>/dev/null || echo "")"
+
+# Push with tracking (set upstream if needed)
+if [[ -z "$UPSTREAM" ]]; then
+  git push -u origin HEAD
+else
+  git push
+fi
+
+# Check if branch is ahead/behind remote
+AHEAD="$(git rev-list --count @{upstream}..HEAD 2>/dev/null || echo 0)"
+BEHIND="$(git rev-list --count HEAD..@{upstream} 2>/dev/null || echo 0)"
+```
+
+---
+
+## Compliance Branch Detection
+
+A compliance branch is a long-lived branch that follows the project's branching strategy.
+
+```bash
+is_compliance_branch() {
+  local branch="$1"
+  case "$branch" in
+    "$DEFAULT_BRANCH"|develop|development|staging|production)
+      return 0 ;;
+    release/*|hotfix/*)
+      return 0 ;;
+    *)
+      return 1 ;;
+  esac
+}
+```
+
+---
+
+## Work Item Extraction
+
+Extract work item references from branch names and commit messages.
+
+### GitHub Issues
+
+```bash
+# Extract #123 references from branch name or text
+GITHUB_ISSUES="$(echo "$TEXT" | grep -oE '#[0-9]+' || true)"
+
+# Generate closing keywords for PR body
+# e.g., "Closes #123, Closes #456"
+```
+
+### Azure DevOps Work Items
+
+```bash
+# Extract AB#123 references from branch name
+AZDO_ITEMS="$(echo "$BRANCH_NAME" | grep -oE 'AB#[0-9]+' || true)"
+
+# Extract numeric IDs for az CLI --work-items flag
+AZDO_IDS="$(echo "$BRANCH_NAME" | grep -oE 'AB#[0-9]+' | sed 's/AB#//' || true)"
+```
+
+---
+
+## Branch Validation
+
+```bash
+# Check if a branch exists locally
+git show-ref --verify --quiet "refs/heads/$BRANCH_NAME" 2>/dev/null
+
+# Check if a branch exists on remote
+git show-ref --verify --quiet "refs/remotes/origin/$BRANCH_NAME" 2>/dev/null
+
+# Check if branch is fully merged into target
+git merge-base --is-ancestor "$BRANCH_NAME" "$TARGET_BRANCH" 2>/dev/null
+```
+
+---
+
+## Stale Branch Detection
+
+```bash
+# Get last commit date for a branch (ISO format)
+LAST_COMMIT="$(git log -1 --format='%ci' "$BRANCH_NAME" 2>/dev/null || echo "")"
+
+# Branches with no activity in 30+ days
+STALE_THRESHOLD=$(date -v-30d +%s 2>/dev/null || date -d '30 days ago' +%s 2>/dev/null || echo 0)
+BRANCH_DATE=$(git log -1 --format='%ct' "$BRANCH_NAME" 2>/dev/null || echo 0)
+if [[ "$BRANCH_DATE" -lt "$STALE_THRESHOLD" ]]; then
+  echo "Branch $BRANCH_NAME is stale (>30 days)"
+fi
+```
+
+---
+
+## PR Status Commands
+
+Use the platform-detection utility to determine which commands to run.
+
+### GitHub
+
+```bash
+# List open PRs
+gh pr list --state open
+
+# View specific PR
+gh pr view <number>
+
+# Check PR checks status
+gh pr checks <number>
+
+# Create PR
+gh pr create --title "..." --body "..." --base "$DEFAULT_BRANCH"
+
+# Enable auto-merge
+gh pr merge --auto --squash <number>
+```
+
+### Azure DevOps
+
+```bash
+# List open PRs
+az repos pr list --status active
+
+# View specific PR
+az repos pr show --id <id>
+
+# Create PR
+az repos pr create --title "..." --description "..." --source-branch "$CURRENT_BRANCH" --target-branch "$DEFAULT_BRANCH"
+
+# Enable auto-complete (auto-merge equivalent)
+az repos pr update --id <id> --auto-complete true --merge-strategy squash
+```
+
+---
+
+## Diff Analysis
+
+```bash
+# Changes on current branch vs default branch
+git diff "$DEFAULT_BRANCH"..HEAD --stat
+git diff "$DEFAULT_BRANCH"..HEAD --name-only
+
+# Commits on current branch not in default
+git log "$DEFAULT_BRANCH"..HEAD --oneline --no-merges
+
+# Full diff for analysis
+git diff "$DEFAULT_BRANCH"..HEAD
+```
+
+# Platform Detection — Shared Utility
+
+Detect the git hosting platform and available CLI tools. Use this before running any platform-specific commands.
+
+---
+
+## Detection Logic
+
+```bash
+# Detect platform from remote URL
+REMOTE_URL="$(git remote get-url origin 2>/dev/null || echo "")"
+
+PLATFORM="unknown"
+if echo "$REMOTE_URL" | grep -qE 'github\.com'; then
+  PLATFORM="github"
+elif echo "$REMOTE_URL" | grep -qE 'dev\.azure\.com|visualstudio\.com'; then
+  PLATFORM="azdo"
+elif echo "$REMOTE_URL" | grep -qE 'gitlab\.com'; then
+  PLATFORM="gitlab"
+elif echo "$REMOTE_URL" | grep -qE 'bitbucket\.org'; then
+  PLATFORM="bitbucket"
+fi
+```
+
+---
+
+## CLI Availability
+
+```bash
+# Check CLI tools
+HAS_GH=false
+HAS_AZ=false
+
+if command -v gh &>/dev/null && gh auth status &>/dev/null 2>&1; then
+  HAS_GH=true
+fi
+
+if command -v az &>/dev/null && az account show &>/dev/null 2>&1; then
+  HAS_AZ=true
+fi
+```
+
+---
+
+## Platform Command Reference
+
+| Operation            | GitHub (`gh`)                                                        | Azure DevOps (`az`)                                                                                |
+| -------------------- | -------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| Create PR            | `gh pr create --title "..." --body "..." --base <branch>`            | `az repos pr create --title "..." --description "..." --source-branch <src> --target-branch <tgt>` |
+| List PRs             | `gh pr list --state open`                                            | `az repos pr list --status active`                                                                 |
+| View PR              | `gh pr view <number>`                                                | `az repos pr show --id <id>`                                                                       |
+| PR checks            | `gh pr checks <number>`                                              | `az repos pr show --id <id> --query 'status'`                                                      |
+| Enable auto-merge    | `gh pr merge --auto --squash <number>`                               | `az repos pr update --id <id> --auto-complete true --merge-strategy squash`                        |
+| Add reviewers        | `gh pr edit <number> --add-reviewer <users>`                         | `az repos pr update --id <id> --reviewers <users>`                                                 |
+| Link work items      | `Closes #123` in PR body                                             | `--work-items <id>` flag on create                                                                 |
+| View issue           | `gh issue view <number>`                                             | `az boards work-item show --id <id>`                                                               |
+| Delete remote branch | `git push origin --delete <branch>`                                  | `git push origin --delete <branch>`                                                                |
+| Default branch       | `gh repo view --json defaultBranchRef --jq '.defaultBranchRef.name'` | `az repos show --query 'defaultBranch' -o tsv \| sed 's@refs/heads/@@'`                            |
+
+---
+
+## Usage in Skills
+
+When a skill needs platform-specific commands:
+
+1. Detect the platform using the logic above.
+2. Verify the required CLI is available and authenticated.
+3. Use the corresponding command from the reference table.
+4. If the CLI is not available, inform the user with installation instructions:
+   - GitHub: `gh auth login` (install: https://cli.github.com)
+   - Azure DevOps: `az login && az devops configure --defaults organization=<org> project=<project>` (install: https://aka.ms/azure-cli)
+
 ## Available Commands
 
 Use these slash commands for guided workflows:
 
-| Command              | Description                                |
-| -------------------- | ------------------------------------------ |
-| `/ai-commit-push`    | Verified commit + push to remote           |
-| `/ai-commit-push-pr` | Commit + push + PR with auto-merge         |
-| `/ai-implement`      | Guided implementation workflow             |
-| `/ai-review`         | Structured code review                     |
-| `/ai-security`       | Security audit                             |
-| `/ai-git`            | Git Way-of-Working (cleanup, health, full) |
-| `/ai-explain`        | Feynman-style code explanation             |
-| `/ai-plan`           | Implementation planning workflow           |
+| Command         | Description                                                           |
+| --------------- | --------------------------------------------------------------------- |
+| `/ai-ship`      | Commit + push (default), `pr` for PR, `pr-only` for PR without commit |
+| `/ai-implement` | Guided implementation workflow                                        |
+| `/ai-review`    | Structured code review                                                |
+| `/ai-security`  | Security audit                                                        |
+| `/ai-git`       | Git Way-of-Working (cleanup, health, full)                            |
+| `/ai-explain`   | Feynman-style code explanation                                        |
+| `/ai-plan`      | Implementation planning workflow                                      |
 
 ## Project Knowledge
 

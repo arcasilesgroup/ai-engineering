@@ -103,8 +103,7 @@ describe("assembler", () => {
     const ir = assemble(config);
 
     const skillKeys = Array.from(ir.skillSections.keys());
-    expect(skillKeys).toContain("git/commit-push");
-    expect(skillKeys).toContain("git/commit-push-pr");
+    expect(skillKeys).toContain("git/ship");
     expect(skillKeys).toContain("git/git");
     expect(skillKeys).toContain("sdlc/implement");
     expect(skillKeys).toContain("sdlc/review");

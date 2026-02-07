@@ -16,6 +16,7 @@ function installRuntimeHooks(projectRoot: string, _config: Config): void {
     "post-tool.sh",
     "blocklist.sh",
     "version-check.sh",
+    "warn-branch-origin.sh",
   ];
 
   for (const hookFile of hookFiles) {

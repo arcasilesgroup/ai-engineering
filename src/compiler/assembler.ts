@@ -13,6 +13,7 @@ export interface AssembledContent {
   standards: string;
   agents: string;
   skills: string;
+  utils: string;
   security: string;
   testing: string;
   git: string;
@@ -116,6 +117,23 @@ function assembleSkills(): Map<string, string> {
   return skills;
 }
 
+function assembleUtils(): string {
+  const dir = resolveContentPath("skills/utils");
+  const files = listMarkdownFiles(dir);
+
+  if (files.length === 0) {
+    return "";
+  }
+
+  const parts: string[] = ["# Shared Utilities\n"];
+  for (const file of files.sort()) {
+    parts.push(readFile(file));
+    parts.push("");
+  }
+
+  return parts.join("\n");
+}
+
 export function assemble(config: Config): IntermediateRepresentation {
   logger.step(1, 3, "Assembling standards...");
 
@@ -150,6 +168,9 @@ export function assemble(config: Config): IntermediateRepresentation {
     skillsContent += content + "\n\n";
   }
 
+  // Shared utilities
+  const utilsContent = assembleUtils();
+
   logger.step(3, 3, "Assembly complete");
 
   // Validate assembly produced real content
@@ -183,6 +204,7 @@ export function assemble(config: Config): IntermediateRepresentation {
       standards: allStandards,
       agents: agentsContent,
       skills: skillsContent,
+      utils: utilsContent,
       security: base.security,
       testing: base.testing,
       git: base.git,

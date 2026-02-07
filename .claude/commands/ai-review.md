@@ -405,6 +405,6 @@ Ask the user before writing to these files. Never modify them silently.
 
 - It does not fix the issues it finds. The reviewer reports; the author fixes.
 - It does not approve or merge PRs. That is a human decision.
-- It does not run tests. It analyzes test coverage from the code, but execution is done via `/ai-commit-push` or CI.
+- It does not run tests. It analyzes test coverage from the code, but execution is done via `/ai-ship` or CI.
 - It does not perform architecture reviews. It reviews the code as written, within its existing architectural context.
 - It does not review dependencies in depth. Dependency auditing is handled by `/ai-security`.

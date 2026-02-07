@@ -26,8 +26,7 @@ describe("claude-code target", () => {
 
     // Check for expected commands
     const commandNames = Array.from(output.commands.keys());
-    expect(commandNames).toContain("ai-commit-push");
-    expect(commandNames).toContain("ai-commit-push-pr");
+    expect(commandNames).toContain("ai-ship");
     expect(commandNames).toContain("ai-implement");
     expect(commandNames).toContain("ai-review");
   });
@@ -109,9 +108,8 @@ describe("claude-code target", () => {
     const ir = assemble(config);
     const output = compileClaudeCode(ir, "/tmp/test-project");
 
-    expect(output.commands.size).toBeGreaterThanOrEqual(8);
-    expect(output.commands.has("ai-commit-push")).toBe(true);
-    expect(output.commands.has("ai-commit-push-pr")).toBe(true);
+    expect(output.commands.size).toBeGreaterThanOrEqual(7);
+    expect(output.commands.has("ai-ship")).toBe(true);
     expect(output.commands.has("ai-git")).toBe(true);
     expect(output.commands.has("ai-implement")).toBe(true);
     expect(output.commands.has("ai-review")).toBe(true);

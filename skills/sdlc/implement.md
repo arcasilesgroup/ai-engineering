@@ -474,8 +474,8 @@ Ask the user before writing to these files. Never modify them silently.
 
 ## What This Skill Does NOT Do
 
-- It does not commit code. Use `/ai-commit-push` when ready.
-- It does not create pull requests. Use `/ai-commit-push-pr` when ready.
+- It does not commit code. Use `/ai-ship` when ready.
+- It does not create pull requests. Use `/ai-ship pr` when ready.
 - It does not deploy code. Deployment is a separate pipeline.
 - It does not make architectural decisions. It follows existing patterns and asks when patterns are unclear.
 - It does not refactor unrelated code. Scope discipline is absolute.
