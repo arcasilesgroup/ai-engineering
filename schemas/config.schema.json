@@ -1,0 +1,85 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ai-engineering Configuration",
+  "description": "Configuration schema for ai-engineering framework",
+  "type": "object",
+  "required": ["version", "stacks", "ides", "level", "platform", "branches"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "description": "Framework version that generated this config"
+    },
+    "stacks": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["typescript-react", "dotnet", "python", "cicd"]
+      },
+      "minItems": 1,
+      "uniqueItems": true,
+      "description": "Selected technology stacks"
+    },
+    "ides": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["claude-code", "copilot", "codex"]
+      },
+      "minItems": 1,
+      "uniqueItems": true,
+      "description": "Selected IDE targets"
+    },
+    "level": {
+      "type": "string",
+      "enum": ["basic", "standard", "strict"],
+      "description": "Enforcement level"
+    },
+    "platform": {
+      "type": "string",
+      "enum": ["github", "azure-devops", "local-only"],
+      "description": "Detected or selected platform"
+    },
+    "branches": {
+      "type": "object",
+      "required": ["defaultBranch", "developBranch", "protectedBranches"],
+      "properties": {
+        "defaultBranch": {
+          "type": "string",
+          "description": "Default branch (main/master)"
+        },
+        "developBranch": {
+          "type": "string",
+          "description": "Development integration branch"
+        },
+        "protectedBranches": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Branches that require PRs"
+        }
+      },
+      "additionalProperties": false
+    },
+    "customizations": {
+      "type": "object",
+      "properties": {
+        "blocklist": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Additional blocked command patterns"
+        },
+        "allowlist": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Commands to allow despite default blocks"
+        },
+        "excludePaths": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Paths to exclude from enforcement"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}
