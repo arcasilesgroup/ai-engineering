@@ -13,9 +13,3 @@ paths = [
   '''package-lock\.json''',
   '''test/fixtures''',
 ]
-
-[[rules]]
-id = "ai-engineering-test-token"
-description = "Ignore test/fixture tokens"
-regex = '''(?i)(test|mock|fake|dummy|example)[-_]?(token|key|secret|password)'''
-allowlist = { regexTarget = "match" }
