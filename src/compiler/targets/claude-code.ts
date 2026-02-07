@@ -155,6 +155,16 @@ function buildClaudeMd(ir: IntermediateRepresentation): string {
   sections.push('- `decisions/` — Architecture Decision Records (ADRs)');
   sections.push('');
   sections.push('Read these files at the start of each session to understand project context.');
+  sections.push('');
+
+  // Multi-IDE Sync
+  sections.push('## Multi-IDE Sync');
+  sections.push('');
+  sections.push('This project uses ai-engineering with section markers. If you modify the TEAM section');
+  sections.push('of this file, check if other IDE instruction files exist and update their TEAM sections');
+  sections.push('to keep them in sync:');
+  sections.push('- `.github/copilot-instructions.md`');
+  sections.push('- `codex.md`');
 
   return sections.join('\n');
 }
@@ -176,10 +186,6 @@ export function writeClaudeCodeOutput(
   output: ClaudeCodeOutput,
   projectRoot: string,
 ): void {
-  // Write CLAUDE.md at project root
-  writeFile(resolvePath(projectRoot, 'CLAUDE.md'), output.claudeMd);
-  logger.success('Generated CLAUDE.md');
-
   // Write commands
   const commandsDir = resolvePath(projectRoot, '.claude/commands');
   ensureDir(commandsDir);

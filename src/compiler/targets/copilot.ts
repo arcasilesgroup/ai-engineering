@@ -1,4 +1,4 @@
-import { writeFile, ensureDir, resolvePath } from '../../utils/filesystem.js';
+import { ensureDir, resolvePath } from '../../utils/filesystem.js';
 import { logger } from '../../utils/logger.js';
 import type { IntermediateRepresentation } from '../assembler.js';
 
@@ -83,6 +83,16 @@ function buildCopilotInstructions(ir: IntermediateRepresentation): string {
   sections.push('- Verbose patterns that can be simplified');
   sections.push('- Duplicated logic that should be extracted');
   sections.push('- Naming that could be clearer');
+  sections.push('');
+
+  // Multi-IDE Sync
+  sections.push('## Multi-IDE Sync');
+  sections.push('');
+  sections.push('This project uses ai-engineering with section markers. If you modify the TEAM section');
+  sections.push('of this file, check if other IDE instruction files exist and update their TEAM sections');
+  sections.push('to keep them in sync:');
+  sections.push('- `CLAUDE.md`');
+  sections.push('- `codex.md`');
 
   return sections.join('\n');
 }
@@ -93,9 +103,9 @@ export function compileCopilot(ir: IntermediateRepresentation): CopilotOutput {
   return { instructionsMd };
 }
 
-export function writeCopilotOutput(output: CopilotOutput, projectRoot: string): void {
+export function writeCopilotOutput(_output: CopilotOutput, projectRoot: string): void {
   const dir = resolvePath(projectRoot, '.github');
   ensureDir(dir);
-  writeFile(resolvePath(dir, 'copilot-instructions.md'), output.instructionsMd);
+  // Note: marked output is handled by compile() in index.ts
   logger.success('Generated .github/copilot-instructions.md');
 }

@@ -1,6 +1,7 @@
 import { logger } from '../utils/logger.js';
-import { writeFile, resolvePath } from '../utils/filesystem.js';
+import { writeFile, readFileOrNull, resolvePath } from '../utils/filesystem.js';
 import { assemble } from './assembler.js';
+import { parseSections, assembleSections } from './section-markers.js';
 import { compileClaudeCode, writeClaudeCodeOutput } from './targets/claude-code.js';
 import { compileCopilot, writeCopilotOutput } from './targets/copilot.js';
 import { compileCodex, writeCodexOutput } from './targets/codex.js';
@@ -9,6 +10,19 @@ import type { IntermediateRepresentation } from './assembler.js';
 
 export { assemble } from './assembler.js';
 export type { IntermediateRepresentation } from './assembler.js';
+
+export function writeMarkedOutput(filePath: string, frameworkContent: string, version: string): void {
+  const existing = readFileOrNull(filePath);
+  let teamContent = '';
+
+  if (existing) {
+    const parsed = parseSections(existing);
+    teamContent = parsed.teamContent;
+  }
+
+  const output = assembleSections(version, frameworkContent, teamContent);
+  writeFile(filePath, output);
+}
 
 export async function compile(projectRoot: string, config: Config): Promise<IntermediateRepresentation> {
   // Step 1: Assemble all content
@@ -22,16 +36,28 @@ export async function compile(projectRoot: string, config: Config): Promise<Inte
     switch (ide) {
       case 'claude-code': {
         const output = compileClaudeCode(ir, projectRoot);
+        // Write CLAUDE.md with section markers
+        writeMarkedOutput(resolvePath(projectRoot, 'CLAUDE.md'), output.claudeMd, config.version);
+        logger.success('Generated CLAUDE.md');
+        // Write commands + settings (no markers needed)
         writeClaudeCodeOutput(output, projectRoot);
         break;
       }
       case 'copilot': {
         const output = compileCopilot(ir);
+        // Write copilot-instructions.md with section markers
+        writeMarkedOutput(
+          resolvePath(projectRoot, '.github/copilot-instructions.md'),
+          output.instructionsMd,
+          config.version,
+        );
         writeCopilotOutput(output, projectRoot);
         break;
       }
       case 'codex': {
         const output = compileCodex(ir);
+        // Write codex.md with section markers
+        writeMarkedOutput(resolvePath(projectRoot, 'codex.md'), output.codexMd, config.version);
         writeCodexOutput(output, projectRoot);
         break;
       }

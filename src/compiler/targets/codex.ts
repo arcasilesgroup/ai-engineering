@@ -1,4 +1,3 @@
-import { writeFile, resolvePath } from '../../utils/filesystem.js';
 import { logger } from '../../utils/logger.js';
 import type { IntermediateRepresentation } from '../assembler.js';
 
@@ -81,6 +80,16 @@ function buildCodexMd(ir: IntermediateRepresentation): string {
   sections.push('- [ ] Tests cover new/changed code');
   sections.push('- [ ] Follows project patterns and conventions');
   sections.push('- [ ] No unnecessary complexity');
+  sections.push('');
+
+  // Multi-IDE Sync
+  sections.push('## Multi-IDE Sync');
+  sections.push('');
+  sections.push('This project uses ai-engineering with section markers. If you modify the TEAM section');
+  sections.push('of this file, check if other IDE instruction files exist and update their TEAM sections');
+  sections.push('to keep them in sync:');
+  sections.push('- `CLAUDE.md`');
+  sections.push('- `.github/copilot-instructions.md`');
 
   return sections.join('\n');
 }
@@ -91,7 +100,7 @@ export function compileCodex(ir: IntermediateRepresentation): CodexOutput {
   return { codexMd };
 }
 
-export function writeCodexOutput(output: CodexOutput, projectRoot: string): void {
-  writeFile(resolvePath(projectRoot, 'codex.md'), output.codexMd);
+export function writeCodexOutput(_output: CodexOutput, _projectRoot: string): void {
+  // Note: marked output is handled by compile() in index.ts
   logger.success('Generated codex.md');
 }

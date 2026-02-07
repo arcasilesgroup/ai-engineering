@@ -28,7 +28,8 @@
     "typecheck": "tsc --noEmit",
     "format": "prettier --write 'src/**/*.ts' 'test/**/*.ts'",
     "format:check": "prettier --check 'src/**/*.ts' 'test/**/*.ts'",
-    "prepublishOnly": "pnpm build && pnpm test && pnpm typecheck"
+    "prepublishOnly": "pnpm build && pnpm test && pnpm typecheck",
+    "dogfood": "pnpm build && node dist/cli/index.js"
   },
   "keywords": [
     "ai",
