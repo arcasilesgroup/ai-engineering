@@ -1,0 +1,41 @@
+[tool.poetry]
+name = "ai-engineering"
+version = "0.1.0"
+description = "Context-first AI governance framework for development teams"
+authors = ["Your Name <your.email@example.com>"]
+license = "MIT"
+readme = "README.md"
+packages = [{include = "ai_engineering", from = "src"}]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+typer = {extras = ["all"], version = "^0.12.0"}
+pyyaml = "^6.0"
+pydantic = "^2.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.0"
+pytest-cov = "^4.1"
+ruff = "^0.3"
+mypy = "^1.8"
+types-pyyaml = "^6.0"
+
+[tool.poetry.scripts]
+ai = "ai_engineering.cli:app"
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"
+
+[tool.mypy]
+python_version = "3.9"
+strict = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-v --cov=src --cov-report=term-missing"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
