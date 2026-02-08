@@ -28,3 +28,23 @@
 {"event": "gate_passed", "actor": "gate-engine", "details": {"stage": "pre-commit"}}
 {"event": "gate_failed", "actor": "gate-engine", "details": {"stage": "commit-msg", "failures": ["commit message cannot be empty"]}}
 {"event": "gate_failed", "actor": "gate-engine", "details": {"stage": "pre-push", "failures": ["semgrep: failure\nremediation: address findings or tune local code before push", "pip-audit: failure\nremediation: upgrade vulnerable dependencies and regenerate lockfiles", "pytest: failure\nremediation: fix failing tests and rerun '.venv/bin/python -m pytest'", "ty: failure\nremediation: fix type diagnostics and rerun '.venv/bin/ty check src'"]}}
+{"event": "gate_blocked_protected_branch", "actor": "gate-engine", "details": {"stage": "commit", "branch": "main", "protectedBranches": ["main", "master"]}}
+{"event": "gate_blocked_protected_branch", "actor": "gate-engine", "details": {"stage": "push", "branch": "master", "protectedBranches": ["main", "master"]}}
+{"event": "gate_passed", "actor": "gate-engine", "details": {"stage": "pre-commit"}}
+{"event": "gate_failed", "actor": "gate-engine", "details": {"stage": "commit-msg", "failures": ["commit message cannot be empty"]}}
+{"event": "gate_failed", "actor": "gate-engine", "details": {"stage": "pre-push", "failures": ["semgrep: failure\nremediation: address findings or tune local code before push", "pip-audit: failure\nremediation: upgrade vulnerable dependencies and regenerate lockfiles", "pytest: failure\nremediation: fix failing tests and rerun '.venv/bin/python -m pytest'", "ty: failure\nremediation: fix type diagnostics and rerun '.venv/bin/ty check src'"]}}
+{"event": "gate_blocked_protected_branch", "actor": "gate-engine", "details": {"stage": "commit", "branch": "main", "protectedBranches": ["main", "master"]}}
+{"event": "gate_blocked_protected_branch", "actor": "gate-engine", "details": {"stage": "push", "branch": "master", "protectedBranches": ["main", "master"]}}
+{"event": "gate_passed", "actor": "gate-engine", "details": {"stage": "pre-commit"}}
+{"event": "gate_failed", "actor": "gate-engine", "details": {"stage": "commit-msg", "failures": ["commit message cannot be empty"]}}
+{"event": "gate_failed", "actor": "gate-engine", "details": {"stage": "pre-push", "failures": ["semgrep: failure\nremediation: address findings or tune local code before push", "pip-audit: failure\nremediation: upgrade vulnerable dependencies and regenerate lockfiles", "pytest: failure\nremediation: fix failing tests and rerun '.venv/bin/python -m pytest'", "ty: failure\nremediation: fix type diagnostics and rerun '.venv/bin/ty check src'"]}}
+{"event": "gate_blocked_protected_branch", "actor": "gate-engine", "details": {"stage": "commit", "branch": "main", "protectedBranches": ["main", "master"]}}
+{"event": "gate_blocked_protected_branch", "actor": "gate-engine", "details": {"stage": "push", "branch": "master", "protectedBranches": ["main", "master"]}}
+{"event": "gate_passed", "actor": "gate-engine", "details": {"stage": "pre-commit"}}
+{"event": "gate_failed", "actor": "gate-engine", "details": {"stage": "commit-msg", "failures": ["commit message cannot be empty"]}}
+{"event": "gate_failed", "actor": "gate-engine", "details": {"stage": "pre-push", "failures": ["semgrep: failure\nremediation: address findings or tune local code before push", "pip-audit: failure\nremediation: upgrade vulnerable dependencies and regenerate lockfiles", "pytest: failure\nremediation: fix failing tests and rerun '.venv/bin/python -m pytest'", "ty: failure\nremediation: fix type diagnostics and rerun '.venv/bin/ty check src'"]}}
+{"event": "gate_blocked_protected_branch", "actor": "gate-engine", "details": {"stage": "commit", "branch": "main", "protectedBranches": ["main", "master"]}}
+{"event": "gate_blocked_protected_branch", "actor": "gate-engine", "details": {"stage": "push", "branch": "master", "protectedBranches": ["main", "master"]}}
+{"event": "gate_passed", "actor": "gate-engine", "details": {"stage": "pre-commit"}}
+{"event": "gate_failed", "actor": "gate-engine", "details": {"stage": "commit-msg", "failures": ["commit message cannot be empty"]}}
+{"event": "gate_failed", "actor": "gate-engine", "details": {"stage": "pre-push", "failures": ["semgrep: failure\nremediation: address findings or tune local code before push", "pip-audit: failure\nremediation: upgrade vulnerable dependencies and regenerate lockfiles", "pytest: failure\nremediation: fix failing tests and rerun '.venv/bin/python -m pytest'", "ty: failure\nremediation: fix type diagnostics and rerun '.venv/bin/ty check src'"]}}

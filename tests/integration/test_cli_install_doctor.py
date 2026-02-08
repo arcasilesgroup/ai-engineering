@@ -61,3 +61,47 @@ def test_gate_list_json_reports_stages(temp_repo: Path) -> None:
     assert "protectedBranches" in payload
     assert "stages" in payload
     assert "pre-commit" in payload["stages"]
+
+
+def test_skill_list_json_after_install(temp_repo: Path) -> None:
+    (temp_repo / ".git").mkdir()
+    install_result = runner.invoke(app, ["install"])
+    assert install_result.exit_code == 0
+
+    result = runner.invoke(app, ["skill", "list", "--json"])
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert "sources" in payload
+    assert len(payload["sources"]) >= 1
+
+
+def test_maintenance_report_command_creates_report(temp_repo: Path) -> None:
+    (temp_repo / ".git").mkdir()
+    install_result = runner.invoke(app, ["install"])
+    assert install_result.exit_code == 0
+    (temp_repo / ".ai-engineering" / "context" / "delivery" / "planning.md").write_text(
+        "# Planning\n", encoding="utf-8"
+    )
+
+    result = runner.invoke(app, ["maintenance", "report"])
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["reportPath"]
+
+
+def test_maintenance_pr_command_requires_approved_payload(temp_repo: Path) -> None:
+    (temp_repo / ".git").mkdir()
+    install_result = runner.invoke(app, ["install"])
+    assert install_result.exit_code == 0
+    payload_path = temp_repo / ".ai-engineering" / "state" / "maintenance_pr_payload.json"
+    payload_path.write_text(
+        '{"approved": false, "title": "x", "body": "y", "base": "main", "head": "feature/x"}\n',
+        encoding="utf-8",
+    )
+
+    result = runner.invoke(app, ["maintenance", "pr"])
+
+    assert result.exit_code == 1
+    assert "not approved" in result.stdout
