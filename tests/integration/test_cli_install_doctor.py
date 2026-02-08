@@ -179,3 +179,53 @@ def test_update_apply_preserves_team_owned_content(temp_repo: Path) -> None:
         "updated",
     }
     assert team_core.read_text(encoding="utf-8") == "team custom\n"
+
+
+def test_stack_add_and_remove_updates_manifest(temp_repo: Path) -> None:
+    (temp_repo / ".git").mkdir()
+    install_result = runner.invoke(app, ["install"])
+    assert install_result.exit_code == 0
+
+    remove_result = runner.invoke(app, ["stack", "remove", "python"])
+    assert remove_result.exit_code == 0
+    removed_payload = json.loads(remove_result.stdout)
+    assert "python" not in removed_payload["installedStacks"]
+
+    add_result = runner.invoke(app, ["stack", "add", "python"])
+    assert add_result.exit_code == 0
+    add_payload = json.loads(add_result.stdout)
+    assert "python" in add_payload["installedStacks"]
+
+
+def test_stack_remove_preserves_custom_team_stack_file(temp_repo: Path) -> None:
+    (temp_repo / ".git").mkdir()
+    install_result = runner.invoke(app, ["install"])
+    assert install_result.exit_code == 0
+
+    team_stack = temp_repo / ".ai-engineering" / "standards" / "team" / "stacks" / "python.md"
+    team_stack.write_text("custom team python stack\n", encoding="utf-8")
+
+    remove_result = runner.invoke(app, ["stack", "remove", "python"])
+    assert remove_result.exit_code == 0
+    payload = json.loads(remove_result.stdout)
+    assert payload["result"]["team"] == "skipped-customized"
+    assert team_stack.exists()
+
+
+def test_ide_add_remove_copilot_file(temp_repo: Path) -> None:
+    (temp_repo / ".git").mkdir()
+    install_result = runner.invoke(app, ["install"])
+    assert install_result.exit_code == 0
+
+    copilot_file = temp_repo / ".github" / "copilot-instructions.md"
+    if copilot_file.exists():
+        copilot_file.unlink()
+
+    add_result = runner.invoke(app, ["ide", "add", "copilot"])
+    assert add_result.exit_code == 0
+    assert copilot_file.exists()
+
+    remove_result = runner.invoke(app, ["ide", "remove", "copilot"])
+    assert remove_result.exit_code == 0
+    payload = json.loads(remove_result.stdout)
+    assert payload["result"] in {"removed", "missing"}

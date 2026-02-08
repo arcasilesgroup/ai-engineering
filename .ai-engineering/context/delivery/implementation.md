@@ -175,3 +175,14 @@ Status:
 - Blockers: none.
 - Decisions: keep `state/*` runtime-generated and excluded from template mirror while enforcing identical non-state governance content.
 - Next step: run full quality suite and address any regressions from template/mapping changes.
+
+### 2026-02-09 - Phase K / Command Contract Closure (Auto-Complete + Stack/IDE Management)
+
+- Work completed: aligned contract and manifest command semantics so `/pr` and `/acho pr` explicitly require PR auto-complete behavior.
+- Work completed: implemented full minimal-runtime stack/IDE management commands (`ai stack add/remove/list`, `ai ide add/remove/list`) with ownership-safe file operations.
+- Work completed: extended install manifest schema/defaults to track installed stacks and IDE profiles.
+- Changed modules: `src/ai_engineering/installer/operations.py`, `src/ai_engineering/cli.py`, `src/ai_engineering/state/models.py`, `src/ai_engineering/state/defaults.py`, contract/manifest canonical and mirrored templates, integration/unit tests.
+- Validation run: `.venv/bin/ruff check src tests`, `.venv/bin/python -m pytest`, `.venv/bin/ty check src`, `.venv/bin/pip-audit` all passed.
+- Blockers: none.
+- Decisions: remove operations stay safe by default; customized team files are preserved and reported as `skipped-customized`.
+- Next step: implement Windows-safe hook launcher improvements to complete remaining cross-OS hardening item.

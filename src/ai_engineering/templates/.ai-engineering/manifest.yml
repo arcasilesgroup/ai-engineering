@@ -44,7 +44,14 @@ commands:
     default: ["stage", "commit", "push_current_branch"]
     only: ["stage", "commit"]
   pr:
-    default: ["stage", "commit", "push_current_branch", "create_pr"]
+    default:
+      [
+        "stage",
+        "commit",
+        "push_current_branch",
+        "create_pr",
+        "enable_pr_auto_complete",
+      ]
     only: ["create_pr"]
     when_branch_not_pushed:
       severity: "warning"
@@ -52,7 +59,17 @@ commands:
       continue_modes: ["defer-pr", "attempt-pr-anyway", "export-pr-payload"]
   acho:
     default: ["stage", "commit", "push_current_branch"]
-    pr: ["stage", "commit", "push_current_branch", "create_pr"]
+    pr:
+      [
+        "stage",
+        "commit",
+        "push_current_branch",
+        "create_pr",
+        "enable_pr_auto_complete",
+      ]
+  management:
+    stack: ["add", "remove", "list"]
+    ide: ["add", "remove", "list"]
 
 providers:
   vcs:

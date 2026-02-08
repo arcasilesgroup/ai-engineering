@@ -18,10 +18,12 @@ Open-source AI governance framework for secure, practical software delivery.
 
 - `/commit` -> stage + commit + push current branch
 - `/commit --only` -> stage + commit
-- `/pr` -> stage + commit + push + create PR
+- `/pr` -> stage + commit + push + create PR + enable auto-complete (`--auto --squash --delete-branch`)
 - `/pr --only` -> create PR; warns if branch is unpushed and proposes auto-push
 - `/acho` -> stage + commit + push current branch
-- `/acho pr` -> stage + commit + push + create PR
+- `/acho pr` -> stage + commit + push + create PR + enable auto-complete (`--auto --squash --delete-branch`)
+- `ai stack add/remove/list <stack>` -> manage stack templates with safe cleanup semantics
+- `ai ide add/remove/list <ide>` -> manage IDE instruction templates with safe cleanup semantics
 
 ## Tooling Baseline
 

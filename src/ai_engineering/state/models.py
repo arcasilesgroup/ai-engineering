@@ -97,6 +97,8 @@ class InstallManifest(BaseModel):
     updateMetadata: UpdateMetadata
     frameworkVersion: str
     installedAt: str
+    installedStacks: list[str] = Field(default_factory=list)
+    installedIdes: list[str] = Field(default_factory=list)
     providers: Providers
     toolingReadiness: ToolingReadiness
 

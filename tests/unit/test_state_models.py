@@ -20,6 +20,8 @@ def test_install_manifest_default_validates() -> None:
     payload = install_manifest_default("0.1.0")
     model = InstallManifest.model_validate(payload)
     assert model.schemaVersion == "1.1"
+    assert "python" in model.installedStacks
+    assert "vscode" in model.installedIdes
 
 
 def test_ownership_map_default_validates() -> None:

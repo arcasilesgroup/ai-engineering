@@ -13,6 +13,12 @@ PROJECT_TEMPLATE_MAPPINGS: tuple[tuple[str, str], ...] = (
     ("project/copilot-instructions.md", ".github/copilot-instructions.md"),
 )
 
+PROJECT_TEMPLATE_BY_IDE: dict[str, tuple[str, str]] = {
+    "claude": ("project/CLAUDE.md", "CLAUDE.md"),
+    "codex": ("project/codex.md", "codex.md"),
+    "copilot": ("project/copilot-instructions.md", ".github/copilot-instructions.md"),
+}
+
 
 def _governance_template_mappings() -> tuple[tuple[str, str], ...]:
     source_root = template_root()
@@ -58,3 +64,11 @@ def sync_templates(repo_root: Path) -> dict[str, str]:
         result[destination_relative] = "created"
 
     return result
+
+
+def available_stack_templates() -> list[str]:
+    """Return available stack template names bundled with framework."""
+    root = template_root() / ".ai-engineering" / "standards" / "framework" / "stacks"
+    if not root.exists():
+        return []
+    return sorted(path.stem for path in root.glob("*.md") if path.is_file())
