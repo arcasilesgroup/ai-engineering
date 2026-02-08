@@ -1,172 +1,135 @@
-# .ai-engineering/manifest.yml
-# Standards and configuration for the ai-engineering framework
+schema_version: "1.1"
+framework_version: "0.1.0-dev"
 
-version: "1.0"  # Manifest schema version
+update_metadata:
+  rationale: "align manifest with finalized governance and rollout decisions"
+  expected_gain: "deterministic enforcement and safer updates"
+  potential_impact: "install, update, and command behavior become stricter"
 
 metadata:
   name: "ai-engineering"
-  description: "Context-first AI governance framework for development teams"
-  owner: "Platform Engineering"
-  created: "2026-02-08"
+  description: "AI governance framework with mandatory local enforcement"
   updated: "2026-02-08"
 
-# Ownership and remote standards (not applicable yet - this is the framework itself)
 ownership:
-  org: null  # No org standards (we ARE the framework)
-  team: null  # No team standards (single developer for now)
+  root: ".ai-engineering"
+  model:
+    framework_managed:
+      - "standards/framework/**"
+    team_managed:
+      - "standards/team/**"
+    project_managed:
+      - "context/**"
+    system_managed:
+      - "state/install-manifest.json"
+      - "state/ownership-map.json"
+      - "state/sources.lock.json"
+      - "state/decision-store.json"
+      - "state/audit-log.ndjson"
 
-# Standards and conventions
 standards:
-  linting:
-    python:
-      tool: "ruff"
-      config: "pyproject.toml"  # Ruff config is in pyproject.toml
-      rules:
-        - "E"    # pycodestyle errors
-        - "F"    # pyflakes
-        - "I"    # isort
-        - "N"    # pep8-naming
-        - "UP"   # pyupgrade
-        - "ANN"  # flake8-annotations
+  precedence:
+    - "standards/framework/core.md"
+    - "standards/framework/stacks/<stack>.md"
+    - "standards/team/core.md"
+    - "standards/team/stacks/<stack>.md"
+  non_negotiables:
+    - "mandatory_local_enforcement"
+    - "no_direct_commits_to_main_or_master"
+    - "protected_branch_push_block"
+    - "no_policy_weakening_without_risk_acceptance"
 
-  formatting:
-    python:
-      tool: "ruff"  # Ruff also handles formatting
-      line_length: 100
+commands:
+  commit:
+    default: ["stage", "commit", "push_current_branch"]
+    only: ["stage", "commit"]
+  pr:
+    default: ["stage", "commit", "push_current_branch", "create_pr"]
+    only: ["create_pr"]
+    when_branch_not_pushed:
+      severity: "warning"
+      propose_auto_push: true
+      continue_modes: ["defer-pr", "attempt-pr-anyway", "export-pr-payload"]
+  acho:
+    default: ["stage", "commit", "push_current_branch"]
+    pr: ["stage", "commit", "push_current_branch", "create_pr"]
 
-  type_checking:
-    python:
-      tool: "mypy"
-      config: "pyproject.toml"
-      strict: true
-
-  commit_messages:
-    pattern: "^(feat|fix|docs|refactor|test|chore)\\([a-z-]+\\): .{10,72}"
-    require_issue_ref: false  # Not using issue tracking yet
-    examples:
-      - "feat(cli): add session start command"
-      - "fix(gates): handle missing .git directory"
-      - "docs(readme): update installation instructions"
-
-  branch_naming:
-    pattern: "^(feature|fix|refactor)/[a-z0-9-]+$"
-    examples:
-      - "feature/cli-scaffolding"
-      - "fix/manifest-validation"
-      - "refactor/state-manager"
-
-# Gates and approvals (Phase 1 - will be enforced when gate engine is implemented)
-gates:
-  pre_commit:
-    lint: mandatory          # ruff check must pass
-    format: mandatory        # ruff format must pass
-    type_check: mandatory    # mypy must pass
-    secret_scan: warn        # Warn if secrets detected (upgrade to mandatory later)
-    destructive_ops: mandatory  # Block destructive git operations
-
-  pre_push:
-    tests: mandatory         # pytest must pass
-    coverage: warn           # Warn if coverage <80% (upgrade to mandatory later)
-
-  pre_merge:
-    approval_count: 0  # Single developer for now
-    architecture_review: disabled  # Enable when we have reviewers
-    security_review: disabled      # Enable when we have security team
-
-# Context optimization (used by future context optimizer module)
-context_optimization:
-  max_tokens: 8000  # Conservative default for most LLMs
-
-  priority_files:
-    # Always include these (high priority)
-    - ".ai-engineering/manifest.yml"
-    - "CLAUDE.md"
-    - "README.md"
-    - ".ai-engineering/context/product/vision.md"
-    - ".ai-engineering/context/delivery/architecture.md"
-
-  conditional_includes:
-    # Include based on task type
-    - pattern: "tests/**"
-      when: "task.type == 'testing'"
-    - pattern: "src/**/*.py"
-      when: "task.type == 'implementation'"
-    - pattern: ".ai-engineering/context/delivery/planning.md"
-      when: "task.type == 'planning'"
-
-  ignore_patterns:
-    # Never include these
-    - "*.pyc"
-    - "__pycache__/"
-    - ".pytest_cache/"
-    - ".mypy_cache/"
-    - ".ruff_cache/"
-    - "*.egg-info/"
-    - "dist/"
-    - "build/"
-    - ".git/"
-    - "*.log"
-    - ".ai-engineering/state/"
-    - "poetry.lock"  # Too large, not needed in context
-
-# Remote skills (Phase 2 feature - placeholder for now)
-skills: []
-
-# Provider-specific extensions
 providers:
-  claude:
-    model: "claude-sonnet-4-5"
-    temperature: 0.3  # Lower for code generation (more deterministic)
-    max_tokens: 8000
+  vcs:
+    primary: "github"
+    enabled: ["github"]
+    extensions:
+      azure_devops:
+        enabled: false
+        organization: null
+        project: null
+        repository: null
+        constraints:
+          branch_name_required: true
+          work_item_link_optional: true
 
-  github:
-    repository: null  # Not on GitHub yet
-    enable_actions: false
+tooling:
+  required:
+    python: ["uv", "ruff", "ty", "pip-audit"]
+    security: ["gitleaks", "semgrep"]
+    vcs_cli: ["gh", "az"]
+  readiness:
+    require_install: true
+    require_configuration: true
+    require_auth_when_applicable: true
 
-# Security and compliance
-security:
-  sensitive_patterns:
-    # Files that should never be committed
-    - "\\.env$"
-    - "\\.pem$"
-    - "\\.key$"
-    - "credentials\\.json$"
-    - "secrets\\.ya?ml$"
+enforcement:
+  hooks:
+    non_bypassable: true
+    required: ["pre-commit", "commit-msg", "pre-push"]
+  checks:
+    pre_commit:
+      - "ruff-format"
+      - "ruff-lint"
+      - "gitleaks"
+    pre_push:
+      - "semgrep"
+      - "pip-audit"
+      - "stack-tests"
+      - "ty-check"
 
-  allowed_destructive_ops:
-    # These destructive operations are allowed with justification
-    - pattern: "git push --force-with-lease"
-      justification_required: true
-      log_level: "warning"
+remote_skills:
+  enabled: true
+  sources:
+    - "https://skills.sh/"
+    - "https://www.aitmpl.com/skills"
+  trust_policy:
+    allowlist_only: true
+    checksums_required: true
+    signature_metadata_required: true
+    remote_execution_allowed: false
+  cache:
+    ttl_hours: 24
+    offline_fallback: true
+    lock_file: ".ai-engineering/state/sources.lock.json"
 
-  audit_log:
-    enabled: true
-    retention_days: 90
-    log_file: ".ai-engineering/state/audit.log"
+risk_acceptance:
+  remediation:
+    suggest_patch: true
+    auto_apply: false
+  persistence:
+    decision_store: ".ai-engineering/state/decision-store.json"
+    audit_log: ".ai-engineering/state/audit-log.ndjson"
+  reprompt_conditions:
+    - "decision_expired"
+    - "scope_changed"
+    - "severity_changed"
+    - "policy_changed"
+    - "material_context_hash_changed"
 
-# Agent orchestration (Phase 3 feature - aspirational for now)
-agents:
-  - id: code-writer
-    capabilities: ["read", "write", "test"]
-    restrictions:
-      - "no infrastructure changes without approval"
-      - "no secret modifications"
+telemetry:
+  mode: "strict_opt_in"
+  default_enabled: false
 
-  - id: reviewer
-    capabilities: ["read", "comment", "approve"]
-    restrictions:
-      - "read-only access to source code"
-
-# Project-specific settings
-project:
-  language: "python"
-  framework: "typer"
-  test_framework: "pytest"
-  package_manager: "poetry"
-
-  directories:
-    source: "src/ai_engineering"
-    tests: "tests"
-    docs: "docs"
-    context: ".ai-engineering/context"
-    state: ".ai-engineering/state"
+context_optimization:
+  policy: "strict_efficiency_no_hard_category_caps"
+  required_fields_per_update: ["rationale", "expected_gain", "potential_impact"]
+  maintenance_agent:
+    cadence: "weekly"
+    output_mode: "local_report_first"
+    pr_after_approval: true

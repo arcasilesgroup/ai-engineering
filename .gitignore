@@ -147,5 +147,10 @@ desktop.ini
 
 # ai-engineering specific
 .ai-engineering/local.yml
-.ai-engineering/state/
+.ai-engineering/state/*
+!.ai-engineering/state/install-manifest.json
+!.ai-engineering/state/ownership-map.json
+!.ai-engineering/state/sources.lock.json
+!.ai-engineering/state/decision-store.json
+!.ai-engineering/state/audit-log.ndjson
 .ai-engineering/.cache/
