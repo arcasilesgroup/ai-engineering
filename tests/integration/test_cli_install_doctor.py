@@ -32,6 +32,24 @@ def test_install_creates_required_state_files(temp_repo: Path) -> None:
         assert hook_path.exists()
         assert "ai-engineering managed hook" in hook_path.read_text(encoding="utf-8")
 
+    assert (temp_repo / ".ai-engineering" / "standards" / "framework" / "quality" / "core.md").exists()
+    assert (temp_repo / ".ai-engineering" / "skills" / "utils" / "platform-detection.md").exists()
+    assert (temp_repo / "CLAUDE.md").exists()
+    assert (temp_repo / "codex.md").exists()
+    assert (temp_repo / ".github" / "copilot-instructions.md").exists()
+
+
+def test_install_preserves_existing_team_owned_files(temp_repo: Path) -> None:
+    (temp_repo / ".git").mkdir()
+    team_core = temp_repo / ".ai-engineering" / "standards" / "team" / "core.md"
+    team_core.parent.mkdir(parents=True, exist_ok=True)
+    team_core.write_text("custom team content\n", encoding="utf-8")
+
+    result = runner.invoke(app, ["install"])
+
+    assert result.exit_code == 0
+    assert team_core.read_text(encoding="utf-8") == "custom team content\n"
+
 
 def test_doctor_json_reports_expected_sections(temp_repo: Path) -> None:
     (temp_repo / ".git").mkdir()

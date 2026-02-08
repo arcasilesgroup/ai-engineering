@@ -7,6 +7,7 @@ from pathlib import Path
 from ai_engineering.__version__ import __version__
 from ai_engineering.hooks.manager import install_placeholder_hooks
 from ai_engineering.paths import ai_engineering_root, repo_root, state_dir
+from ai_engineering.installer.templates import sync_templates
 from ai_engineering.state.defaults import (
     decision_store_default,
     install_manifest_default,
@@ -24,7 +25,10 @@ def ensure_layout(root: Path) -> Path:
         "context/delivery",
         "context/backlog",
         "standards/framework/stacks",
+        "standards/framework/quality",
         "standards/team/stacks",
+        "skills/utils",
+        "skills/validation",
         "state",
     ):
         (ae_root / relative).mkdir(parents=True, exist_ok=True)
@@ -70,9 +74,11 @@ def install() -> dict[str, object]:
     root = repo_root()
     ae_root = ensure_layout(root)
     created_state = bootstrap_state_files(root)
+    template_result = sync_templates(root)
     install_placeholder_hooks(root)
     return {
         "repo": str(root),
         "aiEngineeringRoot": str(ae_root),
         "state": created_state,
+        "templates": template_result,
     }

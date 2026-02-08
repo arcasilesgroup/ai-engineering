@@ -144,3 +144,13 @@ Status:
 - Blockers: none.
 - Decisions: prefer compatibility pinning over broad CLI refactors for MVP stability.
 - Next step: proceed with PR packaging and review.
+
+### 2026-02-08 - Phase G / Legacy Content Adoption Pack
+
+- Work completed: implemented first execution slice of legacy adoption with content-first constraints by bundling quality profiles, utility skill docs, install-readiness guidance, and compact assistant templates.
+- Work completed: installer now syncs bundled templates into target repos with create-only semantics to preserve existing team/project customization.
+- Changed modules: `src/ai_engineering/installer/service.py`, `src/ai_engineering/installer/templates.py`, `src/ai_engineering/paths.py`, `src/ai_engineering/templates/**`, `tests/integration/test_cli_install_doctor.py`, `pyproject.toml` build include.
+- Validation run: `.venv/bin/ruff check src tests`, `.venv/bin/python -m pytest`, `.venv/bin/ty check src`, `.venv/bin/pip-audit` all passed.
+- Blockers: none.
+- Decisions: import legacy value as compact templates only; reject direct runtime migration from TypeScript compiler/orchestration paths.
+- Next step: continue legacy adoption with updater ownership strategy enhancements and deeper provider/IDE detection coverage.

@@ -27,3 +27,13 @@ def ai_engineering_root(root: Path) -> Path:
 def state_dir(root: Path) -> Path:
     """Return state directory path."""
     return ai_engineering_root(root) / "state"
+
+
+def package_root() -> Path:
+    """Return package root directory path."""
+    return Path(__file__).resolve().parent
+
+
+def template_root() -> Path:
+    """Return bundled template root directory path."""
+    return package_root() / "templates"
