@@ -1,1 +1,5 @@
 {"timestamp":"2026-02-08T00:00:00Z","event":"state_initialized","actor":"framework","details":{"files":["install-manifest.json","ownership-map.json","sources.lock.json","decision-store.json","audit-log.ndjson"]}}
+{"event": "gate_blocked_protected_branch", "actor": "gate-engine", "details": {"stage": "commit", "branch": "main"}}
+{"event": "gate_blocked_protected_branch", "actor": "gate-engine", "details": {"stage": "push", "branch": "master"}}
+{"event": "gate_passed", "actor": "gate-engine", "details": {"stage": "pre-commit"}}
+{"event": "gate_failed", "actor": "gate-engine", "details": {"stage": "commit-msg", "failures": ["commit message cannot be empty"]}}

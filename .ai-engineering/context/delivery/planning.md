@@ -52,8 +52,8 @@ If branch is not pushed:
 | Phase | Scope | Status |
 |---|---|---|
 | Phase A | Contract alignment: `AGENTS.md`, `CLAUDE.md`, root docs, local permissions, tooling baseline metadata | Completed |
-| Phase B | App bootstrap: module scaffolding, state schemas, install/doctor base | In progress |
-| Phase C | Governance enforcement: hooks, mandatory checks, protected-branch blocking | Pending |
+| Phase B | App bootstrap: module scaffolding, state schemas, install/doctor base | Completed |
+| Phase C | Governance enforcement: hooks, mandatory checks, protected-branch blocking | In progress |
 | Phase D | Command runtime: `/commit`, `/pr`, `/acho`, `/pr --only` continuation modes | Pending |
 | Phase E | Remote skills lock/cache and maintenance-agent workflow | Pending |
 
@@ -65,3 +65,12 @@ If branch is not pushed:
 
 - Completed in this block: module scaffolding, state schemas, default state generators, minimal `install` and `doctor`, and initial tests.
 - Remaining in Phase B: richer doctor reporting, stronger install idempotency signals, and updater ownership enforcement implementation.
+
+## Phase C Progress Notes
+
+- Rationale: enforce governance locally before implementing high-impact command automation.
+- Expected gain: immediate policy protection through hooks and gate execution.
+- Potential impact: commit/push flows now fail closed when mandatory checks fail.
+
+- Completed in this block: managed hook scripts, hook integrity checks, protected-branch blocking, and mandatory pre-commit/pre-push gate execution wiring.
+- Remaining in Phase C: stronger branch-protection discovery and richer remediation guidance for failed checks.

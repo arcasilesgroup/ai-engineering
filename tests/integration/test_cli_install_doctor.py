@@ -26,6 +26,12 @@ def test_install_creates_required_state_files(temp_repo: Path) -> None:
     assert (state_root / "decision-store.json").exists()
     assert (state_root / "audit-log.ndjson").exists()
 
+    hooks_root = temp_repo / ".git" / "hooks"
+    for hook in ("pre-commit", "commit-msg", "pre-push"):
+        hook_path = hooks_root / hook
+        assert hook_path.exists()
+        assert "ai-engineering managed hook" in hook_path.read_text(encoding="utf-8")
+
 
 def test_doctor_json_reports_expected_sections(temp_repo: Path) -> None:
     (temp_repo / ".git").mkdir()

@@ -55,3 +55,17 @@
 - [x] B-005 add unit and integration tests for schema and CLI baseline.
 - [x] B-006 run quality checks (`ruff`, `pytest`, `ty`, `pip-audit`) in project virtualenv.
 - [ ] B-007 extend doctor/install behavior for richer readiness and ownership-safe update hooks.
+
+## Phase C Execution Log
+
+- Rationale: activate governance and security checks in real git workflows.
+- Expected gain: local enforcement catches violations before remote integration.
+- Potential impact: direct commit/push attempts on protected branches are blocked.
+
+- [x] C-001 replace placeholder hooks with managed hook scripts.
+- [x] C-002 add hook integrity verification in doctor readiness checks.
+- [x] C-003 implement gate engine for `pre-commit`, `commit-msg`, and `pre-push` stages.
+- [x] C-004 enforce protected branch blocking for `main` and `master` commit/push operations.
+- [x] C-005 integrate mandatory tools: `ruff`, `gitleaks`, `semgrep`, `pip-audit`, `pytest`, `ty`.
+- [x] C-006 add policy and integration tests for hook/gate behavior.
+- [ ] C-007 improve failed-check remediation output and branch-policy discovery.

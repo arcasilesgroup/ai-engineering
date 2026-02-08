@@ -71,3 +71,12 @@ Status:
 - Blockers: system Python package install is externally managed (PEP 668), so validation tooling is run from `.venv`.
 - Decisions: keep Phase B minimal and deterministic; defer advanced enforcement and ownership update logic to Phase C/B-next.
 - Next step: implement ownership-safe updater and stronger hook enforcement (Phase C entry work).
+
+### 2026-02-08 - Phase C / Governance Enforcement Entry
+
+- Work completed: replaced placeholder hooks with managed hooks, implemented gate engine with protected-branch blocking, and wired mandatory tool checks for commit/push stages.
+- Changed modules: `hooks.manager`, `policy.gates`, CLI gate commands, and enforcement-focused tests.
+- Validation run: `.venv/bin/ruff check src tests`, `.venv/bin/python -m pytest`, `.venv/bin/ty check src`, `.venv/bin/pip-audit` all passed.
+- Blockers: none.
+- Decisions: fail closed when mandatory tools are missing; prefer `.venv/bin` tools before PATH for deterministic local enforcement.
+- Next step: Phase C continuation for branch policy discovery and remediation UX; then move to Phase D command runtime.
