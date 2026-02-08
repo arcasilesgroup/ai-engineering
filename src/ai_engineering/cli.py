@@ -26,6 +26,7 @@ from ai_engineering.policy.gates import (
     run_pre_push,
 )
 from ai_engineering.skills.service import export_sync_report_json, list_sources, sync_sources
+from ai_engineering.updater import run_update
 
 
 app = typer.Typer(help="ai-engineering governance CLI")
@@ -56,6 +57,15 @@ def version() -> None:
 def install_cmd() -> None:
     """Bootstrap .ai-engineering in current repository."""
     result = install()
+    typer.echo(json.dumps(result, indent=2))
+
+
+@app.command("update")
+def update_cmd(
+    apply: bool = typer.Option(False, "--apply", help="Apply updates (default is dry-run)"),
+) -> None:
+    """Run ownership-safe framework update."""
+    result = run_update(apply=apply)
     typer.echo(json.dumps(result, indent=2))
 
 

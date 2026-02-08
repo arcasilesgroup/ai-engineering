@@ -64,42 +64,62 @@ def ownership_map_default() -> dict:
         },
         "paths": [
             {
-                "pattern": "standards/framework/**",
+                "pattern": ".ai-engineering/standards/framework/**",
                 "owner": "framework-managed",
                 "frameworkUpdate": "allow",
             },
             {
-                "pattern": "standards/team/**",
+                "pattern": ".ai-engineering/standards/team/**",
                 "owner": "team-managed",
                 "frameworkUpdate": "deny",
             },
             {
-                "pattern": "context/**",
+                "pattern": ".ai-engineering/context/**",
                 "owner": "project-managed",
                 "frameworkUpdate": "deny",
             },
             {
-                "pattern": "state/install-manifest.json",
+                "pattern": ".ai-engineering/skills/**",
+                "owner": "framework-managed",
+                "frameworkUpdate": "allow",
+            },
+            {
+                "pattern": "CLAUDE.md",
+                "owner": "framework-managed",
+                "frameworkUpdate": "allow",
+            },
+            {
+                "pattern": "codex.md",
+                "owner": "framework-managed",
+                "frameworkUpdate": "allow",
+            },
+            {
+                "pattern": ".github/copilot-instructions.md",
+                "owner": "framework-managed",
+                "frameworkUpdate": "allow",
+            },
+            {
+                "pattern": ".ai-engineering/state/install-manifest.json",
                 "owner": "system-managed",
                 "frameworkUpdate": "allow",
             },
             {
-                "pattern": "state/ownership-map.json",
+                "pattern": ".ai-engineering/state/ownership-map.json",
                 "owner": "system-managed",
                 "frameworkUpdate": "allow",
             },
             {
-                "pattern": "state/sources.lock.json",
+                "pattern": ".ai-engineering/state/sources.lock.json",
                 "owner": "system-managed",
                 "frameworkUpdate": "allow",
             },
             {
-                "pattern": "state/decision-store.json",
+                "pattern": ".ai-engineering/state/decision-store.json",
                 "owner": "system-managed",
                 "frameworkUpdate": "allow",
             },
             {
-                "pattern": "state/audit-log.ndjson",
+                "pattern": ".ai-engineering/state/audit-log.ndjson",
                 "owner": "system-managed",
                 "frameworkUpdate": "append-only",
             },

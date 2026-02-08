@@ -123,3 +123,38 @@ def test_maintenance_pr_command_requires_approved_payload(temp_repo: Path) -> No
 
     assert result.exit_code == 1
     assert "not approved" in result.stdout
+
+
+def test_update_dry_run_reports_framework_managed_changes(temp_repo: Path) -> None:
+    (temp_repo / ".git").mkdir()
+    install_result = runner.invoke(app, ["install"])
+    assert install_result.exit_code == 0
+
+    quality_core = temp_repo / ".ai-engineering" / "standards" / "framework" / "quality" / "core.md"
+    quality_core.write_text("custom framework override\n", encoding="utf-8")
+
+    result = runner.invoke(app, ["update"])
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    statuses = {entry["path"]: entry["status"] for entry in payload["entries"]}
+    assert statuses[".ai-engineering/standards/framework/quality/core.md"] == "updated"
+    assert quality_core.read_text(encoding="utf-8") == "custom framework override\n"
+
+
+def test_update_apply_preserves_team_owned_content(temp_repo: Path) -> None:
+    (temp_repo / ".git").mkdir()
+    install_result = runner.invoke(app, ["install"])
+    assert install_result.exit_code == 0
+
+    team_core = temp_repo / ".ai-engineering" / "standards" / "team" / "core.md"
+    team_core.parent.mkdir(parents=True, exist_ok=True)
+    team_core.write_text("team custom\n", encoding="utf-8")
+
+    result = runner.invoke(app, ["update", "--apply"])
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    statuses = {entry["path"]: entry["status"] for entry in payload["entries"]}
+    assert statuses[".ai-engineering/standards/framework/quality/core.md"] in {"unchanged", "updated"}
+    assert team_core.read_text(encoding="utf-8") == "team custom\n"
