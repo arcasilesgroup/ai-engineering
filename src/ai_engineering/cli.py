@@ -38,6 +38,13 @@ app.add_typer(acho_app, name="acho")
 app.add_typer(skill_app, name="skill")
 app.add_typer(maintenance_app, name="maintenance")
 
+PR_ONLY_MODES = {
+    "auto-push",
+    "defer-pr",
+    "attempt-pr-anyway",
+    "export-pr-payload",
+}
+
 
 @app.command()
 def version() -> None:
@@ -104,7 +111,7 @@ def pr_cmd(
     body: str = typer.Option(
         "Automated PR via ai-engineering command flow.", "--body", help="PR body"
     ),
-    on_unpushed_branch: PrOnlyMode = typer.Option(
+    on_unpushed_branch: str = typer.Option(
         "defer-pr",
         "--on-unpushed-branch",
         help="Mode for unpushed branch: auto-push|defer-pr|attempt-pr-anyway|export-pr-payload",
@@ -112,10 +119,16 @@ def pr_cmd(
 ) -> None:
     """Run governed PR workflow."""
     if only:
+        if on_unpushed_branch not in PR_ONLY_MODES:
+            typer.echo(
+                "invalid --on-unpushed-branch value. "
+                "expected: auto-push|defer-pr|attempt-pr-anyway|export-pr-payload"
+            )
+            raise typer.Exit(code=1)
         ok, notes = run_pr_only_workflow(
             title=title,
             body=body,
-            mode=on_unpushed_branch,
+            mode=cast(PrOnlyMode, on_unpushed_branch),
             record_decision=True,
         )
     else:

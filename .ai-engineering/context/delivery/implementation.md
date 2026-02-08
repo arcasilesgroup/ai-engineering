@@ -125,3 +125,22 @@ Status:
 - Blockers: none.
 - Decisions: keep trust enforcement fail-closed; unknown source hosts and checksum mismatches are treated as sync failures.
 - Next step: optional post-MVP hardening (cross-OS CI matrix, deeper command E2E with remote integration).
+
+### 2026-02-08 - Phase F / Contract Consolidation
+
+- Work completed: added three product-level governance artifacts: framework contract, legacy adoption map, and rebuild rollout charter.
+- Changed modules: `.ai-engineering/context/product/framework-contract.md`, `.ai-engineering/context/product/framework-adoption-map.md`, `.ai-engineering/context/product/rebuild-rollout-charter.md`, plus backlog synchronization.
+- Validation run: markdown structure review and contract consistency pass against agreed command model, ownership model, and enforcement constraints.
+- Blockers: none.
+- Decisions: formalize content-first architecture and constrain Python runtime to install/update/doctor/add-remove operations.
+- Next step: execute charter workstreams W1-W5 and validate with full quality and E2E suite before merge.
+
+### 2026-02-08 - Phase F / Validation Hardening
+
+- Work completed: fixed CLI option compatibility issue (`Literal` + Typer) by validating string mode values in CLI and casting only after validation.
+- Work completed: pinned `click` to `<8.2` to avoid Typer 0.12 runtime incompatibility and restored stable JSON option behavior.
+- Changed modules: `src/ai_engineering/cli.py`, `pyproject.toml`.
+- Validation run: `.venv/bin/ruff check src tests`, `.venv/bin/python -m pytest`, `.venv/bin/ty check src`, `.venv/bin/pip-audit` all passed.
+- Blockers: none.
+- Decisions: prefer compatibility pinning over broad CLI refactors for MVP stability.
+- Next step: proceed with PR packaging and review.

@@ -96,3 +96,17 @@
 - [x] E-004 add integration and unit tests for skills and maintenance behavior.
 - [x] E-005 enforce allowlist/pinning validation hard-fail logic in sync path.
 - [x] E-006 wire approved maintenance reports to optional automated PR command flow.
+
+## Phase F Execution Log
+
+- Rationale: establish a single canonical product contract and adoption strategy for the content-first rebuild.
+- Expected gain: removes ambiguity on scope, migration decisions, and rollout sequence.
+- Potential impact: legacy implementation assumptions are superseded by contract-first guidance.
+
+- [x] F-001 add `context/product/framework-contract.md` with finalized non-negotiable product contract.
+- [x] F-002 add `context/product/framework-adoption-map.md` mapping legacy assets (keep/adapt/drop).
+- [x] F-003 add `context/product/rebuild-rollout-charter.md` with milestones, validation plan, and readiness gates.
+- [x] F-004 fix CLI `Literal` compatibility regression and restore JSON command behavior.
+- [x] F-005 pin `click` compatibility for Typer 0.12 runtime stability.
+- [x] F-006 run full local quality gate validation (`ruff`, `pytest`, `ty`, `pip-audit`).
+- [ ] F-007 execute full implementation of charter workstreams W1-W5.
