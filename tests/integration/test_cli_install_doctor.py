@@ -45,4 +45,19 @@ def test_doctor_json_reports_expected_sections(temp_repo: Path) -> None:
     assert "repo" in payload
     assert "stateFiles" in payload
     assert "toolingReadiness" in payload
+    assert "branchPolicy" in payload
     assert "gitHooks" in payload["toolingReadiness"]
+
+
+def test_gate_list_json_reports_stages(temp_repo: Path) -> None:
+    (temp_repo / ".git").mkdir()
+    install_result = runner.invoke(app, ["install"])
+    assert install_result.exit_code == 0
+
+    result = runner.invoke(app, ["gate", "list", "--json"])
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert "protectedBranches" in payload
+    assert "stages" in payload
+    assert "pre-commit" in payload["stages"]

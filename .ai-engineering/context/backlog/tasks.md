@@ -68,4 +68,4 @@
 - [x] C-004 enforce protected branch blocking for `main` and `master` commit/push operations.
 - [x] C-005 integrate mandatory tools: `ruff`, `gitleaks`, `semgrep`, `pip-audit`, `pytest`, `ty`.
 - [x] C-006 add policy and integration tests for hook/gate behavior.
-- [ ] C-007 improve failed-check remediation output and branch-policy discovery.
+- [x] C-007 improve failed-check remediation output and branch-policy discovery.

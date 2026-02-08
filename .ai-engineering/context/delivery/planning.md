@@ -53,7 +53,7 @@ If branch is not pushed:
 |---|---|---|
 | Phase A | Contract alignment: `AGENTS.md`, `CLAUDE.md`, root docs, local permissions, tooling baseline metadata | Completed |
 | Phase B | App bootstrap: module scaffolding, state schemas, install/doctor base | Completed |
-| Phase C | Governance enforcement: hooks, mandatory checks, protected-branch blocking | In progress |
+| Phase C | Governance enforcement: hooks, mandatory checks, protected-branch blocking | Completed |
 | Phase D | Command runtime: `/commit`, `/pr`, `/acho`, `/pr --only` continuation modes | Pending |
 | Phase E | Remote skills lock/cache and maintenance-agent workflow | Pending |
 
@@ -73,4 +73,4 @@ If branch is not pushed:
 - Potential impact: commit/push flows now fail closed when mandatory checks fail.
 
 - Completed in this block: managed hook scripts, hook integrity checks, protected-branch blocking, and mandatory pre-commit/pre-push gate execution wiring.
-- Remaining in Phase C: stronger branch-protection discovery and richer remediation guidance for failed checks.
+- Completed in Phase C closeout: branch-protection discovery from GitHub remote (with fallback), gate remediation guidance, and gate requirements listing.

@@ -80,3 +80,12 @@ Status:
 - Blockers: none.
 - Decisions: fail closed when mandatory tools are missing; prefer `.venv/bin` tools before PATH for deterministic local enforcement.
 - Next step: Phase C continuation for branch policy discovery and remediation UX; then move to Phase D command runtime.
+
+### 2026-02-08 - Phase C / Closeout
+
+- Work completed: added protected-branch discovery from GitHub remote with safe fallback, implemented remediation-rich gate failures, and added `ai gate list` output for requirements visibility.
+- Changed modules: `policy.gates`, `doctor.service`, `cli`, and enforcement tests.
+- Validation run: `.venv/bin/ruff check src tests`, `.venv/bin/python -m pytest`, `.venv/bin/ty check src`, `.venv/bin/pip-audit` all passed.
+- Blockers: none.
+- Decisions: keep GitHub branch protection lookup best-effort and non-blocking to preserve local usability offline.
+- Next step: start Phase D command runtime (`/commit`, `/pr`, `/acho`) with decision-store driven continuation behavior.
