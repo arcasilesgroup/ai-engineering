@@ -1,112 +1,67 @@
-# AI Agent Instructions for ai-engineering
+# CLAUDE.md
 
-> **Single Source of Truth:** This file provides essential pointers for AI agents. Detailed context lives in `.ai-engineering/context/`.
+This file is a quick operational guide for assistant sessions in this repo.
 
-## Quick Start (3-Step Bootstrap)
+## Source of Truth
 
-1. **Read Strategic Context:**
-   - [Product Vision](.ai-engineering/context/product/vision.md) - Why this exists, key differentiators
-   - [Roadmap](.ai-engineering/context/product/roadmap.md) - Phases, priorities, current focus
+- Primary governance source: `.ai-engineering/`.
+- Canonical contract: `.ai-engineering/manifest.yml`.
+- Delivery context: `.ai-engineering/context/**`.
 
-2. **Read Technical Context:**
-   - [Architecture](.ai-engineering/context/delivery/architecture.md) - System design, module boundaries
-   - [Planning](.ai-engineering/context/delivery/planning.md) - Module specs, acceptance criteria
+If this file conflicts with `.ai-engineering/**`, follow `.ai-engineering/**`.
 
-3. **Read Standards:**
-   - [manifest.yml](.ai-engineering/manifest.yml) - Enforced standards (linting, gates, security)
+## Mandatory Lifecycle
 
-## Product Principles (Critical - Read First)
+Follow this sequence for non-trivial work:
 
-**Source:** See full principles in `.ai-engineering/context/product/vision.md`
+1. Discovery
+2. Architecture
+3. Planning
+4. Implementation
+5. Review
+6. Verification
+7. Testing
+8. Iteration
 
-**Non-Negotiables:**
-1. **Single Source of Truth:** No duplication. `.ai-engineering/` is canonical governance root.
-2. **Token Efficiency:** All files concise, high-signal. Optimize context footprint.
-3. **Mandatory Local Enforcement:** Git hooks non-bypassable. Failures fixed locally.
-4. **Lifecycle Enforced:** Discovery → Architecture → Planning → Implementation → Review → Verification → Testing → Iteration
+## Command Contract
 
-## Development Workflow
+- `/commit` -> stage + commit + push current branch
+- `/commit --only` -> stage + commit
+- `/pr` -> stage + commit + push + create PR
+- `/pr --only` -> create PR; if branch is unpushed, warn and propose auto-push; if declined, continue with selected mode
+- `/acho` -> stage + commit + push current branch
+- `/acho pr` -> stage + commit + push + create PR
 
-**For Each Module:**
-1. Read `.ai-engineering/context/delivery/planning.md` for module spec
-2. Read `.ai-engineering/context/delivery/testing.md` for testing strategy
-3. Write tests first (TDD), then implement
-4. Follow standards in `manifest.yml` (linting, formatting, type checking)
-5. Commit using conventional commits (see manifest.yml)
+## Security and Quality Rules
 
-## Code Standards (Enforced)
+- Local hooks are mandatory in governed flows.
+- Required checks: `gitleaks`, `semgrep`, dependency vulnerability checks, and stack checks.
+- No direct commits to `main`/`master`.
+- No protected-branch push in governed commit flows.
+- No unsafe remote execution from skill sources.
 
-**All rules in:** `.ai-engineering/manifest.yml`
+## Tooling Baseline
 
-**Quick Reference:**
-- **Python:** Type hints (mypy --strict), line length 100 (ruff)
-- **Testing:** >80% coverage, TDD approach
-- **Commits:** `<type>(<scope>): <subject>` (see manifest.yml for pattern)
-- **Branches:** `feature/<name>`, `fix/<name>`, `refactor/<name>`
+- Runtime/package tooling: `uv`
+- Lint/format: `ruff`
+- Type checking: `ty`
+- Dependency vulnerability checks: `pip-audit`
 
-**Pre-Commit (Manual until gate engine exists):**
-```bash
-poetry run pytest && poetry run ruff check src/ tests/ && poetry run mypy src/
-```
+## Risk Decision Reuse
 
-## Module Structure
+- Write accepted risk decisions to `.ai-engineering/state/decision-store.json`.
+- Append governance events to `.ai-engineering/state/audit-log.ndjson`.
+- Before asking a repeated risk question, read decision-store first.
 
-**See:** `.ai-engineering/context/delivery/architecture.md` for complete design
+## Work Logging Requirement
 
-```
-src/ai_engineering/
-  cli.py              # Typer app and command routing
-  state/              # State management (Module 1.2)
-  standards/          # Standards resolution (Module 1.3)
-  gates/              # Gate engine (Module 2.2)
-  installer/          # Installation logic (Module 2.1)
-```
+For each execution block, update:
 
-## Common Patterns
+- `.ai-engineering/context/delivery/implementation.md`
+- `.ai-engineering/context/backlog/tasks.md`
 
-**Loading manifest.yml:**
-```python
-from pathlib import Path
-import yaml
-from pydantic import BaseModel
+Each governance doc update must include:
 
-class ManifestSchema(BaseModel):
-    version: str
-    metadata: dict
-    standards: dict
-
-manifest = ManifestSchema(**yaml.safe_load(Path(".ai-engineering/manifest.yml").read_text()))
-```
-
-**Atomic file writes:**
-See architecture.md section "State Management" for atomic write pattern.
-
-## Security (Critical)
-
-**Never commit:** `.env`, `*.pem`, `*.key`, `credentials.json` (see manifest.yml security.sensitive_patterns)
-
-**Destructive ops:** Always warn, require confirmation, log (see manifest.yml security.allowed_destructive_ops)
-
-## Context Optimization
-
-**Token Budget:** 8000 tokens default (see manifest.yml context_optimization)
-
-**Priority Files (always include):**
-1. manifest.yml
-2. CLAUDE.md (this file)
-3. README.md
-4. context/product/vision.md
-5. context/delivery/architecture.md
-
-**Conditional:** Only include tests/ when task.type == 'testing', src/ when task.type == 'implementation'
-
-## When Stuck
-
-1. Check `.ai-engineering/context/delivery/planning.md` for module acceptance criteria
-2. Check `.ai-engineering/context/delivery/architecture.md` for design patterns
-3. Check `manifest.yml` for standards enforcement rules
-4. Ask user for clarification (don't assume)
-
----
-
-**Remember:** We're building the framework that enforces these practices. Dogfood rigorously.
+- rationale
+- expected gain
+- potential impact

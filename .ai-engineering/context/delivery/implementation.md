@@ -51,3 +51,14 @@ Status:
 - command flow outcomes for `/commit`, `/pr`, `/acho`.
 - mandatory local enforcement and readiness checks.
 - cross-OS findings for Windows, macOS, Linux.
+
+## Execution Entries
+
+### 2026-02-08 - Phase A / Contract Alignment
+
+- Work completed: created `AGENTS.md`; realigned `CLAUDE.md`, root `README.md`, `.claude/settings.local.json`, and `pyproject.toml` to governance contract.
+- Changed modules: governance docs, root docs, local assistant permission config, project metadata.
+- Validation run: JSON/TOML syntax checks passed; legacy term scan (`poetry`, `mypy`, `ai session`, `--no-verify`) returned no matches in aligned root files.
+- Blockers: none.
+- Decisions: prioritize contract consistency and governance clarity before app feature implementation.
+- Next step: start Phase B scaffolding (module skeleton and state schemas).

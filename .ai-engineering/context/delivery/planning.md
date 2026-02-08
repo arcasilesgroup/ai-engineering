@@ -46,3 +46,13 @@ If branch is not pushed:
 - state files present with schema validation.
 - updater ownership rules proven by contract tests.
 - E2E validation passes on Windows, macOS, Linux.
+
+## Phase Execution Plan
+
+| Phase | Scope | Status |
+|---|---|---|
+| Phase A | Contract alignment: `AGENTS.md`, `CLAUDE.md`, root docs, local permissions, tooling baseline metadata | In progress |
+| Phase B | App bootstrap: module scaffolding, state schemas, install/doctor base | Pending |
+| Phase C | Governance enforcement: hooks, mandatory checks, protected-branch blocking | Pending |
+| Phase D | Command runtime: `/commit`, `/pr`, `/acho`, `/pr --only` continuation modes | Pending |
+| Phase E | Remote skills lock/cache and maintenance-agent workflow | Pending |

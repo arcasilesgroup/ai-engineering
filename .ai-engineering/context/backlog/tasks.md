@@ -31,3 +31,13 @@
 
 - all P0 tasks merged with tests.
 - cross-OS verification green on Windows, macOS, and Linux.
+
+## Phase A Execution Log
+
+- [x] A-001 create root `AGENTS.md` aligned with governance contract.
+- [x] A-002 align `CLAUDE.md` with command/security/ownership contract.
+- [x] A-003 align root `README.md` with current product contract.
+- [x] A-004 harden `.claude/settings.local.json` by removing wildcard permissions.
+- [x] A-005 align `pyproject.toml` to Astral-first baseline metadata.
+- [x] A-006 run Phase A validations and record outputs.
+- [x] A-007 publish Phase A completion note in implementation log.

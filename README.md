@@ -1,49 +1,43 @@
 # ai-engineering
 
-**Context-first AI governance framework for development teams**
-
-## Overview
-
-ai-engineering provides enforceable standards, session management, and security gates for AI-assisted development. Instead of advisory documentation that agents ignore, this framework uses local enforcement, git hooks, and structured context to ensure consistent, secure AI workflows.
+Open-source AI governance framework for secure, practical software delivery.
 
 ## Status
 
-🚧 **Phase 1 MVP in Development**
+- Phase A (contract alignment) in progress.
+- `.ai-engineering/` is the canonical governance root.
 
-- ✅ Phase 0: Complete governance and context structure
-- 🔨 Phase 1: Core CLI and state management (in progress)
-- 📋 Phase 2: Branch governance and remote skills (planned)
-- 📋 Phase 3: Agent orchestration and maintenance (planned)
+## Core Principles
 
-## Quick Start
+- simple, efficient, practical, robust, secure.
+- quality and security by default.
+- lifecycle enforcement: Discovery -> Architecture -> Planning -> Implementation -> Review -> Verification -> Testing -> Iteration.
+- strict local enforcement with no policy drift.
 
-*Installation instructions will be added when MVP is complete.*
+## Command Contract
 
-## Documentation
+- `/commit` -> stage + commit + push current branch
+- `/commit --only` -> stage + commit
+- `/pr` -> stage + commit + push + create PR
+- `/pr --only` -> create PR; warns if branch is unpushed and proposes auto-push
+- `/acho` -> stage + commit + push current branch
+- `/acho pr` -> stage + commit + push + create PR
 
-All project context, architecture, and planning lives in `.ai-engineering/context/`:
+## Tooling Baseline
 
-- [Product Vision](.ai-engineering/context/product/vision.md)
-- [Roadmap](.ai-engineering/context/product/roadmap.md)
-- [Architecture](.ai-engineering/context/delivery/architecture.md)
-- [Planning](.ai-engineering/context/delivery/planning.md)
+- package/runtime: `uv`
+- lint/format: `ruff`
+- type checking: `ty`
+- dependency vulnerability checks: `pip-audit`
+- mandatory security checks: `gitleaks`, `semgrep`
 
-## Development
+## Governance Docs
 
-```bash
-# Install dependencies
-poetry install
-
-# Run tests
-poetry run pytest
-
-# Run linter
-poetry run ruff check src/ tests/
-
-# Run type checker
-poetry run mypy src/
-```
+- Product vision: `.ai-engineering/context/product/vision.md`
+- Architecture: `.ai-engineering/context/delivery/architecture.md`
+- Planning: `.ai-engineering/context/delivery/planning.md`
+- Backlog: `.ai-engineering/context/backlog/`
 
 ## License
 
-MIT (see LICENSE file)
+MIT
