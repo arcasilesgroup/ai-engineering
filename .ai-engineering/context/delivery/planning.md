@@ -51,8 +51,17 @@ If branch is not pushed:
 
 | Phase | Scope | Status |
 |---|---|---|
-| Phase A | Contract alignment: `AGENTS.md`, `CLAUDE.md`, root docs, local permissions, tooling baseline metadata | In progress |
-| Phase B | App bootstrap: module scaffolding, state schemas, install/doctor base | Pending |
+| Phase A | Contract alignment: `AGENTS.md`, `CLAUDE.md`, root docs, local permissions, tooling baseline metadata | Completed |
+| Phase B | App bootstrap: module scaffolding, state schemas, install/doctor base | In progress |
 | Phase C | Governance enforcement: hooks, mandatory checks, protected-branch blocking | Pending |
 | Phase D | Command runtime: `/commit`, `/pr`, `/acho`, `/pr --only` continuation modes | Pending |
 | Phase E | Remote skills lock/cache and maintenance-agent workflow | Pending |
+
+## Phase B Progress Notes
+
+- Rationale: establish executable framework baseline before high-impact governance enforcement.
+- Expected gain: install/doctor and state validation become deterministic and testable.
+- Potential impact: command surface and module layout are now fixed for downstream phases.
+
+- Completed in this block: module scaffolding, state schemas, default state generators, minimal `install` and `doctor`, and initial tests.
+- Remaining in Phase B: richer doctor reporting, stronger install idempotency signals, and updater ownership enforcement implementation.

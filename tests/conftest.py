@@ -1,7 +1,15 @@
 """Shared pytest fixtures for all tests."""
 
-import pytest
 import os
+import sys
+from pathlib import Path
+
+import pytest
+
+
+SRC_DIR = Path(__file__).resolve().parents[1] / "src"
+if str(SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(SRC_DIR))
 
 
 @pytest.fixture
@@ -23,16 +31,6 @@ def sample_manifest():
     """Sample manifest.yml for testing."""
     return {
         "version": "1.0",
-        "metadata": {
-            "name": "test-repo",
-            "owner": "Test Team"
-        },
-        "standards": {
-            "gates": {
-                "pre_commit": {
-                    "lint": "mandatory",
-                    "secret_scan": "mandatory"
-                }
-            }
-        }
+        "metadata": {"name": "test-repo", "owner": "Test Team"},
+        "standards": {"gates": {"pre_commit": {"lint": "mandatory", "secret_scan": "mandatory"}}},
     }

@@ -41,3 +41,17 @@
 - [x] A-005 align `pyproject.toml` to Astral-first baseline metadata.
 - [x] A-006 run Phase A validations and record outputs.
 - [x] A-007 publish Phase A completion note in implementation log.
+
+## Phase B Execution Log
+
+- Rationale: move from contract alignment to executable framework baseline.
+- Expected gain: enforceable state contracts and runnable CLI bootstrap commands.
+- Potential impact: introduces new module boundaries and runtime entrypoints.
+
+- [x] B-001 scaffold core packages (`cli`, `state`, `installer`, `doctor`, `detector`, `hooks`, `policy`, `standards`, `skills`, `updater`).
+- [x] B-002 implement state schemas and JSON/ndjson I/O helpers.
+- [x] B-003 implement default state payload generators for installer bootstrap.
+- [x] B-004 implement minimal `ai install` and `ai doctor` commands.
+- [x] B-005 add unit and integration tests for schema and CLI baseline.
+- [x] B-006 run quality checks (`ruff`, `pytest`, `ty`, `pip-audit`) in project virtualenv.
+- [ ] B-007 extend doctor/install behavior for richer readiness and ownership-safe update hooks.
