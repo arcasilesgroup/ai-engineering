@@ -110,3 +110,16 @@
 - [x] F-005 pin `click` compatibility for Typer 0.12 runtime stability.
 - [x] F-006 run full local quality gate validation (`ruff`, `pytest`, `ty`, `pip-audit`).
 - [ ] F-007 execute full implementation of charter workstreams W1-W5.
+
+## Phase G Execution Log
+
+- Rationale: begin legacy adoption execution while preserving content-first architecture and minimal Python runtime scope.
+- Expected gain: recover high-value legacy work without reintroducing runtime complexity.
+- Potential impact: installer now syncs canonical templates into target repositories when files are missing.
+
+- [x] G-001 add bundled quality standards templates (Sonar-like + SonarLint-like + Python profile).
+- [x] G-002 add bundled utility/validation skill templates from legacy concepts (platform detection, git helpers, install readiness).
+- [x] G-003 add compact multi-assistant project templates (`CLAUDE.md`, `codex.md`, Copilot instructions).
+- [x] G-004 implement template sync during `ai install` with ownership-safe create-only behavior.
+- [x] G-005 add integration tests for template creation and team-owned file preservation.
+- [x] G-006 run full local quality suite and record evidence.
