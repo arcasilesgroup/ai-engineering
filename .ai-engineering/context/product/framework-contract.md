@@ -104,6 +104,17 @@ No heavy policy engine should be embedded in Python if behavior can be declared 
 - `/acho` -> stage + commit + push.
 - `/acho pr` -> stage + commit + push + create PR.
 
+Mandatory PR behavior:
+
+- `/pr` and `/acho pr` must enable PR auto-complete using squash merge and branch cleanup.
+
+Stack and IDE management commands:
+
+- `ai stack add <name>`
+- `ai stack remove <name>`
+- `ai ide add <name>`
+- `ai ide remove <name>`
+
 `/pr --only` policy when branch is not pushed:
 
 - Emit warning.

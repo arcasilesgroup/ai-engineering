@@ -7,6 +7,8 @@
   },
   "frameworkVersion": "0.1.0",
   "installedAt": "2026-02-08T00:00:00Z",
+  "installedStacks": ["python"],
+  "installedIdes": ["terminal", "vscode", "claude", "codex", "copilot"],
   "providers": {
     "vcs": {
       "primary": "github",
@@ -22,14 +24,19 @@
     }
   },
   "toolingReadiness": {
-    "gh": {"installed": false, "configured": false, "authenticated": false},
-    "az": {"installed": false, "configured": false, "authenticated": false, "requiredNow": false},
-    "gitHooks": {"installed": false, "integrityVerified": false},
+    "gh": { "installed": false, "configured": false, "authenticated": false },
+    "az": {
+      "installed": false,
+      "configured": false,
+      "authenticated": false,
+      "requiredNow": false
+    },
+    "gitHooks": { "installed": false, "integrityVerified": false },
     "python": {
-      "uv": {"ready": false},
-      "ruff": {"ready": false},
-      "ty": {"ready": false},
-      "pipAudit": {"ready": false}
+      "uv": { "ready": false },
+      "ruff": { "ready": false },
+      "ty": { "ready": false },
+      "pipAudit": { "ready": false }
     }
   }
 }

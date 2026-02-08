@@ -148,3 +148,16 @@
 - [x] I-004 add regression test ensuring install creates every bundled governance template file.
 - [x] I-005 remove clearly outdated/unused tracked artifacts (`poetry.lock`, empty e2e placeholder).
 - [x] I-006 run full local quality suite (`ruff`, `pytest`, `ty`, `pip-audit`) and record evidence.
+
+## Phase K Execution Log
+
+- Rationale: close contract gaps by making PR auto-complete mandatory in documented command behavior and implementing full stack/IDE management commands.
+- Expected gain: full compliance with minimal Python runtime scope and fewer manual repo setup tasks.
+- Potential impact: installers and command workflows write additional manifest state for installed stacks/IDEs.
+
+- [x] K-001 update command contract and manifest to explicitly require PR auto-complete for `/pr` and `/acho pr`.
+- [x] K-002 implement `ai stack add/remove/list` workflows backed by bundled templates and safe cleanup rules.
+- [x] K-003 implement `ai ide add/remove/list` workflows with instruction template management and manifest tracking.
+- [x] K-004 extend install-manifest schema defaults with installed stack/IDE tracking.
+- [x] K-005 add integration and unit tests for stack/IDE lifecycle operations.
+- [ ] K-006 extend cross-OS hook launcher behavior for Windows-safe execution.

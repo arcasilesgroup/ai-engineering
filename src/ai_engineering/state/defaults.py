@@ -20,6 +20,8 @@ def install_manifest_default(framework_version: str) -> dict:
         },
         "frameworkVersion": framework_version,
         "installedAt": _now_iso(),
+        "installedStacks": ["python"],
+        "installedIdes": ["terminal", "vscode", "claude", "codex", "copilot"],
         "providers": {
             "vcs": {
                 "primary": "github",
