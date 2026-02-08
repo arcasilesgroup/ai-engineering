@@ -38,3 +38,9 @@ addopts = "-v --cov=src --cov-report=term-missing"
 [build-system]
 requires = ["hatchling>=1.25.0"]
 build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ai_engineering"]
+include = [
+  "src/ai_engineering/templates/**/*.md",
+]
