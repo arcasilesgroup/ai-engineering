@@ -89,3 +89,21 @@ Status:
 - Blockers: none.
 - Decisions: keep GitHub branch protection lookup best-effort and non-blocking to preserve local usability offline.
 - Next step: start Phase D command runtime (`/commit`, `/pr`, `/acho`) with decision-store driven continuation behavior.
+
+### 2026-02-08 - Phase D / Command Runtime Start
+
+- Work completed: added governed command workflows for `commit`, `pr`, and `acho`; added PR-only continuation modes and decision-store reuse logic.
+- Changed modules: `commands.workflows`, `state.decision_logic`, CLI command surface, and workflow unit tests.
+- Validation run: `.venv/bin/ruff check src tests`, `.venv/bin/python -m pytest`, `.venv/bin/ty check src`, `.venv/bin/pip-audit` all passed.
+- Blockers: none.
+- Decisions: default PR-only unpushed branch mode stays `defer-pr` unless a valid prior decision exists for same policy/context.
+- Next step: extend command E2E scenarios and complete Phase D closeout.
+
+### 2026-02-08 - Phase D / Closeout
+
+- Work completed: added git-backed integration tests for command workflows covering feature-branch commit and PR-only defer decision persistence.
+- Changed modules: integration tests and phase governance tracking docs.
+- Validation run: `.venv/bin/ruff check src tests`, `.venv/bin/python -m pytest`, `.venv/bin/ty check src`, `.venv/bin/pip-audit` all passed.
+- Blockers: none.
+- Decisions: keep PR-only mode default as `defer-pr` for safer non-destructive behavior when branch is unpushed.
+- Next step: begin Phase E remote skills lock/cache and maintenance workflow implementation.

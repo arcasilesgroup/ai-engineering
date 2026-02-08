@@ -69,3 +69,17 @@
 - [x] C-005 integrate mandatory tools: `ruff`, `gitleaks`, `semgrep`, `pip-audit`, `pytest`, `ty`.
 - [x] C-006 add policy and integration tests for hook/gate behavior.
 - [x] C-007 improve failed-check remediation output and branch-policy discovery.
+
+## Phase D Execution Log
+
+- Rationale: operationalize user-facing command contract with governance guardrails.
+- Expected gain: predictable command behavior for commit/push/PR workflows.
+- Potential impact: CLI now orchestrates git/gh operations directly and can fail on governance checks.
+
+- [x] D-001 implement `commit` workflow (`stage + commit` and optional push).
+- [x] D-002 implement `pr` workflow (`stage + commit + push + create PR`).
+- [x] D-003 implement `acho` and `acho pr` command flows.
+- [x] D-004 implement `/pr --only` continuation modes with warning on unpushed branches.
+- [x] D-005 integrate decision-store reuse and persistence for PR-only unpushed-branch behavior.
+- [x] D-006 add unit tests for command workflow policy paths.
+- [x] D-007 add deeper E2E command tests with real git branch/remote scenarios.

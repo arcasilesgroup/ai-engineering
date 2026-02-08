@@ -54,7 +54,7 @@ If branch is not pushed:
 | Phase A | Contract alignment: `AGENTS.md`, `CLAUDE.md`, root docs, local permissions, tooling baseline metadata | Completed |
 | Phase B | App bootstrap: module scaffolding, state schemas, install/doctor base | Completed |
 | Phase C | Governance enforcement: hooks, mandatory checks, protected-branch blocking | Completed |
-| Phase D | Command runtime: `/commit`, `/pr`, `/acho`, `/pr --only` continuation modes | Pending |
+| Phase D | Command runtime: `/commit`, `/pr`, `/acho`, `/pr --only` continuation modes | Completed |
 | Phase E | Remote skills lock/cache and maintenance-agent workflow | Pending |
 
 ## Phase B Progress Notes
@@ -74,3 +74,12 @@ If branch is not pushed:
 
 - Completed in this block: managed hook scripts, hook integrity checks, protected-branch blocking, and mandatory pre-commit/pre-push gate execution wiring.
 - Completed in Phase C closeout: branch-protection discovery from GitHub remote (with fallback), gate remediation guidance, and gate requirements listing.
+
+## Phase D Progress Notes
+
+- Rationale: implement governed command workflows used by engineers daily.
+- Expected gain: deterministic stage/commit/push/PR behavior with decision-store aware PR-only paths.
+- Potential impact: command flows become stricter and rely on local gate outcomes.
+
+- Completed in this block: command workflow service, CLI `commit`/`pr`/`acho` commands, and PR-only continuation handling (`auto-push`, `defer-pr`, `attempt-pr-anyway`, `export-pr-payload`).
+- Completed in Phase D closeout: workflow coverage for real git scenarios (feature-branch commit path and PR-only defer decision persistence).
