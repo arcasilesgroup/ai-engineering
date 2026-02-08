@@ -1,0 +1,172 @@
+# .ai-engineering/manifest.yml
+# Standards and configuration for the ai-engineering framework
+
+version: "1.0"  # Manifest schema version
+
+metadata:
+  name: "ai-engineering"
+  description: "Context-first AI governance framework for development teams"
+  owner: "Platform Engineering"
+  created: "2026-02-08"
+  updated: "2026-02-08"
+
+# Ownership and remote standards (not applicable yet - this is the framework itself)
+ownership:
+  org: null  # No org standards (we ARE the framework)
+  team: null  # No team standards (single developer for now)
+
+# Standards and conventions
+standards:
+  linting:
+    python:
+      tool: "ruff"
+      config: "pyproject.toml"  # Ruff config is in pyproject.toml
+      rules:
+        - "E"    # pycodestyle errors
+        - "F"    # pyflakes
+        - "I"    # isort
+        - "N"    # pep8-naming
+        - "UP"   # pyupgrade
+        - "ANN"  # flake8-annotations
+
+  formatting:
+    python:
+      tool: "ruff"  # Ruff also handles formatting
+      line_length: 100
+
+  type_checking:
+    python:
+      tool: "mypy"
+      config: "pyproject.toml"
+      strict: true
+
+  commit_messages:
+    pattern: "^(feat|fix|docs|refactor|test|chore)\\([a-z-]+\\): .{10,72}"
+    require_issue_ref: false  # Not using issue tracking yet
+    examples:
+      - "feat(cli): add session start command"
+      - "fix(gates): handle missing .git directory"
+      - "docs(readme): update installation instructions"
+
+  branch_naming:
+    pattern: "^(feature|fix|refactor)/[a-z0-9-]+$"
+    examples:
+      - "feature/cli-scaffolding"
+      - "fix/manifest-validation"
+      - "refactor/state-manager"
+
+# Gates and approvals (Phase 1 - will be enforced when gate engine is implemented)
+gates:
+  pre_commit:
+    lint: mandatory          # ruff check must pass
+    format: mandatory        # ruff format must pass
+    type_check: mandatory    # mypy must pass
+    secret_scan: warn        # Warn if secrets detected (upgrade to mandatory later)
+    destructive_ops: mandatory  # Block destructive git operations
+
+  pre_push:
+    tests: mandatory         # pytest must pass
+    coverage: warn           # Warn if coverage <80% (upgrade to mandatory later)
+
+  pre_merge:
+    approval_count: 0  # Single developer for now
+    architecture_review: disabled  # Enable when we have reviewers
+    security_review: disabled      # Enable when we have security team
+
+# Context optimization (used by future context optimizer module)
+context_optimization:
+  max_tokens: 8000  # Conservative default for most LLMs
+
+  priority_files:
+    # Always include these (high priority)
+    - ".ai-engineering/manifest.yml"
+    - "CLAUDE.md"
+    - "README.md"
+    - ".ai-engineering/context/product/vision.md"
+    - ".ai-engineering/context/delivery/architecture.md"
+
+  conditional_includes:
+    # Include based on task type
+    - pattern: "tests/**"
+      when: "task.type == 'testing'"
+    - pattern: "src/**/*.py"
+      when: "task.type == 'implementation'"
+    - pattern: ".ai-engineering/context/delivery/planning.md"
+      when: "task.type == 'planning'"
+
+  ignore_patterns:
+    # Never include these
+    - "*.pyc"
+    - "__pycache__/"
+    - ".pytest_cache/"
+    - ".mypy_cache/"
+    - ".ruff_cache/"
+    - "*.egg-info/"
+    - "dist/"
+    - "build/"
+    - ".git/"
+    - "*.log"
+    - ".ai-engineering/state/"
+    - "poetry.lock"  # Too large, not needed in context
+
+# Remote skills (Phase 2 feature - placeholder for now)
+skills: []
+
+# Provider-specific extensions
+providers:
+  claude:
+    model: "claude-sonnet-4-5"
+    temperature: 0.3  # Lower for code generation (more deterministic)
+    max_tokens: 8000
+
+  github:
+    repository: null  # Not on GitHub yet
+    enable_actions: false
+
+# Security and compliance
+security:
+  sensitive_patterns:
+    # Files that should never be committed
+    - "\\.env$"
+    - "\\.pem$"
+    - "\\.key$"
+    - "credentials\\.json$"
+    - "secrets\\.ya?ml$"
+
+  allowed_destructive_ops:
+    # These destructive operations are allowed with justification
+    - pattern: "git push --force-with-lease"
+      justification_required: true
+      log_level: "warning"
+
+  audit_log:
+    enabled: true
+    retention_days: 90
+    log_file: ".ai-engineering/state/audit.log"
+
+# Agent orchestration (Phase 3 feature - aspirational for now)
+agents:
+  - id: code-writer
+    capabilities: ["read", "write", "test"]
+    restrictions:
+      - "no infrastructure changes without approval"
+      - "no secret modifications"
+
+  - id: reviewer
+    capabilities: ["read", "comment", "approve"]
+    restrictions:
+      - "read-only access to source code"
+
+# Project-specific settings
+project:
+  language: "python"
+  framework: "typer"
+  test_framework: "pytest"
+  package_manager: "poetry"
+
+  directories:
+    source: "src/ai_engineering"
+    tests: "tests"
+    docs: "docs"
+    context: ".ai-engineering/context"
+    state: ".ai-engineering/state"

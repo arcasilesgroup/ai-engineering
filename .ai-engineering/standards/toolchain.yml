@@ -1,0 +1,39 @@
+# Astral toolchain standards
+# Toolchain: uv, ruff, ty (Product Principle #4)
+
+toolchain: astral
+
+# Package manager: uv (future migration from poetry)
+package_manager:
+  current: poetry  # Phase 1
+  future: uv  # Phase 2 migration planned
+  rationale: "uv is faster, but poetry is more mature for Phase 1 MVP"
+
+# Linter/Formatter: ruff
+linter:
+  tool: ruff
+  version: ">=0.3"
+  config: pyproject.toml
+  features:
+    - lint
+    - format
+    - check
+  performance: "10-100x faster than flake8/black"
+
+# Type checker: ty (future, currently using mypy)
+type_checker:
+  current: mypy  # Phase 1
+  future: ty  # When stable
+  rationale: "ty is faster, but mypy is industry standard"
+
+# Future migrations (Phase 2+)
+migrations:
+  - from: poetry
+    to: uv
+    when: "uv reaches 1.0 stability"
+    estimated: "Phase 2 (Q2 2026)"
+
+  - from: mypy
+    to: ty
+    when: "ty reaches production readiness"
+    estimated: "Phase 3 (Q3 2026)"

@@ -1,0 +1,27 @@
+# YAML formatting standards
+# Supporting format (Product Principle #4)
+
+language: yaml
+file_patterns:
+  - "*.yml"
+  - "*.yaml"
+  - ".ai-engineering/manifest.yml"
+  - ".ai-engineering/standards/*.yml"
+
+# Formatting
+formatting:
+  indent: 2  # 2-space indent for YAML
+  quote_style: double  # "quoted strings" when needed
+  explicit_start: false  # Don't require --- at file start
+  explicit_end: false  # Don't require ... at file end
+
+# Structure
+structure:
+  max_line_length: 100
+  trailing_spaces: disallow
+  empty_lines: allow  # Allow blank lines for readability
+
+# Validation
+validation:
+  require_schema: true  # manifest.yml has schema validation
+  fail_on_unknown_keys: true  # Catch typos in manifest.yml
