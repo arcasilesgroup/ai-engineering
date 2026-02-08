@@ -83,3 +83,16 @@
 - [x] D-005 integrate decision-store reuse and persistence for PR-only unpushed-branch behavior.
 - [x] D-006 add unit tests for command workflow policy paths.
 - [x] D-007 add deeper E2E command tests with real git branch/remote scenarios.
+
+## Phase E Execution Log
+
+- Rationale: make remote skills and maintenance workflow operational for sustained governance quality.
+- Expected gain: predictable source lock behavior and recurring context health visibility.
+- Potential impact: extra state outputs and new CLI command surfaces (`skill`, `maintenance`).
+
+- [x] E-001 implement remote skills sync/list service with cache and lock updates.
+- [x] E-002 add CLI commands for `skill list`, `skill sync` with offline mode.
+- [x] E-003 implement maintenance local report generation and optional PR payload draft.
+- [x] E-004 add integration and unit tests for skills and maintenance behavior.
+- [x] E-005 enforce allowlist/pinning validation hard-fail logic in sync path.
+- [x] E-006 wire approved maintenance reports to optional automated PR command flow.

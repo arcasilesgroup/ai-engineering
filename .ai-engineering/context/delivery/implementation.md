@@ -107,3 +107,21 @@ Status:
 - Blockers: none.
 - Decisions: keep PR-only mode default as `defer-pr` for safer non-destructive behavior when branch is unpushed.
 - Next step: begin Phase E remote skills lock/cache and maintenance workflow implementation.
+
+### 2026-02-08 - Phase E / Start
+
+- Work completed: implemented skills sync/list services with lock and cache update behavior, added maintenance report generation, and exposed new CLI commands.
+- Changed modules: `skills.service`, `maintenance.report`, `cli`, and tests for skills/maintenance workflows.
+- Validation run: `.venv/bin/ruff check src tests`, `.venv/bin/python -m pytest`, `.venv/bin/ty check src`, `.venv/bin/pip-audit` executed with passing status after fixes.
+- Blockers: none.
+- Decisions: keep maintenance workflow local-report-first by default and only generate PR payload metadata when explicitly approved.
+- Next step: tighten source trust enforcement and close remaining Phase E tasks.
+
+### 2026-02-08 - Phase E / Closeout
+
+- Work completed: enforced allowlist and checksum pinning hard-fail behaviors in skill sync, and added `maintenance pr` command that opens PRs only from approved payload metadata.
+- Changed modules: `skills.service`, `maintenance.report`, `cli`, and tests for trust policy and approved PR flow.
+- Validation run: `.venv/bin/ruff check src tests`, `.venv/bin/python -m pytest`, `.venv/bin/ty check src`, `.venv/bin/pip-audit` all passed.
+- Blockers: none.
+- Decisions: keep trust enforcement fail-closed; unknown source hosts and checksum mismatches are treated as sync failures.
+- Next step: optional post-MVP hardening (cross-OS CI matrix, deeper command E2E with remote integration).

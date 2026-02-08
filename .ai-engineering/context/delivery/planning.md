@@ -55,7 +55,7 @@ If branch is not pushed:
 | Phase B | App bootstrap: module scaffolding, state schemas, install/doctor base | Completed |
 | Phase C | Governance enforcement: hooks, mandatory checks, protected-branch blocking | Completed |
 | Phase D | Command runtime: `/commit`, `/pr`, `/acho`, `/pr --only` continuation modes | Completed |
-| Phase E | Remote skills lock/cache and maintenance-agent workflow | Pending |
+| Phase E | Remote skills lock/cache and maintenance-agent workflow | Completed |
 
 ## Phase B Progress Notes
 
@@ -83,3 +83,12 @@ If branch is not pushed:
 
 - Completed in this block: command workflow service, CLI `commit`/`pr`/`acho` commands, and PR-only continuation handling (`auto-push`, `defer-pr`, `attempt-pr-anyway`, `export-pr-payload`).
 - Completed in Phase D closeout: workflow coverage for real git scenarios (feature-branch commit path and PR-only defer decision persistence).
+
+## Phase E Progress Notes
+
+- Rationale: activate remote skills cache/lock behavior and context-maintenance loops for long-term governance health.
+- Expected gain: deterministic skill sourcing with offline fallback and regular context quality reports.
+- Potential impact: `.ai-engineering/state/` now includes maintenance and skills sync artifacts.
+
+- Completed in this block: skills sync/list services with cache and lock updates, maintenance report generation, and CLI entrypoints.
+- Completed in Phase E closeout: hard-fail trust enforcement (allowlist + checksum pinning validation) and approved maintenance payload PR command flow.
