@@ -1,6 +1,0 @@
-node_modules/
-dist/
-coverage/
-.ai-engineering/.backup/
-.ai-engineering/.update-cache
-*.tgz
