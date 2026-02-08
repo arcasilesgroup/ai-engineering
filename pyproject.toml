@@ -1,0 +1,39 @@
+[project]
+name = "ai-engineering"
+version = "0.1.0"
+description = "AI governance framework for secure software delivery"
+authors = [{ name = "ai-engineering maintainers" }]
+license = "MIT"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "typer[all]>=0.12.0,<0.13.0",
+  "pyyaml>=6.0,<7.0",
+  "pydantic>=2.0,<3.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0,<9.0",
+  "pytest-cov>=4.1,<5.0",
+  "ruff>=0.6.0",
+  "ty>=0.0.1a1",
+  "pip-audit>=2.7.0",
+  "types-pyyaml>=6.0,<7.0",
+]
+
+[project.scripts]
+ai = "ai_engineering.cli:app"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-v --cov=src --cov-report=term-missing"
+
+[build-system]
+requires = ["hatchling>=1.25.0"]
+build-backend = "hatchling.build"

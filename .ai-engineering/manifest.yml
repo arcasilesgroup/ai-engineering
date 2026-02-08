@@ -1,0 +1,135 @@
+schema_version: "1.1"
+framework_version: "0.1.0-dev"
+
+update_metadata:
+  rationale: "align manifest with finalized governance and rollout decisions"
+  expected_gain: "deterministic enforcement and safer updates"
+  potential_impact: "install, update, and command behavior become stricter"
+
+metadata:
+  name: "ai-engineering"
+  description: "AI governance framework with mandatory local enforcement"
+  updated: "2026-02-08"
+
+ownership:
+  root: ".ai-engineering"
+  model:
+    framework_managed:
+      - "standards/framework/**"
+    team_managed:
+      - "standards/team/**"
+    project_managed:
+      - "context/**"
+    system_managed:
+      - "state/install-manifest.json"
+      - "state/ownership-map.json"
+      - "state/sources.lock.json"
+      - "state/decision-store.json"
+      - "state/audit-log.ndjson"
+
+standards:
+  precedence:
+    - "standards/framework/core.md"
+    - "standards/framework/stacks/<stack>.md"
+    - "standards/team/core.md"
+    - "standards/team/stacks/<stack>.md"
+  non_negotiables:
+    - "mandatory_local_enforcement"
+    - "no_direct_commits_to_main_or_master"
+    - "protected_branch_push_block"
+    - "no_policy_weakening_without_risk_acceptance"
+
+commands:
+  commit:
+    default: ["stage", "commit", "push_current_branch"]
+    only: ["stage", "commit"]
+  pr:
+    default: ["stage", "commit", "push_current_branch", "create_pr"]
+    only: ["create_pr"]
+    when_branch_not_pushed:
+      severity: "warning"
+      propose_auto_push: true
+      continue_modes: ["defer-pr", "attempt-pr-anyway", "export-pr-payload"]
+  acho:
+    default: ["stage", "commit", "push_current_branch"]
+    pr: ["stage", "commit", "push_current_branch", "create_pr"]
+
+providers:
+  vcs:
+    primary: "github"
+    enabled: ["github"]
+    extensions:
+      azure_devops:
+        enabled: false
+        organization: null
+        project: null
+        repository: null
+        constraints:
+          branch_name_required: true
+          work_item_link_optional: true
+
+tooling:
+  required:
+    python: ["uv", "ruff", "ty", "pip-audit"]
+    security: ["gitleaks", "semgrep"]
+    vcs_cli: ["gh", "az"]
+  readiness:
+    require_install: true
+    require_configuration: true
+    require_auth_when_applicable: true
+
+enforcement:
+  hooks:
+    non_bypassable: true
+    required: ["pre-commit", "commit-msg", "pre-push"]
+  checks:
+    pre_commit:
+      - "ruff-format"
+      - "ruff-lint"
+      - "gitleaks"
+    pre_push:
+      - "semgrep"
+      - "pip-audit"
+      - "stack-tests"
+      - "ty-check"
+
+remote_skills:
+  enabled: true
+  sources:
+    - "https://skills.sh/"
+    - "https://www.aitmpl.com/skills"
+  trust_policy:
+    allowlist_only: true
+    checksums_required: true
+    signature_metadata_required: true
+    remote_execution_allowed: false
+  cache:
+    ttl_hours: 24
+    offline_fallback: true
+    lock_file: ".ai-engineering/state/sources.lock.json"
+
+risk_acceptance:
+  remediation:
+    suggest_patch: true
+    auto_apply: false
+  persistence:
+    decision_store: ".ai-engineering/state/decision-store.json"
+    audit_log: ".ai-engineering/state/audit-log.ndjson"
+  reprompt_conditions:
+    - "decision_expired"
+    - "scope_changed"
+    - "severity_changed"
+    - "policy_changed"
+    - "material_context_hash_changed"
+
+telemetry:
+  mode: "strict_opt_in"
+  default_enabled: false
+
+context_optimization:
+  policy: "strict_efficiency_no_hard_category_caps"
+  required_fields_per_update: ["rationale", "expected_gain", "potential_impact"]
+  maintenance_agent:
+    cadence: "weekly"
+    output_mode: "local_report_first"
+    pr_after_approval: true

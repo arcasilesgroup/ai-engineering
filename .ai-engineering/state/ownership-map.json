@@ -1,0 +1,50 @@
+{
+  "schemaVersion": "1.0",
+  "updateMetadata": {
+    "rationale": "enforce path-level ownership for safe updates",
+    "expectedGain": "no accidental overwrite of team or project content",
+    "potentialImpact": "updater must validate every path write"
+  },
+  "paths": [
+    {
+      "pattern": "standards/framework/**",
+      "owner": "framework-managed",
+      "frameworkUpdate": "allow"
+    },
+    {
+      "pattern": "standards/team/**",
+      "owner": "team-managed",
+      "frameworkUpdate": "deny"
+    },
+    {
+      "pattern": "context/**",
+      "owner": "project-managed",
+      "frameworkUpdate": "deny"
+    },
+    {
+      "pattern": "state/install-manifest.json",
+      "owner": "system-managed",
+      "frameworkUpdate": "allow"
+    },
+    {
+      "pattern": "state/ownership-map.json",
+      "owner": "system-managed",
+      "frameworkUpdate": "allow"
+    },
+    {
+      "pattern": "state/sources.lock.json",
+      "owner": "system-managed",
+      "frameworkUpdate": "allow"
+    },
+    {
+      "pattern": "state/decision-store.json",
+      "owner": "system-managed",
+      "frameworkUpdate": "allow"
+    },
+    {
+      "pattern": "state/audit-log.ndjson",
+      "owner": "system-managed",
+      "frameworkUpdate": "append-only"
+    }
+  ]
+}

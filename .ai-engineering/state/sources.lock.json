@@ -1,0 +1,42 @@
+{
+  "schemaVersion": "1.0",
+  "updateMetadata": {
+    "rationale": "lock trusted remote skill sources and integrity metadata",
+    "expectedGain": "deterministic and safer skill resolution",
+    "potentialImpact": "source updates require lock refresh"
+  },
+  "generatedAt": "2026-02-08T00:00:00Z",
+  "defaultRemoteEnabled": true,
+  "sources": [
+    {
+      "url": "https://skills.sh/",
+      "trusted": true,
+      "checksum": null,
+      "signatureMetadata": {
+        "algorithm": null,
+        "keyId": null,
+        "signature": null,
+        "verified": false
+      },
+      "cache": {
+        "ttlHours": 24,
+        "lastFetchedAt": null
+      }
+    },
+    {
+      "url": "https://www.aitmpl.com/skills",
+      "trusted": true,
+      "checksum": null,
+      "signatureMetadata": {
+        "algorithm": null,
+        "keyId": null,
+        "signature": null,
+        "verified": false
+      },
+      "cache": {
+        "ttlHours": 24,
+        "lastFetchedAt": null
+      }
+    }
+  ]
+}
