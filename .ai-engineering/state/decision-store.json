@@ -1,0 +1,9 @@
+{
+  "schemaVersion": "1.0",
+  "updateMetadata": {
+    "rationale": "persist risk and flow decisions for prompt reuse",
+    "expectedGain": "lower prompt fatigue and stronger auditability",
+    "potentialImpact": "decision expiry and context-hash logic becomes mandatory"
+  },
+  "decisions": []
+}

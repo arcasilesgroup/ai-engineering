@@ -1,0 +1,85 @@
+# .ai-engineering
+
+## Update Metadata
+
+- Rationale: align repository governance structure with finalized architecture contract.
+- Expected gain: remove ambiguity and prevent ownership/update violations.
+- Potential impact: existing contributors follow new paths and state file contracts.
+
+Canonical governance root for the `ai-engineering` framework and for installed instances.
+
+## Ownership Model
+
+| Scope | Paths | Update Rule |
+|---|---|---|
+| Framework-managed | `standards/framework/**` | Framework updater may modify |
+| Team-managed | `standards/team/**` | Never overwritten by framework updater |
+| Project-managed | `context/**` | Never overwritten by framework updater |
+| System-managed | `state/*.json`, `state/*.ndjson` | Managed by installer/updater/runtime |
+
+## Reference Structure
+
+```text
+.ai-engineering/
+  manifest.yml
+  standards/
+    framework/
+      core.md
+      stacks/python.md
+    team/
+      core.md
+      stacks/python.md
+  context/
+    product/
+      vision.md
+      roadmap.md
+    delivery/
+      discovery.md
+      architecture.md
+      planning.md
+      implementation.md
+      review.md
+      verification.md
+      testing.md
+      iteration.md
+    backlog/
+      epics.md
+      features.md
+      user-stories.md
+      tasks.md
+    learnings.md
+  state/
+    install-manifest.json
+    ownership-map.json
+    sources.lock.json
+    decision-store.json
+    audit-log.ndjson
+```
+
+## Non-Negotiables
+
+- Mandatory local enforcement via non-bypassable hooks.
+- Required checks include `gitleaks`, `semgrep`, dependency vulnerability checks, and stack checks.
+- No direct commits to `main`/`master`.
+- Standards cannot weaken framework non-negotiables without explicit risk acceptance.
+
+## Command Contract
+
+- `/commit` -> stage + commit + push current branch.
+- `/commit --only` -> stage + commit.
+- `/pr` -> stage + commit + push + create PR.
+- `/pr --only` -> create PR; if branch is unpushed, warn and offer auto-push; continue with engineer-selected path if declined.
+- `/acho` -> stage + commit + push current branch.
+- `/acho pr` -> stage + commit + push + create PR.
+
+## Remote Skills
+
+- Default is remote ON with local cache.
+- Initial sources: `https://skills.sh/` and `https://www.aitmpl.com/skills`.
+- Locking and integrity are stored in `state/sources.lock.json` (checksums + signature metadata scaffolding).
+
+## Context Efficiency
+
+- No hard token cap per category; strict compaction and deduplication are mandatory.
+- Every managed doc update includes rationale, expected gain, and potential impact.
+- Maintenance agent runs weekly as local report first; PR creation only after approval.

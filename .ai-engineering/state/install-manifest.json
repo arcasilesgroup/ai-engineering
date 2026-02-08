@@ -1,0 +1,35 @@
+{
+  "schemaVersion": "1.1",
+  "updateMetadata": {
+    "rationale": "initialize system-managed installation contract",
+    "expectedGain": "consistent readiness tracking",
+    "potentialImpact": "installer and doctor must maintain this file"
+  },
+  "frameworkVersion": "0.1.0-dev",
+  "installedAt": "2026-02-08T00:00:00Z",
+  "providers": {
+    "vcs": {
+      "primary": "github",
+      "enabled": ["github"],
+      "extensions": {
+        "azure_devops": {
+          "enabled": false,
+          "organization": null,
+          "project": null,
+          "repository": null
+        }
+      }
+    }
+  },
+  "toolingReadiness": {
+    "gh": {"installed": false, "configured": false, "authenticated": false},
+    "az": {"installed": false, "configured": false, "authenticated": false, "requiredNow": false},
+    "gitHooks": {"installed": false, "integrityVerified": false},
+    "python": {
+      "uv": {"ready": false},
+      "ruff": {"ready": false},
+      "ty": {"ready": false},
+      "pipAudit": {"ready": false}
+    }
+  }
+}
