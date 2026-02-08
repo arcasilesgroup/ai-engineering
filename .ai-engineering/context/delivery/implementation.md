@@ -154,3 +154,13 @@ Status:
 - Blockers: none.
 - Decisions: import legacy value as compact templates only; reject direct runtime migration from TypeScript compiler/orchestration paths.
 - Next step: continue legacy adoption with updater ownership strategy enhancements and deeper provider/IDE detection coverage.
+
+### 2026-02-08 - Phase H / Ownership-Safe Updater Start
+
+- Work completed: implemented updater service with ownership-map path matching, dry-run/apply execution, framework template synchronization, and update audit event emission.
+- Work completed: added `ai update` command (dry-run by default, `--apply` for mutation) and expanded ownership defaults for framework-managed templates and assistant instruction files.
+- Changed modules: `src/ai_engineering/updater/service.py`, `src/ai_engineering/updater/__init__.py`, `src/ai_engineering/cli.py`, `src/ai_engineering/state/defaults.py`, updater integration tests.
+- Validation run: full local quality suite executed after changes.
+- Blockers: none.
+- Decisions: keep updater deterministic and rule-driven; defer complex three-way merge to next slice.
+- Next step: add advanced merge conflict strategy and migration lifecycle hooks.

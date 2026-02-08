@@ -123,3 +123,15 @@
 - [x] G-004 implement template sync during `ai install` with ownership-safe create-only behavior.
 - [x] G-005 add integration tests for template creation and team-owned file preservation.
 - [x] G-006 run full local quality suite and record evidence.
+
+## Phase H Execution Log
+
+- Rationale: start ownership-safe updater phase to align update behavior with framework-managed vs team/project-managed boundaries.
+- Expected gain: deterministic dry-run/apply updates with explicit ownership enforcement.
+- Potential impact: update command now rewrites framework-managed files when apply mode is used.
+
+- [x] H-001 implement updater service with ownership-map rule evaluation and template diffing.
+- [x] H-002 add CLI `update` command with dry-run default and explicit `--apply` mode.
+- [x] H-003 extend ownership defaults to include framework template paths and assistant instruction files.
+- [x] H-004 add integration coverage for updater dry-run and ownership preservation behavior.
+- [ ] H-005 continue with advanced merge strategy and migration hooks from legacy updater model.
