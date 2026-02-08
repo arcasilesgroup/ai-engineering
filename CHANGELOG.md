@@ -8,8 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Initial project structure
-- Phase 0 complete governance framework
+- Canonical/template mirror contract for `.ai-engineering` governance artifacts.
+- Installer coverage for full bundled non-state governance template tree.
+
+### Changed
+- Aligned `.ai-engineering` and `src/ai_engineering/templates/.ai-engineering` non-state content.
+- Installer template mapping now discovers bundled governance files dynamically.
+- Updated governance metadata versions from `0.1.0-dev` to `0.1.0`.
+
+### Removed
+- `poetry.lock` and empty e2e test package placeholder.
 
 ## [0.1.0] - TBD
 

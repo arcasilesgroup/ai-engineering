@@ -76,10 +76,6 @@ ipython_config.py
 # pipenv
 Pipfile.lock
 
-# poetry
-# Note: poetry.lock is committed for applications (not libraries)
-# to ensure reproducible builds
-
 # pdm
 .pdm.toml
 .pdm-python

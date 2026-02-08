@@ -8,6 +8,7 @@ from pathlib import Path
 from typer.testing import CliRunner
 
 from ai_engineering.cli import app
+from ai_engineering.paths import template_root
 
 
 runner = CliRunner()
@@ -32,7 +33,9 @@ def test_install_creates_required_state_files(temp_repo: Path) -> None:
         assert hook_path.exists()
         assert "ai-engineering managed hook" in hook_path.read_text(encoding="utf-8")
 
-    assert (temp_repo / ".ai-engineering" / "standards" / "framework" / "quality" / "core.md").exists()
+    assert (
+        temp_repo / ".ai-engineering" / "standards" / "framework" / "quality" / "core.md"
+    ).exists()
     assert (temp_repo / ".ai-engineering" / "skills" / "utils" / "platform-detection.md").exists()
     assert (temp_repo / "CLAUDE.md").exists()
     assert (temp_repo / "codex.md").exists()
@@ -49,6 +52,21 @@ def test_install_preserves_existing_team_owned_files(temp_repo: Path) -> None:
 
     assert result.exit_code == 0
     assert team_core.read_text(encoding="utf-8") == "custom team content\n"
+
+
+def test_install_creates_all_governance_template_files(temp_repo: Path) -> None:
+    (temp_repo / ".git").mkdir()
+
+    result = runner.invoke(app, ["install"])
+
+    assert result.exit_code == 0
+    governance_templates = template_root() / ".ai-engineering"
+    for template_file in governance_templates.rglob("*"):
+        if not template_file.is_file():
+            continue
+        relative = template_file.relative_to(governance_templates)
+        installed = temp_repo / ".ai-engineering" / relative
+        assert installed.exists()
 
 
 def test_doctor_json_reports_expected_sections(temp_repo: Path) -> None:
@@ -156,5 +174,8 @@ def test_update_apply_preserves_team_owned_content(temp_repo: Path) -> None:
     assert result.exit_code == 0
     payload = json.loads(result.stdout)
     statuses = {entry["path"]: entry["status"] for entry in payload["entries"]}
-    assert statuses[".ai-engineering/standards/framework/quality/core.md"] in {"unchanged", "updated"}
+    assert statuses[".ai-engineering/standards/framework/quality/core.md"] in {
+        "unchanged",
+        "updated",
+    }
     assert team_core.read_text(encoding="utf-8") == "team custom\n"

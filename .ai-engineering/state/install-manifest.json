@@ -5,7 +5,7 @@
     "expectedGain": "consistent readiness tracking",
     "potentialImpact": "installer and doctor must maintain this file"
   },
-  "frameworkVersion": "0.1.0-dev",
+  "frameworkVersion": "0.1.0",
   "installedAt": "2026-02-08T00:00:00Z",
   "providers": {
     "vcs": {
