@@ -1,17 +1,31 @@
-[tool.poetry]
+[project]
 name = "ai-engineering"
 version = "0.1.0"
 description = "Context-first AI governance framework for development teams"
-authors = ["Your Name <your.email@example.com>"]
+authors = [{name = "Your Name", email = "your.email@example.com"}]
 license = "MIT"
 readme = "README.md"
-packages = [{include = "ai_engineering", from = "src"}]
+requires-python = ">=3.9"
+dependencies = [
+    "typer[all]>=0.12.0,<0.13.0",
+    "pyyaml>=6.0,<7.0",
+    "pydantic>=2.0,<3.0",
+]
 
-[tool.poetry.dependencies]
-python = "^3.9"
-typer = {extras = ["all"], version = "^0.12.0"}
-pyyaml = "^6.0"
-pydantic = "^2.0"
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0,<9.0",
+    "pytest-cov>=4.1,<5.0",
+    "ruff>=0.3,<0.4",
+    "mypy>=1.8,<2.0",
+    "types-pyyaml>=6.0,<7.0",
+]
+
+[project.scripts]
+ai = "ai_engineering.cli:app"
+
+[tool.poetry]
+packages = [{include = "ai_engineering", from = "src"}]
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0"
@@ -19,9 +33,6 @@ pytest-cov = "^4.1"
 ruff = "^0.3"
 mypy = "^1.8"
 types-pyyaml = "^6.0"
-
-[tool.poetry.scripts]
-ai = "ai_engineering.cli:app"
 
 [tool.ruff]
 line-length = 100
