@@ -16,6 +16,7 @@ from ai_engineering.commands.workflows import (
     run_pr_workflow,
 )
 from ai_engineering.doctor.service import run_doctor
+from ai_engineering.git import run_git_cleanup
 from ai_engineering.installer.service import install
 from ai_engineering.maintenance.report import create_pr_from_payload, generate_report
 from ai_engineering.paths import repo_root
@@ -34,10 +35,12 @@ gate_app = typer.Typer(help="Run governance gate checks")
 acho_app = typer.Typer(help="Acho command contract")
 skill_app = typer.Typer(help="Remote skills lock/cache operations")
 maintenance_app = typer.Typer(help="Maintenance and context health workflows")
+git_app = typer.Typer(help="Git operational workflows")
 app.add_typer(gate_app, name="gate")
 app.add_typer(acho_app, name="acho")
 app.add_typer(skill_app, name="skill")
 app.add_typer(maintenance_app, name="maintenance")
+app.add_typer(git_app, name="git")
 
 PR_ONLY_MODES = {
     "auto-push",
@@ -291,6 +294,29 @@ def maintenance_pr() -> None:
     typer.echo(message)
     if not ok:
         raise typer.Exit(code=1)
+
+
+@git_app.command("cleanup")
+def git_cleanup(
+    apply: bool = typer.Option(False, "--apply", help="Apply deletions (default is dry-run)"),
+    include_remote: bool = typer.Option(
+        False,
+        "--remote",
+        help="Include remote merged branch cleanup",
+    ),
+    checkout_default: bool = typer.Option(
+        True,
+        "--checkout-default/--no-checkout-default",
+        help="Checkout default branch before local cleanup when applying",
+    ),
+) -> None:
+    """Preview or apply safe git branch cleanup."""
+    result = run_git_cleanup(
+        apply=apply,
+        include_remote=include_remote,
+        checkout_default=checkout_default,
+    )
+    typer.echo(json.dumps(result, indent=2))
 
 
 if __name__ == "__main__":

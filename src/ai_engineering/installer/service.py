@@ -28,6 +28,7 @@ def ensure_layout(root: Path) -> Path:
         "standards/framework/quality",
         "standards/team/stacks",
         "skills/utils",
+        "skills/git",
         "skills/validation",
         "state",
     ):
