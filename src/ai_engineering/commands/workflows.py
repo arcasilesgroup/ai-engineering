@@ -79,6 +79,14 @@ def create_pr(root: Path, title: str, body: str) -> tuple[bool, str]:
     return True, proc.stdout.strip() or "pr created"
 
 
+def enable_pr_auto_complete(root: Path) -> tuple[bool, str]:
+    """Enable PR auto-complete with squash merge and branch cleanup."""
+    proc = _run(["gh", "pr", "merge", "--auto", "--squash", "--delete-branch"], cwd=root)
+    if proc.returncode != 0:
+        return False, proc.stderr.strip() or proc.stdout.strip() or "auto-complete setup failed"
+    return True, proc.stdout.strip() or "auto-complete enabled"
+
+
 def run_commit_workflow(*, message: str, push: bool) -> tuple[bool, list[str]]:
     root = repo_root()
     messages: list[str] = []
@@ -202,6 +210,12 @@ def run_pr_only_workflow(
         return True, notes
     if pr_ok:
         _audit(root, "pr_created", {"title": title, "mode": effective_mode})
+        auto_ok, auto_msg = enable_pr_auto_complete(root)
+        notes.append(auto_msg)
+        if auto_ok:
+            _audit(root, "pr_auto_complete_enabled", {"mode": effective_mode})
+        else:
+            notes.append("warning: PR created but auto-complete could not be enabled")
     return pr_ok, notes
 
 
@@ -211,4 +225,13 @@ def run_pr_workflow(*, message: str, title: str, body: str) -> tuple[bool, list[
         return False, commit_notes
     pr_ok, pr_message = create_pr(repo_root(), title, body)
     notes = [*commit_notes, pr_message]
-    return pr_ok, notes
+    if not pr_ok:
+        return False, notes
+
+    auto_ok, auto_msg = enable_pr_auto_complete(repo_root())
+    notes.append(auto_msg)
+    if auto_ok:
+        _audit(repo_root(), "pr_auto_complete_enabled", {"mode": "standard"})
+    else:
+        notes.append("warning: PR created but auto-complete could not be enabled")
+    return True, notes

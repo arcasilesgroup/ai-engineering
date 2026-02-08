@@ -7,43 +7,28 @@ from pathlib import Path
 from ai_engineering.paths import template_root
 
 
+PROJECT_TEMPLATE_MAPPINGS: tuple[tuple[str, str], ...] = (
+    ("project/CLAUDE.md", "CLAUDE.md"),
+    ("project/codex.md", "codex.md"),
+    ("project/copilot-instructions.md", ".github/copilot-instructions.md"),
+)
+
+
+def _governance_template_mappings() -> tuple[tuple[str, str], ...]:
+    source_root = template_root()
+    governance_root = source_root / ".ai-engineering"
+    mappings: list[tuple[str, str]] = []
+    for source in sorted(governance_root.rglob("*")):
+        if not source.is_file():
+            continue
+        relative = source.relative_to(source_root).as_posix()
+        mappings.append((relative, relative))
+    return tuple(mappings)
+
+
 TEMPLATE_MAPPINGS: tuple[tuple[str, str], ...] = (
-    (
-        ".ai-engineering/standards/framework/quality/core.md",
-        ".ai-engineering/standards/framework/quality/core.md",
-    ),
-    (
-        ".ai-engineering/standards/framework/quality/python.md",
-        ".ai-engineering/standards/framework/quality/python.md",
-    ),
-    (
-        ".ai-engineering/standards/framework/quality/sonarlint.md",
-        ".ai-engineering/standards/framework/quality/sonarlint.md",
-    ),
-    (
-        ".ai-engineering/skills/utils/platform-detection.md",
-        ".ai-engineering/skills/utils/platform-detection.md",
-    ),
-    (
-        ".ai-engineering/skills/utils/git-helpers.md",
-        ".ai-engineering/skills/utils/git-helpers.md",
-    ),
-    (
-        ".ai-engineering/skills/validation/install-readiness.md",
-        ".ai-engineering/skills/validation/install-readiness.md",
-    ),
-    (
-        "project/CLAUDE.md",
-        "CLAUDE.md",
-    ),
-    (
-        "project/codex.md",
-        "codex.md",
-    ),
-    (
-        "project/copilot-instructions.md",
-        ".github/copilot-instructions.md",
-    ),
+    *_governance_template_mappings(),
+    *PROJECT_TEMPLATE_MAPPINGS,
 )
 
 

@@ -4,7 +4,7 @@ Open-source AI governance framework for secure, practical software delivery.
 
 ## Status
 
-- Phase A (contract alignment) in progress.
+- Contract baseline and CLI governance workflows are implemented.
 - `.ai-engineering/` is the canonical governance root.
 
 ## Core Principles
