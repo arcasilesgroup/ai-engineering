@@ -3,6 +3,7 @@
 ## Purpose
 
 Operational contract for AI agents working in this repository.
+This file is automatically consumed by GitHub Copilot (agent mode), Claude Code, Codex, and other AI coding agents that read repository-root instruction files.
 
 ## Canonical Governance Source
 

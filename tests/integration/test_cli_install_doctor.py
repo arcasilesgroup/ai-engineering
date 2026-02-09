@@ -46,6 +46,10 @@ def test_install_creates_required_state_files(temp_repo: Path) -> None:
     assert (temp_repo / "CLAUDE.md").exists()
     assert (temp_repo / "codex.md").exists()
     assert (temp_repo / ".github" / "copilot-instructions.md").exists()
+    assert (temp_repo / ".github" / "copilot" / "code-generation.md").exists()
+    assert (temp_repo / ".github" / "copilot" / "test-generation.md").exists()
+    assert (temp_repo / ".github" / "copilot" / "code-review.md").exists()
+    assert (temp_repo / ".github" / "copilot" / "commit-message.md").exists()
 
 
 def test_install_preserves_existing_team_owned_files(temp_repo: Path) -> None:
@@ -256,14 +260,47 @@ def test_ide_add_remove_copilot_file(temp_repo: Path) -> None:
     assert install_result.exit_code == 0
 
     copilot_file = temp_repo / ".github" / "copilot-instructions.md"
+    copilot_dir = temp_repo / ".github" / "copilot"
+    # Remove all copilot files to test re-add
     if copilot_file.exists():
         copilot_file.unlink()
+    if copilot_dir.exists():
+        import shutil
+
+        shutil.rmtree(copilot_dir)
 
     add_result = runner.invoke(app, ["ide", "add", "copilot"])
     assert add_result.exit_code == 0
     assert copilot_file.exists()
+    assert (copilot_dir / "code-generation.md").exists()
+    assert (copilot_dir / "test-generation.md").exists()
+    assert (copilot_dir / "code-review.md").exists()
+    assert (copilot_dir / "commit-message.md").exists()
 
     remove_result = runner.invoke(app, ["ide", "remove", "copilot"])
     assert remove_result.exit_code == 0
     payload = json.loads(remove_result.stdout)
-    assert payload["result"] in {"removed", "missing"}
+    result = payload["result"]
+    assert isinstance(result, dict)
+    for status in result.values():
+        assert status in {"removed", "missing"}
+    assert not copilot_dir.exists()
+    assert not (temp_repo / ".github").exists()
+
+
+def test_ide_remove_copilot_preserves_customized(temp_repo: Path) -> None:
+    (temp_repo / ".git").mkdir()
+    install_result = runner.invoke(app, ["install"])
+    assert install_result.exit_code == 0
+
+    # Customize one file
+    custom_file = temp_repo / ".github" / "copilot" / "code-generation.md"
+    custom_file.write_text("# Custom team code-generation rules\n", encoding="utf-8")
+
+    remove_result = runner.invoke(app, ["ide", "remove", "copilot"])
+    assert remove_result.exit_code == 0
+    payload = json.loads(remove_result.stdout)
+    result = payload["result"]
+    assert result[".github/copilot/code-generation.md"] == "skipped-customized"
+    assert custom_file.exists()
+    assert custom_file.read_text(encoding="utf-8") == "# Custom team code-generation rules\n"

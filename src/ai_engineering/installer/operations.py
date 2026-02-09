@@ -124,13 +124,16 @@ def add_ide(name: str) -> dict[str, Any]:
             "availableIdes": sorted(SUPPORTED_IDES),
         }
 
-    result = "recorded"
-    mapping = PROJECT_TEMPLATE_BY_IDE.get(name)
-    if mapping is not None:
-        source_relative, destination_relative = mapping
-        source = template_root() / source_relative
-        destination = root / destination_relative
-        result = _copy_if_missing(source, destination)
+    mappings = PROJECT_TEMPLATE_BY_IDE.get(name)
+    if mappings is not None:
+        results: dict[str, str] = {}
+        for source_relative, destination_relative in mappings:
+            source = template_root() / source_relative
+            destination = root / destination_relative
+            results[destination_relative] = _copy_if_missing(source, destination)
+        result: str | dict[str, str] = results
+    else:
+        result = "recorded"
 
     manifest = _manifest(root)
     ides = set(manifest.installedIdes)
@@ -139,6 +142,14 @@ def add_ide(name: str) -> dict[str, Any]:
     _save_manifest(root, manifest)
 
     return {"ok": True, "ide": name, "result": result, "installedIdes": manifest.installedIdes}
+
+
+def _cleanup_empty_parents(path: Path, stop_at: Path) -> None:
+    """Remove empty parent directories up to (but not including) *stop_at*."""
+    parent = path.parent
+    while parent != stop_at and parent.exists() and not any(parent.iterdir()):
+        parent.rmdir()
+        parent = parent.parent
 
 
 def remove_ide(name: str) -> dict[str, Any]:
@@ -151,17 +162,19 @@ def remove_ide(name: str) -> dict[str, Any]:
             "availableIdes": sorted(SUPPORTED_IDES),
         }
 
-    status = "recorded"
-    mapping = PROJECT_TEMPLATE_BY_IDE.get(name)
-    if mapping is not None:
-        source_relative, destination_relative = mapping
-        source = template_root() / source_relative
-        destination = root / destination_relative
-        status = _remove_if_safe(destination, source.read_text(encoding="utf-8"))
-        if destination_relative.startswith(".github/"):
-            github_dir = root / ".github"
-            if github_dir.exists() and not any(github_dir.iterdir()):
-                github_dir.rmdir()
+    mappings = PROJECT_TEMPLATE_BY_IDE.get(name)
+    if mappings is not None:
+        results: dict[str, str] = {}
+        for source_relative, destination_relative in mappings:
+            source = template_root() / source_relative
+            destination = root / destination_relative
+            results[destination_relative] = _remove_if_safe(
+                destination, source.read_text(encoding="utf-8")
+            )
+            _cleanup_empty_parents(destination, root)
+        result: str | dict[str, str] = results
+    else:
+        result = "recorded"
 
     manifest = _manifest(root)
     ides = set(manifest.installedIdes)
@@ -169,7 +182,7 @@ def remove_ide(name: str) -> dict[str, Any]:
     manifest.installedIdes = sorted(ides)
     _save_manifest(root, manifest)
 
-    return {"ok": True, "ide": name, "result": status, "installedIdes": manifest.installedIdes}
+    return {"ok": True, "ide": name, "result": result, "installedIdes": manifest.installedIdes}
 
 
 def list_stack_ide_status() -> dict[str, Any]:
