@@ -24,13 +24,3 @@ def temp_repo(tmp_path):
     yield repo_dir
     # Restore original directory
     os.chdir(original_dir)
-
-
-@pytest.fixture
-def sample_manifest():
-    """Sample manifest.yml for testing."""
-    return {
-        "version": "1.0",
-        "metadata": {"name": "test-repo", "owner": "Test Team"},
-        "standards": {"gates": {"pre_commit": {"lint": "mandatory", "secret_scan": "mandatory"}}},
-    }

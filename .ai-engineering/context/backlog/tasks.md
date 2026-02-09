@@ -161,3 +161,42 @@
 - [x] K-004 extend install-manifest schema defaults with installed stack/IDE tracking.
 - [x] K-005 add integration and unit tests for stack/IDE lifecycle operations.
 - [ ] K-006 extend cross-OS hook launcher behavior for Windows-safe execution.
+
+## Phase L Execution Log
+
+- Rationale: remove non-contractual runtime surface and keep Python implementation minimal for governance-first scope.
+- Expected gain: lower maintenance burden and fewer risky operations in core CLI.
+- Potential impact: branch cleanup is no longer exposed as `ai git cleanup`.
+
+- [x] L-001 remove `ai git cleanup` command from core CLI surface.
+- [x] L-002 remove git cleanup runtime module and associated unit tests.
+- [x] L-003 remove unused standards package scaffold and dead pytest fixture.
+- [x] L-004 remove unused cleanup skill template from bundled framework content.
+- [x] L-005 simplify installer baseline layout by dropping unused `skills/git` bootstrap directory.
+- [x] L-006 run full local quality suite (`ruff`, `pytest`, `ty`, `pip-audit`) and record evidence.
+
+## Phase M Execution Log
+
+- Rationale: modularize CLI by domain and improve audit trace quality while preserving the command contract.
+- Expected gain: lower maintenance complexity and clearer governance evidence in audit records.
+- Potential impact: internal module paths changed, but command names/flags remain stable.
+
+- [x] M-001 split CLI into domain registration modules and keep a thin `ai_engineering.cli` entrypoint.
+- [x] M-002 add centralized app composition via CLI factory.
+- [x] M-003 enforce timestamp field on all appended ndjson audit events.
+- [x] M-004 ensure installs create `.ai-engineering/state/.gitignore` that keeps `audit-log.ndjson` local by default.
+- [x] M-005 remove root `.gitignore` exception and untrack existing `audit-log.ndjson` from git index.
+- [x] M-006 add/adjust tests for CLI stability, state gitignore behavior, and audit timestamp injection.
+- [x] M-007 run full local quality suite (`ruff`, `pytest`, `ty`, `pip-audit`) and record evidence.
+
+## Phase N Execution Log
+
+- Rationale: simplify workflow internals while preserving command contract behavior.
+- Expected gain: clearer execution paths and lower accidental complexity for PR-only modes.
+- Potential impact: internal-only refactor in workflow module.
+
+- [x] N-001 centralize PR-only policy constants and allowed-mode set.
+- [x] N-002 collapse repeated upstream checks to single state transition handling.
+- [x] N-003 extract defer-decision persistence helper for PR-only flow.
+- [x] N-004 simplify standard PR flow root reuse to avoid repeated repository lookups.
+- [x] N-005 run full local quality suite (`ruff`, `pytest`, `ty`, `pip-audit`) and record evidence.

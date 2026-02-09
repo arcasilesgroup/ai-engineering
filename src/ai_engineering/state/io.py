@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, TypeVar
 
@@ -32,5 +33,10 @@ def load_model(path: Path, model: type[ModelT]) -> ModelT:
 def append_ndjson(path: Path, event: dict[str, Any]) -> None:
     """Append a single event to ndjson log file."""
     path.parent.mkdir(parents=True, exist_ok=True)
+    payload = dict(event)
+    payload.setdefault(
+        "timestamp",
+        datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
+    )
     with path.open("a", encoding="utf-8") as fh:
-        fh.write(json.dumps(event) + "\n")
+        fh.write(json.dumps(payload) + "\n")

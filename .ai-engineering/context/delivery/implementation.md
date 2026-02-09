@@ -186,3 +186,46 @@ Status:
 - Blockers: none.
 - Decisions: remove operations stay safe by default; customized team files are preserved and reported as `skipped-customized`.
 - Next step: implement Windows-safe hook launcher improvements to complete remaining cross-OS hardening item.
+
+### 2026-02-09 - Phase L / Core Runtime Simplification (Non-Contractual Cleanup Removal)
+
+- Rationale: reduce accidental complexity and keep runtime scope strictly aligned with the command contract and governance-first MVP.
+- Expected gain: smaller Python surface area, lower cognitive load in CLI maintenance, and less operational risk from non-essential destructive flows.
+- Potential impact: `ai git cleanup` command is no longer available from core CLI; users must use native git commands for branch cleanup.
+- Work completed: removed core `ai git cleanup` command wiring from CLI and deleted git cleanup runtime module/tests.
+- Work completed: removed unused scaffolding (`standards` package placeholder, unused pytest fixture) and dropped unused cleanup skill template.
+- Work completed: simplified installer baseline layout by removing unused `skills/git` directory bootstrap.
+- Changed modules: `src/ai_engineering/cli.py`, `src/ai_engineering/installer/service.py`, removed `src/ai_engineering/git/**`, removed `src/ai_engineering/standards/__init__.py`, removed `tests/unit/test_git_cleanup.py`, updated `tests/conftest.py`, removed template `skills/git/cleanup.md`.
+- Validation run: `.venv/bin/ruff check src tests`, `.venv/bin/python -m pytest`, `.venv/bin/ty check src`, `.venv/bin/pip-audit` all passed.
+- Blockers: none.
+- Decisions: keep governance/security non-negotiables unchanged; simplify only non-contractual runtime surface.
+- Next step: execute full quality suite and proceed to CLI modularization phase.
+
+### 2026-02-09 - Phase M / CLI Modularization + Audit Log Hardening
+
+- Rationale: continue runtime simplification by reducing CLI cognitive load and harden audit evidence quality for governance traces.
+- Expected gain: smaller, domain-focused CLI modules and consistent audit timestamps across all governance events.
+- Potential impact: internal CLI module layout changes without command contract changes; install now creates state-level `.gitignore` to keep `audit-log.ndjson` local by default.
+- Work completed: split monolithic CLI into domain registration modules under `src/ai_engineering/cli_commands/*` with a thin `ai_engineering.cli` entrypoint.
+- Work completed: added timestamp auto-injection in ndjson append helper so every audit event has `timestamp`, `event`, `actor`, `details`.
+- Work completed: installer now creates `.ai-engineering/state/.gitignore` that excludes `audit-log.ndjson` from normal git tracking while allowing required state JSON files.
+- Work completed: removed root `.gitignore` exception for `.ai-engineering/state/audit-log.ndjson`, untracked the repository audit log from git index, and added tests for state ignore behavior and ndjson timestamp logic.
+- Changed modules: `src/ai_engineering/cli.py`, `src/ai_engineering/cli_factory.py`, `src/ai_engineering/cli_commands/*`, `src/ai_engineering/state/io.py`, `src/ai_engineering/installer/service.py`, `.gitignore`, integration/unit tests.
+- Validation run: `.venv/bin/ruff check src tests`, `.venv/bin/python -m pytest`, `.venv/bin/ty check src`, `.venv/bin/pip-audit` all passed.
+- Blockers: none.
+- Decisions: keep audit schema minimal and stable (`timestamp`, `event`, `actor`, `details`) and prefer local-only audit log by default to avoid noisy remote churn.
+- Next step: run full local quality suite and then evaluate follow-up modularization of workflow internals.
+
+### 2026-02-09 - Phase N / Workflow Runtime Simplification
+
+- Rationale: reduce branching complexity in command workflows without changing contract behavior.
+- Expected gain: lower maintenance cost in PR-only handling and cleaner extension path for future workflow hardening.
+- Potential impact: no command/flag behavior changes; internal control flow becomes less repetitive.
+- Work completed: refactored PR-only mode constants and decision policy ID into shared constants.
+- Work completed: reduced repeated upstream checks in PR-only flow to a single state transition path.
+- Work completed: extracted decision persistence helper for `defer-pr` mode and normalized root reuse in standard PR flow.
+- Changed modules: `src/ai_engineering/commands/workflows.py`.
+- Validation run: `.venv/bin/ruff check src tests`, `.venv/bin/python -m pytest`, `.venv/bin/ty check src`, `.venv/bin/pip-audit` all passed.
+- Blockers: none.
+- Decisions: keep behavior fully backward compatible and avoid policy changes during structural simplification.
+- Next step: add focused tests for CLI command module coverage to improve post-modularization coverage signal.
