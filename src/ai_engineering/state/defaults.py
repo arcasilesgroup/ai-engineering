@@ -101,6 +101,11 @@ def ownership_map_default() -> dict:
                 "frameworkUpdate": "allow",
             },
             {
+                "pattern": ".github/copilot/**",
+                "owner": "framework-managed",
+                "frameworkUpdate": "allow",
+            },
+            {
                 "pattern": ".ai-engineering/state/install-manifest.json",
                 "owner": "system-managed",
                 "frameworkUpdate": "allow",

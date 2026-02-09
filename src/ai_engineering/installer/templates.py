@@ -11,12 +11,22 @@ PROJECT_TEMPLATE_MAPPINGS: tuple[tuple[str, str], ...] = (
     ("project/CLAUDE.md", "CLAUDE.md"),
     ("project/codex.md", "codex.md"),
     ("project/copilot-instructions.md", ".github/copilot-instructions.md"),
+    ("project/copilot/code-generation.md", ".github/copilot/code-generation.md"),
+    ("project/copilot/test-generation.md", ".github/copilot/test-generation.md"),
+    ("project/copilot/code-review.md", ".github/copilot/code-review.md"),
+    ("project/copilot/commit-message.md", ".github/copilot/commit-message.md"),
 )
 
-PROJECT_TEMPLATE_BY_IDE: dict[str, tuple[str, str]] = {
-    "claude": ("project/CLAUDE.md", "CLAUDE.md"),
-    "codex": ("project/codex.md", "codex.md"),
-    "copilot": ("project/copilot-instructions.md", ".github/copilot-instructions.md"),
+PROJECT_TEMPLATE_BY_IDE: dict[str, list[tuple[str, str]]] = {
+    "claude": [("project/CLAUDE.md", "CLAUDE.md")],
+    "codex": [("project/codex.md", "codex.md")],
+    "copilot": [
+        ("project/copilot-instructions.md", ".github/copilot-instructions.md"),
+        ("project/copilot/code-generation.md", ".github/copilot/code-generation.md"),
+        ("project/copilot/test-generation.md", ".github/copilot/test-generation.md"),
+        ("project/copilot/code-review.md", ".github/copilot/code-review.md"),
+        ("project/copilot/commit-message.md", ".github/copilot/commit-message.md"),
+    ],
 }
 
 

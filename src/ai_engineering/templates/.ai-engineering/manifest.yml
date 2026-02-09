@@ -31,6 +31,10 @@ ownership:
     - "CLAUDE.md"
     - "codex.md"
     - ".github/copilot-instructions.md"
+    - ".github/copilot/code-generation.md"
+    - ".github/copilot/test-generation.md"
+    - ".github/copilot/code-review.md"
+    - ".github/copilot/commit-message.md"
 
 standards:
   precedence:
