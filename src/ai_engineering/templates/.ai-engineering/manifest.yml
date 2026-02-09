@@ -16,6 +16,7 @@ ownership:
   model:
     framework_managed:
       - "standards/framework/**"
+      - "skills/**"
     team_managed:
       - "standards/team/**"
     project_managed:
@@ -26,6 +27,10 @@ ownership:
       - "state/sources.lock.json"
       - "state/decision-store.json"
       - "state/audit-log.ndjson"
+  external_framework_managed:
+    - "CLAUDE.md"
+    - "codex.md"
+    - ".github/copilot-instructions.md"
 
 standards:
   precedence:
@@ -118,6 +123,7 @@ remote_skills:
   trust_policy:
     allowlist_only: true
     checksums_required: true
+    allow_null_checksums_before_first_sync: true
     signature_metadata_required: true
     remote_execution_allowed: false
   cache:

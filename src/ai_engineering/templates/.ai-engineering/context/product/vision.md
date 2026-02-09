@@ -38,10 +38,10 @@ Build `ai-engineering` as an OSS framework that provides:
 
 - `/commit`: stage + commit + push current branch.
 - `/commit --only`: stage + commit.
-- `/pr`: stage + commit + push + create PR.
+- `/pr`: stage + commit + push + create PR + enable auto-complete (`--auto --squash --delete-branch`).
 - `/pr --only`: create PR; warn if branch is not pushed and propose auto-push.
 - `/acho`: stage + commit + push current branch.
-- `/acho pr`: stage + commit + push + create PR.
+- `/acho pr`: stage + commit + push + create PR + enable auto-complete (`--auto --squash --delete-branch`).
 
 ## Success Metrics
 

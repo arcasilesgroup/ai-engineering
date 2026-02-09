@@ -29,6 +29,7 @@ Framework-owned baseline standards for every installed instance.
 ## Command Governance
 
 - `/commit` and `/acho` push only current branch.
+- `/pr` and `/acho pr` must enable PR auto-complete with squash merge and branch deletion.
 - `/pr --only` warns if branch is not pushed, proposes auto-push, and continues with user-selected mode if declined.
 
 ## Risk Acceptance
