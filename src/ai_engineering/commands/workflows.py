@@ -13,7 +13,7 @@ from ai_engineering.policy.gates import (
     run_pre_commit,
     run_pre_push,
 )
-from ai_engineering.state.decision_logic import append_decision, context_hash, find_valid_decision
+from ai_engineering.state.decision_logic import append_decision, context_hash, evaluate_reuse
 from ai_engineering.state.io import append_ndjson, load_model
 from ai_engineering.state.models import DecisionStore
 
@@ -137,13 +137,15 @@ def _resolve_pr_only_mode(root: Path, requested_mode: PrOnlyMode) -> PrOnlyMode:
         store = load_model(state_dir(root) / "decision-store.json", DecisionStore)
     except Exception:
         return requested_mode
-    prior = find_valid_decision(
+    evaluation = evaluate_reuse(
         store,
         policy_id=PR_ONLY_POLICY_ID,
         repo_name=_repo_name(root),
         context_hash_value=context,
+        severity="medium",
     )
-    if prior is not None and prior.decision in PR_ONLY_ALLOWED_MODES:
+    prior = evaluation.record
+    if evaluation.reusable and prior is not None and prior.decision in PR_ONLY_ALLOWED_MODES:
         return prior.decision  # type: ignore[return-value]
     return requested_mode
 

@@ -29,14 +29,17 @@ Python is intentionally minimal and operational.
 
 ### Minimal Python Runtime Scope
 
-Python is used only for:
+Python runtime is intentionally limited to operational workflows:
 
 1. `install` - copy templates, set up hooks, run readiness checks.
 2. `update` - ownership-safe updates and migrations.
 3. `doctor` - verify installed/configured/authenticated/ready state.
 4. `add/remove stack|ide` - safe template operations and cleanup.
+5. governed command workflows (`/commit`, `/pr`, `/acho`) and local gate execution.
+6. risk acceptance persistence/reuse checks with append-only audit events.
+7. remote skills sync/lock/cache enforcement and maintenance report generation.
 
-No heavy policy engine should be embedded in Python if behavior can be declared in governance content.
+Policy and standards remain content-first; Python orchestration must stay thin, deterministic, and test-covered.
 
 ## Product Principles (Non-Negotiable)
 

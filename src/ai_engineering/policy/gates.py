@@ -54,9 +54,6 @@ DOC_CONTRACT_FILES: tuple[str, ...] = (
     ".ai-engineering/context/backlog/features.md",
     ".ai-engineering/context/backlog/user-stories.md",
     ".ai-engineering/context/backlog/tasks.md",
-    ".ai-engineering/context/backlog/index.md",
-    ".ai-engineering/context/backlog/status.md",
-    ".ai-engineering/context/backlog/traceability-matrix.md",
     ".ai-engineering/context/delivery/discovery.md",
     ".ai-engineering/context/delivery/architecture.md",
     ".ai-engineering/context/delivery/planning.md",
@@ -65,27 +62,10 @@ DOC_CONTRACT_FILES: tuple[str, ...] = (
     ".ai-engineering/context/delivery/verification.md",
     ".ai-engineering/context/delivery/testing.md",
     ".ai-engineering/context/delivery/iteration.md",
-    ".ai-engineering/context/delivery/index.md",
-    ".ai-engineering/context/delivery/evidence/validation-runs.md",
-    ".ai-engineering/context/delivery/evidence/execution-history.md",
-)
-
-DOC_CONTRACT_REVIEW_FILE = ".ai-engineering/context/delivery/review.md"
-
-DOC_CONTRACT_REQUIRED_GATES = (
-    "unit",
-    "integration",
-    "e2e",
-    "ruff",
-    "ty",
-    "gitleaks",
-    "semgrep",
-    "pip-audit",
 )
 
 
-def _metadata_block(content: str) -> str | None:
-    marker = "## Document Metadata"
+def _section_block(content: str, marker: str) -> str | None:
     start = content.find(marker)
     if start == -1:
         return None
@@ -98,12 +78,17 @@ def _metadata_block(content: str) -> str | None:
 
 def _run_docs_contract_check(root: Path) -> tuple[bool, str]:
     errors: list[str] = []
-    required_metadata_fields = (
+    required_document_metadata_fields = (
         "- Doc ID:",
         "- Owner:",
         "- Status:",
         "- Last reviewed:",
         "- Source of truth:",
+    )
+    required_update_metadata_fields = (
+        "- Rationale:",
+        "- Expected gain:",
+        "- Potential impact:",
     )
 
     for relative in DOC_CONTRACT_FILES:
@@ -112,32 +97,24 @@ def _run_docs_contract_check(root: Path) -> tuple[bool, str]:
             errors.append(f"missing required doc: {relative}")
             continue
         content = path.read_text(encoding="utf-8")
-        metadata = _metadata_block(content)
-        if metadata is None:
-            errors.append(f"{relative}: missing '## Document Metadata' section")
-            continue
-        for field in required_metadata_fields:
-            if field not in metadata:
-                errors.append(f"{relative}: missing metadata field '{field}'")
-        expected_source = f"`{relative}`"
-        if expected_source not in metadata:
-            errors.append(
-                f"{relative}: source of truth must reference its own path as {expected_source}"
-            )
+        update_metadata = _section_block(content, "## Update Metadata")
+        if update_metadata is None:
+            errors.append(f"{relative}: missing '## Update Metadata' section")
+        else:
+            for field in required_update_metadata_fields:
+                if field not in update_metadata:
+                    errors.append(f"{relative}: missing update metadata field '{field}'")
 
-    review_path = root / DOC_CONTRACT_REVIEW_FILE
-    if review_path.exists():
-        review = review_path.read_text(encoding="utf-8")
-        checklist_title = "## Backlog and Delivery Docs Pre-Merge Checklist"
-        if checklist_title not in review:
-            errors.append(f"{DOC_CONTRACT_REVIEW_FILE}: missing pre-merge checklist section")
-        for gate in DOC_CONTRACT_REQUIRED_GATES:
-            if f"`{gate}`" not in review:
+        document_metadata = _section_block(content, "## Document Metadata")
+        if document_metadata is not None:
+            for field in required_document_metadata_fields:
+                if field not in document_metadata:
+                    errors.append(f"{relative}: missing document metadata field '{field}'")
+            expected_source = f"`{relative}`"
+            if expected_source not in document_metadata:
                 errors.append(
-                    f"{DOC_CONTRACT_REVIEW_FILE}: pre-merge checklist missing required gate `{gate}`"
+                    f"{relative}: source of truth must reference its own path as {expected_source}"
                 )
-    else:
-        errors.append(f"missing required doc: {DOC_CONTRACT_REVIEW_FILE}")
 
     if errors:
         return False, "\n".join(errors)

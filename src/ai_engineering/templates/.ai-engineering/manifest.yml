@@ -104,6 +104,7 @@ enforcement:
       - "ruff-format"
       - "ruff-lint"
       - "gitleaks"
+      - "docs-contract"
     pre_push:
       - "semgrep"
       - "pip-audit"

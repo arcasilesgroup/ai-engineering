@@ -16,6 +16,18 @@ from ai_engineering.policy.gates import (
     run_pre_commit,
     run_pre_push,
 )
+from ai_engineering.policy.risk_acceptance import (
+    check_reuse,
+    parse_context_payload,
+    record_acceptance,
+)
+
+
+def _normalize_severity(raw: str) -> str:
+    value = raw.strip().lower()
+    if value not in {"low", "medium", "high", "critical"}:
+        raise typer.BadParameter("severity must be one of: low, medium, high, critical")
+    return value
 
 
 def register(gate_app: typer.Typer) -> None:
@@ -88,3 +100,55 @@ def register(gate_app: typer.Typer) -> None:
                             tool_raw = typed_check.get("tool")
                             tool = str(tool_raw) if tool_raw is not None else "unknown"
                             typer.echo(f"  - {tool}")
+
+    @gate_app.command("risk-accept")
+    def gate_risk_accept(
+        policy_id: str = typer.Option(..., "--policy-id", help="Policy identifier"),
+        decision: str = typer.Option(..., "--decision", help="Accepted decision value"),
+        rationale: str = typer.Option(..., "--rationale", help="Acceptance rationale"),
+        severity: str = typer.Option("medium", "--severity", help="Risk severity"),
+        context_json: str = typer.Option("{}", "--context", help="Context JSON object"),
+        path_pattern: str | None = typer.Option(
+            None, "--path-pattern", help="Optional scope path pattern"
+        ),
+        actor: str = typer.Option("engineer", "--actor", help="Decision actor"),
+    ) -> None:
+        """Persist explicit risk acceptance and append an audit event."""
+        parsed_context = parse_context_payload(context_json)
+        payload = record_acceptance(
+            root=repo_root(),
+            policy_id=policy_id,
+            decision=decision,
+            rationale=rationale,
+            severity=cast(Any, _normalize_severity(severity)),
+            context_payload=parsed_context,
+            path_pattern=path_pattern,
+            created_by=actor,
+        )
+        typer.echo(json.dumps(payload, indent=2))
+
+    @gate_app.command("risk-check")
+    def gate_risk_check(
+        policy_id: str = typer.Option(..., "--policy-id", help="Policy identifier"),
+        severity: str = typer.Option("medium", "--severity", help="Risk severity"),
+        context_json: str = typer.Option("{}", "--context", help="Context JSON object"),
+        path_pattern: str | None = typer.Option(
+            None, "--path-pattern", help="Optional scope path pattern"
+        ),
+        expected_decision: str | None = typer.Option(
+            None,
+            "--expected-decision",
+            help="Optional decision that must match for reuse",
+        ),
+    ) -> None:
+        """Evaluate if stored decision can be reused or needs re-prompt."""
+        parsed_context = parse_context_payload(context_json)
+        payload = check_reuse(
+            root=repo_root(),
+            policy_id=policy_id,
+            severity=cast(Any, _normalize_severity(severity)),
+            context_payload=parsed_context,
+            path_pattern=path_pattern,
+            expected_decision=expected_decision,
+        )
+        typer.echo(json.dumps(payload, indent=2))

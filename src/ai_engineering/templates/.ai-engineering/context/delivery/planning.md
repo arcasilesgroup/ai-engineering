@@ -1,5 +1,13 @@
 # Planning
 
+## Document Metadata
+
+- Doc ID: DEL-PLANNING
+- Owner: project-managed (delivery)
+- Status: active
+- Last reviewed: 2026-02-09
+- Source of truth: `.ai-engineering/context/delivery/planning.md`
+
 ## Update Metadata
 
 - Rationale: convert architecture decisions into executable workstreams.
@@ -56,6 +64,32 @@ If branch is not pushed:
 | Phase C | Governance enforcement: hooks, mandatory checks, protected-branch blocking | Completed |
 | Phase D | Command runtime: `/commit`, `/pr`, `/acho`, `/pr --only` continuation modes | Completed |
 | Phase E | Remote skills lock/cache and maintenance-agent workflow | Completed |
+| Phase F | Product contract consolidation and rollout charter alignment | Completed |
+| Phase G | Legacy content adoption pack with content-first constraints | Completed |
+| Phase H | Ownership-safe updater (dry-run/apply, ownership rule evaluation) | Completed (advanced merge hooks pending) |
+| Phase I | Canonical/template governance alignment and cleanup | Completed |
+| Phase J | PR auto-complete and git cleanup slice | Archived/Superseded |
+| Phase K | Command contract closure and stack/IDE management commands | Completed (cross-OS hook launcher hardening pending) |
+| Phase L | Runtime simplification and removal of non-contractual cleanup command | Completed |
+| Phase M | CLI modularization and audit-log timestamp hardening | Completed |
+| Phase N | Workflow runtime simplification and internal path cleanup | Completed |
+| Phase O | Backlog-delivery traceability hardening quick wins | Completed |
+| Phase P | Structure reorganization (indexes, status board, active-vs-history split) | Completed |
+| Phase Q | Documentation hardening (metadata normalization and pre-merge checklist) | Completed |
+| Phase R | Automated docs contract enforcement (gate + CLI + tests) | Completed |
+| Phase S | Native hook hardening and missing-tool auto-remediation | Completed |
+
+## Phase Status Alignment Notes
+
+- Phase J records are historical only and are no longer normative for active planning.
+- Active backlog and execution sources are:
+  - `.ai-engineering/context/backlog/tasks.md`
+  - `.ai-engineering/context/delivery/implementation.md`
+- Open carry-over items from prior phases remain tracked in active backlog queue:
+  - B-007 richer doctor/install ownership-safe extensions.
+  - F-007 charter workstreams W1-W5 full implementation.
+  - H-005 advanced merge strategy and migration hooks.
+  - K-006 Windows-safe hook launcher hardening.
 
 ## Phase B Progress Notes
 

@@ -1,5 +1,13 @@
 # Testing Strategy
 
+## Document Metadata
+
+- Doc ID: DEL-TESTING
+- Owner: project-managed (delivery)
+- Status: active
+- Last reviewed: 2026-02-09
+- Source of truth: `.ai-engineering/context/delivery/testing.md`
+
 ## Update Metadata
 
 - Rationale: make tests reflect mandatory enforcement and new command flows.
