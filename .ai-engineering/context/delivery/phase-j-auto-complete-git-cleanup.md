@@ -1,27 +1,17 @@
-# Phase J - PR Auto-Complete and Git Cleanup
+# Phase J - PR Auto-Complete and Git Cleanup (Deprecated)
 
-## Update Metadata
+## Status
 
-- Rationale: close the workflow gap between PR creation and post-merge housekeeping.
-- Expected gain: faster delivery flow with less manual branch hygiene work.
-- Potential impact: governed commands now attempt auto-complete and expose cleanup operations.
+- State: deprecated historical snapshot.
+- Reason: later phases superseded this behavior.
 
-## Scope Completed
+## Supersession
 
-- enabled PR auto-complete for standard PR creation flows,
-- added safe `ai git cleanup` command with preview/apply modes,
-- added cleanup report persistence and audit events,
-- added regression tests for workflow and cleanup behavior.
+- Phase K made PR auto-complete explicit in contract behavior.
+- Phase L removed non-contractual `ai git cleanup` runtime surface.
 
-## Validation
+## Canonical Reference
 
-- `.venv/bin/ruff check src tests`
-- `.venv/bin/python -m pytest`
-- `.venv/bin/ty check src`
-- `.venv/bin/pip-audit`
-
-## Notes
-
-- `ai git cleanup` defaults to dry-run.
-- remote deletion is opt-in via `--remote`.
-- apply mode can checkout default branch before deletion for safety.
+- Historical archive: `.ai-engineering/context/backlog/archive/phase-j.md`
+- Active delivery log: `.ai-engineering/context/delivery/implementation.md`
+- Active planning source: `.ai-engineering/context/delivery/planning.md`

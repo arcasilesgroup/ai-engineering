@@ -32,6 +32,11 @@ PRE_COMMIT_CHECKS = [
         ["detect", "--no-banner", "--redact"],
         "review staged content and remove secrets before retrying",
     ),
+    GateCheck(
+        "docs-contract",
+        [],
+        "ensure active backlog/delivery docs include required metadata and checklist contract",
+    ),
 ]
 
 
@@ -41,6 +46,101 @@ PRE_PUSH_CHECKS = [
     GateCheck("pytest", [], "fix failing tests and rerun '.venv/bin/python -m pytest'"),
     GateCheck("ty", ["check", "src"], "fix type diagnostics and rerun '.venv/bin/ty check src'"),
 ]
+
+
+DOC_CONTRACT_FILES: tuple[str, ...] = (
+    ".ai-engineering/context/backlog/epics.md",
+    ".ai-engineering/context/backlog/features.md",
+    ".ai-engineering/context/backlog/user-stories.md",
+    ".ai-engineering/context/backlog/tasks.md",
+    ".ai-engineering/context/backlog/index.md",
+    ".ai-engineering/context/backlog/status.md",
+    ".ai-engineering/context/backlog/traceability-matrix.md",
+    ".ai-engineering/context/delivery/discovery.md",
+    ".ai-engineering/context/delivery/architecture.md",
+    ".ai-engineering/context/delivery/planning.md",
+    ".ai-engineering/context/delivery/implementation.md",
+    ".ai-engineering/context/delivery/review.md",
+    ".ai-engineering/context/delivery/verification.md",
+    ".ai-engineering/context/delivery/testing.md",
+    ".ai-engineering/context/delivery/iteration.md",
+    ".ai-engineering/context/delivery/index.md",
+    ".ai-engineering/context/delivery/evidence/validation-runs.md",
+    ".ai-engineering/context/delivery/evidence/execution-history.md",
+)
+
+DOC_CONTRACT_REVIEW_FILE = ".ai-engineering/context/delivery/review.md"
+
+DOC_CONTRACT_REQUIRED_GATES = (
+    "unit",
+    "integration",
+    "e2e",
+    "ruff",
+    "ty",
+    "gitleaks",
+    "semgrep",
+    "pip-audit",
+)
+
+
+def _metadata_block(content: str) -> str | None:
+    marker = "## Document Metadata"
+    start = content.find(marker)
+    if start == -1:
+        return None
+    block_start = start + len(marker)
+    next_heading = content.find("\n## ", block_start)
+    if next_heading == -1:
+        return content[block_start:]
+    return content[block_start:next_heading]
+
+
+def _run_docs_contract_check(root: Path) -> tuple[bool, str]:
+    errors: list[str] = []
+    required_metadata_fields = (
+        "- Doc ID:",
+        "- Owner:",
+        "- Status:",
+        "- Last reviewed:",
+        "- Source of truth:",
+    )
+
+    for relative in DOC_CONTRACT_FILES:
+        path = root / relative
+        if not path.exists():
+            errors.append(f"missing required doc: {relative}")
+            continue
+        content = path.read_text(encoding="utf-8")
+        metadata = _metadata_block(content)
+        if metadata is None:
+            errors.append(f"{relative}: missing '## Document Metadata' section")
+            continue
+        for field in required_metadata_fields:
+            if field not in metadata:
+                errors.append(f"{relative}: missing metadata field '{field}'")
+        expected_source = f"`{relative}`"
+        if expected_source not in metadata:
+            errors.append(
+                f"{relative}: source of truth must reference its own path as {expected_source}"
+            )
+
+    review_path = root / DOC_CONTRACT_REVIEW_FILE
+    if review_path.exists():
+        review = review_path.read_text(encoding="utf-8")
+        checklist_title = "## Backlog and Delivery Docs Pre-Merge Checklist"
+        if checklist_title not in review:
+            errors.append(f"{DOC_CONTRACT_REVIEW_FILE}: missing pre-merge checklist section")
+        for gate in DOC_CONTRACT_REQUIRED_GATES:
+            if f"`{gate}`" not in review:
+                errors.append(
+                    f"{DOC_CONTRACT_REVIEW_FILE}: pre-merge checklist missing required gate `{gate}`"
+                )
+    else:
+        errors.append(f"missing required doc: {DOC_CONTRACT_REVIEW_FILE}")
+
+    if errors:
+        return False, "\n".join(errors)
+    return True, "docs contract checks passed"
 
 
 def current_branch(root: Path) -> str:
@@ -196,7 +296,10 @@ def _run_gate_checks(root: Path, stage: str, checks: list[GateCheck]) -> tuple[b
     """Run mandatory gate checks and include remediation in failures."""
     failures: list[str] = []
     for check in checks:
-        check_ok, output = _run_tool(root, check.tool, check.args)
+        if check.tool == "docs-contract":
+            check_ok, output = _run_docs_contract_check(root)
+        else:
+            check_ok, output = _run_tool(root, check.tool, check.args)
         if check_ok:
             continue
         failures.append(f"{check.tool}: {output}\nremediation: {check.remediation}")
@@ -242,3 +345,12 @@ def run_pre_push() -> tuple[bool, list[str]]:
         return False, [msg]
 
     return _run_gate_checks(root, "pre-push", PRE_PUSH_CHECKS)
+
+
+def run_docs_contract() -> tuple[bool, list[str]]:
+    """Run documentation contract checks for backlog and delivery artifacts."""
+    root = repo_root()
+    ok, output = _run_docs_contract_check(root)
+    if ok:
+        return True, [output]
+    return False, [output]

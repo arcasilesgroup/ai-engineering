@@ -11,6 +11,7 @@ import typer
 from ai_engineering.paths import repo_root
 from ai_engineering.policy.gates import (
     gate_requirements,
+    run_docs_contract,
     run_commit_msg,
     run_pre_commit,
     run_pre_push,
@@ -46,6 +47,15 @@ def register(gate_app: typer.Typer) -> None:
     def gate_pre_push() -> None:
         """Run pre-push gate checks."""
         ok, messages = run_pre_push()
+        for message in messages:
+            typer.echo(message)
+        if not ok:
+            raise typer.Exit(code=1)
+
+    @gate_app.command("docs")
+    def gate_docs() -> None:
+        """Run backlog/delivery documentation contract checks."""
+        ok, messages = run_docs_contract()
         for message in messages:
             typer.echo(message)
         if not ok:

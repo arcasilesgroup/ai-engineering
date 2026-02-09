@@ -1,5 +1,13 @@
 # Verification
 
+## Document Metadata
+
+- Doc ID: DEL-VERIFICATION
+- Owner: project-managed (delivery)
+- Status: active
+- Last reviewed: 2026-02-09
+- Source of truth: `.ai-engineering/context/delivery/verification.md`
+
 ## Update Metadata
 
 - Rationale: align verification scope with finalized command and policy model.

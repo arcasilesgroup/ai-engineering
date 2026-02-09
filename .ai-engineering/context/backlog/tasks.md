@@ -1,12 +1,20 @@
 # Tasks
 
+## Document Metadata
+
+- Doc ID: BL-TASKS
+- Owner: project-managed (backlog)
+- Status: active
+- Last reviewed: 2026-02-09
+- Source of truth: `.ai-engineering/context/backlog/tasks.md`
+
 ## Update Metadata
 
-- Rationale: sequence tasks according to architecture dependencies.
-- Expected gain: faster MVP execution with fewer blockers.
-- Potential impact: task IDs and ordering changed from previous drafts.
+- Rationale: keep backlog tasks focused on active executable work and move historical execution logs to delivery evidence.
+- Expected gain: lower planning noise and faster backlog-to-delivery navigation for humans and AI agents.
+- Potential impact: phase history is no longer maintained in this file.
 
-## P0 Tasks
+## P0 Task Catalog
 
 - T-001 implement installer creation of required ownership/state files.
 - T-002 implement ownership map enforcement in updater.
@@ -21,182 +29,38 @@
 - T-011 implement readiness validator for `gh`, `az`, hooks, and stack tooling.
 - T-012 implement sources lock/cache handling with checksum + signature metadata fields.
 
-## P1 Tasks
+## P1 Task Catalog
 
 - T-013 implement weekly maintenance-agent local reports.
 - T-014 implement report-to-PR workflow after approval.
 - T-015 implement context compaction checks and redundancy metrics.
 
+## Active Execution Queue (Now)
+
+- [ ] T-016 close carry-over item B-007: richer doctor/install readiness and ownership-safe update hook extensions.
+- [ ] T-017 close carry-over item F-007: execute charter workstreams W1-W5 end-to-end.
+- [ ] T-018 close carry-over item H-005: advanced merge strategy and migration hooks in updater.
+- [ ] T-019 close carry-over item K-006: Windows-safe hook launcher hardening.
+
 ## Definition of Done
 
 - all P0 tasks merged with tests.
 - cross-OS verification green on Windows, macOS, and Linux.
+- quality and security gates green: `unit`, `integration`, `e2e`, `ruff`, `ty`, `gitleaks`, `semgrep`, `pip-audit`.
 
-## Phase A Execution Log
+## Delivery and History References
 
-- [x] A-001 create root `AGENTS.md` aligned with governance contract.
-- [x] A-002 align `CLAUDE.md` with command/security/ownership contract.
-- [x] A-003 align root `README.md` with current product contract.
-- [x] A-004 harden `.claude/settings.local.json` by removing wildcard permissions.
-- [x] A-005 align `pyproject.toml` to Astral-first baseline metadata.
-- [x] A-006 run Phase A validations and record outputs.
-- [x] A-007 publish Phase A completion note in implementation log.
+- phase execution history: `.ai-engineering/context/delivery/evidence/execution-history.md`
+- implementation decision log: `.ai-engineering/context/delivery/implementation.md`
+- traceability mapping: `.ai-engineering/context/backlog/traceability-matrix.md`
 
-## Phase B Execution Log
+## Backlog Maintenance Log
 
-- Rationale: move from contract alignment to executable framework baseline.
-- Expected gain: enforceable state contracts and runnable CLI bootstrap commands.
-- Potential impact: introduces new module boundaries and runtime entrypoints.
-
-- [x] B-001 scaffold core packages (`cli`, `state`, `installer`, `doctor`, `detector`, `hooks`, `policy`, `standards`, `skills`, `updater`).
-- [x] B-002 implement state schemas and JSON/ndjson I/O helpers.
-- [x] B-003 implement default state payload generators for installer bootstrap.
-- [x] B-004 implement minimal `ai install` and `ai doctor` commands.
-- [x] B-005 add unit and integration tests for schema and CLI baseline.
-- [x] B-006 run quality checks (`ruff`, `pytest`, `ty`, `pip-audit`) in project virtualenv.
-- [ ] B-007 extend doctor/install behavior for richer readiness and ownership-safe update hooks.
-
-## Phase C Execution Log
-
-- Rationale: activate governance and security checks in real git workflows.
-- Expected gain: local enforcement catches violations before remote integration.
-- Potential impact: direct commit/push attempts on protected branches are blocked.
-
-- [x] C-001 replace placeholder hooks with managed hook scripts.
-- [x] C-002 add hook integrity verification in doctor readiness checks.
-- [x] C-003 implement gate engine for `pre-commit`, `commit-msg`, and `pre-push` stages.
-- [x] C-004 enforce protected branch blocking for `main` and `master` commit/push operations.
-- [x] C-005 integrate mandatory tools: `ruff`, `gitleaks`, `semgrep`, `pip-audit`, `pytest`, `ty`.
-- [x] C-006 add policy and integration tests for hook/gate behavior.
-- [x] C-007 improve failed-check remediation output and branch-policy discovery.
-
-## Phase D Execution Log
-
-- Rationale: operationalize user-facing command contract with governance guardrails.
-- Expected gain: predictable command behavior for commit/push/PR workflows.
-- Potential impact: CLI now orchestrates git/gh operations directly and can fail on governance checks.
-
-- [x] D-001 implement `commit` workflow (`stage + commit` and optional push).
-- [x] D-002 implement `pr` workflow (`stage + commit + push + create PR`).
-- [x] D-003 implement `acho` and `acho pr` command flows.
-- [x] D-004 implement `/pr --only` continuation modes with warning on unpushed branches.
-- [x] D-005 integrate decision-store reuse and persistence for PR-only unpushed-branch behavior.
-- [x] D-006 add unit tests for command workflow policy paths.
-- [x] D-007 add deeper E2E command tests with real git branch/remote scenarios.
-
-## Phase E Execution Log
-
-- Rationale: make remote skills and maintenance workflow operational for sustained governance quality.
-- Expected gain: predictable source lock behavior and recurring context health visibility.
-- Potential impact: extra state outputs and new CLI command surfaces (`skill`, `maintenance`).
-
-- [x] E-001 implement remote skills sync/list service with cache and lock updates.
-- [x] E-002 add CLI commands for `skill list`, `skill sync` with offline mode.
-- [x] E-003 implement maintenance local report generation and optional PR payload draft.
-- [x] E-004 add integration and unit tests for skills and maintenance behavior.
-- [x] E-005 enforce allowlist/pinning validation hard-fail logic in sync path.
-- [x] E-006 wire approved maintenance reports to optional automated PR command flow.
-
-## Phase F Execution Log
-
-- Rationale: establish a single canonical product contract and adoption strategy for the content-first rebuild.
-- Expected gain: removes ambiguity on scope, migration decisions, and rollout sequence.
-- Potential impact: legacy implementation assumptions are superseded by contract-first guidance.
-
-- [x] F-001 add `context/product/framework-contract.md` with finalized non-negotiable product contract.
-- [x] F-002 add `context/product/framework-adoption-map.md` mapping legacy assets (keep/adapt/drop).
-- [x] F-003 add `context/product/rebuild-rollout-charter.md` with milestones, validation plan, and readiness gates.
-- [x] F-004 fix CLI `Literal` compatibility regression and restore JSON command behavior.
-- [x] F-005 pin `click` compatibility for Typer 0.12 runtime stability.
-- [x] F-006 run full local quality gate validation (`ruff`, `pytest`, `ty`, `pip-audit`).
-- [ ] F-007 execute full implementation of charter workstreams W1-W5.
-
-## Phase G Execution Log
-
-- Rationale: begin legacy adoption execution while preserving content-first architecture and minimal Python runtime scope.
-- Expected gain: recover high-value legacy work without reintroducing runtime complexity.
-- Potential impact: installer now syncs canonical templates into target repositories when files are missing.
-
-- [x] G-001 add bundled quality standards templates (Sonar-like + SonarLint-like + Python profile).
-- [x] G-002 add bundled utility/validation skill templates from legacy concepts (platform detection, git helpers, install readiness).
-- [x] G-003 add compact multi-assistant project templates (`CLAUDE.md`, `codex.md`, Copilot instructions).
-- [x] G-004 implement template sync during `ai install` with ownership-safe create-only behavior.
-- [x] G-005 add integration tests for template creation and team-owned file preservation.
-- [x] G-006 run full local quality suite and record evidence.
-
-## Phase H Execution Log
-
-- Rationale: start ownership-safe updater phase to align update behavior with framework-managed vs team/project-managed boundaries.
-- Expected gain: deterministic dry-run/apply updates with explicit ownership enforcement.
-- Potential impact: update command now rewrites framework-managed files when apply mode is used.
-
-- [x] H-001 implement updater service with ownership-map rule evaluation and template diffing.
-- [x] H-002 add CLI `update` command with dry-run default and explicit `--apply` mode.
-- [x] H-003 extend ownership defaults to include framework template paths and assistant instruction files.
-- [x] H-004 add integration coverage for updater dry-run and ownership preservation behavior.
-- [ ] H-005 continue with advanced merge strategy and migration hooks from legacy updater model.
-
-## Phase I Execution Log
-
-- Rationale: remove template/canonical drift and keep installation outputs aligned with declared governance model.
-- Expected gain: deterministic installs and lower maintenance overhead for governance content updates.
-- Potential impact: installer sync surface expands to full non-state governance tree and may increase update report entries.
-
-- [x] I-001 merge template-only governance artifacts into canonical `.ai-engineering` where missing.
-- [x] I-002 mirror canonical non-state governance files into `src/ai_engineering/templates/.ai-engineering`.
-- [x] I-003 switch installer template mappings to dynamic discovery of bundled governance files.
-- [x] I-004 add regression test ensuring install creates every bundled governance template file.
-- [x] I-005 remove clearly outdated/unused tracked artifacts (`poetry.lock`, empty e2e placeholder).
-- [x] I-006 run full local quality suite (`ruff`, `pytest`, `ty`, `pip-audit`) and record evidence.
-
-## Phase K Execution Log
-
-- Rationale: close contract gaps by making PR auto-complete mandatory in documented command behavior and implementing full stack/IDE management commands.
-- Expected gain: full compliance with minimal Python runtime scope and fewer manual repo setup tasks.
-- Potential impact: installers and command workflows write additional manifest state for installed stacks/IDEs.
-
-- [x] K-001 update command contract and manifest to explicitly require PR auto-complete for `/pr` and `/acho pr`.
-- [x] K-002 implement `ai stack add/remove/list` workflows backed by bundled templates and safe cleanup rules.
-- [x] K-003 implement `ai ide add/remove/list` workflows with instruction template management and manifest tracking.
-- [x] K-004 extend install-manifest schema defaults with installed stack/IDE tracking.
-- [x] K-005 add integration and unit tests for stack/IDE lifecycle operations.
-- [ ] K-006 extend cross-OS hook launcher behavior for Windows-safe execution.
-
-## Phase L Execution Log
-
-- Rationale: remove non-contractual runtime surface and keep Python implementation minimal for governance-first scope.
-- Expected gain: lower maintenance burden and fewer risky operations in core CLI.
-- Potential impact: branch cleanup is no longer exposed as `ai git cleanup`.
-
-- [x] L-001 remove `ai git cleanup` command from core CLI surface.
-- [x] L-002 remove git cleanup runtime module and associated unit tests.
-- [x] L-003 remove unused standards package scaffold and dead pytest fixture.
-- [x] L-004 remove unused cleanup skill template from bundled framework content.
-- [x] L-005 simplify installer baseline layout by dropping unused `skills/git` bootstrap directory.
-- [x] L-006 run full local quality suite (`ruff`, `pytest`, `ty`, `pip-audit`) and record evidence.
-
-## Phase M Execution Log
-
-- Rationale: modularize CLI by domain and improve audit trace quality while preserving the command contract.
-- Expected gain: lower maintenance complexity and clearer governance evidence in audit records.
-- Potential impact: internal module paths changed, but command names/flags remain stable.
-
-- [x] M-001 split CLI into domain registration modules and keep a thin `ai_engineering.cli` entrypoint.
-- [x] M-002 add centralized app composition via CLI factory.
-- [x] M-003 enforce timestamp field on all appended ndjson audit events.
-- [x] M-004 ensure installs create `.ai-engineering/state/.gitignore` that keeps `audit-log.ndjson` local by default.
-- [x] M-005 remove root `.gitignore` exception and untrack existing `audit-log.ndjson` from git index.
-- [x] M-006 add/adjust tests for CLI stability, state gitignore behavior, and audit timestamp injection.
-- [x] M-007 run full local quality suite (`ruff`, `pytest`, `ty`, `pip-audit`) and record evidence.
-
-## Phase N Execution Log
-
-- Rationale: simplify workflow internals while preserving command contract behavior.
-- Expected gain: clearer execution paths and lower accidental complexity for PR-only modes.
-- Potential impact: internal-only refactor in workflow module.
-
-- [x] N-001 centralize PR-only policy constants and allowed-mode set.
-- [x] N-002 collapse repeated upstream checks to single state transition handling.
-- [x] N-003 extract defer-decision persistence helper for PR-only flow.
-- [x] N-004 simplify standard PR flow root reuse to avoid repeated repository lookups.
-- [x] N-005 run full local quality suite (`ruff`, `pytest`, `ty`, `pip-audit`) and record evidence.
+- [x] P-001 split active backlog tasks from historical phase execution logs.
+- [x] P-002 add active status board and backlog index entrypoint.
+- [x] P-003 re-point historical execution tracking to delivery evidence archive.
+- [x] Q-001 normalize document metadata headers across backlog and delivery artifacts.
+- [x] Q-002 add pre-merge backlog/delivery documentation checklist to review gates.
+- [x] R-001 add automated docs contract check to governance pre-commit gates.
+- [x] R-002 add CLI command to run docs contract check directly (`ai gate docs`).
+- [x] R-003 add unit tests for docs contract gate behavior.
