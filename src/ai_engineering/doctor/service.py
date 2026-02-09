@@ -65,7 +65,7 @@ def run_doctor(*, fix_hooks: bool = False, fix_tools: bool = False) -> dict[str,
     branch = current_branch(root)
     protected = sorted(discover_protected_branches(root))
 
-    remediation: dict[str, object] | None = None
+    remediation: dict[str, dict[str, object]] | None = None
     if fix_tools:
         remediation = _remediate_python_tools(root)
 
