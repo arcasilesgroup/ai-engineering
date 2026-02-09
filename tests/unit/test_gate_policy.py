@@ -76,3 +76,67 @@ def test_gate_requirements_includes_stages(monkeypatch) -> None:  # type: ignore
     assert isinstance(stages, dict)
     assert "pre-commit" in stages
     assert "pre-push" in stages
+
+
+def test_docs_contract_check_requires_metadata(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    doc = tmp_path / "backlog.md"
+    doc.write_text("# Backlog\n", encoding="utf-8")
+    review = tmp_path / "review.md"
+    review.write_text(
+        "# Review\n\n## Backlog and Delivery Docs Pre-Merge Checklist\n"
+        "- required gates: `unit` `integration` `e2e` `ruff` `ty` `gitleaks` `semgrep` `pip-audit`\n",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(gates, "DOC_CONTRACT_FILES", ("backlog.md", "review.md"))
+    monkeypatch.setattr(gates, "DOC_CONTRACT_REVIEW_FILE", "review.md")
+
+    ok, output = gates._run_docs_contract_check(tmp_path)
+
+    assert not ok
+    assert "missing '## Document Metadata'" in output
+
+
+def test_docs_contract_check_passes_with_required_fields(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    metadata_block = (
+        "## Document Metadata\n\n"
+        "- Doc ID: TEST\n"
+        "- Owner: team\n"
+        "- Status: active\n"
+        "- Last reviewed: 2026-02-09\n"
+    )
+    doc = tmp_path / "backlog.md"
+    doc.write_text(
+        f"# Backlog\n\n{metadata_block}- Source of truth: `backlog.md`\n",
+        encoding="utf-8",
+    )
+    review = tmp_path / "review.md"
+    review.write_text(
+        "# Review\n\n"
+        f"{metadata_block}"
+        "- Source of truth: `review.md`\n\n"
+        "## Backlog and Delivery Docs Pre-Merge Checklist\n"
+        "- required gates: `unit` `integration` `e2e` `ruff` `ty` `gitleaks` `semgrep` `pip-audit`\n",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(gates, "DOC_CONTRACT_FILES", ("backlog.md", "review.md"))
+    monkeypatch.setattr(gates, "DOC_CONTRACT_REVIEW_FILE", "review.md")
+
+    ok, output = gates._run_docs_contract_check(tmp_path)
+
+    assert ok
+    assert "passed" in output
+
+
+def test_pre_commit_reports_docs_contract_failure(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setattr(gates, "repo_root", lambda: Path.cwd())
+    monkeypatch.setattr(gates, "current_branch", lambda _root: "feature/x")
+    monkeypatch.setattr(gates, "discover_protected_branches", lambda _root: {"main", "master"})
+    monkeypatch.setattr(gates, "_run_tool", lambda _root, _tool, _args: (True, "ok"))
+    monkeypatch.setattr(gates, "_run_docs_contract_check", lambda _root: (False, "docs missing"))
+
+    ok, messages = gates.run_pre_commit()
+
+    assert not ok
+    assert any("docs-contract" in message for message in messages)

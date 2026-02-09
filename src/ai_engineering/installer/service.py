@@ -28,7 +28,6 @@ def ensure_layout(root: Path) -> Path:
         "standards/framework/quality",
         "standards/team/stacks",
         "skills/utils",
-        "skills/git",
         "skills/validation",
         "state",
     ):
@@ -67,6 +66,21 @@ def bootstrap_state_files(root: Path) -> dict[str, str]:
         created["audit-log.ndjson"] = "created"
     else:
         created["audit-log.ndjson"] = "exists"
+
+    state_gitignore = st / ".gitignore"
+    if not state_gitignore.exists():
+        state_gitignore.write_text(
+            "*\n"
+            "!.gitignore\n"
+            "!install-manifest.json\n"
+            "!ownership-map.json\n"
+            "!sources.lock.json\n"
+            "!decision-store.json\n",
+            encoding="utf-8",
+        )
+        created[".gitignore"] = "created"
+    else:
+        created[".gitignore"] = "exists"
     return created
 
 

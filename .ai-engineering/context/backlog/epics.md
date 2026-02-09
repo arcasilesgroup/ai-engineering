@@ -1,5 +1,13 @@
 # Epics
 
+## Document Metadata
+
+- Doc ID: BL-EPICS
+- Owner: project-managed (backlog)
+- Status: active
+- Last reviewed: 2026-02-09
+- Source of truth: `.ai-engineering/context/backlog/epics.md`
+
 ## Update Metadata
 
 - Rationale: rebase epics to final governance architecture.

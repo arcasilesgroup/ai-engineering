@@ -26,6 +26,11 @@ def test_install_creates_required_state_files(temp_repo: Path) -> None:
     assert (state_root / "sources.lock.json").exists()
     assert (state_root / "decision-store.json").exists()
     assert (state_root / "audit-log.ndjson").exists()
+    state_gitignore = state_root / ".gitignore"
+    assert state_gitignore.exists()
+    ignore_text = state_gitignore.read_text(encoding="utf-8")
+    assert "!decision-store.json" in ignore_text
+    assert "!audit-log.ndjson" not in ignore_text
 
     hooks_root = temp_repo / ".git" / "hooks"
     for hook in ("pre-commit", "commit-msg", "pre-push"):

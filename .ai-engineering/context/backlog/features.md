@@ -1,5 +1,13 @@
 # Features
 
+## Document Metadata
+
+- Doc ID: BL-FEATURES
+- Owner: project-managed (backlog)
+- Status: active
+- Last reviewed: 2026-02-09
+- Source of truth: `.ai-engineering/context/backlog/features.md`
+
 ## Update Metadata
 
 - Rationale: map feature scope to finalized policy and command decisions.

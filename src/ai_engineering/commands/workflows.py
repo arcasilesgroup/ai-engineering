@@ -19,6 +19,13 @@ from ai_engineering.state.models import DecisionStore
 
 
 PrOnlyMode = Literal["auto-push", "defer-pr", "attempt-pr-anyway", "export-pr-payload"]
+PR_ONLY_POLICY_ID = "PR_ONLY_UNPUSHED_BRANCH_MODE"
+PR_ONLY_ALLOWED_MODES: set[str] = {
+    "auto-push",
+    "defer-pr",
+    "attempt-pr-anyway",
+    "export-pr-payload",
+}
 
 
 def _run(args: list[str], *, cwd: Path) -> subprocess.CompletedProcess[str]:
@@ -125,26 +132,35 @@ def run_commit_workflow(*, message: str, push: bool) -> tuple[bool, list[str]]:
 
 
 def _resolve_pr_only_mode(root: Path, requested_mode: PrOnlyMode) -> PrOnlyMode:
-    policy_id = "PR_ONLY_UNPUSHED_BRANCH_MODE"
-    context = context_hash({"branch": current_branch(root), "policyId": policy_id})
+    context = context_hash({"branch": current_branch(root), "policyId": PR_ONLY_POLICY_ID})
     try:
         store = load_model(state_dir(root) / "decision-store.json", DecisionStore)
     except Exception:
         return requested_mode
     prior = find_valid_decision(
         store,
-        policy_id=policy_id,
+        policy_id=PR_ONLY_POLICY_ID,
         repo_name=_repo_name(root),
         context_hash_value=context,
     )
-    if prior is not None and prior.decision in {
-        "auto-push",
-        "defer-pr",
-        "attempt-pr-anyway",
-        "export-pr-payload",
-    }:
+    if prior is not None and prior.decision in PR_ONLY_ALLOWED_MODES:
         return prior.decision  # type: ignore[return-value]
     return requested_mode
+
+
+def _record_pr_only_defer_decision(root: Path, notes: list[str]) -> None:
+    c_hash = context_hash({"branch": current_branch(root), "policyId": PR_ONLY_POLICY_ID})
+    try:
+        append_decision(
+            state_dir(root) / "decision-store.json",
+            policy_id=PR_ONLY_POLICY_ID,
+            repo_name=_repo_name(root),
+            decision="defer-pr",
+            rationale="user declined auto-push for PR-only flow",
+            context_hash_value=c_hash,
+        )
+    except Exception:
+        notes.append("warning: could not persist decision-store record")
 
 
 def run_pr_only_workflow(
@@ -156,13 +172,14 @@ def run_pr_only_workflow(
 ) -> tuple[bool, list[str]]:
     root = repo_root()
     notes: list[str] = []
+    has_upstream = has_remote_upstream(root)
 
     effective_mode = mode
-    if not has_remote_upstream(root):
+    if not has_upstream:
         notes.append("warning: branch has no upstream. auto-push is recommended.")
         effective_mode = _resolve_pr_only_mode(root, mode)
 
-    if not has_remote_upstream(root) and effective_mode == "auto-push":
+    if not has_upstream and effective_mode == "auto-push":
         gate_ok, gate_messages = run_pre_push()
         if not gate_ok:
             return False, gate_messages
@@ -170,28 +187,16 @@ def run_pr_only_workflow(
         notes.append(push_msg)
         if not push_ok:
             return False, notes
+        has_upstream = True
 
-    if not has_remote_upstream(root) and effective_mode == "defer-pr":
+    if not has_upstream and effective_mode == "defer-pr":
         notes.append("defer-pr selected: PR not created yet")
         if record_decision:
-            c_hash = context_hash(
-                {"branch": current_branch(root), "policyId": "PR_ONLY_UNPUSHED_BRANCH_MODE"}
-            )
-            try:
-                append_decision(
-                    state_dir(root) / "decision-store.json",
-                    policy_id="PR_ONLY_UNPUSHED_BRANCH_MODE",
-                    repo_name=_repo_name(root),
-                    decision="defer-pr",
-                    rationale="user declined auto-push for PR-only flow",
-                    context_hash_value=c_hash,
-                )
-            except Exception:
-                notes.append("warning: could not persist decision-store record")
+            _record_pr_only_defer_decision(root, notes)
         _audit(root, "pr_only_deferred", {"mode": "defer-pr", "branch": current_branch(root)})
         return True, notes
 
-    if not has_remote_upstream(root) and effective_mode == "export-pr-payload":
+    if not has_upstream and effective_mode == "export-pr-payload":
         payload = {
             "title": title,
             "body": body,
@@ -220,18 +225,19 @@ def run_pr_only_workflow(
 
 
 def run_pr_workflow(*, message: str, title: str, body: str) -> tuple[bool, list[str]]:
+    root = repo_root()
     commit_ok, commit_notes = run_commit_workflow(message=message, push=True)
     if not commit_ok:
         return False, commit_notes
-    pr_ok, pr_message = create_pr(repo_root(), title, body)
+    pr_ok, pr_message = create_pr(root, title, body)
     notes = [*commit_notes, pr_message]
     if not pr_ok:
         return False, notes
 
-    auto_ok, auto_msg = enable_pr_auto_complete(repo_root())
+    auto_ok, auto_msg = enable_pr_auto_complete(root)
     notes.append(auto_msg)
     if auto_ok:
-        _audit(repo_root(), "pr_auto_complete_enabled", {"mode": "standard"})
+        _audit(root, "pr_auto_complete_enabled", {"mode": "standard"})
     else:
         notes.append("warning: PR created but auto-complete could not be enabled")
     return True, notes

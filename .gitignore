@@ -148,5 +148,4 @@ desktop.ini
 !.ai-engineering/state/ownership-map.json
 !.ai-engineering/state/sources.lock.json
 !.ai-engineering/state/decision-store.json
-!.ai-engineering/state/audit-log.ndjson
 .ai-engineering/.cache/
