@@ -37,6 +37,7 @@ def test_install_creates_required_state_files(temp_repo: Path) -> None:
         hook_path = hooks_root / hook
         assert hook_path.exists()
         assert "ai-engineering managed hook" in hook_path.read_text(encoding="utf-8")
+        assert "lefthook" not in hook_path.read_text(encoding="utf-8")
 
     assert (
         temp_repo / ".ai-engineering" / "standards" / "framework" / "quality" / "core.md"
@@ -88,6 +89,38 @@ def test_doctor_json_reports_expected_sections(temp_repo: Path) -> None:
     assert "toolingReadiness" in payload
     assert "branchPolicy" in payload
     assert "gitHooks" in payload["toolingReadiness"]
+
+
+def test_install_replaces_lefthook_wrappers(temp_repo: Path) -> None:
+    hooks_root = temp_repo / ".git" / "hooks"
+    hooks_root.mkdir(parents=True)
+    for hook in ("pre-commit", "commit-msg", "pre-push"):
+        (hooks_root / hook).write_text("#!/bin/sh\nlefthook run pre-commit\n", encoding="utf-8")
+
+    result = runner.invoke(app, ["install"])
+
+    assert result.exit_code == 0
+    for hook in ("pre-commit", "commit-msg", "pre-push"):
+        content = (hooks_root / hook).read_text(encoding="utf-8")
+        assert "ai-engineering managed hook" in content
+        assert "lefthook" not in content
+
+
+def test_doctor_fix_hooks_repairs_external_wrapper(temp_repo: Path) -> None:
+    (temp_repo / ".git").mkdir()
+    hooks_root = temp_repo / ".git" / "hooks"
+    hooks_root.mkdir(parents=True, exist_ok=True)
+    (hooks_root / "pre-commit").write_text("#!/bin/sh\nlefthook run pre-commit\n", encoding="utf-8")
+    (hooks_root / "commit-msg").write_text("#!/bin/sh\nlefthook run commit-msg\n", encoding="utf-8")
+    (hooks_root / "pre-push").write_text("#!/bin/sh\nlefthook run pre-push\n", encoding="utf-8")
+
+    result = runner.invoke(app, ["doctor", "--json", "--fix-hooks"])
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    hook_payload = payload["toolingReadiness"]["gitHooks"]
+    assert hook_payload["installed"] is True
+    assert hook_payload["managedByFramework"] is True
 
 
 def test_gate_list_json_reports_stages(temp_repo: Path) -> None:

@@ -26,7 +26,11 @@ def _candidate_paths(path: str) -> set[str]:
 def _matches(pattern: str, path: str) -> bool:
     path_candidates = _candidate_paths(path)
     pattern_candidates = _candidate_paths(pattern)
-    return any(fnmatch.fnmatch(candidate, candidate_pattern) for candidate in path_candidates for candidate_pattern in pattern_candidates)
+    return any(
+        fnmatch.fnmatch(candidate, candidate_pattern)
+        for candidate in path_candidates
+        for candidate_pattern in pattern_candidates
+    )
 
 
 def _rule_for_path(ownership: OwnershipMap, path: str) -> tuple[str, str] | None:

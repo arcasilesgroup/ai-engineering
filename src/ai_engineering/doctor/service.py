@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from ai_engineering.detector.readiness import detect_az, detect_gh, detect_python_tools
-from ai_engineering.hooks.manager import detect_hook_readiness
+from ai_engineering.hooks.manager import detect_hook_readiness, install_placeholder_hooks
 from ai_engineering.paths import ai_engineering_root, repo_root
 from ai_engineering.policy.gates import current_branch, discover_protected_branches
 from ai_engineering.state.io import load_model
@@ -36,9 +36,11 @@ def _validate_state_files(ae_root: Path) -> dict[str, bool]:
     return result
 
 
-def run_doctor() -> dict[str, object]:
+def run_doctor(*, fix_hooks: bool = False) -> dict[str, object]:
     """Run readiness checks and return machine-readable status."""
     root = repo_root()
+    if fix_hooks:
+        install_placeholder_hooks(root)
     ae_root = ai_engineering_root(root)
     state_checks = _validate_state_files(ae_root)
     hook_checks = detect_hook_readiness(root)

@@ -140,3 +140,33 @@ def test_pre_commit_reports_docs_contract_failure(monkeypatch) -> None:  # type:
 
     assert not ok
     assert any("docs-contract" in message for message in messages)
+
+
+def test_run_tool_attempts_auto_remediation(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setattr(gates, "_tool_path", lambda _root, _tool: None)
+    monkeypatch.setattr(
+        gates, "_attempt_tool_remediation", lambda _root, _tool: (False, "install failed")
+    )
+
+    ok, output = gates._run_tool(Path.cwd(), "ruff", ["check", "src"])
+
+    assert not ok
+    assert "missing required tool" in output
+
+
+def test_pre_push_surfaces_missing_tool_failure(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setattr(gates, "repo_root", lambda: Path.cwd())
+    monkeypatch.setattr(gates, "current_branch", lambda _root: "feature/x")
+    monkeypatch.setattr(gates, "discover_protected_branches", lambda _root: {"main", "master"})
+
+    def _fake_run_tool(_root: Path, tool: str, _args: list[str]) -> tuple[bool, str]:
+        if tool == "semgrep":
+            return False, "missing required tool: semgrep; auto-remediation failed"
+        return True, "ok"
+
+    monkeypatch.setattr(gates, "_run_tool", _fake_run_tool)
+
+    ok, messages = gates.run_pre_push()
+
+    assert not ok
+    assert any("semgrep" in message for message in messages)

@@ -78,6 +78,9 @@ No heavy policy engine should be embedded in Python if behavior can be declared 
   - dependency vulnerability checks
   - formatter/linter/security checks by detected stack
 - No skip guidance. Failures must be fixed locally.
+- If a mandatory tool is missing or not operational, agents must attempt local remediation in-order:
+  detect -> install -> configure/authenticate when applicable -> re-run failing check.
+- If remediation still fails due to environment constraints, operation remains blocked and explicit manual remediation steps are required.
 
 ### 6) Install and Bootstrap Behavior
 

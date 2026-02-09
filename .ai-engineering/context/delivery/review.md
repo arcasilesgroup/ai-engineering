@@ -56,4 +56,5 @@ When policy weakening is requested:
 - active-vs-history separation respected: no phase execution logs added to active backlog catalogs.
 - stale snapshot handling respected: historical snapshots are archived or explicitly marked deprecated.
 - required quality/security gate statement present for code-affecting work: `unit`, `integration`, `e2e`, `ruff`, `ty`, `gitleaks`, `semgrep`, `pip-audit`.
+- missing mandatory tooling was auto-remediated and checks re-run, or operation stayed blocked with explicit manual remediation steps.
 - references updated: `backlog/index.md`, `delivery/index.md`, and `backlog/status.md` reflect current state.

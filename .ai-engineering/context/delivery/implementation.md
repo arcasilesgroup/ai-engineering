@@ -294,3 +294,19 @@ Status:
 - Blockers: none.
 - Decisions: enforce docs contract on active backlog/delivery files only; deprecated historical snapshots remain out of the mandatory set.
 - Next step: optionally add a dedicated docs-check step to CI reporting for clearer visibility separate from pre-commit output.
+
+### 2026-02-09 - Phase S / Native Hook Hardening + Tool Auto-Remediation
+
+- Rationale: enforce non-bypassable local gates without lefthook dependency and guarantee that missing mandatory tools trigger remediation-before-retry behavior.
+- Expected gain: deterministic `.git/hooks` behavior, stronger cross-OS hook reliability, and lower false success rates when local tooling is missing.
+- Potential impact: commit/push operations now attempt auto-install for missing mandatory tools and fail closed if remediation cannot complete.
+- Work completed: hardened managed hook scripts to use fail-closed execution with cross-OS python launcher fallback (`.venv/bin/python`, `.venv/Scripts/python.exe`, `python3`, `python`, then `ai`).
+- Work completed: expanded hook readiness to detect external wrapper conflicts (including lefthook wrappers) and expose managed/integrity/conflict status details.
+- Work completed: added optional `ai doctor --fix-hooks` repair flow to reinstall framework-managed hooks before readiness checks.
+- Work completed: implemented gate-level missing-tool auto-remediation with re-run behavior for Python baseline tools and `gitleaks` package-manager install attempts.
+- Work completed: clarified contract and standards text so agents must remediate missing tools locally before continuing.
+- Changed modules: `src/ai_engineering/hooks/manager.py`, `src/ai_engineering/policy/gates.py`, `src/ai_engineering/doctor/service.py`, `src/ai_engineering/cli_commands/core.py`, `tests/integration/test_cli_install_doctor.py`, `tests/unit/test_gate_policy.py`, `tests/unit/test_hooks_manager.py`, `.ai-engineering/context/product/framework-contract.md`, `.ai-engineering/standards/framework/core.md`, `.ai-engineering/context/delivery/review.md`, template mirrors under `src/ai_engineering/templates/.ai-engineering/**`, and delivery/backlog phase logs.
+- Validation run: `.venv/bin/ruff check src tests` and `.venv/bin/python -m pytest`.
+- Blockers: none.
+- Decisions: keep operation blocked when remediation cannot complete (permissions/network/auth constraints) and return explicit manual remediation steps.
+- Next step: add CI visibility split for pre-commit vs pre-push gate subsets to make remediation failures easier to triage.

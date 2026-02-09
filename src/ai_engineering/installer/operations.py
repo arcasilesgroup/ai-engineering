@@ -56,7 +56,9 @@ def add_stack(name: str) -> dict[str, Any]:
     framework_source = templates / "framework" / "stacks" / f"{name}.md"
     team_source = templates / "team" / "stacks" / f"{name}.md"
 
-    framework_destination = root / ".ai-engineering" / "standards" / "framework" / "stacks" / f"{name}.md"
+    framework_destination = (
+        root / ".ai-engineering" / "standards" / "framework" / "stacks" / f"{name}.md"
+    )
     team_destination = root / ".ai-engineering" / "standards" / "team" / "stacks" / f"{name}.md"
 
     result = {
@@ -70,7 +72,12 @@ def add_stack(name: str) -> dict[str, Any]:
     manifest.installedStacks = sorted(stacks)
     _save_manifest(root, manifest)
 
-    return {"ok": True, "stack": name, "result": result, "installedStacks": manifest.installedStacks}
+    return {
+        "ok": True,
+        "stack": name,
+        "result": result,
+        "installedStacks": manifest.installedStacks,
+    }
 
 
 def remove_stack(name: str) -> dict[str, Any]:
@@ -83,7 +90,9 @@ def remove_stack(name: str) -> dict[str, Any]:
     if not framework_source.exists() or not team_source.exists():
         return {"ok": False, "message": f"unsupported stack: {name}"}
 
-    framework_destination = root / ".ai-engineering" / "standards" / "framework" / "stacks" / f"{name}.md"
+    framework_destination = (
+        root / ".ai-engineering" / "standards" / "framework" / "stacks" / f"{name}.md"
+    )
     team_destination = root / ".ai-engineering" / "standards" / "team" / "stacks" / f"{name}.md"
 
     framework_status = _remove_if_safe(
@@ -109,7 +118,11 @@ def add_ide(name: str) -> dict[str, Any]:
     """Install IDE-specific instruction templates where applicable."""
     root = repo_root()
     if name not in SUPPORTED_IDES:
-        return {"ok": False, "message": f"unsupported ide: {name}", "availableIdes": sorted(SUPPORTED_IDES)}
+        return {
+            "ok": False,
+            "message": f"unsupported ide: {name}",
+            "availableIdes": sorted(SUPPORTED_IDES),
+        }
 
     result = "recorded"
     mapping = PROJECT_TEMPLATE_BY_IDE.get(name)
@@ -132,7 +145,11 @@ def remove_ide(name: str) -> dict[str, Any]:
     """Remove IDE-specific instruction templates with safe cleanup semantics."""
     root = repo_root()
     if name not in SUPPORTED_IDES:
-        return {"ok": False, "message": f"unsupported ide: {name}", "availableIdes": sorted(SUPPORTED_IDES)}
+        return {
+            "ok": False,
+            "message": f"unsupported ide: {name}",
+            "availableIdes": sorted(SUPPORTED_IDES),
+        }
 
     status = "recorded"
     mapping = PROJECT_TEMPLATE_BY_IDE.get(name)
