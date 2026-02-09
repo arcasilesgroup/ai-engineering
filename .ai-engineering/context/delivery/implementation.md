@@ -310,3 +310,17 @@ Status:
 - Blockers: none.
 - Decisions: keep operation blocked when remediation cannot complete (permissions/network/auth constraints) and return explicit manual remediation steps.
 - Next step: add CI visibility split for pre-commit vs pre-push gate subsets to make remediation failures easier to triage.
+
+### 2026-02-09 - Phase T / Documentation Contract Alignment + Governance Cleanup
+
+- Rationale: close P0 documentation governance drift so command behavior, ownership scope, and stale phase artifacts are consistent across canonical and assistant-facing docs.
+- Expected gain: fewer policy interpretation conflicts and faster, safer `/pr` execution with a single command narrative.
+- Potential impact: command behavior text in root and template docs becomes stricter and phase-J delivery snapshot file is removed from active context.
+- Work completed: normalized `/pr` and `/acho pr` descriptions to include mandatory PR auto-complete and aligned `/pr --only` continuation wording where applicable.
+- Work completed: aligned manifest/framework ownership wording by explicitly including framework-managed skills and project-root assistant files in the manifest contract model.
+- Work completed: removed stale `.ai-engineering/context/delivery/phase-j-auto-complete-git-cleanup.md` from active delivery artifacts.
+- Changed modules: `AGENTS.md`, `CLAUDE.md`, `.ai-engineering/{README.md,manifest.yml}`, `.ai-engineering/standards/framework/core.md`, `.ai-engineering/context/product/{framework-contract.md,vision.md}`, `.ai-engineering/context/backlog/tasks.md`, `.ai-engineering/context/delivery/implementation.md`, `src/ai_engineering/templates/.ai-engineering/**`, `src/ai_engineering/templates/project/{CLAUDE.md,codex.md,copilot-instructions.md}`.
+- Validation run: documentation contract consistency pass across command semantics, ownership model wording, and stale phase artifact removal.
+- Blockers: none.
+- Decisions: keep null checksums allowed only before first successful skill sync and require pinned checksums afterward.
+- Next step: create PR with remediation checklist and follow-up P1 scope for mirror drift reduction in high-churn context files.

@@ -15,10 +15,10 @@ Project instructions are canonical in `.ai-engineering/`.
 
 - `/commit` -> stage + commit + push
 - `/commit --only` -> stage + commit
-- `/pr` -> stage + commit + push + create PR
-- `/pr --only` -> create PR
+- `/pr` -> stage + commit + push + create PR + enable auto-complete (`--auto --squash --delete-branch`)
+- `/pr --only` -> create PR; if branch is unpushed, warn and propose auto-push; if declined, continue with selected mode
 - `/acho` -> stage + commit + push
-- `/acho pr` -> stage + commit + push + create PR
+- `/acho pr` -> stage + commit + push + create PR + enable auto-complete (`--auto --squash --delete-branch`)
 
 ## Non-Negotiables
 

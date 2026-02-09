@@ -102,14 +102,12 @@ No heavy policy engine should be embedded in Python if behavior can be declared 
 
 - `/commit` -> stage + commit + push.
 - `/commit --only` -> stage + commit.
-- `/pr` -> stage + commit + push + create PR.
+- `/pr` -> stage + commit + push + create PR + enable auto-complete (`--auto --squash --delete-branch`).
 - `/pr --only` -> create PR.
 - `/acho` -> stage + commit + push.
-- `/acho pr` -> stage + commit + push + create PR.
+- `/acho pr` -> stage + commit + push + create PR + enable auto-complete (`--auto --squash --delete-branch`).
 
-Mandatory PR behavior:
-
-- `/pr` and `/acho pr` must enable PR auto-complete using squash merge and branch cleanup.
+Mandatory PR behavior is embedded in the command definitions above.
 
 Stack and IDE management commands:
 
@@ -160,6 +158,12 @@ Stack and IDE management commands:
   - `state/sources.lock.json`
   - `state/decision-store.json`
   - `state/audit-log.ndjson`
+
+Additional framework-managed project-root files:
+
+- `CLAUDE.md`
+- `codex.md`
+- `.github/copilot-instructions.md`
 
 ### Update Rules
 
@@ -219,7 +223,7 @@ Stack and IDE management commands:
 
 - Author canonical governance content in repository root `.ai-engineering/`.
 - Mirror distributable template content in `src/ai_engineering/templates/.ai-engineering/`.
-- Keep non-state files identical between canonical and template mirror.
+- Keep non-state files identical between canonical and template mirror, except high-churn project execution logs (`context/backlog/tasks.md`, `context/delivery/implementation.md`, and `context/delivery/evidence/**`) that remain canonical-only runtime artifacts.
 - Generate `state/*` at install/update runtime from typed defaults and migrations.
 - Installer replication rule: create missing files only; never overwrite existing team/project customizations.
 
@@ -243,6 +247,10 @@ Required controls:
 - cache TTL,
 - offline fallback,
 - no unsafe remote execution patterns.
+
+Bootstrap exception:
+
+- null checksum values are allowed only before first successful sync and must be replaced by pinned checksums afterward.
 
 ## AI Permissions Policy (DevEx + Security)
 

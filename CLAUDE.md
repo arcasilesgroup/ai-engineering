@@ -27,10 +27,10 @@ Follow this sequence for non-trivial work:
 
 - `/commit` -> stage + commit + push current branch
 - `/commit --only` -> stage + commit
-- `/pr` -> stage + commit + push + create PR
+- `/pr` -> stage + commit + push + create PR + enable auto-complete (`--auto --squash --delete-branch`)
 - `/pr --only` -> create PR; if branch is unpushed, warn and propose auto-push; if declined, continue with selected mode
 - `/acho` -> stage + commit + push current branch
-- `/acho pr` -> stage + commit + push + create PR
+- `/acho pr` -> stage + commit + push + create PR + enable auto-complete (`--auto --squash --delete-branch`)
 
 ## Security and Quality Rules
 

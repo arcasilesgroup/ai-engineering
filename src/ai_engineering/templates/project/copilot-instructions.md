@@ -11,6 +11,7 @@ Use `.ai-engineering/` as canonical project policy and context.
 ## Workflow Contract
 
 - use governed `/commit`, `/pr`, and `/acho` flows,
+- enforce PR auto-complete for `/pr` and `/acho pr` (`--auto --squash --delete-branch`),
 - do not suggest bypass of hooks,
 - keep updates ownership-safe.
 

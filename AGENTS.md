@@ -43,10 +43,10 @@ Agents must never overwrite team-managed or project-managed content during frame
 
 - `/commit` -> stage + commit + push current branch
 - `/commit --only` -> stage + commit
-- `/pr` -> stage + commit + push + create PR
+- `/pr` -> stage + commit + push + create PR + enable auto-complete (`--auto --squash --delete-branch`)
 - `/pr --only` -> create PR; if branch is unpushed, warn and propose auto-push; continue via selected mode if declined
 - `/acho` -> stage + commit + push current branch
-- `/acho pr` -> stage + commit + push + create PR
+- `/acho pr` -> stage + commit + push + create PR + enable auto-complete (`--auto --squash --delete-branch`)
 
 ## Decision and Audit Rules
 

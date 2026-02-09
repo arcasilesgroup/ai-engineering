@@ -11,6 +11,7 @@ Use `.ai-engineering/` as the only governance and context source.
 ## Command Behavior
 
 - `/commit` and `/acho` push current branch after governed checks.
+- `/pr` and `/acho pr` create PRs with auto-complete enabled (`--auto --squash --delete-branch`).
 - `/pr --only` warns on unpushed branch and proposes auto-push, then continues by selected mode.
 
 ## Security and Quality

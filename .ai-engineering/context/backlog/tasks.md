@@ -68,3 +68,6 @@
 - [x] S-002 harden hook runtime scripts with fail-closed cross-OS python launcher fallback.
 - [x] S-003 add gate auto-remediation for missing mandatory tools and re-run checks.
 - [x] S-004 add install/doctor and unit tests covering lefthook wrapper replacement and hook readiness conflict detection.
+- [x] T-001 align command contract wording across canonical, root, and assistant template docs (auto-complete + PR-only continuation).
+- [x] T-002 align ownership contract wording between manifest and framework contract for skills and project-root managed assistant files.
+- [x] T-003 remove stale active Phase J delivery snapshot and keep backlog/delivery references on active artifacts only.
