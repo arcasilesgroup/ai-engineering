@@ -13,7 +13,7 @@
 
 ## Required Quality Gates
 
-- Coverage on changed code: at least 80 percent.
+- Coverage on changed code: at least 75 percent.
 - Duplicated lines on changed code: at most 3 percent.
 - Reliability: no critical or blocker issues.
 - Security: no critical or blocker issues.

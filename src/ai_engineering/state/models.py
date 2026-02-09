@@ -166,6 +166,7 @@ class DecisionScope(BaseModel):
     repo: str
     pathPattern: str | None = None
     policyId: str
+    policyVersion: str | None = None
 
 
 class DecisionRecord(BaseModel):

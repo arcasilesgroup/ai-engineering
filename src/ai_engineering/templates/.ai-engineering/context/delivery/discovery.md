@@ -1,5 +1,13 @@
 # Discovery
 
+## Document Metadata
+
+- Doc ID: DEL-DISCOVERY
+- Owner: project-managed (delivery)
+- Status: active
+- Last reviewed: 2026-02-09
+- Source of truth: `.ai-engineering/context/delivery/discovery.md`
+
 ## Update Metadata
 
 - Rationale: capture finalized requirements and assumptions for execution.

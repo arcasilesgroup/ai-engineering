@@ -13,13 +13,14 @@ from ai_engineering.policy.gates import (
     run_pre_commit,
     run_pre_push,
 )
-from ai_engineering.state.decision_logic import append_decision, context_hash, find_valid_decision
+from ai_engineering.state.decision_logic import append_decision, context_hash, evaluate_reuse
 from ai_engineering.state.io import append_ndjson, load_model
 from ai_engineering.state.models import DecisionStore
 
 
 PrOnlyMode = Literal["auto-push", "defer-pr", "attempt-pr-anyway", "export-pr-payload"]
 PR_ONLY_POLICY_ID = "PR_ONLY_UNPUSHED_BRANCH_MODE"
+PR_ONLY_POLICY_VERSION = "1"
 PR_ONLY_ALLOWED_MODES: set[str] = {
     "auto-push",
     "defer-pr",
@@ -137,13 +138,16 @@ def _resolve_pr_only_mode(root: Path, requested_mode: PrOnlyMode) -> PrOnlyMode:
         store = load_model(state_dir(root) / "decision-store.json", DecisionStore)
     except Exception:
         return requested_mode
-    prior = find_valid_decision(
+    evaluation = evaluate_reuse(
         store,
         policy_id=PR_ONLY_POLICY_ID,
         repo_name=_repo_name(root),
         context_hash_value=context,
+        severity="medium",
+        policy_version=PR_ONLY_POLICY_VERSION,
     )
-    if prior is not None and prior.decision in PR_ONLY_ALLOWED_MODES:
+    prior = evaluation.record
+    if evaluation.reusable and prior is not None and prior.decision in PR_ONLY_ALLOWED_MODES:
         return prior.decision  # type: ignore[return-value]
     return requested_mode
 
@@ -158,6 +162,7 @@ def _record_pr_only_defer_decision(root: Path, notes: list[str]) -> None:
             decision="defer-pr",
             rationale="user declined auto-push for PR-only flow",
             context_hash_value=c_hash,
+            policy_version=PR_ONLY_POLICY_VERSION,
         )
     except Exception:
         notes.append("warning: could not persist decision-store record")

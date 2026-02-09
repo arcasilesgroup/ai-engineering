@@ -1,5 +1,13 @@
 # Target Architecture
 
+## Document Metadata
+
+- Doc ID: DEL-ARCHITECTURE
+- Owner: project-managed (delivery)
+- Status: active
+- Last reviewed: 2026-02-09
+- Source of truth: `.ai-engineering/context/delivery/architecture.md`
+
 ## Update Metadata
 
 - Rationale: replace legacy architecture with current governance contract.

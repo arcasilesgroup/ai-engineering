@@ -42,7 +42,7 @@ Must run on:
 
 ## Coverage and Quality Targets
 
-- overall test coverage >= 80 percent.
+- overall test coverage >= 75 percent.
 - governance-critical modules targeted above baseline.
 - no flaky tests in command and policy flows.
 

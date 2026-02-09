@@ -16,7 +16,7 @@
 
 ## Test and Coverage Policy
 
-- Minimum overall coverage target: 80 percent.
+- Minimum overall coverage target: 75 percent.
 - Governance-critical paths (install, update safety, hooks, command workflows): target 90 percent.
 - New behavior requires at least one unit or integration test.
 

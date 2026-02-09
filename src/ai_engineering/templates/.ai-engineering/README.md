@@ -12,7 +12,7 @@ Canonical governance root for the `ai-engineering` framework and for installed i
 
 | Scope | Paths | Update Rule |
 |---|---|---|
-| Framework-managed | `standards/framework/**` | Framework updater may modify |
+| Framework-managed | `standards/framework/**`, `skills/**`, `CLAUDE.md`, `codex.md`, `.github/copilot-instructions.md` | Framework updater may modify |
 | Team-managed | `standards/team/**` | Never overwritten by framework updater |
 | Project-managed | `context/**` | Never overwritten by framework updater |
 | System-managed | `state/*.json`, `state/*.ndjson` | Managed by installer/updater/runtime |

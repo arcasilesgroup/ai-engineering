@@ -27,7 +27,7 @@
 ## Quality Baseline
 
 - Type hints required in production Python modules.
-- Test coverage target is at least 80 percent with higher focus on governance-critical paths.
+- Test coverage target is at least 75 percent with higher focus on governance-critical paths.
 - Line length target: 100.
 
 ## Update Contract

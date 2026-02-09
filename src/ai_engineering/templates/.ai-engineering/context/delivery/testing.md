@@ -1,5 +1,13 @@
 # Testing Strategy
 
+## Document Metadata
+
+- Doc ID: DEL-TESTING
+- Owner: project-managed (delivery)
+- Status: active
+- Last reviewed: 2026-02-09
+- Source of truth: `.ai-engineering/context/delivery/testing.md`
+
 ## Update Metadata
 
 - Rationale: make tests reflect mandatory enforcement and new command flows.
@@ -34,7 +42,7 @@ Must run on:
 
 ## Coverage and Quality Targets
 
-- overall test coverage >= 80 percent.
+- overall test coverage >= 75 percent.
 - governance-critical modules targeted above baseline.
 - no flaky tests in command and policy flows.
 

@@ -1,5 +1,13 @@
 # Iteration and Maintenance
 
+## Document Metadata
+
+- Doc ID: DEL-ITERATION
+- Owner: project-managed (delivery)
+- Status: active
+- Last reviewed: 2026-02-09
+- Source of truth: `.ai-engineering/context/delivery/iteration.md`
+
 ## Update Metadata
 
 - Rationale: codify maintenance-agent and decision-reuse behavior.

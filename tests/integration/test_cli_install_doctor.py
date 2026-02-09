@@ -267,3 +267,89 @@ def test_ide_add_remove_copilot_file(temp_repo: Path) -> None:
     assert remove_result.exit_code == 0
     payload = json.loads(remove_result.stdout)
     assert payload["result"] in {"removed", "missing"}
+
+
+def test_gate_risk_accept_persists_decision_and_audit(temp_repo: Path) -> None:
+    (temp_repo / ".git").mkdir()
+    install_result = runner.invoke(app, ["install"])
+    assert install_result.exit_code == 0
+
+    result = runner.invoke(
+        app,
+        [
+            "gate",
+            "risk-accept",
+            "--policy-id",
+            "MANDATORY_TOOLING_ENFORCEMENT",
+            "--policy-version",
+            "1",
+            "--decision",
+            "accept-risk",
+            "--rationale",
+            "manual exception requested",
+            "--severity",
+            "high",
+            "--context",
+            '{"scope":"pre-push"}',
+            "--path-pattern",
+            "src/**",
+            "--actor",
+            "tester",
+        ],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["policyId"] == "MANDATORY_TOOLING_ENFORCEMENT"
+    assert payload["severity"] == "high"
+
+    state_root = temp_repo / ".ai-engineering" / "state"
+    store = json.loads((state_root / "decision-store.json").read_text(encoding="utf-8"))
+    assert len(store["decisions"]) >= 1
+    events = (state_root / "audit-log.ndjson").read_text(encoding="utf-8").splitlines()
+    assert any("risk_acceptance_recorded" in event for event in events)
+
+
+def test_gate_risk_check_reports_policy_change(temp_repo: Path) -> None:
+    (temp_repo / ".git").mkdir()
+    install_result = runner.invoke(app, ["install"])
+    assert install_result.exit_code == 0
+
+    accept_result = runner.invoke(
+        app,
+        [
+            "gate",
+            "risk-accept",
+            "--policy-id",
+            "NO_DIRECT_COMMIT_PROTECTED_BRANCH",
+            "--policy-version",
+            "1",
+            "--decision",
+            "defer-pr",
+            "--rationale",
+            "test",
+            "--context",
+            '{"branch":"feature/x"}',
+        ],
+    )
+    assert accept_result.exit_code == 0
+
+    check_result = runner.invoke(
+        app,
+        [
+            "gate",
+            "risk-check",
+            "--policy-id",
+            "NO_DIRECT_COMMIT_PROTECTED_BRANCH",
+            "--policy-version",
+            "2",
+            "--severity",
+            "medium",
+            "--context",
+            '{"branch":"feature/x"}',
+        ],
+    )
+    assert check_result.exit_code == 0
+    payload = json.loads(check_result.stdout)
+    assert payload["reusable"] is False
+    assert payload["reason"] == "policy_changed"

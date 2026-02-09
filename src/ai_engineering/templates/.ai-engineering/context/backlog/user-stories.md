@@ -1,5 +1,13 @@
 # User Stories
 
+## Document Metadata
+
+- Doc ID: BL-STORIES
+- Owner: project-managed (backlog)
+- Status: active
+- Last reviewed: 2026-02-09
+- Source of truth: `.ai-engineering/context/backlog/user-stories.md`
+
 ## Update Metadata
 
 - Rationale: recast stories around the final command and governance model.

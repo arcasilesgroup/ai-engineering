@@ -25,18 +25,21 @@ ai-engineering is primarily a content framework:
 - Markdown, YAML, JSON, and Bash define behavior and governance.
 - `.ai-engineering/` is the canonical source of truth.
 
-Python is intentionally minimal and operational.
+Python is intentionally operational and bounded to governance workflows.
 
 ### Minimal Python Runtime Scope
 
-Python is used only for:
+Python runtime scope is restricted to:
 
 1. `install` - copy templates, set up hooks, run readiness checks.
 2. `update` - ownership-safe updates and migrations.
 3. `doctor` - verify installed/configured/authenticated/ready state.
 4. `add/remove stack|ide` - safe template operations and cleanup.
+5. governed command workflows (`/commit`, `/pr`, `/acho`) and local gate enforcement.
+6. risk acceptance persistence/reuse checks and append-only audit event handling.
+7. remote skills lock/cache enforcement and maintenance report generation.
 
-No heavy policy engine should be embedded in Python if behavior can be declared in governance content.
+Governance semantics remain content-first in `.ai-engineering/**`; Python orchestration must stay deterministic and test-covered.
 
 ## Product Principles (Non-Negotiable)
 
@@ -71,7 +74,7 @@ No heavy policy engine should be embedded in Python if behavior can be declared 
 
 ### 5) Mandatory Local Enforcement
 
-- Git hooks always enabled and non-bypassable.
+- Git hooks always enabled and non-bypassable within governed command workflows.
 - Mandatory checks include:
   - `gitleaks`
   - `semgrep` (OWASP-oriented SAST)
@@ -85,7 +88,7 @@ No heavy policy engine should be embedded in Python if behavior can be declared 
 ### 6) Install and Bootstrap Behavior
 
 - Existing repo: detect stack/IDE/platform and adapt.
-- Empty repo: guided initialization wizard.
+- Empty repo: deterministic baseline initialization with readiness diagnostics.
 - Installer must ensure first-commit readiness.
 - Support add/remove stack and add/remove IDE with safe cleanup.
 - Operational readiness means each required tool is:
@@ -150,6 +153,10 @@ Stack and IDE management commands:
 
 - framework-managed (updatable):
   - `standards/framework/**`
+  - `skills/**`
+  - `CLAUDE.md`
+  - `codex.md`
+  - `.github/copilot-instructions.md`
 - team-managed (never overwritten by framework update):
   - `standards/team/**`
 - project-managed (never overwritten by framework update):
@@ -249,6 +256,7 @@ Required controls:
 - Default allow: read/list/get/search/inspect operations.
 - Guardrailed: write/execute/high-impact actions.
 - Restricted: destructive and sensitive operations.
+- Policies are implemented through assistant instruction content and governed command wrappers.
 - Policies must never weaken local enforcement or governance controls.
 
 ## Quality Model (Sonar-like without Local Sonar Server)

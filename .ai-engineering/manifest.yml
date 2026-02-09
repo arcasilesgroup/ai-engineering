@@ -16,6 +16,10 @@ ownership:
   model:
     framework_managed:
       - "standards/framework/**"
+      - "skills/**"
+      - "CLAUDE.md"
+      - "codex.md"
+      - ".github/copilot-instructions.md"
     team_managed:
       - "standards/team/**"
     project_managed:
@@ -104,6 +108,7 @@ enforcement:
       - "ruff-format"
       - "ruff-lint"
       - "gitleaks"
+      - "docs-contract"
     pre_push:
       - "semgrep"
       - "pip-audit"
