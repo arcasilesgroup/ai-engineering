@@ -64,3 +64,7 @@
 - [x] R-001 add automated docs contract check to governance pre-commit gates.
 - [x] R-002 add CLI command to run docs contract check directly (`ai gate docs`).
 - [x] R-003 add unit tests for docs contract gate behavior.
+- [x] S-001 enforce framework-managed native `.git/hooks` scripts and remove lefthook dependency from hook runtime.
+- [x] S-002 harden hook runtime scripts with fail-closed cross-OS python launcher fallback.
+- [x] S-003 add gate auto-remediation for missing mandatory tools and re-run checks.
+- [x] S-004 add install/doctor and unit tests covering lefthook wrapper replacement and hook readiness conflict detection.

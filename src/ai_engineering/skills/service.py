@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any, Callable
 from urllib.error import URLError
 from urllib.parse import urlparse
-from urllib.request import urlopen
+from urllib.request import Request, urlopen
 
 from ai_engineering.paths import ai_engineering_root, repo_root, state_dir
 from ai_engineering.state.io import load_model, write_json
@@ -29,7 +29,12 @@ def _cache_file_path(cache_dir: Path, url: str) -> Path:
 
 
 def _fetch_url(url: str, timeout: int = 15) -> bytes:
-    with urlopen(url, timeout=timeout) as response:  # noqa: S310 - allowlisted by lock policy
+    parsed = urlparse(url)
+    host = parsed.hostname
+    if parsed.scheme != "https" or host is None or host not in ALLOWED_SKILL_HOSTS:
+        raise URLError("source url is not an allowlisted https host")
+    request = Request(url, method="GET")
+    with urlopen(request, timeout=timeout) as response:  # noqa: S310  # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
         return response.read()
 
 

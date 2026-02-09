@@ -20,6 +20,12 @@
 - dependency vulnerability checks (`pip-audit` in Python baseline).
 - stack checks (`uv`, `ruff`, `ty`, tests).
 
+## Tool Remediation Rule
+
+- missing mandatory tools must be remediated locally before continuing.
+- remediation order: detect -> install -> configure/authenticate -> re-run failed checks.
+- if remediation cannot complete, keep operation blocked and provide explicit manual steps.
+
 ## Blocking Policies
 
 - no direct commits to `main` or `master`.

@@ -77,6 +77,7 @@ If branch is not pushed:
 | Phase P | Structure reorganization (indexes, status board, active-vs-history split) | Completed |
 | Phase Q | Documentation hardening (metadata normalization and pre-merge checklist) | Completed |
 | Phase R | Automated docs contract enforcement (gate + CLI + tests) | Completed |
+| Phase S | Native hook hardening and missing-tool auto-remediation | Completed |
 
 ## Phase Status Alignment Notes
 

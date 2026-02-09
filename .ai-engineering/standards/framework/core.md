@@ -22,6 +22,8 @@ Framework-owned baseline standards for every installed instance.
 
 - All mandatory checks run locally before commit/push operations.
 - Failing mandatory checks block the operation.
+- Missing mandatory tools must be auto-remediated locally before retrying checks.
+- Auto-remediation order: detect -> install -> configure/authenticate if applicable -> re-run check.
 - Team or project layers may add stricter rules, but cannot weaken this file.
 
 ## Command Governance

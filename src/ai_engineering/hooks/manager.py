@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 
 HOOKS = ("pre-commit", "commit-msg", "pre-push")
@@ -15,12 +16,25 @@ def _hook_script(stage: str) -> str:
         command = 'gate commit-msg "$1"'
     return (
         "#!/bin/sh\n"
+        "set -eu\n"
         "# ai-engineering managed hook\n"
         "if [ -x .venv/bin/python ]; then\n"
-        "  PYTHONPATH=src .venv/bin/python -m ai_engineering.cli "
+        "  exec env PYTHONPATH=src .venv/bin/python -m ai_engineering.cli "
         f"{command}\n"
+        "elif [ -x .venv/Scripts/python.exe ]; then\n"
+        "  exec env PYTHONPATH=src .venv/Scripts/python.exe -m ai_engineering.cli "
+        f"{command}\n"
+        "elif command -v python3 >/dev/null 2>&1; then\n"
+        "  exec env PYTHONPATH=src python3 -m ai_engineering.cli "
+        f"{command}\n"
+        "elif command -v python >/dev/null 2>&1; then\n"
+        "  exec env PYTHONPATH=src python -m ai_engineering.cli "
+        f"{command}\n"
+        "elif command -v ai >/dev/null 2>&1; then\n"
+        f"  exec ai {command}\n"
         "else\n"
-        f"  ai {command}\n"
+        f"  echo 'missing runtime for hook stage: {stage}' >&2\n"
+        "  exit 1\n"
         "fi\n"
     )
 
@@ -41,19 +55,40 @@ def install_placeholder_hooks(repo_root: Path) -> None:
         hook_path.chmod(0o755)
 
 
-def detect_hook_readiness(repo_root: Path) -> dict[str, bool]:
-    """Detect if required hooks exist and are executable."""
+def detect_hook_readiness(repo_root: Path) -> dict[str, Any]:
+    """Detect if required hooks exist, are executable, and are framework-managed."""
     directory = hooks_dir(repo_root)
     if not directory.exists():
-        return {"installed": False, "integrityVerified": False}
+        return {
+            "installed": False,
+            "integrityVerified": False,
+            "managedByFramework": False,
+            "conflictDetected": False,
+            "details": "missing .git/hooks directory",
+        }
 
     checks: list[bool] = []
+    managed_checks: list[bool] = []
+    conflict_detected = False
     for hook in HOOKS:
         hook_path = directory / hook
         if not (hook_path.exists() and hook_path.stat().st_mode & 0o111 != 0):
             checks.append(False)
+            managed_checks.append(False)
             continue
         content = hook_path.read_text(encoding="utf-8")
-        checks.append("ai-engineering managed hook" in content)
-    ok = all(checks)
-    return {"installed": ok, "integrityVerified": ok}
+        managed = "ai-engineering managed hook" in content
+        if not managed and "lefthook" in content:
+            conflict_detected = True
+        checks.append(True)
+        managed_checks.append(managed)
+
+    installed = all(checks)
+    managed = all(managed_checks)
+    return {
+        "installed": installed,
+        "integrityVerified": installed and managed,
+        "managedByFramework": managed,
+        "conflictDetected": conflict_detected,
+        "details": "ok" if installed and managed else "run 'ai install' to repair managed hooks",
+    }

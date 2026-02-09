@@ -38,9 +38,14 @@ def register(app: typer.Typer) -> None:
     @app.command()
     def doctor(
         json_output: bool = typer.Option(False, "--json", help="Print machine-readable JSON"),
+        fix_hooks: bool = typer.Option(
+            False,
+            "--fix-hooks",
+            help="Repair framework-managed git hooks before readiness checks",
+        ),
     ) -> None:
         """Run readiness diagnostics."""
-        result = run_doctor()
+        result = run_doctor(fix_hooks=fix_hooks)
         if json_output:
             typer.echo(json.dumps(result, indent=2))
             return

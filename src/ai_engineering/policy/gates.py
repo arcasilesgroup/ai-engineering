@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 from typing import NamedTuple
 
@@ -29,7 +30,7 @@ PRE_COMMIT_CHECKS = [
     GateCheck("ruff", ["check", "src", "tests"], "run '.venv/bin/ruff check src tests'"),
     GateCheck(
         "gitleaks",
-        ["detect", "--no-banner", "--redact"],
+        ["protect", "--staged", "--redact"],
         "review staged content and remove secrets before retrying",
     ),
     GateCheck(
@@ -159,10 +160,115 @@ def current_branch(root: Path) -> str:
 
 def _tool_path(root: Path, tool: str) -> str | None:
     """Resolve tool path preferring project-local .venv binaries."""
-    venv_tool = root / ".venv" / "bin" / tool
-    if venv_tool.exists():
-        return str(venv_tool)
+    venv_unix = root / ".venv" / "bin" / tool
+    if venv_unix.exists():
+        return str(venv_unix)
+    venv_windows = root / ".venv" / "Scripts" / f"{tool}.exe"
+    if venv_windows.exists():
+        return str(venv_windows)
     return shutil.which(tool)
+
+
+def _venv_python(root: Path) -> str | None:
+    """Resolve python executable from local venv if present."""
+    unix = root / ".venv" / "bin" / "python"
+    if unix.exists():
+        return str(unix)
+    windows = root / ".venv" / "Scripts" / "python.exe"
+    if windows.exists():
+        return str(windows)
+    return None
+
+
+def _run_raw(root: Path, command: list[str]) -> tuple[bool, str]:
+    """Execute command and return success/output without tool resolution."""
+    proc = subprocess.run(
+        command,
+        cwd=root,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if proc.returncode == 0:
+        return True, proc.stdout.strip() or "ok"
+    output = (proc.stdout + proc.stderr).strip()
+    return False, output or "command failed"
+
+
+def _attempt_python_tool_install(root: Path, package: str) -> tuple[bool, str]:
+    """Attempt installing a Python-based tool into local .venv."""
+    python_exec = _venv_python(root)
+    if python_exec is None:
+        return False, "missing local .venv python runtime"
+    return _run_raw(
+        root,
+        [
+            python_exec,
+            "-m",
+            "pip",
+            "install",
+            "--disable-pip-version-check",
+            package,
+        ],
+    )
+
+
+def _attempt_gitleaks_install(root: Path) -> tuple[bool, str]:
+    """Attempt installing gitleaks using available platform package managers."""
+    installers: list[list[str]] = []
+    if shutil.which("brew"):
+        installers.append(["brew", "install", "gitleaks"])
+    if shutil.which("winget"):
+        installers.append(
+            [
+                "winget",
+                "install",
+                "--exact",
+                "--id",
+                "Gitleaks.Gitleaks",
+                "--accept-package-agreements",
+                "--accept-source-agreements",
+            ]
+        )
+    if shutil.which("choco"):
+        installers.append(["choco", "install", "gitleaks", "-y"])
+    if shutil.which("apt-get") and sys.platform.startswith("linux"):
+        installers.append(["apt-get", "install", "-y", "gitleaks"])
+
+    if not installers:
+        return False, "no supported package manager available to auto-install gitleaks"
+
+    failures: list[str] = []
+    for command in installers:
+        ok, output = _run_raw(root, command)
+        if ok and shutil.which("gitleaks"):
+            return True, output
+        failures.append(output)
+    return False, "; ".join(failures)
+
+
+def _attempt_tool_remediation(root: Path, tool: str) -> tuple[bool, str]:
+    """Attempt repairing missing mandatory tooling before failing a gate."""
+    if tool in {"ruff", "pip-audit", "pytest", "semgrep", "ty"}:
+        package_map = {
+            "ruff": "ruff",
+            "pip-audit": "pip-audit",
+            "pytest": "pytest",
+            "semgrep": "semgrep",
+            "ty": "ty",
+        }
+        ok, output = _attempt_python_tool_install(root, package_map[tool])
+        if ok and _tool_path(root, tool) is not None:
+            return True, f"auto-remediation installed {tool}"
+        return False, f"auto-remediation failed for {tool}: {output}"
+
+    if tool == "gitleaks":
+        ok, output = _attempt_gitleaks_install(root)
+        if ok and _tool_path(root, tool) is not None:
+            return True, "auto-remediation installed gitleaks"
+        return False, f"auto-remediation failed for gitleaks: {output}"
+
+    return False, f"no auto-remediation strategy for required tool: {tool}"
 
 
 def _github_repo_slug_from_origin(root: Path) -> tuple[str, str] | None:
@@ -252,7 +358,12 @@ def _run_tool(root: Path, tool: str, args: list[str]) -> tuple[bool, str]:
     """Run required tool and return success plus message."""
     executable = _tool_path(root, tool)
     if executable is None:
-        return False, f"missing required tool: {tool}"
+        repaired, details = _attempt_tool_remediation(root, tool)
+        if not repaired:
+            return False, f"missing required tool: {tool}; {details}"
+        executable = _tool_path(root, tool)
+        if executable is None:
+            return False, f"missing required tool after auto-remediation: {tool}"
 
     proc = subprocess.run(
         [executable, *args],
