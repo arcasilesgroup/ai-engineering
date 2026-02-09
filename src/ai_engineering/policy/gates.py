@@ -247,6 +247,40 @@ def _attempt_gitleaks_install(root: Path) -> tuple[bool, str]:
     return False, "; ".join(failures)
 
 
+def _attempt_uv_install(root: Path) -> tuple[bool, str]:
+    """Attempt installing uv using available platform package managers or official installer."""
+    installers: list[list[str]] = []
+    if shutil.which("brew"):
+        installers.append(["brew", "install", "uv"])
+    if shutil.which("curl"):
+        installers.append(["sh", "-c", "curl -LsSf https://astral.sh/uv/install.sh | sh"])
+    if shutil.which("winget"):
+        installers.append(
+            [
+                "winget",
+                "install",
+                "--exact",
+                "--id",
+                "astral-sh.uv",
+                "--accept-package-agreements",
+                "--accept-source-agreements",
+            ]
+        )
+    if shutil.which("pipx"):
+        installers.append(["pipx", "install", "uv"])
+
+    if not installers:
+        return False, "no supported package manager available to auto-install uv"
+
+    failures: list[str] = []
+    for command in installers:
+        ok, output = _run_raw(root, command)
+        if ok and shutil.which("uv"):
+            return True, output
+        failures.append(output)
+    return False, "; ".join(failures)
+
+
 def _attempt_tool_remediation(root: Path, tool: str) -> tuple[bool, str]:
     """Attempt repairing missing mandatory tooling before failing a gate."""
     if tool in {"ruff", "pip-audit", "pytest", "semgrep", "ty"}:
@@ -267,6 +301,12 @@ def _attempt_tool_remediation(root: Path, tool: str) -> tuple[bool, str]:
         if ok and _tool_path(root, tool) is not None:
             return True, "auto-remediation installed gitleaks"
         return False, f"auto-remediation failed for gitleaks: {output}"
+
+    if tool == "uv":
+        ok, output = _attempt_uv_install(root)
+        if ok and shutil.which("uv") is not None:
+            return True, "auto-remediation installed uv"
+        return False, f"auto-remediation failed for uv: {output}"
 
     return False, f"no auto-remediation strategy for required tool: {tool}"
 

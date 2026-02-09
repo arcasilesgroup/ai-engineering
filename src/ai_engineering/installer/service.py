@@ -5,7 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 
 from ai_engineering.__version__ import __version__
-from ai_engineering.hooks.manager import install_placeholder_hooks
+from ai_engineering.detector.readiness import detect_az, detect_gh, detect_python_tools
+from ai_engineering.hooks.manager import detect_hook_readiness, install_placeholder_hooks
 from ai_engineering.paths import ai_engineering_root, repo_root, state_dir
 from ai_engineering.installer.templates import sync_templates
 from ai_engineering.state.defaults import (
@@ -14,7 +15,7 @@ from ai_engineering.state.defaults import (
     ownership_map_default,
     sources_lock_default,
 )
-from ai_engineering.state.io import append_ndjson, write_json
+from ai_engineering.state.io import append_ndjson, read_json, write_json
 
 
 def ensure_layout(root: Path) -> Path:
@@ -84,6 +85,23 @@ def bootstrap_state_files(root: Path) -> dict[str, str]:
     return created
 
 
+def _refresh_tooling_readiness(root: Path) -> dict[str, object]:
+    """Detect current tooling readiness and update install-manifest.json."""
+    manifest_path = state_dir(root) / "install-manifest.json"
+    if not manifest_path.exists():
+        return {}
+    manifest = read_json(manifest_path)
+    hook_checks = detect_hook_readiness(root)
+    manifest["toolingReadiness"] = {
+        "gh": detect_gh(),
+        "az": detect_az(),
+        "gitHooks": hook_checks,
+        "python": detect_python_tools(),
+    }
+    write_json(manifest_path, manifest)
+    return manifest["toolingReadiness"]
+
+
 def install() -> dict[str, object]:
     """Run installer flow for current repository."""
     root = repo_root()
@@ -91,9 +109,11 @@ def install() -> dict[str, object]:
     created_state = bootstrap_state_files(root)
     template_result = sync_templates(root)
     install_placeholder_hooks(root)
+    tooling_readiness = _refresh_tooling_readiness(root)
     return {
         "repo": str(root),
         "aiEngineeringRoot": str(ae_root),
         "state": created_state,
         "templates": template_result,
+        "toolingReadiness": tooling_readiness,
     }

@@ -170,3 +170,80 @@ def test_pre_push_surfaces_missing_tool_failure(monkeypatch) -> None:  # type: i
 
     assert not ok
     assert any("semgrep" in message for message in messages)
+
+
+def test_attempt_uv_install_tries_brew(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    import shutil
+
+    installed = False
+
+    def _which(cmd: str) -> str | None:
+        if cmd == "brew":
+            return "/usr/local/bin/brew"
+        if cmd == "uv" and installed:
+            return "/usr/local/bin/uv"
+        return None
+
+    monkeypatch.setattr(shutil, "which", _which)
+    commands_run: list[list[str]] = []
+
+    def _fake_run_raw(_root: Path, command: list[str]) -> tuple[bool, str]:
+        nonlocal installed
+        commands_run.append(command)
+        installed = True
+        return True, "ok"
+
+    monkeypatch.setattr(gates, "_run_raw", _fake_run_raw)
+
+    ok, _ = gates._attempt_uv_install(Path.cwd())
+
+    assert ok
+    assert commands_run[0] == ["brew", "install", "uv"]
+
+
+def test_attempt_uv_install_fallback_curl(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    import shutil
+
+    monkeypatch.setattr(
+        shutil,
+        "which",
+        lambda cmd: (
+            "/usr/bin/curl" if cmd == "curl" else ("/usr/local/bin/uv" if cmd == "uv" else None)
+        ),
+    )
+    commands_run: list[list[str]] = []
+
+    def _fake_run_raw(_root: Path, command: list[str]) -> tuple[bool, str]:
+        commands_run.append(command)
+        return True, "ok"
+
+    monkeypatch.setattr(gates, "_run_raw", _fake_run_raw)
+
+    ok, _ = gates._attempt_uv_install(Path.cwd())
+
+    assert ok
+    assert any("curl" in " ".join(cmd) for cmd in commands_run)
+
+
+def test_attempt_tool_remediation_handles_uv(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    import shutil
+
+    monkeypatch.setattr(gates, "_attempt_uv_install", lambda _root: (True, "installed"))
+    monkeypatch.setattr(shutil, "which", lambda _cmd: "/usr/local/bin/uv")
+
+    ok, msg = gates._attempt_tool_remediation(Path.cwd(), "uv")
+
+    assert ok
+    assert "auto-remediation installed uv" in msg
+
+
+def test_attempt_tool_remediation_uv_failure(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    import shutil
+
+    monkeypatch.setattr(gates, "_attempt_uv_install", lambda _root: (False, "no manager"))
+    monkeypatch.setattr(shutil, "which", lambda _cmd: None)
+
+    ok, msg = gates._attempt_tool_remediation(Path.cwd(), "uv")
+
+    assert not ok
+    assert "auto-remediation failed for uv" in msg

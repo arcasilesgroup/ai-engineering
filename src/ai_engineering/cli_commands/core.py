@@ -43,9 +43,14 @@ def register(app: typer.Typer) -> None:
             "--fix-hooks",
             help="Repair framework-managed git hooks before readiness checks",
         ),
+        fix_tools: bool = typer.Option(
+            False,
+            "--fix-tools",
+            help="Attempt auto-remediation for missing Python tooling",
+        ),
     ) -> None:
         """Run readiness diagnostics."""
-        result = run_doctor(fix_hooks=fix_hooks)
+        result = run_doctor(fix_hooks=fix_hooks, fix_tools=fix_tools)
         if json_output:
             typer.echo(json.dumps(result, indent=2))
             return
