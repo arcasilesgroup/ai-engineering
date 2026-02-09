@@ -24,7 +24,7 @@
     }
   },
   "toolingReadiness": {
-    "gh": { "installed": false, "configured": false, "authenticated": false },
+    "gh": { "installed": true, "configured": true, "authenticated": true },
     "az": {
       "installed": false,
       "configured": false,
@@ -33,10 +33,10 @@
     },
     "gitHooks": { "installed": false, "integrityVerified": false },
     "python": {
-      "uv": { "ready": false },
-      "ruff": { "ready": false },
-      "ty": { "ready": false },
-      "pipAudit": { "ready": false }
+      "uv": { "ready": true },
+      "ruff": { "ready": true },
+      "ty": { "ready": true },
+      "pipAudit": { "ready": true }
     }
   }
 }
