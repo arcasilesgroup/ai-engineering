@@ -1,0 +1,123 @@
+# Semgrep configuration for ai-engineering
+# https://semgrep.dev/docs/
+
+rules:
+  # --- Injection Prevention ---
+
+  - id: subprocess-shell-true
+    patterns:
+      - pattern: subprocess.run(..., shell=True, ...)
+      - pattern: subprocess.Popen(..., shell=True, ...)
+      - pattern: subprocess.call(..., shell=True, ...)
+      - pattern: subprocess.check_call(..., shell=True, ...)
+      - pattern: subprocess.check_output(..., shell=True, ...)
+    message: >
+      Avoid shell=True in subprocess calls — risk of command injection.
+      Use a list of arguments instead.
+    languages: [python]
+    severity: ERROR
+    metadata:
+      cwe: "CWE-78: OS Command Injection"
+      owasp: "A03:2021 Injection"
+      category: security
+
+  - id: os-system-call
+    pattern: os.system(...)
+    message: >
+      Do not use os.system() — use subprocess.run() with a list of arguments instead.
+    languages: [python]
+    severity: ERROR
+    metadata:
+      cwe: "CWE-78: OS Command Injection"
+      owasp: "A03:2021 Injection"
+      category: security
+
+  - id: eval-usage
+    patterns:
+      - pattern: eval(...)
+      - pattern: exec(...)
+    message: >
+      Do not use eval() or exec() — risk of code injection.
+    languages: [python]
+    severity: ERROR
+    metadata:
+      cwe: "CWE-95: Eval Injection"
+      owasp: "A03:2021 Injection"
+      category: security
+
+  # --- Path Traversal ---
+
+  - id: path-traversal-open
+    pattern: open($PATH, ...)
+    metavariable-regex:
+      metavariable: $PATH
+      regex: ".*\\.\\..*"
+    message: >
+      Potential path traversal in file open. Validate and resolve paths before use.
+    languages: [python]
+    severity: WARNING
+    metadata:
+      cwe: "CWE-22: Path Traversal"
+      owasp: "A01:2021 Broken Access Control"
+      category: security
+
+  # --- Secret Prevention ---
+
+  - id: hardcoded-password
+    patterns:
+      - pattern: password = "..."
+      - pattern: passwd = "..."
+      - pattern: secret = "..."
+      - pattern: api_key = "..."
+      - pattern: token = "..."
+    message: >
+      Potential hardcoded secret. Use environment variables or a secrets manager.
+    languages: [python]
+    severity: ERROR
+    metadata:
+      cwe: "CWE-798: Hardcoded Credentials"
+      owasp: "A07:2021 Identification and Authentication Failures"
+      category: security
+
+  # --- Unsafe Deserialization ---
+
+  - id: pickle-usage
+    patterns:
+      - pattern: pickle.load(...)
+      - pattern: pickle.loads(...)
+    message: >
+      Avoid pickle for deserialization — risk of arbitrary code execution.
+      Use JSON or Pydantic models instead.
+    languages: [python]
+    severity: ERROR
+    metadata:
+      cwe: "CWE-502: Deserialization of Untrusted Data"
+      owasp: "A08:2021 Software and Data Integrity Failures"
+      category: security
+
+  - id: yaml-unsafe-load
+    patterns:
+      - pattern: yaml.load(..., Loader=yaml.Loader, ...)
+      - pattern: yaml.load(..., Loader=yaml.UnsafeLoader, ...)
+      - pattern: yaml.unsafe_load(...)
+    message: >
+      Use yaml.safe_load() instead of yaml.load() with unsafe Loader.
+    languages: [python]
+    severity: ERROR
+    metadata:
+      cwe: "CWE-502: Deserialization of Untrusted Data"
+      owasp: "A08:2021 Software and Data Integrity Failures"
+      category: security
+
+  # --- Temporary File Safety ---
+
+  - id: tempfile-mktemp
+    pattern: tempfile.mktemp(...)
+    message: >
+      Do not use tempfile.mktemp() — it is vulnerable to race conditions.
+      Use tempfile.mkstemp() or tempfile.NamedTemporaryFile() instead.
+    languages: [python]
+    severity: WARNING
+    metadata:
+      cwe: "CWE-377: Insecure Temporary File"
+      category: security
