@@ -1,27 +1,127 @@
 # CLAUDE.md
 
-Project instructions are canonical in `.ai-engineering/`.
+This file is a quick operational guide for assistant sessions in this repo.
+
+## Source of Truth
+
+- Primary governance source: `.ai-engineering/`.
+- Canonical contract: `.ai-engineering/manifest.yml`.
+- Delivery context: `.ai-engineering/context/**`.
+
+If this file conflicts with `.ai-engineering/**`, follow `.ai-engineering/**`.
 
 ## Required References
 
-- `.ai-engineering/context/product/framework-contract.md`
-- `.ai-engineering/standards/framework/core.md`
-- `.ai-engineering/standards/framework/stacks/python.md`
-- `.ai-engineering/standards/team/core.md`
-- `.ai-engineering/context/delivery/planning.md`
-- `.ai-engineering/context/backlog/tasks.md`
+Read these before any non-trivial work:
+
+- `.ai-engineering/context/product/framework-contract.md` — framework identity, personas, roadmap.
+- `.ai-engineering/context/product/product-contract.md` — project goals, KPIs, release status.
+- `.ai-engineering/standards/framework/core.md` — governance structure, ownership, lifecycle, skills/agents model.
+- `.ai-engineering/standards/framework/stacks/python.md` — Python stack contract, code patterns, testing patterns.
+- `.ai-engineering/standards/team/core.md` — team-specific standards.
+- `.ai-engineering/context/specs/_active.md` — pointer to active spec.
+
+## Skills
+
+Procedural skills guide structured execution. Reference the relevant skill before executing a task:
+
+### Workflows
+
+- `.ai-engineering/skills/workflows/commit.md` — `/commit` flow.
+- `.ai-engineering/skills/workflows/pr.md` — `/pr` flow.
+- `.ai-engineering/skills/workflows/acho.md` — `/acho` alias.
+
+### SWE Skills
+
+- `.ai-engineering/skills/swe/debug.md` — systematic diagnosis.
+- `.ai-engineering/skills/swe/refactor.md` — safe refactoring.
+- `.ai-engineering/skills/swe/code-review.md` — code review checklist.
+- `.ai-engineering/skills/swe/test-strategy.md` — test design.
+- `.ai-engineering/skills/swe/architecture-analysis.md` — architecture review.
+- `.ai-engineering/skills/swe/pr-creation.md` — PR creation procedure.
+- `.ai-engineering/skills/swe/dependency-update.md` — dependency management.
+- `.ai-engineering/skills/swe/performance-analysis.md` — performance review.
+- `.ai-engineering/skills/swe/security-review.md` — security assessment.
+- `.ai-engineering/skills/swe/migration.md` — migration planning.
+- `.ai-engineering/skills/swe/prompt-engineer.md` — prompt engineering frameworks.
+- `.ai-engineering/skills/swe/python-mastery.md` — comprehensive Python patterns.
+
+### Quality Skills
+
+- `.ai-engineering/skills/quality/audit-code.md` — quality gate assessment.
+- `.ai-engineering/skills/quality/audit-report.md` — audit report template.
+
+## Agents
+
+Agent definitions provide personas for complex multi-step tasks. Activate the relevant agent:
+
+- `.ai-engineering/agents/principal-engineer.md` — principal-level code review.
+- `.ai-engineering/agents/debugger.md` — systematic bug diagnosis.
+- `.ai-engineering/agents/architect.md` — architecture analysis.
+- `.ai-engineering/agents/quality-auditor.md` — quality gate enforcement.
+- `.ai-engineering/agents/security-reviewer.md` — security assessment.
+- `.ai-engineering/agents/codebase-mapper.md` — codebase structure mapping.
+- `.ai-engineering/agents/code-simplifier.md` — complexity reduction.
+- `.ai-engineering/agents/verify-app.md` — end-to-end verification.
+
+## Mandatory Lifecycle
+
+Follow this sequence for non-trivial work:
+
+1. Discovery
+2. Architecture
+3. Planning
+4. Implementation
+5. Review
+6. Verification
+7. Testing
+8. Iteration
 
 ## Command Contract
 
-- `/commit` -> stage + commit + push
+- `/commit` -> stage + commit + push current branch
 - `/commit --only` -> stage + commit
 - `/pr` -> stage + commit + push + create PR + enable auto-complete (`--auto --squash --delete-branch`)
 - `/pr --only` -> create PR; if branch is unpushed, warn and propose auto-push; if declined, continue with selected mode
-- `/acho` -> stage + commit + push
+- `/acho` -> stage + commit + push current branch
 - `/acho pr` -> stage + commit + push + create PR + enable auto-complete (`--auto --squash --delete-branch`)
 
-## Non-Negotiables
+## Security and Quality Rules
 
-- mandatory local gates cannot be bypassed,
-- no direct commits to protected branches,
-- update safety must preserve team/project-owned content.
+- Local hooks are mandatory in governed flows.
+- Required checks: `gitleaks`, `semgrep`, dependency vulnerability checks, and stack checks.
+- No direct commits to `main`/`master`.
+- No protected-branch push in governed commit flows.
+- No unsafe remote execution from skill sources.
+- Security findings cannot be dismissed without `state/decision-store.json` risk acceptance.
+
+## Quality Contract
+
+- Coverage ≥ 80% (≥ 90% governance-critical).
+- Duplication ≤ 3%.
+- Cyclomatic complexity ≤ 10.
+- Cognitive complexity ≤ 15.
+- No blocker/critical issues.
+
+## Tooling Baseline
+
+- Runtime/package tooling: `uv`
+- Lint/format: `ruff`
+- Type checking: `ty`
+- Dependency vulnerability checks: `pip-audit`
+
+## Risk Decision Reuse
+
+- Write accepted risk decisions to `.ai-engineering/state/decision-store.json`.
+- Append governance events to `.ai-engineering/state/audit-log.ndjson`.
+- Before asking a repeated risk question, read decision-store first.
+
+## Work Logging Requirement
+
+For each execution block, follow active spec via `.ai-engineering/context/specs/_active.md`.
+
+Each governance doc update must include:
+
+- rationale
+- expected gain
+- potential impact

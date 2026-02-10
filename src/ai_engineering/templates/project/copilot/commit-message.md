@@ -1,11 +1,22 @@
 # Commit Message Instructions
 
+## References
+
+- `.ai-engineering/skills/workflows/commit.md` — full commit workflow procedure.
+- `.ai-engineering/skills/workflows/pr.md` — PR creation procedure.
+
 ## Format
 
 Use conventional commit format:
 
 ```
 <type>(<scope>): <short summary>
+```
+
+When working on a spec, prefix with spec identifier:
+
+```
+spec-001: Task X.Y — <description>
 ```
 
 ## Types
@@ -25,3 +36,4 @@ Use conventional commit format:
 - Scope should reflect the affected module (e.g., `installer`, `state`, `skills`, `cli`).
 - Do not include ticket numbers unless explicitly requested.
 - Body is optional; use it for context on *why*, not *what*.
+- One task = one atomic commit (in spec-driven work).
