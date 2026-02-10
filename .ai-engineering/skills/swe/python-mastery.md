@@ -221,3 +221,7 @@ Before committing, verify:
 - `skills/swe/test-strategy.md` — testing details.
 - `skills/swe/performance-analysis.md` — performance deep-dive.
 - `skills/swe/security-review.md` — security-specific patterns.
+- `agents/architect.md` — agent that uses design patterns domain.
+- `agents/code-simplifier.md` — agent that uses Pythonic patterns.
+- `agents/codebase-mapper.md` — agent that uses Python module system domain.
+- `agents/principal-engineer.md` — agent that uses Python patterns for review.

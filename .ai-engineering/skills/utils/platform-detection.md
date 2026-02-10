@@ -38,3 +38,8 @@ az account show
 
 - GitHub is runtime priority in current phase.
 - Azure DevOps constraints must remain represented in manifest schema.
+
+## References
+
+- `skills/validation/install-readiness.md` — uses platform detection for readiness checks.
+- `standards/framework/core.md` — provider support model.

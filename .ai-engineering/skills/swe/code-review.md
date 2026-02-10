@@ -63,4 +63,8 @@ Deep code review skill covering security, quality, performance, and maintainabil
 - `standards/framework/quality/core.md` — severity policy and quality gates.
 - `standards/framework/quality/python.md` — Python-specific checks.
 - `standards/framework/stacks/python.md` — code patterns.
+- `skills/swe/security-review.md` — detailed security review procedure.
+- `skills/swe/test-strategy.md` — test assessment criteria.
+- `skills/swe/performance-analysis.md` — performance evaluation procedure.
 - `agents/principal-engineer.md` — agent that performs deep reviews.
+- `agents/code-simplifier.md` — agent that uses code quality criteria.

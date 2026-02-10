@@ -42,6 +42,7 @@ Complexity reducer who systematically identifies and eliminates unnecessary comp
 ## Referenced Standards
 
 - `standards/framework/quality/python.md` — complexity thresholds (cyclomatic ≤ 10, cognitive ≤ 15, functions < 50 lines).
+- `standards/framework/quality/core.md` — quality gate severity policy.
 - `standards/framework/stacks/python.md` — code patterns and conventions.
 
 ## Output Contract

@@ -37,6 +37,7 @@ Senior technical reviewer who evaluates code as a principal engineer would: focu
 - `skills/swe/test-strategy.md` — test assessment criteria.
 - `skills/swe/performance-analysis.md` — performance evaluation.
 - `skills/swe/python-mastery.md` — Python patterns and anti-patterns.
+- `skills/swe/security-review.md` — security assessment procedure.
 
 ## Referenced Standards
 

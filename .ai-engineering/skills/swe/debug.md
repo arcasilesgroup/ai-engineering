@@ -54,3 +54,4 @@ Systematic diagnosis skill for identifying, isolating, and fixing bugs. Follows 
 
 - `standards/framework/quality/python.md` — test and coverage requirements.
 - `agents/debugger.md` — agent that uses this skill systematically.
+- `agents/verify-app.md` — agent that uses debug for investigating verification failures.

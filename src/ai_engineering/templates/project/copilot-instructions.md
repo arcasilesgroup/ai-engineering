@@ -27,6 +27,7 @@ Procedural skills guide structured execution. Reference the relevant skill befor
 
 - `.ai-engineering/skills/swe/debug.md` — systematic diagnosis.
 - `.ai-engineering/skills/swe/refactor.md` — safe refactoring.
+- `.ai-engineering/skills/swe/changelog-documentation.md` — changelog documentation.
 - `.ai-engineering/skills/swe/code-review.md` — code review checklist.
 - `.ai-engineering/skills/swe/test-strategy.md` — test design.
 - `.ai-engineering/skills/swe/architecture-analysis.md` — architecture review.
@@ -37,6 +38,12 @@ Procedural skills guide structured execution. Reference the relevant skill befor
 - `.ai-engineering/skills/swe/migration.md` — migration planning.
 - `.ai-engineering/skills/swe/prompt-engineer.md` — prompt engineering frameworks.
 - `.ai-engineering/skills/swe/python-mastery.md` — comprehensive Python patterns.
+- `.ai-engineering/skills/swe/doc-writer.md` — open-source documentation generation.
+
+### Lifecycle Skills
+
+- `.ai-engineering/skills/lifecycle/create-agent.md` — agent authoring and registration procedure.
+- `.ai-engineering/skills/lifecycle/create-skill.md` — skill authoring and registration procedure.
 
 ### Quality Skills
 

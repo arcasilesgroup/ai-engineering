@@ -57,3 +57,4 @@ Structured dependency update skill: audit current dependencies, update safely, t
 - `standards/framework/stacks/python.md` — required tooling.
 - `standards/framework/quality/core.md` — security gate.
 - `standards/framework/core.md` — risk acceptance policy.
+- `agents/security-reviewer.md` — agent that assesses dependency security.

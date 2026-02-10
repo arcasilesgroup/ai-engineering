@@ -62,3 +62,5 @@ Execute the `/pr` governed workflow: stage, commit, push, create a pull request,
 - `standards/framework/quality/core.md` — gate structure (pre-push + PR gates).
 - `skills/workflows/commit.md` — shared pre-commit steps.
 - `skills/workflows/acho.md` — alias workflow.
+- `skills/swe/pr-creation.md` — PR structure and formatting.
+- `agents/verify-app.md` — agent that validates PR workflow execution.

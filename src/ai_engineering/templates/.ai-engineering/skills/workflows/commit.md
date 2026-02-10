@@ -47,3 +47,4 @@ Follow steps 1–5 above. Skip step 6.
 - `standards/framework/stacks/python.md` — Python-specific checks.
 - `standards/framework/quality/core.md` — gate structure (pre-commit gate).
 - `skills/workflows/acho.md` — alias workflow.
+- `agents/verify-app.md` — agent that validates commit workflow execution.
