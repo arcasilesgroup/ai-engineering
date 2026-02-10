@@ -1,8 +1,8 @@
 ---
 total: 86
-completed: 63
-last_session: S11
-next_session: S12
+completed: 76
+last_session: S15
+next_session: S16
 ---
 
 # Tasks: AI-Engineering Framework — Rewrite from Scratch
@@ -122,27 +122,27 @@ next_session: S12
 - [x] **Task 11.2**: Create `tests/unit/test_hooks.py` — hook generation, conflict detection
 - [x] **Task 11.3**: Create `tests/integration/test_hooks_git.py` — hooks with real `git init`
 
-### Phase 12: Doctor — `S12 · Agent-3 · rewrite/v2-phase-12` ║
+### Phase 12: Doctor — `S12 · Agent-3 · rewrite/v2 · ✓ COMPLETE`
 
-- [ ] **Task 12.1**: Create `src/ai_engineering/doctor/service.py` — validates: layout, state, hooks, tools, `gh` auth, branch policy. Supports `--fix-hooks`, `--fix-tools`
-- [ ] **Task 12.2**: Create `tests/unit/test_doctor.py` — remediation paths, JSON output
+- [x] **Task 12.1**: Create `src/ai_engineering/doctor/service.py` — validates: layout, state, hooks, tools, `gh` auth, branch policy. Supports `--fix-hooks`, `--fix-tools`
+- [x] **Task 12.2**: Create `tests/unit/test_doctor.py` — remediation paths, JSON output
 
-### Phase 13: Updater — `S13 · Agent-4 · rewrite/v2-phase-13` ║
+### Phase 13: Updater — `S13 · Agent-4 · rewrite/v2 · ✓ COMPLETE`
 
-- [ ] **Task 13.1**: Create `src/ai_engineering/updater/service.py` — dry-run by default, ownership-safe, only framework/system-managed paths
-- [ ] **Task 13.2**: Create `tests/unit/test_updater.py` — ownership safety, dry-run vs apply
+- [x] **Task 13.1**: Create `src/ai_engineering/updater/service.py` — dry-run by default, ownership-safe, only framework/system-managed paths
+- [x] **Task 13.2**: Create `tests/unit/test_updater.py` — ownership safety, dry-run vs apply
 
-### Phase 14: Detector + Policy — `S14 · Agent-5 · rewrite/v2-phase-14` ║
+### Phase 14: Detector + Policy — `S14 · Agent-5 · rewrite/v2 · ✓ COMPLETE`
 
-- [ ] **Task 14.1**: Create `src/ai_engineering/detector/readiness.py` — detect `gh`, `az`, Python tools (ruff, ty, gitleaks, semgrep, pip-audit), auto-remediation
-- [ ] **Task 14.2**: Create `src/ai_engineering/policy/gates.py` — pre-commit/commit-msg/pre-push checks, protected branch blocking, auto-remediation for missing tools
-- [ ] **Task 14.3**: Create `tests/unit/test_gates.py` — gate checks, branch blocking, remediation
+- [x] **Task 14.1**: Create `src/ai_engineering/detector/readiness.py` — detect `gh`, `az`, Python tools (ruff, ty, gitleaks, semgrep, pip-audit), auto-remediation
+- [x] **Task 14.2**: Create `src/ai_engineering/policy/gates.py` — pre-commit/commit-msg/pre-push checks, protected branch blocking, auto-remediation for missing tools
+- [x] **Task 14.3**: Create `tests/unit/test_gates.py` — gate checks, branch blocking, remediation
 
-### Phase 15: Skills + Maintenance — `S15 · Agent-6 · rewrite/v2-phase-15` ║
+### Phase 15: Skills + Maintenance — `S15 · Agent-6 · rewrite/v2 · ✓ COMPLETE`
 
-- [ ] **Task 15.1**: Create `src/ai_engineering/skills/service.py` — sources sync, allowlist, checksums, offline fallback, cache
-- [ ] **Task 15.2**: Create `src/ai_engineering/maintenance/report.py` — report generation, PR creation, staleness analysis
-- [ ] **Task 15.3**: Create `tests/unit/test_skills_maintenance.py` — sync, offline, allowlist, report, PR
+- [x] **Task 15.1**: Create `src/ai_engineering/skills/service.py` — sources sync, allowlist, checksums, offline fallback, cache
+- [x] **Task 15.2**: Create `src/ai_engineering/maintenance/report.py` — report generation, PR creation, staleness analysis
+- [x] **Task 15.3**: Create `tests/unit/test_skills_maintenance.py` — sync, offline, allowlist, report, PR
 
 ### Phase 16: Commands + Workflows — `S16 · Agent-1 · rewrite/v2`
 
