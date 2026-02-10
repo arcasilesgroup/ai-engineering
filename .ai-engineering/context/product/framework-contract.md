@@ -219,6 +219,37 @@ When multiple agents work in parallel:
 - 0 ungated sensitive operations.
 - Time to first governed commit under 5 minutes.
 - Context compaction trend improving release-over-release.
+
+## Roadmap Overview
+
+### Phase 1 (MVP)
+
+- GitHub runtime integration first.
+- Terminal + VS Code first.
+- Cross-OS validation: Windows, macOS, Linux.
+- Dogfooding in this repository from day one.
+- Stack baseline: Python + Markdown/YAML/JSON/Bash with `uv`, `ruff`, `ty`, `pip-audit`.
+- Mandatory system state files: install manifest, ownership map, sources lock, decision store, audit log.
+- Remote skills default ON with cache, checksums, and signature metadata scaffolding.
+- Exit criteria: command contract implemented, local enforcement non-bypassable, updater ownership-safe, readiness checks operational.
+
+### Phase 2
+
+- Azure DevOps runtime on top of Phase 1 provider-agnostic schema.
+- Stronger signature verification enforcement modes.
+- Additional IDE and stack adapters.
+
+### Phase 3
+
+- Governed parallel subagent orchestration at scale.
+- Maintenance agent maturity and policy packs.
+- Docs site integration and broader ecosystem work.
+
+## Release Model
+
+- SemVer with migration scripts for schema changes.
+- Channels: `stable` and `canary`.
+- Telemetry remains strict opt-in for OSS in all phases.
 - Every managed update includes: rationale, expected gain, potential impact.
 - Periodic simplification is mandatory, preserving functionality and governance.
 - Maintenance workflow: local report first; PR only after explicit acceptance.
