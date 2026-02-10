@@ -1,8 +1,8 @@
 ---
 total: 86
-completed: 17
-last_session: S3
-next_session: S4
+completed: 29
+last_session: S5
+next_session: S6
 ---
 
 # Tasks: AI-Engineering Framework — Rewrite from Scratch
@@ -42,20 +42,20 @@ next_session: S4
 - [x] **Task 3.2**: Create `skills/workflows/pr.md` — `/pr` flow: stage + commit + push + create PR + auto-complete (`--auto --squash --delete-branch`)
 - [x] **Task 3.3**: Create `skills/workflows/acho.md` — `/acho` alias + `/acho pr` variant
 
-### Phase 4: Skills — SWE — `S4 · Agent-2 (4.1-4.10) · S5 · Agent-3 (4.11-4.12) · rewrite/v2-phase-4` ║
+### Phase 4: Skills — SWE — `S4 · Agent-2 (4.1-4.10) · S5 · Agent-3 (4.11-4.12) · rewrite/v2 · ✓ COMPLETE`
 
-- [ ] **Task 4.1**: Create `skills/swe/debug.md` — systematic diagnosis: reproduce → isolate → identify → fix → test
-- [ ] **Task 4.2**: Create `skills/swe/refactor.md` — safe refactoring: tests first, extract/rename/simplify/split
-- [ ] **Task 4.3**: Create `skills/swe/code-review.md` — deep review: security, quality, performance, maintainability
-- [ ] **Task 4.4**: Create `skills/swe/test-strategy.md` — what to test, fixtures, coverage strategy, edge cases
-- [ ] **Task 4.5**: Create `skills/swe/architecture-analysis.md` — dependencies, coupling, cohesion, boundaries, tech debt
-- [ ] **Task 4.6**: Create `skills/swe/pr-creation.md` — well-crafted PR: title, description, breaking changes, checklist
-- [ ] **Task 4.7**: Create `skills/swe/dependency-update.md` — audit → update → test → validate
-- [ ] **Task 4.8**: Create `skills/swe/performance-analysis.md` — profiling, bottlenecks, caching, queries
-- [ ] **Task 4.9**: Create `skills/swe/security-review.md` — OWASP top 10, injection, auth, secrets, CORS, headers
-- [ ] **Task 4.10**: Create `skills/swe/migration.md` — DB migrations, API versioning, breaking changes, rollback
-- [ ] **Task 4.11**: Create `skills/swe/prompt-engineer.md` — advanced prompt engineering: intent analysis, framework selection (RTF, Chain of Thought, RISEN, RODES, RACE, RISE, STAR, SOAP, CLEAR, GROW, Chain of Density), blending strategy for multi-type tasks, quality checks. Adapted to ai-engineering context
-- [ ] **Task 4.12**: Create `skills/swe/python-mastery.md` — comprehensive Python engineering skill consolidating 12 domains: performance optimization (profiling, caching, generators, multiprocessing, async I/O), testing patterns (AAA, fixtures, parameterized, mocking, property-based, markers, coverage), packaging (src layout, pyproject.toml, entry points, uv build), design patterns (KISS, SRP, composition over inheritance, rule of three, DI, layered architecture), code style (ruff, PEP 8 naming, Google-style docstrings, import organization), project structure (one concept per file, explicit `__all__`, flat hierarchies), error handling (fail fast, early validation, Pydantic, custom exceptions, exception chaining, batch partial failures), anti-patterns (checklist: no bare except, no scattered retry, no hard-coded config, no exposed ORM models, no mixed I/O+logic, no blocking in async), type safety (annotate all public APIs, modern union syntax, generics, Protocols, TypeVar bounds), observability (structured logging with structlog, correlation IDs, semantic log levels, four golden signals), resilience (tenacity for retry, exponential backoff with jitter, timeout decorators, fail-safe defaults)
+- [x] **Task 4.1**: Create `skills/swe/debug.md`
+- [x] **Task 4.2**: Create `skills/swe/refactor.md`
+- [x] **Task 4.3**: Create `skills/swe/code-review.md`
+- [x] **Task 4.4**: Create `skills/swe/test-strategy.md`
+- [x] **Task 4.5**: Create `skills/swe/architecture-analysis.md`
+- [x] **Task 4.6**: Create `skills/swe/pr-creation.md`
+- [x] **Task 4.7**: Create `skills/swe/dependency-update.md`
+- [x] **Task 4.8**: Create `skills/swe/performance-analysis.md`
+- [x] **Task 4.9**: Create `skills/swe/security-review.md`
+- [x] **Task 4.10**: Create `skills/swe/migration.md`
+- [x] **Task 4.11**: Create `skills/swe/prompt-engineer.md`
+- [x] **Task 4.12**: Create `skills/swe/python-mastery.md`
 
 > **Note**: Tasks 4.11 and 4.12 are L-sized (3-5x typical skill). Each requires a dedicated agent session with extended context. Assign to Session S5 separately from the other 10 SWE skills.
 
