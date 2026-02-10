@@ -11,7 +11,6 @@ Uses Typer's CliRunner to test CLI commands end-to-end:
 from __future__ import annotations
 
 import json
-import subprocess
 from pathlib import Path
 
 import pytest
@@ -68,7 +67,9 @@ class TestInstallCommand:
     """Tests for the install command."""
 
     def test_install_creates_framework(
-        self, tmp_path: Path, app: object,
+        self,
+        tmp_path: Path,
+        app: object,
     ) -> None:
         result = runner.invoke(
             app,
@@ -79,7 +80,9 @@ class TestInstallCommand:
         assert (tmp_path / ".ai-engineering" / "state").is_dir()
 
     def test_install_on_existing_shows_skipped(
-        self, installed_dir: Path, app: object,
+        self,
+        installed_dir: Path,
+        app: object,
     ) -> None:
         result = runner.invoke(
             app,
@@ -98,7 +101,9 @@ class TestDoctorCommand:
     """Tests for the doctor command."""
 
     def test_doctor_passes_on_installed(
-        self, installed_dir: Path, app: object,
+        self,
+        installed_dir: Path,
+        app: object,
     ) -> None:
         result = runner.invoke(app, ["doctor", str(installed_dir)])
         # May pass or fail depending on tools, but should not crash
@@ -106,10 +111,13 @@ class TestDoctorCommand:
         assert "Doctor" in result.output
 
     def test_doctor_json_output(
-        self, installed_dir: Path, app: object,
+        self,
+        installed_dir: Path,
+        app: object,
     ) -> None:
         result = runner.invoke(
-            app, ["doctor", str(installed_dir), "--json"],
+            app,
+            ["doctor", str(installed_dir), "--json"],
         )
         assert result.exit_code in (0, 1)
         # JSON output should be parseable
@@ -127,17 +135,22 @@ class TestUpdateCommand:
     """Tests for the update command."""
 
     def test_update_dry_run(
-        self, installed_dir: Path, app: object,
+        self,
+        installed_dir: Path,
+        app: object,
     ) -> None:
         result = runner.invoke(app, ["update", str(installed_dir)])
         assert result.exit_code == 0
         assert "DRY-RUN" in result.output
 
     def test_update_apply(
-        self, installed_dir: Path, app: object,
+        self,
+        installed_dir: Path,
+        app: object,
     ) -> None:
         result = runner.invoke(
-            app, ["update", str(installed_dir), "--apply"],
+            app,
+            ["update", str(installed_dir), "--apply"],
         )
         assert result.exit_code == 0
         assert "APPLIED" in result.output
@@ -153,33 +166,41 @@ class TestStackCommands:
 
     def test_stack_list(self, installed_dir: Path, app: object) -> None:
         result = runner.invoke(
-            app, ["stack", "list", "--target", str(installed_dir)],
+            app,
+            ["stack", "list", "--target", str(installed_dir)],
         )
         assert result.exit_code == 0
         assert "python" in result.output
 
     def test_stack_add_and_remove(
-        self, installed_dir: Path, app: object,
+        self,
+        installed_dir: Path,
+        app: object,
     ) -> None:
         # Add
         result = runner.invoke(
-            app, ["stack", "add", "node", "--target", str(installed_dir)],
+            app,
+            ["stack", "add", "node", "--target", str(installed_dir)],
         )
         assert result.exit_code == 0
         assert "Added stack 'node'" in result.output
 
         # Remove
         result = runner.invoke(
-            app, ["stack", "remove", "node", "--target", str(installed_dir)],
+            app,
+            ["stack", "remove", "node", "--target", str(installed_dir)],
         )
         assert result.exit_code == 0
         assert "Removed stack 'node'" in result.output
 
     def test_stack_add_duplicate_fails(
-        self, installed_dir: Path, app: object,
+        self,
+        installed_dir: Path,
+        app: object,
     ) -> None:
         result = runner.invoke(
-            app, ["stack", "add", "python", "--target", str(installed_dir)],
+            app,
+            ["stack", "add", "python", "--target", str(installed_dir)],
         )
         assert result.exit_code == 1
 
@@ -194,16 +215,20 @@ class TestIDECommands:
 
     def test_ide_list(self, installed_dir: Path, app: object) -> None:
         result = runner.invoke(
-            app, ["ide", "list", "--target", str(installed_dir)],
+            app,
+            ["ide", "list", "--target", str(installed_dir)],
         )
         assert result.exit_code == 0
         assert "vscode" in result.output
 
     def test_ide_add_and_remove(
-        self, installed_dir: Path, app: object,
+        self,
+        installed_dir: Path,
+        app: object,
     ) -> None:
         result = runner.invoke(
-            app, ["ide", "add", "jetbrains", "--target", str(installed_dir)],
+            app,
+            ["ide", "add", "jetbrains", "--target", str(installed_dir)],
         )
         assert result.exit_code == 0
 
@@ -223,7 +248,9 @@ class TestGateCommands:
     """Tests for gate commands."""
 
     def test_gate_pre_commit_runs(
-        self, installed_dir: Path, app: object,
+        self,
+        installed_dir: Path,
+        app: object,
     ) -> None:
         # Will likely fail if tools aren't installed, but should not crash
         result = runner.invoke(
@@ -234,16 +261,20 @@ class TestGateCommands:
         assert "Gate" in result.output
 
     def test_gate_commit_msg_with_file(
-        self, installed_dir: Path, app: object,
+        self,
+        installed_dir: Path,
+        app: object,
     ) -> None:
         msg_file = installed_dir / "COMMIT_MSG"
         msg_file.write_text("feat: test commit message\n", encoding="utf-8")
         result = runner.invoke(
             app,
             [
-                "gate", "commit-msg",
+                "gate",
+                "commit-msg",
                 str(msg_file),
-                "--target", str(installed_dir),
+                "--target",
+                str(installed_dir),
             ],
         )
         assert result.exit_code in (0, 1)
@@ -260,19 +291,24 @@ class TestSkillCommands:
 
     def test_skill_list(self, installed_dir: Path, app: object) -> None:
         result = runner.invoke(
-            app, ["skill", "list", "--target", str(installed_dir)],
+            app,
+            ["skill", "list", "--target", str(installed_dir)],
         )
         assert result.exit_code == 0
 
     def test_skill_add_and_remove(
-        self, installed_dir: Path, app: object,
+        self,
+        installed_dir: Path,
+        app: object,
     ) -> None:
         result = runner.invoke(
             app,
             [
-                "skill", "add",
+                "skill",
+                "add",
                 "https://example.com/skill.md",
-                "--target", str(installed_dir),
+                "--target",
+                str(installed_dir),
             ],
         )
         assert result.exit_code == 0
@@ -281,9 +317,11 @@ class TestSkillCommands:
         result = runner.invoke(
             app,
             [
-                "skill", "remove",
+                "skill",
+                "remove",
                 "https://example.com/skill.md",
-                "--target", str(installed_dir),
+                "--target",
+                str(installed_dir),
             ],
         )
         assert result.exit_code == 0
@@ -299,7 +337,9 @@ class TestMaintenanceCommands:
     """Tests for maintenance commands."""
 
     def test_maintenance_report(
-        self, installed_dir: Path, app: object,
+        self,
+        installed_dir: Path,
+        app: object,
     ) -> None:
         result = runner.invoke(
             app,

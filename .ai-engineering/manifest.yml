@@ -36,6 +36,7 @@ ownership:
     - ".github/copilot/test-generation.md"
     - ".github/copilot/code-review.md"
     - ".github/copilot/commit-message.md"
+    - ".claude/commands/**"
 
 standards:
   precedence:

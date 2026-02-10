@@ -71,6 +71,10 @@ Agent definitions provide personas for complex multi-step tasks. Activate the re
 - `.ai-engineering/agents/code-simplifier.md` — complexity reduction.
 - `.ai-engineering/agents/verify-app.md` — end-to-end verification.
 
+## Slash Commands
+
+In Claude Code, all skills and agents are available as slash commands via `.claude/commands/`. Each command is a thin wrapper that reads the canonical skill/agent file. See `CLAUDE.md` for the full command surface.
+
 ## Command Contract
 
 - `/commit` -> stage + commit + push

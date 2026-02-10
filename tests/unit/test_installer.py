@@ -25,15 +25,13 @@ from ai_engineering.installer.operations import (
 )
 from ai_engineering.installer.service import InstallResult, install
 from ai_engineering.installer.templates import (
-    CopyResult,
     copy_file_if_missing,
     copy_project_templates,
     copy_template_tree,
     get_ai_engineering_template_root,
     get_project_template_root,
 )
-from ai_engineering.state.models import AuditEntry, InstallManifest
-
+from ai_engineering.state.models import InstallManifest
 
 # ---------------------------------------------------------------------------
 # Templates
@@ -54,7 +52,9 @@ class TestTemplateDiscovery:
         assert (root / "CLAUDE.md").is_file()
 
     def test_ai_engineering_template_root_missing_raises(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         import ai_engineering.installer.templates as tpl_mod
 
@@ -63,7 +63,9 @@ class TestTemplateDiscovery:
             get_ai_engineering_template_root()
 
     def test_project_template_root_missing_raises(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         import ai_engineering.installer.templates as tpl_mod
 
@@ -150,7 +152,8 @@ class TestCopyProjectTemplates:
     """Tests for project template mapping."""
 
     def test_copies_project_templates_to_correct_locations(
-        self, tmp_path: Path,
+        self,
+        tmp_path: Path,
     ) -> None:
         result = copy_project_templates(tmp_path)
 
@@ -381,7 +384,5 @@ def _read_audit_log(project: Path) -> list[dict[str, object]]:
     if not audit_path.exists():
         return []
     return [
-        json.loads(line)
-        for line in audit_path.read_text().strip().splitlines()
-        if line.strip()
+        json.loads(line) for line in audit_path.read_text().strip().splitlines() if line.strip()
     ]

@@ -7,7 +7,7 @@ branch cleanup, risk governance status, and pipeline compliance scanning.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Annotated, Optional
+from typing import Annotated
 
 import typer
 
@@ -29,7 +29,7 @@ from ai_engineering.state.models import DecisionStore
 
 def maintenance_report(
     target: Annotated[
-        Optional[Path],
+        Path | None,
         typer.Option("--target", "-t", help="Target project root."),
     ] = None,
     staleness_days: Annotated[
@@ -46,7 +46,7 @@ def maintenance_report(
 
 def maintenance_pr(
     target: Annotated[
-        Optional[Path],
+        Path | None,
         typer.Option("--target", "-t", help="Target project root."),
     ] = None,
     branch: Annotated[
@@ -68,7 +68,7 @@ def maintenance_pr(
 
 def maintenance_branch_cleanup(
     target: Annotated[
-        Optional[Path],
+        Path | None,
         typer.Option("--target", "-t", help="Target project root."),
     ] = None,
     base: Annotated[
@@ -101,7 +101,7 @@ def maintenance_branch_cleanup(
 
 def maintenance_risk_status(
     target: Annotated[
-        Optional[Path],
+        Path | None,
         typer.Option("--target", "-t", help="Target project root."),
     ] = None,
 ) -> None:
@@ -140,7 +140,7 @@ def maintenance_risk_status(
 
 def maintenance_pipeline_compliance(
     target: Annotated[
-        Optional[Path],
+        Path | None,
         typer.Option("--target", "-t", help="Target project root."),
     ] = None,
     suggest: Annotated[

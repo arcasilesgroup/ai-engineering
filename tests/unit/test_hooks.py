@@ -16,7 +16,6 @@ from pathlib import Path
 import pytest
 
 from ai_engineering.hooks.manager import (
-    HookConflict,
     _HOOK_MARKER,
     detect_conflicts,
     generate_bash_hook,
@@ -28,7 +27,6 @@ from ai_engineering.hooks.manager import (
     verify_hooks,
 )
 from ai_engineering.state.models import GateHook
-
 
 # ---------------------------------------------------------------------------
 # Script generation

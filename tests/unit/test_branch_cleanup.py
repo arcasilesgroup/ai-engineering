@@ -31,57 +31,79 @@ def git_repo_with_branches(tmp_path: Path) -> Path:
     subprocess.run(["git", "init", str(tmp_path)], check=True, capture_output=True)
     subprocess.run(
         ["git", "config", "user.email", "test@test.com"],
-        cwd=tmp_path, check=True, capture_output=True,
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
     )
     subprocess.run(
         ["git", "config", "user.name", "Test"],
-        cwd=tmp_path, check=True, capture_output=True,
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
     )
     (tmp_path / "README.md").write_text("init")
     subprocess.run(["git", "add", "."], cwd=tmp_path, check=True, capture_output=True)
     subprocess.run(
         ["git", "commit", "-m", "init"],
-        cwd=tmp_path, check=True, capture_output=True,
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
     )
 
     # Create and merge feature-a
     subprocess.run(
         ["git", "checkout", "-b", "feature/a"],
-        cwd=tmp_path, check=True, capture_output=True,
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
     )
     (tmp_path / "a.txt").write_text("a")
     subprocess.run(["git", "add", "."], cwd=tmp_path, check=True, capture_output=True)
     subprocess.run(
         ["git", "commit", "-m", "add a"],
-        cwd=tmp_path, check=True, capture_output=True,
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
     )
     subprocess.run(
         ["git", "checkout", "main"],
-        cwd=tmp_path, check=True, capture_output=True,
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
     )
     subprocess.run(
         ["git", "merge", "feature/a", "--no-ff", "-m", "merge a"],
-        cwd=tmp_path, check=True, capture_output=True,
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
     )
 
     # Create and merge feature-b
     subprocess.run(
         ["git", "checkout", "-b", "feature/b"],
-        cwd=tmp_path, check=True, capture_output=True,
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
     )
     (tmp_path / "b.txt").write_text("b")
     subprocess.run(["git", "add", "."], cwd=tmp_path, check=True, capture_output=True)
     subprocess.run(
         ["git", "commit", "-m", "add b"],
-        cwd=tmp_path, check=True, capture_output=True,
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
     )
     subprocess.run(
         ["git", "checkout", "main"],
-        cwd=tmp_path, check=True, capture_output=True,
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
     )
     subprocess.run(
         ["git", "merge", "feature/b", "--no-ff", "-m", "merge b"],
-        cwd=tmp_path, check=True, capture_output=True,
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
     )
 
     return tmp_path
@@ -106,17 +128,23 @@ class TestListMergedBranches:
         subprocess.run(["git", "init", str(tmp_path)], check=True, capture_output=True)
         subprocess.run(
             ["git", "config", "user.email", "t@t.com"],
-            cwd=tmp_path, check=True, capture_output=True,
+            cwd=tmp_path,
+            check=True,
+            capture_output=True,
         )
         subprocess.run(
             ["git", "config", "user.name", "T"],
-            cwd=tmp_path, check=True, capture_output=True,
+            cwd=tmp_path,
+            check=True,
+            capture_output=True,
         )
         (tmp_path / "f.txt").write_text("f")
         subprocess.run(["git", "add", "."], cwd=tmp_path, check=True, capture_output=True)
         subprocess.run(
             ["git", "commit", "-m", "init"],
-            cwd=tmp_path, check=True, capture_output=True,
+            cwd=tmp_path,
+            check=True,
+            capture_output=True,
         )
         merged = list_merged_branches(tmp_path, "main")
         assert merged == []

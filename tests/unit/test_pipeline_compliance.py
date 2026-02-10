@@ -13,11 +13,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from ai_engineering.pipeline.compliance import (
     ComplianceReport,
-    PipelineComplianceResult,
     PipelineFile,
     PipelineType,
     detect_pipelines,
@@ -29,7 +26,6 @@ from ai_engineering.pipeline.injector import (
     generate_github_step,
     suggest_injection,
 )
-
 
 # ── detect_pipelines ────────────────────────────────────────────────────
 
@@ -96,11 +92,7 @@ class TestScanPipeline:
         wf_dir = tmp_path / ".github" / "workflows"
         wf_dir.mkdir(parents=True)
         (wf_dir / "ci.yml").write_text(
-            "name: CI\n"
-            "jobs:\n"
-            "  check:\n"
-            "    steps:\n"
-            "      - run: ai-eng gate risk-check\n"
+            "name: CI\njobs:\n  check:\n    steps:\n      - run: ai-eng gate risk-check\n"
         )
         pipeline = PipelineFile(
             path=Path(".github/workflows/ci.yml"),

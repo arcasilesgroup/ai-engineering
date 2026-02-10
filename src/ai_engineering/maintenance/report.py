@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import subprocess
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from ai_engineering.state.io import read_json_model, read_ndjson_entries
@@ -45,7 +45,7 @@ class MaintenanceReport:
 
     @property
     def health_score(self) -> float:
-        """Simple health score (0.0–1.0) based on staleness ratio.
+        """Simple health score (0.0-1.0) based on staleness ratio.
 
         Returns:
             1.0 if no stale files, decreasing with more stale files.
@@ -123,7 +123,7 @@ def generate_report(
     Returns:
         MaintenanceReport with health and staleness data.
     """
-    now = datetime.now(tz=timezone.utc)
+    now = datetime.now(tz=UTC)
     ai_eng_dir = target / ".ai-engineering"
     report = MaintenanceReport(generated_at=now)
 
@@ -151,21 +151,21 @@ def generate_report(
 
     # Detect stale files
     for f in all_files:
-        mtime = datetime.fromtimestamp(f.stat().st_mtime, tz=timezone.utc)
+        mtime = datetime.fromtimestamp(f.stat().st_mtime, tz=UTC)
         age_days = (now - mtime).days
         if age_days > staleness_days:
-            report.stale_files.append(StaleFile(
-                path=f.relative_to(ai_eng_dir),
-                last_modified=mtime,
-                age_days=age_days,
-            ))
+            report.stale_files.append(
+                StaleFile(
+                    path=f.relative_to(ai_eng_dir),
+                    last_modified=mtime,
+                    age_days=age_days,
+                )
+            )
 
     # Count state files
     state_dir = ai_eng_dir / "state"
     if state_dir.is_dir():
-        report.total_state_files = sum(
-            1 for f in state_dir.iterdir() if f.is_file()
-        )
+        report.total_state_files = sum(1 for f in state_dir.iterdir() if f.is_file())
 
     # Count recent audit events
     audit_path = ai_eng_dir / "state" / "audit-log.ndjson"
@@ -265,9 +265,13 @@ def create_maintenance_pr(
         )
         subprocess.run(
             [
-                "gh", "pr", "create",
-                "--title", "chore: framework maintenance report",
-                "--body", report.to_markdown(),
+                "gh",
+                "pr",
+                "create",
+                "--title",
+                "chore: framework maintenance report",
+                "--body",
+                report.to_markdown(),
             ],
             cwd=target,
             check=True,

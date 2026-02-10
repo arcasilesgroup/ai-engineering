@@ -12,7 +12,6 @@ import shutil
 from dataclasses import dataclass, field
 from pathlib import Path
 
-
 TEMPLATES_ROOT: Path = Path(__file__).resolve().parent.parent / "templates"
 """Root directory containing bundled template trees."""
 

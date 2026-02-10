@@ -12,7 +12,6 @@ from pathlib import Path
 from ai_engineering.state.io import append_ndjson, read_json_model, write_json_model
 from ai_engineering.state.models import AuditEntry, InstallManifest
 
-
 _MANIFEST_RELATIVE: str = "state/install-manifest.json"
 _AUDIT_LOG_RELATIVE: str = "state/audit-log.ndjson"
 
@@ -35,10 +34,7 @@ def _resolve_paths(target: Path) -> tuple[Path, Path]:
     """
     ai_eng_dir = target / ".ai-engineering"
     if not ai_eng_dir.is_dir():
-        msg = (
-            f"Framework not installed at {target}. "
-            "Run 'ai-eng install' first."
-        )
+        msg = f"Framework not installed at {target}. Run 'ai-eng install' first."
         raise InstallerError(msg)
     return (
         ai_eng_dir / _MANIFEST_RELATIVE,

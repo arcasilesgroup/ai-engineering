@@ -89,6 +89,12 @@ Definitive procedure for authoring and registering a new agent in the ai-enginee
 
    - Insert alphabetically within the agents list for consistency.
 
+### Phase 4b: Register Slash Command
+
+7b. **Create Claude Code command wrapper** — write `.claude/commands/agent/<name>.md` (and its mirror at `src/ai_engineering/templates/project/.claude/commands/agent/<name>.md`).
+   - Content is a thin 3-5 line prompt pointing to the canonical agent file. No content duplication.
+   - Mirror must be byte-identical to canonical command file.
+
 ### Phase 5: Update Counters
 
 8. **Update agent count in product-contract** — edit `.ai-engineering/context/product/product-contract.md`.

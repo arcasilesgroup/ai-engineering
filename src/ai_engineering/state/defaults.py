@@ -19,7 +19,6 @@ from .models import (
     UpdateMetadata,
     VcsExtensions,
     VcsProviders,
-    VcsProviderStatus,
 )
 
 
@@ -54,9 +53,9 @@ def default_install_manifest(
         InstallManifest with default tooling readiness.
     """
     return InstallManifest(
-        schemaVersion="1.1",
-        updateMetadata=default_update_metadata(context="installation manifest"),
-        frameworkVersion="0.1.0",
+        schema_version="1.1",
+        update_metadata=default_update_metadata(context="installation manifest"),
+        framework_version="0.1.0",
         installedStacks=stacks or ["python"],
         installedIdes=ides or ["terminal"],
         providers=VcsProviders(
@@ -66,12 +65,16 @@ def default_install_manifest(
                 azure_devops=AzureDevOpsExtension(enabled=False),
             ),
         ),
-        toolingReadiness=ToolingReadiness(),
+        tooling_readiness=ToolingReadiness(),
     )
 
 
 _DEFAULT_OWNERSHIP_PATHS: list[tuple[str, OwnershipLevel, FrameworkUpdatePolicy]] = [
-    (".ai-engineering/standards/framework/**", OwnershipLevel.FRAMEWORK_MANAGED, FrameworkUpdatePolicy.ALLOW),
+    (
+        ".ai-engineering/standards/framework/**",
+        OwnershipLevel.FRAMEWORK_MANAGED,
+        FrameworkUpdatePolicy.ALLOW,
+    ),
     (".ai-engineering/standards/team/**", OwnershipLevel.TEAM_MANAGED, FrameworkUpdatePolicy.DENY),
     (".ai-engineering/context/**", OwnershipLevel.PROJECT_MANAGED, FrameworkUpdatePolicy.DENY),
     (".ai-engineering/skills/**", OwnershipLevel.FRAMEWORK_MANAGED, FrameworkUpdatePolicy.ALLOW),
@@ -79,14 +82,38 @@ _DEFAULT_OWNERSHIP_PATHS: list[tuple[str, OwnershipLevel, FrameworkUpdatePolicy]
     ("CLAUDE.md", OwnershipLevel.FRAMEWORK_MANAGED, FrameworkUpdatePolicy.ALLOW),
     ("codex.md", OwnershipLevel.FRAMEWORK_MANAGED, FrameworkUpdatePolicy.ALLOW),
     ("AGENTS.md", OwnershipLevel.FRAMEWORK_MANAGED, FrameworkUpdatePolicy.ALLOW),
-    (".github/copilot-instructions.md", OwnershipLevel.FRAMEWORK_MANAGED, FrameworkUpdatePolicy.ALLOW),
+    (
+        ".github/copilot-instructions.md",
+        OwnershipLevel.FRAMEWORK_MANAGED,
+        FrameworkUpdatePolicy.ALLOW,
+    ),
     (".github/copilot/**", OwnershipLevel.FRAMEWORK_MANAGED, FrameworkUpdatePolicy.ALLOW),
     (".github/instructions/**", OwnershipLevel.FRAMEWORK_MANAGED, FrameworkUpdatePolicy.ALLOW),
-    (".ai-engineering/state/install-manifest.json", OwnershipLevel.SYSTEM_MANAGED, FrameworkUpdatePolicy.ALLOW),
-    (".ai-engineering/state/ownership-map.json", OwnershipLevel.SYSTEM_MANAGED, FrameworkUpdatePolicy.ALLOW),
-    (".ai-engineering/state/sources.lock.json", OwnershipLevel.SYSTEM_MANAGED, FrameworkUpdatePolicy.ALLOW),
-    (".ai-engineering/state/decision-store.json", OwnershipLevel.SYSTEM_MANAGED, FrameworkUpdatePolicy.ALLOW),
-    (".ai-engineering/state/audit-log.ndjson", OwnershipLevel.SYSTEM_MANAGED, FrameworkUpdatePolicy.APPEND_ONLY),
+    (
+        ".ai-engineering/state/install-manifest.json",
+        OwnershipLevel.SYSTEM_MANAGED,
+        FrameworkUpdatePolicy.ALLOW,
+    ),
+    (
+        ".ai-engineering/state/ownership-map.json",
+        OwnershipLevel.SYSTEM_MANAGED,
+        FrameworkUpdatePolicy.ALLOW,
+    ),
+    (
+        ".ai-engineering/state/sources.lock.json",
+        OwnershipLevel.SYSTEM_MANAGED,
+        FrameworkUpdatePolicy.ALLOW,
+    ),
+    (
+        ".ai-engineering/state/decision-store.json",
+        OwnershipLevel.SYSTEM_MANAGED,
+        FrameworkUpdatePolicy.ALLOW,
+    ),
+    (
+        ".ai-engineering/state/audit-log.ndjson",
+        OwnershipLevel.SYSTEM_MANAGED,
+        FrameworkUpdatePolicy.APPEND_ONLY,
+    ),
 ]
 
 
@@ -97,8 +124,8 @@ def default_ownership_map() -> OwnershipMap:
         OwnershipMap with framework/team/project/system ownership rules.
     """
     return OwnershipMap(
-        schemaVersion="1.0",
-        updateMetadata=default_update_metadata(context="path ownership map"),
+        schema_version="1.0",
+        update_metadata=default_update_metadata(context="path ownership map"),
         paths=[
             OwnershipEntry(pattern=pattern, owner=owner, frameworkUpdate=policy)
             for pattern, owner, policy in _DEFAULT_OWNERSHIP_PATHS
@@ -113,8 +140,8 @@ def default_decision_store() -> DecisionStore:
         DecisionStore with no decisions.
     """
     return DecisionStore(
-        schemaVersion="1.1",
-        updateMetadata=default_update_metadata(context="decision store"),
+        schema_version="1.1",
+        update_metadata=default_update_metadata(context="decision store"),
         decisions=[],
     )
 
@@ -126,8 +153,8 @@ def default_sources_lock() -> SourcesLock:
         SourcesLock with remote disabled and empty source list.
     """
     return SourcesLock(
-        schemaVersion="1.0",
-        updateMetadata=default_update_metadata(context="sources lock"),
-        defaultRemoteEnabled=False,
+        schema_version="1.0",
+        update_metadata=default_update_metadata(context="sources lock"),
+        default_remote_enabled=False,
         sources=[],
     )

@@ -6,7 +6,7 @@ Manages technology stacks and IDE integrations for an installed project.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Annotated, Optional
+from typing import Annotated
 
 import typer
 
@@ -24,7 +24,7 @@ from ai_engineering.paths import resolve_project_root
 def stack_add(
     stack: Annotated[str, typer.Argument(help="Stack name to add (e.g. python).")],
     target: Annotated[
-        Optional[Path],
+        Path | None,
         typer.Option("--target", "-t", help="Target project root."),
     ] = None,
 ) -> None:
@@ -32,7 +32,7 @@ def stack_add(
     root = resolve_project_root(target)
     try:
         manifest = add_stack(root, stack)
-        typer.echo(f"Added stack '{stack}'. Active stacks: {manifest.stacks}")
+        typer.echo(f"Added stack '{stack}'. Active stacks: {manifest.installed_stacks}")
     except InstallerError as exc:
         typer.echo(f"Error: {exc}", err=True)
         raise typer.Exit(code=1) from exc
@@ -41,7 +41,7 @@ def stack_add(
 def stack_remove(
     stack: Annotated[str, typer.Argument(help="Stack name to remove.")],
     target: Annotated[
-        Optional[Path],
+        Path | None,
         typer.Option("--target", "-t", help="Target project root."),
     ] = None,
 ) -> None:
@@ -49,7 +49,7 @@ def stack_remove(
     root = resolve_project_root(target)
     try:
         manifest = remove_stack(root, stack)
-        typer.echo(f"Removed stack '{stack}'. Active stacks: {manifest.stacks}")
+        typer.echo(f"Removed stack '{stack}'. Active stacks: {manifest.installed_stacks}")
     except InstallerError as exc:
         typer.echo(f"Error: {exc}", err=True)
         raise typer.Exit(code=1) from exc
@@ -57,7 +57,7 @@ def stack_remove(
 
 def stack_list(
     target: Annotated[
-        Optional[Path],
+        Path | None,
         typer.Option("--target", "-t", help="Target project root."),
     ] = None,
 ) -> None:
@@ -65,8 +65,8 @@ def stack_list(
     root = resolve_project_root(target)
     try:
         manifest = list_status(root)
-        if manifest.stacks:
-            for s in manifest.stacks:
+        if manifest.installed_stacks:
+            for s in manifest.installed_stacks:
                 typer.echo(f"  - {s}")
         else:
             typer.echo("  (no stacks configured)")
@@ -78,7 +78,7 @@ def stack_list(
 def ide_add(
     ide: Annotated[str, typer.Argument(help="IDE name to add (e.g. vscode).")],
     target: Annotated[
-        Optional[Path],
+        Path | None,
         typer.Option("--target", "-t", help="Target project root."),
     ] = None,
 ) -> None:
@@ -86,7 +86,7 @@ def ide_add(
     root = resolve_project_root(target)
     try:
         manifest = add_ide(root, ide)
-        typer.echo(f"Added IDE '{ide}'. Active IDEs: {manifest.ides}")
+        typer.echo(f"Added IDE '{ide}'. Active IDEs: {manifest.installed_ides}")
     except InstallerError as exc:
         typer.echo(f"Error: {exc}", err=True)
         raise typer.Exit(code=1) from exc
@@ -95,7 +95,7 @@ def ide_add(
 def ide_remove(
     ide: Annotated[str, typer.Argument(help="IDE name to remove.")],
     target: Annotated[
-        Optional[Path],
+        Path | None,
         typer.Option("--target", "-t", help="Target project root."),
     ] = None,
 ) -> None:
@@ -103,7 +103,7 @@ def ide_remove(
     root = resolve_project_root(target)
     try:
         manifest = remove_ide(root, ide)
-        typer.echo(f"Removed IDE '{ide}'. Active IDEs: {manifest.ides}")
+        typer.echo(f"Removed IDE '{ide}'. Active IDEs: {manifest.installed_ides}")
     except InstallerError as exc:
         typer.echo(f"Error: {exc}", err=True)
         raise typer.Exit(code=1) from exc
@@ -111,7 +111,7 @@ def ide_remove(
 
 def ide_list(
     target: Annotated[
-        Optional[Path],
+        Path | None,
         typer.Option("--target", "-t", help="Target project root."),
     ] = None,
 ) -> None:
@@ -119,8 +119,8 @@ def ide_list(
     root = resolve_project_root(target)
     try:
         manifest = list_status(root)
-        if manifest.ides:
-            for i in manifest.ides:
+        if manifest.installed_ides:
+            for i in manifest.installed_ides:
                 typer.echo(f"  - {i}")
         else:
             typer.echo("  (no IDEs configured)")

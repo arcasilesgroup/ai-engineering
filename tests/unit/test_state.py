@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -29,14 +29,12 @@ from ai_engineering.state.io import (
 from ai_engineering.state.models import (
     AuditEntry,
     DecisionStore,
-    FrameworkUpdatePolicy,
     InstallManifest,
     OwnershipLevel,
     OwnershipMap,
     SourcesLock,
     UpdateMetadata,
 )
-
 
 # ── Models ──────────────────────────────────────────────────────────────
 
@@ -345,7 +343,7 @@ class TestFindReusableDecision:
 
     def test_expired_decision_not_reused(self) -> None:
         store = default_decision_store()
-        past = datetime.utcnow() - timedelta(days=1)
+        past = datetime.now(tz=UTC) - timedelta(days=1)
         create_decision(
             store,
             decision_id="S1-001",
@@ -362,7 +360,7 @@ class TestFindReusableDecision:
 
     def test_non_expired_decision_reused(self) -> None:
         store = default_decision_store()
-        future = datetime.utcnow() + timedelta(days=30)
+        future = datetime.now(tz=UTC) + timedelta(days=30)
         create_decision(
             store,
             decision_id="S1-001",
@@ -412,19 +410,13 @@ class TestNextDecisionId:
 
     def test_increments_correctly(self) -> None:
         store = default_decision_store()
-        create_decision(
-            store, decision_id="S1-001", context="a", decision_text="x", spec="001"
-        )
-        create_decision(
-            store, decision_id="S1-002", context="b", decision_text="y", spec="001"
-        )
+        create_decision(store, decision_id="S1-001", context="a", decision_text="x", spec="001")
+        create_decision(store, decision_id="S1-002", context="b", decision_text="y", spec="001")
         assert next_decision_id(store, "S1") == "S1-003"
 
     def test_different_sessions_independent(self) -> None:
         store = default_decision_store()
-        create_decision(
-            store, decision_id="S1-001", context="a", decision_text="x", spec="001"
-        )
+        create_decision(store, decision_id="S1-001", context="a", decision_text="x", spec="001")
         assert next_decision_id(store, "S2") == "S2-001"
 
 
@@ -441,6 +433,7 @@ class TestSchema11BackwardCompat:
     def test_old_decision_validates(self) -> None:
         """A decision without risk fields validates with defaults."""
         from ai_engineering.state.models import Decision, DecisionStatus
+
         raw = {
             "id": "S1-001",
             "context": "old decision",
@@ -457,32 +450,42 @@ class TestSchema11BackwardCompat:
     def test_risk_decisions_empty_for_old_data(self) -> None:
         """Old decisions without riskCategory are not returned by risk_decisions."""
         from ai_engineering.state.models import DecisionStore
-        store = DecisionStore.model_validate({
-            "schemaVersion": "1.0",
-            "decisions": [{
-                "id": "S1-001",
-                "context": "test",
-                "decision": "decided",
-                "decidedAt": "2025-01-01T00:00:00Z",
-                "spec": "001",
-            }],
-        })
+
+        store = DecisionStore.model_validate(
+            {
+                "schemaVersion": "1.0",
+                "decisions": [
+                    {
+                        "id": "S1-001",
+                        "context": "test",
+                        "decision": "decided",
+                        "decidedAt": "2025-01-01T00:00:00Z",
+                        "spec": "001",
+                    }
+                ],
+            }
+        )
         assert store.risk_decisions() == []
 
     def test_risk_decisions_returns_risk_acceptance(self) -> None:
         """Decisions with riskCategory are returned by risk_decisions."""
         from ai_engineering.state.models import DecisionStore, RiskCategory
-        store = DecisionStore.model_validate({
-            "schemaVersion": "1.1",
-            "decisions": [{
-                "id": "RA-001",
-                "context": "cve risk",
-                "decision": "accept",
-                "decidedAt": "2025-01-01T00:00:00Z",
-                "spec": "004",
-                "riskCategory": "risk_acceptance",
-            }],
-        })
+
+        store = DecisionStore.model_validate(
+            {
+                "schemaVersion": "1.1",
+                "decisions": [
+                    {
+                        "id": "RA-001",
+                        "context": "cve risk",
+                        "decision": "accept",
+                        "decidedAt": "2025-01-01T00:00:00Z",
+                        "spec": "004",
+                        "riskCategory": "risk-acceptance",
+                    }
+                ],
+            }
+        )
         risk = store.risk_decisions()
         assert len(risk) == 1
         assert risk[0].risk_category == RiskCategory.RISK_ACCEPTANCE

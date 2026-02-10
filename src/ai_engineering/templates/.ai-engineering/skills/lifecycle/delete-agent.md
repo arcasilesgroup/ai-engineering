@@ -49,6 +49,10 @@ Definitive procedure for safely removing an agent from the ai-engineering framew
 
 6. **Remove the canonical file** — delete `.ai-engineering/agents/<name>.md`.
 
+### Phase 3b: Remove Slash Command
+
+6b. **Remove Claude Code command wrapper** — delete `.claude/commands/agent/<name>.md` and its mirror at `src/ai_engineering/templates/project/.claude/commands/agent/<name>.md`.
+
 ### Phase 4: Update Counters
 
 7. **Update agent count in product-contract** — edit `.ai-engineering/context/product/product-contract.md`.

@@ -32,7 +32,6 @@ from .templates import (
     get_ai_engineering_template_root,
 )
 
-
 # Relative paths under ``.ai-engineering/`` for each state file.
 _STATE_FILES: dict[str, str] = {
     "install-manifest": "state/install-manifest.json",
@@ -65,10 +64,7 @@ class InstallResult:
     @property
     def total_skipped(self) -> int:
         """Total number of files skipped (already existed)."""
-        return (
-            len(self.governance_files.skipped)
-            + len(self.project_files.skipped)
-        )
+        return len(self.governance_files.skipped) + len(self.project_files.skipped)
 
 
 def install(
@@ -137,7 +133,8 @@ def _generate_state_files(
 
     state_models = {
         _STATE_FILES["install-manifest"]: default_install_manifest(
-            stacks=stacks, ides=ides,
+            stacks=stacks,
+            ides=ides,
         ),
         _STATE_FILES["ownership-map"]: default_ownership_map(),
         _STATE_FILES["decision-store"]: default_decision_store(),

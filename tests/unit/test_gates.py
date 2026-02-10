@@ -36,23 +36,31 @@ def git_repo(tmp_path: Path) -> Path:
     subprocess.run(["git", "init", str(tmp_path)], check=True, capture_output=True)
     subprocess.run(
         ["git", "config", "user.email", "test@test.com"],
-        cwd=tmp_path, check=True, capture_output=True,
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
     )
     subprocess.run(
         ["git", "config", "user.name", "Test"],
-        cwd=tmp_path, check=True, capture_output=True,
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
     )
     # Create initial commit so we can create branches
     (tmp_path / "README.md").write_text("init")
     subprocess.run(["git", "add", "."], cwd=tmp_path, check=True, capture_output=True)
     subprocess.run(
         ["git", "commit", "-m", "init"],
-        cwd=tmp_path, check=True, capture_output=True,
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
     )
     # Switch to feature branch
     subprocess.run(
         ["git", "checkout", "-b", "feature/test"],
-        cwd=tmp_path, check=True, capture_output=True,
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
     )
     return tmp_path
 
@@ -66,14 +74,14 @@ class TestBranchProtection:
     """Tests for protected branch blocking."""
 
     def test_blocks_main_branch(self, tmp_path: Path) -> None:
-        with patch("ai_engineering.git.operations.current_branch", return_value="main"):
+        with patch("ai_engineering.policy.gates.current_branch", return_value="main"):
             result = run_gate(GateHook.PRE_COMMIT, tmp_path)
             assert not result.passed
             failed = result.failed_checks
             assert "branch-protection" in failed
 
     def test_blocks_master_branch(self, tmp_path: Path) -> None:
-        with patch("ai_engineering.git.operations.current_branch", return_value="master"):
+        with patch("ai_engineering.policy.gates.current_branch", return_value="master"):
             result = run_gate(GateHook.PRE_COMMIT, tmp_path)
             assert not result.passed
 
@@ -233,6 +241,7 @@ class TestRiskExpiryWarning:
         ds_dir = tmp_path / ".ai-engineering" / "state"
         ds_dir.mkdir(parents=True)
         import json
+
         (ds_dir / "decision-store.json").write_text(
             json.dumps({"schemaVersion": "1.1", "decisions": []})
         )
@@ -243,26 +252,33 @@ class TestRiskExpiryWarning:
 
     def test_expiring_warns_but_passes(self, tmp_path: Path) -> None:
         import json
-        from datetime import datetime, timedelta
+        from datetime import UTC, datetime, timedelta
+
         ds_dir = tmp_path / ".ai-engineering" / "state"
         ds_dir.mkdir(parents=True)
-        (ds_dir / "decision-store.json").write_text(json.dumps({
-            "schemaVersion": "1.1",
-            "decisions": [{
-                "id": "RA-001",
-                "context": "test risk",
-                "decision": "accept",
-                "decidedAt": "2025-01-01T00:00:00Z",
-                "spec": "004",
-                "riskCategory": "risk_acceptance",
-                "severity": "high",
-                "status": "active",
-                "expiresAt": (datetime.utcnow() + timedelta(days=3)).strftime(
-                    "%Y-%m-%dT%H:%M:%SZ"
-                ),
-                "renewalCount": 0,
-            }],
-        }))
+        (ds_dir / "decision-store.json").write_text(
+            json.dumps(
+                {
+                    "schemaVersion": "1.1",
+                    "decisions": [
+                        {
+                            "id": "RA-001",
+                            "context": "test risk",
+                            "decision": "accept",
+                            "decidedAt": "2025-01-01T00:00:00Z",
+                            "spec": "004",
+                            "riskCategory": "risk-acceptance",
+                            "severity": "high",
+                            "status": "active",
+                            "expiresAt": (datetime.now(tz=UTC) + timedelta(days=3)).strftime(
+                                "%Y-%m-%dT%H:%M:%SZ"
+                            ),
+                            "renewalCount": 0,
+                        }
+                    ],
+                }
+            )
+        )
         result = GateResult(hook=GateHook.PRE_COMMIT)
         _check_expiring_risk_acceptances(tmp_path, result)
         check = _find_check(result, "risk-expiry-warning")
@@ -281,6 +297,7 @@ class TestRiskExpiredBlock:
 
     def test_no_expired_passes(self, tmp_path: Path) -> None:
         import json
+
         ds_dir = tmp_path / ".ai-engineering" / "state"
         ds_dir.mkdir(parents=True)
         (ds_dir / "decision-store.json").write_text(
@@ -293,23 +310,30 @@ class TestRiskExpiredBlock:
 
     def test_expired_blocks(self, tmp_path: Path) -> None:
         import json
+
         ds_dir = tmp_path / ".ai-engineering" / "state"
         ds_dir.mkdir(parents=True)
-        (ds_dir / "decision-store.json").write_text(json.dumps({
-            "schemaVersion": "1.1",
-            "decisions": [{
-                "id": "RA-001",
-                "context": "test expired risk",
-                "decision": "accept",
-                "decidedAt": "2025-01-01T00:00:00Z",
-                "spec": "004",
-                "riskCategory": "risk_acceptance",
-                "severity": "critical",
-                "status": "active",
-                "expiresAt": "2020-01-01T00:00:00Z",
-                "renewalCount": 0,
-            }],
-        }))
+        (ds_dir / "decision-store.json").write_text(
+            json.dumps(
+                {
+                    "schemaVersion": "1.1",
+                    "decisions": [
+                        {
+                            "id": "RA-001",
+                            "context": "test expired risk",
+                            "decision": "accept",
+                            "decidedAt": "2025-01-01T00:00:00Z",
+                            "spec": "004",
+                            "riskCategory": "risk-acceptance",
+                            "severity": "critical",
+                            "status": "active",
+                            "expiresAt": "2020-01-01T00:00:00Z",
+                            "renewalCount": 0,
+                        }
+                    ],
+                }
+            )
+        )
         result = GateResult(hook=GateHook.PRE_PUSH)
         _check_expired_risk_acceptances(tmp_path, result)
         check = _find_check(result, "risk-expired-block")
