@@ -6,7 +6,7 @@
 - Expected gain: faster adaptation and lower context overhead.
 - Potential impact: previous long-form narratives are condensed.
 
-Living record of high-signal lessons from dogfooding and implementation.
+Living record of high-signal lessons from implementation and usage.
 
 ## Entry Template
 
