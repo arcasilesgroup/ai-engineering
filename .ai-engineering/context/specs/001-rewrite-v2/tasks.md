@@ -1,8 +1,8 @@
 ---
 total: 86
-completed: 46
-last_session: S7
-next_session: S8
+completed: 56
+last_session: S9
+next_session: S10
 ---
 
 # Tasks: AI-Engineering Framework — Rewrite from Scratch
@@ -93,21 +93,21 @@ next_session: S8
 
 ## Mega-Phase B: Python Rewrite from Scratch
 
-### Phase 8: Python Scaffold — `S8 · Agent-1 · rewrite/v2`
+### Phase 8: Python Scaffold — `S8 · Agent-1 · rewrite/v2 · ✓ COMPLETE`
 
-- [ ] **Task 8.1**: Delete all modules in `src/ai_engineering/` (keep `__init__.py`, `__version__.py`)
-- [ ] **Task 8.2**: Delete all tests in `tests/` (keep `__init__.py`, empty `conftest.py`)
-- [ ] **Task 8.3**: Update `pyproject.toml` — entry points only `ai install/update/doctor/stack/ide/version`, verify deps
-- [ ] **Task 8.4**: Create `.gitleaks.toml` — base secret detection rules
-- [ ] **Task 8.5**: Create `.semgrep.yml` — OWASP base ruleset
+- [x] **Task 8.1**: Delete all modules in `src/ai_engineering/` (keep `__init__.py`, `__version__.py`)
+- [x] **Task 8.2**: Delete all tests in `tests/` (keep `__init__.py`, empty `conftest.py`)
+- [x] **Task 8.3**: Update `pyproject.toml` — entry points only `ai install/update/doctor/stack/ide/version`, verify deps
+- [x] **Task 8.4**: Create `.gitleaks.toml` — base secret detection rules
+- [x] **Task 8.5**: Create `.semgrep.yml` — OWASP base ruleset
 
-### Phase 9: State Layer — `S9 · Agent-1 · rewrite/v2`
+### Phase 9: State Layer — `S9 · Agent-1 · rewrite/v2 · ✓ COMPLETE`
 
-- [ ] **Task 9.1**: Create `src/ai_engineering/state/models.py` — Pydantic schemas: `InstallManifest`, `OwnershipMap`, `DecisionStore`, `AuditEntry`, `SourcesLock`
-- [ ] **Task 9.2**: Create `src/ai_engineering/state/io.py` — JSON/NDJSON read/write with stable formatting and timestamps
-- [ ] **Task 9.3**: Create `src/ai_engineering/state/defaults.py` — default payloads for bootstrapping
-- [ ] **Task 9.4**: Create `src/ai_engineering/state/decision_logic.py` — decision reuse with SHA-256 context hash
-- [ ] **Task 9.5**: Create `tests/unit/test_state.py` — tests for models, io, defaults, decision logic
+- [x] **Task 9.1**: Create `src/ai_engineering/state/models.py` — Pydantic schemas: `InstallManifest`, `OwnershipMap`, `DecisionStore`, `AuditEntry`, `SourcesLock`
+- [x] **Task 9.2**: Create `src/ai_engineering/state/io.py` — JSON/NDJSON read/write with stable formatting and timestamps
+- [x] **Task 9.3**: Create `src/ai_engineering/state/defaults.py` — default payloads for bootstrapping
+- [x] **Task 9.4**: Create `src/ai_engineering/state/decision_logic.py` — decision reuse with SHA-256 context hash
+- [x] **Task 9.5**: Create `tests/unit/test_state.py` — tests for models, io, defaults, decision logic
 
 ### Phase 10: Installer — `S10 · Agent-1 · rewrite/v2-phase-10` ║
 
