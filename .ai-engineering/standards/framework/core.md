@@ -2,9 +2,9 @@
 
 ## Update Metadata
 
-- Rationale: define immutable governance baseline including agentic execution model.
-- Expected gain: consistent enforcement across installations and multi-agent sessions.
-- Potential impact: team overrides are constrained by non-negotiables.
+- Rationale: align with framework-contract.md v2; add skills and agents as first-class governance content.
+- Expected gain: consistent enforcement across installations and multi-agent sessions with full content governance model.
+- Potential impact: team overrides are constrained by non-negotiables; skills and agents are framework-managed.
 
 ## Purpose
 
@@ -31,6 +31,21 @@ Framework-owned baseline standards for every installed instance.
 - `/commit` and `/acho` push only current branch.
 - `/pr` and `/acho pr` must enable PR auto-complete with squash merge and branch deletion.
 - `/pr --only` warns if branch is not pushed, proposes auto-push, and continues with user-selected mode if declined.
+
+## Skills and Agents
+
+- Skills (`skills/**`) define reusable procedures agents follow: workflows, SWE practices, quality audits.
+- Agents (`agents/**`) define personas with capabilities, behavior protocols, and output contracts.
+- Both are framework-managed content. Team layers cannot weaken them but may extend via team-owned skills.
+- Agent sessions reference skills during execution; skills reference standards for enforcement rules.
+- Precedence: `standards/framework/**` > `skills/**` > `agents/**`. Standards override skill behavior if conflict arises.
+
+## Context Structure
+
+- `context/product/` — framework-contract.md (framework identity) and product-contract.md (project identity).
+- `context/specs/` — spec-driven work: each spec has `spec.md` (WHAT), `plan.md` (HOW), `tasks.md` (DO), `done.md` (DONE).
+- `context/specs/_active.md` — pointer to the currently active spec.
+- `context/learnings.md` — retained knowledge, never overwritten.
 
 ## Agentic Execution Standards
 
