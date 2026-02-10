@@ -1,8 +1,8 @@
 ---
 total: 86
-completed: 56
-last_session: S9
-next_session: S10
+completed: 60
+last_session: S10
+next_session: S11
 ---
 
 # Tasks: AI-Engineering Framework — Rewrite from Scratch
@@ -109,12 +109,12 @@ next_session: S10
 - [x] **Task 9.4**: Create `src/ai_engineering/state/decision_logic.py` — decision reuse with SHA-256 context hash
 - [x] **Task 9.5**: Create `tests/unit/test_state.py` — tests for models, io, defaults, decision logic
 
-### Phase 10: Installer — `S10 · Agent-1 · rewrite/v2-phase-10` ║
+### Phase 10: Installer — `S10 · Agent-1 · rewrite/v2 · ✓ COMPLETE`
 
-- [ ] **Task 10.1**: Create `src/ai_engineering/installer/service.py` — `install()`: creates complete `.ai-engineering/` from templates
-- [ ] **Task 10.2**: Create `src/ai_engineering/installer/templates.py` — template discovery by stack/IDE, create-only semantics
-- [ ] **Task 10.3**: Create `src/ai_engineering/installer/operations.py` — `add_stack`, `remove_stack`, `add_ide`, `remove_ide`, `list_status`
-- [ ] **Task 10.4**: Create `tests/unit/test_installer.py` — install on empty repo, existing repo, add/remove operations
+- [x] **Task 10.1**: Create `src/ai_engineering/installer/service.py` — `install()`: creates complete `.ai-engineering/` from templates
+- [x] **Task 10.2**: Create `src/ai_engineering/installer/templates.py` — template discovery by stack/IDE, create-only semantics
+- [x] **Task 10.3**: Create `src/ai_engineering/installer/operations.py` — `add_stack`, `remove_stack`, `add_ide`, `remove_ide`, `list_status`
+- [x] **Task 10.4**: Create `tests/unit/test_installer.py` — install on empty repo, existing repo, add/remove operations
 
 ### Phase 11: Hooks — `S11 · Agent-2 · rewrite/v2-phase-11` ║
 
