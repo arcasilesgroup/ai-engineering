@@ -42,8 +42,12 @@ Procedural skills guide structured execution. Reference the relevant skill befor
 
 ### Lifecycle Skills
 
+- `.ai-engineering/skills/lifecycle/content-integrity.md` — governance content validation (6-category check).
 - `.ai-engineering/skills/lifecycle/create-agent.md` — agent authoring and registration procedure.
 - `.ai-engineering/skills/lifecycle/create-skill.md` — skill authoring and registration procedure.
+- `.ai-engineering/skills/lifecycle/create-spec.md` — spec creation with branch-first workflow.
+- `.ai-engineering/skills/lifecycle/delete-agent.md` — safe agent removal with dependency checks.
+- `.ai-engineering/skills/lifecycle/delete-skill.md` — safe skill removal with dependency checks.
 
 ### Quality Skills
 
