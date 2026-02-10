@@ -1,8 +1,8 @@
 ---
 total: 86
-completed: 14
-last_session: S2
-next_session: S3
+completed: 17
+last_session: S3
+next_session: S4
 ---
 
 # Tasks: AI-Engineering Framework — Rewrite from Scratch
@@ -36,11 +36,11 @@ next_session: S3
 - [x] **Task 2.2**: Review/update `standards/framework/stacks/python.md` — align with new tooling baseline
 - [x] **Task 2.3**: Review/update quality standards (`quality/core.md`, `quality/python.md`, `quality/sonarlint.md`) — **define the quality contract** (thresholds, metrics, gate structure). Quality skills in Phase 5 will implement this contract. No back-alignment pass needed
 
-### Phase 3: Skills — Workflows — `S3 · Agent-1 · rewrite/v2-phase-3` ║
+### Phase 3: Skills — Workflows — `S3 · Agent-1 · rewrite/v2 · ✓ COMPLETE`
 
-- [ ] **Task 3.1**: Create `skills/workflows/commit.md` — `/commit` flow: stage + format + lint + gitleaks + commit + push
-- [ ] **Task 3.2**: Create `skills/workflows/pr.md` — `/pr` flow: stage + commit + push + create PR + auto-complete (`--auto --squash --delete-branch`)
-- [ ] **Task 3.3**: Create `skills/workflows/acho.md` — `/acho` alias + `/acho pr` variant
+- [x] **Task 3.1**: Create `skills/workflows/commit.md` — `/commit` flow: stage + format + lint + gitleaks + commit + push
+- [x] **Task 3.2**: Create `skills/workflows/pr.md` — `/pr` flow: stage + commit + push + create PR + auto-complete (`--auto --squash --delete-branch`)
+- [x] **Task 3.3**: Create `skills/workflows/acho.md` — `/acho` alias + `/acho pr` variant
 
 ### Phase 4: Skills — SWE — `S4 · Agent-2 (4.1-4.10) · S5 · Agent-3 (4.11-4.12) · rewrite/v2-phase-4` ║
 
