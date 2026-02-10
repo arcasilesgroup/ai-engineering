@@ -39,6 +39,7 @@ Quality gate enforcer who executes the quality contract defined in standards, ru
 - `standards/framework/quality/core.md` — quality contract, thresholds, gate structure.
 - `standards/framework/quality/python.md` — Python-specific checks.
 - `standards/framework/quality/sonarlint.md` — severity mapping.
+- `standards/framework/stacks/python.md` — required tooling (ruff, ty, uv).
 
 ## Output Contract
 
