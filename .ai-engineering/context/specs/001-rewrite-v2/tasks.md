@@ -1,8 +1,8 @@
 ---
 total: 86
-completed: 81
-last_session: S16
-next_session: S17
+completed: 86
+last_session: S19
+next_session: done
 ---
 
 # Tasks: AI-Engineering Framework — Rewrite from Scratch
@@ -159,19 +159,19 @@ next_session: S17
 
 ## Mega-Phase C: Mirror + CI + E2E
 
-### Phase 18: Templates Mirror — `S17 · Agent-1 · rewrite/v2`
+### Phase 18: Templates Mirror — `S17 · Agent-1 · rewrite/v2 · ✓ COMPLETE`
 
-- [ ] **Task 18.1**: Sync `.ai-engineering/` canonical → `src/ai_engineering/templates/.ai-engineering/` (exclude state/, context/specs/ high-churn)
-- [ ] **Task 18.2**: Sync `.github/`, `AGENTS.md`, `CLAUDE.md` → `src/ai_engineering/templates/project/`
+- [x] **Task 18.1**: Sync `.ai-engineering/` canonical → `src/ai_engineering/templates/.ai-engineering/` (exclude state/, context/specs/ high-churn)
+- [x] **Task 18.2**: Sync `.github/`, `AGENTS.md`, `CLAUDE.md` → `src/ai_engineering/templates/project/`
 
-### Phase 19: CI/CD — `S18 · Agent-1 · rewrite/v2`
+### Phase 19: CI/CD — `S18 · Agent-1 · rewrite/v2 · ✓ COMPLETE`
 
-- [ ] **Task 19.1**: Create `.github/workflows/ci.yml` — Python 3.11/3.12/3.13 × Ubuntu/Windows/macOS matrix. Steps: ruff check → ruff format --check → ty check src → pytest --cov → pip-audit → uv build
-- [ ] **Task 19.2**: Create `.github/workflows/release.yml` — semantic versioning, publish to PyPI on tag
-- [ ] **Task 19.3**: Create `tests/conftest.py` — shared fixtures for the entire test suite
+- [x] **Task 19.1**: Create `.github/workflows/ci.yml` — Python 3.11/3.12/3.13 × Ubuntu/Windows/macOS matrix. Steps: ruff check → ruff format --check → ty check src → pytest --cov → pip-audit → uv build
+- [x] **Task 19.2**: Create `.github/workflows/release.yml` — semantic versioning, publish to PyPI on tag
+- [x] **Task 19.3**: Create `tests/conftest.py` — shared fixtures for the entire test suite
 
-### Phase 20: E2E + Closure — `S19 · Agent-1 · rewrite/v2`
+### Phase 20: E2E + Closure — `S19 · Agent-1 · rewrite/v2 · ✓ COMPLETE`
 
-- [ ] **Task 20.1**: Create `tests/e2e/test_install_clean.py` — install on empty repo replicates full structure
-- [ ] **Task 20.2**: Create `tests/e2e/test_install_existing.py` — install on repo with code preserves team/project content
-- [ ] **Task 20.3**: Create `specs/001-rewrite-v2/done.md` — closure summary, quality gate result, decisions made, learnings
+- [x] **Task 20.1**: Create `tests/e2e/test_install_clean.py` — install on empty repo replicates full structure
+- [x] **Task 20.2**: Create `tests/e2e/test_install_existing.py` — install on repo with code preserves team/project content
+- [x] **Task 20.3**: Create `specs/001-rewrite-v2/done.md` — closure summary, quality gate result, decisions made, learnings
