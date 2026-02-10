@@ -1,8 +1,8 @@
 ---
 total: 86
-completed: 76
-last_session: S15
-next_session: S16
+completed: 81
+last_session: S16
+next_session: S17
 ---
 
 # Tasks: AI-Engineering Framework — Rewrite from Scratch
@@ -144,16 +144,16 @@ next_session: S16
 - [x] **Task 15.2**: Create `src/ai_engineering/maintenance/report.py` — report generation, PR creation, staleness analysis
 - [x] **Task 15.3**: Create `tests/unit/test_skills_maintenance.py` — sync, offline, allowlist, report, PR
 
-### Phase 16: Commands + Workflows — `S16 · Agent-1 · rewrite/v2`
+### Phase 16: Commands + Workflows — `S16 · Agent-1 · rewrite/v2 · ✓ COMPLETE`
 
-- [ ] **Task 16.1**: Create `src/ai_engineering/commands/workflows.py` — `run_commit_workflow`, `run_pr_workflow`, `run_pr_only_workflow`, decision-store integration, audit logging
-- [ ] **Task 16.2**: Create `tests/unit/test_workflows.py` — branch blocking, PR modes, auto-complete
+- [x] **Task 16.1**: Create `src/ai_engineering/commands/workflows.py` — `run_commit_workflow`, `run_pr_workflow`, `run_pr_only_workflow`, decision-store integration, audit logging
+- [x] **Task 16.2**: Create `tests/unit/test_workflows.py` — branch blocking, PR modes, auto-complete
 
-### Phase 17: CLI — `S16 · Agent-1 · rewrite/v2`
+### Phase 17: CLI — `S16 · Agent-1 · rewrite/v2 · ✓ COMPLETE`
 
-- [ ] **Task 17.1**: Create `src/ai_engineering/cli.py` + `cli_factory.py` + `paths.py` — Typer app with entry points
-- [ ] **Task 17.2**: Create CLI commands: `cli_commands/core.py` (install, update, doctor, version) + `stack_ide.py` + `gate.py` + `skills.py` + `maintenance.py` (no `workflow.py` — D10: lifecycle commands are skills-only)
-- [ ] **Task 17.3**: Create `tests/integration/test_cli.py` — CliRunner: install, doctor, update, stack, ide, gates, workflows
+- [x] **Task 17.1**: Create `src/ai_engineering/cli.py` + `cli_factory.py` + `paths.py` — Typer app with entry points
+- [x] **Task 17.2**: Create CLI commands: `cli_commands/core.py` (install, update, doctor, version) + `stack_ide.py` + `gate.py` + `skills.py` + `maintenance.py` (no `workflow.py` — D10: lifecycle commands are skills-only)
+- [x] **Task 17.3**: Create `tests/integration/test_cli.py` — CliRunner: install, doctor, update, stack, ide, gates, workflows
 
 ---
 
