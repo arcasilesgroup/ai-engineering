@@ -1,8 +1,8 @@
 ---
 total: 86
-completed: 11
-last_session: S1
-next_session: S2
+completed: 14
+last_session: S2
+next_session: S3
 ---
 
 # Tasks: AI-Engineering Framework — Rewrite from Scratch
@@ -30,11 +30,11 @@ next_session: S2
 - [x] **Task 1.6**: Delete `context/delivery/` directory entirely (absorbed by specs/done.md)
 - [x] **Task 1.7**: Update `manifest.yml`, `.github/copilot-instructions.md`, `AGENTS.md`, `CLAUDE.md` — **remove references to deleted files only** (`backlog/`, `delivery/`, `vision.md`, `roadmap.md`, prompt files). Add `agents/**` to `framework_managed` in manifest. Do NOT add comprehensive content references — that is Phase 7's scope (Tasks 7.4, 7.6, 7.7)
 
-### Phase 2: Standards Review — `S2 · Agent-1 · rewrite/v2`
+### Phase 2: Standards Review — `S2 · Agent-1 · rewrite/v2 · ✓ COMPLETE`
 
-- [ ] **Task 2.1**: Review/update `standards/framework/core.md` — align with framework-contract.md v2, ensure it references skills and agents
-- [ ] **Task 2.2**: Review/update `standards/framework/stacks/python.md` — align with new tooling baseline
-- [ ] **Task 2.3**: Review/update quality standards (`quality/core.md`, `quality/python.md`, `quality/sonarlint.md`) — **define the quality contract** (thresholds, metrics, gate structure). Quality skills in Phase 5 will implement this contract. No back-alignment pass needed
+- [x] **Task 2.1**: Review/update `standards/framework/core.md` — align with framework-contract.md v2, ensure it references skills and agents
+- [x] **Task 2.2**: Review/update `standards/framework/stacks/python.md` — align with new tooling baseline
+- [x] **Task 2.3**: Review/update quality standards (`quality/core.md`, `quality/python.md`, `quality/sonarlint.md`) — **define the quality contract** (thresholds, metrics, gate structure). Quality skills in Phase 5 will implement this contract. No back-alignment pass needed
 
 ### Phase 3: Skills — Workflows — `S3 · Agent-1 · rewrite/v2-phase-3` ║
 
