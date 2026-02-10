@@ -152,4 +152,7 @@ Definitive procedure for authoring and registering a new agent in the ai-enginee
 - `context/product/framework-contract.md` — template packaging and replication rule.
 - `skills/swe/prompt-engineer.md` — prompt engineering for agent persona authoring.
 - `skills/lifecycle/create-skill.md` — companion procedure for skill registration.
+- `skills/lifecycle/create-spec.md` — spec creation procedure (spec-first enforcement).
+- `skills/lifecycle/delete-agent.md` — inverse procedure for agent removal.
+- `skills/lifecycle/content-integrity.md` — post-change validation of governance content.
 - `skills/swe/changelog-documentation.md` — changelog entry formatting.
