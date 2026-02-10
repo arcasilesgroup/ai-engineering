@@ -1,8 +1,8 @@
 ---
 total: 86
-completed: 29
-last_session: S5
-next_session: S6
+completed: 39
+last_session: S6
+next_session: S7
 ---
 
 # Tasks: AI-Engineering Framework — Rewrite from Scratch
@@ -59,21 +59,21 @@ next_session: S6
 
 > **Note**: Tasks 4.11 and 4.12 are L-sized (3-5x typical skill). Each requires a dedicated agent session with extended context. Assign to Session S5 separately from the other 10 SWE skills.
 
-### Phase 5: Skills — Quality — `S6 · Agent-4 · rewrite/v2-phase-5-6` ║
+### Phase 5: Skills — Quality — `S6 · Agent-4 · rewrite/v2 · ✓ COMPLETE`
 
-- [ ] **Task 5.1**: Create `skills/quality/audit-code.md` — SonarQube-like quality gate: coverage ≥80%, duplication ≤3%, no blocker/critical, complexity, maintainability
-- [ ] **Task 5.2**: Create `skills/quality/audit-report.md` — report template with PASS/FAIL verdict and metrics
+- [x] **Task 5.1**: Create `skills/quality/audit-code.md` — SonarQube-like quality gate: coverage ≥80%, duplication ≤3%, no blocker/critical, complexity, maintainability
+- [x] **Task 5.2**: Create `skills/quality/audit-report.md` — report template with PASS/FAIL verdict and metrics
 
-### Phase 6: Agents — `S6 · Agent-4 · rewrite/v2-phase-5-6` ║
+### Phase 6: Agents — `S6 · Agent-4 · rewrite/v2 · ✓ COMPLETE`
 
-- [ ] **Task 6.1**: Create `agents/principal-engineer.md` — reviews as principal: patterns, edge cases, naming, tests, performance, mentoring improvements
-- [ ] **Task 6.2**: Create `agents/debugger.md` — systematic diagnosis with persistent state tracking
-- [ ] **Task 6.3**: Create `agents/architect.md` — architecture analysis: dependencies, boundaries, trade-offs, scaling
-- [ ] **Task 6.4**: Create `agents/quality-auditor.md` — executes quality gate reading standards, generates report
-- [ ] **Task 6.5**: Create `agents/security-reviewer.md` — OWASP, secrets, dependency vulnerabilities, auth flaws
-- [ ] **Task 6.6**: Create `agents/codebase-mapper.md` — maps brownfield codebase: stack, architecture, conventions, tech debt
-- [ ] **Task 6.7**: Create `agents/code-simplifier.md` — reduces complexity, cyclomatic complexity, readability. Reconnaissance of existing patterns before simplifying
-- [ ] **Task 6.8**: Create `agents/verify-app.md` — E2E single-pass finisher: build, test, lint, security, quality, product vision, goals, contract, verification
+- [x] **Task 6.1**: Create `agents/principal-engineer.md` — reviews as principal: patterns, edge cases, naming, tests, performance, mentoring improvements
+- [x] **Task 6.2**: Create `agents/debugger.md` — systematic diagnosis with persistent state tracking
+- [x] **Task 6.3**: Create `agents/architect.md` — architecture analysis: dependencies, boundaries, trade-offs, scaling
+- [x] **Task 6.4**: Create `agents/quality-auditor.md` — executes quality gate reading standards, generates report
+- [x] **Task 6.5**: Create `agents/security-reviewer.md` — OWASP, secrets, dependency vulnerabilities, auth flaws
+- [x] **Task 6.6**: Create `agents/codebase-mapper.md` — maps brownfield codebase: stack, architecture, conventions, tech debt
+- [x] **Task 6.7**: Create `agents/code-simplifier.md` — reduces complexity, cyclomatic complexity, readability. Reconnaissance of existing patterns before simplifying
+- [x] **Task 6.8**: Create `agents/verify-app.md` — E2E single-pass finisher: build, test, lint, security, quality, product vision, goals, contract, verification
 
 ### Phase 7: Stack Instructions + Copilot Integration — `S7 · Agent-1 · rewrite/v2`
 
