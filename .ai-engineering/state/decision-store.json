@@ -5,5 +5,48 @@
     "expectedGain": "lower prompt fatigue and stronger auditability",
     "potentialImpact": "decision expiry and context-hash logic becomes mandatory"
   },
-  "decisions": []
+  "decisions": [
+    {
+      "id": "S0-001",
+      "context": "D10 lifecycle commands execution model",
+      "decision": "skills-only: /commit, /pr, /acho are markdown skills the AI reads, not Python CLI commands. cli_commands/workflow.py removed from plan.",
+      "decidedAt": "2026-02-10T00:00:00Z",
+      "spec": "001-rewrite-v2"
+    },
+    {
+      "id": "S0-002",
+      "context": "Phase 2 vs Phase 5 quality standards direction",
+      "decision": "standards-first: Phase 2 defines the quality contract (thresholds, metrics, gate structure). Phase 5 skills implement it. No circular dependency or back-alignment pass.",
+      "decidedAt": "2026-02-10T00:00:00Z",
+      "spec": "001-rewrite-v2"
+    },
+    {
+      "id": "S0-003",
+      "context": "Task 1.7 vs Phase 7 scope collision on root files",
+      "decision": "Task 1.7 scoped to deletion-reference cleanup only. Phase 7 (Tasks 7.4, 7.6, 7.7) does the comprehensive rewrite of copilot-instructions.md, AGENTS.md, CLAUDE.md.",
+      "decidedAt": "2026-02-10T00:00:00Z",
+      "spec": "001-rewrite-v2"
+    },
+    {
+      "id": "S0-004",
+      "context": "Orphan .prompt.md files in context/product/",
+      "decision": "Delete both: plan-aiEngineeringRewrite.prompt.md and plan-context-architecture.prompt.md. Content fully absorbed by specs/001-rewrite-v2/. Added as Task 1.4b.",
+      "decidedAt": "2026-02-10T00:00:00Z",
+      "spec": "001-rewrite-v2"
+    },
+    {
+      "id": "S0-005",
+      "context": "Skill and agent document consistency",
+      "decision": "Mandatory templates defined in plan.md § Document Templates. All skills follow: Purpose → Trigger → Procedure → Output Contract → Governance Notes → References. All agents follow: Identity → Capabilities → Activation → Behavior → Referenced Skills → Referenced Standards → Output Contract → Boundaries.",
+      "decidedAt": "2026-02-10T00:00:00Z",
+      "spec": "001-rewrite-v2"
+    },
+    {
+      "id": "S0-006",
+      "context": "Phase 0 completion status",
+      "decision": "Phase 0 (Tasks 0.1-0.3) marked as complete. Spec files and _active.md already exist. Branch creation (0.1) to be executed when S1 starts.",
+      "decidedAt": "2026-02-10T00:00:00Z",
+      "spec": "001-rewrite-v2"
+    }
+  ]
 }

@@ -17,6 +17,7 @@ ownership:
     framework_managed:
       - "standards/framework/**"
       - "skills/**"
+      - "agents/**"
     team_managed:
       - "standards/team/**"
     project_managed:
@@ -152,6 +153,43 @@ risk_acceptance:
 telemetry:
   mode: "strict_opt_in"
   default_enabled: false
+
+agentic:
+  model: "session_scoped"
+  parallel_execution: true
+  session_contract:
+    start_sequence:
+      - "context/specs/_active.md"
+      - "<active_spec>/spec.md"
+      - "<active_spec>/tasks.md"
+      - "state/decision-store.json"
+    commit_format: "spec-{spec_id}: Task {task_id} — {description}"
+    close_actions:
+      - "update_task_checkboxes"
+      - "update_tasks_frontmatter"
+      - "report_summary"
+  branch_strategy:
+    integration_branch_pattern: "<spec_branch>"
+    phase_branch_pattern: "<spec_branch>-phase-{phase_number}"
+    serial_phases: "work_on_integration_branch"
+    parallel_phases: "work_on_phase_branch"
+    merge_protocol: "rebase_before_merge"
+  phase_gates:
+    required:
+      - "all_tasks_checked"
+      - "branch_merged_if_parallel"
+      - "quality_checks_pass"
+      - "decisions_recorded"
+    serial_block: true
+  decision_continuity:
+    store: "state/decision-store.json"
+    context_hash: "sha256"
+    reprompt_conditions:
+      - "decision_expired"
+      - "scope_changed"
+      - "severity_changed"
+      - "policy_changed"
+      - "material_context_hash_changed"
 
 context_optimization:
   policy: "strict_efficiency_no_hard_category_caps"

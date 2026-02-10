@@ -1,1 +1,3 @@
-"""Git hook helpers package."""
+"""Hooks package for ai-engineering framework."""
+
+from __future__ import annotations

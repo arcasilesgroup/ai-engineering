@@ -2,8 +2,8 @@
 
 ## Update Metadata
 
-- Rationale: keep Python quality checks deterministic and local-first.
-- Expected gain: predictable quality outcomes in commit and push workflows.
+- Rationale: align with v2 tooling baseline and explicit thresholds; define what Phase 5 quality skills enforce for Python.
+- Expected gain: predictable quality outcomes in commit and push workflows with measurable criteria.
 - Potential impact: missing tools or failing checks block governed operations.
 
 ## Mandatory Local Checks
@@ -22,7 +22,9 @@
 
 ## Complexity and Maintainability
 
-- Keep functions focused and small.
+- Functions: <50 lines, single responsibility.
+- Cyclomatic complexity: target ≤10 per function.
+- Cognitive complexity: target ≤15 per function.
 - Prefer explicit branch handling over implicit side effects.
 - Avoid introducing stack-specific behavior outside declared standards.
 

@@ -1,90 +1,75 @@
-"""Governance gate CLI commands."""
+"""Gate CLI commands: pre-commit, commit-msg, pre-push.
+
+Invoked by git hooks to run quality gate checks.
+"""
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
-from typing import Any, cast
+from typing import Annotated, Optional
 
 import typer
 
-from ai_engineering.paths import repo_root
-from ai_engineering.policy.gates import (
-    gate_requirements,
-    run_docs_contract,
-    run_commit_msg,
-    run_pre_commit,
-    run_pre_push,
-)
+from ai_engineering.paths import resolve_project_root
+from ai_engineering.policy.gates import GateResult, run_gate
+from ai_engineering.state.models import GateHook
 
 
-def register(gate_app: typer.Typer) -> None:
-    """Register gate command group."""
+def _print_gate_result(result: GateResult) -> None:
+    """Print gate results and exit with appropriate code.
 
-    @gate_app.command("pre-commit")
-    def gate_pre_commit() -> None:
-        """Run pre-commit gate checks."""
-        ok, messages = run_pre_commit()
-        for message in messages:
-            typer.echo(message)
-        if not ok:
-            raise typer.Exit(code=1)
+    Args:
+        result: The gate execution result.
+    """
+    status = "PASS" if result.passed else "FAIL"
+    typer.echo(f"Gate [{result.hook.value}] {status}")
 
-    @gate_app.command("commit-msg")
-    def gate_commit_msg(commit_msg_file: str) -> None:
-        """Run commit-msg gate checks."""
-        message_path = Path(commit_msg_file)
-        if not message_path.exists():
-            typer.echo(f"missing commit message file: {commit_msg_file}")
-            raise typer.Exit(code=1)
-        ok, messages = run_commit_msg(message_path)
-        for message in messages:
-            typer.echo(message)
-        if not ok:
-            raise typer.Exit(code=1)
+    for check in result.checks:
+        icon = "✓" if check.passed else "✗"
+        typer.echo(f"  {icon} {check.name}")
+        if not check.passed and check.output:
+            for line in check.output.splitlines()[:5]:
+                typer.echo(f"    {line}")
 
-    @gate_app.command("pre-push")
-    def gate_pre_push() -> None:
-        """Run pre-push gate checks."""
-        ok, messages = run_pre_push()
-        for message in messages:
-            typer.echo(message)
-        if not ok:
-            raise typer.Exit(code=1)
+    if not result.passed:
+        raise typer.Exit(code=1)
 
-    @gate_app.command("docs")
-    def gate_docs() -> None:
-        """Run backlog/delivery documentation contract checks."""
-        ok, messages = run_docs_contract()
-        for message in messages:
-            typer.echo(message)
-        if not ok:
-            raise typer.Exit(code=1)
 
-    @gate_app.command("list")
-    def gate_list(
-        json_output: bool = typer.Option(False, "--json", help="Print JSON output"),
-    ) -> None:
-        """Show configured mandatory gate requirements."""
-        requirements = gate_requirements(repo_root())
-        if json_output:
-            typer.echo(json.dumps(requirements, indent=2))
-            return
+def gate_pre_commit(
+    target: Annotated[
+        Optional[Path],
+        typer.Option("--target", "-t", help="Target project root."),
+    ] = None,
+) -> None:
+    """Run pre-commit gate checks (format, lint, gitleaks)."""
+    root = resolve_project_root(target)
+    result = run_gate(GateHook.PRE_COMMIT, root)
+    _print_gate_result(result)
 
-        protected_raw = requirements.get("protectedBranches", [])
-        protected = protected_raw if isinstance(protected_raw, list) else []
-        protected_names = [str(item) for item in protected]
-        typer.echo(
-            f"protected branches: {', '.join(protected_names) if protected_names else 'none'}"
-        )
-        stages = requirements.get("stages", {})
-        if isinstance(stages, dict):
-            for stage, checks in stages.items():
-                typer.echo(f"{stage}:")
-                if isinstance(checks, list):
-                    for check in checks:
-                        if isinstance(check, dict):
-                            typed_check = cast(dict[str, Any], check)
-                            tool_raw = typed_check.get("tool")
-                            tool = str(tool_raw) if tool_raw is not None else "unknown"
-                            typer.echo(f"  - {tool}")
+
+def gate_commit_msg(
+    msg_file: Annotated[
+        Path,
+        typer.Argument(help="Path to the commit message file."),
+    ],
+    target: Annotated[
+        Optional[Path],
+        typer.Option("--target", "-t", help="Target project root."),
+    ] = None,
+) -> None:
+    """Run commit-msg gate checks (message format validation)."""
+    root = resolve_project_root(target)
+    result = run_gate(GateHook.COMMIT_MSG, root, commit_msg_file=msg_file)
+    _print_gate_result(result)
+
+
+def gate_pre_push(
+    target: Annotated[
+        Optional[Path],
+        typer.Option("--target", "-t", help="Target project root."),
+    ] = None,
+) -> None:
+    """Run pre-push gate checks (semgrep, pip-audit, tests, ty)."""
+    root = resolve_project_root(target)
+    result = run_gate(GateHook.PRE_PUSH, root)
+    _print_gate_result(result)

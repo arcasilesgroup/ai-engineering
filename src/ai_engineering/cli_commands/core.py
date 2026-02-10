@@ -1,74 +1,113 @@
-"""Core install/update/doctor CLI commands."""
+"""Core CLI commands: install, update, doctor, version.
+
+These are the primary entry points for the ``ai-eng`` CLI.
+"""
 
 from __future__ import annotations
 
 import json
-from typing import Any, cast
+from pathlib import Path
+from typing import Annotated, Optional
 
 import typer
 
 from ai_engineering.__version__ import __version__
-from ai_engineering.doctor.service import run_doctor
+from ai_engineering.doctor.service import diagnose
 from ai_engineering.installer.service import install
-from ai_engineering.updater import run_update
+from ai_engineering.paths import resolve_project_root
+from ai_engineering.updater.service import update
 
 
-def register(app: typer.Typer) -> None:
-    """Register core top-level commands."""
+def install_cmd(
+    target: Annotated[
+        Optional[Path],
+        typer.Argument(help="Target project root. Defaults to cwd."),
+    ] = None,
+    stacks: Annotated[
+        Optional[list[str]],
+        typer.Option("--stack", "-s", help="Technology stacks to enable."),
+    ] = None,
+    ides: Annotated[
+        Optional[list[str]],
+        typer.Option("--ide", "-i", help="IDE integrations to enable."),
+    ] = None,
+) -> None:
+    """Install the ai-engineering governance framework."""
+    root = resolve_project_root(target)
+    result = install(root, stacks=stacks or [], ides=ides or [])
 
-    @app.command()
-    def version() -> None:
-        """Show framework version."""
-        typer.echo(__version__)
+    typer.echo(f"Installed to: {root}")
+    typer.echo(f"  Governance files created: {result.governance_files.created}")
+    typer.echo(f"  Project files created: {result.project_files.created}")
+    typer.echo(f"  State files created: {len(result.state_files)}")
 
-    @app.command("install")
-    def install_cmd() -> None:
-        """Bootstrap .ai-engineering in current repository."""
-        result = install()
-        typer.echo(json.dumps(result, indent=2))
+    if result.already_installed:
+        typer.echo("  (framework was already installed — skipped existing files)")
 
-    @app.command("update")
-    def update_cmd(
-        apply: bool = typer.Option(False, "--apply", help="Apply updates (default is dry-run)"),
-    ) -> None:
-        """Run ownership-safe framework update."""
-        result = run_update(apply=apply)
-        typer.echo(json.dumps(result, indent=2))
 
-    @app.command()
-    def doctor(
-        json_output: bool = typer.Option(False, "--json", help="Print machine-readable JSON"),
-        fix_hooks: bool = typer.Option(
-            False,
-            "--fix-hooks",
-            help="Repair framework-managed git hooks before readiness checks",
-        ),
-        fix_tools: bool = typer.Option(
-            False,
-            "--fix-tools",
-            help="Attempt auto-remediation for missing Python tooling",
-        ),
-    ) -> None:
-        """Run readiness diagnostics."""
-        result = run_doctor(fix_hooks=fix_hooks, fix_tools=fix_tools)
-        if json_output:
-            typer.echo(json.dumps(result, indent=2))
-            return
+def update_cmd(
+    target: Annotated[
+        Optional[Path],
+        typer.Argument(help="Target project root. Defaults to cwd."),
+    ] = None,
+    apply: Annotated[
+        bool,
+        typer.Option("--apply", help="Apply changes (dry-run by default)."),
+    ] = False,
+) -> None:
+    """Update framework-managed governance files."""
+    root = resolve_project_root(target)
+    result = update(root, dry_run=not apply)
 
-        typer.echo("ai-engineering doctor")
-        typer.echo(f"repo: {result['repo']}")
-        typer.echo(f"governance root: {'ok' if result['governanceRootExists'] else 'missing'}")
-        branch_policy_raw = result.get("branchPolicy")
-        if isinstance(branch_policy_raw, dict):
-            branch_policy = cast(dict[str, Any], branch_policy_raw)
-            current_raw = branch_policy.get("currentBranch")
-            protected_raw = branch_policy.get("currentBranchProtected")
-            current = str(current_raw) if current_raw is not None else "unknown"
-            protected = bool(protected_raw)
-            typer.echo(f"branch: {current} ({'protected' if protected else 'unprotected'})")
-        state_checks = result["stateFiles"]
-        if not isinstance(state_checks, dict):
-            raise typer.Exit(code=1)
-        typed_checks = cast(dict[str, Any], state_checks)
-        for key, value in typed_checks.items():
-            typer.echo(f"state:{key}: {'ok' if value else 'fail'}")
+    mode = "APPLIED" if not result.dry_run else "DRY-RUN"
+    typer.echo(f"Update [{mode}]: {root}")
+    typer.echo(f"  Applied: {result.applied_count}")
+    typer.echo(f"  Denied:  {result.denied_count}")
+
+    for change in result.changes:
+        marker = "✓" if change.action in ("create", "update") else "✗"
+        typer.echo(f"  {marker} {change.path} ({change.action})")
+
+
+def doctor_cmd(
+    target: Annotated[
+        Optional[Path],
+        typer.Argument(help="Target project root. Defaults to cwd."),
+    ] = None,
+    fix_hooks: Annotated[
+        bool,
+        typer.Option("--fix-hooks", help="Reinstall managed git hooks."),
+    ] = False,
+    fix_tools: Annotated[
+        bool,
+        typer.Option("--fix-tools", help="Install missing Python tools."),
+    ] = False,
+    output_json: Annotated[
+        bool,
+        typer.Option("--json", help="Output report as JSON."),
+    ] = False,
+) -> None:
+    """Diagnose and optionally fix framework health."""
+    root = resolve_project_root(target)
+    report = diagnose(root, fix_hooks=fix_hooks, fix_tools=fix_tools)
+
+    if output_json:
+        typer.echo(json.dumps(report.to_dict(), indent=2))
+    else:
+        status = "PASS" if report.passed else "FAIL"
+        typer.echo(f"Doctor [{status}]: {root}")
+        typer.echo(f"  Summary: {report.summary}")
+
+        for check in report.checks:
+            icon = {"ok": "✓", "warn": "⚠", "fail": "✗", "fixed": "🔧"}.get(
+                check.status.value, "?"
+            )
+            typer.echo(f"  {icon} {check.name}: {check.message}")
+
+    if not report.passed:
+        raise typer.Exit(code=1)
+
+
+def version_cmd() -> None:
+    """Show the installed ai-engineering version."""
+    typer.echo(f"ai-engineering {__version__}")

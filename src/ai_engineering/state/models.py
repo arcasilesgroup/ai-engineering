@@ -1,68 +1,95 @@
-"""Pydantic models for system-managed governance state files."""
+"""Pydantic models for ai-engineering state files.
+
+Defines schemas for:
+- InstallManifest: installation metadata, stacks, IDEs, tooling readiness.
+- OwnershipMap: path-level ownership for safe updates.
+- DecisionStore: risk and flow decisions with context hashing.
+- AuditEntry: governance event log entries.
+- SourcesLock: remote skill source integrity metadata.
+"""
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import Any, Literal
+from datetime import datetime
+from enum import Enum
 
 from pydantic import BaseModel, Field
 
 
+# --- Enums ---
+
+
+class OwnershipLevel(str, Enum):
+    """Ownership levels for governance paths."""
+
+    FRAMEWORK_MANAGED = "framework-managed"
+    TEAM_MANAGED = "team-managed"
+    PROJECT_MANAGED = "project-managed"
+    SYSTEM_MANAGED = "system-managed"
+
+
+class FrameworkUpdatePolicy(str, Enum):
+    """How framework updates interact with a path."""
+
+    ALLOW = "allow"
+    DENY = "deny"
+    APPEND_ONLY = "append-only"
+
+
+class GateHook(str, Enum):
+    """Git hook types used as quality gates."""
+
+    PRE_COMMIT = "pre-commit"
+    COMMIT_MSG = "commit-msg"
+    PRE_PUSH = "pre-push"
+
+
+# --- Shared Components ---
+
+
 class UpdateMetadata(BaseModel):
-    """Document metadata for governance artifacts."""
+    """Metadata block required on every governance document update."""
 
     rationale: str
-    expectedGain: str
-    potentialImpact: str
+    expected_gain: str = Field(alias="expectedGain")
+    potential_impact: str = Field(alias="potentialImpact")
+
+    model_config = {"populate_by_name": True}
 
 
-class ReadinessFlags(BaseModel):
-    """Simple readiness booleans for tools."""
-
-    installed: bool
-    configured: bool
-    authenticated: bool
+# --- InstallManifest ---
 
 
-class AzReadiness(ReadinessFlags):
-    """Azure CLI readiness includes `requiredNow` flag."""
+class ToolStatus(BaseModel):
+    """Status of a single tool."""
 
-    requiredNow: bool = False
-
-
-class ToolReady(BaseModel):
-    """Single tool readiness state."""
-
-    ready: bool
+    ready: bool = False
 
 
-class PythonReadiness(BaseModel):
-    """Python tooling readiness set."""
+class PythonTooling(BaseModel):
+    """Python-specific tooling readiness."""
 
-    uv: ToolReady
-    ruff: ToolReady
-    ty: ToolReady
-    pipAudit: ToolReady
+    uv: ToolStatus = Field(default_factory=ToolStatus)
+    ruff: ToolStatus = Field(default_factory=ToolStatus)
+    ty: ToolStatus = Field(default_factory=ToolStatus)
+    pip_audit: ToolStatus = Field(default_factory=ToolStatus, alias="pipAudit")
 
-
-class HooksReadiness(BaseModel):
-    """Git hook readiness state."""
-
-    installed: bool
-    integrityVerified: bool
+    model_config = {"populate_by_name": True}
 
 
-class ToolingReadiness(BaseModel):
-    """Aggregated tooling readiness state."""
+class VcsProviderStatus(BaseModel):
+    """Status of a VCS provider."""
 
-    gh: ReadinessFlags
-    az: AzReadiness
-    gitHooks: HooksReadiness
-    python: PythonReadiness
+    installed: bool = False
+    configured: bool = False
+    authenticated: bool = False
+    required_now: bool = Field(default=False, alias="requiredNow")
+
+    model_config = {"populate_by_name": True}
 
 
 class AzureDevOpsExtension(BaseModel):
-    """Provider extension placeholder for ADO compatibility."""
+    """Azure DevOps extension configuration."""
 
     enabled: bool = False
     organization: str | None = None
@@ -71,131 +98,216 @@ class AzureDevOpsExtension(BaseModel):
 
 
 class VcsExtensions(BaseModel):
-    """Provider extension set for VCS backends."""
+    """VCS provider extensions."""
 
-    azure_devops: AzureDevOpsExtension
+    azure_devops: AzureDevOpsExtension = Field(
+        default_factory=AzureDevOpsExtension,
+        alias="azure_devops",
+    )
+
+    model_config = {"populate_by_name": True}
 
 
-class VcsProvider(BaseModel):
+class VcsProviders(BaseModel):
     """VCS provider configuration."""
 
     primary: str = "github"
     enabled: list[str] = Field(default_factory=lambda: ["github"])
-    extensions: VcsExtensions
+    extensions: VcsExtensions = Field(default_factory=VcsExtensions)
 
 
-class Providers(BaseModel):
-    """Provider root object."""
+class GitHooksStatus(BaseModel):
+    """Git hooks installation status."""
 
-    vcs: VcsProvider
+    installed: bool = False
+    integrity_verified: bool = Field(default=False, alias="integrityVerified")
+
+    model_config = {"populate_by_name": True}
+
+
+class ToolingReadiness(BaseModel):
+    """Overall tooling readiness status."""
+
+    gh: VcsProviderStatus = Field(default_factory=VcsProviderStatus)
+    az: VcsProviderStatus = Field(default_factory=VcsProviderStatus)
+    git_hooks: GitHooksStatus = Field(default_factory=GitHooksStatus, alias="gitHooks")
+    python: PythonTooling = Field(default_factory=PythonTooling)
+
+    model_config = {"populate_by_name": True}
 
 
 class InstallManifest(BaseModel):
-    """System-managed installation manifest."""
+    """Installation manifest for the ai-engineering framework.
 
-    schemaVersion: str = "1.1"
-    updateMetadata: UpdateMetadata
-    frameworkVersion: str
-    installedAt: str
-    installedStacks: list[str] = Field(default_factory=list)
-    installedIdes: list[str] = Field(default_factory=list)
-    providers: Providers
-    toolingReadiness: ToolingReadiness
+    Tracks what stacks, IDEs, and tools are installed and their readiness state.
+    Stored at `.ai-engineering/state/install-manifest.json`.
+    """
+
+    schema_version: str = Field(default="1.1", alias="schemaVersion")
+    update_metadata: UpdateMetadata | None = Field(default=None, alias="updateMetadata")
+    framework_version: str = Field(default="0.1.0", alias="frameworkVersion")
+    installed_at: datetime = Field(default_factory=datetime.utcnow, alias="installedAt")
+    installed_stacks: list[str] = Field(default_factory=list, alias="installedStacks")
+    installed_ides: list[str] = Field(default_factory=list, alias="installedIdes")
+    providers: VcsProviders = Field(default_factory=VcsProviders)
+    tooling_readiness: ToolingReadiness = Field(
+        default_factory=ToolingReadiness, alias="toolingReadiness"
+    )
+
+    model_config = {"populate_by_name": True}
 
 
-class OwnershipPathRule(BaseModel):
-    """Ownership rule for path pattern."""
+# --- OwnershipMap ---
+
+
+class OwnershipEntry(BaseModel):
+    """A single path ownership entry."""
 
     pattern: str
-    owner: Literal[
-        "framework-managed",
-        "team-managed",
-        "project-managed",
-        "system-managed",
-    ]
-    frameworkUpdate: Literal["allow", "deny", "append-only"]
+    owner: OwnershipLevel
+    framework_update: FrameworkUpdatePolicy = Field(alias="frameworkUpdate")
+
+    model_config = {"populate_by_name": True}
 
 
 class OwnershipMap(BaseModel):
-    """Path ownership contract used by updater."""
+    """Path-level ownership map for safe framework updates.
 
-    schemaVersion: str = "1.0"
-    updateMetadata: UpdateMetadata
-    paths: list[OwnershipPathRule]
+    Determines which paths can be overwritten by framework update flows
+    and which are protected (team/project-managed).
+    Stored at `.ai-engineering/state/ownership-map.json`.
+    """
+
+    schema_version: str = Field(default="1.0", alias="schemaVersion")
+    update_metadata: UpdateMetadata | None = Field(default=None, alias="updateMetadata")
+    paths: list[OwnershipEntry] = Field(default_factory=list)
+
+    model_config = {"populate_by_name": True}
+
+    def is_writable_by_framework(self, path: str) -> bool:
+        """Check if a path can be written by framework update flows."""
+        from fnmatch import fnmatch
+
+        for entry in self.paths:
+            if fnmatch(path, entry.pattern):
+                return entry.framework_update != FrameworkUpdatePolicy.DENY
+        # Default: deny if no rule matches
+        return False
+
+
+# --- DecisionStore ---
+
+
+class Decision(BaseModel):
+    """A single risk or flow decision."""
+
+    id: str
+    context: str
+    decision: str
+    decided_at: datetime = Field(alias="decidedAt")
+    spec: str
+    context_hash: str | None = Field(default=None, alias="contextHash")
+    expires_at: datetime | None = Field(default=None, alias="expiresAt")
+
+    model_config = {"populate_by_name": True}
+
+
+class DecisionStore(BaseModel):
+    """Persistent store for risk and flow decisions.
+
+    Prevents prompt fatigue by reusing previously-made decisions.
+    Supports context hashing for decision relevance tracking.
+    Stored at `.ai-engineering/state/decision-store.json`.
+    """
+
+    schema_version: str = Field(default="1.0", alias="schemaVersion")
+    update_metadata: UpdateMetadata | None = Field(default=None, alias="updateMetadata")
+    decisions: list[Decision] = Field(default_factory=list)
+
+    model_config = {"populate_by_name": True}
+
+    def find_by_context_hash(self, context_hash: str) -> Decision | None:
+        """Find a decision by its context hash."""
+        for d in self.decisions:
+            if d.context_hash == context_hash:
+                return d
+        return None
+
+    def find_by_id(self, decision_id: str) -> Decision | None:
+        """Find a decision by its ID."""
+        for d in self.decisions:
+            if d.id == decision_id:
+                return d
+        return None
+
+
+# --- AuditEntry ---
+
+
+class AuditEntry(BaseModel):
+    """A single governance event log entry.
+
+    Appended to `.ai-engineering/state/audit-log.ndjson` (one JSON object per line).
+    """
+
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    event: str
+    actor: str
+    spec: str | None = None
+    task: str | None = None
+    detail: str | None = None
+    session: str | None = None
+
+
+# --- SourcesLock ---
 
 
 class SignatureMetadata(BaseModel):
-    """Remote source signature metadata scaffold."""
+    """Cryptographic signature metadata for a remote source."""
 
     algorithm: str | None = None
-    keyId: str | None = None
+    key_id: str | None = Field(default=None, alias="keyId")
     signature: str | None = None
     verified: bool = False
 
-
-class SourceCache(BaseModel):
-    """Remote source cache metadata."""
-
-    ttlHours: int = 24
-    lastFetchedAt: str | None = None
+    model_config = {"populate_by_name": True}
 
 
-class SkillSource(BaseModel):
-    """Single remote skill source lock entry."""
+class CacheConfig(BaseModel):
+    """Cache configuration for a remote source."""
+
+    ttl_hours: int = Field(default=24, alias="ttlHours")
+    last_fetched_at: datetime | None = Field(default=None, alias="lastFetchedAt")
+
+    model_config = {"populate_by_name": True}
+
+
+class RemoteSource(BaseModel):
+    """A trusted remote skill source."""
 
     url: str
     trusted: bool = True
     checksum: str | None = None
-    signatureMetadata: SignatureMetadata
-    cache: SourceCache
+    signature_metadata: SignatureMetadata = Field(
+        default_factory=SignatureMetadata,
+        alias="signatureMetadata",
+    )
+    cache: CacheConfig = Field(default_factory=CacheConfig)
+
+    model_config = {"populate_by_name": True}
 
 
 class SourcesLock(BaseModel):
-    """Remote source lock file model."""
+    """Lock file for trusted remote skill sources.
 
-    schemaVersion: str = "1.0"
-    updateMetadata: UpdateMetadata
-    generatedAt: str
-    defaultRemoteEnabled: bool = True
-    sources: list[SkillSource]
+    Provides deterministic and safe skill resolution with integrity checking.
+    Stored at `.ai-engineering/state/sources.lock.json`.
+    """
 
+    schema_version: str = Field(default="1.0", alias="schemaVersion")
+    update_metadata: UpdateMetadata | None = Field(default=None, alias="updateMetadata")
+    generated_at: datetime = Field(default_factory=datetime.utcnow, alias="generatedAt")
+    default_remote_enabled: bool = Field(default=True, alias="defaultRemoteEnabled")
+    sources: list[RemoteSource] = Field(default_factory=list)
 
-class DecisionScope(BaseModel):
-    """Scope for a persisted risk decision."""
-
-    repo: str
-    pathPattern: str | None = None
-    policyId: str
-
-
-class DecisionRecord(BaseModel):
-    """Persisted decision record."""
-
-    id: str
-    scope: DecisionScope
-    contextHash: str
-    severity: Literal["low", "medium", "high", "critical"]
-    decision: str
-    rationale: str
-    createdAt: str
-    createdBy: str | None = None
-    expiresAt: str | None = None
-
-
-class DecisionStore(BaseModel):
-    """Machine-readable decision store."""
-
-    schemaVersion: str = "1.0"
-    updateMetadata: UpdateMetadata
-    decisions: list[DecisionRecord] = Field(default_factory=list)
-
-
-class AuditEvent(BaseModel):
-    """Append-only audit event."""
-
-    timestamp: str = Field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
-    )
-    event: str
-    actor: str
-    details: dict[str, Any] = Field(default_factory=dict)
+    model_config = {"populate_by_name": True}

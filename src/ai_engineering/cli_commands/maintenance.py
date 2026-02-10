@@ -1,33 +1,56 @@
-"""Maintenance CLI commands."""
+"""Maintenance CLI commands: report, pr.
+
+Framework maintenance operations including health reports and PR creation.
+"""
 
 from __future__ import annotations
 
-import json
+from pathlib import Path
+from typing import Annotated, Optional
 
 import typer
 
-from ai_engineering.maintenance.report import create_pr_from_payload, generate_report
+from ai_engineering.maintenance.report import (
+    create_maintenance_pr,
+    generate_report,
+)
+from ai_engineering.paths import resolve_project_root
 
 
-def register(maintenance_app: typer.Typer) -> None:
-    """Register maintenance command group."""
+def maintenance_report(
+    target: Annotated[
+        Optional[Path],
+        typer.Option("--target", "-t", help="Target project root."),
+    ] = None,
+    staleness_days: Annotated[
+        int,
+        typer.Option("--staleness-days", help="Days before a file is stale."),
+    ] = 90,
+) -> None:
+    """Generate a framework maintenance report."""
+    root = resolve_project_root(target)
+    report = generate_report(root, staleness_days=staleness_days)
 
-    @maintenance_app.command("report")
-    def maintenance_report(
-        approve_pr: bool = typer.Option(
-            False,
-            "--approve-pr",
-            help="If set, generate PR payload metadata after local report",
-        ),
-    ) -> None:
-        """Generate local maintenance report and optional PR payload draft."""
-        payload = generate_report(approve_pr=approve_pr)
-        typer.echo(json.dumps(payload, indent=2))
+    typer.echo(report.to_markdown())
 
-    @maintenance_app.command("pr")
-    def maintenance_pr() -> None:
-        """Create PR from approved maintenance payload."""
-        ok, message = create_pr_from_payload()
-        typer.echo(message)
-        if not ok:
-            raise typer.Exit(code=1)
+
+def maintenance_pr(
+    target: Annotated[
+        Optional[Path],
+        typer.Option("--target", "-t", help="Target project root."),
+    ] = None,
+    branch: Annotated[
+        str,
+        typer.Option("--branch", "-b", help="Branch name for the PR."),
+    ] = "maintenance/framework-update",
+) -> None:
+    """Generate a maintenance report and create a PR."""
+    root = resolve_project_root(target)
+    report = generate_report(root)
+    success = create_maintenance_pr(root, report, branch_name=branch)
+
+    if success:
+        typer.echo("Maintenance PR created successfully.")
+    else:
+        typer.echo("Failed to create maintenance PR.", err=True)
+        raise typer.Exit(code=1)

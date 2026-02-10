@@ -2,8 +2,8 @@
 
 ## Update Metadata
 
-- Rationale: provide editor-friendly local quality guidance aligned with framework gates.
-- Expected gain: earlier feedback before pre-commit and pre-push checks.
+- Rationale: align severity mapping with quality/core.md gate structure for v2.
+- Expected gain: earlier feedback before pre-commit and pre-push checks; consistent severity across IDE and CI.
 - Potential impact: developers may need to tune editor rules to avoid noise while preserving severity.
 
 ## Rule Families

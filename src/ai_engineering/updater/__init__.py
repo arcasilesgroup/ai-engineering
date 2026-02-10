@@ -1,5 +1,3 @@
-"""Updater package interface."""
+"""Updater package for ai-engineering framework."""
 
-from ai_engineering.updater.service import run_update
-
-__all__ = ["run_update"]
+from __future__ import annotations

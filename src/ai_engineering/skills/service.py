@@ -1,179 +1,289 @@
-"""Remote skills lock and cache services."""
+"""Remote skills synchronisation service.
+
+Manages the lifecycle of remote skill sources:
+- Source discovery from ``sources.lock.json``.
+- Checksum verification for integrity.
+- Allowlist-only trust policy enforcement.
+- Offline fallback using cached content.
+- Sync operation to refresh remote skills.
+"""
 
 from __future__ import annotations
 
 import hashlib
 import json
+import urllib.request
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable
-from urllib.error import URLError
-from urllib.parse import urlparse
-from urllib.request import Request, urlopen
 
-from ai_engineering.paths import ai_engineering_root, repo_root, state_dir
-from ai_engineering.state.io import load_model, write_json
-from ai_engineering.state.models import SkillSource, SourcesLock
+from ai_engineering.state.io import read_json_model, write_json_model
+from ai_engineering.state.models import CacheConfig, RemoteSource, SourcesLock
 
 
-ALLOWED_SKILL_HOSTS = {"skills.sh", "www.aitmpl.com"}
+@dataclass
+class SyncResult:
+    """Summary of a skill sync operation."""
+
+    fetched: list[str] = field(default_factory=list)
+    cached: list[str] = field(default_factory=list)
+    failed: list[str] = field(default_factory=list)
+    untrusted: list[str] = field(default_factory=list)
 
 
-def _now_iso() -> str:
-    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+_CACHE_DIR_NAME: str = "skills-cache"
 
 
-def _cache_file_path(cache_dir: Path, url: str) -> Path:
-    digest = hashlib.sha256(url.encode("utf-8")).hexdigest()
-    return cache_dir / f"{digest}.skill"
+def load_sources_lock(target: Path) -> SourcesLock:
+    """Load the sources lock file from the target project.
+
+    Args:
+        target: Root directory of the target project.
+
+    Returns:
+        Parsed SourcesLock model.
+
+    Raises:
+        FileNotFoundError: If the lock file does not exist.
+    """
+    lock_path = target / ".ai-engineering" / "state" / "sources.lock.json"
+    return read_json_model(lock_path, SourcesLock)
 
 
-def _fetch_url(url: str, timeout: int = 15) -> bytes:
-    parsed = urlparse(url)
-    host = parsed.hostname
-    if parsed.scheme != "https" or host is None or host not in ALLOWED_SKILL_HOSTS:
-        raise URLError("source url is not an allowlisted https host")
-    request = Request(url, method="GET")
-    with urlopen(request, timeout=timeout) as response:  # noqa: S310  # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
-        return response.read()
-
-
-def _compute_checksum(payload: bytes) -> str:
-    return f"sha256:{hashlib.sha256(payload).hexdigest()}"
-
-
-def _is_allowlisted(url: str) -> bool:
-    host = urlparse(url).hostname
-    if host is None:
-        return False
-    return host in ALLOWED_SKILL_HOSTS
-
-
-def _sync_single_source(
-    source: SkillSource,
-    cache_dir: Path,
+def sync_sources(
+    target: Path,
     *,
-    offline: bool,
-    fetcher: Callable[[str], bytes],
-) -> tuple[SkillSource, dict[str, Any]]:
-    if not _is_allowlisted(source.url):
-        return source, {
-            "url": source.url,
-            "status": "allowlist-rejected",
-            "cached": False,
-            "error": "source host is not allowlisted",
-        }
+    offline: bool = False,
+) -> SyncResult:
+    """Synchronise remote skill sources.
 
-    cache_file = _cache_file_path(cache_dir, source.url)
-    if source.signatureMetadata is None:
-        return source, {
-            "url": source.url,
-            "status": "signature-metadata-missing",
-            "cached": False,
-            "error": "signature metadata scaffold is required",
-        }
+    Fetches content from trusted sources, verifies checksums, and caches
+    results locally.  In offline mode, only serves from cache.
 
-    if offline:
-        if cache_file.exists():
-            source.cache.lastFetchedAt = source.cache.lastFetchedAt or _now_iso()
-            return source, {"url": source.url, "status": "offline-cache", "cached": True}
-        return source, {"url": source.url, "status": "offline-miss", "cached": False}
+    Args:
+        target: Root directory of the target project.
+        offline: If True, only use cached content.
 
-    try:
-        payload = fetcher(source.url)
-    except (URLError, TimeoutError, OSError) as exc:
-        if cache_file.exists():
-            source.cache.lastFetchedAt = source.cache.lastFetchedAt or _now_iso()
-            return source, {
-                "url": source.url,
-                "status": "network-fallback-cache",
-                "cached": True,
-                "error": str(exc),
-            }
-        return source, {
-            "url": source.url,
-            "status": "network-failed",
-            "cached": False,
-            "error": str(exc),
-        }
+    Returns:
+        SyncResult with details of fetched, cached, and failed sources.
+    """
+    result = SyncResult()
+    lock = load_sources_lock(target)
 
-    cache_file.parent.mkdir(parents=True, exist_ok=True)
-    computed_checksum = _compute_checksum(payload)
-    if source.checksum is not None and source.checksum != computed_checksum:
-        return source, {
-            "url": source.url,
-            "status": "checksum-mismatch",
-            "cached": cache_file.exists(),
-            "error": "pinned checksum does not match fetched content",
-            "expected": source.checksum,
-            "actual": computed_checksum,
-        }
+    if not lock.default_remote_enabled:
+        return result
 
-    cache_file.write_bytes(payload)
-    source.checksum = computed_checksum
-    source.cache.lastFetchedAt = _now_iso()
-    return source, {
-        "url": source.url,
-        "status": "synced",
-        "cached": True,
-        "checksum": source.checksum,
-    }
+    cache_dir = target / ".ai-engineering" / _CACHE_DIR_NAME
+    cache_dir.mkdir(parents=True, exist_ok=True)
 
+    sources_changed = False
 
-def list_sources() -> dict[str, Any]:
-    """Return sources and cache metadata from sources lock."""
-    root = repo_root()
-    lock = load_model(state_dir(root) / "sources.lock.json", SourcesLock)
-    return {
-        "schemaVersion": lock.schemaVersion,
-        "defaultRemoteEnabled": lock.defaultRemoteEnabled,
-        "sources": [source.model_dump(mode="json") for source in lock.sources],
-    }
-
-
-def sync_sources(*, offline: bool = False) -> dict[str, Any]:
-    """Sync remote sources and update lock file with cache metadata."""
-    root = repo_root()
-    lock_path = state_dir(root) / "sources.lock.json"
-    lock = load_model(lock_path, SourcesLock)
-
-    cache_dir = ai_engineering_root(root) / ".cache" / "skills"
-    results: list[dict[str, Any]] = []
-    updated_sources: list[SkillSource] = []
     for source in lock.sources:
-        updated, result = _sync_single_source(
-            source, cache_dir, offline=offline, fetcher=_fetch_url
-        )
-        updated_sources.append(updated)
-        results.append(result)
+        if not source.trusted:
+            result.untrusted.append(source.url)
+            continue
 
-    lock.sources = updated_sources
-    lock.generatedAt = _now_iso()
-    write_json(lock_path, lock.model_dump(mode="json"))
+        cache_file = _cache_path(cache_dir, source.url)
 
-    summary = {
-        "synced": len([item for item in results if item["status"] == "synced"]),
-        "fallback": len([item for item in results if item["status"] == "network-fallback-cache"]),
-        "offlineCache": len([item for item in results if item["status"] == "offline-cache"]),
-        "failed": len(
-            [
-                item
-                for item in results
-                if item["status"]
-                in {
-                    "network-failed",
-                    "offline-miss",
-                    "allowlist-rejected",
-                    "checksum-mismatch",
-                    "signature-metadata-missing",
-                }
-            ]
-        ),
-    }
-    return {"offline": offline, "summary": summary, "results": results}
+        if offline:
+            if cache_file.exists():
+                result.cached.append(source.url)
+            else:
+                result.failed.append(source.url)
+            continue
+
+        # Check if cache is still fresh
+        if _is_cache_fresh(source, cache_file):
+            result.cached.append(source.url)
+            continue
+
+        # Fetch remote content
+        content = _fetch_url(source.url)
+        if content is None:
+            # Fall back to cache
+            if cache_file.exists():
+                result.cached.append(source.url)
+            else:
+                result.failed.append(source.url)
+            continue
+
+        # Verify checksum if provided
+        if source.checksum and not _verify_checksum(content, source.checksum):
+            result.failed.append(source.url)
+            continue
+
+        # Write cache
+        cache_file.parent.mkdir(parents=True, exist_ok=True)
+        cache_file.write_bytes(content)
+
+        # Update source metadata
+        source.cache.last_fetched_at = datetime.now(tz=timezone.utc)
+        if not source.checksum:
+            source.checksum = _compute_checksum(content)
+        sources_changed = True
+
+        result.fetched.append(source.url)
+
+    # Persist updated lock file
+    if sources_changed:
+        lock_path = target / ".ai-engineering" / "state" / "sources.lock.json"
+        write_json_model(lock_path, lock)
+
+    return result
 
 
-def export_sync_report_json(path: Path, payload: dict[str, Any]) -> None:
-    """Write sync report payload for troubleshooting and audit."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+def add_source(
+    target: Path,
+    url: str,
+    *,
+    trusted: bool = True,
+) -> SourcesLock:
+    """Add a remote source to the sources lock file.
+
+    Args:
+        target: Root directory of the target project.
+        url: URL of the remote source.
+        trusted: Whether the source is trusted.
+
+    Returns:
+        Updated SourcesLock.
+
+    Raises:
+        ValueError: If the source URL already exists.
+    """
+    lock = load_sources_lock(target)
+
+    if any(s.url == url for s in lock.sources):
+        msg = f"Source already exists: {url}"
+        raise ValueError(msg)
+
+    lock.sources.append(RemoteSource(
+        url=url,
+        trusted=trusted,
+        cache=CacheConfig(),
+    ))
+
+    lock_path = target / ".ai-engineering" / "state" / "sources.lock.json"
+    write_json_model(lock_path, lock)
+    return lock
+
+
+def remove_source(target: Path, url: str) -> SourcesLock:
+    """Remove a remote source from the sources lock file.
+
+    Args:
+        target: Root directory of the target project.
+        url: URL of the remote source to remove.
+
+    Returns:
+        Updated SourcesLock.
+
+    Raises:
+        ValueError: If the source URL is not found.
+    """
+    lock = load_sources_lock(target)
+
+    original_len = len(lock.sources)
+    lock.sources = [s for s in lock.sources if s.url != url]
+
+    if len(lock.sources) == original_len:
+        msg = f"Source not found: {url}"
+        raise ValueError(msg)
+
+    lock_path = target / ".ai-engineering" / "state" / "sources.lock.json"
+    write_json_model(lock_path, lock)
+    return lock
+
+
+def list_sources(target: Path) -> list[RemoteSource]:
+    """List all configured remote sources.
+
+    Args:
+        target: Root directory of the target project.
+
+    Returns:
+        List of remote sources.
+    """
+    lock = load_sources_lock(target)
+    return lock.sources
+
+
+def _cache_path(cache_dir: Path, url: str) -> Path:
+    """Compute a deterministic cache file path for a URL.
+
+    Args:
+        cache_dir: Root cache directory.
+        url: Source URL.
+
+    Returns:
+        Path to the cached file.
+    """
+    url_hash = hashlib.sha256(url.encode()).hexdigest()[:16]
+    return cache_dir / f"{url_hash}.cache"
+
+
+def _is_cache_fresh(source: RemoteSource, cache_file: Path) -> bool:
+    """Check if cached content is still within TTL.
+
+    Args:
+        source: Remote source with cache configuration.
+        cache_file: Path to the cached file.
+
+    Returns:
+        True if cache exists and is within TTL.
+    """
+    if not cache_file.exists():
+        return False
+
+    if source.cache.last_fetched_at is None:
+        return False
+
+    now = datetime.now(tz=timezone.utc)
+    # Ensure last_fetched_at is timezone-aware
+    last_fetched = source.cache.last_fetched_at
+    if last_fetched.tzinfo is None:
+        last_fetched = last_fetched.replace(tzinfo=timezone.utc)
+
+    age_hours = (now - last_fetched).total_seconds() / 3600
+    return age_hours < source.cache.ttl_hours
+
+
+def _fetch_url(url: str) -> bytes | None:
+    """Fetch content from a URL.
+
+    Args:
+        url: URL to fetch.
+
+    Returns:
+        Response content bytes, or None on failure.
+    """
+    try:
+        with urllib.request.urlopen(url, timeout=30) as response:  # noqa: S310
+            return response.read()
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _compute_checksum(content: bytes) -> str:
+    """Compute SHA-256 checksum of content.
+
+    Args:
+        content: Raw content bytes.
+
+    Returns:
+        Hex-encoded SHA-256 hash.
+    """
+    return hashlib.sha256(content).hexdigest()
+
+
+def _verify_checksum(content: bytes, expected: str) -> bool:
+    """Verify content against expected checksum.
+
+    Args:
+        content: Raw content bytes.
+        expected: Expected SHA-256 hex digest.
+
+    Returns:
+        True if checksum matches.
+    """
+    return _compute_checksum(content) == expected

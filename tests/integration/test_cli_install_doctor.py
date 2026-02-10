@@ -1,306 +1,309 @@
-"""Integration tests for install and doctor CLI commands."""
+"""Integration tests for the ai-engineering CLI.
+
+Uses Typer's CliRunner to test CLI commands end-to-end:
+- install, doctor, update, version.
+- stack add/remove/list, ide add/remove/list.
+- gate pre-commit/commit-msg/pre-push.
+- skill list/sync.
+- maintenance report.
+"""
 
 from __future__ import annotations
 
 import json
+import subprocess
 from pathlib import Path
 
+import pytest
 from typer.testing import CliRunner
 
-from ai_engineering.cli import app
-from ai_engineering.paths import template_root
-
+from ai_engineering.cli_factory import create_app
 
 runner = CliRunner()
 
 
-def test_install_creates_required_state_files(temp_repo: Path) -> None:
-    (temp_repo / ".git").mkdir()
-
-    result = runner.invoke(app, ["install"])
-
-    assert result.exit_code == 0
-    state_root = temp_repo / ".ai-engineering" / "state"
-    assert (state_root / "install-manifest.json").exists()
-    assert (state_root / "ownership-map.json").exists()
-    assert (state_root / "sources.lock.json").exists()
-    assert (state_root / "decision-store.json").exists()
-    assert (state_root / "audit-log.ndjson").exists()
-    state_gitignore = state_root / ".gitignore"
-    assert state_gitignore.exists()
-    ignore_text = state_gitignore.read_text(encoding="utf-8")
-    assert "!decision-store.json" in ignore_text
-    assert "!audit-log.ndjson" not in ignore_text
-
-    hooks_root = temp_repo / ".git" / "hooks"
-    for hook in ("pre-commit", "commit-msg", "pre-push"):
-        hook_path = hooks_root / hook
-        assert hook_path.exists()
-        assert "ai-engineering managed hook" in hook_path.read_text(encoding="utf-8")
-        assert "lefthook" not in hook_path.read_text(encoding="utf-8")
-
-    assert (
-        temp_repo / ".ai-engineering" / "standards" / "framework" / "quality" / "core.md"
-    ).exists()
-    assert (temp_repo / ".ai-engineering" / "skills" / "utils" / "platform-detection.md").exists()
-    assert (temp_repo / "CLAUDE.md").exists()
-    assert (temp_repo / "codex.md").exists()
-    assert (temp_repo / ".github" / "copilot-instructions.md").exists()
-    assert (temp_repo / ".github" / "copilot" / "code-generation.md").exists()
-    assert (temp_repo / ".github" / "copilot" / "test-generation.md").exists()
-    assert (temp_repo / ".github" / "copilot" / "code-review.md").exists()
-    assert (temp_repo / ".github" / "copilot" / "commit-message.md").exists()
+@pytest.fixture()
+def app() -> object:
+    """Create a fresh CLI app instance for each test."""
+    return create_app()
 
 
-def test_install_preserves_existing_team_owned_files(temp_repo: Path) -> None:
-    (temp_repo / ".git").mkdir()
-    team_core = temp_repo / ".ai-engineering" / "standards" / "team" / "core.md"
-    team_core.parent.mkdir(parents=True, exist_ok=True)
-    team_core.write_text("custom team content\n", encoding="utf-8")
-
-    result = runner.invoke(app, ["install"])
-
-    assert result.exit_code == 0
-    assert team_core.read_text(encoding="utf-8") == "custom team content\n"
-
-
-def test_install_creates_all_governance_template_files(temp_repo: Path) -> None:
-    (temp_repo / ".git").mkdir()
-
-    result = runner.invoke(app, ["install"])
-
-    assert result.exit_code == 0
-    governance_templates = template_root() / ".ai-engineering"
-    for template_file in governance_templates.rglob("*"):
-        if not template_file.is_file():
-            continue
-        relative = template_file.relative_to(governance_templates)
-        installed = temp_repo / ".ai-engineering" / relative
-        assert installed.exists()
-
-
-def test_doctor_json_reports_expected_sections(temp_repo: Path) -> None:
-    (temp_repo / ".git").mkdir()
-    install_result = runner.invoke(app, ["install"])
-    assert install_result.exit_code == 0
-
-    result = runner.invoke(app, ["doctor", "--json"])
-
-    assert result.exit_code == 0
-    payload = json.loads(result.stdout)
-    assert "repo" in payload
-    assert "stateFiles" in payload
-    assert "toolingReadiness" in payload
-    assert "branchPolicy" in payload
-    assert "gitHooks" in payload["toolingReadiness"]
-
-
-def test_install_replaces_lefthook_wrappers(temp_repo: Path) -> None:
-    hooks_root = temp_repo / ".git" / "hooks"
-    hooks_root.mkdir(parents=True)
-    for hook in ("pre-commit", "commit-msg", "pre-push"):
-        (hooks_root / hook).write_text("#!/bin/sh\nlefthook run pre-commit\n", encoding="utf-8")
-
-    result = runner.invoke(app, ["install"])
-
-    assert result.exit_code == 0
-    for hook in ("pre-commit", "commit-msg", "pre-push"):
-        content = (hooks_root / hook).read_text(encoding="utf-8")
-        assert "ai-engineering managed hook" in content
-        assert "lefthook" not in content
-
-
-def test_doctor_fix_hooks_repairs_external_wrapper(temp_repo: Path) -> None:
-    (temp_repo / ".git").mkdir()
-    hooks_root = temp_repo / ".git" / "hooks"
-    hooks_root.mkdir(parents=True, exist_ok=True)
-    (hooks_root / "pre-commit").write_text("#!/bin/sh\nlefthook run pre-commit\n", encoding="utf-8")
-    (hooks_root / "commit-msg").write_text("#!/bin/sh\nlefthook run commit-msg\n", encoding="utf-8")
-    (hooks_root / "pre-push").write_text("#!/bin/sh\nlefthook run pre-push\n", encoding="utf-8")
-
-    result = runner.invoke(app, ["doctor", "--json", "--fix-hooks"])
-
-    assert result.exit_code == 0
-    payload = json.loads(result.stdout)
-    hook_payload = payload["toolingReadiness"]["gitHooks"]
-    assert hook_payload["installed"] is True
-    assert hook_payload["managedByFramework"] is True
-
-
-def test_gate_list_json_reports_stages(temp_repo: Path) -> None:
-    (temp_repo / ".git").mkdir()
-    install_result = runner.invoke(app, ["install"])
-    assert install_result.exit_code == 0
-
-    result = runner.invoke(app, ["gate", "list", "--json"])
-
-    assert result.exit_code == 0
-    payload = json.loads(result.stdout)
-    assert "protectedBranches" in payload
-    assert "stages" in payload
-    assert "pre-commit" in payload["stages"]
-
-
-def test_skill_list_json_after_install(temp_repo: Path) -> None:
-    (temp_repo / ".git").mkdir()
-    install_result = runner.invoke(app, ["install"])
-    assert install_result.exit_code == 0
-
-    result = runner.invoke(app, ["skill", "list", "--json"])
-
-    assert result.exit_code == 0
-    payload = json.loads(result.stdout)
-    assert "sources" in payload
-    assert len(payload["sources"]) >= 1
-
-
-def test_maintenance_report_command_creates_report(temp_repo: Path) -> None:
-    (temp_repo / ".git").mkdir()
-    install_result = runner.invoke(app, ["install"])
-    assert install_result.exit_code == 0
-    (temp_repo / ".ai-engineering" / "context" / "delivery" / "planning.md").write_text(
-        "# Planning\n", encoding="utf-8"
+@pytest.fixture()
+def installed_dir(tmp_path: Path, app: object) -> Path:
+    """Install framework to tmp_path via CLI and return the path."""
+    result = runner.invoke(
+        app,
+        ["install", str(tmp_path), "--stack", "python", "--ide", "vscode"],
     )
-
-    result = runner.invoke(app, ["maintenance", "report"])
-
-    assert result.exit_code == 0
-    payload = json.loads(result.stdout)
-    assert payload["reportPath"]
+    assert result.exit_code == 0, result.output
+    return tmp_path
 
 
-def test_maintenance_pr_command_requires_approved_payload(temp_repo: Path) -> None:
-    (temp_repo / ".git").mkdir()
-    install_result = runner.invoke(app, ["install"])
-    assert install_result.exit_code == 0
-    payload_path = temp_repo / ".ai-engineering" / "state" / "maintenance_pr_payload.json"
-    payload_path.write_text(
-        '{"approved": false, "title": "x", "body": "y", "base": "main", "head": "feature/x"}\n',
-        encoding="utf-8",
-    )
-
-    result = runner.invoke(app, ["maintenance", "pr"])
-
-    assert result.exit_code == 1
-    assert "not approved" in result.stdout
+# ---------------------------------------------------------------------------
+# Version
+# ---------------------------------------------------------------------------
 
 
-def test_update_dry_run_reports_framework_managed_changes(temp_repo: Path) -> None:
-    (temp_repo / ".git").mkdir()
-    install_result = runner.invoke(app, ["install"])
-    assert install_result.exit_code == 0
+class TestVersionCommand:
+    """Tests for the version command."""
 
-    quality_core = temp_repo / ".ai-engineering" / "standards" / "framework" / "quality" / "core.md"
-    quality_core.write_text("custom framework override\n", encoding="utf-8")
+    def test_version_shows_version(self, app: object) -> None:
+        result = runner.invoke(app, ["version"])
+        assert result.exit_code == 0
+        assert "ai-engineering" in result.output
 
-    result = runner.invoke(app, ["update"])
-
-    assert result.exit_code == 0
-    payload = json.loads(result.stdout)
-    statuses = {entry["path"]: entry["status"] for entry in payload["entries"]}
-    assert statuses[".ai-engineering/standards/framework/quality/core.md"] == "updated"
-    assert quality_core.read_text(encoding="utf-8") == "custom framework override\n"
+    def test_help_shows_commands(self, app: object) -> None:
+        result = runner.invoke(app, ["--help"])
+        assert result.exit_code == 0
+        assert "install" in result.output
+        assert "doctor" in result.output
 
 
-def test_update_apply_preserves_team_owned_content(temp_repo: Path) -> None:
-    (temp_repo / ".git").mkdir()
-    install_result = runner.invoke(app, ["install"])
-    assert install_result.exit_code == 0
-
-    team_core = temp_repo / ".ai-engineering" / "standards" / "team" / "core.md"
-    team_core.parent.mkdir(parents=True, exist_ok=True)
-    team_core.write_text("team custom\n", encoding="utf-8")
-
-    result = runner.invoke(app, ["update", "--apply"])
-
-    assert result.exit_code == 0
-    payload = json.loads(result.stdout)
-    statuses = {entry["path"]: entry["status"] for entry in payload["entries"]}
-    assert statuses[".ai-engineering/standards/framework/quality/core.md"] in {
-        "unchanged",
-        "updated",
-    }
-    assert team_core.read_text(encoding="utf-8") == "team custom\n"
+# ---------------------------------------------------------------------------
+# Install
+# ---------------------------------------------------------------------------
 
 
-def test_stack_add_and_remove_updates_manifest(temp_repo: Path) -> None:
-    (temp_repo / ".git").mkdir()
-    install_result = runner.invoke(app, ["install"])
-    assert install_result.exit_code == 0
+class TestInstallCommand:
+    """Tests for the install command."""
 
-    remove_result = runner.invoke(app, ["stack", "remove", "python"])
-    assert remove_result.exit_code == 0
-    removed_payload = json.loads(remove_result.stdout)
-    assert "python" not in removed_payload["installedStacks"]
+    def test_install_creates_framework(
+        self, tmp_path: Path, app: object,
+    ) -> None:
+        result = runner.invoke(
+            app,
+            ["install", str(tmp_path), "--stack", "python"],
+        )
+        assert result.exit_code == 0
+        assert "Installed to:" in result.output
+        assert (tmp_path / ".ai-engineering" / "state").is_dir()
 
-    add_result = runner.invoke(app, ["stack", "add", "python"])
-    assert add_result.exit_code == 0
-    add_payload = json.loads(add_result.stdout)
-    assert "python" in add_payload["installedStacks"]
-
-
-def test_stack_remove_preserves_custom_team_stack_file(temp_repo: Path) -> None:
-    (temp_repo / ".git").mkdir()
-    install_result = runner.invoke(app, ["install"])
-    assert install_result.exit_code == 0
-
-    team_stack = temp_repo / ".ai-engineering" / "standards" / "team" / "stacks" / "python.md"
-    team_stack.write_text("custom team python stack\n", encoding="utf-8")
-
-    remove_result = runner.invoke(app, ["stack", "remove", "python"])
-    assert remove_result.exit_code == 0
-    payload = json.loads(remove_result.stdout)
-    assert payload["result"]["team"] == "skipped-customized"
-    assert team_stack.exists()
+    def test_install_on_existing_shows_skipped(
+        self, installed_dir: Path, app: object,
+    ) -> None:
+        result = runner.invoke(
+            app,
+            ["install", str(installed_dir), "--stack", "python"],
+        )
+        assert result.exit_code == 0
+        assert "already installed" in result.output
 
 
-def test_ide_add_remove_copilot_file(temp_repo: Path) -> None:
-    (temp_repo / ".git").mkdir()
-    install_result = runner.invoke(app, ["install"])
-    assert install_result.exit_code == 0
-
-    copilot_file = temp_repo / ".github" / "copilot-instructions.md"
-    copilot_dir = temp_repo / ".github" / "copilot"
-    # Remove all copilot files to test re-add
-    if copilot_file.exists():
-        copilot_file.unlink()
-    if copilot_dir.exists():
-        import shutil
-
-        shutil.rmtree(copilot_dir)
-
-    add_result = runner.invoke(app, ["ide", "add", "copilot"])
-    assert add_result.exit_code == 0
-    assert copilot_file.exists()
-    assert (copilot_dir / "code-generation.md").exists()
-    assert (copilot_dir / "test-generation.md").exists()
-    assert (copilot_dir / "code-review.md").exists()
-    assert (copilot_dir / "commit-message.md").exists()
-
-    remove_result = runner.invoke(app, ["ide", "remove", "copilot"])
-    assert remove_result.exit_code == 0
-    payload = json.loads(remove_result.stdout)
-    result = payload["result"]
-    assert isinstance(result, dict)
-    for status in result.values():
-        assert status in {"removed", "missing"}
-    assert not copilot_dir.exists()
-    assert not (temp_repo / ".github").exists()
+# ---------------------------------------------------------------------------
+# Doctor
+# ---------------------------------------------------------------------------
 
 
-def test_ide_remove_copilot_preserves_customized(temp_repo: Path) -> None:
-    (temp_repo / ".git").mkdir()
-    install_result = runner.invoke(app, ["install"])
-    assert install_result.exit_code == 0
+class TestDoctorCommand:
+    """Tests for the doctor command."""
 
-    # Customize one file
-    custom_file = temp_repo / ".github" / "copilot" / "code-generation.md"
-    custom_file.write_text("# Custom team code-generation rules\n", encoding="utf-8")
+    def test_doctor_passes_on_installed(
+        self, installed_dir: Path, app: object,
+    ) -> None:
+        result = runner.invoke(app, ["doctor", str(installed_dir)])
+        # May pass or fail depending on tools, but should not crash
+        assert result.exit_code in (0, 1)
+        assert "Doctor" in result.output
 
-    remove_result = runner.invoke(app, ["ide", "remove", "copilot"])
-    assert remove_result.exit_code == 0
-    payload = json.loads(remove_result.stdout)
-    result = payload["result"]
-    assert result[".github/copilot/code-generation.md"] == "skipped-customized"
-    assert custom_file.exists()
-    assert custom_file.read_text(encoding="utf-8") == "# Custom team code-generation rules\n"
+    def test_doctor_json_output(
+        self, installed_dir: Path, app: object,
+    ) -> None:
+        result = runner.invoke(
+            app, ["doctor", str(installed_dir), "--json"],
+        )
+        assert result.exit_code in (0, 1)
+        # JSON output should be parseable
+        data = json.loads(result.output)
+        assert "passed" in data
+        assert "checks" in data
+
+
+# ---------------------------------------------------------------------------
+# Update
+# ---------------------------------------------------------------------------
+
+
+class TestUpdateCommand:
+    """Tests for the update command."""
+
+    def test_update_dry_run(
+        self, installed_dir: Path, app: object,
+    ) -> None:
+        result = runner.invoke(app, ["update", str(installed_dir)])
+        assert result.exit_code == 0
+        assert "DRY-RUN" in result.output
+
+    def test_update_apply(
+        self, installed_dir: Path, app: object,
+    ) -> None:
+        result = runner.invoke(
+            app, ["update", str(installed_dir), "--apply"],
+        )
+        assert result.exit_code == 0
+        assert "APPLIED" in result.output
+
+
+# ---------------------------------------------------------------------------
+# Stack
+# ---------------------------------------------------------------------------
+
+
+class TestStackCommands:
+    """Tests for stack add/remove/list commands."""
+
+    def test_stack_list(self, installed_dir: Path, app: object) -> None:
+        result = runner.invoke(
+            app, ["stack", "list", "--target", str(installed_dir)],
+        )
+        assert result.exit_code == 0
+        assert "python" in result.output
+
+    def test_stack_add_and_remove(
+        self, installed_dir: Path, app: object,
+    ) -> None:
+        # Add
+        result = runner.invoke(
+            app, ["stack", "add", "node", "--target", str(installed_dir)],
+        )
+        assert result.exit_code == 0
+        assert "Added stack 'node'" in result.output
+
+        # Remove
+        result = runner.invoke(
+            app, ["stack", "remove", "node", "--target", str(installed_dir)],
+        )
+        assert result.exit_code == 0
+        assert "Removed stack 'node'" in result.output
+
+    def test_stack_add_duplicate_fails(
+        self, installed_dir: Path, app: object,
+    ) -> None:
+        result = runner.invoke(
+            app, ["stack", "add", "python", "--target", str(installed_dir)],
+        )
+        assert result.exit_code == 1
+
+
+# ---------------------------------------------------------------------------
+# IDE
+# ---------------------------------------------------------------------------
+
+
+class TestIDECommands:
+    """Tests for ide add/remove/list commands."""
+
+    def test_ide_list(self, installed_dir: Path, app: object) -> None:
+        result = runner.invoke(
+            app, ["ide", "list", "--target", str(installed_dir)],
+        )
+        assert result.exit_code == 0
+        assert "vscode" in result.output
+
+    def test_ide_add_and_remove(
+        self, installed_dir: Path, app: object,
+    ) -> None:
+        result = runner.invoke(
+            app, ["ide", "add", "jetbrains", "--target", str(installed_dir)],
+        )
+        assert result.exit_code == 0
+
+        result = runner.invoke(
+            app,
+            ["ide", "remove", "jetbrains", "--target", str(installed_dir)],
+        )
+        assert result.exit_code == 0
+
+
+# ---------------------------------------------------------------------------
+# Gate
+# ---------------------------------------------------------------------------
+
+
+class TestGateCommands:
+    """Tests for gate commands."""
+
+    def test_gate_pre_commit_runs(
+        self, installed_dir: Path, app: object,
+    ) -> None:
+        # Will likely fail if tools aren't installed, but should not crash
+        result = runner.invoke(
+            app,
+            ["gate", "pre-commit", "--target", str(installed_dir)],
+        )
+        assert result.exit_code in (0, 1)
+        assert "Gate" in result.output
+
+    def test_gate_commit_msg_with_file(
+        self, installed_dir: Path, app: object,
+    ) -> None:
+        msg_file = installed_dir / "COMMIT_MSG"
+        msg_file.write_text("feat: test commit message\n", encoding="utf-8")
+        result = runner.invoke(
+            app,
+            [
+                "gate", "commit-msg",
+                str(msg_file),
+                "--target", str(installed_dir),
+            ],
+        )
+        assert result.exit_code in (0, 1)
+        assert "Gate" in result.output
+
+
+# ---------------------------------------------------------------------------
+# Skills
+# ---------------------------------------------------------------------------
+
+
+class TestSkillCommands:
+    """Tests for skill commands."""
+
+    def test_skill_list(self, installed_dir: Path, app: object) -> None:
+        result = runner.invoke(
+            app, ["skill", "list", "--target", str(installed_dir)],
+        )
+        assert result.exit_code == 0
+
+    def test_skill_add_and_remove(
+        self, installed_dir: Path, app: object,
+    ) -> None:
+        result = runner.invoke(
+            app,
+            [
+                "skill", "add",
+                "https://example.com/skill.md",
+                "--target", str(installed_dir),
+            ],
+        )
+        assert result.exit_code == 0
+        assert "Added source" in result.output
+
+        result = runner.invoke(
+            app,
+            [
+                "skill", "remove",
+                "https://example.com/skill.md",
+                "--target", str(installed_dir),
+            ],
+        )
+        assert result.exit_code == 0
+        assert "Removed source" in result.output
+
+
+# ---------------------------------------------------------------------------
+# Maintenance
+# ---------------------------------------------------------------------------
+
+
+class TestMaintenanceCommands:
+    """Tests for maintenance commands."""
+
+    def test_maintenance_report(
+        self, installed_dir: Path, app: object,
+    ) -> None:
+        result = runner.invoke(
+            app,
+            ["maintenance", "report", "--target", str(installed_dir)],
+        )
+        assert result.exit_code == 0
+        assert "Maintenance Report" in result.output

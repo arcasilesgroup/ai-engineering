@@ -1,1 +1,3 @@
-"""Maintenance package for context health reporting."""
+"""Maintenance package for ai-engineering framework."""
+
+from __future__ import annotations

@@ -1,39 +1,54 @@
-"""Filesystem path helpers for ai-engineering."""
+"""Path utilities for ai-engineering.
+
+Resolves the target project root and governance directory paths
+used throughout the CLI and service layers.
+"""
 
 from __future__ import annotations
 
 from pathlib import Path
 
 
-AI_ENGINEERING_DIR = ".ai-engineering"
+def resolve_project_root(target: Path | None = None) -> Path:
+    """Resolve the target project root directory.
+
+    If no explicit target is provided, uses the current working directory.
+
+    Args:
+        target: Explicit project root, or None to use cwd.
+
+    Returns:
+        Resolved absolute path to the project root.
+
+    Raises:
+        FileNotFoundError: If the resolved path does not exist.
+    """
+    root = (target or Path.cwd()).resolve()
+    if not root.is_dir():
+        msg = f"Project root not found: {root}"
+        raise FileNotFoundError(msg)
+    return root
 
 
-def repo_root(start: Path | None = None) -> Path:
-    """Return repository root from current or provided start directory."""
-    current = (start or Path.cwd()).resolve()
-    if (current / ".git").exists():
-        return current
-    for parent in current.parents:
-        if (parent / ".git").exists():
-            return parent
-    raise FileNotFoundError("Not a git repository")
+def ai_engineering_dir(project_root: Path) -> Path:
+    """Return the ``.ai-engineering`` directory for a project.
+
+    Args:
+        project_root: Root directory of the target project.
+
+    Returns:
+        Path to the ``.ai-engineering`` directory.
+    """
+    return project_root / ".ai-engineering"
 
 
-def ai_engineering_root(root: Path) -> Path:
-    """Return `.ai-engineering` directory path."""
-    return root / AI_ENGINEERING_DIR
+def state_dir(project_root: Path) -> Path:
+    """Return the ``state`` directory for a project.
 
+    Args:
+        project_root: Root directory of the target project.
 
-def state_dir(root: Path) -> Path:
-    """Return state directory path."""
-    return ai_engineering_root(root) / "state"
-
-
-def package_root() -> Path:
-    """Return package root directory path."""
-    return Path(__file__).resolve().parent
-
-
-def template_root() -> Path:
-    """Return bundled template root directory path."""
-    return package_root() / "templates"
+    Returns:
+        Path to the ``.ai-engineering/state`` directory.
+    """
+    return project_root / ".ai-engineering" / "state"

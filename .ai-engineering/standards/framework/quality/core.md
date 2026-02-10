@@ -2,8 +2,8 @@
 
 ## Update Metadata
 
-- Rationale: provide measurable quality gates without requiring local SonarQube server setup.
-- Expected gain: consistent quality thresholds across assistants and repositories.
+- Rationale: define quality contract (thresholds, metrics, gate structure) for v2; Phase 5 quality skills implement this contract.
+- Expected gain: consistent quality thresholds across assistants and repositories with measurable gates.
 - Potential impact: pull requests may fail until tests, complexity, and duplication targets are met.
 
 ## Enforcement Scope
@@ -13,11 +13,28 @@
 
 ## Required Quality Gates
 
-- Coverage on changed code: at least 80 percent.
-- Duplicated lines on changed code: at most 3 percent.
+- Coverage on changed code: ≥80%.
+- Coverage on governance-critical paths: ≥90%.
+- Duplicated lines on changed code: ≤3%.
 - Reliability: no critical or blocker issues.
 - Security: no critical or blocker issues.
 - Maintainability: no critical debt items on changed code.
+
+## Gate Structure
+
+| Gate | Trigger | Checks |
+|------|---------|--------|
+| Pre-commit | `git commit` | ruff format, ruff check, gitleaks |
+| Pre-push | `git push` | semgrep, pip-audit, pytest, ty check |
+| PR | Pull request | All pre-push checks + coverage threshold + duplication check |
+| Quality audit | On-demand | Full Sonar-like analysis (skills/quality/audit-code.md) |
+
+## Quality Metrics
+
+- Gate pass/fail ratio per governed operation.
+- Coverage trend (must not decrease).
+- Remediation time for blocker/critical findings.
+- Duplication trend (must not increase).
 
 ## Pull Request Rules
 
@@ -37,5 +54,7 @@
 
 ## References
 
-- `.ai-engineering/standards/framework/core.md`
-- `.ai-engineering/standards/framework/stacks/python.md`
+- `standards/framework/core.md` — non-negotiables and enforcement rules.
+- `standards/framework/stacks/python.md` — stack-specific quality baseline.
+- `skills/quality/audit-code.md` — quality audit skill (implements this contract).
+- `skills/quality/audit-report.md` — quality report template.
