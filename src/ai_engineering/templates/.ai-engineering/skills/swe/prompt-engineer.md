@@ -146,4 +146,5 @@ For complex, multi-type tasks, blend frameworks:
 - `agents/principal-engineer.md` — example of a well-structured agent persona.
 - `skills/lifecycle/create-skill.md` — definitive procedure for skill registration.
 - `skills/lifecycle/create-agent.md` — definitive procedure for agent registration.
+- `skills/lifecycle/create-spec.md` — spec creation procedure for prompt-guided workflows.
 - All agent and skill templates defined in `context/specs/001-rewrite-v2/plan.md`.

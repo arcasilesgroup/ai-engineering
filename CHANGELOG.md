@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Create-spec skill for spec creation with branch-first workflow.
+- Delete-skill skill for safe skill removal with dependency checks.
+- Delete-agent skill for safe agent removal with dependency checks.
+- Content-integrity skill for governance content validation (6-category check).
+- Spec-First Enforcement section in framework core standards.
+- Content Integrity Enforcement section in framework core standards.
+- Content integrity capability in verify-app agent.
 - Create-skill skill for definitive skill authoring and registration procedure.
 - Create-agent skill for definitive agent authoring and registration procedure.
 - Changelog documentation skill for generating user-friendly changelogs and release notes from git history.
