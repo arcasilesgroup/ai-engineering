@@ -1,8 +1,8 @@
 ---
 total: 86
-completed: 60
-last_session: S10
-next_session: S11
+completed: 63
+last_session: S11
+next_session: S12
 ---
 
 # Tasks: AI-Engineering Framework — Rewrite from Scratch
@@ -116,11 +116,11 @@ next_session: S11
 - [x] **Task 10.3**: Create `src/ai_engineering/installer/operations.py` — `add_stack`, `remove_stack`, `add_ide`, `remove_ide`, `list_status`
 - [x] **Task 10.4**: Create `tests/unit/test_installer.py` — install on empty repo, existing repo, add/remove operations
 
-### Phase 11: Hooks — `S11 · Agent-2 · rewrite/v2-phase-11` ║
+### Phase 11: Hooks — `S11 · Agent-1 · rewrite/v2 · ✓ COMPLETE`
 
-- [ ] **Task 11.1**: Create `src/ai_engineering/hooks/manager.py` — generates cross-OS scripts (Bash + PowerShell), installs in `.git/hooks/`, detects conflicts (husky, lefthook)
-- [ ] **Task 11.2**: Create `tests/unit/test_hooks.py` — hook generation, conflict detection
-- [ ] **Task 11.3**: Create `tests/integration/test_hooks_git.py` — hooks with real `git init`
+- [x] **Task 11.1**: Create `src/ai_engineering/hooks/manager.py` — generates cross-OS scripts (Bash + PowerShell), installs in `.git/hooks/`, detects conflicts (husky, lefthook)
+- [x] **Task 11.2**: Create `tests/unit/test_hooks.py` — hook generation, conflict detection
+- [x] **Task 11.3**: Create `tests/integration/test_hooks_git.py` — hooks with real `git init`
 
 ### Phase 12: Doctor — `S12 · Agent-3 · rewrite/v2-phase-12` ║
 
