@@ -30,6 +30,7 @@ Procedural skills guide structured execution. Reference the relevant skill befor
 - `.ai-engineering/skills/workflows/commit.md` — `/commit` flow.
 - `.ai-engineering/skills/workflows/pr.md` — `/pr` flow.
 - `.ai-engineering/skills/workflows/acho.md` — `/acho` alias.
+- `.ai-engineering/skills/workflows/pre-implementation.md` — branch hygiene before implementation.
 
 ### SWE Skills
 
@@ -56,6 +57,9 @@ Procedural skills guide structured execution. Reference the relevant skill befor
 - `.ai-engineering/skills/lifecycle/create-spec.md` — spec creation with branch-first workflow.
 - `.ai-engineering/skills/lifecycle/delete-agent.md` — safe agent removal with dependency checks.
 - `.ai-engineering/skills/lifecycle/delete-skill.md` — safe skill removal with dependency checks.
+- `.ai-engineering/skills/lifecycle/accept-risk.md` — risk acceptance with severity-based expiry.
+- `.ai-engineering/skills/lifecycle/resolve-risk.md` — risk remediation and closure.
+- `.ai-engineering/skills/lifecycle/renew-risk.md` — time-limited risk renewal (max 2).
 
 ### Quality Skills
 

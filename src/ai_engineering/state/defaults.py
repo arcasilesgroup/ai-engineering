@@ -113,7 +113,7 @@ def default_decision_store() -> DecisionStore:
         DecisionStore with no decisions.
     """
     return DecisionStore(
-        schemaVersion="1.0",
+        schemaVersion="1.1",
         updateMetadata=default_update_metadata(context="decision store"),
         decisions=[],
     )

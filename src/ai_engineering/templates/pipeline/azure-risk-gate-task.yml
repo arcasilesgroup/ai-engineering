@@ -1,0 +1,5 @@
+- script: |
+    pip install ai-engineering
+    ai-eng gate risk-check --strict
+  displayName: "Risk Governance Gate"
+  failOnStderr: true

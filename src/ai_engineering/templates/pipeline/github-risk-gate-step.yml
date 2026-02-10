@@ -1,0 +1,5 @@
+- name: Risk Governance Gate
+  run: |
+    pip install ai-engineering
+    ai-eng gate risk-check --strict
+  shell: bash

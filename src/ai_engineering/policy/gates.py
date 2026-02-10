@@ -1,9 +1,9 @@
 """Git hook gate checks for ai-engineering.
 
 Implements the quality gates invoked by git hooks:
-- **pre-commit**: ruff format, ruff lint, gitleaks.
+- **pre-commit**: ruff format, ruff lint, gitleaks, risk expiry warnings.
 - **commit-msg**: commit message format validation.
-- **pre-push**: semgrep, pip-audit, stack tests, ty type-check.
+- **pre-push**: semgrep, pip-audit, stack tests, ty type-check, expired risk blocking.
 
 Also enforces protected branch blocking: direct commits to main/master
 are rejected.
@@ -16,7 +16,10 @@ import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from ai_engineering.state.models import GateHook
+from ai_engineering.git.operations import PROTECTED_BRANCHES, current_branch
+from ai_engineering.state.decision_logic import list_expired_decisions, list_expiring_soon
+from ai_engineering.state.io import read_json_model
+from ai_engineering.state.models import DecisionStore, GateHook
 
 
 @dataclass
@@ -44,10 +47,6 @@ class GateResult:
     def failed_checks(self) -> list[str]:
         """Names of failed checks."""
         return [c.name for c in self.checks if not c.passed]
-
-
-# Protected branch names where direct commits are blocked.
-_PROTECTED_BRANCHES: frozenset[str] = frozenset({"main", "master"})
 
 
 def run_gate(
@@ -85,8 +84,8 @@ def run_gate(
 
 def _check_branch_protection(project_root: Path, result: GateResult) -> None:
     """Block direct commits to protected branches."""
-    branch = _get_current_branch(project_root)
-    if branch and branch in _PROTECTED_BRANCHES:
+    branch = current_branch(project_root)
+    if branch and branch in PROTECTED_BRANCHES:
         result.checks.append(GateCheckResult(
             name="branch-protection",
             passed=False,
@@ -101,7 +100,7 @@ def _check_branch_protection(project_root: Path, result: GateResult) -> None:
 
 
 def _run_pre_commit_checks(project_root: Path, result: GateResult) -> None:
-    """Run pre-commit gate checks: ruff format, ruff lint, gitleaks."""
+    """Run pre-commit gate checks: ruff format, ruff lint, gitleaks, risk warnings."""
     # ruff format --check
     _run_tool_check(
         result,
@@ -125,6 +124,9 @@ def _run_pre_commit_checks(project_root: Path, result: GateResult) -> None:
         cmd=["gitleaks", "detect", "--source", ".", "--no-git"],
         cwd=project_root,
     )
+
+    # Risk expiry warnings (non-blocking)
+    _check_expiring_risk_acceptances(project_root, result)
 
 
 def _run_commit_msg_checks(
@@ -166,7 +168,7 @@ def _run_commit_msg_checks(
 
 
 def _run_pre_push_checks(project_root: Path, result: GateResult) -> None:
-    """Run pre-push gate checks: semgrep, pip-audit, tests, ty."""
+    """Run pre-push gate checks: semgrep, pip-audit, tests, ty, expired risks."""
     # semgrep
     _run_tool_check(
         result,
@@ -198,6 +200,9 @@ def _run_pre_push_checks(project_root: Path, result: GateResult) -> None:
         cmd=["ty", "check", "src"],
         cwd=project_root,
     )
+
+    # Expired risk acceptances (blocking)
+    _check_expired_risk_acceptances(project_root, result)
 
 
 def _run_tool_check(
@@ -254,6 +259,113 @@ def _run_tool_check(
     ))
 
 
+def _load_decision_store(project_root: Path) -> DecisionStore | None:
+    """Load the decision store from the project, or None if unavailable.
+
+    Args:
+        project_root: Root directory of the project.
+
+    Returns:
+        DecisionStore if the file exists and parses, else None.
+    """
+    ds_path = project_root / ".ai-engineering" / "state" / "decision-store.json"
+    if not ds_path.exists():
+        return None
+    try:
+        return read_json_model(ds_path, DecisionStore)
+    except (OSError, ValueError):
+        return None
+
+
+def _check_expiring_risk_acceptances(
+    project_root: Path,
+    result: GateResult,
+) -> None:
+    """Warn about risk acceptances expiring within 7 days (non-blocking).
+
+    This is a pre-commit advisory check. It always passes but includes
+    warning text in the output.
+
+    Args:
+        project_root: Root directory of the project.
+        result: GateResult to append check to.
+    """
+    store = _load_decision_store(project_root)
+    if store is None:
+        result.checks.append(GateCheckResult(
+            name="risk-expiry-warning",
+            passed=True,
+            output="No decision store found — skipped",
+        ))
+        return
+
+    expiring = list_expiring_soon(store)
+    if not expiring:
+        result.checks.append(GateCheckResult(
+            name="risk-expiry-warning",
+            passed=True,
+            output="No risk acceptances expiring soon",
+        ))
+        return
+
+    lines = [f"{len(expiring)} risk acceptance(s) expiring within 7 days:"]
+    for d in expiring:
+        exp = d.expires_at.strftime("%Y-%m-%d") if d.expires_at else "unknown"
+        lines.append(f"  - {d.id}: expires {exp} ({d.context[:60]})")
+    lines.append("Consider renewing or remediating before expiry.")
+
+    result.checks.append(GateCheckResult(
+        name="risk-expiry-warning",
+        passed=True,
+        output="\n".join(lines),
+    ))
+
+
+def _check_expired_risk_acceptances(
+    project_root: Path,
+    result: GateResult,
+) -> None:
+    """Block push if expired risk acceptances exist (blocking).
+
+    This is a pre-push gate check. Expired unresolved risk acceptances
+    must be renewed or remediated before code can be pushed.
+
+    Args:
+        project_root: Root directory of the project.
+        result: GateResult to append check to.
+    """
+    store = _load_decision_store(project_root)
+    if store is None:
+        result.checks.append(GateCheckResult(
+            name="risk-expired-block",
+            passed=True,
+            output="No decision store found — skipped",
+        ))
+        return
+
+    expired = list_expired_decisions(store)
+    if not expired:
+        result.checks.append(GateCheckResult(
+            name="risk-expired-block",
+            passed=True,
+            output="No expired risk acceptances",
+        ))
+        return
+
+    lines = [f"{len(expired)} expired risk acceptance(s) blocking push:"]
+    for d in expired:
+        exp = d.expires_at.strftime("%Y-%m-%d") if d.expires_at else "unknown"
+        lines.append(f"  - {d.id}: expired {exp} ({d.context[:60]})")
+    lines.append("Run 'ai-eng maintenance risk-status' to review.")
+    lines.append("Renew with accept-risk skill or remediate with resolve-risk skill.")
+
+    result.checks.append(GateCheckResult(
+        name="risk-expired-block",
+        passed=False,
+        output="\n".join(lines),
+    ))
+
+
 def _validate_commit_message(msg: str) -> list[str]:
     """Validate a commit message against project conventions.
 
@@ -286,19 +398,3 @@ def _validate_commit_message(msg: str) -> list[str]:
         )
 
     return errors
-
-
-def _get_current_branch(project_root: Path) -> str | None:
-    """Get the current git branch name."""
-    try:
-        result = subprocess.run(
-            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-            cwd=project_root,
-            capture_output=True,
-            text=True,
-            check=True,
-            timeout=10,
-        )
-        return result.stdout.strip()
-    except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired):
-        return None
