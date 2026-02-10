@@ -10,8 +10,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from ai_engineering.installer.service import install
 from ai_engineering.state.io import read_json_model
 from ai_engineering.state.models import InstallManifest
@@ -22,7 +20,8 @@ class TestInstallExisting:
     """End-to-end tests for installing on a repo with existing code."""
 
     def test_preserves_existing_source_files(
-        self, tmp_path: Path,
+        self,
+        tmp_path: Path,
     ) -> None:
         # Create some "existing" project files
         src_dir = tmp_path / "src"
@@ -40,7 +39,8 @@ class TestInstallExisting:
         assert readme.read_text(encoding="utf-8") == "# My Project\n"
 
     def test_preserves_existing_claude_md(
-        self, tmp_path: Path,
+        self,
+        tmp_path: Path,
     ) -> None:
         # Create a custom CLAUDE.md before install
         claude = tmp_path / "CLAUDE.md"
@@ -52,14 +52,13 @@ class TestInstallExisting:
         assert claude.read_text(encoding="utf-8") == "# My Custom CLAUDE\n"
 
     def test_second_install_preserves_state(
-        self, tmp_path: Path,
+        self,
+        tmp_path: Path,
     ) -> None:
         install(tmp_path, stacks=["python"], ides=["vscode"])
 
         # Modify a team-managed file
-        team_file = (
-            tmp_path / ".ai-engineering" / "standards" / "team" / "core.md"
-        )
+        team_file = tmp_path / ".ai-engineering" / "standards" / "team" / "core.md"
         if team_file.exists():
             team_file.write_text("# Team customised\n", encoding="utf-8")
 
@@ -70,14 +69,13 @@ class TestInstallExisting:
             assert team_file.read_text(encoding="utf-8") == "# Team customised\n"
 
     def test_update_dry_run_does_not_modify(
-        self, tmp_path: Path,
+        self,
+        tmp_path: Path,
     ) -> None:
         install(tmp_path, stacks=["python"], ides=["vscode"])
 
         # Snapshot state before update
-        manifest_path = (
-            tmp_path / ".ai-engineering" / "state" / "install-manifest.json"
-        )
+        manifest_path = tmp_path / ".ai-engineering" / "state" / "install-manifest.json"
         before = manifest_path.read_text(encoding="utf-8")
 
         result = update(tmp_path, dry_run=True)
@@ -87,14 +85,13 @@ class TestInstallExisting:
         assert result.dry_run is True
 
     def test_update_apply_respects_ownership(
-        self, tmp_path: Path,
+        self,
+        tmp_path: Path,
     ) -> None:
         install(tmp_path, stacks=["python"], ides=["vscode"])
 
         # Modify a team-managed file
-        team_file = (
-            tmp_path / ".ai-engineering" / "standards" / "team" / "core.md"
-        )
+        team_file = tmp_path / ".ai-engineering" / "standards" / "team" / "core.md"
         original = ""
         if team_file.exists():
             original = team_file.read_text(encoding="utf-8")
@@ -157,12 +154,11 @@ class TestInstallExisting:
         assert (tmp_path / "main.py").read_text(encoding="utf-8") == "# main\n"
 
     def test_manifest_reflects_configured_stacks(
-        self, tmp_path: Path,
+        self,
+        tmp_path: Path,
     ) -> None:
         install(tmp_path, stacks=["python", "node"], ides=["vscode", "jetbrains"])
-        manifest_path = (
-            tmp_path / ".ai-engineering" / "state" / "install-manifest.json"
-        )
+        manifest_path = tmp_path / ".ai-engineering" / "state" / "install-manifest.json"
         manifest = read_json_model(manifest_path, InstallManifest)
-        assert set(manifest.stacks) == {"python", "node"}
-        assert set(manifest.ides) == {"vscode", "jetbrains"}
+        assert set(manifest.installed_stacks) == {"python", "node"}
+        assert set(manifest.installed_ides) == {"vscode", "jetbrains"}

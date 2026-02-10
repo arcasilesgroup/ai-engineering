@@ -90,10 +90,7 @@ def fetch_and_prune(project_root: Path) -> tuple[bool, int]:
     if not ok:
         return False, 0
 
-    pruned = sum(
-        1 for line in output.splitlines()
-        if "[deleted]" in line or "- [deleted]" in line
-    )
+    pruned = sum(1 for line in output.splitlines() if "[deleted]" in line or "- [deleted]" in line)
     return True, pruned
 
 
@@ -213,18 +210,13 @@ def run_branch_cleanup(
             result.errors.append(f"Cannot switch to {base_branch}: {output}")
             return result
 
-    # Pull latest on base branch
+    # Pull latest on base branch (non-fatal — may fail without a remote)
     ok, _ = run_git(["pull", "--ff-only"], project_root, timeout=60)
-    if not ok:
-        result.errors.append(f"Failed to pull {base_branch}")
 
-    # Fetch and prune
+    # Fetch and prune (non-fatal — may fail without a remote)
     fetched, pruned = fetch_and_prune(project_root)
     result.fetched = fetched
     result.pruned_refs = pruned
-    if not fetched:
-        result.errors.append("git fetch --prune failed")
-        return result
 
     # Identify candidates
     merged = list_merged_branches(project_root, base_branch)

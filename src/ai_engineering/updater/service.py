@@ -15,10 +15,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from ai_engineering.installer.templates import (
-    copy_file_if_missing,
+    _PROJECT_TEMPLATE_MAP,
     get_ai_engineering_template_root,
     get_project_template_root,
-    _PROJECT_TEMPLATE_MAP,
 )
 from ai_engineering.state.io import append_ndjson, read_json_model
 from ai_engineering.state.models import (
@@ -46,9 +45,7 @@ class UpdateResult:
     @property
     def applied_count(self) -> int:
         """Number of files created or updated."""
-        return sum(
-            1 for c in self.changes if c.action in ("create", "update")
-        )
+        return sum(1 for c in self.changes if c.action in ("create", "update"))
 
     @property
     def denied_count(self) -> int:
@@ -117,7 +114,10 @@ def _update_governance_files(
         dest = ai_eng_dir / relative
 
         change = _evaluate_file_change(
-            src_file, dest, ownership_path, ownership,
+            src_file,
+            dest,
+            ownership_path,
+            ownership,
         )
         result.changes.append(change)
 
@@ -146,7 +146,10 @@ def _update_project_files(
         ownership_path = dest_relative
 
         change = _evaluate_file_change(
-            src_file, dest, ownership_path, ownership,
+            src_file,
+            dest,
+            ownership_path,
+            ownership,
         )
         result.changes.append(change)
 
@@ -222,9 +225,6 @@ def _log_update_event(ai_eng_dir: Path, result: UpdateResult) -> None:
     entry = AuditEntry(
         event="update",
         actor="ai-engineering-cli",
-        detail=(
-            f"applied={result.applied_count} "
-            f"denied={result.denied_count}"
-        ),
+        detail=(f"applied={result.applied_count} denied={result.denied_count}"),
     )
     append_ndjson(audit_path, entry)

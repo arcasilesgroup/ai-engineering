@@ -13,8 +13,7 @@ Covers:
 
 from __future__ import annotations
 
-import json
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from unittest.mock import patch
 
@@ -35,9 +34,8 @@ from ai_engineering.skills.service import (
     remove_source,
     sync_sources,
 )
-from ai_engineering.state.io import read_json_model, write_json_model
-from ai_engineering.state.models import CacheConfig, RemoteSource, SourcesLock
-
+from ai_engineering.state.io import write_json_model
+from ai_engineering.state.models import CacheConfig, RemoteSource
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -55,6 +53,7 @@ def installed_project(tmp_path: Path) -> Path:
 def project_with_sources(installed_project: Path) -> Path:
     """Installed project with a sources.lock.json containing test sources."""
     lock = load_sources_lock(installed_project)
+    lock.default_remote_enabled = True
     lock.sources = [
         RemoteSource(
             url="https://example.com/skill-a.md",
@@ -69,9 +68,7 @@ def project_with_sources(installed_project: Path) -> Path:
             cache=CacheConfig(),
         ),
     ]
-    lock_path = (
-        installed_project / ".ai-engineering" / "state" / "sources.lock.json"
-    )
+    lock_path = installed_project / ".ai-engineering" / "state" / "sources.lock.json"
     write_json_model(lock_path, lock)
     return installed_project
 
@@ -85,7 +82,8 @@ class TestSyncSources:
     """Tests for the sync_sources function."""
 
     def test_untrusted_sources_are_skipped(
-        self, project_with_sources: Path,
+        self,
+        project_with_sources: Path,
     ) -> None:
         with patch(
             "ai_engineering.skills.service._fetch_url",
@@ -97,7 +95,8 @@ class TestSyncSources:
         assert "https://example.com/skill-b.md" not in result.fetched
 
     def test_fetch_populates_cache(
-        self, project_with_sources: Path,
+        self,
+        project_with_sources: Path,
     ) -> None:
         content = b"# Skill A content"
         with patch(
@@ -107,22 +106,19 @@ class TestSyncSources:
             result = sync_sources(project_with_sources)
 
         assert "https://example.com/skill-a.md" in result.fetched
-        cache_dir = (
-            project_with_sources / ".ai-engineering" / "skills-cache"
-        )
+        cache_dir = project_with_sources / ".ai-engineering" / "skills-cache"
         assert cache_dir.is_dir()
         cache_files = list(cache_dir.glob("*.cache"))
         assert len(cache_files) >= 1
 
     def test_checksum_mismatch_fails(
-        self, project_with_sources: Path,
+        self,
+        project_with_sources: Path,
     ) -> None:
         # Set a checksum that won't match
         lock = load_sources_lock(project_with_sources)
         lock.sources[0].checksum = "badhash"
-        lock_path = (
-            project_with_sources / ".ai-engineering" / "state" / "sources.lock.json"
-        )
+        lock_path = project_with_sources / ".ai-engineering" / "state" / "sources.lock.json"
         write_json_model(lock_path, lock)
 
         with patch(
@@ -134,7 +130,8 @@ class TestSyncSources:
         assert "https://example.com/skill-a.md" in result.failed
 
     def test_fetch_failure_uses_cache_fallback(
-        self, project_with_sources: Path,
+        self,
+        project_with_sources: Path,
     ) -> None:
         # Pre-populate cache
         cache_dir = project_with_sources / ".ai-engineering" / "skills-cache"
@@ -161,7 +158,8 @@ class TestSyncOffline:
     """Tests for offline mode."""
 
     def test_offline_serves_from_cache(
-        self, project_with_sources: Path,
+        self,
+        project_with_sources: Path,
     ) -> None:
         # Populate cache first
         with patch(
@@ -174,7 +172,8 @@ class TestSyncOffline:
         assert "https://example.com/skill-a.md" in result.cached
 
     def test_offline_fails_without_cache(
-        self, project_with_sources: Path,
+        self,
+        project_with_sources: Path,
     ) -> None:
         result = sync_sources(project_with_sources, offline=True)
         assert "https://example.com/skill-a.md" in result.failed
@@ -184,13 +183,12 @@ class TestSyncDisabled:
     """Tests for disabled remote sources."""
 
     def test_disabled_remote_returns_empty(
-        self, installed_project: Path,
+        self,
+        installed_project: Path,
     ) -> None:
         lock = load_sources_lock(installed_project)
         lock.default_remote_enabled = False
-        lock_path = (
-            installed_project / ".ai-engineering" / "state" / "sources.lock.json"
-        )
+        lock_path = installed_project / ".ai-engineering" / "state" / "sources.lock.json"
         write_json_model(lock_path, lock)
 
         result = sync_sources(installed_project)
@@ -221,10 +219,7 @@ class TestAddSource:
             "https://untrusted.example.com/skill.md",
             trusted=False,
         )
-        source = next(
-            s for s in lock.sources
-            if s.url == "https://untrusted.example.com/skill.md"
-        )
+        source = next(s for s in lock.sources if s.url == "https://untrusted.example.com/skill.md")
         assert source.trusted is False
 
 
@@ -234,7 +229,8 @@ class TestRemoveSource:
     def test_remove_existing_source(self, installed_project: Path) -> None:
         add_source(installed_project, "https://removeme.example.com/skill.md")
         lock = remove_source(
-            installed_project, "https://removeme.example.com/skill.md",
+            installed_project,
+            "https://removeme.example.com/skill.md",
         )
         urls = [s.url for s in lock.sources]
         assert "https://removeme.example.com/skill.md" not in urls
@@ -248,7 +244,8 @@ class TestListSources:
     """Tests for list_sources."""
 
     def test_list_returns_all_sources(
-        self, project_with_sources: Path,
+        self,
+        project_with_sources: Path,
     ) -> None:
         sources = list_sources(project_with_sources)
         urls = [s.url for s in sources]
@@ -265,7 +262,8 @@ class TestGenerateReport:
     """Tests for generate_report."""
 
     def test_report_on_installed_project(
-        self, installed_project: Path,
+        self,
+        installed_project: Path,
     ) -> None:
         report = generate_report(installed_project)
         assert report.total_governance_files >= 0
@@ -278,7 +276,8 @@ class TestGenerateReport:
         assert "Framework not installed" in report.warnings
 
     def test_report_counts_audit_events(
-        self, installed_project: Path,
+        self,
+        installed_project: Path,
     ) -> None:
         report = generate_report(installed_project)
         # Install creates at least one audit entry
@@ -293,7 +292,8 @@ class TestStalenessDetection:
         assert len(report.stale_files) == 0
 
     def test_old_files_detected_as_stale(
-        self, installed_project: Path,
+        self,
+        installed_project: Path,
     ) -> None:
         # Create an artificially old file
         ai_dir = installed_project / ".ai-engineering" / "standards"
@@ -302,9 +302,8 @@ class TestStalenessDetection:
         old_file.write_text("# Old\n", encoding="utf-8")
 
         import os
-        old_time = (
-            datetime.now(tz=timezone.utc) - timedelta(days=200)
-        ).timestamp()
+
+        old_time = (datetime.now(tz=UTC) - timedelta(days=200)).timestamp()
         os.utime(old_file, (old_time, old_time))
 
         report = generate_report(installed_project, staleness_days=90)
@@ -312,7 +311,8 @@ class TestStalenessDetection:
         assert "standards/old-standard.md" in stale_paths
 
     def test_custom_staleness_threshold(
-        self, installed_project: Path,
+        self,
+        installed_project: Path,
     ) -> None:
         # With threshold of 0 days everything is stale (if governance
         # files exist); with a very large threshold nothing is stale
@@ -330,7 +330,7 @@ class TestReportMarkdown:
 
     def test_markdown_contains_header(self) -> None:
         report = MaintenanceReport(
-            generated_at=datetime(2025, 1, 1, tzinfo=timezone.utc),
+            generated_at=datetime(2025, 1, 1, tzinfo=UTC),
         )
         md = report.to_markdown()
         assert "# Maintenance Report" in md
@@ -338,11 +338,11 @@ class TestReportMarkdown:
 
     def test_markdown_renders_stale_files(self) -> None:
         report = MaintenanceReport(
-            generated_at=datetime(2025, 1, 1, tzinfo=timezone.utc),
+            generated_at=datetime(2025, 1, 1, tzinfo=UTC),
             stale_files=[
                 StaleFile(
                     path=Path("standards/old.md"),
-                    last_modified=datetime(2024, 1, 1, tzinfo=timezone.utc),
+                    last_modified=datetime(2024, 1, 1, tzinfo=UTC),
                     age_days=365,
                 ),
             ],
@@ -355,7 +355,7 @@ class TestReportMarkdown:
 
     def test_markdown_renders_warnings(self) -> None:
         report = MaintenanceReport(
-            generated_at=datetime(2025, 1, 1, tzinfo=timezone.utc),
+            generated_at=datetime(2025, 1, 1, tzinfo=UTC),
             warnings=["Something is wrong"],
         )
         md = report.to_markdown()
@@ -368,24 +368,24 @@ class TestHealthScore:
 
     def test_perfect_health_with_no_stale(self) -> None:
         report = MaintenanceReport(
-            generated_at=datetime(2025, 1, 1, tzinfo=timezone.utc),
+            generated_at=datetime(2025, 1, 1, tzinfo=UTC),
             total_governance_files=10,
         )
         assert report.health_score == 1.0
 
     def test_zero_health_with_all_stale(self) -> None:
         report = MaintenanceReport(
-            generated_at=datetime(2025, 1, 1, tzinfo=timezone.utc),
+            generated_at=datetime(2025, 1, 1, tzinfo=UTC),
             total_governance_files=2,
             stale_files=[
                 StaleFile(
                     path=Path("a.md"),
-                    last_modified=datetime(2024, 1, 1, tzinfo=timezone.utc),
+                    last_modified=datetime(2024, 1, 1, tzinfo=UTC),
                     age_days=365,
                 ),
                 StaleFile(
                     path=Path("b.md"),
-                    last_modified=datetime(2024, 1, 1, tzinfo=timezone.utc),
+                    last_modified=datetime(2024, 1, 1, tzinfo=UTC),
                     age_days=365,
                 ),
             ],
@@ -394,7 +394,7 @@ class TestHealthScore:
 
     def test_zero_files_gives_zero_score(self) -> None:
         report = MaintenanceReport(
-            generated_at=datetime(2025, 1, 1, tzinfo=timezone.utc),
+            generated_at=datetime(2025, 1, 1, tzinfo=UTC),
             total_governance_files=0,
         )
         assert report.health_score == 0.0
@@ -409,15 +409,11 @@ class TestCreateMaintenancePR:
     """Tests for create_maintenance_pr."""
 
     def test_pr_creation_writes_report_file(
-        self, installed_project: Path,
+        self,
+        installed_project: Path,
     ) -> None:
         report = generate_report(installed_project)
-        report_path = (
-            installed_project
-            / ".ai-engineering"
-            / "state"
-            / "maintenance-report.md"
-        )
+        report_path = installed_project / ".ai-engineering" / "state" / "maintenance-report.md"
 
         # Mock subprocess to avoid real git/gh calls
         with patch(
@@ -431,7 +427,8 @@ class TestCreateMaintenancePR:
         assert "# Maintenance Report" in content
 
     def test_pr_creation_returns_false_on_failure(
-        self, installed_project: Path,
+        self,
+        installed_project: Path,
     ) -> None:
         import subprocess
 

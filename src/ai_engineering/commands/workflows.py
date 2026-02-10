@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import subprocess
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from ai_engineering.git.operations import (
@@ -27,9 +27,8 @@ from ai_engineering.git.operations import (
     current_branch,
     is_branch_pushed,
 )
-from ai_engineering.state.io import append_ndjson, read_json_model, write_json_model
+from ai_engineering.state.io import append_ndjson, read_json_model
 from ai_engineering.state.models import AuditEntry, DecisionStore
-
 
 # ---------------------------------------------------------------------------
 # Result types
@@ -119,7 +118,7 @@ def _log_audit(
     audit_path = project_root / ".ai-engineering" / "state" / "audit-log.ndjson"
     if audit_path.parent.is_dir():
         entry = AuditEntry(
-            timestamp=datetime.now(tz=timezone.utc),
+            timestamp=datetime.now(tz=UTC),
             event=event,
             actor=actor,
             detail=detail,
@@ -219,11 +218,13 @@ def run_commit_workflow(
         ["gitleaks", "detect", "--staged", "--no-banner"],
         project_root,
     )
-    result.steps.append(StepResult(
-        name="gitleaks",
-        passed=passed,
-        output=output,
-    ))
+    result.steps.append(
+        StepResult(
+            name="gitleaks",
+            passed=passed,
+            output=output,
+        )
+    )
     if not passed:
         _log_audit(
             project_root,
@@ -240,11 +241,13 @@ def run_commit_workflow(
         ["git", "commit", "-m", message],
         project_root,
     )
-    result.steps.append(StepResult(
-        name="commit",
-        passed=passed,
-        output=output,
-    ))
+    result.steps.append(
+        StepResult(
+            name="commit",
+            passed=passed,
+            output=output,
+        )
+    )
     if not passed:
         return result
 
@@ -262,11 +265,13 @@ def run_commit_workflow(
             project_root,
             timeout=30,
         )
-        result.steps.append(StepResult(
-            name="push",
-            passed=passed,
-            output=output,
-        ))
+        result.steps.append(
+            StepResult(
+                name="push",
+                passed=passed,
+                output=output,
+            )
+        )
         if not passed:
             _log_audit(
                 project_root,
@@ -274,12 +279,14 @@ def run_commit_workflow(
                 detail=output[:500],
             )
     else:
-        result.steps.append(StepResult(
-            name="push",
-            passed=True,
-            skipped=True,
-            output="Skipped (--only mode)",
-        ))
+        result.steps.append(
+            StepResult(
+                name="push",
+                passed=True,
+                skipped=True,
+                output="Skipped (--only mode)",
+            )
+        )
 
     return result
 
@@ -360,11 +367,13 @@ def run_pr_only_workflow(
         # Check decision store for prior decision
         decision = _check_unpushed_decision(project_root, branch)
         if decision == "defer-pr":
-            result.steps.append(StepResult(
-                name="unpushed-check",
-                passed=False,
-                output=f"Branch '{branch}' is unpushed. Deferred by prior decision.",
-            ))
+            result.steps.append(
+                StepResult(
+                    name="unpushed-check",
+                    passed=False,
+                    output=f"Branch '{branch}' is unpushed. Deferred by prior decision.",
+                )
+            )
             return result
 
         # Auto-push if no prior defer decision
@@ -373,11 +382,13 @@ def run_pr_only_workflow(
             project_root,
             timeout=30,
         )
-        result.steps.append(StepResult(
-            name="auto-push",
-            passed=passed,
-            output=output,
-        ))
+        result.steps.append(
+            StepResult(
+                name="auto-push",
+                passed=passed,
+                output=output,
+            )
+        )
         if not passed:
             return result
 
@@ -514,9 +525,7 @@ def _check_unpushed_decision(
     Returns:
         Decision text if found (e.g. "defer-pr"), or None.
     """
-    store_path = (
-        project_root / ".ai-engineering" / "state" / "decision-store.json"
-    )
+    store_path = project_root / ".ai-engineering" / "state" / "decision-store.json"
     if not store_path.exists():
         return None
 
@@ -531,7 +540,7 @@ def _check_unpushed_decision(
         decision = store.find_by_context_hash(context_hash)
         if decision is not None:
             return decision.decision
-    except Exception:  # noqa: BLE001
+    except Exception:
         pass
 
     return None

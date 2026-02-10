@@ -13,12 +13,11 @@ Covers:
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
 from ai_engineering.state.decision_logic import (
-    _MAX_RENEWALS,
     _SEVERITY_EXPIRY_DAYS,
     create_risk_acceptance,
     default_expiry_for_severity,
@@ -67,14 +66,16 @@ class TestDefaultExpiryForSeverity:
     def test_custom_config_overrides(self) -> None:
         config = {"critical": 5, "high": 10}
         delta = default_expiry_for_severity(
-            RiskSeverity.CRITICAL, config=config,
+            RiskSeverity.CRITICAL,
+            config=config,
         )
         assert delta == timedelta(days=5)
 
     def test_custom_config_falls_back(self) -> None:
         config = {"critical": 5}
         delta = default_expiry_for_severity(
-            RiskSeverity.LOW, config=config,
+            RiskSeverity.LOW,
+            config=config,
         )
         assert delta == timedelta(days=90)
 
@@ -108,7 +109,7 @@ class TestCreateRiskAcceptance:
 
     def test_auto_calculates_expiry(self) -> None:
         store = _empty_store()
-        before = datetime.utcnow()
+        before = datetime.now(tz=UTC)
         d = create_risk_acceptance(
             store,
             decision_id="RA-002",
@@ -222,7 +223,7 @@ class TestRenewDecision:
         # Third renewal should fail
         with pytest.raises(ValueError, match="maximum renewals"):
             # Find the latest renewed decision
-            latest = [d for d in store.decisions if d.renewal_count == 2][0]
+            latest = next(d for d in store.decisions if d.renewal_count == 2)
             renew_decision(
                 store,
                 decision_id=latest.id,
@@ -245,13 +246,15 @@ class TestRenewDecision:
     def test_non_risk_raises(self) -> None:
         store = _empty_store()
         # Add a regular decision (not risk acceptance)
-        store.decisions.append(Decision(
-            id="D-001",
-            context="regular decision",
-            decision="decided",
-            decidedAt=datetime.utcnow(),
-            spec="004",
-        ))
+        store.decisions.append(
+            Decision(
+                id="D-001",
+                context="regular decision",
+                decision="decided",
+                decided_at=datetime.now(tz=UTC),
+                spec="004",
+            )
+        )
         with pytest.raises(ValueError, match="not a risk acceptance"):
             renew_decision(
                 store,
@@ -328,7 +331,7 @@ class TestListExpiredDecisions:
             follow_up="fix",
             spec="004",
             accepted_by="dev",
-            expires_at=datetime(2020, 1, 1),
+            expires_at=datetime(2020, 1, 1, tzinfo=UTC),
         )
         expired = list_expired_decisions(store)
         assert len(expired) == 1
@@ -345,7 +348,7 @@ class TestListExpiredDecisions:
             follow_up="fix",
             spec="004",
             accepted_by="dev",
-            expires_at=datetime(2099, 12, 31),
+            expires_at=datetime(2099, 12, 31, tzinfo=UTC),
         )
         expired = list_expired_decisions(store)
         assert len(expired) == 0
@@ -361,7 +364,7 @@ class TestListExpiredDecisions:
             follow_up="fix",
             spec="004",
             accepted_by="dev",
-            expires_at=datetime(2020, 1, 1),
+            expires_at=datetime(2020, 1, 1, tzinfo=UTC),
         )
         mark_remediated(store, decision_id="RA-001")
         expired = list_expired_decisions(store)
@@ -385,7 +388,7 @@ class TestListExpiringSoon:
             follow_up="fix",
             spec="004",
             accepted_by="dev",
-            expires_at=datetime.utcnow() + timedelta(days=3),
+            expires_at=datetime.now(tz=UTC) + timedelta(days=3),
         )
         expiring = list_expiring_soon(store, days=7)
         assert len(expiring) == 1
@@ -401,7 +404,7 @@ class TestListExpiringSoon:
             follow_up="fix",
             spec="004",
             accepted_by="dev",
-            expires_at=datetime.utcnow() + timedelta(days=60),
+            expires_at=datetime.now(tz=UTC) + timedelta(days=60),
         )
         expiring = list_expiring_soon(store, days=7)
         assert len(expiring) == 0
@@ -417,7 +420,7 @@ class TestListExpiringSoon:
             follow_up="fix",
             spec="004",
             accepted_by="dev",
-            expires_at=datetime(2020, 1, 1),
+            expires_at=datetime(2020, 1, 1, tzinfo=UTC),
         )
         expiring = list_expiring_soon(store, days=7)
         assert len(expiring) == 0

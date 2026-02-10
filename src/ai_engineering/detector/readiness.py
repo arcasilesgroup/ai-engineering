@@ -40,10 +40,7 @@ class ReadinessReport:
     @property
     def missing(self) -> list[str]:
         """Names of required tools that are not available."""
-        return [
-            t.name for t in self.tools
-            if not t.available and t.name not in _OPTIONAL_TOOLS
-        ]
+        return [t.name for t in self.tools if not t.available and t.name not in _OPTIONAL_TOOLS]
 
 
 # Tools that are checked but not strictly required.
@@ -98,7 +95,14 @@ def check_all_tools() -> ReadinessReport:
     """
     report = ReadinessReport()
     tool_names = [
-        "uv", "ruff", "ty", "gitleaks", "semgrep", "pip-audit", "gh", "az",
+        "uv",
+        "ruff",
+        "ty",
+        "gitleaks",
+        "semgrep",
+        "pip-audit",
+        "gh",
+        "az",
     ]
     for name in tool_names:
         report.tools.append(check_tool(name))
@@ -119,10 +123,7 @@ def remediate_missing_tools(
     Returns:
         List of tool names that were successfully installed.
     """
-    missing = [
-        t.name for t in report.tools
-        if not t.available and t.name in _INSTALLABLE_TOOLS
-    ]
+    missing = [t.name for t in report.tools if not t.available and t.name in _INSTALLABLE_TOOLS]
 
     if not missing:
         return []

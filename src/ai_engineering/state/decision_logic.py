@@ -12,7 +12,7 @@ Provides:
 from __future__ import annotations
 
 import hashlib
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from .models import (
     Decision,
@@ -70,7 +70,7 @@ def find_reusable_decision(
     Returns:
         The matching non-expired decision, or None.
     """
-    now = now or datetime.utcnow()
+    now = now or datetime.now(tz=UTC)
     context_hash = compute_context_hash(context)
     decision = store.find_by_context_hash(context_hash)
     if decision is None:
@@ -108,10 +108,10 @@ def create_decision(
         id=decision_id,
         context=context,
         decision=decision_text,
-        decidedAt=datetime.utcnow(),
+        decidedAt=datetime.now(tz=UTC),
         spec=spec,
-        contextHash=compute_context_hash(context),
-        expiresAt=expires_at,
+        context_hash=compute_context_hash(context),
+        expires_at=expires_at,
     )
     store.decisions.append(decision)
     return decision
@@ -136,7 +136,7 @@ def next_decision_id(store: DecisionStore, session: str) -> str:
 
     max_num = 0
     for did in existing:
-        suffix = did[len(prefix):]
+        suffix = did[len(prefix) :]
         if suffix.isdigit():
             max_num = max(max_num, int(suffix))
     return f"{prefix}{max_num + 1:03d}"
@@ -181,12 +181,11 @@ def list_expired_decisions(
     Returns:
         List of expired active risk acceptance decisions.
     """
-    now = now or datetime.utcnow()
+    now = now or datetime.now(tz=UTC)
     return [
-        d for d in store.risk_decisions()
-        if d.status == DecisionStatus.ACTIVE
-        and d.expires_at is not None
-        and d.expires_at < now
+        d
+        for d in store.risk_decisions()
+        if d.status == DecisionStatus.ACTIVE and d.expires_at is not None and d.expires_at < now
     ]
 
 
@@ -208,10 +207,11 @@ def list_expiring_soon(
     Returns:
         List of soon-to-expire active risk acceptance decisions.
     """
-    now = now or datetime.utcnow()
+    now = now or datetime.now(tz=UTC)
     threshold = now + timedelta(days=days)
     return [
-        d for d in store.risk_decisions()
+        d
+        for d in store.risk_decisions()
         if d.status == DecisionStatus.ACTIVE
         and d.expires_at is not None
         and now <= d.expires_at <= threshold
@@ -252,24 +252,25 @@ def create_risk_acceptance(
         The newly created risk acceptance decision.
     """
     if expires_at is None:
-        expires_at = datetime.utcnow() + default_expiry_for_severity(
-            severity, config=config,
+        expires_at = datetime.now(tz=UTC) + default_expiry_for_severity(
+            severity,
+            config=config,
         )
 
     decision = Decision(
         id=decision_id,
         context=context,
         decision=decision_text,
-        decidedAt=datetime.utcnow(),
+        decidedAt=datetime.now(tz=UTC),
         spec=spec,
-        contextHash=compute_context_hash(context),
-        expiresAt=expires_at,
-        riskCategory=RiskCategory.RISK_ACCEPTANCE.value,
-        severity=severity.value,
-        acceptedBy=accepted_by,
-        followUpAction=follow_up,
-        status=DecisionStatus.ACTIVE.value,
-        renewalCount=0,
+        context_hash=compute_context_hash(context),
+        expires_at=expires_at,
+        risk_category=RiskCategory.RISK_ACCEPTANCE,
+        severity=severity,
+        accepted_by=accepted_by,
+        follow_up_action=follow_up,
+        status=DecisionStatus.ACTIVE,
+        renewal_count=0,
     )
     store.decisions.append(decision)
     return decision
@@ -328,8 +329,9 @@ def renew_decision(
     original.status = DecisionStatus.SUPERSEDED
 
     severity = original.severity or RiskSeverity.MEDIUM
-    expires_at = datetime.utcnow() + default_expiry_for_severity(
-        severity, config=config,
+    expires_at = datetime.now(tz=UTC) + default_expiry_for_severity(
+        severity,
+        config=config,
     )
 
     new_id = next_decision_id(store, spec)
@@ -337,17 +339,17 @@ def renew_decision(
         id=new_id,
         context=original.context,
         decision=f"Renewed: {justification}",
-        decidedAt=datetime.utcnow(),
+        decidedAt=datetime.now(tz=UTC),
         spec=spec,
-        contextHash=original.context_hash,
-        expiresAt=expires_at,
-        riskCategory=RiskCategory.RISK_ACCEPTANCE.value,
-        severity=severity.value,
-        acceptedBy=actor,
-        followUpAction=original.follow_up_action,
-        status=DecisionStatus.ACTIVE.value,
-        renewedFrom=decision_id,
-        renewalCount=new_count,
+        context_hash=original.context_hash,
+        expires_at=expires_at,
+        risk_category=RiskCategory.RISK_ACCEPTANCE,
+        severity=severity,
+        accepted_by=actor,
+        follow_up_action=original.follow_up_action,
+        status=DecisionStatus.ACTIVE,
+        renewed_from=decision_id,
+        renewal_count=new_count,
     )
     store.decisions.append(renewed)
     return renewed

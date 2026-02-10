@@ -32,6 +32,7 @@ Validation skill that checks the integrity of all governance content in `.ai-eng
    - Mirror root: `src/ai_engineering/templates/.ai-engineering/`
    - Scope: `skills/**/*.md`, `agents/**/*.md`, `standards/framework/**/*.md`
    - Exclusions: `context/**`, `state/**`, `standards/team/**` (not mirrored).
+   - Additional mirror pair: `.claude/commands/**` -> `src/ai_engineering/templates/project/.claude/commands/**` (slash command wrappers).
 
 4. **Compare each pair** — verify byte-identical content.
    - Use file hash comparison (SHA-256).

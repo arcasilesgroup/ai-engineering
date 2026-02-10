@@ -6,7 +6,7 @@ Invoked by git hooks to run quality gate checks.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Annotated, Optional
+from typing import Annotated
 
 import typer
 
@@ -39,7 +39,7 @@ def _print_gate_result(result: GateResult) -> None:
 
 def gate_pre_commit(
     target: Annotated[
-        Optional[Path],
+        Path | None,
         typer.Option("--target", "-t", help="Target project root."),
     ] = None,
 ) -> None:
@@ -55,7 +55,7 @@ def gate_commit_msg(
         typer.Argument(help="Path to the commit message file."),
     ],
     target: Annotated[
-        Optional[Path],
+        Path | None,
         typer.Option("--target", "-t", help="Target project root."),
     ] = None,
 ) -> None:
@@ -67,7 +67,7 @@ def gate_commit_msg(
 
 def gate_pre_push(
     target: Annotated[
-        Optional[Path],
+        Path | None,
         typer.Option("--target", "-t", help="Target project root."),
     ] = None,
 ) -> None:
@@ -79,7 +79,7 @@ def gate_pre_push(
 
 def gate_risk_check(
     target: Annotated[
-        Optional[Path],
+        Path | None,
         typer.Option("--target", "-t", help="Target project root."),
     ] = None,
     strict: Annotated[

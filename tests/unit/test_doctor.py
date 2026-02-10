@@ -40,11 +40,15 @@ def installed_git_project(tmp_path: Path) -> Path:
     subprocess.run(["git", "init", str(tmp_path)], check=True, capture_output=True)
     subprocess.run(
         ["git", "config", "user.email", "test@test.com"],
-        cwd=tmp_path, check=True, capture_output=True,
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
     )
     subprocess.run(
         ["git", "config", "user.name", "Test"],
-        cwd=tmp_path, check=True, capture_output=True,
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
     )
     install(tmp_path)
     return tmp_path
@@ -165,32 +169,40 @@ class TestDoctorReport:
     """Tests for report structure and serialization."""
 
     def test_report_passed_when_no_failures(self) -> None:
-        report = DoctorReport(checks=[
-            CheckResult(name="a", status=CheckStatus.OK, message="ok"),
-            CheckResult(name="b", status=CheckStatus.WARN, message="warn"),
-        ])
+        report = DoctorReport(
+            checks=[
+                CheckResult(name="a", status=CheckStatus.OK, message="ok"),
+                CheckResult(name="b", status=CheckStatus.WARN, message="warn"),
+            ]
+        )
         assert report.passed is True
 
     def test_report_not_passed_with_failure(self) -> None:
-        report = DoctorReport(checks=[
-            CheckResult(name="a", status=CheckStatus.OK, message="ok"),
-            CheckResult(name="b", status=CheckStatus.FAIL, message="fail"),
-        ])
+        report = DoctorReport(
+            checks=[
+                CheckResult(name="a", status=CheckStatus.OK, message="ok"),
+                CheckResult(name="b", status=CheckStatus.FAIL, message="fail"),
+            ]
+        )
         assert report.passed is False
 
     def test_summary_counts(self) -> None:
-        report = DoctorReport(checks=[
-            CheckResult(name="a", status=CheckStatus.OK, message=""),
-            CheckResult(name="b", status=CheckStatus.OK, message=""),
-            CheckResult(name="c", status=CheckStatus.FAIL, message=""),
-            CheckResult(name="d", status=CheckStatus.WARN, message=""),
-        ])
+        report = DoctorReport(
+            checks=[
+                CheckResult(name="a", status=CheckStatus.OK, message=""),
+                CheckResult(name="b", status=CheckStatus.OK, message=""),
+                CheckResult(name="c", status=CheckStatus.FAIL, message=""),
+                CheckResult(name="d", status=CheckStatus.WARN, message=""),
+            ]
+        )
         assert report.summary == {"ok": 2, "fail": 1, "warn": 1}
 
     def test_to_dict_serializable(self) -> None:
-        report = DoctorReport(checks=[
-            CheckResult(name="test", status=CheckStatus.OK, message="msg"),
-        ])
+        report = DoctorReport(
+            checks=[
+                CheckResult(name="test", status=CheckStatus.OK, message="msg"),
+            ]
+        )
         data = report.to_dict()
         # Should be JSON-serializable
         serialized = json.dumps(data)

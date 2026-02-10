@@ -30,21 +30,29 @@ def git_repo(tmp_path: Path) -> Path:
     subprocess.run(["git", "init", str(tmp_path)], check=True, capture_output=True)
     subprocess.run(
         ["git", "config", "user.email", "test@test.com"],
-        cwd=tmp_path, check=True, capture_output=True,
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
     )
     subprocess.run(
         ["git", "config", "user.name", "Test"],
-        cwd=tmp_path, check=True, capture_output=True,
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
     )
     (tmp_path / "README.md").write_text("init")
     subprocess.run(["git", "add", "."], cwd=tmp_path, check=True, capture_output=True)
     subprocess.run(
         ["git", "commit", "-m", "init"],
-        cwd=tmp_path, check=True, capture_output=True,
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
     )
     subprocess.run(
         ["git", "checkout", "-b", "feature/test"],
-        cwd=tmp_path, check=True, capture_output=True,
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
     )
     return tmp_path
 
@@ -77,12 +85,12 @@ class TestRunGit:
         assert "branch" in output.lower() or "feature" in output.lower()
 
     def test_failure_returns_false(self, git_repo: Path) -> None:
-        ok, output = run_git(["log", "--nonexistent-flag-xyz"], git_repo)
+        ok, _output = run_git(["log", "--nonexistent-flag-xyz"], git_repo)
         assert ok is False
 
     def test_timeout_returns_false(self, git_repo: Path) -> None:
         # Very short timeout to trigger timeout error
-        ok, output = run_git(
+        ok, _output = run_git(
             ["log", "--all", "--oneline"],
             git_repo,
             timeout=0,
@@ -91,7 +99,7 @@ class TestRunGit:
         assert ok is False or ok is True  # Might complete instantly
 
     def test_non_git_dir_returns_false(self, tmp_path: Path) -> None:
-        ok, output = run_git(["status"], tmp_path)
+        ok, _output = run_git(["status"], tmp_path)
         assert ok is False
 
 
@@ -108,7 +116,9 @@ class TestCurrentBranch:
     def test_returns_main_after_checkout(self, git_repo: Path) -> None:
         subprocess.run(
             ["git", "checkout", "main"],
-            cwd=git_repo, check=True, capture_output=True,
+            cwd=git_repo,
+            check=True,
+            capture_output=True,
         )
         branch = current_branch(git_repo)
         assert branch == "main"
@@ -145,7 +155,9 @@ class TestIsOnProtectedBranch:
     def test_main_branch_is_protected(self, git_repo: Path) -> None:
         subprocess.run(
             ["git", "checkout", "main"],
-            cwd=git_repo, check=True, capture_output=True,
+            cwd=git_repo,
+            check=True,
+            capture_output=True,
         )
         is_protected, name = is_on_protected_branch(git_repo)
         assert is_protected is True

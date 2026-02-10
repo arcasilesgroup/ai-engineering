@@ -11,10 +11,9 @@ Manages the lifecycle of remote skill sources:
 from __future__ import annotations
 
 import hashlib
-import json
 import urllib.request
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from ai_engineering.state.io import read_json_model, write_json_model
@@ -117,7 +116,7 @@ def sync_sources(
         cache_file.write_bytes(content)
 
         # Update source metadata
-        source.cache.last_fetched_at = datetime.now(tz=timezone.utc)
+        source.cache.last_fetched_at = datetime.now(tz=UTC)
         if not source.checksum:
             source.checksum = _compute_checksum(content)
         sources_changed = True
@@ -157,11 +156,13 @@ def add_source(
         msg = f"Source already exists: {url}"
         raise ValueError(msg)
 
-    lock.sources.append(RemoteSource(
-        url=url,
-        trusted=trusted,
-        cache=CacheConfig(),
-    ))
+    lock.sources.append(
+        RemoteSource(
+            url=url,
+            trusted=trusted,
+            cache=CacheConfig(),
+        )
+    )
 
     lock_path = target / ".ai-engineering" / "state" / "sources.lock.json"
     write_json_model(lock_path, lock)
@@ -238,11 +239,11 @@ def _is_cache_fresh(source: RemoteSource, cache_file: Path) -> bool:
     if source.cache.last_fetched_at is None:
         return False
 
-    now = datetime.now(tz=timezone.utc)
+    now = datetime.now(tz=UTC)
     # Ensure last_fetched_at is timezone-aware
     last_fetched = source.cache.last_fetched_at
     if last_fetched.tzinfo is None:
-        last_fetched = last_fetched.replace(tzinfo=timezone.utc)
+        last_fetched = last_fetched.replace(tzinfo=UTC)
 
     age_hours = (now - last_fetched).total_seconds() / 3600
     return age_hours < source.cache.ttl_hours
@@ -258,9 +259,9 @@ def _fetch_url(url: str) -> bytes | None:
         Response content bytes, or None on failure.
     """
     try:
-        with urllib.request.urlopen(url, timeout=30) as response:  # noqa: S310
+        with urllib.request.urlopen(url, timeout=30) as response:
             return response.read()
-    except Exception:  # noqa: BLE001
+    except Exception:
         return None
 
 

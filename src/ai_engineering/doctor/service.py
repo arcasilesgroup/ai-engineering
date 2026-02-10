@@ -15,7 +15,7 @@ from __future__ import annotations
 import shutil
 import subprocess
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 
 from ai_engineering.hooks.manager import install_hooks, verify_hooks
@@ -23,7 +23,7 @@ from ai_engineering.state.io import read_json_model
 from ai_engineering.state.models import InstallManifest, OwnershipMap
 
 
-class CheckStatus(str, Enum):
+class CheckStatus(StrEnum):
     """Status of a single diagnostic check."""
 
     OK = "ok"
@@ -129,11 +129,13 @@ def _check_layout(target: Path, report: DoctorReport) -> None:
     ai_eng = target / ".ai-engineering"
 
     if not ai_eng.is_dir():
-        report.checks.append(CheckResult(
-            name="framework-layout",
-            status=CheckStatus.FAIL,
-            message=".ai-engineering/ directory not found",
-        ))
+        report.checks.append(
+            CheckResult(
+                name="framework-layout",
+                status=CheckStatus.FAIL,
+                message=".ai-engineering/ directory not found",
+            )
+        )
         return
 
     missing: list[str] = []
@@ -142,17 +144,21 @@ def _check_layout(target: Path, report: DoctorReport) -> None:
             missing.append(d)
 
     if missing:
-        report.checks.append(CheckResult(
-            name="framework-layout",
-            status=CheckStatus.FAIL,
-            message=f"Missing directories: {', '.join(missing)}",
-        ))
+        report.checks.append(
+            CheckResult(
+                name="framework-layout",
+                status=CheckStatus.FAIL,
+                message=f"Missing directories: {', '.join(missing)}",
+            )
+        )
     else:
-        report.checks.append(CheckResult(
-            name="framework-layout",
-            status=CheckStatus.OK,
-            message="All required directories present",
-        ))
+        report.checks.append(
+            CheckResult(
+                name="framework-layout",
+                status=CheckStatus.OK,
+                message="All required directories present",
+            )
+        )
 
 
 def _check_state_files(target: Path, report: DoctorReport) -> None:
@@ -164,11 +170,13 @@ def _check_state_files(target: Path, report: DoctorReport) -> None:
         name = f"state:{Path(relative).name}"
 
         if not path.is_file():
-            report.checks.append(CheckResult(
-                name=name,
-                status=CheckStatus.FAIL,
-                message=f"Missing: {relative}",
-            ))
+            report.checks.append(
+                CheckResult(
+                    name=name,
+                    status=CheckStatus.FAIL,
+                    message=f"Missing: {relative}",
+                )
+            )
             continue
 
         try:
@@ -182,122 +190,150 @@ def _check_state_files(target: Path, report: DoctorReport) -> None:
 
                 json.loads(path.read_text(encoding="utf-8"))
 
-            report.checks.append(CheckResult(
-                name=name,
-                status=CheckStatus.OK,
-                message=f"Valid: {relative}",
-            ))
-        except Exception as exc:  # noqa: BLE001
-            report.checks.append(CheckResult(
-                name=name,
-                status=CheckStatus.FAIL,
-                message=f"Invalid {relative}: {exc}",
-            ))
+            report.checks.append(
+                CheckResult(
+                    name=name,
+                    status=CheckStatus.OK,
+                    message=f"Valid: {relative}",
+                )
+            )
+        except Exception as exc:
+            report.checks.append(
+                CheckResult(
+                    name=name,
+                    status=CheckStatus.FAIL,
+                    message=f"Invalid {relative}: {exc}",
+                )
+            )
 
 
 def _check_hooks(target: Path, report: DoctorReport, *, fix: bool) -> None:
     """Check git hooks installation and integrity."""
     git_dir = target / ".git"
     if not git_dir.is_dir():
-        report.checks.append(CheckResult(
-            name="git-hooks",
-            status=CheckStatus.WARN,
-            message="Not a git repository — hooks check skipped",
-        ))
+        report.checks.append(
+            CheckResult(
+                name="git-hooks",
+                status=CheckStatus.WARN,
+                message="Not a git repository — hooks check skipped",
+            )
+        )
         return
 
     status = verify_hooks(target)
     all_valid = all(status.values())
 
     if all_valid:
-        report.checks.append(CheckResult(
-            name="git-hooks",
-            status=CheckStatus.OK,
-            message="All hooks installed and verified",
-        ))
+        report.checks.append(
+            CheckResult(
+                name="git-hooks",
+                status=CheckStatus.OK,
+                message="All hooks installed and verified",
+            )
+        )
         return
 
     missing = [name for name, valid in status.items() if not valid]
 
     if fix:
         install_hooks(target, force=True)
-        report.checks.append(CheckResult(
-            name="git-hooks",
-            status=CheckStatus.FIXED,
-            message=f"Reinstalled hooks: {', '.join(missing)}",
-        ))
+        report.checks.append(
+            CheckResult(
+                name="git-hooks",
+                status=CheckStatus.FIXED,
+                message=f"Reinstalled hooks: {', '.join(missing)}",
+            )
+        )
     else:
-        report.checks.append(CheckResult(
-            name="git-hooks",
-            status=CheckStatus.FAIL,
-            message=f"Missing or invalid hooks: {', '.join(missing)}",
-        ))
+        report.checks.append(
+            CheckResult(
+                name="git-hooks",
+                status=CheckStatus.FAIL,
+                message=f"Missing or invalid hooks: {', '.join(missing)}",
+            )
+        )
 
 
 def _check_tools(report: DoctorReport, *, fix: bool) -> None:
     """Check that required development tools are available on PATH."""
     for tool in _TOOLS:
         if _is_tool_available(tool):
-            report.checks.append(CheckResult(
-                name=f"tool:{tool}",
-                status=CheckStatus.OK,
-                message=f"{tool} found",
-            ))
+            report.checks.append(
+                CheckResult(
+                    name=f"tool:{tool}",
+                    status=CheckStatus.OK,
+                    message=f"{tool} found",
+                )
+            )
         elif fix:
             success = _try_install_tool(tool)
-            report.checks.append(CheckResult(
-                name=f"tool:{tool}",
-                status=CheckStatus.FIXED if success else CheckStatus.FAIL,
-                message=f"{tool} {'installed' if success else 'install failed'}",
-            ))
+            report.checks.append(
+                CheckResult(
+                    name=f"tool:{tool}",
+                    status=CheckStatus.FIXED if success else CheckStatus.FAIL,
+                    message=f"{tool} {'installed' if success else 'install failed'}",
+                )
+            )
         else:
-            report.checks.append(CheckResult(
-                name=f"tool:{tool}",
-                status=CheckStatus.WARN,
-                message=f"{tool} not found",
-            ))
+            report.checks.append(
+                CheckResult(
+                    name=f"tool:{tool}",
+                    status=CheckStatus.WARN,
+                    message=f"{tool} not found",
+                )
+            )
 
 
 def _check_vcs_tools(report: DoctorReport) -> None:
     """Check VCS provider tools (gh, az) availability."""
     for tool in _VCS_TOOLS:
         if _is_tool_available(tool):
-            report.checks.append(CheckResult(
-                name=f"tool:{tool}",
-                status=CheckStatus.OK,
-                message=f"{tool} found",
-            ))
+            report.checks.append(
+                CheckResult(
+                    name=f"tool:{tool}",
+                    status=CheckStatus.OK,
+                    message=f"{tool} found",
+                )
+            )
         else:
-            report.checks.append(CheckResult(
-                name=f"tool:{tool}",
-                status=CheckStatus.WARN,
-                message=f"{tool} not found (optional)",
-            ))
+            report.checks.append(
+                CheckResult(
+                    name=f"tool:{tool}",
+                    status=CheckStatus.WARN,
+                    message=f"{tool} not found (optional)",
+                )
+            )
 
 
 def _check_branch_policy(target: Path, report: DoctorReport) -> None:
     """Check that the current branch is not a protected branch."""
     branch = _get_current_branch(target)
     if branch is None:
-        report.checks.append(CheckResult(
-            name="branch-policy",
-            status=CheckStatus.WARN,
-            message="Could not determine current branch",
-        ))
+        report.checks.append(
+            CheckResult(
+                name="branch-policy",
+                status=CheckStatus.WARN,
+                message="Could not determine current branch",
+            )
+        )
         return
 
     if branch in _PROTECTED_BRANCHES:
-        report.checks.append(CheckResult(
-            name="branch-policy",
-            status=CheckStatus.WARN,
-            message=f"On protected branch: {branch}",
-        ))
+        report.checks.append(
+            CheckResult(
+                name="branch-policy",
+                status=CheckStatus.WARN,
+                message=f"On protected branch: {branch}",
+            )
+        )
     else:
-        report.checks.append(CheckResult(
-            name="branch-policy",
-            status=CheckStatus.OK,
-            message=f"On branch: {branch}",
-        ))
+        report.checks.append(
+            CheckResult(
+                name="branch-policy",
+                status=CheckStatus.OK,
+                message=f"On branch: {branch}",
+            )
+        )
 
 
 def _is_tool_available(tool: str) -> bool:

@@ -91,20 +91,19 @@ class ComplianceReport:
         if not self.results:
             lines.append("No CI/CD pipeline files detected.")
             lines.append("")
-            return "\n".join(lines)
+        else:
+            lines.append("| Pipeline | Type | Compliant | Issues |")
+            lines.append("|----------|------|-----------|--------|")
 
-        lines.append("| Pipeline | Type | Compliant | Issues |")
-        lines.append("|----------|------|-----------|--------|")
+            for r in self.results:
+                path = r.pipeline.path.as_posix()
+                ptype = r.pipeline.pipeline_type.value
+                compliant = "yes" if r.compliant else "**NO**"
+                failed = [c.name for c in r.checks if not c.passed]
+                issues = ", ".join(failed) if failed else "none"
+                lines.append(f"| {path} | {ptype} | {compliant} | {issues} |")
 
-        for r in self.results:
-            path = r.pipeline.path.as_posix()
-            ptype = r.pipeline.pipeline_type.value
-            compliant = "yes" if r.compliant else "**NO**"
-            failed = [c.name for c in r.checks if not c.passed]
-            issues = ", ".join(failed) if failed else "none"
-            lines.append(f"| {path} | {ptype} | {compliant} | {issues} |")
-
-        lines.append("")
+            lines.append("")
 
         if self.warnings:
             lines.append("### Warnings")
@@ -152,37 +151,47 @@ def detect_pipelines(project_root: Path) -> list[PipelineFile]:
     gh_dir = project_root / ".github" / "workflows"
     if gh_dir.is_dir():
         for f in sorted(gh_dir.glob("*.yml")):
-            pipelines.append(PipelineFile(
-                path=f.relative_to(project_root),
-                pipeline_type=PipelineType.GITHUB_ACTIONS,
-            ))
+            pipelines.append(
+                PipelineFile(
+                    path=f.relative_to(project_root),
+                    pipeline_type=PipelineType.GITHUB_ACTIONS,
+                )
+            )
         for f in sorted(gh_dir.glob("*.yaml")):
-            pipelines.append(PipelineFile(
-                path=f.relative_to(project_root),
-                pipeline_type=PipelineType.GITHUB_ACTIONS,
-            ))
+            pipelines.append(
+                PipelineFile(
+                    path=f.relative_to(project_root),
+                    pipeline_type=PipelineType.GITHUB_ACTIONS,
+                )
+            )
 
     # Azure DevOps — root file
     az_root = project_root / "azure-pipelines.yml"
     if az_root.is_file():
-        pipelines.append(PipelineFile(
-            path=az_root.relative_to(project_root),
-            pipeline_type=PipelineType.AZURE_DEVOPS,
-        ))
+        pipelines.append(
+            PipelineFile(
+                path=az_root.relative_to(project_root),
+                pipeline_type=PipelineType.AZURE_DEVOPS,
+            )
+        )
 
     # Azure DevOps — directory
     az_dir = project_root / ".azure-pipelines"
     if az_dir.is_dir():
         for f in sorted(az_dir.glob("*.yml")):
-            pipelines.append(PipelineFile(
-                path=f.relative_to(project_root),
-                pipeline_type=PipelineType.AZURE_DEVOPS,
-            ))
+            pipelines.append(
+                PipelineFile(
+                    path=f.relative_to(project_root),
+                    pipeline_type=PipelineType.AZURE_DEVOPS,
+                )
+            )
         for f in sorted(az_dir.glob("*.yaml")):
-            pipelines.append(PipelineFile(
-                path=f.relative_to(project_root),
-                pipeline_type=PipelineType.AZURE_DEVOPS,
-            ))
+            pipelines.append(
+                PipelineFile(
+                    path=f.relative_to(project_root),
+                    pipeline_type=PipelineType.AZURE_DEVOPS,
+                )
+            )
 
     return pipelines
 
@@ -211,26 +220,32 @@ def scan_pipeline(
     try:
         content = full_path.read_text(encoding="utf-8")
     except OSError as exc:
-        result.checks.append(ComplianceCheck(
-            name="readable",
-            passed=False,
-            detail=f"Cannot read: {exc}",
-        ))
+        result.checks.append(
+            ComplianceCheck(
+                name="readable",
+                passed=False,
+                detail=f"Cannot read: {exc}",
+            )
+        )
         return result
 
     if not content.strip():
-        result.checks.append(ComplianceCheck(
-            name="non-empty",
-            passed=False,
-            detail="Pipeline file is empty",
-        ))
+        result.checks.append(
+            ComplianceCheck(
+                name="non-empty",
+                passed=False,
+                detail="Pipeline file is empty",
+            )
+        )
         return result
 
-    result.checks.append(ComplianceCheck(
-        name="readable",
-        passed=True,
-        detail="File is readable and non-empty",
-    ))
+    result.checks.append(
+        ComplianceCheck(
+            name="readable",
+            passed=True,
+            detail="File is readable and non-empty",
+        )
+    )
 
     # Risk gate presence
     patterns = (
@@ -241,15 +256,17 @@ def scan_pipeline(
     content_lower = content.lower()
     found = any(p.lower() in content_lower for p in patterns)
 
-    result.checks.append(ComplianceCheck(
-        name="risk-gate-present",
-        passed=found,
-        detail=(
-            "Risk gate step found"
-            if found
-            else "No risk gate step detected — add risk-check step to pipeline"
-        ),
-    ))
+    result.checks.append(
+        ComplianceCheck(
+            name="risk-gate-present",
+            passed=found,
+            detail=(
+                "Risk gate step found"
+                if found
+                else "No risk gate step detected — add risk-check step to pipeline"
+            ),
+        )
+    )
 
     return result
 
@@ -268,8 +285,7 @@ def scan_all_pipelines(project_root: Path) -> ComplianceReport:
 
     if not pipelines:
         report.warnings.append(
-            "No CI/CD pipeline files detected. "
-            "Add .github/workflows/ or azure-pipelines.yml."
+            "No CI/CD pipeline files detected. Add .github/workflows/ or azure-pipelines.yml."
         )
         return report
 

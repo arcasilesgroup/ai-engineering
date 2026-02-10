@@ -10,16 +10,15 @@ Defines schemas for:
 
 from __future__ import annotations
 
-from datetime import datetime
-from enum import Enum
+from datetime import UTC, datetime
+from enum import StrEnum
 
 from pydantic import BaseModel, Field
-
 
 # --- Enums ---
 
 
-class OwnershipLevel(str, Enum):
+class OwnershipLevel(StrEnum):
     """Ownership levels for governance paths."""
 
     FRAMEWORK_MANAGED = "framework-managed"
@@ -28,7 +27,7 @@ class OwnershipLevel(str, Enum):
     SYSTEM_MANAGED = "system-managed"
 
 
-class FrameworkUpdatePolicy(str, Enum):
+class FrameworkUpdatePolicy(StrEnum):
     """How framework updates interact with a path."""
 
     ALLOW = "allow"
@@ -36,7 +35,7 @@ class FrameworkUpdatePolicy(str, Enum):
     APPEND_ONLY = "append-only"
 
 
-class GateHook(str, Enum):
+class GateHook(StrEnum):
     """Git hook types used as quality gates."""
 
     PRE_COMMIT = "pre-commit"
@@ -44,7 +43,7 @@ class GateHook(str, Enum):
     PRE_PUSH = "pre-push"
 
 
-class RiskCategory(str, Enum):
+class RiskCategory(StrEnum):
     """Category of a decision in the decision store."""
 
     RISK_ACCEPTANCE = "risk-acceptance"
@@ -52,7 +51,7 @@ class RiskCategory(str, Enum):
     ARCHITECTURE_DECISION = "architecture-decision"
 
 
-class RiskSeverity(str, Enum):
+class RiskSeverity(StrEnum):
     """Severity level for risk acceptances."""
 
     CRITICAL = "critical"
@@ -61,7 +60,7 @@ class RiskSeverity(str, Enum):
     LOW = "low"
 
 
-class DecisionStatus(str, Enum):
+class DecisionStatus(StrEnum):
     """Lifecycle status of a decision."""
 
     ACTIVE = "active"
@@ -173,7 +172,9 @@ class InstallManifest(BaseModel):
     schema_version: str = Field(default="1.1", alias="schemaVersion")
     update_metadata: UpdateMetadata | None = Field(default=None, alias="updateMetadata")
     framework_version: str = Field(default="0.1.0", alias="frameworkVersion")
-    installed_at: datetime = Field(default_factory=datetime.utcnow, alias="installedAt")
+    installed_at: datetime = Field(
+        default_factory=lambda: datetime.now(tz=UTC), alias="installedAt"
+    )
     installed_stacks: list[str] = Field(default_factory=list, alias="installedStacks")
     installed_ides: list[str] = Field(default_factory=list, alias="installedIdes")
     providers: VcsProviders = Field(default_factory=VcsProviders)
@@ -283,10 +284,7 @@ class DecisionStore(BaseModel):
 
     def risk_decisions(self) -> list[Decision]:
         """Return only risk acceptance decisions."""
-        return [
-            d for d in self.decisions
-            if d.risk_category == RiskCategory.RISK_ACCEPTANCE
-        ]
+        return [d for d in self.decisions if d.risk_category == RiskCategory.RISK_ACCEPTANCE]
 
 
 # --- AuditEntry ---
@@ -298,7 +296,7 @@ class AuditEntry(BaseModel):
     Appended to `.ai-engineering/state/audit-log.ndjson` (one JSON object per line).
     """
 
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(tz=UTC))
     event: str
     actor: str
     spec: str | None = None
@@ -354,7 +352,9 @@ class SourcesLock(BaseModel):
 
     schema_version: str = Field(default="1.0", alias="schemaVersion")
     update_metadata: UpdateMetadata | None = Field(default=None, alias="updateMetadata")
-    generated_at: datetime = Field(default_factory=datetime.utcnow, alias="generatedAt")
+    generated_at: datetime = Field(
+        default_factory=lambda: datetime.now(tz=UTC), alias="generatedAt"
+    )
     default_remote_enabled: bool = Field(default=True, alias="defaultRemoteEnabled")
     sources: list[RemoteSource] = Field(default_factory=list)
 

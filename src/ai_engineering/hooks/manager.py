@@ -15,7 +15,6 @@ from pathlib import Path
 
 from ai_engineering.state.models import GateHook
 
-
 # Third-party hook managers that may conflict with our hooks.
 _KNOWN_HOOK_MANAGERS: dict[str, list[str]] = {
     "husky": [".husky"],
@@ -179,10 +178,7 @@ def install_hooks(
     """
     hooks_dir = project_root / ".git" / "hooks"
     if not hooks_dir.is_dir():
-        msg = (
-            f"Git hooks directory not found: {hooks_dir}. "
-            "Is this a git repository?"
-        )
+        msg = f"Git hooks directory not found: {hooks_dir}. Is this a git repository?"
         raise FileNotFoundError(msg)
 
     target_hooks = hooks or list(GateHook)

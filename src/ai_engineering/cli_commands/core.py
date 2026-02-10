@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Annotated, Optional
+from typing import Annotated
 
 import typer
 
@@ -20,15 +20,15 @@ from ai_engineering.updater.service import update
 
 def install_cmd(
     target: Annotated[
-        Optional[Path],
+        Path | None,
         typer.Argument(help="Target project root. Defaults to cwd."),
     ] = None,
     stacks: Annotated[
-        Optional[list[str]],
+        list[str] | None,
         typer.Option("--stack", "-s", help="Technology stacks to enable."),
     ] = None,
     ides: Annotated[
-        Optional[list[str]],
+        list[str] | None,
         typer.Option("--ide", "-i", help="IDE integrations to enable."),
     ] = None,
 ) -> None:
@@ -47,7 +47,7 @@ def install_cmd(
 
 def update_cmd(
     target: Annotated[
-        Optional[Path],
+        Path | None,
         typer.Argument(help="Target project root. Defaults to cwd."),
     ] = None,
     apply: Annotated[
@@ -71,7 +71,7 @@ def update_cmd(
 
 def doctor_cmd(
     target: Annotated[
-        Optional[Path],
+        Path | None,
         typer.Argument(help="Target project root. Defaults to cwd."),
     ] = None,
     fix_hooks: Annotated[
@@ -99,9 +99,7 @@ def doctor_cmd(
         typer.echo(f"  Summary: {report.summary}")
 
         for check in report.checks:
-            icon = {"ok": "✓", "warn": "⚠", "fail": "✗", "fixed": "🔧"}.get(
-                check.status.value, "?"
-            )
+            icon = {"ok": "✓", "warn": "⚠", "fail": "✗", "fixed": "🔧"}.get(check.status.value, "?")
             typer.echo(f"  {icon} {check.name}: {check.message}")
 
     if not report.passed:

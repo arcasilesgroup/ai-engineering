@@ -86,17 +86,21 @@ def _check_branch_protection(project_root: Path, result: GateResult) -> None:
     """Block direct commits to protected branches."""
     branch = current_branch(project_root)
     if branch and branch in PROTECTED_BRANCHES:
-        result.checks.append(GateCheckResult(
-            name="branch-protection",
-            passed=False,
-            output=f"Direct commits to '{branch}' are blocked. Use a feature branch.",
-        ))
+        result.checks.append(
+            GateCheckResult(
+                name="branch-protection",
+                passed=False,
+                output=f"Direct commits to '{branch}' are blocked. Use a feature branch.",
+            )
+        )
     else:
-        result.checks.append(GateCheckResult(
-            name="branch-protection",
-            passed=True,
-            output=f"On branch: {branch or 'unknown'}",
-        ))
+        result.checks.append(
+            GateCheckResult(
+                name="branch-protection",
+                passed=True,
+                output=f"On branch: {branch or 'unknown'}",
+            )
+        )
 
 
 def _run_pre_commit_checks(project_root: Path, result: GateResult) -> None:
@@ -135,36 +139,44 @@ def _run_commit_msg_checks(
 ) -> None:
     """Validate commit message format."""
     if commit_msg_file is None or not commit_msg_file.is_file():
-        result.checks.append(GateCheckResult(
-            name="commit-msg-format",
-            passed=True,
-            output="No commit message file provided — skipped",
-        ))
+        result.checks.append(
+            GateCheckResult(
+                name="commit-msg-format",
+                passed=True,
+                output="No commit message file provided — skipped",
+            )
+        )
         return
 
     try:
         msg = commit_msg_file.read_text(encoding="utf-8").strip()
     except OSError as exc:
-        result.checks.append(GateCheckResult(
-            name="commit-msg-format",
-            passed=False,
-            output=f"Failed to read commit message: {exc}",
-        ))
+        result.checks.append(
+            GateCheckResult(
+                name="commit-msg-format",
+                passed=False,
+                output=f"Failed to read commit message: {exc}",
+            )
+        )
         return
 
     errors = _validate_commit_message(msg)
     if errors:
-        result.checks.append(GateCheckResult(
-            name="commit-msg-format",
-            passed=False,
-            output="; ".join(errors),
-        ))
+        result.checks.append(
+            GateCheckResult(
+                name="commit-msg-format",
+                passed=False,
+                output="; ".join(errors),
+            )
+        )
     else:
-        result.checks.append(GateCheckResult(
-            name="commit-msg-format",
-            passed=True,
-            output="Commit message format valid",
-        ))
+        result.checks.append(
+            GateCheckResult(
+                name="commit-msg-format",
+                passed=True,
+                output="Commit message format valid",
+            )
+        )
 
 
 def _run_pre_push_checks(project_root: Path, result: GateResult) -> None:
@@ -181,7 +193,7 @@ def _run_pre_push_checks(project_root: Path, result: GateResult) -> None:
     _run_tool_check(
         result,
         name="pip-audit",
-        cmd=["pip-audit"],
+        cmd=["uv", "run", "pip-audit"],
         cwd=project_root,
     )
 
@@ -225,11 +237,13 @@ def _run_tool_check(
     """
     tool_name = cmd[0]
     if not shutil.which(tool_name):
-        result.checks.append(GateCheckResult(
-            name=name,
-            passed=True,
-            output=f"{tool_name} not found — skipped (run 'ai-eng doctor --fix-tools')",
-        ))
+        result.checks.append(
+            GateCheckResult(
+                name=name,
+                passed=True,
+                output=f"{tool_name} not found — skipped (run 'ai-eng doctor --fix-tools')",
+            )
+        )
         return
 
     try:
@@ -252,11 +266,13 @@ def _run_tool_check(
         passed = True
         output = f"{tool_name} not found — skipped"
 
-    result.checks.append(GateCheckResult(
-        name=name,
-        passed=passed,
-        output=output,
-    ))
+    result.checks.append(
+        GateCheckResult(
+            name=name,
+            passed=passed,
+            output=output,
+        )
+    )
 
 
 def _load_decision_store(project_root: Path) -> DecisionStore | None:
@@ -292,20 +308,24 @@ def _check_expiring_risk_acceptances(
     """
     store = _load_decision_store(project_root)
     if store is None:
-        result.checks.append(GateCheckResult(
-            name="risk-expiry-warning",
-            passed=True,
-            output="No decision store found — skipped",
-        ))
+        result.checks.append(
+            GateCheckResult(
+                name="risk-expiry-warning",
+                passed=True,
+                output="No decision store found — skipped",
+            )
+        )
         return
 
     expiring = list_expiring_soon(store)
     if not expiring:
-        result.checks.append(GateCheckResult(
-            name="risk-expiry-warning",
-            passed=True,
-            output="No risk acceptances expiring soon",
-        ))
+        result.checks.append(
+            GateCheckResult(
+                name="risk-expiry-warning",
+                passed=True,
+                output="No risk acceptances expiring soon",
+            )
+        )
         return
 
     lines = [f"{len(expiring)} risk acceptance(s) expiring within 7 days:"]
@@ -314,11 +334,13 @@ def _check_expiring_risk_acceptances(
         lines.append(f"  - {d.id}: expires {exp} ({d.context[:60]})")
     lines.append("Consider renewing or remediating before expiry.")
 
-    result.checks.append(GateCheckResult(
-        name="risk-expiry-warning",
-        passed=True,
-        output="\n".join(lines),
-    ))
+    result.checks.append(
+        GateCheckResult(
+            name="risk-expiry-warning",
+            passed=True,
+            output="\n".join(lines),
+        )
+    )
 
 
 def _check_expired_risk_acceptances(
@@ -336,20 +358,24 @@ def _check_expired_risk_acceptances(
     """
     store = _load_decision_store(project_root)
     if store is None:
-        result.checks.append(GateCheckResult(
-            name="risk-expired-block",
-            passed=True,
-            output="No decision store found — skipped",
-        ))
+        result.checks.append(
+            GateCheckResult(
+                name="risk-expired-block",
+                passed=True,
+                output="No decision store found — skipped",
+            )
+        )
         return
 
     expired = list_expired_decisions(store)
     if not expired:
-        result.checks.append(GateCheckResult(
-            name="risk-expired-block",
-            passed=True,
-            output="No expired risk acceptances",
-        ))
+        result.checks.append(
+            GateCheckResult(
+                name="risk-expired-block",
+                passed=True,
+                output="No expired risk acceptances",
+            )
+        )
         return
 
     lines = [f"{len(expired)} expired risk acceptance(s) blocking push:"]
@@ -359,11 +385,13 @@ def _check_expired_risk_acceptances(
     lines.append("Run 'ai-eng maintenance risk-status' to review.")
     lines.append("Renew with accept-risk skill or remediate with resolve-risk skill.")
 
-    result.checks.append(GateCheckResult(
-        name="risk-expired-block",
-        passed=False,
-        output="\n".join(lines),
-    ))
+    result.checks.append(
+        GateCheckResult(
+            name="risk-expired-block",
+            passed=False,
+            output="\n".join(lines),
+        )
+    )
 
 
 def _validate_commit_message(msg: str) -> list[str]:
@@ -393,8 +421,6 @@ def _validate_commit_message(msg: str) -> list[str]:
         return errors
 
     if len(first_line) > 72:
-        errors.append(
-            f"First line exceeds 72 characters ({len(first_line)} chars)"
-        )
+        errors.append(f"First line exceeds 72 characters ({len(first_line)} chars)")
 
     return errors

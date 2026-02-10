@@ -6,7 +6,7 @@ Manages remote skill sources and synchronisation.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Annotated, Optional
+from typing import Annotated
 
 import typer
 
@@ -21,7 +21,7 @@ from ai_engineering.skills.service import (
 
 def skill_list(
     target: Annotated[
-        Optional[Path],
+        Path | None,
         typer.Option("--target", "-t", help="Target project root."),
     ] = None,
 ) -> None:
@@ -40,7 +40,7 @@ def skill_list(
 
 def skill_sync(
     target: Annotated[
-        Optional[Path],
+        Path | None,
         typer.Option("--target", "-t", help="Target project root."),
     ] = None,
     offline: Annotated[
@@ -67,7 +67,7 @@ def skill_sync(
 def skill_add(
     url: Annotated[str, typer.Argument(help="URL of the remote skill source.")],
     target: Annotated[
-        Optional[Path],
+        Path | None,
         typer.Option("--target", "-t", help="Target project root."),
     ] = None,
     trusted: Annotated[
@@ -88,7 +88,7 @@ def skill_add(
 def skill_remove(
     url: Annotated[str, typer.Argument(help="URL of the remote skill source.")],
     target: Annotated[
-        Optional[Path],
+        Path | None,
         typer.Option("--target", "-t", help="Target project root."),
     ] = None,
 ) -> None:

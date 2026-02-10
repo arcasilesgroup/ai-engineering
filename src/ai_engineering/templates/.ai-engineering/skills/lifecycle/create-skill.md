@@ -83,6 +83,13 @@ Definitive procedure for authoring and registering a new skill in the ai-enginee
 
    - Insert alphabetically within the subsection for consistency.
 
+### Phase 4b: Register Slash Command
+
+6b. **Create Claude Code command wrapper** — write `.claude/commands/<namespace>/<name>.md` (and its mirror at `src/ai_engineering/templates/project/.claude/commands/<namespace>/<name>.md`).
+   - Namespace mapping: `workflows/` → root, `swe/` → `swe/`, `lifecycle/` → `lifecycle/`, `quality/` → `quality/`.
+   - Content is a thin 3-5 line prompt pointing to the canonical skill file. No content duplication.
+   - Mirror must be byte-identical to canonical command file.
+
 ### Phase 5: Update Counters
 
 7. **Update skill count in product-contract** — edit `.ai-engineering/context/product/product-contract.md`.

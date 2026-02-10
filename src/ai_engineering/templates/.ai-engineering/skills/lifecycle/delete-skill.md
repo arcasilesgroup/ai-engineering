@@ -51,6 +51,11 @@ Definitive procedure for safely removing a skill from the ai-engineering framewo
 
 7. **Clean empty directories** — if the category directory is now empty, remove it (both canonical and mirror).
 
+### Phase 3b: Remove Slash Command
+
+7b. **Remove Claude Code command wrapper** — delete `.claude/commands/<namespace>/<name>.md` and its mirror at `src/ai_engineering/templates/project/.claude/commands/<namespace>/<name>.md`.
+   - Clean empty directories in both locations if the namespace directory is now empty.
+
 ### Phase 4: Update Counters
 
 8. **Update skill count in product-contract** — edit `.ai-engineering/context/product/product-contract.md`.

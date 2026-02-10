@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -26,7 +26,6 @@ from ai_engineering.commands.workflows import (
     run_pr_workflow,
 )
 from ai_engineering.installer.service import install
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -141,7 +140,7 @@ class TestBranchProtection:
 
     def test_commit_blocked_on_main(self, git_project: Path) -> None:
         with patch(
-            "ai_engineering.commands.workflows._current_branch",
+            "ai_engineering.commands.workflows.current_branch",
             return_value="main",
         ):
             result = run_commit_workflow(git_project, "test commit")
@@ -150,7 +149,7 @@ class TestBranchProtection:
 
     def test_commit_blocked_on_master(self, git_project: Path) -> None:
         with patch(
-            "ai_engineering.commands.workflows._current_branch",
+            "ai_engineering.commands.workflows.current_branch",
             return_value="master",
         ):
             result = run_commit_workflow(git_project, "test commit")
@@ -176,7 +175,8 @@ class TestCommitWorkflow:
     """Tests for run_commit_workflow."""
 
     def test_all_steps_executed_on_success(
-        self, git_project: Path,
+        self,
+        git_project: Path,
     ) -> None:
         with patch(
             "ai_engineering.commands.workflows._run_command",
@@ -200,7 +200,9 @@ class TestCommitWorkflow:
             return_value=(True, "ok"),
         ):
             result = run_commit_workflow(
-                git_project, "feat: test", push=False,
+                git_project,
+                "feat: test",
+                push=False,
             )
 
         push_step = next(s for s in result.steps if s.name == "push")
@@ -208,7 +210,8 @@ class TestCommitWorkflow:
         assert result.passed is True
 
     def test_lint_failure_stops_workflow(
-        self, git_project: Path,
+        self,
+        git_project: Path,
     ) -> None:
         call_count = 0
 
@@ -233,7 +236,8 @@ class TestCommitWorkflow:
         assert "commit" not in step_names
 
     def test_gitleaks_failure_stops_workflow(
-        self, git_project: Path,
+        self,
+        git_project: Path,
     ) -> None:
         call_count = 0
 
@@ -264,7 +268,8 @@ class TestPRWorkflow:
     """Tests for run_pr_workflow."""
 
     def test_pr_workflow_includes_pre_push_checks(
-        self, git_project: Path,
+        self,
+        git_project: Path,
     ) -> None:
         with patch(
             "ai_engineering.commands.workflows._run_command",
@@ -282,10 +287,11 @@ class TestPRWorkflow:
         assert result.passed is True
 
     def test_pr_workflow_stops_on_commit_failure(
-        self, git_project: Path,
+        self,
+        git_project: Path,
     ) -> None:
         with patch(
-            "ai_engineering.commands.workflows._current_branch",
+            "ai_engineering.commands.workflows.current_branch",
             return_value="main",
         ):
             result = run_pr_workflow(git_project, "feat: test")
@@ -299,12 +305,15 @@ class TestPROnlyWorkflow:
     """Tests for run_pr_only_workflow."""
 
     def test_pr_only_creates_pr(self, git_project: Path) -> None:
-        with patch(
-            "ai_engineering.commands.workflows._run_command",
-            return_value=(True, "ok"),
-        ), patch(
-            "ai_engineering.commands.workflows._is_branch_pushed",
-            return_value=True,
+        with (
+            patch(
+                "ai_engineering.commands.workflows._run_command",
+                return_value=(True, "ok"),
+            ),
+            patch(
+                "ai_engineering.commands.workflows.is_branch_pushed",
+                return_value=True,
+            ),
         ):
             result = run_pr_only_workflow(git_project)
 
@@ -314,17 +323,22 @@ class TestPROnlyWorkflow:
         assert result.passed is True
 
     def test_pr_only_auto_pushes_unpushed_branch(
-        self, git_project: Path,
+        self,
+        git_project: Path,
     ) -> None:
-        with patch(
-            "ai_engineering.commands.workflows._run_command",
-            return_value=(True, "ok"),
-        ), patch(
-            "ai_engineering.commands.workflows._is_branch_pushed",
-            return_value=False,
-        ), patch(
-            "ai_engineering.commands.workflows._check_unpushed_decision",
-            return_value=None,
+        with (
+            patch(
+                "ai_engineering.commands.workflows._run_command",
+                return_value=(True, "ok"),
+            ),
+            patch(
+                "ai_engineering.commands.workflows.is_branch_pushed",
+                return_value=False,
+            ),
+            patch(
+                "ai_engineering.commands.workflows._check_unpushed_decision",
+                return_value=None,
+            ),
         ):
             result = run_pr_only_workflow(git_project)
 
@@ -333,14 +347,18 @@ class TestPROnlyWorkflow:
         assert result.passed is True
 
     def test_pr_only_defers_on_prior_decision(
-        self, git_project: Path,
+        self,
+        git_project: Path,
     ) -> None:
-        with patch(
-            "ai_engineering.commands.workflows._is_branch_pushed",
-            return_value=False,
-        ), patch(
-            "ai_engineering.commands.workflows._check_unpushed_decision",
-            return_value="defer-pr",
+        with (
+            patch(
+                "ai_engineering.commands.workflows.is_branch_pushed",
+                return_value=False,
+            ),
+            patch(
+                "ai_engineering.commands.workflows._check_unpushed_decision",
+                return_value="defer-pr",
+            ),
         ):
             result = run_pr_only_workflow(git_project)
 
@@ -363,9 +381,7 @@ class TestAuditLogging:
         ):
             run_commit_workflow(git_project, "feat: audit test")
 
-        audit_path = (
-            git_project / ".ai-engineering" / "state" / "audit-log.ndjson"
-        )
+        audit_path = git_project / ".ai-engineering" / "state" / "audit-log.ndjson"
         assert audit_path.exists()
         lines = audit_path.read_text(encoding="utf-8").strip().splitlines()
         # Should have install entry + commit entry
@@ -373,17 +389,16 @@ class TestAuditLogging:
         assert "commit" in events
 
     def test_branch_block_logs_audit_entry(
-        self, git_project: Path,
+        self,
+        git_project: Path,
     ) -> None:
         with patch(
-            "ai_engineering.commands.workflows._current_branch",
+            "ai_engineering.commands.workflows.current_branch",
             return_value="main",
         ):
             run_commit_workflow(git_project, "test")
 
-        audit_path = (
-            git_project / ".ai-engineering" / "state" / "audit-log.ndjson"
-        )
+        audit_path = git_project / ".ai-engineering" / "state" / "audit-log.ndjson"
         lines = audit_path.read_text(encoding="utf-8").strip().splitlines()
         events = [json.loads(line)["event"] for line in lines]
         assert "branch-protection-block" in events

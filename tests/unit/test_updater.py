@@ -43,7 +43,7 @@ class TestDryRun:
     def test_dry_run_does_not_modify_files(self, installed_project: Path) -> None:
         # Modify a framework-managed file to create a diff
         core_md = installed_project / ".ai-engineering" / "standards" / "framework" / "core.md"
-        original = core_md.read_text()
+        core_md.read_text()
         core_md.write_text("modified content")
 
         result = update(installed_project, dry_run=True)
@@ -118,11 +118,7 @@ class TestOwnershipSafety:
 
     def test_context_path_not_overwritten(self, installed_project: Path) -> None:
         context_file = (
-            installed_project
-            / ".ai-engineering"
-            / "context"
-            / "product"
-            / "framework-contract.md"
+            installed_project / ".ai-engineering" / "context" / "product" / "framework-contract.md"
         )
         if context_file.exists():
             context_file.write_text("custom project content")
@@ -135,7 +131,7 @@ class TestOwnershipSafety:
         team_core.write_text("custom team content")
 
         result = update(installed_project, dry_run=True)
-        denied = [c for c in result.changes if c.action == "skip-denied"]
+        [c for c in result.changes if c.action == "skip-denied"]
         # At minimum context and team files should be denied
         # (exact count depends on template content)
         assert result.denied_count >= 0  # Structural assertion
@@ -165,20 +161,26 @@ class TestUpdateResult:
     """Tests for UpdateResult dataclass."""
 
     def test_applied_count(self) -> None:
-        result = UpdateResult(dry_run=True, changes=[
-            FileChange(path=Path("a"), action="create"),
-            FileChange(path=Path("b"), action="update"),
-            FileChange(path=Path("c"), action="skip-denied"),
-            FileChange(path=Path("d"), action="skip-unchanged"),
-        ])
+        result = UpdateResult(
+            dry_run=True,
+            changes=[
+                FileChange(path=Path("a"), action="create"),
+                FileChange(path=Path("b"), action="update"),
+                FileChange(path=Path("c"), action="skip-denied"),
+                FileChange(path=Path("d"), action="skip-unchanged"),
+            ],
+        )
         assert result.applied_count == 2
 
     def test_denied_count(self) -> None:
-        result = UpdateResult(dry_run=True, changes=[
-            FileChange(path=Path("a"), action="skip-denied"),
-            FileChange(path=Path("b"), action="skip-denied"),
-            FileChange(path=Path("c"), action="create"),
-        ])
+        result = UpdateResult(
+            dry_run=True,
+            changes=[
+                FileChange(path=Path("a"), action="skip-denied"),
+                FileChange(path=Path("b"), action="skip-denied"),
+                FileChange(path=Path("c"), action="create"),
+            ],
+        )
         assert result.denied_count == 2
 
 
@@ -191,7 +193,4 @@ def _count_lines(path: Path) -> int:
     """Count non-empty lines in a file."""
     if not path.exists():
         return 0
-    return len([
-        line for line in path.read_text().strip().splitlines()
-        if line.strip()
-    ])
+    return len([line for line in path.read_text().strip().splitlines() if line.strip()])

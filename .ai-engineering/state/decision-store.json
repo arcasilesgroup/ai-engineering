@@ -54,6 +54,13 @@
       "decision": "Risk accepted: bypass pre-commit and pre-push gates for Markdown-only changes (product-contract.md, learnings.md). No code changes, no secrets risk. IT Security ticket opened for tool access.",
       "decidedAt": "2026-02-10T00:00:00Z",
       "spec": "none"
+    },
+    {
+      "id": "S0-008",
+      "context": "Evolving S0-001 — skills need visibility as Claude Code slash commands",
+      "decision": "Thin command wrappers in .claude/commands/ point to canonical skill/agent files. No content duplication — each wrapper is a 3-5 line prompt that reads and executes the canonical file. Skills remain the source of truth; command files are pointers only.",
+      "decidedAt": "2026-02-10T00:00:00Z",
+      "spec": "none"
     }
   ]
 }

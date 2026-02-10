@@ -10,8 +10,6 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import pytest
-
 from ai_engineering.installer.service import install
 from ai_engineering.state.io import read_json_model, read_ndjson_entries
 from ai_engineering.state.models import AuditEntry, InstallManifest
@@ -21,14 +19,16 @@ class TestInstallClean:
     """End-to-end tests for installing on an empty repo."""
 
     def test_install_creates_ai_engineering_dir(
-        self, tmp_path: Path,
+        self,
+        tmp_path: Path,
     ) -> None:
         install(tmp_path, stacks=["python"], ides=["vscode"])
         ai_dir = tmp_path / ".ai-engineering"
         assert ai_dir.is_dir()
 
     def test_install_creates_required_dirs(
-        self, tmp_path: Path,
+        self,
+        tmp_path: Path,
     ) -> None:
         install(tmp_path, stacks=["python"], ides=["vscode"])
         ai_dir = tmp_path / ".ai-engineering"
@@ -46,7 +46,8 @@ class TestInstallClean:
             assert (ai_dir / dirname).is_dir(), f"Missing: {dirname}"
 
     def test_install_creates_state_files(
-        self, tmp_path: Path,
+        self,
+        tmp_path: Path,
     ) -> None:
         install(tmp_path, stacks=["python"], ides=["vscode"])
         state_dir = tmp_path / ".ai-engineering" / "state"
@@ -61,35 +62,35 @@ class TestInstallClean:
             assert (state_dir / fname).is_file(), f"Missing: {fname}"
 
     def test_install_manifest_has_correct_stacks(
-        self, tmp_path: Path,
+        self,
+        tmp_path: Path,
     ) -> None:
         install(tmp_path, stacks=["python"], ides=["vscode"])
-        manifest_path = (
-            tmp_path / ".ai-engineering" / "state" / "install-manifest.json"
-        )
+        manifest_path = tmp_path / ".ai-engineering" / "state" / "install-manifest.json"
         manifest = read_json_model(manifest_path, InstallManifest)
-        assert "python" in manifest.stacks
-        assert "vscode" in manifest.ides
+        assert "python" in manifest.installed_stacks
+        assert "vscode" in manifest.installed_ides
 
     def test_install_creates_audit_entry(
-        self, tmp_path: Path,
+        self,
+        tmp_path: Path,
     ) -> None:
         install(tmp_path, stacks=["python"], ides=["vscode"])
-        audit_path = (
-            tmp_path / ".ai-engineering" / "state" / "audit-log.ndjson"
-        )
+        audit_path = tmp_path / ".ai-engineering" / "state" / "audit-log.ndjson"
         entries = read_ndjson_entries(audit_path, AuditEntry)
         assert len(entries) >= 1
         assert any(e.event == "install" for e in entries)
 
     def test_install_creates_project_templates(
-        self, tmp_path: Path,
+        self,
+        tmp_path: Path,
     ) -> None:
         install(tmp_path, stacks=["python"], ides=["vscode"])
         assert (tmp_path / "CLAUDE.md").is_file()
 
     def test_install_creates_governance_content(
-        self, tmp_path: Path,
+        self,
+        tmp_path: Path,
     ) -> None:
         install(tmp_path, stacks=["python"], ides=["vscode"])
         ai_dir = tmp_path / ".ai-engineering"
@@ -101,7 +102,8 @@ class TestInstallClean:
         assert (ai_dir / "standards" / "framework" / "core.md").is_file()
 
     def test_install_result_counts(
-        self, tmp_path: Path,
+        self,
+        tmp_path: Path,
     ) -> None:
         result = install(tmp_path, stacks=["python"], ides=["vscode"])
         assert result.total_created > 0
@@ -109,16 +111,17 @@ class TestInstallClean:
         assert not result.already_installed
 
     def test_install_idempotent(self, tmp_path: Path) -> None:
-        first = install(tmp_path, stacks=["python"], ides=["vscode"])
+        install(tmp_path, stacks=["python"], ides=["vscode"])
         second = install(tmp_path, stacks=["python"], ides=["vscode"])
 
         assert second.already_installed is True
         # Second install should skip all governance and project files
-        assert second.governance_files.created == 0
-        assert second.project_files.created == 0
+        assert len(second.governance_files.created) == 0
+        assert len(second.project_files.created) == 0
 
     def test_state_files_are_valid_json(
-        self, tmp_path: Path,
+        self,
+        tmp_path: Path,
     ) -> None:
         install(tmp_path, stacks=["python"], ides=["vscode"])
         state_dir = tmp_path / ".ai-engineering" / "state"
