@@ -17,9 +17,9 @@ def create_app() -> typer.Typer:
     Registers all command groups and sub-commands:
     - Core commands: install, update, doctor, version.
     - Stack/IDE commands: stack add/remove/list, ide add/remove/list.
-    - Gate commands: gate pre-commit/commit-msg/pre-push.
+    - Gate commands: gate pre-commit/commit-msg/pre-push/risk-check.
     - Skills commands: skill list/sync/add/remove.
-    - Maintenance commands: maintenance report/pr.
+    - Maintenance commands: maintenance report/pr/branch-cleanup/risk-status/pipeline-compliance.
 
     Returns:
         Configured Typer application instance.
@@ -68,6 +68,7 @@ def create_app() -> typer.Typer:
     gate_app.command("pre-commit")(gate.gate_pre_commit)
     gate_app.command("commit-msg")(gate.gate_commit_msg)
     gate_app.command("pre-push")(gate.gate_pre_push)
+    gate_app.command("risk-check")(gate.gate_risk_check)
     app.add_typer(gate_app, name="gate")
 
     # Skill sub-group
@@ -90,6 +91,9 @@ def create_app() -> typer.Typer:
     )
     maint_app.command("report")(maintenance.maintenance_report)
     maint_app.command("pr")(maintenance.maintenance_pr)
+    maint_app.command("branch-cleanup")(maintenance.maintenance_branch_cleanup)
+    maint_app.command("risk-status")(maintenance.maintenance_risk_status)
+    maint_app.command("pipeline-compliance")(maintenance.maintenance_pipeline_compliance)
     app.add_typer(maint_app, name="maintenance")
 
     return app

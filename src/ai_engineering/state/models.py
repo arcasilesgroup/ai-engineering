@@ -44,6 +44,33 @@ class GateHook(str, Enum):
     PRE_PUSH = "pre-push"
 
 
+class RiskCategory(str, Enum):
+    """Category of a decision in the decision store."""
+
+    RISK_ACCEPTANCE = "risk-acceptance"
+    FLOW_DECISION = "flow-decision"
+    ARCHITECTURE_DECISION = "architecture-decision"
+
+
+class RiskSeverity(str, Enum):
+    """Severity level for risk acceptances."""
+
+    CRITICAL = "critical"
+    HIGH = "high"
+    MEDIUM = "medium"
+    LOW = "low"
+
+
+class DecisionStatus(str, Enum):
+    """Lifecycle status of a decision."""
+
+    ACTIVE = "active"
+    EXPIRED = "expired"
+    REVOKED = "revoked"
+    SUPERSEDED = "superseded"
+    REMEDIATED = "remediated"
+
+
 # --- Shared Components ---
 
 
@@ -199,7 +226,11 @@ class OwnershipMap(BaseModel):
 
 
 class Decision(BaseModel):
-    """A single risk or flow decision."""
+    """A single risk or flow decision.
+
+    Schema 1.1 adds risk lifecycle fields. All new fields are optional
+    for backward compatibility with schema 1.0 data.
+    """
 
     id: str
     context: str
@@ -209,6 +240,15 @@ class Decision(BaseModel):
     context_hash: str | None = Field(default=None, alias="contextHash")
     expires_at: datetime | None = Field(default=None, alias="expiresAt")
 
+    # Risk lifecycle fields (schema 1.1)
+    risk_category: RiskCategory | None = Field(default=None, alias="riskCategory")
+    severity: RiskSeverity | None = Field(default=None)
+    accepted_by: str | None = Field(default=None, alias="acceptedBy")
+    follow_up_action: str | None = Field(default=None, alias="followUpAction")
+    status: DecisionStatus = Field(default=DecisionStatus.ACTIVE)
+    renewed_from: str | None = Field(default=None, alias="renewedFrom")
+    renewal_count: int = Field(default=0, alias="renewalCount")
+
     model_config = {"populate_by_name": True}
 
 
@@ -217,10 +257,11 @@ class DecisionStore(BaseModel):
 
     Prevents prompt fatigue by reusing previously-made decisions.
     Supports context hashing for decision relevance tracking.
-    Stored at `.ai-engineering/state/decision-store.json`.
+    Schema 1.1 adds risk lifecycle support.
+    Stored at ``.ai-engineering/state/decision-store.json``.
     """
 
-    schema_version: str = Field(default="1.0", alias="schemaVersion")
+    schema_version: str = Field(default="1.1", alias="schemaVersion")
     update_metadata: UpdateMetadata | None = Field(default=None, alias="updateMetadata")
     decisions: list[Decision] = Field(default_factory=list)
 
@@ -239,6 +280,13 @@ class DecisionStore(BaseModel):
             if d.id == decision_id:
                 return d
         return None
+
+    def risk_decisions(self) -> list[Decision]:
+        """Return only risk acceptance decisions."""
+        return [
+            d for d in self.decisions
+            if d.risk_category == RiskCategory.RISK_ACCEPTANCE
+        ]
 
 
 # --- AuditEntry ---

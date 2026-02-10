@@ -426,3 +426,63 @@ class TestNextDecisionId:
             store, decision_id="S1-001", context="a", decision_text="x", spec="001"
         )
         assert next_decision_id(store, "S2") == "S2-001"
+
+
+# ── Schema 1.1 backward compatibility ──────────────────────────────────
+
+
+class TestSchema11BackwardCompat:
+    """Tests for Decision schema 1.1 backward compatibility."""
+
+    def test_default_store_schema_11(self) -> None:
+        store = default_decision_store()
+        assert store.schema_version == "1.1"
+
+    def test_old_decision_validates(self) -> None:
+        """A decision without risk fields validates with defaults."""
+        from ai_engineering.state.models import Decision, DecisionStatus
+        raw = {
+            "id": "S1-001",
+            "context": "old decision",
+            "decision": "decided",
+            "decidedAt": "2025-01-01T00:00:00Z",
+            "spec": "001",
+        }
+        d = Decision.model_validate(raw)
+        assert d.risk_category is None
+        assert d.severity is None
+        assert d.status == DecisionStatus.ACTIVE
+        assert d.renewal_count == 0
+
+    def test_risk_decisions_empty_for_old_data(self) -> None:
+        """Old decisions without riskCategory are not returned by risk_decisions."""
+        from ai_engineering.state.models import DecisionStore
+        store = DecisionStore.model_validate({
+            "schemaVersion": "1.0",
+            "decisions": [{
+                "id": "S1-001",
+                "context": "test",
+                "decision": "decided",
+                "decidedAt": "2025-01-01T00:00:00Z",
+                "spec": "001",
+            }],
+        })
+        assert store.risk_decisions() == []
+
+    def test_risk_decisions_returns_risk_acceptance(self) -> None:
+        """Decisions with riskCategory are returned by risk_decisions."""
+        from ai_engineering.state.models import DecisionStore, RiskCategory
+        store = DecisionStore.model_validate({
+            "schemaVersion": "1.1",
+            "decisions": [{
+                "id": "RA-001",
+                "context": "cve risk",
+                "decision": "accept",
+                "decidedAt": "2025-01-01T00:00:00Z",
+                "spec": "004",
+                "riskCategory": "risk_acceptance",
+            }],
+        })
+        risk = store.risk_decisions()
+        assert len(risk) == 1
+        assert risk[0].risk_category == RiskCategory.RISK_ACCEPTANCE

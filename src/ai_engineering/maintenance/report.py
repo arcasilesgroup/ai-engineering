@@ -14,7 +14,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from ai_engineering.state.io import read_json_model, read_ndjson_entries
-from ai_engineering.state.models import AuditEntry, InstallManifest
+from ai_engineering.state.models import AuditEntry, DecisionStore, InstallManifest
 
 
 @dataclass
@@ -37,6 +37,11 @@ class MaintenanceReport:
     recent_audit_events: int = 0
     install_manifest_version: str = ""
     warnings: list[str] = field(default_factory=list)
+    risk_active: int = 0
+    risk_expiring: int = 0
+    risk_expired: int = 0
+    local_branches: int = 0
+    merged_branches: int = 0
 
     @property
     def health_score(self) -> float:
@@ -70,6 +75,11 @@ class MaintenanceReport:
         lines.append(f"- State files: {self.total_state_files}")
         lines.append(f"- Stale files: {len(self.stale_files)}")
         lines.append(f"- Recent audit events: {self.recent_audit_events}")
+        lines.append(f"- Risk acceptances (active): {self.risk_active}")
+        lines.append(f"- Risk acceptances (expiring): {self.risk_expiring}")
+        lines.append(f"- Risk acceptances (expired): {self.risk_expired}")
+        lines.append(f"- Local branches: {self.local_branches}")
+        lines.append(f"- Merged branches (cleanup candidates): {self.merged_branches}")
         lines.append("")
 
         if self.stale_files:
@@ -162,6 +172,39 @@ def generate_report(
     if audit_path.exists():
         entries = read_ndjson_entries(audit_path, AuditEntry)
         report.recent_audit_events = len(entries)
+
+    # Risk acceptance status
+    ds_path = ai_eng_dir / "state" / "decision-store.json"
+    if ds_path.exists():
+        try:
+            from ai_engineering.state.decision_logic import (
+                list_expired_decisions,
+                list_expiring_soon,
+            )
+
+            store = read_json_model(ds_path, DecisionStore)
+            risk = store.risk_decisions()
+            expired = list_expired_decisions(store)
+            expiring = list_expiring_soon(store)
+            report.risk_expired = len(expired)
+            report.risk_expiring = len(expiring)
+            report.risk_active = len(risk) - len(expired) - len(expiring)
+        except (OSError, ValueError):
+            report.warnings.append("Failed to parse decision store")
+
+    # Branch status
+    try:
+        from ai_engineering.maintenance.branch_cleanup import (
+            list_all_local_branches,
+            list_merged_branches,
+        )
+
+        branches = list_all_local_branches(target)
+        merged = list_merged_branches(target)
+        report.local_branches = len(branches)
+        report.merged_branches = len(merged)
+    except (OSError, ValueError):
+        pass  # git may not be available
 
     return report
 

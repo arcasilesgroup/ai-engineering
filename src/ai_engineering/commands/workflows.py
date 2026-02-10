@@ -22,6 +22,11 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 
+from ai_engineering.git.operations import (
+    PROTECTED_BRANCHES,
+    current_branch,
+    is_branch_pushed,
+)
 from ai_engineering.state.io import append_ndjson, read_json_model, write_json_model
 from ai_engineering.state.models import AuditEntry, DecisionStore
 
@@ -60,37 +65,8 @@ class WorkflowResult:
 
 
 # ---------------------------------------------------------------------------
-# Constants
-# ---------------------------------------------------------------------------
-
-_PROTECTED_BRANCHES: frozenset[str] = frozenset({"main", "master"})
-
-
-# ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-
-
-def _current_branch(project_root: Path) -> str:
-    """Get the current git branch name.
-
-    Args:
-        project_root: Root directory of the git repository.
-
-    Returns:
-        Current branch name, or "HEAD" on detached HEAD.
-    """
-    try:
-        result = subprocess.run(
-            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-            cwd=project_root,
-            capture_output=True,
-            text=True,
-            check=True,
-        )
-        return result.stdout.strip()
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        return "HEAD"
 
 
 def _run_command(
@@ -160,8 +136,8 @@ def _check_branch_protection(project_root: Path) -> StepResult:
     Returns:
         StepResult — fails if on a protected branch.
     """
-    branch = _current_branch(project_root)
-    if branch in _PROTECTED_BRANCHES:
+    branch = current_branch(project_root)
+    if branch in PROTECTED_BRANCHES:
         _log_audit(
             project_root,
             event="branch-protection-block",
@@ -280,7 +256,7 @@ def run_commit_workflow(
 
     # 6. Push (unless --only)
     if push:
-        branch = _current_branch(project_root)
+        branch = current_branch(project_root)
         passed, output = _run_command(
             ["git", "push", "origin", branch],
             project_root,
@@ -377,8 +353,8 @@ def run_pr_only_workflow(
     result = WorkflowResult(workflow="pr-only")
 
     # Check if branch is pushed
-    branch = _current_branch(project_root)
-    pushed = _is_branch_pushed(project_root, branch)
+    branch = current_branch(project_root)
+    pushed = is_branch_pushed(project_root, branch)
 
     if not pushed:
         # Check decision store for prior decision
@@ -523,23 +499,6 @@ def _enable_auto_complete(project_root: Path) -> StepResult:
         timeout=30,
     )
     return StepResult(name="auto-complete", passed=passed, output=output)
-
-
-def _is_branch_pushed(project_root: Path, branch: str) -> bool:
-    """Check if a branch has a remote tracking counterpart.
-
-    Args:
-        project_root: Root directory of the git repository.
-        branch: Branch name to check.
-
-    Returns:
-        True if the branch exists on the remote.
-    """
-    passed, _ = _run_command(
-        ["git", "rev-parse", "--verify", f"origin/{branch}"],
-        project_root,
-    )
-    return passed
 
 
 def _check_unpushed_decision(

@@ -1,12 +1,14 @@
-"""Tests for policy/gates.py — gate checks, branch blocking, tool execution.
+"""Tests for policy/gates.py — gate checks, branch blocking, tool execution, risk gates.
 
 Covers:
 - Branch protection (protected branch blocking).
-- Pre-commit gate checks (ruff format, ruff lint, gitleaks).
+- Pre-commit gate checks (ruff format, ruff lint, gitleaks, risk warnings).
 - Commit-msg validation (format rules).
-- Pre-push gate checks (semgrep, pip-audit, tests, ty).
+- Pre-push gate checks (semgrep, pip-audit, tests, ty, expired risk blocking).
 - Tool-not-found graceful skip.
 - GateResult aggregation.
+- Risk expiry warnings (pre-commit, non-blocking).
+- Risk expired blocking (pre-push, blocking).
 """
 
 from __future__ import annotations
@@ -20,6 +22,8 @@ import pytest
 from ai_engineering.policy.gates import (
     GateCheckResult,
     GateResult,
+    _check_expired_risk_acceptances,
+    _check_expiring_risk_acceptances,
     _validate_commit_message,
     run_gate,
 )
@@ -62,14 +66,14 @@ class TestBranchProtection:
     """Tests for protected branch blocking."""
 
     def test_blocks_main_branch(self, tmp_path: Path) -> None:
-        with patch("ai_engineering.policy.gates._get_current_branch", return_value="main"):
+        with patch("ai_engineering.git.operations.current_branch", return_value="main"):
             result = run_gate(GateHook.PRE_COMMIT, tmp_path)
             assert not result.passed
             failed = result.failed_checks
             assert "branch-protection" in failed
 
     def test_blocks_master_branch(self, tmp_path: Path) -> None:
-        with patch("ai_engineering.policy.gates._get_current_branch", return_value="master"):
+        with patch("ai_engineering.git.operations.current_branch", return_value="master"):
             result = run_gate(GateHook.PRE_COMMIT, tmp_path)
             assert not result.passed
 
@@ -208,6 +212,108 @@ class TestGateResult:
     def test_empty_result_passes(self) -> None:
         result = GateResult(hook=GateHook.PRE_COMMIT)
         assert result.passed is True
+
+
+# ---------------------------------------------------------------------------
+# Risk gate checks
+# ---------------------------------------------------------------------------
+
+
+class TestRiskExpiryWarning:
+    """Tests for _check_expiring_risk_acceptances (pre-commit, non-blocking)."""
+
+    def test_no_decision_store_passes(self, tmp_path: Path) -> None:
+        result = GateResult(hook=GateHook.PRE_COMMIT)
+        _check_expiring_risk_acceptances(tmp_path, result)
+        check = _find_check(result, "risk-expiry-warning")
+        assert check.passed
+
+    def test_no_expiring_passes(self, tmp_path: Path) -> None:
+        # Create an empty decision store
+        ds_dir = tmp_path / ".ai-engineering" / "state"
+        ds_dir.mkdir(parents=True)
+        import json
+        (ds_dir / "decision-store.json").write_text(
+            json.dumps({"schemaVersion": "1.1", "decisions": []})
+        )
+        result = GateResult(hook=GateHook.PRE_COMMIT)
+        _check_expiring_risk_acceptances(tmp_path, result)
+        check = _find_check(result, "risk-expiry-warning")
+        assert check.passed
+
+    def test_expiring_warns_but_passes(self, tmp_path: Path) -> None:
+        import json
+        from datetime import datetime, timedelta
+        ds_dir = tmp_path / ".ai-engineering" / "state"
+        ds_dir.mkdir(parents=True)
+        (ds_dir / "decision-store.json").write_text(json.dumps({
+            "schemaVersion": "1.1",
+            "decisions": [{
+                "id": "RA-001",
+                "context": "test risk",
+                "decision": "accept",
+                "decidedAt": "2025-01-01T00:00:00Z",
+                "spec": "004",
+                "riskCategory": "risk_acceptance",
+                "severity": "high",
+                "status": "active",
+                "expiresAt": (datetime.utcnow() + timedelta(days=3)).strftime(
+                    "%Y-%m-%dT%H:%M:%SZ"
+                ),
+                "renewalCount": 0,
+            }],
+        }))
+        result = GateResult(hook=GateHook.PRE_COMMIT)
+        _check_expiring_risk_acceptances(tmp_path, result)
+        check = _find_check(result, "risk-expiry-warning")
+        assert check.passed  # Warning only, non-blocking
+        assert "expiring" in check.output.lower()
+
+
+class TestRiskExpiredBlock:
+    """Tests for _check_expired_risk_acceptances (pre-push, blocking)."""
+
+    def test_no_decision_store_passes(self, tmp_path: Path) -> None:
+        result = GateResult(hook=GateHook.PRE_PUSH)
+        _check_expired_risk_acceptances(tmp_path, result)
+        check = _find_check(result, "risk-expired-block")
+        assert check.passed
+
+    def test_no_expired_passes(self, tmp_path: Path) -> None:
+        import json
+        ds_dir = tmp_path / ".ai-engineering" / "state"
+        ds_dir.mkdir(parents=True)
+        (ds_dir / "decision-store.json").write_text(
+            json.dumps({"schemaVersion": "1.1", "decisions": []})
+        )
+        result = GateResult(hook=GateHook.PRE_PUSH)
+        _check_expired_risk_acceptances(tmp_path, result)
+        check = _find_check(result, "risk-expired-block")
+        assert check.passed
+
+    def test_expired_blocks(self, tmp_path: Path) -> None:
+        import json
+        ds_dir = tmp_path / ".ai-engineering" / "state"
+        ds_dir.mkdir(parents=True)
+        (ds_dir / "decision-store.json").write_text(json.dumps({
+            "schemaVersion": "1.1",
+            "decisions": [{
+                "id": "RA-001",
+                "context": "test expired risk",
+                "decision": "accept",
+                "decidedAt": "2025-01-01T00:00:00Z",
+                "spec": "004",
+                "riskCategory": "risk_acceptance",
+                "severity": "critical",
+                "status": "active",
+                "expiresAt": "2020-01-01T00:00:00Z",
+                "renewalCount": 0,
+            }],
+        }))
+        result = GateResult(hook=GateHook.PRE_PUSH)
+        _check_expired_risk_acceptances(tmp_path, result)
+        check = _find_check(result, "risk-expired-block")
+        assert not check.passed  # Blocks push
 
 
 # ---------------------------------------------------------------------------
