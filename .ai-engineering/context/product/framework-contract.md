@@ -1,4 +1,10 @@
-# ai-engineering Framework Contract (v1)
+# ai-engineering Framework Contract (v2)
+
+## Update Metadata
+
+- Rationale: absorb vision.md personas and success metrics; absorb roadmap.md phases and release model. Consolidate into single authoritative contract.
+- Expected gain: single source of truth for product identity, eliminating 4 redundant files.
+- Potential impact: vision.md, roadmap.md, rebuild-rollout-charter.md, framework-adoption-map.md become obsolete and are deleted.
 
 ## Purpose
 
@@ -198,6 +204,21 @@ When multiple agents work in parallel:
 
 - Optimize token usage and context footprint.
 - Managed files must be concise, purpose-driven, and high-signal.
+
+## Personas
+
+- **Platform engineer**: defines reusable governance and rollout at scale.
+- **Team lead**: needs predictable quality and auditable decisions.
+- **Developer**: wants fast workflows with guardrails that are clear and consistent.
+- **Security/AppSec**: requires verifiable local controls and traceability.
+- **DevEx owner**: tracks adoption, friction, and quality impact.
+
+## Success Metrics
+
+- 100% mandatory gate execution on governed operations.
+- 0 ungated sensitive operations.
+- Time to first governed commit under 5 minutes.
+- Context compaction trend improving release-over-release.
 - Every managed update includes: rationale, expected gain, potential impact.
 - Periodic simplification is mandatory, preserving functionality and governance.
 - Maintenance workflow: local report first; PR only after explicit acceptance.
