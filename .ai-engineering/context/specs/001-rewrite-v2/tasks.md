@@ -1,8 +1,8 @@
 ---
 total: 86
-completed: 3
-last_session: S0
-next_session: S1
+completed: 11
+last_session: S1
+next_session: S2
 ---
 
 # Tasks: AI-Engineering Framework — Rewrite from Scratch
@@ -19,16 +19,16 @@ next_session: S1
 - [x] **Task 0.2**: Create `.ai-engineering/context/specs/_active.md` — pointer to active spec `001-rewrite-v2`
 - [x] **Task 0.3**: Create `specs/001-rewrite-v2/` with `spec.md`, `plan.md`, `tasks.md`
 
-### Phase 1: Context Architecture Migration — `S1 · Agent-1 · rewrite/v2`
+### Phase 1: Context Architecture Migration — `S1 · Agent-1 · rewrite/v2 · ✓ COMPLETE`
 
-- [ ] **Task 1.1**: Absorb `context/product/vision.md` into `framework-contract.md` — add Personas and Success Metrics sections
-- [ ] **Task 1.2**: Absorb `context/product/roadmap.md` into `framework-contract.md` — add Roadmap Overview and Release Model section
-- [ ] **Task 1.3**: Create `context/product/product-contract.md` — project living document for ai-engineering itself (dogfooding). Sections: Project Identity (name, repo, owner, status), Product Goals (current phase objectives, success criteria), Release Status (current version, next milestone, blockers), Active Spec (pointer to `specs/_active.md`), KPIs (install adoption, quality gate pass rate, agent coverage), Stakeholders, Decision Log Summary (pointer to `state/decision-store.json`)
-- [ ] **Task 1.4**: Delete redundant files: `vision.md`, `roadmap.md`, `rebuild-rollout-charter.md`, `framework-adoption-map.md`
-- [ ] **Task 1.4b**: Delete orphan planning prompts: `context/product/plan-aiEngineeringRewrite.prompt.md`, `context/product/plan-context-architecture.prompt.md` — content fully absorbed by `specs/001-rewrite-v2/`
-- [ ] **Task 1.5**: Delete `context/backlog/` directory entirely (absorbed by specs/)
-- [ ] **Task 1.6**: Delete `context/delivery/` directory entirely (absorbed by specs/done.md)
-- [ ] **Task 1.7**: Update `manifest.yml`, `.github/copilot-instructions.md`, `AGENTS.md`, `CLAUDE.md` — **remove references to deleted files only** (`backlog/`, `delivery/`, `vision.md`, `roadmap.md`, prompt files). Add `agents/**` to `framework_managed` in manifest. Do NOT add comprehensive content references — that is Phase 7's scope (Tasks 7.4, 7.6, 7.7)
+- [x] **Task 1.1**: Absorb `context/product/vision.md` into `framework-contract.md` — add Personas and Success Metrics sections
+- [x] **Task 1.2**: Absorb `context/product/roadmap.md` into `framework-contract.md` — add Roadmap Overview and Release Model section
+- [x] **Task 1.3**: Create `context/product/product-contract.md` — project living document for ai-engineering itself (dogfooding). Sections: Project Identity (name, repo, owner, status), Product Goals (current phase objectives, success criteria), Release Status (current version, next milestone, blockers), Active Spec (pointer to `specs/_active.md`), KPIs (install adoption, quality gate pass rate, agent coverage), Stakeholders, Decision Log Summary (pointer to `state/decision-store.json`)
+- [x] **Task 1.4**: Delete redundant files: `vision.md`, `roadmap.md`, `rebuild-rollout-charter.md`, `framework-adoption-map.md`
+- [x] **Task 1.4b**: Delete orphan planning prompts: `context/product/plan-aiEngineeringRewrite.prompt.md`, `context/product/plan-context-architecture.prompt.md` — content fully absorbed by `specs/001-rewrite-v2/`
+- [x] **Task 1.5**: Delete `context/backlog/` directory entirely (absorbed by specs/)
+- [x] **Task 1.6**: Delete `context/delivery/` directory entirely (absorbed by specs/done.md)
+- [x] **Task 1.7**: Update `manifest.yml`, `.github/copilot-instructions.md`, `AGENTS.md`, `CLAUDE.md` — **remove references to deleted files only** (`backlog/`, `delivery/`, `vision.md`, `roadmap.md`, prompt files). Add `agents/**` to `framework_managed` in manifest. Do NOT add comprehensive content references — that is Phase 7's scope (Tasks 7.4, 7.6, 7.7)
 
 ### Phase 2: Standards Review — `S2 · Agent-1 · rewrite/v2`
 
