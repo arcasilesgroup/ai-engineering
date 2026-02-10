@@ -166,11 +166,13 @@ Every phase must pass a gate before dependent phases can start:
 
 Every agent session MUST:
 1. **Start** by reading: `_active.md` → `spec.md` → `tasks.md` → `decision-store.json`.
-2. **Announce** scope: session ID, phase, task range.
-3. **Work** only within assigned tasks. If blocked, record decision and stop.
-4. **Commit** atomically: 1 task = 1 commit with message `spec-NNN: Task X.Y — <description>`.
-5. **Close** by marking completed tasks as `[x]` and updating `tasks.md` frontmatter.
-6. **Report** summary: tasks done, files changed, decisions made, blockers found.
+2. **Spec-first check**: if no active spec or active spec is completed, and work is non-trivial, invoke `create-spec` before proceeding.
+3. **Announce** scope: session ID, phase, task range.
+4. **Work** only within assigned tasks. If blocked, record decision and stop.
+5. **Commit** atomically: 1 task = 1 commit with message `spec-NNN: Task X.Y — <description>`.
+6. **Close** by marking completed tasks as `[x]` and updating `tasks.md` frontmatter.
+7. **Content integrity**: if any `.ai-engineering/` file was created, deleted, renamed, or moved during the session, execute `content-integrity` skill.
+8. **Report** summary: tasks done, files changed, decisions made, blockers found.
 
 #### 9.6) Agent Coordination Protocol
 

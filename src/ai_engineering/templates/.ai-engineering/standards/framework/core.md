@@ -52,9 +52,11 @@ Framework-owned baseline standards for every installed instance.
 ### Session Contract
 
 - Every agent session starts by reading the spec hierarchy: `_active.md` → `spec.md` → `tasks.md` → `decision-store.json`.
+- **Spec-first fallback**: if `_active.md` points to a completed spec (has `done.md`) or no spec exists, and the requested work is non-trivial, the agent must invoke `create-spec` before proceeding.
 - Agents work only within their assigned task scope. Cross-scope work is prohibited.
 - Each task produces exactly one atomic commit: `spec-NNN: Task X.Y — <description>`.
 - Sessions close by updating `tasks.md` checkboxes and frontmatter.
+- **Post-change validation**: if any file in `.ai-engineering/` was created, deleted, renamed, or moved during the session, the agent must execute `content-integrity` before closing.
 
 ### Multi-Agent Coordination
 
@@ -75,6 +77,57 @@ Framework-owned baseline standards for every installed instance.
 - All decisions persisted in `decision-store.json` with context hash.
 - Agents check decision store before prompting — no repeated decisions across sessions.
 - Reprompt only on: expiry, scope change, severity change, policy change, or material context hash change.
+
+## Spec-First Enforcement
+
+Non-trivial changes require an active spec before implementation begins.
+
+### Definition of Non-Trivial
+
+A change is non-trivial when ANY of these apply:
+
+- Touches more than 3 files.
+- Introduces a new feature or capability.
+- Refactors existing architecture or patterns.
+- Changes governance content (standards, skills, agents).
+- Modifies framework-contract or core standards.
+- Requires multi-step implementation across sessions.
+
+### Exempt Changes (Trivial)
+
+- Typo or formatting fix.
+- Single-line change.
+- Dependency version bump without breaking changes.
+- Comment or documentation minor correction.
+
+### Enforcement Behavior
+
+- If no active spec exists and non-trivial work is requested, guide the user to `create-spec`.
+- If `_active.md` points to a completed spec, guide the user to create a new spec.
+- Non-trivial changes without an active spec are governance violations.
+- The `create-spec` skill always starts with a dedicated branch (feat/*, bug/*, hotfix/*).
+
+## Content Integrity Enforcement
+
+Governance content must remain internally consistent after every change.
+
+### Rules
+
+- After creating, deleting, or renaming any file in `.ai-engineering/`, the agent must execute `content-integrity`.
+- Commits with broken cross-references in `.ai-engineering/` are governance violations.
+- Mirror desync between canonical and template is a governance violation.
+- Counter mismatches between instruction files and product-contract are governance violations.
+
+### Validation Scope
+
+The `content-integrity` skill validates 6 categories:
+
+1. File existence — all referenced files exist.
+2. Mirror sync — canonical and template mirrors are byte-identical.
+3. Counter accuracy — instruction file counts match product-contract.
+4. Cross-reference integrity — all refs are valid and bidirectional.
+5. Instruction file consistency — all 6 files list identical skills/agents.
+6. Manifest coherence — manifest paths match directory structure.
 
 ## Risk Acceptance
 

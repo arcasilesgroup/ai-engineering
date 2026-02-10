@@ -167,6 +167,7 @@ agentic:
     close_actions:
       - "update_task_checkboxes"
       - "update_tasks_frontmatter"
+      - "validate_content_integrity"
       - "report_summary"
   branch_strategy:
     integration_branch_pattern: "<spec_branch>"
