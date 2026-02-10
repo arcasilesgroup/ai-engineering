@@ -55,10 +55,7 @@ Follow this sequence for non-trivial work:
 
 ## Work Logging Requirement
 
-For each execution block, update:
-
-- `.ai-engineering/context/delivery/implementation.md`
-- `.ai-engineering/context/backlog/tasks.md`
+For each execution block, follow active spec via `.ai-engineering/context/specs/_active.md`.
 
 Each governance doc update must include:
 

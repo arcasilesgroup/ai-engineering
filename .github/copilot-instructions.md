@@ -8,8 +8,7 @@ Project instructions are canonical in `.ai-engineering/`.
 - `.ai-engineering/standards/framework/core.md`
 - `.ai-engineering/standards/framework/stacks/python.md`
 - `.ai-engineering/standards/team/core.md`
-- `.ai-engineering/context/delivery/planning.md`
-- `.ai-engineering/context/backlog/tasks.md`
+- `.ai-engineering/context/specs/_active.md`
 
 ## Command Contract
 

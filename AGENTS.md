@@ -65,5 +65,5 @@ Agents must never overwrite team-managed or project-managed content during frame
 ## Working Agreement for This Repository
 
 - Keep changes small and verifiable.
-- Update `.ai-engineering/context/delivery/implementation.md` and `.ai-engineering/context/backlog/tasks.md` on each phase execution block.
+- Follow active spec via `.ai-engineering/context/specs/_active.md`.
 - Include rationale, expected gain, and potential impact in governance document updates.

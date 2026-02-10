@@ -17,6 +17,7 @@ ownership:
     framework_managed:
       - "standards/framework/**"
       - "skills/**"
+      - "agents/**"
     team_managed:
       - "standards/team/**"
     project_managed:
