@@ -57,5 +57,7 @@ Craft well-structured pull requests with clear titles, descriptive bodies, break
 ## References
 
 - `skills/workflows/pr.md` — full `/pr` workflow procedure.
+- `skills/swe/changelog-documentation.md` — changelog entry formatting for PRs.
 - `standards/framework/quality/core.md` — PR quality gates.
 - `standards/framework/core.md` — command governance.
+- `standards/framework/stacks/python.md` — Python checks in PR checklist.

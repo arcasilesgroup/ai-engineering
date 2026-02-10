@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Create-skill skill for definitive skill authoring and registration procedure.
+- Create-agent skill for definitive agent authoring and registration procedure.
+- Changelog documentation skill for generating user-friendly changelogs and release notes from git history.
+- Doc-writer skill for open-source documentation generation from codebase knowledge.
 - Canonical/template mirror contract for `.ai-engineering` governance artifacts.
 - Installer coverage for full bundled non-state governance template tree.
 

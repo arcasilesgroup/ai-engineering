@@ -36,6 +36,7 @@ End-to-end verification agent who confirms the application works correctly from 
 ## Referenced Skills
 
 - `skills/swe/debug.md` — for investigating failures found during verification.
+- `skills/swe/migration.md` — migration testing procedure.
 - `skills/swe/test-strategy.md` — test design principles.
 - `skills/workflows/commit.md` — commit workflow specification.
 - `skills/workflows/pr.md` — PR workflow specification.

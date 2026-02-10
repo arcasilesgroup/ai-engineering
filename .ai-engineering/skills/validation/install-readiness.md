@@ -36,3 +36,9 @@ Validate that ai-engineering is operational after install/update.
 - machine-readable JSON summary for automation,
 - concise human-readable remediation steps,
 - no bypass recommendations.
+
+## References
+
+- `skills/utils/platform-detection.md` — provider and tooling detection.
+- `standards/framework/core.md` — enforcement requirements.
+- `agents/verify-app.md` — verification agent that uses readiness checks.

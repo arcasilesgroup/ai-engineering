@@ -41,3 +41,9 @@ Fallbacks:
 - Do not suggest `--no-verify`.
 - Do not force push.
 - Do not bypass mandatory checks.
+
+## References
+
+- `skills/workflows/commit.md` — primary consumer of git helper procedures.
+- `skills/workflows/pr.md` — PR workflow using git operations.
+- `standards/framework/core.md` — protected branch rules and enforcement.
