@@ -1,26 +1,3 @@
-"""Shared pytest fixtures for all tests."""
+"""Shared pytest fixtures for ai-engineering tests."""
 
-import os
-import sys
-from pathlib import Path
-
-import pytest
-
-
-SRC_DIR = Path(__file__).resolve().parents[1] / "src"
-if str(SRC_DIR) not in sys.path:
-    sys.path.insert(0, str(SRC_DIR))
-
-
-@pytest.fixture
-def temp_repo(tmp_path):
-    """Create a temporary directory for testing."""
-    repo_dir = tmp_path / "test_repo"
-    repo_dir.mkdir()
-    # Save original directory
-    original_dir = os.getcwd()
-    # Change to temp directory
-    os.chdir(repo_dir)
-    yield repo_dir
-    # Restore original directory
-    os.chdir(original_dir)
+from __future__ import annotations
