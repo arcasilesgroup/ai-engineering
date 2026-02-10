@@ -1,1 +1,0 @@
-"""Git hook helpers package."""
