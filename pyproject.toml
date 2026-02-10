@@ -7,8 +7,7 @@ license = "MIT"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-  "typer[all]>=0.12.0,<0.13.0",
-  "click>=8.1.0,<8.2.0",
+  "typer[all]>=0.12.0,<1.0",
   "pyyaml>=6.0,<7.0",
   "pydantic>=2.0,<3.0",
 ]
@@ -16,7 +15,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
   "pytest>=8.0,<9.0",
-  "pytest-cov>=4.1,<5.0",
+  "pytest-cov>=4.1,<6.0",
   "ruff>=0.6.0",
   "ty>=0.0.1a1",
   "pip-audit>=2.7.0",
@@ -24,16 +23,22 @@ dev = [
 ]
 
 [project.scripts]
-ai = "ai_engineering.cli:app"
+ai-eng = "ai_engineering.cli:app"
 
 [tool.ruff]
 line-length = 100
 target-version = "py311"
 
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "C4", "RUF"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["ai_engineering"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
-addopts = "-v --cov=src --cov-report=term-missing"
+addopts = "-v --cov=src/ai_engineering --cov-report=term-missing"
 
 [build-system]
 requires = ["hatchling>=1.25.0"]
