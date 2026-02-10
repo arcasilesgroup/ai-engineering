@@ -1,73 +1,67 @@
-# Product Contract — ai-engineering
+# Product Contract
+
+<!-- PROJECT-MANAGED: This file is owned by your team. The framework will never overwrite it. -->
+<!-- Fill in the sections below to describe YOUR project. AI agents use this to understand -->
+<!-- what they are working on, its current state, and active goals. -->
 
 ## Update Metadata
 
-- Rationale: establish project-managed living document for dogfooding; distinct from framework-contract.md which defines the framework itself.
-- Expected gain: AI agents know what THIS project is, its current state, and active goals.
-- Potential impact: agents align work to project objectives, not just framework rules.
+- Rationale: <!-- why this document was created or last updated -->
+- Expected gain: <!-- what benefit this update provides -->
+- Potential impact: <!-- what could be affected by this update -->
 
 ## Project Identity
 
-- **Name**: ai-engineering
-- **Repository**: `arcasilesgroup/ai-engineering`
-- **Owner**: arcasilesgroup
-- **Status**: Active development (rewrite v2)
-- **License**: MIT
-- **Distribution**: PyPI (`py3-none-any` wheel)
-- **Primary language**: Python (minimal runtime)
-- **Governance model**: content-first, AI-governed
+- **Name**: <!-- your project name -->
+- **Repository**: <!-- owner/repo -->
+- **Owner**: <!-- team or organization -->
+- **Status**: <!-- e.g., Active development, Maintenance, Pre-release -->
+- **License**: <!-- e.g., MIT, Apache-2.0, Proprietary -->
+- **Distribution**: <!-- e.g., PyPI, npm, internal -->
+- **Primary language**: <!-- e.g., Python, TypeScript -->
+- **Governance model**: <!-- e.g., content-first, AI-governed -->
 
 ## Product Goals (Current Phase)
 
-This project dogfoods the ai-engineering framework on itself.
+<!-- Describe what this project is trying to achieve right now. -->
 
 ### Active Objectives
 
-1. Complete governance content: 18 skills, 8 agents, 3 stack instructions.
-2. Rewrite all Python modules from scratch following new standards.
-3. Achieve CI/CD with cross-OS matrix (Python 3.11/3.12/3.13 × Ubuntu/Windows/macOS).
-4. Validate full E2E install/update/doctor cycle.
+1. <!-- objective 1 -->
+2. <!-- objective 2 -->
+3. <!-- objective 3 -->
 
 ### Success Criteria
 
-- `uv sync && uv run pytest tests/ -v --cov=ai_engineering` → >80% coverage.
-- `uv run ruff check src/ && uv run ruff format --check src/` → 0 issues.
-- `uv run ty check src/` → 0 errors.
-- `uv run pip-audit` → 0 vulnerabilities.
-- Install on clean venv → `ai version`, `ai doctor`, `ai install` work.
-- Hooks enforce: commit with secret → blocked, push without tests → blocked.
+- <!-- criterion 1 -->
+- <!-- criterion 2 -->
+- <!-- criterion 3 -->
 
 ## Release Status
 
-- **Current version**: 0.1.0
-- **Next milestone**: Rewrite v2 merge to main
-- **Blockers**: Mega-Phase A (governance content) must complete before Python rewrite
-- **Branch**: `rewrite/v2`
+- **Current version**: <!-- e.g., 0.1.0 -->
+- **Next milestone**: <!-- e.g., MVP release -->
+- **Blockers**: <!-- known blockers or "None" -->
+- **Branch**: <!-- active development branch -->
 
 ## Active Spec
 
-Current work tracked in: `specs/_active.md` → `001-rewrite-v2`.
-
-Read sequence:
-1. `specs/001-rewrite-v2/spec.md` — problem, solution, scope
-2. `specs/001-rewrite-v2/plan.md` — architecture, patterns, session map
-3. `specs/001-rewrite-v2/tasks.md` — ordered phases, checkboxes
+<!-- If using the spec system, point to the active spec. -->
+<!-- Example: Current work tracked in: `specs/_active.md` → `001-my-spec`. -->
 
 ## KPIs
 
 | Metric | Target | Current |
 |--------|--------|---------|
-| Install adoption (repos using framework) | Tracking | Pre-release |
-| Quality gate pass rate | 100% on governed ops | Establishing baseline |
-| Agent coverage (skills + agents defined) | 18 skills + 8 agents | 0/18 skills, 0/8 agents |
-| Test coverage | ≥80% | Rewrite pending |
-| Cross-OS CI pass | 3×3 matrix green | CI not yet created |
+| <!-- metric 1 --> | <!-- target --> | <!-- current --> |
+| <!-- metric 2 --> | <!-- target --> | <!-- current --> |
+| Test coverage | ≥80% | <!-- current --> |
 
 ## Stakeholders
 
-- **Maintainers**: arcasilesgroup — framework and project ownership.
-- **Contributors**: governed by standards and skills.
-- **Users**: developers adopting the framework in their repositories.
+- **Maintainers**: <!-- who maintains this project -->
+- **Contributors**: <!-- contribution model -->
+- **Users**: <!-- who uses this project -->
 
 ## Decision Log Summary
 
