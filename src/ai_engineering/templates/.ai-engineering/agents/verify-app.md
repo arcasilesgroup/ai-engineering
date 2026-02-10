@@ -13,6 +13,7 @@ End-to-end verification agent who confirms the application works correctly from 
 - Cross-platform path handling validation.
 - State file creation and integrity checks.
 - Error handling and graceful degradation testing.
+- Governance content integrity validation (mirrors, cross-refs, counters, instruction files).
 
 ## Activation
 
@@ -31,7 +32,8 @@ End-to-end verification agent who confirms the application works correctly from 
 6. **Workflow test** — execute commit/pr/acho workflows in test repo.
 7. **State integrity** — verify state files (decision-store, audit-log) are created and valid.
 8. **Error paths** — test invalid inputs, missing prerequisites, permission issues.
-9. **Report** — structured verification report with pass/fail per check.
+9. **Content integrity** — execute the content-integrity skill against all `.ai-engineering/` governance content. Verify 6/6 categories pass: file existence, mirror sync, counter accuracy, cross-reference integrity, instruction file consistency, manifest coherence.
+10. **Report** — structured verification report with pass/fail per check.
 
 ## Referenced Skills
 
@@ -41,6 +43,7 @@ End-to-end verification agent who confirms the application works correctly from 
 - `skills/workflows/commit.md` — commit workflow specification.
 - `skills/workflows/pr.md` — PR workflow specification.
 - `skills/workflows/acho.md` — acho workflow specification.
+- `skills/lifecycle/content-integrity.md` — governance content validation (6-category check).
 
 ## Referenced Standards
 
