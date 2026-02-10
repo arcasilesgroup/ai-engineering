@@ -1,8 +1,8 @@
 ---
 total: 86
-completed: 39
-last_session: S6
-next_session: S7
+completed: 46
+last_session: S7
+next_session: S8
 ---
 
 # Tasks: AI-Engineering Framework — Rewrite from Scratch
@@ -75,15 +75,15 @@ next_session: S7
 - [x] **Task 6.7**: Create `agents/code-simplifier.md` — reduces complexity, cyclomatic complexity, readability. Reconnaissance of existing patterns before simplifying
 - [x] **Task 6.8**: Create `agents/verify-app.md` — E2E single-pass finisher: build, test, lint, security, quality, product vision, goals, contract, verification
 
-### Phase 7: Stack Instructions + Copilot Integration — `S7 · Agent-1 · rewrite/v2`
+### Phase 7: Stack Instructions + Copilot Integration — `S7 · Agent-1 · rewrite/v2 · ✓ COMPLETE`
 
-- [ ] **Task 7.1**: Create `.github/instructions/python.instructions.md` — `applyTo: "**/*.py"`, build/run/test/style/security for Python with uv, ruff, ty, pytest, pip-audit
-- [ ] **Task 7.2**: Create `.github/instructions/testing.instructions.md` — `applyTo: "**/tests/**"`, pytest conventions, fixtures, coverage
-- [ ] **Task 7.3**: Create `.github/instructions/markdown.instructions.md` — `applyTo: "**/*.md"`, governance documentation conventions
-- [ ] **Task 7.4**: Update `.github/copilot-instructions.md` — reference skills, agents, product-contract.md, specs/
-- [ ] **Task 7.5**: Update `.github/copilot/code-generation.md` + `code-review.md` + `test-generation.md` + `commit-message.md` — align with quality standards and agents
-- [ ] **Task 7.6**: Update `AGENTS.md` — entry point connecting skills/, agents/, specs/
-- [ ] **Task 7.7**: Update `CLAUDE.md` — entry point for Claude Code with same references
+- [x] **Task 7.1**: Create `.github/instructions/python.instructions.md` — `applyTo: "**/*.py"`, build/run/test/style/security for Python with uv, ruff, ty, pytest, pip-audit
+- [x] **Task 7.2**: Create `.github/instructions/testing.instructions.md` — `applyTo: "**/tests/**"`, pytest conventions, fixtures, coverage
+- [x] **Task 7.3**: Create `.github/instructions/markdown.instructions.md` — `applyTo: "**/*.md"`, governance documentation conventions
+- [x] **Task 7.4**: Update `.github/copilot-instructions.md` — reference skills, agents, product-contract.md, specs/
+- [x] **Task 7.5**: Update `.github/copilot/code-generation.md` + `code-review.md` + `test-generation.md` + `commit-message.md` — align with quality standards and agents
+- [x] **Task 7.6**: Update `AGENTS.md` — entry point connecting skills/, agents/, specs/
+- [x] **Task 7.7**: Update `CLAUDE.md` — entry point for Claude Code with same references
 
 ---
 
