@@ -66,6 +66,15 @@ Procedural skills guide structured execution. Reference the relevant skill befor
 - `.ai-engineering/skills/quality/audit-code.md` — quality gate assessment.
 - `.ai-engineering/skills/quality/audit-report.md` — audit report template.
 
+### Utility Skills
+
+- `.ai-engineering/skills/utils/git-helpers.md` — git operation helpers.
+- `.ai-engineering/skills/utils/platform-detection.md` — OS/platform detection.
+
+### Validation Skills
+
+- `.ai-engineering/skills/validation/install-readiness.md` — installation readiness check.
+
 ## Agents
 
 Agent definitions provide personas for complex multi-step tasks. Activate the relevant agent:
