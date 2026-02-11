@@ -12,7 +12,7 @@ dependencies = [
     { name = "typer" },
 ]
 
-[package.optional-dependencies]
+[package.dev-dependencies]
 dev = [
     { name = "pip-audit" },
     { name = "pytest" },
@@ -24,17 +24,20 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "pip-audit", marker = "extra == 'dev'", specifier = ">=2.7.0" },
     { name = "pydantic", specifier = ">=2.0,<3.0" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0,<9.0" },
-    { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=4.1,<6.0" },
     { name = "pyyaml", specifier = ">=6.0,<7.0" },
-    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.6.0" },
-    { name = "ty", marker = "extra == 'dev'", specifier = ">=0.0.1a1" },
     { name = "typer", extras = ["all"], specifier = ">=0.12.0,<1.0" },
-    { name = "types-pyyaml", marker = "extra == 'dev'", specifier = ">=6.0,<7.0" },
 ]
-provides-extras = ["dev"]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "pip-audit", specifier = ">=2.7.0" },
+    { name = "pytest", specifier = ">=8.0,<9.0" },
+    { name = "pytest-cov", specifier = ">=4.1,<6.0" },
+    { name = "ruff", specifier = ">=0.6.0" },
+    { name = "ty", specifier = ">=0.0.1a1" },
+    { name = "types-pyyaml", specifier = ">=6.0,<7.0" },
+]
 
 [[package]]
 name = "annotated-types"
