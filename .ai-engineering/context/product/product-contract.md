@@ -46,12 +46,12 @@ This project dogfoods the ai-engineering framework on itself.
 
 ## Active Spec
 
-Current work tracked in: `specs/_active.md` → `010-version-lifecycle`.
+Current work tracked in: `specs/_active.md` → `011-explain-skill`.
 
 Read sequence:
-1. `specs/010-version-lifecycle/spec.md` — problem, solution, scope, decisions
-2. `specs/010-version-lifecycle/plan.md` — architecture, session map, patterns
-3. `specs/010-version-lifecycle/tasks.md` — ordered phases, checkboxes
+1. `specs/011-explain-skill/spec.md` — problem, solution, scope, decisions
+2. `specs/011-explain-skill/plan.md` — architecture, session map, patterns
+3. `specs/011-explain-skill/tasks.md` — ordered phases, checkboxes
 
 ## KPIs
 
