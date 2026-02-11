@@ -29,9 +29,11 @@ ownership:
       - "state/decision-store.json"
       - "state/audit-log.ndjson"
   external_framework_managed:
+    - "AGENTS.md"
     - "CLAUDE.md"
     - "codex.md"
     - ".github/copilot-instructions.md"
+    - ".github/instructions/**"
     - ".github/copilot/code-generation.md"
     - ".github/copilot/test-generation.md"
     - ".github/copilot/code-review.md"

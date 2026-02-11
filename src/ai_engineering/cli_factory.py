@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import typer
 
-from ai_engineering.cli_commands import core, gate, maintenance, skills, stack_ide
+from ai_engineering.cli_commands import core, gate, maintenance, skills, stack_ide, validate
 
 
 def create_app() -> typer.Typer:
@@ -35,6 +35,7 @@ def create_app() -> typer.Typer:
     app.command("install")(core.install_cmd)
     app.command("update")(core.update_cmd)
     app.command("doctor")(core.doctor_cmd)
+    app.command("validate")(validate.validate_cmd)
     app.command("version")(core.version_cmd)
 
     # Stack sub-group

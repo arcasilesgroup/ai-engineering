@@ -58,6 +58,15 @@ Procedural skills guide structured execution. Reference the relevant skill befor
 - `.ai-engineering/skills/quality/audit-code.md` — quality gate assessment.
 - `.ai-engineering/skills/quality/audit-report.md` — audit report template.
 
+### Utility Skills
+
+- `.ai-engineering/skills/utils/git-helpers.md` — git operation helpers.
+- `.ai-engineering/skills/utils/platform-detection.md` — OS/platform detection.
+
+### Validation Skills
+
+- `.ai-engineering/skills/validation/install-readiness.md` — installation readiness check.
+
 ## Agents
 
 Agent definitions provide personas for complex multi-step tasks. Activate the relevant agent:
@@ -70,10 +79,6 @@ Agent definitions provide personas for complex multi-step tasks. Activate the re
 - `.ai-engineering/agents/codebase-mapper.md` — codebase structure mapping.
 - `.ai-engineering/agents/code-simplifier.md` — complexity reduction.
 - `.ai-engineering/agents/verify-app.md` — end-to-end verification.
-
-## Slash Commands
-
-In Claude Code, all skills and agents are available as slash commands via `.claude/commands/`. Each command is a thin wrapper that reads the canonical skill/agent file. See `CLAUDE.md` for the full command surface.
 
 ## Command Contract
 
