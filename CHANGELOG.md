@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Explain skill for Feynman-style code and concept explanations with 3-tier depth.
 - Risk acceptance lifecycle: `accept-risk`, `resolve-risk`, `renew-risk` lifecycle skills with severity-based expiry (C=15d/H=30d/M=60d/L=90d) and max 2 renewals.
 - Pre-implementation workflow skill for branch hygiene before new implementation work.
 - Branch cleanup module (`maintenance/branch_cleanup.py`): fetch, prune, delete merged branches.
