@@ -15,7 +15,7 @@ Three-phase approach:
 
 - **Phase 1 (New Skills)**: Author 4 new skills (`changelog-documentation`, `create-skill`, `create-agent`, `doc-writer`) with canonical files, template mirrors, instruction file registration, and changelog entries.
 - **Phase 2 (Cross-Reference Hardening)**: Add bidirectional cross-references across all 25+ governance files — skills reference related agents, agents reference consumed skills, utility/validation skills reference their consumers.
-- **Phase 3 (Lifecycle Category)**: Create `skills/lifecycle/` as a new skill category. Move `create-skill` and `create-agent` from `swe/` to `lifecycle/`. Update all references to reflect the new paths.
+- **Phase 3 (Lifecycle Category)**: Create `skills/govern/` as a new skill category. Move `create-skill` and `create-agent` from `swe/` to `lifecycle/`. Update all references to reflect the new paths.
 
 ## Scope
 
@@ -26,7 +26,7 @@ Three-phase approach:
 - All 6 instruction files updated with new skill references.
 - Product-contract counter updates (18 → 21 skills).
 - CHANGELOG.md entries for new skills.
-- New `skills/lifecycle/` category directory.
+- New `skills/govern/` category directory.
 - Move `create-skill` and `create-agent` from `swe/` to `lifecycle/` (canonical + mirror).
 - Update `create-skill.md` procedure to include `lifecycle/` as a valid category.
 - Instruction file restructuring: new `### Lifecycle Skills` subsection.
@@ -42,8 +42,8 @@ Three-phase approach:
 ## Acceptance Criteria
 
 - [ ] All 4 new skills exist as canonical files with byte-identical template mirrors.
-- [ ] `create-skill` and `create-agent` are in `skills/lifecycle/`, not `skills/swe/`.
-- [ ] `skills/lifecycle/` is referenced in the `create-skill` procedure as a valid category.
+- [ ] `create-skill` and `create-agent` are in `skills/govern/`, not `skills/dev/`.
+- [ ] `skills/govern/` is referenced in the `create-skill` procedure as a valid category.
 - [ ] All 6 instruction files list all 22 skills with correct paths.
 - [ ] Product-contract shows "21 skills, 8 agents" in objectives and KPIs.
 - [ ] Bidirectional cross-references exist: every agent references its consumed skills, every skill references agents that use it.
@@ -54,7 +54,7 @@ Three-phase approach:
 
 | # | Decision | Rationale |
 |---|----------|-----------|
-| D1 | **`skills/lifecycle/`** as new category name | Descriptive of purpose (framework lifecycle operations). Alternatives `framework/` and `core/` were rejected — `framework/` conflicts with `standards/framework/`, and `core/` is too generic. |
+| D1 | **`skills/govern/`** as new category name | Descriptive of purpose (framework lifecycle operations). Alternatives `framework/` and `core/` were rejected — `framework/` conflicts with `standards/framework/`, and `core/` is too generic. |
 | D2 | **Move `create-skill`/`create-agent` to `lifecycle/`** | These skills govern framework administration, not application SWE. Keeping them in `swe/` misrepresents their purpose. |
 | D3 | **Separate Spec 002 from Spec 003** | Spec 002 formalizes content that is already written (git changes). Spec 003 introduces new governance capabilities. Separating avoids a mega-spec and allows incremental delivery. |
 | D4 | **21 skills total** | 14 SWE + 3 workflows + 2 lifecycle + 2 quality = 21. Utility and validation skills (git-helpers, platform-detection, install-readiness) are not counted in the instruction-file listing convention. |

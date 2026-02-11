@@ -17,11 +17,11 @@ next_session: "Done — PR pending"
 
 ## Phase 1: Author [M]
 
-- [x] 1.1 Create canonical `.ai-engineering/skills/swe/explain.md` with all 6 sections
+- [x] 1.1 Create canonical `.ai-engineering/skills/docs/explain.md` with all 6 sections
 
 ## Phase 2: Mirror + Command [S]
 
-- [x] 2.1 Create template mirror at `src/ai_engineering/templates/.ai-engineering/skills/swe/explain.md`
+- [x] 2.1 Create template mirror at `src/ai_engineering/templates/.ai-engineering/skills/docs/explain.md`
 - [x] 2.2 Create slash command wrapper at `.claude/commands/swe/explain.md`
 - [x] 2.3 Create command mirror at `src/ai_engineering/templates/project/.claude/commands/swe/explain.md`
 

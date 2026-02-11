@@ -19,7 +19,7 @@ Create `swe:explain` skill following the Feynman technique — 3-tier depth (Qui
 
 ### In Scope
 
-- Canonical skill file at `.ai-engineering/skills/swe/explain.md` with all 6 mandatory sections.
+- Canonical skill file at `.ai-engineering/skills/docs/explain.md` with all 6 mandatory sections.
 - Template mirror (byte-identical).
 - Slash command wrapper + mirror (byte-identical).
 - 8 instruction file registrations.
@@ -35,7 +35,7 @@ Create `swe:explain` skill following the Feynman technique — 3-tier depth (Qui
 
 ## Acceptance Criteria
 
-1. Canonical skill file exists at `.ai-engineering/skills/swe/explain.md` with all 6 mandatory sections.
+1. Canonical skill file exists at `.ai-engineering/skills/docs/explain.md` with all 6 mandatory sections.
 2. Template mirror is byte-identical.
 3. Slash command wrapper + mirror exist and are byte-identical.
 4. All 8 instruction files list the skill under `### SWE Skills`.

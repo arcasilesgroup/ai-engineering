@@ -13,8 +13,8 @@ Created the `swe:explain` skill — a Feynman-style explanation skill with 3-tie
 
 | Deliverable | Status |
 |-------------|--------|
-| Canonical skill file | `.ai-engineering/skills/swe/explain.md` |
-| Template mirror | `src/ai_engineering/templates/.ai-engineering/skills/swe/explain.md` (byte-identical) |
+| Canonical skill file | `.ai-engineering/skills/docs/explain.md` |
+| Template mirror | `src/ai_engineering/templates/.ai-engineering/skills/docs/explain.md` (byte-identical) |
 | Slash command | `.claude/commands/swe/explain.md` |
 | Command mirror | `src/ai_engineering/templates/project/.claude/commands/swe/explain.md` (byte-identical) |
 | 8 instruction files | All list explain.md under SWE Skills |

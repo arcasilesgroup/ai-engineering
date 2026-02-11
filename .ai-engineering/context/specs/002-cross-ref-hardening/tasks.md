@@ -14,10 +14,10 @@ next_session: done
 
 ## Phase 1: New Skill Creation — `S0 · Agent-1 · ✓ COMPLETE`
 
-- [x] **Task 1.1**: Create `skills/swe/changelog-documentation.md` (canonical + mirror)
-- [x] **Task 1.2**: Create `skills/lifecycle/create-skill.md` (canonical + mirror)
-- [x] **Task 1.3**: Create `skills/lifecycle/create-agent.md` (canonical + mirror)
-- [x] **Task 1.4**: Create `skills/swe/doc-writer.md` (canonical + mirror)
+- [x] **Task 1.1**: Create `skills/docs/changelog.md` (canonical + mirror)
+- [x] **Task 1.2**: Create `skills/govern/create-skill.md` (canonical + mirror)
+- [x] **Task 1.3**: Create `skills/govern/create-agent.md` (canonical + mirror)
+- [x] **Task 1.4**: Create `skills/docs/writer.md` (canonical + mirror)
 
 ## Phase 2: Cross-Reference Hardening — `S0 · Agent-1 · ✓ COMPLETE`
 
@@ -32,7 +32,7 @@ next_session: done
 
 ## Phase 3: Lifecycle Category — `S1 · Agent-1 · ✓ COMPLETE`
 
-- [x] **Task 3.1**: Create `skills/lifecycle/` directory (canonical + mirror)
+- [x] **Task 3.1**: Create `skills/govern/` directory (canonical + mirror)
 - [x] **Task 3.2**: Move `create-skill.md` from `swe/` to `lifecycle/` (canonical + mirror) — `git mv` or file move + delete
 - [x] **Task 3.3**: Move `create-agent.md` from `swe/` to `lifecycle/` (canonical + mirror) — `git mv` or file move + delete
 - [x] **Task 3.4**: Update `create-skill.md` procedure — add `lifecycle/` to the valid category list and update subsection mapping

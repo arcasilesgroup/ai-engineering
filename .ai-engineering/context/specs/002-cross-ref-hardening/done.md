@@ -42,7 +42,7 @@
 
 ### Phase 3 — Lifecycle Category (6 tasks)
 
-- Created `skills/lifecycle/` directory (canonical + mirror).
+- Created `skills/govern/` directory (canonical + mirror).
 - Moved `create-skill.md` and `create-agent.md` from `swe/` to `lifecycle/`.
 - Added `lifecycle/` to the `create-skill.md` valid category list and subsection mapping.
 - Created `### Lifecycle Skills` subsection in all 6 instruction files.
@@ -59,7 +59,7 @@
 
 | # | Decision | Applied |
 |---|----------|---------|
-| D1 | `skills/lifecycle/` as category name | Phase 3 — directory created |
+| D1 | `skills/govern/` as category name | Phase 3 — directory created |
 | D2 | Move create-skill/create-agent to lifecycle/ | Phase 3 — files moved, refs updated |
 | D3 | Separate Spec 002 from Spec 003 | Spec scope — governance enforcement deferred to Spec 003 |
 | D4 | 21 skills total (instruction-file convention) | Phase 4 — counter verified |

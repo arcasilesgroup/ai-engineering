@@ -44,18 +44,18 @@ next_session: done
 
 ### Phase 4: Skills — SWE — `S4 · Agent-2 (4.1-4.10) · S5 · Agent-3 (4.11-4.12) · rewrite/v2 · ✓ COMPLETE`
 
-- [x] **Task 4.1**: Create `skills/swe/debug.md`
-- [x] **Task 4.2**: Create `skills/swe/refactor.md`
-- [x] **Task 4.3**: Create `skills/swe/code-review.md`
-- [x] **Task 4.4**: Create `skills/swe/test-strategy.md`
-- [x] **Task 4.5**: Create `skills/swe/architecture-analysis.md`
-- [x] **Task 4.6**: Create `skills/swe/pr-creation.md`
-- [x] **Task 4.7**: Create `skills/swe/dependency-update.md`
-- [x] **Task 4.8**: Create `skills/swe/performance-analysis.md`
-- [x] **Task 4.9**: Create `skills/swe/security-review.md`
-- [x] **Task 4.10**: Create `skills/swe/migration.md`
-- [x] **Task 4.11**: Create `skills/swe/prompt-engineer.md`
-- [x] **Task 4.12**: Create `skills/swe/python-mastery.md`
+- [x] **Task 4.1**: Create `skills/dev/debug.md`
+- [x] **Task 4.2**: Create `skills/dev/refactor.md`
+- [x] **Task 4.3**: Create `skills/dev/code-review.md`
+- [x] **Task 4.4**: Create `skills/dev/test-strategy.md`
+- [x] **Task 4.5**: Create `skills/review/architecture.md`
+- [x] **Task 4.6**: Create `skills/workflows/pr.md`
+- [x] **Task 4.7**: Create `skills/dev/deps-update.md`
+- [x] **Task 4.8**: Create `skills/review/performance.md`
+- [x] **Task 4.9**: Create `skills/review/security.md`
+- [x] **Task 4.10**: Create `skills/dev/migration.md`
+- [x] **Task 4.11**: Create `skills/docs/prompt-design.md`
+- [x] **Task 4.12**: Create `skills/utils/python-patterns.md`
 
 > **Note**: Tasks 4.11 and 4.12 are L-sized (3-5x typical skill). Each requires a dedicated agent session with extended context. Assign to Session S5 separately from the other 10 SWE skills.
 

@@ -20,7 +20,7 @@ None.
 | `.ai-engineering/README.md` | Update Reference Structure tree + fix Template Mirror Contract broken refs |
 | `.ai-engineering/context/product/framework-contract.md` | Update Target Installed Structure tree + fix mirror contract broken refs |
 | `.ai-engineering/context/specs/001-rewrite-v2/tasks.md` | Annotate deleted file paths to avoid validator match |
-| `.ai-engineering/context/specs/002-cross-ref-hardening/tasks.md` | Correct `skills/swe/` → `skills/lifecycle/` paths |
+| `.ai-engineering/context/specs/002-cross-ref-hardening/tasks.md` | Correct `skills/dev/` → `skills/govern/` paths |
 | `src/ai_engineering/templates/.ai-engineering/README.md` | Mirror canonical README fix |
 | `src/ai_engineering/templates/.ai-engineering/context/product/framework-contract.md` | Mirror canonical framework-contract fix |
 

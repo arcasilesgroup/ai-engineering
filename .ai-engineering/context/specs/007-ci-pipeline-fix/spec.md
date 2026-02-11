@@ -13,7 +13,7 @@ All 13 CI jobs in `.github/workflows/ci.yml` fail, and the `release.yml` build j
 
 1. **Dependency resolution (errors 1–12)**: Dev dependencies (`ruff`, `ty`, `pytest`, `pytest-cov`, `pip-audit`, `types-pyyaml`) are declared in `[project.optional-dependencies].dev` (pip extras), but CI uses `uv sync --dev` which resolves `[dependency-groups].dev` (PEP 735). No `[dependency-groups]` section exists in `pyproject.toml`, so no dev tools are installed. Every `uv run <tool>` fails with "Failed to spawn: No such file or directory".
 
-2. **Content integrity (error 13)**: `uv run ai-eng validate` reports 10 broken file references across 6 governance files. These reference deleted directories (backlog/, delivery/) and moved files (swe/create-skill.md → `skills/lifecycle/create-skill.md`). The validator exits with code 1 on any `FAIL`.
+2. **Content integrity (error 13)**: `uv run ai-eng validate` reports 10 broken file references across 6 governance files. These reference deleted directories (backlog/, delivery/) and moved files (dev/create-skill.md → `skills/govern/create-skill.md`). The validator exits with code 1 on any `FAIL`.
 
 The `build` job (`needs: [lint, typecheck, test, security, content-integrity]`) never runs because all upstream jobs fail.
 

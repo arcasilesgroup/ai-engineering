@@ -20,9 +20,9 @@ approach: "serial-phases"
 | `src/ai_engineering/templates/pipeline/github-risk-gate-step.yml` | GitHub Actions step template |
 | `src/ai_engineering/templates/pipeline/azure-risk-gate-task.yml` | Azure DevOps task template |
 | `.ai-engineering/skills/workflows/pre-implementation.md` | Pre-implementation hygiene skill |
-| `.ai-engineering/skills/lifecycle/accept-risk.md` | Risk acceptance skill |
-| `.ai-engineering/skills/lifecycle/resolve-risk.md` | Risk resolution skill |
-| `.ai-engineering/skills/lifecycle/renew-risk.md` | Risk renewal skill |
+| `.ai-engineering/skills/govern/accept-risk.md` | Risk acceptance skill |
+| `.ai-engineering/skills/govern/resolve-risk.md` | Risk resolution skill |
+| `.ai-engineering/skills/govern/renew-risk.md` | Risk renewal skill |
 | `tests/unit/test_git_operations.py` | Git helpers tests |
 | `tests/unit/test_branch_cleanup.py` | Branch cleanup tests |
 | `tests/unit/test_risk_lifecycle.py` | Risk lifecycle tests |
@@ -53,9 +53,9 @@ approach: "serial-phases"
 | Source | Mirror |
 |--------|--------|
 | `.ai-engineering/skills/workflows/pre-implementation.md` | `src/ai_engineering/templates/.ai-engineering/skills/workflows/pre-implementation.md` |
-| `.ai-engineering/skills/lifecycle/accept-risk.md` | `src/ai_engineering/templates/.ai-engineering/skills/lifecycle/accept-risk.md` |
-| `.ai-engineering/skills/lifecycle/resolve-risk.md` | `src/ai_engineering/templates/.ai-engineering/skills/lifecycle/resolve-risk.md` |
-| `.ai-engineering/skills/lifecycle/renew-risk.md` | `src/ai_engineering/templates/.ai-engineering/skills/lifecycle/renew-risk.md` |
+| `.ai-engineering/skills/govern/accept-risk.md` | `src/ai_engineering/templates/.ai-engineering/skills/govern/accept-risk.md` |
+| `.ai-engineering/skills/govern/resolve-risk.md` | `src/ai_engineering/templates/.ai-engineering/skills/govern/resolve-risk.md` |
+| `.ai-engineering/skills/govern/renew-risk.md` | `src/ai_engineering/templates/.ai-engineering/skills/govern/renew-risk.md` |
 
 ## File Structure
 

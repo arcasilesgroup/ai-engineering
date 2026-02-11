@@ -16,26 +16,26 @@ next_session: "CLOSED"
 
 ## Phase 1: Skill create-spec [L]
 
-- [x] 1.1 Create canonical `skills/lifecycle/create-spec.md` — 8-phase procedure with branch-first step.
-- [x] 1.2 Create template mirror `src/.../skills/lifecycle/create-spec.md` (byte-identical).
+- [x] 1.1 Create canonical `skills/govern/create-spec.md` — 8-phase procedure with branch-first step.
+- [x] 1.2 Create template mirror `src/.../skills/govern/create-spec.md` (byte-identical).
 
 ## Phase 2: Skills delete-skill and delete-agent [L]
 
-- [x] 2.1 Create canonical `skills/lifecycle/delete-skill.md` — inverse procedure with dependency checks.
+- [x] 2.1 Create canonical `skills/govern/delete-skill.md` — inverse procedure with dependency checks.
 - [x] 2.2 Create template mirror for delete-skill (byte-identical).
-- [x] 2.3 Create canonical `skills/lifecycle/delete-agent.md` — inverse procedure with dependency checks.
+- [x] 2.3 Create canonical `skills/govern/delete-agent.md` — inverse procedure with dependency checks.
 - [x] 2.4 Create template mirror for delete-agent (byte-identical).
 
 ## Phase 3: Skill content-integrity [L]
 
-- [x] 3.1 Create canonical `skills/lifecycle/content-integrity.md` — 6-category validation skill.
+- [x] 3.1 Create canonical `skills/govern/integrity-check.md` — 6-category validation skill.
 - [x] 3.2 Create template mirror for content-integrity (byte-identical).
 
 ## Phase 4: Expand verify-app [S]
 
 - [x] 4.1 Add content integrity capability to `agents/verify-app.md`.
 - [x] 4.2 Add behavior step 10: execute content-integrity skill.
-- [x] 4.3 Add `skills/lifecycle/content-integrity.md` to Referenced Skills.
+- [x] 4.3 Add `skills/govern/integrity-check.md` to Referenced Skills.
 - [x] 4.4 Update verify-app template mirror (byte-identical).
 
 ## Phase 5: Enforcement rules [M]
