@@ -21,11 +21,11 @@ next_session: done
 
 ### Phase 1: Context Architecture Migration — `S1 · Agent-1 · rewrite/v2 · ✓ COMPLETE`
 
-- [x] **Task 1.1**: Absorb `context/product/vision.md` into `framework-contract.md` — add Personas and Success Metrics sections
-- [x] **Task 1.2**: Absorb `context/product/roadmap.md` into `framework-contract.md` — add Roadmap Overview and Release Model section
+- [x] **Task 1.1**: Absorb vision.md (deleted) into `framework-contract.md` — add Personas and Success Metrics sections
+- [x] **Task 1.2**: Absorb roadmap.md (deleted) into `framework-contract.md` — add Roadmap Overview and Release Model section
 - [x] **Task 1.3**: Create `context/product/product-contract.md` — project living document for ai-engineering itself (dogfooding). Sections: Project Identity (name, repo, owner, status), Product Goals (current phase objectives, success criteria), Release Status (current version, next milestone, blockers), Active Spec (pointer to `specs/_active.md`), KPIs (install adoption, quality gate pass rate, agent coverage), Stakeholders, Decision Log Summary (pointer to `state/decision-store.json`)
 - [x] **Task 1.4**: Delete redundant files: `vision.md`, `roadmap.md`, `rebuild-rollout-charter.md`, `framework-adoption-map.md`
-- [x] **Task 1.4b**: Delete orphan planning prompts: `context/product/plan-aiEngineeringRewrite.prompt.md`, `context/product/plan-context-architecture.prompt.md` — content fully absorbed by `specs/001-rewrite-v2/`
+- [x] **Task 1.4b**: Delete orphan planning prompts: plan-aiEngineeringRewrite.prompt.md, plan-context-architecture.prompt.md (deleted) — content fully absorbed by `specs/001-rewrite-v2/`
 - [x] **Task 1.5**: Delete `context/backlog/` directory entirely (absorbed by specs/)
 - [x] **Task 1.6**: Delete `context/delivery/` directory entirely (absorbed by specs/done.md)
 - [x] **Task 1.7**: Update `manifest.yml`, `.github/copilot-instructions.md`, `AGENTS.md`, `CLAUDE.md` — **remove references to deleted files only** (`backlog/`, `delivery/`, `vision.md`, `roadmap.md`, prompt files). Add `agents/**` to `framework_managed` in manifest. Do NOT add comprehensive content references — that is Phase 7's scope (Tasks 7.4, 7.6, 7.7)

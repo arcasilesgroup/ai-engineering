@@ -15,8 +15,8 @@ next_session: done
 ## Phase 1: New Skill Creation — `S0 · Agent-1 · ✓ COMPLETE`
 
 - [x] **Task 1.1**: Create `skills/swe/changelog-documentation.md` (canonical + mirror)
-- [x] **Task 1.2**: Create `skills/swe/create-skill.md` (canonical + mirror)
-- [x] **Task 1.3**: Create `skills/swe/create-agent.md` (canonical + mirror)
+- [x] **Task 1.2**: Create `skills/lifecycle/create-skill.md` (canonical + mirror)
+- [x] **Task 1.3**: Create `skills/lifecycle/create-agent.md` (canonical + mirror)
 - [x] **Task 1.4**: Create `skills/swe/doc-writer.md` (canonical + mirror)
 
 ## Phase 2: Cross-Reference Hardening — `S0 · Agent-1 · ✓ COMPLETE`
