@@ -34,6 +34,7 @@ Systematic diagnostician who approaches bugs methodically with persistent state 
 
 - `skills/swe/debug.md` — systematic diagnosis procedure.
 - `skills/swe/test-strategy.md` — writing regression tests.
+- `skills/swe/explain.md` — explain root causes and debugging concepts.
 
 ## Referenced Standards
 

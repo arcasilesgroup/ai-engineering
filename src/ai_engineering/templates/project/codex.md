@@ -45,6 +45,7 @@ Procedural skills guide structured execution. Reference the relevant skill befor
 - `.ai-engineering/skills/swe/prompt-engineer.md` — prompt engineering frameworks.
 - `.ai-engineering/skills/swe/python-mastery.md` — comprehensive Python patterns.
 - `.ai-engineering/skills/swe/doc-writer.md` — open-source documentation generation.
+- `.ai-engineering/skills/swe/explain.md` — Feynman-style code and concept explanations.
 
 ### Lifecycle Skills
 

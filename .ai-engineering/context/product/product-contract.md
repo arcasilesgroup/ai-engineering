@@ -23,7 +23,7 @@ This project dogfoods the ai-engineering framework on itself.
 
 ### Active Objectives
 
-1. Complete governance content: 32 skills, 8 agents, 3 stack instructions.
+1. Complete governance content: 33 skills, 8 agents, 3 stack instructions.
 2. Rewrite all Python modules from scratch following new standards.
 3. Achieve CI/CD with cross-OS matrix (Python 3.11/3.12/3.13 × Ubuntu/Windows/macOS).
 4. Validate full E2E install/update/doctor cycle.
@@ -46,12 +46,12 @@ This project dogfoods the ai-engineering framework on itself.
 
 ## Active Spec
 
-Current work tracked in: `specs/_active.md` → `010-version-lifecycle`.
+Current work tracked in: `specs/_active.md` → `011-explain-skill`.
 
 Read sequence:
-1. `specs/010-version-lifecycle/spec.md` — problem, solution, scope, decisions
-2. `specs/010-version-lifecycle/plan.md` — architecture, session map, patterns
-3. `specs/010-version-lifecycle/tasks.md` — ordered phases, checkboxes
+1. `specs/011-explain-skill/spec.md` — problem, solution, scope, decisions
+2. `specs/011-explain-skill/plan.md` — architecture, session map, patterns
+3. `specs/011-explain-skill/tasks.md` — ordered phases, checkboxes
 
 ## KPIs
 
@@ -59,7 +59,7 @@ Read sequence:
 |--------|--------|---------|
 | Install adoption (repos using framework) | Tracking | Pre-release |
 | Quality gate pass rate | 100% on governed ops | Establishing baseline |
-| Agent coverage (skills + agents defined) | 32 skills + 8 agents | 0/32 skills, 0/8 agents |
+| Agent coverage (skills + agents defined) | 33 skills + 8 agents | 0/33 skills, 0/8 agents |
 | Test coverage | ≥80% | Rewrite pending |
 | Cross-OS CI pass | 3×3 matrix green | CI not yet created |
 
