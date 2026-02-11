@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import hashlib
 import re
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path
@@ -908,7 +909,7 @@ def validate_content_integrity(
     """
     report = IntegrityReport()
 
-    checkers: list[tuple[IntegrityCategory, object]] = [
+    checkers: list[tuple[IntegrityCategory, Callable[[Path, IntegrityReport], None]]] = [
         (IntegrityCategory.FILE_EXISTENCE, _check_file_existence),
         (IntegrityCategory.MIRROR_SYNC, _check_mirror_sync),
         (IntegrityCategory.COUNTER_ACCURACY, _check_counter_accuracy),
