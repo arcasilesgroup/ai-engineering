@@ -1,7 +1,7 @@
 ---
 id: "011"
 slug: "explain-skill"
-status: "in-progress"
+status: "done"
 created: "2026-02-11"
 ---
 
