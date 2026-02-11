@@ -125,11 +125,21 @@ class TestHookChecks:
         assert hook_check.status == CheckStatus.WARN
 
     def test_fails_when_hooks_missing(self, installed_git_project: Path) -> None:
+        # Remove auto-installed hooks to simulate missing state
+        for hook in (installed_git_project / ".git" / "hooks").glob("pre-*"):
+            hook.unlink()
+        for hook in (installed_git_project / ".git" / "hooks").glob("commit-msg*"):
+            hook.unlink()
         report = diagnose(installed_git_project)
         hook_check = _find_check(report, "git-hooks")
         assert hook_check.status == CheckStatus.FAIL
 
     def test_fix_hooks_reinstalls(self, installed_git_project: Path) -> None:
+        # Remove auto-installed hooks to simulate missing state
+        for hook in (installed_git_project / ".git" / "hooks").glob("pre-*"):
+            hook.unlink()
+        for hook in (installed_git_project / ".git" / "hooks").glob("commit-msg*"):
+            hook.unlink()
         report = diagnose(installed_git_project, fix_hooks=True)
         hook_check = _find_check(report, "git-hooks")
         assert hook_check.status == CheckStatus.FIXED

@@ -282,20 +282,25 @@ class TestAddStack:
     """Tests for add_stack operation."""
 
     def test_adds_new_stack(self, installed_project: Path) -> None:
-        manifest = add_stack(installed_project, "node")
-        assert "node" in manifest.installed_stacks
+        remove_stack(installed_project, "python")
+        manifest = add_stack(installed_project, "python")
         assert "python" in manifest.installed_stacks
 
     def test_raises_on_duplicate_stack(self, installed_project: Path) -> None:
         with pytest.raises(InstallerError, match="already installed"):
             add_stack(installed_project, "python")
 
+    def test_raises_on_unknown_stack(self, installed_project: Path) -> None:
+        with pytest.raises(InstallerError, match="Unknown stack"):
+            add_stack(installed_project, "bogus")
+
     def test_logs_audit_entry(self, installed_project: Path) -> None:
-        add_stack(installed_project, "rust")
+        remove_stack(installed_project, "python")
+        add_stack(installed_project, "python")
         audit = _read_audit_log(installed_project)
         stack_events = [e for e in audit if e["event"] == "stack-add"]
         assert len(stack_events) == 1
-        assert "rust" in stack_events[0]["detail"]
+        assert "python" in stack_events[0]["detail"]
 
 
 class TestRemoveStack:
@@ -344,9 +349,10 @@ class TestListStatus:
         assert "python" in manifest.installed_stacks
 
     def test_reflects_mutations(self, installed_project: Path) -> None:
-        add_stack(installed_project, "go")
+        remove_stack(installed_project, "python")
+        add_stack(installed_project, "python")
         manifest = list_status(installed_project)
-        assert "go" in manifest.installed_stacks
+        assert "python" in manifest.installed_stacks
 
     def test_raises_without_install(self, tmp_path: Path) -> None:
         with pytest.raises(InstallerError, match="not installed"):
