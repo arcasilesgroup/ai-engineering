@@ -117,15 +117,17 @@ def _make_instruction_content(
 def _write_all_instruction_files(
     root: Path, content: str | None = None,
 ) -> None:
-    """Write identical instruction files to all 6 standard locations."""
+    """Write identical instruction files to all 8 standard locations."""
     text = content if content is not None else _make_instruction_content()
     files = [
         root / ".github" / "copilot-instructions.md",
         root / "AGENTS.md",
         root / "CLAUDE.md",
+        root / "codex.md",
         root / "src" / "ai_engineering" / "templates" / "project" / "copilot-instructions.md",
         root / "src" / "ai_engineering" / "templates" / "project" / "AGENTS.md",
         root / "src" / "ai_engineering" / "templates" / "project" / "CLAUDE.md",
+        root / "src" / "ai_engineering" / "templates" / "project" / "codex.md",
     ]
     for f in files:
         f.parent.mkdir(parents=True, exist_ok=True)

@@ -127,9 +127,11 @@ _INSTRUCTION_FILES: list[str] = [
     ".github/copilot-instructions.md",
     "AGENTS.md",
     "CLAUDE.md",
+    "codex.md",
     "src/ai_engineering/templates/project/copilot-instructions.md",
     "src/ai_engineering/templates/project/AGENTS.md",
     "src/ai_engineering/templates/project/CLAUDE.md",
+    "src/ai_engineering/templates/project/codex.md",
 ]
 
 # Mirror pairs: (canonical_root, mirror_root, glob_patterns, exclusion_prefixes)
@@ -215,6 +217,9 @@ def _check_file_existence(target: Path, report: IntegrityReport) -> None:
             ref_path = ref_path.strip("`").lstrip(".")
             if ref_path.startswith("ai-engineering/"):
                 ref_path = ref_path[len("ai-engineering/") :]
+            # Skip template placeholders like <name>, <stack>, <category>
+            if "<" in ref_path and ">" in ref_path:
+                continue
             full_path = ai_dir / ref_path
             if not full_path.exists():
                 rel_source = md_file.relative_to(target).as_posix()
