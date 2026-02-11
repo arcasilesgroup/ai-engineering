@@ -68,3 +68,4 @@ Deep code review skill covering security, quality, performance, and maintainabil
 - `skills/swe/performance-analysis.md` — performance evaluation procedure.
 - `agents/principal-engineer.md` — agent that performs deep reviews.
 - `agents/code-simplifier.md` — agent that uses code quality criteria.
+- `skills/swe/explain.md` — explain findings and concepts to the author.
