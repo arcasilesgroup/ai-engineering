@@ -143,5 +143,9 @@ def doctor_cmd(
 
 
 def version_cmd() -> None:
-    """Show the installed ai-engineering version."""
-    typer.echo(f"ai-engineering {__version__}")
+    """Show the installed ai-engineering version and lifecycle status."""
+    from ai_engineering.version.checker import check_version, load_registry
+
+    registry = load_registry()
+    result = check_version(__version__, registry)
+    typer.echo(f"ai-engineering {result.message}")

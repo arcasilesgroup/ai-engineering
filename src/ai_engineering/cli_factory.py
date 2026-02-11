@@ -2,13 +2,52 @@
 
 Builds the main Typer app with all command groups registered.
 The factory pattern allows tests to create isolated app instances.
+
+Includes a version lifecycle callback that:
+- Blocks deprecated versions on non-exempt commands (security enforcement).
+- Warns about outdated versions on stderr (non-blocking).
 """
 
 from __future__ import annotations
 
+import sys
+
 import typer
 
 from ai_engineering.cli_commands import core, gate, maintenance, skills, stack_ide, validate
+
+# Commands exempt from deprecation blocking (needed for diagnosis and remediation).
+_EXEMPT_COMMANDS: frozenset[str] = frozenset({"version", "update", "doctor"})
+
+
+def _version_lifecycle_callback(ctx: typer.Context) -> None:
+    """App-level callback enforcing version lifecycle policy.
+
+    - Deprecated/EOL versions: block all commands except exempt ones (D-010-2).
+    - Outdated versions: print warning to stderr (non-blocking).
+    - Fail-open on registry errors (D-010-3).
+    """
+    if ctx.invoked_subcommand is None:
+        return
+
+    from ai_engineering.__version__ import __version__
+    from ai_engineering.version.checker import check_version
+
+    result = check_version(__version__)
+
+    command = ctx.invoked_subcommand or ""
+
+    if (result.is_deprecated or result.is_eol) and command not in _EXEMPT_COMMANDS:
+        status_label = "deprecated" if result.is_deprecated else "end-of-life"
+        sys.stderr.write(
+            f"BLOCKED: ai-engineering {__version__} is {status_label}.\n"
+            f"  {result.message}\n"
+            f"  Run 'ai-eng update' to upgrade or 'ai-eng doctor' to diagnose.\n"
+        )
+        raise typer.Exit(code=1)
+
+    if result.is_outdated:
+        sys.stderr.write(f"WARNING: {result.message}\n  Run 'ai-eng update' to upgrade.\n")
 
 
 def create_app() -> typer.Typer:
@@ -29,6 +68,8 @@ def create_app() -> typer.Typer:
         help="AI governance framework for secure software delivery.",
         no_args_is_help=True,
         rich_markup_mode="rich",
+        callback=_version_lifecycle_callback,
+        invoke_without_command=True,
     )
 
     # Core commands (top-level)

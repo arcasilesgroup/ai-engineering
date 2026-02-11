@@ -120,6 +120,7 @@ def diagnose(
     _check_tools(report, fix=fix_tools)
     _check_vcs_tools(report)
     _check_branch_policy(target, report)
+    _check_version(report)
 
     return report
 
@@ -332,6 +333,52 @@ def _check_branch_policy(target: Path, report: DoctorReport) -> None:
                 name="branch-policy",
                 status=CheckStatus.OK,
                 message=f"On branch: {branch}",
+            )
+        )
+
+
+def _check_version(report: DoctorReport) -> None:
+    """Check the version lifecycle status of the installed framework.
+
+    Reports OK for current, WARN for outdated/supported, FAIL for deprecated/eol.
+    Fail-open: registry errors produce a WARN, not a FAIL.
+    """
+    from ai_engineering.__version__ import __version__
+    from ai_engineering.version.checker import check_version
+
+    result = check_version(__version__)
+
+    if result.status is None:
+        report.checks.append(
+            CheckResult(
+                name="version-lifecycle",
+                status=CheckStatus.WARN,
+                message=result.message,
+            )
+        )
+    elif result.is_current:
+        report.checks.append(
+            CheckResult(
+                name="version-lifecycle",
+                status=CheckStatus.OK,
+                message=result.message,
+            )
+        )
+    elif result.is_deprecated or result.is_eol:
+        report.checks.append(
+            CheckResult(
+                name="version-lifecycle",
+                status=CheckStatus.FAIL,
+                message=result.message,
+            )
+        )
+    else:
+        # Outdated or supported — warning only
+        report.checks.append(
+            CheckResult(
+                name="version-lifecycle",
+                status=CheckStatus.WARN,
+                message=result.message,
             )
         )
 

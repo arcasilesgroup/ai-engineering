@@ -1,7 +1,7 @@
 ---
 spec: "009"
 title: "Updater Hardening"
-status: "IN_PROGRESS"
+status: "done"
 created: "2026-02-11"
 branch: "feat/009-updater-hardening"
 base: "334ee92"
