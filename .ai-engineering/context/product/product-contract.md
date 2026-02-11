@@ -46,12 +46,12 @@ This project dogfoods the ai-engineering framework on itself.
 
 ## Active Spec
 
-Current work tracked in: `specs/_active.md` → `008-claude-code-optimization`.
+Current work tracked in: `specs/_active.md` → `009-updater-hardening`.
 
 Read sequence:
-1. `specs/008-claude-code-optimization/spec.md` — problem, solution, scope, decisions
-2. `specs/008-claude-code-optimization/plan.md` — architecture, session map, patterns
-3. `specs/008-claude-code-optimization/tasks.md` — ordered phases, checkboxes
+1. `specs/009-updater-hardening/spec.md` — problem, solution, scope, decisions
+2. `specs/009-updater-hardening/plan.md` — architecture, session map, patterns
+3. `specs/009-updater-hardening/tasks.md` — ordered phases, checkboxes
 
 ## KPIs
 
