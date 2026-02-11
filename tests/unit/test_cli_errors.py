@@ -47,4 +47,5 @@ class TestCleanErrorMessages:
     def test_error_message_includes_path(self) -> None:
         app = create_app()
         result = runner.invoke(app, ["install", "/nonexistent/path"])
-        assert "/nonexistent/path" in result.output
+        # On Windows the path is resolved with backslashes (e.g. D:\nonexistent\path)
+        assert "nonexistent" in result.output
