@@ -52,4 +52,4 @@ Execute branch hygiene before starting any new implementation work. Ensures the 
 
 - `standards/framework/core.md` — non-negotiables and branch protection rules.
 - `skills/workflows/commit.md` — commit flow that happens after implementation.
-- `skills/lifecycle/create-spec.md` — spec creation that precedes implementation.
+- `skills/govern/create-spec.md` — spec creation that precedes implementation.

@@ -34,10 +34,10 @@ Systems architect who analyzes software architecture: dependencies, boundaries, 
 
 ## Referenced Skills
 
-- `skills/swe/architecture-analysis.md` — analysis procedure.
-- `skills/swe/refactor.md` — for implementing architectural improvements.
-- `skills/swe/python-mastery.md` — design patterns domain.
-- `skills/swe/explain.md` — explain architectural patterns and tradeoffs.
+- `skills/review/architecture.md` — analysis procedure.
+- `skills/dev/refactor.md` — for implementing architectural improvements.
+- `skills/utils/python-patterns.md` — design patterns domain.
+- `skills/docs/explain.md` — explain architectural patterns and tradeoffs.
 
 ## Referenced Standards
 

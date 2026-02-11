@@ -21,34 +21,34 @@ _SKILL_PATHS = [
     "skills/workflows/pr.md",
     "skills/workflows/acho.md",
     "skills/workflows/pre-implementation.md",
-    "skills/swe/debug.md",
-    "skills/swe/refactor.md",
-    "skills/swe/changelog-documentation.md",
-    "skills/swe/code-review.md",
-    "skills/swe/test-strategy.md",
-    "skills/swe/architecture-analysis.md",
-    "skills/swe/pr-creation.md",
-    "skills/swe/dependency-update.md",
-    "skills/swe/performance-analysis.md",
-    "skills/swe/security-review.md",
-    "skills/swe/migration.md",
-    "skills/swe/prompt-engineer.md",
-    "skills/swe/python-mastery.md",
-    "skills/swe/doc-writer.md",
-    "skills/lifecycle/content-integrity.md",
-    "skills/lifecycle/create-agent.md",
-    "skills/lifecycle/create-skill.md",
-    "skills/lifecycle/create-spec.md",
-    "skills/lifecycle/delete-agent.md",
-    "skills/lifecycle/delete-skill.md",
-    "skills/lifecycle/accept-risk.md",
-    "skills/lifecycle/resolve-risk.md",
-    "skills/lifecycle/renew-risk.md",
+    "skills/dev/debug.md",
+    "skills/dev/refactor.md",
+    "skills/dev/code-review.md",
+    "skills/dev/test-strategy.md",
+    "skills/dev/migration.md",
+    "skills/dev/deps-update.md",
+    "skills/review/architecture.md",
+    "skills/review/performance.md",
+    "skills/review/security.md",
+    "skills/docs/changelog.md",
+    "skills/docs/explain.md",
+    "skills/docs/writer.md",
+    "skills/docs/prompt-design.md",
+    "skills/govern/integrity-check.md",
+    "skills/govern/create-agent.md",
+    "skills/govern/create-skill.md",
+    "skills/govern/create-spec.md",
+    "skills/govern/delete-agent.md",
+    "skills/govern/delete-skill.md",
+    "skills/govern/accept-risk.md",
+    "skills/govern/resolve-risk.md",
+    "skills/govern/renew-risk.md",
     "skills/quality/audit-code.md",
     "skills/quality/audit-report.md",
+    "skills/quality/install-check.md",
     "skills/utils/git-helpers.md",
-    "skills/utils/platform-detection.md",
-    "skills/validation/install-readiness.md",
+    "skills/utils/platform-detect.md",
+    "skills/utils/python-patterns.md",
 ]
 
 _AGENT_PATHS = [
@@ -68,11 +68,12 @@ def _make_governance(root: Path) -> Path:
     ai = root / ".ai-engineering"
     for d in [
         "skills/workflows",
-        "skills/swe",
-        "skills/lifecycle",
+        "skills/dev",
+        "skills/review",
+        "skills/docs",
+        "skills/govern",
         "skills/quality",
         "skills/utils",
-        "skills/validation",
         "agents",
         "standards/framework",
         "standards/team",
@@ -100,11 +101,12 @@ def _make_instruction_content(
     agent_list = agents if agents is not None else _AGENT_PATHS
     prefixes = {
         "Workflows": "skills/workflows/",
-        "SWE Skills": "skills/swe/",
-        "Lifecycle Skills": "skills/lifecycle/",
+        "Dev Skills": "skills/dev/",
+        "Review Skills": "skills/review/",
+        "Docs Skills": "skills/docs/",
+        "Govern Skills": "skills/govern/",
         "Quality Skills": "skills/quality/",
         "Utility Skills": "skills/utils/",
-        "Validation Skills": "skills/validation/",
     }
     lines = ["# Instructions", "", "## Skills", ""]
     for heading, prefix in prefixes.items():
@@ -542,9 +544,9 @@ class TestCrossReference:
 
     def test_valid_references_pass(self, tmp_path: Path) -> None:
         ai = _setup_full_project(tmp_path)
-        skill = ai / "skills" / "swe" / "debug.md"
+        skill = ai / "skills" / "dev" / "debug.md"
         skill.write_text(
-            "# Debug\n\n## References\n\n- `skills/swe/refactor.md`\n",
+            "# Debug\n\n## References\n\n- `skills/dev/refactor.md`\n",
             encoding="utf-8",
         )
         report = validate_content_integrity(
@@ -555,9 +557,9 @@ class TestCrossReference:
 
     def test_broken_reference_detected(self, tmp_path: Path) -> None:
         ai = _setup_full_project(tmp_path)
-        skill = ai / "skills" / "swe" / "debug.md"
+        skill = ai / "skills" / "dev" / "debug.md"
         skill.write_text(
-            "# Debug\n\n## References\n\n- `skills/swe/nonexistent.md`\n",
+            "# Debug\n\n## References\n\n- `skills/dev/nonexistent.md`\n",
             encoding="utf-8",
         )
         report = validate_content_integrity(
