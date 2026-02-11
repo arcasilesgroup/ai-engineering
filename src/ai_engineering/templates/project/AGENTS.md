@@ -10,6 +10,17 @@ This file is automatically consumed by GitHub Copilot (agent mode), Claude Code,
 - `.ai-engineering/` is the single source of truth for governance and context.
 - Agents must treat `.ai-engineering/manifest.yml` and `.ai-engineering/context/**` as authoritative.
 
+## Session Start Protocol
+
+Before any non-trivial implementation work:
+
+1. **Read active spec** — `.ai-engineering/context/specs/_active.md` and linked spec/plan/tasks files.
+2. **Read decision store** — `.ai-engineering/state/decision-store.json` to avoid re-asking decided questions.
+3. **Run pre-implementation** — sync the repository (git pull, prune, cleanup, create feature branch).
+4. **Verify tooling** — confirm ruff, gitleaks, pytest, ty are available.
+
+This protocol is mandatory. Skipping it risks working on stale code, repeating decided questions, or creating merge conflicts.
+
 ## Required References
 
 Read these before any non-trivial work:

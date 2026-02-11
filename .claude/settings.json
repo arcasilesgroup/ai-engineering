@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ruff *)",
+      "Bash(ty *)",
+      "Bash(uv *)",
+      "Bash(pip-audit *)",
+      "Bash(gitleaks *)",
+      "Bash(gh *)",
+      "Bash(git *)",
+      "Bash(pytest *)",
+      "Bash(.venv/bin/ruff *)",
+      "Bash(.venv/bin/ty *)",
+      "Bash(.venv/bin/python -m pytest *)",
+      "Bash(.venv/bin/pip-audit *)",
+      "Bash(ls *)",
+      "Bash(mkdir *)",
+      "Bash(cat *)"
+    ],
+    "deny": [
+      "Bash(rm -rf *)",
+      "Bash(git push --force *)",
+      "Bash(git reset --hard *)",
+      "Bash(git checkout . *)",
+      "Bash(git clean -f *)"
+    ]
+  }
+}

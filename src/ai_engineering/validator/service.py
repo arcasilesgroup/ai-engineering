@@ -76,11 +76,7 @@ class IntegrityReport:
 
     def category_passed(self, category: IntegrityCategory) -> bool:
         """True if all checks in a category passed (no FAIL)."""
-        return all(
-            c.status != CheckStatus.FAIL
-            for c in self.checks
-            if c.category == category
-        )
+        return all(c.status != CheckStatus.FAIL for c in self.checks if c.category == category)
 
     def to_dict(self) -> dict[str, object]:
         """Serialize report for JSON output."""
@@ -100,9 +96,7 @@ class IntegrityReport:
                     for c in cat_checks
                 ],
             }
-        categories_passed = sum(
-            1 for cat in IntegrityCategory if self.category_passed(cat)
-        )
+        categories_passed = sum(1 for cat in IntegrityCategory if self.category_passed(cat))
         return {
             "passed": self.passed,
             "summary": self.summary,
@@ -148,20 +142,12 @@ _CLAUDE_COMMANDS_MIRROR = (
 )
 
 # Skill/agent listing patterns in instruction files
-_SKILL_LINE_PATTERN = re.compile(
-    r"^- `\.ai-engineering/skills/(.+\.md)`", re.MULTILINE
-)
-_AGENT_LINE_PATTERN = re.compile(
-    r"^- `\.ai-engineering/agents/(.+\.md)`", re.MULTILINE
-)
+_SKILL_LINE_PATTERN = re.compile(r"^- `\.ai-engineering/skills/(.+\.md)`", re.MULTILINE)
+_AGENT_LINE_PATTERN = re.compile(r"^- `\.ai-engineering/agents/(.+\.md)`", re.MULTILINE)
 
 # Product-contract counter patterns
-_OBJECTIVE_COUNTER_PATTERN = re.compile(
-    r"(\d+)\s+skills?,\s*(\d+)\s+agents?"
-)
-_KPI_COUNTER_PATTERN = re.compile(
-    r"(\d+)\s+skills?\s*\+\s*(\d+)\s+agents?"
-)
+_OBJECTIVE_COUNTER_PATTERN = re.compile(r"(\d+)\s+skills?,\s*(\d+)\s+agents?")
+_KPI_COUNTER_PATTERN = re.compile(r"(\d+)\s+skills?\s*\+\s*(\d+)\s+agents?")
 
 
 def _sha256(path: Path) -> str:
@@ -383,9 +369,7 @@ def _check_mirror_sync(target: Path, report: IntegrityReport) -> None:
         )
 
 
-def _check_claude_commands_mirror(
-    target: Path, report: IntegrityReport
-) -> None:
+def _check_claude_commands_mirror(target: Path, report: IntegrityReport) -> None:
     """Check .claude/commands/ mirror sync."""
     canonical_root = target / _CLAUDE_COMMANDS_MIRROR[0]
     mirror_root = target / _CLAUDE_COMMANDS_MIRROR[1]
@@ -404,14 +388,10 @@ def _check_claude_commands_mirror(
         return
 
     canonical_files = {
-        f.relative_to(canonical_root)
-        for f in sorted(canonical_root.rglob("*.md"))
-        if f.is_file()
+        f.relative_to(canonical_root) for f in sorted(canonical_root.rglob("*.md")) if f.is_file()
     }
     mirror_files = {
-        f.relative_to(mirror_root)
-        for f in sorted(mirror_root.rglob("*.md"))
-        if f.is_file()
+        f.relative_to(mirror_root) for f in sorted(mirror_root.rglob("*.md")) if f.is_file()
     }
 
     mismatches = 0
@@ -599,9 +579,7 @@ def _check_counter_accuracy(target: Path, report: IntegrityReport) -> None:
 # Category 4: Cross-Reference Integrity
 # ---------------------------------------------------------------------------
 
-_REFERENCES_SECTION = re.compile(
-    r"^## References\s*\n(.*?)(?=\n## |\Z)", re.MULTILINE | re.DOTALL
-)
+_REFERENCES_SECTION = re.compile(r"^## References\s*\n(.*?)(?=\n## |\Z)", re.MULTILINE | re.DOTALL)
 _REF_LINE = re.compile(r"^- `([^`]+)`", re.MULTILINE)
 
 
@@ -686,9 +664,7 @@ _REQUIRED_SUBSECTIONS = {
 }
 
 
-def _check_instruction_consistency(
-    target: Path, report: IntegrityReport
-) -> None:
+def _check_instruction_consistency(target: Path, report: IntegrityReport) -> None:
     """Verify all 6 instruction files list identical skills and agents."""
     all_skills: dict[str, set[str]] = {}
     all_agents: dict[str, set[str]] = {}
@@ -753,10 +729,7 @@ def _check_instruction_consistency(
                     category=IntegrityCategory.INSTRUCTION_CONSISTENCY,
                     name=f"skills-differ-{file_rel}",
                     status=CheckStatus.FAIL,
-                    message=(
-                        f"Skills differ from {reference_file}: "
-                        f"{'; '.join(details)}"
-                    ),
+                    message=(f"Skills differ from {reference_file}: {'; '.join(details)}"),
                     file_path=file_rel,
                 )
             )
@@ -778,10 +751,7 @@ def _check_instruction_consistency(
                     category=IntegrityCategory.INSTRUCTION_CONSISTENCY,
                     name=f"agents-differ-{file_rel}",
                     status=CheckStatus.FAIL,
-                    message=(
-                        f"Agents differ from {reference_file}: "
-                        f"{'; '.join(details)}"
-                    ),
+                    message=(f"Agents differ from {reference_file}: {'; '.join(details)}"),
                     file_path=file_rel,
                 )
             )
@@ -916,9 +886,7 @@ _CATEGORY_CHECKS: dict[
 ] = {}
 
 # Map category to checker function
-_CHECKERS: list[
-    tuple[IntegrityCategory, type[None]]
-] = []
+_CHECKERS: list[tuple[IntegrityCategory, type[None]]] = []
 
 
 def validate_content_integrity(

@@ -19,9 +19,7 @@ from ai_engineering.validator.service import (
 )
 
 # Map CLI-friendly names to enum values
-_CATEGORY_NAMES: dict[str, IntegrityCategory] = {
-    cat.value: cat for cat in IntegrityCategory
-}
+_CATEGORY_NAMES: dict[str, IntegrityCategory] = {cat.value: cat for cat in IntegrityCategory}
 
 
 def validate_cmd(
@@ -66,7 +64,8 @@ def validate_cmd(
         status = "PASS" if report.passed else "FAIL"
         by_cat = report.by_category()
         passed_count = sum(1 for cat in IntegrityCategory if report.category_passed(cat))
-        typer.echo(f"Content Integrity [{status}] ({passed_count}/{len(IntegrityCategory)} categories passed)")
+        total_cats = len(IntegrityCategory)
+        typer.echo(f"Content Integrity [{status}] ({passed_count}/{total_cats} categories passed)")
         typer.echo()
 
         for cat in IntegrityCategory:
@@ -75,9 +74,7 @@ def validate_cmd(
             icon = "✓" if cat_pass else "✗"
             typer.echo(f"  {icon} {cat.value}")
             for check in cat_checks:
-                check_icon = {"ok": "✓", "warn": "⚠", "fail": "✗"}.get(
-                    check.status.value, "?"
-                )
+                check_icon = {"ok": "✓", "warn": "⚠", "fail": "✗"}.get(check.status.value, "?")
                 suffix = f" [{check.file_path}]" if check.file_path else ""
                 typer.echo(f"    {check_icon} {check.name}: {check.message}{suffix}")
 
