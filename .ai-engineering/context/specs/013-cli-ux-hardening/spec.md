@@ -1,7 +1,7 @@
 ---
 id: "013"
 slug: "cli-ux-hardening"
-status: "in-progress"
+status: "done"
 created: "2026-02-11"
 ---
 
