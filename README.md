@@ -17,9 +17,13 @@ ai-engineering gives your repository a complete governance layer — quality gat
 
 **Stack and IDE management** — Add technology stacks (e.g. `python`) and IDE integrations (e.g. `vscode`) to generate tailored instruction templates for AI coding agents.
 
-**Framework updates** — Update framework-managed files without touching your team or project content. Dry-run by default so you can review before applying.
+**Framework updates** — Update framework-managed files without touching your team or project content. Dry-run by default so you can review before applying. Use `--diff` to inspect changes and `--json` for machine-readable output.
 
 **Doctor diagnostics** — Diagnose framework health: validates layout, state integrity, git hooks, and tool availability. Auto-fix hooks and install missing tools.
+
+**Version lifecycle enforcement** — Deprecated or end-of-life versions block CLI commands (except `version`, `update`, `doctor`) until you upgrade. Outdated versions print a non-blocking warning.
+
+**Content integrity validation** — `ai-eng validate` runs 6 programmatic checks (file existence, mirror sync, counter accuracy, cross-references, instruction consistency, manifest coherence) to ensure governance content stays consistent.
 
 **Maintenance and reporting** — Generate health reports, clean stale branches, check risk status, and scan CI/CD pipelines for risk governance gates.
 
@@ -76,9 +80,15 @@ ai-eng doctor
 ai-eng install [TARGET]          # Bootstrap governance framework
 ai-eng update [TARGET]           # Preview framework file updates (dry-run)
 ai-eng update [TARGET] --apply   # Apply framework file updates
+ai-eng update [TARGET] --diff    # Show unified diffs for updated files
+ai-eng update [TARGET] --json    # Output report as JSON
 ai-eng doctor [TARGET]           # Diagnose framework health
 ai-eng doctor --fix-hooks        # Reinstall git hooks
 ai-eng doctor --fix-tools        # Install missing tools
+ai-eng doctor --json             # Output report as JSON
+ai-eng validate [TARGET]         # Validate content integrity (all 6 categories)
+ai-eng validate --category <cat> # Run a specific category only
+ai-eng validate --json           # Output report as JSON
 ai-eng version                   # Show installed version
 ```
 
@@ -119,12 +129,16 @@ ai-eng skill remove <url>        # Remove a remote skill source
 ### Maintenance
 
 ```bash
-ai-eng maintenance report                  # Generate health report
-ai-eng maintenance pr                      # Generate report + create PR
-ai-eng maintenance branch-cleanup          # Clean merged local branches
-ai-eng maintenance branch-cleanup --dry-run  # Preview without deleting
-ai-eng maintenance risk-status             # Show risk acceptance status
-ai-eng maintenance pipeline-compliance     # Scan pipelines for risk gates
+ai-eng maintenance report                        # Generate health report
+ai-eng maintenance report --staleness-days 60     # Custom staleness threshold
+ai-eng maintenance pr                             # Generate report + create PR
+ai-eng maintenance branch-cleanup                 # Clean merged local branches
+ai-eng maintenance branch-cleanup --dry-run       # Preview without deleting
+ai-eng maintenance branch-cleanup --base develop  # Use non-default base branch
+ai-eng maintenance branch-cleanup --force         # Force-delete unmerged branches
+ai-eng maintenance risk-status                    # Show risk acceptance status
+ai-eng maintenance pipeline-compliance            # Scan pipelines for risk gates
+ai-eng maintenance pipeline-compliance --suggest  # Show injection snippets for fixes
 ```
 
 ## Configuration
@@ -133,7 +147,7 @@ ai-engineering uses a content-first approach — configuration lives in the `.ai
 
 **At install time**, you control which stacks and IDEs to enable via `--stack` and `--ide` flags. You can add or remove them later with `ai-eng stack` and `ai-eng ide` commands.
 
-**Updates** are dry-run by default. Run `ai-eng update` to preview changes, then `ai-eng update --apply` to write them. The updater only touches framework-managed files — your team and project content is never overwritten.
+**Updates** are dry-run by default. Run `ai-eng update` to preview changes, then `ai-eng update --apply` to write them. Add `--diff` to see unified diffs or `--json` for machine-readable output. The updater only touches framework-managed files — your team and project content is never overwritten.
 
 **Doctor remediation** gives you `--fix-hooks` to reinstall git hooks and `--fix-tools` to auto-install missing Python tools (`ruff`, `ty`, `gitleaks`, `semgrep`, `pip-audit`).
 
@@ -148,7 +162,7 @@ Expired risks block `git push` until you remediate or renew them (max 2 renewals
 
 ## Architecture
 
-ai-engineering is a **content framework with a minimal CLI**. The governance layer is Markdown, YAML, and JSON documents in `.ai-engineering/`. The Python CLI (`ai-eng`) handles lifecycle operations only — install, update, doctor, and gate enforcement.
+ai-engineering is a **content framework with a minimal CLI**. The governance layer is Markdown, YAML, and JSON documents in `.ai-engineering/`. The Python CLI (`ai-eng`) handles lifecycle operations only — install, update, doctor, validate, and gate enforcement.
 
 ```
 your-project/
@@ -158,6 +172,7 @@ your-project/
 │   ├── skills/              # Procedural skill definitions
 │   ├── agents/              # Agent persona definitions
 │   └── state/               # Runtime state (JSON/NDJSON)
+├── .claude/commands/        # Claude Code slash command integration
 ├── .git/hooks/              # Installed quality gate hooks
 └── ...your code
 ```
