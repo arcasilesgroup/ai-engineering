@@ -30,7 +30,7 @@ next_session: "Phase 0 — Scaffold"
 - [ ] 2.3 Update `.ai-engineering/context/product/framework-contract.md` — fix Target Installed Structure tree to match actual layout
 - [ ] 2.4 Update `.ai-engineering/context/product/framework-contract.md` — reword mirror contract to remove deleted-path references
 - [ ] 2.5 Fix `.ai-engineering/context/specs/001-rewrite-v2/tasks.md` — annotate deleted file paths so they don't match validator regex
-- [ ] 2.6 Fix `.ai-engineering/context/specs/002-cross-ref-hardening/tasks.md` — correct `skills/swe/create-skill.md` → `skills/lifecycle/create-skill.md` and `skills/swe/create-agent.md` → `skills/lifecycle/create-agent.md`
+- [ ] 2.6 Fix `.ai-engineering/context/specs/002-cross-ref-hardening/tasks.md` — correct swe/create-skill.md → `skills/lifecycle/create-skill.md` and swe/create-agent.md → `skills/lifecycle/create-agent.md`
 - [ ] 2.7 Commit: `spec-007: Phase 2 — fix 10 broken file references in governance docs`
 
 ## Phase 3: Sync Template Mirrors [S]
