@@ -90,6 +90,40 @@ class TestOwnershipMap:
         om = default_ownership_map()
         assert om.is_writable_by_framework(".ai-engineering/state/audit-log.ndjson") is True
 
+    def test_update_allowed_for_framework_managed(self) -> None:
+        om = default_ownership_map()
+        assert om.is_update_allowed(".ai-engineering/standards/framework/core.md") is True
+
+    def test_update_denied_for_team_managed(self) -> None:
+        om = default_ownership_map()
+        assert om.is_update_allowed(".ai-engineering/standards/team/custom.md") is False
+
+    def test_update_denied_for_append_only(self) -> None:
+        om = default_ownership_map()
+        assert om.is_update_allowed(".ai-engineering/state/audit-log.ndjson") is False
+
+    def test_update_denied_for_no_match(self) -> None:
+        om = default_ownership_map()
+        assert om.is_update_allowed("some/unknown/path.txt") is False
+
+    def test_has_deny_rule_true(self) -> None:
+        om = default_ownership_map()
+        assert om.has_deny_rule(".ai-engineering/standards/team/core.md") is True
+
+    def test_has_deny_rule_false_for_allow(self) -> None:
+        om = default_ownership_map()
+        assert om.has_deny_rule(".ai-engineering/standards/framework/core.md") is False
+
+    def test_has_deny_rule_false_for_no_match(self) -> None:
+        om = default_ownership_map()
+        assert om.has_deny_rule("unknown/path.txt") is False
+
+    def test_claude_tree_ownership(self) -> None:
+        """The .claude/** pattern covers settings.json and commands/."""
+        om = default_ownership_map()
+        assert om.is_update_allowed(".claude/settings.json") is True
+        assert om.is_update_allowed(".claude/commands/commit.md") is True
+
 
 class TestDecisionStore:
     """Tests for DecisionStore model."""

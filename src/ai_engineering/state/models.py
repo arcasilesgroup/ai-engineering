@@ -213,13 +213,64 @@ class OwnershipMap(BaseModel):
     model_config = {"populate_by_name": True}
 
     def is_writable_by_framework(self, path: str) -> bool:
-        """Check if a path can be written by framework update flows."""
+        """Check if a path can be written by framework update flows.
+
+        Returns True for both ``ALLOW`` and ``APPEND_ONLY`` policies.
+        Use :meth:`is_update_allowed` for the stricter updater check that
+        excludes append-only paths.
+
+        Args:
+            path: Relative path to check against ownership patterns.
+
+        Returns:
+            True if the path is writable (allow or append-only).
+        """
         from fnmatch import fnmatch
 
         for entry in self.paths:
             if fnmatch(path, entry.pattern):
                 return entry.framework_update != FrameworkUpdatePolicy.DENY
         # Default: deny if no rule matches
+        return False
+
+    def is_update_allowed(self, path: str) -> bool:
+        """Check if a path can be fully replaced by a framework update.
+
+        Stricter than :meth:`is_writable_by_framework`: only ``ALLOW``
+        returns True.  ``APPEND_ONLY`` returns False because the updater
+        performs full file replacement, not appending.
+
+        Args:
+            path: Relative path to check against ownership patterns.
+
+        Returns:
+            True only if the matching rule has policy ``ALLOW``.
+            False for ``DENY``, ``APPEND_ONLY``, or no matching rule.
+        """
+        from fnmatch import fnmatch
+
+        for entry in self.paths:
+            if fnmatch(path, entry.pattern):
+                return entry.framework_update == FrameworkUpdatePolicy.ALLOW
+        # No matching rule → deny by default
+        return False
+
+    def has_deny_rule(self, path: str) -> bool:
+        """Check if a path has an explicit deny rule.
+
+        Used to decide whether creating a new file should be blocked.
+
+        Args:
+            path: Relative path to check.
+
+        Returns:
+            True if an explicit ``DENY`` rule matches the path.
+        """
+        from fnmatch import fnmatch
+
+        for entry in self.paths:
+            if fnmatch(path, entry.pattern):
+                return entry.framework_update == FrameworkUpdatePolicy.DENY
         return False
 
 

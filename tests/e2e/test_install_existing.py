@@ -10,6 +10,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from ai_engineering.installer.service import install
 from ai_engineering.state.io import read_json_model
 from ai_engineering.state.models import InstallManifest
@@ -162,3 +164,55 @@ class TestInstallExisting:
         manifest = read_json_model(manifest_path, InstallManifest)
         assert set(manifest.installed_stacks) == {"python", "node"}
         assert set(manifest.installed_ides) == {"vscode", "jetbrains"}
+
+    def test_update_applies_to_claude_tree(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """Update restores modified .claude/ tree files."""
+        install(tmp_path, stacks=["python"], ides=["vscode"])
+
+        commit_md = tmp_path / ".claude" / "commands" / "commit.md"
+        if not commit_md.exists():
+            pytest.skip("commit.md not deployed by installer")
+
+        original = commit_md.read_bytes()
+        commit_md.write_text("modified by user")
+
+        result = update(tmp_path, dry_run=False)
+
+        assert commit_md.read_bytes() == original
+        updated = [c for c in result.changes if c.path == commit_md and c.action == "update"]
+        assert len(updated) == 1
+
+    def test_update_rollback_preserves_state(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """Simulated write failure triggers rollback — files stay intact."""
+        from unittest.mock import patch
+
+        install(tmp_path, stacks=["python"], ides=["vscode"])
+
+        core_md = tmp_path / ".ai-engineering" / "standards" / "framework" / "core.md"
+        core_md.write_text("modified content")
+        stacks_dir = tmp_path / ".ai-engineering" / "standards" / "framework" / "stacks"
+        stacks_md = stacks_dir / "python.md"
+        stacks_md.write_text("also modified")
+
+        original_write = Path.write_bytes
+        call_count = 0
+
+        def failing_write(self_path: Path, data: bytes) -> int:
+            nonlocal call_count
+            call_count += 1
+            if call_count >= 2:
+                msg = "Simulated IO error"
+                raise OSError(msg)
+            return original_write(self_path, data)
+
+        with patch.object(Path, "write_bytes", failing_write), pytest.raises(OSError):
+            update(tmp_path, dry_run=False)
+
+        # File should be restored to pre-update state
+        assert core_md.read_text() == "modified content"

@@ -15,7 +15,7 @@ from ai_engineering.__version__ import __version__
 from ai_engineering.doctor.service import diagnose
 from ai_engineering.installer.service import install
 from ai_engineering.paths import resolve_project_root
-from ai_engineering.updater.service import update
+from ai_engineering.updater.service import _DIFF_MAX_LINES, update
 
 
 def install_cmd(
@@ -54,10 +54,36 @@ def update_cmd(
         bool,
         typer.Option("--apply", help="Apply changes (dry-run by default)."),
     ] = False,
+    show_diff: Annotated[
+        bool,
+        typer.Option("--diff", "-d", help="Show unified diffs for updated files."),
+    ] = False,
+    output_json: Annotated[
+        bool,
+        typer.Option("--json", help="Output report as JSON."),
+    ] = False,
 ) -> None:
     """Update framework-managed governance files."""
     root = resolve_project_root(target)
     result = update(root, dry_run=not apply)
+
+    if output_json:
+        payload = {
+            "mode": "APPLIED" if not result.dry_run else "DRY-RUN",
+            "root": str(root),
+            "applied": result.applied_count,
+            "denied": result.denied_count,
+            "changes": [
+                {
+                    "path": str(c.path),
+                    "action": c.action,
+                    "diff": c.diff,
+                }
+                for c in result.changes
+            ],
+        }
+        typer.echo(json.dumps(payload, indent=2))
+        return
 
     mode = "APPLIED" if not result.dry_run else "DRY-RUN"
     typer.echo(f"Update [{mode}]: {root}")
@@ -67,6 +93,16 @@ def update_cmd(
     for change in result.changes:
         marker = "✓" if change.action in ("create", "update") else "✗"
         typer.echo(f"  {marker} {change.path} ({change.action})")
+
+        if show_diff and change.diff:
+            diff_text = change.diff
+            lines = diff_text.splitlines(keepends=True)
+            if len(lines) > _DIFF_MAX_LINES:
+                lines = lines[:_DIFF_MAX_LINES]
+                remaining = len(diff_text.splitlines()) - _DIFF_MAX_LINES
+                lines.append(f"    ... ({remaining} more lines)\n")
+            for line in lines:
+                typer.echo(f"    {line}", nl=False)
 
 
 def doctor_cmd(
