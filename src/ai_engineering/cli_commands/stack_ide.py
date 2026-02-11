@@ -14,8 +14,6 @@ from ai_engineering.installer.operations import (
     InstallerError,
     add_ide,
     add_stack,
-    get_available_ides,
-    get_available_stacks,
     list_status,
     remove_ide,
     remove_stack,

@@ -13,6 +13,7 @@ Steps performed by ``install()``:
 
 from __future__ import annotations
 
+import contextlib
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -113,10 +114,8 @@ def install(
     _log_install_event(ai_eng_dir, result)
 
     # 5. Install git hooks (skip silently if not a git repo)
-    try:
+    with contextlib.suppress(FileNotFoundError):
         result.hooks = install_hooks(target)
-    except FileNotFoundError:
-        pass
 
     return result
 
