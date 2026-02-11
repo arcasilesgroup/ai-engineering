@@ -28,7 +28,7 @@ from ai_engineering.maintenance.branch_cleanup import (
 @pytest.fixture()
 def git_repo_with_branches(tmp_path: Path) -> Path:
     """Create a git repo with main + two merged feature branches."""
-    subprocess.run(["git", "init", str(tmp_path)], check=True, capture_output=True)
+    subprocess.run(["git", "init", "-b", "main", str(tmp_path)], check=True, capture_output=True)
     subprocess.run(
         ["git", "config", "user.email", "test@test.com"],
         cwd=tmp_path,
@@ -125,7 +125,9 @@ class TestListMergedBranches:
         assert "main" not in merged
 
     def test_empty_when_no_branches(self, tmp_path: Path) -> None:
-        subprocess.run(["git", "init", str(tmp_path)], check=True, capture_output=True)
+        subprocess.run(
+            ["git", "init", "-b", "main", str(tmp_path)], check=True, capture_output=True
+        )
         subprocess.run(
             ["git", "config", "user.email", "t@t.com"],
             cwd=tmp_path,

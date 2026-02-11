@@ -53,6 +53,11 @@ jobs:
           enable-cache: true
       - name: Set Python version
         run: uv python install ${{ matrix.python-version }}
+      - name: Configure git defaults
+        run: |
+          git config --global init.defaultBranch main
+          git config --global user.email "ci@test.com"
+          git config --global user.name "CI"
       - name: Install dependencies
         run: uv sync --dev
       - name: Run tests
