@@ -34,7 +34,7 @@ Framework-owned baseline standards for every installed instance.
 
 ## Skills and Agents
 
-- Skills (`skills/**`) define reusable procedures agents follow: workflows, SWE practices, quality audits.
+- Skills (`skills/**`) define reusable procedures agents follow: workflows, dev practices, reviews, docs, governance, quality audits.
 - Agents (`agents/**`) define personas with capabilities, behavior protocols, and output contracts.
 - Both are framework-managed content. Team layers cannot weaken them but may extend via team-owned skills.
 - Agent sessions reference skills during execution; skills reference standards for enforcement rules.
@@ -56,7 +56,7 @@ Framework-owned baseline standards for every installed instance.
 - Agents work only within their assigned task scope. Cross-scope work is prohibited.
 - Each task produces exactly one atomic commit: `spec-NNN: Task X.Y — <description>`.
 - Sessions close by updating `tasks.md` checkboxes and frontmatter.
-- **Post-change validation**: if any file in `.ai-engineering/` was created, deleted, renamed, or moved during the session, the agent must execute `content-integrity` before closing.
+- **Post-change validation**: if any file in `.ai-engineering/` was created, deleted, renamed, or moved during the session, the agent must execute `integrity-check` before closing.
 
 ### Multi-Agent Coordination
 
@@ -113,14 +113,14 @@ Governance content must remain internally consistent after every change.
 
 ### Rules
 
-- After creating, deleting, or renaming any file in `.ai-engineering/`, the agent must execute `content-integrity`.
+- After creating, deleting, or renaming any file in `.ai-engineering/`, the agent must execute `integrity-check`.
 - Commits with broken cross-references in `.ai-engineering/` are governance violations.
 - Mirror desync between canonical and template is a governance violation.
 - Counter mismatches between instruction files and product-contract are governance violations.
 
 ### Validation Scope
 
-The `content-integrity` skill validates 6 categories:
+The `integrity-check` skill validates 6 categories:
 
 1. File existence — all referenced files exist.
 2. Mirror sync — canonical and template mirrors are byte-identical.

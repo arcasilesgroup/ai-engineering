@@ -18,7 +18,7 @@ Phase 0: Scaffold
 └── Update _active.md
 
 Phase 1: New Skill Creation
-├── Create 4 canonical skill files (swe/)
+├── Create 4 canonical skill files (docs/)
 └── Create 4 template mirrors
 
 Phase 2: Cross-Reference Hardening
@@ -32,10 +32,10 @@ Phase 2: Cross-Reference Hardening
 └── Update CHANGELOG.md
 
 Phase 3: Lifecycle Category
-├── Create skills/lifecycle/ directory
-├── Move create-skill from swe/ to lifecycle/
-├── Move create-agent from swe/ to lifecycle/
-├── Update create-skill procedure (add lifecycle/ category)
+├── Create skills/govern/ directory
+├── Move create-skill from dev/ to govern/
+├── Move create-agent from dev/ to govern/
+├── Update create-skill procedure (add govern/ category)
 ├── Update all 6 instruction files (new subsection)
 └── Update all internal cross-references
 
@@ -57,21 +57,21 @@ Phase 4: Verify + Close
 │   ├── tasks.md                         # NEW (task tracker)
 │   └── done.md                          # NEW (closure — Phase 4)
 ├── skills/
-│   ├── lifecycle/                       # NEW (category)
-│   │   ├── create-skill.md              # MOVED from swe/
-│   │   └── create-agent.md              # MOVED from swe/
-│   └── swe/
-│       ├── changelog-documentation.md   # NEW
-│       └── doc-writer.md                # NEW
+│   ├── govern/                          # NEW (category)
+│   │   ├── create-skill.md              # MOVED from dev/
+│   │   └── create-agent.md              # MOVED from dev/
+│   └── docs/
+│       ├── changelog.md                 # NEW
+│       └── writer.md                    # NEW
 
 src/ai_engineering/templates/.ai-engineering/
 ├── skills/
-│   ├── lifecycle/                       # NEW (mirror category)
+│   ├── govern/                          # NEW (mirror category)
 │   │   ├── create-skill.md              # MOVED mirror
 │   │   └── create-agent.md              # MOVED mirror
-│   └── swe/
-│       ├── changelog-documentation.md   # NEW mirror
-│       └── doc-writer.md                # NEW mirror
+│   └── docs/
+│       ├── changelog.md                 # NEW mirror
+│       └── writer.md                    # NEW mirror
 ```
 
 ### Modified files (cross-references added)

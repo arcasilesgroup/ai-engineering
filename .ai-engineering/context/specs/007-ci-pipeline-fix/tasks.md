@@ -30,7 +30,7 @@ next_session: "Phase 4 — Verify & Close"
 - [x] 2.3 Update `.ai-engineering/context/product/framework-contract.md` — fix Target Installed Structure tree to match actual layout
 - [x] 2.4 Update `.ai-engineering/context/product/framework-contract.md` — reword mirror contract to remove deleted-path references
 - [x] 2.5 Fix `.ai-engineering/context/specs/001-rewrite-v2/tasks.md` — annotate deleted file paths so they don't match validator regex
-- [x] 2.6 Fix `.ai-engineering/context/specs/002-cross-ref-hardening/tasks.md` — correct swe/create-skill.md → `skills/lifecycle/create-skill.md` and swe/create-agent.md → `skills/lifecycle/create-agent.md`
+- [x] 2.6 Fix `.ai-engineering/context/specs/002-cross-ref-hardening/tasks.md` — correct dev/create-skill.md → `skills/govern/create-skill.md` and dev/create-agent.md → `skills/govern/create-agent.md`
 - [x] 2.7 Commit: `spec-007: Phase 2 — fix 12 broken file references in governance docs`
 
 ## Phase 3: Sync Template Mirrors [S]

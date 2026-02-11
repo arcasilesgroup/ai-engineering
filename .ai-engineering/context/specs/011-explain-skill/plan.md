@@ -11,8 +11,8 @@ approach: "serial-phases"
 
 | File | Purpose |
 |------|---------|
-| `.ai-engineering/skills/swe/explain.md` | Canonical skill: Feynman-style explanations |
-| `src/ai_engineering/templates/.ai-engineering/skills/swe/explain.md` | Template mirror (byte-identical) |
+| `.ai-engineering/skills/docs/explain.md` | Canonical skill: Feynman-style explanations |
+| `src/ai_engineering/templates/.ai-engineering/skills/docs/explain.md` | Template mirror (byte-identical) |
 | `.claude/commands/swe/explain.md` | Slash command wrapper |
 | `src/ai_engineering/templates/project/.claude/commands/swe/explain.md` | Command mirror (byte-identical) |
 
@@ -31,14 +31,14 @@ approach: "serial-phases"
 | `src/ai_engineering/templates/project/codex.md` | Add explain.md to SWE Skills list |
 | `src/ai_engineering/templates/project/copilot-instructions.md` | Add explain.md to SWE Skills list |
 | `CHANGELOG.md` | Add entry under [Unreleased] → Added |
-| `.ai-engineering/skills/swe/debug.md` | Add explain.md cross-reference |
-| `.ai-engineering/skills/swe/code-review.md` | Add explain.md cross-reference |
-| `.ai-engineering/skills/swe/architecture-analysis.md` | Add explain.md cross-reference |
+| `.ai-engineering/skills/dev/debug.md` | Add explain.md cross-reference |
+| `.ai-engineering/skills/dev/code-review.md` | Add explain.md cross-reference |
+| `.ai-engineering/skills/review/architecture.md` | Add explain.md cross-reference |
 | `.ai-engineering/agents/debugger.md` | Add explain.md cross-reference |
 | `.ai-engineering/agents/architect.md` | Add explain.md cross-reference |
-| `src/ai_engineering/templates/.ai-engineering/skills/swe/debug.md` | Mirror cross-reference |
-| `src/ai_engineering/templates/.ai-engineering/skills/swe/code-review.md` | Mirror cross-reference |
-| `src/ai_engineering/templates/.ai-engineering/skills/swe/architecture-analysis.md` | Mirror cross-reference |
+| `src/ai_engineering/templates/.ai-engineering/skills/dev/debug.md` | Mirror cross-reference |
+| `src/ai_engineering/templates/.ai-engineering/skills/dev/code-review.md` | Mirror cross-reference |
+| `src/ai_engineering/templates/.ai-engineering/skills/review/architecture.md` | Mirror cross-reference |
 | `src/ai_engineering/templates/.ai-engineering/agents/debugger.md` | Mirror cross-reference |
 | `src/ai_engineering/templates/.ai-engineering/agents/architect.md` | Mirror cross-reference |
 

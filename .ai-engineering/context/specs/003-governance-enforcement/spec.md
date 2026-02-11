@@ -32,7 +32,7 @@ Two critical governance gaps remain after Spec 002:
 
 ### In Scope
 
-- 4 new skills in `skills/lifecycle/`.
+- 4 new skills in `skills/govern/`.
 - Enforcement sections in `standards/framework/core.md`.
 - Framework-contract updates (9.5 session contract steps 0 and 7).
 - `verify-app.md` expansion.

@@ -11,10 +11,10 @@ approach: "serial-phases"
 
 | File | Type | Purpose |
 |------|------|---------|
-| `skills/lifecycle/create-spec.md` | Skill | Spec creation with branch-first workflow |
-| `skills/lifecycle/delete-skill.md` | Skill | Safe skill removal with dependency checks |
-| `skills/lifecycle/delete-agent.md` | Skill | Safe agent removal with dependency checks |
-| `skills/lifecycle/content-integrity.md` | Skill | 6-category governance content validation |
+| `skills/govern/create-spec.md` | Skill | Spec creation with branch-first workflow |
+| `skills/govern/delete-skill.md` | Skill | Safe skill removal with dependency checks |
+| `skills/govern/delete-agent.md` | Skill | Safe agent removal with dependency checks |
+| `skills/govern/integrity-check.md` | Skill | 6-category governance content validation |
 
 ### Modified Files
 
@@ -24,22 +24,22 @@ approach: "serial-phases"
 | `standards/framework/core.md` | Add Spec-First and Content Integrity Enforcement sections |
 | `context/product/framework-contract.md` | Add steps 0 and 7 to section 9.5 |
 | `manifest.yml` | Add `validate_content_integrity` to close_actions |
-| `skills/lifecycle/create-skill.md` | Add refs to delete-skill, content-integrity |
-| `skills/lifecycle/create-agent.md` | Add refs to delete-agent, content-integrity |
+| `skills/govern/create-skill.md` | Add refs to delete-skill, content-integrity |
+| `skills/govern/create-agent.md` | Add refs to delete-agent, content-integrity |
 | 6 instruction files | Add 4 new lifecycle skills |
 | `context/product/product-contract.md` | Update counters 21→25 skills |
 | `CHANGELOG.md` | Add 4 new skill entries |
 
 ### Mirror Copies
 
-Each new skill gets a byte-identical mirror in `src/ai_engineering/templates/.ai-engineering/skills/lifecycle/`.
+Each new skill gets a byte-identical mirror in `src/ai_engineering/templates/.ai-engineering/skills/govern/`.
 Modified canonical files with mirrors get their mirrors updated.
 
 ## File Structure
 
 ```
 .ai-engineering/
-  skills/lifecycle/
+  skills/govern/
     create-spec.md       (NEW)
     delete-skill.md      (NEW)
     delete-agent.md      (NEW)

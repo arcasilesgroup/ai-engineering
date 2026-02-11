@@ -73,19 +73,22 @@ Mega-Phase C: Mirror + CI + E2E
 │   │   ├── commit.md                  # NEW
 │   │   ├── pr.md                      # NEW
 │   │   └── acho.md                    # NEW
-│   ├── swe/
+│   ├── dev/
 │   │   ├── debug.md                   # NEW
 │   │   ├── refactor.md                # NEW
 │   │   ├── code-review.md             # NEW
 │   │   ├── test-strategy.md           # NEW
-│   │   ├── architecture-analysis.md   # NEW
-│   │   ├── pr-creation.md             # NEW
-│   │   ├── dependency-update.md       # NEW
-│   │   ├── performance-analysis.md    # NEW
-│   │   ├── security-review.md         # NEW
-│   │   ├── migration.md               # NEW
-│   │   ├── prompt-engineer.md         # NEW
-│   │   └── python-mastery.md          # NEW
+│   │   ├── deps-update.md             # NEW
+│   │   └── migration.md               # NEW
+│   ├── review/
+│   │   ├── architecture.md            # NEW
+│   │   ├── performance.md             # NEW
+│   │   └── security.md                # NEW
+│   ├── docs/
+│   │   ├── changelog.md               # NEW
+│   │   ├── explain.md                 # NEW
+│   │   ├── writer.md                  # NEW
+│   │   └── prompt-design.md           # NEW
 │   └── quality/
 │       ├── audit-code.md              # NEW
 │       └── audit-report.md            # NEW
@@ -411,7 +414,7 @@ Step-by-step protocol the agent follows:
 ## Referenced Skills
 
 Skills this agent reads and executes during its workflow:
-- `skills/swe/...` — purpose
+- `skills/dev/...` — purpose
 - `skills/quality/...` — purpose
 
 ## Referenced Standards
