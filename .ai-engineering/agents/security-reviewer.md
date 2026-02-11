@@ -35,8 +35,8 @@ Application security specialist who reviews code for OWASP top risks, secret exp
 
 ## Referenced Skills
 
-- `skills/swe/security-review.md` — security review procedure.
-- `skills/swe/dependency-update.md` — dependency security assessment.
+- `skills/review/security.md` — security review procedure.
+- `skills/dev/deps-update.md` — dependency security assessment.
 
 ## Referenced Standards
 

@@ -659,8 +659,10 @@ _SUBSECTION_PATTERN = re.compile(r"^### (.+)$", re.MULTILINE)
 
 _REQUIRED_SUBSECTIONS = {
     "Workflows",
-    "SWE Skills",
-    "Lifecycle Skills",
+    "Dev Skills",
+    "Review Skills",
+    "Docs Skills",
+    "Govern Skills",
     "Quality Skills",
 }
 

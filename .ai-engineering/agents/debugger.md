@@ -32,9 +32,9 @@ Systematic diagnostician who approaches bugs methodically with persistent state 
 
 ## Referenced Skills
 
-- `skills/swe/debug.md` — systematic diagnosis procedure.
-- `skills/swe/test-strategy.md` — writing regression tests.
-- `skills/swe/explain.md` — explain root causes and debugging concepts.
+- `skills/dev/debug.md` — systematic diagnosis procedure.
+- `skills/dev/test-strategy.md` — writing regression tests.
+- `skills/docs/explain.md` — explain root causes and debugging concepts.
 
 ## Referenced Standards
 

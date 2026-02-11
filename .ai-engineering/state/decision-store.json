@@ -68,6 +68,13 @@
       "decision": "Project settings (.claude/settings.json) provide pre-approved permissions for governed tooling. Session Start Protocol added to CLAUDE.md/AGENTS.md. Installer deploys full .claude/ tree. Command wrappers enriched with preconditions. No Claude hooks — git hooks enforce agnostically.",
       "decidedAt": "2026-02-11T00:00:00Z",
       "spec": "008-claude-code-optimization"
+    },
+    {
+      "id": "S0-010",
+      "context": "Skills taxonomy reorganization — category naming and structure",
+      "decision": "Reorganize skills from 6 categories (33 skills) to 7 categories (32 skills). Eliminate tautological swe/ by splitting into dev/ (6), review/ (3), docs/ (4). Rename lifecycle/ to govern/ (9). Absorb validation/ into quality/ (3). Merge pr-creation.md into workflows/pr.md (net -1 skill). Rename files for brevity: dependency-update→deps-update, architecture-analysis→architecture, python-mastery→python-patterns, etc. Category names are activity-based, short (3-8 chars), lowercase, no hyphens.",
+      "decidedAt": "2026-02-11T00:00:00Z",
+      "spec": "012-skills-taxonomy"
     }
   ]
 }

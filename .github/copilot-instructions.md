@@ -24,49 +24,51 @@ Procedural skills guide structured execution. Reference the relevant skill befor
 - `.ai-engineering/skills/workflows/acho.md` — `/acho` alias.
 - `.ai-engineering/skills/workflows/pre-implementation.md` — branch hygiene before implementation.
 
-### SWE Skills
+### Dev Skills
 
-- `.ai-engineering/skills/swe/debug.md` — systematic diagnosis.
-- `.ai-engineering/skills/swe/refactor.md` — safe refactoring.
-- `.ai-engineering/skills/swe/changelog-documentation.md` — changelog documentation.
-- `.ai-engineering/skills/swe/code-review.md` — code review checklist.
-- `.ai-engineering/skills/swe/test-strategy.md` — test design.
-- `.ai-engineering/skills/swe/architecture-analysis.md` — architecture review.
-- `.ai-engineering/skills/swe/pr-creation.md` — PR creation procedure.
-- `.ai-engineering/skills/swe/dependency-update.md` — dependency management.
-- `.ai-engineering/skills/swe/performance-analysis.md` — performance review.
-- `.ai-engineering/skills/swe/security-review.md` — security assessment.
-- `.ai-engineering/skills/swe/migration.md` — migration planning.
-- `.ai-engineering/skills/swe/prompt-engineer.md` — prompt engineering frameworks.
-- `.ai-engineering/skills/swe/python-mastery.md` — comprehensive Python patterns.
-- `.ai-engineering/skills/swe/doc-writer.md` — open-source documentation generation.
-- `.ai-engineering/skills/swe/explain.md` — Feynman-style code and concept explanations.
+- `.ai-engineering/skills/dev/debug.md` — systematic diagnosis.
+- `.ai-engineering/skills/dev/refactor.md` — safe refactoring.
+- `.ai-engineering/skills/dev/code-review.md` — code review checklist.
+- `.ai-engineering/skills/dev/test-strategy.md` — test design.
+- `.ai-engineering/skills/dev/migration.md` — migration planning.
+- `.ai-engineering/skills/dev/deps-update.md` — dependency management.
 
-### Lifecycle Skills
+### Review Skills
 
-- `.ai-engineering/skills/lifecycle/content-integrity.md` — governance content validation (6-category check).
-- `.ai-engineering/skills/lifecycle/create-agent.md` — agent authoring and registration procedure.
-- `.ai-engineering/skills/lifecycle/create-skill.md` — skill authoring and registration procedure.
-- `.ai-engineering/skills/lifecycle/create-spec.md` — spec creation with branch-first workflow.
-- `.ai-engineering/skills/lifecycle/delete-agent.md` — safe agent removal with dependency checks.
-- `.ai-engineering/skills/lifecycle/delete-skill.md` — safe skill removal with dependency checks.
-- `.ai-engineering/skills/lifecycle/accept-risk.md` — risk acceptance with severity-based expiry.
-- `.ai-engineering/skills/lifecycle/resolve-risk.md` — risk remediation and closure.
-- `.ai-engineering/skills/lifecycle/renew-risk.md` — time-limited risk renewal (max 2).
+- `.ai-engineering/skills/review/architecture.md` — architecture review.
+- `.ai-engineering/skills/review/performance.md` — performance review.
+- `.ai-engineering/skills/review/security.md` — security assessment.
+
+### Docs Skills
+
+- `.ai-engineering/skills/docs/changelog.md` — changelog documentation.
+- `.ai-engineering/skills/docs/explain.md` — Feynman-style code and concept explanations.
+- `.ai-engineering/skills/docs/writer.md` — open-source documentation generation.
+- `.ai-engineering/skills/docs/prompt-design.md` — prompt engineering frameworks.
+
+### Govern Skills
+
+- `.ai-engineering/skills/govern/integrity-check.md` — governance content validation (6-category check).
+- `.ai-engineering/skills/govern/create-agent.md` — agent authoring and registration procedure.
+- `.ai-engineering/skills/govern/create-skill.md` — skill authoring and registration procedure.
+- `.ai-engineering/skills/govern/create-spec.md` — spec creation with branch-first workflow.
+- `.ai-engineering/skills/govern/delete-agent.md` — safe agent removal with dependency checks.
+- `.ai-engineering/skills/govern/delete-skill.md` — safe skill removal with dependency checks.
+- `.ai-engineering/skills/govern/accept-risk.md` — risk acceptance with severity-based expiry.
+- `.ai-engineering/skills/govern/resolve-risk.md` — risk remediation and closure.
+- `.ai-engineering/skills/govern/renew-risk.md` — time-limited risk renewal (max 2).
 
 ### Quality Skills
 
 - `.ai-engineering/skills/quality/audit-code.md` — quality gate assessment.
 - `.ai-engineering/skills/quality/audit-report.md` — audit report template.
+- `.ai-engineering/skills/quality/install-check.md` — installation readiness check.
 
 ### Utility Skills
 
 - `.ai-engineering/skills/utils/git-helpers.md` — git operation helpers.
-- `.ai-engineering/skills/utils/platform-detection.md` — OS/platform detection.
-
-### Validation Skills
-
-- `.ai-engineering/skills/validation/install-readiness.md` — installation readiness check.
+- `.ai-engineering/skills/utils/platform-detect.md` — OS/platform detection.
+- `.ai-engineering/skills/utils/python-patterns.md` — comprehensive Python patterns.
 
 ## Agents
 

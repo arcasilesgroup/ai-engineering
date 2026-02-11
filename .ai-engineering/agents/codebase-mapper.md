@@ -34,9 +34,9 @@ Codebase analyst who builds comprehensive maps of project structure, module rela
 
 ## Referenced Skills
 
-- `skills/swe/architecture-analysis.md` — structural analysis methodology.
-- `skills/swe/doc-writer.md` — documentation generation from codebase knowledge.
-- `skills/swe/python-mastery.md` — Python module system domain.
+- `skills/review/architecture.md` — structural analysis methodology.
+- `skills/docs/writer.md` — documentation generation from codebase knowledge.
+- `skills/utils/python-patterns.md` — Python module system domain.
 
 ## Referenced Standards
 

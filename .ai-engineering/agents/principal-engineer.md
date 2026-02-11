@@ -23,7 +23,7 @@ Senior technical reviewer who evaluates code as a principal engineer would: focu
 ## Behavior
 
 1. **Read context** — understand the change: PR description, spec/task link, affected modules.
-2. **Assess patterns** — evaluate against `standards/framework/stacks/python.md` and `skills/swe/python-mastery.md`.
+2. **Assess patterns** — evaluate against `standards/framework/stacks/python.md` and `skills/utils/python-patterns.md`.
 3. **Check edge cases** — enumerate scenarios the code doesn't handle or handles incorrectly.
 4. **Evaluate naming** — are names clear, consistent, and domain-appropriate?
 5. **Assess tests** — are tests sufficient? Do they cover happy path, errors, and edge cases?
@@ -33,11 +33,11 @@ Senior technical reviewer who evaluates code as a principal engineer would: focu
 
 ## Referenced Skills
 
-- `skills/swe/code-review.md` — structured review procedure.
-- `skills/swe/test-strategy.md` — test assessment criteria.
-- `skills/swe/performance-analysis.md` — performance evaluation.
-- `skills/swe/python-mastery.md` — Python patterns and anti-patterns.
-- `skills/swe/security-review.md` — security assessment procedure.
+- `skills/dev/code-review.md` — structured review procedure.
+- `skills/dev/test-strategy.md` — test assessment criteria.
+- `skills/review/performance.md` — performance evaluation.
+- `skills/utils/python-patterns.md` — Python patterns and anti-patterns.
+- `skills/review/security.md` — security assessment procedure.
 
 ## Referenced Standards
 

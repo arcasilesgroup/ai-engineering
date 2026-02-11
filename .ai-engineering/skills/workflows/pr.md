@@ -56,11 +56,44 @@ Execute the `/pr` governed workflow: stage, commit, push, create a pull request,
 - Secret detection failure is a hard stop.
 - `/pr --only` never hard-fails on unpushed branch — it warns and offers continuation modes.
 
+## PR Structure and Formatting
+
+When creating the PR:
+
+1. **Title** — concise, descriptive, prefixed with type.
+   - Format: `type(scope): description` or `spec-NNN: Task X.Y — description`.
+   - Types: `feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `ci`.
+   - Max 72 characters.
+
+2. **Description** — structured body with context.
+   - **What**: summarize the changes in 2-3 sentences.
+   - **Why**: link to spec, task, or issue. Explain the motivation.
+   - **How**: key implementation decisions and trade-offs.
+   - **Breaking changes**: list any API or behavior changes that affect consumers.
+
+3. **Checklist** — self-review before requesting review.
+   - [ ] Code follows `standards/framework/stacks/python.md`.
+   - [ ] Tests added/updated for new behavior.
+   - [ ] `ruff check` and `ruff format --check` pass.
+   - [ ] `ty check src/` passes.
+   - [ ] `pytest` passes with coverage >=80%.
+   - [ ] No secrets in committed code.
+   - [ ] Breaking changes documented (if any).
+
+4. **Labels and metadata** — tag appropriately.
+   - Size labels if applicable (S/M/L/XL).
+   - Area labels (state, installer, hooks, doctor, etc.).
+   - Link to spec task if part of governed workflow.
+
+5. **Review assignment** — identify reviewers.
+   - Auto-assign if CODEOWNERS configured.
+   - Tag relevant domain experts for complex changes.
+
 ## References
 
 - `standards/framework/core.md` — non-negotiables and enforcement rules.
 - `standards/framework/quality/core.md` — gate structure (pre-push + PR gates).
 - `skills/workflows/commit.md` — shared pre-commit steps.
 - `skills/workflows/acho.md` — alias workflow.
-- `skills/swe/pr-creation.md` — PR structure and formatting.
+- `skills/docs/changelog.md` — changelog entry formatting for PRs.
 - `agents/verify-app.md` — agent that validates PR workflow execution.
