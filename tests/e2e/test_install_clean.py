@@ -8,6 +8,7 @@ state files, and template content.
 from __future__ import annotations
 
 import json
+import subprocess
 from pathlib import Path
 
 from ai_engineering.installer.service import install
@@ -130,3 +131,22 @@ class TestInstallClean:
             content = f.read_text(encoding="utf-8")
             data = json.loads(content)
             assert isinstance(data, dict), f"{f.name} is not a JSON object"
+
+    def test_install_auto_installs_hooks_in_git_repo(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        subprocess.run(["git", "init", str(tmp_path)], check=True, capture_output=True)
+        result = install(tmp_path, stacks=["python"], ides=["vscode"])
+        hooks_dir = tmp_path / ".git" / "hooks"
+        assert (hooks_dir / "pre-commit").is_file()
+        assert (hooks_dir / "commit-msg").is_file()
+        assert (hooks_dir / "pre-push").is_file()
+        assert len(result.hooks.installed) == 3
+
+    def test_install_skips_hooks_without_git(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        result = install(tmp_path, stacks=["python"], ides=["vscode"])
+        assert len(result.hooks.installed) == 0
