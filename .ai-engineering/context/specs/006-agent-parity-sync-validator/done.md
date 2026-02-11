@@ -84,7 +84,7 @@ Spec 006 delivers 100% native support for GitHub Copilot, Claude Code, and Codex
 
 ## Deferred
 
-- **Pre-existing broken references** (10): Template paths in old specs (`001`, `002`) and framework-contract reference files that were never created (`context/backlog/tasks.md`, `context/delivery/implementation.md`, etc.). Should be addressed in a follow-up housekeeping spec.
+- **Pre-existing broken references** (10): Template paths in old specs (`001`, `002`) and framework-contract reference files that were never created (backlog/tasks.md, delivery/implementation.md, etc.). Addressed in spec-007.
 - **Local test execution**: PyPI returns 403 Forbidden; tests written but cannot be validated locally. CI will run them on merge.
 - **Updater service integration**: `copy_template_tree()` added to `templates.py` but not yet wired into the updater's `_sync_templates()` flow. Deferred per D6.
 - **`.vscode/settings.json` Copilot IDE configuration**: Low priority, optional per spec scope.

@@ -306,22 +306,15 @@ Additional framework-managed project-root files:
         python.md
   context/
     product/
-      vision.md
-      roadmap.md
-    delivery/
-      discovery.md
-      architecture.md
-      planning.md
-      implementation.md
-      review.md
-      verification.md
-      testing.md
-      iteration.md
-    backlog/
-      epics.md
-      features.md
-      user-stories.md
-      tasks.md
+      framework-contract.md
+      product-contract.md
+    specs/
+      _active.md
+      NNN-<slug>/
+        spec.md
+        plan.md
+        tasks.md
+        done.md
     learnings.md
   state/
     install-manifest.json
@@ -335,7 +328,7 @@ Additional framework-managed project-root files:
 
 - Author canonical governance content in repository root `.ai-engineering/`.
 - Mirror distributable template content in `src/ai_engineering/templates/.ai-engineering/`.
-- Keep non-state files identical between canonical and template mirror, except high-churn project execution logs (`context/backlog/tasks.md`, `context/delivery/implementation.md`, and `context/delivery/evidence/**`) that remain canonical-only runtime artifacts.
+- Keep non-state files identical between canonical and template mirror, except spec execution logs (under `context/specs/`) that remain canonical-only runtime artifacts.
 - Generate `state/*` at install/update runtime from typed defaults and migrations.
 - Installer replication rule: create missing files only; never overwrite existing team/project customizations.
 
