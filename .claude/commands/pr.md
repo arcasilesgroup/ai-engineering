@@ -1,3 +1,9 @@
+Before executing, verify these preconditions:
+
+1. Current branch is NOT `main` or `master` (abort with warning if so).
+2. Working tree has staged or unstaged changes, or commits ahead of remote (abort if nothing to push/PR).
+3. Active spec is read from `.ai-engineering/context/specs/_active.md`.
+
 Read and execute the workflow skill defined in `.ai-engineering/skills/workflows/pr.md`.
 
 Arguments: no arguments = default flow. `--only` = restricted variant (if defined).

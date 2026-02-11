@@ -27,7 +27,7 @@ from ai_engineering.git.operations import (
 @pytest.fixture()
 def git_repo(tmp_path: Path) -> Path:
     """Create a real git repo on a feature branch."""
-    subprocess.run(["git", "init", str(tmp_path)], check=True, capture_output=True)
+    subprocess.run(["git", "init", "-b", "main", str(tmp_path)], check=True, capture_output=True)
     subprocess.run(
         ["git", "config", "user.email", "test@test.com"],
         cwd=tmp_path,

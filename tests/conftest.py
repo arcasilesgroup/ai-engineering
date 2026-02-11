@@ -35,7 +35,7 @@ def git_repo(tmp_path: Path) -> Path:
         Path to the git repository root.
     """
     subprocess.run(
-        ["git", "init"],
+        ["git", "init", "-b", "main"],
         cwd=tmp_path,
         check=True,
         capture_output=True,
@@ -63,7 +63,7 @@ def installed_git_project(installed_project: Path) -> Path:
         Path to the installed git project root.
     """
     subprocess.run(
-        ["git", "init"],
+        ["git", "init", "-b", "main"],
         cwd=installed_project,
         check=True,
         capture_output=True,

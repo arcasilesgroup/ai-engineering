@@ -13,7 +13,6 @@ from ai_engineering.validator.service import (
     validate_content_integrity,
 )
 
-
 # -- Helpers ----------------------------------------------------------------
 
 
@@ -68,10 +67,18 @@ def _make_governance(root: Path) -> Path:
     """Create a minimal .ai-engineering governance tree."""
     ai = root / ".ai-engineering"
     for d in [
-        "skills/workflows", "skills/swe", "skills/lifecycle",
-        "skills/quality", "skills/utils", "skills/validation",
-        "agents", "standards/framework", "standards/team",
-        "context/product", "context/specs", "state",
+        "skills/workflows",
+        "skills/swe",
+        "skills/lifecycle",
+        "skills/quality",
+        "skills/utils",
+        "skills/validation",
+        "agents",
+        "standards/framework",
+        "standards/team",
+        "context/product",
+        "context/specs",
+        "state",
     ]:
         (ai / d).mkdir(parents=True, exist_ok=True)
     return ai
@@ -115,7 +122,8 @@ def _make_instruction_content(
 
 
 def _write_all_instruction_files(
-    root: Path, content: str | None = None,
+    root: Path,
+    content: str | None = None,
 ) -> None:
     """Write identical instruction files to all 8 standard locations."""
     text = content if content is not None else _make_instruction_content()
@@ -135,7 +143,10 @@ def _write_all_instruction_files(
 
 
 def _write_product_contract(
-    ai: Path, *, skills: int = 32, agents: int = 8,
+    ai: Path,
+    *,
+    skills: int = 32,
+    agents: int = 8,
 ) -> None:
     """Write a minimal product-contract.md with counters."""
     pc = ai / "context" / "product" / "product-contract.md"
@@ -159,13 +170,15 @@ def _write_manifest(ai: Path) -> None:
 
 
 def _write_active_spec(
-    ai: Path, spec_name: str = "006-test",
+    ai: Path,
+    spec_name: str = "006-test",
 ) -> Path:
     """Write _active.md and create the spec directory."""
     active = ai / "context" / "specs" / "_active.md"
     active.parent.mkdir(parents=True, exist_ok=True)
     active.write_text(
-        f'---\nactive: "{spec_name}"\n---\n', encoding="utf-8",
+        f'---\nactive: "{spec_name}"\n---\n',
+        encoding="utf-8",
     )
     spec_dir = ai / "context" / "specs" / spec_name
     spec_dir.mkdir(parents=True, exist_ok=True)
@@ -200,90 +213,128 @@ class TestIntegrityReport:
         assert report.summary == {}
 
     def test_report_with_ok_passes(self) -> None:
-        report = IntegrityReport(checks=[
-            IntegrityCheckResult(
-                category=IntegrityCategory.FILE_EXISTENCE,
-                name="test", status=CheckStatus.OK, message="all good",
-            ),
-        ])
+        report = IntegrityReport(
+            checks=[
+                IntegrityCheckResult(
+                    category=IntegrityCategory.FILE_EXISTENCE,
+                    name="test",
+                    status=CheckStatus.OK,
+                    message="all good",
+                ),
+            ]
+        )
         assert report.passed is True
 
     def test_report_with_fail_does_not_pass(self) -> None:
-        report = IntegrityReport(checks=[
-            IntegrityCheckResult(
-                category=IntegrityCategory.FILE_EXISTENCE,
-                name="test", status=CheckStatus.FAIL, message="broken",
-            ),
-        ])
+        report = IntegrityReport(
+            checks=[
+                IntegrityCheckResult(
+                    category=IntegrityCategory.FILE_EXISTENCE,
+                    name="test",
+                    status=CheckStatus.FAIL,
+                    message="broken",
+                ),
+            ]
+        )
         assert report.passed is False
 
     def test_report_with_warn_still_passes(self) -> None:
-        report = IntegrityReport(checks=[
-            IntegrityCheckResult(
-                category=IntegrityCategory.FILE_EXISTENCE,
-                name="test", status=CheckStatus.WARN, message="warning",
-            ),
-        ])
+        report = IntegrityReport(
+            checks=[
+                IntegrityCheckResult(
+                    category=IntegrityCategory.FILE_EXISTENCE,
+                    name="test",
+                    status=CheckStatus.WARN,
+                    message="warning",
+                ),
+            ]
+        )
         assert report.passed is True
 
     def test_summary_counts(self) -> None:
-        report = IntegrityReport(checks=[
-            IntegrityCheckResult(
-                category=IntegrityCategory.FILE_EXISTENCE,
-                name="a", status=CheckStatus.OK, message="",
-            ),
-            IntegrityCheckResult(
-                category=IntegrityCategory.MIRROR_SYNC,
-                name="b", status=CheckStatus.FAIL, message="",
-            ),
-            IntegrityCheckResult(
-                category=IntegrityCategory.MIRROR_SYNC,
-                name="c", status=CheckStatus.FAIL, message="",
-            ),
-            IntegrityCheckResult(
-                category=IntegrityCategory.COUNTER_ACCURACY,
-                name="d", status=CheckStatus.WARN, message="",
-            ),
-        ])
+        report = IntegrityReport(
+            checks=[
+                IntegrityCheckResult(
+                    category=IntegrityCategory.FILE_EXISTENCE,
+                    name="a",
+                    status=CheckStatus.OK,
+                    message="",
+                ),
+                IntegrityCheckResult(
+                    category=IntegrityCategory.MIRROR_SYNC,
+                    name="b",
+                    status=CheckStatus.FAIL,
+                    message="",
+                ),
+                IntegrityCheckResult(
+                    category=IntegrityCategory.MIRROR_SYNC,
+                    name="c",
+                    status=CheckStatus.FAIL,
+                    message="",
+                ),
+                IntegrityCheckResult(
+                    category=IntegrityCategory.COUNTER_ACCURACY,
+                    name="d",
+                    status=CheckStatus.WARN,
+                    message="",
+                ),
+            ]
+        )
         assert report.summary == {"ok": 1, "fail": 2, "warn": 1}
 
     def test_by_category(self) -> None:
-        report = IntegrityReport(checks=[
-            IntegrityCheckResult(
-                category=IntegrityCategory.FILE_EXISTENCE,
-                name="a", status=CheckStatus.OK, message="",
-            ),
-            IntegrityCheckResult(
-                category=IntegrityCategory.MIRROR_SYNC,
-                name="b", status=CheckStatus.FAIL, message="",
-            ),
-        ])
+        report = IntegrityReport(
+            checks=[
+                IntegrityCheckResult(
+                    category=IntegrityCategory.FILE_EXISTENCE,
+                    name="a",
+                    status=CheckStatus.OK,
+                    message="",
+                ),
+                IntegrityCheckResult(
+                    category=IntegrityCategory.MIRROR_SYNC,
+                    name="b",
+                    status=CheckStatus.FAIL,
+                    message="",
+                ),
+            ]
+        )
         cats = report.by_category()
         assert IntegrityCategory.FILE_EXISTENCE in cats
         assert IntegrityCategory.MIRROR_SYNC in cats
         assert len(cats[IntegrityCategory.FILE_EXISTENCE]) == 1
 
     def test_category_passed(self) -> None:
-        report = IntegrityReport(checks=[
-            IntegrityCheckResult(
-                category=IntegrityCategory.FILE_EXISTENCE,
-                name="a", status=CheckStatus.OK, message="",
-            ),
-            IntegrityCheckResult(
-                category=IntegrityCategory.MIRROR_SYNC,
-                name="b", status=CheckStatus.FAIL, message="",
-            ),
-        ])
+        report = IntegrityReport(
+            checks=[
+                IntegrityCheckResult(
+                    category=IntegrityCategory.FILE_EXISTENCE,
+                    name="a",
+                    status=CheckStatus.OK,
+                    message="",
+                ),
+                IntegrityCheckResult(
+                    category=IntegrityCategory.MIRROR_SYNC,
+                    name="b",
+                    status=CheckStatus.FAIL,
+                    message="",
+                ),
+            ]
+        )
         assert report.category_passed(IntegrityCategory.FILE_EXISTENCE) is True
         assert report.category_passed(IntegrityCategory.MIRROR_SYNC) is False
 
     def test_to_dict_structure(self) -> None:
-        report = IntegrityReport(checks=[
-            IntegrityCheckResult(
-                category=IntegrityCategory.FILE_EXISTENCE,
-                name="a", status=CheckStatus.OK, message="ok msg",
-            ),
-        ])
+        report = IntegrityReport(
+            checks=[
+                IntegrityCheckResult(
+                    category=IntegrityCategory.FILE_EXISTENCE,
+                    name="a",
+                    status=CheckStatus.OK,
+                    message="ok msg",
+                ),
+            ]
+        )
         d = report.to_dict()
         assert d["passed"] is True
         assert "summary" in d
@@ -291,13 +342,17 @@ class TestIntegrityReport:
         assert "file-existence" in d["categories"]
 
     def test_to_dict_includes_file_path(self) -> None:
-        report = IntegrityReport(checks=[
-            IntegrityCheckResult(
-                category=IntegrityCategory.FILE_EXISTENCE,
-                name="a", status=CheckStatus.FAIL, message="broken",
-                file_path="some/file.md",
-            ),
-        ])
+        report = IntegrityReport(
+            checks=[
+                IntegrityCheckResult(
+                    category=IntegrityCategory.FILE_EXISTENCE,
+                    name="a",
+                    status=CheckStatus.FAIL,
+                    message="broken",
+                    file_path="some/file.md",
+                ),
+            ]
+        )
         d = report.to_dict()
         checks = d["categories"]["file-existence"]["checks"]
         assert checks[0]["file"] == "some/file.md"
@@ -311,7 +366,8 @@ class TestFileExistence:
 
     def test_missing_governance_directory(self, tmp_path: Path) -> None:
         report = validate_content_integrity(
-            tmp_path, categories=[IntegrityCategory.FILE_EXISTENCE],
+            tmp_path,
+            categories=[IntegrityCategory.FILE_EXISTENCE],
         )
         assert report.passed is False
         assert any(c.name == "governance-directory" for c in report.checks)
@@ -319,7 +375,8 @@ class TestFileExistence:
     def test_all_references_resolve(self, tmp_path: Path) -> None:
         _setup_full_project(tmp_path)
         report = validate_content_integrity(
-            tmp_path, categories=[IntegrityCategory.FILE_EXISTENCE],
+            tmp_path,
+            categories=[IntegrityCategory.FILE_EXISTENCE],
         )
         assert report.category_passed(IntegrityCategory.FILE_EXISTENCE)
 
@@ -331,12 +388,13 @@ class TestFileExistence:
             encoding="utf-8",
         )
         report = validate_content_integrity(
-            tmp_path, categories=[IntegrityCategory.FILE_EXISTENCE],
+            tmp_path,
+            categories=[IntegrityCategory.FILE_EXISTENCE],
         )
         fail_checks = [
-            c for c in report.checks
-            if c.category == IntegrityCategory.FILE_EXISTENCE
-            and c.status == CheckStatus.FAIL
+            c
+            for c in report.checks
+            if c.category == IntegrityCategory.FILE_EXISTENCE and c.status == CheckStatus.FAIL
         ]
         assert len(fail_checks) >= 1
 
@@ -346,10 +404,12 @@ class TestFileExistence:
         bad_spec.mkdir(parents=True)
         (bad_spec / "spec.md").write_text("# spec\n", encoding="utf-8")
         report = validate_content_integrity(
-            tmp_path, categories=[IntegrityCategory.FILE_EXISTENCE],
+            tmp_path,
+            categories=[IntegrityCategory.FILE_EXISTENCE],
         )
         fail_checks = [
-            c for c in report.checks
+            c
+            for c in report.checks
             if c.name == "spec-007-incomplete" and c.status == CheckStatus.FAIL
         ]
         assert len(fail_checks) == 1
@@ -364,16 +424,14 @@ class TestMirrorSync:
 
     def test_missing_canonical_root(self, tmp_path: Path) -> None:
         report = validate_content_integrity(
-            tmp_path, categories=[IntegrityCategory.MIRROR_SYNC],
+            tmp_path,
+            categories=[IntegrityCategory.MIRROR_SYNC],
         )
         assert report.passed is False
 
     def test_synced_mirrors_pass(self, tmp_path: Path) -> None:
         ai = _setup_full_project(tmp_path)
-        mirror_root = (
-            tmp_path / "src" / "ai_engineering"
-            / "templates" / ".ai-engineering"
-        )
+        mirror_root = tmp_path / "src" / "ai_engineering" / "templates" / ".ai-engineering"
         for subdir in ("skills", "agents", "standards/framework"):
             src_dir = ai / subdir
             if not src_dir.is_dir():
@@ -384,10 +442,12 @@ class TestMirrorSync:
                 dest.parent.mkdir(parents=True, exist_ok=True)
                 dest.write_bytes(f.read_bytes())
         report = validate_content_integrity(
-            tmp_path, categories=[IntegrityCategory.MIRROR_SYNC],
+            tmp_path,
+            categories=[IntegrityCategory.MIRROR_SYNC],
         )
         governance_fails = [
-            c for c in report.checks
+            c
+            for c in report.checks
             if c.category == IntegrityCategory.MIRROR_SYNC
             and c.status == CheckStatus.FAIL
             and "claude" not in c.name
@@ -396,10 +456,7 @@ class TestMirrorSync:
 
     def test_desynced_mirror_detected(self, tmp_path: Path) -> None:
         ai = _setup_full_project(tmp_path)
-        mirror_root = (
-            tmp_path / "src" / "ai_engineering"
-            / "templates" / ".ai-engineering"
-        )
+        mirror_root = tmp_path / "src" / "ai_engineering" / "templates" / ".ai-engineering"
         for subdir in ("skills", "agents", "standards/framework"):
             src_dir = ai / subdir
             if not src_dir.is_dir():
@@ -412,11 +469,11 @@ class TestMirrorSync:
         desynced = mirror_root / "skills" / "workflows" / "commit.md"
         desynced.write_text("DESYNCED CONTENT", encoding="utf-8")
         report = validate_content_integrity(
-            tmp_path, categories=[IntegrityCategory.MIRROR_SYNC],
+            tmp_path,
+            categories=[IntegrityCategory.MIRROR_SYNC],
         )
         desync_checks = [
-            c for c in report.checks
-            if c.status == CheckStatus.FAIL and "desync" in c.name
+            c for c in report.checks if c.status == CheckStatus.FAIL and "desync" in c.name
         ]
         assert len(desync_checks) >= 1
 
@@ -430,7 +487,8 @@ class TestCounterAccuracy:
     def test_consistent_counts_pass(self, tmp_path: Path) -> None:
         _setup_full_project(tmp_path)
         report = validate_content_integrity(
-            tmp_path, categories=[IntegrityCategory.COUNTER_ACCURACY],
+            tmp_path,
+            categories=[IntegrityCategory.COUNTER_ACCURACY],
         )
         assert report.category_passed(IntegrityCategory.COUNTER_ACCURACY)
 
@@ -439,12 +497,13 @@ class TestCounterAccuracy:
         shorter = _make_instruction_content(skills=_SKILL_PATHS[:-1])
         (tmp_path / "AGENTS.md").write_text(shorter, encoding="utf-8")
         report = validate_content_integrity(
-            tmp_path, categories=[IntegrityCategory.COUNTER_ACCURACY],
+            tmp_path,
+            categories=[IntegrityCategory.COUNTER_ACCURACY],
         )
         fail_checks = [
-            c for c in report.checks
-            if c.category == IntegrityCategory.COUNTER_ACCURACY
-            and c.status == CheckStatus.FAIL
+            c
+            for c in report.checks
+            if c.category == IntegrityCategory.COUNTER_ACCURACY and c.status == CheckStatus.FAIL
         ]
         assert len(fail_checks) >= 1
 
@@ -452,12 +511,13 @@ class TestCounterAccuracy:
         ai = _setup_full_project(tmp_path)
         _write_product_contract(ai, skills=99, agents=99)
         report = validate_content_integrity(
-            tmp_path, categories=[IntegrityCategory.COUNTER_ACCURACY],
+            tmp_path,
+            categories=[IntegrityCategory.COUNTER_ACCURACY],
         )
         fail_checks = [
-            c for c in report.checks
-            if c.name.startswith("product-contract-")
-            and c.status == CheckStatus.FAIL
+            c
+            for c in report.checks
+            if c.name.startswith("product-contract-") and c.status == CheckStatus.FAIL
         ]
         assert len(fail_checks) >= 1
 
@@ -465,11 +525,11 @@ class TestCounterAccuracy:
         _setup_full_project(tmp_path)
         (tmp_path / "CLAUDE.md").unlink()
         report = validate_content_integrity(
-            tmp_path, categories=[IntegrityCategory.COUNTER_ACCURACY],
+            tmp_path,
+            categories=[IntegrityCategory.COUNTER_ACCURACY],
         )
         fail_checks = [
-            c for c in report.checks
-            if c.status == CheckStatus.FAIL and "missing" in c.name
+            c for c in report.checks if c.status == CheckStatus.FAIL and "missing" in c.name
         ]
         assert len(fail_checks) >= 1
 
@@ -488,7 +548,8 @@ class TestCrossReference:
             encoding="utf-8",
         )
         report = validate_content_integrity(
-            tmp_path, categories=[IntegrityCategory.CROSS_REFERENCE],
+            tmp_path,
+            categories=[IntegrityCategory.CROSS_REFERENCE],
         )
         assert report.category_passed(IntegrityCategory.CROSS_REFERENCE)
 
@@ -500,13 +561,15 @@ class TestCrossReference:
             encoding="utf-8",
         )
         report = validate_content_integrity(
-            tmp_path, categories=[IntegrityCategory.CROSS_REFERENCE],
+            tmp_path,
+            categories=[IntegrityCategory.CROSS_REFERENCE],
         )
         assert report.category_passed(IntegrityCategory.CROSS_REFERENCE) is False
 
     def test_no_governance_dir_skips(self, tmp_path: Path) -> None:
         report = validate_content_integrity(
-            tmp_path, categories=[IntegrityCategory.CROSS_REFERENCE],
+            tmp_path,
+            categories=[IntegrityCategory.CROSS_REFERENCE],
         )
         assert report.passed is True
 
@@ -535,10 +598,7 @@ class TestInstructionConsistency:
             tmp_path,
             categories=[IntegrityCategory.INSTRUCTION_CONSISTENCY],
         )
-        assert (
-            report.category_passed(IntegrityCategory.INSTRUCTION_CONSISTENCY)
-            is False
-        )
+        assert report.category_passed(IntegrityCategory.INSTRUCTION_CONSISTENCY) is False
 
     def test_missing_subsection_detected(self, tmp_path: Path) -> None:
         _setup_full_project(tmp_path)
@@ -553,9 +613,7 @@ class TestInstructionConsistency:
             tmp_path,
             categories=[IntegrityCategory.INSTRUCTION_CONSISTENCY],
         )
-        fail_checks = [
-            c for c in report.checks if "missing-subsections" in c.name
-        ]
+        fail_checks = [c for c in report.checks if "missing-subsections" in c.name]
         assert len(fail_checks) >= 1
 
 
@@ -568,7 +626,8 @@ class TestManifestCoherence:
     def test_complete_manifest_passes(self, tmp_path: Path) -> None:
         _setup_full_project(tmp_path)
         report = validate_content_integrity(
-            tmp_path, categories=[IntegrityCategory.MANIFEST_COHERENCE],
+            tmp_path,
+            categories=[IntegrityCategory.MANIFEST_COHERENCE],
         )
         assert report.category_passed(IntegrityCategory.MANIFEST_COHERENCE)
 
@@ -576,18 +635,19 @@ class TestManifestCoherence:
         _make_governance(tmp_path)
         _write_active_spec(tmp_path / ".ai-engineering")
         report = validate_content_integrity(
-            tmp_path, categories=[IntegrityCategory.MANIFEST_COHERENCE],
+            tmp_path,
+            categories=[IntegrityCategory.MANIFEST_COHERENCE],
         )
         assert report.category_passed(IntegrityCategory.MANIFEST_COHERENCE) is False
 
     def test_active_spec_valid(self, tmp_path: Path) -> None:
         _setup_full_project(tmp_path)
         report = validate_content_integrity(
-            tmp_path, categories=[IntegrityCategory.MANIFEST_COHERENCE],
+            tmp_path,
+            categories=[IntegrityCategory.MANIFEST_COHERENCE],
         )
         ok_checks = [
-            c for c in report.checks
-            if c.name == "active-spec" and c.status == CheckStatus.OK
+            c for c in report.checks if c.name == "active-spec" and c.status == CheckStatus.OK
         ]
         assert len(ok_checks) == 1
 
@@ -595,14 +655,15 @@ class TestManifestCoherence:
         ai = _setup_full_project(tmp_path)
         active = ai / "context" / "specs" / "_active.md"
         active.write_text(
-            '---\nactive: "999-nonexistent"\n---\n', encoding="utf-8",
+            '---\nactive: "999-nonexistent"\n---\n',
+            encoding="utf-8",
         )
         report = validate_content_integrity(
-            tmp_path, categories=[IntegrityCategory.MANIFEST_COHERENCE],
+            tmp_path,
+            categories=[IntegrityCategory.MANIFEST_COHERENCE],
         )
         fail_checks = [
-            c for c in report.checks
-            if c.name == "active-spec-dir" and c.status == CheckStatus.FAIL
+            c for c in report.checks if c.name == "active-spec-dir" and c.status == CheckStatus.FAIL
         ]
         assert len(fail_checks) == 1
 
@@ -612,11 +673,11 @@ class TestManifestCoherence:
         shutil.rmtree(ai / "agents")
         _write_active_spec(ai)
         report = validate_content_integrity(
-            tmp_path, categories=[IntegrityCategory.MANIFEST_COHERENCE],
+            tmp_path,
+            categories=[IntegrityCategory.MANIFEST_COHERENCE],
         )
         fail_checks = [
-            c for c in report.checks
-            if c.status == CheckStatus.FAIL and "agents" in c.name
+            c for c in report.checks if c.status == CheckStatus.FAIL and "agents" in c.name
         ]
         assert len(fail_checks) >= 1
 
@@ -639,7 +700,8 @@ class TestValidateContentIntegrity:
     def test_category_filter_limits_checks(self, tmp_path: Path) -> None:
         _setup_full_project(tmp_path)
         report = validate_content_integrity(
-            tmp_path, categories=[IntegrityCategory.FILE_EXISTENCE],
+            tmp_path,
+            categories=[IntegrityCategory.FILE_EXISTENCE],
         )
         cats = {c.category for c in report.checks}
         assert cats == {IntegrityCategory.FILE_EXISTENCE}
@@ -647,7 +709,8 @@ class TestValidateContentIntegrity:
     def test_to_dict_roundtrip(self, tmp_path: Path) -> None:
         _setup_full_project(tmp_path)
         report = validate_content_integrity(
-            tmp_path, categories=[IntegrityCategory.FILE_EXISTENCE],
+            tmp_path,
+            categories=[IntegrityCategory.FILE_EXISTENCE],
         )
         d = report.to_dict()
         assert isinstance(d, dict)

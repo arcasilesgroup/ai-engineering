@@ -46,12 +46,12 @@ This project dogfoods the ai-engineering framework on itself.
 
 ## Active Spec
 
-Current work tracked in: `specs/_active.md` → `007-ci-pipeline-fix`.
+Current work tracked in: `specs/_active.md` → `008-claude-code-optimization`.
 
 Read sequence:
-1. `specs/007-ci-pipeline-fix/spec.md` — problem, solution, scope, decisions
-2. `specs/007-ci-pipeline-fix/plan.md` — architecture, session map, patterns
-3. `specs/007-ci-pipeline-fix/tasks.md` — ordered phases, checkboxes
+1. `specs/008-claude-code-optimization/spec.md` — problem, solution, scope, decisions
+2. `specs/008-claude-code-optimization/plan.md` — architecture, session map, patterns
+3. `specs/008-claude-code-optimization/tasks.md` — ordered phases, checkboxes
 
 ## KPIs
 

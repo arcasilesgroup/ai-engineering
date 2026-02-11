@@ -10,6 +10,17 @@ This file is a quick operational guide for assistant sessions in this repo.
 
 If this file conflicts with `.ai-engineering/**`, follow `.ai-engineering/**`.
 
+## Session Start Protocol
+
+Before any non-trivial implementation work:
+
+1. **Read active spec** — `.ai-engineering/context/specs/_active.md` and linked spec/plan/tasks files.
+2. **Read decision store** — `.ai-engineering/state/decision-store.json` to avoid re-asking decided questions.
+3. **Run pre-implementation** — execute `/pre-implementation` to sync the repository (git pull, prune, cleanup, create feature branch).
+4. **Verify tooling** — confirm ruff, gitleaks, pytest, ty are available.
+
+This protocol is mandatory. Skipping it risks working on stale code, repeating decided questions, or creating merge conflicts.
+
 ## Required References
 
 Read these before any non-trivial work:

@@ -61,6 +61,13 @@
       "decision": "Thin command wrappers in .claude/commands/ point to canonical skill/agent files. No content duplication — each wrapper is a 3-5 line prompt that reads and executes the canonical file. Skills remain the source of truth; command files are pointers only.",
       "decidedAt": "2026-02-10T00:00:00Z",
       "spec": "none"
+    },
+    {
+      "id": "S0-009",
+      "context": "Claude Code project-level optimization — settings, session protocol, installer, command enrichment",
+      "decision": "Project settings (.claude/settings.json) provide pre-approved permissions for governed tooling. Session Start Protocol added to CLAUDE.md/AGENTS.md. Installer deploys full .claude/ tree. Command wrappers enriched with preconditions. No Claude hooks — git hooks enforce agnostically.",
+      "decidedAt": "2026-02-11T00:00:00Z",
+      "spec": "008-claude-code-optimization"
     }
   ]
 }

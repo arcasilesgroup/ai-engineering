@@ -3,7 +3,7 @@ spec: "005"
 total: 7
 completed: 7
 last_session: "2026-02-10"
-next_session: "Done — PR pending"
+next_session: "CLOSED"
 ---
 
 # Tasks — Slash Command Wrappers
