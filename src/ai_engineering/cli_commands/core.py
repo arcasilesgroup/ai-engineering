@@ -99,7 +99,8 @@ def update_cmd(
             lines = diff_text.splitlines(keepends=True)
             if len(lines) > _DIFF_MAX_LINES:
                 lines = lines[:_DIFF_MAX_LINES]
-                lines.append(f"    ... ({len(diff_text.splitlines()) - _DIFF_MAX_LINES} more lines)\n")
+                remaining = len(diff_text.splitlines()) - _DIFF_MAX_LINES
+                lines.append(f"    ... ({remaining} more lines)\n")
             for line in lines:
                 typer.echo(f"    {line}", nl=False)
 

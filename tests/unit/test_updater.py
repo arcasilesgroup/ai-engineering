@@ -262,9 +262,12 @@ class TestRollback:
 
     def test_rollback_on_write_failure(self, installed_project: Path) -> None:
         """If a write fails mid-apply, already-modified files are restored."""
-        # Modify two framework-managed files
+        # Modify two framework-managed files so write_bytes is called twice
         core_md = installed_project / ".ai-engineering" / "standards" / "framework" / "core.md"
         core_md.write_text("will be restored")
+        stacks_dir = installed_project / ".ai-engineering" / "standards" / "framework" / "stacks"
+        stacks_md = stacks_dir / "python.md"
+        stacks_md.write_text("will also be restored")
 
         original_write = Path.write_bytes
         call_count = 0
@@ -278,7 +281,10 @@ class TestRollback:
                 raise OSError(msg)
             return original_write(self_path, data)
 
-        with patch.object(Path, "write_bytes", failing_write), pytest.raises(OSError, match="Simulated"):
+        with (
+            patch.object(Path, "write_bytes", failing_write),
+            pytest.raises(OSError, match="Simulated"),
+        ):
             update(installed_project, dry_run=False)
 
         # The file that was already written should be restored from backup

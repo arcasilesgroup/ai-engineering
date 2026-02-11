@@ -196,6 +196,9 @@ class TestInstallExisting:
 
         core_md = tmp_path / ".ai-engineering" / "standards" / "framework" / "core.md"
         core_md.write_text("modified content")
+        stacks_dir = tmp_path / ".ai-engineering" / "standards" / "framework" / "stacks"
+        stacks_md = stacks_dir / "python.md"
+        stacks_md.write_text("also modified")
 
         original_write = Path.write_bytes
         call_count = 0
