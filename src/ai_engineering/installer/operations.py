@@ -12,12 +12,41 @@ from pathlib import Path
 from ai_engineering.state.io import append_ndjson, read_json_model, write_json_model
 from ai_engineering.state.models import AuditEntry, InstallManifest
 
+from .templates import TEMPLATES_ROOT
+
+# Known IDE identifiers recognised by the framework.
+_KNOWN_IDES: frozenset[str] = frozenset({"terminal", "vscode", "jetbrains", "cursor"})
+
 _MANIFEST_RELATIVE: str = "state/install-manifest.json"
 _AUDIT_LOG_RELATIVE: str = "state/audit-log.ndjson"
 
 
 class InstallerError(Exception):
     """Raised when an installer operation cannot proceed."""
+
+
+def get_available_stacks() -> list[str]:
+    """Return the list of stack names that have bundled instruction files.
+
+    Scans the ``standards/framework/stacks/`` template directory for
+    ``.md`` files and returns their stems as valid stack identifiers.
+
+    Returns:
+        Sorted list of available stack names (e.g. ``["python"]``).
+    """
+    stacks_dir = TEMPLATES_ROOT / ".ai-engineering" / "standards" / "framework" / "stacks"
+    if not stacks_dir.is_dir():
+        return []
+    return sorted(p.stem for p in stacks_dir.glob("*.md"))
+
+
+def get_available_ides() -> list[str]:
+    """Return the list of recognised IDE identifiers.
+
+    Returns:
+        Sorted list of known IDE names.
+    """
+    return sorted(_KNOWN_IDES)
 
 
 def _resolve_paths(target: Path) -> tuple[Path, Path]:
@@ -97,8 +126,14 @@ def add_stack(target: Path, stack: str) -> InstallManifest:
         Updated InstallManifest.
 
     Raises:
-        InstallerError: If the framework is not installed or stack already exists.
+        InstallerError: If the framework is not installed, stack already exists,
+            or stack name is not recognised.
     """
+    available = get_available_stacks()
+    if available and stack not in available:
+        msg = f"Unknown stack '{stack}'. Available stacks: {', '.join(available)}"
+        raise InstallerError(msg)
+
     manifest_path, audit_path = _resolve_paths(target)
     manifest = _load_manifest(manifest_path)
 
@@ -159,8 +194,14 @@ def add_ide(target: Path, ide: str) -> InstallManifest:
         Updated InstallManifest.
 
     Raises:
-        InstallerError: If the framework is not installed or IDE already exists.
+        InstallerError: If the framework is not installed, IDE already exists,
+            or IDE name is not recognised.
     """
+    available = get_available_ides()
+    if ide not in available:
+        msg = f"Unknown IDE '{ide}'. Available IDEs: {', '.join(available)}"
+        raise InstallerError(msg)
+
     manifest_path, audit_path = _resolve_paths(target)
     manifest = _load_manifest(manifest_path)
 

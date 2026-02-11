@@ -13,9 +13,11 @@ Steps performed by ``install()``:
 
 from __future__ import annotations
 
+import contextlib
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from ai_engineering.hooks.manager import HookInstallResult, install_hooks
 from ai_engineering.state.defaults import (
     default_decision_store,
     default_install_manifest,
@@ -50,6 +52,7 @@ class InstallResult:
     governance_files: CopyResult = field(default_factory=CopyResult)
     project_files: CopyResult = field(default_factory=CopyResult)
     state_files: list[Path] = field(default_factory=list)
+    hooks: HookInstallResult = field(default_factory=HookInstallResult)
     already_installed: bool = False
 
     @property
@@ -109,6 +112,10 @@ def install(
 
     # 4. Audit log entry
     _log_install_event(ai_eng_dir, result)
+
+    # 5. Install git hooks (skip silently if not a git repo)
+    with contextlib.suppress(FileNotFoundError):
+        result.hooks = install_hooks(target)
 
     return result
 

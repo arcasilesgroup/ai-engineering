@@ -46,12 +46,12 @@ This project dogfoods the ai-engineering framework on itself.
 
 ## Active Spec
 
-Current work tracked in: `specs/_active.md` → `011-explain-skill`.
+Current work tracked in: `specs/_active.md` → `013-cli-ux-hardening`.
 
 Read sequence:
-1. `specs/011-explain-skill/spec.md` — problem, solution, scope, decisions
-2. `specs/011-explain-skill/plan.md` — architecture, session map, patterns
-3. `specs/011-explain-skill/tasks.md` — ordered phases, checkboxes
+1. `specs/013-cli-ux-hardening/spec.md` — problem, solution, scope, decisions
+2. `specs/013-cli-ux-hardening/plan.md` — architecture, session map, patterns
+3. `specs/013-cli-ux-hardening/tasks.md` — ordered phases, checkboxes
 
 ## KPIs
 

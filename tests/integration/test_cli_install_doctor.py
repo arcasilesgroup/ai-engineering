@@ -172,26 +172,26 @@ class TestStackCommands:
         assert result.exit_code == 0
         assert "python" in result.output
 
-    def test_stack_add_and_remove(
+    def test_stack_remove_and_readd(
         self,
         installed_dir: Path,
         app: object,
     ) -> None:
-        # Add
+        # Remove existing
         result = runner.invoke(
             app,
-            ["stack", "add", "node", "--target", str(installed_dir)],
+            ["stack", "remove", "python", "--target", str(installed_dir)],
         )
         assert result.exit_code == 0
-        assert "Added stack 'node'" in result.output
+        assert "Removed stack 'python'" in result.output
 
-        # Remove
+        # Re-add
         result = runner.invoke(
             app,
-            ["stack", "remove", "node", "--target", str(installed_dir)],
+            ["stack", "add", "python", "--target", str(installed_dir)],
         )
         assert result.exit_code == 0
-        assert "Removed stack 'node'" in result.output
+        assert "Added stack 'python'" in result.output
 
     def test_stack_add_duplicate_fails(
         self,
@@ -203,6 +203,19 @@ class TestStackCommands:
             ["stack", "add", "python", "--target", str(installed_dir)],
         )
         assert result.exit_code == 1
+
+    def test_stack_add_unknown_rejected(
+        self,
+        installed_dir: Path,
+        app: object,
+    ) -> None:
+        result = runner.invoke(
+            app,
+            ["stack", "add", "bogus", "--target", str(installed_dir)],
+        )
+        assert result.exit_code == 1
+        assert "Unknown stack" in result.output
+        assert "python" in result.output  # shows available stacks
 
 
 # ---------------------------------------------------------------------------
@@ -237,6 +250,18 @@ class TestIDECommands:
             ["ide", "remove", "jetbrains", "--target", str(installed_dir)],
         )
         assert result.exit_code == 0
+
+    def test_ide_add_unknown_rejected(
+        self,
+        installed_dir: Path,
+        app: object,
+    ) -> None:
+        result = runner.invoke(
+            app,
+            ["ide", "add", "notepad", "--target", str(installed_dir)],
+        )
+        assert result.exit_code == 1
+        assert "Unknown IDE" in result.output
 
 
 # ---------------------------------------------------------------------------
