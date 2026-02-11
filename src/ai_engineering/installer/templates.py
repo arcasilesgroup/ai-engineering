@@ -25,6 +25,7 @@ PROJECT_TEMPLATES: str = "project"
 # target project root.  Keys are relative paths inside the ``project/``
 # template directory; values are destination paths in the target project.
 _PROJECT_TEMPLATE_MAP: dict[str, str] = {
+    "AGENTS.md": "AGENTS.md",
     "CLAUDE.md": "CLAUDE.md",
     "codex.md": "codex.md",
     "copilot-instructions.md": ".github/copilot-instructions.md",
@@ -32,7 +33,14 @@ _PROJECT_TEMPLATE_MAP: dict[str, str] = {
     "copilot/code-review.md": ".github/copilot/code-review.md",
     "copilot/commit-message.md": ".github/copilot/commit-message.md",
     "copilot/test-generation.md": ".github/copilot/test-generation.md",
+    "instructions/python.instructions.md": ".github/instructions/python.instructions.md",
+    "instructions/testing.instructions.md": ".github/instructions/testing.instructions.md",
+    "instructions/markdown.instructions.md": ".github/instructions/markdown.instructions.md",
 }
+
+_PROJECT_TEMPLATE_TREES: list[tuple[str, str]] = [
+    (".claude/commands", ".claude/commands"),
+]
 
 
 @dataclass
@@ -119,6 +127,7 @@ def copy_project_templates(target: Path) -> CopyResult:
 
     Maps bundled ``project/`` template files to their intended locations
     in the target project (e.g., ``copilot/`` → ``.github/copilot/``).
+    Also copies entire directory trees defined in ``_PROJECT_TEMPLATE_TREES``.
 
     Args:
         target: Target project root directory.
@@ -137,4 +146,13 @@ def copy_project_templates(target: Path) -> CopyResult:
             result.created.append(dest_file)
         else:
             result.skipped.append(dest_file)
+
+    for src_tree, dest_tree in _PROJECT_TEMPLATE_TREES:
+        src_dir = project_root / src_tree
+        if not src_dir.is_dir():
+            continue
+        tree_result = copy_template_tree(src_dir, target / dest_tree)
+        result.created.extend(tree_result.created)
+        result.skipped.extend(tree_result.skipped)
+
     return result
