@@ -46,12 +46,12 @@ This project dogfoods the ai-engineering framework on itself.
 
 ## Active Spec
 
-Current work tracked in: `specs/_active.md` → `006-agent-parity-sync-validator`.
+Current work tracked in: `specs/_active.md` → `007-ci-pipeline-fix`.
 
 Read sequence:
-1. `specs/006-agent-parity-sync-validator/spec.md` — problem, solution, scope, decisions
-2. `specs/006-agent-parity-sync-validator/plan.md` — architecture, session map, patterns
-3. `specs/006-agent-parity-sync-validator/tasks.md` — ordered phases, checkboxes
+1. `specs/007-ci-pipeline-fix/spec.md` — problem, solution, scope, decisions
+2. `specs/007-ci-pipeline-fix/plan.md` — architecture, session map, patterns
+3. `specs/007-ci-pipeline-fix/tasks.md` — ordered phases, checkboxes
 
 ## KPIs
 
