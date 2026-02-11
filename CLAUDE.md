@@ -66,6 +66,15 @@ Procedural skills guide structured execution. Reference the relevant skill befor
 - `.ai-engineering/skills/quality/audit-code.md` — quality gate assessment.
 - `.ai-engineering/skills/quality/audit-report.md` — audit report template.
 
+### Utility Skills
+
+- `.ai-engineering/skills/utils/git-helpers.md` — git operation helpers.
+- `.ai-engineering/skills/utils/platform-detection.md` — OS/platform detection.
+
+### Validation Skills
+
+- `.ai-engineering/skills/validation/install-readiness.md` — installation readiness check.
+
 ## Slash Commands
 
 Skills and agents are available as Claude Code slash commands via `.claude/commands/`. Each command is a thin wrapper that reads and executes the canonical skill or agent file. No content is duplicated — the command files are pointers only (decision S0-008).
@@ -74,6 +83,8 @@ Skills and agents are available as Claude Code slash commands via `.claude/comma
 - `/swe:*` — SWE skill commands (e.g., `/swe:debug`, `/swe:refactor`, `/swe:code-review`).
 - `/lifecycle:*` — lifecycle skill commands (e.g., `/lifecycle:create-spec`, `/lifecycle:content-integrity`).
 - `/quality:*` — quality skill commands (`/quality:audit-code`, `/quality:audit-report`).
+- `/utils:*` — utility skill commands (`/utils:git-helpers`, `/utils:platform-detection`).
+- `/validation:*` — validation skill commands (`/validation:install-readiness`).
 - `/agent:*` — agent persona commands (e.g., `/agent:verify-app`, `/agent:debugger`).
 
 ## Agents
