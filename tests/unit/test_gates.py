@@ -341,6 +341,81 @@ class TestRiskExpiredBlock:
 
 
 # ---------------------------------------------------------------------------
+# Version deprecation gate
+# ---------------------------------------------------------------------------
+
+
+class TestVersionDeprecationGate:
+    """Tests for _check_version_deprecation gate check."""
+
+    def test_deprecated_blocks_gate(self, git_repo: Path) -> None:
+        from ai_engineering.version.checker import VersionCheckResult
+        from ai_engineering.version.models import VersionStatus
+
+        mock_result = VersionCheckResult(
+            installed="0.1.0",
+            status=VersionStatus.DEPRECATED,
+            is_current=False,
+            is_outdated=False,
+            is_deprecated=True,
+            is_eol=False,
+            latest="0.2.0",
+            message="0.1.0 (deprecated — CVE-2025-9999)",
+        )
+        with patch(
+            "ai_engineering.version.checker.check_version",
+            return_value=mock_result,
+        ):
+            result = run_gate(GateHook.PRE_COMMIT, git_repo)
+        assert not result.passed
+        assert "version-deprecation" in result.failed_checks
+
+    def test_outdated_does_not_block_gate(self, git_repo: Path) -> None:
+        from ai_engineering.version.checker import VersionCheckResult
+        from ai_engineering.version.models import VersionStatus
+
+        mock_result = VersionCheckResult(
+            installed="0.1.0",
+            status=VersionStatus.SUPPORTED,
+            is_current=False,
+            is_outdated=True,
+            is_deprecated=False,
+            is_eol=False,
+            latest="0.2.0",
+            message="0.1.0 (outdated — latest is 0.2.0)",
+        )
+        with patch(
+            "ai_engineering.version.checker.check_version",
+            return_value=mock_result,
+        ):
+            result = run_gate(GateHook.PRE_COMMIT, git_repo)
+        version_check = _find_check(result, "version-deprecation")
+        assert version_check.passed
+
+    def test_current_passes_gate(self, git_repo: Path) -> None:
+        from ai_engineering.version.checker import VersionCheckResult
+        from ai_engineering.version.models import VersionStatus
+
+        mock_result = VersionCheckResult(
+            installed="0.1.0",
+            status=VersionStatus.CURRENT,
+            is_current=True,
+            is_outdated=False,
+            is_deprecated=False,
+            is_eol=False,
+            latest="0.1.0",
+            message="0.1.0 (current)",
+        )
+        with patch(
+            "ai_engineering.version.checker.check_version",
+            return_value=mock_result,
+        ):
+            result = run_gate(GateHook.PRE_COMMIT, git_repo)
+        version_check = _find_check(result, "version-deprecation")
+        assert version_check.passed
+
+
+# ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 

@@ -72,6 +72,11 @@ def run_gate(
     if not result.passed:
         return result
 
+    # Version deprecation check (defense-in-depth, all hooks)
+    _check_version_deprecation(result)
+    if not result.passed:
+        return result
+
     if hook == GateHook.PRE_COMMIT:
         _run_pre_commit_checks(project_root, result)
     elif hook == GateHook.COMMIT_MSG:
@@ -99,6 +104,41 @@ def _check_branch_protection(project_root: Path, result: GateResult) -> None:
                 name="branch-protection",
                 passed=True,
                 output=f"On branch: {branch or 'unknown'}",
+            )
+        )
+
+
+def _check_version_deprecation(result: GateResult) -> None:
+    """Block gate execution if the installed version is deprecated or EOL.
+
+    Defense-in-depth check (D-010-2). The primary block is the CLI callback;
+    this gate check provides an additional enforcement layer in git hooks.
+    Fail-open: registry errors pass the check.
+    """
+    from ai_engineering.__version__ import __version__
+    from ai_engineering.version.checker import check_version
+
+    check = check_version(__version__)
+
+    if check.is_deprecated or check.is_eol:
+        status_label = "deprecated" if check.is_deprecated else "end-of-life"
+        result.checks.append(
+            GateCheckResult(
+                name="version-deprecation",
+                passed=False,
+                output=(
+                    f"ai-engineering {__version__} is {status_label}. "
+                    f"{check.message}. "
+                    f"Run 'ai-eng update' to upgrade."
+                ),
+            )
+        )
+    else:
+        result.checks.append(
+            GateCheckResult(
+                name="version-deprecation",
+                passed=True,
+                output=f"Version lifecycle: {check.message}",
             )
         )
 

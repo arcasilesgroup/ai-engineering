@@ -161,6 +161,62 @@ class TestToolChecks:
 
 
 # ---------------------------------------------------------------------------
+# Version lifecycle check
+# ---------------------------------------------------------------------------
+
+
+class TestVersionLifecycleCheck:
+    """Tests for version lifecycle diagnostic check."""
+
+    def test_version_check_appears_in_report(self, installed_project: Path) -> None:
+        report = diagnose(installed_project)
+        check = _find_check(report, "version-lifecycle")
+        assert check.status in (CheckStatus.OK, CheckStatus.WARN)
+
+    def test_version_check_ok_when_current(self, installed_project: Path) -> None:
+        from unittest.mock import patch
+
+        from ai_engineering.version.checker import VersionCheckResult
+        from ai_engineering.version.models import VersionStatus
+
+        mock_result = VersionCheckResult(
+            installed="0.1.0",
+            status=VersionStatus.CURRENT,
+            is_current=True,
+            is_outdated=False,
+            is_deprecated=False,
+            is_eol=False,
+            latest="0.1.0",
+            message="0.1.0 (current)",
+        )
+        with patch("ai_engineering.version.checker.check_version", return_value=mock_result):
+            report = diagnose(installed_project)
+        check = _find_check(report, "version-lifecycle")
+        assert check.status == CheckStatus.OK
+
+    def test_version_check_fail_when_deprecated(self, installed_project: Path) -> None:
+        from unittest.mock import patch
+
+        from ai_engineering.version.checker import VersionCheckResult
+        from ai_engineering.version.models import VersionStatus
+
+        mock_result = VersionCheckResult(
+            installed="0.1.0",
+            status=VersionStatus.DEPRECATED,
+            is_current=False,
+            is_outdated=False,
+            is_deprecated=True,
+            is_eol=False,
+            latest="0.2.0",
+            message="0.1.0 (deprecated — CVE-2025-1234)",
+        )
+        with patch("ai_engineering.version.checker.check_version", return_value=mock_result):
+            report = diagnose(installed_project)
+        check = _find_check(report, "version-lifecycle")
+        assert check.status == CheckStatus.FAIL
+
+
+# ---------------------------------------------------------------------------
 # Report
 # ---------------------------------------------------------------------------
 

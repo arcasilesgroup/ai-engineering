@@ -48,4 +48,5 @@ build-backend = "hatchling.build"
 packages = ["src/ai_engineering"]
 include = [
   "src/ai_engineering/templates/**/*.md",
+  "src/ai_engineering/version/registry.json",
 ]

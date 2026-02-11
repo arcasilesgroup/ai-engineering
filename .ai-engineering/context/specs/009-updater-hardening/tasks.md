@@ -3,7 +3,7 @@ spec: "009"
 total: 22
 completed: 22
 last_session: "2026-02-11"
-next_session: "Done — PR pending"
+next_session: "CLOSED"
 ---
 
 # Tasks — Updater Hardening

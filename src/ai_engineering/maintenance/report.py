@@ -42,6 +42,7 @@ class MaintenanceReport:
     risk_expired: int = 0
     local_branches: int = 0
     merged_branches: int = 0
+    version_status: str = ""
 
     @property
     def health_score(self) -> float:
@@ -80,6 +81,8 @@ class MaintenanceReport:
         lines.append(f"- Risk acceptances (expired): {self.risk_expired}")
         lines.append(f"- Local branches: {self.local_branches}")
         lines.append(f"- Merged branches (cleanup candidates): {self.merged_branches}")
+        if self.version_status:
+            lines.append(f"- Version status: {self.version_status}")
         lines.append("")
 
         if self.stale_files:
@@ -138,6 +141,15 @@ def generate_report(
         report.install_manifest_version = manifest.framework_version
     else:
         report.warnings.append("Install manifest not found")
+
+    # Version lifecycle status
+    try:
+        from ai_engineering.version.checker import check_version
+
+        version_result = check_version(report.install_manifest_version or "0.0.0")
+        report.version_status = version_result.message
+    except Exception:
+        pass
 
     # Count and analyse governance files
     governance_dirs = ["standards", "skills", "context"]
