@@ -1,7 +1,7 @@
 ---
 id: "006"
 slug: "agent-parity-sync-validator"
-status: "in-progress"
+status: "done"
 created: "2026-02-11"
 ---
 
