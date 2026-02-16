@@ -57,9 +57,17 @@ class TestGenerateBashHook:
         script = generate_bash_hook(GateHook.PRE_COMMIT)
         assert "set -euo pipefail" in script
 
-    def test_passes_args(self) -> None:
-        script = generate_bash_hook(GateHook.PRE_COMMIT)
+    def test_commit_msg_passes_args(self) -> None:
+        script = generate_bash_hook(GateHook.COMMIT_MSG)
         assert '"$@"' in script
+
+    def test_pre_commit_does_not_pass_args(self) -> None:
+        script = generate_bash_hook(GateHook.PRE_COMMIT)
+        assert '"$@"' not in script
+
+    def test_pre_push_does_not_pass_args(self) -> None:
+        script = generate_bash_hook(GateHook.PRE_PUSH)
+        assert '"$@"' not in script
 
 
 class TestGeneratePowershellHook:
