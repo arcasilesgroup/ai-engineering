@@ -1,17 +1,18 @@
 ---
-active: "013-cli-ux-hardening"
-updated: "2026-02-11"
+active: "none"
+updated: "2026-02-16"
 ---
 
 # Active Spec
 
-Current work: [013-cli-ux-hardening](013-cli-ux-hardening/spec.md)
+No spec is currently active. Spec-013 (CLI UX Hardening) completed on 2026-02-11.
 
 ## Quick Resume
 
-1. Read [spec.md](013-cli-ux-hardening/spec.md) — problem, solution, scope, decisions
-2. Read [plan.md](013-cli-ux-hardening/plan.md) — architecture, session map, patterns
-3. Read [tasks.md](013-cli-ux-hardening/tasks.md) — ordered phases, check checkboxes
-4. No done.md = still in progress
-5. Check `state/decision-store.json` — decisions already taken (do not re-ask)
-6. Check last N lines of `state/audit-log.ndjson` — recent events
+1. When a new spec is created, update this file with `active: "<spec-slug>"`
+2. Read [spec.md](<spec-slug>/spec.md) — problem, solution, scope, decisions
+3. Read [plan.md](<spec-slug>/plan.md) — architecture, session map, patterns
+4. Read [tasks.md](<spec-slug>/tasks.md) — ordered phases, check checkboxes
+5. If done.md exists, the spec is complete — move to the next spec or set active to "none"
+6. Check `state/decision-store.json` — decisions already taken (do not re-ask)
+7. Check last N lines of `state/audit-log.ndjson` — recent events

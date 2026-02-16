@@ -14,7 +14,6 @@ applyTo: "**/*.md"
 ### Framework-Managed (`.ai-engineering/standards/framework/**`)
 
 - Owned by the framework — updated through governed update flows.
-- Must include metadata block: `Version`, `Last Updated`, `Owner`.
 - Changes require rationale, expected gain, and potential impact.
 
 ### Team-Managed (`.ai-engineering/standards/team/**`)
@@ -30,7 +29,7 @@ applyTo: "**/*.md"
 ### Skills (`.ai-engineering/skills/**`)
 
 - Structured procedure documents with clear step-by-step flows.
-- Template: Identity → Trigger → Procedure → Output Contract → References.
+- Template: Purpose → Trigger → Procedure → Output Contract → Governance Notes → References.
 
 ### Agents (`.ai-engineering/agents/**`)
 
@@ -47,22 +46,10 @@ applyTo: "**/*.md"
 - Tables: use pipe tables with header separator.
 - Keep lines reasonable length — hard wraps not required for prose.
 
-## Metadata Block
-
-For governance documents, include at the top of the content section:
-
-```
-| Field        | Value            |
-|-------------|------------------|
-| Version     | v2               |
-| Last Updated| YYYY-MM-DD       |
-| Owner       | framework / team |
-```
-
 ## Cross-Reference Style
 
 - Reference other governance docs with relative paths from `.ai-engineering/`: `standards/framework/core.md`.
-- Reference skills with: `skills/swe/debug.md`.
+- Reference skills with: `skills/dev/debug.md`.
 - Reference agents with: `agents/debugger.md`.
 - Use markdown links for external references.
 

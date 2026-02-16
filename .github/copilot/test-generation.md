@@ -12,8 +12,8 @@ Use `.ai-engineering/` as the single source of truth for project governance and 
 
 ## Skills
 
-- Use `.ai-engineering/skills/swe/test-strategy.md` for test design procedure.
-- Reference `.ai-engineering/skills/swe/debug.md` for diagnosing test failures.
+- Use `.ai-engineering/skills/dev/test-strategy.md` for test design procedure.
+- Reference `.ai-engineering/skills/dev/debug.md` for diagnosing test failures.
 
 ## Conventions
 

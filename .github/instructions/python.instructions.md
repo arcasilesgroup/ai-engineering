@@ -78,7 +78,7 @@ For complex Python tasks, consider referencing these agent definitions:
 
 For structured procedures:
 
-- `.ai-engineering/skills/swe/python-mastery.md` — comprehensive Python patterns.
-- `.ai-engineering/skills/swe/debug.md` — debugging procedure.
-- `.ai-engineering/skills/swe/refactor.md` — refactoring procedure.
-- `.ai-engineering/skills/swe/test-strategy.md` — test design.
+- `.ai-engineering/skills/utils/python-patterns.md` — comprehensive Python patterns.
+- `.ai-engineering/skills/dev/debug.md` — debugging procedure.
+- `.ai-engineering/skills/dev/refactor.md` — refactoring procedure.
+- `.ai-engineering/skills/dev/test-strategy.md` — test design.

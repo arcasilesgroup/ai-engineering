@@ -70,6 +70,36 @@
       "pattern": ".ai-engineering/state/audit-log.ndjson",
       "owner": "system-managed",
       "frameworkUpdate": "append-only"
+    },
+    {
+      "pattern": "AGENTS.md",
+      "owner": "framework-managed",
+      "frameworkUpdate": "allow"
+    },
+    {
+      "pattern": ".claude/commands/**",
+      "owner": "framework-managed",
+      "frameworkUpdate": "allow"
+    },
+    {
+      "pattern": ".claude/settings.json",
+      "owner": "framework-managed",
+      "frameworkUpdate": "allow"
+    },
+    {
+      "pattern": ".github/instructions/**",
+      "owner": "framework-managed",
+      "frameworkUpdate": "allow"
+    },
+    {
+      "pattern": ".ai-engineering/agents/**",
+      "owner": "framework-managed",
+      "frameworkUpdate": "allow"
+    },
+    {
+      "pattern": ".ai-engineering/README.md",
+      "owner": "framework-managed",
+      "frameworkUpdate": "allow"
     }
   ]
 }

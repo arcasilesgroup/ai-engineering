@@ -13,8 +13,8 @@ Use `.ai-engineering/` as the single source of truth for project governance and 
 ## Skills and Agents
 
 - Apply `.ai-engineering/agents/principal-engineer.md` persona for thorough reviews.
-- Use `.ai-engineering/skills/swe/code-review.md` for structured review procedure.
-- Reference `.ai-engineering/skills/swe/security-review.md` for security-focused reviews.
+- Use `.ai-engineering/skills/dev/code-review.md` for structured review procedure.
+- Reference `.ai-engineering/skills/review/security.md` for security-focused reviews.
 
 ## Review Checklist
 
