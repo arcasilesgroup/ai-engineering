@@ -1,0 +1,92 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 400" font-family="JetBrains Mono, Inter, sans-serif">
+
+  <rect width="900" height="400" fill="#0B1120" rx="12" stroke="#1A2A40" stroke-width="1"/>
+
+  <!-- Title -->
+  <text x="450" y="38" text-anchor="middle" fill="#F8FAFB" font-size="22" font-weight="700">Developer Experience Pipeline</text>
+  <text x="450" y="60" text-anchor="middle" fill="#94A3B8" font-size="13">"Your next commit after install is already governed"</text>
+
+  <!-- Step 1: Install -->
+  <rect x="30" y="90" width="120" height="70" rx="8" fill="#00D4AA" stroke="#00D4AA" stroke-width="2"/>
+  <text x="90" y="118" text-anchor="middle" fill="#0B1120" font-size="13" font-weight="700">INSTALL</text>
+  <text x="90" y="138" text-anchor="middle" fill="#0B1120" font-size="10">ai-eng install .</text>
+  <text x="90" y="152" text-anchor="middle" fill="#0B1120" font-size="9">&lt; 5 minutes</text>
+
+  <!-- Arrow -->
+  <line x1="152" y1="125" x2="168" y2="125" stroke="#00D4AA" stroke-width="2"/>
+  <polygon points="178,125 165,118 165,132" fill="#00D4AA"/>
+
+  <!-- Step 2: Code -->
+  <rect x="180" y="90" width="120" height="70" rx="8" fill="#1A2A40" stroke="#2e6ba4" stroke-width="1.5"/>
+  <text x="240" y="118" text-anchor="middle" fill="#2e6ba4" font-size="13" font-weight="700">CODE</text>
+  <text x="240" y="138" text-anchor="middle" fill="#94A3B8" font-size="10">Write + AI assist</text>
+  <text x="240" y="152" text-anchor="middle" fill="#94A3B8" font-size="9">Any IDE / provider</text>
+
+  <!-- Arrow -->
+  <line x1="302" y1="125" x2="318" y2="125" stroke="#2e6ba4" stroke-width="2"/>
+  <polygon points="328,125 315,118 315,132" fill="#2e6ba4"/>
+
+  <!-- Step 3: Pre-commit gates -->
+  <rect x="330" y="80" width="160" height="90" rx="8" fill="#1A2A40" stroke="#2A4F7A" stroke-width="2"/>
+  <text x="410" y="103" text-anchor="middle" fill="#2A4F7A" font-size="12" font-weight="700">PRE-COMMIT GATES</text>
+  <rect x="345" y="112" width="130" height="20" rx="4" fill="#c8ede7" stroke="#1a9e8c" stroke-width="1"/>
+  <text x="410" y="126" text-anchor="middle" fill="#0d5c52" font-size="10">ruff format + lint</text>
+  <rect x="345" y="138" width="130" height="20" rx="4" fill="#c8ede7" stroke="#1a9e8c" stroke-width="1"/>
+  <text x="410" y="152" text-anchor="middle" fill="#0d5c52" font-size="10">gitleaks (secrets)</text>
+
+  <!-- Arrow -->
+  <line x1="492" y1="125" x2="508" y2="125" stroke="#2A4F7A" stroke-width="2"/>
+  <polygon points="518,125 505,118 505,132" fill="#2A4F7A"/>
+
+  <!-- Step 4: Commit-msg -->
+  <rect x="520" y="90" width="120" height="70" rx="8" fill="#1A2A40" stroke="#7b3fa0" stroke-width="1.5"/>
+  <text x="580" y="113" text-anchor="middle" fill="#7b3fa0" font-size="12" font-weight="700">COMMIT-MSG</text>
+  <text x="580" y="133" text-anchor="middle" fill="#94A3B8" font-size="10">Format validation</text>
+  <text x="580" y="148" text-anchor="middle" fill="#94A3B8" font-size="10">Branch protection</text>
+
+  <!-- Arrow -->
+  <line x1="642" y1="125" x2="658" y2="125" stroke="#7b3fa0" stroke-width="2"/>
+  <polygon points="668,125 655,118 655,132" fill="#7b3fa0"/>
+
+  <!-- Step 5: Pre-push gates -->
+  <rect x="670" y="75" width="200" height="100" rx="8" fill="#1A2A40" stroke="#EF4444" stroke-width="2"/>
+  <text x="770" y="98" text-anchor="middle" fill="#EF4444" font-size="12" font-weight="700">PRE-PUSH GATES</text>
+  <rect x="685" y="108" width="170" height="18" rx="4" fill="#c8ede7" stroke="#1a9e8c" stroke-width="1"/>
+  <text x="770" y="121" text-anchor="middle" fill="#0d5c52" font-size="10">semgrep (SAST/OWASP)</text>
+  <rect x="685" y="130" width="170" height="18" rx="4" fill="#c8ede7" stroke="#1a9e8c" stroke-width="1"/>
+  <text x="770" y="143" text-anchor="middle" fill="#0d5c52" font-size="10">pip-audit (CVE scan)</text>
+  <rect x="685" y="152" width="170" height="18" rx="4" fill="#c8ede7" stroke="#1a9e8c" stroke-width="1"/>
+  <text x="770" y="165" text-anchor="middle" fill="#0d5c52" font-size="10">pytest + ty (tests + types)</text>
+
+  <!-- Success path -->
+  <line x1="770" y1="180" x2="770" y2="220" stroke="#1a9e8c" stroke-width="2"/>
+  <polygon points="770,225 763,215 777,215" fill="#1a9e8c"/>
+  <rect x="700" y="230" width="140" height="45" rx="8" fill="#c8ede7" stroke="#1a9e8c" stroke-width="2"/>
+  <text x="770" y="253" text-anchor="middle" fill="#0d5c52" font-size="14" font-weight="700">PUSH</text>
+  <text x="770" y="268" text-anchor="middle" fill="#0d5c52" font-size="10">Code ships governed</text>
+
+  <!-- Failure path -->
+  <line x1="870" y1="125" x2="870" y2="230" stroke="#EF4444" stroke-width="2" stroke-dasharray="5,3"/>
+  <rect x="830" y="230" width="60" height="45" rx="8" fill="#0B1120" stroke="#EF4444" stroke-width="2"/>
+  <text x="860" y="252" text-anchor="middle" fill="#EF4444" font-size="11" font-weight="700">BLOCK</text>
+  <text x="860" y="267" text-anchor="middle" fill="#EF4444" font-size="9">Fix first</text>
+
+  <!-- Key points at bottom -->
+  <rect x="40" y="300" width="250" height="80" rx="8" fill="#1A2A40" stroke="#1A2A40" stroke-width="1"/>
+  <text x="165" y="325" text-anchor="middle" fill="#00D4AA" font-size="12" font-weight="700">Local Enforcement</text>
+  <text x="165" y="345" text-anchor="middle" fill="#64748B" font-size="10">No CI dependency for baseline quality</text>
+  <text x="165" y="360" text-anchor="middle" fill="#64748B" font-size="10">Issues caught before code leaves</text>
+  <text x="165" y="375" text-anchor="middle" fill="#64748B" font-size="10">the developer's machine</text>
+
+  <rect x="320" y="300" width="250" height="80" rx="8" fill="#1A2A40" stroke="#1A2A40" stroke-width="1"/>
+  <text x="445" y="325" text-anchor="middle" fill="#00D4AA" font-size="12" font-weight="700">Non-Bypassable</text>
+  <text x="445" y="345" text-anchor="middle" fill="#64748B" font-size="10">Git hooks are mandatory</text>
+  <text x="445" y="360" text-anchor="middle" fill="#64748B" font-size="10">--no-verify is blocked</text>
+  <text x="445" y="375" text-anchor="middle" fill="#64748B" font-size="10">Quality gates always execute</text>
+
+  <rect x="600" y="300" width="265" height="80" rx="8" fill="#1A2A40" stroke="#1A2A40" stroke-width="1"/>
+  <text x="732" y="325" text-anchor="middle" fill="#00D4AA" font-size="12" font-weight="700">Recovery Tools</text>
+  <text x="732" y="345" text-anchor="middle" fill="#64748B" font-size="10">ai-eng doctor — verify all tools</text>
+  <text x="732" y="360" text-anchor="middle" fill="#64748B" font-size="10">ai-eng validate — integrity check</text>
+  <text x="732" y="375" text-anchor="middle" fill="#64748B" font-size="10">Auto-remediation on missing tools</text>
+</svg>

@@ -1,0 +1,103 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 450" font-family="JetBrains Mono, Inter, sans-serif">
+
+  <rect width="900" height="450" fill="#0B1120" rx="12" stroke="#1A2A40" stroke-width="1"/>
+
+  <!-- Title -->
+  <text x="450" y="38" text-anchor="middle" fill="#F8FAFB" font-size="22" font-weight="700">Agents: 8 Specialized Personas</text>
+  <text x="450" y="60" text-anchor="middle" fill="#94A3B8" font-size="13">Behavior contracts — not running processes. Identity + Capabilities + Boundaries</text>
+
+  <!-- Connection lines (behind nodes) -->
+  <line x1="200" y1="150" x2="450" y2="230" stroke="#1A2A40" stroke-width="1" opacity="0.5"/>
+  <line x1="450" y1="150" x2="450" y2="230" stroke="#1A2A40" stroke-width="1" opacity="0.5"/>
+  <line x1="700" y1="150" x2="450" y2="230" stroke="#1A2A40" stroke-width="1" opacity="0.5"/>
+  <line x1="140" y1="270" x2="450" y2="230" stroke="#1A2A40" stroke-width="1" opacity="0.5"/>
+  <line x1="310" y1="350" x2="450" y2="230" stroke="#1A2A40" stroke-width="1" opacity="0.5"/>
+  <line x1="590" y1="350" x2="450" y2="230" stroke="#1A2A40" stroke-width="1" opacity="0.5"/>
+  <line x1="760" y1="270" x2="450" y2="230" stroke="#1A2A40" stroke-width="1" opacity="0.5"/>
+  <line x1="450" y1="380" x2="450" y2="230" stroke="#1A2A40" stroke-width="1" opacity="0.5"/>
+
+  <!-- Center hub -->
+  <circle cx="450" cy="230" r="35" fill="#00D4AA" stroke="#00D4AA" stroke-width="2"/>
+  <text x="450" y="225" text-anchor="middle" fill="#0B1120" font-size="10" font-weight="700">ai-engineering</text>
+  <text x="450" y="240" text-anchor="middle" fill="#0B1120" font-size="9">Governance Hub</text>
+
+  <!-- Agent 1: Principal Engineer -->
+  <g transform="translate(120, 100)">
+    <rect width="160" height="55" rx="8" fill="#1A2A40" stroke="#2A4F7A" stroke-width="2"/>
+    <circle cx="25" cy="27" r="14" fill="#1A2A40" stroke="#2A4F7A" stroke-width="1.5"/>
+    <text x="25" y="32" text-anchor="middle" fill="#2A4F7A" font-size="12" font-weight="700">PE</text>
+    <text x="100" y="22" text-anchor="middle" fill="#2A4F7A" font-size="11" font-weight="700">Principal Engineer</text>
+    <text x="100" y="38" text-anchor="middle" fill="#64748B" font-size="9">Code review, standards</text>
+    <text x="100" y="50" text-anchor="middle" fill="#94A3B8" font-size="8">enforcement, mentoring</text>
+  </g>
+
+  <!-- Agent 2: Architect -->
+  <g transform="translate(370, 88)">
+    <rect width="160" height="55" rx="8" fill="#1A2A40" stroke="#2e6ba4" stroke-width="2"/>
+    <circle cx="25" cy="27" r="14" fill="#1A2A40" stroke="#2e6ba4" stroke-width="1.5"/>
+    <text x="25" y="32" text-anchor="middle" fill="#2e6ba4" font-size="12" font-weight="700">AR</text>
+    <text x="100" y="22" text-anchor="middle" fill="#2e6ba4" font-size="11" font-weight="700">Architect</text>
+    <text x="100" y="38" text-anchor="middle" fill="#64748B" font-size="9">Architecture analysis</text>
+    <text x="100" y="50" text-anchor="middle" fill="#94A3B8" font-size="8">patterns, scalability</text>
+  </g>
+
+  <!-- Agent 3: Security Reviewer -->
+  <g transform="translate(620, 100)">
+    <rect width="160" height="55" rx="8" fill="#1A2A40" stroke="#EF4444" stroke-width="2"/>
+    <circle cx="25" cy="27" r="14" fill="#1A2A40" stroke="#EF4444" stroke-width="1.5"/>
+    <text x="25" y="32" text-anchor="middle" fill="#EF4444" font-size="12" font-weight="700">SR</text>
+    <text x="100" y="22" text-anchor="middle" fill="#EF4444" font-size="11" font-weight="700">Security Reviewer</text>
+    <text x="100" y="38" text-anchor="middle" fill="#64748B" font-size="9">Security assessment</text>
+    <text x="100" y="50" text-anchor="middle" fill="#94A3B8" font-size="8">OWASP, threat modeling</text>
+  </g>
+
+  <!-- Agent 4: Debugger -->
+  <g transform="translate(55, 240)">
+    <rect width="160" height="55" rx="8" fill="#1A2A40" stroke="#7b3fa0" stroke-width="2"/>
+    <circle cx="25" cy="27" r="14" fill="#1A2A40" stroke="#7b3fa0" stroke-width="1.5"/>
+    <text x="25" y="32" text-anchor="middle" fill="#7b3fa0" font-size="12" font-weight="700">DB</text>
+    <text x="100" y="22" text-anchor="middle" fill="#7b3fa0" font-size="11" font-weight="700">Debugger</text>
+    <text x="100" y="38" text-anchor="middle" fill="#64748B" font-size="9">Systematic diagnosis</text>
+    <text x="100" y="50" text-anchor="middle" fill="#94A3B8" font-size="8">root cause analysis</text>
+  </g>
+
+  <!-- Agent 5: Quality Auditor -->
+  <g transform="translate(230, 320)">
+    <rect width="160" height="55" rx="8" fill="#1A2A40" stroke="#7b3fa0" stroke-width="2"/>
+    <circle cx="25" cy="27" r="14" fill="#1A2A40" stroke="#7b3fa0" stroke-width="1.5"/>
+    <text x="25" y="32" text-anchor="middle" fill="#b38bcf" font-size="12" font-weight="700">QA</text>
+    <text x="100" y="22" text-anchor="middle" fill="#b38bcf" font-size="11" font-weight="700">Quality Auditor</text>
+    <text x="100" y="38" text-anchor="middle" fill="#64748B" font-size="9">Quality gate enforcement</text>
+    <text x="100" y="50" text-anchor="middle" fill="#94A3B8" font-size="8">coverage, complexity</text>
+  </g>
+
+  <!-- Agent 6: Verify App -->
+  <g transform="translate(510, 320)">
+    <rect width="160" height="55" rx="8" fill="#1A2A40" stroke="#1a9e8c" stroke-width="2"/>
+    <circle cx="25" cy="27" r="14" fill="#1A2A40" stroke="#1a9e8c" stroke-width="1.5"/>
+    <text x="25" y="32" text-anchor="middle" fill="#1a9e8c" font-size="12" font-weight="700">VA</text>
+    <text x="100" y="22" text-anchor="middle" fill="#1a9e8c" font-size="11" font-weight="700">Verify App</text>
+    <text x="100" y="38" text-anchor="middle" fill="#64748B" font-size="9">End-to-end verification</text>
+    <text x="100" y="50" text-anchor="middle" fill="#94A3B8" font-size="8">smoke tests, integration</text>
+  </g>
+
+  <!-- Agent 7: Codebase Mapper -->
+  <g transform="translate(685, 240)">
+    <rect width="160" height="55" rx="8" fill="#1A2A40" stroke="#00D4AA" stroke-width="2"/>
+    <circle cx="25" cy="27" r="14" fill="#1A2A40" stroke="#00D4AA" stroke-width="1.5"/>
+    <text x="25" y="32" text-anchor="middle" fill="#00D4AA" font-size="12" font-weight="700">CM</text>
+    <text x="100" y="22" text-anchor="middle" fill="#00D4AA" font-size="11" font-weight="700">Codebase Mapper</text>
+    <text x="100" y="38" text-anchor="middle" fill="#64748B" font-size="9">Structure mapping</text>
+    <text x="100" y="50" text-anchor="middle" fill="#94A3B8" font-size="8">dependency analysis</text>
+  </g>
+
+  <!-- Agent 8: Code Simplifier -->
+  <g transform="translate(370, 380)">
+    <rect width="160" height="55" rx="8" fill="#1A2A40" stroke="#1A2A40" stroke-width="2"/>
+    <circle cx="25" cy="27" r="14" fill="#1A2A40" stroke="#1A2A40" stroke-width="1.5"/>
+    <text x="25" y="32" text-anchor="middle" fill="#F8FAFB" font-size="12" font-weight="700">CS</text>
+    <text x="100" y="22" text-anchor="middle" fill="#F8FAFB" font-size="11" font-weight="700">Code Simplifier</text>
+    <text x="100" y="38" text-anchor="middle" fill="#64748B" font-size="9">Complexity reduction</text>
+    <text x="100" y="50" text-anchor="middle" fill="#94A3B8" font-size="8">readability, clarity</text>
+  </g>
+</svg>

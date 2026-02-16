@@ -1,0 +1,104 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 500" font-family="JetBrains Mono, Inter, sans-serif">
+
+  <rect width="900" height="500" fill="#0B1120" rx="12" stroke="#1A2A40" stroke-width="1"/>
+
+  <!-- Title -->
+  <text x="450" y="38" text-anchor="middle" fill="#F8FAFB" font-size="22" font-weight="700">What is ai-engineering?</text>
+  <text x="450" y="60" text-anchor="middle" fill="#94A3B8" font-size="13">A content framework — Markdown, YAML, JSON, Bash define behavior</text>
+
+  <!-- Main governance root -->
+  <rect x="250" y="80" width="400" height="40" rx="8" fill="#00D4AA" stroke="#00D4AA" stroke-width="2"/>
+  <text x="450" y="105" text-anchor="middle" fill="#0B1120" font-size="15" font-weight="700">.ai-engineering/</text>
+
+  <!-- 5 directory children -->
+  <!-- standards/ -->
+  <rect x="40" y="155" width="155" height="80" rx="8" fill="#1A2A40" stroke="#2e6ba4" stroke-width="1.5"/>
+  <text x="117" y="178" text-anchor="middle" fill="#2e6ba4" font-size="13" font-weight="700">standards/</text>
+  <text x="117" y="196" text-anchor="middle" fill="#94A3B8" font-size="10">framework/core.md</text>
+  <text x="117" y="210" text-anchor="middle" fill="#94A3B8" font-size="10">framework/stacks/</text>
+  <text x="117" y="224" text-anchor="middle" fill="#94A3B8" font-size="10">team/core.md</text>
+  <line x1="305" y1="120" x2="117" y2="155" stroke="#1A2A40" stroke-width="1.5"/>
+
+  <!-- skills/ -->
+  <rect x="210" y="155" width="155" height="80" rx="8" fill="#1A2A40" stroke="#7b3fa0" stroke-width="1.5"/>
+  <text x="287" y="178" text-anchor="middle" fill="#7b3fa0" font-size="13" font-weight="700">skills/</text>
+  <text x="287" y="196" text-anchor="middle" fill="#94A3B8" font-size="10">7 categories</text>
+  <text x="287" y="210" text-anchor="middle" fill="#94A3B8" font-size="10">31 procedures</text>
+  <text x="287" y="224" text-anchor="middle" fill="#94A3B8" font-size="10">Markdown specs</text>
+  <line x1="380" y1="120" x2="287" y2="155" stroke="#1A2A40" stroke-width="1.5"/>
+
+  <!-- agents/ -->
+  <rect x="380" y="155" width="155" height="80" rx="8" fill="#1A2A40" stroke="#2A4F7A" stroke-width="1.5"/>
+  <text x="457" y="178" text-anchor="middle" fill="#2A4F7A" font-size="13" font-weight="700">agents/</text>
+  <text x="457" y="196" text-anchor="middle" fill="#94A3B8" font-size="10">8 personas</text>
+  <text x="457" y="210" text-anchor="middle" fill="#94A3B8" font-size="10">Behavior contracts</text>
+  <text x="457" y="224" text-anchor="middle" fill="#94A3B8" font-size="10">Output specs</text>
+  <line x1="450" y1="120" x2="457" y2="155" stroke="#1A2A40" stroke-width="1.5"/>
+
+  <!-- context/ -->
+  <rect x="550" y="155" width="155" height="80" rx="8" fill="#1A2A40" stroke="#1a9e8c" stroke-width="1.5"/>
+  <text x="627" y="178" text-anchor="middle" fill="#1a9e8c" font-size="13" font-weight="700">context/</text>
+  <text x="627" y="196" text-anchor="middle" fill="#94A3B8" font-size="10">specs/ (delivery)</text>
+  <text x="627" y="210" text-anchor="middle" fill="#94A3B8" font-size="10">product/ (contracts)</text>
+  <text x="627" y="224" text-anchor="middle" fill="#94A3B8" font-size="10">learnings/</text>
+  <line x1="520" y1="120" x2="627" y2="155" stroke="#1A2A40" stroke-width="1.5"/>
+
+  <!-- state/ -->
+  <rect x="720" y="155" width="155" height="80" rx="8" fill="#1A2A40" stroke="#EF4444" stroke-width="1.5"/>
+  <text x="797" y="178" text-anchor="middle" fill="#EF4444" font-size="13" font-weight="700">state/</text>
+  <text x="797" y="196" text-anchor="middle" fill="#94A3B8" font-size="10">decision-store.json</text>
+  <text x="797" y="210" text-anchor="middle" fill="#94A3B8" font-size="10">audit-log.ndjson</text>
+  <text x="797" y="224" text-anchor="middle" fill="#94A3B8" font-size="10">install-manifest.json</text>
+  <line x1="595" y1="120" x2="797" y2="155" stroke="#1A2A40" stroke-width="1.5"/>
+
+  <!-- CLI bar -->
+  <rect x="150" y="280" width="600" height="50" rx="8" fill="#1A2A40" stroke="#1A2A40" stroke-width="1.5"/>
+  <text x="200" y="310" fill="#00D4AA" font-size="14" font-weight="700">$ ai-eng</text>
+  <text x="330" y="310" fill="#64748B" font-size="12">install</text>
+  <text x="400" y="310" fill="#94A3B8" font-size="12">|</text>
+  <text x="430" y="310" fill="#64748B" font-size="12">update</text>
+  <text x="500" y="310" fill="#94A3B8" font-size="12">|</text>
+  <text x="530" y="310" fill="#64748B" font-size="12">doctor</text>
+  <text x="600" y="310" fill="#94A3B8" font-size="12">|</text>
+  <text x="638" y="310" fill="#64748B" font-size="12">validate</text>
+
+  <!-- IDE icons section -->
+  <text x="450" y="370" text-anchor="middle" fill="#64748B" font-size="12" font-weight="600">Works with any AI provider</text>
+
+  <!-- Claude Code -->
+  <rect x="110" y="390" width="180" height="65" rx="8" fill="#1A2A40" stroke="#2A4F7A" stroke-width="1.5"/>
+  <text x="200" y="415" text-anchor="middle" fill="#2A4F7A" font-size="13" font-weight="700">Claude Code</text>
+  <text x="200" y="435" text-anchor="middle" fill="#94A3B8" font-size="10">CLAUDE.md + 37 commands</text>
+  <text x="200" y="448" text-anchor="middle" fill="#94A3B8" font-size="10">.claude/commands/</text>
+
+  <!-- Copilot -->
+  <rect x="320" y="390" width="180" height="65" rx="8" fill="#1A2A40" stroke="#2e6ba4" stroke-width="1.5"/>
+  <text x="410" y="415" text-anchor="middle" fill="#2e6ba4" font-size="13" font-weight="700">GitHub Copilot</text>
+  <text x="410" y="435" text-anchor="middle" fill="#94A3B8" font-size="10">copilot-instructions.md</text>
+  <text x="410" y="448" text-anchor="middle" fill="#94A3B8" font-size="10">.github/copilot/prompts/</text>
+
+  <!-- Codex -->
+  <rect x="530" y="390" width="180" height="65" rx="8" fill="#1A2A40" stroke="#1a9e8c" stroke-width="1.5"/>
+  <text x="620" y="415" text-anchor="middle" fill="#1a9e8c" font-size="13" font-weight="700">OpenAI Codex</text>
+  <text x="620" y="435" text-anchor="middle" fill="#94A3B8" font-size="10">codex.md</text>
+  <text x="620" y="448" text-anchor="middle" fill="#94A3B8" font-size="10">+ instruction files</text>
+
+  <!-- Terminal -->
+  <rect x="740" y="390" width="130" height="65" rx="8" fill="#1A2A40" stroke="#999999" stroke-width="1.5"/>
+  <text x="805" y="415" text-anchor="middle" fill="#F8FAFB" font-size="13" font-weight="700">Terminal</text>
+  <text x="805" y="435" text-anchor="middle" fill="#94A3B8" font-size="10">Direct CLI</text>
+  <text x="805" y="448" text-anchor="middle" fill="#94A3B8" font-size="10">ai-eng commands</text>
+
+  <!-- Badges -->
+  <rect x="40" y="280" width="80" height="25" rx="4" fill="#c8ede7" stroke="#1a9e8c" stroke-width="1"/>
+  <text x="80" y="297" text-anchor="middle" fill="#1a9e8c" font-size="10" font-weight="600">MIT License</text>
+
+  <rect x="40" y="312" width="80" height="25" rx="4" fill="#1A2A40" stroke="#2e6ba4" stroke-width="1"/>
+  <text x="80" y="329" text-anchor="middle" fill="#2e6ba4" font-size="10" font-weight="600">Python 3.11+</text>
+
+  <rect x="780" y="280" width="80" height="25" rx="4" fill="#1A2A40" stroke="#999999" stroke-width="1"/>
+  <text x="820" y="297" text-anchor="middle" fill="#F8FAFB" font-size="10" font-weight="600">Cross-OS</text>
+
+  <rect x="780" y="312" width="80" height="25" rx="4" fill="#1A2A40" stroke="#999999" stroke-width="1"/>
+  <text x="820" y="329" text-anchor="middle" fill="#F8FAFB" font-size="10" font-weight="600">Open Source</text>
+</svg>

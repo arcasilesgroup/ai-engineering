@@ -1,0 +1,103 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 480" font-family="JetBrains Mono, Inter, sans-serif">
+  <defs>
+    <marker id="arrow9" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <polygon points="0,0 8,3 0,6" fill="#00D4AA"/>
+    </marker>
+  </defs>
+
+  <rect width="900" height="480" fill="#0B1120" rx="12" stroke="#1A2A40" stroke-width="1"/>
+
+  <!-- Title -->
+  <text x="450" y="38" text-anchor="middle" fill="#F8FAFB" font-size="22" font-weight="700">Spec-Driven Delivery: 4-Document Pattern</text>
+  <text x="450" y="60" text-anchor="middle" fill="#94A3B8" font-size="13">Not bureaucracy — it's AI session recovery. Any agent can resume any spec.</text>
+
+  <!-- 4 Document boxes in a row -->
+  <!-- spec.md -->
+  <rect x="50" y="85" width="180" height="90" rx="10" fill="#1A2A40" stroke="#00D4AA" stroke-width="2.5"/>
+  <text x="140" y="112" text-anchor="middle" fill="#00D4AA" font-size="16" font-weight="700">spec.md</text>
+  <text x="140" y="132" text-anchor="middle" fill="#00D4AA" font-size="20" font-weight="700">WHAT</text>
+  <text x="140" y="152" text-anchor="middle" fill="#64748B" font-size="10">Requirements, scope</text>
+  <text x="140" y="165" text-anchor="middle" fill="#64748B" font-size="10">acceptance criteria</text>
+
+  <!-- Arrow -->
+  <line x1="235" y1="130" x2="270" y2="130" stroke="#00D4AA" stroke-width="2" marker-end="url(#arrow9)"/>
+
+  <!-- plan.md -->
+  <rect x="275" y="85" width="180" height="90" rx="10" fill="#1A2A40" stroke="#2e6ba4" stroke-width="2.5"/>
+  <text x="365" y="112" text-anchor="middle" fill="#2e6ba4" font-size="16" font-weight="700">plan.md</text>
+  <text x="365" y="132" text-anchor="middle" fill="#2e6ba4" font-size="20" font-weight="700">HOW</text>
+  <text x="365" y="152" text-anchor="middle" fill="#64748B" font-size="10">Architecture decisions</text>
+  <text x="365" y="165" text-anchor="middle" fill="#64748B" font-size="10">approach, trade-offs</text>
+
+  <!-- Arrow -->
+  <line x1="460" y1="130" x2="495" y2="130" stroke="#00D4AA" stroke-width="2" marker-end="url(#arrow9)"/>
+
+  <!-- tasks.md -->
+  <rect x="500" y="85" width="180" height="90" rx="10" fill="#1A2A40" stroke="#2A4F7A" stroke-width="2.5"/>
+  <text x="590" y="112" text-anchor="middle" fill="#2A4F7A" font-size="16" font-weight="700">tasks.md</text>
+  <text x="590" y="132" text-anchor="middle" fill="#2A4F7A" font-size="20" font-weight="700">DO</text>
+  <text x="590" y="152" text-anchor="middle" fill="#64748B" font-size="10">Ordered task list</text>
+  <text x="590" y="165" text-anchor="middle" fill="#64748B" font-size="10">assignable, trackable</text>
+
+  <!-- Arrow -->
+  <line x1="685" y1="130" x2="720" y2="130" stroke="#00D4AA" stroke-width="2" marker-end="url(#arrow9)"/>
+
+  <!-- done.md -->
+  <rect x="725" y="85" width="140" height="90" rx="10" fill="#c8ede7" stroke="#1a9e8c" stroke-width="2.5"/>
+  <text x="795" y="112" text-anchor="middle" fill="#1a9e8c" font-size="16" font-weight="700">done.md</text>
+  <text x="795" y="132" text-anchor="middle" fill="#1a9e8c" font-size="20" font-weight="700">DONE</text>
+  <text x="795" y="152" text-anchor="middle" fill="#64748B" font-size="10">Completion log</text>
+  <text x="795" y="165" text-anchor="middle" fill="#64748B" font-size="10">learnings recorded</text>
+
+  <!-- Phase Gates bar -->
+  <rect x="50" y="195" width="815" height="35" rx="6" fill="#1A2A40" stroke="#1A2A40" stroke-width="1"/>
+  <text x="450" y="217" text-anchor="middle" fill="#64748B" font-size="12" font-weight="700">Phase Gates: tasks checked  |  branch merged  |  quality pass  |  decisions recorded</text>
+
+  <!-- Commit format -->
+  <rect x="250" y="245" width="400" height="30" rx="6" fill="#1A2A40" stroke="#00D4AA" stroke-width="1.5"/>
+  <text x="450" y="265" text-anchor="middle" fill="#00D4AA" font-size="12" font-weight="600" font-style="italic">spec-NNN: Task X.Y — description</text>
+  <text x="450" y="287" text-anchor="middle" fill="#94A3B8" font-size="10">Deterministic commit format — traceable to spec and task</text>
+
+  <!-- Parallel Execution Diagram -->
+  <text x="450" y="320" text-anchor="middle" fill="#F8FAFB" font-size="15" font-weight="700">Multi-Agent Parallel Execution</text>
+  <text x="450" y="338" text-anchor="middle" fill="#94A3B8" font-size="11">Independent phases run simultaneously on separate branches</text>
+
+  <!-- Timeline base -->
+  <line x1="100" y1="380" x2="800" y2="380" stroke="#1A2A40" stroke-width="1"/>
+
+  <!-- Agent A branch -->
+  <rect x="120" y="355" width="200" height="22" rx="4" fill="#1A2A40" stroke="#00D4AA" stroke-width="1.5"/>
+  <text x="220" y="370" text-anchor="middle" fill="#00D4AA" font-size="10" font-weight="600">Agent A — feat/spec-012-phase1</text>
+
+  <!-- Agent B branch -->
+  <rect x="120" y="383" width="280" height="22" rx="4" fill="#1A2A40" stroke="#2e6ba4" stroke-width="1.5"/>
+  <text x="260" y="398" text-anchor="middle" fill="#2e6ba4" font-size="10" font-weight="600">Agent B — feat/spec-012-phase2</text>
+
+  <!-- Agent C branch -->
+  <rect x="120" y="411" width="180" height="22" rx="4" fill="#1A2A40" stroke="#2A4F7A" stroke-width="1.5"/>
+  <text x="210" y="426" text-anchor="middle" fill="#2A4F7A" font-size="10" font-weight="600">Agent C — feat/spec-012-phase3</text>
+
+  <!-- Merge point -->
+  <line x1="320" y1="366" x2="500" y2="380" stroke="#00D4AA" stroke-width="1" stroke-dasharray="4,2"/>
+  <line x1="400" y1="394" x2="500" y2="380" stroke="#2e6ba4" stroke-width="1" stroke-dasharray="4,2"/>
+  <line x1="300" y1="422" x2="500" y2="380" stroke="#2A4F7A" stroke-width="1" stroke-dasharray="4,2"/>
+
+  <!-- Phase gate merge -->
+  <rect x="495" y="360" width="80" height="40" rx="6" fill="#c8ede7" stroke="#1a9e8c" stroke-width="2"/>
+  <text x="535" y="378" text-anchor="middle" fill="#0d5c52" font-size="10" font-weight="700">PHASE</text>
+  <text x="535" y="393" text-anchor="middle" fill="#0d5c52" font-size="10" font-weight="700">GATE</text>
+
+  <!-- Next phases -->
+  <rect x="600" y="360" width="180" height="22" rx="4" fill="#1A2A40" stroke="#00D4AA" stroke-width="1"/>
+  <text x="690" y="375" text-anchor="middle" fill="#00D4AA" font-size="10">Next phase agents...</text>
+  <rect x="600" y="388" width="180" height="22" rx="4" fill="#1A2A40" stroke="#2e6ba4" stroke-width="1"/>
+  <text x="690" y="403" text-anchor="middle" fill="#2e6ba4" font-size="10">Parallel execution continues</text>
+
+  <!-- Arrow from gate to next -->
+  <line x1="575" y1="380" x2="598" y2="380" stroke="#1a9e8c" stroke-width="2" marker-end="url(#arrow9)"/>
+
+  <!-- Labels -->
+  <text x="100" y="460" fill="#94A3B8" font-size="10">Time</text>
+  <polygon points="800,380 790,375 790,385" fill="#94A3B8"/>
+  <text x="810" y="384" fill="#94A3B8" font-size="10">t</text>
+</svg>

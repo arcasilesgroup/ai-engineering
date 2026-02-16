@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 430" font-family="JetBrains Mono, Inter, sans-serif">
+
+  <rect width="900" height="430" fill="#0B1120" rx="12" stroke="#1A2A40" stroke-width="1"/>
+
+  <!-- Title -->
+  <text x="450" y="38" text-anchor="middle" fill="#F8FAFB" font-size="22" font-weight="700">Ownership Model: 4 Clear Boundaries</text>
+  <text x="450" y="60" text-anchor="middle" fill="#94A3B8" font-size="13">Each layer has explicit ownership — no ambiguity, no conflicts</text>
+
+  <!-- Layer 1: Framework-managed (y=80, h=72) -->
+  <rect x="60" y="80" width="780" height="72" rx="10" fill="#1A2A40" stroke="#00D4AA" stroke-width="2"/>
+  <rect x="78" y="90" width="58" height="22" rx="4" fill="#00D4AA"/>
+  <text x="107" y="105" text-anchor="middle" fill="#0B1120" font-size="10" font-weight="700">UPDATE</text>
+  <text x="155" y="106" fill="#00D4AA" font-size="16" font-weight="700">Framework-Managed</text>
+  <text x="155" y="128" fill="#64748B" font-size="10">standards/framework/</text>
+  <text x="310" y="128" fill="#cac7c7" font-size="10">|</text>
+  <text x="328" y="128" fill="#64748B" font-size="10">skills/</text>
+  <text x="372" y="128" fill="#cac7c7" font-size="10">|</text>
+  <text x="390" y="128" fill="#64748B" font-size="10">agents/</text>
+  <!-- Right zone -->
+  <text x="570" y="106" fill="#00D4AA" font-size="11" font-weight="600">Updatable by framework releases</text>
+  <text x="570" y="128" fill="#94A3B8" font-size="10">ai-eng update (dry-run by default)</text>
+  <!-- Update icon -->
+  <circle cx="808" cy="116" r="14" fill="none" stroke="#00D4AA" stroke-width="1.5"/>
+  <path d="M801,111 L808,105 L815,111 M808,105 L808,126" stroke="#00D4AA" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+
+  <!-- Layer 2: Team-managed (y=162, h=72) -->
+  <rect x="60" y="162" width="780" height="72" rx="10" fill="#1A2A40" stroke="#2e6ba4" stroke-width="2"/>
+  <rect x="78" y="172" width="48" height="22" rx="4" fill="#EF4444"/>
+  <text x="102" y="187" text-anchor="middle" fill="#0B1120" font-size="10" font-weight="700">LOCK</text>
+  <text x="155" y="188" fill="#2e6ba4" font-size="16" font-weight="700">Team-Managed</text>
+  <text x="155" y="210" fill="#64748B" font-size="10">standards/team/core.md</text>
+  <text x="322" y="210" fill="#cac7c7" font-size="10">|</text>
+  <text x="340" y="210" fill="#64748B" font-size="10">standards/team/stacks/</text>
+  <!-- Right zone -->
+  <text x="570" y="188" fill="#2e6ba4" font-size="11" font-weight="600">NEVER overwritten by updates</text>
+  <text x="570" y="210" fill="#94A3B8" font-size="10">Can be MORE strict, never weaker</text>
+  <!-- Lock icon -->
+  <rect x="799" y="200" width="18" height="14" rx="2" fill="none" stroke="#EF4444" stroke-width="1.5"/>
+  <path d="M802,200 L802,195 A6,6 0 0 1 814,195 L814,200" fill="none" stroke="#EF4444" stroke-width="1.5"/>
+
+  <!-- Layer 3: Project-managed (y=244, h=72) -->
+  <rect x="60" y="244" width="780" height="72" rx="10" fill="#1A2A40" stroke="#1a9e8c" stroke-width="2"/>
+  <rect x="78" y="254" width="48" height="22" rx="4" fill="#EF4444"/>
+  <text x="102" y="269" text-anchor="middle" fill="#0B1120" font-size="10" font-weight="700">LOCK</text>
+  <text x="155" y="270" fill="#1a9e8c" font-size="16" font-weight="700">Project-Managed</text>
+  <text x="155" y="292" fill="#64748B" font-size="10">context/specs/</text>
+  <text x="268" y="292" fill="#cac7c7" font-size="10">|</text>
+  <text x="286" y="292" fill="#64748B" font-size="10">context/product/</text>
+  <text x="410" y="292" fill="#cac7c7" font-size="10">|</text>
+  <text x="428" y="292" fill="#64748B" font-size="10">context/learnings/</text>
+  <!-- Right zone -->
+  <text x="570" y="270" fill="#1a9e8c" font-size="11" font-weight="600">NEVER overwritten by updates</text>
+  <text x="570" y="292" fill="#94A3B8" font-size="10">Specs, contracts, institutional memory</text>
+  <!-- Lock icon -->
+  <rect x="799" y="282" width="18" height="14" rx="2" fill="none" stroke="#EF4444" stroke-width="1.5"/>
+  <path d="M802,282 L802,277 A6,6 0 0 1 814,277 L814,282" fill="none" stroke="#EF4444" stroke-width="1.5"/>
+
+  <!-- Layer 4: System-managed (y=326, h=88) — taller to fit 2 path lines -->
+  <rect x="60" y="326" width="780" height="88" rx="10" fill="#1A2A40" stroke="#7b3fa0" stroke-width="2"/>
+  <rect x="78" y="336" width="48" height="22" rx="4" fill="#7b3fa0"/>
+  <text x="102" y="351" text-anchor="middle" fill="#0B1120" font-size="10" font-weight="700">AUTO</text>
+  <text x="155" y="352" fill="#7b3fa0" font-size="16" font-weight="700">System-Managed</text>
+  <text x="155" y="374" fill="#64748B" font-size="10">state/decision-store.json</text>
+  <text x="332" y="374" fill="#cac7c7" font-size="10">|</text>
+  <text x="350" y="374" fill="#64748B" font-size="10">state/audit-log.ndjson</text>
+  <text x="155" y="394" fill="#64748B" font-size="10">state/install-manifest.json</text>
+  <!-- Right zone -->
+  <text x="570" y="352" fill="#7b3fa0" font-size="11" font-weight="600">Runtime state, auto-maintained</text>
+  <text x="570" y="374" fill="#94A3B8" font-size="10">Append-only log, SHA-256 hashing</text>
+  <!-- Auto icon -->
+  <circle cx="808" cy="370" r="14" fill="none" stroke="#7b3fa0" stroke-width="1.5"/>
+  <text x="808" y="375" text-anchor="middle" fill="#7b3fa0" font-size="12" font-weight="700">A</text>
+</svg>

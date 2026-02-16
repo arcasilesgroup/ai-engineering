@@ -1,0 +1,136 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 470" font-family="JetBrains Mono, Inter, sans-serif">
+
+  <rect width="900" height="470" fill="#0B1120" rx="12" stroke="#1A2A40" stroke-width="1"/>
+
+  <!-- Title -->
+  <text x="450" y="38" text-anchor="middle" fill="#F8FAFB" font-size="22" font-weight="700">Quality Gates &amp; Security: Non-Bypassable</text>
+  <text x="450" y="60" text-anchor="middle" fill="#EF4444" font-size="13" font-weight="600">"You cannot merge with a blocker. You cannot dismiss without risk acceptance."</text>
+
+  <!-- ========== 3 Stage Columns ========== -->
+  <!-- Stage 1: w=240, Stage 2: w=220, Stage 3: w=280 (wider for 4 checks) -->
+  <!-- Gaps: 24px. Total: 240+24+220+24+280=788. Margin: (900−788)/2=56 -->
+
+  <!-- Stage 1: Pre-Commit (x=56, w=240, y=82, h=144) — 3 checks -->
+  <rect x="56" y="82" width="240" height="144" rx="10" fill="#1A2A40" stroke="#2A4F7A" stroke-width="2"/>
+  <rect x="56" y="82" width="240" height="34" rx="10" fill="#2A4F7A" opacity="0.15"/>
+  <text x="176" y="104" text-anchor="middle" fill="#2A4F7A" font-size="14" font-weight="700">STAGE 1: Pre-Commit</text>
+  <!-- Check 1 -->
+  <g transform="translate(71, 126)">
+    <rect width="210" height="28" rx="5" fill="#c8ede7" stroke="#1a9e8c" stroke-width="1"/>
+    <circle cx="18" cy="14" r="8" fill="#1a9e8c"/>
+    <text x="18" y="18" text-anchor="middle" fill="#0B1120" font-size="10" font-weight="700">&#x2713;</text>
+    <text x="38" y="18" fill="#0d5c52" font-size="11" font-weight="600">ruff format --check</text>
+  </g>
+  <!-- Check 2 -->
+  <g transform="translate(71, 158)">
+    <rect width="210" height="28" rx="5" fill="#c8ede7" stroke="#1a9e8c" stroke-width="1"/>
+    <circle cx="18" cy="14" r="8" fill="#1a9e8c"/>
+    <text x="18" y="18" text-anchor="middle" fill="#0B1120" font-size="10" font-weight="700">&#x2713;</text>
+    <text x="38" y="18" fill="#0d5c52" font-size="11" font-weight="600">ruff check (lint)</text>
+  </g>
+  <!-- Check 3 -->
+  <g transform="translate(71, 190)">
+    <rect width="210" height="28" rx="5" fill="#c8ede7" stroke="#1a9e8c" stroke-width="1"/>
+    <circle cx="18" cy="14" r="8" fill="#1a9e8c"/>
+    <text x="18" y="18" text-anchor="middle" fill="#0B1120" font-size="10" font-weight="700">&#x2713;</text>
+    <text x="38" y="18" fill="#0d5c52" font-size="11" font-weight="600">gitleaks (secrets detection)</text>
+  </g>
+
+  <!-- Arrow 1→2 (gap 296→320, y=145) -->
+  <polygon points="318,145 300,138 300,152" fill="#00D4AA"/>
+
+  <!-- Stage 2: Commit-Msg (x=320, w=220, y=82, h=114) — 2 checks -->
+  <rect x="320" y="82" width="220" height="114" rx="10" fill="#1A2A40" stroke="#7b3fa0" stroke-width="2"/>
+  <rect x="320" y="82" width="220" height="34" rx="10" fill="#7b3fa0" opacity="0.15"/>
+  <text x="430" y="104" text-anchor="middle" fill="#7b3fa0" font-size="14" font-weight="700">STAGE 2: Commit-Msg</text>
+  <!-- Check 1 -->
+  <g transform="translate(335, 126)">
+    <rect width="190" height="28" rx="5" fill="#c8ede7" stroke="#1a9e8c" stroke-width="1"/>
+    <circle cx="18" cy="14" r="8" fill="#1a9e8c"/>
+    <text x="18" y="18" text-anchor="middle" fill="#0B1120" font-size="10" font-weight="700">&#x2713;</text>
+    <text x="38" y="18" fill="#0d5c52" font-size="11" font-weight="600">Format validation</text>
+  </g>
+  <!-- Check 2 -->
+  <g transform="translate(335, 158)">
+    <rect width="190" height="28" rx="5" fill="#c8ede7" stroke="#1a9e8c" stroke-width="1"/>
+    <circle cx="18" cy="14" r="8" fill="#1a9e8c"/>
+    <text x="18" y="18" text-anchor="middle" fill="#0B1120" font-size="10" font-weight="700">&#x2713;</text>
+    <text x="38" y="18" fill="#0d5c52" font-size="11" font-weight="600">Protected branch block</text>
+  </g>
+
+  <!-- Arrow 2→3 (gap 540→564, y=145) -->
+  <polygon points="562,145 544,138 544,152" fill="#00D4AA"/>
+
+  <!-- Stage 3: Pre-Push (x=564, w=280, y=82, h=174) — 4 checks, wider -->
+  <rect x="564" y="82" width="280" height="174" rx="10" fill="#1A2A40" stroke="#EF4444" stroke-width="2"/>
+  <rect x="564" y="82" width="280" height="34" rx="10" fill="#EF4444" opacity="0.15"/>
+  <text x="704" y="104" text-anchor="middle" fill="#EF4444" font-size="14" font-weight="700">STAGE 3: Pre-Push</text>
+  <!-- Check 1 -->
+  <g transform="translate(579, 126)">
+    <rect width="250" height="28" rx="5" fill="#c8ede7" stroke="#1a9e8c" stroke-width="1"/>
+    <circle cx="18" cy="14" r="8" fill="#1a9e8c"/>
+    <text x="18" y="18" text-anchor="middle" fill="#0B1120" font-size="10" font-weight="700">&#x2713;</text>
+    <text x="38" y="18" fill="#0d5c52" font-size="11" font-weight="600">semgrep (SAST / OWASP)</text>
+  </g>
+  <!-- Check 2 -->
+  <g transform="translate(579, 158)">
+    <rect width="250" height="28" rx="5" fill="#c8ede7" stroke="#1a9e8c" stroke-width="1"/>
+    <circle cx="18" cy="14" r="8" fill="#1a9e8c"/>
+    <text x="18" y="18" text-anchor="middle" fill="#0B1120" font-size="10" font-weight="700">&#x2713;</text>
+    <text x="38" y="18" fill="#0d5c52" font-size="11" font-weight="600">pip-audit (CVE scanning)</text>
+  </g>
+  <!-- Check 3 -->
+  <g transform="translate(579, 190)">
+    <rect width="250" height="28" rx="5" fill="#c8ede7" stroke="#1a9e8c" stroke-width="1"/>
+    <circle cx="18" cy="14" r="8" fill="#1a9e8c"/>
+    <text x="18" y="18" text-anchor="middle" fill="#0B1120" font-size="10" font-weight="700">&#x2713;</text>
+    <text x="38" y="18" fill="#0d5c52" font-size="11" font-weight="600">pytest (test suite)</text>
+  </g>
+  <!-- Check 4 -->
+  <g transform="translate(579, 222)">
+    <rect width="250" height="28" rx="5" fill="#c8ede7" stroke="#1a9e8c" stroke-width="1"/>
+    <circle cx="18" cy="14" r="8" fill="#1a9e8c"/>
+    <text x="18" y="18" text-anchor="middle" fill="#0B1120" font-size="10" font-weight="700">&#x2713;</text>
+    <text x="38" y="18" fill="#0d5c52" font-size="11" font-weight="600">ty check (type checking)</text>
+  </g>
+
+  <!-- ========== Quality Thresholds ========== -->
+  <!-- 4 cards: w=185, gap=22. Total: 4×185+3×22=806. Margin: (900−806)/2=47 -->
+  <text x="450" y="280" text-anchor="middle" fill="#F8FAFB" font-size="15" font-weight="700">Quality Thresholds</text>
+
+  <rect x="47" y="295" width="185" height="45" rx="8" fill="#c8ede7" stroke="#1a9e8c" stroke-width="1.5"/>
+  <text x="139" y="315" text-anchor="middle" fill="#0d5c52" font-size="13" font-weight="700">Coverage ≥ 80%</text>
+  <text x="139" y="332" text-anchor="middle" fill="#94A3B8" font-size="10">≥ 90% governance-critical</text>
+
+  <rect x="254" y="295" width="185" height="45" rx="8" fill="#c8ede7" stroke="#1a9e8c" stroke-width="1.5"/>
+  <text x="346" y="315" text-anchor="middle" fill="#0d5c52" font-size="13" font-weight="700">Duplication ≤ 3%</text>
+  <text x="346" y="332" text-anchor="middle" fill="#94A3B8" font-size="10">Code smell prevention</text>
+
+  <rect x="461" y="295" width="185" height="45" rx="8" fill="#c8ede7" stroke="#1a9e8c" stroke-width="1.5"/>
+  <text x="553" y="315" text-anchor="middle" fill="#0d5c52" font-size="13" font-weight="700">Cyclomatic ≤ 10</text>
+  <text x="553" y="332" text-anchor="middle" fill="#94A3B8" font-size="10">Per function limit</text>
+
+  <rect x="668" y="295" width="185" height="45" rx="8" fill="#c8ede7" stroke="#1a9e8c" stroke-width="1.5"/>
+  <text x="760" y="315" text-anchor="middle" fill="#0d5c52" font-size="13" font-weight="700">Cognitive ≤ 15</text>
+  <text x="760" y="332" text-anchor="middle" fill="#94A3B8" font-size="10">Readability enforcement</text>
+
+  <!-- ========== Risk Acceptance Lifecycle ========== -->
+  <text x="450" y="370" text-anchor="middle" fill="#F8FAFB" font-size="15" font-weight="700">Risk Acceptance Lifecycle</text>
+  <text x="450" y="388" text-anchor="middle" fill="#94A3B8" font-size="11">Structured risk decisions with severity-based expiry. Max 2 renewals.</text>
+
+  <rect x="47" y="403" width="185" height="55" rx="8" fill="#0B1120" stroke="#EF4444" stroke-width="2"/>
+  <text x="139" y="425" text-anchor="middle" fill="#EF4444" font-size="13" font-weight="700">Critical</text>
+  <text x="139" y="446" text-anchor="middle" fill="#EF4444" font-size="12">15 days expiry</text>
+
+  <rect x="254" y="403" width="185" height="55" rx="8" fill="#0B1120" stroke="#2A4F7A" stroke-width="2"/>
+  <text x="346" y="425" text-anchor="middle" fill="#2A4F7A" font-size="13" font-weight="700">High</text>
+  <text x="346" y="446" text-anchor="middle" fill="#2A4F7A" font-size="12">30 days expiry</text>
+
+  <rect x="461" y="403" width="185" height="55" rx="8" fill="#1A2A40" stroke="#2e6ba4" stroke-width="2"/>
+  <text x="553" y="425" text-anchor="middle" fill="#2e6ba4" font-size="13" font-weight="700">Medium</text>
+  <text x="553" y="446" text-anchor="middle" fill="#2e6ba4" font-size="12">60 days expiry</text>
+
+  <rect x="668" y="403" width="185" height="55" rx="8" fill="#1A2A40" stroke="#999999" stroke-width="1.5"/>
+  <text x="760" y="425" text-anchor="middle" fill="#F8FAFB" font-size="13" font-weight="700">Low</text>
+  <text x="760" y="446" text-anchor="middle" fill="#64748B" font-size="12">90 days expiry</text>
+</svg>
