@@ -100,6 +100,11 @@
       "pattern": ".ai-engineering/README.md",
       "owner": "framework-managed",
       "frameworkUpdate": "allow"
+    },
+    {
+      "pattern": ".ai-engineering/manifest.yml",
+      "owner": "framework-managed",
+      "frameworkUpdate": "allow"
     }
   ]
 }

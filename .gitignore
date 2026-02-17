@@ -141,6 +141,13 @@ cython_debug/
 Thumbs.db
 desktop.ini
 
+# Secrets and credentials
+*.pem
+*.key
+*.p12
+*.pfx
+credentials*.json
+
 # ai-engineering specific
 .ai-engineering/local.yml
 .ai-engineering/state/*
