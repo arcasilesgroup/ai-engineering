@@ -1,9 +1,21 @@
-# ai-engineering
+<div align="center">
+  <a href="https://github.com/arcasilesgroup/ai-engineering">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset=".github/assets/banner-dark.svg">
+      <source media="(prefers-color-scheme: light)" srcset=".github/assets/banner-light.svg">
+      <img src=".github/assets/banner-light.svg" alt="ai-engineering — AI governance framework" width="700">
+    </picture>
+  </a>
 
-Open-source AI governance framework for secure, practical software delivery.
+  <p><strong>Open-source governance framework for AI-assisted software delivery</strong></p>
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Python: 3.11+](https://img.shields.io/badge/Python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
+  <p>
+    <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License: MIT"></a>
+    <a href="https://pypi.org/project/ai-engineering/"><img src="https://img.shields.io/pypi/v/ai-engineering.svg" alt="PyPI"></a>
+    <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/Python-3.11%2B-blue.svg" alt="Python 3.11+"></a>
+    <a href="https://github.com/arcasilesgroup/ai-engineering/actions"><img src="https://github.com/arcasilesgroup/ai-engineering/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  </p>
+</div>
 
 ai-engineering gives your repository a complete governance layer — quality gates, security scanning, risk lifecycle management, and AI-agent guidance — installed with a single command. It works locally through git hooks so every commit is checked before it leaves your machine.
 

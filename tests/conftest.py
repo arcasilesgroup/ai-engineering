@@ -8,12 +8,46 @@ Provides reusable fixtures for:
 
 from __future__ import annotations
 
+import os
 import subprocess
 from pathlib import Path
 
 import pytest
 
 from ai_engineering.installer.service import install
+
+
+@pytest.fixture(autouse=True, scope="session")
+def _disable_git_commit_signing():
+    """Disable git commit signing for all tests.
+
+    Prevents failures in CI/sandbox environments where the signing key
+    configured in the global git config is unavailable.
+    """
+    env_overrides = {
+        "GIT_COMMITTER_NAME": "Test User",
+        "GIT_COMMITTER_EMAIL": "test@example.com",
+        "GIT_AUTHOR_NAME": "Test User",
+        "GIT_AUTHOR_EMAIL": "test@example.com",
+    }
+    old_values = {}
+    for key, value in env_overrides.items():
+        old_values[key] = os.environ.get(key)
+        os.environ[key] = value
+
+    # Disable commit signing globally for the test session
+    subprocess.run(
+        ["git", "config", "--global", "commit.gpgsign", "false"],
+        capture_output=True,
+    )
+
+    yield
+
+    for key, old in old_values.items():
+        if old is None:
+            os.environ.pop(key, None)
+        else:
+            os.environ[key] = old
 
 
 @pytest.fixture()

@@ -96,5 +96,5 @@ uv run pytest -k "test_install"        # Filter by name
 
 ## Skills Reference
 
-- `.ai-engineering/skills/swe/test-strategy.md` — test design procedure.
-- `.ai-engineering/skills/swe/debug.md` — diagnosing test failures.
+- `.ai-engineering/skills/dev/test-strategy.md` — test design procedure.
+- `.ai-engineering/skills/dev/debug.md` — diagnosing test failures.

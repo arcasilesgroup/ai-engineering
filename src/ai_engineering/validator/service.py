@@ -840,8 +840,16 @@ def _check_manifest_coherence(target: Path, report: IntegrityReport) -> None:
         active_match = re.search(r'^active:\s*"([^"]+)"', content, re.MULTILINE)
         if active_match:
             active_spec = active_match.group(1)
-            spec_dir = ai_dir / "context" / "specs" / active_spec
-            if not spec_dir.is_dir():
+            if active_spec == "none":
+                report.checks.append(
+                    IntegrityCheckResult(
+                        category=IntegrityCategory.MANIFEST_COHERENCE,
+                        name="active-spec",
+                        status=CheckStatus.OK,
+                        message="No active spec (idle)",
+                    )
+                )
+            elif not (ai_dir / "context" / "specs" / active_spec).is_dir():
                 report.checks.append(
                     IntegrityCheckResult(
                         category=IntegrityCategory.MANIFEST_COHERENCE,
@@ -850,7 +858,7 @@ def _check_manifest_coherence(target: Path, report: IntegrityReport) -> None:
                         message=f"Active spec directory not found: {active_spec}",
                     )
                 )
-            elif not (spec_dir / "spec.md").exists():
+            elif not (ai_dir / "context" / "specs" / active_spec / "spec.md").exists():
                 report.checks.append(
                     IntegrityCheckResult(
                         category=IntegrityCategory.MANIFEST_COHERENCE,

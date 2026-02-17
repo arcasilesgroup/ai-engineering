@@ -29,13 +29,17 @@ ownership:
       - "state/decision-store.json"
       - "state/audit-log.ndjson"
   external_framework_managed:
+    - "AGENTS.md"
     - "CLAUDE.md"
     - "codex.md"
     - ".github/copilot-instructions.md"
+    - ".github/instructions/**"
     - ".github/copilot/code-generation.md"
     - ".github/copilot/test-generation.md"
     - ".github/copilot/code-review.md"
     - ".github/copilot/commit-message.md"
+    - ".claude/settings.json"
+    - ".claude/commands/**"
 
 standards:
   precedence:
@@ -167,6 +171,7 @@ agentic:
     close_actions:
       - "update_task_checkboxes"
       - "update_tasks_frontmatter"
+      - "validate_content_integrity"
       - "report_summary"
   branch_strategy:
     integration_branch_pattern: "<spec_branch>"

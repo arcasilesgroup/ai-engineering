@@ -8,6 +8,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Contract-compliance skill for clause-by-clause framework contract validation.
+- Ownership-audit skill for ownership boundary and updater safety validation.
+- Docs-audit skill for documentation and content quality auditing.
+- Test-gap-analysis skill for capability-to-test risk mapping.
+- Release-gate skill for aggregated release readiness GO/NO-GO verdicts.
+- Platform-auditor agent for full-spectrum audit orchestration across all quality dimensions.
+- Command contract compliance validation in verify-app agent.
+- Feature inventory mode in codebase-mapper agent.
+- Architecture drift detection in architect agent.
+- Enforcement tamper resistance analysis in security-reviewer agent.
+- Module value classification mode in code-simplifier agent.
 - Explain skill for Feynman-style code and concept explanations with 3-tier depth.
 - Risk acceptance lifecycle: `accept-risk`, `resolve-risk`, `renew-risk` lifecycle skills with severity-based expiry (C=15d/H=30d/M=60d/L=90d) and max 2 renewals.
 - Pre-implementation workflow skill for branch hygiene before new implementation work.

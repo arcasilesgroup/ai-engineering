@@ -1,0 +1,9 @@
+# Gitleaks fingerprint allowlist
+# These are example API keys in deleted documentation files (stacks/*/security.md).
+# They are not real secrets — they were illustrative examples for security best practices.
+
+# stacks/dotnet/security.md — example generic API key "msk-1234567890abcdef"
+077ea12ed3df5fbfd0fb3feb70f618714c166de6:stacks/dotnet/security.md:generic-api-key:333
+
+# stacks/python/security.md — example generic API key "msk_live_abc123xyz"
+077ea12ed3df5fbfd0fb3feb70f618714c166de6:stacks/python/security.md:generic-api-key:211
