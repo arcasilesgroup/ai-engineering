@@ -21,7 +21,7 @@ Quality gate enforcer who executes the quality contract defined in standards, ru
 
 ## Behavior
 
-1. **Read standards** — load quality contract from `standards/framework/quality/core.md` and `quality/python.md`.
+1. **Read standards** — load quality contract from `standards/framework/quality/core.md` and `standards/framework/quality/python.md`.
 2. **Execute checks** — run all mandatory tools (ruff, ty, pytest, pip-audit, gitleaks, semgrep).
 3. **Evaluate thresholds** — compare results against quality contract thresholds.
 4. **Classify findings** — assign severity per the severity policy.
