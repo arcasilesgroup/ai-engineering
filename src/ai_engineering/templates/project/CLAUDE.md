@@ -68,6 +68,8 @@ Procedural skills guide structured execution. Reference the relevant skill befor
 ### Govern Skills
 
 - `.ai-engineering/skills/govern/integrity-check.md` — governance content validation (6-category check).
+- `.ai-engineering/skills/govern/contract-compliance.md` — clause-by-clause contract validation.
+- `.ai-engineering/skills/govern/ownership-audit.md` — ownership boundary and updater safety validation.
 - `.ai-engineering/skills/govern/create-agent.md` — agent authoring and registration procedure.
 - `.ai-engineering/skills/govern/create-skill.md` — skill authoring and registration procedure.
 - `.ai-engineering/skills/govern/create-spec.md` — spec creation with branch-first workflow.
@@ -81,7 +83,10 @@ Procedural skills guide structured execution. Reference the relevant skill befor
 
 - `.ai-engineering/skills/quality/audit-code.md` — quality gate assessment.
 - `.ai-engineering/skills/quality/audit-report.md` — audit report template.
+- `.ai-engineering/skills/quality/docs-audit.md` — documentation and content quality audit.
 - `.ai-engineering/skills/quality/install-check.md` — installation readiness check.
+- `.ai-engineering/skills/quality/release-gate.md` — aggregated release readiness gate.
+- `.ai-engineering/skills/quality/test-gap-analysis.md` — capability-to-test risk mapping.
 
 ### Utility Skills
 
@@ -97,10 +102,10 @@ Skills and agents are available as Claude Code slash commands via `.claude/comma
 - `/dev:*` — dev skill commands (e.g., `/dev:debug`, `/dev:refactor`, `/dev:code-review`).
 - `/review:*` — review skill commands (e.g., `/review:architecture`, `/review:security`).
 - `/docs:*` — docs skill commands (e.g., `/docs:changelog`, `/docs:explain`).
-- `/govern:*` — governance skill commands (e.g., `/govern:create-spec`, `/govern:integrity-check`).
-- `/quality:*` — quality skill commands (`/quality:audit-code`, `/quality:audit-report`, `/quality:install-check`).
+- `/govern:*` — governance skill commands (e.g., `/govern:create-spec`, `/govern:integrity-check`, `/govern:contract-compliance`, `/govern:ownership-audit`).
+- `/quality:*` — quality skill commands (`/quality:audit-code`, `/quality:audit-report`, `/quality:install-check`, `/quality:docs-audit`, `/quality:release-gate`, `/quality:test-gap-analysis`).
 - `/utils:*` — utility skill commands (`/utils:git-helpers`, `/utils:platform-detect`, `/utils:python-patterns`).
-- `/agent:*` — agent persona commands (e.g., `/agent:verify-app`, `/agent:debugger`).
+- `/agent:*` — agent persona commands (e.g., `/agent:verify-app`, `/agent:debugger`, `/agent:platform-auditor`).
 
 ## Agents
 
@@ -113,6 +118,7 @@ Agent definitions provide personas for complex multi-step tasks. Activate the re
 - `.ai-engineering/agents/security-reviewer.md` — security assessment.
 - `.ai-engineering/agents/codebase-mapper.md` — codebase structure mapping.
 - `.ai-engineering/agents/code-simplifier.md` — complexity reduction.
+- `.ai-engineering/agents/platform-auditor.md` — full-spectrum audit orchestration.
 - `.ai-engineering/agents/verify-app.md` — end-to-end verification.
 
 ## Mandatory Lifecycle

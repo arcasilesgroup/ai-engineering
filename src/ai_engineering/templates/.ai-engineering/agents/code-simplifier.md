@@ -13,6 +13,7 @@ Complexity reducer who systematically identifies and eliminates unnecessary comp
 - Expression simplification.
 - Naming clarity improvements.
 - Pattern consolidation (DRY without over-abstracting).
+- Module value classification (KEEP/SIMPLIFY/MERGE/DEPRECATE/REMOVE per module with platform-specific risk flags).
 
 ## Activation
 
@@ -31,7 +32,14 @@ Complexity reducer who systematically identifies and eliminates unnecessary comp
 5. **Decompose functions** — extract coherent sub-functions with clear names.
 6. **Remove dead code** — unused imports, unreachable branches, commented-out code.
 7. **Validate** — ensure all tests pass after each simplification step. Never break behavior.
-8. **Report** — before/after complexity metrics with diff summary.
+8. **Classify module value** — when requested, audit each module and assign a disposition.
+   - **KEEP**: module is essential, well-implemented, no changes needed.
+   - **SIMPLIFY**: module is needed but has unnecessary complexity.
+   - **MERGE**: module overlaps with another and should be consolidated.
+   - **DEPRECATE**: module is no longer needed but has dependents to migrate.
+   - **REMOVE**: module is dead code with no dependents.
+   - For each module, flag platform-specific risks: OS-dependent paths, platform-conditional logic, assumptions about filesystem behavior. Classify as cross-OS safe or platform-risk.
+9. **Report** — before/after complexity metrics with diff summary.
 
 ## Referenced Skills
 
@@ -48,6 +56,7 @@ Complexity reducer who systematically identifies and eliminates unnecessary comp
 ## Output Contract
 
 - Complexity report: before/after metrics per function.
+- Module value audit table (module, disposition, rationale, platform risk) — when module value classification is activated.
 - List of simplifications applied with rationale.
 - All tests passing after changes.
 - Net reduction in complexity score.

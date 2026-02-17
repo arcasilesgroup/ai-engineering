@@ -14,6 +14,7 @@ End-to-end verification agent who confirms the application works correctly from 
 - State file creation and integrity checks.
 - Error handling and graceful degradation testing.
 - Governance content integrity validation (mirrors, cross-refs, counters, instruction files).
+- Command contract compliance validation (expected vs actual step sequences per command).
 
 ## Activation
 
@@ -33,7 +34,8 @@ End-to-end verification agent who confirms the application works correctly from 
 7. **State integrity** — verify state files (decision-store, audit-log) are created and valid.
 8. **Error paths** — test invalid inputs, missing prerequisites, permission issues.
 9. **Content integrity** — execute the content-integrity skill against all `.ai-engineering/` governance content. Verify 6/6 categories pass: file existence, mirror sync, counter accuracy, cross-reference integrity, instruction file consistency, manifest coherence.
-10. **Report** — structured verification report with pass/fail per check.
+10. **Command contract compliance** — for each command defined in `manifest.yml` (commit, commit --only, pr, pr --only, acho, acho pr), verify the exact step sequence matches the contract. Build an expected-vs-actual behavior matrix: expected steps from `manifest.yml` commands section, actual steps by reading the skill procedure and observing execution. Report any step omission, reordering, or undocumented side effect.
+11. **Report** — structured verification report with pass/fail per check.
 
 ## Referenced Skills
 
@@ -44,6 +46,7 @@ End-to-end verification agent who confirms the application works correctly from 
 - `skills/workflows/pr.md` — PR workflow specification.
 - `skills/workflows/acho.md` — acho workflow specification.
 - `skills/govern/integrity-check.md` — governance content validation (6-category check).
+- `skills/govern/contract-compliance.md` — contract clause validation for command contract verification.
 
 ## Referenced Standards
 

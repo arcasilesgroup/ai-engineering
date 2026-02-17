@@ -68,6 +68,8 @@ Procedural skills guide structured execution. Reference the relevant skill befor
 ### Govern Skills
 
 - `.ai-engineering/skills/govern/integrity-check.md` — governance content validation (6-category check).
+- `.ai-engineering/skills/govern/contract-compliance.md` — clause-by-clause contract validation.
+- `.ai-engineering/skills/govern/ownership-audit.md` — ownership boundary and updater safety validation.
 - `.ai-engineering/skills/govern/create-agent.md` — agent authoring and registration procedure.
 - `.ai-engineering/skills/govern/create-skill.md` — skill authoring and registration procedure.
 - `.ai-engineering/skills/govern/create-spec.md` — spec creation with branch-first workflow.
@@ -81,7 +83,10 @@ Procedural skills guide structured execution. Reference the relevant skill befor
 
 - `.ai-engineering/skills/quality/audit-code.md` — quality gate assessment.
 - `.ai-engineering/skills/quality/audit-report.md` — audit report template.
+- `.ai-engineering/skills/quality/docs-audit.md` — documentation and content quality audit.
 - `.ai-engineering/skills/quality/install-check.md` — installation readiness check.
+- `.ai-engineering/skills/quality/release-gate.md` — aggregated release readiness gate.
+- `.ai-engineering/skills/quality/test-gap-analysis.md` — capability-to-test risk mapping.
 
 ### Utility Skills
 
@@ -100,6 +105,7 @@ Agent definitions provide personas for complex multi-step tasks. Activate the re
 - `.ai-engineering/agents/security-reviewer.md` — security assessment.
 - `.ai-engineering/agents/codebase-mapper.md` — codebase structure mapping.
 - `.ai-engineering/agents/code-simplifier.md` — complexity reduction.
+- `.ai-engineering/agents/platform-auditor.md` — full-spectrum audit orchestration.
 - `.ai-engineering/agents/verify-app.md` — end-to-end verification.
 
 ## Slash Commands

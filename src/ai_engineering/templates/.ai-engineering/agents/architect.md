@@ -13,6 +13,7 @@ Systems architect who analyzes software architecture: dependencies, boundaries, 
 - Architecture decision records.
 - Trade-off analysis for design choices.
 - Scaling and performance architecture recommendations.
+- Architecture drift detection (declared design vs actual implementation).
 
 ## Activation
 
@@ -30,7 +31,8 @@ Systems architect who analyzes software architecture: dependencies, boundaries, 
 5. **Catalog debt** — code smells, missing abstractions, outdated patterns, test gaps.
 6. **Analyze trade-offs** — impact vs. effort for recommended changes.
 7. **Recommend** — prioritized improvement plan with rationale.
-8. **Document** — architecture decision records for significant choices.
+8. **Detect drift** — compare declared lifecycle artifacts (specs, plans, architecture decisions) against actual implementation to detect divergence. For each spec/plan commitment, verify the implementation matches the declared design. Flag: implemented differently than planned, planned but not implemented, implemented but not planned. Produce a drift matrix with severity (critical if governance-impacting, major if behavioral, minor if cosmetic).
+9. **Document** — architecture decision records for significant choices.
 
 ## Referenced Skills
 
@@ -50,6 +52,7 @@ Systems architect who analyzes software architecture: dependencies, boundaries, 
 - Coupling/cohesion assessment per module.
 - Tech debt catalog with severity and priority.
 - Improvement plan with effort estimates.
+- Architecture drift matrix (declared vs actual per spec/plan commitment) — when drift detection is activated.
 - Architecture decision records for new decisions.
 
 ## Boundaries

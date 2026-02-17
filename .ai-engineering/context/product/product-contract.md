@@ -23,7 +23,7 @@ This project dogfoods the ai-engineering framework on itself.
 
 ### Active Objectives
 
-1. Complete governance content: 32 skills, 8 agents, 3 stack instructions.
+1. Complete governance content: 37 skills, 9 agents, 3 stack instructions.
 2. Rewrite all Python modules from scratch following new standards.
 3. Achieve CI/CD with cross-OS matrix (Python 3.11/3.12/3.13 × Ubuntu/Windows/macOS).
 4. Validate full E2E install/update/doctor cycle.
@@ -46,12 +46,7 @@ This project dogfoods the ai-engineering framework on itself.
 
 ## Active Spec
 
-Current work tracked in: `specs/_active.md` → `013-cli-ux-hardening`.
-
-Read sequence:
-1. `specs/013-cli-ux-hardening/spec.md` — problem, solution, scope, decisions
-2. `specs/013-cli-ux-hardening/plan.md` — architecture, session map, patterns
-3. `specs/013-cli-ux-hardening/tasks.md` — ordered phases, checkboxes
+No active spec. All current specs are closed. Check `specs/_active.md` for updates.
 
 ## KPIs
 
@@ -59,9 +54,9 @@ Read sequence:
 |--------|--------|---------|
 | Install adoption (repos using framework) | Tracking | Pre-release |
 | Quality gate pass rate | 100% on governed ops | Establishing baseline |
-| Agent coverage (skills + agents defined) | 32 skills + 8 agents | 0/32 skills, 0/8 agents |
-| Test coverage | ≥80% | Rewrite pending |
-| Cross-OS CI pass | 3×3 matrix green | CI not yet created |
+| Agent coverage (skills + agents defined) | 37 skills + 9 agents | 37/37 skills, 9/9 agents |
+| Test coverage | ≥80% | 85% (429 tests) |
+| Cross-OS CI pass | 3×3 matrix green | 6-job pipeline, 3×3 matrix (Ubuntu/Windows/macOS × Python 3.11/3.12/3.13) |
 
 ## Stakeholders
 

@@ -13,6 +13,7 @@ Application security specialist who reviews code for OWASP top risks, secret exp
 - Security configuration audit.
 - OWASP-aligned risk assessment.
 - Supply chain security evaluation.
+- Enforcement tamper resistance analysis (hook bypass, gate circumvention).
 
 ## Activation
 
@@ -31,7 +32,13 @@ Application security specialist who reviews code for OWASP top risks, secret exp
 5. **Run SAST** — execute `semgrep scan --config auto` for OWASP patterns.
 6. **Check configuration** — no debug mode, secure defaults, safe error messages.
 7. **Classify findings** — assign severity (critical/high/medium/low/info) with CVSS reference.
-8. **Report** — structured security assessment with verdict and remediation plan.
+8. **Assess tamper resistance** — evaluate enforcement mechanism resilience.
+   - Hook bypass risk: can `--no-verify` circumvent gates? Are hook file permissions restrictive?
+   - Hook integrity: can hook files be modified without detection? Is there a hash verification mechanism?
+   - CI gate bypass: can required CI checks be skipped via branch protection gaps or workflow modifications?
+   - Configuration tampering: can `manifest.yml` non-negotiables be weakened without audit trail?
+   - Produce a tamper resistance score with specific hardening recommendations.
+9. **Report** — structured security assessment with verdict and remediation plan.
 
 ## Referenced Skills
 
@@ -46,6 +53,7 @@ Application security specialist who reviews code for OWASP top risks, secret exp
 ## Output Contract
 
 - Security findings report with severity-tagged issues.
+- Enforcement tamper resistance assessment with hardening recommendations.
 - Verdict: PASS (no critical/high) or FAIL (critical/high found).
 - Remediation plan for each finding.
 - Tool evidence (gitleaks, semgrep, pip-audit outputs).
