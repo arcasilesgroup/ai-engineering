@@ -26,6 +26,7 @@ from ai_engineering.commands.workflows import (
     run_pr_workflow,
 )
 from ai_engineering.installer.service import install
+from ai_engineering.policy.gates import GateCheckResult, GateHook, GateResult
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -271,17 +272,30 @@ class TestPRWorkflow:
         self,
         git_project: Path,
     ) -> None:
-        with patch(
-            "ai_engineering.commands.workflows._run_command",
-            return_value=(True, "ok"),
+        gate_result = GateResult(hook=GateHook.PRE_PUSH)
+        gate_result.checks = [
+            GateCheckResult(name="semgrep", passed=True, output="ok"),
+            GateCheckResult(name="pip-audit", passed=True, output="ok"),
+            GateCheckResult(name="stack-tests", passed=True, output="ok"),
+            GateCheckResult(name="ty-check", passed=True, output="ok"),
+        ]
+        with (
+            patch(
+                "ai_engineering.commands.workflows._run_command",
+                return_value=(True, "ok"),
+            ),
+            patch(
+                "ai_engineering.commands.workflows.run_gate",
+                return_value=gate_result,
+            ),
         ):
             result = run_pr_workflow(git_project, "feat: pr test")
 
         step_names = [s.name for s in result.steps]
         assert "semgrep" in step_names
         assert "pip-audit" in step_names
-        assert "pytest" in step_names
-        assert "ty" in step_names
+        assert "stack-tests" in step_names
+        assert "ty-check" in step_names
         assert "create-pr" in step_names
         assert "auto-complete" in step_names
         assert result.passed is True

@@ -27,6 +27,7 @@ from ai_engineering.git.operations import (
     current_branch,
     is_branch_pushed,
 )
+from ai_engineering.policy.gates import GateHook, run_gate
 from ai_engineering.state.io import append_ndjson, read_json_model
 from ai_engineering.state.models import AuditEntry, DecisionStore
 
@@ -417,9 +418,10 @@ def run_pr_only_workflow(
 
 
 def _run_pre_push_checks(project_root: Path) -> list[StepResult]:
-    """Run pre-push quality gates.
+    """Run pre-push quality gates by delegating to ``run_gate()``.
 
-    Checks: semgrep, pip-audit, pytest, ty.
+    This avoids duplicating the tool-check logic already implemented
+    in :func:`ai_engineering.policy.gates.run_gate`.
 
     Args:
         project_root: Root directory of the project.
@@ -427,50 +429,22 @@ def _run_pre_push_checks(project_root: Path) -> list[StepResult]:
     Returns:
         List of StepResult for each check.
     """
-    checks: list[StepResult] = []
-
-    # Semgrep
-    passed, output = _run_command(
-        ["semgrep", "scan", "--config", "auto", "."],
-        project_root,
-        timeout=120,
-    )
-    checks.append(StepResult(name="semgrep", passed=passed, output=output))
-
-    # pip-audit
-    passed, output = _run_command(
-        ["pip-audit"],
-        project_root,
-        timeout=60,
-    )
-    checks.append(StepResult(name="pip-audit", passed=passed, output=output))
-
-    # pytest
-    passed, output = _run_command(
-        ["uv", "run", "pytest", "tests/", "-v"],
-        project_root,
-        timeout=120,
-    )
-    checks.append(StepResult(name="pytest", passed=passed, output=output))
-
-    # ty type-check
-    passed, output = _run_command(
-        ["ty", "check", "src/"],
-        project_root,
-        timeout=60,
-    )
-    checks.append(StepResult(name="ty", passed=passed, output=output))
+    gate_result = run_gate(GateHook.PRE_PUSH, project_root)
+    steps: list[StepResult] = [
+        StepResult(name=c.name, passed=c.passed, output=c.output)
+        for c in gate_result.checks
+    ]
 
     # Log failures
-    for check in checks:
-        if not check.passed:
+    for step in steps:
+        if not step.passed:
             _log_audit(
                 project_root,
-                event=f"pre-push-failure-{check.name}",
-                detail=check.output[:500],
+                event=f"pre-push-failure-{step.name}",
+                detail=step.output[:500],
             )
 
-    return checks
+    return steps
 
 
 # ---------------------------------------------------------------------------
