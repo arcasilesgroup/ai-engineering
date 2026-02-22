@@ -160,7 +160,7 @@ Follow this sequence for non-trivial work:
 
 ## Quality Contract
 
-- Coverage ≥ 80% (≥ 90% governance-critical).
+- Coverage: 100%.
 - Duplication ≤ 3%.
 - Cyclomatic complexity ≤ 10.
 - Cognitive complexity ≤ 15.

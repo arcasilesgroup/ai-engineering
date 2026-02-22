@@ -45,8 +45,8 @@ Execute a SonarQube-like quality gate assessment on the codebase. Evaluates cove
 
    | Metric | Threshold | Severity if violated |
    |--------|-----------|---------------------|
-   | Coverage (overall) | ≥80% | Blocker |
-   | Coverage (governance-critical) | ≥90% | Blocker |
+   | Coverage (overall) | 100% | Blocker |
+   | Coverage (governance-critical) | 100% | Blocker |
    | Duplicated lines | ≤3% | Critical |
    | Reliability issues (blocker/critical) | 0 | Blocker |
    | Security issues (blocker/critical) | 0 | Blocker |

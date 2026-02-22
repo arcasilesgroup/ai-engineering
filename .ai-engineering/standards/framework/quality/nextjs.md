@@ -16,8 +16,8 @@
 
 ## Test and Coverage Policy
 
-- Minimum overall coverage target: 80 percent.
-- Governance-critical paths (authentication, API routes, middleware): target 90 percent.
+- Minimum overall coverage target: 100 percent.
+- Governance-critical paths (authentication, API routes, middleware): 100 percent.
 - New behavior requires at least one unit or integration test.
 
 ## Complexity and Maintainability

@@ -29,7 +29,7 @@
 ## Quality Baseline
 
 - Nullable reference types enabled (`<Nullable>enable</Nullable>`).
-- Test coverage target: >=80% overall, >=90% for governance-critical paths.
+- Test coverage target: 100%.
 - EditorConfig enforced for formatting consistency.
 - XML documentation on all public APIs.
 

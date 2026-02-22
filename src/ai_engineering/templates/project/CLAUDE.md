@@ -160,11 +160,21 @@ Follow this sequence for non-trivial work:
 
 ## Quality Contract
 
-- Coverage ≥ 80% (≥ 90% governance-critical).
+- Coverage: 100%.
 - Duplication ≤ 3%.
 - Cyclomatic complexity ≤ 10.
 - Cognitive complexity ≤ 15.
 - No blocker/critical issues.
+- Quality gate pass rate: 100% on all governed operations.
+
+## Security Contract
+
+- Security scan pass rate: 100% — zero medium/high/critical findings.
+- Secret detection: zero leaks (blocker severity).
+- Dependency vulnerabilities: zero known (blocker severity).
+- SAST findings (medium+): zero — remediate or risk-accept.
+- Tamper resistance: hook hash verification + `--no-verify` bypass detection mandatory.
+- Cross-OS enforcement: all gates must pass on Ubuntu, Windows, and macOS.
 
 ## Tooling Baseline
 

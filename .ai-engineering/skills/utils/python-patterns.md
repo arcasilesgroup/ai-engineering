@@ -37,7 +37,7 @@ Comprehensive Python engineering skill consolidating 12 domains into a single re
 - Mocking: `unittest.mock.patch` for external dependencies, never mock the unit under test.
 - Property-based testing: `hypothesis` for discovering edge cases.
 - Markers: `@pytest.mark.slow`, `@pytest.mark.integration` for test categorization.
-- Coverage: `pytest-cov` with `--cov-fail-under=80`.
+- Coverage: `pytest-cov` with `--cov-fail-under=100`.
 
 **Anti-patterns**:
 - Tests that depend on execution order.

@@ -13,7 +13,7 @@ applyTo: "**/tests/**"
 ## Framework
 
 - **Runner**: `pytest` via `uv run pytest`
-- **Coverage**: `pytest-cov` — target ≥ 80% (≥ 90% governance-critical modules)
+- **Coverage**: `pytest-cov` — target 100%
 - **Assertions**: use `pytest` native assertions, not `unittest.TestCase`
 
 ## Directory Structure

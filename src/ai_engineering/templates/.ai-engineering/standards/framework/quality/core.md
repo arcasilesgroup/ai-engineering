@@ -13,8 +13,8 @@
 
 ## Required Quality Gates
 
-- Coverage on changed code: ≥80%.
-- Coverage on governance-critical paths: ≥90%.
+- Coverage on changed code: 100%.
+- Coverage on governance-critical paths: 100%.
 - Duplicated lines on changed code: ≤3%.
 - Reliability: no critical or blocker issues.
 - Security: zero findings medium severity and above. No exceptions without risk acceptance.

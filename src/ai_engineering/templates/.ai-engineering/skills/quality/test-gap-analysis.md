@@ -20,9 +20,9 @@ Maps each product capability to its test evidence, classifies coverage confidenc
    - Infrastructure: CI/CD, cross-OS support, packaging.
 
 2. **Classify by criticality** — assign risk tier to each capability.
-   - **Governance-critical** (≥90% coverage required): hooks, enforcement, risk lifecycle, decision store, ownership boundaries.
-   - **Core** (≥80% coverage required): CLI commands, install flow, template mirroring.
-   - **Supporting** (≥70% acceptable): maintenance utilities, reporting, doctor checks.
+   - **Governance-critical** (100% coverage required): hooks, enforcement, risk lifecycle, decision store, ownership boundaries.
+   - **Core** (100% coverage required): CLI commands, install flow, template mirroring.
+   - **Supporting** (100% coverage required): maintenance utilities, reporting, doctor checks.
 
 ### Phase 2: Test Evidence Mapping
 
@@ -84,7 +84,7 @@ Maps each product capability to its test evidence, classifies coverage confidenc
 ## Governance Notes
 
 - Code coverage percentage alone is insufficient — this skill provides capability-level confidence.
-- Governance-critical capabilities require ≥90% coverage per quality contract.
+- Governance-critical capabilities require 100% coverage per quality contract.
 - Untested critical paths are release blockers unless risk-accepted.
 - Run before each release milestone and after significant refactoring.
 - Test recommendations should be implemented before the next release gate.

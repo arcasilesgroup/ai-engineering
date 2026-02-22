@@ -32,7 +32,7 @@
 ## Quality Baseline
 
 - TypeScript strict mode enabled (`"strict": true` in tsconfig.json).
-- Test coverage target: >=80% overall, >=90% for governance-critical paths.
+- Test coverage target: 100%.
 - ESLint zero warnings policy (warnings treated as errors in CI).
 - JSDoc on all exported functions and components.
 

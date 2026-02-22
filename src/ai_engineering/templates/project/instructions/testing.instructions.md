@@ -6,12 +6,14 @@ applyTo: "**/tests/**"
 
 ## Governance References
 
+- `.ai-engineering/standards/framework/quality/core.md` — coverage targets, quality gates.
+- `.ai-engineering/standards/framework/quality/python.md` — Python-specific test requirements.
 - `.ai-engineering/standards/framework/stacks/python.md` — testing patterns section.
 
 ## Framework
 
 - **Runner**: `pytest` via `uv run pytest`
-- **Coverage**: `pytest-cov` — target ≥ 80% (≥ 90% governance-critical modules)
+- **Coverage**: `pytest-cov` — target 100%
 - **Assertions**: use `pytest` native assertions, not `unittest.TestCase`
 
 ## Directory Structure
@@ -74,6 +76,13 @@ def test_install_creates_manifest(tmp_path: Path) -> None:
 - Private functions directly (test through public interfaces).
 - Implementation details that may change.
 
+## Quality Checks on Tests
+
+- Tests must pass `ruff check` and `ruff format --check`.
+- Tests must not import private APIs from third-party libraries.
+- Tests must be deterministic — no random, no time-dependent assertions.
+- Tests must be independent — no test depends on another test's side effects.
+
 ## Running
 
 ```bash
@@ -84,3 +93,8 @@ uv run pytest --cov --cov-report=term  # With coverage
 uv run pytest -x                       # Stop on first failure
 uv run pytest -k "test_install"        # Filter by name
 ```
+
+## Skills Reference
+
+- `.ai-engineering/skills/dev/test-strategy.md` — test design procedure.
+- `.ai-engineering/skills/dev/debug.md` — diagnosing test failures.

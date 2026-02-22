@@ -28,7 +28,7 @@ Use `.ai-engineering/` as the single source of truth for project governance and 
 - Every public function and class must have at least one test.
 - Cover both happy-path and error/edge-case scenarios.
 - Assert specific values rather than truthiness when possible.
-- Target ≥ 80% coverage (≥ 90% for governance-critical modules).
+- Target 100% coverage.
 
 ## Test Types
 

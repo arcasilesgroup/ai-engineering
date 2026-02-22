@@ -30,7 +30,7 @@ This project dogfoods the ai-engineering framework on itself.
 
 ### Success Criteria
 
-- `uv sync && uv run pytest tests/ -v --cov=ai_engineering` → >80% coverage.
+- `uv sync && uv run pytest tests/ -v --cov=ai_engineering --cov-fail-under=100` → 100% coverage.
 - `uv run ruff check src/ && uv run ruff format --check src/` → 0 issues.
 - `uv run ty check src/` → 0 errors.
 - `uv run pip-audit` → 0 vulnerabilities.
@@ -57,7 +57,7 @@ Spec-015: Multi-Stack Security & Quality Capabilities. See `specs/_active.md` fo
 | Security scan pass rate | 100% — zero medium+ findings | 100% (0 critical/high, 1 medium SAST to remediate) |
 | Tamper resistance score | 100/100 | 55/100 (pending B3/B4 remediation) |
 | Agent coverage (skills + agents defined) | 43 skills + 9 agents | 43/43 skills, 9/9 agents |
-| Test coverage | ≥80% | 87% (530 tests) |
+| Test coverage | 100% | 87% (530 tests) |
 | Cross-OS CI pass | 3×3 matrix green | Pending (no CI matrix yet — B1) |
 
 ## Stakeholders

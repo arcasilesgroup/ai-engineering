@@ -15,7 +15,7 @@ Define what to test, how to structure tests, and how to achieve meaningful cover
    - New behavior: at least one unit or integration test per new function/method.
    - Bug fix: test that reproduces the bug (fails without fix, passes with it).
    - Refactoring: verify existing tests cover the target code first.
-   - Governance-critical paths: ≥90% coverage (install, update, hooks, gates, commands).
+   - Governance-critical paths: 100% coverage (install, update, hooks, gates, commands).
 
 2. **Choose test level** — select appropriate test type.
    - **Unit tests**: isolated logic, pure functions, model validation, state transformations.
@@ -46,7 +46,7 @@ Define what to test, how to structure tests, and how to achieve meaningful cover
 
 - Test file(s) following project structure conventions.
 - Tests pass with `pytest -v`.
-- Coverage on changed code meets threshold (≥80% overall, ≥90% governance-critical).
+- Coverage on changed code meets threshold (100%).
 - Test names clearly describe what is being validated.
 
 ## Governance Notes
