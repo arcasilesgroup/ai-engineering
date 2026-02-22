@@ -331,8 +331,7 @@ def _run_tool_check(
         if required:
             passed = False
             output = (
-                f"{tool_name} not found — required. "
-                "Run 'ai-eng doctor --fix-tools' to install."
+                f"{tool_name} not found — required. Run 'ai-eng doctor --fix-tools' to install."
             )
         else:
             passed = True

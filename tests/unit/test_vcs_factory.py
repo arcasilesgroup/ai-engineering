@@ -27,9 +27,7 @@ class TestGetProvider:
             "schemaVersion": "1.1",
             "providers": {"primary": "github", "enabled": ["github"]},
         }
-        (manifest_dir / "install-manifest.json").write_text(
-            json.dumps(manifest), encoding="utf-8"
-        )
+        (manifest_dir / "install-manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
         provider = get_provider(tmp_path)
         assert isinstance(provider, GitHubProvider)
 
@@ -40,9 +38,7 @@ class TestGetProvider:
             "schemaVersion": "1.1",
             "providers": {"primary": "azure_devops", "enabled": ["azure_devops"]},
         }
-        (manifest_dir / "install-manifest.json").write_text(
-            json.dumps(manifest), encoding="utf-8"
-        )
+        (manifest_dir / "install-manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
         provider = get_provider(tmp_path)
         assert isinstance(provider, AzureDevOpsProvider)
 
@@ -54,9 +50,7 @@ class TestGetProvider:
             "schemaVersion": "1.1",
             "providers": {"primary": "unknown_provider", "enabled": []},
         }
-        (manifest_dir / "install-manifest.json").write_text(
-            json.dumps(manifest), encoding="utf-8"
-        )
+        (manifest_dir / "install-manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
         with patch(
             "ai_engineering.vcs.factory.run_git",
             return_value=(True, "https://dev.azure.com/org/project/_git/repo"),

@@ -41,9 +41,7 @@ def get_provider(project_root: Path) -> VcsProvider:
         An instance satisfying the VcsProvider protocol.
     """
     # 1. Try manifest
-    manifest_path = (
-        project_root / ".ai-engineering" / "state" / "install-manifest.json"
-    )
+    manifest_path = project_root / ".ai-engineering" / "state" / "install-manifest.json"
     if manifest_path.exists():
         try:
             manifest = read_json_model(manifest_path, InstallManifest)

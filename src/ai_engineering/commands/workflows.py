@@ -434,8 +434,7 @@ def _run_pre_push_checks(project_root: Path) -> list[StepResult]:
     """
     gate_result = run_gate(GateHook.PRE_PUSH, project_root)
     steps: list[StepResult] = [
-        StepResult(name=c.name, passed=c.passed, output=c.output)
-        for c in gate_result.checks
+        StepResult(name=c.name, passed=c.passed, output=c.output) for c in gate_result.checks
     ]
 
     # Log failures

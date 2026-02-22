@@ -146,6 +146,7 @@ _CLAUDE_COMMANDS_MIRROR = (
 _SKILL_LINE_PATTERN = re.compile(r"^- `\.ai-engineering/skills/(.+\.md)`", re.MULTILINE)
 _AGENT_LINE_PATTERN = re.compile(r"^- `\.ai-engineering/agents/(.+\.md)`", re.MULTILINE)
 
+
 def _parse_counter(text: str, separator: str) -> tuple[int, int] | None:
     """Extract skill and agent counts from text using plain string parsing.
 

@@ -122,7 +122,7 @@ def _recent_commit_subjects(
     """
     # Try branch diff against origin/main
     ok, output = run_git(
-        ["log", f"origin/main..HEAD", "--format=%s", f"-{max_commits}"],
+        ["log", "origin/main..HEAD", "--format=%s", f"-{max_commits}"],
         project_root,
     )
     if ok and output.strip():

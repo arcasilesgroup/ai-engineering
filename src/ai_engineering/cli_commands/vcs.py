@@ -6,7 +6,6 @@ for inspecting and configuring VCS provider settings.
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import Annotated
 

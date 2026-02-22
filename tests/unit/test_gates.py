@@ -255,9 +255,7 @@ class TestToolCheckRequired:
 
     def test_empty_output_shows_exit_code(self, tmp_path: Path) -> None:
         result = GateResult(hook=GateHook.PRE_COMMIT)
-        mock_proc = subprocess.CompletedProcess(
-            args=["tool"], returncode=1, stdout="", stderr=""
-        )
+        mock_proc = subprocess.CompletedProcess(args=["tool"], returncode=1, stdout="", stderr="")
         with (
             patch("ai_engineering.policy.gates.shutil.which", return_value="/usr/bin/tool"),
             patch("ai_engineering.policy.gates.subprocess.run", return_value=mock_proc),

@@ -109,9 +109,7 @@ class TestAzureDevOpsAutoComplete:
 
     def test_no_active_pr_returns_failure(self, tmp_path: Path) -> None:
         ctx = VcsContext(project_root=tmp_path, branch="feat/orphan")
-        mock_proc = subprocess.CompletedProcess(
-            args=["az"], returncode=0, stdout="[]\n", stderr=""
-        )
+        mock_proc = subprocess.CompletedProcess(args=["az"], returncode=0, stdout="[]\n", stderr="")
         with patch("ai_engineering.vcs.azure_devops.subprocess.run", return_value=mock_proc):
             result = AzureDevOpsProvider().enable_auto_complete(ctx)
 
