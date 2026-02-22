@@ -1,9 +1,13 @@
 """Git hook gate checks for ai-engineering.
 
 Implements the quality gates invoked by git hooks:
-- **pre-commit**: ruff format, ruff lint, gitleaks, risk expiry warnings.
+- **pre-commit**: stack-aware format/lint checks + gitleaks + risk expiry warnings.
 - **commit-msg**: commit message format validation.
-- **pre-push**: semgrep, pip-audit, stack tests, ty type-check, expired risk blocking.
+- **pre-push**: stack-aware tests/type-checks/vuln-scans + semgrep + expired risk blocking.
+
+Gate dispatch is stack-aware: reads ``installedStacks`` from
+``install-manifest.json`` and runs only checks relevant to active stacks.
+Falls back to Python-only checks if no manifest exists.
 
 Also enforces protected branch blocking: direct commits to main/master
 are rejected.
@@ -19,7 +23,7 @@ from pathlib import Path
 from ai_engineering.git.operations import PROTECTED_BRANCHES, current_branch
 from ai_engineering.state.decision_logic import list_expired_decisions, list_expiring_soon
 from ai_engineering.state.io import read_json_model
-from ai_engineering.state.models import DecisionStore, GateHook
+from ai_engineering.state.models import DecisionStore, GateHook, InstallManifest
 
 
 @dataclass
@@ -87,6 +91,88 @@ def run_gate(
     return result
 
 
+# --- Stack-aware check registry ---
+
+
+@dataclass
+class CheckConfig:
+    """Configuration for a single gate check command."""
+
+    name: str
+    cmd: list[str]
+    required: bool = True
+
+
+# Pre-commit checks per stack.
+_PRE_COMMIT_CHECKS: dict[str, list[CheckConfig]] = {
+    "common": [
+        CheckConfig(
+            name="gitleaks",
+            cmd=["gitleaks", "detect", "--source", ".", "--no-git"],
+        ),
+    ],
+    "python": [
+        CheckConfig(name="ruff-format", cmd=["ruff", "format", "--check", "."]),
+        CheckConfig(name="ruff-lint", cmd=["ruff", "check", "."]),
+    ],
+    "dotnet": [
+        CheckConfig(name="dotnet-format", cmd=["dotnet", "format", "--verify-no-changes"]),
+    ],
+    "nextjs": [
+        CheckConfig(name="prettier-check", cmd=["prettier", "--check", "."]),
+        CheckConfig(name="eslint", cmd=["eslint", "."]),
+    ],
+}
+
+# Pre-push checks per stack.
+_PRE_PUSH_CHECKS: dict[str, list[CheckConfig]] = {
+    "common": [
+        CheckConfig(
+            name="semgrep",
+            cmd=["semgrep", "--config", ".semgrep.yml", "--error", "."],
+        ),
+    ],
+    "python": [
+        CheckConfig(name="pip-audit", cmd=["pip-audit"]),
+        CheckConfig(name="stack-tests", cmd=["uv", "run", "pytest", "--tb=short", "-q"]),
+        CheckConfig(name="ty-check", cmd=["ty", "check", "src/ai_engineering"]),
+    ],
+    "dotnet": [
+        CheckConfig(name="dotnet-build", cmd=["dotnet", "build", "--no-restore"]),
+        CheckConfig(name="dotnet-test", cmd=["dotnet", "test", "--no-build"]),
+        CheckConfig(name="dotnet-vuln", cmd=["dotnet", "list", "package", "--vulnerable"]),
+    ],
+    "nextjs": [
+        CheckConfig(name="tsc-check", cmd=["tsc", "--noEmit"]),
+        CheckConfig(name="vitest", cmd=["vitest", "run"]),
+        CheckConfig(name="npm-audit", cmd=["npm", "audit"]),
+    ],
+}
+
+
+def _get_active_stacks(project_root: Path) -> list[str]:
+    """Read installed stacks from install-manifest.json.
+
+    Falls back to ``["python"]`` if the manifest does not exist or cannot
+    be parsed, preserving backward-compatible behavior.
+
+    Args:
+        project_root: Root directory of the project.
+
+    Returns:
+        List of active stack names.
+    """
+    manifest_path = project_root / ".ai-engineering" / "state" / "install-manifest.json"
+    if not manifest_path.exists():
+        return ["python"]
+    try:
+        manifest = read_json_model(manifest_path, InstallManifest)
+        stacks = manifest.installed_stacks
+        return stacks if stacks else ["python"]
+    except (OSError, ValueError):
+        return ["python"]
+
+
 def _check_branch_protection(project_root: Path, result: GateResult) -> None:
     """Block direct commits to protected branches."""
     branch = current_branch(project_root)
@@ -144,32 +230,13 @@ def _check_version_deprecation(result: GateResult) -> None:
 
 
 def _run_pre_commit_checks(project_root: Path, result: GateResult) -> None:
-    """Run pre-commit gate checks: ruff format, ruff lint, gitleaks, risk warnings."""
-    # ruff format --check
-    _run_tool_check(
+    """Run pre-commit gate checks: common + per-stack checks + risk warnings."""
+    stacks = _get_active_stacks(project_root)
+    _run_checks_for_stacks(
+        project_root,
         result,
-        name="ruff-format",
-        cmd=["ruff", "format", "--check", "."],
-        cwd=project_root,
-        required=True,
-    )
-
-    # ruff check (lint)
-    _run_tool_check(
-        result,
-        name="ruff-lint",
-        cmd=["ruff", "check", "."],
-        cwd=project_root,
-        required=True,
-    )
-
-    # gitleaks
-    _run_tool_check(
-        result,
-        name="gitleaks",
-        cmd=["gitleaks", "detect", "--source", ".", "--no-git"],
-        cwd=project_root,
-        required=True,
+        _PRE_COMMIT_CHECKS,
+        stacks,
     )
 
     # Risk expiry warnings (non-blocking)
@@ -223,45 +290,53 @@ def _run_commit_msg_checks(
 
 
 def _run_pre_push_checks(project_root: Path, result: GateResult) -> None:
-    """Run pre-push gate checks: semgrep, pip-audit, tests, ty, expired risks."""
-    # semgrep
-    _run_tool_check(
+    """Run pre-push gate checks: common + per-stack checks + expired risks."""
+    stacks = _get_active_stacks(project_root)
+    _run_checks_for_stacks(
+        project_root,
         result,
-        name="semgrep",
-        cmd=["semgrep", "--config", ".semgrep.yml", "--error", "."],
-        cwd=project_root,
-        required=True,
-    )
-
-    # pip-audit
-    _run_tool_check(
-        result,
-        name="pip-audit",
-        cmd=["pip-audit"],
-        cwd=project_root,
-        required=True,
-    )
-
-    # stack tests (pytest)
-    _run_tool_check(
-        result,
-        name="stack-tests",
-        cmd=["uv", "run", "pytest", "--tb=short", "-q"],
-        cwd=project_root,
-        required=True,
-    )
-
-    # ty type-check
-    _run_tool_check(
-        result,
-        name="ty-check",
-        cmd=["ty", "check", "src/ai_engineering"],
-        cwd=project_root,
-        required=True,
+        _PRE_PUSH_CHECKS,
+        stacks,
     )
 
     # Expired risk acceptances (blocking)
     _check_expired_risk_acceptances(project_root, result)
+
+
+def _run_checks_for_stacks(
+    project_root: Path,
+    result: GateResult,
+    registry: dict[str, list[CheckConfig]],
+    stacks: list[str],
+) -> None:
+    """Execute checks from *registry* for common + each active stack.
+
+    Args:
+        project_root: Root directory of the project.
+        result: GateResult to append check outcomes to.
+        registry: Mapping of stack name to list of check configurations.
+        stacks: Active stack names from install manifest.
+    """
+    # Always run common checks
+    for check in registry.get("common", []):
+        _run_tool_check(
+            result,
+            name=check.name,
+            cmd=check.cmd,
+            cwd=project_root,
+            required=check.required,
+        )
+
+    # Run per-stack checks
+    for stack in stacks:
+        for check in registry.get(stack, []):
+            _run_tool_check(
+                result,
+                name=check.name,
+                cmd=check.cmd,
+                cwd=project_root,
+                required=check.required,
+            )
 
 
 def _run_tool_check(

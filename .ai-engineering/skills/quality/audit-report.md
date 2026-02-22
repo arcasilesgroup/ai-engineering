@@ -35,8 +35,8 @@ Standardized report template for quality audit results. Produces a structured, m
 
 | Metric | Value | Threshold | Status |
 |--------|-------|-----------|--------|
-| Coverage (overall) | XX% | ≥80% | ✓ / ✗ |
-| Coverage (governance-critical) | XX% | ≥90% | ✓ / ✗ |
+| Coverage (overall) | XX% | 100% | ✓ / ✗ |
+| Coverage (governance-critical) | XX% | 100% | ✓ / ✗ |
 | Duplicated lines | XX% | ≤3% | ✓ / ✗ |
 | Blocker issues | N | 0 | ✓ / ✗ |
 | Critical issues | N | 0 | ✓ / ✗ |

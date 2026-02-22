@@ -2,14 +2,14 @@ schema_version: "1.1"
 framework_version: "0.1.0"
 
 update_metadata:
-  rationale: "align manifest with finalized governance and rollout decisions"
-  expected_gain: "deterministic enforcement and safer updates"
-  potential_impact: "install, update, and command behavior become stricter"
+  rationale: "multi-stack enforcement with per-stack checks and tooling"
+  expected_gain: "stack-aware gate dispatch; .NET and Next.js projects governed alongside Python"
+  potential_impact: "enforcement checks restructured to per-stack; backward-compatible for Python-only"
 
 metadata:
   name: "ai-engineering"
   description: "AI governance framework with mandatory local enforcement"
-  updated: "2026-02-08"
+  updated: "2026-02-22"
 
 ownership:
   root: ".ai-engineering"
@@ -102,8 +102,14 @@ providers:
 tooling:
   required:
     python: ["uv", "ruff", "ty", "pip-audit"]
+    dotnet: ["dotnet"]
+    nextjs: ["node", "npm"]
     security: ["gitleaks", "semgrep"]
     vcs_cli: ["gh", "az"]
+  optional:
+    dast: ["zap-cli", "nuclei"]
+    container: ["trivy"]
+    sbom: ["cyclonedx-py", "cyclonedx-dotnet", "cdxgen"]
   readiness:
     require_install: true
     require_configuration: true
@@ -115,14 +121,15 @@ enforcement:
     required: ["pre-commit", "commit-msg", "pre-push"]
   checks:
     pre_commit:
-      - "ruff-format"
-      - "ruff-lint"
-      - "gitleaks"
+      common: ["gitleaks"]
+      python: ["ruff-format", "ruff-lint"]
+      dotnet: ["dotnet-format"]
+      nextjs: ["prettier-check", "eslint"]
     pre_push:
-      - "semgrep"
-      - "pip-audit"
-      - "stack-tests"
-      - "ty-check"
+      common: ["semgrep"]
+      python: ["pip-audit", "stack-tests", "ty-check"]
+      dotnet: ["dotnet-build", "dotnet-test", "dotnet-vuln"]
+      nextjs: ["tsc-check", "vitest", "npm-audit"]
 
 remote_skills:
   enabled: true

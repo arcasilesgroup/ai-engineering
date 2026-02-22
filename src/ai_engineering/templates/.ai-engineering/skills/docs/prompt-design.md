@@ -108,7 +108,7 @@ For complex, multi-type tasks, blend frameworks:
 
 2. **Ambiguity check** — is there exactly one valid interpretation?
    - Remove vague terms ("good", "better", "appropriate").
-   - Replace with measurable criteria ("coverage ≥80%", "cyclomatic complexity ≤10").
+   - Replace with measurable criteria ("coverage 100%", "cyclomatic complexity ≤10").
 
 3. **Token efficiency** — is the prompt concise?
    - Remove redundant instructions.

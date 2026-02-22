@@ -33,7 +33,7 @@ Executes a structured GO/NO-GO checklist across all quality dimensions for relea
 
 5. **Test confidence** — verify test coverage meets thresholds.
    - Invoke `quality/test-gap-analysis.md` or review most recent gap analysis.
-   - Gate: ≥80% overall, ≥90% governance-critical, no untested critical paths.
+   - Gate: 100% coverage, no untested critical paths.
    - Check: all tests passing, no skipped governance tests.
 
 6. **Documentation coherence** — verify docs are current and correct.

@@ -76,7 +76,7 @@ When creating the PR:
    - [ ] Tests added/updated for new behavior.
    - [ ] `ruff check` and `ruff format --check` pass.
    - [ ] `ty check src/` passes.
-   - [ ] `pytest` passes with coverage >=80%.
+   - [ ] `pytest` passes with 100% coverage.
    - [ ] No secrets in committed code.
    - [ ] Breaking changes documented (if any).
 

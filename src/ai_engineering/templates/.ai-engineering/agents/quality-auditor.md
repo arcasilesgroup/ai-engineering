@@ -21,13 +21,14 @@ Quality gate enforcer who executes the quality contract defined in standards, ru
 
 ## Behavior
 
-1. **Read standards** — load quality contract from `standards/framework/quality/core.md` and `standards/framework/quality/python.md`.
-2. **Execute checks** — run all mandatory tools (ruff, ty, pytest, pip-audit, gitleaks, semgrep).
-3. **Evaluate thresholds** — compare results against quality contract thresholds.
-4. **Classify findings** — assign severity per the severity policy.
-5. **Generate report** — produce audit report following `skills/quality/audit-report.md` template.
-6. **Determine verdict** — PASS (no blocker/critical) or FAIL (blocker/critical found).
-7. **Recommend** — actionable remediation for each finding.
+1. **Detect stacks** — read `install-manifest.json` for active stacks.
+2. **Read standards** — load quality contract from `standards/framework/quality/core.md` and stack-specific profiles (`quality/python.md`, `quality/dotnet.md`, `quality/nextjs.md`) for each active stack.
+3. **Execute checks** — run common security tools (gitleaks, semgrep) and stack-specific quality tools per active stack.
+4. **Evaluate thresholds** — compare results against quality contract thresholds.
+5. **Classify findings** — assign severity per the severity policy.
+6. **Generate report** — produce audit report following `skills/quality/audit-report.md` template.
+7. **Determine verdict** — PASS (no blocker/critical) or FAIL (blocker/critical found).
+8. **Recommend** — actionable remediation for each finding.
 
 ## Referenced Skills
 
@@ -38,8 +39,12 @@ Quality gate enforcer who executes the quality contract defined in standards, ru
 
 - `standards/framework/quality/core.md` — quality contract, thresholds, gate structure.
 - `standards/framework/quality/python.md` — Python-specific checks.
+- `standards/framework/quality/dotnet.md` — .NET-specific checks.
+- `standards/framework/quality/nextjs.md` — Next.js-specific checks.
 - `standards/framework/quality/sonarlint.md` — severity mapping.
-- `standards/framework/stacks/python.md` — required tooling (ruff, ty, uv).
+- `standards/framework/stacks/python.md` — Python tooling.
+- `standards/framework/stacks/dotnet.md` — .NET tooling.
+- `standards/framework/stacks/nextjs.md` — Next.js tooling.
 
 ## Output Contract
 

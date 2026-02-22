@@ -103,6 +103,25 @@ class PythonTooling(BaseModel):
     model_config = {"populate_by_name": True}
 
 
+class DotnetTooling(BaseModel):
+    """`.NET`-specific tooling readiness."""
+
+    dotnet: ToolStatus = Field(default_factory=ToolStatus)
+
+    model_config = {"populate_by_name": True}
+
+
+class NextjsTooling(BaseModel):
+    """Next.js/TypeScript-specific tooling readiness."""
+
+    node: ToolStatus = Field(default_factory=ToolStatus)
+    npm: ToolStatus = Field(default_factory=ToolStatus)
+    eslint: ToolStatus = Field(default_factory=ToolStatus)
+    prettier: ToolStatus = Field(default_factory=ToolStatus)
+
+    model_config = {"populate_by_name": True}
+
+
 class VcsProviderStatus(BaseModel):
     """Status of a VCS provider."""
 
@@ -158,6 +177,8 @@ class ToolingReadiness(BaseModel):
     az: VcsProviderStatus = Field(default_factory=VcsProviderStatus)
     git_hooks: GitHooksStatus = Field(default_factory=GitHooksStatus, alias="gitHooks")
     python: PythonTooling = Field(default_factory=PythonTooling)
+    dotnet: DotnetTooling | None = None
+    nextjs: NextjsTooling | None = None
 
     model_config = {"populate_by_name": True}
 

@@ -56,6 +56,16 @@ _INSTALLABLE_TOOLS: dict[str, str] = {
 # Tools that require OS-level installation.
 _SYSTEM_TOOLS: list[str] = ["gitleaks", "semgrep"]
 
+# Per-stack required tools (excluding common security tools).
+_STACK_TOOLS: dict[str, list[str]] = {
+    "python": ["uv", "ruff", "ty", "pip-audit"],
+    "dotnet": ["dotnet"],
+    "nextjs": ["node", "npm", "eslint", "prettier"],
+}
+
+# Common tools required regardless of stack.
+_COMMON_TOOLS: list[str] = ["gitleaks", "semgrep"]
+
 # Version flag per tool (some use --version, others version).
 _VERSION_FLAGS: dict[str, list[str]] = {
     "ruff": ["ruff", "--version"],
@@ -67,6 +77,11 @@ _VERSION_FLAGS: dict[str, list[str]] = {
     "az": ["az", "--version"],
     "uv": ["uv", "--version"],
     "pip": ["pip", "--version"],
+    "dotnet": ["dotnet", "--version"],
+    "node": ["node", "--version"],
+    "npm": ["npm", "--version"],
+    "eslint": ["eslint", "--version"],
+    "prettier": ["prettier", "--version"],
 }
 
 
@@ -106,6 +121,43 @@ def check_all_tools() -> ReadinessReport:
     ]
     for name in tool_names:
         report.tools.append(check_tool(name))
+    return report
+
+
+def check_tools_for_stacks(stacks: list[str]) -> ReadinessReport:
+    """Check readiness of tools required by the given stacks.
+
+    Always checks common security tools and VCS CLIs.
+    Additionally checks stack-specific tools for each active stack.
+
+    Args:
+        stacks: List of active stack names (e.g., ["python"], ["python", "dotnet"]).
+
+    Returns:
+        ReadinessReport with status of each relevant tool.
+    """
+    report = ReadinessReport()
+    seen: set[str] = set()
+
+    # Common tools always checked
+    for name in _COMMON_TOOLS:
+        if name not in seen:
+            report.tools.append(check_tool(name))
+            seen.add(name)
+
+    # VCS tools (optional)
+    for name in ("gh", "az"):
+        if name not in seen:
+            report.tools.append(check_tool(name))
+            seen.add(name)
+
+    # Stack-specific tools
+    for stack in stacks:
+        for name in _STACK_TOOLS.get(stack, []):
+            if name not in seen:
+                report.tools.append(check_tool(name))
+                seen.add(name)
+
     return report
 
 

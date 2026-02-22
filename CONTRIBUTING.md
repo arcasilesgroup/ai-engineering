@@ -67,7 +67,7 @@ This automatically runs with verbose output and coverage reporting (configured i
 - Follow the AAA pattern (Arrange, Act, Assert).
 - Name tests as `test_<unit>_<scenario>_<expected_outcome>`.
 - Use `tmp_path` for any filesystem operations.
-- Aim for ≥ 80% coverage (≥ 90% for governance-critical modules).
+- Aim for 100% coverage.
 - Tests live in `tests/` with `unit/`, `integration/`, and `e2e/` subdirectories.
 
 Run a specific test file:

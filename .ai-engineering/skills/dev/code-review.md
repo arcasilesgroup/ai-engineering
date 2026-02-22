@@ -35,7 +35,7 @@ Deep code review skill covering security, quality, performance, and maintainabil
    - No blocking calls in async context.
 
 5. **Review maintainability** — check long-term health.
-   - Changes are well-tested (coverage on changed code ≥80%).
+   - Changes are well-tested (coverage on changed code 100%).
    - API contracts are stable — breaking changes documented.
    - No unnecessary complexity (YAGNI, KISS).
    - Dependencies are minimal and justified.

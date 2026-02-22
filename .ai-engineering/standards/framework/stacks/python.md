@@ -29,7 +29,7 @@
 ## Quality Baseline
 
 - Type hints required on all public APIs: `from __future__ import annotations`.
-- Test coverage target: ≥80% overall, ≥90% for governance-critical paths.
+- Test coverage target: 100%.
 - Line length: 100.
 - Docstrings: Google-style on all public functions and classes.
 
