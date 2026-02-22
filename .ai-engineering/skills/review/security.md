@@ -28,11 +28,15 @@ Comprehensive security review covering OWASP top risks, secret exposure, injecti
    - `gh` CLI authentication verified before operations.
    - No privilege escalation paths in CLI commands.
 
-4. **Dependency vulnerabilities** — check supply chain.
-   - Run `pip-audit` for known CVEs.
-   - Run `semgrep` with OWASP ruleset.
+4. **Dependency vulnerabilities** — check supply chain (multi-stack).
+   - Detect active stacks from `install-manifest.json`.
+   - Python: run `pip-audit` for known CVEs.
+   - .NET: run `dotnet list package --vulnerable`.
+   - Next.js: run `npm audit`.
+   - Run `semgrep` with OWASP ruleset (all stacks).
    - Verify dependencies are from trusted sources.
    - Check for typosquatting risks on package names.
+   - For comprehensive supply chain view, reference `skills/quality/sbom.md`.
 
 5. **Configuration security** — check runtime settings.
    - No debug mode in production configs.
@@ -64,4 +68,8 @@ Comprehensive security review covering OWASP top risks, secret exposure, injecti
 
 - `standards/framework/core.md` — mandatory local enforcement and risk acceptance.
 - `standards/framework/quality/core.md` — severity policy.
+- `standards/framework/security/owasp-top10-2025.md` — OWASP Top 10 mapping.
 - `agents/security-reviewer.md` — agent that performs security reviews.
+- `skills/review/dast.md` — dynamic application security testing (post-deploy).
+- `skills/review/container-security.md` — container image scanning.
+- `skills/quality/sbom.md` — software bill of materials generation.

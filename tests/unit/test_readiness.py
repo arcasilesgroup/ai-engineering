@@ -20,6 +20,7 @@ from ai_engineering.detector.readiness import (
     _try_install,
     check_all_tools,
     check_tool,
+    check_tools_for_stacks,
     remediate_missing_tools,
 )
 
@@ -243,3 +244,69 @@ class TestTryInstall:
         ):
             result = _try_install("ruff")
         assert result is False
+
+
+# ── check_tools_for_stacks ───────────────────────────────────────────
+
+
+class TestCheckToolsForStacks:
+    """Tests for check_tools_for_stacks — stack-aware readiness."""
+
+    def test_python_only_checks_python_tools(self) -> None:
+        with patch(
+            "ai_engineering.detector.readiness.check_tool",
+            return_value=ToolInfo(name="mock", available=False),
+        ) as mock_check:
+            check_tools_for_stacks(["python"])
+        checked_names = {call.args[0] for call in mock_check.call_args_list}
+        assert "uv" in checked_names
+        assert "ruff" in checked_names
+        assert "gitleaks" in checked_names
+        assert "dotnet" not in checked_names
+        assert "node" not in checked_names
+
+    def test_dotnet_checks_dotnet_tools(self) -> None:
+        with patch(
+            "ai_engineering.detector.readiness.check_tool",
+            return_value=ToolInfo(name="mock", available=False),
+        ) as mock_check:
+            check_tools_for_stacks(["dotnet"])
+        checked_names = {call.args[0] for call in mock_check.call_args_list}
+        assert "dotnet" in checked_names
+        assert "gitleaks" in checked_names
+        assert "ruff" not in checked_names
+
+    def test_nextjs_checks_node_tools(self) -> None:
+        with patch(
+            "ai_engineering.detector.readiness.check_tool",
+            return_value=ToolInfo(name="mock", available=False),
+        ) as mock_check:
+            check_tools_for_stacks(["nextjs"])
+        checked_names = {call.args[0] for call in mock_check.call_args_list}
+        assert "node" in checked_names
+        assert "npm" in checked_names
+        assert "eslint" in checked_names
+        assert "prettier" in checked_names
+        assert "gitleaks" in checked_names
+
+    def test_multi_stack_checks_all(self) -> None:
+        with patch(
+            "ai_engineering.detector.readiness.check_tool",
+            return_value=ToolInfo(name="mock", available=False),
+        ) as mock_check:
+            check_tools_for_stacks(["python", "dotnet", "nextjs"])
+        checked_names = {call.args[0] for call in mock_check.call_args_list}
+        assert "uv" in checked_names
+        assert "dotnet" in checked_names
+        assert "node" in checked_names
+        assert "gitleaks" in checked_names
+
+    def test_no_duplicates(self) -> None:
+        with patch(
+            "ai_engineering.detector.readiness.check_tool",
+            return_value=ToolInfo(name="mock", available=False),
+        ) as mock_check:
+            check_tools_for_stacks(["python", "dotnet"])
+        # Each tool should be checked exactly once
+        checked_names = [call.args[0] for call in mock_check.call_args_list]
+        assert len(checked_names) == len(set(checked_names))

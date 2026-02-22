@@ -20,10 +20,13 @@ from unittest.mock import patch
 import pytest
 
 from ai_engineering.policy.gates import (
+    CheckConfig,
     GateCheckResult,
     GateResult,
     _check_expired_risk_acceptances,
     _check_expiring_risk_acceptances,
+    _get_active_stacks,
+    _run_checks_for_stacks,
     _run_tool_check,
     _validate_commit_message,
     run_gate,
@@ -505,6 +508,112 @@ class TestVersionDeprecationGate:
             result = run_gate(GateHook.PRE_COMMIT, git_repo)
         version_check = _find_check(result, "version-deprecation")
         assert version_check.passed
+
+
+# ---------------------------------------------------------------------------
+# Multi-stack gate dispatch
+# ---------------------------------------------------------------------------
+
+
+class TestGetActiveStacks:
+    """Tests for _get_active_stacks — install manifest reading."""
+
+    def test_returns_python_when_no_manifest(self, tmp_path: Path) -> None:
+        stacks = _get_active_stacks(tmp_path)
+        assert stacks == ["python"]
+
+    def test_reads_stacks_from_manifest(self, tmp_path: Path) -> None:
+        import json
+
+        ds_dir = tmp_path / ".ai-engineering" / "state"
+        ds_dir.mkdir(parents=True)
+        (ds_dir / "install-manifest.json").write_text(
+            json.dumps(
+                {
+                    "schemaVersion": "1.1",
+                    "frameworkVersion": "0.1.0",
+                    "installedAt": "2026-02-22T00:00:00Z",
+                    "installedStacks": ["python", "dotnet"],
+                    "installedIdes": [],
+                    "toolingReadiness": {},
+                }
+            )
+        )
+        stacks = _get_active_stacks(tmp_path)
+        assert stacks == ["python", "dotnet"]
+
+    def test_returns_python_when_manifest_empty_stacks(self, tmp_path: Path) -> None:
+        import json
+
+        ds_dir = tmp_path / ".ai-engineering" / "state"
+        ds_dir.mkdir(parents=True)
+        (ds_dir / "install-manifest.json").write_text(
+            json.dumps(
+                {
+                    "schemaVersion": "1.1",
+                    "frameworkVersion": "0.1.0",
+                    "installedAt": "2026-02-22T00:00:00Z",
+                    "installedStacks": [],
+                    "installedIdes": [],
+                    "toolingReadiness": {},
+                }
+            )
+        )
+        stacks = _get_active_stacks(tmp_path)
+        assert stacks == ["python"]
+
+    def test_returns_python_when_manifest_invalid(self, tmp_path: Path) -> None:
+        ds_dir = tmp_path / ".ai-engineering" / "state"
+        ds_dir.mkdir(parents=True)
+        (ds_dir / "install-manifest.json").write_text("invalid json")
+        stacks = _get_active_stacks(tmp_path)
+        assert stacks == ["python"]
+
+
+class TestRunChecksForStacks:
+    """Tests for _run_checks_for_stacks — stack-aware dispatch."""
+
+    def test_runs_common_and_python_checks(self, tmp_path: Path) -> None:
+        registry: dict[str, list[CheckConfig]] = {
+            "common": [CheckConfig(name="gitleaks", cmd=["gitleaks"])],
+            "python": [CheckConfig(name="ruff-format", cmd=["ruff", "format"])],
+            "dotnet": [CheckConfig(name="dotnet-format", cmd=["dotnet", "format"])],
+        }
+        result = GateResult(hook=GateHook.PRE_COMMIT)
+        with patch("ai_engineering.policy.gates.shutil.which", return_value=None):
+            _run_checks_for_stacks(tmp_path, result, registry, ["python"])
+        names = {c.name for c in result.checks}
+        assert "gitleaks" in names
+        assert "ruff-format" in names
+        assert "dotnet-format" not in names
+
+    def test_runs_dotnet_checks_when_active(self, tmp_path: Path) -> None:
+        registry: dict[str, list[CheckConfig]] = {
+            "common": [CheckConfig(name="gitleaks", cmd=["gitleaks"])],
+            "python": [CheckConfig(name="ruff-format", cmd=["ruff"])],
+            "dotnet": [CheckConfig(name="dotnet-format", cmd=["dotnet"])],
+        }
+        result = GateResult(hook=GateHook.PRE_COMMIT)
+        with patch("ai_engineering.policy.gates.shutil.which", return_value=None):
+            _run_checks_for_stacks(tmp_path, result, registry, ["dotnet"])
+        names = {c.name for c in result.checks}
+        assert "gitleaks" in names
+        assert "dotnet-format" in names
+        assert "ruff-format" not in names
+
+    def test_runs_multi_stack_checks(self, tmp_path: Path) -> None:
+        registry: dict[str, list[CheckConfig]] = {
+            "common": [CheckConfig(name="gitleaks", cmd=["gitleaks"])],
+            "python": [CheckConfig(name="pip-audit", cmd=["pip-audit"])],
+            "nextjs": [CheckConfig(name="npm-audit", cmd=["npm", "audit"])],
+        }
+        result = GateResult(hook=GateHook.PRE_PUSH)
+        with patch("ai_engineering.policy.gates.shutil.which", return_value=None):
+            _run_checks_for_stacks(tmp_path, result, registry, ["python", "nextjs"])
+        names = {c.name for c in result.checks}
+        assert "gitleaks" in names
+        assert "pip-audit" in names
+        assert "npm-audit" in names
 
 
 # ---------------------------------------------------------------------------

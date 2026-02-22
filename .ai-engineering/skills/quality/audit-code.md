@@ -11,16 +11,37 @@ Execute a SonarQube-like quality gate assessment on the codebase. Evaluates cove
 
 ## Procedure
 
-1. **Run quality checks** — execute all mandatory gates.
+1. **Detect active stacks** — read `install-manifest.json` for installed stacks.
+   - Determine which quality checks to run based on active stacks.
+   - Always run common security checks (gitleaks, semgrep).
+
+2. **Run quality checks** — execute mandatory gates per active stack.
+
+   **Common (all stacks)**:
+   - `gitleaks detect --no-banner` → secret detection.
+   - `semgrep scan --config auto` → SAST findings.
+
+   **Python** (when active):
    - `ruff format --check src/` → formatting compliance.
    - `ruff check src/` → lint violations.
    - `ty check src/` → type safety.
-   - `pytest tests/ -v --cov=ai_engineering --cov-report=term-missing` → test results and coverage.
+   - `pytest tests/ -v --cov --cov-report=term-missing` → test results and coverage.
    - `pip-audit` → dependency vulnerabilities.
-   - `gitleaks detect --no-banner` → secret detection.
-   - `semgrep scan --config auto src/` → SAST findings.
 
-2. **Evaluate thresholds** — compare results with quality contract.
+   **`.NET`** (when active):
+   - `dotnet format --verify-no-changes` → formatting compliance.
+   - `dotnet build --no-restore` → compilation.
+   - `dotnet test --no-build` → test results with coverage.
+   - `dotnet list package --vulnerable` → dependency vulnerabilities.
+
+   **Next.js/TypeScript** (when active):
+   - `prettier --check .` → formatting compliance.
+   - `eslint .` → lint violations.
+   - `tsc --noEmit` → type safety.
+   - `vitest run --coverage` → test results and coverage.
+   - `npm audit` → dependency vulnerabilities.
+
+3. **Evaluate thresholds** — compare results with quality contract.
 
    | Metric | Threshold | Severity if violated |
    |--------|-----------|---------------------|
@@ -34,13 +55,13 @@ Execute a SonarQube-like quality gate assessment on the codebase. Evaluates cove
    | Cognitive complexity per function | ≤15 | Major |
    | Function length | <50 lines | Major |
 
-3. **Classify findings** — assign severity to each issue.
+4. **Classify findings** — assign severity to each issue.
    - Blocker: merge blocked. Must fix.
    - Critical: merge blocked unless explicit risk acceptance.
    - Major: fix before merge unless owner approves.
    - Minor/Info: track, fix incrementally.
 
-4. **Generate verdict** — PASS or FAIL.
+5. **Generate verdict** — PASS or FAIL.
    - **PASS**: no blocker or critical findings.
    - **FAIL**: one or more blocker or critical findings.
 
@@ -63,5 +84,7 @@ Execute a SonarQube-like quality gate assessment on the codebase. Evaluates cove
 
 - `standards/framework/quality/core.md` — quality contract (thresholds and gates).
 - `standards/framework/quality/python.md` — Python-specific checks.
+- `standards/framework/quality/dotnet.md` — .NET-specific checks.
+- `standards/framework/quality/nextjs.md` — Next.js-specific checks.
 - `skills/quality/audit-report.md` — report template.
 - `agents/quality-auditor.md` — agent that executes this skill.

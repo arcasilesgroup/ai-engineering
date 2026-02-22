@@ -23,7 +23,7 @@ This project dogfoods the ai-engineering framework on itself.
 
 ### Active Objectives
 
-1. Complete governance content: 37 skills, 9 agents, 3 stack instructions.
+1. Complete governance content: 43 skills, 9 agents, 5 stack instructions.
 2. Rewrite all Python modules from scratch following new standards.
 3. Achieve CI/CD with cross-OS matrix (Python 3.11/3.12/3.13 × Ubuntu/Windows/macOS).
 4. Validate full E2E install/update/doctor cycle.
@@ -46,7 +46,7 @@ This project dogfoods the ai-engineering framework on itself.
 
 ## Active Spec
 
-Spec-014: Dual VCS Provider Support + Generic Hardening. See `specs/_active.md` for details.
+Spec-015: Multi-Stack Security & Quality Capabilities. See `specs/_active.md` for details.
 
 ## KPIs
 
@@ -54,7 +54,7 @@ Spec-014: Dual VCS Provider Support + Generic Hardening. See `specs/_active.md` 
 |--------|--------|---------|
 | Install adoption (repos using framework) | Tracking | Pre-release |
 | Quality gate pass rate | 100% on governed ops | Establishing baseline |
-| Agent coverage (skills + agents defined) | 37 skills + 9 agents | 37/37 skills, 9/9 agents |
+| Agent coverage (skills + agents defined) | 43 skills + 9 agents | 43/43 skills, 9/9 agents |
 | Test coverage | ≥80% | 85% (429 tests) |
 | Cross-OS CI pass | 3×3 matrix green | 6-job pipeline, 3×3 matrix (Ubuntu/Windows/macOS × Python 3.11/3.12/3.13) |
 
