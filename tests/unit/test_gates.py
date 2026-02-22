@@ -24,6 +24,7 @@ from ai_engineering.policy.gates import (
     GateResult,
     _check_expired_risk_acceptances,
     _check_expiring_risk_acceptances,
+    _run_tool_check,
     _validate_commit_message,
     run_gate,
 )
@@ -176,6 +177,99 @@ class TestPrePushGate:
         assert "branch-protection" in check_names
         # Tools may be skipped if not installed
         assert len(result.checks) >= 2
+
+
+# ---------------------------------------------------------------------------
+# Tool check required parameter
+# ---------------------------------------------------------------------------
+
+
+class TestToolCheckRequired:
+    """Tests for _run_tool_check required parameter behavior."""
+
+    def test_missing_tool_passes_when_not_required(self, tmp_path: Path) -> None:
+        result = GateResult(hook=GateHook.PRE_COMMIT)
+        with patch("ai_engineering.policy.gates.shutil.which", return_value=None):
+            _run_tool_check(
+                result,
+                name="fake-tool",
+                cmd=["nonexistent-tool", "check"],
+                cwd=tmp_path,
+                required=False,
+            )
+        check = _find_check(result, "fake-tool")
+        assert check.passed
+        assert "skipped" in check.output
+
+    def test_missing_tool_fails_when_required(self, tmp_path: Path) -> None:
+        result = GateResult(hook=GateHook.PRE_COMMIT)
+        with patch("ai_engineering.policy.gates.shutil.which", return_value=None):
+            _run_tool_check(
+                result,
+                name="fake-tool",
+                cmd=["nonexistent-tool", "check"],
+                cwd=tmp_path,
+                required=True,
+            )
+        check = _find_check(result, "fake-tool")
+        assert not check.passed
+        assert "required" in check.output
+        assert "ai-eng doctor --fix-tools" in check.output
+
+    def test_tool_success_records_pass(self, tmp_path: Path) -> None:
+        result = GateResult(hook=GateHook.PRE_COMMIT)
+        mock_proc = subprocess.CompletedProcess(
+            args=["tool"], returncode=0, stdout="all good", stderr=""
+        )
+        with (
+            patch("ai_engineering.policy.gates.shutil.which", return_value="/usr/bin/tool"),
+            patch("ai_engineering.policy.gates.subprocess.run", return_value=mock_proc),
+        ):
+            _run_tool_check(
+                result,
+                name="test-tool",
+                cmd=["tool", "check"],
+                cwd=tmp_path,
+            )
+        check = _find_check(result, "test-tool")
+        assert check.passed
+        assert "all good" in check.output
+
+    def test_tool_failure_records_fail(self, tmp_path: Path) -> None:
+        result = GateResult(hook=GateHook.PRE_COMMIT)
+        mock_proc = subprocess.CompletedProcess(
+            args=["tool"], returncode=1, stdout="", stderr="error found"
+        )
+        with (
+            patch("ai_engineering.policy.gates.shutil.which", return_value="/usr/bin/tool"),
+            patch("ai_engineering.policy.gates.subprocess.run", return_value=mock_proc),
+        ):
+            _run_tool_check(
+                result,
+                name="test-tool",
+                cmd=["tool", "check"],
+                cwd=tmp_path,
+            )
+        check = _find_check(result, "test-tool")
+        assert not check.passed
+
+    def test_empty_output_shows_exit_code(self, tmp_path: Path) -> None:
+        result = GateResult(hook=GateHook.PRE_COMMIT)
+        mock_proc = subprocess.CompletedProcess(
+            args=["tool"], returncode=1, stdout="", stderr=""
+        )
+        with (
+            patch("ai_engineering.policy.gates.shutil.which", return_value="/usr/bin/tool"),
+            patch("ai_engineering.policy.gates.subprocess.run", return_value=mock_proc),
+        ):
+            _run_tool_check(
+                result,
+                name="test-tool",
+                cmd=["tool", "check"],
+                cwd=tmp_path,
+            )
+        check = _find_check(result, "test-tool")
+        assert "exited with code 1" in check.output
 
 
 # ---------------------------------------------------------------------------

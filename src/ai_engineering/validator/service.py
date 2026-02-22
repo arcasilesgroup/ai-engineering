@@ -146,9 +146,38 @@ _CLAUDE_COMMANDS_MIRROR = (
 _SKILL_LINE_PATTERN = re.compile(r"^- `\.ai-engineering/skills/(.+\.md)`", re.MULTILINE)
 _AGENT_LINE_PATTERN = re.compile(r"^- `\.ai-engineering/agents/(.+\.md)`", re.MULTILINE)
 
-# Product-contract counter patterns
-_OBJECTIVE_COUNTER_PATTERN = re.compile(r"(\d+)\s+skills?,\s*(\d+)\s+agents?")
-_KPI_COUNTER_PATTERN = re.compile(r"(\d+)\s+skills?\s*\+\s*(\d+)\s+agents?")
+def _parse_counter(text: str, separator: str) -> tuple[int, int] | None:
+    """Extract skill and agent counts from text using plain string parsing.
+
+    Replaces regex-based counter patterns to eliminate backtracking risk
+    (ReDoS — S5852).  The function splits by *separator* (e.g. ``,`` or
+    ``+``), then tokenises each side looking for ``<number> skill(s)``
+    and ``<number> agent(s)``.
+
+    Args:
+        text: The full text to search through line-by-line.
+        separator: The character that separates the skill and agent parts
+            (typically ``,`` for objectives or ``+`` for KPI rows).
+
+    Returns:
+        ``(skills, agents)`` tuple if both counts found, else ``None``.
+    """
+    for line in text.splitlines():
+        if separator not in line:
+            continue
+        parts = line.split(separator)
+        skills: int | None = None
+        agents: int | None = None
+        for part in parts:
+            tokens = part.strip().split()
+            for i, tok in enumerate(tokens):
+                if tok.startswith("skill") and i > 0 and tokens[i - 1].isdigit():
+                    skills = int(tokens[i - 1])
+                elif tok.startswith("agent") and i > 0 and tokens[i - 1].isdigit():
+                    agents = int(tokens[i - 1])
+        if skills is not None and agents is not None:
+            return (skills, agents)
+    return None
 
 
 def _sha256(path: Path) -> str:
@@ -522,10 +551,9 @@ def _check_counter_accuracy(target: Path, report: IntegrityReport) -> None:
     pc_path = target / ".ai-engineering" / "context" / "product" / "product-contract.md"
     if pc_path.exists():
         pc_content = pc_path.read_text(encoding="utf-8", errors="replace")
-        obj_match = _OBJECTIVE_COUNTER_PATTERN.search(pc_content)
+        obj_match = _parse_counter(pc_content, ",")
         if obj_match:
-            pc_skills = int(obj_match.group(1))
-            pc_agents = int(obj_match.group(2))
+            pc_skills, pc_agents = obj_match
             ref_skills = next(iter(unique_skill_counts), 0)
             ref_agents = next(iter(unique_agent_counts), 0)
 

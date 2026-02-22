@@ -10,6 +10,7 @@ from ai_engineering.validator.service import (
     IntegrityCategory,
     IntegrityCheckResult,
     IntegrityReport,
+    _parse_counter,
     validate_content_integrity,
 )
 
@@ -201,6 +202,47 @@ def _setup_full_project(root: Path) -> Path:
     _write_manifest(ai)
     _write_active_spec(ai)
     return ai
+
+
+# -- _parse_counter tests -------------------------------------------------
+
+
+class TestParseCounter:
+    """Tests for _parse_counter plain-string parsing (ReDoS-safe)."""
+
+    def test_comma_separated_objective(self) -> None:
+        text = "Complete governance content: 37 skills, 9 agents."
+        result = _parse_counter(text, ",")
+        assert result == (37, 9)
+
+    def test_plus_separated_kpi(self) -> None:
+        text = "| Agent coverage | 37 skills + 9 agents | 37/37 |"
+        result = _parse_counter(text, "+")
+        assert result == (37, 9)
+
+    def test_singular_forms(self) -> None:
+        text = "1 skill, 1 agent"
+        result = _parse_counter(text, ",")
+        assert result == (1, 1)
+
+    def test_no_match_returns_none(self) -> None:
+        text = "No counters here at all."
+        result = _parse_counter(text, ",")
+        assert result is None
+
+    def test_multiline_finds_first_match(self) -> None:
+        text = "Header line\n37 skills, 9 agents\nAnother line"
+        result = _parse_counter(text, ",")
+        assert result == (37, 9)
+
+    def test_empty_text(self) -> None:
+        result = _parse_counter("", ",")
+        assert result is None
+
+    def test_separator_missing(self) -> None:
+        text = "37 skills and 9 agents"
+        result = _parse_counter(text, ",")
+        assert result is None
 
 
 # -- IntegrityReport model tests -------------------------------------------
