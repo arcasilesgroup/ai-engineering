@@ -2,9 +2,9 @@
 
 ## Update Metadata
 
-- Rationale: define quality contract (thresholds, metrics, gate structure) for v2; Phase 5 quality skills implement this contract.
-- Expected gain: consistent quality thresholds across assistants and repositories with measurable gates.
-- Potential impact: pull requests may fail until tests, complexity, and duplication targets are met.
+- Rationale: enforce 100% security and quality compliance as non-negotiable baseline; zero tolerance for security findings (medium+) and quality gate failures.
+- Expected gain: every governed operation passes all gates; security posture fully enforced with tamper resistance.
+- Potential impact: stricter enforcement blocks merges until all findings are remediated; no exceptions without risk acceptance.
 
 ## Enforcement Scope
 
@@ -17,8 +17,19 @@
 - Coverage on governance-critical paths: ≥90%.
 - Duplicated lines on changed code: ≤3%.
 - Reliability: no critical or blocker issues.
-- Security: no critical or blocker issues.
+- Security: zero findings medium severity and above. No exceptions without risk acceptance.
 - Maintainability: no critical debt items on changed code.
+
+## Security Enforcement (Non-Negotiable)
+
+- Quality gate pass rate: 100% on all governed operations.
+- Security scan pass rate: 100% — zero medium/high/critical findings allowed.
+- Secret detection: zero leaks. Any leak is a blocker.
+- Dependency vulnerabilities: zero known vulnerabilities. Any vulnerability is a blocker.
+- SAST findings (medium+): zero. Remediate or risk-accept before merge.
+- Tamper resistance: hooks must be hash-verified, `--no-verify` bypass must be detectable.
+- Hook integrity: SHA-256 verification mandatory at gate execution time.
+- Cross-OS validation: all enforcement mechanisms must pass on Ubuntu, Windows, and macOS.
 
 ## Gate Structure
 
@@ -31,10 +42,12 @@
 
 ## Quality Metrics
 
-- Gate pass/fail ratio per governed operation.
+- Gate pass rate: 100% on governed operations (target, non-negotiable).
+- Security scan pass rate: 100% (zero medium+ findings).
 - Coverage trend (must not decrease).
-- Remediation time for blocker/critical findings.
+- Remediation time for blocker/critical findings: immediate (blocks merge).
 - Duplication trend (must not increase).
+- Tamper resistance score: 100/100 (hook hash verification + bypass detection).
 
 ## Pull Request Rules
 

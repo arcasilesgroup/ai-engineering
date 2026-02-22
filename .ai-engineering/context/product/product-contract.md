@@ -53,10 +53,12 @@ Spec-015: Multi-Stack Security & Quality Capabilities. See `specs/_active.md` fo
 | Metric | Target | Current |
 |--------|--------|---------|
 | Install adoption (repos using framework) | Tracking | Pre-release |
-| Quality gate pass rate | 100% on governed ops | Establishing baseline |
+| Quality gate pass rate | 100% on all governed ops | 100% (all tools pass) |
+| Security scan pass rate | 100% — zero medium+ findings | 100% (0 critical/high, 1 medium SAST to remediate) |
+| Tamper resistance score | 100/100 | 55/100 (pending B3/B4 remediation) |
 | Agent coverage (skills + agents defined) | 43 skills + 9 agents | 43/43 skills, 9/9 agents |
-| Test coverage | ≥80% | 85% (429 tests) |
-| Cross-OS CI pass | 3×3 matrix green | 6-job pipeline, 3×3 matrix (Ubuntu/Windows/macOS × Python 3.11/3.12/3.13) |
+| Test coverage | ≥80% | 87% (530 tests) |
+| Cross-OS CI pass | 3×3 matrix green | Pending (no CI matrix yet — B1) |
 
 ## Stakeholders
 
