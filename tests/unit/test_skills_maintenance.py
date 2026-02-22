@@ -412,13 +412,21 @@ class TestCreateMaintenancePR:
         self,
         installed_project: Path,
     ) -> None:
+        from ai_engineering.vcs.protocol import VcsResult
+
         report = generate_report(installed_project)
         report_path = installed_project / ".ai-engineering" / "state" / "maintenance-report.md"
 
-        # Mock subprocess to avoid real git/gh calls
-        with patch(
-            "ai_engineering.maintenance.report.subprocess.run",
-        ) as mock_run:
+        mock_provider = type(
+            "MockProvider",
+            (),
+            {"create_pr": lambda self, ctx: VcsResult(success=True, output="ok")},
+        )()
+        # Mock subprocess to avoid real git calls
+        with (
+            patch("ai_engineering.maintenance.report.subprocess.run") as mock_run,
+            patch("ai_engineering.maintenance.report.get_provider", return_value=mock_provider),
+        ):
             mock_run.return_value = None
             create_maintenance_pr(installed_project, report)
 

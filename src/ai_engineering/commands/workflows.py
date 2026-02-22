@@ -30,6 +30,9 @@ from ai_engineering.git.operations import (
 from ai_engineering.policy.gates import GateHook, run_gate
 from ai_engineering.state.io import append_ndjson, read_json_model
 from ai_engineering.state.models import AuditEntry, DecisionStore
+from ai_engineering.vcs.factory import get_provider
+from ai_engineering.vcs.pr_description import build_pr_description, build_pr_title
+from ai_engineering.vcs.protocol import VcsContext
 
 # ---------------------------------------------------------------------------
 # Result types
@@ -453,7 +456,10 @@ def _run_pre_push_checks(project_root: Path) -> list[StepResult]:
 
 
 def _create_pr(project_root: Path) -> StepResult:
-    """Create a PR using the GitHub CLI.
+    """Create a PR using the configured VCS provider.
+
+    Generates a structured title and description from the active spec
+    and recent commits, then delegates to the provider.
 
     Args:
         project_root: Root directory of the project.
@@ -461,16 +467,24 @@ def _create_pr(project_root: Path) -> StepResult:
     Returns:
         StepResult for PR creation.
     """
-    passed, output = _run_command(
-        ["gh", "pr", "create", "--fill"],
-        project_root,
-        timeout=30,
+    provider = get_provider(project_root)
+    branch = current_branch(project_root)
+    title = build_pr_title(project_root)
+    body = build_pr_description(project_root)
+    ctx = VcsContext(
+        project_root=project_root,
+        title=title,
+        body=body,
+        branch=branch,
     )
-    return StepResult(name="create-pr", passed=passed, output=output)
+    result = provider.create_pr(ctx)
+    return StepResult(name="create-pr", passed=result.success, output=result.output)
 
 
 def _enable_auto_complete(project_root: Path) -> StepResult:
-    """Enable auto-complete (auto-merge) on the PR.
+    """Enable auto-complete / auto-merge on the current PR.
+
+    Delegates to the configured VCS provider.
 
     Args:
         project_root: Root directory of the project.
@@ -478,12 +492,11 @@ def _enable_auto_complete(project_root: Path) -> StepResult:
     Returns:
         StepResult for auto-complete setup.
     """
-    passed, output = _run_command(
-        ["gh", "pr", "merge", "--auto", "--squash", "--delete-branch"],
-        project_root,
-        timeout=30,
-    )
-    return StepResult(name="auto-complete", passed=passed, output=output)
+    provider = get_provider(project_root)
+    branch = current_branch(project_root)
+    ctx = VcsContext(project_root=project_root, branch=branch)
+    result = provider.enable_auto_complete(ctx)
+    return StepResult(name="auto-complete", passed=result.success, output=result.output)
 
 
 def _check_unpushed_decision(

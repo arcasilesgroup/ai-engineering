@@ -15,6 +15,8 @@ from pathlib import Path
 
 from ai_engineering.state.io import read_json_model, read_ndjson_entries
 from ai_engineering.state.models import AuditEntry, DecisionStore, InstallManifest
+from ai_engineering.vcs.factory import get_provider
+from ai_engineering.vcs.protocol import VcsContext
 
 
 @dataclass
@@ -229,7 +231,7 @@ def create_maintenance_pr(
 ) -> bool:
     """Create a PR with maintenance report and updates.
 
-    Requires ``gh`` CLI to be available and authenticated.
+    Uses the configured VCS provider (GitHub or Azure DevOps).
 
     Args:
         target: Root directory of the target project.
@@ -267,7 +269,7 @@ def create_maintenance_pr(
             capture_output=True,
         )
 
-        # Push and create PR
+        # Push
         subprocess.run(
             ["git", "push", "origin", branch_name],
             cwd=target,
@@ -275,22 +277,17 @@ def create_maintenance_pr(
             capture_output=True,
             timeout=30,
         )
-        subprocess.run(
-            [
-                "gh",
-                "pr",
-                "create",
-                "--title",
-                "chore: framework maintenance report",
-                "--body",
-                report.to_markdown(),
-            ],
-            cwd=target,
-            check=True,
-            capture_output=True,
-            timeout=30,
+
+        # Create PR via provider
+        provider = get_provider(target)
+        ctx = VcsContext(
+            project_root=target,
+            title="chore: framework maintenance report",
+            body=report.to_markdown(),
+            branch=branch_name,
         )
-        return True
+        result = provider.create_pr(ctx)
+        return result.success
 
     except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired):
         return False

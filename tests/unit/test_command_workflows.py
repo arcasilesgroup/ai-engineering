@@ -27,6 +27,7 @@ from ai_engineering.commands.workflows import (
 )
 from ai_engineering.installer.service import install
 from ai_engineering.policy.gates import GateCheckResult, GateHook, GateResult
+from ai_engineering.vcs.protocol import VcsResult
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -279,6 +280,14 @@ class TestPRWorkflow:
             GateCheckResult(name="stack-tests", passed=True, output="ok"),
             GateCheckResult(name="ty-check", passed=True, output="ok"),
         ]
+        mock_provider = type(
+            "MockProvider",
+            (),
+            {
+                "create_pr": lambda self, ctx: VcsResult(success=True, output="ok"),
+                "enable_auto_complete": lambda self, ctx: VcsResult(success=True, output="ok"),
+            },
+        )()
         with (
             patch(
                 "ai_engineering.commands.workflows._run_command",
@@ -287,6 +296,10 @@ class TestPRWorkflow:
             patch(
                 "ai_engineering.commands.workflows.run_gate",
                 return_value=gate_result,
+            ),
+            patch(
+                "ai_engineering.commands.workflows.get_provider",
+                return_value=mock_provider,
             ),
         ):
             result = run_pr_workflow(git_project, "feat: pr test")
@@ -319,6 +332,14 @@ class TestPROnlyWorkflow:
     """Tests for run_pr_only_workflow."""
 
     def test_pr_only_creates_pr(self, git_project: Path) -> None:
+        mock_provider = type(
+            "MockProvider",
+            (),
+            {
+                "create_pr": lambda self, ctx: VcsResult(success=True, output="ok"),
+                "enable_auto_complete": lambda self, ctx: VcsResult(success=True, output="ok"),
+            },
+        )()
         with (
             patch(
                 "ai_engineering.commands.workflows._run_command",
@@ -327,6 +348,10 @@ class TestPROnlyWorkflow:
             patch(
                 "ai_engineering.commands.workflows.is_branch_pushed",
                 return_value=True,
+            ),
+            patch(
+                "ai_engineering.commands.workflows.get_provider",
+                return_value=mock_provider,
             ),
         ):
             result = run_pr_only_workflow(git_project)
@@ -340,6 +365,14 @@ class TestPROnlyWorkflow:
         self,
         git_project: Path,
     ) -> None:
+        mock_provider = type(
+            "MockProvider",
+            (),
+            {
+                "create_pr": lambda self, ctx: VcsResult(success=True, output="ok"),
+                "enable_auto_complete": lambda self, ctx: VcsResult(success=True, output="ok"),
+            },
+        )()
         with (
             patch(
                 "ai_engineering.commands.workflows._run_command",
@@ -352,6 +385,10 @@ class TestPROnlyWorkflow:
             patch(
                 "ai_engineering.commands.workflows._check_unpushed_decision",
                 return_value=None,
+            ),
+            patch(
+                "ai_engineering.commands.workflows.get_provider",
+                return_value=mock_provider,
             ),
         ):
             result = run_pr_only_workflow(git_project)
