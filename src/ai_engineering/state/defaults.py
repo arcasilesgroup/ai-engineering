@@ -42,16 +42,23 @@ def default_install_manifest(
     *,
     stacks: list[str] | None = None,
     ides: list[str] | None = None,
+    vcs_provider: str = "github",
 ) -> InstallManifest:
     """Create a default install manifest for a new installation.
 
     Args:
         stacks: Initial stacks to install. Defaults to ["python"].
         ides: Initial IDEs to install. Defaults to ["terminal"].
+        vcs_provider: Primary VCS provider. Defaults to "github".
+            Accepted values: "github", "azure_devops".
 
     Returns:
         InstallManifest with default tooling readiness.
     """
+    enabled = [vcs_provider]
+    if vcs_provider != "github" and "github" not in enabled:
+        enabled.append("github")
+
     return InstallManifest(
         schema_version="1.1",
         update_metadata=default_update_metadata(context="installation manifest"),
@@ -59,10 +66,12 @@ def default_install_manifest(
         installedStacks=stacks or ["python"],
         installedIdes=ides or ["terminal"],
         providers=VcsProviders(
-            primary="github",
-            enabled=["github"],
+            primary=vcs_provider,
+            enabled=enabled,
             extensions=VcsExtensions(
-                azure_devops=AzureDevOpsExtension(enabled=False),
+                azure_devops=AzureDevOpsExtension(
+                    enabled=vcs_provider == "azure_devops",
+                ),
             ),
         ),
         tooling_readiness=ToolingReadiness(),

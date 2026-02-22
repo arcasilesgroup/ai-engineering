@@ -31,15 +31,20 @@ def install_cmd(
         list[str] | None,
         typer.Option("--ide", "-i", help="IDE integrations to enable."),
     ] = None,
+    vcs: Annotated[
+        str,
+        typer.Option("--vcs", help="Primary VCS provider: github or azure_devops."),
+    ] = "github",
 ) -> None:
     """Install the ai-engineering governance framework."""
     root = resolve_project_root(target)
-    result = install(root, stacks=stacks or [], ides=ides or [])
+    result = install(root, stacks=stacks or [], ides=ides or [], vcs_provider=vcs)
 
     typer.echo(f"Installed to: {root}")
     typer.echo(f"  Governance files created: {result.governance_files.created}")
     typer.echo(f"  Project files created: {result.project_files.created}")
     typer.echo(f"  State files created: {len(result.state_files)}")
+    typer.echo(f"  VCS provider: {vcs}")
 
     if result.already_installed:
         typer.echo("  (framework was already installed — skipped existing files)")

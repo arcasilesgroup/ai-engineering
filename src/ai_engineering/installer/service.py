@@ -75,6 +75,7 @@ def install(
     *,
     stacks: list[str] | None = None,
     ides: list[str] | None = None,
+    vcs_provider: str = "github",
 ) -> InstallResult:
     """Bootstrap the ai-engineering framework in a target project.
 
@@ -85,6 +86,7 @@ def install(
         target: Root directory of the target project.
         stacks: Initial stacks to install. Defaults to ``["python"]``.
         ides: Initial IDEs to configure. Defaults to ``["terminal"]``.
+        vcs_provider: Primary VCS provider. Defaults to ``"github"``.
 
     Returns:
         InstallResult with details of created and skipped files.
@@ -104,6 +106,7 @@ def install(
         ai_eng_dir,
         stacks=stacks,
         ides=ides,
+        vcs_provider=vcs_provider,
     )
 
     # If no state files were generated, installation was already present
@@ -125,6 +128,7 @@ def _generate_state_files(
     *,
     stacks: list[str] | None,
     ides: list[str] | None,
+    vcs_provider: str = "github",
 ) -> list[Path]:
     """Generate default state files if they don't already exist.
 
@@ -132,6 +136,7 @@ def _generate_state_files(
         ai_eng_dir: Path to the ``.ai-engineering/`` directory.
         stacks: Stacks to include in the install manifest.
         ides: IDEs to include in the install manifest.
+        vcs_provider: Primary VCS provider.
 
     Returns:
         List of state file paths that were created.
@@ -142,6 +147,7 @@ def _generate_state_files(
         _STATE_FILES["install-manifest"]: default_install_manifest(
             stacks=stacks,
             ides=ides,
+            vcs_provider=vcs_provider,
         ),
         _STATE_FILES["ownership-map"]: default_ownership_map(),
         _STATE_FILES["decision-store"]: default_decision_store(),
