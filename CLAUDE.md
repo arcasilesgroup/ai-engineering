@@ -51,12 +51,15 @@ Procedural skills guide structured execution. Reference the relevant skill befor
 - `.ai-engineering/skills/dev/test-strategy.md` — test design.
 - `.ai-engineering/skills/dev/migration.md` — migration planning.
 - `.ai-engineering/skills/dev/deps-update.md` — dependency management.
+- `.ai-engineering/skills/dev/cicd-generate.md` — CI/CD workflow generation.
 
 ### Review Skills
 
 - `.ai-engineering/skills/review/architecture.md` — architecture review.
 - `.ai-engineering/skills/review/performance.md` — performance review.
 - `.ai-engineering/skills/review/security.md` — security assessment.
+- `.ai-engineering/skills/review/dast.md` — dynamic application security testing.
+- `.ai-engineering/skills/review/container-security.md` — container image scanning.
 
 ### Docs Skills
 
@@ -87,24 +90,27 @@ Procedural skills guide structured execution. Reference the relevant skill befor
 - `.ai-engineering/skills/quality/install-check.md` — installation readiness check.
 - `.ai-engineering/skills/quality/release-gate.md` — aggregated release readiness gate.
 - `.ai-engineering/skills/quality/test-gap-analysis.md` — capability-to-test risk mapping.
+- `.ai-engineering/skills/quality/sbom.md` — software bill of materials generation.
 
 ### Utility Skills
 
 - `.ai-engineering/skills/utils/git-helpers.md` — git operation helpers.
 - `.ai-engineering/skills/utils/platform-detect.md` — OS/platform detection.
 - `.ai-engineering/skills/utils/python-patterns.md` — comprehensive Python patterns.
+- `.ai-engineering/skills/utils/dotnet-patterns.md` — comprehensive .NET patterns.
+- `.ai-engineering/skills/utils/nextjs-patterns.md` — comprehensive Next.js/TypeScript patterns.
 
 ## Slash Commands
 
 Skills and agents are available as Claude Code slash commands via `.claude/commands/`. Each command is a thin wrapper that reads and executes the canonical skill or agent file. No content is duplicated — the command files are pointers only (decision S0-008).
 
 - `/commit`, `/pr`, `/acho`, `/pre-implementation` — workflow commands.
-- `/dev:*` — dev skill commands (e.g., `/dev:debug`, `/dev:refactor`, `/dev:code-review`).
-- `/review:*` — review skill commands (e.g., `/review:architecture`, `/review:security`).
+- `/dev:*` — dev skill commands (e.g., `/dev:debug`, `/dev:refactor`, `/dev:code-review`, `/dev:cicd-generate`).
+- `/review:*` — review skill commands (e.g., `/review:architecture`, `/review:security`, `/review:dast`, `/review:container-security`).
 - `/docs:*` — docs skill commands (e.g., `/docs:changelog`, `/docs:explain`).
 - `/govern:*` — governance skill commands (e.g., `/govern:create-spec`, `/govern:integrity-check`, `/govern:contract-compliance`, `/govern:ownership-audit`).
-- `/quality:*` — quality skill commands (`/quality:audit-code`, `/quality:audit-report`, `/quality:install-check`, `/quality:docs-audit`, `/quality:release-gate`, `/quality:test-gap-analysis`).
-- `/utils:*` — utility skill commands (`/utils:git-helpers`, `/utils:platform-detect`, `/utils:python-patterns`).
+- `/quality:*` — quality skill commands (`/quality:audit-code`, `/quality:audit-report`, `/quality:install-check`, `/quality:docs-audit`, `/quality:release-gate`, `/quality:test-gap-analysis`, `/quality:sbom`).
+- `/utils:*` — utility skill commands (`/utils:git-helpers`, `/utils:platform-detect`, `/utils:python-patterns`, `/utils:dotnet-patterns`, `/utils:nextjs-patterns`).
 - `/agent:*` — agent persona commands (e.g., `/agent:verify-app`, `/agent:debugger`, `/agent:platform-auditor`).
 
 ## Agents
@@ -159,6 +165,16 @@ Follow this sequence for non-trivial work:
 - Cyclomatic complexity ≤ 10.
 - Cognitive complexity ≤ 15.
 - No blocker/critical issues.
+- Quality gate pass rate: 100% on all governed operations.
+
+## Security Contract
+
+- Security scan pass rate: 100% — zero medium/high/critical findings.
+- Secret detection: zero leaks (blocker severity).
+- Dependency vulnerabilities: zero known (blocker severity).
+- SAST findings (medium+): zero — remediate or risk-accept.
+- Tamper resistance: hook hash verification + `--no-verify` bypass detection mandatory.
+- Cross-OS enforcement: all gates must pass on Ubuntu, Windows, and macOS.
 
 ## Tooling Baseline
 

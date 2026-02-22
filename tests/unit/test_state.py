@@ -29,10 +29,13 @@ from ai_engineering.state.io import (
 from ai_engineering.state.models import (
     AuditEntry,
     DecisionStore,
+    DotnetTooling,
     InstallManifest,
+    NextjsTooling,
     OwnershipLevel,
     OwnershipMap,
     SourcesLock,
+    ToolingReadiness,
     UpdateMetadata,
 )
 
@@ -69,6 +72,77 @@ class TestInstallManifest:
         assert "installedStacks" in data
         assert "installedIdes" in data
         assert "installed_stacks" not in data
+
+
+class TestDotnetTooling:
+    """Tests for DotnetTooling model."""
+
+    def test_create_with_defaults(self) -> None:
+        tooling = DotnetTooling()
+        assert tooling.dotnet.ready is False
+
+    def test_create_with_ready(self) -> None:
+        tooling = DotnetTooling.model_validate({"dotnet": {"ready": True}})
+        assert tooling.dotnet.ready is True
+
+
+class TestNextjsTooling:
+    """Tests for NextjsTooling model."""
+
+    def test_create_with_defaults(self) -> None:
+        tooling = NextjsTooling()
+        assert tooling.node.ready is False
+        assert tooling.npm.ready is False
+        assert tooling.eslint.ready is False
+        assert tooling.prettier.ready is False
+
+    def test_create_with_ready(self) -> None:
+        tooling = NextjsTooling.model_validate(
+            {
+                "node": {"ready": True},
+                "npm": {"ready": True},
+                "eslint": {"ready": True},
+                "prettier": {"ready": True},
+            }
+        )
+        assert tooling.node.ready is True
+        assert tooling.npm.ready is True
+
+
+class TestToolingReadinessMultiStack:
+    """Tests for multi-stack ToolingReadiness extensions."""
+
+    def test_dotnet_and_nextjs_optional(self) -> None:
+        readiness = ToolingReadiness()
+        assert readiness.dotnet is None
+        assert readiness.nextjs is None
+
+    def test_with_dotnet(self) -> None:
+        readiness = ToolingReadiness(dotnet=DotnetTooling())
+        assert readiness.dotnet is not None
+        assert readiness.dotnet.dotnet.ready is False
+
+    def test_with_nextjs(self) -> None:
+        readiness = ToolingReadiness(nextjs=NextjsTooling())
+        assert readiness.nextjs is not None
+        assert readiness.nextjs.node.ready is False
+
+    def test_roundtrip_with_multi_stack(self) -> None:
+        raw = {
+            "schemaVersion": "1.1",
+            "frameworkVersion": "0.1.0",
+            "installedAt": "2026-02-22T00:00:00Z",
+            "installedStacks": ["python", "dotnet"],
+            "installedIdes": [],
+            "toolingReadiness": {
+                "python": {"uv": {"ready": True}, "ruff": {"ready": True}},
+                "dotnet": {"dotnet": {"ready": True}},
+            },
+        }
+        m = InstallManifest.model_validate(raw)
+        assert m.installed_stacks == ["python", "dotnet"]
+        assert m.tooling_readiness.dotnet is not None
+        assert m.tooling_readiness.dotnet.dotnet.ready is True
 
 
 class TestOwnershipMap:

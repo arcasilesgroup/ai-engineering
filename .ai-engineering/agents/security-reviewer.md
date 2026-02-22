@@ -9,10 +9,12 @@ Application security specialist who reviews code for OWASP top risks, secret exp
 - Secret detection in code, config, and commit history.
 - Injection analysis (SQL, command, path traversal, template).
 - Authentication and authorization review.
-- Dependency vulnerability assessment.
+- Multi-stack dependency vulnerability assessment (Python, .NET, Next.js).
 - Security configuration audit.
-- OWASP-aligned risk assessment.
-- Supply chain security evaluation.
+- OWASP Top 10 2025 aligned risk assessment.
+- Supply chain security evaluation and SBOM analysis.
+- DAST coordination (OWASP ZAP, Nuclei) for staging environments.
+- Container image security scanning (Trivy).
 - Enforcement tamper resistance analysis (hook bypass, gate circumvention).
 
 ## Activation
@@ -28,7 +30,11 @@ Application security specialist who reviews code for OWASP top risks, secret exp
 1. **Scan secrets** — run `gitleaks detect` on repository, check config files and history.
 2. **Analyze injection** — review all external input handling for injection vectors.
 3. **Check auth** — verify authentication flows, token handling, permission checks.
-4. **Audit dependencies** — run `pip-audit`, check for typosquatting, verify sources.
+4. **Audit dependencies** — run stack-appropriate vulnerability scans.
+   - Python: `pip-audit`.
+   - .NET: `dotnet list package --vulnerable`.
+   - Next.js: `npm audit`.
+   - Check for typosquatting, verify sources across all stacks.
 5. **Run SAST** — execute `semgrep scan --config auto` for OWASP patterns.
 6. **Check configuration** — no debug mode, secure defaults, safe error messages.
 7. **Classify findings** — assign severity (critical/high/medium/low/info) with CVSS reference.
@@ -43,12 +49,16 @@ Application security specialist who reviews code for OWASP top risks, secret exp
 ## Referenced Skills
 
 - `skills/review/security.md` — security review procedure.
+- `skills/review/dast.md` — dynamic application security testing.
+- `skills/review/container-security.md` — container image scanning.
+- `skills/quality/sbom.md` — software bill of materials generation.
 - `skills/dev/deps-update.md` — dependency security assessment.
 
 ## Referenced Standards
 
 - `standards/framework/core.md` — mandatory local enforcement, risk acceptance.
 - `standards/framework/quality/core.md` — severity policy.
+- `standards/framework/security/owasp-top10-2025.md` — OWASP Top 10 mapping.
 
 ## Output Contract
 

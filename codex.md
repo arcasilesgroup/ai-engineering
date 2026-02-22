@@ -48,12 +48,15 @@ Procedural skills guide structured execution. Reference the relevant skill befor
 - `.ai-engineering/skills/dev/test-strategy.md` — test design.
 - `.ai-engineering/skills/dev/migration.md` — migration planning.
 - `.ai-engineering/skills/dev/deps-update.md` — dependency management.
+- `.ai-engineering/skills/dev/cicd-generate.md` — CI/CD workflow generation.
 
 ### Review Skills
 
 - `.ai-engineering/skills/review/architecture.md` — architecture review.
 - `.ai-engineering/skills/review/performance.md` — performance review.
 - `.ai-engineering/skills/review/security.md` — security assessment.
+- `.ai-engineering/skills/review/dast.md` — dynamic application security testing.
+- `.ai-engineering/skills/review/container-security.md` — container image scanning.
 
 ### Docs Skills
 
@@ -84,12 +87,15 @@ Procedural skills guide structured execution. Reference the relevant skill befor
 - `.ai-engineering/skills/quality/install-check.md` — installation readiness check.
 - `.ai-engineering/skills/quality/release-gate.md` — aggregated release readiness gate.
 - `.ai-engineering/skills/quality/test-gap-analysis.md` — capability-to-test risk mapping.
+- `.ai-engineering/skills/quality/sbom.md` — software bill of materials generation.
 
 ### Utility Skills
 
 - `.ai-engineering/skills/utils/git-helpers.md` — git operation helpers.
 - `.ai-engineering/skills/utils/platform-detect.md` — OS/platform detection.
 - `.ai-engineering/skills/utils/python-patterns.md` — comprehensive Python patterns.
+- `.ai-engineering/skills/utils/dotnet-patterns.md` — comprehensive .NET patterns.
+- `.ai-engineering/skills/utils/nextjs-patterns.md` — comprehensive Next.js/TypeScript patterns.
 
 ## Agents
 
@@ -144,6 +150,16 @@ Agents must never overwrite team-managed or project-managed content during frame
 - Cyclomatic complexity ≤ 10.
 - Cognitive complexity ≤ 15.
 - No blocker/critical issues.
+- Quality gate pass rate: 100% on all governed operations.
+
+## Security Contract
+
+- Security scan pass rate: 100% — zero medium/high/critical findings.
+- Secret detection: zero leaks (blocker severity).
+- Dependency vulnerabilities: zero known (blocker severity).
+- SAST findings (medium+): zero — remediate or risk-accept.
+- Tamper resistance: hook hash verification + `--no-verify` bypass detection mandatory.
+- Cross-OS enforcement: all gates must pass on Ubuntu, Windows, and macOS.
 
 ## Command Contract
 

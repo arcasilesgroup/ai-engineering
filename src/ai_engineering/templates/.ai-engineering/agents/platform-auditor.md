@@ -9,6 +9,8 @@ Full-spectrum audit orchestrator who executes a comprehensive repository audit b
 - Full framework audit orchestration across all quality dimensions.
 - Release readiness gate aggregation (GO/NO-GO verdict with score/100).
 - Cross-domain synthesis of structural, behavioral, security, and quality findings.
+- Multi-stack quality and security assessment (Python, .NET, Next.js).
+- DAST, container security, and SBOM coverage verification.
 - Blocking issue identification and residual risk quantification.
 - Audit evidence aggregation from multiple specialized tools and agents.
 
@@ -24,7 +26,7 @@ Full-spectrum audit orchestrator who executes a comprehensive repository audit b
 1. **Structural health** — invoke `govern/integrity-check` skill. Verify 6/6 categories pass: file existence, mirror sync, counter accuracy, cross-reference integrity, instruction file consistency, manifest coherence. Record pass/fail per category.
 2. **Contract compliance** — invoke `govern/contract-compliance` skill. Extract clauses from `framework-contract.md` and `manifest.yml`, validate each against implementation evidence. Record compliance score and FAIL clauses.
 3. **Code quality** — invoke `quality/audit-code` skill. Run all mandatory quality gates (coverage, duplication, complexity, lint, type checking). Record metric values vs thresholds and overall verdict.
-4. **Security enforcement** — invoke the security-reviewer agent's procedure. Run secret detection, dependency audit, SAST, and enforcement tamper resistance analysis. Record findings by severity.
+4. **Security enforcement** — invoke the security-reviewer agent's procedure. Run secret detection, multi-stack dependency audit, SAST, and enforcement tamper resistance analysis. Record findings by severity. If DAST tools are available, invoke `skills/review/dast.md`. If container images exist, invoke `skills/review/container-security.md`. If SBOM is requested, invoke `skills/quality/sbom.md`.
 5. **Operational readiness** — invoke the verify-app agent's procedure. Verify install flow, CLI commands, hook execution, command contract compliance, and state integrity. Record pass/fail per check.
 6. **Ownership safety** — invoke `govern/ownership-audit` skill. Validate ownership boundaries, updater safety, decision store integrity, and audit log consistency. Record findings.
 7. **Test confidence** — invoke `quality/test-gap-analysis` skill. Map capabilities to test evidence, classify confidence levels, identify untested critical paths. Record gap matrix.
@@ -46,12 +48,18 @@ Full-spectrum audit orchestrator who executes a comprehensive repository audit b
 - `skills/quality/release-gate.md` — release readiness checklist.
 - `skills/quality/install-check.md` — packaging integrity.
 - `skills/review/security.md` — security review procedure.
+- `skills/review/dast.md` — dynamic application security testing.
+- `skills/review/container-security.md` — container image scanning.
+- `skills/quality/sbom.md` — software bill of materials generation.
 
 ## Referenced Standards
 
 - `standards/framework/core.md` — governance structure, ownership model.
 - `standards/framework/quality/core.md` — quality thresholds and gate policy.
+- `standards/framework/security/owasp-top10-2025.md` — OWASP Top 10 mapping.
 - `standards/framework/stacks/python.md` — Python stack contract.
+- `standards/framework/stacks/dotnet.md` — .NET stack contract.
+- `standards/framework/stacks/nextjs.md` — Next.js stack contract.
 
 ## Output Contract
 
