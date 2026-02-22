@@ -27,8 +27,12 @@ from ai_engineering.git.operations import (
     current_branch,
     is_branch_pushed,
 )
+from ai_engineering.policy.gates import GateHook, run_gate
 from ai_engineering.state.io import append_ndjson, read_json_model
 from ai_engineering.state.models import AuditEntry, DecisionStore
+from ai_engineering.vcs.factory import get_provider
+from ai_engineering.vcs.pr_description import build_pr_description, build_pr_title
+from ai_engineering.vcs.protocol import VcsContext
 
 # ---------------------------------------------------------------------------
 # Result types
@@ -417,9 +421,10 @@ def run_pr_only_workflow(
 
 
 def _run_pre_push_checks(project_root: Path) -> list[StepResult]:
-    """Run pre-push quality gates.
+    """Run pre-push quality gates by delegating to ``run_gate()``.
 
-    Checks: semgrep, pip-audit, pytest, ty.
+    This avoids duplicating the tool-check logic already implemented
+    in :func:`ai_engineering.policy.gates.run_gate`.
 
     Args:
         project_root: Root directory of the project.
@@ -427,50 +432,21 @@ def _run_pre_push_checks(project_root: Path) -> list[StepResult]:
     Returns:
         List of StepResult for each check.
     """
-    checks: list[StepResult] = []
-
-    # Semgrep
-    passed, output = _run_command(
-        ["semgrep", "scan", "--config", "auto", "."],
-        project_root,
-        timeout=120,
-    )
-    checks.append(StepResult(name="semgrep", passed=passed, output=output))
-
-    # pip-audit
-    passed, output = _run_command(
-        ["pip-audit"],
-        project_root,
-        timeout=60,
-    )
-    checks.append(StepResult(name="pip-audit", passed=passed, output=output))
-
-    # pytest
-    passed, output = _run_command(
-        ["uv", "run", "pytest", "tests/", "-v"],
-        project_root,
-        timeout=120,
-    )
-    checks.append(StepResult(name="pytest", passed=passed, output=output))
-
-    # ty type-check
-    passed, output = _run_command(
-        ["ty", "check", "src/"],
-        project_root,
-        timeout=60,
-    )
-    checks.append(StepResult(name="ty", passed=passed, output=output))
+    gate_result = run_gate(GateHook.PRE_PUSH, project_root)
+    steps: list[StepResult] = [
+        StepResult(name=c.name, passed=c.passed, output=c.output) for c in gate_result.checks
+    ]
 
     # Log failures
-    for check in checks:
-        if not check.passed:
+    for step in steps:
+        if not step.passed:
             _log_audit(
                 project_root,
-                event=f"pre-push-failure-{check.name}",
-                detail=check.output[:500],
+                event=f"pre-push-failure-{step.name}",
+                detail=step.output[:500],
             )
 
-    return checks
+    return steps
 
 
 # ---------------------------------------------------------------------------
@@ -479,7 +455,10 @@ def _run_pre_push_checks(project_root: Path) -> list[StepResult]:
 
 
 def _create_pr(project_root: Path) -> StepResult:
-    """Create a PR using the GitHub CLI.
+    """Create a PR using the configured VCS provider.
+
+    Generates a structured title and description from the active spec
+    and recent commits, then delegates to the provider.
 
     Args:
         project_root: Root directory of the project.
@@ -487,16 +466,24 @@ def _create_pr(project_root: Path) -> StepResult:
     Returns:
         StepResult for PR creation.
     """
-    passed, output = _run_command(
-        ["gh", "pr", "create", "--fill"],
-        project_root,
-        timeout=30,
+    provider = get_provider(project_root)
+    branch = current_branch(project_root)
+    title = build_pr_title(project_root)
+    body = build_pr_description(project_root)
+    ctx = VcsContext(
+        project_root=project_root,
+        title=title,
+        body=body,
+        branch=branch,
     )
-    return StepResult(name="create-pr", passed=passed, output=output)
+    result = provider.create_pr(ctx)
+    return StepResult(name="create-pr", passed=result.success, output=result.output)
 
 
 def _enable_auto_complete(project_root: Path) -> StepResult:
-    """Enable auto-complete (auto-merge) on the PR.
+    """Enable auto-complete / auto-merge on the current PR.
+
+    Delegates to the configured VCS provider.
 
     Args:
         project_root: Root directory of the project.
@@ -504,12 +491,11 @@ def _enable_auto_complete(project_root: Path) -> StepResult:
     Returns:
         StepResult for auto-complete setup.
     """
-    passed, output = _run_command(
-        ["gh", "pr", "merge", "--auto", "--squash", "--delete-branch"],
-        project_root,
-        timeout=30,
-    )
-    return StepResult(name="auto-complete", passed=passed, output=output)
+    provider = get_provider(project_root)
+    branch = current_branch(project_root)
+    ctx = VcsContext(project_root=project_root, branch=branch)
+    result = provider.enable_auto_complete(ctx)
+    return StepResult(name="auto-complete", passed=result.success, output=result.output)
 
 
 def _check_unpushed_decision(

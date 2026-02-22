@@ -69,6 +69,17 @@ class TestGenerateBashHook:
         script = generate_bash_hook(GateHook.PRE_PUSH)
         assert '"$@"' not in script
 
+    def test_contains_venv_activation(self) -> None:
+        script = generate_bash_hook(GateHook.PRE_COMMIT)
+        assert ".venv/bin/activate" in script
+        assert ".venv/Scripts/activate" in script
+
+    def test_venv_activation_before_command(self) -> None:
+        script = generate_bash_hook(GateHook.PRE_COMMIT)
+        venv_pos = script.index(".venv/bin/activate")
+        cmd_pos = script.index("ai-eng gate pre-commit")
+        assert venv_pos < cmd_pos
+
 
 class TestGeneratePowershellHook:
     """Tests for PowerShell hook script generation."""
@@ -88,6 +99,17 @@ class TestGeneratePowershellHook:
     def test_checks_exit_code(self) -> None:
         script = generate_powershell_hook(GateHook.PRE_COMMIT)
         assert "$LASTEXITCODE" in script
+
+    def test_contains_venv_activation(self) -> None:
+        script = generate_powershell_hook(GateHook.PRE_COMMIT)
+        assert "Activate.ps1" in script
+        assert "Test-Path" in script
+
+    def test_venv_activation_before_command(self) -> None:
+        script = generate_powershell_hook(GateHook.PRE_COMMIT)
+        venv_pos = script.index("Activate.ps1")
+        cmd_pos = script.index("ai-eng gate pre-commit")
+        assert venv_pos < cmd_pos
 
 
 class TestGenerateDispatcherHook:

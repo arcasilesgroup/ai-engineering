@@ -151,6 +151,7 @@ def _run_pre_commit_checks(project_root: Path, result: GateResult) -> None:
         name="ruff-format",
         cmd=["ruff", "format", "--check", "."],
         cwd=project_root,
+        required=True,
     )
 
     # ruff check (lint)
@@ -159,6 +160,7 @@ def _run_pre_commit_checks(project_root: Path, result: GateResult) -> None:
         name="ruff-lint",
         cmd=["ruff", "check", "."],
         cwd=project_root,
+        required=True,
     )
 
     # gitleaks
@@ -167,6 +169,7 @@ def _run_pre_commit_checks(project_root: Path, result: GateResult) -> None:
         name="gitleaks",
         cmd=["gitleaks", "detect", "--source", ".", "--no-git"],
         cwd=project_root,
+        required=True,
     )
 
     # Risk expiry warnings (non-blocking)
@@ -227,14 +230,16 @@ def _run_pre_push_checks(project_root: Path, result: GateResult) -> None:
         name="semgrep",
         cmd=["semgrep", "--config", ".semgrep.yml", "--error", "."],
         cwd=project_root,
+        required=True,
     )
 
     # pip-audit
     _run_tool_check(
         result,
         name="pip-audit",
-        cmd=["uv", "run", "pip-audit"],
+        cmd=["pip-audit"],
         cwd=project_root,
+        required=True,
     )
 
     # stack tests (pytest)
@@ -243,14 +248,16 @@ def _run_pre_push_checks(project_root: Path, result: GateResult) -> None:
         name="stack-tests",
         cmd=["uv", "run", "pytest", "--tb=short", "-q"],
         cwd=project_root,
+        required=True,
     )
 
     # ty type-check
     _run_tool_check(
         result,
         name="ty-check",
-        cmd=["ty", "check", "src"],
+        cmd=["ty", "check", "src/ai_engineering"],
         cwd=project_root,
+        required=True,
     )
 
     # Expired risk acceptances (blocking)
@@ -263,27 +270,41 @@ def _run_tool_check(
     name: str,
     cmd: list[str],
     cwd: Path,
+    required: bool = False,
 ) -> None:
     """Run a tool command and record the result.
 
-    If the tool is not found on PATH, the check is skipped with a warning
-    rather than failing (auto-remediation is handled by the doctor).
+    If the tool is not found on PATH, behavior depends on ``required``:
+    when True the check fails; when False it is skipped with a warning.
 
     Args:
         result: GateResult to append check to.
         name: Human-readable check name.
         cmd: Command and arguments to run.
         cwd: Working directory for the command.
+        required: If True, missing tool causes check failure.
     """
     tool_name = cmd[0]
     if not shutil.which(tool_name):
-        result.checks.append(
-            GateCheckResult(
-                name=name,
-                passed=True,
-                output=f"{tool_name} not found — skipped (run 'ai-eng doctor --fix-tools')",
+        if required:
+            result.checks.append(
+                GateCheckResult(
+                    name=name,
+                    passed=False,
+                    output=(
+                        f"{tool_name} not found — required. "
+                        "Run 'ai-eng doctor --fix-tools' to install."
+                    ),
+                )
             )
-        )
+        else:
+            result.checks.append(
+                GateCheckResult(
+                    name=name,
+                    passed=True,
+                    output=f"{tool_name} not found — skipped (run 'ai-eng doctor --fix-tools')",
+                )
+            )
         return
 
     try:
@@ -293,9 +314,13 @@ def _run_tool_check(
             capture_output=True,
             text=True,
             timeout=300,
+            encoding="utf-8",
+            errors="replace",
         )
         passed = proc.returncode == 0
         output = proc.stdout.strip() or proc.stderr.strip()
+        if not output:
+            output = f"{tool_name} exited with code {proc.returncode}"
         # Truncate long output
         if len(output) > 500:
             output = output[:500] + "\n... (truncated)"
@@ -303,8 +328,14 @@ def _run_tool_check(
         passed = False
         output = f"{tool_name} timed out after 300s"
     except FileNotFoundError:
-        passed = True
-        output = f"{tool_name} not found — skipped"
+        if required:
+            passed = False
+            output = (
+                f"{tool_name} not found — required. Run 'ai-eng doctor --fix-tools' to install."
+            )
+        else:
+            passed = True
+            output = f"{tool_name} not found — skipped"
 
     result.checks.append(
         GateCheckResult(

@@ -46,7 +46,7 @@ This project dogfoods the ai-engineering framework on itself.
 
 ## Active Spec
 
-No active spec. All current specs are closed. Check `specs/_active.md` for updates.
+Spec-014: Dual VCS Provider Support + Generic Hardening. See `specs/_active.md` for details.
 
 ## KPIs
 

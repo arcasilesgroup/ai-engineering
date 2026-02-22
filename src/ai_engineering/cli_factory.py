@@ -17,7 +17,7 @@ from collections.abc import Callable
 
 import typer
 
-from ai_engineering.cli_commands import core, gate, maintenance, skills, stack_ide, validate
+from ai_engineering.cli_commands import core, gate, maintenance, skills, stack_ide, validate, vcs
 
 # Commands exempt from deprecation blocking (needed for diagnosis and remediation).
 _EXEMPT_COMMANDS: frozenset[str] = frozenset({"version", "update", "doctor"})
@@ -171,5 +171,15 @@ def create_app() -> typer.Typer:
     maint_app.command("risk-status")(_safe(maintenance.maintenance_risk_status))
     maint_app.command("pipeline-compliance")(_safe(maintenance.maintenance_pipeline_compliance))
     app.add_typer(maint_app, name="maintenance")
+
+    # VCS sub-group
+    vcs_app = typer.Typer(
+        name="vcs",
+        help="Manage VCS provider configuration.",
+        no_args_is_help=True,
+    )
+    vcs_app.command("status")(_safe(vcs.vcs_status))
+    vcs_app.command("set-primary")(_safe(vcs.vcs_set_primary))
+    app.add_typer(vcs_app, name="vcs")
 
     return app
