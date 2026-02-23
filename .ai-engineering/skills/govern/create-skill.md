@@ -37,9 +37,19 @@ Definitive procedure for authoring and registering a new skill in the ai-enginee
    - Follow the skill template structure:
 
      ```
+     ---
+     name: <name>
+     version: 1.0.0
+     category: <category>
+     tags: [<relevant>, <tags>]
+     requires:
+       bins: [<binary-deps>]  # optional, only if skill needs external binaries
+     ---
+
      # Skill Name
      ## Purpose
      ## Trigger
+     ## When NOT to Use  # optional, add for skills with high confusion risk
      ## Procedure
        ### Phase N: <Name>
        N. **Step name** — description.
@@ -53,6 +63,7 @@ Definitive procedure for authoring and registering a new skill in the ai-enginee
    - References use relative paths from `.ai-engineering/` (e.g., `standards/framework/core.md`).
 
 4. **Validate structure** — confirm the skill file contains all required sections.
+   - YAML frontmatter: `name`, `version`, `category` present and valid; `name` matches filename; `category` matches directory.
    - Purpose: present and concise.
    - Trigger: command and context defined.
    - Procedure: at least one phase with numbered steps.
@@ -125,13 +136,14 @@ Definitive procedure for authoring and registering a new skill in the ai-enginee
     | # | Check | How to verify |
     |---|-------|---------------|
     | 1 | Canonical file exists | `Test-Path .ai-engineering/skills/<category>/<name>.md` |
-    | 2 | Follows template structure | Has Purpose, Trigger, Procedure, Output Contract, Governance Notes, References |
-    | 3 | Template mirror exists | `Test-Path src/ai_engineering/templates/.ai-engineering/skills/<category>/<name>.md` |
-    | 4 | Mirror is identical | `diff` canonical vs. mirror — 0 differences |
-    | 5 | Listed in all 6 files | `grep` for the skill path in each instruction file |
-    | 6 | Count matches | Count skills in instruction files = count in product-contract |
-    | 7 | CHANGELOG updated | Entry under `## [Unreleased] → ### Added` |
-    | 8 | Cross-references added | Related skills/agents reference the new skill |
+    | 2 | Has valid YAML frontmatter | `name`, `version`, `category` present; name matches filename; category matches directory |
+    | 3 | Follows template structure | Has Purpose, Trigger, Procedure, Output Contract, Governance Notes, References |
+    | 4 | Template mirror exists | `Test-Path src/ai_engineering/templates/.ai-engineering/skills/<category>/<name>.md` |
+    | 5 | Mirror is identical | `diff` canonical vs. mirror — 0 differences |
+    | 6 | Listed in all 6 files | `grep` for the skill path in each instruction file |
+    | 7 | Count matches | Count skills in instruction files = count in product-contract |
+    | 8 | CHANGELOG updated | Entry under `## [Unreleased] → ### Added` |
+    | 9 | Cross-references added | Related skills/agents reference the new skill |
 
 ## Output Contract
 
@@ -141,7 +153,7 @@ Definitive procedure for authoring and registering a new skill in the ai-enginee
 - Updated skill count in `product-contract.md` (objectives + KPIs).
 - Changelog entry in `CHANGELOG.md`.
 - Cross-references in related skills and agents.
-- Verification checklist passes all 8 checks.
+- Verification checklist passes all 9 checks.
 
 ## Governance Notes
 

@@ -107,9 +107,18 @@ Validation skill that checks the integrity of all governance content in `.ai-eng
     - The `spec.md` file must exist in that directory.
     - If `tasks.md` exists, frontmatter should be parseable.
 
+### Category 7: Skill Frontmatter Validation
+
+14. **Verify all skills have YAML frontmatter** — each `.md` file in `skills/**` must start with a `---` YAML frontmatter block.
+    - Required fields: `name` (string, kebab-case), `version` (string, semver), `category` (string, matching parent directory).
+    - Optional fields: `tags` (array of strings), `requires.bins` (array of strings).
+    - `name` must match the filename (without `.md` extension).
+    - `category` must match the immediate parent directory name.
+    - Report any skill missing frontmatter or with invalid field values.
+
 ## Output Contract
 
-Structured report with 6 categories, each showing:
+Structured report with 7 categories, each showing:
 
 ```
 ## Content Integrity Report
@@ -140,7 +149,12 @@ Structured report with 6 categories, each showing:
 - Status: PASS | FAIL
 - Issues: [list of mismatches]
 
-### Overall: PASS | FAIL (N/6 categories passed)
+### Category 7: Skill Frontmatter
+- Status: PASS | FAIL
+- Skills checked: N
+- Issues: [list of missing/invalid frontmatter]
+
+### Overall: PASS | FAIL (N/7 categories passed)
 ```
 
 ## Governance Notes
@@ -150,7 +164,7 @@ Structured report with 6 categories, each showing:
 - Results are informational, not blocking (content-first principle, D4/D7 from spec-003).
 - Agents should self-invoke this skill at session close when governance content was modified.
 - The verify-app agent includes content integrity as a behavior step.
-- All 6 categories must PASS for a governance change to be considered complete.
+- All 7 categories must PASS for a governance change to be considered complete.
 
 ## References
 
