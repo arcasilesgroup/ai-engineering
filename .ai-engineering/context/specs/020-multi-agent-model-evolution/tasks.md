@@ -1,9 +1,9 @@
 ---
 spec: "020"
 total: 38
-completed: 31
+completed: 34
 last_session: "2026-02-23"
-next_session: "Phase 6 — Pilot Resources"
+next_session: "Phase 7 — Cross-Reference Update"
 ---
 
 # Tasks — Multi-Agent Model Evolution
@@ -59,9 +59,9 @@ next_session: "Phase 6 — Pilot Resources"
 
 ## Phase 6: Pilot Resources [M]
 
-- [ ] 6.1 Create `skills/workflows/commit/scripts/` with deterministic pre-commit gate helper
-- [ ] 6.2 Create `skills/dev/debug/references/` with on-demand diagnostic reference
-- [ ] 6.3 Create `skills/review/security/references/` with OWASP quick-reference loaded on-demand
+- [x] 6.1 Create `skills/workflows/commit/scripts/` with deterministic pre-commit gate helper
+- [x] 6.2 Create `skills/dev/debug/references/` with on-demand diagnostic reference
+- [x] 6.3 Create `skills/review/security/references/` with OWASP quick-reference loaded on-demand
 
 ## Phase 7: Cross-Reference Update [L]
 
