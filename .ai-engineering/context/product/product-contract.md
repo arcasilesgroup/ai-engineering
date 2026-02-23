@@ -46,7 +46,7 @@ This project dogfoods the ai-engineering framework on itself.
 
 ## Active Spec
 
-No active spec. Last completed: Spec-017 (OpenClaw Adoption + Carryover Remediation).
+Spec-018: Environment Stability & Governance Enforcement Hardening. Last completed: Spec-017.
 
 ## KPIs
 
