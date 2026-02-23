@@ -4,6 +4,7 @@ Validates:
 - Framework layout (required directories and files).
 - State file integrity (parseable JSON matching expected schemas).
 - Git hooks installation and integrity.
+- Venv health (pyvenv.cfg home path validity).
 - Tool availability (ruff, ty, gitleaks, semgrep, pip-audit, gh, az).
 - Branch policy (not on protected branch).
 
@@ -117,6 +118,7 @@ def diagnose(
     _check_layout(target, report)
     _check_state_files(target, report)
     _check_hooks(target, report, fix=fix_hooks)
+    _check_venv_health(target, report, fix=fix_tools)
     _check_tools(report, fix=fix_tools)
     _check_vcs_tools(report)
     _check_branch_policy(target, report)
@@ -253,6 +255,135 @@ def _check_hooks(target: Path, report: DoctorReport, *, fix: bool) -> None:
                 message=f"Missing or invalid hooks: {', '.join(missing)}",
             )
         )
+
+
+def _check_venv_health(target: Path, report: DoctorReport, *, fix: bool) -> None:
+    """Check that the project venv exists and points to a valid Python path.
+
+    Parses ``.venv/pyvenv.cfg`` and verifies the ``home`` path exists on disk.
+    When ``fix=True`` and the venv is stale, recreates it via ``uv venv``.
+    """
+    venv_dir = target / ".venv"
+    cfg_path = venv_dir / "pyvenv.cfg"
+
+    if not venv_dir.is_dir():
+        report.checks.append(
+            CheckResult(
+                name="venv-health",
+                status=CheckStatus.WARN,
+                message="No .venv directory found",
+            )
+        )
+        return
+
+    if not cfg_path.is_file():
+        report.checks.append(
+            CheckResult(
+                name="venv-health",
+                status=CheckStatus.WARN,
+                message="No .venv/pyvenv.cfg found",
+            )
+        )
+        return
+
+    # Parse home path from pyvenv.cfg
+    home_path = _parse_pyvenv_home(cfg_path)
+    if home_path is None:
+        report.checks.append(
+            CheckResult(
+                name="venv-health",
+                status=CheckStatus.WARN,
+                message="Could not parse home from pyvenv.cfg",
+            )
+        )
+        return
+
+    if Path(home_path).is_dir():
+        report.checks.append(
+            CheckResult(
+                name="venv-health",
+                status=CheckStatus.OK,
+                message=f"Venv home valid: {home_path}",
+            )
+        )
+        return
+
+    # Stale venv detected
+    if fix:
+        success = _recreate_venv(target)
+        report.checks.append(
+            CheckResult(
+                name="venv-health",
+                status=CheckStatus.FIXED if success else CheckStatus.FAIL,
+                message="Venv recreated" if success else "Venv recreation failed",
+            )
+        )
+    else:
+        report.checks.append(
+            CheckResult(
+                name="venv-health",
+                status=CheckStatus.FAIL,
+                message=(
+                    f"Stale venv — home path does not exist: {home_path}. "
+                    "Run 'ai-eng doctor --fix-tools' to recreate."
+                ),
+            )
+        )
+
+
+def _parse_pyvenv_home(cfg_path: Path) -> str | None:
+    """Extract the ``home`` value from a pyvenv.cfg file.
+
+    Args:
+        cfg_path: Path to the pyvenv.cfg file.
+
+    Returns:
+        The home directory path string, or None if not found.
+    """
+    try:
+        for line in cfg_path.read_text(encoding="utf-8").splitlines():
+            if line.startswith("home"):
+                _, _, value = line.partition("=")
+                return value.strip()
+    except OSError:
+        pass
+    return None
+
+
+def _recreate_venv(target: Path) -> bool:
+    """Recreate the project venv using ``uv venv``.
+
+    Reads ``.python-version`` if present to determine the Python version,
+    otherwise defaults to the system Python.
+
+    Args:
+        target: Root directory of the project.
+
+    Returns:
+        True if recreation succeeded.
+    """
+    cmd: list[str] = ["uv", "venv"]
+
+    # Use .python-version pin if available
+    pin_file = target / ".python-version"
+    if pin_file.is_file():
+        version = pin_file.read_text(encoding="utf-8").strip()
+        if version:
+            cmd.extend(["--python", version])
+
+    cmd.append(str(target / ".venv"))
+
+    try:
+        subprocess.run(
+            cmd,
+            check=True,
+            capture_output=True,
+            timeout=60,
+            cwd=target,
+        )
+        return True
+    except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired):
+        return False
 
 
 def _check_tools(report: DoctorReport, *, fix: bool) -> None:

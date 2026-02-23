@@ -4,6 +4,7 @@ Covers:
 - Layout validation (framework dirs present/missing).
 - State file integrity checks.
 - Hook verification and fix-hooks remediation.
+- Venv health checks (stale, missing, valid).
 - Tool availability checks.
 - Branch policy warnings.
 - Report serialization and summary.
@@ -149,6 +150,67 @@ class TestHookChecks:
         report = diagnose(installed_git_project)
         hook_check = _find_check(report, "git-hooks")
         assert hook_check.status == CheckStatus.OK
+
+
+# ---------------------------------------------------------------------------
+# Venv health checks
+# ---------------------------------------------------------------------------
+
+
+class TestVenvHealthCheck:
+    """Tests for venv health validation."""
+
+    def test_ok_when_home_path_exists(self, installed_project: Path) -> None:
+        """Venv health passes when pyvenv.cfg home points to existing dir."""
+        venv = installed_project / ".venv"
+        venv.mkdir(exist_ok=True)
+        cfg = venv / "pyvenv.cfg"
+        # Point home to an existing directory (the tmp_path itself)
+        cfg.write_text(f"home = {installed_project}\n", encoding="utf-8")
+        report = diagnose(installed_project)
+        check = _find_check(report, "venv-health")
+        assert check.status == CheckStatus.OK
+
+    def test_fails_when_home_path_stale(self, installed_project: Path) -> None:
+        """Venv health fails when pyvenv.cfg home points to nonexistent dir."""
+        venv = installed_project / ".venv"
+        venv.mkdir(exist_ok=True)
+        cfg = venv / "pyvenv.cfg"
+        cfg.write_text("home = /nonexistent/stale/python/path\n", encoding="utf-8")
+        report = diagnose(installed_project)
+        check = _find_check(report, "venv-health")
+        assert check.status == CheckStatus.FAIL
+        assert "Stale venv" in check.message
+
+    def test_warns_when_no_venv(self, installed_project: Path) -> None:
+        """Venv health warns when .venv directory is absent."""
+        # installed_project should not have .venv by default
+        venv = installed_project / ".venv"
+        if venv.exists():
+            import shutil
+
+            shutil.rmtree(venv)
+        report = diagnose(installed_project)
+        check = _find_check(report, "venv-health")
+        assert check.status == CheckStatus.WARN
+
+    def test_fixed_when_recreated(self, installed_project: Path) -> None:
+        """Venv health is fixed when fix_tools recreates stale venv."""
+        from unittest.mock import patch
+
+        venv = installed_project / ".venv"
+        venv.mkdir(exist_ok=True)
+        cfg = venv / "pyvenv.cfg"
+        cfg.write_text("home = /nonexistent/stale/python/path\n", encoding="utf-8")
+
+        # Mock _recreate_venv to simulate successful recreation
+        with patch(
+            "ai_engineering.doctor.service._recreate_venv",
+            return_value=True,
+        ):
+            report = diagnose(installed_project, fix_tools=True)
+        check = _find_check(report, "venv-health")
+        assert check.status == CheckStatus.FIXED
 
 
 # ---------------------------------------------------------------------------
