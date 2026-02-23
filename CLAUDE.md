@@ -57,6 +57,7 @@ Procedural skills guide structured execution. Reference the relevant skill befor
 - `.ai-engineering/skills/workflows/pr.md` — `/pr` flow.
 - `.ai-engineering/skills/workflows/acho.md` — `/acho` alias.
 - `.ai-engineering/skills/workflows/pre-implementation.md` — branch hygiene before implementation.
+- `.ai-engineering/skills/workflows/cleanup.md` — branch cleanup and stale branch removal.
 
 ### Dev Skills
 
@@ -121,7 +122,7 @@ Procedural skills guide structured execution. Reference the relevant skill befor
 
 Skills and agents are available as Claude Code slash commands via `.claude/commands/`. Each command is a thin wrapper that reads and executes the canonical skill or agent file. No content is duplicated — the command files are pointers only (decision S0-008).
 
-- `/commit`, `/pr`, `/acho`, `/pre-implementation` — workflow commands.
+- `/commit`, `/pr`, `/acho`, `/pre-implementation`, `/cleanup` — workflow commands.
 - `/dev:*` — dev skill commands (e.g., `/dev:debug`, `/dev:refactor`, `/dev:code-review`, `/dev:cicd-generate`, `/dev:multi-agent`).
 - `/review:*` — review skill commands (e.g., `/review:architecture`, `/review:security`, `/review:dast`, `/review:container-security`).
 - `/docs:*` — docs skill commands (e.g., `/docs:changelog`, `/docs:explain`).
