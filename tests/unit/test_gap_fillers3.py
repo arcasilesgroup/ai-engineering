@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import urllib.error
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -100,7 +101,10 @@ def test_skills_service_remaining_paths(tmp_path: Path) -> None:
         statuses = skills_service.list_local_skill_status(tmp_path)
     assert statuses[0].eligible is True
 
-    with patch("ai_engineering.skills.service.urllib.request.urlopen", side_effect=Exception("x")):
+    with patch(
+        "ai_engineering.skills.service.urllib.request.urlopen",
+        side_effect=urllib.error.URLError("x"),
+    ):
         assert skills_service._fetch_url("https://x") is None
 
 

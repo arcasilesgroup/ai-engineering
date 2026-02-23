@@ -153,7 +153,7 @@ jobs:
       - name: Install actionlint
         run: |
           bash <(curl -sSfL https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash)
-          echo "$(pwd)" >> "$GITHUB_PATH"
+          pwd >> "$GITHUB_PATH"
       - uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
@@ -195,7 +195,7 @@ jobs:
         run: uv sync --dev
       - name: Install gitleaks
         run: |
-          curl -sSfL https://raw.githubusercontent.com/gitleaks/gitleaks/master/install.sh | sh -s -- -b /usr/local/bin
+          curl -sSfL https://raw.githubusercontent.com/gitleaks/gitleaks/main/install.sh | sh -s -- -b /usr/local/bin
       - name: gitleaks
         run: gitleaks detect --source . --config .gitleaks.toml --no-banner --redact
       - name: pip-audit

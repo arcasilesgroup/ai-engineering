@@ -11,9 +11,12 @@ Manages the lifecycle of remote skill sources:
 from __future__ import annotations
 
 import hashlib
+import json
+import logging
 import os
 import shutil
 import sys
+import urllib.error
 import urllib.request
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -24,6 +27,8 @@ import yaml
 
 from ai_engineering.state.io import read_json_model, write_json_model
 from ai_engineering.state.models import CacheConfig, RemoteSource, SourcesLock
+
+_logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -135,12 +140,12 @@ def _safe_yaml_load(path: Path) -> dict[str, object]:
 
 
 def _safe_json_load(path: Path) -> dict[str, object]:
-    """Read JSON via YAML parser (JSON-compatible) into dict."""
+    """Read JSON file into dict; return empty dict on failure."""
     if not path.exists():
         return {}
     try:
-        data = yaml.safe_load(path.read_text(encoding="utf-8"))
-    except (OSError, yaml.YAMLError):
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
         return {}
     return data if isinstance(data, dict) else {}
 
@@ -430,7 +435,8 @@ def _fetch_url(url: str) -> bytes | None:
     try:
         with urllib.request.urlopen(url, timeout=30) as response:
             return response.read()
-    except Exception:
+    except (urllib.error.URLError, OSError, ValueError) as exc:
+        _logger.debug("Failed to fetch %s: %s", url, exc)
         return None
 
 
