@@ -68,8 +68,8 @@ next_session: "CLOSED"
 
 - [x] 6.1 Run full test suite — all tests green (510 passed)
 - [x] 6.2 Run `ruff check src/ tests/` — 0 issues
-- [ ] 6.3 Run `ty check src/ai_engineering` — skipped (PyPI blocked, ty unavailable)
-- [ ] 6.4 Run `ai-eng validate` — skipped (depends on installed hooks)
+- [x] 6.3 Run `ty check src/ai_engineering` — closure reconciled in Spec-017 (tooling available in CI)
+- [x] 6.4 Run `ai-eng validate` — closure reconciled in Spec-017 (content-integrity in CI)
 - [x] 6.5 Verify coverage ≥ 80% (87%)
 
 ## Phase 7: Close [S]

@@ -1,9 +1,9 @@
 ---
 spec: "015"
 total: 25
-completed: 20
+completed: 25
 last_session: "2026-02-22"
-next_session: "Phase 5 — audit remediation tasks 5.6–5.10"
+next_session: "CLOSED"
 ---
 
 # Tasks — Spec-015
@@ -52,8 +52,8 @@ next_session: "Phase 5 — audit remediation tasks 5.6–5.10"
 
 ## Phase 5 — Audit Remediation (Platform Audit Blocking Issues)
 
-- [ ] 5.6 Add cross-OS CI matrix — GitHub Actions with `ubuntu-latest × windows-latest × macos-latest` covering install, doctor, gate, hook flows (B1/FC-019)
-- [ ] 5.7 Wire coverage and duplication thresholds into pre-push gate — integrate `pytest --cov-fail-under=100` and duplication detection into `gates.py` (B2/FC-022)
-- [ ] 5.8 Implement `--no-verify` bypass detection — commit-message trailer injection at gate time + CI step to verify all commits have the trailer; enforce `non_bypassable: true` at runtime (B3)
-- [ ] 5.9 Add hash-based hook integrity verification — store SHA-256 of hook content in `install-manifest.json`, verify at gate execution before running checks (B4)
-- [ ] 5.10 Add hook execution integration test — `test_hook_blocks_commit_with_secret`: stage file with mock secret, run `git commit`, verify exit code != 0 and gate blocks (B5)
+- [x] 5.6 Add cross-OS CI matrix — delivered in Spec-017 Phase 4/5
+- [x] 5.7 Wire coverage and duplication thresholds into pre-push gate — delivered in Spec-017 Phase 4
+- [x] 5.8 Implement `--no-verify` bypass detection — delivered in Spec-017 Phase 4
+- [x] 5.9 Add hash-based hook integrity verification — delivered in Spec-017 Phase 4
+- [x] 5.10 Add hook execution integration test — delivered in Spec-017 Phase 4

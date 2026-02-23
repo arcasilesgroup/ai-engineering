@@ -90,7 +90,20 @@ def _write_skill(ai: Path, rel: str) -> None:
     """Create a skill/agent markdown file."""
     path = ai / rel
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(f"# {path.stem}\n", encoding="utf-8")
+    if rel.startswith("skills/"):
+        path.write_text(
+            (
+                "---\n"
+                f"name: {path.stem}\n"
+                "version: 1.0.0\n"
+                f"category: {path.parent.name}\n"
+                "---\n\n"
+                f"# {path.stem}\n"
+            ),
+            encoding="utf-8",
+        )
+    else:
+        path.write_text(f"# {path.stem}\n", encoding="utf-8")
 
 
 def _make_instruction_content(
@@ -724,6 +737,51 @@ class TestManifestCoherence:
             c for c in report.checks if c.status == CheckStatus.FAIL and "agents" in c.name
         ]
         assert len(fail_checks) >= 1
+
+
+# -- Category 7: Skill Frontmatter ----------------------------------------
+
+
+class TestSkillFrontmatter:
+    """Tests for skill-frontmatter validation."""
+
+    def test_valid_frontmatter_passes(self, tmp_path: Path) -> None:
+        _setup_full_project(tmp_path)
+        report = validate_content_integrity(
+            tmp_path,
+            categories=[IntegrityCategory.SKILL_FRONTMATTER],
+        )
+        assert report.category_passed(IntegrityCategory.SKILL_FRONTMATTER)
+
+    def test_missing_frontmatter_fails(self, tmp_path: Path) -> None:
+        ai = _setup_full_project(tmp_path)
+        bad = ai / "skills" / "dev" / "debug.md"
+        bad.write_text("# debug\n", encoding="utf-8")
+        report = validate_content_integrity(
+            tmp_path,
+            categories=[IntegrityCategory.SKILL_FRONTMATTER],
+        )
+        assert report.category_passed(IntegrityCategory.SKILL_FRONTMATTER) is False
+
+    def test_invalid_requires_schema_fails(self, tmp_path: Path) -> None:
+        ai = _setup_full_project(tmp_path)
+        bad = ai / "skills" / "dev" / "debug.md"
+        bad.write_text(
+            "---\n"
+            "name: debug\n"
+            "version: 1.0.0\n"
+            "category: dev\n"
+            "requires:\n"
+            "  bins: ruff\n"
+            "---\n\n"
+            "# debug\n",
+            encoding="utf-8",
+        )
+        report = validate_content_integrity(
+            tmp_path,
+            categories=[IntegrityCategory.SKILL_FRONTMATTER],
+        )
+        assert report.category_passed(IntegrityCategory.SKILL_FRONTMATTER) is False
 
 
 # -- Integration: validate_content_integrity entry point -------------------

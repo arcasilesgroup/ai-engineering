@@ -46,7 +46,7 @@ This project dogfoods the ai-engineering framework on itself.
 
 ## Active Spec
 
-Spec-016: OpenClaw-Inspired Skill & Standards Hardening. See `specs/_active.md` for details.
+No active spec. Last completed: Spec-017 (OpenClaw Adoption + Carryover Remediation).
 
 ## KPIs
 
@@ -55,10 +55,10 @@ Spec-016: OpenClaw-Inspired Skill & Standards Hardening. See `specs/_active.md` 
 | Install adoption (repos using framework) | Tracking | Pre-release |
 | Quality gate pass rate | 100% on all governed ops | 100% (all tools pass) |
 | Security scan pass rate | 100% — zero medium+ findings | 100% (0 critical/high, 1 medium SAST to remediate) |
-| Tamper resistance score | 100/100 | 55/100 (pending B3/B4 remediation) |
+| Tamper resistance score | 100/100 | 85/100 (B3/B4 implemented, pending CI evidence stabilization) |
 | Agent coverage (skills + agents defined) | 45 skills + 9 agents | 45/45 skills, 9/9 agents |
 | Test coverage | 100% | 87% (530 tests) |
-| Cross-OS CI pass | 3×3 matrix green | Pending (no CI matrix yet — B1) |
+| Cross-OS CI pass | 3×3 matrix green | In progress (matrix workflow implemented; awaiting run history) |
 
 ## Stakeholders
 

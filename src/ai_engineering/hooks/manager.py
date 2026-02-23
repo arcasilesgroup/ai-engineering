@@ -9,6 +9,7 @@ Provides:
 
 from __future__ import annotations
 
+import hashlib
 import stat
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -223,6 +224,8 @@ def install_hooks(
 
         result.installed.append(hook.value)
 
+    _record_hook_hashes(project_root)
+
     return result
 
 
@@ -276,9 +279,20 @@ def verify_hooks(project_root: Path) -> dict[str, bool]:
     hooks_dir = project_root / ".git" / "hooks"
     status: dict[str, bool] = {}
 
+    expected_hashes = _load_expected_hook_hashes(project_root)
+
     for hook in GateHook:
         hook_path = hooks_dir / hook.value
-        status[hook.value] = is_managed_hook(hook_path)
+        managed = is_managed_hook(hook_path)
+        if not managed:
+            status[hook.value] = False
+            continue
+
+        expected_hash = expected_hashes.get(hook.value)
+        if expected_hash:
+            status[hook.value] = _hook_sha256(hook_path) == expected_hash
+        else:
+            status[hook.value] = True
 
     return status
 
@@ -297,3 +311,52 @@ def _make_executable(path: Path) -> None:
         path.chmod(current | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
     except OSError:
         pass  # Windows or permission-restricted environment
+
+
+def _hook_sha256(path: Path) -> str:
+    """Compute SHA-256 for a hook file."""
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _record_hook_hashes(project_root: Path) -> None:
+    """Persist installed hook hashes into install-manifest when available."""
+    from ai_engineering.state.io import read_json_model, write_json_model
+    from ai_engineering.state.models import InstallManifest
+
+    manifest_path = project_root / ".ai-engineering" / "state" / "install-manifest.json"
+    hooks_dir = project_root / ".git" / "hooks"
+    if not manifest_path.is_file() or not hooks_dir.is_dir():
+        return
+
+    try:
+        manifest = read_json_model(manifest_path, InstallManifest)
+    except (OSError, ValueError):
+        return
+
+    hook_hashes: dict[str, str] = {}
+    for hook in GateHook:
+        hook_path = hooks_dir / hook.value
+        if hook_path.is_file() and is_managed_hook(hook_path):
+            hook_hashes[hook.value] = _hook_sha256(hook_path)
+
+    manifest.tooling_readiness.git_hooks.installed = bool(hook_hashes)
+    manifest.tooling_readiness.git_hooks.integrity_verified = bool(hook_hashes)
+    manifest.tooling_readiness.git_hooks.hook_hashes = hook_hashes
+
+    write_json_model(manifest_path, manifest)
+
+
+def _load_expected_hook_hashes(project_root: Path) -> dict[str, str]:
+    """Load expected hook hashes from install-manifest."""
+    from ai_engineering.state.io import read_json_model
+    from ai_engineering.state.models import InstallManifest
+
+    manifest_path = project_root / ".ai-engineering" / "state" / "install-manifest.json"
+    if not manifest_path.is_file():
+        return {}
+
+    try:
+        manifest = read_json_model(manifest_path, InstallManifest)
+    except (OSError, ValueError):
+        return {}
+    return manifest.tooling_readiness.git_hooks.hook_hashes

@@ -1,0 +1,35 @@
+name: Install Smoke
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main, "rewrite/**"]
+
+permissions:
+  contents: read
+
+jobs:
+  install-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - name: Build wheel
+        run: uv build
+      - name: Create clean venv and install package
+        run: |
+          python -m venv .smoke-venv
+          . .smoke-venv/bin/activate
+          pip install --upgrade pip
+          pip install dist/*.whl
+      - name: Run CLI smoke commands
+        run: |
+          . .smoke-venv/bin/activate
+          ai-eng version
+          mkdir -p smoke-target
+          git init smoke-target
+          ai-eng install smoke-target
+          ai-eng doctor smoke-target --json

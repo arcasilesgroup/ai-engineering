@@ -136,6 +136,8 @@ class TestCommitMsgGate:
         result = run_gate(GateHook.COMMIT_MSG, git_repo, commit_msg_file=msg_file)
         check = _find_check(result, "commit-msg-format")
         assert check.passed
+        content = msg_file.read_text(encoding="utf-8")
+        assert "Ai-Eng-Gate: passed" in content
 
     def test_with_invalid_msg_file(self, git_repo: Path) -> None:
         msg_file = git_repo / ".git" / "COMMIT_EDITMSG"
@@ -162,8 +164,20 @@ class TestPreCommitGate:
         result = run_gate(GateHook.PRE_COMMIT, git_repo)
         check_names = {c.name for c in result.checks}
         assert "branch-protection" in check_names
+        assert "hook-integrity" in check_names
         # ruff-format, ruff-lint, gitleaks may be skipped if not installed
         assert "ruff-format" in check_names or len(check_names) >= 2
+
+    def test_hook_integrity_blocks_when_present_hook_invalid(self, git_repo: Path) -> None:
+        hook_path = git_repo / ".git" / "hooks" / "pre-commit"
+        hook_path.write_text("#!/usr/bin/env bash\necho custom\n", encoding="utf-8")
+        with patch(
+            "ai_engineering.policy.gates.verify_hooks",
+            return_value={"pre-commit": False, "commit-msg": True, "pre-push": True},
+        ):
+            result = run_gate(GateHook.PRE_COMMIT, git_repo)
+        assert result.passed is False
+        assert "hook-integrity" in result.failed_checks
 
 
 # ---------------------------------------------------------------------------

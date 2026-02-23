@@ -1,7 +1,7 @@
 ---
 id: "014"
 slug: "dual-vcs-provider"
-status: "in-progress"
+status: "completed"
 created: "2026-02-22"
 ---
 

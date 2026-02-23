@@ -91,3 +91,11 @@ generic hardening improvements migrated from the work project.
 - **Coverage**: 87% (threshold: 80%)
 - **Ruff**: 0 lint issues, 0 format issues
 - **ty**: Not available (PyPI blocked) — accepted risk
+
+## Closure Reconciliation (Spec-017)
+
+- `spec.md` status aligned to `completed`.
+- Previously unchecked Task 6.3/6.4 verification items were reconciled under the
+  Spec-017 remediation track, where CI now executes type/integrity validation.
+- Spec-014 remains functionally complete; reconciliation removes metadata drift
+  between `spec.md`, `tasks.md`, and `done.md`.

@@ -13,6 +13,7 @@ import typer
 from ai_engineering.paths import resolve_project_root
 from ai_engineering.skills.service import (
     add_source,
+    list_local_skill_status,
     list_sources,
     remove_source,
     sync_sources,
@@ -100,3 +101,54 @@ def skill_remove(
     except ValueError as exc:
         typer.echo(f"Error: {exc}", err=True)
         raise typer.Exit(code=1) from exc
+
+
+def skill_status(
+    target: Annotated[
+        Path | None,
+        typer.Option("--target", "-t", help="Target project root."),
+    ] = None,
+    all_skills: Annotated[
+        bool,
+        typer.Option("--all", help="Show all skills, including eligible ones."),
+    ] = False,
+) -> None:
+    """Show local skill requirement eligibility diagnostics."""
+    root = resolve_project_root(target)
+    statuses = list_local_skill_status(root)
+
+    if not statuses:
+        typer.echo("No local skills found under .ai-engineering/skills.")
+        return
+
+    ineligible = [status for status in statuses if not status.eligible]
+    displayed = statuses if all_skills else ineligible
+
+    if not displayed:
+        typer.echo(f"All {len(statuses)} skills are eligible.")
+        return
+
+    for status in displayed:
+        label = "eligible" if status.eligible else "ineligible"
+        typer.echo(f"- {status.name} [{label}]")
+        typer.echo(f"  file: {status.file_path}")
+        for entry in status.errors:
+            typer.echo(f"  error: {entry}")
+        if status.missing_bins:
+            typer.echo(f"  missing bins: {', '.join(status.missing_bins)}")
+        if status.missing_any_bins:
+            typer.echo(f"  missing anyBins: {', '.join(status.missing_any_bins)}")
+        if status.missing_env:
+            typer.echo(f"  missing env: {', '.join(status.missing_env)}")
+        if status.missing_config:
+            typer.echo(f"  missing config: {', '.join(status.missing_config)}")
+        if status.missing_os:
+            typer.echo(f"  unsupported os (requires one of): {', '.join(status.missing_os)}")
+
+    typer.echo("")
+    typer.echo(
+        "Summary: "
+        f"{len(statuses) - len(ineligible)} eligible, "
+        f"{len(ineligible)} ineligible, "
+        f"total {len(statuses)}"
+    )
