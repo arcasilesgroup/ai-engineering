@@ -18,6 +18,13 @@ Validation skill that checks the integrity of all governance content in `.ai-eng
 - Automatic: as part of verify-app agent behavior and session close actions.
 - Pre-merge: before any PR that touches `.ai-engineering/` content.
 
+## When NOT to Use
+
+- **Contract clause-by-clause validation** — use `govern:contract-compliance` instead. Integrity-check validates structural consistency; contract-compliance validates behavioral compliance.
+- **Ownership boundary enforcement** — use `govern:ownership-audit` instead for updater safety and decision-store schema checks.
+- **Code quality metrics** (coverage, complexity, duplication) — use `quality:audit-code` instead.
+- **Source code changes outside `.ai-engineering/`** — integrity-check only validates governance content, not application code.
+
 ## Procedure
 
 ### Category 1: File Existence

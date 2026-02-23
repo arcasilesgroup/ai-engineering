@@ -16,6 +16,13 @@ Safe refactoring skill: improve internal code structure without changing externa
 - Command: agent invokes refactor skill or user requests code improvement.
 - Context: code smells, duplication, excessive complexity, poor naming, long functions.
 
+## When NOT to Use
+
+- **Breaking changes or API migrations** — use `dev:migration` instead. Refactor preserves behavior; migration changes it.
+- **Architecture restructuring** (module reorganization, new layers) — use `review:architecture` to analyze first, then refactor individual components.
+- **Code review feedback** (PR-level review with approval/rejection) — use `dev:code-review` instead.
+- **New feature implementation** — refactor is for existing code improvement, not adding new capabilities.
+
 ## Procedure
 
 1. **Tests first** — verify test coverage exists for the target code.

@@ -16,6 +16,13 @@ Comprehensive security review covering OWASP top risks, secret exposure, injecti
 - Command: agent invokes security-review skill or user requests security audit.
 - Context: pre-release review, new feature with external input, dependency update, security incident response.
 
+## When NOT to Use
+
+- **Code quality metrics** (coverage, duplication, complexity) — use `quality:audit-code` instead.
+- **Architecture review** (coupling, dependencies, drift) — use `review:architecture` instead.
+- **General code review** (style, patterns, correctness) — use `dev:code-review` instead.
+- **Governance content validation** — use `govern:integrity-check` instead.
+
 ## Procedure
 
 1. **Secret detection** — scan for exposed credentials.

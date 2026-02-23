@@ -16,6 +16,13 @@ Analyze software architecture: dependencies, coupling, cohesion, boundaries, and
 - Command: agent invokes architecture-analysis skill or user asks about system design.
 - Context: new feature planning, tech debt assessment, brownfield analysis, dependency review.
 
+## When NOT to Use
+
+- **Line-by-line code review** (style, correctness, PR feedback) — use `dev:code-review` instead.
+- **Security vulnerabilities** (injection, secrets, OWASP) — use `review:security` instead.
+- **Performance profiling** (bottlenecks, benchmarks) — use `review:performance` instead.
+- **Refactoring execution** (changing code structure) — use `dev:refactor` instead. Architecture analysis identifies problems; refactor fixes them.
+
 ## Procedure
 
 1. **Map dependencies** — identify module relationships.
