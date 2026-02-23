@@ -14,32 +14,30 @@ jobs:
     name: Docs Scope
     runs-on: ubuntu-latest
     outputs:
-      docs_only: ${{ steps.filter.outputs.docs_only }}
+      code: ${{ steps.filter.outputs.code }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
         id: filter
         with:
           filters: |
-            docs:
-              - '**/*.md'
-              - '**/*.mdx'
-              - 'docs/**'
-            non_docs:
-              - '!**/*.md'
-              - '!**/*.mdx'
-              - '!docs/**'
-            docs_only:
-              - '**/*.md'
-              - '**/*.mdx'
-              - 'docs/**'
-              - '!**/*.py'
-              - '!.github/**'
+            code:
+              - '**/*.py'
+              - '**/*.toml'
+              - '**/*.yml'
+              - '**/*.yaml'
+              - '**/*.json'
+              - '**/*.sh'
+              - '**/*.ps1'
+              - '.github/**'
+              - 'scripts/**'
+              - 'src/**'
+              - 'tests/**'
 
   lint:
     name: Lint & Format
     needs: [docs-scope]
-    if: needs.docs-scope.outputs.docs_only != 'true'
+    if: needs.docs-scope.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -56,7 +54,7 @@ jobs:
   typecheck:
     name: Type Check
     needs: [docs-scope]
-    if: needs.docs-scope.outputs.docs_only != 'true'
+    if: needs.docs-scope.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -71,7 +69,7 @@ jobs:
   test:
     name: Test (Python ${{ matrix.python-version }} / ${{ matrix.os }})
     needs: [docs-scope]
-    if: needs.docs-scope.outputs.docs_only != 'true'
+    if: needs.docs-scope.outputs.code == 'true'
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -111,7 +109,7 @@ jobs:
   framework-smoke:
     name: Framework Smoke (${{ matrix.python-version }} / ${{ matrix.os }})
     needs: [docs-scope]
-    if: needs.docs-scope.outputs.docs_only != 'true'
+    if: needs.docs-scope.outputs.code == 'true'
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -223,7 +221,7 @@ jobs:
   build:
     name: Build Package
     needs: [docs-scope, lint, typecheck, test, framework-smoke, security, content-integrity, workflow-sanity]
-    if: needs.docs-scope.outputs.docs_only != 'true'
+    if: needs.docs-scope.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
