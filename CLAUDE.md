@@ -94,6 +94,7 @@ Procedural skills guide structured execution. Reference the relevant skill befor
 
 ### Utility Skills
 
+- `.ai-engineering/skills/utils/doctor.md` — unified environment diagnostics.
 - `.ai-engineering/skills/utils/git-helpers.md` — git operation helpers.
 - `.ai-engineering/skills/utils/platform-detect.md` — OS/platform detection.
 - `.ai-engineering/skills/utils/python-patterns.md` — comprehensive Python patterns.
@@ -110,7 +111,7 @@ Skills and agents are available as Claude Code slash commands via `.claude/comma
 - `/docs:*` — docs skill commands (e.g., `/docs:changelog`, `/docs:explain`).
 - `/govern:*` — governance skill commands (e.g., `/govern:create-spec`, `/govern:integrity-check`, `/govern:contract-compliance`, `/govern:ownership-audit`).
 - `/quality:*` — quality skill commands (`/quality:audit-code`, `/quality:audit-report`, `/quality:install-check`, `/quality:docs-audit`, `/quality:release-gate`, `/quality:test-gap-analysis`, `/quality:sbom`).
-- `/utils:*` — utility skill commands (`/utils:git-helpers`, `/utils:platform-detect`, `/utils:python-patterns`, `/utils:dotnet-patterns`, `/utils:nextjs-patterns`).
+- `/utils:*` — utility skill commands (`/utils:doctor`, `/utils:git-helpers`, `/utils:platform-detect`, `/utils:python-patterns`, `/utils:dotnet-patterns`, `/utils:nextjs-patterns`).
 - `/agent:*` — agent persona commands (e.g., `/agent:verify-app`, `/agent:debugger`, `/agent:platform-auditor`).
 
 ## Agents
