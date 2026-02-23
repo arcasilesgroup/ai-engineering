@@ -1,7 +1,7 @@
 ---
 id: "018"
 slug: "env-stability-governance-hardening"
-status: "in-progress"
+status: "done"
 created: "2026-02-23"
 ---
 

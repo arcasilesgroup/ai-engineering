@@ -1,42 +1,68 @@
 {
-  "schemaVersion": "1.1",
-  "updateMetadata": {
-    "rationale": "initialize system-managed installation contract",
-    "expectedGain": "consistent readiness tracking",
-    "potentialImpact": "installer and doctor must maintain this file"
-  },
   "frameworkVersion": "0.1.0",
   "installedAt": "2026-02-08T00:00:00Z",
-  "installedStacks": ["python"],
-  "installedIdes": ["terminal", "vscode", "claude", "codex", "copilot"],
+  "installedIdes": [
+    "terminal",
+    "vscode",
+    "claude",
+    "codex",
+    "copilot"
+  ],
+  "installedStacks": [
+    "python"
+  ],
   "providers": {
-    "vcs": {
-      "primary": "github",
-      "enabled": ["github"],
-      "extensions": {
-        "azure_devops": {
-          "enabled": false,
-          "organization": null,
-          "project": null,
-          "repository": null
-        }
+    "enabled": [
+      "github"
+    ],
+    "extensions": {
+      "azure_devops": {
+        "enabled": false
+      }
+    },
+    "primary": "github"
+  },
+  "schemaVersion": "1.1",
+  "toolingReadiness": {
+    "az": {
+      "authenticated": false,
+      "configured": false,
+      "installed": false,
+      "requiredNow": false
+    },
+    "gh": {
+      "authenticated": true,
+      "configured": true,
+      "installed": true,
+      "requiredNow": false
+    },
+    "gitHooks": {
+      "hookHashes": {
+        "commit-msg": "0e4c8f94d1eaab6f18ba51b8984160f278e7859f08e6ec17d3eea438dadf05fd",
+        "pre-commit": "50840b71ec54b2d163ce4901e5ee8026714a6a9aaa87ad539ae3c0910c4e41ea",
+        "pre-push": "dd8036ee24743c9541f2299b19bf1a1e9f81342668c459b38024c416534d9791"
+      },
+      "installed": true,
+      "integrityVerified": true
+    },
+    "python": {
+      "pipAudit": {
+        "ready": true
+      },
+      "ruff": {
+        "ready": true
+      },
+      "ty": {
+        "ready": true
+      },
+      "uv": {
+        "ready": true
       }
     }
   },
-  "toolingReadiness": {
-    "gh": { "installed": true, "configured": true, "authenticated": true },
-    "az": {
-      "installed": false,
-      "configured": false,
-      "authenticated": false,
-      "requiredNow": false
-    },
-    "gitHooks": { "installed": false, "integrityVerified": false },
-    "python": {
-      "uv": { "ready": true },
-      "ruff": { "ready": true },
-      "ty": { "ready": true },
-      "pipAudit": { "ready": true }
-    }
+  "updateMetadata": {
+    "expectedGain": "consistent readiness tracking",
+    "potentialImpact": "installer and doctor must maintain this file",
+    "rationale": "initialize system-managed installation contract"
   }
 }
