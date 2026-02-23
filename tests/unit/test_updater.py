@@ -204,6 +204,26 @@ class TestTemplateTrees:
         updated = [c for c in result.changes if c.path == settings and c.action == "update"]
         assert len(updated) == 1
 
+    def test_update_handles_prompt_files(self, installed_project: Path) -> None:
+        """Modify a .github/prompts/ file and verify update restores it."""
+        prompts_dir = installed_project / ".github" / "prompts"
+        if not prompts_dir.is_dir():
+            pytest.skip("prompts directory not found in installed project")
+
+        prompt_files = list(prompts_dir.glob("*.prompt.md"))
+        if not prompt_files:
+            pytest.skip("no prompt files found in installed project")
+
+        target = prompt_files[0]
+        original = target.read_bytes()
+        target.write_text("modified prompt")
+
+        result = update(installed_project, dry_run=False)
+
+        assert target.read_bytes() == original
+        updated = [c for c in result.changes if c.path == target and c.action == "update"]
+        assert len(updated) == 1
+
 
 # ---------------------------------------------------------------------------
 # Unchanged files
