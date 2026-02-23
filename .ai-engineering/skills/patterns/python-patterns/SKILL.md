@@ -1,8 +1,13 @@
 ---
 name: python-patterns
+description: "Comprehensive Python patterns, anti-patterns, and best practices across 12 engineering domains"
 version: 1.0.0
-category: utils
+category: patterns
 tags: [python, patterns, best-practices, code-generation]
+metadata:
+  ai-engineering:
+    scope: read-only
+    token_estimate: 3000
 ---
 
 # Python Mastery
@@ -38,7 +43,7 @@ Comprehensive Python engineering skill consolidating 12 domains into a single re
 ### 2) Testing Patterns
 
 **Patterns**:
-- AAA: Arrange → Act → Assert in every test.
+- AAA: Arrange -> Act -> Assert in every test.
 - Fixtures: shared in `conftest.py`, scoped appropriately (`function`, `module`, `session`).
 - Parameterized tests: `@pytest.mark.parametrize` for data-driven testing.
 - Mocking: `unittest.mock.patch` for external dependencies, never mock the unit under test.
@@ -57,7 +62,7 @@ Comprehensive Python engineering skill consolidating 12 domains into a single re
 **Patterns**:
 - `src/` layout with `pyproject.toml` as single config file.
 - Entry points via `[project.scripts]` in `pyproject.toml`.
-- Build with `uv build` → `py3-none-any` wheel.
+- Build with `uv build` -> `py3-none-any` wheel.
 - Pin dependencies in lockfile, use compatible ranges in `pyproject.toml`.
 - Include `py.typed` marker for PEP 561 type stub support.
 - Use `__version__.py` for version string, reference from `pyproject.toml` via `dynamic`.
@@ -75,7 +80,7 @@ Comprehensive Python engineering skill consolidating 12 domains into a single re
 - **Composition over inheritance**: use protocols and dependency injection.
 - **Rule of three**: don't abstract until the pattern appears three times.
 - **Dependency injection**: services receive deps through constructors, not globals.
-- **Layered architecture**: CLI → service → state → I/O.
+- **Layered architecture**: CLI -> service -> state -> I/O.
 - **Strategy pattern**: via `Protocol` classes for swappable implementations.
 - **Factory pattern**: for complex object creation with validation.
 
@@ -91,7 +96,7 @@ Comprehensive Python engineering skill consolidating 12 domains into a single re
 - Ruff for linting and formatting (line-length 100).
 - PEP 8 naming: `snake_case` for functions/variables, `PascalCase` for classes, `UPPER_CASE` for constants.
 - Google-style docstrings on all public functions and classes.
-- Import organization: stdlib → third-party → local, one import per line.
+- Import organization: stdlib -> third-party -> local, one import per line.
 - Explicit `__all__` in `__init__.py` for public API.
 
 **Anti-patterns**:
@@ -107,7 +112,7 @@ Comprehensive Python engineering skill consolidating 12 domains into a single re
 - Flat hierarchies: avoid nesting more than 3 levels.
 - Explicit `__all__` for controlled public API surface.
 - Separate CLI layer from business logic.
-- Test files mirror source layout: `test_<module>.py` → `<module>.py`.
+- Test files mirror source layout: `test_<module>.py` -> `<module>.py`.
 
 **Anti-patterns**:
 - Files with 500+ lines handling multiple concerns.
@@ -139,7 +144,7 @@ Before committing, verify:
 - [ ] No exposed ORM/data models as API contracts (use separate DTOs).
 - [ ] No mixed I/O + business logic in same function (separate concerns).
 - [ ] No blocking calls in async functions.
-- [ ] No mutable default arguments (`def f(items=[])` → `def f(items=None)`).
+- [ ] No mutable default arguments (`def f(items=[])` -> `def f(items=None)`).
 - [ ] No global mutable state.
 - [ ] No string formatting for log messages (use lazy formatting: `log.info("msg %s", val)`).
 
@@ -225,9 +230,9 @@ Before committing, verify:
 
 - `standards/framework/stacks/python.md` — enforceable Python baseline.
 - `standards/framework/quality/python.md` — quality thresholds.
-- `skills/dev/test-strategy.md` — testing details.
-- `skills/review/performance.md` — performance deep-dive.
-- `skills/review/security.md` — security-specific patterns.
+- `skills/dev/test-strategy/SKILL.md` — testing details.
+- `skills/review/performance/SKILL.md` — performance deep-dive.
+- `skills/review/security/SKILL.md` — security-specific patterns.
 - `agents/architect.md` — agent that uses design patterns domain.
 - `agents/code-simplifier.md` — agent that uses Pythonic patterns.
 - `agents/codebase-mapper.md` — agent that uses Python module system domain.

@@ -1,8 +1,13 @@
 ---
 name: explain
+description: "Feynman-style layered explanations of code, concepts, patterns, and architecture with 3-tier depth control and codebase-anchored examples."
 version: 1.0.0
 category: docs
 tags: [documentation, explanation, feynman, teaching]
+metadata:
+  ai-engineering:
+    scope: read-write
+    token_estimate: 750
 ---
 
 # Explain
@@ -194,9 +199,9 @@ Feynman-style explanations of code, concepts, patterns, and architecture. When a
 
 - `context/learnings.md` — institutional knowledge for codebase-specific context.
 - `standards/framework/core.md` — governance structure and precedence.
-- `skills/dev/code-review.md` — code understanding patterns.
-- `skills/review/architecture.md` — architecture context methodology.
-- `skills/dev/debug.md` — root cause explanation patterns.
+- `skills/dev/code-review/SKILL.md` — code understanding patterns.
+- `skills/review/architecture/SKILL.md` — architecture context methodology.
+- `skills/dev/debug/SKILL.md` — root cause explanation patterns.
 - `skills/docs/prompt-design.md` — Chain of Thought framework for structured reasoning.
 - `agents/debugger.md` — agent that benefits from explanation capability.
 - `agents/architect.md` — agent that benefits from architecture explanations.

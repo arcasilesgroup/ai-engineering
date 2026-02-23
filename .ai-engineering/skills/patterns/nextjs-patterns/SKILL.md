@@ -1,8 +1,13 @@
 ---
 name: nextjs-patterns
+description: "Comprehensive Next.js/TypeScript patterns, anti-patterns, and best practices for AI-assisted development"
 version: 1.0.0
-category: utils
+category: patterns
 tags: [nextjs, typescript, patterns, best-practices, code-generation]
+metadata:
+  ai-engineering:
+    scope: read-only
+    token_estimate: 2000
 ---
 
 # Next.js/TypeScript Patterns
@@ -167,4 +172,4 @@ Comprehensive Next.js and TypeScript engineering skill providing patterns, anti-
 
 - `standards/framework/stacks/nextjs.md` — enforceable Next.js baseline.
 - `standards/framework/quality/nextjs.md` — quality thresholds.
-- `skills/review/security.md` — security-specific patterns.
+- `skills/review/security/SKILL.md` — security-specific patterns.

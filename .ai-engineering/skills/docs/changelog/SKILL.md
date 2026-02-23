@@ -1,8 +1,13 @@
 ---
 name: changelog
+description: "Generate user-friendly changelogs and GitHub release notes from git history using Keep a Changelog format and benefit-first language."
 version: 1.0.0
 category: docs
 tags: [documentation, changelog, release-notes]
+metadata:
+  ai-engineering:
+    scope: read-write
+    token_estimate: 800
 ---
 
 # Changelog Documentation
@@ -45,7 +50,7 @@ Transform technical git history into polished, user-friendly documentation that 
    | Category       | Rule                                                    | Example                                           |
    |---------------|---------------------------------------------------------|---------------------------------------------------|
    | **Added**      | Users couldn't do this before at all                    | "You can now export reports in bulk"              |
-   | **Changed**    | Existing capability is now better, faster, or different | "Dashboard loads 3× faster on large datasets"     |
+   | **Changed**    | Existing capability is now better, faster, or different | "Dashboard loads 3x faster on large datasets"     |
    | **Deprecated** | Still works, but will be removed — include timeline     | "REST API v1 will be removed in v3.0.0"           |
    | **Removed**    | Previously available, now gone                          | "Removed support for Python 3.9"                  |
    | **Fixed**      | Was broken, now works correctly                         | "Fixed an issue where CSV exports had missing columns" |
@@ -64,16 +69,16 @@ Transform technical git history into polished, user-friendly documentation that 
 6. **Rewrite entries** — convert technical commit messages to user-facing language:
 
    ```
-   ❌ Technical (don't):
+   Technical (don't):
    "Implemented batch processing queue for the export service"
    "Refactored ReportExporter class to support pagination"
    "Fixed bug in CSV serialization (PR #4521)"
    "Various bug fixes and improvements"
    "Updated dependencies"
 
-   ✅ User-facing (do):
+   User-facing (do):
    "You can now export up to 10,000 rows at once from any report"
-   "Reports now load 3× faster when filtering large datasets"
+   "Reports now load 3x faster when filtering large datasets"
    "Fixed an issue where exported CSV files had missing columns"
    ```
 
@@ -140,10 +145,10 @@ Transform technical git history into polished, user-friendly documentation that 
 
     ## Breaking Changes
 
-    ### ⚠️ Change Title
+    ### Change Title
     **What changed:** Description.
     **What you need to do:** Migration steps.
-    **Timeline:** Deprecation → removal dates.
+    **Timeline:** Deprecation -> removal dates.
 
     ## Security Updates
 
@@ -171,7 +176,7 @@ Transform technical git history into polished, user-friendly documentation that 
     - "Updated X" without explaining how (improved? fixed? changed?).
     - Internal jargon (class names, module paths, PR numbers in prose).
     - Missing dates on releases.
-    - Breaking changes buried in the middle — must be prominent with `⚠️`.
+    - Breaking changes buried in the middle — must be prominent.
     - Security entries without CVE references, impact level, or affected versions.
     - Vague language ("improved performance" without metrics or context).
 
@@ -203,6 +208,6 @@ Transform technical git history into polished, user-friendly documentation that 
 
 - `standards/framework/core.md` — governance structure and non-negotiables.
 - `context/product/framework-contract.md` — release model and versioning.
-- `skills/workflows/pr.md` — PR workflow (changelog updates go through PRs).
-- `skills/review/security.md` — security entry format and CVE handling.
-- `skills/dev/migration.md` — breaking changes documentation requirements.
+- `skills/workflows/pr/SKILL.md` — PR workflow (changelog updates go through PRs).
+- `skills/review/security/SKILL.md` — security entry format and CVE handling.
+- `skills/dev/migration/SKILL.md` — breaking changes documentation requirements.

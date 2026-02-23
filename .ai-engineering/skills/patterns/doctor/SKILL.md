@@ -1,8 +1,13 @@
 ---
 name: doctor
+description: "Unified environment diagnostics validating prerequisites for governed operations"
 version: 1.0.0
-category: utils
+category: patterns
 tags: [diagnostics, environment, health-check, readiness]
+metadata:
+  ai-engineering:
+    scope: read-write
+    token_estimate: 1200
 ---
 
 # Environment Doctor
@@ -106,5 +111,5 @@ Overall             PASS (with warnings)
 
 - `standards/framework/core.md` — required tooling and enforcement rules.
 - `manifest.yml` — tooling baseline and enforcement checks.
-- `skills/quality/install-check.md` — package installation validation.
-- `skills/utils/platform-detect.md` — VCS provider detection.
+- `skills/quality/install-check/SKILL.md` — package installation validation.
+- `skills/patterns/platform-detect/SKILL.md` — VCS provider detection.

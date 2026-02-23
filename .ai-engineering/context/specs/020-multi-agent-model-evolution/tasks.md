@@ -1,9 +1,9 @@
 ---
 spec: "020"
 total: 38
-completed: 19
+completed: 22
 last_session: "2026-02-23"
-next_session: "Phase 4 — Skill Directory Migration (Docs + Patterns)"
+next_session: "Phase 5 — Agent Frontmatter Evolution"
 ---
 
 # Tasks — Multi-Agent Model Evolution
@@ -41,9 +41,9 @@ next_session: "Phase 4 — Skill Directory Migration (Docs + Patterns)"
 
 ## Phase 4: Skill Directory Migration — Docs + Patterns (rename) [M]
 
-- [ ] 4.1 Migrate all 4 `skills/docs/*.md` → `skills/docs/*/SKILL.md`
-- [ ] 4.2 Rename `skills/utils/` → `skills/patterns/`
-- [ ] 4.3 Migrate all 6 `skills/patterns/*.md` → `skills/patterns/*/SKILL.md`
+- [x] 4.1 Migrate all 4 `skills/docs/*.md` → `skills/docs/*/SKILL.md`
+- [x] 4.2 Rename `skills/utils/` → `skills/patterns/`
+- [x] 4.3 Migrate all 6 `skills/patterns/*.md` → `skills/patterns/*/SKILL.md`
 
 ## Phase 5: Agent Frontmatter Evolution [M]
 

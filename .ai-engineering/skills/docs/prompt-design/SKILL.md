@@ -1,8 +1,13 @@
 ---
 name: prompt-design
+description: "Advanced prompt engineering for crafting AI interactions using framework selection, blending strategies, and quality validation."
 version: 1.0.0
 category: docs
 tags: [prompts, frameworks, ai-interaction, quality]
+metadata:
+  ai-engineering:
+    scope: read-write
+    token_estimate: 600
 ---
 
 # Prompt Engineer
@@ -115,7 +120,7 @@ For complex, multi-type tasks, blend frameworks:
 
 2. **Ambiguity check** — is there exactly one valid interpretation?
    - Remove vague terms ("good", "better", "appropriate").
-   - Replace with measurable criteria ("coverage 100%", "cyclomatic complexity ≤10").
+   - Replace with measurable criteria ("coverage 100%", "cyclomatic complexity <=10").
 
 3. **Token efficiency** — is the prompt concise?
    - Remove redundant instructions.
@@ -151,7 +156,7 @@ For complex, multi-type tasks, blend frameworks:
 - `standards/framework/core.md` — non-negotiables that prompts must enforce.
 - `context/product/framework-contract.md` — product principles and context efficiency.
 - `agents/principal-engineer.md` — example of a well-structured agent persona.
-- `skills/govern/create-skill.md` — definitive procedure for skill registration.
-- `skills/govern/create-agent.md` — definitive procedure for agent registration.
-- `skills/govern/create-spec.md` — spec creation procedure for prompt-guided workflows.
+- `skills/govern/create-skill/SKILL.md` — definitive procedure for skill registration.
+- `skills/govern/create-agent/SKILL.md` — definitive procedure for agent registration.
+- `skills/govern/create-spec/SKILL.md` — spec creation procedure for prompt-guided workflows.
 - All agent and skill templates defined in `context/specs/001-rewrite-v2/plan.md`.

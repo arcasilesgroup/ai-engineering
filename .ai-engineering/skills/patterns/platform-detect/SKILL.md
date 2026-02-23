@@ -1,8 +1,13 @@
 ---
 name: platform-detect
+description: "Detect repository hosting platform and readiness using deterministic local checks"
 version: 1.0.0
-category: utils
+category: patterns
 tags: [platform, detection, github, azure-devops]
+metadata:
+  ai-engineering:
+    scope: read-only
+    token_estimate: 500
 ---
 
 # Platform Detection Utility
@@ -48,5 +53,5 @@ az account show
 
 ## References
 
-- `skills/quality/install-check.md` — uses platform detection for readiness checks.
+- `skills/quality/install-check/SKILL.md` — uses platform detection for readiness checks.
 - `standards/framework/core.md` — provider support model.

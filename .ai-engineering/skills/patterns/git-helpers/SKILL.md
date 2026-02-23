@@ -1,8 +1,13 @@
 ---
 name: git-helpers
+description: "Compact, safe git helper patterns used by governed command workflows"
 version: 1.0.0
-category: utils
+category: patterns
 tags: [git, utilities, helpers, branching]
+metadata:
+  ai-engineering:
+    scope: read-only
+    token_estimate: 500
 ---
 
 # Git Helpers Utility
@@ -51,7 +56,7 @@ Fallbacks:
 
 ## References
 
-- `skills/workflows/commit.md` — primary consumer of git helper procedures.
-- `skills/workflows/pr.md` — PR workflow using git operations.
-- `skills/workflows/cleanup.md` — branch cleanup using git helper patterns.
+- `skills/workflows/commit/SKILL.md` — primary consumer of git helper procedures.
+- `skills/workflows/pr/SKILL.md` — PR workflow using git operations.
+- `skills/workflows/cleanup/SKILL.md` — branch cleanup using git helper patterns.
 - `standards/framework/core.md` — protected branch rules and enforcement.

@@ -1,8 +1,13 @@
 ---
 name: writer
+description: "Transform codebase knowledge into polished open-source documentation (README, CONTRIBUTING, docs/ site, Wiki) using benefit-first language."
 version: 1.0.0
 category: docs
 tags: [documentation, open-source, readme, guides]
+metadata:
+  ai-engineering:
+    scope: read-write
+    token_estimate: 1050
 ---
 
 # Doc Writer
@@ -251,9 +256,9 @@ Finalize and position documentation in the project.
     - Roadmap or "coming soon" items are clearly marked as such.
 
 17. **Add navigation** — connect all documentation artifacts:
-    - README → docs/, CONTRIBUTING.md, CODE_OF_CONDUCT.md.
-    - docs/ pages → back to README, between guides.
-    - CONTRIBUTING.md → CODE_OF_CONDUCT.md.
+    - README -> docs/, CONTRIBUTING.md, CODE_OF_CONDUCT.md.
+    - docs/ pages -> back to README, between guides.
+    - CONTRIBUTING.md -> CODE_OF_CONDUCT.md.
 
 18. **Recommend next steps** — suggest improvements beyond the current scope:
     - Add documentation CI (link checking, markdown linting).
@@ -288,7 +293,7 @@ Finalize and position documentation in the project.
 - `context/learnings.md` — institutional knowledge that may inform documentation content.
 - `standards/framework/core.md` — governance model (for understanding internal structure, not for user docs).
 - `skills/docs/changelog.md` — user-facing language conventions and anti-patterns.
-- `skills/dev/code-review.md` — quality patterns for code examples in documentation.
+- `skills/dev/code-review/SKILL.md` — quality patterns for code examples in documentation.
 - `skills/docs/prompt-design.md` — Chain of Density for content compression and summaries.
-- `skills/review/security.md` — security assessment before documenting sensitive features.
+- `skills/review/security/SKILL.md` — security assessment before documenting sensitive features.
 - `agents/codebase-mapper.md` — complementary agent for deep codebase understanding.

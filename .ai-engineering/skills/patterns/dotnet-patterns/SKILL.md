@@ -1,8 +1,13 @@
 ---
 name: dotnet-patterns
+description: "Comprehensive .NET/C# patterns, anti-patterns, and best practices for AI-assisted development"
 version: 1.0.0
-category: utils
+category: patterns
 tags: [dotnet, csharp, patterns, best-practices, code-generation]
+metadata:
+  ai-engineering:
+    scope: read-only
+    token_estimate: 1800
 ---
 
 # .NET Patterns
@@ -136,4 +141,4 @@ Comprehensive .NET/C# engineering skill providing patterns, anti-patterns, and b
 
 - `standards/framework/stacks/dotnet.md` — enforceable .NET baseline.
 - `standards/framework/quality/dotnet.md` — quality thresholds.
-- `skills/review/security.md` — security-specific patterns.
+- `skills/review/security/SKILL.md` — security-specific patterns.
