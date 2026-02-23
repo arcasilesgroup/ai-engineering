@@ -79,5 +79,5 @@ Procedure for closing a risk acceptance after the underlying finding has been re
 
 - `skills/govern/accept-risk/SKILL.md` — creating risk acceptances.
 - `skills/govern/renew-risk/SKILL.md` — extending risk acceptances.
-- `skills/review/security.md` — security assessment procedure.
+- `skills/review/security/SKILL.md` — security assessment procedure.
 - `standards/framework/core.md` — risk acceptance non-negotiables.

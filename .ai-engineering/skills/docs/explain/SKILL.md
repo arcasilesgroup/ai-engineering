@@ -202,6 +202,6 @@ Feynman-style explanations of code, concepts, patterns, and architecture. When a
 - `skills/dev/code-review/SKILL.md` — code understanding patterns.
 - `skills/review/architecture/SKILL.md` — architecture context methodology.
 - `skills/dev/debug/SKILL.md` — root cause explanation patterns.
-- `skills/docs/prompt-design.md` — Chain of Thought framework for structured reasoning.
+- `skills/docs/prompt-design/SKILL.md` — Chain of Thought framework for structured reasoning.
 - `agents/debugger.md` — agent that benefits from explanation capability.
 - `agents/architect.md` — agent that benefits from architecture explanations.

@@ -59,7 +59,7 @@ Definitive procedure for authoring and registering a new agent in the ai-enginee
    - Behavior is a **numbered protocol** (typically 4-8 sequential steps).
    - Referenced Skills and Referenced Standards are **separate sections**.
    - Boundaries explicitly state what the agent does NOT do and escalation paths.
-   - References use relative paths from `.ai-engineering/` (e.g., `skills/dev/debug.md`).
+   - References use relative paths from `.ai-engineering/` (e.g., `skills/dev/debug/SKILL.md`).
 
 5. **Validate structure** — confirm the agent file contains all required sections.
    - Identity: present, third-person, describes expertise and approach.
@@ -157,15 +157,15 @@ Definitive procedure for authoring and registering a new agent in the ai-enginee
 - Agents are framework-managed content (`OwnershipLevel.FRAMEWORK_MANAGED`) — they follow the governed update flow.
 - Never create an agent that duplicates an existing agent's capabilities — extend instead.
 - Agent identity must be written in third person.
-- Agent references use paths relative to `.ai-engineering/` (e.g., `skills/dev/debug.md`, not `.ai-engineering/skills/dev/debug.md`).
+- Agent references use paths relative to `.ai-engineering/` (e.g., `skills/dev/debug/SKILL.md`, not `.ai-engineering/skills/dev/debug/SKILL.md`).
 
 ## References
 
 - `standards/framework/core.md` — governance structure, ownership model, lifecycle.
 - `context/product/framework-contract.md` — template packaging and replication rule.
-- `skills/docs/prompt-design.md` — prompt engineering for agent persona authoring.
-- `skills/govern/create-skill.md` — companion procedure for skill registration.
-- `skills/govern/create-spec.md` — spec creation procedure (spec-first enforcement).
-- `skills/govern/delete-agent.md` — inverse procedure for agent removal.
-- `skills/govern/integrity-check.md` — post-change validation of governance content.
-- `skills/docs/changelog.md` — changelog entry formatting.
+- `skills/docs/prompt-design/SKILL.md` — prompt engineering for agent persona authoring.
+- `skills/govern/create-skill/SKILL.md` — companion procedure for skill registration.
+- `skills/govern/create-spec/SKILL.md` — spec creation procedure (spec-first enforcement).
+- `skills/govern/delete-agent/SKILL.md` — inverse procedure for agent removal.
+- `skills/govern/integrity-check/SKILL.md` — post-change validation of governance content.
+- `skills/docs/changelog/SKILL.md` — changelog entry formatting.

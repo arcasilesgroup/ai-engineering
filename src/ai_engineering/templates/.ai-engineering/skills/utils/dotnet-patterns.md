@@ -136,4 +136,4 @@ Comprehensive .NET/C# engineering skill providing patterns, anti-patterns, and b
 
 - `standards/framework/stacks/dotnet.md` — enforceable .NET baseline.
 - `standards/framework/quality/dotnet.md` — quality thresholds.
-- `skills/review/security.md` — security-specific patterns.
+- `skills/review/security/SKILL.md` — security-specific patterns.

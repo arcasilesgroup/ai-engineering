@@ -55,6 +55,6 @@ Identical to `/pr` default flow:
 
 ## References
 
-- `skills/workflows/commit.md` — full `/commit` procedure (aliases `/acho`).
-- `skills/workflows/pr.md` — full `/pr` procedure (aliases `/acho pr`).
+- `skills/workflows/commit/SKILL.md` — full `/commit` procedure (aliases `/acho`).
+- `skills/workflows/pr/SKILL.md` — full `/pr` procedure (aliases `/acho pr`).
 - `standards/framework/core.md` — non-negotiables.

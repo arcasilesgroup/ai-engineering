@@ -57,7 +57,7 @@ Comprehensive security review covering OWASP top risks, secret exposure, injecti
    - Run `semgrep` with OWASP ruleset (all stacks).
    - Verify dependencies are from trusted sources.
    - Check for typosquatting risks on package names.
-   - For comprehensive supply chain view, reference `skills/quality/sbom.md`.
+   - For comprehensive supply chain view, reference `skills/quality/sbom/SKILL.md`.
 
 5. **Configuration security** — check runtime settings.
    - No debug mode in production configs.
@@ -91,6 +91,6 @@ Comprehensive security review covering OWASP top risks, secret exposure, injecti
 - `standards/framework/quality/core.md` — severity policy.
 - `standards/framework/security/owasp-top10-2025.md` — OWASP Top 10 mapping.
 - `agents/security-reviewer.md` — agent that performs security reviews.
-- `skills/review/dast.md` — dynamic application security testing (post-deploy).
-- `skills/review/container-security.md` — container image scanning.
-- `skills/quality/sbom.md` — software bill of materials generation.
+- `skills/review/dast/SKILL.md` — dynamic application security testing (post-deploy).
+- `skills/review/container-security/SKILL.md` — container image scanning.
+- `skills/quality/sbom/SKILL.md` — software bill of materials generation.

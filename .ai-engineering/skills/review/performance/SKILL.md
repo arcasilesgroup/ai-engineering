@@ -70,5 +70,5 @@ Identify and resolve performance bottlenecks through systematic profiling, measu
 
 - `standards/framework/stacks/python.md` — code patterns.
 - `standards/framework/quality/python.md` — complexity thresholds.
-- `skills/utils/python-patterns.md` — performance optimization domain.
+- `skills/patterns/python-patterns/SKILL.md` — performance optimization domain.
 - `agents/principal-engineer.md` — agent that evaluates performance.

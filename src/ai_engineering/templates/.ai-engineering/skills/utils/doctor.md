@@ -106,5 +106,5 @@ Overall             PASS (with warnings)
 
 - `standards/framework/core.md` — required tooling and enforcement rules.
 - `manifest.yml` — tooling baseline and enforcement checks.
-- `skills/quality/install-check.md` — package installation validation.
-- `skills/utils/platform-detect.md` — VCS provider detection.
+- `skills/quality/install-check/SKILL.md` — package installation validation.
+- `skills/patterns/platform-detect/SKILL.md` — VCS provider detection.

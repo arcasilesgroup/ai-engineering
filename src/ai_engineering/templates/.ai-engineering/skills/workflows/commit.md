@@ -55,5 +55,5 @@ Follow steps 1–5 above. Skip step 6.
 - `standards/framework/core.md` — non-negotiables and enforcement rules.
 - `standards/framework/stacks/python.md` — Python-specific checks.
 - `standards/framework/quality/core.md` — gate structure (pre-commit gate).
-- `skills/workflows/acho.md` — alias workflow.
+- `skills/workflows/acho/SKILL.md` — alias workflow.
 - `agents/verify-app.md` — agent that validates commit workflow execution.

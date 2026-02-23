@@ -1,9 +1,9 @@
 ---
 spec: "020"
 total: 38
-completed: 34
+completed: 44
 last_session: "2026-02-23"
-next_session: "Phase 7 — Cross-Reference Update"
+next_session: "Phase 8 — Progressive Disclosure & Token Budget"
 ---
 
 # Tasks — Multi-Agent Model Evolution
@@ -65,16 +65,16 @@ next_session: "Phase 7 — Cross-Reference Update"
 
 ## Phase 7: Cross-Reference Update [L]
 
-- [ ] 7.1 Update CLAUDE.md — all skill/agent path references, progressive disclosure section
-- [ ] 7.2 Update AGENTS.md — all path references
-- [ ] 7.3 Update codex.md — all path references
-- [ ] 7.4 Update `.github/copilot-instructions.md` — all path references
-- [ ] 7.5 Update `.github/instructions/**` — all path references
-- [ ] 7.6 Update `.github/prompts/**` — all command paths
-- [ ] 7.7 Update `.github/agents/**` — all agent paths
-- [ ] 7.8 Update `.claude/commands/**` — all skill paths
-- [ ] 7.9 Update `manifest.yml` — reflect directory structure
-- [ ] 7.10 Update all internal cross-references within skills and agents
+- [x] 7.1 Update CLAUDE.md — all skill/agent path references, progressive disclosure section
+- [x] 7.2 Update AGENTS.md — all path references
+- [x] 7.3 Update codex.md — all path references
+- [x] 7.4 Update `.github/copilot-instructions.md` — all path references
+- [x] 7.5 Update `.github/instructions/**` — all path references
+- [x] 7.6 Update `.github/prompts/**` — all command paths
+- [x] 7.7 Update `.github/agents/**` — all agent paths
+- [x] 7.8 Update `.claude/commands/**` — all skill paths
+- [x] 7.9 Update `manifest.yml` — reflect directory structure (globs already compatible)
+- [x] 7.10 Update all internal cross-references within skills and agents
 
 ## Phase 8: Progressive Disclosure & Token Budget [M]
 

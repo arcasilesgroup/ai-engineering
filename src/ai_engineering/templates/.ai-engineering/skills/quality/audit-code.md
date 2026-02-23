@@ -83,7 +83,7 @@ Execute a SonarQube-like quality gate assessment on the codebase. Evaluates cove
 
 ## Output Contract
 
-- Quality report following `skills/quality/audit-report.md` template.
+- Quality report following `skills/quality/audit-report/SKILL.md` template.
 - PASS/FAIL verdict with summary.
 - Metric values vs. thresholds.
 - Finding list with severity, location, description, and remediation.
@@ -102,5 +102,5 @@ Execute a SonarQube-like quality gate assessment on the codebase. Evaluates cove
 - `standards/framework/quality/python.md` — Python-specific checks.
 - `standards/framework/quality/dotnet.md` — .NET-specific checks.
 - `standards/framework/quality/nextjs.md` — Next.js-specific checks.
-- `skills/quality/audit-report.md` — report template.
+- `skills/quality/audit-report/SKILL.md` — report template.
 - `agents/quality-auditor.md` — agent that executes this skill.

@@ -171,11 +171,11 @@ Structured report with 7 categories, each showing:
 
 ## References
 
-- `skills/govern/create-skill.md` — skill registration procedure (validates creation correctness).
-- `skills/govern/create-agent.md` — agent registration procedure (validates creation correctness).
-- `skills/govern/delete-skill.md` — skill removal procedure (validates deletion completeness).
-- `skills/govern/delete-agent.md` — agent removal procedure (validates deletion completeness).
-- `skills/govern/create-spec.md` — spec creation procedure (validates spec structure).
+- `skills/govern/create-skill/SKILL.md` — skill registration procedure (validates creation correctness).
+- `skills/govern/create-agent/SKILL.md` — agent registration procedure (validates creation correctness).
+- `skills/govern/delete-skill/SKILL.md` — skill removal procedure (validates deletion completeness).
+- `skills/govern/delete-agent/SKILL.md` — agent removal procedure (validates deletion completeness).
+- `skills/govern/create-spec/SKILL.md` — spec creation procedure (validates spec structure).
 - `agents/verify-app.md` — agent that includes content integrity in verification.
 - `standards/framework/core.md` — content integrity enforcement rules.
 - `context/product/framework-contract.md` — template packaging and replication rule.

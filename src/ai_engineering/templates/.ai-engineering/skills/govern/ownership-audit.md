@@ -116,8 +116,8 @@ Validates ownership boundary enforcement, updater safety, and decision/audit-log
 
 - `manifest.yml` — ownership model definition.
 - `standards/framework/core.md` — ownership levels and update safety rules.
-- `skills/govern/integrity-check.md` — structural validation (complementary).
-- `skills/govern/accept-risk.md` — risk acceptance workflow that writes to decision store.
-- `skills/govern/resolve-risk.md` — risk resolution workflow.
-- `skills/govern/renew-risk.md` — risk renewal workflow.
+- `skills/govern/integrity-check/SKILL.md` — structural validation (complementary).
+- `skills/govern/accept-risk/SKILL.md` — risk acceptance workflow that writes to decision store.
+- `skills/govern/resolve-risk/SKILL.md` — risk resolution workflow.
+- `skills/govern/renew-risk/SKILL.md` — risk renewal workflow.
 - `agents/platform-auditor.md` — orchestrator that invokes this skill.

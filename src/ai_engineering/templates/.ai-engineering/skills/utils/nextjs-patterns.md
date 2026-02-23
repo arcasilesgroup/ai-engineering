@@ -167,4 +167,4 @@ Comprehensive Next.js and TypeScript engineering skill providing patterns, anti-
 
 - `standards/framework/stacks/nextjs.md` — enforceable Next.js baseline.
 - `standards/framework/quality/nextjs.md` — quality thresholds.
-- `skills/review/security.md` — security-specific patterns.
+- `skills/review/security/SKILL.md` — security-specific patterns.

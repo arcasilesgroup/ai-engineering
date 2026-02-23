@@ -292,8 +292,8 @@ Finalize and position documentation in the project.
 - `context/product/framework-contract.md` — roadmap, personas, value proposition.
 - `context/learnings.md` — institutional knowledge that may inform documentation content.
 - `standards/framework/core.md` — governance model (for understanding internal structure, not for user docs).
-- `skills/docs/changelog.md` — user-facing language conventions and anti-patterns.
+- `skills/docs/changelog/SKILL.md` — user-facing language conventions and anti-patterns.
 - `skills/dev/code-review/SKILL.md` — quality patterns for code examples in documentation.
-- `skills/docs/prompt-design.md` — Chain of Density for content compression and summaries.
+- `skills/docs/prompt-design/SKILL.md` — Chain of Density for content compression and summaries.
 - `skills/review/security/SKILL.md` — security assessment before documenting sensitive features.
 - `agents/codebase-mapper.md` — complementary agent for deep codebase understanding.

@@ -48,5 +48,5 @@ az account show
 
 ## References
 
-- `skills/quality/install-check.md` — uses platform detection for readiness checks.
+- `skills/quality/install-check/SKILL.md` — uses platform detection for readiness checks.
 - `standards/framework/core.md` — provider support model.

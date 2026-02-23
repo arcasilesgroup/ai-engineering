@@ -48,11 +48,11 @@ Application security specialist who reviews code for OWASP top risks, secret exp
 
 ## Referenced Skills
 
-- `skills/review/security.md` — security review procedure.
-- `skills/review/dast.md` — dynamic application security testing.
-- `skills/review/container-security.md` — container image scanning.
-- `skills/quality/sbom.md` — software bill of materials generation.
-- `skills/dev/deps-update.md` — dependency security assessment.
+- `skills/review/security/SKILL.md` — security review procedure.
+- `skills/review/dast/SKILL.md` — dynamic application security testing.
+- `skills/review/container-security/SKILL.md` — container image scanning.
+- `skills/quality/sbom/SKILL.md` — software bill of materials generation.
+- `skills/dev/deps-update/SKILL.md` — dependency security assessment.
 
 ## Referenced Standards
 

@@ -208,5 +208,5 @@ A change is **trivial** (spec exempt) when ALL of these apply:
 - `context/product/framework-contract.md` — agentic model, session contract, branch strategy.
 - `skills/govern/create-skill/SKILL.md` — registration procedure for new skills.
 - `skills/govern/create-agent/SKILL.md` — registration procedure for new agents.
-- `skills/docs/prompt-design.md` — content authoring quality.
+- `skills/docs/prompt-design/SKILL.md` — content authoring quality.
 - `skills/workflows/pr/SKILL.md` — PR creation at spec closure.

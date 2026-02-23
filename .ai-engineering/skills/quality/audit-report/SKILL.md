@@ -18,7 +18,7 @@ Standardized report template for quality audit results. Produces a structured, m
 
 ## Trigger
 
-- Command: generated as output of `skills/quality/audit-code.md` execution.
+- Command: generated as output of `skills/quality/audit-code/SKILL.md` execution.
 - Context: quality gate check completion, quality review summary.
 
 ## Procedure
@@ -112,6 +112,6 @@ Standardized report template for quality audit results. Produces a structured, m
 
 ## References
 
-- `skills/quality/audit-code.md` — the skill that produces this report.
+- `skills/quality/audit-code/SKILL.md` — the skill that produces this report.
 - `standards/framework/quality/core.md` — quality contract and thresholds.
 - `agents/quality-auditor.md` — agent that generates these reports.

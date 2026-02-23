@@ -46,6 +46,6 @@ Validate that ai-engineering is operational after install/update.
 
 ## References
 
-- `skills/utils/platform-detect.md` — provider and tooling detection.
+- `skills/patterns/platform-detect/SKILL.md` — provider and tooling detection.
 - `standards/framework/core.md` — enforcement requirements.
 - `agents/verify-app.md` — verification agent that uses readiness checks.

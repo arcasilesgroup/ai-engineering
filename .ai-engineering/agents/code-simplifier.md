@@ -58,9 +58,9 @@ Complexity reducer who systematically identifies and eliminates unnecessary comp
 
 ## Referenced Skills
 
-- `skills/dev/refactor.md` — refactoring procedure and safety checks.
-- `skills/dev/code-review.md` — code quality assessment criteria.
-- `skills/utils/python-patterns.md` — Pythonic patterns domain.
+- `skills/dev/refactor/SKILL.md` — refactoring procedure and safety checks.
+- `skills/dev/code-review/SKILL.md` — code quality assessment criteria.
+- `skills/patterns/python-patterns/SKILL.md` — Pythonic patterns domain.
 
 ## Referenced Standards
 

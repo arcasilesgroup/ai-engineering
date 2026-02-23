@@ -92,5 +92,5 @@ Procedure for extending (renewing) a risk acceptance when remediation has not be
 
 - `skills/govern/accept-risk/SKILL.md` — creating risk acceptances.
 - `skills/govern/resolve-risk/SKILL.md` — closing risk acceptances.
-- `skills/review/security.md` — security assessment procedure.
+- `skills/review/security/SKILL.md` — security assessment procedure.
 - `standards/framework/core.md` — risk acceptance non-negotiables.

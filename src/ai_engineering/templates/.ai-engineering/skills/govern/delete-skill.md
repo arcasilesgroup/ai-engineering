@@ -122,7 +122,7 @@ Definitive procedure for safely removing a skill from the ai-engineering framewo
 
 ## References
 
-- `skills/govern/create-skill.md` — inverse procedure (creation).
-- `skills/govern/integrity-check.md` — post-deletion validation.
+- `skills/govern/create-skill/SKILL.md` — inverse procedure (creation).
+- `skills/govern/integrity-check/SKILL.md` — post-deletion validation.
 - `standards/framework/core.md` — governance structure, ownership model.
 - `context/product/framework-contract.md` — template packaging and replication rule.

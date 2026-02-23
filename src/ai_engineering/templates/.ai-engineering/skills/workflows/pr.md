@@ -100,7 +100,7 @@ When creating the PR:
 
 - `standards/framework/core.md` — non-negotiables and enforcement rules.
 - `standards/framework/quality/core.md` — gate structure (pre-push + PR gates).
-- `skills/workflows/commit.md` — shared pre-commit steps.
-- `skills/workflows/acho.md` — alias workflow.
-- `skills/docs/changelog.md` — changelog entry formatting for PRs.
+- `skills/workflows/commit/SKILL.md` — shared pre-commit steps.
+- `skills/workflows/acho/SKILL.md` — alias workflow.
+- `skills/docs/changelog/SKILL.md` — changelog entry formatting for PRs.
 - `agents/verify-app.md` — agent that validates PR workflow execution.

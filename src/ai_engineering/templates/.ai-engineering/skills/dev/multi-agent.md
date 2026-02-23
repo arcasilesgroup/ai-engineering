@@ -109,5 +109,5 @@ For operations that modify files, use git worktrees to avoid conflicts.
 - `agents/principal-engineer.md` — cross-cutting review perspective.
 - `agents/security-reviewer.md` — security-focused review agent.
 - `agents/quality-auditor.md` — quality gate enforcement agent.
-- `skills/dev/code-review.md` — code review skill (used in pattern 2).
-- `skills/review/security.md` — security review skill (used in pattern 2).
+- `skills/dev/code-review/SKILL.md` — code review skill (used in pattern 2).
+- `skills/review/security/SKILL.md` — security review skill (used in pattern 2).

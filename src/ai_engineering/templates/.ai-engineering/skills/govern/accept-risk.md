@@ -79,7 +79,7 @@ Procedure for accepting a security or compliance risk when immediate remediation
 
 ## References
 
-- `skills/govern/resolve-risk.md` — closing a risk acceptance after fix.
-- `skills/govern/renew-risk.md` — extending a risk acceptance.
-- `skills/review/security.md` — security assessment procedure.
+- `skills/govern/resolve-risk/SKILL.md` — closing a risk acceptance after fix.
+- `skills/govern/renew-risk/SKILL.md` — extending a risk acceptance.
+- `skills/review/security/SKILL.md` — security assessment procedure.
 - `standards/framework/core.md` — risk acceptance non-negotiables.

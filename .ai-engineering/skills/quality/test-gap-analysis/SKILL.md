@@ -103,9 +103,9 @@ Maps each product capability to its test evidence, classifies coverage confidenc
 
 ## References
 
-- `skills/quality/audit-code.md` — code-level quality assessment (complementary).
-- `skills/dev/test-strategy.md` — test design methodology.
-- `skills/quality/release-gate.md` — release readiness aggregation.
+- `skills/quality/audit-code/SKILL.md` — code-level quality assessment (complementary).
+- `skills/dev/test-strategy/SKILL.md` — test design methodology.
+- `skills/quality/release-gate/SKILL.md` — release readiness aggregation.
 - `agents/platform-auditor.md` — orchestrator that invokes this skill.
 - `context/product/product-contract.md` — capability source.
 - `context/product/framework-contract.md` — framework capability source.

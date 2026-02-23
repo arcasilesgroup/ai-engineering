@@ -4,7 +4,7 @@ Before executing, verify these preconditions:
 2. Working tree has staged or unstaged changes (abort if nothing to commit).
 3. Active spec is read from `.ai-engineering/context/specs/_active.md`.
 
-Read and execute the workflow skill defined in `.ai-engineering/skills/workflows/acho.md`.
+Read and execute the workflow skill defined in `.ai-engineering/skills/workflows/acho/SKILL.md`.
 
 Arguments: no arguments = default flow. `pr` = PR variant.
 

@@ -44,14 +44,14 @@ Quality gate enforcer who executes the quality contract defined in standards, ru
 3. **Execute checks** — run common security tools (gitleaks, semgrep) and stack-specific quality tools per active stack.
 4. **Evaluate thresholds** — compare results against quality contract thresholds.
 5. **Classify findings** — assign severity per the severity policy.
-6. **Generate report** — produce audit report following `skills/quality/audit-report.md` template.
+6. **Generate report** — produce audit report following `skills/quality/audit-report/SKILL.md` template.
 7. **Determine verdict** — PASS (no blocker/critical) or FAIL (blocker/critical found).
 8. **Recommend** — actionable remediation for each finding.
 
 ## Referenced Skills
 
-- `skills/quality/audit-code.md` — quality gate assessment procedure.
-- `skills/quality/audit-report.md` — report template.
+- `skills/quality/audit-code/SKILL.md` — quality gate assessment procedure.
+- `skills/quality/audit-report/SKILL.md` — report template.
 
 ## Referenced Standards
 

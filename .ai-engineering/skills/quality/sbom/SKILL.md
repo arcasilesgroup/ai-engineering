@@ -70,4 +70,4 @@ Software Bill of Materials generation using CycloneDX across multiple stacks. Pr
 
 - `standards/framework/security/owasp-top10-2025.md` — OWASP mapping (A06 vulnerable components).
 - `standards/framework/core.md` — supply chain security controls.
-- `skills/review/security.md` — dependency vulnerability assessment.
+- `skills/review/security/SKILL.md` — dependency vulnerability assessment.

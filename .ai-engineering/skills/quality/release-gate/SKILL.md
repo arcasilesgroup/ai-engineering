@@ -113,11 +113,11 @@ Executes a structured GO/NO-GO checklist across all quality dimensions for relea
 - `skills/govern/contract-compliance/SKILL.md` — contract compliance gate.
 - `skills/govern/ownership-audit/SKILL.md` — ownership safety gate.
 - `skills/govern/integrity-check/SKILL.md` — structural integrity gate.
-- `skills/quality/audit-code.md` — code quality gate.
-- `skills/quality/test-gap-analysis.md` — test confidence gate.
-- `skills/quality/docs-audit.md` — documentation coherence gate.
-- `skills/quality/install-check.md` — packaging integrity gate.
-- `skills/review/security.md` — security enforcement gate.
+- `skills/quality/audit-code/SKILL.md` — code quality gate.
+- `skills/quality/test-gap-analysis/SKILL.md` — test confidence gate.
+- `skills/quality/docs-audit/SKILL.md` — documentation coherence gate.
+- `skills/quality/install-check/SKILL.md` — packaging integrity gate.
+- `skills/review/security/SKILL.md` — security enforcement gate.
 - `agents/platform-auditor.md` — orchestrator that uses this skill.
 - `agents/verify-app.md` — command reliability source.
 - `standards/framework/quality/core.md` — quality thresholds.

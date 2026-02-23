@@ -201,7 +201,7 @@ A change is **trivial** (spec exempt) when ALL of these apply:
 
 - `standards/framework/core.md` — governance structure, spec-first enforcement, session contract.
 - `context/product/framework-contract.md` — agentic model, session contract, branch strategy.
-- `skills/govern/create-skill.md` — registration procedure for new skills.
-- `skills/govern/create-agent.md` — registration procedure for new agents.
-- `skills/docs/prompt-design.md` — content authoring quality.
-- `skills/workflows/pr.md` — PR creation at spec closure.
+- `skills/govern/create-skill/SKILL.md` — registration procedure for new skills.
+- `skills/govern/create-agent/SKILL.md` — registration procedure for new agents.
+- `skills/docs/prompt-design/SKILL.md` — content authoring quality.
+- `skills/workflows/pr/SKILL.md` — PR creation at spec closure.

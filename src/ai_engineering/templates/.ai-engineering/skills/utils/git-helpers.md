@@ -51,7 +51,7 @@ Fallbacks:
 
 ## References
 
-- `skills/workflows/commit.md` — primary consumer of git helper procedures.
-- `skills/workflows/pr.md` — PR workflow using git operations.
-- `skills/workflows/cleanup.md` — branch cleanup using git helper patterns.
+- `skills/workflows/commit/SKILL.md` — primary consumer of git helper procedures.
+- `skills/workflows/pr/SKILL.md` — PR workflow using git operations.
+- `skills/workflows/cleanup/SKILL.md` — branch cleanup using git helper patterns.
 - `standards/framework/core.md` — protected branch rules and enforcement.

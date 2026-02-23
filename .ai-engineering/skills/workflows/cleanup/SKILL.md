@@ -70,5 +70,5 @@ Execute branch cleanup after merging a PR or at the start of a new session. Swit
 ## References
 
 - `skills/workflows/pre-implementation/SKILL.md` — full pre-implementation flow that includes cleanup + branch creation.
-- `skills/utils/git-helpers.md` — git helper patterns (protected branch check, default branch detection).
+- `skills/patterns/git-helpers/SKILL.md` — git helper patterns (protected branch check, default branch detection).
 - `standards/framework/core.md` — protected branch rules and enforcement.

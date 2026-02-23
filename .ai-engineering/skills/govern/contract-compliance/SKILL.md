@@ -103,6 +103,6 @@ Clause-by-clause validation of framework contracts (`framework-contract.md`, `ma
 - `context/product/framework-contract.md` — primary contract source.
 - `manifest.yml` — configuration-level contract.
 - `skills/govern/integrity-check/SKILL.md` — structural validation (complementary).
-- `skills/quality/release-gate.md` — release readiness aggregation.
+- `skills/quality/release-gate/SKILL.md` — release readiness aggregation.
 - `agents/platform-auditor.md` — orchestrator that invokes this skill.
 - `standards/framework/core.md` — governance structure and ownership model.

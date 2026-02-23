@@ -225,9 +225,9 @@ Before committing, verify:
 
 - `standards/framework/stacks/python.md` — enforceable Python baseline.
 - `standards/framework/quality/python.md` — quality thresholds.
-- `skills/dev/test-strategy.md` — testing details.
-- `skills/review/performance.md` — performance deep-dive.
-- `skills/review/security.md` — security-specific patterns.
+- `skills/dev/test-strategy/SKILL.md` — testing details.
+- `skills/review/performance/SKILL.md` — performance deep-dive.
+- `skills/review/security/SKILL.md` — security-specific patterns.
 - `agents/architect.md` — agent that uses design patterns domain.
 - `agents/code-simplifier.md` — agent that uses Pythonic patterns.
 - `agents/codebase-mapper.md` — agent that uses Python module system domain.

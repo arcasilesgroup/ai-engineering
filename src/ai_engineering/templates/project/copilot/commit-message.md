@@ -2,8 +2,8 @@
 
 ## References
 
-- `.ai-engineering/skills/workflows/commit.md` — full commit workflow procedure.
-- `.ai-engineering/skills/workflows/pr.md` — PR creation procedure.
+- `.ai-engineering/skills/workflows/commit/SKILL.md` — full commit workflow procedure.
+- `.ai-engineering/skills/workflows/pr/SKILL.md` — PR creation procedure.
 
 ## Format
 

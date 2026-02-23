@@ -56,9 +56,9 @@ End-to-end verification agent who confirms the application works correctly from 
 
 ## Referenced Skills
 
-- `skills/dev/debug.md` — for investigating failures found during verification.
-- `skills/dev/migration.md` — migration testing procedure.
-- `skills/dev/test-strategy.md` — test design principles.
+- `skills/dev/debug/SKILL.md` — for investigating failures found during verification.
+- `skills/dev/migration/SKILL.md` — migration testing procedure.
+- `skills/dev/test-strategy/SKILL.md` — test design principles.
 - `skills/workflows/commit.md` — commit workflow specification.
 - `skills/workflows/pr.md` — PR workflow specification.
 - `skills/workflows/acho.md` — acho workflow specification.

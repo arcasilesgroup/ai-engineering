@@ -58,6 +58,6 @@ Execute branch hygiene before starting any new implementation work. Ensures the 
 ## References
 
 - `standards/framework/core.md` — non-negotiables and branch protection rules.
-- `skills/workflows/commit.md` — commit flow that happens after implementation.
-- `skills/workflows/cleanup.md` — standalone cleanup without branch creation (Phases 1-3 counterpart).
-- `skills/govern/create-spec.md` — spec creation that precedes implementation.
+- `skills/workflows/commit/SKILL.md` — commit flow that happens after implementation.
+- `skills/workflows/cleanup/SKILL.md` — standalone cleanup without branch creation (Phases 1-3 counterpart).
+- `skills/govern/create-spec/SKILL.md` — spec creation that precedes implementation.
