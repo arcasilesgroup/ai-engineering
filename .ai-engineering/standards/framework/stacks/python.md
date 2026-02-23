@@ -44,6 +44,20 @@
 - **Dependency injection**: services receive dependencies through constructors.
 - **Project layout**: `src/` layout with `pyproject.toml`.
 
+## Test Tiers
+
+| Tier | Marker | I/O | Gate | Description |
+|------|--------|-----|------|-------------|
+| Unit | `@pytest.mark.unit` | None | Pre-commit | Pure logic, no I/O, fast (<1s per test) |
+| Integration | `@pytest.mark.integration` | Local (filesystem, git) | Pre-push | Tests with local I/O (tmp_path, git init) |
+| E2E | `@pytest.mark.e2e` | Full stack | PR gate | End-to-end flows (install, CLI commands, hooks) |
+| Live | `@pytest.mark.live` | External APIs | Opt-in | Requires `AI_ENG_LIVE_TEST=1` env var |
+
+- Tests without an explicit marker are treated as **unit** by default.
+- Live tests are excluded from CI unless the environment variable is set.
+- Coverage targets apply to unit + integration tiers combined.
+- E2E tests validate behavior, not line coverage.
+
 ## Testing Patterns
 
 - One test file per module, AAA pattern (Arrange-Act-Assert).
