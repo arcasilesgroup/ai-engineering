@@ -1,0 +1,8 @@
+---
+description: "Software bill of materials generation"
+mode: "agent"
+---
+
+Read and execute the skill defined in `.ai-engineering/skills/quality/sbom.md`.
+
+Follow the complete procedure. Do not skip steps. Apply all governance notes.

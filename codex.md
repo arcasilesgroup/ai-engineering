@@ -114,6 +114,13 @@ Agent definitions provide personas for complex multi-step tasks. Activate the re
 - `.ai-engineering/agents/platform-auditor.md` — full-spectrum audit orchestration.
 - `.ai-engineering/agents/verify-app.md` — end-to-end verification.
 
+## Copilot Integration
+
+GitHub Copilot prompt files (`.github/prompts/`) and custom agents (`.github/agents/`) are thin wrappers deployed alongside Claude Code commands. They point to the same canonical skill and agent files.
+
+- `/commit`, `/pr`, `/cleanup`, etc. — workflow prompts.
+- `/dev-debug`, `/dev-refactor`, etc. — dev skill prompts.
+- `@debugger`, `@security-reviewer`, etc. — agent personas.
 
 ## Lifecycle Enforcement
 

@@ -146,6 +146,16 @@ _CLAUDE_COMMANDS_MIRROR = (
     "src/ai_engineering/templates/project/.claude/commands",
 )
 
+_COPILOT_PROMPTS_MIRROR = (
+    ".github/prompts",
+    "src/ai_engineering/templates/project/prompts",
+)
+
+_COPILOT_AGENTS_MIRROR = (
+    ".github/agents",
+    "src/ai_engineering/templates/project/agents",
+)
+
 # Skill/agent listing patterns in instruction files
 _SKILL_LINE_PATTERN = re.compile(r"^- `\.ai-engineering/skills/(.+\.md)`", re.MULTILINE)
 _AGENT_LINE_PATTERN = re.compile(r"^- `\.ai-engineering/agents/(.+\.md)`", re.MULTILINE)
@@ -393,6 +403,10 @@ def _check_mirror_sync(target: Path, report: IntegrityReport) -> None:
     # Claude commands mirror
     _check_claude_commands_mirror(target, report)
 
+    # Copilot prompts and agents mirrors
+    _check_copilot_prompts_mirror(target, report)
+    _check_copilot_agents_mirror(target, report)
+
     if mismatches == 0 and not (canonical_relatives - mirror_relatives):
         report.checks.append(
             IntegrityCheckResult(
@@ -461,6 +475,132 @@ def _check_claude_commands_mirror(target: Path, report: IntegrityReport) -> None
                 name="claude-commands-mirrors",
                 status=CheckStatus.OK,
                 message=f"All {len(canonical_files & mirror_files)} Claude command mirrors in sync",
+            )
+        )
+
+
+def _check_copilot_prompts_mirror(target: Path, report: IntegrityReport) -> None:
+    """Check .github/prompts/ mirror sync with templates."""
+    canonical_root = target / _COPILOT_PROMPTS_MIRROR[0]
+    mirror_root = target / _COPILOT_PROMPTS_MIRROR[1]
+
+    if not canonical_root.is_dir():
+        return  # .github/prompts/ is optional
+    if not mirror_root.is_dir():
+        report.checks.append(
+            IntegrityCheckResult(
+                category=IntegrityCategory.MIRROR_SYNC,
+                name="copilot-prompts-mirror-root",
+                status=CheckStatus.FAIL,
+                message="Copilot prompts mirror directory not found",
+            )
+        )
+        return
+
+    canonical_files = {
+        f.relative_to(canonical_root)
+        for f in sorted(canonical_root.rglob("*.prompt.md"))
+        if f.is_file()
+    }
+    mirror_files = {
+        f.relative_to(mirror_root) for f in sorted(mirror_root.rglob("*.prompt.md")) if f.is_file()
+    }
+
+    mismatches = 0
+    for rel in sorted(canonical_files & mirror_files):
+        if _sha256(canonical_root / rel) != _sha256(mirror_root / rel):
+            mismatches += 1
+            report.checks.append(
+                IntegrityCheckResult(
+                    category=IntegrityCategory.MIRROR_SYNC,
+                    name=f"copilot-prompt-desync-{rel.as_posix()}",
+                    status=CheckStatus.FAIL,
+                    message=f"Copilot prompt mirror desync: {rel.as_posix()}",
+                    file_path=rel.as_posix(),
+                )
+            )
+
+    for rel in sorted(canonical_files - mirror_files):
+        report.checks.append(
+            IntegrityCheckResult(
+                category=IntegrityCategory.MIRROR_SYNC,
+                name=f"copilot-prompt-missing-{rel.as_posix()}",
+                status=CheckStatus.FAIL,
+                message=f"Copilot prompt has no mirror: {rel.as_posix()}",
+                file_path=rel.as_posix(),
+            )
+        )
+
+    if mismatches == 0 and not (canonical_files - mirror_files):
+        report.checks.append(
+            IntegrityCheckResult(
+                category=IntegrityCategory.MIRROR_SYNC,
+                name="copilot-prompts-mirrors",
+                status=CheckStatus.OK,
+                message=f"All {len(canonical_files & mirror_files)} Copilot prompt mirrors in sync",
+            )
+        )
+
+
+def _check_copilot_agents_mirror(target: Path, report: IntegrityReport) -> None:
+    """Check .github/agents/ mirror sync with templates."""
+    canonical_root = target / _COPILOT_AGENTS_MIRROR[0]
+    mirror_root = target / _COPILOT_AGENTS_MIRROR[1]
+
+    if not canonical_root.is_dir():
+        return  # .github/agents/ is optional
+    if not mirror_root.is_dir():
+        report.checks.append(
+            IntegrityCheckResult(
+                category=IntegrityCategory.MIRROR_SYNC,
+                name="copilot-agents-mirror-root",
+                status=CheckStatus.FAIL,
+                message="Copilot agents mirror directory not found",
+            )
+        )
+        return
+
+    canonical_files = {
+        f.relative_to(canonical_root)
+        for f in sorted(canonical_root.rglob("*.agent.md"))
+        if f.is_file()
+    }
+    mirror_files = {
+        f.relative_to(mirror_root) for f in sorted(mirror_root.rglob("*.agent.md")) if f.is_file()
+    }
+
+    mismatches = 0
+    for rel in sorted(canonical_files & mirror_files):
+        if _sha256(canonical_root / rel) != _sha256(mirror_root / rel):
+            mismatches += 1
+            report.checks.append(
+                IntegrityCheckResult(
+                    category=IntegrityCategory.MIRROR_SYNC,
+                    name=f"copilot-agent-desync-{rel.as_posix()}",
+                    status=CheckStatus.FAIL,
+                    message=f"Copilot agent mirror desync: {rel.as_posix()}",
+                    file_path=rel.as_posix(),
+                )
+            )
+
+    for rel in sorted(canonical_files - mirror_files):
+        report.checks.append(
+            IntegrityCheckResult(
+                category=IntegrityCategory.MIRROR_SYNC,
+                name=f"copilot-agent-missing-{rel.as_posix()}",
+                status=CheckStatus.FAIL,
+                message=f"Copilot agent has no mirror: {rel.as_posix()}",
+                file_path=rel.as_posix(),
+            )
+        )
+
+    if mismatches == 0 and not (canonical_files - mirror_files):
+        report.checks.append(
+            IntegrityCheckResult(
+                category=IntegrityCategory.MIRROR_SYNC,
+                name="copilot-agents-mirrors",
+                status=CheckStatus.OK,
+                message=f"All {len(canonical_files & mirror_files)} Copilot agent mirrors in sync",
             )
         )
 

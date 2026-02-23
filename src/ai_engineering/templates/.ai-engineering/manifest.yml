@@ -38,6 +38,8 @@ ownership:
     - ".github/copilot/test-generation.md"
     - ".github/copilot/code-review.md"
     - ".github/copilot/commit-message.md"
+    - ".github/prompts/**"
+    - ".github/agents/**"
     - ".claude/settings.json"
     - ".claude/commands/**"
 

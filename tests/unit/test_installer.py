@@ -25,6 +25,7 @@ from ai_engineering.installer.operations import (
 )
 from ai_engineering.installer.service import InstallResult, install
 from ai_engineering.installer.templates import (
+    _PROJECT_TEMPLATE_TREES,
     copy_file_if_missing,
     copy_project_templates,
     copy_template_tree,
@@ -172,6 +173,27 @@ class TestCopyProjectTemplates:
 
         assert (tmp_path / "CLAUDE.md").read_text() == "custom"
         assert any(p.name == "CLAUDE.md" for p in result.skipped)
+
+    def test_project_template_trees_include_prompts_and_agents(self) -> None:
+        tree_map = dict(_PROJECT_TEMPLATE_TREES)
+        assert "prompts" in tree_map
+        assert tree_map["prompts"] == ".github/prompts"
+        assert "agents" in tree_map
+        assert tree_map["agents"] == ".github/agents"
+
+    def test_install_creates_github_prompts_dir(self, tmp_path: Path) -> None:
+        copy_project_templates(tmp_path)
+        prompts_dir = tmp_path / ".github" / "prompts"
+        assert prompts_dir.is_dir()
+        prompt_files = list(prompts_dir.glob("*.prompt.md"))
+        assert len(prompt_files) >= 1
+
+    def test_install_creates_github_agents_dir(self, tmp_path: Path) -> None:
+        copy_project_templates(tmp_path)
+        agents_dir = tmp_path / ".github" / "agents"
+        assert agents_dir.is_dir()
+        agent_files = list(agents_dir.glob("*.agent.md"))
+        assert len(agent_files) >= 1
 
 
 # ---------------------------------------------------------------------------

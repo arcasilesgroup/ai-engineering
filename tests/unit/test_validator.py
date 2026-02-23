@@ -535,6 +535,185 @@ class TestMirrorSync:
         assert len(desync_checks) >= 1
 
 
+def _setup_governance_mirror(root: Path) -> None:
+    """Create minimal governance template mirror so _check_mirror_sync doesn't early-return."""
+    ai = root / ".ai-engineering"
+    mirror_root = root / "src" / "ai_engineering" / "templates" / ".ai-engineering"
+    for subdir in ("skills", "agents", "standards/framework"):
+        src_dir = ai / subdir
+        if not src_dir.is_dir():
+            continue
+        for f in sorted(src_dir.rglob("*.md")):
+            rel = f.relative_to(ai)
+            dest = mirror_root / rel
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.write_bytes(f.read_bytes())
+
+
+class TestCopilotPromptsMirror:
+    """Tests for Copilot prompts mirror-sync validation."""
+
+    def test_copilot_prompts_mirror_sync_ok(self, tmp_path: Path) -> None:
+        _setup_full_project(tmp_path)
+        _setup_governance_mirror(tmp_path)
+        canonical = tmp_path / ".github" / "prompts"
+        mirror = tmp_path / "src" / "ai_engineering" / "templates" / "project" / "prompts"
+        canonical.mkdir(parents=True)
+        mirror.mkdir(parents=True)
+        content = "---\ndescription: test\nmode: agent\n---\nTest prompt.\n"
+        (canonical / "test.prompt.md").write_text(content, encoding="utf-8")
+        (mirror / "test.prompt.md").write_text(content, encoding="utf-8")
+        report = validate_content_integrity(
+            tmp_path,
+            categories=[IntegrityCategory.MIRROR_SYNC],
+        )
+        ok_checks = [
+            c
+            for c in report.checks
+            if c.name == "copilot-prompts-mirrors" and c.status == CheckStatus.OK
+        ]
+        assert len(ok_checks) == 1
+
+    def test_copilot_prompts_mirror_desync(self, tmp_path: Path) -> None:
+        _setup_full_project(tmp_path)
+        _setup_governance_mirror(tmp_path)
+        canonical = tmp_path / ".github" / "prompts"
+        mirror = tmp_path / "src" / "ai_engineering" / "templates" / "project" / "prompts"
+        canonical.mkdir(parents=True)
+        mirror.mkdir(parents=True)
+        (canonical / "test.prompt.md").write_text("canonical", encoding="utf-8")
+        (mirror / "test.prompt.md").write_text("different", encoding="utf-8")
+        report = validate_content_integrity(
+            tmp_path,
+            categories=[IntegrityCategory.MIRROR_SYNC],
+        )
+        fail_checks = [
+            c
+            for c in report.checks
+            if c.status == CheckStatus.FAIL and "copilot-prompt-desync" in c.name
+        ]
+        assert len(fail_checks) >= 1
+
+    def test_copilot_prompts_mirror_missing_root(self, tmp_path: Path) -> None:
+        _setup_full_project(tmp_path)
+        _setup_governance_mirror(tmp_path)
+        # Create canonical prompts but no mirror directory
+        canonical = tmp_path / ".github" / "prompts"
+        canonical.mkdir(parents=True)
+        (canonical / "test.prompt.md").write_text("content", encoding="utf-8")
+        report = validate_content_integrity(
+            tmp_path,
+            categories=[IntegrityCategory.MIRROR_SYNC],
+        )
+        fail_checks = [
+            c
+            for c in report.checks
+            if c.name == "copilot-prompts-mirror-root" and c.status == CheckStatus.FAIL
+        ]
+        assert len(fail_checks) == 1
+
+    def test_copilot_prompts_missing_mirror_file(self, tmp_path: Path) -> None:
+        _setup_full_project(tmp_path)
+        _setup_governance_mirror(tmp_path)
+        canonical = tmp_path / ".github" / "prompts"
+        mirror = tmp_path / "src" / "ai_engineering" / "templates" / "project" / "prompts"
+        canonical.mkdir(parents=True)
+        mirror.mkdir(parents=True)
+        # File exists in canonical but not in mirror
+        (canonical / "orphan.prompt.md").write_text("content", encoding="utf-8")
+        report = validate_content_integrity(
+            tmp_path,
+            categories=[IntegrityCategory.MIRROR_SYNC],
+        )
+        fail_checks = [
+            c
+            for c in report.checks
+            if c.status == CheckStatus.FAIL and "copilot-prompt-missing" in c.name
+        ]
+        assert len(fail_checks) >= 1
+
+
+class TestCopilotAgentsMirror:
+    """Tests for Copilot agents mirror-sync validation."""
+
+    def test_copilot_agents_mirror_sync_ok(self, tmp_path: Path) -> None:
+        _setup_full_project(tmp_path)
+        _setup_governance_mirror(tmp_path)
+        canonical = tmp_path / ".github" / "agents"
+        mirror = tmp_path / "src" / "ai_engineering" / "templates" / "project" / "agents"
+        canonical.mkdir(parents=True)
+        mirror.mkdir(parents=True)
+        content = "---\nname: Test\ndescription: test\n---\nTest agent.\n"
+        (canonical / "test.agent.md").write_text(content, encoding="utf-8")
+        (mirror / "test.agent.md").write_text(content, encoding="utf-8")
+        report = validate_content_integrity(
+            tmp_path,
+            categories=[IntegrityCategory.MIRROR_SYNC],
+        )
+        ok_checks = [
+            c
+            for c in report.checks
+            if c.name == "copilot-agents-mirrors" and c.status == CheckStatus.OK
+        ]
+        assert len(ok_checks) == 1
+
+    def test_copilot_agents_mirror_desync(self, tmp_path: Path) -> None:
+        _setup_full_project(tmp_path)
+        _setup_governance_mirror(tmp_path)
+        canonical = tmp_path / ".github" / "agents"
+        mirror = tmp_path / "src" / "ai_engineering" / "templates" / "project" / "agents"
+        canonical.mkdir(parents=True)
+        mirror.mkdir(parents=True)
+        (canonical / "test.agent.md").write_text("canonical", encoding="utf-8")
+        (mirror / "test.agent.md").write_text("different", encoding="utf-8")
+        report = validate_content_integrity(
+            tmp_path,
+            categories=[IntegrityCategory.MIRROR_SYNC],
+        )
+        fail_checks = [
+            c
+            for c in report.checks
+            if c.status == CheckStatus.FAIL and "copilot-agent-desync" in c.name
+        ]
+        assert len(fail_checks) >= 1
+
+    def test_copilot_agents_mirror_missing_root(self, tmp_path: Path) -> None:
+        _setup_full_project(tmp_path)
+        _setup_governance_mirror(tmp_path)
+        canonical = tmp_path / ".github" / "agents"
+        canonical.mkdir(parents=True)
+        (canonical / "test.agent.md").write_text("content", encoding="utf-8")
+        report = validate_content_integrity(
+            tmp_path,
+            categories=[IntegrityCategory.MIRROR_SYNC],
+        )
+        fail_checks = [
+            c
+            for c in report.checks
+            if c.name == "copilot-agents-mirror-root" and c.status == CheckStatus.FAIL
+        ]
+        assert len(fail_checks) == 1
+
+    def test_copilot_agents_missing_mirror_file(self, tmp_path: Path) -> None:
+        _setup_full_project(tmp_path)
+        _setup_governance_mirror(tmp_path)
+        canonical = tmp_path / ".github" / "agents"
+        mirror = tmp_path / "src" / "ai_engineering" / "templates" / "project" / "agents"
+        canonical.mkdir(parents=True)
+        mirror.mkdir(parents=True)
+        (canonical / "orphan.agent.md").write_text("content", encoding="utf-8")
+        report = validate_content_integrity(
+            tmp_path,
+            categories=[IntegrityCategory.MIRROR_SYNC],
+        )
+        fail_checks = [
+            c
+            for c in report.checks
+            if c.status == CheckStatus.FAIL and "copilot-agent-missing" in c.name
+        ]
+        assert len(fail_checks) >= 1
+
+
 # -- Category 3: Counter Accuracy -----------------------------------------
 
 
