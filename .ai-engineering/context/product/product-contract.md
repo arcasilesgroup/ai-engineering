@@ -46,7 +46,7 @@ This project dogfoods the ai-engineering framework on itself.
 
 ## Active Spec
 
-Spec-019: GitHub Copilot Prompt Files & Custom Agents Integration. Last completed: Spec-018.
+Spec-020: Multi-Agent Model Evolution. Last completed: Spec-019.
 
 ## KPIs
 
