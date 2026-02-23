@@ -42,6 +42,7 @@ Procedural skills guide structured execution. Reference the relevant skill befor
 - `.ai-engineering/skills/workflows/pr.md` — `/pr` flow.
 - `.ai-engineering/skills/workflows/acho.md` — `/acho` alias.
 - `.ai-engineering/skills/workflows/pre-implementation.md` — branch hygiene before implementation.
+- `.ai-engineering/skills/workflows/cleanup.md` — branch cleanup and stale branch removal.
 
 ### Dev Skills
 
