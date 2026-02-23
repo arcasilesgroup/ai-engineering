@@ -321,10 +321,18 @@ class TestUninstallHooks:
 # ---------------------------------------------------------------------------
 
 
+def _setup_manifest(project_root: Path) -> None:
+    """Create a default install-manifest so hook hashes can be recorded."""
+    state_dir = project_root / ".ai-engineering" / "state"
+    state_dir.mkdir(parents=True, exist_ok=True)
+    write_json_model(state_dir / "install-manifest.json", default_install_manifest())
+
+
 class TestVerifyHooks:
     """Tests for hook integrity verification."""
 
     def test_all_valid_after_install(self, git_hooks_dir: Path) -> None:
+        _setup_manifest(git_hooks_dir)
         install_hooks(git_hooks_dir)
         status = verify_hooks(git_hooks_dir)
         assert all(status.values())
@@ -334,9 +342,18 @@ class TestVerifyHooks:
         assert all(v is False for v in status.values())
 
     def test_tampered_hook_reports_false(self, git_hooks_dir: Path) -> None:
+        _setup_manifest(git_hooks_dir)
         install_hooks(git_hooks_dir)
         hook_path = git_hooks_dir / ".git" / "hooks" / "pre-commit"
         hook_path.write_text("#!/bin/bash\ntampered")
         status = verify_hooks(git_hooks_dir)
         assert status["pre-commit"] is False
         assert status["commit-msg"] is True
+
+    def test_fails_when_no_hash_in_manifest(self, git_hooks_dir: Path) -> None:
+        """Managed hooks without recorded hashes fail verification (fail-closed)."""
+        # Install hooks WITHOUT a manifest — hashes are not recorded
+        install_hooks(git_hooks_dir)
+        status = verify_hooks(git_hooks_dir)
+        # All hooks are managed but have no hashes — must fail
+        assert all(v is False for v in status.values())

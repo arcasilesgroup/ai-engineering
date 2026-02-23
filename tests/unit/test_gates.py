@@ -5,10 +5,11 @@ Covers:
 - Pre-commit gate checks (ruff format, ruff lint, gitleaks, risk warnings).
 - Commit-msg validation (format rules).
 - Pre-push gate checks (semgrep, pip-audit, tests, ty, expired risk blocking).
-- Tool-not-found graceful skip.
+- Tool-not-found behavior (fail-closed default).
 - GateResult aggregation.
 - Risk expiry warnings (pre-commit, non-blocking).
 - Risk expired blocking (pre-push, blocking).
+- Security tool configs are required.
 """
 
 from __future__ import annotations
@@ -285,6 +286,35 @@ class TestToolCheckRequired:
             )
         check = _find_check(result, "test-tool")
         assert "exited with code 1" in check.output
+
+    def test_default_required_is_true(self, tmp_path: Path) -> None:
+        """_run_tool_check defaults to required=True (fail-closed)."""
+        result = GateResult(hook=GateHook.PRE_COMMIT)
+        with patch("ai_engineering.policy.gates.shutil.which", return_value=None):
+            _run_tool_check(
+                result,
+                name="default-tool",
+                cmd=["nonexistent-tool", "check"],
+                cwd=tmp_path,
+                # No required= argument — uses default
+            )
+        check = _find_check(result, "default-tool")
+        assert not check.passed, "Default required should be True (fail-closed)"
+
+    def test_security_tools_are_required(self) -> None:
+        """Gitleaks and semgrep check configs have required=True."""
+        from ai_engineering.policy.gates import _PRE_COMMIT_CHECKS, _PRE_PUSH_CHECKS
+
+        gitleaks_configs = [
+            c for checks in _PRE_COMMIT_CHECKS.values() for c in checks if "gitleaks" in c.name
+        ]
+        semgrep_configs = [
+            c for checks in _PRE_PUSH_CHECKS.values() for c in checks if "semgrep" in c.name
+        ]
+        assert gitleaks_configs, "gitleaks must be in pre-commit registry"
+        assert semgrep_configs, "semgrep must be in pre-push registry"
+        for config in gitleaks_configs + semgrep_configs:
+            assert config.required is True, f"{config.name} must be required"
 
 
 # ---------------------------------------------------------------------------

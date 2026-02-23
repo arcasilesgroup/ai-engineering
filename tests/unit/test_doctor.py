@@ -4,6 +4,7 @@ Covers:
 - Layout validation (framework dirs present/missing).
 - State file integrity checks.
 - Hook verification and fix-hooks remediation.
+- Venv health checks (stale, missing, valid).
 - Tool availability checks.
 - Branch policy warnings.
 - Report serialization and summary.
@@ -20,6 +21,8 @@ from ai_engineering.doctor.service import (
     CheckResult,
     CheckStatus,
     DoctorReport,
+    _parse_pyvenv_home,
+    _recreate_venv,
     diagnose,
 )
 from ai_engineering.installer.service import install
@@ -149,6 +152,166 @@ class TestHookChecks:
         report = diagnose(installed_git_project)
         hook_check = _find_check(report, "git-hooks")
         assert hook_check.status == CheckStatus.OK
+
+
+# ---------------------------------------------------------------------------
+# Venv health checks
+# ---------------------------------------------------------------------------
+
+
+class TestVenvHealthCheck:
+    """Tests for venv health validation."""
+
+    def test_ok_when_home_path_exists(self, installed_project: Path) -> None:
+        """Venv health passes when pyvenv.cfg home points to existing dir."""
+        venv = installed_project / ".venv"
+        venv.mkdir(exist_ok=True)
+        cfg = venv / "pyvenv.cfg"
+        # Point home to an existing directory (the tmp_path itself)
+        cfg.write_text(f"home = {installed_project}\n", encoding="utf-8")
+        report = diagnose(installed_project)
+        check = _find_check(report, "venv-health")
+        assert check.status == CheckStatus.OK
+
+    def test_fails_when_home_path_stale(self, installed_project: Path) -> None:
+        """Venv health fails when pyvenv.cfg home points to nonexistent dir."""
+        venv = installed_project / ".venv"
+        venv.mkdir(exist_ok=True)
+        cfg = venv / "pyvenv.cfg"
+        cfg.write_text("home = /nonexistent/stale/python/path\n", encoding="utf-8")
+        report = diagnose(installed_project)
+        check = _find_check(report, "venv-health")
+        assert check.status == CheckStatus.FAIL
+        assert "Stale venv" in check.message
+
+    def test_warns_when_no_venv(self, installed_project: Path) -> None:
+        """Venv health warns when .venv directory is absent."""
+        # installed_project should not have .venv by default
+        venv = installed_project / ".venv"
+        if venv.exists():
+            import shutil
+
+            shutil.rmtree(venv)
+        report = diagnose(installed_project)
+        check = _find_check(report, "venv-health")
+        assert check.status == CheckStatus.WARN
+
+    def test_fixed_when_recreated(self, installed_project: Path) -> None:
+        """Venv health is fixed when fix_tools recreates stale venv."""
+        from unittest.mock import patch
+
+        venv = installed_project / ".venv"
+        venv.mkdir(exist_ok=True)
+        cfg = venv / "pyvenv.cfg"
+        cfg.write_text("home = /nonexistent/stale/python/path\n", encoding="utf-8")
+
+        # Mock _recreate_venv to simulate successful recreation
+        with patch(
+            "ai_engineering.doctor.service._recreate_venv",
+            return_value=True,
+        ):
+            report = diagnose(installed_project, fix_tools=True)
+        check = _find_check(report, "venv-health")
+        assert check.status == CheckStatus.FIXED
+
+    def test_warns_when_no_pyvenv_cfg(self, installed_project: Path) -> None:
+        """Venv health warns when .venv exists but pyvenv.cfg is absent."""
+        venv = installed_project / ".venv"
+        venv.mkdir(exist_ok=True)
+        # No pyvenv.cfg created
+        report = diagnose(installed_project)
+        check = _find_check(report, "venv-health")
+        assert check.status == CheckStatus.WARN
+        assert "pyvenv.cfg" in check.message
+
+    def test_warns_when_home_not_parseable(self, installed_project: Path) -> None:
+        """Venv health warns when pyvenv.cfg has no home key."""
+        venv = installed_project / ".venv"
+        venv.mkdir(exist_ok=True)
+        cfg = venv / "pyvenv.cfg"
+        cfg.write_text("version = 3.12\nno-home-here = true\n", encoding="utf-8")
+        report = diagnose(installed_project)
+        check = _find_check(report, "venv-health")
+        assert check.status == CheckStatus.WARN
+        assert "parse" in check.message.lower()
+
+    def test_recreation_failure_reports_fail(self, installed_project: Path) -> None:
+        """Venv recreation failure reports FAIL status."""
+        from unittest.mock import patch
+
+        venv = installed_project / ".venv"
+        venv.mkdir(exist_ok=True)
+        cfg = venv / "pyvenv.cfg"
+        cfg.write_text("home = /nonexistent/stale/python/path\n", encoding="utf-8")
+
+        with patch(
+            "ai_engineering.doctor.service._recreate_venv",
+            return_value=False,
+        ):
+            report = diagnose(installed_project, fix_tools=True)
+        check = _find_check(report, "venv-health")
+        assert check.status == CheckStatus.FAIL
+
+
+class TestParsePyvenvHome:
+    """Tests for _parse_pyvenv_home helper."""
+
+    def test_extracts_home_path(self, tmp_path: Path) -> None:
+        cfg = tmp_path / "pyvenv.cfg"
+        cfg.write_text("home = /opt/homebrew/bin\nversion = 3.12\n", encoding="utf-8")
+        assert _parse_pyvenv_home(cfg) == "/opt/homebrew/bin"
+
+    def test_returns_none_when_no_home(self, tmp_path: Path) -> None:
+        cfg = tmp_path / "pyvenv.cfg"
+        cfg.write_text("version = 3.12\n", encoding="utf-8")
+        assert _parse_pyvenv_home(cfg) is None
+
+    def test_returns_none_on_os_error(self, tmp_path: Path) -> None:
+        cfg = tmp_path / "nonexistent" / "pyvenv.cfg"
+        assert _parse_pyvenv_home(cfg) is None
+
+
+class TestRecreateVenv:
+    """Tests for _recreate_venv helper."""
+
+    def test_uses_python_version_pin(self, tmp_path: Path) -> None:
+        from unittest.mock import patch
+
+        (tmp_path / ".python-version").write_text("3.12\n", encoding="utf-8")
+
+        with patch("ai_engineering.doctor.service.subprocess.run") as mock_run:
+            mock_run.return_value = None
+            result = _recreate_venv(tmp_path)
+
+        assert result is True
+        call_args = mock_run.call_args
+        cmd = call_args[0][0]
+        assert "--python" in cmd
+        assert "3.12" in cmd
+
+    def test_works_without_python_version(self, tmp_path: Path) -> None:
+        from unittest.mock import patch
+
+        with patch("ai_engineering.doctor.service.subprocess.run") as mock_run:
+            mock_run.return_value = None
+            result = _recreate_venv(tmp_path)
+
+        assert result is True
+        call_args = mock_run.call_args
+        cmd = call_args[0][0]
+        assert "--python" not in cmd
+
+    def test_returns_false_on_failure(self, tmp_path: Path) -> None:
+        import subprocess as sp
+        from unittest.mock import patch
+
+        with patch(
+            "ai_engineering.doctor.service.subprocess.run",
+            side_effect=sp.CalledProcessError(1, "uv"),
+        ):
+            result = _recreate_venv(tmp_path)
+
+        assert result is False
 
 
 # ---------------------------------------------------------------------------

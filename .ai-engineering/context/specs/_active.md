@@ -1,15 +1,14 @@
 ---
-active: "none"
+active: "018-env-stability-governance-hardening"
 updated: "2026-02-23"
 ---
 
 # Active Spec
 
-No active spec.
-Last completed: `017-openclaw-carryover-remediation`.
+Spec-018: Environment Stability & Governance Enforcement Hardening.
 
 ## Quick Resume
 
-1. Read `017-openclaw-carryover-remediation/done.md` for latest closure context.
-2. Check `state/decision-store.json` — decisions already taken (do not re-ask).
-3. Create a new spec before next non-trivial implementation.
+1. Read `018-env-stability-governance-hardening/spec.md` for scope and acceptance criteria.
+2. Read `018-env-stability-governance-hardening/tasks.md` for current progress.
+3. Check `state/decision-store.json` — decisions already taken (do not re-ask).

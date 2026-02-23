@@ -3,6 +3,20 @@
     "allow": [
       "*"
     ],
-    "deny": []
+    "deny": [
+      "Bash(rm -rf *)",
+      "Bash(git push --force *)",
+      "Bash(git push -f *)",
+      "Bash(git reset --hard *)",
+      "Bash(git checkout -- . *)",
+      "Bash(git checkout . *)",
+      "Bash(git restore . *)",
+      "Bash(git clean -f *)",
+      "Bash(git commit*--no-verify*)",
+      "Bash(git push*--no-verify*)",
+      "Bash(git merge*--no-verify*)",
+      "Bash(git rebase*--no-verify*)",
+      "Bash(*--no-verify*)"
+    ]
   }
 }

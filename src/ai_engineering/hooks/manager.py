@@ -292,7 +292,9 @@ def verify_hooks(project_root: Path) -> dict[str, bool]:
         if expected_hash:
             status[hook.value] = _hook_sha256(hook_path) == expected_hash
         else:
-            status[hook.value] = True
+            # No hash recorded in manifest — hook integrity cannot be verified.
+            # Fail-closed: treat as unverified.
+            status[hook.value] = False
 
     return status
 

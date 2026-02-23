@@ -2,9 +2,9 @@
 
 ## Update Metadata
 
-- Rationale: align with framework-contract.md v2 tooling baseline and coding patterns for rewrite.
-- Expected gain: predictable Python baseline with explicit patterns for AI-assisted code generation.
-- Potential impact: tooling requirements and code patterns become enforceable during generation and review.
+- Rationale: add Python version pinning and venv stability requirements for deterministic environment resolution.
+- Expected gain: eliminates intermittent tool resolution failures caused by PATH and venv invalidation.
+- Potential impact: `.python-version` becomes a required file; venv health is checked by `ai-eng doctor`.
 
 ## Stack Scope
 
@@ -32,6 +32,20 @@
 - Test coverage target: 100%.
 - Line length: 100.
 - Docstrings: Google-style on all public functions and classes.
+
+## Python Version Pinning
+
+- A `.python-version` file MUST exist at the repository root.
+- Content: major.minor only (e.g., `3.12`), no patch version.
+- `uv` reads this file to resolve the correct Python binary across all contexts (terminal, hooks, subprocesses).
+- The pinned version must satisfy `pyproject.toml requires-python`.
+
+## Venv Stability
+
+- The project venv at `.venv/` is created via `uv venv --python <version>`.
+- `ai-eng doctor` validates venv health by checking that `.venv/pyvenv.cfg` `home` path exists on disk.
+- If the home path becomes stale (e.g., after `brew upgrade python`), `ai-eng doctor --fix-tools` recreates the venv.
+- Prefer `uv python install <version>` for standalone Python (independent of system package manager) to avoid venv invalidation on system upgrades.
 
 ## Code Patterns
 
