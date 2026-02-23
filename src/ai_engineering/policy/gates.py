@@ -433,19 +433,21 @@ def _run_tool_check(
     name: str,
     cmd: list[str],
     cwd: Path,
-    required: bool = False,
+    required: bool = True,
 ) -> None:
     """Run a tool command and record the result.
 
     If the tool is not found on PATH, behavior depends on ``required``:
-    when True the check fails; when False it is skipped with a warning.
+    when True the check fails (default, fail-closed); when False it is
+    skipped with a warning.
 
     Args:
         result: GateResult to append check to.
         name: Human-readable check name.
         cmd: Command and arguments to run.
         cwd: Working directory for the command.
-        required: If True, missing tool causes check failure.
+        required: If True, missing tool causes check failure. Defaults to True
+            (fail-closed). All registered check configs pass this explicitly.
     """
     tool_name = cmd[0]
     if not shutil.which(tool_name):
