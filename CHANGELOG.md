@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- GitHub Copilot prompt files (`.github/prompts/`) — 46 prompt wrappers mapping to all skills, available as `/command` in Copilot Chat.
+- GitHub Copilot custom agents (`.github/agents/`) — 9 agent wrappers available in VS Code agent dropdown.
+- Copilot prompts and agents mirror-sync validation in `ai-eng validate`.
+- Installer deploys `.github/prompts/` and `.github/agents/` on `ai-eng install`.
 - Contract-compliance skill for clause-by-clause framework contract validation.
 - Ownership-audit skill for ownership boundary and updater safety validation.
 - Docs-audit skill for documentation and content quality auditing.

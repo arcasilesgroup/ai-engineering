@@ -120,6 +120,14 @@ Agent definitions provide personas for complex multi-step tasks. Activate the re
 
 In Claude Code, all skills and agents are available as slash commands via `.claude/commands/`. Each command is a thin wrapper that reads the canonical skill/agent file. See `CLAUDE.md` for the full command surface.
 
+## Copilot Integration
+
+GitHub Copilot prompt files (`.github/prompts/`) and custom agents (`.github/agents/`) are thin wrappers deployed alongside Claude Code commands. They point to the same canonical skill and agent files.
+
+- `/commit`, `/pr`, `/cleanup`, etc. — workflow prompts.
+- `/dev-debug`, `/dev-refactor`, etc. — dev skill prompts.
+- `@debugger`, `@security-reviewer`, etc. — agent personas.
+
 ## Lifecycle Enforcement
 
 Every non-trivial change follows:
