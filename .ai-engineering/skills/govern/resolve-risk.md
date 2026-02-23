@@ -1,3 +1,10 @@
+---
+name: resolve-risk
+version: 1.0.0
+category: govern
+tags: [governance, risk, remediation, closure]
+---
+
 # Resolve Risk
 
 ## Purpose

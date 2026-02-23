@@ -1,3 +1,10 @@
+---
+name: code-review
+version: 1.0.0
+category: dev
+tags: [review, quality, patterns, best-practices]
+---
+
 # Code Review
 
 ## Purpose
@@ -8,6 +15,13 @@ Deep code review skill covering security, quality, performance, and maintainabil
 
 - Command: agent invokes code-review skill or user requests a review.
 - Context: PR review, pre-merge validation, code audit.
+
+## When NOT to Use
+
+- **Architecture-level analysis** (dependency graphs, coupling metrics, drift detection) — use `review:architecture` instead.
+- **Dedicated security audit** (OWASP assessment, secret scanning, SAST tooling) — use `review:security` instead.
+- **Quality gate enforcement** (coverage thresholds, complexity metrics, PASS/FAIL verdict) — use `quality:audit-code` instead.
+- **Refactoring** (improving code structure without changing behavior) — use `dev:refactor` instead.
 
 ## Procedure
 

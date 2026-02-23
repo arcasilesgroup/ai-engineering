@@ -1,3 +1,12 @@
+---
+name: audit-code
+version: 1.0.0
+category: quality
+tags: [quality, coverage, complexity, duplication, gate]
+requires:
+  bins: [ruff, ty]
+---
+
 # Audit Code
 
 ## Purpose
@@ -8,6 +17,13 @@ Execute a SonarQube-like quality gate assessment on the codebase. Evaluates cove
 
 - Command: agent invokes audit-code skill or user requests a quality audit.
 - Context: pre-release review, quality gate check, periodic codebase health assessment.
+
+## When NOT to Use
+
+- **Security-focused assessment** (OWASP, secrets, injection analysis) — use `review:security` instead. Audit-code runs basic security gates but does not perform deep security review.
+- **PR-level code review** (actionable feedback per file/function) — use `dev:code-review` instead.
+- **Governance content validation** (cross-references, mirrors, counters) — use `govern:integrity-check` instead.
+- **Test coverage strategy** (what to test, how to test) — use `dev:test-strategy` instead. Audit-code measures coverage; test-strategy designs it.
 
 ## Procedure
 

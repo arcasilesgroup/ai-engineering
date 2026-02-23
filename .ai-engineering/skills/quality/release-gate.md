@@ -1,3 +1,10 @@
+---
+name: release-gate
+version: 1.0.0
+category: quality
+tags: [quality, release, gate, go-no-go]
+---
+
 # Release Gate
 
 ## Purpose

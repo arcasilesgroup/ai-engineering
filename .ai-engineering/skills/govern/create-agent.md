@@ -1,3 +1,10 @@
+---
+name: create-agent
+version: 1.0.0
+category: govern
+tags: [governance, agent, registration, persona]
+---
+
 # Create Agent
 
 ## Purpose

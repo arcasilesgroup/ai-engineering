@@ -1,3 +1,10 @@
+---
+name: writer
+version: 1.0.0
+category: docs
+tags: [documentation, open-source, readme, guides]
+---
+
 # Doc Writer
 
 ## Purpose

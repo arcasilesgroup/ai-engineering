@@ -1,3 +1,10 @@
+---
+name: renew-risk
+version: 1.0.0
+category: govern
+tags: [governance, risk, renewal, extension]
+---
+
 # Renew Risk
 
 ## Purpose

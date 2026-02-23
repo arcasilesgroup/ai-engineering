@@ -1,3 +1,10 @@
+---
+name: acho
+version: 1.0.0
+category: workflows
+tags: [git, commit, push, alias]
+---
+
 # Acho Workflow
 
 ## Purpose

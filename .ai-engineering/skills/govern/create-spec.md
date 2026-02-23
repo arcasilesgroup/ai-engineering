@@ -1,3 +1,10 @@
+---
+name: create-spec
+version: 1.0.0
+category: govern
+tags: [governance, spec, lifecycle, planning]
+---
+
 # Create Spec
 
 ## Purpose

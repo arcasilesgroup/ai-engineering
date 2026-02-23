@@ -1,3 +1,10 @@
+---
+name: cicd-generate
+version: 1.0.0
+category: dev
+tags: [ci-cd, github-actions, azure-devops, automation]
+---
+
 # CI/CD Workflow Generation
 
 ## Purpose

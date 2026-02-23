@@ -1,3 +1,10 @@
+---
+name: test-strategy
+version: 1.0.0
+category: dev
+tags: [testing, coverage, test-design, tdd]
+---
+
 # Test Strategy
 
 ## Purpose
@@ -17,10 +24,11 @@ Define what to test, how to structure tests, and how to achieve meaningful cover
    - Refactoring: verify existing tests cover the target code first.
    - Governance-critical paths: 100% coverage (install, update, hooks, gates, commands).
 
-2. **Choose test level** — select appropriate test type.
-   - **Unit tests**: isolated logic, pure functions, model validation, state transformations.
-   - **Integration tests**: real filesystem (`tmp_path`), real `git init`, CLI runner, cross-module flows.
-   - **E2E tests**: full install/doctor cycle on empty and existing repos.
+2. **Choose test tier** — select appropriate tier per `standards/framework/stacks/python.md` Test Tiers.
+   - **Unit** (`@pytest.mark.unit`): isolated logic, pure functions, model validation, state transformations. No I/O. Runs at pre-commit gate.
+   - **Integration** (`@pytest.mark.integration`): real filesystem (`tmp_path`), real `git init`, CLI runner, cross-module flows. Runs at pre-push gate.
+   - **E2E** (`@pytest.mark.e2e`): full install/doctor cycle on empty and existing repos. Runs at PR gate.
+   - **Live** (`@pytest.mark.live`): tests requiring external APIs. Opt-in via `AI_ENG_LIVE_TEST=1`. Not part of standard CI.
 
 3. **Structure tests** — follow AAA pattern.
    - **Arrange**: set up preconditions, fixtures, test data.

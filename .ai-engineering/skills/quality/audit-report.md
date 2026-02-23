@@ -1,3 +1,10 @@
+---
+name: audit-report
+version: 1.0.0
+category: quality
+tags: [quality, reporting, metrics, verdict]
+---
+
 # Audit Report
 
 ## Purpose

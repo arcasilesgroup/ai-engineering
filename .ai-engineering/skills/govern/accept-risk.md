@@ -1,3 +1,10 @@
+---
+name: accept-risk
+version: 1.0.0
+category: govern
+tags: [governance, risk, acceptance, decision]
+---
+
 # Accept Risk
 
 ## Purpose

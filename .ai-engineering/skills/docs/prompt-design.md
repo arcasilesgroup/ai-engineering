@@ -1,3 +1,10 @@
+---
+name: prompt-design
+version: 1.0.0
+category: docs
+tags: [prompts, frameworks, ai-interaction, quality]
+---
+
 # Prompt Engineer
 
 ## Purpose

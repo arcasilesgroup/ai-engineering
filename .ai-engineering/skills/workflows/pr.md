@@ -1,3 +1,10 @@
+---
+name: pr
+version: 1.0.0
+category: workflows
+tags: [git, pull-request, ci, merge]
+---
+
 # PR Workflow
 
 ## Purpose

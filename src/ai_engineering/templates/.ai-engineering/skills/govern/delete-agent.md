@@ -1,3 +1,10 @@
+---
+name: delete-agent
+version: 1.0.0
+category: govern
+tags: [governance, agent, removal, cleanup]
+---
+
 # Delete Agent
 
 ## Purpose

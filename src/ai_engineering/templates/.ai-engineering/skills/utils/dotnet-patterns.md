@@ -1,3 +1,10 @@
+---
+name: dotnet-patterns
+version: 1.0.0
+category: utils
+tags: [dotnet, csharp, patterns, best-practices, code-generation]
+---
+
 # .NET Patterns
 
 ## Purpose

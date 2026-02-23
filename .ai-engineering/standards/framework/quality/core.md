@@ -33,12 +33,14 @@
 
 ## Gate Structure
 
-| Gate | Trigger | Checks |
-|------|---------|--------|
-| Pre-commit | `git commit` | ruff format, ruff check, gitleaks |
-| Pre-push | `git push` | semgrep, pip-audit, pytest, ty check |
-| PR | Pull request | All pre-push checks + coverage threshold + duplication check |
-| Quality audit | On-demand | Full Sonar-like analysis (skills/quality/audit-code.md) |
+| Gate | Trigger | Checks | Test Tiers |
+|------|---------|--------|------------|
+| Pre-commit | `git commit` | ruff format, ruff check, gitleaks | Unit |
+| Pre-push | `git push` | semgrep, pip-audit, pytest, ty check | Unit + Integration |
+| PR | Pull request | All pre-push checks + coverage threshold + duplication check | Unit + Integration + E2E |
+| Quality audit | On-demand | Full Sonar-like analysis (skills/quality/audit-code.md) | All (Live opt-in) |
+
+Test tier definitions are in `standards/framework/stacks/python.md`.
 
 ## Quality Metrics
 

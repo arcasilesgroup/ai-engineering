@@ -1,3 +1,10 @@
+---
+name: delete-skill
+version: 1.0.0
+category: govern
+tags: [governance, skill, removal, cleanup]
+---
+
 # Delete Skill
 
 ## Purpose
