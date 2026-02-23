@@ -58,11 +58,11 @@ Validation skill that checks the integrity of all governance content in `.ai-eng
 
 5. **Count skills in instruction files** — count the skill entries listed in `.github/copilot-instructions.md` under `## Skills`.
    - Count each `- \`.ai-engineering/skills/` line.
-   - Verify count matches ALL 6 instruction files (must be identical).
+   - Verify count matches ALL 7 instruction files (must be identical).
 
 6. **Count agents in instruction files** — count the agent entries listed under `## Agents`.
    - Count each `- \`.ai-engineering/agents/` line.
-   - Verify count matches ALL 6 instruction files (must be identical).
+   - Verify count matches ALL 7 instruction files (must be identical).
 
 7. **Verify product-contract counters** — compare instruction file counts against `product-contract.md`.
    - Active Objectives line must contain the correct skill and agent counts.
@@ -82,17 +82,20 @@ Validation skill that checks the integrity of all governance content in `.ai-eng
 
 ### Category 5: Instruction File Consistency
 
-10. **Verify all 6 instruction files are consistent** — compare skill and agent listings across all 6 files.
+10. **Verify all 7 instruction files are consistent** — compare skill and agent listings across all 7 files.
     - Extract the `## Skills` section from each file.
     - Extract the `## Agents` section from each file.
-    - All 6 files must list identical skills and agents (same entries, same descriptions).
+    - All 7 files must list identical skills and agents (same entries, same descriptions).
     - Report any file that differs from the others.
 
 11. **Verify subsection structure** — each instruction file must have these subsections under `## Skills`:
     - `### Workflows` — workflow skills.
-    - `### SWE Skills` — software engineering skills.
-    - `### Lifecycle Skills` — framework lifecycle skills.
+    - `### Dev Skills` — development skills.
+    - `### Review Skills` — review and assessment skills.
+    - `### Docs Skills` — documentation skills.
+    - `### Govern Skills` — governance skills.
     - `### Quality Skills` — quality audit skills.
+    - `### Utility Skills` — utility and helper skills.
     - Report missing subsections.
 
 ### Category 6: Manifest Coherence

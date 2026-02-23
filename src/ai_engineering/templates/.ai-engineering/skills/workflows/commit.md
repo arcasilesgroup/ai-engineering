@@ -1,3 +1,12 @@
+---
+name: commit
+version: 1.0.0
+category: workflows
+tags: [git, commit, push, hooks]
+requires:
+  bins: [gitleaks, ruff]
+---
+
 # Commit Workflow
 
 ## Purpose

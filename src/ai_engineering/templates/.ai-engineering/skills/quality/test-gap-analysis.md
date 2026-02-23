@@ -1,3 +1,10 @@
+---
+name: test-gap-analysis
+version: 1.0.0
+category: quality
+tags: [quality, testing, coverage, risk-mapping]
+---
+
 # Test Gap Analysis
 
 ## Purpose

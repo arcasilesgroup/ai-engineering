@@ -1,3 +1,10 @@
+---
+name: debug
+version: 1.0.0
+category: dev
+tags: [debugging, diagnosis, root-cause, troubleshooting]
+---
+
 # Debug
 
 ## Purpose

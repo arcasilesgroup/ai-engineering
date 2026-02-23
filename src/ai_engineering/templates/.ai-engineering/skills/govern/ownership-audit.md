@@ -1,3 +1,10 @@
+---
+name: ownership-audit
+version: 1.0.0
+category: govern
+tags: [governance, ownership, boundaries, updater-safety]
+---
+
 # Ownership Audit
 
 ## Purpose

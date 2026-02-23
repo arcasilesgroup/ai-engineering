@@ -1,3 +1,10 @@
+---
+name: changelog
+version: 1.0.0
+category: docs
+tags: [documentation, changelog, release-notes]
+---
+
 # Changelog Documentation
 
 ## Purpose

@@ -1,3 +1,10 @@
+---
+name: platform-detect
+version: 1.0.0
+category: utils
+tags: [platform, detection, github, azure-devops]
+---
+
 # Platform Detection Utility
 
 ## Purpose

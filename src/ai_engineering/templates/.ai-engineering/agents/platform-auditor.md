@@ -51,6 +51,7 @@ Full-spectrum audit orchestrator who executes a comprehensive repository audit b
 - `skills/review/dast.md` — dynamic application security testing.
 - `skills/review/container-security.md` — container image scanning.
 - `skills/quality/sbom.md` — software bill of materials generation.
+- `skills/dev/multi-agent.md` — orchestration patterns for parallel agent execution.
 
 ## Referenced Standards
 

@@ -45,7 +45,7 @@ End-to-end verification agent who confirms the application works correctly from 
 - `skills/workflows/commit.md` — commit workflow specification.
 - `skills/workflows/pr.md` — PR workflow specification.
 - `skills/workflows/acho.md` — acho workflow specification.
-- `skills/govern/integrity-check.md` — governance content validation (6-category check).
+- `skills/govern/integrity-check.md` — governance content validation (7-category check).
 - `skills/govern/contract-compliance.md` — contract clause validation for command contract verification.
 
 ## Referenced Standards

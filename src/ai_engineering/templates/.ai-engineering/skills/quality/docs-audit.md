@@ -1,3 +1,10 @@
+---
+name: docs-audit
+version: 1.0.0
+category: quality
+tags: [quality, documentation, audit, health-score]
+---
+
 # Docs Audit
 
 ## Purpose

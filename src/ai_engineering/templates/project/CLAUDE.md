@@ -71,7 +71,7 @@ Procedural skills guide structured execution. Reference the relevant skill befor
 
 ### Govern Skills
 
-- `.ai-engineering/skills/govern/integrity-check.md` — governance content validation (6-category check).
+- `.ai-engineering/skills/govern/integrity-check.md` — governance content validation (7-category check).
 - `.ai-engineering/skills/govern/contract-compliance.md` — clause-by-clause contract validation.
 - `.ai-engineering/skills/govern/ownership-audit.md` — ownership boundary and updater safety validation.
 - `.ai-engineering/skills/govern/create-agent.md` — agent authoring and registration procedure.
@@ -107,12 +107,12 @@ Procedural skills guide structured execution. Reference the relevant skill befor
 Skills and agents are available as Claude Code slash commands via `.claude/commands/`. Each command is a thin wrapper that reads and executes the canonical skill or agent file. No content is duplicated — the command files are pointers only (decision S0-008).
 
 - `/commit`, `/pr`, `/acho`, `/pre-implementation` — workflow commands.
-- `/dev:*` — dev skill commands (e.g., `/dev:debug`, `/dev:refactor`, `/dev:code-review`, `/dev:cicd-generate`).
+- `/dev:*` — dev skill commands (e.g., `/dev:debug`, `/dev:refactor`, `/dev:code-review`, `/dev:cicd-generate`, `/dev:multi-agent`).
 - `/review:*` — review skill commands (e.g., `/review:architecture`, `/review:security`, `/review:dast`, `/review:container-security`).
 - `/docs:*` — docs skill commands (e.g., `/docs:changelog`, `/docs:explain`).
 - `/govern:*` — governance skill commands (e.g., `/govern:create-spec`, `/govern:integrity-check`, `/govern:contract-compliance`, `/govern:ownership-audit`).
 - `/quality:*` — quality skill commands (`/quality:audit-code`, `/quality:audit-report`, `/quality:install-check`, `/quality:docs-audit`, `/quality:release-gate`, `/quality:test-gap-analysis`, `/quality:sbom`).
-- `/utils:*` — utility skill commands (`/utils:git-helpers`, `/utils:platform-detect`, `/utils:python-patterns`, `/utils:dotnet-patterns`, `/utils:nextjs-patterns`).
+- `/utils:*` — utility skill commands (`/utils:doctor`, `/utils:git-helpers`, `/utils:platform-detect`, `/utils:python-patterns`, `/utils:dotnet-patterns`, `/utils:nextjs-patterns`).
 - `/agent:*` — agent persona commands (e.g., `/agent:verify-app`, `/agent:debugger`, `/agent:platform-auditor`).
 
 ## Agents

@@ -1,3 +1,10 @@
+---
+name: pre-implementation
+version: 1.0.0
+category: workflows
+tags: [git, branch, sync, hygiene]
+---
+
 # Pre-Implementation Workflow
 
 ## Purpose

@@ -1,3 +1,12 @@
+---
+name: sbom
+version: 1.0.0
+category: quality
+tags: [quality, sbom, supply-chain, dependencies, cyclonedx]
+requires:
+  bins: [pip-audit]
+---
+
 # SBOM Generation
 
 ## Purpose

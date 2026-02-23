@@ -1,3 +1,10 @@
+---
+name: contract-compliance
+version: 1.0.0
+category: govern
+tags: [governance, compliance, contract, validation]
+---
+
 # Contract Compliance
 
 ## Purpose

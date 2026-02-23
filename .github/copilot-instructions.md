@@ -63,7 +63,7 @@ Procedural skills guide structured execution. Reference the relevant skill befor
 
 ### Govern Skills
 
-- `.ai-engineering/skills/govern/integrity-check.md` — governance content validation (6-category check).
+- `.ai-engineering/skills/govern/integrity-check.md` — governance content validation (7-category check).
 - `.ai-engineering/skills/govern/contract-compliance.md` — clause-by-clause contract validation.
 - `.ai-engineering/skills/govern/ownership-audit.md` — ownership boundary and updater safety validation.
 - `.ai-engineering/skills/govern/create-agent.md` — agent authoring and registration procedure.

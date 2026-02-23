@@ -1,3 +1,10 @@
+---
+name: install-check
+version: 1.0.0
+category: quality
+tags: [quality, installation, validation, readiness]
+---
+
 # Install Readiness Validation
 
 ## Purpose

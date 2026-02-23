@@ -1,3 +1,10 @@
+---
+name: python-patterns
+version: 1.0.0
+category: utils
+tags: [python, patterns, best-practices, code-generation]
+---
+
 # Python Mastery
 
 ## Purpose
