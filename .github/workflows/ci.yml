@@ -71,6 +71,9 @@ jobs:
     needs: [docs-scope]
     if: needs.docs-scope.outputs.code == 'true'
     runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
     strategy:
       fail-fast: false
       matrix:
@@ -111,6 +114,9 @@ jobs:
     needs: [docs-scope]
     if: needs.docs-scope.outputs.code == 'true'
     runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
     strategy:
       fail-fast: false
       matrix:
