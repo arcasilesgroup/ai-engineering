@@ -140,12 +140,18 @@ jobs:
           git -C smoke-repo config user.name "CI"
       - name: Install framework
         run: uv run ai-eng install smoke-repo
+        env:
+          PYTHONUTF8: "1"
       - name: Doctor diagnostics
         run: uv run ai-eng doctor smoke-repo --json
+        env:
+          PYTHONUTF8: "1"
       - name: Commit-msg gate smoke
         run: |
           printf "smoke commit" > smoke-repo/.git/COMMIT_EDITMSG
           uv run ai-eng gate commit-msg smoke-repo/.git/COMMIT_EDITMSG --target smoke-repo
+        env:
+          PYTHONUTF8: "1"
       - name: Hook verification smoke
         run: uv run python -c "from pathlib import Path; from ai_engineering.hooks.manager import verify_hooks; assert all(verify_hooks(Path('smoke-repo')).values())"
 
