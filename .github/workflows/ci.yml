@@ -194,8 +194,10 @@ jobs:
       - name: Install dependencies
         run: uv sync --dev
       - name: Install gitleaks
+        env:
+          GITLEAKS_VERSION: "8.30.0"
         run: |
-          curl -sSfL https://raw.githubusercontent.com/gitleaks/gitleaks/main/install.sh | sh -s -- -b /usr/local/bin
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" | tar xz -C /usr/local/bin gitleaks
       - name: gitleaks
         run: gitleaks detect --source . --config .gitleaks.toml --no-banner --redact
       - name: pip-audit
