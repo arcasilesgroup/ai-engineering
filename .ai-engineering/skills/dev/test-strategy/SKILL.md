@@ -1,8 +1,13 @@
 ---
 name: test-strategy
+description: "Design test strategy covering what to test, test tiers, and meaningful coverage; use when planning tests for new features, bug fixes, or refactoring."
 version: 1.0.0
 category: dev
 tags: [testing, coverage, test-design, tdd]
+metadata:
+  ai-engineering:
+    scope: read-only
+    token_estimate: 725
 ---
 
 # Test Strategy

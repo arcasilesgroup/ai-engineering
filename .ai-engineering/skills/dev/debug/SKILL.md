@@ -1,8 +1,13 @@
 ---
 name: debug
+description: "Systematic bug diagnosis using reproduce-isolate-identify-fix-test cycle; use when investigating unexpected behavior, test failures, or runtime errors."
 version: 1.0.0
 category: dev
 tags: [debugging, diagnosis, root-cause, troubleshooting]
+metadata:
+  ai-engineering:
+    scope: read-write
+    token_estimate: 625
 ---
 
 # Debug

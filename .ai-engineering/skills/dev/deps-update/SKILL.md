@@ -1,10 +1,15 @@
 ---
 name: deps-update
+description: "Audit, update, and validate project dependencies for security and compatibility; use when addressing vulnerabilities, outdated packages, or version bumps."
 version: 1.0.0
 category: dev
 tags: [dependencies, security, vulnerabilities, updates]
-requires:
-  bins: [pip-audit]
+metadata:
+  ai-engineering:
+    requires:
+      bins: [pip-audit]
+    scope: read-write
+    token_estimate: 675
 ---
 
 # Dependency Update

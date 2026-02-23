@@ -1,10 +1,15 @@
 ---
 name: audit-code
+description: "SonarQube-like quality gate assessment; use before merge or release to evaluate coverage, duplication, complexity, and security."
 version: 1.0.0
 category: quality
 tags: [quality, coverage, complexity, duplication, gate]
-requires:
-  bins: [ruff, ty]
+metadata:
+  ai-engineering:
+    requires:
+      bins: [ruff, ty]
+    scope: read-only
+    token_estimate: 1145
 ---
 
 # Audit Code

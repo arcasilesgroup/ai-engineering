@@ -1,9 +1,9 @@
 ---
 spec: "020"
 total: 38
-completed: 16
+completed: 19
 last_session: "2026-02-23"
-next_session: "Phase 3 — Skill Directory Migration (Dev + Review + Quality)"
+next_session: "Phase 4 — Skill Directory Migration (Docs + Patterns)"
 ---
 
 # Tasks — Multi-Agent Model Evolution
@@ -35,9 +35,9 @@ next_session: "Phase 3 — Skill Directory Migration (Dev + Review + Quality)"
 
 ## Phase 3: Skill Directory Migration — Dev + Review + Quality [L]
 
-- [ ] 3.1 Migrate all 8 `skills/dev/*.md` → `skills/dev/*/SKILL.md`
-- [ ] 3.2 Migrate all 5 `skills/review/*.md` → `skills/review/*/SKILL.md`
-- [ ] 3.3 Migrate all 7 `skills/quality/*.md` → `skills/quality/*/SKILL.md`
+- [x] 3.1 Migrate all 8 `skills/dev/*.md` → `skills/dev/*/SKILL.md`
+- [x] 3.2 Migrate all 5 `skills/review/*.md` → `skills/review/*/SKILL.md`
+- [x] 3.3 Migrate all 7 `skills/quality/*.md` → `skills/quality/*/SKILL.md`
 
 ## Phase 4: Skill Directory Migration — Docs + Patterns (rename) [M]
 

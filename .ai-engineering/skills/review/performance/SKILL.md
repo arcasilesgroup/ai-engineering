@@ -1,8 +1,13 @@
 ---
 name: performance
+description: "Profile and optimize performance bottlenecks with evidence-based measurement; use when diagnosing slow operations or high resource usage."
 version: 1.0.0
 category: review
 tags: [performance, profiling, optimization, bottlenecks]
+metadata:
+  ai-engineering:
+    scope: read-only
+    token_estimate: 650
 ---
 
 # Performance Analysis

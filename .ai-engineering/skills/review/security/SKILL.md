@@ -1,10 +1,15 @@
 ---
 name: security
+description: "Perform comprehensive security review covering OWASP risks, secrets, injection, and dependency vulnerabilities; use for pre-release audits or incident response."
 version: 1.0.0
 category: review
 tags: [security, sast, secrets, owasp, vulnerabilities]
-requires:
-  bins: [gitleaks, semgrep]
+metadata:
+  ai-engineering:
+    requires:
+      bins: [gitleaks, semgrep]
+    scope: read-only
+    token_estimate: 900
 ---
 
 # Security Review

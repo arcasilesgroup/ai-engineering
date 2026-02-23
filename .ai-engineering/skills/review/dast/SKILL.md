@@ -1,10 +1,15 @@
 ---
 name: dast
+description: "Run dynamic security scans with OWASP ZAP and Nuclei against live staging environments; use for post-deploy or pre-release verification."
 version: 1.0.0
 category: review
 tags: [security, dast, owasp-zap, nuclei, dynamic-testing]
-requires:
-  bins: [zap-cli, nuclei]
+metadata:
+  ai-engineering:
+    requires:
+      bins: [zap-cli, nuclei]
+    scope: read-only
+    token_estimate: 750
 ---
 
 # DAST (Dynamic Application Security Testing)

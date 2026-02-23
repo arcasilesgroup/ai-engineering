@@ -1,8 +1,13 @@
 ---
 name: release-gate
+description: "Aggregated GO/NO-GO release readiness gate; use before version tagging or merge-to-main to verify all quality dimensions pass."
 version: 1.0.0
 category: quality
 tags: [quality, release, gate, go-no-go]
+metadata:
+  ai-engineering:
+    scope: read-only
+    token_estimate: 1282
 ---
 
 # Release Gate
@@ -21,7 +26,7 @@ Executes a structured GO/NO-GO checklist across all quality dimensions for relea
 ### Phase 1: Gate Dimensions
 
 1. **Contract compliance** — verify framework contracts are satisfied.
-   - Invoke `govern/contract-compliance.md` or review most recent compliance report.
+   - Invoke `govern/contract-compliance/SKILL.md` or review most recent compliance report.
    - Gate: no FAIL clauses (PARTIAL acceptable with risk acceptance).
 
 2. **Security enforcement** — verify security posture.
@@ -35,7 +40,7 @@ Executes a structured GO/NO-GO checklist across all quality dimensions for relea
    - Check: /commit, /commit --only, /pr, /pr --only, /acho, /acho pr.
 
 4. **Ownership safety** — verify update flows respect boundaries.
-   - Invoke `govern/ownership-audit.md` or review most recent ownership report.
+   - Invoke `govern/ownership-audit/SKILL.md` or review most recent ownership report.
    - Gate: no ownership violations, updater safety confirmed.
 
 5. **Test confidence** — verify test coverage meets thresholds.
@@ -105,9 +110,9 @@ Executes a structured GO/NO-GO checklist across all quality dimensions for relea
 
 ## References
 
-- `skills/govern/contract-compliance.md` — contract compliance gate.
-- `skills/govern/ownership-audit.md` — ownership safety gate.
-- `skills/govern/integrity-check.md` — structural integrity gate.
+- `skills/govern/contract-compliance/SKILL.md` — contract compliance gate.
+- `skills/govern/ownership-audit/SKILL.md` — ownership safety gate.
+- `skills/govern/integrity-check/SKILL.md` — structural integrity gate.
 - `skills/quality/audit-code.md` — code quality gate.
 - `skills/quality/test-gap-analysis.md` — test confidence gate.
 - `skills/quality/docs-audit.md` — documentation coherence gate.

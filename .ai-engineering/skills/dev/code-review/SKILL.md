@@ -1,8 +1,13 @@
 ---
 name: code-review
+description: "Deep code review covering security, quality, performance, and maintainability; use for PR reviews, pre-merge validation, or code audits."
 version: 1.0.0
 category: dev
 tags: [review, quality, patterns, best-practices]
+metadata:
+  ai-engineering:
+    scope: read-only
+    token_estimate: 800
 ---
 
 # Code Review

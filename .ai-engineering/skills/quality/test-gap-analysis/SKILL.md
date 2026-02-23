@@ -1,8 +1,13 @@
 ---
 name: test-gap-analysis
+description: "Capability-to-test risk mapping; use before release or after refactoring to identify untested critical paths and coverage gaps."
 version: 1.0.0
 category: quality
 tags: [quality, testing, coverage, risk-mapping]
+metadata:
+  ai-engineering:
+    scope: read-only
+    token_estimate: 1173
 ---
 
 # Test Gap Analysis

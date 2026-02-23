@@ -1,8 +1,13 @@
 ---
 name: docs-audit
+description: "Documentation health audit for governance content; use for weekly maintenance, pre-release doc review, or content compaction."
 version: 1.0.0
 category: quality
 tags: [quality, documentation, audit, health-score]
+metadata:
+  ai-engineering:
+    scope: read-only
+    token_estimate: 1603
 ---
 
 # Docs Audit
@@ -145,11 +150,11 @@ Audits all governance documentation for location correctness, writing quality, s
 
 ## References
 
-- `skills/govern/integrity-check.md` — structural validation (complementary).
+- `skills/govern/integrity-check/SKILL.md` — structural validation (complementary).
 - `skills/docs/writer.md` — documentation generation standards.
 - `skills/docs/explain.md` — clarity standards for explanations.
-- `skills/govern/create-skill.md` — skill template structure.
-- `skills/govern/create-agent.md` — agent template structure.
+- `skills/govern/create-skill/SKILL.md` — skill template structure.
+- `skills/govern/create-agent/SKILL.md` — agent template structure.
 - `skills/quality/release-gate.md` — release readiness (documentation is a gate dimension).
 - `agents/platform-auditor.md` — orchestrator that invokes this skill.
 - `standards/framework/core.md` — ownership model and content rules.

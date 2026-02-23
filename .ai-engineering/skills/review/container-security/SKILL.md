@@ -1,10 +1,15 @@
 ---
 name: container-security
+description: "Scan container images with Trivy for CVEs, misconfigurations, and secrets; use before container promotion or deployment."
 version: 1.0.0
 category: review
 tags: [security, containers, trivy, docker, vulnerabilities]
-requires:
-  bins: [trivy]
+metadata:
+  ai-engineering:
+    requires:
+      bins: [trivy]
+    scope: read-only
+    token_estimate: 700
 ---
 
 # Container Security

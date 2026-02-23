@@ -1,8 +1,13 @@
 ---
 name: audit-report
+description: "Standardized quality audit report template; use to format results from audit-code into a structured PASS/FAIL report with metrics and findings."
 version: 1.0.0
 category: quality
 tags: [quality, reporting, metrics, verdict]
+metadata:
+  ai-engineering:
+    scope: read-only
+    token_estimate: 810
 ---
 
 # Audit Report

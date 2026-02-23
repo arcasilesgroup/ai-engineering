@@ -1,8 +1,13 @@
 ---
 name: cicd-generate
+description: "Generate stack-aware CI/CD workflow files from installed stacks and enforcement checks; use when setting up or modernizing CI/CD pipelines."
 version: 1.0.0
 category: dev
 tags: [ci-cd, github-actions, azure-devops, automation]
+metadata:
+  ai-engineering:
+    scope: read-write
+    token_estimate: 775
 ---
 
 # CI/CD Workflow Generation
