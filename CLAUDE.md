@@ -21,6 +21,21 @@ Before any non-trivial implementation work:
 
 This protocol is mandatory. Skipping it risks working on stale code, repeating decided questions, or creating merge conflicts.
 
+## Absolute Prohibitions for AI Agents
+
+The following actions are strictly forbidden. Violating any of these is a governance violation:
+
+1. **NEVER use `--no-verify`** on any git command (commit, push, merge, rebase).
+2. **NEVER skip or silence a failing gate check** — fix the root cause instead.
+3. **NEVER weaken gate severity** (change required to optional, remove tools from registries).
+4. **NEVER modify hook scripts manually** — they are hash-verified.
+5. **NEVER push to protected branches** (main, master) directly.
+6. **NEVER dismiss security findings** without formal risk acceptance in `state/decision-store.json`.
+7. **NEVER disable or modify `.claude/settings.json` deny rules**.
+8. **NEVER use destructive git commands** (`git reset --hard`, `git clean -f`, `git push --force`) unless the user explicitly requests it.
+
+If a gate fails: diagnose the root cause, fix it, then retry. Use `ai-eng doctor --fix-tools` or `ai-eng doctor --fix-hooks` for automated remediation.
+
 ## Required References
 
 Read these before any non-trivial work:
