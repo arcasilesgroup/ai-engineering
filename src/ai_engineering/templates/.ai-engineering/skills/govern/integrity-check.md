@@ -114,7 +114,7 @@ Validation skill that checks the integrity of all governance content in `.ai-eng
 
 14. **Verify all skills have YAML frontmatter** — each `.md` file in `skills/**` must start with a `---` YAML frontmatter block.
     - Required fields: `name` (string, kebab-case), `version` (string, semver), `category` (string, matching parent directory).
-    - Optional fields: `tags` (array of strings), `requires.bins` (array of strings).
+    - Optional fields: `tags` (array of strings), `requires.bins`, `requires.anyBins`, `requires.env`, `requires.config` (all arrays of strings), `os` (array of platform strings).
     - `name` must match the filename (without `.md` extension).
     - `category` must match the immediate parent directory name.
     - Report any skill missing frontmatter or with invalid field values.

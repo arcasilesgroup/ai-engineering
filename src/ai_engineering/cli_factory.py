@@ -91,7 +91,7 @@ def create_app() -> typer.Typer:
     - Core commands: install, update, doctor, version.
     - Stack/IDE commands: stack add/remove/list, ide add/remove/list.
     - Gate commands: gate pre-commit/commit-msg/pre-push/risk-check.
-    - Skills commands: skill list/sync/add/remove.
+    - Skills commands: skill list/sync/add/remove/status.
     - Maintenance commands: maintenance report/pr/branch-cleanup/risk-status/pipeline-compliance.
 
     Returns:
@@ -157,6 +157,7 @@ def create_app() -> typer.Typer:
     skill_app.command("sync")(_safe(skills.skill_sync))
     skill_app.command("add")(_safe(skills.skill_add))
     skill_app.command("remove")(_safe(skills.skill_remove))
+    skill_app.command("status")(_safe(skills.skill_status))
     app.add_typer(skill_app, name="skill")
 
     # Maintenance sub-group

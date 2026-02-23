@@ -166,6 +166,7 @@ class GitHooksStatus(BaseModel):
 
     installed: bool = False
     integrity_verified: bool = Field(default=False, alias="integrityVerified")
+    hook_hashes: dict[str, str] = Field(default_factory=dict, alias="hookHashes")
 
     model_config = {"populate_by_name": True}
 

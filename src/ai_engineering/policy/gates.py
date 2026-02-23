@@ -21,6 +21,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from ai_engineering.git.operations import PROTECTED_BRANCHES, current_branch
+from ai_engineering.hooks.manager import verify_hooks
 from ai_engineering.state.decision_logic import list_expired_decisions, list_expiring_soon
 from ai_engineering.state.io import read_json_model
 from ai_engineering.state.models import DecisionStore, GateHook, InstallManifest
@@ -81,6 +82,10 @@ def run_gate(
     if not result.passed:
         return result
 
+    _check_hook_integrity(project_root, result)
+    if not result.passed:
+        return result
+
     if hook == GateHook.PRE_COMMIT:
         _run_pre_commit_checks(project_root, result)
     elif hook == GateHook.COMMIT_MSG:
@@ -134,7 +139,32 @@ _PRE_PUSH_CHECKS: dict[str, list[CheckConfig]] = {
     ],
     "python": [
         CheckConfig(name="pip-audit", cmd=["pip-audit"]),
-        CheckConfig(name="stack-tests", cmd=["uv", "run", "pytest", "--tb=short", "-q"]),
+        CheckConfig(
+            name="stack-tests",
+            cmd=[
+                "uv",
+                "run",
+                "pytest",
+                "--tb=short",
+                "-q",
+                "--cov=src/ai_engineering",
+                "--cov-fail-under=100",
+            ],
+        ),
+        CheckConfig(
+            name="duplication-check",
+            cmd=[
+                "uv",
+                "run",
+                "python",
+                "-m",
+                "ai_engineering.policy.duplication",
+                "--path",
+                "src/ai_engineering",
+                "--threshold",
+                "3",
+            ],
+        ),
         CheckConfig(name="ty-check", cmd=["ty", "check", "src/ai_engineering"]),
     ],
     "dotnet": [
@@ -148,6 +178,8 @@ _PRE_PUSH_CHECKS: dict[str, list[CheckConfig]] = {
         CheckConfig(name="npm-audit", cmd=["npm", "audit"]),
     ],
 }
+
+_GATE_TRAILER = "Ai-Eng-Gate: passed"
 
 
 def _get_active_stacks(project_root: Path) -> list[str]:
@@ -280,6 +312,7 @@ def _run_commit_msg_checks(
             )
         )
     else:
+        _inject_gate_trailer(commit_msg_file)
         result.checks.append(
             GateCheckResult(
                 name="commit-msg-format",
@@ -287,6 +320,23 @@ def _run_commit_msg_checks(
                 output="Commit message format valid",
             )
         )
+
+
+def _inject_gate_trailer(commit_msg_file: Path) -> None:
+    """Append gate verification trailer if not already present."""
+    try:
+        content = commit_msg_file.read_text(encoding="utf-8")
+    except OSError:
+        return
+
+    if _GATE_TRAILER in content:
+        return
+
+    updated = content.rstrip() + f"\n\n{_GATE_TRAILER}\n"
+    try:
+        commit_msg_file.write_text(updated, encoding="utf-8")
+    except OSError:
+        return
 
 
 def _run_pre_push_checks(project_root: Path, result: GateResult) -> None:
@@ -301,6 +351,44 @@ def _run_pre_push_checks(project_root: Path, result: GateResult) -> None:
 
     # Expired risk acceptances (blocking)
     _check_expired_risk_acceptances(project_root, result)
+
+
+def _check_hook_integrity(project_root: Path, result: GateResult) -> None:
+    """Verify managed hooks are intact (marker + optional hash check)."""
+    hooks_dir = project_root / ".git" / "hooks"
+    if not hooks_dir.is_dir():
+        result.checks.append(
+            GateCheckResult(
+                name="hook-integrity",
+                passed=True,
+                output="No .git/hooks directory — skipped",
+            )
+        )
+        return
+
+    status = verify_hooks(project_root)
+    failing = [hook for hook, ok in status.items() if not ok and (hooks_dir / hook).exists()]
+    if failing:
+        result.checks.append(
+            GateCheckResult(
+                name="hook-integrity",
+                passed=False,
+                output=(
+                    "Hook integrity check failed for: "
+                    + ", ".join(sorted(failing))
+                    + ". Reinstall hooks with 'ai-eng doctor --fix-hooks'."
+                ),
+            )
+        )
+        return
+
+    result.checks.append(
+        GateCheckResult(
+            name="hook-integrity",
+            passed=True,
+            output="Hook integrity verified",
+        )
+    )
 
 
 def _run_checks_for_stacks(

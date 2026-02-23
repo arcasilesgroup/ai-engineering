@@ -1,7 +1,7 @@
 ---
 id: "015"
 slug: "multi-stack-security-quality"
-status: "in-progress"
+status: "completed"
 created: "2026-02-22"
 ---
 

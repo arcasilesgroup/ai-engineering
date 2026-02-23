@@ -43,7 +43,11 @@ Definitive procedure for authoring and registering a new skill in the ai-enginee
      category: <category>
      tags: [<relevant>, <tags>]
      requires:
-       bins: [<binary-deps>]  # optional, only if skill needs external binaries
+       bins: [<all-required-binaries>]     # optional
+       anyBins: [<alternative-binaries>]   # optional: at least one must exist
+       env: [<required-env-vars>]          # optional: e.g. OPENAI_API_KEY
+       config: [<required-config-paths>]   # optional: dotted config paths
+     os: [linux, darwin, win32]            # optional: supported OS list
      ---
 
      # Skill Name
@@ -64,6 +68,8 @@ Definitive procedure for authoring and registering a new skill in the ai-enginee
 
 4. **Validate structure** — confirm the skill file contains all required sections.
    - YAML frontmatter: `name`, `version`, `category` present and valid; `name` matches filename; `category` matches directory.
+   - If `requires` is present, each field (`bins`, `anyBins`, `env`, `config`) must be an array of strings.
+   - If `os` is present, it must be an array of platform identifiers (`linux`, `darwin`, `win32`).
    - Purpose: present and concise.
    - Trigger: command and context defined.
    - Procedure: at least one phase with numbered steps.

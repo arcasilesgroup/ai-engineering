@@ -1,15 +1,15 @@
 ---
-active: "016-openclaw-skill-hardening"
+active: "none"
 updated: "2026-02-23"
 ---
 
 # Active Spec
 
-Spec-016: OpenClaw-Inspired Skill & Standards Hardening.
-Branch: `feat/openclaw-skill-hardening`.
+No active spec.
+Last completed: `017-openclaw-carryover-remediation`.
 
 ## Quick Resume
 
-1. Read `016-openclaw-skill-hardening/spec.md` for scope.
-2. Read `016-openclaw-skill-hardening/tasks.md` for current progress.
-3. Check `state/decision-store.json` — decisions already taken (do not re-ask).
+1. Read `017-openclaw-carryover-remediation/done.md` for latest closure context.
+2. Check `state/decision-store.json` — decisions already taken (do not re-ask).
+3. Create a new spec before next non-trivial implementation.

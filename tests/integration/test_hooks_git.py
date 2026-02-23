@@ -6,7 +6,9 @@ actual ``git init`` repositories.
 
 from __future__ import annotations
 
+import os
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -121,3 +123,56 @@ class TestInstallHooksInRealRepo:
         assert result.conflicts[0].manager == "husky"
         # Hooks still installed despite conflicts (just warned)
         assert len(result.installed) == 3
+
+    def test_hook_blocks_commit_with_mock_secret(self, git_repo: Path) -> None:
+        install_hooks(git_repo)
+
+        tools_dir = git_repo / "mock-tools"
+        tools_dir.mkdir(parents=True, exist_ok=True)
+
+        # ai-eng shim invokes current source checkout
+        ai_eng_shim = tools_dir / "ai-eng"
+        ai_eng_shim.write_text(
+            (f'#!/usr/bin/env bash\n"{sys.executable}" -m ai_engineering.cli "$@"\n'),
+            encoding="utf-8",
+        )
+        ai_eng_shim.chmod(0o755)
+
+        # ruff shim (always passes)
+        ruff_shim = tools_dir / "ruff"
+        ruff_shim.write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
+        ruff_shim.chmod(0o755)
+
+        # gitleaks shim fails when mock secret token appears
+        gitleaks_shim = tools_dir / "gitleaks"
+        gitleaks_shim.write_text(
+            (
+                "#!/usr/bin/env bash\n"
+                'if grep -R "TEST_SECRET_TOKEN" . >/dev/null 2>&1; then\n'
+                '  echo "mock gitleaks: secret found" >&2\n'
+                "  exit 1\n"
+                "fi\n"
+                "exit 0\n"
+            ),
+            encoding="utf-8",
+        )
+        gitleaks_shim.chmod(0o755)
+
+        secret_file = git_repo / "secret.txt"
+        secret_file.write_text("TEST_SECRET_TOKEN\n", encoding="utf-8")
+        subprocess.run(["git", "add", "secret.txt"], cwd=git_repo, check=True, capture_output=True)
+
+        env = os.environ.copy()
+        env["PATH"] = f"{tools_dir}:{env.get('PATH', '')}"
+        repo_root = Path(__file__).resolve().parents[2]
+        env["PYTHONPATH"] = f"{repo_root / 'src'}:{env.get('PYTHONPATH', '')}"
+
+        commit = subprocess.run(
+            ["git", "commit", "-m", "test secret block"],
+            cwd=git_repo,
+            env=env,
+            capture_output=True,
+            text=True,
+        )
+        assert commit.returncode != 0
+        assert "gitleaks" in (commit.stdout + commit.stderr)

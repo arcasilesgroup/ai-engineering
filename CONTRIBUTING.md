@@ -76,6 +76,12 @@ Run a specific test file:
 pytest tests/unit/test_installer.py
 ```
 
+Diagnose local skill requirements (tools/env/config/os):
+
+```bash
+ai-eng skill status --all
+```
+
 ## Pull request process
 
 1. Create a feature branch from `main`:

@@ -1,12 +1,13 @@
 """Content integrity validation service for ai-engineering governance.
 
-Implements programmatic validation of the 6 content-integrity categories:
+Implements programmatic validation of the 7 content-integrity categories:
 1. File Existence — verify all internal path references resolve.
 2. Mirror Sync — SHA-256 compare canonical vs template mirrors.
 3. Counter Accuracy — skill/agent counts match across instruction files and product-contract.
 4. Cross-Reference Integrity — bidirectional reference validation.
 5. Instruction File Consistency — all 6 instruction files list identical skills/agents.
 6. Manifest Coherence — ownership globs match filesystem, active spec valid.
+7. Skill Frontmatter — required YAML metadata and requirement schema validity.
 """
 
 from __future__ import annotations
@@ -18,6 +19,8 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path
 
+import yaml
+
 
 class IntegrityCategory(StrEnum):
     """Categories of content-integrity validation."""
@@ -28,6 +31,7 @@ class IntegrityCategory(StrEnum):
     CROSS_REFERENCE = "cross-reference"
     INSTRUCTION_CONSISTENCY = "instruction-consistency"
     MANIFEST_COHERENCE = "manifest-coherence"
+    SKILL_FRONTMATTER = "skill-frontmatter"
 
 
 class CheckStatus(StrEnum):
@@ -917,16 +921,237 @@ def _check_manifest_coherence(target: Path, report: IntegrityReport) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Main entry point
+# Category 7: Skill Frontmatter
 # ---------------------------------------------------------------------------
 
-_CATEGORY_CHECKS: dict[
-    IntegrityCategory,
-    type[None],  # placeholder for callable type
-] = {}
 
-# Map category to checker function
-_CHECKERS: list[tuple[IntegrityCategory, type[None]]] = []
+_FRONTMATTER_RE = re.compile(r"^---\n(.*?)\n---\n", re.DOTALL)
+_SEMVER_RE = re.compile(r"^\d+\.\d+\.\d+$")
+_KEBAB_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+_SUPPORTED_OSES = {"linux", "darwin", "win32"}
+
+
+def _as_string_list(value: object) -> list[str] | None:
+    """Return *value* as list[str] when valid, else None."""
+    if not isinstance(value, list):
+        return None
+    if any(not isinstance(item, str) for item in value):
+        return None
+    return [item for item in value if isinstance(item, str)]
+
+
+def _validate_skill_identity(
+    frontmatter: dict[str, object],
+    file_stem: str,
+    parent_category: str,
+    rel: str,
+    report: IntegrityReport,
+) -> int:
+    """Validate name, version, and category fields. Returns failure count."""
+    failures = 0
+    name = frontmatter.get("name")
+    version = frontmatter.get("version")
+    category = frontmatter.get("category")
+
+    if not isinstance(name, str) or not _KEBAB_RE.fullmatch(name) or name != file_stem:
+        failures += 1
+        report.checks.append(
+            IntegrityCheckResult(
+                category=IntegrityCategory.SKILL_FRONTMATTER,
+                name="invalid-name",
+                status=CheckStatus.FAIL,
+                message=f"Frontmatter 'name' must be kebab-case and match filename ('{file_stem}')",
+                file_path=rel,
+            )
+        )
+
+    if not isinstance(version, str) or not _SEMVER_RE.fullmatch(version):
+        failures += 1
+        report.checks.append(
+            IntegrityCheckResult(
+                category=IntegrityCategory.SKILL_FRONTMATTER,
+                name="invalid-version",
+                status=CheckStatus.FAIL,
+                message="Frontmatter 'version' must be semver (e.g. 1.0.0)",
+                file_path=rel,
+            )
+        )
+
+    if not isinstance(category, str) or category != parent_category:
+        failures += 1
+        report.checks.append(
+            IntegrityCheckResult(
+                category=IntegrityCategory.SKILL_FRONTMATTER,
+                name="invalid-category",
+                status=CheckStatus.FAIL,
+                message=f"Frontmatter 'category' must match parent directory ('{parent_category}')",
+                file_path=rel,
+            )
+        )
+
+    return failures
+
+
+def _validate_skill_requires(
+    frontmatter: dict[str, object],
+    rel: str,
+    report: IntegrityReport,
+) -> int:
+    """Validate requires and os fields. Returns failure count."""
+    failures = 0
+
+    requires = frontmatter.get("requires")
+    if requires is not None:
+        if not isinstance(requires, dict):
+            failures += 1
+            report.checks.append(
+                IntegrityCheckResult(
+                    category=IntegrityCategory.SKILL_FRONTMATTER,
+                    name="invalid-requires",
+                    status=CheckStatus.FAIL,
+                    message="Frontmatter 'requires' must be an object",
+                    file_path=rel,
+                )
+            )
+        else:
+            req_dict: dict[str, object] = requires  # type: ignore[assignment]
+            for req_key in ("bins", "anyBins", "env", "config"):
+                if req_key in req_dict and _as_string_list(req_dict[req_key]) is None:
+                    failures += 1
+                    report.checks.append(
+                        IntegrityCheckResult(
+                            category=IntegrityCategory.SKILL_FRONTMATTER,
+                            name=f"invalid-requires-{req_key}",
+                            status=CheckStatus.FAIL,
+                            message=f"Frontmatter requires.{req_key} must be a list of strings",
+                            file_path=rel,
+                        )
+                    )
+
+    os_list = frontmatter.get("os")
+    if os_list is not None:
+        os_values = _as_string_list(os_list)
+        if os_values is None:
+            failures += 1
+            report.checks.append(
+                IntegrityCheckResult(
+                    category=IntegrityCategory.SKILL_FRONTMATTER,
+                    name="invalid-os",
+                    status=CheckStatus.FAIL,
+                    message="Frontmatter 'os' must be a list of strings",
+                    file_path=rel,
+                )
+            )
+        else:
+            invalid = [platform for platform in os_values if platform not in _SUPPORTED_OSES]
+            if invalid:
+                failures += 1
+                report.checks.append(
+                    IntegrityCheckResult(
+                        category=IntegrityCategory.SKILL_FRONTMATTER,
+                        name="invalid-os-values",
+                        status=CheckStatus.FAIL,
+                        message=f"Frontmatter 'os' has unsupported values: {', '.join(invalid)}",
+                        file_path=rel,
+                    )
+                )
+
+    return failures
+
+
+def _parse_skill_frontmatter(
+    text: str,
+    rel: str,
+    report: IntegrityReport,
+) -> dict[str, object] | None:
+    """Extract and parse YAML frontmatter. Returns dict or None on failure."""
+    fm_match = _FRONTMATTER_RE.match(text)
+    if not fm_match:
+        report.checks.append(
+            IntegrityCheckResult(
+                category=IntegrityCategory.SKILL_FRONTMATTER,
+                name="missing-frontmatter",
+                status=CheckStatus.FAIL,
+                message="Missing YAML frontmatter block",
+                file_path=rel,
+            )
+        )
+        return None
+
+    try:
+        frontmatter = yaml.safe_load(fm_match.group(1)) or {}
+    except yaml.YAMLError as exc:
+        report.checks.append(
+            IntegrityCheckResult(
+                category=IntegrityCategory.SKILL_FRONTMATTER,
+                name="invalid-frontmatter-yaml",
+                status=CheckStatus.FAIL,
+                message=f"Invalid frontmatter YAML: {exc}",
+                file_path=rel,
+            )
+        )
+        return None
+
+    if not isinstance(frontmatter, dict):
+        report.checks.append(
+            IntegrityCheckResult(
+                category=IntegrityCategory.SKILL_FRONTMATTER,
+                name="invalid-frontmatter-type",
+                status=CheckStatus.FAIL,
+                message="Frontmatter must parse to a YAML mapping/object",
+                file_path=rel,
+            )
+        )
+        return None
+
+    return frontmatter
+
+
+def _check_skill_frontmatter(target: Path, report: IntegrityReport) -> None:
+    """Validate YAML frontmatter in all skill files."""
+    skills_root = target / ".ai-engineering" / "skills"
+    if not skills_root.is_dir():
+        report.checks.append(
+            IntegrityCheckResult(
+                category=IntegrityCategory.SKILL_FRONTMATTER,
+                name="skills-directory",
+                status=CheckStatus.FAIL,
+                message="Skills directory not found: .ai-engineering/skills",
+            )
+        )
+        return
+
+    checked = 0
+    failures = 0
+    for skill_file in sorted(skills_root.rglob("*.md")):
+        checked += 1
+        rel = skill_file.relative_to(target).as_posix()
+        text = skill_file.read_text(encoding="utf-8", errors="replace")
+
+        frontmatter = _parse_skill_frontmatter(text, rel, report)
+        if frontmatter is None:
+            failures += 1
+            continue
+
+        failures += _validate_skill_identity(
+            frontmatter, skill_file.stem, skill_file.parent.name, rel, report
+        )
+        failures += _validate_skill_requires(frontmatter, rel, report)
+
+    if failures == 0:
+        report.checks.append(
+            IntegrityCheckResult(
+                category=IntegrityCategory.SKILL_FRONTMATTER,
+                name="skill-frontmatter",
+                status=CheckStatus.OK,
+                message=f"Validated frontmatter in {checked} skills",
+            )
+        )
+
+
+# ---------------------------------------------------------------------------
+# Main entry point
+# ---------------------------------------------------------------------------
 
 
 def validate_content_integrity(
@@ -936,7 +1161,7 @@ def validate_content_integrity(
 ) -> IntegrityReport:
     """Run content-integrity validation on a project.
 
-    Validates governance content across 6 categories. If *categories* is
+    Validates governance content across 7 categories. If *categories* is
     provided, only the specified categories are checked.
 
     Args:
@@ -955,6 +1180,7 @@ def validate_content_integrity(
         (IntegrityCategory.CROSS_REFERENCE, _check_cross_references),
         (IntegrityCategory.INSTRUCTION_CONSISTENCY, _check_instruction_consistency),
         (IntegrityCategory.MANIFEST_COHERENCE, _check_manifest_coherence),
+        (IntegrityCategory.SKILL_FRONTMATTER, _check_skill_frontmatter),
     ]
 
     active_categories = set(categories) if categories else None

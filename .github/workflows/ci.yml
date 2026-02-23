@@ -10,8 +10,34 @@ permissions:
   contents: read
 
 jobs:
+  docs-scope:
+    name: Docs Scope
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            code:
+              - '**/*.py'
+              - '**/*.toml'
+              - '**/*.yml'
+              - '**/*.yaml'
+              - '**/*.json'
+              - '**/*.sh'
+              - '**/*.ps1'
+              - '.github/**'
+              - 'scripts/**'
+              - 'src/**'
+              - 'tests/**'
+
   lint:
     name: Lint & Format
+    needs: [docs-scope]
+    if: needs.docs-scope.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -27,6 +53,8 @@ jobs:
 
   typecheck:
     name: Type Check
+    needs: [docs-scope]
+    if: needs.docs-scope.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -40,7 +68,12 @@ jobs:
 
   test:
     name: Test (Python ${{ matrix.python-version }} / ${{ matrix.os }})
+    needs: [docs-scope]
+    if: needs.docs-scope.outputs.code == 'true'
     runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
     strategy:
       fail-fast: false
       matrix:
@@ -61,13 +94,104 @@ jobs:
       - name: Install dependencies
         run: uv sync --dev
       - name: Run tests
-        run: uv run pytest tests/ -v --cov=src/ai_engineering --cov-report=term-missing
+        run: |
+          uv run pytest tests/ -v --durations=25 --cov=src/ai_engineering --cov-report=term-missing | tee test-output.log
       - name: Upload coverage
         if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'
         uses: actions/upload-artifact@v4
         with:
           name: coverage-report
           path: .coverage
+      - name: Upload slow-tests artifact
+        if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'
+        uses: actions/upload-artifact@v4
+        with:
+          name: slow-tests-report
+          path: test-output.log
+
+  framework-smoke:
+    name: Framework Smoke (${{ matrix.python-version }} / ${{ matrix.os }})
+    needs: [docs-scope]
+    if: needs.docs-scope.outputs.code == 'true'
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python-version: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - name: Set Python version
+        run: uv python install ${{ matrix.python-version }}
+      - name: Install dependencies
+        run: uv sync --dev
+      - name: Init smoke repository
+        run: |
+          rm -rf smoke-repo
+          mkdir -p smoke-repo
+          git init smoke-repo
+          git -C smoke-repo config user.email "ci@test.com"
+          git -C smoke-repo config user.name "CI"
+      - name: Install framework
+        run: uv run ai-eng install smoke-repo
+        env:
+          PYTHONUTF8: "1"
+      - name: Doctor diagnostics
+        run: uv run ai-eng doctor smoke-repo --json
+        env:
+          PYTHONUTF8: "1"
+      - name: Commit-msg gate smoke
+        run: |
+          printf "smoke commit" > smoke-repo/.git/COMMIT_EDITMSG
+          uv run ai-eng gate commit-msg smoke-repo/.git/COMMIT_EDITMSG --target smoke-repo
+        env:
+          PYTHONUTF8: "1"
+      - name: Hook verification smoke
+        run: uv run python -c "from pathlib import Path; from ai_engineering.hooks.manager import verify_hooks; assert all(verify_hooks(Path('smoke-repo')).values())"
+
+  workflow-sanity:
+    name: Workflow Sanity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install actionlint
+        run: |
+          bash <(curl -sSfL https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash)
+          pwd >> "$GITHUB_PATH"
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - name: Install dependencies
+        run: uv sync --dev
+      - name: Run actionlint
+        run: ./actionlint
+      - name: Workflow policy checks
+        run: uv run python scripts/check_workflow_policy.py
+
+  verify-gate-trailers:
+    name: Verify Gate Trailers
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Ensure PR commits include gate trailer
+        shell: bash
+        run: |
+          set -euo pipefail
+          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+          msg="$(git log -1 --format=%B "$HEAD_SHA")"
+          if ! printf "%s" "$msg" | grep -q "^Ai-Eng-Gate: passed$"; then
+            echo "Missing trailer in latest commit: $HEAD_SHA"
+            exit 1
+          fi
 
   security:
     name: Security Audit
@@ -79,8 +203,19 @@ jobs:
           enable-cache: true
       - name: Install dependencies
         run: uv sync --dev
+      - name: Install gitleaks
+        env:
+          GITLEAKS_VERSION: "8.30.0"
+        run: |
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" | tar xz -C /usr/local/bin gitleaks
+      - name: gitleaks
+        run: gitleaks detect --source . --config .gitleaks.toml --no-banner --redact
       - name: pip-audit
         run: uv run pip-audit
+      - name: Install semgrep
+        run: python -m pip install semgrep
+      - name: semgrep
+        run: semgrep --config .semgrep.yml --error .
 
   content-integrity:
     name: Content Integrity
@@ -97,8 +232,9 @@ jobs:
 
   build:
     name: Build Package
+    needs: [docs-scope, lint, typecheck, test, framework-smoke, security, content-integrity, workflow-sanity]
+    if: needs.docs-scope.outputs.code == 'true'
     runs-on: ubuntu-latest
-    needs: [lint, typecheck, test, security, content-integrity]
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
