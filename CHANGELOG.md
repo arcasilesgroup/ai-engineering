@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Cleanup workflow skill for branch cleanup and stale branch removal (`/cleanup`).
 - Contract-compliance skill for clause-by-clause framework contract validation.
 - Ownership-audit skill for ownership boundary and updater safety validation.
 - Docs-audit skill for documentation and content quality auditing.
