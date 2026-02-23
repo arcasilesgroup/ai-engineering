@@ -49,6 +49,7 @@ Procedural skills guide structured execution. Reference the relevant skill befor
 - `.ai-engineering/skills/dev/migration.md` — migration planning.
 - `.ai-engineering/skills/dev/deps-update.md` — dependency management.
 - `.ai-engineering/skills/dev/cicd-generate.md` — CI/CD workflow generation.
+- `.ai-engineering/skills/dev/multi-agent.md` — multi-agent orchestration patterns.
 
 ### Review Skills
 
@@ -91,6 +92,7 @@ Procedural skills guide structured execution. Reference the relevant skill befor
 
 ### Utility Skills
 
+- `.ai-engineering/skills/utils/doctor.md` — unified environment diagnostics.
 - `.ai-engineering/skills/utils/git-helpers.md` — git operation helpers.
 - `.ai-engineering/skills/utils/platform-detect.md` — OS/platform detection.
 - `.ai-engineering/skills/utils/python-patterns.md` — comprehensive Python patterns.
