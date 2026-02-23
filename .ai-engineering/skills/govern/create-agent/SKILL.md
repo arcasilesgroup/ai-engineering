@@ -1,8 +1,13 @@
 ---
 name: create-agent
+description: "Author and register a new agent: canonical file, mirror, instruction files, counters, changelog."
 version: 1.0.0
 category: govern
 tags: [governance, agent, registration, persona]
+metadata:
+  ai-engineering:
+    scope: read-write
+    token_estimate: 2000
 ---
 
 # Create Agent
@@ -164,8 +169,8 @@ Definitive procedure for authoring and registering a new agent in the ai-enginee
 - `standards/framework/core.md` — governance structure, ownership model, lifecycle.
 - `context/product/framework-contract.md` — template packaging and replication rule.
 - `skills/docs/prompt-design.md` — prompt engineering for agent persona authoring.
-- `skills/govern/create-skill.md` — companion procedure for skill registration.
-- `skills/govern/create-spec.md` — spec creation procedure (spec-first enforcement).
-- `skills/govern/delete-agent.md` — inverse procedure for agent removal.
-- `skills/govern/integrity-check.md` — post-change validation of governance content.
+- `skills/govern/create-skill/SKILL.md` — companion procedure for skill registration.
+- `skills/govern/create-spec/SKILL.md` — spec creation procedure (spec-first enforcement).
+- `skills/govern/delete-agent/SKILL.md` — inverse procedure for agent removal.
+- `skills/govern/integrity-check/SKILL.md` — post-change validation of governance content.
 - `skills/docs/changelog.md` — changelog entry formatting.

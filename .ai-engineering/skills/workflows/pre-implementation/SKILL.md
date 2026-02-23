@@ -1,8 +1,15 @@
 ---
 name: pre-implementation
+description: "Execute branch hygiene before implementation: sync, prune stale branches, create feature branch."
 version: 1.0.0
 category: workflows
 tags: [git, branch, sync, hygiene]
+metadata:
+  ai-engineering:
+    requires:
+      bins: [git]
+    scope: read-write
+    token_estimate: 700
 ---
 
 # Pre-Implementation Workflow
@@ -58,6 +65,6 @@ Execute branch hygiene before starting any new implementation work. Ensures the 
 ## References
 
 - `standards/framework/core.md` — non-negotiables and branch protection rules.
-- `skills/workflows/commit.md` — commit flow that happens after implementation.
-- `skills/workflows/cleanup.md` — standalone cleanup without branch creation (Phases 1-3 counterpart).
+- `skills/workflows/commit/SKILL.md` — commit flow that happens after implementation.
+- `skills/workflows/cleanup/SKILL.md` — standalone cleanup without branch creation (Phases 1-3 counterpart).
 - `skills/govern/create-spec.md` — spec creation that precedes implementation.

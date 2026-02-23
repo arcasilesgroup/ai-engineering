@@ -1,10 +1,15 @@
 ---
 name: commit
+description: "Execute governed commit workflow: stage, lint, secret-detect, commit, and push current branch."
 version: 1.0.0
 category: workflows
 tags: [git, commit, push, hooks]
-requires:
-  bins: [gitleaks, ruff]
+metadata:
+  ai-engineering:
+    requires:
+      bins: [gitleaks, ruff]
+    scope: read-write
+    token_estimate: 800
 ---
 
 # Commit Workflow
@@ -55,5 +60,5 @@ Follow steps 1–5 above. Skip step 6.
 - `standards/framework/core.md` — non-negotiables and enforcement rules.
 - `standards/framework/stacks/python.md` — Python-specific checks.
 - `standards/framework/quality/core.md` — gate structure (pre-commit gate).
-- `skills/workflows/acho.md` — alias workflow.
+- `skills/workflows/acho/SKILL.md` — alias workflow.
 - `agents/verify-app.md` — agent that validates commit workflow execution.

@@ -1,8 +1,13 @@
 ---
 name: delete-skill
+description: "Safely remove a skill: check dependents, clean all registration points, update counters."
 version: 1.0.0
 category: govern
 tags: [governance, skill, removal, cleanup]
+metadata:
+  ai-engineering:
+    scope: read-write
+    token_estimate: 1500
 ---
 
 # Delete Skill
@@ -21,7 +26,7 @@ Definitive procedure for safely removing a skill from the ai-engineering framewo
 ### Phase 1: Validate
 
 1. **Confirm the skill exists** — verify the canonical file is present.
-   - Path: `.ai-engineering/skills/<category>/<name>.md`.
+   - Path: `.ai-engineering/skills/<category>/<name>/SKILL.md`.
    - If not found, abort — nothing to delete.
 
 2. **Check for dependents** — scan for references to this skill across all governance content.
@@ -52,11 +57,11 @@ Definitive procedure for safely removing a skill from the ai-engineering framewo
 
 ### Phase 3: Remove Files
 
-5. **Remove the template mirror** — delete `src/ai_engineering/templates/.ai-engineering/skills/<category>/<name>.md`.
+5. **Remove the template mirror** — delete `src/ai_engineering/templates/.ai-engineering/skills/<category>/<name>/SKILL.md`.
 
-6. **Remove the canonical file** — delete `.ai-engineering/skills/<category>/<name>.md`.
+6. **Remove the canonical file** — delete `.ai-engineering/skills/<category>/<name>/SKILL.md`.
 
-7. **Clean empty directories** — if the category directory is now empty, remove it (both canonical and mirror).
+7. **Clean empty directories** — if the skill directory is now empty, remove it (both canonical and mirror).
 
 ### Phase 3b: Remove Slash Command
 
@@ -92,8 +97,8 @@ Definitive procedure for safely removing a skill from the ai-engineering framewo
 
     | # | Check | How to verify |
     |---|-------|---------------|
-    | 1 | Canonical file removed | `!(Test-Path .ai-engineering/skills/<category>/<name>.md)` |
-    | 2 | Template mirror removed | `!(Test-Path src/ai_engineering/templates/.ai-engineering/skills/<category>/<name>.md)` |
+    | 1 | Canonical file removed | `!(Test-Path .ai-engineering/skills/<category>/<name>/SKILL.md)` |
+    | 2 | Template mirror removed | `!(Test-Path src/ai_engineering/templates/.ai-engineering/skills/<category>/<name>/SKILL.md)` |
     | 3 | Removed from all 6 files | `grep` for the skill path in each instruction file — 0 matches |
     | 4 | Count matches | Count skills in instruction files = count in product-contract |
     | 5 | CHANGELOG updated | Entry under `## [Unreleased] → ### Removed` |
@@ -122,7 +127,7 @@ Definitive procedure for safely removing a skill from the ai-engineering framewo
 
 ## References
 
-- `skills/govern/create-skill.md` — inverse procedure (creation).
-- `skills/govern/integrity-check.md` — post-deletion validation.
+- `skills/govern/create-skill/SKILL.md` — inverse procedure (creation).
+- `skills/govern/integrity-check/SKILL.md` — post-deletion validation.
 - `standards/framework/core.md` — governance structure, ownership model.
 - `context/product/framework-contract.md` — template packaging and replication rule.

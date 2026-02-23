@@ -1,8 +1,13 @@
 ---
 name: renew-risk
+description: "Extend a risk acceptance before expiry with mandatory justification (max 2 renewals)."
 version: 1.0.0
 category: govern
 tags: [governance, risk, renewal, extension]
+metadata:
+  ai-engineering:
+    scope: read-write
+    token_estimate: 1000
 ---
 
 # Renew Risk
@@ -85,7 +90,7 @@ Procedure for extending (renewing) a risk acceptance when remediation has not be
 
 ## References
 
-- `skills/govern/accept-risk.md` — creating risk acceptances.
-- `skills/govern/resolve-risk.md` — closing risk acceptances.
+- `skills/govern/accept-risk/SKILL.md` — creating risk acceptances.
+- `skills/govern/resolve-risk/SKILL.md` — closing risk acceptances.
 - `skills/review/security.md` — security assessment procedure.
 - `standards/framework/core.md` — risk acceptance non-negotiables.

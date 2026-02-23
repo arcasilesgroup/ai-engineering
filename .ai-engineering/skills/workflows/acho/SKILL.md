@@ -1,8 +1,15 @@
 ---
 name: acho
+description: "Fast-path alias for /commit and /pr workflows with full governance enforcement."
 version: 1.0.0
 category: workflows
 tags: [git, commit, push, alias]
+metadata:
+  ai-engineering:
+    requires:
+      bins: [gitleaks, ruff]
+    scope: read-write
+    token_estimate: 600
 ---
 
 # Acho Workflow
@@ -55,6 +62,6 @@ Identical to `/pr` default flow:
 
 ## References
 
-- `skills/workflows/commit.md` — full `/commit` procedure (aliases `/acho`).
-- `skills/workflows/pr.md` — full `/pr` procedure (aliases `/acho pr`).
+- `skills/workflows/commit/SKILL.md` — full `/commit` procedure (aliases `/acho`).
+- `skills/workflows/pr/SKILL.md` — full `/pr` procedure (aliases `/acho pr`).
 - `standards/framework/core.md` — non-negotiables.

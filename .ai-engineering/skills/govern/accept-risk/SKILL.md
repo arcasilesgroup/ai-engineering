@@ -1,8 +1,13 @@
 ---
 name: accept-risk
+description: "Record time-limited risk acceptance with severity classification, follow-up action, and audit trail."
 version: 1.0.0
 category: govern
 tags: [governance, risk, acceptance, decision]
+metadata:
+  ai-engineering:
+    scope: read-write
+    token_estimate: 1100
 ---
 
 # Accept Risk
@@ -79,7 +84,7 @@ Procedure for accepting a security or compliance risk when immediate remediation
 
 ## References
 
-- `skills/govern/resolve-risk.md` — closing a risk acceptance after fix.
-- `skills/govern/renew-risk.md` — extending a risk acceptance.
+- `skills/govern/resolve-risk/SKILL.md` — closing a risk acceptance after fix.
+- `skills/govern/renew-risk/SKILL.md` — extending a risk acceptance.
 - `skills/review/security.md` — security assessment procedure.
 - `standards/framework/core.md` — risk acceptance non-negotiables.

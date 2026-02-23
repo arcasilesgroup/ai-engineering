@@ -1,8 +1,13 @@
 ---
 name: create-spec
+description: "Create a new spec before non-trivial work: branch, scaffold spec/plan/tasks, activate, commit."
 version: 1.0.0
 category: govern
 tags: [governance, spec, lifecycle, planning]
+metadata:
+  ai-engineering:
+    scope: read-write
+    token_estimate: 2200
 ---
 
 # Create Spec
@@ -201,7 +206,7 @@ A change is **trivial** (spec exempt) when ALL of these apply:
 
 - `standards/framework/core.md` — governance structure, spec-first enforcement, session contract.
 - `context/product/framework-contract.md` — agentic model, session contract, branch strategy.
-- `skills/govern/create-skill.md` — registration procedure for new skills.
-- `skills/govern/create-agent.md` — registration procedure for new agents.
+- `skills/govern/create-skill/SKILL.md` — registration procedure for new skills.
+- `skills/govern/create-agent/SKILL.md` — registration procedure for new agents.
 - `skills/docs/prompt-design.md` — content authoring quality.
-- `skills/workflows/pr.md` — PR creation at spec closure.
+- `skills/workflows/pr/SKILL.md` — PR creation at spec closure.

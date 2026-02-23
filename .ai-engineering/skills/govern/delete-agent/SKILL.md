@@ -1,8 +1,13 @@
 ---
 name: delete-agent
+description: "Safely remove an agent: check dependents, clean all registration points, update counters."
 version: 1.0.0
 category: govern
 tags: [governance, agent, removal, cleanup]
+metadata:
+  ai-engineering:
+    scope: read-write
+    token_estimate: 1500
 ---
 
 # Delete Agent
@@ -118,7 +123,7 @@ Definitive procedure for safely removing an agent from the ai-engineering framew
 
 ## References
 
-- `skills/govern/create-agent.md` — inverse procedure (creation).
-- `skills/govern/integrity-check.md` — post-deletion validation.
+- `skills/govern/create-agent/SKILL.md` — inverse procedure (creation).
+- `skills/govern/integrity-check/SKILL.md` — post-deletion validation.
 - `standards/framework/core.md` — governance structure, ownership model.
 - `context/product/framework-contract.md` — template packaging and replication rule.

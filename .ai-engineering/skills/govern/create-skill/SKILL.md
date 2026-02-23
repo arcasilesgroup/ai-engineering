@@ -1,8 +1,13 @@
 ---
 name: create-skill
+description: "Author and register a new skill: canonical file, mirror, instruction files, counters, changelog."
 version: 1.0.0
 category: govern
 tags: [governance, skill, registration, authoring]
+metadata:
+  ai-engineering:
+    scope: read-write
+    token_estimate: 2100
 ---
 
 # Create Skill
@@ -175,8 +180,8 @@ Definitive procedure for authoring and registering a new skill in the ai-enginee
 - `standards/framework/core.md` — governance structure, ownership model, lifecycle.
 - `context/product/framework-contract.md` — template packaging and replication rule.
 - `skills/docs/prompt-design.md` — prompt engineering for skill content authoring.
-- `skills/govern/create-agent.md` — companion procedure for agent registration.
-- `skills/govern/create-spec.md` — spec creation procedure (spec-first enforcement).
-- `skills/govern/delete-skill.md` — inverse procedure for skill removal.
-- `skills/govern/integrity-check.md` — post-change validation of governance content.
+- `skills/govern/create-agent/SKILL.md` — companion procedure for agent registration.
+- `skills/govern/create-spec/SKILL.md` — spec creation procedure (spec-first enforcement).
+- `skills/govern/delete-skill/SKILL.md` — inverse procedure for skill removal.
+- `skills/govern/integrity-check/SKILL.md` — post-change validation of governance content.
 - `skills/docs/changelog.md` — changelog entry formatting.

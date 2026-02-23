@@ -1,10 +1,15 @@
 ---
 name: cleanup
+description: "Clean stale branches after PR merge: sync base, prune remotes, delete merged/squash-merged branches."
 version: 1.0.0
 category: workflows
 tags: [git, branch, cleanup, hygiene]
-requires:
-  bins: [git]
+metadata:
+  ai-engineering:
+    requires:
+      bins: [git]
+    scope: read-write
+    token_estimate: 800
 ---
 
 # Branch Cleanup Workflow
@@ -64,6 +69,6 @@ Execute branch cleanup after merging a PR or at the start of a new session. Swit
 
 ## References
 
-- `skills/workflows/pre-implementation.md` — full pre-implementation flow that includes cleanup + branch creation.
+- `skills/workflows/pre-implementation/SKILL.md` — full pre-implementation flow that includes cleanup + branch creation.
 - `skills/utils/git-helpers.md` — git helper patterns (protected branch check, default branch detection).
 - `standards/framework/core.md` — protected branch rules and enforcement.

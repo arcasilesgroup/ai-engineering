@@ -1,8 +1,15 @@
 ---
 name: pr
+description: "Execute governed PR workflow: stage, commit, push, create pull request with auto-complete squash merge."
 version: 1.0.0
 category: workflows
 tags: [git, pull-request, ci, merge]
+metadata:
+  ai-engineering:
+    requires:
+      bins: [gitleaks, ruff, gh]
+    scope: read-write
+    token_estimate: 1400
 ---
 
 # PR Workflow
@@ -100,7 +107,7 @@ When creating the PR:
 
 - `standards/framework/core.md` — non-negotiables and enforcement rules.
 - `standards/framework/quality/core.md` — gate structure (pre-push + PR gates).
-- `skills/workflows/commit.md` — shared pre-commit steps.
-- `skills/workflows/acho.md` — alias workflow.
+- `skills/workflows/commit/SKILL.md` — shared pre-commit steps.
+- `skills/workflows/acho/SKILL.md` — alias workflow.
 - `skills/docs/changelog.md` — changelog entry formatting for PRs.
 - `agents/verify-app.md` — agent that validates PR workflow execution.

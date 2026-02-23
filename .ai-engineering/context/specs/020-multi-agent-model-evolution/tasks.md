@@ -1,9 +1,9 @@
 ---
 spec: "020"
 total: 38
-completed: 10
+completed: 16
 last_session: "2026-02-23"
-next_session: "Phase 2 — Skill Directory Migration (Workflows + Govern)"
+next_session: "Phase 3 — Skill Directory Migration (Dev + Review + Quality)"
 ---
 
 # Tasks — Multi-Agent Model Evolution
@@ -26,12 +26,12 @@ next_session: "Phase 2 — Skill Directory Migration (Workflows + Govern)"
 
 ## Phase 2: Skill Directory Migration — Workflows + Govern [L]
 
-- [ ] 2.1 Migrate `skills/workflows/commit.md` → `skills/workflows/commit/SKILL.md`
-- [ ] 2.2 Migrate `skills/workflows/pr.md` → `skills/workflows/pr/SKILL.md`
-- [ ] 2.3 Migrate `skills/workflows/acho.md` → `skills/workflows/acho/SKILL.md`
-- [ ] 2.4 Migrate `skills/workflows/pre-implementation.md` → `skills/workflows/pre-implementation/SKILL.md`
-- [ ] 2.5 Migrate `skills/workflows/cleanup.md` → `skills/workflows/cleanup/SKILL.md`
-- [ ] 2.6 Migrate all 11 `skills/govern/*.md` → `skills/govern/*/SKILL.md`
+- [x] 2.1 Migrate `skills/workflows/commit.md` → `skills/workflows/commit/SKILL.md`
+- [x] 2.2 Migrate `skills/workflows/pr.md` → `skills/workflows/pr/SKILL.md`
+- [x] 2.3 Migrate `skills/workflows/acho.md` → `skills/workflows/acho/SKILL.md`
+- [x] 2.4 Migrate `skills/workflows/pre-implementation.md` → `skills/workflows/pre-implementation/SKILL.md`
+- [x] 2.5 Migrate `skills/workflows/cleanup.md` → `skills/workflows/cleanup/SKILL.md`
+- [x] 2.6 Migrate all 11 `skills/govern/*.md` → `skills/govern/*/SKILL.md`
 
 ## Phase 3: Skill Directory Migration — Dev + Review + Quality [L]
 

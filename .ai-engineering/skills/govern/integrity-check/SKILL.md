@@ -1,8 +1,13 @@
 ---
 name: integrity-check
+description: "Validate governance content integrity: cross-references, mirrors, counters, frontmatter, manifest."
 version: 1.0.0
 category: govern
 tags: [governance, integrity, validation, cross-reference]
+metadata:
+  ai-engineering:
+    scope: read-only
+    token_estimate: 2200
 ---
 
 # Content Integrity
@@ -112,11 +117,11 @@ Validation skill that checks the integrity of all governance content in `.ai-eng
 
 ### Category 7: Skill Frontmatter Validation
 
-14. **Verify all skills have YAML frontmatter** — each `.md` file in `skills/**` must start with a `---` YAML frontmatter block.
-    - Required fields: `name` (string, kebab-case), `version` (string, semver), `category` (string, matching parent directory).
-    - Optional fields: `tags` (array of strings), `requires.bins`, `requires.anyBins`, `requires.env`, `requires.config` (all arrays of strings), `os` (array of platform strings).
-    - `name` must match the filename (without `.md` extension).
-    - `category` must match the immediate parent directory name.
+14. **Verify all skills have YAML frontmatter** — each `SKILL.md` file in `skills/**/` must start with a `---` YAML frontmatter block.
+    - Required fields: `name` (string, kebab-case), `description` (string), `version` (string, semver), `category` (string, matching parent category directory).
+    - Optional fields: `tags` (array of strings), `metadata.ai-engineering.requires.bins`, `metadata.ai-engineering.requires.anyBins`, `metadata.ai-engineering.requires.env`, `metadata.ai-engineering.requires.config` (all arrays of strings), `metadata.ai-engineering.os` (array of platform strings).
+    - `name` must match the directory name.
+    - `category` must match the category directory name.
     - Report any skill missing frontmatter or with invalid field values.
 
 ## Output Contract
@@ -171,11 +176,11 @@ Structured report with 7 categories, each showing:
 
 ## References
 
-- `skills/govern/create-skill.md` — skill registration procedure (validates creation correctness).
-- `skills/govern/create-agent.md` — agent registration procedure (validates creation correctness).
-- `skills/govern/delete-skill.md` — skill removal procedure (validates deletion completeness).
-- `skills/govern/delete-agent.md` — agent removal procedure (validates deletion completeness).
-- `skills/govern/create-spec.md` — spec creation procedure (validates spec structure).
+- `skills/govern/create-skill/SKILL.md` — skill registration procedure (validates creation correctness).
+- `skills/govern/create-agent/SKILL.md` — agent registration procedure (validates creation correctness).
+- `skills/govern/delete-skill/SKILL.md` — skill removal procedure (validates deletion completeness).
+- `skills/govern/delete-agent/SKILL.md` — agent removal procedure (validates deletion completeness).
+- `skills/govern/create-spec/SKILL.md` — spec creation procedure (validates spec structure).
 - `agents/verify-app.md` — agent that includes content integrity in verification.
 - `standards/framework/core.md` — content integrity enforcement rules.
 - `context/product/framework-contract.md` — template packaging and replication rule.

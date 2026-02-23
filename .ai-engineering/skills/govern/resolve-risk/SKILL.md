@@ -1,8 +1,13 @@
 ---
 name: resolve-risk
+description: "Close a risk acceptance after remediation: mark as remediated, log audit event, verify gates."
 version: 1.0.0
 category: govern
 tags: [governance, risk, remediation, closure]
+metadata:
+  ai-engineering:
+    scope: read-write
+    token_estimate: 900
 ---
 
 # Resolve Risk
@@ -72,7 +77,7 @@ Procedure for closing a risk acceptance after the underlying finding has been re
 
 ## References
 
-- `skills/govern/accept-risk.md` — creating risk acceptances.
-- `skills/govern/renew-risk.md` — extending risk acceptances.
+- `skills/govern/accept-risk/SKILL.md` — creating risk acceptances.
+- `skills/govern/renew-risk/SKILL.md` — extending risk acceptances.
 - `skills/review/security.md` — security assessment procedure.
 - `standards/framework/core.md` — risk acceptance non-negotiables.

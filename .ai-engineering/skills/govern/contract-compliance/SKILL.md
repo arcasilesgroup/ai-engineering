@@ -1,8 +1,13 @@
 ---
 name: contract-compliance
+description: "Clause-by-clause validation of framework contracts against implementation with compliance matrix."
 version: 1.0.0
 category: govern
 tags: [governance, compliance, contract, validation]
+metadata:
+  ai-engineering:
+    scope: read-only
+    token_estimate: 1300
 ---
 
 # Contract Compliance
@@ -97,7 +102,7 @@ Clause-by-clause validation of framework contracts (`framework-contract.md`, `ma
 
 - `context/product/framework-contract.md` — primary contract source.
 - `manifest.yml` — configuration-level contract.
-- `skills/govern/integrity-check.md` — structural validation (complementary).
+- `skills/govern/integrity-check/SKILL.md` — structural validation (complementary).
 - `skills/quality/release-gate.md` — release readiness aggregation.
 - `agents/platform-auditor.md` — orchestrator that invokes this skill.
 - `standards/framework/core.md` — governance structure and ownership model.
