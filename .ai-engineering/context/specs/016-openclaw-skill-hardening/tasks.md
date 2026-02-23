@@ -1,9 +1,9 @@
 ---
 spec: "016"
 total: 35
-completed: 31
+completed: 35
 last_session: "2026-02-23"
-next_session: "Phase 9 — Close"
+next_session: "none — spec complete"
 ---
 
 # Tasks — OpenClaw-Inspired Skill & Standards Hardening
@@ -79,7 +79,7 @@ next_session: "Phase 9 — Close"
 
 ## Phase 9: Close [S]
 
-- [ ] 9.1 Run integrity-check — verify zero violations
-- [ ] 9.2 Create done.md
-- [ ] 9.3 Update tasks.md frontmatter — completed = total
-- [ ] 9.4 Create PR
+- [x] 9.1 Run integrity-check — verify zero violations
+- [x] 9.2 Create done.md
+- [x] 9.3 Update tasks.md frontmatter — completed = total
+- [x] 9.4 Create PR
