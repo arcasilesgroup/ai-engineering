@@ -1,9 +1,9 @@
 ---
 spec: "020"
 total: 38
-completed: 0
+completed: 10
 last_session: "2026-02-23"
-next_session: "Phase 1 — Schema & Standards"
+next_session: "Phase 2 — Skill Directory Migration (Workflows + Govern)"
 ---
 
 # Tasks — Multi-Agent Model Evolution
@@ -18,11 +18,11 @@ next_session: "Phase 1 — Schema & Standards"
 
 ## Phase 1: Schema & Standards [M]
 
-- [ ] 1.1 Define skill directory schema in `standards/framework/core.md` (SKILL.md format, directory layout, frontmatter requirements)
-- [ ] 1.2 Define skill gating metadata schema (stacks, bins, env, os fields, always flag)
-- [ ] 1.3 Define agent structured frontmatter schema (capabilities, scope, inputs, outputs, tool restrictions)
-- [ ] 1.4 Create `standards/framework/skills-schema.md` with full schema documentation and examples
-- [ ] 1.5 Document token budget guidelines (measurement formula, per-category estimates)
+- [x] 1.1 Define skill directory schema in `standards/framework/core.md` (SKILL.md format, directory layout, frontmatter requirements)
+- [x] 1.2 Define skill gating metadata schema (stacks, bins, env, os fields, always flag)
+- [x] 1.3 Define agent structured frontmatter schema (capabilities, scope, inputs, outputs, tool restrictions)
+- [x] 1.4 Create `standards/framework/skills-schema.md` with full schema documentation and examples
+- [x] 1.5 Document token budget guidelines (measurement formula, per-category estimates)
 
 ## Phase 2: Skill Directory Migration — Workflows + Govern [L]
 
