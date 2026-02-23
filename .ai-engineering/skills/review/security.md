@@ -3,6 +3,8 @@ name: security
 version: 1.0.0
 category: review
 tags: [security, sast, secrets, owasp, vulnerabilities]
+requires:
+  bins: [gitleaks, semgrep]
 ---
 
 # Security Review

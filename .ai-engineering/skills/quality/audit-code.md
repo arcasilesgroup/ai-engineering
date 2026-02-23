@@ -3,6 +3,8 @@ name: audit-code
 version: 1.0.0
 category: quality
 tags: [quality, coverage, complexity, duplication, gate]
+requires:
+  bins: [ruff, ty]
 ---
 
 # Audit Code

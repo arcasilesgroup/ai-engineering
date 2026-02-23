@@ -3,6 +3,8 @@ name: container-security
 version: 1.0.0
 category: review
 tags: [security, containers, trivy, docker, vulnerabilities]
+requires:
+  bins: [trivy]
 ---
 
 # Container Security

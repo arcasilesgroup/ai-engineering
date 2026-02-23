@@ -3,6 +3,8 @@ name: deps-update
 version: 1.0.0
 category: dev
 tags: [dependencies, security, vulnerabilities, updates]
+requires:
+  bins: [pip-audit]
 ---
 
 # Dependency Update

@@ -3,6 +3,8 @@ name: dast
 version: 1.0.0
 category: review
 tags: [security, dast, owasp-zap, nuclei, dynamic-testing]
+requires:
+  bins: [zap-cli, nuclei]
 ---
 
 # DAST (Dynamic Application Security Testing)
