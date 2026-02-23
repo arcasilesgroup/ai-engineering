@@ -1,3 +1,20 @@
+---
+name: principal-engineer
+version: 1.0.0
+scope: read-only
+capabilities: [code-review, refactoring]
+inputs: [file-paths, diff, changeset]
+outputs: [findings-report, improvement-plan]
+tags: [code-review, patterns, mentoring, quality]
+references:
+  skills:
+    - skills/dev/code-review/SKILL.md
+    - skills/dev/refactor/SKILL.md
+  standards:
+    - standards/framework/core.md
+    - standards/framework/stacks/python.md
+---
+
 # Principal Engineer
 
 ## Identity

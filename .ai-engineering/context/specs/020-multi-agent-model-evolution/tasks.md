@@ -1,9 +1,9 @@
 ---
 spec: "020"
 total: 38
-completed: 22
+completed: 31
 last_session: "2026-02-23"
-next_session: "Phase 5 — Agent Frontmatter Evolution"
+next_session: "Phase 6 — Pilot Resources"
 ---
 
 # Tasks — Multi-Agent Model Evolution
@@ -47,15 +47,15 @@ next_session: "Phase 5 — Agent Frontmatter Evolution"
 
 ## Phase 5: Agent Frontmatter Evolution [M]
 
-- [ ] 5.1 Add structured frontmatter to `agents/architect.md`
-- [ ] 5.2 Add structured frontmatter to `agents/debugger.md`
-- [ ] 5.3 Add structured frontmatter to `agents/principal-engineer.md`
-- [ ] 5.4 Add structured frontmatter to `agents/security-reviewer.md`
-- [ ] 5.5 Add structured frontmatter to `agents/quality-auditor.md`
-- [ ] 5.6 Add structured frontmatter to `agents/codebase-mapper.md`
-- [ ] 5.7 Add structured frontmatter to `agents/code-simplifier.md`
-- [ ] 5.8 Add structured frontmatter to `agents/platform-auditor.md`
-- [ ] 5.9 Add structured frontmatter to `agents/verify-app.md`
+- [x] 5.1 Add structured frontmatter to `agents/architect.md`
+- [x] 5.2 Add structured frontmatter to `agents/debugger.md`
+- [x] 5.3 Add structured frontmatter to `agents/principal-engineer.md`
+- [x] 5.4 Add structured frontmatter to `agents/security-reviewer.md`
+- [x] 5.5 Add structured frontmatter to `agents/quality-auditor.md`
+- [x] 5.6 Add structured frontmatter to `agents/codebase-mapper.md`
+- [x] 5.7 Add structured frontmatter to `agents/code-simplifier.md`
+- [x] 5.8 Add structured frontmatter to `agents/platform-auditor.md`
+- [x] 5.9 Add structured frontmatter to `agents/verify-app.md`
 
 ## Phase 6: Pilot Resources [M]
 

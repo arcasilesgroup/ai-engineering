@@ -1,3 +1,18 @@
+---
+name: codebase-mapper
+version: 1.0.0
+scope: read-only
+capabilities: [structure-mapping, api-mapping, dependency-flow]
+inputs: [codebase, repository]
+outputs: [codebase-map, dependency-graph]
+tags: [mapping, structure, navigation, onboarding]
+references:
+  skills:
+    - skills/review/architecture/SKILL.md
+  standards:
+    - standards/framework/core.md
+---
+
 # Codebase Mapper
 
 ## Identity

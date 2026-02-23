@@ -1,3 +1,19 @@
+---
+name: debugger
+version: 1.0.0
+scope: read-write
+capabilities: [debugging, test-design]
+inputs: [file-paths, diff, test-results, repository]
+outputs: [findings-report, explanation]
+tags: [debug, diagnosis, root-cause, testing]
+references:
+  skills:
+    - skills/dev/debug/SKILL.md
+    - skills/dev/test-strategy/SKILL.md
+  standards:
+    - standards/framework/core.md
+---
+
 # Debugger
 
 ## Identity

@@ -1,3 +1,24 @@
+---
+name: platform-auditor
+version: 1.0.0
+scope: read-only
+capabilities: [multi-dimension-audit, release-gate, cross-domain-synthesis]
+inputs: [repository, codebase, configuration, dependency-list]
+outputs: [audit-report, release-verdict]
+tags: [audit, platform, release, comprehensive]
+references:
+  skills:
+    - skills/quality/audit-code/SKILL.md
+    - skills/quality/release-gate/SKILL.md
+    - skills/review/security/SKILL.md
+    - skills/review/architecture/SKILL.md
+    - skills/govern/contract-compliance/SKILL.md
+    - skills/govern/ownership-audit/SKILL.md
+    - skills/govern/integrity-check/SKILL.md
+  standards:
+    - standards/framework/core.md
+---
+
 # Platform Auditor
 
 ## Identity
