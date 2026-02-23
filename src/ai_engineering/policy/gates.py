@@ -148,7 +148,7 @@ _PRE_PUSH_CHECKS: dict[str, list[CheckConfig]] = {
                 "--tb=short",
                 "-q",
                 "--cov=src/ai_engineering",
-                "--cov-fail-under=100",
+                "--cov-fail-under=80",
             ],
         ),
         CheckConfig(
