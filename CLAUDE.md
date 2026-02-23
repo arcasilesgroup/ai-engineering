@@ -175,6 +175,48 @@ Follow this sequence for non-trivial work:
 - `/acho` -> stage + commit + push current branch
 - `/acho pr` -> stage + commit + push + create PR + enable auto-complete (`--auto --squash --delete-branch`)
 
+## Progressive Disclosure
+
+Skills and agents use a three-level loading model to minimize token overhead:
+
+1. **Metadata** (name + description) — always available. ~50 tokens per skill.
+2. **Body** (SKILL.md content) — loaded on-demand when the skill is invoked.
+3. **Resources** (scripts/, references/, assets/) — loaded only when the AI needs them during execution.
+
+### Loading Rules
+
+- At session start, load ONLY: `_active.md` → `spec.md` → `tasks.md` → `decision-store.json`.
+- Do NOT pre-load skill bodies or agent personas at session start.
+- Load a skill body when: the user invokes a slash command, OR the agent determines the skill is needed for the current task.
+- Load references/ files selectively by section heading — do not load entire reference files.
+- Scripts in scripts/ are executed directly, not loaded into context (unless patching is needed).
+- Assets in assets/ are copied or modified, never read into context.
+
+### Skill Directory Structure
+
+Each skill is a directory:
+
+```
+skills/<category>/<name>/
+├── SKILL.md              (instructions with YAML frontmatter)
+├── scripts/              (deterministic executable scripts)
+├── references/           (on-demand reference docs)
+└── assets/               (templates, resources for output)
+```
+
+Categories: `workflows`, `dev`, `review`, `quality`, `govern`, `docs`, `patterns`.
+
+### Token Budget Targets
+
+| Level | When Loaded | Budget |
+|-------|-------------|--------|
+| Session start (spec work) | Always | ~500 tokens |
+| Single skill invocation | On-demand | ~2,050 tokens |
+| Agent + 2 skills | On-demand | ~3,200 tokens |
+| Platform audit (8 dimensions) | Serial on-demand | ~12,950 tokens |
+
+For full schema details: `.ai-engineering/standards/framework/skills-schema.md`.
+
 ## Security and Quality Rules
 
 - Local hooks are mandatory in governed flows.

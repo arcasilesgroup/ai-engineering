@@ -1,9 +1,9 @@
 ---
 spec: "020"
 total: 38
-completed: 44
+completed: 47
 last_session: "2026-02-23"
-next_session: "Phase 8 — Progressive Disclosure & Token Budget"
+next_session: "Phase 9 — Integrity Check & Close"
 ---
 
 # Tasks — Multi-Agent Model Evolution
@@ -78,9 +78,9 @@ next_session: "Phase 8 — Progressive Disclosure & Token Budget"
 
 ## Phase 8: Progressive Disclosure & Token Budget [M]
 
-- [ ] 8.1 Add progressive disclosure guidelines to CLAUDE.md (on-demand loading instructions)
-- [ ] 8.2 Create token budget table (characters/tokens per skill category, per agent)
-- [ ] 8.3 Update `product-contract.md` KPIs with token efficiency metric
+- [x] 8.1 Add progressive disclosure guidelines to CLAUDE.md (on-demand loading instructions)
+- [x] 8.2 Create token budget table (characters/tokens per skill category, per agent)
+- [x] 8.3 Update `product-contract.md` KPIs with token efficiency metric
 
 ## Phase 9: Integrity Check & Close [S]
 

@@ -253,6 +253,46 @@ agent_tokens = len(frontmatter_chars) / 4 + len(body_chars) / 4
 | **Agent activation + 2 skills** | +200 (agent + 2 skill metadata) | +2,500 (agent + skill bodies) | ~3,200 |
 | **Platform audit (8 dimensions)** | +450 (9 skills metadata) | +12,000 (bodies loaded serially) | ~12,950 |
 
+### Detailed Token Inventory
+
+#### Skills by Category
+
+| Category | Skills | Total Tokens | Avg Tokens | Min | Max |
+|----------|--------|-------------|------------|-----|-----|
+| workflows | 5 | 4,300 | 860 | 600 (acho) | 1,400 (pr) |
+| dev | 8 | 6,150 | 769 | 625 (debug) | 1,125 (multi-agent) |
+| review | 5 | 3,800 | 760 | 650 (performance) | 900 (security) |
+| quality | 7 | 6,981 | 997 | 307 (install-check) | 1,603 (docs-audit) |
+| govern | 11 | 17,300 | 1,573 | 900 (resolve-risk) | 2,200 (integrity-check, create-spec) |
+| docs | 4 | 3,200 | 800 | 600 (prompt-design) | 1,050 (writer) |
+| patterns | 6 | 9,000 | 1,500 | 500 (git-helpers, platform-detect) | 3,000 (python-patterns) |
+| **Total** | **46** | **50,731** | **1,103** | **307** | **3,000** |
+
+#### Agents
+
+| Agent | Est. Tokens | Capabilities | Scope |
+|-------|------------|-------------|-------|
+| architect | 932 | 5 | read-only |
+| debugger | 668 | 2 | read-write |
+| principal-engineer | 787 | 7 | read-only |
+| security-reviewer | 1,024 | 7 | read-only |
+| quality-auditor | 726 | 4 | read-only |
+| codebase-mapper | 796 | 8 | read-only |
+| code-simplifier | 763 | 8 | read-write |
+| platform-auditor | 1,056 | 7 | read-only |
+| verify-app | 795 | 9 | read-only |
+| **Total** | **7,547** | — | — |
+| **Average** | **839** | **6.3** | — |
+
+#### Token Efficiency Score
+
+```
+efficiency = session_start_tokens / total_available_tokens
+           = 500 / (50,731 + 7,547)
+           = 500 / 58,278
+           = 0.86% loaded at session start (99.14% deferred)
+```
+
 ### Compared to Previous Model
 
 | Metric | Before (flat loading) | After (progressive disclosure) |
