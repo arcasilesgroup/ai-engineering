@@ -1,3 +1,10 @@
+---
+name: commit
+version: 1.0.0
+category: workflows
+tags: [git, commit, push, hooks]
+---
+
 # Commit Workflow
 
 ## Purpose

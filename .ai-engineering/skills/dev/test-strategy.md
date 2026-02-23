@@ -1,3 +1,10 @@
+---
+name: test-strategy
+version: 1.0.0
+category: dev
+tags: [testing, coverage, test-design, tdd]
+---
+
 # Test Strategy
 
 ## Purpose

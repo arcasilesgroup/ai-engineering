@@ -1,3 +1,10 @@
+---
+name: deps-update
+version: 1.0.0
+category: dev
+tags: [dependencies, security, vulnerabilities, updates]
+---
+
 # Dependency Update
 
 ## Purpose

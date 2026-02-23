@@ -1,3 +1,10 @@
+---
+name: dast
+version: 1.0.0
+category: review
+tags: [security, dast, owasp-zap, nuclei, dynamic-testing]
+---
+
 # DAST (Dynamic Application Security Testing)
 
 ## Purpose

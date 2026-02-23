@@ -1,3 +1,10 @@
+---
+name: explain
+version: 1.0.0
+category: docs
+tags: [documentation, explanation, feynman, teaching]
+---
+
 # Explain
 
 ## Purpose

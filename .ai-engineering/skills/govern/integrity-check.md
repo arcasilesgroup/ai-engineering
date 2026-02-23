@@ -1,3 +1,10 @@
+---
+name: integrity-check
+version: 1.0.0
+category: govern
+tags: [governance, integrity, validation, cross-reference]
+---
+
 # Content Integrity
 
 ## Purpose

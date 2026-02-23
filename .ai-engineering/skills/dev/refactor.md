@@ -1,3 +1,10 @@
+---
+name: refactor
+version: 1.0.0
+category: dev
+tags: [refactoring, code-quality, simplification]
+---
+
 # Refactor
 
 ## Purpose

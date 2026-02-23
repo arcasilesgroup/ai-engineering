@@ -1,3 +1,10 @@
+---
+name: migration
+version: 1.0.0
+category: dev
+tags: [migration, breaking-changes, compatibility]
+---
+
 # Migration
 
 ## Purpose

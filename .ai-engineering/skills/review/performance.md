@@ -1,3 +1,10 @@
+---
+name: performance
+version: 1.0.0
+category: review
+tags: [performance, profiling, optimization, bottlenecks]
+---
+
 # Performance Analysis
 
 ## Purpose

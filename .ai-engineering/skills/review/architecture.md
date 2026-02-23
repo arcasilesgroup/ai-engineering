@@ -1,3 +1,10 @@
+---
+name: architecture
+version: 1.0.0
+category: review
+tags: [architecture, dependencies, coupling, drift]
+---
+
 # Architecture Analysis
 
 ## Purpose

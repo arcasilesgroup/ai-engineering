@@ -1,3 +1,10 @@
+---
+name: create-skill
+version: 1.0.0
+category: govern
+tags: [governance, skill, registration, authoring]
+---
+
 # Create Skill
 
 ## Purpose

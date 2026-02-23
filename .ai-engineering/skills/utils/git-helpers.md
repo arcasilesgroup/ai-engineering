@@ -1,3 +1,10 @@
+---
+name: git-helpers
+version: 1.0.0
+category: utils
+tags: [git, utilities, helpers, branching]
+---
+
 # Git Helpers Utility
 
 ## Purpose

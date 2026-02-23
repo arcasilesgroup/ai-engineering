@@ -1,3 +1,10 @@
+---
+name: nextjs-patterns
+version: 1.0.0
+category: utils
+tags: [nextjs, typescript, patterns, best-practices, code-generation]
+---
+
 # Next.js/TypeScript Patterns
 
 ## Purpose

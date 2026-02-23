@@ -1,3 +1,10 @@
+---
+name: code-review
+version: 1.0.0
+category: dev
+tags: [review, quality, patterns, best-practices]
+---
+
 # Code Review
 
 ## Purpose
