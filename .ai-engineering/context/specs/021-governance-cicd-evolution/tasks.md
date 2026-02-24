@@ -1,6 +1,6 @@
 ---
 spec: "021"
-total: 57
+total: 64
 completed: 0
 last_session: "2026-02-24"
 next_session: "Phase 0 — Scaffold"
@@ -71,6 +71,8 @@ next_session: "Phase 0 — Scaffold"
 
 - [ ] 4.1 Add `installer/tools.py` for OS-aware installation attempts (`winget`, `brew`, `apt`)
 - [ ] 4.2 Add `installer/auth.py` for provider auth checks and guidance
+- [ ] 4.2a Ensure provider-aware VCS tool install path (`gh` for GitHub, `az` for Azure DevOps)
+- [ ] 4.2b Implement CLI-unavailable fallback to API-direct mode and persist mode in manifest/state
 - [ ] 4.3 Add `installer/cicd.py` for stack-aware pipeline generation
 - [ ] 4.4 Add `installer/branch_policy.py` for API apply + manual guide fallback
 - [ ] 4.5 Expand `installer/service.py` to include phases 2-5 after existing bootstrap
@@ -94,9 +96,19 @@ next_session: "Phase 0 — Scaffold"
 
 - [ ] 6.1 Add `cli_commands/review.py` with `ai-eng review pr`
 - [ ] 6.2 Register new review command group in `cli_factory.py`
+- [ ] 6.2a Add `cli_commands/cicd.py` with `ai-eng cicd regenerate`
+- [ ] 6.2b Register `cicd` command group in `cli_factory.py`
 - [ ] 6.3 Extend `state/models.py` InstallManifest for auth/policy/cicd state
 - [ ] 6.4 Update readiness checks to include auth, generated pipelines, and policy readiness
 - [ ] 6.5 Update `doctor/service.py` with new diagnostics and fix guidance
+
+## Phase 6.5: Surface Consistency + Map Validation [M]
+
+- [ ] 6.6 Validate final governance counts: 14 agents, 44 skills, 6 categories, no `patterns/` category
+- [ ] 6.7 Build and document agent→skill map and verify 0 orphan skills
+- [ ] 6.8 Assign `docs/prompt-design` to `docs-writer` and verify orphan count remains 0
+- [ ] 6.9 Ensure `navigator` uses existing artifacts only (no new runtime artifact outputs)
+- [ ] 6.10 Ensure `workflows/self-improve` codifies analyze→plan→execute→verify→learn handoff
 
 ## Phase 7: Documentation + Pointer Synchronization [M]
 
@@ -112,6 +124,7 @@ next_session: "Phase 0 — Scaffold"
 
 - [ ] 8.1 Add/adjust unit tests for installer phases, vcs policy methods, and review command
 - [ ] 8.2 Add/adjust integration tests for install-to-operational flows (GitHub/Azure + fallback)
-- [ ] 8.3 Run `ruff`, `pytest`, `ty`, `pip-audit` and ensure gates pass
-- [ ] 8.4 Run integrity-check for `.ai-engineering/` consistency
-- [ ] 8.5 Verify acceptance criteria and create `done.md`
+- [ ] 8.3 Add/adjust tests for `ai-eng cicd regenerate` behavior on stack changes
+- [ ] 8.4 Run `ruff`, `pytest`, `ty`, `pip-audit` and ensure gates pass
+- [ ] 8.5 Run integrity-check for `.ai-engineering/` consistency
+- [ ] 8.6 Verify acceptance criteria and create `done.md`

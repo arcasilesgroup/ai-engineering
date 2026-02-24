@@ -30,6 +30,7 @@ approach: "mixed"
 | `src/ai_engineering/installer/cicd.py` | Stack-aware CI/CD generation logic |
 | `src/ai_engineering/installer/branch_policy.py` | Policy apply and manual-guide fallback |
 | `src/ai_engineering/cli_commands/review.py` | `ai-eng review pr` command group |
+| `src/ai_engineering/cli_commands/cicd.py` | `ai-eng cicd regenerate` command group |
 | `src/ai_engineering/templates/pipeline/github/*` | GitHub CI/PR review/gate templates |
 | `src/ai_engineering/templates/pipeline/azure/*` | Azure DevOps CI/PR review/gate templates |
 | `src/ai_engineering/templates/project/guides/branch-policy-*.md` | Manual setup guides for fallback mode |
@@ -61,6 +62,7 @@ approach: "mixed"
 | `src/ai_engineering/vcs/factory.py` | API fallback selection support |
 | `src/ai_engineering/state/models.py` | InstallManifest additions (auth, policies, cicd state) |
 | `src/ai_engineering/cli_factory.py` | Register new `review` command group |
+| `src/ai_engineering/cli_factory.py` | Register new `cicd` command group with `regenerate` subcommand |
 | `.claude/commands/agent/*.md` | Add wrappers for new agents and remove mapper |
 | `.github/agents/*.md` | Add wrappers for new agents and remove mapper |
 | `.github/prompts/*.prompt.md` | Add new skills, remove deprecated ones |
@@ -113,6 +115,7 @@ src/ai_engineering/
   installer/cicd.py
   installer/branch_policy.py
   cli_commands/review.py
+  cli_commands/cicd.py
 ```
 
 ## Session Map
@@ -136,4 +139,7 @@ src/ai_engineering/
 - **Install-to-operational default**: install must leave CI/CD and PR governance configured, or provide exact manual fallback path.
 - **Stack-aware by contract**: generated pipelines run only checks relevant to installed stacks.
 - **API-first resilience**: if CLIs or policy permissions fail, shift to direct API mode and generate deterministic guidance.
+- **Provider-aware VCS setup**: GitHub installs/uses `gh`; Azure DevOps installs/uses `az`; both support API-direct fallback.
+- **Surface target lock**: final outcome must match 14 agents + 44 skills + 6 categories + 0 skill orphans.
+- **Self-improve orchestration**: `workflows/self-improve` executes analyze→plan→execute→verify→learn with navigator + governance-steward continuity.
 - **One phase, one atomic commit**: `spec-021: Phase N — <description>`.

@@ -43,6 +43,10 @@ Implement a governance and delivery evolution centered on four outcomes:
 - Extend `doctor`/readiness checks to include CI/CD and branch-policy readiness.
 - Update all wrappers/pointers (Copilot + Claude) and manifest counters/registrations.
 - Keep multi-model routing out of scope for implementation (revert to single-platform model behavior).
+- Ensure final governed surface targets **14 agents** and **44 skills** across **6 categories**, with `patterns/` removed and migrated into references.
+- Ensure agent→skill linkage yields **0 orphan skills**, including explicit assignment of `docs/prompt-design` to `docs-writer`.
+- Add CI/CD regeneration flow (`ai-eng cicd regenerate`) for stack changes after install.
+- Preserve navigator boundaries: no new runtime artifacts, no auxiliary dedicated skills required in this phase.
 
 ### Out of Scope
 
@@ -68,6 +72,12 @@ Implement a governance and delivery evolution centered on four outcomes:
 13. Docs simplification capability exists via `docs-writer` simplify mode and `docs/simplify` skill.
 14. Adaptive standards lifecycle exists via `govern/adaptive-standards` skill.
 15. Integrity checks pass after migration updates and template mirror remains synchronized.
+16. Manifest and governance pointers reflect final target counts: 14 agents, 44 skills, 6 categories, 0 `patterns/` category.
+17. Agent-skill map is documented and validated with 0 orphan skills.
+18. `docs/prompt-design` is mapped to `docs-writer` to keep 0 orphan state.
+19. `ai-eng cicd regenerate` exists and updates generated pipelines when stack set changes.
+20. Self-improvement loop is codified (`workflows/self-improve`) and references navigator + governance-steward handoff.
+21. VCS-tool install/auth behavior is provider-aware (`gh` for GitHub, `az` for Azure DevOps) with API fallback mode persisted in state.
 
 ## Decisions
 

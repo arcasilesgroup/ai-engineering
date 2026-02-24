@@ -46,7 +46,14 @@ This project dogfoods the ai-engineering framework on itself.
 
 ## Active Spec
 
-Spec-020: Multi-Agent Model Evolution. Last completed: Spec-019.
+Spec-021: Governance + CI/CD Evolution. Last completed: Spec-020.
+
+### Read Sequence
+
+1. `context/specs/_active.md`
+2. `context/specs/021-governance-cicd-evolution/spec.md`
+3. `context/specs/021-governance-cicd-evolution/plan.md`
+4. `context/specs/021-governance-cicd-evolution/tasks.md`
 
 ## KPIs
 
