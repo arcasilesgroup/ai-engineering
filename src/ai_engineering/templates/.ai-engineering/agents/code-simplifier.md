@@ -1,3 +1,18 @@
+---
+name: code-simplifier
+version: 1.0.0
+scope: read-write
+capabilities: [complexity-reduction, dead-code-removal, abstraction-evaluation]
+inputs: [codebase, file-paths, module]
+outputs: [refactoring-plan, improvement-plan]
+tags: [simplification, complexity, refactoring, dead-code]
+references:
+  skills:
+    - skills/dev/refactor/SKILL.md
+  standards:
+    - standards/framework/core.md
+---
+
 # Code Simplifier
 
 ## Identity

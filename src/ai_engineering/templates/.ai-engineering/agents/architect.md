@@ -1,3 +1,19 @@
+---
+name: architect
+version: 1.0.0
+scope: read-only
+capabilities: [dependency-mapping, coupling-analysis, cohesion-analysis, boundary-analysis, drift-detection]
+inputs: [codebase, repository, file-paths]
+outputs: [dependency-graph, coupling-assessment, tech-debt-catalog, decision-records]
+tags: [architecture, dependencies, coupling, cohesion, design]
+references:
+  skills:
+    - skills/review/architecture/SKILL.md
+    - skills/dev/refactor/SKILL.md
+  standards:
+    - standards/framework/core.md
+---
+
 # Architect
 
 ## Identity

@@ -1,3 +1,21 @@
+---
+name: quality-auditor
+version: 1.0.0
+scope: read-only
+capabilities: [coverage-analysis, complexity-analysis, duplication-analysis, quality-gate]
+inputs: [codebase, test-results, configuration]
+outputs: [quality-verdict, audit-report]
+tags: [quality, metrics, coverage, gate]
+references:
+  skills:
+    - skills/quality/audit-code/SKILL.md
+    - skills/quality/audit-report/SKILL.md
+    - skills/quality/release-gate/SKILL.md
+  standards:
+    - standards/framework/core.md
+    - standards/framework/quality/core.md
+---
+
 # Quality Auditor
 
 ## Identity

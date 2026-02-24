@@ -380,7 +380,8 @@ def test_validator_remaining_branches(tmp_path: Path) -> None:
     (template_root / "codex.md").write_text(base, encoding="utf-8")
     (template_root / "copilot-instructions.md").write_text(base, encoding="utf-8")
 
-    (ai / "skills" / "dev" / "good-file-name.md").write_text(
+    (ai / "skills" / "dev" / "good-file-name").mkdir(parents=True, exist_ok=True)
+    (ai / "skills" / "dev" / "good-file-name" / "SKILL.md").write_text(
         "---\nname: BadName\nversion: one\ncategory: wrong\n---\n",
         encoding="utf-8",
     )
