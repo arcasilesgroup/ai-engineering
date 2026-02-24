@@ -58,12 +58,14 @@ Procedural skills guide structured execution. Reference the relevant skill befor
 - `.ai-engineering/skills/workflows/acho/SKILL.md` — `/acho` alias.
 - `.ai-engineering/skills/workflows/pre-implementation/SKILL.md` — branch hygiene before implementation.
 - `.ai-engineering/skills/workflows/cleanup/SKILL.md` — branch cleanup and stale branch removal.
+- `.ai-engineering/skills/workflows/self-improve/SKILL.md` — iterative analyze→plan→execute→verify→learn loop.
 
 ### Dev Skills
 
 - `.ai-engineering/skills/dev/debug/SKILL.md` — systematic diagnosis.
 - `.ai-engineering/skills/dev/refactor/SKILL.md` — safe refactoring.
 - `.ai-engineering/skills/dev/code-review/SKILL.md` — code review checklist.
+- `.ai-engineering/skills/dev/data-modeling/SKILL.md` — data modeling and migration safety.
 - `.ai-engineering/skills/dev/test-strategy/SKILL.md` — test design.
 - `.ai-engineering/skills/dev/migration/SKILL.md` — migration planning.
 - `.ai-engineering/skills/dev/deps-update/SKILL.md` — dependency management.
@@ -75,6 +77,7 @@ Procedural skills guide structured execution. Reference the relevant skill befor
 - `.ai-engineering/skills/review/architecture/SKILL.md` — architecture review.
 - `.ai-engineering/skills/review/performance/SKILL.md` — performance review.
 - `.ai-engineering/skills/review/security/SKILL.md` — security assessment.
+- `.ai-engineering/skills/review/data-security/SKILL.md` — data security posture review.
 - `.ai-engineering/skills/review/dast/SKILL.md` — dynamic application security testing.
 - `.ai-engineering/skills/review/container-security/SKILL.md` — container image scanning.
 
@@ -83,6 +86,7 @@ Procedural skills guide structured execution. Reference the relevant skill befor
 - `.ai-engineering/skills/docs/changelog/SKILL.md` — changelog documentation.
 - `.ai-engineering/skills/docs/explain/SKILL.md` — Feynman-style code and concept explanations.
 - `.ai-engineering/skills/docs/writer/SKILL.md` — open-source documentation generation.
+- `.ai-engineering/skills/docs/simplify/SKILL.md` — clarity-first simplification workflow.
 - `.ai-engineering/skills/docs/prompt-design/SKILL.md` — prompt engineering frameworks.
 
 ### Govern Skills
@@ -90,6 +94,7 @@ Procedural skills guide structured execution. Reference the relevant skill befor
 - `.ai-engineering/skills/govern/integrity-check/SKILL.md` — governance content validation (7-category check).
 - `.ai-engineering/skills/govern/contract-compliance/SKILL.md` — clause-by-clause contract validation.
 - `.ai-engineering/skills/govern/ownership-audit/SKILL.md` — ownership boundary and updater safety validation.
+- `.ai-engineering/skills/govern/adaptive-standards/SKILL.md` — standards evolution with compatibility checks.
 - `.ai-engineering/skills/govern/create-agent/SKILL.md` — agent authoring and registration procedure.
 - `.ai-engineering/skills/govern/create-skill/SKILL.md` — skill authoring and registration procedure.
 - `.ai-engineering/skills/govern/create-spec/SKILL.md` — spec creation with branch-first workflow.
@@ -102,33 +107,23 @@ Procedural skills guide structured execution. Reference the relevant skill befor
 ### Quality Skills
 
 - `.ai-engineering/skills/quality/audit-code/SKILL.md` — quality gate assessment.
-- `.ai-engineering/skills/quality/audit-report/SKILL.md` — audit report template.
 - `.ai-engineering/skills/quality/docs-audit/SKILL.md` — documentation and content quality audit.
 - `.ai-engineering/skills/quality/install-check/SKILL.md` — installation readiness check.
 - `.ai-engineering/skills/quality/release-gate/SKILL.md` — aggregated release readiness gate.
 - `.ai-engineering/skills/quality/test-gap-analysis/SKILL.md` — capability-to-test risk mapping.
 - `.ai-engineering/skills/quality/sbom/SKILL.md` — software bill of materials generation.
 
-### Pattern Skills
-
-- `.ai-engineering/skills/patterns/doctor/SKILL.md` — unified environment diagnostics.
-- `.ai-engineering/skills/patterns/git-helpers/SKILL.md` — git operation helpers.
-- `.ai-engineering/skills/patterns/platform-detect/SKILL.md` — OS/platform detection.
-- `.ai-engineering/skills/patterns/python-patterns/SKILL.md` — comprehensive Python patterns.
-- `.ai-engineering/skills/patterns/dotnet-patterns/SKILL.md` — comprehensive .NET patterns.
-- `.ai-engineering/skills/patterns/nextjs-patterns/SKILL.md` — comprehensive Next.js/TypeScript patterns.
-
 ## Slash Commands
 
 Skills and agents are available as Claude Code slash commands via `.claude/commands/`. Each command is a thin wrapper that reads and executes the canonical skill or agent file. No content is duplicated — the command files are pointers only (decision S0-008).
 
 - `/commit`, `/pr`, `/acho`, `/pre-implementation`, `/cleanup` — workflow commands.
-- `/dev:*` — dev skill commands (e.g., `/dev:debug`, `/dev:refactor`, `/dev:code-review`, `/dev:cicd-generate`, `/dev:multi-agent`).
-- `/review:*` — review skill commands (e.g., `/review:architecture`, `/review:security`, `/review:dast`, `/review:container-security`).
-- `/docs:*` — docs skill commands (e.g., `/docs:changelog`, `/docs:explain`).
-- `/govern:*` — governance skill commands (e.g., `/govern:create-spec`, `/govern:integrity-check`, `/govern:contract-compliance`, `/govern:ownership-audit`).
-- `/quality:*` — quality skill commands (`/quality:audit-code`, `/quality:audit-report`, `/quality:install-check`, `/quality:docs-audit`, `/quality:release-gate`, `/quality:test-gap-analysis`, `/quality:sbom`).
-- `/patterns:*` — pattern skill commands (`/patterns:doctor`, `/patterns:git-helpers`, `/patterns:platform-detect`, `/patterns:python-patterns`, `/patterns:dotnet-patterns`, `/patterns:nextjs-patterns`).
+- `/dev:*` — dev skill commands (e.g., `/dev:debug`, `/dev:refactor`, `/dev:code-review`, `/dev:data-modeling`, `/dev:cicd-generate`, `/dev:multi-agent`).
+- `/review:*` — review skill commands (e.g., `/review:architecture`, `/review:security`, `/review:data-security`, `/review:dast`, `/review:container-security`).
+- `/docs:*` — docs skill commands (e.g., `/docs:changelog`, `/docs:explain`, `/docs:simplify`).
+- `/govern:*` — governance skill commands (e.g., `/govern:create-spec`, `/govern:integrity-check`, `/govern:contract-compliance`, `/govern:ownership-audit`, `/govern:adaptive-standards`).
+- `/quality:*` — quality skill commands (`/quality:audit-code`, `/quality:install-check`, `/quality:docs-audit`, `/quality:release-gate`, `/quality:test-gap-analysis`, `/quality:sbom`).
+- `/workflows:*` — workflow skill commands (e.g., `/workflows:self-improve`).
 - `/agent:*` — agent persona commands (e.g., `/agent:verify-app`, `/agent:debugger`, `/agent:platform-auditor`).
 
 ## Copilot Integration
@@ -148,7 +143,12 @@ Agent definitions provide personas for complex multi-step tasks. Activate the re
 - `.ai-engineering/agents/architect.md` — architecture analysis.
 - `.ai-engineering/agents/quality-auditor.md` — quality gate enforcement.
 - `.ai-engineering/agents/security-reviewer.md` — security assessment.
-- `.ai-engineering/agents/codebase-mapper.md` — codebase structure mapping.
+- `.ai-engineering/agents/orchestrator.md` — multi-phase execution orchestration.
+- `.ai-engineering/agents/navigator.md` — strategic next-spec analysis.
+- `.ai-engineering/agents/devops-engineer.md` — CI/CD and delivery automation.
+- `.ai-engineering/agents/docs-writer.md` — documentation authoring and simplification.
+- `.ai-engineering/agents/governance-steward.md` — governance lifecycle stewardship.
+- `.ai-engineering/agents/pr-reviewer.md` — headless CI pull request review.
 - `.ai-engineering/agents/code-simplifier.md` — complexity reduction.
 - `.ai-engineering/agents/platform-auditor.md` — full-spectrum audit orchestration.
 - `.ai-engineering/agents/verify-app.md` — end-to-end verification.

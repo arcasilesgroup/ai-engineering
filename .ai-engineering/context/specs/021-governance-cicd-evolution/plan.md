@@ -24,7 +24,7 @@ approach: "mixed"
 | `skills/dev/data-modeling/SKILL.md` | Data modeling procedure |
 | `skills/review/data-security/SKILL.md` | Data security review procedure |
 | `skills/docs/simplify/SKILL.md` | Governance docs simplification procedure |
-| `skills/govern/adaptive-standards/SKILL.md` | Adaptive standards review procedure |
+| `skills/govern/adaptive-standards` | Adaptive standards review procedure |
 | `src/ai_engineering/installer/tools.py` | OS-aware tool install orchestration |
 | `src/ai_engineering/installer/auth.py` | VCS auth checks and guidance |
 | `src/ai_engineering/installer/cicd.py` | Stack-aware CI/CD generation logic |
@@ -43,7 +43,7 @@ approach: "mixed"
 | `agents/security-reviewer.md` | Add data-security scope |
 | `agents/quality-auditor.md` | Add explicit test-gap usage |
 | `agents/platform-auditor.md` | Align orchestration with new agent set |
-| `agents/codebase-mapper.md` | Remove file and references |
+| `codebase-mapper` agent | Remove file and references |
 | `skills/dev/cicd-generate/SKILL.md` | Add AI PR review step and stack-aware generation details |
 | `skills/quality/audit-code/SKILL.md` | Merge audit-report output template |
 | `skills/quality/install-check/SKILL.md` | Include platform detect + doctor readiness pattern |
@@ -106,7 +106,7 @@ skills/
   dev/data-modeling/SKILL.md
   review/data-security/SKILL.md
   docs/simplify/SKILL.md
-  govern/adaptive-standards/SKILL.md
+  govern/adaptive-standards
   [patterns/** removed and migrated into references/]
 
 src/ai_engineering/

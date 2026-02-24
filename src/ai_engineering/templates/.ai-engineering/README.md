@@ -22,9 +22,13 @@ Canonical governance root for the `ai-engineering` framework and for installed i
 ```text
 .ai-engineering/
   manifest.yml
+  README.md
   standards/
     framework/
       core.md
+      quality/
+        core.md
+        python.md
       stacks/python.md
     team/
       core.md
@@ -41,6 +45,15 @@ Canonical governance root for the `ai-engineering` framework and for installed i
         tasks.md
         done.md
     learnings.md
+  skills/
+    workflows/
+    dev/
+    review/
+    docs/
+    govern/
+    quality/
+    utils/
+  agents/
   state/
     install-manifest.json
     ownership-map.json

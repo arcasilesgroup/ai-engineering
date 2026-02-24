@@ -11,6 +11,18 @@ metadata:
   description: "AI governance framework with mandatory local enforcement"
   updated: "2026-02-22"
 
+governance_surface:
+  agents:
+    total: 14
+    categories: [analysis, review, orchestration, docs, governance, delivery, verification]
+  skills:
+    total: 44
+    category_count: 6
+    categories: [workflows, dev, review, docs, govern, quality]
+  integrity:
+    patterns_category_present: false
+    orphan_skills: 0
+
 ownership:
   root: ".ai-engineering"
   model:
@@ -121,6 +133,9 @@ enforcement:
   hooks:
     non_bypassable: true
     required: ["pre-commit", "commit-msg", "pre-push"]
+  ci:
+    required_workflows: ["ci", "ai-pr-review", "ai-eng-gate"]
+    block_on_findings: ["high", "critical"]
   checks:
     pre_commit:
       common: ["gitleaks"]
