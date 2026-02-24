@@ -38,70 +38,70 @@ Procedural skills guide structured execution. Reference the relevant skill befor
 
 ### Workflows
 
-- `.ai-engineering/skills/workflows/commit.md` — `/commit` flow.
-- `.ai-engineering/skills/workflows/pr.md` — `/pr` flow.
-- `.ai-engineering/skills/workflows/acho.md` — `/acho` alias.
-- `.ai-engineering/skills/workflows/pre-implementation.md` — branch hygiene before implementation.
-- `.ai-engineering/skills/workflows/cleanup.md` — branch cleanup and stale branch removal.
+- `.ai-engineering/skills/workflows/commit/SKILL.md` — `/commit` flow.
+- `.ai-engineering/skills/workflows/pr/SKILL.md` — `/pr` flow.
+- `.ai-engineering/skills/workflows/acho/SKILL.md` — `/acho` alias.
+- `.ai-engineering/skills/workflows/pre-implementation/SKILL.md` — branch hygiene before implementation.
+- `.ai-engineering/skills/workflows/cleanup/SKILL.md` — branch cleanup and stale branch removal.
 
 ### Dev Skills
 
-- `.ai-engineering/skills/dev/debug.md` — systematic diagnosis.
-- `.ai-engineering/skills/dev/refactor.md` — safe refactoring.
-- `.ai-engineering/skills/dev/code-review.md` — code review checklist.
-- `.ai-engineering/skills/dev/test-strategy.md` — test design.
-- `.ai-engineering/skills/dev/migration.md` — migration planning.
-- `.ai-engineering/skills/dev/deps-update.md` — dependency management.
-- `.ai-engineering/skills/dev/cicd-generate.md` — CI/CD workflow generation.
-- `.ai-engineering/skills/dev/multi-agent.md` — multi-agent orchestration patterns.
+- `.ai-engineering/skills/dev/debug/SKILL.md` — systematic diagnosis.
+- `.ai-engineering/skills/dev/refactor/SKILL.md` — safe refactoring.
+- `.ai-engineering/skills/dev/code-review/SKILL.md` — code review checklist.
+- `.ai-engineering/skills/dev/test-strategy/SKILL.md` — test design.
+- `.ai-engineering/skills/dev/migration/SKILL.md` — migration planning.
+- `.ai-engineering/skills/dev/deps-update/SKILL.md` — dependency management.
+- `.ai-engineering/skills/dev/cicd-generate/SKILL.md` — CI/CD workflow generation.
+- `.ai-engineering/skills/dev/multi-agent/SKILL.md` — multi-agent orchestration patterns.
 
 ### Review Skills
 
-- `.ai-engineering/skills/review/architecture.md` — architecture review.
-- `.ai-engineering/skills/review/performance.md` — performance review.
-- `.ai-engineering/skills/review/security.md` — security assessment.
-- `.ai-engineering/skills/review/dast.md` — dynamic application security testing.
-- `.ai-engineering/skills/review/container-security.md` — container image scanning.
+- `.ai-engineering/skills/review/architecture/SKILL.md` — architecture review.
+- `.ai-engineering/skills/review/performance/SKILL.md` — performance review.
+- `.ai-engineering/skills/review/security/SKILL.md` — security assessment.
+- `.ai-engineering/skills/review/dast/SKILL.md` — dynamic application security testing.
+- `.ai-engineering/skills/review/container-security/SKILL.md` — container image scanning.
 
 ### Docs Skills
 
-- `.ai-engineering/skills/docs/changelog.md` — changelog documentation.
-- `.ai-engineering/skills/docs/explain.md` — Feynman-style code and concept explanations.
-- `.ai-engineering/skills/docs/writer.md` — open-source documentation generation.
-- `.ai-engineering/skills/docs/prompt-design.md` — prompt engineering frameworks.
+- `.ai-engineering/skills/docs/changelog/SKILL.md` — changelog documentation.
+- `.ai-engineering/skills/docs/explain/SKILL.md` — Feynman-style code and concept explanations.
+- `.ai-engineering/skills/docs/writer/SKILL.md` — open-source documentation generation.
+- `.ai-engineering/skills/docs/prompt-design/SKILL.md` — prompt engineering frameworks.
 
 ### Govern Skills
 
-- `.ai-engineering/skills/govern/integrity-check.md` — governance content validation (7-category check).
-- `.ai-engineering/skills/govern/contract-compliance.md` — clause-by-clause contract validation.
-- `.ai-engineering/skills/govern/ownership-audit.md` — ownership boundary and updater safety validation.
-- `.ai-engineering/skills/govern/create-agent.md` — agent authoring and registration procedure.
-- `.ai-engineering/skills/govern/create-skill.md` — skill authoring and registration procedure.
-- `.ai-engineering/skills/govern/create-spec.md` — spec creation with branch-first workflow.
-- `.ai-engineering/skills/govern/delete-agent.md` — safe agent removal with dependency checks.
-- `.ai-engineering/skills/govern/delete-skill.md` — safe skill removal with dependency checks.
-- `.ai-engineering/skills/govern/accept-risk.md` — risk acceptance with severity-based expiry.
-- `.ai-engineering/skills/govern/resolve-risk.md` — risk remediation and closure.
-- `.ai-engineering/skills/govern/renew-risk.md` — time-limited risk renewal (max 2).
+- `.ai-engineering/skills/govern/integrity-check/SKILL.md` — governance content validation (7-category check).
+- `.ai-engineering/skills/govern/contract-compliance/SKILL.md` — clause-by-clause contract validation.
+- `.ai-engineering/skills/govern/ownership-audit/SKILL.md` — ownership boundary and updater safety validation.
+- `.ai-engineering/skills/govern/create-agent/SKILL.md` — agent authoring and registration procedure.
+- `.ai-engineering/skills/govern/create-skill/SKILL.md` — skill authoring and registration procedure.
+- `.ai-engineering/skills/govern/create-spec/SKILL.md` — spec creation with branch-first workflow.
+- `.ai-engineering/skills/govern/delete-agent/SKILL.md` — safe agent removal with dependency checks.
+- `.ai-engineering/skills/govern/delete-skill/SKILL.md` — safe skill removal with dependency checks.
+- `.ai-engineering/skills/govern/accept-risk/SKILL.md` — risk acceptance with severity-based expiry.
+- `.ai-engineering/skills/govern/resolve-risk/SKILL.md` — risk remediation and closure.
+- `.ai-engineering/skills/govern/renew-risk/SKILL.md` — time-limited risk renewal (max 2).
 
 ### Quality Skills
 
-- `.ai-engineering/skills/quality/audit-code.md` — quality gate assessment.
-- `.ai-engineering/skills/quality/audit-report.md` — audit report template.
-- `.ai-engineering/skills/quality/docs-audit.md` — documentation and content quality audit.
-- `.ai-engineering/skills/quality/install-check.md` — installation readiness check.
-- `.ai-engineering/skills/quality/release-gate.md` — aggregated release readiness gate.
-- `.ai-engineering/skills/quality/test-gap-analysis.md` — capability-to-test risk mapping.
-- `.ai-engineering/skills/quality/sbom.md` — software bill of materials generation.
+- `.ai-engineering/skills/quality/audit-code/SKILL.md` — quality gate assessment.
+- `.ai-engineering/skills/quality/audit-report/SKILL.md` — audit report template.
+- `.ai-engineering/skills/quality/docs-audit/SKILL.md` — documentation and content quality audit.
+- `.ai-engineering/skills/quality/install-check/SKILL.md` — installation readiness check.
+- `.ai-engineering/skills/quality/release-gate/SKILL.md` — aggregated release readiness gate.
+- `.ai-engineering/skills/quality/test-gap-analysis/SKILL.md` — capability-to-test risk mapping.
+- `.ai-engineering/skills/quality/sbom/SKILL.md` — software bill of materials generation.
 
-### Utility Skills
+### Pattern Skills
 
-- `.ai-engineering/skills/utils/doctor.md` — unified environment diagnostics.
-- `.ai-engineering/skills/utils/git-helpers.md` — git operation helpers.
-- `.ai-engineering/skills/utils/platform-detect.md` — OS/platform detection.
-- `.ai-engineering/skills/utils/python-patterns.md` — comprehensive Python patterns.
-- `.ai-engineering/skills/utils/dotnet-patterns.md` — comprehensive .NET patterns.
-- `.ai-engineering/skills/utils/nextjs-patterns.md` — comprehensive Next.js/TypeScript patterns.
+- `.ai-engineering/skills/patterns/doctor/SKILL.md` — unified environment diagnostics.
+- `.ai-engineering/skills/patterns/git-helpers/SKILL.md` — git operation helpers.
+- `.ai-engineering/skills/patterns/platform-detect/SKILL.md` — OS/platform detection.
+- `.ai-engineering/skills/patterns/python-patterns/SKILL.md` — comprehensive Python patterns.
+- `.ai-engineering/skills/patterns/dotnet-patterns/SKILL.md` — comprehensive .NET patterns.
+- `.ai-engineering/skills/patterns/nextjs-patterns/SKILL.md` — comprehensive Next.js/TypeScript patterns.
 
 ## Agents
 

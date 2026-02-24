@@ -1,14 +1,12 @@
 ---
-active: "019-copilot-prompts-agents"
-updated: "2026-02-23"
+active: null
+updated: "2026-02-24"
 ---
 
 # Active Spec
 
-Spec-019: GitHub Copilot Prompt Files & Custom Agents Integration.
+No active spec. Spec-020 (Multi-Agent Model Evolution) closed on 2026-02-24.
 
 ## Quick Resume
 
-1. Read `context/specs/019-copilot-prompts-agents/spec.md` for scope and acceptance criteria.
-2. Read `context/specs/019-copilot-prompts-agents/tasks.md` for current progress.
-3. Check `state/decision-store.json` — decisions already taken (do not re-ask).
+No active work. To start a new spec, run `/govern:create-spec`.

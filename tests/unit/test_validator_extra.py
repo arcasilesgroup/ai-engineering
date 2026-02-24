@@ -159,14 +159,17 @@ def test_manifest_coherence_active_spec_branches(tmp_path: Path) -> None:
 
 def test_skill_frontmatter_additional_failure_paths(tmp_path: Path) -> None:
     ai = _mk(tmp_path)
-    s1 = ai / "skills" / "dev" / "bad-type.md"
+    (ai / "skills" / "dev" / "bad-type").mkdir(parents=True, exist_ok=True)
+    s1 = ai / "skills" / "dev" / "bad-type" / "SKILL.md"
     s1.write_text("---\n- x\n---\n", encoding="utf-8")
-    s2 = ai / "skills" / "dev" / "bad-req.md"
+    (ai / "skills" / "dev" / "bad-req").mkdir(parents=True, exist_ok=True)
+    s2 = ai / "skills" / "dev" / "bad-req" / "SKILL.md"
     s2.write_text(
         "---\nname: bad-req\nversion: 1.0.0\ncategory: dev\nrequires: bad\nos: nope\n---\n",
         encoding="utf-8",
     )
-    s3 = ai / "skills" / "dev" / "bad-os.md"
+    (ai / "skills" / "dev" / "bad-os").mkdir(parents=True, exist_ok=True)
+    s3 = ai / "skills" / "dev" / "bad-os" / "SKILL.md"
     s3.write_text(
         "---\nname: bad-os\nversion: 1.0.0\ncategory: dev\nos: [plan9]\n---\n",
         encoding="utf-8",
@@ -180,7 +183,8 @@ def test_skill_frontmatter_invalid_yaml_and_missing_dir(tmp_path: Path) -> None:
     assert report.category_passed(IntegrityCategory.SKILL_FRONTMATTER) is False
 
     ai = _mk(tmp_path)
-    bad = ai / "skills" / "dev" / "bad-yaml.md"
+    (ai / "skills" / "dev" / "bad-yaml").mkdir(parents=True, exist_ok=True)
+    bad = ai / "skills" / "dev" / "bad-yaml" / "SKILL.md"
     bad.write_text("---\nname: [\n---\n", encoding="utf-8")
     report2 = validate_content_integrity(tmp_path, categories=[IntegrityCategory.SKILL_FRONTMATTER])
     assert report2.category_passed(IntegrityCategory.SKILL_FRONTMATTER) is False

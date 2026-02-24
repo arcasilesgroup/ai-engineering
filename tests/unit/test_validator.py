@@ -18,38 +18,38 @@ from ai_engineering.validator.service import (
 
 
 _SKILL_PATHS = [
-    "skills/workflows/commit.md",
-    "skills/workflows/pr.md",
-    "skills/workflows/acho.md",
-    "skills/workflows/pre-implementation.md",
-    "skills/dev/debug.md",
-    "skills/dev/refactor.md",
-    "skills/dev/code-review.md",
-    "skills/dev/test-strategy.md",
-    "skills/dev/migration.md",
-    "skills/dev/deps-update.md",
-    "skills/review/architecture.md",
-    "skills/review/performance.md",
-    "skills/review/security.md",
-    "skills/docs/changelog.md",
-    "skills/docs/explain.md",
-    "skills/docs/writer.md",
-    "skills/docs/prompt-design.md",
-    "skills/govern/integrity-check.md",
-    "skills/govern/create-agent.md",
-    "skills/govern/create-skill.md",
-    "skills/govern/create-spec.md",
-    "skills/govern/delete-agent.md",
-    "skills/govern/delete-skill.md",
-    "skills/govern/accept-risk.md",
-    "skills/govern/resolve-risk.md",
-    "skills/govern/renew-risk.md",
-    "skills/quality/audit-code.md",
-    "skills/quality/audit-report.md",
-    "skills/quality/install-check.md",
-    "skills/utils/git-helpers.md",
-    "skills/utils/platform-detect.md",
-    "skills/utils/python-patterns.md",
+    "skills/workflows/commit/SKILL.md",
+    "skills/workflows/pr/SKILL.md",
+    "skills/workflows/acho/SKILL.md",
+    "skills/workflows/pre-implementation/SKILL.md",
+    "skills/dev/debug/SKILL.md",
+    "skills/dev/refactor/SKILL.md",
+    "skills/dev/code-review/SKILL.md",
+    "skills/dev/test-strategy/SKILL.md",
+    "skills/dev/migration/SKILL.md",
+    "skills/dev/deps-update/SKILL.md",
+    "skills/review/architecture/SKILL.md",
+    "skills/review/performance/SKILL.md",
+    "skills/review/security/SKILL.md",
+    "skills/docs/changelog/SKILL.md",
+    "skills/docs/explain/SKILL.md",
+    "skills/docs/writer/SKILL.md",
+    "skills/docs/prompt-design/SKILL.md",
+    "skills/govern/integrity-check/SKILL.md",
+    "skills/govern/create-agent/SKILL.md",
+    "skills/govern/create-skill/SKILL.md",
+    "skills/govern/create-spec/SKILL.md",
+    "skills/govern/delete-agent/SKILL.md",
+    "skills/govern/delete-skill/SKILL.md",
+    "skills/govern/accept-risk/SKILL.md",
+    "skills/govern/resolve-risk/SKILL.md",
+    "skills/govern/renew-risk/SKILL.md",
+    "skills/quality/audit-code/SKILL.md",
+    "skills/quality/audit-report/SKILL.md",
+    "skills/quality/install-check/SKILL.md",
+    "skills/patterns/git-helpers/SKILL.md",
+    "skills/patterns/platform-detect/SKILL.md",
+    "skills/patterns/python-patterns/SKILL.md",
 ]
 
 _AGENT_PATHS = [
@@ -74,7 +74,7 @@ def _make_governance(root: Path) -> Path:
         "skills/docs",
         "skills/govern",
         "skills/quality",
-        "skills/utils",
+        "skills/patterns",
         "agents",
         "standards/framework",
         "standards/team",
@@ -87,18 +87,25 @@ def _make_governance(root: Path) -> Path:
 
 
 def _write_skill(ai: Path, rel: str) -> None:
-    """Create a skill/agent markdown file."""
+    """Create a skill/agent markdown file.
+
+    Skills use directory layout: skills/<category>/<name>/SKILL.md
+    Agents remain flat: agents/<name>.md
+    """
     path = ai / rel
     path.parent.mkdir(parents=True, exist_ok=True)
     if rel.startswith("skills/"):
+        # Directory layout: name = parent dir, category = grandparent dir
+        skill_name = path.parent.name
+        skill_category = path.parent.parent.name
         path.write_text(
             (
                 "---\n"
-                f"name: {path.stem}\n"
+                f"name: {skill_name}\n"
                 "version: 1.0.0\n"
-                f"category: {path.parent.name}\n"
+                f"category: {skill_category}\n"
                 "---\n\n"
-                f"# {path.stem}\n"
+                f"# {skill_name}\n"
             ),
             encoding="utf-8",
         )
@@ -120,7 +127,7 @@ def _make_instruction_content(
         "Docs Skills": "skills/docs/",
         "Govern Skills": "skills/govern/",
         "Quality Skills": "skills/quality/",
-        "Utility Skills": "skills/utils/",
+        "Pattern Skills": "skills/patterns/",
     }
     lines = ["# Instructions", "", "## Skills", ""]
     for heading, prefix in prefixes.items():
@@ -472,6 +479,32 @@ class TestFileExistence:
         assert len(fail_checks) == 1
         assert "plan.md" in fail_checks[0].message
 
+    def test_closed_spec_archives_skipped(self, tmp_path: Path) -> None:
+        """Closed specs (with done.md) are historical archives; stale refs ignored."""
+        ai = _setup_full_project(tmp_path)
+        closed = ai / "context" / "specs" / "001-old"
+        closed.mkdir(parents=True)
+        (closed / "spec.md").write_text("# old\n", encoding="utf-8")
+        (closed / "plan.md").write_text("# plan\n", encoding="utf-8")
+        (closed / "tasks.md").write_text(
+            "See `skills/nonexistent/phantom.md` for details.\n",
+            encoding="utf-8",
+        )
+        (closed / "done.md").write_text("# done\n", encoding="utf-8")
+        report = validate_content_integrity(
+            tmp_path,
+            categories=[IntegrityCategory.FILE_EXISTENCE],
+        )
+        # The stale reference in the closed spec should NOT cause a failure
+        broken = [
+            c
+            for c in report.checks
+            if c.name == "broken-reference"
+            and c.status == CheckStatus.FAIL
+            and "phantom" in c.message
+        ]
+        assert len(broken) == 0
+
 
 # -- Category 2: Mirror Sync ----------------------------------------------
 
@@ -523,7 +556,7 @@ class TestMirrorSync:
                 dest = mirror_root / rel
                 dest.parent.mkdir(parents=True, exist_ok=True)
                 dest.write_bytes(f.read_bytes())
-        desynced = mirror_root / "skills" / "workflows" / "commit.md"
+        desynced = mirror_root / "skills" / "workflows" / "commit" / "SKILL.md"
         desynced.write_text("DESYNCED CONTENT", encoding="utf-8")
         report = validate_content_integrity(
             tmp_path,
@@ -778,9 +811,9 @@ class TestCrossReference:
 
     def test_valid_references_pass(self, tmp_path: Path) -> None:
         ai = _setup_full_project(tmp_path)
-        skill = ai / "skills" / "dev" / "debug.md"
+        skill = ai / "skills" / "dev" / "debug" / "SKILL.md"
         skill.write_text(
-            "# Debug\n\n## References\n\n- `skills/dev/refactor.md`\n",
+            "# Debug\n\n## References\n\n- `skills/dev/refactor/SKILL.md`\n",
             encoding="utf-8",
         )
         report = validate_content_integrity(
@@ -791,9 +824,9 @@ class TestCrossReference:
 
     def test_broken_reference_detected(self, tmp_path: Path) -> None:
         ai = _setup_full_project(tmp_path)
-        skill = ai / "skills" / "dev" / "debug.md"
+        skill = ai / "skills" / "dev" / "debug" / "SKILL.md"
         skill.write_text(
-            "# Debug\n\n## References\n\n- `skills/dev/nonexistent.md`\n",
+            "# Debug\n\n## References\n\n- `skills/dev/nonexistent/SKILL.md`\n",
             encoding="utf-8",
         )
         report = validate_content_integrity(
@@ -934,8 +967,9 @@ class TestSkillFrontmatter:
 
     def test_missing_frontmatter_fails(self, tmp_path: Path) -> None:
         ai = _setup_full_project(tmp_path)
-        bad = ai / "skills" / "dev" / "debug.md"
-        bad.write_text("# debug\n", encoding="utf-8")
+        (ai / "skills" / "dev" / "bad-skill").mkdir(parents=True, exist_ok=True)
+        bad = ai / "skills" / "dev" / "bad-skill" / "SKILL.md"
+        bad.write_text("# bad-skill\n", encoding="utf-8")
         report = validate_content_integrity(
             tmp_path,
             categories=[IntegrityCategory.SKILL_FRONTMATTER],
@@ -944,16 +978,17 @@ class TestSkillFrontmatter:
 
     def test_invalid_requires_schema_fails(self, tmp_path: Path) -> None:
         ai = _setup_full_project(tmp_path)
-        bad = ai / "skills" / "dev" / "debug.md"
+        (ai / "skills" / "dev" / "bad-requires").mkdir(parents=True, exist_ok=True)
+        bad = ai / "skills" / "dev" / "bad-requires" / "SKILL.md"
         bad.write_text(
             "---\n"
-            "name: debug\n"
+            "name: bad-requires\n"
             "version: 1.0.0\n"
             "category: dev\n"
             "requires:\n"
             "  bins: ruff\n"
             "---\n\n"
-            "# debug\n",
+            "# bad-requires\n",
             encoding="utf-8",
         )
         report = validate_content_integrity(

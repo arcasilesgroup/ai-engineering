@@ -1,3 +1,18 @@
+---
+name: code-simplifier
+version: 1.0.0
+scope: read-write
+capabilities: [complexity-reduction, dead-code-removal, abstraction-evaluation]
+inputs: [codebase, file-paths, module]
+outputs: [refactoring-plan, improvement-plan]
+tags: [simplification, complexity, refactoring, dead-code]
+references:
+  skills:
+    - skills/dev/refactor/SKILL.md
+  standards:
+    - standards/framework/core.md
+---
+
 # Code Simplifier
 
 ## Identity
@@ -43,9 +58,9 @@ Complexity reducer who systematically identifies and eliminates unnecessary comp
 
 ## Referenced Skills
 
-- `skills/dev/refactor.md` — refactoring procedure and safety checks.
-- `skills/dev/code-review.md` — code quality assessment criteria.
-- `skills/utils/python-patterns.md` — Pythonic patterns domain.
+- `skills/dev/refactor/SKILL.md` — refactoring procedure and safety checks.
+- `skills/dev/code-review/SKILL.md` — code quality assessment criteria.
+- `skills/patterns/python-patterns/SKILL.md` — Pythonic patterns domain.
 
 ## Referenced Standards
 

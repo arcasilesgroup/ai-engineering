@@ -46,7 +46,7 @@ This project dogfoods the ai-engineering framework on itself.
 
 ## Active Spec
 
-Spec-019: GitHub Copilot Prompt Files & Custom Agents Integration. Last completed: Spec-018.
+Spec-020: Multi-Agent Model Evolution. Last completed: Spec-019.
 
 ## KPIs
 
@@ -59,6 +59,7 @@ Spec-019: GitHub Copilot Prompt Files & Custom Agents Integration. Last complete
 | Agent coverage (skills + agents defined) | 46 skills + 9 agents | 46/46 skills, 9/9 agents |
 | Test coverage | 100% | 87% (530 tests) |
 | Cross-OS CI pass | 3×3 matrix green | In progress (matrix workflow implemented; awaiting run history) |
+| Token efficiency (progressive disclosure) | ≥ 95% deferred at session start | 99.14% (500 / 58,278 tokens loaded) |
 
 ## Stakeholders
 

@@ -9,6 +9,6 @@ Before executing, verify these preconditions:
 2. Working tree has staged or unstaged changes, or commits ahead of remote (abort if nothing to push/PR).
 3. Active spec is read from `.ai-engineering/context/specs/_active.md`.
 
-Read and execute the skill defined in `.ai-engineering/skills/workflows/pr.md`.
+Read and execute the skill defined in `.ai-engineering/skills/workflows/pr/SKILL.md`.
 
 Follow the complete procedure. Do not skip steps. Apply all governance notes.

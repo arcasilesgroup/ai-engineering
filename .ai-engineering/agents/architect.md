@@ -1,3 +1,19 @@
+---
+name: architect
+version: 1.0.0
+scope: read-only
+capabilities: [dependency-mapping, coupling-analysis, cohesion-analysis, boundary-analysis, drift-detection]
+inputs: [codebase, repository, file-paths]
+outputs: [dependency-graph, coupling-assessment, tech-debt-catalog, decision-records]
+tags: [architecture, dependencies, coupling, cohesion, design]
+references:
+  skills:
+    - skills/review/architecture/SKILL.md
+    - skills/dev/refactor/SKILL.md
+  standards:
+    - standards/framework/core.md
+---
+
 # Architect
 
 ## Identity
@@ -36,10 +52,10 @@ Systems architect who analyzes software architecture: dependencies, boundaries, 
 
 ## Referenced Skills
 
-- `skills/review/architecture.md` — analysis procedure.
-- `skills/dev/refactor.md` — for implementing architectural improvements.
-- `skills/utils/python-patterns.md` — design patterns domain.
-- `skills/docs/explain.md` — explain architectural patterns and tradeoffs.
+- `skills/review/architecture/SKILL.md` — analysis procedure.
+- `skills/dev/refactor/SKILL.md` — for implementing architectural improvements.
+- `skills/patterns/python-patterns/SKILL.md` — design patterns domain.
+- `skills/docs/explain/SKILL.md` — explain architectural patterns and tradeoffs.
 
 ## Referenced Standards
 

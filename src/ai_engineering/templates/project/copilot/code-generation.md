@@ -15,9 +15,9 @@ Before generating code, consult:
 
 ## Skills and Agents
 
-- Use `.ai-engineering/skills/utils/python-patterns.md` for comprehensive Python patterns.
+- Use `.ai-engineering/skills/patterns/python-patterns/SKILL.md` for comprehensive Python patterns.
 - Apply `.ai-engineering/agents/code-simplifier.md` persona for complexity reduction.
-- Follow `.ai-engineering/skills/dev/refactor.md` when restructuring code.
+- Follow `.ai-engineering/skills/dev/refactor/SKILL.md` when restructuring code.
 
 ## Ownership Safety
 

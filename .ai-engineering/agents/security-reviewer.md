@@ -1,3 +1,21 @@
+---
+name: security-reviewer
+version: 1.0.0
+scope: read-only
+capabilities: [sast, secret-detection, dependency-audit, owasp-review, dast, container-scan, sbom]
+inputs: [file-paths, diff, repository, dependency-list]
+outputs: [findings-report]
+tags: [security, owasp, vulnerabilities, sast, dast]
+references:
+  skills:
+    - skills/review/security/SKILL.md
+    - skills/review/dast/SKILL.md
+    - skills/review/container-security/SKILL.md
+    - skills/quality/sbom/SKILL.md
+  standards:
+    - standards/framework/core.md
+---
+
 # Security Reviewer
 
 ## Identity
@@ -48,11 +66,11 @@ Application security specialist who reviews code for OWASP top risks, secret exp
 
 ## Referenced Skills
 
-- `skills/review/security.md` — security review procedure.
-- `skills/review/dast.md` — dynamic application security testing.
-- `skills/review/container-security.md` — container image scanning.
-- `skills/quality/sbom.md` — software bill of materials generation.
-- `skills/dev/deps-update.md` — dependency security assessment.
+- `skills/review/security/SKILL.md` — security review procedure.
+- `skills/review/dast/SKILL.md` — dynamic application security testing.
+- `skills/review/container-security/SKILL.md` — container image scanning.
+- `skills/quality/sbom/SKILL.md` — software bill of materials generation.
+- `skills/dev/deps-update/SKILL.md` — dependency security assessment.
 
 ## Referenced Standards
 

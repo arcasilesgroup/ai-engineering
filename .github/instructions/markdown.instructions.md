@@ -49,7 +49,7 @@ applyTo: "**/*.md"
 ## Cross-Reference Style
 
 - Reference other governance docs with relative paths from `.ai-engineering/`: `standards/framework/core.md`.
-- Reference skills with: `skills/dev/debug.md`.
+- Reference skills with: `skills/dev/debug/SKILL.md`.
 - Reference agents with: `agents/debugger.md`.
 - Use markdown links for external references.
 

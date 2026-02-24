@@ -81,7 +81,7 @@ For multi-stack projects, CI should use matrix strategy:
 
 - `standards/framework/core.md` — mandatory local enforcement.
 - `manifest.yml` — per-stack check definitions.
-- `skills/dev/cicd-generate.md` — CI/CD workflow generation skill.
+- `skills/dev/cicd-generate/SKILL.md` — CI/CD workflow generation skill.
 
 ## Update Contract
 

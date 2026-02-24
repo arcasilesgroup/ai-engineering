@@ -237,10 +237,21 @@ def _check_file_existence(target: Path, report: IntegrityReport) -> None:
         )
         return
 
-    # Scan all .md files for internal references
+    # Collect closed spec directories (have done.md = historical archive)
+    specs_dir_path = ai_dir / "context" / "specs"
+    closed_specs: set[Path] = set()
+    if specs_dir_path.is_dir():
+        for spec_dir in specs_dir_path.iterdir():
+            if spec_dir.is_dir() and (spec_dir / "done.md").exists():
+                closed_specs.add(spec_dir)
+
+    # Scan all .md files for internal references (skip closed spec archives)
     broken_refs: list[tuple[str, str]] = []
     md_files = sorted(ai_dir.rglob("*.md"))
     for md_file in md_files:
+        # Skip files in closed spec directories — historical archives with old paths
+        if any(md_file.is_relative_to(s) for s in closed_specs):
+            continue
         content = md_file.read_text(encoding="utf-8", errors="replace")
         for match in _PATH_REF_PATTERN.finditer(content):
             ref_path = match.group(1) if match.group(1) else match.group(0)
@@ -1263,7 +1274,7 @@ def _check_skill_frontmatter(target: Path, report: IntegrityReport) -> None:
 
     checked = 0
     failures = 0
-    for skill_file in sorted(skills_root.rglob("*.md")):
+    for skill_file in sorted(skills_root.rglob("SKILL.md")):
         checked += 1
         rel = skill_file.relative_to(target).as_posix()
         text = skill_file.read_text(encoding="utf-8", errors="replace")
@@ -1273,9 +1284,11 @@ def _check_skill_frontmatter(target: Path, report: IntegrityReport) -> None:
             failures += 1
             continue
 
-        failures += _validate_skill_identity(
-            frontmatter, skill_file.stem, skill_file.parent.name, rel, report
-        )
+        # Directory layout: skills/<category>/<name>/SKILL.md
+        # name = parent directory (e.g. "debug"), category = grandparent (e.g. "dev")
+        skill_name = skill_file.parent.name
+        skill_category = skill_file.parent.parent.name
+        failures += _validate_skill_identity(frontmatter, skill_name, skill_category, rel, report)
         failures += _validate_skill_requires(frontmatter, rel, report)
 
     if failures == 0:

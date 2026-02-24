@@ -1,3 +1,19 @@
+---
+name: debugger
+version: 1.0.0
+scope: read-write
+capabilities: [debugging, test-design]
+inputs: [file-paths, diff, test-results, repository]
+outputs: [findings-report, explanation]
+tags: [debug, diagnosis, root-cause, testing]
+references:
+  skills:
+    - skills/dev/debug/SKILL.md
+    - skills/dev/test-strategy/SKILL.md
+  standards:
+    - standards/framework/core.md
+---
+
 # Debugger
 
 ## Identity
@@ -32,9 +48,9 @@ Systematic diagnostician who approaches bugs methodically with persistent state 
 
 ## Referenced Skills
 
-- `skills/dev/debug.md` — systematic diagnosis procedure.
-- `skills/dev/test-strategy.md` — writing regression tests.
-- `skills/docs/explain.md` — explain root causes and debugging concepts.
+- `skills/dev/debug/SKILL.md` — systematic diagnosis procedure.
+- `skills/dev/test-strategy/SKILL.md` — writing regression tests.
+- `skills/docs/explain/SKILL.md` — explain root causes and debugging concepts.
 
 ## Referenced Standards
 

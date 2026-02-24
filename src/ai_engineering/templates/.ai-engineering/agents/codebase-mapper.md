@@ -1,3 +1,18 @@
+---
+name: codebase-mapper
+version: 1.0.0
+scope: read-only
+capabilities: [structure-mapping, api-mapping, dependency-flow]
+inputs: [codebase, repository]
+outputs: [codebase-map, dependency-graph]
+tags: [mapping, structure, navigation, onboarding]
+references:
+  skills:
+    - skills/review/architecture/SKILL.md
+  standards:
+    - standards/framework/core.md
+---
+
 # Codebase Mapper
 
 ## Identity
@@ -36,10 +51,10 @@ Codebase analyst who builds comprehensive maps of project structure, module rela
 
 ## Referenced Skills
 
-- `skills/review/architecture.md` — structural analysis methodology.
-- `skills/docs/writer.md` — documentation generation from codebase knowledge.
-- `skills/quality/test-gap-analysis.md` — test evidence source for feature inventory.
-- `skills/utils/python-patterns.md` — Python module system domain.
+- `skills/review/architecture/SKILL.md` — structural analysis methodology.
+- `skills/docs/writer/SKILL.md` — documentation generation from codebase knowledge.
+- `skills/quality/test-gap-analysis/SKILL.md` — test evidence source for feature inventory.
+- `skills/patterns/python-patterns/SKILL.md` — Python module system domain.
 
 ## Referenced Standards
 
