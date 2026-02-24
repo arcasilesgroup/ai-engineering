@@ -277,7 +277,7 @@ agent_tokens = len(frontmatter_chars) / 4 + len(body_chars) / 4
 | principal-engineer | 787 | 7 | read-only |
 | security-reviewer | 1,024 | 7 | read-only |
 | quality-auditor | 726 | 4 | read-only |
-| codebase-mapper | 796 | 8 | read-only |
+| orchestrator | 840 | 7 | read-write |
 | code-simplifier | 763 | 8 | read-write |
 | platform-auditor | 1,056 | 7 | read-only |
 | verify-app | 795 | 9 | read-only |

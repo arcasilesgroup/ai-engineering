@@ -34,7 +34,7 @@ Framework-owned baseline standards for every installed instance.
 
 ## Skills and Agents
 
-- Skills (`skills/**`) define reusable procedures agents follow: workflows, dev practices, reviews, docs, governance, quality audits, patterns.
+- Skills (`skills/**`) define reusable procedures agents follow: workflows, dev practices, reviews, docs, governance, and quality audits.
 - Agents (`agents/**`) define personas with capabilities, behavior protocols, and output contracts.
 - Both are framework-managed content. Team layers cannot weaken them but may extend via team-owned skills.
 - Agent sessions reference skills during execution; skills reference standards for enforcement rules.
@@ -59,7 +59,7 @@ skills/<category>/<name>/
 name: <skill-name>                    # required — kebab-case identifier
 description: <one-line summary>       # required — what and when to use
 version: <semver>                     # required — semantic version
-category: <category>                  # required — workflows|dev|review|quality|govern|docs|patterns
+category: <category>                  # required — workflows|dev|review|quality|govern|docs
 tags: [<tag>, ...]                    # required — discovery keywords
 metadata:
   ai-engineering:

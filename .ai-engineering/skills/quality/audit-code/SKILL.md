@@ -88,11 +88,64 @@ Execute a SonarQube-like quality gate assessment on the codebase. Evaluates cove
 
 ## Output Contract
 
-- Quality report following `skills/quality/audit-report/SKILL.md` template.
-- PASS/FAIL verdict with summary.
-- Metric values vs. thresholds.
-- Finding list with severity, location, description, and remediation.
-- Tool output evidence.
+Produce this markdown structure directly as audit output:
+
+```markdown
+# Quality Audit Report
+
+## Summary
+
+| Field | Value |
+|-------|-------|
+| Date | YYYY-MM-DD |
+| Spec | spec-NNN |
+| Scope | <files/modules audited> |
+| Verdict | **PASS** / **FAIL** |
+
+## Metrics
+
+| Metric | Value | Threshold | Status |
+|--------|-------|-----------|--------|
+| Coverage (overall) | XX% | 100% | ✓ / ✗ |
+| Coverage (governance-critical) | XX% | 100% | ✓ / ✗ |
+| Duplicated lines | XX% | ≤3% | ✓ / ✗ |
+| Blocker issues | N | 0 | ✓ / ✗ |
+| Critical issues | N | 0 | ✓ / ✗ |
+| Major issues | N | — | ⚠ |
+| Cyclomatic complexity (max) | N | ≤10 | ✓ / ✗ |
+| Cognitive complexity (max) | N | ≤15 | ✓ / ✗ |
+
+## Findings
+
+### Blockers (N)
+| # | File | Line | Description | Remediation |
+|---|------|------|-------------|-------------|
+
+### Critical (N)
+| # | File | Line | Description | Remediation |
+|---|------|------|-------------|-------------|
+
+### Major (N)
+| # | File | Line | Description | Remediation |
+|---|------|------|-------------|-------------|
+
+### Minor/Info (N)
+<summary or count>
+
+## Tool Evidence
+- ruff format: PASS/FAIL
+- ruff check: PASS/FAIL
+- ty check: PASS/FAIL
+- pytest: PASS/FAIL
+- pip-audit: PASS/FAIL
+- gitleaks: PASS/FAIL
+- semgrep: PASS/FAIL
+
+## Recommendations
+1. Priority actions.
+2. Improvement opportunities.
+3. Tech debt notes.
+```
 
 ## Governance Notes
 
@@ -107,5 +160,4 @@ Execute a SonarQube-like quality gate assessment on the codebase. Evaluates cove
 - `standards/framework/quality/python.md` — Python-specific checks.
 - `standards/framework/quality/dotnet.md` — .NET-specific checks.
 - `standards/framework/quality/nextjs.md` — Next.js-specific checks.
-- `skills/quality/audit-report/SKILL.md` — report template.
 - `agents/quality-auditor.md` — agent that executes this skill.

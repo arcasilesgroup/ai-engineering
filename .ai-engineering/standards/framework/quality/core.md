@@ -72,4 +72,3 @@ Test tier definitions are in `standards/framework/stacks/python.md`.
 - `standards/framework/core.md` — non-negotiables and enforcement rules.
 - `standards/framework/stacks/python.md` — stack-specific quality baseline.
 - `skills/quality/audit-code/SKILL.md` — quality audit skill (implements this contract).
-- `skills/quality/audit-report/SKILL.md` — quality report template.

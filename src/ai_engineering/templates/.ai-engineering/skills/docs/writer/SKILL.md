@@ -296,4 +296,4 @@ Finalize and position documentation in the project.
 - `skills/dev/code-review/SKILL.md` — quality patterns for code examples in documentation.
 - `skills/docs/prompt-design/SKILL.md` — Chain of Density for content compression and summaries.
 - `skills/review/security/SKILL.md` — security assessment before documenting sensitive features.
-- `agents/codebase-mapper.md` — complementary agent for deep codebase understanding.
+- `agents/architect.md` — complementary agent for deep codebase understanding.

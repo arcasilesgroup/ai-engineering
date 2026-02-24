@@ -37,7 +37,7 @@ Launch multiple specialized agents simultaneously for comprehensive assessment.
    - `agent:security-reviewer` — security findings.
    - `agent:quality-auditor` — quality metrics.
    - `agent:architect` — architecture assessment.
-   - `agent:codebase-mapper` — structural documentation.
+   - `agent:architect` — structural documentation.
 
 2. **Launch agents in parallel** — use Task tool with `subagent_type` in a single message:
    ```

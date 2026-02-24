@@ -9,6 +9,8 @@ applyTo: "**/*.py"
 Read before generating or modifying Python code:
 
 - `.ai-engineering/standards/framework/stacks/python.md` — stack contract, code patterns, testing patterns.
+- `.ai-engineering/standards/framework/quality/python.md` — complexity thresholds, Python-specific checks.
+- `.ai-engineering/standards/framework/quality/core.md` — quality gate structure, severity policy.
 
 ## Runtime and Tooling
 
@@ -35,6 +37,8 @@ uv run pip-audit                  # Dependency vulnerabilities
 
 - Use `from __future__ import annotations` in every module.
 - All public functions and methods must have type annotations.
+- Use Pydantic `BaseModel` for data structures (not dataclasses, not TypedDict).
+- Use Typer for CLI commands with `Annotated[type, typer.Option(...)]`.
 - Use `pathlib.Path` for all file operations — never `os.path`.
 - File creation must use create-only semantics — never overwrite team/project content.
 - Cross-OS: use `Path` operations, `shutil` for cross-platform, `subprocess` for tooling.
@@ -50,6 +54,7 @@ uv run pip-audit                  # Dependency vulnerabilities
 
 ## Style Rules
 
+- Follow `ruff` rules in `pyproject.toml`.
 - Imports: stdlib → third-party → local, one import per line.
 - Docstrings: Google-style for public APIs.
 - Naming: `snake_case` for functions/variables, `PascalCase` for classes.
@@ -59,3 +64,21 @@ uv run pip-audit                  # Dependency vulnerabilities
 
 - Raise specific exceptions, not bare `Exception`.
 - Use `typer.Exit(code=1)` for CLI error exits.
+- Log with `rich.console.Console()` for user-facing output.
+
+## Agents
+
+For complex Python tasks, consider referencing these agent definitions:
+
+- `.ai-engineering/agents/debugger.md` — systematic bug diagnosis.
+- `.ai-engineering/agents/code-simplifier.md` — complexity reduction.
+- `.ai-engineering/agents/principal-engineer.md` — code review as principal.
+
+## Skills
+
+For structured procedures:
+
+- `.ai-engineering/skills/dev/references/language-framework-patterns.md` — language/framework coding patterns.
+- `.ai-engineering/skills/dev/debug/SKILL.md` — debugging procedure.
+- `.ai-engineering/skills/dev/refactor/SKILL.md` — refactoring procedure.
+- `.ai-engineering/skills/dev/test-strategy/SKILL.md` — test design.
