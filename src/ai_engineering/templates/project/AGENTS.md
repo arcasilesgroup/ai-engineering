@@ -94,7 +94,7 @@ Procedural skills guide structured execution. Reference the relevant skill befor
 - `.ai-engineering/skills/quality/test-gap-analysis/SKILL.md` — capability-to-test risk mapping.
 - `.ai-engineering/skills/quality/sbom/SKILL.md` — software bill of materials generation.
 
-### Utility Skills
+### Pattern Skills
 
 - `.ai-engineering/skills/patterns/doctor/SKILL.md` — unified environment diagnostics.
 - `.ai-engineering/skills/patterns/git-helpers/SKILL.md` — git operation helpers.

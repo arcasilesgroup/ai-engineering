@@ -59,11 +59,11 @@ End-to-end verification agent who confirms the application works correctly from 
 - `skills/dev/debug/SKILL.md` — for investigating failures found during verification.
 - `skills/dev/migration/SKILL.md` — migration testing procedure.
 - `skills/dev/test-strategy/SKILL.md` — test design principles.
-- `skills/workflows/commit.md` — commit workflow specification.
-- `skills/workflows/pr.md` — PR workflow specification.
-- `skills/workflows/acho.md` — acho workflow specification.
-- `skills/govern/integrity-check.md` — governance content validation (7-category check).
-- `skills/govern/contract-compliance.md` — contract clause validation for command contract verification.
+- `skills/workflows/commit/SKILL.md` — commit workflow specification.
+- `skills/workflows/pr/SKILL.md` — PR workflow specification.
+- `skills/workflows/acho/SKILL.md` — acho workflow specification.
+- `skills/govern/integrity-check/SKILL.md` — governance content validation (7-category check).
+- `skills/govern/contract-compliance/SKILL.md` — contract clause validation for command contract verification.
 
 ## Referenced Standards
 

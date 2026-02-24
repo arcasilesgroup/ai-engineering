@@ -60,9 +60,9 @@ Full-spectrum audit orchestrator who executes a comprehensive repository audit b
 
 ## Referenced Skills
 
-- `skills/govern/integrity-check.md` — structural health validation.
-- `skills/govern/contract-compliance.md` — contract clause validation.
-- `skills/govern/ownership-audit.md` — ownership boundary and updater safety.
+- `skills/govern/integrity-check/SKILL.md` — structural health validation.
+- `skills/govern/contract-compliance/SKILL.md` — contract clause validation.
+- `skills/govern/ownership-audit/SKILL.md` — ownership boundary and updater safety.
 - `skills/quality/audit-code/SKILL.md` — code quality gates.
 - `skills/quality/test-gap-analysis/SKILL.md` — capability-to-test mapping.
 - `skills/quality/docs-audit/SKILL.md` — documentation health.

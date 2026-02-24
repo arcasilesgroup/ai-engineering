@@ -109,7 +109,7 @@ Procedural skills guide structured execution. Reference the relevant skill befor
 - `.ai-engineering/skills/quality/test-gap-analysis/SKILL.md` — capability-to-test risk mapping.
 - `.ai-engineering/skills/quality/sbom/SKILL.md` — software bill of materials generation.
 
-### Utility Skills
+### Pattern Skills
 
 - `.ai-engineering/skills/patterns/doctor/SKILL.md` — unified environment diagnostics.
 - `.ai-engineering/skills/patterns/git-helpers/SKILL.md` — git operation helpers.
@@ -128,7 +128,7 @@ Skills and agents are available as Claude Code slash commands via `.claude/comma
 - `/docs:*` — docs skill commands (e.g., `/docs:changelog`, `/docs:explain`).
 - `/govern:*` — governance skill commands (e.g., `/govern:create-spec`, `/govern:integrity-check`, `/govern:contract-compliance`, `/govern:ownership-audit`).
 - `/quality:*` — quality skill commands (`/quality:audit-code`, `/quality:audit-report`, `/quality:install-check`, `/quality:docs-audit`, `/quality:release-gate`, `/quality:test-gap-analysis`, `/quality:sbom`).
-- `/utils:*` — utility skill commands (`/utils:doctor`, `/utils:git-helpers`, `/utils:platform-detect`, `/utils:python-patterns`, `/utils:dotnet-patterns`, `/utils:nextjs-patterns`).
+- `/patterns:*` — pattern skill commands (`/patterns:doctor`, `/patterns:git-helpers`, `/patterns:platform-detect`, `/patterns:python-patterns`, `/patterns:dotnet-patterns`, `/patterns:nextjs-patterns`).
 - `/agent:*` — agent persona commands (e.g., `/agent:verify-app`, `/agent:debugger`, `/agent:platform-auditor`).
 
 ## Copilot Integration

@@ -1,3 +1,20 @@
+---
+name: verify-app
+version: 1.0.0
+scope: read-only
+capabilities: [install-verification, cli-testing, hook-verification, state-validation]
+inputs: [repository, configuration]
+outputs: [audit-report, quality-verdict]
+tags: [verification, install, e2e, smoke-test]
+references:
+  skills:
+    - skills/quality/install-check/SKILL.md
+    - skills/govern/integrity-check/SKILL.md
+    - skills/workflows/commit/SKILL.md
+  standards:
+    - standards/framework/core.md
+---
+
 # Verify App
 
 ## Identity
