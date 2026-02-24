@@ -1,9 +1,9 @@
 ---
 spec: "020"
 total: 38
-completed: 47
-last_session: "2026-02-23"
-next_session: "Phase 9 — Integrity Check & Close"
+completed: 38
+last_session: "2026-02-24"
+next_session: "CLOSED"
 ---
 
 # Tasks — Multi-Agent Model Evolution
@@ -84,7 +84,7 @@ next_session: "Phase 9 — Integrity Check & Close"
 
 ## Phase 9: Integrity Check & Close [S]
 
-- [ ] 9.1 Run `govern/integrity-check` — verify all 6 categories pass
-- [ ] 9.2 Verify all 12 acceptance criteria
-- [ ] 9.3 Create `done.md`
-- [ ] 9.4 Update `tasks.md` frontmatter to CLOSED
+- [x] 9.1 Run `govern/integrity-check` — verify all 7 categories pass
+- [x] 9.2 Verify all 12 acceptance criteria
+- [x] 9.3 Create `done.md`
+- [x] 9.4 Update `tasks.md` frontmatter to CLOSED
