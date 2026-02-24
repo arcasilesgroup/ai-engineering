@@ -129,6 +129,8 @@ class VcsProviderStatus(BaseModel):
     configured: bool = False
     authenticated: bool = False
     required_now: bool = Field(default=False, alias="requiredNow")
+    mode: str = "cli"
+    message: str | None = None
 
     model_config = {"populate_by_name": True}
 
@@ -184,6 +186,35 @@ class ToolingReadiness(BaseModel):
     model_config = {"populate_by_name": True}
 
 
+class CicdStatus(BaseModel):
+    """Status of generated CI/CD pipelines."""
+
+    generated: bool = False
+    provider: str | None = None
+    files: list[str] = Field(default_factory=list)
+
+
+class BranchPolicyStatus(BaseModel):
+    """Status of branch policy/protection setup."""
+
+    applied: bool = False
+    mode: str = "api"
+    manual_guide: str | None = Field(default=None, alias="manualGuide")
+    message: str | None = None
+
+    model_config = {"populate_by_name": True}
+
+
+class OperationalReadiness(BaseModel):
+    """High-level install-to-operational readiness status."""
+
+    status: str = "pending"
+    manual_steps_required: bool = Field(default=False, alias="manualStepsRequired")
+    manual_steps: list[str] = Field(default_factory=list, alias="manualSteps")
+
+    model_config = {"populate_by_name": True}
+
+
 class InstallManifest(BaseModel):
     """Installation manifest for the ai-engineering framework.
 
@@ -202,6 +233,15 @@ class InstallManifest(BaseModel):
     providers: VcsProviders = Field(default_factory=VcsProviders)
     tooling_readiness: ToolingReadiness = Field(
         default_factory=ToolingReadiness, alias="toolingReadiness"
+    )
+    cicd: CicdStatus = Field(default_factory=CicdStatus)
+    branch_policy: BranchPolicyStatus = Field(
+        default_factory=BranchPolicyStatus,
+        alias="branchPolicy",
+    )
+    operational_readiness: OperationalReadiness = Field(
+        default_factory=OperationalReadiness,
+        alias="operationalReadiness",
     )
 
     model_config = {"populate_by_name": True}

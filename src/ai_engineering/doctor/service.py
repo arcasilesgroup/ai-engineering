@@ -122,6 +122,7 @@ def diagnose(
     _check_tools(report, fix=fix_tools)
     _check_vcs_tools(report)
     _check_branch_policy(target, report)
+    _check_operational_readiness(target, report)
     _check_version(report)
 
     return report
@@ -512,6 +513,53 @@ def _check_version(report: DoctorReport) -> None:
                 message=result.message,
             )
         )
+
+
+def _check_operational_readiness(target: Path, report: DoctorReport) -> None:
+    """Check install-to-operational status from install manifest."""
+    manifest_path = target / ".ai-engineering" / "state" / "install-manifest.json"
+    if not manifest_path.is_file():
+        return
+    try:
+        manifest = read_json_model(manifest_path, InstallManifest)
+    except Exception as exc:  # pragma: no cover
+        report.checks.append(
+            CheckResult(
+                name="operational-readiness",
+                status=CheckStatus.FAIL,
+                message=f"Cannot read install manifest: {exc}",
+            )
+        )
+        return
+
+    status = manifest.operational_readiness.status
+    if status == "READY":
+        report.checks.append(
+            CheckResult(
+                name="operational-readiness",
+                status=CheckStatus.OK,
+                message="Install-to-operational checks passed",
+            )
+        )
+        return
+
+    if status == "READY WITH MANUAL STEPS":
+        report.checks.append(
+            CheckResult(
+                name="operational-readiness",
+                status=CheckStatus.WARN,
+                message="Manual setup steps required for full CI/CD governance",
+            )
+        )
+        return
+
+    report.checks.append(
+        CheckResult(
+            name="operational-readiness",
+            status=CheckStatus.FAIL,
+            message=f"Operational readiness status: {status}",
+        )
+    )
 
 
 def _is_tool_available(tool: str) -> bool:

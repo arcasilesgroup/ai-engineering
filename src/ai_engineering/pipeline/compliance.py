@@ -116,20 +116,12 @@ class ComplianceReport:
 
 
 # GitHub Actions patterns that indicate risk gate presence.
-_GITHUB_RISK_PATTERNS: list[str] = [
-    "ai-eng gate risk-check",
-    "risk-check",
-    "pip-audit",
-    "decision-store",
-]
+_GITHUB_RISK_PATTERNS: list[str] = ["ai-eng gate risk-check", "risk-check", "ai-eng-gate"]
+_GITHUB_PR_REVIEW_PATTERNS: list[str] = ["ai-eng review pr", "ai-pr-review"]
 
 # Azure DevOps patterns that indicate risk gate presence.
-_AZURE_RISK_PATTERNS: list[str] = [
-    "ai-eng gate risk-check",
-    "risk-check",
-    "pip-audit",
-    "decision-store",
-]
+_AZURE_RISK_PATTERNS: list[str] = ["ai-eng gate risk-check", "risk-check", "ai-eng-gate"]
+_AZURE_PR_REVIEW_PATTERNS: list[str] = ["ai-eng review pr", "ai-pr-review"]
 
 
 def detect_pipelines(project_root: Path) -> list[PipelineFile]:
@@ -264,6 +256,25 @@ def scan_pipeline(
                 "Risk gate step found"
                 if found
                 else "No risk gate step detected — add risk-check step to pipeline"
+            ),
+        )
+    )
+
+    # AI PR review presence
+    review_patterns = (
+        _GITHUB_PR_REVIEW_PATTERNS
+        if pipeline.pipeline_type == PipelineType.GITHUB_ACTIONS
+        else _AZURE_PR_REVIEW_PATTERNS
+    )
+    review_found = any(p.lower() in content_lower for p in review_patterns)
+    result.checks.append(
+        ComplianceCheck(
+            name="ai-pr-review-present",
+            passed=review_found,
+            detail=(
+                "AI PR review step found"
+                if review_found
+                else "No AI PR review step detected — add ai-eng review pr"
             ),
         )
     )

@@ -15,6 +15,7 @@ from __future__ import annotations
 from pathlib import Path
 from textwrap import dedent
 
+from ai_engineering.installer.cicd import CicdGenerationResult, generate_pipelines
 from ai_engineering.pipeline.compliance import PipelineFile, PipelineType
 
 # Template directory relative to this module.
@@ -86,3 +87,17 @@ def suggest_injection(pipeline: PipelineFile) -> str:
         )
 
     return f"# Unknown pipeline type for {pipeline.path.as_posix()}"
+
+
+def generate_workflows(
+    project_root: Path,
+    *,
+    provider: str,
+    stacks: list[str],
+) -> CicdGenerationResult:
+    """Generate full CI/CD workflows for a provider.
+
+    This is a higher-level entrypoint than snippet injection and is used by
+    installer and regeneration flows.
+    """
+    return generate_pipelines(project_root, provider=provider, stacks=stacks)

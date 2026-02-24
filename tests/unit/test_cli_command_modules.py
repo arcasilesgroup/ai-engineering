@@ -11,7 +11,16 @@ from unittest.mock import patch
 import pytest
 import typer
 
-from ai_engineering.cli_commands import core, gate, maintenance, stack_ide, validate, vcs
+from ai_engineering.cli_commands import (
+    cicd,
+    core,
+    gate,
+    maintenance,
+    review,
+    stack_ide,
+    validate,
+    vcs,
+)
 from ai_engineering.policy.gates import GateCheckResult, GateHook, GateResult
 from ai_engineering.skills.service import SkillStatus, SyncResult
 from ai_engineering.state.defaults import default_install_manifest
@@ -324,3 +333,43 @@ def test_skills_cli_branches(tmp_path: Path, capsys: pytest.CaptureFixture[str])
     out = capsys.readouterr().out
     assert "missing bins" in out
     assert "Summary:" in out
+
+
+def test_review_pr_strict_failure_exits(tmp_path: Path) -> None:
+    provider = SimpleNamespace(
+        post_pr_review=lambda _ctx, body: SimpleNamespace(success=False, output="boom")
+    )
+    with (
+        patch("ai_engineering.cli_commands.review.get_provider", return_value=provider),
+        pytest.raises(typer.Exit),
+    ):
+        review.review_pr(target=tmp_path, strict=True)
+
+
+def test_review_pr_blocks_on_high_findings(tmp_path: Path) -> None:
+    findings = tmp_path / "findings.json"
+    findings.write_text(
+        json.dumps({"findings": [{"severity": "high"}, {"severity": "low"}]}),
+        encoding="utf-8",
+    )
+    provider = SimpleNamespace(
+        post_pr_review=lambda _ctx, body: SimpleNamespace(success=True, output="ok")
+    )
+    with (
+        patch("ai_engineering.cli_commands.review.get_provider", return_value=provider),
+        pytest.raises(typer.Exit),
+    ):
+        review.review_pr(target=tmp_path, findings_json=findings)
+
+
+def test_cicd_regenerate_updates_manifest(tmp_path: Path) -> None:
+    manifest_path = tmp_path / ".ai-engineering" / "state" / "install-manifest.json"
+    manifest_path.parent.mkdir(parents=True, exist_ok=True)
+    write_json_model(manifest_path, default_install_manifest(vcs_provider="github"))
+    fake_result = SimpleNamespace(
+        created=[tmp_path / ".github" / "workflows" / "ci.yml"], skipped=[]
+    )
+    with patch("ai_engineering.cli_commands.cicd.generate_pipelines", return_value=fake_result):
+        cicd.cicd_regenerate(target=tmp_path)
+    updated = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert updated["cicd"]["generated"] is True

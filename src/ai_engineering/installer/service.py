@@ -17,6 +17,7 @@ import contextlib
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from ai_engineering.detector.readiness import check_tools_for_stacks
 from ai_engineering.hooks.manager import HookInstallResult, install_hooks
 from ai_engineering.state.defaults import (
     default_decision_store,
@@ -24,15 +25,20 @@ from ai_engineering.state.defaults import (
     default_ownership_map,
     default_sources_lock,
 )
-from ai_engineering.state.io import append_ndjson, write_json_model
-from ai_engineering.state.models import AuditEntry
+from ai_engineering.state.io import append_ndjson, read_json_model, write_json_model
+from ai_engineering.state.models import AuditEntry, InstallManifest
+from ai_engineering.vcs.factory import get_provider
 
+from .auth import check_vcs_auth
+from .branch_policy import apply_branch_policy
+from .cicd import generate_pipelines
 from .templates import (
     CopyResult,
     copy_project_templates,
     copy_template_tree,
     get_ai_engineering_template_root,
 )
+from .tools import ensure_tool, provider_required_tools
 
 # Relative paths under ``.ai-engineering/`` for each state file.
 _STATE_FILES: dict[str, str] = {
@@ -54,6 +60,8 @@ class InstallResult:
     state_files: list[Path] = field(default_factory=list)
     hooks: HookInstallResult = field(default_factory=HookInstallResult)
     already_installed: bool = False
+    readiness_status: str = "pending"
+    manual_steps: list[str] = field(default_factory=list)
 
     @property
     def total_created(self) -> int:
@@ -120,6 +128,9 @@ def install(
     with contextlib.suppress(FileNotFoundError):
         result.hooks = install_hooks(target)
 
+    # 6. Install-to-operational phases (tooling/auth/cicd/policy)
+    _run_operational_phases(target, vcs_provider=vcs_provider, result=result)
+
     return result
 
 
@@ -182,3 +193,80 @@ def _log_install_event(ai_eng_dir: Path, result: InstallResult) -> None:
         ),
     )
     append_ndjson(audit_path, entry)
+
+
+def _run_operational_phases(target: Path, *, vcs_provider: str, result: InstallResult) -> None:
+    manifest_path = target / ".ai-engineering" / "state" / "install-manifest.json"
+    if not manifest_path.exists():
+        return
+
+    manifest = read_json_model(manifest_path, InstallManifest)
+
+    # Phase 2: required tooling (provider-aware + stack-aware)
+    stack_report = check_tools_for_stacks(manifest.installed_stacks)
+    for tool in provider_required_tools(vcs_provider):
+        install_result = ensure_tool(tool)
+        status = getattr(manifest.tooling_readiness, tool, None)
+        if status is not None:
+            status.installed = install_result.available
+            status.required_now = True
+            status.mode = "cli" if install_result.available else "api"
+            status.message = install_result.detail
+        if not install_result.available:
+            result.manual_steps.append(f"Install or enable `{tool}` CLI")
+
+    for item in stack_report.tools:
+        if not item.available and item.name in {"gitleaks", "semgrep"}:
+            result.manual_steps.append(f"Install required security tool `{item.name}`")
+
+    # Phase 3: VCS auth
+    provider = get_provider(target)
+    auth_result = check_vcs_auth(vcs_provider, provider, target)
+    status = getattr(manifest.tooling_readiness, "gh" if vcs_provider == "github" else "az")
+    status.authenticated = auth_result.authenticated
+    status.mode = auth_result.mode
+    status.message = auth_result.message
+    if not auth_result.authenticated:
+        result.manual_steps.append(auth_result.message)
+
+    # Phase 4: CI/CD generation
+    cicd_result = generate_pipelines(
+        target,
+        provider=vcs_provider,
+        stacks=manifest.installed_stacks,
+    )
+    manifest.cicd.generated = bool(cicd_result.created or cicd_result.skipped)
+    manifest.cicd.provider = vcs_provider
+    manifest.cicd.files = [
+        str(p.relative_to(target)) for p in (cicd_result.created + cicd_result.skipped)
+    ]
+
+    # Phase 5: branch policy apply + manual fallback
+    policy_result = apply_branch_policy(
+        provider_name=vcs_provider,
+        provider=provider,
+        project_root=target,
+        branch="main",
+        required_checks=["ai-eng-gate", "ai-pr-review", "ci"],
+        mode=auth_result.mode,
+    )
+    manifest.branch_policy.applied = policy_result.applied
+    manifest.branch_policy.mode = policy_result.mode
+    manifest.branch_policy.message = policy_result.message
+    if policy_result.manual_guide is not None:
+        manifest.branch_policy.manual_guide = str(policy_result.manual_guide.relative_to(target))
+        result.manual_steps.append(
+            f"Apply manual branch policy guide: {manifest.branch_policy.manual_guide}"
+        )
+
+    if not result.manual_steps:
+        result.readiness_status = "READY"
+    elif manifest.cicd.generated:
+        result.readiness_status = "READY WITH MANUAL STEPS"
+    else:
+        result.readiness_status = "FAILED"
+    manifest.operational_readiness.status = result.readiness_status
+    manifest.operational_readiness.manual_steps_required = bool(result.manual_steps)
+    manifest.operational_readiness.manual_steps = result.manual_steps
+
+    write_json_model(manifest_path, manifest)

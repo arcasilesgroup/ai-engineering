@@ -236,6 +236,7 @@ class TestInstallOnEmptyRepo:
         assert data["schemaVersion"] == "1.1"
         assert "python" in data["installedStacks"]
         assert "terminal" in data["installedIdes"]
+        assert "operationalReadiness" in data
 
     def test_custom_stacks_and_ides(self, tmp_path: Path) -> None:
         install(tmp_path, stacks=["python", "node"], ides=["vscode", "terminal"])

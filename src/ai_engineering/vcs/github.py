@@ -72,6 +72,41 @@ class GitHubProvider:
         """Return ``"github"``."""
         return "github"
 
+    def check_auth(self, ctx: VcsContext) -> VcsResult:
+        """Check GitHub authentication status via ``gh auth status``."""
+        return self._run(["gh", "auth", "status"], ctx)
+
+    def apply_branch_policy(
+        self,
+        ctx: VcsContext,
+        *,
+        branch: str,
+        required_checks: list[str],
+    ) -> VcsResult:
+        """Apply branch protection with required status checks via ``gh api``."""
+        checks_csv = ",".join(required_checks)
+        cmd = [
+            "gh",
+            "api",
+            "--method",
+            "PUT",
+            "repos/{owner}/{repo}/branches/{branch}/protection",
+            "-F",
+            "required_pull_request_reviews={}",
+            "-F",
+            f"required_status_checks[checks][]={checks_csv}",
+            "-F",
+            "required_status_checks[strict]=true",
+            "-F",
+            "enforce_admins=true",
+        ]
+        return self._run(cmd, ctx)
+
+    def post_pr_review(self, ctx: VcsContext, *, body: str) -> VcsResult:
+        """Post PR review comment on current branch via ``gh pr comment``."""
+        cmd = ["gh", "pr", "comment", "--body", body]
+        return self._run(cmd, ctx)
+
     # ------------------------------------------------------------------
     # Internal
     # ------------------------------------------------------------------

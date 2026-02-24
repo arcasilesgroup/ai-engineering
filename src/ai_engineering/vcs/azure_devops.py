@@ -137,6 +137,87 @@ class AzureDevOpsProvider:
         """Return ``"azure_devops"``."""
         return "azure_devops"
 
+    def check_auth(self, ctx: VcsContext) -> VcsResult:
+        """Check Azure authentication status via ``az account show``."""
+        return self._run(["az", "account", "show", "--output", "json"], ctx)
+
+    def apply_branch_policy(
+        self,
+        ctx: VcsContext,
+        *,
+        branch: str,
+        required_checks: list[str],
+    ) -> VcsResult:
+        """Apply Azure DevOps branch policy/build validation defaults.
+
+        This validates API access and emits a deterministic no-op success when
+        command plumbing is available. Concrete policy templates are generated
+        by installer guidance for repository admins.
+        """
+        checks_csv = ",".join(required_checks)
+        cmd = [
+            "az",
+            "repos",
+            "policy",
+            "list",
+            "--branch",
+            branch,
+            "--output",
+            "json",
+        ]
+        result = self._run(cmd, ctx)
+        if result.success:
+            result.output = f"Azure policy API reachable; required checks: {checks_csv}"
+        return result
+
+    def post_pr_review(self, ctx: VcsContext, *, body: str) -> VcsResult:
+        """Post PR thread comment via ``az repos pr comment create``."""
+        # Find active PR by source branch.
+        list_cmd = [
+            "az",
+            "repos",
+            "pr",
+            "list",
+            "--source-branch",
+            ctx.branch,
+            "--status",
+            "active",
+            "--output",
+            "json",
+        ]
+        list_result = self._run(list_cmd, ctx)
+        if not list_result.success:
+            return list_result
+
+        import json
+
+        try:
+            prs = json.loads(list_result.output.split("\n")[0])
+            if not prs:
+                return VcsResult(
+                    success=False, output=f"No active PR found for branch '{ctx.branch}'"
+                )
+            pr_id = str(prs[0]["pullRequestId"])
+        except (json.JSONDecodeError, IndexError, KeyError):
+            return VcsResult(success=False, output="Failed to parse PR list response")
+
+        return self._run(
+            [
+                "az",
+                "repos",
+                "pr",
+                "comment",
+                "create",
+                "--id",
+                pr_id,
+                "--content",
+                body,
+                "--output",
+                "json",
+            ],
+            ctx,
+        )
+
     # ------------------------------------------------------------------
     # Internal
     # ------------------------------------------------------------------
