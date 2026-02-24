@@ -479,6 +479,32 @@ class TestFileExistence:
         assert len(fail_checks) == 1
         assert "plan.md" in fail_checks[0].message
 
+    def test_closed_spec_archives_skipped(self, tmp_path: Path) -> None:
+        """Closed specs (with done.md) are historical archives; stale refs ignored."""
+        ai = _setup_full_project(tmp_path)
+        closed = ai / "context" / "specs" / "001-old"
+        closed.mkdir(parents=True)
+        (closed / "spec.md").write_text("# old\n", encoding="utf-8")
+        (closed / "plan.md").write_text("# plan\n", encoding="utf-8")
+        (closed / "tasks.md").write_text(
+            "See `skills/nonexistent/phantom.md` for details.\n",
+            encoding="utf-8",
+        )
+        (closed / "done.md").write_text("# done\n", encoding="utf-8")
+        report = validate_content_integrity(
+            tmp_path,
+            categories=[IntegrityCategory.FILE_EXISTENCE],
+        )
+        # The stale reference in the closed spec should NOT cause a failure
+        broken = [
+            c
+            for c in report.checks
+            if c.name == "broken-reference"
+            and c.status == CheckStatus.FAIL
+            and "phantom" in c.message
+        ]
+        assert len(broken) == 0
+
 
 # -- Category 2: Mirror Sync ----------------------------------------------
 
