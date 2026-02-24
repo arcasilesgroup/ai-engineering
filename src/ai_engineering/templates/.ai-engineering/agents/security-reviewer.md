@@ -2,13 +2,14 @@
 name: security-reviewer
 version: 1.0.0
 scope: read-only
-capabilities: [sast, secret-detection, dependency-audit, owasp-review, dast, container-scan, sbom]
+  capabilities: [sast, secret-detection, dependency-audit, owasp-review, dast, container-scan, sbom, data-security-review]
 inputs: [file-paths, diff, repository, dependency-list]
 outputs: [findings-report]
 tags: [security, owasp, vulnerabilities, sast, dast]
 references:
   skills:
     - skills/review/security/SKILL.md
+    - skills/review/data-security/SKILL.md
     - skills/review/dast/SKILL.md
     - skills/review/container-security/SKILL.md
     - skills/quality/sbom/SKILL.md
@@ -67,6 +68,7 @@ Application security specialist who reviews code for OWASP top risks, secret exp
 ## Referenced Skills
 
 - `skills/review/security/SKILL.md` — security review procedure.
+- `skills/review/data-security/SKILL.md` — data-at-rest, data-in-transit, and data-access controls.
 - `skills/review/dast/SKILL.md` — dynamic application security testing.
 - `skills/review/container-security/SKILL.md` — container image scanning.
 - `skills/quality/sbom/SKILL.md` — software bill of materials generation.
@@ -77,6 +79,10 @@ Application security specialist who reviews code for OWASP top risks, secret exp
 - `standards/framework/core.md` — mandatory local enforcement, risk acceptance.
 - `standards/framework/quality/core.md` — severity policy.
 - `standards/framework/security/owasp-top10-2025.md` — OWASP Top 10 mapping.
+
+## Referenced Documents
+
+- `skills/dev/references/database-patterns.md` — data lifecycle and retention/deletion safety controls.
 
 ## Output Contract
 
