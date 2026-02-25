@@ -30,7 +30,7 @@ Execute the `/commit` governed workflow: stage all changes, run mandatory pre-co
 1. **Stage changes** — `git add -A` (or selective staging if user specifies files).
 2. **Run formatter** — `ruff format .` to auto-fix formatting.
 3. **Run linter** — `ruff check . --fix` to auto-fix safe lint issues. If unfixable issues remain, report and stop.
-4. **Run secret detection** — `gitleaks detect --staged --no-banner`. If secrets found, report and stop.
+4. **Run secret detection** — `gitleaks protect --staged --no-banner`. If secrets found, report and stop.
 5. **Commit** — `git commit -m "<message>"` with a well-formed commit message following project conventions.
    - If active spec exists, use format: `spec-NNN: Task X.Y — <description>`.
    - Otherwise, use conventional commit format: `type(scope): description`.

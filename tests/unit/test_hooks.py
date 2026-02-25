@@ -73,14 +73,16 @@ class TestGenerateBashHook:
         script = generate_bash_hook(GateHook.PRE_PUSH)
         assert '"$@"' not in script
 
-    def test_contains_venv_activation(self) -> None:
+    def test_contains_venv_path_setup(self) -> None:
         script = generate_bash_hook(GateHook.PRE_COMMIT)
-        assert ".venv/bin/activate" in script
-        assert ".venv/Scripts/activate" in script
+        assert ".venv/bin" in script
+        assert ".venv/Scripts" in script
+        assert "export PATH=" in script
+        assert "source " not in script
 
-    def test_venv_activation_before_command(self) -> None:
+    def test_venv_path_before_command(self) -> None:
         script = generate_bash_hook(GateHook.PRE_COMMIT)
-        venv_pos = script.index(".venv/bin/activate")
+        venv_pos = script.index(".venv/bin")
         cmd_pos = script.index("ai-eng gate pre-commit")
         assert venv_pos < cmd_pos
 
@@ -104,14 +106,15 @@ class TestGeneratePowershellHook:
         script = generate_powershell_hook(GateHook.PRE_COMMIT)
         assert "$LASTEXITCODE" in script
 
-    def test_contains_venv_activation(self) -> None:
+    def test_contains_venv_path_setup(self) -> None:
         script = generate_powershell_hook(GateHook.PRE_COMMIT)
-        assert "Activate.ps1" in script
+        assert ".venv/Scripts" in script
         assert "Test-Path" in script
+        assert "$env:PATH" in script
 
-    def test_venv_activation_before_command(self) -> None:
+    def test_venv_path_before_command(self) -> None:
         script = generate_powershell_hook(GateHook.PRE_COMMIT)
-        venv_pos = script.index("Activate.ps1")
+        venv_pos = script.index(".venv/Scripts")
         cmd_pos = script.index("ai-eng gate pre-commit")
         assert venv_pos < cmd_pos
 
