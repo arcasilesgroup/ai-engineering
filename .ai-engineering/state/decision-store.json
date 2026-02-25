@@ -53,7 +53,10 @@
       "context": "Pre-commit gates (gitleaks, ruff) unavailable — tools not installed/accessible in corporate environment",
       "decision": "Risk accepted: bypass pre-commit and pre-push gates for Markdown-only changes (product-contract.md, learnings.md). No code changes, no secrets risk. IT Security ticket opened for tool access.",
       "decidedAt": "2026-02-10T00:00:00Z",
-      "spec": "none"
+      "spec": "none",
+      "status": "remediated",
+      "remediatedAt": "2026-02-25T00:00:00Z",
+      "remediation": "All three tools now installed and operational: gitleaks 8.30.0, ruff 0.15.0, semgrep 1.151.0. Pre-commit and pre-push hooks active and hash-verified. Gate bypass no longer needed."
     },
     {
       "id": "S0-008",
@@ -75,6 +78,55 @@
       "decision": "Reorganize skills from 6 categories (33 skills) to 7 categories (32 skills). Eliminate tautological swe/ by splitting into dev/ (6), review/ (3), docs/ (4). Rename lifecycle/ to govern/ (9). Absorb validation/ into quality/ (3). Merge pr-creation.md into workflows/pr.md (net -1 skill). Rename files for brevity: dependency-update→deps-update, architecture-analysis→architecture, python-mastery→python-patterns, etc. Category names are activity-based, short (3-8 chars), lowercase, no hyphens.",
       "decidedAt": "2026-02-11T00:00:00Z",
       "spec": "012-skills-taxonomy"
+    },
+    {
+      "id": "D021-001",
+      "context": "Multi-model routing scope in spec-021",
+      "decision": "Remove multi-model routing from implementation scope. Current platform tooling does not provide robust cross-model runtime orchestration in this repo flow; single-platform execution is deterministic and reliable today.",
+      "decidedAt": "2026-02-24T00:00:00Z",
+      "spec": "021-governance-cicd-evolution"
+    },
+    {
+      "id": "D021-002",
+      "context": "Agent count and architecture strategy",
+      "decision": "Keep agent count small and perspective-based. Avoid 20+ near-duplicate role agents; preserve maintainability and stronger governance consistency.",
+      "decidedAt": "2026-02-24T00:00:00Z",
+      "spec": "021-governance-cicd-evolution"
+    },
+    {
+      "id": "D021-003",
+      "context": "Strategic gap agent choice — navigator vs delivery-lead/product-manager",
+      "decision": "Add navigator instead of delivery-lead/product-manager agents. Navigator fits existing artifacts and strategic gap without requiring external process systems (Jira/sprints/people management).",
+      "decidedAt": "2026-02-24T00:00:00Z",
+      "spec": "021-governance-cicd-evolution"
+    },
+    {
+      "id": "D021-004",
+      "context": "Data domain capability architecture",
+      "decision": "Implement data capability as skills (dev/data-modeling, review/data-security) plus references (database-patterns.md), not as a separate agent. Data work requires procedures and references, not a separate judgment persona.",
+      "decidedAt": "2026-02-24T00:00:00Z",
+      "spec": "021-governance-cicd-evolution"
+    },
+    {
+      "id": "D021-005",
+      "context": "AI PR review default posture in generated CI/CD",
+      "decision": "AI PR review is mandatory in generated CI/CD with high/critical merge blocking. Enforces consistent security and quality posture by default.",
+      "decidedAt": "2026-02-24T00:00:00Z",
+      "spec": "021-governance-cicd-evolution"
+    },
+    {
+      "id": "D021-006",
+      "context": "VCS CLI tooling unavailability handling",
+      "decision": "API-first fallback is required when CLI tooling/policies are blocked. Prevents incomplete installations in restricted enterprise environments.",
+      "decidedAt": "2026-02-24T00:00:00Z",
+      "spec": "021-governance-cicd-evolution"
+    },
+    {
+      "id": "D021-007",
+      "context": "Patterns skill category purpose and placement",
+      "decision": "Remove patterns/ skill category and migrate to references/. Pattern catalogs are reference knowledge, not executable procedures.",
+      "decidedAt": "2026-02-24T00:00:00Z",
+      "spec": "021-governance-cicd-evolution"
     }
   ]
 }

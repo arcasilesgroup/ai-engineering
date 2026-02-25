@@ -35,7 +35,6 @@ skills/<category>/<name>/
 | `quality` | Quality gates and metrics | audit-code, release-gate, test-gap-analysis, sbom |
 | `govern` | Governance, risk, and compliance | integrity-check, create-spec, accept-risk, ownership-audit |
 | `docs` | Documentation and communication | changelog, explain, writer, prompt-design |
-| `patterns` | Reference patterns and stack guides | python-patterns, dotnet-patterns, nextjs-patterns, doctor |
 
 ### SKILL.md Frontmatter
 
@@ -46,7 +45,7 @@ skills/<category>/<name>/
 | `name` | string | Kebab-case skill identifier. Must match directory name. |
 | `description` | string | One-line summary: what the skill does AND when to use it. This is the primary triggering mechanism — AI reads this to decide whether to invoke the skill. |
 | `version` | string | Semantic version (e.g., `1.0.0`). |
-| `category` | string | One of: `workflows`, `dev`, `review`, `quality`, `govern`, `docs`, `patterns`. |
+| `category` | string | One of: `workflows`, `dev`, `review`, `quality`, `govern`, `docs`. |
 | `tags` | list | Discovery keywords for search and filtering. |
 
 #### Optional Fields (Gating Metadata)
@@ -265,8 +264,7 @@ agent_tokens = len(frontmatter_chars) / 4 + len(body_chars) / 4
 | quality | 7 | 6,981 | 997 | 307 (install-check) | 1,603 (docs-audit) |
 | govern | 11 | 17,300 | 1,573 | 900 (resolve-risk) | 2,200 (integrity-check, create-spec) |
 | docs | 4 | 3,200 | 800 | 600 (prompt-design) | 1,050 (writer) |
-| patterns | 6 | 9,000 | 1,500 | 500 (git-helpers, platform-detect) | 3,000 (python-patterns) |
-| **Total** | **46** | **50,731** | **1,103** | **307** | **3,000** |
+| **Total** | **40** | **41,731** | **1,043** | **307** | **2,200** |
 
 #### Agents
 

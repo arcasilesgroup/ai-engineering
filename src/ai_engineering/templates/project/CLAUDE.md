@@ -206,7 +206,7 @@ skills/<category>/<name>/
 └── assets/               (templates, resources for output)
 ```
 
-Categories: `workflows`, `dev`, `review`, `quality`, `govern`, `docs`, `patterns`.
+Categories: `workflows`, `dev`, `review`, `quality`, `govern`, `docs`.
 
 ### Token Budget Targets
 
