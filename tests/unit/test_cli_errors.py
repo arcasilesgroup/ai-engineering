@@ -6,9 +6,12 @@ instead of raw Python tracebacks (spec-013 finding F1).
 
 from __future__ import annotations
 
+import pytest
 from typer.testing import CliRunner
 
 from ai_engineering.cli_factory import create_app
+
+pytestmark = pytest.mark.unit
 
 runner = CliRunner()
 

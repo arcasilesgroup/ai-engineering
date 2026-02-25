@@ -29,6 +29,9 @@ from ai_engineering.installer.service import install
 from ai_engineering.policy.gates import GateCheckResult, GateHook, GateResult
 from ai_engineering.vcs.protocol import VcsResult
 
+pytestmark = pytest.mark.integration
+
+
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -46,20 +49,21 @@ def git_project(installed_project: Path) -> Path:
     """Installed project with a real git repo on a feature branch."""
     import subprocess
 
+    # Initialize git repo
     subprocess.run(
-        ["git", "init"],
+        ["git", "init", "-b", "main"],
         cwd=installed_project,
         check=True,
         capture_output=True,
     )
     subprocess.run(
-        ["git", "config", "user.email", "test@test.com"],
+        ["git", "config", "user.email", "test@example.com"],
         cwd=installed_project,
         check=True,
         capture_output=True,
     )
     subprocess.run(
-        ["git", "config", "user.name", "Test"],
+        ["git", "config", "user.name", "Test User"],
         cwd=installed_project,
         check=True,
         capture_output=True,

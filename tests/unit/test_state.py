@@ -39,6 +39,8 @@ from ai_engineering.state.models import (
     UpdateMetadata,
 )
 
+pytestmark = pytest.mark.unit
+
 # ── Models ──────────────────────────────────────────────────────────────
 
 

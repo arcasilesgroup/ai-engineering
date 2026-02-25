@@ -4,7 +4,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from ai_engineering.policy.duplication import _duplication_ratio
+
+pytestmark = pytest.mark.unit
 
 
 def test_duplication_ratio_zero_for_unique_content(tmp_path: Path) -> None:

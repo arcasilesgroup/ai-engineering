@@ -17,6 +17,8 @@ from ai_engineering.state.io import read_json_model
 from ai_engineering.state.models import InstallManifest
 from ai_engineering.updater.service import update
 
+pytestmark = pytest.mark.e2e
+
 
 class TestInstallExisting:
     """End-to-end tests for installing on a repo with existing code."""

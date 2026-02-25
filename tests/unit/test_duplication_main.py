@@ -5,7 +5,11 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+import pytest
+
 from ai_engineering.policy import duplication
+
+pytestmark = pytest.mark.unit
 
 
 def test_window_hashes_short_input() -> None:

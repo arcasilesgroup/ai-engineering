@@ -1,14 +1,14 @@
 ---
-active: "021-governance-cicd-evolution"
-updated: "2026-02-24"
+active: "022-test-pyramid-rewrite"
+updated: "2026-02-25"
 ---
 
 # Active Spec
 
-Spec-021 (Governance + CI/CD Evolution) is now active.
+Spec-022 (Test Pyramid Rewrite) is now active.
 
 ## Quick Resume
 
-- Spec: `context/specs/021-governance-cicd-evolution/spec.md`
-- Plan: `context/specs/021-governance-cicd-evolution/plan.md`
-- Tasks: `context/specs/021-governance-cicd-evolution/tasks.md`
+- Spec: `context/specs/022-test-pyramid-rewrite/spec.md`
+- Plan: `context/specs/022-test-pyramid-rewrite/plan.md`
+- Tasks: `context/specs/022-test-pyramid-rewrite/tasks.md`

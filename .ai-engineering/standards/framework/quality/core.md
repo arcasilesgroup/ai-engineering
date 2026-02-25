@@ -35,12 +35,23 @@
 
 | Gate | Trigger | Checks | Test Tiers |
 |------|---------|--------|------------|
-| Pre-commit | `git commit` | ruff format, ruff check, gitleaks | Unit |
-| Pre-push | `git push` | semgrep, pip-audit, pytest, ty check | Unit + Integration |
-| PR | Pull request | All pre-push checks + coverage threshold + duplication check | Unit + Integration + E2E |
+| Pre-commit | `git commit` | ruff format, ruff check, gitleaks | — |
+| Pre-push | `git push` | semgrep, pip-audit, pytest (`-m unit`, parallel), ty check | Unit |
+| PR / CI | Pull request | All tiers staged: unit → integration → E2E + coverage + duplication | Unit + Integration + E2E |
 | Quality audit | On-demand | Full Sonar-like analysis (skills/quality/audit-code/SKILL.md) | All (Live opt-in) |
 
 Test tier definitions are in `standards/framework/stacks/python.md`.
+
+## Test Performance Targets
+
+| Gate | Target | Strategy |
+|------|--------|----------|
+| Pre-push | < 60s | Unit only (`-m unit`), parallel (`-n auto --dist worksteal`), no coverage |
+| CI unit | < 90s | Parallel, full OS × Python matrix |
+| CI integration | < 180s | Parallel, reduced matrix (1 Python version per OS) |
+| CI E2E | < 300s | Sequential, single runner |
+
+Test pyramid ratio target: ~50% unit, ~45% integration, ~5% E2E.
 
 ## Quality Metrics
 

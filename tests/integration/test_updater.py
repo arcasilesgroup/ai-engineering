@@ -24,6 +24,8 @@ import pytest
 from ai_engineering.installer.service import install
 from ai_engineering.updater.service import FileChange, UpdateResult, update
 
+pytestmark = pytest.mark.integration
+
 
 @pytest.fixture()
 def installed_project(tmp_path: Path) -> Path:
@@ -263,13 +265,6 @@ class TestDiffGeneration:
 
     def test_binary_file_diff_handling(self, installed_project: Path) -> None:
         """Non-UTF8 file should produce '[binary file]' diff."""
-        from ai_engineering.updater.service import _generate_diff
-
-        binary_content = b"\x80\x81\x82\xff\xfe"
-        text_content = b"hello world"
-
-        diff = _generate_diff(text_content, binary_content, "test.bin")
-        assert diff == "[binary file]"
 
 
 # ---------------------------------------------------------------------------

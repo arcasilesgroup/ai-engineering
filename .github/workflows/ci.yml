@@ -66,8 +66,8 @@ jobs:
       - name: ty check
         run: uv run ty check src/
 
-  test:
-    name: Test (Python ${{ matrix.python-version }} / ${{ matrix.os }})
+  test-unit:
+    name: Unit (Python ${{ matrix.python-version }} / ${{ matrix.os }})
     needs: [docs-scope]
     if: needs.docs-scope.outputs.code == 'true'
     runs-on: ${{ matrix.os }}
@@ -86,22 +86,11 @@ jobs:
           enable-cache: true
       - name: Set Python version
         run: uv python install ${{ matrix.python-version }}
-      - name: Configure git defaults
-        run: |
-          git config --global init.defaultBranch main
-          git config --global user.email "ci@test.com"
-          git config --global user.name "CI"
       - name: Install dependencies
         run: uv sync --dev
-      - name: Run tests
+      - name: Run unit tests
         run: |
-          uv run pytest tests/ -v --durations=25 --cov=src/ai_engineering --cov-report=term-missing --cov-fail-under=90 | tee test-output.log
-      - name: Upload coverage
-        if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-report
-          path: .coverage
+          uv run pytest tests/unit -v -n auto --dist worksteal --durations=25 | tee test-output.log
       - name: Upload slow-tests artifact
         if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'
         uses: actions/upload-artifact@v4
@@ -109,8 +98,8 @@ jobs:
           name: slow-tests-report
           path: test-output.log
 
-  framework-smoke:
-    name: Framework Smoke (${{ matrix.python-version }} / ${{ matrix.os }})
+  test-integration:
+    name: Integration (${{ matrix.os }})
     needs: [docs-scope]
     if: needs.docs-scope.outputs.code == 'true'
     runs-on: ${{ matrix.os }}
@@ -121,7 +110,95 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-        python-version: ["3.11", "3.12", "3.13"]
+        python-version: ["3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - name: Set Python version
+        run: uv python install ${{ matrix.python-version }}
+      - name: Configure git defaults
+        run: |
+          git config --global init.defaultBranch main
+          git config --global user.email "ci@test.com"
+          git config --global user.name "CI"
+      - name: Install dependencies
+        run: uv sync --dev
+      - name: Run integration tests
+        run: |
+          uv run pytest tests/integration -v -n auto --dist worksteal --durations=25 | tee integration-output.log
+
+  test-e2e:
+    name: E2E
+    needs: [docs-scope]
+    if: needs.docs-scope.outputs.code == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - name: Set Python version
+        run: uv python install 3.12
+      - name: Configure git defaults
+        run: |
+          git config --global init.defaultBranch main
+          git config --global user.email "ci@test.com"
+          git config --global user.name "CI"
+      - name: Install dependencies
+        run: uv sync --dev
+      - name: Run e2e tests
+        run: |
+          uv run pytest tests/e2e -v --durations=10 | tee e2e-output.log
+
+  coverage:
+    name: Coverage Gate
+    needs: [docs-scope, test-unit, test-integration, test-e2e]
+    if: needs.docs-scope.outputs.code == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - name: Set Python version
+        run: uv python install 3.12
+      - name: Configure git defaults
+        run: |
+          git config --global init.defaultBranch main
+          git config --global user.email "ci@test.com"
+          git config --global user.name "CI"
+      - name: Install dependencies
+        run: uv sync --dev
+      - name: Run full suite with coverage
+        run: |
+          uv run pytest tests/unit tests/integration tests/e2e -v -n auto --dist worksteal \
+            --cov=src/ai_engineering --cov-report=term-missing --cov-fail-under=90
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: .coverage
+
+  framework-smoke:
+    name: Framework Smoke (${{ matrix.os }})
+    needs: [docs-scope]
+    if: needs.docs-scope.outputs.code == 'true'
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, python-version: "3.12" }
+          - { os: windows-latest, python-version: "3.12" }
+          - { os: macos-latest, python-version: "3.12" }
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
@@ -232,7 +309,7 @@ jobs:
 
   build:
     name: Build Package
-    needs: [docs-scope, lint, typecheck, test, framework-smoke, security, content-integrity, workflow-sanity]
+    needs: [docs-scope, lint, typecheck, test-unit, test-integration, test-e2e, coverage, framework-smoke, security, content-integrity, workflow-sanity]
     if: needs.docs-scope.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
