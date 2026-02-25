@@ -32,7 +32,7 @@ Identical to `/commit` default flow:
 1. Stage changes — `git add -A`.
 2. Run formatter — `ruff format .`.
 3. Run linter — `ruff check . --fix`. Stop on unfixable issues.
-4. Run secret detection — `gitleaks detect --staged --no-banner`. Stop on findings.
+4. Run secret detection — `gitleaks protect --staged --no-banner`. Stop on findings.
 5. Commit — `git commit -m "<message>"`.
 6. Push — `git push origin <current-branch>`. Block if `main`/`master`.
 

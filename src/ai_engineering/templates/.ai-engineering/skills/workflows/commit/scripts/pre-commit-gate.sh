@@ -38,14 +38,14 @@ fi
 echo "[3/3] Running gitleaks..."
 if command -v gitleaks >/dev/null 2>&1; then
   if [ "$STAGED_ONLY" = "--staged-only" ]; then
-    if ! gitleaks detect --staged --no-banner 2>&1; then
+    if ! gitleaks protect --staged --no-banner 2>&1; then
       echo "  -> FAIL: secrets detected in staged files"
       EXIT_CODE=1
     else
       echo "  -> PASS"
     fi
   else
-    if ! gitleaks detect --no-banner 2>&1; then
+    if ! gitleaks protect --no-banner 2>&1; then
       echo "  -> FAIL: secrets detected"
       EXIT_CODE=1
     else

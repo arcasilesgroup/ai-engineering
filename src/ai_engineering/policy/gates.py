@@ -114,7 +114,7 @@ _PRE_COMMIT_CHECKS: dict[str, list[CheckConfig]] = {
     "common": [
         CheckConfig(
             name="gitleaks",
-            cmd=["gitleaks", "detect", "--source", ".", "--no-git"],
+            cmd=["gitleaks", "protect", "--staged", "--no-banner"],
         ),
     ],
     "python": [

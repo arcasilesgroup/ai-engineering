@@ -30,7 +30,7 @@ Execute the `/pr` governed workflow: stage, commit, push, create a pull request,
 1. **Stage changes** — `git add -A` (or selective staging).
 2. **Run formatter** — `ruff format .` to auto-fix formatting.
 3. **Run linter** — `ruff check . --fix`. If unfixable issues remain, report and stop.
-4. **Run secret detection** — `gitleaks detect --staged --no-banner`. If secrets found, report and stop.
+4. **Run secret detection** — `gitleaks protect --staged --no-banner`. If secrets found, report and stop.
 5. **Run pre-push checks** — execute full pre-push gate:
    - `semgrep scan --config auto .`
    - `pip-audit`
