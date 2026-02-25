@@ -3,73 +3,64 @@
   <rect width="900" height="420" fill="#0B1120" rx="12" stroke="#1A2A40" stroke-width="1"/>
 
   <!-- Title -->
-  <text x="450" y="38" text-anchor="middle" fill="#F8FAFB" font-size="22" font-weight="700">Skills: 31 Reusable Procedures</text>
+  <text x="450" y="38" text-anchor="middle" fill="#F8FAFB" font-size="22" font-weight="700">Skills: 45 Reusable Procedures</text>
   <text x="450" y="60" text-anchor="middle" fill="#94A3B8" font-size="13">Markdown specs — not code. Any AI agent reads and executes them.</text>
 
   <!-- Hexagon function -->
   <!-- Row 1: 3 hexagons -->
-  <!-- Workflows (4) - Teal/Orange -->
+  <!-- Workflows (6) - Teal/Orange -->
   <g transform="translate(180, 140)">
     <polygon points="70,0 140,40 140,110 70,150 0,110 0,40" fill="#1A2A40" stroke="#00D4AA" stroke-width="2.5"/>
     <text x="70" y="60" text-anchor="middle" fill="#00D4AA" font-size="14" font-weight="700">Workflows</text>
-    <text x="70" y="82" text-anchor="middle" fill="#00D4AA" font-size="28" font-weight="700">4</text>
-    <text x="70" y="105" text-anchor="middle" fill="#64748B" font-size="9">commit, pr, acho</text>
-    <text x="70" y="118" text-anchor="middle" fill="#64748B" font-size="9">pre-implementation</text>
+    <text x="70" y="82" text-anchor="middle" fill="#00D4AA" font-size="28" font-weight="700">6</text>
+    <text x="70" y="105" text-anchor="middle" fill="#64748B" font-size="9">commit, pr, acho, cleanup</text>
+    <text x="70" y="118" text-anchor="middle" fill="#64748B" font-size="9">pre-impl, self-improve</text>
   </g>
 
-  <!-- Dev (6) - Blue -->
+  <!-- Dev (10) - Blue -->
   <g transform="translate(360, 140)">
     <polygon points="70,0 140,40 140,110 70,150 0,110 0,40" fill="#1A2A40" stroke="#2e6ba4" stroke-width="2.5"/>
     <text x="70" y="60" text-anchor="middle" fill="#2e6ba4" font-size="14" font-weight="700">Dev</text>
-    <text x="70" y="82" text-anchor="middle" fill="#2e6ba4" font-size="28" font-weight="700">6</text>
+    <text x="70" y="82" text-anchor="middle" fill="#2e6ba4" font-size="28" font-weight="700">10</text>
     <text x="70" y="105" text-anchor="middle" fill="#64748B" font-size="9">debug, refactor, review</text>
-    <text x="70" y="118" text-anchor="middle" fill="#64748B" font-size="9">test, migration, deps</text>
+    <text x="70" y="118" text-anchor="middle" fill="#64748B" font-size="9">test, migrate, deps, cicd ...</text>
   </g>
 
-  <!-- Review (3) - Purple -->
+  <!-- Review (6) - Purple -->
   <g transform="translate(540, 140)">
     <polygon points="70,0 140,40 140,110 70,150 0,110 0,40" fill="#1A2A40" stroke="#7b3fa0" stroke-width="2.5"/>
     <text x="70" y="60" text-anchor="middle" fill="#7b3fa0" font-size="14" font-weight="700">Review</text>
-    <text x="70" y="82" text-anchor="middle" fill="#7b3fa0" font-size="28" font-weight="700">3</text>
-    <text x="70" y="105" text-anchor="middle" fill="#64748B" font-size="9">architecture</text>
-    <text x="70" y="118" text-anchor="middle" fill="#64748B" font-size="9">performance, security</text>
+    <text x="70" y="82" text-anchor="middle" fill="#7b3fa0" font-size="28" font-weight="700">6</text>
+    <text x="70" y="105" text-anchor="middle" fill="#64748B" font-size="9">arch, perf, security</text>
+    <text x="70" y="118" text-anchor="middle" fill="#64748B" font-size="9">data-sec, dast, container</text>
   </g>
 
-  <!-- Row 2: 4 hexagons (offset) -->
-  <!-- Docs (4) - Green -->
-  <g transform="translate(90, 255)">
+  <!-- Row 2: 3 hexagons (offset) -->
+  <!-- Docs (5) - Green -->
+  <g transform="translate(150, 255)">
     <polygon points="70,0 140,40 140,110 70,150 0,110 0,40" fill="#1A2A40" stroke="#1a9e8c" stroke-width="2.5"/>
     <text x="70" y="60" text-anchor="middle" fill="#1a9e8c" font-size="14" font-weight="700">Docs</text>
-    <text x="70" y="82" text-anchor="middle" fill="#1a9e8c" font-size="28" font-weight="700">4</text>
-    <text x="70" y="105" text-anchor="middle" fill="#64748B" font-size="9">changelog, explain</text>
-    <text x="70" y="118" text-anchor="middle" fill="#64748B" font-size="9">writer, prompt-design</text>
+    <text x="70" y="82" text-anchor="middle" fill="#1a9e8c" font-size="28" font-weight="700">5</text>
+    <text x="70" y="105" text-anchor="middle" fill="#64748B" font-size="9">changelog, explain, writer</text>
+    <text x="70" y="118" text-anchor="middle" fill="#64748B" font-size="9">simplify, prompt-design</text>
   </g>
 
-  <!-- Govern (9) - Orange -->
-  <g transform="translate(270, 255)">
+  <!-- Govern (12) - Orange -->
+  <g transform="translate(330, 255)">
     <polygon points="70,0 140,40 140,110 70,150 0,110 0,40" fill="#1A2A40" stroke="#2A4F7A" stroke-width="2.5"/>
     <text x="70" y="60" text-anchor="middle" fill="#2A4F7A" font-size="14" font-weight="700">Govern</text>
-    <text x="70" y="82" text-anchor="middle" fill="#2A4F7A" font-size="28" font-weight="700">9</text>
+    <text x="70" y="82" text-anchor="middle" fill="#2A4F7A" font-size="28" font-weight="700">12</text>
     <text x="70" y="105" text-anchor="middle" fill="#64748B" font-size="9">create/delete spec,skill,agent</text>
-    <text x="70" y="118" text-anchor="middle" fill="#64748B" font-size="9">risk: accept,resolve,renew</text>
+    <text x="70" y="118" text-anchor="middle" fill="#64748B" font-size="9">risk, compliance, audit ...</text>
   </g>
 
-  <!-- Quality (3) - Purple -->
-  <g transform="translate(450, 255)">
+  <!-- Quality (6) - Purple -->
+  <g transform="translate(510, 255)">
     <polygon points="70,0 140,40 140,110 70,150 0,110 0,40" fill="#1A2A40" stroke="#7b3fa0" stroke-width="2.5"/>
     <text x="70" y="60" text-anchor="middle" fill="#b38bcf" font-size="14" font-weight="700">Quality</text>
-    <text x="70" y="82" text-anchor="middle" fill="#b38bcf" font-size="28" font-weight="700">3</text>
-    <text x="70" y="105" text-anchor="middle" fill="#64748B" font-size="9">audit-code, audit-report</text>
-    <text x="70" y="118" text-anchor="middle" fill="#64748B" font-size="9">install-check</text>
-  </g>
-
-  <!-- Utils (3) - Gray -->
-  <g transform="translate(630, 255)">
-    <polygon points="70,0 140,40 140,110 70,150 0,110 0,40" fill="#1A2A40" stroke="#1A2A40" stroke-width="2.5"/>
-    <text x="70" y="60" text-anchor="middle" fill="#F8FAFB" font-size="14" font-weight="700">Utils</text>
-    <text x="70" y="82" text-anchor="middle" fill="#F8FAFB" font-size="28" font-weight="700">3</text>
-    <text x="70" y="105" text-anchor="middle" fill="#64748B" font-size="9">git-helpers, platform</text>
-    <text x="70" y="118" text-anchor="middle" fill="#64748B" font-size="9">python-patterns</text>
+    <text x="70" y="82" text-anchor="middle" fill="#b38bcf" font-size="28" font-weight="700">6</text>
+    <text x="70" y="105" text-anchor="middle" fill="#64748B" font-size="9">audit, docs-audit, install</text>
+    <text x="70" y="118" text-anchor="middle" fill="#64748B" font-size="9">release-gate, sbom, gaps</text>
   </g>
 
   <!-- Skill structure callout -->

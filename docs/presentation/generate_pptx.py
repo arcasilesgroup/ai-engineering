@@ -138,12 +138,13 @@ NOTES: dict[int, str] = {
         "It is NOT a platform. It is NOT a CI/CD pipeline. It is a content framework.\n\n"
         "Five subdirectories:\n"
         "- standards/ — framework and team rules.\n"
-        "- skills/ — 31 reusable procedures in 7 categories.\n"
-        "- agents/ — 8 specialized personas.\n"
+        "- skills/ — 45 reusable procedures in 6 categories.\n"
+        "- agents/ — 15 specialized personas.\n"
         "- context/ — delivery specs, product contracts.\n"
         "- state/ — decision store, audit log, manifests.\n\n"
         "Minimal CLI: ai-eng install, update, doctor, validate.\n\n"
-        "Works with Claude Code (37 slash commands), GitHub Copilot, OpenAI Codex.\n"
+        "Works with Claude Code (60 slash commands), "
+        "GitHub Copilot (45 prompt files + 15 custom agents), OpenAI Codex.\n"
         "A constitution for the AI-assisted repository."
     ),
     6: (
@@ -166,27 +167,29 @@ NOTES: dict[int, str] = {
         "Ownership boundaries are non-negotiable."
     ),
     8: (
-        "31 skills organized in 7 categories:\n"
-        "- Workflows (4): commit, PR, acho, pre-implementation.\n"
-        "- Dev (6): debug, refactor, code review, test strategy, migration, deps.\n"
-        "- Review (3): architecture, performance, security.\n"
-        "- Docs (4): changelog, explain, writer, prompt design.\n"
-        "- Govern (9): create/delete specs, skills, agents + risk lifecycle.\n"
-        "- Quality (3): audit code, audit report, install check.\n"
-        "- Utils (3): git helpers, platform detection, Python patterns.\n\n"
+        "45 skills organized in 6 categories:\n"
+        "- Workflows (6): commit, PR, acho, pre-implementation, cleanup, self-improve.\n"
+        "- Dev (10): debug, refactor, code review, test runner, test strategy, "
+        "migration, deps, data modeling, CI/CD generation, multi-agent.\n"
+        "- Review (6): architecture, performance, security, data security, DAST, "
+        "container security.\n"
+        "- Docs (5): changelog, explain, writer, simplify, prompt design.\n"
+        "- Govern (12): create/delete specs, skills, agents + integrity check, "
+        "contract compliance, ownership audit, adaptive standards + risk lifecycle.\n"
+        "- Quality (6): audit code, docs audit, install check, release gate, SBOM, "
+        "test gap analysis.\n\n"
         "They are NOT code. They are behavior specifications. Any AI agent "
         "reads and executes them."
     ),
     9: (
-        "8 specialized agents:\n"
-        "- Principal Engineer: senior code review.\n"
-        "- Architect: architectural analysis.\n"
-        "- Security Reviewer: security assessment.\n"
-        "- Debugger: systematic diagnosis.\n"
-        "- Quality Auditor: quality gate enforcement.\n"
-        "- Verify App: end-to-end verification.\n"
-        "- Codebase Mapper: structure mapping.\n"
-        "- Code Simplifier: complexity reduction.\n\n"
+        "15 specialized agents organized by function:\n\n"
+        "Code quality: Principal Engineer, Code Simplifier, Quality Auditor.\n"
+        "Architecture & design: Architect, Navigator.\n"
+        "Security: Security Reviewer.\n"
+        "Testing & verification: Test Master, Verify App, Debugger.\n"
+        "Delivery & ops: Orchestrator, DevOps Engineer, PR Reviewer.\n"
+        "Documentation & governance: Docs Writer, Governance Steward, "
+        "Platform Auditor.\n\n"
         "Each agent has: Identity, Capabilities, Activation rules, Behavior protocol, "
         "Referenced Skills, Output Contract, and Boundaries."
     ),
@@ -205,8 +208,8 @@ NOTES: dict[int, str] = {
         "- install-manifest.json: what was installed, when.\n"
         "- ownership-map.json: who owns each path.\n"
         "- sources.lock.json: remote skills with verifiable checksums.\n"
-        "- decision-store.json: 10 real decisions with SHA-256 context hash.\n"
-        "- audit-log.ndjson: 183 recorded events.\n\n"
+        "- decision-store.json: 17 real decisions with SHA-256 context hash.\n"
+        "- audit-log.ndjson: 185 recorded events.\n\n"
         "Decision continuity: Agent A decides in session 1, "
         "Agent B does not ask again in session 5."
     ),
@@ -215,15 +218,15 @@ NOTES: dict[int, str] = {
         "- Pre-commit: ruff format, ruff lint, gitleaks.\n"
         "- Commit-msg: valid format, branch protection.\n"
         "- Pre-push: semgrep, pip-audit, pytest, ty.\n\n"
-        "Thresholds: Coverage >=80%, Duplication <=3%, CC <=10, CogC <=15.\n\n"
+        "Thresholds: Coverage >=90%, Duplication <=3%, CC <=10, CogC <=15.\n\n"
         "Structured risk acceptance: Critical 15d, High 30d, Medium 60d, Low 90d. "
         "Maximum 2 renewals."
     ),
     13: (
         "The value depends on who is looking:\n"
-        "- Engineers: 37 slash commands, quality gates before push.\n"
-        "- Governance/Compliance: audit-log with 183 traceable events, "
-        "decision store with 10 decisions.\n"
+        "- Engineers: 60 slash commands, quality gates before push.\n"
+        "- Governance/Compliance: audit-log with 185 traceable events, "
+        "decision store with 17 decisions.\n"
         "- Security/AppSec: gitleaks + semgrep + pip-audit on every push.\n"
         "- Quality/DevEx: Sonar-like quality gates WITHOUT a SonarQube server.\n"
         "- Architecture: Standards with layering, ownership boundaries."
@@ -238,8 +241,9 @@ NOTES: dict[int, str] = {
     ),
     15: (
         "No vendor lock-in.\n\n"
-        "Claude Code: CLAUDE.md + 37 slash commands.\n"
-        "Copilot: copilot-instructions.md + prompts in .github/copilot/.\n"
+        "Claude Code: CLAUDE.md + 60 slash commands.\n"
+        "Copilot: copilot-instructions.md + 45 prompt files in .github/prompts/ "
+        "+ 15 custom agents in .github/agents/.\n"
         "Codex: codex.md.\n"
         "Terminal: CLI directly.\n\n"
         "You change providers, you keep the governance."
@@ -1053,8 +1057,8 @@ def slide_05_what_is(prs):
     # 5 directory child cards
     dirs = [
         ("standards/", "Framework and\nteam rules"),
-        ("skills/", "31 procedures\nin 7 categories"),
-        ("agents/", "8 specialized\npersonas"),
+        ("skills/", "45 procedures\nin 6 categories"),
+        ("agents/", "15 specialized\npersonas"),
         ("context/", "Specs, contracts,\nlearnings"),
         ("state/", "Decision store,\naudit log"),
     ]
@@ -1109,8 +1113,8 @@ def slide_05_what_is(prs):
 
     # IDE cards (right side)
     ides = [
-        ("Claude Code", "CLAUDE.md\n37 slash commands"),
-        ("GitHub Copilot", "copilot-instructions.md\n.github/copilot/"),
+        ("Claude Code", "CLAUDE.md\n60 slash commands"),
+        ("GitHub Copilot", "copilot-instructions.md\n45 prompts + 15 agents"),
         ("OpenAI Codex", "codex.md"),
     ]
     ide_x = LEFT_MARGIN + cli_w + Inches(0.3)
@@ -1371,20 +1375,19 @@ def slide_07_ownership(prs):
 
 
 def slide_08_skills(prs):
-    """Slide 8 — Skills Grid: 31 Procedures."""
+    """Slide 8 — Skills Grid: 45 Procedures."""
     slide = _blank_slide(prs)
-    add_slide_header(slide, "Skills: 31 Reusable Procedures")
+    add_slide_header(slide, "Skills: 45 Reusable Procedures")
 
     categories = [
-        ("Workflows", "4", "commit, PR, acho,\npre-implementation", AI_ACCENT),
-        ("Dev", "6", "debug, refactor, code-review,\ntest, migration, deps", SEC_BLUE),
-        ("Review", "3", "architecture, performance,\nsecurity", SEC_TEAL),
-        ("Docs", "4", "changelog, explain,\nwriter, prompt-design", SEC_PURPLE),
-        ("Govern", "9", "create/delete specs, skills,\nagents + risk lifecycle", AI_PRIMARY),
-        ("Quality", "3", "audit-code, audit-report,\ninstall-check", SEC_TEAL_DARK),
-        ("Utils", "3", "git-helpers, platform-detect,\npython-patterns", SEC_BLUE_DARK),
+        ("Workflows", "6", "commit, PR, acho, cleanup,\npre-impl, self-improve", AI_ACCENT),
+        ("Dev", "10", "debug, refactor, review,\ntest, migrate, CI/CD, ...", SEC_BLUE),
+        ("Review", "6", "architecture, security,\ndata-sec, DAST, ...", SEC_TEAL),
+        ("Docs", "5", "changelog, explain, writer,\nsimplify, prompt-design", SEC_PURPLE),
+        ("Govern", "12", "specs, skills, agents +\nintegrity + risk lifecycle", AI_PRIMARY),
+        ("Quality", "6", "audit, release-gate,\nSBOM, test-gap, ...", SEC_TEAL_DARK),
     ]
-    # 2 rows: 4 + 3
+    # 2 rows: 3 + 3
     card_w = Inches(2.5)
     card_h = Inches(1.8)
     card_gap = Inches(0.2)
@@ -1477,7 +1480,7 @@ def slide_08_skills(prs):
 def slide_09_agents(prs):
     """Slide 9 — Agent Network."""
     slide = _blank_slide(prs)
-    add_slide_header(slide, "Agents: 8 Specialized Personas")
+    add_slide_header(slide, "Agents: 15 Specialized Personas")
 
     # Central hub
     hub_d = Inches(1.2)
@@ -1498,25 +1501,32 @@ def slide_09_agents(prs):
         anchor=MSO_ANCHOR.MIDDLE,
     )
 
-    # 8 agent cards around the hub
+    # 15 agent cards around the hub
     agents = [
         ("PE", "Principal\nEngineer", "Senior code review"),
-        ("AR", "Architect", "Architectural analysis"),
-        ("SR", "Security\nReviewer", "Security assessment"),
-        ("DB", "Debugger", "Systematic diagnosis"),
+        ("AR", "Architect", "Architecture analysis"),
+        ("SR", "Security\nReviewer", "Threat assessment"),
+        ("TM", "Test\nMaster", "Test strategy"),
+        ("DB", "Debugger", "Root cause analysis"),
         ("QA", "Quality\nAuditor", "Quality gates"),
         ("VA", "Verify\nApp", "E2E verification"),
-        ("CM", "Codebase\nMapper", "Structure mapping"),
         ("CS", "Code\nSimplifier", "Complexity reduction"),
+        ("OR", "Orchestrator", "Multi-phase coord."),
+        ("DE", "DevOps\nEngineer", "CI/CD automation"),
+        ("PR", "PR\nReviewer", "Headless PR review"),
+        ("DW", "Docs\nWriter", "Documentation"),
+        ("GS", "Governance\nSteward", "Gov. lifecycle"),
+        ("NV", "Navigator", "Strategic analysis"),
+        ("PA", "Platform\nAuditor", "Full-spectrum audit"),
     ]
     # Positions around the hub (approximate circle layout)
     import math
 
     center_x = hub_x + hub_d // 2
     center_y = hub_y + hub_d // 2
-    radius = Inches(2.4)
-    agent_w = Inches(1.6)
-    agent_h = Inches(1.1)
+    radius = Inches(2.8)
+    agent_w = Inches(1.4)
+    agent_h = Inches(0.95)
     init_d = Inches(0.4)
 
     for i, (initials, name, cap) in enumerate(agents):
@@ -1900,7 +1910,7 @@ def slide_12_quality_gates(prs):
 
     # Threshold metric cards
     metrics = [
-        ("Coverage", "≥ 80%", "(≥90% gov-critical)"),
+        ("Coverage", "≥ 90%", ""),
         ("Duplication", "≤ 3%", ""),
         ("Cyclomatic", "≤ 10", "complexity"),
         ("Cognitive", "≤ 15", "complexity"),
@@ -2011,8 +2021,8 @@ def slide_13_value_by_role(prs):
     # 5-row table: Role / Value / Key Feature
     data = [
         ("Role", "Value", "Key Feature"),
-        ("Engineers", "Fast workflows — 37 slash commands", "Quality gates before push"),
-        ("Governance", "audit-log with 183 traceable events", "Decision store with 10 decisions"),
+        ("Engineers", "Fast workflows — 60 slash commands", "Quality gates before push"),
+        ("Governance", "audit-log with 185 traceable events", "Decision store with 17 decisions"),
         (
             "Security / AppSec",
             "gitleaks + semgrep + pip-audit on every push",
@@ -2144,8 +2154,8 @@ def slide_15_multi_ide(prs):
 
     # 4 IDE boxes converging to central .ai-engineering/
     ides = [
-        ("Claude Code", "CLAUDE.md\n37 slash commands\n.claude/commands/"),
-        ("GitHub Copilot", "copilot-instructions.md\n.github/copilot/"),
+        ("Claude Code", "CLAUDE.md\n60 slash commands\n.claude/commands/"),
+        ("GitHub Copilot", "copilot-instructions.md\n.github/prompts/ + .github/agents/"),
         ("OpenAI Codex", "codex.md"),
         ("Terminal CLI", "ai-eng install\nai-eng doctor"),
     ]
