@@ -111,14 +111,14 @@
 >
 > Cinco subdirectorios:
 > - **standards/** — reglas del framework y del equipo, con layering de precedencia.
-> - **skills/** — 31 procedimientos reutilizables en 7 categorías.
-> - **agents/** — 8 personas especializadas con contratos de comportamiento.
+> - **skills/** — 45 procedimientos reutilizables en 6 categorías.
+> - **agents/** — 15 personas especializadas con contratos de comportamiento.
 > - **context/** — specs de entrega, contratos de producto, learnings institucionales.
 > - **state/** — decision store, audit log, manifests de instalación.
 >
 > El CLI es mínimo: `ai-eng install`, `update`, `doctor`, `validate`. Cuatro comandos.
 >
-> Y funciona con cualquier AI provider: Claude Code con 37 slash commands, GitHub Copilot con copilot-instructions, OpenAI Codex con codex.md. Un framework, cada provider.
+> Y funciona con cualquier AI provider: Claude Code con 60 slash commands, GitHub Copilot con 45 prompt files y 15 custom agents, OpenAI Codex con codex.md. Un framework, cada provider.
 >
 > Piensen en ello como **una constitución para el repositorio asistido por IA**.
 
@@ -176,7 +176,7 @@
 
 ---
 
-### Slide 8 — Skills: 31 Procedimientos Reutilizables (1.5min)
+### Slide 8 — Skills: 45 Procedimientos Reutilizables (1.5min)
 
 **SVG**: `07-skills-hexgrid.svg`
 
@@ -184,16 +184,15 @@
 
 > Hablemos del motor principal: los skills.
 >
-> 31 skills organizados en 7 categorías. Cada skill es un archivo Markdown con estructura definida: Purpose, Trigger, Procedure, Output Contract, Governance Notes.
+> 45 skills organizados en 6 categorías. Cada skill es un archivo Markdown con estructura definida: Purpose, Trigger, Procedure, Output Contract, Governance Notes.
 >
 > Las categorías:
-> - **Workflows** (4): commit, PR, acho, pre-implementation — los flujos del día a día.
-> - **Dev** (6): debug, refactor, code review, test strategy, migration, dependency updates.
-> - **Review** (3): architecture, performance, security.
-> - **Docs** (4): changelog, explain (estilo Feynman), writer, prompt design.
-> - **Govern** (9): create/delete specs, skills, agents + risk lifecycle (accept, resolve, renew).
-> - **Quality** (3): audit code, audit report, install check.
-> - **Utils** (3): git helpers, platform detection, Python patterns.
+> - **Workflows** (6): commit, PR, acho, pre-implementation, cleanup, self-improve — los flujos del día a día.
+> - **Dev** (10): debug, refactor, code review, test runner, test strategy, migration, dependency updates, data modeling, CI/CD generation, multi-agent orchestration.
+> - **Review** (6): architecture, performance, security, data security, DAST, container security.
+> - **Docs** (5): changelog, explain (estilo Feynman), writer, simplify, prompt design.
+> - **Govern** (12): create/delete specs, skills, agents + integrity check, contract compliance, ownership audit, adaptive standards + risk lifecycle (accept, resolve, renew).
+> - **Quality** (6): audit code, docs audit, install check, release gate, SBOM, test gap analysis.
 >
 > Lo importante: **NO son código**. Son especificaciones de comportamiento. Cualquier agente IA los lee y ejecuta. El mismo skill funciona en Claude Code, Copilot, y Codex sin modificación.
 >
@@ -201,7 +200,7 @@
 
 ---
 
-### Slide 9 — Agents: 8 Personas Especializadas (1min)
+### Slide 9 — Agents: 15 Personas Especializadas (1min)
 
 **SVG**: `08-agent-network.svg`
 
@@ -209,15 +208,14 @@
 
 > Los agents complementan a los skills. Son **contratos de comportamiento** — no procesos corriendo.
 >
-> 8 agentes especializados:
-> - **Principal Engineer**: code review a nivel senior, enforcement de standards.
-> - **Architect**: análisis arquitectónico, patterns, escalabilidad.
-> - **Security Reviewer**: assessment de seguridad, OWASP, threat modeling.
-> - **Debugger**: diagnóstico sistemático, root cause analysis.
-> - **Quality Auditor**: enforcement de quality gates, coverage, complejidad.
-> - **Verify App**: verificación end-to-end, smoke tests.
-> - **Codebase Mapper**: mapeo de estructura, análisis de dependencias.
-> - **Code Simplifier**: reducción de complejidad, mejora de legibilidad.
+> 15 agentes especializados organizados por función:
+>
+> **Code quality**: Principal Engineer (code review senior), Code Simplifier (reducción de complejidad), Quality Auditor (enforcement de gates).
+> **Architecture & design**: Architect (análisis arquitectónico, patterns), Navigator (análisis estratégico de próximos specs).
+> **Security**: Security Reviewer (OWASP, threat modeling).
+> **Testing & verification**: Test Master (estrategia de testing), Verify App (verificación E2E), Debugger (diagnóstico sistemático).
+> **Delivery & ops**: Orchestrator (coordinación multi-fase), DevOps Engineer (CI/CD y automatización), PR Reviewer (review headless en CI).
+> **Documentation & governance**: Docs Writer (documentación user-facing), Governance Steward (ciclo de vida de gobernanza), Platform Auditor (auditoría full-spectrum).
 >
 > Cada agente tiene: Identity, Capabilities, Activation rules, Behavior protocol, Referenced Skills, Output Contract, y Boundaries.
 >
@@ -257,8 +255,8 @@
 > - **install-manifest.json**: qué se instaló, cuándo, qué versión.
 > - **ownership-map.json**: quién es dueño de cada path.
 > - **sources.lock.json**: remote skills con checksums verificables.
-> - **decision-store.json**: decisiones con context hash SHA-256. Hoy tenemos 10 decisiones reales registradas.
-> - **audit-log.ndjson**: log append-only. Tenemos 183 eventos registrados — gates passed, commands created, lifecycle events.
+> - **decision-store.json**: decisiones con context hash SHA-256. Hoy tenemos 17 decisiones reales registradas.
+> - **audit-log.ndjson**: log append-only. Tenemos 185 eventos registrados — gates passed, commands created, lifecycle events.
 >
 > La **decision continuity** es clave: cuando un Agent A toma una decisión en la sesión 1, genera un context hash SHA-256. Cuando Agent B llega en la sesión 5, lee el decision store y **no vuelve a preguntar**. Solo re-prompts si: expired, scope changed, severity changed, policy changed, o context hash changed.
 >
@@ -279,7 +277,7 @@
 > - **Commit-msg**: formato válido, branch protection.
 > - **Pre-push**: semgrep SAST/OWASP, pip-audit CVE, pytest, ty type checking.
 >
-> Umbrales: Coverage ≥80% (≥90% governance-critical), Duplication ≤3%, Cyclomatic complexity ≤10, Cognitive complexity ≤15.
+> Umbrales: Coverage ≥90%, Duplication ≤3%, Cyclomatic complexity ≤10, Cognitive complexity ≤15.
 >
 > Para seguridad: el risk acceptance es estructurado. No puedes ignorar un finding — tienes que registrar una aceptación de riesgo con severidad y expiración: Critical 15 días, High 30 días, Medium 60 días, Low 90 días. Máximo 2 renovaciones.
 >
@@ -299,9 +297,9 @@
 
 > El valor de ai-engineering depende de quién lo mire:
 >
-> **Engineers**: Workflows rápidos — 37 slash commands. Quality gates capturan problemas antes del push, no después en CI. Menos ida y vuelta.
+> **Engineers**: Workflows rápidos — 60 slash commands. Quality gates capturan problemas antes del push, no después en CI. Menos ida y vuelta.
 >
-> **Governance/Compliance**: audit-log.ndjson con 183 eventos trazables. Decision store con 10 decisiones reales. Risk lifecycle con expiración. Enforcement non-bypassable. Esto es auditable.
+> **Governance/Compliance**: audit-log.ndjson con 185 eventos trazables. Decision store con 17 decisiones reales. Risk lifecycle con expiración. Enforcement non-bypassable. Esto es auditable.
 >
 > **Security/AppSec**: gitleaks + semgrep + pip-audit en cada push. Clasificación por severidad. No puedes dismissear sin risk acceptance. Máximo 2 renovaciones. Detección antes de que el código llegue al repo remoto.
 >
@@ -339,7 +337,7 @@
 
 > Un punto clave para Architecture: sin vendor lock-in.
 >
-> Claude Code usa CLAUDE.md más 37 slash commands en `.claude/commands/`. Copilot usa copilot-instructions.md más prompts en `.github/copilot/`. Codex usa codex.md. Terminal usa el CLI directamente.
+> Claude Code usa CLAUDE.md más 60 slash commands en `.claude/commands/`. Copilot usa copilot-instructions.md más 45 prompt files en `.github/prompts/` y 15 custom agents en `.github/agents/`. Codex usa codex.md. Terminal usa el CLI directamente.
 >
 > Cambias de provider, mantienes la gobernanza. Los skills y agents son Markdown IDE-agnóstico — la misma skill funciona en cualquier proveedor.
 
@@ -430,13 +428,16 @@
 
 | Claim | Verified Value | Source |
 |-------|---------------|--------|
-| Skills count | 31 across 7 categories | `.ai-engineering/skills/` directory scan |
-| Agents count | 8 specialized personas | `.ai-engineering/agents/` directory scan |
-| Decisions recorded | 10 real decisions | `.ai-engineering/state/decision-store.json` |
-| Audit log entries | 183 governance events | `.ai-engineering/state/audit-log.ndjson` |
-| Slash commands | 37 command wrappers | `.claude/commands/` directory scan |
-| Quality thresholds | Coverage ≥80%, Dup ≤3%, CC ≤10, CogC ≤15 | `.ai-engineering/standards/framework/core.md` |
+| Skills count | 45 across 6 categories | `.ai-engineering/skills/` directory scan |
+| Skill categories | workflows (6), dev (10), review (6), docs (5), govern (12), quality (6) | `.ai-engineering/skills/` subdirectory scan |
+| Agents count | 15 specialized personas | `.ai-engineering/agents/` directory scan |
+| Decisions recorded | 17 real decisions | `.ai-engineering/state/decision-store.json` |
+| Audit log entries | 185 governance events | `.ai-engineering/state/audit-log.ndjson` |
+| Claude Code slash commands | 60 command wrappers | `.claude/commands/` recursive scan |
+| Copilot prompt files | 45 prompt files | `.github/prompts/` scan |
+| Copilot custom agents | 15 agent wrappers | `.github/agents/` scan |
+| Quality thresholds | Coverage ≥90%, Dup ≤3%, CC ≤10, CogC ≤15 | `.ai-engineering/standards/framework/quality/core.md` |
 | Risk expiry | Critical=15d, High=30d, Medium=60d, Low=90d | `.ai-engineering/standards/framework/core.md` |
 | Framework version | 0.1.0 (schema 1.1) | `.ai-engineering/manifest.yml` |
 | License | MIT | `framework-contract.md` |
-| Required Python | 3.11+ | `stacks/python.md` |
+| Required Python | 3.11+ | `pyproject.toml` |

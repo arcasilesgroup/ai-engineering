@@ -99,8 +99,8 @@
   <text x="450" y="280" text-anchor="middle" fill="#F8FAFB" font-size="15" font-weight="700">Quality Thresholds</text>
 
   <rect x="47" y="295" width="185" height="45" rx="8" fill="#c8ede7" stroke="#1a9e8c" stroke-width="1.5"/>
-  <text x="139" y="315" text-anchor="middle" fill="#0d5c52" font-size="13" font-weight="700">Coverage ≥ 80%</text>
-  <text x="139" y="332" text-anchor="middle" fill="#94A3B8" font-size="10">≥ 90% governance-critical</text>
+  <text x="139" y="315" text-anchor="middle" fill="#0d5c52" font-size="13" font-weight="700">Coverage ≥ 90%</text>
+  <text x="139" y="332" text-anchor="middle" fill="#94A3B8" font-size="10">All governed code</text>
 
   <rect x="254" y="295" width="185" height="45" rx="8" fill="#c8ede7" stroke="#1a9e8c" stroke-width="1.5"/>
   <text x="346" y="315" text-anchor="middle" fill="#0d5c52" font-size="13" font-weight="700">Duplication ≤ 3%</text>

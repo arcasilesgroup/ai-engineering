@@ -17,39 +17,11 @@
   </p>
 </div>
 
-ai-engineering gives your repository a complete governance layer — quality gates, security scanning, risk lifecycle management, and AI-agent guidance — installed with a single command. It works locally through git hooks so every commit is checked before it leaves your machine.
+ai-engineering turns any repository into a governed AI workspace. One command installs quality gates, security scanning, and risk management — enforced locally through git hooks so problems are caught before code leaves your machine. It works with Claude Code, GitHub Copilot, and OpenAI Codex out of the box.
 
-## Features
+[Install](#install-recommended) · [Quick start](#quick-start) · [How it works](#how-it-works-short) · [What you get](#what-you-get) · [Governance root](#the-governance-root--ai-engineering) · [Commands](#commands-reference) · [AI providers](#ai-provider-setup) · [Contributing](#contributing)
 
-**Governance bootstrap** — Run `ai-eng install` to scaffold a `.ai-engineering/` governance root in any project. The framework creates standards, state files, and git hooks in one step.
-
-**Automatic quality gates** — Git hooks run `ruff`, `ty`, `gitleaks`, `semgrep`, `pip-audit`, and `pytest` at the right stage (pre-commit, commit-msg, pre-push). No CI dependency for basic quality.
-
-**Risk acceptance lifecycle** — Accept, renew, resolve, and revoke security risks with severity-based expiry. Expired risks block pushes until you remediate or renew.
-
-**Stack and IDE management** — Add technology stacks (e.g. `python`) and IDE integrations (e.g. `vscode`) to generate tailored instruction templates for AI coding agents.
-
-**Framework updates** — Update framework-managed files without touching your team or project content. Dry-run by default so you can review before applying. Use `--diff` to inspect changes and `--json` for machine-readable output.
-
-**Doctor diagnostics** — Diagnose framework health: validates layout, state integrity, git hooks, and tool availability. Auto-fix hooks and install missing tools.
-
-**Version lifecycle enforcement** — Deprecated or end-of-life versions block CLI commands (except `version`, `update`, `doctor`) until you upgrade. Outdated versions print a non-blocking warning.
-
-**Content integrity validation** — `ai-eng validate` runs 6 programmatic checks (file existence, mirror sync, counter accuracy, cross-references, instruction consistency, manifest coherence) to ensure governance content stays consistent.
-
-**Maintenance and reporting** — Generate health reports, clean stale branches, check risk status, and scan CI/CD pipelines for risk governance gates.
-
-**Remote skills** — Sync curated skill libraries from trusted sources with checksum verification and offline fallback.
-
-## Quick start
-
-### Prerequisites
-
-- Python 3.11 or later
-- `uv` (recommended) or `pip`
-- Git
-
-### Installation
+## Install (recommended)
 
 ```bash
 pip install ai-engineering
@@ -61,152 +33,205 @@ Or with `uv`:
 uv pip install ai-engineering
 ```
 
-### First use
+Requires Python 3.11+ and Git.
 
-Bootstrap governance in your project:
+## Quick start
 
 ```bash
 cd your-project
-ai-eng install .
+ai-eng install .                           # bootstrap governance + git hooks
+ai-eng doctor                              # verify everything is operational
+git commit -m "first governed commit"      # quality gates run automatically
 ```
 
-This creates the `.ai-engineering/` governance root, installs git hooks, and generates state files. Your next commit automatically runs quality gates.
-
-To install with a specific technology stack and IDE:
+Install with a specific stack and IDE:
 
 ```bash
 ai-eng install . --stack python --ide vscode
 ```
 
-Verify the installation:
+Your next commit after install is already governed — formatting, linting, and secret scanning run automatically.
 
-```bash
-ai-eng doctor
-```
+## How it works (short)
 
-## Usage
-
-### Core commands
-
-```bash
-ai-eng install [TARGET]          # Bootstrap governance framework
-ai-eng update [TARGET]           # Preview framework file updates (dry-run)
-ai-eng update [TARGET] --apply   # Apply framework file updates
-ai-eng update [TARGET] --diff    # Show unified diffs for updated files
-ai-eng update [TARGET] --json    # Output report as JSON
-ai-eng doctor [TARGET]           # Diagnose framework health
-ai-eng doctor --fix-hooks        # Reinstall git hooks
-ai-eng doctor --fix-tools        # Install missing tools
-ai-eng doctor --json             # Output report as JSON
-ai-eng validate [TARGET]         # Validate content integrity (all 6 categories)
-ai-eng validate --category <cat> # Run a specific category only
-ai-eng validate --json           # Output report as JSON
-ai-eng version                   # Show installed version
-```
-
-### Stack and IDE management
-
-```bash
-ai-eng stack add python          # Add a technology stack
-ai-eng stack remove python       # Remove a technology stack
-ai-eng stack list                # List active stacks
-
-ai-eng ide add vscode            # Add IDE integration
-ai-eng ide remove vscode         # Remove IDE integration
-ai-eng ide list                  # List active IDEs
-```
-
-### Quality gates
-
-Git hooks invoke these automatically, but you can run them manually:
-
-```bash
-ai-eng gate pre-commit           # Format, lint, gitleaks
-ai-eng gate commit-msg .git/COMMIT_EDITMSG  # Commit message validation
-ai-eng gate pre-push             # Semgrep, pip-audit, tests, type-check
-ai-eng gate risk-check           # Check risk acceptance status
-ai-eng gate risk-check --strict  # Fail on expiring risks too
-```
-
-### Skills management
-
-```bash
-ai-eng skill list                # List remote skill sources
-ai-eng skill sync                # Sync from remote sources
-ai-eng skill sync --offline      # Use cached content only
-ai-eng skill add <url>           # Add a remote skill source
-ai-eng skill remove <url>        # Remove a remote skill source
-```
-
-### Maintenance
-
-```bash
-ai-eng maintenance report                        # Generate health report
-ai-eng maintenance report --staleness-days 60     # Custom staleness threshold
-ai-eng maintenance pr                             # Generate report + create PR
-ai-eng maintenance branch-cleanup                 # Clean merged local branches
-ai-eng maintenance branch-cleanup --dry-run       # Preview without deleting
-ai-eng maintenance branch-cleanup --base develop  # Use non-default base branch
-ai-eng maintenance branch-cleanup --force         # Force-delete unmerged branches
-ai-eng maintenance risk-status                    # Show risk acceptance status
-ai-eng maintenance pipeline-compliance            # Scan pipelines for risk gates
-ai-eng maintenance pipeline-compliance --suggest  # Show injection snippets for fixes
-```
-
-## Configuration
-
-ai-engineering uses a content-first approach — configuration lives in the `.ai-engineering/` directory as Markdown, YAML, and JSON files.
-
-**At install time**, you control which stacks and IDEs to enable via `--stack` and `--ide` flags. You can add or remove them later with `ai-eng stack` and `ai-eng ide` commands.
-
-**Updates** are dry-run by default. Run `ai-eng update` to preview changes, then `ai-eng update --apply` to write them. Add `--diff` to see unified diffs or `--json` for machine-readable output. The updater only touches framework-managed files — your team and project content is never overwritten.
-
-**Doctor remediation** gives you `--fix-hooks` to reinstall git hooks and `--fix-tools` to auto-install missing Python tools (`ruff`, `ty`, `gitleaks`, `semgrep`, `pip-audit`).
-
-**Risk lifecycle** supports severity-based expiry:
-
-- `critical` — 15 days
-- `high` — 30 days
-- `medium` — 60 days
-- `low` — 90 days
-
-Expired risks block `git push` until you remediate or renew them (max 2 renewals).
-
-## Architecture
-
-ai-engineering is a **content framework with a minimal CLI**. The governance layer is Markdown, YAML, and JSON documents in `.ai-engineering/`. The Python CLI (`ai-eng`) handles lifecycle operations only — install, update, doctor, validate, and gate enforcement.
+ai-engineering is a **content framework**, not a platform. The governance layer is Markdown, YAML, and JSON living inside your repository. The CLI (`ai-eng`) handles lifecycle operations — install, update, doctor, validate — while git hooks enforce quality and security at every commit and push.
 
 ```
 your-project/
-├── .ai-engineering/         # Governance root
-│   ├── standards/           # Framework and team standards
-│   ├── context/             # Product contracts, specs, learnings
-│   ├── skills/              # Procedural skill definitions
-│   ├── agents/              # Agent persona definitions
-│   └── state/               # Runtime state (JSON/NDJSON)
-├── .claude/commands/        # Claude Code slash command integration
-├── .git/hooks/              # Installed quality gate hooks
+├── .ai-engineering/            ← governance root (content-first)
+│   ├── standards/              ← rules for AI agents and quality gates
+│   ├── skills/                 ← 45 procedural skills AI agents execute
+│   ├── agents/                 ← 15 agent personas with behavioral contracts
+│   ├── context/                ← project memory: specs, goals, learnings
+│   └── state/                  ← decisions, risks, audit trail
+├── .claude/commands/           ← 60 slash commands (Claude Code)
+├── .github/prompts/            ← 45 prompt files (GitHub Copilot)
+├── .github/agents/             ← 15 custom agents (GitHub Copilot)
+├── .git/hooks/                 ← quality gate hooks (auto-installed)
 └── ...your code
 ```
 
-**Ownership model** — three clear boundaries:
+Three ownership boundaries keep your content safe:
 
-- **Framework-managed** (`standards/framework/`) — updated by `ai-eng update`, never edit manually.
-- **Team-managed** (`standards/team/`) — owned by your team, never overwritten by updates.
-- **Project-managed** (`context/`) — living documents you maintain during active work.
+- **Framework-managed** — standards and baselines, updated by `ai-eng update`. Dry-run by default.
+- **Team-managed** — your team's rules and overrides. Never overwritten by framework updates.
+- **Project-managed** — specs, product goals, learnings. Never overwritten. Your project memory stays yours.
 
-**Enforcement** happens locally through git hooks. Pre-commit runs formatting and linting. Commit-msg validates message format. Pre-push runs security scans, dependency audits, tests, and type-checking. No CI pipeline required for baseline quality.
+## What you get
+
+- **Quality gates at every commit** — `ruff`, `gitleaks`, `semgrep`, `pip-audit`, `pytest`, and `ty` run at the right stage. Problems are blocked before they reach the remote repository.
+- **Security scanning without CI** — secrets, SAST/OWASP vulnerabilities, and dependency CVEs are detected locally on every push.
+- **Risk acceptance lifecycle** — accept, track, and expire security risks with severity-based deadlines (critical: 15 days, high: 30, medium: 60, low: 90). Max 2 renewals per risk.
+- **45 procedural skills** — structured procedures for commit, PR, debug, refactor, code review, security assessment, architecture review, and more. AI agents read and execute them.
+- **15 agent personas** — behavioral contracts for principal engineer, architect, security reviewer, test master, debugger, and others. Each agent has identity, capabilities, and boundaries.
+- **Multi-provider from day one** — same governance works with Claude Code (60 slash commands), GitHub Copilot (45 prompt files + 15 custom agents), and OpenAI Codex.
+- **Stack-aware enforcement** — tailored rules for Python, .NET, and Next.js. Each stack has its own linting, testing, and security toolchain.
+- **Content integrity validation** — 6 programmatic categories verify that governance files stay consistent across updates.
+- **Doctor diagnostics** — one command checks framework health and auto-fixes missing hooks or tools.
+- **Framework updates without risk** — `ai-eng update` previews changes. Add `--apply` to write them. Your team and project content is never touched.
+
+## The governance root — `.ai-engineering/`
+
+When you run `ai-eng install`, a `.ai-engineering/` directory is created in your repository. This is the single source of truth for all governance behavior. Everything is content — Markdown, YAML, JSON — readable by humans and AI agents alike.
+
+### Standards
+
+Rules and conventions that AI agents and quality gates follow.
+
+Standards use a two-layer model. The **framework layer** (`standards/framework/`) provides the baseline — coverage thresholds, complexity limits, security requirements. The **team layer** (`standards/team/`) is where you add overrides. Your team can raise the coverage threshold from 90% to 95%, add stricter linting rules, or define project-specific conventions. Framework updates never touch the team layer.
+
+Each supported stack (Python, .NET, Next.js) has its own standards file with tailored rules for linting, formatting, testing, and dependency management.
+
+### Skills — 45 across 6 categories
+
+Skills are step-by-step procedures written in Markdown that any AI agent can read and execute. They define **what** the agent does, **when** to trigger, **how** to execute, and **what** to output.
+
+| Category | Count | Highlights |
+|----------|-------|------------|
+| **Workflows** | 6 | `/commit`, `/pr`, `/acho`, `/cleanup`, `/pre-implementation`, `/self-improve` |
+| **Dev** | 10 | `/dev:debug`, `/dev:refactor`, `/dev:code-review`, `/dev:test-runner`, `/dev:migration` |
+| **Review** | 6 | `/review:architecture`, `/review:security`, `/review:data-security`, `/review:dast` |
+| **Docs** | 5 | `/docs:changelog`, `/docs:explain`, `/docs:simplify`, `/docs:writer` |
+| **Govern** | 12 | `/govern:create-spec`, `/govern:integrity-check`, `/govern:accept-risk`, `/govern:create-agent` |
+| **Quality** | 6 | `/quality:audit-code`, `/quality:release-gate`, `/quality:sbom`, `/quality:test-gap-analysis` |
+
+Skills are provider-agnostic — the same skill works in Claude Code, GitHub Copilot, and OpenAI Codex without modification.
+
+### Agents — 15 specialized personas
+
+Agents are behavioral contracts for AI. Each agent has an identity, capabilities, activation rules, referenced skills, output contract, and boundaries.
+
+| Agent | Role |
+|-------|------|
+| **principal-engineer** | Senior-level code review and standards enforcement |
+| **architect** | Architecture analysis, design patterns, scalability |
+| **security-reviewer** | Security assessment, OWASP, threat modeling |
+| **test-master** | Test strategy, coverage analysis, test design |
+| **debugger** | Systematic diagnosis, root cause analysis |
+| **quality-auditor** | Quality gate enforcement, complexity and coverage checks |
+| **docs-writer** | Documentation authoring and user-facing content |
+| **devops-engineer** | CI/CD pipeline generation and delivery automation |
+| **orchestrator** | Multi-phase execution coordination across agents |
+| **navigator** | Strategic analysis for next specs and priorities |
+| **governance-steward** | Governance lifecycle and standards evolution |
+| **platform-auditor** | Full-spectrum audit orchestration |
+| **pr-reviewer** | Headless CI pull request review |
+| **code-simplifier** | Complexity reduction and readability improvements |
+| **verify-app** | End-to-end verification and smoke testing |
+
+Activate any agent with `/agent:<name>` — for example, `/agent:architect` for architecture review or `/agent:security-reviewer` for a threat assessment.
+
+### Context — your project memory
+
+Context is where your project lives. Product goals, active specifications, institutional learnings — all stored as Markdown files that AI agents read to understand your project.
+
+The spec-driven delivery model tracks work through four documents:
+
+- **spec.md** — what to build (requirements, scope, acceptance criteria)
+- **plan.md** — how to build it (architecture decisions, approach, trade-offs)
+- **tasks.md** — what to do (ordered, assignable, trackable tasks)
+- **done.md** — what was done (completion log, learnings captured)
+
+Any AI agent can resume work on any spec by reading `_active.md` → `spec.md` → `tasks.md`. No context is lost between sessions.
+
+Context is project-managed — the framework never overwrites it.
+
+### State — decisions, risks, and audit trail
+
+State files track runtime information automatically:
+
+- **decision-store.json** — decisions persist across AI sessions with SHA-256 context hashing. No repeated questions — agents check the store before asking.
+- **audit-log.ndjson** — append-only log of every governance event (gate results, commands executed, lifecycle transitions).
+- **install-manifest.json** — what was installed, when, which version.
+- **ownership-map.json** — who owns each path in the governance root.
+- **sources.lock.json** — remote skill sources with checksum verification.
+
+State is system-managed — maintained automatically by the CLI and git hooks.
+
+## Commands (reference)
+
+Core commands you use daily:
+
+```bash
+ai-eng install [TARGET]           # Bootstrap governance in any project
+ai-eng update [TARGET]            # Preview framework updates (dry-run)
+ai-eng update [TARGET] --apply    # Apply framework updates
+ai-eng doctor [TARGET]            # Diagnose and auto-fix framework health
+ai-eng validate [TARGET]          # Validate content integrity
+ai-eng version                    # Show installed version and lifecycle status
+```
+
+Additional command groups for stack/IDE management, quality gates, skills, maintenance, VCS configuration, and CI/CD are documented in the [CLI reference](docs/cli-reference.md).
+
+## AI provider setup
+
+ai-engineering generates integration files for each AI provider during install.
+
+### Claude Code (recommended)
+
+The framework generates `CLAUDE.md` (instruction file) and 60 slash commands in `.claude/commands/`. Run `/commit` to stage, validate, commit, and push. Run `/agent:debugger` to activate the debugger persona. All commands invoke canonical skill and agent files — no content is duplicated.
+
+### GitHub Copilot
+
+The framework generates `.github/copilot-instructions.md`, 45 prompt files in `.github/prompts/`, and 15 custom agents in `.github/agents/`. Use prompts like `/commit` or `/dev-debug` and agents like `@security-reviewer` or `@architect` directly in Copilot Chat.
+
+### OpenAI Codex
+
+The framework generates `codex.md` with governance instructions. Codex reads this file for project context and follows the same standards, skills, and conventions.
+
+Switch providers at any time — the governance layer is the same. Skills and agents are Markdown, not provider-specific code.
+
+## Configuration
+
+ai-engineering uses a content-first approach — configuration lives in `.ai-engineering/` as Markdown, YAML, and JSON files.
+
+**At install time**, control which stacks and IDEs to enable via `--stack` and `--ide` flags. Add or remove them later with `ai-eng stack` and `ai-eng ide` commands.
+
+**Updates** are dry-run by default. Run `ai-eng update` to preview, then `ai-eng update --apply` to write. The updater only touches framework-managed files.
+
+**Doctor remediation** provides `--fix-hooks` to reinstall git hooks and `--fix-tools` to auto-install missing tools (`ruff`, `ty`, `gitleaks`, `semgrep`, `pip-audit`).
+
+**Risk lifecycle** enforces severity-based expiry:
+
+| Severity | Expiry | Max renewals |
+|----------|--------|--------------|
+| Critical | 15 days | 2 |
+| High | 30 days | 2 |
+| Medium | 60 days | 2 |
+| Low | 90 days | 2 |
+
+Expired risks block `git push` until you remediate or renew them.
 
 ## Tooling baseline
 
 | Tool | Purpose |
-|---|---|
+|------|---------|
 | `uv` | Package and runtime management |
 | `ruff` | Linting and formatting |
 | `ty` | Type checking |
 | `pip-audit` | Dependency vulnerability scanning |
 | `gitleaks` | Secret detection |
-| `semgrep` | Static analysis |
+| `semgrep` | Static analysis (SAST/OWASP) |
 
 ## Contributing
 
