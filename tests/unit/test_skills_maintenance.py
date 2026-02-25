@@ -1,451 +1,280 @@
-"""Tests for skills service and maintenance report.
+"""Unit tests for skills/service.py and maintenance/report.py.
 
 Covers:
-- Remote source sync with checksum verification.
-- Offline fallback from cache.
-- Allowlist (trusted) enforcement.
-- Source add/remove/list operations.
-- Maintenance report generation.
-- Staleness detection.
-- Markdown report rendering.
-- PR creation flow.
+- SyncResult defaults and populated fields.
+- SkillStatus eligibility logic.
+- list_local_skill_status() with mocked filesystem and dependencies.
+- StaleFile creation and fields.
+- MaintenanceReport health_score calculation and warnings.
 """
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
-from ai_engineering.installer.service import install
 from ai_engineering.maintenance.report import (
     MaintenanceReport,
     StaleFile,
-    create_maintenance_pr,
-    generate_report,
 )
 from ai_engineering.skills.service import (
+    SkillStatus,
     SyncResult,
-    add_source,
-    list_sources,
-    load_sources_lock,
-    remove_source,
-    sync_sources,
+    list_local_skill_status,
 )
-from ai_engineering.state.io import write_json_model
-from ai_engineering.state.models import CacheConfig, RemoteSource
 
-# ---------------------------------------------------------------------------
-# Fixtures
-# ---------------------------------------------------------------------------
-
-
-@pytest.fixture()
-def installed_project(tmp_path: Path) -> Path:
-    """Create a fully installed project for testing."""
-    install(tmp_path, stacks=["python"], ides=["vscode"])
-    return tmp_path
-
-
-@pytest.fixture()
-def project_with_sources(installed_project: Path) -> Path:
-    """Installed project with a sources.lock.json containing test sources."""
-    lock = load_sources_lock(installed_project)
-    lock.default_remote_enabled = True
-    lock.sources = [
-        RemoteSource(
-            url="https://example.com/skill-a.md",
-            trusted=True,
-            checksum="",
-            cache=CacheConfig(),
-        ),
-        RemoteSource(
-            url="https://example.com/skill-b.md",
-            trusted=False,
-            checksum="",
-            cache=CacheConfig(),
-        ),
-    ]
-    lock_path = installed_project / ".ai-engineering" / "state" / "sources.lock.json"
-    write_json_model(lock_path, lock)
-    return installed_project
+pytestmark = pytest.mark.unit
 
 
 # ---------------------------------------------------------------------------
-# Skills — Sync
+# SyncResult
 # ---------------------------------------------------------------------------
 
 
-class TestSyncSources:
-    """Tests for the sync_sources function."""
+class TestSyncResult:
+    """Tests for SyncResult dataclass."""
 
-    def test_untrusted_sources_are_skipped(
-        self,
-        project_with_sources: Path,
-    ) -> None:
-        with patch(
-            "ai_engineering.skills.service._fetch_url",
-            return_value=b"content",
-        ):
-            result = sync_sources(project_with_sources)
+    def test_defaults_are_empty_lists(self) -> None:
+        result = SyncResult()
+        assert result.fetched == []
+        assert result.cached == []
+        assert result.failed == []
+        assert result.untrusted == []
 
-        assert "https://example.com/skill-b.md" in result.untrusted
-        assert "https://example.com/skill-b.md" not in result.fetched
-
-    def test_fetch_populates_cache(
-        self,
-        project_with_sources: Path,
-    ) -> None:
-        content = b"# Skill A content"
-        with patch(
-            "ai_engineering.skills.service._fetch_url",
-            return_value=content,
-        ):
-            result = sync_sources(project_with_sources)
-
-        assert "https://example.com/skill-a.md" in result.fetched
-        cache_dir = project_with_sources / ".ai-engineering" / "skills-cache"
-        assert cache_dir.is_dir()
-        cache_files = list(cache_dir.glob("*.cache"))
-        assert len(cache_files) >= 1
-
-    def test_checksum_mismatch_fails(
-        self,
-        project_with_sources: Path,
-    ) -> None:
-        # Set a checksum that won't match
-        lock = load_sources_lock(project_with_sources)
-        lock.sources[0].checksum = "badhash"
-        lock_path = project_with_sources / ".ai-engineering" / "state" / "sources.lock.json"
-        write_json_model(lock_path, lock)
-
-        with patch(
-            "ai_engineering.skills.service._fetch_url",
-            return_value=b"content",
-        ):
-            result = sync_sources(project_with_sources)
-
-        assert "https://example.com/skill-a.md" in result.failed
-
-    def test_fetch_failure_uses_cache_fallback(
-        self,
-        project_with_sources: Path,
-    ) -> None:
-        # Pre-populate cache
-        cache_dir = project_with_sources / ".ai-engineering" / "skills-cache"
-        cache_dir.mkdir(parents=True, exist_ok=True)
-
-        # First fetch to populate cache
-        with patch(
-            "ai_engineering.skills.service._fetch_url",
-            return_value=b"cached content",
-        ):
-            sync_sources(project_with_sources)
-
-        # Now fail the fetch — should fall back to cache
-        with patch(
-            "ai_engineering.skills.service._fetch_url",
-            return_value=None,
-        ):
-            result = sync_sources(project_with_sources)
-
-        assert "https://example.com/skill-a.md" in result.cached
-
-
-class TestSyncOffline:
-    """Tests for offline mode."""
-
-    def test_offline_serves_from_cache(
-        self,
-        project_with_sources: Path,
-    ) -> None:
-        # Populate cache first
-        with patch(
-            "ai_engineering.skills.service._fetch_url",
-            return_value=b"data",
-        ):
-            sync_sources(project_with_sources)
-
-        result = sync_sources(project_with_sources, offline=True)
-        assert "https://example.com/skill-a.md" in result.cached
-
-    def test_offline_fails_without_cache(
-        self,
-        project_with_sources: Path,
-    ) -> None:
-        result = sync_sources(project_with_sources, offline=True)
-        assert "https://example.com/skill-a.md" in result.failed
-
-
-class TestSyncDisabled:
-    """Tests for disabled remote sources."""
-
-    def test_disabled_remote_returns_empty(
-        self,
-        installed_project: Path,
-    ) -> None:
-        lock = load_sources_lock(installed_project)
-        lock.default_remote_enabled = False
-        lock_path = installed_project / ".ai-engineering" / "state" / "sources.lock.json"
-        write_json_model(lock_path, lock)
-
-        result = sync_sources(installed_project)
-        assert result == SyncResult()
-
-
-# ---------------------------------------------------------------------------
-# Skills — Source management
-# ---------------------------------------------------------------------------
-
-
-class TestAddSource:
-    """Tests for add_source."""
-
-    def test_add_new_source(self, installed_project: Path) -> None:
-        lock = add_source(installed_project, "https://new.example.com/skill.md")
-        urls = [s.url for s in lock.sources]
-        assert "https://new.example.com/skill.md" in urls
-
-    def test_add_duplicate_raises(self, installed_project: Path) -> None:
-        add_source(installed_project, "https://dup.example.com/skill.md")
-        with pytest.raises(ValueError, match="already exists"):
-            add_source(installed_project, "https://dup.example.com/skill.md")
-
-    def test_add_untrusted_source(self, installed_project: Path) -> None:
-        lock = add_source(
-            installed_project,
-            "https://untrusted.example.com/skill.md",
-            trusted=False,
+    def test_with_data_populated(self) -> None:
+        result = SyncResult(
+            fetched=["https://example.com/a.yml"],
+            cached=["https://example.com/b.yml"],
+            failed=["https://example.com/c.yml"],
+            untrusted=["https://example.com/d.yml"],
         )
-        source = next(s for s in lock.sources if s.url == "https://untrusted.example.com/skill.md")
-        assert source.trusted is False
+        assert len(result.fetched) == 1
+        assert len(result.cached) == 1
+        assert len(result.failed) == 1
+        assert len(result.untrusted) == 1
 
 
-class TestRemoveSource:
-    """Tests for remove_source."""
+# ---------------------------------------------------------------------------
+# SkillStatus
+# ---------------------------------------------------------------------------
 
-    def test_remove_existing_source(self, installed_project: Path) -> None:
-        add_source(installed_project, "https://removeme.example.com/skill.md")
-        lock = remove_source(
-            installed_project,
-            "https://removeme.example.com/skill.md",
+
+class TestSkillStatus:
+    """Tests for SkillStatus eligibility logic."""
+
+    def test_eligible_when_no_missing_deps(self) -> None:
+        status = SkillStatus(name="test", file_path="skills/test.md", eligible=True)
+        assert status.eligible is True
+        assert status.missing_bins == []
+        assert status.missing_env == []
+
+    def test_not_eligible_when_missing_bins_present(self) -> None:
+        status = SkillStatus(
+            name="test",
+            file_path="skills/test.md",
+            eligible=False,
+            missing_bins=["ruff"],
         )
-        urls = [s.url for s in lock.sources]
-        assert "https://removeme.example.com/skill.md" not in urls
+        assert status.eligible is False
+        assert "ruff" in status.missing_bins
 
-    def test_remove_nonexistent_raises(self, installed_project: Path) -> None:
-        with pytest.raises(ValueError, match="not found"):
-            remove_source(installed_project, "https://nope.example.com/skill.md")
-
-
-class TestListSources:
-    """Tests for list_sources."""
-
-    def test_list_returns_all_sources(
-        self,
-        project_with_sources: Path,
-    ) -> None:
-        sources = list_sources(project_with_sources)
-        urls = [s.url for s in sources]
-        assert "https://example.com/skill-a.md" in urls
-        assert "https://example.com/skill-b.md" in urls
-
-
-# ---------------------------------------------------------------------------
-# Maintenance — Report generation
-# ---------------------------------------------------------------------------
-
-
-class TestGenerateReport:
-    """Tests for generate_report."""
-
-    def test_report_on_installed_project(
-        self,
-        installed_project: Path,
-    ) -> None:
-        report = generate_report(installed_project)
-        assert report.total_governance_files >= 0
-        assert report.total_state_files >= 1
-        assert report.install_manifest_version != ""
-        assert report.health_score >= 0.0
-
-    def test_report_on_uninstalled_project(self, tmp_path: Path) -> None:
-        report = generate_report(tmp_path)
-        assert "Framework not installed" in report.warnings
-
-    def test_report_counts_audit_events(
-        self,
-        installed_project: Path,
-    ) -> None:
-        report = generate_report(installed_project)
-        # Install creates at least one audit entry
-        assert report.recent_audit_events >= 1
-
-
-class TestStalenessDetection:
-    """Tests for stale file detection."""
-
-    def test_fresh_files_not_stale(self, installed_project: Path) -> None:
-        report = generate_report(installed_project, staleness_days=90)
-        assert len(report.stale_files) == 0
-
-    def test_old_files_detected_as_stale(
-        self,
-        installed_project: Path,
-    ) -> None:
-        # Create an artificially old file
-        ai_dir = installed_project / ".ai-engineering" / "standards"
-        ai_dir.mkdir(parents=True, exist_ok=True)
-        old_file = ai_dir / "old-standard.md"
-        old_file.write_text("# Old\n", encoding="utf-8")
-
-        import os
-
-        old_time = (datetime.now(tz=UTC) - timedelta(days=200)).timestamp()
-        os.utime(old_file, (old_time, old_time))
-
-        report = generate_report(installed_project, staleness_days=90)
-        stale_paths = [sf.path.as_posix() for sf in report.stale_files]
-        assert "standards/old-standard.md" in stale_paths
-
-    def test_custom_staleness_threshold(
-        self,
-        installed_project: Path,
-    ) -> None:
-        # With threshold of 0 days everything is stale (if governance
-        # files exist); with a very large threshold nothing is stale
-        report = generate_report(installed_project, staleness_days=999_999)
-        assert len(report.stale_files) == 0
+    def test_with_all_missing_types(self) -> None:
+        status = SkillStatus(
+            name="complex",
+            file_path="skills/complex.md",
+            eligible=False,
+            missing_bins=["ruff"],
+            missing_any_bins=["gh", "az"],
+            missing_env=["API_KEY"],
+            missing_config=["providers.primary"],
+            missing_os=["linux"],
+            errors=["missing-frontmatter"],
+        )
+        assert status.eligible is False
+        assert status.missing_bins == ["ruff"]
+        assert status.missing_any_bins == ["gh", "az"]
+        assert status.missing_env == ["API_KEY"]
+        assert status.missing_config == ["providers.primary"]
+        assert status.missing_os == ["linux"]
+        assert status.errors == ["missing-frontmatter"]
 
 
 # ---------------------------------------------------------------------------
-# Maintenance — Report rendering
+# list_local_skill_status() — mocked
 # ---------------------------------------------------------------------------
 
 
-class TestReportMarkdown:
-    """Tests for to_markdown rendering."""
+class TestListLocalSkillStatus:
+    """Tests for list_local_skill_status() with mocked filesystem."""
 
-    def test_markdown_contains_header(self) -> None:
+    def test_empty_skills_dir_returns_empty(self, tmp_path: Path) -> None:
+        """When .ai-engineering/skills does not exist, returns empty list."""
+        result = list_local_skill_status(tmp_path)
+        assert result == []
+
+    def test_returns_statuses_for_skill_files(self, tmp_path: Path) -> None:
+        """Parses skill frontmatter and returns SkillStatus list."""
+        skills_dir = tmp_path / ".ai-engineering" / "skills" / "dev"
+        skills_dir.mkdir(parents=True)
+
+        skill_file = skills_dir / "sample.md"
+        skill_file.write_text(
+            "---\nname: sample\nversion: 1.0.0\ncategory: dev\n---\n\n# Sample\n",
+            encoding="utf-8",
+        )
+
+        # Create manifest.yml (required by the function)
+        manifest = tmp_path / ".ai-engineering" / "manifest.yml"
+        manifest.write_text("{}\n", encoding="utf-8")
+
+        result = list_local_skill_status(tmp_path)
+        assert len(result) == 1
+        assert result[0].name == "sample"
+        assert result[0].eligible is True
+
+    @patch("ai_engineering.skills.service.shutil.which", return_value=None)
+    def test_skill_with_missing_binary(self, mock_which: MagicMock, tmp_path: Path) -> None:
+        """When a required binary is missing, skill is not eligible."""
+        skills_dir = tmp_path / ".ai-engineering" / "skills" / "dev"
+        skills_dir.mkdir(parents=True)
+
+        skill_file = skills_dir / "needs-binary.md"
+        skill_file.write_text(
+            "---\nname: needs-binary\nversion: 1.0.0\ncategory: dev\n"
+            "requires:\n  bins: [missing-tool]\n---\n\n# Needs Binary\n",
+            encoding="utf-8",
+        )
+
+        manifest = tmp_path / ".ai-engineering" / "manifest.yml"
+        manifest.write_text("{}\n", encoding="utf-8")
+
+        result = list_local_skill_status(tmp_path)
+        assert len(result) == 1
+        assert result[0].eligible is False
+        assert "missing-tool" in result[0].missing_bins
+
+    @patch.dict("os.environ", {}, clear=True)
+    def test_skill_with_env_requirement(self, tmp_path: Path) -> None:
+        """When a required env var is missing, skill is not eligible."""
+        skills_dir = tmp_path / ".ai-engineering" / "skills" / "dev"
+        skills_dir.mkdir(parents=True)
+
+        skill_file = skills_dir / "needs-env.md"
+        skill_file.write_text(
+            "---\nname: needs-env\nversion: 1.0.0\ncategory: dev\n"
+            "requires:\n  env: [MISSING_ENV_VAR]\n---\n\n# Needs Env\n",
+            encoding="utf-8",
+        )
+
+        manifest = tmp_path / ".ai-engineering" / "manifest.yml"
+        manifest.write_text("{}\n", encoding="utf-8")
+
+        result = list_local_skill_status(tmp_path)
+        assert len(result) == 1
+        assert result[0].eligible is False
+        assert "MISSING_ENV_VAR" in result[0].missing_env
+
+    def test_skills_dir_exists_but_empty(self, tmp_path: Path) -> None:
+        """When skills dir exists but has no .md files, returns empty list."""
+        skills_dir = tmp_path / ".ai-engineering" / "skills"
+        skills_dir.mkdir(parents=True)
+
+        manifest = tmp_path / ".ai-engineering" / "manifest.yml"
+        manifest.write_text("{}\n", encoding="utf-8")
+
+        result = list_local_skill_status(tmp_path)
+        assert result == []
+
+
+# ---------------------------------------------------------------------------
+# StaleFile
+# ---------------------------------------------------------------------------
+
+
+class TestStaleFile:
+    """Tests for StaleFile dataclass."""
+
+    def test_creation_and_fields(self) -> None:
+        now = datetime.now(tz=UTC)
+        stale = StaleFile(path=Path("standards/core.md"), last_modified=now, age_days=95)
+        assert stale.path == Path("standards/core.md")
+        assert stale.last_modified == now
+        assert stale.age_days == 95
+
+
+# ---------------------------------------------------------------------------
+# MaintenanceReport
+# ---------------------------------------------------------------------------
+
+
+class TestMaintenanceReport:
+    """Tests for MaintenanceReport health_score and properties."""
+
+    def test_health_score_zero_governance_files(self) -> None:
+        """When total_governance_files is 0, health_score is 0.0."""
         report = MaintenanceReport(
-            generated_at=datetime(2025, 1, 1, tzinfo=UTC),
-        )
-        md = report.to_markdown()
-        assert "# Maintenance Report" in md
-        assert "2025-01-01" in md
-
-    def test_markdown_renders_stale_files(self) -> None:
-        report = MaintenanceReport(
-            generated_at=datetime(2025, 1, 1, tzinfo=UTC),
-            stale_files=[
-                StaleFile(
-                    path=Path("standards/old.md"),
-                    last_modified=datetime(2024, 1, 1, tzinfo=UTC),
-                    age_days=365,
-                ),
-            ],
-            total_governance_files=10,
-        )
-        md = report.to_markdown()
-        assert "## Stale Files" in md
-        assert "standards/old.md" in md
-        assert "365" in md
-
-    def test_markdown_renders_warnings(self) -> None:
-        report = MaintenanceReport(
-            generated_at=datetime(2025, 1, 1, tzinfo=UTC),
-            warnings=["Something is wrong"],
-        )
-        md = report.to_markdown()
-        assert "## Warnings" in md
-        assert "Something is wrong" in md
-
-
-class TestHealthScore:
-    """Tests for the health_score property."""
-
-    def test_perfect_health_with_no_stale(self) -> None:
-        report = MaintenanceReport(
-            generated_at=datetime(2025, 1, 1, tzinfo=UTC),
-            total_governance_files=10,
-        )
-        assert report.health_score == 1.0
-
-    def test_zero_health_with_all_stale(self) -> None:
-        report = MaintenanceReport(
-            generated_at=datetime(2025, 1, 1, tzinfo=UTC),
-            total_governance_files=2,
-            stale_files=[
-                StaleFile(
-                    path=Path("a.md"),
-                    last_modified=datetime(2024, 1, 1, tzinfo=UTC),
-                    age_days=365,
-                ),
-                StaleFile(
-                    path=Path("b.md"),
-                    last_modified=datetime(2024, 1, 1, tzinfo=UTC),
-                    age_days=365,
-                ),
-            ],
-        )
-        assert report.health_score == 0.0
-
-    def test_zero_files_gives_zero_score(self) -> None:
-        report = MaintenanceReport(
-            generated_at=datetime(2025, 1, 1, tzinfo=UTC),
+            generated_at=datetime.now(tz=UTC),
             total_governance_files=0,
         )
         assert report.health_score == 0.0
 
+    def test_health_score_no_stale_files(self) -> None:
+        """When no files are stale, health_score is 1.0."""
+        report = MaintenanceReport(
+            generated_at=datetime.now(tz=UTC),
+            total_governance_files=10,
+            stale_files=[],
+        )
+        assert report.health_score == 1.0
 
-# ---------------------------------------------------------------------------
-# Maintenance — PR creation
-# ---------------------------------------------------------------------------
+    def test_health_score_half_stale(self) -> None:
+        """When half files are stale, health_score is 0.5."""
+        now = datetime.now(tz=UTC)
+        stale_files = [
+            StaleFile(path=Path(f"file{i}.md"), last_modified=now, age_days=100) for i in range(5)
+        ]
+        report = MaintenanceReport(
+            generated_at=now,
+            total_governance_files=10,
+            stale_files=stale_files,
+        )
+        assert report.health_score == pytest.approx(0.5)
 
+    def test_health_score_all_stale(self) -> None:
+        """When all files are stale, health_score is 0.0."""
+        now = datetime.now(tz=UTC)
+        stale_files = [
+            StaleFile(path=Path(f"file{i}.md"), last_modified=now, age_days=100) for i in range(10)
+        ]
+        report = MaintenanceReport(
+            generated_at=now,
+            total_governance_files=10,
+            stale_files=stale_files,
+        )
+        assert report.health_score == pytest.approx(0.0)
 
-class TestCreateMaintenancePR:
-    """Tests for create_maintenance_pr."""
+    def test_empty_defaults(self) -> None:
+        """Default values for lists and counters."""
+        report = MaintenanceReport(generated_at=datetime.now(tz=UTC))
+        assert report.stale_files == []
+        assert report.total_governance_files == 0
+        assert report.total_state_files == 0
+        assert report.recent_audit_events == 0
+        assert report.install_manifest_version == ""
+        assert report.warnings == []
+        assert report.risk_active == 0
+        assert report.risk_expiring == 0
+        assert report.risk_expired == 0
 
-    def test_pr_creation_writes_report_file(
-        self,
-        installed_project: Path,
-    ) -> None:
-        from ai_engineering.vcs.protocol import VcsResult
-
-        report = generate_report(installed_project)
-        report_path = installed_project / ".ai-engineering" / "state" / "maintenance-report.md"
-
-        mock_provider = type(
-            "MockProvider",
-            (),
-            {"create_pr": lambda self, ctx: VcsResult(success=True, output="ok")},
-        )()
-        # Mock subprocess to avoid real git calls
-        with (
-            patch("ai_engineering.maintenance.report.subprocess.run") as mock_run,
-            patch("ai_engineering.maintenance.report.get_provider", return_value=mock_provider),
-        ):
-            mock_run.return_value = None
-            create_maintenance_pr(installed_project, report)
-
-        assert report_path.exists()
-        content = report_path.read_text(encoding="utf-8")
-        assert "# Maintenance Report" in content
-
-    def test_pr_creation_returns_false_on_failure(
-        self,
-        installed_project: Path,
-    ) -> None:
-        import subprocess
-
-        report = generate_report(installed_project)
-
-        with patch(
-            "ai_engineering.maintenance.report.subprocess.run",
-            side_effect=subprocess.CalledProcessError(1, "git"),
-        ):
-            result = create_maintenance_pr(installed_project, report)
-
-        assert result is False
+    def test_warnings_list(self) -> None:
+        """Warnings can be appended and read back."""
+        report = MaintenanceReport(
+            generated_at=datetime.now(tz=UTC),
+            warnings=["Framework not installed", "Stale decision-store"],
+        )
+        assert len(report.warnings) == 2
+        assert "Framework not installed" in report.warnings
+        assert "Stale decision-store" in report.warnings

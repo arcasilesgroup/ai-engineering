@@ -5,11 +5,15 @@ from __future__ import annotations
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
 from ai_engineering.installer import service
 from ai_engineering.installer.service import install
 from ai_engineering.state.io import read_json_model
 from ai_engineering.state.models import InstallManifest
 from ai_engineering.vcs.protocol import VcsContext, VcsResult
+
+pytestmark = pytest.mark.integration
 
 
 class _StubProvider:

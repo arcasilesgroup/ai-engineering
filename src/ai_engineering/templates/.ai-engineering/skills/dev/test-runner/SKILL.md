@@ -36,9 +36,9 @@ Write and run tests across languages and frameworks. Provides operational guidan
 
    | Tier | Marker | I/O | Gate | Characteristics |
    |------|--------|-----|------|-----------------|
-   | Unit | `@pytest.mark.unit` | None | Pre-commit | Fast (<1s), isolated, pure logic |
-   | Integration | `@pytest.mark.integration` | Local | Pre-push | Real I/O (fs, git), moderate |
-   | E2E | `@pytest.mark.e2e` | Full stack | PR gate | Full workflows, slower |
+   | Unit | `@pytest.mark.unit` | None | Pre-push | Fast (<1s), isolated, mocked, pure logic |
+   | Integration | `@pytest.mark.integration` | Local | CI | Real I/O (fs, git, subprocess), moderate |
+   | E2E | `@pytest.mark.e2e` | Full stack | CI (staged) | Full workflows, slower |
    | Live | `@pytest.mark.live` | External APIs | Opt-in | Requires env var |
 
 3. **Follow TDD cycle** — Red → Green → Refactor.
@@ -54,9 +54,11 @@ Write and run tests across languages and frameworks. Provides operational guidan
 5. **Run tests** — use stack-appropriate commands.
 
    ```bash
-   # Python
-   uv run pytest -x --no-cov -m "not e2e and not live"   # Fast local
-   uv run pytest --cov=src/app --cov-fail-under=90        # With coverage
+   # Python — tiered execution
+   uv run pytest tests/unit -x -n auto --dist worksteal --no-cov   # Unit (fast, parallel)
+   uv run pytest tests/integration -x -n auto --dist worksteal     # Integration (parallel)
+   uv run pytest tests/e2e -v                                       # E2E (sequential)
+   uv run pytest tests/unit --cov=src/app --cov-fail-under=90 -n auto  # Unit with coverage
 
    # TypeScript/JS
    npx vitest run                                          # Single run
@@ -107,9 +109,19 @@ Load detailed guidance on-demand:
 | TDD Iron Laws | `references/tdd-iron-laws.md` | TDD methodology, red-green-refactor |
 | Testing Anti-Patterns | `references/testing-anti-patterns.md` | Mock issues, test quality |
 
+## Test Pyramid Enforcement
+
+- **Unit tests** (`tests/unit/`): Fast (<1s each), fully mocked, no subprocess/I/O. Use `pytestmark = pytest.mark.unit`.
+- **Integration tests** (`tests/integration/`): Real I/O (filesystem, git, subprocess). Use `pytestmark = pytest.mark.integration`.
+- **E2E tests** (`tests/e2e/`): Full install + CLI workflows. Use `pytestmark = pytest.mark.e2e`.
+- Every test file MUST have a `pytestmark` module-level marker. Files without markers will run in all tiers.
+- Pre-push gate runs only `unit` tier with parallel execution (target: < 60s).
+- CI runs all tiers staged: unit → integration → E2E.
+
 ## Governance Notes
 
 - Coverage target: per `standards/framework/quality/core.md` (90% overall, 100% governance-critical).
 - Test tiers: per `standards/framework/stacks/python.md` Test Tiers table.
-- Gate integration: unit at pre-commit, unit+integration at pre-push, all at PR.
+- Performance targets: per `standards/framework/quality/core.md` Test Performance Targets table.
+- Gate integration: unit at pre-push, all tiers staged at CI/PR.
 - Security tests validate OWASP top 10 per `standards/framework/security/owasp-top10-2025.md`.

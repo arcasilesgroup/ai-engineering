@@ -23,6 +23,8 @@ from ai_engineering.git.operations import (
     run_git,
 )
 
+pytestmark = pytest.mark.integration
+
 
 @pytest.fixture()
 def git_repo(tmp_path: Path) -> Path:

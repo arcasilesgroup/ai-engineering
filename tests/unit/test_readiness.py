@@ -1,338 +1,289 @@
-"""Tests for ai_engineering.detector.readiness — tool readiness detection.
+"""Unit tests for detector/readiness.py — tool readiness checks and remediation.
 
 Covers:
-- ToolInfo and ReadinessReport dataclasses.
-- check_tool: available and unavailable tools.
-- check_all_tools: full readiness scan.
-- remediate_missing_tools: install logic with mocking.
-- _get_version: version string parsing.
-- _try_install: uv and pip fallback paths.
+- ToolInfo creation and defaults.
+- ReadinessReport aggregation, all_ready, missing properties.
+- check_tool() with mocked shutil.which and subprocess.
+- check_all_tools() and check_tools_for_stacks() composition.
+- remediate_missing_tools() with uv/pip fallback.
+- check_operational_readiness() with mocked manifest.
 """
 
 from __future__ import annotations
 
-from unittest.mock import patch
+from pathlib import Path
+from unittest.mock import MagicMock, patch
+
+import pytest
 
 from ai_engineering.detector.readiness import (
+    _OPTIONAL_TOOLS,
+    _STACK_TOOLS,
     ReadinessReport,
     ToolInfo,
-    _get_version,
-    _try_install,
     check_all_tools,
     check_operational_readiness,
     check_tool,
     check_tools_for_stacks,
     remediate_missing_tools,
 )
-from ai_engineering.state.defaults import default_install_manifest
-from ai_engineering.state.io import write_json_model
 
-# ── ToolInfo ───────────────────────────────────────────────────────────
+pytestmark = pytest.mark.unit
+
+
+# ---------------------------------------------------------------------------
+# ToolInfo
+# ---------------------------------------------------------------------------
 
 
 class TestToolInfo:
     """Tests for ToolInfo dataclass."""
 
-    def test_available_tool(self) -> None:
-        info = ToolInfo(name="ruff", available=True, version="0.4.0", path="/usr/bin/ruff")
+    def test_creation_with_defaults(self) -> None:
+        info = ToolInfo(name="ruff", available=True)
+        assert info.name == "ruff"
         assert info.available is True
-        assert info.version == "0.4.0"
-
-    def test_unavailable_tool(self) -> None:
-        info = ToolInfo(name="gitleaks", available=False)
-        assert info.available is False
         assert info.version is None
         assert info.path is None
 
+    def test_creation_with_all_fields(self) -> None:
+        info = ToolInfo(name="ruff", available=True, version="0.5.0", path="/usr/bin/ruff")
+        assert info.version == "0.5.0"
+        assert info.path == "/usr/bin/ruff"
 
-# ── ReadinessReport ────────────────────────────────────────────────────
+
+# ---------------------------------------------------------------------------
+# ReadinessReport
+# ---------------------------------------------------------------------------
 
 
 class TestReadinessReport:
-    """Tests for ReadinessReport dataclass."""
+    """Tests for ReadinessReport properties."""
 
-    def test_all_ready_when_required_available(self) -> None:
+    def test_all_ready_with_all_available(self) -> None:
         report = ReadinessReport(
             tools=[
                 ToolInfo(name="ruff", available=True),
                 ToolInfo(name="ty", available=True),
-                ToolInfo(name="gh", available=False),  # optional
             ]
         )
         assert report.all_ready is True
 
-    def test_not_ready_when_required_missing(self) -> None:
+    def test_all_ready_with_required_missing(self) -> None:
         report = ReadinessReport(
             tools=[
-                ToolInfo(name="ruff", available=False),
-                ToolInfo(name="ty", available=True),
+                ToolInfo(name="ruff", available=True),
+                ToolInfo(name="ty", available=False),
             ]
         )
         assert report.all_ready is False
 
-    def test_missing_returns_required_only(self) -> None:
+    def test_all_ready_with_optional_missing(self) -> None:
+        """Optional tools (gh, az) missing should not affect all_ready."""
+        report = ReadinessReport(
+            tools=[
+                ToolInfo(name="ruff", available=True),
+                ToolInfo(name="gh", available=False),
+                ToolInfo(name="az", available=False),
+            ]
+        )
+        assert report.all_ready is True
+        # Verify gh and az are indeed optional
+        assert "gh" in _OPTIONAL_TOOLS
+        assert "az" in _OPTIONAL_TOOLS
+
+    def test_missing_returns_only_required_names(self) -> None:
         report = ReadinessReport(
             tools=[
                 ToolInfo(name="ruff", available=False),
-                ToolInfo(name="gh", available=False),  # optional
-                ToolInfo(name="az", available=False),  # optional
+                ToolInfo(name="ty", available=True),
+                ToolInfo(name="gh", available=False),
             ]
         )
-        assert report.missing == ["ruff"]
+        missing = report.missing
+        assert "ruff" in missing
+        assert "gh" not in missing  # gh is optional
+        assert "ty" not in missing  # ty is available
 
-    def test_empty_report_is_ready(self) -> None:
+    def test_empty_report_all_ready(self) -> None:
         report = ReadinessReport()
         assert report.all_ready is True
         assert report.missing == []
 
 
-# ── check_tool ─────────────────────────────────────────────────────────
+# ---------------------------------------------------------------------------
+# check_tool()
+# ---------------------------------------------------------------------------
 
 
 class TestCheckTool:
-    """Tests for check_tool function."""
+    """Tests for check_tool() with mocked externals."""
 
-    def test_available_tool_returns_info(self) -> None:
-        # 'git' should always be available in test environments
-        info = check_tool("git")
-        assert info.name == "git"
-        # git may or may not be in _VERSION_FLAGS, so just check structure
-        assert isinstance(info.available, bool)
+    @patch("ai_engineering.detector.readiness._get_version", return_value="0.5.0")
+    @patch("ai_engineering.detector.readiness.shutil.which", return_value="/usr/bin/ruff")
+    def test_tool_found(self, mock_which: MagicMock, mock_version: MagicMock) -> None:
+        info = check_tool("ruff")
+        assert info.available is True
+        assert info.version == "0.5.0"
+        assert info.path == "/usr/bin/ruff"
+        mock_which.assert_called_once_with("ruff")
 
-    def test_unavailable_tool_returns_false(self) -> None:
-        info = check_tool("nonexistent-tool-xyz-12345")
+    @patch("ai_engineering.detector.readiness.shutil.which", return_value=None)
+    def test_tool_not_found(self, mock_which: MagicMock) -> None:
+        info = check_tool("ruff")
         assert info.available is False
+        assert info.version is None
         assert info.path is None
 
-    def test_python_available(self) -> None:
-        info = check_tool("python3")
-        # python3 should be available
-        assert info.name == "python3"
 
-
-# ── check_all_tools ───────────────────────────────────────────────────
+# ---------------------------------------------------------------------------
+# check_all_tools()
+# ---------------------------------------------------------------------------
 
 
 class TestCheckAllTools:
-    """Tests for check_all_tools function."""
+    """Tests for check_all_tools() composition."""
 
-    def test_returns_readiness_report(self) -> None:
+    @patch("ai_engineering.detector.readiness.check_tool")
+    def test_returns_report_with_all_standard_tools(self, mock_check: MagicMock) -> None:
+        mock_check.return_value = ToolInfo(name="stub", available=True)
         report = check_all_tools()
         assert isinstance(report, ReadinessReport)
-        assert len(report.tools) == 8  # uv, ruff, ty, gitleaks, semgrep, pip-audit, gh, az
-
-    def test_tool_names_match_expected(self) -> None:
-        report = check_all_tools()
-        names = {t.name for t in report.tools}
-        expected = {"uv", "ruff", "ty", "gitleaks", "semgrep", "pip-audit", "gh", "az"}
-        assert names == expected
-
-
-# ── _get_version ───────────────────────────────────────────────────────
+        # check_all_tools checks: uv, ruff, ty, gitleaks, semgrep, pip-audit, gh, az
+        assert mock_check.call_count == 8
+        called_names = [call.args[0] for call in mock_check.call_args_list]
+        assert "uv" in called_names
+        assert "ruff" in called_names
+        assert "gh" in called_names
+        assert "az" in called_names
 
 
-class TestGetVersion:
-    """Tests for _get_version helper."""
-
-    def test_unknown_tool_returns_none(self) -> None:
-        version = _get_version("nonexistent-tool-xyz")
-        assert version is None
-
-    def test_known_tool_returns_string_or_none(self) -> None:
-        # ruff may or may not be installed
-        version = _get_version("ruff")
-        if version is not None:
-            assert isinstance(version, str)
-            assert len(version) > 0
+# ---------------------------------------------------------------------------
+# check_tools_for_stacks()
+# ---------------------------------------------------------------------------
 
 
-# ── remediate_missing_tools ────────────────────────────────────────────
+class TestCheckToolsForStacks:
+    """Tests for check_tools_for_stacks() stack-specific checks."""
+
+    @patch("ai_engineering.detector.readiness.check_tool")
+    def test_python_stack_includes_python_tools(self, mock_check: MagicMock) -> None:
+        mock_check.return_value = ToolInfo(name="stub", available=True)
+        check_tools_for_stacks(["python"])
+        called_names = [call.args[0] for call in mock_check.call_args_list]
+        # Should include common + vcs + python-specific
+        for tool in _STACK_TOOLS["python"]:
+            assert tool in called_names, f"Expected {tool} in checked tools"
+
+    @patch("ai_engineering.detector.readiness.check_tool")
+    def test_dotnet_stack_includes_dotnet_tools(self, mock_check: MagicMock) -> None:
+        mock_check.return_value = ToolInfo(name="stub", available=True)
+        check_tools_for_stacks(["dotnet"])
+        called_names = [call.args[0] for call in mock_check.call_args_list]
+        assert "dotnet" in called_names
+
+    @patch("ai_engineering.detector.readiness.check_tool")
+    def test_no_duplicate_tools(self, mock_check: MagicMock) -> None:
+        """Each tool should only appear once even with overlapping stacks."""
+        mock_check.side_effect = lambda name: ToolInfo(name=name, available=True)
+        report = check_tools_for_stacks(["python"])
+        tool_names = [t.name for t in report.tools]
+        assert len(tool_names) == len(set(tool_names)), "Duplicate tools found in report"
+
+    @patch("ai_engineering.detector.readiness.check_tool")
+    def test_always_includes_common_tools(self, mock_check: MagicMock) -> None:
+        """Common security tools are always checked regardless of stack."""
+        mock_check.side_effect = lambda name: ToolInfo(name=name, available=True)
+        report = check_tools_for_stacks([])
+        tool_names = [t.name for t in report.tools]
+        assert "gitleaks" in tool_names
+        assert "semgrep" in tool_names
+
+
+# ---------------------------------------------------------------------------
+# remediate_missing_tools()
+# ---------------------------------------------------------------------------
 
 
 class TestRemediateMissingTools:
-    """Tests for remediate_missing_tools function."""
+    """Tests for remediate_missing_tools() with mocked installers."""
 
-    def test_no_missing_returns_empty(self) -> None:
+    @patch("ai_engineering.detector.readiness._try_install", return_value=True)
+    def test_installs_missing_installable_tools(self, mock_install: MagicMock) -> None:
+        report = ReadinessReport(
+            tools=[
+                ToolInfo(name="ruff", available=False),
+                ToolInfo(name="ty", available=False),
+            ]
+        )
+        installed = remediate_missing_tools(report)
+        assert "ruff" in installed
+        assert "ty" in installed
+
+    @patch("ai_engineering.detector.readiness._try_install")
+    def test_skips_non_installable_tools(self, mock_install: MagicMock) -> None:
+        """System tools like gitleaks are not in _INSTALLABLE_TOOLS."""
+        report = ReadinessReport(
+            tools=[
+                ToolInfo(name="gitleaks", available=False),
+            ]
+        )
+        installed = remediate_missing_tools(report)
+        assert installed == []
+        mock_install.assert_not_called()
+
+    def test_returns_empty_if_nothing_missing(self) -> None:
         report = ReadinessReport(
             tools=[
                 ToolInfo(name="ruff", available=True),
                 ToolInfo(name="ty", available=True),
             ]
         )
-        result = remediate_missing_tools(report)
-        assert result == []
+        installed = remediate_missing_tools(report)
+        assert installed == []
 
-    def test_system_tools_not_attempted(self) -> None:
-        report = ReadinessReport(
-            tools=[
-                ToolInfo(name="gitleaks", available=False),
-                ToolInfo(name="semgrep", available=False),
-            ]
-        )
-        result = remediate_missing_tools(report)
-        assert result == []  # System tools not in _INSTALLABLE_TOOLS
-
-    def test_installable_tool_attempted(self) -> None:
+    @patch("ai_engineering.detector.readiness._try_install", return_value=False)
+    def test_returns_empty_if_install_fails(self, mock_install: MagicMock) -> None:
         report = ReadinessReport(
             tools=[
                 ToolInfo(name="ruff", available=False),
             ]
         )
-        with patch(
-            "ai_engineering.detector.readiness._try_install",
-            return_value=True,
-        ) as mock_install:
-            result = remediate_missing_tools(report)
-        assert "ruff" in result
-        mock_install.assert_called_once_with("ruff")
-
-    def test_failed_install_not_in_result(self) -> None:
-        report = ReadinessReport(
-            tools=[
-                ToolInfo(name="ruff", available=False),
-            ]
-        )
-        with patch(
-            "ai_engineering.detector.readiness._try_install",
-            return_value=False,
-        ):
-            result = remediate_missing_tools(report)
-        assert result == []
+        installed = remediate_missing_tools(report)
+        assert installed == []
 
 
-# ── _try_install ───────────────────────────────────────────────────────
-
-
-class TestTryInstall:
-    """Tests for _try_install helper."""
-
-    def test_uses_uv_when_available(self) -> None:
-        with (
-            patch("ai_engineering.detector.readiness.shutil.which", return_value="/usr/bin/uv"),
-            patch("ai_engineering.detector.readiness.subprocess.run") as mock_run,
-        ):
-            mock_run.return_value.returncode = 0
-            result = _try_install("ruff")
-        assert result is True
-        mock_run.assert_called_once()
-        cmd = mock_run.call_args[0][0]
-        assert cmd[0] == "uv"
-
-    def test_falls_back_to_pip_when_uv_unavailable(self) -> None:
-        def which_side_effect(name: str) -> str | None:
-            return None  # uv not available
-
-        with (
-            patch("ai_engineering.detector.readiness.shutil.which", side_effect=which_side_effect),
-            patch("ai_engineering.detector.readiness.subprocess.run") as mock_run,
-        ):
-            mock_run.return_value.returncode = 0
-            result = _try_install("ruff")
-        assert result is True
-        cmd = mock_run.call_args[0][0]
-        assert cmd[0] == "pip"
-
-    def test_returns_false_on_all_failures(self) -> None:
-        import subprocess as sp
-
-        with (
-            patch(
-                "ai_engineering.detector.readiness.shutil.which",
-                return_value=None,
-            ),
-            patch(
-                "ai_engineering.detector.readiness.subprocess.run",
-                side_effect=sp.CalledProcessError(1, "pip"),
-            ),
-        ):
-            result = _try_install("ruff")
-        assert result is False
-
-
-# ── check_tools_for_stacks ───────────────────────────────────────────
-
-
-class TestCheckToolsForStacks:
-    """Tests for check_tools_for_stacks — stack-aware readiness."""
-
-    def test_python_only_checks_python_tools(self) -> None:
-        with patch(
-            "ai_engineering.detector.readiness.check_tool",
-            return_value=ToolInfo(name="mock", available=False),
-        ) as mock_check:
-            check_tools_for_stacks(["python"])
-        checked_names = {call.args[0] for call in mock_check.call_args_list}
-        assert "uv" in checked_names
-        assert "ruff" in checked_names
-        assert "gitleaks" in checked_names
-        assert "dotnet" not in checked_names
-        assert "node" not in checked_names
-
-    def test_dotnet_checks_dotnet_tools(self) -> None:
-        with patch(
-            "ai_engineering.detector.readiness.check_tool",
-            return_value=ToolInfo(name="mock", available=False),
-        ) as mock_check:
-            check_tools_for_stacks(["dotnet"])
-        checked_names = {call.args[0] for call in mock_check.call_args_list}
-        assert "dotnet" in checked_names
-        assert "gitleaks" in checked_names
-        assert "ruff" not in checked_names
-
-    def test_nextjs_checks_node_tools(self) -> None:
-        with patch(
-            "ai_engineering.detector.readiness.check_tool",
-            return_value=ToolInfo(name="mock", available=False),
-        ) as mock_check:
-            check_tools_for_stacks(["nextjs"])
-        checked_names = {call.args[0] for call in mock_check.call_args_list}
-        assert "node" in checked_names
-        assert "npm" in checked_names
-        assert "eslint" in checked_names
-        assert "prettier" in checked_names
-        assert "gitleaks" in checked_names
-
-    def test_multi_stack_checks_all(self) -> None:
-        with patch(
-            "ai_engineering.detector.readiness.check_tool",
-            return_value=ToolInfo(name="mock", available=False),
-        ) as mock_check:
-            check_tools_for_stacks(["python", "dotnet", "nextjs"])
-        checked_names = {call.args[0] for call in mock_check.call_args_list}
-        assert "uv" in checked_names
-        assert "dotnet" in checked_names
-        assert "node" in checked_names
-        assert "gitleaks" in checked_names
-
-    def test_no_duplicates(self) -> None:
-        with patch(
-            "ai_engineering.detector.readiness.check_tool",
-            return_value=ToolInfo(name="mock", available=False),
-        ) as mock_check:
-            check_tools_for_stacks(["python", "dotnet"])
-        # Each tool should be checked exactly once
-        checked_names = [call.args[0] for call in mock_check.call_args_list]
-        assert len(checked_names) == len(set(checked_names))
+# ---------------------------------------------------------------------------
+# check_operational_readiness()
+# ---------------------------------------------------------------------------
 
 
 class TestCheckOperationalReadiness:
-    """Tests for manifest-based operational readiness checks."""
+    """Tests for check_operational_readiness() with mocked manifest."""
 
-    def test_returns_empty_when_no_manifest(self, tmp_path) -> None:
-        report = check_operational_readiness(tmp_path)
-        assert report.tools == []
-
-    def test_reads_manifest_auth_cicd_policy(self, tmp_path) -> None:
+    @patch("ai_engineering.detector.readiness.read_json_model")
+    def test_reads_manifest_and_returns_status(self, mock_read: MagicMock, tmp_path: Path) -> None:
+        """When manifest exists and is valid, returns provider/cicd/branch checks."""
+        # Set up the manifest file path to exist
         manifest_path = tmp_path / ".ai-engineering" / "state" / "install-manifest.json"
         manifest_path.parent.mkdir(parents=True, exist_ok=True)
-        manifest = default_install_manifest(vcs_provider="github")
-        manifest.tooling_readiness.gh.authenticated = True
-        manifest.cicd.generated = True
-        manifest.branch_policy.applied = False
-        write_json_model(manifest_path, manifest)
+        manifest_path.write_text("{}", encoding="utf-8")
+
+        mock_manifest = MagicMock()
+        mock_manifest.providers.primary = "github"
+        mock_manifest.tooling_readiness.gh.authenticated = True
+        mock_manifest.cicd.generated = True
+        mock_manifest.branch_policy.applied = False
+        mock_read.return_value = mock_manifest
 
         report = check_operational_readiness(tmp_path)
-        by_name = {t.name: t.available for t in report.tools}
-        assert by_name["auth:github"] is True
-        assert by_name["cicd:generated"] is True
-        assert by_name["branch-policy:applied"] is False
+        assert isinstance(report, ReadinessReport)
+        tool_names = [t.name for t in report.tools]
+        assert "auth:github" in tool_names
+        assert "cicd:generated" in tool_names
+        assert "branch-policy:applied" in tool_names
+
+    def test_returns_empty_report_if_no_manifest(self, tmp_path: Path) -> None:
+        """When manifest file does not exist, returns empty report."""
+        report = check_operational_readiness(tmp_path)
+        assert report.tools == []

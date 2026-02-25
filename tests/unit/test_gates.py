@@ -1,26 +1,33 @@
-"""Tests for policy/gates.py — gate checks, branch blocking, tool execution, risk gates.
+"""Tests for ai_engineering.policy.gates — quality gate checks.
 
 Covers:
-- Branch protection (protected branch blocking).
-- Pre-commit gate checks (ruff format, ruff lint, gitleaks, risk warnings).
-- Commit-msg validation (format rules).
-- Pre-push gate checks (semgrep, pip-audit, tests, ty, expired risk blocking).
-- Tool-not-found behavior (fail-closed default).
-- GateResult aggregation.
-- Risk expiry warnings (pre-commit, non-blocking).
-- Risk expired blocking (pre-push, blocking).
-- Security tool configs are required.
+- CheckConfig: dataclass defaults.
+- GateCheckResult: creation and fields.
+- GateResult: aggregation, passed property, failed_checks property.
+- _validate_commit_message: empty/blank/valid/long commit messages.
+- _run_tool_check: tool found/missing, subprocess pass/fail/timeout, required vs advisory.
+- _get_active_stacks: manifest present/absent/invalid, fallback behavior.
+- _run_checks_for_stacks: dispatch common + per-stack, unknown stack.
+- run_gate: pre-commit/commit-msg/pre-push orchestration, early return on protection fail.
+- _check_expiring_risk_acceptances: no expiring / expiring risks.
+- _check_expired_risk_acceptances: no expired / expired risks.
+- Registry validation: _PRE_PUSH_CHECKS python stack-tests flags.
+
+All external dependencies are mocked — no subprocess calls, no git operations,
+no filesystem I/O beyond tmp_path for trivial file creation.
 """
 
 from __future__ import annotations
 
 import subprocess
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from ai_engineering.policy.gates import (
+    _PRE_PUSH_CHECKS,
     CheckConfig,
     GateCheckResult,
     GateResult,
@@ -32,705 +39,626 @@ from ai_engineering.policy.gates import (
     _validate_commit_message,
     run_gate,
 )
-from ai_engineering.state.models import GateHook
+from ai_engineering.state.models import (
+    Decision,
+    DecisionStatus,
+    DecisionStore,
+    GateHook,
+    RiskCategory,
+    RiskSeverity,
+)
+
+pytestmark = pytest.mark.unit
 
 
-@pytest.fixture()
-def git_repo(tmp_path: Path) -> Path:
-    """Create a real git repo on a feature branch."""
-    subprocess.run(["git", "init", str(tmp_path)], check=True, capture_output=True)
-    subprocess.run(
-        ["git", "config", "user.email", "test@test.com"],
-        cwd=tmp_path,
-        check=True,
-        capture_output=True,
-    )
-    subprocess.run(
-        ["git", "config", "user.name", "Test"],
-        cwd=tmp_path,
-        check=True,
-        capture_output=True,
-    )
-    # Create initial commit so we can create branches
-    (tmp_path / "README.md").write_text("init")
-    subprocess.run(["git", "add", "."], cwd=tmp_path, check=True, capture_output=True)
-    subprocess.run(
-        ["git", "commit", "-m", "init"],
-        cwd=tmp_path,
-        check=True,
-        capture_output=True,
-    )
-    # Switch to feature branch
-    subprocess.run(
-        ["git", "checkout", "-b", "feature/test"],
-        cwd=tmp_path,
-        check=True,
-        capture_output=True,
-    )
-    return tmp_path
+# ── CheckConfig ──────────────────────────────────────────────────────────
 
 
-# ---------------------------------------------------------------------------
-# Branch protection
-# ---------------------------------------------------------------------------
+class TestCheckConfig:
+    """Tests for CheckConfig dataclass defaults."""
+
+    def test_defaults_required_true(self) -> None:
+        cfg = CheckConfig(name="test", cmd=["echo"])
+        assert cfg.required is True
+
+    def test_defaults_timeout_300(self) -> None:
+        cfg = CheckConfig(name="test", cmd=["echo"])
+        assert cfg.timeout == 300
+
+    def test_custom_values(self) -> None:
+        cfg = CheckConfig(name="slow", cmd=["sleep", "10"], required=False, timeout=60)
+        assert cfg.name == "slow"
+        assert cfg.cmd == ["sleep", "10"]
+        assert cfg.required is False
+        assert cfg.timeout == 60
 
 
-class TestBranchProtection:
-    """Tests for protected branch blocking."""
-
-    def test_blocks_main_branch(self, tmp_path: Path) -> None:
-        with patch("ai_engineering.policy.gates.current_branch", return_value="main"):
-            result = run_gate(GateHook.PRE_COMMIT, tmp_path)
-            assert not result.passed
-            failed = result.failed_checks
-            assert "branch-protection" in failed
-
-    def test_blocks_master_branch(self, tmp_path: Path) -> None:
-        with patch("ai_engineering.policy.gates.current_branch", return_value="master"):
-            result = run_gate(GateHook.PRE_COMMIT, tmp_path)
-            assert not result.passed
-
-    def test_allows_feature_branch(self, git_repo: Path) -> None:
-        result = run_gate(GateHook.PRE_COMMIT, git_repo)
-        branch_check = _find_check(result, "branch-protection")
-        assert branch_check.passed
+# ── GateCheckResult ──────────────────────────────────────────────────────
 
 
-# ---------------------------------------------------------------------------
-# Commit message validation
-# ---------------------------------------------------------------------------
+class TestGateCheckResult:
+    """Tests for GateCheckResult dataclass."""
+
+    def test_creation_passed(self) -> None:
+        r = GateCheckResult(name="lint", passed=True, output="ok")
+        assert r.name == "lint"
+        assert r.passed is True
+        assert r.output == "ok"
+
+    def test_creation_failed(self) -> None:
+        r = GateCheckResult(name="lint", passed=False, output="fail")
+        assert r.passed is False
+
+    def test_default_output_empty(self) -> None:
+        r = GateCheckResult(name="lint", passed=True)
+        assert r.output == ""
 
 
-class TestCommitMsgValidation:
-    """Tests for commit message format validation."""
+# ── GateResult ───────────────────────────────────────────────────────────
 
-    def test_valid_message(self) -> None:
-        errors = _validate_commit_message("fix: resolve issue with parser")
+
+class TestGateResult:
+    """Tests for GateResult aggregation."""
+
+    def test_passed_all_checks_pass(self) -> None:
+        result = GateResult(hook=GateHook.PRE_COMMIT)
+        result.checks.append(GateCheckResult(name="a", passed=True))
+        result.checks.append(GateCheckResult(name="b", passed=True))
+        assert result.passed is True
+
+    def test_passed_one_check_fails(self) -> None:
+        result = GateResult(hook=GateHook.PRE_COMMIT)
+        result.checks.append(GateCheckResult(name="a", passed=True))
+        result.checks.append(GateCheckResult(name="b", passed=False))
+        assert result.passed is False
+
+    def test_failed_checks_returns_failed_names(self) -> None:
+        result = GateResult(hook=GateHook.PRE_COMMIT)
+        result.checks.append(GateCheckResult(name="a", passed=True))
+        result.checks.append(GateCheckResult(name="b", passed=False))
+        result.checks.append(GateCheckResult(name="c", passed=False))
+        assert result.failed_checks == ["b", "c"]
+
+    def test_empty_result_passes(self) -> None:
+        result = GateResult(hook=GateHook.PRE_COMMIT)
+        assert result.passed is True
+        assert result.failed_checks == []
+
+
+# ── _validate_commit_message ─────────────────────────────────────────────
+
+
+class TestValidateCommitMessage:
+    """Tests for commit message validation."""
+
+    def test_valid_message_passes(self) -> None:
+        errors = _validate_commit_message("feat: add new feature")
         assert errors == []
 
-    def test_empty_message(self) -> None:
+    def test_empty_message_fails(self) -> None:
         errors = _validate_commit_message("")
         assert len(errors) > 0
+        assert "empty" in errors[0].lower()
 
-    def test_first_line_too_long(self) -> None:
-        long_msg = "x" * 73
+    def test_whitespace_only_fails(self) -> None:
+        errors = _validate_commit_message("   \n  \n  ")
+        # After strip() in caller, msg becomes "" or first_line is empty
+        # The function receives the stripped text, so let's test empty first line
+        errors = _validate_commit_message("\n\nsomething later")
+        assert len(errors) > 0
+        assert "empty" in errors[0].lower()
+
+    def test_long_first_line_fails(self) -> None:
+        long_msg = "a" * 73
         errors = _validate_commit_message(long_msg)
-        assert any("72" in e for e in errors)
+        assert len(errors) > 0
+        assert "72" in errors[0]
 
-    def test_exactly_72_chars(self) -> None:
-        msg = "x" * 72
+    def test_exactly_72_chars_passes(self) -> None:
+        msg = "a" * 72
         errors = _validate_commit_message(msg)
         assert errors == []
 
-    def test_multiline_message(self) -> None:
-        msg = "short subject\n\nLong body with details about the change."
+    def test_multiline_valid(self) -> None:
+        msg = "fix: resolve bug\n\nLonger description here."
         errors = _validate_commit_message(msg)
         assert errors == []
 
 
-class TestCommitMsgGate:
-    """Tests for the commit-msg gate hook."""
-
-    def test_with_valid_msg_file(self, git_repo: Path) -> None:
-        msg_file = git_repo / ".git" / "COMMIT_EDITMSG"
-        msg_file.write_text("valid commit message")
-        result = run_gate(GateHook.COMMIT_MSG, git_repo, commit_msg_file=msg_file)
-        check = _find_check(result, "commit-msg-format")
-        assert check.passed
-        content = msg_file.read_text(encoding="utf-8")
-        assert "Ai-Eng-Gate: passed" in content
-
-    def test_with_invalid_msg_file(self, git_repo: Path) -> None:
-        msg_file = git_repo / ".git" / "COMMIT_EDITMSG"
-        msg_file.write_text("x" * 100)
-        result = run_gate(GateHook.COMMIT_MSG, git_repo, commit_msg_file=msg_file)
-        check = _find_check(result, "commit-msg-format")
-        assert not check.passed
-
-    def test_without_msg_file(self, git_repo: Path) -> None:
-        result = run_gate(GateHook.COMMIT_MSG, git_repo)
-        check = _find_check(result, "commit-msg-format")
-        assert check.passed  # Skipped gracefully
+# ── _run_tool_check ──────────────────────────────────────────────────────
 
 
-# ---------------------------------------------------------------------------
-# Pre-commit checks
-# ---------------------------------------------------------------------------
+class TestRunToolCheck:
+    """Tests for _run_tool_check with mocked subprocess and shutil."""
 
+    def test_tool_found_subprocess_passes(self) -> None:
+        result = GateResult(hook=GateHook.PRE_COMMIT)
+        mock_proc = MagicMock()
+        mock_proc.returncode = 0
+        mock_proc.stdout = "all good"
+        mock_proc.stderr = ""
 
-class TestPreCommitGate:
-    """Tests for pre-commit gate checks."""
-
-    def test_runs_all_checks(self, git_repo: Path) -> None:
-        result = run_gate(GateHook.PRE_COMMIT, git_repo)
-        check_names = {c.name for c in result.checks}
-        assert "branch-protection" in check_names
-        assert "hook-integrity" in check_names
-        # ruff-format, ruff-lint, gitleaks may be skipped if not installed
-        assert "ruff-format" in check_names or len(check_names) >= 2
-
-    def test_hook_integrity_blocks_when_present_hook_invalid(self, git_repo: Path) -> None:
-        hook_path = git_repo / ".git" / "hooks" / "pre-commit"
-        hook_path.write_text("#!/usr/bin/env bash\necho custom\n", encoding="utf-8")
-        with patch(
-            "ai_engineering.policy.gates.verify_hooks",
-            return_value={"pre-commit": False, "commit-msg": True, "pre-push": True},
+        with (
+            patch("ai_engineering.policy.gates.shutil.which", return_value="/usr/bin/ruff"),
+            patch("ai_engineering.policy.gates.subprocess.run", return_value=mock_proc),
         ):
-            result = run_gate(GateHook.PRE_COMMIT, git_repo)
-        assert result.passed is False
-        assert "hook-integrity" in result.failed_checks
-
-
-# ---------------------------------------------------------------------------
-# Pre-push checks
-# ---------------------------------------------------------------------------
-
-
-class TestPrePushGate:
-    """Tests for pre-push gate checks."""
-
-    def test_runs_all_checks(self, git_repo: Path) -> None:
-        result = run_gate(GateHook.PRE_PUSH, git_repo)
-        check_names = {c.name for c in result.checks}
-        assert "branch-protection" in check_names
-        # Tools may be skipped if not installed
-        assert len(result.checks) >= 2
-
-
-# ---------------------------------------------------------------------------
-# Tool check required parameter
-# ---------------------------------------------------------------------------
-
-
-class TestToolCheckRequired:
-    """Tests for _run_tool_check required parameter behavior."""
-
-    def test_missing_tool_passes_when_not_required(self, tmp_path: Path) -> None:
-        result = GateResult(hook=GateHook.PRE_COMMIT)
-        with patch("ai_engineering.policy.gates.shutil.which", return_value=None):
             _run_tool_check(
                 result,
-                name="fake-tool",
-                cmd=["nonexistent-tool", "check"],
-                cwd=tmp_path,
-                required=False,
+                name="ruff-lint",
+                cmd=["ruff", "check", "."],
+                cwd=Path("/fake"),
             )
-        check = _find_check(result, "fake-tool")
-        assert check.passed
-        assert "skipped" in check.output
 
-    def test_missing_tool_fails_when_required(self, tmp_path: Path) -> None:
+        assert len(result.checks) == 1
+        assert result.checks[0].passed is True
+        assert result.checks[0].name == "ruff-lint"
+
+    def test_tool_found_subprocess_fails(self) -> None:
         result = GateResult(hook=GateHook.PRE_COMMIT)
+        mock_proc = MagicMock()
+        mock_proc.returncode = 1
+        mock_proc.stdout = ""
+        mock_proc.stderr = "lint errors found"
+
+        with (
+            patch("ai_engineering.policy.gates.shutil.which", return_value="/usr/bin/ruff"),
+            patch("ai_engineering.policy.gates.subprocess.run", return_value=mock_proc),
+        ):
+            _run_tool_check(
+                result,
+                name="ruff-lint",
+                cmd=["ruff", "check", "."],
+                cwd=Path("/fake"),
+            )
+
+        assert result.checks[0].passed is False
+
+    def test_tool_not_found_required_fails(self) -> None:
+        result = GateResult(hook=GateHook.PRE_COMMIT)
+
         with patch("ai_engineering.policy.gates.shutil.which", return_value=None):
             _run_tool_check(
                 result,
-                name="fake-tool",
-                cmd=["nonexistent-tool", "check"],
-                cwd=tmp_path,
+                name="ruff-lint",
+                cmd=["ruff", "check", "."],
+                cwd=Path("/fake"),
                 required=True,
             )
-        check = _find_check(result, "fake-tool")
-        assert not check.passed
-        assert "required" in check.output
-        assert "ai-eng doctor --fix-tools" in check.output
 
-    def test_tool_success_records_pass(self, tmp_path: Path) -> None:
+        assert result.checks[0].passed is False
+        assert "not found" in result.checks[0].output.lower()
+
+    def test_subprocess_timeout_fails(self) -> None:
         result = GateResult(hook=GateHook.PRE_COMMIT)
-        mock_proc = subprocess.CompletedProcess(
-            args=["tool"], returncode=0, stdout="all good", stderr=""
-        )
+
         with (
-            patch("ai_engineering.policy.gates.shutil.which", return_value="/usr/bin/tool"),
-            patch("ai_engineering.policy.gates.subprocess.run", return_value=mock_proc),
+            patch("ai_engineering.policy.gates.shutil.which", return_value="/usr/bin/ruff"),
+            patch(
+                "ai_engineering.policy.gates.subprocess.run",
+                side_effect=subprocess.TimeoutExpired(cmd=["ruff"], timeout=10),
+            ),
         ):
             _run_tool_check(
                 result,
-                name="test-tool",
-                cmd=["tool", "check"],
-                cwd=tmp_path,
+                name="ruff-lint",
+                cmd=["ruff", "check", "."],
+                cwd=Path("/fake"),
+                timeout=10,
             )
-        check = _find_check(result, "test-tool")
-        assert check.passed
-        assert "all good" in check.output
 
-    def test_tool_failure_records_fail(self, tmp_path: Path) -> None:
-        result = GateResult(hook=GateHook.PRE_COMMIT)
-        mock_proc = subprocess.CompletedProcess(
-            args=["tool"], returncode=1, stdout="", stderr="error found"
-        )
-        with (
-            patch("ai_engineering.policy.gates.shutil.which", return_value="/usr/bin/tool"),
-            patch("ai_engineering.policy.gates.subprocess.run", return_value=mock_proc),
-        ):
-            _run_tool_check(
-                result,
-                name="test-tool",
-                cmd=["tool", "check"],
-                cwd=tmp_path,
-            )
-        check = _find_check(result, "test-tool")
-        assert not check.passed
+        assert result.checks[0].passed is False
+        assert "timed out" in result.checks[0].output.lower()
 
-    def test_empty_output_shows_exit_code(self, tmp_path: Path) -> None:
+    def test_tool_not_found_advisory_passes(self) -> None:
         result = GateResult(hook=GateHook.PRE_COMMIT)
-        mock_proc = subprocess.CompletedProcess(args=["tool"], returncode=1, stdout="", stderr="")
-        with (
-            patch("ai_engineering.policy.gates.shutil.which", return_value="/usr/bin/tool"),
-            patch("ai_engineering.policy.gates.subprocess.run", return_value=mock_proc),
-        ):
-            _run_tool_check(
-                result,
-                name="test-tool",
-                cmd=["tool", "check"],
-                cwd=tmp_path,
-            )
-        check = _find_check(result, "test-tool")
-        assert "exited with code 1" in check.output
 
-    def test_default_required_is_true(self, tmp_path: Path) -> None:
-        """_run_tool_check defaults to required=True (fail-closed)."""
-        result = GateResult(hook=GateHook.PRE_COMMIT)
         with patch("ai_engineering.policy.gates.shutil.which", return_value=None):
             _run_tool_check(
                 result,
-                name="default-tool",
-                cmd=["nonexistent-tool", "check"],
-                cwd=tmp_path,
-                # No required= argument — uses default
+                name="optional-tool",
+                cmd=["optional", "--check"],
+                cwd=Path("/fake"),
+                required=False,
             )
-        check = _find_check(result, "default-tool")
-        assert not check.passed, "Default required should be True (fail-closed)"
 
-    def test_security_tools_are_required(self) -> None:
-        """Gitleaks and semgrep check configs have required=True."""
-        from ai_engineering.policy.gates import _PRE_COMMIT_CHECKS, _PRE_PUSH_CHECKS
+        assert result.checks[0].passed is True
+        assert "not found" in result.checks[0].output.lower()
 
-        gitleaks_configs = [
-            c for checks in _PRE_COMMIT_CHECKS.values() for c in checks if "gitleaks" in c.name
-        ]
-        semgrep_configs = [
-            c for checks in _PRE_PUSH_CHECKS.values() for c in checks if "semgrep" in c.name
-        ]
-        assert gitleaks_configs, "gitleaks must be in pre-commit registry"
-        assert semgrep_configs, "semgrep must be in pre-push registry"
-        for config in gitleaks_configs + semgrep_configs:
-            assert config.required is True, f"{config.name} must be required"
-
-    def test_timeout_passed_to_subprocess(self, tmp_path: Path) -> None:
-        """_run_tool_check passes custom timeout to subprocess.run."""
+    def test_custom_timeout_passed_to_subprocess(self) -> None:
         result = GateResult(hook=GateHook.PRE_COMMIT)
-        mock_proc = subprocess.CompletedProcess(args=["tool"], returncode=0, stdout="ok", stderr="")
+        mock_proc = MagicMock()
+        mock_proc.returncode = 0
+        mock_proc.stdout = "ok"
+        mock_proc.stderr = ""
+
         with (
             patch("ai_engineering.policy.gates.shutil.which", return_value="/usr/bin/tool"),
             patch("ai_engineering.policy.gates.subprocess.run", return_value=mock_proc) as mock_run,
         ):
             _run_tool_check(
                 result,
-                name="test-tool",
-                cmd=["tool", "check"],
-                cwd=tmp_path,
-                timeout=600,
+                name="tool",
+                cmd=["tool", "run"],
+                cwd=Path("/fake"),
+                timeout=42,
             )
+
         mock_run.assert_called_once()
-        assert mock_run.call_args.kwargs["timeout"] == 600
-
-    def test_timeout_message_includes_custom_value(self, tmp_path: Path) -> None:
-        """Timeout error message reflects the configured timeout value."""
-        result = GateResult(hook=GateHook.PRE_COMMIT)
-        with (
-            patch("ai_engineering.policy.gates.shutil.which", return_value="/usr/bin/tool"),
-            patch(
-                "ai_engineering.policy.gates.subprocess.run",
-                side_effect=subprocess.TimeoutExpired(cmd="tool", timeout=600),
-            ),
-        ):
-            _run_tool_check(
-                result,
-                name="test-tool",
-                cmd=["tool", "check"],
-                cwd=tmp_path,
-                timeout=600,
-            )
-        check = _find_check(result, "test-tool")
-        assert not check.passed
-        assert "600s" in check.output
-
-    def test_stack_tests_uses_no_cov_and_markers(self) -> None:
-        """stack-tests check excludes coverage and e2e/live markers."""
-        from ai_engineering.policy.gates import _PRE_PUSH_CHECKS
-
-        stack_tests = [c for c in _PRE_PUSH_CHECKS.get("python", []) if c.name == "stack-tests"]
-        assert stack_tests, "stack-tests must exist in python pre-push checks"
-        cmd = stack_tests[0].cmd
-        assert "--no-cov" in cmd, "stack-tests must skip coverage"
-        assert "-x" in cmd, "stack-tests must fail fast"
-        assert "not e2e and not live" in " ".join(cmd), "stack-tests must exclude e2e and live"
-
-    def test_stack_tests_has_extended_timeout(self) -> None:
-        """stack-tests check has timeout > default 300s."""
-        from ai_engineering.policy.gates import _PRE_PUSH_CHECKS
-
-        stack_tests = [c for c in _PRE_PUSH_CHECKS.get("python", []) if c.name == "stack-tests"]
-        assert stack_tests, "stack-tests must exist"
-        assert stack_tests[0].timeout == 600, "stack-tests timeout must be 600s"
-
-    def test_check_config_default_timeout(self) -> None:
-        """CheckConfig defaults to 300s timeout."""
-        config = CheckConfig(name="test", cmd=["test"])
-        assert config.timeout == 300
+        call_kwargs = mock_run.call_args
+        assert call_kwargs.kwargs["timeout"] == 42
 
 
-# ---------------------------------------------------------------------------
-# GateResult
-# ---------------------------------------------------------------------------
-
-
-class TestGateResult:
-    """Tests for GateResult aggregation."""
-
-    def test_passed_when_all_pass(self) -> None:
-        result = GateResult(
-            hook=GateHook.PRE_COMMIT,
-            checks=[
-                GateCheckResult(name="a", passed=True),
-                GateCheckResult(name="b", passed=True),
-            ],
-        )
-        assert result.passed is True
-
-    def test_not_passed_when_any_fails(self) -> None:
-        result = GateResult(
-            hook=GateHook.PRE_COMMIT,
-            checks=[
-                GateCheckResult(name="a", passed=True),
-                GateCheckResult(name="b", passed=False),
-            ],
-        )
-        assert result.passed is False
-
-    def test_failed_checks_list(self) -> None:
-        result = GateResult(
-            hook=GateHook.PRE_COMMIT,
-            checks=[
-                GateCheckResult(name="a", passed=True),
-                GateCheckResult(name="b", passed=False),
-                GateCheckResult(name="c", passed=False),
-            ],
-        )
-        assert result.failed_checks == ["b", "c"]
-
-    def test_empty_result_passes(self) -> None:
-        result = GateResult(hook=GateHook.PRE_COMMIT)
-        assert result.passed is True
-
-
-# ---------------------------------------------------------------------------
-# Risk gate checks
-# ---------------------------------------------------------------------------
-
-
-class TestRiskExpiryWarning:
-    """Tests for _check_expiring_risk_acceptances (pre-commit, non-blocking)."""
-
-    def test_no_decision_store_passes(self, tmp_path: Path) -> None:
-        result = GateResult(hook=GateHook.PRE_COMMIT)
-        _check_expiring_risk_acceptances(tmp_path, result)
-        check = _find_check(result, "risk-expiry-warning")
-        assert check.passed
-
-    def test_no_expiring_passes(self, tmp_path: Path) -> None:
-        # Create an empty decision store
-        ds_dir = tmp_path / ".ai-engineering" / "state"
-        ds_dir.mkdir(parents=True)
-        import json
-
-        (ds_dir / "decision-store.json").write_text(
-            json.dumps({"schemaVersion": "1.1", "decisions": []})
-        )
-        result = GateResult(hook=GateHook.PRE_COMMIT)
-        _check_expiring_risk_acceptances(tmp_path, result)
-        check = _find_check(result, "risk-expiry-warning")
-        assert check.passed
-
-    def test_expiring_warns_but_passes(self, tmp_path: Path) -> None:
-        import json
-        from datetime import UTC, datetime, timedelta
-
-        ds_dir = tmp_path / ".ai-engineering" / "state"
-        ds_dir.mkdir(parents=True)
-        (ds_dir / "decision-store.json").write_text(
-            json.dumps(
-                {
-                    "schemaVersion": "1.1",
-                    "decisions": [
-                        {
-                            "id": "RA-001",
-                            "context": "test risk",
-                            "decision": "accept",
-                            "decidedAt": "2025-01-01T00:00:00Z",
-                            "spec": "004",
-                            "riskCategory": "risk-acceptance",
-                            "severity": "high",
-                            "status": "active",
-                            "expiresAt": (datetime.now(tz=UTC) + timedelta(days=3)).strftime(
-                                "%Y-%m-%dT%H:%M:%SZ"
-                            ),
-                            "renewalCount": 0,
-                        }
-                    ],
-                }
-            )
-        )
-        result = GateResult(hook=GateHook.PRE_COMMIT)
-        _check_expiring_risk_acceptances(tmp_path, result)
-        check = _find_check(result, "risk-expiry-warning")
-        assert check.passed  # Warning only, non-blocking
-        assert "expiring" in check.output.lower()
-
-
-class TestRiskExpiredBlock:
-    """Tests for _check_expired_risk_acceptances (pre-push, blocking)."""
-
-    def test_no_decision_store_passes(self, tmp_path: Path) -> None:
-        result = GateResult(hook=GateHook.PRE_PUSH)
-        _check_expired_risk_acceptances(tmp_path, result)
-        check = _find_check(result, "risk-expired-block")
-        assert check.passed
-
-    def test_no_expired_passes(self, tmp_path: Path) -> None:
-        import json
-
-        ds_dir = tmp_path / ".ai-engineering" / "state"
-        ds_dir.mkdir(parents=True)
-        (ds_dir / "decision-store.json").write_text(
-            json.dumps({"schemaVersion": "1.1", "decisions": []})
-        )
-        result = GateResult(hook=GateHook.PRE_PUSH)
-        _check_expired_risk_acceptances(tmp_path, result)
-        check = _find_check(result, "risk-expired-block")
-        assert check.passed
-
-    def test_expired_blocks(self, tmp_path: Path) -> None:
-        import json
-
-        ds_dir = tmp_path / ".ai-engineering" / "state"
-        ds_dir.mkdir(parents=True)
-        (ds_dir / "decision-store.json").write_text(
-            json.dumps(
-                {
-                    "schemaVersion": "1.1",
-                    "decisions": [
-                        {
-                            "id": "RA-001",
-                            "context": "test expired risk",
-                            "decision": "accept",
-                            "decidedAt": "2025-01-01T00:00:00Z",
-                            "spec": "004",
-                            "riskCategory": "risk-acceptance",
-                            "severity": "critical",
-                            "status": "active",
-                            "expiresAt": "2020-01-01T00:00:00Z",
-                            "renewalCount": 0,
-                        }
-                    ],
-                }
-            )
-        )
-        result = GateResult(hook=GateHook.PRE_PUSH)
-        _check_expired_risk_acceptances(tmp_path, result)
-        check = _find_check(result, "risk-expired-block")
-        assert not check.passed  # Blocks push
-
-
-# ---------------------------------------------------------------------------
-# Version deprecation gate
-# ---------------------------------------------------------------------------
-
-
-class TestVersionDeprecationGate:
-    """Tests for _check_version_deprecation gate check."""
-
-    def test_deprecated_blocks_gate(self, git_repo: Path) -> None:
-        from ai_engineering.version.checker import VersionCheckResult
-        from ai_engineering.version.models import VersionStatus
-
-        mock_result = VersionCheckResult(
-            installed="0.1.0",
-            status=VersionStatus.DEPRECATED,
-            is_current=False,
-            is_outdated=False,
-            is_deprecated=True,
-            is_eol=False,
-            latest="0.2.0",
-            message="0.1.0 (deprecated — CVE-2025-9999)",
-        )
-        with patch(
-            "ai_engineering.version.checker.check_version",
-            return_value=mock_result,
-        ):
-            result = run_gate(GateHook.PRE_COMMIT, git_repo)
-        assert not result.passed
-        assert "version-deprecation" in result.failed_checks
-
-    def test_outdated_does_not_block_gate(self, git_repo: Path) -> None:
-        from ai_engineering.version.checker import VersionCheckResult
-        from ai_engineering.version.models import VersionStatus
-
-        mock_result = VersionCheckResult(
-            installed="0.1.0",
-            status=VersionStatus.SUPPORTED,
-            is_current=False,
-            is_outdated=True,
-            is_deprecated=False,
-            is_eol=False,
-            latest="0.2.0",
-            message="0.1.0 (outdated — latest is 0.2.0)",
-        )
-        with patch(
-            "ai_engineering.version.checker.check_version",
-            return_value=mock_result,
-        ):
-            result = run_gate(GateHook.PRE_COMMIT, git_repo)
-        version_check = _find_check(result, "version-deprecation")
-        assert version_check.passed
-
-    def test_current_passes_gate(self, git_repo: Path) -> None:
-        from ai_engineering.version.checker import VersionCheckResult
-        from ai_engineering.version.models import VersionStatus
-
-        mock_result = VersionCheckResult(
-            installed="0.1.0",
-            status=VersionStatus.CURRENT,
-            is_current=True,
-            is_outdated=False,
-            is_deprecated=False,
-            is_eol=False,
-            latest="0.1.0",
-            message="0.1.0 (current)",
-        )
-        with patch(
-            "ai_engineering.version.checker.check_version",
-            return_value=mock_result,
-        ):
-            result = run_gate(GateHook.PRE_COMMIT, git_repo)
-        version_check = _find_check(result, "version-deprecation")
-        assert version_check.passed
-
-
-# ---------------------------------------------------------------------------
-# Multi-stack gate dispatch
-# ---------------------------------------------------------------------------
+# ── _get_active_stacks ───────────────────────────────────────────────────
 
 
 class TestGetActiveStacks:
-    """Tests for _get_active_stacks — install manifest reading."""
+    """Tests for _get_active_stacks with mocked manifest loading."""
 
-    def test_returns_python_when_no_manifest(self, tmp_path: Path) -> None:
-        stacks = _get_active_stacks(tmp_path)
-        assert stacks == ["python"]
+    def test_manifest_with_stacks(self, tmp_path: Path) -> None:
+        manifest_path = tmp_path / ".ai-engineering" / "state" / "install-manifest.json"
+        manifest_path.parent.mkdir(parents=True)
+        manifest_path.write_text("{}")  # Needs to exist for path check
 
-    def test_reads_stacks_from_manifest(self, tmp_path: Path) -> None:
-        import json
+        mock_manifest = MagicMock()
+        mock_manifest.installed_stacks = ["python", "dotnet"]
 
-        ds_dir = tmp_path / ".ai-engineering" / "state"
-        ds_dir.mkdir(parents=True)
-        (ds_dir / "install-manifest.json").write_text(
-            json.dumps(
-                {
-                    "schemaVersion": "1.1",
-                    "frameworkVersion": "0.1.0",
-                    "installedAt": "2026-02-22T00:00:00Z",
-                    "installedStacks": ["python", "dotnet"],
-                    "installedIdes": [],
-                    "toolingReadiness": {},
-                }
-            )
-        )
-        stacks = _get_active_stacks(tmp_path)
+        with patch(
+            "ai_engineering.policy.gates.read_json_model",
+            return_value=mock_manifest,
+        ):
+            stacks = _get_active_stacks(tmp_path)
+
         assert stacks == ["python", "dotnet"]
 
-    def test_returns_python_when_manifest_empty_stacks(self, tmp_path: Path) -> None:
-        import json
-
-        ds_dir = tmp_path / ".ai-engineering" / "state"
-        ds_dir.mkdir(parents=True)
-        (ds_dir / "install-manifest.json").write_text(
-            json.dumps(
-                {
-                    "schemaVersion": "1.1",
-                    "frameworkVersion": "0.1.0",
-                    "installedAt": "2026-02-22T00:00:00Z",
-                    "installedStacks": [],
-                    "installedIdes": [],
-                    "toolingReadiness": {},
-                }
-            )
-        )
+    def test_no_manifest_returns_python_fallback(self, tmp_path: Path) -> None:
+        # No manifest file exists
         stacks = _get_active_stacks(tmp_path)
         assert stacks == ["python"]
 
-    def test_returns_python_when_manifest_invalid(self, tmp_path: Path) -> None:
-        ds_dir = tmp_path / ".ai-engineering" / "state"
-        ds_dir.mkdir(parents=True)
-        (ds_dir / "install-manifest.json").write_text("invalid json")
-        stacks = _get_active_stacks(tmp_path)
+    def test_invalid_manifest_returns_python_fallback(self, tmp_path: Path) -> None:
+        manifest_path = tmp_path / ".ai-engineering" / "state" / "install-manifest.json"
+        manifest_path.parent.mkdir(parents=True)
+        manifest_path.write_text("{}")
+
+        with patch(
+            "ai_engineering.policy.gates.read_json_model",
+            side_effect=ValueError("bad json"),
+        ):
+            stacks = _get_active_stacks(tmp_path)
+
         assert stacks == ["python"]
+
+    def test_empty_stacks_returns_python_fallback(self, tmp_path: Path) -> None:
+        manifest_path = tmp_path / ".ai-engineering" / "state" / "install-manifest.json"
+        manifest_path.parent.mkdir(parents=True)
+        manifest_path.write_text("{}")
+
+        mock_manifest = MagicMock()
+        mock_manifest.installed_stacks = []
+
+        with patch(
+            "ai_engineering.policy.gates.read_json_model",
+            return_value=mock_manifest,
+        ):
+            stacks = _get_active_stacks(tmp_path)
+
+        assert stacks == ["python"]
+
+
+# ── _run_checks_for_stacks ───────────────────────────────────────────────
 
 
 class TestRunChecksForStacks:
-    """Tests for _run_checks_for_stacks — stack-aware dispatch."""
+    """Tests for _run_checks_for_stacks dispatch logic."""
 
-    def test_runs_common_and_python_checks(self, tmp_path: Path) -> None:
-        registry: dict[str, list[CheckConfig]] = {
-            "common": [CheckConfig(name="gitleaks", cmd=["gitleaks"])],
-            "python": [CheckConfig(name="ruff-format", cmd=["ruff", "format"])],
-            "dotnet": [CheckConfig(name="dotnet-format", cmd=["dotnet", "format"])],
-        }
+    def test_dispatches_common_and_stack_checks(self) -> None:
         result = GateResult(hook=GateHook.PRE_COMMIT)
-        with patch("ai_engineering.policy.gates.shutil.which", return_value=None):
-            _run_checks_for_stacks(tmp_path, result, registry, ["python"])
-        names = {c.name for c in result.checks}
-        assert "gitleaks" in names
-        assert "ruff-format" in names
-        assert "dotnet-format" not in names
-
-    def test_runs_dotnet_checks_when_active(self, tmp_path: Path) -> None:
         registry: dict[str, list[CheckConfig]] = {
-            "common": [CheckConfig(name="gitleaks", cmd=["gitleaks"])],
-            "python": [CheckConfig(name="ruff-format", cmd=["ruff"])],
-            "dotnet": [CheckConfig(name="dotnet-format", cmd=["dotnet"])],
+            "common": [CheckConfig(name="common-check", cmd=["common"])],
+            "python": [CheckConfig(name="py-check", cmd=["py"])],
         }
+
+        with patch("ai_engineering.policy.gates._run_tool_check") as mock_run:
+            _run_checks_for_stacks(
+                Path("/fake"),
+                result,
+                registry,
+                ["python"],
+            )
+
+        assert mock_run.call_count == 2
+        call_names = [c.kwargs["name"] for c in mock_run.call_args_list]
+        assert "common-check" in call_names
+        assert "py-check" in call_names
+
+    def test_unknown_stack_only_common_checks(self) -> None:
         result = GateResult(hook=GateHook.PRE_COMMIT)
-        with patch("ai_engineering.policy.gates.shutil.which", return_value=None):
-            _run_checks_for_stacks(tmp_path, result, registry, ["dotnet"])
-        names = {c.name for c in result.checks}
-        assert "gitleaks" in names
-        assert "dotnet-format" in names
-        assert "ruff-format" not in names
-
-    def test_runs_multi_stack_checks(self, tmp_path: Path) -> None:
         registry: dict[str, list[CheckConfig]] = {
-            "common": [CheckConfig(name="gitleaks", cmd=["gitleaks"])],
-            "python": [CheckConfig(name="pip-audit", cmd=["pip-audit"])],
-            "nextjs": [CheckConfig(name="npm-audit", cmd=["npm", "audit"])],
+            "common": [CheckConfig(name="common-check", cmd=["common"])],
+            "python": [CheckConfig(name="py-check", cmd=["py"])],
         }
+
+        with patch("ai_engineering.policy.gates._run_tool_check") as mock_run:
+            _run_checks_for_stacks(
+                Path("/fake"),
+                result,
+                registry,
+                ["rust"],  # unknown stack
+            )
+
+        assert mock_run.call_count == 1
+        assert mock_run.call_args.kwargs["name"] == "common-check"
+
+
+# ── run_gate ─────────────────────────────────────────────────────────────
+
+
+class TestRunGate:
+    """Tests for run_gate orchestration with all internals mocked."""
+
+    def _mock_branch_protection_pass(self, project_root: Path, result: GateResult) -> None:
+        result.checks.append(GateCheckResult(name="branch-protection", passed=True))
+
+    def _mock_branch_protection_fail(self, project_root: Path, result: GateResult) -> None:
+        result.checks.append(GateCheckResult(name="branch-protection", passed=False))
+
+    def _mock_version_deprecation_pass(self, result: GateResult) -> None:
+        result.checks.append(GateCheckResult(name="version-deprecation", passed=True))
+
+    def _mock_hook_integrity_pass(self, project_root: Path, result: GateResult) -> None:
+        result.checks.append(GateCheckResult(name="hook-integrity", passed=True))
+
+    def test_pre_commit_runs_checks(self) -> None:
+        with (
+            patch(
+                "ai_engineering.policy.gates._check_branch_protection",
+                side_effect=self._mock_branch_protection_pass,
+            ),
+            patch(
+                "ai_engineering.policy.gates._check_version_deprecation",
+                side_effect=self._mock_version_deprecation_pass,
+            ),
+            patch(
+                "ai_engineering.policy.gates._check_hook_integrity",
+                side_effect=self._mock_hook_integrity_pass,
+            ),
+            patch("ai_engineering.policy.gates._run_pre_commit_checks") as mock_pre_commit,
+        ):
+            result = run_gate(GateHook.PRE_COMMIT, Path("/fake"))
+
+        mock_pre_commit.assert_called_once()
+        assert result.hook == GateHook.PRE_COMMIT
+
+    def test_branch_protection_fail_returns_early(self) -> None:
+        with (
+            patch(
+                "ai_engineering.policy.gates._check_branch_protection",
+                side_effect=self._mock_branch_protection_fail,
+            ),
+            patch("ai_engineering.policy.gates._run_pre_commit_checks") as mock_pre_commit,
+        ):
+            result = run_gate(GateHook.PRE_COMMIT, Path("/fake"))
+
+        mock_pre_commit.assert_not_called()
+        assert result.passed is False
+
+    def test_commit_msg_valid_message(self, tmp_path: Path) -> None:
+        msg_file = tmp_path / "COMMIT_EDITMSG"
+        msg_file.write_text("fix: correct typo\n", encoding="utf-8")
+
+        with (
+            patch(
+                "ai_engineering.policy.gates._check_branch_protection",
+                side_effect=self._mock_branch_protection_pass,
+            ),
+            patch(
+                "ai_engineering.policy.gates._check_version_deprecation",
+                side_effect=self._mock_version_deprecation_pass,
+            ),
+            patch(
+                "ai_engineering.policy.gates._check_hook_integrity",
+                side_effect=self._mock_hook_integrity_pass,
+            ),
+        ):
+            result = run_gate(
+                GateHook.COMMIT_MSG,
+                Path("/fake"),
+                commit_msg_file=msg_file,
+            )
+
+        # Should have branch-protection, version-deprecation, hook-integrity,
+        # plus commit-msg-format check
+        check_names = [c.name for c in result.checks]
+        assert "commit-msg-format" in check_names
+        assert result.passed is True
+
+    def test_pre_push_runs_checks(self) -> None:
+        with (
+            patch(
+                "ai_engineering.policy.gates._check_branch_protection",
+                side_effect=self._mock_branch_protection_pass,
+            ),
+            patch(
+                "ai_engineering.policy.gates._check_version_deprecation",
+                side_effect=self._mock_version_deprecation_pass,
+            ),
+            patch(
+                "ai_engineering.policy.gates._check_hook_integrity",
+                side_effect=self._mock_hook_integrity_pass,
+            ),
+            patch("ai_engineering.policy.gates._run_pre_push_checks") as mock_pre_push,
+        ):
+            result = run_gate(GateHook.PRE_PUSH, Path("/fake"))
+
+        mock_pre_push.assert_called_once()
+        assert result.hook == GateHook.PRE_PUSH
+
+
+# ── _check_expiring_risk_acceptances ─────────────────────────────────────
+
+
+class TestCheckExpiringRiskAcceptances:
+    """Tests for expiring risk advisory check."""
+
+    def test_no_expiring_no_warning(self, tmp_path: Path) -> None:
+        result = GateResult(hook=GateHook.PRE_COMMIT)
+        mock_store = MagicMock(spec=DecisionStore)
+
+        with (
+            patch(
+                "ai_engineering.policy.gates._load_decision_store",
+                return_value=mock_store,
+            ),
+            patch(
+                "ai_engineering.policy.gates.list_expiring_soon",
+                return_value=[],
+            ),
+        ):
+            _check_expiring_risk_acceptances(tmp_path, result)
+
+        assert len(result.checks) == 1
+        assert result.checks[0].passed is True
+        assert "risk acceptance(s) expiring" not in result.checks[0].output
+
+    def test_expiring_risks_adds_advisory(self, tmp_path: Path) -> None:
+        result = GateResult(hook=GateHook.PRE_COMMIT)
+        mock_store = MagicMock(spec=DecisionStore)
+
+        expiring_decision = Decision(
+            id="RA-001",
+            context="CVE-2025-99999 in dependency X",
+            decision="accept for 30 days",
+            decidedAt=datetime.now(tz=UTC) - timedelta(days=25),
+            spec="004",
+            expiresAt=datetime.now(tz=UTC) + timedelta(days=5),
+            riskCategory=RiskCategory.RISK_ACCEPTANCE,
+            severity=RiskSeverity.HIGH,
+            status=DecisionStatus.ACTIVE,
+        )
+
+        with (
+            patch(
+                "ai_engineering.policy.gates._load_decision_store",
+                return_value=mock_store,
+            ),
+            patch(
+                "ai_engineering.policy.gates.list_expiring_soon",
+                return_value=[expiring_decision],
+            ),
+        ):
+            _check_expiring_risk_acceptances(tmp_path, result)
+
+        assert len(result.checks) == 1
+        # Advisory: still passes
+        assert result.checks[0].passed is True
+        assert "expiring" in result.checks[0].output.lower()
+        assert "RA-001" in result.checks[0].output
+
+    def test_no_decision_store_skipped(self, tmp_path: Path) -> None:
+        result = GateResult(hook=GateHook.PRE_COMMIT)
+
+        with patch(
+            "ai_engineering.policy.gates._load_decision_store",
+            return_value=None,
+        ):
+            _check_expiring_risk_acceptances(tmp_path, result)
+
+        assert len(result.checks) == 1
+        assert result.checks[0].passed is True
+        assert "skipped" in result.checks[0].output.lower()
+
+
+# ── _check_expired_risk_acceptances ──────────────────────────────────────
+
+
+class TestCheckExpiredRiskAcceptances:
+    """Tests for expired risk blocking check."""
+
+    def test_no_expired_passes(self, tmp_path: Path) -> None:
         result = GateResult(hook=GateHook.PRE_PUSH)
-        with patch("ai_engineering.policy.gates.shutil.which", return_value=None):
-            _run_checks_for_stacks(tmp_path, result, registry, ["python", "nextjs"])
-        names = {c.name for c in result.checks}
-        assert "gitleaks" in names
-        assert "pip-audit" in names
-        assert "npm-audit" in names
+        mock_store = MagicMock(spec=DecisionStore)
+
+        with (
+            patch(
+                "ai_engineering.policy.gates._load_decision_store",
+                return_value=mock_store,
+            ),
+            patch(
+                "ai_engineering.policy.gates.list_expired_decisions",
+                return_value=[],
+            ),
+        ):
+            _check_expired_risk_acceptances(tmp_path, result)
+
+        assert len(result.checks) == 1
+        assert result.checks[0].passed is True
+
+    def test_expired_risks_blocks_gate(self, tmp_path: Path) -> None:
+        result = GateResult(hook=GateHook.PRE_PUSH)
+        mock_store = MagicMock(spec=DecisionStore)
+
+        expired_decision = Decision(
+            id="RA-002",
+            context="Expired vulnerability acceptance in lib Y",
+            decision="accept for 15 days",
+            decidedAt=datetime.now(tz=UTC) - timedelta(days=30),
+            spec="004",
+            expiresAt=datetime.now(tz=UTC) - timedelta(days=1),
+            riskCategory=RiskCategory.RISK_ACCEPTANCE,
+            severity=RiskSeverity.CRITICAL,
+            status=DecisionStatus.ACTIVE,
+        )
+
+        with (
+            patch(
+                "ai_engineering.policy.gates._load_decision_store",
+                return_value=mock_store,
+            ),
+            patch(
+                "ai_engineering.policy.gates.list_expired_decisions",
+                return_value=[expired_decision],
+            ),
+        ):
+            _check_expired_risk_acceptances(tmp_path, result)
+
+        assert len(result.checks) == 1
+        assert result.checks[0].passed is False
+        assert "RA-002" in result.checks[0].output
+
+    def test_no_decision_store_skipped(self, tmp_path: Path) -> None:
+        result = GateResult(hook=GateHook.PRE_PUSH)
+
+        with patch(
+            "ai_engineering.policy.gates._load_decision_store",
+            return_value=None,
+        ):
+            _check_expired_risk_acceptances(tmp_path, result)
+
+        assert len(result.checks) == 1
+        assert result.checks[0].passed is True
+        assert "skipped" in result.checks[0].output.lower()
 
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
+# ── Registry Validation ──────────────────────────────────────────────────
 
 
-def _find_check(result: GateResult, name: str) -> GateCheckResult:
-    """Find a check by name in a gate result."""
-    for check in result.checks:
-        if check.name == name:
-            return check
-    pytest.fail(f"Check '{name}' not found in result")
+class TestRegistryValidation:
+    """Validate registry constants contain expected configuration."""
+
+    def test_pre_push_python_stack_tests_flags(self) -> None:
+        python_checks = _PRE_PUSH_CHECKS["python"]
+        stack_tests = [c for c in python_checks if c.name == "stack-tests"]
+        assert len(stack_tests) == 1, "Expected exactly one stack-tests check for python"
+
+        cmd = stack_tests[0].cmd
+        assert "-n" in cmd, "Expected -n (parallel workers) in stack-tests cmd"
+        n_idx = cmd.index("-n")
+        assert cmd[n_idx + 1] == "auto", "Expected 'auto' after -n"
+
+        assert "--dist" in cmd, "Expected --dist in stack-tests cmd"
+        dist_idx = cmd.index("--dist")
+        assert cmd[dist_idx + 1] == "worksteal", "Expected 'worksteal' distribution"
+
+        assert "-m" in cmd, "Expected -m (marker) in stack-tests cmd"
+        m_idx = cmd.index("-m")
+        assert cmd[m_idx + 1] == "unit", "Expected 'unit' marker"

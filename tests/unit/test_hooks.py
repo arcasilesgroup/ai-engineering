@@ -30,6 +30,8 @@ from ai_engineering.state.defaults import default_install_manifest
 from ai_engineering.state.io import write_json_model
 from ai_engineering.state.models import GateHook
 
+pytestmark = pytest.mark.unit
+
 # ---------------------------------------------------------------------------
 # Script generation
 # ---------------------------------------------------------------------------
