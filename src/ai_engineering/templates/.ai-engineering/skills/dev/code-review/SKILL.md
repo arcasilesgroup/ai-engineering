@@ -79,8 +79,7 @@ Deep code review skill covering security, quality, performance, and maintainabil
 
 ## References
 
-- `standards/framework/quality/core.md` — severity policy and quality gates.
-- `standards/framework/quality/python.md` — Python-specific checks.
+- `standards/framework/quality/core.md` — severity policy, quality gates, and stack-specific checks.
 - `standards/framework/stacks/python.md` — code patterns.
 - `skills/review/security/SKILL.md` — detailed security review procedure.
 - `skills/dev/test-strategy/SKILL.md` — test assessment criteria.

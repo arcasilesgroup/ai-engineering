@@ -78,7 +78,7 @@ For complex Python tasks, consider referencing these agent definitions:
 
 For structured procedures:
 
-- `.ai-engineering/skills/patterns/python-patterns/SKILL.md` — comprehensive Python patterns.
+- `.ai-engineering/skills/dev/references/language-framework-patterns.md` — language/framework coding patterns.
 - `.ai-engineering/skills/dev/debug/SKILL.md` — debugging procedure.
 - `.ai-engineering/skills/dev/refactor/SKILL.md` — refactoring procedure.
 - `.ai-engineering/skills/dev/test-strategy/SKILL.md` — test design.

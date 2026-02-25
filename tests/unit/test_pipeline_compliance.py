@@ -24,6 +24,7 @@ from ai_engineering.pipeline.compliance import (
 from ai_engineering.pipeline.injector import (
     generate_azure_task,
     generate_github_step,
+    generate_workflows,
     suggest_injection,
 )
 
@@ -92,7 +93,9 @@ class TestScanPipeline:
         wf_dir = tmp_path / ".github" / "workflows"
         wf_dir.mkdir(parents=True)
         (wf_dir / "ci.yml").write_text(
-            "name: CI\njobs:\n  check:\n    steps:\n      - run: ai-eng gate risk-check\n"
+            "name: CI\njobs:\n  check:\n    steps:\n"
+            "      - run: ai-eng gate risk-check\n"
+            "      - run: ai-eng review pr\n"
         )
         pipeline = PipelineFile(
             path=Path(".github/workflows/ci.yml"),
@@ -147,7 +150,7 @@ class TestScanAllPipelines:
         wf_dir = tmp_path / ".github" / "workflows"
         wf_dir.mkdir(parents=True)
         (wf_dir / "ci.yml").write_text("name: CI\nsteps:\n  - run: risk-check\n")
-        (wf_dir / "deploy.yml").write_text("name: Deploy\nsteps: []\n")
+        (wf_dir / "deploy.yml").write_text("name: Deploy\nsteps:\n  - run: ai-eng review pr\n")
 
         report = scan_all_pipelines(tmp_path)
         assert report.total_pipelines == 2
@@ -214,3 +217,9 @@ class TestSuggestInjection:
         suggestion = suggest_injection(pipeline)
         assert "azure-pipelines.yml" in suggestion
         assert "risk-check" in suggestion
+
+
+def test_generate_workflows_delegates_to_generator(tmp_path: Path) -> None:
+    result = generate_workflows(tmp_path, provider="github", stacks=["python"])
+    assert isinstance(result.created, list)
+    assert isinstance(result.skipped, list)

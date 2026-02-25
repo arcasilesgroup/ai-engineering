@@ -1,12 +1,14 @@
 ---
-active: null
+active: "021-governance-cicd-evolution"
 updated: "2026-02-24"
 ---
 
 # Active Spec
 
-No active spec. Spec-020 (Multi-Agent Model Evolution) closed on 2026-02-24.
+Spec-021 (Governance + CI/CD Evolution) is now active.
 
 ## Quick Resume
 
-No active work. To start a new spec, run `/govern:create-spec`.
+- Spec: `context/specs/021-governance-cicd-evolution/spec.md`
+- Plan: `context/specs/021-governance-cicd-evolution/plan.md`
+- Tasks: `context/specs/021-governance-cicd-evolution/tasks.md`

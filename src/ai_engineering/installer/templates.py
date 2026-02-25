@@ -42,6 +42,7 @@ _PROJECT_TEMPLATE_TREES: list[tuple[str, str]] = [
     (".claude", ".claude"),
     ("prompts", ".github/prompts"),
     ("agents", ".github/agents"),
+    ("guides", ".ai-engineering/guides"),
 ]
 
 

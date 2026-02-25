@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 from unittest.mock import patch
 
+from ai_engineering.vcs.api_fallback import ApiFallbackProvider
 from ai_engineering.vcs.azure_devops import AzureDevOpsProvider
 from ai_engineering.vcs.factory import _detect_from_remote, get_provider
 from ai_engineering.vcs.github import GitHubProvider
@@ -41,6 +42,18 @@ class TestGetProvider:
         (manifest_dir / "install-manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
         provider = get_provider(tmp_path)
         assert isinstance(provider, AzureDevOpsProvider)
+
+    def test_reads_manifest_api_mode_returns_fallback(self, tmp_path: Path) -> None:
+        manifest_dir = tmp_path / ".ai-engineering" / "state"
+        manifest_dir.mkdir(parents=True)
+        manifest = {
+            "schemaVersion": "1.1",
+            "providers": {"primary": "github", "enabled": ["github"]},
+            "toolingReadiness": {"gh": {"mode": "api"}},
+        }
+        (manifest_dir / "install-manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+        provider = get_provider(tmp_path)
+        assert isinstance(provider, ApiFallbackProvider)
 
     def test_falls_back_to_remote_detection(self, tmp_path: Path) -> None:
         """Manifest exists but has unknown provider → detect from remote."""

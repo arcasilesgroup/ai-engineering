@@ -93,3 +93,45 @@ class VcsProvider(Protocol):
             Provider name string (e.g. ``"github"``, ``"azure_devops"``).
         """
         ...  # pragma: no cover
+
+    def check_auth(self, ctx: VcsContext) -> VcsResult:
+        """Check whether provider authentication is currently valid.
+
+        Args:
+            ctx: Execution context with project root.
+
+        Returns:
+            VcsResult with success=True when auth is valid.
+        """
+        ...  # pragma: no cover
+
+    def apply_branch_policy(
+        self,
+        ctx: VcsContext,
+        *,
+        branch: str,
+        required_checks: list[str],
+    ) -> VcsResult:
+        """Apply branch protection/build policy to a branch.
+
+        Args:
+            ctx: Execution context with project root.
+            branch: Target protected branch (for example ``main``).
+            required_checks: Status checks/build validations to require.
+
+        Returns:
+            VcsResult for policy application.
+        """
+        ...  # pragma: no cover
+
+    def post_pr_review(self, ctx: VcsContext, *, body: str) -> VcsResult:
+        """Post a PR review comment for the current branch/PR.
+
+        Args:
+            ctx: Execution context with branch metadata.
+            body: Review body markdown/text.
+
+        Returns:
+            VcsResult for the review operation.
+        """
+        ...  # pragma: no cover

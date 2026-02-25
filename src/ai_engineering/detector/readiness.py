@@ -14,6 +14,10 @@ from __future__ import annotations
 import shutil
 import subprocess
 from dataclasses import dataclass, field
+from pathlib import Path
+
+from ai_engineering.state.io import read_json_model
+from ai_engineering.state.models import InstallManifest
 
 
 @dataclass
@@ -255,3 +259,30 @@ def _try_install(package: str) -> bool:
         pass
 
     return False
+
+
+def check_operational_readiness(project_root: Path) -> ReadinessReport:
+    """Check auth/pipeline/policy readiness from install manifest state."""
+    report = ReadinessReport()
+    manifest_path = project_root / ".ai-engineering" / "state" / "install-manifest.json"
+    if not manifest_path.exists():
+        return report
+
+    try:
+        manifest = read_json_model(manifest_path, InstallManifest)
+    except Exception:
+        report.tools.append(
+            ToolInfo(name="manifest", available=False, version=None, path=str(manifest_path))
+        )
+        return report
+
+    provider = manifest.providers.primary
+    provider_status = (
+        manifest.tooling_readiness.gh if provider == "github" else manifest.tooling_readiness.az
+    )
+    report.tools.append(ToolInfo(name=f"auth:{provider}", available=provider_status.authenticated))
+    report.tools.append(ToolInfo(name="cicd:generated", available=manifest.cicd.generated))
+    report.tools.append(
+        ToolInfo(name="branch-policy:applied", available=manifest.branch_policy.applied)
+    )
+    return report

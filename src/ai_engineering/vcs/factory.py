@@ -14,6 +14,7 @@ from pathlib import Path
 from ai_engineering.git.operations import run_git
 from ai_engineering.state.io import read_json_model
 from ai_engineering.state.models import InstallManifest
+from ai_engineering.vcs.api_fallback import ApiFallbackProvider
 from ai_engineering.vcs.azure_devops import AzureDevOpsProvider
 from ai_engineering.vcs.github import GitHubProvider
 from ai_engineering.vcs.protocol import VcsProvider
@@ -46,6 +47,13 @@ def get_provider(project_root: Path) -> VcsProvider:
         try:
             manifest = read_json_model(manifest_path, InstallManifest)
             primary = manifest.providers.primary
+            mode = ""
+            if primary == "github":
+                mode = manifest.tooling_readiness.gh.mode
+            elif primary == "azure_devops":
+                mode = manifest.tooling_readiness.az.mode
+            if mode == "api":
+                return ApiFallbackProvider(primary)
             cls = _PROVIDERS.get(primary)
             if cls is not None:
                 return cls()

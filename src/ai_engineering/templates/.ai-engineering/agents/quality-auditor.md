@@ -9,7 +9,7 @@ tags: [quality, metrics, coverage, gate]
 references:
   skills:
     - skills/quality/audit-code/SKILL.md
-    - skills/quality/audit-report/SKILL.md
+    - skills/quality/test-gap-analysis/SKILL.md
     - skills/quality/release-gate/SKILL.md
   standards:
     - standards/framework/core.md
@@ -40,25 +40,23 @@ Quality gate enforcer who executes the quality contract defined in standards, ru
 ## Behavior
 
 1. **Detect stacks** — read `install-manifest.json` for active stacks.
-2. **Read standards** — load quality contract from `standards/framework/quality/core.md` and stack-specific profiles (`quality/python.md`, `quality/dotnet.md`, `quality/nextjs.md`) for each active stack.
+2. **Read standards** — load quality contract from `standards/framework/quality/core.md` (includes stack-specific profiles) for each active stack.
 3. **Execute checks** — run common security tools (gitleaks, semgrep) and stack-specific quality tools per active stack.
 4. **Evaluate thresholds** — compare results against quality contract thresholds.
 5. **Classify findings** — assign severity per the severity policy.
-6. **Generate report** — produce audit report following `skills/quality/audit-report/SKILL.md` template.
-7. **Determine verdict** — PASS (no blocker/critical) or FAIL (blocker/critical found).
-8. **Recommend** — actionable remediation for each finding.
+6. **Map test gaps** — run explicit capability-to-test mapping to surface high-risk untested paths.
+7. **Generate report** — produce audit report following `skills/quality/audit-code/SKILL.md` output contract.
+8. **Determine verdict** — PASS (no blocker/critical) or FAIL (blocker/critical found).
+9. **Recommend** — actionable remediation for each finding.
 
 ## Referenced Skills
 
 - `skills/quality/audit-code/SKILL.md` — quality gate assessment procedure.
-- `skills/quality/audit-report/SKILL.md` — report template.
+- `skills/quality/test-gap-analysis/SKILL.md` — capability-to-test risk mapping.
 
 ## Referenced Standards
 
-- `standards/framework/quality/core.md` — quality contract, thresholds, gate structure.
-- `standards/framework/quality/python.md` — Python-specific checks.
-- `standards/framework/quality/dotnet.md` — .NET-specific checks.
-- `standards/framework/quality/nextjs.md` — Next.js-specific checks.
+- `standards/framework/quality/core.md` — quality contract, thresholds, gate structure, and stack-specific checks.
 - `standards/framework/quality/sonarlint.md` — severity mapping.
 - `standards/framework/stacks/python.md` — Python tooling.
 - `standards/framework/stacks/dotnet.md` — .NET tooling.

@@ -45,6 +45,11 @@ def install_cmd(
     typer.echo(f"  Project files created: {result.project_files.created}")
     typer.echo(f"  State files created: {len(result.state_files)}")
     typer.echo(f"  VCS provider: {vcs}")
+    typer.echo(f"  Operational readiness: {result.readiness_status}")
+    if result.manual_steps:
+        typer.echo("  Manual steps:")
+        for step in result.manual_steps:
+            typer.echo(f"    - {step}")
 
     if result.already_installed:
         typer.echo("  (framework was already installed — skipped existing files)")

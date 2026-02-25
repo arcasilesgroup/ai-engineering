@@ -60,12 +60,11 @@ Complexity reducer who systematically identifies and eliminates unnecessary comp
 
 - `skills/dev/refactor/SKILL.md` — refactoring procedure and safety checks.
 - `skills/dev/code-review/SKILL.md` — code quality assessment criteria.
-- `skills/patterns/python-patterns/SKILL.md` — Pythonic patterns domain.
+- `skills/dev/references/language-framework-patterns.md` — Pythonic patterns domain.
 
 ## Referenced Standards
 
-- `standards/framework/quality/python.md` — complexity thresholds (cyclomatic ≤ 10, cognitive ≤ 15, functions < 50 lines).
-- `standards/framework/quality/core.md` — quality gate severity policy.
+- `standards/framework/quality/core.md` — complexity thresholds and quality gate severity policy.
 - `standards/framework/stacks/python.md` — code patterns and conventions.
 
 ## Output Contract

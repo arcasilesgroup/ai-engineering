@@ -40,23 +40,28 @@ Generate stack-aware CI/CD workflow files (GitHub Actions) based on installed st
    - Stack-specific checks run per matrix entry.
    - Coverage upload as artifact.
 
-4. **Generate security workflow** (if DAST/container tools configured) — create `.github/workflows/security.yml`.
+4. **Generate AI PR review workflow** — create provider-specific `ai-pr-review` pipeline.
+   - Add `ai-eng review pr --strict` step.
+   - High/critical findings are merge-blocking outcomes.
+   - Ensure workflow is required by branch policy/build validation.
+
+5. **Generate security workflow** (if DAST/container tools configured) — create `.github/workflows/security.yml`.
    - Trigger: on deployment to staging, or manual dispatch.
    - DAST job: ZAP/Nuclei against staging URL (URL as workflow input).
    - Container scan job: Trivy on built images (image reference as input).
    - Results uploaded as artifacts.
 
-5. **Generate SBOM workflow** (if SBOM skill active) — create `.github/workflows/sbom.yml`.
+6. **Generate SBOM workflow** (if SBOM skill active) — create `.github/workflows/sbom.yml`.
    - Trigger: on release or manual dispatch.
    - Per-stack SBOM generation.
    - Upload SBOM as release asset.
 
-6. **Validate generated workflows** — check syntax.
+7. **Validate generated workflows** — check syntax.
    - Run `actionlint` on generated files if available.
    - Verify YAML validity.
    - Report any issues.
 
-7. **Report** — summarize generated files and next steps.
+8. **Report** — summarize generated files and next steps.
    - List generated workflow files.
    - Note required GitHub Actions secrets/variables.
    - Recommend branch protection settings.
@@ -81,3 +86,4 @@ Generate stack-aware CI/CD workflow files (GitHub Actions) based on installed st
 - `standards/framework/stacks/python.md` — Python check details.
 - `standards/framework/stacks/dotnet.md` — .NET check details.
 - `standards/framework/stacks/nextjs.md` — Next.js check details.
+- `skills/dev/references/delivery-platform-patterns.md` — delivery/platform patterns for provider-aware pipelines.

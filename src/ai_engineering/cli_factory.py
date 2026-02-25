@@ -17,7 +17,17 @@ from collections.abc import Callable
 
 import typer
 
-from ai_engineering.cli_commands import core, gate, maintenance, skills, stack_ide, validate, vcs
+from ai_engineering.cli_commands import (
+    cicd,
+    core,
+    gate,
+    maintenance,
+    review,
+    skills,
+    stack_ide,
+    validate,
+    vcs,
+)
 
 # Commands exempt from deprecation blocking (needed for diagnosis and remediation).
 _EXEMPT_COMMANDS: frozenset[str] = frozenset({"version", "update", "doctor"})
@@ -182,5 +192,23 @@ def create_app() -> typer.Typer:
     vcs_app.command("status")(_safe(vcs.vcs_status))
     vcs_app.command("set-primary")(_safe(vcs.vcs_set_primary))
     app.add_typer(vcs_app, name="vcs")
+
+    # Review sub-group
+    review_app = typer.Typer(
+        name="review",
+        help="Run provider-backed review operations.",
+        no_args_is_help=True,
+    )
+    review_app.command("pr")(_safe(review.review_pr))
+    app.add_typer(review_app, name="review")
+
+    # CI/CD sub-group
+    cicd_app = typer.Typer(
+        name="cicd",
+        help="Manage generated CI/CD pipelines.",
+        no_args_is_help=True,
+    )
+    cicd_app.command("regenerate")(_safe(cicd.cicd_regenerate))
+    app.add_typer(cicd_app, name="cicd")
 
     return app

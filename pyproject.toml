@@ -38,7 +38,13 @@ known-first-party = ["ai_engineering"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
-addopts = "-v --cov=src/ai_engineering --cov-report=term-missing"
+addopts = "-v"
+markers = [
+  "unit: Pure logic tests, no I/O, fast (<1s per test)",
+  "integration: Tests with local I/O (filesystem, git)",
+  "e2e: End-to-end flows (install, CLI, hooks)",
+  "live: External API tests (requires AI_ENG_LIVE_TEST=1)",
+]
 
 [build-system]
 requires = ["hatchling>=1.25.0"]

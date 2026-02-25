@@ -34,6 +34,7 @@ Full-spectrum audit orchestrator who executes a comprehensive repository audit b
 - DAST, container security, and SBOM coverage verification.
 - Blocking issue identification and residual risk quantification.
 - Audit evidence aggregation from multiple specialized tools and agents.
+- Alignment checks with orchestrator/navigator strategy outputs when present.
 
 ## Activation
 
@@ -73,6 +74,7 @@ Full-spectrum audit orchestrator who executes a comprehensive repository audit b
 - `skills/review/container-security/SKILL.md` — container image scanning.
 - `skills/quality/sbom/SKILL.md` — software bill of materials generation.
 - `skills/dev/multi-agent/SKILL.md` — orchestration patterns for parallel agent execution.
+- `skills/workflows/self-improve/SKILL.md` — continuous improvement loop.
 
 ## Referenced Standards
 
