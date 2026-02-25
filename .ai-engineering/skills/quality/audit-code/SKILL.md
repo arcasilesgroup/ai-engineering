@@ -156,8 +156,5 @@ Produce this markdown structure directly as audit output:
 
 ## References
 
-- `standards/framework/quality/core.md` — quality contract (thresholds and gates).
-- `standards/framework/quality/python.md` — Python-specific checks.
-- `standards/framework/quality/dotnet.md` — .NET-specific checks.
-- `standards/framework/quality/nextjs.md` — Next.js-specific checks.
+- `standards/framework/quality/core.md` — quality contract (thresholds, gates, and stack-specific checks).
 - `agents/quality-auditor.md` — agent that executes this skill.

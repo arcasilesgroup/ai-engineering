@@ -316,6 +316,69 @@ class TestToolCheckRequired:
         for config in gitleaks_configs + semgrep_configs:
             assert config.required is True, f"{config.name} must be required"
 
+    def test_timeout_passed_to_subprocess(self, tmp_path: Path) -> None:
+        """_run_tool_check passes custom timeout to subprocess.run."""
+        result = GateResult(hook=GateHook.PRE_COMMIT)
+        mock_proc = subprocess.CompletedProcess(args=["tool"], returncode=0, stdout="ok", stderr="")
+        with (
+            patch("ai_engineering.policy.gates.shutil.which", return_value="/usr/bin/tool"),
+            patch("ai_engineering.policy.gates.subprocess.run", return_value=mock_proc) as mock_run,
+        ):
+            _run_tool_check(
+                result,
+                name="test-tool",
+                cmd=["tool", "check"],
+                cwd=tmp_path,
+                timeout=600,
+            )
+        mock_run.assert_called_once()
+        assert mock_run.call_args.kwargs["timeout"] == 600
+
+    def test_timeout_message_includes_custom_value(self, tmp_path: Path) -> None:
+        """Timeout error message reflects the configured timeout value."""
+        result = GateResult(hook=GateHook.PRE_COMMIT)
+        with (
+            patch("ai_engineering.policy.gates.shutil.which", return_value="/usr/bin/tool"),
+            patch(
+                "ai_engineering.policy.gates.subprocess.run",
+                side_effect=subprocess.TimeoutExpired(cmd="tool", timeout=600),
+            ),
+        ):
+            _run_tool_check(
+                result,
+                name="test-tool",
+                cmd=["tool", "check"],
+                cwd=tmp_path,
+                timeout=600,
+            )
+        check = _find_check(result, "test-tool")
+        assert not check.passed
+        assert "600s" in check.output
+
+    def test_stack_tests_uses_no_cov_and_markers(self) -> None:
+        """stack-tests check excludes coverage and e2e/live markers."""
+        from ai_engineering.policy.gates import _PRE_PUSH_CHECKS
+
+        stack_tests = [c for c in _PRE_PUSH_CHECKS.get("python", []) if c.name == "stack-tests"]
+        assert stack_tests, "stack-tests must exist in python pre-push checks"
+        cmd = stack_tests[0].cmd
+        assert "--no-cov" in cmd, "stack-tests must skip coverage"
+        assert "-x" in cmd, "stack-tests must fail fast"
+        assert "not e2e and not live" in " ".join(cmd), "stack-tests must exclude e2e and live"
+
+    def test_stack_tests_has_extended_timeout(self) -> None:
+        """stack-tests check has timeout > default 300s."""
+        from ai_engineering.policy.gates import _PRE_PUSH_CHECKS
+
+        stack_tests = [c for c in _PRE_PUSH_CHECKS.get("python", []) if c.name == "stack-tests"]
+        assert stack_tests, "stack-tests must exist"
+        assert stack_tests[0].timeout == 600, "stack-tests timeout must be 600s"
+
+    def test_check_config_default_timeout(self) -> None:
+        """CheckConfig defaults to 300s timeout."""
+        config = CheckConfig(name="test", cmd=["test"])
+        assert config.timeout == 300
+
 
 # ---------------------------------------------------------------------------
 # GateResult

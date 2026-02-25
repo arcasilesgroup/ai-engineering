@@ -54,7 +54,7 @@ Systematic diagnostician who approaches bugs methodically with persistent state 
 
 ## Referenced Standards
 
-- `standards/framework/quality/python.md` — test requirements.
+- `standards/framework/quality/core.md` — test requirements.
 - `standards/framework/core.md` — governance for decision recording.
 
 ## Output Contract

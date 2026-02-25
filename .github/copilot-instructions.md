@@ -48,6 +48,7 @@ Procedural skills guide structured execution. Reference the relevant skill befor
 - `.ai-engineering/skills/dev/deps-update/SKILL.md` — dependency management.
 - `.ai-engineering/skills/dev/cicd-generate/SKILL.md` — CI/CD workflow generation.
 - `.ai-engineering/skills/dev/multi-agent/SKILL.md` — multi-agent orchestration patterns.
+- `.ai-engineering/skills/dev/test-runner/SKILL.md` — write and run tests across frameworks.
 
 ### Review Skills
 
@@ -108,6 +109,7 @@ Agent definitions provide personas for complex multi-step tasks. Activate the re
 - `.ai-engineering/agents/code-simplifier.md` — complexity reduction.
 - `.ai-engineering/agents/platform-auditor.md` — full-spectrum audit orchestration.
 - `.ai-engineering/agents/verify-app.md` — end-to-end verification.
+- `.ai-engineering/agents/test-master.md` — comprehensive testing specialist.
 
 ## Copilot Integration
 
@@ -144,7 +146,7 @@ Before proposing merge:
 
 ## Quality Contract
 
-- Coverage: 100%.
+- Coverage: 90%.
 - Duplication ≤ 3%.
 - Cyclomatic complexity ≤ 10.
 - Cognitive complexity ≤ 15.

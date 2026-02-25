@@ -23,7 +23,7 @@ This project dogfoods the ai-engineering framework on itself.
 
 ### Active Objectives
 
-1. Complete governance content: 44 skills, 14 agents, 5 stack instructions.
+1. Complete governance content: 45 skills, 15 agents, 5 stack instructions.
 2. Rewrite all Python modules from scratch following new standards.
 3. Achieve CI/CD with cross-OS matrix (Python 3.11/3.12/3.13 × Ubuntu/Windows/macOS).
 4. Validate full E2E install/update/doctor cycle.
@@ -63,7 +63,7 @@ Spec-021: Governance + CI/CD Evolution. Last completed: Spec-020.
 | Quality gate pass rate | 100% on all governed ops | 100% (all tools pass) |
 | Security scan pass rate | 100% — zero medium+ findings | 100% (0 critical/high, 1 medium SAST to remediate) |
 | Tamper resistance score | 100/100 | 85/100 (B3/B4 implemented, pending CI evidence stabilization) |
-| Agent coverage (skills + agents defined) | 44 skills + 14 agents | 44/44 skills, 14/14 agents |
+| Agent coverage (skills + agents defined) | 45 skills + 15 agents | 45/45 skills, 15/15 agents |
 | Test coverage | 100% | 87% (530 tests) |
 | Cross-OS CI pass | 3×3 matrix green | In progress (matrix workflow implemented; awaiting run history) |
 | Token efficiency (progressive disclosure) | ≥ 95% deferred at session start | 99.14% (500 / 58,278 tokens loaded) |

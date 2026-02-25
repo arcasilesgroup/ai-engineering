@@ -95,7 +95,7 @@ jobs:
         run: uv sync --dev
       - name: Run tests
         run: |
-          uv run pytest tests/ -v --durations=25 --cov=src/ai_engineering --cov-report=term-missing | tee test-output.log
+          uv run pytest tests/ -v --durations=25 --cov=src/ai_engineering --cov-report=term-missing --cov-fail-under=90 | tee test-output.log
       - name: Upload coverage
         if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'
         uses: actions/upload-artifact@v4

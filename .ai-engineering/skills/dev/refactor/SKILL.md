@@ -69,6 +69,6 @@ Safe refactoring skill: improve internal code structure without changing externa
 ## References
 
 - `standards/framework/stacks/python.md` — code patterns and quality baseline.
-- `standards/framework/quality/python.md` — complexity thresholds.
+- `standards/framework/quality/core.md` — complexity thresholds.
 - `skills/dev/test-strategy/SKILL.md` — for writing tests before refactoring.
 - `agents/code-simplifier.md` — agent that uses this skill.

@@ -73,8 +73,7 @@ Define what to test, how to structure tests, and how to achieve meaningful cover
 ## References
 
 - `standards/framework/stacks/python.md` — testing patterns.
-- `standards/framework/quality/python.md` — coverage policy.
-- `standards/framework/quality/core.md` — quality gates.
+- `standards/framework/quality/core.md` — coverage policy and quality gates.
 - `agents/debugger.md` — agent that writes regression tests.
 - `agents/principal-engineer.md` — agent that assesses test completeness.
 - `agents/verify-app.md` — agent that follows test design principles.

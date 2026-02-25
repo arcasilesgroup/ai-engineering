@@ -106,6 +106,7 @@ class CheckConfig:
     name: str
     cmd: list[str]
     required: bool = True
+    timeout: int = 300
 
 
 # Pre-commit checks per stack.
@@ -147,9 +148,12 @@ _PRE_PUSH_CHECKS: dict[str, list[CheckConfig]] = {
                 "pytest",
                 "--tb=short",
                 "-q",
-                "--cov=src/ai_engineering",
-                "--cov-fail-under=100",
+                "-x",
+                "--no-cov",
+                "-m",
+                "not e2e and not live",
             ],
+            timeout=600,
         ),
         CheckConfig(
             name="duplication-check",
@@ -413,6 +417,7 @@ def _run_checks_for_stacks(
             cmd=check.cmd,
             cwd=project_root,
             required=check.required,
+            timeout=check.timeout,
         )
 
     # Run per-stack checks
@@ -424,6 +429,7 @@ def _run_checks_for_stacks(
                 cmd=check.cmd,
                 cwd=project_root,
                 required=check.required,
+                timeout=check.timeout,
             )
 
 
@@ -434,6 +440,7 @@ def _run_tool_check(
     cmd: list[str],
     cwd: Path,
     required: bool = True,
+    timeout: int = 300,
 ) -> None:
     """Run a tool command and record the result.
 
@@ -448,6 +455,7 @@ def _run_tool_check(
         cwd: Working directory for the command.
         required: If True, missing tool causes check failure. Defaults to True
             (fail-closed). All registered check configs pass this explicitly.
+        timeout: Maximum seconds for the command to run. Defaults to 300.
     """
     tool_name = cmd[0]
     if not shutil.which(tool_name):
@@ -478,7 +486,7 @@ def _run_tool_check(
             cwd=cwd,
             capture_output=True,
             text=True,
-            timeout=300,
+            timeout=timeout,
             encoding="utf-8",
             errors="replace",
         )
@@ -491,7 +499,7 @@ def _run_tool_check(
             output = output[:500] + "\n... (truncated)"
     except subprocess.TimeoutExpired:
         passed = False
-        output = f"{tool_name} timed out after 300s"
+        output = f"{tool_name} timed out after {timeout}s"
     except FileNotFoundError:
         if required:
             passed = False

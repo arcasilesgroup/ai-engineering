@@ -2,9 +2,9 @@
 
 ## Update Metadata
 
-- Rationale: enforce 100% security and quality compliance as non-negotiable baseline; zero tolerance for security findings (medium+) and quality gate failures.
-- Expected gain: every governed operation passes all gates; security posture fully enforced with tamper resistance.
-- Potential impact: stricter enforcement blocks merges until all findings are remediated; no exceptions without risk acceptance.
+- Rationale: consolidate quality thresholds as single source of truth; coverage target lowered to 90% to eliminate gap-filler bloat while keeping security enforcement non-negotiable.
+- Expected gain: one authoritative location for quality baselines; stack-specific quality profiles removed (duplicated content now lives in stacks/*.md).
+- Potential impact: coverage threshold change applies to all gates and CI; gap-filler tests can be removed.
 
 ## Enforcement Scope
 
@@ -13,7 +13,7 @@
 
 ## Required Quality Gates
 
-- Coverage on changed code: 100%.
+- Coverage target: 90%.
 - Coverage on governance-critical paths: 100%.
 - Duplicated lines on changed code: ≤3%.
 - Reliability: no critical or blocker issues.

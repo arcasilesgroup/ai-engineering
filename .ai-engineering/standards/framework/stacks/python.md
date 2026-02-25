@@ -29,7 +29,7 @@
 ## Quality Baseline
 
 - Type hints required on all public APIs: `from __future__ import annotations`.
-- Test coverage target: 100%.
+- Test coverage target: per `standards/framework/quality/core.md` (90% overall, 100% governance-critical).
 - Line length: 100.
 - Docstrings: Google-style on all public functions and classes.
 
@@ -74,6 +74,9 @@
 
 ## Testing Patterns
 
+See `skills/dev/test-runner/SKILL.md` for full testing patterns and references.
+
+Summary:
 - One test file per module, AAA pattern (Arrange-Act-Assert).
 - `tmp_path` for filesystem operations.
 - Integration tests use real `git init`.

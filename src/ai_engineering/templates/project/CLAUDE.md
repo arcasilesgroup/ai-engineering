@@ -71,6 +71,7 @@ Procedural skills guide structured execution. Reference the relevant skill befor
 - `.ai-engineering/skills/dev/deps-update/SKILL.md` — dependency management.
 - `.ai-engineering/skills/dev/cicd-generate/SKILL.md` — CI/CD workflow generation.
 - `.ai-engineering/skills/dev/multi-agent/SKILL.md` — multi-agent orchestration patterns.
+- `.ai-engineering/skills/dev/test-runner/SKILL.md` — write and run tests across frameworks.
 
 ### Review Skills
 
@@ -118,13 +119,13 @@ Procedural skills guide structured execution. Reference the relevant skill befor
 Skills and agents are available as Claude Code slash commands via `.claude/commands/`. Each command is a thin wrapper that reads and executes the canonical skill or agent file. No content is duplicated — the command files are pointers only (decision S0-008).
 
 - `/commit`, `/pr`, `/acho`, `/pre-implementation`, `/cleanup` — workflow commands.
-- `/dev:*` — dev skill commands (e.g., `/dev:debug`, `/dev:refactor`, `/dev:code-review`, `/dev:data-modeling`, `/dev:cicd-generate`, `/dev:multi-agent`).
+- `/dev:*` — dev skill commands (e.g., `/dev:debug`, `/dev:refactor`, `/dev:code-review`, `/dev:data-modeling`, `/dev:test-runner`, `/dev:cicd-generate`, `/dev:multi-agent`).
 - `/review:*` — review skill commands (e.g., `/review:architecture`, `/review:security`, `/review:data-security`, `/review:dast`, `/review:container-security`).
 - `/docs:*` — docs skill commands (e.g., `/docs:changelog`, `/docs:explain`, `/docs:simplify`).
 - `/govern:*` — governance skill commands (e.g., `/govern:create-spec`, `/govern:integrity-check`, `/govern:contract-compliance`, `/govern:ownership-audit`, `/govern:adaptive-standards`).
 - `/quality:*` — quality skill commands (`/quality:audit-code`, `/quality:install-check`, `/quality:docs-audit`, `/quality:release-gate`, `/quality:test-gap-analysis`, `/quality:sbom`).
 - `/workflows:*` — workflow skill commands (e.g., `/workflows:self-improve`).
-- `/agent:*` — agent persona commands (e.g., `/agent:verify-app`, `/agent:debugger`, `/agent:platform-auditor`).
+- `/agent:*` — agent persona commands (e.g., `/agent:verify-app`, `/agent:debugger`, `/agent:test-master`, `/agent:platform-auditor`).
 
 ## Copilot Integration
 
@@ -152,6 +153,7 @@ Agent definitions provide personas for complex multi-step tasks. Activate the re
 - `.ai-engineering/agents/code-simplifier.md` — complexity reduction.
 - `.ai-engineering/agents/platform-auditor.md` — full-spectrum audit orchestration.
 - `.ai-engineering/agents/verify-app.md` — end-to-end verification.
+- `.ai-engineering/agents/test-master.md` — comprehensive testing specialist.
 
 ## Mandatory Lifecycle
 
@@ -228,7 +230,7 @@ For full schema details: `.ai-engineering/standards/framework/skills-schema.md`.
 
 ## Quality Contract
 
-- Coverage: 100%.
+- Coverage: 90%.
 - Duplication ≤ 3%.
 - Cyclomatic complexity ≤ 10.
 - Cognitive complexity ≤ 15.
