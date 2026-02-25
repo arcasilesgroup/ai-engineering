@@ -100,7 +100,7 @@ jobs:
 
   test-integration:
     name: Integration (${{ matrix.os }})
-    needs: [docs-scope, test-unit]
+    needs: [docs-scope]
     if: needs.docs-scope.outputs.code == 'true'
     runs-on: ${{ matrix.os }}
     defaults:
@@ -131,7 +131,7 @@ jobs:
 
   test-e2e:
     name: E2E
-    needs: [docs-scope, test-integration]
+    needs: [docs-scope]
     if: needs.docs-scope.outputs.code == 'true'
     runs-on: ubuntu-latest
     defaults:

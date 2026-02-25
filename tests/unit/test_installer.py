@@ -521,8 +521,8 @@ class TestInstallAppendsAuditLog:
 
         patched["append_ndjson"].assert_called_once()
         audit_call = patched["append_ndjson"].call_args
-        audit_path = audit_call[0][0]
-        assert str(audit_path).endswith(_AUDIT_LOG_PATH)
+        audit_path = Path(audit_call[0][0])
+        assert audit_path.parts[-2:] == ("state", "audit-log.ndjson")
 
     def test_audit_entry_event_is_install(self, patched, tmp_path: Path) -> None:
         with patch.object(Path, "exists", return_value=True):
