@@ -13,6 +13,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from ai_engineering.pipeline.compliance import (
     ComplianceReport,
     PipelineFile,
@@ -27,6 +29,9 @@ from ai_engineering.pipeline.injector import (
     generate_workflows,
     suggest_injection,
 )
+
+pytestmark = pytest.mark.unit
+
 
 # ── detect_pipelines ────────────────────────────────────────────────────
 

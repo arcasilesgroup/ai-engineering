@@ -5,6 +5,8 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
+import pytest
+
 from ai_engineering.validator.service import (
     CheckStatus,
     IntegrityCategory,
@@ -13,6 +15,9 @@ from ai_engineering.validator.service import (
     _parse_counter,
     validate_content_integrity,
 )
+
+pytestmark = pytest.mark.unit
+
 
 # -- Helpers ----------------------------------------------------------------
 

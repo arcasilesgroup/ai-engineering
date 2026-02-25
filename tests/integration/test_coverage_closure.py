@@ -17,6 +17,8 @@ from ai_engineering.policy import gates
 from ai_engineering.skills import service as skills_service
 from ai_engineering.validator import service as validator
 
+pytestmark = pytest.mark.integration
+
 
 def test_stack_ide_remaining_exception_paths(tmp_path: Path) -> None:
     with (

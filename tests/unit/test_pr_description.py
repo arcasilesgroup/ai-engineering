@@ -5,6 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
+
 from ai_engineering.vcs.pr_description import (
     _humanize_branch,
     _read_active_spec,
@@ -12,6 +14,9 @@ from ai_engineering.vcs.pr_description import (
     build_pr_description,
     build_pr_title,
 )
+
+pytestmark = pytest.mark.unit
+
 
 # ---------------------------------------------------------------------------
 # _humanize_branch
