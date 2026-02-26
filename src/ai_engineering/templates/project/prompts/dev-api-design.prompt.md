@@ -1,0 +1,8 @@
+---
+description: "Contract-first API design"
+mode: "agent"
+---
+
+Read and execute the skill defined in `.ai-engineering/skills/dev/api-design/SKILL.md`.
+
+Follow the complete procedure. Do not skip steps. Apply all governance notes.
