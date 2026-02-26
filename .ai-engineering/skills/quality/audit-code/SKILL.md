@@ -62,6 +62,12 @@ Execute a SonarQube-like quality gate assessment on the codebase. Evaluates cove
    - `vitest run --coverage` → test results and coverage.
    - `npm audit` → dependency vulnerabilities.
 
+   **Optional: Sonar gate** (when configured):
+   - Invoke `dev/sonar-gate/SKILL.md` procedure.
+   - Silent skip if `SONAR_TOKEN` not configured — never blocks audit.
+   - If configured: run `sonar-scanner` with `qualitygate.wait=true`.
+   - Report Sonar gate as PASS/FAIL/SKIP alongside other tool evidence.
+
 3. **Evaluate thresholds** — compare results with quality contract.
 
    | Metric | Threshold | Severity if violated |
@@ -157,4 +163,5 @@ Produce this markdown structure directly as audit output:
 ## References
 
 - `standards/framework/quality/core.md` — quality contract (thresholds, gates, and stack-specific checks).
+- `skills/dev/sonar-gate/SKILL.md` — optional Sonar quality gate (invoked when configured).
 - `agents/quality-auditor.md` — agent that executes this skill.
