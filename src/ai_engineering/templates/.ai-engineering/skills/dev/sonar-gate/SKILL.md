@@ -62,14 +62,14 @@ Run a SonarCloud / SonarQube quality gate analysis locally before push. Catches 
 
 The Sonar quality gate should mirror the framework quality contract:
 
-| Framework Metric | Sonar Property | Threshold |
-|-----------------|----------------|-----------|
-| Coverage (overall) | `sonar.coverage` | ≥ 90% |
-| Duplicated lines | `sonar.duplicated_lines_density` | ≤ 3% |
-| Blocker issues | `sonar.blocker_violations` | 0 |
-| Critical issues | `sonar.critical_violations` | 0 |
-| Cyclomatic complexity | `sonar.complexity` | ≤ 10 per function |
-| Cognitive complexity | `sonar.cognitive_complexity` | ≤ 15 per function |
+| Framework Metric      | Sonar Property                   | Threshold         |
+| --------------------- | -------------------------------- | ----------------- |
+| Coverage (overall)    | `sonar.coverage`                 | ≥ 90%             |
+| Duplicated lines      | `sonar.duplicated_lines_density` | ≤ 3%              |
+| Blocker issues        | `sonar.blocker_violations`       | 0                 |
+| Critical issues       | `sonar.critical_violations`      | 0                 |
+| Cyclomatic complexity | `sonar.complexity`               | ≤ 10 per function |
+| Cognitive complexity  | `sonar.cognitive_complexity`     | ≤ 15 per function |
 
 See `references/sonar-threshold-mapping.md` for detailed mapping.
 
@@ -78,16 +78,17 @@ See `references/sonar-threshold-mapping.md` for detailed mapping.
 ```markdown
 ## Sonar Gate Result
 
-| Field | Value |
-|-------|-------|
-| Status | **PASS** / **FAIL** / **SKIP** |
-| Reason | <gate status or skip reason> |
-| Server | <sonar URL> |
-| Project | <project key> |
+| Field   | Value                          |
+| ------- | ------------------------------ |
+| Status  | **PASS** / **FAIL** / **SKIP** |
+| Reason  | <gate status or skip reason>   |
+| Server  | <sonar URL>                    |
+| Project | <project key>                  |
 
 ### Violations (if FAIL)
+
 | Severity | Count | Description |
-|----------|-------|-------------|
+| -------- | ----- | ----------- |
 ```
 
 ## Governance Notes

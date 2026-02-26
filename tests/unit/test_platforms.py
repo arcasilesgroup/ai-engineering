@@ -7,7 +7,6 @@ setup classes are tested with mocks for subprocess/HTTP calls.
 
 from __future__ import annotations
 
-import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -278,11 +277,13 @@ class TestAzureDevOpsSetup:
 
         azdo = AzureDevOpsSetup(mock_creds)
 
-        with patch.dict("sys.modules", {"httpx": None}):
-            with patch("urllib.request.urlopen", side_effect=URLError("timeout")):
-                result = azdo.validate_pat("https://dev.azure.com/myorg", "test-pat")
-                assert result.valid is False
-                assert "Connection error" in result.error
+        with (
+            patch.dict("sys.modules", {"httpx": None}),
+            patch("urllib.request.urlopen", side_effect=URLError("timeout")),
+        ):
+            result = azdo.validate_pat("https://dev.azure.com/myorg", "test-pat")
+            assert result.valid is False
+            assert "Connection error" in result.error
 
     def test_store_and_exists(self, mock_creds: MagicMock) -> None:
         from ai_engineering.platforms.azure_devops import AzureDevOpsSetup

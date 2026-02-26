@@ -107,7 +107,7 @@ class AzureDevOpsSetup:
         except ImportError:
             # Fallback to urllib if httpx is not available.
             result = self._validate_pat_urllib(org_url, pat)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             result.error = f"Connection error: {exc}"
 
         return result
@@ -136,14 +136,14 @@ class AzureDevOpsSetup:
         )
 
         try:
-            with urllib.request.urlopen(req, timeout=10) as resp:  # noqa: S310
+            with urllib.request.urlopen(req, timeout=10) as resp:
                 if resp.status == 200:
                     result.valid = True
                 else:
                     result.error = f"HTTP {resp.status} from Azure DevOps API"
         except URLError as exc:
             result.error = f"Connection error: {exc}"
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             result.error = f"Unexpected error: {exc}"
 
         return result

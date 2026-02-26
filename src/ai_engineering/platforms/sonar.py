@@ -13,13 +13,11 @@ Only non-secret metadata (URL, project key) is persisted.
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 from urllib.parse import urljoin
 
 if TYPE_CHECKING:
-    import httpx
-
     from ai_engineering.credentials.service import CredentialService
 
 logger = logging.getLogger(__name__)
@@ -111,7 +109,7 @@ class SonarSetup:
         except ImportError:
             # Fallback to urllib if httpx is not available.
             result = self._validate_token_urllib(url, token)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             result.error = f"Connection error: {exc}"
 
         return result
@@ -138,14 +136,14 @@ class SonarSetup:
         )
 
         try:
-            with urllib.request.urlopen(req, timeout=10) as resp:  # noqa: S310
+            with urllib.request.urlopen(req, timeout=10) as resp:
                 data = json.loads(resp.read().decode())
                 result.valid = data.get("valid", False)
                 if not result.valid:
                     result.error = "Token rejected by Sonar server"
         except URLError as exc:
             result.error = f"Connection error: {exc}"
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             result.error = f"Unexpected error: {exc}"
 
         return result

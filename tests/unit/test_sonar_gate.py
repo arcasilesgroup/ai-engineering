@@ -6,7 +6,6 @@ and the script argument generation for sonar-pre-gate scripts.
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -18,7 +17,6 @@ from ai_engineering.credentials.models import (
     ToolsState,
 )
 from ai_engineering.credentials.service import CredentialService
-
 
 # ---------------------------------------------------------------
 # Skip logic — tools.json state
@@ -81,11 +79,11 @@ class TestThresholdMapping:
         """Coverage threshold is 90%."""
         # This validates the contract constant — the actual enforcement
         # is in sonar-project.properties and the Sonar quality gate.
-        assert 90 <= 100  # noqa: PLR6201
+        assert 90 <= 100
 
     def test_duplication_threshold(self) -> None:
         """Duplication threshold is 3%."""
-        assert 3 <= 100  # noqa: PLR6201
+        assert 3 <= 100
 
     def test_complexity_thresholds(self) -> None:
         """Cyclomatic ≤ 10, cognitive ≤ 15."""

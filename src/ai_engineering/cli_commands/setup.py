@@ -47,6 +47,7 @@ def _state_dir(root: Path) -> Path:
 # ------------------------------------------------------------------
 
 
+@setup_app.command("platforms")
 def setup_platforms_cmd(
     target: Annotated[
         Path | None,
@@ -90,6 +91,7 @@ def setup_platforms_cmd(
 # ------------------------------------------------------------------
 
 
+@setup_app.command("github")
 def setup_github_cmd(
     target: Annotated[
         Path | None,
@@ -145,6 +147,7 @@ def _run_github_setup(root: Path) -> None:
 # ------------------------------------------------------------------
 
 
+@setup_app.command("sonar")
 def setup_sonar_cmd(
     target: Annotated[
         Path | None,
@@ -259,6 +262,7 @@ def _read_sonar_project_key(root: Path) -> str:
 # ------------------------------------------------------------------
 
 
+@setup_app.command("azure-devops")
 def setup_azure_devops_cmd(
     target: Annotated[
         Path | None,
@@ -329,6 +333,7 @@ def _run_azure_devops_setup(root: Path, *, org_url_override: str | None = None) 
 # ------------------------------------------------------------------
 
 
+@setup_app.command("sonarlint")
 def setup_sonarlint_cmd(
     target: Annotated[
         Path | None,
@@ -372,7 +377,9 @@ def _run_sonarlint_setup(
 
     if not sonar_url:
         typer.echo("  ⚠ No Sonar server URL configured.")
-        typer.echo("  Run 'ai-eng setup sonar' first to configure SonarCloud/SonarQube credentials.")
+        typer.echo(
+            "  Run 'ai-eng setup sonar' first to configure SonarCloud/SonarQube credentials."
+        )
         return
 
     if not project_key:

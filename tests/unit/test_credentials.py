@@ -22,7 +22,6 @@ from ai_engineering.credentials.models import (
 )
 from ai_engineering.credentials.service import CredentialService
 
-
 # ---------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------
@@ -103,13 +102,9 @@ class TestCredentialServiceKeyring:
         self, svc: CredentialService, mock_backend: MagicMock
     ) -> None:
         svc.store("sonar", "token", "s3cr3t")
-        mock_backend.set_password.assert_called_once_with(
-            "ai-engineering/sonar", "token", "s3cr3t"
-        )
+        mock_backend.set_password.assert_called_once_with("ai-engineering/sonar", "token", "s3cr3t")
 
-    def test_retrieve_returns_value(
-        self, svc: CredentialService, mock_backend: MagicMock
-    ) -> None:
+    def test_retrieve_returns_value(self, svc: CredentialService, mock_backend: MagicMock) -> None:
         mock_backend.get_password.return_value = "s3cr3t"
         assert svc.retrieve("sonar", "token") == "s3cr3t"
 
@@ -120,13 +115,9 @@ class TestCredentialServiceKeyring:
         self, svc: CredentialService, mock_backend: MagicMock
     ) -> None:
         svc.delete("sonar", "token")
-        mock_backend.delete_password.assert_called_once_with(
-            "ai-engineering/sonar", "token"
-        )
+        mock_backend.delete_password.assert_called_once_with("ai-engineering/sonar", "token")
 
-    def test_delete_ignores_missing(
-        self, svc: CredentialService, mock_backend: MagicMock
-    ) -> None:
+    def test_delete_ignores_missing(self, svc: CredentialService, mock_backend: MagicMock) -> None:
         mock_backend.delete_password.side_effect = Exception("not found")
         svc.delete("sonar", "token")  # should not raise
 
@@ -162,9 +153,7 @@ class TestToolsJsonState:
         assert data["github"]["configured"] is True
 
     def test_load_reads_saved_state(self, tmp_path: Path) -> None:
-        original = ToolsState(
-            sonar=SonarConfig(configured=True, url="https://sonarcloud.io")
-        )
+        original = ToolsState(sonar=SonarConfig(configured=True, url="https://sonarcloud.io"))
         CredentialService.save_tools_state(tmp_path, original)
         loaded = CredentialService.load_tools_state(tmp_path)
         assert loaded.sonar.configured is True

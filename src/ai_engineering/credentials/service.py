@@ -83,7 +83,7 @@ class CredentialService:
         try:
             backend.delete_password(self.service_name(platform), username)
             logger.debug("Credential deleted for %s/%s", platform, username)
-        except Exception:  # noqa: BLE001 — keyring backends raise various types
+        except Exception:
             logger.debug("No credential to delete for %s/%s", platform, username)
 
     def exists(self, platform: str, username: str) -> bool:

@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- `ai-eng install` no longer crashes (exit code 1) when platform onboarding prompt is aborted or running in non-interactive mode.
+- Setup CLI commands now correctly registered on module-level Typer instance (fixes unit test isolation).
+- Doctor platform check test uses correct patch path for `GitHubSetup`.
+- Template mirror for `dev/sonar-gate/SKILL.md` synced with canonical source.
+- Lint fixes: `str, Enum` → `StrEnum`, combined `with` statements, ternary simplifications.
+
 ### Added
 - **Spec-024: Sonar Scanner Integration & Platform Credential Onboarding** — platform credential management with keyring, Sonar quality gate skill, and guided onboarding CLI.
 - New `credentials` module (`models.py`, `service.py`) for OS-native secret storage via keyring.

@@ -23,7 +23,7 @@ import json
 import logging
 import textwrap
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -34,7 +34,7 @@ logger = logging.getLogger(__name__)
 # ------------------------------------------------------------------
 
 
-class IDEFamily(str, Enum):
+class IDEFamily(StrEnum):
     """Supported IDE families for SonarLint configuration."""
 
     VSCODE = "vscode"
@@ -289,10 +289,7 @@ def configure_jetbrains(
     # --- .idea/sonarlint.xml (connection binding) ---
     sonarlint_xml_path = idea_dir / "sonarlint.xml"
 
-    if _is_sonarcloud(sonar_url):
-        connection_type = "SONARCLOUD"
-    else:
-        connection_type = "SONARQUBE"
+    connection_type = "SONARCLOUD" if _is_sonarcloud(sonar_url) else "SONARQUBE"
 
     sonarlint_xml_content = textwrap.dedent(f"""\
         <?xml version="1.0" encoding="UTF-8"?>
@@ -463,7 +460,7 @@ def configure_all_ides(
                 connection_id=connection_id,
             )
             summary.results.append(result)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.warning("SonarLint config failed for %s: %s", family.value, exc)
             summary.results.append(
                 SonarLintResult(success=False, ide_family=family.value, error=str(exc)),

@@ -9,6 +9,7 @@ import json
 from pathlib import Path
 from typing import Annotated
 
+import click.exceptions
 import typer
 
 from ai_engineering.__version__ import __version__
@@ -186,7 +187,10 @@ def _offer_platform_onboarding(root: Path) -> None:
 
     names = ", ".join(p.value for p in detected)
     typer.echo(f"\n  Detected platforms: {names}")
-    run_setup = typer.confirm("  Configure platform credentials now?", default=False)
+    try:
+        run_setup = typer.confirm("  Configure platform credentials now?", default=False)
+    except (KeyboardInterrupt, EOFError, click.exceptions.Abort):
+        return
     if run_setup:
         from ai_engineering.cli_commands.setup import setup_platforms_cmd
 

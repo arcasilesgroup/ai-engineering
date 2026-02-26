@@ -10,7 +10,6 @@ filesystem. Validates that:
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -27,7 +26,6 @@ from ai_engineering.credentials.models import (
 from ai_engineering.credentials.service import CredentialService
 from ai_engineering.doctor.service import CheckStatus, DoctorReport, check_platforms
 from ai_engineering.platforms.detector import detect_platforms
-
 
 # ---------------------------------------------------------------
 # Fixtures
@@ -47,8 +45,7 @@ def project_root(tmp_path: Path) -> Path:
     # Sonar marker with properties.
     props = tmp_path / "sonar-project.properties"
     props.write_text(
-        "sonar.projectKey=my-org_my-project\n"
-        "sonar.host.url=https://sonarcloud.io\n",
+        "sonar.projectKey=my-org_my-project\nsonar.host.url=https://sonarcloud.io\n",
         encoding="utf-8",
     )
 
@@ -81,9 +78,7 @@ class TestPlatformDetectionIntegration:
         assert PlatformKind.AZURE_DEVOPS in detected
         assert len(detected) == 3
 
-    def test_state_persists_after_setup(
-        self, project_root: Path, mock_backend: MagicMock
-    ) -> None:
+    def test_state_persists_after_setup(self, project_root: Path, mock_backend: MagicMock) -> None:
         """tools.json round-trips correctly after platform setup."""
         svc = CredentialService(backend=mock_backend)
         state_dir = project_root / ".ai-engineering" / "state"
@@ -152,9 +147,7 @@ class TestDoctorCheckPlatforms:
     def test_github_configured_and_authed(self, project_root: Path) -> None:
         """GitHub configured with mocked gh CLI auth → OK."""
         state_dir = project_root / ".ai-engineering" / "state"
-        state = ToolsState(
-            github=GitHubConfig(configured=True, cli_authenticated=True)
-        )
+        state = ToolsState(github=GitHubConfig(configured=True, cli_authenticated=True))
         CredentialService.save_tools_state(state_dir, state)
 
         mock_status = MagicMock()
@@ -163,7 +156,7 @@ class TestDoctorCheckPlatforms:
 
         report = DoctorReport()
         with patch(
-            "ai_engineering.doctor.service.GitHubSetup.check_auth_status",
+            "ai_engineering.platforms.github.GitHubSetup.check_auth_status",
             return_value=mock_status,
         ):
             check_platforms(project_root, report)

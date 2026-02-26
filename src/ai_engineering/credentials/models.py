@@ -10,12 +10,12 @@ serialised to disk.
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 
 from pydantic import BaseModel, Field
 
 
-class PlatformKind(str, Enum):
+class PlatformKind(StrEnum):
     """Supported platform types."""
 
     GITHUB = "github"
@@ -59,7 +59,9 @@ class AzureDevOpsConfig(BaseModel):
     """Azure DevOps platform metadata (non-secret)."""
 
     configured: bool = Field(default=False)
-    org_url: str = Field(default="", description="Organisation URL (e.g. https://dev.azure.com/org).")
+    org_url: str = Field(
+        default="", description="Organisation URL (e.g. https://dev.azure.com/org)."
+    )
     credential_ref: CredentialRef | None = Field(
         default=None,
         description="Reference to the keyring entry — never the PAT itself.",
