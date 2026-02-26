@@ -21,6 +21,13 @@ Executes a structured GO/NO-GO checklist across all quality dimensions for relea
 - Command: agent invokes release-gate skill or user requests release readiness check.
 - Context: pre-release milestone, version tagging, merge-to-main decision.
 
+## When NOT to Use
+
+- **Code quality only** (coverage, complexity, lint) — use `quality:audit-code` instead. Release-gate aggregates all dimensions; audit-code focuses on code quality.
+- **Security only** (OWASP, secrets, dependencies) — use `review:security` instead.
+- **Test coverage analysis** — use `quality:test-gap-analysis` instead.
+- **Full platform audit** (8+ dimensions with scoring) — use `agent:platform-auditor` instead. Release-gate covers 7 dimensions; platform-auditor covers all 8+ with weighted scoring.
+
 ## Procedure
 
 ### Phase 1: Gate Dimensions

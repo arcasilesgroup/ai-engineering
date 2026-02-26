@@ -23,6 +23,12 @@ Execute the `/commit` governed workflow: stage all changes, run mandatory pre-co
 - Command: `/commit` or `/commit --only`
 - Context: user requests committing current changes with governance enforcement.
 
+## When NOT to Use
+
+- **Creating pull requests** — use `/pr` instead. Commit pushes to current branch; PR creates a pull request.
+- **Quick push alias** — use `/acho` instead for identical behavior with shorter invocation.
+- **Governance content changes without active spec** — create a spec first with `govern:create-spec`.
+
 ## Procedure
 
 ### `/commit` (default: stage + commit + push)

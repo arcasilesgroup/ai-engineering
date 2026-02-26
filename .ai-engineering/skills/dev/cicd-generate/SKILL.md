@@ -79,6 +79,12 @@ Generate stack-aware CI/CD workflow files (GitHub Actions) based on installed st
 - Workflows must replicate all local gate checks per `standards/framework/cicd/core.md`.
 - Secret values (API keys, tokens) must use GitHub Actions secrets, never hardcoded.
 
+### Post-Action Validation
+
+- After generating CI/CD configuration, validate YAML syntax.
+- Run actionlint if available for GitHub Actions workflows.
+- If validation fails, fix issues and re-validate (max 3 attempts per iteration limits).
+
 ## References
 
 - `standards/framework/cicd/core.md` — CI/CD standards and requirements.

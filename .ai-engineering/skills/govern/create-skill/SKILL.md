@@ -58,12 +58,14 @@ Definitive procedure for authoring and registering a new skill in the ai-enginee
      # Skill Name
      ## Purpose
      ## Trigger
-     ## When NOT to Use  # optional, add for skills with high confusion risk
+     ## When NOT to Use  # recommended for skills with high confusion risk
      ## Procedure
        ### Phase N: <Name>
        N. **Step name** — description.
      ## Output Contract
      ## Governance Notes
+       ### Iteration Limits  # recommended for procedural skills
+       ### Post-Action Validation  # recommended for read-write skills
      ## References
      ```
 
@@ -80,6 +82,8 @@ Definitive procedure for authoring and registering a new skill in the ai-enginee
    - Procedure: at least one phase with numbered steps.
    - Output Contract: measurable deliverables listed.
    - Governance Notes: relevant constraints from standards.
+   - Iteration Limits: recommended for procedural skills (max 3 attempts, different approach each time).
+   - Post-Action Validation: recommended for read-write skills (run linter/integrity-check after modifications).
    - References: at least one link to a related standard, skill, or agent.
 
 ### Phase 3: Mirror
@@ -174,6 +178,12 @@ Definitive procedure for authoring and registering a new skill in the ai-enginee
 - Skills are framework-managed content (`OwnershipLevel.FRAMEWORK_MANAGED`) — they follow the governed update flow.
 - Never create a skill that duplicates an existing skill's purpose — extend instead.
 - Skill references use paths relative to `.ai-engineering/` (e.g., `standards/framework/core.md`, not `.ai-engineering/standards/framework/core.md`).
+
+### Post-Action Validation
+
+- After creating a new skill, run integrity-check to verify 7/7 categories pass.
+- Verify the skill frontmatter matches the directory name and has all required fields.
+- If validation fails, fix issues and re-validate (max 3 attempts per iteration limits).
 
 ## References
 

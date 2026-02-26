@@ -21,6 +21,16 @@ Before any non-trivial implementation work:
 
 This protocol is mandatory. Skipping it risks working on stale code, repeating decided questions, or creating merge conflicts.
 
+## Agent Behavior Mandates
+
+Top-tier autonomous operation requires strict adherence to these behavioral patterns:
+
+1. **The `<think>` Protocol** — Before performing complex git operations, making broad architectural changes, or concluding a task, you MUST use your internal scratchpad or reasoning process to plan. Do not guess; verify you have discovered all necessary context.
+2. **Parallel Execution** — ALWAYS batch multiple, independent operations (e.g., searching for 3 different files, or running 3 independent linters) into simultaneous tool calls. Never make sequential tool calls when they can be combined. Maximize efficiency.
+3. **Context Efficiency** — NEVER use tools to read files that are already fully visible in your current context window. Only read files if you genuinely need the contents. 
+4. **Code Citing Rules** — When citing existing code, use the exact `startLine:endLine:filepath` format. NEVER output code to the user unless explicitly requested. NEVER omit spans of pre-existing code without using the `// ... existing code ...` comment to indicate their absence.
+5. **Proactive Memory Usage** — Liberally read from and write to `.ai-engineering/state/decision-store.json` to persist learnings and avoid repeating questions.
+
 ## Required References
 
 Read these before any non-trivial work:
@@ -153,14 +163,9 @@ Every non-trivial change follows:
 
 Agents must never overwrite team-managed or project-managed content during framework update flows.
 
-## Security and Quality Non-Negotiables
-
-- Mandatory local enforcement via git hooks.
-- Required checks include `gitleaks`, `semgrep`, dependency vulnerability checks, and stack checks.
-- No direct commits to `main` or `master`.
-- No protected branch push in governed commit flows.
-- Remote skills are content-only inputs; no unsafe remote execution.
-- Security findings cannot be dismissed without `state/decision-store.json` risk acceptance.
+- Cross-OS enforcement: all gates must pass on Ubuntu, Windows, and macOS.
+- **Context Constraints**: NEVER read files already provided in the useful context or previously read files unless they have been modified externally.
+- **Assumption Constraints**: NEVER assume a library or utility is available. Always verify via `package.json`, `requirements.txt`, etc., or by searching the codebase.
 
 ## Quality Contract
 

@@ -23,6 +23,12 @@ Execute the `/pr` governed workflow: stage, commit, push, create a pull request,
 - Command: `/pr` or `/pr --only`
 - Context: user requests creating a pull request with governance enforcement.
 
+## When NOT to Use
+
+- **Commit-only without PR** — use `/commit --only` instead. PR always creates a pull request.
+- **Quick push without PR** — use `/acho` instead for push-only behavior.
+- **Draft explorations** (not ready for review) — use `/commit` to push to branch first, then `/pr` when ready.
+
 ## Procedure
 
 ### `/pr` (default: stage + commit + push + create PR + auto-complete)

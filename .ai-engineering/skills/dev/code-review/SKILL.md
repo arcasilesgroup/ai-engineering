@@ -63,6 +63,7 @@ Deep code review skill covering security, quality, performance, and maintainabil
    - Severity: blocker / critical / major / minor / info.
    - Each comment includes: what's wrong, why it matters, how to fix.
    - Positive feedback on good patterns (not only criticism).
+   - **Code Suggestions**: Use exact `startLine:endLine:filepath` block quoting when referencing existing code. When suggesting edits, ALWAYS provide minimal unchanged context using `// ... existing code ...` limits. DO NOT suggest rewriting entire files.
 
 ## Output Contract
 

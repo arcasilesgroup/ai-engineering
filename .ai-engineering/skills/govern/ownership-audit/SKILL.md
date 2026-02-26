@@ -21,6 +21,12 @@ Validates ownership boundary enforcement, updater safety, and decision/audit-log
 - Command: agent invokes ownership-audit skill or user requests ownership boundary review.
 - Context: post-update validation, pre-release safety check, governance integrity audit.
 
+## When NOT to Use
+
+- **Contract clause validation** (framework-contract compliance) — use `govern:contract-compliance` instead. Ownership-audit checks boundaries; contract-compliance checks clause adherence.
+- **Structural integrity** (file existence, mirrors, counters) — use `govern:integrity-check` instead.
+- **Code quality or security assessment** — use `quality:audit-code` or `review:security` instead.
+
 ## Procedure
 
 ### Phase 1: Ownership Boundary Validation

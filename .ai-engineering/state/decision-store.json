@@ -127,6 +127,13 @@
       "decision": "Remove patterns/ skill category and migrate to references/. Pattern catalogs are reference knowledge, not executable procedures.",
       "decidedAt": "2026-02-24T00:00:00Z",
       "spec": "021-governance-cicd-evolution"
+    },
+    {
+      "id": "D-coverage-alignment",
+      "context": "Coverage threshold conflict across audit-code/SKILL.md, product-contract.md, and quality/core.md",
+      "decision": "90% is the authoritative overall coverage target (quality/core.md is source of truth). 100% applies only to governance-critical paths. All files aligned to this baseline.",
+      "decidedAt": "2026-02-26T00:00:00Z",
+      "spec": "none"
     }
   ]
 }

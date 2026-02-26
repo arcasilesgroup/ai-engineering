@@ -66,6 +66,17 @@ Structured dependency update skill: audit current dependencies, update safely, t
 - Pin exact versions in lockfile, use compatible ranges in `pyproject.toml`.
 - `pip-audit` must pass before push (pre-push gate).
 
+### Iteration Limits
+
+- Max 3 attempts to resolve the same dependency issue. After 3 failures, escalate to user with evidence of attempts.
+- Each attempt must try a different approach — repeating the same action is not a valid retry.
+
+### Post-Action Validation
+
+- After updating dependencies, run `ruff check` and `ruff format --check` on modified files.
+- Run `pip-audit` to verify no new vulnerabilities introduced.
+- If validation fails, fix issues and re-validate (max 3 attempts per iteration limits).
+
 ## References
 
 - `standards/framework/stacks/python.md` — required tooling.

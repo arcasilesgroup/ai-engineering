@@ -162,6 +162,15 @@ Agents should load skill bodies and standards only when executing a task that re
 - Serial phases cannot start until predecessor gate passes.
 - Parallel phases start as soon as their shared prerequisite gate passes.
 
+### Behavioral Baselines
+
+All agents and skills must adopt these behavioral norms (defined in `standards/framework/skills-schema.md § Behavioral Patterns`):
+
+1. **Escalation Ladder** — max 3 attempts to resolve the same issue before escalating to user. Each attempt must try a different approach. Never loop silently.
+2. **Post-Change Validation** — after modifying files, run the applicable linter (code) or integrity-check (governance content) before proceeding to the next step.
+3. **Confidence Signaling** — read-only audit/review agents include a confidence signal (HIGH/MEDIUM/LOW with justification) in their output contract.
+4. **Headless Fallback** — interactive skills provide default options when user input is unavailable, noting assumptions made.
+
 ### Decision Continuity
 
 - All decisions persisted in `decision-store.json` with context hash.
@@ -210,7 +219,7 @@ Governance content must remain internally consistent after every change.
 
 ### Validation Scope
 
-The `integrity-check` skill validates 6 categories:
+The `integrity-check` skill validates 7 categories:
 
 1. File existence — all referenced files exist.
 2. Mirror sync — canonical and template mirrors are byte-identical.
@@ -218,6 +227,7 @@ The `integrity-check` skill validates 6 categories:
 4. Cross-reference integrity — all refs are valid and bidirectional.
 5. Instruction file consistency — all 6 files list identical skills/agents.
 6. Manifest coherence — manifest paths match directory structure.
+7. Skill frontmatter — YAML frontmatter fields are valid and consistent with directory structure.
 
 ## Risk Acceptance
 

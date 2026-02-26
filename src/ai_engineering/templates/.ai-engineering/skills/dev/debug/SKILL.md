@@ -48,6 +48,13 @@ Systematic diagnosis skill for identifying, isolating, and fixing bugs. Follows 
    - Run full test suite to confirm no regressions.
    - Test edge cases around the fixed area.
 
+## When NOT to Use
+
+- **Code review** (PR feedback, pattern assessment) — use `dev:code-review` instead.
+- **Test writing** (designing test strategy, writing test suites) — use `dev:test-runner` or `dev:test-strategy` instead. Debug writes regression tests for fixes; test-runner writes comprehensive test suites.
+- **Refactoring** (improving code structure) — use `dev:refactor` instead. Debug fixes bugs; refactor improves structure.
+- **Architecture analysis** (coupling, cohesion, boundaries) — use `review:architecture` instead.
+
 ## Output Contract
 
 - Root cause analysis: what went wrong and why.
@@ -61,6 +68,11 @@ Systematic diagnosis skill for identifying, isolating, and fixing bugs. Follows 
 - If the bug is in a governance-critical path (hooks, gates, install, update), escalate severity.
 - Record any new decisions or risk acceptances in `state/decision-store.json`.
 - Do not introduce workarounds that mask the root cause.
+
+### Iteration Limits
+
+- Max 3 attempts to resolve the same issue. After 3 failures, escalate to user with evidence of attempts.
+- Each attempt must try a different approach — repeating the same action is not a valid retry.
 
 ## References
 

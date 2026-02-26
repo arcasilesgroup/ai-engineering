@@ -50,7 +50,7 @@ End-to-end verification agent who confirms the application works correctly from 
 6. **Workflow test** — execute commit/pr/acho workflows in test repo.
 7. **State integrity** — verify state files (decision-store, audit-log) are created and valid.
 8. **Error paths** — test invalid inputs, missing prerequisites, permission issues.
-9. **Content integrity** — execute the content-integrity skill against all `.ai-engineering/` governance content. Verify 6/6 categories pass: file existence, mirror sync, counter accuracy, cross-reference integrity, instruction file consistency, manifest coherence.
+9. **Content integrity** — execute the content-integrity skill against all `.ai-engineering/` governance content. Verify 7/7 categories pass: file existence, mirror sync, counter accuracy, cross-reference integrity, instruction file consistency, manifest coherence, skill frontmatter.
 10. **Command contract compliance** — for each command defined in `manifest.yml` (commit, commit --only, pr, pr --only, acho, acho pr), verify the exact step sequence matches the contract. Build an expected-vs-actual behavior matrix: expected steps from `manifest.yml` commands section, actual steps by reading the skill procedure and observing execution. Report any step omission, reordering, or undocumented side effect.
 11. **Report** — structured verification report with pass/fail per check.
 
@@ -78,6 +78,11 @@ End-to-end verification agent who confirms the application works correctly from 
 - Failure details with reproduction steps for any FAIL items.
 - Overall verdict: VERIFIED or FAILED (with failure count).
 
+### Confidence Signal
+
+- **Confidence**: HIGH (0.8-1.0) | MEDIUM (0.5-0.79) | LOW (0.0-0.49) — with brief justification.
+- **Blocked on user**: YES/NO — whether user input is needed to proceed.
+
 ## Boundaries
 
 - Does not fix issues found — reports them for the Debugger agent.
@@ -85,3 +90,9 @@ End-to-end verification agent who confirms the application works correctly from 
 - Does not modify application code — purely observational verification.
 - Requires clean git state before workflow verification tests.
 - Escalates FAILED verdict clearly — does not mask partial failures.
+
+### Escalation Protocol
+
+- **Iteration limit**: max 3 attempts to resolve the same issue before escalating to user.
+- **Escalation format**: present what was tried, what failed, and options for the user.
+- **Never loop silently**: if stuck, surface the problem immediately.

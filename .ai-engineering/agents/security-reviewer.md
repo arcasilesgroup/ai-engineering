@@ -2,7 +2,7 @@
 name: security-reviewer
 version: 1.0.0
 scope: read-only
-  capabilities: [sast, secret-detection, dependency-audit, owasp-review, dast, container-scan, sbom, data-security-review]
+capabilities: [sast, secret-detection, dependency-audit, owasp-review, dast, container-scan, sbom, data-security-review]
 inputs: [file-paths, diff, repository, dependency-list]
 outputs: [findings-report]
 tags: [security, owasp, vulnerabilities, sast, dast]
@@ -92,6 +92,11 @@ Application security specialist who reviews code for OWASP top risks, secret exp
 - Remediation plan for each finding.
 - Tool evidence (gitleaks, semgrep, pip-audit outputs).
 
+### Confidence Signal
+
+- **Confidence**: HIGH (0.8-1.0) | MEDIUM (0.5-0.79) | LOW (0.0-0.49) — with brief justification.
+- **Blocked on user**: YES/NO — whether user input is needed to proceed.
+
 ## Boundaries
 
 - Security findings cannot be dismissed without `state/decision-store.json` risk acceptance.
@@ -99,3 +104,9 @@ Application security specialist who reviews code for OWASP top risks, secret exp
 - Secret exposure is always critical severity — no exceptions.
 - Does not auto-fix security issues — reports and recommends.
 - Escalates critical findings immediately — does not wait for full assessment.
+
+### Escalation Protocol
+
+- **Iteration limit**: max 3 attempts to resolve the same issue before escalating to user.
+- **Escalation format**: present what was tried, what failed, and options for the user.
+- **Never loop silently**: if stuck, surface the problem immediately.

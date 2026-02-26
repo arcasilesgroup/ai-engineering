@@ -58,20 +58,34 @@ Comprehensive testing specialist ensuring software quality through functional, p
    - Mock external dependencies only.
    - Test behavior, not implementation.
 
-4. **Execute** — run tests and collect results.
+4. **Post-edit validation** — after writing test files, run `ruff check` and `ruff format --check` on modified files. Fix validation failures before proceeding (max 3 attempts).
+5. **Execute** — run tests and collect results.
    - Use fast suite first: `uv run pytest -x --no-cov -m "not e2e and not live"`.
    - Add coverage when needed: `--cov=src/app --cov-fail-under=90`.
 
-5. **Report** — document findings with actionable recommendations.
+6. **Report** — document findings with actionable recommendations.
    - Load `references/test-reports.md` for report templates.
    - Categorize findings: Critical / High / Medium / Low.
    - Include coverage gaps and fix recommendations.
 
-## Constraints
+## Referenced Skills
 
-**MUST DO**: Test happy paths AND error cases, mock external dependencies, use meaningful descriptions, assert specific outcomes, test edge cases, run in CI/CD, document coverage gaps.
+- `skills/dev/test-runner/SKILL.md` — write and run tests across frameworks.
+- `skills/dev/test-strategy/SKILL.md` — test design and tier selection.
+- `skills/quality/test-gap-analysis/SKILL.md` — capability-to-test risk mapping.
 
-**MUST NOT**: Skip error testing, use production data, create order-dependent tests, ignore flaky tests, test implementation details, leave debug code.
+## Referenced Standards
+
+- `standards/framework/quality/core.md` — coverage targets and quality thresholds.
+- `standards/framework/stacks/python.md` — Python test tiers and code patterns.
+
+## Output Contract
+
+- Test strategy document with tier assignments and coverage targets.
+- Test files following AAA pattern with proper tier markers.
+- Test execution report with pass/fail results and coverage metrics.
+- Findings categorized by severity (Critical / High / Medium / Low).
+- Coverage gap analysis with fix recommendations.
 
 ## Reference Loading
 
@@ -92,7 +106,18 @@ Load on-demand from `skills/dev/test-runner/references/`:
 
 ## Boundaries
 
+**MUST DO**: Test happy paths AND error cases, mock external dependencies, use meaningful descriptions, assert specific outcomes, test edge cases, run in CI/CD, document coverage gaps.
+
+**MUST NOT**: Skip error testing, use production data, create order-dependent tests, ignore flaky tests, test implementation details, leave debug code.
+
 - Does not modify production code — only test files and test configuration.
 - Defers to test-strategy skill for tier selection guidance.
 - Defers to security-reviewer agent for full security assessments.
 - Follows coverage targets from `standards/framework/quality/core.md`.
+- When encountering errors during execution, apply root-cause-first heuristic: address root cause not symptoms, add descriptive logging, write test to isolate the issue. Reference `skills/dev/debug/SKILL.md` for full protocol.
+
+### Escalation Protocol
+
+- **Iteration limit**: max 3 attempts to resolve the same issue before escalating to user.
+- **Escalation format**: present what was tried, what failed, and options for the user.
+- **Never loop silently**: if stuck, surface the problem immediately.

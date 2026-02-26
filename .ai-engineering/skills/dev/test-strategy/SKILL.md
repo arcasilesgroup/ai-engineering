@@ -21,6 +21,12 @@ Define what to test, how to structure tests, and how to achieve meaningful cover
 - Command: agent invokes test-strategy skill or user asks what/how to test.
 - Context: new feature, bug fix, refactoring, coverage gap analysis.
 
+## When NOT to Use
+
+- **Running tests** (executing test suites, collecting results) — use `dev:test-runner` instead. Test-strategy designs tests; test-runner executes them.
+- **Coverage metrics** (measuring coverage, auditing gaps) — use `quality:audit-code` for metrics or `quality:test-gap-analysis` for capability mapping.
+- **Debugging test failures** — use `dev:debug` instead.
+
 ## Procedure
 
 1. **Identify test scope** — determine what needs testing.

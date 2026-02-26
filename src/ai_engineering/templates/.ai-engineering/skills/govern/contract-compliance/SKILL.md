@@ -21,6 +21,12 @@ Clause-by-clause validation of framework contracts (`framework-contract.md`, `ma
 - Command: agent invokes contract-compliance skill or user requests contract audit.
 - Context: pre-release compliance review, post-refactoring contract alignment, governance audit.
 
+## When NOT to Use
+
+- **Structural integrity validation** (file existence, mirrors, counters, cross-references) — use `govern:integrity-check` instead. Contract-compliance validates semantic compliance; integrity-check validates structural correctness.
+- **Ownership boundary validation** (who can update what) — use `govern:ownership-audit` instead.
+- **Code quality assessment** — use `quality:audit-code` instead.
+
 ## Procedure
 
 ### Phase 1: Extract Clauses

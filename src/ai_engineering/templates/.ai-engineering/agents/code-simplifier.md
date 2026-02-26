@@ -47,6 +47,7 @@ Complexity reducer who systematically identifies and eliminates unnecessary comp
 5. **Decompose functions** — extract coherent sub-functions with clear names.
 6. **Remove dead code** — unused imports, unreachable branches, commented-out code.
 7. **Validate** — ensure all tests pass after each simplification step. Never break behavior.
+   - **Post-edit validation**: run `ruff check` and `ruff format --check` on modified Python files. If `.ai-engineering/` content was modified, run integrity-check. Fix validation failures before proceeding (max 3 attempts).
 8. **Classify module value** — when requested, audit each module and assign a disposition.
    - **KEEP**: module is essential, well-implemented, no changes needed.
    - **SIMPLIFY**: module is needed but has unnecessary complexity.
@@ -82,3 +83,10 @@ Complexity reducer who systematically identifies and eliminates unnecessary comp
 - Preserves public API signatures unless explicitly approved.
 - Works incrementally — one function at a time, test between each change.
 - Does not simplify test code unless tests themselves are the target.
+- When encountering errors during execution, apply root-cause-first heuristic: address root cause not symptoms, add descriptive logging, write test to isolate the issue. Reference `skills/dev/debug/SKILL.md` for full protocol.
+
+### Escalation Protocol
+
+- **Iteration limit**: max 3 attempts to resolve the same issue before escalating to user.
+- **Escalation format**: present what was tried, what failed, and options for the user.
+- **Never loop silently**: if stuck, surface the problem immediately.

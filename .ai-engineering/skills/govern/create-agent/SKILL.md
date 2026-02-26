@@ -57,6 +57,7 @@ Definitive procedure for authoring and registering a new agent in the ai-enginee
      ## Referenced Standards
      ## Output Contract
      ## Boundaries
+       ### Escalation Protocol
      ```
 
    - Identity is written in **third person** (not "I am", but "Senior ... who ...").
@@ -64,6 +65,7 @@ Definitive procedure for authoring and registering a new agent in the ai-enginee
    - Behavior is a **numbered protocol** (typically 4-8 sequential steps).
    - Referenced Skills and Referenced Standards are **separate sections**.
    - Boundaries explicitly state what the agent does NOT do and escalation paths.
+   - Boundaries must include an `### Escalation Protocol` subsection (max 3 retries, different approach each time, never loop silently).
    - References use relative paths from `.ai-engineering/` (e.g., `skills/dev/debug/SKILL.md`).
 
 5. **Validate structure** — confirm the agent file contains all required sections.
@@ -136,7 +138,7 @@ Definitive procedure for authoring and registering a new agent in the ai-enginee
     | # | Check | How to verify |
     |---|-------|---------------|
     | 1 | Canonical file exists | `Test-Path .ai-engineering/agents/<name>.md` |
-    | 2 | Follows template structure | Has Identity, Capabilities, Activation, Behavior, Referenced Skills, Referenced Standards, Output Contract, Boundaries |
+    | 2 | Follows template structure | Has Identity, Capabilities, Activation, Behavior, Referenced Skills, Referenced Standards, Output Contract, Boundaries (with Escalation Protocol) |
     | 3 | Template mirror exists | `Test-Path src/ai_engineering/templates/.ai-engineering/agents/<name>.md` |
     | 4 | Mirror is identical | `diff` canonical vs. mirror — 0 differences |
     | 5 | Listed in all 6 files | `grep` for the agent path in each instruction file |
@@ -163,6 +165,12 @@ Definitive procedure for authoring and registering a new agent in the ai-enginee
 - Never create an agent that duplicates an existing agent's capabilities — extend instead.
 - Agent identity must be written in third person.
 - Agent references use paths relative to `.ai-engineering/` (e.g., `skills/dev/debug/SKILL.md`, not `.ai-engineering/skills/dev/debug/SKILL.md`).
+
+### Post-Action Validation
+
+- After creating a new agent, run integrity-check to verify 7/7 categories pass.
+- Verify the agent has all 8 required template sections: Identity, Capabilities, Activation, Behavior, Referenced Skills, Referenced Standards, Output Contract, Boundaries (with Escalation Protocol).
+- If validation fails, fix issues and re-validate (max 3 attempts per iteration limits).
 
 ## References
 

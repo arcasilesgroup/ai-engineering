@@ -82,5 +82,4 @@ Analyze software architecture: dependencies, coupling, cohesion, boundaries, and
 
 - `standards/framework/stacks/python.md` — code patterns and project layout.
 - `agents/architect.md` — agent that performs architecture analysis.
-- `agents/architect.md` — architecture agent now includes mapping responsibilities.
 - `skills/docs/explain/SKILL.md` — explain architectural patterns and decisions.
