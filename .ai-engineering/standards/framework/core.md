@@ -170,6 +170,9 @@ All agents and skills must adopt these behavioral norms (defined in `standards/f
 2. **Post-Change Validation** — after modifying files, run the applicable linter (code) or integrity-check (governance content) before proceeding to the next step.
 3. **Confidence Signaling** — read-only audit/review agents include a confidence signal (HIGH/MEDIUM/LOW with justification) in their output contract.
 4. **Headless Fallback** — interactive skills provide default options when user input is unavailable, noting assumptions made.
+5. **Holistic Analysis Before Action** — before modifying any file, analyze its dependencies and downstream consumers. No isolated edits — treat every change as part of a system.
+6. **Exhaustiveness Requirement** — when N issues are identified, all N must be addressed or explicitly deferred with rationale. No partial solutions, no early exits.
+7. **Parallel-First Tool Execution** — when multiple independent operations are needed, execute in parallel by default. Sequential only when data dependencies require it.
 
 ### Decision Continuity
 

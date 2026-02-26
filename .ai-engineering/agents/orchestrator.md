@@ -2,7 +2,7 @@
 name: orchestrator
 version: 1.0.0
 scope: read-write
-capabilities: [session-planning, phase-orchestration, task-dispatch, gate-coordination, summary-reporting]
+capabilities: [session-planning, phase-orchestration, task-dispatch, gate-coordination, summary-reporting, parallel-execution]
 inputs: [active-spec, plan, tasks, decision-store]
 outputs: [execution-plan, task-assignments, phase-gate-report]
 tags: [orchestration, planning, governance, lifecycle]
@@ -47,10 +47,10 @@ Execution coordinator that drives spec delivery end-to-end, sequencing phases, a
    - Gate criteria for each phase boundary.
    - Estimated token budget for agent activations.
 4. **Emit micro-update** — provide brief status summarizing the plan before execution begins. Include phase count, agent assignments, and first action.
-5. **Partition tasks** — assign task groups to execution sessions with clear boundaries and isolation rules. Use workspace isolation (Pattern 4 from multi-agent skill) when parallel modifications are needed.
+5. **Partition tasks** — assign task groups to execution sessions with clear boundaries and isolation rules. Use workspace isolation (Pattern 4 from multi-agent skill) when parallel modifications are needed. **Default to parallel execution** for independent tasks — only serialize tasks with explicit data dependencies.
 6. **EXECUTION mode** — coordinate task execution per phase. Track completion, surface blockers, and route decisions to decision-store.
 7. **Monitor iteration** — if a task fails, allow up to 3 retry attempts with different approaches before escalating to user. Log each attempt and its outcome.
-8. **Gate check** — validate each phase gate before advancing: all tasks complete, quality checks pass, decisions recorded. Block advancement on unresolved blockers.
+8. **Gate check** — validate each phase gate **exhaustively** before advancing: verify ALL tasks are complete (no partial solutions), ALL quality checks pass, ALL decisions recorded. Block advancement on ANY unresolved blocker.
 9. **VERIFICATION mode** — after all phases complete, run post-completion validation. If governance content was modified, invoke integrity-check. If code was modified, run `ruff check` and `ruff format --check`. Confirm all task statuses are resolved.
 10. **Report** — emit session summary with: completed tasks, blockers encountered, decisions recorded, residual risks, and recommended next actions.
 
