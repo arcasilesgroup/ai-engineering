@@ -1,9 +1,9 @@
 ---
 spec: "024"
 total: 32
-completed: 1
+completed: 11
 last_session: "2026-02-26"
-next_session: "Phase 1 — Foundation"
+next_session: "Phase 2 — Platform Setup Implementations"
 ---
 
 # Tasks — Sonar Scanner Integration & Platform Credential Onboarding
@@ -11,22 +11,22 @@ next_session: "Phase 1 — Foundation"
 ## Phase 0: Scaffold [S]
 
 - [x] 0.1 Create spec directory `023-sonar-platform-onboarding/` with spec.md, plan.md, tasks.md
-- [ ] 0.2 Update `_active.md` to point to spec-023
-- [ ] 0.3 Record decisions D024-001 through D024-006 in `decision-store.json`
-- [ ] 0.4 Atomic commit: `spec-024: Phase 0 — scaffold spec files and activate`
+- [x] 0.2 Update `_active.md` to point to spec-024
+- [x] 0.3 Record decisions D024-001 through D024-006 in `decision-store.json`
+- [x] 0.4 Atomic commit: `spec-024: Phase 0 — scaffold spec files and activate`
 
 ## Phase 1: Foundation — Credentials Module [M]
 
-- [ ] 1.1 Add `keyring>=25.0,<26.0` to `pyproject.toml` dependencies
-- [ ] 1.2 Create `src/ai_engineering/credentials/__init__.py` with module docstring
-- [ ] 1.3 Create `src/ai_engineering/credentials/models.py` — Pydantic models: `CredentialRef`, `PlatformConfig`, `ToolsState`
-- [ ] 1.4 Create `src/ai_engineering/credentials/service.py` — `CredentialService` class: `store()`, `retrieve()`, `delete()`, `exists()`, `validate()` using `keyring`
-- [ ] 1.5 Create `src/ai_engineering/platforms/__init__.py` with module docstring
-- [ ] 1.6 Create `src/ai_engineering/platforms/detector.py` — `detect_platforms(root: Path) → list[str]` scanning for `.github/`, `azure-pipelines.yml`, `.azuredevops/`, `sonar-project.properties`
-- [ ] 1.7 Create `tests/unit/test_credentials.py` — unit tests for `CredentialService` (mock keyring backend)
-- [ ] 1.8 Create `tests/unit/test_platforms.py` — unit tests for `detect_platforms()` with various repo layouts
-- [ ] 1.9 Run `ruff check`, `ruff format --check`, `ty check` on new modules
-- [ ] 1.10 Atomic commit: `spec-024: Phase 1 — credentials module and platform detection`
+- [x] 1.1 Add `keyring>=25.0,<26.0` to `pyproject.toml` dependencies
+- [x] 1.2 Create `src/ai_engineering/credentials/__init__.py` with module docstring
+- [x] 1.3 Create `src/ai_engineering/credentials/models.py` — Pydantic models: `CredentialRef`, `PlatformConfig`, `ToolsState`
+- [x] 1.4 Create `src/ai_engineering/credentials/service.py` — `CredentialService` class: `store()`, `retrieve()`, `delete()`, `exists()`, `validate()` using `keyring`
+- [x] 1.5 Create `src/ai_engineering/platforms/__init__.py` with module docstring
+- [x] 1.6 Create `src/ai_engineering/platforms/detector.py` — `detect_platforms(root: Path) → list[str]` scanning for `.github/`, `azure-pipelines.yml`, `.azuredevops/`, `sonar-project.properties`
+- [x] 1.7 Create `tests/unit/test_credentials.py` — unit tests for `CredentialService` (mock keyring backend)
+- [x] 1.8 Create `tests/unit/test_platforms.py` — unit tests for `detect_platforms()` with various repo layouts
+- [x] 1.9 Run `ruff check`, `ruff format --check`, `ty check` on new modules
+- [x] 1.10 Atomic commit: `spec-024: Phase 1 — credentials module and platform detection`
 
 ## Phase 2: Platform Setup Implementations [L]
 
