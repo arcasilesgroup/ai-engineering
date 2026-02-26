@@ -155,6 +155,48 @@
       "decision": "typescript.md serves as base for React, React Native, NestJS, Astro, Next.js stacks. Framework-specific stacks extend TS base to avoid content duplication. Each framework adds only framework-specific patterns.",
       "decidedAt": "2026-02-26T00:00:00Z",
       "spec": "023-multi-stack-audit-hardening"
+    },
+    {
+      "id": "D024-001",
+      "context": "OS-native secret storage library choice for cross-platform credential management",
+      "decision": "Use `keyring` library for OS-native secret storage. Provides cross-OS abstraction over Windows Credential Manager, macOS Keychain, and Linux libsecret. Pure Python, well-maintained, no native compilation needed.",
+      "decidedAt": "2026-02-26T00:00:00Z",
+      "spec": "024-sonar-platform-onboarding"
+    },
+    {
+      "id": "D024-002",
+      "context": "Sonar gate behavior when SONAR_TOKEN is not configured",
+      "decision": "Sonar gate is optional and uses silent-skip. Framework principle: mandatory gates cannot be weakened, but optional integrations should not block teams that don't use them.",
+      "decidedAt": "2026-02-26T00:00:00Z",
+      "spec": "024-sonar-platform-onboarding"
+    },
+    {
+      "id": "D024-003",
+      "context": "Platform onboarding timing relative to install flow",
+      "decision": "Platform onboarding is opt-in during install and re-runnable via `ai-eng setup`. Framework contract §6: install must ensure first-commit readiness. Platform auth is helpful but not required for local governance.",
+      "decidedAt": "2026-02-26T00:00:00Z",
+      "spec": "024-sonar-platform-onboarding"
+    },
+    {
+      "id": "D024-004",
+      "context": "CLI subcommand architecture for platform onboarding",
+      "decision": "New `setup` CLI subcommand group instead of extending `install`. `install` has a defined contract (copy templates, hooks, readiness). Platform onboarding is a separate concern with its own re-runnability requirement.",
+      "decidedAt": "2026-02-26T00:00:00Z",
+      "spec": "024-sonar-platform-onboarding"
+    },
+    {
+      "id": "D024-005",
+      "context": "Location and format for platform configuration metadata",
+      "decision": "`tools.json` in `.ai-engineering/state/` for platform metadata. Follows existing state file pattern. Only non-secret metadata stored. File is system-managed (ownership model).",
+      "decidedAt": "2026-02-26T00:00:00Z",
+      "spec": "024-sonar-platform-onboarding"
+    },
+    {
+      "id": "D024-006",
+      "context": "Sonar gate as separate skill vs embedded in audit-code",
+      "decision": "New skill `dev/sonar-gate` rather than embedding in `audit-code`. Skills are single-responsibility. `audit-code` orchestrates gates; `sonar-gate` provides the Sonar-specific procedure. Follows existing pattern.",
+      "decidedAt": "2026-02-26T00:00:00Z",
+      "spec": "024-sonar-platform-onboarding"
     }
   ]
 }
