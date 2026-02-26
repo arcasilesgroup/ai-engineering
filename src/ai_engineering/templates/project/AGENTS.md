@@ -67,6 +67,9 @@ Procedural skills guide structured execution. Reference the relevant skill befor
 - `.ai-engineering/skills/dev/cicd-generate/SKILL.md` — CI/CD workflow generation.
 - `.ai-engineering/skills/dev/multi-agent/SKILL.md` — multi-agent orchestration patterns.
 - `.ai-engineering/skills/dev/test-runner/SKILL.md` — write and run tests across frameworks.
+- `.ai-engineering/skills/dev/api-design/SKILL.md` — contract-first API design.
+- `.ai-engineering/skills/dev/infrastructure/SKILL.md` — IaC provisioning.
+- `.ai-engineering/skills/dev/database-ops/SKILL.md` — database operations.
 
 ### Review Skills
 
@@ -76,6 +79,7 @@ Procedural skills guide structured execution. Reference the relevant skill befor
 - `.ai-engineering/skills/review/data-security/SKILL.md` — data security posture review.
 - `.ai-engineering/skills/review/dast/SKILL.md` — dynamic application security testing.
 - `.ai-engineering/skills/review/container-security/SKILL.md` — container image scanning.
+- `.ai-engineering/skills/review/accessibility/SKILL.md` — WCAG 2.1 AA accessibility review.
 
 ### Docs Skills
 
@@ -128,6 +132,10 @@ Agent definitions provide personas for complex multi-step tasks. Activate the re
 - `.ai-engineering/agents/platform-auditor.md` — full-spectrum audit orchestration.
 - `.ai-engineering/agents/verify-app.md` — end-to-end verification.
 - `.ai-engineering/agents/test-master.md` — comprehensive testing specialist.
+- `.ai-engineering/agents/infrastructure-engineer.md` — IaC and cloud provisioning.
+- `.ai-engineering/agents/database-engineer.md` — database engineering.
+- `.ai-engineering/agents/frontend-specialist.md` — frontend/UI architecture.
+- `.ai-engineering/agents/api-designer.md` — contract-first API design.
 
 ## Slash Commands
 

@@ -134,6 +134,27 @@
       "decision": "90% is the authoritative overall coverage target (quality/core.md is source of truth). 100% applies only to governance-critical paths. All files aligned to this baseline.",
       "decidedAt": "2026-02-26T00:00:00Z",
       "spec": "none"
+    },
+    {
+      "id": "D023-001",
+      "context": "Database-engineer agent vs data-modeling skill-only approach (extends D021-004)",
+      "decision": "Add database-engineer agent alongside existing data-modeling skill. Complex DB work requires judgment persona (schema trade-offs, perf tuning, migration risk). Skill provides procedure; agent provides judgment. D021-004 is extended, not contradicted.",
+      "decidedAt": "2026-02-26T00:00:00Z",
+      "spec": "023-multi-stack-audit-hardening"
+    },
+    {
+      "id": "D023-002",
+      "context": "Cross-cutting standards (azure, infrastructure, database) placement",
+      "decision": "Place in standards/framework/stacks/ alongside primary stack standards. Same path pattern. Marked as cross-cutting (no enforcement gates, advisory only). Applied alongside a primary stack, not instead of one.",
+      "decidedAt": "2026-02-26T00:00:00Z",
+      "spec": "023-multi-stack-audit-hardening"
+    },
+    {
+      "id": "D023-003",
+      "context": "TypeScript as base standard for framework-specific stacks",
+      "decision": "typescript.md serves as base for React, React Native, NestJS, Astro, Next.js stacks. Framework-specific stacks extend TS base to avoid content duplication. Each framework adds only framework-specific patterns.",
+      "decidedAt": "2026-02-26T00:00:00Z",
+      "spec": "023-multi-stack-audit-hardening"
     }
   ]
 }

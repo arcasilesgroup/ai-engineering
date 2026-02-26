@@ -2,16 +2,17 @@
 
 ## Update Metadata
 
-- Rationale: extend multi-stack support to Next.js/TypeScript projects; mirror python.md structure for consistency.
-- Expected gain: predictable Next.js/TS baseline with explicit patterns for AI-assisted code generation and review.
-- Potential impact: Next.js tooling requirements and code patterns become enforceable during generation and review.
+- Rationale: align with TypeScript base standard; add bun support and design system token patterns from audit.
+- Expected gain: consistent Next.js baseline extending TypeScript base with framework-specific patterns.
+- Potential impact: Next.js projects inherit TypeScript base rules and get design system enforcement.
 
 ## Stack Scope
 
 - Primary language: TypeScript (strict mode).
-- Framework: Next.js (App Router preferred).
+- Framework: Next.js 14+ (App Router preferred).
+- Base standard: extends `standards/framework/stacks/typescript.md` — all TS rules apply.
 - Supporting formats: Markdown, YAML, JSON, Bash.
-- Toolchain baseline: `node`, `npm` (or `pnpm`/`yarn`), `eslint`, `prettier`, `tsc`.
+- Toolchain baseline: `node`, `npm` (or `pnpm`/`bun`), `eslint`, `prettier`, `tsc`.
 - Distribution: Vercel deployment, Docker container, or static export.
 
 ## Required Tooling

@@ -3,7 +3,7 @@ name: cicd-generate
 description: "Generate stack-aware CI/CD workflow files from installed stacks and enforcement checks; use when setting up or modernizing CI/CD pipelines."
 version: 1.0.0
 category: dev
-tags: [ci-cd, github-actions, azure-devops, automation]
+tags: [ci-cd, github-actions, azure-devops, azure-pipelines, railway, cloudflare, automation]
 metadata:
   ai-engineering:
     scope: read-write
@@ -14,7 +14,7 @@ metadata:
 
 ## Purpose
 
-Generate stack-aware CI/CD workflow files (GitHub Actions) based on installed stacks and framework enforcement checks. Produces project-managed workflow files that replicate local quality gates and add deployment-stage security checks.
+Generate stack-aware CI/CD workflow files (GitHub Actions, Azure Pipelines) based on installed stacks and framework enforcement checks. Produces project-managed workflow files that replicate local quality gates and add deployment-stage security checks. Supports deployment to Railway, Cloudflare Workers/Pages, Vercel, and Netlify.
 
 ## Trigger
 
@@ -33,12 +33,20 @@ Generate stack-aware CI/CD workflow files (GitHub Actions) based on installed st
    - Include `common` checks for all stacks.
    - Include stack-specific checks for each active stack.
 
-3. **Generate primary CI workflow** — create `.github/workflows/ci.yml`.
-   - Matrix strategy across active stacks.
-   - Jobs: lint → build → test → security.
+3. **Generate primary CI workflow** — create provider-appropriate CI configuration.
+   - **GitHub Actions**: `.github/workflows/ci.yml` with matrix strategy across active stacks.
+   - **Azure Pipelines**: `azure-pipelines.yml` with stages and templates in `pipelines/templates/`.
+   - Jobs/stages: lint → build → test → security.
    - Common checks run once (gitleaks, semgrep).
-   - Stack-specific checks run per matrix entry.
+   - Stack-specific checks run per matrix entry / stage.
    - Coverage upload as artifact.
+
+3b. **Generate deployment configuration** (if applicable) — create platform-specific deploy config.
+   - **Railway**: `railway.toml` with build/start commands, health checks.
+   - **Cloudflare Workers/Pages**: `wrangler.toml` with compatibility date, bindings, routes.
+   - **Vercel**: `vercel.json` with build output, rewrites, env references.
+   - **Netlify**: `netlify.toml` with build command, publish directory, redirects.
+   - All deployment configs reference environment variables, never inline secrets.
 
 4. **Generate AI PR review workflow** — create provider-specific `ai-pr-review` pipeline.
    - Add `ai-eng review pr --strict` step.
@@ -92,4 +100,8 @@ Generate stack-aware CI/CD workflow files (GitHub Actions) based on installed st
 - `standards/framework/stacks/python.md` — Python check details.
 - `standards/framework/stacks/dotnet.md` — .NET check details.
 - `standards/framework/stacks/nextjs.md` — Next.js check details.
+- `standards/framework/stacks/typescript.md` — TypeScript check details.
+- `standards/framework/stacks/rust.md` — Rust check details.
+- `standards/framework/stacks/azure.md` — Azure Pipelines patterns.
+- `standards/framework/stacks/infrastructure.md` — deployment platform patterns.
 - `skills/dev/references/delivery-platform-patterns.md` — delivery/platform patterns for provider-aware pipelines.

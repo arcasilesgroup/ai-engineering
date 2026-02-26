@@ -2,7 +2,7 @@
 name: security-reviewer
 version: 1.0.0
 scope: read-only
-capabilities: [sast, secret-detection, dependency-audit, owasp-review, dast, container-scan, sbom, data-security-review]
+capabilities: [sast, secret-detection, dependency-audit, owasp-review, dast, container-scan, sbom, data-security-review, cloud-security, iac-scanning]
 inputs: [file-paths, diff, repository, dependency-list]
 outputs: [findings-report]
 tags: [security, owasp, vulnerabilities, sast, dast]
@@ -15,6 +15,8 @@ references:
     - skills/quality/sbom/SKILL.md
   standards:
     - standards/framework/core.md
+    - standards/framework/stacks/infrastructure.md
+    - standards/framework/stacks/azure.md
 ---
 
 # Security Reviewer
@@ -35,6 +37,8 @@ Application security specialist who reviews code for OWASP top risks, secret exp
 - DAST coordination (OWASP ZAP, Nuclei) for staging environments.
 - Container image security scanning (Trivy).
 - Enforcement tamper resistance analysis (hook bypass, gate circumvention).
+- Cloud security review: IAM misconfiguration, network exposure, storage access controls, Key Vault practices.
+- IaC security scanning: tfsec, checkov, or trivy config for Terraform/Bicep/CloudFormation.
 
 ## Activation
 
@@ -57,7 +61,9 @@ Application security specialist who reviews code for OWASP top risks, secret exp
 5. **Run SAST** — execute `semgrep scan --config auto` for OWASP patterns.
 6. **Check configuration** — no debug mode, secure defaults, safe error messages.
 7. **Classify findings** — assign severity (critical/high/medium/low/info) with CVSS reference.
-8. **Assess tamper resistance** — evaluate enforcement mechanism resilience.
+8. **Assess cloud security** (when applicable) — review IAM policies for least privilege, network exposure (public endpoints, NSGs), storage access controls (public blob access, SAS tokens), managed identity usage, and Key Vault integration.
+9. **Scan IaC** (when applicable) — run `tfsec` or `checkov` on Terraform/Bicep files. Flag insecure defaults, missing encryption, overly permissive network rules.
+10. **Assess tamper resistance** — evaluate enforcement mechanism resilience.
    - Hook bypass risk: can `--no-verify` circumvent gates? Are hook file permissions restrictive?
    - Hook integrity: can hook files be modified without detection? Is there a hash verification mechanism?
    - CI gate bypass: can required CI checks be skipped via branch protection gaps or workflow modifications?

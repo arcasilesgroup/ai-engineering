@@ -4,7 +4,7 @@
 
 - Rationale: formalize skill directory format, gating metadata, and agent frontmatter for multi-agent interoperability and token efficiency.
 - Expected gain: AgentSkills-compatible skills; machine-parseable agent metadata; progressive disclosure reducing token overhead by ~70%.
-- Potential impact: all 45 skills migrate from flat files to directories; all 15 agents gain structured frontmatter.
+- Potential impact: all 49 skills migrate from flat files to directories; all 19 agents gain structured frontmatter.
 
 ## Purpose
 
@@ -259,12 +259,12 @@ agent_tokens = len(frontmatter_chars) / 4 + len(body_chars) / 4
 | Category | Skills | Total Tokens | Avg Tokens | Min | Max |
 |----------|--------|-------------|------------|-----|-----|
 | workflows | 6 | 4,830 | 805 | 530 (self-improve) | 1,400 (pr) |
-| dev | 10 | 7,750 | 775 | 525 (data-modeling) | 1,125 (multi-agent) |
-| review | 6 | 4,500 | 750 | 650 (performance) | 900 (security) |
+| dev | 13 | 10,200 | 785 | 525 (data-modeling) | 1,125 (multi-agent) |
+| review | 7 | 5,250 | 750 | 650 (performance) | 900 (security) |
 | quality | 6 | 5,981 | 997 | 307 (install-check) | 1,603 (docs-audit) |
 | govern | 12 | 18,500 | 1,542 | 900 (resolve-risk) | 2,200 (integrity-check, create-spec) |
 | docs | 5 | 3,800 | 760 | 600 (prompt-design) | 1,050 (writer) |
-| **Total** | **45** | **45,361** | **1,008** | **307** | **2,200** |
+| **Total** | **49** | **48,561** | **991** | **307** | **2,200** |
 
 #### Agents
 
@@ -285,16 +285,20 @@ agent_tokens = len(frontmatter_chars) / 4 + len(body_chars) / 4
 | security-reviewer | 1,024 | 8 | read-only |
 | test-master | 400 | 3 | read-write |
 | verify-app | 795 | 4 | read-only |
-| **Total** | **7,946** | — | — |
-| **Average** | **530** | **4.8** | — |
+| api-designer | 1,231 | 5 | read-write |
+| database-engineer | 1,209 | 5 | read-write |
+| frontend-specialist | 1,263 | 6 | read-only |
+| infrastructure-engineer | 1,176 | 6 | read-write |
+| **Total** | **12,825** | — | — |
+| **Average** | **675** | **5.1** | — |
 
 #### Token Efficiency Score
 
 ```
 efficiency = session_start_tokens / total_available_tokens
-           = 500 / (45,361 + 7,946)
-           = 500 / 53,307
-           = 0.94% loaded at session start (99.06% deferred)
+           = 500 / (48,561 + 12,825)
+           = 500 / 61,386
+           = 0.81% loaded at session start (99.19% deferred)
 ```
 
 ### Compared to Previous Model
@@ -354,6 +358,39 @@ Skills with high confusion risk must include a `## When NOT to Use` section that
 - List 2-4 common misuse scenarios with the correct alternative skill.
 - Format: `**<Scenario>** — use \`<correct-skill>\` instead. <Brief reason>.`
 - This prevents skill confusion and reduces wasted execution.
+
+### Holistic Analysis Before Action
+
+Agents and skills must analyze the full system context before modifying any file:
+
+- **Read affected dependencies**: before editing a file, identify its importers/consumers and assess downstream impact.
+- **Anticipate cascading changes**: if modifying a shared module, enumerate all callers and verify none will break.
+- **No isolated edits**: treat each change as part of a system, not a standalone fix.
+- **Implementation**: agents add a "Map context" or "Analyze dependencies" step before any edit step in their Behavior section.
+
+Derived from audit patterns: Leap.new (holistic thinking protocol), Manus (event stream analysis), Google Antigravity (Knowledge Item context).
+
+### Exhaustiveness Requirement
+
+When a skill or agent identifies N issues, ALL N must be addressed or explicitly deferred with rationale:
+
+- **No partial solutions**: if a review finds 5 issues, all 5 must appear in the output — not just the first 3.
+- **No early exits**: complete all procedure steps. If a step is not applicable, state why and proceed.
+- **Explicit deferral**: if an issue cannot be resolved in the current scope, log it with rationale and severity.
+- **Implementation**: skills include "Enumerate all findings before proceeding" in their procedure. Agents include "Validate completeness against initial scope" in their final steps.
+
+Derived from audit patterns: Comet (no early exits), Same.dev (complete resolution required), Trae (task state completion enforcement).
+
+### Parallel-First Tool Execution
+
+When multiple independent operations are needed, execute them in parallel by default:
+
+- **Default to parallel**: when checks, scans, or reads have no data dependencies, batch them.
+- **Sequential only on dependency**: explicitly document why sequential execution is needed when used.
+- **Batch operations**: minimize tool round-trips. Group related file reads, lint checks, and scan operations.
+- **Implementation**: agents structure their Behavior steps to identify parallelizable operations. Skills document parallelizable vs sequential steps in their procedure.
+
+Derived from audit patterns: Same.dev (emphatic parallel execution), Cursor (parallel tool calls), Lovable (batch tool operations).
 
 ## Migration Guide
 

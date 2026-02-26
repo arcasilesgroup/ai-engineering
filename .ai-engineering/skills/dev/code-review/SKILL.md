@@ -87,4 +87,6 @@ Deep code review skill covering security, quality, performance, and maintainabil
 - `skills/review/performance/SKILL.md` — performance evaluation procedure.
 - `agents/principal-engineer.md` — agent that performs deep reviews.
 - `agents/code-simplifier.md` — agent that uses code quality criteria.
+- `agents/api-designer.md` — agent for API contract and design reviews.
+- `agents/frontend-specialist.md` — agent for frontend component and accessibility reviews.
 - `skills/docs/explain/SKILL.md` — explain findings and concepts to the author.

@@ -40,4 +40,6 @@ Provide a repeatable process to define robust data models aligned with domain be
 ## References
 
 - `agents/architect.md`
+- `agents/database-engineer.md` — agent for complex database decisions.
 - `skills/dev/migration/SKILL.md`
+- `skills/dev/database-ops/SKILL.md` — operational database procedures (schema DDL, query optimization, connection pooling).

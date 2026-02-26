@@ -59,7 +59,20 @@ Comprehensive security review covering OWASP top risks, secret exposure, injecti
    - Check for typosquatting risks on package names.
    - For comprehensive supply chain view, reference `skills/quality/sbom/SKILL.md`.
 
-5. **Configuration security** — check runtime settings.
+5. **Cloud security** (when applicable) — review cloud resource configuration.
+   - IAM: least privilege, no wildcard permissions, service principal rotation.
+   - Network: private endpoints, NSG rules, no public-facing databases.
+   - Storage: no public blob access, SAS token scope and expiry, encryption at rest.
+   - Key Vault / secrets management: managed identities preferred over secrets.
+   - Reference `standards/framework/stacks/azure.md` for Azure-specific patterns.
+
+6. **IaC scanning** (when applicable) — scan infrastructure code.
+   - Terraform: `tfsec` or `checkov` for misconfigurations.
+   - Bicep: `az bicep lint` + manual review of resource configurations.
+   - Docker: `trivy config` for Dockerfile best practices.
+   - Flag: insecure defaults, missing encryption, overly permissive network rules, hardcoded secrets.
+
+7. **Configuration security** — check runtime settings.
    - No debug mode in production configs.
    - Sensitive defaults are secure (deny by default).
    - Error messages don't expose internals.
@@ -94,3 +107,5 @@ Comprehensive security review covering OWASP top risks, secret exposure, injecti
 - `skills/review/dast/SKILL.md` — dynamic application security testing (post-deploy).
 - `skills/review/container-security/SKILL.md` — container image scanning.
 - `skills/quality/sbom/SKILL.md` — software bill of materials generation.
+- `standards/framework/stacks/azure.md` — Azure security patterns.
+- `standards/framework/stacks/infrastructure.md` — IaC security patterns.

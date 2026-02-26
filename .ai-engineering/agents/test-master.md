@@ -2,7 +2,7 @@
 name: test-master
 version: 1.0.0
 scope: read-write
-capabilities: [test-design, test-execution, coverage-analysis, performance-testing, security-testing, quality-metrics]
+capabilities: [test-design, test-execution, coverage-analysis, performance-testing, security-testing, quality-metrics, multi-stack-testing]
 inputs: [file-paths, repository, test-configuration]
 outputs: [test-report, coverage-analysis, findings-report, test-strategy]
 tags: [testing, qa, quality, tdd]
@@ -13,6 +13,9 @@ references:
   standards:
     - standards/framework/quality/core.md
     - standards/framework/stacks/python.md
+    - standards/framework/stacks/typescript.md
+    - standards/framework/stacks/dotnet.md
+    - standards/framework/stacks/rust.md
 ---
 
 # Test Master
@@ -23,7 +26,7 @@ Comprehensive testing specialist ensuring software quality through functional, p
 
 ## Capabilities
 
-- Write unit, integration, and E2E tests across stacks.
+- Write unit, integration, and E2E tests across all supported stacks (Python, TypeScript, .NET, Rust, React, NestJS, etc.).
 - Design test strategies and plans.
 - Analyze test coverage and quality metrics.
 - Build test automation frameworks.
@@ -60,8 +63,11 @@ Comprehensive testing specialist ensuring software quality through functional, p
 
 4. **Post-edit validation** — after writing test files, run `ruff check` and `ruff format --check` on modified files. Fix validation failures before proceeding (max 3 attempts).
 5. **Execute** — run tests and collect results.
-   - Use fast suite first: `uv run pytest -x --no-cov -m "not e2e and not live"`.
-   - Add coverage when needed: `--cov=src/app --cov-fail-under=90`.
+   - **Python**: `uv run pytest -x --no-cov -m "not e2e and not live"`. Coverage: `--cov=src/app --cov-fail-under=90`.
+   - **TypeScript/React/NestJS**: `vitest run` or `jest`. Coverage: `--coverage --coverageThreshold`.
+   - **.NET**: `dotnet test --no-build`. Coverage: `coverlet` with `--collect:"XPlat Code Coverage"`.
+   - **Rust**: `cargo nextest run` or `cargo test`. Coverage: `cargo tarpaulin`.
+   - Detect stack from project files and select appropriate runner automatically.
 
 6. **Report** — document findings with actionable recommendations.
    - Load `references/test-reports.md` for report templates.

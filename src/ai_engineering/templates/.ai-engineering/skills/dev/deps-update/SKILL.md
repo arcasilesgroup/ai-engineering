@@ -6,10 +6,8 @@ category: dev
 tags: [dependencies, security, vulnerabilities, updates]
 metadata:
   ai-engineering:
-    requires:
-      bins: [pip-audit]
     scope: read-write
-    token_estimate: 675
+    token_estimate: 750
 ---
 
 # Dependency Update
@@ -25,39 +23,50 @@ Structured dependency update skill: audit current dependencies, update safely, t
 
 ## Procedure
 
-1. **Audit** — assess current dependency state.
-   - Run `pip-audit` to identify known vulnerabilities.
-   - Run `uv pip list --outdated` to identify available updates.
+1. **Detect stack** — identify active stacks from project files.
+   - Python: `pyproject.toml` or `requirements.txt` → use `pip-audit` + `uv`.
+   - TypeScript/Node.js: `package.json` → use `npm audit` (or `pnpm audit` / `bun audit`).
+   - .NET: `*.csproj` or `*.sln` → use `dotnet list package --vulnerable`.
+   - Rust: `Cargo.toml` → use `cargo audit`.
+   - Run detection in parallel for multi-stack projects.
+
+2. **Audit** — assess current dependency state per stack.
+   - Python: `pip-audit` for CVEs, `uv pip list --outdated` for updates.
+   - TypeScript: `npm audit` for advisories, `npm outdated` for updates.
+   - .NET: `dotnet list package --vulnerable`, `dotnet list package --outdated`.
+   - Rust: `cargo audit` for advisories, `cargo outdated` for updates.
    - Categorize: security-critical, feature updates, patch updates.
 
-2. **Plan updates** — prioritize and sequence.
+3. **Plan updates** — prioritize and sequence.
    - Security vulnerabilities first (critical → high → medium).
    - One dependency at a time for major version bumps.
    - Batch minor/patch updates that are low-risk.
    - Check changelogs for breaking changes.
 
-3. **Update** — apply changes.
-   - Update `pyproject.toml` dependency specifications.
-   - Run `uv sync` to resolve and lock.
+4. **Update** — apply changes per stack.
+   - Python: update `pyproject.toml`, run `uv sync`.
+   - TypeScript: update `package.json`, run `npm install` (or `pnpm install`/`bun install`).
+   - .NET: `dotnet add package <name> --version <ver>`, `dotnet restore`.
+   - Rust: update `Cargo.toml`, run `cargo update`.
    - For major version changes: review migration guide.
 
-4. **Test** — verify compatibility.
-   - Run full test suite: `pytest tests/ -v`.
-   - Run type checks: `ty check src/`.
-   - Run linter: `ruff check src/`.
-   - Verify no regressions in functionality.
+5. **Test** — verify compatibility with stack-appropriate tools.
+   - Python: `pytest tests/ -v`, `ty check src/`, `ruff check src/`.
+   - TypeScript: `vitest run`, `tsc --noEmit`, `eslint .`.
+   - .NET: `dotnet test`, `dotnet build`.
+   - Rust: `cargo test`, `cargo clippy`.
 
-5. **Validate security** — re-audit after updates.
-   - Run `pip-audit` again to confirm vulnerabilities resolved.
+6. **Validate security** — re-audit after updates.
+   - Re-run the stack-appropriate audit tool to confirm vulnerabilities resolved.
    - Run `semgrep` to check for new security patterns.
    - Verify no new advisories introduced by updates.
 
 ## Output Contract
 
-- List of dependencies updated with before/after versions.
+- List of dependencies updated with before/after versions (per stack).
 - Vulnerability resolution summary.
 - Test results confirming compatibility.
-- Updated `pyproject.toml` and lock file.
+- Updated dependency files (`pyproject.toml`, `package.json`, `*.csproj`, `Cargo.toml`) and lock files.
 
 ## Governance Notes
 
@@ -79,7 +88,10 @@ Structured dependency update skill: audit current dependencies, update safely, t
 
 ## References
 
-- `standards/framework/stacks/python.md` — required tooling.
+- `standards/framework/stacks/python.md` — Python tooling and patterns.
+- `standards/framework/stacks/typescript.md` — TypeScript/Node.js tooling.
+- `standards/framework/stacks/dotnet.md` — .NET tooling.
+- `standards/framework/stacks/rust.md` — Rust tooling.
 - `standards/framework/quality/core.md` — security gate.
 - `standards/framework/core.md` — risk acceptance policy.
 - `agents/security-reviewer.md` — agent that assesses dependency security.

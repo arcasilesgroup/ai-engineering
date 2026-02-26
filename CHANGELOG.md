@@ -8,6 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Spec-023: Multi-Stack Expansion + Audit-Driven Hardening** — comprehensive multi-stack governance from 35+ AI tool audit.
+- 8 new stack standards: `typescript.md`, `react.md`, `react-native.md`, `nestjs.md`, `astro.md`, `rust.md`, `node.md`, `bash-powershell.md`.
+- 3 cross-cutting standards: `azure.md`, `infrastructure.md`, `database.md`.
+- 4 new agents: `infrastructure-engineer`, `database-engineer`, `frontend-specialist`, `api-designer`.
+- 4 new skills: `dev:api-design`, `dev:infrastructure`, `dev:database-ops`, `review:accessibility`.
+- 3 behavioral baselines added to framework core: Holistic Analysis Before Action, Exhaustiveness Requirement, Parallel-First Tool Execution.
+- 6 reference files expanded with substantive content: delivery-platform-patterns, language-framework-patterns, database-patterns, api-design-patterns, platform-detect, git-helpers.
+- Claude Code command wrappers and Copilot prompt/agent wrappers for all new agents and skills.
+- Template mirrors for all new agents, skills, and stack standards.
 - GitHub Copilot prompt files (`.github/prompts/`) — 46 prompt wrappers mapping to all skills, available as `/command` in Copilot Chat.
 - GitHub Copilot custom agents (`.github/agents/`) — 9 agent wrappers available in VS Code agent dropdown.
 - Copilot prompts and agents mirror-sync validation in `ai-eng validate`.
@@ -52,6 +61,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Installer coverage for full bundled non-state governance template tree.
 
 ### Changed
+- 6 existing agents improved: devops-engineer (Azure Pipelines, Railway, Cloudflare), architect (infra architecture), security-reviewer (cloud security, IaC scanning), orchestrator (parallel-first), principal-engineer (exhaustiveness), test-master (multi-stack).
+- 3 existing skills improved: cicd-generate (Azure Pipelines, Railway, Cloudflare), deps-update (multi-stack detection), security (cloud + IaC scanning).
+- `nextjs.md` stack standard updated with TypeScript base reference.
+- Governance surface: 45→49 skills, 15→19 agents, 5→14 stack standards.
 - Refactored git operations out of `workflows.py` and `gates.py` into shared `git/operations.py`.
 - Decision store schema bumped from 1.0 to 1.1 (backward compatible).
 - Gate pre-commit now includes risk expiry warnings.

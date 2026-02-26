@@ -66,12 +66,15 @@ Procedural skills guide structured execution. Reference the relevant skill befor
 - `.ai-engineering/skills/dev/refactor/SKILL.md` — safe refactoring.
 - `.ai-engineering/skills/dev/code-review/SKILL.md` — code review checklist.
 - `.ai-engineering/skills/dev/data-modeling/SKILL.md` — data modeling and migration safety.
+- `.ai-engineering/skills/dev/test-runner/SKILL.md` — write and run tests across frameworks.
 - `.ai-engineering/skills/dev/test-strategy/SKILL.md` — test design.
 - `.ai-engineering/skills/dev/migration/SKILL.md` — migration planning.
 - `.ai-engineering/skills/dev/deps-update/SKILL.md` — dependency management.
 - `.ai-engineering/skills/dev/cicd-generate/SKILL.md` — CI/CD workflow generation.
 - `.ai-engineering/skills/dev/multi-agent/SKILL.md` — multi-agent orchestration patterns.
-- `.ai-engineering/skills/dev/test-runner/SKILL.md` — write and run tests across frameworks.
+- `.ai-engineering/skills/dev/api-design/SKILL.md` — contract-first API design.
+- `.ai-engineering/skills/dev/infrastructure/SKILL.md` — IaC provisioning.
+- `.ai-engineering/skills/dev/database-ops/SKILL.md` — database operations.
 
 ### Review Skills
 
@@ -81,6 +84,7 @@ Procedural skills guide structured execution. Reference the relevant skill befor
 - `.ai-engineering/skills/review/data-security/SKILL.md` — data security posture review.
 - `.ai-engineering/skills/review/dast/SKILL.md` — dynamic application security testing.
 - `.ai-engineering/skills/review/container-security/SKILL.md` — container image scanning.
+- `.ai-engineering/skills/review/accessibility/SKILL.md` — WCAG 2.1 AA accessibility review.
 
 ### Docs Skills
 
@@ -119,13 +123,13 @@ Procedural skills guide structured execution. Reference the relevant skill befor
 Skills and agents are available as Claude Code slash commands via `.claude/commands/`. Each command is a thin wrapper that reads and executes the canonical skill or agent file. No content is duplicated — the command files are pointers only (decision S0-008).
 
 - `/commit`, `/pr`, `/acho`, `/pre-implementation`, `/cleanup` — workflow commands.
-- `/dev:*` — dev skill commands (e.g., `/dev:debug`, `/dev:refactor`, `/dev:code-review`, `/dev:data-modeling`, `/dev:test-runner`, `/dev:cicd-generate`, `/dev:multi-agent`).
-- `/review:*` — review skill commands (e.g., `/review:architecture`, `/review:security`, `/review:data-security`, `/review:dast`, `/review:container-security`).
+- `/dev:*` — dev skill commands (e.g., `/dev:debug`, `/dev:refactor`, `/dev:code-review`, `/dev:data-modeling`, `/dev:test-runner`, `/dev:cicd-generate`, `/dev:multi-agent`, `/dev:api-design`, `/dev:infrastructure`, `/dev:database-ops`).
+- `/review:*` — review skill commands (e.g., `/review:architecture`, `/review:security`, `/review:data-security`, `/review:dast`, `/review:container-security`, `/review:accessibility`).
 - `/docs:*` — docs skill commands (e.g., `/docs:changelog`, `/docs:explain`, `/docs:simplify`).
 - `/govern:*` — governance skill commands (e.g., `/govern:create-spec`, `/govern:integrity-check`, `/govern:contract-compliance`, `/govern:ownership-audit`, `/govern:adaptive-standards`).
 - `/quality:*` — quality skill commands (`/quality:audit-code`, `/quality:install-check`, `/quality:docs-audit`, `/quality:release-gate`, `/quality:test-gap-analysis`, `/quality:sbom`).
 - `/workflows:*` — workflow skill commands (e.g., `/workflows:self-improve`).
-- `/agent:*` — agent persona commands (e.g., `/agent:verify-app`, `/agent:debugger`, `/agent:test-master`, `/agent:platform-auditor`).
+- `/agent:*` — agent persona commands (e.g., `/agent:verify-app`, `/agent:debugger`, `/agent:test-master`, `/agent:platform-auditor`, `/agent:infrastructure-engineer`, `/agent:database-engineer`, `/agent:frontend-specialist`, `/agent:api-designer`).
 
 ## Copilot Integration
 
@@ -147,13 +151,17 @@ Agent definitions provide personas for complex multi-step tasks. Activate the re
 - `.ai-engineering/agents/orchestrator.md` — multi-phase execution orchestration.
 - `.ai-engineering/agents/navigator.md` — strategic next-spec analysis.
 - `.ai-engineering/agents/devops-engineer.md` — CI/CD and delivery automation.
+- `.ai-engineering/agents/test-master.md` — comprehensive testing specialist.
 - `.ai-engineering/agents/docs-writer.md` — documentation authoring and simplification.
 - `.ai-engineering/agents/governance-steward.md` — governance lifecycle stewardship.
 - `.ai-engineering/agents/pr-reviewer.md` — headless CI pull request review.
 - `.ai-engineering/agents/code-simplifier.md` — complexity reduction.
 - `.ai-engineering/agents/platform-auditor.md` — full-spectrum audit orchestration.
 - `.ai-engineering/agents/verify-app.md` — end-to-end verification.
-- `.ai-engineering/agents/test-master.md` — comprehensive testing specialist.
+- `.ai-engineering/agents/infrastructure-engineer.md` — IaC and cloud provisioning.
+- `.ai-engineering/agents/database-engineer.md` — database engineering.
+- `.ai-engineering/agents/frontend-specialist.md` — frontend/UI architecture.
+- `.ai-engineering/agents/api-designer.md` — contract-first API design.
 
 ## Mandatory Lifecycle
 
@@ -230,7 +238,7 @@ For full schema details: `.ai-engineering/standards/framework/skills-schema.md`.
 
 ## Quality Contract
 
-- Coverage: 90%.
+- Coverage: 90% (source of truth: `standards/framework/quality/core.md`).
 - Duplication ≤ 3%.
 - Cyclomatic complexity ≤ 10.
 - Cognitive complexity ≤ 15.
