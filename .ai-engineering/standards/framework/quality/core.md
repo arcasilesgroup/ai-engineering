@@ -35,7 +35,7 @@
 
 | Gate | Trigger | Checks | Test Tiers |
 |------|---------|--------|------------|
-| Pre-commit | `git commit` | ruff format, ruff check, gitleaks | — |
+| Pre-commit | `git commit` | ruff format, ruff check, gitleaks, documentation gate | — |
 | Pre-push | `git push` | semgrep, pip-audit, pytest (`-m unit`, parallel), ty check | Unit |
 | PR / CI | Pull request | All tiers staged: unit → integration → E2E + coverage + duplication | Unit + Integration + E2E |
 | Quality audit | On-demand | Full Sonar-like analysis (skills/quality/audit-code/SKILL.md) | All (Live opt-in) |

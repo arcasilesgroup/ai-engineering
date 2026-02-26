@@ -10,6 +10,7 @@ metadata:
       bins: [gitleaks, ruff]
     scope: read-write
     token_estimate: 800
+    model_tier: fast
 ---
 
 # Commit Workflow
@@ -37,15 +38,22 @@ Execute the `/commit` governed workflow: stage all changes, run mandatory pre-co
 2. **Run formatter** — `ruff format .` to auto-fix formatting.
 3. **Run linter** — `ruff check . --fix` to auto-fix safe lint issues. If unfixable issues remain, report and stop.
 4. **Run secret detection** — `gitleaks protect --staged --no-banner`. If secrets found, report and stop.
-5. **Commit** — `git commit -m "<message>"` with a well-formed commit message following project conventions.
+5. **Documentation gate** — detect and update documentation for user-visible changes.
+   a. Classify staged changes: **user-visible** (src/ features, API changes, CLI changes, breaking changes, config schema changes) vs **internal-only** (tests/, .ai-engineering/, .github/, pure refactoring, dependency bumps).
+   b. If `CHANGELOG.md` exists AND changes are user-visible: add entries to `[Unreleased]` section per `skills/docs/changelog/SKILL.md` format. Stage the updated `CHANGELOG.md`.
+   c. If `CHANGELOG.md` does NOT exist AND changes are user-visible: recommend creating one. If user agrees, invoke changelog skill.
+   d. If `README.md` exists AND changes include new features or breaking changes: flag for review — "README.md may need updating for new features/breaking changes."
+   e. If no documentation files detected AND changes are non-trivial: ask user — "No docs detected. Provide external doc URL to audit, or 'skip'."
+   f. If changes are internal-only: skip with note — "Internal changes only — documentation gate skipped."
+6. **Commit** — `git commit -m "<message>"` with a well-formed commit message following project conventions.
    - If active spec exists, use format: `spec-NNN: Task X.Y — <description>`.
    - Otherwise, use conventional commit format: `type(scope): description`.
-6. **Push** — `git push origin <current-branch>`.
+7. **Push** — `git push origin <current-branch>`.
    - If current branch is `main` or `master`, **block** and report protected branch violation.
 
 ### `/commit --only` (stage + commit, no push)
 
-Follow steps 1–5 above. Skip step 6.
+Follow steps 1–6 above. Skip step 7.
 
 ## Output Contract
 
@@ -66,5 +74,6 @@ Follow steps 1–5 above. Skip step 6.
 - `standards/framework/core.md` — non-negotiables and enforcement rules.
 - `standards/framework/stacks/python.md` — Python-specific checks.
 - `standards/framework/quality/core.md` — gate structure (pre-commit gate).
+- `skills/docs/changelog/SKILL.md` — changelog entry formatting (used by documentation gate).
 - `skills/workflows/acho/SKILL.md` — alias workflow.
 - `agents/verify-app.md` — agent that validates commit workflow execution.

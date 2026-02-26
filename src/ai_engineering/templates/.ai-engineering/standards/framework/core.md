@@ -17,6 +17,7 @@ Framework-owned baseline standards for every installed instance.
 - No direct commits to `main` or `master`.
 - Protected branches are blocked for direct push flows.
 - Remote skills are content-only; no remote execution.
+- Documentation updates for user-visible changes (`CHANGELOG.md` when present).
 
 ## Enforcement Rules
 
@@ -31,6 +32,7 @@ Framework-owned baseline standards for every installed instance.
 - `/commit` and `/acho` push only current branch.
 - `/pr` and `/acho pr` must enable PR auto-complete with squash merge and branch deletion.
 - `/pr --only` warns if branch is not pushed, proposes auto-push, and continues with user-selected mode if declined.
+- `/commit` and `/pr` include a documentation gate that classifies changes and enforces changelog/doc updates for user-visible changes.
 
 ## Skills and Agents
 

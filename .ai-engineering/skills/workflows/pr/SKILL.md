@@ -10,6 +10,7 @@ metadata:
       bins: [gitleaks, ruff, gh]
     scope: read-write
     token_estimate: 1400
+    model_tier: fast
 ---
 
 # PR Workflow
@@ -37,19 +38,26 @@ Execute the `/pr` governed workflow: stage, commit, push, create a pull request,
 2. **Run formatter** — `ruff format .` to auto-fix formatting.
 3. **Run linter** — `ruff check . --fix`. If unfixable issues remain, report and stop.
 4. **Run secret detection** — `gitleaks protect --staged --no-banner`. If secrets found, report and stop.
-5. **Run pre-push checks** — execute full pre-push gate:
+5. **Documentation gate** — detect and update documentation for user-visible changes.
+   a. Classify staged changes: **user-visible** (src/ features, API changes, CLI changes, breaking changes, config schema changes) vs **internal-only** (tests/, .ai-engineering/, .github/, pure refactoring, dependency bumps).
+   b. If `CHANGELOG.md` exists AND changes are user-visible: add entries to `[Unreleased]` section per `skills/docs/changelog/SKILL.md` format. Verify entries follow Keep a Changelog anti-pattern rules. Stage the updated `CHANGELOG.md`.
+   c. If `CHANGELOG.md` does NOT exist AND changes are user-visible: recommend creating one. If user agrees, invoke changelog skill.
+   d. If `README.md` exists AND changes include new features or breaking changes: flag for review — "README.md may need updating for new features/breaking changes."
+   e. If no documentation files detected AND changes are non-trivial: ask user — "No docs detected. Provide external doc URL to audit, or 'skip'."
+   f. If changes are internal-only: skip with note — "Internal changes only — documentation gate skipped."
+6. **Run pre-push checks** — execute full pre-push gate:
    - `semgrep scan --config auto .`
    - `pip-audit`
    - `pytest tests/ -v`
    - `ty check src/`
    If any check fails, report and stop.
-6. **Commit** — `git commit -m "<message>"` with well-formed message.
+7. **Commit** — `git commit -m "<message>"` with well-formed message.
    - If active spec exists: `spec-NNN: Task X.Y — <description>`.
    - Otherwise: conventional commit format.
-7. **Push** — `git push origin <current-branch>`.
+8. **Push** — `git push origin <current-branch>`.
    - If current branch is `main`/`master`, **block** and report protected branch violation.
-8. **Create PR** — `gh pr create --fill` (or with explicit title/body if provided).
-9. **Enable auto-complete** — `gh pr merge --auto --squash --delete-branch`.
+9. **Create PR** — `gh pr create --fill` (or with explicit title/body if provided).
+10. **Enable auto-complete** — `gh pr merge --auto --squash --delete-branch`.
 
 ### `/pr --only` (create PR only)
 
@@ -98,6 +106,8 @@ When creating the PR:
    - [ ] `ty check src/` passes.
    - [ ] `pytest` passes with 100% coverage.
    - [ ] No secrets in committed code.
+   - [ ] CHANGELOG.md updated for user-visible changes.
+   - [ ] README/docs reviewed for accuracy (if applicable).
    - [ ] Breaking changes documented (if any).
 
 4. **Labels and metadata** — tag appropriately.
@@ -115,5 +125,5 @@ When creating the PR:
 - `standards/framework/quality/core.md` — gate structure (pre-push + PR gates).
 - `skills/workflows/commit/SKILL.md` — shared pre-commit steps.
 - `skills/workflows/acho/SKILL.md` — alias workflow.
-- `skills/docs/changelog/SKILL.md` — changelog entry formatting for PRs.
+- `skills/docs/changelog/SKILL.md` — changelog entry formatting (used by documentation gate).
 - `agents/verify-app.md` — agent that validates PR workflow execution.

@@ -155,6 +155,20 @@
       "decision": "typescript.md serves as base for React, React Native, NestJS, Astro, Next.js stacks. Framework-specific stacks extend TS base to avoid content duplication. Each framework adds only framework-specific patterns.",
       "decidedAt": "2026-02-26T00:00:00Z",
       "spec": "023-multi-stack-audit-hardening"
+    },
+    {
+      "id": "D024-001",
+      "context": "Model tier system for cost-optimized workflow dispatch",
+      "decision": "Two-tier model_tier system: 'fast' (deterministic workflows → Haiku/GPT-5.3-Codex) and default (omitted = Opus-class). Evolves D021-001 which removed multi-model routing when tooling didn't support it. Claude Code Task tool now supports model: 'haiku' natively. Content-layer metadata only — no runtime routing code.",
+      "decidedAt": "2026-02-26T00:00:00Z",
+      "spec": "024-model-tiering-doc-enforcement"
+    },
+    {
+      "id": "D024-002",
+      "context": "Documentation gate enforcement in commit/PR workflows",
+      "decision": "Add documentation gate as mandatory step in /commit and /pr workflows. Classifies changes as user-visible vs internal-only. User-visible changes require CHANGELOG.md update. Internal-only changes skip silently. External docs trigger user prompt for URL. Existing changelog skill provides the procedure; workflows now enforce its use.",
+      "decidedAt": "2026-02-26T00:00:00Z",
+      "spec": "024-model-tiering-doc-enforcement"
     }
   ]
 }

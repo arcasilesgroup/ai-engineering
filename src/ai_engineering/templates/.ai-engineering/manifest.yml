@@ -13,10 +13,10 @@ metadata:
 
 governance_surface:
   agents:
-    total: 15
+    total: 19
     categories: [analysis, review, orchestration, docs, governance, delivery, verification, testing]
   skills:
-    total: 45
+    total: 49
     category_count: 6
     categories: [workflows, dev, review, docs, govern, quality]
   integrity:
@@ -71,6 +71,7 @@ commands:
   commit:
     default: ["stage", "commit", "push_current_branch"]
     only: ["stage", "commit"]
+    model_tier: fast
   pr:
     default:
       [
@@ -85,6 +86,7 @@ commands:
       severity: "warning"
       propose_auto_push: true
       continue_modes: ["defer-pr", "attempt-pr-anyway", "export-pr-payload"]
+    model_tier: fast
   acho:
     default: ["stage", "commit", "push_current_branch"]
     pr:
@@ -95,6 +97,7 @@ commands:
         "create_pr",
         "enable_pr_auto_complete",
       ]
+    model_tier: fast
   management:
     stack: ["add", "remove", "list"]
     ide: ["add", "remove", "list"]

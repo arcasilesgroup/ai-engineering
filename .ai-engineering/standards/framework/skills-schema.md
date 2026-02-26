@@ -63,6 +63,7 @@ metadata:
     always: false                           # true = skip all gating
     scope: read-only                        # read-only | read-write
     token_estimate: 1200                    # estimated tokens for body
+    model_tier: fast                        # fast = cost-optimized dispatch; omit = default (Opus-class)
 ```
 
 #### Gating Logic
@@ -177,6 +178,7 @@ Use for: templates, boilerplate, configuration files, icons.
 | Field | Type | Description |
 |-------|------|-------------|
 | `tags` | list | Discovery keywords. |
+| `model_tier` | string | `fast` for deterministic agents eligible for cost-optimized dispatch. Omit for default (Opus-class). See Model Tier Standard. |
 | `references.skills` | list | Skills this agent uses (relative paths). |
 | `references.standards` | list | Standards this agent enforces (relative paths). |
 
@@ -308,6 +310,45 @@ efficiency = session_start_tokens / total_available_tokens
 | Session start overhead | ~3,000-5,000 tokens | ~500 tokens |
 | Multi-agent (3 parallel) start | ~9,000-15,000 tokens | ~1,500 tokens |
 | Single skill invocation | ~3,000-5,000 + skill | ~500 + 1,550 = ~2,050 |
+
+## Model Tier Standard
+
+### Purpose
+
+Enable cost-optimized execution by classifying skills and agents by the complexity of reasoning they require. Runtimes that support model routing (e.g., Claude Code Task tool) use this hint to select appropriate models. Runtimes without model routing (e.g., GitHub Copilot) treat the tier as an advisory recommendation.
+
+### Two-Tier System
+
+| Tier | Value | Meaning | Default |
+|------|-------|---------|---------|
+| Default | _(omitted)_ | Full reasoning, judgment, analysis | Yes — all skills/agents without annotation |
+| Fast | `fast` | Deterministic procedure, no judgment needed | No — explicit annotation required |
+
+### Runtime Mappings
+
+| Runtime | Default (omitted) | `fast` |
+|---------|-------------------|--------|
+| **Claude Code** (Task tool) | Opus 4.6 (session default) | Haiku via `model: "haiku"` |
+| **GitHub Copilot** | User choice (Claude Opus, GPT-5.3-Codex, etc.) | User choice (Haiku, GPT-5.3-Codex, or cheapest available) |
+| **Generic** | Most capable model available | Most cost-efficient model available |
+
+### Assignment Criteria
+
+A skill or agent qualifies for `fast` tier when **ALL** of these apply:
+
+- Steps are fully deterministic (no conditional judgment).
+- No architectural or design decisions required.
+- Token estimate is under 1,500.
+- Procedure is a fixed sequence with binary pass/fail outcomes.
+- No need to analyze or synthesize complex information.
+
+### Rules
+
+- `model_tier` is optional. Omitted = default (Opus-class).
+- The tier is advisory — runtimes may ignore it if they don't support model routing.
+- Tier assignment must be justified: `fast` only for deterministic procedures.
+- Skills invoked interactively by the user (as the main agent) always run on the user's selected model — tier applies only to subagent dispatch.
+- Only two values exist: `fast` or omitted. No intermediate tiers.
 
 ## Behavioral Patterns
 
