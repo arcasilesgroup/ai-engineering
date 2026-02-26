@@ -197,6 +197,27 @@
       "decision": "New skill `dev/sonar-gate` rather than embedding in `audit-code`. Skills are single-responsibility. `audit-code` orchestrates gates; `sonar-gate` provides the Sonar-specific procedure. Follows existing pattern.",
       "decidedAt": "2026-02-26T00:00:00Z",
       "spec": "024-sonar-platform-onboarding"
+    },
+    {
+      "id": "D024-007",
+      "context": "SonarLint IDE configuration mode: Connected Mode vs standalone rules",
+      "decision": "Use Connected Mode pointing to the configured SonarCloud/SonarQube server. Connected Mode syncs rules from the server, ensuring parity between IDE diagnostics and CI quality gate. Standalone mode would require maintaining separate rule sets.",
+      "decidedAt": "2026-02-26T00:00:00Z",
+      "spec": "024-sonar-platform-onboarding"
+    },
+    {
+      "id": "D024-008",
+      "context": "VS Code fork IDEs config path strategy",
+      "decision": "VS Code family IDEs (Cursor, Windsurf, Antigravity) all read settings from `.vscode/settings.json` and `.vscode/extensions.json`. One configuration serves all forks. No need for separate `.cursor/`, `.windsurf/`, or `.antigravity/` paths.",
+      "decidedAt": "2026-02-26T00:00:00Z",
+      "spec": "024-sonar-platform-onboarding"
+    },
+    {
+      "id": "D024-009",
+      "context": "Strategy for merging SonarLint settings into existing IDE config files",
+      "decision": "Read existing JSON/XML, deep-merge only SonarLint-namespaced keys, write back. Never overwrite user-configured keys outside the `sonarlint` namespace. Creates config directories if missing.",
+      "decidedAt": "2026-02-26T00:00:00Z",
+      "spec": "024-sonar-platform-onboarding"
     }
   ]
 }

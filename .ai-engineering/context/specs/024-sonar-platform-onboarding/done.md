@@ -8,7 +8,7 @@ completed: "2026-02-27"
 
 ## Summary
 
-Spec-024 adds platform credential management, Sonar quality gate integration, and guided CLI onboarding to the ai-engineering framework. Implementation spans 6 phases, 32 tasks, across 7 atomic commits.
+Spec-024 adds platform credential management, Sonar quality gate integration, SonarLint IDE configuration, and guided CLI onboarding to the ai-engineering framework. Implementation spans 7 phases, 44 tasks, across 8 atomic commits.
 
 ## Deliverables
 
@@ -22,7 +22,27 @@ Spec-024 adds platform credential management, Sonar quality gate integration, an
 | `src/ai_engineering/platforms/github.py` | `GitHubSetup` — `gh` CLI auth verification and scope checks |
 | `src/ai_engineering/platforms/sonar.py` | `SonarSetup` — token validation (httpx/urllib), keyring storage |
 | `src/ai_engineering/platforms/azure_devops.py` | `AzureDevOpsSetup` — PAT validation (httpx/urllib), keyring storage |
-| `src/ai_engineering/cli_commands/setup.py` | `ai-eng setup` Typer subgroup (platforms, github, sonar, azure-devops) |
+| `src/ai_engineering/cli_commands/setup.py` | `ai-eng setup` Typer subgroup (platforms, github, sonar, azure-devops, sonarlint) |
+
+### Phase 7 — SonarLint IDE Configuration
+
+| Module | Purpose |
+|--------|---------|
+| `src/ai_engineering/platforms/sonarlint.py` | Multi-IDE SonarLint Connected Mode configuration (VS Code, JetBrains, VS 2022) |
+
+### Phase 7 — Modified Files
+
+| File | Change |
+|------|--------|
+| `src/ai_engineering/cli_commands/setup.py` | Added `setup_sonarlint_cmd`, `_run_sonarlint_setup`, integration in `setup_platforms_cmd` |
+| `src/ai_engineering/cli_factory.py` | Registered `sonarlint` subcommand under `setup` |
+| `.ai-engineering/standards/framework/quality/sonarlint.md` | Extended with per-IDE integration guidance and Connected Mode rationale |
+
+### Phase 7 — New Tests
+
+| Test File | Scope |
+|-----------|-------|
+| `tests/unit/test_sonarlint.py` | IDE detection, VS Code/JetBrains/VS2022 config, merge safety, connection helpers (40+ tests) |
 
 ### New Skill
 
@@ -84,6 +104,13 @@ Spec-024 adds platform credential management, Sonar quality gate integration, an
 | 16 | No secrets in output/logs/files | PASS — `mask_secret()` in service, `hide_input=True` in CLI |
 | 17 | `gitleaks`/`semgrep` pass with zero findings | PASS (gitleaks) / DEFERRED (semgrep — not installed) |
 | 18 | All instruction files updated | PASS — 8 files + manifest + product-contract |
+| 19 | IDE detection identifies VS Code, JetBrains, VS 2022 from markers | PASS — `detect_ide_families()` checks `.vscode/`, `.idea/`, `.vs/` |
+| 20 | Connected Mode configured (not standalone rules) | PASS — all configurators use `connectionId` + `projectKey` binding |
+| 21 | VS Code settings.json merges SonarLint keys without overwriting | PASS — `_read_json_safe` + deep merge of sonarlint namespace only |
+| 22 | JetBrains sonarlint.xml and connectedMode.json generated | PASS — `configure_jetbrains()` writes both files |
+| 23 | VS 2022 .vs/SonarLint/settings.json generated | PASS — `configure_vs2022()` writes binding + connection |
+| 24 | Extension recommendation added for VS Code family | PASS — `SonarSource.sonarlint-vscode` in extensions.json |
+| 25 | Silent skip when no IDEs detected | PASS — `configure_all_ides()` returns empty summary |
 
 ## Deferred Items
 
@@ -104,6 +131,7 @@ Spec-024 adds platform credential management, Sonar quality gate integration, an
 5. `spec-024: Phase 4 — integration with existing skills and doctor`
 6. `spec-024: Phase 5 — skill registration and governance`
 7. `spec-024: Phase 6 — verification and close`
+8. `spec-024: Phase 7 — SonarLint IDE configuration`
 
 ## Decisions Applied
 
@@ -113,3 +141,6 @@ Spec-024 adds platform credential management, Sonar quality gate integration, an
 - D024-004: Sonar gate silently skips when unconfigured.
 - D024-005: Sonar thresholds mirror quality contract exactly.
 - D024-006: `tools.json` stores only non-secret metadata.
+- D024-007: Connected Mode (not standalone rules) for server-IDE rule parity.
+- D024-008: VS Code forks share `.vscode/` config path.
+- D024-009: Merge-safe JSON/XML — only touch sonarlint-namespaced keys.

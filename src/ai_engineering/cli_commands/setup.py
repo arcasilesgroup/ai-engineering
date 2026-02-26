@@ -76,6 +76,14 @@ def setup_platforms_cmd(
             _run_azure_devops_setup(root)
         typer.echo("")
 
+    # After platform setup, offer SonarLint IDE configuration if Sonar is configured.
+    cred_svc = CredentialService()
+    state = cred_svc.load_tools_state(_state_dir(root))
+    if state.sonar.configured and state.sonar.url:
+        typer.echo("── SonarLint IDE Configuration ──")
+        if typer.confirm("  Configure SonarLint Connected Mode in your IDEs?", default=True):
+            _run_sonarlint_setup(root)
+
 
 # ------------------------------------------------------------------
 # ai-eng setup github
@@ -314,3 +322,106 @@ def _run_azure_devops_setup(root: Path, *, org_url_override: str | None = None) 
     )
     cred_svc.save_tools_state(_state_dir(root), state)
     typer.echo("  ✓ State saved to tools.json")
+
+
+# ------------------------------------------------------------------
+# ai-eng setup sonarlint
+# ------------------------------------------------------------------
+
+
+def setup_sonarlint_cmd(
+    target: Annotated[
+        Path | None,
+        typer.Argument(help="Target project root. Defaults to cwd."),
+    ] = None,
+    url: Annotated[
+        str,
+        typer.Option("--url", "-u", help="Sonar server URL override."),
+    ] = "",
+    project_key: Annotated[
+        str,
+        typer.Option("--project-key", "-k", help="Sonar project key override."),
+    ] = "",
+) -> None:
+    """Configure SonarLint Connected Mode in all detected IDEs."""
+    root = resolve_project_root(target)
+    _run_sonarlint_setup(root, url_override=url or None, project_key_override=project_key or None)
+
+
+def _run_sonarlint_setup(
+    root: Path,
+    *,
+    url_override: str | None = None,
+    project_key_override: str | None = None,
+) -> None:
+    """Execute the SonarLint IDE configuration flow."""
+    from ai_engineering.platforms.sonarlint import (
+        IDEFamily,
+        configure_all_ides,
+        detect_ide_families,
+    )
+
+    typer.echo("── SonarLint IDE Setup ──")
+
+    # 1. Resolve Sonar connection info.
+    cred_svc = CredentialService()
+    state = cred_svc.load_tools_state(_state_dir(root))
+
+    sonar_url = url_override or state.sonar.url or _read_sonar_url_from_properties(root)
+    project_key = project_key_override or state.sonar.project_key or _read_sonar_project_key(root)
+
+    if not sonar_url:
+        typer.echo("  ⚠ No Sonar server URL configured.")
+        typer.echo("  Run 'ai-eng setup sonar' first to configure SonarCloud/SonarQube credentials.")
+        return
+
+    if not project_key:
+        typer.echo("  ⚠ No Sonar project key found.")
+        typer.echo("  Set sonar.projectKey in sonar-project.properties or use --project-key.")
+        return
+
+    # 2. Detect IDE families.
+    families = detect_ide_families(root)
+
+    if not families:
+        typer.echo("  No IDE workspace markers detected (.vscode/, .idea/, .vs/).")
+        typer.echo("  Create the IDE config folder first, or specify IDEs manually.")
+        typer.echo("")
+        if typer.confirm(
+            "  Create .vscode/ for VS Code / Cursor / Windsurf / Antigravity?",
+            default=True,
+        ):
+            (root / ".vscode").mkdir(parents=True, exist_ok=True)
+            families.append(IDEFamily.VSCODE)
+        if typer.confirm(
+            "  Create .idea/ for JetBrains IDEs (IntelliJ, Rider, etc.)?",
+            default=False,
+        ):
+            (root / ".idea").mkdir(parents=True, exist_ok=True)
+            families.append(IDEFamily.JETBRAINS)
+        if typer.confirm("  Create .vs/ for Visual Studio 2022?", default=False):
+            (root / ".vs").mkdir(parents=True, exist_ok=True)
+            families.append(IDEFamily.VS2022)
+
+    if not families:
+        typer.echo("  No IDEs selected. Skipping SonarLint setup.")
+        return
+
+    typer.echo(f"  Detected IDEs: {', '.join(f.value for f in families)}")
+    typer.echo(f"  Sonar URL: {sonar_url}")
+    typer.echo(f"  Project key: {project_key}")
+    typer.echo("")
+
+    # 3. Configure all detected IDEs.
+    summary = configure_all_ides(root, sonar_url, project_key, ide_families=families)
+
+    for result in summary.results:
+        if result.success:
+            typer.echo(f"  ✓ {result.ide_family}: {', '.join(result.files_written)}")
+        else:
+            typer.echo(f"  ✗ {result.ide_family}: {result.error}")
+
+    if summary.any_success:
+        typer.echo("")
+        typer.echo("  SonarLint Connected Mode configured. Open your IDE to activate.")
+        typer.echo("  Token authentication will be handled by SonarLint in the IDE.")

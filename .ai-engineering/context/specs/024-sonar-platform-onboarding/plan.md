@@ -30,6 +30,8 @@ approach: "serial-phases"
 | `tests/unit/test_sonar_gate.py` | Unit tests for Sonar gate logic |
 | `tests/unit/test_setup_cli.py` | Unit tests for setup CLI commands |
 | `tests/integration/test_platform_onboarding.py` | Integration tests for full onboarding flows |
+| `src/ai_engineering/platforms/sonarlint.py` | Multi-IDE SonarLint Connected Mode configuration |
+| `tests/unit/test_sonarlint.py` | Unit tests for SonarLint IDE configuration |
 
 ### Modified Files
 
@@ -47,6 +49,9 @@ approach: "serial-phases"
 | `.github/copilot-instructions.md` | Add `sonar-gate` skill reference |
 | `AGENTS.md` | Add `sonar-gate` skill reference |
 | `CLAUDE.md` | Add `sonar-gate` skill reference |
+| `src/ai_engineering/cli_factory.py` | Register `sonarlint` subcommand |
+| `src/ai_engineering/cli_commands/setup.py` | Add `setup_sonarlint_cmd` |
+| `.ai-engineering/standards/framework/quality/sonarlint.md` | Add IDE integration guidance per IDE family |
 
 ### Mirror Copies
 
@@ -70,9 +75,10 @@ src/ai_engineering/
 │   ├── detector.py          # detect_platforms() → list[Platform]
 │   ├── github.py            # GitHubSetup: gh CLI check, auth verify, scope check
 │   ├── sonar.py             # SonarSetup: token prompt, API validate, keyring store
-│   └── azure_devops.py      # AzureDevOpsSetup: PAT prompt, API validate, keyring store
+│   ├── azure_devops.py      # AzureDevOpsSetup: PAT prompt, API validate, keyring store
+│   └── sonarlint.py         # SonarLintConfigurator: multi-IDE config generation
 ├── cli_commands/
-│   └── setup.py             # setup_app = typer.Typer(); platforms/sonar/github/azure-devops subcommands
+│   └── setup.py             # setup_app = typer.Typer(); platforms/sonar/github/azure-devops/sonarlint
 └── doctor/
     └── service.py           # (modified) add check_platforms() diagnostic
 
@@ -198,6 +204,20 @@ flowchart TD
 - Verify all 18 acceptance criteria.
 - Create `done.md`.
 - Size: S (< 1 session).
+
+### Phase 7: SonarLint IDE Configuration [M]
+
+- Create `src/ai_engineering/platforms/sonarlint.py` — multi-IDE SonarLint configurator.
+- IDE family detection: VS Code family (`.vscode/`), JetBrains (`.idea/`), VS 2022 (`.vs/`).
+- VS Code family covers: VS Code, Cursor, Windsurf, Antigravity (all use `.vscode/` config).
+- JetBrains family covers: IntelliJ IDEA, Rider, WebStorm, PyCharm, GoLand.
+- Visual Studio 2022: `.vs/SonarLint/settings.json`.
+- Merge-safe JSON/XML writes (preserve existing settings).
+- Add `sonarlint` subcommand to `ai-eng setup`.
+- Register in `cli_factory.py`.
+- Update `sonarlint.md` quality standard with per-IDE integration guidance.
+- Unit tests for all IDE config generators.
+- Size: M (1 session).
 
 ## Patterns
 

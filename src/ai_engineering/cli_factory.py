@@ -222,6 +222,7 @@ def create_app() -> typer.Typer:
     setup_app.command("github")(_safe(setup.setup_github_cmd))
     setup_app.command("sonar")(_safe(setup.setup_sonar_cmd))
     setup_app.command("azure-devops")(_safe(setup.setup_azure_devops_cmd))
+    setup_app.command("sonarlint")(_safe(setup.setup_sonarlint_cmd))
     app.add_typer(setup_app, name="setup")
 
     return app

@@ -14,7 +14,17 @@ metadata:
 governance_surface:
   agents:
     total: 19
-    categories: [analysis, review, orchestration, docs, governance, delivery, verification, testing]
+    categories:
+      [
+        analysis,
+        review,
+        orchestration,
+        docs,
+        governance,
+        delivery,
+        verification,
+        testing,
+      ]
   skills:
     total: 50
     category_count: 6

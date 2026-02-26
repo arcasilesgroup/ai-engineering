@@ -1,9 +1,9 @@
 ---
 spec: "024"
-total: 32
-completed: 32
+total: 44
+completed: 44
 last_session: "2026-02-27"
-next_session: "Phase 6 — Verification & Close"
+next_session: "none — spec complete"
 ---
 
 # Tasks — Sonar Scanner Integration & Platform Credential Onboarding
@@ -83,6 +83,21 @@ next_session: "Phase 6 — Verification & Close"
 - [ ] 6.6 Run `semgrep scan --config auto` — 0 medium+ findings
 - [ ] 6.7 Run `pip-audit` — 0 known vulnerabilities
 - [ ] 6.8 Run `govern:integrity-check` — 7/7 categories pass
-- [ ] 6.9 Verify all 18 acceptance criteria from spec.md
+- [ ] 6.9 Verify all 25 acceptance criteria from spec.md
 - [ ] 6.10 Create `done.md` with summary, results, deferred items
 - [ ] 6.11 Atomic commit: `spec-024: Phase 6 — verification and close`
+
+## Phase 7: SonarLint IDE Configuration [M]
+
+- [x] 7.1 Create `src/ai_engineering/platforms/sonarlint.py` — `SonarLintConfigurator` class with IDE family detection and config generation
+- [x] 7.2 Implement VS Code family config: `configure_vscode(root, sonar_url, project_key, connection_id)` — merge into `.vscode/settings.json` + `.vscode/extensions.json`
+- [x] 7.3 Implement JetBrains family config: `configure_jetbrains(root, sonar_url, project_key, connection_id)` — generate `.idea/sonarlint/` XML binding
+- [x] 7.4 Implement VS 2022 config: `configure_vs2022(root, sonar_url, project_key, connection_id)` — generate `.vs/SonarLint/settings.json`
+- [x] 7.5 Add `setup_sonarlint_cmd` to `cli_commands/setup.py` and register in `cli_factory.py`
+- [x] 7.6 Integrate SonarLint setup into `setup_platforms_cmd` flow (after Sonar credential setup)
+- [x] 7.7 Update `sonarlint.md` quality standard with per-IDE integration guidance
+- [x] 7.8 Create `tests/unit/test_sonarlint.py` — unit tests for all IDE config generators (VS Code family, JetBrains, VS 2022)
+- [x] 7.9 Add decisions D024-007 through D024-009 to `decision-store.json`
+- [x] 7.10 Update `done.md` with Phase 7 deliverables
+- [x] 7.11 Update `CHANGELOG.md` with SonarLint IDE configuration entry
+- [x] 7.12 Atomic commit: `spec-024: Phase 7 — SonarLint IDE configuration`

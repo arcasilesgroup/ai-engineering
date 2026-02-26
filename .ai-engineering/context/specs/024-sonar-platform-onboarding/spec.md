@@ -47,7 +47,22 @@ A new optional quality gate that runs `sonar-scanner` locally before push:
 | `ai-eng setup sonar` | SonarCloud/SonarQube credential setup only |
 | `ai-eng setup github` | GitHub CLI auth verification/setup only |
 | `ai-eng setup azure-devops` | Azure DevOps PAT setup only |
+| `ai-eng setup sonarlint` | Configure SonarLint in all detected IDEs |
 | `ai-eng doctor --check-platforms` | Validate stored credentials are still valid |
+
+### 4. SonarLint IDE Configuration (`ai-eng setup sonarlint`)
+
+Automated SonarLint extension configuration across all major IDEs:
+
+- **Detects installed IDEs** from workspace markers (`.vscode/`, `.idea/`, `.vs/`, `.cursor/`, `.windsurf/`, `.antigravity/`).
+- **Generates IDE-specific configuration** files for SonarLint with Connected Mode pointing to the configured SonarCloud/SonarQube instance.
+- **Supports 4 IDE families**:
+  - **VS Code family** (VS Code, Cursor, Windsurf, Antigravity): `.vscode/settings.json` with `sonarlint.connectedMode.*` properties + `extensions.json` recommendation.
+  - **JetBrains family** (IntelliJ, Rider, WebStorm, PyCharm, etc.): `.idea/sonarlint/` XML configuration with connection binding.
+  - **Visual Studio 2022**: `.vs/SonarLint/settings.json` with connection binding.
+- **Adds extension recommendations** where supported (VS Code `extensions.json`).
+- **Preserves existing settings** — merges SonarLint keys into existing JSON/XML, never overwrites user content.
+- **Silent skip** when Sonar credentials are not configured — suggests running `ai-eng setup sonar` first.
 
 ## Scope
 
@@ -57,12 +72,16 @@ A new optional quality gate that runs `sonar-scanner` locally before push:
 - New `src/ai_engineering/credentials/` module for OS-native secret storage.
 - New `src/ai_engineering/cli_commands/setup.py` module for `setup` subcommand group.
 - New `src/ai_engineering/platforms/` module for platform detection and validation.
+- New `src/ai_engineering/platforms/sonarlint.py` module for multi-IDE SonarLint configuration.
 - New skill: `dev/sonar-gate/SKILL.md` with cross-OS scripts.
 - Modifications to `install-check`, `audit-code`, and `release-gate` skills (add optional Sonar gate references).
 - New `.ai-engineering/state/tools.json` schema definition.
 - `doctor` command extension with `--check-platforms` flag.
 - Cross-OS Sonar scanner wrapper scripts (Bash + PowerShell).
-- Unit and integration tests for credentials module, platform detection, and Sonar gate.
+- SonarLint Connected Mode configuration for VS Code, Cursor, Windsurf, Antigravity, JetBrains IDEs, Rider, and Visual Studio 2022.
+- IDE auto-detection from workspace markers.
+- Extension recommendation injection (`extensions.json`).
+- Unit and integration tests for credentials module, platform detection, Sonar gate, and SonarLint IDE config.
 
 ### Out of Scope
 
@@ -93,6 +112,13 @@ A new optional quality gate that runs `sonar-scanner` locally before push:
 16. No secrets appear in terminal output, logs, or tracked files.
 17. `gitleaks`/`semgrep` pass with zero findings after implementation.
 18. All instruction files updated with new skill references and skill counts.
+19. `ai-eng setup sonarlint` detects VS Code, Cursor, Windsurf, Antigravity, JetBrains, Rider, and VS 2022 from workspace markers.
+20. SonarLint Connected Mode config generated for each detected IDE family.
+21. VS Code family: `settings.json` updated with `sonarlint.connectedMode.*` + `extensions.json` with SonarLint recommendation.
+22. JetBrains family: `.idea/sonarlint/` XML binding generated.
+23. Visual Studio 2022: `.vs/SonarLint/settings.json` generated.
+24. Existing IDE settings preserved (merge, not overwrite).
+25. SonarLint setup silently skips when Sonar credentials are not configured.
 
 ## Decisions
 
@@ -104,3 +130,6 @@ A new optional quality gate that runs `sonar-scanner` locally before push:
 | D024-004 | New `setup` CLI subcommand group instead of extending `install` | `install` has a defined contract (copy templates, hooks, readiness). Platform onboarding is a separate concern with its own re-runnability requirement. |
 | D024-005 | `tools.json` in `.ai-engineering/state/` for platform metadata | Follows existing state file pattern. Only non-secret metadata stored. File is system-managed (ownership model). |
 | D024-006 | New skill `dev/sonar-gate` rather than embedding in `audit-code` | Skills are single-responsibility. `audit-code` orchestrates gates; `sonar-gate` provides the Sonar-specific procedure. Follows existing pattern (audit-code references quality/core.md). |
+| D024-007 | SonarLint IDE config uses Connected Mode, not standalone rules | Connected Mode syncs rules from SonarCloud/SonarQube server, ensuring parity between IDE and CI. Standalone mode would require maintaining separate rule sets. |
+| D024-008 | VS Code family IDEs (Cursor, Windsurf, Antigravity) share `.vscode/` config path | All VS Code forks read `settings.json` and `extensions.json` from `.vscode/`. One config serves multiple IDEs. |
+| D024-009 | Merge strategy for existing IDE settings JSON files | Read existing JSON, deep-merge SonarLint keys only, write back. Never overwrite user-configured keys outside the `sonarlint` namespace. |
