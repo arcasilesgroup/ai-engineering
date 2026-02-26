@@ -92,7 +92,7 @@ class SonarSetup:
         api_url = urljoin(url.rstrip("/") + "/", "api/authentication/validate")
 
         try:
-            import httpx as _httpx
+            import httpx as _httpx  # type: ignore[import-not-found]  # optional dependency
 
             response = _httpx.get(
                 api_url,
