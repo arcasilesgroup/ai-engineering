@@ -10,7 +10,6 @@ metadata:
       bins: [gitleaks, ruff, gh]
     scope: read-write
     token_estimate: 1400
-    model_tier: fast
 ---
 
 # PR Workflow
@@ -38,13 +37,19 @@ Execute the `/pr` governed workflow: stage, commit, push, create a pull request,
 2. **Run formatter** — `ruff format .` to auto-fix formatting.
 3. **Run linter** — `ruff check . --fix`. If unfixable issues remain, report and stop.
 4. **Run secret detection** — `gitleaks protect --staged --no-banner`. If secrets found, report and stop.
-5. **Documentation gate** — detect and update documentation for user-visible changes.
+5. **Documentation gate** — update documentation for OSS GitHub users.
    a. Classify staged changes: **user-visible** (src/ features, API changes, CLI changes, breaking changes, config schema changes) vs **internal-only** (tests/, .ai-engineering/, .github/, pure refactoring, dependency bumps).
-   b. If `CHANGELOG.md` exists AND changes are user-visible: add entries to `[Unreleased]` section per `skills/docs/changelog/SKILL.md` format. Verify entries follow Keep a Changelog anti-pattern rules. Stage the updated `CHANGELOG.md`.
-   c. If `CHANGELOG.md` does NOT exist AND changes are user-visible: recommend creating one. If user agrees, invoke changelog skill.
-   d. If `README.md` exists AND changes include new features or breaking changes: flag for review — "README.md may need updating for new features/breaking changes."
-   e. If no documentation files detected AND changes are non-trivial: ask user — "No docs detected. Provide external doc URL to audit, or 'skip'."
-   f. If changes are internal-only: skip with note — "Internal changes only — documentation gate skipped."
+   b. If changes are internal-only: skip with note — "Internal changes only — documentation gate skipped."
+   c. If changes are user-visible — update **CHANGELOG.md**:
+      - If `CHANGELOG.md` exists: add entries to `[Unreleased]` section per `skills/docs/changelog/SKILL.md` format. Verify entries follow Keep a Changelog anti-pattern rules. Stage the updated file.
+      - If `CHANGELOG.md` does NOT exist: create it following Keep a Changelog format. Stage the new file.
+   d. If changes are user-visible — update **README.md** (when applicable):
+      - If `README.md` exists AND changes include new features, breaking changes, or new CLI commands: update relevant sections (Features, Usage, Configuration, etc.) per `skills/docs/writer/SKILL.md` conventions for OSS GitHub users. Stage the updated file.
+      - If `README.md` does NOT exist AND changes are non-trivial: create it targeting OSS GitHub audience using the writer skill. Stage the new file.
+   e. **External documentation portal**:
+      - Ask: "Do you have an external documentation portal (docs site, wiki, separate repo)? Provide the repo URL, or 'skip'."
+      - If URL provided: clone the docs repo (if not already local), create a feature branch, update relevant documentation pages based on the staged changes, commit + push + create PR with auto-complete (`--auto --squash --delete-branch`), and report the docs PR URL.
+      - If 'skip': continue without external docs.
 6. **Run pre-push checks** — execute full pre-push gate:
    - `semgrep scan --config auto .`
    - `pip-audit`
@@ -107,7 +112,8 @@ When creating the PR:
    - [ ] `pytest` passes with 100% coverage.
    - [ ] No secrets in committed code.
    - [ ] CHANGELOG.md updated for user-visible changes.
-   - [ ] README/docs reviewed for accuracy (if applicable).
+   - [ ] README.md updated for new features/breaking changes (if applicable).
+   - [ ] External docs PR created (if applicable).
    - [ ] Breaking changes documented (if any).
 
 4. **Labels and metadata** — tag appropriately.
@@ -126,4 +132,5 @@ When creating the PR:
 - `skills/workflows/commit/SKILL.md` — shared pre-commit steps.
 - `skills/workflows/acho/SKILL.md` — alias workflow.
 - `skills/docs/changelog/SKILL.md` — changelog entry formatting (used by documentation gate).
+- `skills/docs/writer/SKILL.md` — README and documentation update procedure for OSS GitHub users (used by documentation gate).
 - `agents/verify-app.md` — agent that validates PR workflow execution.

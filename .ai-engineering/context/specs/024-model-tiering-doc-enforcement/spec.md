@@ -5,49 +5,49 @@ status: "in-progress"
 created: "2026-02-26"
 ---
 
-# Spec 024 — Model Tiering + Documentation Enforcement
+# Spec 024 — OSS Documentation Gate
 
 ## Problem
 
-Workflow skills (`/commit`, `/pr`, `/acho`, `/cleanup`, `/pre-implementation`) are deterministic procedures that consume expensive Opus tokens for tasks requiring zero reasoning. Additionally, documentation updates (CHANGELOG, README) are never enforced — the changelog skill exists but no workflow mandates its use, leading to stale documentation.
+Documentation updates (CHANGELOG, README, external docs portal) are never enforced in commit/PR workflows. Changes ship without updating user-facing docs, leading to stale documentation for OSS GitHub users.
 
 ## Solution
 
-1. **Introduce `model_tier` metadata** — a two-tier system (`fast` vs default) in the skill/agent schema that hints runtimes to dispatch deterministic workflows on cost-efficient models (Haiku for Claude Code, GPT-5.3-Codex or Haiku for Copilot).
-2. **Add documentation gate** — a mandatory step in `/commit` and `/pr` that classifies changes and enforces changelog/doc updates for user-visible changes.
+Add a mandatory documentation gate to `/commit`, `/pr`, and `/acho` workflows that:
+1. Classifies changes as user-visible vs internal-only.
+2. Always updates **CHANGELOG.md** for user-visible changes (creates if missing).
+3. Always updates **README.md** for new features/breaking changes (creates if missing).
+4. Asks about **external documentation portal** — if provided, clones the docs repo, updates pages, and creates a PR with auto-complete.
 
 ## Scope
 
 ### In Scope
 
-- `model_tier` field added to skill and agent schema in `skills-schema.md`.
-- 5 workflow skills annotated with `model_tier: fast`.
-- 5 Claude Code command wrappers updated with model tier dispatch hints.
-- 5 Copilot prompt wrappers updated with advisory model tier notes.
 - Documentation gate step added to `/commit`, `/pr`, `/acho` procedures.
-- PR checklist expanded with changelog/docs items.
+- CHANGELOG.md auto-update using `skills/docs/changelog/SKILL.md`.
+- README.md auto-update using `skills/docs/writer/SKILL.md` for OSS GitHub users.
+- External docs portal support: clone, update, PR with auto-complete.
+- PR checklist expanded with changelog/docs/external docs items.
 - Standards updated: `core.md` non-negotiables, `quality/core.md` gate table.
-- Manifest updated with model_tier annotations.
 - Template mirrors synced.
-- Decisions recorded in `decision-store.json`.
+- Decision recorded in `decision-store.json`.
 
 ### Out of Scope
 
-- Runtime model routing code (content-layer metadata only).
-- Automated changelog generation (AI follows existing changelog skill procedure).
-- Copilot model selection enforcement (advisory only — Copilot model is user-controlled).
-- Changes to agent roster (workflows stay as skills per S0-001).
+- Model tier system (removed — no `model_tier` metadata).
+- Automated generation from scratch (AI follows existing doc skill procedures).
+- Changes to agent roster or skill-to-agent conversions.
 
 ## Acceptance Criteria
 
-1. `skills-schema.md` documents `model_tier` field with two-tier definitions and runtime mappings.
-2. All 5 workflow skills have `model_tier: fast` in frontmatter.
-3. All 5 Claude Code wrappers include `**Model tier: fast**` dispatch hint.
-4. All 5 Copilot wrappers include advisory model tier blockquote.
-5. `/commit` procedure includes documentation gate step (step 5) between secret detection and commit.
-6. `/pr` procedure includes documentation gate step and expanded PR checklist.
-7. `/acho` references documentation gate inheritance.
-8. `core.md` non-negotiables include documentation update mandate.
+1. `/commit` procedure includes documentation gate step (step 5) between secret detection and commit.
+2. `/pr` procedure includes documentation gate step and expanded PR checklist.
+3. `/acho` references documentation gate inheritance.
+4. Documentation gate always updates CHANGELOG.md for user-visible changes.
+5. Documentation gate updates README.md for new features/breaking changes.
+6. Documentation gate asks about external docs portal and handles clone + PR workflow.
+7. Internal-only changes skip the gate silently.
+8. `core.md` non-negotiables include documentation update mandate for OSS GitHub users.
 9. `integrity-check` passes all 7 categories after completion.
 10. Template mirrors byte-identical with canonical files.
 
@@ -55,5 +55,4 @@ Workflow skills (`/commit`, `/pr`, `/acho`, `/cleanup`, `/pre-implementation`) a
 
 | ID | Decision | Rationale |
 |----|----------|-----------|
-| D024-001 | Two-tier `model_tier` system: `fast` + default (omitted = Opus-class). | Opus handles everything well by default. Only deterministic workflows warrant Haiku. Middle tier adds complexity without clear benefit. Evolves D021-001 which removed multi-model routing when tooling didn't support it — Claude Code Task tool now supports `model: "haiku"`. |
-| D024-002 | Documentation gate added to `/commit` and `/pr` as governance-mandated step. | Changelog skill exists but is never required. User-visible changes must update CHANGELOG.md. Internal-only changes skip silently. External docs trigger user prompt for URL. |
+| D024-001 | Mandatory documentation gate in /commit, /pr, /acho for OSS GitHub users. Always updates CHANGELOG.md + README.md for user-visible changes. External docs portal support with clone + PR. | Changelog and writer skills exist but are never enforced. OSS users need up-to-date docs. External portal support prevents docs drift across repos. |

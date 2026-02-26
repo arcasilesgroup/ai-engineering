@@ -8,11 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- **Spec-024: Model Tiering + Documentation Enforcement** — two-tier `model_tier` system (fast/default) for cost-optimized workflow dispatch and mandatory documentation gate in commit/PR workflows.
-- `model_tier` metadata field in skill and agent schema — enables deterministic workflows to run on Haiku (Claude Code) or GPT-5.3-Codex (Copilot) for cost savings.
-- Documentation gate step in `/commit`, `/pr`, and `/acho` workflows — classifies changes as user-visible vs internal-only and enforces CHANGELOG.md updates.
-- PR checklist expanded with changelog and documentation review items.
-- Model tier advisory annotations in all Copilot prompt wrappers for workflow skills.
+- **Spec-024: OSS Documentation Gate** — mandatory documentation gate in `/commit`, `/pr`, and `/acho` workflows for OSS GitHub users.
+- Documentation gate classifies changes as user-visible vs internal-only and enforces CHANGELOG.md and README.md updates for user-visible changes.
+- External documentation portal support: asks for docs repo URL, clones, updates documentation, creates PR with auto-complete.
+- PR checklist expanded with CHANGELOG, README, and external docs items.
 - **Spec-023: Multi-Stack Expansion + Audit-Driven Hardening** — comprehensive multi-stack governance from 35+ AI tool audit.
 - 8 new stack standards: `typescript.md`, `react.md`, `react-native.md`, `nestjs.md`, `astro.md`, `rust.md`, `node.md`, `bash-powershell.md`.
 - 3 cross-cutting standards: `azure.md`, `infrastructure.md`, `database.md`.

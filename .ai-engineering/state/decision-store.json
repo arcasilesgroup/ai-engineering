@@ -158,15 +158,8 @@
     },
     {
       "id": "D024-001",
-      "context": "Model tier system for cost-optimized workflow dispatch",
-      "decision": "Two-tier model_tier system: 'fast' (deterministic workflows → Haiku/GPT-5.3-Codex) and default (omitted = Opus-class). Evolves D021-001 which removed multi-model routing when tooling didn't support it. Claude Code Task tool now supports model: 'haiku' natively. Content-layer metadata only — no runtime routing code.",
-      "decidedAt": "2026-02-26T00:00:00Z",
-      "spec": "024-model-tiering-doc-enforcement"
-    },
-    {
-      "id": "D024-002",
-      "context": "Documentation gate enforcement in commit/PR workflows",
-      "decision": "Add documentation gate as mandatory step in /commit and /pr workflows. Classifies changes as user-visible vs internal-only. User-visible changes require CHANGELOG.md update. Internal-only changes skip silently. External docs trigger user prompt for URL. Existing changelog skill provides the procedure; workflows now enforce its use.",
+      "context": "Documentation gate enforcement in commit/PR/acho workflows for OSS GitHub users",
+      "decision": "Add mandatory documentation gate to /commit, /pr, and /acho workflows. Classifies changes as user-visible vs internal-only. User-visible changes always update CHANGELOG.md and README.md targeting OSS GitHub users. External documentation portal support: asks for repo URL, clones, updates, creates PR with auto-complete. Internal-only changes skip silently. Uses changelog and writer skills as referenced procedures.",
       "decidedAt": "2026-02-26T00:00:00Z",
       "spec": "024-model-tiering-doc-enforcement"
     }

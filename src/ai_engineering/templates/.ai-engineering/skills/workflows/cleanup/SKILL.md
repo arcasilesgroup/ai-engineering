@@ -10,7 +10,6 @@ metadata:
       bins: [git]
     scope: read-write
     token_estimate: 800
-    model_tier: fast
 ---
 
 # Branch Cleanup Workflow

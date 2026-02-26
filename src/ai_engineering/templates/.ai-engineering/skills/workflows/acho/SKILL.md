@@ -10,7 +10,6 @@ metadata:
       bins: [gitleaks, ruff]
     scope: read-write
     token_estimate: 600
-    model_tier: fast
 ---
 
 # Acho Workflow
@@ -34,7 +33,7 @@ Identical to `/commit` default flow (including documentation gate):
 2. Run formatter — `ruff format .`.
 3. Run linter — `ruff check . --fix`. Stop on unfixable issues.
 4. Run secret detection — `gitleaks protect --staged --no-banner`. Stop on findings.
-5. Documentation gate — classify changes and update docs for user-visible changes (inherited from `/commit`).
+5. Documentation gate — update CHANGELOG.md, README.md, and external docs portal for OSS GitHub users (inherited from `/commit`).
 6. Commit — `git commit -m "<message>"`.
 7. Push — `git push origin <current-branch>`. Block if `main`/`master`.
 
@@ -43,7 +42,7 @@ Identical to `/commit` default flow (including documentation gate):
 Identical to `/pr` default flow (including documentation gate):
 
 1. Stage, format, lint, secret detection (steps 1–4 above).
-2. Documentation gate — classify changes and update docs for user-visible changes (inherited from `/pr`).
+2. Documentation gate — update CHANGELOG.md, README.md, and external docs portal for OSS GitHub users (inherited from `/pr`).
 3. Run pre-push checks — `semgrep`, `pip-audit`, `pytest`, `ty check`. Stop on failures.
 4. Commit with well-formed message.
 5. Push to current branch. Block if protected.

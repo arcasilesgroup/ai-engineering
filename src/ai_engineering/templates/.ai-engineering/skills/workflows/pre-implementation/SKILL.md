@@ -10,7 +10,6 @@ metadata:
       bins: [git]
     scope: read-write
     token_estimate: 700
-    model_tier: fast
 ---
 
 # Pre-Implementation Workflow

@@ -4,8 +4,6 @@ Before executing, verify these preconditions:
 2. Working tree has staged or unstaged changes (abort if nothing to commit).
 3. Active spec is read from `.ai-engineering/context/specs/_active.md`.
 
-**Model tier: fast** — This workflow is deterministic. When dispatching via Task tool, use `model: "haiku"`.
-
 Read and execute the workflow skill defined in `.ai-engineering/skills/workflows/commit/SKILL.md`.
 
 Arguments: no arguments = default flow. `--only` = restricted variant (if defined).

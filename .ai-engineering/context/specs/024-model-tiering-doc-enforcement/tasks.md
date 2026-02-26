@@ -1,53 +1,33 @@
 ---
 spec: "024"
-total: 22
-completed: 22
+total: 12
+completed: 12
 last_session: "2026-02-26"
 next_session: "Complete"
 ---
 
-# Tasks — Model Tiering + Documentation Enforcement
+# Tasks — OSS Documentation Gate
 
-## Phase 0: Scaffold [S]
+## Phase 0: Revert model_tier [S]
 
-- [x] 0.1 Create branch `feat/024-model-tiering-doc-enforcement`
-- [x] 0.2 Scaffold spec files (spec.md, plan.md, tasks.md)
-- [x] 0.3 Update `_active.md` to point to spec-024
-- [x] 0.4 Record D024-001 and D024-002 in `decision-store.json`
+- [x] 0.1 Remove `model_tier: fast` from 5 workflow skill frontmatters
+- [x] 0.2 Remove Model Tier Standard section from `skills-schema.md`
+- [x] 0.3 Remove `model_tier` from `manifest.yml` commands
+- [x] 0.4 Remove model tier hints from 5 Claude Code command wrappers
+- [x] 0.5 Remove model tier advisory from 5 Copilot prompt wrappers
+- [x] 0.6 Sync all template mirrors
 
-## Phase 1: Schema [S]
+## Phase 1: Enhanced Documentation Gate [S]
 
-- [x] 1.1 Add `model_tier` to skill frontmatter Optional Fields in `skills-schema.md`
-- [x] 1.2 Add Model Tier Standard section to `skills-schema.md`
-- [x] 1.3 Add `model_tier` as optional field in agent frontmatter schema
+- [x] 1.1 Update `/commit` doc gate: CHANGELOG + README + external portal
+- [x] 1.2 Update `/pr` doc gate: CHANGELOG + README + external portal + PR checklist
+- [x] 1.3 Update `/acho` doc gate references
+- [x] 1.4 Sync workflow skill template mirrors
 
-## Phase 2: Tier Assignment [S] ║ Phase 4
+## Phase 2: Standards + Registration [S]
 
-- [x] 2.1 Add `model_tier: fast` to `skills/workflows/commit/SKILL.md`
-- [x] 2.2 Add `model_tier: fast` to `skills/workflows/pr/SKILL.md`
-- [x] 2.3 Add `model_tier: fast` to `skills/workflows/acho/SKILL.md`
-- [x] 2.4 Add `model_tier: fast` to `skills/workflows/cleanup/SKILL.md`
-- [x] 2.5 Add `model_tier: fast` to `skills/workflows/pre-implementation/SKILL.md`
-
-## Phase 3: Wrappers [S] ║ Phase 4
-
-- [x] 3.1 Update 5 Claude Code command wrappers with model tier hints
-- [x] 3.2 Update 5 Copilot prompt wrappers with advisory model tier notes
-
-## Phase 4: Documentation Gate [M] ║ Phase 2-3
-
-- [x] 4.1 Add documentation gate step to `/commit` SKILL.md (step 5)
-- [x] 4.2 Add documentation gate step to `/pr` SKILL.md + PR checklist
-- [x] 4.3 Add documentation gate inheritance note to `/acho` SKILL.md
-
-## Phase 5: Standards Alignment [S]
-
-- [x] 5.1 Add doc gate to `core.md` non-negotiables
-- [x] 5.2 Add doc gate to `quality/core.md` gate table
-- [x] 5.3 Add `model_tier` to `manifest.yml` commands section
-
-## Phase 6: Registration + Integrity [S]
-
-- [x] 6.1 Sync template mirrors
-- [x] 6.2 Update CHANGELOG.md with spec-024 entries
-- [ ] 6.3 Run `integrity-check`
+- [x] 2.1 Update `core.md` non-negotiables and command governance for OSS docs
+- [x] 2.2 Update `decision-store.json`: remove D024-001 (model tier), update D024-002 → D024-001 (doc gate)
+- [x] 2.3 Rewrite spec files (spec.md, plan.md, tasks.md)
+- [x] 2.4 Update CHANGELOG.md
+- [ ] 2.5 Run `integrity-check`
