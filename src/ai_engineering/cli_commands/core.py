@@ -15,6 +15,7 @@ from ai_engineering.__version__ import __version__
 from ai_engineering.doctor.service import diagnose
 from ai_engineering.installer.service import install
 from ai_engineering.paths import resolve_project_root
+from ai_engineering.platforms.detector import detect_platforms
 from ai_engineering.updater.service import _DIFF_MAX_LINES, update
 
 
@@ -53,6 +54,9 @@ def install_cmd(
 
     if result.already_installed:
         typer.echo("  (framework was already installed — skipped existing files)")
+
+    # Optional platform onboarding prompt (D024-003: opt-in).
+    _offer_platform_onboarding(root)
 
 
 def update_cmd(
@@ -128,6 +132,10 @@ def doctor_cmd(
         bool,
         typer.Option("--fix-tools", help="Install missing Python tools."),
     ] = False,
+    check_platforms: Annotated[
+        bool,
+        typer.Option("--check-platforms", help="Validate stored platform credentials."),
+    ] = False,
     output_json: Annotated[
         bool,
         typer.Option("--json", help="Output report as JSON."),
@@ -136,6 +144,11 @@ def doctor_cmd(
     """Diagnose and optionally fix framework health."""
     root = resolve_project_root(target)
     report = diagnose(root, fix_hooks=fix_hooks, fix_tools=fix_tools)
+
+    if check_platforms:
+        from ai_engineering.doctor.service import check_platforms as _check_plat
+
+        _check_plat(root, report)
 
     if output_json:
         typer.echo(json.dumps(report.to_dict(), indent=2))
@@ -159,3 +172,22 @@ def version_cmd() -> None:
     registry = load_registry()
     result = check_version(__version__, registry)
     typer.echo(f"ai-engineering {result.message}")
+
+
+def _offer_platform_onboarding(root: Path) -> None:
+    """Offer optional platform credential setup after install.
+
+    Detects platform markers and prompts the user to run setup
+    if any are found. Always skippable (D024-003).
+    """
+    detected = detect_platforms(root)
+    if not detected:
+        return
+
+    names = ", ".join(p.value for p in detected)
+    typer.echo(f"\n  Detected platforms: {names}")
+    run_setup = typer.confirm("  Configure platform credentials now?", default=False)
+    if run_setup:
+        from ai_engineering.cli_commands.setup import setup_platforms_cmd
+
+        setup_platforms_cmd(root)

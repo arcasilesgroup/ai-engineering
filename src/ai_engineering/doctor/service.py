@@ -612,3 +612,133 @@ def _get_current_branch(target: Path) -> str | None:
         return result.stdout.strip()
     except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired):
         return None
+
+
+def check_platforms(target: Path, report: DoctorReport) -> None:
+    """Validate stored platform credentials are still valid.
+
+    Reads ``tools.json`` and validates each configured platform's
+    credentials by calling the relevant API. Results are appended
+    to *report*.
+
+    Args:
+        target: Root directory of the target project.
+        report: DoctorReport to append check results to.
+    """
+    from ai_engineering.credentials.service import CredentialService
+
+    state_dir = target / ".ai-engineering" / "state"
+    cred_svc = CredentialService()
+    state = cred_svc.load_tools_state(state_dir)
+
+    # GitHub check — verify gh CLI auth.
+    if state.github.configured:
+        from ai_engineering.platforms.github import GitHubSetup
+
+        gh_status = GitHubSetup.check_auth_status()
+        if gh_status.authenticated:
+            report.checks.append(
+                CheckResult(
+                    name="platform:github",
+                    status=CheckStatus.OK,
+                    message=f"Authenticated as {gh_status.username}",
+                )
+            )
+        else:
+            report.checks.append(
+                CheckResult(
+                    name="platform:github",
+                    status=CheckStatus.FAIL,
+                    message=f"GitHub auth failed: {gh_status.error}",
+                )
+            )
+    else:
+        report.checks.append(
+            CheckResult(
+                name="platform:github",
+                status=CheckStatus.WARN,
+                message="GitHub not configured",
+            )
+        )
+
+    # Sonar check — validate stored token.
+    if state.sonar.configured and state.sonar.url:
+        from ai_engineering.platforms.sonar import SonarSetup
+
+        sonar = SonarSetup(cred_svc)
+        token = sonar.retrieve_token()
+        if token:
+            result = sonar.validate_token(state.sonar.url, token)
+            if result.valid:
+                report.checks.append(
+                    CheckResult(
+                        name="platform:sonar",
+                        status=CheckStatus.OK,
+                        message=f"Token valid for {state.sonar.url}",
+                    )
+                )
+            else:
+                report.checks.append(
+                    CheckResult(
+                        name="platform:sonar",
+                        status=CheckStatus.FAIL,
+                        message=f"Token invalid: {result.error}",
+                    )
+                )
+        else:
+            report.checks.append(
+                CheckResult(
+                    name="platform:sonar",
+                    status=CheckStatus.FAIL,
+                    message="Token missing from keyring",
+                )
+            )
+    else:
+        report.checks.append(
+            CheckResult(
+                name="platform:sonar",
+                status=CheckStatus.WARN,
+                message="Sonar not configured",
+            )
+        )
+
+    # Azure DevOps check — validate stored PAT.
+    if state.azure_devops.configured and state.azure_devops.org_url:
+        from ai_engineering.platforms.azure_devops import AzureDevOpsSetup
+
+        azdo = AzureDevOpsSetup(cred_svc)
+        pat = azdo.retrieve_pat()
+        if pat:
+            result = azdo.validate_pat(state.azure_devops.org_url, pat)
+            if result.valid:
+                report.checks.append(
+                    CheckResult(
+                        name="platform:azure_devops",
+                        status=CheckStatus.OK,
+                        message=f"PAT valid for {state.azure_devops.org_url}",
+                    )
+                )
+            else:
+                report.checks.append(
+                    CheckResult(
+                        name="platform:azure_devops",
+                        status=CheckStatus.FAIL,
+                        message=f"PAT invalid: {result.error}",
+                    )
+                )
+        else:
+            report.checks.append(
+                CheckResult(
+                    name="platform:azure_devops",
+                    status=CheckStatus.FAIL,
+                    message="PAT missing from keyring",
+                )
+            )
+    else:
+        report.checks.append(
+            CheckResult(
+                name="platform:azure_devops",
+                status=CheckStatus.WARN,
+                message="Azure DevOps not configured",
+            )
+        )
