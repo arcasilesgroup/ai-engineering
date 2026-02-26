@@ -21,6 +21,12 @@ Reduce verbosity and duplication in documentation without losing required meanin
 - Docs become repetitive or hard to scan.
 - Governance simplification passes.
 
+## When NOT to Use
+
+- **Writing new documentation** (README, guides, CONTRIBUTING) — use `docs:writer` instead. Simplify improves existing content; writer creates new content.
+- **Explaining concepts** (teaching, Feynman-style breakdown) — use `docs:explain` instead.
+- **Changelog entries** — use `docs:changelog` instead.
+
 ## Procedure
 
 1. Identify duplicated and low-signal passages.

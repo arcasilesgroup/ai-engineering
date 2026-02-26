@@ -21,6 +21,12 @@ Maps each product capability to its test evidence, classifies coverage confidenc
 - Command: agent invokes test-gap-analysis skill or user requests test coverage review.
 - Context: pre-release confidence assessment, post-refactoring test validation, quality audit.
 
+## When NOT to Use
+
+- **Running tests** (executing suites, collecting pass/fail) — use `dev:test-runner` instead. Test-gap-analysis maps capabilities to evidence; test-runner executes tests.
+- **Coverage metrics** (line/branch coverage thresholds) — use `quality:audit-code` instead. Test-gap-analysis maps capabilities; audit-code measures coverage.
+- **Test design** (choosing frameworks, writing patterns) — use `dev:test-strategy` instead.
+
 ## Procedure
 
 ### Phase 1: Capability Inventory

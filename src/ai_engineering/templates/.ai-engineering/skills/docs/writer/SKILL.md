@@ -215,6 +215,22 @@ Link to CODE_OF_CONDUCT.md.
 - Customize: project name, contact info, enforcement details.
 - Keep it standard — deviations from Contributor Covenant must be justified.
 
+### Headless Mode
+
+When invoked by another agent or in CI context:
+- Skip Phase 3 interactive steps (Clarify, Brainstorm, Curate).
+- Use the Project Knowledge Map directly to generate content.
+- Default to all applicable artifacts (README, CONTRIBUTING if open-source).
+- Skip Phase 4 Reader Testing sub-agent validation (replace with self-validation against the Knowledge Map).
+- Generate complete output without user confirmation prompts.
+
+## When NOT to Use
+
+- **Explaining concepts** (teaching, Feynman-style breakdown) — use `docs:explain` instead. Writer produces documentation artifacts; explain teaches understanding.
+- **Changelogs** (release notes, version history) — use `docs:changelog` instead.
+- **Simplifying existing docs** (reducing verbosity) — use `docs:simplify` instead.
+- **Prompt engineering** (designing AI interactions) — use `docs:prompt-design` instead.
+
 ### Phase 4: Reader Testing
 
 Validate documentation quality by testing with a fresh perspective.

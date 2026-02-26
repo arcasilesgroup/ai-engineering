@@ -45,7 +45,7 @@ Full-spectrum audit orchestrator who executes a comprehensive repository audit b
 
 ## Behavior
 
-1. **Structural health** — invoke `govern/integrity-check` skill. Verify 6/6 categories pass: file existence, mirror sync, counter accuracy, cross-reference integrity, instruction file consistency, manifest coherence. Record pass/fail per category.
+1. **Structural health** — invoke `govern/integrity-check` skill. Verify 7/7 categories pass: file existence, mirror sync, counter accuracy, cross-reference integrity, instruction file consistency, manifest coherence, skill frontmatter. Record pass/fail per category.
 2. **Contract compliance** — invoke `govern/contract-compliance` skill. Extract clauses from `framework-contract.md` and `manifest.yml`, validate each against implementation evidence. Record compliance score and FAIL clauses.
 3. **Code quality** — invoke `quality/audit-code` skill. Run all mandatory quality gates (coverage, duplication, complexity, lint, type checking). Record metric values vs thresholds and overall verdict.
 4. **Security enforcement** — invoke the security-reviewer agent's procedure. Run secret detection, multi-stack dependency audit, SAST, and enforcement tamper resistance analysis. Record findings by severity. If DAST tools are available, invoke `skills/review/dast/SKILL.md`. If container images exist, invoke `skills/review/container-security/SKILL.md`. If SBOM is requested, invoke `skills/quality/sbom/SKILL.md`.
@@ -114,6 +114,11 @@ Full-spectrum audit orchestrator who executes a comprehensive repository audit b
 - [Top 5 highest-impact improvements for next audit cycle]
 ```
 
+### Confidence Signal
+
+- **Confidence**: HIGH (0.8-1.0) | MEDIUM (0.5-0.79) | LOW (0.0-0.49) — with brief justification.
+- **Blocked on user**: YES/NO — whether user input is needed to proceed.
+
 ## Boundaries
 
 - Orchestrates existing skills and agents — does not duplicate their procedures.
@@ -122,3 +127,9 @@ Full-spectrum audit orchestrator who executes a comprehensive repository audit b
 - Requires all referenced skills and agent files to be accessible.
 - Score weighting is advisory — human judgment determines final release decision.
 - Escalates NO-GO verdict clearly — does not soften blocking findings.
+
+### Escalation Protocol
+
+- **Iteration limit**: max 3 attempts to resolve the same issue before escalating to user.
+- **Escalation format**: present what was tried, what failed, and options for the user.
+- **Never loop silently**: if stuck, surface the problem immediately.

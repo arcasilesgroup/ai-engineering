@@ -4,7 +4,7 @@
 
 - Rationale: formalize skill directory format, gating metadata, and agent frontmatter for multi-agent interoperability and token efficiency.
 - Expected gain: AgentSkills-compatible skills; machine-parseable agent metadata; progressive disclosure reducing token overhead by ~70%.
-- Potential impact: all 46 skills migrate from flat files to directories; all 9 agents gain structured frontmatter.
+- Potential impact: all 45 skills migrate from flat files to directories; all 15 agents gain structured frontmatter.
 
 ## Purpose
 
@@ -258,37 +258,43 @@ agent_tokens = len(frontmatter_chars) / 4 + len(body_chars) / 4
 
 | Category | Skills | Total Tokens | Avg Tokens | Min | Max |
 |----------|--------|-------------|------------|-----|-----|
-| workflows | 5 | 4,300 | 860 | 600 (acho) | 1,400 (pr) |
-| dev | 8 | 6,150 | 769 | 625 (debug) | 1,125 (multi-agent) |
-| review | 5 | 3,800 | 760 | 650 (performance) | 900 (security) |
-| quality | 7 | 6,981 | 997 | 307 (install-check) | 1,603 (docs-audit) |
-| govern | 11 | 17,300 | 1,573 | 900 (resolve-risk) | 2,200 (integrity-check, create-spec) |
-| docs | 4 | 3,200 | 800 | 600 (prompt-design) | 1,050 (writer) |
-| **Total** | **40** | **41,731** | **1,043** | **307** | **2,200** |
+| workflows | 6 | 4,830 | 805 | 530 (self-improve) | 1,400 (pr) |
+| dev | 10 | 7,750 | 775 | 525 (data-modeling) | 1,125 (multi-agent) |
+| review | 6 | 4,500 | 750 | 650 (performance) | 900 (security) |
+| quality | 6 | 5,981 | 997 | 307 (install-check) | 1,603 (docs-audit) |
+| govern | 12 | 18,500 | 1,542 | 900 (resolve-risk) | 2,200 (integrity-check, create-spec) |
+| docs | 5 | 3,800 | 760 | 600 (prompt-design) | 1,050 (writer) |
+| **Total** | **45** | **45,361** | **1,008** | **307** | **2,200** |
 
 #### Agents
 
 | Agent | Est. Tokens | Capabilities | Scope |
 |-------|------------|-------------|-------|
-| architect | 932 | 5 | read-only |
-| debugger | 668 | 2 | read-write |
-| principal-engineer | 787 | 7 | read-only |
-| security-reviewer | 1,024 | 7 | read-only |
-| quality-auditor | 726 | 4 | read-only |
-| orchestrator | 840 | 7 | read-write |
+| architect | 932 | 6 | read-only |
 | code-simplifier | 763 | 8 | read-write |
-| platform-auditor | 1,056 | 7 | read-only |
-| verify-app | 795 | 9 | read-only |
-| **Total** | **7,547** | — | — |
-| **Average** | **839** | **6.3** | — |
+| debugger | 668 | 2 | read-write |
+| devops-engineer | 165 | 5 | read-write |
+| docs-writer | 185 | 4 | read-write |
+| governance-steward | 215 | 4 | read-write |
+| navigator | 230 | 6 | read-only |
+| orchestrator | 840 | 5 | read-write |
+| platform-auditor | 1,056 | 3 | read-only |
+| pr-reviewer | 160 | 3 | read-only |
+| principal-engineer | 787 | 7 | read-only |
+| quality-auditor | 726 | 4 | read-only |
+| security-reviewer | 1,024 | 8 | read-only |
+| test-master | 400 | 3 | read-write |
+| verify-app | 795 | 4 | read-only |
+| **Total** | **7,946** | — | — |
+| **Average** | **530** | **4.8** | — |
 
 #### Token Efficiency Score
 
 ```
 efficiency = session_start_tokens / total_available_tokens
-           = 500 / (50,731 + 7,547)
-           = 500 / 58,278
-           = 0.86% loaded at session start (99.14% deferred)
+           = 500 / (45,361 + 7,946)
+           = 500 / 53,307
+           = 0.94% loaded at session start (99.06% deferred)
 ```
 
 ### Compared to Previous Model
@@ -298,6 +304,56 @@ efficiency = session_start_tokens / total_available_tokens
 | Session start overhead | ~3,000-5,000 tokens | ~500 tokens |
 | Multi-agent (3 parallel) start | ~9,000-15,000 tokens | ~1,500 tokens |
 | Single skill invocation | ~3,000-5,000 + skill | ~500 + 1,550 = ~2,050 |
+
+## Behavioral Patterns
+
+Standard behavioral patterns that agents and skills should adopt. These patterns were identified through cross-industry analysis of 35+ AI tool system prompts (Claude Code, Cursor, Windsurf, Devin, Manus, Kiro, Amp, Google Antigravity, RooCode, Bolt, v0, Same.dev, Orchids) and codified as framework norms.
+
+### Escalation Ladder
+
+All agents and procedural skills must implement iteration limits:
+
+- **Max 3 attempts** to resolve the same issue before escalating to the user.
+- Each attempt must try a **different approach** — repeating the same action is not a valid retry.
+- **Escalation format**: present what was tried, what failed, and options for the user.
+- **Never loop silently**: if stuck, surface the problem immediately.
+
+Agents implement this in `## Boundaries → ### Escalation Protocol`. Skills implement this in `## Governance Notes → ### Iteration Limits`.
+
+### Confidence Signaling
+
+Read-only audit and review agents include a confidence signal in their output:
+
+- **Confidence**: HIGH (0.8-1.0) | MEDIUM (0.5-0.79) | LOW (0.0-0.49) — with brief justification.
+- **Blocked on user**: YES/NO — whether user input is needed to proceed.
+
+Applicable agents: platform-auditor, verify-app, quality-auditor, security-reviewer, pr-reviewer, architect.
+
+### Post-Edit Validation
+
+Read-write agents and skills must validate after every file modification:
+
+- **Code files**: run applicable linter (`ruff check` + `ruff format --check` for Python).
+- **Governance files** (`.ai-engineering/`): run `integrity-check`.
+- **Never proceed** to the next step if validation fails — fix first, then continue.
+
+Agents implement this as an explicit behavior step. Skills implement this in `## Governance Notes → ### Post-Action Validation`.
+
+### Headless Mode
+
+Interactive skills that normally prompt for user input must provide a headless fallback:
+
+- **Default to standard options** when no user input is available (e.g., Standard depth, complete output).
+- **Skip interactive follow-up** prompts and generate complete output directly.
+- **Note assumptions** made in headless mode so the user can adjust after the fact.
+
+### When NOT to Use (Routing)
+
+Skills with high confusion risk must include a `## When NOT to Use` section that routes users to the correct skill:
+
+- List 2-4 common misuse scenarios with the correct alternative skill.
+- Format: `**<Scenario>** — use \`<correct-skill>\` instead. <Brief reason>.`
+- This prevents skill confusion and reduces wasted execution.
 
 ## Migration Guide
 

@@ -44,7 +44,8 @@ Systematic diagnostician who approaches bugs methodically with persistent state 
 5. **Track state** — document findings, hypotheses tested, and evidence gathered.
 6. **Fix** — implement minimal correct fix targeting root cause, not symptom.
 7. **Verify** — write regression test, run full test suite, confirm fix.
-8. **Report** — document root cause, fix, and prevention strategy.
+8. **Post-edit validation** — after any file modification, run `ruff check` and `ruff format --check` on modified Python files. If `.ai-engineering/` content was modified, run integrity-check. Fix validation failures before proceeding (max 3 attempts).
+9. **Report** — document root cause, fix, and prevention strategy.
 
 ## Referenced Skills
 
@@ -71,3 +72,9 @@ Systematic diagnostician who approaches bugs methodically with persistent state 
 - Does not introduce workarounds that mask root cause.
 - Escalates governance-critical bugs (hooks, gates, install, update) to higher severity.
 - Records debugging decisions in `state/decision-store.json` if risk acceptance needed.
+
+### Escalation Protocol
+
+- **Iteration limit**: max 3 attempts to resolve the same issue before escalating to user.
+- **Escalation format**: present what was tried, what failed, and options for the user.
+- **Never loop silently**: if stuck, surface the problem immediately.

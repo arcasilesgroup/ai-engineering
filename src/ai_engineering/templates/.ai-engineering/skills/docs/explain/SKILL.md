@@ -149,6 +149,21 @@ Feynman-style explanations of code, concepts, patterns, and architecture. When a
     - Only propose if the explanation revealed a pattern not yet in learnings.
     - Ask user before writing. Do not write without confirmation.
 
+### Headless Mode
+
+When invoked by another agent (not directly by user) or in CI context:
+- Default to Standard depth (skip depth negotiation).
+- Skip follow-up prompts (Phase 4, steps 11-12).
+- If subject is ambiguous, select the most specific interpretation and note the assumption.
+- Output the full explanation without asking for confirmation.
+
+## When NOT to Use
+
+- **Generating documentation** (README, CONTRIBUTING, guides) — use `docs:writer` instead. Explain teaches concepts; writer produces documentation artifacts.
+- **Simplifying existing docs** (reducing verbosity, removing duplication) — use `docs:simplify` instead.
+- **Code changes** (refactoring, bug fixing) — use `dev:refactor` or `dev:debug` instead. Explain is output-only.
+- **Changelog entries** — use `docs:changelog` instead.
+
 ## Output Contract
 
 - Explanation following the depth-appropriate section set (see Phase 2 table).

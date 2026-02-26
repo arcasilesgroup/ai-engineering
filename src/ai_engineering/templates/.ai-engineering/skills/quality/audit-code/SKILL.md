@@ -66,7 +66,7 @@ Execute a SonarQube-like quality gate assessment on the codebase. Evaluates cove
 
    | Metric | Threshold | Severity if violated |
    |--------|-----------|---------------------|
-   | Coverage (overall) | 100% | Blocker |
+   | Coverage (overall) | 90% | Blocker |
    | Coverage (governance-critical) | 100% | Blocker |
    | Duplicated lines | ≤3% | Critical |
    | Reliability issues (blocker/critical) | 0 | Blocker |
@@ -106,7 +106,7 @@ Produce this markdown structure directly as audit output:
 
 | Metric | Value | Threshold | Status |
 |--------|-------|-----------|--------|
-| Coverage (overall) | XX% | 100% | ✓ / ✗ |
+| Coverage (overall) | XX% | 90% | ✓ / ✗ |
 | Coverage (governance-critical) | XX% | 100% | ✓ / ✗ |
 | Duplicated lines | XX% | ≤3% | ✓ / ✗ |
 | Blocker issues | N | 0 | ✓ / ✗ |

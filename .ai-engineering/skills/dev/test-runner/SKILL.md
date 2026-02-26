@@ -21,6 +21,12 @@ Write and run tests across languages and frameworks. Provides operational guidan
 - Command: `/dev:test-runner` or agent invokes test-runner skill.
 - Context: writing tests, running test suites, analyzing coverage, TDD workflow.
 
+## When NOT to Use
+
+- **Test design** (choosing what to test, tier selection, strategy) — use `dev:test-strategy` instead. Test-runner executes; test-strategy designs.
+- **Coverage auditing** (threshold evaluation, gap analysis) — use `quality:audit-code` for metric thresholds or `quality:test-gap-analysis` for capability-to-test mapping.
+- **Debugging failures** (root cause analysis) — use `dev:debug` instead. Test-runner runs tests; debug investigates failures.
+
 ## Procedure
 
 1. **Identify framework** — select tooling per stack.
@@ -125,3 +131,8 @@ Load detailed guidance on-demand:
 - Performance targets: per `standards/framework/quality/core.md` Test Performance Targets table.
 - Gate integration: unit at pre-push, all tiers staged at CI/PR.
 - Security tests validate OWASP top 10 per `standards/framework/security/owasp-top10-2025.md`.
+
+### Iteration Limits
+
+- Max 3 attempts to resolve the same test failure. After 3 failures, escalate to user with evidence of attempts.
+- Each attempt must try a different approach — repeating the same action is not a valid retry.

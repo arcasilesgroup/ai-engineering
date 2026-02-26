@@ -66,6 +66,17 @@ Safe refactoring skill: improve internal code structure without changing externa
 - Keep refactoring PRs separate from feature PRs for clean review.
 - Follow `standards/framework/stacks/python.md` code patterns.
 
+### Iteration Limits
+
+- Max 3 attempts to resolve the same issue. After 3 failures, escalate to user with evidence of attempts.
+- Each attempt must try a different approach — repeating the same action is not a valid retry.
+
+### Post-Action Validation
+
+- After completing refactoring, run `ruff check` and `ruff format --check` on modified files.
+- If `.ai-engineering/` content was modified, run integrity-check.
+- If validation fails, fix issues and re-validate (max 3 attempts per iteration limits).
+
 ## References
 
 - `standards/framework/stacks/python.md` — code patterns and quality baseline.

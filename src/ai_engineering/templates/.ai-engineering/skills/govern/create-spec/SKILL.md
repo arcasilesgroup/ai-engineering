@@ -202,6 +202,12 @@ A change is **trivial** (spec exempt) when ALL of these apply:
 - Agents must check `_active.md` at session start — if it points to a completed spec and non-trivial work is requested, invoke create-spec first.
 - Trivial changes (typos, formatting, single-line fixes) are exempt from spec-first requirement.
 
+### Post-Action Validation
+
+- After creating spec files, run integrity-check to verify structural consistency.
+- Verify `_active.md` pointer is updated correctly.
+- If validation fails, fix issues and re-validate (max 3 attempts per iteration limits).
+
 ## References
 
 - `standards/framework/core.md` — governance structure, spec-first enforcement, session contract.

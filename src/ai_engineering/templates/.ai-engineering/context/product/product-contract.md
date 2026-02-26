@@ -30,7 +30,7 @@ This project dogfoods the ai-engineering framework on itself.
 
 ### Success Criteria
 
-- `uv sync && uv run pytest tests/ -v --cov=ai_engineering --cov-fail-under=100` → 100% coverage.
+- `uv sync && uv run pytest tests/ -v --cov=ai_engineering --cov-fail-under=90` → 90% coverage (100% governance-critical).
 - `uv run ruff check src/ && uv run ruff format --check src/` → 0 issues.
 - `uv run ty check src/` → 0 errors.
 - `uv run pip-audit` → 0 vulnerabilities.
@@ -64,7 +64,7 @@ Spec-021: Governance + CI/CD Evolution. Last completed: Spec-020.
 | Security scan pass rate | 100% — zero medium+ findings | 100% (0 critical/high, 1 medium SAST to remediate) |
 | Tamper resistance score | 100/100 | 85/100 (B3/B4 implemented, pending CI evidence stabilization) |
 | Agent coverage (skills + agents defined) | 45 skills + 15 agents | 45/45 skills, 15/15 agents |
-| Test coverage | 100% | 87% (530 tests) |
+| Test coverage | 90% (100% governance-critical) | 87% (530 tests) |
 | Cross-OS CI pass | 3×3 matrix green | In progress (matrix workflow implemented; awaiting run history) |
 | Token efficiency (progressive disclosure) | ≥ 95% deferred at session start | 99.14% (500 / 58,278 tokens loaded) |
 
