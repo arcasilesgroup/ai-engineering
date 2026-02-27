@@ -64,6 +64,12 @@ Executes a structured GO/NO-GO checklist across all quality dimensions for relea
    - Gate: clean install works, doctor passes, all artifacts bundled.
    - Check: wheel builds, pip install succeeds, template tree complete.
 
+8. **Sonar quality gate** (optional) — verify Sonar analysis passes.
+   - Invoke `dev/sonar-gate/SKILL.md` or review most recent Sonar report.
+   - Gate: Sonar quality gate status is PASS or SKIP (not configured).
+   - Check: coverage, duplication, blocker/critical issues match framework contract.
+   - **Silent skip**: if Sonar is not configured, this dimension is auto-PASS.
+
 ### Phase 2: Aggregate Verdict
 
 8. **Collect gate results** — compile pass/fail for each dimension.
@@ -96,6 +102,7 @@ Executes a structured GO/NO-GO checklist across all quality dimensions for relea
 | Test Confidence | PASS/FAIL | ... | ... |
 | Documentation Coherence | PASS/FAIL | ... | ... |
 | Packaging Integrity | PASS/FAIL | ... | ... |
+| Sonar Quality Gate | PASS/FAIL/SKIP | ... | ... |
 
 ### Blocking Issues (if NO-GO)
 - [Prioritized list with severity and remediation]
@@ -124,6 +131,7 @@ Executes a structured GO/NO-GO checklist across all quality dimensions for relea
 - `skills/quality/test-gap-analysis/SKILL.md` — test confidence gate.
 - `skills/quality/docs-audit/SKILL.md` — documentation coherence gate.
 - `skills/quality/install-check/SKILL.md` — packaging integrity gate.
+- `skills/dev/sonar-gate/SKILL.md` — optional Sonar quality gate dimension.
 - `skills/review/security/SKILL.md` — security enforcement gate.
 - `agents/platform-auditor.md` — orchestrator that uses this skill.
 - `agents/verify-app.md` — command reliability source.

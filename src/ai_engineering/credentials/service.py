@@ -69,10 +69,15 @@ class CredentialService:
     def retrieve(self, platform: str, username: str) -> str | None:
         """Retrieve the secret for *platform*/*username*.
 
-        Returns ``None`` if no credential is stored.
+        Returns ``None`` if no credential is stored or if no keyring
+        backend is available (e.g. headless CI environments).
         """
-        backend = self._get_keyring()
-        return backend.get_password(self.service_name(platform), username)
+        try:
+            backend = self._get_keyring()
+            return backend.get_password(self.service_name(platform), username)
+        except Exception:
+            logger.debug("Keyring unavailable when retrieving %s/%s", platform, username)
+            return None
 
     def delete(self, platform: str, username: str) -> None:
         """Delete the credential for *platform*/*username*.
