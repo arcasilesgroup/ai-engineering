@@ -17,7 +17,7 @@
   </p>
 </div>
 
-ai-engineering turns any repository into a governed AI workspace. One command installs quality gates, security scanning, and risk management — enforced locally through git hooks so problems are caught before code leaves your machine. It works with Claude Code, GitHub Copilot, and OpenAI Codex out of the box.
+ai-engineering turns any repository into a governed AI workspace. One command installs quality gates, security scanning, and risk management — enforced locally through git hooks so problems are caught before code leaves your machine. It works with Claude Code, GitHub Copilot, Gemini CLI, and OpenAI Codex out of the box.
 
 [Install](#install-recommended) · [Quick start](#quick-start) · [How it works](#how-it-works-short) · [What you get](#what-you-get) · [Governance root](#the-governance-root--ai-engineering) · [Commands](#commands-reference) · [AI providers](#ai-provider-setup) · [Contributing](#contributing)
 
@@ -67,6 +67,7 @@ your-project/
 ├── .claude/commands/           ← 60 slash commands (Claude Code)
 ├── .github/prompts/            ← 45 prompt files (GitHub Copilot)
 ├── .github/agents/             ← 15 custom agents (GitHub Copilot)
+├── GEMINI.md                   ← instruction file (Gemini CLI)
 ├── .git/hooks/                 ← quality gate hooks (auto-installed)
 └── ...your code
 ```
@@ -84,7 +85,7 @@ Three ownership boundaries keep your content safe:
 - **Risk acceptance lifecycle** — accept, track, and expire security risks with severity-based deadlines (critical: 15 days, high: 30, medium: 60, low: 90). Max 2 renewals per risk.
 - **45 procedural skills** — structured procedures for commit, PR, debug, refactor, code review, security assessment, architecture review, and more. AI agents read and execute them.
 - **15 agent personas** — behavioral contracts for principal engineer, architect, security reviewer, test master, debugger, and others. Each agent has identity, capabilities, and boundaries.
-- **Multi-provider from day one** — same governance works with Claude Code (60 slash commands), GitHub Copilot (45 prompt files + 15 custom agents), and OpenAI Codex.
+- **Multi-provider from day one** — same governance works with Claude Code (60 slash commands), GitHub Copilot (45 prompt files + 15 custom agents), Gemini CLI, and OpenAI Codex.
 - **Stack-aware enforcement** — tailored rules for Python, .NET, and Next.js. Each stack has its own linting, testing, and security toolchain.
 - **Content integrity validation** — 6 programmatic categories verify that governance files stay consistent across updates.
 - **Doctor diagnostics** — one command checks framework health and auto-fixes missing hooks or tools.
@@ -115,7 +116,7 @@ Skills are step-by-step procedures written in Markdown that any AI agent can rea
 | **Govern** | 12 | `/govern:create-spec`, `/govern:integrity-check`, `/govern:accept-risk`, `/govern:create-agent` |
 | **Quality** | 6 | `/quality:audit-code`, `/quality:release-gate`, `/quality:sbom`, `/quality:test-gap-analysis` |
 
-Skills are provider-agnostic — the same skill works in Claude Code, GitHub Copilot, and OpenAI Codex without modification.
+Skills are provider-agnostic — the same skill works in Claude Code, GitHub Copilot, Gemini CLI, and OpenAI Codex without modification.
 
 ### Agents — 15 specialized personas
 
@@ -190,6 +191,10 @@ ai-engineering generates integration files for each AI provider during install.
 ### Claude Code (recommended)
 
 The framework generates `CLAUDE.md` (instruction file) and 60 slash commands in `.claude/commands/`. Run `/commit` to stage, validate, commit, and push. Run `/agent:debugger` to activate the debugger persona. All commands invoke canonical skill and agent files — no content is duplicated.
+
+### Gemini CLI
+
+The framework generates `GEMINI.md` (instruction file) for Gemini CLI. It provides context and rules similar to `CLAUDE.md`. The same governance, skills, and conventions apply automatically.
 
 ### GitHub Copilot
 

@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Spec-026: Gemini CLI Support** — `GEMINI.md` instruction file for Gemini CLI, enabling governed AI workflows with the same skills and agents as Claude Code, Copilot, and Codex.
+- Installer deploys `GEMINI.md` alongside other provider instruction files on `ai-eng install`.
+- Ownership entry for `GEMINI.md` in defaults (framework-managed).
+- Validator includes `GEMINI.md` and its template mirror in instruction file sync checks.
+- Template mirror: `src/ai_engineering/templates/project/GEMINI.md`.
+- Presentation materials updated with Gemini CLI as a supported AI provider.
+
 ### Fixed
 - `ai-eng install` no longer crashes (exit code 1) when platform onboarding prompt is aborted or running in non-interactive mode.
 - Setup CLI commands now correctly registered on module-level Typer instance (fixes unit test isolation).

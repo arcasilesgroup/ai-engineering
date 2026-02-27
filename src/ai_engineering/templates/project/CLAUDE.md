@@ -134,7 +134,7 @@ Skills and agents are available as Claude Code slash commands via `.claude/comma
 
 ## Copilot Integration
 
-GitHub Copilot prompt files (`.github/prompts/`) and custom agents (`.github/agents/`) are thin wrappers deployed alongside Claude Code commands. They point to the same canonical skill and agent files.
+GitHub Copilot prompt files (`.github/prompts/`), custom agents (`.github/agents/`), and Gemini CLI instructions (`GEMINI.md`) are thin wrappers deployed alongside Claude Code commands. They point to the same canonical skill and agent files.
 
 - `/commit`, `/pr`, `/cleanup`, etc. — workflow prompts.
 - `/dev-debug`, `/dev-refactor`, etc. — dev skill prompts.

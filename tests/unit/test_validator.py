@@ -159,9 +159,11 @@ def _write_all_instruction_files(
         root / ".github" / "copilot-instructions.md",
         root / "AGENTS.md",
         root / "CLAUDE.md",
+        root / "GEMINI.md",
         root / "src" / "ai_engineering" / "templates" / "project" / "copilot-instructions.md",
         root / "src" / "ai_engineering" / "templates" / "project" / "AGENTS.md",
         root / "src" / "ai_engineering" / "templates" / "project" / "CLAUDE.md",
+        root / "src" / "ai_engineering" / "templates" / "project" / "GEMINI.md",
     ]
     for f in files:
         f.parent.mkdir(parents=True, exist_ok=True)
@@ -190,7 +192,7 @@ def _write_manifest(ai: Path) -> None:
     m.write_text(
         "name: test-project\nversion: 1.0.0\n"
         "ownership:\n  external_framework_managed:\n"
-        "    - AGENTS.md\n    - CLAUDE.md\n",
+        "    - AGENTS.md\n    - CLAUDE.md\n    - GEMINI.md\n",
         encoding="utf-8",
     )
 

@@ -108,14 +108,14 @@ ai-eng version && ai-eng doctor && ai-eng install                             # 
 
 ## 4. Active Spec
 
-Spec-025: OSS Documentation Gate. Last completed: Spec-024 (Sonar Platform Onboarding).
+Spec-026: Gemini Support. Last completed: Spec-025 (OSS Documentation Gate).
 
 ### Read Sequence
 
 1. `context/specs/_active.md`
-2. `context/specs/025-oss-doc-gate/spec.md`
-3. `context/specs/025-oss-doc-gate/plan.md`
-4. `context/specs/025-oss-doc-gate/tasks.md`
+2. `context/specs/026-gemini-support/spec.md`
+3. `context/specs/026-gemini-support/plan.md`
+4. `context/specs/026-gemini-support/tasks.md`
 
 ## 5. KPIs
 
@@ -189,7 +189,8 @@ Python, TypeScript, React, React Native, NestJS, Next.js, Astro, .NET, Rust, Nod
 | 022 | Test pyramid rewrite — restructure, parallelize, optimize | Complete |
 | 023 | Multi-stack expansion + audit-driven hardening | Complete |
 | 024 | Sonar platform onboarding and credential management | Complete |
-| 025 | OSS documentation gate | Active |
+| 025 | OSS documentation gate | Complete |
+| 026 | Gemini support | Active |
 
 ## 7. Architecture Snapshot
 

@@ -118,7 +118,7 @@
 >
 > El CLI es mínimo: `ai-eng install`, `update`, `doctor`, `validate`. Cuatro comandos.
 >
-> Y funciona con cualquier AI provider: Claude Code con 60 slash commands, GitHub Copilot con 45 prompt files y 15 custom agents, OpenAI Codex con AGENTS.md. Un framework, cada provider.
+> Y funciona con cualquier AI provider: Claude Code con 60 slash commands, GitHub Copilot con 45 prompt files y 15 custom agents, Gemini CLI con GEMINI.md, OpenAI Codex con AGENTS.md. Un framework, cada provider.
 >
 > Piensen en ello como **una constitución para el repositorio asistido por IA**.
 
@@ -337,7 +337,7 @@
 
 > Un punto clave para Architecture: sin vendor lock-in.
 >
-> Claude Code usa CLAUDE.md más 60 slash commands en `.claude/commands/`. Copilot usa copilot-instructions.md más 45 prompt files en `.github/prompts/` y 15 custom agents en `.github/agents/`. Codex lee AGENTS.md nativamente. Terminal usa el CLI directamente.
+> Claude Code usa CLAUDE.md más 60 slash commands en `.claude/commands/`. Copilot usa copilot-instructions.md más 45 prompt files en `.github/prompts/` y 15 custom agents en `.github/agents/`. Gemini CLI usa GEMINI.md. Codex lee AGENTS.md nativamente. Terminal usa el CLI directamente.
 >
 > Cambias de provider, mantienes la gobernanza. Los skills y agents son Markdown IDE-agnóstico — la misma skill funciona en cualquier proveedor.
 
@@ -388,7 +388,7 @@
 > 1. Content-first — no hay servidor, no hay runtime, solo archivos.
 > 2. Enforcement non-bypassable — git hooks mandatorios.
 > 3. Risk lifecycle — accept, resolve, renew, con expiración y límite de renovaciones.
-> 4. Cross-IDE day one — Claude, Copilot, Codex desde el primer install.
+> 4. Cross-IDE day one — Claude, Copilot, Gemini, Codex desde el primer install.
 > 5. Ownership model — boundaries claros que ni el framework puede violar.
 
 ---
@@ -412,7 +412,7 @@
 > - Decision reuse rate — ¿cuántas decisiones se reutilizan vs se re-preguntan?
 >
 > **Roadmap por fases**:
-> - **Phase 1 (ahora)**: GitHub + Python + Claude/Copilot/Codex.
+> - **Phase 1 (ahora)**: GitHub + Python + Claude/Copilot/Gemini/Codex.
 > - **Phase 2**: Azure DevOps + más stacks + signature verification.
 > - **Phase 3**: Multi-agent orchestration at scale + docs site.
 >

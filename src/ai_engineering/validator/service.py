@@ -121,14 +121,16 @@ _PATH_REF_PATTERN = re.compile(
     r"|context/[^\s`*]+\.md)`?"
 )
 
-# Instruction files that must stay in sync (all 6)
+# Instruction files that must stay in sync (all 8)
 _INSTRUCTION_FILES: list[str] = [
     ".github/copilot-instructions.md",
     "AGENTS.md",
     "CLAUDE.md",
+    "GEMINI.md",
     "src/ai_engineering/templates/project/copilot-instructions.md",
     "src/ai_engineering/templates/project/AGENTS.md",
     "src/ai_engineering/templates/project/CLAUDE.md",
+    "src/ai_engineering/templates/project/GEMINI.md",
 ]
 
 # Mirror pairs: (canonical_root, mirror_root, glob_patterns, exclusion_prefixes)

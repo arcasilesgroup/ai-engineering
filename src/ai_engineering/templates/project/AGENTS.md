@@ -3,7 +3,7 @@
 ## Purpose
 
 Operational contract for AI agents working in this repository.
-This file is automatically consumed by GitHub Copilot (agent mode), Claude Code, Codex, and other AI coding agents that read repository-root instruction files.
+This file is automatically consumed by GitHub Copilot (agent mode), Claude Code, Gemini CLI, Codex, and other AI coding agents that read repository-root instruction files.
 
 ## Canonical Governance Source
 
@@ -149,6 +149,10 @@ GitHub Copilot prompt files (`.github/prompts/`) and custom agents (`.github/age
 - `/commit`, `/pr`, `/cleanup`, etc. — workflow prompts.
 - `/dev-debug`, `/dev-refactor`, etc. — dev skill prompts.
 - `@debugger`, `@security-reviewer`, etc. — agent personas.
+
+## Gemini CLI
+
+Gemini CLI uses `GEMINI.md` to access the same canonical skills and agents.
 
 ## Lifecycle Enforcement
 

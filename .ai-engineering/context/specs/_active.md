@@ -1,14 +1,14 @@
 ---
-active: "025-oss-doc-gate"
+active: "026-gemini-support"
 updated: "2026-02-27"
 ---
 
 # Active Spec
 
-Spec-025 (OSS Documentation Gate) is now active.
+Spec-026 (Gemini Support) is now active.
 
 ## Quick Resume
 
-- Spec: `context/specs/025-oss-doc-gate/spec.md`
-- Plan: `context/specs/025-oss-doc-gate/plan.md`
-- Tasks: `context/specs/025-oss-doc-gate/tasks.md`
+- Spec: `context/specs/026-gemini-support/spec.md`
+- Plan: `context/specs/026-gemini-support/plan.md`
+- Tasks: `context/specs/026-gemini-support/tasks.md`
