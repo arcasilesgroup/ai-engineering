@@ -20,7 +20,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CLI commands: `ai-eng maintenance repo-status`, `ai-eng maintenance spec-reset`.
 - `/create-spec` now composes `/cleanup` before branch creation for automatic pre-spec hygiene.
 
+### Changed
+- **Documentation gate always evaluates** — removed binary "internal-only → skip" classification from `/commit`, `/pr`, and `/acho` workflows. The gate now classifies scope (CHANGELOG + README, CHANGELOG only, or no updates needed) but never auto-skips entirely. Skill, agent, and governance surface changes are no longer blanket-exempt.
+
 ### Fixed
+- Content Integrity CI: synced `create-spec/SKILL.md` template mirror with canonical (missing cleanup step).
+- Content Integrity CI: corrected skill count in `product-contract.md` from 50 to 49.
 - `ai-eng install` no longer crashes (exit code 1) when platform onboarding prompt is aborted or running in non-interactive mode.
 - Setup CLI commands now correctly registered on module-level Typer instance (fixes unit test isolation).
 - Doctor platform check test uses correct patch path for `GitHubSetup`.

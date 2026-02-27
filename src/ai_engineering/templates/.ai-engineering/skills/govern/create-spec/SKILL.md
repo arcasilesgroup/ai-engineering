@@ -42,9 +42,13 @@ A change is **trivial** (spec exempt) when ALL of these apply:
 
 ## Procedure
 
-### Phase 1: Branch
+### Phase 1: Hygiene + Branch
 
-1. **Create a dedicated branch** — every non-trivial change starts on its own branch, never on main/master.
+1. **Run /cleanup** — execute the cleanup skill (status + sync + prune + clean + spec-reset).
+   - Displays repository status snapshot.
+   - Archives any completed specs and resets `_active.md`.
+   - If `_active.md` already points to an in-progress spec, warn and ask user to confirm override.
+2. **Create a dedicated branch** — every non-trivial change starts on its own branch, never on main/master.
    - Branch naming convention:
      - `feat/<slug>` — new features, capabilities, governance content.
      - `bug/<slug>` — bug fixes requiring investigation.
