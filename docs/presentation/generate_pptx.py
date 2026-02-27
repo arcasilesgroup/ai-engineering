@@ -144,7 +144,8 @@ NOTES: dict[int, str] = {
         "- state/ — decision store, audit log, manifests.\n\n"
         "Minimal CLI: ai-eng install, update, doctor, validate.\n\n"
         "Works with Claude Code (60 slash commands), "
-        "GitHub Copilot (45 prompt files + 15 custom agents), OpenAI Codex.\n"
+        "GitHub Copilot (45 prompt files + 15 custom agents), "
+        "Gemini CLI, OpenAI Codex.\n"
         "A constitution for the AI-assisted repository."
     ),
     6: (
@@ -244,6 +245,7 @@ NOTES: dict[int, str] = {
         "Claude Code: CLAUDE.md + 60 slash commands.\n"
         "Copilot: copilot-instructions.md + 45 prompt files in .github/prompts/ "
         "+ 15 custom agents in .github/agents/.\n"
+        "Gemini CLI: GEMINI.md.\n"
         "Codex: AGENTS.md (native).\n"
         "Terminal: CLI directly.\n\n"
         "You change providers, you keep the governance."
@@ -276,7 +278,7 @@ NOTES: dict[int, str] = {
         "Metrics: gate execution rate, time to governed commit, security catch rate, "
         "decision reuse rate.\n\n"
         "Roadmap:\n"
-        "- Phase 1: GitHub + Python + Claude/Copilot/Codex.\n"
+        "- Phase 1: GitHub + Python + Claude/Copilot/Gemini/Codex.\n"
         "- Phase 2: Azure DevOps + more stacks + signature verification.\n"
         "- Phase 3: Multi-agent orchestration + docs site.\n\n"
         "Investment: $0 license cost. MIT open source.\n"
@@ -1115,13 +1117,14 @@ def slide_05_what_is(prs):
     ides = [
         ("Claude Code", "CLAUDE.md\n60 slash commands"),
         ("GitHub Copilot", "copilot-instructions.md\n45 prompts + 15 agents"),
+        ("Gemini CLI", "GEMINI.md (instruction-based)"),
         ("OpenAI Codex", "AGENTS.md (native)"),
     ]
     ide_x = LEFT_MARGIN + cli_w + Inches(0.3)
     ide_w = Inches(3.5)
-    ide_h = Inches(0.65)
-    ide_gap = Inches(0.15)
-    ide_start_y = Inches(4.0)
+    ide_h = Inches(0.55)
+    ide_gap = Inches(0.12)
+    ide_start_y = Inches(3.8)
     for i, (name, detail) in enumerate(ides):
         y = ide_start_y + i * (ide_h + ide_gap)
         add_card(
@@ -2152,10 +2155,11 @@ def slide_15_multi_ide(prs):
         slide, "Multi-IDE: One Framework, Every Provider", subtitle="No vendor lock-in"
     )
 
-    # 4 IDE boxes converging to central .ai-engineering/
+    # 5 IDE boxes converging to central .ai-engineering/
     ides = [
         ("Claude Code", "CLAUDE.md\n60 slash commands\n.claude/commands/"),
         ("GitHub Copilot", "copilot-instructions.md\n.github/prompts/ + .github/agents/"),
+        ("Gemini CLI", "GEMINI.md (instruction-based)"),
         ("OpenAI Codex", "AGENTS.md (native)"),
         ("Terminal CLI", "ai-eng install\nai-eng doctor"),
     ]
@@ -2189,14 +2193,15 @@ def slide_15_multi_ide(prs):
         anchor=MSO_ANCHOR.MIDDLE,
     )
 
-    # IDE boxes: 2 on left, 2 on right
+    # IDE boxes: 3 on left, 2 on right
     ide_w = Inches(2.8)
-    ide_h = Inches(1.1)
+    ide_h = Inches(1.0)
     positions = [
-        (LEFT_MARGIN, Inches(2.2)),
-        (LEFT_MARGIN, Inches(4.6)),
-        (SLIDE_W - RIGHT_MARGIN - ide_w, Inches(2.2)),
-        (SLIDE_W - RIGHT_MARGIN - ide_w, Inches(4.6)),
+        (LEFT_MARGIN, Inches(2.1)),
+        (LEFT_MARGIN, Inches(3.5)),
+        (LEFT_MARGIN, Inches(4.9)),
+        (SLIDE_W - RIGHT_MARGIN - ide_w, Inches(2.6)),
+        (SLIDE_W - RIGHT_MARGIN - ide_w, Inches(4.4)),
     ]
     for i, ((ix, iy), (name, detail)) in enumerate(zip(positions, ides, strict=True)):
         add_rect(slide, ix, iy, ide_w, ide_h, fill_color=AI_CARD_DARK, border_color=AI_TEXT_MUTED)
@@ -2223,7 +2228,7 @@ def slide_15_multi_ide(prs):
         )
 
         # Arrows pointing to center
-        if i < 2:  # left side
+        if i < 3:  # left side
             ax = ix + ide_w + Inches(0.1)
             ay = iy + ide_h // 2 - Inches(0.15)
             add_arrow_right(
