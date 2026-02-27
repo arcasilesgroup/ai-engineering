@@ -191,6 +191,10 @@ ai-engineering generates integration files for each AI provider during install.
 
 The framework generates `CLAUDE.md` (instruction file) and 60 slash commands in `.claude/commands/`. Run `/commit` to stage, validate, commit, and push. Run `/agent:debugger` to activate the debugger persona. All commands invoke canonical skill and agent files — no content is duplicated.
 
+### Gemini CLI
+
+The framework generates `GEMINI.md` (instruction file) for Gemini CLI. It provides context and rules similar to `CLAUDE.md`. The same governance, skills, and conventions apply automatically.
+
 ### GitHub Copilot
 
 The framework generates `.github/copilot-instructions.md`, 45 prompt files in `.github/prompts/`, and 15 custom agents in `.github/agents/`. Use prompts like `/commit` or `/dev-debug` and agents like `@security-reviewer` or `@architect` directly in Copilot Chat.
