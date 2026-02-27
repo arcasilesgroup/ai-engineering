@@ -43,6 +43,13 @@ Validate that ai-engineering is operational after install/update.
 - remote provider is detected from git remote URL.
 - provider CLI authentication status is reported.
 
+### Platform and Credentials
+
+- platform markers detected (`.github/`, `azure-pipelines.yml`, `sonar-project.properties`).
+- `tools.json` state file present and valid (if platform setup has been run).
+- stored credentials validated via platform APIs (`ai-eng doctor --check-platforms`).
+- Sonar scanner availability reported (optional — silent skip if not configured).
+
 ## Output Requirements
 
 - machine-readable JSON summary for automation,
@@ -52,5 +59,6 @@ Validate that ai-engineering is operational after install/update.
 ## References
 
 - `skills/dev/references/platform-detect.md` — provider and tooling detection.
+- `skills/dev/sonar-gate/SKILL.md` — optional Sonar quality gate validation.
 - `standards/framework/core.md` — enforcement requirements.
 - `agents/verify-app.md` — verification agent that uses readiness checks.

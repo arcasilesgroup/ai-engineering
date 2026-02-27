@@ -23,6 +23,7 @@ from ai_engineering.cli_commands import (
     gate,
     maintenance,
     review,
+    setup,
     skills,
     stack_ide,
     validate,
@@ -210,5 +211,18 @@ def create_app() -> typer.Typer:
     )
     cicd_app.command("regenerate")(_safe(cicd.cicd_regenerate))
     app.add_typer(cicd_app, name="cicd")
+
+    # Setup sub-group
+    setup_app = typer.Typer(
+        name="setup",
+        help="Configure platform credentials for governance workflows.",
+        no_args_is_help=True,
+    )
+    setup_app.command("platforms")(_safe(setup.setup_platforms_cmd))
+    setup_app.command("github")(_safe(setup.setup_github_cmd))
+    setup_app.command("sonar")(_safe(setup.setup_sonar_cmd))
+    setup_app.command("azure-devops")(_safe(setup.setup_azure_devops_cmd))
+    setup_app.command("sonarlint")(_safe(setup.setup_sonarlint_cmd))
+    app.add_typer(setup_app, name="setup")
 
     return app

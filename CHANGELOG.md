@@ -7,7 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- `ai-eng install` no longer crashes (exit code 1) when platform onboarding prompt is aborted or running in non-interactive mode.
+- Setup CLI commands now correctly registered on module-level Typer instance (fixes unit test isolation).
+- Doctor platform check test uses correct patch path for `GitHubSetup`.
+- Template mirror for `dev/sonar-gate/SKILL.md` synced with canonical source.
+- Lint fixes: `str, Enum` → `StrEnum`, combined `with` statements, ternary simplifications.
+
 ### Added
+- **Spec-024: Sonar Scanner Integration & Platform Credential Onboarding** — platform credential management with keyring, Sonar quality gate skill, and guided onboarding CLI.
+- New `credentials` module (`models.py`, `service.py`) for OS-native secret storage via keyring.
+- New `platforms` module (`detector.py`, `github.py`, `sonar.py`, `azure_devops.py`) for platform detection and API-validated credential setup.
+- New `ai-eng setup` CLI subgroup with `platforms`, `github`, `sonar`, `azure-devops` commands.
+- `ai-eng doctor --check-platforms` flag for credential health checks via platform APIs.
+- Post-install platform onboarding prompt (opt-in, D024-003).
+- New skill: `dev:sonar-gate` — Sonar quality gate integration with skip-if-unconfigured semantics.
+- Sonar gate scripts (`sonar-pre-gate.sh`, `sonar-pre-gate.ps1`) with `--skip-if-unconfigured` flag.
+- Sonar threshold mapping reference (`sonar-threshold-mapping.md`).
+- Sonar quality gate integrated as optional dimension in `quality:release-gate`, `quality:audit-code`, and `quality:install-check`.
+- Claude Code command wrapper and Copilot prompt for `dev:sonar-gate`.
+- Template mirrors for all new modules, skills, and wrappers.
+- **SonarLint IDE Configuration** — `ai-eng setup sonarlint` auto-configures Connected Mode for VS Code family (VS Code, Cursor, Windsurf, Antigravity), JetBrains family (IntelliJ, Rider, WebStorm, PyCharm, GoLand), and Visual Studio 2022.
+- New `platforms/sonarlint.py` module with IDE detection, per-family configurators, and merge-safe JSON/XML generation.
+- `sonarlint.md` quality standard extended with per-IDE integration guidance and Connected Mode rationale.
 - **Spec-023: Multi-Stack Expansion + Audit-Driven Hardening** — comprehensive multi-stack governance from 35+ AI tool audit.
 - 8 new stack standards: `typescript.md`, `react.md`, `react-native.md`, `nestjs.md`, `astro.md`, `rust.md`, `node.md`, `bash-powershell.md`.
 - 3 cross-cutting standards: `azure.md`, `infrastructure.md`, `database.md`.
