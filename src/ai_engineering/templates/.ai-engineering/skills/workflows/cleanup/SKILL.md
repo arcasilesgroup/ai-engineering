@@ -27,12 +27,12 @@ Execute full repository hygiene — branch cleanup, remote status assessment, an
 
 ### Phase 0: Status
 
-1. **Repository health snapshot** — run `ai-eng maintenance repo-status` or equivalent logic.
+1. **Repository health snapshot** — run `uv run ai-eng maintenance repo-status`. Do NOT use ad-hoc shell commands for branch analysis — the CLI handles stale detection, ahead/behind, and PR listing in Python, avoiding zsh escaping issues with `!=` operators.
    - Remote branches: list with ahead/behind relative to default branch.
    - Open PRs: list via `gh pr list` (graceful fallback if `gh` unavailable).
    - Stale branches: branches with no commits in >30 days.
    - Cleanup candidates: merged + stale branches.
-2. **Display status** — render the snapshot as a Markdown summary.
+2. **Display status** — the CLI renders a Markdown summary automatically.
 3. **Informational only** — this phase does not block subsequent phases.
 
 ### Phase 1: Sync
@@ -48,30 +48,20 @@ Execute full repository hygiene — branch cleanup, remote status assessment, an
 
 ### Phase 3: Cleanup
 
-9. **Delete merged branches** — identify branches fully merged into the base branch.
-   - `git branch --merged <base>` excluding protected branches (`main`, `master`).
-   - Delete each with `git branch -d <branch>`.
-
-10. **Delete squash-merged branches** — identify branches whose remote tracking branch is gone.
-    - `git branch -v` and filter for `[gone]` status.
-    - Delete each with `git branch -D <branch>`.
-    - These are branches merged via squash merge on the remote, where `--merged` detection fails.
-
-11. **Report summary** — display results.
-    - Branches deleted (merged).
-    - Branches deleted (squash-merged / gone).
-    - Remote refs pruned.
-    - Branches skipped (if any).
+9. **Run branch cleanup** — `uv run ai-eng maintenance branch-cleanup`.
+   - Deletes branches fully merged into base (`git branch -d`).
+   - Deletes squash-merged branches whose remote is `[gone]` (`git branch -D`).
+   - Excludes protected branches (`main`, `master`).
+   - Reports: branches deleted (merged), branches deleted (gone), refs pruned, branches skipped.
 
 ### Phase 4: Spec Reset
 
-12. **Check active spec** — read `_active.md` frontmatter to determine the current active spec.
-    - If it points to a completed spec (has `done.md` or `tasks.md` with `completed == total`), flag for reset.
-13. **Find orphan specs** — scan `context/specs/` for completed specs outside `archive/`.
-    - Detection: has `done.md`, or `tasks.md` with `completed == total`.
-14. **Archive completed specs** — move completed spec directories to `specs/archive/`.
-15. **Reset `_active.md`** — write clean frontmatter with `active: null` and "No active spec — ready for `/create-spec`".
-16. **Report spec reset** — display: specs archived, active reset, ready state.
+10. **Run spec reset** — `uv run ai-eng maintenance spec-reset`.
+    - Detects active spec status from `_active.md` frontmatter.
+    - Finds completed specs outside `archive/` (has `done.md` or `tasks.md` with `completed == total`).
+    - Archives completed spec directories to `specs/archive/`.
+    - Resets `_active.md` to `active: null` — "No active spec — ready for `/create-spec`".
+    - Reports: specs archived, active cleared, orphans found.
 
 ## Output Contract
 
