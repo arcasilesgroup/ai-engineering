@@ -244,7 +244,7 @@ NOTES: dict[int, str] = {
         "Claude Code: CLAUDE.md + 60 slash commands.\n"
         "Copilot: copilot-instructions.md + 45 prompt files in .github/prompts/ "
         "+ 15 custom agents in .github/agents/.\n"
-        "Codex: codex.md.\n"
+        "Codex: AGENTS.md (native).\n"
         "Terminal: CLI directly.\n\n"
         "You change providers, you keep the governance."
     ),
@@ -1115,7 +1115,7 @@ def slide_05_what_is(prs):
     ides = [
         ("Claude Code", "CLAUDE.md\n60 slash commands"),
         ("GitHub Copilot", "copilot-instructions.md\n45 prompts + 15 agents"),
-        ("OpenAI Codex", "codex.md"),
+        ("OpenAI Codex", "AGENTS.md (native)"),
     ]
     ide_x = LEFT_MARGIN + cli_w + Inches(0.3)
     ide_w = Inches(3.5)
@@ -2156,7 +2156,7 @@ def slide_15_multi_ide(prs):
     ides = [
         ("Claude Code", "CLAUDE.md\n60 slash commands\n.claude/commands/"),
         ("GitHub Copilot", "copilot-instructions.md\n.github/prompts/ + .github/agents/"),
-        ("OpenAI Codex", "codex.md"),
+        ("OpenAI Codex", "AGENTS.md (native)"),
         ("Terminal CLI", "ai-eng install\nai-eng doctor"),
     ]
 

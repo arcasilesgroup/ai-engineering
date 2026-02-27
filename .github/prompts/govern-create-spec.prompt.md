@@ -1,5 +1,5 @@
 ---
-description: "Create specification with branch-first workflow"
+description: "Create a new spec before non-trivial work: branch, scaffold spec/plan/tasks, activate, commit."
 mode: "agent"
 ---
 

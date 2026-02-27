@@ -1,6 +1,6 @@
 ---
 name: "Test Master"
-description: "Comprehensive testing specialist for functional, performance, and security testing"
+description: "Comprehensive testing specialist"
 tools: [codebase, editFiles, fetch, githubRepo, problems, readFile, runCommands, search, terminalLastCommand, testFailures]
 ---
 

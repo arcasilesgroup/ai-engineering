@@ -1,5 +1,5 @@
 ---
-description: "Architecture review and analysis"
+description: "Analyze software architecture for dependencies, coupling, cohesion, and tech debt; use for design decisions and brownfield assessment."
 mode: "agent"
 ---
 

@@ -1,5 +1,5 @@
 ---
-description: "Documentation and content quality audit"
+description: "Documentation health audit for governance content; use for weekly maintenance, pre-release doc review, or content compaction."
 mode: "agent"
 ---
 

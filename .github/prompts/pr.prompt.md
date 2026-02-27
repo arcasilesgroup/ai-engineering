@@ -1,5 +1,5 @@
 ---
-description: "Create pull request with governance checks and auto-complete"
+description: "Execute governed PR workflow: stage, commit, push, create pull request with auto-complete squash merge."
 mode: "agent"
 ---
 

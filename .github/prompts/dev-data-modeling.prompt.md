@@ -1,5 +1,5 @@
 ---
-description: "Data modeling procedure for entities, constraints, and migration safety"
+description: "Design and validate domain data models with constraints, relationships, and migration safety."
 mode: "agent"
 ---
 

@@ -1,5 +1,5 @@
 ---
-description: "Write and run tests across languages and frameworks"
+description: "Write and run tests across languages and frameworks; use for unit, integration, E2E testing, coverage analysis, and test strategy."
 mode: "agent"
 ---
 

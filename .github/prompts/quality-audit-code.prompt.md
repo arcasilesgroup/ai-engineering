@@ -1,5 +1,5 @@
 ---
-description: "Quality gate assessment and code audit"
+description: "SonarQube-like quality gate assessment; use before merge or release to evaluate coverage, duplication, complexity, and security."
 mode: "agent"
 ---
 

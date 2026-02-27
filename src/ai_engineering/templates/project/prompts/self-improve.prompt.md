@@ -1,5 +1,5 @@
 ---
-description: "Continuous improvement loop: analyze, plan, execute, verify, learn"
+description: "Run analyze→plan→execute→verify→learn loop for continuous governed improvement."
 mode: "agent"
 ---
 

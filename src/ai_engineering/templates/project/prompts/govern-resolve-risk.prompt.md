@@ -1,5 +1,5 @@
 ---
-description: "Risk remediation and closure"
+description: "Close a risk acceptance after remediation: mark as remediated, log audit event, verify gates."
 mode: "agent"
 ---
 

@@ -1,5 +1,5 @@
 ---
-description: "Safe skill removal with dependency checks"
+description: "Safely remove a skill: check dependents, clean all registration points, update counters."
 mode: "agent"
 ---
 

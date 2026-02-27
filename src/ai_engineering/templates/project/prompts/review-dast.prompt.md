@@ -1,5 +1,5 @@
 ---
-description: "Dynamic application security testing"
+description: "Run dynamic security scans with OWASP ZAP and Nuclei against live staging environments; use for post-deploy or pre-release verification."
 mode: "agent"
 ---
 

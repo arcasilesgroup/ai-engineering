@@ -1,5 +1,5 @@
 ---
-description: "Quick commit and push with optional PR variant"
+description: "Fast-path alias for /commit and /pr workflows with full governance enforcement."
 mode: "agent"
 ---
 

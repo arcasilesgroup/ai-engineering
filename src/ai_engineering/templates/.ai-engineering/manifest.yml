@@ -53,7 +53,6 @@ ownership:
   external_framework_managed:
     - "AGENTS.md"
     - "CLAUDE.md"
-    - "codex.md"
     - ".github/copilot-instructions.md"
     - ".github/instructions/**"
     - ".github/copilot/code-generation.md"

@@ -1,5 +1,5 @@
 ---
-description: "Open-source documentation generation"
+description: "Transform codebase knowledge into polished open-source documentation (README, CONTRIBUTING, docs/ site, Wiki) using benefit-first language."
 mode: "agent"
 ---
 

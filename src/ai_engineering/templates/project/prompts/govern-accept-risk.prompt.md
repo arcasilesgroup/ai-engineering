@@ -1,5 +1,5 @@
 ---
-description: "Risk acceptance with severity-based expiry"
+description: "Record time-limited risk acceptance with severity classification, follow-up action, and audit trail."
 mode: "agent"
 ---
 

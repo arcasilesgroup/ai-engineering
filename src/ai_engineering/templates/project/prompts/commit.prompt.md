@@ -1,5 +1,5 @@
 ---
-description: "Stage, commit, and push changes following governance workflow"
+description: "Execute governed commit workflow: stage, lint, secret-detect, commit, and push current branch."
 mode: "agent"
 ---
 

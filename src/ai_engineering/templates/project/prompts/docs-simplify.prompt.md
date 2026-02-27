@@ -1,5 +1,5 @@
 ---
-description: "Simplify documentation while preserving governance intent"
+description: "Simplify governance/docs content while preserving intent, constraints, and auditability."
 mode: "agent"
 ---
 

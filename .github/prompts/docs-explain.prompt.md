@@ -1,5 +1,5 @@
 ---
-description: "Feynman-style code and concept explanation"
+description: "Feynman-style layered explanations of code, concepts, patterns, and architecture with 3-tier depth control and codebase-anchored examples."
 mode: "agent"
 ---
 

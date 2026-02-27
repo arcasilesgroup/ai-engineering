@@ -1,5 +1,5 @@
 ---
-description: "Skill authoring and registration procedure"
+description: "Author and register a new skill: canonical file, mirror, instruction files, counters, changelog."
 mode: "agent"
 ---
 

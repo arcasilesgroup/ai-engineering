@@ -1,5 +1,5 @@
 ---
-description: "Safe agent removal with dependency checks"
+description: "Safely remove an agent: check dependents, clean all registration points, update counters."
 mode: "agent"
 ---
 

@@ -1,5 +1,5 @@
 ---
-description: "Container image security scanning"
+description: "Scan container images with Trivy for CVEs, misconfigurations, and secrets; use before container promotion or deployment."
 mode: "agent"
 ---
 

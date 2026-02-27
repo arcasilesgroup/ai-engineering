@@ -1,5 +1,5 @@
 ---
-description: "Security assessment and vulnerability analysis"
+description: "Perform comprehensive security review covering OWASP risks, secrets, injection, and dependency vulnerabilities; use for pre-release audits or incident response."
 mode: "agent"
 ---
 

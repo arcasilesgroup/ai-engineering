@@ -126,11 +126,9 @@ _INSTRUCTION_FILES: list[str] = [
     ".github/copilot-instructions.md",
     "AGENTS.md",
     "CLAUDE.md",
-    "codex.md",
     "src/ai_engineering/templates/project/copilot-instructions.md",
     "src/ai_engineering/templates/project/AGENTS.md",
     "src/ai_engineering/templates/project/CLAUDE.md",
-    "src/ai_engineering/templates/project/codex.md",
 ]
 
 # Mirror pairs: (canonical_root, mirror_root, glob_patterns, exclusion_prefixes)
@@ -244,6 +242,10 @@ def _check_file_existence(target: Path, report: IntegrityReport) -> None:
         for spec_dir in specs_dir_path.iterdir():
             if spec_dir.is_dir() and (spec_dir / "done.md").exists():
                 closed_specs.add(spec_dir)
+        # The archive/ directory contains moved closed specs — always excluded
+        archive_dir = specs_dir_path / "archive"
+        if archive_dir.is_dir():
+            closed_specs.add(archive_dir)
 
     # Scan all .md files for internal references (skip closed spec archives)
     broken_refs: list[tuple[str, str]] = []
@@ -293,6 +295,9 @@ def _check_file_existence(target: Path, report: IntegrityReport) -> None:
     if specs_dir.is_dir():
         for spec_dir in sorted(specs_dir.iterdir()):
             if not spec_dir.is_dir() or spec_dir.name.startswith("_"):
+                continue
+            # Skip archive directory — historical specs with known stale paths
+            if spec_dir.name == "archive":
                 continue
             required = ["spec.md", "plan.md", "tasks.md"]
             missing = [f for f in required if not (spec_dir / f).exists()]

@@ -159,4 +159,4 @@ For complex, multi-type tasks, blend frameworks:
 - `skills/govern/create-skill/SKILL.md` — definitive procedure for skill registration.
 - `skills/govern/create-agent/SKILL.md` — definitive procedure for agent registration.
 - `skills/govern/create-spec/SKILL.md` — spec creation procedure for prompt-guided workflows.
-- All agent and skill templates defined in `context/specs/001-rewrite-v2/plan.md`.
+- All agent and skill templates defined in `context/specs/archive/001-rewrite-v2/plan.md`.

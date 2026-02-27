@@ -1,5 +1,5 @@
 ---
-description: "Code review checklist and quality assessment"
+description: "Deep code review covering security, quality, performance, and maintainability; use for PR reviews, pre-merge validation, or code audits."
 mode: "agent"
 ---
 

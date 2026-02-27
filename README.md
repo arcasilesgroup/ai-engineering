@@ -197,7 +197,7 @@ The framework generates `.github/copilot-instructions.md`, 45 prompt files in `.
 
 ### OpenAI Codex
 
-The framework generates `codex.md` with governance instructions. Codex reads this file for project context and follows the same standards, skills, and conventions.
+Codex CLI reads `AGENTS.md` natively — no separate instruction file needed. The same governance, skills, and conventions apply automatically.
 
 Switch providers at any time — the governance layer is the same. Skills and agents are Markdown, not provider-specific code.
 

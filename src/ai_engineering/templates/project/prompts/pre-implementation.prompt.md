@@ -1,5 +1,5 @@
 ---
-description: "Sync repository and prepare feature branch before implementation"
+description: "Execute branch hygiene before implementation: sync, prune stale branches, create feature branch."
 mode: "agent"
 ---
 

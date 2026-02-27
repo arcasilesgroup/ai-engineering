@@ -1,5 +1,5 @@
 ---
-description: "Software bill of materials generation"
+description: "CycloneDX software bill of materials generation; use for release preparation, compliance audit, or supply chain review."
 mode: "agent"
 ---
 

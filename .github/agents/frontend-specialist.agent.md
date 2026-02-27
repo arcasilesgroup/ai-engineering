@@ -1,7 +1,7 @@
 ---
 name: "Frontend Specialist"
-description: "Frontend/UI architecture and design system review"
-tools: [codebase, editFiles, fetch, githubRepo, problems, readFile, runCommands, search, usages]
+description: "Frontend/UI architecture specialist"
+tools: [codebase, editFiles, fetch, githubRepo, problems, readFile, runCommands, search, terminalLastCommand, testFailures]
 ---
 
 Activate the agent persona defined in `.ai-engineering/agents/frontend-specialist.md`.

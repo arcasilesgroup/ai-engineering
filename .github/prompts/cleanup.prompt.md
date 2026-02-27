@@ -1,5 +1,5 @@
 ---
-description: "Clean up branches and remove stale branch references"
+description: "Clean stale branches after PR merge: sync base, prune remotes, delete merged/squash-merged branches."
 mode: "agent"
 ---
 

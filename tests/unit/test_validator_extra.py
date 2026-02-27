@@ -27,11 +27,9 @@ def _write_instruction_files(root: Path, content: str) -> None:
         root / ".github" / "copilot-instructions.md",
         root / "AGENTS.md",
         root / "CLAUDE.md",
-        root / "codex.md",
         root / "src" / "ai_engineering" / "templates" / "project" / "copilot-instructions.md",
         root / "src" / "ai_engineering" / "templates" / "project" / "AGENTS.md",
         root / "src" / "ai_engineering" / "templates" / "project" / "CLAUDE.md",
-        root / "src" / "ai_engineering" / "templates" / "project" / "codex.md",
     ]
     for f in files:
         f.parent.mkdir(parents=True, exist_ok=True)
@@ -121,7 +119,7 @@ def test_instruction_consistency_missing_file_and_differences(tmp_path: Path) ->
         base_content + "- `.ai-engineering/agents/b.md`\n", encoding="utf-8"
     )
     # remove one file to hit missing-file branch
-    (tmp_path / "codex.md").unlink()
+    (tmp_path / "CLAUDE.md").unlink()
     report = validate_content_integrity(
         tmp_path,
         categories=[IntegrityCategory.INSTRUCTION_CONSISTENCY],

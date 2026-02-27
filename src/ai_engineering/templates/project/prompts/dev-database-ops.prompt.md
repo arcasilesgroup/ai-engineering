@@ -1,5 +1,5 @@
 ---
-description: "Database operations"
+description: "Design database schemas, plan safe migrations, optimize queries, and manage data lifecycle with rollback procedures."
 mode: "agent"
 ---
 

@@ -1,5 +1,5 @@
 ---
-description: "Safe code refactoring with quality preservation"
+description: "Improve internal code structure without changing external behavior; use when addressing code smells, duplication, or excessive complexity."
 mode: "agent"
 ---
 
