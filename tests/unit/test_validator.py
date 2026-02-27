@@ -26,7 +26,6 @@ _SKILL_PATHS = [
     "skills/workflows/commit/SKILL.md",
     "skills/workflows/pr/SKILL.md",
     "skills/workflows/acho/SKILL.md",
-    "skills/workflows/pre-implementation/SKILL.md",
     "skills/dev/debug/SKILL.md",
     "skills/dev/refactor/SKILL.md",
     "skills/dev/code-review/SKILL.md",
@@ -173,7 +172,7 @@ def _write_all_instruction_files(
 def _write_product_contract(
     ai: Path,
     *,
-    skills: int = 32,
+    skills: int = 31,
     agents: int = 8,
 ) -> None:
     """Write a minimal product-contract.md with counters."""

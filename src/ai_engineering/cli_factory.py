@@ -182,6 +182,8 @@ def create_app() -> typer.Typer:
     maint_app.command("branch-cleanup")(_safe(maintenance.maintenance_branch_cleanup))
     maint_app.command("risk-status")(_safe(maintenance.maintenance_risk_status))
     maint_app.command("pipeline-compliance")(_safe(maintenance.maintenance_pipeline_compliance))
+    maint_app.command("repo-status")(_safe(maintenance.maintenance_repo_status))
+    maint_app.command("spec-reset")(_safe(maintenance.maintenance_spec_reset))
     app.add_typer(maint_app, name="maintenance")
 
     # VCS sub-group

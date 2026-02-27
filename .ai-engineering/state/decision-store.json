@@ -225,6 +225,13 @@
       "decision": "Add mandatory documentation gate to /commit, /pr, and /acho workflows. Classifies changes as user-visible vs internal-only. User-visible changes always update CHANGELOG.md and README.md targeting OSS GitHub users. External documentation portal support: asks for repo URL, clones, updates, creates PR with auto-complete. Internal-only changes skip silently. Uses changelog and writer skills as referenced procedures.",
       "decidedAt": "2026-02-27T00:00:00Z",
       "spec": "025-oss-doc-gate"
+    },
+    {
+      "id": "D027-001",
+      "context": "Deprecate /pre-implementation skill — duplicates /cleanup + /create-spec",
+      "decision": "Absorb /pre-implementation into /cleanup (enhanced with repo status + spec reset) and /create-spec (composes /cleanup). /pre-implementation deleted. /cleanup becomes the single hygiene primitive. Session Start Protocol updated to reference /cleanup. Skill count reduced by 1 (workflows: 7→6).",
+      "decidedAt": "2026-02-27T00:00:00Z",
+      "spec": "027-cleanup-enhancement"
     }
   ]
 }

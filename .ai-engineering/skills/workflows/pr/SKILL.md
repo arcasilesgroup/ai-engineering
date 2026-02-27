@@ -37,18 +37,20 @@ Execute the `/pr` governed workflow: stage, commit, push, create a pull request,
 2. **Run formatter** — `ruff format .` to auto-fix formatting.
 3. **Run linter** — `ruff check . --fix`. If unfixable issues remain, report and stop.
 4. **Run secret detection** — `gitleaks protect --staged --no-banner`. If secrets found, report and stop.
-5. **Documentation gate** — update documentation for OSS GitHub users.
-   a. Classify staged changes: **user-visible** (src/ features, API changes, CLI changes, breaking changes, config schema changes) vs **internal-only** (tests/, .ai-engineering/, .github/, pure refactoring, dependency bumps).
-   b. If changes are internal-only: skip with note — "Internal changes only — documentation gate skipped."
-   c. If changes are user-visible — update **CHANGELOG.md**:
-      - If `CHANGELOG.md` exists: add entries to `[Unreleased]` section per `skills/docs/changelog/SKILL.md` format. Verify entries follow Keep a Changelog anti-pattern rules. Stage the updated file.
+5. **Documentation gate** — evaluate and update documentation for OSS GitHub users.
+   a. Analyze staged changes and classify documentation scope:
+      - **CHANGELOG + README**: new features, breaking changes, new CLI commands, skill/agent additions or removals, config schema changes, architecture changes visible to users.
+      - **CHANGELOG only**: any other functional change — src/ modifications, API changes, dependency bumps with behavioral impact, governance surface changes, workflow behavior changes.
+      - **No updates needed**: changes with zero functional impact — typo fixes in comments, whitespace-only changes, test-only additions that don't change public behavior, CI config formatting. Log: "Documentation gate evaluated — no functional changes detected."
+   b. Update **CHANGELOG.md** (when scope requires it):
+      - If `CHANGELOG.md` exists: add entries to `[Unreleased]` section per `skills/docs/changelog/SKILL.md` format. Stage the updated file.
       - If `CHANGELOG.md` does NOT exist: create it following Keep a Changelog format. Stage the new file.
-   d. If changes are user-visible — update **README.md** (when applicable):
-      - If `README.md` exists AND changes include new features, breaking changes, or new CLI commands: update relevant sections (Features, Usage, Configuration, etc.) per `skills/docs/writer/SKILL.md` conventions for OSS GitHub users. Stage the updated file.
-      - If `README.md` does NOT exist AND changes are non-trivial: create it targeting OSS GitHub audience using the writer skill. Stage the new file.
-   e. **External documentation portal**:
+   c. Update **README.md** (when scope includes README):
+      - If `README.md` exists AND changes include new features, breaking changes, new CLI commands, or skill catalog changes: update relevant sections. Stage the updated file.
+      - If `README.md` does NOT exist AND changes are non-trivial: create it targeting OSS GitHub audience. Stage the new file.
+   d. **External documentation portal**:
       - Ask: "Do you have an external documentation portal (docs site, wiki, separate repo)? Provide the repo URL, or 'skip'."
-      - If URL provided: clone the docs repo (if not already local), create a feature branch, update relevant documentation pages based on the staged changes, commit + push + create PR with auto-complete (`--auto --squash --delete-branch`), and report the docs PR URL.
+      - If URL provided: clone, branch, update, commit + push + create PR with auto-complete, report URL.
       - If 'skip': continue without external docs.
 6. **Run pre-push checks** — execute full pre-push gate:
    - `semgrep scan --config auto .`

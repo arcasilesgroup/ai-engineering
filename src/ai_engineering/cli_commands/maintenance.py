@@ -12,10 +12,12 @@ from typing import Annotated
 import typer
 
 from ai_engineering.maintenance.branch_cleanup import run_branch_cleanup
+from ai_engineering.maintenance.repo_status import run_repo_status
 from ai_engineering.maintenance.report import (
     create_maintenance_pr,
     generate_report,
 )
+from ai_engineering.maintenance.spec_reset import run_spec_reset
 from ai_engineering.paths import resolve_project_root
 from ai_engineering.pipeline.compliance import scan_all_pipelines
 from ai_engineering.pipeline.injector import suggest_injection
@@ -158,3 +160,44 @@ def maintenance_pipeline_compliance(
         for r in report.results:
             if not r.compliant:
                 typer.echo(suggest_injection(r.pipeline))
+
+
+def maintenance_repo_status(
+    target: Annotated[
+        Path | None,
+        typer.Option("--target", "-t", help="Target project root."),
+    ] = None,
+    base: Annotated[
+        str,
+        typer.Option("--base", "-b", help="Base branch for comparisons."),
+    ] = "main",
+    include_prs: Annotated[
+        bool,
+        typer.Option("--include-prs/--no-prs", help="Include open PR listing."),
+    ] = True,
+) -> None:
+    """Show repository branch and PR status dashboard."""
+    root = resolve_project_root(target)
+    result = run_repo_status(root, base_branch=base, include_prs=include_prs)
+
+    typer.echo(result.to_markdown())
+
+
+def maintenance_spec_reset(
+    target: Annotated[
+        Path | None,
+        typer.Option("--target", "-t", help="Target project root."),
+    ] = None,
+    dry_run: Annotated[
+        bool,
+        typer.Option("--dry-run", help="Report findings without modifying files."),
+    ] = False,
+) -> None:
+    """Reset spec state: archive completed specs, clear _active.md."""
+    root = resolve_project_root(target)
+    result = run_spec_reset(root, dry_run=dry_run)
+
+    typer.echo(result.to_markdown())
+
+    if not result.success:
+        raise typer.Exit(code=1)

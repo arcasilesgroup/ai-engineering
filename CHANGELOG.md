@@ -14,8 +14,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Validator includes `GEMINI.md` and its template mirror in instruction file sync checks.
 - Template mirror: `src/ai_engineering/templates/project/GEMINI.md`.
 - Presentation materials updated with Gemini CLI as a supported AI provider.
+- **Enhanced `/cleanup` skill (v2.0.0)** — single repository hygiene primitive with 5 phases: Status, Sync, Prune, Cleanup, Spec Reset.
+- Repository status module (`maintenance/repo_status.py`): remote branch analysis, ahead/behind tracking, open PR listing via `gh`, stale branch detection (>30 days).
+- Spec reset module (`maintenance/spec_reset.py`): active spec detection, completed spec archival to `specs/archive/`, `_active.md` reset.
+- CLI commands: `ai-eng maintenance repo-status`, `ai-eng maintenance spec-reset`.
+- `/create-spec` now composes `/cleanup` before branch creation for automatic pre-spec hygiene.
+
+### Changed
+- **Documentation gate always evaluates** — removed binary "internal-only → skip" classification from `/commit`, `/pr`, and `/acho` workflows. The gate now classifies scope (CHANGELOG + README, CHANGELOG only, or no updates needed) but never auto-skips entirely. Skill, agent, and governance surface changes are no longer blanket-exempt.
 
 ### Fixed
+- Content Integrity CI: synced `create-spec/SKILL.md` template mirror with canonical (missing cleanup step).
+- Content Integrity CI: corrected skill count in `product-contract.md` from 50 to 49.
 - `ai-eng install` no longer crashes (exit code 1) when platform onboarding prompt is aborted or running in non-interactive mode.
 - Setup CLI commands now correctly registered on module-level Typer instance (fixes unit test isolation).
 - Doctor platform check test uses correct patch path for `GitHubSetup`.
@@ -95,6 +105,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Installer coverage for full bundled non-state governance template tree.
 
 ### Changed
+- `/cleanup` upgraded from branch-only cleanup to full repository hygiene primitive (status + sync + prune + cleanup + spec reset).
+- Session Start Protocol updated: "Run `/cleanup`" replaces "Run `/pre-implementation`" across all provider instruction files.
+- Maintenance report includes remote branch, open PR, and stale branch counts.
 - 6 existing agents improved: devops-engineer (Azure Pipelines, Railway, Cloudflare), architect (infra architecture), security-reviewer (cloud security, IaC scanning), orchestrator (parallel-first), principal-engineer (exhaustiveness), test-master (multi-stack).
 - 3 existing skills improved: cicd-generate (Azure Pipelines, Railway, Cloudflare), deps-update (multi-stack detection), security (cloud + IaC scanning).
 - `nextjs.md` stack standard updated with TypeScript base reference.
@@ -108,6 +121,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated governance metadata versions from `0.1.0-dev` to `0.1.0`.
 
 ### Removed
+- `/pre-implementation` skill — functionality absorbed into `/cleanup` and `/create-spec`.
 - `poetry.lock` and empty e2e test package placeholder.
 
 ## [0.1.0] - TBD

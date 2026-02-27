@@ -54,7 +54,7 @@
 | Phase | Name | Status |
 |-------|------|--------|
 | 0 | Rebuild Baseline — clean branch, contract-first structure, minimal runtime | Complete |
-| 1 | Content Core + Installability — 50 skills, 19 agents, 14 stacks, Python CLI | Complete |
+| 1 | Content Core + Installability — 49 skills, 19 agents, 14 stacks, Python CLI | Complete |
 | 2 | Dogfooding + Hard Validation — E2E validation, cross-OS CI, SAST remediation | In Progress |
 | 3 | Release Readiness — freeze contract, validate migrations, publish 0.2.0 | Pending |
 
@@ -83,7 +83,7 @@ This project dogfoods the ai-engineering framework on itself.
 
 | Area | Evidence |
 |------|----------|
-| Governance content | 50/50 skills, 19/19 agents, 14/14 stack standards |
+| Governance content | 49/49 skills, 19/19 agents, 14/14 stack standards |
 | Python runtime | 75 source files across 17 modules |
 | CI/CD | 3 workflows (ci.yml, install-smoke.yml, release.yml) with cross-OS matrix |
 | E2E tests | install clean + install existing flows validated |
@@ -125,18 +125,18 @@ Spec-026: Gemini Support. Last completed: Spec-025 (OSS Documentation Gate).
 | Quality gate pass rate | 100% on all governed ops | 100% (ruff, ty, format) | → |
 | Security scan pass rate | 100% — zero medium+ | 7 semgrep (1E+6W); gitleaks 0; pip-audit 0 | ↑ |
 | Tamper resistance score | 100/100 | 85/100 (B3/B4 done, CI stabilizing) | ↑ |
-| Agent coverage | 50 skills + 19 agents | 50/50 + 19/19 | → |
+| Agent coverage | 49 skills + 19 agents | 49/49 + 19/19 | → |
 | Test coverage | 90% (100% governance-critical) | 91% (889+ tests) | ↑ |
 | Cross-OS CI pass | 3x3 matrix green | Implemented, stabilizing | ↑ |
 | Token efficiency | >= 95% deferred at session start | 99.19% (500/61,386) | → |
 
 ## 6. Governance Surface Summary
 
-### 6.1 Skills (50 total, 6 categories)
+### 6.1 Skills (49 total, 6 categories)
 
 | Category | Count | Skills |
 |----------|-------|--------|
-| workflows | 7 | commit, pr, acho, pre-implementation, cleanup, self-improve, create-spec (via govern) |
+| workflows | 6 | commit, pr, acho, cleanup, self-improve, create-spec (via govern) |
 | dev | 16 | multi-agent, code-review, refactor, debug, test-runner, test-strategy, migration, deps-update, data-modeling, database-ops, api-design, infrastructure, cicd-generate, sonar-gate |
 | review | 7 | architecture, security, data-security, performance, accessibility, dast, container-security |
 | quality | 7 | audit-code, docs-audit, install-check, release-gate, sbom, test-gap-analysis |

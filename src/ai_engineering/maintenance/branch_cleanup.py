@@ -1,8 +1,7 @@
-"""Branch cleanup for pre-implementation hygiene.
+"""Branch cleanup for repository hygiene.
 
-Provides automated cleanup of stale local branches before starting
-new implementation work. Fetches from origin, prunes remote-tracking
-refs, and deletes merged local branches.
+Provides automated cleanup of stale local branches. Fetches from origin,
+prunes remote-tracking refs, and deletes merged local branches.
 
 Functions:
 - ``fetch_and_prune`` — run ``git fetch --prune`` to sync remote state.
