@@ -108,14 +108,11 @@ ai-eng version && ai-eng doctor && ai-eng install                             # 
 
 ## 4. Active Spec
 
-Spec-026: Gemini Support. Last completed: Spec-025 (OSS Documentation Gate).
+No active spec — ready for `/create-spec`. Last completed: Spec-026 (Gemini Support).
 
 ### Read Sequence
 
 1. `context/specs/_active.md`
-2. `context/specs/026-gemini-support/spec.md`
-3. `context/specs/026-gemini-support/plan.md`
-4. `context/specs/026-gemini-support/tasks.md`
 
 ## 5. KPIs
 
