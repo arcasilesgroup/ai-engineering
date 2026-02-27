@@ -1,14 +1,14 @@
 ---
-active: "024-model-tiering-doc-enforcement"
-updated: "2026-02-26"
+active: "025-oss-doc-gate"
+updated: "2026-02-27"
 ---
 
 # Active Spec
 
-Spec-024 (Model Tiering + Documentation Enforcement) is now active.
+Spec-025 (OSS Documentation Gate) is now active.
 
 ## Quick Resume
 
-- Spec: `context/specs/024-model-tiering-doc-enforcement/spec.md`
-- Plan: `context/specs/024-model-tiering-doc-enforcement/plan.md`
-- Tasks: `context/specs/024-model-tiering-doc-enforcement/tasks.md`
+- Spec: `context/specs/025-oss-doc-gate/spec.md`
+- Plan: `context/specs/025-oss-doc-gate/plan.md`
+- Tasks: `context/specs/025-oss-doc-gate/tasks.md`

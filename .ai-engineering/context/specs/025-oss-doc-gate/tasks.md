@@ -1,8 +1,8 @@
 ---
-spec: "024"
+spec: "025"
 total: 12
 completed: 12
-last_session: "2026-02-26"
+last_session: "2026-02-27"
 next_session: "Complete"
 ---
 
@@ -27,7 +27,7 @@ next_session: "Complete"
 ## Phase 2: Standards + Registration [S]
 
 - [x] 2.1 Update `core.md` non-negotiables and command governance for OSS docs
-- [x] 2.2 Update `decision-store.json`: remove D024-001 (model tier), update D024-002 → D024-001 (doc gate)
+- [x] 2.2 Update `decision-store.json`: add D025-001 (doc gate enforcement)
 - [x] 2.3 Rewrite spec files (spec.md, plan.md, tasks.md)
 - [x] 2.4 Update CHANGELOG.md
 - [ ] 2.5 Run `integrity-check`

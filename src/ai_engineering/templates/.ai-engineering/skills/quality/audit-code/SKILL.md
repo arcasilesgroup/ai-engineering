@@ -62,19 +62,25 @@ Execute a SonarQube-like quality gate assessment on the codebase. Evaluates cove
    - `vitest run --coverage` → test results and coverage.
    - `npm audit` → dependency vulnerabilities.
 
+   **Optional: Sonar gate** (when configured):
+   - Invoke `dev/sonar-gate/SKILL.md` procedure.
+   - Silent skip if `SONAR_TOKEN` not configured — never blocks audit.
+   - If configured: run `sonar-scanner` with `qualitygate.wait=true`.
+   - Report Sonar gate as PASS/FAIL/SKIP alongside other tool evidence.
+
 3. **Evaluate thresholds** — compare results with quality contract.
 
-   | Metric | Threshold | Severity if violated |
-   |--------|-----------|---------------------|
-   | Coverage (overall) | 90% | Blocker |
-   | Coverage (governance-critical) | 100% | Blocker |
-   | Duplicated lines | ≤3% | Critical |
-   | Reliability issues (blocker/critical) | 0 | Blocker |
-   | Security issues (blocker/critical) | 0 | Blocker |
-   | Maintainability (critical debt) | 0 on changed code | Critical |
-   | Cyclomatic complexity per function | ≤10 | Major |
-   | Cognitive complexity per function | ≤15 | Major |
-   | Function length | <50 lines | Major |
+   | Metric                                | Threshold         | Severity if violated |
+   | ------------------------------------- | ----------------- | -------------------- |
+   | Coverage (overall)                    | 90%               | Blocker              |
+   | Coverage (governance-critical)        | 100%              | Blocker              |
+   | Duplicated lines                      | ≤3%               | Critical             |
+   | Reliability issues (blocker/critical) | 0                 | Blocker              |
+   | Security issues (blocker/critical)    | 0                 | Blocker              |
+   | Maintainability (critical debt)       | 0 on changed code | Critical             |
+   | Cyclomatic complexity per function    | ≤10               | Major                |
+   | Cognitive complexity per function     | ≤15               | Major                |
+   | Function length                       | <50 lines         | Major                |
 
 4. **Classify findings** — assign severity to each issue.
    - Blocker: merge blocked. Must fix.
@@ -95,44 +101,49 @@ Produce this markdown structure directly as audit output:
 
 ## Summary
 
-| Field | Value |
-|-------|-------|
-| Date | YYYY-MM-DD |
-| Spec | spec-NNN |
-| Scope | <files/modules audited> |
-| Verdict | **PASS** / **FAIL** |
+| Field   | Value                   |
+| ------- | ----------------------- |
+| Date    | YYYY-MM-DD              |
+| Spec    | spec-NNN                |
+| Scope   | <files/modules audited> |
+| Verdict | **PASS** / **FAIL**     |
 
 ## Metrics
 
-| Metric | Value | Threshold | Status |
-|--------|-------|-----------|--------|
-| Coverage (overall) | XX% | 90% | ✓ / ✗ |
-| Coverage (governance-critical) | XX% | 100% | ✓ / ✗ |
-| Duplicated lines | XX% | ≤3% | ✓ / ✗ |
-| Blocker issues | N | 0 | ✓ / ✗ |
-| Critical issues | N | 0 | ✓ / ✗ |
-| Major issues | N | — | ⚠ |
-| Cyclomatic complexity (max) | N | ≤10 | ✓ / ✗ |
-| Cognitive complexity (max) | N | ≤15 | ✓ / ✗ |
+| Metric                         | Value | Threshold | Status |
+| ------------------------------ | ----- | --------- | ------ |
+| Coverage (overall)             | XX%   | 90%       | ✓ / ✗  |
+| Coverage (governance-critical) | XX%   | 100%      | ✓ / ✗  |
+| Duplicated lines               | XX%   | ≤3%       | ✓ / ✗  |
+| Blocker issues                 | N     | 0         | ✓ / ✗  |
+| Critical issues                | N     | 0         | ✓ / ✗  |
+| Major issues                   | N     | —         | ⚠      |
+| Cyclomatic complexity (max)    | N     | ≤10       | ✓ / ✗  |
+| Cognitive complexity (max)     | N     | ≤15       | ✓ / ✗  |
 
 ## Findings
 
 ### Blockers (N)
-| # | File | Line | Description | Remediation |
-|---|------|------|-------------|-------------|
+
+| #   | File | Line | Description | Remediation |
+| --- | ---- | ---- | ----------- | ----------- |
 
 ### Critical (N)
-| # | File | Line | Description | Remediation |
-|---|------|------|-------------|-------------|
+
+| #   | File | Line | Description | Remediation |
+| --- | ---- | ---- | ----------- | ----------- |
 
 ### Major (N)
-| # | File | Line | Description | Remediation |
-|---|------|------|-------------|-------------|
+
+| #   | File | Line | Description | Remediation |
+| --- | ---- | ---- | ----------- | ----------- |
 
 ### Minor/Info (N)
+
 <summary or count>
 
 ## Tool Evidence
+
 - ruff format: PASS/FAIL
 - ruff check: PASS/FAIL
 - ty check: PASS/FAIL
@@ -142,6 +153,7 @@ Produce this markdown structure directly as audit output:
 - semgrep: PASS/FAIL
 
 ## Recommendations
+
 1. Priority actions.
 2. Improvement opportunities.
 3. Tech debt notes.
@@ -157,4 +169,5 @@ Produce this markdown structure directly as audit output:
 ## References
 
 - `standards/framework/quality/core.md` — quality contract (thresholds, gates, and stack-specific checks).
+- `skills/dev/sonar-gate/SKILL.md` — optional Sonar quality gate (invoked when configured).
 - `agents/quality-auditor.md` — agent that executes this skill.

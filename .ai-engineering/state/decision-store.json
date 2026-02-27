@@ -158,10 +158,73 @@
     },
     {
       "id": "D024-001",
+      "context": "OS-native secret storage library choice for cross-platform credential management",
+      "decision": "Use `keyring` library for OS-native secret storage. Provides cross-OS abstraction over Windows Credential Manager, macOS Keychain, and Linux libsecret. Pure Python, well-maintained, no native compilation needed.",
+      "decidedAt": "2026-02-26T00:00:00Z",
+      "spec": "024-sonar-platform-onboarding"
+    },
+    {
+      "id": "D024-002",
+      "context": "Sonar gate behavior when SONAR_TOKEN is not configured",
+      "decision": "Sonar gate is optional and uses silent-skip. Framework principle: mandatory gates cannot be weakened, but optional integrations should not block teams that don't use them.",
+      "decidedAt": "2026-02-26T00:00:00Z",
+      "spec": "024-sonar-platform-onboarding"
+    },
+    {
+      "id": "D024-003",
+      "context": "Platform onboarding timing relative to install flow",
+      "decision": "Platform onboarding is opt-in during install and re-runnable via `ai-eng setup`. Framework contract §6: install must ensure first-commit readiness. Platform auth is helpful but not required for local governance.",
+      "decidedAt": "2026-02-26T00:00:00Z",
+      "spec": "024-sonar-platform-onboarding"
+    },
+    {
+      "id": "D024-004",
+      "context": "CLI subcommand architecture for platform onboarding",
+      "decision": "New `setup` CLI subcommand group instead of extending `install`. `install` has a defined contract (copy templates, hooks, readiness). Platform onboarding is a separate concern with its own re-runnability requirement.",
+      "decidedAt": "2026-02-26T00:00:00Z",
+      "spec": "024-sonar-platform-onboarding"
+    },
+    {
+      "id": "D024-005",
+      "context": "Location and format for platform configuration metadata",
+      "decision": "`tools.json` in `.ai-engineering/state/` for platform metadata. Follows existing state file pattern. Only non-secret metadata stored. File is system-managed (ownership model).",
+      "decidedAt": "2026-02-26T00:00:00Z",
+      "spec": "024-sonar-platform-onboarding"
+    },
+    {
+      "id": "D024-006",
+      "context": "Sonar gate as separate skill vs embedded in audit-code",
+      "decision": "New skill `dev/sonar-gate` rather than embedding in `audit-code`. Skills are single-responsibility. `audit-code` orchestrates gates; `sonar-gate` provides the Sonar-specific procedure. Follows existing pattern.",
+      "decidedAt": "2026-02-26T00:00:00Z",
+      "spec": "024-sonar-platform-onboarding"
+    },
+    {
+      "id": "D024-007",
+      "context": "SonarLint IDE configuration mode: Connected Mode vs standalone rules",
+      "decision": "Use Connected Mode pointing to the configured SonarCloud/SonarQube server. Connected Mode syncs rules from the server, ensuring parity between IDE diagnostics and CI quality gate. Standalone mode would require maintaining separate rule sets.",
+      "decidedAt": "2026-02-26T00:00:00Z",
+      "spec": "024-sonar-platform-onboarding"
+    },
+    {
+      "id": "D024-008",
+      "context": "VS Code fork IDEs config path strategy",
+      "decision": "VS Code family IDEs (Cursor, Windsurf, Antigravity) all read settings from `.vscode/settings.json` and `.vscode/extensions.json`. One configuration serves all forks. No need for separate `.cursor/`, `.windsurf/`, or `.antigravity/` paths.",
+      "decidedAt": "2026-02-26T00:00:00Z",
+      "spec": "024-sonar-platform-onboarding"
+    },
+    {
+      "id": "D024-009",
+      "context": "Strategy for merging SonarLint settings into existing IDE config files",
+      "decision": "Read existing JSON/XML, deep-merge only SonarLint-namespaced keys, write back. Never overwrite user-configured keys outside the `sonarlint` namespace. Creates config directories if missing.",
+      "decidedAt": "2026-02-26T00:00:00Z",
+      "spec": "024-sonar-platform-onboarding"
+    },
+    {
+      "id": "D025-001",
       "context": "Documentation gate enforcement in commit/PR/acho workflows for OSS GitHub users",
       "decision": "Add mandatory documentation gate to /commit, /pr, and /acho workflows. Classifies changes as user-visible vs internal-only. User-visible changes always update CHANGELOG.md and README.md targeting OSS GitHub users. External documentation portal support: asks for repo URL, clones, updates, creates PR with auto-complete. Internal-only changes skip silently. Uses changelog and writer skills as referenced procedures.",
-      "decidedAt": "2026-02-26T00:00:00Z",
-      "spec": "024-model-tiering-doc-enforcement"
+      "decidedAt": "2026-02-27T00:00:00Z",
+      "spec": "025-oss-doc-gate"
     }
   ]
 }

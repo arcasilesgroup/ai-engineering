@@ -52,6 +52,7 @@ Procedural skills guide structured execution. Reference the relevant skill befor
 - `.ai-engineering/skills/dev/api-design/SKILL.md` — contract-first API design.
 - `.ai-engineering/skills/dev/infrastructure/SKILL.md` — IaC provisioning.
 - `.ai-engineering/skills/dev/database-ops/SKILL.md` — database operations.
+- `.ai-engineering/skills/dev/sonar-gate/SKILL.md` — Sonar quality gate integration.
 
 ### Review Skills
 

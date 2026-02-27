@@ -1,5 +1,5 @@
 ---
-spec: "024"
+spec: "025"
 approach: "incremental"
 ---
 
@@ -16,8 +16,8 @@ approach: "incremental"
 | `skills/workflows/acho/SKILL.md` | Updated doc gate inheritance references |
 | `standards/framework/core.md` | Updated non-negotiables and command governance for OSS docs |
 | `standards/framework/quality/core.md` | Documentation gate in pre-commit gate table |
-| `state/decision-store.json` | D024-001 (doc gate enforcement) |
-| `CHANGELOG.md` (repo root) | Spec-024 entries |
+| `state/decision-store.json` | D025-001 (doc gate enforcement) |
+| `CHANGELOG.md` (repo root) | Spec-025 entries |
 
 ### Mirror Copies
 

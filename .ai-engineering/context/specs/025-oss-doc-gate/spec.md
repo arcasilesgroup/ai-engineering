@@ -1,11 +1,11 @@
 ---
-id: "024"
-slug: "model-tiering-doc-enforcement"
+id: "025"
+slug: "oss-doc-gate"
 status: "in-progress"
-created: "2026-02-26"
+created: "2026-02-27"
 ---
 
-# Spec 024 — OSS Documentation Gate
+# Spec 025 — OSS Documentation Gate
 
 ## Problem
 
@@ -55,4 +55,4 @@ Add a mandatory documentation gate to `/commit`, `/pr`, and `/acho` workflows th
 
 | ID | Decision | Rationale |
 |----|----------|-----------|
-| D024-001 | Mandatory documentation gate in /commit, /pr, /acho for OSS GitHub users. Always updates CHANGELOG.md + README.md for user-visible changes. External docs portal support with clone + PR. | Changelog and writer skills exist but are never enforced. OSS users need up-to-date docs. External portal support prevents docs drift across repos. |
+| D025-001 | Mandatory documentation gate in /commit, /pr, /acho for OSS GitHub users. Always updates CHANGELOG.md + README.md for user-visible changes. External docs portal support with clone + PR. | Changelog and writer skills exist but are never enforced. OSS users need up-to-date docs. External portal support prevents docs drift across repos. |
