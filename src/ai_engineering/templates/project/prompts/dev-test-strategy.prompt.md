@@ -1,5 +1,5 @@
 ---
-description: "Test design and strategy planning"
+description: "Design test strategy covering what to test, test tiers, and meaningful coverage; use when planning tests for new features, bug fixes, or refactoring."
 mode: "agent"
 ---
 

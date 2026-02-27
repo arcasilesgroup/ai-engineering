@@ -88,6 +88,35 @@ For operations that modify files, use git worktrees to avoid conflicts.
    - Cherry-pick or merge branches back.
    - Remove worktrees: `git worktree remove /tmp/agent-1`.
 
+### Pattern 5: Structured Context Gathering
+
+Dispatch read-only agents to gather and summarize context before planning or auditing.
+
+1. **Identify context dimensions** — determine what areas need exploration:
+   - Governance surface (`.ai-engineering/` — skills, agents, standards, state)
+   - Implementation surface (`src/`, `scripts/`, `tests/`)
+   - Integration surface (`.claude/`, `.github/`, CI/CD workflows)
+
+2. **Launch explorer agents** — max 3 in parallel, each with a focused scope:
+   ```
+   Task(subagent_type="Explore", prompt="Explore governance surface: skills inventory, agent capabilities, standards structure, state files...")
+   Task(subagent_type="Explore", prompt="Explore implementation surface: Python modules, CLI commands, test coverage...")
+   Task(subagent_type="Explore", prompt="Explore integration surface: command mirrors, CI workflows, IDE config...")
+   ```
+
+3. **Structured output** — each agent MUST produce a context summary per framework-contract §4.7:
+   - `## Findings` — key observations and discovered patterns.
+   - `## Dependencies Discovered` — cross-file and cross-module dependencies.
+   - `## Risks Identified` — gaps, inconsistencies, staleness.
+   - `## Recommendations` — suggested actions for the planning phase.
+
+4. **Consolidate** — the dispatching agent merges all summaries:
+   - Deduplicate overlapping findings across agents.
+   - Resolve conflicts using priority: security > governance > quality > style.
+   - Build unified dependency graph from individual discoveries.
+
+5. **Use as input** — consolidated context feeds Pattern 1 (audit), direct planning, or orchestrator PLANNING mode.
+
 ### Safety Rules
 
 - **Max parallel agents**: 3 (avoid context fragmentation and resource contention).

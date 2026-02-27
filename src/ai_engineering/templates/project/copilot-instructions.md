@@ -6,8 +6,8 @@ Project instructions are canonical in `.ai-engineering/`.
 
 Read these before any non-trivial work:
 
-- `.ai-engineering/context/product/framework-contract.md` — framework identity, personas, roadmap.
-- `.ai-engineering/context/product/product-contract.md` — project goals, KPIs, release status.
+- `.ai-engineering/context/product/framework-contract.md` — framework enforcement directives, agentic model, ownership, security/quality contract.
+- `.ai-engineering/context/product/product-contract.md` — project goals, KPIs, roadmap, release status, governance surface, architecture snapshot.
 - `.ai-engineering/standards/framework/core.md` — governance structure, ownership, lifecycle, skills/agents model.
 - `.ai-engineering/standards/framework/stacks/python.md` — Python stack contract, code patterns, testing patterns.
 - `.ai-engineering/standards/team/core.md` — team-specific standards.

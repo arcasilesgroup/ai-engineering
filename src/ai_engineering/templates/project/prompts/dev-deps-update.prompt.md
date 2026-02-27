@@ -1,5 +1,5 @@
 ---
-description: "Dependency management and update workflow"
+description: "Audit, update, and validate project dependencies for security and compatibility; use when addressing vulnerabilities, outdated packages, or version bumps."
 mode: "agent"
 ---
 

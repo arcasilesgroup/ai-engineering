@@ -1,5 +1,5 @@
 ---
-description: "Adaptive standards lifecycle and evidence-based governance evolution"
+description: "Review and evolve standards safely based on observed delivery/security outcomes."
 mode: "agent"
 ---
 
