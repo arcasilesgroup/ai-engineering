@@ -1,5 +1,5 @@
 ---
-description: "Agent authoring and registration procedure"
+description: "Author and register a new agent: canonical file, mirror, instruction files, counters, changelog."
 mode: "agent"
 ---
 

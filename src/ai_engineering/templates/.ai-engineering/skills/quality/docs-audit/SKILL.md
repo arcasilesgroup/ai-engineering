@@ -29,7 +29,7 @@ Audits all governance documentation for location correctness, writing quality, s
    - `.ai-engineering/**/*.md` — all governance Markdown files.
    - `.ai-engineering/**/*.yml` / `*.yaml` — configuration files.
    - `.ai-engineering/**/*.json` — state and config files.
-   - Root instruction files: `CLAUDE.md`, `AGENTS.md`, `codex.md`, `.github/copilot-instructions.md`.
+   - Root instruction files: `CLAUDE.md`, `AGENTS.md`, `.github/copilot-instructions.md`.
    - Record file path, size, last modified date, ownership level.
 
 2. **Classify by ownership** — tag each file with its ownership level.

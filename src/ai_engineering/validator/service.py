@@ -126,11 +126,9 @@ _INSTRUCTION_FILES: list[str] = [
     ".github/copilot-instructions.md",
     "AGENTS.md",
     "CLAUDE.md",
-    "codex.md",
     "src/ai_engineering/templates/project/copilot-instructions.md",
     "src/ai_engineering/templates/project/AGENTS.md",
     "src/ai_engineering/templates/project/CLAUDE.md",
-    "src/ai_engineering/templates/project/codex.md",
 ]
 
 # Mirror pairs: (canonical_root, mirror_root, glob_patterns, exclusion_prefixes)

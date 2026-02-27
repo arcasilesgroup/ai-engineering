@@ -1,5 +1,5 @@
 ---
-description: "Multi-agent orchestration patterns"
+description: "Coordinate multiple agent personas in parallel or sequence using Task tool patterns; use for full-spectrum audits, cross-cutting reviews, or batch operations."
 mode: "agent"
 ---
 

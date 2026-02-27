@@ -284,11 +284,11 @@ def test_updater_validator_and_vcs_edges(tmp_path: Path) -> None:
         "## Skills\n- `.ai-engineering/skills/dev/a.md`\n\n"
         "## Agents\n- `.ai-engineering/agents/a.md`\n"
     )
-    for name in ("AGENTS.md", "CLAUDE.md", "codex.md", ".github/copilot-instructions.md"):
+    for name in ("AGENTS.md", "CLAUDE.md", ".github/copilot-instructions.md"):
         file_path = tmp_path / name
         file_path.parent.mkdir(parents=True, exist_ok=True)
         file_path.write_text(instruction, encoding="utf-8")
-    for name in ("AGENTS.md", "CLAUDE.md", "codex.md", "copilot-instructions.md"):
+    for name in ("AGENTS.md", "CLAUDE.md", "copilot-instructions.md"):
         file_path = tmp_path / "src" / "ai_engineering" / "templates" / "project" / name
         file_path.parent.mkdir(parents=True, exist_ok=True)
         file_path.write_text(instruction + "- `.ai-engineering/agents/b.md`\n", encoding="utf-8")
@@ -371,7 +371,6 @@ def test_validator_remaining_branches(tmp_path: Path) -> None:
         base + "- `.ai-engineering/skills/dev/extra.md`\n- `.ai-engineering/agents/extra.md`\n",
         encoding="utf-8",
     )
-    (tmp_path / "codex.md").write_text(base, encoding="utf-8")
     (tmp_path / ".github" / "copilot-instructions.md").parent.mkdir(parents=True, exist_ok=True)
     (tmp_path / ".github" / "copilot-instructions.md").write_text(base, encoding="utf-8")
 
@@ -379,7 +378,6 @@ def test_validator_remaining_branches(tmp_path: Path) -> None:
     template_root.mkdir(parents=True, exist_ok=True)
     (template_root / "AGENTS.md").write_text(base, encoding="utf-8")
     (template_root / "CLAUDE.md").write_text(base, encoding="utf-8")
-    (template_root / "codex.md").write_text(base, encoding="utf-8")
     (template_root / "copilot-instructions.md").write_text(base, encoding="utf-8")
 
     (ai / "skills" / "dev" / "good-file-name").mkdir(parents=True, exist_ok=True)
@@ -457,11 +455,9 @@ def test_validator_internal_line_coverage_targets(tmp_path: Path) -> None:
         ".github/copilot-instructions.md": base_ref,
         "AGENTS.md": base_other,
         "CLAUDE.md": base_other,
-        "codex.md": base_other,
         "src/ai_engineering/templates/project/copilot-instructions.md": base_other,
         "src/ai_engineering/templates/project/AGENTS.md": base_other,
         "src/ai_engineering/templates/project/CLAUDE.md": base_other,
-        "src/ai_engineering/templates/project/codex.md": base_other,
     }
     for rel, content in files.items():
         p = tmp_path / rel

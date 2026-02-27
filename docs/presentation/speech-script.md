@@ -118,7 +118,7 @@
 >
 > El CLI es mínimo: `ai-eng install`, `update`, `doctor`, `validate`. Cuatro comandos.
 >
-> Y funciona con cualquier AI provider: Claude Code con 60 slash commands, GitHub Copilot con 45 prompt files y 15 custom agents, OpenAI Codex con codex.md. Un framework, cada provider.
+> Y funciona con cualquier AI provider: Claude Code con 60 slash commands, GitHub Copilot con 45 prompt files y 15 custom agents, OpenAI Codex con AGENTS.md. Un framework, cada provider.
 >
 > Piensen en ello como **una constitución para el repositorio asistido por IA**.
 
@@ -337,7 +337,7 @@
 
 > Un punto clave para Architecture: sin vendor lock-in.
 >
-> Claude Code usa CLAUDE.md más 60 slash commands en `.claude/commands/`. Copilot usa copilot-instructions.md más 45 prompt files en `.github/prompts/` y 15 custom agents en `.github/agents/`. Codex usa codex.md. Terminal usa el CLI directamente.
+> Claude Code usa CLAUDE.md más 60 slash commands en `.claude/commands/`. Copilot usa copilot-instructions.md más 45 prompt files en `.github/prompts/` y 15 custom agents en `.github/agents/`. Codex lee AGENTS.md nativamente. Terminal usa el CLI directamente.
 >
 > Cambias de provider, mantienes la gobernanza. Los skills y agents son Markdown IDE-agnóstico — la misma skill funciona en cualquier proveedor.
 

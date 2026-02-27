@@ -1,5 +1,5 @@
 ---
-description: "IaC provisioning"
+description: "Design and generate Infrastructure as Code (Terraform, Bicep) with plan-before-apply safety, state management, and deployment configuration."
 mode: "agent"
 ---
 

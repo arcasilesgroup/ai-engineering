@@ -1,5 +1,5 @@
 ---
-description: "Data security assessment: classification, encryption, access, retention"
+description: "Assess data security controls: classification, access, encryption, retention, and exposure risk."
 mode: "agent"
 ---
 

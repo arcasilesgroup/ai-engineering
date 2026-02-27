@@ -1,5 +1,5 @@
 ---
-description: "Time-limited risk renewal"
+description: "Extend a risk acceptance before expiry with mandatory justification (max 2 renewals)."
 mode: "agent"
 ---
 

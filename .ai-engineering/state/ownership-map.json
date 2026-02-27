@@ -32,11 +32,6 @@
       "frameworkUpdate": "allow"
     },
     {
-      "pattern": "codex.md",
-      "owner": "framework-managed",
-      "frameworkUpdate": "allow"
-    },
-    {
       "pattern": ".github/copilot-instructions.md",
       "owner": "framework-managed",
       "frameworkUpdate": "allow"

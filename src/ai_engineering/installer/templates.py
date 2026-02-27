@@ -27,7 +27,6 @@ PROJECT_TEMPLATES: str = "project"
 _PROJECT_TEMPLATE_MAP: dict[str, str] = {
     "AGENTS.md": "AGENTS.md",
     "CLAUDE.md": "CLAUDE.md",
-    "codex.md": "codex.md",
     "copilot-instructions.md": ".github/copilot-instructions.md",
     "copilot/code-generation.md": ".github/copilot/code-generation.md",
     "copilot/code-review.md": ".github/copilot/code-review.md",

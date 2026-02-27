@@ -1,5 +1,5 @@
 ---
-description: "Governance content validation (7-category check)"
+description: "Validate governance content integrity: cross-references, mirrors, counters, frontmatter, manifest."
 mode: "agent"
 ---
 

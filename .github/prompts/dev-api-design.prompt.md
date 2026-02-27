@@ -1,5 +1,5 @@
 ---
-description: "Contract-first API design"
+description: "Design and review APIs using contract-first approach with OpenAPI specification, versioning strategy, and backward compatibility analysis."
 mode: "agent"
 ---
 

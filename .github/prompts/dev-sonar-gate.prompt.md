@@ -1,5 +1,5 @@
 ---
-description: "Sonar quality gate integration"
+description: "Run SonarCloud/SonarQube quality gate locally before push; silently skips when SONAR_TOKEN is not configured."
 mode: "agent"
 ---
 
