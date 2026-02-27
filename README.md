@@ -109,7 +109,7 @@ Skills are step-by-step procedures written in Markdown that any AI agent can rea
 
 | Category | Count | Highlights |
 |----------|-------|------------|
-| **Workflows** | 6 | `/commit`, `/pr`, `/acho`, `/cleanup`, `/pre-implementation`, `/self-improve` |
+| **Workflows** | 5 | `/commit`, `/pr`, `/acho`, `/cleanup`, `/self-improve` |
 | **Dev** | 10 | `/dev:debug`, `/dev:refactor`, `/dev:code-review`, `/dev:test-runner`, `/dev:migration` |
 | **Review** | 6 | `/review:architecture`, `/review:security`, `/review:data-security`, `/review:dast` |
 | **Docs** | 5 | `/docs:changelog`, `/docs:explain`, `/docs:simplify`, `/docs:writer` |

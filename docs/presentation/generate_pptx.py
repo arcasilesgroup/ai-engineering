@@ -169,7 +169,7 @@ NOTES: dict[int, str] = {
     ),
     8: (
         "45 skills organized in 6 categories:\n"
-        "- Workflows (6): commit, PR, acho, pre-implementation, cleanup, self-improve.\n"
+        "- Workflows (5): commit, PR, acho, cleanup, self-improve.\n"
         "- Dev (10): debug, refactor, code review, test runner, test strategy, "
         "migration, deps, data modeling, CI/CD generation, multi-agent.\n"
         "- Review (6): architecture, performance, security, data security, DAST, "

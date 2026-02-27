@@ -187,7 +187,7 @@
 > 45 skills organizados en 6 categorías. Cada skill es un archivo Markdown con estructura definida: Purpose, Trigger, Procedure, Output Contract, Governance Notes.
 >
 > Las categorías:
-> - **Workflows** (6): commit, PR, acho, pre-implementation, cleanup, self-improve — los flujos del día a día.
+> - **Workflows** (5): commit, PR, acho, cleanup, self-improve — los flujos del día a día.
 > - **Dev** (10): debug, refactor, code review, test runner, test strategy, migration, dependency updates, data modeling, CI/CD generation, multi-agent orchestration.
 > - **Review** (6): architecture, performance, security, data security, DAST, container security.
 > - **Docs** (5): changelog, explain (estilo Feynman), writer, simplify, prompt design.

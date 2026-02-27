@@ -318,7 +318,6 @@ def claude_command_path(category: str, name: str) -> Path:
         "pr",
         "acho",
         "cleanup",
-        "pre-implementation",
     ):
         return CLAUDE_COMMANDS / f"{name}.md"
     if category == "workflows":

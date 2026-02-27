@@ -44,6 +44,9 @@ class MaintenanceReport:
     risk_expired: int = 0
     local_branches: int = 0
     merged_branches: int = 0
+    remote_branches: int = 0
+    open_prs: int = 0
+    stale_branches: int = 0
     version_status: str = ""
 
     @property
@@ -82,7 +85,10 @@ class MaintenanceReport:
         lines.append(f"- Risk acceptances (expiring): {self.risk_expiring}")
         lines.append(f"- Risk acceptances (expired): {self.risk_expired}")
         lines.append(f"- Local branches: {self.local_branches}")
+        lines.append(f"- Remote branches: {self.remote_branches}")
         lines.append(f"- Merged branches (cleanup candidates): {self.merged_branches}")
+        lines.append(f"- Open PRs: {self.open_prs}")
+        lines.append(f"- Stale branches (>30d): {self.stale_branches}")
         if self.version_status:
             lines.append(f"- Version status: {self.version_status}")
         lines.append("")
@@ -219,6 +225,17 @@ def generate_report(
         report.merged_branches = len(merged)
     except (OSError, ValueError):
         pass  # git may not be available
+
+    # Repo status (remote branches, PRs, stale)
+    try:
+        from ai_engineering.maintenance.repo_status import run_repo_status
+
+        repo_status = run_repo_status(target, include_prs=True)
+        report.remote_branches = len(repo_status.remote_branches)
+        report.open_prs = len(repo_status.open_prs)
+        report.stale_branches = len(repo_status.stale_branches)
+    except (OSError, ValueError):
+        pass  # git/gh may not be available
 
     return report
 

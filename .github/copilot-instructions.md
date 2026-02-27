@@ -19,7 +19,7 @@ Before any non-trivial implementation work:
 
 1. **Read active spec** — `.ai-engineering/context/specs/_active.md` and linked spec/plan/tasks files.
 2. **Read decision store** — `.ai-engineering/state/decision-store.json` to avoid re-asking decided questions.
-3. **Run pre-implementation** — execute `/pre-implementation` to sync the repository (git pull, prune, cleanup, create feature branch).
+3. **Run cleanup** — execute `/cleanup` to sync the repository (status, git pull, prune, branch cleanup, spec reset).
 4. **Verify tooling** — confirm ruff, gitleaks, pytest, ty are available.
 
 This protocol is mandatory. Skipping it risks working on stale code, repeating decided questions, or creating merge conflicts.
@@ -33,8 +33,7 @@ Procedural skills guide structured execution. Reference the relevant skill befor
 - `.ai-engineering/skills/workflows/commit/SKILL.md` — `/commit` flow.
 - `.ai-engineering/skills/workflows/pr/SKILL.md` — `/pr` flow.
 - `.ai-engineering/skills/workflows/acho/SKILL.md` — `/acho` alias.
-- `.ai-engineering/skills/workflows/pre-implementation/SKILL.md` — branch hygiene before implementation.
-- `.ai-engineering/skills/workflows/cleanup/SKILL.md` — branch cleanup and stale branch removal.
+- `.ai-engineering/skills/workflows/cleanup/SKILL.md` — full repository hygiene (status, sync, prune, branch cleanup, spec reset).
 - `.ai-engineering/skills/workflows/self-improve/SKILL.md` — iterative analyze→plan→execute→verify→learn loop.
 
 ### Dev Skills

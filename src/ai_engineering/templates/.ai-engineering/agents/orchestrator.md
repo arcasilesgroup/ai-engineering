@@ -8,7 +8,6 @@ outputs: [execution-plan, task-assignments, phase-gate-report]
 tags: [orchestration, planning, governance, lifecycle]
 references:
   skills:
-    - skills/workflows/pre-implementation/SKILL.md
     - skills/workflows/cleanup/SKILL.md
     - skills/dev/multi-agent/SKILL.md
     - skills/workflows/self-improve/SKILL.md
@@ -67,8 +66,7 @@ Execution coordinator that drives spec delivery end-to-end, sequencing phases, a
 
 - `skills/dev/multi-agent/SKILL.md` — parallel agent orchestration patterns.
 - `skills/workflows/self-improve/SKILL.md` — continuous improvement loop.
-- `skills/workflows/pre-implementation/SKILL.md` — branch hygiene before execution.
-- `skills/workflows/cleanup/SKILL.md` — post-execution branch cleanup.
+- `skills/workflows/cleanup/SKILL.md` — full repository hygiene (status, sync, prune, branch cleanup, spec reset).
 
 ## Referenced Standards
 

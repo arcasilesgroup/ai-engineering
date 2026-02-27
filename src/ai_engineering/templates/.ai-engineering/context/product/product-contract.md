@@ -132,11 +132,11 @@ Spec-025: OSS Documentation Gate. Last completed: Spec-024 (Sonar Platform Onboa
 
 ## 6. Governance Surface Summary
 
-### 6.1 Skills (50 total, 6 categories)
+### 6.1 Skills (49 total, 6 categories)
 
 | Category | Count | Skills |
 |----------|-------|--------|
-| workflows | 7 | commit, pr, acho, pre-implementation, cleanup, self-improve, create-spec (via govern) |
+| workflows | 6 | commit, pr, acho, cleanup, self-improve, create-spec (via govern) |
 | dev | 16 | multi-agent, code-review, refactor, debug, test-runner, test-strategy, migration, deps-update, data-modeling, database-ops, api-design, infrastructure, cicd-generate, sonar-gate |
 | review | 7 | architecture, security, data-security, performance, accessibility, dast, container-security |
 | quality | 7 | audit-code, docs-audit, install-check, release-gate, sbom, test-gap-analysis |

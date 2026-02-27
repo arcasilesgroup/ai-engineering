@@ -29,7 +29,7 @@ skills/<category>/<name>/
 
 | Category | Purpose | Example Skills |
 |----------|---------|----------------|
-| `workflows` | Git and branch lifecycle operations | commit, pr, acho, pre-implementation, cleanup |
+| `workflows` | Git and branch lifecycle operations | commit, pr, acho, cleanup, self-improve |
 | `dev` | Development lifecycle and code improvement | debug, code-review, refactor, test-strategy, multi-agent |
 | `review` | Specialized assessment and audit | architecture, security, performance, dast, container-security |
 | `quality` | Quality gates and metrics | audit-code, release-gate, test-gap-analysis, sbom |
