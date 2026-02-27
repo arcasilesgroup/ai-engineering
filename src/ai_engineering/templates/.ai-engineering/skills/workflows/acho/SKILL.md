@@ -27,25 +27,27 @@ Execute the `/acho` governed workflow as a fast-path alias for `/commit`. The `/
 
 ### `/acho` (stage + commit + push)
 
-Identical to `/commit` default flow:
+Identical to `/commit` default flow (including documentation gate):
 
 1. Stage changes — `git add -A`.
 2. Run formatter — `ruff format .`.
 3. Run linter — `ruff check . --fix`. Stop on unfixable issues.
 4. Run secret detection — `gitleaks protect --staged --no-banner`. Stop on findings.
-5. Commit — `git commit -m "<message>"`.
-6. Push — `git push origin <current-branch>`. Block if `main`/`master`.
+5. Documentation gate — update CHANGELOG.md, README.md, and external docs portal for OSS GitHub users (inherited from `/commit`).
+6. Commit — `git commit -m "<message>"`.
+7. Push — `git push origin <current-branch>`. Block if `main`/`master`.
 
 ### `/acho pr` (stage + commit + push + create PR + auto-complete)
 
-Identical to `/pr` default flow:
+Identical to `/pr` default flow (including documentation gate):
 
 1. Stage, format, lint, secret detection (steps 1–4 above).
-2. Run pre-push checks — `semgrep`, `pip-audit`, `pytest`, `ty check`. Stop on failures.
-3. Commit with well-formed message.
-4. Push to current branch. Block if protected.
-5. Create PR — `gh pr create --fill`.
-6. Enable auto-complete — `gh pr merge --auto --squash --delete-branch`.
+2. Documentation gate — update CHANGELOG.md, README.md, and external docs portal for OSS GitHub users (inherited from `/pr`).
+3. Run pre-push checks — `semgrep`, `pip-audit`, `pytest`, `ty check`. Stop on failures.
+4. Commit with well-formed message.
+5. Push to current branch. Block if protected.
+6. Create PR — `gh pr create --fill`.
+7. Enable auto-complete — `gh pr merge --auto --squash --delete-branch`.
 
 ## Output Contract
 

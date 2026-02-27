@@ -15,6 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Lint fixes: `str, Enum` → `StrEnum`, combined `with` statements, ternary simplifications.
 
 ### Added
+- **Spec-025: OSS Documentation Gate** — mandatory documentation gate in `/commit`, `/pr`, and `/acho` workflows for OSS GitHub users.
+- Documentation gate classifies changes as user-visible vs internal-only and enforces CHANGELOG.md and README.md updates for user-visible changes.
+- External documentation portal support: asks for docs repo URL, clones, updates documentation, creates PR with auto-complete.
+- PR checklist expanded with CHANGELOG, README, and external docs items.
 - **Spec-024: Sonar Scanner Integration & Platform Credential Onboarding** — platform credential management with keyring, Sonar quality gate skill, and guided onboarding CLI.
 - New `credentials` module (`models.py`, `service.py`) for OS-native secret storage via keyring.
 - New `platforms` module (`detector.py`, `github.py`, `sonar.py`, `azure_devops.py`) for platform detection and API-validated credential setup.

@@ -13,7 +13,7 @@ metadata:
 
 governance_surface:
   agents:
-    total: 15
+    total: 19
     categories:
       [
         analysis,

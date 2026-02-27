@@ -1,14 +1,14 @@
 ---
-active: "024-sonar-platform-onboarding"
-updated: "2026-02-26"
+active: "025-oss-doc-gate"
+updated: "2026-02-27"
 ---
 
 # Active Spec
 
-Spec-024 (Sonar Scanner Integration & Platform Credential Onboarding) is now active.
+Spec-025 (OSS Documentation Gate) is now active.
 
 ## Quick Resume
 
-- Spec: `context/specs/024-sonar-platform-onboarding/spec.md`
-- Plan: `context/specs/024-sonar-platform-onboarding/plan.md`
-- Tasks: `context/specs/024-sonar-platform-onboarding/tasks.md`
+- Spec: `context/specs/025-oss-doc-gate/spec.md`
+- Plan: `context/specs/025-oss-doc-gate/plan.md`
+- Tasks: `context/specs/025-oss-doc-gate/tasks.md`

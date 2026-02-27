@@ -218,6 +218,13 @@
       "decision": "Read existing JSON/XML, deep-merge only SonarLint-namespaced keys, write back. Never overwrite user-configured keys outside the `sonarlint` namespace. Creates config directories if missing.",
       "decidedAt": "2026-02-26T00:00:00Z",
       "spec": "024-sonar-platform-onboarding"
+    },
+    {
+      "id": "D025-001",
+      "context": "Documentation gate enforcement in commit/PR/acho workflows for OSS GitHub users",
+      "decision": "Add mandatory documentation gate to /commit, /pr, and /acho workflows. Classifies changes as user-visible vs internal-only. User-visible changes always update CHANGELOG.md and README.md targeting OSS GitHub users. External documentation portal support: asks for repo URL, clones, updates, creates PR with auto-complete. Internal-only changes skip silently. Uses changelog and writer skills as referenced procedures.",
+      "decidedAt": "2026-02-27T00:00:00Z",
+      "spec": "025-oss-doc-gate"
     }
   ]
 }
