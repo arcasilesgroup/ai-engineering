@@ -28,3 +28,5 @@
 - [x] Task 4.3: Add D028-001 to decision store
 - [x] Task 4.4: Mirror all skill files to templates
 - [x] Task 4.5: Validate content integrity
+- [x] Task 4.6: Fix CI content integrity (mirror sync + spec directory)
+- [x] Task 4.7: Fix CI gate trailers (merge commit from branch update)
