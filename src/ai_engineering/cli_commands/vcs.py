@@ -11,6 +11,9 @@ from typing import Annotated
 
 import typer
 
+from ai_engineering.cli_envelope import NextAction, emit_error, emit_success
+from ai_engineering.cli_output import is_json_mode
+from ai_engineering.cli_ui import error, info, kv, success
 from ai_engineering.paths import resolve_project_root
 from ai_engineering.state.io import read_json_model, write_json_model
 from ai_engineering.state.models import InstallManifest
@@ -30,16 +33,42 @@ def vcs_status(
     manifest_path = root / ".ai-engineering" / "state" / "install-manifest.json"
 
     if not manifest_path.exists():
-        typer.echo("No install manifest found. Run 'ai-eng install' first.")
+        if is_json_mode():
+            emit_error(
+                "ai-eng vcs status",
+                "No install manifest found",
+                "NO_MANIFEST",
+                "Run 'ai-eng install' first",
+            )
+        else:
+            error("No install manifest found")
+            info("Run 'ai-eng install' first")
         raise typer.Exit(code=1)
 
     manifest = read_json_model(manifest_path, InstallManifest)
     provider = get_provider(root)
 
-    typer.echo(f"Primary provider: {manifest.providers.primary}")
-    typer.echo(f"Enabled providers: {', '.join(manifest.providers.enabled)}")
-    typer.echo(f"Active provider: {provider.provider_name()}")
-    typer.echo(f"Provider available: {provider.is_available()}")
+    if is_json_mode():
+        emit_success(
+            "ai-eng vcs status",
+            {
+                "primary_provider": manifest.providers.primary,
+                "enabled_providers": manifest.providers.enabled,
+                "active_provider": provider.provider_name(),
+                "available": provider.is_available(),
+            },
+            [
+                NextAction(
+                    command="ai-eng vcs set-primary <provider>",
+                    description="Change primary provider",
+                ),
+            ],
+        )
+    else:
+        kv("Primary provider", manifest.providers.primary)
+        kv("Enabled providers", ", ".join(manifest.providers.enabled))
+        kv("Active provider", provider.provider_name())
+        kv("Provider available", provider.is_available())
 
 
 def vcs_set_primary(
@@ -54,20 +83,46 @@ def vcs_set_primary(
 ) -> None:
     """Set the primary VCS provider in the install manifest."""
     if provider_name not in _VALID_PROVIDERS:
-        typer.echo(f"Invalid provider: {provider_name}. Choose from: {', '.join(_VALID_PROVIDERS)}")
+        if is_json_mode():
+            emit_error(
+                "ai-eng vcs set-primary",
+                f"Invalid provider: {provider_name}",
+                "INVALID_PROVIDER",
+                f"Choose from: {', '.join(_VALID_PROVIDERS)}",
+            )
+        else:
+            error(f"Invalid provider: {provider_name}")
+            info(f"Choose from: {', '.join(_VALID_PROVIDERS)}")
         raise typer.Exit(code=1)
 
     root = resolve_project_root(target)
     manifest_path = root / ".ai-engineering" / "state" / "install-manifest.json"
 
     if not manifest_path.exists():
-        typer.echo("No install manifest found. Run 'ai-eng install' first.")
+        if is_json_mode():
+            emit_error(
+                "ai-eng vcs set-primary",
+                "No install manifest found",
+                "NO_MANIFEST",
+                "Run 'ai-eng install' first",
+            )
+        else:
+            error("No install manifest found")
+            info("Run 'ai-eng install' first")
         raise typer.Exit(code=1)
 
     manifest = read_json_model(manifest_path, InstallManifest)
+    previous = manifest.providers.primary
     manifest.providers.primary = provider_name
     if provider_name not in manifest.providers.enabled:
         manifest.providers.enabled.append(provider_name)
 
     write_json_model(manifest_path, manifest)
-    typer.echo(f"Primary VCS provider set to: {provider_name}")
+
+    if is_json_mode():
+        emit_success(
+            "ai-eng vcs set-primary",
+            {"provider": provider_name, "previous": previous},
+        )
+    else:
+        success(f"Primary VCS provider set to: {provider_name}")

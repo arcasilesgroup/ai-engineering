@@ -97,7 +97,7 @@ class TestSetupPlatforms:
     ) -> None:
         mock_resolve.return_value = tmp_path
         result = runner.invoke(setup_app, ["platforms"])
-        assert "No platform markers detected" in result.output
+        assert "No platform markers auto-detected" in result.output
 
     @patch("ai_engineering.cli_commands.setup._run_github_setup")
     @patch(

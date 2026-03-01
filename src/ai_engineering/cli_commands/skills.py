@@ -1,6 +1,6 @@
-"""Skills CLI commands: list, sync, add, remove.
+"""Skills CLI commands: list, sync, add, remove, status.
 
-Manages remote skill sources and synchronisation.
+Manages remote skill sources, synchronisation, and local eligibility diagnostics.
 """
 
 from __future__ import annotations
@@ -10,6 +10,10 @@ from typing import Annotated
 
 import typer
 
+from ai_engineering.cli_envelope import NextAction, emit_success
+from ai_engineering.cli_output import is_json_mode
+from ai_engineering.cli_progress import spinner
+from ai_engineering.cli_ui import error, header, info, kv, status_line, success
 from ai_engineering.paths import resolve_project_root
 from ai_engineering.skills.service import (
     add_source,
@@ -26,17 +30,27 @@ def skill_list(
         typer.Option("--target", "-t", help="Target project root."),
     ] = None,
 ) -> None:
-    """List configured remote skill sources."""
+    """List configured remote skill sources and their trust status."""
     root = resolve_project_root(target)
     sources = list_sources(root)
 
-    if not sources:
-        typer.echo("No remote skill sources configured.")
-        return
+    if is_json_mode():
+        emit_success(
+            "ai-eng skill list",
+            {
+                "sources": [{"url": s.url, "trusted": s.trusted} for s in sources],
+                "total": len(sources),
+            },
+            [NextAction(command="ai-eng skill sync", description="Sync remote sources")],
+        )
+    else:
+        if not sources:
+            info("No remote skill sources configured")
+            return
 
-    for src in sources:
-        trust = "trusted" if src.trusted else "untrusted"
-        typer.echo(f"  - {src.url} [{trust}]")
+        for src in sources:
+            trust = "trusted" if src.trusted else "untrusted"
+            status_line("ok" if src.trusted else "warn", src.url, trust)
 
 
 def skill_sync(
@@ -49,20 +63,36 @@ def skill_sync(
         typer.Option("--offline", help="Only use cached content."),
     ] = False,
 ) -> None:
-    """Synchronise remote skill sources."""
+    """Fetch and cache remote skill definitions from trusted sources.
+
+    Use --offline to serve only from cache.
+    """
     root = resolve_project_root(target)
-    result = sync_sources(root, offline=offline)
+    with spinner("Syncing remote sources..."):
+        result = sync_sources(root, offline=offline)
 
-    typer.echo(f"Fetched: {len(result.fetched)}")
-    typer.echo(f"Cached:  {len(result.cached)}")
+    if is_json_mode():
+        emit_success(
+            "ai-eng skill sync",
+            {
+                "fetched": result.fetched,
+                "cached": result.cached,
+                "failed": result.failed,
+                "untrusted": result.untrusted,
+            },
+            [NextAction(command="ai-eng skill status", description="Check skill eligibility")],
+        )
+    else:
+        kv("Fetched", len(result.fetched))
+        kv("Cached", len(result.cached))
 
-    if result.failed:
-        typer.echo(f"Failed:  {len(result.failed)}")
-        for url in result.failed:
-            typer.echo(f"  ✗ {url}")
+        if result.failed:
+            kv("Failed", len(result.failed))
+            for url in result.failed:
+                status_line("fail", url, "fetch failed")
 
-    if result.untrusted:
-        typer.echo(f"Untrusted (skipped): {len(result.untrusted)}")
+        if result.untrusted:
+            kv("Untrusted (skipped)", len(result.untrusted))
 
 
 def skill_add(
@@ -76,13 +106,23 @@ def skill_add(
         typer.Option("--trusted/--untrusted", help="Trust status."),
     ] = True,
 ) -> None:
-    """Add a remote skill source."""
+    """Register a remote URL as a skill source.
+
+    New sources are trusted by default. Use --untrusted to skip during sync.
+    """
     root = resolve_project_root(target)
     try:
         add_source(root, url, trusted=trusted)
-        typer.echo(f"Added source: {url}")
+        if is_json_mode():
+            emit_success(
+                "ai-eng skill add",
+                {"added": url, "trusted": trusted},
+                [NextAction(command="ai-eng skill sync", description="Sync remote sources")],
+            )
+        else:
+            success(f"Added source: {url}")
     except ValueError as exc:
-        typer.echo(f"Error: {exc}", err=True)
+        error(str(exc))
         raise typer.Exit(code=1) from exc
 
 
@@ -93,13 +133,19 @@ def skill_remove(
         typer.Option("--target", "-t", help="Target project root."),
     ] = None,
 ) -> None:
-    """Remove a remote skill source."""
+    """Unregister a remote skill source. Cached content is not deleted."""
     root = resolve_project_root(target)
     try:
         remove_source(root, url)
-        typer.echo(f"Removed source: {url}")
+        if is_json_mode():
+            emit_success(
+                "ai-eng skill remove",
+                {"removed": url},
+            )
+        else:
+            success(f"Removed source: {url}")
     except ValueError as exc:
-        typer.echo(f"Error: {exc}", err=True)
+        error(str(exc))
         raise typer.Exit(code=1) from exc
 
 
@@ -113,42 +159,71 @@ def skill_status(
         typer.Option("--all", help="Show all skills, including eligible ones."),
     ] = False,
 ) -> None:
-    """Show local skill requirement eligibility diagnostics."""
-    root = resolve_project_root(target)
-    statuses = list_local_skill_status(root)
+    """Check which local skills meet their runtime requirements.
 
-    if not statuses:
-        typer.echo("No local skills found under .ai-engineering/skills.")
+    Scans .ai-engineering/skills/ and evaluates each skill's 'requires' block
+    (bins, env vars, config paths, OS). Use --all to include eligible skills.
+    """
+    root = resolve_project_root(target)
+    with spinner("Checking skill eligibility..."):
+        statuses = list_local_skill_status(root)
+
+    if is_json_mode():
+        ineligible = [s for s in statuses if not s.eligible]
+        emit_success(
+            "ai-eng skill status",
+            {
+                "total": len(statuses),
+                "eligible": len(statuses) - len(ineligible),
+                "ineligible": len(ineligible),
+                "skills": [
+                    {
+                        "name": s.name,
+                        "eligible": s.eligible,
+                        "file_path": s.file_path,
+                        "missing_bins": s.missing_bins,
+                        "missing_any_bins": s.missing_any_bins,
+                        "missing_env": s.missing_env,
+                        "missing_config": s.missing_config,
+                        "missing_os": s.missing_os,
+                        "errors": s.errors,
+                    }
+                    for s in statuses
+                ],
+            },
+        )
         return
 
-    ineligible = [status for status in statuses if not status.eligible]
+    if not statuses:
+        info("No local skills found under .ai-engineering/skills")
+        return
+
+    ineligible = [s for s in statuses if not s.eligible]
     displayed = statuses if all_skills else ineligible
 
     if not displayed:
-        typer.echo(f"All {len(statuses)} skills are eligible.")
+        success(f"All {len(statuses)} skills are eligible.")
         return
 
-    for status in displayed:
-        label = "eligible" if status.eligible else "ineligible"
-        typer.echo(f"- {status.name} [{label}]")
-        typer.echo(f"  file: {status.file_path}")
-        for entry in status.errors:
-            typer.echo(f"  error: {entry}")
-        if status.missing_bins:
-            typer.echo(f"  missing bins: {', '.join(status.missing_bins)}")
-        if status.missing_any_bins:
-            typer.echo(f"  missing anyBins: {', '.join(status.missing_any_bins)}")
-        if status.missing_env:
-            typer.echo(f"  missing env: {', '.join(status.missing_env)}")
-        if status.missing_config:
-            typer.echo(f"  missing config: {', '.join(status.missing_config)}")
-        if status.missing_os:
-            typer.echo(f"  unsupported os (requires one of): {', '.join(status.missing_os)}")
+    for s in displayed:
+        st = "ok" if s.eligible else "fail"
+        status_line(st, s.name, "eligible" if s.eligible else "ineligible")
+        kv("  file", s.file_path)
+        if s.errors:
+            for entry in s.errors:
+                status_line("fail", "  error", entry)
+        if s.missing_bins:
+            kv("  missing bins", ", ".join(s.missing_bins))
+        if s.missing_any_bins:
+            kv("  missing anyBins", ", ".join(s.missing_any_bins))
+        if s.missing_env:
+            kv("  missing env", ", ".join(s.missing_env))
+        if s.missing_config:
+            kv("  missing config", ", ".join(s.missing_config))
+        if s.missing_os:
+            kv("  unsupported OS", ", ".join(s.missing_os))
 
-    typer.echo("")
-    typer.echo(
-        "Summary: "
-        f"{len(statuses) - len(ineligible)} eligible, "
-        f"{len(ineligible)} ineligible, "
-        f"total {len(statuses)}"
-    )
+    header("Summary")
+    kv("Eligible", len(statuses) - len(ineligible))
+    kv("Ineligible", len(ineligible))
+    kv("Total", len(statuses))

@@ -516,7 +516,20 @@ class TestFileExistence:
 class TestMirrorSync:
     """Tests for mirror-sync validation."""
 
-    def test_missing_canonical_root(self, tmp_path: Path) -> None:
+    def test_non_source_repo_skips_mirrors(self, tmp_path: Path) -> None:
+        """In a target project (no templates dir), mirror sync is skipped."""
+        report = validate_content_integrity(
+            tmp_path,
+            categories=[IntegrityCategory.MIRROR_SYNC],
+        )
+        assert report.passed is True
+        skipped = [c for c in report.checks if c.name == "mirror-sync-skipped"]
+        assert len(skipped) == 1
+
+    def test_source_repo_missing_canonical_root(self, tmp_path: Path) -> None:
+        """In the source repo, missing canonical root is a failure."""
+        # Create templates dir so _is_source_repo returns True
+        (tmp_path / "src" / "ai_engineering" / "templates").mkdir(parents=True)
         report = validate_content_integrity(
             tmp_path,
             categories=[IntegrityCategory.MIRROR_SYNC],

@@ -63,6 +63,8 @@ def test_mirror_sync_missing_and_orphan(tmp_path: Path) -> None:
 
 def test_claude_commands_mirror_missing_root_and_mismatch(tmp_path: Path) -> None:
     _mk(tmp_path)
+    # Mark as source repo so mirror checks actually run
+    (tmp_path / "src" / "ai_engineering" / "templates").mkdir(parents=True, exist_ok=True)
     # add canonical .claude commands so checker runs
     cmd = tmp_path / ".claude" / "commands" / "a.md"
     cmd.parent.mkdir(parents=True, exist_ok=True)

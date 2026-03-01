@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **CLI UX skill** (`dev/cli-ux`) — agent-first CLI design patterns: JSON envelopes, Rich human output, dual-mode routing, progress indicators.
+- **CLI UX modules** — `cli_envelope.py` (structured JSON envelopes with NextAction), `cli_output.py` (JSON mode detection), `cli_progress.py` (Rich spinners), `cli_ui.py` (terminal formatting helpers: error, info, kv, success).
 - **Spec-026: Gemini CLI Support** — `GEMINI.md` instruction file for Gemini CLI, enabling governed AI workflows with the same skills and agents as Claude Code, Copilot, and Codex.
 - Installer deploys `GEMINI.md` alongside other provider instruction files on `ai-eng install`.
 - Ownership entry for `GEMINI.md` in defaults (framework-managed).
@@ -21,10 +23,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `/create-spec` now composes `/cleanup` before branch creation for automatic pre-spec hygiene.
 
 ### Changed
+- **CLI commands migrated to UX modules** — all 10 CLI command modules (`cicd`, `core`, `gate`, `maintenance`, `review`, `setup`, `skills`, `stack_ide`, `validate`, `vcs`) refactored to use `cli_envelope`, `cli_output`, `cli_progress`, and `cli_ui` for consistent terminal output, JSON mode support, and Rich spinners.
+- **Governance surface: 49→50 skills** — `dev/cli-ux` registered across all instruction files (CLAUDE.md, AGENTS.md, GEMINI.md, copilot-instructions.md).
 - **Documentation gate always evaluates** — removed binary "internal-only → skip" classification from `/commit`, `/pr`, and `/acho` workflows. The gate now classifies scope (CHANGELOG + README, CHANGELOG only, or no updates needed) but never auto-skips entirely. Skill, agent, and governance surface changes are no longer blanket-exempt.
 - **`/cleanup` mandates CLI commands** — Phase 0 (repo-status), Phase 3 (branch-cleanup), and Phase 4 (spec-reset) now require `uv run ai-eng maintenance <command>` instead of ad-hoc shell commands. Prevents zsh `!=` operator escaping failures during stale branch detection.
 
 ### Fixed
+- **Template product-contract.md** — committed version shipped ai-engineering-specific content instead of generic `<project-name>` placeholders, causing `ai-eng install` to copy project-specific data to new installations.
+- **12 template mirrors synced** — agents, skills, standards, and project templates restored to generic form for clean installations.
 - Content Integrity CI: synced `create-spec/SKILL.md` template mirror with canonical (missing cleanup step).
 - Content Integrity CI: corrected skill count in `product-contract.md` from 50 to 49.
 - `ai-eng install` no longer crashes (exit code 1) when platform onboarding prompt is aborted or running in non-interactive mode.

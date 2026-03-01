@@ -34,6 +34,17 @@ class SpecResetResult:
         """True if reset completed without errors."""
         return len(self.errors) == 0
 
+    def to_dict(self) -> dict[str, object]:
+        """Serialize the spec reset result as a plain dictionary for JSON output."""
+        return {
+            "success": self.success,
+            "active_spec_cleared": self.active_spec_cleared,
+            "active_spec_was": self.active_spec_was,
+            "archived_specs": self.archived_specs,
+            "orphan_specs": self.orphan_specs,
+            "errors": self.errors,
+        }
+
     def to_markdown(self) -> str:
         """Render the reset result as Markdown.
 

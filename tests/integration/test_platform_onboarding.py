@@ -205,7 +205,9 @@ class TestDoctorCheckPlatforms:
         sonar_check = next(c for c in report.checks if c.name == "platform:sonar")
         assert sonar_check.status == CheckStatus.OK
 
-    def test_sonar_configured_token_missing(self, project_root: Path) -> None:
+    def test_sonar_configured_token_missing(
+        self, project_root: Path, mock_backend: MagicMock
+    ) -> None:
         """Sonar configured but token missing from keyring → FAIL."""
         state_dir = project_root / ".ai-engineering" / "state"
         state = ToolsState(
@@ -217,7 +219,11 @@ class TestDoctorCheckPlatforms:
         CredentialService.save_tools_state(state_dir, state)
 
         report = DoctorReport()
-        check_platforms(project_root, report)
+        with patch(
+            "ai_engineering.credentials.service.CredentialService._get_keyring",
+            return_value=mock_backend,
+        ):
+            check_platforms(project_root, report)
 
         sonar_check = next(c for c in report.checks if c.name == "platform:sonar")
         assert sonar_check.status == CheckStatus.FAIL

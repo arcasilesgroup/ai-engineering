@@ -58,6 +58,47 @@ class RepoStatusResult:
     cleanup_candidates: list[str] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
 
+    def to_dict(self) -> dict[str, object]:
+        """Serialize the repo status as a plain dictionary for JSON output."""
+        return {
+            "default_branch": self.default_branch,
+            "remote_branches": [
+                {
+                    "name": b.name,
+                    "ahead": b.ahead,
+                    "behind": b.behind,
+                    "last_commit_date": b.last_commit_date,
+                }
+                for b in self.remote_branches
+            ],
+            "local_branches": [
+                {
+                    "name": b.name,
+                    "ahead": b.ahead,
+                    "behind": b.behind,
+                    "last_commit_date": b.last_commit_date,
+                    "tracking": b.tracking,
+                }
+                for b in self.local_branches
+            ],
+            "open_prs": [
+                {
+                    "number": pr.number,
+                    "title": pr.title,
+                    "branch": pr.branch,
+                    "target": pr.target,
+                    "author": pr.author,
+                }
+                for pr in self.open_prs
+            ],
+            "stale_branches": [
+                {"name": b.name, "is_remote": b.is_remote, "last_commit_date": b.last_commit_date}
+                for b in self.stale_branches
+            ],
+            "cleanup_candidates": self.cleanup_candidates,
+            "errors": self.errors,
+        }
+
     def to_markdown(self) -> str:
         """Render the status snapshot as Markdown.
 

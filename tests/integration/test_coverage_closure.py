@@ -72,14 +72,14 @@ def test_gate_risk_all_current_message(tmp_path: Path, capsys: pytest.CaptureFix
         patch("ai_engineering.cli_commands.gate.list_expiring_soon", return_value=[]),
     ):
         gate.gate_risk_check(target=tmp_path)
-    assert "All risk acceptances are current" in capsys.readouterr().out
+    assert "All risk acceptances are current" in capsys.readouterr().err
 
 
 def test_maintenance_risk_status_missing_store(
     capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:
     maintenance.maintenance_risk_status(target=tmp_path)
-    assert "No decision store found" in capsys.readouterr().out
+    assert "No decision store found" in capsys.readouterr().err
 
 
 def test_skills_status_empty_and_all_eligible(
@@ -87,12 +87,14 @@ def test_skills_status_empty_and_all_eligible(
 ) -> None:
     with patch("ai_engineering.cli_commands.skills.list_local_skill_status", return_value=[]):
         skills.skill_status(target=tmp_path)
-    assert "No local skills" in capsys.readouterr().out
+    assert "No local skills" in capsys.readouterr().err
 
     statuses = [SimpleNamespace(eligible=True)]
     with patch("ai_engineering.cli_commands.skills.list_local_skill_status", return_value=statuses):
         skills.skill_status(target=tmp_path)
-    assert "All 1 skills are eligible" in capsys.readouterr().out
+    captured = capsys.readouterr()
+    # success() writes to stderr via Rich Console
+    assert "All 1 skills are eligible" in captured.err
 
 
 def test_branch_cleanup_remaining_paths(tmp_path: Path) -> None:

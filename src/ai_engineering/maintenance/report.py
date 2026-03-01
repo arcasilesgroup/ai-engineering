@@ -12,6 +12,7 @@ import subprocess
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 from ai_engineering.state.io import read_json_model, read_ndjson_entries
 from ai_engineering.state.models import AuditEntry, DecisionStore, InstallManifest
@@ -60,6 +61,39 @@ class MaintenanceReport:
             return 0.0
         stale_ratio = len(self.stale_files) / self.total_governance_files
         return max(0.0, 1.0 - stale_ratio)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize the report as a plain dictionary for JSON output.
+
+        Returns:
+            Dictionary with all report fields; Paths as POSIX strings, dates as ISO.
+        """
+        return {
+            "generated_at": self.generated_at.isoformat(),
+            "health_score": round(self.health_score, 4),
+            "total_governance_files": self.total_governance_files,
+            "total_state_files": self.total_state_files,
+            "recent_audit_events": self.recent_audit_events,
+            "install_manifest_version": self.install_manifest_version,
+            "stale_files": [
+                {
+                    "path": sf.path.as_posix(),
+                    "last_modified": sf.last_modified.isoformat(),
+                    "age_days": sf.age_days,
+                }
+                for sf in self.stale_files
+            ],
+            "risk_active": self.risk_active,
+            "risk_expiring": self.risk_expiring,
+            "risk_expired": self.risk_expired,
+            "local_branches": self.local_branches,
+            "merged_branches": self.merged_branches,
+            "remote_branches": self.remote_branches,
+            "open_prs": self.open_prs,
+            "stale_branches": self.stale_branches,
+            "version_status": self.version_status,
+            "warnings": self.warnings,
+        }
 
     def to_markdown(self) -> str:
         """Render the report as Markdown.

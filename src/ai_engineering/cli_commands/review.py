@@ -8,6 +8,9 @@ from typing import Annotated
 
 import typer
 
+from ai_engineering.cli_envelope import emit_error, emit_success
+from ai_engineering.cli_output import is_json_mode
+from ai_engineering.cli_ui import error, success, warning
 from ai_engineering.paths import resolve_project_root
 from ai_engineering.vcs.factory import get_provider
 from ai_engineering.vcs.protocol import VcsContext
@@ -42,21 +45,41 @@ def review_pr(
 
     severities = _load_findings(findings_json)
     if severities["high"] > 0 or severities["critical"] > 0:
-        typer.echo(
-            (
-                "Merge-blocking findings detected "
+        if is_json_mode():
+            emit_error(
+                "ai-eng review pr",
+                f"Merge-blocking findings detected "
+                f"(critical={severities['critical']}, high={severities['high']})",
+                "BLOCKING_FINDINGS",
+                "Resolve critical/high findings before merging",
+            )
+        else:
+            error(
+                f"Merge-blocking findings detected "
                 f"(critical={severities['critical']}, high={severities['high']})"
-            ),
-            err=True,
-        )
+            )
         raise typer.Exit(code=1)
 
     result = provider.post_pr_review(ctx, body=body)
     if result.success:
-        typer.echo("PR review posted")
+        if is_json_mode():
+            emit_success(
+                "ai-eng review pr",
+                {"posted": True, "blocking_findings": severities},
+            )
+        else:
+            success("PR review posted")
         return
 
-    typer.echo(f"PR review not posted: {result.output}", err=strict)
+    if is_json_mode():
+        emit_error(
+            "ai-eng review pr",
+            f"PR review not posted: {result.output}",
+            "POST_FAILED",
+            "Check VCS provider configuration",
+        )
+    else:
+        warning(f"PR review not posted: {result.output}")
     if strict:
         raise typer.Exit(code=1)
 

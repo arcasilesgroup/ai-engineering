@@ -3,8 +3,8 @@
 Provides the ``ai-eng setup`` command group with subcommands for
 each supported platform and a ``platforms`` aggregator command.
 
-Architecture: CLI → platform setup classes → credential service → keyring.
-No layer skipping — the CLI layer handles user interaction (prompts,
+Architecture: CLI -> platform setup classes -> credential service -> keyring.
+No layer skipping -- the CLI layer handles user interaction (prompts,
 output), delegates validation to platform classes, and persists state
 via the credential service.
 
@@ -17,8 +17,12 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Annotated
 
+import click.exceptions
 import typer
 
+from ai_engineering.cli_envelope import emit_error, emit_success
+from ai_engineering.cli_output import is_json_mode
+from ai_engineering.cli_ui import error, header, info, kv, success, warning
 from ai_engineering.credentials.models import (
     AzureDevOpsConfig,
     CredentialRef,
@@ -56,32 +60,67 @@ def setup_platforms_cmd(
 ) -> None:
     """Detect and configure all platforms found in the repository."""
     root = resolve_project_root(target)
-    detected = detect_platforms(root)
 
-    if not detected:
-        typer.echo("No platform markers detected. Use individual setup commands instead.")
-        typer.echo("  ai-eng setup github")
-        typer.echo("  ai-eng setup sonar")
-        typer.echo("  ai-eng setup azure-devops")
+    if is_json_mode():
+        detected = detect_platforms(root)
+        cred_svc = CredentialService()
+        state = cred_svc.load_tools_state(_state_dir(root))
+        emit_success(
+            "ai-eng setup platforms",
+            {
+                "detected": [p.value for p in detected],
+                "configured": {
+                    "github": state.github.configured,
+                    "sonar": state.sonar.configured,
+                    "azure_devops": state.azure_devops.configured,
+                },
+            },
+        )
         return
 
-    typer.echo(f"Detected platforms: {', '.join(p.value for p in detected)}")
-    typer.echo("")
+    detected = detect_platforms(root)
 
-    for platform in detected:
-        if platform == PlatformKind.GITHUB:
-            _run_github_setup(root)
-        elif platform == PlatformKind.SONAR:
-            _run_sonar_setup(root)
-        elif platform == PlatformKind.AZURE_DEVOPS:
-            _run_azure_devops_setup(root)
+    if detected:
+        typer.echo(f"Detected platforms: {', '.join(p.value for p in detected)}")
         typer.echo("")
+
+        for platform in detected:
+            if platform == PlatformKind.GITHUB:
+                _run_github_setup(root)
+            elif platform == PlatformKind.SONAR:
+                _run_sonar_setup(root)
+            elif platform == PlatformKind.AZURE_DEVOPS:
+                _run_azure_devops_setup(root)
+            typer.echo("")
+    else:
+        typer.echo("No platform markers auto-detected.")
+        typer.echo("")
+
+    # Offer to configure platforms that were not auto-detected.
+    all_platforms = set(PlatformKind)
+    undetected = all_platforms - set(detected)
+
+    if undetected:
+        names = ", ".join(p.value for p in sorted(undetected, key=lambda p: p.value))
+        info(f"Not auto-detected: {names}")
+        for platform in sorted(undetected, key=lambda p: p.value):
+            try:
+                if typer.confirm(f"  Configure {platform.value}?", default=False):
+                    if platform == PlatformKind.GITHUB:
+                        _run_github_setup(root)
+                    elif platform == PlatformKind.SONAR:
+                        _run_sonar_setup(root)
+                    elif platform == PlatformKind.AZURE_DEVOPS:
+                        _run_azure_devops_setup(root)
+                    typer.echo("")
+            except (KeyboardInterrupt, EOFError, click.exceptions.Abort):
+                break
 
     # After platform setup, offer SonarLint IDE configuration if Sonar is configured.
     cred_svc = CredentialService()
     state = cred_svc.load_tools_state(_state_dir(root))
     if state.sonar.configured and state.sonar.url:
-        typer.echo("── SonarLint IDE Configuration ──")
+        header("SonarLint IDE Configuration")
         if typer.confirm("  Configure SonarLint Connected Mode in your IDEs?", default=True):
             _run_sonarlint_setup(root)
 
@@ -99,6 +138,21 @@ def setup_github_cmd(
     ] = None,
 ) -> None:
     """Verify GitHub CLI authentication and scopes."""
+    if is_json_mode():
+        from ai_engineering.platforms.github import GitHubSetup
+
+        root = resolve_project_root(target)
+        cli_installed = GitHubSetup.is_cli_installed()
+        status = GitHubSetup.check_scopes() if cli_installed else None
+        emit_success(
+            "ai-eng setup github",
+            {
+                "cli_installed": cli_installed,
+                "authenticated": status.authenticated if status else False,
+                "username": status.username if status and status.authenticated else "",
+            },
+        )
+        return
     root = resolve_project_root(target)
     _run_github_setup(root)
 
@@ -107,28 +161,28 @@ def _run_github_setup(root: Path) -> None:
     """Execute the GitHub setup flow."""
     from ai_engineering.platforms.github import GitHubSetup
 
-    typer.echo("── GitHub Setup ──")
+    header("GitHub Setup")
 
     if not GitHubSetup.is_cli_installed():
-        typer.echo("  ✗ gh CLI not found. Install from: https://cli.github.com/")
+        error("gh CLI not found. Install from: https://cli.github.com/")
         return
 
-    typer.echo("  ✓ gh CLI installed")
+    success("gh CLI installed")
 
     status = GitHubSetup.check_scopes()
 
     if not status.authenticated:
-        typer.echo("  ✗ Not authenticated")
+        error("Not authenticated")
         typer.echo(GitHubSetup.get_login_instructions())
         return
 
-    typer.echo(f"  ✓ Authenticated as: {status.username}")
+    success(f"Authenticated as: {status.username}")
 
     if status.missing_scopes:
-        typer.echo(f"  ⚠ Missing scopes: {', '.join(status.missing_scopes)}")
-        typer.echo("  Run: " + " ".join(GitHubSetup.get_login_command()))
+        warning(f"Missing scopes: {', '.join(status.missing_scopes)}")
+        info("Run: " + " ".join(GitHubSetup.get_login_command()))
     else:
-        typer.echo(f"  ✓ Scopes OK: {', '.join(status.scopes or [])}")
+        success(f"Scopes OK: {', '.join(status.scopes or [])}")
 
     # Update tools.json state.
     cred_svc = CredentialService()
@@ -139,7 +193,7 @@ def _run_github_setup(root: Path) -> None:
         scopes=status.scopes or [],
     )
     cred_svc.save_tools_state(_state_dir(root), state)
-    typer.echo("  ✓ State saved to tools.json")
+    success("State saved to tools.json")
 
 
 # ------------------------------------------------------------------
@@ -163,6 +217,14 @@ def setup_sonar_cmd(
     ] = "",
 ) -> None:
     """Configure SonarCloud / SonarQube credentials."""
+    if is_json_mode():
+        emit_error(
+            "ai-eng setup sonar",
+            "Interactive command requires terminal input",
+            "INTERACTIVE_REQUIRED",
+            "Run without --json",
+        )
+        return
     root = resolve_project_root(target)
     _run_sonar_setup(root, url_override=url or None, project_key_override=project_key or None)
 
@@ -176,7 +238,7 @@ def _run_sonar_setup(
     """Execute the Sonar setup flow."""
     from ai_engineering.platforms.sonar import SONARCLOUD_URL, SonarSetup
 
-    typer.echo("── Sonar Setup ──")
+    header("Sonar Setup")
 
     cred_svc = CredentialService()
     sonar = SonarSetup(cred_svc)
@@ -191,24 +253,24 @@ def _run_sonar_setup(
 
     # 2. Show token generation instructions.
     token_url = SonarSetup.get_token_url(url)
-    typer.echo(f"  Open to generate a token: {token_url}")
+    info(f"Open to generate a token: {token_url}")
 
     # 3. Prompt for token (hidden input).
     token = typer.prompt("  Sonar token", hide_input=True)
 
     # 4. Validate token.
-    typer.echo("  Validating token...")
+    info("Validating token...")
     result = sonar.validate_token(url, token)
 
     if not result.valid:
-        typer.echo(f"  ✗ Validation failed: {result.error}")
+        error(f"Validation failed: {result.error}")
         return
 
-    typer.echo("  ✓ Token valid")
+    success("Token valid")
 
     # 5. Store in keyring.
     sonar.store_token(token)
-    typer.echo("  ✓ Token stored in OS secret store")
+    success("Token stored in OS secret store")
 
     # 6. Get project key.
     project_key = project_key_override or _read_sonar_project_key(root) or ""
@@ -226,7 +288,7 @@ def _run_sonar_setup(
         ),
     )
     cred_svc.save_tools_state(_state_dir(root), state)
-    typer.echo("  ✓ State saved to tools.json")
+    success("State saved to tools.json")
 
 
 def _read_sonar_url_from_properties(root: Path) -> str:
@@ -274,6 +336,14 @@ def setup_azure_devops_cmd(
     ] = "",
 ) -> None:
     """Configure Azure DevOps PAT credentials."""
+    if is_json_mode():
+        emit_error(
+            "ai-eng setup azure-devops",
+            "Interactive command requires terminal input",
+            "INTERACTIVE_REQUIRED",
+            "Run without --json",
+        )
+        return
     root = resolve_project_root(target)
     _run_azure_devops_setup(root, org_url_override=org_url or None)
 
@@ -282,7 +352,7 @@ def _run_azure_devops_setup(root: Path, *, org_url_override: str | None = None) 
     """Execute the Azure DevOps setup flow."""
     from ai_engineering.platforms.azure_devops import AzureDevOpsSetup
 
-    typer.echo("── Azure DevOps Setup ──")
+    header("Azure DevOps Setup")
 
     cred_svc = CredentialService()
     azdo = AzureDevOpsSetup(cred_svc)
@@ -294,24 +364,24 @@ def _run_azure_devops_setup(root: Path, *, org_url_override: str | None = None) 
 
     # 2. Show PAT generation instructions.
     token_url = AzureDevOpsSetup.get_token_url(org_url)
-    typer.echo(f"  Open to generate a PAT: {token_url}")
+    info(f"Open to generate a PAT: {token_url}")
 
     # 3. Prompt for PAT (hidden input).
     pat = typer.prompt("  Azure DevOps PAT", hide_input=True)
 
     # 4. Validate PAT.
-    typer.echo("  Validating PAT...")
+    info("Validating PAT...")
     result = azdo.validate_pat(org_url, pat)
 
     if not result.valid:
-        typer.echo(f"  ✗ Validation failed: {result.error}")
+        error(f"Validation failed: {result.error}")
         return
 
-    typer.echo("  ✓ PAT valid")
+    success("PAT valid")
 
     # 5. Store in keyring.
     azdo.store_pat(pat)
-    typer.echo("  ✓ PAT stored in OS secret store")
+    success("PAT stored in OS secret store")
 
     # 6. Update tools.json state.
     state = cred_svc.load_tools_state(_state_dir(root))
@@ -325,7 +395,7 @@ def _run_azure_devops_setup(root: Path, *, org_url_override: str | None = None) 
         ),
     )
     cred_svc.save_tools_state(_state_dir(root), state)
-    typer.echo("  ✓ State saved to tools.json")
+    success("State saved to tools.json")
 
 
 # ------------------------------------------------------------------
@@ -349,6 +419,14 @@ def setup_sonarlint_cmd(
     ] = "",
 ) -> None:
     """Configure SonarLint Connected Mode in all detected IDEs."""
+    if is_json_mode():
+        emit_error(
+            "ai-eng setup sonarlint",
+            "Interactive command requires terminal input",
+            "INTERACTIVE_REQUIRED",
+            "Run without --json",
+        )
+        return
     root = resolve_project_root(target)
     _run_sonarlint_setup(root, url_override=url or None, project_key_override=project_key or None)
 
@@ -366,7 +444,7 @@ def _run_sonarlint_setup(
         detect_ide_families,
     )
 
-    typer.echo("── SonarLint IDE Setup ──")
+    header("SonarLint IDE Setup")
 
     # 1. Resolve Sonar connection info.
     cred_svc = CredentialService()
@@ -376,15 +454,13 @@ def _run_sonarlint_setup(
     project_key = project_key_override or state.sonar.project_key or _read_sonar_project_key(root)
 
     if not sonar_url:
-        typer.echo("  ⚠ No Sonar server URL configured.")
-        typer.echo(
-            "  Run 'ai-eng setup sonar' first to configure SonarCloud/SonarQube credentials."
-        )
+        warning("No Sonar server URL configured.")
+        info("Run 'ai-eng setup sonar' first to configure SonarCloud/SonarQube credentials.")
         return
 
     if not project_key:
-        typer.echo("  ⚠ No Sonar project key found.")
-        typer.echo("  Set sonar.projectKey in sonar-project.properties or use --project-key.")
+        warning("No Sonar project key found.")
+        info("Set sonar.projectKey in sonar-project.properties or use --project-key.")
         return
 
     # 2. Detect IDE families.
@@ -414,9 +490,9 @@ def _run_sonarlint_setup(
         typer.echo("  No IDEs selected. Skipping SonarLint setup.")
         return
 
-    typer.echo(f"  Detected IDEs: {', '.join(f.value for f in families)}")
-    typer.echo(f"  Sonar URL: {sonar_url}")
-    typer.echo(f"  Project key: {project_key}")
+    kv("Detected IDEs", ", ".join(f.value for f in families))
+    kv("Sonar URL", sonar_url)
+    kv("Project key", project_key)
     typer.echo("")
 
     # 3. Configure all detected IDEs.
@@ -424,11 +500,11 @@ def _run_sonarlint_setup(
 
     for result in summary.results:
         if result.success:
-            typer.echo(f"  ✓ {result.ide_family}: {', '.join(result.files_written)}")
+            success(f"{result.ide_family}: {', '.join(result.files_written)}")
         else:
-            typer.echo(f"  ✗ {result.ide_family}: {result.error}")
+            error(f"{result.ide_family}: {result.error}")
 
     if summary.any_success:
         typer.echo("")
-        typer.echo("  SonarLint Connected Mode configured. Open your IDE to activate.")
-        typer.echo("  Token authentication will be handled by SonarLint in the IDE.")
+        info("SonarLint Connected Mode configured. Open your IDE to activate.")
+        info("Token authentication will be handled by SonarLint in the IDE.")

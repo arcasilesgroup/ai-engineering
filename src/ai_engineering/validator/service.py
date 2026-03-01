@@ -121,17 +121,40 @@ _PATH_REF_PATTERN = re.compile(
     r"|context/[^\s`*]+\.md)`?"
 )
 
-# Instruction files that must stay in sync (all 8)
-_INSTRUCTION_FILES: list[str] = [
+# Paths referenced in governance docs but only exist conditionally.
+# The file-existence checker skips these to avoid false positives.
+_KNOWN_OPTIONAL_PATHS: set[str] = {
+    "context/specs/_active.md",
+}
+
+# Instruction files that must stay in sync.
+# Base files exist in every governed project; template files only in the source repo.
+_BASE_INSTRUCTION_FILES: list[str] = [
     ".github/copilot-instructions.md",
     "AGENTS.md",
     "CLAUDE.md",
     "GEMINI.md",
+]
+
+_TEMPLATE_INSTRUCTION_FILES: list[str] = [
     "src/ai_engineering/templates/project/copilot-instructions.md",
     "src/ai_engineering/templates/project/AGENTS.md",
     "src/ai_engineering/templates/project/CLAUDE.md",
     "src/ai_engineering/templates/project/GEMINI.md",
 ]
+
+
+def _is_source_repo(target: Path) -> bool:
+    """True if *target* is the ai-engineering source repository."""
+    return (target / "src" / "ai_engineering" / "templates").is_dir()
+
+
+def _instruction_files(target: Path) -> list[str]:
+    """Return the instruction file list appropriate for *target*."""
+    if _is_source_repo(target):
+        return _BASE_INSTRUCTION_FILES + _TEMPLATE_INSTRUCTION_FILES
+    return list(_BASE_INSTRUCTION_FILES)
+
 
 # Mirror pairs: (canonical_root, mirror_root, glob_patterns, exclusion_prefixes)
 _GOVERNANCE_MIRROR = (
@@ -266,6 +289,9 @@ def _check_file_existence(target: Path, report: IntegrityReport) -> None:
             # Skip template placeholders like <name>, <stack>, <category>
             if "<" in ref_path and ">" in ref_path:
                 continue
+            # Skip known-optional governance paths (exist only conditionally)
+            if ref_path in _KNOWN_OPTIONAL_PATHS:
+                continue
             full_path = ai_dir / ref_path
             if not full_path.exists():
                 rel_source = md_file.relative_to(target).as_posix()
@@ -331,7 +357,23 @@ def _check_file_existence(target: Path, report: IntegrityReport) -> None:
 
 
 def _check_mirror_sync(target: Path, report: IntegrityReport) -> None:
-    """SHA-256 compare canonical governance files vs template mirrors."""
+    """SHA-256 compare canonical governance files vs template mirrors.
+
+    Mirror checks are only relevant in the ai-engineering source repo where
+    both canonical and template directories co-exist.  In target projects
+    the template paths don't exist and should not be validated.
+    """
+    if not _is_source_repo(target):
+        report.checks.append(
+            IntegrityCheckResult(
+                category=IntegrityCategory.MIRROR_SYNC,
+                name="mirror-sync-skipped",
+                status=CheckStatus.OK,
+                message="Mirror sync checks skipped (not source repo)",
+            )
+        )
+        return
+
     canonical_root = target / _GOVERNANCE_MIRROR[0]
     mirror_root = target / _GOVERNANCE_MIRROR[1]
     patterns = _GOVERNANCE_MIRROR[2]
@@ -641,7 +683,7 @@ def _check_counter_accuracy(target: Path, report: IntegrityReport) -> None:
     """Verify skill/agent counts match across instruction files and product-contract."""
     counts: dict[str, tuple[int, int]] = {}  # file -> (skills, agents)
 
-    for file_rel in _INSTRUCTION_FILES:
+    for file_rel in _instruction_files(target):
         file_path = target / file_rel
         if not file_path.exists():
             report.checks.append(
@@ -859,11 +901,12 @@ _REQUIRED_SUBSECTIONS = {
 
 
 def _check_instruction_consistency(target: Path, report: IntegrityReport) -> None:
-    """Verify all 6 instruction files list identical skills and agents."""
+    """Verify all instruction files list identical skills and agents."""
     all_skills: dict[str, set[str]] = {}
     all_agents: dict[str, set[str]] = {}
 
-    for file_rel in _INSTRUCTION_FILES:
+    instruction_files = _instruction_files(target)
+    for file_rel in instruction_files:
         file_path = target / file_rel
         if not file_path.exists():
             report.checks.append(
@@ -899,7 +942,7 @@ def _check_instruction_consistency(target: Path, report: IntegrityReport) -> Non
         return
 
     # Compare skills across all files
-    reference_file = _INSTRUCTION_FILES[0]
+    reference_file = instruction_files[0]
     reference_skills = all_skills.get(reference_file, set())
     reference_agents = all_agents.get(reference_file, set())
 
