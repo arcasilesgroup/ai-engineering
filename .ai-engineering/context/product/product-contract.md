@@ -108,7 +108,7 @@ ai-eng version && ai-eng doctor && ai-eng install                             # 
 
 ## 4. Active Spec
 
-No active spec — ready for `/create-spec`. Last completed: Spec-026 (Gemini Support).
+Spec-028: .NET & Azure Standards Expansion + Principal Engineer Evolution. Branch: `spec-028/dotnet-azure-standards`.
 
 ### Read Sequence
 
@@ -145,7 +145,7 @@ No active spec — ready for `/create-spec`. Last completed: Spec-026 (Gemini Su
 | Category | Agents |
 |----------|--------|
 | orchestration | orchestrator |
-| analysis | architect, navigator, principal-engineer |
+| analysis | architect, navigator, principal-engineer (v2: read-write, multi-stack) |
 | review | pr-reviewer, security-reviewer, code-simplifier |
 | quality | quality-auditor, platform-auditor |
 | delivery | devops-engineer, infrastructure-engineer, database-engineer |
@@ -156,7 +156,7 @@ No active spec — ready for `/create-spec`. Last completed: Spec-026 (Gemini Su
 
 ### 6.3 Stack Standards (14)
 
-Python, TypeScript, React, React Native, NestJS, Next.js, Astro, .NET, Rust, Node, Bash/PowerShell, Database, Infrastructure, Azure.
+Python, TypeScript, React, React Native, NestJS, Next.js, Astro, .NET (expanded: ASP.NET Core, EF Core, C# conventions), Rust, Node, Bash/PowerShell, Database, Infrastructure, Azure (expanded: Functions, App Service, Logic Apps, WAF, cloud patterns).
 
 ### 6.4 Spec History
 
@@ -187,7 +187,8 @@ Python, TypeScript, React, React Native, NestJS, Next.js, Astro, .NET, Rust, Nod
 | 023 | Multi-stack expansion + audit-driven hardening | Complete |
 | 024 | Sonar platform onboarding and credential management | Complete |
 | 025 | OSS documentation gate | Complete |
-| 026 | Gemini support | Active |
+| 026 | Gemini support | Complete |
+| 028 | .NET & Azure standards expansion + principal engineer evolution | Active |
 
 ## 7. Architecture Snapshot
 
@@ -235,4 +236,4 @@ Python, TypeScript, React, React Native, NestJS, Next.js, Astro, .NET, Rust, Nod
 All decisions persisted in `state/decision-store.json` (25+ decisions, S0-001 through D025-001).
 Agents MUST check the decision store before prompting for any previously decided question.
 
-Last decision: D025-001 (2026-02-27) — OSS documentation gate scope.
+Last decision: D028-001 (2026-03-01) — .NET standards expansion strategy: expand existing standards as single source of truth, zero new skills.

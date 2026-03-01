@@ -232,6 +232,13 @@
       "decision": "Absorb /pre-implementation into /cleanup (enhanced with repo status + spec reset) and /create-spec (composes /cleanup). /pre-implementation deleted. /cleanup becomes the single hygiene primitive. Session Start Protocol updated to reference /cleanup. Skill count reduced by 1 (workflows: 7→6).",
       "decidedAt": "2026-02-27T00:00:00Z",
       "spec": "027-cleanup-enhancement"
+    },
+    {
+      "id": "D028-001",
+      "context": ".NET and Azure standards expansion strategy",
+      "decision": "Expand existing standards (dotnet.md, azure.md) as single source of truth for all .NET knowledge. Zero new skills — existing generic skills (api-design, test-runner, database-ops, cicd-generate, infrastructure, performance) already read applicable stack standards and will automatically consume expanded patterns. Principal-engineer agent evolved from read-only reviewer to read-write implementor with multi-stack references.",
+      "decidedAt": "2026-03-01T00:00:00Z",
+      "spec": "028-dotnet-azure-standards"
     }
   ]
 }

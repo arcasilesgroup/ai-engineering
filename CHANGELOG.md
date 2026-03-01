@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Expanded `dotnet.md` standard** (57 -> ~300 lines) — production-grade .NET 10 patterns: SDK version pinning, NuGet Central Package Management, 20+ code patterns (async, DI, minimal APIs, middleware, ProblemDetails, structured logging, health checks), EF Core patterns (DbContext pooling, no-tracking, keyset pagination, compiled queries, interceptors, bulk operations), test tiers with NUnit, testing patterns (WebApplicationFactory, TestContainers, NSubstitute, FluentAssertions, NetArchTest), performance patterns (ArrayPool, BenchmarkDotNet, output caching), C# coding conventions.
+- **Expanded `azure.md` standard** (70 -> ~150 lines) — Azure Functions patterns (isolated worker, triggers, Durable Functions, cold start), App Service patterns (deployment slots, auto-scaling, managed identity), Logic Apps patterns (Standard vs Consumption, connectors, error handling), Well-Architected Framework 5-pillar references, 17 cloud design patterns (Circuit Breaker, CQRS, Saga, Strangler Fig, etc.).
+- **Evolved `principal-engineer` agent** (v1 -> v2) — scope upgraded from `read-only` to `read-write`. Added implementation, architecture-design, performance-optimization, testing-strategy, migration-planning capabilities. Stack detection step (`.csproj` -> dotnet.md, `pyproject.toml` -> python.md, `package.json` -> typescript.md). Post-edit validation per stack. References expanded with `dotnet.md`, `azure.md`, `database.md`, and 5 additional dev skills.
+- **Updated skill references** — `test-runner` now includes .NET test tiers alongside Python tiers. `database-ops` references EF Core patterns from `dotnet.md`. `data-modeling` references EF Core entity mapping patterns. `performance` references .NET performance patterns (ArrayPool, BenchmarkDotNet, output caching).
+
 ## [0.1.0] - 2026-03-01
 
 *First MVP release (Phase 1)*
