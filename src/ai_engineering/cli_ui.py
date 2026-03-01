@@ -11,6 +11,13 @@ import os
 import sys
 from functools import lru_cache
 
+# Rich 14.x has a bug where loading unicode 17.0.0 cell data fails on
+# some Python 3.12 / platform combinations (the file ``unicode17-0-0.py``
+# exists but ``importlib.import_module`` rejects the hyphenated name).
+# Pinning to unicode 16.0.0 avoids the crash with zero visual impact.
+if "UNICODE_VERSION" not in os.environ:
+    os.environ["UNICODE_VERSION"] = "16.0.0"
+
 from rich.console import Console
 from rich.rule import Rule
 from rich.theme import Theme
