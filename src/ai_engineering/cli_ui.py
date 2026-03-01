@@ -8,15 +8,9 @@ Respects NO_COLOR, TERM=dumb, and TTY detection.
 from __future__ import annotations
 
 import os
+import re
 import sys
 from functools import lru_cache
-
-# Rich 14.x has a bug where loading unicode 17.0.0 cell data fails on
-# some Python 3.12 / platform combinations (the file ``unicode17-0-0.py``
-# exists but ``importlib.import_module`` rejects the hyphenated name).
-# Pinning to unicode 16.0.0 avoids the crash with zero visual impact.
-if "UNICODE_VERSION" not in os.environ:
-    os.environ["UNICODE_VERSION"] = "16.0.0"
 
 from rich.console import Console
 from rich.rule import Rule
@@ -38,6 +32,9 @@ THEME = {
     "path": f"{BRAND_TEAL} underline",
     "key": "bold",
 }
+
+_MARKUP_RE = re.compile(r"\[/?[^\]]*\]")
+"""Regex to strip Rich markup tags for plain-text fallback."""
 
 
 def _is_no_color() -> bool:
@@ -70,6 +67,21 @@ def get_stdout_console() -> Console:
     )
 
 
+def _safe_print(msg: str) -> None:
+    """Print to stderr via Rich, falling back to plain text on failure.
+
+    Rich 14.x has a bug where ``importlib.import_module`` fails for
+    hyphenated unicode data modules (e.g. ``unicode16-0-0``) on some
+    Python 3.12 / platform combinations.  When this happens, strip
+    Rich markup and write plain text to stderr.
+    """
+    try:
+        get_console().print(msg)
+    except (ImportError, ModuleNotFoundError):
+        plain = _MARKUP_RE.sub("", msg)
+        sys.stderr.write(plain + "\n")
+
+
 # ── Logo ──────────────────────────────────────────────────────────
 
 
@@ -83,15 +95,18 @@ def show_logo() -> None:
     con = get_console()
     if not con.is_terminal:
         return
-    con.print()
-    con.print("  [brand.dim]┌─                                  ─┐[/brand.dim]")
-    con.print(
-        "      [brand]{[/brand] [bold]ai[/bold] [brand]}[/brand]"
-        "   [brand]e n g i n e e r i n g[/brand]"
-    )
-    con.print("  [brand.dim]└─                                  ─┘[/brand.dim]")
-    con.print(f"  [muted]v{__version__} · AI Governance Framework[/muted]")
-    con.print()
+    try:
+        con.print()
+        con.print("  [brand.dim]┌─                                  ─┐[/brand.dim]")
+        con.print(
+            "      [brand]{[/brand] [bold]ai[/bold] [brand]}[/brand]"
+            "   [brand]e n g i n e e r i n g[/brand]"
+        )
+        con.print("  [brand.dim]└─                                  ─┘[/brand.dim]")
+        con.print(f"  [muted]v{__version__} · AI Governance Framework[/muted]")
+        con.print()
+    except (ImportError, ModuleNotFoundError):
+        pass
 
 
 # ── Message helpers (all write to stderr) ─────────────────────────
@@ -99,32 +114,35 @@ def show_logo() -> None:
 
 def success(msg: str) -> None:
     """Print a green success message to stderr."""
-    get_console().print(f"[success]{msg}[/success]")
+    _safe_print(f"[success]{msg}[/success]")
 
 
 def warning(msg: str) -> None:
     """Print a yellow warning to stderr."""
-    get_console().print(f"[warning]{msg}[/warning]")
+    _safe_print(f"[warning]{msg}[/warning]")
 
 
 def error(msg: str) -> None:
     """Print a red error message to stderr."""
-    get_console().print(f"[error]{msg}[/error]")
+    _safe_print(f"[error]{msg}[/error]")
 
 
 def info(msg: str) -> None:
     """Print a blue info message to stderr."""
-    get_console().print(f"[info]{msg}[/info]")
+    _safe_print(f"[info]{msg}[/info]")
 
 
 def header(title: str) -> None:
     """Print a section divider to stderr."""
-    get_console().print(Rule(title, style="brand.dim"))
+    try:
+        get_console().print(Rule(title, style="brand.dim"))
+    except (ImportError, ModuleNotFoundError):
+        sys.stderr.write(f"--- {title} ---\n")
 
 
 def kv(key: str, value: object) -> None:
     """Print an aligned key-value pair to stderr."""
-    get_console().print(f"  [key]{key}[/key]  {value}")
+    _safe_print(f"  [key]{key}[/key]  {value}")
 
 
 def status_line(status: str, name: str, msg: str) -> None:
@@ -142,7 +160,7 @@ def status_line(status: str, name: str, msg: str) -> None:
         "fixed": "[info]\U0001f527[/info]",
     }
     icon = icons.get(status, "?")
-    get_console().print(f"  {icon} [key]{name}[/key]: {msg}")
+    _safe_print(f"  {icon} [key]{name}[/key]: {msg}")
 
 
 def result_header(label: str, status: str, detail: str = "") -> None:
@@ -152,7 +170,7 @@ def result_header(label: str, status: str, detail: str = "") -> None:
     """
     style = "success" if status == "PASS" else "error" if status == "FAIL" else "warning"
     suffix = f" {detail}" if detail else ""
-    get_console().print(f"[key]{label}[/key] [{style}][{status}][/{style}]{suffix}")
+    _safe_print(f"[key]{label}[/key] [{style}][{status}][/{style}]{suffix}")
 
 
 def suggest_next(steps: list[tuple[str, str]]) -> None:
@@ -161,11 +179,10 @@ def suggest_next(steps: list[tuple[str, str]]) -> None:
     Args:
         steps: List of ``(command, description)`` tuples.
     """
-    con = get_console()
-    con.print()
-    con.print("[muted]Next steps:[/muted]")
+    _safe_print("")
+    _safe_print("[muted]Next steps:[/muted]")
     for command, description in steps:
-        con.print(f"  [brand.dim]\u2192[/brand.dim] {command}  [muted]{description}[/muted]")
+        _safe_print(f"  [brand.dim]\u2192[/brand.dim] {command}  [muted]{description}[/muted]")
 
 
 def file_count(label: str, count: int) -> None:
