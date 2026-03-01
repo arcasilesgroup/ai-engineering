@@ -59,6 +59,7 @@ Delivery automation specialist focused on CI/CD reliability, secure defaults, an
 ## Referenced Skills
 
 - `skills/dev/cicd-generate/SKILL.md` — CI/CD workflow generation procedure.
+- `skills/dev/cli-ux/SKILL.md` — agent-first CLI design and terminal UX.
 - `skills/dev/deps-update/SKILL.md` — dependency management procedure.
 
 ## Referenced Standards

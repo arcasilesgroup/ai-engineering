@@ -47,7 +47,7 @@ Validate that ai-engineering is operational after install/update.
 
 - platform markers detected (`.github/`, `azure-pipelines.yml`, `sonar-project.properties`).
 - `tools.json` state file present and valid (if platform setup has been run).
-- stored credentials validated via platform APIs (`ai-eng doctor --check-platforms`).
+- stored credentials validated via platform APIs (`ai-eng doctor`).
 - Sonar scanner availability reported (optional — silent skip if not configured).
 
 ## Output Requirements

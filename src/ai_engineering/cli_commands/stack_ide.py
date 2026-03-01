@@ -10,6 +10,9 @@ from typing import Annotated
 
 import typer
 
+from ai_engineering.cli_envelope import emit_error, emit_success
+from ai_engineering.cli_output import is_json_mode
+from ai_engineering.cli_ui import error, info, kv, success
 from ai_engineering.installer.operations import (
     InstallerError,
     add_ide,
@@ -32,9 +35,19 @@ def stack_add(
     root = resolve_project_root(target)
     try:
         manifest = add_stack(root, stack)
-        typer.echo(f"Added stack '{stack}'. Active stacks: {manifest.installed_stacks}")
+        if is_json_mode():
+            emit_success(
+                "ai-eng stack add",
+                {"action": "add", "stack": stack, "active_stacks": manifest.installed_stacks},
+            )
+        else:
+            success(f"Added stack '{stack}'")
+            kv("Active stacks", ", ".join(manifest.installed_stacks))
     except InstallerError as exc:
-        typer.echo(f"Error: {exc}", err=True)
+        if is_json_mode():
+            emit_error("ai-eng stack add", str(exc), "STACK_ADD_FAILED", "Check stack name")
+        else:
+            error(str(exc))
         raise typer.Exit(code=1) from exc
 
 
@@ -49,9 +62,19 @@ def stack_remove(
     root = resolve_project_root(target)
     try:
         manifest = remove_stack(root, stack)
-        typer.echo(f"Removed stack '{stack}'. Active stacks: {manifest.installed_stacks}")
+        if is_json_mode():
+            emit_success(
+                "ai-eng stack remove",
+                {"action": "remove", "stack": stack, "active_stacks": manifest.installed_stacks},
+            )
+        else:
+            success(f"Removed stack '{stack}'")
+            kv("Active stacks", ", ".join(manifest.installed_stacks))
     except InstallerError as exc:
-        typer.echo(f"Error: {exc}", err=True)
+        if is_json_mode():
+            emit_error("ai-eng stack remove", str(exc), "STACK_REMOVE_FAILED", "Check stack name")
+        else:
+            error(str(exc))
         raise typer.Exit(code=1) from exc
 
 
@@ -65,13 +88,22 @@ def stack_list(
     root = resolve_project_root(target)
     try:
         manifest = list_status(root)
-        if manifest.installed_stacks:
-            for s in manifest.installed_stacks:
-                typer.echo(f"  - {s}")
+        if is_json_mode():
+            emit_success(
+                "ai-eng stack list",
+                {"stacks": manifest.installed_stacks},
+            )
         else:
-            typer.echo("  (no stacks configured)")
+            if manifest.installed_stacks:
+                for s in manifest.installed_stacks:
+                    info(f"  - {s}")
+            else:
+                info("No stacks configured")
     except InstallerError as exc:
-        typer.echo(f"Error: {exc}", err=True)
+        if is_json_mode():
+            emit_error("ai-eng stack list", str(exc), "STACK_LIST_FAILED", "Run 'ai-eng install'")
+        else:
+            error(str(exc))
         raise typer.Exit(code=1) from exc
 
 
@@ -86,9 +118,19 @@ def ide_add(
     root = resolve_project_root(target)
     try:
         manifest = add_ide(root, ide)
-        typer.echo(f"Added IDE '{ide}'. Active IDEs: {manifest.installed_ides}")
+        if is_json_mode():
+            emit_success(
+                "ai-eng ide add",
+                {"action": "add", "ide": ide, "active_ides": manifest.installed_ides},
+            )
+        else:
+            success(f"Added IDE '{ide}'")
+            kv("Active IDEs", ", ".join(manifest.installed_ides))
     except InstallerError as exc:
-        typer.echo(f"Error: {exc}", err=True)
+        if is_json_mode():
+            emit_error("ai-eng ide add", str(exc), "IDE_ADD_FAILED", "Check IDE name")
+        else:
+            error(str(exc))
         raise typer.Exit(code=1) from exc
 
 
@@ -103,9 +145,19 @@ def ide_remove(
     root = resolve_project_root(target)
     try:
         manifest = remove_ide(root, ide)
-        typer.echo(f"Removed IDE '{ide}'. Active IDEs: {manifest.installed_ides}")
+        if is_json_mode():
+            emit_success(
+                "ai-eng ide remove",
+                {"action": "remove", "ide": ide, "active_ides": manifest.installed_ides},
+            )
+        else:
+            success(f"Removed IDE '{ide}'")
+            kv("Active IDEs", ", ".join(manifest.installed_ides))
     except InstallerError as exc:
-        typer.echo(f"Error: {exc}", err=True)
+        if is_json_mode():
+            emit_error("ai-eng ide remove", str(exc), "IDE_REMOVE_FAILED", "Check IDE name")
+        else:
+            error(str(exc))
         raise typer.Exit(code=1) from exc
 
 
@@ -119,11 +171,20 @@ def ide_list(
     root = resolve_project_root(target)
     try:
         manifest = list_status(root)
-        if manifest.installed_ides:
-            for i in manifest.installed_ides:
-                typer.echo(f"  - {i}")
+        if is_json_mode():
+            emit_success(
+                "ai-eng ide list",
+                {"ides": manifest.installed_ides},
+            )
         else:
-            typer.echo("  (no IDEs configured)")
+            if manifest.installed_ides:
+                for i in manifest.installed_ides:
+                    info(f"  - {i}")
+            else:
+                info("No IDEs configured")
     except InstallerError as exc:
-        typer.echo(f"Error: {exc}", err=True)
+        if is_json_mode():
+            emit_error("ai-eng ide list", str(exc), "IDE_LIST_FAILED", "Run 'ai-eng install'")
+        else:
+            error(str(exc))
         raise typer.Exit(code=1) from exc

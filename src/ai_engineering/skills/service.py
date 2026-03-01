@@ -68,8 +68,19 @@ def list_local_skill_status(target: Path) -> list[SkillStatus]:
     )
     config_roots = [manifest, install_manifest]
 
+    # Only scan skill definition files:
+    # - Directory-based: skills/<category>/<name>/SKILL.md
+    # - File-based: skills/<category>/<name>.md (direct children of category dirs)
+    skill_files: list[Path] = []
+    skill_files.extend(sorted(skills_root.rglob("SKILL.md")))
+    for category_dir in sorted(skills_root.iterdir()):
+        if category_dir.is_dir():
+            for md in sorted(category_dir.glob("*.md")):
+                if md.is_file() and md.name != "SKILL.md":
+                    skill_files.append(md)
+
     statuses: list[SkillStatus] = []
-    for skill_file in sorted(skills_root.rglob("*.md")):
+    for skill_file in skill_files:
         rel = skill_file.relative_to(target).as_posix()
         frontmatter, errors = _load_skill_frontmatter(skill_file)
 

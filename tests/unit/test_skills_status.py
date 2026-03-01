@@ -77,5 +77,7 @@ def test_skill_status_cli_prints_summary(tmp_path: Path) -> None:
     app = create_app()
     result = runner.invoke(app, ["skill", "status", "--target", str(tmp_path)])
     assert result.exit_code == 0
-    assert "bad [ineligible]" in result.stdout
-    assert "Summary:" in result.stdout
+    out = result.output
+    assert "bad" in out
+    assert "ineligible" in out
+    assert "Summary" in out

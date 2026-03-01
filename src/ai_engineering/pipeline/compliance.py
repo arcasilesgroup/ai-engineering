@@ -73,6 +73,25 @@ class ComplianceReport:
         """Number of scanned pipelines."""
         return len(self.results)
 
+    def to_dict(self) -> dict[str, object]:
+        """Serialize the compliance report as a plain dictionary for JSON output."""
+        return {
+            "all_compliant": self.all_compliant,
+            "total_pipelines": self.total_pipelines,
+            "pipelines": [
+                {
+                    "path": r.pipeline.path.as_posix(),
+                    "type": r.pipeline.pipeline_type.value,
+                    "compliant": r.compliant,
+                    "checks": [
+                        {"name": c.name, "passed": c.passed, "detail": c.detail} for c in r.checks
+                    ],
+                }
+                for r in self.results
+            ],
+            "warnings": self.warnings,
+        }
+
     def to_markdown(self) -> str:
         """Render compliance report as Markdown.
 

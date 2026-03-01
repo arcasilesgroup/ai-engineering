@@ -56,6 +56,7 @@ Contract-first API specialist focused on designing consistent, well-documented, 
 ## Referenced Skills
 
 - `skills/dev/api-design/SKILL.md` — contract-first API design procedure.
+- `skills/dev/cli-ux/SKILL.md` — agent-first CLI design and terminal UX.
 - `skills/dev/code-review/SKILL.md` — code review checklist for API implementations.
 
 ## Referenced Standards

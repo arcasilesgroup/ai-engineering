@@ -69,6 +69,7 @@ Procedural skills guide structured execution. Reference the relevant skill befor
 - `.ai-engineering/skills/dev/migration/SKILL.md` — migration planning.
 - `.ai-engineering/skills/dev/deps-update/SKILL.md` — dependency management.
 - `.ai-engineering/skills/dev/cicd-generate/SKILL.md` — CI/CD workflow generation.
+- `.ai-engineering/skills/dev/cli-ux/SKILL.md` — agent-first CLI design and terminal UX patterns.
 - `.ai-engineering/skills/dev/multi-agent/SKILL.md` — multi-agent orchestration patterns.
 - `.ai-engineering/skills/dev/api-design/SKILL.md` — contract-first API design.
 - `.ai-engineering/skills/dev/infrastructure/SKILL.md` — IaC provisioning.

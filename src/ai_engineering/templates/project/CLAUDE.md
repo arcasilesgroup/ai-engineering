@@ -70,6 +70,7 @@ Procedural skills guide structured execution. Reference the relevant skill befor
 - `.ai-engineering/skills/dev/migration/SKILL.md` — migration planning.
 - `.ai-engineering/skills/dev/deps-update/SKILL.md` — dependency management.
 - `.ai-engineering/skills/dev/cicd-generate/SKILL.md` — CI/CD workflow generation.
+- `.ai-engineering/skills/dev/cli-ux/SKILL.md` — agent-first CLI design and terminal UX patterns.
 - `.ai-engineering/skills/dev/multi-agent/SKILL.md` — multi-agent orchestration patterns.
 - `.ai-engineering/skills/dev/api-design/SKILL.md` — contract-first API design.
 - `.ai-engineering/skills/dev/infrastructure/SKILL.md` — IaC provisioning.
@@ -123,7 +124,7 @@ Procedural skills guide structured execution. Reference the relevant skill befor
 Skills and agents are available as Claude Code slash commands via `.claude/commands/`. Each command is a thin wrapper that reads and executes the canonical skill or agent file. No content is duplicated — the command files are pointers only (decision S0-008).
 
 - `/commit`, `/pr`, `/acho`, `/cleanup` — workflow commands.
-- `/dev:*` — dev skill commands (e.g., `/dev:debug`, `/dev:refactor`, `/dev:code-review`, `/dev:data-modeling`, `/dev:test-runner`, `/dev:cicd-generate`, `/dev:multi-agent`, `/dev:api-design`, `/dev:infrastructure`, `/dev:database-ops`, `/dev:sonar-gate`).
+- `/dev:*` — dev skill commands (e.g., `/dev:debug`, `/dev:refactor`, `/dev:code-review`, `/dev:data-modeling`, `/dev:test-runner`, `/dev:cicd-generate`, `/dev:cli-ux`, `/dev:multi-agent`, `/dev:api-design`, `/dev:infrastructure`, `/dev:database-ops`, `/dev:sonar-gate`).
 - `/review:*` — review skill commands (e.g., `/review:architecture`, `/review:security`, `/review:data-security`, `/review:dast`, `/review:container-security`, `/review:accessibility`).
 - `/docs:*` — docs skill commands (e.g., `/docs:changelog`, `/docs:explain`, `/docs:simplify`).
 - `/govern:*` — governance skill commands (e.g., `/govern:create-spec`, `/govern:integrity-check`, `/govern:contract-compliance`, `/govern:ownership-audit`, `/govern:adaptive-standards`).

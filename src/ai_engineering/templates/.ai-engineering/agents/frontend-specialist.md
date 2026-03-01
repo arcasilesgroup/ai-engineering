@@ -54,6 +54,7 @@ Frontend architecture specialist who evaluates component design, design system c
 
 ## Referenced Skills
 
+- `skills/dev/cli-ux/SKILL.md` — agent-first CLI design and terminal UX.
 - `skills/review/accessibility/SKILL.md` — WCAG compliance review procedure.
 - `skills/review/performance/SKILL.md` — performance evaluation procedure.
 

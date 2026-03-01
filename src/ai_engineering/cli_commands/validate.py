@@ -12,6 +12,10 @@ from typing import Annotated
 
 import typer
 
+from ai_engineering.cli_envelope import NextAction, emit_success
+from ai_engineering.cli_output import is_json_mode
+from ai_engineering.cli_progress import spinner
+from ai_engineering.cli_ui import kv, result_header, status_line, suggest_next
 from ai_engineering.paths import resolve_project_root
 from ai_engineering.validator.service import (
     IntegrityCategory,
@@ -41,7 +45,7 @@ def validate_cmd(
     ] = None,
     output_json: Annotated[
         bool,
-        typer.Option("--json", help="Output report as JSON."),
+        typer.Option("--json", help="Output report as JSON (deprecated: use global --json)."),
     ] = False,
 ) -> None:
     """Validate content integrity across all governance categories."""
@@ -56,27 +60,46 @@ def validate_cmd(
             raise typer.Exit(code=2)
         categories = [_CATEGORY_NAMES[category]]
 
-    report = validate_content_integrity(root, categories=categories)
+    with spinner("Validating content integrity..."):
+        report = validate_content_integrity(root, categories=categories)
 
-    if output_json:
-        typer.echo(json.dumps(report.to_dict(), indent=2))
+    if is_json_mode() or output_json:
+        report_dict = report.to_dict()
+        if is_json_mode():
+            emit_success(
+                "ai-eng validate",
+                report_dict,
+                [NextAction(command="ai-eng doctor", description="Run health diagnostics")]
+                if not report.passed
+                else [],
+            )
+        else:
+            typer.echo(json.dumps(report_dict, indent=2))
     else:
         status = "PASS" if report.passed else "FAIL"
         by_cat = report.by_category()
         passed_count = sum(1 for cat in IntegrityCategory if report.category_passed(cat))
         total_cats = len(IntegrityCategory)
-        typer.echo(f"Content Integrity [{status}] ({passed_count}/{total_cats} categories passed)")
-        typer.echo()
+
+        result_header("Validate", status, str(root))
+        kv("Categories", f"{passed_count}/{total_cats} passed")
 
         for cat in IntegrityCategory:
             cat_checks = by_cat.get(cat, [])
-            cat_pass = all(c.status.value != "fail" for c in cat_checks)
-            icon = "✓" if cat_pass else "✗"
-            typer.echo(f"  {icon} {cat.value}")
+            cat_pass = report.category_passed(cat)
+            cat_status = "ok" if cat_pass else "fail"
+            status_line(cat_status, cat.value, "passed" if cat_pass else "FAILED")
             for check in cat_checks:
-                check_icon = {"ok": "✓", "warn": "⚠", "fail": "✗"}.get(check.status.value, "?")
                 suffix = f" [{check.file_path}]" if check.file_path else ""
-                typer.echo(f"    {check_icon} {check.name}: {check.message}{suffix}")
+                status_line(check.status.value, f"  {check.name}", f"{check.message}{suffix}")
+
+        if not report.passed:
+            suggest_next(
+                [
+                    ("ai-eng validate -c <category>", "Re-run a specific category"),
+                    ("ai-eng doctor", "Run health diagnostics"),
+                ]
+            )
 
     if not report.passed:
         raise typer.Exit(code=1)

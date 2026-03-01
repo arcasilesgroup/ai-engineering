@@ -37,6 +37,17 @@ class CleanupResult:
         """True if cleanup completed without errors."""
         return len(self.errors) == 0
 
+    def to_dict(self) -> dict[str, object]:
+        """Serialize the cleanup result as a plain dictionary for JSON output."""
+        return {
+            "success": self.success,
+            "fetched": self.fetched,
+            "pruned_refs": self.pruned_refs,
+            "deleted_branches": self.deleted_branches,
+            "skipped_branches": self.skipped_branches,
+            "errors": self.errors,
+        }
+
     def to_markdown(self) -> str:
         """Render cleanup result as Markdown summary.
 

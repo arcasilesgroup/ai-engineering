@@ -4,6 +4,7 @@ Builds the main Typer app with all command groups registered.
 The factory pattern allows tests to create isolated app instances.
 
 Includes:
+- Global ``--json`` flag for agent-friendly structured output.
 - Version lifecycle callback that blocks deprecated versions on non-exempt commands.
 - Centralized exception handler that converts path-related OS errors into
   clean user-facing messages (no tracebacks).
@@ -14,6 +15,7 @@ from __future__ import annotations
 import functools
 import sys
 from collections.abc import Callable
+from typing import Annotated
 
 import typer
 
@@ -41,12 +43,12 @@ _USER_FACING_EXCEPTIONS: tuple[type[Exception], ...] = (
 )
 
 
-def _cli_error_boundary(func: Callable) -> Callable:
+def _cli_error_boundary(func: Callable[..., object]) -> Callable[..., object]:
     """Wrap a CLI command to catch OS path errors and emit a clean message.
 
     Converts FileNotFoundError, NotADirectoryError, and PermissionError into
     a single-line ``Error: <message>`` on stderr with exit code 1, instead of
-    a raw Python traceback.
+    a raw Python traceback.  In JSON mode, emits an error envelope instead.
     """
 
     @functools.wraps(func)
@@ -54,21 +56,70 @@ def _cli_error_boundary(func: Callable) -> Callable:
         try:
             return func(*args, **kwargs)
         except _USER_FACING_EXCEPTIONS as exc:
-            typer.echo(f"Error: {exc}", err=True)
+            from ai_engineering.cli_output import is_json_mode
+
+            if is_json_mode():
+                from ai_engineering.cli_envelope import emit_error
+
+                cmd_name = getattr(func, "__name__", "unknown")
+                emit_error(
+                    command=cmd_name.replace("_cmd", "").replace("_", "-"),
+                    message=str(exc),
+                    code=type(exc).__name__,
+                    fix="Check the path exists and you have permission to access it.",
+                )
+            else:
+                typer.echo(f"Error: {exc}", err=True)
             raise typer.Exit(code=1) from None
 
     return wrapper
 
 
-def _version_lifecycle_callback(ctx: typer.Context) -> None:
-    """App-level callback enforcing version lifecycle policy.
+def _app_callback(
+    ctx: typer.Context,
+    json_output: Annotated[
+        bool,
+        typer.Option("--json", help="Output structured JSON for agent consumption."),
+    ] = False,
+) -> None:
+    """App-level callback: global flags + version lifecycle policy."""
+    from ai_engineering.cli_output import set_json_mode
 
-    - Deprecated/EOL versions: block all commands except exempt ones (D-010-2).
-    - Outdated versions: print warning to stderr (non-blocking).
-    - Fail-open on registry errors (D-010-3).
-    """
+    set_json_mode(json_output)
+
     if ctx.invoked_subcommand is None:
-        return
+        # No subcommand: show logo + help (human) or command tree (JSON)
+        if json_output:
+            from ai_engineering.cli_envelope import emit_success
+
+            emit_success(
+                "ai-eng",
+                {
+                    "commands": [
+                        "install",
+                        "update",
+                        "doctor",
+                        "validate",
+                        "version",
+                        "stack",
+                        "ide",
+                        "gate",
+                        "skill",
+                        "maintenance",
+                        "vcs",
+                        "review",
+                        "cicd",
+                        "setup",
+                    ]
+                },
+            )
+            raise typer.Exit(code=0)
+        else:
+            from ai_engineering.cli_ui import show_logo
+
+            show_logo()
+            typer.echo(ctx.get_help())
+            raise typer.Exit(code=0)
 
     from ai_engineering.__version__ import __version__
     from ai_engineering.version.checker import check_version
@@ -111,10 +162,11 @@ def create_app() -> typer.Typer:
     app = typer.Typer(
         name="ai-eng",
         help="AI governance framework for secure software delivery.",
-        no_args_is_help=True,
+        no_args_is_help=False,
         rich_markup_mode="rich",
-        callback=_version_lifecycle_callback,
+        callback=_app_callback,
         invoke_without_command=True,
+        epilog="[dim]Docs & issues:[/dim] https://github.com/arcasilesgroup/ai-engineering",
     )
 
     # Core commands (top-level)
@@ -156,12 +208,13 @@ def create_app() -> typer.Typer:
     gate_app.command("commit-msg")(_safe(gate.gate_commit_msg))
     gate_app.command("pre-push")(_safe(gate.gate_pre_push))
     gate_app.command("risk-check")(_safe(gate.gate_risk_check))
+    gate_app.command("all")(_safe(gate.gate_all))
     app.add_typer(gate_app, name="gate")
 
     # Skill sub-group
     skill_app = typer.Typer(
         name="skill",
-        help="Manage remote skill sources.",
+        help="Manage remote skill sources (registration, sync, eligibility).",
         no_args_is_help=True,
     )
     skill_app.command("list")(_safe(skills.skill_list))
@@ -184,6 +237,7 @@ def create_app() -> typer.Typer:
     maint_app.command("pipeline-compliance")(_safe(maintenance.maintenance_pipeline_compliance))
     maint_app.command("repo-status")(_safe(maintenance.maintenance_repo_status))
     maint_app.command("spec-reset")(_safe(maintenance.maintenance_spec_reset))
+    maint_app.command("all")(_safe(maintenance.maintenance_all))
     app.add_typer(maint_app, name="maintenance")
 
     # VCS sub-group

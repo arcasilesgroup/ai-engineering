@@ -1,11 +1,11 @@
 """Core CLI commands: install, update, doctor, version.
 
 These are the primary entry points for the ``ai-eng`` CLI.
+Human-first Rich output by default; ``--json`` for agent consumption.
 """
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import Annotated
 
@@ -13,6 +13,19 @@ import click.exceptions
 import typer
 
 from ai_engineering.__version__ import __version__
+from ai_engineering.cli_envelope import NextAction, emit_success
+from ai_engineering.cli_output import is_json_mode
+from ai_engineering.cli_progress import spinner
+from ai_engineering.cli_ui import (
+    file_count,
+    kv,
+    print_stdout,
+    result_header,
+    show_logo,
+    status_line,
+    suggest_next,
+    warning,
+)
 from ai_engineering.doctor.service import diagnose
 from ai_engineering.installer.service import install
 from ai_engineering.paths import resolve_project_root
@@ -40,24 +53,59 @@ def install_cmd(
 ) -> None:
     """Install the ai-engineering governance framework."""
     root = resolve_project_root(target)
-    result = install(root, stacks=stacks or [], ides=ides or [], vcs_provider=vcs)
+    with spinner("Installing governance framework..."):
+        result = install(root, stacks=stacks or [], ides=ides or [], vcs_provider=vcs)
 
-    typer.echo(f"Installed to: {root}")
-    typer.echo(f"  Governance files created: {result.governance_files.created}")
-    typer.echo(f"  Project files created: {result.project_files.created}")
-    typer.echo(f"  State files created: {len(result.state_files)}")
-    typer.echo(f"  VCS provider: {vcs}")
-    typer.echo(f"  Operational readiness: {result.readiness_status}")
-    if result.manual_steps:
-        typer.echo("  Manual steps:")
-        for step in result.manual_steps:
-            typer.echo(f"    - {step}")
+    if is_json_mode():
+        emit_success(
+            "ai-eng install",
+            {
+                "root": str(root),
+                "governance_files": len(result.governance_files.created),
+                "project_files": len(result.project_files.created),
+                "state_files": len(result.state_files),
+                "vcs_provider": vcs,
+                "readiness_status": result.readiness_status,
+                "already_installed": result.already_installed,
+                "manual_steps": result.manual_steps,
+            },
+            [
+                NextAction(command="ai-eng doctor", description="Run health diagnostics"),
+                NextAction(
+                    command="ai-eng setup platforms",
+                    description="Configure platform credentials",
+                ),
+            ],
+        )
+    else:
+        # Primary result on stdout (preserves test assertions)
+        print_stdout(f"Installed to: {root}")
 
-    if result.already_installed:
-        typer.echo("  (framework was already installed — skipped existing files)")
+        # Decorated output on stderr
+        file_count("Governance", len(result.governance_files.created))
+        file_count("Project", len(result.project_files.created))
+        kv("State", f"{len(result.state_files)} files")
+        kv("VCS", vcs)
+        kv("Readiness", result.readiness_status)
+
+        if result.manual_steps:
+            warning("Manual steps required:")
+            for step in result.manual_steps:
+                print_stdout(f"    - {step}")
+
+        if result.already_installed:
+            print_stdout("  (framework was already installed \u2014 skipped existing files)")
+
+        suggest_next(
+            [
+                ("ai-eng doctor", "Run health diagnostics"),
+                ("ai-eng setup platforms", "Configure platform credentials"),
+            ]
+        )
 
     # Optional platform onboarding prompt (D024-003: opt-in).
-    _offer_platform_onboarding(root)
+    if not is_json_mode():
+        _offer_platform_onboarding(root)
 
 
 def update_cmd(
@@ -75,39 +123,45 @@ def update_cmd(
     ] = False,
     output_json: Annotated[
         bool,
-        typer.Option("--json", help="Output report as JSON."),
+        typer.Option("--json", help="Output report as JSON (deprecated: use global --json)."),
     ] = False,
 ) -> None:
     """Update framework-managed governance files."""
     root = resolve_project_root(target)
-    result = update(root, dry_run=not apply)
+    with spinner("Checking for updates..."):
+        result = update(root, dry_run=not apply)
 
-    if output_json:
-        payload = {
-            "mode": "APPLIED" if not result.dry_run else "DRY-RUN",
-            "root": str(root),
-            "applied": result.applied_count,
-            "denied": result.denied_count,
-            "changes": [
-                {
-                    "path": str(c.path),
-                    "action": c.action,
-                    "diff": c.diff,
-                }
-                for c in result.changes
+    if is_json_mode() or output_json:
+        emit_success(
+            "ai-eng update",
+            {
+                "mode": "APPLIED" if not result.dry_run else "DRY-RUN",
+                "root": str(root),
+                "applied": result.applied_count,
+                "denied": result.denied_count,
+                "changes": [
+                    {"path": str(c.path), "action": c.action, "diff": c.diff}
+                    for c in result.changes
+                ],
+            },
+            [
+                NextAction(command="ai-eng doctor", description="Verify framework health"),
+                NextAction(command="ai-eng update --apply", description="Apply changes"),
             ],
-        }
-        typer.echo(json.dumps(payload, indent=2))
+        )
         return
 
     mode = "APPLIED" if not result.dry_run else "DRY-RUN"
-    typer.echo(f"Update [{mode}]: {root}")
-    typer.echo(f"  Applied: {result.applied_count}")
-    typer.echo(f"  Denied:  {result.denied_count}")
+    # Primary result on stdout
+    print_stdout(f"Update [{mode}]: {root}")
+
+    # Decorated output on stderr
+    kv("Applied", result.applied_count)
+    kv("Denied", result.denied_count)
 
     for change in result.changes:
-        marker = "✓" if change.action in ("create", "update") else "✗"
-        typer.echo(f"  {marker} {change.path} ({change.action})")
+        st = "ok" if change.action in ("create", "update") else "fail"
+        status_line(st, str(change.path), change.action)
 
         if show_diff and change.diff:
             diff_text = change.diff
@@ -133,34 +187,57 @@ def doctor_cmd(
         bool,
         typer.Option("--fix-tools", help="Install missing Python tools."),
     ] = False,
-    check_platforms: Annotated[
-        bool,
-        typer.Option("--check-platforms", help="Validate stored platform credentials."),
-    ] = False,
     output_json: Annotated[
         bool,
-        typer.Option("--json", help="Output report as JSON."),
+        typer.Option("--json", help="Output report as JSON (deprecated: use global --json)."),
     ] = False,
 ) -> None:
     """Diagnose and optionally fix framework health."""
     root = resolve_project_root(target)
-    report = diagnose(root, fix_hooks=fix_hooks, fix_tools=fix_tools)
+    with spinner("Running health diagnostics..."):
+        report = diagnose(root, fix_hooks=fix_hooks, fix_tools=fix_tools)
 
-    if check_platforms:
-        from ai_engineering.doctor.service import check_platforms as _check_plat
+    from ai_engineering.doctor.service import check_platforms as _check_plat
 
-        _check_plat(root, report)
+    _check_plat(root, report)
 
-    if output_json:
-        typer.echo(json.dumps(report.to_dict(), indent=2))
+    if is_json_mode() or output_json:
+        report_dict = report.to_dict()
+        if is_json_mode():
+            next_actions = []
+            if not report.passed:
+                next_actions = [
+                    NextAction(
+                        command="ai-eng doctor --fix-tools",
+                        description="Install missing tools",
+                    ),
+                    NextAction(
+                        command="ai-eng doctor --fix-hooks",
+                        description="Reinstall git hooks",
+                    ),
+                ]
+            emit_success("ai-eng doctor", report_dict, next_actions)
+        else:
+            # Legacy per-command --json: raw dict output
+            import json
+
+            typer.echo(json.dumps(report_dict, indent=2))
     else:
         status = "PASS" if report.passed else "FAIL"
-        typer.echo(f"Doctor [{status}]: {root}")
-        typer.echo(f"  Summary: {report.summary}")
+        # Result header on stderr (CliRunner captures both by default)
+        result_header("Doctor", status, str(root))
+        kv("Summary", report.summary)
 
         for check in report.checks:
-            icon = {"ok": "✓", "warn": "⚠", "fail": "✗", "fixed": "🔧"}.get(check.status.value, "?")
-            typer.echo(f"  {icon} {check.name}: {check.message}")
+            status_line(check.status.value, check.name, check.message)
+
+        if not report.passed:
+            suggest_next(
+                [
+                    ("ai-eng doctor --fix-tools", "Install missing tools"),
+                    ("ai-eng doctor --fix-hooks", "Reinstall git hooks"),
+                ]
+            )
 
     if not report.passed:
         raise typer.Exit(code=1)
@@ -170,23 +247,34 @@ def version_cmd() -> None:
     """Show the installed ai-engineering version and lifecycle status."""
     from ai_engineering.version.checker import check_version, load_registry
 
-    registry = load_registry()
-    result = check_version(__version__, registry)
-    typer.echo(f"ai-engineering {result.message}")
+    if is_json_mode():
+        registry = load_registry()
+        result = check_version(__version__, registry)
+        emit_success(
+            "ai-eng version",
+            {"version": __version__, "message": result.message},
+        )
+    else:
+        show_logo()
+        registry = load_registry()
+        result = check_version(__version__, registry)
+        typer.echo(f"ai-engineering {result.message}")
 
 
 def _offer_platform_onboarding(root: Path) -> None:
     """Offer optional platform credential setup after install.
 
-    Detects platform markers and prompts the user to run setup
-    if any are found. Always skippable (D024-003).
+    Detects platform markers and prompts the user to run setup.
+    When no platforms are auto-detected, still offers manual setup.
+    Always skippable (D024-003).
     """
     detected = detect_platforms(root)
-    if not detected:
-        return
+    if detected:
+        names = ", ".join(p.value for p in detected)
+        typer.echo(f"\n  Detected platforms: {names}")
+    else:
+        typer.echo("\n  No platforms auto-detected.")
 
-    names = ", ".join(p.value for p in detected)
-    typer.echo(f"\n  Detected platforms: {names}")
     try:
         run_setup = typer.confirm("  Configure platform credentials now?", default=False)
     except (KeyboardInterrupt, EOFError, click.exceptions.Abort):

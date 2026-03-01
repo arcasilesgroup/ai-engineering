@@ -10,6 +10,7 @@ dependencies = [
     { name = "keyring" },
     { name = "pydantic" },
     { name = "pyyaml" },
+    { name = "rich" },
     { name = "typer" },
 ]
 
@@ -29,6 +30,7 @@ requires-dist = [
     { name = "keyring", specifier = ">=25.0,<26.0" },
     { name = "pydantic", specifier = ">=2.0,<3.0" },
     { name = "pyyaml", specifier = ">=6.0,<7.0" },
+    { name = "rich", specifier = ">=13.0,<15.0" },
     { name = "typer", specifier = ">=0.12.0,<1.0" },
 ]
 
