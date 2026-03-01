@@ -56,6 +56,11 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
+      - name: Download dist
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
       - name: Extract release notes from CHANGELOG
         id: notes
         run: |
