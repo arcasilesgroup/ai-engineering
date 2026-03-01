@@ -2,9 +2,9 @@
 
 ## Update Metadata
 
-- Rationale: establish Azure-specific patterns for services, DevOps, Pipelines, and cloud operations.
-- Expected gain: consistent Azure resource management, pipeline design, and security patterns.
-- Potential impact: any project using Azure services or Azure DevOps gets enforceable patterns.
+- Rationale: production-grade Azure patterns across Functions, App Service, Logic Apps, Well-Architected Framework, and cloud design patterns for AI-assisted architecture and implementation.
+- Expected gain: consistent Azure service configuration, deployment safety, and architectural decisions aligned with Microsoft best practices.
+- Potential impact: any project using Azure services or Azure DevOps gets enforceable patterns for services, pipelines, and security.
 
 ## Standard Type
 
@@ -39,8 +39,38 @@ Cross-cutting standard. Applies alongside a primary stack standard. Does not def
 - **Templates**: reusable stages/jobs/steps in `pipelines/templates/`. DRY across environments.
 - **Environments**: define environments (dev, staging, prod) with approval gates for production.
 - **Variables**: use variable groups for environment-specific config. Secrets in Key Vault-linked variable groups.
-- **Stages**: `build` → `test` → `security-scan` → `deploy-staging` → `approval` → `deploy-prod`.
+- **Stages**: `build` > `test` > `security-scan` > `deploy-staging` > `approval` > `deploy-prod`.
 - **Caching**: cache node_modules, NuGet packages, pip cache between runs.
+
+## Azure Functions Patterns
+
+- **Isolated worker model**: default for .NET 8+. Not in-process hosting model (deprecated).
+- **Triggers**: HTTP, Timer (NCRONTAB: `0 */5 * * * *`), Queue (`QueueTrigger`), Blob (`BlobTrigger`), Event Grid, Cosmos DB change feed, Service Bus.
+- **Bindings**: input/output bindings reduce boilerplate for storage, queues, and tables. Prefer bindings over manual SDK calls for simple operations.
+- **Durable Functions**: orchestration patterns — function chaining, fan-out/fan-in, human interaction (approval workflows), monitoring (polling loops), eternal orchestrations.
+- **Cold start mitigation**: Premium plan or Dedicated plan for production workloads. Keep-alive pings via Timer trigger for Consumption plan. Minimize startup dependencies.
+- **Configuration**: `local.settings.json` for local development (gitignored). App Settings for deployed environments. Key Vault references for secrets.
+- **Scaling**: Consumption plan auto-scales per trigger type. Configure `maxConcurrentRequests` (HTTP), `batchSize` (Queue), `maxPollingInterval` (Queue/Cosmos).
+- **Idempotency**: design all function handlers to be idempotent. Use deduplication IDs for message-triggered functions.
+
+## App Service Patterns
+
+- **Deployment slots**: blue/green deployment via staging slot > production swap. Warm up staging before swap (`applicationInitialization`).
+- **Health check endpoint**: `/healthz` configured in App Service Health Check blade. Unhealthy instances removed from load balancer after threshold.
+- **Auto-scaling**: rules based on CPU, memory, HTTP queue length, or custom metrics. Minimum 2 instances for production (availability).
+- **Always On**: enable for production plans (prevents idle shutdown on Basic+ tiers).
+- **Managed identity**: system-assigned for Key Vault, Storage, SQL Database access. No connection strings with passwords in App Settings.
+- **Logging**: enable App Service logs and send to Log Analytics workspace. Application Insights for APM.
+- **TLS**: enforce HTTPS only. Minimum TLS 1.2. Custom domains with managed certificates.
+
+## Logic Apps Patterns
+
+- **Standard (single-tenant)**: prefer over Consumption (multi-tenant) for enterprise workloads. Better networking, performance, and cost predictability.
+- **Connectors**: managed connectors preferred for Azure and Microsoft 365 services. Custom connectors for internal APIs with OpenAPI spec.
+- **Error handling**: configure retry policies per action (fixed, exponential, none). Use `runAfter` with `Failed`/`TimedOut` for failure handling paths.
+- **Stateful vs stateless**: stateful workflows for long-running orchestrations with durable state. Stateless for high-throughput request-response (no run history).
+- **Concurrency control**: set concurrency limits on triggers to prevent overloading downstream systems.
+- **Monitoring**: enable diagnostic logs. Use tracked properties for custom telemetry in Application Insights.
 
 ## Key Vault Integration
 
@@ -58,11 +88,46 @@ Cross-cutting standard. Applies alongside a primary stack standard. Does not def
 
 ## Security Patterns
 
-- **Managed identities**: prefer system-assigned for single-resource scenarios, user-assigned for shared access.
-- **Network**: use Private Endpoints for database and storage access. VNet integration for compute.
+- **Managed identities**: prefer system-assigned for single-resource scenarios, user-assigned for shared access across multiple resources.
+- **Network**: use Private Endpoints for database and storage access. VNet integration for compute services.
 - **TLS**: enforce TLS 1.2+ on all services. Disable HTTP access to storage accounts.
 - **Diagnostic logging**: enable diagnostic settings on all resources. Send to Log Analytics workspace.
 - **Microsoft Defender for Cloud**: enable on subscription. Review security score monthly.
+- **WAF**: Azure Front Door or Application Gateway WAF for internet-facing APIs.
+
+## Well-Architected Framework References
+
+Azure architecture decisions should align with the five pillars:
+
+- **Reliability**: redundancy, fault tolerance, disaster recovery, health modeling. Design for failure.
+- **Security**: zero trust, defense in depth, identity-centric access, encryption at rest and in transit.
+- **Cost Optimization**: right-sizing, reserved instances, auto-scaling, cost alerts, resource tagging for cost allocation.
+- **Operational Excellence**: IaC, monitoring, alerting, incident response, deployment automation, safe deployment practices.
+- **Performance Efficiency**: scaling strategy, caching, CDN, async processing, database tuning, load testing.
+
+Use the Azure Well-Architected Review tool for service-level assessments.
+
+## Cloud Design Pattern References
+
+Key patterns agents should recognize and apply:
+
+- **Circuit Breaker**: prevent cascading failures by failing fast when downstream is unhealthy.
+- **Retry**: handle transient faults with exponential backoff and jitter.
+- **Cache-Aside**: load data into cache on demand, invalidate on write.
+- **CQRS**: separate read and write models for complex domains.
+- **Event Sourcing**: persist state as a sequence of events, replay for current state.
+- **Saga**: manage distributed transactions with compensating actions.
+- **Bulkhead**: isolate resources per workload to prevent noisy neighbor failures.
+- **Throttling**: limit request rate to protect backend services.
+- **Queue-Based Load Leveling**: buffer requests via queue to smooth traffic spikes.
+- **Health Endpoint Monitoring**: expose health status for load balancer and orchestrator consumption.
+- **Strangler Fig**: incrementally migrate legacy systems by routing traffic to new implementation.
+- **Gateway Aggregation**: combine multiple backend calls into a single frontend response.
+- **Gateway Routing**: route requests to different backends based on URL path or header.
+- **Valet Key**: issue limited-access tokens (SAS) for direct client-to-storage access.
+- **Claim Check**: store large payloads in blob storage, pass reference through messaging.
+- **Competing Consumers**: scale message processing with multiple consumer instances.
+- **Sidecar**: deploy helper processes alongside the main application container.
 
 ## Update Contract
 
