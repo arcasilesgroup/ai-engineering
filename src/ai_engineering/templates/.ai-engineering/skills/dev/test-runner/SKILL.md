@@ -38,7 +38,9 @@ Write and run tests across languages and frameworks. Provides operational guidan
    | .NET | xUnit / NUnit | xUnit + WebApplicationFactory | Playwright |
    | Swift | XCTest | XCTest | XCUITest |
 
-2. **Select test tier** — per `standards/framework/stacks/python.md` Test Tiers.
+2. **Select test tier** — per applicable stack standard Test Tiers.
+
+   **Python** (per `standards/framework/stacks/python.md`):
 
    | Tier | Marker | I/O | Gate | Characteristics |
    |------|--------|-----|------|-----------------|
@@ -46,6 +48,15 @@ Write and run tests across languages and frameworks. Provides operational guidan
    | Integration | `@pytest.mark.integration` | Local | CI | Real I/O (fs, git, subprocess), moderate |
    | E2E | `@pytest.mark.e2e` | Full stack | CI (staged) | Full workflows, slower |
    | Live | `@pytest.mark.live` | External APIs | Opt-in | Requires env var |
+
+   **.NET** (per `standards/framework/stacks/dotnet.md`):
+
+   | Tier | Attribute | I/O | Gate | Characteristics |
+   |------|-----------|-----|------|-----------------|
+   | Unit | `[Category("Unit")]` | None | Pre-commit | Pure logic, fast (<1s), NSubstitute mocks |
+   | Integration | `[Category("Integration")]` | Local (DB, FS) | Pre-push | WebApplicationFactory, TestContainers |
+   | E2E | `[Category("E2E")]` | Full stack | PR gate | End-to-end API flows |
+   | Live | `[Category("Live")]` | External APIs | Opt-in | Requires `DOTNET_LIVE_TEST=1` env var |
 
 3. **Follow TDD cycle** — Red → Green → Refactor.
    - **Red**: write one minimal failing test.
@@ -127,7 +138,7 @@ Load detailed guidance on-demand:
 ## Governance Notes
 
 - Coverage target: per `standards/framework/quality/core.md` (90% overall, 100% governance-critical).
-- Test tiers: per `standards/framework/stacks/python.md` Test Tiers table.
+- Test tiers: per applicable stack standard Test Tiers table (`python.md`, `dotnet.md`).
 - Performance targets: per `standards/framework/quality/core.md` Test Performance Targets table.
 - Gate integration: unit at pre-push, all tiers staged at CI/PR.
 - Security tests validate OWASP top 10 per `standards/framework/security/owasp-top10-2025.md`.
