@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
+
+import pytest
 
 from ai_engineering.cli_progress import StepTracker, spinner, step_progress
+
+pytestmark = pytest.mark.unit
 
 
 class TestSpinner:
@@ -27,6 +31,23 @@ class TestSpinner:
             mock_console.return_value.is_terminal = False
             with spinner("test"):
                 pass  # Should not raise
+
+    def test_spinner_shows_on_tty(self) -> None:
+        """Spinner activates when terminal is detected."""
+        mock_console = MagicMock()
+        mock_console.is_terminal = True
+        mock_status = MagicMock()
+        mock_console.status.return_value.__enter__ = MagicMock(return_value=mock_status)
+        mock_console.status.return_value.__exit__ = MagicMock(return_value=False)
+
+        with (
+            patch("ai_engineering.cli_progress.is_json_mode", return_value=False),
+            patch("ai_engineering.cli_progress.get_console", return_value=mock_console),
+            spinner("Loading..."),
+        ):
+            pass
+
+        mock_console.status.assert_called_once_with("Loading...", spinner="dots")
 
 
 class TestStepProgress:
@@ -54,6 +75,25 @@ class TestStepProgress:
                 tracker.step("a")
                 tracker.step("b")
 
+    def test_step_progress_shows_on_tty(self) -> None:
+        """Step progress activates when terminal is detected."""
+        mock_console = MagicMock()
+        mock_console.is_terminal = True
+        mock_status = MagicMock()
+        mock_console.status.return_value.__enter__ = MagicMock(return_value=mock_status)
+        mock_console.status.return_value.__exit__ = MagicMock(return_value=False)
+
+        with (
+            patch("ai_engineering.cli_progress.is_json_mode", return_value=False),
+            patch("ai_engineering.cli_progress.get_console", return_value=mock_console),
+            step_progress(3, "Running checks") as tracker,
+        ):
+            tracker.step("Step A")
+            tracker.step("Step B")
+
+        mock_console.status.assert_called_once_with("[0/3] Running checks", spinner="dots")
+        assert mock_status.update.call_count == 2
+
 
 class TestStepTracker:
     """Tests for StepTracker."""
@@ -65,3 +105,12 @@ class TestStepTracker:
         tracker.step("two")
         tracker.step("three")
         # No assertion needed — just verify it doesn't raise
+
+    def test_tracker_with_status_object(self) -> None:
+        """Tracker with a status object updates spinner description."""
+        mock_status = MagicMock()
+        tracker = StepTracker(3, mock_status)
+        tracker.step("first")
+        mock_status.update.assert_called_with("[1/3] first")
+        tracker.step("second")
+        mock_status.update.assert_called_with("[2/3] second")

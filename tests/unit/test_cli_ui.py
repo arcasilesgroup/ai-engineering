@@ -156,6 +156,77 @@ class TestMessageHelpers:
         assert "Section" in err
 
 
+class TestSafePrintFallback:
+    """Tests for _safe_print ImportError fallback."""
+
+    def test_safe_print_falls_back_on_import_error(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        from ai_engineering.cli_ui import _safe_print
+
+        get_console.cache_clear()
+        with patch.object(get_console(), "print", side_effect=ImportError("fake")):
+            _safe_print("[bold]hello[/bold]")
+        err = capsys.readouterr().err
+        assert "hello" in err
+        # Markup should be stripped
+        assert "[bold]" not in err
+
+    def test_safe_print_strips_nested_markup(self, capsys: pytest.CaptureFixture[str]) -> None:
+        from ai_engineering.cli_ui import _safe_print
+
+        get_console.cache_clear()
+        with patch.object(get_console(), "print", side_effect=ModuleNotFoundError("fake")):
+            _safe_print("[success]done[/success]")
+        err = capsys.readouterr().err
+        assert "done" in err
+        assert "[success]" not in err
+
+
+class TestShowLogoTty:
+    """Tests for show_logo on TTY-like console."""
+
+    def test_show_logo_prints_on_tty(self, capsys: pytest.CaptureFixture[str]) -> None:
+        get_console.cache_clear()
+        con = get_console()
+        with patch.object(type(con), "is_terminal", new_callable=lambda: property(lambda s: True)):
+            show_logo()
+        err = capsys.readouterr().err
+        assert "ai" in err or "engineering" in err
+
+    def test_show_logo_handles_import_error(self) -> None:
+        get_console.cache_clear()
+        con = get_console()
+        with (
+            patch.object(type(con), "is_terminal", new_callable=lambda: property(lambda s: True)),
+            patch.object(con, "print", side_effect=ImportError("fake")),
+        ):
+            show_logo()  # Should not raise
+
+
+class TestHeaderFallback:
+    """Tests for header() ImportError fallback."""
+
+    def test_header_fallback_on_import_error(self, capsys: pytest.CaptureFixture[str]) -> None:
+        get_console.cache_clear()
+        with patch.object(get_console(), "print", side_effect=ImportError("fake")):
+            header("MySection")
+        err = capsys.readouterr().err
+        assert "MySection" in err
+
+
+class TestErrorHelper:
+    """Tests for the error() helper."""
+
+    def test_error_writes_to_stderr(self, capsys: pytest.CaptureFixture[str]) -> None:
+        from ai_engineering.cli_ui import error
+
+        get_console.cache_clear()
+        error("something broke")
+        err = capsys.readouterr().err
+        assert "something broke" in err
+
+
 class TestPrintStdout:
     """Tests for stdout data output."""
 
