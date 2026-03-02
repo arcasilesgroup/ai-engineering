@@ -1,9 +1,9 @@
 ---
 name: arch-review
 description: "Analyze software architecture for dependencies, coupling, cohesion, and tech debt; use for design decisions and brownfield assessment."
-version: 1.0.0
-tags: [architecture, dependencies, coupling, drift]
 metadata:
+  version: 1.0.0
+  tags: [architecture, dependencies, coupling, drift]
   ai-engineering:
     scope: read-only
     token_estimate: 800

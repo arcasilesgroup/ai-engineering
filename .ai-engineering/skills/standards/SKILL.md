@@ -1,9 +1,9 @@
 ---
 name: standards
-description: "Review and evolve standards safely based on observed delivery/security outcomes."
-version: 1.0.0
-tags: [governance, standards, adaptation, policy]
+description: "Propose and apply standards updates from measurable evidence (gate failures, audits, incidents). Use when recurring workflow friction, new risks, or platform changes require policy updates."
 metadata:
+  version: 1.0.0
+  tags: [governance, standards, adaptation, policy]
   ai-engineering:
     scope: read-write
     token_estimate: 760

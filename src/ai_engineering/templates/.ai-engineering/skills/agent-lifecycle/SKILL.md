@@ -1,9 +1,9 @@
 ---
 name: agent-lifecycle
 description: "Create or delete an agent: author canonical file, mirror, register in instruction files, update counters, clean cross-references."
-version: 1.0.0
-tags: [governance, agent, registration, removal, persona]
 metadata:
+  version: 1.0.0
+  tags: [governance, agent, registration, removal, persona]
   ai-engineering:
     scope: read-write
     token_estimate: 1800

@@ -1,9 +1,9 @@
 ---
 name: agent-card
 description: "Generate platform-portable agent descriptor cards from canonical agent definitions for cross-platform AI agent interoperability."
-version: 1.0.0
-tags: [agents, portability, interoperability, export, platforms]
 metadata:
+  version: 1.0.0
+  tags: [agents, portability, interoperability, export, platforms]
   ai-engineering:
     scope: read-only
     token_estimate: 800

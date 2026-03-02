@@ -1,9 +1,9 @@
 ---
 name: commit
 description: "Execute governed commit workflow: stage, lint, secret-detect, commit, and push current branch."
-version: 1.0.0
-tags: [git, commit, push, hooks]
 metadata:
+  version: 1.0.0
+  tags: [git, commit, push, hooks]
   ai-engineering:
     requires:
       bins: [gitleaks, ruff]
@@ -38,19 +38,19 @@ Execute the `/commit` governed workflow: stage all changes, run mandatory pre-co
 4. **Run secret detection** — `gitleaks protect --staged --no-banner`. If secrets found, report and stop.
 5. **Documentation gate** — evaluate and update documentation for OSS GitHub users.
    a. Analyze staged changes and classify documentation scope:
-      - **CHANGELOG + README**: new features, breaking changes, new CLI commands, skill/agent additions or removals, config schema changes, architecture changes visible to users.
-      - **CHANGELOG only**: any other functional change — src/ modifications, API changes, dependency bumps with behavioral impact, governance surface changes, workflow behavior changes.
-      - **No updates needed**: changes with zero functional impact — typo fixes in comments, whitespace-only changes, test-only additions that don't change public behavior, CI config formatting. Log: "Documentation gate evaluated — no functional changes detected."
-   b. Update **CHANGELOG.md** (when scope requires it):
-      - If `CHANGELOG.md` exists: add entries to `[Unreleased]` section per `skills/changelog/SKILL.md` format. Stage the updated file.
-      - If `CHANGELOG.md` does NOT exist: create it following Keep a Changelog format. Stage the new file.
-   c. Update **README.md** (when scope includes README):
-      - If `README.md` exists AND changes include new features, breaking changes, new CLI commands, or skill catalog changes: update relevant sections. Stage the updated file.
-      - If `README.md` does NOT exist AND changes are non-trivial: create it targeting OSS GitHub audience. Stage the new file.
-   d. **External documentation portal**:
-      - Ask: "Do you have an external documentation portal (docs site, wiki, separate repo)? Provide the repo URL, or 'skip'."
-      - If URL provided: clone, branch, update, commit + push + create PR with auto-complete, report URL.
-      - If 'skip': continue without external docs.
+   - **CHANGELOG + README**: new features, breaking changes, new CLI commands, skill/agent additions or removals, config schema changes, architecture changes visible to users.
+   - **CHANGELOG only**: any other functional change — src/ modifications, API changes, dependency bumps with behavioral impact, governance surface changes, workflow behavior changes.
+   - **No updates needed**: changes with zero functional impact — typo fixes in comments, whitespace-only changes, test-only additions that don't change public behavior, CI config formatting. Log: "Documentation gate evaluated — no functional changes detected."
+     b. Update **CHANGELOG.md** (when scope requires it):
+   - If `CHANGELOG.md` exists: add entries to `[Unreleased]` section per `skills/changelog/SKILL.md` format. Stage the updated file.
+   - If `CHANGELOG.md` does NOT exist: create it following Keep a Changelog format. Stage the new file.
+     c. Update **README.md** (when scope includes README):
+   - If `README.md` exists AND changes include new features, breaking changes, new CLI commands, or skill catalog changes: update relevant sections. Stage the updated file.
+   - If `README.md` does NOT exist AND changes are non-trivial: create it targeting OSS GitHub audience. Stage the new file.
+     d. **External documentation portal**:
+   - Ask: "Do you have an external documentation portal (docs site, wiki, separate repo)? Provide the repo URL, or 'skip'."
+   - If URL provided: clone, branch, update, commit + push + create PR with auto-complete, report URL.
+   - If 'skip': continue without external docs.
 6. **Commit** — `git commit -m "<message>"` with a well-formed commit message following project conventions.
    - If active spec exists, use format: `spec-NNN: Task X.Y — <description>`.
    - Otherwise, use conventional commit format: `type(scope): description`.
@@ -60,6 +60,17 @@ Execute the `/commit` governed workflow: stage all changes, run mandatory pre-co
 ### `/commit --only` (stage + commit, no push)
 
 Follow steps 1–6 above. Skip step 7.
+
+## Examples
+
+### Example 1: Standard feature commit
+
+User says: "Run /commit with message spec-031: Task 2.1 — add examples to skills."
+Actions:
+
+1. Stage changes and run formatter, linter, and gitleaks on staged content.
+2. Evaluate documentation gate, commit with provided message, and push current branch.
+   Result: Commit is created and pushed, or workflow stops with a clear remediation if any gate fails.
 
 ## Output Contract
 

@@ -1,9 +1,9 @@
 ---
 name: debug
 description: "Systematic bug diagnosis using reproduce-isolate-identify-fix-test cycle; use when investigating unexpected behavior, test failures, or runtime errors."
-version: 1.0.0
-tags: [debugging, diagnosis, root-cause, troubleshooting]
 metadata:
+  version: 1.0.0
+  tags: [debugging, diagnosis, root-cause, troubleshooting]
   ai-engineering:
     scope: read-write
     token_estimate: 625
@@ -53,6 +53,17 @@ Systematic diagnosis skill for identifying, isolating, and fixing bugs. Follows 
 - **Test writing** (designing test strategy, writing test suites) — use `test-run` or `test-plan` instead. Debug writes regression tests for fixes; test-run writes comprehensive test suites.
 - **Refactoring** (improving code structure) — use `refactor` instead. Debug fixes bugs; refactor improves structure.
 - **Architecture analysis** (coupling, cohesion, boundaries) — use `arch-review` instead.
+
+## Examples
+
+### Example 1: Diagnose failing integration test
+
+User says: "This integration test started failing after yesterday's changes; debug it."
+Actions:
+
+1. Reproduce failure, isolate failing module/line, and identify root cause from recent deltas.
+2. Apply minimal root-cause fix and add a regression test.
+   Result: Failure is resolved with reproducible evidence and regression protection.
 
 ## Output Contract
 

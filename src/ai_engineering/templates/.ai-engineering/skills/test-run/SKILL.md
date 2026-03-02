@@ -1,9 +1,9 @@
 ---
 name: test-run
 description: "Write and run tests across languages and frameworks; use for unit, integration, E2E testing, coverage analysis, and test strategy."
-version: 1.0.0
-tags: [testing, tdd, coverage, unit-test, integration-test, e2e, quality]
 metadata:
+  version: 1.0.0
+  tags: [testing, tdd, coverage, unit-test, integration-test, e2e, quality]
   ai-engineering:
     scope: read-write
     token_estimate: 900
@@ -30,32 +30,32 @@ Write and run tests across languages and frameworks. Provides operational guidan
 
 1. **Identify framework** — select tooling per stack.
 
-   | Language | Unit Tests | Integration | E2E |
-   |----------|-----------|-------------|-----|
-   | Python | pytest | pytest + httpx | Playwright |
-   | TypeScript/JS | Vitest (preferred), Jest | Supertest | Playwright |
-   | .NET | xUnit / NUnit | xUnit + WebApplicationFactory | Playwright |
-   | Swift | XCTest | XCTest | XCUITest |
+   | Language      | Unit Tests               | Integration                   | E2E        |
+   | ------------- | ------------------------ | ----------------------------- | ---------- |
+   | Python        | pytest                   | pytest + httpx                | Playwright |
+   | TypeScript/JS | Vitest (preferred), Jest | Supertest                     | Playwright |
+   | .NET          | xUnit / NUnit            | xUnit + WebApplicationFactory | Playwright |
+   | Swift         | XCTest                   | XCTest                        | XCUITest   |
 
 2. **Select test tier** — per applicable stack standard Test Tiers.
 
    **Python** (per `standards/framework/stacks/python.md`):
 
-   | Tier | Marker | I/O | Gate | Characteristics |
-   |------|--------|-----|------|-----------------|
-   | Unit | `@pytest.mark.unit` | None | Pre-push | Fast (<1s), isolated, mocked, pure logic |
-   | Integration | `@pytest.mark.integration` | Local | CI | Real I/O (fs, git, subprocess), moderate |
-   | E2E | `@pytest.mark.e2e` | Full stack | CI (staged) | Full workflows, slower |
-   | Live | `@pytest.mark.live` | External APIs | Opt-in | Requires env var |
+   | Tier        | Marker                     | I/O           | Gate        | Characteristics                          |
+   | ----------- | -------------------------- | ------------- | ----------- | ---------------------------------------- |
+   | Unit        | `@pytest.mark.unit`        | None          | Pre-push    | Fast (<1s), isolated, mocked, pure logic |
+   | Integration | `@pytest.mark.integration` | Local         | CI          | Real I/O (fs, git, subprocess), moderate |
+   | E2E         | `@pytest.mark.e2e`         | Full stack    | CI (staged) | Full workflows, slower                   |
+   | Live        | `@pytest.mark.live`        | External APIs | Opt-in      | Requires env var                         |
 
    **.NET** (per `standards/framework/stacks/dotnet.md`):
 
-   | Tier | Attribute | I/O | Gate | Characteristics |
-   |------|-----------|-----|------|-----------------|
-   | Unit | `[Category("Unit")]` | None | Pre-commit | Pure logic, fast (<1s), NSubstitute mocks |
-   | Integration | `[Category("Integration")]` | Local (DB, FS) | Pre-push | WebApplicationFactory, TestContainers |
-   | E2E | `[Category("E2E")]` | Full stack | PR gate | End-to-end API flows |
-   | Live | `[Category("Live")]` | External APIs | Opt-in | Requires `DOTNET_LIVE_TEST=1` env var |
+   | Tier        | Attribute                   | I/O            | Gate       | Characteristics                           |
+   | ----------- | --------------------------- | -------------- | ---------- | ----------------------------------------- |
+   | Unit        | `[Category("Unit")]`        | None           | Pre-commit | Pure logic, fast (<1s), NSubstitute mocks |
+   | Integration | `[Category("Integration")]` | Local (DB, FS) | Pre-push   | WebApplicationFactory, TestContainers     |
+   | E2E         | `[Category("E2E")]`         | Full stack     | PR gate    | End-to-end API flows                      |
+   | Live        | `[Category("Live")]`        | External APIs  | Opt-in     | Requires `DOTNET_LIVE_TEST=1` env var     |
 
 3. **Follow TDD cycle** — Red → Green → Refactor.
    - **Red**: write one minimal failing test.
@@ -86,15 +86,28 @@ Write and run tests across languages and frameworks. Provides operational guidan
 
 6. **Analyze coverage** — identify gaps, focus on behavior not lines.
 
+## Examples
+
+### Example 1: Run unit tests with coverage
+
+User says: "Run Python unit tests with coverage for this module."
+Actions:
+
+1. Select Python unit tier and run the corresponding pytest command with coverage thresholds.
+2. Report pass/fail status and highlight any uncovered behavior paths.
+   Result: Test evidence confirms whether the module meets unit quality expectations.
+
 ## What to Test
 
 **Always test:**
+
 - Public API / exported functions.
 - Edge cases: empty input, null, boundary values.
 - Error handling: invalid input, network failures.
 - Business logic: calculations, state transitions.
 
 **Don't test:**
+
 - Private implementation details.
 - Framework internals.
 - Trivial getters/setters.
@@ -112,18 +125,18 @@ Write and run tests across languages and frameworks. Provides operational guidan
 
 Load detailed guidance on-demand:
 
-| Topic | Reference | Load When |
-|-------|-----------|-----------|
-| Unit Testing | `references/unit-testing.md` | pytest, Vitest, Jest patterns |
-| Integration | `references/integration-testing.md` | API testing, DB testing |
-| E2E | `references/e2e-testing.md` | User flows, Playwright |
-| Performance | `references/performance-testing.md` | k6, load testing |
-| Security | `references/security-testing.md` | Auth, injection, headers |
-| Reports | `references/test-reports.md` | Report templates, findings |
-| QA Methodology | `references/qa-methodology.md` | Manual testing, shift-left |
-| Automation | `references/automation-frameworks.md` | Framework patterns, scaling |
-| TDD Iron Laws | `references/tdd-iron-laws.md` | TDD methodology, red-green-refactor |
-| Testing Anti-Patterns | `references/testing-anti-patterns.md` | Mock issues, test quality |
+| Topic                 | Reference                             | Load When                           |
+| --------------------- | ------------------------------------- | ----------------------------------- |
+| Unit Testing          | `references/unit-testing.md`          | pytest, Vitest, Jest patterns       |
+| Integration           | `references/integration-testing.md`   | API testing, DB testing             |
+| E2E                   | `references/e2e-testing.md`           | User flows, Playwright              |
+| Performance           | `references/performance-testing.md`   | k6, load testing                    |
+| Security              | `references/security-testing.md`      | Auth, injection, headers            |
+| Reports               | `references/test-reports.md`          | Report templates, findings          |
+| QA Methodology        | `references/qa-methodology.md`        | Manual testing, shift-left          |
+| Automation            | `references/automation-frameworks.md` | Framework patterns, scaling         |
+| TDD Iron Laws         | `references/tdd-iron-laws.md`         | TDD methodology, red-green-refactor |
+| Testing Anti-Patterns | `references/testing-anti-patterns.md` | Mock issues, test quality           |
 
 ## Test Pyramid Enforcement
 

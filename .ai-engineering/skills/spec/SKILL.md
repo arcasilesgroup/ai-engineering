@@ -1,9 +1,9 @@
 ---
 name: spec
 description: "Create a new spec before non-trivial work: branch, scaffold spec/plan/tasks, activate, commit."
-version: 1.0.0
-tags: [governance, spec, lifecycle, planning]
 metadata:
+  version: 1.0.0
+  tags: [governance, spec, lifecycle, planning]
   ai-engineering:
     scope: read-write
     token_estimate: 2200
@@ -159,7 +159,7 @@ A change is **trivial** (spec exempt) when ALL of these apply:
 
 10. **Atomic commit** — commit the scaffold as a single atomic commit.
     - Message format: `spec-NNN: Phase 0 — scaffold spec files and activate`.
-    - Include: spec.md, plan.md, tasks.md, _active.md.
+    - Include: spec.md, plan.md, tasks.md, \_active.md.
     - Do NOT include product-contract.md in scaffold commit if other phases will update it too.
 
 ### Phase 7: Execute
@@ -186,6 +186,17 @@ A change is **trivial** (spec exempt) when ALL of these apply:
 16. **Create PR** — merge the feature branch back to default branch.
     - PR title: `spec-NNN: <Title>`.
     - PR body: summary from done.md, list of changes, verification checklist.
+
+## Examples
+
+### Example 1: Create a new non-trivial work spec
+
+User says: "Create a spec for adding governed release orchestration improvements."
+Actions:
+
+1. Run cleanup, create a dedicated branch, and scaffold `spec.md`, `plan.md`, and `tasks.md` under the next numbered spec directory.
+2. Activate the new spec in `_active.md` and create the Phase 0 scaffold commit.
+   Result: A traceable, active spec lifecycle is established before implementation starts.
 
 ## Output Contract
 

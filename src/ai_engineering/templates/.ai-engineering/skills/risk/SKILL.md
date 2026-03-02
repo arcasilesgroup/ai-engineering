@@ -1,9 +1,9 @@
 ---
 name: risk
 description: "Manage risk acceptances: accept (record with severity/expiry), resolve (close after remediation), or renew (extend before expiry, max 2)."
-version: 1.0.0
-tags: [governance, risk, acceptance, remediation, renewal, decision]
 metadata:
+  version: 1.0.0
+  tags: [governance, risk, acceptance, remediation, renewal, decision]
   ai-engineering:
     scope: read-write
     token_estimate: 1400

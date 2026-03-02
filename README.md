@@ -107,6 +107,8 @@ Each supported stack (Python, .NET, Next.js) has its own standards file with tai
 
 Skills are step-by-step procedures written in Markdown that any AI agent can read and execute. They define **what** the agent does, **when** to trigger, **how** to execute, and **what** to output. All skills live in `skills/<name>/SKILL.md` — no nested categories.
 
+Skill frontmatter follows the governed schema with `name` and `description` at top level, and versioning/classification under `metadata` (for example: `metadata.version`, `metadata.tags`, `metadata.ai-engineering`).
+
 | Skills (alphabetical) |
 |-----------------------|
 | a11y, agent-card, agent-lifecycle, api, arch-review, audit, changelog, cicd, cleanup, cli, code-review, commit, compliance, data-model, db, debug, deps, discover, docs, docs-audit, explain, improve, infra, install, integrity, migrate, multi-agent, ownership, perf-review, pr, prompt, refactor, release, risk, sbom, sec-deep, sec-review, simplify, skill-lifecycle, sonar, spec, standards, test-gap, test-plan, test-run, triage, work-item |

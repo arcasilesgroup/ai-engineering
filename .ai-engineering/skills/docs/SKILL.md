@@ -1,9 +1,9 @@
 ---
 name: docs
 description: "Transform codebase knowledge into polished open-source documentation (README, CONTRIBUTING, docs/ site, Wiki) using benefit-first language."
-version: 1.0.0
-tags: [documentation, open-source, readme, guides]
 metadata:
+  version: 1.0.0
+  tags: [documentation, open-source, readme, guides]
   ai-engineering:
     scope: read-write
     token_estimate: 1050

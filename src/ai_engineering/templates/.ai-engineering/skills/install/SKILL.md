@@ -1,9 +1,9 @@
 ---
 name: install
 description: "Post-install/update validation for ai-engineering; use after install, update, or environment setup to confirm operational readiness."
-version: 1.0.0
-tags: [quality, installation, validation, readiness]
 metadata:
+  version: 1.0.0
+  tags: [quality, installation, validation, readiness]
   ai-engineering:
     scope: read-only
     token_estimate: 307

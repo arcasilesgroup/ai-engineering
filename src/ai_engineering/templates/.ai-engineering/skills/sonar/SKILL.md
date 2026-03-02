@@ -1,9 +1,9 @@
 ---
 name: sonar
 description: "Run SonarCloud/SonarQube quality gate locally before push; silently skips when SONAR_TOKEN is not configured."
-version: 1.0.0
-tags: [quality, sonar, gate, pre-push]
 metadata:
+  version: 1.0.0
+  tags: [quality, sonar, gate, pre-push]
   ai-engineering:
     requires:
       bins: [sonar-scanner]

@@ -1,9 +1,9 @@
 ---
 name: test-plan
 description: "Design test strategy covering what to test, test tiers, and meaningful coverage; use when planning tests for new features, bug fixes, or refactoring."
-version: 1.0.0
-tags: [testing, coverage, test-design, tdd]
 metadata:
+  version: 1.0.0
+  tags: [testing, coverage, test-design, tdd]
   ai-engineering:
     scope: read-only
     token_estimate: 725

@@ -1,9 +1,9 @@
 ---
 name: audit
 description: "SonarQube-like quality gate assessment; use before merge or release to evaluate coverage, duplication, complexity, and security."
-version: 1.0.0
-tags: [quality, coverage, complexity, duplication, gate]
 metadata:
+  version: 1.0.0
+  tags: [quality, coverage, complexity, duplication, gate]
   ai-engineering:
     requires:
       bins: [ruff, ty]
@@ -90,6 +90,17 @@ Execute a SonarQube-like quality gate assessment on the codebase. Evaluates cove
 5. **Generate verdict** — PASS or FAIL.
    - **PASS**: no blocker or critical findings.
    - **FAIL**: one or more blocker or critical findings.
+
+## Examples
+
+### Example 1: Pre-release quality gate audit
+
+User says: "Run an audit before release and tell me if we are merge-ready."
+Actions:
+
+1. Execute mandatory quality/security tooling for active stacks and collect metric outputs.
+2. Compare results to contract thresholds and generate PASS/FAIL with prioritized findings.
+   Result: A SonarQube-like quality report provides a clear go/no-go quality signal.
 
 ## Output Contract
 

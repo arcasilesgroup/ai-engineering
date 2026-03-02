@@ -1,9 +1,9 @@
 ---
 name: changelog
 description: "Generate user-friendly changelogs and GitHub release notes from git history using Keep a Changelog format and benefit-first language."
-version: 1.0.0
-tags: [documentation, changelog, release-notes]
 metadata:
+  version: 1.0.0
+  tags: [documentation, changelog, release-notes]
   ai-engineering:
     scope: read-write
     token_estimate: 800

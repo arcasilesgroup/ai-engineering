@@ -1,9 +1,9 @@
 ---
 name: sbom
 description: "CycloneDX software bill of materials generation; use for release preparation, compliance audit, or supply chain review."
-version: 1.0.0
-tags: [quality, sbom, supply-chain, dependencies, cyclonedx]
 metadata:
+  version: 1.0.0
+  tags: [quality, sbom, supply-chain, dependencies, cyclonedx]
   ai-engineering:
     requires:
       bins: [pip-audit]

@@ -1,9 +1,9 @@
 ---
 name: infra
 description: "Design and generate Infrastructure as Code (Terraform, Bicep) with plan-before-apply safety, state management, and deployment configuration."
-version: 1.0.0
-tags: [infrastructure, iac, terraform, bicep, cloud, deployment]
 metadata:
+  version: 1.0.0
+  tags: [infrastructure, iac, terraform, bicep, cloud, deployment]
   ai-engineering:
     scope: read-write
     token_estimate: 850

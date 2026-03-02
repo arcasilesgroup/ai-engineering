@@ -1,9 +1,9 @@
 ---
 name: improve
 description: "Run analyze→plan→execute→verify→learn loop for continuous governed improvement."
-version: 1.0.0
-tags: [improvement, iteration, governance, workflow]
 metadata:
+  version: 1.0.0
+  tags: [improvement, iteration, governance, workflow]
   ai-engineering:
     scope: read-write
     token_estimate: 700

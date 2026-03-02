@@ -1,9 +1,9 @@
 ---
 name: ownership
-description: "Validate ownership boundaries, updater safety, decision-store integrity, and audit-log consistency."
-version: 1.0.0
-tags: [governance, ownership, boundaries, updater-safety]
+description: "Validate ownership boundaries, updater safety, decision-store integrity, and audit-log consistency. Use for post-update validation, pre-release safety checks, or governance integrity audits."
 metadata:
+  version: 1.0.0
+  tags: [governance, ownership, boundaries, updater-safety]
   ai-engineering:
     scope: read-only
     token_estimate: 1500

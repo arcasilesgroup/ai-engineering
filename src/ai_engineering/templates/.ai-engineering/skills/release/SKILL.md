@@ -1,9 +1,9 @@
 ---
 name: release
 description: "Aggregated GO/NO-GO release readiness gate; use before version tagging or merge-to-main to verify all quality dimensions pass."
-version: 1.0.0
-tags: [quality, release, gate, go-no-go]
 metadata:
+  version: 1.0.0
+  tags: [quality, release, gate, go-no-go]
   ai-engineering:
     scope: read-only
     token_estimate: 1282
@@ -83,6 +83,17 @@ Executes a structured GO/NO-GO checklist across all quality dimensions for relea
     - Prioritize by blocking severity.
     - Estimate effort per action.
     - Identify parallel vs sequential work.
+
+## Examples
+
+### Example 1: Final release readiness decision
+
+User says: "Run release gate before tagging v1.6.0."
+Actions:
+
+1. Aggregate gate evidence across compliance, security, quality, ownership, testing, docs, and packaging dimensions.
+2. Determine GO, CONDITIONAL GO, or NO-GO and list blocking actions if needed.
+   Result: Release decision is documented with explicit blockers, risks, and closure path.
 
 ## Output Contract
 

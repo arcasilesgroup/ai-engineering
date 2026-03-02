@@ -1,9 +1,9 @@
 ---
 name: api
 description: "Design and review APIs using contract-first approach with OpenAPI specification, versioning strategy, and backward compatibility analysis."
-version: 1.0.0
-tags: [api, rest, graphql, openapi, contract, versioning]
 metadata:
+  version: 1.0.0
+  tags: [api, rest, graphql, openapi, contract, versioning]
   ai-engineering:
     scope: read-write
     token_estimate: 800

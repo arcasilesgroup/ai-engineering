@@ -1,9 +1,9 @@
 ---
 name: integrity
-description: "Validate governance content integrity: cross-references, mirrors, counters, frontmatter, manifest."
-version: 1.0.0
-tags: [governance, integrity, validation, cross-reference]
+description: "Validate governance content integrity: cross-references, mirrors, counters, frontmatter, and manifest. Use after modifying .ai-engineering/ content, pre-merge for governance PRs, or during structural audits."
 metadata:
+  version: 1.0.0
+  tags: [governance, integrity, validation, cross-reference]
   ai-engineering:
     scope: read-only
     token_estimate: 2200
@@ -109,7 +109,7 @@ Validation skill that checks the integrity of all governance content in `.ai-eng
     - `team_managed` globs must match existing directories.
     - `project_managed` globs must match existing directories.
 
-13. **Verify _active.md consistency** — the active spec pointer must be valid.
+13. **Verify \_active.md consistency** — the active spec pointer must be valid.
     - The spec directory referenced in `_active.md` must exist.
     - The `spec.md` file must exist in that directory.
     - If `tasks.md` exists, frontmatter should be parseable.

@@ -1,9 +1,9 @@
 ---
 name: perf-review
 description: "Profile and optimize performance bottlenecks with evidence-based measurement; use when diagnosing slow operations or high resource usage."
-version: 1.0.0
-tags: [performance, profiling, optimization, bottlenecks]
 metadata:
+  version: 1.0.0
+  tags: [performance, profiling, optimization, bottlenecks]
   ai-engineering:
     scope: read-only
     token_estimate: 650

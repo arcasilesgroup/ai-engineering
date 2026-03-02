@@ -1,9 +1,9 @@
 ---
 name: discover
 description: "Relentless requirements discovery through structured interrogation; use before planning any non-trivial feature to surface unknowns, assumptions, and missing requirements."
-version: 1.0.0
-tags: [discovery, requirements, interrogation, planning]
 metadata:
+  version: 1.0.0
+  tags: [discovery, requirements, interrogation, planning]
   ai-engineering:
     scope: read-only
     token_estimate: 800
@@ -33,6 +33,7 @@ Read all available context and classify information into three categories:
 - **UNKNOWN**: gaps where no information is available.
 
 Sources to scan:
+
 - Active spec (`_active.md` → `spec.md` → `plan.md` → `tasks.md`).
 - Product contract and framework contract.
 - Decision store (prior decisions that constrain the current work).
@@ -53,6 +54,7 @@ For each ASSUMED and UNKNOWN item, probe using AskUserQuestion. Organize probes 
 8. **Integration points**: APIs, data flows, external systems, user touchpoints.
 
 **Interrogation rules**:
+
 - Ask one focused question at a time via AskUserQuestion.
 - If an answer is shallow or vague, apply the 5 Whys — ask "why?" or "what specifically?" up to 5 times to reach concrete requirements.
 - Never accept "it should just work" — demand specific acceptance criteria.
@@ -62,16 +64,16 @@ For each ASSUMED and UNKNOWN item, probe using AskUserQuestion. Organize probes 
 
 Verify coverage across all 8 dimensions:
 
-| Dimension | Status | Evidence |
-|-----------|--------|----------|
-| Functional requirements | COVERED/GAP | ... |
-| Non-functional requirements | COVERED/GAP | ... |
-| Security implications | COVERED/GAP | ... |
-| Integration points | COVERED/GAP | ... |
-| Migration/backward compatibility | COVERED/GAP | ... |
-| Testing strategy | COVERED/GAP | ... |
-| Documentation impact | COVERED/GAP | ... |
-| Governance compliance | COVERED/GAP | ... |
+| Dimension                        | Status      | Evidence |
+| -------------------------------- | ----------- | -------- |
+| Functional requirements          | COVERED/GAP | ...      |
+| Non-functional requirements      | COVERED/GAP | ...      |
+| Security implications            | COVERED/GAP | ...      |
+| Integration points               | COVERED/GAP | ...      |
+| Migration/backward compatibility | COVERED/GAP | ...      |
+| Testing strategy                 | COVERED/GAP | ...      |
+| Documentation impact             | COVERED/GAP | ...      |
+| Governance compliance            | COVERED/GAP | ...      |
 
 If any dimension has a GAP, return to Step 2 for targeted probing.
 
@@ -83,23 +85,40 @@ Produce a structured output:
 ## Discovery Summary
 
 ### Confirmed Requirements
+
 - [Numbered list of concrete, testable requirements]
 
 ### Confirmed Constraints
+
 - [Numbered list of boundaries and limitations]
 
 ### Assumptions (accepted)
+
 - [Items moved from ASSUMED to accepted after user confirmation]
 
 ### Open Questions
+
 - [Remaining items that could not be resolved — with owner and deadline]
 
 ### Risks Identified
+
 - [Risk description, likelihood, impact, mitigation]
 
 ### Recommended Next Steps
+
 - [Specific actions to proceed to planning phase]
 ```
+
+## Examples
+
+### Example 1: Clarify an ambiguous feature request
+
+User says: "Add enterprise onboarding support".
+Actions:
+
+1. Classify known/assumed/unknown requirements and interrogate gaps across the 8 discovery dimensions.
+2. Produce confirmed requirements, constraints, risks, and remaining open questions.
+   Result: Planning starts with explicit, testable requirements instead of assumptions.
 
 ## Governance Notes
 

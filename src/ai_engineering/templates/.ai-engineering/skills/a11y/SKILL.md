@@ -1,9 +1,9 @@
 ---
 name: a11y
 description: "Review frontend code for WCAG 2.1 AA compliance: semantic HTML, ARIA patterns, keyboard navigation, color contrast, and screen reader support."
-version: 1.0.0
-tags: [accessibility, wcag, a11y, aria, keyboard, screen-reader]
 metadata:
+  version: 1.0.0
+  tags: [accessibility, wcag, a11y, aria, keyboard, screen-reader]
   ai-engineering:
     scope: read-only
     token_estimate: 750

@@ -1,9 +1,9 @@
 ---
 name: data-model
 description: "Design and validate domain data models with constraints, relationships, and migration safety."
-version: 1.0.0
-tags: [data, modeling, schema, migration]
 metadata:
+  version: 1.0.0
+  tags: [data, modeling, schema, migration]
   ai-engineering:
     scope: read-write
     token_estimate: 760

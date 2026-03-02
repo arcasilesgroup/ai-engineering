@@ -1,9 +1,9 @@
 ---
 name: cleanup
-description: "Full repository hygiene: status snapshot, sync, prune, and branch cleanup."
-version: 3.0.0
-tags: [git, branch, cleanup, hygiene, status]
+description: "Full repository hygiene: status snapshot, sync, prune, and branch cleanup; use at session start, after merging PRs, between tasks, or before /create-spec."
 metadata:
+  version: 3.0.0
+  tags: [git, branch, cleanup, hygiene, status]
   ai-engineering:
     requires:
       bins: [git]
@@ -52,6 +52,17 @@ Execute full repository hygiene — branch cleanup and remote status assessment.
    - Deletes squash-merged branches whose remote is `[gone]` (`git branch -D`).
    - Excludes protected branches (`main`, `master`).
    - Reports: branches deleted (merged), branches deleted (gone), refs pruned, branches skipped.
+
+## Examples
+
+### Example 1: Session-start hygiene
+
+User says: "Run /cleanup before I start the next task."
+Actions:
+
+1. Capture repo status snapshot, then sync base branch and prune remote references.
+2. Run branch cleanup and report deleted, skipped, and protected branches.
+   Result: Repository is synchronized and cleaned for the next governed workflow.
 
 ## Output Contract
 

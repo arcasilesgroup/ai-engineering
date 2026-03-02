@@ -1,9 +1,9 @@
 ---
 name: compliance
-description: "Clause-by-clause validation of framework contracts against implementation with compliance matrix."
-version: 1.0.0
-tags: [governance, compliance, contract, validation]
+description: "Clause-by-clause validation of framework contracts against implementation with a compliance matrix. Use for pre-release compliance review, post-refactoring contract alignment, or governance audit."
 metadata:
+  version: 1.0.0
+  tags: [governance, compliance, contract, validation]
   ai-engineering:
     scope: read-only
     token_estimate: 1300

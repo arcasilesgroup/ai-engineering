@@ -1,9 +1,9 @@
 ---
 name: multi-agent
 description: "Coordinate multiple agent personas in parallel or sequence using Task tool patterns; use for full-spectrum audits, cross-cutting reviews, or batch operations."
-version: 1.0.0
-tags: [orchestration, parallel, agents, task-tool]
 metadata:
+  version: 1.0.0
+  tags: [orchestration, parallel, agents, task-tool]
   ai-engineering:
     scope: read-only
     token_estimate: 1125

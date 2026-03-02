@@ -1,9 +1,9 @@
 ---
 name: sec-deep
 description: "Run specialized security assessments: DAST (ZAP/Nuclei), container scanning (Trivy), or data security posture review."
-version: 1.0.0
-tags: [security, dast, container, data, owasp-zap, nuclei, trivy]
 metadata:
+  version: 1.0.0
+  tags: [security, dast, container, data, owasp-zap, nuclei, trivy]
   ai-engineering:
     scope: read-only
     token_estimate: 1100

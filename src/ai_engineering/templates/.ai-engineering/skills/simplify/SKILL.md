@@ -1,9 +1,9 @@
 ---
 name: simplify
-description: "Simplify governance/docs content while preserving intent, constraints, and auditability."
-version: 1.0.0
-tags: [docs, simplify, clarity, compression]
+description: "Reduce verbosity and duplication in governance/docs content while preserving intent and constraints. Use when docs become repetitive, hard to scan, or after governance simplification passes."
 metadata:
+  version: 1.0.0
+  tags: [docs, simplify, clarity, compression]
   ai-engineering:
     scope: read-write
     token_estimate: 680

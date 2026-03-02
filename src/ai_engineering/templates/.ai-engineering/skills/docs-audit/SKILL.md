@@ -1,9 +1,9 @@
 ---
 name: docs-audit
 description: "Documentation health audit for governance content; use for weekly maintenance, pre-release doc review, or content compaction."
-version: 1.0.0
-tags: [quality, documentation, audit, health-score]
 metadata:
+  version: 1.0.0
+  tags: [quality, documentation, audit, health-score]
   ai-engineering:
     scope: read-only
     token_estimate: 1603

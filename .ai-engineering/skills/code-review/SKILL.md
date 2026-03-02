@@ -1,9 +1,9 @@
 ---
 name: code-review
 description: "Deep code review covering security, quality, performance, and maintainability; use for PR reviews, pre-merge validation, or code audits."
-version: 1.0.0
-tags: [review, quality, patterns, best-practices]
 metadata:
+  version: 1.0.0
+  tags: [review, quality, patterns, best-practices]
   ai-engineering:
     scope: read-only
     token_estimate: 800
@@ -63,6 +63,17 @@ Deep code review skill covering security, quality, performance, and maintainabil
    - Each comment includes: what's wrong, why it matters, how to fix.
    - Positive feedback on good patterns (not only criticism).
    - **Code Suggestions**: Use exact `startLine:endLine:filepath` block quoting when referencing existing code. When suggesting edits, ALWAYS provide minimal unchanged context using `// ... existing code ...` limits. DO NOT suggest rewriting entire files.
+
+## Examples
+
+### Example 1: Pre-merge PR review
+
+User says: "Review this PR for security and maintainability before merge."
+Actions:
+
+1. Evaluate changed files for security, quality, performance, and maintainability issues.
+2. Return severity-tagged findings with remediation guidance and a merge verdict.
+   Result: Review output clearly indicates APPROVE, REQUEST CHANGES, or COMMENT with actionable details.
 
 ## Output Contract
 

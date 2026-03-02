@@ -1,9 +1,9 @@
 ---
 name: deps
 description: "Audit, update, and validate project dependencies for security and compatibility; use when addressing vulnerabilities, outdated packages, or version bumps."
-version: 1.0.0
-tags: [dependencies, security, vulnerabilities, updates]
 metadata:
+  version: 1.0.0
+  tags: [dependencies, security, vulnerabilities, updates]
   ai-engineering:
     scope: read-write
     token_estimate: 750

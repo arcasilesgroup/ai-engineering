@@ -18,6 +18,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path
+from typing import cast
 
 import yaml
 
@@ -1222,6 +1223,12 @@ def _validate_skill_identity(
     failures = 0
     name = frontmatter.get("name")
     version = frontmatter.get("version")
+    if version is None:
+        metadata = frontmatter.get("metadata")
+        if isinstance(metadata, dict):
+            metadata_dict = cast(dict[str, object], metadata)
+            if "version" in metadata_dict:
+                version = metadata_dict["version"]
 
     if not isinstance(name, str) or not _KEBAB_RE.fullmatch(name) or name != file_stem:
         failures += 1

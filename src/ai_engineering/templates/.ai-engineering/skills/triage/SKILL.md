@@ -1,9 +1,9 @@
 ---
 name: triage
 description: "Auto-prioritize work items using severity hierarchy rules — classify p1/p2/p3, detect stale items, enforce throttle limits."
-version: 1.0.0
-tags: [triage, prioritization, work-items, automation, backlog]
 metadata:
+  version: 1.0.0
+  tags: [triage, prioritization, work-items, automation, backlog]
   ai-engineering:
     scope: read-write
     token_estimate: 600

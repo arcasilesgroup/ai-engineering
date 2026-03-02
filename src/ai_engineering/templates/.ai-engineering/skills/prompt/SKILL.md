@@ -1,9 +1,9 @@
 ---
 name: prompt
-description: "Advanced prompt engineering for crafting AI interactions using framework selection, blending strategies, and quality validation."
-version: 1.0.0
-tags: [prompts, frameworks, ai-interaction, quality]
+description: "Advanced prompt engineering for crafting AI interactions using framework selection, blending strategies, and quality validation. Use when engineering prompts for AI agents, multi-agent systems, or refining task prompt quality."
 metadata:
+  version: 1.0.0
+  tags: [prompts, frameworks, ai-interaction, quality]
   ai-engineering:
     scope: read-write
     token_estimate: 600
@@ -48,48 +48,59 @@ Advanced prompt engineering skill for crafting high-quality AI interactions. Cov
 Choose the appropriate prompting framework based on task type:
 
 #### RTF (Role-Task-Format)
+
 - **Best for**: simple, well-defined tasks.
 - **Structure**: define role, specify task, describe output format.
 - **Example**: "As a Python security reviewer, analyze this module for injection vulnerabilities. Output a severity-tagged findings list."
 
 #### Chain of Thought (CoT)
+
 - **Best for**: complex reasoning, multi-step analysis, debugging.
 - **Structure**: instruct step-by-step reasoning before conclusion.
 - **Example**: "First, identify the bug. Then, explain why it occurs. Then, propose a fix. Finally, write a test that validates the fix."
 
 #### RISEN (Role-Instructions-Steps-End goal-Narrowing)
+
 - **Best for**: complex procedural tasks with specific outcomes.
 - **Structure**: define persona, give instructions, list steps, state end goal, add constraints.
 
 #### RODES (Role-Objective-Details-Examples-Sense check)
+
 - **Best for**: tasks requiring examples and self-validation.
 - **Structure**: set role, state objective, provide details, give examples, ask for self-check.
 
 #### RACE (Role-Action-Context-Expectation)
+
 - **Best for**: reviewer and auditor agents.
 - **Structure**: define reviewer role, specify review action, provide context, state expectations.
 
 #### RISE (Role-Input-Steps-Expectation)
+
 - **Best for**: data transformation and processing tasks.
 - **Structure**: define role, describe input, list processing steps, state expected output.
 
 #### STAR (Situation-Task-Action-Result)
+
 - **Best for**: incident response, debugging narratives, case studies.
 - **Structure**: describe situation, define task, specify actions, state expected result.
 
 #### SOAP (Situation-Objective-Action-Plan)
+
 - **Best for**: architectural planning and design decisions.
 - **Structure**: assess situation, state objective, define actions, create plan.
 
 #### CLEAR (Context-Limitation-Expectation-Action-Result)
+
 - **Best for**: constrained optimization problems.
 - **Structure**: provide context, state limitations, define expectations, specify actions, describe result.
 
 #### GROW (Goal-Reality-Options-Way forward)
+
 - **Best for**: strategic decision-making, tech debt prioritization.
 - **Structure**: state goal, assess reality, evaluate options, choose way forward.
 
 #### Chain of Density (CoD)
+
 - **Best for**: content compression, summary generation, documentation.
 - **Structure**: iterative summarization — each pass denser than the last while retaining key information.
 
@@ -103,6 +114,7 @@ For complex, multi-type tasks, blend frameworks:
 4. **Insert transitions** — connect frameworks with bridging instructions.
 
 **Common blends for ai-engineering**:
+
 - **Code generation**: RTF (role setup) + CoT (reasoning) + RISEN (procedure).
 - **Code review**: RACE (reviewer setup) + CoT (analysis) + Chain of Density (summary).
 - **Architecture analysis**: SOAP (planning) + GROW (decisions) + RODES (validation).

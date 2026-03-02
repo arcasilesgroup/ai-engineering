@@ -1,9 +1,9 @@
 ---
 name: sec-review
 description: "Perform comprehensive security review covering OWASP risks, secrets, injection, and dependency vulnerabilities; use for pre-release audits or incident response."
-version: 1.0.0
-tags: [security, sast, secrets, owasp, vulnerabilities]
 metadata:
+  version: 1.0.0
+  tags: [security, sast, secrets, owasp, vulnerabilities]
   ai-engineering:
     requires:
       bins: [gitleaks, semgrep]

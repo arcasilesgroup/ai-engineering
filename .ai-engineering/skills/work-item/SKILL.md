@@ -1,9 +1,9 @@
 ---
 name: work-item
 description: "Bidirectional work-item integration with Azure Boards and GitHub Issues/Projects — create, update, link, and sync work items with local specs."
-version: 1.0.0
-tags: [work-items, azure-boards, github-issues, sync, integration]
 metadata:
+  version: 1.0.0
+  tags: [work-items, azure-boards, github-issues, sync, integration]
   ai-engineering:
     scope: read-write
     token_estimate: 1200

@@ -1,9 +1,9 @@
 ---
 name: db
 description: "Design database schemas, plan safe migrations, optimize queries, and manage data lifecycle with rollback procedures."
-version: 1.0.0
-tags: [database, sql, migration, schema, optimization, data-lifecycle]
 metadata:
+  version: 1.0.0
+  tags: [database, sql, migration, schema, optimization, data-lifecycle]
   ai-engineering:
     scope: read-write
     token_estimate: 800

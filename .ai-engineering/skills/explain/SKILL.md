@@ -1,9 +1,9 @@
 ---
 name: explain
 description: "Feynman-style layered explanations of code, concepts, patterns, and architecture with 3-tier depth control and codebase-anchored examples."
-version: 1.0.0
-tags: [documentation, explanation, feynman, teaching]
 metadata:
+  version: 1.0.0
+  tags: [documentation, explanation, feynman, teaching]
   ai-engineering:
     scope: read-write
     token_estimate: 750

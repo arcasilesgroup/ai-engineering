@@ -1,9 +1,9 @@
 ---
 name: skill-lifecycle
 description: "Create or delete a skill: author canonical file with frontmatter, mirror, register in instruction files, update counters, clean cross-references."
-version: 1.0.0
-tags: [governance, skill, registration, removal, authoring]
 metadata:
+  version: 1.0.0
+  tags: [governance, skill, registration, removal, authoring]
   ai-engineering:
     scope: read-write
     token_estimate: 1900

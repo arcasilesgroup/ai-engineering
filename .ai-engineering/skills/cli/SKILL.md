@@ -1,9 +1,9 @@
 ---
 name: cli
 description: "Agent-first CLI design: JSON envelope output, Rich human UX, progress indicators, and dual-mode routing."
-version: 1.0.0
-tags: [cli, ux, json, rich, terminal, agent-first]
 metadata:
+  version: 1.0.0
+  tags: [cli, ux, json, rich, terminal, agent-first]
   ai-engineering:
     scope: read-write
     token_estimate: 900

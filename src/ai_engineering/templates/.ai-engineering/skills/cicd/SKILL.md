@@ -1,9 +1,9 @@
 ---
 name: cicd
 description: "Generate stack-aware CI/CD workflow files from installed stacks and enforcement checks; use when setting up or modernizing CI/CD pipelines."
-version: 1.0.0
-tags: [ci-cd, github-actions, azure-devops, azure-pipelines, railway, cloudflare, automation]
 metadata:
+  version: 1.0.0
+  tags: [ci-cd, github-actions, azure-devops, azure-pipelines, railway, cloudflare, automation]
   ai-engineering:
     scope: read-write
     token_estimate: 775
