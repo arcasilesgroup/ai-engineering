@@ -29,44 +29,26 @@ Mandatory. Skipping risks stale code, repeated decisions, or merge conflicts.
 
 Gate failure: diagnose → fix → retry. Use `ai-eng doctor --fix-tools` or `--fix-hooks`.
 
-## Skills (44)
+## Skills (47)
 
-Path: `.ai-engineering/skills/<category>/<name>/SKILL.md`
+Path: `.ai-engineering/skills/<name>/SKILL.md` (flat organization, no category subdirectories)
 
-| Category | Count | Skills |
-|----------|-------|--------|
-| workflows | 4 | commit, pr, cleanup, self-improve |
-| dev | 16 | debug, refactor, code-review, data-modeling, test-runner, test-strategy, migration, deps-update, cicd-generate, cli-ux, multi-agent, api-design, infrastructure, database-ops, sonar-gate, discovery-interrogation |
-| review | 5 | architecture, performance, security, specialized-security, accessibility |
-| docs | 5 | changelog, explain, writer, simplify, prompt-design |
-| govern | 8 | integrity-check, contract-compliance, ownership-audit, adaptive-standards, create-spec, agent-lifecycle, skill-lifecycle, risk-lifecycle |
-| quality | 6 | audit-code, docs-audit, install-check, release-gate, test-gap-analysis, sbom |
+| Skills (alphabetical) |
+|-----------------------|
+| a11y, agent-card, agent-lifecycle, api, arch-review, audit, changelog, cicd, cleanup, cli, code-review, commit, compliance, data-model, db, debug, deps, discover, docs, docs-audit, explain, improve, infra, install, integrity, migrate, multi-agent, ownership, perf-review, pr, prompt, refactor, release, risk, sbom, sec-deep, sec-review, simplify, skill-lifecycle, sonar, spec, standards, test-gap, test-plan, test-run, triage, work-item |
 
-## Agents (19)
+## Agents (6)
 
 Path: `.ai-engineering/agents/<name>.md`
 
-| Agent | Purpose |
-|-------|---------|
-| principal-engineer | Code review |
-| debugger | Bug diagnosis |
-| architect | Architecture analysis |
-| quality-auditor | Quality gate enforcement |
-| security-reviewer | Security assessment |
-| orchestrator | Multi-phase execution |
-| navigator | Strategic spec analysis |
-| devops-engineer | CI/CD automation |
-| test-master | Testing specialist |
-| docs-writer | Documentation |
-| governance-steward | Governance lifecycle |
-| pr-reviewer | Headless CI review |
-| code-simplifier | Complexity reduction |
-| platform-auditor | Full-spectrum audit |
-| verify-app | E2E verification |
-| infrastructure-engineer | IaC provisioning |
-| database-engineer | Database engineering |
-| frontend-specialist | Frontend/UI architecture |
-| api-designer | Contract-first API design |
+| Agent | Purpose | Scope |
+|-------|---------|-------|
+| plan | Orchestration, planning pipeline, dispatch, work-item sync | read-write |
+| build | Implementation across all stacks (ONLY code write agent) | read-write |
+| review | All reviews, security, quality, governance (individual modes) | read-only |
+| scan | Spec-vs-code gap analysis, architecture drift detection | read-only |
+| write | Documentation, changelogs, explanations | read-write (docs only) |
+| triage | Auto-prioritize work items, backlog grooming | read-write (work items only) |
 
 ## Lifecycle
 
@@ -74,9 +56,18 @@ Discovery → Architecture → Planning → Implementation → Review → Verifi
 
 ## Progressive Disclosure
 
-Three-level loading: **Metadata** (always) → **Body** (on-demand) → **Resources** (on-demand).
+Three-level loading: **Metadata** (always, ~50 tok/skill) → **Body** (on-demand) → **Resources** (on-demand).
 
 Session start loads ONLY: `_active.md` → `spec.md` → `tasks.md` → `decision-store.json`. Do NOT pre-load skills or agents.
+
+| Level | Budget |
+|-------|--------|
+| Session start | ~500 tokens |
+| Single skill | ~2,050 tokens |
+| Agent + 2 skills | ~3,200 tokens |
+| Platform audit (8 dim) | ~12,950 tokens |
+
+Schema: `.ai-engineering/standards/framework/skills-schema.md`. Organization: flat (no categories).
 
 ## Security & Quality
 
