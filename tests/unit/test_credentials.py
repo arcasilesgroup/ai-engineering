@@ -68,6 +68,7 @@ class TestModels:
                 configured=True,
                 url="https://sonarcloud.io",
                 project_key="my-proj",
+                organization="my-org",
                 credential_ref=CredentialRef(
                     service_name="ai-engineering/sonar",
                     username="token",
@@ -80,6 +81,7 @@ class TestModels:
         restored = ToolsState.model_validate_json(payload)
         assert restored.github.scopes == ["repo"]
         assert restored.sonar.url == "https://sonarcloud.io"
+        assert restored.sonar.organization == "my-org"
         assert restored.sonar.credential_ref is not None
         assert restored.sonar.credential_ref.configured is True
 

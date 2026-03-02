@@ -14,11 +14,13 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from ai_engineering.credentials.models import SonarConfig, ToolsState
 from ai_engineering.hooks.manager import HookInstallResult
 from ai_engineering.installer.service import (
     _AUDIT_LOG_PATH,
     _STATE_FILES,
     InstallResult,
+    _resolve_sonar_cicd_config,
     install,
 )
 from ai_engineering.installer.templates import CopyResult
@@ -472,6 +474,7 @@ class TestInstallCallsGeneratePipelines:
             tmp_path,
             provider="github",
             stacks=manifest.installed_stacks,
+            sonar_config=None,
         )
 
 
@@ -650,3 +653,54 @@ class TestInstallVcsProvider:
             ides=None,
             vcs_provider="azure_devops",
         )
+
+
+class TestResolveSonarCicdConfig:
+    """Tests for Sonar CI/CD resolution from tools state."""
+
+    def test_returns_none_when_not_configured(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        monkeypatch.setattr(
+            "ai_engineering.installer.service.CredentialService.load_tools_state",
+            lambda *_: ToolsState(),
+        )
+        assert _resolve_sonar_cicd_config(tmp_path) is None
+
+    def test_returns_none_for_sonarcloud_without_org(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        state = ToolsState(
+            sonar=SonarConfig(
+                configured=True,
+                url="https://sonarcloud.io",
+                project_key="my-key",
+                organization="",
+            )
+        )
+        monkeypatch.setattr(
+            "ai_engineering.installer.service.CredentialService.load_tools_state",
+            lambda *_: state,
+        )
+        assert _resolve_sonar_cicd_config(tmp_path) is None
+
+    def test_returns_config_when_configured(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        state = ToolsState(
+            sonar=SonarConfig(
+                configured=True,
+                url="https://sonarcloud.io",
+                project_key="my-key",
+                organization="my-org",
+            )
+        )
+        monkeypatch.setattr(
+            "ai_engineering.installer.service.CredentialService.load_tools_state",
+            lambda *_: state,
+        )
+        resolved = _resolve_sonar_cicd_config(tmp_path)
+        assert resolved is not None
+        assert resolved.enabled is True
+        assert resolved.project_key == "my-key"
+        assert resolved.organization == "my-org"

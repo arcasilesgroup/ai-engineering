@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from enum import StrEnum
+from urllib.parse import urlparse
 
 from pydantic import BaseModel, Field
 
@@ -186,12 +187,31 @@ class ToolingReadiness(BaseModel):
     model_config = {"populate_by_name": True}
 
 
+class SonarCicdConfig(BaseModel):
+    """Sonar configuration for generated CI/CD pipelines."""
+
+    enabled: bool = False
+    host_url: str = Field(default="https://sonarcloud.io", alias="hostUrl")
+    project_key: str = Field(default="", alias="projectKey")
+    organization: str = ""
+    service_connection: str = Field(default="", alias="serviceConnection")
+
+    model_config = {"populate_by_name": True}
+
+    @property
+    def is_sonarcloud(self) -> bool:
+        """Return True when host resolves to SonarCloud."""
+        host = urlparse(self.host_url.lower()).hostname or ""
+        return host in {"", "sonarcloud.io"}
+
+
 class CicdStatus(BaseModel):
     """Status of generated CI/CD pipelines."""
 
     generated: bool = False
     provider: str | None = None
     files: list[str] = Field(default_factory=list)
+    sonar: SonarCicdConfig = Field(default_factory=SonarCicdConfig)
 
 
 class BranchPolicyStatus(BaseModel):

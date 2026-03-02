@@ -49,6 +49,9 @@ class SonarConfig(BaseModel):
     configured: bool = Field(default=False)
     url: str = Field(default="", description="Sonar server URL (e.g. https://sonarcloud.io).")
     project_key: str = Field(default="", description="Sonar project key.")
+    organization: str = Field(
+        default="", description="Sonar organization (required for SonarCloud)."
+    )
     credential_ref: CredentialRef | None = Field(
         default=None,
         description="Reference to the keyring entry — never the token itself.",

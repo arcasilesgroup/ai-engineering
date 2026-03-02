@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from ai_engineering.state.models import SonarCicdConfig
+
 
 @dataclass
 class CicdGenerationResult:
@@ -15,19 +17,25 @@ class CicdGenerationResult:
     skipped: list[Path] = field(default_factory=list)
 
 
-def generate_pipelines(target: Path, *, provider: str, stacks: list[str]) -> CicdGenerationResult:
+def generate_pipelines(
+    target: Path,
+    *,
+    provider: str,
+    stacks: list[str],
+    sonar_config: SonarCicdConfig | None = None,
+) -> CicdGenerationResult:
     """Generate provider-specific pipeline files with stack-aware checks."""
     result = CicdGenerationResult(provider=provider)
 
     if provider == "github":
         files = {
-            target / ".github" / "workflows" / "ci.yml": _render_github_ci(stacks),
+            target / ".github" / "workflows" / "ci.yml": _render_github_ci(stacks, sonar_config),
             target / ".github" / "workflows" / "ai-pr-review.yml": _render_github_ai_review(),
             target / ".github" / "workflows" / "ai-eng-gate.yml": _render_github_gate(),
         }
     else:
         files = {
-            target / ".azure-pipelines" / "ci.yml": _render_azure_ci(stacks),
+            target / ".azure-pipelines" / "ci.yml": _render_azure_ci(stacks, sonar_config),
             target / ".azure-pipelines" / "ai-pr-review.yml": _render_azure_ai_review(),
             target / ".azure-pipelines" / "ai-eng-gate.yml": _render_azure_gate(),
         }
@@ -43,7 +51,7 @@ def generate_pipelines(target: Path, *, provider: str, stacks: list[str]) -> Cic
     return result
 
 
-def _render_github_ci(stacks: list[str]) -> str:
+def _render_github_ci(stacks: list[str], sonar_config: SonarCicdConfig | None = None) -> str:
     python = "python" in stacks
     dotnet = "dotnet" in stacks
     nextjs = "nextjs" in stacks
@@ -55,8 +63,18 @@ def _render_github_ci(stacks: list[str]) -> str:
         "  checks:",
         "    runs-on: ubuntu-latest",
         "    steps:",
-        "      - uses: actions/checkout@v4",
     ]
+    if sonar_config is not None and sonar_config.enabled:
+        lines.extend(
+            [
+                "      - uses: actions/checkout@v4",
+                "        with:",
+                "          fetch-depth: 0",
+            ]
+        )
+    else:
+        lines.append("      - uses: actions/checkout@v4")
+
     if python:
         lines.extend(
             [
@@ -77,6 +95,10 @@ def _render_github_ci(stacks: list[str]) -> str:
                 "      - run: npm test --if-present",
             ]
         )
+
+    if sonar_config is not None and sonar_config.enabled and sonar_config.project_key:
+        lines.extend(_render_github_sonar_steps(sonar_config))
+
     lines.extend(
         ["      - run: gitleaks detect --no-git", "      - run: semgrep scan --config auto"]
     )
@@ -110,7 +132,7 @@ def _render_github_gate() -> str:
     )
 
 
-def _render_azure_ci(stacks: list[str]) -> str:
+def _render_azure_ci(stacks: list[str], sonar_config: SonarCicdConfig | None = None) -> str:
     steps = ["- script: echo 'checkout is implicit in Azure Pipelines'", "  displayName: checkout"]
     if "python" in stacks:
         steps.extend(
@@ -135,6 +157,10 @@ def _render_azure_ci(stacks: list[str]) -> str:
                 "  displayName: nextjs checks",
             ]
         )
+
+    if sonar_config is not None and sonar_config.enabled and sonar_config.project_key:
+        steps.extend(_render_azure_sonar_steps(sonar_config))
+
     steps.extend(
         [
             "- script: gitleaks detect --no-git && semgrep scan --config auto",
@@ -162,3 +188,80 @@ def _render_azure_gate() -> str:
         "- script: ai-eng gate risk-check --strict\n"
         "  displayName: ai-eng-gate\n"
     )
+
+
+def _render_github_sonar_steps(sonar_config: SonarCicdConfig) -> list[str]:
+    guard = (
+        "      - if: "
+        "${{ github.event_name != 'pull_request' || "
+        "github.event.pull_request.head.repo.full_name == github.repository }}"
+    )
+    if sonar_config.is_sonarcloud:
+        return [
+            guard,
+            "        name: SonarCloud Scan",
+            "        uses: SonarSource/sonarcloud-github-action@v3",
+            "        env:",
+            "          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}",
+            "        with:",
+            "          args: >",
+            f"            -Dsonar.projectKey={sonar_config.project_key}",
+            f"            -Dsonar.organization={sonar_config.organization}",
+        ]
+
+    lines = [
+        guard,
+        "        name: SonarQube Scan",
+        "        uses: SonarSource/sonarqube-scan-action@v4",
+        "        env:",
+        "          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}",
+        "        with:",
+        "          args: >",
+        f"            -Dsonar.projectKey={sonar_config.project_key}",
+        f"            -Dsonar.host.url={sonar_config.host_url}",
+    ]
+    if sonar_config.organization:
+        lines.append(f"            -Dsonar.organization={sonar_config.organization}")
+    return lines
+
+
+def _render_azure_sonar_steps(sonar_config: SonarCicdConfig) -> list[str]:
+    service_connection = sonar_config.service_connection or "$(SONAR_SERVICE_CONNECTION)"
+    if sonar_config.is_sonarcloud:
+        return [
+            "- task: SonarCloudPrepare@3",
+            "  inputs:",
+            f"    SonarCloud: '{service_connection}'",
+            "    scannerMode: 'CLI'",
+            "    configMode: 'manual'",
+            f"    organization: '{sonar_config.organization}'",
+            f"    cliProjectKey: '{sonar_config.project_key}'",
+            "    cliSources: '.'",
+            "- task: SonarCloudAnalyze@3",
+            "- task: SonarCloudPublish@3",
+            "  inputs:",
+            "    pollingTimeoutSec: '300'",
+        ]
+
+    lines = [
+        "- task: SonarQubePrepare@7",
+        "  inputs:",
+        f"    SonarQube: '{service_connection}'",
+        "    scannerMode: 'cli'",
+        "    configMode: 'manual'",
+        f"    cliProjectKey: '{sonar_config.project_key}'",
+        "    cliSources: '.'",
+        "    extraProperties: |",
+        f"      sonar.host.url={sonar_config.host_url}",
+    ]
+    if sonar_config.organization:
+        lines.append(f"      sonar.organization={sonar_config.organization}")
+    lines.extend(
+        [
+            "- task: SonarQubeAnalyze@7",
+            "- task: SonarQubePublish@7",
+            "  inputs:",
+            "    pollingTimeoutSec: '300'",
+        ]
+    )
+    return lines

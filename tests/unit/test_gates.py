@@ -26,6 +26,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from ai_engineering.credentials.models import ToolsState
 from ai_engineering.policy.gates import (
     _PRE_PUSH_CHECKS,
     CheckConfig,
@@ -33,6 +34,7 @@ from ai_engineering.policy.gates import (
     GateResult,
     _check_expired_risk_acceptances,
     _check_expiring_risk_acceptances,
+    _check_sonar_gate,
     _get_active_stacks,
     _run_checks_for_stacks,
     _run_pre_push_checks,
@@ -863,3 +865,90 @@ class TestSelectiveScopePrePush:
         assert "tests/unit/test_hooks.py" not in stack_cmd
         diagnostic = next(c for c in result.checks if c.name == "test-scope")
         assert "scope_computation_failed" in diagnostic.output
+
+
+class TestSonarGateAdvisory:
+    """Tests for advisory Sonar pre-push gate behavior."""
+
+    def test_skips_when_scanner_missing(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        result = GateResult(hook=GateHook.PRE_PUSH)
+        monkeypatch.setattr("ai_engineering.policy.gates.shutil.which", lambda _: None)
+        _check_sonar_gate(tmp_path, result)
+        assert result.checks[-1].passed is True
+        assert "skipped" in result.checks[-1].output.lower()
+
+    def test_skips_when_no_properties_file(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        result = GateResult(hook=GateHook.PRE_PUSH)
+        monkeypatch.setattr("ai_engineering.policy.gates.shutil.which", lambda _: "/usr/bin/sonar")
+        _check_sonar_gate(tmp_path, result)
+        assert result.checks[-1].passed is True
+        assert "sonar-project.properties" in result.checks[-1].output
+
+    def test_skips_when_no_token_and_not_configured(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        result = GateResult(hook=GateHook.PRE_PUSH)
+        (tmp_path / "sonar-project.properties").write_text("sonar.projectKey=x\n", encoding="utf-8")
+        monkeypatch.delenv("SONAR_TOKEN", raising=False)
+        monkeypatch.setattr("ai_engineering.policy.gates.shutil.which", lambda _: "/usr/bin/sonar")
+        monkeypatch.setattr(
+            "ai_engineering.policy.gates.CredentialService.load_tools_state",
+            lambda *_: ToolsState(),
+        )
+        _check_sonar_gate(tmp_path, result)
+        assert result.checks[-1].passed is True
+        assert "not configured" in result.checks[-1].output.lower()
+
+    def test_skips_when_subprocess_missing_after_check(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        result = GateResult(hook=GateHook.PRE_PUSH)
+        (tmp_path / "sonar-project.properties").write_text("sonar.projectKey=x\n", encoding="utf-8")
+        monkeypatch.setenv("SONAR_TOKEN", "token")
+        monkeypatch.setattr("ai_engineering.policy.gates.shutil.which", lambda _: "/usr/bin/sonar")
+        monkeypatch.setattr(
+            "ai_engineering.policy.gates.subprocess.run",
+            lambda *_, **__: (_ for _ in ()).throw(FileNotFoundError()),
+        )
+        _check_sonar_gate(tmp_path, result)
+        assert result.checks[-1].passed is True
+        assert "skipped" in result.checks[-1].output.lower()
+
+    def test_scanner_failure_is_advisory(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        result = GateResult(hook=GateHook.PRE_PUSH)
+        (tmp_path / "sonar-project.properties").write_text("sonar.projectKey=x\n", encoding="utf-8")
+        monkeypatch.setenv("SONAR_TOKEN", "token")
+        monkeypatch.setattr("ai_engineering.policy.gates.shutil.which", lambda _: "/usr/bin/sonar")
+
+        proc = MagicMock()
+        proc.returncode = 1
+        proc.stdout = ""
+        proc.stderr = "quality gate failed"
+        monkeypatch.setattr("ai_engineering.policy.gates.subprocess.run", lambda *_, **__: proc)
+
+        _check_sonar_gate(tmp_path, result)
+        assert result.checks[-1].passed is True
+        assert "advisory" in result.checks[-1].output.lower()
+        assert "failed" in result.checks[-1].output.lower()
+
+    def test_scanner_success_passes(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+        result = GateResult(hook=GateHook.PRE_PUSH)
+        (tmp_path / "sonar-project.properties").write_text("sonar.projectKey=x\n", encoding="utf-8")
+        monkeypatch.setenv("SONAR_TOKEN", "token")
+        monkeypatch.setattr("ai_engineering.policy.gates.shutil.which", lambda _: "/usr/bin/sonar")
+
+        proc = MagicMock()
+        proc.returncode = 0
+        proc.stdout = "Sonar gate passed"
+        proc.stderr = ""
+        monkeypatch.setattr("ai_engineering.policy.gates.subprocess.run", lambda *_, **__: proc)
+
+        _check_sonar_gate(tmp_path, result)
+        assert result.checks[-1].passed is True
+        assert "passed" in result.checks[-1].output.lower()

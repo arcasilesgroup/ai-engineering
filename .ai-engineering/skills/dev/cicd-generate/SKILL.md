@@ -39,7 +39,10 @@ Generate stack-aware CI/CD workflow files (GitHub Actions, Azure Pipelines) base
    - Jobs/stages: lint → build → test → security.
    - Common checks run once (gitleaks, semgrep).
    - Stack-specific checks run per matrix entry / stage.
-   - Coverage upload as artifact.
+    - Coverage upload as artifact.
+    - If Sonar is configured (`ai-eng setup sonar` with project key), include Sonar analysis in primary `ci.yml`.
+      - GitHub: SonarCloud/SonarQube scan action based on configured host URL.
+      - Azure: SonarCloud/SonarQube Prepare/Analyze/Publish tasks with service-connection fallback.
 
 3b. **Generate deployment configuration** (if applicable) — create platform-specific deploy config.
    - **Railway**: `railway.toml` with build/start commands, health checks.
@@ -86,6 +89,7 @@ Generate stack-aware CI/CD workflow files (GitHub Actions, Azure Pipelines) base
 - The skill does not push or commit workflow files — it generates them for review.
 - Workflows must replicate all local gate checks per `standards/framework/cicd/core.md`.
 - Secret values (API keys, tokens) must use GitHub Actions secrets, never hardcoded.
+- Create-only caveat: existing workflow files are preserved; if already present, use injector snippets or manual edits.
 
 ### Post-Action Validation
 

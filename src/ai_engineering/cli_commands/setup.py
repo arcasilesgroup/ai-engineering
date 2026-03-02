@@ -215,6 +215,10 @@ def setup_sonar_cmd(
         str,
         typer.Option("--project-key", "-k", help="Sonar project key."),
     ] = "",
+    organization: Annotated[
+        str,
+        typer.Option("--organization", "-o", help="Sonar organization (SonarCloud)."),
+    ] = "",
 ) -> None:
     """Configure SonarCloud / SonarQube credentials."""
     if is_json_mode():
@@ -226,7 +230,12 @@ def setup_sonar_cmd(
         )
         return
     root = resolve_project_root(target)
-    _run_sonar_setup(root, url_override=url or None, project_key_override=project_key or None)
+    _run_sonar_setup(
+        root,
+        url_override=url or None,
+        project_key_override=project_key or None,
+        organization_override=organization or None,
+    )
 
 
 def _run_sonar_setup(
@@ -234,6 +243,7 @@ def _run_sonar_setup(
     *,
     url_override: str | None = None,
     project_key_override: str | None = None,
+    organization_override: str | None = None,
 ) -> None:
     """Execute the Sonar setup flow."""
     from ai_engineering.platforms.sonar import SONARCLOUD_URL, SonarSetup
@@ -274,6 +284,7 @@ def _run_sonar_setup(
 
     # 6. Get project key.
     project_key = project_key_override or _read_sonar_project_key(root) or ""
+    organization = organization_override or _read_sonar_organization(root) or ""
 
     # 7. Update tools.json state.
     state = cred_svc.load_tools_state(_state_dir(root))
@@ -281,6 +292,7 @@ def _run_sonar_setup(
         configured=True,
         url=url,
         project_key=project_key,
+        organization=organization,
         credential_ref=CredentialRef(
             service_name=cred_svc.service_name("sonar"),
             username="token",
@@ -313,6 +325,20 @@ def _read_sonar_project_key(root: Path) -> str:
     try:
         for line in props_file.read_text(encoding="utf-8").splitlines():
             if line.startswith("sonar.projectKey="):
+                return line.split("=", 1)[1].strip()
+    except OSError:
+        pass
+    return ""
+
+
+def _read_sonar_organization(root: Path) -> str:
+    """Read Sonar organization from ``sonar-project.properties`` if present."""
+    props_file = root / "sonar-project.properties"
+    if not props_file.is_file():
+        return ""
+    try:
+        for line in props_file.read_text(encoding="utf-8").splitlines():
+            if line.startswith("sonar.organization="):
                 return line.split("=", 1)[1].strip()
     except OSError:
         pass
