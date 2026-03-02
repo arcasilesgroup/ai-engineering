@@ -34,6 +34,24 @@ class VcsContext:
     target_branch: str = "main"
 
 
+@dataclass(frozen=True)
+class CreateTagContext:
+    """Context for creating a tag reference in a provider."""
+
+    project_root: Path
+    tag_name: str
+    commit_sha: str
+
+
+@dataclass(frozen=True)
+class PipelineStatusContext:
+    """Context for querying release pipeline status for a commit."""
+
+    project_root: Path
+    head_sha: str
+    workflow_name: str = "Release"
+
+
 @dataclass
 class VcsResult:
     """Outcome of a VCS operation.
@@ -134,4 +152,12 @@ class VcsProvider(Protocol):
         Returns:
             VcsResult for the review operation.
         """
+        ...  # pragma: no cover
+
+    def create_tag(self, ctx: CreateTagContext) -> VcsResult:
+        """Create a tag reference for a commit SHA."""
+        ...  # pragma: no cover
+
+    def get_pipeline_status(self, ctx: PipelineStatusContext) -> VcsResult:
+        """Return pipeline/workflow status for a commit SHA."""
         ...  # pragma: no cover

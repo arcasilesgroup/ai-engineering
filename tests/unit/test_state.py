@@ -35,6 +35,7 @@ from ai_engineering.state.models import (
     NextjsTooling,
     OwnershipLevel,
     OwnershipMap,
+    ReleaseInfo,
     SonarCicdConfig,
     SourcesLock,
     ToolingReadiness,
@@ -54,6 +55,8 @@ class TestInstallManifest:
         assert manifest.schema_version == "1.1"
         assert manifest.installed_stacks == []
         assert manifest.installed_ides == []
+        assert isinstance(manifest.release, ReleaseInfo)
+        assert manifest.release.last_version == ""
 
     def test_roundtrip_from_json(self) -> None:
         raw = {

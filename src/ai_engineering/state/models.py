@@ -235,6 +235,15 @@ class OperationalReadiness(BaseModel):
     model_config = {"populate_by_name": True}
 
 
+class ReleaseInfo(BaseModel):
+    """Last known release metadata for this installation."""
+
+    last_version: str = Field(default="", alias="lastVersion")
+    last_released_at: datetime | None = Field(default=None, alias="lastReleasedAt")
+
+    model_config = {"populate_by_name": True}
+
+
 class InstallManifest(BaseModel):
     """Installation manifest for the ai-engineering framework.
 
@@ -263,6 +272,7 @@ class InstallManifest(BaseModel):
         default_factory=OperationalReadiness,
         alias="operationalReadiness",
     )
+    release: ReleaseInfo = Field(default_factory=ReleaseInfo)
 
     model_config = {"populate_by_name": True}
 

@@ -5,7 +5,12 @@ Used when provider CLI tools are unavailable or blocked.
 
 from __future__ import annotations
 
-from ai_engineering.vcs.protocol import VcsContext, VcsResult
+from ai_engineering.vcs.protocol import (
+    CreateTagContext,
+    PipelineStatusContext,
+    VcsContext,
+    VcsResult,
+)
 
 
 class ApiFallbackProvider:
@@ -58,4 +63,18 @@ class ApiFallbackProvider:
         return VcsResult(
             success=False,
             output=f"{self._provider} API fallback active: PR review posting not automated",
+        )
+
+    def create_tag(self, ctx: CreateTagContext) -> VcsResult:
+        del ctx
+        return VcsResult(
+            success=False,
+            output=f"{self._provider} API fallback active: tag creation not automated",
+        )
+
+    def get_pipeline_status(self, ctx: PipelineStatusContext) -> VcsResult:
+        del ctx
+        return VcsResult(
+            success=False,
+            output=f"{self._provider} API fallback active: pipeline status not automated",
         )
