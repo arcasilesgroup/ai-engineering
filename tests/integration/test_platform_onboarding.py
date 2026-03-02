@@ -27,6 +27,8 @@ from ai_engineering.credentials.service import CredentialService
 from ai_engineering.doctor.service import CheckStatus, DoctorReport, check_platforms
 from ai_engineering.platforms.detector import detect_platforms
 
+pytestmark = pytest.mark.integration
+
 # ---------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------

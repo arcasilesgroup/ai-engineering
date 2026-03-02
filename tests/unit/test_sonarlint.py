@@ -33,6 +33,8 @@ from ai_engineering.platforms.sonarlint import (
     detect_ide_families,
 )
 
+pytestmark = pytest.mark.unit
+
 # ------------------------------------------------------------------
 # Constants
 # ------------------------------------------------------------------
