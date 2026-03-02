@@ -15,22 +15,22 @@ Before non-trivial work:
 
 Path: `.ai-engineering/skills/<name>/SKILL.md` (flat organization)
 
-| Skills (alphabetical) |
-|-----------------------|
+| Skills (alphabetical)                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | a11y, agent-card, agent-lifecycle, api, arch-review, audit, changelog, cicd, cleanup, cli, code-review, commit, compliance, data-model, db, debug, deps, discover, docs, docs-audit, explain, improve, infra, install, integrity, migrate, multi-agent, ownership, perf-review, pr, prompt, refactor, release, risk, sbom, sec-deep, sec-review, simplify, skill-lifecycle, sonar, spec, standards, test-gap, test-plan, test-run, triage, work-item |
 
 ## Agents (6)
 
 Path: `.ai-engineering/agents/<name>.md`
 
-| Agent | Purpose | Scope |
-|-------|---------|-------|
-| plan | Orchestration, planning pipeline, dispatch, work-item sync | read-write |
-| build | Implementation across all stacks (ONLY code write agent) | read-write |
+| Agent  | Purpose                                                       | Scope                        |
+| ------ | ------------------------------------------------------------- | ---------------------------- |
+| plan   | Orchestration, planning pipeline, dispatch, work-item sync    | read-write                   |
+| build  | Implementation across all stacks (ONLY code write agent)      | read-write                   |
 | review | All reviews, security, quality, governance (individual modes) | read-write (work items only) |
-| scan | Spec-vs-code gap analysis, architecture drift detection | read-write (work items only) |
-| write | Documentation, changelogs, explanations | read-write (docs only) |
-| triage | Auto-prioritize work items, backlog grooming | read-write (work items only) |
+| scan   | Spec-vs-code gap analysis, architecture drift detection       | read-write (work items only) |
+| write  | Documentation, changelogs, explanations                       | read-write (docs only)       |
+| triage | Auto-prioritize work items, backlog grooming                  | read-write (work items only) |
 
 ## Command Contract
 
