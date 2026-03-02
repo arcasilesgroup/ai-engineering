@@ -4,7 +4,7 @@ Before executing, verify these preconditions:
 2. Working tree has staged or unstaged changes (abort if nothing to commit).
 3. Active spec is read from `.ai-engineering/context/specs/_active.md`.
 
-`/acho` is an alias. Read and execute `.ai-engineering/skills/workflows/commit/SKILL.md` for default flow, or `.ai-engineering/skills/workflows/pr/SKILL.md` if argument is `pr`.
+`/acho` is an alias. Read and execute `.ai-engineering/skills/commit/SKILL.md` for default flow, or `.ai-engineering/skills/pr/SKILL.md` if argument is `pr`.
 
 Arguments: no arguments = `/commit` flow. `pr` = `/pr` flow.
 

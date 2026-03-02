@@ -1,0 +1,146 @@
+---
+name: pr
+description: "Execute governed PR workflow: conditional spec reset, stage, commit, push, create pull request with auto-complete squash merge."
+version: 2.0.0
+tags: [git, pull-request, ci, merge]
+metadata:
+  ai-engineering:
+    requires:
+      bins: [gitleaks, ruff, gh]
+    scope: read-write
+    token_estimate: 1400
+---
+
+# PR Workflow
+
+## Purpose
+
+Execute the `/pr` governed workflow: conditionally run spec reset, stage, commit, push, create a pull request, and enable auto-complete with squash merge and branch deletion. The `--only` variant creates the PR without spec reset, staging, committing, or pushing first.
+
+## Trigger
+
+- Command: `/pr` or `/pr --only`
+- Context: user requests creating a pull request with governance enforcement.
+
+## When NOT to Use
+
+- **Commit-only without PR** — use `/commit --only` instead. PR always creates a pull request.
+- **Quick push without PR** — use `/acho` instead for push-only behavior.
+- **Draft explorations** (not ready for review) — use `/commit` to push to branch first, then `/pr` when ready.
+
+## Procedure
+
+### `/pr` (default: conditional spec reset + stage + commit + push + create PR + auto-complete)
+
+0. **Spec reset** (conditional) — run `uv run ai-eng maintenance spec-reset --dry-run`.
+   - If a completed active spec is detected: run `uv run ai-eng maintenance spec-reset` and report the summary.
+   - If there is no active spec or the active spec is in progress: skip silently.
+   - If spec reset fails: report the error and stop.
+   - This ensures archived specs and cleared `_active.md` are staged with the PR and reach origin when the PR merges.
+1. **Stage changes** — `git add -A` (or selective staging).
+2. **Run formatter** — `ruff format .` to auto-fix formatting.
+3. **Run linter** — `ruff check . --fix`. If unfixable issues remain, report and stop.
+4. **Run secret detection** — `gitleaks protect --staged --no-banner`. If secrets found, report and stop.
+5. **Documentation gate** — evaluate and update documentation for OSS GitHub users.
+   a. Analyze staged changes and classify documentation scope:
+      - **CHANGELOG + README**: new features, breaking changes, new CLI commands, skill/agent additions or removals, config schema changes, architecture changes visible to users.
+      - **CHANGELOG only**: any other functional change — src/ modifications, API changes, dependency bumps with behavioral impact, governance surface changes, workflow behavior changes.
+      - **No updates needed**: changes with zero functional impact — typo fixes in comments, whitespace-only changes, test-only additions that don't change public behavior, CI config formatting. Log: "Documentation gate evaluated — no functional changes detected."
+   b. Update **CHANGELOG.md** (when scope requires it):
+      - If `CHANGELOG.md` exists: add entries to `[Unreleased]` section per `skills/changelog/SKILL.md` format. Stage the updated file.
+      - If `CHANGELOG.md` does NOT exist: create it following Keep a Changelog format. Stage the new file.
+   c. Update **README.md** (when scope includes README):
+      - If `README.md` exists AND changes include new features, breaking changes, new CLI commands, or skill catalog changes: update relevant sections. Stage the updated file.
+      - If `README.md` does NOT exist AND changes are non-trivial: create it targeting OSS GitHub audience. Stage the new file.
+   d. **External documentation portal**:
+      - Ask: "Do you have an external documentation portal (docs site, wiki, separate repo)? Provide the repo URL, or 'skip'."
+      - If URL provided: clone, branch, update, commit + push + create PR with auto-complete, report URL.
+      - If 'skip': continue without external docs.
+6. **Run pre-push checks** — execute full pre-push gate:
+   - `semgrep scan --config auto .`
+   - `pip-audit`
+   - `pytest tests/ -v`
+   - `ty check src/`
+   If any check fails, report and stop.
+7. **Commit** — `git commit -m "<message>"` with well-formed message.
+   - If active spec exists: `spec-NNN: Task X.Y — <description>`.
+   - Otherwise: conventional commit format.
+8. **Push** — `git push origin <current-branch>`.
+   - If current branch is `main`/`master`, **block** and report protected branch violation.
+9. **Create PR** — `gh pr create --fill` (or with explicit title/body if provided).
+10. **Enable auto-complete** — `gh pr merge --auto --squash --delete-branch`.
+
+### `/pr --only` (create PR only)
+
+Spec reset is intentionally excluded from `--only` because this mode does not stage/commit/push changes.
+
+1. **Check branch status** — verify current branch is pushed to remote.
+   - If NOT pushed: emit warning and propose auto-push.
+   - If user accepts: `git push origin <current-branch>`, then continue.
+   - If user declines: continue with selected PR handling mode (defer-pr, attempt-pr-anyway, export-pr-payload).
+2. **Create PR** — `gh pr create --fill`.
+3. **Enable auto-complete** — `gh pr merge --auto --squash --delete-branch`.
+
+## Output Contract
+
+- Terminal output showing each step's result (pass/fail).
+- On success: PR URL displayed with auto-complete status confirmed.
+- On failure: specific check that failed with remediation guidance.
+- PR includes: title, description, breaking changes (if any), linked spec/task.
+
+## Governance Notes
+
+- Protected branch push is always blocked. No exceptions.
+- All pre-push checks (semgrep, pip-audit, pytest, ty) must pass before PR creation.
+- Auto-complete with squash merge and branch deletion is mandatory — never skip.
+- `gh` CLI must be installed and authenticated. If not, attempt remediation: install `gh`, then `gh auth login`.
+- Secret detection failure is a hard stop.
+- `/pr --only` never hard-fails on unpushed branch — it warns and offers continuation modes.
+- Spec reset runs only in `/pr` default flow and only when the active spec is complete.
+
+## PR Structure and Formatting
+
+When creating the PR:
+
+1. **Title** — concise, descriptive, prefixed with type.
+   - Format: `type(scope): description` or `spec-NNN: Task X.Y — description`.
+   - Types: `feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `ci`.
+   - Max 72 characters.
+
+2. **Description** — structured body with context.
+   - **What**: summarize the changes in 2-3 sentences.
+   - **Why**: link to spec, task, or issue. Explain the motivation.
+   - **How**: key implementation decisions and trade-offs.
+   - **Breaking changes**: list any API or behavior changes that affect consumers.
+
+3. **Checklist** — self-review before requesting review.
+   - [ ] Code follows `standards/framework/stacks/python.md`.
+   - [ ] Tests added/updated for new behavior.
+   - [ ] `ruff check` and `ruff format --check` pass.
+   - [ ] `ty check src/` passes.
+   - [ ] `pytest` passes with 100% coverage.
+   - [ ] No secrets in committed code.
+   - [ ] CHANGELOG.md updated for user-visible changes.
+   - [ ] README.md updated for new features/breaking changes (if applicable).
+   - [ ] External docs PR created (if applicable).
+   - [ ] Breaking changes documented (if any).
+
+4. **Labels and metadata** — tag appropriately.
+   - Size labels if applicable (S/M/L/XL).
+   - Area labels (state, installer, hooks, doctor, etc.).
+   - Link to spec task if part of governed workflow.
+
+5. **Review assignment** — identify reviewers.
+   - Auto-assign if CODEOWNERS configured.
+   - Tag relevant domain experts for complex changes.
+
+## References
+
+- `standards/framework/core.md` — non-negotiables and enforcement rules.
+- `standards/framework/quality/core.md` — gate structure (pre-push + PR gates).
+- `skills/commit/SKILL.md` — shared pre-commit steps.
+- `skills/acho/SKILL.md` — alias workflow.
+- `skills/cleanup/SKILL.md` — repository hygiene workflow; spec reset moved from `/cleanup` to `/pr`.
+- `skills/changelog/SKILL.md` — changelog entry formatting (used by documentation gate).
+- `skills/docs/SKILL.md` — README and documentation update procedure for OSS GitHub users (used by documentation gate).
+- `agents/review.md` — agent that validates PR workflow execution.

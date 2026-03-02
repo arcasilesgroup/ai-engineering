@@ -13,25 +13,29 @@ metadata:
 
 governance_surface:
   agents:
-    total: 19
-    categories:
-      [
-        analysis,
-        review,
-        orchestration,
-        docs,
-        governance,
-        delivery,
-        verification,
-        testing,
-      ]
+    total: 6
+    names: [plan, build, review, scan, write, triage]
   skills:
-    total: 50
-    category_count: 6
-    categories: [workflows, dev, review, docs, govern, quality]
+    total: 47
+    organization: flat
+    prefix: "ai:"
   integrity:
     patterns_category_present: false
     orphan_skills: 0
+
+work_items:
+  enabled: false
+  primary: "github-issues"
+  sources:
+    - type: "github-issues"
+      labels_ready: ["ready", "agent-ready"]
+    - type: "azure-boards"
+      project: null
+      query_ready: "[System.Tags] CONTAINS 'agent-ready'"
+  sync:
+    spec_to_work_item: true
+    work_item_to_spec: true
+    auto_transition: false
 
 ownership:
   root: ".ai-engineering"

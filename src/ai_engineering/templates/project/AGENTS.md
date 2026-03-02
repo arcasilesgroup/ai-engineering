@@ -25,46 +25,28 @@ Mandatory. Skipping risks stale code, repeated decisions, or merge conflicts.
 4. **Code Citing** — Use `startLine:endLine:filepath` format. Never output code unless requested. Use `// ... existing code ...` for omissions.
 5. **Proactive Memory** — Read/write `state/decision-store.json` to persist learnings and avoid repeated questions.
 
-## Skills (44)
+## Skills (47)
 
-Path: `.ai-engineering/skills/<category>/<name>/SKILL.md`
+Path: `.ai-engineering/skills/<name>/SKILL.md` (flat organization, no category subdirectories)
 
-| Category | Count | Skills |
-|----------|-------|--------|
-| workflows | 4 | commit, pr, cleanup, self-improve |
-| dev | 16 | debug, refactor, code-review, data-modeling, test-runner, test-strategy, migration, deps-update, cicd-generate, cli-ux, multi-agent, api-design, infrastructure, database-ops, sonar-gate, discovery-interrogation |
-| review | 5 | architecture, performance, security, specialized-security, accessibility |
-| docs | 5 | changelog, explain, writer, simplify, prompt-design |
-| govern | 8 | integrity-check, contract-compliance, ownership-audit, adaptive-standards, create-spec, agent-lifecycle, skill-lifecycle, risk-lifecycle |
-| quality | 6 | audit-code, docs-audit, install-check, release-gate, test-gap-analysis, sbom |
+| Skills (alphabetical) |
+|-----------------------|
+| a11y, agent-card, agent-lifecycle, api, arch-review, audit, changelog, cicd, cleanup, cli, code-review, commit, compliance, data-model, db, debug, deps, discover, docs, docs-audit, explain, improve, infra, install, integrity, migrate, multi-agent, ownership, perf-review, pr, prompt, refactor, release, risk, sbom, sec-deep, sec-review, simplify, skill-lifecycle, sonar, spec, standards, test-gap, test-plan, test-run, triage, work-item |
 
-## Agents (19)
+## Agents (6)
 
 Path: `.ai-engineering/agents/<name>.md`
 
-| Agent | Purpose |
-|-------|---------|
-| principal-engineer | Code review |
-| debugger | Bug diagnosis |
-| architect | Architecture analysis |
-| quality-auditor | Quality gate enforcement |
-| security-reviewer | Security assessment |
-| orchestrator | Multi-phase execution |
-| navigator | Strategic spec analysis |
-| devops-engineer | CI/CD automation |
-| test-master | Testing specialist |
-| docs-writer | Documentation |
-| governance-steward | Governance lifecycle |
-| pr-reviewer | Headless CI review |
-| code-simplifier | Complexity reduction |
-| platform-auditor | Full-spectrum audit |
-| verify-app | E2E verification |
-| infrastructure-engineer | IaC provisioning |
-| database-engineer | Database engineering |
-| frontend-specialist | Frontend/UI architecture |
-| api-designer | Contract-first API design |
+| Agent | Purpose | Scope |
+|-------|---------|-------|
+| plan | Orchestration, planning pipeline, dispatch, work-item sync | read-write |
+| build | Implementation across all stacks (ONLY code write agent) | read-write |
+| review | All reviews, security, quality, governance (individual modes) | read-only |
+| scan | Spec-vs-code gap analysis, architecture drift detection | read-only |
+| write | Documentation, changelogs, explanations | read-write (docs only) |
+| triage | Auto-prioritize work items, backlog grooming | read-write (work items only) |
 
-Slash commands: see `CLAUDE.md`.
+Slash commands: `/ai:<name>` for all skills and agents. Also: `/commit`, `/pr`, `/acho`, `/cleanup`.
 
 ## Lifecycle
 
