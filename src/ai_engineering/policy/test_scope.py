@@ -107,11 +107,27 @@ TEST_SCOPE_RULES: list[ScopeRule] = [
         name="cli_commands",
         source_globs=["src/ai_engineering/cli_commands/**/*.py"],
         tiers={
-            "unit": ["tests/unit/test_setup_cli.py"],
+            "unit": [
+                "tests/unit/test_setup_cli.py",
+                "tests/unit/test_release_cli.py",
+            ],
             "integration": [
                 "tests/integration/test_cli_command_modules.py",
                 "tests/integration/test_cli_install_doctor.py",
             ],
+            "e2e": [],
+        },
+    ),
+    ScopeRule(
+        name="release",
+        source_globs=["src/ai_engineering/release/**/*.py"],
+        tiers={
+            "unit": [
+                "tests/unit/test_release_orchestrator.py",
+                "tests/unit/test_version_bump.py",
+                "tests/unit/test_changelog_parser.py",
+            ],
+            "integration": [],
             "e2e": [],
         },
     ),
