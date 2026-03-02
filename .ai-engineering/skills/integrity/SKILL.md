@@ -1,0 +1,183 @@
+---
+name: integrity
+description: "Validate governance content integrity: cross-references, mirrors, counters, frontmatter, manifest."
+version: 1.0.0
+tags: [governance, integrity, validation, cross-reference]
+metadata:
+  ai-engineering:
+    scope: read-only
+    token_estimate: 2200
+---
+
+# Content Integrity
+
+## Purpose
+
+Validation skill that checks the integrity of all governance content in `.ai-engineering/`. Detects broken cross-references, mirror desync, counter mismatches, instruction file inconsistencies, and orphaned files. Designed to run after any governance content change and as a pre-merge gate.
+
+## Trigger
+
+- Command: agent invokes integrity-check skill after modifying governance content.
+- Context: after creating, deleting, renaming, or moving any file in `.ai-engineering/`.
+- Automatic: as part of verify-app agent behavior and session close actions.
+- Pre-merge: before any PR that touches `.ai-engineering/` content.
+
+## When NOT to Use
+
+- **Contract clause-by-clause validation** — use `govern:contract-compliance` instead. Integrity-check validates structural consistency; contract-compliance validates behavioral compliance.
+- **Ownership boundary enforcement** — use `govern:ownership-audit` instead for updater safety and decision-store schema checks.
+- **Code quality metrics** (coverage, complexity, duplication) — use `quality:audit-code` instead.
+- **Source code changes outside `.ai-engineering/`** — integrity-check only validates governance content, not application code.
+
+## Procedure
+
+### Category 1: File Existence
+
+1. **Verify all referenced files exist** — scan all governance files for internal path references.
+   - Parse all `.md` files in `.ai-engineering/` for paths matching `skills/`, `agents/`, `standards/`, `context/`.
+   - For each referenced path, verify the file exists at `.ai-engineering/<path>`.
+   - Report any references to non-existent files as BROKEN.
+
+2. **Verify spec directory completeness** — for each spec directory in `context/specs/`:
+   - Must contain at least: `spec.md`, `plan.md`, `tasks.md`.
+   - Active spec (per `_active.md`) must NOT have `done.md` unless status is closed.
+   - Completed specs should have `done.md`.
+
+### Category 2: Mirror Sync
+
+3. **Enumerate canonical/mirror pairs** — build the list of all files that must be mirrored.
+   - Canonical root: `.ai-engineering/`
+   - Mirror root: `src/ai_engineering/templates/.ai-engineering/`
+   - Scope: `skills/**/*.md`, `agents/**/*.md`, `standards/framework/**/*.md`
+   - Exclusions: `context/**`, `state/**`, `standards/team/**` (not mirrored).
+   - Additional mirror pair: `.claude/commands/**` -> `src/ai_engineering/templates/project/.claude/commands/**` (slash command wrappers).
+
+4. **Compare each pair** — verify byte-identical content.
+   - Use file hash comparison (SHA-256).
+   - Report any mismatches with both paths.
+   - Report any canonical files missing their mirror.
+   - Report any mirror files without a canonical source (orphaned mirrors).
+
+### Category 3: Counter Accuracy
+
+5. **Count skills in instruction files** — count the skill entries listed in `.github/copilot-instructions.md` under `## Skills`.
+   - Count each `- \`.ai-engineering/skills/` line.
+   - Verify count matches ALL 7 instruction files (must be identical).
+
+6. **Count agents in instruction files** — count the agent entries listed under `## Agents`.
+   - Count each `- \`.ai-engineering/agents/` line.
+   - Verify count matches ALL 7 instruction files (must be identical).
+
+7. **Verify product-contract counters** — compare instruction file counts against `product-contract.md`.
+   - Active Objectives line must contain the correct skill and agent counts.
+   - KPIs table `Agent coverage` row must match.
+   - Report any mismatches.
+
+### Category 4: Cross-Reference Integrity
+
+8. **Verify skill references** — for each skill file, check that its `## References` section contains only valid paths.
+   - Each referenced path must correspond to an existing file.
+   - Referenced skills/agents must reciprocally reference this skill (bidirectional check).
+
+9. **Verify agent references** — for each agent file, check `## Referenced Skills` and `## Referenced Standards`.
+   - Each referenced skill must exist.
+   - Each referenced standard must exist.
+   - Referenced skills should reference the agent in their own `## References`.
+
+### Category 5: Instruction File Consistency
+
+10. **Verify all 7 instruction files are consistent** — compare skill and agent listings across all 7 files.
+    - Extract the `## Skills` section from each file.
+    - Extract the `## Agents` section from each file.
+    - All 7 files must list identical skills and agents (same entries, same descriptions).
+    - Report any file that differs from the others.
+
+11. **Verify subsection structure** — each instruction file must have these subsections under `## Skills`:
+    - `### Workflows` — workflow skills.
+    - `### Dev Skills` — development skills.
+    - `### Review Skills` — review and assessment skills.
+    - `### Docs Skills` — documentation skills.
+    - `### Govern Skills` — governance skills.
+    - `### Quality Skills` — quality audit skills.
+    - `### Pattern Skills` — pattern and reference skills.
+    - Report missing subsections.
+
+### Category 6: Manifest Coherence
+
+12. **Verify manifest.yml paths** — check that ownership model paths in `manifest.yml` match actual directory structure.
+    - `framework_managed` globs must match existing directories.
+    - `team_managed` globs must match existing directories.
+    - `project_managed` globs must match existing directories.
+
+13. **Verify _active.md consistency** — the active spec pointer must be valid.
+    - The spec directory referenced in `_active.md` must exist.
+    - The `spec.md` file must exist in that directory.
+    - If `tasks.md` exists, frontmatter should be parseable.
+
+### Category 7: Skill Frontmatter Validation
+
+14. **Verify all skills have YAML frontmatter** — each `SKILL.md` file in `skills/**/` must start with a `---` YAML frontmatter block.
+    - Required fields: `name` (string, kebab-case), `description` (string), `version` (string, semver), `category` (string, matching parent category directory).
+    - Optional fields: `tags` (array of strings), `metadata.ai-engineering.requires.bins`, `metadata.ai-engineering.requires.anyBins`, `metadata.ai-engineering.requires.env`, `metadata.ai-engineering.requires.config` (all arrays of strings), `metadata.ai-engineering.os` (array of platform strings).
+    - `name` must match the directory name.
+    - `category` must match the category directory name.
+    - Report any skill missing frontmatter or with invalid field values.
+
+## Output Contract
+
+Structured report with 7 categories, each showing:
+
+```
+## Content Integrity Report
+
+### Category 1: File Existence
+- Status: PASS | FAIL
+- Issues: [list of broken references]
+
+### Category 2: Mirror Sync
+- Status: PASS | FAIL
+- Pairs checked: N
+- Issues: [list of mismatches/orphans]
+
+### Category 3: Counter Accuracy
+- Status: PASS | FAIL
+- Skills: N (instruction) vs M (product-contract)
+- Agents: N (instruction) vs M (product-contract)
+
+### Category 4: Cross-Reference Integrity
+- Status: PASS | FAIL
+- Issues: [list of broken/missing refs]
+
+### Category 5: Instruction File Consistency
+- Status: PASS | FAIL
+- Issues: [list of inconsistencies]
+
+### Category 6: Manifest Coherence
+- Status: PASS | FAIL
+- Issues: [list of mismatches]
+
+### Category 7: Skill Frontmatter
+- Status: PASS | FAIL
+- Skills checked: N
+- Issues: [list of missing/invalid frontmatter]
+
+### Overall: PASS | FAIL (N/7 categories passed)
+```
+
+## Governance Notes
+
+- Content integrity validation is a governance requirement — it must run after any `.ai-engineering/` content change.
+- This skill is the "test suite" for governance content — equivalent to unit tests for code.
+- Results are informational, not blocking (content-first principle, D4/D7 from spec-003).
+- Agents should self-invoke this skill at session close when governance content was modified.
+- The verify-app agent includes content integrity as a behavior step.
+- All 7 categories must PASS for a governance change to be considered complete.
+
+## References
+
+- `skills/govern/skill-lifecycle/SKILL.md` — skill create/delete lifecycle (validates creation and deletion correctness).
+- `skills/govern/agent-lifecycle/SKILL.md` — agent create/delete lifecycle (validates creation and deletion correctness).
+- `skills/govern/create-spec/SKILL.md` — spec creation procedure (validates spec structure).
+- `agents/verify-app.md` — agent that includes content integrity in verification.
+- `standards/framework/core.md` — content integrity enforcement rules.
+- `context/product/framework-contract.md` — template packaging and replication rule.
