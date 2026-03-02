@@ -36,17 +36,23 @@
 | Gate | Trigger | Checks | Test Tiers |
 |------|---------|--------|------------|
 | Pre-commit | `git commit` | ruff format, ruff check, gitleaks, documentation gate | — |
-| Pre-push | `git push` | semgrep, pip-audit, pytest (`-m unit`, parallel), ty check | Unit |
-| PR / CI | Pull request | All tiers staged: unit → integration → E2E + coverage + duplication | Unit + Integration + E2E |
+| Pre-push | `git push` | semgrep, pip-audit, pytest (unit tier scoped by changed modules), ty check | Unit (scoped) |
+| PR / CI | Pull request | All tiers staged: unit → integration → E2E (scoped by changed modules) + coverage + duplication | Unit + Integration + E2E |
 | Quality audit | On-demand | Full Sonar-like analysis (skills/quality/audit-code/SKILL.md) | All (Live opt-in) |
 
 Test tier definitions are in `standards/framework/stacks/python.md`.
+
+Selective test execution controls:
+
+- `AI_ENG_TEST_SCOPE_MODE=shadow|enforce|off` controls scoped execution rollout.
+- `AI_ENG_TEST_SCOPE=off` is the emergency bypass alias (forces full unit tier pre-push).
+- Any scope computation failure, unmapped source, deletion in `src/**`, or high-risk/config trigger must fail closed to full tier execution.
 
 ## Test Performance Targets
 
 | Gate | Target | Strategy |
 |------|--------|----------|
-| Pre-push | < 60s | Unit only (`-m unit`), parallel (`-n auto --dist worksteal`), no coverage |
+| Pre-push | < 60s | Unit scoped by changed modules; fail closed to full unit tier when unsafe; parallel (`-n auto --dist worksteal`), no coverage |
 | CI unit | < 90s | Parallel, full OS × Python matrix |
 | CI integration | < 180s | Parallel, reduced matrix (1 Python version per OS) |
 | CI E2E | < 300s | Sequential, single runner |

@@ -105,7 +105,7 @@ jobs:
           fi
 
           uv run python -m ai_engineering.policy.test_scope --tier unit --base-ref "$BASE" --format json > scope-diagnostic.json
-          ARGS="$(uv run python -c \"import json, pathlib; payload=json.loads(pathlib.Path('scope-diagnostic.json').read_text(encoding='utf-8')); print(' '.join(payload.get('selected_tests', [])))\")"
+          ARGS="$(uv run python -m ai_engineering.policy.test_scope --tier unit --base-ref "$BASE" --format args)"
 
           if [[ "${{ github.ref }}" == "refs/heads/main" || "${{ needs.change-scope.outputs.test-config }}" == "true" ]]; then
             ARGS="tests/unit"
