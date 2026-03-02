@@ -18,6 +18,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path
+from typing import cast
 
 import yaml
 
@@ -180,8 +181,12 @@ _COPILOT_AGENTS_MIRROR = (
 )
 
 # Skill/agent listing patterns in instruction files
-_SKILL_LINE_PATTERN = re.compile(r"^- `\.ai-engineering/skills/(.+\.md)`", re.MULTILINE)
-_AGENT_LINE_PATTERN = re.compile(r"^- `\.ai-engineering/agents/(.+\.md)`", re.MULTILINE)
+_SKILL_PATH_PATTERN = re.compile(
+    r"^- `\.ai-engineering/skills/([^`/]+)/SKILL\.md`",
+    re.MULTILINE,
+)
+_AGENT_PATH_PATTERN = re.compile(r"^- `\.ai-engineering/agents/([^`/]+)\.md`", re.MULTILINE)
+_SKILL_NAME_PATTERN = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 
 
 def _parse_counter(text: str, separator: str) -> tuple[int, int] | None:
@@ -670,13 +675,84 @@ def _check_copilot_agents_mirror(target: Path, report: IntegrityReport) -> None:
 # ---------------------------------------------------------------------------
 
 
+def _extract_section(content: str, heading: str) -> str:
+    """Extract markdown content under a level-2 heading until next level-2 heading."""
+    lines = content.splitlines()
+    heading_prefix = f"## {heading}".lower()
+    start: int | None = None
+
+    for index, line in enumerate(lines):
+        if line.strip().lower().startswith(heading_prefix):
+            start = index + 1
+            break
+
+    if start is None:
+        return ""
+
+    end = len(lines)
+    for index in range(start, len(lines)):
+        if lines[index].startswith("## "):
+            end = index
+            break
+
+    return "\n".join(lines[start:end])
+
+
+def _is_table_separator(line: str) -> bool:
+    """Return True when line is a markdown table separator row."""
+    stripped = line.strip()
+    return bool(stripped) and set(stripped) <= {"|", "-", ":", " "}
+
+
+def _parse_skill_names(section: str) -> set[str]:
+    """Parse skill names from instruction section supporting bullets and tables."""
+    skills = set(_SKILL_PATH_PATTERN.findall(section))
+
+    for raw_line in section.splitlines():
+        line = raw_line.strip()
+        if not line.startswith("|") or _is_table_separator(line):
+            continue
+
+        cells = [cell.strip() for cell in line.strip("|").split("|")]
+        for cell in cells:
+            normalized = cell.lower()
+            if not cell or normalized in {"skills", "skills (alphabetical)"}:
+                continue
+            for token in [part.strip() for part in cell.split(",")]:
+                if _SKILL_NAME_PATTERN.fullmatch(token):
+                    skills.add(token)
+
+    return skills
+
+
+def _parse_agent_names(section: str) -> set[str]:
+    """Parse agent names from instruction section supporting bullets and tables."""
+    agents = set(_AGENT_PATH_PATTERN.findall(section))
+
+    for raw_line in section.splitlines():
+        line = raw_line.strip()
+        if not line.startswith("|") or _is_table_separator(line):
+            continue
+
+        cells = [cell.strip() for cell in line.strip("|").split("|")]
+        if not cells:
+            continue
+
+        first = cells[0]
+        if not first or first.lower() == "agent":
+            continue
+        if _SKILL_NAME_PATTERN.fullmatch(first):
+            agents.add(first)
+
+    return agents
+
+
 def _extract_skill_agent_counts(
     content: str,
 ) -> tuple[list[str], list[str]]:
-    """Extract skill and agent path listings from an instruction file."""
-    skills = _SKILL_LINE_PATTERN.findall(content)
-    agents = _AGENT_LINE_PATTERN.findall(content)
-    return skills, agents
+    """Extract skill and agent listings from an instruction file."""
+    skills, agents = _extract_listings(content)
+    return sorted(skills), sorted(agents)
 
 
 def _check_counter_accuracy(target: Path, report: IntegrityReport) -> None:
@@ -882,22 +958,18 @@ def _check_cross_references(target: Path, report: IntegrityReport) -> None:
 
 
 def _extract_listings(content: str) -> tuple[set[str], set[str]]:
-    """Extract skill and agent path sets from an instruction file."""
-    skills = set(_SKILL_LINE_PATTERN.findall(content))
-    agents = set(_AGENT_LINE_PATTERN.findall(content))
+    """Extract skill and agent sets from an instruction file."""
+    skill_section = _extract_section(content, "Skills")
+    agent_section = _extract_section(content, "Agents")
+    skills = _parse_skill_names(skill_section)
+    agents = _parse_agent_names(agent_section)
     return skills, agents
 
 
 _SUBSECTION_PATTERN = re.compile(r"^### (.+)$", re.MULTILINE)
 
-_REQUIRED_SUBSECTIONS = {
-    "Workflows",
-    "Dev Skills",
-    "Review Skills",
-    "Docs Skills",
-    "Govern Skills",
-    "Quality Skills",
-}
+# Flat skill layout (spec-031) — no category subsections required.
+_REQUIRED_SUBSECTIONS: set[str] = set()
 
 
 def _check_instruction_consistency(target: Path, report: IntegrityReport) -> None:
@@ -1144,15 +1216,19 @@ def _as_string_list(value: object) -> list[str] | None:
 def _validate_skill_identity(
     frontmatter: dict[str, object],
     file_stem: str,
-    parent_category: str,
     rel: str,
     report: IntegrityReport,
 ) -> int:
-    """Validate name, version, and category fields. Returns failure count."""
+    """Validate name and version fields. Returns failure count."""
     failures = 0
     name = frontmatter.get("name")
     version = frontmatter.get("version")
-    category = frontmatter.get("category")
+    if version is None:
+        metadata = frontmatter.get("metadata")
+        if isinstance(metadata, dict):
+            metadata_dict = cast(dict[str, object], metadata)
+            if "version" in metadata_dict:
+                version = metadata_dict["version"]
 
     if not isinstance(name, str) or not _KEBAB_RE.fullmatch(name) or name != file_stem:
         failures += 1
@@ -1174,18 +1250,6 @@ def _validate_skill_identity(
                 name="invalid-version",
                 status=CheckStatus.FAIL,
                 message="Frontmatter 'version' must be semver (e.g. 1.0.0)",
-                file_path=rel,
-            )
-        )
-
-    if not isinstance(category, str) or category != parent_category:
-        failures += 1
-        report.checks.append(
-            IntegrityCheckResult(
-                category=IntegrityCategory.SKILL_FRONTMATTER,
-                name="invalid-category",
-                status=CheckStatus.FAIL,
-                message=f"Frontmatter 'category' must match parent directory ('{parent_category}')",
                 file_path=rel,
             )
         )
@@ -1334,11 +1398,10 @@ def _check_skill_frontmatter(target: Path, report: IntegrityReport) -> None:
             failures += 1
             continue
 
-        # Directory layout: skills/<category>/<name>/SKILL.md
-        # name = parent directory (e.g. "debug"), category = grandparent (e.g. "dev")
+        # Directory layout: skills/<name>/SKILL.md (flat, no categories)
+        # name = parent directory (e.g. "debug")
         skill_name = skill_file.parent.name
-        skill_category = skill_file.parent.parent.name
-        failures += _validate_skill_identity(frontmatter, skill_name, skill_category, rel, report)
+        failures += _validate_skill_identity(frontmatter, skill_name, rel, report)
         failures += _validate_skill_requires(frontmatter, rel, report)
 
     if failures == 0:

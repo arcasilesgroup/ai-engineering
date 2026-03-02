@@ -7,7 +7,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **3 new skills** — `work-item` (Azure Boards + GitHub Issues bidirectional sync), `agent-card` (platform-portable agent descriptors for Copilot/Foundry/AgentKit/Vertex), `triage` (auto-prioritization with p1/p2/p3 rules and throttle at 10+ open items).
+- **`ai:scan` agent** — feature scanner that cross-references specs against code to detect unimplemented features, architecture drift, missing tests, dead specifications, and dependency gaps.
+- **`ai:triage` agent** — auto-prioritization agent that scans work items using priority rules (security > bugs > features > perf > tests > arch > dx).
+- **`ai:plan` planning pipeline** — default 6-step pipeline: triage check → discovery → prompt design → spec creation → work-item sync → dispatch.
+- **`ai:review` individual modes** — 14 review modes invokable individually: `security`, `performance`, `architecture`, `accessibility`, `quality`, `pr`, `smoke`, `platform`, `release`, `dx`, `integrity`, `compliance`, `ownership`.
+- **Work-item integration** — manifest.yml `work_items` section supporting GitHub Issues and Azure Boards with bidirectional spec sync and auto-transition.
+- **Discovery interrogation skill** (`discover`) — structured requirements elicitation through 8-dimension completeness checks, 5 Whys probing, and KNOWN/ASSUMED/UNKNOWN classification.
+- **Architecture patterns table** in product-contract.md section 7.4 — documents scanner/executor separation, single-system-multiple-access-points, finding deduplication, context threading, progressive disclosure, and mode dispatch patterns.
+- **Performance and Security growth headers** added to 8 thin stack standards (react-native, astro, nextjs, node, typescript, nestjs, rust, react) as future extension points.
+
 ### Changed
+- **Skill frontmatter schema aligned** — moved `version` and `tags` from top-level frontmatter keys to `metadata.version` and `metadata.tags` across all 47 skills and template mirrors for stricter Anthropic guide compatibility.
+- **Top skill usage examples added** — added `## Examples` sections to 10 frequently used skills (`commit`, `cleanup`, `spec`, `pr`, `code-review`, `test-run`, `debug`, `audit`, `release`, `discover`) and mirrored templates.
+- **Validator compatibility updated** — integrity validator now accepts skill version from `metadata.version` (with backward compatibility), preserving `skill-frontmatter` checks after schema alignment.
+- **Agent scope model refined** — `ai:review` and `ai:scan` now use `read-write (work items only)` scope to create/sync follow-up work items in Azure Boards or GitHub Issues/Projects while keeping code and governance content non-editable by these agents.
+- **Review/scan behavior contracts updated** — agent definitions and template mirrors now include explicit work-item synchronization steps via `skills/work-item/SKILL.md`, preserving finding-to-work-item traceability.
+- **README governance section expanded** — added the full skills table (47 skills) under the Skills section and aligned agent scope text with the updated non-code work-item write model.
+- **Consolidated 19 agents to 6** — `ai:plan` (orchestration + planning pipeline), `ai:build` (implementation across all stacks, merges 8 agents), `ai:review` (reviews + governance, merges 6 agents), `ai:scan` (feature scanner), `ai:write` (documentation), `ai:triage` (auto-prioritization). Only `ai:build` has code write permissions.
+- **Flat skill organization** — restructured 44 skills from 6 nested categories (`workflows/`, `dev/`, `review/`, `docs/`, `govern/`, `quality/`) to flat `skills/<name>/` layout. Added 3 new skills for 47 total. Removed `category` from frontmatter schema; replaced with optional `tags` array.
+- **Unified `ai:` command namespace** — replaced 7 prefixes (`dev:`, `review:`, `docs:`, `govern:`, `quality:`, `workflows:`, `agent:`) with single `ai:` prefix. All slash commands now use `/ai:<name>` format.
+- **Skill rename map** — 10 skills renamed for clarity: `test-strategy` → `test-plan`, `test-runner` → `test-run`, `data-modeling` → `data-model`, `deps-update` → `deps`, `cicd-generate` → `cicd`, `cli-ux` → `cli`, `api-design` → `api`, `infrastructure` → `infra`, `database-ops` → `db`, `sonar-gate` → `sonar`, `discovery-interrogation` → `discover`, `self-improve` → `improve`, `writer` → `docs`, `prompt-design` → `prompt`, and 14 review/govern/quality renames.
+- **Consolidated 50 skills to 44** (prior spec) — merged accept-risk + resolve-risk + renew-risk into `risk` (mode: accept/resolve/renew); create-agent + delete-agent into `agent-lifecycle` (mode: create/delete); create-skill + delete-skill into `skill-lifecycle` (mode: create/delete); dast + container-security + data-security into `sec-deep` (mode: dast/container/data). Removed standalone acho skill (redirected to commit/pr).
+- **Compacted CLAUDE.md** from 280 to 114 lines (~810 tokens). Replaced verbose skill/agent path lists with compact table format. Propagated to all 6 instruction file mirrors.
+- **Enhanced all 19 agent personas** with 5-element framework: specific role + seniority, industry/domain context, named methodologies, explicit constraints, and output format specification. Identity-only changes; capabilities and behavior unchanged.
+- **Deduplicated core.md** — removed ~85 lines of overlap with skills-schema.md.
+- **Added finding deduplication baseline** to `framework/core.md` — agents must check decision-store before reporting duplicate findings.
+- **Added remediation priority order** to `quality/core.md` — security > reliability > correctness > performance > maintainability > testability > docs > style.
+- **Updated registration cascade** across all artifacts: instruction files, manifest.yml, product-contract.md, slash commands, Copilot prompt files, agent frontmatter references, template mirrors, and test fixtures.
+
+### Removed
+- **19 old agent files** — api-designer, architect, code-simplifier, database-engineer, debugger, devops-engineer, docs-writer, frontend-specialist, governance-steward, infrastructure-engineer, navigator, orchestrator, platform-auditor, pr-reviewer, principal-engineer, quality-auditor, security-reviewer, test-master, verify-app. Capabilities absorbed into 6 new agents.
+- **6 skill category directories** — `workflows/`, `dev/`, `review/`, `docs/`, `govern/`, `quality/` replaced by flat `skills/<name>/` structure.
+- **7 command prefixes** — `dev:`, `review:`, `docs:`, `govern:`, `quality:`, `workflows:`, `agent:` replaced by unified `ai:` prefix.
+- Standalone skills (prior spec): `govern/accept-risk`, `govern/resolve-risk`, `govern/renew-risk`, `govern/create-agent`, `govern/delete-agent`, `govern/create-skill`, `govern/delete-skill`, `review/dast`, `review/container-security`, `review/data-security`, `workflows/acho` (11 skills removed, 4 consolidated replacements + 1 new = net -6).
+
+### Fixed
+- **Framework smoke Python install resilience** — `.github/workflows/ci.yml` now retries `uv python install` up to 3 times with backoff in `framework-smoke`, reducing transient GitHub network/download failures across matrix runners.
+- **Content Integrity counter parsing** — `ai-eng validate` now correctly counts skills/agents from current instruction table format (`## Skills (N)` + markdown tables), fixing false `counter-accuracy` failures in CI.
 - **Moved spec reset from `/cleanup` to `/pr`** — `/pr` now runs conditional Step 0 (`spec-reset --dry-run` then `spec-reset` when complete) so archived specs and cleared `_active.md` are committed on the PR branch and reach `origin/main` on merge; `/cleanup` v3.0.0 now focuses on status/sync/prune/branch cleanup only.
 - **Expanded `dotnet.md` standard** (57 -> ~300 lines) — production-grade .NET 10 patterns: SDK version pinning, NuGet Central Package Management, 20+ code patterns (async, DI, minimal APIs, middleware, ProblemDetails, structured logging, health checks), EF Core patterns (DbContext pooling, no-tracking, keyset pagination, compiled queries, interceptors, bulk operations), test tiers with NUnit, testing patterns (WebApplicationFactory, TestContainers, NSubstitute, FluentAssertions, NetArchTest), performance patterns (ArrayPool, BenchmarkDotNet, output caching), C# coding conventions.
 - **Expanded `azure.md` standard** (70 -> ~150 lines) — Azure Functions patterns (isolated worker, triggers, Durable Functions, cold start), App Service patterns (deployment slots, auto-scaling, managed identity), Logic Apps patterns (Standard vs Consumption, connectors, error handling), Well-Architected Framework 5-pillar references, 17 cloud design patterns (Circuit Breaker, CQRS, Saga, Strangler Fig, etc.).

@@ -277,8 +277,7 @@ def test_updater_validator_and_vcs_edges(tmp_path: Path) -> None:
     assert r.by_category()[validator.IntegrityCategory.MIRROR_SYNC]
 
     instruction = (
-        "## Skills\n- `.ai-engineering/skills/dev/a.md`\n\n"
-        "## Agents\n- `.ai-engineering/agents/a.md`\n"
+        "## Skills\n- `.ai-engineering/skills/a.md`\n\n## Agents\n- `.ai-engineering/agents/a.md`\n"
     )
     for name in ("AGENTS.md", "CLAUDE.md", ".github/copilot-instructions.md"):
         file_path = tmp_path / name
@@ -333,15 +332,15 @@ def test_updater_validator_and_vcs_edges(tmp_path: Path) -> None:
 
 def test_validator_remaining_branches(tmp_path: Path) -> None:
     ai = tmp_path / ".ai-engineering"
-    (ai / "skills" / "dev").mkdir(parents=True, exist_ok=True)
+    (ai / "skills").mkdir(parents=True, exist_ok=True)
     (ai / "agents").mkdir(parents=True, exist_ok=True)
     (ai / "context" / "product").mkdir(parents=True, exist_ok=True)
     (ai / "context" / "specs").mkdir(parents=True, exist_ok=True)
     (ai / "state").mkdir(parents=True, exist_ok=True)
     (ai / "manifest.yml").write_text("name: x\n", encoding="utf-8")
 
-    (ai / "skills" / "dev" / "refs.md").write_text(
-        "see `ai-engineering/skills/dev/missing.md`\n",
+    (ai / "skills" / "refs.md").write_text(
+        "see `ai-engineering/skills/missing.md`\n",
         encoding="utf-8",
     )
 
@@ -357,14 +356,14 @@ def test_validator_remaining_branches(tmp_path: Path) -> None:
 
     base = (
         "## Skills\n"
-        "- `.ai-engineering/skills/dev/a.md`\n"
+        "- `.ai-engineering/skills/a.md`\n"
         "- `   `\n\n"
         "## Agents\n"
         "- `.ai-engineering/agents/a.md`\n"
     )
     (tmp_path / "AGENTS.md").write_text(base, encoding="utf-8")
     (tmp_path / "CLAUDE.md").write_text(
-        base + "- `.ai-engineering/skills/dev/extra.md`\n- `.ai-engineering/agents/extra.md`\n",
+        base + "- `.ai-engineering/skills/extra.md`\n- `.ai-engineering/agents/extra.md`\n",
         encoding="utf-8",
     )
     (tmp_path / ".github" / "copilot-instructions.md").parent.mkdir(parents=True, exist_ok=True)
@@ -376,9 +375,9 @@ def test_validator_remaining_branches(tmp_path: Path) -> None:
     (template_root / "CLAUDE.md").write_text(base, encoding="utf-8")
     (template_root / "copilot-instructions.md").write_text(base, encoding="utf-8")
 
-    (ai / "skills" / "dev" / "good-file-name").mkdir(parents=True, exist_ok=True)
-    (ai / "skills" / "dev" / "good-file-name" / "SKILL.md").write_text(
-        "---\nname: BadName\nversion: one\ncategory: wrong\n---\n",
+    (ai / "skills" / "good-file-name").mkdir(parents=True, exist_ok=True)
+    (ai / "skills" / "good-file-name" / "SKILL.md").write_text(
+        "---\nname: BadName\nversion: one\n---\n",
         encoding="utf-8",
     )
     (ai / "context" / "product" / "product-contract.md").write_text(
@@ -401,14 +400,14 @@ def test_validator_remaining_branches(tmp_path: Path) -> None:
 
 def test_validator_internal_line_coverage_targets(tmp_path: Path) -> None:
     ai = tmp_path / ".ai-engineering"
-    (ai / "skills" / "dev").mkdir(parents=True, exist_ok=True)
+    (ai / "skills").mkdir(parents=True, exist_ok=True)
     (ai / "agents").mkdir(parents=True, exist_ok=True)
 
     # line 240: force ref_path to include ai-engineering/ prefix
-    skill_file = ai / "skills" / "dev" / "debug.md"
-    skill_file.write_text("`ai-engineering/skills/dev/missing.md`\n", encoding="utf-8")
+    skill_file = ai / "skills" / "debug.md"
+    skill_file.write_text("`ai-engineering/skills/missing.md`\n", encoding="utf-8")
     report = validator.IntegrityReport()
-    custom_pattern = validator.re.compile(r"`?(ai-engineering/skills/dev/missing\.md)`?")
+    custom_pattern = validator.re.compile(r"`?(ai-engineering/skills/missing\.md)`?")
     with patch.object(validator, "_PATH_REF_PATTERN", custom_pattern):
         validator._check_file_existence(tmp_path, report)
 
@@ -424,7 +423,7 @@ def test_validator_internal_line_coverage_targets(tmp_path: Path) -> None:
     validator._check_claude_commands_mirror(tmp_path, mirror_report)
 
     # line 654: blank ref line in a skill References section
-    refs = ai / "skills" / "dev" / "refs.md"
+    refs = ai / "skills" / "refs.md"
     refs.write_text("## References\n- `   `\n", encoding="utf-8")
     cross_report = validator.IntegrityReport()
     validator._check_cross_references(tmp_path, cross_report)
@@ -432,20 +431,13 @@ def test_validator_internal_line_coverage_targets(tmp_path: Path) -> None:
     # line 782: create missing agent in non-reference instruction file
     base_ref = (
         "## Skills\n"
-        "### Workflows\n### Dev Skills\n### Review Skills\n### Docs Skills\n### Govern Skills\n"
-        "### Quality Skills\n"
-        "- `.ai-engineering/skills/dev/a.md`\n"
+        "- `.ai-engineering/skills/a.md`\n"
         "## Agents\n"
         "- `.ai-engineering/agents/a.md`\n"
         "- `.ai-engineering/agents/b.md`\n"
     )
     base_other = (
-        "## Skills\n"
-        "### Workflows\n### Dev Skills\n### Review Skills\n### Docs Skills\n### Govern Skills\n"
-        "### Quality Skills\n"
-        "- `.ai-engineering/skills/dev/a.md`\n"
-        "## Agents\n"
-        "- `.ai-engineering/agents/a.md`\n"
+        "## Skills\n- `.ai-engineering/skills/a.md`\n## Agents\n- `.ai-engineering/agents/a.md`\n"
     )
     files = {
         ".github/copilot-instructions.md": base_ref,

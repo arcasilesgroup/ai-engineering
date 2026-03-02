@@ -15,9 +15,8 @@ Before generating code, consult:
 
 ## Skills and Agents
 
-- Use `.ai-engineering/skills/dev/references/language-framework-patterns.md` for language/framework coding patterns.
-- Apply `.ai-engineering/agents/code-simplifier.md` persona for complexity reduction.
-- Follow `.ai-engineering/skills/dev/refactor/SKILL.md` when restructuring code.
+- Apply `.ai-engineering/agents/build.md` persona for implementation and complexity reduction.
+- Follow `.ai-engineering/skills/refactor/SKILL.md` when restructuring code.
 
 ## Ownership Safety
 

@@ -1,5 +1,5 @@
 ---
-description: "Fast-path alias for /commit and /pr workflows with full governance enforcement."
+description: "Alias for commit/pr workflows."
 mode: "agent"
 ---
 
@@ -9,6 +9,6 @@ Before executing, verify these preconditions:
 2. Working tree has staged or unstaged changes (abort if nothing to commit).
 3. Active spec is read from `.ai-engineering/context/specs/_active.md`.
 
-Read and execute the skill defined in `.ai-engineering/skills/workflows/acho/SKILL.md`.
+`/acho` is an alias. Read and execute `.ai-engineering/skills/commit/SKILL.md` for default flow, or `.ai-engineering/skills/pr/SKILL.md` if argument is `pr`.
 
 Follow the complete procedure. Do not skip steps. Apply all governance notes.

@@ -15,7 +15,7 @@ Definitive schema reference for skill directories, skill gating metadata, agent 
 ### Layout
 
 ```
-skills/<category>/<name>/
+skills/<name>/
 ├── SKILL.md              (required)
 ├── scripts/              (optional)
 │   └── <script-name>.sh|.py
@@ -25,16 +25,7 @@ skills/<category>/<name>/
     └── <resource-file>
 ```
 
-### Categories
-
-| Category | Purpose | Example Skills |
-|----------|---------|----------------|
-| `workflows` | Git and branch lifecycle operations | commit, pr, acho, cleanup, self-improve |
-| `dev` | Development lifecycle and code improvement | debug, code-review, refactor, test-strategy, multi-agent |
-| `review` | Specialized assessment and audit | architecture, security, performance, dast, container-security |
-| `quality` | Quality gates and metrics | audit-code, release-gate, test-gap-analysis, sbom |
-| `govern` | Governance, risk, and compliance | integrity-check, create-spec, accept-risk, ownership-audit |
-| `docs` | Documentation and communication | changelog, explain, writer, prompt-design |
+Skills use a flat organization (no category subdirectories). Skills are discovered by `tags` rather than directory hierarchy.
 
 ### SKILL.md Frontmatter
 
@@ -45,7 +36,6 @@ skills/<category>/<name>/
 | `name` | string | Kebab-case skill identifier. Must match directory name. |
 | `description` | string | One-line summary: what the skill does AND when to use it. This is the primary triggering mechanism — AI reads this to decide whether to invoke the skill. |
 | `version` | string | Semantic version (e.g., `1.0.0`). |
-| `category` | string | One of: `workflows`, `dev`, `review`, `quality`, `govern`, `docs`. |
 | `tags` | list | Discovery keywords for search and filtering. |
 
 #### Optional Fields (Gating Metadata)
@@ -205,21 +195,22 @@ Use for: templates, boilerplate, configuration files, icons.
 
 ```yaml
 ---
-name: security-reviewer
+name: review
 version: 1.0.0
 scope: read-only
-capabilities: [sast, secret-detection, dependency-audit, owasp-review, dast, container-scan, sbom]
-inputs: [file-paths, diff, repository, dependency-list]
-outputs: [findings-report]
-tags: [security, owasp, vulnerabilities, sast]
+capabilities: [sast, secret-detection, dependency-audit, owasp-review, quality-gate, governance-lifecycle]
+inputs: [file-paths, diff, repository, dependency-list, spec, governance-content]
+outputs: [findings-report, audit-report, gate-verdict, compliance-report]
+tags: [review, security, quality, governance, audit, compliance, verification]
 references:
   skills:
-    - skills/review/security/SKILL.md
-    - skills/review/dast/SKILL.md
-    - skills/review/container-security/SKILL.md
-    - skills/quality/sbom/SKILL.md
+    - skills/sec-review/SKILL.md
+    - skills/sec-deep/SKILL.md
+    - skills/audit/SKILL.md
+    - skills/integrity/SKILL.md
   standards:
     - standards/framework/core.md
+    - standards/framework/quality/core.md
 ---
 ```
 
@@ -254,43 +245,24 @@ agent_tokens = len(frontmatter_chars) / 4 + len(body_chars) / 4
 
 ### Detailed Token Inventory
 
-#### Skills by Category
+#### Skills (47, flat organization)
 
-| Category | Skills | Total Tokens | Avg Tokens | Min | Max |
-|----------|--------|-------------|------------|-----|-----|
-| workflows | 6 | 4,830 | 805 | 530 (self-improve) | 1,400 (pr) |
-| dev | 13 | 10,200 | 785 | 525 (data-modeling) | 1,125 (multi-agent) |
-| review | 7 | 5,250 | 750 | 650 (performance) | 900 (security) |
-| quality | 6 | 5,981 | 997 | 307 (install-check) | 1,603 (docs-audit) |
-| govern | 12 | 18,500 | 1,542 | 900 (resolve-risk) | 2,200 (integrity-check, create-spec) |
-| docs | 5 | 3,800 | 760 | 600 (prompt-design) | 1,050 (writer) |
-| **Total** | **49** | **48,561** | **991** | **307** | **2,200** |
+Skills use `ai:` command prefix and flat directory layout (`skills/<name>/`).
 
-#### Agents
+| Skills (alphabetical) |
+|-----------------------|
+| a11y, agent-card, agent-lifecycle, api, arch-review, audit, changelog, cicd, cleanup, cli, code-review, commit, compliance, data-model, db, debug, deps, discover, docs, docs-audit, explain, improve, infra, install, integrity, migrate, multi-agent, ownership, perf-review, pr, prompt, refactor, release, risk, sbom, sec-deep, sec-review, simplify, skill-lifecycle, sonar, spec, standards, test-gap, test-plan, test-run, triage, work-item |
 
-| Agent | Est. Tokens | Capabilities | Scope |
-|-------|------------|-------------|-------|
-| architect | 932 | 6 | read-only |
-| code-simplifier | 763 | 8 | read-write |
-| debugger | 668 | 2 | read-write |
-| devops-engineer | 165 | 5 | read-write |
-| docs-writer | 185 | 4 | read-write |
-| governance-steward | 215 | 4 | read-write |
-| navigator | 230 | 6 | read-only |
-| orchestrator | 840 | 5 | read-write |
-| platform-auditor | 1,056 | 3 | read-only |
-| pr-reviewer | 160 | 3 | read-only |
-| principal-engineer | 787 | 7 | read-only |
-| quality-auditor | 726 | 4 | read-only |
-| security-reviewer | 1,024 | 8 | read-only |
-| test-master | 400 | 3 | read-write |
-| verify-app | 795 | 4 | read-only |
-| api-designer | 1,231 | 5 | read-write |
-| database-engineer | 1,209 | 5 | read-write |
-| frontend-specialist | 1,263 | 6 | read-only |
-| infrastructure-engineer | 1,176 | 6 | read-write |
-| **Total** | **12,825** | — | — |
-| **Average** | **675** | **5.1** | — |
+#### Agents (6)
+
+| Agent | Purpose | Scope |
+|-------|---------|-------|
+| plan | Orchestration, planning pipeline, dispatch, work-item sync | read-write |
+| build | Implementation across all stacks (ONLY code write agent) | read-write |
+| review | All reviews, security, quality, governance (individual modes) | read-write (work items only) |
+| scan | Spec-vs-code gap analysis, architecture drift detection | read-write (work items only) |
+| write | Documentation, changelogs, explanations | read-write (docs only) |
+| triage | Auto-prioritize work items, backlog grooming | read-write (work items only) |
 
 #### Token Efficiency Score
 
@@ -331,7 +303,7 @@ Read-only audit and review agents include a confidence signal in their output:
 - **Confidence**: HIGH (0.8-1.0) | MEDIUM (0.5-0.79) | LOW (0.0-0.49) — with brief justification.
 - **Blocked on user**: YES/NO — whether user input is needed to proceed.
 
-Applicable agents: platform-auditor, verify-app, quality-auditor, security-reviewer, pr-reviewer, architect.
+Applicable agents: review, scan.
 
 ### Post-Edit Validation
 
@@ -394,14 +366,14 @@ Derived from audit patterns: Same.dev (emphatic parallel execution), Cursor (par
 
 ## Migration Guide
 
-### Migrating a Flat Skill to Directory
+### Adding a New Skill
 
-1. Create directory: `skills/<category>/<name>/`
-2. Move `<name>.md` → `skills/<category>/<name>/SKILL.md`
-3. Update frontmatter: add `description` field (one-line summary of what + when).
+1. Create directory: `skills/<name>/`
+2. Create `skills/<name>/SKILL.md` with required frontmatter.
+3. The `name` field must match the directory name.
 4. Add `metadata.ai-engineering` block if the skill has specific requirements.
-5. Optionally extract large content sections into `references/` files.
-6. Update all cross-references pointing to the old path.
+5. Optionally add `scripts/`, `references/`, `assets/` subdirectories.
+6. Register in manifest and update instruction files.
 
 ### Adding Frontmatter to an Agent
 
@@ -425,8 +397,8 @@ Derived from audit patterns: Same.dev (emphatic parallel execution), Cursor (par
 
 - `standards/framework/core.md` — skill and agent base rules, progressive disclosure.
 - `context/product/framework-contract.md` — content-first product model, token efficiency principle.
-- `skills/govern/create-skill/SKILL.md` — skill registration procedure.
-- `skills/govern/create-agent/SKILL.md` — agent registration procedure.
+- `skills/skill-lifecycle/SKILL.md` — skill registration procedure.
+- `skills/agent-lifecycle/SKILL.md` — agent registration procedure.
 
 ## Update Contract
 

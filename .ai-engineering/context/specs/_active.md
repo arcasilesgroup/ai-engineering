@@ -1,14 +1,12 @@
 ---
-active: "030-sonar-cicd-pipeline-integration"
+active: null
 updated: "2026-03-02"
 ---
 
 # Active Spec
 
-Spec in progress: `030-sonar-cicd-pipeline-integration`
+No active spec. Ready for `/create-spec`.
 
 ## Quick Resume
 
-1. `.ai-engineering/context/specs/030-sonar-cicd-pipeline-integration/spec.md`
-2. `.ai-engineering/context/specs/030-sonar-cicd-pipeline-integration/plan.md`
-3. `.ai-engineering/context/specs/030-sonar-cicd-pipeline-integration/tasks.md`
+No spec in progress.

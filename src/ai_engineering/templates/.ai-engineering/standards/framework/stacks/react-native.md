@@ -54,6 +54,14 @@
 - E2E: Detox flows for critical user journeys (auth, purchase, navigation).
 - Snapshot tests: discouraged — prefer explicit assertions.
 
+## Performance
+
+_Stack-specific performance patterns will be added as the standard evolves. Refer to `review/performance/SKILL.md` for general performance review procedures._
+
+## Security
+
+_Stack-specific security patterns will be added as the standard evolves. Refer to `review/security/SKILL.md` for general security review procedures._
+
 ## Update Contract
 
 This file is framework-managed and may be updated by framework releases.

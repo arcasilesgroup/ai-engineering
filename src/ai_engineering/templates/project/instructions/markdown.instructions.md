@@ -7,6 +7,34 @@ applyTo: "**/*.md"
 ## Governance References
 
 - `.ai-engineering/standards/framework/core.md` — governance structure, ownership model.
+- `.ai-engineering/context/product/framework-contract.md` — framework identity and contract.
+
+## Document Categories
+
+### Framework-Managed (`.ai-engineering/standards/framework/**`)
+
+- Owned by the framework — updated through governed update flows.
+- Changes require rationale, expected gain, and potential impact.
+
+### Team-Managed (`.ai-engineering/standards/team/**`)
+
+- Owned by the team — never overwritten by framework updates.
+- Team decides format and content.
+
+### Project-Managed (`.ai-engineering/context/**`)
+
+- Owned by the project — living documents updated during active work.
+- Includes product contracts, specs, learnings.
+
+### Skills (`.ai-engineering/skills/**`)
+
+- Structured procedure documents with clear step-by-step flows.
+- Template: Purpose → Trigger → Procedure → Output Contract → Governance Notes → References.
+
+### Agents (`.ai-engineering/agents/**`)
+
+- Agent persona definitions.
+- Template: Identity → Capabilities → Activation → Behavior → Referenced Skills → Referenced Standards → Output Contract → Boundaries.
 
 ## Formatting Conventions
 
@@ -21,8 +49,8 @@ applyTo: "**/*.md"
 ## Cross-Reference Style
 
 - Reference other governance docs with relative paths from `.ai-engineering/`: `standards/framework/core.md`.
-- Reference skills with: `skills/dev/debug/SKILL.md`.
-- Reference agents with: `agents/debugger.md`.
+- Reference skills with: `skills/debug/SKILL.md`.
+- Reference agents with: `agents/build.md`.
 - Use markdown links for external references.
 
 ## Spec Documents

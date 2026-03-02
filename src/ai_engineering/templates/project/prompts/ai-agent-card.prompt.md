@@ -1,0 +1,8 @@
+---
+description: "Generate platform-portable agent descriptor cards from canonical agent definitions for cross-platform AI agent interoperability."
+mode: "agent"
+---
+
+Read and execute the skill defined in `.ai-engineering/skills/agent-card/SKILL.md`.
+
+Follow the complete procedure. Do not skip steps. Apply all governance notes.

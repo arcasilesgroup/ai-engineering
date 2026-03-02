@@ -35,7 +35,7 @@ class TestGeminiSupport:
         install(tmp_path)
         assert (tmp_path / "GEMINI.md").is_file()
         content = (tmp_path / "GEMINI.md").read_text()
-        assert "This file is a quick operational guide for Gemini" in content
+        assert "Operational guide for Gemini assistant sessions" in content
 
     def test_preserves_custom_gemini_md(self, tmp_path: Path) -> None:
         """Verify install() does not overwrite existing GEMINI.md."""

@@ -26,8 +26,8 @@ Team-specific standards that extend framework defaults without weakening non-neg
 
 When interacting with GitHub remotely (create PRs, branches, push files, etc.):
 
-- **Use**: `mcp_io_github_git_*` tools — authenticated as **<your-github-username>** (personal account with repo access).
-- If using Enterprise Managed Users, verify which MCP tool set has write access to this repository.
+- **Use**: `mcp_io_github_git_*` tools — authenticated as **soydachi** (personal account with repo access).
+- **Never use**: `mcp_github_*` tools — authenticated as Enterprise Managed User (returns 403 on this repository).
 
 This applies to all GitHub operations: PR creation, branch creation, file operations, reviews.
 

@@ -38,7 +38,7 @@
 | Pre-commit | `git commit` | ruff format, ruff check, gitleaks, documentation gate | — |
 | Pre-push | `git push` | semgrep, pip-audit, pytest (unit tier scoped by changed modules), ty check | Unit (scoped) |
 | PR / CI | Pull request | All tiers staged: unit → integration → E2E (scoped by changed modules) + coverage + duplication | Unit + Integration + E2E |
-| Quality audit | On-demand | Full Sonar-like analysis (skills/quality/audit-code/SKILL.md) | All (Live opt-in) |
+| Quality audit | On-demand | Full Sonar-like analysis (skills/audit/SKILL.md) | All (Live opt-in) |
 
 Test tier definitions are in `standards/framework/stacks/python.md`.
 
@@ -84,8 +84,21 @@ Test pyramid ratio target: ~50% unit, ~45% integration, ~5% E2E.
 - major: fix before merge unless owner approves and logs rationale.
 - minor/info: track and resolve incrementally.
 
+## Remediation Priority Order
+
+When multiple findings exist, remediate in this order (highest priority first):
+
+1. **security** — vulnerabilities, secret exposure, injection vectors.
+2. **reliability** — crashes, data loss, state corruption.
+3. **correctness** — logic errors, wrong behavior, broken contracts.
+4. **performance** — degradation, resource leaks, timeout risks.
+5. **maintainability** — complexity, duplication, coupling.
+6. **testability** — untested paths, missing assertions, flaky tests.
+7. **docs** — missing/stale documentation, broken references.
+8. **style** — formatting, naming, convention deviations.
+
 ## References
 
 - `standards/framework/core.md` — non-negotiables and enforcement rules.
 - `standards/framework/stacks/python.md` — stack-specific quality baseline.
-- `skills/quality/audit-code/SKILL.md` — quality audit skill (implements this contract).
+- `skills/audit/SKILL.md` — quality audit skill (implements this contract).

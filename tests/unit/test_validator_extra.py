@@ -13,7 +13,7 @@ pytestmark = pytest.mark.unit
 
 def _mk(root: Path) -> Path:
     ai = root / ".ai-engineering"
-    (ai / "skills" / "dev").mkdir(parents=True, exist_ok=True)
+    (ai / "skills").mkdir(parents=True, exist_ok=True)
     (ai / "agents").mkdir(parents=True, exist_ok=True)
     (ai / "standards" / "framework").mkdir(parents=True, exist_ok=True)
     (ai / "context" / "product").mkdir(parents=True, exist_ok=True)
@@ -38,10 +38,10 @@ def _write_instruction_files(root: Path, content: str) -> None:
 
 def test_file_existence_skips_placeholders_and_prefix_cleanup(tmp_path: Path) -> None:
     ai = _mk(tmp_path)
-    src = ai / "skills" / "dev" / "debug.md"
+    src = ai / "skills" / "debug.md"
     src.write_text(
-        "---\nname: debug\nversion: 1.0.0\ncategory: dev\n---\n\n"
-        "see `.ai-engineering/ai-engineering/skills/dev/debug.md` "
+        "---\nname: debug\nversion: 1.0.0\n---\n\n"
+        "see `.ai-engineering/ai-engineering/skills/debug.md` "
         "and `.ai-engineering/skills/<name>.md`\n",
         encoding="utf-8",
     )
@@ -52,9 +52,9 @@ def test_file_existence_skips_placeholders_and_prefix_cleanup(tmp_path: Path) ->
 def test_mirror_sync_missing_and_orphan(tmp_path: Path) -> None:
     ai = _mk(tmp_path)
     mirror = tmp_path / "src" / "ai_engineering" / "templates" / ".ai-engineering"
-    (mirror / "skills" / "dev").mkdir(parents=True, exist_ok=True)
-    (ai / "skills" / "dev" / "debug.md").write_text("x", encoding="utf-8")
-    (mirror / "skills" / "dev" / "orphan.md").write_text("y", encoding="utf-8")
+    (mirror / "skills").mkdir(parents=True, exist_ok=True)
+    (ai / "skills" / "debug.md").write_text("x", encoding="utf-8")
+    (mirror / "skills" / "orphan.md").write_text("y", encoding="utf-8")
     report = validate_content_integrity(tmp_path, categories=[IntegrityCategory.MIRROR_SYNC])
     checks = [c.name for c in report.by_category()[IntegrityCategory.MIRROR_SYNC]]
     assert any(name.startswith("missing-mirror-") for name in checks)
@@ -87,7 +87,7 @@ def test_counter_accuracy_agent_mismatch(tmp_path: Path) -> None:
     )
     content = (
         "## Skills\n"
-        "- `.ai-engineering/skills/dev/debug.md`\n\n"
+        "- `.ai-engineering/skills/debug.md`\n\n"
         "## Agents\n"
         "- `.ai-engineering/agents/a.md`\n"
     )
@@ -99,18 +99,7 @@ def test_counter_accuracy_agent_mismatch(tmp_path: Path) -> None:
 def test_instruction_consistency_missing_file_and_differences(tmp_path: Path) -> None:
     base_content = """
 ## Skills
-### Workflows
-
-### Dev Skills
-- `.ai-engineering/skills/dev/a.md`
-
-### Review Skills
-
-### Docs Skills
-
-### Govern Skills
-
-### Quality Skills
+- `.ai-engineering/skills/a.md`
 
 ## Agents
 - `.ai-engineering/agents/a.md`
@@ -163,19 +152,19 @@ def test_manifest_coherence_active_spec_branches(tmp_path: Path) -> None:
 
 def test_skill_frontmatter_additional_failure_paths(tmp_path: Path) -> None:
     ai = _mk(tmp_path)
-    (ai / "skills" / "dev" / "bad-type").mkdir(parents=True, exist_ok=True)
-    s1 = ai / "skills" / "dev" / "bad-type" / "SKILL.md"
+    (ai / "skills" / "bad-type").mkdir(parents=True, exist_ok=True)
+    s1 = ai / "skills" / "bad-type" / "SKILL.md"
     s1.write_text("---\n- x\n---\n", encoding="utf-8")
-    (ai / "skills" / "dev" / "bad-req").mkdir(parents=True, exist_ok=True)
-    s2 = ai / "skills" / "dev" / "bad-req" / "SKILL.md"
+    (ai / "skills" / "bad-req").mkdir(parents=True, exist_ok=True)
+    s2 = ai / "skills" / "bad-req" / "SKILL.md"
     s2.write_text(
-        "---\nname: bad-req\nversion: 1.0.0\ncategory: dev\nrequires: bad\nos: nope\n---\n",
+        "---\nname: bad-req\nversion: 1.0.0\nrequires: bad\nos: nope\n---\n",
         encoding="utf-8",
     )
-    (ai / "skills" / "dev" / "bad-os").mkdir(parents=True, exist_ok=True)
-    s3 = ai / "skills" / "dev" / "bad-os" / "SKILL.md"
+    (ai / "skills" / "bad-os").mkdir(parents=True, exist_ok=True)
+    s3 = ai / "skills" / "bad-os" / "SKILL.md"
     s3.write_text(
-        "---\nname: bad-os\nversion: 1.0.0\ncategory: dev\nos: [plan9]\n---\n",
+        "---\nname: bad-os\nversion: 1.0.0\nos: [plan9]\n---\n",
         encoding="utf-8",
     )
     report = validate_content_integrity(tmp_path, categories=[IntegrityCategory.SKILL_FRONTMATTER])
@@ -187,8 +176,8 @@ def test_skill_frontmatter_invalid_yaml_and_missing_dir(tmp_path: Path) -> None:
     assert report.category_passed(IntegrityCategory.SKILL_FRONTMATTER) is False
 
     ai = _mk(tmp_path)
-    (ai / "skills" / "dev" / "bad-yaml").mkdir(parents=True, exist_ok=True)
-    bad = ai / "skills" / "dev" / "bad-yaml" / "SKILL.md"
+    (ai / "skills" / "bad-yaml").mkdir(parents=True, exist_ok=True)
+    bad = ai / "skills" / "bad-yaml" / "SKILL.md"
     bad.write_text("---\nname: [\n---\n", encoding="utf-8")
     report2 = validate_content_integrity(tmp_path, categories=[IntegrityCategory.SKILL_FRONTMATTER])
     assert report2.category_passed(IntegrityCategory.SKILL_FRONTMATTER) is False

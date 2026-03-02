@@ -3,9 +3,10 @@
 
 Reads canonical skill and agent definitions from .ai-engineering/,
 then generates or verifies mirrors in:
-  - .claude/commands/       (Claude Code slash commands)
-  - .github/prompts/        (GitHub Copilot prompt files)
-  - .github/agents/         (GitHub Copilot agent personas)
+  - .claude/commands/ai/     (Claude Code slash commands, unified ai: namespace)
+  - .claude/commands/         (root-level workflow aliases: commit, pr, acho, cleanup)
+  - .github/prompts/          (GitHub Copilot prompt files)
+  - .github/agents/           (GitHub Copilot agent personas)
 
 Usage:
   python scripts/sync_command_mirrors.py           # generate all mirrors
@@ -26,10 +27,10 @@ CLAUDE_COMMANDS = ROOT / ".claude" / "commands"
 GITHUB_PROMPTS = ROOT / ".github" / "prompts"
 GITHUB_AGENTS = ROOT / ".github" / "agents"
 
-# Categories for skills
-SKILL_CATEGORIES = ("workflows", "dev", "review", "quality", "govern", "docs")
+# Directories under skills/ that are NOT skills (no SKILL.md)
+SKILLS_EXCLUDE = {"references"}
 
-# Workflow commands with custom preconditions
+# Workflow commands with custom preconditions (root-level aliases)
 WORKFLOW_PRECONDITIONS: dict[str, str] = {
     "commit": (
         "Before executing, verify these preconditions:\n"
@@ -39,7 +40,7 @@ WORKFLOW_PRECONDITIONS: dict[str, str] = {
         "3. Active spec is read from `.ai-engineering/context/specs/_active.md`.\n"
         "\n"
         "Read and execute the workflow skill defined in "
-        "`.ai-engineering/skills/workflows/commit/SKILL.md`.\n"
+        "`.ai-engineering/skills/commit/SKILL.md`.\n"
         "\n"
         "Arguments: no arguments = default flow. "
         "`--only` = restricted variant (if defined).\n"
@@ -60,7 +61,7 @@ WORKFLOW_PRECONDITIONS: dict[str, str] = {
         "3. Active spec is read from `.ai-engineering/context/specs/_active.md`.\n"
         "\n"
         "Read and execute the workflow skill defined in "
-        "`.ai-engineering/skills/workflows/pr/SKILL.md`.\n"
+        "`.ai-engineering/skills/pr/SKILL.md`.\n"
         "\n"
         "Arguments: no arguments = default flow. "
         "`--only` = restricted variant (if defined).\n"
@@ -79,11 +80,12 @@ WORKFLOW_PRECONDITIONS: dict[str, str] = {
         "2. Working tree has staged or unstaged changes (abort if nothing to commit).\n"
         "3. Active spec is read from `.ai-engineering/context/specs/_active.md`.\n"
         "\n"
-        "Read and execute the workflow skill defined in "
-        "`.ai-engineering/skills/workflows/acho/SKILL.md`.\n"
+        "`/acho` is an alias. Read and execute "
+        "`.ai-engineering/skills/commit/SKILL.md` for default flow, "
+        "or `.ai-engineering/skills/pr/SKILL.md` if argument is `pr`.\n"
         "\n"
-        "Arguments: no arguments = default flow. "
-        "`pr` = PR variant.\n"
+        "Arguments: no arguments = `/commit` flow. "
+        "`pr` = `/pr` flow.\n"
         "\n"
         "Follow the complete procedure. Do not skip steps. "
         "Apply all governance notes. Read the Command Contract in "
@@ -94,7 +96,18 @@ WORKFLOW_PRECONDITIONS: dict[str, str] = {
     ),
 }
 
-# Copilot preconditions for workflow prompts
+# Copilot workflow prompt descriptions (richer than generic)
+COPILOT_WORKFLOW_DESCRIPTIONS: dict[str, str] = {
+    "commit": (
+        "Execute governed commit workflow: stage, lint, secret-detect,"
+        " commit, and push current branch."
+    ),
+    "pr": "Execute governed PR workflow: commit + push + create PR + auto-complete.",
+    "acho": "Alias for commit/pr workflows.",
+    "cleanup": "Repository hygiene: status, sync, prune, branch cleanup, spec reset.",
+}
+
+# Copilot preconditions for workflow prompts (root-level aliases)
 COPILOT_WORKFLOW_PRECONDITIONS: dict[str, str] = {
     "commit": (
         "Before executing, verify these preconditions:\n"
@@ -104,7 +117,7 @@ COPILOT_WORKFLOW_PRECONDITIONS: dict[str, str] = {
         "3. Active spec is read from `.ai-engineering/context/specs/_active.md`.\n"
         "\n"
         "Read and execute the skill defined in "
-        "`.ai-engineering/skills/workflows/commit/SKILL.md`.\n"
+        "`.ai-engineering/skills/commit/SKILL.md`.\n"
         "\n"
         "Follow the complete procedure. Do not skip steps. "
         "Apply all governance notes.\n"
@@ -118,7 +131,7 @@ COPILOT_WORKFLOW_PRECONDITIONS: dict[str, str] = {
         "3. Active spec is read from `.ai-engineering/context/specs/_active.md`.\n"
         "\n"
         "Read and execute the skill defined in "
-        "`.ai-engineering/skills/workflows/pr/SKILL.md`.\n"
+        "`.ai-engineering/skills/pr/SKILL.md`.\n"
         "\n"
         "Follow the complete procedure. Do not skip steps. "
         "Apply all governance notes.\n"
@@ -130,13 +143,17 @@ COPILOT_WORKFLOW_PRECONDITIONS: dict[str, str] = {
         "2. Working tree has staged or unstaged changes (abort if nothing to commit).\n"
         "3. Active spec is read from `.ai-engineering/context/specs/_active.md`.\n"
         "\n"
-        "Read and execute the skill defined in "
-        "`.ai-engineering/skills/workflows/acho/SKILL.md`.\n"
+        "`/acho` is an alias. Read and execute "
+        "`.ai-engineering/skills/commit/SKILL.md` for default flow, "
+        "or `.ai-engineering/skills/pr/SKILL.md` if argument is `pr`.\n"
         "\n"
         "Follow the complete procedure. Do not skip steps. "
         "Apply all governance notes.\n"
     ),
 }
+
+# Root-level workflow aliases (in .claude/commands/ and .github/prompts/)
+ROOT_WORKFLOW_ALIASES = ("commit", "pr", "acho", "cleanup")
 
 # Copilot agent tools list (standard set)
 COPILOT_AGENT_TOOLS = [
@@ -152,52 +169,23 @@ COPILOT_AGENT_TOOLS = [
     "testFailures",
 ]
 
-# Short descriptions for agents (used in Copilot agent frontmatter)
-# Extracted from existing .github/agents/ files to preserve exact wording
+# Short descriptions for the 6 consolidated agents
 AGENT_DESCRIPTIONS: dict[str, tuple[str, str]] = {
-    "api-designer": ("API Designer", "Contract-first API design"),
-    "architect": ("Architect", "Architecture analysis and design review"),
-    "code-simplifier": (
-        "Code Simplifier",
-        "Complexity reduction and module value classification",
+    "plan": ("Plan", "Orchestration, planning pipeline, dispatch, work-item sync"),
+    "build": (
+        "Build",
+        "Implementation across all stacks — the only code write agent",
     ),
-    "database-engineer": (
-        "Database Engineer",
-        "Database engineering and schema design",
+    "review": (
+        "Review",
+        "All reviews, security, quality, governance checks (individual modes)",
     ),
-    "debugger": ("Debugger", "Systematic bug diagnosis and root cause analysis"),
-    "devops-engineer": (
-        "DevOps Engineer",
-        "CI/CD, policy enforcement, and delivery automation",
+    "scan": (
+        "Scan",
+        "Feature scanner — spec-vs-code gap analysis and architecture drift",
     ),
-    "docs-writer": ("Docs Writer", "Documentation authoring and simplification"),
-    "frontend-specialist": (
-        "Frontend Specialist",
-        "Frontend/UI architecture specialist",
-    ),
-    "governance-steward": (
-        "Governance Steward",
-        "Governance lifecycle stewardship",
-    ),
-    "infrastructure-engineer": (
-        "Infrastructure Engineer",
-        "IaC and cloud provisioning",
-    ),
-    "navigator": ("Navigator", "Strategic next-spec analysis"),
-    "orchestrator": ("Orchestrator", "Multi-phase execution orchestration"),
-    "platform-auditor": (
-        "Platform Auditor",
-        "Full-spectrum audit orchestration",
-    ),
-    "pr-reviewer": ("PR Reviewer", "Headless CI pull request review"),
-    "principal-engineer": (
-        "Principal Engineer",
-        "Principal-level code review and mentoring",
-    ),
-    "quality-auditor": ("Quality Auditor", "Quality gate enforcement"),
-    "security-reviewer": ("Security Reviewer", "Security assessment"),
-    "test-master": ("Test Master", "Comprehensive testing specialist"),
-    "verify-app": ("Verify App", "End-to-end verification"),
+    "write": ("Write", "Documentation, changelogs, explanations"),
+    "triage": ("Triage", "Auto-prioritize work items in Azure Boards / GitHub Issues"),
 }
 
 
@@ -218,19 +206,17 @@ def parse_frontmatter(path: Path) -> dict[str, str]:
     return result
 
 
-def discover_skills() -> list[tuple[str, str, dict[str, str]]]:
-    """Discover all skills. Returns (category, name, frontmatter) tuples."""
+def discover_skills() -> list[tuple[str, dict[str, str]]]:
+    """Discover all skills from flat layout. Returns (name, frontmatter) tuples."""
     skills = []
-    for category in SKILL_CATEGORIES:
-        cat_dir = SKILLS_ROOT / category
-        if not cat_dir.is_dir():
+    for skill_dir in sorted(SKILLS_ROOT.iterdir()):
+        if not skill_dir.is_dir() or skill_dir.name in SKILLS_EXCLUDE:
             continue
-        for skill_dir in sorted(cat_dir.iterdir()):
-            skill_file = skill_dir / "SKILL.md"
-            if skill_file.is_file():
-                fm = parse_frontmatter(skill_file)
-                name = fm.get("name", skill_dir.name)
-                skills.append((category, name, fm))
+        skill_file = skill_dir / "SKILL.md"
+        if skill_file.is_file():
+            fm = parse_frontmatter(skill_file)
+            name = fm.get("name", skill_dir.name)
+            skills.append((name, fm))
     return skills
 
 
@@ -244,13 +230,11 @@ def discover_agents() -> list[tuple[str, dict[str, str]]]:
     return agents
 
 
-def generate_skill_claude_command(category: str, name: str) -> str:
+def generate_skill_claude_command(name: str) -> str:
     """Generate Claude Code command wrapper for a skill."""
-    if name in WORKFLOW_PRECONDITIONS:
-        return WORKFLOW_PRECONDITIONS[name]
     return (
         f"Read and execute the skill defined in "
-        f"`.ai-engineering/skills/{category}/{name}/SKILL.md`.\n"
+        f"`.ai-engineering/skills/{name}/SKILL.md`.\n"
         f"\n"
         f"Follow the complete procedure. Do not skip steps. "
         f"Apply all governance notes. If the skill references "
@@ -274,19 +258,16 @@ def generate_agent_claude_command(name: str) -> str:
     )
 
 
-def generate_skill_copilot_prompt(category: str, name: str, description: str) -> str:
+def generate_skill_copilot_prompt(name: str, description: str) -> str:
     """Generate Copilot prompt file for a skill."""
     desc = description or f"{name} skill"
-    if name in COPILOT_WORKFLOW_PRECONDITIONS:
-        body = COPILOT_WORKFLOW_PRECONDITIONS[name]
-    else:
-        body = (
-            f"Read and execute the skill defined in "
-            f"`.ai-engineering/skills/{category}/{name}/SKILL.md`.\n"
-            f"\n"
-            f"Follow the complete procedure. Do not skip steps. "
-            f"Apply all governance notes.\n"
-        )
+    body = (
+        f"Read and execute the skill defined in "
+        f"`.ai-engineering/skills/{name}/SKILL.md`.\n"
+        f"\n"
+        f"Follow the complete procedure. Do not skip steps. "
+        f"Apply all governance notes.\n"
+    )
     return f'---\ndescription: "{desc}"\nmode: "agent"\n---\n\n{body}'
 
 
@@ -311,51 +292,32 @@ def generate_agent_copilot_agent(name: str) -> str:
     )
 
 
-def claude_command_path(category: str, name: str) -> Path:
-    """Determine the Claude command file path for a skill."""
-    if category == "workflows" and name in (
-        "commit",
-        "pr",
-        "acho",
-        "cleanup",
-    ):
-        return CLAUDE_COMMANDS / f"{name}.md"
-    if category == "workflows":
-        return CLAUDE_COMMANDS / category / f"{name}.md"
-    return CLAUDE_COMMANDS / category / f"{name}.md"
-
-
-def copilot_prompt_path(category: str, name: str) -> Path:
-    """Determine the Copilot prompt file path for a skill."""
-    if category == "workflows":
-        return GITHUB_PROMPTS / f"{name}.prompt.md"
-    return GITHUB_PROMPTS / f"{category}-{name}.prompt.md"
-
-
 def sync_all(*, check_only: bool = False) -> int:
     """Generate or check all mirror files. Returns exit code."""
     skills = discover_skills()
     agents = discover_agents()
+    agent_names = {name for name, _ in agents}
     diffs: list[str] = []
     generated_paths: set[Path] = set()
 
-    # --- Skills ---
-    for category, name, fm in skills:
+    # --- Skills (ai/ namespace) ---
+    for name, fm in skills:
         description = fm.get("description", "")
-        # Remove surrounding quotes if present
         description = description.strip("\"'")
 
-        # Claude command
-        cc_path = claude_command_path(category, name)
-        cc_content = generate_skill_claude_command(category, name)
-        generated_paths.add(cc_path)
-        diff = _check_or_write(cc_path, cc_content, check_only)
-        if diff:
-            diffs.append(diff)
+        # Claude command: .claude/commands/ai/{name}.md
+        # Skip if name collides with an agent (agent takes priority)
+        if name not in agent_names:
+            cc_path = CLAUDE_COMMANDS / "ai" / f"{name}.md"
+            cc_content = generate_skill_claude_command(name)
+            generated_paths.add(cc_path)
+            diff = _check_or_write(cc_path, cc_content, check_only)
+            if diff:
+                diffs.append(diff)
 
-        # Copilot prompt
-        cp_path = copilot_prompt_path(category, name)
-        cp_content = generate_skill_copilot_prompt(category, name, description)
+        # Copilot prompt: .github/prompts/ai-{name}.prompt.md
+        cp_path = GITHUB_PROMPTS / f"ai-{name}.prompt.md"
+        cp_content = generate_skill_copilot_prompt(name, description)
         generated_paths.add(cp_path)
         diff = _check_or_write(cp_path, cp_content, check_only)
         if diff:
@@ -363,19 +325,52 @@ def sync_all(*, check_only: bool = False) -> int:
 
     # --- Agents ---
     for name, _fm in agents:
-        # Claude command
-        ca_path = CLAUDE_COMMANDS / "agent" / f"{name}.md"
+        # Claude command: .claude/commands/ai/{name}.md
+        ca_path = CLAUDE_COMMANDS / "ai" / f"{name}.md"
         ca_content = generate_agent_claude_command(name)
         generated_paths.add(ca_path)
         diff = _check_or_write(ca_path, ca_content, check_only)
         if diff:
             diffs.append(diff)
 
-        # Copilot agent
+        # Copilot agent: .github/agents/{name}.agent.md
         ga_path = GITHUB_AGENTS / f"{name}.agent.md"
         ga_content = generate_agent_copilot_agent(name)
         generated_paths.add(ga_path)
         diff = _check_or_write(ga_path, ga_content, check_only)
+        if diff:
+            diffs.append(diff)
+
+    # --- Root-level workflow aliases ---
+    for alias in ROOT_WORKFLOW_ALIASES:
+        # Claude command: .claude/commands/{alias}.md
+        if alias in WORKFLOW_PRECONDITIONS:
+            wf_content = WORKFLOW_PRECONDITIONS[alias]
+        else:
+            # Simple skill wrapper (e.g. cleanup)
+            wf_content = generate_skill_claude_command(alias)
+        wf_path = CLAUDE_COMMANDS / f"{alias}.md"
+        generated_paths.add(wf_path)
+        diff = _check_or_write(wf_path, wf_content, check_only)
+        if diff:
+            diffs.append(diff)
+
+        # Copilot prompt: .github/prompts/{alias}.prompt.md
+        desc = COPILOT_WORKFLOW_DESCRIPTIONS.get(alias, f"{alias} workflow")
+        if alias in COPILOT_WORKFLOW_PRECONDITIONS:
+            body = COPILOT_WORKFLOW_PRECONDITIONS[alias]
+        else:
+            body = (
+                f"Read and execute the skill defined in "
+                f"`.ai-engineering/skills/{alias}/SKILL.md`.\n"
+                f"\n"
+                f"Follow the complete procedure. Do not skip steps. "
+                f"Apply all governance notes.\n"
+            )
+        cp_path = GITHUB_PROMPTS / f"{alias}.prompt.md"
+        cp_content = f'---\ndescription: "{desc}"\nmode: "agent"\n---\n\n{body}'
+        generated_paths.add(cp_path)
+        diff = _check_or_write(cp_path, cp_content, check_only)
         if diff:
             diffs.append(diff)
 
@@ -387,10 +382,10 @@ def sync_all(*, check_only: bool = False) -> int:
             print(f"  {o.relative_to(ROOT)}")
 
     # --- Summary ---
-    total = len(skills) * 2 + len(agents) * 2  # 2 mirrors per source
+    total_generated = len(generated_paths)
     if diffs:
         action = "would change" if check_only else "updated"
-        print(f"\n{len(diffs)}/{total} files {action}:")
+        print(f"\n{len(diffs)}/{total_generated} files {action}:")
         for d in diffs:
             print(f"  {d}")
         if check_only:
@@ -399,7 +394,7 @@ def sync_all(*, check_only: bool = False) -> int:
         return 0
 
     status = "in sync" if check_only else "generated"
-    print(f"\nAll {total} mirror files {status}. No changes needed.")
+    print(f"\nAll {total_generated} mirror files {status}. No changes needed.")
     return 0
 
 
@@ -424,20 +419,13 @@ def _check_or_write(path: Path, content: str, check_only: bool) -> str | None:
 def _detect_orphans(generated: set[Path]) -> list[Path]:
     """Find files in mirror directories that don't correspond to a source."""
     orphans = []
-    # Check Claude commands (skills)
-    for category in SKILL_CATEGORIES:
-        cat_dir = CLAUDE_COMMANDS / category
-        if cat_dir.is_dir():
-            for f in cat_dir.glob("*.md"):
-                if f not in generated:
-                    orphans.append(f)
-    # Check Claude commands (agents)
-    agent_dir = CLAUDE_COMMANDS / "agent"
-    if agent_dir.is_dir():
-        for f in agent_dir.glob("*.md"):
+    # Check Claude commands (ai/ namespace)
+    ai_dir = CLAUDE_COMMANDS / "ai"
+    if ai_dir.is_dir():
+        for f in ai_dir.glob("*.md"):
             if f not in generated:
                 orphans.append(f)
-    # Check Claude commands (root workflow files)
+    # Check Claude commands (root workflow aliases)
     for f in CLAUDE_COMMANDS.glob("*.md"):
         if f not in generated:
             orphans.append(f)
