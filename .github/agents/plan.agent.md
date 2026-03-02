@@ -1,0 +1,9 @@
+---
+name: "Plan"
+description: "Orchestration, planning pipeline, dispatch, work-item sync"
+tools: [codebase, editFiles, fetch, githubRepo, problems, readFile, runCommands, search, terminalLastCommand, testFailures]
+---
+
+Activate the agent persona defined in `.ai-engineering/agents/plan.md`.
+
+Read the agent file completely. Adopt the identity, capabilities, and behavior.
