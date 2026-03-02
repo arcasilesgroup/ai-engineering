@@ -19,6 +19,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Performance and Security growth headers** added to 8 thin stack standards (react-native, astro, nextjs, node, typescript, nestjs, rust, react) as future extension points.
 
 ### Changed
+- **Agent scope model refined** — `ai:review` and `ai:scan` now use `read-write (work items only)` scope to create/sync follow-up work items in Azure Boards or GitHub Issues/Projects while keeping code and governance content non-editable by these agents.
+- **Review/scan behavior contracts updated** — agent definitions and template mirrors now include explicit work-item synchronization steps via `skills/work-item/SKILL.md`, preserving finding-to-work-item traceability.
+- **README governance section expanded** — added the full skills table (47 skills) under the Skills section and aligned agent scope text with the updated non-code work-item write model.
 - **Consolidated 19 agents to 6** — `ai:plan` (orchestration + planning pipeline), `ai:build` (implementation across all stacks, merges 8 agents), `ai:review` (reviews + governance, merges 6 agents), `ai:scan` (feature scanner), `ai:write` (documentation), `ai:triage` (auto-prioritization). Only `ai:build` has code write permissions.
 - **Flat skill organization** — restructured 44 skills from 6 nested categories (`workflows/`, `dev/`, `review/`, `docs/`, `govern/`, `quality/`) to flat `skills/<name>/` layout. Added 3 new skills for 47 total. Removed `category` from frontmatter schema; replaced with optional `tags` array.
 - **Unified `ai:` command namespace** — replaced 7 prefixes (`dev:`, `review:`, `docs:`, `govern:`, `quality:`, `workflows:`, `agent:`) with single `ai:` prefix. All slash commands now use `/ai:<name>` format.

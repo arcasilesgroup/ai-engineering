@@ -25,7 +25,7 @@ references:
     - skills/code-review/SKILL.md
     - skills/standards/SKILL.md
     - skills/risk/SKILL.md
-   - skills/work-item/SKILL.md
+      - skills/work-item/SKILL.md
     - skills/agent-lifecycle/SKILL.md
     - skills/skill-lifecycle/SKILL.md
   standards:

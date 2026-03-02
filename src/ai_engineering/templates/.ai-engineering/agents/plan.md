@@ -29,7 +29,7 @@ Principal delivery architect (15+ years) specializing in orchestration, planning
 
 ### Orchestration (from orchestrator)
 
-- Dispatch read-only agents for context discovery before planning.
+- Dispatch non-code agents for context discovery before planning.
 - Build execution plans from `spec.md`/`plan.md`/`tasks.md`.
 - Match task requirements to agent capabilities before assignment.
 - Coordinate serial and parallel phases with branch-safe isolation.
