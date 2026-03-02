@@ -10,7 +10,7 @@ import pytest
 
 from ai_engineering.vcs.azure_devops import AzureDevOpsProvider
 from ai_engineering.vcs.github import GitHubProvider
-from ai_engineering.vcs.protocol import VcsContext
+from ai_engineering.vcs.protocol import CreateTagContext, PipelineStatusContext, VcsContext
 
 pytestmark = pytest.mark.unit
 
@@ -122,3 +122,69 @@ class TestGitHubPostPrReview:
         with patch("subprocess.run", return_value=proc):
             result = provider.post_pr_review(ctx, body="review")
         assert result.success is False
+
+
+class TestGitHubReleaseMethods:
+    """Tests for GitHubProvider.create_tag/get_pipeline_status."""
+
+    def test_create_tag_success(self, ctx: VcsContext) -> None:
+        provider = GitHubProvider()
+        proc = MagicMock(returncode=0, stdout="{}", stderr="")
+        with patch("subprocess.run", return_value=proc):
+            result = provider.create_tag(
+                CreateTagContext(
+                    project_root=ctx.project_root,
+                    tag_name="v0.2.0",
+                    commit_sha="abc123",
+                )
+            )
+        assert result.success is True
+
+    def test_get_pipeline_status_filters_head_sha(self, ctx: VcsContext) -> None:
+        provider = GitHubProvider()
+        runs = [
+            {"headSha": "abc", "status": "completed", "conclusion": "success", "url": "u1"},
+            {"headSha": "zzz", "status": "completed", "conclusion": "failure", "url": "u2"},
+        ]
+        proc = MagicMock(returncode=0, stdout=json.dumps(runs), stderr="")
+        with patch("subprocess.run", return_value=proc):
+            result = provider.get_pipeline_status(
+                PipelineStatusContext(project_root=ctx.project_root, head_sha="abc")
+            )
+        assert result.success is True
+        parsed = json.loads(result.output)
+        assert len(parsed) == 1
+        assert parsed[0]["headSha"] == "abc"
+
+
+class TestAzureReleaseMethods:
+    """Tests for AzureDevOpsProvider.create_tag/get_pipeline_status."""
+
+    def test_create_tag_success(self, ctx: VcsContext) -> None:
+        provider = AzureDevOpsProvider()
+        proc = MagicMock(returncode=0, stdout="{}", stderr="")
+        with patch("subprocess.run", return_value=proc):
+            result = provider.create_tag(
+                CreateTagContext(
+                    project_root=ctx.project_root,
+                    tag_name="v0.2.0",
+                    commit_sha="abc123",
+                )
+            )
+        assert result.success is True
+
+    def test_get_pipeline_status_filters_source_version(self, ctx: VcsContext) -> None:
+        provider = AzureDevOpsProvider()
+        runs = [
+            {"sourceVersion": "abc", "status": "completed", "result": "succeeded"},
+            {"sourceVersion": "zzz", "status": "completed", "result": "failed"},
+        ]
+        proc = MagicMock(returncode=0, stdout=json.dumps(runs), stderr="")
+        with patch("subprocess.run", return_value=proc):
+            result = provider.get_pipeline_status(
+                PipelineStatusContext(project_root=ctx.project_root, head_sha="abc")
+            )
+        assert result.success is True
+        parsed = json.loads(result.output)
+        assert len(parsed) == 1
+        assert parsed[0]["sourceVersion"] == "abc"

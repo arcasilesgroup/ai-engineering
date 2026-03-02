@@ -24,6 +24,7 @@ from ai_engineering.cli_commands import (
     core,
     gate,
     maintenance,
+    release,
     review,
     setup,
     skills,
@@ -110,6 +111,7 @@ def _app_callback(
                         "review",
                         "cicd",
                         "setup",
+                        "release",
                     ]
                 },
             )
@@ -175,6 +177,7 @@ def create_app() -> typer.Typer:
     app.command("doctor")(_safe(core.doctor_cmd))
     app.command("validate")(_safe(validate.validate_cmd))
     app.command("version")(core.version_cmd)
+    app.command("release")(_safe(release.release_cmd))
 
     # Stack sub-group
     stack_app = typer.Typer(

@@ -9,10 +9,16 @@ Classes:
 
 from __future__ import annotations
 
+import json
 import shutil
 import subprocess
 
-from ai_engineering.vcs.protocol import VcsContext, VcsResult
+from ai_engineering.vcs.protocol import (
+    CreateTagContext,
+    PipelineStatusContext,
+    VcsContext,
+    VcsResult,
+)
 
 
 class GitHubProvider:
@@ -106,6 +112,46 @@ class GitHubProvider:
         """Post PR review comment on current branch via ``gh pr comment``."""
         cmd = ["gh", "pr", "comment", "--body", body]
         return self._run(cmd, ctx)
+
+    def create_tag(self, ctx: CreateTagContext) -> VcsResult:
+        """Create tag ref via GitHub API (bypasses local pre-push hook)."""
+        cmd = [
+            "gh",
+            "api",
+            "repos/{owner}/{repo}/git/refs",
+            "-f",
+            f"ref=refs/tags/{ctx.tag_name}",
+            "-f",
+            f"sha={ctx.commit_sha}",
+        ]
+        return self._run(cmd, VcsContext(project_root=ctx.project_root))
+
+    def get_pipeline_status(self, ctx: PipelineStatusContext) -> VcsResult:
+        """Get workflow run status filtered by head SHA."""
+        cmd = [
+            "gh",
+            "run",
+            "list",
+            "--workflow",
+            ctx.workflow_name,
+            "--json",
+            "headSha,status,conclusion,url,databaseId",
+        ]
+        result = self._run(cmd, VcsContext(project_root=ctx.project_root))
+        if not result.success:
+            return result
+
+        try:
+            runs = json.loads(result.output)
+        except json.JSONDecodeError:
+            return result
+
+        if isinstance(runs, list):
+            filtered = [
+                run for run in runs if isinstance(run, dict) and run.get("headSha") == ctx.head_sha
+            ]
+            result.output = json.dumps(filtered)
+        return result
 
     # ------------------------------------------------------------------
     # Internal

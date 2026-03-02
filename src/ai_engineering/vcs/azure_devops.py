@@ -9,10 +9,16 @@ Classes:
 
 from __future__ import annotations
 
+import json
 import shutil
 import subprocess
 
-from ai_engineering.vcs.protocol import VcsContext, VcsResult
+from ai_engineering.vcs.protocol import (
+    CreateTagContext,
+    PipelineStatusContext,
+    VcsContext,
+    VcsResult,
+)
 
 
 class AzureDevOpsProvider:
@@ -217,6 +223,58 @@ class AzureDevOpsProvider:
             ],
             ctx,
         )
+
+    def create_tag(self, ctx: CreateTagContext) -> VcsResult:
+        """Create tag ref via ``az repos ref create``."""
+        return self._run(
+            [
+                "az",
+                "repos",
+                "ref",
+                "create",
+                "--name",
+                f"refs/tags/{ctx.tag_name}",
+                "--object-id",
+                ctx.commit_sha,
+            ],
+            VcsContext(project_root=ctx.project_root),
+        )
+
+    def get_pipeline_status(self, ctx: PipelineStatusContext) -> VcsResult:
+        """Get Azure pipeline runs filtered by source version SHA."""
+        result = self._run(
+            [
+                "az",
+                "pipelines",
+                "runs",
+                "list",
+                "--top",
+                "10",
+                "--query-order",
+                "FinishTimeDesc",
+                "--output",
+                "json",
+            ],
+            VcsContext(project_root=ctx.project_root),
+        )
+        if not result.success:
+            return result
+
+        try:
+            runs = json.loads(result.output)
+        except json.JSONDecodeError:
+            return result
+
+        if isinstance(runs, list):
+            filtered = []
+            for run in runs:
+                if not isinstance(run, dict):
+                    continue
+                source_version = run.get("sourceVersion") or run.get("source_version")
+                if source_version == ctx.head_sha:
+                    filtered.append(run)
+            result.output = json.dumps(filtered)
+        return result
 
     # ------------------------------------------------------------------
     # Internal
