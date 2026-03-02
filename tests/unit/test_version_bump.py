@@ -74,3 +74,54 @@ def test_bump_python_version_rejects_invalid_semver(tmp_path: Path) -> None:
     _write_project(tmp_path, "0.1.0")
     with pytest.raises(ValueError):
         bump_python_version(tmp_path, "v0.2.0")
+
+
+def test_compare_versions_numeric_and_alpha_prerelease_ordering() -> None:
+    assert compare_versions("1.0.0-rc.2", "1.0.0-rc.10") == -1
+    assert compare_versions("1.0.0-rc.1", "1.0.0-rc.alpha") == -1
+    assert compare_versions("1.0.0-rc.alpha", "1.0.0-rc.1") == 1
+
+
+def test_compare_versions_rejects_invalid_input() -> None:
+    with pytest.raises(ValueError):
+        compare_versions("bad", "1.0.0")
+
+
+def test_detect_current_version_raises_when_missing(tmp_path: Path) -> None:
+    (tmp_path / "pyproject.toml").write_text("[project]\nname='x'\n", encoding="utf-8")
+    with pytest.raises(ValueError):
+        detect_current_version(tmp_path)
+
+
+def test_bump_python_version_raises_when_pyproject_version_line_missing(tmp_path: Path) -> None:
+    (tmp_path / "src" / "ai_engineering").mkdir(parents=True)
+    (tmp_path / "pyproject.toml").write_text("[project]\nname='x'\n", encoding="utf-8")
+    (tmp_path / "src" / "ai_engineering" / "__version__.py").write_text(
+        '__version__ = "0.1.0"\n',
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError):
+        bump_python_version(tmp_path, "0.2.0")
+
+
+def test_bump_python_version_raises_when_version_file_missing(tmp_path: Path) -> None:
+    (tmp_path / "pyproject.toml").write_text(
+        "[project]\nname='x'\nversion = \"0.1.0\"\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(FileNotFoundError):
+        bump_python_version(tmp_path, "0.2.0")
+
+
+def test_bump_python_version_raises_when_version_assignment_missing(tmp_path: Path) -> None:
+    (tmp_path / "src" / "ai_engineering").mkdir(parents=True)
+    (tmp_path / "pyproject.toml").write_text(
+        "[project]\nname='x'\nversion = \"0.1.0\"\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "src" / "ai_engineering" / "__version__.py").write_text(
+        "VERSION = '0.1.0'\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError):
+        bump_python_version(tmp_path, "0.2.0")

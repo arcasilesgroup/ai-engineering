@@ -653,7 +653,7 @@ def _repo_slug(project_root: Path) -> str:
         r"github\.com[:/](?P<slug>[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)(?:\.git)?$", url
     )
     if ssh_match:
-        return ssh_match.group("slug")
+        return ssh_match.group("slug").removesuffix(".git")
     return ""
 
 
