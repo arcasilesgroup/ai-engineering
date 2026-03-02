@@ -1,5 +1,5 @@
 ---
-description: "Create or delete an agent: author canonical file, mirror, register in instruction files, update counters, clean cross-references."
+description: "Create or delete an agent with full registration."
 mode: "agent"
 ---
 

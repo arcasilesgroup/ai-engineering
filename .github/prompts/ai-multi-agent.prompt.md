@@ -1,5 +1,5 @@
 ---
-description: "Coordinate multiple agent personas in parallel or sequence using Task tool patterns; use for full-spectrum audits, cross-cutting reviews, or batch operations."
+description: "Coordinate multiple agents in parallel or sequence."
 mode: "agent"
 ---
 

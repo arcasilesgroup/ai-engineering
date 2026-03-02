@@ -1,5 +1,5 @@
 ---
-description: "Audit, update, and validate project dependencies for security and compatibility; use when addressing vulnerabilities, outdated packages, or version bumps."
+description: "Audit and update dependencies for security."
 mode: "agent"
 ---
 

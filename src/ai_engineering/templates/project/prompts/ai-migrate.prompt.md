@@ -1,5 +1,5 @@
 ---
-description: "Plan and execute safe, reversible migrations for schemas, APIs, data formats, and breaking changes; use when evolving contracts or data structures."
+description: "Plan safe, reversible schema and API migrations."
 mode: "agent"
 ---
 

@@ -63,6 +63,7 @@ class InstallResult:
     already_installed: bool = False
     readiness_status: str = "pending"
     manual_steps: list[str] = field(default_factory=list)
+    guide_text: str | None = None
 
     @property
     def total_created(self) -> int:
@@ -259,10 +260,9 @@ def _run_operational_phases(target: Path, *, vcs_provider: str, result: InstallR
     manifest.branch_policy.mode = policy_result.mode
     manifest.branch_policy.message = policy_result.message
     if policy_result.manual_guide is not None:
-        manifest.branch_policy.manual_guide = str(policy_result.manual_guide.relative_to(target))
-        result.manual_steps.append(
-            f"Apply manual branch policy guide: {manifest.branch_policy.manual_guide}"
-        )
+        manifest.branch_policy.manual_guide = policy_result.manual_guide
+        result.guide_text = policy_result.manual_guide
+        result.manual_steps.append("Run 'ai-eng guide' to view branch policy setup instructions")
 
     if not result.manual_steps:
         result.readiness_status = "READY"

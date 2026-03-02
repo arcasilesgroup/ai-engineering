@@ -1,5 +1,5 @@
 ---
-description: "Run specialized security assessments: DAST (ZAP/Nuclei), container scanning (Trivy), or data security posture review."
+description: "Run DAST, container scanning, or data security review."
 mode: "agent"
 ---
 

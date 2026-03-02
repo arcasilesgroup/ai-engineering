@@ -1,5 +1,5 @@
 ---
-description: "Generate user-friendly changelogs and GitHub release notes from git history using Keep a Changelog format and benefit-first language."
+description: "Generate changelogs and release notes from git history."
 mode: "agent"
 ---
 

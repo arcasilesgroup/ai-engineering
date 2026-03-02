@@ -20,6 +20,14 @@ from ai_engineering.validator import service as validator
 pytestmark = pytest.mark.integration
 
 
+@pytest.fixture(autouse=True)
+def _reset_json_mode() -> None:
+    """Ensure JSON mode is off so tests expecting human output are not affected by state leakage."""
+    from ai_engineering.cli_output import set_json_mode
+
+    set_json_mode(False)
+
+
 def test_stack_ide_remaining_exception_paths(tmp_path: Path) -> None:
     with (
         patch(
@@ -55,7 +63,12 @@ def test_vcs_missing_manifest_paths(tmp_path: Path) -> None:
 
 
 def test_validate_single_category_mapping(tmp_path: Path) -> None:
-    fake = SimpleNamespace(passed=True, by_category=lambda: {}, category_passed=lambda _c: True)
+    fake = SimpleNamespace(
+        passed=True,
+        by_category=lambda: {},
+        category_passed=lambda _c: True,
+        to_dict=lambda: {"passed": True, "checks": []},
+    )
     with patch(
         "ai_engineering.cli_commands.validate.validate_content_integrity", return_value=fake
     ):

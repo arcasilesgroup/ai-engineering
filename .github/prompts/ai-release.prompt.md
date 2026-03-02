@@ -1,5 +1,5 @@
 ---
-description: "Aggregated GO/NO-GO release readiness gate; use before version tagging or merge-to-main to verify all quality dimensions pass."
+description: "GO/NO-GO release readiness gate across all dimensions."
 mode: "agent"
 ---
 

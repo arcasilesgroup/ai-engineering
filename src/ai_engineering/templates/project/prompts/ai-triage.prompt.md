@@ -1,8 +1,8 @@
 ---
-description: "Auto-prioritize work items using severity hierarchy rules — classify p1/p2/p3, detect stale items, enforce throttle limits."
+description: "Auto-prioritize work items and groom backlog."
 mode: "agent"
 ---
 
-Read and execute the skill defined in `.ai-engineering/skills/triage/SKILL.md`.
+Activate the agent persona defined in `.ai-engineering/agents/triage.md`.
 
-Follow the complete procedure. Do not skip steps. Apply all governance notes.
+Read the agent file completely. Adopt the identity, capabilities, and behavior. Follow behavior steps in order. Respect all boundaries. Read all referenced skills and standards.

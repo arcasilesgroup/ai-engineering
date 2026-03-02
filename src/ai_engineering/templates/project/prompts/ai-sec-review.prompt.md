@@ -1,5 +1,5 @@
 ---
-description: "Perform comprehensive security review covering OWASP risks, secrets, injection, and dependency vulnerabilities; use for pre-release audits or incident response."
+description: "Security review: OWASP, secrets, injection, deps."
 mode: "agent"
 ---
 

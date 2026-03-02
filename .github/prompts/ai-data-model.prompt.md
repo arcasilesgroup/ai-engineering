@@ -1,5 +1,5 @@
 ---
-description: "Design and validate domain data models with constraints, relationships, and migration safety."
+description: "Design and validate domain data models."
 mode: "agent"
 ---
 

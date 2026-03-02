@@ -1,5 +1,5 @@
-Read and execute the skill defined in `.ai-engineering/skills/integrity/SKILL.md`.
+Validate cross-references, mirrors, counters, manifest.
 
-Follow the complete procedure. Do not skip steps. Apply all governance notes. If the skill references standards or other skills, read those as needed.
+Read and execute `.ai-engineering/skills/integrity/SKILL.md`. Follow the complete procedure and all governance notes.
 
 $ARGUMENTS

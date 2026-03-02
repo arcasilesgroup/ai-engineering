@@ -374,3 +374,36 @@ class TestMaintenanceCommands:
         )
         assert result.exit_code == 0
         assert "Maintenance Report" in result.output
+
+
+# ---------------------------------------------------------------------------
+# Guide
+# ---------------------------------------------------------------------------
+
+
+class TestGuideCommand:
+    """Tests for the guide command."""
+
+    def test_guide_not_installed(self, tmp_path: Path, app: object) -> None:
+        result = runner.invoke(app, ["guide", str(tmp_path)])
+        assert result.exit_code == 1
+
+    def test_guide_shows_text_after_install(
+        self,
+        installed_dir: Path,
+        app: object,
+    ) -> None:
+        result = runner.invoke(app, ["guide", str(installed_dir)])
+        # Guide may or may not be present depending on VCS auth stubs,
+        # but command should not crash
+        assert result.exit_code == 0
+
+    def test_guide_json_output(
+        self,
+        installed_dir: Path,
+        app: object,
+    ) -> None:
+        result = runner.invoke(app, ["--json", "guide", str(installed_dir)])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert "has_guide" in data["result"]

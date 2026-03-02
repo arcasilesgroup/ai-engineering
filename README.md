@@ -168,6 +168,7 @@ ai-eng install [TARGET]           # Bootstrap governance in any project
 ai-eng update [TARGET]            # Preview framework updates (dry-run)
 ai-eng update [TARGET] --apply    # Apply framework updates
 ai-eng doctor [TARGET]            # Diagnose and auto-fix framework health
+ai-eng guide [TARGET]             # View branch policy setup instructions
 ai-eng validate [TARGET]          # Validate content integrity
 ai-eng version                    # Show installed version and lifecycle status
 ```

@@ -34,12 +34,12 @@ Path: `.ai-engineering/agents/<name>.md`
 
 ## Command Contract
 
-- `/commit` → stage + commit + push
-- `/commit --only` → stage + commit
-- `/pr` → stage + commit + push + PR + auto-complete (`--auto --squash --delete-branch`)
-- `/pr --only` → create PR; warn if unpushed, propose auto-push
-- `/acho` → stage + commit + push
-- `/acho pr` → stage + commit + push + PR + auto-complete
+- `/ai:commit` → stage + commit + push
+- `/ai:commit --only` → stage + commit
+- `/ai:pr` → stage + commit + push + PR + auto-complete (`--auto --squash --delete-branch`)
+- `/ai:pr --only` → create PR; warn if unpushed, propose auto-push
+- `/ai:acho` → stage + commit + push
+- `/ai:acho pr` → stage + commit + push + PR + auto-complete
 
 ## Quality Contract
 

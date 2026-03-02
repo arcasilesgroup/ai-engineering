@@ -18,6 +18,7 @@ from ai_engineering.cli_output import is_json_mode
 from ai_engineering.cli_progress import spinner
 from ai_engineering.cli_ui import (
     file_count,
+    header,
     kv,
     print_stdout,
     result_header,
@@ -68,6 +69,7 @@ def install_cmd(
                 "readiness_status": result.readiness_status,
                 "already_installed": result.already_installed,
                 "manual_steps": result.manual_steps,
+                "guide_text": result.guide_text,
             },
             [
                 NextAction(command="ai-eng doctor", description="Run health diagnostics"),
@@ -93,15 +95,20 @@ def install_cmd(
             for step in result.manual_steps:
                 print_stdout(f"    - {step}")
 
+        if result.guide_text:
+            header("Branch Policy Setup Guide")
+            print_stdout(result.guide_text)
+
         if result.already_installed:
             print_stdout("  (framework was already installed \u2014 skipped existing files)")
 
-        suggest_next(
-            [
-                ("ai-eng doctor", "Run health diagnostics"),
-                ("ai-eng setup platforms", "Configure platform credentials"),
-            ]
-        )
+        next_steps = [
+            ("ai-eng doctor", "Run health diagnostics"),
+            ("ai-eng setup platforms", "Configure platform credentials"),
+        ]
+        if result.guide_text:
+            next_steps.append(("ai-eng guide", "View branch policy setup guide"))
+        suggest_next(next_steps)
 
     # Optional platform onboarding prompt (D024-003: opt-in).
     if not is_json_mode():

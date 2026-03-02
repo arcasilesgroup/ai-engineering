@@ -100,4 +100,4 @@ def test_install_operational_ready_with_manual_steps_azure_fallback(
     assert manifest.tooling_readiness.az.authenticated is False
     assert manifest.branch_policy.applied is False
     assert manifest.branch_policy.manual_guide
-    assert (tmp_path / manifest.branch_policy.manual_guide).exists()
+    assert "Manual Branch Policy Setup" in manifest.branch_policy.manual_guide

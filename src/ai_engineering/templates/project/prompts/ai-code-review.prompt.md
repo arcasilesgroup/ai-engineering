@@ -1,5 +1,5 @@
 ---
-description: "Deep code review covering security, quality, performance, and maintainability; use for PR reviews, pre-merge validation, or code audits."
+description: "Deep code review: security, quality, performance."
 mode: "agent"
 ---
 

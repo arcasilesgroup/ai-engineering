@@ -1,5 +1,5 @@
 ---
-description: "Full repository hygiene: status snapshot, sync, prune, and branch cleanup."
+description: "Repo hygiene: status, sync, prune, branch cleanup."
 mode: "agent"
 ---
 

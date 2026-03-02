@@ -1,5 +1,5 @@
 ---
-description: "Review and evolve standards safely based on observed delivery/security outcomes."
+description: "Review and evolve standards from delivery outcomes."
 mode: "agent"
 ---
 

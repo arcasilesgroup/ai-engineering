@@ -1,5 +1,5 @@
 ---
-description: "Systematic bug diagnosis using reproduce-isolate-identify-fix-test cycle; use when investigating unexpected behavior, test failures, or runtime errors."
+description: "Diagnose bugs: reproduce, isolate, fix, test."
 mode: "agent"
 ---
 

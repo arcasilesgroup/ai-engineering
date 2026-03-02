@@ -1,5 +1,5 @@
 ---
-description: "Bidirectional work-item integration with Azure Boards and GitHub Issues/Projects — create, update, link, and sync work items with local specs."
+description: "Sync work items with Azure Boards / GitHub Issues."
 mode: "agent"
 ---
 

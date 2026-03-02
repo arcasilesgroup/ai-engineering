@@ -1,5 +1,5 @@
-Read and execute the skill defined in `.ai-engineering/skills/ownership/SKILL.md`.
+Validate ownership boundaries and updater safety.
 
-Follow the complete procedure. Do not skip steps. Apply all governance notes. If the skill references standards or other skills, read those as needed.
+Read and execute `.ai-engineering/skills/ownership/SKILL.md`. Follow the complete procedure and all governance notes.
 
 $ARGUMENTS
