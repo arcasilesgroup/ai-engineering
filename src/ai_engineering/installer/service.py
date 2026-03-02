@@ -289,10 +289,10 @@ def _resolve_sonar_cicd_config(target: Path) -> SonarCicdConfig | None:
 
     config = SonarCicdConfig(
         enabled=True,
-        hostUrl=sonar.url or "https://sonarcloud.io",
-        projectKey=sonar.project_key,
+        host_url=sonar.url or "https://sonarcloud.io",
+        project_key=sonar.project_key,
         organization=sonar.organization,
-        serviceConnection="",
+        service_connection="",
     )
     if config.is_sonarcloud and not config.organization:
         return None
