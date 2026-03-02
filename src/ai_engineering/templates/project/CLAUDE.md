@@ -38,7 +38,7 @@ Path: `.ai-engineering/skills/<name>/SKILL.md` (flat organization, no category s
 |-----------------------|
 | a11y, agent-card, agent-lifecycle, api, arch-review, audit, changelog, cicd, cleanup, cli, code-review, commit, compliance, data-model, db, debug, deps, discover, docs, docs-audit, explain, improve, infra, install, integrity, migrate, multi-agent, ownership, perf-review, pr, prompt, refactor, release, risk, sbom, sec-deep, sec-review, simplify, skill-lifecycle, sonar, spec, standards, test-gap, test-plan, test-run, triage, work-item |
 
-Slash commands (`.claude/commands/ai/`): `/ai:<name>` for all skills and agents. Also: `/commit`, `/pr`, `/acho`, `/cleanup`.
+Slash commands (`.claude/commands/ai/`): `/ai:<name>` for all skills and agents.
 
 ## Agents (6)
 
@@ -59,12 +59,12 @@ Discovery → Architecture → Planning → Implementation → Review → Verifi
 
 ## Command Contract
 
-- `/commit` → stage + commit + push
-- `/commit --only` → stage + commit
-- `/pr` → stage + commit + push + PR + auto-complete (`--auto --squash --delete-branch`)
-- `/pr --only` → create PR; warn if unpushed, propose auto-push
-- `/acho` → stage + commit + push
-- `/acho pr` → stage + commit + push + PR + auto-complete
+- `/ai:commit` → stage + commit + push
+- `/ai:commit --only` → stage + commit
+- `/ai:pr` → stage + commit + push + PR + auto-complete (`--auto --squash --delete-branch`)
+- `/ai:pr --only` → create PR; warn if unpushed, propose auto-push
+- `/ai:acho` → stage + commit + push
+- `/ai:acho pr` → stage + commit + push + PR + auto-complete
 
 ## Progressive Disclosure
 

@@ -1,5 +1,5 @@
 ---
-description: "Analyze software architecture for dependencies, coupling, cohesion, and tech debt; use for design decisions and brownfield assessment."
+description: "Assess architecture: coupling, cohesion, tech debt."
 mode: "agent"
 ---
 

@@ -1,5 +1,5 @@
 ---
-description: "Validate governance content integrity: cross-references, mirrors, counters, frontmatter, manifest."
+description: "Validate cross-references, mirrors, counters, manifest."
 mode: "agent"
 ---
 

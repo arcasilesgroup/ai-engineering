@@ -1,5 +1,5 @@
 ---
-description: "Design database schemas, plan safe migrations, optimize queries, and manage data lifecycle with rollback procedures."
+description: "Design schemas, plan migrations, optimize queries."
 mode: "agent"
 ---
 

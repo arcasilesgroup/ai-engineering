@@ -1,7 +1,7 @@
 ---
 id: "030"
 slug: "sonar-cicd-pipeline-integration"
-status: "in-progress"
+status: "done"
 created: "2026-03-02"
 ---
 

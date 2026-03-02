@@ -1,5 +1,5 @@
-Read and execute the skill defined in `.ai-engineering/skills/test-run/SKILL.md`.
+Write and run tests across languages and frameworks.
 
-Follow the complete procedure. Do not skip steps. Apply all governance notes. If the skill references standards or other skills, read those as needed.
+Read and execute `.ai-engineering/skills/test-run/SKILL.md`. Follow the complete procedure and all governance notes.
 
 $ARGUMENTS

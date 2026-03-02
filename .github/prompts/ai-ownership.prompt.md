@@ -1,5 +1,5 @@
 ---
-description: "Validate ownership boundaries, updater safety, decision-store integrity, and audit-log consistency."
+description: "Validate ownership boundaries and updater safety."
 mode: "agent"
 ---
 

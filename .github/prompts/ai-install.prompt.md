@@ -1,5 +1,5 @@
 ---
-description: "Post-install/update validation for ai-engineering; use after install, update, or environment setup to confirm operational readiness."
+description: "Validate ai-engineering post-install readiness."
 mode: "agent"
 ---
 

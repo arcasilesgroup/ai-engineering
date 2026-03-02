@@ -1,5 +1,5 @@
-Activate the agent persona defined in `.ai-engineering/agents/plan.md`.
+Orchestrate planning pipeline and work-item dispatch.
 
-Read the agent file completely. Adopt the identity, capabilities, and behavior. Follow behavior steps in order. Respect all boundaries. Read all referenced skills and standards.
+Activate the agent persona defined in `.ai-engineering/agents/plan.md`. Follow all behavior steps and boundaries.
 
 $ARGUMENTS

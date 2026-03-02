@@ -46,7 +46,7 @@ Path: `.ai-engineering/agents/<name>.md`
 | write | Documentation, changelogs, explanations | read-write (docs only) |
 | triage | Auto-prioritize work items, backlog grooming | read-write (work items only) |
 
-Slash commands: `/ai:<name>` for all skills and agents. Also: `/commit`, `/pr`, `/acho`, `/cleanup`.
+Slash commands: `/ai:<name>` for all skills and agents.
 
 ## Lifecycle
 
@@ -63,12 +63,12 @@ Never overwrite team/project content during framework updates. Cross-OS enforcem
 
 ## Command Contract
 
-- `/commit` → stage + commit + push
-- `/commit --only` → stage + commit
-- `/pr` → stage + commit + push + PR + auto-complete (`--auto --squash --delete-branch`)
-- `/pr --only` → create PR; warn if unpushed, propose auto-push
-- `/acho` → stage + commit + push
-- `/acho pr` → stage + commit + push + PR + auto-complete
+- `/ai:commit` → stage + commit + push
+- `/ai:commit --only` → stage + commit
+- `/ai:pr` → stage + commit + push + PR + auto-complete (`--auto --squash --delete-branch`)
+- `/ai:pr --only` → create PR; warn if unpushed, propose auto-push
+- `/ai:acho` → stage + commit + push
+- `/ai:acho pr` → stage + commit + push + PR + auto-complete
 
 ## Non-Negotiables
 

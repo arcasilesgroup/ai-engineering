@@ -1,5 +1,5 @@
 ---
-description: "Capability-to-test risk mapping; use before release or after refactoring to identify untested critical paths and coverage gaps."
+description: "Map untested critical paths and coverage gaps."
 mode: "agent"
 ---
 

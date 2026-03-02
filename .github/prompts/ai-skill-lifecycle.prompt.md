@@ -1,5 +1,5 @@
 ---
-description: "Create or delete a skill: author canonical file with frontmatter, mirror, register in instruction files, update counters, clean cross-references."
+description: "Create or delete a skill with full registration."
 mode: "agent"
 ---
 

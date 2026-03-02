@@ -1,5 +1,5 @@
 ---
-description: "Generate platform-portable agent descriptor cards from canonical agent definitions for cross-platform AI agent interoperability."
+description: "Generate cross-platform agent descriptor cards."
 mode: "agent"
 ---
 

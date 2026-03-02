@@ -1,5 +1,10 @@
-Read and execute the skill defined in `.ai-engineering/skills/commit/SKILL.md`.
+Stage, lint, secret-detect, commit, and push.
 
-Follow the complete procedure. Do not skip steps. Apply all governance notes. If the skill references standards or other skills, read those as needed.
+Preconditions (abort if any fail):
+1. Current branch is NOT `main` or `master`.
+2. Working tree has staged or unstaged changes.
+3. Active spec is read from `.ai-engineering/context/specs/_active.md`.
+
+Read and execute `.ai-engineering/skills/commit/SKILL.md`. Follow the complete procedure, all governance notes, and the Command Contract in `.ai-engineering/manifest.yml`. Args: `--only` = stage + commit only.
 
 $ARGUMENTS

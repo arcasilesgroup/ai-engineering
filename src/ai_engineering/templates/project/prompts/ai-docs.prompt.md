@@ -1,5 +1,5 @@
 ---
-description: "Transform codebase knowledge into polished open-source documentation (README, CONTRIBUTING, docs/ site, Wiki) using benefit-first language."
+description: "Generate README, CONTRIBUTING, and docs site."
 mode: "agent"
 ---
 

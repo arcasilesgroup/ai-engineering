@@ -1,5 +1,5 @@
 ---
-description: "Profile and optimize performance bottlenecks with evidence-based measurement; use when diagnosing slow operations or high resource usage."
+description: "Profile and optimize performance bottlenecks."
 mode: "agent"
 ---
 

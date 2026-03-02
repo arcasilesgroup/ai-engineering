@@ -1,5 +1,5 @@
 ---
-description: "Advanced prompt engineering for crafting AI interactions using framework selection, blending strategies, and quality validation."
+description: "Craft and validate AI prompts and interactions."
 mode: "agent"
 ---
 

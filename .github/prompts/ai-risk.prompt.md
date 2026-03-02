@@ -1,5 +1,5 @@
 ---
-description: "Manage risk acceptances: accept (record with severity/expiry), resolve (close after remediation), or renew (extend before expiry, max 2)."
+description: "Manage risk acceptances: accept, resolve, renew."
 mode: "agent"
 ---
 

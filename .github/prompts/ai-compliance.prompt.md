@@ -1,5 +1,5 @@
 ---
-description: "Clause-by-clause validation of framework contracts against implementation with compliance matrix."
+description: "Validate framework contracts against implementation."
 mode: "agent"
 ---
 
