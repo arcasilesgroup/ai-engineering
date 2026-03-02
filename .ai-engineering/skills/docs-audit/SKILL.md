@@ -149,11 +149,11 @@ Audits all governance documentation for location correctness, writing quality, s
 
 ## References
 
-- `skills/govern/integrity-check/SKILL.md` — structural validation (complementary).
-- `skills/docs/writer/SKILL.md` — documentation generation standards.
-- `skills/docs/explain/SKILL.md` — clarity standards for explanations.
-- `skills/govern/skill-lifecycle/SKILL.md` — skill template structure.
-- `skills/govern/agent-lifecycle/SKILL.md` — agent template structure.
-- `skills/quality/release-gate/SKILL.md` — release readiness (documentation is a gate dimension).
-- `agents/platform-auditor.md` — orchestrator that invokes this skill.
+- `skills/integrity/SKILL.md` — structural validation (complementary).
+- `skills/docs/SKILL.md` — documentation generation standards.
+- `skills/explain/SKILL.md` — clarity standards for explanations.
+- `skills/skill-lifecycle/SKILL.md` — skill template structure.
+- `skills/agent-lifecycle/SKILL.md` — agent template structure.
+- `skills/release/SKILL.md` — release readiness (documentation is a gate dimension).
+- `agents/review.md` — orchestrator that invokes this skill.
 - `standards/framework/core.md` — ownership model and content rules.

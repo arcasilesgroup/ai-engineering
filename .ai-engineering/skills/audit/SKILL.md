@@ -24,10 +24,10 @@ Execute a SonarQube-like quality gate assessment on the codebase. Evaluates cove
 
 ## When NOT to Use
 
-- **Security-focused assessment** (OWASP, secrets, injection analysis) — use `review:security` instead. Audit-code runs basic security gates but does not perform deep security review.
-- **PR-level code review** (actionable feedback per file/function) — use `dev:code-review` instead.
-- **Governance content validation** (cross-references, mirrors, counters) — use `govern:integrity-check` instead.
-- **Test coverage strategy** (what to test, how to test) — use `dev:test-strategy` instead. Audit-code measures coverage; test-strategy designs it.
+- **Security-focused assessment** (OWASP, secrets, injection analysis) — use `sec-review` instead. Audit-code runs basic security gates but does not perform deep security review.
+- **PR-level code review** (actionable feedback per file/function) — use `code-review` instead.
+- **Governance content validation** (cross-references, mirrors, counters) — use `integrity` instead.
+- **Test coverage strategy** (what to test, how to test) — use `test-plan` instead. Audit-code measures coverage; test-plan designs it.
 
 ## Procedure
 
@@ -62,7 +62,7 @@ Execute a SonarQube-like quality gate assessment on the codebase. Evaluates cove
    - `npm audit` → dependency vulnerabilities.
 
    **Optional: Sonar gate** (when configured):
-   - Invoke `dev/sonar-gate/SKILL.md` procedure.
+   - Invoke `sonar/SKILL.md` procedure.
    - Silent skip if `SONAR_TOKEN` not configured — never blocks audit.
    - If configured: run `sonar-scanner` with `qualitygate.wait=true`.
    - Report Sonar gate as PASS/FAIL/SKIP alongside other tool evidence.
@@ -168,5 +168,5 @@ Produce this markdown structure directly as audit output:
 ## References
 
 - `standards/framework/quality/core.md` — quality contract (thresholds, gates, and stack-specific checks).
-- `skills/dev/sonar-gate/SKILL.md` — optional Sonar quality gate (invoked when configured).
-- `agents/quality-auditor.md` — agent that executes this skill.
+- `skills/sonar/SKILL.md` — optional Sonar quality gate (invoked when configured).
+- `agents/review.md` — agent that executes this skill.

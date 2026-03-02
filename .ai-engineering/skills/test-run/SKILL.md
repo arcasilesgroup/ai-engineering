@@ -17,14 +17,14 @@ Write and run tests across languages and frameworks. Provides operational guidan
 
 ## Trigger
 
-- Command: `/dev:test-runner` or agent invokes test-runner skill.
+- Command: `/ai:test-run` or agent invokes test-run skill.
 - Context: writing tests, running test suites, analyzing coverage, TDD workflow.
 
 ## When NOT to Use
 
-- **Test design** (choosing what to test, tier selection, strategy) — use `dev:test-strategy` instead. Test-runner executes; test-strategy designs.
-- **Coverage auditing** (threshold evaluation, gap analysis) — use `quality:audit-code` for metric thresholds or `quality:test-gap-analysis` for capability-to-test mapping.
-- **Debugging failures** (root cause analysis) — use `dev:debug` instead. Test-runner runs tests; debug investigates failures.
+- **Test design** (choosing what to test, tier selection, strategy) — use `test-plan` instead. Test-run executes; test-plan designs.
+- **Coverage auditing** (threshold evaluation, gap analysis) — use `audit` for metric thresholds or `test-gap` for capability-to-test mapping.
+- **Debugging failures** (root cause analysis) — use `debug` instead. Test-run runs tests; debug investigates failures.
 
 ## Procedure
 

@@ -49,10 +49,10 @@ Systematic diagnosis skill for identifying, isolating, and fixing bugs. Follows 
 
 ## When NOT to Use
 
-- **Code review** (PR feedback, pattern assessment) — use `dev:code-review` instead.
-- **Test writing** (designing test strategy, writing test suites) — use `dev:test-runner` or `dev:test-strategy` instead. Debug writes regression tests for fixes; test-runner writes comprehensive test suites.
-- **Refactoring** (improving code structure) — use `dev:refactor` instead. Debug fixes bugs; refactor improves structure.
-- **Architecture analysis** (coupling, cohesion, boundaries) — use `review:architecture` instead.
+- **Code review** (PR feedback, pattern assessment) — use `code-review` instead.
+- **Test writing** (designing test strategy, writing test suites) — use `test-run` or `test-plan` instead. Debug writes regression tests for fixes; test-run writes comprehensive test suites.
+- **Refactoring** (improving code structure) — use `refactor` instead. Debug fixes bugs; refactor improves structure.
+- **Architecture analysis** (coupling, cohesion, boundaries) — use `arch-review` instead.
 
 ## Output Contract
 
@@ -76,6 +76,6 @@ Systematic diagnosis skill for identifying, isolating, and fixing bugs. Follows 
 ## References
 
 - `standards/framework/quality/core.md` — test and coverage requirements.
-- `agents/debugger.md` — agent that uses this skill systematically.
-- `agents/verify-app.md` — agent that uses debug for investigating verification failures.
-- `skills/docs/explain/SKILL.md` — Feynman-style explanations for root cause understanding.
+- `agents/build.md` — agent that uses this skill systematically.
+- `agents/review.md` — agent that uses debug for investigating verification failures.
+- `skills/explain/SKILL.md` — Feynman-style explanations for root cause understanding.

@@ -154,8 +154,8 @@ For complex, multi-type tasks, blend frameworks:
 
 - `standards/framework/core.md` — non-negotiables that prompts must enforce.
 - `context/product/framework-contract.md` — product principles and context efficiency.
-- `agents/principal-engineer.md` — example of a well-structured agent persona.
-- `skills/govern/skill-lifecycle/SKILL.md` — definitive procedure for skill registration.
-- `skills/govern/agent-lifecycle/SKILL.md` — definitive procedure for agent registration.
-- `skills/govern/create-spec/SKILL.md` — spec creation procedure for prompt-guided workflows.
+- `agents/review.md` — example of a well-structured agent persona.
+- `skills/skill-lifecycle/SKILL.md` — definitive procedure for skill registration.
+- `skills/agent-lifecycle/SKILL.md` — definitive procedure for agent registration.
+- `skills/spec/SKILL.md` — spec creation procedure for prompt-guided workflows.
 - Agent and skill template patterns from governance standards.

@@ -22,8 +22,8 @@ Targeted security assessments beyond static analysis: dynamic application testin
 
 ## When NOT to Use
 
-- **Static code security** — use `review/security` instead.
-- **General quality gate** — use `quality/audit-code` instead.
+- **Static code security** — use `sec-review` instead.
+- **General quality gate** — use `audit` instead.
 - **Dependency vulnerabilities only** — use `pip-audit`/`npm-audit` directly.
 
 ## Mode: DAST
@@ -91,6 +91,6 @@ Data security findings with severity and remediation plan.
 
 ## References
 
-- `skills/review/security/SKILL.md` — general security assessment.
-- `agents/security-reviewer.md` — agent that orchestrates security reviews.
+- `skills/sec-review/SKILL.md` — general security assessment.
+- `agents/review.md` — agent that orchestrates security reviews.
 - `standards/framework/core.md` — enforcement and risk acceptance rules.

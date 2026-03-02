@@ -26,7 +26,7 @@ Codify a deterministic continuous-improvement loop across strategy and governanc
 2. **Plan (Planning Mode)** — formulate focused next actions with dependencies and acceptance checks based on gathered context. Output the plan and switch to Standard Mode.
 3. **Execute (Standard Mode)** — apply the smallest high-impact change set. Always batch independent code modifications/tool calls in parallel to maximize efficiency.
 4. **Verify (Standard Mode)** — ensure all tests, quality gates, and integrity checks pass before declaring completion.
-5. **Learn** — capture outcomes and hand off: `navigator` (strategy) -> `governance-steward` (enforcement). Persist key learnings to the decision-store.
+5. **Learn** — capture outcomes and hand off: `plan` (strategy) -> `review` (enforcement). Persist key learnings to the decision-store.
 
 ## Output Contract
 
@@ -43,6 +43,6 @@ Codify a deterministic continuous-improvement loop across strategy and governanc
 
 ## References
 
-- `agents/navigator.md`
-- `agents/governance-steward.md`
+- `agents/plan.md`
+- `agents/review.md`
 - `standards/framework/core.md`

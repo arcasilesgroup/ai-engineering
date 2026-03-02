@@ -22,10 +22,10 @@ Contract-first API design and review skill. Covers OpenAPI specification authori
 
 ## When NOT to Use
 
-- **Implementation of API endpoints** — use `dev:code-review` for reviewing implementation code.
-- **Security review of API auth** — use `review:security` for authentication/authorization assessment.
-- **Database schema for API data** — use `dev:database-ops` for schema design.
-- **CI/CD for API deployment** — use `dev:cicd-generate` for pipeline setup.
+- **Implementation of API endpoints** — use `code-review` for reviewing implementation code.
+- **Security review of API auth** — use `sec-review` for authentication/authorization assessment.
+- **Database schema for API data** — use `db` for schema design.
+- **CI/CD for API deployment** — use `cicd` for pipeline setup.
 
 ## Procedure
 
@@ -93,8 +93,8 @@ Contract-first API design and review skill. Covers OpenAPI specification authori
 
 ## References
 
-- `skills/dev/references/api-design-patterns.md` — detailed API design patterns.
+- `skills/api/references/api-design-patterns.md` — detailed API design patterns.
 - `standards/framework/stacks/typescript.md` — TypeScript API implementation patterns.
 - `standards/framework/stacks/dotnet.md` — .NET API implementation patterns.
 - `standards/framework/stacks/nestjs.md` — NestJS API patterns.
-- `agents/api-designer.md` — agent that performs API design.
+- `agents/build.md` — implementation agent that performs API design.

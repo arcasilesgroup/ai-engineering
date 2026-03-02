@@ -22,10 +22,10 @@ Agent-first CLI design skill for commands that serve both machine consumers (JSO
 
 ## When NOT to Use
 
-- **API endpoint design** — use `dev:api-design` for REST/GraphQL contract-first design.
-- **CI/CD pipeline configuration** — use `dev:cicd-generate` for pipeline setup.
-- **General code review** — use `dev:code-review` for implementation review.
-- **Test strategy for CLI commands** — use `dev:test-strategy` for test design.
+- **API endpoint design** — use `api` for REST/GraphQL contract-first design.
+- **CI/CD pipeline configuration** — use `cicd` for pipeline setup.
+- **General code review** — use `code-review` for implementation review.
+- **Test strategy for CLI commands** — use `test-plan` for test design.
 
 ## Procedure
 

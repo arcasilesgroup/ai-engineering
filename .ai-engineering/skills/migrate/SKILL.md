@@ -88,6 +88,6 @@ Structured migration skill for database schema changes, API versioning, breaking
 
 - `standards/framework/core.md` — update contract and ownership safety.
 - `context/product/framework-contract.md` — release model (SemVer + migration scripts).
-- `agents/verify-app.md` — E2E verification agent for migration testing.
-- `skills/dev/database-ops/SKILL.md` — database-specific migration safety and rollback procedures.
-- `agents/database-engineer.md` — agent for complex database migration decisions.
+- `agents/review.md` — review agent (smoke mode) for E2E verification of migration testing.
+- `skills/db/SKILL.md` — database-specific migration safety and rollback procedures.
+- `agents/build.md` — implementation agent for complex database migration decisions.

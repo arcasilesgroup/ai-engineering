@@ -110,6 +110,5 @@ Produce a structured output:
 
 ## References
 
-- `skills/govern/create-spec/SKILL.md` — spec creation follows discovery.
-- `agents/orchestrator.md` — DISCOVERY mode invokes this skill.
-- `agents/navigator.md` — strategic context for prioritization.
+- `skills/spec/SKILL.md` — spec creation follows discovery.
+- `agents/plan.md` — planning agent invokes this skill for discovery.

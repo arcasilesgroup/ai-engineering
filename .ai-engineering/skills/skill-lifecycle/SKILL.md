@@ -82,6 +82,6 @@ Unified procedure for creating and deleting skills. Ensures every registration p
 - `standards/framework/core.md` — governance structure, ownership model.
 - `standards/framework/skills-schema.md` — skill directory schema, frontmatter spec.
 - `context/product/framework-contract.md` — template packaging and replication rule.
-- `skills/govern/agent-lifecycle/SKILL.md` — companion procedure for agents.
-- `skills/govern/integrity-check/SKILL.md` — post-change validation.
-- `skills/docs/changelog/SKILL.md` — changelog entry formatting.
+- `skills/agent-lifecycle/SKILL.md` — companion procedure for agents.
+- `skills/integrity/SKILL.md` — post-change validation.
+- `skills/changelog/SKILL.md` — changelog entry formatting.

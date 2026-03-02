@@ -22,9 +22,9 @@ Validates ownership boundary enforcement, updater safety, and decision/audit-log
 
 ## When NOT to Use
 
-- **Contract clause validation** (framework-contract compliance) — use `govern:contract-compliance` instead. Ownership-audit checks boundaries; contract-compliance checks clause adherence.
-- **Structural integrity** (file existence, mirrors, counters) — use `govern:integrity-check` instead.
-- **Code quality or security assessment** — use `quality:audit-code` or `review:security` instead.
+- **Contract clause validation** (framework-contract compliance) — use `compliance` instead. Ownership-audit checks boundaries; compliance checks clause adherence.
+- **Structural integrity** (file existence, mirrors, counters) — use `integrity` instead.
+- **Code quality or security assessment** — use `audit` or `sec-review` instead.
 
 ## Procedure
 
@@ -126,6 +126,6 @@ Validates ownership boundary enforcement, updater safety, and decision/audit-log
 
 - `manifest.yml` — ownership model definition.
 - `standards/framework/core.md` — ownership levels and update safety rules.
-- `skills/govern/integrity-check/SKILL.md` — structural validation (complementary).
-- `skills/govern/risk-lifecycle/SKILL.md` — risk accept/resolve/renew lifecycle.
-- `agents/platform-auditor.md` — orchestrator that invokes this skill.
+- `skills/integrity/SKILL.md` — structural validation (complementary).
+- `skills/risk/SKILL.md` — risk accept/resolve/renew lifecycle.
+- `agents/review.md` — orchestrator that invokes this skill.

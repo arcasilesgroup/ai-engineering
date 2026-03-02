@@ -22,10 +22,10 @@ Infrastructure as Code design and generation skill. Covers Terraform, Bicep, and
 
 ## When NOT to Use
 
-- **CI/CD pipeline generation** — use `dev:cicd-generate` instead. This skill generates infrastructure, not pipelines.
-- **Application deployment** — use `dev:cicd-generate` for deploy workflows. This skill generates deployment config, not execution.
-- **Security review of infrastructure** — use `review:security` for IaC scanning and cloud security audit.
-- **Database provisioning only** — use `dev:database-ops` for schema design. Use this skill for database server provisioning.
+- **CI/CD pipeline generation** — use `cicd` instead. This skill generates infrastructure, not pipelines.
+- **Application deployment** — use `cicd` for deploy workflows. This skill generates deployment config, not execution.
+- **Security review of infrastructure** — use `sec-review` for IaC scanning and cloud security audit.
+- **Database provisioning only** — use `db` for schema design. Use this skill for database server provisioning.
 
 ## Procedure
 
@@ -93,5 +93,5 @@ Infrastructure as Code design and generation skill. Covers Terraform, Bicep, and
 
 - `standards/framework/stacks/infrastructure.md` — IaC patterns and safety rules.
 - `standards/framework/stacks/azure.md` — Azure-specific patterns.
-- `skills/dev/references/delivery-platform-patterns.md` — deployment platform patterns.
-- `agents/infrastructure-engineer.md` — agent that designs infrastructure.
+- `skills/infra/references/delivery-platform-patterns.md` — deployment platform patterns.
+- `agents/build.md` — implementation agent that designs infrastructure.

@@ -43,5 +43,5 @@ Define a controlled loop for proposing standards updates from measurable evidenc
 
 ## References
 
-- `agents/governance-steward.md`
-- `skills/govern/integrity-check/SKILL.md`
+- `agents/review.md`
+- `skills/integrity/SKILL.md`

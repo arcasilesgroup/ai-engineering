@@ -93,4 +93,4 @@ Structured dependency update skill: audit current dependencies, update safely, t
 - `standards/framework/stacks/rust.md` — Rust tooling.
 - `standards/framework/quality/core.md` — security gate.
 - `standards/framework/core.md` — risk acceptance policy.
-- `agents/security-reviewer.md` — agent that assesses dependency security.
+- `agents/review.md` — review agent (security mode) that assesses dependency security.

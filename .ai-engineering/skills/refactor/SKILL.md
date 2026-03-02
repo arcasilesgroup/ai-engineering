@@ -22,9 +22,9 @@ Safe refactoring skill: improve internal code structure without changing externa
 
 ## When NOT to Use
 
-- **Breaking changes or API migrations** — use `dev:migration` instead. Refactor preserves behavior; migration changes it.
-- **Architecture restructuring** (module reorganization, new layers) — use `review:architecture` to analyze first, then refactor individual components.
-- **Code review feedback** (PR-level review with approval/rejection) — use `dev:code-review` instead.
+- **Breaking changes or API migrations** — use `migrate` instead. Refactor preserves behavior; migration changes it.
+- **Architecture restructuring** (module reorganization, new layers) — use `arch-review` to analyze first, then refactor individual components.
+- **Code review feedback** (PR-level review with approval/rejection) — use `code-review` instead.
 - **New feature implementation** — refactor is for existing code improvement, not adding new capabilities.
 
 ## Procedure
@@ -60,7 +60,7 @@ Safe refactoring skill: improve internal code structure without changing externa
 
 ## Governance Notes
 
-- Never refactor without tests. If tests don't exist, write them first (see `skills/dev/test-strategy/SKILL.md`).
+- Never refactor without tests. If tests don't exist, write them first (see `skills/test-plan/SKILL.md`).
 - Refactoring must not introduce new features or fix bugs — those are separate tasks.
 - Keep refactoring PRs separate from feature PRs for clean review.
 - Follow `standards/framework/stacks/python.md` code patterns.
@@ -80,5 +80,5 @@ Safe refactoring skill: improve internal code structure without changing externa
 
 - `standards/framework/stacks/python.md` — code patterns and quality baseline.
 - `standards/framework/quality/core.md` — complexity thresholds.
-- `skills/dev/test-strategy/SKILL.md` — for writing tests before refactoring.
-- `agents/code-simplifier.md` — agent that uses this skill.
+- `skills/test-plan/SKILL.md` — for writing tests before refactoring.
+- `agents/build.md` — agent that uses this skill.

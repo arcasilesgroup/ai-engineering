@@ -22,9 +22,9 @@ Maps each product capability to its test evidence, classifies coverage confidenc
 
 ## When NOT to Use
 
-- **Running tests** (executing suites, collecting pass/fail) — use `dev:test-runner` instead. Test-gap-analysis maps capabilities to evidence; test-runner executes tests.
-- **Coverage metrics** (line/branch coverage thresholds) — use `quality:audit-code` instead. Test-gap-analysis maps capabilities; audit-code measures coverage.
-- **Test design** (choosing frameworks, writing patterns) — use `dev:test-strategy` instead.
+- **Running tests** (executing suites, collecting pass/fail) — use `test-run` instead. Test-gap-analysis maps capabilities to evidence; test-run executes tests.
+- **Coverage metrics** (line/branch coverage thresholds) — use `audit` instead. Test-gap-analysis maps capabilities; audit measures coverage.
+- **Test design** (choosing frameworks, writing patterns) — use `test-plan` instead.
 
 ## Procedure
 
@@ -108,10 +108,10 @@ Maps each product capability to its test evidence, classifies coverage confidenc
 
 ## References
 
-- `skills/quality/audit-code/SKILL.md` — code-level quality assessment (complementary).
-- `skills/dev/test-strategy/SKILL.md` — test design methodology.
-- `skills/quality/release-gate/SKILL.md` — release readiness aggregation.
-- `agents/platform-auditor.md` — orchestrator that invokes this skill.
+- `skills/audit/SKILL.md` — code-level quality assessment (complementary).
+- `skills/test-plan/SKILL.md` — test design methodology.
+- `skills/release/SKILL.md` — release readiness aggregation.
+- `agents/review.md` — orchestrator that invokes this skill.
 - `context/product/product-contract.md` — capability source.
 - `context/product/framework-contract.md` — framework capability source.
 - `standards/framework/quality/core.md` — coverage thresholds.

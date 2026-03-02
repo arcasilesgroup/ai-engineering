@@ -22,9 +22,9 @@ Define what to test, how to structure tests, and how to achieve meaningful cover
 
 ## When NOT to Use
 
-- **Running tests** (executing test suites, collecting results) — use `dev:test-runner` instead. Test-strategy designs tests; test-runner executes them.
-- **Coverage metrics** (measuring coverage, auditing gaps) — use `quality:audit-code` for metrics or `quality:test-gap-analysis` for capability mapping.
-- **Debugging test failures** — use `dev:debug` instead.
+- **Running tests** (executing test suites, collecting results) — use `test-run` instead. Test-plan designs tests; test-run executes them.
+- **Coverage metrics** (measuring coverage, auditing gaps) — use `audit` for metrics or `test-gap` for capability mapping.
+- **Debugging test failures** — use `debug` instead.
 
 ## Procedure
 
@@ -79,6 +79,5 @@ Define what to test, how to structure tests, and how to achieve meaningful cover
 
 - `standards/framework/stacks/python.md` — testing patterns.
 - `standards/framework/quality/core.md` — coverage policy and quality gates.
-- `agents/debugger.md` — agent that writes regression tests.
-- `agents/principal-engineer.md` — agent that assesses test completeness.
-- `agents/verify-app.md` — agent that follows test design principles.
+- `agents/build.md` — implementation agent that writes regression tests.
+- `agents/review.md` — review agent that assesses test completeness.

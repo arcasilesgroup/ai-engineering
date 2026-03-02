@@ -24,9 +24,9 @@ Validation skill that checks the integrity of all governance content in `.ai-eng
 
 ## When NOT to Use
 
-- **Contract clause-by-clause validation** — use `govern:contract-compliance` instead. Integrity-check validates structural consistency; contract-compliance validates behavioral compliance.
-- **Ownership boundary enforcement** — use `govern:ownership-audit` instead for updater safety and decision-store schema checks.
-- **Code quality metrics** (coverage, complexity, duplication) — use `quality:audit-code` instead.
+- **Contract clause-by-clause validation** — use `compliance` instead. Integrity-check validates structural consistency; compliance validates behavioral compliance.
+- **Ownership boundary enforcement** — use `ownership` instead for updater safety and decision-store schema checks.
+- **Code quality metrics** (coverage, complexity, duplication) — use `audit` instead.
 - **Source code changes outside `.ai-engineering/`** — integrity-check only validates governance content, not application code.
 
 ## Procedure
@@ -175,9 +175,9 @@ Structured report with 7 categories, each showing:
 
 ## References
 
-- `skills/govern/skill-lifecycle/SKILL.md` — skill create/delete lifecycle (validates creation and deletion correctness).
-- `skills/govern/agent-lifecycle/SKILL.md` — agent create/delete lifecycle (validates creation and deletion correctness).
-- `skills/govern/create-spec/SKILL.md` — spec creation procedure (validates spec structure).
-- `agents/verify-app.md` — agent that includes content integrity in verification.
+- `skills/skill-lifecycle/SKILL.md` — skill create/delete lifecycle (validates creation and deletion correctness).
+- `skills/agent-lifecycle/SKILL.md` — agent create/delete lifecycle (validates creation and deletion correctness).
+- `skills/spec/SKILL.md` — spec creation procedure (validates spec structure).
+- `agents/review.md` — agent that includes content integrity in verification.
 - `standards/framework/core.md` — content integrity enforcement rules.
 - `context/product/framework-contract.md` — template packaging and replication rule.

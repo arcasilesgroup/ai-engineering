@@ -22,10 +22,10 @@ Deep code review skill covering security, quality, performance, and maintainabil
 
 ## When NOT to Use
 
-- **Architecture-level analysis** (dependency graphs, coupling metrics, drift detection) — use `review:architecture` instead.
-- **Dedicated security audit** (OWASP assessment, secret scanning, SAST tooling) — use `review:security` instead.
-- **Quality gate enforcement** (coverage thresholds, complexity metrics, PASS/FAIL verdict) — use `quality:audit-code` instead.
-- **Refactoring** (improving code structure without changing behavior) — use `dev:refactor` instead.
+- **Architecture-level analysis** (dependency graphs, coupling metrics, drift detection) — use `arch-review` instead.
+- **Dedicated security audit** (OWASP assessment, secret scanning, SAST tooling) — use `sec-review` instead.
+- **Quality gate enforcement** (coverage thresholds, complexity metrics, PASS/FAIL verdict) — use `audit` instead.
+- **Refactoring** (improving code structure without changing behavior) — use `refactor` instead.
 
 ## Procedure
 
@@ -81,11 +81,9 @@ Deep code review skill covering security, quality, performance, and maintainabil
 
 - `standards/framework/quality/core.md` — severity policy, quality gates, and stack-specific checks.
 - `standards/framework/stacks/python.md` — code patterns.
-- `skills/review/security/SKILL.md` — detailed security review procedure.
-- `skills/dev/test-strategy/SKILL.md` — test assessment criteria.
-- `skills/review/performance/SKILL.md` — performance evaluation procedure.
-- `agents/principal-engineer.md` — agent that performs deep reviews.
-- `agents/code-simplifier.md` — agent that uses code quality criteria.
-- `agents/api-designer.md` — agent for API contract and design reviews.
-- `agents/frontend-specialist.md` — agent for frontend component and accessibility reviews.
-- `skills/docs/explain/SKILL.md` — explain findings and concepts to the author.
+- `skills/sec-review/SKILL.md` — detailed security review procedure.
+- `skills/test-plan/SKILL.md` — test assessment criteria.
+- `skills/perf-review/SKILL.md` — performance evaluation procedure.
+- `agents/review.md` — review agent that performs deep reviews.
+- `agents/build.md` — implementation agent for API contract and design reviews.
+- `skills/explain/SKILL.md` — explain findings and concepts to the author.

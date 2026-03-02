@@ -25,7 +25,7 @@ Run a SonarCloud / SonarQube quality gate analysis locally before push. Catches 
 
 ## When NOT to Use
 
-- **Full quality audit** (coverage, lint, type checks, security) — use `quality:audit-code` instead. Sonar-gate runs the Sonar-specific analysis only.
+- **Full quality audit** (coverage, lint, type checks, security) — use `audit` instead. Sonar-gate runs the Sonar-specific analysis only.
 - **Setting up Sonar credentials** — use `ai-eng setup sonar` instead.
 - **CI/CD Sonar integration** — this skill covers local/pre-push only.
 
@@ -100,8 +100,8 @@ See `references/sonar-threshold-mapping.md` for detailed mapping.
 
 ## References
 
-- `skills/quality/audit-code/SKILL.md` — orchestrator skill that invokes this gate.
-- `skills/quality/release-gate/SKILL.md` — release readiness that includes this gate.
-- `skills/quality/install-check/SKILL.md` — validates Sonar setup is operational.
-- `skills/dev/sonar-gate/references/sonar-threshold-mapping.md` — detailed threshold mapping.
+- `skills/audit/SKILL.md` — orchestrator skill that invokes this gate.
+- `skills/release/SKILL.md` — release readiness that includes this gate.
+- `skills/install/SKILL.md` — validates Sonar setup is operational.
+- `skills/sonar/references/sonar-threshold-mapping.md` — detailed threshold mapping.
 - `standards/framework/quality/core.md` — quality contract (source thresholds).

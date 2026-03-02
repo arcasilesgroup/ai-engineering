@@ -22,10 +22,10 @@ Analyze software architecture: dependencies, coupling, cohesion, boundaries, and
 
 ## When NOT to Use
 
-- **Line-by-line code review** (style, correctness, PR feedback) — use `dev:code-review` instead.
-- **Security vulnerabilities** (injection, secrets, OWASP) — use `review:security` instead.
-- **Performance profiling** (bottlenecks, benchmarks) — use `review:performance` instead.
-- **Refactoring execution** (changing code structure) — use `dev:refactor` instead. Architecture analysis identifies problems; refactor fixes them.
+- **Line-by-line code review** (style, correctness, PR feedback) — use `code-review` instead.
+- **Security vulnerabilities** (injection, secrets, OWASP) — use `sec-review` instead.
+- **Performance profiling** (bottlenecks, benchmarks) — use `perf-review` instead.
+- **Refactoring execution** (changing code structure) — use `refactor` instead. Architecture analysis identifies problems; refactor fixes them.
 
 ## Procedure
 
@@ -80,5 +80,5 @@ Analyze software architecture: dependencies, coupling, cohesion, boundaries, and
 ## References
 
 - `standards/framework/stacks/python.md` — code patterns and project layout.
-- `agents/architect.md` — agent that performs architecture analysis.
-- `skills/docs/explain/SKILL.md` — explain architectural patterns and decisions.
+- `agents/scan.md` — agent that performs architecture drift detection.
+- `skills/explain/SKILL.md` — explain architectural patterns and decisions.

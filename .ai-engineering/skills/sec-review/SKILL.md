@@ -24,10 +24,10 @@ Comprehensive security review covering OWASP top risks, secret exposure, injecti
 
 ## When NOT to Use
 
-- **Code quality metrics** (coverage, duplication, complexity) — use `quality:audit-code` instead.
-- **Architecture review** (coupling, dependencies, drift) — use `review:architecture` instead.
-- **General code review** (style, patterns, correctness) — use `dev:code-review` instead.
-- **Governance content validation** — use `govern:integrity-check` instead.
+- **Code quality metrics** (coverage, duplication, complexity) — use `audit` instead.
+- **Architecture review** (coupling, dependencies, drift) — use `arch-review` instead.
+- **General code review** (style, patterns, correctness) — use `code-review` instead.
+- **Governance content validation** — use `integrity` instead.
 
 ## Procedure
 
@@ -56,7 +56,7 @@ Comprehensive security review covering OWASP top risks, secret exposure, injecti
    - Run `semgrep` with OWASP ruleset (all stacks).
    - Verify dependencies are from trusted sources.
    - Check for typosquatting risks on package names.
-   - For comprehensive supply chain view, reference `skills/quality/sbom/SKILL.md`.
+   - For comprehensive supply chain view, reference `skills/sbom/SKILL.md`.
 
 5. **Cloud security** (when applicable) — review cloud resource configuration.
    - IAM: least privilege, no wildcard permissions, service principal rotation.
@@ -102,8 +102,8 @@ Comprehensive security review covering OWASP top risks, secret exposure, injecti
 - `standards/framework/core.md` — mandatory local enforcement and risk acceptance.
 - `standards/framework/quality/core.md` — severity policy.
 - `standards/framework/security/owasp-top10-2025.md` — OWASP Top 10 mapping.
-- `agents/security-reviewer.md` — agent that performs security reviews.
-- `skills/review/specialized-security/SKILL.md` — DAST, container scanning, and data security posture (mode: `dast`, `container`, `data`).
-- `skills/quality/sbom/SKILL.md` — software bill of materials generation.
+- `agents/review.md` — agent that performs security reviews.
+- `skills/sec-deep/SKILL.md` — DAST, container scanning, and data security posture (mode: `dast`, `container`, `data`).
+- `skills/sbom/SKILL.md` — software bill of materials generation.
 - `standards/framework/stacks/azure.md` — Azure security patterns.
 - `standards/framework/stacks/infrastructure.md` — IaC security patterns.

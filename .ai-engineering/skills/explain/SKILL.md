@@ -158,10 +158,10 @@ When invoked by another agent (not directly by user) or in CI context:
 
 ## When NOT to Use
 
-- **Generating documentation** (README, CONTRIBUTING, guides) — use `docs:writer` instead. Explain teaches concepts; writer produces documentation artifacts.
-- **Simplifying existing docs** (reducing verbosity, removing duplication) — use `docs:simplify` instead.
-- **Code changes** (refactoring, bug fixing) — use `dev:refactor` or `dev:debug` instead. Explain is output-only.
-- **Changelog entries** — use `docs:changelog` instead.
+- **Generating documentation** (README, CONTRIBUTING, guides) — use `docs` instead. Explain teaches concepts; docs produces documentation artifacts.
+- **Simplifying existing docs** (reducing verbosity, removing duplication) — use `simplify` instead.
+- **Code changes** (refactoring, bug fixing) — use `refactor` or `debug` instead. Explain is output-only.
+- **Changelog entries** — use `changelog` instead.
 
 ## Output Contract
 
@@ -213,9 +213,9 @@ When invoked by another agent (not directly by user) or in CI context:
 
 - `context/learnings.md` — institutional knowledge for codebase-specific context.
 - `standards/framework/core.md` — governance structure and precedence.
-- `skills/dev/code-review/SKILL.md` — code understanding patterns.
-- `skills/review/architecture/SKILL.md` — architecture context methodology.
-- `skills/dev/debug/SKILL.md` — root cause explanation patterns.
-- `skills/docs/prompt-design/SKILL.md` — Chain of Thought framework for structured reasoning.
-- `agents/debugger.md` — agent that benefits from explanation capability.
-- `agents/architect.md` — agent that benefits from architecture explanations.
+- `skills/code-review/SKILL.md` — code understanding patterns.
+- `skills/arch-review/SKILL.md` — architecture context methodology.
+- `skills/debug/SKILL.md` — root cause explanation patterns.
+- `skills/prompt/SKILL.md` — Chain of Thought framework for structured reasoning.
+- `agents/build.md` — agent that benefits from explanation capability.
+- `agents/scan.md` — agent that benefits from architecture explanations.

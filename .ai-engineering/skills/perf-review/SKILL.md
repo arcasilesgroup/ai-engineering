@@ -70,5 +70,5 @@ Identify and resolve performance bottlenecks through systematic profiling, measu
 - `standards/framework/stacks/python.md` — code patterns.
 - `standards/framework/stacks/dotnet.md` — .NET performance patterns (ArrayPool, Span, output caching, BenchmarkDotNet).
 - `standards/framework/quality/core.md` — complexity thresholds.
-- `skills/dev/references/language-framework-patterns.md` — performance optimization domain.
-- `agents/principal-engineer.md` — agent that evaluates performance.
+- `skills/perf-review/references/language-framework-patterns.md` — performance optimization domain.
+- `agents/review.md` — agent that evaluates performance.

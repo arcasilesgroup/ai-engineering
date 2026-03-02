@@ -22,21 +22,21 @@ Executes a structured GO/NO-GO checklist across all quality dimensions for relea
 
 ## When NOT to Use
 
-- **Code quality only** (coverage, complexity, lint) — use `quality:audit-code` instead. Release-gate aggregates all dimensions; audit-code focuses on code quality.
-- **Security only** (OWASP, secrets, dependencies) — use `review:security` instead.
-- **Test coverage analysis** — use `quality:test-gap-analysis` instead.
-- **Full platform audit** (8+ dimensions with scoring) — use `agent:platform-auditor` instead. Release-gate covers 7 dimensions; platform-auditor covers all 8+ with weighted scoring.
+- **Code quality only** (coverage, complexity, lint) — use `audit` instead. Release-gate aggregates all dimensions; audit focuses on code quality.
+- **Security only** (OWASP, secrets, dependencies) — use `sec-review` instead.
+- **Test coverage analysis** — use `test-gap` instead.
+- **Full platform audit** (8+ dimensions with scoring) — use `agent:review` instead. Release-gate covers 7 dimensions; review agent covers all 8+ with weighted scoring.
 
 ## Procedure
 
 ### Phase 1: Gate Dimensions
 
 1. **Contract compliance** — verify framework contracts are satisfied.
-   - Invoke `govern/contract-compliance/SKILL.md` or review most recent compliance report.
+   - Invoke `compliance/SKILL.md` or review most recent compliance report.
    - Gate: no FAIL clauses (PARTIAL acceptable with risk acceptance).
 
 2. **Security enforcement** — verify security posture.
-   - Invoke `review/security.md` checks or review most recent security report.
+   - Invoke `sec-review/SKILL.md` checks or review most recent security report.
    - Gate: no critical/high findings. Medium findings documented.
    - Check: hooks installed, gitleaks clean, pip-audit clean, semgrep clean.
 
@@ -46,25 +46,25 @@ Executes a structured GO/NO-GO checklist across all quality dimensions for relea
    - Check: /commit, /commit --only, /pr, /pr --only, /acho, /acho pr.
 
 4. **Ownership safety** — verify update flows respect boundaries.
-   - Invoke `govern/ownership-audit/SKILL.md` or review most recent ownership report.
+   - Invoke `ownership/SKILL.md` or review most recent ownership report.
    - Gate: no ownership violations, updater safety confirmed.
 
 5. **Test confidence** — verify test coverage meets thresholds.
-   - Invoke `quality/test-gap-analysis.md` or review most recent gap analysis.
+   - Invoke `test-gap/SKILL.md` or review most recent gap analysis.
    - Gate: 100% coverage, no untested critical paths.
    - Check: all tests passing, no skipped governance tests.
 
 6. **Documentation coherence** — verify docs are current and correct.
-   - Invoke `quality/docs-audit.md` or review most recent docs report.
+   - Invoke `docs-audit/SKILL.md` or review most recent docs report.
    - Gate: no misplaced files, no stale critical content, template compliance.
 
 7. **Packaging integrity** — verify distribution readiness.
-   - Invoke `quality/install-check.md` or review most recent install check.
+   - Invoke `install/SKILL.md` or review most recent install check.
    - Gate: clean install works, doctor passes, all artifacts bundled.
    - Check: wheel builds, pip install succeeds, template tree complete.
 
 8. **Sonar quality gate** (optional) — verify Sonar analysis passes.
-   - Invoke `dev/sonar-gate/SKILL.md` or review most recent Sonar report.
+   - Invoke `sonar/SKILL.md` or review most recent Sonar report.
    - Gate: Sonar quality gate status is PASS or SKIP (not configured).
    - Check: coverage, duplication, blocker/critical issues match framework contract.
    - **Silent skip**: if Sonar is not configured, this dimension is auto-PASS.
@@ -123,15 +123,14 @@ Executes a structured GO/NO-GO checklist across all quality dimensions for relea
 
 ## References
 
-- `skills/govern/contract-compliance/SKILL.md` — contract compliance gate.
-- `skills/govern/ownership-audit/SKILL.md` — ownership safety gate.
-- `skills/govern/integrity-check/SKILL.md` — structural integrity gate.
-- `skills/quality/audit-code/SKILL.md` — code quality gate.
-- `skills/quality/test-gap-analysis/SKILL.md` — test confidence gate.
-- `skills/quality/docs-audit/SKILL.md` — documentation coherence gate.
-- `skills/quality/install-check/SKILL.md` — packaging integrity gate.
-- `skills/dev/sonar-gate/SKILL.md` — optional Sonar quality gate dimension.
-- `skills/review/security/SKILL.md` — security enforcement gate.
-- `agents/platform-auditor.md` — orchestrator that uses this skill.
-- `agents/verify-app.md` — command reliability source.
+- `skills/compliance/SKILL.md` — contract compliance gate.
+- `skills/ownership/SKILL.md` — ownership safety gate.
+- `skills/integrity/SKILL.md` — structural integrity gate.
+- `skills/audit/SKILL.md` — code quality gate.
+- `skills/test-gap/SKILL.md` — test confidence gate.
+- `skills/docs-audit/SKILL.md` — documentation coherence gate.
+- `skills/install/SKILL.md` — packaging integrity gate.
+- `skills/sonar/SKILL.md` — optional Sonar quality gate dimension.
+- `skills/sec-review/SKILL.md` — security enforcement gate.
+- `agents/review.md` — orchestrator that uses this skill and command reliability source.
 - `standards/framework/quality/core.md` — quality thresholds.

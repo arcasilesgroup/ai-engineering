@@ -22,9 +22,9 @@ Review frontend code for WCAG 2.1 AA compliance. Covers semantic HTML, ARIA attr
 
 ## When NOT to Use
 
-- **Performance review** — use `review:performance` instead.
-- **Security review** — use `review:security` instead.
-- **General code review** — use `dev:code-review` instead.
+- **Performance review** — use `perf-review` instead.
+- **Security review** — use `sec-review` instead.
+- **General code review** — use `code-review` instead.
 - **Design system architecture** — use `agent:frontend-specialist` for holistic frontend review.
 
 ## Procedure
@@ -108,4 +108,4 @@ Review frontend code for WCAG 2.1 AA compliance. Covers semantic HTML, ARIA attr
 - `standards/framework/stacks/react.md` — React accessibility patterns.
 - `standards/framework/stacks/react-native.md` — React Native accessibility patterns.
 - `standards/framework/stacks/astro.md` — Astro accessibility patterns.
-- `agents/frontend-specialist.md` — agent for holistic frontend review.
+- `agents/build.md` — agent for holistic frontend review.

@@ -22,9 +22,9 @@ Clause-by-clause validation of framework contracts (`framework-contract.md`, `ma
 
 ## When NOT to Use
 
-- **Structural integrity validation** (file existence, mirrors, counters, cross-references) — use `govern:integrity-check` instead. Contract-compliance validates semantic compliance; integrity-check validates structural correctness.
-- **Ownership boundary validation** (who can update what) — use `govern:ownership-audit` instead.
-- **Code quality assessment** — use `quality:audit-code` instead.
+- **Structural integrity validation** (file existence, mirrors, counters, cross-references) — use `integrity` instead. Contract-compliance validates semantic compliance; integrity-check validates structural correctness.
+- **Ownership boundary validation** (who can update what) — use `ownership` instead.
+- **Code quality assessment** — use `audit` instead.
 
 ## Procedure
 
@@ -100,14 +100,14 @@ Clause-by-clause validation of framework contracts (`framework-contract.md`, `ma
 
 - This skill validates contract semantics — `integrity-check` validates structural correctness. Both are needed for full compliance.
 - FAIL clauses are release blockers unless explicitly risk-accepted via `state/decision-store.json`.
-- Contract compliance is a governance requirement for release readiness (pairs with `quality/release-gate.md`).
+- Contract compliance is a governance requirement for release readiness (pairs with `release/SKILL.md`).
 - Run after any change to `framework-contract.md`, `manifest.yml`, or major implementation changes.
 
 ## References
 
 - `context/product/framework-contract.md` — primary contract source.
 - `manifest.yml` — configuration-level contract.
-- `skills/govern/integrity-check/SKILL.md` — structural validation (complementary).
-- `skills/quality/release-gate/SKILL.md` — release readiness aggregation.
-- `agents/platform-auditor.md` — orchestrator that invokes this skill.
+- `skills/integrity/SKILL.md` — structural validation (complementary).
+- `skills/release/SKILL.md` — release readiness aggregation.
+- `agents/review.md` — orchestrator that invokes this skill.
 - `standards/framework/core.md` — governance structure and ownership model.

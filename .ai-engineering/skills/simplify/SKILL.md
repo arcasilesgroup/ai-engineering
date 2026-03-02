@@ -22,9 +22,9 @@ Reduce verbosity and duplication in documentation without losing required meanin
 
 ## When NOT to Use
 
-- **Writing new documentation** (README, guides, CONTRIBUTING) — use `docs:writer` instead. Simplify improves existing content; writer creates new content.
-- **Explaining concepts** (teaching, Feynman-style breakdown) — use `docs:explain` instead.
-- **Changelog entries** — use `docs:changelog` instead.
+- **Writing new documentation** (README, guides, CONTRIBUTING) — use `docs` instead. Simplify improves existing content; docs creates new content.
+- **Explaining concepts** (teaching, Feynman-style breakdown) — use `explain` instead.
+- **Changelog entries** — use `changelog` instead.
 
 ## Procedure
 
@@ -43,5 +43,5 @@ Reduce verbosity and duplication in documentation without losing required meanin
 
 ## References
 
-- `agents/docs-writer.md`
-- `skills/docs/writer/SKILL.md`
+- `agents/write.md`
+- `skills/docs/SKILL.md`

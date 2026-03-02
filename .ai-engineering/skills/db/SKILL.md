@@ -22,10 +22,10 @@ Database operations skill covering schema design, migration safety, query optimi
 
 ## When NOT to Use
 
-- **Data modeling decisions** (entity relationships, normalization trade-offs) — use `dev:data-modeling` for modeling procedures.
-- **Security of database access** — use `review:security` or `review:data-security` for access control review.
-- **Infrastructure provisioning** (database server setup) — use `dev:infrastructure` for server provisioning.
-- **General code review** — use `dev:code-review` for application code.
+- **Data modeling decisions** (entity relationships, normalization trade-offs) — use `data-model` for modeling procedures.
+- **Security of database access** — use `sec-review` for access control review.
+- **Infrastructure provisioning** (database server setup) — use `infra` for server provisioning.
+- **General code review** — use `code-review` for application code.
 
 ## Procedure
 
@@ -95,6 +95,6 @@ Database operations skill covering schema design, migration safety, query optimi
 
 - `standards/framework/stacks/database.md` — SQL patterns, migration safety, data lifecycle.
 - `standards/framework/stacks/dotnet.md` — EF Core patterns (DbContext, migrations, bulk operations, interceptors).
-- `skills/dev/references/database-patterns.md` — detailed database patterns.
-- `skills/dev/data-modeling/SKILL.md` — data modeling procedures.
-- `agents/database-engineer.md` — agent for complex database decisions.
+- `skills/db/references/database-patterns.md` — detailed database patterns.
+- `skills/data-model/SKILL.md` — data modeling procedures.
+- `agents/build.md` — implementation agent for complex database decisions.

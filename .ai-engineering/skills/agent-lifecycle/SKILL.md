@@ -81,6 +81,6 @@ Unified procedure for creating and deleting agents. Ensures every registration p
 - `standards/framework/core.md` — governance structure, ownership model.
 - `standards/framework/skills-schema.md` — agent frontmatter schema.
 - `context/product/framework-contract.md` — template packaging and replication rule.
-- `skills/govern/skill-lifecycle/SKILL.md` — companion procedure for skills.
-- `skills/govern/integrity-check/SKILL.md` — post-change validation.
-- `skills/docs/changelog/SKILL.md` — changelog entry formatting.
+- `skills/skill-lifecycle/SKILL.md` — companion procedure for skills.
+- `skills/integrity/SKILL.md` — post-change validation.
+- `skills/changelog/SKILL.md` — changelog entry formatting.

@@ -33,16 +33,15 @@ Patterns for coordinating multiple agent personas in parallel or sequence. Cover
 Launch multiple specialized agents simultaneously for comprehensive assessment.
 
 1. **Identify audit dimensions** — determine which agents cover the scope:
-   - `agent:security-reviewer` — security findings.
-   - `agent:quality-auditor` — quality metrics.
-   - `agent:architect` — architecture assessment.
-   - `agent:docs-writer` — structural documentation.
+   - `agent:review` — security findings and quality metrics.
+   - `agent:scan` — architecture assessment.
+   - `agent:write` — structural documentation.
 
 2. **Launch agents in parallel** — use Task tool with `subagent_type` in a single message:
    ```
-   Task(subagent_type="general-purpose", prompt="Activate agent:security-reviewer. Scan...")
-   Task(subagent_type="general-purpose", prompt="Activate agent:quality-auditor. Run...")
-   Task(subagent_type="general-purpose", prompt="Activate agent:architect. Analyze...")
+   Task(subagent_type="general-purpose", prompt="Activate agent:review. Scan...")
+   Task(subagent_type="general-purpose", prompt="Activate agent:review. Run quality audit...")
+   Task(subagent_type="general-purpose", prompt="Activate agent:scan. Analyze...")
    ```
 
 3. **Consolidate results** — after all agents complete, merge findings:
@@ -55,8 +54,8 @@ Launch multiple specialized agents simultaneously for comprehensive assessment.
 Run code review and security review simultaneously on the same changeset.
 
 1. **Launch review agents** — two Task calls in one message:
-   - `dev:code-review` focused on correctness and patterns.
-   - `review:security` focused on vulnerabilities.
+   - `code-review` focused on correctness and patterns.
+   - `sec-review` focused on vulnerabilities.
 
 2. **Merge review feedback** — combine into single review output:
    - Security findings take priority over style suggestions.
@@ -138,9 +137,7 @@ Dispatch read-only agents to gather and summarize context before planning or aud
 
 ## References
 
-- `agents/platform-auditor.md` — orchestrates 8 audit dimensions (uses pattern 1).
-- `agents/principal-engineer.md` — cross-cutting review perspective.
-- `agents/security-reviewer.md` — security-focused review agent.
-- `agents/quality-auditor.md` — quality gate enforcement agent.
-- `skills/dev/code-review/SKILL.md` — code review skill (used in pattern 2).
-- `skills/review/security/SKILL.md` — security review skill (used in pattern 2).
+- `agents/review.md` — orchestrates audits, quality gates, and security reviews (uses pattern 1).
+- `agents/scan.md` — cross-cutting architecture review perspective.
+- `skills/code-review/SKILL.md` — code review skill (used in pattern 2).
+- `skills/sec-review/SKILL.md` — security review skill (used in pattern 2).

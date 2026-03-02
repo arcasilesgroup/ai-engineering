@@ -225,10 +225,10 @@ When invoked by another agent or in CI context:
 
 ## When NOT to Use
 
-- **Explaining concepts** (teaching, Feynman-style breakdown) — use `docs:explain` instead. Writer produces documentation artifacts; explain teaches understanding.
-- **Changelogs** (release notes, version history) — use `docs:changelog` instead.
-- **Simplifying existing docs** (reducing verbosity) — use `docs:simplify` instead.
-- **Prompt engineering** (designing AI interactions) — use `docs:prompt-design` instead.
+- **Explaining concepts** (teaching, Feynman-style breakdown) — use `explain` instead. Writer produces documentation artifacts; explain teaches understanding.
+- **Changelogs** (release notes, version history) — use `changelog` instead.
+- **Simplifying existing docs** (reducing verbosity) — use `simplify` instead.
+- **Prompt engineering** (designing AI interactions) — use `prompt` instead.
 
 ### Phase 4: Reader Testing
 
@@ -307,8 +307,8 @@ Finalize and position documentation in the project.
 - `context/product/framework-contract.md` — roadmap, personas, value proposition.
 - `context/learnings.md` — institutional knowledge that may inform documentation content.
 - `standards/framework/core.md` — governance model (for understanding internal structure, not for user docs).
-- `skills/docs/changelog/SKILL.md` — user-facing language conventions and anti-patterns.
-- `skills/dev/code-review/SKILL.md` — quality patterns for code examples in documentation.
-- `skills/docs/prompt-design/SKILL.md` — Chain of Density for content compression and summaries.
-- `skills/review/security/SKILL.md` — security assessment before documenting sensitive features.
-- `agents/architect.md` — complementary agent for deep codebase understanding.
+- `skills/changelog/SKILL.md` — user-facing language conventions and anti-patterns.
+- `skills/code-review/SKILL.md` — quality patterns for code examples in documentation.
+- `skills/prompt/SKILL.md` — Chain of Density for content compression and summaries.
+- `skills/sec-review/SKILL.md` — security assessment before documenting sensitive features.
+- `agents/scan.md` — complementary agent for deep codebase understanding.
