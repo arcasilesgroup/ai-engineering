@@ -1,5 +1,5 @@
 ---
-description: "Clean stale branches after PR merge: sync base, prune remotes, delete merged/squash-merged branches."
+description: "Repository hygiene: status, sync, prune, branch cleanup, spec reset."
 mode: "agent"
 ---
 

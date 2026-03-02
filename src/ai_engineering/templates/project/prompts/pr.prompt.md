@@ -1,14 +1,14 @@
 ---
-description: "Alias for commit/pr workflows."
+description: "Execute governed PR workflow: commit + push + create PR + auto-complete."
 mode: "agent"
 ---
 
 Before executing, verify these preconditions:
 
 1. Current branch is NOT `main` or `master` (abort with warning if so).
-2. Working tree has staged or unstaged changes (abort if nothing to commit).
+2. Working tree has staged or unstaged changes, or commits ahead of remote (abort if nothing to push/PR).
 3. Active spec is read from `.ai-engineering/context/specs/_active.md`.
 
-`/acho` is an alias. Read and execute `.ai-engineering/skills/commit/SKILL.md` for default flow, or `.ai-engineering/skills/pr/SKILL.md` if argument is `pr`.
+Read and execute the skill defined in `.ai-engineering/skills/pr/SKILL.md`.
 
 Follow the complete procedure. Do not skip steps. Apply all governance notes.
