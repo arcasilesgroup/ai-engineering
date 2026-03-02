@@ -108,7 +108,7 @@ ai-eng version && ai-eng doctor && ai-eng install                             # 
 
 ## 4. Active Spec
 
-Spec-030: Sonar CI/CD Pipeline Integration (auto Sonar analysis generation + advisory pre-push gate). Branch: `feat/sonar-cicd-pipeline-integration`.
+Spec-031: Architecture Refactor — Agents, Skills & Standards (19 → 6 agents, flat skills, `ai:` namespace). Branch: `spec/031-framework-optimization`.
 
 ### Read Sequence
 
