@@ -15,7 +15,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
 
 if TYPE_CHECKING:
     from ai_engineering.credentials.service import CredentialService
@@ -128,6 +128,10 @@ class SonarSetup:
 
         result = SonarValidationResult(url=url)
         api_url = urljoin(url.rstrip("/") + "/", "api/authentication/validate")
+        parsed = urlparse(api_url)
+        if parsed.scheme not in {"https", "http"}:
+            result.error = "Invalid Sonar API URL scheme"
+            return result
 
         credentials = base64.b64encode(f"{token}:".encode()).decode()
         req = urllib.request.Request(
@@ -136,7 +140,8 @@ class SonarSetup:
         )
 
         try:
-            with urllib.request.urlopen(req, timeout=10) as resp:
+            # nosemgrep - scheme validated above; optional-dependency fallback path.
+            with urllib.request.urlopen(req, timeout=10) as resp:  # nosemgrep
                 data = json.loads(resp.read().decode())
                 result.valid = data.get("valid", False)
                 if not result.valid:

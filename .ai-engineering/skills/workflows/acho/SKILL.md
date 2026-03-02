@@ -39,7 +39,7 @@ Identical to `/commit` default flow (including documentation gate):
 
 ### `/acho pr` (stage + commit + push + create PR + auto-complete)
 
-Identical to `/pr` default flow (including documentation gate):
+Identical to `/pr` default flow (including spec reset and documentation gate):
 
 1. Stage, format, lint, secret detection (steps 1–4 above).
 2. Documentation gate — evaluate and update CHANGELOG.md, README.md, and external docs portal for OSS GitHub users (inherited from `/pr`).

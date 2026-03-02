@@ -1,7 +1,7 @@
 ---
 name: pr
-description: "Execute governed PR workflow: stage, commit, push, create pull request with auto-complete squash merge."
-version: 1.0.0
+description: "Execute governed PR workflow: conditional spec reset, stage, commit, push, create pull request with auto-complete squash merge."
+version: 2.0.0
 category: workflows
 tags: [git, pull-request, ci, merge]
 metadata:
@@ -16,7 +16,7 @@ metadata:
 
 ## Purpose
 
-Execute the `/pr` governed workflow: stage, commit, push, create a pull request, and enable auto-complete with squash merge and branch deletion. The `--only` variant creates the PR without staging/committing/pushing first.
+Execute the `/pr` governed workflow: conditionally run spec reset, stage, commit, push, create a pull request, and enable auto-complete with squash merge and branch deletion. The `--only` variant creates the PR without spec reset, staging, committing, or pushing first.
 
 ## Trigger
 
@@ -31,8 +31,13 @@ Execute the `/pr` governed workflow: stage, commit, push, create a pull request,
 
 ## Procedure
 
-### `/pr` (default: stage + commit + push + create PR + auto-complete)
+### `/pr` (default: conditional spec reset + stage + commit + push + create PR + auto-complete)
 
+0. **Spec reset** (conditional) — run `uv run ai-eng maintenance spec-reset --dry-run`.
+   - If a completed active spec is detected: run `uv run ai-eng maintenance spec-reset` and report the summary.
+   - If there is no active spec or the active spec is in progress: skip silently.
+   - If spec reset fails: report the error and stop.
+   - This ensures archived specs and cleared `_active.md` are staged with the PR and reach origin when the PR merges.
 1. **Stage changes** — `git add -A` (or selective staging).
 2. **Run formatter** — `ruff format .` to auto-fix formatting.
 3. **Run linter** — `ruff check . --fix`. If unfixable issues remain, report and stop.
@@ -68,6 +73,8 @@ Execute the `/pr` governed workflow: stage, commit, push, create a pull request,
 
 ### `/pr --only` (create PR only)
 
+Spec reset is intentionally excluded from `--only` because this mode does not stage/commit/push changes.
+
 1. **Check branch status** — verify current branch is pushed to remote.
    - If NOT pushed: emit warning and propose auto-push.
    - If user accepts: `git push origin <current-branch>`, then continue.
@@ -90,6 +97,7 @@ Execute the `/pr` governed workflow: stage, commit, push, create a pull request,
 - `gh` CLI must be installed and authenticated. If not, attempt remediation: install `gh`, then `gh auth login`.
 - Secret detection failure is a hard stop.
 - `/pr --only` never hard-fails on unpushed branch — it warns and offers continuation modes.
+- Spec reset runs only in `/pr` default flow and only when the active spec is complete.
 
 ## PR Structure and Formatting
 
@@ -133,6 +141,7 @@ When creating the PR:
 - `standards/framework/quality/core.md` — gate structure (pre-push + PR gates).
 - `skills/workflows/commit/SKILL.md` — shared pre-commit steps.
 - `skills/workflows/acho/SKILL.md` — alias workflow.
+- `skills/workflows/cleanup/SKILL.md` — repository hygiene workflow; spec reset moved from `/cleanup` to `/pr`.
 - `skills/docs/changelog/SKILL.md` — changelog entry formatting (used by documentation gate).
 - `skills/docs/writer/SKILL.md` — README and documentation update procedure for OSS GitHub users (used by documentation gate).
 - `agents/verify-app.md` — agent that validates PR workflow execution.

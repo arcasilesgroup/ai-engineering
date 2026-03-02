@@ -22,6 +22,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import cast
+from urllib.parse import urlparse
 
 import yaml
 
@@ -443,8 +444,13 @@ def _fetch_url(url: str) -> bytes | None:
     Returns:
         Response content bytes, or None on failure.
     """
+    parsed = urlparse(url)
+    if parsed.scheme not in {"https", "http"}:
+        _logger.debug("Refusing unsupported URL scheme for remote sync: %s", parsed.scheme)
+        return None
     try:
-        with urllib.request.urlopen(url, timeout=30) as response:
+        # nosemgrep - scheme validated above; keeps existing test/mocking contract.
+        with urllib.request.urlopen(url, timeout=30) as response:  # nosemgrep
             return response.read()
     except (urllib.error.URLError, OSError, ValueError) as exc:
         _logger.debug("Failed to fetch %s: %s", url, exc)

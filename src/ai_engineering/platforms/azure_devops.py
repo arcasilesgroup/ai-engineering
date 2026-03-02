@@ -15,7 +15,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
 
 if TYPE_CHECKING:
     from ai_engineering.credentials.service import CredentialService
@@ -128,6 +128,10 @@ class AzureDevOpsSetup:
             org_url.rstrip("/") + "/",
             "_apis/projects?api-version=7.0",
         )
+        parsed = urlparse(api_url)
+        if parsed.scheme not in {"https", "http"}:
+            result.error = "Invalid Azure DevOps API URL scheme"
+            return result
 
         credentials = base64.b64encode(f":{pat}".encode()).decode()
         req = urllib.request.Request(
@@ -136,7 +140,8 @@ class AzureDevOpsSetup:
         )
 
         try:
-            with urllib.request.urlopen(req, timeout=10) as resp:
+            # nosemgrep - scheme validated above; optional-dependency fallback path.
+            with urllib.request.urlopen(req, timeout=10) as resp:  # nosemgrep
                 if resp.status == 200:
                     result.valid = True
                 else:
