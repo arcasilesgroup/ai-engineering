@@ -5,7 +5,7 @@ from __future__ import annotations
 import runpy
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -200,16 +200,12 @@ def test_skills_state_and_defaults_edges(tmp_path: Path) -> None:
     assert skills_service._is_cache_fresh(lock.sources[0], cache_file) is True
 
     class _Response:
-        def __enter__(self) -> _Response:
-            return self
-
-        def __exit__(self, *_: object) -> None:
-            return None
-
         def read(self) -> bytes:
             return b"ok"
 
-    with patch("ai_engineering.skills.service.urllib.request.urlopen", return_value=_Response()):
+    conn = MagicMock()
+    conn.getresponse.return_value = _Response()
+    with patch("ai_engineering.skills.service.http.client.HTTPSConnection", return_value=conn):
         assert skills_service._fetch_url("https://example.test") == b"ok"
 
     ds = DecisionStore()

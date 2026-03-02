@@ -120,8 +120,7 @@ class AzureDevOpsSetup:
         with empty username and PAT as password.
         """
         import base64
-        import urllib.request
-        from urllib.error import URLError
+        import http.client
 
         result = AzureDevOpsValidationResult(org_url=org_url)
         api_url = urljoin(
@@ -134,22 +133,31 @@ class AzureDevOpsSetup:
             return result
 
         credentials = base64.b64encode(f":{pat}".encode()).decode()
-        req = urllib.request.Request(
-            api_url,
-            headers={"Authorization": f"Basic {credentials}"},
+        path = parsed.path + (f"?{parsed.query}" if parsed.query else "")
+        conn_cls = (
+            http.client.HTTPSConnection if parsed.scheme == "https" else http.client.HTTPConnection
         )
+        conn: http.client.HTTPConnection | http.client.HTTPSConnection | None = None
 
         try:
-            # nosemgrep - scheme validated above; optional-dependency fallback path.
-            with urllib.request.urlopen(req, timeout=10) as resp:  # nosemgrep
-                if resp.status == 200:
-                    result.valid = True
-                else:
-                    result.error = f"HTTP {resp.status} from Azure DevOps API"
-        except URLError as exc:
+            conn = conn_cls(parsed.netloc, timeout=10)
+            conn.request(
+                "GET",
+                path,
+                headers={"Authorization": f"Basic {credentials}"},
+            )
+            resp = conn.getresponse()
+            if resp.status == 200:
+                result.valid = True
+            else:
+                result.error = f"HTTP {resp.status} from Azure DevOps API"
+        except (http.client.HTTPException, OSError) as exc:
             result.error = f"Connection error: {exc}"
         except Exception as exc:
             result.error = f"Unexpected error: {exc}"
+        finally:
+            if conn is not None:
+                conn.close()
 
         return result
 

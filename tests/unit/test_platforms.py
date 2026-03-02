@@ -187,14 +187,14 @@ class TestSonarSetup:
 
         sonar = SonarSetup(mock_creds)
 
-        # Force urllib fallback by making httpx import fail.
+        # Force stdlib fallback by making httpx import fail.
         with patch.dict("sys.modules", {"httpx": None}):
             mock_resp = MagicMock()
             mock_resp.read.return_value = b'{"valid": true}'
-            mock_resp.__enter__ = MagicMock(return_value=mock_resp)
-            mock_resp.__exit__ = MagicMock(return_value=False)
+            mock_conn = MagicMock()
+            mock_conn.getresponse.return_value = mock_resp
 
-            with patch("urllib.request.urlopen", return_value=mock_resp):
+            with patch("http.client.HTTPSConnection", return_value=mock_conn):
                 result = sonar.validate_token("https://sonarcloud.io", "test-token")
                 assert result.valid is True
 
@@ -206,10 +206,10 @@ class TestSonarSetup:
         with patch.dict("sys.modules", {"httpx": None}):
             mock_resp = MagicMock()
             mock_resp.read.return_value = b'{"valid": false}'
-            mock_resp.__enter__ = MagicMock(return_value=mock_resp)
-            mock_resp.__exit__ = MagicMock(return_value=False)
+            mock_conn = MagicMock()
+            mock_conn.getresponse.return_value = mock_resp
 
-            with patch("urllib.request.urlopen", return_value=mock_resp):
+            with patch("http.client.HTTPSConnection", return_value=mock_conn):
                 result = sonar.validate_token("https://sonarcloud.io", "bad-token")
                 assert result.valid is False
 
@@ -265,23 +265,21 @@ class TestAzureDevOpsSetup:
         with patch.dict("sys.modules", {"httpx": None}):
             mock_resp = MagicMock()
             mock_resp.status = 200
-            mock_resp.__enter__ = MagicMock(return_value=mock_resp)
-            mock_resp.__exit__ = MagicMock(return_value=False)
+            mock_conn = MagicMock()
+            mock_conn.getresponse.return_value = mock_resp
 
-            with patch("urllib.request.urlopen", return_value=mock_resp):
+            with patch("http.client.HTTPSConnection", return_value=mock_conn):
                 result = azdo.validate_pat("https://dev.azure.com/myorg", "test-pat")
                 assert result.valid is True
 
     def test_validate_pat_connection_error(self, mock_creds: MagicMock) -> None:
-        from urllib.error import URLError
-
         from ai_engineering.platforms.azure_devops import AzureDevOpsSetup
 
         azdo = AzureDevOpsSetup(mock_creds)
 
         with (
             patch.dict("sys.modules", {"httpx": None}),
-            patch("urllib.request.urlopen", side_effect=URLError("timeout")),
+            patch("http.client.HTTPSConnection", side_effect=OSError("timeout")),
         ):
             result = azdo.validate_pat("https://dev.azure.com/myorg", "test-pat")
             assert result.valid is False

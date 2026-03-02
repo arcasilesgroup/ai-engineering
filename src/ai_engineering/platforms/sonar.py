@@ -122,9 +122,8 @@ class SonarSetup:
         with the token as username and empty password.
         """
         import base64
+        import http.client
         import json
-        import urllib.request
-        from urllib.error import URLError
 
         result = SonarValidationResult(url=url)
         api_url = urljoin(url.rstrip("/") + "/", "api/authentication/validate")
@@ -134,22 +133,31 @@ class SonarSetup:
             return result
 
         credentials = base64.b64encode(f"{token}:".encode()).decode()
-        req = urllib.request.Request(
-            api_url,
-            headers={"Authorization": f"Basic {credentials}"},
+        path = parsed.path + (f"?{parsed.query}" if parsed.query else "")
+        conn_cls = (
+            http.client.HTTPSConnection if parsed.scheme == "https" else http.client.HTTPConnection
         )
+        conn: http.client.HTTPConnection | http.client.HTTPSConnection | None = None
 
         try:
-            # nosemgrep - scheme validated above; optional-dependency fallback path.
-            with urllib.request.urlopen(req, timeout=10) as resp:  # nosemgrep
-                data = json.loads(resp.read().decode())
-                result.valid = data.get("valid", False)
-                if not result.valid:
-                    result.error = "Token rejected by Sonar server"
-        except URLError as exc:
+            conn = conn_cls(parsed.netloc, timeout=10)
+            conn.request(
+                "GET",
+                path,
+                headers={"Authorization": f"Basic {credentials}"},
+            )
+            resp = conn.getresponse()
+            data = json.loads(resp.read().decode())
+            result.valid = data.get("valid", False)
+            if not result.valid:
+                result.error = "Token rejected by Sonar server"
+        except (http.client.HTTPException, OSError) as exc:
             result.error = f"Connection error: {exc}"
         except Exception as exc:
             result.error = f"Unexpected error: {exc}"
+        finally:
+            if conn is not None:
+                conn.close()
 
         return result
 
