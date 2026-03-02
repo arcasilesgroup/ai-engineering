@@ -95,6 +95,6 @@ Database operations skill covering schema design, migration safety, query optimi
 
 - `standards/framework/stacks/database.md` — SQL patterns, migration safety, data lifecycle.
 - `standards/framework/stacks/dotnet.md` — EF Core patterns (DbContext, migrations, bulk operations, interceptors).
-- `skills/db/references/database-patterns.md` — detailed database patterns.
+- `skills/references/database-patterns.md` — detailed database patterns.
 - `skills/data-model/SKILL.md` — data modeling procedures.
 - `agents/build.md` — implementation agent for complex database decisions.

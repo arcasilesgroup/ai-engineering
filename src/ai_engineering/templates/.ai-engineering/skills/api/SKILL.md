@@ -93,7 +93,7 @@ Contract-first API design and review skill. Covers OpenAPI specification authori
 
 ## References
 
-- `skills/api/references/api-design-patterns.md` — detailed API design patterns.
+- `skills/references/api-design-patterns.md` — detailed API design patterns.
 - `standards/framework/stacks/typescript.md` — TypeScript API implementation patterns.
 - `standards/framework/stacks/dotnet.md` — .NET API implementation patterns.
 - `standards/framework/stacks/nestjs.md` — NestJS API patterns.

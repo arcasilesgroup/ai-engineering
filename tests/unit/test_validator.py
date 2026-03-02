@@ -121,65 +121,13 @@ def _make_instruction_content(
     skills: list[str] | None = None,
     agents: list[str] | None = None,
 ) -> str:
-    """Build instruction file content with skill/agent listings."""
+    """Build instruction file content with skill/agent listings (flat layout)."""
     skill_list = skills if skills is not None else _SKILL_PATHS
     agent_list = agents if agents is not None else _AGENT_PATHS
-    # Map flat skill names to category headings for instruction file subsections.
-    _CATEGORY_MAP: dict[str, str] = {
-        "commit": "Workflows",
-        "pr": "Workflows",
-        "acho": "Workflows",
-        "debug": "Dev Skills",
-        "refactor": "Dev Skills",
-        "code-review": "Dev Skills",
-        "test-plan": "Dev Skills",
-        "migrate": "Dev Skills",
-        "deps": "Dev Skills",
-        "arch-review": "Review Skills",
-        "perf-review": "Review Skills",
-        "sec-review": "Review Skills",
-        "changelog": "Docs Skills",
-        "explain": "Docs Skills",
-        "docs": "Docs Skills",
-        "prompt": "Docs Skills",
-        "integrity": "Govern Skills",
-        "agent-lifecycle": "Govern Skills",
-        "skill-lifecycle": "Govern Skills",
-        "spec": "Govern Skills",
-        "risk": "Govern Skills",
-        "audit": "Quality Skills",
-        "install": "Quality Skills",
-    }
-    _HEADINGS = [
-        "Workflows",
-        "Dev Skills",
-        "Review Skills",
-        "Docs Skills",
-        "Govern Skills",
-        "Quality Skills",
-    ]
-    grouped: dict[str, list[str]] = {h: [] for h in _HEADINGS}
-    ungrouped: list[str] = []
-    for s in skill_list:
-        # Extract skill name from flat path: skills/<name>/SKILL.md
-        parts = s.split("/")
-        skill_name = parts[1] if len(parts) >= 2 else ""
-        heading = _CATEGORY_MAP.get(skill_name)
-        if heading:
-            grouped[heading].append(s)
-        else:
-            ungrouped.append(s)
     lines = ["# Instructions", "", "## Skills", ""]
-    for heading in _HEADINGS:
-        lines.append(f"### {heading}")
-        lines.append("")
-        for s in grouped[heading]:
-            lines.append(f"- `.ai-engineering/{s}`")
-        lines.append("")
-    for s in ungrouped:
+    for s in skill_list:
         lines.append(f"- `.ai-engineering/{s}`")
-    if ungrouped:
-        lines.append("")
+    lines.append("")
     lines.extend(["## Agents", ""])
     for a in agent_list:
         lines.append(f"- `.ai-engineering/{a}`")
@@ -925,7 +873,8 @@ class TestInstructionConsistency:
         )
         assert report.category_passed(IntegrityCategory.INSTRUCTION_CONSISTENCY) is False
 
-    def test_missing_subsection_detected(self, tmp_path: Path) -> None:
+    def test_flat_layout_no_subsections_passes(self, tmp_path: Path) -> None:
+        """Flat skill layout has no category subsections — should pass."""
         _setup_full_project(tmp_path)
         lines = ["# Instructions", "", "## Skills", ""]
         for s in _SKILL_PATHS:
@@ -939,7 +888,7 @@ class TestInstructionConsistency:
             categories=[IntegrityCategory.INSTRUCTION_CONSISTENCY],
         )
         fail_checks = [c for c in report.checks if "missing-subsections" in c.name]
-        assert len(fail_checks) >= 1
+        assert len(fail_checks) == 0
 
 
 # -- Category 6: Manifest Coherence ---------------------------------------

@@ -431,20 +431,13 @@ def test_validator_internal_line_coverage_targets(tmp_path: Path) -> None:
     # line 782: create missing agent in non-reference instruction file
     base_ref = (
         "## Skills\n"
-        "### Workflows\n### Dev Skills\n### Review Skills\n### Docs Skills\n### Govern Skills\n"
-        "### Quality Skills\n"
         "- `.ai-engineering/skills/a.md`\n"
         "## Agents\n"
         "- `.ai-engineering/agents/a.md`\n"
         "- `.ai-engineering/agents/b.md`\n"
     )
     base_other = (
-        "## Skills\n"
-        "### Workflows\n### Dev Skills\n### Review Skills\n### Docs Skills\n### Govern Skills\n"
-        "### Quality Skills\n"
-        "- `.ai-engineering/skills/a.md`\n"
-        "## Agents\n"
-        "- `.ai-engineering/agents/a.md`\n"
+        "## Skills\n- `.ai-engineering/skills/a.md`\n## Agents\n- `.ai-engineering/agents/a.md`\n"
     )
     files = {
         ".github/copilot-instructions.md": base_ref,

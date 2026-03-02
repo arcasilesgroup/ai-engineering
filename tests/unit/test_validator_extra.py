@@ -99,18 +99,7 @@ def test_counter_accuracy_agent_mismatch(tmp_path: Path) -> None:
 def test_instruction_consistency_missing_file_and_differences(tmp_path: Path) -> None:
     base_content = """
 ## Skills
-### Workflows
-
-### Dev Skills
 - `.ai-engineering/skills/a.md`
-
-### Review Skills
-
-### Docs Skills
-
-### Govern Skills
-
-### Quality Skills
 
 ## Agents
 - `.ai-engineering/agents/a.md`

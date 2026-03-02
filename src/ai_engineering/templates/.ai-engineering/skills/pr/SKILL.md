@@ -139,7 +139,7 @@ When creating the PR:
 - `standards/framework/core.md` — non-negotiables and enforcement rules.
 - `standards/framework/quality/core.md` — gate structure (pre-push + PR gates).
 - `skills/commit/SKILL.md` — shared pre-commit steps.
-- `skills/acho/SKILL.md` — alias workflow.
+- `skills/commit/SKILL.md` — shared pre-commit steps.
 - `skills/cleanup/SKILL.md` — repository hygiene workflow; spec reset moved from `/cleanup` to `/pr`.
 - `skills/changelog/SKILL.md` — changelog entry formatting (used by documentation gate).
 - `skills/docs/SKILL.md` — README and documentation update procedure for OSS GitHub users (used by documentation gate).

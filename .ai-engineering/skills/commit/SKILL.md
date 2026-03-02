@@ -82,5 +82,5 @@ Follow steps 1–6 above. Skip step 7.
 - `standards/framework/quality/core.md` — gate structure (pre-commit gate).
 - `skills/changelog/SKILL.md` — changelog entry formatting (used by documentation gate).
 - `skills/docs/SKILL.md` — README and documentation update procedure for OSS GitHub users (used by documentation gate).
-- `skills/acho/SKILL.md` — alias workflow.
+- `skills/pr/SKILL.md` — PR workflow (includes acho alias behavior).
 - `agents/review.md` — agent that validates commit workflow execution.

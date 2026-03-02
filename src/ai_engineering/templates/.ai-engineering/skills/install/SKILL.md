@@ -57,7 +57,7 @@ Validate that ai-engineering is operational after install/update.
 
 ## References
 
-- `skills/install/references/platform-detect.md` — provider and tooling detection.
+- `skills/references/platform-detect.md` — provider and tooling detection.
 - `skills/sonar/SKILL.md` — optional Sonar quality gate validation.
 - `standards/framework/core.md` — enforcement requirements.
 - `agents/review.md` — verification agent that uses readiness checks.

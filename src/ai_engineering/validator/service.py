@@ -890,14 +890,8 @@ def _extract_listings(content: str) -> tuple[set[str], set[str]]:
 
 _SUBSECTION_PATTERN = re.compile(r"^### (.+)$", re.MULTILINE)
 
-_REQUIRED_SUBSECTIONS = {
-    "Workflows",
-    "Dev Skills",
-    "Review Skills",
-    "Docs Skills",
-    "Govern Skills",
-    "Quality Skills",
-}
+# Flat skill layout (spec-031) — no category subsections required.
+_REQUIRED_SUBSECTIONS: set[str] = set()
 
 
 def _check_instruction_consistency(target: Path, report: IntegrityReport) -> None:

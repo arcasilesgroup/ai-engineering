@@ -54,7 +54,7 @@
 | Phase | Name | Status |
 |-------|------|--------|
 | 0 | Rebuild Baseline — clean branch, contract-first structure, minimal runtime | Complete |
-| 1 | Content Core + Installability — 44 skills, 19 agents, 14 stacks, Python CLI | Complete |
+| 1 | Content Core + Installability — 47 skills, 6 agents, 14 stacks, Python CLI | Complete |
 | 2 | Dogfooding + Hard Validation — E2E validation, cross-OS CI, SAST remediation | In Progress |
 | 3 | Release Readiness — freeze contract, validate migrations, publish 0.2.0 | Pending |
 
@@ -83,7 +83,7 @@ This project dogfoods the ai-engineering framework on itself.
 
 | Area | Evidence |
 |------|----------|
-| Governance content | 44/44 skills, 19/19 agents, 14/14 stack standards |
+| Governance content | 47/47 skills, 6/6 agents, 14/14 stack standards |
 | Python runtime | 75 source files across 17 modules |
 | CI/CD | 3 workflows (ci.yml, install-smoke.yml, release.yml) with cross-OS matrix |
 | E2E tests | install clean + install existing flows validated |
@@ -122,37 +122,31 @@ Spec-031: Architecture Refactor — Agents, Skills & Standards (19 → 6 agents,
 | Quality gate pass rate | 100% on all governed ops | 100% (ruff, ty, format) | → |
 | Security scan pass rate | 100% — zero medium+ | 7 semgrep (1E+6W); gitleaks 0; pip-audit 0 | ↑ |
 | Tamper resistance score | 100/100 | 85/100 (B3/B4 done, CI stabilizing) | ↑ |
-| Agent coverage | 44 skills + 19 agents | 44/44 + 19/19 | → |
+| Agent coverage | 47 skills + 6 agents | 47/47 + 6/6 | → |
 | Test coverage | 90% (100% governance-critical) | 91% (889+ tests) | ↑ |
 | Cross-OS CI pass | 3x3 matrix green | Implemented, stabilizing | ↑ |
 | Token efficiency | >= 95% deferred at session start | 99.19% (500/61,386) | → |
 
 ## 6. Governance Surface Summary
 
-### 6.1 Skills (44 total, 6 categories)
+### 6.1 Skills (47 total, flat organization)
 
-| Category | Count | Skills |
-|----------|-------|--------|
-| workflows | 4 | commit, pr, cleanup, self-improve |
-| dev | 16 | multi-agent, code-review, refactor, debug, test-runner, test-strategy, migration, deps-update, data-modeling, database-ops, api-design, infrastructure, cicd-generate, cli-ux, sonar-gate, discovery-interrogation |
-| review | 5 | architecture, security, specialized-security (dast/container/data), performance, accessibility |
-| quality | 6 | audit-code, docs-audit, install-check, release-gate, sbom, test-gap-analysis |
-| govern | 8 | create-spec, skill-lifecycle, agent-lifecycle, integrity-check, ownership-audit, contract-compliance, risk-lifecycle, adaptive-standards |
-| docs | 5 | writer, changelog, explain, simplify, prompt-design |
+Path: `skills/<name>/SKILL.md` — no category subdirectories.
 
-### 6.2 Agents (19 total, 8 categories)
+| Skills (alphabetical) |
+|-----------------------|
+| a11y, agent-card, agent-lifecycle, api, arch-review, audit, changelog, cicd, cleanup, cli, code-review, commit, compliance, data-model, db, debug, deps, discover, docs, docs-audit, explain, improve, infra, install, integrity, migrate, multi-agent, ownership, perf-review, pr, prompt, refactor, release, risk, sbom, sec-deep, sec-review, simplify, skill-lifecycle, sonar, spec, standards, test-gap, test-plan, test-run, triage, work-item |
 
-| Category | Agents |
-|----------|--------|
-| orchestration | orchestrator |
-| analysis | architect, navigator, principal-engineer (v2: read-write, multi-stack) |
-| review | pr-reviewer, security-reviewer, code-simplifier |
-| quality | quality-auditor, platform-auditor |
-| delivery | devops-engineer, infrastructure-engineer, database-engineer |
-| docs | docs-writer |
-| governance | governance-steward |
-| testing | test-master, verify-app |
-| development | api-designer, frontend-specialist, debugger |
+### 6.2 Agents (6 total, role-based)
+
+| Agent | Purpose | Scope |
+|-------|---------|-------|
+| plan | Orchestration, planning pipeline, dispatch, work-item sync | read-write |
+| build | Implementation across all stacks (ONLY code write agent) | read-write |
+| review | All reviews, security, quality, governance (14 individual modes) | read-only |
+| scan | Spec-vs-code gap analysis, architecture drift detection | read-only |
+| write | Documentation, changelogs, explanations | read-write (docs only) |
+| triage | Auto-prioritize work items, backlog grooming | read-write (work items only) |
 
 ### 6.3 Stack Standards (14)
 
