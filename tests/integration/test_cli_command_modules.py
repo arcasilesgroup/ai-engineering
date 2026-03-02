@@ -52,6 +52,25 @@ def test_gate_print_failure_shows_first_five_lines(capsys: pytest.CaptureFixture
     assert "line-6" not in captured.err
 
 
+def test_gate_print_scope_diagnostic_even_when_passed(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    result = GateResult(
+        hook=GateHook.PRE_PUSH,
+        checks=[
+            GateCheckResult(
+                name="test-scope",
+                passed=True,
+                output="mode=shadow\nresolved_mode=selective\ntest_count=1",
+            )
+        ],
+    )
+    gate._print_gate_result(result)
+    captured = capsys.readouterr()
+    assert "mode=shadow" in captured.err
+    assert "resolved_mode=selective" in captured.err
+
+
 def test_gate_risk_check_no_store_prints_message(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:

@@ -15,6 +15,7 @@ are rejected.
 
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 from dataclasses import dataclass, field
@@ -22,6 +23,7 @@ from pathlib import Path
 
 from ai_engineering.git.operations import PROTECTED_BRANCHES, current_branch
 from ai_engineering.hooks.manager import verify_hooks
+from ai_engineering.policy.test_scope import TestScope, compute_test_scope, resolve_scope_mode
 from ai_engineering.state.decision_logic import list_expired_decisions, list_expiring_soon
 from ai_engineering.state.io import read_json_model
 from ai_engineering.state.models import DecisionStore, GateHook, InstallManifest
@@ -347,13 +349,122 @@ def _inject_gate_trailer(commit_msg_file: Path) -> None:
         return
 
 
+def _clone_registry(registry: dict[str, list[CheckConfig]]) -> dict[str, list[CheckConfig]]:
+    """Clone check registry without mutating global constants."""
+    clone: dict[str, list[CheckConfig]] = {}
+    for stack, checks in registry.items():
+        clone[stack] = [
+            CheckConfig(
+                name=check.name,
+                cmd=list(check.cmd),
+                required=check.required,
+                timeout=check.timeout,
+            )
+            for check in checks
+        ]
+    return clone
+
+
+def _override_test_cmd(
+    registry: dict[str, list[CheckConfig]],
+    scope: TestScope,
+) -> dict[str, list[CheckConfig]]:
+    """Return cloned registry with python stack-tests command selectively overridden."""
+    clone = _clone_registry(registry)
+    python_checks = clone.get("python", [])
+    updated: list[CheckConfig] = []
+
+    for check in python_checks:
+        if check.name != "stack-tests":
+            updated.append(check)
+            continue
+
+        if scope.mode == "selective" and not scope.selected_tests:
+            # Docs-only selective scope: skip pytest invocation entirely.
+            continue
+
+        if scope.mode == "selective":
+            updated.append(
+                CheckConfig(
+                    name=check.name,
+                    cmd=[*check.cmd, *scope.selected_tests],
+                    required=check.required,
+                    timeout=check.timeout,
+                )
+            )
+            continue
+
+        updated.append(check)
+
+    clone["python"] = updated
+    return clone
+
+
+def _compute_test_scope(project_root: Path) -> TestScope:
+    """Compute unit-tier test scope for pre-push checks."""
+    return compute_test_scope(project_root, tier="unit", base_ref="auto")
+
+
+def _append_scope_diagnostic(result: GateResult, *, scope: TestScope, mode: str) -> None:
+    """Append structured scope diagnostics to gate results."""
+    sample = ", ".join(scope.selected_tests[:5]) if scope.selected_tests else "none"
+    output = "\n".join(
+        [
+            f"mode={mode}",
+            f"resolved_mode={scope.mode}",
+            f"test_count={len(scope.selected_tests)}",
+            f"reasons={','.join(scope.reasons) if scope.reasons else 'none'}",
+            f"sample_tests={sample}",
+        ]
+    )
+    result.checks.append(
+        GateCheckResult(
+            name="test-scope",
+            passed=True,
+            output=output,
+        )
+    )
+
+
 def _run_pre_push_checks(project_root: Path, result: GateResult) -> None:
     """Run pre-push gate checks: common + per-stack checks + expired risks."""
     stacks = _get_active_stacks(project_root)
+    registry = _PRE_PUSH_CHECKS
+
+    if "python" in stacks:
+        mode = resolve_scope_mode(os.environ)
+        if mode == "off":
+            result.checks.append(
+                GateCheckResult(
+                    name="test-scope",
+                    passed=True,
+                    output="mode=off\nresolved_mode=full\ntest_count=0\nreasons=scope_disabled",
+                )
+            )
+        else:
+            try:
+                scope = _compute_test_scope(project_root)
+                _append_scope_diagnostic(result, scope=scope, mode=mode)
+                if mode == "enforce":
+                    registry = _override_test_cmd(_PRE_PUSH_CHECKS, scope)
+            except Exception as exc:
+                # Fail closed: keep full suite command and surface explicit reason.
+                result.checks.append(
+                    GateCheckResult(
+                        name="test-scope",
+                        passed=True,
+                        output=(
+                            "mode="
+                            f"{mode}\nresolved_mode=full\ntest_count=0\n"
+                            f"reasons=scope_computation_failed:{exc}"
+                        ),
+                    )
+                )
+
     _run_checks_for_stacks(
         project_root,
         result,
-        _PRE_PUSH_CHECKS,
+        registry,
         stacks,
     )
 

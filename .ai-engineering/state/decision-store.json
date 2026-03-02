@@ -239,6 +239,13 @@
       "decision": "Expand existing standards (dotnet.md, azure.md) as single source of truth for all .NET knowledge. Zero new skills — existing generic skills (api-design, test-runner, database-ops, cicd-generate, infrastructure, performance) already read applicable stack standards and will automatically consume expanded patterns. Principal-engineer agent evolved from read-only reviewer to read-write implementor with multi-stack references.",
       "decidedAt": "2026-03-01T00:00:00Z",
       "spec": "028-dotnet-azure-standards"
+    },
+    {
+      "id": "D029-001",
+      "context": "Selective test execution rollout and safety envelope",
+      "decision": "Adopt module-scoped selective test execution with a single source of truth (`policy/test_scope.py`) shared by pre-push and CI. Rollout mode starts in shadow (`AI_ENG_TEST_SCOPE_MODE=shadow`), then switches to enforce by configuration. Safety nets are fail-closed: unknown/unmapped source changes, src deletes, high-risk/config triggers, base-ref/merge-base failures, and scope computation errors force full tier execution. Emergency bypass remains `AI_ENG_TEST_SCOPE=off`. Rollback criteria: revert scoped gate/CI wiring if mapping integrity fails more than 3 times per week or any scoped miss is detected; temporarily restore full-suite execution until remediated.",
+      "decidedAt": "2026-03-02T00:00:00Z",
+      "spec": "029-selective-test-execution-v1"
     }
   ]
 }

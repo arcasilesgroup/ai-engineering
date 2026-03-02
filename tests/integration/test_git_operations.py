@@ -18,6 +18,8 @@ import pytest
 from ai_engineering.git.operations import (
     PROTECTED_BRANCHES,
     current_branch,
+    get_changed_files,
+    get_merge_base,
     is_branch_pushed,
     is_on_protected_branch,
     run_git,
@@ -103,6 +105,65 @@ class TestRunGit:
     def test_non_git_dir_returns_false(self, tmp_path: Path) -> None:
         ok, _output = run_git(["status"], tmp_path)
         assert ok is False
+
+
+class TestMergeBaseAndChangedFiles:
+    """Tests for get_merge_base() and get_changed_files()."""
+
+    def _commit_file(self, repo: Path, rel_path: str, content: str, msg: str) -> None:
+        target = repo / rel_path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(content, encoding="utf-8")
+        subprocess.run(["git", "add", rel_path], cwd=repo, check=True, capture_output=True)
+        subprocess.run(["git", "commit", "-m", msg], cwd=repo, check=True, capture_output=True)
+
+    def test_get_merge_base_success(self, git_repo: Path) -> None:
+        self._commit_file(git_repo, "src/one.py", "print('one')\n", "feat: add one")
+        merge_base = get_merge_base(git_repo, "main")
+        assert len(merge_base) >= 7
+
+    def test_get_merge_base_failure_raises(self, git_repo: Path) -> None:
+        with pytest.raises(RuntimeError):
+            get_merge_base(git_repo, "refs/heads/does-not-exist")
+
+    def test_get_changed_files_acmrt(self, git_repo: Path) -> None:
+        self._commit_file(git_repo, "src/example.py", "print('hello')\n", "feat: add example")
+        changed = get_changed_files(git_repo, "main", diff_filter="ACMRT")
+        assert "src/example.py" in changed
+
+    def test_get_changed_files_deleted(self, git_repo: Path) -> None:
+        self._commit_file(git_repo, "src/to_delete.py", "print('bye')\n", "feat: add deletable")
+        subprocess.run(
+            ["git", "rm", "src/to_delete.py"],
+            cwd=git_repo,
+            check=True,
+            capture_output=True,
+        )
+        subprocess.run(
+            ["git", "commit", "-m", "feat: delete file"],
+            cwd=git_repo,
+            check=True,
+            capture_output=True,
+        )
+        deleted = get_changed_files(git_repo, "HEAD~1", diff_filter="D")
+        assert "src/to_delete.py" in deleted
+
+    def test_get_changed_files_rename_reports_new_path(self, git_repo: Path) -> None:
+        self._commit_file(git_repo, "src/old_name.py", "print('rename')\n", "feat: add old name")
+        subprocess.run(
+            ["git", "mv", "src/old_name.py", "src/new_name.py"],
+            cwd=git_repo,
+            check=True,
+            capture_output=True,
+        )
+        subprocess.run(
+            ["git", "commit", "-m", "feat: rename source file"],
+            cwd=git_repo,
+            check=True,
+            capture_output=True,
+        )
+        changed = get_changed_files(git_repo, "main", diff_filter="ACMRT")
+        assert "src/new_name.py" in changed
 
 
 # ── current_branch ──────────────────────────────────────────────────────

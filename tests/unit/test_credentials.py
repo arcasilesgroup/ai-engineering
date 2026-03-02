@@ -22,6 +22,8 @@ from ai_engineering.credentials.models import (
 )
 from ai_engineering.credentials.service import CredentialService
 
+pytestmark = pytest.mark.unit
+
 # ---------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------

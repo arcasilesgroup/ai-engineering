@@ -10,34 +10,38 @@ permissions:
   contents: read
 
 jobs:
-  docs-scope:
-    name: Docs Scope
+  change-scope:
+    name: Change Scope
     runs-on: ubuntu-latest
     outputs:
       code: ${{ steps.filter.outputs.code }}
+      test-config: ${{ steps.filter.outputs.test-config }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: dorny/paths-filter@v3
         id: filter
         with:
           filters: |
             code:
-              - '**/*.py'
-              - '**/*.toml'
-              - '**/*.yml'
-              - '**/*.yaml'
-              - '**/*.json'
-              - '**/*.sh'
-              - '**/*.ps1'
-              - '.github/**'
-              - 'scripts/**'
               - 'src/**'
               - 'tests/**'
+              - '**/*.py'
+              - '**/*.toml'
+            test-config:
+              - 'pyproject.toml'
+              - 'tests/conftest.py'
+              - '.github/workflows/ci.yml'
+              - 'scripts/**'
+              - 'uv.lock'
+              - '.semgrep.yml'
+              - '.gitleaks.toml'
 
   lint:
     name: Lint & Format
-    needs: [docs-scope]
-    if: needs.docs-scope.outputs.code == 'true'
+    needs: [change-scope]
+    if: needs.change-scope.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -53,8 +57,8 @@ jobs:
 
   typecheck:
     name: Type Check
-    needs: [docs-scope]
-    if: needs.docs-scope.outputs.code == 'true'
+    needs: [change-scope]
+    if: needs.change-scope.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -68,8 +72,8 @@ jobs:
 
   test-unit:
     name: Unit (Python ${{ matrix.python-version }} / ${{ matrix.os }})
-    needs: [docs-scope]
-    if: needs.docs-scope.outputs.code == 'true'
+    needs: [change-scope]
+    if: needs.change-scope.outputs.code == 'true'
     runs-on: ${{ matrix.os }}
     defaults:
       run:
@@ -81,6 +85,8 @@ jobs:
         python-version: ["3.11", "3.12", "3.13"]
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
@@ -88,11 +94,43 @@ jobs:
         run: uv python install ${{ matrix.python-version }}
       - name: Install dependencies
         run: uv sync --dev
-      - name: Run unit tests
+      - name: Compute unit scope
+        id: scope
         run: |
-          uv run pytest tests/unit -v -n auto --dist worksteal --durations=25 | tee test-output.log
+          set -euo pipefail
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            BASE="${{ github.event.pull_request.base.sha }}"
+          else
+            BASE="origin/main"
+          fi
+
+          uv run python -m ai_engineering.policy.test_scope --tier unit --base-ref "$BASE" --format json > scope-diagnostic.json
+          ARGS="$(uv run python -m ai_engineering.policy.test_scope --tier unit --base-ref "$BASE" --format args)"
+
+          if [[ "${{ github.ref }}" == "refs/heads/main" || "${{ needs.change-scope.outputs.test-config }}" == "true" ]]; then
+            ARGS="tests/unit"
+          fi
+
+          if [[ -z "${ARGS}" ]]; then
+            ARGS="__SKIP__"
+          fi
+
+          echo "args=${ARGS}" >> "$GITHUB_OUTPUT"
+      - name: Run unit tests
+        if: steps.scope.outputs.args != '__SKIP__'
+        run: |
+          uv run pytest ${{ steps.scope.outputs.args }} -v -n auto --dist worksteal --durations=25 | tee test-output.log
+      - name: Skip unit tests (docs-only)
+        if: steps.scope.outputs.args == '__SKIP__'
+        run: echo "No unit tests selected (docs-only changes)."
+      - name: Upload unit scope diagnostic
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-scope-diagnostic-unit-${{ matrix.os }}-${{ matrix.python-version }}
+          path: scope-diagnostic.json
       - name: Upload slow-tests artifact
-        if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'
+        if: steps.scope.outputs.args != '__SKIP__' && matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'
         uses: actions/upload-artifact@v4
         with:
           name: slow-tests-report
@@ -100,8 +138,8 @@ jobs:
 
   test-integration:
     name: Integration (${{ matrix.os }})
-    needs: [docs-scope]
-    if: needs.docs-scope.outputs.code == 'true'
+    needs: [change-scope]
+    if: needs.change-scope.outputs.code == 'true'
     runs-on: ${{ matrix.os }}
     defaults:
       run:
@@ -113,6 +151,8 @@ jobs:
         python-version: ["3.12"]
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
@@ -125,20 +165,47 @@ jobs:
           git config --global user.name "CI"
       - name: Install dependencies
         run: uv sync --dev
-      - name: Run integration tests
+      - name: Compute integration scope
+        id: scope
         run: |
-          uv run pytest tests/integration -v -n auto --dist worksteal --durations=25 | tee integration-output.log
+          set -euo pipefail
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            BASE="${{ github.event.pull_request.base.sha }}"
+          else
+            BASE="origin/main"
+          fi
+
+          ARGS="$(uv run python -m ai_engineering.policy.test_scope --tier integration --base-ref "$BASE" --format args)"
+
+          if [[ "${{ github.ref }}" == "refs/heads/main" || "${{ needs.change-scope.outputs.test-config }}" == "true" ]]; then
+            ARGS="tests/integration"
+          fi
+
+          if [[ -z "${ARGS}" ]]; then
+            ARGS="__SKIP__"
+          fi
+
+          echo "args=${ARGS}" >> "$GITHUB_OUTPUT"
+      - name: Run integration tests
+        if: steps.scope.outputs.args != '__SKIP__'
+        run: |
+          uv run pytest ${{ steps.scope.outputs.args }} -v -n auto --dist worksteal --durations=25 | tee integration-output.log
+      - name: Skip integration tests (docs-only)
+        if: steps.scope.outputs.args == '__SKIP__'
+        run: echo "No integration tests selected (docs-only changes)."
 
   test-e2e:
     name: E2E
-    needs: [docs-scope]
-    if: needs.docs-scope.outputs.code == 'true'
+    needs: [change-scope]
+    if: needs.change-scope.outputs.code == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
         shell: bash
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
@@ -151,14 +218,39 @@ jobs:
           git config --global user.name "CI"
       - name: Install dependencies
         run: uv sync --dev
-      - name: Run e2e tests
+      - name: Compute e2e scope
+        id: scope
         run: |
-          uv run pytest tests/e2e -v --durations=10 | tee e2e-output.log
+          set -euo pipefail
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            BASE="${{ github.event.pull_request.base.sha }}"
+          else
+            BASE="origin/main"
+          fi
+
+          ARGS="$(uv run python -m ai_engineering.policy.test_scope --tier e2e --base-ref "$BASE" --format args)"
+
+          if [[ "${{ github.ref }}" == "refs/heads/main" || "${{ needs.change-scope.outputs.test-config }}" == "true" ]]; then
+            ARGS="tests/e2e"
+          fi
+
+          if [[ -z "${ARGS}" ]]; then
+            ARGS="__SKIP__"
+          fi
+
+          echo "args=${ARGS}" >> "$GITHUB_OUTPUT"
+      - name: Run e2e tests
+        if: steps.scope.outputs.args != '__SKIP__'
+        run: |
+          uv run pytest ${{ steps.scope.outputs.args }} -v --durations=10 | tee e2e-output.log
+      - name: Skip e2e tests (docs-only)
+        if: steps.scope.outputs.args == '__SKIP__'
+        run: echo "No e2e tests selected (docs-only changes)."
 
   coverage:
     name: Coverage Gate
-    needs: [docs-scope, test-unit, test-integration, test-e2e]
-    if: needs.docs-scope.outputs.code == 'true'
+    needs: [change-scope, test-unit, test-integration, test-e2e]
+    if: needs.change-scope.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -186,8 +278,8 @@ jobs:
 
   framework-smoke:
     name: Framework Smoke (${{ matrix.os }})
-    needs: [docs-scope]
-    if: needs.docs-scope.outputs.code == 'true'
+    needs: [change-scope]
+    if: needs.change-scope.outputs.code == 'true'
     runs-on: ${{ matrix.os }}
     defaults:
       run:
@@ -250,6 +342,8 @@ jobs:
         run: ./actionlint
       - name: Workflow policy checks
         run: uv run python scripts/check_workflow_policy.py
+      - name: Test mapping integrity
+        run: uv run python scripts/check_test_mapping.py
 
   verify-gate-trailers:
     name: Verify Gate Trailers
@@ -310,8 +404,8 @@ jobs:
 
   build:
     name: Build Package
-    needs: [docs-scope, lint, typecheck, test-unit, test-integration, test-e2e, coverage, framework-smoke, security, content-integrity, workflow-sanity]
-    if: needs.docs-scope.outputs.code == 'true'
+    needs: [change-scope, lint, typecheck, test-unit, test-integration, test-e2e, coverage, framework-smoke, security, content-integrity, workflow-sanity]
+    if: needs.change-scope.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

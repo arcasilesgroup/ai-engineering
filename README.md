@@ -1,9 +1,9 @@
 <div align="center">
   <a href="https://github.com/arcasilesgroup/ai-engineering">
     <picture>
-      <source media="(prefers-color-scheme: dark)" srcset=".github/assets/banner-dark.svg">
-      <source media="(prefers-color-scheme: light)" srcset=".github/assets/banner-light.svg">
-      <img src=".github/assets/banner-light.svg" alt="ai-engineering — AI governance framework" width="700">
+      <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/arcasilesgroup/ai-engineering/main/.github/assets/banner-dark.svg">
+      <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/arcasilesgroup/ai-engineering/main/.github/assets/banner-light.svg">
+      <img src="https://raw.githubusercontent.com/arcasilesgroup/ai-engineering/main/.github/assets/banner-light.svg" alt="ai-engineering — AI governance framework" width="700">
     </picture>
   </a>
 

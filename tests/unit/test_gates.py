@@ -35,10 +35,12 @@ from ai_engineering.policy.gates import (
     _check_expiring_risk_acceptances,
     _get_active_stacks,
     _run_checks_for_stacks,
+    _run_pre_push_checks,
     _run_tool_check,
     _validate_commit_message,
     run_gate,
 )
+from ai_engineering.policy.test_scope import TestScope
 from ai_engineering.state.models import (
     Decision,
     DecisionStatus,
@@ -662,3 +664,202 @@ class TestRegistryValidation:
         assert "-m" in cmd, "Expected -m (marker) in stack-tests cmd"
         m_idx = cmd.index("-m")
         assert cmd[m_idx + 1] == "unit", "Expected 'unit' marker"
+
+
+class TestSelectiveScopePrePush:
+    """Tests for selective scope mode behavior in pre-push checks."""
+
+    def test_shadow_mode_logs_scope_but_keeps_full_stack_tests(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        monkeypatch.setenv("AI_ENG_TEST_SCOPE_MODE", "shadow")
+        monkeypatch.delenv("AI_ENG_TEST_SCOPE", raising=False)
+        monkeypatch.setattr("ai_engineering.policy.gates._get_active_stacks", lambda *_: ["python"])
+        monkeypatch.setattr(
+            "ai_engineering.policy.gates._compute_test_scope",
+            lambda *_: TestScope(
+                selected_tests=["tests/unit/test_hooks.py"],
+                mode="selective",
+                reasons=["selective"],
+                changed_files=["src/ai_engineering/hooks/manager.py"],
+                matched_rules=["hooks"],
+                unmatched_src_files=[],
+            ),
+        )
+        monkeypatch.setattr(
+            "ai_engineering.policy.gates._check_expired_risk_acceptances",
+            lambda *_: None,
+        )
+
+        seen_cmds: list[list[str]] = []
+
+        def fake_run_tool_check(
+            result: GateResult,
+            *,
+            name: str,
+            cmd: list[str],
+            **kwargs: object,
+        ) -> None:
+            seen_cmds.append(cmd)
+            result.checks.append(GateCheckResult(name=name, passed=True, output="ok"))
+
+        monkeypatch.setattr("ai_engineering.policy.gates._run_tool_check", fake_run_tool_check)
+
+        result = GateResult(hook=GateHook.PRE_PUSH)
+        _run_pre_push_checks(tmp_path, result)
+
+        stack_cmd = next(cmd for cmd in seen_cmds if "pytest" in cmd)
+        assert "tests/unit/test_hooks.py" not in stack_cmd
+        assert any(c.name == "test-scope" for c in result.checks)
+
+    def test_enforce_mode_overrides_stack_tests_with_selected_paths(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        monkeypatch.setenv("AI_ENG_TEST_SCOPE_MODE", "enforce")
+        monkeypatch.delenv("AI_ENG_TEST_SCOPE", raising=False)
+        monkeypatch.setattr("ai_engineering.policy.gates._get_active_stacks", lambda *_: ["python"])
+        monkeypatch.setattr(
+            "ai_engineering.policy.gates._compute_test_scope",
+            lambda *_: TestScope(
+                selected_tests=["tests/unit/test_hooks.py"],
+                mode="selective",
+                reasons=["selective"],
+                changed_files=["src/ai_engineering/hooks/manager.py"],
+                matched_rules=["hooks"],
+                unmatched_src_files=[],
+            ),
+        )
+        monkeypatch.setattr(
+            "ai_engineering.policy.gates._check_expired_risk_acceptances",
+            lambda *_: None,
+        )
+
+        seen_cmds: list[list[str]] = []
+
+        def fake_run_tool_check(
+            result: GateResult,
+            *,
+            name: str,
+            cmd: list[str],
+            **kwargs: object,
+        ) -> None:
+            seen_cmds.append(cmd)
+            result.checks.append(GateCheckResult(name=name, passed=True, output="ok"))
+
+        monkeypatch.setattr("ai_engineering.policy.gates._run_tool_check", fake_run_tool_check)
+
+        result = GateResult(hook=GateHook.PRE_PUSH)
+        _run_pre_push_checks(tmp_path, result)
+
+        stack_cmd = next(cmd for cmd in seen_cmds if "pytest" in cmd)
+        assert "tests/unit/test_hooks.py" in stack_cmd
+
+    def test_enforce_mode_docs_only_skips_stack_tests(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        monkeypatch.setenv("AI_ENG_TEST_SCOPE_MODE", "enforce")
+        monkeypatch.delenv("AI_ENG_TEST_SCOPE", raising=False)
+        monkeypatch.setattr("ai_engineering.policy.gates._get_active_stacks", lambda *_: ["python"])
+        monkeypatch.setattr(
+            "ai_engineering.policy.gates._compute_test_scope",
+            lambda *_: TestScope(
+                selected_tests=[],
+                mode="selective",
+                reasons=["docs_only"],
+                changed_files=["README.md"],
+                matched_rules=[],
+                unmatched_src_files=[],
+            ),
+        )
+        monkeypatch.setattr(
+            "ai_engineering.policy.gates._check_expired_risk_acceptances",
+            lambda *_: None,
+        )
+
+        seen_names: list[str] = []
+
+        def fake_run_tool_check(
+            result: GateResult,
+            *,
+            name: str,
+            cmd: list[str],
+            **kwargs: object,
+        ) -> None:
+            seen_names.append(name)
+            result.checks.append(GateCheckResult(name=name, passed=True, output="ok"))
+
+        monkeypatch.setattr("ai_engineering.policy.gates._run_tool_check", fake_run_tool_check)
+
+        result = GateResult(hook=GateHook.PRE_PUSH)
+        _run_pre_push_checks(tmp_path, result)
+
+        assert "stack-tests" not in seen_names
+
+    def test_scope_off_mode_keeps_full_suite(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        monkeypatch.setenv("AI_ENG_TEST_SCOPE", "off")
+        monkeypatch.setattr("ai_engineering.policy.gates._get_active_stacks", lambda *_: ["python"])
+        monkeypatch.setattr(
+            "ai_engineering.policy.gates._check_expired_risk_acceptances",
+            lambda *_: None,
+        )
+
+        seen_cmds: list[list[str]] = []
+
+        def fake_run_tool_check(
+            result: GateResult,
+            *,
+            name: str,
+            cmd: list[str],
+            **kwargs: object,
+        ) -> None:
+            seen_cmds.append(cmd)
+            result.checks.append(GateCheckResult(name=name, passed=True, output="ok"))
+
+        monkeypatch.setattr("ai_engineering.policy.gates._run_tool_check", fake_run_tool_check)
+
+        result = GateResult(hook=GateHook.PRE_PUSH)
+        _run_pre_push_checks(tmp_path, result)
+
+        stack_cmd = next(cmd for cmd in seen_cmds if "pytest" in cmd)
+        assert "tests/unit/test_hooks.py" not in stack_cmd
+        diagnostic = next(c for c in result.checks if c.name == "test-scope")
+        assert "scope_disabled" in diagnostic.output
+
+    def test_scope_computation_failure_falls_back_to_full(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        monkeypatch.setenv("AI_ENG_TEST_SCOPE_MODE", "enforce")
+        monkeypatch.delenv("AI_ENG_TEST_SCOPE", raising=False)
+        monkeypatch.setattr("ai_engineering.policy.gates._get_active_stacks", lambda *_: ["python"])
+        monkeypatch.setattr(
+            "ai_engineering.policy.gates._compute_test_scope",
+            lambda *_: (_ for _ in ()).throw(RuntimeError("boom")),
+        )
+        monkeypatch.setattr(
+            "ai_engineering.policy.gates._check_expired_risk_acceptances",
+            lambda *_: None,
+        )
+
+        seen_cmds: list[list[str]] = []
+
+        def fake_run_tool_check(
+            result: GateResult,
+            *,
+            name: str,
+            cmd: list[str],
+            **kwargs: object,
+        ) -> None:
+            seen_cmds.append(cmd)
+            result.checks.append(GateCheckResult(name=name, passed=True, output="ok"))
+
+        monkeypatch.setattr("ai_engineering.policy.gates._run_tool_check", fake_run_tool_check)
+
+        result = GateResult(hook=GateHook.PRE_PUSH)
+        _run_pre_push_checks(tmp_path, result)
+
+        stack_cmd = next(cmd for cmd in seen_cmds if "pytest" in cmd)
+        assert "tests/unit/test_hooks.py" not in stack_cmd
+        diagnostic = next(c for c in result.checks if c.name == "test-scope")
+        assert "scope_computation_failed" in diagnostic.output

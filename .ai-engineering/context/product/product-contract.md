@@ -108,7 +108,7 @@ ai-eng version && ai-eng doctor && ai-eng install                             # 
 
 ## 4. Active Spec
 
-Spec-028: .NET & Azure Standards Expansion + Principal Engineer Evolution. Branch: `spec-028/dotnet-azure-standards`.
+Spec-029: Selective Test Execution v1 (Shadow → Enforce). Branch: `codex/feat/selective-test-execution-v1`.
 
 ### Read Sequence
 

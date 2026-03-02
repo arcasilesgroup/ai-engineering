@@ -6,6 +6,8 @@ and other modules that interact with git.
 Functions:
 - ``current_branch`` — get the current branch name.
 - ``is_branch_pushed`` — check if a branch has a remote tracking ref.
+- ``get_merge_base`` — get merge-base SHA between a ref and HEAD.
+- ``get_changed_files`` — list changed files relative to merge-base.
 - ``run_git`` — run a git command with timeout and error handling.
 
 Constants:
@@ -52,6 +54,69 @@ def run_git(
         return False, "git not found on PATH"
     except subprocess.TimeoutExpired:
         return False, f"git timed out after {timeout}s: {' '.join(args)}"
+
+
+def _normalize_repo_path(path: str) -> str:
+    """Normalize git output paths for cross-platform comparisons."""
+    return path.strip().replace("\\", "/")
+
+
+def get_merge_base(project_root: Path, ref: str) -> str:
+    """Get merge-base SHA between ``ref`` and ``HEAD``.
+
+    Args:
+        project_root: Root directory of the git repository.
+        ref: Git ref to compare against HEAD.
+
+    Returns:
+        Merge-base commit SHA.
+
+    Raises:
+        RuntimeError: If merge-base cannot be resolved.
+    """
+    ok, output = run_git(["merge-base", ref, "HEAD"], project_root)
+    if not ok:
+        raise RuntimeError(f"failed to resolve merge-base for '{ref}': {output}")
+
+    sha = output.splitlines()[0].strip() if output else ""
+    if not sha:
+        raise RuntimeError(f"empty merge-base for '{ref}'")
+    return sha
+
+
+def get_changed_files(
+    project_root: Path,
+    base_ref: str,
+    diff_filter: str = "ACMRT",
+) -> list[str]:
+    """List files changed relative to merge-base between ``base_ref`` and ``HEAD``.
+
+    Args:
+        project_root: Root directory of the git repository.
+        base_ref: Ref to compare with HEAD via merge-base.
+        diff_filter: Git diff-filter letters (default ``ACMRT``).
+
+    Returns:
+        Sorted, deduplicated, POSIX-normalized changed file paths.
+
+    Raises:
+        RuntimeError: If git diff fails.
+    """
+    merge_base = get_merge_base(project_root, base_ref)
+    ok, output = run_git(
+        [
+            "diff",
+            "--name-only",
+            f"--diff-filter={diff_filter}",
+            f"{merge_base}...HEAD",
+        ],
+        project_root,
+    )
+    if not ok:
+        raise RuntimeError(f"failed to get changed files: {output}")
+
+    files = [_normalize_repo_path(line) for line in output.splitlines() if line.strip()]
+    return sorted(set(files))
 
 
 def current_branch(project_root: Path) -> str:
