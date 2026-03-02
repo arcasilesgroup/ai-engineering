@@ -55,7 +55,12 @@ def test_vcs_missing_manifest_paths(tmp_path: Path) -> None:
 
 
 def test_validate_single_category_mapping(tmp_path: Path) -> None:
-    fake = SimpleNamespace(passed=True, by_category=lambda: {}, category_passed=lambda _c: True)
+    fake = SimpleNamespace(
+        passed=True,
+        by_category=lambda: {},
+        category_passed=lambda _c: True,
+        to_dict=lambda: {"passed": True, "checks": []},
+    )
     with patch(
         "ai_engineering.cli_commands.validate.validate_content_integrity", return_value=fake
     ):
