@@ -16,6 +16,7 @@ references:
     - skills/test-plan/SKILL.md
   standards:
     - standards/framework/core.md
+    - standards/framework/quality/core.md
 ---
 
 # Write

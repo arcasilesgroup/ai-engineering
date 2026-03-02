@@ -29,8 +29,8 @@ approach: "serial-phases"
 | `src/ai_engineering/pipeline/compliance.py` | Add informational Sonar analysis detection for primary `ci.yml`. |
 | `src/ai_engineering/pipeline/injector.py` | Add Sonar snippet generation and type-aware suggestion support. |
 | `src/ai_engineering/policy/gates.py` | Add advisory `_check_sonar_gate()` and pre-push ordering integration. |
-| `.ai-engineering/skills/dev/cicd-generate/SKILL.md` | Document optional Sonar integration and create-only caveat. |
-| `src/ai_engineering/templates/.ai-engineering/skills/dev/cicd-generate/SKILL.md` | Mirror sync for updated skill docs. |
+| `.ai-engineering/skills/cicd/SKILL.md` | Document optional Sonar integration and create-only caveat. |
+| `src/ai_engineering/templates/.ai-engineering/skills/cicd/SKILL.md` | Mirror sync for updated skill docs. |
 | `tests/unit/test_credentials.py` | Validate Sonar `organization` in model round-trip. |
 | `tests/unit/test_setup_cli.py` | Cover `--organization` parsing and property reader. |
 | `tests/unit/test_state.py` | Cover `SonarCicdConfig` behavior and `CicdStatus.sonar` serialization. |
@@ -42,7 +42,7 @@ approach: "serial-phases"
 
 | Canonical | Mirror |
 |----------|--------|
-| `.ai-engineering/skills/dev/cicd-generate/SKILL.md` | `src/ai_engineering/templates/.ai-engineering/skills/dev/cicd-generate/SKILL.md` |
+| `.ai-engineering/skills/cicd/SKILL.md` | `src/ai_engineering/templates/.ai-engineering/skills/cicd/SKILL.md` |
 
 ## Session Map
 

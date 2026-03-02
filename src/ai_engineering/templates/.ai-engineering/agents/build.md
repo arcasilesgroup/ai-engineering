@@ -26,6 +26,7 @@ references:
     - skills/perf-review/SKILL.md
   standards:
     - standards/framework/core.md
+    - standards/framework/quality/core.md
     - standards/framework/stacks/python.md
     - standards/framework/stacks/dotnet.md
     - standards/framework/stacks/typescript.md
