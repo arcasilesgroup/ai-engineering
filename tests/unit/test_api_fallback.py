@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 from ai_engineering.vcs.api_fallback import ApiFallbackProvider
-from ai_engineering.vcs.protocol import VcsContext
+from ai_engineering.vcs.protocol import CreateTagContext, PipelineStatusContext, VcsContext
 
 pytestmark = pytest.mark.unit
 
@@ -64,3 +64,21 @@ class TestApiFallbackProvider:
         result = provider.post_pr_review(ctx, body="test review")
         assert result.success is False
         assert "PR review" in result.output
+
+    def test_create_tag_returns_failure(
+        self, provider: ApiFallbackProvider, ctx: VcsContext
+    ) -> None:
+        tag_ctx = CreateTagContext(
+            project_root=ctx.project_root, tag_name="v1.0.0", commit_sha="abc123"
+        )
+        result = provider.create_tag(tag_ctx)
+        assert result.success is False
+        assert "tag creation" in result.output
+
+    def test_get_pipeline_status_returns_failure(
+        self, provider: ApiFallbackProvider, ctx: VcsContext
+    ) -> None:
+        pipe_ctx = PipelineStatusContext(project_root=ctx.project_root, head_sha="abc123")
+        result = provider.get_pipeline_status(pipe_ctx)
+        assert result.success is False
+        assert "pipeline status" in result.output
