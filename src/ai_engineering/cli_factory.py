@@ -23,6 +23,7 @@ from ai_engineering.cli_commands import (
     cicd,
     core,
     gate,
+    guide,
     maintenance,
     release,
     review,
@@ -102,6 +103,7 @@ def _app_callback(
                         "doctor",
                         "validate",
                         "version",
+                        "guide",
                         "stack",
                         "ide",
                         "gate",
@@ -178,6 +180,7 @@ def create_app() -> typer.Typer:
     app.command("validate")(_safe(validate.validate_cmd))
     app.command("version")(core.version_cmd)
     app.command("release")(_safe(release.release_cmd))
+    app.command("guide")(_safe(guide.guide_cmd))
 
     # Stack sub-group
     stack_app = typer.Typer(
