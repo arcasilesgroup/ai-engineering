@@ -1,0 +1,10 @@
+- if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
+  name: Sonar analysis
+  uses: SonarSource/sonarcloud-github-action@v3
+  env:
+    SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+  with:
+    args: >
+      -Dsonar.projectKey=<project-key>
+      -Dsonar.organization=<organization>
+      # For SonarQube, use SonarSource/sonarqube-scan-action@v4 and set -Dsonar.host.url=<host-url>

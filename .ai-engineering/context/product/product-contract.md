@@ -108,7 +108,7 @@ ai-eng version && ai-eng doctor && ai-eng install                             # 
 
 ## 4. Active Spec
 
-Spec-029: Selective Test Execution v1 (Shadow → Enforce). Branch: `codex/feat/selective-test-execution-v1`.
+Spec-030: Sonar CI/CD Pipeline Integration (auto Sonar analysis generation + advisory pre-push gate). Branch: `feat/sonar-cicd-pipeline-integration`.
 
 ### Read Sequence
 

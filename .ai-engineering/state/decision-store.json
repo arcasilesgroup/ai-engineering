@@ -246,6 +246,34 @@
       "decision": "Adopt module-scoped selective test execution with a single source of truth (`policy/test_scope.py`) shared by pre-push and CI. Rollout mode starts in shadow (`AI_ENG_TEST_SCOPE_MODE=shadow`), then switches to enforce by configuration. Safety nets are fail-closed: unknown/unmapped source changes, src deletes, high-risk/config triggers, base-ref/merge-base failures, and scope computation errors force full tier execution. Emergency bypass remains `AI_ENG_TEST_SCOPE=off`. Rollback criteria: revert scoped gate/CI wiring if mapping integrity fails more than 3 times per week or any scoped miss is detected; temporarily restore full-suite execution until remediated.",
       "decidedAt": "2026-03-02T00:00:00Z",
       "spec": "029-selective-test-execution-v1"
+    },
+    {
+      "id": "D030-001",
+      "context": "Source precedence for sonar.organization during setup and CI/CD wiring",
+      "decision": "Resolve organization with precedence `--organization` -> `sonar-project.properties` -> empty, and persist resolved value to tools.json sonar metadata.",
+      "decidedAt": "2026-03-02T00:00:00Z",
+      "spec": "030-sonar-cicd-pipeline-integration"
+    },
+    {
+      "id": "D030-002",
+      "context": "Azure Sonar service connection resolution in generated pipelines",
+      "decision": "Use configured `service_connection` when present; otherwise fall back to pipeline variable `$(SONAR_SERVICE_CONNECTION)` with documented default behavior.",
+      "decidedAt": "2026-03-02T00:00:00Z",
+      "spec": "030-sonar-cicd-pipeline-integration"
+    },
+    {
+      "id": "D030-003",
+      "context": "Pre-push Sonar gate behavior when scanner fails or prerequisites are missing",
+      "decision": "Implement advisory-only Sonar gate by default: never block push, always surface scanner failure details when available, and silently skip when prerequisites are absent.",
+      "decidedAt": "2026-03-02T00:00:00Z",
+      "spec": "030-sonar-cicd-pipeline-integration"
+    },
+    {
+      "id": "D030-004",
+      "context": "SonarCloud detection strategy for URL variants",
+      "decision": "Detect SonarCloud via normalized hostname parsing from `urlparse(host_url).hostname` instead of substring matching.",
+      "decidedAt": "2026-03-02T00:00:00Z",
+      "spec": "030-sonar-cicd-pipeline-integration"
     }
   ]
 }

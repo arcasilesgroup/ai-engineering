@@ -141,6 +141,17 @@ _GITHUB_PR_REVIEW_PATTERNS: list[str] = ["ai-eng review pr", "ai-pr-review"]
 # Azure DevOps patterns that indicate risk gate presence.
 _AZURE_RISK_PATTERNS: list[str] = ["ai-eng gate risk-check", "risk-check", "ai-eng-gate"]
 _AZURE_PR_REVIEW_PATTERNS: list[str] = ["ai-eng review pr", "ai-pr-review"]
+_GITHUB_SONAR_PATTERNS: list[str] = [
+    "sonarcloud-github-action",
+    "sonarqube-scan-action",
+    "sonar-scanner",
+]
+_AZURE_SONAR_PATTERNS: list[str] = [
+    "SonarCloudPrepare",
+    "SonarQubePrepare",
+    "SonarCloudAnalyze",
+    "SonarQubeAnalyze",
+]
 
 
 def detect_pipelines(project_root: Path) -> list[PipelineFile]:
@@ -298,7 +309,32 @@ def scan_pipeline(
         )
     )
 
+    if _is_primary_ci_pipeline(pipeline.path):
+        sonar_patterns = (
+            _GITHUB_SONAR_PATTERNS
+            if pipeline.pipeline_type == PipelineType.GITHUB_ACTIONS
+            else _AZURE_SONAR_PATTERNS
+        )
+        sonar_found = any(p.lower() in content_lower for p in sonar_patterns)
+        result.checks.append(
+            ComplianceCheck(
+                name="sonar-analysis-present",
+                passed=True,
+                detail=(
+                    "Sonar analysis step found"
+                    if sonar_found
+                    else "No Sonar analysis — run 'ai-eng setup sonar' to integrate"
+                ),
+            )
+        )
+
     return result
+
+
+def _is_primary_ci_pipeline(path: Path) -> bool:
+    """Return True for the primary build pipeline (`ci.yml`/`ci.yaml`)."""
+    name = path.name.lower()
+    return name in {"ci.yml", "ci.yaml"}
 
 
 def scan_all_pipelines(project_root: Path) -> ComplianceReport:

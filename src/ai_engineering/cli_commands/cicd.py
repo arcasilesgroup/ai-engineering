@@ -12,9 +12,10 @@ from ai_engineering.cli_output import is_json_mode
 from ai_engineering.cli_progress import spinner
 from ai_engineering.cli_ui import error, info, kv, success
 from ai_engineering.installer.cicd import generate_pipelines
+from ai_engineering.installer.service import _resolve_sonar_cicd_config
 from ai_engineering.paths import resolve_project_root
 from ai_engineering.state.io import read_json_model, write_json_model
-from ai_engineering.state.models import InstallManifest
+from ai_engineering.state.models import InstallManifest, SonarCicdConfig
 
 
 def cicd_regenerate(
@@ -40,15 +41,18 @@ def cicd_regenerate(
         raise typer.Exit(code=1)
 
     manifest = read_json_model(manifest_path, InstallManifest)
+    sonar_config = _resolve_sonar_cicd_config(root)
     with spinner("Regenerating pipelines..."):
         result = generate_pipelines(
             root,
             provider=manifest.providers.primary,
             stacks=manifest.installed_stacks,
+            sonar_config=sonar_config,
         )
     manifest.cicd.generated = bool(result.created or result.skipped)
     manifest.cicd.provider = manifest.providers.primary
     manifest.cicd.files = [str(p.relative_to(root)) for p in (result.created + result.skipped)]
+    manifest.cicd.sonar = sonar_config or SonarCicdConfig()
     write_json_model(manifest_path, manifest)
 
     if is_json_mode():

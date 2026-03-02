@@ -24,7 +24,9 @@ from ai_engineering.pipeline.compliance import (
     scan_pipeline,
 )
 from ai_engineering.pipeline.injector import (
+    generate_azure_sonar_tasks,
     generate_azure_task,
+    generate_github_sonar_step,
     generate_github_step,
     generate_workflows,
     suggest_injection,
@@ -139,6 +141,48 @@ class TestScanPipeline:
         result = scan_pipeline(tmp_path, pipeline)
         assert not result.compliant
 
+    def test_sonar_check_is_informational_when_missing(self, tmp_path: Path) -> None:
+        wf_dir = tmp_path / ".github" / "workflows"
+        wf_dir.mkdir(parents=True)
+        (wf_dir / "ci.yml").write_text("name: CI\nsteps:\n  - run: ai-eng gate risk-check\n")
+        pipeline = PipelineFile(
+            path=Path(".github/workflows/ci.yml"),
+            pipeline_type=PipelineType.GITHUB_ACTIONS,
+        )
+        result = scan_pipeline(tmp_path, pipeline)
+        sonar_check = next(c for c in result.checks if c.name == "sonar-analysis-present")
+        assert sonar_check.passed is True
+        assert "No Sonar analysis" in sonar_check.detail
+
+    def test_sonar_check_detects_sonar_step(self, tmp_path: Path) -> None:
+        wf_dir = tmp_path / ".github" / "workflows"
+        wf_dir.mkdir(parents=True)
+        (wf_dir / "ci.yml").write_text(
+            "name: CI\nsteps:\n"
+            "  - uses: SonarSource/sonarcloud-github-action@v3\n"
+            "  - run: ai-eng gate risk-check\n"
+            "  - run: ai-eng review pr\n"
+        )
+        pipeline = PipelineFile(
+            path=Path(".github/workflows/ci.yml"),
+            pipeline_type=PipelineType.GITHUB_ACTIONS,
+        )
+        result = scan_pipeline(tmp_path, pipeline)
+        sonar_check = next(c for c in result.checks if c.name == "sonar-analysis-present")
+        assert sonar_check.passed is True
+        assert "found" in sonar_check.detail.lower()
+
+    def test_sonar_check_not_added_for_aux_pipeline(self, tmp_path: Path) -> None:
+        wf_dir = tmp_path / ".github" / "workflows"
+        wf_dir.mkdir(parents=True)
+        (wf_dir / "ai-pr-review.yml").write_text("name: AI PR Review\n")
+        pipeline = PipelineFile(
+            path=Path(".github/workflows/ai-pr-review.yml"),
+            pipeline_type=PipelineType.GITHUB_ACTIONS,
+        )
+        result = scan_pipeline(tmp_path, pipeline)
+        assert all(c.name != "sonar-analysis-present" for c in result.checks)
+
 
 # ── scan_all_pipelines ──────────────────────────────────────────────────
 
@@ -198,6 +242,14 @@ class TestSnippetGeneration:
         assert "risk-check" in snippet
         assert "ai-eng" in snippet
 
+    def test_github_sonar_step_contains_sonar(self) -> None:
+        snippet = generate_github_sonar_step()
+        assert "sonar" in snippet.lower()
+
+    def test_azure_sonar_tasks_contains_prepare(self) -> None:
+        snippet = generate_azure_sonar_tasks()
+        assert "SonarCloudPrepare" in snippet or "SonarQubePrepare" in snippet
+
 
 # ── suggest_injection ───────────────────────────────────────────────────
 
@@ -222,6 +274,14 @@ class TestSuggestInjection:
         suggestion = suggest_injection(pipeline)
         assert "azure-pipelines.yml" in suggestion
         assert "risk-check" in suggestion
+
+    def test_sonar_suggestion_uses_sonar_snippet(self) -> None:
+        pipeline = PipelineFile(
+            path=Path(".github/workflows/ci.yml"),
+            pipeline_type=PipelineType.GITHUB_ACTIONS,
+        )
+        suggestion = suggest_injection(pipeline, injection_type="sonar")
+        assert "sonar" in suggestion.lower()
 
 
 def test_generate_workflows_delegates_to_generator(tmp_path: Path) -> None:

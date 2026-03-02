@@ -13,6 +13,7 @@ import pytest
 from typer.testing import CliRunner
 
 from ai_engineering.cli_commands.setup import (
+    _read_sonar_organization,
     _read_sonar_project_key,
     _read_sonar_url_from_properties,
     _state_dir,
@@ -78,6 +79,14 @@ class TestSonarPropertiesReaders:
 
     def test_read_project_key_missing_file(self, tmp_path: Path) -> None:
         assert _read_sonar_project_key(tmp_path) == ""
+
+    def test_read_organization(self, tmp_path: Path) -> None:
+        props = tmp_path / "sonar-project.properties"
+        props.write_text("sonar.organization=my-org\n", encoding="utf-8")
+        assert _read_sonar_organization(tmp_path) == "my-org"
+
+    def test_read_organization_missing_file(self, tmp_path: Path) -> None:
+        assert _read_sonar_organization(tmp_path) == ""
 
 
 # ---------------------------------------------------------------
@@ -158,6 +167,23 @@ class TestSetupSonar:
         mock_resolve.return_value = tmp_path
         runner.invoke(setup_app, ["sonar"])
         mock_sonar.assert_called_once()
+
+    @patch("ai_engineering.cli_commands.setup._run_sonar_setup")
+    @patch("ai_engineering.cli_commands.setup.resolve_project_root")
+    def test_passes_organization_option(
+        self,
+        mock_resolve: MagicMock,
+        mock_sonar: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        mock_resolve.return_value = tmp_path
+        runner.invoke(setup_app, ["sonar", "--organization", "my-org"])
+        mock_sonar.assert_called_once_with(
+            tmp_path,
+            url_override=None,
+            project_key_override=None,
+            organization_override="my-org",
+        )
 
 
 # ---------------------------------------------------------------

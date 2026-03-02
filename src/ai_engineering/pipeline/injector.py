@@ -60,7 +60,50 @@ def generate_azure_task() -> str:
     """)
 
 
-def suggest_injection(pipeline: PipelineFile) -> str:
+def generate_github_sonar_step() -> str:
+    """Generate a GitHub Actions Sonar analysis snippet."""
+    template_path = _TEMPLATES_DIR / "github-sonar-step.yml"
+    if template_path.is_file():
+        return template_path.read_text(encoding="utf-8")
+
+    return dedent("""\
+        - name: Sonar analysis
+          if: >
+            ${{ github.event_name != 'pull_request' ||
+                github.event.pull_request.head.repo.full_name == github.repository }}
+          uses: SonarSource/sonarcloud-github-action@v3
+          env:
+            SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          with:
+            args: >
+              -Dsonar.projectKey=<project-key>
+              -Dsonar.organization=<organization>
+    """)
+
+
+def generate_azure_sonar_tasks() -> str:
+    """Generate Azure DevOps Sonar task snippets."""
+    template_path = _TEMPLATES_DIR / "azure-sonar-task.yml"
+    if template_path.is_file():
+        return template_path.read_text(encoding="utf-8")
+
+    return dedent("""\
+        - task: SonarCloudPrepare@3
+          inputs:
+            SonarCloud: '$(SONAR_SERVICE_CONNECTION)'
+            scannerMode: 'CLI'
+            configMode: 'manual'
+            organization: '<organization>'
+            cliProjectKey: '<project-key>'
+            cliSources: '.'
+        - task: SonarCloudAnalyze@3
+        - task: SonarCloudPublish@3
+          inputs:
+            pollingTimeoutSec: '300'
+    """)
+
+
+def suggest_injection(pipeline: PipelineFile, *, injection_type: str = "risk") -> str:
     """Suggest a risk gate snippet for a specific pipeline file.
 
     Args:
@@ -71,7 +114,9 @@ def suggest_injection(pipeline: PipelineFile) -> str:
         instructions for where to insert it.
     """
     if pipeline.pipeline_type == PipelineType.GITHUB_ACTIONS:
-        snippet = generate_github_step()
+        snippet = (
+            generate_github_sonar_step() if injection_type == "sonar" else generate_github_step()
+        )
         return (
             f"# Add this step to your workflow in {pipeline.path.as_posix()}\n"
             f"# Place it after checkout and before deployment steps:\n\n"
@@ -79,7 +124,9 @@ def suggest_injection(pipeline: PipelineFile) -> str:
         )
 
     if pipeline.pipeline_type == PipelineType.AZURE_DEVOPS:
-        snippet = generate_azure_task()
+        snippet = (
+            generate_azure_sonar_tasks() if injection_type == "sonar" else generate_azure_task()
+        )
         return (
             f"# Add this task to your pipeline in {pipeline.path.as_posix()}\n"
             f"# Place it after checkout and before deployment tasks:\n\n"
