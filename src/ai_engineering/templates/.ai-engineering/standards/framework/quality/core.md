@@ -84,6 +84,19 @@ Test pyramid ratio target: ~50% unit, ~45% integration, ~5% E2E.
 - major: fix before merge unless owner approves and logs rationale.
 - minor/info: track and resolve incrementally.
 
+## Remediation Priority Order
+
+When multiple findings exist, remediate in this order (highest priority first):
+
+1. **security** — vulnerabilities, secret exposure, injection vectors.
+2. **reliability** — crashes, data loss, state corruption.
+3. **correctness** — logic errors, wrong behavior, broken contracts.
+4. **performance** — degradation, resource leaks, timeout risks.
+5. **maintainability** — complexity, duplication, coupling.
+6. **testability** — untested paths, missing assertions, flaky tests.
+7. **docs** — missing/stale documentation, broken references.
+8. **style** — formatting, naming, convention deviations.
+
 ## References
 
 - `standards/framework/core.md` — non-negotiables and enforcement rules.

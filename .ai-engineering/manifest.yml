@@ -26,7 +26,7 @@ governance_surface:
         testing,
       ]
   skills:
-    total: 50
+    total: 44
     category_count: 6
     categories: [workflows, dev, review, docs, govern, quality]
   integrity:

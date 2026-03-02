@@ -36,101 +36,17 @@ Framework-owned baseline standards for every installed instance.
 
 ## Skills and Agents
 
-- Skills (`skills/**`) define reusable procedures agents follow: workflows, dev practices, reviews, docs, governance, and quality audits.
+- Skills (`skills/**`) define reusable procedures: workflows, dev practices, reviews, docs, governance, quality audits.
 - Agents (`agents/**`) define personas with capabilities, behavior protocols, and output contracts.
-- Both are framework-managed content. Team layers cannot weaken them but may extend via team-owned skills.
-- Agent sessions reference skills during execution; skills reference standards for enforcement rules.
+- Both are framework-managed. Team layers cannot weaken them but may extend via team-owned skills.
 - Precedence: `standards/framework/**` > `skills/**` > `agents/**`. Standards override skill behavior if conflict arises.
-
-### Skill Directory Schema
-
-Each skill is a directory containing a `SKILL.md` file and optional bundled resources. This format is AgentSkills-compatible.
-
-```
-skills/<category>/<name>/
-├── SKILL.md              (required — instructions with YAML frontmatter)
-├── scripts/              (optional — deterministic executable scripts)
-├── references/           (optional — on-demand reference docs for AI)
-└── assets/               (optional — templates, resources for output)
-```
-
-#### SKILL.md Frontmatter (required)
-
-```yaml
----
-name: <skill-name>                    # required — kebab-case identifier
-description: <one-line summary>       # required — what and when to use
-version: <semver>                     # required — semantic version
-category: <category>                  # required — workflows|dev|review|quality|govern|docs
-tags: [<tag>, ...]                    # required — discovery keywords
-metadata:
-  ai-engineering:
-    requires:                         # optional — eligibility gating
-      stacks: [<stack>, ...]          # skill eligible only for these stacks (python|dotnet|nextjs)
-      bins: [<binary>, ...]           # all must exist on PATH
-      anyBins: [<binary>, ...]        # at least one must exist on PATH
-      env: [<VAR>, ...]              # env vars that must be set
-      config: [<key>, ...]           # manifest keys that must be truthy
-    os: [<platform>, ...]             # darwin|linux|win32 — eligible platforms
-    always: <bool>                    # true = skip all gating, always eligible
-    scope: <read-only|read-write>     # whether the skill modifies files
-    token_estimate: <number>          # estimated tokens for SKILL.md body
----
-```
-
-#### Frontmatter Rules
-
-- `name` and `description` are always loaded into context (metadata level).
-- SKILL.md body is loaded only when the skill is invoked (on-demand level).
-- `scripts/` and `references/` are loaded only when the AI determines they are needed (resource level).
-- If no `metadata.ai-engineering` block is present, the skill is always eligible (no gating).
-- `requires.stacks` filters by detected project stack. An empty list means all stacks.
-- `requires.bins` is checked against the host PATH at skill evaluation time.
-- Gating is advisory in the content-first model; runtime enforcement is deferred to the Python module.
-
-#### Bundled Resources
-
-- **scripts/**: executable code for deterministic tasks that should not be re-interpreted by the AI each time. Scripts are run directly, not loaded into context unless patching is needed.
-- **references/**: documentation the AI loads on-demand during skill execution. Keeps SKILL.md body lean. Structure large references with headings so the AI can selectively read sections.
-- **assets/**: files used in output (templates, configs, boilerplate). Not loaded into context; copied or modified by the AI.
-
-### Agent Frontmatter Schema
-
-Agents are markdown files with optional structured YAML frontmatter. The frontmatter provides machine-parseable metadata; the markdown body provides the human-readable persona.
-
-```yaml
----
-name: <agent-name>                    # required — kebab-case identifier
-version: <semver>                     # required — semantic version
-scope: <read-only|read-write>         # required — whether the agent modifies files/state
-capabilities: [<cap>, ...]           # required — machine-readable capability list
-inputs: [<input>, ...]               # required — what the agent needs to start
-outputs: [<output>, ...]             # required — what the agent produces
-tags: [<tag>, ...]                    # optional — discovery keywords
-references:
-  skills: [<skill-path>, ...]        # optional — skills this agent uses
-  standards: [<standard-path>, ...]  # optional — standards this agent enforces
----
-```
-
-#### Frontmatter Rules
-
-- Agent frontmatter is additive — it does not replace the existing markdown structure (Identity, Capabilities, Behavior, etc.).
-- `scope: read-only` means the agent analyzes and reports but does not modify code or governance content.
-- `scope: read-write` means the agent may create, edit, or delete files.
-- `capabilities` is a flat list of machine-readable tokens (e.g., `sast`, `secret-detection`, `dependency-audit`). Used by orchestrators to select the right agent for a task.
-- `inputs` describes what the agent needs (e.g., `file-paths`, `diff`, `repository`, `spec-hierarchy`).
-- `outputs` describes what the agent produces (e.g., `findings-report`, `quality-verdict`, `dependency-graph`).
+- Full schema details (directory layout, frontmatter fields, gating logic, capability tokens, token budgets): `standards/framework/skills-schema.md`.
 
 ### Progressive Disclosure
 
-Skills and agents use a three-level loading model to manage context efficiently:
+Three-level loading: **Metadata** (always, ~50 tok/skill) → **Body** (on-demand) → **Resources** (on-demand).
 
-1. **Metadata** (name + description) — always in context. ~50-100 tokens per skill.
-2. **Body** (SKILL.md content or agent persona) — loaded on-demand when invoked.
-3. **Resources** (scripts, references, assets) — loaded only when the AI needs them.
-
-Agents should load skill bodies and standards only when executing a task that requires them, not at session start. The Session Start Protocol loads only: `_active.md` → `spec.md` → `tasks.md` → `decision-store.json`. Everything else is on-demand.
+Session start loads ONLY: `_active.md` → `spec.md` → `tasks.md` → `decision-store.json`. Do NOT pre-load skills or agents.
 
 ## Context Structure
 
@@ -233,6 +149,10 @@ The `integrity-check` skill validates 7 categories:
 5. Instruction file consistency — all 6 files list identical skills/agents.
 6. Manifest coherence — manifest paths match directory structure.
 7. Skill frontmatter — YAML frontmatter fields are valid and consistent with directory structure.
+
+## Finding Deduplication
+
+Before reporting a finding, agents MUST check `state/decision-store.json` for existing decisions on the same issue. If a finding matches an active accepted risk (by scope, severity, and context hash), reference the existing decision instead of reporting a duplicate.
 
 ## Risk Acceptance
 

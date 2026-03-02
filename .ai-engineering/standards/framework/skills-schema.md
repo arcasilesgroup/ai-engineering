@@ -215,8 +215,7 @@ tags: [security, owasp, vulnerabilities, sast]
 references:
   skills:
     - skills/review/security/SKILL.md
-    - skills/review/dast/SKILL.md
-    - skills/review/container-security/SKILL.md
+    - skills/review/specialized-security/SKILL.md
     - skills/quality/sbom/SKILL.md
   standards:
     - standards/framework/core.md
@@ -425,8 +424,8 @@ Derived from audit patterns: Same.dev (emphatic parallel execution), Cursor (par
 
 - `standards/framework/core.md` — skill and agent base rules, progressive disclosure.
 - `context/product/framework-contract.md` — content-first product model, token efficiency principle.
-- `skills/govern/create-skill/SKILL.md` — skill registration procedure.
-- `skills/govern/create-agent/SKILL.md` — agent registration procedure.
+- `skills/govern/skill-lifecycle/SKILL.md` — skill registration procedure.
+- `skills/govern/agent-lifecycle/SKILL.md` — agent registration procedure.
 
 ## Update Contract
 

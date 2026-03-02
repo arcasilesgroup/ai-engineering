@@ -56,6 +56,14 @@
 - Stream tests: mock readable/writable streams.
 - Load tests: k6 or autocannon for performance baselines.
 
+## Performance
+
+_Stack-specific performance patterns will be added as the standard evolves. Refer to `review/performance/SKILL.md` for general performance review procedures._
+
+## Security
+
+_Stack-specific security patterns will be added as the standard evolves. Refer to `review/security/SKILL.md` for general security review procedures._
+
 ## Update Contract
 
 This file is framework-managed and may be updated by framework releases.

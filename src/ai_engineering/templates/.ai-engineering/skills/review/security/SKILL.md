@@ -104,8 +104,7 @@ Comprehensive security review covering OWASP top risks, secret exposure, injecti
 - `standards/framework/quality/core.md` — severity policy.
 - `standards/framework/security/owasp-top10-2025.md` — OWASP Top 10 mapping.
 - `agents/security-reviewer.md` — agent that performs security reviews.
-- `skills/review/dast/SKILL.md` — dynamic application security testing (post-deploy).
-- `skills/review/container-security/SKILL.md` — container image scanning.
+- `skills/review/specialized-security/SKILL.md` — DAST, container scanning, and data security posture (mode: `dast`, `container`, `data`).
 - `skills/quality/sbom/SKILL.md` — software bill of materials generation.
 - `standards/framework/stacks/azure.md` — Azure security patterns.
 - `standards/framework/stacks/infrastructure.md` — IaC security patterns.

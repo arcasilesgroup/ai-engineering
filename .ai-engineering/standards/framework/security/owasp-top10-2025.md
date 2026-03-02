@@ -71,7 +71,7 @@ Maps each OWASP Top 10 2025 category to the specific framework controls, tools, 
 
 - **Controls**: audit log enforcement, governance event logging.
 - **Tools**: `state/audit-log.ndjson` (governance events).
-- **Skills**: `skills/govern/accept-risk/SKILL.md` (audit trail), `skills/govern/resolve-risk/SKILL.md`.
+- **Skills**: `skills/govern/risk-lifecycle/SKILL.md` (audit trail — mode: `accept`, `resolve`, `renew`).
 - **Notes**: all risk decisions logged; governance events are append-only.
 
 ### A10: Server-Side Request Forgery (SSRF)
@@ -101,8 +101,7 @@ Maps each OWASP Top 10 2025 category to the specific framework controls, tools, 
 - `standards/framework/core.md` — mandatory local enforcement.
 - `skills/review/security/SKILL.md` — security review procedure.
 - `agents/security-reviewer.md` — security reviewer agent.
-- `skills/review/dast/SKILL.md` — dynamic application security testing.
-- `skills/review/container-security/SKILL.md` — container image scanning.
+- `skills/review/specialized-security/SKILL.md` — DAST, container scanning, and data security posture.
 
 ## Update Contract
 

@@ -60,13 +60,13 @@ ai-engineering is a **content framework**, not a platform. The governance layer 
 your-project/
 ├── .ai-engineering/            ← governance root (content-first)
 │   ├── standards/              ← rules for AI agents and quality gates
-│   ├── skills/                 ← 45 procedural skills AI agents execute
-│   ├── agents/                 ← 15 agent personas with behavioral contracts
+│   ├── skills/                 ← 44 procedural skills AI agents execute
+│   ├── agents/                 ← 19 agent personas with behavioral contracts
 │   ├── context/                ← project memory: specs, goals, learnings
 │   └── state/                  ← decisions, risks, audit trail
 ├── .claude/commands/           ← 60 slash commands (Claude Code)
-├── .github/prompts/            ← 45 prompt files (GitHub Copilot)
-├── .github/agents/             ← 15 custom agents (GitHub Copilot)
+├── .github/prompts/            ← 44 prompt files (GitHub Copilot)
+├── .github/agents/             ← 19 custom agents (GitHub Copilot)
 ├── GEMINI.md                   ← instruction file (Gemini CLI)
 ├── .git/hooks/                 ← quality gate hooks (auto-installed)
 └── ...your code
@@ -83,9 +83,9 @@ Three ownership boundaries keep your content safe:
 - **Quality gates at every commit** — `ruff`, `gitleaks`, `semgrep`, `pip-audit`, `pytest`, and `ty` run at the right stage. Problems are blocked before they reach the remote repository.
 - **Security scanning without CI** — secrets, SAST/OWASP vulnerabilities, and dependency CVEs are detected locally on every push.
 - **Risk acceptance lifecycle** — accept, track, and expire security risks with severity-based deadlines (critical: 15 days, high: 30, medium: 60, low: 90). Max 2 renewals per risk.
-- **45 procedural skills** — structured procedures for commit, PR, debug, refactor, code review, security assessment, architecture review, and more. AI agents read and execute them.
-- **15 agent personas** — behavioral contracts for principal engineer, architect, security reviewer, test master, debugger, and others. Each agent has identity, capabilities, and boundaries.
-- **Multi-provider from day one** — same governance works with Claude Code (60 slash commands), GitHub Copilot (45 prompt files + 15 custom agents), Gemini CLI, and OpenAI Codex.
+- **44 procedural skills** — structured procedures for commit, PR, debug, refactor, code review, security assessment, architecture review, and more. AI agents read and execute them.
+- **19 agent personas** — behavioral contracts for principal engineer, architect, security reviewer, test master, debugger, and others. Each agent has identity, capabilities, and boundaries.
+- **Multi-provider from day one** — same governance works with Claude Code (63 slash commands), GitHub Copilot (44 prompt files + 19 custom agents), Gemini CLI, and OpenAI Codex.
 - **Stack-aware enforcement** — tailored rules for Python, .NET, and Next.js. Each stack has its own linting, testing, and security toolchain.
 - **Content integrity validation** — 6 programmatic categories verify that governance files stay consistent across updates.
 - **Doctor diagnostics** — one command checks framework health and auto-fixes missing hooks or tools.

@@ -54,7 +54,7 @@
 | Phase | Name | Status |
 |-------|------|--------|
 | 0 | Rebuild Baseline — clean branch, contract-first structure, minimal runtime | Complete |
-| 1 | Content Core + Installability — 50 skills, 19 agents, 14 stacks, Python CLI | Complete |
+| 1 | Content Core + Installability — 44 skills, 19 agents, 14 stacks, Python CLI | Complete |
 | 2 | Dogfooding + Hard Validation — E2E validation, cross-OS CI, SAST remediation | In Progress |
 | 3 | Release Readiness — freeze contract, validate migrations, publish 0.2.0 | Pending |
 
@@ -83,7 +83,7 @@ This project dogfoods the ai-engineering framework on itself.
 
 | Area | Evidence |
 |------|----------|
-| Governance content | 50/50 skills, 19/19 agents, 14/14 stack standards |
+| Governance content | 44/44 skills, 19/19 agents, 14/14 stack standards |
 | Python runtime | 75 source files across 17 modules |
 | CI/CD | 3 workflows (ci.yml, install-smoke.yml, release.yml) with cross-OS matrix |
 | E2E tests | install clean + install existing flows validated |
@@ -122,22 +122,22 @@ Spec-030: Sonar CI/CD Pipeline Integration (auto Sonar analysis generation + adv
 | Quality gate pass rate | 100% on all governed ops | 100% (ruff, ty, format) | → |
 | Security scan pass rate | 100% — zero medium+ | 7 semgrep (1E+6W); gitleaks 0; pip-audit 0 | ↑ |
 | Tamper resistance score | 100/100 | 85/100 (B3/B4 done, CI stabilizing) | ↑ |
-| Agent coverage | 50 skills + 19 agents | 50/50 + 19/19 | → |
+| Agent coverage | 44 skills + 19 agents | 44/44 + 19/19 | → |
 | Test coverage | 90% (100% governance-critical) | 91% (889+ tests) | ↑ |
 | Cross-OS CI pass | 3x3 matrix green | Implemented, stabilizing | ↑ |
 | Token efficiency | >= 95% deferred at session start | 99.19% (500/61,386) | → |
 
 ## 6. Governance Surface Summary
 
-### 6.1 Skills (50 total, 6 categories)
+### 6.1 Skills (44 total, 6 categories)
 
 | Category | Count | Skills |
 |----------|-------|--------|
-| workflows | 6 | commit, pr, acho, cleanup, self-improve, create-spec (via govern) |
-| dev | 17 | multi-agent, code-review, refactor, debug, test-runner, test-strategy, migration, deps-update, data-modeling, database-ops, api-design, infrastructure, cicd-generate, cli-ux, sonar-gate |
-| review | 7 | architecture, security, data-security, performance, accessibility, dast, container-security |
-| quality | 7 | audit-code, docs-audit, install-check, release-gate, sbom, test-gap-analysis |
-| govern | 11 | create-spec, create-skill, delete-skill, create-agent, delete-agent, integrity-check, ownership-audit, contract-compliance, accept-risk, renew-risk, resolve-risk, adaptive-standards |
+| workflows | 4 | commit, pr, cleanup, self-improve |
+| dev | 16 | multi-agent, code-review, refactor, debug, test-runner, test-strategy, migration, deps-update, data-modeling, database-ops, api-design, infrastructure, cicd-generate, cli-ux, sonar-gate, discovery-interrogation |
+| review | 5 | architecture, security, specialized-security (dast/container/data), performance, accessibility |
+| quality | 6 | audit-code, docs-audit, install-check, release-gate, sbom, test-gap-analysis |
+| govern | 8 | create-spec, skill-lifecycle, agent-lifecycle, integrity-check, ownership-audit, contract-compliance, risk-lifecycle, adaptive-standards |
 | docs | 5 | writer, changelog, explain, simplify, prompt-design |
 
 ### 6.2 Agents (19 total, 8 categories)
@@ -224,6 +224,17 @@ Python, TypeScript, React, React Native, NestJS, Next.js, Astro, .NET (expanded:
 - **Integration tests**: 474 tests — filesystem and git operations
 - **E2E tests**: 23 tests — install, CLI, and hook flows
 - **Total**: 889+ tests, 91% coverage
+
+### 7.4 Architecture Patterns
+
+| Pattern | Source | Implementation |
+|---------|--------|---------------|
+| Scanner/Executor separation | DevExpert | Agent `scope` field (read-only vs read-write) separates analysis from modification |
+| Single-system-multiple-access-points | Spotify | One canonical skill/agent, multiple access surfaces (Claude, Copilot, Gemini, CLI) |
+| Finding deduplication | DevExpert | `state/decision-store.json` checked before reporting duplicate findings |
+| Context Threading Protocol | Multi-agent research | Structured context summaries (`Findings`, `Dependencies`, `Risks`, `Recommendations`) |
+| Progressive disclosure | Token efficiency | Three-level loading: metadata → body → resources |
+| Mode dispatch | Consolidation | Single skill with mode argument replaces multiple atomic skills |
 
 ## 8. Stakeholders
 

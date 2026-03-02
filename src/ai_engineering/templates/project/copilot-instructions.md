@@ -53,15 +53,14 @@ Procedural skills guide structured execution. Reference the relevant skill befor
 - `.ai-engineering/skills/dev/infrastructure/SKILL.md` — IaC provisioning.
 - `.ai-engineering/skills/dev/database-ops/SKILL.md` — database operations.
 - `.ai-engineering/skills/dev/sonar-gate/SKILL.md` — Sonar quality gate integration.
+- `.ai-engineering/skills/dev/discovery-interrogation/SKILL.md` — structured requirements discovery through interrogation.
 
 ### Review Skills
 
 - `.ai-engineering/skills/review/architecture/SKILL.md` — architecture review.
 - `.ai-engineering/skills/review/performance/SKILL.md` — performance review.
 - `.ai-engineering/skills/review/security/SKILL.md` — security assessment.
-- `.ai-engineering/skills/review/data-security/SKILL.md` — data security posture review.
-- `.ai-engineering/skills/review/dast/SKILL.md` — dynamic application security testing.
-- `.ai-engineering/skills/review/container-security/SKILL.md` — container image scanning.
+- `.ai-engineering/skills/review/specialized-security/SKILL.md` — DAST, container scanning, and data security posture (mode: `dast`, `container`, `data`).
 - `.ai-engineering/skills/review/accessibility/SKILL.md` — WCAG 2.1 AA accessibility review.
 
 ### Docs Skills
@@ -78,14 +77,10 @@ Procedural skills guide structured execution. Reference the relevant skill befor
 - `.ai-engineering/skills/govern/contract-compliance/SKILL.md` — clause-by-clause contract validation.
 - `.ai-engineering/skills/govern/ownership-audit/SKILL.md` — ownership boundary and updater safety validation.
 - `.ai-engineering/skills/govern/adaptive-standards/SKILL.md` — standards evolution with compatibility checks.
-- `.ai-engineering/skills/govern/create-agent/SKILL.md` — agent authoring and registration procedure.
-- `.ai-engineering/skills/govern/create-skill/SKILL.md` — skill authoring and registration procedure.
+- `.ai-engineering/skills/govern/agent-lifecycle/SKILL.md` — agent create/delete lifecycle.
+- `.ai-engineering/skills/govern/skill-lifecycle/SKILL.md` — skill create/delete lifecycle.
 - `.ai-engineering/skills/govern/create-spec/SKILL.md` — spec creation with branch-first workflow.
-- `.ai-engineering/skills/govern/delete-agent/SKILL.md` — safe agent removal with dependency checks.
-- `.ai-engineering/skills/govern/delete-skill/SKILL.md` — safe skill removal with dependency checks.
-- `.ai-engineering/skills/govern/accept-risk/SKILL.md` — risk acceptance with severity-based expiry.
-- `.ai-engineering/skills/govern/resolve-risk/SKILL.md` — risk remediation and closure.
-- `.ai-engineering/skills/govern/renew-risk/SKILL.md` — time-limited risk renewal (max 2).
+- `.ai-engineering/skills/govern/risk-lifecycle/SKILL.md` — risk accept/resolve/renew lifecycle.
 
 ### Quality Skills
 

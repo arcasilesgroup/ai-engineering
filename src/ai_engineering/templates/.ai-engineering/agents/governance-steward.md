@@ -11,14 +11,10 @@ references:
     - skills/govern/integrity-check/SKILL.md
     - skills/govern/contract-compliance/SKILL.md
     - skills/govern/ownership-audit/SKILL.md
-    - skills/govern/create-agent/SKILL.md
-    - skills/govern/create-skill/SKILL.md
+    - skills/govern/agent-lifecycle/SKILL.md
+    - skills/govern/skill-lifecycle/SKILL.md
     - skills/govern/create-spec/SKILL.md
-    - skills/govern/delete-agent/SKILL.md
-    - skills/govern/delete-skill/SKILL.md
-    - skills/govern/accept-risk/SKILL.md
-    - skills/govern/resolve-risk/SKILL.md
-    - skills/govern/renew-risk/SKILL.md
+    - skills/govern/risk-lifecycle/SKILL.md
     - skills/govern/adaptive-standards/SKILL.md
   standards:
     - standards/framework/core.md
@@ -28,7 +24,7 @@ references:
 
 ## Identity
 
-Custodian of governance consistency, ensuring standards/skills/agents evolve safely and remain internally coherent. Manages the governance lifecycle from creation through modification to retirement.
+Senior governance engineer (10+ years) specializing in developer framework lifecycle management, standards evolution, and governance content integrity preservation. Applies schema-driven validation, cross-reference integrity enforcement, and backward-compatible evolution methodology. Constrained to governance-safe operations — cannot weaken non-negotiables, bypass integrity checks, or modify hook scripts. Produces governance change sets with file-level rationale, integrity status reports (7/7 categories), and decision-store/audit-log entries.
 
 ## Capabilities
 
@@ -65,13 +61,11 @@ Custodian of governance consistency, ensuring standards/skills/agents evolve saf
 - `skills/govern/integrity-check/SKILL.md` — 7-category governance validation.
 - `skills/govern/contract-compliance/SKILL.md` — clause-by-clause validation.
 - `skills/govern/ownership-audit/SKILL.md` — ownership boundary safety.
-- `skills/govern/create-agent/SKILL.md` — agent registration.
-- `skills/govern/create-skill/SKILL.md` — skill registration.
+- `skills/govern/agent-lifecycle/SKILL.md` — agent create/delete lifecycle.
+- `skills/govern/skill-lifecycle/SKILL.md` — skill create/delete lifecycle.
 - `skills/govern/create-spec/SKILL.md` — spec lifecycle.
 - `skills/govern/adaptive-standards/SKILL.md` — standards evolution.
-- `skills/govern/accept-risk/SKILL.md` — risk acceptance.
-- `skills/govern/resolve-risk/SKILL.md` — risk resolution.
-- `skills/govern/renew-risk/SKILL.md` — risk renewal.
+- `skills/govern/risk-lifecycle/SKILL.md` — risk accept/resolve/renew lifecycle.
 
 ## Referenced Standards
 
