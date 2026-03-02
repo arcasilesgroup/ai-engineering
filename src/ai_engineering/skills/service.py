@@ -11,17 +11,17 @@ Manages the lifecycle of remote skill sources:
 from __future__ import annotations
 
 import hashlib
+import http.client
 import json
 import logging
 import os
 import shutil
 import sys
-import urllib.error
-import urllib.request
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import cast
+from urllib.parse import urlparse
 
 import yaml
 
@@ -443,12 +443,26 @@ def _fetch_url(url: str) -> bytes | None:
     Returns:
         Response content bytes, or None on failure.
     """
+    parsed = urlparse(url)
+    if parsed.scheme not in {"https", "http"}:
+        _logger.debug("Refusing unsupported URL scheme for remote sync: %s", parsed.scheme)
+        return None
+    path = parsed.path or "/"
+    if parsed.query:
+        path = f"{path}?{parsed.query}"
+    conn_cls = (
+        http.client.HTTPSConnection if parsed.scheme == "https" else http.client.HTTPConnection
+    )
+    conn = conn_cls(parsed.netloc, timeout=30)
     try:
-        with urllib.request.urlopen(url, timeout=30) as response:
-            return response.read()
-    except (urllib.error.URLError, OSError, ValueError) as exc:
+        conn.request("GET", path)
+        response = conn.getresponse()
+        return response.read()
+    except (http.client.HTTPException, OSError, ValueError) as exc:
         _logger.debug("Failed to fetch %s: %s", url, exc)
         return None
+    finally:
+        conn.close()
 
 
 def _compute_checksum(content: bytes) -> str:

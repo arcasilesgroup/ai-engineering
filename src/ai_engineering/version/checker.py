@@ -15,7 +15,6 @@ from __future__ import annotations
 import contextlib
 import json
 from dataclasses import dataclass
-from importlib import resources
 from pathlib import Path
 
 from ai_engineering.version.models import VersionEntry, VersionRegistry, VersionStatus
@@ -77,7 +76,7 @@ def load_registry(registry_path: Path | None = None) -> VersionRegistry | None:
         if registry_path is not None:
             raw = registry_path.read_text(encoding="utf-8")
         else:
-            ref = resources.files("ai_engineering.version").joinpath("registry.json")
+            ref = Path(__file__).with_name("registry.json")
             raw = ref.read_text(encoding="utf-8")
         data = json.loads(raw)
         return VersionRegistry.model_validate(data)

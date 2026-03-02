@@ -64,7 +64,7 @@ class CredentialService:
         """Store *secret* for *platform*/*username* in the OS secret store."""
         backend = self._get_keyring()
         backend.set_password(self.service_name(platform), username, secret)
-        logger.debug("Credential stored for %s/%s", platform, username)
+        logger.debug("Secret persisted in OS keyring")
 
     def retrieve(self, platform: str, username: str) -> str | None:
         """Retrieve the secret for *platform*/*username*.
@@ -87,9 +87,9 @@ class CredentialService:
         backend = self._get_keyring()
         try:
             backend.delete_password(self.service_name(platform), username)
-            logger.debug("Credential deleted for %s/%s", platform, username)
+            logger.debug("Secret removed from OS keyring")
         except Exception:
-            logger.debug("No credential to delete for %s/%s", platform, username)
+            logger.debug("No matching keyring entry to remove")
 
     def exists(self, platform: str, username: str) -> bool:
         """Return ``True`` if a credential exists for *platform*/*username*."""

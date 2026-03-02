@@ -1,9 +1,9 @@
 ---
 name: cleanup
-description: "Full repository hygiene: status snapshot, sync, prune, branch cleanup, and spec lifecycle reset."
-version: 2.0.0
+description: "Full repository hygiene: status snapshot, sync, prune, and branch cleanup."
+version: 3.0.0
 category: workflows
-tags: [git, branch, cleanup, hygiene, spec, status]
+tags: [git, branch, cleanup, hygiene, status]
 metadata:
   ai-engineering:
     requires:
@@ -16,7 +16,7 @@ metadata:
 
 ## Purpose
 
-Execute full repository hygiene — branch cleanup, remote status assessment, and spec lifecycle reset. The single session-start primitive for the framework. Replaces the former `/pre-implementation` flow (which was absorbed into `/cleanup` + `/create-spec`).
+Execute full repository hygiene — branch cleanup and remote status assessment. The single session-start primitive for the framework. Replaces the former `/pre-implementation` flow (which was absorbed into `/cleanup` + `/create-spec`).
 
 ## Trigger
 
@@ -54,21 +54,11 @@ Execute full repository hygiene — branch cleanup, remote status assessment, an
    - Excludes protected branches (`main`, `master`).
    - Reports: branches deleted (merged), branches deleted (gone), refs pruned, branches skipped.
 
-### Phase 4: Spec Reset
-
-10. **Run spec reset** — `uv run ai-eng maintenance spec-reset`.
-    - Detects active spec status from `_active.md` frontmatter.
-    - Finds completed specs outside `archive/` (has `done.md` or `tasks.md` with `completed == total`).
-    - Archives completed spec directories to `specs/archive/`.
-    - Resets `_active.md` to `active: null` — "No active spec — ready for `/create-spec`".
-    - Reports: specs archived, active cleared, orphans found.
-
 ## Output Contract
 
 - Terminal output showing each phase result.
 - Phase 0: repository status snapshot (remote branches, PRs, stale, candidates).
 - Phase 3: branch cleanup summary (deleted count, pruned count, skipped count).
-- Phase 4: spec reset summary (specs archived, active cleared, orphans).
 - Final confirmation: current branch and status.
 
 ## Governance Notes
@@ -78,8 +68,7 @@ Execute full repository hygiene — branch cleanup, remote status assessment, an
 - No destructive git operations beyond branch deletion.
 - No `--no-verify` usage.
 - If `git pull --ff-only` fails (diverged history), warn and stop — do not force-pull.
-- Spec archival is a move operation, not a delete — completed specs are preserved in `archive/`.
-- If `_active.md` points to an in-progress spec (not completed), it is left unchanged.
+- Spec reset (archival + `_active.md` clearing) has been moved to `/pr` so changes reach origin through the PR.
 
 ## References
 

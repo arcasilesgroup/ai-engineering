@@ -274,6 +274,13 @@
       "decision": "Detect SonarCloud via normalized hostname parsing from `urlparse(host_url).hostname` instead of substring matching.",
       "decidedAt": "2026-03-02T00:00:00Z",
       "spec": "030-sonar-cicd-pipeline-integration"
+    },
+    {
+      "id": "D031-001",
+      "context": "Spec reset location: /cleanup vs /pr workflow",
+      "decision": "Move spec reset from /cleanup Phase 4 to /pr Step 0 (conditional). Ensures archived specs and cleared _active.md reach origin through the PR branch instead of sitting as uncommitted local changes. /pr --only excluded. /cleanup bumped to v3.0.0.",
+      "decidedAt": "2026-03-02T00:00:00Z",
+      "spec": "none"
     }
   ]
 }

@@ -66,7 +66,7 @@ Execution coordinator that drives spec delivery end-to-end, sequencing phases, a
 
 - `skills/dev/multi-agent/SKILL.md` — parallel agent orchestration patterns.
 - `skills/workflows/self-improve/SKILL.md` — continuous improvement loop.
-- `skills/workflows/cleanup/SKILL.md` — full repository hygiene (status, sync, prune, branch cleanup, spec reset).
+- `skills/workflows/cleanup/SKILL.md` — full repository hygiene (status, sync, prune, branch cleanup).
 
 ## Referenced Standards
 
