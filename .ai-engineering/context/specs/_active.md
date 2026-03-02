@@ -1,14 +1,12 @@
 ---
-active: "031-framework-optimization"
+active: null
 updated: "2026-03-02"
 ---
 
 # Active Spec
 
-Spec in progress: `031-framework-optimization`
+No active spec. Ready for `/create-spec`.
 
 ## Quick Resume
 
-1. `.ai-engineering/context/specs/031-framework-optimization/spec.md`
-2. `.ai-engineering/context/specs/031-framework-optimization/plan.md`
-3. `.ai-engineering/context/specs/031-framework-optimization/tasks.md`
+No spec in progress.
