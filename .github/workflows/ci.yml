@@ -91,7 +91,18 @@ jobs:
         with:
           enable-cache: true
       - name: Set Python version
-        run: uv python install ${{ matrix.python-version }}
+        run: |
+          for attempt in 1 2 3; do
+            if uv python install ${{ matrix.python-version }}; then
+              exit 0
+            fi
+            if [ "$attempt" -lt 3 ]; then
+              echo "uv python install failed (attempt $attempt/3). Retrying in 15s..."
+              sleep 15
+            fi
+          done
+          echo "uv python install failed after 3 attempts"
+          exit 1
       - name: Install dependencies
         run: uv sync --dev
       - name: Compute unit scope
