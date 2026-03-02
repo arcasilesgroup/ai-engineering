@@ -806,6 +806,37 @@ class TestCounterAccuracy:
         ]
         assert len(fail_checks) >= 1
 
+    def test_table_format_counts_detected(self, tmp_path: Path) -> None:
+        _setup_full_project(tmp_path)
+        skill_row = "| " + ", ".join(s.split("/")[1] for s in _SKILL_PATHS) + " |"
+        lines = [
+            "# Instructions",
+            "",
+            f"## Skills ({len(_SKILL_PATHS)})",
+            "",
+            "| Skills (alphabetical) |",
+            "|-----------------------|",
+            skill_row,
+            "",
+            f"## Agents ({len(_AGENT_PATHS)})",
+            "",
+            "| Agent | Purpose | Scope |",
+            "|-------|---------|-------|",
+        ]
+        for agent in _AGENT_PATHS:
+            agent_name = Path(agent).stem
+            lines.append(f"| {agent_name} | test purpose | read-write |")
+        table_content = "\n".join(lines) + "\n"
+
+        _write_all_instruction_files(tmp_path, content=table_content)
+
+        report = validate_content_integrity(
+            tmp_path,
+            categories=[IntegrityCategory.COUNTER_ACCURACY],
+        )
+
+        assert report.category_passed(IntegrityCategory.COUNTER_ACCURACY)
+
 
 # -- Category 4: Cross-Reference Integrity --------------------------------
 

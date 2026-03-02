@@ -107,6 +107,10 @@ Each supported stack (Python, .NET, Next.js) has its own standards file with tai
 
 Skills are step-by-step procedures written in Markdown that any AI agent can read and execute. They define **what** the agent does, **when** to trigger, **how** to execute, and **what** to output. All skills live in `skills/<name>/SKILL.md` — no nested categories.
 
+| Skills (alphabetical) |
+|-----------------------|
+| a11y, agent-card, agent-lifecycle, api, arch-review, audit, changelog, cicd, cleanup, cli, code-review, commit, compliance, data-model, db, debug, deps, discover, docs, docs-audit, explain, improve, infra, install, integrity, migrate, multi-agent, ownership, perf-review, pr, prompt, refactor, release, risk, sbom, sec-deep, sec-review, simplify, skill-lifecycle, sonar, spec, standards, test-gap, test-plan, test-run, triage, work-item |
+
 Invoke any skill with `/ai:<name>` — for example, `/ai:debug` for systematic diagnosis, `/ai:sec-review` for security assessment, or `/ai:refactor` for code restructuring.
 
 Skills are provider-agnostic — the same skill works in Claude Code, GitHub Copilot, Gemini CLI, and OpenAI Codex without modification.
@@ -119,8 +123,8 @@ Agents are behavioral contracts for AI. Each agent has an identity, capabilities
 |-------|------|-------|
 | **plan** | Orchestration, planning pipeline, dispatch, work-item sync | read-write |
 | **build** | Implementation across all stacks (only code write agent) | read-write |
-| **review** | All reviews, security, quality, governance (14 individual modes) | read-only |
-| **scan** | Spec-vs-code gap analysis, architecture drift detection | read-only |
+| **review** | All reviews, security, quality, governance (14 individual modes) | read-write (work items only) |
+| **scan** | Spec-vs-code gap analysis, architecture drift detection | read-write (work items only) |
 | **write** | Documentation, changelogs, explanations | read-write (docs only) |
 | **triage** | Auto-prioritize work items, backlog grooming | read-write (work items only) |
 

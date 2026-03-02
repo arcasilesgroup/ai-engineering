@@ -259,8 +259,8 @@ Skills use `ai:` command prefix and flat directory layout (`skills/<name>/`).
 |-------|---------|-------|
 | plan | Orchestration, planning pipeline, dispatch, work-item sync | read-write |
 | build | Implementation across all stacks (ONLY code write agent) | read-write |
-| review | All reviews, security, quality, governance (individual modes) | read-only |
-| scan | Spec-vs-code gap analysis, architecture drift detection | read-only |
+| review | All reviews, security, quality, governance (individual modes) | read-write (work items only) |
+| scan | Spec-vs-code gap analysis, architecture drift detection | read-write (work items only) |
 | write | Documentation, changelogs, explanations | read-write (docs only) |
 | triage | Auto-prioritize work items, backlog grooming | read-write (work items only) |
 
