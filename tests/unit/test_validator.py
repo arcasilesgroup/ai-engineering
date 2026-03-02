@@ -168,7 +168,7 @@ def _write_all_instruction_files(
 def _write_product_contract(
     ai: Path,
     *,
-    skills: int = 31,
+    skills: int = 27,
     agents: int = 8,
 ) -> None:
     """Write a minimal product-contract.md with counters."""
