@@ -1,7 +1,7 @@
 """Commit/PR/Acho workflow helper functions.
 
 Provides programmatic building blocks for the ``/commit``, ``/pr``,
-and ``/acho`` flows described in ``skills/workflows/``.
+and ``/acho`` flows described in ``skills/commit/``, ``skills/pr/``.
 
 Flow summary:
 

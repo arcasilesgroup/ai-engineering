@@ -23,33 +23,33 @@ pytestmark = pytest.mark.unit
 
 
 _SKILL_PATHS = [
-    "skills/workflows/commit/SKILL.md",
-    "skills/workflows/pr/SKILL.md",
-    "skills/workflows/acho/SKILL.md",
-    "skills/dev/debug/SKILL.md",
-    "skills/dev/refactor/SKILL.md",
-    "skills/dev/code-review/SKILL.md",
-    "skills/dev/test-strategy/SKILL.md",
-    "skills/dev/migration/SKILL.md",
-    "skills/dev/deps-update/SKILL.md",
-    "skills/review/architecture/SKILL.md",
-    "skills/review/performance/SKILL.md",
-    "skills/review/security/SKILL.md",
-    "skills/docs/changelog/SKILL.md",
-    "skills/docs/explain/SKILL.md",
-    "skills/docs/writer/SKILL.md",
-    "skills/docs/prompt-design/SKILL.md",
-    "skills/govern/integrity-check/SKILL.md",
-    "skills/govern/agent-lifecycle/SKILL.md",
-    "skills/govern/skill-lifecycle/SKILL.md",
-    "skills/govern/create-spec/SKILL.md",
-    "skills/govern/risk-lifecycle/SKILL.md",
-    "skills/quality/audit-code/SKILL.md",
+    "skills/commit/SKILL.md",
+    "skills/pr/SKILL.md",
+    "skills/acho/SKILL.md",
+    "skills/debug/SKILL.md",
+    "skills/refactor/SKILL.md",
+    "skills/code-review/SKILL.md",
+    "skills/test-plan/SKILL.md",
+    "skills/migrate/SKILL.md",
+    "skills/deps/SKILL.md",
+    "skills/arch-review/SKILL.md",
+    "skills/perf-review/SKILL.md",
+    "skills/sec-review/SKILL.md",
+    "skills/changelog/SKILL.md",
+    "skills/explain/SKILL.md",
+    "skills/docs/SKILL.md",
+    "skills/prompt/SKILL.md",
+    "skills/integrity/SKILL.md",
+    "skills/agent-lifecycle/SKILL.md",
+    "skills/skill-lifecycle/SKILL.md",
+    "skills/spec/SKILL.md",
+    "skills/risk/SKILL.md",
+    "skills/audit/SKILL.md",
     "skills/quality/audit-report/SKILL.md",
-    "skills/quality/install-check/SKILL.md",
-    "skills/patterns/git-helpers/SKILL.md",
-    "skills/patterns/platform-detect/SKILL.md",
-    "skills/patterns/python-patterns/SKILL.md",
+    "skills/install/SKILL.md",
+    "skills/git-helpers/SKILL.md",
+    "skills/platform-detect/SKILL.md",
+    "skills/python-patterns/SKILL.md",
 ]
 
 _AGENT_PATHS = [
@@ -68,13 +68,7 @@ def _make_governance(root: Path) -> Path:
     """Create a minimal .ai-engineering governance tree."""
     ai = root / ".ai-engineering"
     for d in [
-        "skills/workflows",
-        "skills/dev",
-        "skills/review",
-        "skills/docs",
-        "skills/govern",
-        "skills/quality",
-        "skills/patterns",
+        "skills",
         "agents",
         "standards/framework",
         "standards/team",
@@ -89,24 +83,16 @@ def _make_governance(root: Path) -> Path:
 def _write_skill(ai: Path, rel: str) -> None:
     """Create a skill/agent markdown file.
 
-    Skills use directory layout: skills/<category>/<name>/SKILL.md
+    Skills use flat directory layout: skills/<name>/SKILL.md
     Agents remain flat: agents/<name>.md
     """
     path = ai / rel
     path.parent.mkdir(parents=True, exist_ok=True)
     if rel.startswith("skills/"):
-        # Directory layout: name = parent dir, category = grandparent dir
+        # Flat layout: name = parent dir
         skill_name = path.parent.name
-        skill_category = path.parent.parent.name
         path.write_text(
-            (
-                "---\n"
-                f"name: {skill_name}\n"
-                "version: 1.0.0\n"
-                f"category: {skill_category}\n"
-                "---\n\n"
-                f"# {skill_name}\n"
-            ),
+            (f"---\nname: {skill_name}\nversion: 1.0.0\n---\n\n# {skill_name}\n"),
             encoding="utf-8",
         )
     else:
@@ -120,22 +106,61 @@ def _make_instruction_content(
     """Build instruction file content with skill/agent listings."""
     skill_list = skills if skills is not None else _SKILL_PATHS
     agent_list = agents if agents is not None else _AGENT_PATHS
-    prefixes = {
-        "Workflows": "skills/workflows/",
-        "Dev Skills": "skills/dev/",
-        "Review Skills": "skills/review/",
-        "Docs Skills": "skills/docs/",
-        "Govern Skills": "skills/govern/",
-        "Quality Skills": "skills/quality/",
-        "Pattern Skills": "skills/patterns/",
+    # Map flat skill names to category headings for instruction file subsections.
+    _CATEGORY_MAP: dict[str, str] = {
+        "commit": "Workflows",
+        "pr": "Workflows",
+        "acho": "Workflows",
+        "debug": "Dev Skills",
+        "refactor": "Dev Skills",
+        "code-review": "Dev Skills",
+        "test-plan": "Dev Skills",
+        "migrate": "Dev Skills",
+        "deps": "Dev Skills",
+        "arch-review": "Review Skills",
+        "perf-review": "Review Skills",
+        "sec-review": "Review Skills",
+        "changelog": "Docs Skills",
+        "explain": "Docs Skills",
+        "docs": "Docs Skills",
+        "prompt": "Docs Skills",
+        "integrity": "Govern Skills",
+        "agent-lifecycle": "Govern Skills",
+        "skill-lifecycle": "Govern Skills",
+        "spec": "Govern Skills",
+        "risk": "Govern Skills",
+        "audit": "Quality Skills",
+        "install": "Quality Skills",
     }
+    _HEADINGS = [
+        "Workflows",
+        "Dev Skills",
+        "Review Skills",
+        "Docs Skills",
+        "Govern Skills",
+        "Quality Skills",
+    ]
+    grouped: dict[str, list[str]] = {h: [] for h in _HEADINGS}
+    ungrouped: list[str] = []
+    for s in skill_list:
+        # Extract skill name from flat path: skills/<name>/SKILL.md
+        parts = s.split("/")
+        skill_name = parts[1] if len(parts) >= 2 else ""
+        heading = _CATEGORY_MAP.get(skill_name)
+        if heading:
+            grouped[heading].append(s)
+        else:
+            ungrouped.append(s)
     lines = ["# Instructions", "", "## Skills", ""]
-    for heading, prefix in prefixes.items():
+    for heading in _HEADINGS:
         lines.append(f"### {heading}")
         lines.append("")
-        for s in skill_list:
-            if s.startswith(prefix):
-                lines.append(f"- `.ai-engineering/{s}`")
+        for s in grouped[heading]:
+            lines.append(f"- `.ai-engineering/{s}`")
+        lines.append("")
+    for s in ungrouped:
+        lines.append(f"- `.ai-engineering/{s}`")
+    if ungrouped:
         lines.append("")
     lines.extend(["## Agents", ""])
     for a in agent_list:
@@ -446,7 +471,7 @@ class TestFileExistence:
 
     def test_broken_reference_detected(self, tmp_path: Path) -> None:
         ai = _setup_full_project(tmp_path)
-        skill = ai / "skills" / "workflows" / "commit.md"
+        skill = ai / "skills" / "commit" / "SKILL.md"
         skill.write_text(
             "# Commit\n\nSee `skills/nonexistent/phantom.md` for details.\n",
             encoding="utf-8",
@@ -569,7 +594,7 @@ class TestMirrorSync:
                 dest = mirror_root / rel
                 dest.parent.mkdir(parents=True, exist_ok=True)
                 dest.write_bytes(f.read_bytes())
-        desynced = mirror_root / "skills" / "workflows" / "commit" / "SKILL.md"
+        desynced = mirror_root / "skills" / "commit" / "SKILL.md"
         desynced.write_text("DESYNCED CONTENT", encoding="utf-8")
         report = validate_content_integrity(
             tmp_path,
@@ -824,9 +849,9 @@ class TestCrossReference:
 
     def test_valid_references_pass(self, tmp_path: Path) -> None:
         ai = _setup_full_project(tmp_path)
-        skill = ai / "skills" / "dev" / "debug" / "SKILL.md"
+        skill = ai / "skills" / "debug" / "SKILL.md"
         skill.write_text(
-            "# Debug\n\n## References\n\n- `skills/dev/refactor/SKILL.md`\n",
+            "# Debug\n\n## References\n\n- `skills/refactor/SKILL.md`\n",
             encoding="utf-8",
         )
         report = validate_content_integrity(
@@ -837,9 +862,9 @@ class TestCrossReference:
 
     def test_broken_reference_detected(self, tmp_path: Path) -> None:
         ai = _setup_full_project(tmp_path)
-        skill = ai / "skills" / "dev" / "debug" / "SKILL.md"
+        skill = ai / "skills" / "debug" / "SKILL.md"
         skill.write_text(
-            "# Debug\n\n## References\n\n- `skills/dev/nonexistent/SKILL.md`\n",
+            "# Debug\n\n## References\n\n- `skills/nonexistent/SKILL.md`\n",
             encoding="utf-8",
         )
         report = validate_content_integrity(
@@ -980,8 +1005,8 @@ class TestSkillFrontmatter:
 
     def test_missing_frontmatter_fails(self, tmp_path: Path) -> None:
         ai = _setup_full_project(tmp_path)
-        (ai / "skills" / "dev" / "bad-skill").mkdir(parents=True, exist_ok=True)
-        bad = ai / "skills" / "dev" / "bad-skill" / "SKILL.md"
+        (ai / "skills" / "bad-skill").mkdir(parents=True, exist_ok=True)
+        bad = ai / "skills" / "bad-skill" / "SKILL.md"
         bad.write_text("# bad-skill\n", encoding="utf-8")
         report = validate_content_integrity(
             tmp_path,
@@ -991,13 +1016,12 @@ class TestSkillFrontmatter:
 
     def test_invalid_requires_schema_fails(self, tmp_path: Path) -> None:
         ai = _setup_full_project(tmp_path)
-        (ai / "skills" / "dev" / "bad-requires").mkdir(parents=True, exist_ok=True)
-        bad = ai / "skills" / "dev" / "bad-requires" / "SKILL.md"
+        (ai / "skills" / "bad-requires").mkdir(parents=True, exist_ok=True)
+        bad = ai / "skills" / "bad-requires" / "SKILL.md"
         bad.write_text(
             "---\n"
             "name: bad-requires\n"
             "version: 1.0.0\n"
-            "category: dev\n"
             "requires:\n"
             "  bins: ruff\n"
             "---\n\n"

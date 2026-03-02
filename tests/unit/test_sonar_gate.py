@@ -108,8 +108,7 @@ class TestScriptArguments:
             Path(__file__).resolve().parents[2]
             / ".ai-engineering"
             / "skills"
-            / "dev"
-            / "sonar-gate"
+            / "sonar"
             / "scripts"
             / "sonar-pre-gate.sh"
         )
@@ -121,8 +120,7 @@ class TestScriptArguments:
             Path(__file__).resolve().parents[2]
             / ".ai-engineering"
             / "skills"
-            / "dev"
-            / "sonar-gate"
+            / "sonar"
             / "scripts"
             / "sonar-pre-gate.ps1"
         )
@@ -134,8 +132,7 @@ class TestScriptArguments:
             Path(__file__).resolve().parents[2]
             / ".ai-engineering"
             / "skills"
-            / "dev"
-            / "sonar-gate"
+            / "sonar"
             / "scripts"
             / "sonar-pre-gate.sh"
         )
@@ -148,8 +145,7 @@ class TestScriptArguments:
             Path(__file__).resolve().parents[2]
             / ".ai-engineering"
             / "skills"
-            / "dev"
-            / "sonar-gate"
+            / "sonar"
             / "scripts"
             / "sonar-pre-gate.ps1"
         )
@@ -162,8 +158,7 @@ class TestScriptArguments:
             Path(__file__).resolve().parents[2]
             / ".ai-engineering"
             / "skills"
-            / "dev"
-            / "sonar-gate"
+            / "sonar"
             / "scripts"
             / "sonar-pre-gate.sh"
         )
@@ -176,8 +171,7 @@ class TestScriptArguments:
             Path(__file__).resolve().parents[2]
             / ".ai-engineering"
             / "skills"
-            / "dev"
-            / "sonar-gate"
+            / "sonar"
             / "scripts"
             / "sonar-pre-gate.ps1"
         )
@@ -198,7 +192,7 @@ class TestTemplateMirrors:
         return Path(__file__).resolve().parents[2]
 
     def test_skill_md_mirror_matches(self, repo_root: Path) -> None:
-        canonical = repo_root / ".ai-engineering" / "skills" / "dev" / "sonar-gate" / "SKILL.md"
+        canonical = repo_root / ".ai-engineering" / "skills" / "sonar" / "SKILL.md"
         mirror = (
             repo_root
             / "src"
@@ -206,21 +200,14 @@ class TestTemplateMirrors:
             / "templates"
             / ".ai-engineering"
             / "skills"
-            / "dev"
-            / "sonar-gate"
+            / "sonar"
             / "SKILL.md"
         )
         assert canonical.read_text(encoding="utf-8") == mirror.read_text(encoding="utf-8")
 
     def test_bash_script_mirror_matches(self, repo_root: Path) -> None:
         canonical = (
-            repo_root
-            / ".ai-engineering"
-            / "skills"
-            / "dev"
-            / "sonar-gate"
-            / "scripts"
-            / "sonar-pre-gate.sh"
+            repo_root / ".ai-engineering" / "skills" / "sonar" / "scripts" / "sonar-pre-gate.sh"
         )
         mirror = (
             repo_root
@@ -229,8 +216,7 @@ class TestTemplateMirrors:
             / "templates"
             / ".ai-engineering"
             / "skills"
-            / "dev"
-            / "sonar-gate"
+            / "sonar"
             / "scripts"
             / "sonar-pre-gate.sh"
         )
@@ -238,13 +224,7 @@ class TestTemplateMirrors:
 
     def test_powershell_script_mirror_matches(self, repo_root: Path) -> None:
         canonical = (
-            repo_root
-            / ".ai-engineering"
-            / "skills"
-            / "dev"
-            / "sonar-gate"
-            / "scripts"
-            / "sonar-pre-gate.ps1"
+            repo_root / ".ai-engineering" / "skills" / "sonar" / "scripts" / "sonar-pre-gate.ps1"
         )
         mirror = (
             repo_root
@@ -253,8 +233,7 @@ class TestTemplateMirrors:
             / "templates"
             / ".ai-engineering"
             / "skills"
-            / "dev"
-            / "sonar-gate"
+            / "sonar"
             / "scripts"
             / "sonar-pre-gate.ps1"
         )
@@ -265,8 +244,7 @@ class TestTemplateMirrors:
             repo_root
             / ".ai-engineering"
             / "skills"
-            / "dev"
-            / "sonar-gate"
+            / "sonar"
             / "references"
             / "sonar-threshold-mapping.md"
         )
@@ -277,8 +255,7 @@ class TestTemplateMirrors:
             / "templates"
             / ".ai-engineering"
             / "skills"
-            / "dev"
-            / "sonar-gate"
+            / "sonar"
             / "references"
             / "sonar-threshold-mapping.md"
         )

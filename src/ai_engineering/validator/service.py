@@ -1144,15 +1144,13 @@ def _as_string_list(value: object) -> list[str] | None:
 def _validate_skill_identity(
     frontmatter: dict[str, object],
     file_stem: str,
-    parent_category: str,
     rel: str,
     report: IntegrityReport,
 ) -> int:
-    """Validate name, version, and category fields. Returns failure count."""
+    """Validate name and version fields. Returns failure count."""
     failures = 0
     name = frontmatter.get("name")
     version = frontmatter.get("version")
-    category = frontmatter.get("category")
 
     if not isinstance(name, str) or not _KEBAB_RE.fullmatch(name) or name != file_stem:
         failures += 1
@@ -1174,18 +1172,6 @@ def _validate_skill_identity(
                 name="invalid-version",
                 status=CheckStatus.FAIL,
                 message="Frontmatter 'version' must be semver (e.g. 1.0.0)",
-                file_path=rel,
-            )
-        )
-
-    if not isinstance(category, str) or category != parent_category:
-        failures += 1
-        report.checks.append(
-            IntegrityCheckResult(
-                category=IntegrityCategory.SKILL_FRONTMATTER,
-                name="invalid-category",
-                status=CheckStatus.FAIL,
-                message=f"Frontmatter 'category' must match parent directory ('{parent_category}')",
                 file_path=rel,
             )
         )
@@ -1334,11 +1320,10 @@ def _check_skill_frontmatter(target: Path, report: IntegrityReport) -> None:
             failures += 1
             continue
 
-        # Directory layout: skills/<category>/<name>/SKILL.md
-        # name = parent directory (e.g. "debug"), category = grandparent (e.g. "dev")
+        # Directory layout: skills/<name>/SKILL.md (flat, no categories)
+        # name = parent directory (e.g. "debug")
         skill_name = skill_file.parent.name
-        skill_category = skill_file.parent.parent.name
-        failures += _validate_skill_identity(frontmatter, skill_name, skill_category, rel, report)
+        failures += _validate_skill_identity(frontmatter, skill_name, rel, report)
         failures += _validate_skill_requires(frontmatter, rel, report)
 
     if failures == 0:
