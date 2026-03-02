@@ -168,7 +168,18 @@ jobs:
         with:
           enable-cache: true
       - name: Set Python version
-        run: uv python install ${{ matrix.python-version }}
+        run: |
+          for attempt in 1 2 3; do
+            if uv python install ${{ matrix.python-version }}; then
+              exit 0
+            fi
+            if [ "$attempt" -lt 3 ]; then
+              echo "uv python install failed (attempt $attempt/3). Retrying in 15s..."
+              sleep 15
+            fi
+          done
+          echo "uv python install failed after 3 attempts"
+          exit 1
       - name: Configure git defaults
         run: |
           git config --global init.defaultBranch main
@@ -308,7 +319,18 @@ jobs:
         with:
           enable-cache: true
       - name: Set Python version
-        run: uv python install ${{ matrix.python-version }}
+        run: |
+          for attempt in 1 2 3; do
+            if uv python install ${{ matrix.python-version }}; then
+              exit 0
+            fi
+            if [ "$attempt" -lt 3 ]; then
+              echo "uv python install failed (attempt $attempt/3). Retrying in 15s..."
+              sleep 15
+            fi
+          done
+          echo "uv python install failed after 3 attempts"
+          exit 1
       - name: Install dependencies
         run: uv sync --dev
       - name: Init smoke repository
@@ -415,7 +437,20 @@ jobs:
 
   build:
     name: Build Package
-    needs: [change-scope, lint, typecheck, test-unit, test-integration, test-e2e, coverage, framework-smoke, security, content-integrity, workflow-sanity]
+    needs:
+      [
+        change-scope,
+        lint,
+        typecheck,
+        test-unit,
+        test-integration,
+        test-e2e,
+        coverage,
+        framework-smoke,
+        security,
+        content-integrity,
+        workflow-sanity,
+      ]
     if: needs.change-scope.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
