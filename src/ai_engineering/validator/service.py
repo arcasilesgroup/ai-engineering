@@ -134,14 +134,12 @@ _BASE_INSTRUCTION_FILES: list[str] = [
     ".github/copilot-instructions.md",
     "AGENTS.md",
     "CLAUDE.md",
-    "GEMINI.md",
 ]
 
 _TEMPLATE_INSTRUCTION_FILES: list[str] = [
     "src/ai_engineering/templates/project/copilot-instructions.md",
     "src/ai_engineering/templates/project/AGENTS.md",
     "src/ai_engineering/templates/project/CLAUDE.md",
-    "src/ai_engineering/templates/project/GEMINI.md",
 ]
 
 

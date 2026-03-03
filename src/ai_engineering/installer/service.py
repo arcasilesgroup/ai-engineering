@@ -86,6 +86,7 @@ def install(
     stacks: list[str] | None = None,
     ides: list[str] | None = None,
     vcs_provider: str = "github",
+    ai_providers: list[str] | None = None,
 ) -> InstallResult:
     """Bootstrap the ai-engineering framework in a target project.
 
@@ -97,6 +98,7 @@ def install(
         stacks: Initial stacks to install. Defaults to ``["python"]``.
         ides: Initial IDEs to configure. Defaults to ``["terminal"]``.
         vcs_provider: Primary VCS provider. Defaults to ``"github"``.
+        ai_providers: AI providers to enable. Defaults to ``["claude_code"]``.
 
     Returns:
         InstallResult with details of created and skipped files.
@@ -108,8 +110,8 @@ def install(
     src_root = get_ai_engineering_template_root()
     result.governance_files = copy_template_tree(src_root, ai_eng_dir)
 
-    # 2. Copy project-level templates (CLAUDE.md, .github/copilot/, etc.)
-    result.project_files = copy_project_templates(target)
+    # 2. Copy project-level templates (provider-aware)
+    result.project_files = copy_project_templates(target, providers=ai_providers)
 
     # 3. Generate state files (create-only)
     result.state_files = _generate_state_files(
@@ -117,6 +119,7 @@ def install(
         stacks=stacks,
         ides=ides,
         vcs_provider=vcs_provider,
+        ai_providers=ai_providers,
     )
 
     # If no state files were generated, installation was already present
@@ -142,6 +145,7 @@ def _generate_state_files(
     stacks: list[str] | None,
     ides: list[str] | None,
     vcs_provider: str = "github",
+    ai_providers: list[str] | None = None,
 ) -> list[Path]:
     """Generate default state files if they don't already exist.
 
@@ -150,6 +154,7 @@ def _generate_state_files(
         stacks: Stacks to include in the install manifest.
         ides: IDEs to include in the install manifest.
         vcs_provider: Primary VCS provider.
+        ai_providers: AI providers to enable.
 
     Returns:
         List of state file paths that were created.
@@ -161,6 +166,7 @@ def _generate_state_files(
             stacks=stacks,
             ides=ides,
             vcs_provider=vcs_provider,
+            ai_providers=ai_providers,
         ),
         _STATE_FILES["ownership-map"]: default_ownership_map(),
         _STATE_FILES["decision-store"]: default_decision_store(),
@@ -219,7 +225,17 @@ def _run_operational_phases(target: Path, *, vcs_provider: str, result: InstallR
 
     for item in stack_report.tools:
         if not item.available and item.name in {"gitleaks", "semgrep"}:
-            result.manual_steps.append(f"Install required security tool `{item.name}`")
+            # Attempt auto-install before falling back to manual step
+            sec_result = ensure_tool(item.name)
+            if not sec_result.available:
+                result.manual_steps.append(f"Install required security tool `{item.name}`")
+
+    # Deferred setup for projects without stacks
+    if not manifest.installed_stacks:
+        manifest.operational_readiness.deferred_setup = True
+        result.manual_steps.append(
+            "No stacks configured. Run 'ai-eng stack add <name>' to configure tooling."
+        )
 
     # Phase 3: VCS auth
     provider = get_provider(target)
@@ -246,6 +262,10 @@ def _run_operational_phases(target: Path, *, vcs_provider: str, result: InstallR
     ]
     manifest.cicd.sonar = sonar_config or SonarCicdConfig()
     _create_sonar_properties_if_needed(target, sonar_config, manifest.installed_stacks)
+
+    # SonarLint IDE auto-configuration
+    if sonar_config and sonar_config.enabled:
+        _configure_sonarlint_if_possible(target, sonar_config)
 
     # Phase 5: branch policy apply + manual fallback
     policy_result = apply_branch_policy(
@@ -333,3 +353,23 @@ def _create_sonar_properties_if_needed(
         sources=sources,
     )
     props_path.write_text(rendered, encoding="utf-8")
+
+
+def _configure_sonarlint_if_possible(
+    target: Path,
+    sonar_config: SonarCicdConfig,
+) -> None:
+    """Auto-configure SonarLint for detected IDEs if the platform module is available."""
+    try:
+        from ai_engineering.platforms.sonarlint import configure_all_ides, detect_ide_families
+
+        families = detect_ide_families(target)
+        if families:
+            configure_all_ides(
+                target,
+                sonar_url=sonar_config.host_url,
+                project_key=sonar_config.project_key,
+                ide_families=families,
+            )
+    except Exception:
+        pass  # SonarLint configuration is best-effort

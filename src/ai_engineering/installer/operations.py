@@ -12,10 +12,20 @@ from pathlib import Path
 from ai_engineering.state.io import append_ndjson, read_json_model, write_json_model
 from ai_engineering.state.models import AuditEntry, InstallManifest
 
-from .templates import TEMPLATES_ROOT
+from .templates import TEMPLATES_ROOT, copy_project_templates, remove_provider_templates
 
 # Known IDE identifiers recognised by the framework.
 _KNOWN_IDES: frozenset[str] = frozenset({"terminal", "vscode", "jetbrains", "cursor"})
+
+# Valid AI provider identifiers.
+_VALID_AI_PROVIDERS: frozenset[str] = frozenset(
+    {
+        "claude_code",
+        "github_copilot",
+        "gemini",
+        "codex",
+    }
+)
 
 _MANIFEST_RELATIVE: str = "state/install-manifest.json"
 _AUDIT_LOG_RELATIVE: str = "state/audit-log.ndjson"
@@ -265,3 +275,96 @@ def list_status(target: Path) -> InstallManifest:
     """
     manifest_path, _ = _resolve_paths(target)
     return _load_manifest(manifest_path)
+
+
+# ---------------------------------------------------------------------------
+# AI Provider operations
+# ---------------------------------------------------------------------------
+
+
+def add_provider(target: Path, provider: str) -> InstallManifest:
+    """Add an AI provider to the install manifest and copy its templates.
+
+    Args:
+        target: Root directory of the target project.
+        provider: Provider identifier to add (e.g., ``"github_copilot"``).
+
+    Returns:
+        Updated InstallManifest.
+
+    Raises:
+        InstallerError: If the framework is not installed, provider already
+            exists, or provider name is not recognised.
+    """
+    if provider not in _VALID_AI_PROVIDERS:
+        msg = f"Unknown provider '{provider}'. Available: {', '.join(sorted(_VALID_AI_PROVIDERS))}"
+        raise InstallerError(msg)
+
+    manifest_path, audit_path = _resolve_paths(target)
+    manifest = _load_manifest(manifest_path)
+
+    if provider in manifest.ai_providers.enabled:
+        msg = f"Provider '{provider}' is already enabled."
+        raise InstallerError(msg)
+
+    # Copy provider templates
+    copy_project_templates(target, providers=[provider])
+
+    manifest.ai_providers.enabled.append(provider)
+    _save_manifest_and_log(
+        manifest,
+        manifest_path,
+        audit_path,
+        event="provider-add",
+        detail=f"added AI provider: {provider}",
+    )
+    return manifest
+
+
+def remove_provider(target: Path, provider: str) -> InstallManifest:
+    """Remove an AI provider from the install manifest and delete its templates.
+
+    Does not allow removing the last provider.
+
+    Args:
+        target: Root directory of the target project.
+        provider: Provider identifier to remove.
+
+    Returns:
+        Updated InstallManifest.
+
+    Raises:
+        InstallerError: If the framework is not installed, provider not found,
+            or it is the last remaining provider.
+    """
+    manifest_path, audit_path = _resolve_paths(target)
+    manifest = _load_manifest(manifest_path)
+
+    if provider not in manifest.ai_providers.enabled:
+        msg = f"Provider '{provider}' is not enabled."
+        raise InstallerError(msg)
+
+    if len(manifest.ai_providers.enabled) <= 1:
+        msg = "Cannot remove the last AI provider."
+        raise InstallerError(msg)
+
+    # Determine remaining providers after removal
+    remaining = [p for p in manifest.ai_providers.enabled if p != provider]
+
+    # Remove provider templates (respects shared files)
+    remove_provider_templates(target, provider, remaining)
+
+    manifest.ai_providers.enabled.remove(provider)
+
+    # If the removed provider was primary, promote the first remaining
+    if manifest.ai_providers.primary == provider:
+        manifest.ai_providers.primary = manifest.ai_providers.enabled[0]
+
+    _save_manifest_and_log(
+        manifest,
+        manifest_path,
+        audit_path,
+        event="provider-remove",
+        detail=f"removed AI provider: {provider}",
+    )
+    return manifest

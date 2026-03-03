@@ -88,7 +88,7 @@ def test_maintenance_report_exception_branches(tmp_path: Path) -> None:
     ai = tmp_path / ".ai-engineering"
     (ai / "state").mkdir(parents=True, exist_ok=True)
     (ai / "state" / "install-manifest.json").write_text(
-        '{"frameworkVersion": "0.1.0", "schemaVersion": "1.1"}',
+        '{"frameworkVersion": "0.1.0", "schemaVersion": "1.2"}',
         encoding="utf-8",
     )
     (ai / "state" / "decision-store.json").write_text("{}", encoding="utf-8")
@@ -320,7 +320,7 @@ def test_updater_validator_and_vcs_edges(tmp_path: Path) -> None:
         manifest_path,
         InstallManifest(providers={"primary": "invalid", "enabled": ["invalid"]}),
     )
-    with patch("ai_engineering.vcs.factory._detect_from_remote", return_value="unknown"):
+    with patch("ai_engineering.vcs.factory.detect_from_remote", return_value="unknown"):
         assert factory.get_provider(tmp_path).provider_name() == "github"
 
     active = tmp_path / ".ai-engineering" / "context" / "specs" / "_active.md"

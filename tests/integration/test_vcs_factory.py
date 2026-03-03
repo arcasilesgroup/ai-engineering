@@ -10,7 +10,7 @@ import pytest
 
 from ai_engineering.vcs.api_fallback import ApiFallbackProvider
 from ai_engineering.vcs.azure_devops import AzureDevOpsProvider
-from ai_engineering.vcs.factory import _detect_from_remote, get_provider
+from ai_engineering.vcs.factory import detect_from_remote, get_provider
 from ai_engineering.vcs.github import GitHubProvider
 
 pytestmark = pytest.mark.integration
@@ -85,36 +85,36 @@ class TestGetProvider:
 
 
 class TestDetectFromRemote:
-    """Tests for _detect_from_remote()."""
+    """Tests for detect_from_remote()."""
 
     def test_github_url(self, tmp_path: Path) -> None:
         with patch(
             "ai_engineering.vcs.factory.run_git",
             return_value=(True, "https://github.com/org/repo.git"),
         ):
-            assert _detect_from_remote(tmp_path) == "github"
+            assert detect_from_remote(tmp_path) == "github"
 
     def test_azure_devops_url(self, tmp_path: Path) -> None:
         with patch(
             "ai_engineering.vcs.factory.run_git",
             return_value=(True, "https://dev.azure.com/org/project/_git/repo"),
         ):
-            assert _detect_from_remote(tmp_path) == "azure_devops"
+            assert detect_from_remote(tmp_path) == "azure_devops"
 
     def test_visualstudio_url(self, tmp_path: Path) -> None:
         with patch(
             "ai_engineering.vcs.factory.run_git",
             return_value=(True, "https://org.visualstudio.com/project/_git/repo"),
         ):
-            assert _detect_from_remote(tmp_path) == "azure_devops"
+            assert detect_from_remote(tmp_path) == "azure_devops"
 
     def test_no_remote_defaults_to_github(self, tmp_path: Path) -> None:
         with patch("ai_engineering.vcs.factory.run_git", return_value=(False, "")):
-            assert _detect_from_remote(tmp_path) == "github"
+            assert detect_from_remote(tmp_path) == "github"
 
     def test_ssh_github_url(self, tmp_path: Path) -> None:
         with patch(
             "ai_engineering.vcs.factory.run_git",
             return_value=(True, "git@github.com:org/repo.git"),
         ):
-            assert _detect_from_remote(tmp_path) == "github"
+            assert detect_from_remote(tmp_path) == "github"

@@ -61,7 +61,7 @@ def get_provider(project_root: Path) -> VcsProvider:
             pass  # Fall through to remote detection
 
     # 2. Detect from remote URL
-    provider_name = _detect_from_remote(project_root)
+    provider_name = detect_from_remote(project_root)
     cls = _PROVIDERS.get(provider_name)
     if cls is not None:
         return cls()
@@ -70,7 +70,7 @@ def get_provider(project_root: Path) -> VcsProvider:
     return GitHubProvider()
 
 
-def _detect_from_remote(project_root: Path) -> str:
+def detect_from_remote(project_root: Path) -> str:
     """Detect the VCS provider from the git remote origin URL.
 
     Args:

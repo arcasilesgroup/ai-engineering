@@ -9,6 +9,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Annotated
 
+import click
 import click.exceptions
 import typer
 
@@ -32,6 +33,7 @@ from ai_engineering.installer.service import install
 from ai_engineering.paths import resolve_project_root
 from ai_engineering.platforms.detector import detect_platforms
 from ai_engineering.updater.service import _DIFF_MAX_LINES, update
+from ai_engineering.vcs.factory import detect_from_remote
 
 
 def install_cmd(
@@ -48,14 +50,34 @@ def install_cmd(
         typer.Option("--ide", "-i", help="IDE integrations to enable."),
     ] = None,
     vcs: Annotated[
-        str,
+        str | None,
         typer.Option("--vcs", help="Primary VCS provider: github or azure_devops."),
-    ] = "github",
+    ] = None,
+    providers: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--provider",
+            "-p",
+            help="AI providers to enable (e.g. claude_code, github_copilot).",
+        ),
+    ] = None,
 ) -> None:
     """Install the ai-engineering governance framework."""
     root = resolve_project_root(target)
+
+    # Resolve VCS provider: explicit flag > autodetect > interactive prompt
+    resolved_vcs = _resolve_vcs_provider(vcs, root)
+
     with spinner("Installing governance framework..."):
-        result = install(root, stacks=stacks or [], ides=ides or [], vcs_provider=vcs)
+        result = install(
+            root,
+            stacks=stacks or [],
+            ides=ides or [],
+            vcs_provider=resolved_vcs,
+            ai_providers=providers,
+        )
+
+    ai_label = ", ".join(providers) if providers else "claude_code"
 
     if is_json_mode():
         emit_success(
@@ -65,7 +87,8 @@ def install_cmd(
                 "governance_files": len(result.governance_files.created),
                 "project_files": len(result.project_files.created),
                 "state_files": len(result.state_files),
-                "vcs_provider": vcs,
+                "vcs_provider": resolved_vcs,
+                "ai_providers": providers or ["claude_code"],
                 "readiness_status": result.readiness_status,
                 "already_installed": result.already_installed,
                 "manual_steps": result.manual_steps,
@@ -87,17 +110,14 @@ def install_cmd(
         file_count("Governance", len(result.governance_files.created))
         file_count("Project", len(result.project_files.created))
         kv("State", f"{len(result.state_files)} files")
-        kv("VCS", vcs)
+        kv("VCS", resolved_vcs)
+        kv("AI Providers", ai_label)
         kv("Readiness", result.readiness_status)
 
         if result.manual_steps:
             warning("Manual steps required:")
             for step in result.manual_steps:
                 print_stdout(f"    - {step}")
-
-        if result.guide_text:
-            header("Branch Policy Setup Guide")
-            print_stdout(result.guide_text)
 
         if result.already_installed:
             print_stdout("  (framework was already installed \u2014 skipped existing files)")
@@ -110,9 +130,51 @@ def install_cmd(
             next_steps.append(("ai-eng guide", "View branch policy setup guide"))
         suggest_next(next_steps)
 
+        # Branch policy guide at the END — only when automation failed
+        if result.guide_text:
+            warning("Automatic branch policy application was not possible.")
+            warning("You must configure branch protection manually to enforce governance gates.")
+            header("Branch Policy Setup Guide")
+            print_stdout(result.guide_text)
+
     # Optional platform onboarding prompt (D024-003: opt-in).
     if not is_json_mode():
         _offer_platform_onboarding(root)
+
+
+def _resolve_vcs_provider(vcs: str | None, root: Path) -> str:
+    """Resolve VCS provider from flag, remote detection, or interactive prompt.
+
+    Args:
+        vcs: Explicit --vcs flag value, or None.
+        root: Project root for remote detection.
+
+    Returns:
+        Resolved VCS provider string.
+    """
+    if vcs is not None:
+        return vcs
+
+    # Try autodetection from git remote
+    from ai_engineering.git.operations import run_git
+
+    ok, _ = run_git(["remote", "get-url", "origin"], root)
+    if ok:
+        return detect_from_remote(root)
+
+    # No remote — prompt interactively (or default in non-interactive/JSON mode)
+    if is_json_mode():
+        return "github"
+
+    try:
+        choice = typer.prompt(
+            "No git remote detected. VCS provider",
+            default="github",
+            type=click.Choice(["github", "azure_devops"]),
+        )
+        return choice
+    except (KeyboardInterrupt, EOFError, click.exceptions.Abort):
+        return "github"
 
 
 def update_cmd(
