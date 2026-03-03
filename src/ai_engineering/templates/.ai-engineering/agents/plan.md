@@ -11,10 +11,14 @@ references:
     - skills/cleanup/SKILL.md
     - skills/multi-agent/SKILL.md
     - skills/discover/SKILL.md
+    - skills/arch-review/SKILL.md
     - skills/improve/SKILL.md
     - skills/spec/SKILL.md
     - skills/prompt/SKILL.md
     - skills/work-item/SKILL.md
+    - skills/triage/SKILL.md
+    - skills/test-plan/SKILL.md
+    - skills/risk/SKILL.md
   standards:
     - standards/framework/core.md
 ---
@@ -65,16 +69,54 @@ Principal delivery architect (15+ years) specializing in orchestration, planning
 - Work items arrive from remote trackers tagged "ready".
 - Structured PR markdown needs parsing into a local spec.
 
+## Input Classification
+
+Before entering the pipeline, classify the user's input:
+
+| Type | Signal | Discovery Depth | Prompt/Risk/Test Depth |
+|------|--------|-----------------|------------------------|
+| **raw-idea** | Vague request, no requirements | Full 8-dimension interrogation | Full optimization + assessment |
+| **structured-request** | Detailed requirements provided | Validate against 8 dimensions, probe GAPs only | Validate quality, scan risks |
+| **pre-made-plan** | User provides plan document | Verify completeness against 8 dimensions | Verify coverage, flag gaps |
+
+When uncertain, default to `raw-idea` (deeper is always safer).
+Trivial work (per `skills/spec/SKILL.md` heuristic) is pipeline-exempt — do not invoke the pipeline.
+
 ## Behavior
 
-### Default Pipeline (auto for non-trivial work)
+### Default Pipeline (mandatory for non-trivial work)
 
-1. **Triage check** — invoke `ai:triage` (if configured) to scan pending work items from remote trackers. Collect prioritized items and surface any tagged "ready" for local planning. If no triage agent is configured, skip to step 2.
-2. **Discovery** — invoke `skills/discover/SKILL.md` to perform structured interrogation across 8 dimensions (architecture, security, quality, governance, codebase structure, dependencies, operational readiness, testing). Classify findings as KNOWN, ASSUMED, or UNKNOWN. Consolidate context summaries into a unified assessment: deduplicate findings, resolve conflicts (security > governance > quality > style), construct dependency graph. **Skip discovery** when: the task is trivial (single-file change), scope is fully specified by the user, or context is already loaded from a prior session.
-3. **Prompt design** — invoke `skills/prompt/SKILL.md` to refine task prompt quality (optional). Evaluate clarity, completeness, and specificity of the work description. Propose improvements if the prompt scores below threshold.
-4. **Spec creation (MANDATORY)** — invoke `skills/spec/SKILL.md` to create a new branch and scaffold `spec.md`/`plan.md`/`tasks.md`. Structure the spec from discovery findings and refined prompt. Link to parent spec if this is a sub-spec. This step is NOT optional — every non-trivial plan MUST have a corresponding spec for traceability. Do NOT skip this step after user approval.
-5. **Work-item sync** — invoke `skills/work-item/SKILL.md` to create or link work items in Azure Boards or GitHub Issues. Map spec tasks to work items, set status, and establish bidirectional traceability.
-6. **Dispatch** — capability-match against available agents using frontmatter `capabilities` fields. Build phase-by-phase execution plan with agent assignments, gate criteria, dependency ordering, and estimated token budgets. Present the plan to the human for approval before execution begins.
+1. **Triage** — invoke `ai:triage` (if configured) to scan pending work items from remote trackers. If no triage agent is configured, proceed to step 2.
+2. **Discovery + Architecture** — invoke `ai:discover` for structured interrogation across 8 dimensions. Adapt depth by input type: `raw-idea` = full interrogation; `structured-request` = validate, probe gaps; `pre-made-plan` = verify completeness. Then invoke `ai:arch-review` on the target scope to surface dependency, coupling, and tech-debt risks.
+   **Output**: discovery summary (requirements, constraints, risks) + architecture assessment.
+3. **Prompt + Risk + Test Strategy** — invoke `ai:prompt` to evaluate work description quality. Invoke `ai:risk` to identify risks requiring formal acceptance. Invoke `ai:test-plan` to design test strategy. Adapt depth by input type.
+   **Output**: refined work description, risk register, test strategy outline.
+   **Gate**: pause for user approval of requirements summary and risk register before proceeding. For `pre-made-plan`, auto-pass unless new risks were surfaced.
+4. **Spec creation (MANDATORY)** — invoke `ai:spec` to create branch and scaffold `spec.md`/`plan.md`/`tasks.md`. Structure the spec from discovery findings (step 2), refined description and risk/test outputs (step 3), and user-provided content. Link to parent spec if sub-spec.
+   **Output**: branch + spec.md + plan.md + tasks.md.
+5. **Work-item sync** — invoke `ai:work-item` to create or link work items. Map spec tasks to work items with bidirectional traceability. If work-items disabled in `manifest.yml`, log skip and proceed.
+   **Output**: work-item IDs linked to spec.
+6. **Dispatch** — capability-match against available agents using frontmatter `capabilities`. Build phase-by-phase execution plan with agent assignments, gate criteria, dependency ordering, and token budgets.
+   **Output**: execution plan.
+   **Gate**: human approval required before execution begins.
+
+#### Pipeline Data Flow
+
+| Step | Consumes | Produces | Gate |
+|------|----------|----------|------|
+| 1. Triage | remote work items | prioritized items | none |
+| 2. Discovery + Arch | user input, codebase | requirements + arch assessment | 8 dimensions covered |
+| 3. Prompt + Risk + Test | requirements summary | refined description, risks, test strategy | user approval |
+| 4. Spec (MANDATORY) | steps 2-3 outputs | branch, spec.md, plan.md, tasks.md | integrity-check |
+| 5. Work-item sync | spec tasks | work-item IDs, sync report | links established |
+| 6. Dispatch | spec + tasks | execution plan | human approval |
+
+#### Pipeline Guards
+
+- NEVER SKIP steps 2-6. Step 1 is conditional on triage availability.
+- NEVER reduce discovery to zero dimensions — even `pre-made-plan` gets verification.
+- NEVER create a spec without discovery and prompt/risk/test outputs feeding it.
+- Trivial work (per `skills/spec/SKILL.md` heuristic) is pipeline-exempt.
 
 ### Strategic Analysis Mode
 
@@ -115,13 +157,17 @@ Structured PR markdown (following the governed PR template) -> parse sections in
 
 ## Referenced Skills
 
-- `skills/cleanup/SKILL.md` — full repository hygiene (status, sync, prune, branch cleanup).
+- `skills/cleanup/SKILL.md` — repository hygiene.
 - `skills/multi-agent/SKILL.md` — parallel agent orchestration patterns.
-- `skills/discover/SKILL.md` — structured requirements discovery across 8 dimensions.
+- `skills/discover/SKILL.md` — structured requirements discovery (8 dimensions).
+- `skills/arch-review/SKILL.md` — dependency, coupling, cohesion, tech-debt analysis.
 - `skills/improve/SKILL.md` — continuous improvement loop.
 - `skills/spec/SKILL.md` — branch creation and spec scaffolding.
-- `skills/prompt/SKILL.md` — task prompt quality evaluation and refinement.
-- `skills/work-item/SKILL.md` — work-item creation, linking, and sync with remote trackers.
+- `skills/prompt/SKILL.md` — task prompt quality evaluation.
+- `skills/work-item/SKILL.md` — work-item sync with remote trackers.
+- `skills/triage/SKILL.md` — auto-prioritize work items.
+- `skills/test-plan/SKILL.md` — test strategy design.
+- `skills/risk/SKILL.md` — risk acceptance lifecycle.
 
 ## Referenced Standards
 

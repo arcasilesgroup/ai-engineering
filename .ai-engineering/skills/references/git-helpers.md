@@ -128,3 +128,17 @@ git stash pop
 # Apply specific stash
 git stash apply stash@{2}
 ```
+
+## VCS Provider Operations
+
+For PR and VCS-specific commands, see `skills/references/vcs-commands.md`.
+
+### Quick Provider Detection
+
+```bash
+# From remote URL
+REMOTE=$(git remote get-url origin 2>/dev/null)
+if [[ "$REMOTE" == *github.com* ]]; then VCS="github"
+elif [[ "$REMOTE" == *dev.azure.com* ]] || [[ "$REMOTE" == *visualstudio.com* ]]; then VCS="azure-devops"
+fi
+```

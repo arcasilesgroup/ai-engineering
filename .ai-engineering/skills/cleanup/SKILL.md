@@ -33,7 +33,7 @@ Execute full repository hygiene — branch cleanup and remote status assessment.
 
 1. **Repository health snapshot** — run `uv run ai-eng maintenance repo-status`. Do NOT use ad-hoc shell commands for branch analysis — the CLI handles stale detection, ahead/behind, and PR listing in Python, avoiding zsh escaping issues with `!=` operators.
    - Remote branches: list with ahead/behind relative to default branch.
-   - Open PRs: list via `gh pr list` (graceful fallback if `gh` unavailable).
+   - Open PRs: list via VCS CLI (GitHub: `gh pr list`, Azure DevOps: `az repos pr list`; graceful fallback if neither available).
    - Stale branches: branches with no commits in >30 days.
    - Cleanup candidates: merged + stale branches.
 2. **Display status** — the CLI renders a Markdown summary automatically.

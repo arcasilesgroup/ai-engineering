@@ -8,6 +8,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **VCS commands reference** (`skills/references/vcs-commands.md`) — single-source command mapping for GitHub (`gh`) and Azure DevOps (`az repos`) CLI operations used across skills.
+- **Plan agent input classification** — `raw-idea`, `structured-request`, and `pre-made-plan` input types with adaptive discovery/risk/test depth per type.
+- **Plan agent pipeline data flow** — explicit data flow table and pipeline guards documenting what each step consumes, produces, and gates on.
+
+### Changed
+- **Framework contract restructured** — rewritten as concise enforcement document with MUST/MUST NOT directives; removed temporal content (moved to product-contract).
+- **Product contract simplified** — reduced to focused product model with architecture patterns and growth roadmap.
+- **Plan agent enhanced** — added architecture review, triage, test-plan, and risk skills to pipeline; added input classification and pipeline guards.
+- **PR skill updated** — added VCS commands reference, documentation gate, and existing PR upsert logic.
+- **Git helpers extended** — added VCS provider detection helpers.
+
+### Added
 - **`ai-eng guide` command** — re-displays branch policy setup instructions on demand. Reads guide text from install manifest instead of generating files.
 - **AI provider selection** — `ai-eng install --provider claude_code --provider github_copilot` deploys only the files needed for chosen providers. Defaults to `claude_code` when omitted.
 - **`ai-eng provider` subcommand** — `add`, `remove`, and `list` commands for managing AI providers post-install. Supports `claude_code`, `github_copilot`, `gemini`, and `codex`.
