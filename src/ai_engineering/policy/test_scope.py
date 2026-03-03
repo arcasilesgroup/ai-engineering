@@ -110,6 +110,7 @@ TEST_SCOPE_RULES: list[ScopeRule] = [
             "unit": [
                 "tests/unit/test_setup_cli.py",
                 "tests/unit/test_release_cli.py",
+                "tests/unit/test_provider_cli.py",
             ],
             "integration": [
                 "tests/integration/test_cli_command_modules.py",
