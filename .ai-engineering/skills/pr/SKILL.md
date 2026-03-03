@@ -6,7 +6,8 @@ metadata:
   tags: [git, pull-request, ci, merge]
   ai-engineering:
     requires:
-      bins: [gitleaks, ruff, gh]
+      bins: [gitleaks, ruff]
+      anyBins: [gh, az]
     scope: read-write
     token_estimate: 1400
 ---
@@ -30,7 +31,8 @@ Execute the `/pr` governed workflow: conditionally run spec reset, stage, commit
 
 ## Preconditions (MUST verify before proceeding)
 
-- **Required binaries**: At least one of: `gh`, `az` — must be available on PATH.
+- **Required binaries**: `gitleaks`, `ruff` — must be available on PATH.
+- **VCS CLI**: At least one of `gh` (GitHub) or `az` (Azure DevOps) — must be available and authenticated.
 - Abort with remediation guidance if missing. Run `ai-eng doctor --fix-tools` to auto-install.
 
 ## Procedure
@@ -72,8 +74,34 @@ Execute the `/pr` governed workflow: conditionally run spec reset, stage, commit
    - Otherwise: conventional commit format.
 8. **Push** — `git push origin <current-branch>`.
    - If current branch is `main`/`master`, **block** and report protected branch violation.
-9. **Create PR** — `gh pr create --fill` (or with explicit title/body if provided).
-10. **Enable auto-complete** — `gh pr merge --auto --squash --delete-branch`.
+9. **Detect VCS provider** — determine which CLI to use:
+   a. Check `manifest.yml` → `providers.vcs.primary`.
+   b. Fallback: parse `git remote get-url origin`:
+      - `github.com` → GitHub (`gh`)
+      - `dev.azure.com` or `visualstudio.com` → Azure DevOps (`az repos`)
+   c. Verify CLI authenticated: `gh auth status` / `az account show`.
+   d. Reference: `skills/references/vcs-commands.md` for full command mapping.
+10. **Check for existing PR** — query open PRs for current branch:
+   - **GitHub**: `gh pr list --head <branch> --json number,title,body --state open`
+   - **Azure DevOps**: `az repos pr list --source-branch <branch> --status active -o json`
+11. **Create or update PR**:
+   - **If NO existing PR** → create new:
+     - **GitHub**: `gh pr create --title "<title>" --body "<body>"`
+     - **Azure DevOps**: `az repos pr create --source-branch <branch> --target-branch <target> --title "<title>" --description "<body>"`
+   - **If existing PR found** → extend (NEVER overwrite):
+     a. Read existing title and body from the query result.
+     b. Compose extended body:
+        - Keep entire existing body intact.
+        - Append separator: `\n\n---\n\n`
+        - Append new section: `## Additional Changes\n\n<new changes summary>`
+     c. Update title only if scope significantly expanded (e.g., append ` + <new scope>`). Otherwise keep original.
+     d. Apply update:
+        - **GitHub**: `gh pr edit <number> --body "<extended_body>"`
+        - **Azure DevOps**: `az repos pr update --id <id> --description "<extended_body>"`
+     e. Report: "PR #<number> updated — description extended with new changes."
+12. **Enable auto-complete** — squash merge with branch deletion:
+   - **GitHub**: `gh pr merge --auto --squash --delete-branch`
+   - **Azure DevOps**: `az repos pr update --id <id> --auto-complete true --squash true --delete-source-branch true`
 
 ### `/pr --only` (create PR only)
 
@@ -83,8 +111,10 @@ Spec reset is intentionally excluded from `--only` because this mode does not st
    - If NOT pushed: emit warning and propose auto-push.
    - If user accepts: `git push origin <current-branch>`, then continue.
    - If user declines: continue with selected PR handling mode (defer-pr, attempt-pr-anyway, export-pr-payload).
-2. **Create PR** — `gh pr create --fill`.
-3. **Enable auto-complete** — `gh pr merge --auto --squash --delete-branch`.
+2. **Detect VCS provider** — same detection as step 9 above.
+3. **Check for existing PR** — same query as step 10 above.
+4. **Create or update PR** — same upsert logic as step 11 above.
+5. **Enable auto-complete** — same as step 12 above.
 
 ## Output Contract
 
@@ -98,7 +128,10 @@ Spec reset is intentionally excluded from `--only` because this mode does not st
 - Protected branch push is always blocked. No exceptions.
 - All pre-push checks (semgrep, pip-audit, pytest, ty) must pass before PR creation.
 - Auto-complete with squash merge and branch deletion is mandatory — never skip.
-- `gh` CLI must be installed and authenticated. If not, attempt remediation: install `gh`, then `gh auth login`.
+- `gh` or `az` CLI must be installed and authenticated. If not, attempt remediation:
+  - GitHub: install `gh`, then `gh auth login`.
+  - Azure DevOps: install `az`, then `az login` + `az devops configure --defaults`.
+- When updating an existing PR, body content is ALWAYS extended, never replaced.
 - Secret detection failure is a hard stop.
 - `/pr --only` never hard-fails on unpushed branch — it warns and offers continuation modes.
 - Spec reset runs only in `/pr` default flow and only when the active spec is complete.
@@ -155,8 +188,8 @@ Actions:
 - `standards/framework/core.md` — non-negotiables and enforcement rules.
 - `standards/framework/quality/core.md` — gate structure (pre-push + PR gates).
 - `skills/commit/SKILL.md` — shared pre-commit steps.
-- `skills/commit/SKILL.md` — shared pre-commit steps.
 - `skills/cleanup/SKILL.md` — repository hygiene workflow; spec reset moved from `/cleanup` to `/pr`.
 - `skills/changelog/SKILL.md` — changelog entry formatting (used by documentation gate).
 - `skills/docs/SKILL.md` — README and documentation update procedure for OSS GitHub users (used by documentation gate).
+- `skills/references/vcs-commands.md` — VCS CLI command mapping (GitHub + Azure DevOps).
 - `agents/review.md` — agent that validates PR workflow execution.
