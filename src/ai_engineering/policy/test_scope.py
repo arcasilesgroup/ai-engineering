@@ -200,7 +200,7 @@ TEST_SCOPE_RULES: list[ScopeRule] = [
             "integration": [
                 "tests/integration/test_installer_integration.py",
                 "tests/integration/test_install_operational_flows.py",
-                "tests/integration/test_gemini_support.py",
+                "tests/integration/test_provider_commands.py",
             ],
             "e2e": [
                 "tests/e2e/test_install_clean.py",
