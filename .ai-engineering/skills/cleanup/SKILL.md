@@ -22,6 +22,11 @@ Execute full repository hygiene — branch cleanup and remote status assessment.
 - Command: `/cleanup`.
 - Context: after merging a pull request, between tasks, at session start, or when preparing for `/create-spec`.
 
+## Preconditions (MUST verify before proceeding)
+
+- **Required binaries**: `git` — must be available on PATH.
+- Abort with remediation guidance if missing. Run `ai-eng doctor --fix-tools` to auto-install.
+
 ## Procedure
 
 ### Phase 0: Status

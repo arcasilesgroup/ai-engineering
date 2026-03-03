@@ -5,6 +5,8 @@ Preconditions (abort if any fail):
 2. Working tree has staged or unstaged changes.
 3. Active spec is read from `.ai-engineering/context/specs/_active.md`.
 
+MANDATORY: Verify all Preconditions before starting. If any precondition fails, STOP and report with remediation guidance.
+
 Read and execute `.ai-engineering/skills/commit/SKILL.md`. Follow the complete procedure, all governance notes, and the Command Contract in `.ai-engineering/manifest.yml`. Args: `--only` = stage + commit only.
 
 $ARGUMENTS

@@ -25,22 +25,6 @@ ai-engineering is a content-first framework:
 
 - Markdown, YAML, JSON, and Bash define behavior and governance.
 - `.ai-engineering/` is the canonical source of truth.
-- Python MUST be used only for operational CLI commands. No policy engine SHALL be embedded in Python when behavior can be declared in governance content.
-
-### 1.3 Python Runtime Scope
-
-Python is restricted to these operational CLI commands:
-
-1. `install` — copy templates, set up hooks, run readiness checks.
-2. `update` — ownership-safe updates and migrations.
-3. `doctor` — verify installed/configured/authenticated/ready state.
-4. `add/remove stack|ide` — safe template operations and cleanup.
-5. `setup` — platform onboarding (Sonar, GitHub, Azure DevOps credentials).
-6. `gate` — quality and compliance gate execution.
-7. `cicd` — CI/CD workflow generation.
-8. `maintenance` — branch cleanup and report generation.
-9. `validate` — content and schema validation.
-10. `vcs` — VCS provider operations (PR creation, branch policy).
 
 ## 2. Non-Negotiable Directives
 
@@ -58,7 +42,7 @@ All agents and tools operating under this framework MUST adhere to these princip
 
 The framework MUST support:
 
-- Native workflows for Claude Code, Codex, and GitHub Copilot.
+- Native workflows for GitHub Copilot, Claude Code, Codex, and Gemini.
 - Governed parallel execution across multiple agents.
 - Cross-OS operation from day one: Windows, macOS, Linux.
 - VCS provider detection: GitHub and Azure DevOps.
@@ -71,17 +55,7 @@ Agents MUST NOT assume a single platform or OS. All governance operations MUST w
 - No duplication SHALL exist across standards, context, skills, and agent configuration.
 - All managed artifacts MUST be concise, purpose-driven, and high-signal.
 
-### 2.4 Tech Stack Baseline
-
-- Primary language: Python (minimal runtime only).
-- Supporting formats: Markdown, YAML, JSON, Bash.
-- Toolchain baseline: `uv`, `ruff`, `ty`.
-- Dependency vulnerability baseline (Python): `uv` + `pip-audit`.
-- Future documentation site: Nextra.
-
-Agents MUST NOT introduce tooling outside the declared baseline without explicit risk acceptance in `decision-store.json`.
-
-### 2.5 Mandatory Local Enforcement
+### 2.4 Mandatory Local Enforcement
 
 - Git hooks MUST be enabled and non-bypassable. The `--no-verify` flag MUST NOT be used on any git command.
 - Mandatory checks MUST include:
@@ -93,7 +67,7 @@ Agents MUST NOT introduce tooling outside the declared baseline without explicit
 - If a mandatory tool is missing, agents MUST attempt remediation in order: detect → install → configure/authenticate → re-run.
 - If remediation fails, the operation MUST remain blocked and explicit manual remediation steps MUST be provided.
 
-### 2.6 Install and Bootstrap Behavior
+### 2.5 Install and Bootstrap Behavior
 
 - On existing repos: the installer MUST detect stack, IDE, and platform, then adapt.
 - On empty repos: the installer MUST provide a guided initialization wizard.
@@ -101,7 +75,7 @@ Agents MUST NOT introduce tooling outside the declared baseline without explicit
 - `add/remove stack` and `add/remove IDE` MUST perform safe cleanup.
 - Operational readiness means each required tool is: installed + configured + authenticated (when applicable) + operational.
 
-### 2.7 Framework vs Installed Instance
+### 2.6 Framework vs Installed Instance
 
 All agents MUST distinguish between:
 
@@ -110,51 +84,25 @@ All agents MUST distinguish between:
 
 The updater MUST NOT modify team-managed or project-managed content. The installer MUST NOT overwrite existing customizations.
 
-## 3. Command Contract
-
-### 3.1 Governed Commands
-
-- `/commit` → stage + commit + push current branch.
-- `/commit --only` → stage + commit.
-- `/pr` → stage + commit + push + create PR + enable auto-complete (`--auto --squash --delete-branch`).
-- `/pr --only` → create PR.
-- `/acho` → stage + commit + push current branch.
-- `/acho pr` → stage + commit + push + create PR + enable auto-complete (`--auto --squash --delete-branch`).
-
-These definitions are mandatory. Agents MUST NOT alter command semantics.
-
-### 3.2 Stack and IDE Management
-
-- `ai-eng stack add <name>` / `ai-eng stack remove <name>`
-- `ai-eng ide add <name>` / `ai-eng ide remove <name>`
-
-### 3.3 PR Branch Policy
-
-When `/pr --only` is invoked and the branch is not pushed:
-
-1. Emit warning.
-2. Propose auto-push.
-3. If declined, MUST NOT hard-fail — continue with engineer-selected PR handling mode.
-
-## 4. Agentic Model
+## 3. Agentic Model
 
 ai-engineering is an **agentic-first framework**. Multi-agent coordination is a core capability, not an implementation detail.
 
-### 4.1 Execution Model
+### 3.1 Execution Model
 
 - AI agents MUST operate as **session-scoped workers** with explicit scope, dependencies, and deliverables.
 - Each session MUST read context from governance content (specs, skills, agents, standards) — no implicit knowledge assumed.
 - Session recovery MUST be deterministic: `_active.md` → `spec.md` → `tasks.md` → `decision-store.json`.
 - Any agent MUST be able to resume any session by reading the spec hierarchy.
 
-### 4.2 Parallel Execution
+### 3.2 Parallel Execution
 
 - Governed parallel execution across multiple agents is supported and encouraged.
 - Parallelism boundaries MUST be defined by **phase dependencies** in the spec's `plan.md`.
 - Phases with no cross-dependencies SHOULD execute simultaneously on separate branches.
 - A **Session Map** in `plan.md` MUST pre-assign sessions to agent slots with explicit scope and size.
 
-### 4.3 Branch Strategy for Multi-Agent
+### 3.3 Branch Strategy for Multi-Agent
 
 - **Integration branch**: spec-scoped branch (e.g., `rewrite/v2`) from default branch.
 - **Phase branches**: parallel phases MUST use `<integration-branch>-phase-N` branches.
@@ -162,7 +110,7 @@ ai-engineering is an **agentic-first framework**. Multi-agent coordination is a 
 - **Merge protocol**: phase branches MUST rebase from integration branch before merge; the integration agent reviews.
 - **Phase branch lifespan**: created at phase start, deleted after merge.
 
-### 4.4 Phase Gate Protocol
+### 3.4 Phase Gate Protocol
 
 Every phase MUST pass a gate before dependent phases can start:
 
@@ -171,7 +119,7 @@ Every phase MUST pass a gate before dependent phases can start:
 3. Quality checks pass for affected files (content lint or code quality per stack).
 4. No unresolved decisions — all new decisions recorded in `decision-store.json`.
 
-### 4.5 Agent Session Contract
+### 3.5 Agent Session Contract
 
 Every agent session MUST:
 
@@ -184,7 +132,7 @@ Every agent session MUST:
 7. **Content integrity**: if any `.ai-engineering/` file was created, deleted, renamed, or moved, execute `integrity-check` skill.
 8. **Report** summary: tasks done, files changed, decisions made, blockers found.
 
-### 4.6 Agent Coordination Protocol
+### 3.6 Agent Coordination Protocol
 
 When multiple agents work in parallel:
 
@@ -194,7 +142,7 @@ When multiple agents work in parallel:
 4. **Merge**: integration agent (the agent that owns serial phases) reviews and merges.
 5. **Gate**: integration agent runs phase gate checks before unblocking next serial phase.
 
-### 4.7 Context Threading Protocol
+### 3.7 Context Threading Protocol
 
 When an orchestrator dispatches multiple agents for context gathering or parallel work:
 
@@ -209,7 +157,7 @@ When an orchestrator dispatches multiple agents for context gathering or paralle
 
 4. **No Implicit Context**: agents MUST NOT assume knowledge from other agents' sessions. All shared context MUST flow through spec artifacts (`tasks.md`, `decision-store.json`) or explicit context summaries.
 
-### 4.8 Capability-Task Matching
+### 3.8 Capability-Task Matching
 
 When the orchestrator assigns tasks to agents:
 
@@ -224,14 +172,14 @@ When the orchestrator assigns tasks to agents:
 
 4. **Multi-Capability Tasks**: tasks requiring multiple capability domains SHOULD be split into sub-tasks assigned to specialized agents, not assigned to a single generalist agent.
 
-### 4.9 Spec-Driven Task Tracking
+### 3.9 Spec-Driven Task Tracking
 
 - Specs define WHAT (`spec.md`), HOW (`plan.md`), DO (`tasks.md`), DONE (`done.md`).
 - `tasks.md` frontmatter MUST track: `total`, `completed`, `last_session`, `next_session`.
 - Parallel phases MUST be annotated with `║` symbol; session/agent/branch in phase headers.
 - Size estimates (S/M/L) MUST be provided to enable workload distribution across agents.
 
-### 4.10 Decision Continuity
+### 3.10 Decision Continuity
 
 - Decisions made by any agent MUST be persisted in `decision-store.json` with SHA-256 context hash.
 - All agents MUST check the decision store before prompting — no repeated decisions across sessions.

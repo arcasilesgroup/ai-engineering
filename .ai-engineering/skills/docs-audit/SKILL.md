@@ -38,7 +38,7 @@ Audits all governance documentation for location correctness, writing quality, s
 ### Phase 2: Location Correctness
 
 3. **Verify file placement** — confirm each file is in the correct directory per ownership rules.
-   - Skills in `skills/<category>/`.
+   - Skills in `skills/<name>/`.
    - Agents in `agents/`.
    - Standards in `standards/framework/` or `standards/team/`.
    - Context in `context/`.

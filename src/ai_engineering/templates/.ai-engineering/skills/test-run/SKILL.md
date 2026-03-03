@@ -26,6 +26,11 @@ Write and run tests across languages and frameworks. Provides operational guidan
 - **Coverage auditing** (threshold evaluation, gap analysis) — use `audit` for metric thresholds or `test-gap` for capability-to-test mapping.
 - **Debugging failures** (root cause analysis) — use `debug` instead. Test-run runs tests; debug investigates failures.
 
+## Preconditions (MUST verify before proceeding)
+
+- **Required binaries**: At least one of: `pytest`, `vitest`, `dotnet test` — must be available on PATH.
+- Abort with remediation guidance if missing. Run `ai-eng doctor --fix-tools` to auto-install.
+
 ## Procedure
 
 1. **Identify framework** — select tooling per stack.

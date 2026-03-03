@@ -9,7 +9,7 @@ applyTo: "**/*.py"
 Read before generating or modifying Python code:
 
 - `.ai-engineering/standards/framework/stacks/python.md` — stack contract, code patterns, testing patterns.
-- `.ai-engineering/standards/framework/quality/python.md` — complexity thresholds, Python-specific checks.
+- `.ai-engineering/standards/framework/stacks/python.md` — complexity thresholds, Python-specific checks.
 - `.ai-engineering/standards/framework/quality/core.md` — quality gate structure, severity policy.
 
 ## Runtime and Tooling

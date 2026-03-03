@@ -7,7 +7,7 @@ Use `.ai-engineering/` as the single source of truth for project governance and 
 ## References
 
 - `.ai-engineering/standards/framework/quality/core.md` — coverage targets, quality gates.
-- `.ai-engineering/standards/framework/quality/python.md` — Python-specific test requirements.
+- `.ai-engineering/standards/framework/stacks/python.md` — Python-specific test requirements.
 - `.ai-engineering/standards/framework/stacks/python.md` — testing patterns section.
 
 ## Skills

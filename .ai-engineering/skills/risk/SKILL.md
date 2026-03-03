@@ -38,9 +38,11 @@ Record a time-limited risk acceptance when immediate remediation is not feasible
 4. **Register** — create decision in `decision-store.json`:
    - `risk_category`: `"risk-acceptance"`
    - `severity`: from step 2
+   - `criticality`: derive from severity — `critical` → `critical`, `high` → `high`, `medium` → `medium`, `low` → `low`
    - `follow_up_action`: **mandatory** concrete remediation plan
    - `accepted_by`: actor accepting the risk
-   - `expires_at`: auto from severity (Critical 15d, High 30d, Medium 60d, Low 90d) or explicit override
+   - `acknowledgedBy`: array of all stakeholders who reviewed (e.g., `["user@domain"]`)
+   - `expires_at`: ISO 8601 date, auto from severity (Critical 15d, High 30d, Medium 60d, Low 90d) or explicit override
 5. **Log** — append `risk-acceptance-created` to audit log.
 6. **Verify** — confirm in `ai-eng maintenance risk-status` as `active`.
 

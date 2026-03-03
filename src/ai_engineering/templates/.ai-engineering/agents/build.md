@@ -136,12 +136,18 @@ Distinguished principal engineer (18+ years) specializing in multi-stack platfor
 Identify the primary technology stack from project files:
 - `.py`, `pyproject.toml`, `.python-version` = **Python** -> load `standards/framework/stacks/python.md`
 - `.csproj`, `.sln`, `global.json` = **.NET** -> load `standards/framework/stacks/dotnet.md`
-- `package.json`, `tsconfig.json` = **TypeScript/React/Next.js** -> load `standards/framework/stacks/typescript.md`
+- `tsconfig.json` (no framework marker) = **TypeScript** -> load `standards/framework/stacks/typescript.md`
+- `next.config.*` = **Next.js** -> load `standards/framework/stacks/typescript.md` + `standards/framework/stacks/nextjs.md`
+- `react` in `package.json` deps = **React** -> load `standards/framework/stacks/typescript.md` + `standards/framework/stacks/react.md`
+- `nest-cli.json` = **NestJS** -> load `standards/framework/stacks/typescript.md` + `standards/framework/stacks/nestjs.md`
+- `astro.config.*` = **Astro** -> load `standards/framework/stacks/typescript.md` + `standards/framework/stacks/astro.md`
+- `react-native` in `package.json` deps = **React Native** -> load `standards/framework/stacks/typescript.md` + `standards/framework/stacks/react-native.md`
 - `.tf`, `*.tfvars` = **Terraform** -> load `standards/framework/stacks/infrastructure.md`
 - `.sql`, migrations directory = **SQL/Database** -> load `standards/framework/stacks/database.md`
 - `azure-pipelines.yml`, Bicep, ARM templates = **Azure** -> load `standards/framework/stacks/azure.md`
 - `.sh`, `.ps1` = **Bash/PowerShell** -> apply shell best practices
 - For polyglot projects, load all applicable standards.
+- Also check `standards/team/stacks/<stack>.md` if it exists for team-layer overrides.
 
 #### Step 2 — Classify Mode
 
@@ -167,7 +173,7 @@ Load matching skills and standards per progressive disclosure protocol. Only loa
 
 #### Step 4 — Execute Per Skill Procedure
 
-Follow the loaded skill's procedure. After every file modification, run post-edit validation per stack:
+Follow the loaded skill's procedure. Confirm applicable stack standard was loaded in Step 1. If not loaded and project has code files, STOP and report — stack standard enforcement is mandatory. After every file modification, run post-edit validation per stack:
 
 - **Python**: `ruff check` + `ruff format --check`
 - **.NET**: `dotnet build --no-restore` + `dotnet format --verify-no-changes`

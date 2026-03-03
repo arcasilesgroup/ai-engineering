@@ -29,6 +29,11 @@ Execute a SonarQube-like quality gate assessment on the codebase. Evaluates cove
 - **Governance content validation** (cross-references, mirrors, counters) — use `integrity` instead.
 - **Test coverage strategy** (what to test, how to test) — use `test-plan` instead. Audit-code measures coverage; test-plan designs it.
 
+## Preconditions (MUST verify before proceeding)
+
+- **Required binaries**: `ruff`, `ty` — all must be available on PATH.
+- Abort with remediation guidance if missing. Run `ai-eng doctor --fix-tools` to auto-install.
+
 ## Procedure
 
 1. **Detect active stacks** — read `install-manifest.json` for installed stacks.
