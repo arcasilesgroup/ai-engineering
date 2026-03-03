@@ -52,23 +52,27 @@ class TestInstallManifest:
 
     def test_create_with_defaults(self) -> None:
         manifest = InstallManifest()
-        assert manifest.schema_version == "1.1"
+        assert manifest.schema_version == "1.2"
         assert manifest.installed_stacks == []
         assert manifest.installed_ides == []
         assert isinstance(manifest.release, ReleaseInfo)
         assert manifest.release.last_version == ""
+        assert manifest.ai_providers.primary == "claude_code"
+        assert manifest.ai_providers.enabled == ["claude_code"]
 
     def test_roundtrip_from_json(self) -> None:
         raw = {
-            "schemaVersion": "1.1",
+            "schemaVersion": "1.2",
             "frameworkVersion": "0.1.0",
             "installedAt": "2026-01-01T00:00:00Z",
             "installedStacks": ["python"],
             "installedIdes": ["vscode"],
+            "aiProviders": {"primary": "claude_code", "enabled": ["claude_code"]},
         }
         m = InstallManifest.model_validate(raw)
         assert m.installed_stacks == ["python"]
         assert m.installed_ides == ["vscode"]
+        assert m.ai_providers.primary == "claude_code"
 
     def test_serialize_by_alias(self) -> None:
         manifest = InstallManifest(
@@ -174,7 +178,7 @@ class TestToolingReadinessMultiStack:
 
     def test_roundtrip_with_multi_stack(self) -> None:
         raw = {
-            "schemaVersion": "1.1",
+            "schemaVersion": "1.2",
             "frameworkVersion": "0.1.0",
             "installedAt": "2026-02-22T00:00:00Z",
             "installedStacks": ["python", "dotnet"],
@@ -422,7 +426,9 @@ class TestDefaults:
         manifest = default_install_manifest()
         assert manifest.installed_stacks == ["python"]
         assert manifest.installed_ides == ["terminal"]
-        assert manifest.schema_version == "1.1"
+        assert manifest.schema_version == "1.2"
+        assert manifest.ai_providers.primary == "claude_code"
+        assert manifest.ai_providers.enabled == ["claude_code"]
 
     def test_default_install_manifest_custom(self) -> None:
         manifest = default_install_manifest(stacks=["python", "node"], ides=["vscode"])
@@ -642,3 +648,95 @@ class TestSchema11BackwardCompat:
         risk = store.risk_decisions()
         assert len(risk) == 1
         assert risk[0].risk_category == RiskCategory.RISK_ACCEPTANCE
+
+
+# ── AI Provider models ───────────────────────────────────────────────────
+
+
+class TestAiProvider:
+    """Tests for AiProvider enum."""
+
+    def test_enum_values(self) -> None:
+        from ai_engineering.state.models import AiProvider
+
+        assert AiProvider.CLAUDE_CODE == "claude_code"
+        assert AiProvider.GITHUB_COPILOT == "github_copilot"
+        assert AiProvider.GEMINI == "gemini"
+        assert AiProvider.CODEX == "codex"
+
+    def test_is_str_enum(self) -> None:
+        from ai_engineering.state.models import AiProvider
+
+        assert isinstance(AiProvider.CLAUDE_CODE, str)
+
+
+class TestAiProviderConfig:
+    """Tests for AiProviderConfig model."""
+
+    def test_defaults(self) -> None:
+        from ai_engineering.state.models import AiProviderConfig
+
+        config = AiProviderConfig()
+        assert config.primary == "claude_code"
+        assert config.enabled == ["claude_code"]
+
+    def test_custom_providers(self) -> None:
+        from ai_engineering.state.models import AiProviderConfig
+
+        config = AiProviderConfig(
+            primary="github_copilot",
+            enabled=["github_copilot", "gemini"],
+        )
+        assert config.primary == "github_copilot"
+        assert "gemini" in config.enabled
+
+    def test_manifest_roundtrip_with_ai_providers(self) -> None:
+        raw = {
+            "schemaVersion": "1.2",
+            "frameworkVersion": "0.1.0",
+            "installedAt": "2026-01-01T00:00:00Z",
+            "installedStacks": ["python"],
+            "installedIdes": [],
+            "aiProviders": {
+                "primary": "github_copilot",
+                "enabled": ["github_copilot", "gemini"],
+            },
+        }
+        m = InstallManifest.model_validate(raw)
+        assert m.ai_providers.primary == "github_copilot"
+        assert m.ai_providers.enabled == ["github_copilot", "gemini"]
+
+    def test_manifest_serializes_ai_providers_alias(self) -> None:
+        manifest = InstallManifest()
+        data = manifest.model_dump(by_alias=True)
+        assert "aiProviders" in data
+        assert data["aiProviders"]["primary"] == "claude_code"
+
+    def test_default_manifest_with_custom_providers(self) -> None:
+        manifest = default_install_manifest(
+            ai_providers=["github_copilot", "gemini"],
+        )
+        assert manifest.ai_providers.primary == "github_copilot"
+        assert manifest.ai_providers.enabled == ["github_copilot", "gemini"]
+
+
+class TestOperationalReadinessDeferredSetup:
+    """Tests for deferred_setup field."""
+
+    def test_default_false(self) -> None:
+        from ai_engineering.state.models import OperationalReadiness
+
+        readiness = OperationalReadiness()
+        assert readiness.deferred_setup is False
+
+    def test_roundtrip(self) -> None:
+        raw = {
+            "status": "pending",
+            "manualStepsRequired": True,
+            "manualSteps": [],
+            "deferredSetup": True,
+        }
+        from ai_engineering.state.models import OperationalReadiness
+
+        r = OperationalReadiness.model_validate(raw)
+        assert r.deferred_setup is True

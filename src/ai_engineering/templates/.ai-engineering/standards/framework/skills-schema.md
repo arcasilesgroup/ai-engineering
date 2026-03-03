@@ -4,7 +4,7 @@
 
 - Rationale: formalize skill directory format, gating metadata, and agent frontmatter for multi-agent interoperability and token efficiency.
 - Expected gain: AgentSkills-compatible skills; machine-parseable agent metadata; progressive disclosure reducing token overhead by ~70%.
-- Potential impact: all 49 skills migrate from flat files to directories; all 19 agents gain structured frontmatter.
+- Potential impact: all 47 skills migrate from flat files to directories; all 6 agents gain structured frontmatter.
 
 ## Purpose
 
@@ -216,14 +216,8 @@ references:
 
 ## Token Budget Guidelines
 
-### Measurement Formula
-
-Token estimates use the approximation: **1 token ≈ 4 characters** (conservative for English text with markdown formatting).
-
-```
-skill_tokens = len(frontmatter_chars) / 4 + len(body_chars) / 4
-agent_tokens = len(frontmatter_chars) / 4 + len(body_chars) / 4
-```
+> Canonical progressive disclosure rules: `standards/framework/core.md`. This section provides implementation detail.
+> Detailed token inventory and efficiency metrics: `skills/references/token-inventory.md`.
 
 ### Budget by Loading Level
 
@@ -234,135 +228,20 @@ agent_tokens = len(frontmatter_chars) / 4 + len(body_chars) / 4
 | **Resources** (scripts, references) | On-demand by AI decision | No hard limit (not in context window) |
 | **Agent persona** | On-demand when activated | ≤ 500 tokens per agent |
 
-### Session Token Budget
-
-| Scenario | Metadata Load | On-Demand Load | Total Budget |
-|----------|--------------|----------------|-------------|
-| **Session start** (spec work) | ~500 tokens (CLAUDE.md compact + spec + decision-store) | 0 | ~500 |
-| **Single skill invocation** | +50 (skill metadata) | +1,500 (skill body) | ~2,050 |
-| **Agent activation + 2 skills** | +200 (agent + 2 skill metadata) | +2,500 (agent + skill bodies) | ~3,200 |
-| **Platform audit (8 dimensions)** | +450 (9 skills metadata) | +12,000 (bodies loaded serially) | ~12,950 |
-
-### Detailed Token Inventory
-
-#### Skills (47, flat organization)
-
-Skills use `ai:` command prefix and flat directory layout (`skills/<name>/`).
-
-| Skills (alphabetical) |
-|-----------------------|
-| a11y, agent-card, agent-lifecycle, api, arch-review, audit, changelog, cicd, cleanup, cli, code-review, commit, compliance, data-model, db, debug, deps, discover, docs, docs-audit, explain, improve, infra, install, integrity, migrate, multi-agent, ownership, perf-review, pr, prompt, refactor, release, risk, sbom, sec-deep, sec-review, simplify, skill-lifecycle, sonar, spec, standards, test-gap, test-plan, test-run, triage, work-item |
-
-#### Agents (6)
-
-| Agent | Purpose | Scope |
-|-------|---------|-------|
-| plan | Orchestration, planning pipeline, dispatch, work-item sync | read-write |
-| build | Implementation across all stacks (ONLY code write agent) | read-write |
-| review | All reviews, security, quality, governance (individual modes) | read-write (work items only) |
-| scan | Spec-vs-code gap analysis, architecture drift detection | read-write (work items only) |
-| write | Documentation, changelogs, explanations | read-write (docs only) |
-| triage | Auto-prioritize work items, backlog grooming | read-write (work items only) |
-
-#### Token Efficiency Score
-
-```
-efficiency = session_start_tokens / total_available_tokens
-           = 500 / (48,561 + 12,825)
-           = 500 / 61,386
-           = 0.81% loaded at session start (99.19% deferred)
-```
-
-### Compared to Previous Model
-
-| Metric | Before (flat loading) | After (progressive disclosure) |
-|--------|----------------------|-------------------------------|
-| Session start overhead | ~3,000-5,000 tokens | ~500 tokens |
-| Multi-agent (3 parallel) start | ~9,000-15,000 tokens | ~1,500 tokens |
-| Single skill invocation | ~3,000-5,000 + skill | ~500 + 1,550 = ~2,050 |
-
 ## Behavioral Patterns
 
-Standard behavioral patterns that agents and skills should adopt. These patterns were identified through cross-industry analysis of 35+ AI tool system prompts (Claude Code, Cursor, Windsurf, Devin, Manus, Kiro, Amp, Google Antigravity, RooCode, Bolt, v0, Same.dev, Orchids) and codified as framework norms.
+> Full behavioral pattern definitions: `skills/references/behavioral-patterns.md`.
 
-### Escalation Ladder
+All agents and skills must adopt these behavioral norms:
 
-All agents and procedural skills must implement iteration limits:
-
-- **Max 3 attempts** to resolve the same issue before escalating to the user.
-- Each attempt must try a **different approach** — repeating the same action is not a valid retry.
-- **Escalation format**: present what was tried, what failed, and options for the user.
-- **Never loop silently**: if stuck, surface the problem immediately.
-
-Agents implement this in `## Boundaries → ### Escalation Protocol`. Skills implement this in `## Governance Notes → ### Iteration Limits`.
-
-### Confidence Signaling
-
-Read-only audit and review agents include a confidence signal in their output:
-
-- **Confidence**: HIGH (0.8-1.0) | MEDIUM (0.5-0.79) | LOW (0.0-0.49) — with brief justification.
-- **Blocked on user**: YES/NO — whether user input is needed to proceed.
-
-Applicable agents: review, scan.
-
-### Post-Edit Validation
-
-Read-write agents and skills must validate after every file modification:
-
-- **Code files**: run applicable linter (`ruff check` + `ruff format --check` for Python).
-- **Governance files** (`.ai-engineering/`): run `integrity-check`.
-- **Never proceed** to the next step if validation fails — fix first, then continue.
-
-Agents implement this as an explicit behavior step. Skills implement this in `## Governance Notes → ### Post-Action Validation`.
-
-### Headless Mode
-
-Interactive skills that normally prompt for user input must provide a headless fallback:
-
-- **Default to standard options** when no user input is available (e.g., Standard depth, complete output).
-- **Skip interactive follow-up** prompts and generate complete output directly.
-- **Note assumptions** made in headless mode so the user can adjust after the fact.
-
-### When NOT to Use (Routing)
-
-Skills with high confusion risk must include a `## When NOT to Use` section that routes users to the correct skill:
-
-- List 2-4 common misuse scenarios with the correct alternative skill.
-- Format: `**<Scenario>** — use \`<correct-skill>\` instead. <Brief reason>.`
-- This prevents skill confusion and reduces wasted execution.
-
-### Holistic Analysis Before Action
-
-Agents and skills must analyze the full system context before modifying any file:
-
-- **Read affected dependencies**: before editing a file, identify its importers/consumers and assess downstream impact.
-- **Anticipate cascading changes**: if modifying a shared module, enumerate all callers and verify none will break.
-- **No isolated edits**: treat each change as part of a system, not a standalone fix.
-- **Implementation**: agents add a "Map context" or "Analyze dependencies" step before any edit step in their Behavior section.
-
-Derived from audit patterns: Leap.new (holistic thinking protocol), Manus (event stream analysis), Google Antigravity (Knowledge Item context).
-
-### Exhaustiveness Requirement
-
-When a skill or agent identifies N issues, ALL N must be addressed or explicitly deferred with rationale:
-
-- **No partial solutions**: if a review finds 5 issues, all 5 must appear in the output — not just the first 3.
-- **No early exits**: complete all procedure steps. If a step is not applicable, state why and proceed.
-- **Explicit deferral**: if an issue cannot be resolved in the current scope, log it with rationale and severity.
-- **Implementation**: skills include "Enumerate all findings before proceeding" in their procedure. Agents include "Validate completeness against initial scope" in their final steps.
-
-Derived from audit patterns: Comet (no early exits), Same.dev (complete resolution required), Trae (task state completion enforcement).
-
-### Parallel-First Tool Execution
-
-When multiple independent operations are needed, execute them in parallel by default:
-
-- **Default to parallel**: when checks, scans, or reads have no data dependencies, batch them.
-- **Sequential only on dependency**: explicitly document why sequential execution is needed when used.
-- **Batch operations**: minimize tool round-trips. Group related file reads, lint checks, and scan operations.
-- **Implementation**: agents structure their Behavior steps to identify parallelizable operations. Skills document parallelizable vs sequential steps in their procedure.
-
-Derived from audit patterns: Same.dev (emphatic parallel execution), Cursor (parallel tool calls), Lovable (batch tool operations).
+1. **Escalation Ladder** — max 3 attempts, different approach each time, never loop silently.
+2. **Confidence Signaling** — read-only agents include HIGH/MEDIUM/LOW confidence with justification.
+3. **Post-Edit Validation** — run linter (code) or integrity-check (governance) after every modification.
+4. **Headless Fallback** — interactive skills default to standard options when no user input available.
+5. **When NOT to Use** — high-confusion skills route to correct alternative.
+6. **Holistic Analysis** — analyze dependencies and downstream impact before modifying files.
+7. **Exhaustiveness** — all N issues addressed or explicitly deferred with rationale.
+8. **Parallel-First** — batch independent operations; sequential only on data dependency.
 
 ## Migration Guide
 

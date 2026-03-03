@@ -29,15 +29,15 @@ Unified procedure for creating and deleting skills. Ensures every registration p
 
 ### Procedure
 
-1. **Design** — define name (kebab-case), category (`workflows|dev|review|quality|govern|docs`), purpose, trigger contexts.
+1. **Design** — define name (kebab-case), purpose, trigger contexts, tags for discovery.
 2. **Check duplicates** — search `skills/` for overlapping purposes. Extend existing if overlap found.
-3. **Author canonical file** — create directory `skills/<category>/<name>/` and write `SKILL.md`:
-   - YAML frontmatter: `name`, `description`, `version`, `category`, `tags` (required). Optional: `metadata.ai-engineering` block for gating.
+3. **Author canonical file** — create directory `skills/<name>/` and write `SKILL.md`:
+   - YAML frontmatter: `name`, `description`, `metadata.version`, `tags` (required). Optional: `metadata.ai-engineering` block for gating.
    - Body sections: Purpose, Trigger, When NOT to Use (if high confusion risk), Procedure (numbered steps in phases), Output Contract, Governance Notes (with Iteration Limits + Post-Action Validation for read-write), References.
-   - `name` must match directory name. `category` must match parent directory.
-4. **Create template mirror** — copy directory to `src/ai_engineering/templates/.ai-engineering/skills/<category>/<name>/` (byte-identical).
+   - `name` must match directory name.
+4. **Create template mirror** — copy directory to `src/ai_engineering/templates/.ai-engineering/skills/<name>/` (byte-identical).
 5. **Register in instruction files** — add skill to `## Skills` table row for appropriate category in all 7 instruction files. Update count in header.
-6. **Create slash command** — write `.claude/commands/<category>/<name>.md` and template mirror. Thin 3-5 line pointer.
+6. **Create slash command** — write `.claude/commands/ai/<name>.md` and template mirror. Thin 3-5 line pointer.
 7. **Update counters** — increment skill count in `product-contract.md` and `manifest.yml`.
 8. **Changelog** — add under `## [Unreleased] → ### Added`.
 9. **Cross-reference** — add to related skills' References and agents' Referenced Skills.
@@ -51,11 +51,11 @@ Unified procedure for creating and deleting skills. Ensures every registration p
 
 ### Procedure
 
-1. **Confirm existence** — verify `skills/<category>/<name>/SKILL.md` exists.
+1. **Confirm existence** — verify `skills/<name>/SKILL.md` exists.
 2. **Check dependents** — search all governance content for references. List affected agents, skills, and instruction files. Get user confirmation.
 3. **Record decision** — if dependents exist, persist in `decision-store.json` with reason and replacement.
 4. **Remove from instruction files** — remove skill from `## Skills` table row in all 7 instruction files. Update count.
-5. **Remove slash command** — delete `.claude/commands/<category>/<name>.md` and template mirror. Clean empty dirs.
+5. **Remove slash command** — delete `.claude/commands/ai/<name>.md` and template mirror. Clean empty dirs.
 6. **Remove files** — delete template mirror directory first, then canonical directory.
 7. **Update counters** — decrement skill count in `product-contract.md` and `manifest.yml`.
 8. **Changelog** — add under `## [Unreleased] → ### Removed`.
@@ -74,7 +74,7 @@ Unified procedure for creating and deleting skills. Ensures every registration p
 - Skills are framework-managed content — follow governed update flow.
 - Never create a skill duplicating an existing purpose — extend instead.
 - Deletion is governed — dependents must be resolved before removal.
-- `name` in frontmatter MUST match directory name. Category MUST match parent.
+- `name` in frontmatter MUST match directory name.
 - After any lifecycle operation, run integrity-check to verify 7/7.
 
 ## References

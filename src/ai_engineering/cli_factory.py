@@ -25,6 +25,7 @@ from ai_engineering.cli_commands import (
     gate,
     guide,
     maintenance,
+    provider,
     release,
     review,
     setup,
@@ -106,6 +107,7 @@ def _app_callback(
                         "guide",
                         "stack",
                         "ide",
+                        "provider",
                         "gate",
                         "skill",
                         "maintenance",
@@ -245,6 +247,17 @@ def create_app() -> typer.Typer:
     maint_app.command("spec-reset")(_safe(maintenance.maintenance_spec_reset))
     maint_app.command("all")(_safe(maintenance.maintenance_all))
     app.add_typer(maint_app, name="maintenance")
+
+    # Provider sub-group
+    provider_app = typer.Typer(
+        name="provider",
+        help="Manage AI coding assistant providers.",
+        no_args_is_help=True,
+    )
+    provider_app.command("add")(_safe(provider.provider_add))
+    provider_app.command("remove")(_safe(provider.provider_remove))
+    provider_app.command("list")(_safe(provider.provider_list))
+    app.add_typer(provider_app, name="provider")
 
     # VCS sub-group
     vcs_app = typer.Typer(

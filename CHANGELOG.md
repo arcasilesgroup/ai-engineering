@@ -9,10 +9,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **`ai-eng guide` command** — re-displays branch policy setup instructions on demand. Reads guide text from install manifest instead of generating files.
+- **AI provider selection** — `ai-eng install --provider claude_code --provider github_copilot` deploys only the files needed for chosen providers. Defaults to `claude_code` when omitted.
+- **`ai-eng provider` subcommand** — `add`, `remove`, and `list` commands for managing AI providers post-install. Supports `claude_code`, `github_copilot`, `gemini`, and `codex`.
+- **Interactive VCS prompt** — when no git remote is detected, `ai-eng install` now prompts for VCS provider instead of silently defaulting to GitHub.
+- **VCS CI/CD regeneration** — `ai-eng vcs set-primary` auto-regenerates CI/CD pipelines for the new provider (opt-out with `--no-cicd`).
+- **Deferred setup for empty projects** — installs without stacks set `deferredSetup: true` in manifest, signaling AI agents to configure tooling on first interaction.
+- **SonarLint auto-configuration** — install automatically configures SonarLint Connected Mode when Sonar is enabled and IDE markers are detected.
 
 ### Changed
 - **Minimalist command descriptions** — rewrote first line of all 53 `/ai:*` command files (`.claude/commands/ai/*.md`) with short, actionable descriptions that display in autocomplete. Synchronized descriptions to `.github/prompts/ai-*.prompt.md` frontmatter, template mirrors, and both `GEMINI.md` files.
 - **Command Contract added to GEMINI.md** — inserted `## Command Contract` section in root and template `GEMINI.md` matching the existing section in `CLAUDE.md`.
+- **Provider-aware templates** — `copy_project_templates` and `remove_provider_templates` now operate per-provider with shared-file deduplication (e.g., AGENTS.md shared by copilot/gemini/codex).
+- **Schema version 1.2** — `InstallManifest` adds `aiProviders` config with `primary` and `enabled` fields, and `deferredSetup` to `operationalReadiness`.
+- **Security tool auto-install** — install attempts `ensure_tool()` for gitleaks and semgrep before falling back to manual step instructions.
+- **Branch policy guide repositioned** — guide now appears after suggested next steps with clearer messaging about manual configuration requirement.
+- **`/ai:plan` spec creation enforced** — plan agent pipeline step 4 (spec creation) marked as MANDATORY to ensure traceability.
+
+### Removed
+- **`GEMINI.md` template** — Gemini CLI reads `AGENTS.md` natively. Removed dedicated `GEMINI.md` template and ownership entry.
 - **Branch policy guides moved to console output** — install no longer creates `.ai-engineering/guides/` directory. Guide text is shown inline during install and stored in the manifest for `ai-eng guide` retrieval.
 
 ### Added

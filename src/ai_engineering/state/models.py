@@ -44,6 +44,15 @@ class GateHook(StrEnum):
     PRE_PUSH = "pre-push"
 
 
+class AiProvider(StrEnum):
+    """Supported AI coding assistant providers."""
+
+    CLAUDE_CODE = "claude_code"
+    GITHUB_COPILOT = "github_copilot"
+    GEMINI = "gemini"
+    CODEX = "codex"
+
+
 class RiskCategory(StrEnum):
     """Category of a decision in the decision store."""
 
@@ -225,12 +234,22 @@ class BranchPolicyStatus(BaseModel):
     model_config = {"populate_by_name": True}
 
 
+class AiProviderConfig(BaseModel):
+    """AI provider selection for a project."""
+
+    primary: str = "claude_code"
+    enabled: list[str] = Field(default_factory=lambda: ["claude_code"])
+
+    model_config = {"populate_by_name": True}
+
+
 class OperationalReadiness(BaseModel):
     """High-level install-to-operational readiness status."""
 
     status: str = "pending"
     manual_steps_required: bool = Field(default=False, alias="manualStepsRequired")
     manual_steps: list[str] = Field(default_factory=list, alias="manualSteps")
+    deferred_setup: bool = Field(default=False, alias="deferredSetup")
 
     model_config = {"populate_by_name": True}
 
@@ -251,7 +270,7 @@ class InstallManifest(BaseModel):
     Stored at `.ai-engineering/state/install-manifest.json`.
     """
 
-    schema_version: str = Field(default="1.1", alias="schemaVersion")
+    schema_version: str = Field(default="1.2", alias="schemaVersion")
     update_metadata: UpdateMetadata | None = Field(default=None, alias="updateMetadata")
     framework_version: str = Field(default="0.1.0", alias="frameworkVersion")
     installed_at: datetime = Field(
@@ -259,6 +278,7 @@ class InstallManifest(BaseModel):
     )
     installed_stacks: list[str] = Field(default_factory=list, alias="installedStacks")
     installed_ides: list[str] = Field(default_factory=list, alias="installedIdes")
+    ai_providers: AiProviderConfig = Field(default_factory=AiProviderConfig, alias="aiProviders")
     providers: VcsProviders = Field(default_factory=VcsProviders)
     tooling_readiness: ToolingReadiness = Field(
         default_factory=ToolingReadiness, alias="toolingReadiness"

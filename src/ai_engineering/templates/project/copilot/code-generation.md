@@ -11,7 +11,7 @@ Before generating code, consult:
 - `.ai-engineering/standards/framework/core.md` — governance structure, ownership, lifecycle.
 - `.ai-engineering/standards/framework/stacks/python.md` — stack contract, code patterns, testing patterns.
 - `.ai-engineering/standards/team/core.md` — team-specific standards.
-- `.ai-engineering/standards/framework/quality/python.md` — complexity thresholds.
+- `.ai-engineering/standards/framework/stacks/python.md` — complexity thresholds.
 
 ## Skills and Agents
 

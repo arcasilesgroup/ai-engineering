@@ -232,7 +232,7 @@ class TestInstallOnEmptyRepo:
 
         manifest_path = tmp_path / ".ai-engineering" / "state" / "install-manifest.json"
         data = json.loads(manifest_path.read_text())
-        assert data["schemaVersion"] == "1.1"
+        assert data["schemaVersion"] == "1.2"
         assert "python" in data["installedStacks"]
         assert "terminal" in data["installedIdes"]
         assert "operationalReadiness" in data

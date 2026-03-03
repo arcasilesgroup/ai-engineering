@@ -29,6 +29,10 @@ Validation skill that checks the integrity of all governance content in `.ai-eng
 - **Code quality metrics** (coverage, complexity, duplication) — use `audit` instead.
 - **Source code changes outside `.ai-engineering/`** — integrity-check only validates governance content, not application code.
 
+## Preconditions (MUST verify before proceeding)
+
+- No external binaries required — read-only file system validation.
+
 ## Procedure
 
 ### Category 1: File Existence
@@ -77,12 +81,12 @@ Validation skill that checks the integrity of all governance content in `.ai-eng
 
 8. **Verify skill references** — for each skill file, check that its `## References` section contains only valid paths.
    - Each referenced path must correspond to an existing file.
-   - Referenced skills/agents must reciprocally reference this skill (bidirectional check).
+   - Referenced skills/agents MUST reciprocally reference this skill (bidirectional check). Missing reciprocal = BROKEN (severity MAJOR).
 
 9. **Verify agent references** — for each agent file, check `## Referenced Skills` and `## Referenced Standards`.
    - Each referenced skill must exist.
    - Each referenced standard must exist.
-   - Referenced skills should reference the agent in their own `## References`.
+   - Referenced skills MUST reciprocally reference the agent in their own `## References`. Missing reciprocal = BROKEN (severity MAJOR).
 
 ### Category 5: Instruction File Consistency
 
@@ -117,10 +121,9 @@ Validation skill that checks the integrity of all governance content in `.ai-eng
 ### Category 7: Skill Frontmatter Validation
 
 14. **Verify all skills have YAML frontmatter** — each `SKILL.md` file in `skills/**/` must start with a `---` YAML frontmatter block.
-    - Required fields: `name` (string, kebab-case), `description` (string), `version` (string, semver), `category` (string, matching parent category directory).
-    - Optional fields: `tags` (array of strings), `metadata.ai-engineering.requires.bins`, `metadata.ai-engineering.requires.anyBins`, `metadata.ai-engineering.requires.env`, `metadata.ai-engineering.requires.config` (all arrays of strings), `metadata.ai-engineering.os` (array of platform strings).
+    - Required fields: `name` (string, kebab-case), `description` (string), `metadata.version` (string, semver), `tags` (array of strings).
+    - Optional fields: `metadata.ai-engineering.requires.bins`, `metadata.ai-engineering.requires.anyBins`, `metadata.ai-engineering.requires.env`, `metadata.ai-engineering.requires.config` (all arrays of strings), `metadata.ai-engineering.os` (array of platform strings).
     - `name` must match the directory name.
-    - `category` must match the category directory name.
     - Report any skill missing frontmatter or with invalid field values.
 
 ## Output Contract

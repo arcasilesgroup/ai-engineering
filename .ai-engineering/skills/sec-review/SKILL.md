@@ -29,6 +29,11 @@ Comprehensive security review covering OWASP top risks, secret exposure, injecti
 - **General code review** (style, patterns, correctness) — use `code-review` instead.
 - **Governance content validation** — use `integrity` instead.
 
+## Preconditions (MUST verify before proceeding)
+
+- **Required binaries**: `gitleaks`, `semgrep` — all must be available on PATH.
+- Abort with remediation guidance if missing. Run `ai-eng doctor --fix-tools` to auto-install.
+
 ## Procedure
 
 1. **Secret detection** — scan for exposed credentials.

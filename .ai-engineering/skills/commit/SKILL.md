@@ -28,6 +28,11 @@ Execute the `/commit` governed workflow: stage all changes, run mandatory pre-co
 - **Quick push alias** — use `/acho` instead for identical behavior with shorter invocation.
 - **Governance content changes without active spec** — create a spec first with `spec`.
 
+## Preconditions (MUST verify before proceeding)
+
+- **Required binaries**: `gitleaks`, `ruff` — all must be available on PATH.
+- Abort with remediation guidance if missing. Run `ai-eng doctor --fix-tools` to auto-install.
+
 ## Procedure
 
 ### `/commit` (default: stage + commit + push)

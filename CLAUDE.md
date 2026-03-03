@@ -68,9 +68,7 @@ Discovery → Architecture → Planning → Implementation → Review → Verifi
 
 ## Progressive Disclosure
 
-Three-level loading: **Metadata** (always, ~50 tok/skill) → **Body** (on-demand) → **Resources** (on-demand).
-
-Session start loads ONLY: `_active.md` → `spec.md` → `tasks.md` → `decision-store.json`. Do NOT pre-load skills or agents.
+Progressive disclosure rules: `standards/framework/core.md`. Token budgets below are quick reference.
 
 | Level | Budget |
 |-------|--------|

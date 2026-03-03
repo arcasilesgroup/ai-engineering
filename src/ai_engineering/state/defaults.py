@@ -7,6 +7,7 @@ with sensible initial values. Used by the installer during first-time setup.
 from __future__ import annotations
 
 from .models import (
+    AiProviderConfig,
     AzureDevOpsExtension,
     DecisionStore,
     FrameworkUpdatePolicy,
@@ -43,6 +44,7 @@ def default_install_manifest(
     stacks: list[str] | None = None,
     ides: list[str] | None = None,
     vcs_provider: str = "github",
+    ai_providers: list[str] | None = None,
 ) -> InstallManifest:
     """Create a default install manifest for a new installation.
 
@@ -51,6 +53,8 @@ def default_install_manifest(
         ides: Initial IDEs to install. Defaults to ["terminal"].
         vcs_provider: Primary VCS provider. Defaults to "github".
             Accepted values: "github", "azure_devops".
+        ai_providers: AI providers to enable. Defaults to ["claude_code"].
+            First element becomes the primary provider.
 
     Returns:
         InstallManifest with default tooling readiness.
@@ -59,12 +63,18 @@ def default_install_manifest(
     if vcs_provider != "github" and "github" not in enabled:
         enabled.append("github")
 
+    ai_list = ai_providers or ["claude_code"]
+
     return InstallManifest(
-        schema_version="1.1",
+        schema_version="1.2",
         update_metadata=default_update_metadata(context="installation manifest"),
         framework_version="0.1.0",
         installedStacks=stacks or ["python"],
         installedIdes=ides or ["terminal"],
+        ai_providers=AiProviderConfig(
+            primary=ai_list[0],
+            enabled=list(ai_list),
+        ),
         providers=VcsProviders(
             primary=vcs_provider,
             enabled=enabled,
@@ -89,7 +99,6 @@ _DEFAULT_OWNERSHIP_PATHS: list[tuple[str, OwnershipLevel, FrameworkUpdatePolicy]
     (".ai-engineering/skills/**", OwnershipLevel.FRAMEWORK_MANAGED, FrameworkUpdatePolicy.ALLOW),
     (".ai-engineering/agents/**", OwnershipLevel.FRAMEWORK_MANAGED, FrameworkUpdatePolicy.ALLOW),
     ("CLAUDE.md", OwnershipLevel.FRAMEWORK_MANAGED, FrameworkUpdatePolicy.ALLOW),
-    ("GEMINI.md", OwnershipLevel.FRAMEWORK_MANAGED, FrameworkUpdatePolicy.ALLOW),
     ("AGENTS.md", OwnershipLevel.FRAMEWORK_MANAGED, FrameworkUpdatePolicy.ALLOW),
     (
         ".github/copilot-instructions.md",

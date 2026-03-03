@@ -92,11 +92,16 @@ All agents and skills must adopt these behavioral norms (defined in `standards/f
 6. **Exhaustiveness Requirement** — when N issues are identified, all N must be addressed or explicitly deferred with rationale. No partial solutions, no early exits.
 7. **Parallel-First Tool Execution** — when multiple independent operations are needed, execute in parallel by default. Sequential only when data dependencies require it.
 
+### Team Standards
+
+Team standards (`standards/team/`) extend framework defaults. Skills and agents SHOULD check for team-layer overrides when applicable.
+
 ### Decision Continuity
 
 - All decisions persisted in `decision-store.json` with context hash.
 - Agents check decision store before prompting — no repeated decisions across sessions.
 - Reprompt only on: expiry, scope change, severity change, policy change, or material context hash change.
+- At session start, scan `decision-store.json` for expired active decisions (`expiresAt` < current date and status is active). Surface expired decisions as warnings for user review.
 
 ## Spec-First Enforcement
 

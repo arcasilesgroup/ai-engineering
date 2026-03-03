@@ -28,6 +28,11 @@ Execute the `/pr` governed workflow: conditionally run spec reset, stage, commit
 - **Quick push without PR** — use `/acho` instead for push-only behavior.
 - **Draft explorations** (not ready for review) — use `/commit` to push to branch first, then `/pr` when ready.
 
+## Preconditions (MUST verify before proceeding)
+
+- **Required binaries**: At least one of: `gh`, `az` — must be available on PATH.
+- Abort with remediation guidance if missing. Run `ai-eng doctor --fix-tools` to auto-install.
+
 ## Procedure
 
 ### `/pr` (default: conditional spec reset + stage + commit + push + create PR + auto-complete)

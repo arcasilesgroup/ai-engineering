@@ -4,6 +4,7 @@ Provides:
 - Resolution of bundled template paths (.ai-engineering/ and project/).
 - Create-only copy semantics: existing files are never overwritten.
 - Directory tree copying with reporting of created and skipped files.
+- Provider-aware template selection for AI coding assistants.
 """
 
 from __future__ import annotations
@@ -21,28 +22,64 @@ AI_ENGINEERING_TEMPLATES: str = ".ai-engineering"
 PROJECT_TEMPLATES: str = "project"
 """Subdirectory name for IDE agent configuration templates."""
 
-# Mapping of project template files to their target paths relative to the
-# target project root.  Keys are relative paths inside the ``project/``
-# template directory; values are destination paths in the target project.
-_PROJECT_TEMPLATE_MAP: dict[str, str] = {
-    "AGENTS.md": "AGENTS.md",
-    "CLAUDE.md": "CLAUDE.md",
-    "GEMINI.md": "GEMINI.md",
-    "copilot-instructions.md": ".github/copilot-instructions.md",
-    "copilot/code-generation.md": ".github/copilot/code-generation.md",
-    "copilot/code-review.md": ".github/copilot/code-review.md",
-    "copilot/commit-message.md": ".github/copilot/commit-message.md",
-    "copilot/test-generation.md": ".github/copilot/test-generation.md",
-    "instructions/python.instructions.md": ".github/instructions/python.instructions.md",
-    "instructions/testing.instructions.md": ".github/instructions/testing.instructions.md",
-    "instructions/markdown.instructions.md": ".github/instructions/markdown.instructions.md",
+# ---------------------------------------------------------------------------
+# Provider-specific template maps
+# ---------------------------------------------------------------------------
+
+# Each provider maps source template paths → destination paths in the target
+# project.  No shared files — each provider owns its files exclusively.
+# AGENTS.md is used by multiple providers but deduplication is handled at copy time.
+
+_PROVIDER_FILE_MAPS: dict[str, dict[str, str]] = {
+    "claude_code": {
+        "CLAUDE.md": "CLAUDE.md",
+    },
+    "github_copilot": {
+        "AGENTS.md": "AGENTS.md",
+        "copilot-instructions.md": ".github/copilot-instructions.md",
+        "copilot/code-generation.md": ".github/copilot/code-generation.md",
+        "copilot/code-review.md": ".github/copilot/code-review.md",
+        "copilot/commit-message.md": ".github/copilot/commit-message.md",
+        "copilot/test-generation.md": ".github/copilot/test-generation.md",
+        "instructions/python.instructions.md": ".github/instructions/python.instructions.md",
+        "instructions/testing.instructions.md": ".github/instructions/testing.instructions.md",
+        "instructions/markdown.instructions.md": ".github/instructions/markdown.instructions.md",
+    },
+    "gemini": {
+        "AGENTS.md": "AGENTS.md",
+    },
+    "codex": {
+        "AGENTS.md": "AGENTS.md",
+    },
 }
 
-_PROJECT_TEMPLATE_TREES: list[tuple[str, str]] = [
-    (".claude", ".claude"),
-    ("prompts", ".github/prompts"),
-    ("agents", ".github/agents"),
-]
+_PROVIDER_TREE_MAPS: dict[str, list[tuple[str, str]]] = {
+    "claude_code": [
+        (".claude", ".claude"),
+    ],
+    "github_copilot": [
+        ("prompts", ".github/prompts"),
+        ("agents", ".github/agents"),
+    ],
+    "gemini": [],
+    "codex": [],
+}
+
+# Legacy combined maps kept for updater backward compatibility.
+_PROJECT_TEMPLATE_MAP: dict[str, str] = {}
+for _prov_files in _PROVIDER_FILE_MAPS.values():
+    for _src, _dst in _prov_files.items():
+        if _src not in _PROJECT_TEMPLATE_MAP:
+            _PROJECT_TEMPLATE_MAP[_src] = _dst
+
+_PROJECT_TEMPLATE_TREES: list[tuple[str, str]] = []
+_seen_trees: set[tuple[str, str]] = set()
+for _prov_trees in _PROVIDER_TREE_MAPS.values():
+    for _entry in _prov_trees:
+        if _entry not in _seen_trees:
+            _PROJECT_TEMPLATE_TREES.append(_entry)
+            _seen_trees.add(_entry)
+del _prov_files, _prov_trees, _src, _dst, _seen_trees, _entry
 
 
 @dataclass
@@ -124,22 +161,64 @@ def copy_template_tree(src_root: Path, dest_root: Path) -> CopyResult:
     return result
 
 
-def copy_project_templates(target: Path) -> CopyResult:
+def _resolve_provider_maps(
+    providers: list[str] | None,
+) -> tuple[dict[str, str], list[tuple[str, str]]]:
+    """Merge file maps and tree maps for the given providers.
+
+    When *providers* is ``None``, returns the full combined maps (backward
+    compat for the updater).  Otherwise returns only the union of maps for
+    the requested providers, deduplicating destination paths.
+
+    Returns:
+        Tuple of (file_map, tree_list).
+    """
+    if providers is None:
+        return dict(_PROJECT_TEMPLATE_MAP), list(_PROJECT_TEMPLATE_TREES)
+
+    file_map: dict[str, str] = {}
+    tree_list: list[tuple[str, str]] = []
+    seen_trees: set[tuple[str, str]] = set()
+
+    for prov in providers:
+        for src, dst in _PROVIDER_FILE_MAPS.get(prov, {}).items():
+            if src not in file_map:
+                file_map[src] = dst
+        for entry in _PROVIDER_TREE_MAPS.get(prov, []):
+            if entry not in seen_trees:
+                tree_list.append(entry)
+                seen_trees.add(entry)
+
+    return file_map, tree_list
+
+
+def copy_project_templates(
+    target: Path,
+    *,
+    providers: list[str] | None = None,
+) -> CopyResult:
     """Copy project-level templates to the target project root.
 
     Maps bundled ``project/`` template files to their intended locations
     in the target project (e.g., ``copilot/`` → ``.github/copilot/``).
-    Also copies entire directory trees defined in ``_PROJECT_TEMPLATE_TREES``.
+    Also copies entire directory trees defined per provider.
+
+    When *providers* is ``None``, copies **all** templates (backward compat
+    for the updater).  Otherwise copies only templates for the requested
+    providers, deduplicating shared files like ``AGENTS.md``.
 
     Args:
         target: Target project root directory.
+        providers: List of AI provider identifiers, or None for all.
 
     Returns:
         CopyResult with lists of created and skipped paths.
     """
     project_root = get_project_template_root()
+    file_map, tree_list = _resolve_provider_maps(providers)
     result = CopyResult()
-    for src_relative, dest_relative in sorted(_PROJECT_TEMPLATE_MAP.items()):
+
+    for src_relative, dest_relative in sorted(file_map.items()):
         src_file = project_root / src_relative
         if not src_file.is_file():
             continue
@@ -149,7 +228,7 @@ def copy_project_templates(target: Path) -> CopyResult:
         else:
             result.skipped.append(dest_file)
 
-    for src_tree, dest_tree in _PROJECT_TEMPLATE_TREES:
+    for src_tree, dest_tree in tree_list:
         src_dir = project_root / src_tree
         if not src_dir.is_dir():
             continue
@@ -158,3 +237,97 @@ def copy_project_templates(target: Path) -> CopyResult:
         result.skipped.extend(tree_result.skipped)
 
     return result
+
+
+def provider_template_dest_paths(provider: str) -> list[str]:
+    """Return the destination paths that a provider would install.
+
+    Used by ``remove_provider_templates`` to know which files to clean up.
+
+    Args:
+        provider: AI provider identifier.
+
+    Returns:
+        List of destination paths relative to the project root.
+    """
+    paths: list[str] = []
+    for _src, dst in _PROVIDER_FILE_MAPS.get(provider, {}).items():
+        paths.append(dst)
+    # Tree destinations are directory roots; files inside are enumerated at runtime
+    for _src_tree, dest_tree in _PROVIDER_TREE_MAPS.get(provider, []):
+        paths.append(dest_tree)
+    return paths
+
+
+def _dest_path_used_by_other_providers(
+    dest_path: str,
+    provider: str,
+    active_providers: list[str],
+) -> bool:
+    """Check if a destination path is needed by another active provider.
+
+    Args:
+        dest_path: The destination path to check.
+        provider: The provider being removed.
+        active_providers: Currently active providers.
+
+    Returns:
+        True if another active provider also maps to this destination path.
+    """
+    for other in active_providers:
+        if other == provider:
+            continue
+        other_files = _PROVIDER_FILE_MAPS.get(other, {})
+        if dest_path in other_files.values():
+            return True
+        for _src_tree, dest_tree in _PROVIDER_TREE_MAPS.get(other, []):
+            if dest_path == dest_tree:
+                return True
+    return False
+
+
+def remove_provider_templates(
+    target: Path,
+    provider: str,
+    active_providers: list[str],
+) -> list[Path]:
+    """Remove templates installed by a provider.
+
+    Does NOT remove files that are still needed by another active provider
+    (e.g., AGENTS.md shared between github_copilot, gemini, and codex).
+
+    Args:
+        target: Target project root directory.
+        provider: The provider being removed.
+        active_providers: Providers that will remain active after removal.
+
+    Returns:
+        List of paths that were deleted.
+    """
+    deleted: list[Path] = []
+
+    for _src, dst in _PROVIDER_FILE_MAPS.get(provider, {}).items():
+        if _dest_path_used_by_other_providers(dst, provider, active_providers):
+            continue
+        path = target / dst
+        if path.is_file():
+            path.unlink()
+            deleted.append(path)
+
+    for _src_tree, dest_tree in _PROVIDER_TREE_MAPS.get(provider, []):
+        if _dest_path_used_by_other_providers(dest_tree, provider, active_providers):
+            continue
+        tree_path = target / dest_tree
+        if tree_path.is_dir():
+            for f in sorted(tree_path.rglob("*"), reverse=True):
+                if f.is_file():
+                    f.unlink()
+                    deleted.append(f)
+            # Remove empty directories
+            for d in sorted(tree_path.rglob("*"), reverse=True):
+                if d.is_dir() and not any(d.iterdir()):
+                    d.rmdir()
+            if tree_path.is_dir() and not any(tree_path.iterdir()):
+                tree_path.rmdir()
+
+    return deleted

@@ -18,6 +18,12 @@ ai-eng validate [TARGET]           # Validate content integrity (all 6 categorie
 ai-eng validate --category <cat>   # Run a specific category only
 ai-eng validate --json             # Output report as JSON
 ai-eng version                     # Show installed version and lifecycle status
+ai-eng guide [TARGET]              # Display branch policy setup instructions
+ai-eng release <VERSION>           # Create a governed release (validate, bump, PR, tag)
+ai-eng release --draft             # Create pre-release
+ai-eng release --dry-run           # Validate only, no changes
+ai-eng release --wait              # Wait for pipeline after tagging
+ai-eng release --skip-bump         # Skip version bump step
 ```
 
 ## Stack and IDE management
@@ -42,6 +48,8 @@ ai-eng gate commit-msg .git/COMMIT_EDITMSG  # Commit message validation
 ai-eng gate pre-push               # Semgrep, pip-audit, tests, type-check
 ai-eng gate risk-check             # Check risk acceptance status
 ai-eng gate risk-check --strict    # Fail on expiring risks too
+ai-eng gate all                    # Run all gates (pre-commit + pre-push + risk-check)
+ai-eng gate all --strict           # Also fail on expiring risk acceptances
 ```
 
 ## Skills management
@@ -53,6 +61,7 @@ ai-eng skill sync --offline        # Use cached content only
 ai-eng skill add <url>             # Add a remote skill source
 ai-eng skill remove <url>          # Remove a remote skill source
 ai-eng skill status                # Check skill health and requirements
+ai-eng skill status --all          # Include all eligible skills in output
 ```
 
 ## Maintenance
@@ -68,6 +77,19 @@ ai-eng maintenance branch-cleanup --force          # Force-delete unmerged branc
 ai-eng maintenance risk-status                     # Show risk acceptance status
 ai-eng maintenance pipeline-compliance             # Scan pipelines for risk gates
 ai-eng maintenance pipeline-compliance --suggest   # Show injection snippets for fixes
+ai-eng maintenance repo-status                    # Repository branch and PR dashboard
+ai-eng maintenance repo-status --no-prs           # Exclude open PR listing
+ai-eng maintenance spec-reset                     # Archive completed specs, clear _active.md
+ai-eng maintenance spec-reset --dry-run           # Report findings without modifying
+ai-eng maintenance all                            # Combined maintenance dashboard
+```
+
+## AI provider management
+
+```bash
+ai-eng provider add <provider>     # Add an AI provider (claude_code, github_copilot, gemini, codex)
+ai-eng provider remove <provider>  # Remove an AI provider (keeps last)
+ai-eng provider list               # List active AI providers
 ```
 
 ## VCS provider
@@ -75,6 +97,17 @@ ai-eng maintenance pipeline-compliance --suggest   # Show injection snippets for
 ```bash
 ai-eng vcs status                  # Show current VCS provider
 ai-eng vcs set-primary <provider>  # Switch primary VCS provider (github, azure_devops)
+ai-eng vcs set-primary <provider> --no-cicd  # Switch without regenerating CI/CD
+```
+
+## Platform setup
+
+```bash
+ai-eng setup platforms             # Detect and configure all platforms
+ai-eng setup github                # Verify GitHub CLI authentication and scopes
+ai-eng setup sonar                 # Configure SonarCloud / SonarQube credentials
+ai-eng setup azure-devops          # Configure Azure DevOps PAT credentials
+ai-eng setup sonarlint             # Configure SonarLint Connected Mode in IDEs
 ```
 
 ## Review

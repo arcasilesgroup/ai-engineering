@@ -286,7 +286,10 @@ class TestInstallCallsCopyProjectTemplates:
         with patch.object(Path, "exists", return_value=True):
             install(tmp_path)
 
-        patched["copy_project_templates"].assert_called_once_with(tmp_path)
+        patched["copy_project_templates"].assert_called_once_with(
+            tmp_path,
+            providers=None,
+        )
 
 
 class TestInstallCreatesStateFiles:
@@ -338,6 +341,7 @@ class TestInstallUpdatesManifest:
             stacks=["python", "dotnet"],
             ides=["vscode", "terminal"],
             vcs_provider="github",
+            ai_providers=None,
         )
 
     def test_default_stacks_none_forwarded(self, patched, tmp_path: Path) -> None:
@@ -348,6 +352,7 @@ class TestInstallUpdatesManifest:
             stacks=None,
             ides=None,
             vcs_provider="github",
+            ai_providers=None,
         )
 
 
@@ -584,6 +589,7 @@ class TestInstallWithEmptyStacks:
             stacks=[],
             ides=None,
             vcs_provider="github",
+            ai_providers=None,
         )
 
     def test_returns_valid_result(self, patched, tmp_path: Path) -> None:
@@ -604,6 +610,7 @@ class TestInstallWithMultipleStacks:
             stacks=["python", "dotnet"],
             ides=None,
             vcs_provider="github",
+            ai_providers=None,
         )
 
 
@@ -652,6 +659,7 @@ class TestInstallVcsProvider:
             stacks=None,
             ides=None,
             vcs_provider="azure_devops",
+            ai_providers=None,
         )
 
 

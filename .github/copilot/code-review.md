@@ -8,7 +8,7 @@ Use `.ai-engineering/` as the single source of truth for project governance and 
 
 - `.ai-engineering/standards/framework/core.md` — governance, ownership, lifecycle.
 - `.ai-engineering/standards/framework/quality/core.md` — quality contract, gate structure.
-- `.ai-engineering/standards/framework/quality/python.md` — Python-specific checks, complexity thresholds.
+- `.ai-engineering/standards/framework/stacks/python.md` — Python-specific checks, complexity thresholds.
 
 ## Skills and Agents
 
@@ -29,7 +29,7 @@ Use `.ai-engineering/` as the single source of truth for project governance and 
 
 - Lint and format: `ruff check` and `ruff format --check` must pass.
 - Type checking: `ty check` must pass.
-- Tests: `uv run pytest` must pass with 100% coverage.
+- Tests: `uv run pytest` must pass with 90% coverage (100% for governance-critical paths).
 - Security scans: `gitleaks` and `semgrep` must pass.
 
 ### Complexity

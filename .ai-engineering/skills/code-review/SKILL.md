@@ -27,6 +27,11 @@ Deep code review skill covering security, quality, performance, and maintainabil
 - **Quality gate enforcement** (coverage thresholds, complexity metrics, PASS/FAIL verdict) — use `audit` instead.
 - **Refactoring** (improving code structure without changing behavior) — use `refactor` instead.
 
+## Preconditions (MUST verify before proceeding)
+
+- **Required binaries**: `ruff` — must be available on PATH.
+- Abort with remediation guidance if missing. Run `ai-eng doctor --fix-tools` to auto-install.
+
 ## Procedure
 
 1. **Understand context** — read the PR description, linked spec/task, and changed files.

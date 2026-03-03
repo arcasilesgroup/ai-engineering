@@ -64,10 +64,10 @@ your-project/
 │   ├── agents/                 ← 6 role-based agent personas
 │   ├── context/                ← project memory: specs, goals, learnings
 │   └── state/                  ← decisions, risks, audit trail
-├── .claude/commands/           ← 56 slash commands (Claude Code)
-├── .github/prompts/            ← 51 prompt files (GitHub Copilot)
+├── .claude/commands/           ← 53 slash commands (Claude Code)
+├── .github/prompts/            ← 53 prompt files (GitHub Copilot)
 ├── .github/agents/             ← 6 custom agents (GitHub Copilot)
-├── GEMINI.md                   ← instruction file (Gemini CLI)
+├── AGENTS.md                   ← instruction file (Gemini CLI / Codex / Copilot)
 ├── .git/hooks/                 ← quality gate hooks (auto-installed)
 └── ...your code
 ```
@@ -85,7 +85,7 @@ Three ownership boundaries keep your content safe:
 - **Risk acceptance lifecycle** — accept, track, and expire security risks with severity-based deadlines (critical: 15 days, high: 30, medium: 60, low: 90). Max 2 renewals per risk.
 - **47 procedural skills** — structured procedures for commit, PR, debug, refactor, code review, security assessment, architecture review, and more. AI agents read and execute them.
 - **6 role-based agents** — behavioral contracts for plan, build, review, scan, write, and triage. Each agent has identity, capabilities, and boundaries. Only `ai:build` has code write permissions.
-- **Multi-provider from day one** — same governance works with Claude Code (56 slash commands), GitHub Copilot (51 prompt files + 6 custom agents), Gemini CLI, and OpenAI Codex.
+- **Multi-provider from day one** — same governance works with Claude Code (53 slash commands), GitHub Copilot (53 prompt files + 6 custom agents), Gemini CLI, and OpenAI Codex.
 - **Stack-aware enforcement** — tailored rules for Python, .NET, and Next.js. Each stack has its own linting, testing, and security toolchain.
 - **Content integrity validation** — 6 programmatic categories verify that governance files stay consistent across updates.
 - **Doctor diagnostics** — one command checks framework health and auto-fixes missing hooks or tools.
@@ -165,15 +165,17 @@ Core commands you use daily:
 
 ```bash
 ai-eng install [TARGET]           # Bootstrap governance in any project
+ai-eng install --provider claude_code --provider github_copilot  # Select AI providers
 ai-eng update [TARGET]            # Preview framework updates (dry-run)
 ai-eng update [TARGET] --apply    # Apply framework updates
 ai-eng doctor [TARGET]            # Diagnose and auto-fix framework health
 ai-eng guide [TARGET]             # View branch policy setup instructions
 ai-eng validate [TARGET]          # Validate content integrity
+ai-eng release <VERSION>          # Create a governed release (validate, bump, PR, tag)
 ai-eng version                    # Show installed version and lifecycle status
 ```
 
-Additional command groups for stack/IDE management, quality gates, skills, maintenance, VCS configuration, and CI/CD are documented in the [CLI reference](docs/cli-reference.md).
+Additional command groups for stack/IDE management, quality gates, skills, maintenance, platform setup, VCS configuration, and CI/CD are documented in the [CLI reference](docs/cli-reference.md).
 
 ## AI provider setup
 
@@ -181,15 +183,15 @@ ai-engineering generates integration files for each AI provider during install.
 
 ### Claude Code (recommended)
 
-The framework generates `CLAUDE.md` (instruction file) and 56 slash commands in `.claude/commands/`. Run `/commit` to stage, validate, commit, and push. Run `/ai:build` to activate the build agent. All commands invoke canonical skill and agent files — no content is duplicated.
+The framework generates `CLAUDE.md` (instruction file) and 53 slash commands in `.claude/commands/`. Run `/commit` to stage, validate, commit, and push. Run `/ai:build` to activate the build agent. All commands invoke canonical skill and agent files — no content is duplicated.
 
 ### Gemini CLI
 
-The framework generates `GEMINI.md` (instruction file) for Gemini CLI. It provides context and rules similar to `CLAUDE.md`. The same governance, skills, and conventions apply automatically.
+The framework generates `AGENTS.md` (instruction file) for Gemini CLI. It provides context and rules similar to `CLAUDE.md`. The same governance, skills, and conventions apply automatically.
 
 ### GitHub Copilot
 
-The framework generates `.github/copilot-instructions.md`, 51 prompt files in `.github/prompts/`, and 6 custom agents in `.github/agents/`. Use prompts like `/commit` or `/ai-debug` and agents like `@review` or `@build` directly in Copilot Chat.
+The framework generates `.github/copilot-instructions.md`, 53 prompt files in `.github/prompts/`, and 6 custom agents in `.github/agents/`. Use prompts like `/commit` or `/ai-debug` and agents like `@review` or `@build` directly in Copilot Chat.
 
 ### OpenAI Codex
 

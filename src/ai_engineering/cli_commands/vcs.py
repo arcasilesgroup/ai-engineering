@@ -80,6 +80,10 @@ def vcs_set_primary(
         Path | None,
         typer.Option("--target", "-t", help="Target project root. Defaults to cwd."),
     ] = None,
+    no_cicd: Annotated[
+        bool,
+        typer.Option("--no-cicd", help="Skip CI/CD pipeline regeneration."),
+    ] = False,
 ) -> None:
     """Set the primary VCS provider in the install manifest."""
     if provider_name not in _VALID_PROVIDERS:
@@ -119,10 +123,28 @@ def vcs_set_primary(
 
     write_json_model(manifest_path, manifest)
 
+    # Regenerate CI/CD pipelines for the new provider
+    cicd_regenerated = False
+    if not no_cicd:
+        from ai_engineering.installer.cicd import generate_pipelines
+
+        cicd_result = generate_pipelines(
+            root,
+            provider=provider_name,
+            stacks=manifest.installed_stacks,
+        )
+        cicd_regenerated = bool(cicd_result.created or cicd_result.skipped)
+
     if is_json_mode():
         emit_success(
             "ai-eng vcs set-primary",
-            {"provider": provider_name, "previous": previous},
+            {
+                "provider": provider_name,
+                "previous": previous,
+                "cicd_regenerated": cicd_regenerated,
+            },
         )
     else:
         success(f"Primary VCS provider set to: {provider_name}")
+        if cicd_regenerated:
+            info("CI/CD pipelines regenerated for new provider")
