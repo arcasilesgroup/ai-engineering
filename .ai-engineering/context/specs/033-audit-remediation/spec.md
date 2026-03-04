@@ -1,7 +1,7 @@
 ---
 id: "033"
 slug: "audit-remediation"
-status: "in-progress"
+status: "done"
 created: "2026-03-04"
 ---
 

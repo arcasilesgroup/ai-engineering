@@ -3,7 +3,7 @@ spec: "033"
 total: 48
 completed: 48
 last_session: "2026-03-04"
-next_session: "Phase 11 — Verification + Close"
+next_session: "DONE"
 ---
 
 # Tasks — 18-Dimension Audit Remediation
@@ -98,9 +98,9 @@ next_session: "Phase 11 — Verification + Close"
 
 ## Phase 11: Verification + Close [S]
 
-- [ ] 11.1 Run `uv run ruff check . && uv run ruff format --check .`
-- [ ] 11.2 Run `uv run pytest -m unit` — all pass
-- [ ] 11.3 Run `uv run pytest -m integration` — all pass
-- [ ] 11.4 Run `uv run ai-eng validate` — all categories pass
-- [ ] 11.5 Verify all 17 acceptance criteria from spec.md
-- [ ] 11.6 Create done.md
+- [x] 11.1 Run `uv run ruff check . && uv run ruff format --check .`
+- [x] 11.2 Run `uv run pytest -m unit` — all pass
+- [x] 11.3 Run `uv run pytest -m integration` — all pass
+- [x] 11.4 Run `uv run ai-eng validate` — all categories pass
+- [x] 11.5 Verify all 17 acceptance criteria from spec.md
+- [x] 11.6 Create done.md
