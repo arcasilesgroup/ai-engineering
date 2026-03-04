@@ -61,8 +61,21 @@ _PROVIDER_TREE_MAPS: dict[str, list[tuple[str, str]]] = {
         ("prompts", ".github/prompts"),
         ("agents", ".github/agents"),
     ],
-    "gemini": [],
-    "codex": [],
+    "gemini": [
+        (".agents", ".agents"),
+    ],
+    "codex": [
+        (".agents", ".agents"),
+    ],
+}
+
+# VCS-platform-specific templates (independent of AI provider).
+# When a VCS provider is specified, these trees are also copied.
+_VCS_TEMPLATE_TREES: dict[str, list[tuple[str, str]]] = {
+    "github": [
+        ("github_templates", ".github"),
+    ],
+    "azure_devops": [],
 }
 
 # Legacy combined maps kept for updater backward compatibility.
@@ -196,6 +209,7 @@ def copy_project_templates(
     target: Path,
     *,
     providers: list[str] | None = None,
+    vcs_provider: str | None = None,
 ) -> CopyResult:
     """Copy project-level templates to the target project root.
 
@@ -207,9 +221,13 @@ def copy_project_templates(
     for the updater).  Otherwise copies only templates for the requested
     providers, deduplicating shared files like ``AGENTS.md``.
 
+    When *vcs_provider* is set, also copies VCS-platform-specific templates
+    (e.g., GitHub issue/PR templates).
+
     Args:
         target: Target project root directory.
         providers: List of AI provider identifiers, or None for all.
+        vcs_provider: VCS platform identifier (e.g., ``"github"``).
 
     Returns:
         CopyResult with lists of created and skipped paths.
@@ -235,6 +253,16 @@ def copy_project_templates(
         tree_result = copy_template_tree(src_dir, target / dest_tree)
         result.created.extend(tree_result.created)
         result.skipped.extend(tree_result.skipped)
+
+    # VCS-platform-specific templates
+    if vcs_provider:
+        for src_tree, dest_tree in _VCS_TEMPLATE_TREES.get(vcs_provider, []):
+            src_dir = project_root / src_tree
+            if not src_dir.is_dir():
+                continue
+            tree_result = copy_template_tree(src_dir, target / dest_tree)
+            result.created.extend(tree_result.created)
+            result.skipped.extend(tree_result.skipped)
 
     return result
 
