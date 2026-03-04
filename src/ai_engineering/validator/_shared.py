@@ -21,7 +21,7 @@ class IntegrityCategory(StrEnum):
     SKILL_FRONTMATTER = "skill-frontmatter"
 
 
-class CheckStatus(StrEnum):
+class IntegrityStatus(StrEnum):
     """Status of a single integrity check."""
 
     OK = "ok"
@@ -35,7 +35,7 @@ class IntegrityCheckResult:
 
     category: IntegrityCategory
     name: str
-    status: CheckStatus
+    status: IntegrityStatus
     message: str
     file_path: str | None = None
 
@@ -49,7 +49,7 @@ class IntegrityReport:
     @property
     def passed(self) -> bool:
         """True if no checks failed."""
-        return all(c.status != CheckStatus.FAIL for c in self.checks)
+        return all(c.status != IntegrityStatus.FAIL for c in self.checks)
 
     @property
     def summary(self) -> dict[str, int]:
@@ -68,7 +68,7 @@ class IntegrityReport:
 
     def category_passed(self, category: IntegrityCategory) -> bool:
         """True if all checks in a category passed (no FAIL)."""
-        return all(c.status != CheckStatus.FAIL for c in self.checks if c.category == category)
+        return all(c.status != IntegrityStatus.FAIL for c in self.checks if c.category == category)
 
     def to_dict(self) -> dict[str, object]:
         """Serialize report for JSON output."""
@@ -77,7 +77,7 @@ class IntegrityReport:
         for cat in IntegrityCategory:
             cat_checks = categories.get(cat, [])
             category_results[cat.value] = {
-                "passed": all(c.status != CheckStatus.FAIL for c in cat_checks),
+                "passed": all(c.status != IntegrityStatus.FAIL for c in cat_checks),
                 "checks": [
                     {
                         "name": c.name,
@@ -145,7 +145,13 @@ def _instruction_files(target: Path) -> list[str]:
 _GOVERNANCE_MIRROR = (
     ".ai-engineering",
     "src/ai_engineering/templates/.ai-engineering",
-    ["skills/**/*.md", "agents/**/*.md", "standards/framework/**/*.md"],
+    [
+        "skills/**/*.md",
+        "agents/**/*.md",
+        "standards/framework/**/*.md",
+        "manifest.yml",
+        "README.md",
+    ],
     ["context/", "state/", "standards/team/"],
 )
 

@@ -20,11 +20,11 @@ from pathlib import Path
 
 from ai_engineering.validator._shared import (
     _PATH_REF_PATTERN,  # noqa: F401 — re-exported for test patching
-    CheckStatus,
     FileCache,
     IntegrityCategory,
     IntegrityCheckResult,
     IntegrityReport,
+    IntegrityStatus,
     _parse_counter,
 )
 from ai_engineering.validator.categories import (
@@ -43,10 +43,10 @@ from ai_engineering.validator.categories.mirror_sync import (
 )
 
 __all__ = [
-    "CheckStatus",
     "IntegrityCategory",
     "IntegrityCheckResult",
     "IntegrityReport",
+    "IntegrityStatus",
     "_check_claude_commands_mirror",
     "_check_copilot_agents_mirror",
     "_check_copilot_prompts_mirror",

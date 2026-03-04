@@ -7,11 +7,11 @@ from pathlib import Path
 from ai_engineering.validator._shared import (
     _REF_LINE,
     _REFERENCES_SECTION,
-    CheckStatus,
     FileCache,
     IntegrityCategory,
     IntegrityCheckResult,
     IntegrityReport,
+    IntegrityStatus,
 )
 
 
@@ -63,7 +63,7 @@ def _check_cross_references(
                     IntegrityCheckResult(
                         category=IntegrityCategory.CROSS_REFERENCE,
                         name=f"broken-ref-{source}",
-                        status=CheckStatus.FAIL,
+                        status=IntegrityStatus.FAIL,
                         message=f"'{source}' references non-existent '{ref_clean}'",
                         file_path=source,
                     )
@@ -74,7 +74,7 @@ def _check_cross_references(
             IntegrityCheckResult(
                 category=IntegrityCategory.CROSS_REFERENCE,
                 name="all-references-valid",
-                status=CheckStatus.OK,
+                status=IntegrityStatus.OK,
                 message=f"All cross-references valid ({len(ref_map)} files checked)",
             )
         )

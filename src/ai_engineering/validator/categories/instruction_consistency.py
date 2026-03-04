@@ -7,10 +7,10 @@ from pathlib import Path
 from ai_engineering.validator._shared import (
     _REQUIRED_SUBSECTIONS,
     _SUBSECTION_PATTERN,
-    CheckStatus,
     IntegrityCategory,
     IntegrityCheckResult,
     IntegrityReport,
+    IntegrityStatus,
     _extract_section,
     _instruction_files,
     _parse_agent_names,
@@ -42,7 +42,7 @@ def _check_instruction_consistency(
                 IntegrityCheckResult(
                     category=IntegrityCategory.INSTRUCTION_CONSISTENCY,
                     name=f"missing-{file_rel}",
-                    status=CheckStatus.FAIL,
+                    status=IntegrityStatus.FAIL,
                     message=f"Instruction file not found: {file_rel}",
                     file_path=file_rel,
                 )
@@ -61,7 +61,7 @@ def _check_instruction_consistency(
                 IntegrityCheckResult(
                     category=IntegrityCategory.INSTRUCTION_CONSISTENCY,
                     name=f"missing-subsections-{file_rel}",
-                    status=CheckStatus.FAIL,
+                    status=IntegrityStatus.FAIL,
                     message=f"Missing subsections: {', '.join(sorted(missing_subs))}",
                     file_path=file_rel,
                 )
@@ -94,7 +94,7 @@ def _check_instruction_consistency(
                 IntegrityCheckResult(
                     category=IntegrityCategory.INSTRUCTION_CONSISTENCY,
                     name=f"skills-differ-{file_rel}",
-                    status=CheckStatus.FAIL,
+                    status=IntegrityStatus.FAIL,
                     message=(f"Skills differ from {reference_file}: {'; '.join(details)}"),
                     file_path=file_rel,
                 )
@@ -116,7 +116,7 @@ def _check_instruction_consistency(
                 IntegrityCheckResult(
                     category=IntegrityCategory.INSTRUCTION_CONSISTENCY,
                     name=f"agents-differ-{file_rel}",
-                    status=CheckStatus.FAIL,
+                    status=IntegrityStatus.FAIL,
                     message=(f"Agents differ from {reference_file}: {'; '.join(details)}"),
                     file_path=file_rel,
                 )
@@ -127,7 +127,7 @@ def _check_instruction_consistency(
             IntegrityCheckResult(
                 category=IntegrityCategory.INSTRUCTION_CONSISTENCY,
                 name="skills-consistent",
-                status=CheckStatus.OK,
+                status=IntegrityStatus.OK,
                 message=f"All {len(all_skills)} files list identical skills",
             )
         )
@@ -137,7 +137,7 @@ def _check_instruction_consistency(
             IntegrityCheckResult(
                 category=IntegrityCategory.INSTRUCTION_CONSISTENCY,
                 name="agents-consistent",
-                status=CheckStatus.OK,
+                status=IntegrityStatus.OK,
                 message=f"All {len(all_agents)} files list identical agents",
             )
         )

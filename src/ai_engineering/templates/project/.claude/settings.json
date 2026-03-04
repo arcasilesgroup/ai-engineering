@@ -10,9 +10,13 @@
       "Bash(git *)",
       "Bash(pytest *)",
       "Bash(.venv/bin/ruff *)",
+      "Bash(.venv/Scripts/ruff *)",
       "Bash(.venv/bin/ty *)",
+      "Bash(.venv/Scripts/ty *)",
       "Bash(.venv/bin/python -m pytest *)",
+      "Bash(.venv/Scripts/python -m pytest *)",
       "Bash(.venv/bin/pip-audit *)",
+      "Bash(.venv/Scripts/pip-audit *)",
       "Bash(ls *)",
       "Bash(mkdir *)",
       "Bash(cat *)"

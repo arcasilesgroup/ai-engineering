@@ -1,9 +1,9 @@
 ---
 spec: "033"
 total: 48
-completed: 36
+completed: 44
 last_session: "2026-03-04"
-next_session: "Phase 7 — Validator rename + mirror sync"
+next_session: "Phase 9 — CI cron + SSRF rule"
 ---
 
 # Tasks — 18-Dimension Audit Remediation
@@ -67,17 +67,17 @@ next_session: "Phase 7 — Validator rename + mirror sync"
 
 ## Phase 7: P2 — Validator Rename + Mirror Sync Expansion [S]
 
-- [ ] 7.1 Rename `CheckStatus` → `IntegrityStatus` in `validator/_shared.py`
-- [ ] 7.2 Update all `validator/categories/*.py` imports
-- [ ] 7.3 Update `validator/service.py` imports
-- [ ] 7.4 Add `manifest.yml` and `README.md` root-level patterns to `_GOVERNANCE_MIRROR` in `validator/_shared.py`
-- [ ] 7.5 Run `ai-eng validate` to verify expanded mirror sync works
+- [x] 7.1 Rename `CheckStatus` → `IntegrityStatus` in `validator/_shared.py`
+- [x] 7.2 Update all `validator/categories/*.py` imports
+- [x] 7.3 Update `validator/service.py` imports
+- [x] 7.4 Add `manifest.yml` and `README.md` root-level patterns to `_GOVERNANCE_MIRROR` in `validator/_shared.py`
+- [x] 7.5 Run `ai-eng validate` to verify expanded mirror sync works
 
 ## Phase 8: P2 — Cross-OS Hardening [S]
 
-- [ ] 8.1 Create `.gitattributes` with LF enforcement for `*.sh`, `*.py`, `*.yml`, `*.yaml`, `*.md`, `*.json`
-- [ ] 8.2 Update `templates/project/.claude/settings.json`: add `.venv\Scripts\*` paths for Windows alongside `.venv/bin/*`
-- [ ] 8.3 Run tests
+- [x] 8.1 Create `.gitattributes` with LF enforcement for `*.sh`, `*.py`, `*.yml`, `*.yaml`, `*.md`, `*.json`
+- [x] 8.2 Update `templates/project/.claude/settings.json`: add `.venv\Scripts\*` paths for Windows alongside `.venv/bin/*`
+- [x] 8.3 Run tests
 
 ## Phase 9: P2 — CI Cron + SSRF Rule [S]
 
