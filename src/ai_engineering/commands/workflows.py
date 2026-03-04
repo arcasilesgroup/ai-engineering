@@ -1,7 +1,7 @@
-"""Commit/PR/Acho workflow helper functions.
+"""Commit/PR workflow helper functions.
 
-Provides programmatic building blocks for the ``/commit``, ``/pr``,
-and ``/acho`` flows described in ``skills/commit/``, ``skills/pr/``.
+Provides programmatic building blocks for the ``/commit`` and ``/pr``
+flows described in ``skills/commit/``, ``skills/pr/``.
 
 Flow summary:
 
@@ -11,7 +11,7 @@ Flow summary:
 
 These are **helper functions**, not CLI entry points.
 The CLI invokes them from ``cli_commands/``.
-Workflow skills (``/commit``, ``/pr``, ``/acho``) are markdown documents
+Workflow skills (``/commit``, ``/pr``) are markdown documents
 AI agents read — these Python functions are the implementation backing.
 """
 

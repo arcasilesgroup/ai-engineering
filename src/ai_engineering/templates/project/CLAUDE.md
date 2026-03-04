@@ -63,8 +63,6 @@ Discovery → Architecture → Planning → Implementation → Review → Verifi
 - `/ai:commit --only` → stage + commit
 - `/ai:pr` → stage + commit + push + PR + auto-complete (`--auto --squash --delete-branch`)
 - `/ai:pr --only` → create PR; warn if unpushed, propose auto-push
-- `/ai:acho` → stage + commit + push
-- `/ai:acho pr` → stage + commit + push + PR + auto-complete
 
 ## Progressive Disclosure
 

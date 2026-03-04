@@ -81,8 +81,6 @@ Canonical governance root for the `ai-engineering` framework and for installed i
 - `/commit --only` -> stage + commit.
 - `/pr` -> stage + commit + push + create PR + enable auto-complete (`--auto --squash --delete-branch`).
 - `/pr --only` -> create PR; if branch is unpushed, warn and offer auto-push; continue with engineer-selected path if declined.
-- `/acho` -> stage + commit + push current branch.
-- `/acho pr` -> stage + commit + push + create PR + enable auto-complete (`--auto --squash --delete-branch`).
 
 ## Remote Skills
 

@@ -58,7 +58,7 @@ Path: `.ai-engineering/agents/<name>.md`
 | scan | 7-mode assessment: governance, security, quality, perf, a11y, feature, architecture | read-write (work items only) |
 | release | ALM lifecycle: commit, PR, release gate, triage, work-items, deploy | read-write |
 | write | Documentation (generate/simplify modes) | read-write (docs only) |
-| observe | Observability for 3 audiences + DORA metrics + health scoring | read-only |
+| observe | Observability: 5 modes across 4 audience tiers + DORA metrics + health scoring | read-only |
 
 ## Lifecycle
 
@@ -70,8 +70,6 @@ Discovery → Architecture → Planning → Implementation → Scan → Release 
 - `/ai:commit --only` → stage + commit
 - `/ai:pr` → stage + commit + push + PR + auto-complete (`--auto --squash --delete-branch`)
 - `/ai:pr --only` → create PR; warn if unpushed, propose auto-push
-- `/ai:acho` → stage + commit + push
-- `/ai:acho pr` → stage + commit + push + PR + auto-complete
 
 ## Pipeline Strategy
 
@@ -91,10 +89,24 @@ Deterministic tasks run locally without AI tokens (~38% savings):
 | Command | What |
 |---------|------|
 | `ai-eng observe [mode]` | Dashboards: engineer, team, ai, dora, health |
-| `ai-eng gate pre-commit\|pre-push` | Run quality gate checks |
+| `ai-eng gate pre-commit\|pre-push\|all` | Run quality gate checks |
 | `ai-eng signals emit\|query` | Event store operations |
 | `ai-eng checkpoint save\|load` | Session recovery |
 | `ai-eng decision list\|expire-check` | Decision store management |
+| `ai-eng validate` | Content integrity validation |
+| `ai-eng stack add\|remove\|list` | Stack management |
+| `ai-eng ide add\|remove\|list` | IDE configuration |
+| `ai-eng provider add\|remove\|list` | Provider management |
+| `ai-eng skill list\|sync\|add\|remove\|status` | Skill management |
+| `ai-eng maintenance report\|pr\|all` | Repo hygiene + maintenance |
+| `ai-eng vcs status\|set-primary` | VCS operations |
+| `ai-eng review pr` | PR review |
+| `ai-eng cicd regenerate` | CI/CD workflow generation |
+| `ai-eng setup platforms\|github\|sonar` | Platform setup |
+| `ai-eng scan-report format` | Format scan findings → markdown |
+| `ai-eng metrics collect` | Collect signals → dashboard data |
+| `ai-eng release` | Release management |
+| `ai-eng install\|update\|doctor` | Installation + diagnostics |
 
 ## Progressive Disclosure
 

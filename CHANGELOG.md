@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+- **`acho` skill** — removed alias command and all mirrors (`.claude/commands/ai/acho.md`, `.github/prompts/ai-acho.prompt.md`, template mirrors).
+
+### Changed
+- **CLAUDE.md** — expanded CLI command reference table with all `ai-eng` subcommands.
+- **manifest.yml** — removed `acho` skill registration and cleaned up stale entries.
+- **sync_command_mirrors.py** — simplified mirror sync logic after `acho` removal.
+- **Framework refinements** — minor wording/formatting fixes across agents, skills, and standards.
+
 ### Added
 - **ai-engineering v3 architecture** — full redesign with 6 bounded-context agents (plan, build, scan, release, write, observe) and 33 skills (down from 47).
 - **11 new skills**: `architecture`, `code-simplifier`, `create`, `delete`, `feature-gap`, `governance`, `observe`, `perf`, `quality`, `security`, `test` — each consolidating multiple v2 skills into mode-based designs.

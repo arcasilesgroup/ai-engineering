@@ -30,7 +30,7 @@ Absorbs capabilities from the former `triage` agent (backlog management) and con
 
 | Mode | Command | What it does |
 |------|---------|-------------|
-| `deliver` | `/ai:commit`, `/ai:pr`, `/ai:acho` | Stage + lint + commit + push + PR |
+| `deliver` | `/ai:commit`, `/ai:pr` | Stage + lint + commit + push + PR |
 | `gate` | `/ai:release gate` | Release readiness GO/NO-GO from scan results |
 | `changelog` | `/ai:changelog` | Generate changelog from git history |
 | `work-item` | `/ai:work-item` | Sync with GitHub Issues / Azure Boards |
@@ -48,8 +48,6 @@ The primary delivery workflow. Preserves existing `/ai:commit` and `/ai:pr` cont
 - `/ai:commit --only` -> stage + commit (no push)
 - `/ai:pr` -> stage + commit + push + PR + auto-complete (squash + delete branch)
 - `/ai:pr --only` -> create PR (warn if unpushed, propose auto-push)
-- `/ai:acho` -> stage + commit + push
-- `/ai:acho pr` -> stage + commit + push + PR + auto-complete
 
 **Procedure:**
 1. Stage changes (`git add` specific files, never `-A`)

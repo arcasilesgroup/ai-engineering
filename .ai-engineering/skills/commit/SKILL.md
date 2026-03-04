@@ -25,7 +25,6 @@ Execute the `/commit` governed workflow: stage all changes, run mandatory pre-co
 ## When NOT to Use
 
 - **Creating pull requests** — use `/pr` instead. Commit pushes to current branch; PR creates a pull request.
-- **Quick push alias** — use `/acho` instead for identical behavior with shorter invocation.
 - **Governance content changes without active spec** — create a spec first with `spec`.
 
 ## Preconditions (MUST verify before proceeding)
@@ -98,5 +97,5 @@ Actions:
 - `standards/framework/quality/core.md` — gate structure (pre-commit gate).
 - `skills/changelog/SKILL.md` — changelog entry formatting (used by documentation gate).
 - `skills/docs/SKILL.md` — README and documentation update procedure for OSS GitHub users (used by documentation gate).
-- `skills/pr/SKILL.md` — PR workflow (includes acho alias behavior).
+- `skills/pr/SKILL.md` — PR workflow.
 - `agents/release.md` — agent that validates commit workflow execution.
