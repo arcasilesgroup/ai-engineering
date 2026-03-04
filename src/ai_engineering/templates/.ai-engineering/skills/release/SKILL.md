@@ -43,7 +43,7 @@ Executes a structured GO/NO-GO checklist across all quality dimensions for relea
 3. **Command reliability** — verify all commands work as contracted.
    - Review verify-app results for command contract compliance.
    - Gate: all commands execute their contracted step sequence.
-   - Check: /commit, /commit --only, /pr, /pr --only, /acho, /acho pr.
+   - Check: /commit, /commit --only, /pr, /pr --only.
 
 4. **Ownership safety** — verify update flows respect boundaries.
    - Invoke `ownership/SKILL.md` or review most recent ownership report.

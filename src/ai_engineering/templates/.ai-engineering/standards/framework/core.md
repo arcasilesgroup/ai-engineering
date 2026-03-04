@@ -29,8 +29,8 @@ Framework-owned baseline standards for every installed instance.
 
 ## Command Governance
 
-- `/commit` and `/acho` push only current branch.
-- `/pr` and `/acho pr` must enable PR auto-complete with squash merge and branch deletion.
+- `/commit` pushes only current branch.
+- `/pr` must enable PR auto-complete with squash merge and branch deletion.
 - `/pr --only` warns if branch is not pushed, proposes auto-push, and continues with user-selected mode if declined.
 - `/commit` and `/pr` include a documentation gate that classifies changes as user-visible vs internal-only and enforces CHANGELOG.md, README.md, and external documentation portal updates for user-visible changes targeting OSS GitHub users.
 

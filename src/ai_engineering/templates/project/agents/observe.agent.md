@@ -1,6 +1,6 @@
 ---
 name: "Observe"
-description: "Observatory — metrics, dashboards, DORA, health scoring for 3 audiences"
+description: "Observatory — metrics, dashboards, DORA, health scoring across 5 modes"
 tools: [codebase, fetch, githubRepo, readFile, runCommands, search, terminalLastCommand]
 ---
 

@@ -1,6 +1,6 @@
 """Observe CLI commands for ai-engineering.
 
-Computes and displays observability metrics for 3 audiences:
+Computes and displays observability metrics across 5 modes:
 - engineer: code quality, security, test confidence, delivery velocity
 - team: framework health, skill usage, token economy
 - ai: context efficiency, decision continuity, session recovery

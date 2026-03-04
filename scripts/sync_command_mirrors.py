@@ -4,7 +4,7 @@
 Reads canonical skill and agent definitions from .ai-engineering/,
 then generates or verifies mirrors in:
   - .claude/commands/ai/     (Claude Code slash commands, unified ai: namespace)
-  - .claude/commands/         (root-level workflow aliases: commit, pr, acho, cleanup)
+  - .claude/commands/         (root-level workflow aliases: commit, pr, cleanup)
   - .github/prompts/          (GitHub Copilot prompt files)
   - .github/agents/           (GitHub Copilot agent personas)
 
@@ -73,27 +73,6 @@ WORKFLOW_PRECONDITIONS: dict[str, str] = {
         "\n"
         "$ARGUMENTS\n"
     ),
-    "acho": (
-        "Before executing, verify these preconditions:\n"
-        "\n"
-        "1. Current branch is NOT `main` or `master` (abort with warning if so).\n"
-        "2. Working tree has staged or unstaged changes (abort if nothing to commit).\n"
-        "3. Active spec is read from `.ai-engineering/context/specs/_active.md`.\n"
-        "\n"
-        "`/acho` is an alias. Read and execute "
-        "`.ai-engineering/skills/commit/SKILL.md` for default flow, "
-        "or `.ai-engineering/skills/pr/SKILL.md` if argument is `pr`.\n"
-        "\n"
-        "Arguments: no arguments = `/commit` flow. "
-        "`pr` = `/pr` flow.\n"
-        "\n"
-        "Follow the complete procedure. Do not skip steps. "
-        "Apply all governance notes. Read the Command Contract in "
-        "`.ai-engineering/manifest.yml` under `commands:` "
-        "for the authoritative step sequence.\n"
-        "\n"
-        "$ARGUMENTS\n"
-    ),
 }
 
 # Copilot workflow prompt descriptions (richer than generic)
@@ -103,7 +82,6 @@ COPILOT_WORKFLOW_DESCRIPTIONS: dict[str, str] = {
         " commit, and push current branch."
     ),
     "pr": "Execute governed PR workflow: commit + push + create PR + auto-complete.",
-    "acho": "Alias for commit/pr workflows.",
     "cleanup": "Repository hygiene: status, sync, prune, branch cleanup, spec reset.",
 }
 
@@ -136,24 +114,10 @@ COPILOT_WORKFLOW_PRECONDITIONS: dict[str, str] = {
         "Follow the complete procedure. Do not skip steps. "
         "Apply all governance notes.\n"
     ),
-    "acho": (
-        "Before executing, verify these preconditions:\n"
-        "\n"
-        "1. Current branch is NOT `main` or `master` (abort with warning if so).\n"
-        "2. Working tree has staged or unstaged changes (abort if nothing to commit).\n"
-        "3. Active spec is read from `.ai-engineering/context/specs/_active.md`.\n"
-        "\n"
-        "`/acho` is an alias. Read and execute "
-        "`.ai-engineering/skills/commit/SKILL.md` for default flow, "
-        "or `.ai-engineering/skills/pr/SKILL.md` if argument is `pr`.\n"
-        "\n"
-        "Follow the complete procedure. Do not skip steps. "
-        "Apply all governance notes.\n"
-    ),
 }
 
 # Root-level workflow aliases (in .claude/commands/ and .github/prompts/)
-ROOT_WORKFLOW_ALIASES = ("commit", "pr", "acho", "cleanup")
+ROOT_WORKFLOW_ALIASES = ("commit", "pr", "cleanup")
 
 # Copilot agent tools list (standard set)
 COPILOT_AGENT_TOOLS = [

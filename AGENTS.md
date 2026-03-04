@@ -52,7 +52,7 @@ Path: `.ai-engineering/agents/<name>.md`
 | scan | 7-mode assessment: governance, security, quality, perf, a11y, feature, architecture | read-write (work items only) |
 | release | ALM lifecycle: commit, PR, release gate, triage, work-items, deploy | read-write |
 | write | Documentation (generate/simplify modes) | read-write (docs only) |
-| observe | Observability for 3 audiences + DORA metrics + health scoring | read-only |
+| observe | Observability: 5 modes across 4 audience tiers + DORA metrics + health scoring | read-only |
 
 Slash commands: `/ai:<name>` for all skills and agents.
 
@@ -88,8 +88,6 @@ Never overwrite team/project content during framework updates. Cross-OS enforcem
 - `/ai:commit --only` → stage + commit
 - `/ai:pr` → stage + commit + push + PR + auto-complete (`--auto --squash --delete-branch`)
 - `/ai:pr --only` → create PR; warn if unpushed, propose auto-push
-- `/ai:acho` → stage + commit + push
-- `/ai:acho pr` → stage + commit + push + PR + auto-complete
 
 ## Non-Negotiables
 

@@ -1,6 +1,6 @@
 ---
 name: observe
-description: "Generate observability dashboards for 3 audiences: engineers, team, AI — plus DORA metrics and health scoring."
+description: "Generate observability dashboards across 5 modes (engineer, team, AI, DORA, health) for 4 audience tiers."
 metadata:
   version: 1.0.0
   tags: [observability, metrics, dora, dashboard, analytics]

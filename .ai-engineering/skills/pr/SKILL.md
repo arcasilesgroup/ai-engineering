@@ -26,7 +26,7 @@ Execute the `/pr` governed workflow: conditionally run spec reset, stage, commit
 ## When NOT to Use
 
 - **Commit-only without PR** — use `/commit --only` instead. PR always creates a pull request.
-- **Quick push without PR** — use `/acho` instead for push-only behavior.
+- **Quick push without PR** — use `/commit` instead for push-only behavior.
 - **Draft explorations** (not ready for review) — use `/commit` to push to branch first, then `/pr` when ready.
 
 ## Preconditions (MUST verify before proceeding)

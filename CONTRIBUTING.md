@@ -131,7 +131,7 @@ src/ai_engineering/
 ├── paths.py              # Path resolution utilities
 ├── __version__.py        # Version string
 ├── cli_commands/         # Command groups (core, gate, maintenance, skills, stack_ide)
-├── commands/             # Workflow building blocks (commit, PR, acho)
+├── commands/             # Workflow building blocks (commit, PR)
 ├── installer/            # Framework bootstrap and stack/IDE operations
 ├── updater/              # Ownership-safe framework updates
 ├── doctor/               # Diagnostics and remediation
