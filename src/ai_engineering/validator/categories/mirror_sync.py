@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
 
 from ai_engineering.validator._shared import (
@@ -146,10 +147,10 @@ def _check_mirror_sync(
 def _check_claude_commands_mirror(
     target: Path,
     report: IntegrityReport,
-    sha_fn: object = _sha256,
+    sha_fn: Callable[[Path], str] = _sha256,
 ) -> None:
     """Check .claude/commands/ mirror sync."""
-    _sha = sha_fn  # type: ignore[assignment]
+    _sha = sha_fn
     canonical_root = target / _CLAUDE_COMMANDS_MIRROR[0]
     mirror_root = target / _CLAUDE_COMMANDS_MIRROR[1]
 
@@ -212,10 +213,10 @@ def _check_claude_commands_mirror(
 def _check_copilot_prompts_mirror(
     target: Path,
     report: IntegrityReport,
-    sha_fn: object = _sha256,
+    sha_fn: Callable[[Path], str] = _sha256,
 ) -> None:
     """Check .github/prompts/ mirror sync with templates."""
-    _sha = sha_fn  # type: ignore[assignment]
+    _sha = sha_fn
     canonical_root = target / _COPILOT_PROMPTS_MIRROR[0]
     mirror_root = target / _COPILOT_PROMPTS_MIRROR[1]
 
@@ -280,10 +281,10 @@ def _check_copilot_prompts_mirror(
 def _check_copilot_agents_mirror(
     target: Path,
     report: IntegrityReport,
-    sha_fn: object = _sha256,
+    sha_fn: Callable[[Path], str] = _sha256,
 ) -> None:
     """Check .github/agents/ mirror sync with templates."""
-    _sha = sha_fn  # type: ignore[assignment]
+    _sha = sha_fn
     canonical_root = target / _COPILOT_AGENTS_MIRROR[0]
     mirror_root = target / _COPILOT_AGENTS_MIRROR[1]
 
