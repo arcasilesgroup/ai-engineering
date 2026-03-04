@@ -1,6 +1,6 @@
 ---
 spec: "034"
-total: 32
+total: 37
 completed: 0
 last_session: "2026-03-04"
 next_session: "Phase 0 — Scaffold"
