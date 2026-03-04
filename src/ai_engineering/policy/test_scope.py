@@ -109,6 +109,7 @@ TEST_SCOPE_RULES: list[ScopeRule] = [
         tiers={
             "unit": [
                 "tests/unit/test_lib_signals.py",
+                "tests/unit/test_parsing.py",
             ],
             "integration": [],
             "e2e": [],
@@ -128,6 +129,7 @@ TEST_SCOPE_RULES: list[ScopeRule] = [
                 "tests/unit/test_cli_signals.py",
                 "tests/unit/test_cli_checkpoint.py",
                 "tests/unit/test_cli_metrics.py",
+                "tests/unit/test_spec_cmd.py",
             ],
             "integration": [
                 "tests/integration/test_cli_command_modules.py",
