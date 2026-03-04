@@ -1,5 +1,5 @@
 ---
-description: "Detect architecture drift, coupling, cohesion, and boundary violations."
+description: "Analyze software architecture: drift detection, coupling, cohesion, boundaries, tech debt assessment."
 mode: "agent"
 ---
 

@@ -79,6 +79,11 @@ A change is **trivial** (spec exempt) when ALL of these apply:
      slug: "<slug>"
      status: "in-progress"
      created: "YYYY-MM-DD"
+     size: "S|M|L|XL"
+     tags: ["tag1", "tag2"]
+     branch: "spec-NNN/<slug>"
+     pipeline: "full|standard|hotfix|trivial"
+     decisions: []
      ---
 
      # Spec NNN — <Title>
@@ -168,11 +173,15 @@ A change is **trivial** (spec exempt) when ALL of these apply:
     - Each phase produces one atomic commit: `spec-NNN: Phase N — <description>`.
     - Mark tasks `[x]` as they complete.
     - Update `tasks.md` frontmatter after each phase: `completed`, `last_session`, `next_session`.
-    - Record decisions in `decision-store.json` as they arise.
+    - Run `ai-eng spec verify` after each phase to auto-correct counters.
+    - Record decisions in `decision-store.json` as they arise using `ai-eng decision record`.
+    - **Dual-write protocol**: every decision must be persisted to both `decision-store.json` AND `audit-log.ndjson` — the `ai-eng decision record` command handles this automatically.
 
 ### Phase 8: Close
 
 12. **Verify acceptance criteria** — all criteria in spec.md must pass.
+    - Run `ai-eng spec verify` for final counter validation.
+    - Run `ai-eng spec catalog` to regenerate the spec catalog with the completed spec.
 
 13. **Create `done.md`** — the DONE document.
     - Summary of what was delivered.

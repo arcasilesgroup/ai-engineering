@@ -1,7 +1,5 @@
-Repo hygiene: status, sync, prune, branch cleanup.
+Read and execute the skill defined in `.ai-engineering/skills/cleanup/SKILL.md`.
 
-MANDATORY: Verify all Preconditions before starting. If any precondition fails, STOP and report with remediation guidance.
-
-Read and execute `.ai-engineering/skills/cleanup/SKILL.md`. Follow the complete procedure and all governance notes.
+Follow the complete procedure. Do not skip steps. Apply all governance notes. If the skill references standards or other skills, read those as needed.
 
 $ARGUMENTS

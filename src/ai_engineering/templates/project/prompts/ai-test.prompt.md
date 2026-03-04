@@ -1,5 +1,5 @@
 ---
-description: "Plan, run, or analyze test gaps across all stacks."
+description: "Unified testing skill: plan test strategy, write and run tests, detect coverage gaps. Modes: plan | run | gap."
 mode: "agent"
 ---
 

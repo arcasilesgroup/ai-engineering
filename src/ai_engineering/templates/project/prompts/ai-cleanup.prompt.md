@@ -1,5 +1,5 @@
 ---
-description: "Repo hygiene: status, sync, prune, branch cleanup."
+description: "Full repository hygiene: status snapshot, sync, prune, and branch cleanup; use at session start, after merging PRs, between tasks, or before /create-spec."
 mode: "agent"
 ---
 

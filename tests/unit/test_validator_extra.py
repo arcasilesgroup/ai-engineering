@@ -181,3 +181,38 @@ def test_skill_frontmatter_invalid_yaml_and_missing_dir(tmp_path: Path) -> None:
     bad.write_text("---\nname: [\n---\n", encoding="utf-8")
     report2 = validate_content_integrity(tmp_path, categories=[IntegrityCategory.SKILL_FRONTMATTER])
     assert report2.category_passed(IntegrityCategory.SKILL_FRONTMATTER) is False
+
+
+def test_manifest_coherence_active_null_unquoted(tmp_path: Path) -> None:
+    """Unquoted `active: null` is treated as no active spec (passes)."""
+    ai = _mk(tmp_path)
+    (ai / "manifest.yml").write_text("name: x\n", encoding="utf-8")
+    active = ai / "context" / "specs" / "_active.md"
+    active.write_text("active: null\n", encoding="utf-8")
+    report = validate_content_integrity(tmp_path, categories=[IntegrityCategory.MANIFEST_COHERENCE])
+    assert report.category_passed(IntegrityCategory.MANIFEST_COHERENCE)
+
+
+def test_manifest_coherence_active_tilde(tmp_path: Path) -> None:
+    """YAML tilde `~` is a null alias and should pass."""
+    ai = _mk(tmp_path)
+    (ai / "manifest.yml").write_text("name: x\n", encoding="utf-8")
+    active = ai / "context" / "specs" / "_active.md"
+    active.write_text("active: ~\n", encoding="utf-8")
+    report = validate_content_integrity(tmp_path, categories=[IntegrityCategory.MANIFEST_COHERENCE])
+    assert report.category_passed(IntegrityCategory.MANIFEST_COHERENCE)
+
+
+def test_manifest_coherence_archive_spec_found(tmp_path: Path) -> None:
+    """Active spec pointing to archive/ directory passes validation."""
+    ai = _mk(tmp_path)
+    (ai / "manifest.yml").write_text("name: x\n", encoding="utf-8")
+    # Create spec in archive dir
+    spec_dir = ai / "context" / "specs" / "archive" / "033-archived"
+    spec_dir.mkdir(parents=True, exist_ok=True)
+    for f in ("spec.md", "plan.md", "tasks.md"):
+        (spec_dir / f).write_text(f"# {f}\n", encoding="utf-8")
+    active = ai / "context" / "specs" / "_active.md"
+    active.write_text('active: "033-archived"\n', encoding="utf-8")
+    report = validate_content_integrity(tmp_path, categories=[IntegrityCategory.MANIFEST_COHERENCE])
+    assert report.category_passed(IntegrityCategory.MANIFEST_COHERENCE)

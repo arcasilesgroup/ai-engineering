@@ -1,5 +1,5 @@
 ---
-description: "Review and evolve standards from delivery outcomes."
+description: "Propose and apply standards updates from measurable evidence (gate failures, audits, incidents). Use when recurring workflow friction, new risks, or platform changes require policy updates."
 mode: "agent"
 ---
 

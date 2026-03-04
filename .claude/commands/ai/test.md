@@ -1,3 +1,5 @@
-Load and execute skill: `.ai-engineering/skills/test/SKILL.md`
-Unified testing: plan strategy, write/run tests, detect coverage gaps. Modes: plan | run | gap.
+Read and execute the skill defined in `.ai-engineering/skills/test/SKILL.md`.
+
+Follow the complete procedure. Do not skip steps. Apply all governance notes. If the skill references standards or other skills, read those as needed.
+
 $ARGUMENTS

@@ -1,13 +1,15 @@
 """Decision store CLI commands.
 
-Provides `ai-eng decision list` and `ai-eng decision expire-check`
-for managing the decision store without AI tokens.
+Provides `ai-eng decision list`, `ai-eng decision expire-check`,
+and `ai-eng decision record` for managing the decision store
+without AI tokens.
 """
 
 from __future__ import annotations
 
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Annotated
 
 import typer
 
@@ -92,3 +94,97 @@ def decision_expire_check() -> None:
         for d in expiring:
             days_left = (d.expires_at - now).days if d.expires_at else 0
             typer.echo(f"  - {d.id}: expires in {days_left} days ({d.expires_at})")
+
+
+def decision_record(
+    decision_id: Annotated[
+        str,
+        typer.Argument(help="Unique decision ID (e.g. 'd-034-shared-parser')."),
+    ],
+    context: Annotated[
+        str,
+        typer.Option("--context", "-c", help="Context/scope of the decision."),
+    ],
+    decision_text: Annotated[
+        str,
+        typer.Option("--decision", "-d", help="The decision made."),
+    ],
+    spec_id: Annotated[
+        str,
+        typer.Option("--spec", "-s", help="Spec that owns this decision."),
+    ] = "",
+    severity: Annotated[
+        str | None,
+        typer.Option("--severity", help="Risk severity: low, medium, high, critical."),
+    ] = None,
+    category: Annotated[
+        str | None,
+        typer.Option(
+            "--category",
+            help="Category: risk-acceptance, flow-decision, architecture-decision.",
+        ),
+    ] = None,
+    expires: Annotated[
+        str | None,
+        typer.Option("--expires", help="Expiry date in ISO format (YYYY-MM-DD)."),
+    ] = None,
+) -> None:
+    """Record a new decision in the decision store (dual-write: JSON + audit)."""
+    from ai_engineering.state.models import (
+        AuditEntry,
+        Decision,
+        DecisionStatus,
+        DecisionStore,
+        RiskCategory,
+        RiskSeverity,
+    )
+
+    root = _project_root()
+    svc = StateService(root)
+    store_path = root / ".ai-engineering" / "state" / "decision-store.json"
+
+    # Load or create store
+    if store_path.exists():
+        try:
+            store = svc.load_decisions()
+        except (OSError, ValueError):
+            store = DecisionStore()
+    else:
+        store = DecisionStore()
+
+    # Check for duplicate ID
+    if store.find_by_id(decision_id):
+        typer.echo(f"Decision '{decision_id}' already exists. Use a unique ID.")
+        raise typer.Exit(code=1)
+
+    # Parse optional fields
+    parsed_severity = RiskSeverity(severity) if severity else None
+    parsed_category = RiskCategory(category) if category else None
+    parsed_expires = datetime.fromisoformat(expires).replace(tzinfo=UTC) if expires else None
+
+    now = datetime.now(tz=UTC)
+    entry = Decision(
+        id=decision_id,
+        context=context,
+        decision=decision_text,
+        decidedAt=now,
+        spec=spec_id,
+        severity=parsed_severity,
+        riskCategory=parsed_category,  # type: ignore[call-arg]
+        expiresAt=parsed_expires,  # type: ignore[call-arg]
+        status=DecisionStatus.ACTIVE,
+    )
+
+    store.decisions.append(entry)
+    svc.save_decisions(store)
+
+    # Dual-write: emit audit signal
+    audit = AuditEntry(
+        event="decision_recorded",
+        actor="cli",
+        spec=spec_id or None,
+        detail=f"Recorded decision {decision_id}",
+    )
+    svc.append_audit(audit)
+
+    typer.echo(f"Recorded decision '{decision_id}' → decision-store.json + audit-log.")

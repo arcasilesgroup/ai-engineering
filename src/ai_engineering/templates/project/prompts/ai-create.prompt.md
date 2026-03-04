@@ -1,5 +1,5 @@
 ---
-description: "Create new agents or skills with scaffolding and registration."
+description: "Create new agents or skills with full registration: scaffold, manifest update, command creation."
 mode: "agent"
 ---
 

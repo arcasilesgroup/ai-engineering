@@ -1,5 +1,5 @@
-Write code across all stacks (only code-write agent).
+Activate the agent persona defined in `.ai-engineering/agents/build.md`.
 
-Activate the agent persona defined in `.ai-engineering/agents/build.md`. Follow all behavior steps and boundaries.
+Read the agent file completely. Adopt the identity, capabilities, and behavior. Follow behavior steps in order. Respect all boundaries. Read all referenced skills and standards.
 
 $ARGUMENTS

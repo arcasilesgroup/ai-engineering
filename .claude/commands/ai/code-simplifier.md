@@ -1,3 +1,5 @@
-Load and execute skill: `.ai-engineering/skills/code-simplifier/SKILL.md`
-Reduce code complexity with pattern-aware reconnaissance. Modes: guard clauses, early returns, extract methods — preserving behavior.
+Read and execute the skill defined in `.ai-engineering/skills/code-simplifier/SKILL.md`.
+
+Follow the complete procedure. Do not skip steps. Apply all governance notes. If the skill references standards or other skills, read those as needed.
+
 $ARGUMENTS

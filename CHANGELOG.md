@@ -8,6 +8,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **`ai-eng spec` CLI commands** — `verify` (auto-correct task counters), `catalog` (regenerate `_catalog.md`), `list` (show active spec with progress), `compact` (prune old archived specs).
+- **`ai-eng decision record`** — dual-write protocol: persists new decisions to `decision-store.json` AND `audit-log.ndjson` in a single CLI command.
+- **Shared frontmatter parser** — `lib/parsing.py` with `parse_frontmatter()` and `count_checkboxes()` as single source of truth, replacing duplicated inline parsers.
+- **Spec `_catalog.md`** — auto-generated catalog of all archived specs with tag index.
+- **`StateService.save_decisions()`** — convenience method for writing decision store.
+
+### Changed
+- **Spec closure normalization** — `done.md` is now mandatory for spec completion; `completed==total` alone produces a warning, not closure.
+- **Validator regex fix** — `manifest_coherence.py` handles unquoted `null`/`none`/`~` in `_active.md` and looks up specs in both `context/specs/` and `context/specs/archive/`.
+- **Spec skill enriched frontmatter** — scaffold now includes `size`, `tags`, `branch`, `pipeline`, `decisions` fields.
+- **Commit skill updated** — `ai-eng spec verify` runs before each commit.
+- **PR skill updated** — `ai-eng spec verify` + `ai-eng spec catalog` run at PR creation.
+- **Cleanup skill updated** — `ai-eng spec compact --dry-run` runs during cleanup flow.
+- **`standards/framework/core.md` expanded** — documents enriched frontmatter schema and new CLI commands.
+- **Mirror sync** — 84 mirror files synchronized (Claude commands, Copilot prompts, Copilot agents, governance templates); fixed pre-existing template desyncs.
+
+### Added
 - **`execute` agent** — reads approved plan, dispatches specialized agents, coordinates execution, checkpoints progress, and reports results.
 - **`plan` skill** — standalone planning skill (`/ai:plan`) with input classification, pipeline strategy, and spec creation.
 - **`/ai:plan` and `/ai:execute` command contract** — plan pipeline (classify → discover → risk → spec → execution plan → STOP) and execute dispatcher documented in CLAUDE.md.

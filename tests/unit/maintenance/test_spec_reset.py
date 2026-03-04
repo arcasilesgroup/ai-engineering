@@ -75,8 +75,12 @@ class TestCheckActiveSpec:
         assert slug == "001-feature"
         assert completed is True
 
-    def test_active_with_complete_tasks(self, tmp_path):
-        """Active spec with completed==total in tasks is detected as completed."""
+    def test_active_with_complete_tasks_but_no_done(self, tmp_path):
+        """Active spec with completed==total but no done.md is NOT completed.
+
+        done.md is mandatory for closure; completed==total is necessary but
+        not sufficient.
+        """
         ai_eng = tmp_path / ".ai-engineering"
         specs_dir = ai_eng / "context" / "specs"
         specs_dir.mkdir(parents=True)
@@ -86,7 +90,7 @@ class TestCheckActiveSpec:
 
         slug, completed = check_active_spec(ai_eng)
         assert slug == "002-refactor"
-        assert completed is True
+        assert completed is False
 
     def test_active_in_progress(self, tmp_path):
         """Active spec without done.md and incomplete tasks is not completed."""
@@ -148,14 +152,14 @@ class TestFindCompletedSpecs:
         assert "001-done" in completed
         assert "002-wip" not in completed
 
-    def test_finds_specs_with_complete_tasks(self, tmp_path):
-        """Specs with completed==total are found."""
+    def test_does_not_find_complete_tasks_without_done(self, tmp_path):
+        """Specs with completed==total but no done.md are NOT found."""
         specs_dir = tmp_path / "specs"
         _create_spec_dir(specs_dir, "003-tasks-done", tasks_complete=True)
         _create_spec_dir(specs_dir, "004-tasks-wip")
 
         completed = find_completed_specs(specs_dir)
-        assert "003-tasks-done" in completed
+        assert "003-tasks-done" not in completed
         assert "004-tasks-wip" not in completed
 
     def test_ignores_archive_dir(self, tmp_path):

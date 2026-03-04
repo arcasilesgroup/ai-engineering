@@ -1,5 +1,5 @@
 ---
-description: "Generate README, CONTRIBUTING, and docs site."
+description: "Documentation authoring with modes: generate (create/update docs) and simplify (reduce verbosity preserving accuracy)."
 mode: "agent"
 ---
 

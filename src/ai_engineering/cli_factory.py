@@ -36,6 +36,7 @@ from ai_engineering.cli_commands import (
     setup,
     signals_cmd,
     skills,
+    spec_cmd,
     stack_ide,
     validate,
     vcs,
@@ -343,7 +344,20 @@ def create_app() -> typer.Typer:
     )
     decision_app.command("list")(_safe(decisions_cmd.decision_list))
     decision_app.command("expire-check")(_safe(decisions_cmd.decision_expire_check))
+    decision_app.command("record")(_safe(decisions_cmd.decision_record))
     app.add_typer(decision_app, name="decision")
+
+    # Spec sub-group (v3: spec lifecycle management)
+    spec_app = typer.Typer(
+        name="spec",
+        help="Spec lifecycle: verify counters, generate catalog, list active.",
+        no_args_is_help=True,
+    )
+    spec_app.command("verify")(_safe(spec_cmd.spec_verify))
+    spec_app.command("catalog")(_safe(spec_cmd.spec_catalog))
+    spec_app.command("list")(_safe(spec_cmd.spec_list))
+    spec_app.command("compact")(_safe(spec_cmd.spec_compact))
+    app.add_typer(spec_app, name="spec")
 
     # Scan report sub-group (v3: raw findings formatter)
     scan_report_app = typer.Typer(

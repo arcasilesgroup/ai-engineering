@@ -1,3 +1,5 @@
-Load and execute skill: `.ai-engineering/skills/delete/SKILL.md`
-Delete agents or skills with full cleanup. Usage: /ai:delete agent <name> or /ai:delete skill <name>.
+Read and execute the skill defined in `.ai-engineering/skills/delete/SKILL.md`.
+
+Follow the complete procedure. Do not skip steps. Apply all governance notes. If the skill references standards or other skills, read those as needed.
+
 $ARGUMENTS

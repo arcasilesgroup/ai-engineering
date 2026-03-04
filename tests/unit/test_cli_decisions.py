@@ -269,3 +269,175 @@ class TestDecisionExpireCheck:
         assert "DEC-001" in result.output
         assert "EXPIRING SOON" in result.output
         assert "DEC-002" in result.output
+
+
+class TestDecisionRecord:
+    """Tests for `ai-eng decision record`."""
+
+    def test_record_creates_new_decision(self, tmp_path: Path) -> None:
+        """Record creates decision-store.json with the new entry."""
+        (tmp_path / ".ai-engineering" / "state").mkdir(parents=True)
+        with patch(
+            "ai_engineering.cli_commands.decisions_cmd._project_root",
+            return_value=tmp_path,
+        ):
+            app = create_app()
+            result = runner.invoke(
+                app,
+                [
+                    "decision",
+                    "record",
+                    "d-test-001",
+                    "--context",
+                    "test context",
+                    "--decision",
+                    "test decision",
+                    "--spec",
+                    "spec-034",
+                ],
+            )
+        assert result.exit_code == 0
+        assert "Recorded" in result.output
+        assert "d-test-001" in result.output
+        store_path = tmp_path / ".ai-engineering" / "state" / "decision-store.json"
+        assert store_path.exists()
+        data = json.loads(store_path.read_text())
+        assert len(data["decisions"]) == 1
+        assert data["decisions"][0]["id"] == "d-test-001"
+        assert data["decisions"][0]["status"] == "active"
+
+    def test_record_appends_to_existing_store(self, tmp_path: Path) -> None:
+        """Record appends to an existing store without losing entries."""
+        _make_decision_store(tmp_path, [_base_decision(id="DEC-001")])
+        with patch(
+            "ai_engineering.cli_commands.decisions_cmd._project_root",
+            return_value=tmp_path,
+        ):
+            app = create_app()
+            result = runner.invoke(
+                app,
+                [
+                    "decision",
+                    "record",
+                    "d-test-002",
+                    "--context",
+                    "new context",
+                    "--decision",
+                    "new decision",
+                ],
+            )
+        assert result.exit_code == 0
+        data = json.loads(
+            (tmp_path / ".ai-engineering" / "state" / "decision-store.json").read_text()
+        )
+        assert len(data["decisions"]) == 2
+
+    def test_record_rejects_duplicate_id(self, tmp_path: Path) -> None:
+        """Record fails when the ID already exists."""
+        _make_decision_store(tmp_path, [_base_decision(id="DEC-001")])
+        with patch(
+            "ai_engineering.cli_commands.decisions_cmd._project_root",
+            return_value=tmp_path,
+        ):
+            app = create_app()
+            result = runner.invoke(
+                app,
+                [
+                    "decision",
+                    "record",
+                    "DEC-001",
+                    "--context",
+                    "dup",
+                    "--decision",
+                    "dup",
+                ],
+            )
+        assert result.exit_code == 1
+        assert "already exists" in result.output
+
+    def test_record_with_severity_and_category(self, tmp_path: Path) -> None:
+        """Record stores optional severity and category."""
+        (tmp_path / ".ai-engineering" / "state").mkdir(parents=True)
+        with patch(
+            "ai_engineering.cli_commands.decisions_cmd._project_root",
+            return_value=tmp_path,
+        ):
+            app = create_app()
+            result = runner.invoke(
+                app,
+                [
+                    "decision",
+                    "record",
+                    "d-test-003",
+                    "--context",
+                    "risk ctx",
+                    "--decision",
+                    "accept risk",
+                    "--severity",
+                    "high",
+                    "--category",
+                    "risk-acceptance",
+                ],
+            )
+        assert result.exit_code == 0
+        data = json.loads(
+            (tmp_path / ".ai-engineering" / "state" / "decision-store.json").read_text()
+        )
+        entry = data["decisions"][0]
+        assert entry["severity"] == "high"
+        assert entry["riskCategory"] == "risk-acceptance"
+
+    def test_record_with_expires(self, tmp_path: Path) -> None:
+        """Record stores expiry date."""
+        (tmp_path / ".ai-engineering" / "state").mkdir(parents=True)
+        with patch(
+            "ai_engineering.cli_commands.decisions_cmd._project_root",
+            return_value=tmp_path,
+        ):
+            app = create_app()
+            result = runner.invoke(
+                app,
+                [
+                    "decision",
+                    "record",
+                    "d-test-004",
+                    "--context",
+                    "ctx",
+                    "--decision",
+                    "dec",
+                    "--expires",
+                    "2026-01-15",
+                ],
+            )
+        assert result.exit_code == 0
+        data = json.loads(
+            (tmp_path / ".ai-engineering" / "state" / "decision-store.json").read_text()
+        )
+        assert "2026-01-15" in data["decisions"][0]["expiresAt"]
+
+    def test_record_emits_audit_signal(self, tmp_path: Path) -> None:
+        """Record writes an audit-log entry (dual-write)."""
+        (tmp_path / ".ai-engineering" / "state").mkdir(parents=True)
+        with patch(
+            "ai_engineering.cli_commands.decisions_cmd._project_root",
+            return_value=tmp_path,
+        ):
+            app = create_app()
+            runner.invoke(
+                app,
+                [
+                    "decision",
+                    "record",
+                    "d-test-005",
+                    "--context",
+                    "ctx",
+                    "--decision",
+                    "dec",
+                ],
+            )
+        audit_path = tmp_path / ".ai-engineering" / "state" / "audit-log.ndjson"
+        assert audit_path.exists()
+        line = audit_path.read_text().strip()
+        audit = json.loads(line)
+        assert audit["event"] == "decision_recorded"
+        assert "d-test-005" in audit["detail"]

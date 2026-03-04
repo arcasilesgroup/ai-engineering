@@ -1,7 +1,7 @@
 ---
 name: "Release"
-description: "ALM lifecycle — commit, PR, release gate, triage, work-items, deploy"
-tools: [codebase, editFiles, fetch, githubRepo, problems, readFile, runCommands, search, terminalLastCommand]
+description: "release agent"
+tools: [codebase, editFiles, fetch, githubRepo, problems, readFile, runCommands, search, terminalLastCommand, testFailures]
 ---
 
 Activate the agent persona defined in `.ai-engineering/agents/release.md`.

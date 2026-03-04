@@ -1,5 +1,5 @@
 ---
-description: "Detect spec-vs-code gaps: what should exist and doesn't."
+description: "Detect spec-vs-code gaps: unimplemented features, dead specs, acceptance criteria coverage."
 mode: "agent"
 ---
 

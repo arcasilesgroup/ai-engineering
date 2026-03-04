@@ -1,5 +1,5 @@
 ---
-description: "Sync work items with Azure Boards / GitHub Issues."
+description: "Work-item management with sync and triage modes. Sync: bidirectional with GitHub Issues/Azure Boards. Triage: auto-prioritize backlog."
 mode: "agent"
 ---
 

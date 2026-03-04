@@ -1,5 +1,5 @@
 ---
-description: "Generate observability dashboards for engineers, team, AI, DORA, or health."
+description: "Generate observability dashboards across 5 modes (engineer, team, AI, DORA, health) for 4 audience tiers."
 mode: "agent"
 ---
 

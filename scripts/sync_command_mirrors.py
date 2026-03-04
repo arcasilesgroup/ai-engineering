@@ -16,11 +16,13 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import re
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+
+# Allow importing from src/ for shared utilities
+sys.path.insert(0, str(ROOT / "src"))
 SKILLS_ROOT = ROOT / ".ai-engineering" / "skills"
 AGENTS_ROOT = ROOT / ".ai-engineering" / "agents"
 CLAUDE_COMMANDS = ROOT / ".claude" / "commands"
@@ -154,20 +156,14 @@ AGENT_DESCRIPTIONS: dict[str, tuple[str, str]] = {
 
 
 def parse_frontmatter(path: Path) -> dict[str, str]:
-    """Extract YAML frontmatter fields from a markdown file using regex."""
+    """Extract YAML frontmatter fields from a markdown file.
+
+    Delegates to the shared parser in ``ai_engineering.lib.parsing``.
+    """
+    from ai_engineering.lib.parsing import parse_frontmatter as _parse
+
     text = path.read_text(encoding="utf-8")
-    match = re.match(r"^---\s*\n(.*?)\n---", text, re.DOTALL)
-    if not match:
-        return {}
-    block = match.group(1)
-    result: dict[str, str] = {}
-    for line in block.splitlines():
-        m = re.match(r"^(\w+):\s*(?:\"(.*?)\"|'(.*?)'|(.+))$", line)
-        if m:
-            key = m.group(1)
-            value = m.group(2) or m.group(3) or m.group(4)
-            result[key] = value.strip()
-    return result
+    return _parse(text)
 
 
 def discover_skills() -> list[tuple[str, dict[str, str]]]:

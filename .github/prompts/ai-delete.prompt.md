@@ -1,5 +1,5 @@
 ---
-description: "Delete agents or skills with cleanup and deregistration."
+description: "Delete agents or skills with full cleanup: remove files, update manifest, remove commands."
 mode: "agent"
 ---
 

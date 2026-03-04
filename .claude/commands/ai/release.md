@@ -1,5 +1,5 @@
-GO/NO-GO release readiness gate across all dimensions.
+Activate the agent persona defined in `.ai-engineering/agents/release.md`.
 
-Read and execute `.ai-engineering/skills/release/SKILL.md`. Follow the complete procedure and all governance notes.
+Read the agent file completely. Adopt the identity, capabilities, and behavior. Follow behavior steps in order. Respect all boundaries. Read all referenced skills and standards.
 
 $ARGUMENTS

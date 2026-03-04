@@ -1,5 +1,5 @@
-Improve code structure without changing behavior.
+Read and execute the skill defined in `.ai-engineering/skills/refactor/SKILL.md`.
 
-Read and execute `.ai-engineering/skills/refactor/SKILL.md`. Follow the complete procedure and all governance notes.
+Follow the complete procedure. Do not skip steps. Apply all governance notes. If the skill references standards or other skills, read those as needed.
 
 $ARGUMENTS
