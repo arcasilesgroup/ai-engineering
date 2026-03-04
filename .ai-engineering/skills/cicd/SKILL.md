@@ -107,4 +107,3 @@ Generate stack-aware CI/CD workflow files (GitHub Actions, Azure Pipelines) base
 - `standards/framework/stacks/rust.md` — Rust check details.
 - `standards/framework/stacks/azure.md` — Azure Pipelines patterns.
 - `standards/framework/stacks/infrastructure.md` — deployment platform patterns.
-- `skills/references/delivery-platform-patterns.md` — delivery/platform patterns for provider-aware pipelines.

@@ -104,6 +104,15 @@ TEST_SCOPE_RULES: list[ScopeRule] = [
         },
     ),
     ScopeRule(
+        name="lib",
+        source_globs=["src/ai_engineering/lib/**/*.py"],
+        tiers={
+            "unit": [],
+            "integration": [],
+            "e2e": [],
+        },
+    ),
+    ScopeRule(
         name="cli_commands",
         source_globs=["src/ai_engineering/cli_commands/**/*.py"],
         tiers={

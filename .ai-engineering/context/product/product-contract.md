@@ -6,7 +6,7 @@
 - **Status**: Active development — Phase 2 (dogfooding + hardening)
 - **Version**: 0.1.0 — next: 0.2.0
 - **Model**: content-first, AI-governed
-- 47 skills, 6 agents, 14 stacks (details: CLAUDE.md)
+- 33 skills, 6 agents, 14 stacks (details: CLAUDE.md)
 
 ## 2. Roadmap
 

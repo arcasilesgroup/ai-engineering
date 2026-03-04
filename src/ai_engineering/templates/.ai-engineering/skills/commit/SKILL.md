@@ -54,7 +54,7 @@ Execute the `/commit` governed workflow: stage all changes, run mandatory pre-co
    - If `README.md` does NOT exist AND changes are non-trivial: create it targeting OSS GitHub audience. Stage the new file.
      d. **External documentation portal**:
    - Ask: "Do you have an external documentation portal (docs site, wiki, separate repo)? Provide the repo URL, or 'skip'."
-   - If URL provided: clone, branch, update, commit + push + create PR with auto-complete (use VCS-appropriate CLI per `skills/references/vcs-commands.md`), report URL.
+   - If URL provided: clone, branch, update, commit + push + create PR with auto-complete (use VCS-appropriate CLI), report URL.
    - If 'skip': continue without external docs.
 6. **Commit** — `git commit -m "<message>"` with a well-formed commit message following project conventions.
    - If active spec exists, use format: `spec-NNN: Task X.Y — <description>`.
@@ -99,4 +99,4 @@ Actions:
 - `skills/changelog/SKILL.md` — changelog entry formatting (used by documentation gate).
 - `skills/docs/SKILL.md` — README and documentation update procedure for OSS GitHub users (used by documentation gate).
 - `skills/pr/SKILL.md` — PR workflow (includes acho alias behavior).
-- `agents/review.md` — agent that validates commit workflow execution.
+- `agents/release.md` — agent that validates commit workflow execution.

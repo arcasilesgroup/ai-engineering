@@ -134,14 +134,10 @@ Actions:
 
 ## References
 
-- `skills/compliance/SKILL.md` — contract compliance gate.
-- `skills/ownership/SKILL.md` — ownership safety gate.
-- `skills/integrity/SKILL.md` — structural integrity gate.
-- `skills/audit/SKILL.md` — code quality gate.
-- `skills/test-gap/SKILL.md` — test confidence gate.
-- `skills/docs-audit/SKILL.md` — documentation coherence gate.
-- `skills/install/SKILL.md` — packaging integrity gate.
-- `skills/sonar/SKILL.md` — optional Sonar quality gate dimension.
-- `skills/sec-review/SKILL.md` — security enforcement gate.
-- `agents/review.md` — orchestrator that uses this skill and command reliability source.
+- `skills/governance/SKILL.md` — compliance, ownership, integrity gates.
+- `skills/quality/SKILL.md` — code quality gate.
+- `skills/test/SKILL.md` — test confidence gate.
+- `skills/docs/SKILL.md` — documentation coherence gate.
+- `skills/security/SKILL.md` — security enforcement gate.
+- `agents/release.md` — orchestrator that uses this skill and command reliability source.
 - `standards/framework/quality/core.md` — quality thresholds.
