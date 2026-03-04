@@ -20,46 +20,6 @@ from ai_engineering.doctor.models import CheckResult, CheckStatus, DoctorReport
 __all__ = ["CheckResult", "CheckStatus", "DoctorReport"]
 
 
-def diagnose(
-    target: Path,
-    *,
-    fix_hooks: bool = False,
-    fix_tools: bool = False,
-) -> DoctorReport:
-    """Run all diagnostic checks on a target project.
-
-    Args:
-        target: Root directory of the target project.
-        fix_hooks: If True, attempt to reinstall hooks on failure.
-        fix_tools: If True, attempt to install missing tools via pip/uv.
-
-    Returns:
-        DoctorReport with all check results.
-    """
-    from ai_engineering.doctor.checks.branch_policy import check_branch_policy
-    from ai_engineering.doctor.checks.hooks import check_hooks
-    from ai_engineering.doctor.checks.layout import check_layout
-    from ai_engineering.doctor.checks.readiness import check_operational_readiness
-    from ai_engineering.doctor.checks.state_files import check_state_files
-    from ai_engineering.doctor.checks.tools import check_tools, check_vcs_tools
-    from ai_engineering.doctor.checks.venv import check_venv_health
-    from ai_engineering.doctor.checks.version_check import check_version
-
-    report = DoctorReport()
-
-    check_layout(target, report)
-    check_state_files(target, report)
-    check_hooks(target, report, fix=fix_hooks)
-    check_venv_health(target, report, fix=fix_tools)
-    check_tools(report, fix=fix_tools)
-    check_vcs_tools(report)
-    check_branch_policy(target, report)
-    check_operational_readiness(target, report)
-    check_version(report)
-
-    return report
-
-
 def check_platforms(target: Path, report: DoctorReport) -> None:
     """Validate stored platform credentials are still valid."""
     from ai_engineering.credentials.service import CredentialService
@@ -179,3 +139,48 @@ def check_platforms(target: Path, report: DoctorReport) -> None:
                 message="Azure DevOps not configured",
             )
         )
+
+
+def diagnose(
+    target: Path,
+    *,
+    fix_hooks: bool = False,
+    fix_tools: bool = False,
+    include_platforms: bool = False,
+) -> DoctorReport:
+    """Run all diagnostic checks on a target project.
+
+    Args:
+        target: Root directory of the target project.
+        fix_hooks: If True, attempt to reinstall hooks on failure.
+        fix_tools: If True, attempt to install missing tools via pip/uv.
+        include_platforms: If True, validate stored platform credentials.
+
+    Returns:
+        DoctorReport with all check results.
+    """
+    from ai_engineering.doctor.checks.branch_policy import check_branch_policy
+    from ai_engineering.doctor.checks.hooks import check_hooks
+    from ai_engineering.doctor.checks.layout import check_layout
+    from ai_engineering.doctor.checks.readiness import check_operational_readiness
+    from ai_engineering.doctor.checks.state_files import check_state_files
+    from ai_engineering.doctor.checks.tools import check_tools, check_vcs_tools
+    from ai_engineering.doctor.checks.venv import check_venv_health
+    from ai_engineering.doctor.checks.version_check import check_version
+
+    report = DoctorReport()
+
+    check_layout(target, report)
+    check_state_files(target, report)
+    check_hooks(target, report, fix=fix_hooks)
+    check_venv_health(target, report, fix=fix_tools)
+    check_tools(report, fix=fix_tools)
+    check_vcs_tools(report)
+    check_branch_policy(target, report)
+    check_operational_readiness(target, report)
+    check_version(report)
+
+    if include_platforms:
+        check_platforms(target, report)
+
+    return report

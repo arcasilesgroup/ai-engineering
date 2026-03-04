@@ -1,9 +1,9 @@
 ---
 spec: "033"
 total: 48
-completed: 44
+completed: 48
 last_session: "2026-03-04"
-next_session: "Phase 9 — CI cron + SSRF rule"
+next_session: "Phase 11 — Verification + Close"
 ---
 
 # Tasks — 18-Dimension Audit Remediation
@@ -81,20 +81,20 @@ next_session: "Phase 9 — CI cron + SSRF rule"
 
 ## Phase 9: P2 — CI Cron + SSRF Rule [S]
 
-- [ ] 9.1 Create `.github/workflows/maintenance.yml` with weekly cron schedule running `ai-eng maintenance all`
-- [ ] 9.2 Verify SSRF rule added in Phase 1 covers `requests.get($URL)` patterns
-- [ ] 9.3 Run CI lint check on new workflow file
+- [x] 9.1 Create `.github/workflows/maintenance.yml` with weekly cron schedule running `ai-eng maintenance all`
+- [x] 9.2 Verify SSRF rule added in Phase 1 covers `requests.get($URL)` patterns
+- [x] 9.3 Run CI lint check on new workflow file
 
 ## Phase 10: P2 — Wire check_platforms + Fill Test Stubs [M]
 
-- [ ] 10.1 Add `--check-platforms` flag to `diagnose()` in `doctor/service.py`; wire `check_platforms()` when flag is set
-- [ ] 10.2 Fill test stub: `test_version_check_fail_when_deprecated` in `test_doctor_integration.py`
-- [ ] 10.3 Fill test stub: `test_returns_false_on_all_failures` in `test_readiness_integration.py`
-- [ ] 10.4 Fill test stub: `test_project_template_root_missing_raises` in `test_installer_integration.py`
-- [ ] 10.5 Fill test stub: `test_skills_cli_branches` in `test_cli_command_modules.py`
-- [ ] 10.6 Fill test stub: `test_returns_python_when_manifest_empty_stacks` in `test_gates_integration.py`
-- [ ] 10.7 Fill test stub: `test_pr_creation_returns_false_on_failure` in `test_skills_integration.py`
-- [ ] 10.8 Run full test suite
+- [x] 10.1 Add `--check-platforms` flag to `diagnose()` in `doctor/service.py`; wire `check_platforms()` when flag is set
+- [x] 10.2 Fill test stub: `test_version_check_fail_when_deprecated` in `test_doctor_integration.py`
+- [x] 10.3 Fill test stub: `test_returns_false_on_all_failures` in `test_readiness_integration.py`
+- [x] 10.4 Fill test stub: `test_project_template_root_missing_raises` in `test_installer_integration.py`
+- [x] 10.5 Fill test stub: `test_skills_cli_branches` in `test_cli_command_modules.py`
+- [x] 10.6 Fill test stub: `test_returns_python_when_manifest_empty_stacks` in `test_gates_integration.py`
+- [x] 10.7 Fill test stub: `test_pr_creation_returns_false_on_failure` in `test_skills_integration.py`
+- [x] 10.8 Run full test suite
 
 ## Phase 11: Verification + Close [S]
 

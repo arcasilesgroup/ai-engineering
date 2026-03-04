@@ -134,9 +134,13 @@ def test_branch_cleanup_remaining_paths(tmp_path: Path) -> None:
 
 
 def test_doctor_remaining_branches(tmp_path: Path) -> None:
+    from ai_engineering.doctor.checks.branch_policy import check_branch_policy
+    from ai_engineering.doctor.checks.tools import check_tools
+    from ai_engineering.doctor.checks.version_check import check_version
+
     report = doctor.DoctorReport()
     with patch("ai_engineering.doctor.checks.tools.is_tool_available", return_value=False):
-        doctor._check_tools(report, fix=False)
+        check_tools(report, fix=False)
     assert any(c.status == doctor.CheckStatus.WARN for c in report.checks)
 
     report2 = doctor.DoctorReport()
@@ -144,14 +148,14 @@ def test_doctor_remaining_branches(tmp_path: Path) -> None:
         patch("ai_engineering.doctor.checks.tools.is_tool_available", return_value=False),
         patch("ai_engineering.doctor.checks.tools.try_install", return_value=False),
     ):
-        doctor._check_tools(report2, fix=True)
+        check_tools(report2, fix=True)
     assert any(c.status == doctor.CheckStatus.FAIL for c in report2.checks)
 
     report3 = doctor.DoctorReport()
     with patch(
         "ai_engineering.doctor.checks.branch_policy.get_current_branch", return_value="main"
     ):
-        doctor._check_branch_policy(tmp_path, report3)
+        check_branch_policy(tmp_path, report3)
     assert any("protected branch" in c.message for c in report3.checks)
 
     report4 = doctor.DoctorReport()
@@ -159,45 +163,50 @@ def test_doctor_remaining_branches(tmp_path: Path) -> None:
         status=None, message="warn", is_current=False, is_deprecated=False, is_eol=False
     )
     with patch("ai_engineering.version.checker.check_version", return_value=version):
-        doctor._check_version(report4)
+        check_version(report4)
     assert any(c.name == "version-lifecycle" for c in report4.checks)
+
+    from ai_engineering.detector.readiness import try_install
 
     with (
         patch("ai_engineering.detector.readiness.shutil.which", return_value=None),
         patch("ai_engineering.detector.readiness.subprocess.run", side_effect=FileNotFoundError),
     ):
-        assert doctor._try_install_tool("x") is False
+        assert try_install("x") is False
 
 
 def test_gates_remaining_branches(tmp_path: Path) -> None:
+    from ai_engineering.policy.checks.risk import load_decision_store
+    from ai_engineering.policy.checks.stack_runner import run_tool_check
+
     result = gates.GateResult(hook=gates.GateHook.PRE_PUSH)
     long_output = "x" * 700
     proc = SimpleNamespace(returncode=1, stdout=long_output, stderr="")
     with (
-        patch("ai_engineering.policy.gates.shutil.which", return_value="/bin/cmd"),
-        patch("ai_engineering.policy.gates.subprocess.run", return_value=proc),
+        patch("ai_engineering.policy.checks.stack_runner.shutil.which", return_value="/bin/cmd"),
+        patch("ai_engineering.policy.checks.stack_runner.subprocess.run", return_value=proc),
     ):
-        gates._run_tool_check(result, name="tool", cmd=["cmd"], cwd=tmp_path)
+        run_tool_check(result, name="tool", cmd=["cmd"], cwd=tmp_path)
     assert "truncated" in result.checks[-1].output
 
     result2 = gates.GateResult(hook=gates.GateHook.PRE_PUSH)
     with (
-        patch("ai_engineering.policy.gates.shutil.which", return_value="/bin/cmd"),
+        patch("ai_engineering.policy.checks.stack_runner.shutil.which", return_value="/bin/cmd"),
         patch(
-            "ai_engineering.policy.gates.subprocess.run",
+            "ai_engineering.policy.checks.stack_runner.subprocess.run",
             side_effect=subprocess.TimeoutExpired("cmd", 1),
         ),
     ):
-        gates._run_tool_check(result2, name="tool", cmd=["cmd"], cwd=tmp_path)
+        run_tool_check(result2, name="tool", cmd=["cmd"], cwd=tmp_path)
     assert "timed out" in result2.checks[-1].output
 
     result3 = gates.GateResult(hook=gates.GateHook.PRE_PUSH)
-    with patch("ai_engineering.policy.gates.shutil.which", return_value=None):
-        gates._run_tool_check(result3, name="tool", cmd=["cmd"], cwd=tmp_path, required=False)
+    with patch("ai_engineering.policy.checks.stack_runner.shutil.which", return_value=None):
+        run_tool_check(result3, name="tool", cmd=["cmd"], cwd=tmp_path, required=False)
     assert "skipped" in result3.checks[-1].output
 
-    with patch("ai_engineering.policy.gates.read_json_model", side_effect=ValueError("bad")):
-        assert gates._load_decision_store(tmp_path) is None
+    with patch("ai_engineering.policy.checks.risk.read_json_model", side_effect=ValueError("bad")):
+        assert load_decision_store(tmp_path) is None
 
 
 def test_skills_service_remaining_branches(tmp_path: Path) -> None:

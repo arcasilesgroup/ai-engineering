@@ -441,4 +441,15 @@ class TestCreateMaintenancePR:
         self,
         installed_project: Path,
     ) -> None:
-        pass
+        import subprocess
+
+        report = generate_report(installed_project)
+
+        # Make subprocess.run raise CalledProcessError to simulate git failure
+        with patch(
+            "ai_engineering.maintenance.report.subprocess.run",
+            side_effect=subprocess.CalledProcessError(1, "git"),
+        ):
+            result = create_maintenance_pr(installed_project, report)
+
+        assert result is False

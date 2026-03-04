@@ -687,7 +687,24 @@ class TestGetActiveStacks:
         assert stacks == ["python", "dotnet"]
 
     def test_returns_python_when_manifest_empty_stacks(self, tmp_path: Path) -> None:
-        pass
+        import json
+
+        ds_dir = tmp_path / ".ai-engineering" / "state"
+        ds_dir.mkdir(parents=True)
+        (ds_dir / "install-manifest.json").write_text(
+            json.dumps(
+                {
+                    "schemaVersion": "1.1",
+                    "frameworkVersion": "0.1.0",
+                    "installedAt": "2026-02-22T00:00:00Z",
+                    "installedStacks": [],
+                    "installedIdes": [],
+                    "toolingReadiness": {},
+                }
+            )
+        )
+        stacks = _get_active_stacks(tmp_path)
+        assert stacks == ["python"]
 
     def test_returns_python_when_manifest_invalid(self, tmp_path: Path) -> None:
         ds_dir = tmp_path / ".ai-engineering" / "state"
