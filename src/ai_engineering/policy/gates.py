@@ -221,7 +221,7 @@ def _override_test_cmd(
         updated.append(check)
 
     clone["python"] = updated
-    return clone  # type: ignore[return-value]
+    return clone
 
 
 def _append_scope_diagnostic(result: GateResult, *, scope: TestScope, mode: str) -> None:
