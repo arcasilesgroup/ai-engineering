@@ -205,3 +205,373 @@ class TestSetupAzureDevOps:
         mock_resolve.return_value = tmp_path
         runner.invoke(setup_app, ["azure-devops"])
         mock_azdo.assert_called_once()
+
+
+# ---------------------------------------------------------------
+# JSON mode paths
+# ---------------------------------------------------------------
+
+
+class TestJsonModePaths:
+    """Tests for JSON mode output branches."""
+
+    @patch("ai_engineering.cli_commands.setup.is_json_mode", return_value=True)
+    @patch("ai_engineering.cli_commands.setup.detect_platforms", return_value=[])
+    @patch("ai_engineering.cli_commands.setup.resolve_project_root")
+    def test_platforms_json_mode(
+        self,
+        mock_resolve: MagicMock,
+        mock_detect: MagicMock,
+        mock_json: MagicMock,
+        project_root: Path,
+    ) -> None:
+        mock_resolve.return_value = project_root
+        result = runner.invoke(setup_app, ["platforms"])
+        assert result.exit_code == 0
+
+    @patch("ai_engineering.cli_commands.setup.is_json_mode", return_value=True)
+    @patch("ai_engineering.cli_commands.setup.resolve_project_root")
+    def test_github_json_mode(
+        self,
+        mock_resolve: MagicMock,
+        mock_json: MagicMock,
+        project_root: Path,
+    ) -> None:
+        mock_resolve.return_value = project_root
+        mock_gh = MagicMock()
+        mock_gh.is_cli_installed.return_value = False
+        with patch(
+            "ai_engineering.platforms.github.GitHubSetup",
+            mock_gh,
+        ):
+            result = runner.invoke(setup_app, ["github"])
+        assert result.exit_code == 0
+
+    @patch("ai_engineering.cli_commands.setup.is_json_mode", return_value=True)
+    @patch("ai_engineering.cli_commands.setup.resolve_project_root")
+    def test_sonar_json_mode_returns_error(
+        self,
+        mock_resolve: MagicMock,
+        mock_json: MagicMock,
+        project_root: Path,
+    ) -> None:
+        mock_resolve.return_value = project_root
+        result = runner.invoke(setup_app, ["sonar"])
+        assert result.exit_code == 0
+
+    @patch("ai_engineering.cli_commands.setup.is_json_mode", return_value=True)
+    @patch("ai_engineering.cli_commands.setup.resolve_project_root")
+    def test_azure_devops_json_mode_returns_error(
+        self,
+        mock_resolve: MagicMock,
+        mock_json: MagicMock,
+        project_root: Path,
+    ) -> None:
+        mock_resolve.return_value = project_root
+        result = runner.invoke(setup_app, ["azure-devops"])
+        assert result.exit_code == 0
+
+    @patch("ai_engineering.cli_commands.setup.is_json_mode", return_value=True)
+    @patch("ai_engineering.cli_commands.setup.resolve_project_root")
+    def test_sonarlint_json_mode_returns_error(
+        self,
+        mock_resolve: MagicMock,
+        mock_json: MagicMock,
+        project_root: Path,
+    ) -> None:
+        mock_resolve.return_value = project_root
+        result = runner.invoke(setup_app, ["sonarlint"])
+        assert result.exit_code == 0
+
+
+# ---------------------------------------------------------------
+# Internal setup flows
+# ---------------------------------------------------------------
+
+
+class TestRunGitHubSetup:
+    """Tests for the _run_github_setup internal function."""
+
+    @patch("ai_engineering.cli_commands.setup.resolve_project_root")
+    def test_github_cli_not_installed(
+        self,
+        mock_resolve: MagicMock,
+        project_root: Path,
+    ) -> None:
+        mock_resolve.return_value = project_root
+        mock_gh = MagicMock()
+        mock_gh.is_cli_installed.return_value = False
+        with patch(
+            "ai_engineering.platforms.github.GitHubSetup",
+            mock_gh,
+        ):
+            from ai_engineering.cli_commands.setup import _run_github_setup
+
+            _run_github_setup(project_root)
+
+    @patch("ai_engineering.cli_commands.setup.resolve_project_root")
+    def test_github_not_authenticated(
+        self,
+        mock_resolve: MagicMock,
+        project_root: Path,
+    ) -> None:
+        mock_resolve.return_value = project_root
+        mock_gh = MagicMock()
+        mock_gh.is_cli_installed.return_value = True
+        status = MagicMock()
+        status.authenticated = False
+        mock_gh.check_scopes.return_value = status
+        mock_gh.get_login_instructions.return_value = "Run: gh auth login"
+        with patch(
+            "ai_engineering.platforms.github.GitHubSetup",
+            mock_gh,
+        ):
+            from ai_engineering.cli_commands.setup import _run_github_setup
+
+            _run_github_setup(project_root)
+
+    @patch("ai_engineering.cli_commands.setup.resolve_project_root")
+    def test_github_authenticated_missing_scopes(
+        self,
+        mock_resolve: MagicMock,
+        project_root: Path,
+    ) -> None:
+        mock_resolve.return_value = project_root
+        mock_gh = MagicMock()
+        mock_gh.is_cli_installed.return_value = True
+        status = MagicMock()
+        status.authenticated = True
+        status.username = "testuser"
+        status.missing_scopes = ["repo"]
+        status.scopes = ["read:org"]
+        mock_gh.check_scopes.return_value = status
+        mock_gh.get_login_command.return_value = ["gh", "auth", "login"]
+        with patch(
+            "ai_engineering.platforms.github.GitHubSetup",
+            mock_gh,
+        ):
+            from ai_engineering.cli_commands.setup import _run_github_setup
+
+            _run_github_setup(project_root)
+
+    @patch("ai_engineering.cli_commands.setup.resolve_project_root")
+    def test_github_authenticated_all_scopes(
+        self,
+        mock_resolve: MagicMock,
+        project_root: Path,
+    ) -> None:
+        mock_resolve.return_value = project_root
+        mock_gh = MagicMock()
+        mock_gh.is_cli_installed.return_value = True
+        status = MagicMock()
+        status.authenticated = True
+        status.username = "testuser"
+        status.missing_scopes = []
+        status.scopes = ["repo", "read:org"]
+        mock_gh.check_scopes.return_value = status
+        with patch(
+            "ai_engineering.platforms.github.GitHubSetup",
+            mock_gh,
+        ):
+            from ai_engineering.cli_commands.setup import _run_github_setup
+
+            _run_github_setup(project_root)
+
+
+class TestRunSonarSetup:
+    """Tests for the _run_sonar_setup internal function."""
+
+    def test_sonar_setup_valid_token(self, project_root: Path) -> None:
+        mock_cred = MagicMock()
+        mock_cred.load_tools_state.return_value = MagicMock()
+        mock_cred.service_name.return_value = "ai-engineering/sonar"
+        mock_sonar = MagicMock()
+        result_obj = MagicMock()
+        result_obj.valid = True
+        mock_sonar.validate_token.return_value = result_obj
+        mock_sonar_cls = MagicMock(return_value=mock_sonar)
+        mock_sonar_cls.get_token_url.return_value = "https://sonar/tokens"
+
+        with (
+            patch("ai_engineering.cli_commands.setup.CredentialService", return_value=mock_cred),
+            patch("ai_engineering.platforms.sonar.SonarSetup", mock_sonar_cls),
+            patch("ai_engineering.cli_commands.setup.typer.prompt", return_value="squ_token"),
+        ):
+            from ai_engineering.cli_commands.setup import _run_sonar_setup
+
+            _run_sonar_setup(
+                project_root,
+                url_override="https://sonarcloud.io",
+                project_key_override="my-proj",
+                organization_override="my-org",
+            )
+
+    def test_sonar_setup_invalid_token(self, project_root: Path) -> None:
+        mock_cred = MagicMock()
+        mock_sonar = MagicMock()
+        result_obj = MagicMock()
+        result_obj.valid = False
+        result_obj.error = "Unauthorized"
+        mock_sonar.validate_token.return_value = result_obj
+        mock_sonar_cls = MagicMock(return_value=mock_sonar)
+        mock_sonar_cls.get_token_url.return_value = "https://sonar/tokens"
+
+        with (
+            patch("ai_engineering.cli_commands.setup.CredentialService", return_value=mock_cred),
+            patch("ai_engineering.platforms.sonar.SonarSetup", mock_sonar_cls),
+            patch("ai_engineering.cli_commands.setup.typer.prompt", return_value="bad_token"),
+        ):
+            from ai_engineering.cli_commands.setup import _run_sonar_setup
+
+            _run_sonar_setup(project_root, url_override="https://sonar.io")
+
+
+class TestRunAzureDevOpsSetup:
+    """Tests for the _run_azure_devops_setup internal function."""
+
+    def test_azdo_setup_valid_pat(self, project_root: Path) -> None:
+        mock_cred = MagicMock()
+        mock_cred.load_tools_state.return_value = MagicMock()
+        mock_cred.service_name.return_value = "ai-engineering/azure_devops"
+        mock_azdo = MagicMock()
+        result_obj = MagicMock()
+        result_obj.valid = True
+        mock_azdo.validate_pat.return_value = result_obj
+        mock_azdo_cls = MagicMock(return_value=mock_azdo)
+        mock_azdo_cls.get_token_url.return_value = "https://dev.azure.com/_usersSettings/tokens"
+
+        with (
+            patch("ai_engineering.cli_commands.setup.CredentialService", return_value=mock_cred),
+            patch("ai_engineering.platforms.azure_devops.AzureDevOpsSetup", mock_azdo_cls),
+            patch("ai_engineering.cli_commands.setup.typer.prompt", return_value="pat_token"),
+        ):
+            from ai_engineering.cli_commands.setup import _run_azure_devops_setup
+
+            _run_azure_devops_setup(project_root, org_url_override="https://dev.azure.com/my-org")
+
+    def test_azdo_setup_invalid_pat(self, project_root: Path) -> None:
+        mock_cred = MagicMock()
+        mock_azdo = MagicMock()
+        result_obj = MagicMock()
+        result_obj.valid = False
+        result_obj.error = "Unauthorized"
+        mock_azdo.validate_pat.return_value = result_obj
+        mock_azdo_cls = MagicMock(return_value=mock_azdo)
+        mock_azdo_cls.get_token_url.return_value = "https://dev.azure.com/_usersSettings/tokens"
+
+        with (
+            patch("ai_engineering.cli_commands.setup.CredentialService", return_value=mock_cred),
+            patch("ai_engineering.platforms.azure_devops.AzureDevOpsSetup", mock_azdo_cls),
+            patch("ai_engineering.cli_commands.setup.typer.prompt", return_value="bad_pat"),
+        ):
+            from ai_engineering.cli_commands.setup import _run_azure_devops_setup
+
+            _run_azure_devops_setup(project_root, org_url_override="https://dev.azure.com/org")
+
+
+class TestRunSonarLintSetup:
+    """Tests for the _run_sonarlint_setup internal function."""
+
+    def test_sonarlint_no_sonar_url(self, project_root: Path) -> None:
+        mock_cred = MagicMock()
+        state = MagicMock()
+        state.sonar.url = ""
+        mock_cred.load_tools_state.return_value = state
+        with patch("ai_engineering.cli_commands.setup.CredentialService", return_value=mock_cred):
+            from ai_engineering.cli_commands.setup import _run_sonarlint_setup
+
+            _run_sonarlint_setup(project_root)
+
+    def test_sonarlint_no_project_key(self, project_root: Path) -> None:
+        mock_cred = MagicMock()
+        state = MagicMock()
+        state.sonar.url = "https://sonarcloud.io"
+        state.sonar.project_key = ""
+        mock_cred.load_tools_state.return_value = state
+        with patch("ai_engineering.cli_commands.setup.CredentialService", return_value=mock_cred):
+            from ai_engineering.cli_commands.setup import _run_sonarlint_setup
+
+            _run_sonarlint_setup(project_root)
+
+    def test_sonarlint_with_detected_ides(self, project_root: Path) -> None:
+        mock_cred = MagicMock()
+        state = MagicMock()
+        state.sonar.url = "https://sonarcloud.io"
+        state.sonar.project_key = "my-proj"
+        mock_cred.load_tools_state.return_value = state
+
+        from ai_engineering.platforms.sonarlint import IDEFamily
+
+        mock_result = MagicMock()
+        mock_result.success = True
+        mock_result.ide_family = "vscode"
+        mock_result.files_written = [".vscode/settings.json"]
+        mock_summary = MagicMock()
+        mock_summary.results = [mock_result]
+        mock_summary.any_success = True
+
+        with (
+            patch("ai_engineering.cli_commands.setup.CredentialService", return_value=mock_cred),
+            patch(
+                "ai_engineering.platforms.sonarlint.detect_ide_families",
+                return_value=[IDEFamily.VSCODE],
+            ),
+            patch(
+                "ai_engineering.platforms.sonarlint.configure_all_ides",
+                return_value=mock_summary,
+            ),
+        ):
+            from ai_engineering.cli_commands.setup import _run_sonarlint_setup
+
+            _run_sonarlint_setup(project_root)
+
+    def test_sonarlint_no_ides_detected(self, project_root: Path) -> None:
+        mock_cred = MagicMock()
+        state = MagicMock()
+        state.sonar.url = "https://sonarcloud.io"
+        state.sonar.project_key = "my-proj"
+        mock_cred.load_tools_state.return_value = state
+
+        with (
+            patch("ai_engineering.cli_commands.setup.CredentialService", return_value=mock_cred),
+            patch(
+                "ai_engineering.platforms.sonarlint.detect_ide_families",
+                return_value=[],
+            ),
+            patch("ai_engineering.cli_commands.setup.typer.confirm", return_value=False),
+        ):
+            from ai_engineering.cli_commands.setup import _run_sonarlint_setup
+
+            _run_sonarlint_setup(project_root)
+
+
+# ---------------------------------------------------------------
+# Sonar/AzDO detected in platforms command
+# ---------------------------------------------------------------
+
+
+class TestSetupPlatformsAllDetected:
+    """Tests for platforms command with all platforms detected."""
+
+    @patch("ai_engineering.cli_commands.setup._run_azure_devops_setup")
+    @patch("ai_engineering.cli_commands.setup._run_sonar_setup")
+    @patch("ai_engineering.cli_commands.setup._run_github_setup")
+    @patch(
+        "ai_engineering.cli_commands.setup.detect_platforms",
+        return_value=[PlatformKind.GITHUB, PlatformKind.SONAR, PlatformKind.AZURE_DEVOPS],
+    )
+    @patch("ai_engineering.cli_commands.setup.resolve_project_root")
+    def test_all_platforms_detected(
+        self,
+        mock_resolve: MagicMock,
+        mock_detect: MagicMock,
+        mock_github: MagicMock,
+        mock_sonar: MagicMock,
+        mock_azdo: MagicMock,
+        project_root: Path,
+    ) -> None:
+        mock_resolve.return_value = project_root
+        runner.invoke(setup_app, ["platforms"])
+        mock_github.assert_called_once()
+        mock_sonar.assert_called_once()
+        mock_azdo.assert_called_once()
