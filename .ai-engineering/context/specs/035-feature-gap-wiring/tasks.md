@@ -1,9 +1,9 @@
 ---
 spec: "035"
 total: 11
-completed: 8
+completed: 10
 last_session: "2026-03-04"
-next_session: "Phase 1 — commit"
+next_session: "Phase 2 — commit"
 ---
 
 # Tasks — Extend feature-gap with wiring detection
@@ -25,8 +25,8 @@ next_session: "Phase 1 — commit"
 
 ## Phase 2: Update scan agent [S]
 
-- [ ] 2.1 Update mode table: feature-gap description includes wiring gaps
-- [ ] 2.2 Update threshold table: feature-gap includes ">5 unwired exports" critical threshold
+- [x] 2.1 Update mode table: feature-gap description includes wiring gaps
+- [x] 2.2 Update threshold table: feature-gap includes ">5 unwired exports" critical threshold
 - [ ] 2.3 Atomic commit: `spec-035: Phase 2 — update scan agent for wiring coverage`
 
 ## Phase 3: Validate [S]
