@@ -74,8 +74,10 @@ def compare_versions(current: str, new: str) -> int:
     if c_pre is not None and n_pre is None:
         return -1
 
-    assert c_pre is not None
-    assert n_pre is not None
+    # Narrowing: both branches are guaranteed non-None at this point
+    if c_pre is None or n_pre is None:  # pragma: no cover
+        msg = "unreachable: pre-release None after guard clauses"
+        raise AssertionError(msg)
     c_parts = c_pre[2]
     n_parts = n_pre[2]
     c_norm = c_parts if isinstance(c_parts, tuple) else ()

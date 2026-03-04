@@ -38,7 +38,7 @@
 | Pre-commit | `git commit` | ruff format, ruff check, gitleaks, documentation gate | — |
 | Pre-push | `git push` | semgrep, pip-audit, pytest (unit tier scoped by changed modules), ty check | Unit (scoped) |
 | PR / CI | Pull request | All tiers staged: unit → integration → E2E (scoped by changed modules) + coverage + duplication | Unit + Integration + E2E |
-| Quality audit | On-demand | Full Sonar-like analysis (skills/audit/SKILL.md) | All (Live opt-in) |
+| Quality audit | On-demand | Full Sonar-like analysis (skills/quality/SKILL.md) | All (Live opt-in) |
 
 Test tier definitions are in `standards/framework/stacks/python.md`.
 
@@ -101,4 +101,4 @@ When multiple findings exist, remediate in this order (highest priority first):
 
 - `standards/framework/core.md` — non-negotiables and enforcement rules.
 - `standards/framework/stacks/python.md` — stack-specific quality baseline.
-- `skills/audit/SKILL.md` — quality audit skill (implements this contract).
+- `skills/quality/SKILL.md` — quality audit skill (implements this contract).

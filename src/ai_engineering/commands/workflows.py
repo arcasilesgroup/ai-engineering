@@ -17,6 +17,7 @@ AI agents read — these Python functions are the implementation backing.
 
 from __future__ import annotations
 
+import logging
 import subprocess
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -33,6 +34,8 @@ from ai_engineering.state.models import AuditEntry, DecisionStore
 from ai_engineering.vcs.factory import get_provider
 from ai_engineering.vcs.pr_description import build_pr_description, build_pr_title
 from ai_engineering.vcs.protocol import VcsContext
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Result types
@@ -526,7 +529,7 @@ def _check_unpushed_decision(
         decision = store.find_by_context_hash(context_hash)
         if decision is not None:
             return decision.decision
-    except Exception:
-        pass
+    except Exception:  # fail-open: missing store is not fatal
+        logger.debug("Could not read decision store", exc_info=True)
 
     return None

@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from enum import StrEnum
+from typing import Any
 from urllib.parse import urlparse
 
 from pydantic import BaseModel, Field
@@ -457,6 +458,10 @@ class AuditEntry(BaseModel):
     """A single governance event log entry.
 
     Appended to `.ai-engineering/state/audit-log.ndjson` (one JSON object per line).
+
+    The ``detail`` field accepts both simple strings and structured dicts,
+    enabling enriched events (scan results, gate outcomes, deploy signals)
+    while maintaining backward compatibility with existing string-only entries.
     """
 
     timestamp: datetime = Field(default_factory=lambda: datetime.now(tz=UTC))
@@ -464,7 +469,7 @@ class AuditEntry(BaseModel):
     actor: str
     spec: str | None = None
     task: str | None = None
-    detail: str | None = None
+    detail: str | dict[str, Any] | None = None
     session: str | None = None
 
 

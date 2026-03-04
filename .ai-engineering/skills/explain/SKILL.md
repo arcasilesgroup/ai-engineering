@@ -24,8 +24,7 @@ Feynman-style explanations of code, concepts, patterns, and architecture. When a
 
 ### Phase 1: Context Gathering
 
-1. **Read project context** — silently internalize learnings, standards, stack.
-   - Read `context/learnings.md` — institutional knowledge, past patterns.
+1. **Read project context** — silently internalize standards, stack.
    - Read `pyproject.toml` — detect stack, dependencies, project identity.
    - Do not report this step to the user.
 
@@ -144,10 +143,6 @@ Feynman-style explanations of code, concepts, patterns, and architecture. When a
     - "Show me in my code" → find the concept in the actual codebase using Grep/Glob.
     - Follow-up depth transitions are smooth — do not re-explain already-covered sections.
 
-12. **Capture learnings** — propose additions to `context/learnings.md` if undocumented patterns found.
-    - Only propose if the explanation revealed a pattern not yet in learnings.
-    - Ask user before writing. Do not write without confirmation.
-
 ### Headless Mode
 
 When invoked by another agent (not directly by user) or in CI context:
@@ -211,11 +206,9 @@ When invoked by another agent (not directly by user) or in CI context:
 
 ## References
 
-- `context/learnings.md` — institutional knowledge for codebase-specific context.
 - `standards/framework/core.md` — governance structure and precedence.
-- `skills/code-review/SKILL.md` — code understanding patterns.
-- `skills/arch-review/SKILL.md` — architecture context methodology.
+- `skills/quality/SKILL.md` — code understanding patterns.
+- `skills/architecture/SKILL.md` — architecture context methodology.
 - `skills/debug/SKILL.md` — root cause explanation patterns.
-- `skills/prompt/SKILL.md` — Chain of Thought framework for structured reasoning.
 - `agents/build.md` — agent that benefits from explanation capability.
 - `agents/scan.md` — agent that benefits from architecture explanations.

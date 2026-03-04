@@ -20,15 +20,21 @@ from typing import Annotated
 import typer
 
 from ai_engineering.cli_commands import (
+    checkpoint,
     cicd,
     core,
+    decisions_cmd,
     gate,
     guide,
     maintenance,
+    metrics,
+    observe,
     provider,
     release,
     review,
+    scan_report,
     setup,
+    signals_cmd,
     skills,
     stack_ide,
     validate,
@@ -105,6 +111,7 @@ def _app_callback(
                         "validate",
                         "version",
                         "guide",
+                        "observe",
                         "stack",
                         "ide",
                         "provider",
@@ -116,6 +123,11 @@ def _app_callback(
                         "cicd",
                         "setup",
                         "release",
+                        "signals",
+                        "checkpoint",
+                        "decision",
+                        "scan-report",
+                        "metrics",
                     ]
                 },
             )
@@ -183,6 +195,9 @@ def create_app() -> typer.Typer:
     app.command("version")(core.version_cmd)
     app.command("release")(_safe(release.release_cmd))
     app.command("guide")(_safe(guide.guide_cmd))
+
+    # Observe command (v3: observability dashboards)
+    app.command("observe")(_safe(observe.observe_cmd))
 
     # Stack sub-group
     stack_app = typer.Typer(
@@ -299,5 +314,53 @@ def create_app() -> typer.Typer:
     setup_app.command("azure-devops")(_safe(setup.setup_azure_devops_cmd))
     setup_app.command("sonarlint")(_safe(setup.setup_sonarlint_cmd))
     app.add_typer(setup_app, name="setup")
+
+    # Signals sub-group (v3: event store operations)
+    signals_app = typer.Typer(
+        name="signals",
+        help="Emit and query events in the audit log.",
+        no_args_is_help=True,
+    )
+    signals_app.command("emit")(_safe(signals_cmd.signals_emit))
+    signals_app.command("query")(_safe(signals_cmd.signals_query))
+    app.add_typer(signals_app, name="signals")
+
+    # Checkpoint sub-group (v3: session recovery)
+    checkpoint_app = typer.Typer(
+        name="checkpoint",
+        help="Save and load session checkpoints for recovery.",
+        no_args_is_help=True,
+    )
+    checkpoint_app.command("save")(_safe(checkpoint.checkpoint_save))
+    checkpoint_app.command("load")(_safe(checkpoint.checkpoint_load))
+    app.add_typer(checkpoint_app, name="checkpoint")
+
+    # Decision sub-group (v3: decision store management)
+    decision_app = typer.Typer(
+        name="decision",
+        help="Manage the decision store.",
+        no_args_is_help=True,
+    )
+    decision_app.command("list")(_safe(decisions_cmd.decision_list))
+    decision_app.command("expire-check")(_safe(decisions_cmd.decision_expire_check))
+    app.add_typer(decision_app, name="decision")
+
+    # Scan report sub-group (v3: raw findings formatter)
+    scan_report_app = typer.Typer(
+        name="scan-report",
+        help="Format raw scan findings into the standard report contract.",
+        no_args_is_help=True,
+    )
+    scan_report_app.command("format")(_safe(scan_report.scan_report_format))
+    app.add_typer(scan_report_app, name="scan-report")
+
+    # Metrics sub-group (v3: event store aggregation)
+    metrics_app = typer.Typer(
+        name="metrics",
+        help="Collect aggregated metrics from the event store.",
+        no_args_is_help=True,
+    )
+    metrics_app.command("collect")(_safe(metrics.metrics_collect))
+    app.add_typer(metrics_app, name="metrics")
 
     return app

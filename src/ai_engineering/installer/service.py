@@ -14,6 +14,7 @@ Steps performed by ``install()``:
 from __future__ import annotations
 
 import contextlib
+import logging
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -40,6 +41,8 @@ from .templates import (
     get_ai_engineering_template_root,
 )
 from .tools import ensure_tool, provider_required_tools
+
+logger = logging.getLogger(__name__)
 
 # Relative paths under ``.ai-engineering/`` for each state file.
 _STATE_FILES: dict[str, str] = {
@@ -371,5 +374,5 @@ def _configure_sonarlint_if_possible(
                 project_key=sonar_config.project_key,
                 ide_families=families,
             )
-    except Exception:
-        pass  # SonarLint configuration is best-effort
+    except Exception:  # best-effort SonarLint config
+        logger.debug("SonarLint IDE configuration failed", exc_info=True)

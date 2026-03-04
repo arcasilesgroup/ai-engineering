@@ -74,7 +74,7 @@
 
 ## Testing Patterns
 
-See `skills/test-run/SKILL.md` for full testing patterns and references.
+See `skills/test/SKILL.md` for full testing patterns and references.
 
 Summary:
 - One test file per module, AAA pattern (Arrange-Act-Assert).

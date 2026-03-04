@@ -8,16 +8,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **ai-engineering v3 architecture** — full redesign with 6 bounded-context agents (plan, build, scan, release, write, observe) and 33 skills (down from 47).
+- **11 new skills**: `architecture`, `code-simplifier`, `create`, `delete`, `feature-gap`, `governance`, `observe`, `perf`, `quality`, `security`, `test` — each consolidating multiple v2 skills into mode-based designs.
+- **2 new agents**: `observe` (observatory with 5 dashboard modes: engineer/team/ai/dora/health) and `release` (ALM + GitOps lifecycle).
+- **Python CLI observability layer** — `ai-eng observe`, `ai-eng signals`, `ai-eng checkpoint`, `ai-eng decisions`, `ai-eng metrics`, `ai-eng scan-report` commands for token-free deterministic metrics.
+- **Load-once signal pattern** — `load_all_events()` + `filter_events()` + `*_from()` variants eliminate redundant audit-log reads (8-9x I/O reduction per CLI invocation).
+- **Gate instrumentation** — `run_gate()` now emits `gate_result` audit events after each execution, enabling real metrics instead of seed data.
+- **AuditEntry enriched detail** — `detail` field evolved from `str | None` to `str | dict[str, Any] | None` for structured event payloads.
+- **Structured audit emitters** — `emit_gate_event()`, `emit_scan_event()`, `emit_build_event()`, `emit_deploy_event()`, `emit_session_event()` in `state/audit.py`.
 - **VCS commands reference** (`skills/references/vcs-commands.md`) — single-source command mapping for GitHub (`gh`) and Azure DevOps (`az repos`) CLI operations used across skills.
 - **Plan agent input classification** — `raw-idea`, `structured-request`, and `pre-made-plan` input types with adaptive discovery/risk/test depth per type.
 - **Plan agent pipeline data flow** — explicit data flow table and pipeline guards documenting what each step consumes, produces, and gates on.
 
 ### Changed
+- **47→33 skill consolidation** — merged overlapping skills: `test-plan`+`test-run`+`test-gap` → `test`; `sec-review`+`sec-deep`+`sbom`+`deps` → `security`; `integrity`+`compliance`+`ownership` → `governance`; `audit`+`sonar`+`code-review` → `quality`; `arch-review` → `architecture`; `perf-review` → `perf`; `docs`+`simplify` → `docs` (modes); `agent-lifecycle`+`skill-lifecycle`+`agent-card` → `create`+`delete`.
+- **6→6 agent restructure** — replaced `review` (God Object with 14 modes) and `triage` agents with bounded-context `scan` (7 assessment modes), `release` (ALM+GitOps), and `observe` (observatory).
+- **Cross-reference cleanup** — all skill/agent references updated from v2 names to v3 across 13+ governance files.
+- **`.github/agents/` synced** — removed `review.agent.md` and `triage.agent.md`, added `observe.agent.md` and `release.agent.md`.
+- **`.github/prompts/` synced** — removed 27 stale v2 prompt files, added 11 new v3 prompt files.
+- **README.md updated** — flat skill layout (33 skills) replacing v2 category directories.
+- **Security hardening** — replaced 3 bare `except: pass` patterns with `logger.debug()` calls; replaced 2 `assert` statements with explicit `raise AssertionError`.
 - **Framework contract restructured** — rewritten as concise enforcement document with MUST/MUST NOT directives; removed temporal content (moved to product-contract).
 - **Product contract simplified** — reduced to focused product model with architecture patterns and growth roadmap.
 - **Plan agent enhanced** — added architecture review, triage, test-plan, and risk skills to pipeline; added input classification and pipeline guards.
 - **PR skill updated** — added VCS commands reference, documentation gate, and existing PR upsert logic.
 - **Git helpers extended** — added VCS provider detection helpers.
+
+### Removed
+- **14 skills eliminated** — `agent-card`, `agent-lifecycle`, `arch-review`, `audit`, `code-review`, `compliance`, `data-model`, `deps`, `docs-audit`, `improve`, `install`, `integrity`, `multi-agent`, `ownership`, `perf-review`, `prompt`, `sbom`, `sec-deep`, `sec-review`, `simplify`, `skill-lifecycle`, `sonar`, `test-gap`, `test-plan`, `test-run`, `triage` — capabilities absorbed into consolidated v3 skills.
+- **2 agents removed** — `review` (absorbed by `scan` + `release`) and `triage` (absorbed by `release` work-item mode).
+- **Skill reference files** — removed `skills/references/` directory (9 files: api-design-patterns, behavioral-patterns, database-patterns, delivery-platform-patterns, git-helpers, language-framework-patterns, platform-detect, token-inventory, vcs-commands).
 
 ### Added
 - **`ai-eng guide` command** — re-displays branch policy setup instructions on demand. Reads guide text from install manifest instead of generating files.

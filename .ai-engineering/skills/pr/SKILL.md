@@ -191,5 +191,4 @@ Actions:
 - `skills/cleanup/SKILL.md` — repository hygiene workflow; spec reset moved from `/cleanup` to `/pr`.
 - `skills/changelog/SKILL.md` — changelog entry formatting (used by documentation gate).
 - `skills/docs/SKILL.md` — README and documentation update procedure for OSS GitHub users (used by documentation gate).
-- `skills/references/vcs-commands.md` — VCS CLI command mapping (GitHub + Azure DevOps).
-- `agents/review.md` — agent that validates PR workflow execution.
+- `agents/release.md` — agent that validates PR workflow execution.
