@@ -4,14 +4,14 @@ Covers:
 - CheckConfig: dataclass defaults.
 - GateCheckResult: creation and fields.
 - GateResult: aggregation, passed property, failed_checks property.
-- _validate_commit_message: empty/blank/valid/long commit messages.
-- _run_tool_check: tool found/missing, subprocess pass/fail/timeout, required vs advisory.
+- validate_commit_message: empty/blank/valid/long commit messages.
+- run_tool_check: tool found/missing, subprocess pass/fail/timeout, required vs advisory.
 - _get_active_stacks: manifest present/absent/invalid, fallback behavior.
-- _run_checks_for_stacks: dispatch common + per-stack, unknown stack.
+- run_checks_for_stacks: dispatch common + per-stack, unknown stack.
 - run_gate: pre-commit/commit-msg/pre-push orchestration, early return on protection fail.
-- _check_expiring_risk_acceptances: no expiring / expiring risks.
-- _check_expired_risk_acceptances: no expired / expired risks.
-- Registry validation: _PRE_PUSH_CHECKS python stack-tests flags.
+- check_expiring_risk_acceptances: no expiring / expiring risks.
+- check_expired_risk_acceptances: no expired / expired risks.
+- Registry validation: PRE_PUSH_CHECKS python stack-tests flags.
 
 All external dependencies are mocked — no subprocess calls, no git operations,
 no filesystem I/O beyond tmp_path for trivial file creation.
@@ -27,19 +27,23 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from ai_engineering.credentials.models import ToolsState
-from ai_engineering.policy.gates import (
-    _PRE_PUSH_CHECKS,
+from ai_engineering.policy.checks.commit_msg import validate_commit_message
+from ai_engineering.policy.checks.risk import (
+    check_expired_risk_acceptances,
+    check_expiring_risk_acceptances,
+)
+from ai_engineering.policy.checks.sonar import check_sonar_gate
+from ai_engineering.policy.checks.stack_runner import (
+    PRE_PUSH_CHECKS,
     CheckConfig,
+    run_checks_for_stacks,
+    run_tool_check,
+)
+from ai_engineering.policy.gates import (
     GateCheckResult,
     GateResult,
-    _check_expired_risk_acceptances,
-    _check_expiring_risk_acceptances,
-    _check_sonar_gate,
     _get_active_stacks,
-    _run_checks_for_stacks,
     _run_pre_push_checks,
-    _run_tool_check,
-    _validate_commit_message,
     run_gate,
 )
 from ai_engineering.policy.test_scope import TestScope
@@ -129,51 +133,51 @@ class TestGateResult:
         assert result.failed_checks == []
 
 
-# ── _validate_commit_message ─────────────────────────────────────────────
+# ── validate_commit_message ─────────────────────────────────────────────
 
 
 class TestValidateCommitMessage:
     """Tests for commit message validation."""
 
     def test_valid_message_passes(self) -> None:
-        errors = _validate_commit_message("feat: add new feature")
+        errors = validate_commit_message("feat: add new feature")
         assert errors == []
 
     def test_empty_message_fails(self) -> None:
-        errors = _validate_commit_message("")
+        errors = validate_commit_message("")
         assert len(errors) > 0
         assert "empty" in errors[0].lower()
 
     def test_whitespace_only_fails(self) -> None:
-        errors = _validate_commit_message("   \n  \n  ")
+        errors = validate_commit_message("   \n  \n  ")
         # After strip() in caller, msg becomes "" or first_line is empty
         # The function receives the stripped text, so let's test empty first line
-        errors = _validate_commit_message("\n\nsomething later")
+        errors = validate_commit_message("\n\nsomething later")
         assert len(errors) > 0
         assert "empty" in errors[0].lower()
 
     def test_long_first_line_fails(self) -> None:
         long_msg = "a" * 73
-        errors = _validate_commit_message(long_msg)
+        errors = validate_commit_message(long_msg)
         assert len(errors) > 0
         assert "72" in errors[0]
 
     def test_exactly_72_chars_passes(self) -> None:
         msg = "a" * 72
-        errors = _validate_commit_message(msg)
+        errors = validate_commit_message(msg)
         assert errors == []
 
     def test_multiline_valid(self) -> None:
         msg = "fix: resolve bug\n\nLonger description here."
-        errors = _validate_commit_message(msg)
+        errors = validate_commit_message(msg)
         assert errors == []
 
 
-# ── _run_tool_check ──────────────────────────────────────────────────────
+# ── run_tool_check ──────────────────────────────────────────────────────
 
 
 class TestRunToolCheck:
-    """Tests for _run_tool_check with mocked subprocess and shutil."""
+    """Tests for run_tool_check with mocked subprocess and shutil."""
 
     def test_tool_found_subprocess_passes(self) -> None:
         result = GateResult(hook=GateHook.PRE_COMMIT)
@@ -191,7 +195,7 @@ class TestRunToolCheck:
                 "ai_engineering.policy.checks.stack_runner.subprocess.run", return_value=mock_proc
             ),
         ):
-            _run_tool_check(
+            run_tool_check(
                 result,
                 name="ruff-lint",
                 cmd=["ruff", "check", "."],
@@ -218,7 +222,7 @@ class TestRunToolCheck:
                 "ai_engineering.policy.checks.stack_runner.subprocess.run", return_value=mock_proc
             ),
         ):
-            _run_tool_check(
+            run_tool_check(
                 result,
                 name="ruff-lint",
                 cmd=["ruff", "check", "."],
@@ -231,7 +235,7 @@ class TestRunToolCheck:
         result = GateResult(hook=GateHook.PRE_COMMIT)
 
         with patch("ai_engineering.policy.checks.stack_runner.shutil.which", return_value=None):
-            _run_tool_check(
+            run_tool_check(
                 result,
                 name="ruff-lint",
                 cmd=["ruff", "check", "."],
@@ -255,7 +259,7 @@ class TestRunToolCheck:
                 side_effect=subprocess.TimeoutExpired(cmd=["ruff"], timeout=10),
             ),
         ):
-            _run_tool_check(
+            run_tool_check(
                 result,
                 name="ruff-lint",
                 cmd=["ruff", "check", "."],
@@ -270,7 +274,7 @@ class TestRunToolCheck:
         result = GateResult(hook=GateHook.PRE_COMMIT)
 
         with patch("ai_engineering.policy.checks.stack_runner.shutil.which", return_value=None):
-            _run_tool_check(
+            run_tool_check(
                 result,
                 name="optional-tool",
                 cmd=["optional", "--check"],
@@ -297,7 +301,7 @@ class TestRunToolCheck:
                 "ai_engineering.policy.checks.stack_runner.subprocess.run", return_value=mock_proc
             ) as mock_run,
         ):
-            _run_tool_check(
+            run_tool_check(
                 result,
                 name="tool",
                 cmd=["tool", "run"],
@@ -367,11 +371,11 @@ class TestGetActiveStacks:
         assert stacks == ["python"]
 
 
-# ── _run_checks_for_stacks ───────────────────────────────────────────────
+# ── run_checks_for_stacks ───────────────────────────────────────────────
 
 
 class TestRunChecksForStacks:
-    """Tests for _run_checks_for_stacks dispatch logic."""
+    """Tests for run_checks_for_stacks dispatch logic."""
 
     def test_dispatches_common_and_stack_checks(self) -> None:
         result = GateResult(hook=GateHook.PRE_COMMIT)
@@ -381,7 +385,7 @@ class TestRunChecksForStacks:
         }
 
         with patch("ai_engineering.policy.checks.stack_runner.run_tool_check") as mock_run:
-            _run_checks_for_stacks(
+            run_checks_for_stacks(
                 Path("/fake"),
                 result,
                 registry,
@@ -401,7 +405,7 @@ class TestRunChecksForStacks:
         }
 
         with patch("ai_engineering.policy.checks.stack_runner.run_tool_check") as mock_run:
-            _run_checks_for_stacks(
+            run_checks_for_stacks(
                 Path("/fake"),
                 result,
                 registry,
@@ -516,7 +520,7 @@ class TestRunGate:
         assert result.hook == GateHook.PRE_PUSH
 
 
-# ── _check_expiring_risk_acceptances ─────────────────────────────────────
+# ── check_expiring_risk_acceptances ─────────────────────────────────────
 
 
 class TestCheckExpiringRiskAcceptances:
@@ -536,7 +540,7 @@ class TestCheckExpiringRiskAcceptances:
                 return_value=[],
             ),
         ):
-            _check_expiring_risk_acceptances(tmp_path, result)
+            check_expiring_risk_acceptances(tmp_path, result)
 
         assert len(result.checks) == 1
         assert result.checks[0].passed is True
@@ -568,7 +572,7 @@ class TestCheckExpiringRiskAcceptances:
                 return_value=[expiring_decision],
             ),
         ):
-            _check_expiring_risk_acceptances(tmp_path, result)
+            check_expiring_risk_acceptances(tmp_path, result)
 
         assert len(result.checks) == 1
         # Advisory: still passes
@@ -583,14 +587,14 @@ class TestCheckExpiringRiskAcceptances:
             "ai_engineering.policy.checks.risk.load_decision_store",
             return_value=None,
         ):
-            _check_expiring_risk_acceptances(tmp_path, result)
+            check_expiring_risk_acceptances(tmp_path, result)
 
         assert len(result.checks) == 1
         assert result.checks[0].passed is True
         assert "skipped" in result.checks[0].output.lower()
 
 
-# ── _check_expired_risk_acceptances ──────────────────────────────────────
+# ── check_expired_risk_acceptances ──────────────────────────────────────
 
 
 class TestCheckExpiredRiskAcceptances:
@@ -610,7 +614,7 @@ class TestCheckExpiredRiskAcceptances:
                 return_value=[],
             ),
         ):
-            _check_expired_risk_acceptances(tmp_path, result)
+            check_expired_risk_acceptances(tmp_path, result)
 
         assert len(result.checks) == 1
         assert result.checks[0].passed is True
@@ -641,7 +645,7 @@ class TestCheckExpiredRiskAcceptances:
                 return_value=[expired_decision],
             ),
         ):
-            _check_expired_risk_acceptances(tmp_path, result)
+            check_expired_risk_acceptances(tmp_path, result)
 
         assert len(result.checks) == 1
         assert result.checks[0].passed is False
@@ -654,7 +658,7 @@ class TestCheckExpiredRiskAcceptances:
             "ai_engineering.policy.checks.risk.load_decision_store",
             return_value=None,
         ):
-            _check_expired_risk_acceptances(tmp_path, result)
+            check_expired_risk_acceptances(tmp_path, result)
 
         assert len(result.checks) == 1
         assert result.checks[0].passed is True
@@ -668,7 +672,7 @@ class TestRegistryValidation:
     """Validate registry constants contain expected configuration."""
 
     def test_pre_push_python_stack_tests_flags(self) -> None:
-        python_checks = _PRE_PUSH_CHECKS["python"]
+        python_checks = PRE_PUSH_CHECKS["python"]
         stack_tests = [c for c in python_checks if c.name == "stack-tests"]
         assert len(stack_tests) == 1, "Expected exactly one stack-tests check for python"
 
@@ -903,7 +907,7 @@ class TestSonarGateAdvisory:
     ) -> None:
         result = GateResult(hook=GateHook.PRE_PUSH)
         monkeypatch.setattr("ai_engineering.policy.checks.sonar.shutil.which", lambda _: None)
-        _check_sonar_gate(tmp_path, result)
+        check_sonar_gate(tmp_path, result)
         assert result.checks[-1].passed is True
         assert "skipped" in result.checks[-1].output.lower()
 
@@ -914,7 +918,7 @@ class TestSonarGateAdvisory:
         monkeypatch.setattr(
             "ai_engineering.policy.checks.sonar.shutil.which", lambda _: "/usr/bin/sonar"
         )
-        _check_sonar_gate(tmp_path, result)
+        check_sonar_gate(tmp_path, result)
         assert result.checks[-1].passed is True
         assert "sonar-project.properties" in result.checks[-1].output
 
@@ -931,7 +935,7 @@ class TestSonarGateAdvisory:
             "ai_engineering.policy.checks.sonar.CredentialService.load_tools_state",
             lambda *_: ToolsState(),
         )
-        _check_sonar_gate(tmp_path, result)
+        check_sonar_gate(tmp_path, result)
         assert result.checks[-1].passed is True
         assert "not configured" in result.checks[-1].output.lower()
 
@@ -948,7 +952,7 @@ class TestSonarGateAdvisory:
             "ai_engineering.policy.checks.sonar.subprocess.run",
             lambda *_, **__: (_ for _ in ()).throw(FileNotFoundError()),
         )
-        _check_sonar_gate(tmp_path, result)
+        check_sonar_gate(tmp_path, result)
         assert result.checks[-1].passed is True
         assert "skipped" in result.checks[-1].output.lower()
 
@@ -970,7 +974,7 @@ class TestSonarGateAdvisory:
             "ai_engineering.policy.checks.sonar.subprocess.run", lambda *_, **__: proc
         )
 
-        _check_sonar_gate(tmp_path, result)
+        check_sonar_gate(tmp_path, result)
         assert result.checks[-1].passed is True
         assert "advisory" in result.checks[-1].output.lower()
         assert "failed" in result.checks[-1].output.lower()
@@ -991,6 +995,6 @@ class TestSonarGateAdvisory:
             "ai_engineering.policy.checks.sonar.subprocess.run", lambda *_, **__: proc
         )
 
-        _check_sonar_gate(tmp_path, result)
+        check_sonar_gate(tmp_path, result)
         assert result.checks[-1].passed is True
         assert "passed" in result.checks[-1].output.lower()

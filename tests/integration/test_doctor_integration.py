@@ -17,12 +17,11 @@ from pathlib import Path
 
 import pytest
 
+from ai_engineering.doctor.checks.venv import parse_pyvenv_home, recreate_venv
 from ai_engineering.doctor.service import (
     CheckResult,
     CheckStatus,
     DoctorReport,
-    _parse_pyvenv_home,
-    _recreate_venv,
     diagnose,
 )
 from ai_engineering.installer.service import install
@@ -207,7 +206,7 @@ class TestVenvHealthCheck:
         cfg = venv / "pyvenv.cfg"
         cfg.write_text("home = /nonexistent/stale/python/path\n", encoding="utf-8")
 
-        # Mock _recreate_venv to simulate successful recreation
+        # Mock recreate_venv to simulate successful recreation
         with patch(
             "ai_engineering.doctor.checks.venv.recreate_venv",
             return_value=True,
@@ -256,25 +255,25 @@ class TestVenvHealthCheck:
 
 
 class TestParsePyvenvHome:
-    """Tests for _parse_pyvenv_home helper."""
+    """Tests for parse_pyvenv_home helper."""
 
     def test_extracts_home_path(self, tmp_path: Path) -> None:
         cfg = tmp_path / "pyvenv.cfg"
         cfg.write_text("home = /opt/homebrew/bin\nversion = 3.12\n", encoding="utf-8")
-        assert _parse_pyvenv_home(cfg) == "/opt/homebrew/bin"
+        assert parse_pyvenv_home(cfg) == "/opt/homebrew/bin"
 
     def test_returns_none_when_no_home(self, tmp_path: Path) -> None:
         cfg = tmp_path / "pyvenv.cfg"
         cfg.write_text("version = 3.12\n", encoding="utf-8")
-        assert _parse_pyvenv_home(cfg) is None
+        assert parse_pyvenv_home(cfg) is None
 
     def test_returns_none_on_os_error(self, tmp_path: Path) -> None:
         cfg = tmp_path / "nonexistent" / "pyvenv.cfg"
-        assert _parse_pyvenv_home(cfg) is None
+        assert parse_pyvenv_home(cfg) is None
 
 
 class TestRecreateVenv:
-    """Tests for _recreate_venv helper."""
+    """Tests for recreate_venv helper."""
 
     def test_uses_python_version_pin(self, tmp_path: Path) -> None:
         from unittest.mock import patch
@@ -283,7 +282,7 @@ class TestRecreateVenv:
 
         with patch("ai_engineering.doctor.checks.venv.subprocess.run") as mock_run:
             mock_run.return_value = None
-            result = _recreate_venv(tmp_path)
+            result = recreate_venv(tmp_path)
 
         assert result is True
         call_args = mock_run.call_args
@@ -296,7 +295,7 @@ class TestRecreateVenv:
 
         with patch("ai_engineering.doctor.checks.venv.subprocess.run") as mock_run:
             mock_run.return_value = None
-            result = _recreate_venv(tmp_path)
+            result = recreate_venv(tmp_path)
 
         assert result is True
         call_args = mock_run.call_args
@@ -311,7 +310,7 @@ class TestRecreateVenv:
             "ai_engineering.doctor.checks.venv.subprocess.run",
             side_effect=sp.CalledProcessError(1, "uv"),
         ):
-            result = _recreate_venv(tmp_path)
+            result = recreate_venv(tmp_path)
 
         assert result is False
 

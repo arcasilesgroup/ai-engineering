@@ -224,6 +224,36 @@ def _get_version(name: str) -> str | None:
     return None
 
 
+def is_tool_available(name: str) -> bool:
+    """Check if a tool is available on PATH.
+
+    Public convenience wrapper around :func:`check_tool` for callers that only
+    need a boolean answer.
+
+    Args:
+        name: Tool name to look up (e.g. ``"ruff"``).
+
+    Returns:
+        ``True`` if the tool is found on PATH.
+    """
+    return shutil.which(name) is not None
+
+
+def try_install(package: str) -> bool:
+    """Attempt to install a Python package via *uv* or *pip*.
+
+    Tries ``uv pip install <package>`` first; falls back to
+    ``pip install <package>``.
+
+    Args:
+        package: Package name to install.
+
+    Returns:
+        ``True`` if installation succeeded.
+    """
+    return _try_install(package)
+
+
 def _try_install(package: str) -> bool:
     """Attempt to install a Python package via uv or pip.
 

@@ -16,8 +16,6 @@ are rejected.
 from __future__ import annotations
 
 import os
-import shutil  # noqa: F401 — re-exported for test patching
-import subprocess  # noqa: F401 — re-exported for test patching
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -315,77 +313,3 @@ def _run_pre_push_checks(project_root: Path, result: GateResult) -> None:
     run_checks_for_stacks(project_root, result, registry, stacks)
     check_sonar_gate(project_root, result)
     _check_expired_risk_acceptances(project_root, result)
-
-
-# ---------------------------------------------------------------------------
-# Backward-compatible re-exports for tests and consumers.
-# These were previously defined directly in this module.
-# Deferred imports to avoid circular dependency (check modules import
-# GateCheckResult/GateResult from this module).
-# ---------------------------------------------------------------------------
-
-
-def __getattr__(name: str) -> object:
-    """Lazy re-export of names moved to policy.checks sub-modules."""
-    if name == "CheckConfig":
-        from ai_engineering.policy.checks.stack_runner import CheckConfig
-
-        return CheckConfig
-    if name == "_PRE_COMMIT_CHECKS":
-        from ai_engineering.policy.checks.stack_runner import PRE_COMMIT_CHECKS
-
-        return PRE_COMMIT_CHECKS
-    if name == "_PRE_PUSH_CHECKS":
-        from ai_engineering.policy.checks.stack_runner import PRE_PUSH_CHECKS
-
-        return PRE_PUSH_CHECKS
-    if name == "_run_checks_for_stacks":
-        from ai_engineering.policy.checks.stack_runner import run_checks_for_stacks
-
-        return run_checks_for_stacks
-    if name == "_run_tool_check":
-        from ai_engineering.policy.checks.stack_runner import run_tool_check
-
-        return run_tool_check
-    if name == "_validate_commit_message":
-        from ai_engineering.policy.checks.commit_msg import validate_commit_message
-
-        return validate_commit_message
-    if name == "_check_expiring_risk_acceptances":
-        from ai_engineering.policy.checks.risk import check_expiring_risk_acceptances
-
-        return check_expiring_risk_acceptances
-    if name == "_check_expired_risk_acceptances":
-        from ai_engineering.policy.checks.risk import check_expired_risk_acceptances
-
-        return check_expired_risk_acceptances
-    if name == "_check_sonar_gate":
-        from ai_engineering.policy.checks.sonar import check_sonar_gate
-
-        return check_sonar_gate
-    if name == "_check_branch_protection":
-        from ai_engineering.policy.checks.branch_protection import check_branch_protection
-
-        return check_branch_protection
-    if name == "_check_version_deprecation":
-        from ai_engineering.policy.checks.branch_protection import check_version_deprecation
-
-        return check_version_deprecation
-    if name == "_check_hook_integrity":
-        from ai_engineering.policy.checks.branch_protection import check_hook_integrity
-
-        return check_hook_integrity
-    if name == "_load_decision_store":
-        from ai_engineering.policy.checks.risk import load_decision_store
-
-        return load_decision_store
-    if name == "_GATE_TRAILER":
-        from ai_engineering.policy.checks.commit_msg import _GATE_TRAILER
-
-        return _GATE_TRAILER
-    if name == "_inject_gate_trailer":
-        from ai_engineering.policy.checks.commit_msg import inject_gate_trailer
-
-        return inject_gate_trailer
-    msg = f"module {__name__!r} has no attribute {name!r}"
-    raise AttributeError(msg)

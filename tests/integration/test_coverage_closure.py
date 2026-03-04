@@ -142,7 +142,7 @@ def test_doctor_remaining_branches(tmp_path: Path) -> None:
     report2 = doctor.DoctorReport()
     with (
         patch("ai_engineering.doctor.checks.tools.is_tool_available", return_value=False),
-        patch("ai_engineering.doctor.checks.tools.try_install_tool", return_value=False),
+        patch("ai_engineering.doctor.checks.tools.try_install", return_value=False),
     ):
         doctor._check_tools(report2, fix=True)
     assert any(c.status == doctor.CheckStatus.FAIL for c in report2.checks)
@@ -162,7 +162,10 @@ def test_doctor_remaining_branches(tmp_path: Path) -> None:
         doctor._check_version(report4)
     assert any(c.name == "version-lifecycle" for c in report4.checks)
 
-    with patch("ai_engineering.doctor.checks.tools.subprocess.run", side_effect=FileNotFoundError):
+    with (
+        patch("ai_engineering.detector.readiness.shutil.which", return_value=None),
+        patch("ai_engineering.detector.readiness.subprocess.run", side_effect=FileNotFoundError),
+    ):
         assert doctor._try_install_tool("x") is False
 
 

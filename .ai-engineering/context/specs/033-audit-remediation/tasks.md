@@ -1,9 +1,9 @@
 ---
 spec: "033"
 total: 48
-completed: 25
+completed: 36
 last_session: "2026-03-04"
-next_session: "Phase 5 — Remove backward-compat shims"
+next_session: "Phase 7 — Validator rename + mirror sync"
 ---
 
 # Tasks — 18-Dimension Audit Remediation
@@ -50,20 +50,20 @@ next_session: "Phase 5 — Remove backward-compat shims"
 
 ## Phase 5: P2 — Remove Backward-Compat Shims [M]
 
-- [ ] 5.1 Migrate `test_gates.py` imports from `gates.__getattr__` names to `policy.checks.*` direct imports
-- [ ] 5.2 Migrate `test_gates_integration.py` imports similarly
-- [ ] 5.3 Remove `__getattr__` section from `policy/gates.py` (~65 LOC)
-- [ ] 5.4 Migrate `test_doctor*.py` patches from `doctor.service._check_*` to `doctor.checks.*` direct patches
-- [ ] 5.5 Remove backward-compat wrapper functions from `doctor/service.py` (~80 LOC)
-- [ ] 5.6 Remove re-exported constants (`_REQUIRED_DIRS`, `_TOOLS`, etc.) from `doctor/service.py`
-- [ ] 5.7 Run full test suite to verify no regressions
+- [x] 5.1 Migrate `test_gates.py` imports from `gates.__getattr__` names to `policy.checks.*` direct imports
+- [x] 5.2 Migrate `test_gates_integration.py` imports similarly
+- [x] 5.3 Remove `__getattr__` section from `policy/gates.py` (~65 LOC)
+- [x] 5.4 Migrate `test_doctor*.py` patches from `doctor.service._check_*` to `doctor.checks.*` direct patches
+- [x] 5.5 Remove backward-compat wrapper functions from `doctor/service.py` (~80 LOC)
+- [x] 5.6 Remove re-exported constants (`_REQUIRED_DIRS`, `_TOOLS`, etc.) from `doctor/service.py`
+- [x] 5.7 Run full test suite to verify no regressions
 
 ## Phase 6: P2 — Merge Tool-Availability Primitives [S]
 
-- [ ] 6.1 Export `is_tool_available()` and `try_install()` as public functions in `detector/readiness.py`
-- [ ] 6.2 Refactor `doctor/checks/tools.py` to delegate to `detector.readiness` instead of duplicating `shutil.which` + pip/uv logic
-- [ ] 6.3 Update tests that mock `doctor.checks.tools.is_tool_available` to use new import paths
-- [ ] 6.4 Run tests
+- [x] 6.1 Export `is_tool_available()` and `try_install()` as public functions in `detector/readiness.py`
+- [x] 6.2 Refactor `doctor/checks/tools.py` to delegate to `detector.readiness` instead of duplicating `shutil.which` + pip/uv logic
+- [x] 6.3 Update tests that mock `doctor.checks.tools.is_tool_available` to use new import paths
+- [x] 6.4 Run tests
 
 ## Phase 7: P2 — Validator Rename + Mirror Sync Expansion [S]
 

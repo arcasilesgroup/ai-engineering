@@ -13,8 +13,6 @@ Supports ``--fix-hooks`` and ``--fix-tools`` remediation modes.
 
 from __future__ import annotations
 
-import shutil  # noqa: F401 — re-exported for test patching
-import subprocess  # noqa: F401 — re-exported for test patching
 from pathlib import Path
 
 from ai_engineering.doctor.models import CheckResult, CheckStatus, DoctorReport
@@ -38,17 +36,26 @@ def diagnose(
     Returns:
         DoctorReport with all check results.
     """
+    from ai_engineering.doctor.checks.branch_policy import check_branch_policy
+    from ai_engineering.doctor.checks.hooks import check_hooks
+    from ai_engineering.doctor.checks.layout import check_layout
+    from ai_engineering.doctor.checks.readiness import check_operational_readiness
+    from ai_engineering.doctor.checks.state_files import check_state_files
+    from ai_engineering.doctor.checks.tools import check_tools, check_vcs_tools
+    from ai_engineering.doctor.checks.venv import check_venv_health
+    from ai_engineering.doctor.checks.version_check import check_version
+
     report = DoctorReport()
 
-    _check_layout(target, report)
-    _check_state_files(target, report)
-    _check_hooks(target, report, fix=fix_hooks)
-    _check_venv_health(target, report, fix=fix_tools)
-    _check_tools(report, fix=fix_tools)
-    _check_vcs_tools(report)
-    _check_branch_policy(target, report)
-    _check_operational_readiness(target, report)
-    _check_version(report)
+    check_layout(target, report)
+    check_state_files(target, report)
+    check_hooks(target, report, fix=fix_hooks)
+    check_venv_health(target, report, fix=fix_tools)
+    check_tools(report, fix=fix_tools)
+    check_vcs_tools(report)
+    check_branch_policy(target, report)
+    check_operational_readiness(target, report)
+    check_version(report)
 
     return report
 
@@ -172,109 +179,3 @@ def check_platforms(target: Path, report: DoctorReport) -> None:
                 message="Azure DevOps not configured",
             )
         )
-
-
-# ---------------------------------------------------------------------------
-# Backward-compatible re-exports for tests and consumers.
-# ---------------------------------------------------------------------------
-
-# Constants
-_REQUIRED_DIRS = [
-    "standards",
-    "standards/framework",
-    "context",
-    "state",
-]
-_REQUIRED_STATE_FILES = [
-    "state/install-manifest.json",
-    "state/ownership-map.json",
-    "state/decision-store.json",
-    "state/sources.lock.json",
-]
-_TOOLS = ["ruff", "ty", "gitleaks", "semgrep", "pip-audit"]
-_VCS_TOOLS = ["gh", "az"]
-_PROTECTED_BRANCHES = frozenset({"main", "master"})
-
-
-def _check_layout(target: Path, report: DoctorReport) -> None:
-    from ai_engineering.doctor.checks.layout import check_layout
-
-    check_layout(target, report)
-
-
-def _check_state_files(target: Path, report: DoctorReport) -> None:
-    from ai_engineering.doctor.checks.state_files import check_state_files
-
-    check_state_files(target, report)
-
-
-def _check_hooks(target: Path, report: DoctorReport, *, fix: bool) -> None:
-    from ai_engineering.doctor.checks.hooks import check_hooks
-
-    check_hooks(target, report, fix=fix)
-
-
-def _check_venv_health(target: Path, report: DoctorReport, *, fix: bool) -> None:
-    from ai_engineering.doctor.checks.venv import check_venv_health
-
-    check_venv_health(target, report, fix=fix)
-
-
-def _check_tools(report: DoctorReport, *, fix: bool) -> None:
-    from ai_engineering.doctor.checks.tools import check_tools
-
-    check_tools(report, fix=fix)
-
-
-def _check_vcs_tools(report: DoctorReport) -> None:
-    from ai_engineering.doctor.checks.tools import check_vcs_tools
-
-    check_vcs_tools(report)
-
-
-def _check_branch_policy(target: Path, report: DoctorReport) -> None:
-    from ai_engineering.doctor.checks.branch_policy import check_branch_policy
-
-    check_branch_policy(target, report)
-
-
-def _check_operational_readiness(target: Path, report: DoctorReport) -> None:
-    from ai_engineering.doctor.checks.readiness import check_operational_readiness
-
-    check_operational_readiness(target, report)
-
-
-def _check_version(report: DoctorReport) -> None:
-    from ai_engineering.doctor.checks.version_check import check_version
-
-    check_version(report)
-
-
-def _is_tool_available(tool: str) -> bool:
-    from ai_engineering.doctor.checks.tools import is_tool_available
-
-    return is_tool_available(tool)
-
-
-def _try_install_tool(tool: str) -> bool:
-    from ai_engineering.doctor.checks.tools import try_install_tool
-
-    return try_install_tool(tool)
-
-
-def _get_current_branch(target: Path) -> str | None:
-    from ai_engineering.doctor.checks.branch_policy import get_current_branch
-
-    return get_current_branch(target)
-
-
-def _parse_pyvenv_home(cfg_path: Path) -> str | None:
-    from ai_engineering.doctor.checks.venv import parse_pyvenv_home
-
-    return parse_pyvenv_home(cfg_path)
-
-
-def _recreate_venv(target: Path) -> bool:
-    from ai_engineering.doctor.checks.venv import recreate_venv
-
-    return recreate_venv(target)

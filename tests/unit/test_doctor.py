@@ -138,15 +138,15 @@ class TestDoctorReport:
 class TestDiagnose:
     """Tests for diagnose() with fully mocked internals."""
 
-    @patch("ai_engineering.doctor.service._check_version")
-    @patch("ai_engineering.doctor.service._check_operational_readiness")
-    @patch("ai_engineering.doctor.service._check_branch_policy")
-    @patch("ai_engineering.doctor.service._check_vcs_tools")
-    @patch("ai_engineering.doctor.service._check_tools")
-    @patch("ai_engineering.doctor.service._check_venv_health")
-    @patch("ai_engineering.doctor.service._check_hooks")
-    @patch("ai_engineering.doctor.service._check_state_files")
-    @patch("ai_engineering.doctor.service._check_layout")
+    @patch("ai_engineering.doctor.checks.version_check.check_version")
+    @patch("ai_engineering.doctor.checks.readiness.check_operational_readiness")
+    @patch("ai_engineering.doctor.checks.branch_policy.check_branch_policy")
+    @patch("ai_engineering.doctor.checks.tools.check_vcs_tools")
+    @patch("ai_engineering.doctor.checks.tools.check_tools")
+    @patch("ai_engineering.doctor.checks.venv.check_venv_health")
+    @patch("ai_engineering.doctor.checks.hooks.check_hooks")
+    @patch("ai_engineering.doctor.checks.state_files.check_state_files")
+    @patch("ai_engineering.doctor.checks.layout.check_layout")
     def test_diagnose_valid_project_all_pass(
         self,
         mock_layout: MagicMock,
@@ -174,15 +174,15 @@ class TestDiagnose:
         mock_readiness.assert_called_once()
         mock_version.assert_called_once()
 
-    @patch("ai_engineering.doctor.service._check_version")
-    @patch("ai_engineering.doctor.service._check_operational_readiness")
-    @patch("ai_engineering.doctor.service._check_branch_policy")
-    @patch("ai_engineering.doctor.service._check_vcs_tools")
-    @patch("ai_engineering.doctor.service._check_tools")
-    @patch("ai_engineering.doctor.service._check_venv_health")
-    @patch("ai_engineering.doctor.service._check_hooks")
-    @patch("ai_engineering.doctor.service._check_state_files")
-    @patch("ai_engineering.doctor.service._check_layout")
+    @patch("ai_engineering.doctor.checks.version_check.check_version")
+    @patch("ai_engineering.doctor.checks.readiness.check_operational_readiness")
+    @patch("ai_engineering.doctor.checks.branch_policy.check_branch_policy")
+    @patch("ai_engineering.doctor.checks.tools.check_vcs_tools")
+    @patch("ai_engineering.doctor.checks.tools.check_tools")
+    @patch("ai_engineering.doctor.checks.venv.check_venv_health")
+    @patch("ai_engineering.doctor.checks.hooks.check_hooks")
+    @patch("ai_engineering.doctor.checks.state_files.check_state_files")
+    @patch("ai_engineering.doctor.checks.layout.check_layout")
     def test_diagnose_with_failing_hooks(
         self,
         mock_layout: MagicMock,
@@ -212,15 +212,15 @@ class TestDiagnose:
         assert report.passed is False
         assert any(c.name == "git-hooks" and c.status == CheckStatus.FAIL for c in report.checks)
 
-    @patch("ai_engineering.doctor.service._check_version")
-    @patch("ai_engineering.doctor.service._check_operational_readiness")
-    @patch("ai_engineering.doctor.service._check_branch_policy")
-    @patch("ai_engineering.doctor.service._check_vcs_tools")
-    @patch("ai_engineering.doctor.service._check_tools")
-    @patch("ai_engineering.doctor.service._check_venv_health")
-    @patch("ai_engineering.doctor.service._check_hooks")
-    @patch("ai_engineering.doctor.service._check_state_files")
-    @patch("ai_engineering.doctor.service._check_layout")
+    @patch("ai_engineering.doctor.checks.version_check.check_version")
+    @patch("ai_engineering.doctor.checks.readiness.check_operational_readiness")
+    @patch("ai_engineering.doctor.checks.branch_policy.check_branch_policy")
+    @patch("ai_engineering.doctor.checks.tools.check_vcs_tools")
+    @patch("ai_engineering.doctor.checks.tools.check_tools")
+    @patch("ai_engineering.doctor.checks.venv.check_venv_health")
+    @patch("ai_engineering.doctor.checks.hooks.check_hooks")
+    @patch("ai_engineering.doctor.checks.state_files.check_state_files")
+    @patch("ai_engineering.doctor.checks.layout.check_layout")
     def test_diagnose_fix_hooks_passes_flag(
         self,
         mock_layout: MagicMock,
@@ -239,15 +239,15 @@ class TestDiagnose:
         _, kwargs = mock_hooks.call_args
         assert kwargs["fix"] is True
 
-    @patch("ai_engineering.doctor.service._check_version")
-    @patch("ai_engineering.doctor.service._check_operational_readiness")
-    @patch("ai_engineering.doctor.service._check_branch_policy")
-    @patch("ai_engineering.doctor.service._check_vcs_tools")
-    @patch("ai_engineering.doctor.service._check_tools")
-    @patch("ai_engineering.doctor.service._check_venv_health")
-    @patch("ai_engineering.doctor.service._check_hooks")
-    @patch("ai_engineering.doctor.service._check_state_files")
-    @patch("ai_engineering.doctor.service._check_layout")
+    @patch("ai_engineering.doctor.checks.version_check.check_version")
+    @patch("ai_engineering.doctor.checks.readiness.check_operational_readiness")
+    @patch("ai_engineering.doctor.checks.branch_policy.check_branch_policy")
+    @patch("ai_engineering.doctor.checks.tools.check_vcs_tools")
+    @patch("ai_engineering.doctor.checks.tools.check_tools")
+    @patch("ai_engineering.doctor.checks.venv.check_venv_health")
+    @patch("ai_engineering.doctor.checks.hooks.check_hooks")
+    @patch("ai_engineering.doctor.checks.state_files.check_state_files")
+    @patch("ai_engineering.doctor.checks.layout.check_layout")
     def test_diagnose_with_missing_tool(
         self,
         mock_layout: MagicMock,
@@ -278,15 +278,15 @@ class TestDiagnose:
         assert report.passed is True
         assert any(c.name == "tool:ruff" for c in report.checks)
 
-    @patch("ai_engineering.doctor.service._check_version")
-    @patch("ai_engineering.doctor.service._check_operational_readiness")
-    @patch("ai_engineering.doctor.service._check_branch_policy")
-    @patch("ai_engineering.doctor.service._check_vcs_tools")
-    @patch("ai_engineering.doctor.service._check_tools")
-    @patch("ai_engineering.doctor.service._check_venv_health")
-    @patch("ai_engineering.doctor.service._check_hooks")
-    @patch("ai_engineering.doctor.service._check_state_files")
-    @patch("ai_engineering.doctor.service._check_layout")
+    @patch("ai_engineering.doctor.checks.version_check.check_version")
+    @patch("ai_engineering.doctor.checks.readiness.check_operational_readiness")
+    @patch("ai_engineering.doctor.checks.branch_policy.check_branch_policy")
+    @patch("ai_engineering.doctor.checks.tools.check_vcs_tools")
+    @patch("ai_engineering.doctor.checks.tools.check_tools")
+    @patch("ai_engineering.doctor.checks.venv.check_venv_health")
+    @patch("ai_engineering.doctor.checks.hooks.check_hooks")
+    @patch("ai_engineering.doctor.checks.state_files.check_state_files")
+    @patch("ai_engineering.doctor.checks.layout.check_layout")
     def test_diagnose_fix_tools_passes_flag(
         self,
         mock_layout: MagicMock,
@@ -309,15 +309,15 @@ class TestDiagnose:
         _, venv_kwargs = mock_venv.call_args
         assert venv_kwargs["fix"] is True
 
-    @patch("ai_engineering.doctor.service._check_version")
-    @patch("ai_engineering.doctor.service._check_operational_readiness")
-    @patch("ai_engineering.doctor.service._check_branch_policy")
-    @patch("ai_engineering.doctor.service._check_vcs_tools")
-    @patch("ai_engineering.doctor.service._check_tools")
-    @patch("ai_engineering.doctor.service._check_venv_health")
-    @patch("ai_engineering.doctor.service._check_hooks")
-    @patch("ai_engineering.doctor.service._check_state_files")
-    @patch("ai_engineering.doctor.service._check_layout")
+    @patch("ai_engineering.doctor.checks.version_check.check_version")
+    @patch("ai_engineering.doctor.checks.readiness.check_operational_readiness")
+    @patch("ai_engineering.doctor.checks.branch_policy.check_branch_policy")
+    @patch("ai_engineering.doctor.checks.tools.check_vcs_tools")
+    @patch("ai_engineering.doctor.checks.tools.check_tools")
+    @patch("ai_engineering.doctor.checks.venv.check_venv_health")
+    @patch("ai_engineering.doctor.checks.hooks.check_hooks")
+    @patch("ai_engineering.doctor.checks.state_files.check_state_files")
+    @patch("ai_engineering.doctor.checks.layout.check_layout")
     def test_diagnose_returns_doctor_report_type(
         self,
         mock_layout: MagicMock,
@@ -335,15 +335,15 @@ class TestDiagnose:
         report = diagnose(target)
         assert isinstance(report, DoctorReport)
 
-    @patch("ai_engineering.doctor.service._check_version")
-    @patch("ai_engineering.doctor.service._check_operational_readiness")
-    @patch("ai_engineering.doctor.service._check_branch_policy")
-    @patch("ai_engineering.doctor.service._check_vcs_tools")
-    @patch("ai_engineering.doctor.service._check_tools")
-    @patch("ai_engineering.doctor.service._check_venv_health")
-    @patch("ai_engineering.doctor.service._check_hooks")
-    @patch("ai_engineering.doctor.service._check_state_files")
-    @patch("ai_engineering.doctor.service._check_layout")
+    @patch("ai_engineering.doctor.checks.version_check.check_version")
+    @patch("ai_engineering.doctor.checks.readiness.check_operational_readiness")
+    @patch("ai_engineering.doctor.checks.branch_policy.check_branch_policy")
+    @patch("ai_engineering.doctor.checks.tools.check_vcs_tools")
+    @patch("ai_engineering.doctor.checks.tools.check_tools")
+    @patch("ai_engineering.doctor.checks.venv.check_venv_health")
+    @patch("ai_engineering.doctor.checks.hooks.check_hooks")
+    @patch("ai_engineering.doctor.checks.state_files.check_state_files")
+    @patch("ai_engineering.doctor.checks.layout.check_layout")
     def test_diagnose_default_flags_are_false(
         self,
         mock_layout: MagicMock,

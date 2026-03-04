@@ -1,10 +1,12 @@
-"""Tool availability diagnostic checks."""
+"""Tool availability diagnostic checks.
+
+Delegates detection and installation to :mod:`ai_engineering.detector.readiness`
+so that tool-availability logic is not duplicated.
+"""
 
 from __future__ import annotations
 
-import shutil
-import subprocess
-
+from ai_engineering.detector.readiness import is_tool_available, try_install
 from ai_engineering.doctor.models import CheckResult, CheckStatus, DoctorReport
 
 _TOOLS: list[str] = ["ruff", "ty", "gitleaks", "semgrep", "pip-audit"]
@@ -23,7 +25,7 @@ def check_tools(report: DoctorReport, *, fix: bool) -> None:
                 )
             )
         elif fix:
-            success = try_install_tool(tool)
+            success = try_install(tool)
             report.checks.append(
                 CheckResult(
                     name=f"tool:{tool}",
@@ -60,24 +62,3 @@ def check_vcs_tools(report: DoctorReport) -> None:
                     message=f"{tool} not found (optional)",
                 )
             )
-
-
-def is_tool_available(tool: str) -> bool:
-    """Check if a tool is available on PATH."""
-    return shutil.which(tool) is not None
-
-
-def try_install_tool(tool: str) -> bool:
-    """Attempt to install a missing Python tool via uv or pip."""
-    for installer in ["uv pip install", "pip install"]:
-        try:
-            subprocess.run(
-                [*installer.split(), tool],
-                check=True,
-                capture_output=True,
-                timeout=60,
-            )
-            return True
-        except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired):
-            continue
-    return False
