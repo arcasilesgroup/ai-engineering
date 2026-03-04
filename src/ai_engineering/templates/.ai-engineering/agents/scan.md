@@ -39,7 +39,7 @@ Absorbs capabilities from the former `review` agent (security, quality, governan
 | `quality` | `/ai:scan quality` | Coverage, complexity, duplication, lint, code review |
 | `performance` | `/ai:scan performance` | N+1 queries, O(n^2), memory leaks, bundle size, I/O |
 | `a11y` | `/ai:scan a11y` | WCAG 2.1 AA compliance |
-| `feature-gap` | `/ai:scan feature` | Spec vs code: what should exist and doesn't |
+| `feature-gap` | `/ai:scan feature` | Spec vs code gaps + wiring gaps (disconnected implementations) |
 | `architecture` | `/ai:scan architecture` | Drift, coupling, cohesion, boundaries, tech debt |
 | `platform` | `/ai:scan platform` | All 7 modes aggregated -> score 0-100 -> GO/NO-GO |
 
@@ -112,7 +112,7 @@ Every mode produces this format:
 | quality | Coverage < 90% | Blocker/critical lint issues |
 | performance | N+1 in critical path | O(n^2) in hot path, memory leak |
 | a11y | -- (diagnostic) | Critical WCAG violation |
-| feature-gap | -- (informational) | Critical feature missing |
+| feature-gap | Disconnected critical-path code | Critical feature missing, >5 unwired exports |
 | architecture | Circular dependency | Critical drift from spec |
 | **platform** | Any blocker in ANY mode | Score < 60 |
 

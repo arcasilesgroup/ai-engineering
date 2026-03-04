@@ -1,9 +1,9 @@
 ---
 spec: "035"
 total: 11
-completed: 10
+completed: 11
 last_session: "2026-03-04"
-next_session: "Phase 2 — commit"
+next_session: "CLOSED"
 ---
 
 # Tasks — Extend feature-gap with wiring detection
@@ -21,15 +21,15 @@ next_session: "Phase 2 — commit"
 - [x] 1.2 Update Purpose section to cover implementation-vs-integration gaps
 - [x] 1.3 Add procedure step 5.5 — Detect wiring gaps (6 detection categories)
 - [x] 1.4 Add Wiring Matrix table to Output section
-- [ ] 1.5 Atomic commit: `spec-035: Phase 1 — extend feature-gap skill with wiring detection`
+- [x] 1.5 Atomic commit: `spec-035: Phase 1 — extend feature-gap skill with wiring detection`
 
 ## Phase 2: Update scan agent [S]
 
 - [x] 2.1 Update mode table: feature-gap description includes wiring gaps
 - [x] 2.2 Update threshold table: feature-gap includes ">5 unwired exports" critical threshold
-- [ ] 2.3 Atomic commit: `spec-035: Phase 2 — update scan agent for wiring coverage`
+- [x] 2.3 Atomic commit: `spec-035: Phase 2 — update scan agent for wiring coverage`
 
 ## Phase 3: Validate [S]
 
-- [ ] 3.1 Read updated files, verify procedure coherence (steps 1-6 with 5.5)
-- [ ] 3.2 Run `ai-eng validate` — zero integrity errors
+- [x] 3.1 Read updated files, verify procedure coherence (steps 1-6 with 5.5)
+- [x] 3.2 Run `ai-eng validate` — zero integrity errors
