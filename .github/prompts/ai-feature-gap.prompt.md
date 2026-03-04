@@ -1,5 +1,5 @@
 ---
-description: "Detect spec-vs-code gaps: unimplemented features, dead specs, acceptance criteria coverage."
+description: "Detect spec-vs-code gaps and wiring gaps (implemented but disconnected code): unimplemented features, dead specs, acceptance criteria coverage, disconnected implementations."
 mode: "agent"
 ---
 

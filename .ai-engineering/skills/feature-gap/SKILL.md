@@ -1,9 +1,9 @@
 ---
 name: feature-gap
-description: "Detect spec-vs-code gaps: unimplemented features, dead specs, acceptance criteria coverage."
+description: "Detect spec-vs-code gaps and wiring gaps (implemented but disconnected code): unimplemented features, dead specs, acceptance criteria coverage, disconnected implementations."
 metadata:
-  version: 1.0.0
-  tags: [scanning, gap-analysis, specs, verification, features]
+  version: 1.1.0
+  tags: [scanning, gap-analysis, specs, verification, features, wiring, dead-code-functional]
   ai-engineering:
     scope: read-only
     token_estimate: 800
@@ -13,7 +13,7 @@ metadata:
 
 ## Purpose
 
-Detect gaps between specifications and implementation. Identifies unimplemented features, dead specs, missing acceptance criteria coverage, and undocumented dependencies.
+Detect gaps between specifications and implementation, AND between implementation and integration. Identifies unimplemented features, dead specs, missing acceptance criteria coverage, undocumented dependencies, and disconnected implementations (code built but not wired).
 
 ## Trigger
 
@@ -38,6 +38,14 @@ Detect gaps between specifications and implementation. Identifies unimplemented 
 
 5. **Detect dead specs** -- specs referencing artifacts no longer in codebase.
 
+5.5. **Detect wiring gaps** -- code implemented but not connected:
+   - Functions/classes exported but never imported by any consumer
+   - Endpoints defined but not registered in router
+   - Handlers/listeners defined but not subscribed to events
+   - Modules complete but with zero importers
+   - CLI commands defined but not registered in command registry
+   - Category: **Disconnected** (implemented, not wired)
+
 6. **Report** -- uniform scan output contract with score 0-100 and findings.
 
 ## Output
@@ -53,4 +61,7 @@ Detect gaps between specifications and implementation. Identifies unimplemented 
 
 ## Traceability Matrix
 | Requirement | Implementation | Tests | Status |
+
+## Wiring Matrix
+| Implementation | Type | Expected Consumer | Connected | Status |
 ```

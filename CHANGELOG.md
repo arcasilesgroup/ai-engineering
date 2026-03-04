@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Feature-gap wiring detection** — `feature-gap` skill (v1.1.0) extended with step 5.5 to detect disconnected implementations: exported-but-never-imported functions, unregistered endpoints/handlers/CLI commands, and orphaned modules. New "Disconnected" category and Wiring Matrix output section.
+- **Scan agent wiring thresholds** — `scan` agent feature-gap mode now covers wiring gaps; threshold table adds ">5 unwired exports" as critical.
+
+### Added
 - **`ai-eng spec` CLI commands** — `verify` (auto-correct task counters), `catalog` (regenerate `_catalog.md`), `list` (show active spec with progress), `compact` (prune old archived specs).
 - **`ai-eng decision record`** — dual-write protocol: persists new decisions to `decision-store.json` AND `audit-log.ndjson` in a single CLI command.
 - **Shared frontmatter parser** — `lib/parsing.py` with `parse_frontmatter()` and `count_checkboxes()` as single source of truth, replacing duplicated inline parsers.
