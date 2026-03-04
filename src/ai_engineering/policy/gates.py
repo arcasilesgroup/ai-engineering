@@ -20,11 +20,15 @@ import shutil  # noqa: F401 — re-exported for test patching
 import subprocess  # noqa: F401 — re-exported for test patching
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from ai_engineering.policy.test_scope import TestScope, compute_test_scope, resolve_scope_mode
 from ai_engineering.state.audit import emit_gate_event
 from ai_engineering.state.io import read_json_model
 from ai_engineering.state.models import GateHook, InstallManifest
+
+if TYPE_CHECKING:
+    from ai_engineering.policy.checks.stack_runner import CheckConfig
 
 
 @dataclass
@@ -171,18 +175,18 @@ def _run_commit_msg_checks(
 
 
 def _clone_registry(
-    registry: dict[str, list[object]],
-    config_cls: type,
-) -> dict[str, list[object]]:
+    registry: dict[str, list[CheckConfig]],
+    config_cls: type[CheckConfig],
+) -> dict[str, list[CheckConfig]]:
     """Clone check registry without mutating global constants."""
-    clone: dict[str, list[object]] = {}
+    clone: dict[str, list[CheckConfig]] = {}
     for stack, checks in registry.items():
         clone[stack] = [
             config_cls(
-                name=check.name,  # type: ignore[attr-defined]
-                cmd=list(check.cmd),  # type: ignore[attr-defined]
-                required=check.required,  # type: ignore[attr-defined]
-                timeout=check.timeout,  # type: ignore[attr-defined]
+                name=check.name,
+                cmd=list(check.cmd),
+                required=check.required,
+                timeout=check.timeout,
             )
             for check in checks
         ]
@@ -190,17 +194,17 @@ def _clone_registry(
 
 
 def _override_test_cmd(
-    registry: dict[str, list[object]],
+    registry: dict[str, list[CheckConfig]],
     scope: TestScope,
-    config_cls: type,
-) -> dict[str, list[object]]:
+    config_cls: type[CheckConfig],
+) -> dict[str, list[CheckConfig]]:
     """Return cloned registry with python stack-tests command selectively overridden."""
     clone = _clone_registry(registry, config_cls)
     python_checks = clone.get("python", [])
-    updated: list[object] = []
+    updated: list[CheckConfig] = []
 
     for check in python_checks:
-        if check.name != "stack-tests":  # type: ignore[attr-defined]
+        if check.name != "stack-tests":
             updated.append(check)
             continue
 
@@ -210,10 +214,10 @@ def _override_test_cmd(
         if scope.mode == "selective":
             updated.append(
                 config_cls(
-                    name=check.name,  # type: ignore[attr-defined]
-                    cmd=[*check.cmd, *scope.selected_tests],  # type: ignore[attr-defined]
-                    required=check.required,  # type: ignore[attr-defined]
-                    timeout=check.timeout,  # type: ignore[attr-defined]
+                    name=check.name,
+                    cmd=[*check.cmd, *scope.selected_tests],
+                    required=check.required,
+                    timeout=check.timeout,
                 )
             )
             continue
