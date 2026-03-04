@@ -27,13 +27,13 @@ Mandatory. Skipping risks stale code, repeated decisions, or merge conflicts.
 5. **Proactive Memory** — Read/write `state/decision-store.json` to persist learnings and avoid repeated questions.
 6. **Checkpoint on completion** — Save checkpoint after each task: `ai-eng checkpoint save`.
 
-## Skills (33)
+## Skills (34)
 
 Path: `.ai-engineering/skills/<name>/SKILL.md` (flat organization, no category subdirectories)
 
 | Domain | Skills |
 |--------|--------|
-| Planning | discover, spec, cleanup, explain |
+| Planning | discover, plan, spec, cleanup, explain |
 | Build | build, test, debug, refactor, code-simplifier, api, cli, db, infra, cicd, migrate |
 | Scan | security, quality, governance, architecture, perf, a11y, feature-gap |
 | Release | commit, pr, release, changelog, work-item |
@@ -41,13 +41,14 @@ Path: `.ai-engineering/skills/<name>/SKILL.md` (flat organization, no category s
 | Observe | observe |
 | Governance | risk, standards, create, delete |
 
-## Agents (6)
+## Agents (7)
 
 Path: `.ai-engineering/agents/<name>.md`
 
 | Agent | Purpose | Scope |
 |-------|---------|-------|
-| plan | Orchestration, pipeline strategy, session recovery, governance lifecycle | read-write |
+| plan | Planning pipeline, spec creation, execution plan — STOPS before execution | read-write |
+| execute | Read approved plan, dispatch agents, coordinate, checkpoint, report | read-write |
 | build | Implementation across 20 stacks (ONLY code write agent) | read-write |
 | scan | 7-mode assessment: governance, security, quality, perf, a11y, feature, architecture | read-write (work items only) |
 | release | ALM lifecycle: commit, PR, release gate, triage, work-items, deploy | read-write |
@@ -84,6 +85,9 @@ Never overwrite team/project content during framework updates. Cross-OS enforcem
 
 ## Command Contract
 
+- `/ai:plan` → planning pipeline (classify → discover → risk → spec → execution plan → STOP)
+- `/ai:plan --plan-only` → advisory only (discover → risk → recommend, zero writes)
+- `/ai:execute` → read approved plan, dispatch agents, coordinate, report
 - `/ai:commit` → stage + commit + push
 - `/ai:commit --only` → stage + commit
 - `/ai:pr` → stage + commit + push + PR + auto-complete (`--auto --squash --delete-branch`)

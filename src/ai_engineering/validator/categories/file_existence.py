@@ -60,8 +60,10 @@ def _check_file_existence(
             ref_path = ref_path.strip("`").lstrip(".")
             if ref_path.startswith("ai-engineering/"):
                 ref_path = ref_path[len("ai-engineering/") :]
-            # Skip template placeholders like <name>, <stack>, <category>
+            # Skip template placeholders like <name>, <stack>, {SKILL_NAME}
             if "<" in ref_path and ">" in ref_path:
+                continue
+            if "{" in ref_path and "}" in ref_path:
                 continue
             # Skip known-optional governance paths (exist only conditionally)
             if ref_path in _KNOWN_OPTIONAL_PATHS:

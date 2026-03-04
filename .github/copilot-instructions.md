@@ -11,21 +11,22 @@ Before non-trivial work:
 3. **Run cleanup** — sync repo (status, git pull, prune, branch cleanup).
 4. **Verify tooling** — ruff, gitleaks, pytest, ty.
 
-## Skills (33)
+## Skills (34)
 
 Path: `.ai-engineering/skills/<name>/SKILL.md` (flat organization)
 
 | Skills (alphabetical) |
 |-----------------------|
-| a11y, api, architecture, build, changelog, cicd, cleanup, cli, code-simplifier, commit, create, db, debug, delete, discover, docs, explain, feature-gap, governance, infra, migrate, observe, perf, pr, quality, refactor, release, risk, security, spec, standards, test, work-item |
+| a11y, api, architecture, build, changelog, cicd, cleanup, cli, code-simplifier, commit, create, db, debug, delete, discover, docs, explain, feature-gap, governance, infra, migrate, observe, perf, plan, pr, quality, refactor, release, risk, security, spec, standards, test, work-item |
 
-## Agents (6)
+## Agents (7)
 
 Path: `.ai-engineering/agents/<name>.md`
 
 | Agent   | Purpose                                                       | Scope                        |
 |---------|---------------------------------------------------------------|------------------------------|
-| plan    | Orchestration, planning pipeline, dispatch, work-item sync    | read-write                   |
+| plan    | Planning pipeline, spec creation, execution plan — STOPS before execution | read-write |
+| execute | Read approved plan, dispatch agents, coordinate, checkpoint, report | read-write |
 | build   | Implementation across all stacks (ONLY code write agent)      | read-write                   |
 | scan    | Assessment: security, quality, governance, architecture, perf | read-write (work items only) |
 | release | ALM + GitOps: commit, PR, deploy, triage, changelog           | read-write                   |
@@ -34,6 +35,9 @@ Path: `.ai-engineering/agents/<name>.md`
 
 ## Command Contract
 
+- `/ai:plan` → planning pipeline (classify → discover → risk → spec → execution plan → STOP)
+- `/ai:plan --plan-only` → advisory only (discover → risk → recommend, zero writes)
+- `/ai:execute` → read approved plan, dispatch agents, coordinate, report
 - `/ai:commit` → stage + commit + push
 - `/ai:commit --only` → stage + commit
 - `/ai:pr` → stage + commit + push + PR + auto-complete (`--auto --squash --delete-branch`)
