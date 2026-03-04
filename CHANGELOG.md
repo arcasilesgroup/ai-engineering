@@ -12,10 +12,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Automation runbooks** — 13 platform-agnostic runbooks (`.ai-engineering/runbooks/*.md`) across 4 layers: scanner (6), triage (2), executor (2), reporting (3). Ready for Codex, Devin, cron+CLI, or GitHub Actions.
 - **GitHub issue/PR templates** — bug, feature, task issue forms (`.github/ISSUE_TEMPLATE/*.yml`) and PR template (`.github/pull_request_template.md`); blank issues disabled.
 - **VCS-aware installer** — `copy_project_templates()` accepts `vcs_provider` parameter; GitHub platform copies issue/PR templates automatically.
-- **Clickeable spec URLs in PRs** — `_get_repo_url()` detects GitHub/Azure DevOps from git remote (SSH + HTTPS), `_build_spec_url()` constructs web links to spec files.
 - **Issue Definition Standard** — `work-item` skill extended with required fields, priority mapping (P0→p1-critical), size guide (S/M/L/XL), and spec URL format.
 - **Platform Adaptors + Runbooks in AGENTS.md** — new sections documenting adaptor paths/counts and runbook layers/schedules.
 - **Manifest governance surface** — `runbooks/**` framework-managed, `.agents/**` + GitHub templates external-framework-managed, `issue_standard` schema.
+
+### Changed
+- **PR description format** — `build_pr_description()` now generates What/Why/How/Checklist/Stats sections (matching PR #91 convention) instead of the old Spec/Changes format. Reads `spec.md` sections (Problem, Solution) to auto-populate What and Why.
+- **Archive-aware spec URLs** — `_build_spec_url()` checks both active (`specs/{slug}/`) and archived (`specs/archive/{slug}/`) paths on disk; URLs stay valid after spec-reset archives the directory.
+- **Spec lifecycle closure** — `done.md` created for specs 035 and 036; both archived via spec-reset; `_active.md` cleared.
 
 ### Added
 - **Feature-gap wiring detection** — `feature-gap` skill (v1.1.0) extended with step 5.5 to detect disconnected implementations: exported-but-never-imported functions, unregistered endpoints/handlers/CLI commands, and orphaned modules. New "Disconnected" category and Wiring Matrix output section.
