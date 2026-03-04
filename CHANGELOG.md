@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Codex/Gemini platform adaptors** — 41 adaptor files (`.agents/skills/*/SKILL.md`) pointing to canonical skill/agent definitions; 7 agent adaptors use `-agent` suffix to avoid name collisions.
+- **Automation runbooks** — 13 platform-agnostic runbooks (`.ai-engineering/runbooks/*.md`) across 4 layers: scanner (6), triage (2), executor (2), reporting (3). Ready for Codex, Devin, cron+CLI, or GitHub Actions.
+- **GitHub issue/PR templates** — bug, feature, task issue forms (`.github/ISSUE_TEMPLATE/*.yml`) and PR template (`.github/pull_request_template.md`); blank issues disabled.
+- **VCS-aware installer** — `copy_project_templates()` accepts `vcs_provider` parameter; GitHub platform copies issue/PR templates automatically.
+- **Clickeable spec URLs in PRs** — `_get_repo_url()` detects GitHub/Azure DevOps from git remote (SSH + HTTPS), `_build_spec_url()` constructs web links to spec files.
+- **Issue Definition Standard** — `work-item` skill extended with required fields, priority mapping (P0→p1-critical), size guide (S/M/L/XL), and spec URL format.
+- **Platform Adaptors + Runbooks in AGENTS.md** — new sections documenting adaptor paths/counts and runbook layers/schedules.
+- **Manifest governance surface** — `runbooks/**` framework-managed, `.agents/**` + GitHub templates external-framework-managed, `issue_standard` schema.
+
+### Added
 - **Feature-gap wiring detection** — `feature-gap` skill (v1.1.0) extended with step 5.5 to detect disconnected implementations: exported-but-never-imported functions, unregistered endpoints/handlers/CLI commands, and orphaned modules. New "Disconnected" category and Wiring Matrix output section.
 - **Scan agent wiring thresholds** — `scan` agent feature-gap mode now covers wiring gaps; threshold table adds ">5 unwired exports" as critical.
 

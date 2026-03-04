@@ -8,6 +8,8 @@ from unittest.mock import patch
 import pytest
 
 from ai_engineering.vcs.pr_description import (
+    _build_spec_url,
+    _get_repo_url,
     _humanize_branch,
     _read_active_spec,
     _recent_commit_subjects,
@@ -176,3 +178,124 @@ class TestBuildPrDescription:
         ):
             body = build_pr_description(tmp_path)
         assert body == "No description generated."
+
+    def test_includes_spec_url_when_repo_detected(self, tmp_path: Path) -> None:
+        active = tmp_path / ".ai-engineering" / "context" / "specs" / "_active.md"
+        active.parent.mkdir(parents=True)
+        active.write_text('---\nactive: "036-platform-runbooks"\n---\n', encoding="utf-8")
+
+        def fake_run_git(args: list[str], cwd: Path, **kw: object) -> tuple[bool, str]:
+            if "remote" in args:
+                return (True, "https://github.com/org/repo")
+            return (True, "Some commit\n")
+
+        with patch("ai_engineering.vcs.pr_description.run_git", side_effect=fake_run_git):
+            body = build_pr_description(tmp_path)
+
+        assert "[036-platform-runbooks]" in body
+        assert "github.com/org/repo/blob/main/" in body
+        assert "spec.md)" in body
+
+
+# ---------------------------------------------------------------------------
+# _get_repo_url
+# ---------------------------------------------------------------------------
+
+
+class TestGetRepoUrl:
+    """Tests for repository URL detection from git remote."""
+
+    def test_github_ssh(self, tmp_path: Path) -> None:
+        with patch(
+            "ai_engineering.vcs.pr_description.run_git",
+            return_value=(True, "git@github.com:org/repo.git"),
+        ):
+            assert _get_repo_url(tmp_path) == "https://github.com/org/repo"
+
+    def test_github_https(self, tmp_path: Path) -> None:
+        with patch(
+            "ai_engineering.vcs.pr_description.run_git",
+            return_value=(True, "https://github.com/org/repo.git"),
+        ):
+            assert _get_repo_url(tmp_path) == "https://github.com/org/repo"
+
+    def test_github_https_no_dotgit(self, tmp_path: Path) -> None:
+        with patch(
+            "ai_engineering.vcs.pr_description.run_git",
+            return_value=(True, "https://github.com/org/repo"),
+        ):
+            assert _get_repo_url(tmp_path) == "https://github.com/org/repo"
+
+    def test_azure_devops_ssh(self, tmp_path: Path) -> None:
+        with patch(
+            "ai_engineering.vcs.pr_description.run_git",
+            return_value=(True, "git@ssh.dev.azure.com:v3/myorg/myproj/myrepo"),
+        ):
+            assert _get_repo_url(tmp_path) == "https://dev.azure.com/myorg/myproj/_git/myrepo"
+
+    def test_azure_devops_https(self, tmp_path: Path) -> None:
+        with patch(
+            "ai_engineering.vcs.pr_description.run_git",
+            return_value=(True, "https://dev.azure.com/myorg/myproj/_git/myrepo.git"),
+        ):
+            assert _get_repo_url(tmp_path) == "https://dev.azure.com/myorg/myproj/_git/myrepo"
+
+    def test_returns_none_on_failure(self, tmp_path: Path) -> None:
+        with patch(
+            "ai_engineering.vcs.pr_description.run_git",
+            return_value=(False, ""),
+        ):
+            assert _get_repo_url(tmp_path) is None
+
+    def test_returns_none_on_empty_output(self, tmp_path: Path) -> None:
+        with patch(
+            "ai_engineering.vcs.pr_description.run_git",
+            return_value=(True, "  "),
+        ):
+            assert _get_repo_url(tmp_path) is None
+
+    def test_returns_none_for_unknown_host(self, tmp_path: Path) -> None:
+        with patch(
+            "ai_engineering.vcs.pr_description.run_git",
+            return_value=(True, "https://gitlab.com/org/repo"),
+        ):
+            assert _get_repo_url(tmp_path) is None
+
+
+# ---------------------------------------------------------------------------
+# _build_spec_url
+# ---------------------------------------------------------------------------
+
+
+class TestBuildSpecUrl:
+    """Tests for spec URL construction."""
+
+    def test_github_spec_url(self, tmp_path: Path) -> None:
+        with patch(
+            "ai_engineering.vcs.pr_description.run_git",
+            return_value=(True, "https://github.com/org/repo"),
+        ):
+            url = _build_spec_url(tmp_path, "036-platform-runbooks")
+        assert url == (
+            "https://github.com/org/repo/blob/main/"
+            ".ai-engineering/context/specs/036-platform-runbooks/spec.md"
+        )
+
+    def test_azure_devops_spec_url(self, tmp_path: Path) -> None:
+        with patch(
+            "ai_engineering.vcs.pr_description.run_git",
+            return_value=(True, "https://dev.azure.com/myorg/myproj/_git/myrepo"),
+        ):
+            url = _build_spec_url(tmp_path, "036-platform-runbooks")
+        assert url == (
+            "https://dev.azure.com/myorg/myproj/_git/myrepo"
+            "?path=/.ai-engineering/context/specs/036-platform-runbooks/spec.md"
+            "&version=GBmain"
+        )
+
+    def test_returns_none_when_no_repo(self, tmp_path: Path) -> None:
+        with patch(
+            "ai_engineering.vcs.pr_description.run_git",
+            return_value=(False, ""),
+        ):
+            assert _build_spec_url(tmp_path, "036") is None
