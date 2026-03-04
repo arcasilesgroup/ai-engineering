@@ -183,8 +183,13 @@ class TestRunToolCheck:
         mock_proc.stderr = ""
 
         with (
-            patch("ai_engineering.policy.gates.shutil.which", return_value="/usr/bin/ruff"),
-            patch("ai_engineering.policy.gates.subprocess.run", return_value=mock_proc),
+            patch(
+                "ai_engineering.policy.checks.stack_runner.shutil.which",
+                return_value="/usr/bin/ruff",
+            ),
+            patch(
+                "ai_engineering.policy.checks.stack_runner.subprocess.run", return_value=mock_proc
+            ),
         ):
             _run_tool_check(
                 result,
@@ -205,8 +210,13 @@ class TestRunToolCheck:
         mock_proc.stderr = "lint errors found"
 
         with (
-            patch("ai_engineering.policy.gates.shutil.which", return_value="/usr/bin/ruff"),
-            patch("ai_engineering.policy.gates.subprocess.run", return_value=mock_proc),
+            patch(
+                "ai_engineering.policy.checks.stack_runner.shutil.which",
+                return_value="/usr/bin/ruff",
+            ),
+            patch(
+                "ai_engineering.policy.checks.stack_runner.subprocess.run", return_value=mock_proc
+            ),
         ):
             _run_tool_check(
                 result,
@@ -220,7 +230,7 @@ class TestRunToolCheck:
     def test_tool_not_found_required_fails(self) -> None:
         result = GateResult(hook=GateHook.PRE_COMMIT)
 
-        with patch("ai_engineering.policy.gates.shutil.which", return_value=None):
+        with patch("ai_engineering.policy.checks.stack_runner.shutil.which", return_value=None):
             _run_tool_check(
                 result,
                 name="ruff-lint",
@@ -236,9 +246,12 @@ class TestRunToolCheck:
         result = GateResult(hook=GateHook.PRE_COMMIT)
 
         with (
-            patch("ai_engineering.policy.gates.shutil.which", return_value="/usr/bin/ruff"),
             patch(
-                "ai_engineering.policy.gates.subprocess.run",
+                "ai_engineering.policy.checks.stack_runner.shutil.which",
+                return_value="/usr/bin/ruff",
+            ),
+            patch(
+                "ai_engineering.policy.checks.stack_runner.subprocess.run",
                 side_effect=subprocess.TimeoutExpired(cmd=["ruff"], timeout=10),
             ),
         ):
@@ -256,7 +269,7 @@ class TestRunToolCheck:
     def test_tool_not_found_advisory_passes(self) -> None:
         result = GateResult(hook=GateHook.PRE_COMMIT)
 
-        with patch("ai_engineering.policy.gates.shutil.which", return_value=None):
+        with patch("ai_engineering.policy.checks.stack_runner.shutil.which", return_value=None):
             _run_tool_check(
                 result,
                 name="optional-tool",
@@ -276,8 +289,13 @@ class TestRunToolCheck:
         mock_proc.stderr = ""
 
         with (
-            patch("ai_engineering.policy.gates.shutil.which", return_value="/usr/bin/tool"),
-            patch("ai_engineering.policy.gates.subprocess.run", return_value=mock_proc) as mock_run,
+            patch(
+                "ai_engineering.policy.checks.stack_runner.shutil.which",
+                return_value="/usr/bin/tool",
+            ),
+            patch(
+                "ai_engineering.policy.checks.stack_runner.subprocess.run", return_value=mock_proc
+            ) as mock_run,
         ):
             _run_tool_check(
                 result,
@@ -362,7 +380,7 @@ class TestRunChecksForStacks:
             "python": [CheckConfig(name="py-check", cmd=["py"])],
         }
 
-        with patch("ai_engineering.policy.gates._run_tool_check") as mock_run:
+        with patch("ai_engineering.policy.checks.stack_runner.run_tool_check") as mock_run:
             _run_checks_for_stacks(
                 Path("/fake"),
                 result,
@@ -382,7 +400,7 @@ class TestRunChecksForStacks:
             "python": [CheckConfig(name="py-check", cmd=["py"])],
         }
 
-        with patch("ai_engineering.policy.gates._run_tool_check") as mock_run:
+        with patch("ai_engineering.policy.checks.stack_runner.run_tool_check") as mock_run:
             _run_checks_for_stacks(
                 Path("/fake"),
                 result,
@@ -415,15 +433,15 @@ class TestRunGate:
     def test_pre_commit_runs_checks(self) -> None:
         with (
             patch(
-                "ai_engineering.policy.gates._check_branch_protection",
+                "ai_engineering.policy.checks.branch_protection.check_branch_protection",
                 side_effect=self._mock_branch_protection_pass,
             ),
             patch(
-                "ai_engineering.policy.gates._check_version_deprecation",
+                "ai_engineering.policy.checks.branch_protection.check_version_deprecation",
                 side_effect=self._mock_version_deprecation_pass,
             ),
             patch(
-                "ai_engineering.policy.gates._check_hook_integrity",
+                "ai_engineering.policy.checks.branch_protection.check_hook_integrity",
                 side_effect=self._mock_hook_integrity_pass,
             ),
             patch("ai_engineering.policy.gates._run_pre_commit_checks") as mock_pre_commit,
@@ -436,7 +454,7 @@ class TestRunGate:
     def test_branch_protection_fail_returns_early(self) -> None:
         with (
             patch(
-                "ai_engineering.policy.gates._check_branch_protection",
+                "ai_engineering.policy.checks.branch_protection.check_branch_protection",
                 side_effect=self._mock_branch_protection_fail,
             ),
             patch("ai_engineering.policy.gates._run_pre_commit_checks") as mock_pre_commit,
@@ -452,15 +470,15 @@ class TestRunGate:
 
         with (
             patch(
-                "ai_engineering.policy.gates._check_branch_protection",
+                "ai_engineering.policy.checks.branch_protection.check_branch_protection",
                 side_effect=self._mock_branch_protection_pass,
             ),
             patch(
-                "ai_engineering.policy.gates._check_version_deprecation",
+                "ai_engineering.policy.checks.branch_protection.check_version_deprecation",
                 side_effect=self._mock_version_deprecation_pass,
             ),
             patch(
-                "ai_engineering.policy.gates._check_hook_integrity",
+                "ai_engineering.policy.checks.branch_protection.check_hook_integrity",
                 side_effect=self._mock_hook_integrity_pass,
             ),
         ):
@@ -479,15 +497,15 @@ class TestRunGate:
     def test_pre_push_runs_checks(self) -> None:
         with (
             patch(
-                "ai_engineering.policy.gates._check_branch_protection",
+                "ai_engineering.policy.checks.branch_protection.check_branch_protection",
                 side_effect=self._mock_branch_protection_pass,
             ),
             patch(
-                "ai_engineering.policy.gates._check_version_deprecation",
+                "ai_engineering.policy.checks.branch_protection.check_version_deprecation",
                 side_effect=self._mock_version_deprecation_pass,
             ),
             patch(
-                "ai_engineering.policy.gates._check_hook_integrity",
+                "ai_engineering.policy.checks.branch_protection.check_hook_integrity",
                 side_effect=self._mock_hook_integrity_pass,
             ),
             patch("ai_engineering.policy.gates._run_pre_push_checks") as mock_pre_push,
@@ -510,11 +528,11 @@ class TestCheckExpiringRiskAcceptances:
 
         with (
             patch(
-                "ai_engineering.policy.gates._load_decision_store",
+                "ai_engineering.policy.checks.risk.load_decision_store",
                 return_value=mock_store,
             ),
             patch(
-                "ai_engineering.policy.gates.list_expiring_soon",
+                "ai_engineering.policy.checks.risk.list_expiring_soon",
                 return_value=[],
             ),
         ):
@@ -542,11 +560,11 @@ class TestCheckExpiringRiskAcceptances:
 
         with (
             patch(
-                "ai_engineering.policy.gates._load_decision_store",
+                "ai_engineering.policy.checks.risk.load_decision_store",
                 return_value=mock_store,
             ),
             patch(
-                "ai_engineering.policy.gates.list_expiring_soon",
+                "ai_engineering.policy.checks.risk.list_expiring_soon",
                 return_value=[expiring_decision],
             ),
         ):
@@ -562,7 +580,7 @@ class TestCheckExpiringRiskAcceptances:
         result = GateResult(hook=GateHook.PRE_COMMIT)
 
         with patch(
-            "ai_engineering.policy.gates._load_decision_store",
+            "ai_engineering.policy.checks.risk.load_decision_store",
             return_value=None,
         ):
             _check_expiring_risk_acceptances(tmp_path, result)
@@ -584,11 +602,11 @@ class TestCheckExpiredRiskAcceptances:
 
         with (
             patch(
-                "ai_engineering.policy.gates._load_decision_store",
+                "ai_engineering.policy.checks.risk.load_decision_store",
                 return_value=mock_store,
             ),
             patch(
-                "ai_engineering.policy.gates.list_expired_decisions",
+                "ai_engineering.policy.checks.risk.list_expired_decisions",
                 return_value=[],
             ),
         ):
@@ -615,11 +633,11 @@ class TestCheckExpiredRiskAcceptances:
 
         with (
             patch(
-                "ai_engineering.policy.gates._load_decision_store",
+                "ai_engineering.policy.checks.risk.load_decision_store",
                 return_value=mock_store,
             ),
             patch(
-                "ai_engineering.policy.gates.list_expired_decisions",
+                "ai_engineering.policy.checks.risk.list_expired_decisions",
                 return_value=[expired_decision],
             ),
         ):
@@ -633,7 +651,7 @@ class TestCheckExpiredRiskAcceptances:
         result = GateResult(hook=GateHook.PRE_PUSH)
 
         with patch(
-            "ai_engineering.policy.gates._load_decision_store",
+            "ai_engineering.policy.checks.risk.load_decision_store",
             return_value=None,
         ):
             _check_expired_risk_acceptances(tmp_path, result)
@@ -705,7 +723,9 @@ class TestSelectiveScopePrePush:
             seen_cmds.append(cmd)
             result.checks.append(GateCheckResult(name=name, passed=True, output="ok"))
 
-        monkeypatch.setattr("ai_engineering.policy.gates._run_tool_check", fake_run_tool_check)
+        monkeypatch.setattr(
+            "ai_engineering.policy.checks.stack_runner.run_tool_check", fake_run_tool_check
+        )
 
         result = GateResult(hook=GateHook.PRE_PUSH)
         _run_pre_push_checks(tmp_path, result)
@@ -748,7 +768,9 @@ class TestSelectiveScopePrePush:
             seen_cmds.append(cmd)
             result.checks.append(GateCheckResult(name=name, passed=True, output="ok"))
 
-        monkeypatch.setattr("ai_engineering.policy.gates._run_tool_check", fake_run_tool_check)
+        monkeypatch.setattr(
+            "ai_engineering.policy.checks.stack_runner.run_tool_check", fake_run_tool_check
+        )
 
         result = GateResult(hook=GateHook.PRE_PUSH)
         _run_pre_push_checks(tmp_path, result)
@@ -790,7 +812,9 @@ class TestSelectiveScopePrePush:
             seen_names.append(name)
             result.checks.append(GateCheckResult(name=name, passed=True, output="ok"))
 
-        monkeypatch.setattr("ai_engineering.policy.gates._run_tool_check", fake_run_tool_check)
+        monkeypatch.setattr(
+            "ai_engineering.policy.checks.stack_runner.run_tool_check", fake_run_tool_check
+        )
 
         result = GateResult(hook=GateHook.PRE_PUSH)
         _run_pre_push_checks(tmp_path, result)
@@ -819,7 +843,9 @@ class TestSelectiveScopePrePush:
             seen_cmds.append(cmd)
             result.checks.append(GateCheckResult(name=name, passed=True, output="ok"))
 
-        monkeypatch.setattr("ai_engineering.policy.gates._run_tool_check", fake_run_tool_check)
+        monkeypatch.setattr(
+            "ai_engineering.policy.checks.stack_runner.run_tool_check", fake_run_tool_check
+        )
 
         result = GateResult(hook=GateHook.PRE_PUSH)
         _run_pre_push_checks(tmp_path, result)
@@ -856,7 +882,9 @@ class TestSelectiveScopePrePush:
             seen_cmds.append(cmd)
             result.checks.append(GateCheckResult(name=name, passed=True, output="ok"))
 
-        monkeypatch.setattr("ai_engineering.policy.gates._run_tool_check", fake_run_tool_check)
+        monkeypatch.setattr(
+            "ai_engineering.policy.checks.stack_runner.run_tool_check", fake_run_tool_check
+        )
 
         result = GateResult(hook=GateHook.PRE_PUSH)
         _run_pre_push_checks(tmp_path, result)
@@ -874,7 +902,7 @@ class TestSonarGateAdvisory:
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     ) -> None:
         result = GateResult(hook=GateHook.PRE_PUSH)
-        monkeypatch.setattr("ai_engineering.policy.gates.shutil.which", lambda _: None)
+        monkeypatch.setattr("ai_engineering.policy.checks.sonar.shutil.which", lambda _: None)
         _check_sonar_gate(tmp_path, result)
         assert result.checks[-1].passed is True
         assert "skipped" in result.checks[-1].output.lower()
@@ -883,7 +911,9 @@ class TestSonarGateAdvisory:
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     ) -> None:
         result = GateResult(hook=GateHook.PRE_PUSH)
-        monkeypatch.setattr("ai_engineering.policy.gates.shutil.which", lambda _: "/usr/bin/sonar")
+        monkeypatch.setattr(
+            "ai_engineering.policy.checks.sonar.shutil.which", lambda _: "/usr/bin/sonar"
+        )
         _check_sonar_gate(tmp_path, result)
         assert result.checks[-1].passed is True
         assert "sonar-project.properties" in result.checks[-1].output
@@ -894,9 +924,11 @@ class TestSonarGateAdvisory:
         result = GateResult(hook=GateHook.PRE_PUSH)
         (tmp_path / "sonar-project.properties").write_text("sonar.projectKey=x\n", encoding="utf-8")
         monkeypatch.delenv("SONAR_TOKEN", raising=False)
-        monkeypatch.setattr("ai_engineering.policy.gates.shutil.which", lambda _: "/usr/bin/sonar")
         monkeypatch.setattr(
-            "ai_engineering.policy.gates.CredentialService.load_tools_state",
+            "ai_engineering.policy.checks.sonar.shutil.which", lambda _: "/usr/bin/sonar"
+        )
+        monkeypatch.setattr(
+            "ai_engineering.policy.checks.sonar.CredentialService.load_tools_state",
             lambda *_: ToolsState(),
         )
         _check_sonar_gate(tmp_path, result)
@@ -909,9 +941,11 @@ class TestSonarGateAdvisory:
         result = GateResult(hook=GateHook.PRE_PUSH)
         (tmp_path / "sonar-project.properties").write_text("sonar.projectKey=x\n", encoding="utf-8")
         monkeypatch.setenv("SONAR_TOKEN", "token")
-        monkeypatch.setattr("ai_engineering.policy.gates.shutil.which", lambda _: "/usr/bin/sonar")
         monkeypatch.setattr(
-            "ai_engineering.policy.gates.subprocess.run",
+            "ai_engineering.policy.checks.sonar.shutil.which", lambda _: "/usr/bin/sonar"
+        )
+        monkeypatch.setattr(
+            "ai_engineering.policy.checks.sonar.subprocess.run",
             lambda *_, **__: (_ for _ in ()).throw(FileNotFoundError()),
         )
         _check_sonar_gate(tmp_path, result)
@@ -924,13 +958,17 @@ class TestSonarGateAdvisory:
         result = GateResult(hook=GateHook.PRE_PUSH)
         (tmp_path / "sonar-project.properties").write_text("sonar.projectKey=x\n", encoding="utf-8")
         monkeypatch.setenv("SONAR_TOKEN", "token")
-        monkeypatch.setattr("ai_engineering.policy.gates.shutil.which", lambda _: "/usr/bin/sonar")
+        monkeypatch.setattr(
+            "ai_engineering.policy.checks.sonar.shutil.which", lambda _: "/usr/bin/sonar"
+        )
 
         proc = MagicMock()
         proc.returncode = 1
         proc.stdout = ""
         proc.stderr = "quality gate failed"
-        monkeypatch.setattr("ai_engineering.policy.gates.subprocess.run", lambda *_, **__: proc)
+        monkeypatch.setattr(
+            "ai_engineering.policy.checks.sonar.subprocess.run", lambda *_, **__: proc
+        )
 
         _check_sonar_gate(tmp_path, result)
         assert result.checks[-1].passed is True
@@ -941,13 +979,17 @@ class TestSonarGateAdvisory:
         result = GateResult(hook=GateHook.PRE_PUSH)
         (tmp_path / "sonar-project.properties").write_text("sonar.projectKey=x\n", encoding="utf-8")
         monkeypatch.setenv("SONAR_TOKEN", "token")
-        monkeypatch.setattr("ai_engineering.policy.gates.shutil.which", lambda _: "/usr/bin/sonar")
+        monkeypatch.setattr(
+            "ai_engineering.policy.checks.sonar.shutil.which", lambda _: "/usr/bin/sonar"
+        )
 
         proc = MagicMock()
         proc.returncode = 0
         proc.stdout = "Sonar gate passed"
         proc.stderr = ""
-        monkeypatch.setattr("ai_engineering.policy.gates.subprocess.run", lambda *_, **__: proc)
+        monkeypatch.setattr(
+            "ai_engineering.policy.checks.sonar.subprocess.run", lambda *_, **__: proc
+        )
 
         _check_sonar_gate(tmp_path, result)
         assert result.checks[-1].passed is True

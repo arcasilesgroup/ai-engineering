@@ -1,13 +1,16 @@
-Orchestrate planning pipeline and work-item dispatch.
+Orchestrate planning pipeline.
 
-Activate the agent persona defined in `.ai-engineering/agents/plan.md`. Follow all behavior steps and boundaries.
+MODE SELECTION:
+- `--plan-only`: Read and execute `.ai-engineering/skills/plan/SKILL.md` (advisory only, zero writes)
+- Default: Activate agent persona in `.ai-engineering/agents/plan.md` (full planning, creates spec, STOPS before execution)
 
-MANDATORY PIPELINE RULES:
-1. Classify input (raw-idea | structured-request | pre-made-plan) before entering the pipeline.
-2. Execute ALL 6 Default Pipeline steps sequentially. NEVER skip steps 2-6.
-3. Adapt step depth by input type — but NEVER reduce a step to zero.
-4. Skills that MUST participate: ai:discover, ai:arch-review, ai:prompt, ai:risk, ai:test-plan, ai:spec, ai:work-item.
-5. Spec creation (step 4) is ALWAYS mandatory for non-trivial work.
-6. Pause for user approval between step 3 and step 4 unless input is pre-made-plan with no new risks.
+PIPELINE RULES (default mode):
+1. Auto-classify pipeline (full | standard | hotfix | trivial) from change scope.
+   User override: `--pipeline=<type>`.
+2. Execute ALL steps for the classified pipeline sequentially. NEVER skip steps.
+3. Skills that MUST participate: ai:discover, ai:risk, ai:spec.
+4. For full/standard: spec creation is MANDATORY.
+5. STOP after producing execution plan. Do NOT dispatch or execute.
+   Tell user: "Plan ready. Run `/ai:execute` to begin."
 
 $ARGUMENTS

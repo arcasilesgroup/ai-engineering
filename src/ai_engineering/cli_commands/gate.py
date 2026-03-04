@@ -26,8 +26,8 @@ from ai_engineering.cli_ui import (
 from ai_engineering.paths import resolve_project_root
 from ai_engineering.policy.gates import GateResult, run_gate
 from ai_engineering.state.decision_logic import list_expired_decisions, list_expiring_soon
-from ai_engineering.state.io import read_json_model
-from ai_engineering.state.models import DecisionStore, GateHook
+from ai_engineering.state.models import GateHook
+from ai_engineering.state.service import StateService
 
 
 def _print_gate_result(result: GateResult) -> None:
@@ -114,7 +114,7 @@ def _check_risk_inline(root: Path, strict: bool) -> bool:
         info("No decision store found — no risk acceptances to evaluate")
         return False
 
-    store = read_json_model(ds_path, DecisionStore)
+    store = StateService(root).load_decisions()
     expired = list_expired_decisions(store)
     expiring = list_expiring_soon(store)
 

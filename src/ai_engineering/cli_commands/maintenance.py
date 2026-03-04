@@ -39,8 +39,7 @@ from ai_engineering.state.decision_logic import (
     list_expired_decisions,
     list_expiring_soon,
 )
-from ai_engineering.state.io import read_json_model
-from ai_engineering.state.models import DecisionStore
+from ai_engineering.state.service import StateService
 
 
 def maintenance_report(
@@ -162,7 +161,7 @@ def _collect_risk_status(root: Path) -> dict[str, Any]:
     if not ds_path.exists():
         return {"total": 0, "active": 0, "expiring": 0, "expired": 0, "details": []}
 
-    store = read_json_model(ds_path, DecisionStore)
+    store = StateService(root).load_decisions()
     risk = store.risk_decisions()
     expired = list_expired_decisions(store)
     expiring = list_expiring_soon(store)
@@ -193,7 +192,7 @@ def _display_risk_status(root: Path) -> None:
         info("No decision store found \u2014 no risk decisions to report")
         return
 
-    store = read_json_model(ds_path, DecisionStore)
+    store = StateService(root).load_decisions()
     risk = store.risk_decisions()
     expired = list_expired_decisions(store)
     expiring = list_expiring_soon(store)

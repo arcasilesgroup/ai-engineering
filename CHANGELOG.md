@@ -7,14 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Removed
-- **`acho` skill** — removed alias command and all mirrors (`.claude/commands/ai/acho.md`, `.github/prompts/ai-acho.prompt.md`, template mirrors).
+### Added
+- **`execute` agent** — reads approved plan, dispatches specialized agents, coordinates execution, checkpoints progress, and reports results.
+- **`plan` skill** — standalone planning skill (`/ai:plan`) with input classification, pipeline strategy, and spec creation.
+- **`/ai:plan` and `/ai:execute` command contract** — plan pipeline (classify → discover → risk → spec → execution plan → STOP) and execute dispatcher documented in CLAUDE.md.
+- **Audit prompt catalog** — `.ai-engineering/references/audit-prompt-catalog.md` reference for structured audit prompts.
+- **State service** — `state/service.py` centralized state management module.
 
 ### Changed
-- **CLAUDE.md** — expanded CLI command reference table with all `ai-eng` subcommands.
-- **manifest.yml** — removed `acho` skill registration and cleaned up stale entries.
-- **sync_command_mirrors.py** — simplified mirror sync logic after `acho` removal.
-- **Framework refinements** — minor wording/formatting fixes across agents, skills, and standards.
+- **Doctor service refactored** — monolithic `doctor/service.py` decomposed into 8 focused check modules (`doctor/checks/`): tools, hooks, layout, state_files, venv, branch_policy, readiness, version_check.
+- **Gates refactored** — monolithic `policy/gates.py` decomposed into 5 check modules (`policy/checks/`): branch_protection, commit_msg, risk, sonar, stack_runner.
+- **Validator refactored** — monolithic `validator/service.py` decomposed into shared utilities (`_shared.py`) and 7 category modules (`validator/categories/`): counter_accuracy, cross_references, file_existence, instruction_consistency, manifest_coherence, mirror_sync, skill_frontmatter.
+- **CLI commands updated** — minor improvements across cicd, decisions, gate, guide, maintenance, signals, vcs command modules and cli_ui.
+- **CLAUDE.md** — skills 33→34 (added `plan`), agents 6→7 (added `execute`), expanded command contract.
+- **Plan agent updated** — refined purpose to planning pipeline that STOPS before execution.
+
+### Removed
+- **`acho` skill** — removed alias command and all mirrors (`.claude/commands/ai/acho.md`, `.github/prompts/ai-acho.prompt.md`, template mirrors).
+- **Stale audit log entries** — cleaned up `state/audit-log.ndjson`.
 
 ### Added
 - **ai-engineering v3 architecture** — full redesign with 6 bounded-context agents (plan, build, scan, release, write, observe) and 33 skills (down from 47).

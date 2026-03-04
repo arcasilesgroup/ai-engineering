@@ -14,8 +14,8 @@ from ai_engineering.cli_ui import error, info, kv, success
 from ai_engineering.installer.cicd import generate_pipelines
 from ai_engineering.installer.service import _resolve_sonar_cicd_config
 from ai_engineering.paths import resolve_project_root
-from ai_engineering.state.io import read_json_model, write_json_model
-from ai_engineering.state.models import InstallManifest, SonarCicdConfig
+from ai_engineering.state.models import SonarCicdConfig
+from ai_engineering.state.service import StateService
 
 
 def cicd_regenerate(
@@ -40,7 +40,8 @@ def cicd_regenerate(
             info("Run 'ai-eng install' first")
         raise typer.Exit(code=1)
 
-    manifest = read_json_model(manifest_path, InstallManifest)
+    state_svc = StateService(root)
+    manifest = state_svc.load_manifest()
     sonar_config = _resolve_sonar_cicd_config(root)
     with spinner("Regenerating pipelines..."):
         result = generate_pipelines(
@@ -53,7 +54,7 @@ def cicd_regenerate(
     manifest.cicd.provider = manifest.providers.primary
     manifest.cicd.files = [str(p.relative_to(root)) for p in (result.created + result.skipped)]
     manifest.cicd.sonar = sonar_config or SonarCicdConfig()
-    write_json_model(manifest_path, manifest)
+    state_svc.save_manifest(manifest)
 
     if is_json_mode():
         emit_success(

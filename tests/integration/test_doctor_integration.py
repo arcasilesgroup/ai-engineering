@@ -209,7 +209,7 @@ class TestVenvHealthCheck:
 
         # Mock _recreate_venv to simulate successful recreation
         with patch(
-            "ai_engineering.doctor.service._recreate_venv",
+            "ai_engineering.doctor.checks.venv.recreate_venv",
             return_value=True,
         ):
             report = diagnose(installed_project, fix_tools=True)
@@ -247,7 +247,7 @@ class TestVenvHealthCheck:
         cfg.write_text("home = /nonexistent/stale/python/path\n", encoding="utf-8")
 
         with patch(
-            "ai_engineering.doctor.service._recreate_venv",
+            "ai_engineering.doctor.checks.venv.recreate_venv",
             return_value=False,
         ):
             report = diagnose(installed_project, fix_tools=True)
@@ -281,7 +281,7 @@ class TestRecreateVenv:
 
         (tmp_path / ".python-version").write_text("3.12\n", encoding="utf-8")
 
-        with patch("ai_engineering.doctor.service.subprocess.run") as mock_run:
+        with patch("ai_engineering.doctor.checks.venv.subprocess.run") as mock_run:
             mock_run.return_value = None
             result = _recreate_venv(tmp_path)
 
@@ -294,7 +294,7 @@ class TestRecreateVenv:
     def test_works_without_python_version(self, tmp_path: Path) -> None:
         from unittest.mock import patch
 
-        with patch("ai_engineering.doctor.service.subprocess.run") as mock_run:
+        with patch("ai_engineering.doctor.checks.venv.subprocess.run") as mock_run:
             mock_run.return_value = None
             result = _recreate_venv(tmp_path)
 
@@ -308,7 +308,7 @@ class TestRecreateVenv:
         from unittest.mock import patch
 
         with patch(
-            "ai_engineering.doctor.service.subprocess.run",
+            "ai_engineering.doctor.checks.venv.subprocess.run",
             side_effect=sp.CalledProcessError(1, "uv"),
         ):
             result = _recreate_venv(tmp_path)

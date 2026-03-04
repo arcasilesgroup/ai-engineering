@@ -16,19 +16,19 @@ are rejected.
 from __future__ import annotations
 
 import os
-import shutil
-import subprocess
+import shutil  # noqa: F401 — re-exported for test patching
+import subprocess  # noqa: F401 — re-exported for test patching
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-from ai_engineering.credentials.service import CredentialService
-from ai_engineering.git.operations import PROTECTED_BRANCHES, current_branch
-from ai_engineering.hooks.manager import verify_hooks
 from ai_engineering.policy.test_scope import TestScope, compute_test_scope, resolve_scope_mode
 from ai_engineering.state.audit import emit_gate_event
-from ai_engineering.state.decision_logic import list_expired_decisions, list_expiring_soon
 from ai_engineering.state.io import read_json_model
-from ai_engineering.state.models import DecisionStore, GateHook, InstallManifest
+from ai_engineering.state.models import GateHook, InstallManifest
+
+if TYPE_CHECKING:
+    from ai_engineering.policy.checks.stack_runner import CheckConfig
 
 
 @dataclass
@@ -74,19 +74,25 @@ def run_gate(
     Returns:
         GateResult with all check outcomes.
     """
+    from ai_engineering.policy.checks.branch_protection import (
+        check_branch_protection,
+        check_hook_integrity,
+        check_version_deprecation,
+    )
+
     result = GateResult(hook=hook)
 
     # Branch protection check (all hooks)
-    _check_branch_protection(project_root, result)
+    check_branch_protection(project_root, result)
     if not result.passed:
         return result
 
     # Version deprecation check (defense-in-depth, all hooks)
-    _check_version_deprecation(result)
+    check_version_deprecation(result)
     if not result.passed:
         return result
 
-    _check_hook_integrity(project_root, result)
+    check_hook_integrity(project_root, result)
     if not result.passed:
         return result
 
@@ -103,112 +109,11 @@ def run_gate(
     return result
 
 
-# --- Stack-aware check registry ---
-
-
-@dataclass
-class CheckConfig:
-    """Configuration for a single gate check command."""
-
-    name: str
-    cmd: list[str]
-    required: bool = True
-    timeout: int = 300
-
-
-# Pre-commit checks per stack.
-_PRE_COMMIT_CHECKS: dict[str, list[CheckConfig]] = {
-    "common": [
-        CheckConfig(
-            name="gitleaks",
-            cmd=["gitleaks", "protect", "--staged", "--no-banner"],
-        ),
-    ],
-    "python": [
-        CheckConfig(name="ruff-format", cmd=["ruff", "format", "--check", "."]),
-        CheckConfig(name="ruff-lint", cmd=["ruff", "check", "."]),
-    ],
-    "dotnet": [
-        CheckConfig(name="dotnet-format", cmd=["dotnet", "format", "--verify-no-changes"]),
-    ],
-    "nextjs": [
-        CheckConfig(name="prettier-check", cmd=["prettier", "--check", "."]),
-        CheckConfig(name="eslint", cmd=["eslint", "."]),
-    ],
-}
-
-# Pre-push checks per stack.
-_PRE_PUSH_CHECKS: dict[str, list[CheckConfig]] = {
-    "common": [
-        CheckConfig(
-            name="semgrep",
-            cmd=["semgrep", "--config", ".semgrep.yml", "--error", "."],
-        ),
-    ],
-    "python": [
-        CheckConfig(name="pip-audit", cmd=["pip-audit"]),
-        CheckConfig(
-            name="stack-tests",
-            cmd=[
-                "uv",
-                "run",
-                "pytest",
-                "--tb=short",
-                "-q",
-                "-x",
-                "--no-cov",
-                "-n",
-                "auto",
-                "--dist",
-                "worksteal",
-                "-m",
-                "unit",
-            ],
-            timeout=120,
-        ),
-        CheckConfig(
-            name="duplication-check",
-            cmd=[
-                "uv",
-                "run",
-                "python",
-                "-m",
-                "ai_engineering.policy.duplication",
-                "--path",
-                "src/ai_engineering",
-                "--threshold",
-                "3",
-            ],
-        ),
-        CheckConfig(name="ty-check", cmd=["ty", "check", "src/ai_engineering"]),
-    ],
-    "dotnet": [
-        CheckConfig(name="dotnet-build", cmd=["dotnet", "build", "--no-restore"]),
-        CheckConfig(name="dotnet-test", cmd=["dotnet", "test", "--no-build"]),
-        CheckConfig(name="dotnet-vuln", cmd=["dotnet", "list", "package", "--vulnerable"]),
-    ],
-    "nextjs": [
-        CheckConfig(name="tsc-check", cmd=["tsc", "--noEmit"]),
-        CheckConfig(name="vitest", cmd=["vitest", "run"]),
-        CheckConfig(name="npm-audit", cmd=["npm", "audit"]),
-    ],
-}
-
-_GATE_TRAILER = "Ai-Eng-Gate: passed"
+# --- Helper functions ---
 
 
 def _get_active_stacks(project_root: Path) -> list[str]:
-    """Read installed stacks from install-manifest.json.
-
-    Falls back to ``["python"]`` if the manifest does not exist or cannot
-    be parsed, preserving backward-compatible behavior.
-
-    Args:
-        project_root: Root directory of the project.
-
-    Returns:
-        List of active stack names.
-    """
+    """Read installed stacks from install-manifest.json."""
     manifest_path = project_root / ".ai-engineering" / "state" / "install-manifest.json"
     if not manifest_path.exists():
         return ["python"]
@@ -220,81 +125,13 @@ def _get_active_stacks(project_root: Path) -> list[str]:
         return ["python"]
 
 
-def _check_branch_protection(project_root: Path, result: GateResult) -> None:
-    """Block direct commits to protected branches."""
-    branch = current_branch(project_root)
-    if branch and branch in PROTECTED_BRANCHES:
-        result.checks.append(
-            GateCheckResult(
-                name="branch-protection",
-                passed=False,
-                output=f"Direct commits to '{branch}' are blocked. Use a feature branch.",
-            )
-        )
-    else:
-        result.checks.append(
-            GateCheckResult(
-                name="branch-protection",
-                passed=True,
-                output=f"On branch: {branch or 'unknown'}",
-            )
-        )
-
-
-def _check_version_deprecation(result: GateResult) -> None:
-    """Block gate execution if the installed version is deprecated or EOL.
-
-    Defense-in-depth check (D-010-2). The primary block is the CLI callback;
-    this gate check provides an additional enforcement layer in git hooks.
-    Fail-open: registry errors pass the check.
-    """
-    from ai_engineering.__version__ import __version__
-    from ai_engineering.version.checker import check_version
-
-    check = check_version(__version__)
-
-    if check.is_deprecated or check.is_eol:
-        status_label = "deprecated" if check.is_deprecated else "end-of-life"
-        result.checks.append(
-            GateCheckResult(
-                name="version-deprecation",
-                passed=False,
-                output=(
-                    f"ai-engineering {__version__} is {status_label}. "
-                    f"{check.message}. "
-                    f"Run 'ai-eng update' to upgrade."
-                ),
-            )
-        )
-    else:
-        result.checks.append(
-            GateCheckResult(
-                name="version-deprecation",
-                passed=True,
-                output=f"Version lifecycle: {check.message}",
-            )
-        )
-
-
-def _run_pre_commit_checks(project_root: Path, result: GateResult) -> None:
-    """Run pre-commit gate checks: common + per-stack checks + risk warnings."""
-    stacks = _get_active_stacks(project_root)
-    _run_checks_for_stacks(
-        project_root,
-        result,
-        _PRE_COMMIT_CHECKS,
-        stacks,
-    )
-
-    # Risk expiry warnings (non-blocking)
-    _check_expiring_risk_acceptances(project_root, result)
-
-
 def _run_commit_msg_checks(
     commit_msg_file: Path | None,
     result: GateResult,
 ) -> None:
     """Validate commit message format."""
+    from ai_engineering.policy.checks.commit_msg import inject_gate_trailer, validate_commit_message
+
     if commit_msg_file is None or not commit_msg_file.is_file():
         result.checks.append(
             GateCheckResult(
@@ -317,7 +154,7 @@ def _run_commit_msg_checks(
         )
         return
 
-    errors = _validate_commit_message(msg)
+    errors = validate_commit_message(msg)
     if errors:
         result.checks.append(
             GateCheckResult(
@@ -327,7 +164,7 @@ def _run_commit_msg_checks(
             )
         )
     else:
-        _inject_gate_trailer(commit_msg_file)
+        inject_gate_trailer(commit_msg_file)
         result.checks.append(
             GateCheckResult(
                 name="commit-msg-format",
@@ -337,29 +174,15 @@ def _run_commit_msg_checks(
         )
 
 
-def _inject_gate_trailer(commit_msg_file: Path) -> None:
-    """Append gate verification trailer if not already present."""
-    try:
-        content = commit_msg_file.read_text(encoding="utf-8")
-    except OSError:
-        return
-
-    if _GATE_TRAILER in content:
-        return
-
-    updated = content.rstrip() + f"\n\n{_GATE_TRAILER}\n"
-    try:
-        commit_msg_file.write_text(updated, encoding="utf-8")
-    except OSError:
-        return
-
-
-def _clone_registry(registry: dict[str, list[CheckConfig]]) -> dict[str, list[CheckConfig]]:
+def _clone_registry(
+    registry: dict[str, list[CheckConfig]],
+    config_cls: type[CheckConfig],
+) -> dict[str, list[CheckConfig]]:
     """Clone check registry without mutating global constants."""
     clone: dict[str, list[CheckConfig]] = {}
     for stack, checks in registry.items():
         clone[stack] = [
-            CheckConfig(
+            config_cls(
                 name=check.name,
                 cmd=list(check.cmd),
                 required=check.required,
@@ -373,9 +196,10 @@ def _clone_registry(registry: dict[str, list[CheckConfig]]) -> dict[str, list[Ch
 def _override_test_cmd(
     registry: dict[str, list[CheckConfig]],
     scope: TestScope,
+    config_cls: type[CheckConfig],
 ) -> dict[str, list[CheckConfig]]:
     """Return cloned registry with python stack-tests command selectively overridden."""
-    clone = _clone_registry(registry)
+    clone = _clone_registry(registry, config_cls)
     python_checks = clone.get("python", [])
     updated: list[CheckConfig] = []
 
@@ -385,12 +209,11 @@ def _override_test_cmd(
             continue
 
         if scope.mode == "selective" and not scope.selected_tests:
-            # Docs-only selective scope: skip pytest invocation entirely.
             continue
 
         if scope.mode == "selective":
             updated.append(
-                CheckConfig(
+                config_cls(
                     name=check.name,
                     cmd=[*check.cmd, *scope.selected_tests],
                     required=check.required,
@@ -403,11 +226,6 @@ def _override_test_cmd(
 
     clone["python"] = updated
     return clone
-
-
-def _compute_test_scope(project_root: Path) -> TestScope:
-    """Compute unit-tier test scope for pre-push checks."""
-    return compute_test_scope(project_root, tier="unit", base_ref="auto")
 
 
 def _append_scope_diagnostic(result: GateResult, *, scope: TestScope, mode: str) -> None:
@@ -431,10 +249,39 @@ def _append_scope_diagnostic(result: GateResult, *, scope: TestScope, mode: str)
     )
 
 
+def _compute_test_scope(project_root: Path) -> TestScope:
+    """Compute unit-tier test scope for pre-push checks."""
+    return compute_test_scope(project_root, tier="unit", base_ref="auto")
+
+
+def _check_expired_risk_acceptances(project_root: Path, result: GateResult) -> None:
+    """Delegate to risk module — kept here for test patching compatibility."""
+    from ai_engineering.policy.checks.risk import check_expired_risk_acceptances
+
+    check_expired_risk_acceptances(project_root, result)
+
+
+def _run_pre_commit_checks(project_root: Path, result: GateResult) -> None:
+    """Run pre-commit gate checks: common + per-stack checks + risk warnings."""
+    from ai_engineering.policy.checks.risk import check_expiring_risk_acceptances
+    from ai_engineering.policy.checks.stack_runner import PRE_COMMIT_CHECKS, run_checks_for_stacks
+
+    stacks = _get_active_stacks(project_root)
+    run_checks_for_stacks(project_root, result, PRE_COMMIT_CHECKS, stacks)
+    check_expiring_risk_acceptances(project_root, result)
+
+
 def _run_pre_push_checks(project_root: Path, result: GateResult) -> None:
     """Run pre-push gate checks: common + per-stack checks + expired risks."""
+    from ai_engineering.policy.checks.sonar import check_sonar_gate
+    from ai_engineering.policy.checks.stack_runner import (
+        PRE_PUSH_CHECKS,
+        CheckConfig,
+        run_checks_for_stacks,
+    )
+
     stacks = _get_active_stacks(project_root)
-    registry = _PRE_PUSH_CHECKS
+    registry = PRE_PUSH_CHECKS
 
     if "python" in stacks:
         mode = resolve_scope_mode(os.environ)
@@ -451,9 +298,8 @@ def _run_pre_push_checks(project_root: Path, result: GateResult) -> None:
                 scope = _compute_test_scope(project_root)
                 _append_scope_diagnostic(result, scope=scope, mode=mode)
                 if mode == "enforce":
-                    registry = _override_test_cmd(_PRE_PUSH_CHECKS, scope)
+                    registry = _override_test_cmd(PRE_PUSH_CHECKS, scope, CheckConfig)
             except Exception as exc:
-                # Fail closed: keep full suite command and surface explicit reason.
                 result.checks.append(
                     GateCheckResult(
                         name="test-scope",
@@ -466,408 +312,80 @@ def _run_pre_push_checks(project_root: Path, result: GateResult) -> None:
                     )
                 )
 
-    _run_checks_for_stacks(
-        project_root,
-        result,
-        registry,
-        stacks,
-    )
-
-    # Optional Sonar gate (advisory only).
-    _check_sonar_gate(project_root, result)
-
-    # Expired risk acceptances (blocking)
+    run_checks_for_stacks(project_root, result, registry, stacks)
+    check_sonar_gate(project_root, result)
     _check_expired_risk_acceptances(project_root, result)
 
 
-def _check_sonar_gate(project_root: Path, result: GateResult) -> None:
-    """Run local Sonar scanner in advisory mode for pre-push.
-
-    This check never blocks push; all outcomes append passed=True.
-    """
-    if not shutil.which("sonar-scanner"):
-        result.checks.append(
-            GateCheckResult(
-                name="sonar-gate",
-                passed=True,
-                output="sonar-scanner not found — skipped",
-            )
-        )
-        return
-
-    props_file = project_root / "sonar-project.properties"
-    if not props_file.exists():
-        result.checks.append(
-            GateCheckResult(
-                name="sonar-gate",
-                passed=True,
-                output="sonar-project.properties not found — skipped",
-            )
-        )
-        return
-
-    sonar_token = os.environ.get("SONAR_TOKEN", "").strip()
-    if not sonar_token:
-        tools = CredentialService.load_tools_state(project_root / ".ai-engineering" / "state")
-        if not tools.sonar.configured:
-            result.checks.append(
-                GateCheckResult(
-                    name="sonar-gate",
-                    passed=True,
-                    output="SONAR_TOKEN not set and Sonar not configured — skipped",
-                )
-            )
-            return
-
-    try:
-        proc = subprocess.run(
-            ["sonar-scanner"],
-            cwd=project_root,
-            capture_output=True,
-            text=True,
-            timeout=300,
-            encoding="utf-8",
-            errors="replace",
-        )
-    except (subprocess.TimeoutExpired, FileNotFoundError):
-        result.checks.append(
-            GateCheckResult(
-                name="sonar-gate",
-                passed=True,
-                output="sonar-scanner execution unavailable — skipped",
-            )
-        )
-        return
-
-    if proc.returncode == 0:
-        output = proc.stdout.strip() or "Sonar gate passed"
-        result.checks.append(
-            GateCheckResult(
-                name="sonar-gate",
-                passed=True,
-                output=output,
-            )
-        )
-        return
-
-    failure_output = proc.stderr.strip() or proc.stdout.strip() or "unknown scanner error"
-    result.checks.append(
-        GateCheckResult(
-            name="sonar-gate",
-            passed=True,
-            output=f"Sonar gate FAILED (advisory): {failure_output}",
-        )
-    )
+# ---------------------------------------------------------------------------
+# Backward-compatible re-exports for tests and consumers.
+# These were previously defined directly in this module.
+# Deferred imports to avoid circular dependency (check modules import
+# GateCheckResult/GateResult from this module).
+# ---------------------------------------------------------------------------
 
 
-def _check_hook_integrity(project_root: Path, result: GateResult) -> None:
-    """Verify managed hooks are intact (marker + optional hash check)."""
-    hooks_dir = project_root / ".git" / "hooks"
-    if not hooks_dir.is_dir():
-        result.checks.append(
-            GateCheckResult(
-                name="hook-integrity",
-                passed=True,
-                output="No .git/hooks directory — skipped",
-            )
-        )
-        return
+def __getattr__(name: str) -> object:
+    """Lazy re-export of names moved to policy.checks sub-modules."""
+    if name == "CheckConfig":
+        from ai_engineering.policy.checks.stack_runner import CheckConfig
 
-    status = verify_hooks(project_root)
-    failing = [hook for hook, ok in status.items() if not ok and (hooks_dir / hook).exists()]
-    if failing:
-        result.checks.append(
-            GateCheckResult(
-                name="hook-integrity",
-                passed=False,
-                output=(
-                    "Hook integrity check failed for: "
-                    + ", ".join(sorted(failing))
-                    + ". Reinstall hooks with 'ai-eng doctor --fix-hooks'."
-                ),
-            )
-        )
-        return
+        return CheckConfig
+    if name == "_PRE_COMMIT_CHECKS":
+        from ai_engineering.policy.checks.stack_runner import PRE_COMMIT_CHECKS
 
-    result.checks.append(
-        GateCheckResult(
-            name="hook-integrity",
-            passed=True,
-            output="Hook integrity verified",
-        )
-    )
+        return PRE_COMMIT_CHECKS
+    if name == "_PRE_PUSH_CHECKS":
+        from ai_engineering.policy.checks.stack_runner import PRE_PUSH_CHECKS
 
+        return PRE_PUSH_CHECKS
+    if name == "_run_checks_for_stacks":
+        from ai_engineering.policy.checks.stack_runner import run_checks_for_stacks
 
-def _run_checks_for_stacks(
-    project_root: Path,
-    result: GateResult,
-    registry: dict[str, list[CheckConfig]],
-    stacks: list[str],
-) -> None:
-    """Execute checks from *registry* for common + each active stack.
+        return run_checks_for_stacks
+    if name == "_run_tool_check":
+        from ai_engineering.policy.checks.stack_runner import run_tool_check
 
-    Args:
-        project_root: Root directory of the project.
-        result: GateResult to append check outcomes to.
-        registry: Mapping of stack name to list of check configurations.
-        stacks: Active stack names from install manifest.
-    """
-    # Always run common checks
-    for check in registry.get("common", []):
-        _run_tool_check(
-            result,
-            name=check.name,
-            cmd=check.cmd,
-            cwd=project_root,
-            required=check.required,
-            timeout=check.timeout,
-        )
+        return run_tool_check
+    if name == "_validate_commit_message":
+        from ai_engineering.policy.checks.commit_msg import validate_commit_message
 
-    # Run per-stack checks
-    for stack in stacks:
-        for check in registry.get(stack, []):
-            _run_tool_check(
-                result,
-                name=check.name,
-                cmd=check.cmd,
-                cwd=project_root,
-                required=check.required,
-                timeout=check.timeout,
-            )
+        return validate_commit_message
+    if name == "_check_expiring_risk_acceptances":
+        from ai_engineering.policy.checks.risk import check_expiring_risk_acceptances
 
+        return check_expiring_risk_acceptances
+    if name == "_check_expired_risk_acceptances":
+        from ai_engineering.policy.checks.risk import check_expired_risk_acceptances
 
-def _run_tool_check(
-    result: GateResult,
-    *,
-    name: str,
-    cmd: list[str],
-    cwd: Path,
-    required: bool = True,
-    timeout: int = 300,
-) -> None:
-    """Run a tool command and record the result.
+        return check_expired_risk_acceptances
+    if name == "_check_sonar_gate":
+        from ai_engineering.policy.checks.sonar import check_sonar_gate
 
-    If the tool is not found on PATH, behavior depends on ``required``:
-    when True the check fails (default, fail-closed); when False it is
-    skipped with a warning.
+        return check_sonar_gate
+    if name == "_check_branch_protection":
+        from ai_engineering.policy.checks.branch_protection import check_branch_protection
 
-    Args:
-        result: GateResult to append check to.
-        name: Human-readable check name.
-        cmd: Command and arguments to run.
-        cwd: Working directory for the command.
-        required: If True, missing tool causes check failure. Defaults to True
-            (fail-closed). All registered check configs pass this explicitly.
-        timeout: Maximum seconds for the command to run. Defaults to 300.
-    """
-    tool_name = cmd[0]
-    if not shutil.which(tool_name):
-        if required:
-            result.checks.append(
-                GateCheckResult(
-                    name=name,
-                    passed=False,
-                    output=(
-                        f"{tool_name} not found — required. "
-                        "Run 'ai-eng doctor --fix-tools' to install."
-                    ),
-                )
-            )
-        else:
-            result.checks.append(
-                GateCheckResult(
-                    name=name,
-                    passed=True,
-                    output=f"{tool_name} not found — skipped (run 'ai-eng doctor --fix-tools')",
-                )
-            )
-        return
+        return check_branch_protection
+    if name == "_check_version_deprecation":
+        from ai_engineering.policy.checks.branch_protection import check_version_deprecation
 
-    try:
-        proc = subprocess.run(
-            cmd,
-            cwd=cwd,
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-            encoding="utf-8",
-            errors="replace",
-        )
-        passed = proc.returncode == 0
-        output = proc.stdout.strip() or proc.stderr.strip()
-        if not output:
-            output = f"{tool_name} exited with code {proc.returncode}"
-        # Truncate long output
-        if len(output) > 500:
-            output = output[:500] + "\n... (truncated)"
-    except subprocess.TimeoutExpired:
-        passed = False
-        output = f"{tool_name} timed out after {timeout}s"
-    except FileNotFoundError:
-        if required:
-            passed = False
-            output = (
-                f"{tool_name} not found — required. Run 'ai-eng doctor --fix-tools' to install."
-            )
-        else:
-            passed = True
-            output = f"{tool_name} not found — skipped"
+        return check_version_deprecation
+    if name == "_check_hook_integrity":
+        from ai_engineering.policy.checks.branch_protection import check_hook_integrity
 
-    result.checks.append(
-        GateCheckResult(
-            name=name,
-            passed=passed,
-            output=output,
-        )
-    )
+        return check_hook_integrity
+    if name == "_load_decision_store":
+        from ai_engineering.policy.checks.risk import load_decision_store
 
+        return load_decision_store
+    if name == "_GATE_TRAILER":
+        from ai_engineering.policy.checks.commit_msg import _GATE_TRAILER
 
-def _load_decision_store(project_root: Path) -> DecisionStore | None:
-    """Load the decision store from the project, or None if unavailable.
+        return _GATE_TRAILER
+    if name == "_inject_gate_trailer":
+        from ai_engineering.policy.checks.commit_msg import inject_gate_trailer
 
-    Args:
-        project_root: Root directory of the project.
-
-    Returns:
-        DecisionStore if the file exists and parses, else None.
-    """
-    ds_path = project_root / ".ai-engineering" / "state" / "decision-store.json"
-    if not ds_path.exists():
-        return None
-    try:
-        return read_json_model(ds_path, DecisionStore)
-    except (OSError, ValueError):
-        return None
-
-
-def _check_expiring_risk_acceptances(
-    project_root: Path,
-    result: GateResult,
-) -> None:
-    """Warn about risk acceptances expiring within 7 days (non-blocking).
-
-    This is a pre-commit advisory check. It always passes but includes
-    warning text in the output.
-
-    Args:
-        project_root: Root directory of the project.
-        result: GateResult to append check to.
-    """
-    store = _load_decision_store(project_root)
-    if store is None:
-        result.checks.append(
-            GateCheckResult(
-                name="risk-expiry-warning",
-                passed=True,
-                output="No decision store found — skipped",
-            )
-        )
-        return
-
-    expiring = list_expiring_soon(store)
-    if not expiring:
-        result.checks.append(
-            GateCheckResult(
-                name="risk-expiry-warning",
-                passed=True,
-                output="No risk acceptances expiring soon",
-            )
-        )
-        return
-
-    lines = [f"{len(expiring)} risk acceptance(s) expiring within 7 days:"]
-    for d in expiring:
-        exp = d.expires_at.strftime("%Y-%m-%d") if d.expires_at else "unknown"
-        lines.append(f"  - {d.id}: expires {exp} ({d.context[:60]})")
-    lines.append("Consider renewing or remediating before expiry.")
-
-    result.checks.append(
-        GateCheckResult(
-            name="risk-expiry-warning",
-            passed=True,
-            output="\n".join(lines),
-        )
-    )
-
-
-def _check_expired_risk_acceptances(
-    project_root: Path,
-    result: GateResult,
-) -> None:
-    """Block push if expired risk acceptances exist (blocking).
-
-    This is a pre-push gate check. Expired unresolved risk acceptances
-    must be renewed or remediated before code can be pushed.
-
-    Args:
-        project_root: Root directory of the project.
-        result: GateResult to append check to.
-    """
-    store = _load_decision_store(project_root)
-    if store is None:
-        result.checks.append(
-            GateCheckResult(
-                name="risk-expired-block",
-                passed=True,
-                output="No decision store found — skipped",
-            )
-        )
-        return
-
-    expired = list_expired_decisions(store)
-    if not expired:
-        result.checks.append(
-            GateCheckResult(
-                name="risk-expired-block",
-                passed=True,
-                output="No expired risk acceptances",
-            )
-        )
-        return
-
-    lines = [f"{len(expired)} expired risk acceptance(s) blocking push:"]
-    for d in expired:
-        exp = d.expires_at.strftime("%Y-%m-%d") if d.expires_at else "unknown"
-        lines.append(f"  - {d.id}: expired {exp} ({d.context[:60]})")
-    lines.append("Run 'ai-eng maintenance risk-status' to review.")
-    lines.append("Renew with accept-risk skill or remediate with resolve-risk skill.")
-
-    result.checks.append(
-        GateCheckResult(
-            name="risk-expired-block",
-            passed=False,
-            output="\n".join(lines),
-        )
-    )
-
-
-def _validate_commit_message(msg: str) -> list[str]:
-    """Validate a commit message against project conventions.
-
-    Rules:
-    - Must not be empty.
-    - First line must not exceed 72 characters.
-    - First line must start with a lowercase letter or a known prefix.
-
-    Args:
-        msg: The full commit message text.
-
-    Returns:
-        List of validation errors (empty if valid).
-    """
-    errors: list[str] = []
-
-    if not msg:
-        errors.append("Commit message is empty")
-        return errors
-
-    first_line = msg.splitlines()[0].strip()
-
-    if not first_line:
-        errors.append("First line is empty")
-        return errors
-
-    if len(first_line) > 72:
-        errors.append(f"First line exceeds 72 characters ({len(first_line)} chars)")
-
-    return errors
+        return inject_gate_trailer
+    msg = f"module {__name__!r} has no attribute {name!r}"
+    raise AttributeError(msg)
