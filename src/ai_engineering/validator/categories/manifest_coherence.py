@@ -64,11 +64,13 @@ def _check_manifest_coherence(target: Path, report: IntegrityReport, **_kwargs: 
     active_path = ai_dir / "context" / "specs" / "_active.md"
     if active_path.exists():
         content = active_path.read_text(encoding="utf-8", errors="replace")
-        # Extract active spec from frontmatter
-        active_match = re.search(r'^active:\s*"([^"]+)"', content, re.MULTILINE)
+        # Extract active spec from frontmatter (quoted or unquoted)
+        active_match = re.search(
+            r'^active:\s*(?:"([^"]+)"|\'([^\']+)\'|(\S+))', content, re.MULTILINE
+        )
         if active_match:
-            active_spec = active_match.group(1)
-            if active_spec == "none":
+            active_spec = active_match.group(1) or active_match.group(2) or active_match.group(3)
+            if active_spec in ("null", "none", "~"):
                 report.checks.append(
                     IntegrityCheckResult(
                         category=IntegrityCategory.MANIFEST_COHERENCE,
@@ -77,7 +79,10 @@ def _check_manifest_coherence(target: Path, report: IntegrityReport, **_kwargs: 
                         message="No active spec (idle)",
                     )
                 )
-            elif not (ai_dir / "context" / "specs" / active_spec).is_dir():
+            elif not (
+                (ai_dir / "context" / "specs" / active_spec).is_dir()
+                or (ai_dir / "context" / "specs" / "archive" / active_spec).is_dir()
+            ):
                 report.checks.append(
                     IntegrityCheckResult(
                         category=IntegrityCategory.MANIFEST_COHERENCE,
@@ -86,24 +91,29 @@ def _check_manifest_coherence(target: Path, report: IntegrityReport, **_kwargs: 
                         message=f"Active spec directory not found: {active_spec}",
                     )
                 )
-            elif not (ai_dir / "context" / "specs" / active_spec / "spec.md").exists():
-                report.checks.append(
-                    IntegrityCheckResult(
-                        category=IntegrityCategory.MANIFEST_COHERENCE,
-                        name="active-spec-file",
-                        status=IntegrityStatus.FAIL,
-                        message=f"Active spec missing spec.md: {active_spec}",
-                    )
-                )
             else:
-                report.checks.append(
-                    IntegrityCheckResult(
-                        category=IntegrityCategory.MANIFEST_COHERENCE,
-                        name="active-spec",
-                        status=IntegrityStatus.OK,
-                        message=f"Active spec valid: {active_spec}",
+                # Resolve the actual spec directory
+                spec_base = ai_dir / "context" / "specs" / active_spec
+                if not spec_base.is_dir():
+                    spec_base = ai_dir / "context" / "specs" / "archive" / active_spec
+                if not (spec_base / "spec.md").exists():
+                    report.checks.append(
+                        IntegrityCheckResult(
+                            category=IntegrityCategory.MANIFEST_COHERENCE,
+                            name="active-spec-file",
+                            status=IntegrityStatus.FAIL,
+                            message=f"Active spec missing spec.md: {active_spec}",
+                        )
                     )
-                )
+                else:
+                    report.checks.append(
+                        IntegrityCheckResult(
+                            category=IntegrityCategory.MANIFEST_COHERENCE,
+                            name="active-spec",
+                            status=IntegrityStatus.OK,
+                            message=f"Active spec valid: {active_spec}",
+                        )
+                    )
     else:
         report.checks.append(
             IntegrityCheckResult(

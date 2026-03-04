@@ -344,6 +344,7 @@ def create_app() -> typer.Typer:
     )
     decision_app.command("list")(_safe(decisions_cmd.decision_list))
     decision_app.command("expire-check")(_safe(decisions_cmd.decision_expire_check))
+    decision_app.command("record")(_safe(decisions_cmd.decision_record))
     app.add_typer(decision_app, name="decision")
 
     # Spec sub-group (v3: spec lifecycle management)

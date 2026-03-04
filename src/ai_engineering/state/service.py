@@ -41,6 +41,10 @@ class StateService:
         """Load the decision store."""
         return read_json_model(self._state_dir / "decision-store.json", DecisionStore)
 
+    def save_decisions(self, store: DecisionStore) -> None:
+        """Save the decision store."""
+        write_json_model(self._state_dir / "decision-store.json", store)
+
     def load_ownership(self) -> OwnershipMap:
         """Load the ownership map."""
         return read_json_model(self._state_dir / "ownership-map.json", OwnershipMap)
