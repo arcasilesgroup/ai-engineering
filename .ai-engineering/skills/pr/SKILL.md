@@ -69,10 +69,12 @@ Execute the `/pr` governed workflow: conditionally run spec reset, stage, commit
    - `pytest tests/ -v`
    - `ty check src/`
      If any check fails, report and stop.
-7. **Commit** — `git commit -m "<message>"` with well-formed message.
+7. **Spec verify** — if an active spec exists, run `ai-eng spec verify` to auto-correct counters.
+8. **Spec catalog** — run `ai-eng spec catalog` to regenerate the spec catalog before PR.
+9. **Commit** — `git commit -m "<message>"` with well-formed message.
    - If active spec exists: `spec-NNN: Task X.Y — <description>`.
    - Otherwise: conventional commit format.
-8. **Push** — `git push origin <current-branch>`.
+10. **Push** — `git push origin <current-branch>`.
    - If current branch is `main`/`master`, **block** and report protected branch violation.
 9. **Detect VCS provider** — determine which CLI to use:
    a. Check `manifest.yml` → `providers.vcs.primary`.

@@ -1,5 +1,5 @@
-Surface requirements, unknowns, and assumptions.
+Read and execute the skill defined in `.ai-engineering/skills/discover/SKILL.md`.
 
-Read and execute `.ai-engineering/skills/discover/SKILL.md`. Follow the complete procedure and all governance notes.
+Follow the complete procedure. Do not skip steps. Apply all governance notes. If the skill references standards or other skills, read those as needed.
 
 $ARGUMENTS

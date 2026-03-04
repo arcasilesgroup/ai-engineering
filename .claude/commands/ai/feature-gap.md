@@ -1,3 +1,5 @@
-Load and execute skill: `.ai-engineering/skills/feature-gap/SKILL.md`
-Detect spec-vs-code gaps: unimplemented features, dead specs, acceptance criteria coverage.
+Read and execute the skill defined in `.ai-engineering/skills/feature-gap/SKILL.md`.
+
+Follow the complete procedure. Do not skip steps. Apply all governance notes. If the skill references standards or other skills, read those as needed.
+
 $ARGUMENTS

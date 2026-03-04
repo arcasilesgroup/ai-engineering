@@ -1,3 +1,5 @@
-Load and execute skill: `.ai-engineering/skills/governance/SKILL.md`
-Governance validation: integrity, compliance, ownership, operational. Modes: integrity | compliance | ownership | operational.
+Read and execute the skill defined in `.ai-engineering/skills/governance/SKILL.md`.
+
+Follow the complete procedure. Do not skip steps. Apply all governance notes. If the skill references standards or other skills, read those as needed.
+
 $ARGUMENTS

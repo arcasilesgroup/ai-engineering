@@ -1,7 +1,7 @@
 ---
 name: "Observe"
-description: "Observatory — metrics, dashboards, DORA, health scoring across 5 modes"
-tools: [codebase, fetch, githubRepo, readFile, runCommands, search, terminalLastCommand]
+description: "observe agent"
+tools: [codebase, editFiles, fetch, githubRepo, problems, readFile, runCommands, search, terminalLastCommand, testFailures]
 ---
 
 Activate the agent persona defined in `.ai-engineering/agents/observe.md`.

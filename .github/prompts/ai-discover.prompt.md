@@ -1,5 +1,5 @@
 ---
-description: "Surface requirements, unknowns, and assumptions."
+description: "Relentless requirements discovery through structured interrogation; use before planning any non-trivial feature to surface unknowns, assumptions, and missing requirements."
 mode: "agent"
 ---
 

@@ -58,6 +58,12 @@ Execute full repository hygiene — branch cleanup and remote status assessment.
    - Excludes protected branches (`main`, `master`).
    - Reports: branches deleted (merged), branches deleted (gone), refs pruned, branches skipped.
 
+### Phase 4: Spec Compact (Advisory)
+
+10. **Report stale specs** — `uv run ai-eng spec compact --dry-run`.
+    - Lists archived specs older than the configured threshold (default 6 months) that could be compacted.
+    - Does NOT delete anything — advisory only during cleanup.
+
 ## Examples
 
 ### Example 1: Session-start hygiene

@@ -55,10 +55,11 @@ Execute the `/commit` governed workflow: stage all changes, run mandatory pre-co
    - Ask: "Do you have an external documentation portal (docs site, wiki, separate repo)? Provide the repo URL, or 'skip'."
    - If URL provided: clone, branch, update, commit + push + create PR with auto-complete (use VCS-appropriate CLI), report URL.
    - If 'skip': continue without external docs.
-6. **Commit** — `git commit -m "<message>"` with a well-formed commit message following project conventions.
+6. **Spec verify** — if an active spec exists, run `ai-eng spec verify` to auto-correct task counters before committing.
+7. **Commit** — `git commit -m "<message>"` with a well-formed commit message following project conventions.
    - If active spec exists, use format: `spec-NNN: Task X.Y — <description>`.
    - Otherwise, use conventional commit format: `type(scope): description`.
-7. **Push** — `git push origin <current-branch>`.
+8. **Push** — `git push origin <current-branch>`.
    - If current branch is `main` or `master`, **block** and report protected branch violation.
 
 ### `/commit --only` (stage + commit, no push)

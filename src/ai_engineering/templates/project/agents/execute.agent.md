@@ -1,6 +1,6 @@
 ---
 name: "Execute"
-description: "Execute an approved plan by dispatching specialized agents."
+description: "execute agent"
 tools: [codebase, editFiles, fetch, githubRepo, problems, readFile, runCommands, search, terminalLastCommand, testFailures]
 ---
 

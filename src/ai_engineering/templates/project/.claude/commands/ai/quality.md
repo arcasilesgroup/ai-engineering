@@ -1,3 +1,5 @@
-Load and execute skill: `.ai-engineering/skills/quality/SKILL.md`
-Quality assessment: coverage, complexity, duplication, code review. Modes: code | sonar | review | docs.
+Read and execute the skill defined in `.ai-engineering/skills/quality/SKILL.md`.
+
+Follow the complete procedure. Do not skip steps. Apply all governance notes. If the skill references standards or other skills, read those as needed.
+
 $ARGUMENTS

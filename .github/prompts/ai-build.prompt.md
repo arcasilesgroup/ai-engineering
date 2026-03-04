@@ -1,8 +1,8 @@
 ---
-description: "Write code across all stacks (only code-write agent)."
+description: "Write code across all supported stacks following standards: implement features, write tests, validate."
 mode: "agent"
 ---
 
-Activate the agent persona defined in `.ai-engineering/agents/build.md`.
+Read and execute the skill defined in `.ai-engineering/skills/build/SKILL.md`.
 
-Read the agent file completely. Adopt the identity, capabilities, and behavior. Follow behavior steps in order. Respect all boundaries. Read all referenced skills and standards.
+Follow the complete procedure. Do not skip steps. Apply all governance notes.

@@ -1,5 +1,5 @@
 ---
-description: "Assess code quality: coverage, complexity, duplication, lint."
+description: "Unified quality assessment: coverage, complexity, duplication, code review. Modes: code | sonar | review | docs."
 mode: "agent"
 ---
 

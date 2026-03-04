@@ -1,5 +1,5 @@
-Detect spec-vs-code gaps and architecture drift.
+Activate the agent persona defined in `.ai-engineering/agents/scan.md`.
 
-Activate the agent persona defined in `.ai-engineering/agents/scan.md`. Follow all behavior steps and boundaries.
+Read the agent file completely. Adopt the identity, capabilities, and behavior. Follow behavior steps in order. Respect all boundaries. Read all referenced skills and standards.
 
 $ARGUMENTS

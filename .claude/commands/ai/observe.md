@@ -1,3 +1,5 @@
-Load and execute skill: `.ai-engineering/skills/observe/SKILL.md`
-Generate observability dashboards. Modes: engineer | team | ai | dora | health.
+Activate the agent persona defined in `.ai-engineering/agents/observe.md`.
+
+Read the agent file completely. Adopt the identity, capabilities, and behavior. Follow behavior steps in order. Respect all boundaries. Read all referenced skills and standards.
+
 $ARGUMENTS
