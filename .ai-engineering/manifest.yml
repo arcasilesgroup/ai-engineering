@@ -42,6 +42,15 @@ work_items:
     on_spec_close: close_linked_issue
     on_task_complete: update_sub_issue
 
+issue_standard:
+  required_fields: ["title", "description", "priority", "size", "acceptance_criteria"]
+  priority_labels: ["p1-critical", "p2-high", "p3-normal"]
+  size_labels: ["S", "M", "L", "XL"]
+  priority_mapping:
+    P0: "p1-critical"
+    P1: "p2-high"
+    P2: "p3-normal"
+
 ownership:
   root: ".ai-engineering"
   model:
@@ -49,6 +58,7 @@ ownership:
       - "standards/framework/**"
       - "skills/**"
       - "agents/**"
+      - "runbooks/**"
     team_managed:
       - "standards/team/**"
     project_managed:
@@ -71,6 +81,9 @@ ownership:
     - ".github/copilot/commit-message.md"
     - ".github/prompts/**"
     - ".github/agents/**"
+    - ".github/ISSUE_TEMPLATE/**"
+    - ".github/pull_request_template.md"
+    - ".agents/**"
     - ".claude/settings.json"
     - ".claude/commands/**"
 

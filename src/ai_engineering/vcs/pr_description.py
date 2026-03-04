@@ -55,7 +55,11 @@ def build_pr_description(project_root: Path, *, max_commits: int = 20) -> str:
     # Spec section
     spec = _read_active_spec(project_root)
     if spec:
-        lines.append(f"## Spec\n\n`{spec}`\n")
+        spec_url = _build_spec_url(project_root, spec)
+        if spec_url:
+            lines.append(f"## Spec\n\n[{spec}]({spec_url})\n")
+        else:
+            lines.append(f"## Spec\n\n`{spec}`\n")
 
     # Changes section
     commits = _recent_commit_subjects(project_root, max_commits=max_commits)
@@ -71,6 +75,83 @@ def build_pr_description(project_root: Path, *, max_commits: int = 20) -> str:
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+
+def _get_repo_url(project_root: Path) -> str | None:
+    """Detect the repository web URL from the git remote origin.
+
+    Supports GitHub (``github.com``) and Azure DevOps
+    (``dev.azure.com``, ``visualstudio.com``).
+
+    Args:
+        project_root: Root directory of the project.
+
+    Returns:
+        Repository web URL, or None if detection fails.
+    """
+    ok, output = run_git(["remote", "get-url", "origin"], project_root)
+    if not ok or not output.strip():
+        return None
+
+    url = output.strip()
+
+    # SSH → HTTPS conversion for GitHub
+    if url.startswith("git@github.com:"):
+        path = url.removeprefix("git@github.com:")
+        if path.endswith(".git"):
+            path = path[:-4]
+        return f"https://github.com/{path}"
+
+    # HTTPS GitHub
+    if "github.com" in url:
+        if url.endswith(".git"):
+            url = url[:-4]
+        return url
+
+    # SSH → HTTPS conversion for Azure DevOps
+    if url.startswith("git@ssh.dev.azure.com:"):
+        # git@ssh.dev.azure.com:v3/org/project/repo
+        path = url.removeprefix("git@ssh.dev.azure.com:v3/")
+        parts = path.split("/")
+        if len(parts) >= 3:
+            org, project, repo = parts[0], parts[1], parts[2]
+            return f"https://dev.azure.com/{org}/{project}/_git/{repo}"
+
+    # HTTPS Azure DevOps
+    if "dev.azure.com" in url:
+        if url.endswith(".git"):
+            url = url[:-4]
+        return url
+
+    return None
+
+
+def _build_spec_url(project_root: Path, spec: str) -> str | None:
+    """Build a clickeable URL to the spec directory.
+
+    Uses the repository URL and default branch to construct a web-accessible
+    link to the spec's ``spec.md``.
+
+    Args:
+        project_root: Root directory of the project.
+        spec: Spec identifier (e.g., ``"036-platform-runbooks"``).
+
+    Returns:
+        Full URL to the spec file, or None if repo URL cannot be determined.
+    """
+    repo_url = _get_repo_url(project_root)
+    if not repo_url:
+        return None
+
+    spec_path = f".ai-engineering/context/specs/{spec}/spec.md"
+
+    if "github.com" in repo_url:
+        return f"{repo_url}/blob/main/{spec_path}"
+
+    if "dev.azure.com" in repo_url:
+        return f"{repo_url}?path=/{spec_path}&version=GBmain"
+
+    return None
 
 
 def _read_active_spec(project_root: Path) -> str | None:
