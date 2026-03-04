@@ -25,6 +25,7 @@ from ai_engineering.credentials.service import CredentialService
 from ai_engineering.git.operations import PROTECTED_BRANCHES, current_branch
 from ai_engineering.hooks.manager import verify_hooks
 from ai_engineering.policy.test_scope import TestScope, compute_test_scope, resolve_scope_mode
+from ai_engineering.state.audit import emit_gate_event
 from ai_engineering.state.decision_logic import list_expired_decisions, list_expiring_soon
 from ai_engineering.state.io import read_json_model
 from ai_engineering.state.models import DecisionStore, GateHook, InstallManifest
@@ -95,6 +96,9 @@ def run_gate(
         _run_commit_msg_checks(commit_msg_file, result)
     elif hook == GateHook.PRE_PUSH:
         _run_pre_push_checks(project_root, result)
+
+    # Emit audit event for observability (Phase 0 instrumentation)
+    emit_gate_event(project_root, result)
 
     return result
 

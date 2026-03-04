@@ -226,7 +226,6 @@ Actions:
 
 - `standards/framework/core.md` — governance structure, spec-first enforcement, session contract.
 - `context/product/framework-contract.md` — agentic model, session contract, branch strategy.
-- `skills/skill-lifecycle/SKILL.md` — skill create/delete lifecycle.
-- `skills/agent-lifecycle/SKILL.md` — agent create/delete lifecycle.
-- `skills/prompt/SKILL.md` — content authoring quality.
+- `skills/create/SKILL.md` — skill and agent create lifecycle.
+- `skills/delete/SKILL.md` — skill and agent delete lifecycle.
 - `skills/pr/SKILL.md` — PR creation at spec closure.

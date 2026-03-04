@@ -53,8 +53,6 @@ Session start loads ONLY: `_active.md` → `spec.md` → `tasks.md` → `decisio
 - `context/product/` — framework-contract.md (framework identity) and product-contract.md (project identity).
 - `context/specs/` — spec-driven work: each spec has `spec.md` (WHAT), `plan.md` (HOW), `tasks.md` (DO), `done.md` (DONE).
 - `context/specs/_active.md` — pointer to the currently active spec.
-- `context/learnings.md` — retained knowledge, never overwritten.
-
 ## Agentic Execution Standards
 
 ### Session Contract

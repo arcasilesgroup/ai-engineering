@@ -16,6 +16,8 @@ venv.bak/
 # Distribution / packaging
 dist/
 build/
+!.ai-engineering/skills/build/
+!src/ai_engineering/templates/.ai-engineering/skills/build/
 *.egg-info/
 *.egg
 MANIFEST

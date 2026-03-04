@@ -1,22 +1,22 @@
-schema_version: "1.1"
-framework_version: "0.1.0"
+schema_version: "2.0"
+framework_version: "0.2.0"
 
 update_metadata:
-  rationale: "multi-stack enforcement with per-stack checks and tooling"
-  expected_gain: "stack-aware gate dispatch; .NET and Next.js projects governed alongside Python"
-  potential_impact: "enforcement checks restructured to per-stack; backward-compatible for Python-only"
+  rationale: "v3 architecture redesign: 6 bounded-context agents, 33 consolidated skills, Python CLI layer, observability, session recovery"
+  expected_gain: "clean agent boundaries, ~38% token savings via Python CLI, 3-audience observability, session recovery, 20-stack support"
+  potential_impact: "breaking change from v2 (47→33 skills, review+triage agents removed); backward-compat aliases preserved for commit/pr/acho"
 
 metadata:
   name: "ai-engineering"
-  description: "AI governance framework with mandatory local enforcement"
-  updated: "2026-02-22"
+  description: "AI governance framework with mandatory local enforcement, observability, and DevSecOps"
+  updated: "2026-03-04"
 
 governance_surface:
   agents:
     total: 6
-    names: [plan, build, review, scan, write, triage]
+    names: [plan, build, scan, release, write, observe]
   skills:
-    total: 47
+    total: 33
     organization: flat
     prefix: "ai:"
   integrity:
@@ -24,18 +24,23 @@ governance_surface:
     orphan_skills: 0
 
 work_items:
-  enabled: false
-  primary: "github-issues"
+  enabled: true
+  primary: "github-projects"
   sources:
+    - type: "github-projects"
+      project: "https://github.com/orgs/arcasilesgroup/projects/4"
+      labels_ready: ["ready", "agent-ready"]
+      labels_priority: ["p1-critical", "p2-high", "p3-normal"]
     - type: "github-issues"
       labels_ready: ["ready", "agent-ready"]
     - type: "azure-boards"
       project: null
       query_ready: "[System.Tags] CONTAINS 'agent-ready'"
   sync:
-    spec_to_work_item: true
-    work_item_to_spec: true
-    auto_transition: false
+    direction: bidirectional
+    on_spec_create: create_linked_issue
+    on_spec_close: close_linked_issue
+    on_task_complete: update_sub_issue
 
 ownership:
   root: ".ai-engineering"
@@ -54,6 +59,7 @@ ownership:
       - "state/sources.lock.json"
       - "state/decision-store.json"
       - "state/audit-log.ndjson"
+      - "state/session-checkpoint.json"
   external_framework_managed:
     - "AGENTS.md"
     - "CLAUDE.md"
@@ -161,6 +167,32 @@ enforcement:
       dotnet: ["dotnet-build", "dotnet-test", "dotnet-vuln"]
       nextjs: ["tsc-check", "vitest", "npm-audit"]
 
+pipelines:
+  full:
+    steps: [discover, architecture, risk, test-plan, spec, dispatch]
+    gates: [spec-required, user-approval-before-dispatch]
+    triggers: [new-feature, refactor, governance-change]
+  standard:
+    steps: [discover, risk, spec, dispatch]
+    gates: [spec-required]
+    triggers: [enhancement]
+  hotfix:
+    steps: [discover, risk, dispatch]
+    gates: [risk-acknowledged]
+    triggers: [bug-fix, security-patch]
+  trivial:
+    steps: [dispatch]
+    gates: []
+    triggers: [typo, comment, single-line]
+
+observability:
+  event_store: "state/audit-log.ndjson"
+  rotation: weekly
+  archive_pattern: "state/audit-archive/audit-YYYY-WW.ndjson"
+  retention_days: 90
+  audiences: [engineer, team, ai]
+  dora_enabled: true
+
 remote_skills:
   enabled: true
   sources:
@@ -204,11 +236,13 @@ agentic:
       - "<active_spec>/spec.md"
       - "<active_spec>/tasks.md"
       - "state/decision-store.json"
+      - "state/session-checkpoint.json"
     commit_format: "spec-{spec_id}: Task {task_id} — {description}"
     close_actions:
       - "update_task_checkboxes"
       - "update_tasks_frontmatter"
       - "validate_content_integrity"
+      - "save_session_checkpoint"
       - "report_summary"
   branch_strategy:
     integration_branch_pattern: "<spec_branch>"

@@ -33,12 +33,11 @@ Contract-first API design and review skill. Covers OpenAPI specification authori
    - Who consumes this API (frontend, mobile, third-party, internal services)?
    - What authentication model is used?
    - Are there existing API conventions in the project?
-   - Load `references/api-design-patterns.md` for pattern guidance.
 
 2. **Design or review contract** — author or evaluate OpenAPI 3.1 specification.
    - URL structure: resources as plural nouns, hierarchical for relationships.
    - HTTP methods: GET (read), POST (create), PUT (replace), PATCH (update), DELETE (remove).
-   - Status codes: consistent usage per `api-design-patterns.md` reference.
+   - Status codes: consistent usage across endpoints.
    - Request/response schemas: typed, validated, documented.
 
 3. **Standardize error model** — ensure consistent error responses.
@@ -93,7 +92,6 @@ Contract-first API design and review skill. Covers OpenAPI specification authori
 
 ## References
 
-- `skills/references/api-design-patterns.md` — detailed API design patterns.
 - `standards/framework/stacks/typescript.md` — TypeScript API implementation patterns.
 - `standards/framework/stacks/dotnet.md` — .NET API implementation patterns.
 - `standards/framework/stacks/nestjs.md` — NestJS API patterns.

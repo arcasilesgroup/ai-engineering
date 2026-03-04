@@ -88,5 +88,4 @@ Actions:
 ## References
 
 - `skills/spec/SKILL.md` — spec creation that composes `/cleanup` before branch creation.
-- `skills/references/git-helpers.md` — git helper patterns (protected branch check, default branch detection).
 - `standards/framework/core.md` — protected branch rules and enforcement.

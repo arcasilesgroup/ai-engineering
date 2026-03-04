@@ -100,81 +100,58 @@ class TestThresholdMapping:
 
 
 class TestScriptArguments:
-    """Tests for sonar-pre-gate script argument construction."""
+    """Tests for sonar-pre-gate script argument construction.
 
-    def test_bash_script_exists(self) -> None:
-        """Bash script is present in the skill directory."""
-        script = (
+    Note: sonar skill was consolidated into quality (v3).
+    Scripts live in the install templates directory.
+    """
+
+    @pytest.fixture()
+    def _templates_root(self) -> Path:
+        return (
             Path(__file__).resolve().parents[2]
+            / "src"
+            / "ai_engineering"
+            / "templates"
             / ".ai-engineering"
             / "skills"
             / "sonar"
-            / "scripts"
-            / "sonar-pre-gate.sh"
         )
+
+    def test_bash_script_exists(self, _templates_root: Path) -> None:
+        """Bash script is present in the templates directory."""
+        script = _templates_root / "scripts" / "sonar-pre-gate.sh"
         assert script.exists(), f"Script not found: {script}"
 
-    def test_powershell_script_exists(self) -> None:
-        """PowerShell script is present in the skill directory."""
-        script = (
-            Path(__file__).resolve().parents[2]
-            / ".ai-engineering"
-            / "skills"
-            / "sonar"
-            / "scripts"
-            / "sonar-pre-gate.ps1"
-        )
+    def test_powershell_script_exists(self, _templates_root: Path) -> None:
+        """PowerShell script is present in the templates directory."""
+        script = _templates_root / "scripts" / "sonar-pre-gate.ps1"
         assert script.exists(), f"Script not found: {script}"
 
-    def test_bash_script_has_skip_flag(self) -> None:
+    def test_bash_script_has_skip_flag(self, _templates_root: Path) -> None:
         """Bash script supports --skip-if-unconfigured flag."""
-        script = (
-            Path(__file__).resolve().parents[2]
-            / ".ai-engineering"
-            / "skills"
-            / "sonar"
-            / "scripts"
-            / "sonar-pre-gate.sh"
-        )
+        script = _templates_root / "scripts" / "sonar-pre-gate.sh"
         content = script.read_text(encoding="utf-8")
         assert "--skip-if-unconfigured" in content
 
-    def test_powershell_script_has_skip_flag(self) -> None:
+    def test_powershell_script_has_skip_flag(self, _templates_root: Path) -> None:
         """PowerShell script supports -SkipIfUnconfigured flag."""
-        script = (
-            Path(__file__).resolve().parents[2]
-            / ".ai-engineering"
-            / "skills"
-            / "sonar"
-            / "scripts"
-            / "sonar-pre-gate.ps1"
-        )
+        script = _templates_root / "scripts" / "sonar-pre-gate.ps1"
         content = script.read_text(encoding="utf-8")
         assert "SkipIfUnconfigured" in content
 
-    def test_bash_script_has_quality_gate_wait(self) -> None:
+    def test_bash_script_has_quality_gate_wait(self, _templates_root: Path) -> None:
         """Bash script passes qualitygate.wait=true to sonar-scanner."""
-        script = (
-            Path(__file__).resolve().parents[2]
-            / ".ai-engineering"
-            / "skills"
-            / "sonar"
-            / "scripts"
-            / "sonar-pre-gate.sh"
-        )
+        script = _templates_root / "scripts" / "sonar-pre-gate.sh"
         content = script.read_text(encoding="utf-8")
         assert "qualitygate.wait=true" in content
 
-    def test_powershell_script_has_quality_gate_wait(self) -> None:
-        """PowerShell script passes qualitygate.wait=true to sonar-scanner."""
-        script = (
-            Path(__file__).resolve().parents[2]
-            / ".ai-engineering"
-            / "skills"
-            / "sonar"
-            / "scripts"
-            / "sonar-pre-gate.ps1"
-        )
+    def test_powershell_script_has_quality_gate_wait(
+        self,
+        _templates_root: Path,
+    ) -> None:
+        """PowerShell script passes qualitygate.wait=true."""
+        script = _templates_root / "scripts" / "sonar-pre-gate.ps1"
         content = script.read_text(encoding="utf-8")
         assert "qualitygate.wait=true" in content
 
@@ -185,78 +162,37 @@ class TestScriptArguments:
 
 
 class TestTemplateMirrors:
-    """Tests that template mirrors match canonical files."""
+    """Tests that sonar template files are present and well-formed.
+
+    Note: In v3, sonar was consolidated into the quality skill.
+    The canonical skills/sonar/ directory no longer exists.
+    Template files remain for installation into new projects.
+    """
 
     @pytest.fixture()
-    def repo_root(self) -> Path:
-        return Path(__file__).resolve().parents[2]
-
-    def test_skill_md_mirror_matches(self, repo_root: Path) -> None:
-        canonical = repo_root / ".ai-engineering" / "skills" / "sonar" / "SKILL.md"
-        mirror = (
-            repo_root
+    def templates_root(self) -> Path:
+        return (
+            Path(__file__).resolve().parents[2]
             / "src"
             / "ai_engineering"
             / "templates"
             / ".ai-engineering"
             / "skills"
             / "sonar"
-            / "SKILL.md"
         )
-        assert canonical.read_text(encoding="utf-8") == mirror.read_text(encoding="utf-8")
 
-    def test_bash_script_mirror_matches(self, repo_root: Path) -> None:
-        canonical = (
-            repo_root / ".ai-engineering" / "skills" / "sonar" / "scripts" / "sonar-pre-gate.sh"
-        )
-        mirror = (
-            repo_root
-            / "src"
-            / "ai_engineering"
-            / "templates"
-            / ".ai-engineering"
-            / "skills"
-            / "sonar"
-            / "scripts"
-            / "sonar-pre-gate.sh"
-        )
-        assert canonical.read_text(encoding="utf-8") == mirror.read_text(encoding="utf-8")
+    def test_template_skill_md_exists(self, templates_root: Path) -> None:
+        skill = templates_root / "SKILL.md"
+        assert skill.exists(), f"Template SKILL.md not found: {skill}"
 
-    def test_powershell_script_mirror_matches(self, repo_root: Path) -> None:
-        canonical = (
-            repo_root / ".ai-engineering" / "skills" / "sonar" / "scripts" / "sonar-pre-gate.ps1"
-        )
-        mirror = (
-            repo_root
-            / "src"
-            / "ai_engineering"
-            / "templates"
-            / ".ai-engineering"
-            / "skills"
-            / "sonar"
-            / "scripts"
-            / "sonar-pre-gate.ps1"
-        )
-        assert canonical.read_text(encoding="utf-8") == mirror.read_text(encoding="utf-8")
+    def test_template_bash_script_exists(self, templates_root: Path) -> None:
+        script = templates_root / "scripts" / "sonar-pre-gate.sh"
+        assert script.exists(), f"Template bash script not found: {script}"
 
-    def test_threshold_mapping_mirror_matches(self, repo_root: Path) -> None:
-        canonical = (
-            repo_root
-            / ".ai-engineering"
-            / "skills"
-            / "sonar"
-            / "references"
-            / "sonar-threshold-mapping.md"
-        )
-        mirror = (
-            repo_root
-            / "src"
-            / "ai_engineering"
-            / "templates"
-            / ".ai-engineering"
-            / "skills"
-            / "sonar"
-            / "references"
-            / "sonar-threshold-mapping.md"
-        )
-        assert canonical.read_text(encoding="utf-8") == mirror.read_text(encoding="utf-8")
+    def test_template_powershell_script_exists(self, templates_root: Path) -> None:
+        script = templates_root / "scripts" / "sonar-pre-gate.ps1"
+        assert script.exists(), f"Template PS script not found: {script}"
+
+    def test_template_threshold_mapping_exists(self, templates_root: Path) -> None:
+        mapping = templates_root / "references" / "sonar-threshold-mapping.md"
+        assert mapping.exists(), f"Template mapping not found: {mapping}"

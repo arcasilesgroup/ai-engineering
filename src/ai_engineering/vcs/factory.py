@@ -9,6 +9,7 @@ Functions:
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 from ai_engineering.git.operations import run_git
@@ -20,6 +21,8 @@ from ai_engineering.vcs.github import GitHubProvider
 from ai_engineering.vcs.protocol import VcsProvider
 
 # Mapping from provider identifier → provider class constructor.
+logger = logging.getLogger(__name__)
+
 _PROVIDERS: dict[str, type[GitHubProvider] | type[AzureDevOpsProvider]] = {
     "github": GitHubProvider,
     "azure_devops": AzureDevOpsProvider,
@@ -57,8 +60,8 @@ def get_provider(project_root: Path) -> VcsProvider:
             cls = _PROVIDERS.get(primary)
             if cls is not None:
                 return cls()
-        except Exception:
-            pass  # Fall through to remote detection
+        except Exception:  # fail-open: fall through to remote detection
+            logger.debug("Manifest-based provider lookup failed", exc_info=True)
 
     # 2. Detect from remote URL
     provider_name = detect_from_remote(project_root)

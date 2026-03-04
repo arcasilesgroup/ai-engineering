@@ -16,55 +16,55 @@ Maps each OWASP Top 10 2025 category to the specific framework controls, tools, 
 
 - **Controls**: authentication and authorization review in security skill step 3.
 - **Tools**: `semgrep` with auth-check rules.
-- **Skills**: `skills/sec-review/SKILL.md` (step 3 — authentication and authorization).
+- **Skills**: `skills/security/SKILL.md` (step 3 — authentication and authorization).
 - **Stack-specific**: .NET `[Authorize]` attribute validation; Next.js middleware auth checks.
 
 ### A02: Cryptographic Failures
 
 - **Controls**: configuration security audit, secret detection.
 - **Tools**: `gitleaks` (exposed secrets), `semgrep` (weak crypto patterns).
-- **Skills**: `skills/sec-review/SKILL.md` (step 1 — secret detection, step 5 — config security).
+- **Skills**: `skills/security/SKILL.md` (step 1 — secret detection, step 5 — config security).
 - **Stack-specific**: .NET Data Protection API usage; Next.js environment variable isolation.
 
 ### A03: Injection
 
 - **Controls**: injection analysis covering SQL, command, path traversal, template injection.
 - **Tools**: `semgrep` (injection rules).
-- **Skills**: `skills/sec-review/SKILL.md` (step 2 — injection analysis).
+- **Skills**: `skills/security/SKILL.md` (step 2 — injection analysis).
 - **Stack-specific**: .NET parameterized queries (Entity Framework); Next.js sanitized rendering (React XSS protection).
 
 ### A04: Insecure Design
 
 - **Controls**: architecture review, threat modeling.
-- **Skills**: `skills/arch-review/SKILL.md`, `agents/scan.md`.
+- **Skills**: `skills/architecture/SKILL.md`, `agents/scan.md`.
 - **Notes**: design-level control — requires human judgment and architecture review.
 
 ### A05: Security Misconfiguration
 
 - **Controls**: configuration security audit.
 - **Tools**: `semgrep` (config rules), stack-specific linters.
-- **Skills**: `skills/sec-review/SKILL.md` (step 5 — configuration security).
+- **Skills**: `skills/security/SKILL.md` (step 5 — configuration security).
 - **Stack-specific**: .NET `appsettings.json` validation; Next.js `next.config.js` security headers.
 
 ### A06: Vulnerable and Outdated Components
 
 - **Controls**: dependency vulnerability scanning per stack.
 - **Tools**: `pip-audit` (Python), `dotnet list package --vulnerable` (.NET), `npm audit` (Next.js).
-- **Skills**: `skills/sec-review/SKILL.md` (step 4 — dependency vulnerabilities), `skills/deps/SKILL.md`.
+- **Skills**: `skills/security/SKILL.md` (step 4 — dependency vulnerabilities).
 - **Notes**: gate-enforced at pre-push for all stacks.
 
 ### A07: Identification and Authentication Failures
 
 - **Controls**: authentication flow review, credential management.
 - **Tools**: `gitleaks` (exposed credentials), `semgrep` (weak auth patterns).
-- **Skills**: `skills/sec-review/SKILL.md` (step 3 — authentication).
+- **Skills**: `skills/security/SKILL.md` (step 3 — authentication).
 - **Stack-specific**: .NET Identity framework review; Next.js NextAuth/Auth.js configuration.
 
 ### A08: Software and Data Integrity Failures
 
 - **Controls**: supply chain integrity, remote skill checksums, hook tamper resistance.
 - **Tools**: `gitleaks` (data integrity), framework checksum validation.
-- **Skills**: `agents/review.md` (security mode — tamper resistance).
+- **Skills**: `agents/scan.md` (security mode — tamper resistance).
 - **Notes**: framework enforces `checksums_required` for remote skills, `non_bypassable` for hooks.
 
 ### A09: Security Logging and Monitoring Failures
@@ -78,7 +78,7 @@ Maps each OWASP Top 10 2025 category to the specific framework controls, tools, 
 
 - **Controls**: input validation, network request review.
 - **Tools**: `semgrep` (SSRF rules).
-- **Skills**: `skills/sec-review/SKILL.md` (step 2 — injection analysis covers SSRF vectors).
+- **Skills**: `skills/security/SKILL.md` (step 2 — injection analysis covers SSRF vectors).
 - **Stack-specific**: .NET `HttpClient` usage validation; Next.js API route input validation.
 
 ## Coverage Summary
@@ -99,9 +99,8 @@ Maps each OWASP Top 10 2025 category to the specific framework controls, tools, 
 ## References
 
 - `standards/framework/core.md` — mandatory local enforcement.
-- `skills/sec-review/SKILL.md` — security review procedure.
-- `agents/review.md` — review agent (security mode).
-- `skills/sec-deep/SKILL.md` — DAST, container scanning, and data security posture.
+- `skills/security/SKILL.md` — security review procedure (static, dynamic, deps, sbom modes).
+- `agents/scan.md` — scan agent (security mode).
 
 ## Update Contract
 

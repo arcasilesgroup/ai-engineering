@@ -60,7 +60,7 @@ Safe refactoring skill: improve internal code structure without changing externa
 
 ## Governance Notes
 
-- Never refactor without tests. If tests don't exist, write them first (see `skills/test-plan/SKILL.md`).
+- Never refactor without tests. If tests don't exist, write them first (see `skills/test/SKILL.md`).
 - Refactoring must not introduce new features or fix bugs — those are separate tasks.
 - Keep refactoring PRs separate from feature PRs for clean review.
 - Follow `standards/framework/stacks/python.md` code patterns.
@@ -80,5 +80,5 @@ Safe refactoring skill: improve internal code structure without changing externa
 
 - `standards/framework/stacks/python.md` — code patterns and quality baseline.
 - `standards/framework/quality/core.md` — complexity thresholds.
-- `skills/test-plan/SKILL.md` — for writing tests before refactoring.
+- `skills/test/SKILL.md` — for writing tests before refactoring.
 - `agents/build.md` — agent that uses this skill.

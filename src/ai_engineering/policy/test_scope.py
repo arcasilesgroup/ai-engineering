@@ -104,6 +104,17 @@ TEST_SCOPE_RULES: list[ScopeRule] = [
         },
     ),
     ScopeRule(
+        name="lib",
+        source_globs=["src/ai_engineering/lib/**/*.py"],
+        tiers={
+            "unit": [
+                "tests/unit/test_lib_signals.py",
+            ],
+            "integration": [],
+            "e2e": [],
+        },
+    ),
+    ScopeRule(
         name="cli_commands",
         source_globs=["src/ai_engineering/cli_commands/**/*.py"],
         tiers={
@@ -111,6 +122,12 @@ TEST_SCOPE_RULES: list[ScopeRule] = [
                 "tests/unit/test_setup_cli.py",
                 "tests/unit/test_release_cli.py",
                 "tests/unit/test_provider_cli.py",
+                "tests/unit/test_cli_observe.py",
+                "tests/unit/test_cli_decisions.py",
+                "tests/unit/test_cli_scan_report.py",
+                "tests/unit/test_cli_signals.py",
+                "tests/unit/test_cli_checkpoint.py",
+                "tests/unit/test_cli_metrics.py",
             ],
             "integration": [
                 "tests/integration/test_cli_command_modules.py",

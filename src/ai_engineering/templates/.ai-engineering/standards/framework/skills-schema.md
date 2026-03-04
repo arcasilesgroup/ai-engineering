@@ -204,10 +204,9 @@ outputs: [findings-report, audit-report, gate-verdict, compliance-report]
 tags: [review, security, quality, governance, audit, compliance, verification]
 references:
   skills:
-    - skills/sec-review/SKILL.md
-    - skills/sec-deep/SKILL.md
-    - skills/audit/SKILL.md
-    - skills/integrity/SKILL.md
+    - skills/security/SKILL.md
+    - skills/quality/SKILL.md
+    - skills/governance/SKILL.md
   standards:
     - standards/framework/core.md
     - standards/framework/quality/core.md
@@ -217,7 +216,6 @@ references:
 ## Token Budget Guidelines
 
 > Canonical progressive disclosure rules: `standards/framework/core.md`. This section provides implementation detail.
-> Detailed token inventory and efficiency metrics: `skills/references/token-inventory.md`.
 
 ### Budget by Loading Level
 
@@ -229,8 +227,6 @@ references:
 | **Agent persona** | On-demand when activated | ≤ 500 tokens per agent |
 
 ## Behavioral Patterns
-
-> Full behavioral pattern definitions: `skills/references/behavioral-patterns.md`.
 
 All agents and skills must adopt these behavioral norms:
 
@@ -276,8 +272,8 @@ All agents and skills must adopt these behavioral norms:
 
 - `standards/framework/core.md` — skill and agent base rules, progressive disclosure.
 - `context/product/framework-contract.md` — content-first product model, token efficiency principle.
-- `skills/skill-lifecycle/SKILL.md` — skill registration procedure.
-- `skills/agent-lifecycle/SKILL.md` — agent registration procedure.
+- `skills/create/SKILL.md` — skill and agent creation procedure.
+- `skills/delete/SKILL.md` — skill and agent deletion procedure.
 
 ## Update Contract
 

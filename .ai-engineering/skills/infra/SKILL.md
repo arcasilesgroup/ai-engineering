@@ -93,5 +93,4 @@ Infrastructure as Code design and generation skill. Covers Terraform, Bicep, and
 
 - `standards/framework/stacks/infrastructure.md` — IaC patterns and safety rules.
 - `standards/framework/stacks/azure.md` — Azure-specific patterns.
-- `skills/references/delivery-platform-patterns.md` — deployment platform patterns.
 - `agents/build.md` — implementation agent that designs infrastructure.

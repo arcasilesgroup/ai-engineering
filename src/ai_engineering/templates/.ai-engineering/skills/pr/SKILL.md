@@ -80,7 +80,6 @@ Execute the `/pr` governed workflow: conditionally run spec reset, stage, commit
       - `github.com` → GitHub (`gh`)
       - `dev.azure.com` or `visualstudio.com` → Azure DevOps (`az repos`)
    c. Verify CLI authenticated: `gh auth status` / `az account show`.
-   d. Reference: `skills/references/vcs-commands.md` for full command mapping.
 10. **Check for existing PR** — query open PRs for current branch:
    - **GitHub**: `gh pr list --head <branch> --json number,title,body --state open`
    - **Azure DevOps**: `az repos pr list --source-branch <branch> --status active -o json`
@@ -191,5 +190,4 @@ Actions:
 - `skills/cleanup/SKILL.md` — repository hygiene workflow; spec reset moved from `/cleanup` to `/pr`.
 - `skills/changelog/SKILL.md` — changelog entry formatting (used by documentation gate).
 - `skills/docs/SKILL.md` — README and documentation update procedure for OSS GitHub users (used by documentation gate).
-- `skills/references/vcs-commands.md` — VCS CLI command mapping (GitHub + Azure DevOps).
-- `agents/review.md` — agent that validates PR workflow execution.
+- `agents/release.md` — agent that validates PR workflow execution.
