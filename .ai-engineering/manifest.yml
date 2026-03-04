@@ -43,7 +43,8 @@ work_items:
     on_task_complete: update_sub_issue
 
 issue_standard:
-  required_fields: ["title", "description", "priority", "size", "acceptance_criteria"]
+  required_fields:
+    ["title", "description", "priority", "size", "acceptance_criteria"]
   priority_labels: ["p1-critical", "p2-high", "p3-normal"]
   size_labels: ["S", "M", "L", "XL"]
   priority_mapping:
