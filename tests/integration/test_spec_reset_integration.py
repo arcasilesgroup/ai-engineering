@@ -83,9 +83,9 @@ class TestRunSpecResetIntegration:
         assert (specs_dir / "002-wip" / "spec.md").exists()
 
     def test_archives_completed_spec_with_tasks(self, tmp_path):
-        """Spec with tasks completed==total is archived."""
+        """Spec with done.md and tasks completed==total is archived."""
         project = _create_project(tmp_path)
-        _add_spec(project, "003-tasks-done", tasks_complete=True)
+        _add_spec(project, "003-tasks-done", done=True, tasks_complete=True)
         _set_active(project, "003-tasks-done")
 
         result = run_spec_reset(project)
@@ -138,7 +138,7 @@ class TestRunSpecResetIntegration:
         """Multiple completed specs are all archived."""
         project = _create_project(tmp_path)
         _add_spec(project, "007-done-a", done=True)
-        _add_spec(project, "008-done-b", tasks_complete=True)
+        _add_spec(project, "008-done-b", done=True, tasks_complete=True)
         _add_spec(project, "009-wip")
         _set_active(project, "007-done-a")
 

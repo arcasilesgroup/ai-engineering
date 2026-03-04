@@ -75,34 +75,41 @@ Execute the `/pr` governed workflow: conditionally run spec reset, stage, commit
    - If active spec exists: `spec-NNN: Task X.Y — <description>`.
    - Otherwise: conventional commit format.
 10. **Push** — `git push origin <current-branch>`.
-   - If current branch is `main`/`master`, **block** and report protected branch violation.
+
+- If current branch is `main`/`master`, **block** and report protected branch violation.
+
 9. **Detect VCS provider** — determine which CLI to use:
    a. Check `manifest.yml` → `providers.vcs.primary`.
    b. Fallback: parse `git remote get-url origin`:
-      - `github.com` → GitHub (`gh`)
-      - `dev.azure.com` or `visualstudio.com` → Azure DevOps (`az repos`)
-   c. Verify CLI authenticated: `gh auth status` / `az account show`.
+   - `github.com` → GitHub (`gh`)
+   - `dev.azure.com` or `visualstudio.com` → Azure DevOps (`az repos`)
+     c. Verify CLI authenticated: `gh auth status` / `az account show`.
 10. **Check for existing PR** — query open PRs for current branch:
-   - **GitHub**: `gh pr list --head <branch> --json number,title,body --state open`
-   - **Azure DevOps**: `az repos pr list --source-branch <branch> --status active -o json`
+
+- **GitHub**: `gh pr list --head <branch> --json number,title,body --state open`
+- **Azure DevOps**: `az repos pr list --source-branch <branch> --status active -o json`
+
 11. **Create or update PR**:
-   - **If NO existing PR** → create new:
-     - **GitHub**: `gh pr create --title "<title>" --body "<body>"`
-     - **Azure DevOps**: `az repos pr create --source-branch <branch> --target-branch <target> --title "<title>" --description "<body>"`
-   - **If existing PR found** → extend (NEVER overwrite):
-     a. Read existing title and body from the query result.
-     b. Compose extended body:
-        - Keep entire existing body intact.
-        - Append separator: `\n\n---\n\n`
-        - Append new section: `## Additional Changes\n\n<new changes summary>`
-     c. Update title only if scope significantly expanded (e.g., append ` + <new scope>`). Otherwise keep original.
-     d. Apply update:
-        - **GitHub**: `gh pr edit <number> --body "<extended_body>"`
-        - **Azure DevOps**: `az repos pr update --id <id> --description "<extended_body>"`
-     e. Report: "PR #<number> updated — description extended with new changes."
+
+- **If NO existing PR** → create new:
+  - **GitHub**: `gh pr create --title "<title>" --body "<body>"`
+  - **Azure DevOps**: `az repos pr create --source-branch <branch> --target-branch <target> --title "<title>" --description "<body>"`
+- **If existing PR found** → extend (NEVER overwrite):
+  a. Read existing title and body from the query result.
+  b. Compose extended body:
+  - Keep entire existing body intact.
+  - Append separator: `\n\n---\n\n`
+  - Append new section: `## Additional Changes\n\n<new changes summary>`
+    c. Update title only if scope significantly expanded (e.g., append ` + <new scope>`). Otherwise keep original.
+    d. Apply update:
+  - **GitHub**: `gh pr edit <number> --body "<extended_body>"`
+  - **Azure DevOps**: `az repos pr update --id <id> --description "<extended_body>"`
+    e. Report: "PR #<number> updated — description extended with new changes."
+
 12. **Enable auto-complete** — squash merge with branch deletion:
-   - **GitHub**: `gh pr merge --auto --squash --delete-branch`
-   - **Azure DevOps**: `az repos pr update --id <id> --auto-complete true --squash true --delete-source-branch true`
+
+- **GitHub**: `gh pr merge --auto --squash --delete-branch`
+- **Azure DevOps**: `az repos pr update --id <id> --auto-complete true --squash true --delete-source-branch true`
 
 ### `/pr --only` (create PR only)
 

@@ -172,6 +172,8 @@ ai-eng update [TARGET] --apply    # Apply framework updates
 ai-eng doctor [TARGET]            # Diagnose and auto-fix framework health
 ai-eng guide [TARGET]             # View branch policy setup instructions
 ai-eng validate [TARGET]          # Validate content integrity
+ai-eng spec verify|catalog|list|compact  # Spec lifecycle management
+ai-eng decision record "<TITLE>"  # Record architectural decisions (dual-write NDJSON + Markdown)
 ai-eng release <VERSION>          # Create a governed release (validate, bump, PR, tag)
 ai-eng version                    # Show installed version and lifecycle status
 ```
