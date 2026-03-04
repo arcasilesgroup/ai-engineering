@@ -222,7 +222,7 @@ def run_commit_workflow(
 
     # 4. Gitleaks (staged secrets detection)
     passed, output = _run_command(
-        ["gitleaks", "detect", "--staged", "--no-banner"],
+        ["gitleaks", "protect", "--staged", "--no-banner"],
         project_root,
     )
     result.steps.append(

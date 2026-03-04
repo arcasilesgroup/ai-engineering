@@ -121,3 +121,16 @@ rules:
     metadata:
       cwe: "CWE-377: Insecure Temporary File"
       category: security
+
+  # --- SSRF Prevention ---
+
+  - id: ssrf-request
+    patterns:
+      - pattern: requests.$METHOD($URL, ...)
+      - pattern-not: requests.$METHOD("...", ...)
+    message: "Potential SSRF: HTTP request with non-literal URL. Validate and allowlist target URLs."
+    languages: [python]
+    severity: WARNING
+    metadata:
+      cwe: "CWE-918"
+      owasp: "A10:2021"

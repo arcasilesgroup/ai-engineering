@@ -14,6 +14,7 @@ from ai_engineering.commands.workflows import (
     WorkflowResult,
     _check_unpushed_decision,
     _run_command,
+    run_commit_workflow,
 )
 
 pytestmark = pytest.mark.unit
@@ -131,3 +132,40 @@ class TestWorkflowResult:
             ],
         )
         assert wr.passed is True
+
+
+class TestGitleaksSubcommand:
+    """Verify the gitleaks invocation uses 'protect' not 'detect'."""
+
+    def test_gitleaks_uses_protect_subcommand(self, tmp_path: Path) -> None:
+        """run_commit_workflow must call gitleaks with 'protect', not 'detect'."""
+        calls_made: list[list[str]] = []
+
+        def fake_run(
+            cmd: list[str],
+            cwd: Path,
+            timeout: int = 60,
+        ) -> tuple[bool, str]:
+            calls_made.append(cmd)
+            # Fail on the gitleaks step so we can inspect and short-circuit
+            if cmd[0] == "gitleaks":
+                return False, "simulated-gitleaks-output"
+            return True, ""
+
+        with (
+            patch("ai_engineering.commands.workflows._run_command", side_effect=fake_run),
+            patch(
+                "ai_engineering.commands.workflows._check_branch_protection",
+                return_value=StepResult(name="branch-protection", passed=True),
+            ),
+        ):
+            run_commit_workflow(tmp_path, "test commit message")
+
+        gitleaks_calls = [c for c in calls_made if c and c[0] == "gitleaks"]
+        assert gitleaks_calls, "Expected at least one gitleaks invocation"
+        gitleaks_cmd = gitleaks_calls[0]
+        assert gitleaks_cmd[1] == "protect", (
+            f"gitleaks must use 'protect' subcommand, got '{gitleaks_cmd[1]}'"
+        )
+        assert "--staged" in gitleaks_cmd, "gitleaks must include --staged flag"
+        assert "detect" not in gitleaks_cmd, "'detect' must not appear in gitleaks command"

@@ -1,35 +1,35 @@
 ---
 spec: "033"
 total: 48
-completed: 0
+completed: 14
 last_session: "2026-03-04"
-next_session: "Phase 1 — P0 security fix"
+next_session: "Phase 3 — Doc refresh"
 ---
 
 # Tasks — 18-Dimension Audit Remediation
 
 ## Phase 0: Scaffold [S]
 
-- [ ] 0.1 Create spec branch `spec-033/audit-remediation`
-- [ ] 0.2 Scaffold spec.md, plan.md, tasks.md
-- [ ] 0.3 Activate `_active.md`
-- [ ] 0.4 Commit scaffold
+- [x] 0.1 Create spec branch `spec-033/audit-remediation`
+- [x] 0.2 Scaffold spec.md, plan.md, tasks.md
+- [x] 0.3 Activate `_active.md`
+- [x] 0.4 Commit scaffold
 
 ## Phase 1: P0 — Security Fix [S]
 
-- [ ] 1.1 Fix `workflows.py:225`: change `gitleaks detect --staged` to `gitleaks protect --staged`
-- [ ] 1.2 Add/update test in `test_command_workflows.py` verifying correct gitleaks subcommand
-- [ ] 1.3 Add SSRF semgrep rule to `.semgrep.yml`
-- [ ] 1.4 Run `ruff check` + `ruff format --check` + `pytest -m unit -x`
+- [x] 1.1 Fix `workflows.py:225`: change `gitleaks detect --staged` to `gitleaks protect --staged`
+- [x] 1.2 Add/update test in `test_command_workflows.py` verifying correct gitleaks subcommand
+- [x] 1.3 Add SSRF semgrep rule to `.semgrep.yml`
+- [x] 1.4 Run `ruff check` + `ruff format --check` + `pytest -m unit -x`
 
 ## Phase 2: P1 — Version Sync + State Files [S]
 
-- [ ] 2.1 Update `install-manifest.json`: `frameworkVersion` 0.1.0→0.2.0
-- [ ] 2.2 Update `install-manifest.json`: `schemaVersion` 1.1→1.2; add missing fields (`aiProviders`, `cicd`, `branchPolicy`, `operationalReadiness`, `release`)
-- [ ] 2.3 Update `state/defaults.py` `_DEFAULT_OWNERSHIP_PATHS`: add `.github/prompts/**`, `.github/agents/**`, `.claude/**`, `state/session-checkpoint.json`
-- [ ] 2.4 Regenerate `ownership-map.json` to include new paths
-- [ ] 2.5 Fix `decision-store.json` key: `schema_version` → `schemaVersion` (camelCase consistency)
-- [ ] 2.6 Run tests to verify state files load correctly
+- [x] 2.1 Update `install-manifest.json`: `frameworkVersion` 0.1.0→0.2.0
+- [x] 2.2 Update `install-manifest.json`: `schemaVersion` 1.1→1.2; add missing fields (`aiProviders`, `cicd`, `branchPolicy`, `operationalReadiness`, `release`)
+- [x] 2.3 Update `state/defaults.py` `_DEFAULT_OWNERSHIP_PATHS`: add `.github/prompts/**`, `.github/agents/**`, `.claude/**`, `state/session-checkpoint.json`
+- [x] 2.4 Regenerate `ownership-map.json` to include new paths
+- [x] 2.5 Fix `decision-store.json` key: `schema_version` → `schemaVersion` (camelCase consistency)
+- [x] 2.6 Run tests to verify state files load correctly
 
 ## Phase 3: P1 — Doc Refresh [M]
 

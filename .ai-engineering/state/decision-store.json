@@ -1,5 +1,5 @@
 {
-  "schema_version": "1.1",
+  "schemaVersion": "1.1",
   "updateMetadata": {
     "rationale": "persist risk and flow decisions for prompt reuse; v1.1 adds criticality and acknowledged_by fields, formalizes expires_at with severity-based defaults",
     "expectedGain": "lower prompt fatigue, stronger auditability, expiry-aware session checks, and criticality-based prioritization",
