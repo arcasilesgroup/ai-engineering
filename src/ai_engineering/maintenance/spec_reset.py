@@ -13,10 +13,11 @@ Functions:
 
 from __future__ import annotations
 
-import re
 import shutil
 from dataclasses import dataclass, field
 from pathlib import Path
+
+from ai_engineering.lib.parsing import parse_frontmatter as _parse_frontmatter
 
 
 @dataclass
@@ -89,40 +90,13 @@ class SpecResetResult:
         return "\n".join(lines)
 
 
-def _parse_frontmatter(text: str) -> dict[str, str]:
-    """Extract YAML-like frontmatter key-value pairs from text.
-
-    Supports simple ``key: "value"`` or ``key: value`` lines
-    between ``---`` fences.
-
-    Args:
-        text: File content with optional frontmatter.
-
-    Returns:
-        Dictionary of frontmatter keys to string values.
-    """
-    match = re.match(r"^---\s*\n(.*?)\n---", text, re.DOTALL)
-    if not match:
-        return {}
-
-    result: dict[str, str] = {}
-    for line in match.group(1).splitlines():
-        line = line.strip()
-        if ":" not in line:
-            continue
-        key, _, value = line.partition(":")
-        value = value.strip().strip('"').strip("'")
-        result[key.strip()] = value
-
-    return result
-
-
 def check_active_spec(ai_eng_dir: Path) -> tuple[str | None, bool]:
     """Read ``_active.md`` and determine if the active spec is completed.
 
-    A spec is considered completed when:
-    1. Its directory contains ``done.md``, OR
-    2. Its ``tasks.md`` has ``completed == total`` in frontmatter.
+    A spec is considered completed when its directory contains ``done.md``.
+    ``completed == total`` in ``tasks.md`` frontmatter is a necessary
+    precondition but is **not sufficient** on its own — ``done.md`` is
+    mandatory for closure.
 
     Args:
         ai_eng_dir: Path to the ``.ai-engineering`` directory.
@@ -145,32 +119,19 @@ def check_active_spec(ai_eng_dir: Path) -> tuple[str | None, bool]:
     if not spec_dir.is_dir():
         return slug, False
 
-    # Check for done.md
+    # done.md is mandatory for closure
     if (spec_dir / "done.md").exists():
         return slug, True
 
-    # Check tasks.md frontmatter
-    tasks_path = spec_dir / "tasks.md"
-    if tasks_path.exists():
-        tasks_fm = _parse_frontmatter(tasks_path.read_text(encoding="utf-8"))
-        total = tasks_fm.get("total", "")
-        completed = tasks_fm.get("completed", "")
-        if total and completed and total == completed:
-            try:
-                if int(total) > 0 and int(completed) > 0:
-                    return slug, True
-            except ValueError:
-                pass
-
+    # completed==total is necessary but NOT sufficient — done.md required
     return slug, False
 
 
 def find_completed_specs(specs_dir: Path) -> list[str]:
     """Find completed specs outside the ``archive/`` directory.
 
-    Detection heuristics:
-    1. Has ``done.md`` in spec directory.
-    2. Has ``tasks.md`` with ``completed == total`` (both > 0).
+    Detection heuristic: spec directory contains ``done.md``.
+    ``completed == total`` in frontmatter is NOT sufficient on its own.
 
     Args:
         specs_dir: Path to ``context/specs/`` directory.
@@ -186,22 +147,9 @@ def find_completed_specs(specs_dir: Path) -> list[str]:
         if item.name == "archive" or item.name.startswith("_"):
             continue
 
-        # Check done.md
+        # done.md is mandatory for closure
         if (item / "done.md").exists():
             completed.append(item.name)
-            continue
-
-        # Check tasks.md frontmatter
-        tasks_path = item / "tasks.md"
-        if tasks_path.exists():
-            try:
-                fm = _parse_frontmatter(tasks_path.read_text(encoding="utf-8"))
-                total = fm.get("total", "")
-                comp = fm.get("completed", "")
-                if total and comp and total == comp and int(total) > 0 and int(comp) > 0:
-                    completed.append(item.name)
-            except (ValueError, OSError):
-                continue
 
     return completed
 
