@@ -5,7 +5,7 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
-from ai_engineering.doctor.service import CheckResult, CheckStatus, DoctorReport
+from ai_engineering.doctor.models import CheckResult, CheckStatus, DoctorReport
 
 _PROTECTED_BRANCHES: frozenset[str] = frozenset({"main", "master"})
 

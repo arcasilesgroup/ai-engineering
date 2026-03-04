@@ -5,7 +5,7 @@ from __future__ import annotations
 import shutil
 import subprocess
 
-from ai_engineering.doctor.service import CheckResult, CheckStatus, DoctorReport
+from ai_engineering.doctor.models import CheckResult, CheckStatus, DoctorReport
 
 _TOOLS: list[str] = ["ruff", "ty", "gitleaks", "semgrep", "pip-audit"]
 _VCS_TOOLS: list[str] = ["gh", "az"]

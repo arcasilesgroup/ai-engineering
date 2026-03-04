@@ -24,15 +24,15 @@ Unified governance validation covering cross-reference integrity, contract compl
 
 ### integrity — Cross-reference validation
 Validate manifest counters, agent-skill references, command files, state files.
-CLI: `ai-eng integrity`
+CLI: `ai-eng validate --category integrity`
 
 ### compliance — Contract validation
 Validate framework contracts against implementation. Check that documented rules are enforced.
-CLI: `ai-eng compliance`
+CLI: `ai-eng validate --category compliance`
 
 ### ownership — Boundary validation
 Validate ownership boundaries: who can modify what, boundary violations.
-CLI: `ai-eng ownership`
+CLI: `ai-eng validate --category ownership`
 
 ### operational — Install verification
 Verify post-install readiness: tools, hooks, state files, permissions.
@@ -40,6 +40,6 @@ CLI: `ai-eng doctor`
 
 ## Procedure
 
-1. **Run CLI** -- `ai-eng integrity|compliance|ownership` for deterministic checks.
+1. **Run CLI** -- `ai-eng validate --category <category>` for deterministic checks.
 2. **Interpret** -- LLM analyzes findings for systemic patterns.
 3. **Report** -- uniform scan output contract with score 0-100.

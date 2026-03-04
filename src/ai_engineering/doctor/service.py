@@ -15,58 +15,11 @@ from __future__ import annotations
 
 import shutil  # noqa: F401 — re-exported for test patching
 import subprocess  # noqa: F401 — re-exported for test patching
-from dataclasses import dataclass, field
-from enum import StrEnum
 from pathlib import Path
 
+from ai_engineering.doctor.models import CheckResult, CheckStatus, DoctorReport
 
-class CheckStatus(StrEnum):
-    """Status of a single diagnostic check."""
-
-    OK = "ok"
-    WARN = "warn"
-    FAIL = "fail"
-    FIXED = "fixed"
-
-
-@dataclass
-class CheckResult:
-    """Result of a single diagnostic check."""
-
-    name: str
-    status: CheckStatus
-    message: str
-
-
-@dataclass
-class DoctorReport:
-    """Aggregated report from all diagnostic checks."""
-
-    checks: list[CheckResult] = field(default_factory=list)
-
-    @property
-    def passed(self) -> bool:
-        """True if no checks failed."""
-        return all(c.status != CheckStatus.FAIL for c in self.checks)
-
-    @property
-    def summary(self) -> dict[str, int]:
-        """Count of checks by status."""
-        counts: dict[str, int] = {}
-        for check in self.checks:
-            counts[check.status.value] = counts.get(check.status.value, 0) + 1
-        return counts
-
-    def to_dict(self) -> dict[str, object]:
-        """Serialize report for JSON output."""
-        return {
-            "passed": self.passed,
-            "summary": self.summary,
-            "checks": [
-                {"name": c.name, "status": c.status.value, "message": c.message}
-                for c in self.checks
-            ],
-        }
+__all__ = ["CheckResult", "CheckStatus", "DoctorReport"]
 
 
 def diagnose(

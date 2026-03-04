@@ -1,9 +1,9 @@
 ---
 spec: "033"
 total: 48
-completed: 14
+completed: 25
 last_session: "2026-03-04"
-next_session: "Phase 3 — Doc refresh"
+next_session: "Phase 5 — Remove backward-compat shims"
 ---
 
 # Tasks — 18-Dimension Audit Remediation
@@ -33,20 +33,20 @@ next_session: "Phase 3 — Doc refresh"
 
 ## Phase 3: P1 — Doc Refresh [M]
 
-- [ ] 3.1 Update `README.md`: skill count 47→34, agent count 6→7, agent table to v3 roster, slash command count 53→37, copilot counts, remove v2 skill list
-- [ ] 3.2 Update `GEMINI.md`: skill count 47→34, agent count 6→7, agent table to v3, command syntax `ai-commit`→`/ai:commit`, token budgets
-- [ ] 3.3 Sync template `manifest.yml` with canonical (7 agents, 34 skills, execute agent)
-- [ ] 3.4 Sync template `README.md` with canonical (34 skills, plan/ directory)
-- [ ] 3.5 Update `governance/SKILL.md`: fix CLI references (`ai-eng integrity`→`ai-eng validate --category`)
-- [ ] 3.6 Run `ai-eng validate` to verify mirror sync passes
+- [x] 3.1 Update `README.md`: skill count 47→34, agent count 6→7, agent table to v3 roster, slash command count 53→37, copilot counts, remove v2 skill list
+- [x] 3.2 Update `GEMINI.md`: skill count 47→34, agent count 6→7, agent table to v3, command syntax `ai-commit`→`/ai:commit`, token budgets
+- [x] 3.3 Sync template `manifest.yml` with canonical (7 agents, 34 skills, execute agent)
+- [x] 3.4 Sync template `README.md` with canonical (34 skills, plan/ directory)
+- [x] 3.5 Update `governance/SKILL.md`: fix CLI references (`ai-eng integrity`→`ai-eng validate --category`)
+- [x] 3.6 Run `ai-eng validate` to verify mirror sync passes
 
 ## Phase 4: P2 — Extract doctor/models.py [M]
 
-- [ ] 4.1 Create `src/ai_engineering/doctor/models.py` with `CheckResult`, `CheckStatus`, `DoctorReport` extracted from `doctor/service.py`
-- [ ] 4.2 Update `doctor/service.py` to import from `doctor/models.py`
-- [ ] 4.3 Update all `doctor/checks/*.py` to import from `doctor.models` instead of `doctor.service`
-- [ ] 4.4 Update `doctor/checks/__init__.py` if needed
-- [ ] 4.5 Run tests to verify no import regressions
+- [x] 4.1 Create `src/ai_engineering/doctor/models.py` with `CheckResult`, `CheckStatus`, `DoctorReport` extracted from `doctor/service.py`
+- [x] 4.2 Update `doctor/service.py` to import from `doctor/models.py`
+- [x] 4.3 Update all `doctor/checks/*.py` to import from `doctor.models` instead of `doctor.service`
+- [x] 4.4 Update `doctor/checks/__init__.py` if needed
+- [x] 4.5 Run tests to verify no import regressions
 
 ## Phase 5: P2 — Remove Backward-Compat Shims [M]
 

@@ -29,37 +29,40 @@ Mandatory. Skipping risks stale code, repeated decisions, or merge conflicts.
 
 Gate failure: diagnose → fix → retry. Use `ai-eng doctor --fix-tools` or `--fix-hooks`.
 
-## Skills (47)
+## Skills (34)
 
 Path: `.ai-engineering/skills/<name>/SKILL.md` (flat organization, no category subdirectories)
 
 | Skills (alphabetical) |
 |-----------------------|
-| a11y, agent-card, agent-lifecycle, api, arch-review, audit, changelog, cicd, cleanup, cli, code-review, commit, compliance, data-model, db, debug, deps, discover, docs, docs-audit, explain, improve, infra, install, integrity, migrate, multi-agent, ownership, perf-review, pr, prompt, refactor, release, risk, sbom, sec-deep, sec-review, simplify, skill-lifecycle, sonar, spec, standards, test-gap, test-plan, test-run, triage, work-item |
+| a11y, api, architecture, build, changelog, cicd, cleanup, cli, code-simplifier, commit, create, db, debug, delete, discover, docs, explain, feature-gap, governance, infra, migrate, observe, perf, plan, pr, quality, refactor, release, risk, security, spec, standards, test, work-item |
 
-## Agents (6)
+## Agents (7)
 
 Path: `.ai-engineering/agents/<name>.md`
 
 | Agent | Purpose | Scope |
 |-------|---------|-------|
-| plan | Orchestration, planning pipeline, dispatch, work-item sync | read-write |
+| plan | Planning pipeline, spec creation, execution plan — stops before execution | read-write |
+| execute | Read approved plan, dispatch agents, coordinate, checkpoint, report | read-write |
 | build | Implementation across all stacks (ONLY code write agent) | read-write |
-| review | All reviews, security, quality, governance (individual modes) | read-write (work items only) |
-| scan | Spec-vs-code gap analysis, architecture drift detection | read-write (work items only) |
-| write | Documentation, changelogs, explanations | read-write (docs only) |
-| triage | Auto-prioritize work items, backlog grooming | read-write (work items only) |
+| scan | 7-mode assessment: governance, security, quality, perf, a11y, feature, architecture | read-write (work items only) |
+| release | ALM lifecycle: commit, PR, release gate, triage, work-items, deploy | read-write |
+| write | Documentation (generate/simplify modes) | read-write (docs only) |
+| observe | Observability: 5 modes across 4 audience tiers + DORA metrics + health scoring | read-only |
 
 ## Lifecycle
 
-Discovery → Architecture → Planning → Implementation → Review → Verification → Testing → Iteration.
+Discovery → Architecture → Planning → Implementation → Scan → Release Gate → Deploy → Observe → Feedback.
 
 ## Command Contract
 
-- `ai-commit` → stage + commit + push
-- `ai-commit --only` → stage + commit
-- `ai-pr` → stage + commit + push + PR + auto-complete (`--auto --squash --delete-branch`)
-- `ai-pr --only` → create PR; warn if unpushed, propose auto-push
+- `/ai:plan` → planning pipeline (classify → discover → risk → spec → execution plan → STOP)
+- `/ai:execute` → read approved plan, dispatch agents, coordinate, report
+- `/ai:commit` → stage + commit + push
+- `/ai:commit --only` → stage + commit
+- `/ai:pr` → stage + commit + push + PR + auto-complete (`--auto --squash --delete-branch`)
+- `/ai:pr --only` → create PR; warn if unpushed, propose auto-push
 
 ## Progressive Disclosure
 
@@ -72,7 +75,7 @@ Session start loads ONLY: `_active.md` → `spec.md` → `tasks.md` → `decisio
 | Session start | ~500 tokens |
 | Single skill | ~2,050 tokens |
 | Agent + 2 skills | ~3,200 tokens |
-| Platform audit (8 dim) | ~12,950 tokens |
+| Platform audit (7 dim) | ~10,500 tokens |
 
 Schema: `.ai-engineering/standards/framework/skills-schema.md`. Organization: flat (no categories).
 
