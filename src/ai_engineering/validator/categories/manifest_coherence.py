@@ -6,10 +6,10 @@ import re
 from pathlib import Path
 
 from ai_engineering.validator._shared import (
-    CheckStatus,
     IntegrityCategory,
     IntegrityCheckResult,
     IntegrityReport,
+    IntegrityStatus,
 )
 
 
@@ -23,7 +23,7 @@ def _check_manifest_coherence(target: Path, report: IntegrityReport, **_kwargs: 
             IntegrityCheckResult(
                 category=IntegrityCategory.MANIFEST_COHERENCE,
                 name="manifest-missing",
-                status=CheckStatus.FAIL,
+                status=IntegrityStatus.FAIL,
                 message="manifest.yml not found",
             )
         )
@@ -45,7 +45,7 @@ def _check_manifest_coherence(target: Path, report: IntegrityReport, **_kwargs: 
                 IntegrityCheckResult(
                     category=IntegrityCategory.MANIFEST_COHERENCE,
                     name=f"missing-dir-{dir_rel}",
-                    status=CheckStatus.FAIL,
+                    status=IntegrityStatus.FAIL,
                     message=f"{category} directory not found: {dir_rel}",
                     file_path=f".ai-engineering/{dir_rel}",
                 )
@@ -55,7 +55,7 @@ def _check_manifest_coherence(target: Path, report: IntegrityReport, **_kwargs: 
                 IntegrityCheckResult(
                     category=IntegrityCategory.MANIFEST_COHERENCE,
                     name=f"dir-{dir_rel}",
-                    status=CheckStatus.OK,
+                    status=IntegrityStatus.OK,
                     message=f"{category} directory exists: {dir_rel}",
                 )
             )
@@ -73,7 +73,7 @@ def _check_manifest_coherence(target: Path, report: IntegrityReport, **_kwargs: 
                     IntegrityCheckResult(
                         category=IntegrityCategory.MANIFEST_COHERENCE,
                         name="active-spec",
-                        status=CheckStatus.OK,
+                        status=IntegrityStatus.OK,
                         message="No active spec (idle)",
                     )
                 )
@@ -82,7 +82,7 @@ def _check_manifest_coherence(target: Path, report: IntegrityReport, **_kwargs: 
                     IntegrityCheckResult(
                         category=IntegrityCategory.MANIFEST_COHERENCE,
                         name="active-spec-dir",
-                        status=CheckStatus.FAIL,
+                        status=IntegrityStatus.FAIL,
                         message=f"Active spec directory not found: {active_spec}",
                     )
                 )
@@ -91,7 +91,7 @@ def _check_manifest_coherence(target: Path, report: IntegrityReport, **_kwargs: 
                     IntegrityCheckResult(
                         category=IntegrityCategory.MANIFEST_COHERENCE,
                         name="active-spec-file",
-                        status=CheckStatus.FAIL,
+                        status=IntegrityStatus.FAIL,
                         message=f"Active spec missing spec.md: {active_spec}",
                     )
                 )
@@ -100,7 +100,7 @@ def _check_manifest_coherence(target: Path, report: IntegrityReport, **_kwargs: 
                     IntegrityCheckResult(
                         category=IntegrityCategory.MANIFEST_COHERENCE,
                         name="active-spec",
-                        status=CheckStatus.OK,
+                        status=IntegrityStatus.OK,
                         message=f"Active spec valid: {active_spec}",
                     )
                 )
@@ -109,7 +109,7 @@ def _check_manifest_coherence(target: Path, report: IntegrityReport, **_kwargs: 
             IntegrityCheckResult(
                 category=IntegrityCategory.MANIFEST_COHERENCE,
                 name="active-spec-pointer",
-                status=CheckStatus.WARN,
+                status=IntegrityStatus.WARN,
                 message="_active.md not found",
             )
         )

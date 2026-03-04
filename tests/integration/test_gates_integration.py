@@ -20,17 +20,21 @@ from unittest.mock import patch
 
 import pytest
 
-from ai_engineering.policy.gates import (
+from ai_engineering.policy.checks.commit_msg import validate_commit_message
+from ai_engineering.policy.checks.risk import (
+    check_expired_risk_acceptances,
+    check_expiring_risk_acceptances,
+)
+from ai_engineering.policy.checks.stack_runner import (
     CheckConfig,
+    run_checks_for_stacks,
+    run_tool_check,
+)
+from ai_engineering.policy.gates import (
     GateCheckResult,
     GateResult,
-    _check_expired_risk_acceptances,
-    _check_expiring_risk_acceptances,
     _get_active_stacks,
-    _run_checks_for_stacks,
     _run_pre_push_checks,
-    _run_tool_check,
-    _validate_commit_message,
     run_gate,
 )
 from ai_engineering.policy.test_scope import TestScope
@@ -113,26 +117,26 @@ class TestCommitMsgValidation:
     """Tests for commit message format validation."""
 
     def test_valid_message(self) -> None:
-        errors = _validate_commit_message("fix: resolve issue with parser")
+        errors = validate_commit_message("fix: resolve issue with parser")
         assert errors == []
 
     def test_empty_message(self) -> None:
-        errors = _validate_commit_message("")
+        errors = validate_commit_message("")
         assert len(errors) > 0
 
     def test_first_line_too_long(self) -> None:
         long_msg = "x" * 73
-        errors = _validate_commit_message(long_msg)
+        errors = validate_commit_message(long_msg)
         assert any("72" in e for e in errors)
 
     def test_exactly_72_chars(self) -> None:
         msg = "x" * 72
-        errors = _validate_commit_message(msg)
+        errors = validate_commit_message(msg)
         assert errors == []
 
     def test_multiline_message(self) -> None:
         msg = "short subject\n\nLong body with details about the change."
-        errors = _validate_commit_message(msg)
+        errors = validate_commit_message(msg)
         assert errors == []
 
 
@@ -211,12 +215,12 @@ class TestPrePushGate:
 
 
 class TestToolCheckRequired:
-    """Tests for _run_tool_check required parameter behavior."""
+    """Tests for run_tool_check required parameter behavior."""
 
     def test_missing_tool_passes_when_not_required(self, tmp_path: Path) -> None:
         result = GateResult(hook=GateHook.PRE_COMMIT)
         with patch("ai_engineering.policy.checks.stack_runner.shutil.which", return_value=None):
-            _run_tool_check(
+            run_tool_check(
                 result,
                 name="fake-tool",
                 cmd=["nonexistent-tool", "check"],
@@ -230,7 +234,7 @@ class TestToolCheckRequired:
     def test_missing_tool_fails_when_required(self, tmp_path: Path) -> None:
         result = GateResult(hook=GateHook.PRE_COMMIT)
         with patch("ai_engineering.policy.checks.stack_runner.shutil.which", return_value=None):
-            _run_tool_check(
+            run_tool_check(
                 result,
                 name="fake-tool",
                 cmd=["nonexistent-tool", "check"],
@@ -256,7 +260,7 @@ class TestToolCheckRequired:
                 "ai_engineering.policy.checks.stack_runner.subprocess.run", return_value=mock_proc
             ),
         ):
-            _run_tool_check(
+            run_tool_check(
                 result,
                 name="test-tool",
                 cmd=["tool", "check"],
@@ -280,7 +284,7 @@ class TestToolCheckRequired:
                 "ai_engineering.policy.checks.stack_runner.subprocess.run", return_value=mock_proc
             ),
         ):
-            _run_tool_check(
+            run_tool_check(
                 result,
                 name="test-tool",
                 cmd=["tool", "check"],
@@ -301,7 +305,7 @@ class TestToolCheckRequired:
                 "ai_engineering.policy.checks.stack_runner.subprocess.run", return_value=mock_proc
             ),
         ):
-            _run_tool_check(
+            run_tool_check(
                 result,
                 name="test-tool",
                 cmd=["tool", "check"],
@@ -311,10 +315,10 @@ class TestToolCheckRequired:
         assert "exited with code 1" in check.output
 
     def test_default_required_is_true(self, tmp_path: Path) -> None:
-        """_run_tool_check defaults to required=True (fail-closed)."""
+        """run_tool_check defaults to required=True (fail-closed)."""
         result = GateResult(hook=GateHook.PRE_COMMIT)
         with patch("ai_engineering.policy.checks.stack_runner.shutil.which", return_value=None):
-            _run_tool_check(
+            run_tool_check(
                 result,
                 name="default-tool",
                 cmd=["nonexistent-tool", "check"],
@@ -326,13 +330,13 @@ class TestToolCheckRequired:
 
     def test_security_tools_are_required(self) -> None:
         """Gitleaks and semgrep check configs have required=True."""
-        from ai_engineering.policy.gates import _PRE_COMMIT_CHECKS, _PRE_PUSH_CHECKS
+        from ai_engineering.policy.checks.stack_runner import PRE_COMMIT_CHECKS, PRE_PUSH_CHECKS
 
         gitleaks_configs = [
-            c for checks in _PRE_COMMIT_CHECKS.values() for c in checks if "gitleaks" in c.name
+            c for checks in PRE_COMMIT_CHECKS.values() for c in checks if "gitleaks" in c.name
         ]
         semgrep_configs = [
-            c for checks in _PRE_PUSH_CHECKS.values() for c in checks if "semgrep" in c.name
+            c for checks in PRE_PUSH_CHECKS.values() for c in checks if "semgrep" in c.name
         ]
         assert gitleaks_configs, "gitleaks must be in pre-commit registry"
         assert semgrep_configs, "semgrep must be in pre-push registry"
@@ -340,7 +344,7 @@ class TestToolCheckRequired:
             assert config.required is True, f"{config.name} must be required"
 
     def test_timeout_passed_to_subprocess(self, tmp_path: Path) -> None:
-        """_run_tool_check passes custom timeout to subprocess.run."""
+        """run_tool_check passes custom timeout to subprocess.run."""
         result = GateResult(hook=GateHook.PRE_COMMIT)
         mock_proc = subprocess.CompletedProcess(args=["tool"], returncode=0, stdout="ok", stderr="")
         with (
@@ -352,7 +356,7 @@ class TestToolCheckRequired:
                 "ai_engineering.policy.checks.stack_runner.subprocess.run", return_value=mock_proc
             ) as mock_run,
         ):
-            _run_tool_check(
+            run_tool_check(
                 result,
                 name="test-tool",
                 cmd=["tool", "check"],
@@ -375,7 +379,7 @@ class TestToolCheckRequired:
                 side_effect=subprocess.TimeoutExpired(cmd="tool", timeout=600),
             ),
         ):
-            _run_tool_check(
+            run_tool_check(
                 result,
                 name="test-tool",
                 cmd=["tool", "check"],
@@ -388,9 +392,9 @@ class TestToolCheckRequired:
 
     def test_stack_tests_uses_parallel_unit_only(self) -> None:
         """stack-tests runs unit tier only with parallel execution."""
-        from ai_engineering.policy.gates import _PRE_PUSH_CHECKS
+        from ai_engineering.policy.checks.stack_runner import PRE_PUSH_CHECKS
 
-        stack_tests = [c for c in _PRE_PUSH_CHECKS.get("python", []) if c.name == "stack-tests"]
+        stack_tests = [c for c in PRE_PUSH_CHECKS.get("python", []) if c.name == "stack-tests"]
         assert stack_tests, "stack-tests must exist in python pre-push checks"
         cmd = stack_tests[0].cmd
         assert "--no-cov" in cmd, "stack-tests must skip coverage"
@@ -401,9 +405,9 @@ class TestToolCheckRequired:
 
     def test_stack_tests_has_optimized_timeout(self) -> None:
         """stack-tests timeout is 120s for unit-only parallel execution."""
-        from ai_engineering.policy.gates import _PRE_PUSH_CHECKS
+        from ai_engineering.policy.checks.stack_runner import PRE_PUSH_CHECKS
 
-        stack_tests = [c for c in _PRE_PUSH_CHECKS.get("python", []) if c.name == "stack-tests"]
+        stack_tests = [c for c in PRE_PUSH_CHECKS.get("python", []) if c.name == "stack-tests"]
         assert stack_tests, "stack-tests must exist"
         assert stack_tests[0].timeout == 120, "stack-tests timeout must be 120s"
 
@@ -463,11 +467,11 @@ class TestGateResult:
 
 
 class TestRiskExpiryWarning:
-    """Tests for _check_expiring_risk_acceptances (pre-commit, non-blocking)."""
+    """Tests for check_expiring_risk_acceptances (pre-commit, non-blocking)."""
 
     def test_no_decision_store_passes(self, tmp_path: Path) -> None:
         result = GateResult(hook=GateHook.PRE_COMMIT)
-        _check_expiring_risk_acceptances(tmp_path, result)
+        check_expiring_risk_acceptances(tmp_path, result)
         check = _find_check(result, "risk-expiry-warning")
         assert check.passed
 
@@ -481,7 +485,7 @@ class TestRiskExpiryWarning:
             json.dumps({"schemaVersion": "1.1", "decisions": []})
         )
         result = GateResult(hook=GateHook.PRE_COMMIT)
-        _check_expiring_risk_acceptances(tmp_path, result)
+        check_expiring_risk_acceptances(tmp_path, result)
         check = _find_check(result, "risk-expiry-warning")
         assert check.passed
 
@@ -515,18 +519,18 @@ class TestRiskExpiryWarning:
             )
         )
         result = GateResult(hook=GateHook.PRE_COMMIT)
-        _check_expiring_risk_acceptances(tmp_path, result)
+        check_expiring_risk_acceptances(tmp_path, result)
         check = _find_check(result, "risk-expiry-warning")
         assert check.passed  # Warning only, non-blocking
         assert "expiring" in check.output.lower()
 
 
 class TestRiskExpiredBlock:
-    """Tests for _check_expired_risk_acceptances (pre-push, blocking)."""
+    """Tests for check_expired_risk_acceptances (pre-push, blocking)."""
 
     def test_no_decision_store_passes(self, tmp_path: Path) -> None:
         result = GateResult(hook=GateHook.PRE_PUSH)
-        _check_expired_risk_acceptances(tmp_path, result)
+        check_expired_risk_acceptances(tmp_path, result)
         check = _find_check(result, "risk-expired-block")
         assert check.passed
 
@@ -539,7 +543,7 @@ class TestRiskExpiredBlock:
             json.dumps({"schemaVersion": "1.1", "decisions": []})
         )
         result = GateResult(hook=GateHook.PRE_PUSH)
-        _check_expired_risk_acceptances(tmp_path, result)
+        check_expired_risk_acceptances(tmp_path, result)
         check = _find_check(result, "risk-expired-block")
         assert check.passed
 
@@ -570,7 +574,7 @@ class TestRiskExpiredBlock:
             )
         )
         result = GateResult(hook=GateHook.PRE_PUSH)
-        _check_expired_risk_acceptances(tmp_path, result)
+        check_expired_risk_acceptances(tmp_path, result)
         check = _find_check(result, "risk-expired-block")
         assert not check.passed  # Blocks push
 
@@ -683,7 +687,24 @@ class TestGetActiveStacks:
         assert stacks == ["python", "dotnet"]
 
     def test_returns_python_when_manifest_empty_stacks(self, tmp_path: Path) -> None:
-        pass
+        import json
+
+        ds_dir = tmp_path / ".ai-engineering" / "state"
+        ds_dir.mkdir(parents=True)
+        (ds_dir / "install-manifest.json").write_text(
+            json.dumps(
+                {
+                    "schemaVersion": "1.1",
+                    "frameworkVersion": "0.1.0",
+                    "installedAt": "2026-02-22T00:00:00Z",
+                    "installedStacks": [],
+                    "installedIdes": [],
+                    "toolingReadiness": {},
+                }
+            )
+        )
+        stacks = _get_active_stacks(tmp_path)
+        assert stacks == ["python"]
 
     def test_returns_python_when_manifest_invalid(self, tmp_path: Path) -> None:
         ds_dir = tmp_path / ".ai-engineering" / "state"
@@ -694,7 +715,7 @@ class TestGetActiveStacks:
 
 
 class TestRunChecksForStacks:
-    """Tests for _run_checks_for_stacks — stack-aware dispatch."""
+    """Tests for run_checks_for_stacks — stack-aware dispatch."""
 
     def test_runs_common_and_python_checks(self, tmp_path: Path) -> None:
         registry: dict[str, list[CheckConfig]] = {
@@ -704,7 +725,7 @@ class TestRunChecksForStacks:
         }
         result = GateResult(hook=GateHook.PRE_COMMIT)
         with patch("ai_engineering.policy.checks.stack_runner.shutil.which", return_value=None):
-            _run_checks_for_stacks(tmp_path, result, registry, ["python"])
+            run_checks_for_stacks(tmp_path, result, registry, ["python"])
         names = {c.name for c in result.checks}
         assert "gitleaks" in names
         assert "ruff-format" in names
@@ -718,7 +739,7 @@ class TestRunChecksForStacks:
         }
         result = GateResult(hook=GateHook.PRE_COMMIT)
         with patch("ai_engineering.policy.checks.stack_runner.shutil.which", return_value=None):
-            _run_checks_for_stacks(tmp_path, result, registry, ["dotnet"])
+            run_checks_for_stacks(tmp_path, result, registry, ["dotnet"])
         names = {c.name for c in result.checks}
         assert "gitleaks" in names
         assert "dotnet-format" in names
@@ -732,7 +753,7 @@ class TestRunChecksForStacks:
         }
         result = GateResult(hook=GateHook.PRE_PUSH)
         with patch("ai_engineering.policy.checks.stack_runner.shutil.which", return_value=None):
-            _run_checks_for_stacks(tmp_path, result, registry, ["python", "nextjs"])
+            run_checks_for_stacks(tmp_path, result, registry, ["python", "nextjs"])
         names = {c.name for c in result.checks}
         assert "gitleaks" in names
         assert "pip-audit" in names

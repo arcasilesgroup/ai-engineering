@@ -5,10 +5,10 @@ from __future__ import annotations
 from pathlib import Path
 
 from ai_engineering.validator._shared import (
-    CheckStatus,
     IntegrityCategory,
     IntegrityCheckResult,
     IntegrityReport,
+    IntegrityStatus,
     _instruction_files,
     _parse_counter,
 )
@@ -34,7 +34,7 @@ def _check_counter_accuracy(target: Path, report: IntegrityReport, **_kwargs: ob
                 IntegrityCheckResult(
                     category=IntegrityCategory.COUNTER_ACCURACY,
                     name=f"missing-{file_rel}",
-                    status=CheckStatus.FAIL,
+                    status=IntegrityStatus.FAIL,
                     message=f"Instruction file not found: {file_rel}",
                     file_path=file_rel,
                 )
@@ -60,7 +60,7 @@ def _check_counter_accuracy(target: Path, report: IntegrityReport, **_kwargs: ob
             IntegrityCheckResult(
                 category=IntegrityCategory.COUNTER_ACCURACY,
                 name="skill-count-mismatch",
-                status=CheckStatus.FAIL,
+                status=IntegrityStatus.FAIL,
                 message=f"Skill counts differ across instruction files: {detail}",
             )
         )
@@ -70,7 +70,7 @@ def _check_counter_accuracy(target: Path, report: IntegrityReport, **_kwargs: ob
             IntegrityCheckResult(
                 category=IntegrityCategory.COUNTER_ACCURACY,
                 name="skill-counts-consistent",
-                status=CheckStatus.OK,
+                status=IntegrityStatus.OK,
                 message=f"All instruction files list {count} skills",
             )
         )
@@ -81,7 +81,7 @@ def _check_counter_accuracy(target: Path, report: IntegrityReport, **_kwargs: ob
             IntegrityCheckResult(
                 category=IntegrityCategory.COUNTER_ACCURACY,
                 name="agent-count-mismatch",
-                status=CheckStatus.FAIL,
+                status=IntegrityStatus.FAIL,
                 message=f"Agent counts differ across instruction files: {detail}",
             )
         )
@@ -91,7 +91,7 @@ def _check_counter_accuracy(target: Path, report: IntegrityReport, **_kwargs: ob
             IntegrityCheckResult(
                 category=IntegrityCategory.COUNTER_ACCURACY,
                 name="agent-counts-consistent",
-                status=CheckStatus.OK,
+                status=IntegrityStatus.OK,
                 message=f"All instruction files list {count} agents",
             )
         )
@@ -111,7 +111,7 @@ def _check_counter_accuracy(target: Path, report: IntegrityReport, **_kwargs: ob
                     IntegrityCheckResult(
                         category=IntegrityCategory.COUNTER_ACCURACY,
                         name="product-contract-skills",
-                        status=CheckStatus.FAIL,
+                        status=IntegrityStatus.FAIL,
                         message=(
                             f"product-contract.md says {pc_skills} skills, "
                             f"instruction files list {ref_skills}"
@@ -124,7 +124,7 @@ def _check_counter_accuracy(target: Path, report: IntegrityReport, **_kwargs: ob
                     IntegrityCheckResult(
                         category=IntegrityCategory.COUNTER_ACCURACY,
                         name="product-contract-skills",
-                        status=CheckStatus.OK,
+                        status=IntegrityStatus.OK,
                         message=f"product-contract.md skill count matches: {pc_skills}",
                     )
                 )
@@ -134,7 +134,7 @@ def _check_counter_accuracy(target: Path, report: IntegrityReport, **_kwargs: ob
                     IntegrityCheckResult(
                         category=IntegrityCategory.COUNTER_ACCURACY,
                         name="product-contract-agents",
-                        status=CheckStatus.FAIL,
+                        status=IntegrityStatus.FAIL,
                         message=(
                             f"product-contract.md says {pc_agents} agents, "
                             f"instruction files list {ref_agents}"
@@ -147,7 +147,7 @@ def _check_counter_accuracy(target: Path, report: IntegrityReport, **_kwargs: ob
                     IntegrityCheckResult(
                         category=IntegrityCategory.COUNTER_ACCURACY,
                         name="product-contract-agents",
-                        status=CheckStatus.OK,
+                        status=IntegrityStatus.OK,
                         message=f"product-contract.md agent count matches: {pc_agents}",
                     )
                 )

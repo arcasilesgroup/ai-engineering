@@ -12,11 +12,11 @@ from ai_engineering.validator._shared import (
     _KEBAB_RE,
     _SEMVER_RE,
     _SUPPORTED_OSES,
-    CheckStatus,
     FileCache,
     IntegrityCategory,
     IntegrityCheckResult,
     IntegrityReport,
+    IntegrityStatus,
 )
 
 
@@ -52,7 +52,7 @@ def _validate_skill_identity(
             IntegrityCheckResult(
                 category=IntegrityCategory.SKILL_FRONTMATTER,
                 name="invalid-name",
-                status=CheckStatus.FAIL,
+                status=IntegrityStatus.FAIL,
                 message=f"Frontmatter 'name' must be kebab-case and match filename ('{file_stem}')",
                 file_path=rel,
             )
@@ -64,7 +64,7 @@ def _validate_skill_identity(
             IntegrityCheckResult(
                 category=IntegrityCategory.SKILL_FRONTMATTER,
                 name="invalid-version",
-                status=CheckStatus.FAIL,
+                status=IntegrityStatus.FAIL,
                 message="Frontmatter 'version' must be semver (e.g. 1.0.0)",
                 file_path=rel,
             )
@@ -89,7 +89,7 @@ def _validate_skill_requires(
                 IntegrityCheckResult(
                     category=IntegrityCategory.SKILL_FRONTMATTER,
                     name="invalid-requires",
-                    status=CheckStatus.FAIL,
+                    status=IntegrityStatus.FAIL,
                     message="Frontmatter 'requires' must be an object",
                     file_path=rel,
                 )
@@ -103,7 +103,7 @@ def _validate_skill_requires(
                         IntegrityCheckResult(
                             category=IntegrityCategory.SKILL_FRONTMATTER,
                             name=f"invalid-requires-{req_key}",
-                            status=CheckStatus.FAIL,
+                            status=IntegrityStatus.FAIL,
                             message=f"Frontmatter requires.{req_key} must be a list of strings",
                             file_path=rel,
                         )
@@ -118,7 +118,7 @@ def _validate_skill_requires(
                 IntegrityCheckResult(
                     category=IntegrityCategory.SKILL_FRONTMATTER,
                     name="invalid-os",
-                    status=CheckStatus.FAIL,
+                    status=IntegrityStatus.FAIL,
                     message="Frontmatter 'os' must be a list of strings",
                     file_path=rel,
                 )
@@ -131,7 +131,7 @@ def _validate_skill_requires(
                     IntegrityCheckResult(
                         category=IntegrityCategory.SKILL_FRONTMATTER,
                         name="invalid-os-values",
-                        status=CheckStatus.FAIL,
+                        status=IntegrityStatus.FAIL,
                         message=f"Frontmatter 'os' has unsupported values: {', '.join(invalid)}",
                         file_path=rel,
                     )
@@ -152,7 +152,7 @@ def _parse_skill_frontmatter(
             IntegrityCheckResult(
                 category=IntegrityCategory.SKILL_FRONTMATTER,
                 name="missing-frontmatter",
-                status=CheckStatus.FAIL,
+                status=IntegrityStatus.FAIL,
                 message="Missing YAML frontmatter block",
                 file_path=rel,
             )
@@ -166,7 +166,7 @@ def _parse_skill_frontmatter(
             IntegrityCheckResult(
                 category=IntegrityCategory.SKILL_FRONTMATTER,
                 name="invalid-frontmatter-yaml",
-                status=CheckStatus.FAIL,
+                status=IntegrityStatus.FAIL,
                 message=f"Invalid frontmatter YAML: {exc}",
                 file_path=rel,
             )
@@ -178,7 +178,7 @@ def _parse_skill_frontmatter(
             IntegrityCheckResult(
                 category=IntegrityCategory.SKILL_FRONTMATTER,
                 name="invalid-frontmatter-type",
-                status=CheckStatus.FAIL,
+                status=IntegrityStatus.FAIL,
                 message="Frontmatter must parse to a YAML mapping/object",
                 file_path=rel,
             )
@@ -198,7 +198,7 @@ def _check_skill_frontmatter(
             IntegrityCheckResult(
                 category=IntegrityCategory.SKILL_FRONTMATTER,
                 name="skills-directory",
-                status=CheckStatus.FAIL,
+                status=IntegrityStatus.FAIL,
                 message="Skills directory not found: .ai-engineering/skills",
             )
         )
@@ -231,7 +231,7 @@ def _check_skill_frontmatter(
             IntegrityCheckResult(
                 category=IntegrityCategory.SKILL_FRONTMATTER,
                 name="skill-frontmatter",
-                status=CheckStatus.OK,
+                status=IntegrityStatus.OK,
                 message=f"Validated frontmatter in {checked} skills",
             )
         )

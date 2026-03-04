@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from ai_engineering.doctor.service import CheckResult, CheckStatus, DoctorReport
+from ai_engineering.doctor.models import CheckResult, CheckStatus, DoctorReport
 
 # Required directories under .ai-engineering/
 _REQUIRED_DIRS: list[str] = [

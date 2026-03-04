@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from ai_engineering.doctor.service import CheckResult, CheckStatus, DoctorReport
+from ai_engineering.doctor.models import CheckResult, CheckStatus, DoctorReport
 
 
 def check_version(report: DoctorReport) -> None:

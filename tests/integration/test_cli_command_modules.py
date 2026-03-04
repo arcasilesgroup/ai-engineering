@@ -319,7 +319,47 @@ def test_validate_text_output_path(tmp_path: Path, capsys: pytest.CaptureFixture
 
 
 def test_skills_cli_branches(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    pass
+    from ai_engineering.cli_commands import skills
+
+    # skill_list with no sources
+    with (
+        patch("ai_engineering.cli_commands.skills.resolve_project_root", return_value=tmp_path),
+        patch("ai_engineering.cli_commands.skills.list_sources", return_value=[]),
+    ):
+        skills.skill_list(target=tmp_path)
+    captured = capsys.readouterr()
+    assert "No remote skill sources" in captured.err
+
+    # skill_status with no skills
+    with (
+        patch("ai_engineering.cli_commands.skills.resolve_project_root", return_value=tmp_path),
+        patch("ai_engineering.cli_commands.skills.list_local_skill_status", return_value=[]),
+    ):
+        skills.skill_status(target=tmp_path)
+    captured = capsys.readouterr()
+    assert "No local skills" in captured.err
+
+    # skill_add duplicate raises Exit
+    with (
+        patch("ai_engineering.cli_commands.skills.resolve_project_root", return_value=tmp_path),
+        patch(
+            "ai_engineering.cli_commands.skills.add_source",
+            side_effect=ValueError("already exists"),
+        ),
+        pytest.raises(typer.Exit),
+    ):
+        skills.skill_add("https://example.com/skills", target=tmp_path)
+
+    # skill_remove unknown raises Exit
+    with (
+        patch("ai_engineering.cli_commands.skills.resolve_project_root", return_value=tmp_path),
+        patch(
+            "ai_engineering.cli_commands.skills.remove_source",
+            side_effect=ValueError("not found"),
+        ),
+        pytest.raises(typer.Exit),
+    ):
+        skills.skill_remove("https://example.com/skills", target=tmp_path)
 
 
 def test_review_pr_strict_failure_exits(tmp_path: Path) -> None:

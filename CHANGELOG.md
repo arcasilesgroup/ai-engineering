@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`/ai:plan` and `/ai:execute` command contract** — plan pipeline (classify → discover → risk → spec → execution plan → STOP) and execute dispatcher documented in CLAUDE.md.
 - **Audit prompt catalog** — `.ai-engineering/references/audit-prompt-catalog.md` reference for structured audit prompts.
 - **State service** — `state/service.py` centralized state management module.
+- **`doctor/models.py`** — extracted `CheckResult`, `CheckStatus`, `DoctorReport` from `doctor/service.py` to break circular imports between doctor modules.
+- **`.gitattributes`** — LF line-ending enforcement for `.sh`, `.py`, `.yml`, `.yaml`, `.md`, `.json` files (cross-OS reliability).
+- **CI maintenance cron** — `.github/workflows/maintenance.yml` runs `ai-eng maintenance all` weekly (Monday 06:00 UTC).
+- **SSRF semgrep rule** — `ssrf-request` rule in `.semgrep.yml` detects `requests.$METHOD($URL)` with non-literal URLs (CWE-918).
 
 ### Changed
 - **Doctor service refactored** — monolithic `doctor/service.py` decomposed into 8 focused check modules (`doctor/checks/`): tools, hooks, layout, state_files, venv, branch_policy, readiness, version_check.
@@ -21,10 +25,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **CLI commands updated** — minor improvements across cicd, decisions, gate, guide, maintenance, signals, vcs command modules and cli_ui.
 - **CLAUDE.md** — skills 33→34 (added `plan`), agents 6→7 (added `execute`), expanded command contract.
 - **Plan agent updated** — refined purpose to planning pipeline that STOPS before execution.
+- **README.md + GEMINI.md synced to v3** — 34 skills, 7 agents, 37 slash commands, updated agent table and skill list.
+- **Template mirrors synced** — `manifest.yml` and `README.md` templates match canonical (7 agents, 34 skills).
+- **Governance skill CLI references fixed** — `ai-eng integrity` → `ai-eng validate --category integrity`.
+- **Validator `CheckStatus` renamed to `IntegrityStatus`** — resolves naming collision with `doctor/models.py::CheckStatus`.
+- **Mirror sync expanded** — `mirror_sync.py` now covers root-level `manifest.yml` and `README.md` (64 mirror pairs total).
+- **Tool-availability consolidated** — `doctor/checks/tools.py` delegates to `detector/readiness.py` instead of duplicating `shutil.which` + pip/uv logic.
+- **`check_platforms()` wired into `diagnose()`** — callable via `--check-platforms` flag.
+- **`install-manifest.json` updated** — `frameworkVersion` 0.1.0→0.2.0, `schemaVersion` 1.1→1.2, added `aiProviders`, `cicd`, `branchPolicy`, `operationalReadiness`, `release` fields.
+- **`decision-store.json` key fixed** — `schema_version` → `schemaVersion` (camelCase consistency).
+- **Windows venv paths** — template `settings.json` includes `.venv\Scripts\*` alongside Unix `.venv/bin/*`.
 
 ### Removed
 - **`acho` skill** — removed alias command and all mirrors (`.claude/commands/ai/acho.md`, `.github/prompts/ai-acho.prompt.md`, template mirrors).
 - **Stale audit log entries** — cleaned up `state/audit-log.ndjson`.
+- **Backward-compat shims** — removed `__getattr__` lazy re-exports from `gates.py` (~65 LOC) and wrapper functions from `doctor/service.py` (~80 LOC). All imports migrated to direct `policy.checks.*` and `doctor.checks.*` paths.
+- **Re-exported constants** — removed `_REQUIRED_DIRS`, `_TOOLS`, `_VCS_TOOLS`, `_PROTECTED_BRANCHES` from `doctor/service.py`.
+
+### Fixed
+- **Gitleaks command** — `workflows.py` changed from `gitleaks detect --staged` to `gitleaks protect --staged` (security regression fix).
+- **6 test stubs filled** — `test_version_check_fail_when_deprecated`, `test_returns_false_on_all_failures`, `test_project_template_root_missing_raises`, `test_skills_cli_branches`, `test_returns_python_when_manifest_empty_stacks`, `test_pr_creation_returns_false_on_failure` — all replaced with real assertions.
+- **`ownership-map.json` regenerated** — added missing `.github/prompts/**`, `.github/agents/**`, `.claude/**`, `state/session-checkpoint.json` paths.
 
 ### Added
 - **ai-engineering v3 architecture** — full redesign with 6 bounded-context agents (plan, build, scan, release, write, observe) and 33 skills (down from 47).

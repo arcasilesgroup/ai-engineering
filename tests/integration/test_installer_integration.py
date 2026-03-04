@@ -71,7 +71,11 @@ class TestTemplateDiscovery:
         tmp_path: Path,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        pass
+        import ai_engineering.installer.templates as tpl_mod
+
+        monkeypatch.setattr(tpl_mod, "TEMPLATES_ROOT", tmp_path / "nonexistent")
+        with pytest.raises(FileNotFoundError, match="Template directory"):
+            get_project_template_root()
 
 
 class TestCopyFileIfMissing:

@@ -7,11 +7,11 @@ from pathlib import Path
 from ai_engineering.validator._shared import (
     _KNOWN_OPTIONAL_PATHS,
     _PATH_REF_PATTERN,
-    CheckStatus,
     FileCache,
     IntegrityCategory,
     IntegrityCheckResult,
     IntegrityReport,
+    IntegrityStatus,
 )
 
 
@@ -25,7 +25,7 @@ def _check_file_existence(
             IntegrityCheckResult(
                 category=IntegrityCategory.FILE_EXISTENCE,
                 name="governance-directory",
-                status=CheckStatus.FAIL,
+                status=IntegrityStatus.FAIL,
                 message=".ai-engineering/ directory not found",
             )
         )
@@ -79,7 +79,7 @@ def _check_file_existence(
                 IntegrityCheckResult(
                     category=IntegrityCategory.FILE_EXISTENCE,
                     name="broken-reference",
-                    status=CheckStatus.FAIL,
+                    status=IntegrityStatus.FAIL,
                     message=f"Reference to '{ref}' not found",
                     file_path=source,
                 )
@@ -89,7 +89,7 @@ def _check_file_existence(
             IntegrityCheckResult(
                 category=IntegrityCategory.FILE_EXISTENCE,
                 name="path-references",
-                status=CheckStatus.OK,
+                status=IntegrityStatus.OK,
                 message="All internal path references resolve",
             )
         )
@@ -110,7 +110,7 @@ def _check_file_existence(
                     IntegrityCheckResult(
                         category=IntegrityCategory.FILE_EXISTENCE,
                         name=f"spec-{spec_dir.name}",
-                        status=CheckStatus.FAIL,
+                        status=IntegrityStatus.FAIL,
                         message=f"Missing files: {', '.join(missing)}",
                         file_path=spec_dir.relative_to(target).as_posix(),
                     )
@@ -120,7 +120,7 @@ def _check_file_existence(
                     IntegrityCheckResult(
                         category=IntegrityCategory.FILE_EXISTENCE,
                         name=f"spec-{spec_dir.name}",
-                        status=CheckStatus.OK,
+                        status=IntegrityStatus.OK,
                         message="Spec directory complete",
                         file_path=spec_dir.relative_to(target).as_posix(),
                     )

@@ -130,15 +130,18 @@ def test_pipeline_duplication_and_gate_internal_edges(tmp_path: Path) -> None:
         runpy.run_module("ai_engineering.policy.duplication", run_name="__main__")
     assert isinstance(exc.value.code, int)
 
+    from ai_engineering.policy.checks.commit_msg import _GATE_TRAILER, inject_gate_trailer
+    from ai_engineering.policy.checks.stack_runner import run_tool_check
+
     msg = tmp_path / "msg.txt"
-    msg.write_text(f"feat: x\n\n{gates._GATE_TRAILER}\n", encoding="utf-8")
-    gates._inject_gate_trailer(msg)
-    assert msg.read_text(encoding="utf-8").count(gates._GATE_TRAILER) == 1
+    msg.write_text(f"feat: x\n\n{_GATE_TRAILER}\n", encoding="utf-8")
+    inject_gate_trailer(msg)
+    assert msg.read_text(encoding="utf-8").count(_GATE_TRAILER) == 1
 
     msg2 = tmp_path / "msg2.txt"
     msg2.write_text("feat: y\n", encoding="utf-8")
     with patch.object(Path, "write_text", side_effect=OSError("nope")):
-        gates._inject_gate_trailer(msg2)
+        inject_gate_trailer(msg2)
 
     result = gates.GateResult(hook=gates.GateHook.PRE_PUSH)
     with (
@@ -148,19 +151,21 @@ def test_pipeline_duplication_and_gate_internal_edges(tmp_path: Path) -> None:
             side_effect=FileNotFoundError,
         ),
     ):
-        gates._run_tool_check(result, name="a", cmd=["tool"], cwd=tmp_path, required=True)
-        gates._run_tool_check(result, name="b", cmd=["tool"], cwd=tmp_path, required=False)
+        run_tool_check(result, name="a", cmd=["tool"], cwd=tmp_path, required=True)
+        run_tool_check(result, name="b", cmd=["tool"], cwd=tmp_path, required=False)
     assert result.checks[-2].passed is False
     assert result.checks[-1].passed is True
 
+    from ai_engineering.policy.checks.risk import load_decision_store
+
     with patch("ai_engineering.policy.checks.risk.read_json_model", side_effect=OSError("x")):
-        assert gates._load_decision_store(tmp_path) is None
+        assert load_decision_store(tmp_path) is None
 
     ds_path = tmp_path / ".ai-engineering" / "state" / "decision-store.json"
     ds_path.parent.mkdir(parents=True, exist_ok=True)
     ds_path.write_text("{}", encoding="utf-8")
     with patch("ai_engineering.policy.checks.risk.read_json_model", side_effect=ValueError("bad")):
-        assert gates._load_decision_store(tmp_path) is None
+        assert load_decision_store(tmp_path) is None
 
 
 def test_skills_state_and_defaults_edges(tmp_path: Path) -> None:

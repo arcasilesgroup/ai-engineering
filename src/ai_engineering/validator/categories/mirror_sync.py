@@ -10,11 +10,11 @@ from ai_engineering.validator._shared import (
     _COPILOT_AGENTS_MIRROR,
     _COPILOT_PROMPTS_MIRROR,
     _GOVERNANCE_MIRROR,
-    CheckStatus,
     FileCache,
     IntegrityCategory,
     IntegrityCheckResult,
     IntegrityReport,
+    IntegrityStatus,
     _glob_files,
     _is_excluded,
     _is_source_repo,
@@ -31,7 +31,7 @@ def _check_mirror_sync(
             IntegrityCheckResult(
                 category=IntegrityCategory.MIRROR_SYNC,
                 name="mirror-sync-skipped",
-                status=CheckStatus.OK,
+                status=IntegrityStatus.OK,
                 message="Mirror sync checks skipped (not source repo)",
             )
         )
@@ -50,7 +50,7 @@ def _check_mirror_sync(
             IntegrityCheckResult(
                 category=IntegrityCategory.MIRROR_SYNC,
                 name="canonical-root",
-                status=CheckStatus.FAIL,
+                status=IntegrityStatus.FAIL,
                 message=f"Canonical root not found: {_GOVERNANCE_MIRROR[0]}",
             )
         )
@@ -61,7 +61,7 @@ def _check_mirror_sync(
             IntegrityCheckResult(
                 category=IntegrityCategory.MIRROR_SYNC,
                 name="mirror-root",
-                status=CheckStatus.FAIL,
+                status=IntegrityStatus.FAIL,
                 message=f"Mirror root not found: {_GOVERNANCE_MIRROR[1]}",
             )
         )
@@ -96,7 +96,7 @@ def _check_mirror_sync(
                 IntegrityCheckResult(
                     category=IntegrityCategory.MIRROR_SYNC,
                     name=f"desync-{rel.as_posix()}",
-                    status=CheckStatus.FAIL,
+                    status=IntegrityStatus.FAIL,
                     message=f"Mirror desync: {rel.as_posix()}",
                     file_path=rel.as_posix(),
                 )
@@ -108,7 +108,7 @@ def _check_mirror_sync(
             IntegrityCheckResult(
                 category=IntegrityCategory.MIRROR_SYNC,
                 name=f"missing-mirror-{rel.as_posix()}",
-                status=CheckStatus.FAIL,
+                status=IntegrityStatus.FAIL,
                 message=f"Canonical file has no mirror: {rel.as_posix()}",
                 file_path=rel.as_posix(),
             )
@@ -120,7 +120,7 @@ def _check_mirror_sync(
             IntegrityCheckResult(
                 category=IntegrityCategory.MIRROR_SYNC,
                 name=f"orphan-mirror-{rel.as_posix()}",
-                status=CheckStatus.WARN,
+                status=IntegrityStatus.WARN,
                 message=f"Mirror file has no canonical source: {rel.as_posix()}",
                 file_path=rel.as_posix(),
             )
@@ -138,7 +138,7 @@ def _check_mirror_sync(
             IntegrityCheckResult(
                 category=IntegrityCategory.MIRROR_SYNC,
                 name="governance-mirrors",
-                status=CheckStatus.OK,
+                status=IntegrityStatus.OK,
                 message=f"All {checked} mirror pairs in sync",
             )
         )
@@ -161,7 +161,7 @@ def _check_claude_commands_mirror(
             IntegrityCheckResult(
                 category=IntegrityCategory.MIRROR_SYNC,
                 name="claude-commands-mirror-root",
-                status=CheckStatus.FAIL,
+                status=IntegrityStatus.FAIL,
                 message="Claude commands mirror directory not found",
             )
         )
@@ -182,7 +182,7 @@ def _check_claude_commands_mirror(
                 IntegrityCheckResult(
                     category=IntegrityCategory.MIRROR_SYNC,
                     name=f"claude-cmd-desync-{rel.as_posix()}",
-                    status=CheckStatus.FAIL,
+                    status=IntegrityStatus.FAIL,
                     message=f"Claude command mirror desync: {rel.as_posix()}",
                     file_path=rel.as_posix(),
                 )
@@ -193,7 +193,7 @@ def _check_claude_commands_mirror(
             IntegrityCheckResult(
                 category=IntegrityCategory.MIRROR_SYNC,
                 name=f"claude-cmd-missing-{rel.as_posix()}",
-                status=CheckStatus.FAIL,
+                status=IntegrityStatus.FAIL,
                 message=f"Claude command has no mirror: {rel.as_posix()}",
                 file_path=rel.as_posix(),
             )
@@ -204,7 +204,7 @@ def _check_claude_commands_mirror(
             IntegrityCheckResult(
                 category=IntegrityCategory.MIRROR_SYNC,
                 name="claude-commands-mirrors",
-                status=CheckStatus.OK,
+                status=IntegrityStatus.OK,
                 message=f"All {len(canonical_files & mirror_files)} Claude command mirrors in sync",
             )
         )
@@ -227,7 +227,7 @@ def _check_copilot_prompts_mirror(
             IntegrityCheckResult(
                 category=IntegrityCategory.MIRROR_SYNC,
                 name="copilot-prompts-mirror-root",
-                status=CheckStatus.FAIL,
+                status=IntegrityStatus.FAIL,
                 message="Copilot prompts mirror directory not found",
             )
         )
@@ -250,7 +250,7 @@ def _check_copilot_prompts_mirror(
                 IntegrityCheckResult(
                     category=IntegrityCategory.MIRROR_SYNC,
                     name=f"copilot-prompt-desync-{rel.as_posix()}",
-                    status=CheckStatus.FAIL,
+                    status=IntegrityStatus.FAIL,
                     message=f"Copilot prompt mirror desync: {rel.as_posix()}",
                     file_path=rel.as_posix(),
                 )
@@ -261,7 +261,7 @@ def _check_copilot_prompts_mirror(
             IntegrityCheckResult(
                 category=IntegrityCategory.MIRROR_SYNC,
                 name=f"copilot-prompt-missing-{rel.as_posix()}",
-                status=CheckStatus.FAIL,
+                status=IntegrityStatus.FAIL,
                 message=f"Copilot prompt has no mirror: {rel.as_posix()}",
                 file_path=rel.as_posix(),
             )
@@ -272,7 +272,7 @@ def _check_copilot_prompts_mirror(
             IntegrityCheckResult(
                 category=IntegrityCategory.MIRROR_SYNC,
                 name="copilot-prompts-mirrors",
-                status=CheckStatus.OK,
+                status=IntegrityStatus.OK,
                 message=f"All {len(canonical_files & mirror_files)} Copilot prompt mirrors in sync",
             )
         )
@@ -295,7 +295,7 @@ def _check_copilot_agents_mirror(
             IntegrityCheckResult(
                 category=IntegrityCategory.MIRROR_SYNC,
                 name="copilot-agents-mirror-root",
-                status=CheckStatus.FAIL,
+                status=IntegrityStatus.FAIL,
                 message="Copilot agents mirror directory not found",
             )
         )
@@ -318,7 +318,7 @@ def _check_copilot_agents_mirror(
                 IntegrityCheckResult(
                     category=IntegrityCategory.MIRROR_SYNC,
                     name=f"copilot-agent-desync-{rel.as_posix()}",
-                    status=CheckStatus.FAIL,
+                    status=IntegrityStatus.FAIL,
                     message=f"Copilot agent mirror desync: {rel.as_posix()}",
                     file_path=rel.as_posix(),
                 )
@@ -329,7 +329,7 @@ def _check_copilot_agents_mirror(
             IntegrityCheckResult(
                 category=IntegrityCategory.MIRROR_SYNC,
                 name=f"copilot-agent-missing-{rel.as_posix()}",
-                status=CheckStatus.FAIL,
+                status=IntegrityStatus.FAIL,
                 message=f"Copilot agent has no mirror: {rel.as_posix()}",
                 file_path=rel.as_posix(),
             )
@@ -340,7 +340,7 @@ def _check_copilot_agents_mirror(
             IntegrityCheckResult(
                 category=IntegrityCategory.MIRROR_SYNC,
                 name="copilot-agents-mirrors",
-                status=CheckStatus.OK,
+                status=IntegrityStatus.OK,
                 message=f"All {len(canonical_files & mirror_files)} Copilot agent mirrors in sync",
             )
         )

@@ -238,7 +238,18 @@ class TestTryInstall:
         assert cmd[0] == "pip"
 
     def test_returns_false_on_all_failures(self) -> None:
-        pass
+        def which_side_effect(name: str) -> str | None:
+            return None  # neither uv nor pip available
+
+        with (
+            patch("ai_engineering.detector.readiness.shutil.which", side_effect=which_side_effect),
+            patch(
+                "ai_engineering.detector.readiness.subprocess.run",
+                side_effect=FileNotFoundError("not found"),
+            ),
+        ):
+            result = _try_install("ruff")
+        assert result is False
 
 
 # ── check_tools_for_stacks ───────────────────────────────────────────

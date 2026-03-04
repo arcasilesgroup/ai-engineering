@@ -8,10 +8,10 @@ from pathlib import Path
 import pytest
 
 from ai_engineering.validator.service import (
-    CheckStatus,
     IntegrityCategory,
     IntegrityCheckResult,
     IntegrityReport,
+    IntegrityStatus,
     _parse_counter,
     validate_content_integrity,
 )
@@ -185,6 +185,12 @@ def _write_active_spec(
     return spec_dir
 
 
+def _write_readme(ai: Path) -> None:
+    """Write a minimal README.md for the governance tree."""
+    readme = ai / "README.md"
+    readme.write_text("# ai-engineering\n\nGovernance framework.\n", encoding="utf-8")
+
+
 def _setup_full_project(root: Path) -> Path:
     """Set up a complete project for happy-path testing."""
     ai = _make_governance(root)
@@ -195,6 +201,7 @@ def _setup_full_project(root: Path) -> Path:
     _write_all_instruction_files(root)
     _write_product_contract(ai)
     _write_manifest(ai)
+    _write_readme(ai)
     _write_active_spec(ai)
     return ai
 
@@ -257,7 +264,7 @@ class TestIntegrityReport:
                 IntegrityCheckResult(
                     category=IntegrityCategory.FILE_EXISTENCE,
                     name="test",
-                    status=CheckStatus.OK,
+                    status=IntegrityStatus.OK,
                     message="all good",
                 ),
             ]
@@ -270,7 +277,7 @@ class TestIntegrityReport:
                 IntegrityCheckResult(
                     category=IntegrityCategory.FILE_EXISTENCE,
                     name="test",
-                    status=CheckStatus.FAIL,
+                    status=IntegrityStatus.FAIL,
                     message="broken",
                 ),
             ]
@@ -283,7 +290,7 @@ class TestIntegrityReport:
                 IntegrityCheckResult(
                     category=IntegrityCategory.FILE_EXISTENCE,
                     name="test",
-                    status=CheckStatus.WARN,
+                    status=IntegrityStatus.WARN,
                     message="warning",
                 ),
             ]
@@ -296,25 +303,25 @@ class TestIntegrityReport:
                 IntegrityCheckResult(
                     category=IntegrityCategory.FILE_EXISTENCE,
                     name="a",
-                    status=CheckStatus.OK,
+                    status=IntegrityStatus.OK,
                     message="",
                 ),
                 IntegrityCheckResult(
                     category=IntegrityCategory.MIRROR_SYNC,
                     name="b",
-                    status=CheckStatus.FAIL,
+                    status=IntegrityStatus.FAIL,
                     message="",
                 ),
                 IntegrityCheckResult(
                     category=IntegrityCategory.MIRROR_SYNC,
                     name="c",
-                    status=CheckStatus.FAIL,
+                    status=IntegrityStatus.FAIL,
                     message="",
                 ),
                 IntegrityCheckResult(
                     category=IntegrityCategory.COUNTER_ACCURACY,
                     name="d",
-                    status=CheckStatus.WARN,
+                    status=IntegrityStatus.WARN,
                     message="",
                 ),
             ]
@@ -327,13 +334,13 @@ class TestIntegrityReport:
                 IntegrityCheckResult(
                     category=IntegrityCategory.FILE_EXISTENCE,
                     name="a",
-                    status=CheckStatus.OK,
+                    status=IntegrityStatus.OK,
                     message="",
                 ),
                 IntegrityCheckResult(
                     category=IntegrityCategory.MIRROR_SYNC,
                     name="b",
-                    status=CheckStatus.FAIL,
+                    status=IntegrityStatus.FAIL,
                     message="",
                 ),
             ]
@@ -349,13 +356,13 @@ class TestIntegrityReport:
                 IntegrityCheckResult(
                     category=IntegrityCategory.FILE_EXISTENCE,
                     name="a",
-                    status=CheckStatus.OK,
+                    status=IntegrityStatus.OK,
                     message="",
                 ),
                 IntegrityCheckResult(
                     category=IntegrityCategory.MIRROR_SYNC,
                     name="b",
-                    status=CheckStatus.FAIL,
+                    status=IntegrityStatus.FAIL,
                     message="",
                 ),
             ]
@@ -369,7 +376,7 @@ class TestIntegrityReport:
                 IntegrityCheckResult(
                     category=IntegrityCategory.FILE_EXISTENCE,
                     name="a",
-                    status=CheckStatus.OK,
+                    status=IntegrityStatus.OK,
                     message="ok msg",
                 ),
             ]
@@ -386,7 +393,7 @@ class TestIntegrityReport:
                 IntegrityCheckResult(
                     category=IntegrityCategory.FILE_EXISTENCE,
                     name="a",
-                    status=CheckStatus.FAIL,
+                    status=IntegrityStatus.FAIL,
                     message="broken",
                     file_path="some/file.md",
                 ),
@@ -433,7 +440,7 @@ class TestFileExistence:
         fail_checks = [
             c
             for c in report.checks
-            if c.category == IntegrityCategory.FILE_EXISTENCE and c.status == CheckStatus.FAIL
+            if c.category == IntegrityCategory.FILE_EXISTENCE and c.status == IntegrityStatus.FAIL
         ]
         assert len(fail_checks) >= 1
 
@@ -449,7 +456,7 @@ class TestFileExistence:
         fail_checks = [
             c
             for c in report.checks
-            if c.name == "spec-007-incomplete" and c.status == CheckStatus.FAIL
+            if c.name == "spec-007-incomplete" and c.status == IntegrityStatus.FAIL
         ]
         assert len(fail_checks) == 1
         assert "plan.md" in fail_checks[0].message
@@ -475,7 +482,7 @@ class TestFileExistence:
             c
             for c in report.checks
             if c.name == "broken-reference"
-            and c.status == CheckStatus.FAIL
+            and c.status == IntegrityStatus.FAIL
             and "phantom" in c.message
         ]
         assert len(broken) == 0
@@ -519,6 +526,13 @@ class TestMirrorSync:
                 dest = mirror_root / rel
                 dest.parent.mkdir(parents=True, exist_ok=True)
                 dest.write_bytes(f.read_bytes())
+        # Mirror root-level files (manifest.yml, README.md)
+        for root_file in ("manifest.yml", "README.md"):
+            src = ai / root_file
+            if src.is_file():
+                dest = mirror_root / root_file
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                dest.write_bytes(src.read_bytes())
         report = validate_content_integrity(
             tmp_path,
             categories=[IntegrityCategory.MIRROR_SYNC],
@@ -527,7 +541,7 @@ class TestMirrorSync:
             c
             for c in report.checks
             if c.category == IntegrityCategory.MIRROR_SYNC
-            and c.status == CheckStatus.FAIL
+            and c.status == IntegrityStatus.FAIL
             and "claude" not in c.name
         ]
         assert len(governance_fails) == 0
@@ -551,7 +565,7 @@ class TestMirrorSync:
             categories=[IntegrityCategory.MIRROR_SYNC],
         )
         desync_checks = [
-            c for c in report.checks if c.status == CheckStatus.FAIL and "desync" in c.name
+            c for c in report.checks if c.status == IntegrityStatus.FAIL and "desync" in c.name
         ]
         assert len(desync_checks) >= 1
 
@@ -591,7 +605,7 @@ class TestCopilotPromptsMirror:
         ok_checks = [
             c
             for c in report.checks
-            if c.name == "copilot-prompts-mirrors" and c.status == CheckStatus.OK
+            if c.name == "copilot-prompts-mirrors" and c.status == IntegrityStatus.OK
         ]
         assert len(ok_checks) == 1
 
@@ -611,7 +625,7 @@ class TestCopilotPromptsMirror:
         fail_checks = [
             c
             for c in report.checks
-            if c.status == CheckStatus.FAIL and "copilot-prompt-desync" in c.name
+            if c.status == IntegrityStatus.FAIL and "copilot-prompt-desync" in c.name
         ]
         assert len(fail_checks) >= 1
 
@@ -629,7 +643,7 @@ class TestCopilotPromptsMirror:
         fail_checks = [
             c
             for c in report.checks
-            if c.name == "copilot-prompts-mirror-root" and c.status == CheckStatus.FAIL
+            if c.name == "copilot-prompts-mirror-root" and c.status == IntegrityStatus.FAIL
         ]
         assert len(fail_checks) == 1
 
@@ -649,7 +663,7 @@ class TestCopilotPromptsMirror:
         fail_checks = [
             c
             for c in report.checks
-            if c.status == CheckStatus.FAIL and "copilot-prompt-missing" in c.name
+            if c.status == IntegrityStatus.FAIL and "copilot-prompt-missing" in c.name
         ]
         assert len(fail_checks) >= 1
 
@@ -674,7 +688,7 @@ class TestCopilotAgentsMirror:
         ok_checks = [
             c
             for c in report.checks
-            if c.name == "copilot-agents-mirrors" and c.status == CheckStatus.OK
+            if c.name == "copilot-agents-mirrors" and c.status == IntegrityStatus.OK
         ]
         assert len(ok_checks) == 1
 
@@ -694,7 +708,7 @@ class TestCopilotAgentsMirror:
         fail_checks = [
             c
             for c in report.checks
-            if c.status == CheckStatus.FAIL and "copilot-agent-desync" in c.name
+            if c.status == IntegrityStatus.FAIL and "copilot-agent-desync" in c.name
         ]
         assert len(fail_checks) >= 1
 
@@ -711,7 +725,7 @@ class TestCopilotAgentsMirror:
         fail_checks = [
             c
             for c in report.checks
-            if c.name == "copilot-agents-mirror-root" and c.status == CheckStatus.FAIL
+            if c.name == "copilot-agents-mirror-root" and c.status == IntegrityStatus.FAIL
         ]
         assert len(fail_checks) == 1
 
@@ -730,7 +744,7 @@ class TestCopilotAgentsMirror:
         fail_checks = [
             c
             for c in report.checks
-            if c.status == CheckStatus.FAIL and "copilot-agent-missing" in c.name
+            if c.status == IntegrityStatus.FAIL and "copilot-agent-missing" in c.name
         ]
         assert len(fail_checks) >= 1
 
@@ -760,7 +774,7 @@ class TestCounterAccuracy:
         fail_checks = [
             c
             for c in report.checks
-            if c.category == IntegrityCategory.COUNTER_ACCURACY and c.status == CheckStatus.FAIL
+            if c.category == IntegrityCategory.COUNTER_ACCURACY and c.status == IntegrityStatus.FAIL
         ]
         assert len(fail_checks) >= 1
 
@@ -774,7 +788,7 @@ class TestCounterAccuracy:
         fail_checks = [
             c
             for c in report.checks
-            if c.name.startswith("product-contract-") and c.status == CheckStatus.FAIL
+            if c.name.startswith("product-contract-") and c.status == IntegrityStatus.FAIL
         ]
         assert len(fail_checks) >= 1
 
@@ -786,7 +800,7 @@ class TestCounterAccuracy:
             categories=[IntegrityCategory.COUNTER_ACCURACY],
         )
         fail_checks = [
-            c for c in report.checks if c.status == CheckStatus.FAIL and "missing" in c.name
+            c for c in report.checks if c.status == IntegrityStatus.FAIL and "missing" in c.name
         ]
         assert len(fail_checks) >= 1
 
@@ -936,7 +950,7 @@ class TestManifestCoherence:
             categories=[IntegrityCategory.MANIFEST_COHERENCE],
         )
         ok_checks = [
-            c for c in report.checks if c.name == "active-spec" and c.status == CheckStatus.OK
+            c for c in report.checks if c.name == "active-spec" and c.status == IntegrityStatus.OK
         ]
         assert len(ok_checks) == 1
 
@@ -952,7 +966,9 @@ class TestManifestCoherence:
             categories=[IntegrityCategory.MANIFEST_COHERENCE],
         )
         fail_checks = [
-            c for c in report.checks if c.name == "active-spec-dir" and c.status == CheckStatus.FAIL
+            c
+            for c in report.checks
+            if c.name == "active-spec-dir" and c.status == IntegrityStatus.FAIL
         ]
         assert len(fail_checks) == 1
 
@@ -966,7 +982,7 @@ class TestManifestCoherence:
             categories=[IntegrityCategory.MANIFEST_COHERENCE],
         )
         fail_checks = [
-            c for c in report.checks if c.status == CheckStatus.FAIL and "agents" in c.name
+            c for c in report.checks if c.status == IntegrityStatus.FAIL and "agents" in c.name
         ]
         assert len(fail_checks) >= 1
 

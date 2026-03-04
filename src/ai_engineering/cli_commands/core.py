@@ -256,6 +256,10 @@ def doctor_cmd(
         bool,
         typer.Option("--fix-tools", help="Install missing Python tools."),
     ] = False,
+    check_platforms: Annotated[
+        bool,
+        typer.Option("--check-platforms", help="Validate stored platform credentials."),
+    ] = False,
     output_json: Annotated[
         bool,
         typer.Option("--json", help="Output report as JSON (deprecated: use global --json)."),
@@ -264,11 +268,12 @@ def doctor_cmd(
     """Diagnose and optionally fix framework health."""
     root = resolve_project_root(target)
     with spinner("Running health diagnostics..."):
-        report = diagnose(root, fix_hooks=fix_hooks, fix_tools=fix_tools)
-
-    from ai_engineering.doctor.service import check_platforms as _check_plat
-
-    _check_plat(root, report)
+        report = diagnose(
+            root,
+            fix_hooks=fix_hooks,
+            fix_tools=fix_tools,
+            include_platforms=check_platforms,
+        )
 
     if is_json_mode() or output_json:
         report_dict = report.to_dict()

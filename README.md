@@ -64,9 +64,9 @@ your-project/
 │   ├── agents/                 ← 7 role-based agent personas
 │   ├── context/                ← project memory: specs, goals, learnings
 │   └── state/                  ← decisions, risks, audit trail
-├── .claude/commands/           ← 53 slash commands (Claude Code)
-├── .github/prompts/            ← 53 prompt files (GitHub Copilot)
-├── .github/agents/             ← 6 custom agents (GitHub Copilot)
+├── .claude/commands/           ← 37 slash commands (Claude Code)
+├── .github/prompts/            ← 37 prompt files (GitHub Copilot)
+├── .github/agents/             ← 7 custom agents (GitHub Copilot)
 ├── AGENTS.md                   ← instruction file (Gemini CLI / Codex / Copilot)
 ├── .git/hooks/                 ← quality gate hooks (auto-installed)
 └── ...your code
@@ -83,9 +83,9 @@ Three ownership boundaries keep your content safe:
 - **Quality gates at every commit** — `ruff`, `gitleaks`, `semgrep`, `pip-audit`, `pytest`, and `ty` run at the right stage. Problems are blocked before they reach the remote repository.
 - **Security scanning without CI** — secrets, SAST/OWASP vulnerabilities, and dependency CVEs are detected locally on every push.
 - **Risk acceptance lifecycle** — accept, track, and expire security risks with severity-based deadlines (critical: 15 days, high: 30, medium: 60, low: 90). Max 2 renewals per risk.
-- **47 procedural skills** — structured procedures for commit, PR, debug, refactor, code review, security assessment, architecture review, and more. AI agents read and execute them.
-- **6 role-based agents** — behavioral contracts for plan, build, review, scan, write, and triage. Each agent has identity, capabilities, and boundaries. Only `ai:build` has code write permissions.
-- **Multi-provider from day one** — same governance works with Claude Code (53 slash commands), GitHub Copilot (53 prompt files + 6 custom agents), Gemini CLI, and OpenAI Codex.
+- **34 procedural skills** — structured procedures for commit, PR, debug, refactor, code review, security assessment, architecture review, and more. AI agents read and execute them.
+- **7 role-based agents** — behavioral contracts for plan, execute, build, scan, release, write, and observe. Each agent has identity, capabilities, and boundaries. Only `ai:build` has code write permissions.
+- **Multi-provider from day one** — same governance works with Claude Code (37 slash commands), GitHub Copilot (37 prompt files + 7 custom agents), Gemini CLI, and OpenAI Codex.
 - **Stack-aware enforcement** — tailored rules for Python, .NET, and Next.js. Each stack has its own linting, testing, and security toolchain.
 - **Content integrity validation** — 6 programmatic categories verify that governance files stay consistent across updates.
 - **Doctor diagnostics** — one command checks framework health and auto-fixes missing hooks or tools.
@@ -103,7 +103,7 @@ Standards use a two-layer model. The **framework layer** (`standards/framework/`
 
 Each supported stack (Python, .NET, Next.js) has its own standards file with tailored rules for linting, formatting, testing, and dependency management.
 
-### Skills — 47 in flat organization
+### Skills — 34 in flat organization
 
 Skills are step-by-step procedures written in Markdown that any AI agent can read and execute. They define **what** the agent does, **when** to trigger, **how** to execute, and **what** to output. All skills live in `skills/<name>/SKILL.md` — no nested categories.
 
@@ -111,26 +111,27 @@ Skill frontmatter follows the governed schema with `name` and `description` at t
 
 | Skills (alphabetical) |
 |-----------------------|
-| a11y, agent-card, agent-lifecycle, api, arch-review, audit, changelog, cicd, cleanup, cli, code-review, commit, compliance, data-model, db, debug, deps, discover, docs, docs-audit, explain, improve, infra, install, integrity, migrate, multi-agent, ownership, perf-review, pr, prompt, refactor, release, risk, sbom, sec-deep, sec-review, simplify, skill-lifecycle, sonar, spec, standards, test-gap, test-plan, test-run, triage, work-item |
+| a11y, api, architecture, build, changelog, cicd, cleanup, cli, code-simplifier, commit, create, db, debug, delete, discover, docs, explain, feature-gap, governance, infra, migrate, observe, perf, plan, pr, quality, refactor, release, risk, security, spec, standards, test, work-item |
 
-Invoke any skill with `/ai:<name>` — for example, `/ai:debug` for systematic diagnosis, `/ai:sec-review` for security assessment, or `/ai:refactor` for code restructuring.
+Invoke any skill with `/ai:<name>` — for example, `/ai:debug` for systematic diagnosis, `/ai:security` for security assessment, or `/ai:refactor` for code restructuring.
 
 Skills are provider-agnostic — the same skill works in Claude Code, GitHub Copilot, Gemini CLI, and OpenAI Codex without modification.
 
-### Agents — 6 role-based personas
+### Agents — 7 role-based personas
 
 Agents are behavioral contracts for AI. Each agent has an identity, capabilities, activation rules, referenced skills, output contract, and boundaries.
 
 | Agent | Role | Scope |
 |-------|------|-------|
-| **plan** | Orchestration, planning pipeline, dispatch, work-item sync | read-write |
+| **plan** | Planning pipeline, spec creation, execution plan — stops before execution | read-write |
+| **execute** | Read approved plan, dispatch agents, coordinate, checkpoint, report | read-write |
 | **build** | Implementation across all stacks (only code write agent) | read-write |
-| **review** | All reviews, security, quality, governance (14 individual modes) | read-write (work items only) |
-| **scan** | Spec-vs-code gap analysis, architecture drift detection | read-write (work items only) |
-| **write** | Documentation, changelogs, explanations | read-write (docs only) |
-| **triage** | Auto-prioritize work items, backlog grooming | read-write (work items only) |
+| **scan** | 7-mode assessment: governance, security, quality, perf, a11y, feature, architecture | read-write (work items only) |
+| **release** | ALM lifecycle: commit, PR, release gate, triage, work-items, deploy | read-write |
+| **write** | Documentation (generate/simplify modes) | read-write (docs only) |
+| **observe** | Observability: 5 modes across 4 audience tiers + DORA metrics + health scoring | read-only |
 
-Activate any agent with `/ai:<name>` — for example, `/ai:review` for code review or `/ai:scan` for architecture drift detection.
+Activate any agent with `/ai:<name>` — for example, `/ai:build` for implementation or `/ai:scan` for assessment.
 
 ### Context — your project memory
 
@@ -183,7 +184,7 @@ ai-engineering generates integration files for each AI provider during install.
 
 ### Claude Code (recommended)
 
-The framework generates `CLAUDE.md` (instruction file) and 53 slash commands in `.claude/commands/`. Run `/commit` to stage, validate, commit, and push. Run `/ai:build` to activate the build agent. All commands invoke canonical skill and agent files — no content is duplicated.
+The framework generates `CLAUDE.md` (instruction file) and 37 slash commands in `.claude/commands/`. Run `/ai:commit` to stage, validate, commit, and push. Run `/ai:build` to activate the build agent. All commands invoke canonical skill and agent files — no content is duplicated.
 
 ### Gemini CLI
 
@@ -191,7 +192,7 @@ The framework generates `AGENTS.md` (instruction file) for Gemini CLI. It provid
 
 ### GitHub Copilot
 
-The framework generates `.github/copilot-instructions.md`, 53 prompt files in `.github/prompts/`, and 6 custom agents in `.github/agents/`. Use prompts like `/commit` or `/ai-debug` and agents like `@review` or `@build` directly in Copilot Chat.
+The framework generates `.github/copilot-instructions.md`, 37 prompt files in `.github/prompts/`, and 7 custom agents in `.github/agents/`. Use prompts like `/ai:commit` or `/ai:debug` and agents like `@build` or `@scan` directly in Copilot Chat.
 
 ### OpenAI Codex
 

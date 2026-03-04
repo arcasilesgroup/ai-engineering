@@ -2,9 +2,9 @@ schema_version: "2.0"
 framework_version: "0.2.0"
 
 update_metadata:
-  rationale: "v3 architecture redesign: 6 bounded-context agents, 33 consolidated skills, Python CLI layer, observability, session recovery"
-  expected_gain: "clean agent boundaries, ~38% token savings via Python CLI, 3-audience observability, session recovery, 20-stack support"
-  potential_impact: "breaking change from v2 (47→33 skills, review+triage agents removed); backward-compat aliases preserved for commit/pr"
+  rationale: "plan/execute split: 7 agents (extract execution coordination from plan), 34 skills (add advisory plan skill)"
+  expected_gain: "structural boundary between planning and execution; human as natural gate; clean SRP per agent"
+  potential_impact: "/ai:plan now STOPS before execution; user must invoke /ai:execute separately"
 
 metadata:
   name: "ai-engineering"
@@ -13,10 +13,10 @@ metadata:
 
 governance_surface:
   agents:
-    total: 6
-    names: [plan, build, scan, release, write, observe]
+    total: 7
+    names: [plan, execute, build, scan, release, write, observe]
   skills:
-    total: 33
+    total: 34
     organization: flat
     prefix: "ai:"
   integrity:
