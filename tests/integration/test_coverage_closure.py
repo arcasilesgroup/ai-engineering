@@ -80,10 +80,11 @@ def test_gate_risk_all_current_message(tmp_path: Path, capsys: pytest.CaptureFix
     ds.parent.mkdir(parents=True, exist_ok=True)
     ds.write_text("{}", encoding="utf-8")
     with (
-        patch("ai_engineering.cli_commands.gate.read_json_model", return_value=object()),
+        patch("ai_engineering.cli_commands.gate.StateService") as mock_svc,
         patch("ai_engineering.cli_commands.gate.list_expired_decisions", return_value=[]),
         patch("ai_engineering.cli_commands.gate.list_expiring_soon", return_value=[]),
     ):
+        mock_svc.return_value.load_decisions.return_value = object()
         gate.gate_risk_check(target=tmp_path)
     assert "All risk acceptances are current" in capsys.readouterr().err
 
@@ -134,20 +135,22 @@ def test_branch_cleanup_remaining_paths(tmp_path: Path) -> None:
 
 def test_doctor_remaining_branches(tmp_path: Path) -> None:
     report = doctor.DoctorReport()
-    with patch("ai_engineering.doctor.service._is_tool_available", return_value=False):
+    with patch("ai_engineering.doctor.checks.tools.is_tool_available", return_value=False):
         doctor._check_tools(report, fix=False)
     assert any(c.status == doctor.CheckStatus.WARN for c in report.checks)
 
     report2 = doctor.DoctorReport()
     with (
-        patch("ai_engineering.doctor.service._is_tool_available", return_value=False),
-        patch("ai_engineering.doctor.service._try_install_tool", return_value=False),
+        patch("ai_engineering.doctor.checks.tools.is_tool_available", return_value=False),
+        patch("ai_engineering.doctor.checks.tools.try_install_tool", return_value=False),
     ):
         doctor._check_tools(report2, fix=True)
     assert any(c.status == doctor.CheckStatus.FAIL for c in report2.checks)
 
     report3 = doctor.DoctorReport()
-    with patch("ai_engineering.doctor.service._get_current_branch", return_value="main"):
+    with patch(
+        "ai_engineering.doctor.checks.branch_policy.get_current_branch", return_value="main"
+    ):
         doctor._check_branch_policy(tmp_path, report3)
     assert any("protected branch" in c.message for c in report3.checks)
 
@@ -159,7 +162,7 @@ def test_doctor_remaining_branches(tmp_path: Path) -> None:
         doctor._check_version(report4)
     assert any(c.name == "version-lifecycle" for c in report4.checks)
 
-    with patch("ai_engineering.doctor.service.subprocess.run", side_effect=FileNotFoundError):
+    with patch("ai_engineering.doctor.checks.tools.subprocess.run", side_effect=FileNotFoundError):
         assert doctor._try_install_tool("x") is False
 
 

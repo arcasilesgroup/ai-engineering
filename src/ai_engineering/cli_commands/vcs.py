@@ -15,8 +15,7 @@ from ai_engineering.cli_envelope import NextAction, emit_error, emit_success
 from ai_engineering.cli_output import is_json_mode
 from ai_engineering.cli_ui import error, info, kv, success
 from ai_engineering.paths import resolve_project_root
-from ai_engineering.state.io import read_json_model, write_json_model
-from ai_engineering.state.models import InstallManifest
+from ai_engineering.state.service import StateService
 from ai_engineering.vcs.factory import get_provider
 
 _VALID_PROVIDERS = ("github", "azure_devops")
@@ -45,7 +44,8 @@ def vcs_status(
             info("Run 'ai-eng install' first")
         raise typer.Exit(code=1)
 
-    manifest = read_json_model(manifest_path, InstallManifest)
+    state_svc = StateService(root)
+    manifest = state_svc.load_manifest()
     provider = get_provider(root)
 
     if is_json_mode():
@@ -115,13 +115,14 @@ def vcs_set_primary(
             info("Run 'ai-eng install' first")
         raise typer.Exit(code=1)
 
-    manifest = read_json_model(manifest_path, InstallManifest)
+    state_svc = StateService(root)
+    manifest = state_svc.load_manifest()
     previous = manifest.providers.primary
     manifest.providers.primary = provider_name
     if provider_name not in manifest.providers.enabled:
         manifest.providers.enabled.append(provider_name)
 
-    write_json_model(manifest_path, manifest)
+    state_svc.save_manifest(manifest)
 
     # Regenerate CI/CD pipelines for the new provider
     cicd_regenerated = False

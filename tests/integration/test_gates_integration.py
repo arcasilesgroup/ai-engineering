@@ -83,14 +83,18 @@ class TestBranchProtection:
     """Tests for protected branch blocking."""
 
     def test_blocks_main_branch(self, tmp_path: Path) -> None:
-        with patch("ai_engineering.policy.gates.current_branch", return_value="main"):
+        with patch(
+            "ai_engineering.policy.checks.branch_protection.current_branch", return_value="main"
+        ):
             result = run_gate(GateHook.PRE_COMMIT, tmp_path)
             assert not result.passed
             failed = result.failed_checks
             assert "branch-protection" in failed
 
     def test_blocks_master_branch(self, tmp_path: Path) -> None:
-        with patch("ai_engineering.policy.gates.current_branch", return_value="master"):
+        with patch(
+            "ai_engineering.policy.checks.branch_protection.current_branch", return_value="master"
+        ):
             result = run_gate(GateHook.PRE_COMMIT, tmp_path)
             assert not result.passed
 
@@ -177,7 +181,7 @@ class TestPreCommitGate:
         hook_path = git_repo / ".git" / "hooks" / "pre-commit"
         hook_path.write_text("#!/usr/bin/env bash\necho custom\n", encoding="utf-8")
         with patch(
-            "ai_engineering.policy.gates.verify_hooks",
+            "ai_engineering.policy.checks.branch_protection.verify_hooks",
             return_value={"pre-commit": False, "commit-msg": True, "pre-push": True},
         ):
             result = run_gate(GateHook.PRE_COMMIT, git_repo)
@@ -211,7 +215,7 @@ class TestToolCheckRequired:
 
     def test_missing_tool_passes_when_not_required(self, tmp_path: Path) -> None:
         result = GateResult(hook=GateHook.PRE_COMMIT)
-        with patch("ai_engineering.policy.gates.shutil.which", return_value=None):
+        with patch("ai_engineering.policy.checks.stack_runner.shutil.which", return_value=None):
             _run_tool_check(
                 result,
                 name="fake-tool",
@@ -225,7 +229,7 @@ class TestToolCheckRequired:
 
     def test_missing_tool_fails_when_required(self, tmp_path: Path) -> None:
         result = GateResult(hook=GateHook.PRE_COMMIT)
-        with patch("ai_engineering.policy.gates.shutil.which", return_value=None):
+        with patch("ai_engineering.policy.checks.stack_runner.shutil.which", return_value=None):
             _run_tool_check(
                 result,
                 name="fake-tool",
@@ -244,8 +248,13 @@ class TestToolCheckRequired:
             args=["tool"], returncode=0, stdout="all good", stderr=""
         )
         with (
-            patch("ai_engineering.policy.gates.shutil.which", return_value="/usr/bin/tool"),
-            patch("ai_engineering.policy.gates.subprocess.run", return_value=mock_proc),
+            patch(
+                "ai_engineering.policy.checks.stack_runner.shutil.which",
+                return_value="/usr/bin/tool",
+            ),
+            patch(
+                "ai_engineering.policy.checks.stack_runner.subprocess.run", return_value=mock_proc
+            ),
         ):
             _run_tool_check(
                 result,
@@ -263,8 +272,13 @@ class TestToolCheckRequired:
             args=["tool"], returncode=1, stdout="", stderr="error found"
         )
         with (
-            patch("ai_engineering.policy.gates.shutil.which", return_value="/usr/bin/tool"),
-            patch("ai_engineering.policy.gates.subprocess.run", return_value=mock_proc),
+            patch(
+                "ai_engineering.policy.checks.stack_runner.shutil.which",
+                return_value="/usr/bin/tool",
+            ),
+            patch(
+                "ai_engineering.policy.checks.stack_runner.subprocess.run", return_value=mock_proc
+            ),
         ):
             _run_tool_check(
                 result,
@@ -279,8 +293,13 @@ class TestToolCheckRequired:
         result = GateResult(hook=GateHook.PRE_COMMIT)
         mock_proc = subprocess.CompletedProcess(args=["tool"], returncode=1, stdout="", stderr="")
         with (
-            patch("ai_engineering.policy.gates.shutil.which", return_value="/usr/bin/tool"),
-            patch("ai_engineering.policy.gates.subprocess.run", return_value=mock_proc),
+            patch(
+                "ai_engineering.policy.checks.stack_runner.shutil.which",
+                return_value="/usr/bin/tool",
+            ),
+            patch(
+                "ai_engineering.policy.checks.stack_runner.subprocess.run", return_value=mock_proc
+            ),
         ):
             _run_tool_check(
                 result,
@@ -294,7 +313,7 @@ class TestToolCheckRequired:
     def test_default_required_is_true(self, tmp_path: Path) -> None:
         """_run_tool_check defaults to required=True (fail-closed)."""
         result = GateResult(hook=GateHook.PRE_COMMIT)
-        with patch("ai_engineering.policy.gates.shutil.which", return_value=None):
+        with patch("ai_engineering.policy.checks.stack_runner.shutil.which", return_value=None):
             _run_tool_check(
                 result,
                 name="default-tool",
@@ -325,8 +344,13 @@ class TestToolCheckRequired:
         result = GateResult(hook=GateHook.PRE_COMMIT)
         mock_proc = subprocess.CompletedProcess(args=["tool"], returncode=0, stdout="ok", stderr="")
         with (
-            patch("ai_engineering.policy.gates.shutil.which", return_value="/usr/bin/tool"),
-            patch("ai_engineering.policy.gates.subprocess.run", return_value=mock_proc) as mock_run,
+            patch(
+                "ai_engineering.policy.checks.stack_runner.shutil.which",
+                return_value="/usr/bin/tool",
+            ),
+            patch(
+                "ai_engineering.policy.checks.stack_runner.subprocess.run", return_value=mock_proc
+            ) as mock_run,
         ):
             _run_tool_check(
                 result,
@@ -342,9 +366,12 @@ class TestToolCheckRequired:
         """Timeout error message reflects the configured timeout value."""
         result = GateResult(hook=GateHook.PRE_COMMIT)
         with (
-            patch("ai_engineering.policy.gates.shutil.which", return_value="/usr/bin/tool"),
             patch(
-                "ai_engineering.policy.gates.subprocess.run",
+                "ai_engineering.policy.checks.stack_runner.shutil.which",
+                return_value="/usr/bin/tool",
+            ),
+            patch(
+                "ai_engineering.policy.checks.stack_runner.subprocess.run",
                 side_effect=subprocess.TimeoutExpired(cmd="tool", timeout=600),
             ),
         ):
@@ -676,7 +703,7 @@ class TestRunChecksForStacks:
             "dotnet": [CheckConfig(name="dotnet-format", cmd=["dotnet", "format"])],
         }
         result = GateResult(hook=GateHook.PRE_COMMIT)
-        with patch("ai_engineering.policy.gates.shutil.which", return_value=None):
+        with patch("ai_engineering.policy.checks.stack_runner.shutil.which", return_value=None):
             _run_checks_for_stacks(tmp_path, result, registry, ["python"])
         names = {c.name for c in result.checks}
         assert "gitleaks" in names
@@ -690,7 +717,7 @@ class TestRunChecksForStacks:
             "dotnet": [CheckConfig(name="dotnet-format", cmd=["dotnet"])],
         }
         result = GateResult(hook=GateHook.PRE_COMMIT)
-        with patch("ai_engineering.policy.gates.shutil.which", return_value=None):
+        with patch("ai_engineering.policy.checks.stack_runner.shutil.which", return_value=None):
             _run_checks_for_stacks(tmp_path, result, registry, ["dotnet"])
         names = {c.name for c in result.checks}
         assert "gitleaks" in names
@@ -704,7 +731,7 @@ class TestRunChecksForStacks:
             "nextjs": [CheckConfig(name="npm-audit", cmd=["npm", "audit"])],
         }
         result = GateResult(hook=GateHook.PRE_PUSH)
-        with patch("ai_engineering.policy.gates.shutil.which", return_value=None):
+        with patch("ai_engineering.policy.checks.stack_runner.shutil.which", return_value=None):
             _run_checks_for_stacks(tmp_path, result, registry, ["python", "nextjs"])
         names = {c.name for c in result.checks}
         assert "gitleaks" in names
@@ -747,7 +774,10 @@ class TestSelectiveScopeIntegration:
                 ),
             ),
             patch("ai_engineering.policy.gates._check_expired_risk_acceptances", return_value=None),
-            patch("ai_engineering.policy.gates._run_tool_check", side_effect=fake_run_tool_check),
+            patch(
+                "ai_engineering.policy.checks.stack_runner.run_tool_check",
+                side_effect=fake_run_tool_check,
+            ),
         ):
             result = GateResult(hook=GateHook.PRE_PUSH)
             _run_pre_push_checks(git_repo, result)
@@ -784,7 +814,10 @@ class TestSelectiveScopeIntegration:
                 ),
             ),
             patch("ai_engineering.policy.gates._check_expired_risk_acceptances", return_value=None),
-            patch("ai_engineering.policy.gates._run_tool_check", side_effect=fake_run_tool_check),
+            patch(
+                "ai_engineering.policy.checks.stack_runner.run_tool_check",
+                side_effect=fake_run_tool_check,
+            ),
         ):
             result = GateResult(hook=GateHook.PRE_PUSH)
             _run_pre_push_checks(git_repo, result)
@@ -813,7 +846,10 @@ class TestSelectiveScopeIntegration:
                 side_effect=RuntimeError("boom"),
             ),
             patch("ai_engineering.policy.gates._check_expired_risk_acceptances", return_value=None),
-            patch("ai_engineering.policy.gates._run_tool_check", side_effect=fake_run_tool_check),
+            patch(
+                "ai_engineering.policy.checks.stack_runner.run_tool_check",
+                side_effect=fake_run_tool_check,
+            ),
         ):
             result = GateResult(hook=GateHook.PRE_PUSH)
             _run_pre_push_checks(git_repo, result)
@@ -851,7 +887,10 @@ class TestSelectiveScopeIntegration:
                 ),
             ),
             patch("ai_engineering.policy.gates._check_expired_risk_acceptances", return_value=None),
-            patch("ai_engineering.policy.gates._run_tool_check", side_effect=fake_run_tool_check),
+            patch(
+                "ai_engineering.policy.checks.stack_runner.run_tool_check",
+                side_effect=fake_run_tool_check,
+            ),
         ):
             result = GateResult(hook=GateHook.PRE_PUSH)
             _run_pre_push_checks(git_repo, result)

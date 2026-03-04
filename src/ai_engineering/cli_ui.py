@@ -154,10 +154,10 @@ def status_line(status: str, name: str, msg: str) -> None:
         msg: Detail message.
     """
     icons = {
-        "ok": "[success]\u2713[/success]",
-        "warn": "[warning]\u26a0[/warning]",
-        "fail": "[error]\u2717[/error]",
-        "fixed": "[info]\U0001f527[/info]",
+        "ok": "[success]\u2713 PASS[/success]",
+        "warn": "[warning]\u26a0 WARN[/warning]",
+        "fail": "[error]\u2717 FAIL[/error]",
+        "fixed": "[info]\U0001f527 FIXED[/info]",
     }
     icon = icons.get(status, "?")
     _safe_print(f"  {icon} [key]{name}[/key]: {msg}")

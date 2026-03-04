@@ -1,8 +1,8 @@
 ---
-description: "Orchestrate planning pipeline and work-item dispatch."
+description: "Advisory planning: discover requirements, assess risks, recommend pipeline."
 mode: "agent"
 ---
 
-Activate the agent persona defined in `.ai-engineering/agents/plan.md`.
+Read and execute the skill defined in `.ai-engineering/skills/plan/SKILL.md`.
 
-Read the agent file completely. Adopt the identity, capabilities, and behavior. Follow behavior steps in order. Respect all boundaries. Read all referenced skills and standards.
+Follow the complete procedure. Do not skip steps. Apply all governance notes.

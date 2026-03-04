@@ -60,8 +60,8 @@ ai-engineering is a **content framework**, not a platform. The governance layer 
 your-project/
 ├── .ai-engineering/            ← governance root (content-first)
 │   ├── standards/              ← rules for AI agents and quality gates
-│   ├── skills/                 ← 47 procedural skills AI agents execute
-│   ├── agents/                 ← 6 role-based agent personas
+│   ├── skills/                 ← 34 procedural skills AI agents execute
+│   ├── agents/                 ← 7 role-based agent personas
 │   ├── context/                ← project memory: specs, goals, learnings
 │   └── state/                  ← decisions, risks, audit trail
 ├── .claude/commands/           ← 53 slash commands (Claude Code)

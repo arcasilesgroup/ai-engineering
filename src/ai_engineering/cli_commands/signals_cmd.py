@@ -13,8 +13,8 @@ from typing import Annotated
 
 import typer
 
-from ai_engineering.state.io import append_ndjson
 from ai_engineering.state.models import AuditEntry
+from ai_engineering.state.service import StateService
 
 
 def _project_root() -> Path:
@@ -33,9 +33,6 @@ def signals_emit(
 ) -> None:
     """Emit a structured event to the audit log."""
     root = _project_root()
-    from ai_engineering.lib.signals import audit_log_path
-
-    audit_path = audit_log_path(root)
 
     try:
         detail = json.loads(detail_json)
@@ -51,7 +48,7 @@ def signals_emit(
         detail=detail if detail else None,
     )
 
-    append_ndjson(audit_path, entry)
+    StateService(root).append_audit(entry)
     typer.echo(f"Emitted: {event} by {actor}")
 
 

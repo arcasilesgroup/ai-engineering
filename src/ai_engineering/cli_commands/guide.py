@@ -11,8 +11,7 @@ from ai_engineering.cli_envelope import emit_success
 from ai_engineering.cli_output import is_json_mode
 from ai_engineering.cli_ui import header, info, print_stdout, warning
 from ai_engineering.paths import resolve_project_root
-from ai_engineering.state.io import read_json_model
-from ai_engineering.state.models import InstallManifest
+from ai_engineering.state.service import StateService
 
 
 def guide_cmd(
@@ -29,7 +28,7 @@ def guide_cmd(
         warning("Framework not installed. Run 'ai-eng install' first.")
         raise typer.Exit(code=1)
 
-    manifest = read_json_model(manifest_path, InstallManifest)
+    manifest = StateService(root).load_manifest()
     guide_text = manifest.branch_policy.manual_guide
 
     if is_json_mode():

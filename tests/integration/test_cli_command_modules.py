@@ -84,11 +84,12 @@ def test_gate_risk_check_expired_exits(tmp_path: Path) -> None:
     ds.write_text("{}", encoding="utf-8")
     expired = [SimpleNamespace(id="R-1", expires_at=datetime(2026, 1, 1, tzinfo=UTC))]
     with (
-        patch("ai_engineering.cli_commands.gate.read_json_model", return_value=object()),
+        patch("ai_engineering.cli_commands.gate.StateService") as mock_svc,
         patch("ai_engineering.cli_commands.gate.list_expired_decisions", return_value=expired),
         patch("ai_engineering.cli_commands.gate.list_expiring_soon", return_value=[]),
         pytest.raises(typer.Exit),
     ):
+        mock_svc.return_value.load_decisions.return_value = object()
         gate.gate_risk_check(target=tmp_path)
 
 
@@ -262,11 +263,12 @@ def test_gate_pre_push_and_risk_expiring_paths(
     ds.write_text("{}", encoding="utf-8")
     expiring = [SimpleNamespace(id="R-2", expires_at=datetime(2026, 1, 1, tzinfo=UTC))]
     with (
-        patch("ai_engineering.cli_commands.gate.read_json_model", return_value=object()),
+        patch("ai_engineering.cli_commands.gate.StateService") as mock_svc,
         patch("ai_engineering.cli_commands.gate.list_expired_decisions", return_value=[]),
         patch("ai_engineering.cli_commands.gate.list_expiring_soon", return_value=expiring),
         pytest.raises(typer.Exit),
     ):
+        mock_svc.return_value.load_decisions.return_value = object()
         gate.gate_risk_check(target=tmp_path, strict=True)
     assert "expiring soon" in capsys.readouterr().err
 
@@ -281,12 +283,13 @@ def test_maintenance_risk_status_branches(
     expired = [SimpleNamespace(id="R-2", expires_at=datetime(2025, 1, 1, tzinfo=UTC), context="y")]
     store = SimpleNamespace(risk_decisions=lambda: [expiring[0], expired[0]])
     with (
-        patch("ai_engineering.cli_commands.maintenance.read_json_model", return_value=store),
+        patch("ai_engineering.cli_commands.maintenance.StateService") as mock_svc,
         patch(
             "ai_engineering.cli_commands.maintenance.list_expired_decisions", return_value=expired
         ),
         patch("ai_engineering.cli_commands.maintenance.list_expiring_soon", return_value=expiring),
     ):
+        mock_svc.return_value.load_decisions.return_value = store
         maintenance.maintenance_risk_status(target=tmp_path)
     captured = capsys.readouterr()
     assert "Expiring Soon" in captured.err

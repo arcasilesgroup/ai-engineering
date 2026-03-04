@@ -11,8 +11,7 @@ from pathlib import Path
 
 import typer
 
-from ai_engineering.state.io import read_json_model
-from ai_engineering.state.models import DecisionStore
+from ai_engineering.state.service import StateService
 
 
 def _project_root() -> Path:
@@ -23,12 +22,12 @@ def _project_root() -> Path:
     return cwd
 
 
-def _load_store(root: Path) -> DecisionStore | None:
+def _load_store(root: Path):
     path = root / ".ai-engineering" / "state" / "decision-store.json"
     if not path.exists():
         return None
     try:
-        return read_json_model(path, DecisionStore)
+        return StateService(root).load_decisions()
     except (OSError, ValueError):
         return None
 

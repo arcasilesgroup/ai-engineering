@@ -142,21 +142,24 @@ def test_pipeline_duplication_and_gate_internal_edges(tmp_path: Path) -> None:
 
     result = gates.GateResult(hook=gates.GateHook.PRE_PUSH)
     with (
-        patch("ai_engineering.policy.gates.shutil.which", return_value="/bin/x"),
-        patch("ai_engineering.policy.gates.subprocess.run", side_effect=FileNotFoundError),
+        patch("ai_engineering.policy.checks.stack_runner.shutil.which", return_value="/bin/x"),
+        patch(
+            "ai_engineering.policy.checks.stack_runner.subprocess.run",
+            side_effect=FileNotFoundError,
+        ),
     ):
         gates._run_tool_check(result, name="a", cmd=["tool"], cwd=tmp_path, required=True)
         gates._run_tool_check(result, name="b", cmd=["tool"], cwd=tmp_path, required=False)
     assert result.checks[-2].passed is False
     assert result.checks[-1].passed is True
 
-    with patch("ai_engineering.policy.gates.read_json_model", side_effect=OSError("x")):
+    with patch("ai_engineering.policy.checks.risk.read_json_model", side_effect=OSError("x")):
         assert gates._load_decision_store(tmp_path) is None
 
     ds_path = tmp_path / ".ai-engineering" / "state" / "decision-store.json"
     ds_path.parent.mkdir(parents=True, exist_ok=True)
     ds_path.write_text("{}", encoding="utf-8")
-    with patch("ai_engineering.policy.gates.read_json_model", side_effect=ValueError("bad")):
+    with patch("ai_engineering.policy.checks.risk.read_json_model", side_effect=ValueError("bad")):
         assert gates._load_decision_store(tmp_path) is None
 
 
@@ -408,7 +411,9 @@ def test_validator_internal_line_coverage_targets(tmp_path: Path) -> None:
     skill_file.write_text("`ai-engineering/skills/missing.md`\n", encoding="utf-8")
     report = validator.IntegrityReport()
     custom_pattern = validator.re.compile(r"`?(ai-engineering/skills/missing\.md)`?")
-    with patch.object(validator, "_PATH_REF_PATTERN", custom_pattern):
+    with patch(
+        "ai_engineering.validator.categories.file_existence._PATH_REF_PATTERN", custom_pattern
+    ):
         validator._check_file_existence(tmp_path, report)
 
     # lines 425-458: drive claude commands mirror mismatch/missing logic directly
