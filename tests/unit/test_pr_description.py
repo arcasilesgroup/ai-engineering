@@ -431,6 +431,16 @@ class TestBuildSpecUrl:
         ):
             assert _build_spec_url(tmp_path, "036") is None
 
+    def test_returns_none_for_unknown_provider(self, tmp_path: Path) -> None:
+        specs = tmp_path / ".ai-engineering" / "context" / "specs" / "036" / "spec.md"
+        specs.parent.mkdir(parents=True)
+        specs.write_text("spec", encoding="utf-8")
+        with patch(
+            "ai_engineering.vcs.pr_description.run_git",
+            return_value=(True, "https://gitlab.com/org/repo.git"),
+        ):
+            assert _build_spec_url(tmp_path, "036") is None
+
 
 # ---------------------------------------------------------------------------
 # _read_spec_context
@@ -466,6 +476,15 @@ class TestReadSpecContext:
 
     def test_returns_empty_when_missing(self, tmp_path: Path) -> None:
         ctx = _read_spec_context(tmp_path, "nonexistent")
+        assert ctx == {"title": "", "problem": "", "solution": ""}
+
+    def test_returns_empty_on_os_error(self, tmp_path: Path) -> None:
+        spec_dir = tmp_path / ".ai-engineering" / "context" / "specs" / "003-err"
+        spec_dir.mkdir(parents=True)
+        spec_file = spec_dir / "spec.md"
+        spec_file.write_text("# Spec 003 — Err\n", encoding="utf-8")
+        with patch.object(Path, "read_text", side_effect=OSError("perm denied")):
+            ctx = _read_spec_context(tmp_path, "003-err")
         assert ctx == {"title": "", "problem": "", "solution": ""}
 
     def test_returns_first_paragraph_only(self, tmp_path: Path) -> None:
