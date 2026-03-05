@@ -1,6 +1,6 @@
 ---
 name: "Plan"
-description: "Orchestration, planning pipeline, dispatch, work-item sync"
+description: "Advisory planning: classify scope, assess risks, and recommend pipeline"
 tools: [codebase, editFiles, fetch, githubRepo, problems, readFile, runCommands, search, terminalLastCommand, testFailures]
 ---
 

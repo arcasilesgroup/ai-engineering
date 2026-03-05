@@ -37,6 +37,12 @@ Absorbs capabilities from the former `triage` agent (backlog management) and con
 | `triage` | `/ai:work-item triage` | Auto-prioritize backlog (p1/p2/p3) |
 | `version` | `/ai:release version` | Semantic version bump (major/minor/patch) |
 
+Single source of truth mapping for procedures:
+- `deliver` -> `skills/commit/SKILL.md` + `skills/pr/SKILL.md`
+- `gate` -> `skills/release/SKILL.md`
+- `changelog` -> `skills/changelog/SKILL.md`
+- `work-item` and `triage` -> `skills/work-item/SKILL.md`
+
 ## Behavior
 
 ### Deliver Mode

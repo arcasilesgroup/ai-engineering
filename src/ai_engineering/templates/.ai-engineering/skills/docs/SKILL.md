@@ -23,25 +23,34 @@ Documentation authoring and simplification. Modes: `generate` creates/updates do
 ## Modes
 
 ### generate — Create/update documentation
+
 Transform codebase knowledge into polished documentation. Reads code, configuration, `.ai-engineering` context, and project metadata. Writes what users can DO, not what you BUILT.
 
 Types: README, CONTRIBUTING, guides, API docs, ADRs, Wiki pages.
 
 ### simplify — Reduce verbosity
+
 Apply signal-to-noise optimization to existing content. Remove duplication, tighten language, preserve constraints and accuracy. Produce before/after metrics (word count, readability, link count).
+
+## Shared Rules (Canonical)
+
+Use these rules as the single source of truth for documentation behavior shared by skill and agent.
+
+- **DOC-R1 (Mode selection):** choose `generate` for net-new docs and `simplify` for existing content optimization.
+- **DOC-R2 (Type detection):** classify doc type (tutorial/how-to/explanation/reference/ADR/changelog) before drafting.
+- **DOC-R3 (Validation):** verify internal links and markdown structure before completion.
+- **DOC-R4 (Style contract):** apply Divio structure + Google developer documentation style conventions.
+- **DOC-B1 (Doc-only writes):** allow writes to documentation artifacts only; no source-code or test changes.
 
 ## Procedure
 
 ### Generate
-1. Read product-contract, active spec, relevant source files.
-2. Detect documentation type (tutorial, how-to, explanation, reference, ADR).
-3. Scan user-facing features and API surfaces from code.
-4. Apply Google developer documentation style guide.
-5. Draft content following Divio documentation system.
-6. Validate cross-references and markdown syntax.
+
+1. Apply shared rules `DOC-R1..DOC-R4`.
+2. Enforce shared boundary `DOC-B1`.
 
 ### Simplify
-1. Read target content and its purpose/audience.
-2. Identify: redundancy, filler, over-explanation, duplicate links.
-3. Simplify while preserving: accuracy, constraints, cross-references.
-4. Report: before/after word count, readability score, link count.
+
+1. Apply shared rules `DOC-R1..DOC-R4` for simplification context.
+2. Enforce shared boundary `DOC-B1`.
+3. Report before/after metrics (word count, readability, link count).
