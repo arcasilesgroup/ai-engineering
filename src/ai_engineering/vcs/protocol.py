@@ -30,6 +30,7 @@ class VcsContext:
     project_root: Path
     title: str = ""
     body: str = ""
+    body_file: Path | None = None
     branch: str = ""
     target_branch: str = "main"
 
@@ -82,6 +83,28 @@ class VcsProvider(Protocol):
 
         Returns:
             VcsResult with success flag and PR URL on success.
+        """
+        ...  # pragma: no cover
+
+    def find_open_pr(self, ctx: VcsContext) -> VcsResult:
+        """Find an existing open pull request for ``ctx.branch``.
+
+        Returns:
+            VcsResult where ``output`` contains a single PR JSON object,
+            or empty output when no open PR exists.
+        """
+        ...  # pragma: no cover
+
+    def update_pr(self, ctx: VcsContext, *, pr_number: str, title: str = "") -> VcsResult:
+        """Update an existing pull request.
+
+        Args:
+            ctx: PR metadata containing updated body and optional title.
+            pr_number: Provider PR identifier.
+            title: Optional title override. Empty keeps existing title.
+
+        Returns:
+            VcsResult with success flag.
         """
         ...  # pragma: no cover
 

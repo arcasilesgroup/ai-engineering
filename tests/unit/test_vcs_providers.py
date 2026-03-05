@@ -124,6 +124,34 @@ class TestGitHubPostPrReview:
         assert result.success is False
 
 
+class TestGitHubUpsertMethods:
+    """Tests for GitHubProvider.find_open_pr/update_pr."""
+
+    def test_find_open_pr_returns_first(self, ctx: VcsContext) -> None:
+        provider = GitHubProvider()
+        payload = json.dumps([{"number": 12, "title": "t", "body": "b", "url": "https://x/pr/12"}])
+        proc = MagicMock(returncode=0, stdout=payload, stderr="")
+        with patch("subprocess.run", return_value=proc):
+            result = provider.find_open_pr(ctx)
+        assert result.success is True
+        data = json.loads(result.output)
+        assert data["number"] == 12
+
+    def test_update_pr_uses_body_file_flag(self, ctx: VcsContext) -> None:
+        provider = GitHubProvider()
+        proc = MagicMock(returncode=0, stdout="ok", stderr="")
+        with patch("subprocess.run", return_value=proc) as run_mock:
+            result = provider.update_pr(
+                VcsContext(project_root=ctx.project_root, body="line1\nline2"),
+                pr_number="12",
+                title="same title",
+            )
+        assert result.success is True
+        cmd = run_mock.call_args[0][0]
+        assert "--body-file" in cmd
+        assert "--title" in cmd
+
+
 class TestGitHubReleaseMethods:
     """Tests for GitHubProvider.create_tag/get_pipeline_status."""
 
@@ -188,3 +216,40 @@ class TestAzureReleaseMethods:
         parsed = json.loads(result.output)
         assert len(parsed) == 1
         assert parsed[0]["sourceVersion"] == "abc"
+
+
+class TestAzureUpsertMethods:
+    """Tests for AzureDevOpsProvider.find_open_pr/update_pr."""
+
+    def test_find_open_pr_returns_first(self, ctx: VcsContext) -> None:
+        provider = AzureDevOpsProvider()
+        payload = json.dumps(
+            [
+                {
+                    "pullRequestId": 33,
+                    "title": "feat",
+                    "description": "body",
+                    "repository": {"webUrl": "https://dev.azure.com/org/p/_git/repo"},
+                }
+            ]
+        )
+        proc = MagicMock(returncode=0, stdout=payload, stderr="")
+        with patch("subprocess.run", return_value=proc):
+            result = provider.find_open_pr(ctx)
+        assert result.success is True
+        data = json.loads(result.output)
+        assert data["number"] == "33"
+
+    def test_update_pr_uses_description(self, ctx: VcsContext) -> None:
+        provider = AzureDevOpsProvider()
+        proc = MagicMock(returncode=0, stdout="{}", stderr="")
+        with patch("subprocess.run", return_value=proc) as run_mock:
+            result = provider.update_pr(
+                VcsContext(project_root=ctx.project_root, body="extra"),
+                pr_number="33",
+                title="feat",
+            )
+        assert result.success is True
+        cmd = run_mock.call_args[0][0]
+        assert "--description" in cmd
+        assert "--id" in cmd

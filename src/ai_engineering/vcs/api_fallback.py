@@ -20,6 +20,7 @@ class ApiFallbackProvider:
         self._provider = provider
 
     def create_pr(self, ctx: VcsContext) -> VcsResult:
+        del ctx
         return VcsResult(
             success=False,
             output=(
@@ -27,7 +28,24 @@ class ApiFallbackProvider:
             ),
         )
 
+    def find_open_pr(self, ctx: VcsContext) -> VcsResult:
+        del ctx
+        return VcsResult(
+            success=False,
+            output=f"{self._provider} API fallback active: PR lookup is not automated",
+        )
+
+    def update_pr(self, ctx: VcsContext, *, pr_number: str, title: str = "") -> VcsResult:
+        del ctx, pr_number, title
+        return VcsResult(
+            success=False,
+            output=(
+                f"{self._provider} API fallback active: PR update is not automated in this mode"
+            ),
+        )
+
     def enable_auto_complete(self, ctx: VcsContext) -> VcsResult:
+        del ctx
         return VcsResult(
             success=False,
             output=(
@@ -42,6 +60,7 @@ class ApiFallbackProvider:
         return self._provider
 
     def check_auth(self, ctx: VcsContext) -> VcsResult:
+        del ctx
         return VcsResult(success=False, output="API fallback mode")
 
     def apply_branch_policy(
@@ -51,6 +70,7 @@ class ApiFallbackProvider:
         branch: str,
         required_checks: list[str],
     ) -> VcsResult:
+        del ctx, branch, required_checks
         return VcsResult(
             success=False,
             output=(
@@ -60,6 +80,7 @@ class ApiFallbackProvider:
         )
 
     def post_pr_review(self, ctx: VcsContext, *, body: str) -> VcsResult:
+        del ctx, body
         return VcsResult(
             success=False,
             output=f"{self._provider} API fallback active: PR review posting not automated",

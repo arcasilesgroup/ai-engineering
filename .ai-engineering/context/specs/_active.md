@@ -1,6 +1,6 @@
 ---
 active: null
-updated: "2026-03-04"
+updated: "2026-03-05"
 ---
 
 # Active Spec

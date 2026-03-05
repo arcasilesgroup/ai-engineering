@@ -17,6 +17,7 @@ AI agents read — these Python functions are the implementation backing.
 
 from __future__ import annotations
 
+import json
 import logging
 import subprocess
 from dataclasses import dataclass, field
@@ -331,10 +332,10 @@ def run_pr_workflow(
     if any(not s.passed for s in pre_push_steps):
         return result
 
-    # Create PR
-    pr_step = _create_pr(project_root)
-    result.steps.append(pr_step)
-    if not pr_step.passed:
+    # Create or update PR
+    pr_steps = _upsert_pr(project_root)
+    result.steps.extend(pr_steps)
+    if any(not step.passed for step in pr_steps):
         return result
 
     # Auto-complete
@@ -399,10 +400,10 @@ def run_pr_only_workflow(
         if not passed:
             return result
 
-    # Create PR
-    pr_step = _create_pr(project_root)
-    result.steps.append(pr_step)
-    if not pr_step.passed:
+    # Create or update PR
+    pr_steps = _upsert_pr(project_root)
+    result.steps.extend(pr_steps)
+    if any(not step.passed for step in pr_steps):
         return result
 
     # Auto-complete
@@ -481,6 +482,93 @@ def _create_pr(project_root: Path) -> StepResult:
     )
     result = provider.create_pr(ctx)
     return StepResult(name="create-pr", passed=result.success, output=result.output)
+
+
+def _upsert_pr(project_root: Path) -> list[StepResult]:
+    """Create a new PR or extend an existing PR description.
+
+    Existing PR behavior is append-only:
+    current body is preserved, then a new ``Additional Changes``
+    section is appended with the latest generated summary.
+    """
+    provider = get_provider(project_root)
+    branch = current_branch(project_root)
+    title = build_pr_title(project_root)
+    body = build_pr_description(project_root)
+    ctx = VcsContext(
+        project_root=project_root,
+        title=title,
+        body=body,
+        branch=branch,
+    )
+
+    existing = provider.find_open_pr(ctx)
+    lookup_step = StepResult(
+        name="check-existing-pr",
+        passed=existing.success,
+        output=existing.output,
+    )
+    if not existing.success:
+        return [lookup_step]
+    if not existing.output:
+        create = provider.create_pr(ctx)
+        return [
+            lookup_step,
+            StepResult(name="create-pr", passed=create.success, output=create.output),
+        ]
+
+    try:
+        pr_data = json.loads(existing.output)
+    except json.JSONDecodeError:
+        return [
+            lookup_step,
+            StepResult(
+                name="update-pr",
+                passed=False,
+                output="Failed to parse existing PR response",
+            ),
+        ]
+
+    if not isinstance(pr_data, dict):
+        return [
+            lookup_step,
+            StepResult(
+                name="update-pr",
+                passed=False,
+                output="Invalid existing PR payload",
+            ),
+        ]
+
+    existing_body = str(pr_data.get("body", "") or "").strip()
+    new_changes = body.strip()
+    if existing_body:
+        extended_body = f"{existing_body}\n\n---\n\n## Additional Changes\n\n{new_changes}"
+    else:
+        extended_body = new_changes
+
+    pr_number = str(pr_data.get("number", "") or "")
+    if not pr_number:
+        return [
+            lookup_step,
+            StepResult(
+                name="update-pr",
+                passed=False,
+                output="Existing PR is missing identifier",
+            ),
+        ]
+
+    update_ctx = VcsContext(
+        project_root=project_root,
+        title=str(pr_data.get("title", "") or title),
+        body=extended_body,
+        branch=branch,
+    )
+    update = provider.update_pr(
+        update_ctx,
+        pr_number=pr_number,
+        title=str(pr_data.get("title", "") or ""),
+    )
+    return [lookup_step, StepResult(name="update-pr", passed=update.success, output=update.output)]
 
 
 def _enable_auto_complete(project_root: Path) -> StepResult:

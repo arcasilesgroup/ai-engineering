@@ -110,10 +110,11 @@ commands:
         "stage",
         "commit",
         "push_current_branch",
-        "create_pr",
+        "check_existing_pr",
+        "create_or_update_pr",
         "enable_pr_auto_complete",
       ]
-    only: ["create_pr"]
+    only: ["check_existing_pr", "create_or_update_pr"]
     when_branch_not_pushed:
       severity: "warning"
       propose_auto_push: true
