@@ -17,6 +17,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Manifest governance surface** — `runbooks/**` framework-managed, `.agents/**` + GitHub templates external-framework-managed, `issue_standard` schema.
 
 ### Changed
+- **Agent/skill shared-rule normalization** — `plan`, `observe`, and `write/docs` now use canonical shared rules in skills (`PLAN-*`, `OBS-*`, `DOC-*`) with agent contracts referencing rules instead of duplicating procedures.
+- **Plan no-execution enforcement** — `/ai:plan` contract now explicitly maps to `PLAN-B1` and requires handoff to `/ai:execute` for execution.
+- **Copilot plan agent metadata alignment** — `Plan` agent description synchronized to advisory-planning semantics across GitHub and project templates.
 - **PR description format** — `build_pr_description()` now generates What/Why/How/Checklist/Stats sections (matching PR #91 convention) instead of the old Spec/Changes format. Reads `spec.md` sections (Problem, Solution) to auto-populate What and Why.
 - **Archive-aware spec URLs** — `_build_spec_url()` checks both active (`specs/{slug}/`) and archived (`specs/archive/{slug}/`) paths on disk; URLs stay valid after spec-reset archives the directory.
 - **Spec lifecycle closure** — `done.md` created for specs 035 and 036; both archived via spec-reset; `_active.md` cleared.

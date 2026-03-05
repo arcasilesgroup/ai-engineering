@@ -137,7 +137,10 @@ COPILOT_AGENT_TOOLS = [
 
 # Short descriptions for the 6 consolidated agents
 AGENT_DESCRIPTIONS: dict[str, tuple[str, str]] = {
-    "plan": ("Plan", "Orchestration, planning pipeline, dispatch, work-item sync"),
+    "plan": (
+        "Plan",
+        "Advisory planning: classify scope, assess risks, and recommend pipeline",
+    ),
     "build": (
         "Build",
         "Implementation across all stacks — the only code write agent",
@@ -335,19 +338,27 @@ def sync_all(*, check_only: bool = False) -> int:
             diffs.append(diff)
 
     # --- Orphan detection ---
+    orphan_diffs: list[str] = []
     orphans = _detect_orphans(generated_paths)
     if orphans:
         print(f"\nOrphans detected ({len(orphans)}):")
-        for o in orphans:
-            print(f"  {o.relative_to(ROOT)}")
+        for orphan in orphans:
+            rel = orphan.relative_to(ROOT)
+            print(f"  {rel}")
+            if check_only:
+                orphan_diffs.append(f"ORPHAN: {rel}")
+                continue
+            orphan.unlink()
+            orphan_diffs.append(f"REMOVED: {rel}")
 
     # --- Summary ---
     total_generated = len(generated_paths)
-    if diffs:
+    all_diffs = diffs + orphan_diffs
+    if all_diffs:
         action = "would change" if check_only else "updated"
-        print(f"\n{len(diffs)}/{total_generated} files {action}:")
-        for d in diffs:
-            print(f"  {d}")
+        print(f"\n{len(all_diffs)}/{total_generated} files {action}:")
+        for diff in all_diffs:
+            print(f"  {diff}")
         if check_only:
             print("\nRun without --check to apply changes.")
             return 1
