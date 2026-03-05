@@ -52,6 +52,14 @@ class _FakeProvider:
         del ctx
         return VcsResult(success=True, url="https://example/pr/1")
 
+    def find_open_pr(self, ctx: VcsContext) -> VcsResult:
+        del ctx
+        return VcsResult(success=True, output="")
+
+    def update_pr(self, ctx: VcsContext, *, pr_number: str, title: str = "") -> VcsResult:
+        del ctx, pr_number, title
+        return VcsResult(success=True)
+
     def enable_auto_complete(self, ctx: VcsContext) -> VcsResult:
         del ctx
         return VcsResult(success=True)

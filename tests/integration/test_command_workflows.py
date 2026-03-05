@@ -288,7 +288,11 @@ class TestPRWorkflow:
             "MockProvider",
             (),
             {
+                "find_open_pr": lambda self, ctx: VcsResult(success=True, output=""),
                 "create_pr": lambda self, ctx: VcsResult(success=True, output="ok"),
+                "update_pr": lambda self, ctx, pr_number, title="": VcsResult(
+                    success=True, output="ok"
+                ),
                 "enable_auto_complete": lambda self, ctx: VcsResult(success=True, output="ok"),
             },
         )()
@@ -309,6 +313,7 @@ class TestPRWorkflow:
             result = run_pr_workflow(git_project, "feat: pr test")
 
         step_names = [s.name for s in result.steps]
+        assert "check-existing-pr" in step_names
         assert "semgrep" in step_names
         assert "pip-audit" in step_names
         assert "stack-tests" in step_names
@@ -340,7 +345,11 @@ class TestPROnlyWorkflow:
             "MockProvider",
             (),
             {
+                "find_open_pr": lambda self, ctx: VcsResult(success=True, output=""),
                 "create_pr": lambda self, ctx: VcsResult(success=True, output="ok"),
+                "update_pr": lambda self, ctx, pr_number, title="": VcsResult(
+                    success=True, output="ok"
+                ),
                 "enable_auto_complete": lambda self, ctx: VcsResult(success=True, output="ok"),
             },
         )()
@@ -361,6 +370,7 @@ class TestPROnlyWorkflow:
             result = run_pr_only_workflow(git_project)
 
         step_names = [s.name for s in result.steps]
+        assert "check-existing-pr" in step_names
         assert "create-pr" in step_names
         assert "auto-complete" in step_names
         assert result.passed is True
@@ -373,7 +383,11 @@ class TestPROnlyWorkflow:
             "MockProvider",
             (),
             {
+                "find_open_pr": lambda self, ctx: VcsResult(success=True, output=""),
                 "create_pr": lambda self, ctx: VcsResult(success=True, output="ok"),
+                "update_pr": lambda self, ctx, pr_number, title="": VcsResult(
+                    success=True, output="ok"
+                ),
                 "enable_auto_complete": lambda self, ctx: VcsResult(success=True, output="ok"),
             },
         )()
@@ -399,6 +413,59 @@ class TestPROnlyWorkflow:
 
         step_names = [s.name for s in result.steps]
         assert "auto-push" in step_names
+        assert result.passed is True
+
+    def test_pr_only_updates_existing_pr(self, git_project: Path) -> None:
+        existing = json.dumps(
+            {
+                "number": "42",
+                "title": "feat: existing",
+                "body": "Current body",
+            }
+        )
+        observed: dict[str, str] = {}
+
+        def update_pr(
+            self,
+            ctx,
+            pr_number: str,
+            title: str = "",
+        ) -> VcsResult:
+            del self
+            observed["number"] = pr_number
+            observed["title"] = title
+            observed["body"] = ctx.body
+            return VcsResult(success=True, output="updated")
+
+        mock_provider = type(
+            "MockProvider",
+            (),
+            {
+                "find_open_pr": lambda self, ctx: VcsResult(success=True, output=existing),
+                "create_pr": lambda self, ctx: VcsResult(success=True, output="created"),
+                "update_pr": update_pr,
+                "enable_auto_complete": lambda self, ctx: VcsResult(success=True, output="ok"),
+            },
+        )()
+
+        with (
+            patch(
+                "ai_engineering.commands.workflows.is_branch_pushed",
+                return_value=True,
+            ),
+            patch(
+                "ai_engineering.commands.workflows.get_provider",
+                return_value=mock_provider,
+            ),
+        ):
+            result = run_pr_only_workflow(git_project)
+
+        step_names = [s.name for s in result.steps]
+        assert "update-pr" in step_names
+        assert "create-pr" not in step_names
+        assert observed["number"] == "42"
+        assert observed["title"] == "feat: existing"
+        assert "## Additional Changes" in observed["body"]
         assert result.passed is True
 
     def test_pr_only_defers_on_prior_decision(

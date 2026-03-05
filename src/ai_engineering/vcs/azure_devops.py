@@ -45,7 +45,7 @@ class AzureDevOpsProvider:
             "--title",
             ctx.title or ctx.branch,
             "--description",
-            ctx.body or "",
+            self._read_body(ctx),
             "--source-branch",
             ctx.branch,
             "--target-branch",
@@ -70,6 +70,65 @@ class AzureDevOpsProvider:
 
         return result
 
+    def find_open_pr(self, ctx: VcsContext) -> VcsResult:
+        """Find an active PR for the current branch via ``az repos pr list``."""
+        list_result = self._run(
+            [
+                "az",
+                "repos",
+                "pr",
+                "list",
+                "--source-branch",
+                ctx.branch,
+                "--status",
+                "active",
+                "--output",
+                "json",
+            ],
+            ctx,
+        )
+        if not list_result.success:
+            return list_result
+
+        try:
+            payload = json.loads(list_result.output.split("\n")[0])
+        except json.JSONDecodeError:
+            return VcsResult(success=False, output="Failed to parse PR list response")
+        if not isinstance(payload, list) or not payload:
+            return VcsResult(success=True, output="")
+        parsed = payload[0]
+        if not isinstance(parsed, dict):
+            return VcsResult(success=False, output="Failed to parse PR list response")
+
+        pr_id = str(parsed.get("pullRequestId", ""))
+        title = parsed.get("title", "")
+        body = parsed.get("description", "")
+        web_url = parsed.get("repository", {}).get("webUrl", "")
+        url = f"{web_url}/pullrequest/{pr_id}" if web_url and pr_id else ""
+        return VcsResult(
+            success=True,
+            output=json.dumps({"number": pr_id, "title": title, "body": body, "url": url}),
+            url=url,
+        )
+
+    def update_pr(self, ctx: VcsContext, *, pr_number: str, title: str = "") -> VcsResult:
+        """Update PR description/title via ``az repos pr update``."""
+        cmd = [
+            "az",
+            "repos",
+            "pr",
+            "update",
+            "--id",
+            pr_number,
+            "--description",
+            self._read_body(ctx),
+            "--output",
+            "json",
+        ]
+        if title:
+            cmd.extend(["--title", title])
+        return self._run(cmd, ctx)
+
     def enable_auto_complete(self, ctx: VcsContext) -> VcsResult:
         """Enable auto-complete via ``az repos pr update``.
 
@@ -81,38 +140,18 @@ class AzureDevOpsProvider:
         Returns:
             VcsResult indicating success.
         """
-        # First, find the active PR for this branch
-        list_cmd = [
-            "az",
-            "repos",
-            "pr",
-            "list",
-            "--source-branch",
-            ctx.branch,
-            "--status",
-            "active",
-            "--output",
-            "json",
-        ]
-        list_result = self._run(list_cmd, ctx)
-        if not list_result.success:
-            return list_result
-
-        import json
+        existing = self.find_open_pr(ctx)
+        if not existing.success:
+            return existing
+        if not existing.output:
+            return VcsResult(success=False, output=f"No active PR found for branch '{ctx.branch}'")
 
         try:
-            prs = json.loads(list_result.output.split("\n")[0])
-            if not prs:
-                return VcsResult(
-                    success=False,
-                    output=f"No active PR found for branch '{ctx.branch}'",
-                )
-            pr_id = str(prs[0]["pullRequestId"])
-        except (json.JSONDecodeError, IndexError, KeyError):
-            return VcsResult(
-                success=False,
-                output="Failed to parse PR list response",
-            )
+            pr_id = str(json.loads(existing.output).get("number", ""))
+        except json.JSONDecodeError:
+            return VcsResult(success=False, output="Failed to parse PR list response")
+        if not pr_id:
+            return VcsResult(success=False, output="Failed to parse PR list response")
 
         # Enable auto-complete with squash merge
         update_cmd = [
@@ -178,33 +217,16 @@ class AzureDevOpsProvider:
 
     def post_pr_review(self, ctx: VcsContext, *, body: str) -> VcsResult:
         """Post PR thread comment via ``az repos pr comment create``."""
-        # Find active PR by source branch.
-        list_cmd = [
-            "az",
-            "repos",
-            "pr",
-            "list",
-            "--source-branch",
-            ctx.branch,
-            "--status",
-            "active",
-            "--output",
-            "json",
-        ]
-        list_result = self._run(list_cmd, ctx)
-        if not list_result.success:
-            return list_result
-
-        import json
-
+        existing = self.find_open_pr(ctx)
+        if not existing.success:
+            return existing
+        if not existing.output:
+            return VcsResult(success=False, output=f"No active PR found for branch '{ctx.branch}'")
         try:
-            prs = json.loads(list_result.output.split("\n")[0])
-            if not prs:
-                return VcsResult(
-                    success=False, output=f"No active PR found for branch '{ctx.branch}'"
-                )
-            pr_id = str(prs[0]["pullRequestId"])
-        except (json.JSONDecodeError, IndexError, KeyError):
+            pr_id = str(json.loads(existing.output).get("number", ""))
+        except json.JSONDecodeError:
+            return VcsResult(success=False, output="Failed to parse PR list response")
+        if not pr_id:
             return VcsResult(success=False, output="Failed to parse PR list response")
 
         return self._run(
@@ -310,3 +332,13 @@ class AzureDevOpsProvider:
             return VcsResult(success=False, output="az CLI not found on PATH")
         except subprocess.TimeoutExpired:
             return VcsResult(success=False, output="az command timed out after 60s")
+
+    @staticmethod
+    def _read_body(ctx: VcsContext) -> str:
+        """Resolve PR body from context or body file path."""
+        if ctx.body_file is not None:
+            try:
+                return ctx.body_file.read_text(encoding="utf-8")
+            except OSError:
+                return ctx.body
+        return ctx.body

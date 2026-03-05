@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -268,3 +269,90 @@ class TestResolveScopeMode:
             }
         )
         assert mode == "off"
+
+
+class TestScopeCli:
+    """Tests for test_scope CLI parsing and output."""
+
+    def test_parse_args_defaults_to_args_format(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(
+            "sys.argv",
+            ["test_scope.py", "--tier", "unit"],
+        )
+
+        args = test_scope._parse_args()
+
+        assert args.tier == "unit"
+        assert args.base_ref == "auto"
+        assert args.format == "args"
+
+    def test_main_json_format_prints_payload(
+        self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        monkeypatch.setattr(
+            "sys.argv",
+            [
+                "test_scope.py",
+                "--tier",
+                "integration",
+                "--format",
+                "json",
+                "--base-ref",
+                "origin/main",
+            ],
+        )
+
+        payload = {
+            "tier": "integration",
+            "base_ref_resolved": "origin/main",
+            "changed_files": ["src/ai_engineering/hooks/manager.py"],
+            "matched_rules": ["hooks"],
+            "unmatched_src_files": [],
+            "selected_tests": ["tests/integration/test_hooks_git.py"],
+            "mode": "selective",
+            "reasons": [],
+            "duration_ms": 1,
+        }
+        monkeypatch.setattr(
+            test_scope, "compute_test_scope_diagnostic", lambda *_args, **_kwargs: payload
+        )
+
+        exit_code = test_scope.main()
+        output = capsys.readouterr().out.strip()
+
+        assert exit_code == 0
+        assert json.loads(output) == payload
+
+    def test_main_args_format_prints_selected_tests(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        monkeypatch.setattr(
+            "sys.argv",
+            ["test_scope.py", "--tier", "unit", "--format", "args"],
+        )
+
+        payload = {
+            "tier": "unit",
+            "base_ref_resolved": "origin/main",
+            "changed_files": ["src/ai_engineering/vcs/factory.py"],
+            "matched_rules": ["vcs"],
+            "unmatched_src_files": [],
+            "selected_tests": [
+                "tests/unit/test_vcs_factory.py",
+                "tests/unit/test_vcs_providers.py",
+            ],
+            "mode": "selective",
+            "reasons": [],
+            "duration_ms": 1,
+        }
+        monkeypatch.setattr(
+            test_scope, "compute_test_scope_diagnostic", lambda *_args, **_kwargs: payload
+        )
+
+        exit_code = test_scope.main()
+        output = capsys.readouterr().out.strip()
+
+        assert exit_code == 0
+        assert output == "tests/unit/test_vcs_factory.py tests/unit/test_vcs_providers.py"

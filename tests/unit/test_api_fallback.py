@@ -39,6 +39,20 @@ class TestApiFallbackProvider:
         assert result.success is False
         assert "auto-complete" in result.output
 
+    def test_find_open_pr_returns_failure(
+        self, provider: ApiFallbackProvider, ctx: VcsContext
+    ) -> None:
+        result = provider.find_open_pr(ctx)
+        assert result.success is False
+        assert "PR lookup" in result.output
+
+    def test_update_pr_returns_failure(
+        self, provider: ApiFallbackProvider, ctx: VcsContext
+    ) -> None:
+        result = provider.update_pr(ctx, pr_number="1")
+        assert result.success is False
+        assert "PR update" in result.output
+
     def test_is_available_returns_true(self, provider: ApiFallbackProvider) -> None:
         assert provider.is_available() is True
 
