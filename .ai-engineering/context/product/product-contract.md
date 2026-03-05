@@ -37,7 +37,11 @@
 
 ## 4. Active Spec
 
-Read: `context/specs/_active.md`. Verify: `ai-eng spec list`. Catalog: `context/specs/_catalog.md`.
+Active: `037-pr-workflow-hardening`.
+
+Read: `context/specs/037-pr-workflow-hardening/spec.md`.
+Verify: `ai-eng spec list`.
+Catalog: `context/specs/_catalog.md`.
 
 ## 5. KPIs
 

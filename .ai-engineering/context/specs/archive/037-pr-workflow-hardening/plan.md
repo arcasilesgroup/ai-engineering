@@ -65,6 +65,40 @@ approach: "mixed"
 - Run lint, type, tests, and governance validation.
 - Prepare closure artifacts (`done.md`) when AC are met.
 
+## Agent Assignments
+
+### Phase 1 — Contract Parity Baseline
+
+| Task | Primary Agent | Supporting Agent | Notes |
+|---|---|---|---|
+| 1.1 | `build` | `write` | Build parity matrix from implementation + contracts |
+| 1.2 | `write` | `scan` | Document drift points and target behavior |
+| 1.3 | `release` | `write` | Confirm and document prompt surface consolidation |
+
+### Phase 2 — Deterministic PR Upsert Path
+
+| Task | Primary Agent | Supporting Agent | Notes |
+|---|---|---|---|
+| 2.1 | `build` | `scan` | Implement existing-PR detection by head branch |
+| 2.2 | `build` | `write` | Implement append-only update behavior |
+| 2.3 | `build` | `release` | Preserve create path and PR contract compatibility |
+
+### Phase 3 — Body Reliability Hardening
+
+| Task | Primary Agent | Supporting Agent | Notes |
+|---|---|---|---|
+| 3.1 | `build` | `scan` | Replace inline multiline body handling with file-backed flow |
+| 3.2 | `build` | `write` | Ensure deterministic body extension semantics |
+
+### Phase 4 — Validation and Governance Closure
+
+| Task | Primary Agent | Supporting Agent | Notes |
+|---|---|---|---|
+| 4.1 | `build` | `scan` | Integration coverage for create/update PR flows |
+| 4.2 | `build` | `scan` | Provider-level upsert behavior consistency checks |
+| 4.3 | `scan` | `release` | Run and confirm all required gates and validations |
+| 4.4 | `write` | `release` | Prepare closure artifacts and PR closure evidence |
+
 ## Patterns
 
 - Contract-first: skill/manifest/workflow parity before behavior changes.

@@ -1,7 +1,7 @@
 ---
 id: "037"
 slug: "pr-workflow-hardening"
-status: "in-progress"
+status: "completed"
 created: "2026-03-05"
 size: "L"
 tags: ["governance", "pr", "workflow", "reliability"]

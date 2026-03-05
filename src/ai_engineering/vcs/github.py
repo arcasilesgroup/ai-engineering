@@ -10,8 +10,11 @@ Classes:
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
+import tempfile
+from pathlib import Path
 
 from ai_engineering.vcs.protocol import (
     CreateTagContext,
@@ -37,22 +40,74 @@ class GitHubProvider:
         Returns:
             VcsResult with PR URL on success.
         """
-        cmd = [
-            "gh",
-            "pr",
-            "create",
-            "--title",
-            ctx.title or "--fill",
-            "--body",
-            ctx.body or "",
-            "--base",
-            ctx.target_branch,
-        ]
-        # If no explicit title, use --fill instead
-        if not ctx.title:
-            cmd = ["gh", "pr", "create", "--fill"]
+        if not ctx.title and not ctx.body and ctx.body_file is None:
+            return self._run(
+                ["gh", "pr", "create", "--fill", "--base", ctx.target_branch],
+                ctx,
+            )
 
-        return self._run(cmd, ctx)
+        body_file, cleanup = self._resolve_body_file(ctx)
+        try:
+            cmd = [
+                "gh",
+                "pr",
+                "create",
+                "--title",
+                ctx.title or ctx.branch or "PR",
+                "--body-file",
+                str(body_file),
+                "--base",
+                ctx.target_branch,
+            ]
+            return self._run(cmd, ctx)
+        finally:
+            if cleanup:
+                body_file.unlink(missing_ok=True)
+
+    def find_open_pr(self, ctx: VcsContext) -> VcsResult:
+        """Find an open PR for the current branch via ``gh pr list``."""
+        result = self._run(
+            [
+                "gh",
+                "pr",
+                "list",
+                "--head",
+                ctx.branch,
+                "--state",
+                "open",
+                "--json",
+                "number,title,body,url",
+            ],
+            ctx,
+        )
+        if not result.success:
+            return result
+        try:
+            prs = json.loads(result.output or "[]")
+        except json.JSONDecodeError:
+            return VcsResult(success=False, output="Failed to parse GitHub PR list response")
+        if not isinstance(prs, list) or not prs:
+            return VcsResult(success=True, output="")
+        return VcsResult(success=True, output=json.dumps(prs[0]))
+
+    def update_pr(self, ctx: VcsContext, *, pr_number: str, title: str = "") -> VcsResult:
+        """Update PR body (and optionally title) via ``gh pr edit``."""
+        body_file, cleanup = self._resolve_body_file(ctx)
+        try:
+            cmd = [
+                "gh",
+                "pr",
+                "edit",
+                pr_number,
+                "--body-file",
+                str(body_file),
+            ]
+            if title:
+                cmd.extend(["--title", title])
+            return self._run(cmd, ctx)
+        finally:
+            if cleanup:
+                body_file.unlink(missing_ok=True)
 
     def enable_auto_complete(self, ctx: VcsContext) -> VcsResult:
         """Enable auto-merge via ``gh pr merge --auto --squash --delete-branch``.
@@ -195,3 +250,14 @@ class GitHubProvider:
             return VcsResult(success=False, output="gh CLI not found on PATH")
         except subprocess.TimeoutExpired:
             return VcsResult(success=False, output="gh command timed out after 60s")
+
+    @staticmethod
+    def _resolve_body_file(ctx: VcsContext) -> tuple[Path, bool]:
+        """Return body file path and whether caller must clean it up."""
+        if ctx.body_file is not None:
+            return ctx.body_file, False
+        fd, temp_path = tempfile.mkstemp(prefix="ai-eng-pr-", suffix=".md")
+        path = Path(temp_path)
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            handle.write(ctx.body)
+        return path, True
