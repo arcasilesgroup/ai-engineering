@@ -37,9 +37,7 @@
 
 ## 4. Active Spec
 
-Active: `037-pr-workflow-hardening`.
-
-Read: `context/specs/037-pr-workflow-hardening/spec.md`.
+Read: `context/specs/_active.md`.
 Verify: `ai-eng spec list`.
 Catalog: `context/specs/_catalog.md`.
 

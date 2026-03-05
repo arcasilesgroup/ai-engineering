@@ -297,6 +297,7 @@ TEST_SCOPE_RULES: list[ScopeRule] = [
         tiers={
             "unit": [
                 "tests/unit/test_state.py",
+                "tests/unit/test_audit.py",
                 "tests/unit/test_risk_lifecycle.py",
             ],
             "integration": [],
