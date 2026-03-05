@@ -1,12 +1,14 @@
 ---
-active: null
-updated: "2026-03-04"
+active: "037-pr-workflow-hardening"
+updated: "2026-03-05"
 ---
 
 # Active Spec
 
-No active spec. Ready for `/create-spec`.
+Current spec: `037-pr-workflow-hardening`.
 
 ## Quick Resume
 
-No spec in progress.
+- Spec: `context/specs/037-pr-workflow-hardening/spec.md`
+- Plan: `context/specs/037-pr-workflow-hardening/plan.md`
+- Tasks: `context/specs/037-pr-workflow-hardening/tasks.md`
