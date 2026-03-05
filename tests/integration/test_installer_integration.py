@@ -26,6 +26,7 @@ from ai_engineering.installer.operations import (
 from ai_engineering.installer.service import InstallResult, install
 from ai_engineering.installer.templates import (
     _PROJECT_TEMPLATE_TREES,
+    _VCS_TEMPLATE_TREES,
     copy_file_if_missing,
     copy_project_templates,
     copy_template_tree,
@@ -197,6 +198,40 @@ class TestCopyProjectTemplates:
         assert agents_dir.is_dir()
         agent_files = list(agents_dir.glob("*.agent.md"))
         assert len(agent_files) >= 1
+
+    def test_vcs_template_trees_has_github_entry(self) -> None:
+        assert "github" in _VCS_TEMPLATE_TREES
+        trees = dict(_VCS_TEMPLATE_TREES["github"])
+        assert "github_templates" in trees
+        assert trees["github_templates"] == ".github"
+
+    def test_vcs_provider_github_copies_issue_templates(self, tmp_path: Path) -> None:
+        result = copy_project_templates(tmp_path, vcs_provider="github")
+        issue_dir = tmp_path / ".github" / "ISSUE_TEMPLATE"
+        assert issue_dir.is_dir()
+        assert (issue_dir / "bug.yml").is_file()
+        assert (issue_dir / "feature.yml").is_file()
+        assert (issue_dir / "task.yml").is_file()
+        assert (issue_dir / "config.yml").is_file()
+        assert (tmp_path / ".github" / "pull_request_template.md").is_file()
+        # At least the 5 GitHub template files should appear in created
+        github_created = [
+            p for p in result.created if "ISSUE_TEMPLATE" in str(p) or "pull_request" in str(p)
+        ]
+        assert len(github_created) >= 5
+
+    def test_vcs_provider_none_skips_github_templates(self, tmp_path: Path) -> None:
+        copy_project_templates(tmp_path)
+        issue_dir = tmp_path / ".github" / "ISSUE_TEMPLATE"
+        # ISSUE_TEMPLATE should not exist when vcs_provider is not set
+        assert not issue_dir.exists()
+
+    def test_codex_provider_copies_agents_tree(self, tmp_path: Path) -> None:
+        copy_project_templates(tmp_path, providers=["codex"])
+        agents_dir = tmp_path / ".agents" / "skills"
+        assert agents_dir.is_dir()
+        skill_files = list(agents_dir.glob("*/SKILL.md"))
+        assert len(skill_files) >= 34  # 34 skills + 7 agents
 
 
 # ---------------------------------------------------------------------------

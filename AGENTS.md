@@ -57,6 +57,29 @@ Path: `.ai-engineering/agents/<name>.md`
 
 Slash commands: `/ai:<name>` for all skills and agents.
 
+## Platform Adaptors
+
+Each LLM platform has adaptors that reference the canonical source of truth — never duplicate content.
+
+| Platform | Adaptor Path | Count |
+|----------|-------------|-------|
+| Claude Code | `.claude/commands/ai/*.md` | 37 |
+| GitHub Copilot | `.github/prompts/ai-*.prompt.md` + `.github/agents/*.agent.md` | 38 + 7 |
+| Codex / Gemini | `.agents/skills/*/SKILL.md` | 41 |
+
+## Automation Runbooks
+
+Path: `.ai-engineering/runbooks/*.md` — 13 platform-agnostic runbooks for recurring automation tasks. Copy-paste any runbook prompt into Codex, Devin, cron + CLI, or GitHub Actions with AI.
+
+| Layer | Runbooks | Schedule |
+|-------|----------|----------|
+| Scanner | scheduled-scan, dep-check, feature-scanner, perf-scanner, wiring-scanner, issue-validate | Daily/Weekly |
+| Triage | daily-triage, stale-issues | Daily |
+| Executor | executor, ci-fixer | Hourly/30min |
+| Reporting | weekly-report, changelog-gen, pr-review | Weekly/4h |
+
+Executor runbooks enable `gh pr merge --auto --squash --delete-branch`. Requires branch protection with required status checks. CI passes → GitHub auto-merges. CI fails → ci-fixer attempts fix. 3 failures → escalate to human.
+
 ## Lifecycle
 
 Discovery → Architecture → Planning → Implementation → Scan → Release Gate → Deploy → Observe → Feedback.

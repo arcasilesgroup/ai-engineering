@@ -3,6 +3,9 @@
 Generates structured PR titles and bodies from project context:
 active spec, recent commits, and branch name.
 
+Output format follows the **What / Why / How / Checklist / Stats**
+convention used across both GitHub and Azure DevOps pull requests.
+
 Functions:
     build_pr_title — short PR title from branch and spec.
     build_pr_description — full Markdown PR body.
@@ -39,9 +42,9 @@ def build_pr_title(project_root: Path) -> str:
 def build_pr_description(project_root: Path, *, max_commits: int = 20) -> str:
     """Build a structured Markdown PR description.
 
-    Sections:
-    - **Spec**: link to active spec (if any).
-    - **Changes**: list of recent commit subjects on the branch.
+    Sections: **What**, **Why**, **How**, **Checklist**, **Stats**.
+    When a spec is active, ``What`` and ``Why`` are populated from
+    ``spec.md``; otherwise a branch-derived summary is used.
 
     Args:
         project_root: Root directory of the project.
@@ -52,17 +55,55 @@ def build_pr_description(project_root: Path, *, max_commits: int = 20) -> str:
     """
     lines: list[str] = []
 
-    # Spec section
     spec = _read_active_spec(project_root)
-    if spec:
-        lines.append(f"## Spec\n\n`{spec}`\n")
-
-    # Changes section
+    branch = current_branch(project_root)
     commits = _recent_commit_subjects(project_root, max_commits=max_commits)
+
+    # -- What ----------------------------------------------------------
+    if spec:
+        ctx = _read_spec_context(project_root, spec)
+        spec_id = spec.split("-")[0] if "-" in spec else spec
+        title = ctx["title"] or _humanize_branch(branch)
+        lines.append(f"## What\n\nImplements Spec {spec_id} — {title}.\n")
+    else:
+        lines.append(f"## What\n\n{_humanize_branch(branch)}.\n")
+
+    # -- Why -----------------------------------------------------------
+    if spec:
+        ctx = ctx if "ctx" in dir() else _read_spec_context(project_root, spec)
+        if ctx["problem"]:
+            lines.append(f"## Why\n\n{ctx['problem']}\n")
+        spec_url = _build_spec_url(project_root, spec)
+        if spec_url:
+            lines.append(f"**Spec**: [{spec}]({spec_url})\n")
+        else:
+            lines.append(f"**Spec**: `{spec}`\n")
+
+    # -- How -----------------------------------------------------------
     if commits:
-        lines.append("## Changes\n")
+        lines.append("## How\n")
         for subject in commits:
             lines.append(f"- {subject}")
+        lines.append("")
+
+    # -- Checklist -----------------------------------------------------
+    lines.append("## Checklist\n")
+    lines.append("- [ ] All tests pass")
+    lines.append("- [ ] `ruff check` clean")
+    lines.append("- [ ] `ty check` clean")
+    lines.append("- [ ] `gitleaks` — no leaks")
+    lines.append("- [ ] CHANGELOG.md updated")
+    lines.append("")
+
+    # -- Stats ---------------------------------------------------------
+    stats = _git_diff_stats(project_root)
+    commit_count = len(commits)
+    if stats or commit_count:
+        lines.append("## Stats\n")
+        if stats:
+            lines.append(f"- {stats}")
+        if commit_count:
+            lines.append(f"- {commit_count} commits on `{branch}`")
         lines.append("")
 
     return "\n".join(lines) if lines else "No description generated."
@@ -71,6 +112,89 @@ def build_pr_description(project_root: Path, *, max_commits: int = 20) -> str:
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+
+def _get_repo_url(project_root: Path) -> str | None:
+    """Detect the repository web URL from the git remote origin.
+
+    Supports GitHub (``github.com``) and Azure DevOps
+    (``dev.azure.com``, ``visualstudio.com``).
+
+    Args:
+        project_root: Root directory of the project.
+
+    Returns:
+        Repository web URL, or None if detection fails.
+    """
+    ok, output = run_git(["remote", "get-url", "origin"], project_root)
+    if not ok or not output.strip():
+        return None
+
+    url = output.strip()
+
+    # SSH → HTTPS conversion for GitHub
+    if url.startswith("git@github.com:"):
+        path = url.removeprefix("git@github.com:")
+        if path.endswith(".git"):
+            path = path[:-4]
+        return f"https://github.com/{path}"
+
+    # HTTPS GitHub
+    if "github.com" in url:
+        if url.endswith(".git"):
+            url = url[:-4]
+        return url
+
+    # SSH → HTTPS conversion for Azure DevOps
+    if url.startswith("git@ssh.dev.azure.com:"):
+        # git@ssh.dev.azure.com:v3/org/project/repo
+        path = url.removeprefix("git@ssh.dev.azure.com:v3/")
+        parts = path.split("/")
+        if len(parts) >= 3:
+            org, project, repo = parts[0], parts[1], parts[2]
+            return f"https://dev.azure.com/{org}/{project}/_git/{repo}"
+
+    # HTTPS Azure DevOps
+    if "dev.azure.com" in url:
+        if url.endswith(".git"):
+            url = url[:-4]
+        return url
+
+    return None
+
+
+def _build_spec_url(project_root: Path, spec: str) -> str | None:
+    """Build a clickeable URL to the spec directory.
+
+    Checks both the active ``specs/{slug}/`` and archived
+    ``specs/archive/{slug}/`` locations on disk so the URL stays valid
+    after spec-reset archives the directory.
+
+    Args:
+        project_root: Root directory of the project.
+        spec: Spec identifier (e.g., ``"036-platform-runbooks"``).
+
+    Returns:
+        Full URL to the spec file, or None if repo URL cannot be determined.
+    """
+    repo_url = _get_repo_url(project_root)
+    if not repo_url:
+        return None
+
+    specs_dir = project_root / ".ai-engineering" / "context" / "specs"
+    archive_spec = specs_dir / "archive" / spec / "spec.md"
+    if archive_spec.exists():
+        spec_path = f".ai-engineering/context/specs/archive/{spec}/spec.md"
+    else:
+        spec_path = f".ai-engineering/context/specs/{spec}/spec.md"
+
+    if "github.com" in repo_url:
+        return f"{repo_url}/blob/main/{spec_path}"
+
+    if "dev.azure.com" in repo_url:
+        return f"{repo_url}?path=/{spec_path}&version=GBmain"
+
+    return None
 
 
 def _read_active_spec(project_root: Path) -> str | None:
@@ -101,6 +225,83 @@ def _read_active_spec(project_root: Path) -> str | None:
             return None
         return value
     return None
+
+
+def _read_spec_context(project_root: Path, spec: str) -> dict[str, str]:
+    """Read ``spec.md`` and extract key sections for the PR description.
+
+    Checks both the active ``specs/{slug}/`` and archived
+    ``specs/archive/{slug}/`` locations.
+
+    Args:
+        project_root: Root directory of the project.
+        spec: Spec slug (e.g. ``"036-platform-runbooks"``).
+
+    Returns:
+        Dict with ``title``, ``problem``, ``solution`` (may be empty strings).
+    """
+    empty: dict[str, str] = {"title": "", "problem": "", "solution": ""}
+    specs_dir = project_root / ".ai-engineering" / "context" / "specs"
+    spec_path = specs_dir / spec / "spec.md"
+    if not spec_path.exists():
+        spec_path = specs_dir / "archive" / spec / "spec.md"
+    if not spec_path.exists():
+        return empty
+
+    try:
+        text = spec_path.read_text(encoding="utf-8")
+    except OSError:
+        return empty
+
+    # Title from first H1: "# Spec NNN — <Title>"
+    title = ""
+    title_match = re.search(r"^# .+? — (.+)$", text, re.MULTILINE)
+    if title_match:
+        title = title_match.group(1).strip()
+
+    problem = _extract_section(text, "Problem")
+    solution = _extract_section(text, "Solution")
+
+    return {"title": title, "problem": problem, "solution": solution}
+
+
+def _extract_section(text: str, heading: str) -> str:
+    """Extract first paragraph of a ``## <heading>`` section.
+
+    Args:
+        text: Full Markdown document text.
+        heading: Section heading (e.g. ``"Problem"``).
+
+    Returns:
+        First paragraph of the section, or empty string if not found.
+    """
+    pattern = rf"^## {heading}\s*\n(.*?)(?=^## |\Z)"
+    match = re.search(pattern, text, re.MULTILINE | re.DOTALL)
+    if not match:
+        return ""
+    content = match.group(1).strip()
+    paragraphs = content.split("\n\n")
+    return paragraphs[0].strip() if paragraphs else ""
+
+
+def _git_diff_stats(project_root: Path) -> str | None:
+    """Get the summary line of ``git diff --stat`` vs ``origin/main``.
+
+    Args:
+        project_root: Root directory of the project.
+
+    Returns:
+        Summary string (e.g. ``"12 files changed, 340 insertions(+), …"``),
+        or None if unavailable.
+    """
+    ok, output = run_git(
+        ["diff", "--stat", "origin/main..HEAD"],
+        project_root,
+    )
+    if not ok or not output.strip():
+        return None
+    lines = output.strip().splitlines()
+    return lines[-1].strip() if lines else None
 
 
 def _recent_commit_subjects(
