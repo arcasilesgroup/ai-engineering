@@ -1,9 +1,9 @@
 ---
 spec: "037"
 total: 12
-completed: 9
+completed: 12
 last_session: "2026-03-06"
-next_session: "Phase 4 — Validation"
+next_session: "CLOSED"
 ---
 
 # Tasks — Spec-as-Gate
@@ -14,7 +14,7 @@ next_session: "Phase 4 — Validation"
 ## Phase 1: CLI `ai-eng spec save` [M]
 - [x] 1.1 Create `src/ai_engineering/cli_commands/spec_save.py` — parse stdin, validate, scaffold
 - [x] 1.2 Register `spec save` subcommand in `cli_factory.py`
-- [ ] 1.3 Unit tests for spec_save (parse, validate, scaffold, error cases)
+- [x] 1.3 Unit tests for spec_save (parse, validate, scaffold, error cases)
 
 ## Phase 2: Update agent + skills [S]
 - [x] 2.1 Update `agents/plan.md` — produce spec as text + call `ai-eng spec save` + STOP
@@ -27,5 +27,5 @@ next_session: "Phase 4 — Validation"
 - [x] 3.3 Document other IDEs setup in docs/
 
 ## Phase 4: Validation [S]
-- [ ] 4.1 Integration test: stdin pipe -> spec files on disk
-- [ ] 4.2 End-to-end validation: plan -> save -> execute reads spec
+- [x] 4.1 Integration test: stdin pipe -> spec files on disk
+- [x] 4.2 End-to-end validation: plan -> save -> execute reads spec
