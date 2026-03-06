@@ -45,12 +45,12 @@ Canonical governance root for the `ai-engineering` framework and for installed i
         tasks.md
         done.md
   skills/
-    <name>/SKILL.md          # flat layout, 34 skills
+    <name>/SKILL.md          # flat layout, 35 skills
     a11y/ api/ architecture/ build/ changelog/ cicd/ cleanup/
     cli/ code-simplifier/ commit/ create/ db/ debug/ delete/
     discover/ docs/ explain/ feature-gap/ governance/ infra/
-    migrate/ observe/ perf/ plan/ pr/ quality/ refactor/ release/
-    risk/ security/ spec/ standards/ test/ work-item/
+    migrate/ observe/ perf/ plan/ pr/ product-contract/ quality/
+    refactor/ release/ risk/ security/ spec/ standards/ test/ work-item/
   agents/
   state/
     install-manifest.json

@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from ai_engineering.vcs.protocol import (
     CreateTagContext,
+    IssueContext,
     PipelineStatusContext,
     VcsContext,
     VcsResult,
@@ -98,4 +99,32 @@ class ApiFallbackProvider:
         return VcsResult(
             success=False,
             output=f"{self._provider} API fallback active: pipeline status not automated",
+        )
+
+    def create_issue(self, ctx: IssueContext) -> VcsResult:
+        del ctx
+        return VcsResult(
+            success=False,
+            output=f"{self._provider} API fallback active: issue creation not automated",
+        )
+
+    def find_issue(self, ctx: IssueContext) -> VcsResult:
+        del ctx
+        return VcsResult(
+            success=False,
+            output=f"{self._provider} API fallback active: issue lookup not automated",
+        )
+
+    def close_issue(self, ctx: IssueContext, *, issue_id: str) -> VcsResult:
+        del ctx, issue_id
+        return VcsResult(
+            success=False,
+            output=f"{self._provider} API fallback active: issue close not automated",
+        )
+
+    def link_issue_to_pr(self, ctx: IssueContext, *, issue_id: str, pr_number: str) -> VcsResult:
+        del ctx, issue_id, pr_number
+        return VcsResult(
+            success=False,
+            output=f"{self._provider} API fallback active: issue-PR linking not automated",
         )

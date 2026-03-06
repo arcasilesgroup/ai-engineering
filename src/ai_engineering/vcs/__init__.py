@@ -11,6 +11,6 @@ Re-exports:
 from __future__ import annotations
 
 from ai_engineering.vcs.factory import get_provider
-from ai_engineering.vcs.protocol import VcsContext, VcsProvider, VcsResult
+from ai_engineering.vcs.protocol import IssueContext, VcsContext, VcsProvider, VcsResult
 
-__all__ = ["VcsContext", "VcsProvider", "VcsResult", "get_provider"]
+__all__ = ["IssueContext", "VcsContext", "VcsProvider", "VcsResult", "get_provider"]

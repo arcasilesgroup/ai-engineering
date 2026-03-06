@@ -8,6 +8,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **`product-contract` skill** — new skill (`/ai:product-contract`) for maintaining product contract documents in sync mode; includes Claude command, Copilot prompt, and Codex agent adaptors.
+- **`ai-eng work-item sync` CLI** — syncs specs to external work items (GitHub Issues / Azure DevOps Boards) via new `work_items` service module.
+- **VCS issue operations** — `VcsProvider` protocol extended with `create_issue`, `find_issue`, `close_issue`, and `link_issue_to_pr` methods; GitHub and Azure DevOps implementations included.
+- **Explain analysis playbook** — reference document (`skills/explain/references/analysis-playbook.md`) for structured code analysis.
+- **Solution intent doc** — `docs/solution-intent.md` architectural documentation.
+- **Work-item backfill scripts** — `scripts/work_items_backfill.py` and validation script for bulk sync.
+
+### Changed
+- **Explain skill v2.0.0** — rewritten from Feynman-style to engineer-grade technical explanations with ASCII diagrams, execution traces, and complexity analysis; scope changed from read-write to read-only.
+- **Product contract expanded** — comprehensive update to `.ai-engineering/context/product/product-contract.md` with extended functional requirements, integration details, and KPIs.
+- **Framework contract updated** — governance surface and framework-managed paths refreshed.
+- **Manifest expanded** — new `work-item` CLI command registered, product-contract skill added to governance surface.
+- **Executor runbook enriched** — extended with detailed dispatch and coordination procedures.
+- **PR review runbook expanded** — added structured review criteria and automation hooks.
+- **GitHub issue templates improved** — bug, feature, and task forms refined with better field definitions.
+- **PR template extended** — additional checklist items for product-contract and work-item checks.
+- **Template sync** — all project/installer templates synchronized with canonical skill definitions.
+
+### Added
 - **Codex/Gemini platform adaptors** — 41 adaptor files (`.agents/skills/*/SKILL.md`) pointing to canonical skill/agent definitions; 7 agent adaptors use `-agent` suffix to avoid name collisions.
 - **Automation runbooks** — 13 platform-agnostic runbooks (`.ai-engineering/runbooks/*.md`) across 4 layers: scanner (6), triage (2), executor (2), reporting (3). Ready for Codex, Devin, cron+CLI, or GitHub Actions.
 - **GitHub issue/PR templates** — bug, feature, task issue forms (`.github/ISSUE_TEMPLATE/*.yml`) and PR template (`.github/pull_request_template.md`); blank issues disabled.

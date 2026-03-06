@@ -231,7 +231,7 @@ class TestCopyProjectTemplates:
         agents_dir = tmp_path / ".agents" / "skills"
         assert agents_dir.is_dir()
         skill_files = list(agents_dir.glob("*/SKILL.md"))
-        assert len(skill_files) >= 34  # 34 skills + 7 agents
+        assert len(skill_files) >= 35  # 35 skills + 7 agents
 
 
 # ---------------------------------------------------------------------------

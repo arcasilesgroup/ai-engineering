@@ -154,6 +154,13 @@ A change is **trivial** (spec exempt) when ALL of these apply:
    - Update body: link to new spec's `spec.md`.
    - Update Quick Resume: all links point to new spec directory.
 
+### Phase 4.5: Work-Item Sync (conditional)
+
+8.5. **Create linked work item** — if VCS provider is available and authenticated:
+   - Run `ai-eng work-item sync --dry-run` to preview.
+   - If provider available: create linked issue for the new spec.
+   - Non-gating: sync failure warns but does not block spec creation.
+
 ### Phase 5: Cross-Reference
 
 9. **Update `product-contract.md`** — set Active Spec to the new spec.

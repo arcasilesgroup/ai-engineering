@@ -40,6 +40,7 @@ from ai_engineering.cli_commands import (
     stack_ide,
     validate,
     vcs,
+    work_item,
 )
 
 # Commands exempt from deprecation blocking (needed for diagnosis and remediation).
@@ -129,6 +130,7 @@ def _app_callback(
                         "decision",
                         "scan-report",
                         "metrics",
+                        "work-item",
                     ]
                 },
             )
@@ -358,6 +360,15 @@ def create_app() -> typer.Typer:
     spec_app.command("list")(_safe(spec_cmd.spec_list))
     spec_app.command("compact")(_safe(spec_cmd.spec_compact))
     app.add_typer(spec_app, name="spec")
+
+    # Work-item sub-group
+    work_item_app = typer.Typer(
+        name="work-item",
+        help="Sync specs to external work items (GitHub Issues / Azure DevOps Boards).",
+        no_args_is_help=True,
+    )
+    work_item_app.command("sync")(_safe(work_item.work_item_sync))
+    app.add_typer(work_item_app, name="work-item")
 
     # Scan report sub-group (v3: raw findings formatter)
     scan_report_app = typer.Typer(

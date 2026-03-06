@@ -25,13 +25,13 @@ Mandatory. Skipping risks stale code, repeated decisions, or merge conflicts.
 4. **Code Citing** — Use `startLine:endLine:filepath` format. Never output code unless requested. Use `// ... existing code ...` for omissions.
 5. **Proactive Memory** — Read/write `state/decision-store.json` to persist learnings and avoid repeated questions.
 
-## Skills (34)
+## Skills (35)
 
 Path: `.ai-engineering/skills/<name>/SKILL.md` (flat organization, no category subdirectories)
 
 | Skills (alphabetical) |
 |-----------------------|
-| a11y, api, architecture, build, changelog, cicd, cleanup, cli, code-simplifier, commit, create, db, debug, delete, discover, docs, explain, feature-gap, governance, infra, migrate, observe, perf, plan, pr, quality, refactor, release, risk, security, spec, standards, test, work-item |
+| a11y, api, architecture, build, changelog, cicd, cleanup, cli, code-simplifier, commit, create, db, debug, delete, discover, docs, explain, feature-gap, governance, infra, migrate, observe, perf, plan, pr, product-contract, quality, refactor, release, risk, security, spec, standards, test, work-item |
 
 ## Agents (7)
 

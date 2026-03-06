@@ -18,6 +18,7 @@ from pathlib import Path
 
 from ai_engineering.vcs.protocol import (
     CreateTagContext,
+    IssueContext,
     PipelineStatusContext,
     VcsContext,
     VcsResult,
@@ -207,6 +208,60 @@ class GitHubProvider:
             ]
             result.output = json.dumps(filtered)
         return result
+
+    def create_issue(self, ctx: IssueContext) -> VcsResult:
+        """Create a GitHub issue via ``gh issue create``."""
+        cmd = [
+            "gh",
+            "issue",
+            "create",
+            "--title",
+            ctx.title,
+            "--body",
+            ctx.body,
+        ]
+        for label in ctx.labels:
+            cmd.extend(["--label", label])
+        return self._run(cmd, VcsContext(project_root=ctx.project_root))
+
+    def find_issue(self, ctx: IssueContext) -> VcsResult:
+        """Find a GitHub issue by ``spec-NNN`` label."""
+        spec_label = f"spec-{ctx.spec_id}"
+        cmd = [
+            "gh",
+            "issue",
+            "list",
+            "--label",
+            spec_label,
+            "--state",
+            "all",
+            "--json",
+            "number,title,state",
+            "--limit",
+            "1",
+        ]
+        result = self._run(cmd, VcsContext(project_root=ctx.project_root))
+        if not result.success:
+            return result
+        try:
+            issues = json.loads(result.output or "[]")
+        except json.JSONDecodeError:
+            return VcsResult(success=False, output="Failed to parse issue list response")
+        if not isinstance(issues, list) or not issues:
+            return VcsResult(success=True, output="")
+        return VcsResult(success=True, output=str(issues[0].get("number", "")))
+
+    def close_issue(self, ctx: IssueContext, *, issue_id: str) -> VcsResult:
+        """Close a GitHub issue via ``gh issue close``."""
+        return self._run(
+            ["gh", "issue", "close", issue_id],
+            VcsContext(project_root=ctx.project_root),
+        )
+
+    def link_issue_to_pr(self, ctx: IssueContext, *, issue_id: str, pr_number: str) -> VcsResult:
+        """No-op — GitHub links via ``Closes #N`` keyword in PR body."""
+        del ctx, issue_id, pr_number
+        return VcsResult(success=True, output="GitHub links via PR body keyword")
 
     # ------------------------------------------------------------------
     # Internal

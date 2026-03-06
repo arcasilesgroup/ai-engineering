@@ -46,9 +46,9 @@ Binding rules for all agents and tools operating under the ai-engineering govern
 
 - Agents MUST operate as session-scoped workers with explicit scope, dependencies, and deliverables.
 - Each session MUST read context from governance content — no implicit knowledge assumed.
-- Session recovery MUST be deterministic: `_active.md` → `spec.md` → `tasks.md` → `decision-store.json`.
+- Session recovery MUST be deterministic: `_active.md` → `spec.md` → `tasks.md` → `decision-store.json` → `session-checkpoint.json`.
 - Spec-first check: if no active spec and work is non-trivial, invoke `create-spec` before proceeding.
-- Commit atomically: 1 task = 1 commit with `spec-NNN: Task X.Y — <description>`.
+- Commit: 1 phase = 1 commit with `spec-NNN: Pase X.Y — <description>`.
 - Content integrity: if any `.ai-engineering/` file was created, deleted, renamed, or moved, execute `integrity-check`.
 - Report summary: tasks done, files changed, decisions made, blockers found.
 
@@ -102,10 +102,11 @@ Every phase MUST pass before dependent phases start:
 
 ### 3.1 Boundaries
 
-- **framework-managed** (updatable): `standards/framework/**`, `skills/**`, `agents/**`, plus `CLAUDE.md`, `.github/copilot-instructions.md`.
+- **framework-managed** (updatable): `standards/framework/**`, `skills/**`, `agents/**`, `runbooks/**`, `context/product/framework-contract.md`.
+- **external framework-managed** (updatable, outside `.ai-engineering/`): `CLAUDE.md`, `AGENTS.md`, `.github/copilot-instructions.md`, `.github/copilot/**`, `.github/instructions/**`, `.github/prompts/**`, `.github/agents/**`, `.github/ISSUE_TEMPLATE/**`, `.github/pull_request_template.md`, `.agents/**`, `.claude/settings.json`, `.claude/commands/**`.
 - **team-managed** (never overwritten): `standards/team/**`.
-- **project-managed** (never overwritten): `context/**`.
-- **system-managed**: `state/install-manifest.json`, `state/ownership-map.json`, `state/sources.lock.json`, `state/decision-store.json`, `state/audit-log.ndjson`.
+- **project-managed** (never overwritten): `context/**` (except `context/product/framework-contract.md`).
+- **system-managed**: `state/install-manifest.json`, `state/ownership-map.json`, `state/sources.lock.json`, `state/decision-store.json`, `state/audit-log.ndjson`, `state/session-checkpoint.json`.
 
 ### 3.2 Update Rules
 
@@ -130,15 +131,7 @@ Higher-numbered layers override lower-numbered layers for the same directive.
 - Quality rules MUST be content-driven and versioned in `.ai-engineering/`.
 - Optional Sonar integration: `ai-eng setup sonar` / `ai-eng setup sonarlint`. Sonar gate MUST silent-skip when unconfigured.
 
-### 4.2 AI Permissions
-
-- **Default allow**: read, list, get, search, inspect.
-- **Guardrailed**: write, execute, high-impact actions.
-- **Restricted**: destructive and sensitive operations.
-
-Permissions MUST NOT weaken local enforcement or governance controls.
-
-### 4.3 Decision and Audit
+### 4.2 Decision and Audit
 
 When weakening a directive is requested: warn user → generate remediation patch → never auto-apply → require explicit risk acceptance → persist in `decision-store.json` → append to `audit-log.ndjson`. Agents MUST check the decision store before prompting — no repeated decisions unless expired, scope/severity/policy changed, or context hash changed.
 
@@ -150,13 +143,7 @@ When weakening a directive is requested: warn user → generate remediation patc
 - Non-state files MUST be identical between canonical and template mirror (except spec execution logs).
 - `state/*` files MUST be generated at install/update runtime from typed defaults.
 
-### 5.2 Remote Skills
-
-- Default: remote ON with local cache. Sources: `https://skills.sh/`, `https://www.aitmpl.com/skills`.
-- Controls: source allowlist, lock pinning/versioning, checksum validation, signature metadata, cache TTL, offline fallback, no unsafe remote execution.
-- Bootstrap exception: null checksums allowed only before first sync; MUST be replaced by pinned checksums afterward.
-
-### 5.3 Release Model
+### 5.2 Release Model
 
 - SemVer with migration scripts. Channels: `stable` and `canary`.
 - Telemetry MUST remain strict opt-in.

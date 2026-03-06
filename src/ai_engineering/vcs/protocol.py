@@ -53,6 +53,27 @@ class PipelineStatusContext:
     workflow_name: str = "Release"
 
 
+@dataclass(frozen=True)
+class IssueContext:
+    """Context for work-item / issue operations.
+
+    Attributes:
+        project_root: Root directory of the project.
+        spec_id: Spec identifier (e.g. ``"037"``).
+        title: Issue title.
+        body: Issue body (Markdown).
+        labels: Labels/tags to apply.
+        work_item_type: Azure DevOps work-item type.
+    """
+
+    project_root: Path
+    spec_id: str = ""
+    title: str = ""
+    body: str = ""
+    labels: tuple[str, ...] = ()
+    work_item_type: str = "User Story"
+
+
 @dataclass
 class VcsResult:
     """Outcome of a VCS operation.
@@ -183,4 +204,49 @@ class VcsProvider(Protocol):
 
     def get_pipeline_status(self, ctx: PipelineStatusContext) -> VcsResult:
         """Return pipeline/workflow status for a commit SHA."""
+        ...  # pragma: no cover
+
+    def create_issue(self, ctx: IssueContext) -> VcsResult:
+        """Create a work item / issue linked to a spec.
+
+        Args:
+            ctx: Issue metadata (title, body, labels).
+
+        Returns:
+            VcsResult with issue number/ID in ``output``.
+        """
+        ...  # pragma: no cover
+
+    def find_issue(self, ctx: IssueContext) -> VcsResult:
+        """Find an existing issue by ``spec-NNN`` label/tag.
+
+        Returns:
+            VcsResult where ``output`` contains the issue number/ID,
+            or empty output when no issue exists.
+        """
+        ...  # pragma: no cover
+
+    def close_issue(self, ctx: IssueContext, *, issue_id: str) -> VcsResult:
+        """Close a work item / issue.
+
+        Args:
+            ctx: Issue context.
+            issue_id: Provider issue identifier.
+
+        Returns:
+            VcsResult with success flag.
+        """
+        ...  # pragma: no cover
+
+    def link_issue_to_pr(self, ctx: IssueContext, *, issue_id: str, pr_number: str) -> VcsResult:
+        """Link a work item to a pull request.
+
+        Args:
+            ctx: Issue context.
+            issue_id: Provider issue identifier.
+            pr_number: Provider PR identifier.
+
+        Returns:
+            VcsResult with success flag.
+        """
         ...  # pragma: no cover

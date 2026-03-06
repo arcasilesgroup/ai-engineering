@@ -16,7 +16,7 @@ governance_surface:
     total: 7
     names: [plan, execute, build, scan, release, write, observe]
   skills:
-    total: 34
+    total: 35
     organization: flat
     prefix: "ai:"
   integrity:
@@ -60,6 +60,7 @@ ownership:
       - "skills/**"
       - "agents/**"
       - "runbooks/**"
+      - "context/product/framework-contract.md"
     team_managed:
       - "standards/team/**"
     project_managed:

@@ -10,9 +10,9 @@ requires: [gh, uv, git]
 
 ## Prompt
 
-Fix PRs labeled `auto-generated` that have failing CI checks. Maximum 3 fix attempts per PR.
+Fix PRs that have failing CI checks. Maximum 3 fix attempts per PR.
 
-1. Fetch PRs: `gh pr list --label auto-generated --state open --json number,title,statusCheckRollup,headRefName --limit 10`.
+1. Fetch PRs: `gh pr list --state open --json number,title,statusCheckRollup,headRefName --limit 10`.
 2. For each PR with failing checks:
    - Check if already labeled `ci-fix-attempted-3` → skip (needs human).
    - Checkout the PR branch.
@@ -33,7 +33,6 @@ Fix PRs labeled `auto-generated` that have failing CI checks. Maximum 3 fix atte
 3. After 3 failed attempts:
    - Add label `needs-human`.
    - Post comment: "CI fix attempts exhausted (3/3). Manual intervention required."
-   - Remove `auto-generated` label.
 
 ## Context
 

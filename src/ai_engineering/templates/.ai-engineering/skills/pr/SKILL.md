@@ -180,6 +180,10 @@ When creating the PR:
    - Auto-assign if CODEOWNERS configured.
    - Tag relevant domain experts for complex changes.
 
+6. **Issue linking** — when a linked work item exists:
+   - GitHub: `Closes #N` injected into PR body by `build_pr_description()`.
+   - Azure DevOps: `AB#NNN` keyword + explicit `az repos pr update --work-items`.
+
 ## Examples
 
 ### Example 1: Full governed PR flow
