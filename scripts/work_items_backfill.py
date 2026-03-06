@@ -31,7 +31,7 @@ MANIFEST_PATH = Path(__file__).resolve().parent.parent / ".ai-engineering" / "ma
 
 
 def load_manifest() -> dict:
-    with open(MANIFEST_PATH) as f:
+    with MANIFEST_PATH.open() as f:
         return yaml.safe_load(f)
 
 
@@ -299,7 +299,7 @@ def set_issue_type(
 
 
 def load_config(path: Path) -> list[dict]:
-    with open(path) as f:
+    with path.resolve().open() as f:
         data = yaml.safe_load(f)
     return data.get("issues", [])
 

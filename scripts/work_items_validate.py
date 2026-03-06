@@ -28,7 +28,7 @@ WARN_FIELDS = ["Estimate", "Start Date", "Target Date"]
 
 
 def load_manifest() -> dict:
-    with open(MANIFEST_PATH) as f:
+    with MANIFEST_PATH.open() as f:
         return yaml.safe_load(f)
 
 
