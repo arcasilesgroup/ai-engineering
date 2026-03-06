@@ -15,6 +15,7 @@ import subprocess
 
 from ai_engineering.vcs.protocol import (
     CreateTagContext,
+    IssueContext,
     PipelineStatusContext,
     VcsContext,
     VcsResult,
@@ -297,6 +298,98 @@ class AzureDevOpsProvider:
                     filtered.append(run)
             result.output = json.dumps(filtered)
         return result
+
+    def create_issue(self, ctx: IssueContext) -> VcsResult:
+        """Create an Azure DevOps work item via ``az boards work-item create``."""
+        spec_tag = f"spec-{ctx.spec_id}"
+        cmd = [
+            "az",
+            "boards",
+            "work-item",
+            "create",
+            "--type",
+            ctx.work_item_type,
+            "--title",
+            ctx.title,
+            "--description",
+            ctx.body,
+            "--fields",
+            f"System.Tags={spec_tag}",
+            "--output",
+            "json",
+        ]
+        result = self._run(cmd, VcsContext(project_root=ctx.project_root))
+        if result.success:
+            try:
+                data = json.loads(result.output.split("\n")[0])
+                wi_id = str(data.get("id", ""))
+                if wi_id:
+                    result.output = wi_id
+            except (json.JSONDecodeError, IndexError, AttributeError):
+                pass
+        return result
+
+    def find_issue(self, ctx: IssueContext) -> VcsResult:
+        """Find an Azure DevOps work item by ``spec-NNN`` tag via WIQL."""
+        spec_tag = f"spec-{ctx.spec_id}"
+        wiql = f"SELECT [System.Id] FROM WorkItems WHERE [System.Tags] CONTAINS '{spec_tag}'"
+        cmd = [
+            "az",
+            "boards",
+            "query",
+            "--wiql",
+            wiql,
+            "--output",
+            "json",
+        ]
+        result = self._run(cmd, VcsContext(project_root=ctx.project_root))
+        if not result.success:
+            return result
+        try:
+            items = json.loads(result.output.split("\n")[0])
+        except json.JSONDecodeError:
+            return VcsResult(success=False, output="Failed to parse WIQL response")
+        if not isinstance(items, list) or not items:
+            return VcsResult(success=True, output="")
+        first = items[0]
+        wi_id = str(first.get("id", ""))
+        return VcsResult(success=True, output=wi_id)
+
+    def close_issue(self, ctx: IssueContext, *, issue_id: str) -> VcsResult:
+        """Close an Azure DevOps work item via ``az boards work-item update``."""
+        return self._run(
+            [
+                "az",
+                "boards",
+                "work-item",
+                "update",
+                "--id",
+                issue_id,
+                "--state",
+                "Done",
+                "--output",
+                "json",
+            ],
+            VcsContext(project_root=ctx.project_root),
+        )
+
+    def link_issue_to_pr(self, ctx: IssueContext, *, issue_id: str, pr_number: str) -> VcsResult:
+        """Link a work item to a PR via ``az repos pr update --work-items``."""
+        return self._run(
+            [
+                "az",
+                "repos",
+                "pr",
+                "update",
+                "--id",
+                pr_number,
+                "--work-items",
+                issue_id,
+                "--output",
+                "json",
+            ],
+            VcsContext(project_root=ctx.project_root),
+        )
 
     # ------------------------------------------------------------------
     # Internal

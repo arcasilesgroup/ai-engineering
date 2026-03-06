@@ -1,42 +1,36 @@
 {
-  "schemaVersion": "1.0",
-  "updateMetadata": {
-    "rationale": "lock trusted remote skill sources and integrity metadata",
-    "expectedGain": "deterministic and safer skill resolution",
-    "potentialImpact": "source updates require lock refresh"
-  },
-  "generatedAt": "2026-02-08T00:00:00Z",
   "defaultRemoteEnabled": true,
+  "generatedAt": "2026-02-08T00:00:00Z",
+  "schemaVersion": "1.0",
   "sources": [
     {
-      "url": "https://skills.sh/",
-      "trusted": true,
-      "checksum": null,
+      "cache": {
+        "lastFetchedAt": "2026-03-06T10:05:54Z",
+        "ttlHours": 24
+      },
+      "checksum": "6c34e416f89c9526c952ea09016374ea10a44e7b518e91d40edf0b1959507fdb",
       "signatureMetadata": {
-        "algorithm": null,
-        "keyId": null,
-        "signature": null,
         "verified": false
       },
-      "cache": {
-        "ttlHours": 24,
-        "lastFetchedAt": null
-      }
+      "trusted": true,
+      "url": "https://skills.sh/"
     },
     {
-      "url": "https://www.aitmpl.com/skills",
-      "trusted": true,
-      "checksum": null,
+      "cache": {
+        "lastFetchedAt": "2026-03-06T10:05:54Z",
+        "ttlHours": 24
+      },
+      "checksum": "146900a87b51416a3a65d13fa0cba1cb34628c061c7089307f7975f5b13bcd24",
       "signatureMetadata": {
-        "algorithm": null,
-        "keyId": null,
-        "signature": null,
         "verified": false
       },
-      "cache": {
-        "ttlHours": 24,
-        "lastFetchedAt": null
-      }
+      "trusted": true,
+      "url": "https://www.aitmpl.com/skills"
     }
-  ]
+  ],
+  "updateMetadata": {
+    "expectedGain": "deterministic and safer skill resolution",
+    "potentialImpact": "source updates require lock refresh",
+    "rationale": "lock trusted remote skill sources and integrity metadata"
+  }
 }

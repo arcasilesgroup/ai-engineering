@@ -31,13 +31,13 @@ Mandatory. Skipping risks stale code, repeated decisions, or merge conflicts.
 
 Gate failure: diagnose → fix → retry. Use `ai-eng doctor --fix-tools` or `--fix-hooks`.
 
-## Skills (34)
+## Skills (35)
 
 Path: `.ai-engineering/skills/<name>/SKILL.md` (flat organization, no category subdirectories)
 
 | Domain | Skills |
 |--------|--------|
-| Planning | discover, plan, spec, cleanup, explain |
+| Planning | discover, plan, product-contract, spec, cleanup, explain |
 | Build | build, test, debug, refactor, code-simplifier, api, cli, db, infra, cicd, migrate |
 | Scan | security, quality, governance, architecture, perf, a11y, feature-gap |
 | Release | commit, pr, release, changelog, work-item |

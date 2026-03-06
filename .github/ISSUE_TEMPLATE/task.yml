@@ -1,6 +1,7 @@
 name: Task
 description: Track a specific unit of work
-labels: ["task", "needs-triage"]
+labels: ["type:task", "needs-triage"]
+type: Task
 body:
   - type: markdown
     attributes:
@@ -14,11 +15,11 @@ body:
     validations:
       required: true
   - type: input
-    id: spec
+    id: spec-url
     attributes:
-      label: Related Spec
-      description: Spec identifier if applicable.
-      placeholder: "036-platform-runbooks"
+      label: Spec URL
+      description: Full GitHub URL to the related spec.
+      placeholder: "https://github.com/arcasilesgroup/ai-engineering/blob/main/.ai-engineering/context/specs/036-platform-runbooks/spec.md"
     validations:
       required: false
   - type: dropdown
@@ -36,12 +37,21 @@ body:
     attributes:
       label: Size
       options:
+        - XS (< 30min)
         - S (< 1h)
         - M (1-4h)
         - L (4-8h)
         - XL (> 8h)
     validations:
       required: true
+  - type: input
+    id: estimate
+    attributes:
+      label: Estimate (story points)
+      description: Fibonacci scale — 1, 2, 3, 5, 8, 13, 21.
+      placeholder: "5"
+    validations:
+      required: false
   - type: textarea
     id: acceptance
     attributes:

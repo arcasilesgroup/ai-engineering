@@ -27,13 +27,13 @@ Mandatory. Skipping risks stale code, repeated decisions, or merge conflicts.
 5. **Proactive Memory** — Read/write `state/decision-store.json` to persist learnings and avoid repeated questions.
 6. **Checkpoint on completion** — Save checkpoint after each task: `ai-eng checkpoint save`.
 
-## Skills (34)
+## Skills (35)
 
 Path: `.ai-engineering/skills/<name>/SKILL.md` (flat organization, no category subdirectories)
 
 | Domain | Skills |
 |--------|--------|
-| Planning | discover, plan, spec, cleanup, explain |
+| Planning | discover, plan, product-contract, spec, cleanup, explain |
 | Build | build, test, debug, refactor, code-simplifier, api, cli, db, infra, cicd, migrate |
 | Scan | security, quality, governance, architecture, perf, a11y, feature-gap |
 | Release | commit, pr, release, changelog, work-item |

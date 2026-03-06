@@ -343,6 +343,15 @@ TEST_SCOPE_RULES: list[ScopeRule] = [
         },
     ),
     ScopeRule(
+        name="work_items",
+        source_globs=["src/ai_engineering/work_items/**/*.py"],
+        tiers={
+            "unit": ["tests/unit/test_work_items_service.py"],
+            "integration": [],
+            "e2e": [],
+        },
+    ),
+    ScopeRule(
         name="version",
         source_globs=["src/ai_engineering/version/**/*.py"],
         tiers={

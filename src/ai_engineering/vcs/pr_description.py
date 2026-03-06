@@ -86,6 +86,12 @@ def build_pr_description(project_root: Path, *, max_commits: int = 20) -> str:
             lines.append(f"- {subject}")
         lines.append("")
 
+    # -- Issue link -----------------------------------------------------
+    if spec:
+        issue_ref = _build_issue_reference(project_root, spec)
+        if issue_ref:
+            lines.append(f"{issue_ref}\n")
+
     # -- Checklist -----------------------------------------------------
     lines.append("## Checklist\n")
     lines.append("- [ ] All tests pass")
@@ -338,6 +344,36 @@ def _recent_commit_subjects(
         return [line.strip() for line in output.strip().splitlines() if line.strip()]
 
     return []
+
+
+def _build_issue_reference(project_root: Path, spec: str) -> str | None:
+    """Build an issue-closing keyword for the PR body.
+
+    Returns ``Closes #N`` (GitHub) or ``AB#NNN`` (Azure DevOps),
+    or None if no linked issue is found.
+
+    Args:
+        project_root: Root directory of the project.
+        spec: Spec slug (e.g. ``"037-work-item-sync"``).
+
+    Returns:
+        Issue reference string, or None.
+    """
+    try:
+        from ai_engineering.work_items.service import get_linked_issue_id
+    except ImportError:
+        return None
+
+    issue_id = get_linked_issue_id(project_root, spec)
+    if not issue_id:
+        return None
+
+    from ai_engineering.vcs.factory import detect_from_remote
+
+    provider_name = detect_from_remote(project_root)
+    if provider_name == "azure_devops":
+        return f"AB#{issue_id}"
+    return f"Closes #{issue_id}"
 
 
 def _humanize_branch(branch: str) -> str:

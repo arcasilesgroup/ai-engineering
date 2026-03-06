@@ -1,6 +1,6 @@
 ---
 name: explain
-description: "Feynman-style layered explanations of code, concepts, and architecture"
+description: "Engineer-grade technical explanations of code, concepts, patterns, and architecture with 3-tier depth control, ASCII diagrams, execution traces, and complexity analysis."
 ---
 
 Read and execute `.ai-engineering/skills/explain/SKILL.md`.

@@ -60,7 +60,7 @@ ai-engineering is a **content framework**, not a platform. The governance layer 
 your-project/
 ├── .ai-engineering/            ← governance root (content-first)
 │   ├── standards/              ← rules for AI agents and quality gates
-│   ├── skills/                 ← 34 procedural skills AI agents execute
+│   ├── skills/                 ← 35 procedural skills AI agents execute
 │   ├── agents/                 ← 7 role-based agent personas
 │   ├── context/                ← project memory: specs, goals, learnings
 │   └── state/                  ← decisions, risks, audit trail
@@ -83,7 +83,7 @@ Three ownership boundaries keep your content safe:
 - **Quality gates at every commit** — `ruff`, `gitleaks`, `semgrep`, `pip-audit`, `pytest`, and `ty` run at the right stage. Problems are blocked before they reach the remote repository.
 - **Security scanning without CI** — secrets, SAST/OWASP vulnerabilities, and dependency CVEs are detected locally on every push.
 - **Risk acceptance lifecycle** — accept, track, and expire security risks with severity-based deadlines (critical: 15 days, high: 30, medium: 60, low: 90). Max 2 renewals per risk.
-- **34 procedural skills** — structured procedures for commit, PR, debug, refactor, code review, security assessment, architecture review, and more. AI agents read and execute them.
+- **35 procedural skills** — structured procedures for commit, PR, debug, refactor, code review, security assessment, architecture review, and more. AI agents read and execute them.
 - **7 role-based agents** — behavioral contracts for plan, execute, build, scan, release, write, and observe. Each agent has identity, capabilities, and boundaries. Only `ai:build` has code write permissions.
 - **Multi-provider from day one** — same governance works with Claude Code (37 slash commands), GitHub Copilot (37 prompt files + 7 custom agents), Gemini CLI, and OpenAI Codex.
 - **Stack-aware enforcement** — tailored rules for Python, .NET, and Next.js. Each stack has its own linting, testing, and security toolchain.
@@ -103,7 +103,7 @@ Standards use a two-layer model. The **framework layer** (`standards/framework/`
 
 Each supported stack (Python, .NET, Next.js) has its own standards file with tailored rules for linting, formatting, testing, and dependency management.
 
-### Skills — 34 in flat organization
+### Skills — 35 in flat organization
 
 Skills are step-by-step procedures written in Markdown that any AI agent can read and execute. They define **what** the agent does, **when** to trigger, **how** to execute, and **what** to output. All skills live in `skills/<name>/SKILL.md` — no nested categories.
 
@@ -111,7 +111,7 @@ Skill frontmatter follows the governed schema with `name` and `description` at t
 
 | Skills (alphabetical) |
 |-----------------------|
-| a11y, api, architecture, build, changelog, cicd, cleanup, cli, code-simplifier, commit, create, db, debug, delete, discover, docs, explain, feature-gap, governance, infra, migrate, observe, perf, plan, pr, quality, refactor, release, risk, security, spec, standards, test, work-item |
+| a11y, api, architecture, build, changelog, cicd, cleanup, cli, code-simplifier, commit, create, db, debug, delete, discover, docs, explain, feature-gap, governance, infra, migrate, observe, perf, plan, pr, product-contract, quality, refactor, release, risk, security, spec, standards, test, work-item |
 
 Invoke any skill with `/ai:<name>` — for example, `/ai:debug` for systematic diagnosis, `/ai:security` for security assessment, or `/ai:refactor` for code restructuring.
 

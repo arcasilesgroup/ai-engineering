@@ -7,7 +7,12 @@ from pathlib import Path
 import pytest
 
 from ai_engineering.vcs.api_fallback import ApiFallbackProvider
-from ai_engineering.vcs.protocol import CreateTagContext, PipelineStatusContext, VcsContext
+from ai_engineering.vcs.protocol import (
+    CreateTagContext,
+    IssueContext,
+    PipelineStatusContext,
+    VcsContext,
+)
 
 pytestmark = pytest.mark.unit
 
@@ -96,3 +101,35 @@ class TestApiFallbackProvider:
         result = provider.get_pipeline_status(pipe_ctx)
         assert result.success is False
         assert "pipeline status" in result.output
+
+    def test_create_issue_returns_failure(
+        self, provider: ApiFallbackProvider, ctx: VcsContext
+    ) -> None:
+        issue_ctx = IssueContext(project_root=ctx.project_root, spec_id="037")
+        result = provider.create_issue(issue_ctx)
+        assert result.success is False
+        assert "issue creation" in result.output
+
+    def test_find_issue_returns_failure(
+        self, provider: ApiFallbackProvider, ctx: VcsContext
+    ) -> None:
+        issue_ctx = IssueContext(project_root=ctx.project_root, spec_id="037")
+        result = provider.find_issue(issue_ctx)
+        assert result.success is False
+        assert "issue lookup" in result.output
+
+    def test_close_issue_returns_failure(
+        self, provider: ApiFallbackProvider, ctx: VcsContext
+    ) -> None:
+        issue_ctx = IssueContext(project_root=ctx.project_root, spec_id="037")
+        result = provider.close_issue(issue_ctx, issue_id="7")
+        assert result.success is False
+        assert "issue close" in result.output
+
+    def test_link_issue_to_pr_returns_failure(
+        self, provider: ApiFallbackProvider, ctx: VcsContext
+    ) -> None:
+        issue_ctx = IssueContext(project_root=ctx.project_root, spec_id="037")
+        result = provider.link_issue_to_pr(issue_ctx, issue_id="7", pr_number="12")
+        assert result.success is False
+        assert "issue-PR linking" in result.output

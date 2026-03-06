@@ -2,7 +2,7 @@
 name: plan
 version: 2.0.0
 scope: read-write
-capabilities: [context-discovery, session-planning, capability-matching, strategic-gap-analysis, roadmap-guidance, spec-proposal, risk-forecast, session-recovery, pipeline-auto-classify, governance-lifecycle, work-item-sync]
+capabilities: [context-discovery, session-planning, capability-matching, strategic-gap-analysis, roadmap-guidance, spec-proposal, risk-forecast, session-recovery, pipeline-auto-classify, governance-lifecycle, work-item-sync, product-contract-lifecycle]
 inputs: [active-spec, plan, tasks, decision-store, completed-specs, product-contract, framework-contract, work-items, session-checkpoint]
 outputs: [execution-plan, strategy-brief, next-spec-options, work-item-status]
 tags: [orchestration, planning, governance, lifecycle, strategy, roadmap, work-items, recovery]
@@ -17,6 +17,7 @@ references:
     - skills/standards/SKILL.md
     - skills/create/SKILL.md
     - skills/delete/SKILL.md
+    - skills/product-contract/SKILL.md
   standards:
     - standards/framework/core.md
 ---
@@ -124,6 +125,7 @@ Plan owns the governance lifecycle for the framework:
 - `skills/standards/SKILL.md` -- standards evolution
 - `skills/create/SKILL.md` -- agent/skill creation lifecycle
 - `skills/delete/SKILL.md` -- agent/skill deletion lifecycle
+- `skills/product-contract/SKILL.md` -- product contract lifecycle (init/sync/validate)
 
 ## Referenced Standards
 

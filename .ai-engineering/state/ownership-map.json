@@ -17,6 +17,11 @@
       "frameworkUpdate": "deny"
     },
     {
+      "pattern": ".ai-engineering/context/product/framework-contract.md",
+      "owner": "framework-managed",
+      "frameworkUpdate": "allow"
+    },
+    {
       "pattern": ".ai-engineering/context/**",
       "owner": "project-managed",
       "frameworkUpdate": "deny"
@@ -28,6 +33,11 @@
     },
     {
       "pattern": ".ai-engineering/agents/**",
+      "owner": "framework-managed",
+      "frameworkUpdate": "allow"
+    },
+    {
+      "pattern": ".ai-engineering/runbooks/**",
       "owner": "framework-managed",
       "frameworkUpdate": "allow"
     },
@@ -67,6 +77,21 @@
       "frameworkUpdate": "allow"
     },
     {
+      "pattern": ".github/ISSUE_TEMPLATE/**",
+      "owner": "framework-managed",
+      "frameworkUpdate": "allow"
+    },
+    {
+      "pattern": ".github/pull_request_template.md",
+      "owner": "framework-managed",
+      "frameworkUpdate": "allow"
+    },
+    {
+      "pattern": ".agents/**",
+      "owner": "framework-managed",
+      "frameworkUpdate": "allow"
+    },
+    {
       "pattern": ".claude/**",
       "owner": "framework-managed",
       "frameworkUpdate": "allow"
@@ -97,7 +122,7 @@
       "frameworkUpdate": "append-only"
     },
     {
-      "pattern": "state/session-checkpoint.json",
+      "pattern": ".ai-engineering/state/session-checkpoint.json",
       "owner": "system-managed",
       "frameworkUpdate": "allow"
     }
