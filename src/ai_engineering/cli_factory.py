@@ -37,6 +37,7 @@ from ai_engineering.cli_commands import (
     signals_cmd,
     skills,
     spec_cmd,
+    spec_save,
     stack_ide,
     validate,
     vcs,
@@ -174,7 +175,7 @@ def create_app() -> typer.Typer:
     - Core commands: install, update, doctor, version.
     - Stack/IDE commands: stack add/remove/list, ide add/remove/list.
     - Gate commands: gate pre-commit/commit-msg/pre-push/risk-check.
-    - Skills commands: skill list/sync/add/remove/status.
+    - Skills commands: skill status.
     - Maintenance commands: maintenance report/pr/branch-cleanup/risk-status/pipeline-compliance.
 
     Returns:
@@ -240,13 +241,9 @@ def create_app() -> typer.Typer:
     # Skill sub-group
     skill_app = typer.Typer(
         name="skill",
-        help="Manage remote skill sources (registration, sync, eligibility).",
+        help="Manage local skill eligibility diagnostics.",
         no_args_is_help=True,
     )
-    skill_app.command("list")(_safe(skills.skill_list))
-    skill_app.command("sync")(_safe(skills.skill_sync))
-    skill_app.command("add")(_safe(skills.skill_add))
-    skill_app.command("remove")(_safe(skills.skill_remove))
     skill_app.command("status")(_safe(skills.skill_status))
     app.add_typer(skill_app, name="skill")
 
@@ -359,6 +356,7 @@ def create_app() -> typer.Typer:
     spec_app.command("catalog")(_safe(spec_cmd.spec_catalog))
     spec_app.command("list")(_safe(spec_cmd.spec_list))
     spec_app.command("compact")(_safe(spec_cmd.spec_compact))
+    spec_app.command("save")(_safe(spec_save.spec_save))
     app.add_typer(spec_app, name="spec")
 
     # Work-item sub-group
