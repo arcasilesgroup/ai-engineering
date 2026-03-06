@@ -107,11 +107,6 @@
       "frameworkUpdate": "allow"
     },
     {
-      "pattern": ".ai-engineering/state/sources.lock.json",
-      "owner": "system-managed",
-      "frameworkUpdate": "allow"
-    },
-    {
       "pattern": ".ai-engineering/state/decision-store.json",
       "owner": "system-managed",
       "frameworkUpdate": "allow"

@@ -47,7 +47,7 @@
   <text x="795" y="112" text-anchor="middle" fill="#1a9e8c" font-size="16" font-weight="700">done.md</text>
   <text x="795" y="132" text-anchor="middle" fill="#1a9e8c" font-size="20" font-weight="700">DONE</text>
   <text x="795" y="152" text-anchor="middle" fill="#64748B" font-size="10">Completion log</text>
-  <text x="795" y="165" text-anchor="middle" fill="#64748B" font-size="10">learnings recorded</text>
+  <text x="795" y="165" text-anchor="middle" fill="#64748B" font-size="10">completion summary</text>
 
   <!-- Phase Gates bar -->
   <rect x="50" y="195" width="815" height="35" rx="6" fill="#1A2A40" stroke="#1A2A40" stroke-width="1"/>

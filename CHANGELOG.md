@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Governance simplification** — removed `learnings.md`, `sources.lock.json`, and legacy Claude/Copilot command files (`cleanup.md`, `commit.md`, `pr.md`) from both canonical and template paths; streamlined `manifest.yml`, `ownership-map.json`, and state defaults accordingly.
+- **Skills service refactored** — simplified `skills/service.py` and `cli_commands/skills.py`, removing ~450 lines of unused maintenance and remote-source logic.
+- **State models trimmed** — removed obsolete fields from `state/models.py` and `state/defaults.py` (sources lock, learnings references).
+- **PR skill v2.0.0** — expanded `/pr` workflow with documentation gate (CHANGELOG, README, product-contract auto-update), spec reset integration, and structured PR description format.
+- **Commit skill updated** — added spec-aware commit message format guidance.
+- **Cleanup skill updated** — removed spec-reset responsibility (now handled by `/pr`).
+- **Presentation assets refreshed** — updated SVGs and speech script to reflect current architecture.
+
+### Removed
+- **`learnings.md`** — project learnings file removed from context layer (both canonical and templates).
+- **`sources.lock.json`** — remote skill source tracking removed from state layer.
+- **Legacy IDE command files** — `.claude/commands/{cleanup,commit,pr}.md` and `.github/prompts/{cleanup,commit,pr}.prompt.md` removed (slash commands via `/ai:<name>` are the canonical path).
+
 ### Added
 - **`product-contract` skill** — new skill (`/ai:product-contract`) for maintaining product contract documents in sync mode; includes Claude command, Copilot prompt, and Codex agent adaptors.
 - **`ai-eng work-item sync` CLI** — syncs specs to external work items (GitHub Issues / Azure DevOps Boards) via new `work_items` service module.

@@ -5,7 +5,7 @@ from __future__ import annotations
 import runpy
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -20,11 +20,8 @@ from ai_engineering.state import decision_logic, defaults
 from ai_engineering.state import io as state_io
 from ai_engineering.state.models import (
     AuditEntry,
-    CacheConfig,
     DecisionStore,
     InstallManifest,
-    RemoteSource,
-    SourcesLock,
 )
 from ai_engineering.updater import service as updater
 from ai_engineering.validator import service as validator
@@ -181,40 +178,6 @@ def test_skills_state_and_defaults_edges(tmp_path: Path) -> None:
     assert errors
 
     assert skills_service._config_path_truthy({"a": 1}, "a.b") is False
-
-    lock = SourcesLock(
-        sources=[RemoteSource(url="https://example.test/source", cache=CacheConfig())]
-    )
-    with (
-        patch("ai_engineering.skills.service.load_sources_lock", return_value=lock),
-        patch("ai_engineering.skills.service._fetch_url", return_value=None),
-    ):
-        failed_result = skills_service.sync_sources(tmp_path)
-    assert failed_result.failed == ["https://example.test/source"]
-
-    cache_dir = tmp_path / ".ai-engineering" / "skills-cache"
-    cache_dir.mkdir(parents=True, exist_ok=True)
-    cache_file = skills_service._cache_path(cache_dir, "https://example.test/source")
-    cache_file.write_bytes(b"cached")
-    with (
-        patch("ai_engineering.skills.service.load_sources_lock", return_value=lock),
-        patch("ai_engineering.skills.service._fetch_url", return_value=None),
-    ):
-        cached_result = skills_service.sync_sources(tmp_path)
-    assert cached_result.cached == ["https://example.test/source"]
-
-    assert skills_service._is_cache_fresh(lock.sources[0], cache_file) is False
-    lock.sources[0].cache.last_fetched_at = lock.generated_at.replace(tzinfo=None)
-    assert skills_service._is_cache_fresh(lock.sources[0], cache_file) is True
-
-    class _Response:
-        def read(self) -> bytes:
-            return b"ok"
-
-    conn = MagicMock()
-    conn.getresponse.return_value = _Response()
-    with patch("ai_engineering.skills.service.http.client.HTTPSConnection", return_value=conn):
-        assert skills_service._fetch_url("https://example.test") == b"ok"
 
     ds = DecisionStore()
     with pytest.raises(ValueError):

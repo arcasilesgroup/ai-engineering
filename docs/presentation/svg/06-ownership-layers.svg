@@ -47,7 +47,7 @@
   <text x="268" y="292" fill="#cac7c7" font-size="10">|</text>
   <text x="286" y="292" fill="#64748B" font-size="10">context/product/</text>
   <text x="410" y="292" fill="#cac7c7" font-size="10">|</text>
-  <text x="428" y="292" fill="#64748B" font-size="10">context/learnings/</text>
+  <text x="428" y="292" fill="#64748B" font-size="10">state/decisions</text>
   <!-- Right zone -->
   <text x="570" y="270" fill="#1a9e8c" font-size="11" font-weight="600">NEVER overwritten by updates</text>
   <text x="570" y="292" fill="#94A3B8" font-size="10">Specs, contracts, institutional memory</text>

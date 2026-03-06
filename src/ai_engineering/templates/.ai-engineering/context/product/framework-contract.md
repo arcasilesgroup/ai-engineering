@@ -106,7 +106,7 @@ Every phase MUST pass before dependent phases start:
 - **external framework-managed** (updatable, outside `.ai-engineering/`): `CLAUDE.md`, `AGENTS.md`, `.github/copilot-instructions.md`, `.github/copilot/**`, `.github/instructions/**`, `.github/prompts/**`, `.github/agents/**`, `.github/ISSUE_TEMPLATE/**`, `.github/pull_request_template.md`, `.agents/**`, `.claude/settings.json`, `.claude/commands/**`.
 - **team-managed** (never overwritten): `standards/team/**`.
 - **project-managed** (never overwritten): `context/**` (except `context/product/framework-contract.md`).
-- **system-managed**: `state/install-manifest.json`, `state/ownership-map.json`, `state/sources.lock.json`, `state/decision-store.json`, `state/audit-log.ndjson`, `state/session-checkpoint.json`.
+- **system-managed**: `state/install-manifest.json`, `state/ownership-map.json`, `state/decision-store.json`, `state/audit-log.ndjson`, `state/session-checkpoint.json`.
 
 ### 3.2 Update Rules
 

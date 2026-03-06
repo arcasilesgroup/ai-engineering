@@ -40,7 +40,7 @@
   <text x="627" y="178" text-anchor="middle" fill="#1a9e8c" font-size="13" font-weight="700">context/</text>
   <text x="627" y="196" text-anchor="middle" fill="#94A3B8" font-size="10">specs/ (delivery)</text>
   <text x="627" y="210" text-anchor="middle" fill="#94A3B8" font-size="10">product/ (contracts)</text>
-  <text x="627" y="224" text-anchor="middle" fill="#94A3B8" font-size="10">learnings/</text>
+  <text x="627" y="224" text-anchor="middle" fill="#94A3B8" font-size="10">decisions</text>
   <line x1="520" y1="120" x2="627" y2="155" stroke="#1A2A40" stroke-width="1.5"/>
 
   <!-- state/ -->

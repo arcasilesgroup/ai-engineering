@@ -61,7 +61,6 @@ class TestInstallClean:
             "install-manifest.json",
             "ownership-map.json",
             "decision-store.json",
-            "sources.lock.json",
         ]
         for fname in expected_files:
             assert (state_dir / fname).is_file(), f"Missing: {fname}"

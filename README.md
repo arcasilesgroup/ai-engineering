@@ -62,7 +62,7 @@ your-project/
 │   ├── standards/              ← rules for AI agents and quality gates
 │   ├── skills/                 ← 35 procedural skills AI agents execute
 │   ├── agents/                 ← 7 role-based agent personas
-│   ├── context/                ← project memory: specs, goals, learnings
+│   ├── context/                ← project memory: specs, goals, decisions
 │   └── state/                  ← decisions, risks, audit trail
 ├── .claude/commands/           ← 37 slash commands (Claude Code)
 ├── .github/prompts/            ← 37 prompt files (GitHub Copilot)
@@ -76,7 +76,7 @@ Three ownership boundaries keep your content safe:
 
 - **Framework-managed** — standards and baselines, updated by `ai-eng update`. Dry-run by default.
 - **Team-managed** — your team's rules and overrides. Never overwritten by framework updates.
-- **Project-managed** — specs, product goals, learnings. Never overwritten. Your project memory stays yours.
+- **Project-managed** — specs, product goals, decisions. Never overwritten. Your project memory stays yours.
 
 ## What you get
 
@@ -135,14 +135,14 @@ Activate any agent with `/ai:<name>` — for example, `/ai:build` for implementa
 
 ### Context — your project memory
 
-Context is where your project lives. Product goals, active specifications, institutional learnings — all stored as Markdown files that AI agents read to understand your project.
+Context is where your project lives. Product goals, active specifications, and decisions — all stored as Markdown files that AI agents read to understand your project.
 
 The spec-driven delivery model tracks work through four documents:
 
 - **spec.md** — what to build (requirements, scope, acceptance criteria)
 - **plan.md** — how to build it (architecture decisions, approach, trade-offs)
 - **tasks.md** — what to do (ordered, assignable, trackable tasks)
-- **done.md** — what was done (completion log, learnings captured)
+- **done.md** — what was done (completion summary)
 
 Any AI agent can resume work on any spec by reading `_active.md` → `spec.md` → `tasks.md`. No context is lost between sessions.
 
@@ -156,7 +156,6 @@ State files track runtime information automatically:
 - **audit-log.ndjson** — append-only log of every governance event (gate results, commands executed, lifecycle transitions).
 - **install-manifest.json** — what was installed, when, which version.
 - **ownership-map.json** — who owns each path in the governance root.
-- **sources.lock.json** — remote skill sources with checksum verification.
 
 State is system-managed — maintained automatically by the CLI and git hooks.
 

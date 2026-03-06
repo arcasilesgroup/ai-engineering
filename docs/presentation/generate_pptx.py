@@ -1061,7 +1061,7 @@ def slide_05_what_is(prs):
         ("standards/", "Framework and\nteam rules"),
         ("skills/", "45 procedures\nin 6 categories"),
         ("agents/", "15 specialized\npersonas"),
-        ("context/", "Specs, contracts,\nlearnings"),
+        ("context/", "Specs, contracts,\ndecisions"),
         ("state/", "Decision store,\naudit log"),
     ]
     dir_w = Inches(2.0)
@@ -1300,7 +1300,7 @@ def slide_07_ownership(prs):
         ("Team-managed", "standards/team/", "NEVER overwritten by updates", SEC_BLUE, "🔒"),
         (
             "Project-managed",
-            "context/, specs, learnings",
+            "context/, specs, decisions",
             "NEVER overwritten — institutional memory",
             SEC_TEAL,
             "🔒",
@@ -1603,7 +1603,7 @@ def slide_10_spec_lifecycle(prs):
         ("spec.md", "WHAT", "Requirements, scope,\nacceptance"),
         ("plan.md", "HOW", "Architecture,\ntrade-offs"),
         ("tasks.md", "DO", "Ordered tasks,\nassignable"),
-        ("done.md", "DONE", "Completion,\nlearnings"),
+        ("done.md", "DONE", "Completion\nsummary"),
     ]
     doc_w = Inches(2.2)
     doc_h = Inches(1.5)

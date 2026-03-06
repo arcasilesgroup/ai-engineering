@@ -55,7 +55,6 @@ Canonical governance root for the `ai-engineering` framework and for installed i
   state/
     install-manifest.json
     ownership-map.json
-    sources.lock.json
     decision-store.json
     audit-log.ndjson
 ```
@@ -81,13 +80,6 @@ Canonical governance root for the `ai-engineering` framework and for installed i
 - `/commit --only` -> stage + commit.
 - `/pr` -> stage + commit + push + create PR + enable auto-complete (`--auto --squash --delete-branch`).
 - `/pr --only` -> create PR; if branch is unpushed, warn and offer auto-push; continue with engineer-selected path if declined.
-
-## Remote Skills
-
-- Default is remote ON with local cache.
-- Initial sources: `https://skills.sh/` and `https://www.aitmpl.com/skills`.
-- Locking and integrity are stored in `state/sources.lock.json` (checksums + signature metadata scaffolding).
-- Null checksums are allowed only before first successful sync; pinned checksums are required after first sync.
 
 ## Context Efficiency
 

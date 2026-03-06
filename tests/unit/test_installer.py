@@ -129,12 +129,8 @@ class TestStateFilesConstant:
         assert "decision-store" in _STATE_FILES
         assert _STATE_FILES["decision-store"] == "state/decision-store.json"
 
-    def test_contains_sources_lock(self) -> None:
-        assert "sources-lock" in _STATE_FILES
-        assert _STATE_FILES["sources-lock"] == "state/sources.lock.json"
-
-    def test_has_exactly_four_entries(self) -> None:
-        assert len(_STATE_FILES) == 4
+    def test_has_exactly_three_entries(self) -> None:
+        assert len(_STATE_FILES) == 3
 
 
 class TestAuditLogPath:
@@ -200,7 +196,6 @@ def _build_install_mocks() -> dict[str, MagicMock]:
     mocks["default_install_manifest"] = MagicMock()
     mocks["default_ownership_map"] = MagicMock()
     mocks["default_decision_store"] = MagicMock()
-    mocks["default_sources_lock"] = MagicMock()
 
     return mocks
 
@@ -244,7 +239,6 @@ def _apply_patches(mocks: dict[str, MagicMock]):
     )
     stack.enter_context(patch(f"{_SVC}.default_ownership_map", mocks["default_ownership_map"]))
     stack.enter_context(patch(f"{_SVC}.default_decision_store", mocks["default_decision_store"]))
-    stack.enter_context(patch(f"{_SVC}.default_sources_lock", mocks["default_sources_lock"]))
     return stack
 
 
@@ -300,9 +294,9 @@ class TestInstallCreatesStateFiles:
         with patch.object(Path, "exists", return_value=False):
             result = install(tmp_path, stacks=["python"])
 
-        # write_json_model should be called for each of the 4 state files
-        assert patched["write_json_model"].call_count >= 4
-        assert len(result.state_files) == 4
+        # write_json_model should be called for each of the 3 state files
+        assert patched["write_json_model"].call_count >= 3
+        assert len(result.state_files) == 3
 
 
 class TestInstallSkipsExistingStateFiles:
@@ -322,7 +316,6 @@ class TestInstallSkipsExistingStateFiles:
                 for name in [
                     "ownership-map",
                     "decision-store",
-                    "sources.lock",
                 ]
             )
         ]

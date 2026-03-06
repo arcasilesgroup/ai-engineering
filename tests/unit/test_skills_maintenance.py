@@ -1,7 +1,6 @@
 """Unit tests for skills/service.py and maintenance/report.py.
 
 Covers:
-- SyncResult defaults and populated fields.
 - SkillStatus eligibility logic.
 - list_local_skill_status() with mocked filesystem and dependencies.
 - StaleFile creation and fields.
@@ -22,39 +21,10 @@ from ai_engineering.maintenance.report import (
 )
 from ai_engineering.skills.service import (
     SkillStatus,
-    SyncResult,
     list_local_skill_status,
 )
 
 pytestmark = pytest.mark.unit
-
-
-# ---------------------------------------------------------------------------
-# SyncResult
-# ---------------------------------------------------------------------------
-
-
-class TestSyncResult:
-    """Tests for SyncResult dataclass."""
-
-    def test_defaults_are_empty_lists(self) -> None:
-        result = SyncResult()
-        assert result.fetched == []
-        assert result.cached == []
-        assert result.failed == []
-        assert result.untrusted == []
-
-    def test_with_data_populated(self) -> None:
-        result = SyncResult(
-            fetched=["https://example.com/a.yml"],
-            cached=["https://example.com/b.yml"],
-            failed=["https://example.com/c.yml"],
-            untrusted=["https://example.com/d.yml"],
-        )
-        assert len(result.fetched) == 1
-        assert len(result.cached) == 1
-        assert len(result.failed) == 1
-        assert len(result.untrusted) == 1
 
 
 # ---------------------------------------------------------------------------

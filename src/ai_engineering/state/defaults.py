@@ -15,7 +15,6 @@ from .models import (
     OwnershipEntry,
     OwnershipLevel,
     OwnershipMap,
-    SourcesLock,
     ToolingReadiness,
     UpdateMetadata,
     VcsExtensions,
@@ -121,11 +120,6 @@ _DEFAULT_OWNERSHIP_PATHS: list[tuple[str, OwnershipLevel, FrameworkUpdatePolicy]
         FrameworkUpdatePolicy.ALLOW,
     ),
     (
-        ".ai-engineering/state/sources.lock.json",
-        OwnershipLevel.SYSTEM_MANAGED,
-        FrameworkUpdatePolicy.ALLOW,
-    ),
-    (
         ".ai-engineering/state/decision-store.json",
         OwnershipLevel.SYSTEM_MANAGED,
         FrameworkUpdatePolicy.ALLOW,
@@ -169,18 +163,4 @@ def default_decision_store() -> DecisionStore:
         schema_version="1.1",
         update_metadata=default_update_metadata(context="decision store"),
         decisions=[],
-    )
-
-
-def default_sources_lock() -> SourcesLock:
-    """Create a default sources lock with no remote sources.
-
-    Returns:
-        SourcesLock with remote disabled and empty source list.
-    """
-    return SourcesLock(
-        schema_version="1.0",
-        update_metadata=default_update_metadata(context="sources lock"),
-        default_remote_enabled=False,
-        sources=[],
     )
