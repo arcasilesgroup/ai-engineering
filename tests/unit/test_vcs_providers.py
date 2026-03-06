@@ -142,6 +142,29 @@ class TestGitHubUpsertMethods:
         data = json.loads(result.output)
         assert data["number"] == 12
 
+    def test_find_open_pr_cli_failure(self, ctx: VcsContext) -> None:
+        provider = GitHubProvider()
+        proc = MagicMock(returncode=1, stdout="", stderr="auth error")
+        with patch("subprocess.run", return_value=proc):
+            result = provider.find_open_pr(ctx)
+        assert result.success is False
+
+    def test_find_open_pr_bad_json(self, ctx: VcsContext) -> None:
+        provider = GitHubProvider()
+        proc = MagicMock(returncode=0, stdout="not-json", stderr="")
+        with patch("subprocess.run", return_value=proc):
+            result = provider.find_open_pr(ctx)
+        assert result.success is False
+        assert "parse" in result.output.lower()
+
+    def test_find_open_pr_empty_list(self, ctx: VcsContext) -> None:
+        provider = GitHubProvider()
+        proc = MagicMock(returncode=0, stdout="[]", stderr="")
+        with patch("subprocess.run", return_value=proc):
+            result = provider.find_open_pr(ctx)
+        assert result.success is True
+        assert result.output == ""
+
     def test_update_pr_uses_body_file_flag(self, ctx: VcsContext) -> None:
         provider = GitHubProvider()
         proc = MagicMock(returncode=0, stdout="ok", stderr="")
@@ -188,6 +211,47 @@ class TestGitHubReleaseMethods:
         parsed = json.loads(result.output)
         assert len(parsed) == 1
         assert parsed[0]["headSha"] == "abc"
+
+    def test_get_pipeline_status_cli_failure(self, ctx: VcsContext) -> None:
+        provider = GitHubProvider()
+        proc = MagicMock(returncode=1, stdout="", stderr="error")
+        with patch("subprocess.run", return_value=proc):
+            result = provider.get_pipeline_status(
+                PipelineStatusContext(project_root=ctx.project_root, head_sha="abc")
+            )
+        assert result.success is False
+
+    def test_get_pipeline_status_bad_json(self, ctx: VcsContext) -> None:
+        provider = GitHubProvider()
+        proc = MagicMock(returncode=0, stdout="not-json", stderr="")
+        with patch("subprocess.run", return_value=proc):
+            result = provider.get_pipeline_status(
+                PipelineStatusContext(project_root=ctx.project_root, head_sha="abc")
+            )
+        assert result.output == "not-json"
+
+
+class TestGitHubResolveBodyFile:
+    """Tests for GitHubProvider._resolve_body_file."""
+
+    def test_uses_ctx_body_file_if_provided(self, ctx: VcsContext) -> None:
+        provider = GitHubProvider()
+        body_file = Path("/tmp/test-body.md")
+        new_ctx = VcsContext(project_root=ctx.project_root, body="text", body_file=body_file)
+        path, cleanup = provider._resolve_body_file(new_ctx)
+        assert path == body_file
+        assert cleanup is False
+
+    def test_creates_temp_file_when_no_body_file(self, ctx: VcsContext) -> None:
+        provider = GitHubProvider()
+        new_ctx = VcsContext(project_root=ctx.project_root, body="hello world")
+        path, cleanup = provider._resolve_body_file(new_ctx)
+        try:
+            assert cleanup is True
+            assert path.exists()
+            assert path.read_text(encoding="utf-8") == "hello world"
+        finally:
+            path.unlink(missing_ok=True)
 
 
 class TestAzureReleaseMethods:
@@ -303,6 +367,14 @@ class TestGitHubIssueFindClose:
         cmd = run_mock.call_args[0][0]
         assert "close" in cmd
         assert "7" in cmd
+
+    def test_find_issue_bad_json(self, ctx: VcsContext) -> None:
+        provider = GitHubProvider()
+        proc = MagicMock(returncode=0, stdout="not-json", stderr="")
+        with patch("subprocess.run", return_value=proc):
+            result = provider.find_issue(IssueContext(project_root=ctx.project_root, spec_id="037"))
+        assert result.success is False
+        assert "parse" in result.output.lower()
 
     def test_link_issue_to_pr_noop(self, ctx: VcsContext) -> None:
         provider = GitHubProvider()
@@ -446,3 +518,41 @@ class TestAzureUpsertMethods:
         cmd = run_mock.call_args[0][0]
         assert "--description" in cmd
         assert "--id" in cmd
+
+
+class TestAzureDevOpsErrorPaths:
+    """Tests for AzureDevOps error handling paths."""
+
+    def test_get_pipeline_status_cli_failure(self, ctx: VcsContext) -> None:
+        provider = AzureDevOpsProvider()
+        proc = MagicMock(returncode=1, stdout="", stderr="auth error")
+        with patch("subprocess.run", return_value=proc):
+            result = provider.get_pipeline_status(
+                PipelineStatusContext(project_root=ctx.project_root, head_sha="abc")
+            )
+        assert result.success is False
+
+    def test_get_pipeline_status_bad_json(self, ctx: VcsContext) -> None:
+        provider = AzureDevOpsProvider()
+        proc = MagicMock(returncode=0, stdout="not-json", stderr="")
+        with patch("subprocess.run", return_value=proc):
+            result = provider.get_pipeline_status(
+                PipelineStatusContext(project_root=ctx.project_root, head_sha="abc")
+            )
+        assert result.output == "not-json"
+
+    def test_find_issue_bad_json(self, ctx: VcsContext) -> None:
+        provider = AzureDevOpsProvider()
+        proc = MagicMock(returncode=0, stdout="not-json", stderr="")
+        with patch("subprocess.run", return_value=proc):
+            result = provider.find_issue(IssueContext(project_root=ctx.project_root, spec_id="037"))
+        assert result.success is False
+        assert "parse" in result.output.lower()
+
+    def test_read_body_oserror(self, ctx: VcsContext) -> None:
+        provider = AzureDevOpsProvider()
+        bad_file = MagicMock()
+        bad_file.read_text.side_effect = OSError("denied")
+        new_ctx = VcsContext(project_root=ctx.project_root, body="fallback", body_file=bad_file)
+        result = provider._read_body(new_ctx)
+        assert result == "fallback"

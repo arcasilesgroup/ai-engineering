@@ -63,6 +63,16 @@ Execute the `/pr` governed workflow: conditionally run spec reset, stage, commit
    - Ask: "Do you have an external documentation portal (docs site, wiki, separate repo)? Provide the repo URL, or 'skip'."
    - If URL provided: clone, branch, update, commit + push + create PR with auto-complete, report URL.
    - If 'skip': continue without external docs.
+     e. **Update product-contract.md** (when scope requires it):
+   - Evaluate if staged changes affect product contract sections:
+     - New skills/agents/stacks: Section 2.2 (Functional Requirements), 3.1 (Stack).
+     - Security findings changes: Section 5.4 (Hardening), 7.3 (KPIs).
+     - New features/epics completion: Section 7.2 (Active Epics), 7.1 (Roadmap).
+     - Coverage/quality metric changes: Section 6.1 (Quality Gates), 7.3 (KPIs).
+     - Architecture changes: Section 2.1 (High-Level Solution), 3.1 (Stack).
+     - New integrations/providers: Section 2.4 (Integrations).
+   - If updates needed: invoke product-contract skill in sync mode for affected sections. Stage the updated file.
+   - If no product-contract sections affected: skip silently.
 6. **Run pre-push checks** — execute full pre-push gate:
    - `semgrep scan --config auto .`
    - `pip-audit`
@@ -169,6 +179,7 @@ When creating the PR:
    - [ ] CHANGELOG.md updated for user-visible changes.
    - [ ] README.md updated for new features/breaking changes (if applicable).
    - [ ] External docs PR created (if applicable).
+   - [ ] product-contract.md updated for product-level changes (if applicable).
    - [ ] Breaking changes documented (if any).
 
 4. **Labels and metadata** — tag appropriately.

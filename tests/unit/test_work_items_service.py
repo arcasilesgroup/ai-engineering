@@ -108,6 +108,57 @@ class TestSyncSpecIssues:
         assert len(report.errors) == 1
         assert "037-sync" in report.errors[0]
 
+    def test_returns_empty_when_specs_dir_missing(self, tmp_path: Path) -> None:
+        provider = _mock_provider()
+        with patch("ai_engineering.work_items.service.get_provider", return_value=provider):
+            report = sync_spec_issues(tmp_path)
+        assert report == SyncReport()
+        provider.find_issue.assert_not_called()
+
+    def test_close_issue_error(self, tmp_path: Path) -> None:
+        _make_spec_dir(tmp_path, "037-sync", done=True)
+        provider = _mock_provider(find_output="42", close_success=False)
+        provider.close_issue.return_value = VcsResult(success=False, output="auth failed")
+
+        with patch("ai_engineering.work_items.service.get_provider", return_value=provider):
+            report = sync_spec_issues(tmp_path)
+
+        assert len(report.errors) == 1
+        assert "close failed" in report.errors[0]
+
+    def test_create_issue_error(self, tmp_path: Path) -> None:
+        _make_spec_dir(tmp_path, "037-sync")
+        provider = _mock_provider(find_output="", create_success=False)
+        provider.create_issue.return_value = VcsResult(success=False, output="rate limited")
+
+        with patch("ai_engineering.work_items.service.get_provider", return_value=provider):
+            report = sync_spec_issues(tmp_path)
+
+        assert len(report.errors) == 1
+        assert "create failed" in report.errors[0]
+
+    def test_dry_run_closes_existing_done(self, tmp_path: Path) -> None:
+        _make_spec_dir(tmp_path, "037-sync", done=True)
+        provider = _mock_provider(find_output="42")
+
+        with patch("ai_engineering.work_items.service.get_provider", return_value=provider):
+            report = sync_spec_issues(tmp_path, dry_run=True)
+
+        assert "037-sync" in report.closed
+        provider.close_issue.assert_not_called()
+
+    def test_parse_spec_oserror(self, tmp_path: Path) -> None:
+        from ai_engineering.work_items.service import _parse_spec_for_issue
+
+        spec_md = tmp_path / "spec.md"
+        spec_md.write_text("content", encoding="utf-8")
+
+        with patch.object(Path, "read_text", side_effect=OSError("permission denied")):
+            title, body = _parse_spec_for_issue(spec_md, "037")
+
+        assert "spec-037" in title
+        assert body == ""
+
     def test_skips_archive_and_special_files(self, tmp_path: Path) -> None:
         specs_dir = tmp_path / ".ai-engineering" / "context" / "specs"
         specs_dir.mkdir(parents=True)

@@ -29,6 +29,28 @@ work_items:
   sources:
     - type: "github-projects"
       project: "https://github.com/orgs/arcasilesgroup/projects/4"
+      project_id: "PVT_kwDOC-uI1c4BQt9A"
+      fields:
+        status: "PVTSSF_lADOC-uI1c4BQt9Azg-wcrY"
+        priority: "PVTSSF_lADOC-uI1c4BQt9Azg-wcuM"
+        size: "PVTSSF_lADOC-uI1c4BQt9Azg-wcuQ"
+      status_options:
+        backlog: "f75ad846"
+        ready: "61e4505c"
+        in_progress: "47fc9ee4"
+        in_review: "df73e18b"
+        done: "98236657"
+      priority_options:
+        p0: "79628723"
+        p1: "0a877460"
+        p2: "da944a9c"
+      size_options:
+        xs: "6c6483d2"
+        s: "f784b110"
+        m: "7515a9f1"
+        l: "817d0097"
+        xl: "db339eb2"
+      labels_type: ["type:bug", "type:feature", "type:task", "type:refactor", "type:governance", "type:docs"]
       labels_ready: ["ready", "agent-ready"]
       labels_priority: ["p1-critical", "p2-high", "p3-normal"]
     - type: "github-issues"
@@ -43,10 +65,14 @@ work_items:
     on_task_complete: update_sub_issue
 
 issue_standard:
-  required_fields:
-    ["title", "description", "priority", "size", "acceptance_criteria"]
+  source_of_truth: "project_fields"
+  labels_role: "compatibility_and_search"
+  required_fields: ["title", "type", "labels", "description", "priority", "size"]
+  required_on_start: ["start_date"]
+  required_on_create: ["target_date", "estimate"]
+  spec_url_format: "https://github.com/{owner}/{repo}/blob/{branch}/.ai-engineering/context/specs/{spec_id}/spec.md"
   priority_labels: ["p1-critical", "p2-high", "p3-normal"]
-  size_labels: ["S", "M", "L", "XL"]
+  size_labels: ["XS", "S", "M", "L", "XL"]
   priority_mapping:
     P0: "p1-critical"
     P1: "p2-high"
@@ -134,6 +160,7 @@ providers:
         organization: null
         project: null
         repository: null
+        work_item_type: "User Story"
         constraints:
           branch_name_required: true
           work_item_link_optional: true
