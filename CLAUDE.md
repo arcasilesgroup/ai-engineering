@@ -101,7 +101,7 @@ Deterministic tasks run locally without AI tokens (~38% savings):
 | `ai-eng stack add\|remove\|list` | Stack management |
 | `ai-eng ide add\|remove\|list` | IDE configuration |
 | `ai-eng provider add\|remove\|list` | Provider management |
-| `ai-eng skill list\|sync\|add\|remove\|status` | Skill management |
+| `ai-eng skill status` | Skill eligibility diagnostics |
 | `ai-eng maintenance report\|pr\|all` | Repo hygiene + maintenance |
 | `ai-eng vcs status\|set-primary` | VCS operations |
 | `ai-eng review pr` | PR review |

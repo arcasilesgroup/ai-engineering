@@ -18,7 +18,6 @@ from ai_engineering.state.defaults import (
     default_decision_store,
     default_install_manifest,
     default_ownership_map,
-    default_sources_lock,
 )
 from ai_engineering.state.io import (
     append_ndjson,
@@ -37,7 +36,6 @@ from ai_engineering.state.models import (
     OwnershipMap,
     ReleaseInfo,
     SonarCicdConfig,
-    SourcesLock,
     ToolingReadiness,
     UpdateMetadata,
 )
@@ -83,6 +81,32 @@ class TestInstallManifest:
         assert "installedStacks" in data
         assert "installedIdes" in data
         assert "installed_stacks" not in data
+
+
+class TestDefaultInstallManifest:
+    """Tests for default_install_manifest factory."""
+
+    def test_default_github_provider(self) -> None:
+        m = default_install_manifest()
+        assert m.providers.primary == "github"
+        assert m.providers.enabled == ["github"]
+
+    def test_azure_provider_also_enables_github(self) -> None:
+        m = default_install_manifest(vcs_provider="azure_devops")
+        assert m.providers.primary == "azure_devops"
+        assert "azure_devops" in m.providers.enabled
+        assert "github" in m.providers.enabled
+        assert m.providers.extensions.azure_devops.enabled is True
+
+    def test_custom_stacks_and_ides(self) -> None:
+        m = default_install_manifest(stacks=["node"], ides=["vscode"])
+        assert m.installed_stacks == ["node"]
+        assert m.installed_ides == ["vscode"]
+
+    def test_custom_ai_providers(self) -> None:
+        m = default_install_manifest(ai_providers=["copilot", "claude_code"])
+        assert m.ai_providers.primary == "copilot"
+        assert m.ai_providers.enabled == ["copilot", "claude_code"]
 
 
 class TestSonarCicdConfig:
@@ -308,15 +332,6 @@ class TestUpdateMetadata:
         assert meta.potential_impact == "impact"
 
 
-class TestSourcesLock:
-    """Tests for SourcesLock model."""
-
-    def test_empty_sources(self) -> None:
-        lock = SourcesLock()
-        assert lock.sources == []
-        assert lock.default_remote_enabled is True
-
-
 # ── I/O ─────────────────────────────────────────────────────────────────
 
 
@@ -362,13 +377,6 @@ class TestJsonIO:
         loaded = read_json_model(path, OwnershipMap)
         assert len(loaded.paths) == len(om.paths)
         assert loaded.paths[0].owner == OwnershipLevel.FRAMEWORK_MANAGED
-
-    def test_roundtrip_sources_lock(self, tmp_path: Path) -> None:
-        path = tmp_path / "sources.lock.json"
-        lock = default_sources_lock()
-        write_json_model(path, lock)
-        loaded = read_json_model(path, SourcesLock)
-        assert loaded.default_remote_enabled is False
 
 
 class TestNdjsonIO:
@@ -450,11 +458,6 @@ class TestDefaults:
     def test_default_decision_store_empty(self) -> None:
         store = default_decision_store()
         assert store.decisions == []
-
-    def test_default_sources_lock_remote_disabled(self) -> None:
-        lock = default_sources_lock()
-        assert lock.default_remote_enabled is False
-        assert lock.sources == []
 
 
 # ── Decision Logic ──────────────────────────────────────────────────────

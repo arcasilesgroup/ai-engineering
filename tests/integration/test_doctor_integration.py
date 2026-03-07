@@ -98,7 +98,7 @@ class TestStateFileChecks:
         report = diagnose(installed_project)
         state_checks = [c for c in report.checks if c.name.startswith("state:")]
         assert all(c.status == CheckStatus.OK for c in state_checks)
-        assert len(state_checks) == 4
+        assert len(state_checks) == 3
 
     def test_fails_on_missing_manifest(self, installed_project: Path) -> None:
         manifest = installed_project / ".ai-engineering" / "state" / "install-manifest.json"

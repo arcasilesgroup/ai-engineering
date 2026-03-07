@@ -5,7 +5,6 @@ Defines schemas for:
 - OwnershipMap: path-level ownership for safe updates.
 - DecisionStore: risk and flow decisions with context hashing.
 - AuditEntry: governance event log entries.
-- SourcesLock: remote skill source integrity metadata.
 """
 
 from __future__ import annotations
@@ -471,59 +470,3 @@ class AuditEntry(BaseModel):
     task: str | None = None
     detail: str | dict[str, Any] | None = None
     session: str | None = None
-
-
-# --- SourcesLock ---
-
-
-class SignatureMetadata(BaseModel):
-    """Cryptographic signature metadata for a remote source."""
-
-    algorithm: str | None = None
-    key_id: str | None = Field(default=None, alias="keyId")
-    signature: str | None = None
-    verified: bool = False
-
-    model_config = {"populate_by_name": True}
-
-
-class CacheConfig(BaseModel):
-    """Cache configuration for a remote source."""
-
-    ttl_hours: int = Field(default=24, alias="ttlHours")
-    last_fetched_at: datetime | None = Field(default=None, alias="lastFetchedAt")
-
-    model_config = {"populate_by_name": True}
-
-
-class RemoteSource(BaseModel):
-    """A trusted remote skill source."""
-
-    url: str
-    trusted: bool = True
-    checksum: str | None = None
-    signature_metadata: SignatureMetadata = Field(
-        default_factory=SignatureMetadata,
-        alias="signatureMetadata",
-    )
-    cache: CacheConfig = Field(default_factory=CacheConfig)
-
-    model_config = {"populate_by_name": True}
-
-
-class SourcesLock(BaseModel):
-    """Lock file for trusted remote skill sources.
-
-    Provides deterministic and safe skill resolution with integrity checking.
-    Stored at `.ai-engineering/state/sources.lock.json`.
-    """
-
-    schema_version: str = Field(default="1.0", alias="schemaVersion")
-    update_metadata: UpdateMetadata | None = Field(default=None, alias="updateMetadata")
-    generated_at: datetime = Field(
-        default_factory=lambda: datetime.now(tz=UTC), alias="generatedAt"
-    )
-    default_remote_enabled: bool = Field(default=True, alias="defaultRemoteEnabled")
-    sources: list[RemoteSource] = Field(default_factory=list)
-
-    model_config = {"populate_by_name": True}

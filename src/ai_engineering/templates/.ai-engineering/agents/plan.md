@@ -49,13 +49,13 @@ pipelines:
     triggers: [3-5-files, enhancement]
 
   hotfix:                              # Urgent fixes
-    steps: [discover, risk, dispatch]
-    gates: [risk-acknowledged]
+    steps: [discover, risk, spec, dispatch]
+    gates: [spec-required, risk-acknowledged]
     triggers: [bug-fix, <3-files, security-patch]
 
   trivial:                             # Typos, 1-line
-    steps: [dispatch]
-    gates: []
+    steps: [spec, dispatch]
+    gates: [spec-required]
     triggers: [typo, comment, single-line]
 ```
 
@@ -75,7 +75,7 @@ On session start (to resume planning):
 
 1. **Apply shared planning rules** -- execute `PLAN-R1..PLAN-R4` from `skills/plan/SKILL.md`
 2. **Triage** (if configured) -- check for pending work items via release agent
-5. **Spec creation** (MANDATORY for full/standard) -- invoke `ai:spec` to scaffold
+5. **Spec creation** (MANDATORY for all pipelines) -- invoke `ai:spec` to scaffold. Every pipeline (full, standard, hotfix, trivial) must produce a spec so `/ai:execute` always has a spec/plan to dispatch agents and tasks from
 6. **Build execution plan** -- capability-match tasks to agents, build execution plan document in plan.md
    **Output**: execution plan with agent assignments, phase ordering, gate criteria
   **STOP**: Present execution plan to user. To execute, user runs `/ai:execute`.
@@ -89,13 +89,39 @@ This boundary maps to shared rule `PLAN-B1`.
 Prohibited during `/ai:plan`:
 - invoking `ai:build`, `ai:scan`, `ai:release`, or `ai:write` for task execution,
 - checking off implementation tasks as completed,
-- modifying source code as part of execution.
+- modifying source code as part of execution,
+- using Edit/Write tools to create spec files directly.
 
 Allowed during `/ai:plan`:
 - discovery, risk assessment, and architecture/planning analysis,
-- spec/plan/task scaffolding,
+- producing spec content as **structured text in the conversation**,
+- calling `ai-eng spec save` via Bash to persist the spec (CLI writes, not LLM),
 - producing agent assignments and phase ordering,
 - stopping with explicit handoff to `/ai:execute`.
+
+### Spec-as-Gate Pattern (mandatory)
+
+The plan agent MUST follow the artifact-as-gate pattern for spec creation:
+
+1. **Produce spec as text** — write the full spec (Problem, Solution, Scope, Tasks, etc.) as markdown directly in the conversation output. Do NOT use Edit/Write tools.
+2. **Persist via CLI** — call `ai-eng spec save` via Bash, piping the spec content through stdin. The CLI handles validation, branch creation, file scaffolding, and commit.
+3. **STOP** — after the CLI confirms the spec is saved, present the result and stop. The user must explicitly invoke `/ai:execute` to begin implementation.
+
+Example:
+```bash
+cat <<'EOF' | ai-eng spec save --title "Feature Name" --pipeline standard --size M
+# Feature Name
+## Problem
+...
+## Solution
+...
+## Tasks
+- [ ] 1.1 First task
+- [ ] 1.2 Second task
+EOF
+```
+
+This pattern is cross-IDE: it works identically in Claude Code, GitHub Copilot, Cursor, OpenCode, Codex, or any chat with terminal access. No IDE plan mode is required.
 
 ### Strategic Analysis Mode
 

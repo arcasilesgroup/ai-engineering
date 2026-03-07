@@ -257,7 +257,6 @@ class TestInstallOnEmptyRepo:
         assert (tmp_path / ".ai-engineering" / "state" / "install-manifest.json").is_file()
         assert (tmp_path / ".ai-engineering" / "state" / "ownership-map.json").is_file()
         assert (tmp_path / ".ai-engineering" / "state" / "decision-store.json").is_file()
-        assert (tmp_path / ".ai-engineering" / "state" / "sources.lock.json").is_file()
 
         # Project files created
         assert (tmp_path / "CLAUDE.md").is_file()

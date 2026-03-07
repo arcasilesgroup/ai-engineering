@@ -24,7 +24,7 @@ applyTo: "**/*.md"
 ### Project-Managed (`.ai-engineering/context/**`)
 
 - Owned by the project — living documents updated during active work.
-- Includes product contracts, specs, learnings.
+- Includes product contracts, specs, decisions.
 
 ### Skills (`.ai-engineering/skills/**`)
 
@@ -60,4 +60,4 @@ Specs follow the structure defined in `.ai-engineering/context/specs/`:
 - `spec.md` — WHAT: problem, solution, scope, risks.
 - `plan.md` — HOW: phases, session map, dependencies.
 - `tasks.md` — DO: checkboxes, atomic commits, progress tracking.
-- `done.md` — DONE: closure summary, quality gate result, decisions, learnings.
+- `done.md` — DONE: closure summary, quality gate result, decisions.

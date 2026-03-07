@@ -42,9 +42,15 @@ Execute full repository hygiene — branch cleanup and remote status assessment.
 ### Phase 1: Sync
 
 4. **Identify base branch** — determine the default branch (`main` or `master`).
-5. **Check working tree** — if dirty, warn and stop. Do not stash automatically.
+5. **Check working tree** — if dirty, stash changes automatically:
+   - `git stash push -m "cleanup-auto-stash"`.
+   - Record that a stash was created for restoration at the end.
 6. **Switch to base** — `git checkout <base-branch>`.
 7. **Pull latest** — `git pull --ff-only origin <base-branch>`.
+8. **Restore stash** (if created in step 5) — after all cleanup phases complete:
+   - Switch back to the original branch (if different from base): `git checkout <original-branch>`.
+   - `git stash pop`.
+   - If pop conflicts, warn and leave stash intact for manual resolution.
 
 ### Phase 2: Prune
 

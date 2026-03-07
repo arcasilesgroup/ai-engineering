@@ -113,7 +113,7 @@
 > - **standards/** — reglas del framework y del equipo, con layering de precedencia.
 > - **skills/** — 45 procedimientos reutilizables en 6 categorías.
 > - **agents/** — 15 personas especializadas con contratos de comportamiento.
-> - **context/** — specs de entrega, contratos de producto, learnings institucionales.
+> - **context/** — specs de entrega, contratos de producto, decisiones.
 > - **state/** — decision store, audit log, manifests de instalación.
 >
 > El CLI es mínimo: `ai-eng install`, `update`, `doctor`, `validate`. Cuatro comandos.
@@ -164,7 +164,7 @@
 >
 > 2. **Team-managed**: standards del equipo en `standards/team/`. **NUNCA sobrescrito** por updates del framework. El equipo puede ser más estricto, pero nunca más débil que el framework.
 >
-> 3. **Project-managed**: specs de entrega, contratos de producto, learnings. **NUNCA sobrescrito**. Es la memoria institucional del proyecto.
+> 3. **Project-managed**: specs de entrega, contratos de producto, decisiones. **NUNCA sobrescrito**. Es la memoria institucional del proyecto.
 >
 > 4. **System-managed**: state files de runtime — decision store, audit log, install manifest. Mantenidos automáticamente.
 >
@@ -234,7 +234,7 @@
 > - **spec.md** — el QUÉ: requisitos, scope, criterios de aceptación.
 > - **plan.md** — el CÓMO: decisiones arquitectónicas, approach, trade-offs.
 > - **tasks.md** — el HACER: lista ordenada de tareas, asignables, rastreables.
-> - **done.md** — el HECHO: log de completación, learnings registrados.
+> - **done.md** — el HECHO: resumen de completación.
 >
 > Esto **NO es burocracia**. Es **recuperación de sesión IA**. Cualquier agente puede retomar cualquier spec en cualquier punto. La IA lee spec.md, consulta tasks.md, verifica decision-store, y continúa exactamente donde se quedó.
 >

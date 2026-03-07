@@ -1,0 +1,42 @@
+---
+description: AI Engineering governance framework rules
+globs: "**/*"
+---
+
+# AI Engineering Framework
+
+Project instructions are canonical in `.ai-engineering/`.
+
+## Skills & Agents
+
+- Skills: `.ai-engineering/skills/<name>/SKILL.md` (35 skills, flat layout)
+- Agents: `.ai-engineering/agents/<name>.md` (7 agents: plan, execute, build, scan, release, write, observe)
+
+## Plan/Execute Flow (Spec-as-Gate)
+
+When the user says `/ai:plan`:
+
+1. Read `.ai-engineering/agents/plan.md` and follow its behavior.
+2. Analyze the request: read code, discover requirements, assess risk.
+3. Produce the spec as **text in the conversation** — do NOT write files directly.
+4. Persist via CLI: `cat <<'EOF' | ai-eng spec save --title "..." --pipeline standard --size M`
+5. STOP and wait for the user to invoke `/ai:execute`.
+
+When the user says `/ai:execute`:
+
+1. Read `.ai-engineering/agents/execute.md` and follow its behavior.
+2. Read the active spec from `.ai-engineering/context/specs/_active.md`.
+3. Execute tasks phase by phase per the plan.
+
+## Command Contract
+
+- `/ai:plan` — plan + spec creation (STOPS before execution)
+- `/ai:execute` — read spec, dispatch implementation
+- `/ai:commit` — stage + commit + push
+- `/ai:pr` — stage + commit + push + PR
+
+## Quality & Security
+
+- Coverage 90%, duplication ≤3%, cyclomatic ≤10
+- Zero medium/high/critical findings, zero leaks
+- Run `ruff check` and `ruff format` before committing

@@ -13,7 +13,6 @@ _REQUIRED_STATE_FILES: list[str] = [
     "state/install-manifest.json",
     "state/ownership-map.json",
     "state/decision-store.json",
-    "state/sources.lock.json",
 ]
 
 

@@ -43,6 +43,28 @@ Path: `.ai-engineering/agents/<name>.md`
 - `/ai:pr` → stage + commit + push + PR + auto-complete (`--auto --squash --delete-branch`)
 - `/ai:pr --only` → create PR; warn if unpushed, propose auto-push
 
+## Plan/Execute Flow (Spec-as-Gate)
+
+During `/ai:plan`, do NOT use file-writing tools to create spec files. Instead:
+
+1. **Analyze** — read code, discover requirements, assess risk (read-only).
+2. **Produce spec as text** — write the full spec (Problem, Solution, Scope, Tasks) as markdown in the conversation.
+3. **Persist via CLI** — pipe the spec to `ai-eng spec save`:
+   ```bash
+   cat <<'EOF' | ai-eng spec save --title "Feature Name" --pipeline standard --size M
+   # Feature Name
+   ## Problem
+   ...
+   ## Solution
+   ...
+   ## Tasks
+   - [ ] 1.1 Task description
+   EOF
+   ```
+4. **STOP** — present the result and wait for the user to invoke `/ai:execute`.
+
+No IDE plan mode is required. The CLI handles validation, branch creation, file scaffolding, and commit.
+
 ## Quality Contract
 
 Coverage 90%, duplication ≤3%, cyclomatic ≤10, cognitive ≤15, zero blocker/critical, 100% gate pass.

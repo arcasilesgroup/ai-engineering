@@ -94,7 +94,6 @@ ownership:
     system_managed:
       - "state/install-manifest.json"
       - "state/ownership-map.json"
-      - "state/sources.lock.json"
       - "state/decision-store.json"
       - "state/audit-log.ndjson"
       - "state/session-checkpoint.json"
@@ -225,22 +224,6 @@ observability:
   retention_days: 90
   audiences: [engineer, team, ai]
   dora_enabled: true
-
-remote_skills:
-  enabled: true
-  sources:
-    - "https://skills.sh/"
-    - "https://www.aitmpl.com/skills"
-  trust_policy:
-    allowlist_only: true
-    checksums_required: true
-    allow_null_checksums_before_first_sync: true
-    signature_metadata_required: true
-    remote_execution_allowed: false
-  cache:
-    ttl_hours: 24
-    offline_fallback: true
-    lock_file: ".ai-engineering/state/sources.lock.json"
 
 risk_acceptance:
   remediation:

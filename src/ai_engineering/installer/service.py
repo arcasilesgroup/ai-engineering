@@ -7,7 +7,7 @@ Steps performed by ``install()``:
 1. Copy ``.ai-engineering/`` governance templates (create-only).
 2. Copy project-level IDE agent templates (CLAUDE.md, .github/copilot/, etc.).
 3. Generate state files from defaults (install-manifest, ownership-map,
-   decision-store, sources.lock).
+   decision-store).
 4. Append an audit-log entry recording the installation.
 """
 
@@ -25,7 +25,6 @@ from ai_engineering.state.defaults import (
     default_decision_store,
     default_install_manifest,
     default_ownership_map,
-    default_sources_lock,
 )
 from ai_engineering.state.io import append_ndjson, read_json_model, write_json_model
 from ai_engineering.state.models import AuditEntry, InstallManifest, SonarCicdConfig
@@ -49,7 +48,6 @@ _STATE_FILES: dict[str, str] = {
     "install-manifest": "state/install-manifest.json",
     "ownership-map": "state/ownership-map.json",
     "decision-store": "state/decision-store.json",
-    "sources-lock": "state/sources.lock.json",
 }
 
 _AUDIT_LOG_PATH: str = "state/audit-log.ndjson"
@@ -173,7 +171,6 @@ def _generate_state_files(
         ),
         _STATE_FILES["ownership-map"]: default_ownership_map(),
         _STATE_FILES["decision-store"]: default_decision_store(),
-        _STATE_FILES["sources-lock"]: default_sources_lock(),
     }
 
     for relative_path, model in state_models.items():

@@ -36,6 +36,14 @@ Execute the `/commit` governed workflow: stage all changes, run mandatory pre-co
 
 ### `/commit` (default: stage + commit + push)
 
+0. **Auto-branch from protected** — if current branch is `main` or `master`:
+   a. Analyze pending changes (`git diff --stat` + file paths) to infer change type.
+   b. Select prefix: `feat/` | `fix/` | `chore/` | `docs/` | `refactor/` based on change type.
+   c. Generate a descriptive slug (kebab-case, max 50 chars) from the changes.
+   d. Create branch: `git checkout -b <prefix>/<slug>`.
+   e. Report: "Auto-created branch: `<branch-name>`" and continue.
+   If NOT on a protected branch, skip this step.
+
 1. **Stage changes** — `git add -A` (or selective staging if user specifies files).
 2. **Run formatter** — `ruff format .` to auto-fix formatting.
 3. **Run linter** — `ruff check . --fix` to auto-fix safe lint issues. If unfixable issues remain, report and stop.

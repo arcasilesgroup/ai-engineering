@@ -4,7 +4,7 @@ Uses Typer's CliRunner to test CLI commands end-to-end:
 - install, doctor, update, version.
 - stack add/remove/list, ide add/remove/list.
 - gate pre-commit/commit-msg/pre-push.
-- skill list/sync.
+- skill status.
 - maintenance report.
 """
 
@@ -316,43 +316,12 @@ class TestGateCommands:
 class TestSkillCommands:
     """Tests for skill commands."""
 
-    def test_skill_list(self, installed_dir: Path, app: object) -> None:
+    def test_skill_status(self, installed_dir: Path, app: object) -> None:
         result = runner.invoke(
             app,
-            ["skill", "list", "--target", str(installed_dir)],
+            ["skill", "status", "--target", str(installed_dir)],
         )
         assert result.exit_code == 0
-
-    def test_skill_add_and_remove(
-        self,
-        installed_dir: Path,
-        app: object,
-    ) -> None:
-        result = runner.invoke(
-            app,
-            [
-                "skill",
-                "add",
-                "https://example.com/skill.md",
-                "--target",
-                str(installed_dir),
-            ],
-        )
-        assert result.exit_code == 0
-        assert "Added source" in result.output
-
-        result = runner.invoke(
-            app,
-            [
-                "skill",
-                "remove",
-                "https://example.com/skill.md",
-                "--target",
-                str(installed_dir),
-            ],
-        )
-        assert result.exit_code == 0
-        assert "Removed source" in result.output
 
 
 # ---------------------------------------------------------------------------

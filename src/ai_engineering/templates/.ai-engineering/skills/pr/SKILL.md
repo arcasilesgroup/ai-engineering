@@ -39,16 +39,24 @@ Execute the `/pr` governed workflow: conditionally run spec reset, stage, commit
 
 ### `/pr` (default: conditional spec reset + stage + commit + push + create PR + auto-complete)
 
-0. **Spec reset** (conditional) — run `uv run ai-eng maintenance spec-reset --dry-run`.
+0. **Auto-branch from protected** — if current branch is `main` or `master`:
+   a. Analyze pending changes (`git diff --stat` + file paths) to infer change type.
+   b. Select prefix: `feat/` | `fix/` | `chore/` | `docs/` | `refactor/` based on change type.
+   c. Generate a descriptive slug (kebab-case, max 50 chars) from the changes.
+   d. Create branch: `git checkout -b <prefix>/<slug>`.
+   e. Report: "Auto-created branch: `<branch-name>`" and continue.
+   If NOT on a protected branch, skip this step.
+
+1. **Spec reset** (conditional) — run `uv run ai-eng maintenance spec-reset --dry-run`.
    - If a completed active spec is detected: run `uv run ai-eng maintenance spec-reset` and report the summary.
    - If there is no active spec or the active spec is in progress: skip silently.
    - If spec reset fails: report the error and stop.
    - This ensures archived specs and cleared `_active.md` are staged with the PR and reach origin when the PR merges.
-1. **Stage changes** — `git add -A` (or selective staging).
-2. **Run formatter** — `ruff format .` to auto-fix formatting.
-3. **Run linter** — `ruff check . --fix`. If unfixable issues remain, report and stop.
-4. **Run secret detection** — `gitleaks protect --staged --no-banner`. If secrets found, report and stop.
-5. **Documentation gate** — evaluate and update documentation for OSS GitHub users.
+2. **Stage changes** — `git add -A` (or selective staging).
+3. **Run formatter** — `ruff format .` to auto-fix formatting.
+4. **Run linter** — `ruff check . --fix`. If unfixable issues remain, report and stop.
+5. **Run secret detection** — `gitleaks protect --staged --no-banner`. If secrets found, report and stop.
+6. **Documentation gate** — evaluate and update documentation for OSS GitHub users.
    a. Analyze staged changes and classify documentation scope:
    - **CHANGELOG + README**: new features, breaking changes, new CLI commands, skill/agent additions or removals, config schema changes, architecture changes visible to users.
    - **CHANGELOG only**: any other functional change — src/ modifications, API changes, dependency bumps with behavioral impact, governance surface changes, workflow behavior changes.
@@ -73,33 +81,33 @@ Execute the `/pr` governed workflow: conditionally run spec reset, stage, commit
      - New integrations/providers: Section 2.4 (Integrations).
    - If updates needed: invoke product-contract skill in sync mode for affected sections. Stage the updated file.
    - If no product-contract sections affected: skip silently.
-6. **Run pre-push checks** — execute full pre-push gate:
+7. **Run pre-push checks** — execute full pre-push gate:
    - `semgrep scan --config auto .`
    - `pip-audit`
    - `pytest tests/ -v`
    - `ty check src/`
      If any check fails, report and stop.
-7. **Spec verify** — if an active spec exists, run `ai-eng spec verify` to auto-correct counters.
-8. **Spec catalog** — run `ai-eng spec catalog` to regenerate the spec catalog before PR.
-9. **Commit** — `git commit -m "<message>"` with well-formed message.
+8. **Spec verify** — if an active spec exists, run `ai-eng spec verify` to auto-correct counters.
+9. **Spec catalog** — run `ai-eng spec catalog` to regenerate the spec catalog before PR.
+10. **Commit** — `git commit -m "<message>"` with well-formed message.
    - If active spec exists: `spec-NNN: Task X.Y — <description>`.
    - Otherwise: conventional commit format.
-10. **Push** — `git push origin <current-branch>`.
+11. **Push** — `git push origin <current-branch>`.
 
 - If current branch is `main`/`master`, **block** and report protected branch violation.
 
-9. **Detect VCS provider** — determine which CLI to use:
+12. **Detect VCS provider** — determine which CLI to use:
    a. Check `manifest.yml` → `providers.vcs.primary`.
    b. Fallback: parse `git remote get-url origin`:
    - `github.com` → GitHub (`gh`)
    - `dev.azure.com` or `visualstudio.com` → Azure DevOps (`az repos`)
      c. Verify CLI authenticated: `gh auth status` / `az account show`.
-10. **Check for existing PR** — query open PRs for current branch:
+13. **Check for existing PR** — query open PRs for current branch:
 
 - **GitHub**: `gh pr list --head <branch> --json number,title,body --state open`
 - **Azure DevOps**: `az repos pr list --source-branch <branch> --status active -o json`
 
-11. **Create or update PR**:
+14. **Create or update PR**:
 
 - **If NO existing PR** → create new:
   - **GitHub**: `gh pr create --title "<title>" --body "<body>"`
@@ -116,7 +124,7 @@ Execute the `/pr` governed workflow: conditionally run spec reset, stage, commit
   - **Azure DevOps**: `az repos pr update --id <id> --description "<extended_body>"`
     e. Report: "PR #<number> updated — description extended with new changes."
 
-12. **Enable auto-complete** — squash merge with branch deletion:
+15. **Enable auto-complete** — squash merge with branch deletion:
 
 - **GitHub**: `gh pr merge --auto --squash --delete-branch`
 - **Azure DevOps**: `az repos pr update --id <id> --auto-complete true --squash true --delete-source-branch true`

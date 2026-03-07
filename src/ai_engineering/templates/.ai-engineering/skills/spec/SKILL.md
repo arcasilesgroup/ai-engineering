@@ -223,6 +223,26 @@ Actions:
 - `done.md` at closure.
 - PR for merge back to default branch.
 
+## CLI-Driven Path (preferred from `/ai:plan`)
+
+When invoked from `/ai:plan`, spec creation SHOULD use the CLI-driven path instead of the manual procedure above:
+
+```bash
+cat <<'EOF' | ai-eng spec save --title "Title" --pipeline standard --size M --tags "tag1,tag2"
+# Title
+## Problem
+...
+## Solution
+...
+## Tasks
+- [ ] 1.1 Task one
+EOF
+```
+
+The CLI (`ai-eng spec save`) handles: validation, next spec number, branch creation, file scaffolding (spec.md/plan.md/tasks.md), `_active.md` update, and atomic commit — all deterministically without AI tokens.
+
+The manual procedure (Phases 1-8 above) remains valid for direct `/ai:spec` invocation or when the CLI is not available.
+
 ## Governance Notes
 
 - Non-trivial changes without an active spec are governance violations.
