@@ -83,6 +83,32 @@ class TestInstallManifest:
         assert "installed_stacks" not in data
 
 
+class TestDefaultInstallManifest:
+    """Tests for default_install_manifest factory."""
+
+    def test_default_github_provider(self) -> None:
+        m = default_install_manifest()
+        assert m.providers.primary == "github"
+        assert m.providers.enabled == ["github"]
+
+    def test_azure_provider_also_enables_github(self) -> None:
+        m = default_install_manifest(vcs_provider="azure_devops")
+        assert m.providers.primary == "azure_devops"
+        assert "azure_devops" in m.providers.enabled
+        assert "github" in m.providers.enabled
+        assert m.providers.extensions.azure_devops.enabled is True
+
+    def test_custom_stacks_and_ides(self) -> None:
+        m = default_install_manifest(stacks=["node"], ides=["vscode"])
+        assert m.installed_stacks == ["node"]
+        assert m.installed_ides == ["vscode"]
+
+    def test_custom_ai_providers(self) -> None:
+        m = default_install_manifest(ai_providers=["copilot", "claude_code"])
+        assert m.ai_providers.primary == "copilot"
+        assert m.ai_providers.enabled == ["copilot", "claude_code"]
+
+
 class TestSonarCicdConfig:
     """Tests for Sonar CI/CD model behavior."""
 
