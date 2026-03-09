@@ -17,6 +17,9 @@ from typing import Annotated, Any
 
 import typer
 
+from ai_engineering.cli_envelope import NextAction
+from ai_engineering.cli_output import output as route_output
+from ai_engineering.cli_output import set_json_mode
 from ai_engineering.lib.signals import (
     adoption_metrics,
     build_metrics_from,
@@ -112,14 +115,14 @@ def _dora_metrics(
     }
 
 
-def _sonar_metrics(project_root: Path) -> list[str]:
+def _sonar_metrics_data(project_root: Path) -> dict[str, Any]:
     """Fetch SonarCloud metrics for observe dashboard (silent-skip if unconfigured)."""
     try:
         from ai_engineering.policy.checks.sonar import query_sonar_quality_gate
 
         qg = query_sonar_quality_gate(project_root)
         if qg is None:
-            return []
+            return {"available": False}
 
         status = qg.get("status", "UNKNOWN")
         conditions = qg.get("conditions", [])
@@ -129,32 +132,68 @@ def _sonar_metrics(project_root: Path) -> list[str]:
                 coverage_val = cond.get("actualValue", "N/A")
                 break
 
-        lines = [
-            "",
-            "## SonarCloud Quality Gate",
-            f"- Status: {status}",
-        ]
-        if coverage_val:
-            lines.append(f"- New code coverage: {coverage_val}%")
-        lines.append(f"- Conditions: {len(conditions)}")
+        data: dict[str, Any] = {
+            "available": True,
+            "status": status,
+            "conditions_count": len(conditions),
+            "new_code_coverage": coverage_val if coverage_val else None,
+        }
 
         # Enrich with detailed measures if available
         sonar = sonar_detailed_metrics(project_root)
         if sonar.get("available"):
-            lines.append(f"- Coverage: {sonar['coverage_pct']}%")
-            lines.append(f"- Complexity: {sonar['cognitive_complexity']}")
-            lines.append(f"- Duplication: {sonar['duplication_pct']}%")
-            lines.append(
-                f"- Issues: {sonar['bugs']} bugs, {sonar['vulnerabilities']} vulnerabilities"
-            )
+            data["detailed"] = {
+                "coverage_pct": sonar["coverage_pct"],
+                "cognitive_complexity": sonar["cognitive_complexity"],
+                "duplication_pct": sonar["duplication_pct"],
+                "bugs": sonar["bugs"],
+                "vulnerabilities": sonar["vulnerabilities"],
+            }
 
-        return lines
+        return data
     except Exception:
+        return {"available": False}
+
+
+def _render_sonar_lines(sonar_data: dict[str, Any]) -> list[str]:
+    """Render SonarCloud data as markdown lines."""
+    if not sonar_data.get("available"):
         return []
 
+    lines = [
+        "",
+        "## SonarCloud Quality Gate",
+        f"- Status: {sonar_data['status']}",
+    ]
+    if sonar_data.get("new_code_coverage"):
+        lines.append(f"- New code coverage: {sonar_data['new_code_coverage']}%")
+    lines.append(f"- Conditions: {sonar_data['conditions_count']}")
 
-def observe_engineer(project_root: Path) -> str:
-    """Generate engineer dashboard."""
+    if "detailed" in sonar_data:
+        d = sonar_data["detailed"]
+        lines.append(f"- Coverage: {d['coverage_pct']}%")
+        lines.append(f"- Complexity: {d['cognitive_complexity']}")
+        lines.append(f"- Duplication: {d['duplication_pct']}%")
+        lines.append(f"- Issues: {d['bugs']} bugs, {d['vulnerabilities']} vulnerabilities")
+
+    return lines
+
+
+# ---------------------------------------------------------------------------
+# Mode functions: each returns a structured dict
+# ---------------------------------------------------------------------------
+
+
+def _count_by_type(
+    all_events: list[dict[str, Any]],
+    event_type: str,
+) -> int:
+    """Count events of a specific type from pre-loaded list."""
+    return sum(1 for e in all_events if e.get("event") == event_type)
+
+
+def observe_engineer(project_root: Path) -> dict[str, Any]:
+    """Generate engineer dashboard data."""
     all_events = load_all_events(project_root)
     dq = data_quality_from(all_events)
     gates = gate_pass_rate_from(all_events)
@@ -164,26 +203,92 @@ def observe_engineer(project_root: Path) -> str:
     days_span = (newest - oldest).days if oldest and newest else 0
 
     lt = lead_time_metrics(project_root)
+    sonar_data = _sonar_metrics_data(project_root)
+    scan = scan_metrics_from(all_events)
+    build = build_metrics_from(all_events)
+    sec = security_posture_metrics(project_root)
+    tc = test_confidence_metrics(project_root)
 
+    return {
+        "data_quality": dq,
+        "total_events": total_events,
+        "days_span": days_span,
+        "delivery_velocity": {
+            "commits_per_week": git_stats["commits_per_week"],
+            "total_commits_30d": git_stats["commits"],
+            "lead_time_median_days": lt["median_days"],
+        },
+        "gate_health": {
+            "total": gates["total"],
+            "pass_rate": gates["pass_rate"],
+            "most_failed_check": gates["most_failed_check"],
+            "most_failed_count": gates["most_failed_count"],
+        },
+        "sonar": sonar_data,
+        "lead_time": {
+            "merges_analyzed": lt["merges_analyzed"],
+            "median_days": lt["median_days"],
+            "rating": lt["rating"],
+        },
+        "code_quality": {
+            "total_scans": scan["total_scans"],
+            "avg_quality_score": scan["avg_quality_score"],
+            "avg_security_score": scan["avg_security_score"],
+            "findings": scan["findings"] if scan["total_scans"] > 0 else None,
+        },
+        "build_activity": {
+            "total_builds": build["total_builds"],
+            "files_changed": build["files_changed"],
+            "tests_added": build["tests_added"],
+        },
+        "security_posture": {
+            "source": sec["source"],
+            "vulnerabilities": sec["vulnerabilities"],
+            "security_hotspots": sec["security_hotspots"],
+            "security_rating": sec["security_rating"],
+            "dep_vulns": sec["dep_vulns"],
+        },
+        "test_confidence": {
+            "source": tc["source"],
+            "coverage_pct": tc["coverage_pct"],
+            "files_covered": tc.get("files_covered", 0),
+            "files_total": tc.get("files_total", 0),
+            "meets_threshold": tc["meets_threshold"],
+            "untested_critical": tc.get("untested_critical", []),
+        },
+        "actions": [
+            "Run `/ai:scan quality` for code quality metrics",
+            "Run `/ai:scan security` for security posture",
+            "Run `/ai:test gap` for test confidence",
+        ],
+    }
+
+
+def _render_engineer(data: dict[str, Any]) -> None:
+    """Render engineer dashboard as markdown text."""
+    dv = data["delivery_velocity"]
+    gh = data["gate_health"]
     lines = [
         "# Engineer Dashboard",
         "",
-        f"Data quality: {dq} ({total_events} events, {days_span} days)",
+        f"Data quality: {data['data_quality']}"
+        f" ({data['total_events']} events, {data['days_span']} days)",
         "",
         "## Delivery Velocity",
-        f"- Commits/week: {git_stats['commits_per_week']}",
-        f"- Total commits (30d): {git_stats['commits']}",
-        f"- Lead time (median): {lt['median_days']} days",
+        f"- Commits/week: {dv['commits_per_week']}",
+        f"- Total commits (30d): {dv['total_commits_30d']}",
+        f"- Lead time (median): {dv['lead_time_median_days']} days",
         "",
         "## Gate Health (last 30 days)",
-        f"- Total gate runs: {gates['total']}",
-        f"- Pass rate: {gates['pass_rate']}%",
-        f"- Most failed check: {gates['most_failed_check']} ({gates['most_failed_count']}x)",
+        f"- Total gate runs: {gh['total']}",
+        f"- Pass rate: {gh['pass_rate']}%",
+        f"- Most failed check: {gh['most_failed_check']} ({gh['most_failed_count']}x)",
     ]
 
-    lines.extend(_sonar_metrics(project_root))
+    lines.extend(_render_sonar_lines(data["sonar"]))
 
     # Lead Time section
+    lt = data["lead_time"]
     lines.append("")
     lines.append("## Lead Time")
     if lt["merges_analyzed"] == 0:
@@ -194,45 +299,45 @@ def observe_engineer(project_root: Path) -> str:
         lines.append(f"- Merges analyzed: {lt['merges_analyzed']}")
 
     # Code Quality from scans
-    scan = scan_metrics_from(all_events)
+    cq = data["code_quality"]
     lines.append("")
     lines.append("## Code Quality (from scans)")
-    if scan["total_scans"] == 0:
+    if cq["total_scans"] == 0:
         lines.append("- No scan data — run /ai:scan quality")
     else:
-        lines.append(f"- Quality score: {scan['avg_quality_score']}/100")
-        lines.append(f"- Security score: {scan['avg_security_score']}/100")
-        findings = scan["findings"]
+        lines.append(f"- Quality score: {cq['avg_quality_score']}/100")
+        lines.append(f"- Security score: {cq['avg_security_score']}/100")
+        findings = cq["findings"]
         lines.append(
             f"- Findings: {findings['critical']} critical, {findings['high']} high",
         )
 
     # Build Activity
-    build = build_metrics_from(all_events)
+    ba = data["build_activity"]
     lines.append("")
     lines.append("## Build Activity (last 30d)")
-    if build["total_builds"] == 0:
+    if ba["total_builds"] == 0:
         lines.append("- No build data")
     else:
-        lines.append(f"- Builds: {build['total_builds']}")
+        lines.append(f"- Builds: {ba['total_builds']}")
         lines.append(
-            f"- Files changed: {build['files_changed']}, Tests added: {build['tests_added']}",
+            f"- Files changed: {ba['files_changed']}, Tests added: {ba['tests_added']}",
         )
 
     # Security Posture
-    sec = security_posture_metrics(project_root)
+    sp = data["security_posture"]
     lines.append("")
     lines.append("## Security Posture")
-    if sec["source"] == "none":
+    if sp["source"] == "none":
         lines.append("- No data — run `ai-eng setup sonar` or install pip-audit")
     else:
-        lines.append(f"- Vulnerabilities: {sec['vulnerabilities']} ({sec['source']})")
-        lines.append(f"- Security hotspots: {sec['security_hotspots']}")
-        lines.append(f"- Security rating: {sec['security_rating']}")
-        lines.append(f"- Dependency vulnerabilities: {sec['dep_vulns']}")
+        lines.append(f"- Vulnerabilities: {sp['vulnerabilities']} ({sp['source']})")
+        lines.append(f"- Security hotspots: {sp['security_hotspots']}")
+        lines.append(f"- Security rating: {sp['security_rating']}")
+        lines.append(f"- Dependency vulnerabilities: {sp['dep_vulns']}")
 
     # Test Confidence
-    tc = test_confidence_metrics(project_root)
+    tc = data["test_confidence"]
     lines.append("")
     lines.append("## Test Confidence")
     if tc["source"] == "none":
@@ -250,119 +355,168 @@ def observe_engineer(project_root: Path) -> str:
         [
             "",
             "## Actions",
-            "- Run `/ai:scan quality` for code quality metrics",
-            "- Run `/ai:scan security` for security posture",
-            "- Run `/ai:test gap` for test confidence",
         ]
     )
-    return "\n".join(lines)
+    lines.extend(f"- {a}" for a in data["actions"])
+    typer.echo("\n".join(lines))
 
 
-def _count_by_type(
-    all_events: list[dict[str, Any]],
-    event_type: str,
-) -> int:
-    """Count events of a specific type from pre-loaded list."""
-    return sum(1 for e in all_events if e.get("event") == event_type)
-
-
-def observe_team(project_root: Path) -> str:
-    """Generate team dashboard."""
+def observe_team(project_root: Path) -> dict[str, Any]:
+    """Generate team dashboard data."""
     all_events = load_all_events(project_root)
     dq = data_quality_from(all_events)
     gates = gate_pass_rate_from(all_events)
 
-    lines = [
-        "# Team Dashboard",
-        "",
-        f"Data quality: {dq} ({len(all_events)} events)",
-        "",
-        "## Event Distribution",
-        f"- Gate events: {gates['total']}",
-        f"- Scan events: {_count_by_type(all_events, 'scan_complete')}",
-        f"- Build events: {_count_by_type(all_events, 'build_complete')}",
-        f"- Session events: {_count_by_type(all_events, 'session_metric')}",
-        f"- Deploy events: {_count_by_type(all_events, 'deploy_complete')}",
-        "",
-        "## Gate Health",
-        f"- Pass rate: {gates['pass_rate']}%",
-        f"- Most friction: {gates['most_failed_check']}",
-    ]
-
-    # Decision Store Health
     dsh = decision_store_health(project_root)
-    lines.append("")
-    lines.append("## Decision Store Health")
-    if dsh["total"] == 0:
-        lines.append("- No decisions recorded")
-    else:
-        lines.append(
-            f"- Active: {dsh['active']}, Expired (need review): {dsh['expired']}, "
-            f"Resolved: {dsh['resolved']}",
-        )
-        lines.append(f"- Avg age: {dsh['avg_age_days']} days")
-
-    # Adoption
     adopt = adoption_metrics(project_root)
-    lines.append("")
-    lines.append("## Adoption")
-    lines.append(f"- Stacks: {', '.join(adopt['stacks']) if adopt['stacks'] else 'none'}")
-    lines.append(f"- Providers: {adopt['providers']['primary']}")
-    lines.append(f"- IDEs: {', '.join(adopt['ides']) if adopt['ides'] else 'none'}")
+    scan = scan_metrics_from(all_events)
+    sm = session_metrics_from(all_events)
+    noise = noise_ratio_from(all_events)
+
     hooks_status = "installed" if adopt["hooks_installed"] else "not installed"
     if adopt["hooks_installed"]:
         hooks_status += "/verified" if adopt["hooks_verified"] else "/unverified"
-    lines.append(f"- Hooks: {hooks_status}")
+
+    return {
+        "data_quality": dq,
+        "total_events": len(all_events),
+        "event_distribution": {
+            "gate_events": gates["total"],
+            "scan_events": _count_by_type(all_events, "scan_complete"),
+            "build_events": _count_by_type(all_events, "build_complete"),
+            "session_events": _count_by_type(all_events, "session_metric"),
+            "deploy_events": _count_by_type(all_events, "deploy_complete"),
+        },
+        "gate_health": {
+            "pass_rate": gates["pass_rate"],
+            "most_friction": gates["most_failed_check"],
+        },
+        "decision_store": {
+            "total": dsh["total"],
+            "active": dsh["active"],
+            "expired": dsh["expired"],
+            "resolved": dsh["resolved"],
+            "avg_age_days": dsh["avg_age_days"],
+        },
+        "adoption": {
+            "stacks": adopt["stacks"],
+            "primary_provider": adopt["providers"]["primary"],
+            "ides": adopt["ides"],
+            "hooks_status": hooks_status,
+        },
+        "scan_health": {
+            "total_scans": scan["total_scans"],
+            "avg_quality_score": scan["avg_quality_score"],
+        },
+        "token_economy": {
+            "sessions_analyzed": sm["sessions_analyzed"],
+            "total_tokens": sm["total_tokens"],
+            "utilization_pct": sm["utilization_pct"],
+            "skills_loaded": sm["skills_loaded"],
+        },
+        "noise_ratio": {
+            "total_failures": noise["total_failures"],
+            "fixable_failures": noise["fixable_failures"],
+            "noise_ratio_pct": noise["noise_ratio_pct"],
+        },
+        "actions": [
+            "Run `/ai:scan governance` for framework health",
+            "Review decision store for expired decisions",
+        ],
+    }
+
+
+def _render_team(data: dict[str, Any]) -> None:
+    """Render team dashboard as markdown text."""
+    ed = data["event_distribution"]
+    gh = data["gate_health"]
+    lines = [
+        "# Team Dashboard",
+        "",
+        f"Data quality: {data['data_quality']} ({data['total_events']} events)",
+        "",
+        "## Event Distribution",
+        f"- Gate events: {ed['gate_events']}",
+        f"- Scan events: {ed['scan_events']}",
+        f"- Build events: {ed['build_events']}",
+        f"- Session events: {ed['session_events']}",
+        f"- Deploy events: {ed['deploy_events']}",
+        "",
+        "## Gate Health",
+        f"- Pass rate: {gh['pass_rate']}%",
+        f"- Most friction: {gh['most_friction']}",
+    ]
+
+    # Decision Store Health
+    ds = data["decision_store"]
+    lines.append("")
+    lines.append("## Decision Store Health")
+    if ds["total"] == 0:
+        lines.append("- No decisions recorded")
+    else:
+        lines.append(
+            f"- Active: {ds['active']}, Expired (need review): {ds['expired']}, "
+            f"Resolved: {ds['resolved']}",
+        )
+        lines.append(f"- Avg age: {ds['avg_age_days']} days")
+
+    # Adoption
+    ad = data["adoption"]
+    lines.append("")
+    lines.append("## Adoption")
+    lines.append(f"- Stacks: {', '.join(ad['stacks']) if ad['stacks'] else 'none'}")
+    lines.append(f"- Providers: {ad['primary_provider']}")
+    lines.append(f"- IDEs: {', '.join(ad['ides']) if ad['ides'] else 'none'}")
+    lines.append(f"- Hooks: {ad['hooks_status']}")
 
     # Scan Health
-    scan = scan_metrics_from(all_events)
+    sh = data["scan_health"]
     lines.append("")
     lines.append("## Scan Health")
-    if scan["total_scans"] == 0:
+    if sh["total_scans"] == 0:
         lines.append("- No scan data")
     else:
-        lines.append(f"- Avg quality score: {scan['avg_quality_score']}/100")
-        lines.append(f"- Scans run: {scan['total_scans']}")
+        lines.append(f"- Avg quality score: {sh['avg_quality_score']}/100")
+        lines.append(f"- Scans run: {sh['total_scans']}")
 
     # Token Economy
-    sm = session_metrics_from(all_events)
+    te = data["token_economy"]
     lines.append("")
     lines.append("## Token Economy")
-    if sm["sessions_analyzed"] == 0:
+    if te["sessions_analyzed"] == 0:
         lines.append("- No session data — checkpoint save emits session metrics")
     else:
-        lines.append(f"- Sessions: {sm['sessions_analyzed']}")
-        lines.append(f"- Total tokens: {sm['total_tokens']:,}")
-        lines.append(f"- Utilization: {sm['utilization_pct']}%")
-        if sm["skills_loaded"]:
-            lines.append(f"- Skills active: {', '.join(sm['skills_loaded'])}")
+        lines.append(f"- Sessions: {te['sessions_analyzed']}")
+        lines.append(f"- Total tokens: {te['total_tokens']:,}")
+        lines.append(f"- Utilization: {te['utilization_pct']}%")
+        if te["skills_loaded"]:
+            lines.append(f"- Skills active: {', '.join(te['skills_loaded'])}")
 
     # Noise Ratio
-    noise = noise_ratio_from(all_events)
+    nr = data["noise_ratio"]
     lines.append("")
     lines.append("## Noise Ratio")
-    if noise["total_failures"] == 0:
+    if nr["total_failures"] == 0:
         lines.append("- No gate failures — all gates passing")
     else:
-        lines.append(f"- Total failures: {noise['total_failures']}")
-        lines.append(f"- Auto-fixable: {noise['fixable_failures']}")
-        lines.append(f"- Noise ratio: {noise['noise_ratio_pct']}%")
-        if noise["noise_ratio_pct"] > 50:
+        lines.append(f"- Total failures: {nr['total_failures']}")
+        lines.append(f"- Auto-fixable: {nr['fixable_failures']}")
+        lines.append(f"- Noise ratio: {nr['noise_ratio_pct']}%")
+        if nr["noise_ratio_pct"] > 50:
             lines.append("- High noise — run `ruff format` + `ruff check --fix` before committing")
 
     lines.extend(
         [
             "",
             "## Actions",
-            "- Run `/ai:scan governance` for framework health",
-            "- Review decision store for expired decisions",
         ]
     )
-    return "\n".join(lines)
+    lines.extend(f"- {a}" for a in data["actions"])
+    typer.echo("\n".join(lines))
 
 
-def observe_ai(project_root: Path) -> str:
-    """Generate AI self-awareness dashboard."""
+def observe_ai(project_root: Path) -> dict[str, Any]:
+    """Generate AI self-awareness dashboard data."""
     all_events = load_all_events(project_root)
     dq = data_quality_from(all_events)
     session_events = filter_events(
@@ -395,77 +549,117 @@ def observe_ai(project_root: Path) -> str:
 
     # Expanded context efficiency via session_metrics_from
     sm = session_metrics_from(all_events)
-    skills_list = ", ".join(sm["skills_loaded"]) if sm["skills_loaded"] else "none"
-
     avg_tokens = (
         round(sm["total_tokens"] / sm["sessions_analyzed"]) if sm["sessions_analyzed"] > 0 else 0
     )
-    lines = [
-        "# AI Self-Awareness",
-        "",
-        f"Data quality: {dq}",
-        "",
-        "## Context Efficiency",
-        f"- Sessions analyzed: {sm['sessions_analyzed']}",
-        f"- Total tokens (recent): {sm['total_tokens']:,}",
-        f"- Avg tokens/session: {avg_tokens:,}",
-        f"- Token utilization: {sm['total_tokens']}/{sm['tokens_available']}"
-        f" ({sm['utilization_pct']}%)",
-        f"- Skills loaded: {skills_list}",
-        "",
-        "## Decision Continuity",
-        f"- Decisions reused: {decisions_reused}",
-        f"- Decisions re-prompted: {decisions_reprompted}",
-        f"- Cache hit rate: {cache_hit_rate}%",
-    ]
 
     # Session Recovery
     cp = checkpoint_status(project_root)
-    lines.append("")
-    lines.append("## Session Recovery")
-    if not cp["has_checkpoint"]:
-        lines.append("- No checkpoint found")
-    else:
-        lines.append(f"- Last checkpoint: {cp['last_task']} ({cp['age']})")
-        lines.append(
-            f"- Progress: {cp['completed']}/{cp['total']} ({cp['progress_pct']}%)",
-        )
-        blocked = cp.get("blocked_on") or "nothing"
-        lines.append(f"- Blocked on: {blocked}")
 
     # Self-Optimization Hints
     hints: list[str] = []
     if total_decisions > 0 and cache_hit_rate < 50:
-        hints.append("- Low decision reuse — save key decisions to decision-store")
+        hints.append("Low decision reuse — save key decisions to decision-store")
     gates = gate_pass_rate_from(all_events)
     if gates["total"] > 0 and gates["pass_rate"] < 80:
-        hints.append("- High gate failure rate — run `ruff format` before committing")
+        hints.append("High gate failure rate — run `ruff format` before committing")
     if not cp["has_checkpoint"]:
-        hints.append("- No checkpoint — use `ai-eng checkpoint save` for session recovery")
+        hints.append("No checkpoint — use `ai-eng checkpoint save` for session recovery")
     if sm["utilization_pct"] > 90:
-        hints.append("- Token utilization >90% — sessions near context limit")
+        hints.append("Token utilization >90% — sessions near context limit")
     if sm["sessions_analyzed"] == 0:
-        hints.append("- No session data — checkpoint save emits session metrics")
+        hints.append("No session data — checkpoint save emits session metrics")
     if not hints:
-        hints.append("- All patterns healthy — no optimization needed")
+        hints.append("All patterns healthy — no optimization needed")
 
+    return {
+        "data_quality": dq,
+        "context_efficiency": {
+            "sessions_analyzed": sm["sessions_analyzed"],
+            "total_tokens": sm["total_tokens"],
+            "avg_tokens_per_session": avg_tokens,
+            "tokens_available": sm["tokens_available"],
+            "utilization_pct": sm["utilization_pct"],
+            "skills_loaded": sm["skills_loaded"],
+        },
+        "decision_continuity": {
+            "decisions_reused": decisions_reused,
+            "decisions_reprompted": decisions_reprompted,
+            "cache_hit_rate": cache_hit_rate,
+        },
+        "session_recovery": {
+            "has_checkpoint": cp["has_checkpoint"],
+            "last_task": cp.get("last_task"),
+            "age": cp.get("age"),
+            "completed": cp.get("completed"),
+            "total": cp.get("total"),
+            "progress_pct": cp.get("progress_pct"),
+            "blocked_on": cp.get("blocked_on"),
+        },
+        "self_optimization_hints": hints,
+        "actions": [
+            "Review decision store for expiring decisions",
+            "Check session checkpoint for recovery state",
+        ],
+    }
+
+
+def _render_ai(data: dict[str, Any]) -> None:
+    """Render AI self-awareness dashboard as markdown text."""
+    ce = data["context_efficiency"]
+    dc = data["decision_continuity"]
+    skills_list = ", ".join(ce["skills_loaded"]) if ce["skills_loaded"] else "none"
+
+    lines = [
+        "# AI Self-Awareness",
+        "",
+        f"Data quality: {data['data_quality']}",
+        "",
+        "## Context Efficiency",
+        f"- Sessions analyzed: {ce['sessions_analyzed']}",
+        f"- Total tokens (recent): {ce['total_tokens']:,}",
+        f"- Avg tokens/session: {ce['avg_tokens_per_session']:,}",
+        f"- Token utilization: {ce['total_tokens']}/{ce['tokens_available']}"
+        f" ({ce['utilization_pct']}%)",
+        f"- Skills loaded: {skills_list}",
+        "",
+        "## Decision Continuity",
+        f"- Decisions reused: {dc['decisions_reused']}",
+        f"- Decisions re-prompted: {dc['decisions_reprompted']}",
+        f"- Cache hit rate: {dc['cache_hit_rate']}%",
+    ]
+
+    # Session Recovery
+    sr = data["session_recovery"]
+    lines.append("")
+    lines.append("## Session Recovery")
+    if not sr["has_checkpoint"]:
+        lines.append("- No checkpoint found")
+    else:
+        lines.append(f"- Last checkpoint: {sr['last_task']} ({sr['age']})")
+        lines.append(
+            f"- Progress: {sr['completed']}/{sr['total']} ({sr['progress_pct']}%)",
+        )
+        blocked = sr.get("blocked_on") or "nothing"
+        lines.append(f"- Blocked on: {blocked}")
+
+    # Self-Optimization Hints
     lines.append("")
     lines.append("## Self-Optimization Hints")
-    lines.extend(hints)
+    lines.extend(f"- {h}" for h in data["self_optimization_hints"])
 
     lines.extend(
         [
             "",
             "## Actions",
-            "- Review decision store for expiring decisions",
-            "- Check session checkpoint for recovery state",
         ]
     )
-    return "\n".join(lines)
+    lines.extend(f"- {a}" for a in data["actions"])
+    typer.echo("\n".join(lines))
 
 
-def observe_dora(project_root: Path) -> str:
-    """Generate DORA metrics dashboard."""
+def observe_dora(project_root: Path) -> dict[str, Any]:
+    """Generate DORA metrics dashboard data."""
     all_events = load_all_events(project_root)
     dq = data_quality_from(all_events)
     dora = _dora_metrics(project_root)
@@ -480,24 +674,7 @@ def observe_dora(project_root: Path) -> str:
     else:
         freq_rating = "LOW"
 
-    lines = [
-        "# DORA Metrics (last 30 days)",
-        "",
-        f"Data quality: {dq}",
-        "",
-        "## Deployment Frequency",
-        f"- Merges to main/week: {freq}",
-        f"- Rating: {freq_rating}",
-    ]
-
-    # Lead Time for Changes
     lt = lead_time_metrics(project_root)
-    lines.append("")
-    lines.append("## Lead Time for Changes")
-    lines.append(f"- Median: {lt['median_days']} days")
-    lines.append(f"- Rating: {lt['rating']}")
-
-    # Change Failure Rate
     deploy = deploy_metrics_from(all_events)
     cfr_pct = deploy["failure_rate"]
     if cfr_pct <= 15:
@@ -509,31 +686,74 @@ def observe_dora(project_root: Path) -> str:
     else:
         cfr_rating = "LOW"
 
-    lines.append("")
-    lines.append("## Change Failure Rate")
-    lines.append(f"- Deployments: {deploy['total_deploys']}")
-    lines.append(f"- Rollbacks: {deploy['rollbacks']}")
-    lines.append(f"- Rate: {cfr_pct}%")
-    lines.append(f"- Rating: {cfr_rating}")
+    return {
+        "data_quality": dq,
+        "deployment_frequency": {
+            "merges_per_week": freq,
+            "rating": freq_rating,
+        },
+        "lead_time": {
+            "median_days": lt["median_days"],
+            "rating": lt["rating"],
+        },
+        "change_failure_rate": {
+            "total_deploys": deploy["total_deploys"],
+            "rollbacks": deploy["rollbacks"],
+            "rate_pct": cfr_pct,
+            "rating": cfr_rating,
+        },
+        "delivery_velocity": {
+            "commits_per_week": dora["commits_per_week"],
+            "total_commits_30d": dora["total_commits_30d"],
+        },
+        "benchmarks": {
+            "elite": "multiple deploys/day, lead time <1h",
+            "high": "weekly deploys, lead time <1 week",
+            "medium": "monthly deploys, lead time <1 month",
+        },
+    }
 
-    lines.extend(
-        [
-            "",
-            "## Delivery Velocity",
-            f"- Commits/week: {dora['commits_per_week']}",
-            f"- Total commits (30d): {dora['total_commits_30d']}",
-            "",
-            "## Benchmarks",
-            "- Elite: multiple deploys/day, lead time <1h",
-            "- High: weekly deploys, lead time <1 week",
-            "- Medium: monthly deploys, lead time <1 month",
-        ]
-    )
-    return "\n".join(lines)
+
+def _render_dora(data: dict[str, Any]) -> None:
+    """Render DORA dashboard as markdown text."""
+    df = data["deployment_frequency"]
+    lt = data["lead_time"]
+    cfr = data["change_failure_rate"]
+    dv = data["delivery_velocity"]
+
+    lines = [
+        "# DORA Metrics (last 30 days)",
+        "",
+        f"Data quality: {data['data_quality']}",
+        "",
+        "## Deployment Frequency",
+        f"- Merges to main/week: {df['merges_per_week']}",
+        f"- Rating: {df['rating']}",
+        "",
+        "## Lead Time for Changes",
+        f"- Median: {lt['median_days']} days",
+        f"- Rating: {lt['rating']}",
+        "",
+        "## Change Failure Rate",
+        f"- Deployments: {cfr['total_deploys']}",
+        f"- Rollbacks: {cfr['rollbacks']}",
+        f"- Rate: {cfr['rate_pct']}%",
+        f"- Rating: {cfr['rating']}",
+        "",
+        "## Delivery Velocity",
+        f"- Commits/week: {dv['commits_per_week']}",
+        f"- Total commits (30d): {dv['total_commits_30d']}",
+        "",
+        "## Benchmarks",
+        "- Elite: multiple deploys/day, lead time <1h",
+        "- High: weekly deploys, lead time <1 week",
+        "- Medium: monthly deploys, lead time <1 month",
+    ]
+    typer.echo("\n".join(lines))
 
 
-def observe_health(project_root: Path) -> str:
-    """Generate aggregated health score."""
+def observe_health(project_root: Path) -> dict[str, Any]:
+    """Generate aggregated health score data."""
     all_events = load_all_events(project_root)
     dq = data_quality_from(all_events)
     gates = gate_pass_rate_from(all_events)
@@ -549,7 +769,7 @@ def observe_health(project_root: Path) -> str:
 
     scan = scan_metrics_from(all_events)
     if scan["total_scans"] > 0:
-        scan_score = scan["avg_quality_score"]
+        scan_score: float | None = scan["avg_quality_score"]
         components.append(scan_score)
         component_names.append("Scan quality")
     else:
@@ -557,7 +777,7 @@ def observe_health(project_root: Path) -> str:
 
     dsh = decision_store_health(project_root)
     if dsh["total"] > 0:
-        decision_score = max(0, 100 - dsh["expired"] * 20)
+        decision_score: float | None = max(0, 100 - dsh["expired"] * 20)
         components.append(decision_score)
         component_names.append("Decision health")
     else:
@@ -614,46 +834,6 @@ def observe_health(project_root: Path) -> str:
     # Direction indicator from history
     history = load_health_history(project_root)
     direction = health_direction(history, overall)
-    direction_suffix = f" {direction}" if direction else ""
-
-    lines = [
-        f"# Health Score: {overall}/100 ({semaphore}){direction_suffix}",
-        "",
-        f"Data quality: {dq}",
-        "",
-        "## Components",
-        f"- Gate pass rate: {gates['pass_rate']}% -> {gate_score}/100",
-        f"- Delivery velocity: {git_stats['commits_per_week']}/week -> {velocity_score}/100",
-    ]
-    if scan_score is not None:
-        lines.append(f"- Scan quality: {scan_score}/100")
-    else:
-        lines.append("- Scan quality: No data")
-    if decision_score is not None:
-        lines.append(f"- Decision health: {decision_score}/100")
-    else:
-        lines.append("- Decision health: No decisions")
-    lines.append(f"- DORA frequency: {freq}/week -> {dora_score}/100")
-    if sonar_score is not None:
-        lines.append(f"- SonarCloud coverage: {sonar_score}% -> {sonar_score}/100")
-    else:
-        lines.append("- SonarCloud coverage: No data")
-    if tc_score is not None:
-        lines.append(f"- Test confidence: {tc_score}% -> {tc_score}/100")
-    else:
-        lines.append("- Test confidence: No data")
-    if noise_score is not None:
-        noise_pct = noise["noise_ratio_pct"]
-        lines.append(f"- Gate signal quality: {noise_score}/100 (noise: {noise_pct}%)")
-    else:
-        lines.append("- Gate signal quality: No failures")
-
-    lines.extend(
-        [
-            "",
-            f"## Semaphore: {semaphore}",
-        ]
-    )
 
     # Smart actions: find weakest components and suggest fixes
     _ACTION_MAP: dict[str, str] = {
@@ -669,32 +849,164 @@ def observe_health(project_root: Path) -> str:
     scored = list(zip(component_names, components, strict=True))
     scored.sort(key=lambda x: x[1])
     num_c = len(components)
-    actions: list[str] = []
+    actions: list[dict[str, Any]] = []
     for name, score in scored[:3]:
         if score >= 90:
             continue
         gain = round((100 - score) / num_c)
         cmd = _ACTION_MAP.get(name, f"Improve {name}")
-        actions.append(f"- {cmd} (+{gain} pts)")
+        actions.append({"action": cmd, "potential_gain": gain, "component": name})
     if not actions:
-        actions.append("- All components healthy — maintain current practices")
-    lines.append("")
-    lines.append("## Top Actions")
-    lines.extend(actions)
+        actions.append(
+            {
+                "action": "All components healthy — maintain current practices",
+                "potential_gain": 0,
+                "component": "all",
+            }
+        )
+
+    comp_dict = dict(zip(component_names, components, strict=True))
 
     # Persist snapshot for trend tracking
-    comp_dict = dict(zip(component_names, components, strict=True))
     save_health_snapshot(project_root, overall, semaphore, comp_dict)
 
-    return "\n".join(lines)
+    return {
+        "score": overall,
+        "semaphore": semaphore,
+        "direction": direction,
+        "data_quality": dq,
+        "components": comp_dict,
+        "component_details": {
+            "gate_pass_rate": gates["pass_rate"],
+            "commits_per_week": git_stats["commits_per_week"],
+            "deployment_frequency_per_week": freq,
+            "scan_score": scan_score,
+            "decision_score": decision_score,
+            "sonar_score": sonar_score,
+            "tc_score": tc_score,
+            "noise_score": noise_score,
+            "noise_ratio_pct": noise["noise_ratio_pct"] if noise["total_failures"] > 0 else None,
+        },
+        "actions": actions,
+    }
 
 
-_MODE_FUNCS = {
+def _render_health(data: dict[str, Any]) -> None:
+    """Render health dashboard as markdown text."""
+    direction_suffix = f" {data['direction']}" if data["direction"] else ""
+    det = data["component_details"]
+
+    lines = [
+        f"# Health Score: {data['score']}/100 ({data['semaphore']}){direction_suffix}",
+        "",
+        f"Data quality: {data['data_quality']}",
+        "",
+        "## Components",
+    ]
+
+    # Rebuild component display lines from the dict
+    comps = data["components"]
+    if "Gate pass rate" in comps:
+        lines.append(f"- Gate pass rate: {det['gate_pass_rate']}% -> {comps['Gate pass rate']}/100")
+    if "Delivery velocity" in comps:
+        lines.append(
+            f"- Delivery velocity: {det['commits_per_week']}/week"
+            f" -> {comps['Delivery velocity']}/100"
+        )
+    if "Scan quality" in comps:
+        lines.append(f"- Scan quality: {comps['Scan quality']}/100")
+    elif det.get("scan_score") is None:
+        lines.append("- Scan quality: No data")
+    if "Decision health" in comps:
+        lines.append(f"- Decision health: {comps['Decision health']}/100")
+    elif det.get("decision_score") is None:
+        lines.append("- Decision health: No decisions")
+    if "DORA frequency" in comps:
+        lines.append(
+            f"- DORA frequency: {det['deployment_frequency_per_week']}/week"
+            f" -> {comps['DORA frequency']}/100"
+        )
+    if "SonarCloud coverage" in comps:
+        s = comps["SonarCloud coverage"]
+        lines.append(f"- SonarCloud coverage: {s}% -> {s}/100")
+    elif det.get("sonar_score") is None:
+        lines.append("- SonarCloud coverage: No data")
+    if "Test confidence" in comps:
+        t = comps["Test confidence"]
+        lines.append(f"- Test confidence: {t}% -> {t}/100")
+    elif det.get("tc_score") is None:
+        lines.append("- Test confidence: No data")
+    if "Gate signal quality" in comps:
+        ns = comps["Gate signal quality"]
+        np_ = det["noise_ratio_pct"]
+        lines.append(f"- Gate signal quality: {ns}/100 (noise: {np_}%)")
+    elif det.get("noise_score") is None:
+        lines.append("- Gate signal quality: No failures")
+
+    lines.extend(
+        [
+            "",
+            f"## Semaphore: {data['semaphore']}",
+        ]
+    )
+
+    lines.append("")
+    lines.append("## Top Actions")
+    for a in data["actions"]:
+        if a["potential_gain"] > 0:
+            lines.append(f"- {a['action']} (+{a['potential_gain']} pts)")
+        else:
+            lines.append(f"- {a['action']}")
+
+    typer.echo("\n".join(lines))
+
+
+# ---------------------------------------------------------------------------
+# Mode and render dispatch tables
+# ---------------------------------------------------------------------------
+
+_MODE_FUNCS: dict[str, Any] = {
     "engineer": observe_engineer,
     "team": observe_team,
     "ai": observe_ai,
     "dora": observe_dora,
     "health": observe_health,
+}
+
+_RENDER_FUNCS: dict[str, Any] = {
+    "engineer": _render_engineer,
+    "team": _render_team,
+    "ai": _render_ai,
+    "dora": _render_dora,
+    "health": _render_health,
+}
+
+# Next actions per mode for JSON envelope
+_NEXT_ACTIONS: dict[str, list[NextAction]] = {
+    "engineer": [
+        NextAction(command="observe team", description="View team dashboard"),
+        NextAction(command="scan quality", description="Run code quality scan"),
+        NextAction(command="scan security", description="Run security scan"),
+    ],
+    "team": [
+        NextAction(command="observe engineer", description="View engineer dashboard"),
+        NextAction(command="scan governance", description="Run governance scan"),
+        NextAction(command="decision expire-check", description="Review expired decisions"),
+    ],
+    "ai": [
+        NextAction(command="observe health", description="View health score"),
+        NextAction(command="checkpoint save", description="Save session checkpoint"),
+        NextAction(command="decision list", description="List active decisions"),
+    ],
+    "dora": [
+        NextAction(command="observe health", description="View health score"),
+        NextAction(command="observe engineer", description="View engineer dashboard"),
+    ],
+    "health": [
+        NextAction(command="observe engineer", description="Drill into engineer metrics"),
+        NextAction(command="observe dora", description="Drill into DORA metrics"),
+        NextAction(command="scan quality", description="Improve quality score"),
+    ],
 }
 
 
@@ -705,6 +1017,13 @@ def observe_cmd(
             help="Dashboard mode: engineer | team | ai | dora | health",
         ),
     ] = "health",
+    json_output: Annotated[
+        bool,
+        typer.Option(
+            "--json",
+            help="Output structured JSON instead of human-readable text",
+        ),
+    ] = False,
 ) -> None:
     """Generate observability dashboard for the specified audience."""
     if mode not in _MODE_FUNCS:
@@ -714,6 +1033,15 @@ def observe_cmd(
         )
         raise typer.Exit(code=1)
 
+    if json_output:
+        set_json_mode(True)
+
     root = _project_root()
-    output = _MODE_FUNCS[mode](root)
-    typer.echo(output)
+    data = _MODE_FUNCS[mode](root)
+
+    route_output(
+        command=f"observe-{mode}",
+        result=data,
+        next_actions=_NEXT_ACTIONS.get(mode),
+        human_fn=lambda: _RENDER_FUNCS[mode](data),
+    )
