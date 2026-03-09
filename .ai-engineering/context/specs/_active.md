@@ -1,18 +1,18 @@
 ---
-active: "041-observe-quick-wins"
+active: "042-observe-emit-infrastructure"
 updated: "2026-03-09"
 ---
 
 # Active Spec
 
-**Spec 041 — Observe Quick Wins: Trends, Smart Actions, Self-Optimization**
+**Spec 042 — Observe Emit Infrastructure: Wire Dead Emitters, Enrich Session, Noise Ratio**
 
-Health history with direction indicators, smart actions with score gain estimates, AI self-optimization hints from existing data patterns.
+Wire dead emitters via agent instructions, enrich session event with checkpoint context, add auto-remediation tracking, expand Team + AI dashboards.
 
 ## Quick Resume
 
-- Spec: [spec.md](specs/041-observe-quick-wins/spec.md)
-- Plan: [plan.md](specs/041-observe-quick-wins/plan.md)
-- Tasks: [tasks.md](specs/041-observe-quick-wins/tasks.md)
-- Branch: `feat/041-observe-quick-wins`
-- Next: Phase 1 — Health History Persistence
+- Spec: [spec.md](specs/042-observe-emit-infrastructure/spec.md)
+- Plan: [plan.md](specs/042-observe-emit-infrastructure/plan.md)
+- Tasks: [tasks.md](specs/042-observe-emit-infrastructure/tasks.md)
+- Branch: `feat/042-observe-emit-infrastructure`
+- Next: Phase 1 — Enrich Session Event

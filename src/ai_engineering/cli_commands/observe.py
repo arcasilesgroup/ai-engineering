@@ -31,6 +31,7 @@ from ai_engineering.lib.signals import (
     lead_time_metrics,
     load_all_events,
     load_health_history,
+    noise_ratio_from,
     save_health_snapshot,
     scan_metrics_from,
     security_posture_metrics,
@@ -323,6 +324,32 @@ def observe_team(project_root: Path) -> str:
         lines.append(f"- Avg quality score: {scan['avg_quality_score']}/100")
         lines.append(f"- Scans run: {scan['total_scans']}")
 
+    # Token Economy
+    sm = session_metrics_from(all_events)
+    lines.append("")
+    lines.append("## Token Economy")
+    if sm["sessions_analyzed"] == 0:
+        lines.append("- No session data — checkpoint save emits session metrics")
+    else:
+        lines.append(f"- Sessions: {sm['sessions_analyzed']}")
+        lines.append(f"- Total tokens: {sm['total_tokens']:,}")
+        lines.append(f"- Utilization: {sm['utilization_pct']}%")
+        if sm["skills_loaded"]:
+            lines.append(f"- Skills active: {', '.join(sm['skills_loaded'])}")
+
+    # Noise Ratio
+    noise = noise_ratio_from(all_events)
+    lines.append("")
+    lines.append("## Noise Ratio")
+    if noise["total_failures"] == 0:
+        lines.append("- No gate failures — all gates passing")
+    else:
+        lines.append(f"- Total failures: {noise['total_failures']}")
+        lines.append(f"- Auto-fixable: {noise['fixable_failures']}")
+        lines.append(f"- Noise ratio: {noise['noise_ratio_pct']}%")
+        if noise["noise_ratio_pct"] > 50:
+            lines.append("- High noise — run `ruff format` + `ruff check --fix` before committing")
+
     lines.extend(
         [
             "",
@@ -370,6 +397,9 @@ def observe_ai(project_root: Path) -> str:
     sm = session_metrics_from(all_events)
     skills_list = ", ".join(sm["skills_loaded"]) if sm["skills_loaded"] else "none"
 
+    avg_tokens = (
+        round(sm["total_tokens"] / sm["sessions_analyzed"]) if sm["sessions_analyzed"] > 0 else 0
+    )
     lines = [
         "# AI Self-Awareness",
         "",
@@ -378,6 +408,7 @@ def observe_ai(project_root: Path) -> str:
         "## Context Efficiency",
         f"- Sessions analyzed: {sm['sessions_analyzed']}",
         f"- Total tokens (recent): {sm['total_tokens']:,}",
+        f"- Avg tokens/session: {avg_tokens:,}",
         f"- Token utilization: {sm['total_tokens']}/{sm['tokens_available']}"
         f" ({sm['utilization_pct']}%)",
         f"- Skills loaded: {skills_list}",
@@ -562,6 +593,15 @@ def observe_health(project_root: Path) -> str:
     else:
         tc_score = None
 
+    # Noise ratio score (inverse: low noise = high score)
+    noise = noise_ratio_from(all_events)
+    if noise["total_failures"] > 0:
+        noise_score: float | None = max(0, 100 - noise["noise_ratio_pct"])
+        components.append(noise_score)
+        component_names.append("Gate signal quality")
+    else:
+        noise_score = None
+
     overall = round(sum(components) / len(components))
 
     if overall >= 80:
@@ -602,6 +642,11 @@ def observe_health(project_root: Path) -> str:
         lines.append(f"- Test confidence: {tc_score}% -> {tc_score}/100")
     else:
         lines.append("- Test confidence: No data")
+    if noise_score is not None:
+        noise_pct = noise["noise_ratio_pct"]
+        lines.append(f"- Gate signal quality: {noise_score}/100 (noise: {noise_pct}%)")
+    else:
+        lines.append("- Gate signal quality: No failures")
 
     lines.extend(
         [
@@ -619,6 +664,7 @@ def observe_health(project_root: Path) -> str:
         "DORA frequency": "Merge PRs more frequently — target weekly deploys",
         "SonarCloud coverage": "Run `ai-eng setup sonar` and increase test coverage",
         "Test confidence": "Run `pytest --cov` to generate coverage data",
+        "Gate signal quality": "Run `ruff format` + `ruff check --fix` to reduce noise",
     }
     scored = list(zip(component_names, components, strict=True))
     scored.sort(key=lambda x: x[1])
