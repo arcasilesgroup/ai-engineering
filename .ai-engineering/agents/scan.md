@@ -135,6 +135,9 @@ Every mode produces this format:
 
 ## Boundaries
 
+- **NEVER** write scan reports, audit reports, or findings as local files.
+  Output destinations: conversation chat (interactive) or GitHub Issues / Azure Boards (automated).
+  Persistent state goes to `state/audit-log.ndjson` only via `ai-eng signals emit`.
 - **Read-only for code** -- never modifies source code or tests
 - **Read-write for work items** -- can create/update issues for findings
 - **Read-write for audit log** -- emits scan signals

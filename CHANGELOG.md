@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- **Branch cleanup now handles squash-merged branches** — `ai-eng maintenance branch-cleanup` detects branches whose remote tracking ref is `[gone]`, verifies they have no unmerged changes via `git diff`, and safely deletes them. Branches with divergent content are skipped with a clear reason.
 - **Governance simplification** — removed `learnings.md`, `sources.lock.json`, and legacy Claude/Copilot command files (`cleanup.md`, `commit.md`, `pr.md`) from both canonical and template paths; streamlined `manifest.yml`, `ownership-map.json`, and state defaults accordingly.
 - **Skills service refactored** — simplified `skills/service.py` and `cli_commands/skills.py`, removing ~450 lines of unused maintenance and remote-source logic.
 - **State models trimmed** — removed obsolete fields from `state/models.py` and `state/defaults.py` (sources lock, learnings references).
