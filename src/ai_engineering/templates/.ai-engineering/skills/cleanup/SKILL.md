@@ -1,105 +1,109 @@
 ---
 name: cleanup
-description: "Full repository hygiene: status snapshot, sync, prune, and branch cleanup; use at session start, after merging PRs, between tasks, or before /create-spec."
+description: "Full repository hygiene: safe migration to default branch, aggressive branch cleanup, and rich per-branch status report."
 metadata:
-  version: 3.0.0
+  version: 4.1.0
   tags: [git, branch, cleanup, hygiene, status]
   ai-engineering:
     requires:
       bins: [git]
     scope: read-write
-    token_estimate: 1200
+    token_estimate: 1400
 ---
 
-# Repository Cleanup Workflow
+# Repository Cleanup
 
 ## Purpose
 
-Execute full repository hygiene — branch cleanup and remote status assessment. The single session-start primitive for the framework. Replaces the former `/pre-implementation` flow (which was absorbed into `/cleanup` + `/create-spec`).
+Execute full repository hygiene — safely migrate to the default branch, aggressively delete all branches that can be removed without compromising existing development, and produce a rich per-branch report so the user can assess repository health at a glance.
 
 ## Trigger
 
-- Command: `/cleanup`.
-- Context: after merging a pull request, between tasks, at session start, or when preparing for `/create-spec`.
+- Command: `/ai:cleanup`
+- Context: session start, after merging PRs, between tasks, or before `/ai:spec`.
 
-## Preconditions (MUST verify before proceeding)
+## Preconditions
 
-- **Required binaries**: `git` — must be available on PATH.
-- Abort with remediation guidance if missing. Run `ai-eng doctor --fix-tools` to auto-install.
+- **Required**: `git` on PATH. Abort with `ai-eng doctor --fix-tools` guidance if missing.
 
 ## Procedure
 
-### Phase 0: Status
+### Phase 0: Safe Migration to Default Branch
 
-1. **Repository health snapshot** — run `uv run ai-eng maintenance repo-status`. Do NOT use ad-hoc shell commands for branch analysis — the CLI handles stale detection, ahead/behind, and PR listing in Python, avoiding zsh escaping issues with `!=` operators.
-   - Remote branches: list with ahead/behind relative to default branch.
-   - Open PRs: list via VCS CLI (GitHub: `gh pr list`, Azure DevOps: `az repos pr list`; graceful fallback if neither available).
-   - Stale branches: branches with no commits in >30 days.
-   - Cleanup candidates: merged + stale branches.
-2. **Display status** — the CLI renders a Markdown summary automatically.
-3. **Informational only** — this phase does not block subsequent phases.
+1. **Detect default branch** — `main` or `master` (check `git symbolic-ref refs/remotes/origin/HEAD`).
+2. **Record current branch** — save current branch name for the report.
+3. **Auto-stash if dirty** — if `git status --porcelain` shows changes:
+   - `git stash push -m "cleanup-auto-stash-$(date +%s)"`.
+   - Record that a stash was created.
+4. **Switch to default** — `git checkout <default>`.
+5. **Pull latest** — `git pull --ff-only origin <default>`.
+   - If ff-only fails (diverged): WARN and STOP. Do not force-pull.
+6. **Restore stash** (if created in step 3) — `git stash pop`.
+   - If pop conflicts: WARN, leave stash intact (`git stash list` to show it), continue cleanup. User resolves manually after cleanup.
 
-### Phase 1: Sync
+### Phase 1: Fetch, Prune & Branch Analysis
 
-4. **Identify base branch** — determine the default branch (`main` or `master`).
-5. **Check working tree** — if dirty, stash changes automatically:
-   - `git stash push -m "cleanup-auto-stash"`.
-6. **Switch to base** — `git checkout <base-branch>`.
-7. **Pull latest** — `git pull --ff-only origin <base-branch>`.
-8. **Restore stash on base** (if created in step 5) — `git stash pop` on the base branch so local changes carry over to `main`.
-   - If pop conflicts, warn and leave stash intact for manual resolution.
+7. **Fetch and prune** — `git fetch --prune origin` to remove stale remote-tracking refs.
+8. **Enumerate all local branches** (excluding protected: `main`, `master`).
+9. **Classify each branch** into one of these categories:
 
-### Phase 2: Prune
+| Category | Criteria | Action |
+|----------|----------|--------|
+| **Merged** | In `git branch --merged <default>` | Delete (`git branch -d`) |
+| **Squash-merged** | NOT in `--merged`, but `git cherry -v <default> <branch>` shows ALL commits as `-` (applied) AND `git diff <default>..<branch>` has no content diff | Delete (`git branch -D`) |
+| **Gone (safe)** | Tracking ref is `[gone]` AND `git diff <default>...<branch>` has no content diff | Delete (`git branch -D`) |
+| **Gone (has dev)** | Tracking ref is `[gone]` BUT has content diff vs default | KEEP — has unmerged local development |
+| **Active (remote)** | Has remote tracking branch, not merged | KEEP — active development with remote |
+| **Local only** | No remote tracking, has commits ahead of default, not squash-merged | KEEP — local-only development |
+| **Protected** | `main` or `master` | SKIP — never touched |
 
-8. **Fetch and prune** — `git fetch --prune origin` to remove stale remote-tracking references.
+The **Squash-merged** check applies to all non-merged branches (local-only and gone) before classifying them as kept. Use `git cherry -v <default> <branch>` — if every line starts with `-`, all commits have been applied upstream. Confirm with `git diff <default>..<branch>` (two dots, tip-to-tip comparison) to verify no content difference remains.
 
-### Phase 3: Cleanup
+10. **Delete eligible branches** — merged with `-d`, gone-safe and squash-merged with `-D`.
 
-9. **Run branch cleanup** — `uv run ai-eng maintenance branch-cleanup`.
-   - Deletes branches fully merged into base (`git branch -d`).
-   - Deletes squash-merged branches whose remote is `[gone]` (`git branch -D`).
-   - Excludes protected branches (`main`, `master`).
-   - Reports: branches deleted (merged), branches deleted (gone), refs pruned, branches skipped.
+### Phase 2: Rich Summary Report
 
-### Phase 4: Spec Compact (Advisory)
+11. **Build per-branch table** — for every local branch that existed (excluding protected), show:
 
-10. **Report stale specs** — `uv run ai-eng spec compact --dry-run`.
-    - Lists archived specs older than the configured threshold (default 6 months) that could be compacted.
-    - Does NOT delete anything — advisory only during cleanup.
+```markdown
+## Repository Cleanup Report
+
+**Default branch**: `main` (up to date with origin)
+**Previous branch**: `feat/old-feature`
+**Working tree**: clean | stash restored | stash pending (conflict)
+
+### Branch Detail
+
+| Branch | Action | Reason | Remote Status | Ahead/Behind |
+|--------|--------|--------|---------------|--------------|
+| `feat/merged-feature` | DELETED | Merged into main | — | — |
+| `feat/squash-merged` | DELETED | Squash-merged (all commits applied) | — | — |
+| `feat/gone-no-diff` | DELETED | Remote deleted, no local diff | — | — |
+| `feat/active-work` | KEPT | Unmerged development (5 commits) | `origin/feat/active-work` | +5 / -2 |
+| `feat/local-experiment` | KEPT | Local-only development (3 commits) | no remote | +3 |
+| `fix/gone-with-changes` | KEPT | Remote deleted, has local diff | gone | +2 |
+```
+
+12. **Display report** — render the full table in terminal output. This is the primary deliverable of cleanup.
 
 ## Post-condition
 
-After `/cleanup` completes, the repo MUST be on the base branch (`main` or `master`) with a clean working tree. No feature branches remain checked out. The session is ready for the next task or `/create-spec`.
-
-## Examples
-
-### Example 1: Session-start hygiene
-
-User says: "Run /cleanup before I start the next task."
-Actions:
-
-1. Capture repo status snapshot, then sync base branch and prune remote references.
-2. Run branch cleanup — delete merged/gone branches, report skipped and protected.
-3. End on `main` with clean working tree.
-   Result: Repository is on `main`, synchronized and cleaned for the next governed workflow.
-
-## Output Contract
-
-- Terminal output showing each phase result.
-- Phase 0: repository status snapshot (remote branches, PRs, stale, candidates).
-- Phase 3: branch cleanup summary (deleted count, pruned count, skipped count).
-- Final confirmation: on base branch with clean working tree.
+- Repo is on the default branch (`main` or `master`).
+- Working tree is clean (or stash pending if pop conflicted).
+- All safely deletable branches are gone.
+- User has a clear per-branch report of what happened and why.
 
 ## Governance Notes
 
 - Protected branches (`main`, `master`) are never deleted.
-- Only `git branch -d` (safe delete) for merged branches; `git branch -D` (force) only for `[gone]` branches whose remote was already deleted.
-- No destructive git operations beyond branch deletion.
+- Merged branches: `git branch -d` (safe — git refuses if not fully merged).
+- Squash-merged branches: `git branch -D` ONLY if `git cherry -v` shows ALL commits applied AND `git diff <default>..<branch>` shows no content diff.
+- Gone branches: `git branch -D` (force) ONLY if `git diff <default>...<branch>` shows no content diff. If there is a diff, the branch is kept.
 - No `--no-verify` usage.
-- If `git pull --ff-only` fails (diverged history), warn and stop — do not force-pull.
-- Spec reset (archival + `_active.md` clearing) has been moved to `/pr` so changes reach origin through the PR.
+- If `git pull --ff-only` fails, WARN and STOP — do not force-pull or rebase.
+- No destructive git operations beyond branch deletion of eligible branches.
 
 ## References
 
-- `skills/spec/SKILL.md` — spec creation that composes `/cleanup` before branch creation.
+- `skills/spec/SKILL.md` — spec creation composes cleanup before branch creation.
 - `standards/framework/core.md` — protected branch rules and enforcement.

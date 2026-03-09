@@ -12,7 +12,7 @@ Before non-trivial work:
 
 1. **Read active spec** — `.ai-engineering/context/specs/_active.md` and linked spec/plan/tasks.
 2. **Read decision store** — `.ai-engineering/state/decision-store.json`.
-3. **Run cleanup** — sync repo (status, git pull, prune, branch cleanup).
+3. **Run cleanup** — `/cleanup` to sync repo (migrate to default branch, prune, branch cleanup).
 4. **Verify tooling** — ruff, gitleaks, pytest, ty.
 
 Mandatory. Skipping risks stale code, repeated decisions, or merge conflicts.
