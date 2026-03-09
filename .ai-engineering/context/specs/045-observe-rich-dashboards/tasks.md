@@ -1,9 +1,9 @@
 ---
 spec: "045"
 total: 14
-completed: 14
+completed: 16
 last_session: "2026-03-10"
-next_session: "Phase 5 — Integration + Polish"
+next_session: "CLOSED"
 ---
 
 # Tasks — Observe Rich Dashboards + Dual-Output
@@ -33,5 +33,5 @@ next_session: "Phase 5 — Integration + Polish"
 - [x] 4.3 Refactor `observe_dora()` — rating badges, benchmark table
 
 ## Phase 5: Integration + Polish [S]
-- [ ] 5.1 End-to-end test all 5 modes (human + JSON)
-- [ ] 5.2 Verify NO_COLOR/non-TTY degradation
+- [x] 5.1 End-to-end test all 5 modes (human + JSON)
+- [x] 5.2 Verify NO_COLOR/non-TTY degradation

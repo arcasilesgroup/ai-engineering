@@ -261,42 +261,57 @@ class TestCheckSonarApiGate:
 class TestObserveSonarMetrics:
     """Tests for Sonar metrics in observe engineer dashboard."""
 
-    def test_sonar_metrics_returns_empty_when_unconfigured(self, tmp_path: Path) -> None:
-        from ai_engineering.cli_commands.observe import _sonar_metrics
+    def test_sonar_metrics_returns_unavailable_when_unconfigured(self, tmp_path: Path) -> None:
+        from ai_engineering.cli_commands.observe import _sonar_metrics_data
 
-        assert _sonar_metrics(tmp_path) == []
+        result = _sonar_metrics_data(tmp_path)
+        assert result == {"available": False}
 
-    def test_sonar_metrics_returns_lines_with_coverage(self, tmp_path: Path) -> None:
+    def test_sonar_metrics_returns_dict_with_coverage(self, tmp_path: Path) -> None:
         qg_data = {
             "status": "OK",
             "conditions": [
                 {"metricKey": "new_coverage", "actualValue": "85.2"},
             ],
         }
-        from ai_engineering.cli_commands.observe import _sonar_metrics
+        from ai_engineering.cli_commands.observe import _sonar_metrics_data
 
-        with patch(
-            "ai_engineering.policy.checks.sonar.query_sonar_quality_gate",
-            return_value=qg_data,
+        with (
+            patch(
+                "ai_engineering.policy.checks.sonar.query_sonar_quality_gate",
+                return_value=qg_data,
+            ),
+            patch(
+                "ai_engineering.cli_commands.observe.sonar_detailed_metrics",
+                return_value={"available": False},
+            ),
         ):
-            lines = _sonar_metrics(tmp_path)
+            result = _sonar_metrics_data(tmp_path)
 
-        assert any("OK" in line for line in lines)
-        assert any("85.2%" in line for line in lines)
-        assert any("Conditions: 1" in line for line in lines)
+        assert result["available"] is True
+        assert result["status"] == "OK"
+        assert result["new_code_coverage"] == "85.2"
+        assert result["conditions_count"] == 1
 
     def test_sonar_metrics_without_coverage_condition(self, tmp_path: Path) -> None:
         qg_data = {"status": "ERROR", "conditions": []}
-        from ai_engineering.cli_commands.observe import _sonar_metrics
+        from ai_engineering.cli_commands.observe import _sonar_metrics_data
 
-        with patch(
-            "ai_engineering.policy.checks.sonar.query_sonar_quality_gate",
-            return_value=qg_data,
+        with (
+            patch(
+                "ai_engineering.policy.checks.sonar.query_sonar_quality_gate",
+                return_value=qg_data,
+            ),
+            patch(
+                "ai_engineering.cli_commands.observe.sonar_detailed_metrics",
+                return_value={"available": False},
+            ),
         ):
-            lines = _sonar_metrics(tmp_path)
+            result = _sonar_metrics_data(tmp_path)
 
-        assert any("ERROR" in line for line in lines)
-        assert not any("coverage" in line.lower() for line in lines)
+        assert result["available"] is True
+        assert result["status"] == "ERROR"
+        assert result["new_code_coverage"] is None
 
 
 # ---------------------------------------------------------------
