@@ -108,6 +108,7 @@ TEST_SCOPE_RULES: list[ScopeRule] = [
         source_globs=["src/ai_engineering/lib/**/*.py"],
         tiers={
             "unit": [
+                "tests/unit/test_health_history.py",
                 "tests/unit/test_lib_signals.py",
                 "tests/unit/test_parsing.py",
                 "tests/unit/test_security_posture.py",

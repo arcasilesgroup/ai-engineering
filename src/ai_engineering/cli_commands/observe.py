@@ -27,8 +27,11 @@ from ai_engineering.lib.signals import (
     event_date_range_from,
     filter_events,
     gate_pass_rate_from,
+    health_direction,
     lead_time_metrics,
     load_all_events,
+    load_health_history,
+    save_health_snapshot,
     scan_metrics_from,
     security_posture_metrics,
     session_metrics_from,
@@ -399,6 +402,26 @@ def observe_ai(project_root: Path) -> str:
         blocked = cp.get("blocked_on") or "nothing"
         lines.append(f"- Blocked on: {blocked}")
 
+    # Self-Optimization Hints
+    hints: list[str] = []
+    if total_decisions > 0 and cache_hit_rate < 50:
+        hints.append("- Low decision reuse — save key decisions to decision-store")
+    gates = gate_pass_rate_from(all_events)
+    if gates["total"] > 0 and gates["pass_rate"] < 80:
+        hints.append("- High gate failure rate — run `ruff format` before committing")
+    if not cp["has_checkpoint"]:
+        hints.append("- No checkpoint — use `ai-eng checkpoint save` for session recovery")
+    if sm["utilization_pct"] > 90:
+        hints.append("- Token utilization >90% — sessions near context limit")
+    if sm["sessions_analyzed"] == 0:
+        hints.append("- No session data — checkpoint save emits session metrics")
+    if not hints:
+        hints.append("- All patterns healthy — no optimization needed")
+
+    lines.append("")
+    lines.append("## Self-Optimization Hints")
+    lines.extend(hints)
+
     lines.extend(
         [
             "",
@@ -548,8 +571,13 @@ def observe_health(project_root: Path) -> str:
     else:
         semaphore = "RED"
 
+    # Direction indicator from history
+    history = load_health_history(project_root)
+    direction = health_direction(history, overall)
+    direction_suffix = f" {direction}" if direction else ""
+
     lines = [
-        f"# Health Score: {overall}/100 ({semaphore})",
+        f"# Health Score: {overall}/100 ({semaphore}){direction_suffix}",
         "",
         f"Data quality: {dq}",
         "",
@@ -579,13 +607,39 @@ def observe_health(project_root: Path) -> str:
         [
             "",
             f"## Semaphore: {semaphore}",
-            "",
-            "## Top Actions",
-            "- Run `/ai:scan platform` for full dimensional assessment",
-            "- Run `/ai:observe dora` for delivery benchmarks",
-            "- Run `/ai:observe engineer` for code quality details",
         ]
     )
+
+    # Smart actions: find weakest components and suggest fixes
+    _ACTION_MAP: dict[str, str] = {
+        "Gate pass rate": "Run `ruff format` + `ruff check --fix` before committing",
+        "Delivery velocity": "Increase commit frequency — ship smaller changes",
+        "Scan quality": "Run `/ai:scan quality` to improve code quality score",
+        "Decision health": "Run `ai-eng decision expire-check` to review expired decisions",
+        "DORA frequency": "Merge PRs more frequently — target weekly deploys",
+        "SonarCloud coverage": "Run `ai-eng setup sonar` and increase test coverage",
+        "Test confidence": "Run `pytest --cov` to generate coverage data",
+    }
+    scored = list(zip(component_names, components, strict=True))
+    scored.sort(key=lambda x: x[1])
+    num_c = len(components)
+    actions: list[str] = []
+    for name, score in scored[:3]:
+        if score >= 90:
+            continue
+        gain = round((100 - score) / num_c)
+        cmd = _ACTION_MAP.get(name, f"Improve {name}")
+        actions.append(f"- {cmd} (+{gain} pts)")
+    if not actions:
+        actions.append("- All components healthy — maintain current practices")
+    lines.append("")
+    lines.append("## Top Actions")
+    lines.extend(actions)
+
+    # Persist snapshot for trend tracking
+    comp_dict = dict(zip(component_names, components, strict=True))
+    save_health_snapshot(project_root, overall, semaphore, comp_dict)
+
     return "\n".join(lines)
 
 

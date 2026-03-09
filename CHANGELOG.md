@@ -13,6 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Test confidence with fallback** — `test_confidence_metrics()` resolves coverage from SonarCloud → `coverage.json` → `test_scope` mapping → defaults.
 - **Security posture with fallback** — `security_posture_metrics()` resolves vulnerabilities from SonarCloud → `pip-audit` → defaults.
 - **Session emitter wired** — checkpoint save now emits `session_metric` audit events automatically.
+- **Health trend tracking** — `observe health` persists weekly snapshots to `state/health-history.json` (rolling 12 entries) and shows ↑↓→ direction indicators.
+- **Smart actions with score gain** — `observe health` replaces hardcoded actions with dynamic recommendations based on weakest components, showing estimated point gains.
+- **AI self-optimization hints** — `observe ai` detects patterns (low decision reuse, high gate failures, missing checkpoints) and surfaces actionable suggestions.
 
 ### Fixed
 - **SonarCloud token resolution** — `_resolve_sonar_token()` now chains env var → OS keyring (`CredentialService`) → None; previously `query_sonar_quality_gate()` checked config flag but never retrieved the stored token.

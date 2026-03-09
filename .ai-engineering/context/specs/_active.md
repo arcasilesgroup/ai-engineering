@@ -1,18 +1,18 @@
 ---
-active: "040-observe-enrichment-phase-2"
+active: "041-observe-quick-wins"
 updated: "2026-03-09"
 ---
 
 # Active Spec
 
-**Spec 040 — Observe Enrichment Phase 2: SonarCloud + Test Confidence + Emitter Wiring**
+**Spec 041 — Observe Quick Wins: Trends, Smart Actions, Self-Optimization**
 
-SonarCloud measures expansion, test confidence with fallback chain, security posture, session emitter wiring, agent emission instructions.
+Health history with direction indicators, smart actions with score gain estimates, AI self-optimization hints from existing data patterns.
 
 ## Quick Resume
 
-- Spec: [spec.md](specs/040-observe-enrichment-phase-2/spec.md)
-- Plan: [plan.md](specs/040-observe-enrichment-phase-2/plan.md)
-- Tasks: [tasks.md](specs/040-observe-enrichment-phase-2/tasks.md)
-- Branch: `feat/040-observe-enrichment-phase-2`
-- Next: Phase 1 — Fix SonarCloud Token Resolution
+- Spec: [spec.md](specs/041-observe-quick-wins/spec.md)
+- Plan: [plan.md](specs/041-observe-quick-wins/plan.md)
+- Tasks: [tasks.md](specs/041-observe-quick-wins/tasks.md)
+- Branch: `feat/041-observe-quick-wins`
+- Next: Phase 1 — Health History Persistence
