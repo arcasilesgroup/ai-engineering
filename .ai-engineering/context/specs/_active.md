@@ -1,18 +1,18 @@
 ---
-active: "042-observe-emit-infrastructure"
+active: "043-slim-root-instructions"
 updated: "2026-03-09"
 ---
 
 # Active Spec
 
-**Spec 042 — Observe Emit Infrastructure: Wire Dead Emitters, Enrich Session, Noise Ratio**
+**Spec 043 — Slim Root Instructions: Deduplicate CLAUDE.md / AGENTS.md / copilot-instructions.md**
 
-Wire dead emitters via agent instructions, enrich session event with checkpoint context, add auto-remediation tracking, expand Team + AI dashboards.
+Slim root instruction files to pointer format, consolidate duplicated content into product/framework contracts, add on-demand loading directives to skills.
 
 ## Quick Resume
 
-- Spec: [spec.md](specs/042-observe-emit-infrastructure/spec.md)
-- Plan: [plan.md](specs/042-observe-emit-infrastructure/plan.md)
-- Tasks: [tasks.md](specs/042-observe-emit-infrastructure/tasks.md)
-- Branch: `feat/042-observe-emit-infrastructure`
-- Next: Phase 1 — Enrich Session Event
+- Spec: [spec.md](specs/043-slim-root-instructions/spec.md)
+- Plan: [plan.md](specs/043-slim-root-instructions/plan.md)
+- Tasks: [tasks.md](specs/043-slim-root-instructions/tasks.md)
+- Branch: `feat/043-slim-root-instructions`
+- Next: Phase 1 — Consolidate Contracts
