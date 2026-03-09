@@ -112,14 +112,14 @@ The plan agent MUST follow the artifact-as-gate pattern for spec creation:
 Example:
 ```
 # 1. Produce spec content in conversation, then persist:
-Write tool → context/specs/040-feature-name/spec.md
-Write tool → context/specs/040-feature-name/plan.md
-Write tool → context/specs/040-feature-name/tasks.md
+Write tool → context/specs/<NNN>-<slug>/spec.md
+Write tool → context/specs/<NNN>-<slug>/plan.md
+Write tool → context/specs/<NNN>-<slug>/tasks.md
 Edit tool  → context/specs/_active.md
 
 # 2. Commit:
-git add .ai-engineering/context/specs/040-feature-name/ .ai-engineering/context/specs/_active.md
-git commit -m "spec-040: Phase 0 — scaffold spec files and activate"
+git add .ai-engineering/context/specs/<NNN>-<slug>/ .ai-engineering/context/specs/_active.md
+git commit -m "spec-<NNN>: Phase 0 — scaffold spec files and activate"
 ```
 
 This pattern is cross-IDE: it works identically in Claude Code, GitHub Copilot, Cursor, OpenCode, Codex, or any chat with Write/Edit tool access. No IDE plan mode is required.
