@@ -99,7 +99,7 @@ When you run `ai-eng install`, a `.ai-engineering/` directory is created in your
 
 Rules and conventions that AI agents and quality gates follow.
 
-Standards use a two-layer model. The **framework layer** (`standards/framework/`) provides the baseline — coverage thresholds, complexity limits, security requirements. The **team layer** (`standards/team/`) is where you add overrides. Your team can raise the coverage threshold from 90% to 95%, add stricter linting rules, or define project-specific conventions. Framework updates never touch the team layer.
+Standards use a two-layer model. The **framework layer** (`standards/framework/`) provides the baseline — coverage thresholds, complexity limits, security requirements. The **team layer** (`standards/team/`) is where you add overrides. Your team can raise the coverage threshold from 80% to 95%, add stricter linting rules, or define project-specific conventions. Framework updates never touch the team layer.
 
 Each supported stack (Python, .NET, Next.js) has its own standards file with tailored rules for linting, formatting, testing, and dependency management.
 

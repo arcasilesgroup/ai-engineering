@@ -74,7 +74,7 @@ flowchart TB
 |----------|------------|-----------|-------------|
 | Reliability | <Requirement> | <Threshold> | <How to measure> |
 | Performance | <Requirement> | <Threshold> | <How to measure> |
-| Maintainability | Test coverage | >= 90% | `pytest --cov` |
+| Maintainability | Test coverage | >= 80% | `pytest --cov` |
 | Portability | <Requirement> | <Threshold> | <How to measure> |
 
 ### 2.4 Integrations
@@ -268,7 +268,7 @@ sequenceDiagram
 |--------|--------|---------|
 | Quality gate pass rate | 100% | -- |
 | Security scan (zero medium+) | 0 | -- |
-| Test coverage | 90% | -- |
+| Test coverage | 80% | -- |
 
 ### 7.4 Active Spec
 

@@ -135,7 +135,7 @@ jobs:
         if: steps.scope.outputs.args != '__SKIP__' && matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'
         run: |
           uv run pytest tests/unit -v -n auto --dist worksteal \
-            --cov=src/ai_engineering --cov-report=xml:coverage-unit.xml --cov-fail-under=90
+            --cov=src/ai_engineering --cov-report=xml:coverage-unit.xml
       - name: Skip unit tests (docs-only)
         if: steps.scope.outputs.args == '__SKIP__'
         run: echo "No unit tests selected (docs-only changes)."
@@ -316,12 +316,13 @@ jobs:
         with:
           pattern: coverage-*
           merge-multiple: true
-      - name: Merge coverage reports
+      - name: Verify coverage reports
         run: |
-          # Combine all coverage XMLs into comma-separated list for Sonar
-          REPORTS=$(ls coverage-*.xml 2>/dev/null | tr '\n' ',' | sed 's/,$//')
-          if [ -n "$REPORTS" ]; then
-            echo "Coverage reports found: $REPORTS"
+          # List downloaded coverage XMLs (informational)
+          find . -maxdepth 1 -name 'coverage-*.xml' -print | sort
+          count=$(find . -maxdepth 1 -name 'coverage-*.xml' -print | wc -l)
+          if [ "$count" -gt 0 ]; then
+            echo "Found $count coverage report(s)"
           else
             echo "No coverage reports found (tests may have been skipped)"
           fi

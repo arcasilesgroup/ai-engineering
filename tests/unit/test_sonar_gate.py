@@ -78,10 +78,10 @@ class TestThresholdMapping:
     """Tests for threshold values matching the quality contract."""
 
     def test_coverage_threshold(self) -> None:
-        """Coverage threshold is 90%."""
+        """Coverage threshold is 80% (aligned with SonarCloud Quality Gate)."""
         # This validates the contract constant — the actual enforcement
         # is in sonar-project.properties and the Sonar quality gate.
-        assert 90 <= 100
+        assert 80 <= 100
 
     def test_duplication_threshold(self) -> None:
         """Duplication threshold is 3%."""

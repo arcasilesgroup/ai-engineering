@@ -23,7 +23,7 @@ Unified quality assessment covering code metrics, Sonar integration, code review
 ## Modes
 
 ### code — Quality metrics
-Coverage (>=90%), complexity (cyclomatic <=10, cognitive <=15), duplication (<=3%), lint issues.
+Coverage (>=80%), complexity (cyclomatic <=10, cognitive <=15), duplication (<=3%), lint issues.
 
 ### sonar — SonarCloud gate
 Run Sonar quality gate locally. Advisory mode (non-blocking if unconfigured).

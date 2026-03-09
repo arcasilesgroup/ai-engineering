@@ -16,11 +16,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`sonar-project.properties` at repo root** — project configured for `arcasilesgroup/ai-engineering` org on SonarCloud.
 
 ### Changed
+- **Coverage threshold aligned to SonarCloud Quality Gate** — lowered from 90% to 80% across all governance files, standards, IDE configs, templates, and presentation assets. Source of truth: `standards/framework/quality/core.md`.
+- **Branch protection updated** — removed defunct "Coverage Gate" required status check, added "SonarCloud" as required check on `main`.
 - **Migrated deprecated GitHub Action** — `SonarSource/sonarcloud-github-action@v3` replaced with unified `SonarSource/sonarqube-scan-action@v4` for both SonarCloud and SonarQube (D038-003).
 - **Removed redundant Coverage Gate job** — tests no longer re-run solely for coverage; each tier generates its own report.
 - **SonarCloud blocks build** — `sonarcloud` job added to `build.needs` so Quality Gate failure prevents package build.
 - **Properties template expanded** — `sonar-project.properties` template now includes `sonar.qualitygate.wait`, `sonar.qualitygate.timeout`, stack-aware coverage paths (Python/dotnet/nextjs), sources, tests, and exclusions.
 - **CI/CD generation includes coverage steps** — `_render_github_ci` and `_render_azure_ci` generate coverage report commands per stack when Sonar is configured.
+
+### Fixed
+- **CI actionlint SC2012** — replaced `ls coverage-*.xml` with `find` in SonarCloud job's coverage merge step to satisfy shellcheck.
 
 ### Changed
 - **Branch cleanup now handles squash-merged branches** — `ai-eng maintenance branch-cleanup` detects branches whose remote tracking ref is `[gone]`, verifies they have no unmerged changes via `git diff`, and safely deletes them. Branches with divergent content are skipped with a clear reason.

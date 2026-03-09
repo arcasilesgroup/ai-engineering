@@ -37,6 +37,6 @@ When the user says `/ai:execute`:
 
 ## Quality & Security
 
-- Coverage 90%, duplication ≤3%, cyclomatic ≤10
+- Coverage 80%, duplication ≤3%, cyclomatic ≤10
 - Zero medium/high/critical findings, zero leaks
 - Run `ruff check` and `ruff format` before committing

@@ -219,7 +219,7 @@ NOTES: dict[int, str] = {
         "- Pre-commit: ruff format, ruff lint, gitleaks.\n"
         "- Commit-msg: valid format, branch protection.\n"
         "- Pre-push: semgrep, pip-audit, pytest, ty.\n\n"
-        "Thresholds: Coverage >=90%, Duplication <=3%, CC <=10, CogC <=15.\n\n"
+        "Thresholds: Coverage >=80%, Duplication <=3%, CC <=10, CogC <=15.\n\n"
         "Structured risk acceptance: Critical 15d, High 30d, Medium 60d, Low 90d. "
         "Maximum 2 renewals."
     ),
@@ -1913,7 +1913,7 @@ def slide_12_quality_gates(prs):
 
     # Threshold metric cards
     metrics = [
-        ("Coverage", "≥ 90%", ""),
+        ("Coverage", "≥ 80%", ""),
         ("Duplication", "≤ 3%", ""),
         ("Cyclomatic", "≤ 10", "complexity"),
         ("Cognitive", "≤ 15", "complexity"),
