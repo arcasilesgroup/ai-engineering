@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **SonarCloud Quality Gate integration** — `sonar.qualitygate.wait=true` in `sonar-project.properties` as universal gate; scanner polls QG and fails CI if it doesn't pass. Works identically on GitHub Actions and Azure Pipelines.
+- **SonarCloud CI job** — new `sonarcloud` job in `ci.yml` with fork guard, downloads per-tier coverage reports (unit/integration/e2e), and blocks build on QG failure.
+- **Coverage export per test tier** — unit, integration, and e2e jobs now generate individual Cobertura XML reports (`coverage-unit.xml`, `coverage-integration.xml`, `coverage-e2e.xml`) uploaded as artifacts for SonarCloud consumption.
+- **SonarCloud API quality gate check** — `query_sonar_quality_gate()` in `policy/checks/sonar.py` queries SonarCloud Web API for QG status when scanner unavailable; used by pre-push gate (advisory) and observe dashboard.
+- **Sonar metrics in engineer dashboard** — `ai-eng observe engineer` shows SonarCloud Quality Gate status, new code coverage, and condition count (silent-skip when unconfigured).
+- **`sonar-project.properties` at repo root** — project configured for `arcasilesgroup/ai-engineering` org on SonarCloud.
+
+### Changed
+- **Coverage threshold aligned to SonarCloud Quality Gate** — lowered from 90% to 80% across all governance files, standards, IDE configs, templates, and presentation assets. Source of truth: `standards/framework/quality/core.md`.
+- **Branch protection updated** — removed defunct "Coverage Gate" required status check, added "SonarCloud" as required check on `main`.
+- **Migrated deprecated GitHub Action** — `SonarSource/sonarcloud-github-action@v3` replaced with unified `SonarSource/sonarqube-scan-action@v4` for both SonarCloud and SonarQube (D038-003).
+- **Removed redundant Coverage Gate job** — tests no longer re-run solely for coverage; each tier generates its own report.
+- **SonarCloud blocks build** — `sonarcloud` job added to `build.needs` so Quality Gate failure prevents package build.
+- **Properties template expanded** — `sonar-project.properties` template now includes `sonar.qualitygate.wait`, `sonar.qualitygate.timeout`, stack-aware coverage paths (Python/dotnet/nextjs), sources, tests, and exclusions.
+- **CI/CD generation includes coverage steps** — `_render_github_ci` and `_render_azure_ci` generate coverage report commands per stack when Sonar is configured.
+
+### Fixed
+- **CI actionlint SC2012** — replaced `ls coverage-*.xml` with `find` in SonarCloud job's coverage merge step to satisfy shellcheck.
+
 ### Changed
 - **Branch cleanup now handles squash-merged branches** — `ai-eng maintenance branch-cleanup` detects branches whose remote tracking ref is `[gone]`, verifies they have no unmerged changes via `git diff`, and safely deletes them. Branches with divergent content are skipped with a clear reason.
 - **Governance simplification** — removed `learnings.md`, `sources.lock.json`, and legacy Claude/Copilot command files (`cleanup.md`, `commit.md`, `pr.md`) from both canonical and template paths; streamlined `manifest.yml`, `ownership-map.json`, and state defaults accordingly.

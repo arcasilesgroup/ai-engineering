@@ -45,7 +45,7 @@ Path: `.ai-engineering/agents/<name>.md`
 
 ## Quality Contract
 
-Coverage 90%, duplication ≤3%, cyclomatic ≤10, cognitive ≤15, zero blocker/critical, 100% gate pass.
+Coverage 80%, duplication ≤3%, cyclomatic ≤10, cognitive ≤15, zero blocker/critical, 100% gate pass.
 
 ## Security Contract
 

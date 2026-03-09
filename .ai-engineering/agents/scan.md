@@ -109,7 +109,7 @@ Every mode produces this format:
 |------|--------------|----------------|
 | governance | Any integrity FAIL | Any compliance FAIL clause |
 | security | Any critical/high CVE | Any secret detected |
-| quality | Coverage < 90% | Blocker/critical lint issues |
+| quality | Coverage < 80% | Blocker/critical lint issues |
 | performance | N+1 in critical path | O(n^2) in hot path, memory leak |
 | a11y | -- (diagnostic) | Critical WCAG violation |
 | feature-gap | Disconnected critical-path code | Critical feature missing, >5 unwired exports |

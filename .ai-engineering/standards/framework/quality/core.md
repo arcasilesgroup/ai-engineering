@@ -2,7 +2,7 @@
 
 ## Update Metadata
 
-- Rationale: consolidate quality thresholds as single source of truth; coverage target lowered to 90% to eliminate gap-filler bloat while keeping security enforcement non-negotiable.
+- Rationale: consolidate quality thresholds as single source of truth; coverage target aligned to SonarCloud Quality Gate (80%) to eliminate gap-filler bloat while keeping security enforcement non-negotiable.
 - Expected gain: one authoritative location for quality baselines; stack-specific quality profiles removed (duplicated content now lives in stacks/*.md).
 - Potential impact: coverage threshold change applies to all gates and CI; gap-filler tests can be removed.
 
@@ -13,7 +13,7 @@
 
 ## Required Quality Gates
 
-- Coverage target: 90%.
+- Coverage target: 80% (aligned with SonarCloud Quality Gate).
 - Coverage on governance-critical paths: 100%.
 - Duplicated lines on changed code: ≤3%.
 - Reliability: no critical or blocker issues.

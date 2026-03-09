@@ -87,7 +87,7 @@ Schema: `.ai-engineering/standards/framework/skills-schema.md`. Organization: fl
 - No direct commits to main/master. No protected-branch push.
 - Security findings require `state/decision-store.json` risk acceptance.
 
-**Quality**: Coverage 90% (source: `standards/framework/quality/core.md`), duplication ≤3%, cyclomatic ≤10, cognitive ≤15, zero blocker/critical, 100% gate pass.
+**Quality**: Coverage 80% (source: `standards/framework/quality/core.md`), duplication ≤3%, cyclomatic ≤10, cognitive ≤15, zero blocker/critical, 100% gate pass.
 
 **Security**: Zero medium/high/critical findings, zero leaks, zero dependency vulns, hook hash verification, cross-OS enforcement.
 

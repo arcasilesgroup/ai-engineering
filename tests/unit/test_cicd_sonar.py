@@ -10,7 +10,7 @@ from ai_engineering.state.models import SonarCicdConfig
 pytestmark = pytest.mark.unit
 
 
-def test_github_sonarcloud_includes_action_fetch_depth_and_fork_guard() -> None:
+def test_github_sonarcloud_uses_unified_action_and_fork_guard() -> None:
     cfg = SonarCicdConfig(
         enabled=True,
         hostUrl="https://sonarcloud.io",
@@ -21,7 +21,9 @@ def test_github_sonarcloud_includes_action_fetch_depth_and_fork_guard() -> None:
     content = _render_github_ci(["python"], cfg)
 
     assert "fetch-depth: 0" in content
-    assert "sonarcloud-github-action@v3" in content
+    # D038-003: migrated from sonarcloud-github-action@v3 to unified action
+    assert "sonarqube-scan-action@fd88b7d7ccbaefd23d8f36f73b59db7a3d246602" in content
+    assert "sonarcloud-github-action" not in content
     assert "head.repo.full_name == github.repository" in content
     assert "-Dsonar.projectKey=my-key" in content
     assert "-Dsonar.organization=my-org" in content
@@ -37,8 +39,54 @@ def test_github_sonarqube_includes_action_and_host_url() -> None:
 
     content = _render_github_ci(["python"], cfg)
 
-    assert "sonarqube-scan-action@v4" in content
+    assert "sonarqube-scan-action@fd88b7d7ccbaefd23d8f36f73b59db7a3d246602" in content
     assert "-Dsonar.host.url=https://sonar.corp.local" in content
+
+
+def test_github_sonar_generates_coverage_step_python() -> None:
+    cfg = SonarCicdConfig(
+        enabled=True,
+        hostUrl="https://sonarcloud.io",
+        projectKey="my-key",
+        organization="my-org",
+    )
+
+    content = _render_github_ci(["python"], cfg)
+
+    assert "--cov=src --cov-report=xml:coverage.xml" in content
+
+
+def test_github_sonar_generates_coverage_step_dotnet() -> None:
+    cfg = SonarCicdConfig(
+        enabled=True,
+        hostUrl="https://sonarcloud.io",
+        projectKey="my-key",
+        organization="my-org",
+    )
+
+    content = _render_github_ci(["dotnet"], cfg)
+
+    assert "XPlat Code Coverage" in content
+
+
+def test_github_sonar_generates_coverage_step_nextjs() -> None:
+    cfg = SonarCicdConfig(
+        enabled=True,
+        hostUrl="https://sonarcloud.io",
+        projectKey="my-key",
+        organization="my-org",
+    )
+
+    content = _render_github_ci(["nextjs"], cfg)
+
+    assert "c8 report --reporter=lcov" in content
+
+
+def test_github_no_coverage_step_without_sonar() -> None:
+    content = _render_github_ci(["python"], None)
+
+    assert "--cov-report=xml" not in content
+    assert "coverage.xml" not in content
 
 
 def test_azure_sonarcloud_includes_prepare_analyze_publish() -> None:
@@ -70,6 +118,26 @@ def test_azure_sonarqube_includes_prepare_analyze_publish() -> None:
     assert "SonarQubeAnalyze@7" in content
     assert "SonarQubePublish@7" in content
     assert "sonar.host.url=https://sonar.corp.local" in content
+
+
+def test_azure_sonar_generates_coverage_step_python() -> None:
+    cfg = SonarCicdConfig(
+        enabled=True,
+        hostUrl="https://sonarcloud.io",
+        projectKey="my-key",
+        organization="my-org",
+    )
+
+    content = _render_azure_ci(["python"], cfg)
+
+    assert "--cov=src --cov-report=xml:coverage.xml" in content
+    assert "python coverage" in content
+
+
+def test_azure_no_coverage_step_without_sonar() -> None:
+    content = _render_azure_ci(["python"], None)
+
+    assert "--cov-report=xml" not in content
 
 
 def test_no_sonar_config_keeps_existing_render_output() -> None:

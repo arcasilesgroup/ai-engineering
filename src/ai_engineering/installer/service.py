@@ -346,11 +346,13 @@ def _create_sonar_properties_if_needed(
         )
 
     sources = "src" if "python" in stacks else "."
+    tests = "tests" if "python" in stacks else "."
     rendered = content.format(
         project_key=sonar_config.project_key,
         organization=sonar_config.organization,
         host_url=sonar_config.host_url,
         sources=sources,
+        tests=tests,
     )
     props_path.write_text(rendered, encoding="utf-8")
 

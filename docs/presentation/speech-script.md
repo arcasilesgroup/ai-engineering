@@ -277,7 +277,7 @@
 > - **Commit-msg**: formato válido, branch protection.
 > - **Pre-push**: semgrep SAST/OWASP, pip-audit CVE, pytest, ty type checking.
 >
-> Umbrales: Coverage ≥90%, Duplication ≤3%, Cyclomatic complexity ≤10, Cognitive complexity ≤15.
+> Umbrales: Coverage ≥80%, Duplication ≤3%, Cyclomatic complexity ≤10, Cognitive complexity ≤15.
 >
 > Para seguridad: el risk acceptance es estructurado. No puedes ignorar un finding — tienes que registrar una aceptación de riesgo con severidad y expiración: Critical 15 días, High 30 días, Medium 60 días, Low 90 días. Máximo 2 renovaciones.
 >
@@ -436,7 +436,7 @@
 | Claude Code slash commands | 60 command wrappers | `.claude/commands/` recursive scan |
 | Copilot prompt files | 45 prompt files | `.github/prompts/` scan |
 | Copilot custom agents | 15 agent wrappers | `.github/agents/` scan |
-| Quality thresholds | Coverage ≥90%, Dup ≤3%, CC ≤10, CogC ≤15 | `.ai-engineering/standards/framework/quality/core.md` |
+| Quality thresholds | Coverage ≥80%, Dup ≤3%, CC ≤10, CogC ≤15 | `.ai-engineering/standards/framework/quality/core.md` |
 | Risk expiry | Critical=15d, High=30d, Medium=60d, Low=90d | `.ai-engineering/standards/framework/core.md` |
 | Framework version | 0.1.0 (schema 1.1) | `.ai-engineering/manifest.yml` |
 | License | MIT | `framework-contract.md` |

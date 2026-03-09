@@ -29,7 +29,7 @@ Use `.ai-engineering/` as the single source of truth for project governance and 
 
 - Lint and format: `ruff check` and `ruff format --check` must pass.
 - Type checking: `ty check` must pass.
-- Tests: `uv run pytest` must pass with 90% coverage (100% for governance-critical paths).
+- Tests: `uv run pytest` must pass with 80% coverage (100% for governance-critical paths).
 - Security scans: `gitleaks` and `semgrep` must pass.
 
 ### Complexity

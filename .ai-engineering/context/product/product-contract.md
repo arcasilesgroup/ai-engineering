@@ -129,7 +129,7 @@ flowchart TB
 | Performance | Pre-commit gate execution | < 10s | Wall clock per commit |
 | Performance | Pre-push gate execution | < 60s | Wall clock per push |
 | Performance | Token deferred to local CLI | >= 95% | Framework overhead audit |
-| Maintainability | Test coverage | >= 90% | `pytest --cov` |
+| Maintainability | Test coverage | >= 80% | `pytest --cov` |
 | Maintainability | Code duplication | <= 3% | Sonar / manual audit |
 | Maintainability | Cyclomatic complexity | <= 10 per function | `ruff` rules |
 | Maintainability | Cognitive complexity | <= 15 per function | `ruff` rules |
@@ -307,7 +307,7 @@ mindmap
 | Gate pass rate | % of gate executions passing | 100% | < 95% sustained | Review failing checks, update stack rules |
 | Install success | % of `ai-eng install` completing | 100% | Any failure | `ai-eng doctor --fix-hooks --fix-tools` |
 | Security findings | Count of medium+ findings | 0 | > 0 | Block release, remediate |
-| Test coverage | Line coverage % | >= 90% | < 88% | Add tests before next PR |
+| Test coverage | Line coverage % | >= 80% | < 78% | Add tests before next PR |
 | Risk expiry | Days until nearest expiry | > 7 days | <= 3 days | Remediate or renew risk acceptance |
 | Token efficiency | % of deterministic ops local | >= 95% | < 90% | Move ops to CLI |
 
@@ -512,7 +512,7 @@ sequenceDiagram
 | Quality gate pass rate | 100% | 100% |
 | Security scan (zero medium+) | 0 | 7 semgrep (1E+6W) |
 | Tamper resistance | 100/100 | 85/100 |
-| Test coverage | 90% | 91% |
+| Test coverage | 80% | 91% |
 | Cross-OS CI matrix | 3x3 green | Stabilizing |
 | Token efficiency | >= 95% deferred | 99.19% |
 | Skills count | 35 | 35 |

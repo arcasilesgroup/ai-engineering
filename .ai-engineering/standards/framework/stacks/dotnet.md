@@ -31,7 +31,7 @@
 ## Quality Baseline
 
 - Nullable reference types: `<Nullable>enable</Nullable>` in all projects.
-- Coverage target: per `standards/framework/quality/core.md` (90% overall, 100% governance-critical).
+- Coverage target: per `standards/framework/quality/core.md` (80% overall, 100% governance-critical).
 - EditorConfig enforced: `indent_size=4`, `end_of_line=lf`, `charset=utf-8`.
 - Roslyn analyzers enabled with `<TreatWarningsAsErrors>true</TreatWarningsAsErrors>` in Release configuration.
 - XML documentation on all public APIs (`<GenerateDocumentationFile>true</GenerateDocumentationFile>`).
