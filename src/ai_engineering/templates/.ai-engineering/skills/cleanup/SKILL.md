@@ -2,7 +2,7 @@
 name: cleanup
 description: "Full repository hygiene: safe migration to default branch, aggressive branch cleanup, and rich per-branch status report."
 metadata:
-  version: 4.1.0
+  version: 4.2.0
   tags: [git, branch, cleanup, hygiene, status]
   ai-engineering:
     requires:
@@ -50,14 +50,14 @@ Execute full repository hygiene — safely migrate to the default branch, aggres
 | Category | Criteria | Action |
 |----------|----------|--------|
 | **Merged** | In `git branch --merged <default>` | Delete (`git branch -d`) |
-| **Squash-merged** | NOT in `--merged`, but `git cherry -v <default> <branch>` shows ALL commits as `-` (applied) AND `git diff <default>..<branch>` has no content diff | Delete (`git branch -D`) |
-| **Gone (safe)** | Tracking ref is `[gone]` AND `git diff <default>...<branch>` has no content diff | Delete (`git branch -D`) |
+| **Squash-merged** | NOT in `--merged`, but `git diff <default>..<branch>` (two dots, tip-to-tip) has no content diff — branch tip is identical to default | Delete (`git branch -D`) |
+| **Gone (safe)** | Tracking ref is `[gone]` AND `git diff <default>..<branch>` has no content diff | Delete (`git branch -D`) |
 | **Gone (has dev)** | Tracking ref is `[gone]` BUT has content diff vs default | KEEP — has unmerged local development |
 | **Active (remote)** | Has remote tracking branch, not merged | KEEP — active development with remote |
-| **Local only** | No remote tracking, has commits ahead of default, not squash-merged | KEEP — local-only development |
+| **Local only** | No remote tracking, has commits ahead of default, has content diff vs default | KEEP — local-only development |
 | **Protected** | `main` or `master` | SKIP — never touched |
 
-The **Squash-merged** check applies to all non-merged branches (local-only and gone) before classifying them as kept. Use `git cherry -v <default> <branch>` — if every line starts with `-`, all commits have been applied upstream. Confirm with `git diff <default>..<branch>` (two dots, tip-to-tip comparison) to verify no content difference remains.
+The **Squash-merged** check applies to all non-merged branches (local-only and gone) before classifying them as kept. Use `git diff <default>..<branch>` (two dots, tip-to-tip comparison) — if the output is empty, the branch content is already fully integrated into the default branch regardless of merge strategy (squash, rebase, or cherry-pick). Note: `git cherry -v` does NOT reliably detect squash merges because the squash commit gets a different patch-id than the original commits.
 
 10. **Delete eligible branches** — merged with `-d`, gone-safe and squash-merged with `-D`.
 
@@ -97,8 +97,8 @@ The **Squash-merged** check applies to all non-merged branches (local-only and g
 
 - Protected branches (`main`, `master`) are never deleted.
 - Merged branches: `git branch -d` (safe — git refuses if not fully merged).
-- Squash-merged branches: `git branch -D` ONLY if `git cherry -v` shows ALL commits applied AND `git diff <default>..<branch>` shows no content diff.
-- Gone branches: `git branch -D` (force) ONLY if `git diff <default>...<branch>` shows no content diff. If there is a diff, the branch is kept.
+- Squash-merged branches: `git branch -D` ONLY if `git diff <default>..<branch>` (tip-to-tip) shows no content diff.
+- Gone branches: `git branch -D` (force) ONLY if `git diff <default>..<branch>` shows no content diff. If there is a diff, the branch is kept.
 - No `--no-verify` usage.
 - If `git pull --ff-only` fails, WARN and STOP — do not force-pull or rebase.
 - No destructive git operations beyond branch deletion of eligible branches.
