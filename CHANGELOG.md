@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Emit infrastructure** — gate events now include `fixable_failures` field tracking auto-fixable check failures (ruff-format, ruff-lint); `noise_ratio_from()` aggregator computes noise ratio from gate history.
+- **Enriched session events** — checkpoint save now passes spec ID, task progress, and skills context to `emit_session_event()` instead of bare `checkpoint_saved=True`.
+- **Team dashboard expansion** — Token Economy and Noise Ratio sections show session token usage and gate failure quality metrics.
+- **AI dashboard enrichment** — Context Efficiency now shows average tokens per session.
+- **Health score: Gate signal quality** — noise ratio (inverse) added as optional health component; high noise lowers health score.
 - **Observe enrichment phase 2** — Security Posture, Test Confidence, and enriched SonarCloud sections in engineer and health dashboards with multi-source fallback chains (SonarCloud → local tools → defaults).
 - **SonarCloud measures expansion** — `query_sonar_measures()` calls `/api/measures/component` for coverage, complexity, duplication, and vulnerability metrics with module-level caching.
 - **Test confidence with fallback** — `test_confidence_metrics()` resolves coverage from SonarCloud → `coverage.json` → `test_scope` mapping → defaults.

@@ -606,11 +606,11 @@ class TestObserveHealth:
         events = [_gate_event("pass") for _ in range(6)]
         events += [_gate_event("fail", ["ruff"]) for _ in range(4)]
         _make_audit_log(tmp_path, events)
-        # 6 commits => 6 / (30/7) ~= 1.4 commits/week => velocity = 14
-        # overall = (60 + 14) / 2 = 37 => RED
-        # Let's use 26 commits => 26 / 4.29 ~= 6.1 commits/week => velocity = 61
-        # overall = (60 + 61) / 2 = 60.5 => rounds to 60 => YELLOW
-        commit_lines = "\n".join([f"abc{i} commit{i}" for i in range(26)])
+        # 14 commits => 14 / 4.29 ~= 3.3 commits/week => velocity = 33
+        # noise_score = 100 (0% fixable — old events lack fixable_failures)
+        # dora: 14 "merges" => freq = 3.3 => ELITE => 100
+        # overall = (60 + 33 + 100 + 100) / 4 = 73 => YELLOW
+        commit_lines = "\n".join([f"abc{i} commit{i}" for i in range(14)])
         mock_result = subprocess.CompletedProcess(args=[], returncode=0, stdout=commit_lines + "\n")
         with patch(
             "ai_engineering.cli_commands.observe.subprocess.run",

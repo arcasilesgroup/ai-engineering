@@ -65,11 +65,23 @@ def _emit(
         )
 
 
+_FIXABLE_CHECKS: frozenset[str] = frozenset(
+    {
+        "ruff-format",
+        "ruff-lint",
+        "dotnet-format",
+    }
+)
+
+
 def emit_gate_event(project_root: Path, result: GateResult) -> None:
     """Emit a gate_result event after gate execution."""
     checks_detail: dict[str, str] = {}
     for check in result.checks:
         checks_detail[check.name] = "pass" if check.passed else "fail"
+
+    failed = result.failed_checks
+    fixable_failures = [n for n in failed if n in _FIXABLE_CHECKS]
 
     _emit(
         project_root,
@@ -81,7 +93,8 @@ def emit_gate_event(project_root: Path, result: GateResult) -> None:
             "result": "pass" if result.passed else "fail",
             "checks": checks_detail,
             "total_checks": len(result.checks),
-            "failed_checks": result.failed_checks,
+            "failed_checks": failed,
+            "fixable_failures": fixable_failures,
         },
     )
 

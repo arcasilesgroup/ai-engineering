@@ -144,7 +144,13 @@ class TestCheckpointSave:
                 ["checkpoint", "save", "--spec-id", "040", "--current-task", "5.1"],
             )
         assert result.exit_code == 0
-        mock_emit.assert_called_once_with(tmp_path, checkpoint_saved=True)
+        mock_emit.assert_called_once_with(
+            tmp_path,
+            checkpoint_saved=True,
+            tokens_used=0,
+            decisions_reused=0,
+            skills_loaded=["040"],
+        )
 
     def test_save_emission_failure_doesnt_break(self, tmp_path: Path) -> None:
         """If emission fails, checkpoint save still succeeds (fail-open)."""

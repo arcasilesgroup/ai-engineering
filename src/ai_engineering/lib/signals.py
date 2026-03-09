@@ -386,6 +386,45 @@ def deploy_metrics_from(
     }
 
 
+def noise_ratio_from(
+    events: list[dict[str, Any]],
+    *,
+    days: int = 30,
+) -> dict[str, Any]:
+    """Compute noise ratio from gate_result events.
+
+    Noise ratio = fixable failures / total failures.
+    High noise means most gate failures are auto-fixable (formatting, lint).
+
+    Returns:
+        Dict with total_failures, fixable_failures, noise_ratio_pct.
+    """
+    since = datetime.now(tz=UTC) - timedelta(days=days)
+    gate_events = filter_events(events, event_type="gate_result", since=since)
+
+    total_failures = 0
+    fixable_failures = 0
+
+    for event in gate_events:
+        detail = event.get("detail")
+        if not isinstance(detail, dict):
+            continue
+        failed = detail.get("failed_checks", [])
+        fixable = detail.get("fixable_failures", [])
+        if isinstance(failed, list):
+            total_failures += len(failed)
+        if isinstance(fixable, list):
+            fixable_failures += len(fixable)
+
+    noise_pct = round(fixable_failures / total_failures * 100, 1) if total_failures > 0 else 0.0
+
+    return {
+        "total_failures": total_failures,
+        "fixable_failures": fixable_failures,
+        "noise_ratio_pct": noise_pct,
+    }
+
+
 def session_metrics_from(
     events: list[dict[str, Any]],
     *,

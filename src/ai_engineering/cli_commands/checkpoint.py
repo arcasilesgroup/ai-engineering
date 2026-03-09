@@ -54,9 +54,22 @@ def checkpoint_save(
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(checkpoint, indent=2) + "\n", encoding="utf-8")
 
-    # Emit session metric event (fail-open)
+    # Emit session metric event with checkpoint context (fail-open)
     with contextlib.suppress(Exception):
-        emit_session_event(root, checkpoint_saved=True)
+        # Parse progress for decisions/skills context
+        completed = 0
+        if progress and "/" in progress:
+            parts = progress.split("/")
+            with contextlib.suppress(ValueError, IndexError):
+                completed = int(parts[0])
+
+        emit_session_event(
+            root,
+            checkpoint_saved=True,
+            tokens_used=0,  # LLM has no token introspection at CLI level
+            decisions_reused=completed,  # tasks completed ≈ decisions executed
+            skills_loaded=[s for s in [spec_id] if s],  # track active spec
+        )
 
     typer.echo(f"Checkpoint saved: spec={spec_id} task={current_task} progress={progress}")
 
