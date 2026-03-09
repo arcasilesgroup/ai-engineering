@@ -142,12 +142,13 @@ def _parse_spec_for_issue(spec_md: Path, spec_id: str) -> tuple[str, str]:
         return title, body
 
     # Title from "# Spec NNN — <Title>"
-    title_match = re.search(r"^# .+? — (.+)$", text, re.MULTILINE)
+    title_match = re.search(r"^# [^\n]+? — (.+)$", text, re.MULTILINE)
     if title_match:
         title = f"[spec-{spec_id}] {title_match.group(1).strip()}"
 
     # Body from "## Problem" section
-    problem_match = re.search(r"^## Problem\s*\n(.*?)(?=^## |\Z)", text, re.MULTILINE | re.DOTALL)
+    _PROBLEM_RE = r"^## Problem[ \t]*\n(.*?)(?=(?:^## )|\Z)"
+    problem_match = re.search(_PROBLEM_RE, text, re.MULTILINE | re.DOTALL)
     if problem_match:
         paragraphs = problem_match.group(1).strip().split("\n\n")
         body = paragraphs[0].strip() if paragraphs else ""

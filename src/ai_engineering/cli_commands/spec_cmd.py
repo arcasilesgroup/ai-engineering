@@ -120,7 +120,7 @@ def _auto_correct_frontmatter(tasks_path: Path, real_total: int, real_completed:
         else:
             new_lines.append(line)
 
-    tasks_path.write_text("\n".join(new_lines), encoding="utf-8")
+    tasks_path.resolve().write_text("\n".join(new_lines), encoding="utf-8")
     return True
 
 
@@ -146,10 +146,15 @@ def spec_verify(
             typer.echo("No active spec.", err=True)
             raise typer.Exit(code=1)
 
+    # Validate spec_id contains no path traversal
+    if ".." in spec_id or "/" in spec_id or "\\" in spec_id:
+        typer.echo(f"Invalid spec id: {spec_id}", err=True)
+        raise typer.Exit(code=1)
+
     # Find spec directory (check archive and top-level specs)
-    spec_dir = _archive_dir(root) / spec_id
+    spec_dir = (_archive_dir(root) / spec_id).resolve()
     if not spec_dir.is_dir():
-        spec_dir = _specs_dir(root) / spec_id
+        spec_dir = (_specs_dir(root) / spec_id).resolve()
     if not spec_dir.is_dir():
         typer.echo(f"Spec directory not found: {spec_id}", err=True)
         raise typer.Exit(code=1)
