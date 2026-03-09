@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Slim root instructions** — deduplicated CLAUDE.md (-64%), AGENTS.md (-53%), and copilot-instructions.md (-47%); all duplicated content now lives in `framework-contract.md` or `product-contract.md`.
+- **On-demand contract loading** — plan agent, spec skill, and PR skill now explicitly read product/framework contracts when needed.
+- **Validator pointer format** — counter-accuracy and instruction-consistency validators support pointer format and use `product-contract.md` as canonical source.
+
 ### Added
 - **Emit infrastructure** — gate events now include `fixable_failures` field tracking auto-fixable check failures (ruff-format, ruff-lint); `noise_ratio_from()` aggregator computes noise ratio from gate history.
 - **Enriched session events** — checkpoint save now passes spec ID, task progress, and skills context to `emit_session_event()` instead of bare `checkpoint_saved=True`.
