@@ -43,8 +43,8 @@ A change is **trivial** (spec exempt) when ALL of these apply:
 
 ### Phase 1: Hygiene + Branch
 
-1. **Run /cleanup** — execute the cleanup skill (status + sync + prune + clean).
-   - Displays repository status snapshot.
+1. **Run /cleanup** — execute the cleanup skill (migrate to default branch, prune, branch cleanup).
+   - Produces a per-branch cleanup report.
    - Note: spec archival and `_active.md` reset now happen in `/pr` to ensure changes reach origin.
    - If `_active.md` already points to an in-progress spec, warn and ask user to confirm override.
 2. **Create a dedicated branch** — every non-trivial change starts on its own branch, never on main/master.
