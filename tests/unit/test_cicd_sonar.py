@@ -22,7 +22,7 @@ def test_github_sonarcloud_uses_unified_action_and_fork_guard() -> None:
 
     assert "fetch-depth: 0" in content
     # D038-003: migrated from sonarcloud-github-action@v3 to unified action
-    assert "sonarqube-scan-action@v4" in content
+    assert "sonarqube-scan-action@689fb39b34b9aa95ebc5f8f119343ddd51542402" in content
     assert "sonarcloud-github-action" not in content
     assert "head.repo.full_name == github.repository" in content
     assert "-Dsonar.projectKey=my-key" in content
@@ -39,7 +39,7 @@ def test_github_sonarqube_includes_action_and_host_url() -> None:
 
     content = _render_github_ci(["python"], cfg)
 
-    assert "sonarqube-scan-action@v4" in content
+    assert "sonarqube-scan-action@689fb39b34b9aa95ebc5f8f119343ddd51542402" in content
     assert "-Dsonar.host.url=https://sonar.corp.local" in content
 
 
