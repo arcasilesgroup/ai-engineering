@@ -1,18 +1,18 @@
 ---
-active: "043-slim-root-instructions"
+active: "045-observe-rich-dashboards"
 updated: "2026-03-09"
 ---
 
 # Active Spec
 
-**Spec 043 — Slim Root Instructions: Deduplicate CLAUDE.md / AGENTS.md / copilot-instructions.md**
+**Spec 045 — Observe Rich Dashboards + Dual-Output**
 
-Slim root instruction files to pointer format, consolidate duplicated content into product/framework contracts, add on-demand loading directives to skills.
+Replace raw markdown observe output with Rich-formatted dashboards (colors, progress bars, semantic badges) and add --json dual-output support.
 
 ## Quick Resume
 
-- Spec: [spec.md](specs/043-slim-root-instructions/spec.md)
-- Plan: [plan.md](specs/043-slim-root-instructions/plan.md)
-- Tasks: [tasks.md](specs/043-slim-root-instructions/tasks.md)
-- Branch: `feat/043-slim-root-instructions`
-- Next: Phase 1 — Consolidate Contracts
+- Spec: [spec.md](specs/045-observe-rich-dashboards/spec.md)
+- Plan: [plan.md](specs/045-observe-rich-dashboards/plan.md)
+- Tasks: [tasks.md](specs/045-observe-rich-dashboards/tasks.md)
+- Branch: `feat/045-observe-rich-dashboards`
+- Next: Phase 1 — Dashboard Primitives
