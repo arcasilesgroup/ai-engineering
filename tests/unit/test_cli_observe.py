@@ -937,3 +937,199 @@ class TestObserveEdgeCases:
         assert "Decisions reused: 0" in output
         assert "Decisions re-prompted: 0" in output
         assert "Cache hit rate: 0.0%" in output
+
+
+# ---------------------------------------------------------------------------
+# Smart Actions (health dashboard)
+# ---------------------------------------------------------------------------
+
+
+class TestSmartActions:
+    def test_shows_estimated_gain(self, tmp_path: Path) -> None:
+        """Health dashboard should show actions with +N pts estimates."""
+        events = [_gate_event("pass") for _ in range(5)]
+        events.append(_gate_event("fail", ["ruff-lint"]))
+        _make_audit_log(tmp_path, events)
+        _init_git_repo(tmp_path)
+        with (
+            patch(
+                "ai_engineering.cli_commands.observe.sonar_detailed_metrics",
+                return_value={"available": False, "source": "none"},
+            ),
+            patch(
+                "ai_engineering.cli_commands.observe.test_confidence_metrics",
+                return_value={"source": "none", "coverage_pct": 0},
+            ),
+        ):
+            output = observe_health(tmp_path)
+        assert "pts)" in output
+        assert "## Top Actions" in output
+
+    def test_all_healthy_message(self, tmp_path: Path) -> None:
+        """When all components >= 90, show healthy message."""
+        events = [_gate_event("pass") for _ in range(100)]
+        _make_audit_log(tmp_path, events)
+        _init_git_repo(tmp_path)
+        with (
+            patch(
+                "ai_engineering.cli_commands.observe._git_log_stat",
+                return_value={"commits": 100, "commits_per_week": 25, "period_days": 30},
+            ),
+            patch(
+                "ai_engineering.cli_commands.observe._dora_metrics",
+                return_value={
+                    "deployment_frequency_per_week": 10,
+                    "total_merges_30d": 43,
+                    "commits_per_week": 25,
+                    "total_commits_30d": 100,
+                },
+            ),
+            patch(
+                "ai_engineering.cli_commands.observe.sonar_detailed_metrics",
+                return_value={"available": False, "source": "none"},
+            ),
+            patch(
+                "ai_engineering.cli_commands.observe.test_confidence_metrics",
+                return_value={"source": "none", "coverage_pct": 0},
+            ),
+        ):
+            output = observe_health(tmp_path)
+        assert "healthy" in output.lower()
+
+
+# ---------------------------------------------------------------------------
+# Direction Indicator (health dashboard)
+# ---------------------------------------------------------------------------
+
+
+class TestDirectionIndicator:
+    def test_shows_direction_with_history(self, tmp_path: Path) -> None:
+        """Health dashboard shows direction indicator when history exists."""
+        import json as _json
+
+        state_dir = tmp_path / ".ai-engineering" / "state"
+        state_dir.mkdir(parents=True)
+        history = {
+            "entries": [
+                {"date": "2026-03-01", "overall": 40, "semaphore": "RED", "components": {}},
+            ]
+        }
+        (state_dir / "health-history.json").write_text(_json.dumps(history), encoding="utf-8")
+        events = [_gate_event("pass") for _ in range(10)]
+        _make_audit_log(tmp_path, events)
+        _init_git_repo(tmp_path)
+        with (
+            patch(
+                "ai_engineering.cli_commands.observe.sonar_detailed_metrics",
+                return_value={"available": False, "source": "none"},
+            ),
+            patch(
+                "ai_engineering.cli_commands.observe.test_confidence_metrics",
+                return_value={"source": "none", "coverage_pct": 0},
+            ),
+        ):
+            output = observe_health(tmp_path)
+        assert any(d in output for d in ["↑", "↓", "→"])
+
+    def test_no_direction_without_history(self, tmp_path: Path) -> None:
+        """No direction indicator when no history file exists."""
+        events = [_gate_event("pass")]
+        _make_audit_log(tmp_path, events)
+        _init_git_repo(tmp_path)
+        with (
+            patch(
+                "ai_engineering.cli_commands.observe.sonar_detailed_metrics",
+                return_value={"available": False, "source": "none"},
+            ),
+            patch(
+                "ai_engineering.cli_commands.observe.test_confidence_metrics",
+                return_value={"source": "none", "coverage_pct": 0},
+            ),
+        ):
+            output = observe_health(tmp_path)
+        first_line = output.split("\n")[0]
+        assert "↑" not in first_line
+        assert "↓" not in first_line
+        assert "→" not in first_line
+
+    def test_persists_snapshot(self, tmp_path: Path) -> None:
+        """Health dashboard saves a snapshot after computation."""
+        events = [_gate_event("pass")]
+        _make_audit_log(tmp_path, events)
+        _init_git_repo(tmp_path)
+        with (
+            patch(
+                "ai_engineering.cli_commands.observe.sonar_detailed_metrics",
+                return_value={"available": False, "source": "none"},
+            ),
+            patch(
+                "ai_engineering.cli_commands.observe.test_confidence_metrics",
+                return_value={"source": "none", "coverage_pct": 0},
+            ),
+        ):
+            observe_health(tmp_path)
+        history_path = tmp_path / ".ai-engineering" / "state" / "health-history.json"
+        assert history_path.exists()
+        import json as _json
+
+        data = _json.loads(history_path.read_text(encoding="utf-8"))
+        assert len(data["entries"]) == 1
+
+
+# ---------------------------------------------------------------------------
+# Self-Optimization Hints (AI dashboard)
+# ---------------------------------------------------------------------------
+
+
+class TestSelfOptimizationHints:
+    def test_shows_hints_section(self, tmp_path: Path) -> None:
+        """AI dashboard shows Self-Optimization Hints section."""
+        events = [_session_event()]
+        _make_audit_log(tmp_path, events)
+        output = observe_ai(tmp_path)
+        assert "## Self-Optimization Hints" in output
+
+    def test_low_decision_reuse_hint(self, tmp_path: Path) -> None:
+        """Shows hint when decision cache hit rate is low."""
+        events = [_session_event(decisions_reused=1, decisions_reprompted=5)]
+        _make_audit_log(tmp_path, events)
+        output = observe_ai(tmp_path)
+        assert "decision reuse" in output.lower() or "decision-store" in output.lower()
+
+    def test_high_gate_failure_hint(self, tmp_path: Path) -> None:
+        """Shows hint when gate pass rate is below 80%."""
+        events = [_gate_event("fail", ["ruff-lint"]) for _ in range(8)]
+        events.append(_gate_event("pass"))
+        events.append(_session_event())
+        _make_audit_log(tmp_path, events)
+        output = observe_ai(tmp_path)
+        assert "ruff format" in output.lower()
+
+    def test_no_checkpoint_hint(self, tmp_path: Path) -> None:
+        """Shows hint when no checkpoint exists."""
+        events = [_session_event()]
+        _make_audit_log(tmp_path, events)
+        output = observe_ai(tmp_path)
+        assert "checkpoint" in output.lower()
+
+    def test_all_healthy_hint(self, tmp_path: Path) -> None:
+        """Shows healthy message when all patterns are fine."""
+        events = [_session_event(decisions_reused=10, decisions_reprompted=1)]
+        events.extend([_gate_event("pass") for _ in range(10)])
+        _make_audit_log(tmp_path, events)
+        state_dir = tmp_path / ".ai-engineering" / "state"
+        state_dir.mkdir(parents=True, exist_ok=True)
+        import json as _json
+
+        (state_dir / "session-checkpoint.json").write_text(
+            _json.dumps(
+                {
+                    "current_task": "test",
+                    "progress": "5/5",
+                    "timestamp": _ts(0),
+                }
+            ),
+            encoding="utf-8",
+        )
+        output = observe_ai(tmp_path)
+        assert "no optimization needed" in output.lower()
