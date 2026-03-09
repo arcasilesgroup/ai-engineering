@@ -2,9 +2,11 @@
 
 Operational contract for AI agents. Consumed by GitHub Copilot, Claude Code, Gemini CLI, Codex, and other AI coding agents.
 
-## Canonical Governance Source
+## Source of Truth
 
-- `.ai-engineering/` is the single source of truth — contract: `manifest.yml`, context: `context/**`.
+- Governance rules: `.ai-engineering/context/product/framework-contract.md`
+- Product context: `.ai-engineering/context/product/product-contract.md`
+- Contract: `.ai-engineering/manifest.yml`
 
 ## Session Start Protocol
 
@@ -27,35 +29,12 @@ Mandatory. Skipping risks stale code, repeated decisions, or merge conflicts.
 5. **Proactive Memory** — Read/write `state/decision-store.json` to persist learnings and avoid repeated questions.
 6. **Checkpoint on completion** — Save checkpoint after each task: `ai-eng checkpoint save`.
 
-## Skills (35)
+## On-Demand Context Loading
 
-Path: `.ai-engineering/skills/<name>/SKILL.md` (flat organization, no category subdirectories)
-
-| Domain | Skills |
-|--------|--------|
-| Planning | discover, plan, product-contract, spec, cleanup, explain |
-| Build | build, test, debug, refactor, code-simplifier, api, cli, db, infra, cicd, migrate |
-| Scan | security, quality, governance, architecture, perf, a11y, feature-gap |
-| Release | commit, pr, release, changelog, work-item |
-| Write | docs |
-| Observe | observe |
-| Governance | risk, standards, create, delete |
-
-## Agents (7)
-
-Path: `.ai-engineering/agents/<name>.md`
-
-| Agent | Purpose | Scope |
-|-------|---------|-------|
-| plan | Planning pipeline, spec creation, execution plan — STOPS before execution | read-write |
-| execute | Read approved plan, dispatch agents, coordinate, checkpoint, report | read-write |
-| build | Implementation across 20 stacks (ONLY code write agent) | read-write |
-| scan | 7-mode assessment: governance, security, quality, perf, a11y, feature, architecture | read-write (work items only) |
-| release | ALM lifecycle: commit, PR, release gate, triage, work-items, deploy | read-write |
-| write | Documentation (generate/simplify modes) | read-write (docs only) |
-| observe | Observability: 5 modes across 4 audience tiers + DORA metrics + health scoring | read-only |
-
-Slash commands: `/ai:<name>` for all skills and agents.
+Before planning or creating specs: read `product-contract.md` §7 (roadmap, KPIs, blockers).
+Before governance decisions: read `framework-contract.md` §2-3 (agentic model, ownership).
+For skills/agents/CLI reference: read `product-contract.md` §2.2.
+For commands/pipelines: read `framework-contract.md` §5.
 
 ## Platform Adaptors
 
@@ -78,69 +57,12 @@ Path: `.ai-engineering/runbooks/*.md` — 13 platform-agnostic runbooks for recu
 | Executor | executor, ci-fixer | Hourly/30min |
 | Reporting | weekly-report, changelog-gen, pr-review | Weekly/4h |
 
-Executor runbooks enable `gh pr merge --auto --squash --delete-branch`. Requires branch protection with required status checks. CI passes → GitHub auto-merges. CI fails → ci-fixer attempts fix. 3 failures → escalate to human.
+## Quick Reference
 
-## Lifecycle
-
-Discovery → Architecture → Planning → Implementation → Scan → Release Gate → Deploy → Observe → Feedback.
-
-## Pipeline Strategy
-
-| Pipeline | Trigger | Steps |
-|----------|---------|-------|
-| full | Features, refactors | discover → architecture → risk → spec → dispatch |
-| standard | Enhancements | discover → risk → spec → dispatch |
-| hotfix | Bug fixes | discover → risk → dispatch |
-| trivial | Typos | dispatch |
-
-## Python CLI (`ai-eng`)
-
-Deterministic tasks run locally without AI tokens: `ai-eng observe`, `ai-eng gate`, `ai-eng signals`, `ai-eng checkpoint`, `ai-eng decision`.
-
-## Ownership Model
-
-- Framework-managed: `.ai-engineering/standards/framework/**`
-- Team-managed: `.ai-engineering/standards/team/**`
-- Project-managed: `.ai-engineering/context/**`
-- System-managed: `.ai-engineering/state/*.json`, `.ai-engineering/state/*.ndjson`
-
-Never overwrite team/project content during framework updates. Cross-OS enforcement required.
-
-## Command Contract
-
-- `/ai:plan` → planning pipeline (classify → discover → risk → spec → execution plan → STOP)
-- `/ai:plan --plan-only` → advisory only (discover → risk → recommend, zero writes)
-- `/ai:execute` → read approved plan, dispatch agents, coordinate, report
-- `/ai:commit` → stage + commit + push
-- `/ai:commit --only` → stage + commit
-- `/ai:pr` → stage + commit + push + PR + auto-complete (`--auto --squash --delete-branch`)
-- `/ai:pr --only` → create PR; warn if unpushed, propose auto-push
-
-## Non-Negotiables
-
-- Mandatory local gates cannot be bypassed.
-- No direct commits to protected branches.
-- Update safety must preserve team/project-owned content.
-- Security findings require `state/decision-store.json` risk acceptance.
-
-## Progressive Disclosure
-
-Three-level loading: **Metadata** (always) → **Body** (on-demand) → **Resources** (on-demand).
-
-Session start loads ONLY: `_active.md` → `spec.md` → `tasks.md` → `decision-store.json` → `session-checkpoint.json`. Do NOT pre-load skills or agents.
-
-## Quality Contract
-
-Coverage 80%, duplication ≤3%, cyclomatic ≤10, cognitive ≤15, zero blocker/critical, 100% gate pass.
-
-## Security Contract
-
-Zero medium/high/critical findings, zero leaks, zero dependency vulns, hook hash verification, cross-OS enforcement.
-
-## Tooling
-
-`uv` (runtime) · `ruff` (lint/format) · `ty` (types) · `pip-audit` (deps)
-
-## Validation Reminder
-
-Before merge: `ruff`, `pytest`, `ty`, `gitleaks`, `semgrep`, `pip-audit`.
+- Skills (35): `.ai-engineering/skills/<name>/SKILL.md` — slash commands: `/ai:<name>`
+- Agents (7): `.ai-engineering/agents/<name>.md`
+- CLI: `ai-eng <command>` — deterministic tasks, zero AI tokens
+- Quality: coverage 80%, duplication ≤3%, cyclomatic ≤10, cognitive ≤15
+- Security: zero medium+ findings, zero leaks, zero dependency vulns
+- Tooling: `uv` · `ruff` · `ty` · `pip-audit`
+- Validation: `ruff`, `pytest`, `ty`, `gitleaks`, `semgrep`, `pip-audit`

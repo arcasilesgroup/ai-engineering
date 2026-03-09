@@ -76,7 +76,8 @@ Execute the `/pr` governed workflow: conditionally run spec reset, stage, commit
        - `"pr"`: create branch, commit changes, push, create PR with auto-complete (use VCS-appropriate CLI), report PR URL.
        - `"push"`: commit changes, push directly to main branch.
      - Report what was updated and where.
-     e. **Update product-contract.md** (when scope requires it):
+     e. **Read and update product-contract.md** (when scope requires it):
+   - Read `context/product/product-contract.md` to check current state.
    - Evaluate if staged changes affect product contract sections:
      - New skills/agents/stacks: Section 2.2 (Functional Requirements), 3.1 (Stack).
      - Security findings changes: Section 5.4 (Hardening), 7.3 (KPIs).

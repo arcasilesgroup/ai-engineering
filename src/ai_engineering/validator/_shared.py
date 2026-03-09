@@ -262,7 +262,11 @@ def _parse_skill_names(section: str) -> set[str]:
         cells = [cell.strip() for cell in line.strip("|").split("|")]
         for cell in cells:
             normalized = cell.lower()
-            if not cell or normalized in {"skills", "skills (alphabetical)"}:
+            if not cell or normalized in {
+                "skills",
+                "skills (alphabetical)",
+                "domain",
+            }:
                 continue
             for token in [part.strip() for part in cell.split(",")]:
                 if _SKILL_NAME_PATTERN.fullmatch(token):

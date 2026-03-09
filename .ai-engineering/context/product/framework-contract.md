@@ -135,15 +135,51 @@ Higher-numbered layers override lower-numbered layers for the same directive.
 
 When weakening a directive is requested: warn user → generate remediation patch → never auto-apply → require explicit risk acceptance → persist in `decision-store.json` → append to `audit-log.ndjson`. Agents MUST check the decision store before prompting — no repeated decisions unless expired, scope/severity/policy changed, or context hash changed.
 
-## 5. Distribution Model
+## 5. Command Contract
 
-### 5.1 Template Replication
+### 5.1 Agent Commands
+
+- `/ai:plan` → planning pipeline (classify → discover → risk → spec → execution plan → STOP)
+- `/ai:plan --plan-only` → advisory only (discover → risk → recommend, zero writes)
+- `/ai:execute` → read approved plan, dispatch agents, coordinate, report
+- `/ai:commit` → stage + commit + push
+- `/ai:commit --only` → stage + commit
+- `/ai:pr` → stage + commit + push + PR + auto-complete (`--auto --squash --delete-branch`)
+- `/ai:pr --only` → create PR; warn if unpushed, propose auto-push
+
+### 5.2 Pipeline Strategy
+
+Auto-classified from `git diff --stat` + change type. User override: `/ai:plan --pipeline=<type>`.
+
+| Pipeline | When | Steps |
+|----------|------|-------|
+| full | Features, refactors, >3 files | discover → architecture → risk → spec → dispatch |
+| standard | Enhancements, 3-5 files | discover → risk → spec → dispatch |
+| hotfix | Bug fixes, <3 files | discover → risk → dispatch |
+| trivial | Typos, single-line | dispatch |
+
+### 5.3 Progressive Disclosure
+
+Three-level loading: **Metadata** (always, ~50 tok/skill) → **Body** (on-demand) → **Resources** (on-demand).
+
+Session start loads ONLY: `_active.md` → `spec.md` → `tasks.md` → `decision-store.json` → `session-checkpoint.json`. Do NOT pre-load skills or agents.
+
+| Level | Budget |
+|-------|--------|
+| Session start | ~500 tokens |
+| Single skill | ~2,050 tokens |
+| Agent + 2 skills | ~3,200 tokens |
+| Platform audit (7 dim) | ~10,500 tokens |
+
+## 6. Distribution Model
+
+### 6.1 Template Replication
 
 - Canonical content authored in `.ai-engineering/`; mirrored in `src/ai_engineering/templates/.ai-engineering/`.
 - Non-state files MUST be identical between canonical and template mirror (except spec execution logs).
 - `state/*` files MUST be generated at install/update runtime from typed defaults.
 
-### 5.2 Release Model
+### 6.2 Release Model
 
 - SemVer with migration scripts. Channels: `stable` and `canary`.
 - Telemetry MUST remain strict opt-in.

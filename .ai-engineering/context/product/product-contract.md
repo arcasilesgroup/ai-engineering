@@ -120,6 +120,62 @@ flowchart TB
 | AI Ecosystem | Multi-provider adapters (Claude Code, Copilot, Gemini, Codex) | P0 | Done |
 | AI Ecosystem | Governed parallel execution with phase gates | P1 | Active |
 
+#### Skills (35)
+
+Path: `.ai-engineering/skills/<name>/SKILL.md` (flat organization, no category subdirectories)
+
+| Domain | Skills |
+|--------|--------|
+| Planning | discover, plan, product-contract, spec, cleanup, explain |
+| Build | build, test, debug, refactor, code-simplifier, api, cli, db, infra, cicd, migrate |
+| Scan | security, quality, governance, architecture, perf, a11y, feature-gap |
+| Release | commit, pr, release, changelog, work-item |
+| Write | docs |
+| Observe | observe |
+| Governance | risk, standards, create, delete |
+
+Slash commands: `/ai:<name>` for all skills and agents.
+
+#### Agents (7)
+
+Path: `.ai-engineering/agents/<name>.md`
+
+| Agent | Purpose | Scope |
+|-------|---------|-------|
+| plan | Planning pipeline, spec creation, execution plan — STOPS before execution | read-write |
+| execute | Read approved plan, dispatch agents, coordinate, checkpoint, report | read-write |
+| build | Implementation across 20 stacks (ONLY code write agent) | read-write |
+| scan | 7-mode assessment: governance, security, quality, perf, a11y, feature, architecture | read-write (work items only) |
+| release | ALM lifecycle: commit, PR, release gate, triage, work-items, deploy | read-write |
+| write | Documentation (generate/simplify modes) | read-write (docs only) |
+| observe | Observability: 5 modes across 4 audience tiers + DORA metrics + health scoring | read-only |
+
+#### Python CLI (`ai-eng`)
+
+Deterministic tasks run locally without AI tokens:
+
+| Command | What |
+|---------|------|
+| `ai-eng observe [mode]` | Dashboards: engineer, team, ai, dora, health |
+| `ai-eng gate pre-commit\|pre-push\|all` | Run quality gate checks |
+| `ai-eng signals emit\|query` | Event store operations |
+| `ai-eng checkpoint save\|load` | Session recovery |
+| `ai-eng decision list\|expire-check` | Decision store management |
+| `ai-eng validate` | Content integrity validation |
+| `ai-eng stack add\|remove\|list` | Stack management |
+| `ai-eng ide add\|remove\|list` | IDE configuration |
+| `ai-eng provider add\|remove\|list` | Provider management |
+| `ai-eng skill status` | Skill eligibility diagnostics |
+| `ai-eng maintenance report\|pr\|all` | Repo hygiene + maintenance |
+| `ai-eng vcs status\|set-primary` | VCS operations |
+| `ai-eng review pr` | PR review |
+| `ai-eng cicd regenerate` | CI/CD workflow generation |
+| `ai-eng setup platforms\|github\|sonar` | Platform setup |
+| `ai-eng scan-report format` | Format scan findings → markdown |
+| `ai-eng metrics collect` | Collect signals → dashboard data |
+| `ai-eng release` | Release management |
+| `ai-eng install\|update\|doctor` | Installation + diagnostics |
+
 ### 2.3 Non-Functional Requirements
 
 | Category | Requirement | Threshold | Measurement |
