@@ -1,9 +1,9 @@
 ---
 spec: "045"
 total: 14
-completed: 9
+completed: 14
 last_session: "2026-03-10"
-next_session: "Phase 3 + 4 — Rich Rendering"
+next_session: "Phase 5 — Integration + Polish"
 ---
 
 # Tasks — Observe Rich Dashboards + Dual-Output
@@ -24,13 +24,13 @@ next_session: "Phase 3 + 4 — Rich Rendering"
 - [x] 2.3 Wire through `output()` router from cli_output.py
 
 ## Phase 3: Rich Rendering — Health + Engineer [M]
-- [ ] 3.1 Refactor `observe_health()` — score badge, progress bars, suggest_next
-- [ ] 3.2 Refactor `observe_engineer()` — sections, kv, status_line, progress_bar
+- [x] 3.1 Refactor `observe_health()` — score badge, progress bars, suggest_next
+- [x] 3.2 Refactor `observe_engineer()` — sections, kv, status_line, progress_bar
 
 ## Phase 4: Rich Rendering — Team + AI + DORA [M]
-- [ ] 4.1 Refactor `observe_team()` — metric_table, kv, noise ratio bar
-- [ ] 4.2 Refactor `observe_ai()` — context kv, decision bars, status_lines
-- [ ] 4.3 Refactor `observe_dora()` — rating badges, benchmark table
+- [x] 4.1 Refactor `observe_team()` — metric_table, kv, noise ratio bar
+- [x] 4.2 Refactor `observe_ai()` — context kv, decision bars, status_lines
+- [x] 4.3 Refactor `observe_dora()` — rating badges, benchmark table
 
 ## Phase 5: Integration + Polish [S]
 - [ ] 5.1 End-to-end test all 5 modes (human + JSON)

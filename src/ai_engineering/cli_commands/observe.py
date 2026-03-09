@@ -155,30 +155,6 @@ def _sonar_metrics_data(project_root: Path) -> dict[str, Any]:
         return {"available": False}
 
 
-def _render_sonar_lines(sonar_data: dict[str, Any]) -> list[str]:
-    """Render SonarCloud data as markdown lines."""
-    if not sonar_data.get("available"):
-        return []
-
-    lines = [
-        "",
-        "## SonarCloud Quality Gate",
-        f"- Status: {sonar_data['status']}",
-    ]
-    if sonar_data.get("new_code_coverage"):
-        lines.append(f"- New code coverage: {sonar_data['new_code_coverage']}%")
-    lines.append(f"- Conditions: {sonar_data['conditions_count']}")
-
-    if "detailed" in sonar_data:
-        d = sonar_data["detailed"]
-        lines.append(f"- Coverage: {d['coverage_pct']}%")
-        lines.append(f"- Complexity: {d['cognitive_complexity']}")
-        lines.append(f"- Duplication: {d['duplication_pct']}%")
-        lines.append(f"- Issues: {d['bugs']} bugs, {d['vulnerabilities']} vulnerabilities")
-
-    return lines
-
-
 # ---------------------------------------------------------------------------
 # Mode functions: each returns a structured dict
 # ---------------------------------------------------------------------------
@@ -265,100 +241,159 @@ def observe_engineer(project_root: Path) -> dict[str, Any]:
 
 
 def _render_engineer(data: dict[str, Any]) -> None:
-    """Render engineer dashboard as markdown text."""
+    """Render engineer dashboard with Rich formatting."""
+    from ai_engineering.cli_ui import (
+        header,
+        info,
+        kv,
+        metric_table,
+        progress_bar,
+        section,
+        status_line,
+        suggest_next,
+        warning,
+    )
+
+    header("Engineer Dashboard")
+    kv(
+        "Data quality",
+        f"{data['data_quality']} ({data['total_events']} events, {data['days_span']} days)",
+    )
+
+    # Delivery Velocity
+    section("Delivery Velocity")
     dv = data["delivery_velocity"]
+    kv("Commits/week", dv["commits_per_week"])
+    kv("Total commits (30d)", dv["total_commits_30d"])
+    kv("Lead time (median)", f"{dv['lead_time_median_days']} days")
+
+    # Gate Health
+    section("Gate Health (last 30 days)")
     gh = data["gate_health"]
-    lines = [
-        "# Engineer Dashboard",
-        "",
-        f"Data quality: {data['data_quality']}"
-        f" ({data['total_events']} events, {data['days_span']} days)",
-        "",
-        "## Delivery Velocity",
-        f"- Commits/week: {dv['commits_per_week']}",
-        f"- Total commits (30d): {dv['total_commits_30d']}",
-        f"- Lead time (median): {dv['lead_time_median_days']} days",
-        "",
-        "## Gate Health (last 30 days)",
-        f"- Total gate runs: {gh['total']}",
-        f"- Pass rate: {gh['pass_rate']}%",
-        f"- Most failed check: {gh['most_failed_check']} ({gh['most_failed_count']}x)",
-    ]
+    kv("Total gate runs", gh["total"])
+    progress_bar("Pass rate", gh["pass_rate"])
+    if gh["most_failed_check"] and gh["most_failed_count"] > 0:
+        status_line(
+            "warn",
+            gh["most_failed_check"],
+            f"most failed ({gh['most_failed_count']}x)",
+        )
 
-    lines.extend(_render_sonar_lines(data["sonar"]))
+    # SonarCloud (if available)
+    sonar = data["sonar"]
+    if sonar.get("available"):
+        section("SonarCloud Quality Gate")
+        kv("Status", sonar["status"])
+        if sonar.get("new_code_coverage"):
+            kv("New code coverage", f"{sonar['new_code_coverage']}%")
+        kv("Conditions", sonar["conditions_count"])
+        if "detailed" in sonar:
+            d = sonar["detailed"]
+            progress_bar("Coverage", d["coverage_pct"])
+            kv("Complexity", d["cognitive_complexity"])
+            kv("Duplication", f"{d['duplication_pct']}%")
+            kv("Issues", f"{d['bugs']} bugs, {d['vulnerabilities']} vulnerabilities")
 
-    # Lead Time section
+    # Lead Time
+    section("Lead Time")
     lt = data["lead_time"]
-    lines.append("")
-    lines.append("## Lead Time")
     if lt["merges_analyzed"] == 0:
-        lines.append("- Insufficient merge data")
+        info("Insufficient merge data")
     else:
-        lines.append(f"- Median: {lt['median_days']} days")
-        lines.append(f"- Rating: {lt['rating']}")
-        lines.append(f"- Merges analyzed: {lt['merges_analyzed']}")
+        kv("Median", f"{lt['median_days']} days")
+        kv("Rating", lt["rating"])
+        kv("Merges analyzed", lt["merges_analyzed"])
 
-    # Code Quality from scans
+    # Code Quality
+    section("Code Quality (from scans)")
     cq = data["code_quality"]
-    lines.append("")
-    lines.append("## Code Quality (from scans)")
     if cq["total_scans"] == 0:
-        lines.append("- No scan data — run /ai:scan quality")
+        info("No scan data — run /ai:scan quality")
     else:
-        lines.append(f"- Quality score: {cq['avg_quality_score']}/100")
-        lines.append(f"- Security score: {cq['avg_security_score']}/100")
+        progress_bar("Quality score", cq["avg_quality_score"])
+        progress_bar("Security score", cq["avg_security_score"])
         findings = cq["findings"]
-        lines.append(
-            f"- Findings: {findings['critical']} critical, {findings['high']} high",
+        metric_table(
+            [
+                (
+                    "Critical findings",
+                    str(findings["critical"]),
+                    "fail" if findings["critical"] > 0 else "ok",
+                ),
+                (
+                    "High findings",
+                    str(findings["high"]),
+                    "warn" if findings["high"] > 0 else "ok",
+                ),
+            ]
         )
 
     # Build Activity
+    section("Build Activity (last 30d)")
     ba = data["build_activity"]
-    lines.append("")
-    lines.append("## Build Activity (last 30d)")
     if ba["total_builds"] == 0:
-        lines.append("- No build data")
+        info("No build data")
     else:
-        lines.append(f"- Builds: {ba['total_builds']}")
-        lines.append(
-            f"- Files changed: {ba['files_changed']}, Tests added: {ba['tests_added']}",
-        )
+        kv("Builds", ba["total_builds"])
+        kv("Files changed", ba["files_changed"])
+        kv("Tests added", ba["tests_added"])
 
     # Security Posture
+    section("Security Posture")
     sp = data["security_posture"]
-    lines.append("")
-    lines.append("## Security Posture")
     if sp["source"] == "none":
-        lines.append("- No data — run `ai-eng setup sonar` or install pip-audit")
+        info("No data — run `ai-eng setup sonar` or install pip-audit")
     else:
-        lines.append(f"- Vulnerabilities: {sp['vulnerabilities']} ({sp['source']})")
-        lines.append(f"- Security hotspots: {sp['security_hotspots']}")
-        lines.append(f"- Security rating: {sp['security_rating']}")
-        lines.append(f"- Dependency vulnerabilities: {sp['dep_vulns']}")
+        vuln_status = "ok" if sp["vulnerabilities"] == 0 else "fail"
+        metric_table(
+            [
+                (
+                    "Vulnerabilities",
+                    f"{sp['vulnerabilities']} ({sp['source']})",
+                    vuln_status,
+                ),
+                (
+                    "Security hotspots",
+                    str(sp["security_hotspots"]),
+                    "warn" if sp["security_hotspots"] > 0 else "ok",
+                ),
+                ("Security rating", sp["security_rating"], "none"),
+                (
+                    "Dep vulnerabilities",
+                    str(sp["dep_vulns"]),
+                    "warn" if sp["dep_vulns"] > 0 else "ok",
+                ),
+            ]
+        )
 
     # Test Confidence
+    section("Test Confidence")
     tc = data["test_confidence"]
-    lines.append("")
-    lines.append("## Test Confidence")
     if tc["source"] == "none":
-        lines.append("- No data — run `pytest --cov` or configure SonarCloud")
+        info("No data — run `pytest --cov` or configure SonarCloud")
     else:
-        lines.append(f"- Coverage: {tc['coverage_pct']}% ({tc['source']})")
+        progress_bar("Coverage", tc["coverage_pct"], threshold=80)
         if tc["files_total"] > 0:
-            lines.append(f"- Files covered: {tc['files_covered']}/{tc['files_total']}")
-        threshold_status = "yes" if tc["meets_threshold"] else "no"
-        lines.append(f"- Meets threshold (80%): {threshold_status}")
+            kv("Files covered", f"{tc['files_covered']}/{tc['files_total']}")
+        status = "ok" if tc["meets_threshold"] else "fail"
+        status_line(
+            status,
+            "Threshold (80%)",
+            "met" if tc["meets_threshold"] else "not met",
+        )
         if tc["untested_critical"]:
-            lines.append(f"- Untested critical: {', '.join(tc['untested_critical'][:3])}")
+            warning(f"Untested critical: {', '.join(tc['untested_critical'][:3])}")
 
-    lines.extend(
+    # Actions
+    suggest_next(
         [
-            "",
-            "## Actions",
+            (
+                a.split("for")[0].strip() if "for" in a else a,
+                a.split("for")[1].strip() if "for" in a else "",
+            )
+            for a in data["actions"]
         ]
     )
-    lines.extend(f"- {a}" for a in data["actions"])
-    typer.echo("\n".join(lines))
 
 
 def observe_team(project_root: Path) -> dict[str, Any]:
@@ -427,92 +462,111 @@ def observe_team(project_root: Path) -> dict[str, Any]:
 
 
 def _render_team(data: dict[str, Any]) -> None:
-    """Render team dashboard as markdown text."""
+    """Render team dashboard with Rich formatting."""
+    from ai_engineering.cli_ui import (
+        header,
+        info,
+        kv,
+        metric_table,
+        progress_bar,
+        section,
+        suggest_next,
+        warning,
+    )
+
+    header("Team Dashboard")
+    kv("Data quality", f"{data['data_quality']} ({data['total_events']} events)")
+
+    # Event Distribution
+    section("Event Distribution")
     ed = data["event_distribution"]
-    gh = data["gate_health"]
-    lines = [
-        "# Team Dashboard",
-        "",
-        f"Data quality: {data['data_quality']} ({data['total_events']} events)",
-        "",
-        "## Event Distribution",
-        f"- Gate events: {ed['gate_events']}",
-        f"- Scan events: {ed['scan_events']}",
-        f"- Build events: {ed['build_events']}",
-        f"- Session events: {ed['session_events']}",
-        f"- Deploy events: {ed['deploy_events']}",
-        "",
-        "## Gate Health",
-        f"- Pass rate: {gh['pass_rate']}%",
-        f"- Most friction: {gh['most_friction']}",
-    ]
-
-    # Decision Store Health
-    ds = data["decision_store"]
-    lines.append("")
-    lines.append("## Decision Store Health")
-    if ds["total"] == 0:
-        lines.append("- No decisions recorded")
-    else:
-        lines.append(
-            f"- Active: {ds['active']}, Expired (need review): {ds['expired']}, "
-            f"Resolved: {ds['resolved']}",
-        )
-        lines.append(f"- Avg age: {ds['avg_age_days']} days")
-
-    # Adoption
-    ad = data["adoption"]
-    lines.append("")
-    lines.append("## Adoption")
-    lines.append(f"- Stacks: {', '.join(ad['stacks']) if ad['stacks'] else 'none'}")
-    lines.append(f"- Providers: {ad['primary_provider']}")
-    lines.append(f"- IDEs: {', '.join(ad['ides']) if ad['ides'] else 'none'}")
-    lines.append(f"- Hooks: {ad['hooks_status']}")
-
-    # Scan Health
-    sh = data["scan_health"]
-    lines.append("")
-    lines.append("## Scan Health")
-    if sh["total_scans"] == 0:
-        lines.append("- No scan data")
-    else:
-        lines.append(f"- Avg quality score: {sh['avg_quality_score']}/100")
-        lines.append(f"- Scans run: {sh['total_scans']}")
-
-    # Token Economy
-    te = data["token_economy"]
-    lines.append("")
-    lines.append("## Token Economy")
-    if te["sessions_analyzed"] == 0:
-        lines.append("- No session data — checkpoint save emits session metrics")
-    else:
-        lines.append(f"- Sessions: {te['sessions_analyzed']}")
-        lines.append(f"- Total tokens: {te['total_tokens']:,}")
-        lines.append(f"- Utilization: {te['utilization_pct']}%")
-        if te["skills_loaded"]:
-            lines.append(f"- Skills active: {', '.join(te['skills_loaded'])}")
-
-    # Noise Ratio
-    nr = data["noise_ratio"]
-    lines.append("")
-    lines.append("## Noise Ratio")
-    if nr["total_failures"] == 0:
-        lines.append("- No gate failures — all gates passing")
-    else:
-        lines.append(f"- Total failures: {nr['total_failures']}")
-        lines.append(f"- Auto-fixable: {nr['fixable_failures']}")
-        lines.append(f"- Noise ratio: {nr['noise_ratio_pct']}%")
-        if nr["noise_ratio_pct"] > 50:
-            lines.append("- High noise — run `ruff format` + `ruff check --fix` before committing")
-
-    lines.extend(
+    metric_table(
         [
-            "",
-            "## Actions",
+            ("Gate events", str(ed["gate_events"]), "ok" if ed["gate_events"] > 0 else "none"),
+            ("Scan events", str(ed["scan_events"]), "ok" if ed["scan_events"] > 0 else "none"),
+            ("Build events", str(ed["build_events"]), "ok" if ed["build_events"] > 0 else "none"),
+            (
+                "Session events",
+                str(ed["session_events"]),
+                "ok" if ed["session_events"] > 0 else "none",
+            ),
+            (
+                "Deploy events",
+                str(ed["deploy_events"]),
+                "ok" if ed["deploy_events"] > 0 else "none",
+            ),
         ]
     )
-    lines.extend(f"- {a}" for a in data["actions"])
-    typer.echo("\n".join(lines))
+
+    # Gate Health
+    section("Gate Health")
+    gh = data["gate_health"]
+    progress_bar("Pass rate", gh["pass_rate"])
+    if gh["most_friction"]:
+        kv("Most friction", gh["most_friction"])
+
+    # Decision Store Health
+    section("Decision Store Health")
+    ds = data["decision_store"]
+    if ds["total"] == 0:
+        info("No decisions recorded")
+    else:
+        metric_table(
+            [
+                ("Active", str(ds["active"]), "ok"),
+                (
+                    "Expired (need review)",
+                    str(ds["expired"]),
+                    "warn" if ds["expired"] > 0 else "ok",
+                ),
+                ("Resolved", str(ds["resolved"]), "ok"),
+            ]
+        )
+        kv("Avg age", f"{ds['avg_age_days']} days")
+
+    # Adoption
+    section("Adoption")
+    ad = data["adoption"]
+    kv("Stacks", ", ".join(ad["stacks"]) if ad["stacks"] else "none")
+    kv("Providers", ad["primary_provider"])
+    kv("IDEs", ", ".join(ad["ides"]) if ad["ides"] else "none")
+    kv("Hooks", ad["hooks_status"])
+
+    # Scan Health
+    section("Scan Health")
+    sh = data["scan_health"]
+    if sh["total_scans"] == 0:
+        info("No scan data")
+    else:
+        progress_bar("Quality score", sh["avg_quality_score"])
+        kv("Scans run", sh["total_scans"])
+
+    # Token Economy
+    section("Token Economy")
+    te = data["token_economy"]
+    if te["sessions_analyzed"] == 0:
+        info("No session data — checkpoint save emits session metrics")
+    else:
+        kv("Sessions", te["sessions_analyzed"])
+        kv("Total tokens", f"{te['total_tokens']:,}")
+        progress_bar("Utilization", te["utilization_pct"])
+        if te["skills_loaded"]:
+            kv("Skills active", ", ".join(te["skills_loaded"]))
+
+    # Noise Ratio
+    section("Noise Ratio")
+    nr = data["noise_ratio"]
+    if nr["total_failures"] == 0:
+        info("No gate failures — all gates passing")
+    else:
+        kv("Total failures", nr["total_failures"])
+        kv("Auto-fixable", nr["fixable_failures"])
+        progress_bar("Noise ratio", nr["noise_ratio_pct"])
+        if nr["noise_ratio_pct"] > 50:
+            warning("High noise — run `ruff format` + `ruff check --fix` before committing")
+
+    # Actions
+    suggest_next([(a, "") for a in data["actions"]])
 
 
 def observe_ai(project_root: Path) -> dict[str, Any]:
@@ -605,57 +659,60 @@ def observe_ai(project_root: Path) -> dict[str, Any]:
 
 
 def _render_ai(data: dict[str, Any]) -> None:
-    """Render AI self-awareness dashboard as markdown text."""
-    ce = data["context_efficiency"]
-    dc = data["decision_continuity"]
-    skills_list = ", ".join(ce["skills_loaded"]) if ce["skills_loaded"] else "none"
+    """Render AI self-awareness dashboard with Rich formatting."""
+    from ai_engineering.cli_ui import (
+        header,
+        info,
+        kv,
+        progress_bar,
+        section,
+        status_line,
+        suggest_next,
+    )
 
-    lines = [
-        "# AI Self-Awareness",
-        "",
-        f"Data quality: {data['data_quality']}",
-        "",
-        "## Context Efficiency",
-        f"- Sessions analyzed: {ce['sessions_analyzed']}",
-        f"- Total tokens (recent): {ce['total_tokens']:,}",
-        f"- Avg tokens/session: {ce['avg_tokens_per_session']:,}",
-        f"- Token utilization: {ce['total_tokens']}/{ce['tokens_available']}"
-        f" ({ce['utilization_pct']}%)",
-        f"- Skills loaded: {skills_list}",
-        "",
-        "## Decision Continuity",
-        f"- Decisions reused: {dc['decisions_reused']}",
-        f"- Decisions re-prompted: {dc['decisions_reprompted']}",
-        f"- Cache hit rate: {dc['cache_hit_rate']}%",
-    ]
+    header("AI Self-Awareness")
+    kv("Data quality", data["data_quality"])
+
+    # Context Efficiency
+    section("Context Efficiency")
+    ce = data["context_efficiency"]
+    kv("Sessions analyzed", ce["sessions_analyzed"])
+    kv("Total tokens (recent)", f"{ce['total_tokens']:,}")
+    kv("Avg tokens/session", f"{ce['avg_tokens_per_session']:,}")
+    progress_bar("Token utilization", ce["utilization_pct"])
+    kv("Skills loaded", ", ".join(ce["skills_loaded"]) if ce["skills_loaded"] else "none")
+
+    # Decision Continuity
+    section("Decision Continuity")
+    dc = data["decision_continuity"]
+    kv("Decisions reused", dc["decisions_reused"])
+    kv("Decisions re-prompted", dc["decisions_reprompted"])
+    progress_bar("Cache hit rate", dc["cache_hit_rate"])
 
     # Session Recovery
+    section("Session Recovery")
     sr = data["session_recovery"]
-    lines.append("")
-    lines.append("## Session Recovery")
     if not sr["has_checkpoint"]:
-        lines.append("- No checkpoint found")
+        info("No checkpoint found")
     else:
-        lines.append(f"- Last checkpoint: {sr['last_task']} ({sr['age']})")
-        lines.append(
-            f"- Progress: {sr['completed']}/{sr['total']} ({sr['progress_pct']}%)",
-        )
+        kv("Last checkpoint", f"{sr['last_task']} ({sr['age']})")
+        progress_bar("Progress", sr["progress_pct"])
         blocked = sr.get("blocked_on") or "nothing"
-        lines.append(f"- Blocked on: {blocked}")
+        kv("Blocked on", blocked)
 
     # Self-Optimization Hints
-    lines.append("")
-    lines.append("## Self-Optimization Hints")
-    lines.extend(f"- {h}" for h in data["self_optimization_hints"])
+    section("Self-Optimization Hints")
+    for hint in data["self_optimization_hints"]:
+        # Determine status based on hint content
+        if "healthy" in hint.lower() or "no optimization" in hint.lower():
+            status_line("ok", "Status", hint)
+        elif "no checkpoint" in hint.lower() or "no session" in hint.lower():
+            status_line("warn", "Hint", hint)
+        else:
+            status_line("warn", "Hint", hint)
 
-    lines.extend(
-        [
-            "",
-            "## Actions",
-        ]
-    )
-    lines.extend(f"- {a}" for a in data["actions"])
-    typer.echo("\n".join(lines))
+    # Actions
+    suggest_next([(a, "") for a in data["actions"]])
 
 
 def observe_dora(project_root: Path) -> dict[str, Any]:
@@ -715,41 +772,55 @@ def observe_dora(project_root: Path) -> dict[str, Any]:
 
 
 def _render_dora(data: dict[str, Any]) -> None:
-    """Render DORA dashboard as markdown text."""
-    df = data["deployment_frequency"]
-    lt = data["lead_time"]
-    cfr = data["change_failure_rate"]
-    dv = data["delivery_velocity"]
+    """Render DORA dashboard with Rich formatting."""
+    from ai_engineering.cli_ui import (
+        header,
+        kv,
+        metric_table,
+        section,
+    )
 
-    lines = [
-        "# DORA Metrics (last 30 days)",
-        "",
-        f"Data quality: {data['data_quality']}",
-        "",
-        "## Deployment Frequency",
-        f"- Merges to main/week: {df['merges_per_week']}",
-        f"- Rating: {df['rating']}",
-        "",
-        "## Lead Time for Changes",
-        f"- Median: {lt['median_days']} days",
-        f"- Rating: {lt['rating']}",
-        "",
-        "## Change Failure Rate",
-        f"- Deployments: {cfr['total_deploys']}",
-        f"- Rollbacks: {cfr['rollbacks']}",
-        f"- Rate: {cfr['rate_pct']}%",
-        f"- Rating: {cfr['rating']}",
-        "",
-        "## Delivery Velocity",
-        f"- Commits/week: {dv['commits_per_week']}",
-        f"- Total commits (30d): {dv['total_commits_30d']}",
-        "",
-        "## Benchmarks",
-        "- Elite: multiple deploys/day, lead time <1h",
-        "- High: weekly deploys, lead time <1 week",
-        "- Medium: monthly deploys, lead time <1 month",
-    ]
-    typer.echo("\n".join(lines))
+    header("DORA Metrics (last 30 days)")
+    kv("Data quality", data["data_quality"])
+
+    # Deployment Frequency
+    section("Deployment Frequency")
+    df = data["deployment_frequency"]
+    kv("Merges to main/week", df["merges_per_week"])
+    # Rating as colored metric
+    rating_status = {"ELITE": "ok", "HIGH": "ok", "MEDIUM": "warn", "LOW": "fail"}
+    metric_table([("Rating", df["rating"], rating_status.get(df["rating"], "none"))])
+
+    # Lead Time
+    section("Lead Time for Changes")
+    lt = data["lead_time"]
+    kv("Median", f"{lt['median_days']} days")
+    metric_table([("Rating", lt["rating"], rating_status.get(lt["rating"], "none"))])
+
+    # Change Failure Rate
+    section("Change Failure Rate")
+    cfr = data["change_failure_rate"]
+    kv("Deployments", cfr["total_deploys"])
+    kv("Rollbacks", cfr["rollbacks"])
+    kv("Rate", f"{cfr['rate_pct']}%")
+    metric_table([("Rating", cfr["rating"], rating_status.get(cfr["rating"], "none"))])
+
+    # Delivery Velocity
+    section("Delivery Velocity")
+    dv = data["delivery_velocity"]
+    kv("Commits/week", dv["commits_per_week"])
+    kv("Total commits (30d)", dv["total_commits_30d"])
+
+    # Benchmarks
+    section("Benchmarks")
+    bm = data["benchmarks"]
+    metric_table(
+        [
+            ("Elite", bm["elite"], "ok"),
+            ("High", bm["high"], "ok"),
+            ("Medium", bm["medium"], "warn"),
+        ]
+    )
 
 
 def observe_health(project_root: Path) -> dict[str, Any]:
@@ -892,73 +963,53 @@ def observe_health(project_root: Path) -> dict[str, Any]:
 
 
 def _render_health(data: dict[str, Any]) -> None:
-    """Render health dashboard as markdown text."""
-    direction_suffix = f" {data['direction']}" if data["direction"] else ""
-    det = data["component_details"]
-
-    lines = [
-        f"# Health Score: {data['score']}/100 ({data['semaphore']}){direction_suffix}",
-        "",
-        f"Data quality: {data['data_quality']}",
-        "",
-        "## Components",
-    ]
-
-    # Rebuild component display lines from the dict
-    comps = data["components"]
-    if "Gate pass rate" in comps:
-        lines.append(f"- Gate pass rate: {det['gate_pass_rate']}% -> {comps['Gate pass rate']}/100")
-    if "Delivery velocity" in comps:
-        lines.append(
-            f"- Delivery velocity: {det['commits_per_week']}/week"
-            f" -> {comps['Delivery velocity']}/100"
-        )
-    if "Scan quality" in comps:
-        lines.append(f"- Scan quality: {comps['Scan quality']}/100")
-    elif det.get("scan_score") is None:
-        lines.append("- Scan quality: No data")
-    if "Decision health" in comps:
-        lines.append(f"- Decision health: {comps['Decision health']}/100")
-    elif det.get("decision_score") is None:
-        lines.append("- Decision health: No decisions")
-    if "DORA frequency" in comps:
-        lines.append(
-            f"- DORA frequency: {det['deployment_frequency_per_week']}/week"
-            f" -> {comps['DORA frequency']}/100"
-        )
-    if "SonarCloud coverage" in comps:
-        s = comps["SonarCloud coverage"]
-        lines.append(f"- SonarCloud coverage: {s}% -> {s}/100")
-    elif det.get("sonar_score") is None:
-        lines.append("- SonarCloud coverage: No data")
-    if "Test confidence" in comps:
-        t = comps["Test confidence"]
-        lines.append(f"- Test confidence: {t}% -> {t}/100")
-    elif det.get("tc_score") is None:
-        lines.append("- Test confidence: No data")
-    if "Gate signal quality" in comps:
-        ns = comps["Gate signal quality"]
-        np_ = det["noise_ratio_pct"]
-        lines.append(f"- Gate signal quality: {ns}/100 (noise: {np_}%)")
-    elif det.get("noise_score") is None:
-        lines.append("- Gate signal quality: No failures")
-
-    lines.extend(
-        [
-            "",
-            f"## Semaphore: {data['semaphore']}",
-        ]
+    """Render health dashboard with Rich formatting."""
+    from ai_engineering.cli_ui import (
+        header,
+        kv,
+        metric_table,
+        progress_bar,
+        score_badge,
+        section,
+        suggest_next,
     )
 
-    lines.append("")
-    lines.append("## Top Actions")
-    for a in data["actions"]:
-        if a["potential_gain"] > 0:
-            lines.append(f"- {a['action']} (+{a['potential_gain']} pts)")
-        else:
-            lines.append(f"- {a['action']}")
+    direction_suffix = f" {data['direction']}" if data["direction"] else ""
+    header(f"Health Score: {data['score']}/100 ({data['semaphore']}){direction_suffix}")
 
-    typer.echo("\n".join(lines))
+    kv("Data quality", data["data_quality"])
+
+    # Score badge
+    score_badge(data["score"], "Overall")
+
+    section("Components")
+    # Progress bars for each component
+    for name, score in data["components"].items():
+        progress_bar(name, score)
+
+    # Show "No data" items
+    det = data["component_details"]
+    no_data_items: list[tuple[str, str, str]] = []
+    if det.get("scan_score") is None and "Scan quality" not in data["components"]:
+        no_data_items.append(("Scan quality", "No data", "none"))
+    if det.get("decision_score") is None and "Decision health" not in data["components"]:
+        no_data_items.append(("Decision health", "No decisions", "none"))
+    if det.get("sonar_score") is None and "SonarCloud coverage" not in data["components"]:
+        no_data_items.append(("SonarCloud coverage", "No data", "none"))
+    if det.get("tc_score") is None and "Test confidence" not in data["components"]:
+        no_data_items.append(("Test confidence", "No data", "none"))
+    if det.get("noise_score") is None and "Gate signal quality" not in data["components"]:
+        no_data_items.append(("Gate signal quality", "No failures", "none"))
+    if no_data_items:
+        metric_table(no_data_items)
+
+    section("Top Actions")
+    # suggest_next expects list of (command, description) tuples
+    action_steps: list[tuple[str, str]] = []
+    for a in data["actions"]:
+        gain = f"(+{a['potential_gain']} pts)" if a["potential_gain"] > 0 else ""
+        action_steps.append((a["action"], gain))
+    suggest_next(action_steps)
 
 
 # ---------------------------------------------------------------------------
