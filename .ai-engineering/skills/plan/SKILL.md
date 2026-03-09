@@ -130,7 +130,7 @@ Actions:
 - Output is conversational only — presented to the user for decision-making.
 - If the user wants to proceed, direct them to `/ai:plan` for full spec creation.
 - Enforces shared boundary `PLAN-B1` in advisory mode.
-- When the plan agent creates specs, it uses `ai-eng spec save` (CLI) instead of direct file writes. See `agents/plan.md` Spec-as-Gate Pattern.
+- When the plan agent creates specs, it writes spec.md, plan.md, and tasks.md directly via Write tool. See `agents/plan.md` Spec-as-Gate Pattern.
 
 ## References
 

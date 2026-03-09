@@ -37,11 +37,11 @@ from ai_engineering.cli_commands import (
     signals_cmd,
     skills,
     spec_cmd,
-    spec_save,
     stack_ide,
     validate,
     vcs,
     work_item,
+    workflow,
 )
 
 # Commands exempt from deprecation blocking (needed for diagnosis and remediation).
@@ -132,6 +132,7 @@ def _app_callback(
                         "scan-report",
                         "metrics",
                         "work-item",
+                        "workflow",
                     ]
                 },
             )
@@ -356,7 +357,6 @@ def create_app() -> typer.Typer:
     spec_app.command("catalog")(_safe(spec_cmd.spec_catalog))
     spec_app.command("list")(_safe(spec_cmd.spec_list))
     spec_app.command("compact")(_safe(spec_cmd.spec_compact))
-    spec_app.command("save")(_safe(spec_save.spec_save))
     app.add_typer(spec_app, name="spec")
 
     # Work-item sub-group
@@ -367,6 +367,17 @@ def create_app() -> typer.Typer:
     )
     work_item_app.command("sync")(_safe(work_item.work_item_sync))
     app.add_typer(work_item_app, name="work-item")
+
+    # Workflow sub-group (commit / PR lifecycle)
+    workflow_app = typer.Typer(
+        name="workflow",
+        help="Commit, PR, and PR-only lifecycle workflows.",
+        no_args_is_help=True,
+    )
+    workflow_app.command("commit")(_safe(workflow.workflow_commit))
+    workflow_app.command("pr")(_safe(workflow.workflow_pr))
+    workflow_app.command("pr-only")(_safe(workflow.workflow_pr_only))
+    app.add_typer(workflow_app, name="workflow")
 
     # Scan report sub-group (v3: raw findings formatter)
     scan_report_app = typer.Typer(

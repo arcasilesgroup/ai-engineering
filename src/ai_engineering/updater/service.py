@@ -18,6 +18,7 @@ import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from ai_engineering.git.context import get_git_context
 from ai_engineering.installer.templates import (
     _PROJECT_TEMPLATE_MAP,
     _PROJECT_TEMPLATE_TREES,
@@ -29,6 +30,7 @@ from ai_engineering.state.models import (
     AuditEntry,
     OwnershipMap,
 )
+from ai_engineering.vcs.repo_context import get_repo_context
 
 _DIFF_MAX_LINES = 50
 """Maximum number of diff lines shown in CLI output."""
@@ -333,9 +335,18 @@ def _restore_backup(backup_dir: Path, target: Path) -> None:
 def _log_update_event(ai_eng_dir: Path, result: UpdateResult) -> None:
     """Append an audit-log entry for the update operation."""
     audit_path = ai_eng_dir / "state" / "audit-log.ndjson"
+    project_root = ai_eng_dir.parent
+    repo_ctx = get_repo_context(project_root)
+    git_ctx = get_git_context(project_root)
     entry = AuditEntry(
         event="update",
         actor="ai-engineering-cli",
         detail=f"applied={result.applied_count} denied={result.denied_count}",
+        vcs_provider=repo_ctx.provider if repo_ctx else None,
+        vcs_organization=repo_ctx.organization if repo_ctx else None,
+        vcs_project=repo_ctx.project if repo_ctx else None,
+        vcs_repository=repo_ctx.repository if repo_ctx else None,
+        branch=git_ctx.branch if git_ctx else None,
+        commit_sha=git_ctx.commit_sha if git_ctx else None,
     )
     append_ndjson(audit_path, entry)

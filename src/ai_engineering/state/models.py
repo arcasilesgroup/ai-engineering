@@ -470,3 +470,10 @@ class AuditEntry(BaseModel):
     task: str | None = None
     detail: str | dict[str, Any] | None = None
     session: str | None = None
+    vcs_provider: str | None = None
+    vcs_organization: str | None = None
+    vcs_project: str | None = None
+    vcs_repository: str | None = None
+    branch: str | None = None
+    commit_sha: str | None = None
+    session_id: str | None = None

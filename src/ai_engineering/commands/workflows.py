@@ -24,6 +24,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 
+from ai_engineering.git.context import get_git_context
 from ai_engineering.git.operations import (
     PROTECTED_BRANCHES,
     current_branch,
@@ -35,6 +36,7 @@ from ai_engineering.state.models import AuditEntry, DecisionStore
 from ai_engineering.vcs.factory import get_provider
 from ai_engineering.vcs.pr_description import build_pr_description, build_pr_title
 from ai_engineering.vcs.protocol import VcsContext
+from ai_engineering.vcs.repo_context import get_repo_context
 
 logger = logging.getLogger(__name__)
 
@@ -125,11 +127,19 @@ def _log_audit(
     """
     audit_path = project_root / ".ai-engineering" / "state" / "audit-log.ndjson"
     if audit_path.parent.is_dir():
+        repo_ctx = get_repo_context(project_root)
+        git_ctx = get_git_context(project_root)
         entry = AuditEntry(
             timestamp=datetime.now(tz=UTC),
             event=event,
             actor=actor,
             detail=detail,
+            vcs_provider=repo_ctx.provider if repo_ctx else None,
+            vcs_organization=repo_ctx.organization if repo_ctx else None,
+            vcs_project=repo_ctx.project if repo_ctx else None,
+            vcs_repository=repo_ctx.repository if repo_ctx else None,
+            branch=git_ctx.branch if git_ctx else None,
+            commit_sha=git_ctx.commit_sha if git_ctx else None,
         )
         append_ndjson(audit_path, entry)
 

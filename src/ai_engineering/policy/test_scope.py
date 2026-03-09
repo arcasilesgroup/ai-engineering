@@ -110,6 +110,8 @@ TEST_SCOPE_RULES: list[ScopeRule] = [
             "unit": [
                 "tests/unit/test_lib_signals.py",
                 "tests/unit/test_parsing.py",
+                "tests/unit/test_signal_aggregators.py",
+                "tests/unit/test_spec_helpers.py",
             ],
             "integration": [],
             "e2e": [],
@@ -130,7 +132,8 @@ TEST_SCOPE_RULES: list[ScopeRule] = [
                 "tests/unit/test_cli_checkpoint.py",
                 "tests/unit/test_cli_metrics.py",
                 "tests/unit/test_spec_cmd.py",
-                "tests/unit/test_spec_save.py",
+                "tests/unit/test_observe_dashboards.py",
+                "tests/unit/test_workflow_cmd.py",
             ],
             "integration": [
                 "tests/integration/test_cli_command_modules.py",
@@ -144,6 +147,7 @@ TEST_SCOPE_RULES: list[ScopeRule] = [
         source_globs=["src/ai_engineering/release/**/*.py"],
         tiers={
             "unit": [
+                "tests/unit/test_deploy_event_wiring.py",
                 "tests/unit/test_release_orchestrator.py",
                 "tests/unit/test_version_bump.py",
                 "tests/unit/test_changelog_parser.py",
@@ -195,7 +199,7 @@ TEST_SCOPE_RULES: list[ScopeRule] = [
         name="git",
         source_globs=["src/ai_engineering/git/**/*.py"],
         tiers={
-            "unit": [],
+            "unit": ["tests/unit/test_git_context.py"],
             "integration": ["tests/integration/test_git_operations.py"],
             "e2e": [],
         },
@@ -333,6 +337,7 @@ TEST_SCOPE_RULES: list[ScopeRule] = [
             "unit": [
                 "tests/unit/test_api_fallback.py",
                 "tests/unit/test_pr_description.py",
+                "tests/unit/test_repo_context.py",
                 "tests/unit/test_vcs_providers.py",
             ],
             "integration": [

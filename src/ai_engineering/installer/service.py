@@ -20,6 +20,7 @@ from pathlib import Path
 
 from ai_engineering.credentials.service import CredentialService
 from ai_engineering.detector.readiness import check_tools_for_stacks
+from ai_engineering.git.context import get_git_context
 from ai_engineering.hooks.manager import HookInstallResult, install_hooks
 from ai_engineering.state.defaults import (
     default_decision_store,
@@ -29,6 +30,7 @@ from ai_engineering.state.defaults import (
 from ai_engineering.state.io import append_ndjson, read_json_model, write_json_model
 from ai_engineering.state.models import AuditEntry, InstallManifest, SonarCicdConfig
 from ai_engineering.vcs.factory import get_provider
+from ai_engineering.vcs.repo_context import get_repo_context
 
 from .auth import check_vcs_auth
 from .branch_policy import apply_branch_policy
@@ -191,6 +193,9 @@ def _log_install_event(ai_eng_dir: Path, result: InstallResult) -> None:
         result: The install result to log.
     """
     audit_path = ai_eng_dir / _AUDIT_LOG_PATH
+    project_root = ai_eng_dir.parent
+    repo_ctx = get_repo_context(project_root)
+    git_ctx = get_git_context(project_root)
     entry = AuditEntry(
         event="install",
         actor="ai-engineering-cli",
@@ -199,6 +204,12 @@ def _log_install_event(ai_eng_dir: Path, result: InstallResult) -> None:
             f"skipped={result.total_skipped} "
             f"state_files={len(result.state_files)}"
         ),
+        vcs_provider=repo_ctx.provider if repo_ctx else None,
+        vcs_organization=repo_ctx.organization if repo_ctx else None,
+        vcs_project=repo_ctx.project if repo_ctx else None,
+        vcs_repository=repo_ctx.repository if repo_ctx else None,
+        branch=git_ctx.branch if git_ctx else None,
+        commit_sha=git_ctx.commit_sha if git_ctx else None,
     )
     append_ndjson(audit_path, entry)
 

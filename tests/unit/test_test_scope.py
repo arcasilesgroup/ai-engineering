@@ -107,7 +107,7 @@ class TestComputeTestScope:
         self,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        self._patch_diff(monkeypatch, changed=["src/ai_engineering/git/operations.py"])
+        self._patch_diff(monkeypatch, changed=["src/ai_engineering/updater/service.py"])
 
         scope = test_scope.compute_test_scope(Path("."), tier="unit", base_ref="main")
 

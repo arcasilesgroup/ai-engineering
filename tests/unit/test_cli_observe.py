@@ -377,8 +377,8 @@ class TestObserveAi:
         _make_audit_log(tmp_path, events)
         output = observe_ai(tmp_path)
         assert "# AI Self-Awareness" in output
-        assert "Recent sessions analyzed: 2" in output
-        assert "Total tokens used (recent): 800" in output
+        assert "Sessions analyzed: 2" in output
+        assert "Total tokens (recent): 800" in output
         assert "Decisions reused: 8" in output
         assert "Decisions re-prompted: 3" in output
         # Cache hit rate: 8 / (8 + 3) * 100 = 72.7%
@@ -398,7 +398,7 @@ class TestObserveAi:
         ]
         _make_audit_log(tmp_path, events)
         output = observe_ai(tmp_path)
-        assert "Total tokens used (recent): 0" in output
+        assert "Total tokens (recent): 0" in output
 
 
 # ---------------------------------------------------------------------------
@@ -766,7 +766,7 @@ class TestObserveEdgeCases:
         ]
         _make_audit_log(tmp_path, events)
         output = observe_ai(tmp_path)
-        assert "Total tokens used (recent): 0" in output
+        assert "Total tokens (recent): 0" in output
         assert "Decisions reused: 0" in output
         assert "Decisions re-prompted: 0" in output
         assert "Cache hit rate: 0.0%" in output

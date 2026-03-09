@@ -19,9 +19,11 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from ai_engineering.git.context import get_git_context
 from ai_engineering.lib.signals import audit_log_path
 from ai_engineering.state.io import append_ndjson
 from ai_engineering.state.models import AuditEntry
+from ai_engineering.vcs.repo_context import get_repo_context
 
 if TYPE_CHECKING:
     from ai_engineering.policy.gates import GateResult
@@ -37,11 +39,21 @@ def _emit(
     detail: dict[str, Any],
 ) -> None:
     """Emit a structured event to the audit log (fail-open)."""
+    # Resolve VCS context (cached, fail-open)
+    repo_ctx = get_repo_context(project_root)
+    git_ctx = get_git_context(project_root)
+
     entry = AuditEntry(
         timestamp=datetime.now(tz=UTC),
         event=event,
         actor=actor,
         detail=detail,
+        vcs_provider=repo_ctx.provider if repo_ctx else None,
+        vcs_organization=repo_ctx.organization if repo_ctx else None,
+        vcs_project=repo_ctx.project if repo_ctx else None,
+        vcs_repository=repo_ctx.repository if repo_ctx else None,
+        branch=git_ctx.branch if git_ctx else None,
+        commit_sha=git_ctx.commit_sha if git_ctx else None,
     )
     try:
         append_ndjson(audit_log_path(project_root), entry)
