@@ -1,18 +1,18 @@
 ---
-active: "045-observe-rich-dashboards"
-updated: "2026-03-09"
+active: "046-release-zero-rebuild"
+updated: "2026-03-10"
 ---
 
 # Active Spec
 
-**Spec 045 — Observe Rich Dashboards + Dual-Output**
+**Spec 046 — Release Zero-Rebuild**
 
-Replace raw markdown observe output with Rich-formatted dashboards (colors, progress bars, semantic badges) and add --json dual-output support.
+Eliminate rebuild in release workflow. Download CI-validated artifact and publish exactly what was tested — zero rebuild, zero drift.
 
 ## Quick Resume
 
-- Spec: [spec.md](specs/045-observe-rich-dashboards/spec.md)
-- Plan: [plan.md](specs/045-observe-rich-dashboards/plan.md)
-- Tasks: [tasks.md](specs/045-observe-rich-dashboards/tasks.md)
-- Branch: `feat/045-observe-rich-dashboards`
-- Next: Phase 1 — Dashboard Primitives
+- Spec: [spec.md](specs/046-release-zero-rebuild/spec.md)
+- Plan: [plan.md](specs/046-release-zero-rebuild/plan.md)
+- Tasks: [tasks.md](specs/046-release-zero-rebuild/tasks.md)
+- Branch: `feat/046-release-zero-rebuild`
+- Next: Phase 1 — Implement
