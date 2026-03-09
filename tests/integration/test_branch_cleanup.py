@@ -19,7 +19,9 @@ import pytest
 from ai_engineering.maintenance.branch_cleanup import (
     CleanupResult,
     delete_branches,
+    has_unmerged_changes,
     list_all_local_branches,
+    list_gone_branches,
     list_merged_branches,
     run_branch_cleanup,
 )
@@ -245,3 +247,194 @@ class TestCleanupResult:
         assert "Branch Cleanup Summary" in md
         assert "feature/a" in md
         assert "Deleted" in md
+
+
+# ── Gone branch fixtures ──────────────────────────────────────────────
+
+
+@pytest.fixture()
+def git_repo_with_gone_branch(tmp_path: Path) -> Path:
+    """Create a git repo with a local branch whose upstream is [gone].
+
+    Simulates a squash-merged PR: origin creates branch, local tracks it,
+    then origin deletes the branch after merge.
+    """
+    origin = tmp_path / "origin"
+    local = tmp_path / "local"
+
+    # Create bare origin
+    subprocess.run(["git", "init", "--bare", str(origin)], check=True, capture_output=True)
+
+    # Clone to local
+    subprocess.run(["git", "clone", str(origin), str(local)], check=True, capture_output=True)
+    subprocess.run(
+        ["git", "config", "user.email", "test@test.com"],
+        cwd=local,
+        check=True,
+        capture_output=True,
+    )
+    subprocess.run(
+        ["git", "config", "user.name", "Test"],
+        cwd=local,
+        check=True,
+        capture_output=True,
+    )
+
+    # Initial commit on main
+    (local / "README.md").write_text("init")
+    subprocess.run(["git", "add", "."], cwd=local, check=True, capture_output=True)
+    subprocess.run(["git", "commit", "-m", "init"], cwd=local, check=True, capture_output=True)
+    subprocess.run(
+        ["git", "push", "-u", "origin", "main"],
+        cwd=local,
+        check=True,
+        capture_output=True,
+    )
+
+    # Create feature branch, push it, then delete remote to simulate [gone]
+    subprocess.run(
+        ["git", "checkout", "-b", "feat/gone-safe"],
+        cwd=local,
+        check=True,
+        capture_output=True,
+    )
+    (local / "safe.txt").write_text("safe")
+    subprocess.run(["git", "add", "."], cwd=local, check=True, capture_output=True)
+    subprocess.run(
+        ["git", "commit", "-m", "add safe"],
+        cwd=local,
+        check=True,
+        capture_output=True,
+    )
+    subprocess.run(
+        ["git", "push", "-u", "origin", "feat/gone-safe"],
+        cwd=local,
+        check=True,
+        capture_output=True,
+    )
+
+    # Simulate squash-merge on main: cherry-pick the change onto main
+    subprocess.run(["git", "checkout", "main"], cwd=local, check=True, capture_output=True)
+    (local / "safe.txt").write_text("safe")
+    subprocess.run(["git", "add", "."], cwd=local, check=True, capture_output=True)
+    subprocess.run(
+        ["git", "commit", "-m", "squash: add safe"],
+        cwd=local,
+        check=True,
+        capture_output=True,
+    )
+    subprocess.run(
+        ["git", "push", "origin", "main"],
+        cwd=local,
+        check=True,
+        capture_output=True,
+    )
+
+    # Delete the remote branch (simulates GitHub deleting after PR merge)
+    subprocess.run(
+        ["git", "push", "origin", "--delete", "feat/gone-safe"],
+        cwd=local,
+        check=True,
+        capture_output=True,
+    )
+    # Prune so local tracking shows [gone]
+    subprocess.run(["git", "fetch", "--prune"], cwd=local, check=True, capture_output=True)
+
+    # Create another branch with commits ahead of main (unmerged content)
+    subprocess.run(
+        ["git", "checkout", "-b", "feat/gone-ahead"],
+        cwd=local,
+        check=True,
+        capture_output=True,
+    )
+    (local / "ahead.txt").write_text("ahead-unique-content")
+    subprocess.run(["git", "add", "."], cwd=local, check=True, capture_output=True)
+    subprocess.run(
+        ["git", "commit", "-m", "ahead work"],
+        cwd=local,
+        check=True,
+        capture_output=True,
+    )
+    # Add a second commit so the branch is clearly ahead
+    (local / "ahead2.txt").write_text("more ahead content")
+    subprocess.run(["git", "add", "."], cwd=local, check=True, capture_output=True)
+    subprocess.run(
+        ["git", "commit", "-m", "more ahead work"],
+        cwd=local,
+        check=True,
+        capture_output=True,
+    )
+    subprocess.run(
+        ["git", "push", "-u", "origin", "feat/gone-ahead"],
+        cwd=local,
+        check=True,
+        capture_output=True,
+    )
+    # Switch back to main BEFORE deleting remote branch
+    subprocess.run(["git", "checkout", "main"], cwd=local, check=True, capture_output=True)
+    # Delete remote to make it [gone] (DO NOT squash-merge this one)
+    subprocess.run(
+        ["git", "push", "origin", "--delete", "feat/gone-ahead"],
+        cwd=local,
+        check=True,
+        capture_output=True,
+    )
+    subprocess.run(["git", "fetch", "--prune"], cwd=local, check=True, capture_output=True)
+
+    return local
+
+
+# ── list_gone_branches ─────────────────────────────────────────────────
+
+
+class TestListGoneBranches:
+    """Tests for list_gone_branches."""
+
+    def test_finds_gone_branches(self, git_repo_with_gone_branch: Path) -> None:
+        gone = list_gone_branches(git_repo_with_gone_branch)
+        assert "feat/gone-safe" in gone
+        assert "feat/gone-ahead" in gone
+
+    def test_no_gone_in_clean_repo(self, git_repo_with_branches: Path) -> None:
+        gone = list_gone_branches(git_repo_with_branches)
+        assert gone == []
+
+
+# ── commits_ahead ──────────────────────────────────────────────────────
+
+
+class TestHasUnmergedChanges:
+    """Tests for has_unmerged_changes."""
+
+    def test_no_unmerged_for_squash_merged(self, git_repo_with_gone_branch: Path) -> None:
+        result = has_unmerged_changes(git_repo_with_gone_branch, "origin/main", "feat/gone-safe")
+        assert result is False
+
+    def test_has_unmerged_for_ahead_branch(self, git_repo_with_gone_branch: Path) -> None:
+        result = has_unmerged_changes(git_repo_with_gone_branch, "origin/main", "feat/gone-ahead")
+        assert result is True
+
+
+# ── run_branch_cleanup with gone branches ──────────────────────────────
+
+
+class TestRunBranchCleanupGone:
+    """Tests for run_branch_cleanup with gone branches."""
+
+    def test_deletes_safe_gone_branch(self, git_repo_with_gone_branch: Path) -> None:
+        result = run_branch_cleanup(git_repo_with_gone_branch, base_branch="main")
+        assert result.success
+        assert "feat/gone-safe" in result.deleted_branches
+        # Verify branch is actually deleted
+        branches = list_all_local_branches(git_repo_with_gone_branch)
+        assert "feat/gone-safe" not in branches
+
+    def test_skips_gone_branch_with_commits_ahead(self, git_repo_with_gone_branch: Path) -> None:
+        result = run_branch_cleanup(git_repo_with_gone_branch, base_branch="main")
+        assert result.success
+        # feat/gone-ahead should be skipped (has commits ahead)
+        skipped_names = [s.split(" ")[0] for s in result.skipped_branches]
+        assert "feat/gone-ahead" in skipped_names
+        # Verify branch still exists
+        branches = list_all_local_branches(git_repo_with_gone_branch)
+        assert "feat/gone-ahead" in branches

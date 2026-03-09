@@ -1,28 +1,33 @@
-schema_version: "2.0"
-framework_version: "0.2.0"
+# ══════════════════════════════════════════════════════════════════════════════
+# ENGINEER CONFIGURATION — Fill these sections for your project
+# ══════════════════════════════════════════════════════════════════════════════
 
-update_metadata:
-  rationale: "plan/execute split: 7 agents (extract execution coordination from plan), 34 skills (add advisory plan skill)"
-  expected_gain: "structural boundary between planning and execution; human as natural gate; clean SRP per agent"
-  potential_impact: "/ai:plan now STOPS before execution; user must invoke /ai:execute separately"
-
+# Project identity — set your project name and description.
 metadata:
   name: "ai-engineering"
   description: "AI governance framework with mandatory local enforcement, observability, and DevSecOps"
   updated: "2026-03-04"
 
-governance_surface:
-  agents:
-    total: 7
-    names: [plan, execute, build, scan, release, write, observe]
-  skills:
-    total: 35
-    organization: flat
-    prefix: "ai:"
-  integrity:
-    patterns_category_present: false
-    orphan_skills: 0
+# Version control provider — which VCS platform does this project use?
+# Set primary to "github" or "azure-devops". Enable extensions if using Azure DevOps.
+providers:
+  vcs:
+    primary: "github"
+    enabled: ["github"]
+    extensions:
+      azure_devops:
+        enabled: false
+        organization: null
+        project: null
+        repository: null
+        work_item_type: "User Story"
+        constraints:
+          branch_name_required: true
+          work_item_link_optional: true
 
+# Work item tracking — connect to your project management tool.
+# Supports GitHub Projects, GitHub Issues, and Azure Boards.
+# Set enabled: false if you don't use work item tracking.
 work_items:
   enabled: true
   primary: "github-projects"
@@ -64,6 +69,7 @@ work_items:
     on_spec_close: close_linked_issue
     on_task_complete: update_sub_issue
 
+# Issue format — field requirements and label mappings for work items.
 issue_standard:
   source_of_truth: "project_fields"
   labels_role: "compatibility_and_search"
@@ -77,6 +83,62 @@ issue_standard:
     P0: "p1-critical"
     P1: "p2-high"
     P2: "p3-normal"
+
+# External documentation portal — auto-update a separate docs repo on commit/PR.
+# Set enabled: true and source to a local path or Git URL to activate.
+# update_method: "pr" creates a PR in the docs repo; "push" pushes directly.
+documentation:
+  external_portal:
+    enabled: false
+    source: null        # path local (e.g. "../docs-repo") o URL Git (e.g. "https://github.com/org/docs")
+    update_method: "pr" # "pr" = branch + PR con auto-complete | "push" = push directo a branch principal
+
+# Required and optional tooling per stack.
+# The framework checks these tools are installed via `ai-eng doctor`.
+tooling:
+  required:
+    python: ["uv", "ruff", "ty", "pip-audit"]
+    dotnet: ["dotnet"]
+    nextjs: ["node", "npm"]
+    security: ["gitleaks", "semgrep"]
+    vcs_cli: ["gh", "az"]
+  optional:
+    dast: ["zap-cli", "nuclei"]
+    container: ["trivy"]
+    sbom: ["cyclonedx-py", "cyclonedx-dotnet", "cdxgen"]
+  readiness:
+    require_install: true
+    require_configuration: true
+    require_auth_when_applicable: true
+
+# Telemetry — strictly opt-in. Set default_enabled: true only if you want telemetry on by default.
+telemetry:
+  mode: "strict_opt_in"
+  default_enabled: false
+
+# ══════════════════════════════════════════════════════════════════════════════
+# FRAMEWORK INTERNALS — Managed automatically, rarely edit manually
+# ══════════════════════════════════════════════════════════════════════════════
+
+schema_version: "2.0"
+framework_version: "0.2.0"
+
+update_metadata:
+  rationale: "plan/execute split: 7 agents (extract execution coordination from plan), 34 skills (add advisory plan skill)"
+  expected_gain: "structural boundary between planning and execution; human as natural gate; clean SRP per agent"
+  potential_impact: "/ai:plan now STOPS before execution; user must invoke /ai:execute separately"
+
+governance_surface:
+  agents:
+    total: 7
+    names: [plan, execute, build, scan, release, write, observe]
+  skills:
+    total: 35
+    organization: flat
+    prefix: "ai:"
+  integrity:
+    patterns_category_present: false
+    orphan_skills: 0
 
 ownership:
   root: ".ai-engineering"
@@ -149,37 +211,6 @@ commands:
     stack: ["add", "remove", "list"]
     ide: ["add", "remove", "list"]
 
-providers:
-  vcs:
-    primary: "github"
-    enabled: ["github"]
-    extensions:
-      azure_devops:
-        enabled: false
-        organization: null
-        project: null
-        repository: null
-        work_item_type: "User Story"
-        constraints:
-          branch_name_required: true
-          work_item_link_optional: true
-
-tooling:
-  required:
-    python: ["uv", "ruff", "ty", "pip-audit"]
-    dotnet: ["dotnet"]
-    nextjs: ["node", "npm"]
-    security: ["gitleaks", "semgrep"]
-    vcs_cli: ["gh", "az"]
-  optional:
-    dast: ["zap-cli", "nuclei"]
-    container: ["trivy"]
-    sbom: ["cyclonedx-py", "cyclonedx-dotnet", "cdxgen"]
-  readiness:
-    require_install: true
-    require_configuration: true
-    require_auth_when_applicable: true
-
 enforcement:
   hooks:
     non_bypassable: true
@@ -238,10 +269,6 @@ risk_acceptance:
     - "severity_changed"
     - "policy_changed"
     - "material_context_hash_changed"
-
-telemetry:
-  mode: "strict_opt_in"
-  default_enabled: false
 
 agentic:
   model: "session_scoped"

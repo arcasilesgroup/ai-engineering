@@ -68,9 +68,14 @@ Execute the `/pr` governed workflow: conditionally run spec reset, stage, commit
    - If `README.md` exists AND changes include new features, breaking changes, new CLI commands, or skill catalog changes: update relevant sections. Stage the updated file.
    - If `README.md` does NOT exist AND changes are non-trivial: create it targeting OSS GitHub audience. Stage the new file.
      d. **External documentation portal**:
-   - Ask: "Do you have an external documentation portal (docs site, wiki, separate repo)? Provide the repo URL, or 'skip'."
-   - If URL provided: clone, branch, update, commit + push + create PR with auto-complete, report URL.
-   - If 'skip': continue without external docs.
+   - Read `manifest.yml → documentation.external_portal`.
+   - If `enabled: false` or `source` is null: skip silently.
+   - If `enabled: true` and `source` is set:
+     - **Local path** (source exists as local directory): update relevant doc files in-place, stage changes in that repo.
+     - **Git URL** (source starts with `https://` or `git@`): clone to temp directory if not already local. Then apply `update_method`:
+       - `"pr"`: create branch, commit changes, push, create PR with auto-complete (use VCS-appropriate CLI), report PR URL.
+       - `"push"`: commit changes, push directly to main branch.
+     - Report what was updated and where.
      e. **Update product-contract.md** (when scope requires it):
    - Evaluate if staged changes affect product contract sections:
      - New skills/agents/stacks: Section 2.2 (Functional Requirements), 3.1 (Stack).

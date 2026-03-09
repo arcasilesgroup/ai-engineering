@@ -44,12 +44,9 @@ Execute full repository hygiene — branch cleanup and remote status assessment.
 4. **Identify base branch** — determine the default branch (`main` or `master`).
 5. **Check working tree** — if dirty, stash changes automatically:
    - `git stash push -m "cleanup-auto-stash"`.
-   - Record that a stash was created for restoration at the end.
 6. **Switch to base** — `git checkout <base-branch>`.
 7. **Pull latest** — `git pull --ff-only origin <base-branch>`.
-8. **Restore stash** (if created in step 5) — after all cleanup phases complete:
-   - Switch back to the original branch (if different from base): `git checkout <original-branch>`.
-   - `git stash pop`.
+8. **Restore stash on base** (if created in step 5) — `git stash pop` on the base branch so local changes carry over to `main`.
    - If pop conflicts, warn and leave stash intact for manual resolution.
 
 ### Phase 2: Prune
@@ -70,6 +67,10 @@ Execute full repository hygiene — branch cleanup and remote status assessment.
     - Lists archived specs older than the configured threshold (default 6 months) that could be compacted.
     - Does NOT delete anything — advisory only during cleanup.
 
+## Post-condition
+
+After `/cleanup` completes, the repo MUST be on the base branch (`main` or `master`) with a clean working tree. No feature branches remain checked out. The session is ready for the next task or `/create-spec`.
+
 ## Examples
 
 ### Example 1: Session-start hygiene
@@ -78,15 +79,16 @@ User says: "Run /cleanup before I start the next task."
 Actions:
 
 1. Capture repo status snapshot, then sync base branch and prune remote references.
-2. Run branch cleanup and report deleted, skipped, and protected branches.
-   Result: Repository is synchronized and cleaned for the next governed workflow.
+2. Run branch cleanup — delete merged/gone branches, report skipped and protected.
+3. End on `main` with clean working tree.
+   Result: Repository is on `main`, synchronized and cleaned for the next governed workflow.
 
 ## Output Contract
 
 - Terminal output showing each phase result.
 - Phase 0: repository status snapshot (remote branches, PRs, stale, candidates).
 - Phase 3: branch cleanup summary (deleted count, pruned count, skipped count).
-- Final confirmation: current branch and status.
+- Final confirmation: on base branch with clean working tree.
 
 ## Governance Notes
 

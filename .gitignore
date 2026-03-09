@@ -157,3 +157,6 @@ credentials*.json
 !.ai-engineering/state/sources.lock.json
 !.ai-engineering/state/decision-store.json
 .ai-engineering/.cache/
+
+# Audit reports — output goes to chat or GitHub Issues, not local files
+.ai-engineering/references/

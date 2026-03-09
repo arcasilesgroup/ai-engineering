@@ -1,17 +1,21 @@
 """Branch cleanup for repository hygiene.
 
 Provides automated cleanup of stale local branches. Fetches from origin,
-prunes remote-tracking refs, and deletes merged local branches.
+prunes remote-tracking refs, deletes merged local branches, and removes
+squash-merged branches whose remote tracking ref is ``[gone]``.
 
 Functions:
 - ``fetch_and_prune`` — run ``git fetch --prune`` to sync remote state.
 - ``list_merged_branches`` — local branches already merged into a base.
+- ``list_gone_branches`` — branches whose upstream is ``[gone]``.
+- ``commits_ahead`` — count commits a branch has ahead of a base ref.
 - ``delete_branches`` — safely remove a list of local branches.
 - ``run_branch_cleanup`` — orchestrate the full cleanup flow.
 """
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -153,6 +157,84 @@ def list_all_local_branches(project_root: Path) -> list[str]:
     return [line.strip() for line in output.splitlines() if line.strip()]
 
 
+def list_gone_branches(project_root: Path) -> list[str]:
+    """List local branches whose upstream tracking ref is ``[gone]``.
+
+    These are branches whose remote was deleted (typically after a PR merge/squash).
+    Excludes protected branches and the current branch.
+
+    Args:
+        project_root: Root directory of the git repository.
+
+    Returns:
+        List of branch names with gone upstream.
+    """
+    ok, output = run_git(["branch", "-vv"], project_root)
+    if not ok:
+        return []
+
+    active = current_branch(project_root)
+    gone_pattern = re.compile(r"^[\s*]*(\S+)\s+\S+\s+\[.+: gone\]")
+    branches: list[str] = []
+    for line in output.splitlines():
+        m = gone_pattern.match(line)
+        if not m:
+            continue
+        name = m.group(1)
+        if name in PROTECTED_BRANCHES or name == active:
+            continue
+        branches.append(name)
+
+    return branches
+
+
+def commits_ahead(project_root: Path, base_ref: str, branch: str) -> int:
+    """Count commits ``branch`` has ahead of ``base_ref``.
+
+    Args:
+        project_root: Root directory of the git repository.
+        base_ref: Reference to compare against (e.g. ``origin/main``).
+        branch: Branch name to check.
+
+    Returns:
+        Number of commits ahead, or -1 if the comparison fails.
+    """
+    ok, output = run_git(
+        ["rev-list", "--count", f"{base_ref}..{branch}"],
+        project_root,
+    )
+    if not ok:
+        return -1
+    try:
+        return int(output.strip())
+    except ValueError:
+        return -1
+
+
+def has_unmerged_changes(project_root: Path, base_ref: str, branch: str) -> bool | None:
+    """Check if ``branch`` has changes not present in ``base_ref``.
+
+    Uses ``git diff`` to compare the branch tip against the base. This correctly
+    handles squash-merged branches where commit SHAs differ but content is identical.
+
+    Args:
+        project_root: Root directory of the git repository.
+        base_ref: Reference to compare against (e.g. ``origin/main``).
+        branch: Branch name to check.
+
+    Returns:
+        True if the branch has unmerged changes, False if all changes are on base,
+        None if the comparison fails.
+    """
+    ok, output = run_git(
+        ["diff", "--stat", f"{base_ref}..{branch}"],
+        project_root,
+    )
+    if not ok:
+        return None
+    return len(output.strip()) > 0
+
+
 def delete_branches(
     project_root: Path,
     branches: list[str],
@@ -228,20 +310,53 @@ def run_branch_cleanup(
     result.fetched = fetched
     result.pruned_refs = pruned
 
-    # Identify candidates
+    # Identify candidates: merged branches
     merged = list_merged_branches(project_root, base_branch)
 
+    # Identify candidates: gone branches (squash-merged, remote deleted)
+    gone = list_gone_branches(project_root)
+    # Exclude branches already in merged list to avoid double-processing
+    gone = [b for b in gone if b not in set(merged)]
+
+    # Safety check: skip gone branches that have unmerged changes vs origin/<base>
+    safe_gone: list[str] = []
+    for branch in gone:
+        diverges = has_unmerged_changes(project_root, f"origin/{base_branch}", branch)
+        if diverges is False:
+            safe_gone.append(branch)
+        elif diverges is True:
+            ahead = commits_ahead(project_root, f"origin/{base_branch}", branch)
+            label = f"{ahead} ahead" if ahead > 0 else "unmerged changes"
+            result.skipped_branches.append(f"{branch} ({label})")
+        else:
+            # Fallback: compare against local base if origin ref missing
+            diverges_local = has_unmerged_changes(project_root, base_branch, branch)
+            if diverges_local is False:
+                safe_gone.append(branch)
+            else:
+                result.skipped_branches.append(f"{branch} (cannot verify merge status)")
+
     if dry_run:
-        result.skipped_branches = merged
+        result.skipped_branches.extend(merged)
+        result.skipped_branches.extend(safe_gone)
         return result
 
-    # Delete
+    # Delete merged branches (safe -d)
     deleted, failed = delete_branches(
         project_root,
         merged,
         force=force,
     )
-    result.deleted_branches = deleted
-    result.skipped_branches = failed
+    result.deleted_branches.extend(deleted)
+    result.skipped_branches.extend(failed)
+
+    # Delete gone branches (force -D, already verified safe)
+    gone_deleted, gone_failed = delete_branches(
+        project_root,
+        safe_gone,
+        force=True,
+    )
+    result.deleted_branches.extend(gone_deleted)
+    result.skipped_branches.extend(gone_failed)
 
     return result
