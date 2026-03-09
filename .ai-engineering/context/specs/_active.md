@@ -1,16 +1,12 @@
 ---
-active: "038-sonarcloud-quality-gate-integration"
+active: null
 updated: "2026-03-09"
 ---
 
 # Active Spec
 
-**Spec 038 — SonarCloud Quality Gate Integration**
+No active spec. Ready for `/create-spec`.
 
 ## Quick Resume
 
-- Spec: [spec.md](specs/038-sonarcloud-quality-gate-integration/spec.md)
-- Plan: [plan.md](specs/038-sonarcloud-quality-gate-integration/plan.md)
-- Tasks: [tasks.md](specs/038-sonarcloud-quality-gate-integration/tasks.md)
-- Branch: `feat/038-sonarcloud-quality-gate-integration`
-- Next: Phase 1
+No spec in progress.

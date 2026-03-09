@@ -97,6 +97,36 @@ def _dora_metrics(
     }
 
 
+def _sonar_metrics(project_root: Path) -> list[str]:
+    """Fetch SonarCloud metrics for observe dashboard (silent-skip if unconfigured)."""
+    try:
+        from ai_engineering.policy.checks.sonar import query_sonar_quality_gate
+
+        qg = query_sonar_quality_gate(project_root)
+        if qg is None:
+            return []
+
+        status = qg.get("status", "UNKNOWN")
+        conditions = qg.get("conditions", [])
+        coverage_val = ""
+        for cond in conditions:
+            if cond.get("metricKey") == "new_coverage":
+                coverage_val = cond.get("actualValue", "N/A")
+                break
+
+        lines = [
+            "",
+            "## SonarCloud Quality Gate",
+            f"- Status: {status}",
+        ]
+        if coverage_val:
+            lines.append(f"- New code coverage: {coverage_val}%")
+        lines.append(f"- Conditions: {len(conditions)}")
+        return lines
+    except Exception:
+        return []
+
+
 def observe_engineer(project_root: Path) -> str:
     """Generate engineer dashboard."""
     all_events = load_all_events(project_root)
@@ -120,12 +150,19 @@ def observe_engineer(project_root: Path) -> str:
         f"- Total gate runs: {gates['total']}",
         f"- Pass rate: {gates['pass_rate']}%",
         f"- Most failed check: {gates['most_failed_check']} ({gates['most_failed_count']}x)",
-        "",
-        "## Actions",
-        "- Run `/ai:scan quality` for code quality metrics",
-        "- Run `/ai:scan security` for security posture",
-        "- Run `/ai:test gap` for test confidence",
     ]
+
+    lines.extend(_sonar_metrics(project_root))
+
+    lines.extend(
+        [
+            "",
+            "## Actions",
+            "- Run `/ai:scan quality` for code quality metrics",
+            "- Run `/ai:scan security` for security posture",
+            "- Run `/ai:test gap` for test confidence",
+        ]
+    )
     return "\n".join(lines)
 
 

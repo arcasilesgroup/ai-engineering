@@ -95,5 +95,86 @@ class TestThresholdMapping:
 
 
 # ---------------------------------------------------------------
+# Properties parsing
+# ---------------------------------------------------------------
+
+
+class TestPropertiesParsing:
+    """Tests for sonar-project.properties parsing."""
+
+    def test_parse_properties(self, tmp_path: Path) -> None:
+        props = tmp_path / "sonar-project.properties"
+        props.write_text(
+            "sonar.projectKey=my-key\n"
+            "sonar.organization=my-org\n"
+            "# comment\n"
+            "\n"
+            "sonar.qualitygate.wait=true\n"
+        )
+        from ai_engineering.policy.checks.sonar import _parse_properties
+
+        result = _parse_properties(props)
+        assert result["sonar.projectKey"] == "my-key"
+        assert result["sonar.organization"] == "my-org"
+        assert result["sonar.qualitygate.wait"] == "true"
+
+    def test_parse_properties_empty(self, tmp_path: Path) -> None:
+        props = tmp_path / "sonar-project.properties"
+        props.write_text("")
+        from ai_engineering.policy.checks.sonar import _parse_properties
+
+        assert _parse_properties(props) == {}
+
+
+# ---------------------------------------------------------------
+# Quality Gate API query
+# ---------------------------------------------------------------
+
+
+class TestQuerySonarQualityGate:
+    """Tests for SonarCloud API quality gate query."""
+
+    def test_returns_none_when_no_properties(self, tmp_path: Path) -> None:
+        from ai_engineering.policy.checks.sonar import query_sonar_quality_gate
+
+        assert query_sonar_quality_gate(tmp_path) is None
+
+    def test_returns_none_when_no_project_key(self, tmp_path: Path) -> None:
+        props = tmp_path / "sonar-project.properties"
+        props.write_text("sonar.host.url=https://sonarcloud.io\n")
+        from ai_engineering.policy.checks.sonar import query_sonar_quality_gate
+
+        assert query_sonar_quality_gate(tmp_path) is None
+
+    def test_returns_none_when_no_token(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        props = tmp_path / "sonar-project.properties"
+        props.write_text("sonar.projectKey=my-key\nsonar.host.url=https://sonarcloud.io\n")
+        monkeypatch.delenv("SONAR_TOKEN", raising=False)
+        state_dir = tmp_path / ".ai-engineering" / "state"
+        state_dir.mkdir(parents=True)
+        state = ToolsState()
+        CredentialService.save_tools_state(state_dir, state)
+        from ai_engineering.policy.checks.sonar import query_sonar_quality_gate
+
+        assert query_sonar_quality_gate(tmp_path) is None
+
+
+# ---------------------------------------------------------------
+# Observe Sonar metrics
+# ---------------------------------------------------------------
+
+
+class TestObserveSonarMetrics:
+    """Tests for Sonar metrics in observe engineer dashboard."""
+
+    def test_sonar_metrics_returns_empty_when_unconfigured(self, tmp_path: Path) -> None:
+        from ai_engineering.cli_commands.observe import _sonar_metrics
+
+        assert _sonar_metrics(tmp_path) == []
+
+
+# ---------------------------------------------------------------
 # Script argument generation
 # ---------------------------------------------------------------

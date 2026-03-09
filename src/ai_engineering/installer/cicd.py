@@ -75,6 +75,8 @@ def _render_github_ci(stacks: list[str], sonar_config: SonarCicdConfig | None = 
     else:
         lines.append("      - uses: actions/checkout@v4")
 
+    has_sonar = sonar_config is not None and sonar_config.enabled and sonar_config.project_key
+
     if python:
         lines.extend(
             [
@@ -85,8 +87,14 @@ def _render_github_ci(stacks: list[str], sonar_config: SonarCicdConfig | None = 
                 "      - run: uv run ty check src/",
             ]
         )
+        if has_sonar:
+            lines.append(
+                "      - run: uv run pytest tests/ -q --cov=src --cov-report=xml:coverage.xml"
+            )
     if dotnet:
         lines.extend(["      - run: dotnet build", "      - run: dotnet test --no-build"])
+        if has_sonar:
+            lines.append('      - run: dotnet test --no-build --collect:"XPlat Code Coverage"')
     if nextjs:
         lines.extend(
             [
@@ -95,6 +103,8 @@ def _render_github_ci(stacks: list[str], sonar_config: SonarCicdConfig | None = 
                 "      - run: npm test --if-present",
             ]
         )
+        if has_sonar:
+            lines.append("      - run: npx c8 report --reporter=lcov")
 
     if sonar_config is not None and sonar_config.enabled and sonar_config.project_key:
         lines.extend(_render_github_sonar_steps(sonar_config))
@@ -133,6 +143,7 @@ def _render_github_gate() -> str:
 
 
 def _render_azure_ci(stacks: list[str], sonar_config: SonarCicdConfig | None = None) -> str:
+    has_sonar = sonar_config is not None and sonar_config.enabled and sonar_config.project_key
     steps = ["- script: echo 'checkout is implicit in Azure Pipelines'", "  displayName: checkout"]
     if "python" in stacks:
         steps.extend(
@@ -146,10 +157,24 @@ def _render_azure_ci(stacks: list[str], sonar_config: SonarCicdConfig | None = N
                 "  displayName: python checks",
             ]
         )
+        if has_sonar:
+            steps.extend(
+                [
+                    "- script: uv run pytest tests/ -q --cov=src --cov-report=xml:coverage.xml",
+                    "  displayName: python coverage",
+                ]
+            )
     if "dotnet" in stacks:
         steps.extend(
             ["- script: dotnet build && dotnet test --no-build", "  displayName: dotnet checks"]
         )
+        if has_sonar:
+            steps.extend(
+                [
+                    '- script: dotnet test --no-build --collect:"XPlat Code Coverage"',
+                    "  displayName: dotnet coverage",
+                ]
+            )
     if "nextjs" in stacks:
         steps.extend(
             [
@@ -157,6 +182,13 @@ def _render_azure_ci(stacks: list[str], sonar_config: SonarCicdConfig | None = N
                 "  displayName: nextjs checks",
             ]
         )
+        if has_sonar:
+            steps.extend(
+                [
+                    "- script: npx c8 report --reporter=lcov",
+                    "  displayName: js coverage",
+                ]
+            )
 
     if sonar_config is not None and sonar_config.enabled and sonar_config.project_key:
         steps.extend(_render_azure_sonar_steps(sonar_config))
@@ -196,32 +228,24 @@ def _render_github_sonar_steps(sonar_config: SonarCicdConfig) -> list[str]:
         "${{ github.event_name != 'pull_request' || "
         "github.event.pull_request.head.repo.full_name == github.repository }}"
     )
-    if sonar_config.is_sonarcloud:
-        return [
-            guard,
-            "        name: SonarCloud Scan",
-            "        uses: SonarSource/sonarcloud-github-action@v3",
-            "        env:",
-            "          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}",
-            "        with:",
-            "          args: >",
-            f"            -Dsonar.projectKey={sonar_config.project_key}",
-            f"            -Dsonar.organization={sonar_config.organization}",
-        ]
-
+    # Unified action for both SonarCloud and SonarQube (D038-003)
+    name = "SonarCloud Scan" if sonar_config.is_sonarcloud else "SonarQube Scan"
     lines = [
         guard,
-        "        name: SonarQube Scan",
+        f"        name: {name}",
         "        uses: SonarSource/sonarqube-scan-action@v4",
         "        env:",
         "          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}",
         "        with:",
         "          args: >",
         f"            -Dsonar.projectKey={sonar_config.project_key}",
-        f"            -Dsonar.host.url={sonar_config.host_url}",
     ]
-    if sonar_config.organization:
+    if sonar_config.is_sonarcloud:
         lines.append(f"            -Dsonar.organization={sonar_config.organization}")
+    else:
+        lines.append(f"            -Dsonar.host.url={sonar_config.host_url}")
+        if sonar_config.organization:
+            lines.append(f"            -Dsonar.organization={sonar_config.organization}")
     return lines
 
 
