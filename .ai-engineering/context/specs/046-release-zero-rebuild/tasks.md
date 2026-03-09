@@ -1,7 +1,7 @@
 ---
 spec: "046"
-total: 10
-completed: 0
+total: 13
+completed: 3
 last_session: "2026-03-10"
 next_session: "Phase 1 — Implement"
 ---

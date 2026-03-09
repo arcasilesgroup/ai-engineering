@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- **Observe Rich dashboards** — all 5 `ai-eng observe` modes now render with Rich-formatted output (progress bars, score badges, color-coded metrics, section headers) instead of raw markdown strings.
+- **Observe dual-output** — `ai-eng observe <mode> --json` outputs structured JSON via SuccessEnvelope with HATEOAS next actions; human output goes to stderr per CLIG.
+- **Observe data-first architecture** — mode functions return structured dicts enabling both JSON and Rich rendering from the same data.
+- **4 new cli_ui primitives** — `section()`, `progress_bar()`, `score_badge()`, `metric_table()` added to the shared CLI output module for dashboard rendering.
 - **Slim root instructions** — deduplicated CLAUDE.md (-64%), AGENTS.md (-53%), and copilot-instructions.md (-47%); all duplicated content now lives in `framework-contract.md` or `product-contract.md`.
 - **On-demand contract loading** — plan agent, spec skill, and PR skill now explicitly read product/framework contracts when needed.
 - **Validator pointer format** — counter-accuracy and instruction-consistency validators support pointer format and use `product-contract.md` as canonical source.
