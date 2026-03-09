@@ -8,6 +8,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Observe enrichment phase 1** — 8 new signal aggregators (`code_quality_score`, `decision_health`, `adoption_rate`, `lead_time`, `change_failure_rate`, `session_recovery_rate`, `dependency_health`, `multi_variable_health`) in `lib/signals.py` expand dashboards with data computable from existing sources.
+- **VCS context in audit events** — `vcs/repo_context.py` and `git/context.py` add branch, commit SHA, repo URL, and provider to every `AuditEntry` automatically via `_emit()`.
+- **Workflow CLI commands** — `ai-eng workflow commit`, `ai-eng workflow pr`, and `ai-eng workflow pr-only` registered as CLI subcommands.
+- **Expanded observe dashboards** — engineer, team, AI, DORA, and health dashboards enriched with Code Quality, Decision Health, Adoption, Lead Time, Change Failure Rate, and Session Recovery panels.
+- **Spec helpers in `lib/parsing.py`** — `_next_spec_number()` and `_slugify()` moved to shared parsing module for reuse.
+
+### Changed
+- **Release orchestrator standardized** — replaced internal `_log_audit_event()` with standard `emit_deploy_event()` for consistent audit trail.
+
+### Removed
+- **`ai-eng spec save` CLI command** — replaced by LLM-driven spec creation that preserves rich planning content (Risks, Verification, Architecture sections).
+
 - **Squash-merge detection in cleanup** — cleanup skill v4.1.0 now detects branches merged via squash using `git cherry -v`; local branches are properly deleted after PR squash-merge instead of accumulating as "Local-only development".
 
 ### Removed

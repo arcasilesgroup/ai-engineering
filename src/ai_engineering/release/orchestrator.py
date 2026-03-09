@@ -19,8 +19,9 @@ from ai_engineering.release.version_bump import (
     detect_current_version,
     validate_semver,
 )
-from ai_engineering.state.io import append_ndjson, read_json_model, write_json_model
-from ai_engineering.state.models import AuditEntry, InstallManifest
+from ai_engineering.state.audit import emit_deploy_event
+from ai_engineering.state.io import read_json_model, write_json_model
+from ai_engineering.state.models import InstallManifest
 from ai_engineering.vcs.protocol import (
     CreateTagContext,
     PipelineStatusContext,
@@ -233,7 +234,13 @@ def execute_release(
         result.errors.append(manifest_phase.output)
         return result
 
-    _log_audit_event(config, "release_tag_created", f"tag={tag_name}")
+    emit_deploy_event(
+        config.project_root,
+        environment="production",
+        strategy="tag",
+        version=config.version,
+        result=f"tag={tag_name}",
+    )
 
     if config.wait:
         monitor_phase = _monitor_pipeline(config, provider, config.wait_timeout)
@@ -244,7 +251,13 @@ def execute_release(
         result.pipeline_status = monitor_phase.output
         if monitor_phase.output.startswith("http"):
             result.release_url = monitor_phase.output.splitlines()[0]
-        _log_audit_event(config, "release_pipeline_completed", monitor_phase.output)
+        emit_deploy_event(
+            config.project_root,
+            environment="production",
+            strategy="pipeline",
+            version=config.version,
+            result=monitor_phase.output,
+        )
     else:
         phases.append(PhaseResult(phase="monitor", success=True, skipped=True, output="--wait off"))
 
@@ -569,21 +582,6 @@ def _monitor_pipeline(config: ReleaseConfig, provider: VcsProvider, timeout: int
         time.sleep(10)
 
     return PhaseResult(phase="monitor", success=False, output=f"Timed out after {timeout}s")
-
-
-def _log_audit_event(config: ReleaseConfig, event: str, detail: str) -> None:
-    audit_path = config.project_root / ".ai-engineering" / "state" / "audit-log.ndjson"
-    if not audit_path.parent.is_dir():
-        return
-    append_ndjson(
-        audit_path,
-        AuditEntry(
-            timestamp=datetime.now(tz=UTC),
-            event=event,
-            actor="ai-eng release",
-            detail=detail,
-        ),
-    )
 
 
 def _parse_runs(output: str) -> list[dict[str, object]]:

@@ -423,7 +423,7 @@ def test_execute_release_wait_path_success(tmp_path: Path) -> None:
             "ai_engineering.release.orchestrator._monitor_pipeline",
             return_value=PhaseResult("monitor", True, "https://example/release/v0.2.0"),
         ),
-        patch("ai_engineering.release.orchestrator._log_audit_event"),
+        patch("ai_engineering.release.orchestrator.emit_deploy_event"),
     ):
         result = execute_release(config, provider, clock=_FixedClock())
 
@@ -779,7 +779,7 @@ def test_execute_release_tag_manifest_and_monitor_failures(tmp_path: Path) -> No
             "ai_engineering.release.orchestrator._update_manifest",
             return_value=PhaseResult("manifest", False, "m-fail"),
         ),
-        patch("ai_engineering.release.orchestrator._log_audit_event"),
+        patch("ai_engineering.release.orchestrator.emit_deploy_event"),
     ):
         r2 = execute_release(cfg, provider)
     assert r2.success is False
@@ -811,7 +811,7 @@ def test_execute_release_tag_manifest_and_monitor_failures(tmp_path: Path) -> No
             "ai_engineering.release.orchestrator._monitor_pipeline",
             return_value=PhaseResult("monitor", False, "mon-fail"),
         ),
-        patch("ai_engineering.release.orchestrator._log_audit_event"),
+        patch("ai_engineering.release.orchestrator.emit_deploy_event"),
     ):
         r3 = execute_release(cfg, provider)
     assert r3.success is False

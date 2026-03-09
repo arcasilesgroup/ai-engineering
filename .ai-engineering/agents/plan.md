@@ -89,13 +89,13 @@ This boundary maps to shared rule `PLAN-B1`.
 Prohibited during `/ai:plan`:
 - invoking `ai:build`, `ai:scan`, `ai:release`, or `ai:write` for task execution,
 - checking off implementation tasks as completed,
-- modifying source code as part of execution,
-- using Edit/Write tools to create spec files directly.
+- modifying source code as part of execution.
 
 Allowed during `/ai:plan`:
 - discovery, risk assessment, and architecture/planning analysis,
 - producing spec content as **structured text in the conversation**,
-- calling `ai-eng spec save` via Bash to persist the spec (CLI writes, not LLM),
+- using Write tool to create spec.md, plan.md, tasks.md directly,
+- using Edit tool to update `_active.md`,
 - producing agent assignments and phase ordering,
 - stopping with explicit handoff to `/ai:execute`.
 
@@ -103,25 +103,26 @@ Allowed during `/ai:plan`:
 
 The plan agent MUST follow the artifact-as-gate pattern for spec creation:
 
-1. **Produce spec as text** — write the full spec (Problem, Solution, Scope, Tasks, etc.) as markdown directly in the conversation output. Do NOT use Edit/Write tools.
-2. **Persist via CLI** — call `ai-eng spec save` via Bash, piping the spec content through stdin. The CLI handles validation, branch creation, file scaffolding, and commit.
-3. **STOP** — after the CLI confirms the spec is saved, present the result and stop. The user must explicitly invoke `/ai:execute` to begin implementation.
+1. **Produce spec as text** — write the full spec (Problem, Solution, Scope, Tasks, etc.) as markdown directly in the conversation output.
+2. **Persist via Write tool** — create spec.md, plan.md, and tasks.md directly using the Write tool into the appropriate `context/specs/NNN-<slug>/` directory.
+3. **Update _active.md** — use the Write or Edit tool to point `_active.md` to the new spec.
+4. **Commit via Bash** — stage and commit the new files with message: `spec-NNN: Phase 0 — scaffold spec files and activate`.
+5. **STOP** — present the result and stop. The user must explicitly invoke `/ai:execute` to begin implementation.
 
 Example:
-```bash
-cat <<'EOF' | ai-eng spec save --title "Feature Name" --pipeline standard --size M
-# Feature Name
-## Problem
-...
-## Solution
-...
-## Tasks
-- [ ] 1.1 First task
-- [ ] 1.2 Second task
-EOF
+```
+# 1. Produce spec content in conversation, then persist:
+Write tool → context/specs/040-feature-name/spec.md
+Write tool → context/specs/040-feature-name/plan.md
+Write tool → context/specs/040-feature-name/tasks.md
+Edit tool  → context/specs/_active.md
+
+# 2. Commit:
+git add .ai-engineering/context/specs/040-feature-name/ .ai-engineering/context/specs/_active.md
+git commit -m "spec-040: Phase 0 — scaffold spec files and activate"
 ```
 
-This pattern is cross-IDE: it works identically in Claude Code, GitHub Copilot, Cursor, OpenCode, Codex, or any chat with terminal access. No IDE plan mode is required.
+This pattern is cross-IDE: it works identically in Claude Code, GitHub Copilot, Cursor, OpenCode, Codex, or any chat with Write/Edit tool access. No IDE plan mode is required.
 
 ### Strategic Analysis Mode
 

@@ -110,6 +110,7 @@ TEST_SCOPE_RULES: list[ScopeRule] = [
             "unit": [
                 "tests/unit/test_lib_signals.py",
                 "tests/unit/test_parsing.py",
+                "tests/unit/test_spec_helpers.py",
             ],
             "integration": [],
             "e2e": [],
@@ -130,7 +131,6 @@ TEST_SCOPE_RULES: list[ScopeRule] = [
                 "tests/unit/test_cli_checkpoint.py",
                 "tests/unit/test_cli_metrics.py",
                 "tests/unit/test_spec_cmd.py",
-                "tests/unit/test_spec_save.py",
             ],
             "integration": [
                 "tests/integration/test_cli_command_modules.py",

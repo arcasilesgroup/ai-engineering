@@ -13,8 +13,10 @@ from typing import Annotated
 
 import typer
 
+from ai_engineering.git.context import get_git_context
 from ai_engineering.state.models import AuditEntry
 from ai_engineering.state.service import StateService
+from ai_engineering.vcs.repo_context import get_repo_context
 
 
 def _project_root() -> Path:
@@ -40,12 +42,20 @@ def signals_emit(
         typer.echo(f"Invalid JSON in --detail: {detail_json}", err=True)
         raise typer.Exit(code=1) from None
 
+    repo_ctx = get_repo_context(root)
+    git_ctx = get_git_context(root)
     entry = AuditEntry(
         timestamp=datetime.now(tz=UTC),
         event=event,
         actor=actor,
         spec=spec,
         detail=detail if detail else None,
+        vcs_provider=repo_ctx.provider if repo_ctx else None,
+        vcs_organization=repo_ctx.organization if repo_ctx else None,
+        vcs_project=repo_ctx.project if repo_ctx else None,
+        vcs_repository=repo_ctx.repository if repo_ctx else None,
+        branch=git_ctx.branch if git_ctx else None,
+        commit_sha=git_ctx.commit_sha if git_ctx else None,
     )
 
     StateService(root).append_audit(entry)

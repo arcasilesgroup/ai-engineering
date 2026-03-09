@@ -18,11 +18,19 @@ from typing import Annotated, Any
 import typer
 
 from ai_engineering.lib.signals import (
+    adoption_metrics,
+    build_metrics_from,
+    checkpoint_status,
     data_quality_from,
+    decision_store_health,
+    deploy_metrics_from,
     event_date_range_from,
     filter_events,
     gate_pass_rate_from,
+    lead_time_metrics,
     load_all_events,
+    scan_metrics_from,
+    session_metrics_from,
 )
 
 
@@ -137,6 +145,8 @@ def observe_engineer(project_root: Path) -> str:
     oldest, newest = event_date_range_from(all_events)
     days_span = (newest - oldest).days if oldest and newest else 0
 
+    lt = lead_time_metrics(project_root)
+
     lines = [
         "# Engineer Dashboard",
         "",
@@ -145,6 +155,7 @@ def observe_engineer(project_root: Path) -> str:
         "## Delivery Velocity",
         f"- Commits/week: {git_stats['commits_per_week']}",
         f"- Total commits (30d): {git_stats['commits']}",
+        f"- Lead time (median): {lt['median_days']} days",
         "",
         "## Gate Health (last 30 days)",
         f"- Total gate runs: {gates['total']}",
@@ -153,6 +164,42 @@ def observe_engineer(project_root: Path) -> str:
     ]
 
     lines.extend(_sonar_metrics(project_root))
+
+    # Lead Time section
+    lines.append("")
+    lines.append("## Lead Time")
+    if lt["merges_analyzed"] == 0:
+        lines.append("- Insufficient merge data")
+    else:
+        lines.append(f"- Median: {lt['median_days']} days")
+        lines.append(f"- Rating: {lt['rating']}")
+        lines.append(f"- Merges analyzed: {lt['merges_analyzed']}")
+
+    # Code Quality from scans
+    scan = scan_metrics_from(all_events)
+    lines.append("")
+    lines.append("## Code Quality (from scans)")
+    if scan["total_scans"] == 0:
+        lines.append("- No scan data — run /ai:scan quality")
+    else:
+        lines.append(f"- Quality score: {scan['avg_quality_score']}/100")
+        lines.append(f"- Security score: {scan['avg_security_score']}/100")
+        findings = scan["findings"]
+        lines.append(
+            f"- Findings: {findings['critical']} critical, {findings['high']} high",
+        )
+
+    # Build Activity
+    build = build_metrics_from(all_events)
+    lines.append("")
+    lines.append("## Build Activity (last 30d)")
+    if build["total_builds"] == 0:
+        lines.append("- No build data")
+    else:
+        lines.append(f"- Builds: {build['total_builds']}")
+        lines.append(
+            f"- Files changed: {build['files_changed']}, Tests added: {build['tests_added']}",
+        )
 
     lines.extend(
         [
@@ -190,15 +237,56 @@ def observe_team(project_root: Path) -> str:
         f"- Scan events: {_count_by_type(all_events, 'scan_complete')}",
         f"- Build events: {_count_by_type(all_events, 'build_complete')}",
         f"- Session events: {_count_by_type(all_events, 'session_metric')}",
+        f"- Deploy events: {_count_by_type(all_events, 'deploy_complete')}",
         "",
         "## Gate Health",
         f"- Pass rate: {gates['pass_rate']}%",
         f"- Most friction: {gates['most_failed_check']}",
-        "",
-        "## Actions",
-        "- Run `/ai:scan governance` for framework health",
-        "- Review decision store for expired decisions",
     ]
+
+    # Decision Store Health
+    dsh = decision_store_health(project_root)
+    lines.append("")
+    lines.append("## Decision Store Health")
+    if dsh["total"] == 0:
+        lines.append("- No decisions recorded")
+    else:
+        lines.append(
+            f"- Active: {dsh['active']}, Expired (need review): {dsh['expired']}, "
+            f"Resolved: {dsh['resolved']}",
+        )
+        lines.append(f"- Avg age: {dsh['avg_age_days']} days")
+
+    # Adoption
+    adopt = adoption_metrics(project_root)
+    lines.append("")
+    lines.append("## Adoption")
+    lines.append(f"- Stacks: {', '.join(adopt['stacks']) if adopt['stacks'] else 'none'}")
+    lines.append(f"- Providers: {adopt['providers']['primary']}")
+    lines.append(f"- IDEs: {', '.join(adopt['ides']) if adopt['ides'] else 'none'}")
+    hooks_status = "installed" if adopt["hooks_installed"] else "not installed"
+    if adopt["hooks_installed"]:
+        hooks_status += "/verified" if adopt["hooks_verified"] else "/unverified"
+    lines.append(f"- Hooks: {hooks_status}")
+
+    # Scan Health
+    scan = scan_metrics_from(all_events)
+    lines.append("")
+    lines.append("## Scan Health")
+    if scan["total_scans"] == 0:
+        lines.append("- No scan data")
+    else:
+        lines.append(f"- Avg quality score: {scan['avg_quality_score']}/100")
+        lines.append(f"- Scans run: {scan['total_scans']}")
+
+    lines.extend(
+        [
+            "",
+            "## Actions",
+            "- Run `/ai:scan governance` for framework health",
+            "- Review decision store for expired decisions",
+        ]
+    )
     return "\n".join(lines)
 
 
@@ -234,24 +322,50 @@ def observe_ai(project_root: Path) -> str:
     else:
         cache_hit_rate = 0.0
 
+    # Expanded context efficiency via session_metrics_from
+    sm = session_metrics_from(all_events)
+    skills_list = ", ".join(sm["skills_loaded"]) if sm["skills_loaded"] else "none"
+
     lines = [
         "# AI Self-Awareness",
         "",
         f"Data quality: {dq}",
         "",
         "## Context Efficiency",
-        f"- Recent sessions analyzed: {len(session_events)}",
-        f"- Total tokens used (recent): {total_tokens:,}",
+        f"- Sessions analyzed: {sm['sessions_analyzed']}",
+        f"- Total tokens (recent): {sm['total_tokens']:,}",
+        f"- Token utilization: {sm['total_tokens']}/{sm['tokens_available']}"
+        f" ({sm['utilization_pct']}%)",
+        f"- Skills loaded: {skills_list}",
         "",
         "## Decision Continuity",
         f"- Decisions reused: {decisions_reused}",
         f"- Decisions re-prompted: {decisions_reprompted}",
         f"- Cache hit rate: {cache_hit_rate}%",
-        "",
-        "## Actions",
-        "- Review decision store for expiring decisions",
-        "- Check session checkpoint for recovery state",
     ]
+
+    # Session Recovery
+    cp = checkpoint_status(project_root)
+    lines.append("")
+    lines.append("## Session Recovery")
+    if not cp["has_checkpoint"]:
+        lines.append("- No checkpoint found")
+    else:
+        lines.append(f"- Last checkpoint: {cp['last_task']} ({cp['age']})")
+        lines.append(
+            f"- Progress: {cp['completed']}/{cp['total']} ({cp['progress_pct']}%)",
+        )
+        blocked = cp.get("blocked_on") or "nothing"
+        lines.append(f"- Blocked on: {blocked}")
+
+    lines.extend(
+        [
+            "",
+            "## Actions",
+            "- Review decision store for expiring decisions",
+            "- Check session checkpoint for recovery state",
+        ]
+    )
     return "\n".join(lines)
 
 
@@ -279,16 +393,47 @@ def observe_dora(project_root: Path) -> str:
         "## Deployment Frequency",
         f"- Merges to main/week: {freq}",
         f"- Rating: {freq_rating}",
-        "",
-        "## Delivery Velocity",
-        f"- Commits/week: {dora['commits_per_week']}",
-        f"- Total commits (30d): {dora['total_commits_30d']}",
-        "",
-        "## Benchmarks",
-        "- Elite: multiple deploys/day, lead time <1h",
-        "- High: weekly deploys, lead time <1 week",
-        "- Medium: monthly deploys, lead time <1 month",
     ]
+
+    # Lead Time for Changes
+    lt = lead_time_metrics(project_root)
+    lines.append("")
+    lines.append("## Lead Time for Changes")
+    lines.append(f"- Median: {lt['median_days']} days")
+    lines.append(f"- Rating: {lt['rating']}")
+
+    # Change Failure Rate
+    deploy = deploy_metrics_from(all_events)
+    cfr_pct = deploy["failure_rate"]
+    if cfr_pct <= 15:
+        cfr_rating = "ELITE"
+    elif cfr_pct <= 30:
+        cfr_rating = "HIGH"
+    elif cfr_pct <= 45:
+        cfr_rating = "MEDIUM"
+    else:
+        cfr_rating = "LOW"
+
+    lines.append("")
+    lines.append("## Change Failure Rate")
+    lines.append(f"- Deployments: {deploy['total_deploys']}")
+    lines.append(f"- Rollbacks: {deploy['rollbacks']}")
+    lines.append(f"- Rate: {cfr_pct}%")
+    lines.append(f"- Rating: {cfr_rating}")
+
+    lines.extend(
+        [
+            "",
+            "## Delivery Velocity",
+            f"- Commits/week: {dora['commits_per_week']}",
+            f"- Total commits (30d): {dora['total_commits_30d']}",
+            "",
+            "## Benchmarks",
+            "- Elite: multiple deploys/day, lead time <1h",
+            "- High: weekly deploys, lead time <1 week",
+            "- Medium: monthly deploys, lead time <1 month",
+        ]
+    )
     return "\n".join(lines)
 
 
@@ -302,7 +447,40 @@ def observe_health(project_root: Path) -> str:
 
     gate_score = min(gates["pass_rate"], 100)
     velocity_score = min(git_stats["commits_per_week"] * 10, 100)
-    overall = round((gate_score + velocity_score) / 2)
+
+    # Multi-variable weighted score
+    components: list[float] = [gate_score, velocity_score]
+    component_names: list[str] = ["Gate pass rate", "Delivery velocity"]
+
+    scan = scan_metrics_from(all_events)
+    if scan["total_scans"] > 0:
+        scan_score = scan["avg_quality_score"]
+        components.append(scan_score)
+        component_names.append("Scan quality")
+    else:
+        scan_score = None
+
+    dsh = decision_store_health(project_root)
+    if dsh["total"] > 0:
+        decision_score = max(0, 100 - dsh["expired"] * 20)
+        components.append(decision_score)
+        component_names.append("Decision health")
+    else:
+        decision_score = None
+
+    freq = dora["deployment_frequency_per_week"]
+    if freq >= 5:
+        dora_score: float = 100
+    elif freq >= 1:
+        dora_score = 75
+    elif freq >= 0.25:
+        dora_score = 50
+    else:
+        dora_score = 25
+    components.append(dora_score)
+    component_names.append("DORA frequency")
+
+    overall = round(sum(components) / len(components))
 
     if overall >= 80:
         semaphore = "GREEN"
@@ -317,19 +495,30 @@ def observe_health(project_root: Path) -> str:
         f"Data quality: {dq}",
         "",
         "## Components",
-        f"- Gate pass rate: {gates['pass_rate']}%",
-        f"- Delivery velocity: {git_stats['commits_per_week']} commits/week",
-        f"- Deploy frequency: {dora['deployment_frequency_per_week']}/week",
-        "",
-        "## Semaphore",
-        f"- Status: {semaphore}",
-        f"- Score: {overall}/100",
-        "",
-        "## Top Actions",
-        "- Run `/ai:scan platform` for full dimensional assessment",
-        "- Run `/ai:observe dora` for delivery benchmarks",
-        "- Run `/ai:observe engineer` for code quality details",
+        f"- Gate pass rate: {gates['pass_rate']}% -> {gate_score}/100",
+        f"- Delivery velocity: {git_stats['commits_per_week']}/week -> {velocity_score}/100",
     ]
+    if scan_score is not None:
+        lines.append(f"- Scan quality: {scan_score}/100")
+    else:
+        lines.append("- Scan quality: No data")
+    if decision_score is not None:
+        lines.append(f"- Decision health: {decision_score}/100")
+    else:
+        lines.append("- Decision health: No decisions")
+    lines.append(f"- DORA frequency: {freq}/week -> {dora_score}/100")
+
+    lines.extend(
+        [
+            "",
+            f"## Semaphore: {semaphore}",
+            "",
+            "## Top Actions",
+            "- Run `/ai:scan platform` for full dimensional assessment",
+            "- Run `/ai:observe dora` for delivery benchmarks",
+            "- Run `/ai:observe engineer` for code quality details",
+        ]
+    )
     return "\n".join(lines)
 
 

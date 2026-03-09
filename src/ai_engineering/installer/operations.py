@@ -9,8 +9,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from ai_engineering.git.context import get_git_context
 from ai_engineering.state.io import append_ndjson, read_json_model, write_json_model
 from ai_engineering.state.models import AuditEntry, InstallManifest
+from ai_engineering.vcs.repo_context import get_repo_context
 
 from .templates import TEMPLATES_ROOT, copy_project_templates, remove_provider_templates
 
@@ -117,10 +119,20 @@ def _save_manifest_and_log(
         detail: Audit detail string.
     """
     write_json_model(manifest_path, manifest)
+    # audit_path is <project>/.ai-engineering/state/audit-log.ndjson
+    project_root = audit_path.parent.parent.parent
+    repo_ctx = get_repo_context(project_root)
+    git_ctx = get_git_context(project_root)
     entry = AuditEntry(
         event=event,
         actor="ai-engineering-cli",
         detail=detail,
+        vcs_provider=repo_ctx.provider if repo_ctx else None,
+        vcs_organization=repo_ctx.organization if repo_ctx else None,
+        vcs_project=repo_ctx.project if repo_ctx else None,
+        vcs_repository=repo_ctx.repository if repo_ctx else None,
+        branch=git_ctx.branch if git_ctx else None,
+        commit_sha=git_ctx.commit_sha if git_ctx else None,
     )
     append_ndjson(audit_path, entry)
 
