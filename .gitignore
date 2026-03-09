@@ -152,6 +152,3 @@ credentials*.json
 # ai-engineering specific
 .ai-engineering/local.yml
 .ai-engineering/.cache/
-
-# Audit reports — output goes to chat or GitHub Issues, not local files
-.ai-engineering/references/
