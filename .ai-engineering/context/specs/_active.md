@@ -1,16 +1,16 @@
 ---
-active: "037-spec-as-gate"
-updated: "2026-03-06"
+active: "038-sonarcloud-quality-gate-integration"
+updated: "2026-03-09"
 ---
 
 # Active Spec
 
-**Spec 037 — Spec-as-Gate: Cross-IDE Plan/Execute Separation**
+**Spec 038 — SonarCloud Quality Gate Integration**
 
 ## Quick Resume
 
-- Spec: [spec.md](specs/037-spec-as-gate/spec.md)
-- Plan: [plan.md](specs/037-spec-as-gate/plan.md)
-- Tasks: [tasks.md](specs/037-spec-as-gate/tasks.md)
-- Branch: `feat/037-spec-as-gate`
-- Next: Phase 1 — CLI `ai-eng spec save`
+- Spec: [spec.md](specs/038-sonarcloud-quality-gate-integration/spec.md)
+- Plan: [plan.md](specs/038-sonarcloud-quality-gate-integration/plan.md)
+- Tasks: [tasks.md](specs/038-sonarcloud-quality-gate-integration/tasks.md)
+- Branch: `feat/038-sonarcloud-quality-gate-integration`
+- Next: Phase 1
