@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Squash-merge detection in cleanup** — cleanup skill v4.1.0 now detects branches merged via squash using `git cherry -v`; local branches are properly deleted after PR squash-merge instead of accumulating as "Local-only development".
+
+### Removed
+- **Totals section from cleanup report** — redundant with Branch Detail table; cleanup report now shows only the per-branch table.
+
+### Added
 - **SonarCloud Quality Gate integration** — `sonar.qualitygate.wait=true` in `sonar-project.properties` as universal gate; scanner polls QG and fails CI if it doesn't pass. Works identically on GitHub Actions and Azure Pipelines.
 - **SonarCloud CI job** — new `sonarcloud` job in `ci.yml` with fork guard, downloads per-tier coverage reports (unit/integration/e2e), and blocks build on QG failure.
 - **Coverage export per test tier** — unit, integration, and e2e jobs now generate individual Cobertura XML reports (`coverage-unit.xml`, `coverage-integration.xml`, `coverage-e2e.xml`) uploaded as artifacts for SonarCloud consumption.
