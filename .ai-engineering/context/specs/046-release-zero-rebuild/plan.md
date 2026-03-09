@@ -31,6 +31,18 @@ Ninguno.
 
 **CI status verification**: Usar `gh api` para consultar el combined status del commit antes de proceder. Step separado con `if: failure()` para mensaje claro.
 
+**Race condition con `ai-eng release`**: Cuando se usa `ai-eng release` sin `--wait`, el tag se crea inmediatamente después del merge a main. CI en main puede no haber terminado aún. El job `verify-ci` del release.yml debe:
+1. Buscar el CI workflow run para el commit del tag.
+2. Si está `in_progress` o `queued`, esperar con backoff (max ~5 min).
+3. Si `completed` + `success`, proceder.
+4. Si `completed` + `failure`, fallar con mensaje claro.
+5. Si no existe run (edge case), fallar.
+
+**Compatibilidad con `ai-eng release` orchestrator**: No se requieren cambios en `src/ai_engineering/release/orchestrator.py`. El orchestrator:
+- Crea el tag vía `_create_tag` → dispara release.yml (trigger no cambia)
+- Monitorea vía `_monitor_pipeline` por nombre "Release" + SHA (contrato no cambia)
+- El flujo validate→prepare→PR→merge→tag→monitor sigue intacto
+
 ## Session Map
 
 ### Phase 0: Scaffold [S]
@@ -40,15 +52,17 @@ Ninguno.
 ### Phase 1: Implement [M]
 - Modificar `ci.yml`: añadir `retention-days: 5` al artifact upload.
 - Reescribir `release.yml`:
-  - Job `verify-ci`: consultar CI status del commit del tag.
-  - Job `publish`: descargar artefacto cross-workflow, publicar a PyPI.
-  - Job `github-release`: descargar artefacto, crear release.
+  - Job `verify-ci`: consultar CI status con retry/backoff para race condition.
+  - Job `download-artifact`: buscar CI run-id y descargar `dist/` cross-workflow.
+  - Job `publish`: publicar a PyPI usando artefacto descargado.
+  - Job `github-release`: crear release con artefacto descargado.
 - Verificar `check_workflow_policy.py`.
 
 ### Phase 2: Validate [S]
 - Ejecutar `actionlint` sobre los workflows modificados.
 - Ejecutar `check_workflow_policy.py`.
-- Dry-run mental del flujo: tag push → verify CI → download artifact → publish.
+- Verificar flujo completo: `ai-eng release` (con `--wait`) → tag → verify-ci → download → publish.
+- Verificar flujo sin `--wait`: tag inmediato → verify-ci retry → download → publish.
 
 ## Patterns
 

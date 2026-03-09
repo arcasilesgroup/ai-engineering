@@ -45,6 +45,7 @@ Esto garantiza: lo que se publica = lo que CI validó. Zero rebuild, zero drift.
 ### Out of Scope
 
 - Cambios en la lógica de CI (gates, matrices, etc.).
+- Cambios en `ai-eng release` orchestrator (`release/orchestrator.py`) — el flujo CLI sigue funcionando sin cambios (ver Decisions D-046-04).
 - Migración a otro sistema de release (no GitHub Actions).
 - Signed releases o attestations (posible spec futuro).
 
@@ -56,6 +57,8 @@ Esto garantiza: lo que se publica = lo que CI validó. Zero rebuild, zero drift.
 4. El artefacto publicado en PyPI es bit-identical al producido por CI.
 5. `check_workflow_policy.py` pasa sin errores.
 6. GitHub Release se crea correctamente con los archivos de `dist/`.
+7. `ai-eng release <version>` (con y sin `--wait`) sigue funcionando correctamente end-to-end.
+8. El job `verify-ci` espera/reintenta si CI aún está corriendo (race condition con tag push inmediato post-merge).
 
 ## Decisions
 
@@ -64,3 +67,5 @@ Esto garantiza: lo que se publica = lo que CI validó. Zero rebuild, zero drift.
 | D-046-01 | Zero-rebuild: release descarga artefacto de CI | Garantiza paridad entre lo validado y lo publicado |
 | D-046-02 | Usar `gh run download` o `actions/download-artifact` cross-workflow | Mecanismo nativo de GitHub Actions para compartir artefactos entre workflows |
 | D-046-03 | Verificar CI status via GitHub API antes de proceder | Gate explícito: si CI no pasó, release no continúa |
+| D-046-04 | `ai-eng release` orchestrator no requiere cambios | El CLI crea tag → release.yml se dispara → `_monitor_pipeline` vigila por nombre "Release" + SHA — el contrato no cambia. El flujo validate→prepare→PR→merge→tag→monitor sigue intacto |
+| D-046-05 | `verify-ci` debe reintentar con backoff si CI está in-progress | `ai-eng release` sin `--wait` crea el tag justo después del merge; CI en main puede no haber terminado aún |
