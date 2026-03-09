@@ -327,7 +327,7 @@ jobs:
             echo "No coverage reports found (tests may have been skipped)"
           fi
       - name: SonarCloud Scan
-        uses: SonarSource/sonarqube-scan-action@689fb39b34b9aa95ebc5f8f119343ddd51542402 # v4
+        uses: SonarSource/sonarqube-scan-action@fd88b7d7ccbaefd23d8f36f73b59db7a3d246602 # v6
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:

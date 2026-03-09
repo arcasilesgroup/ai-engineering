@@ -232,7 +232,7 @@ def _render_github_sonar_steps(sonar_config: SonarCicdConfig) -> list[str]:
     # Pin to full SHA for supply-chain security (S7637)
     _sonar_action = (
         "SonarSource/sonarqube-scan-action"
-        "@689fb39b34b9aa95ebc5f8f119343ddd51542402"  # v4
+        "@fd88b7d7ccbaefd23d8f36f73b59db7a3d246602"  # v6
     )
     name = "SonarCloud Scan" if sonar_config.is_sonarcloud else "SonarQube Scan"
     lines = [

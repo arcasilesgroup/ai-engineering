@@ -6,8 +6,9 @@ and the script argument generation for sonar-pre-gate scripts.
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -166,6 +167,97 @@ class TestQuerySonarQualityGate:
 # ---------------------------------------------------------------
 
 
+class TestQuerySonarQualityGateWithToken:
+    """Tests for API query when token is available."""
+
+    def test_returns_status_on_successful_api_call(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        props = tmp_path / "sonar-project.properties"
+        props.write_text("sonar.projectKey=my-key\nsonar.host.url=https://sonarcloud.io\n")
+        monkeypatch.setenv("SONAR_TOKEN", "squ_test_123")
+
+        api_response = json.dumps({"projectStatus": {"status": "OK", "conditions": []}}).encode()
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = api_response
+        mock_resp.__enter__ = lambda s: s
+        mock_resp.__exit__ = MagicMock(return_value=False)
+
+        from ai_engineering.policy.checks.sonar import query_sonar_quality_gate
+
+        with patch("ai_engineering.policy.checks.sonar.urlopen", return_value=mock_resp):
+            result = query_sonar_quality_gate(tmp_path)
+
+        assert result is not None
+        assert result["status"] == "OK"
+
+    def test_returns_none_on_api_error(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        props = tmp_path / "sonar-project.properties"
+        props.write_text("sonar.projectKey=my-key\nsonar.host.url=https://sonarcloud.io\n")
+        monkeypatch.setenv("SONAR_TOKEN", "squ_test_123")
+
+        from ai_engineering.policy.checks.sonar import query_sonar_quality_gate
+
+        with patch(
+            "ai_engineering.policy.checks.sonar.urlopen",
+            side_effect=OSError("Connection refused"),
+        ):
+            assert query_sonar_quality_gate(tmp_path) is None
+
+
+# ---------------------------------------------------------------
+# API gate check (pre-push advisory)
+# ---------------------------------------------------------------
+
+
+class TestCheckSonarApiGate:
+    """Tests for _check_sonar_api_gate advisory check."""
+
+    def test_appends_skip_when_api_unavailable(self, tmp_path: Path) -> None:
+        from ai_engineering.policy.checks.sonar import _check_sonar_api_gate
+        from ai_engineering.policy.gates import GateResult
+        from ai_engineering.state.models import GateHook
+
+        result = GateResult(hook=GateHook.PRE_PUSH, checks=[])
+        _check_sonar_api_gate(tmp_path, result)
+
+        assert len(result.checks) == 1
+        assert result.checks[0].passed is True
+        assert "skipped" in result.checks[0].output
+
+    def test_appends_status_when_api_returns_data(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        props = tmp_path / "sonar-project.properties"
+        props.write_text("sonar.projectKey=my-key\nsonar.host.url=https://sonarcloud.io\n")
+        monkeypatch.setenv("SONAR_TOKEN", "squ_test_123")
+
+        api_response = json.dumps({"projectStatus": {"status": "OK", "conditions": []}}).encode()
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = api_response
+        mock_resp.__enter__ = lambda s: s
+        mock_resp.__exit__ = MagicMock(return_value=False)
+
+        from ai_engineering.policy.checks.sonar import _check_sonar_api_gate
+        from ai_engineering.policy.gates import GateResult
+        from ai_engineering.state.models import GateHook
+
+        result = GateResult(hook=GateHook.PRE_PUSH, checks=[])
+        with patch("ai_engineering.policy.checks.sonar.urlopen", return_value=mock_resp):
+            _check_sonar_api_gate(tmp_path, result)
+
+        assert len(result.checks) == 1
+        assert result.checks[0].passed is True
+        assert "OK" in result.checks[0].output
+
+
+# ---------------------------------------------------------------
+# Observe Sonar metrics
+# ---------------------------------------------------------------
+
+
 class TestObserveSonarMetrics:
     """Tests for Sonar metrics in observe engineer dashboard."""
 
@@ -173,6 +265,38 @@ class TestObserveSonarMetrics:
         from ai_engineering.cli_commands.observe import _sonar_metrics
 
         assert _sonar_metrics(tmp_path) == []
+
+    def test_sonar_metrics_returns_lines_with_coverage(self, tmp_path: Path) -> None:
+        qg_data = {
+            "status": "OK",
+            "conditions": [
+                {"metricKey": "new_coverage", "actualValue": "85.2"},
+            ],
+        }
+        from ai_engineering.cli_commands.observe import _sonar_metrics
+
+        with patch(
+            "ai_engineering.policy.checks.sonar.query_sonar_quality_gate",
+            return_value=qg_data,
+        ):
+            lines = _sonar_metrics(tmp_path)
+
+        assert any("OK" in line for line in lines)
+        assert any("85.2%" in line for line in lines)
+        assert any("Conditions: 1" in line for line in lines)
+
+    def test_sonar_metrics_without_coverage_condition(self, tmp_path: Path) -> None:
+        qg_data = {"status": "ERROR", "conditions": []}
+        from ai_engineering.cli_commands.observe import _sonar_metrics
+
+        with patch(
+            "ai_engineering.policy.checks.sonar.query_sonar_quality_gate",
+            return_value=qg_data,
+        ):
+            lines = _sonar_metrics(tmp_path)
+
+        assert any("ERROR" in line for line in lines)
+        assert not any("coverage" in line.lower() for line in lines)
 
 
 # ---------------------------------------------------------------
