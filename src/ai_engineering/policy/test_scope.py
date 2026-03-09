@@ -110,8 +110,10 @@ TEST_SCOPE_RULES: list[ScopeRule] = [
             "unit": [
                 "tests/unit/test_lib_signals.py",
                 "tests/unit/test_parsing.py",
+                "tests/unit/test_security_posture.py",
                 "tests/unit/test_signal_aggregators.py",
                 "tests/unit/test_spec_helpers.py",
+                "tests/unit/test_test_confidence.py",
             ],
             "integration": [],
             "e2e": [],
@@ -278,6 +280,7 @@ TEST_SCOPE_RULES: list[ScopeRule] = [
                 "tests/unit/test_gates.py",
                 "tests/unit/test_duplication.py",
                 "tests/unit/test_duplication_main.py",
+                "tests/unit/test_sonar_measures.py",
                 "tests/unit/test_test_scope.py",
             ],
             "integration": ["tests/integration/test_gates_integration.py"],
