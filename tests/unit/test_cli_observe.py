@@ -319,6 +319,109 @@ class TestObserveEngineer:
         assert "Pass rate:" in output
         assert "Most failed check:" in output
 
+    def test_security_posture_section(self, tmp_path: Path) -> None:
+        """Engineer dashboard includes Security Posture section."""
+        (tmp_path / ".ai-engineering").mkdir(parents=True)
+        mock_result = subprocess.CompletedProcess(args=[], returncode=0, stdout="")
+        with (
+            patch(
+                "ai_engineering.cli_commands.observe.subprocess.run",
+                return_value=mock_result,
+            ),
+            patch(
+                "ai_engineering.cli_commands.observe.security_posture_metrics",
+                return_value={
+                    "source": "sonarcloud",
+                    "vulnerabilities": 2,
+                    "security_hotspots": 3,
+                    "security_rating": "B",
+                    "dep_vulns": 1,
+                },
+            ),
+        ):
+            output = observe_engineer(tmp_path)
+        assert "## Security Posture" in output
+        assert "Vulnerabilities: 2" in output
+        assert "Security hotspots: 3" in output
+        assert "Security rating: B" in output
+        assert "Dependency vulnerabilities: 1" in output
+
+    def test_security_posture_no_data(self, tmp_path: Path) -> None:
+        """Security Posture shows helpful message when no data."""
+        (tmp_path / ".ai-engineering").mkdir(parents=True)
+        mock_result = subprocess.CompletedProcess(args=[], returncode=0, stdout="")
+        with (
+            patch(
+                "ai_engineering.cli_commands.observe.subprocess.run",
+                return_value=mock_result,
+            ),
+            patch(
+                "ai_engineering.cli_commands.observe.security_posture_metrics",
+                return_value={
+                    "source": "none",
+                    "vulnerabilities": 0,
+                    "security_hotspots": 0,
+                    "security_rating": "?",
+                    "dep_vulns": 0,
+                },
+            ),
+        ):
+            output = observe_engineer(tmp_path)
+        assert "No data" in output
+        assert "ai-eng setup sonar" in output
+
+    def test_test_confidence_section(self, tmp_path: Path) -> None:
+        """Engineer dashboard includes Test Confidence section."""
+        (tmp_path / ".ai-engineering").mkdir(parents=True)
+        mock_result = subprocess.CompletedProcess(args=[], returncode=0, stdout="")
+        with (
+            patch(
+                "ai_engineering.cli_commands.observe.subprocess.run",
+                return_value=mock_result,
+            ),
+            patch(
+                "ai_engineering.cli_commands.observe.test_confidence_metrics",
+                return_value={
+                    "source": "sonarcloud",
+                    "coverage_pct": 87.5,
+                    "meets_threshold": True,
+                    "files_total": 50,
+                    "files_covered": 45,
+                    "untested_critical": [],
+                },
+            ),
+        ):
+            output = observe_engineer(tmp_path)
+        assert "## Test Confidence" in output
+        assert "Coverage: 87.5% (sonarcloud)" in output
+        assert "Files covered: 45/50" in output
+        assert "Meets threshold (80%): yes" in output
+
+    def test_test_confidence_no_data(self, tmp_path: Path) -> None:
+        """Test Confidence shows helpful message when no data."""
+        (tmp_path / ".ai-engineering").mkdir(parents=True)
+        mock_result = subprocess.CompletedProcess(args=[], returncode=0, stdout="")
+        with (
+            patch(
+                "ai_engineering.cli_commands.observe.subprocess.run",
+                return_value=mock_result,
+            ),
+            patch(
+                "ai_engineering.cli_commands.observe.test_confidence_metrics",
+                return_value={
+                    "source": "none",
+                    "coverage_pct": 0.0,
+                    "meets_threshold": False,
+                    "files_total": 0,
+                    "files_covered": 0,
+                    "untested_critical": [],
+                },
+            ),
+        ):
+            output = observe_engineer(tmp_path)
+        assert "No data" in output
+        assert "pytest --cov" in output
+
 
 # ---------------------------------------------------------------------------
 # observe_team tests
@@ -541,6 +644,70 @@ class TestObserveHealth:
         ):
             output = observe_health(tmp_path)
         assert "GREEN" in output
+
+    def test_sonar_score_component(self, tmp_path: Path) -> None:
+        """Health includes SonarCloud coverage component when available."""
+        (tmp_path / ".ai-engineering").mkdir(parents=True)
+        mock_result = subprocess.CompletedProcess(args=[], returncode=0, stdout="")
+        with (
+            patch(
+                "ai_engineering.cli_commands.observe.subprocess.run",
+                return_value=mock_result,
+            ),
+            patch(
+                "ai_engineering.cli_commands.observe.sonar_detailed_metrics",
+                return_value={"available": True, "coverage_pct": 85.0},
+            ),
+            patch(
+                "ai_engineering.cli_commands.observe.test_confidence_metrics",
+                return_value={"source": "none", "coverage_pct": 0.0},
+            ),
+        ):
+            output = observe_health(tmp_path)
+        assert "SonarCloud coverage: 85.0%" in output
+
+    def test_test_confidence_score_component(self, tmp_path: Path) -> None:
+        """Health includes test confidence component when available."""
+        (tmp_path / ".ai-engineering").mkdir(parents=True)
+        mock_result = subprocess.CompletedProcess(args=[], returncode=0, stdout="")
+        with (
+            patch(
+                "ai_engineering.cli_commands.observe.subprocess.run",
+                return_value=mock_result,
+            ),
+            patch(
+                "ai_engineering.cli_commands.observe.sonar_detailed_metrics",
+                return_value={"available": False},
+            ),
+            patch(
+                "ai_engineering.cli_commands.observe.test_confidence_metrics",
+                return_value={"source": "test_scope", "coverage_pct": 78.0},
+            ),
+        ):
+            output = observe_health(tmp_path)
+        assert "Test confidence: 78.0%" in output
+
+    def test_no_sonar_no_tc_shows_no_data(self, tmp_path: Path) -> None:
+        """Health shows 'No data' for sonar and test confidence when unavailable."""
+        (tmp_path / ".ai-engineering").mkdir(parents=True)
+        mock_result = subprocess.CompletedProcess(args=[], returncode=0, stdout="")
+        with (
+            patch(
+                "ai_engineering.cli_commands.observe.subprocess.run",
+                return_value=mock_result,
+            ),
+            patch(
+                "ai_engineering.cli_commands.observe.sonar_detailed_metrics",
+                return_value={"available": False},
+            ),
+            patch(
+                "ai_engineering.cli_commands.observe.test_confidence_metrics",
+                return_value={"source": "none", "coverage_pct": 0.0},
+            ),
+        ):
+            output = observe_health(tmp_path)
+        assert "SonarCloud coverage: No data" in output
+        assert "Test confidence: No data" in output
 
 
 # ---------------------------------------------------------------------------

@@ -8,6 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Observe enrichment phase 2** — Security Posture, Test Confidence, and enriched SonarCloud sections in engineer and health dashboards with multi-source fallback chains (SonarCloud → local tools → defaults).
+- **SonarCloud measures expansion** — `query_sonar_measures()` calls `/api/measures/component` for coverage, complexity, duplication, and vulnerability metrics with module-level caching.
+- **Test confidence with fallback** — `test_confidence_metrics()` resolves coverage from SonarCloud → `coverage.json` → `test_scope` mapping → defaults.
+- **Security posture with fallback** — `security_posture_metrics()` resolves vulnerabilities from SonarCloud → `pip-audit` → defaults.
+- **Session emitter wired** — checkpoint save now emits `session_metric` audit events automatically.
+
+### Fixed
+- **SonarCloud token resolution** — `_resolve_sonar_token()` now chains env var → OS keyring (`CredentialService`) → None; previously `query_sonar_quality_gate()` checked config flag but never retrieved the stored token.
+
 - **Observe enrichment phase 1** — 8 new signal aggregators (`code_quality_score`, `decision_health`, `adoption_rate`, `lead_time`, `change_failure_rate`, `session_recovery_rate`, `dependency_health`, `multi_variable_health`) in `lib/signals.py` expand dashboards with data computable from existing sources.
 - **VCS context in audit events** — `vcs/repo_context.py` and `git/context.py` add branch, commit SHA, repo URL, and provider to every `AuditEntry` automatically via `_emit()`.
 - **Workflow CLI commands** — `ai-eng workflow commit`, `ai-eng workflow pr`, and `ai-eng workflow pr-only` registered as CLI subcommands.

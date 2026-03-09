@@ -70,12 +70,14 @@ Interpret raw findings with contextual understanding:
 - Generate actionable remediation guidance
 - Cross-reference findings across modes for systemic issues
 
-### 4. Signal Emission
+### 4. Signal Emission (post-scan)
 
-After every scan, emit structured event to audit-log.ndjson:
+After every scan mode completes, emit a structured event:
 ```
-ai-eng signals emit scan_complete --mode=<mode> --score=<N> --findings=<json>
+ai-eng signals emit scan_complete --actor=scan --detail='{"mode":"<MODE>","score":<SCORE>,"findings":{"critical":<N>,"high":<N>,"medium":<N>,"low":<N>}}'
 ```
+
+This feeds the observe dashboards (Code Quality, Scan Health, Health Score).
 
 ### 5. Report Generation
 

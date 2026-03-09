@@ -12,6 +12,20 @@ from ai_engineering.credentials.service import CredentialService
 from ai_engineering.policy.gates import GateCheckResult, GateResult
 
 
+def _resolve_sonar_token(project_root: Path) -> str | None:
+    """Resolve Sonar token: env var -> OS keyring -> None (fail-open)."""
+    token = os.environ.get("SONAR_TOKEN", "").strip()
+    if token:
+        return token
+    try:
+        stored = CredentialService().retrieve("sonar", "token")
+        if stored:
+            return stored
+    except Exception:
+        pass
+    return None
+
+
 def check_sonar_gate(project_root: Path, result: GateResult) -> None:
     """Run local Sonar scanner in advisory mode for pre-push.
 
@@ -33,18 +47,16 @@ def check_sonar_gate(project_root: Path, result: GateResult) -> None:
         )
         return
 
-    sonar_token = os.environ.get("SONAR_TOKEN", "").strip()
+    sonar_token = _resolve_sonar_token(project_root)
     if not sonar_token:
-        tools = CredentialService.load_tools_state(project_root / ".ai-engineering" / "state")
-        if not tools.sonar.configured:
-            result.checks.append(
-                GateCheckResult(
-                    name="sonar-gate",
-                    passed=True,
-                    output="SONAR_TOKEN not set and Sonar not configured — skipped",
-                )
+        result.checks.append(
+            GateCheckResult(
+                name="sonar-gate",
+                passed=True,
+                output="SONAR_TOKEN not set and Sonar not configured — skipped",
             )
-            return
+        )
+        return
 
     try:
         proc = subprocess.run(
@@ -127,14 +139,9 @@ def query_sonar_quality_gate(project_root: Path) -> dict | None:
     if not project_key:
         return None
 
-    token = os.environ.get("SONAR_TOKEN", "").strip()
+    token = _resolve_sonar_token(project_root)
     if not token:
-        try:
-            tools = CredentialService.load_tools_state(project_root / ".ai-engineering" / "state")
-            if not tools.sonar.configured:
-                return None
-        except Exception:
-            return None
+        return None
 
     api_url = f"{host_url}/api/qualitygates/project_status?projectKey={project_key}"
     try:
@@ -144,6 +151,67 @@ def query_sonar_quality_gate(project_root: Path) -> dict | None:
 
             data = json.loads(resp.read().decode("utf-8"))
             return data.get("projectStatus", {})
+    except Exception:
+        return None
+
+
+def query_sonar_measures(
+    project_root: Path,
+    metrics: list[str] | None = None,
+) -> dict[str, float] | None:
+    """Query detailed metrics from SonarCloud/SonarQube via Web API.
+
+    Returns dict like {"coverage": 87.5, "duplicated_lines_density": 2.1} or None.
+    Uses same token resolution as quality gate. Silent-skip if unconfigured.
+    """
+    props_file = project_root / "sonar-project.properties"
+    if not props_file.exists():
+        return None
+
+    props = _parse_properties(props_file)
+    project_key = props.get("sonar.projectKey", "")
+    host_url = props.get("sonar.host.url", "https://sonarcloud.io").rstrip("/")
+    if not project_key:
+        return None
+
+    token = _resolve_sonar_token(project_root)
+    if not token:
+        return None
+
+    if metrics is None:
+        metrics = [
+            "coverage",
+            "cognitive_complexity",
+            "duplicated_lines_density",
+            "vulnerabilities",
+            "security_hotspots",
+            "security_rating",
+            "reliability_rating",
+            "bugs",
+            "ncloc",
+        ]
+
+    api_url = f"{host_url}/api/measures/component"
+    params = f"component={project_key}&metricKeys={','.join(metrics)}"
+
+    try:
+        req = Request(
+            f"{api_url}?{params}",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        with urlopen(req, timeout=15) as resp:
+            import json
+
+            data = json.loads(resp.read().decode("utf-8"))
+            measures: dict[str, float] = {}
+            for measure in data.get("component", {}).get("measures", []):
+                key = measure.get("metric", measure.get("key", ""))
+                val = measure.get("value", "")
+                try:
+                    measures[key] = float(val)
+                except (ValueError, TypeError):
+                    measures[key] = 0.0
+            return measures if measures else None
     except Exception:
         return None
 

@@ -83,6 +83,15 @@ Follow the loaded skill's procedure. After every file modification, run post-edi
 
 Fix validation failures before proceeding (max 3 attempts).
 
+### 4. Signal Emission (post-build)
+
+After completing implementation tasks, emit build metrics:
+```
+ai-eng signals emit build_complete --actor=build --detail='{"mode":"<MODE>","files_changed":<N>,"lines_added":<N>,"lines_removed":<N>,"tests_added":<N>,"stack":"<STACK>"}'
+```
+
+Compute metrics from `git diff --stat HEAD~1` or `git diff --numstat`. This feeds the observe dashboards (Build Activity, Health Score).
+
 ### Code-Simplifier vs Refactor
 
 **Refactor** changes structure: move files, rename modules, split classes, change architecture.
