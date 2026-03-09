@@ -143,15 +143,32 @@ def _write_all_instruction_files(
 def _write_product_contract(
     ai: Path,
     *,
-    skills: int = 33,
-    agents: int = 6,
+    skills: list[str] | None = None,
+    agents: list[str] | None = None,
 ) -> None:
-    """Write a minimal product-contract.md with counters."""
+    """Write a minimal product-contract.md with skill/agent tables.
+
+    Uses the canonical table format matching the actual product-contract.md.
+    Defaults to the project's standard skill/agent lists.
+    """
+    skill_list = skills if skills is not None else [s.split("/")[1] for s in _SKILL_PATHS]
+    agent_list = (
+        agents
+        if agents is not None
+        else [a.split("/")[1].removesuffix(".md") for a in _AGENT_PATHS]
+    )
+
     pc = ai / "context" / "product" / "product-contract.md"
     pc.parent.mkdir(parents=True, exist_ok=True)
+
+    skill_row = "| " + ", ".join(skill_list) + " |"
+    agent_rows = "\n".join(f"| {a} | purpose | scope |" for a in agent_list)
     pc.write_text(
-        f"# Product\n\nShip {skills} skills, {agents} agents.\n\n"
-        f"## KPIs\n\n{skills} skills + {agents} agents coverage.\n",
+        f"# Product\n\n"
+        f"#### Skills ({len(skill_list)})\n\n"
+        f"| Domain | Skills |\n|--------|--------|\n{skill_row}\n\n"
+        f"#### Agents ({len(agent_list)})\n\n"
+        f"| Agent | Purpose | Scope |\n|-------|---------|-------|\n{agent_rows}\n",
         encoding="utf-8",
     )
 
@@ -780,7 +797,10 @@ class TestCounterAccuracy:
 
     def test_product_contract_mismatch_detected(self, tmp_path: Path) -> None:
         ai = _setup_full_project(tmp_path)
-        _write_product_contract(ai, skills=99, agents=99)
+        # Write product-contract with different skills/agents than instruction files
+        _write_product_contract(
+            ai, skills=["extra-skill-a", "extra-skill-b"], agents=["extra-agent"]
+        )
         report = validate_content_integrity(
             tmp_path,
             categories=[IntegrityCategory.COUNTER_ACCURACY],

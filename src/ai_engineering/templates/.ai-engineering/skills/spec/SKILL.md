@@ -163,9 +163,10 @@ A change is **trivial** (spec exempt) when ALL of these apply:
 
 ### Phase 5: Cross-Reference
 
-9. **Update `product-contract.md`** — set Active Spec to the new spec.
-   - Update the "Active Spec" section to reference the new spec.
+9. **Read and update `product-contract.md`** — read `context/product/product-contract.md` §7 for current roadmap context, then set Active Spec to the new spec.
+   - Update the "Active Spec" section (§7.4) to reference the new spec.
    - Update read sequence links.
+   - If the new spec affects roadmap (§7.1), epics (§7.2), or KPIs (§7.3), update those sections too.
 
 ### Phase 6: Commit
 

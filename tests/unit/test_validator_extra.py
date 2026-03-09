@@ -82,14 +82,22 @@ def test_claude_commands_mirror_missing_root_and_mismatch(tmp_path: Path) -> Non
 
 def test_counter_accuracy_agent_mismatch(tmp_path: Path) -> None:
     ai = _mk(tmp_path)
+    # Product-contract lists 2 agents in table format
     (ai / "context" / "product" / "product-contract.md").write_text(
-        "Ship 1 skills, 2 agents.\n\n1 skills + 2 agents coverage.", encoding="utf-8"
+        "#### Skills (1)\n\n"
+        "| Domain | Skills |\n|--------|--------|\n| Build | debug |\n\n"
+        "#### Agents (2)\n\n"
+        "| Agent | Purpose | Scope |\n|-------|---------|-------|\n"
+        "| a | purpose | scope |\n| b | purpose | scope |\n",
+        encoding="utf-8",
     )
+    # Instruction files list only 1 agent
     content = (
         "## Skills\n"
-        "- `.ai-engineering/skills/debug.md`\n\n"
+        "| Domain | Skills |\n|--------|--------|\n| Build | debug |\n\n"
         "## Agents\n"
-        "- `.ai-engineering/agents/a.md`\n"
+        "| Agent | Purpose | Scope |\n|-------|---------|-------|\n"
+        "| a | purpose | scope |\n"
     )
     _write_instruction_files(tmp_path, content)
     report = validate_content_integrity(tmp_path, categories=[IntegrityCategory.COUNTER_ACCURACY])

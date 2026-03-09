@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 from ai_engineering.validator._shared import (
@@ -10,22 +11,37 @@ from ai_engineering.validator._shared import (
     IntegrityReport,
     IntegrityStatus,
     _instruction_files,
-    _parse_counter,
 )
 from ai_engineering.validator.categories.instruction_consistency import _extract_listings
+
+# Pattern to extract counts from pointer format: "Skills (35)" or "Agents (7)"
+_POINTER_COUNT_RE = re.compile(r"Skills\s*\((\d+)\)", re.IGNORECASE)
+_POINTER_AGENT_COUNT_RE = re.compile(r"Agents\s*\((\d+)\)", re.IGNORECASE)
 
 
 def _extract_skill_agent_counts(
     content: str,
-) -> tuple[list[str], list[str]]:
-    """Extract skill and agent listings from an instruction file."""
+) -> tuple[int, int, bool]:
+    """Extract skill and agent counts from an instruction file.
+
+    Returns (skill_count, agent_count, is_pointer_format).
+    Pointer format means the file uses "Skills (N)" instead of detailed listings.
+    """
     skills, agents = _extract_listings(content)
-    return sorted(skills), sorted(agents)
+    if skills or agents:
+        return len(sorted(skills)), len(sorted(agents)), False
+
+    # Try pointer format: "Skills (35)" / "Agents (7)"
+    skill_match = _POINTER_COUNT_RE.search(content)
+    agent_match = _POINTER_AGENT_COUNT_RE.search(content)
+    skill_count = int(skill_match.group(1)) if skill_match else 0
+    agent_count = int(agent_match.group(1)) if agent_match else 0
+    return skill_count, agent_count, True
 
 
 def _check_counter_accuracy(target: Path, report: IntegrityReport, **_kwargs: object) -> None:
     """Verify skill/agent counts match across instruction files and product-contract."""
-    counts: dict[str, tuple[int, int]] = {}  # file -> (skills, agents)
+    counts: dict[str, tuple[int, int, bool]] = {}  # file -> (skills, agents, is_pointer)
 
     for file_rel in _instruction_files(target):
         file_path = target / file_rel
@@ -41,13 +57,23 @@ def _check_counter_accuracy(target: Path, report: IntegrityReport, **_kwargs: ob
             )
             continue
         content = file_path.read_text(encoding="utf-8", errors="replace")
-        skills, agents = _extract_skill_agent_counts(content)
-        counts[file_rel] = (len(skills), len(agents))
+        skill_count, agent_count, is_pointer = _extract_skill_agent_counts(content)
+        counts[file_rel] = (skill_count, agent_count, is_pointer)
 
     if not counts:
         return
 
-    # All instruction files should have the same counts
+    # Extract canonical counts from product-contract.md (source of truth)
+    pc_path = target / ".ai-engineering" / "context" / "product" / "product-contract.md"
+    canonical_skills = 0
+    canonical_agents = 0
+    if pc_path.exists():
+        pc_content = pc_path.read_text(encoding="utf-8", errors="replace")
+        pc_skills, pc_agents = _extract_listings(pc_content)
+        canonical_skills = len(pc_skills)
+        canonical_agents = len(pc_agents)
+
+    # All instruction files should report consistent counts
     skill_counts = {f: c[0] for f, c in counts.items()}
     agent_counts = {f: c[1] for f, c in counts.items()}
 
@@ -96,58 +122,53 @@ def _check_counter_accuracy(target: Path, report: IntegrityReport, **_kwargs: ob
             )
         )
 
-    # Verify product-contract.md counters
-    pc_path = target / ".ai-engineering" / "context" / "product" / "product-contract.md"
-    if pc_path.exists():
-        pc_content = pc_path.read_text(encoding="utf-8", errors="replace")
-        obj_match = _parse_counter(pc_content, ",")
-        if obj_match:
-            pc_skills, pc_agents = obj_match
-            ref_skills = next(iter(unique_skill_counts), 0)
-            ref_agents = next(iter(unique_agent_counts), 0)
+    # Verify pointer-format files match canonical counts from product-contract.md
+    if canonical_skills > 0:
+        ref_skills = next(iter(unique_skill_counts), 0)
+        if ref_skills != canonical_skills:
+            report.checks.append(
+                IntegrityCheckResult(
+                    category=IntegrityCategory.COUNTER_ACCURACY,
+                    name="product-contract-skills",
+                    status=IntegrityStatus.FAIL,
+                    message=(
+                        f"product-contract.md lists {canonical_skills} skills, "
+                        f"instruction files report {ref_skills}"
+                    ),
+                    file_path=pc_path.relative_to(target).as_posix() if pc_path.exists() else None,
+                )
+            )
+        else:
+            report.checks.append(
+                IntegrityCheckResult(
+                    category=IntegrityCategory.COUNTER_ACCURACY,
+                    name="product-contract-skills",
+                    status=IntegrityStatus.OK,
+                    message=f"product-contract.md skill count matches: {canonical_skills}",
+                )
+            )
 
-            if pc_skills != ref_skills:
-                report.checks.append(
-                    IntegrityCheckResult(
-                        category=IntegrityCategory.COUNTER_ACCURACY,
-                        name="product-contract-skills",
-                        status=IntegrityStatus.FAIL,
-                        message=(
-                            f"product-contract.md says {pc_skills} skills, "
-                            f"instruction files list {ref_skills}"
-                        ),
-                        file_path=pc_path.relative_to(target).as_posix(),
-                    )
+    if canonical_agents > 0:
+        ref_agents = next(iter(unique_agent_counts), 0)
+        if ref_agents != canonical_agents:
+            report.checks.append(
+                IntegrityCheckResult(
+                    category=IntegrityCategory.COUNTER_ACCURACY,
+                    name="product-contract-agents",
+                    status=IntegrityStatus.FAIL,
+                    message=(
+                        f"product-contract.md lists {canonical_agents} agents, "
+                        f"instruction files report {ref_agents}"
+                    ),
+                    file_path=pc_path.relative_to(target).as_posix() if pc_path.exists() else None,
                 )
-            else:
-                report.checks.append(
-                    IntegrityCheckResult(
-                        category=IntegrityCategory.COUNTER_ACCURACY,
-                        name="product-contract-skills",
-                        status=IntegrityStatus.OK,
-                        message=f"product-contract.md skill count matches: {pc_skills}",
-                    )
+            )
+        else:
+            report.checks.append(
+                IntegrityCheckResult(
+                    category=IntegrityCategory.COUNTER_ACCURACY,
+                    name="product-contract-agents",
+                    status=IntegrityStatus.OK,
+                    message=f"product-contract.md agent count matches: {canonical_agents}",
                 )
-
-            if pc_agents != ref_agents:
-                report.checks.append(
-                    IntegrityCheckResult(
-                        category=IntegrityCategory.COUNTER_ACCURACY,
-                        name="product-contract-agents",
-                        status=IntegrityStatus.FAIL,
-                        message=(
-                            f"product-contract.md says {pc_agents} agents, "
-                            f"instruction files list {ref_agents}"
-                        ),
-                        file_path=pc_path.relative_to(target).as_posix(),
-                    )
-                )
-            else:
-                report.checks.append(
-                    IntegrityCheckResult(
-                        category=IntegrityCategory.COUNTER_ACCURACY,
-                        name="product-contract-agents",
-                        status=IntegrityStatus.OK,
-                        message=f"product-contract.md agent count matches: {pc_agents}",
-                    )
-                )
+            )
