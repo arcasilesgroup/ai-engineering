@@ -6,12 +6,15 @@ can die mid-work, and the system must recover gracefully.
 
 from __future__ import annotations
 
+import contextlib
 import json
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated
 
 import typer
+
+from ai_engineering.state.audit import emit_session_event
 
 
 def _project_root() -> Path:
@@ -50,6 +53,11 @@ def checkpoint_save(
 
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(checkpoint, indent=2) + "\n", encoding="utf-8")
+
+    # Emit session metric event (fail-open)
+    with contextlib.suppress(Exception):
+        emit_session_event(root, checkpoint_saved=True)
+
     typer.echo(f"Checkpoint saved: spec={spec_id} task={current_task} progress={progress}")
 
 

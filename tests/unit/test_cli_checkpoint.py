@@ -126,6 +126,43 @@ class TestCheckpointSave:
         data = json.loads(cp_path.read_text(encoding="utf-8"))
         assert data["blocked_on"] is None
 
+    def test_save_emits_session_event(self, tmp_path: Path) -> None:
+        """checkpoint_save emits session_metric event after saving."""
+        (tmp_path / ".ai-engineering").mkdir(parents=True)
+        with (
+            patch(
+                "ai_engineering.cli_commands.checkpoint._project_root",
+                return_value=tmp_path,
+            ),
+            patch(
+                "ai_engineering.cli_commands.checkpoint.emit_session_event",
+            ) as mock_emit,
+        ):
+            app = create_app()
+            result = runner.invoke(
+                app,
+                ["checkpoint", "save", "--spec-id", "040", "--current-task", "5.1"],
+            )
+        assert result.exit_code == 0
+        mock_emit.assert_called_once_with(tmp_path, checkpoint_saved=True)
+
+    def test_save_emission_failure_doesnt_break(self, tmp_path: Path) -> None:
+        """If emission fails, checkpoint save still succeeds (fail-open)."""
+        (tmp_path / ".ai-engineering").mkdir(parents=True)
+        with (
+            patch(
+                "ai_engineering.cli_commands.checkpoint._project_root",
+                return_value=tmp_path,
+            ),
+            patch(
+                "ai_engineering.cli_commands.checkpoint.emit_session_event",
+                side_effect=RuntimeError("boom"),
+            ),
+        ):
+            app = create_app()
+            result = runner.invoke(app, ["checkpoint", "save", "--spec-id", "040"])
+        assert result.exit_code == 0  # Fail-open
+
 
 class TestCheckpointLoad:
     """Tests for `ai-eng checkpoint load`."""

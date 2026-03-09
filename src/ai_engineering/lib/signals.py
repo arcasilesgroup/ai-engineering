@@ -764,3 +764,220 @@ def lead_time_metrics(project_root: Path, *, days: int = 30) -> dict[str, Any]:
         }
     except Exception:
         return default
+
+
+# ---------------------------------------------------------------------------
+# SonarCloud detailed metrics
+# ---------------------------------------------------------------------------
+
+_sonar_cache: dict | None = None
+
+
+def sonar_detailed_metrics(project_root: Path) -> dict:
+    """Fetch detailed SonarCloud metrics with module-level cache.
+
+    Returns dict with keys: coverage_pct, cognitive_complexity,
+    duplication_pct, vulnerabilities, security_hotspots, security_rating,
+    reliability_rating, bugs, ncloc, source, available.
+    """
+    global _sonar_cache
+    if _sonar_cache is not None:
+        return _sonar_cache
+
+    try:
+        from ai_engineering.policy.checks.sonar import query_sonar_measures
+
+        raw = query_sonar_measures(project_root)
+    except Exception:
+        raw = None
+
+    if raw is None:
+        _sonar_cache = {"available": False, "source": "none"}
+        return _sonar_cache
+
+    rating_map = {1.0: "A", 2.0: "B", 3.0: "C", 4.0: "D", 5.0: "E"}
+
+    _sonar_cache = {
+        "available": True,
+        "source": "sonarcloud",
+        "coverage_pct": raw.get("coverage", 0.0),
+        "cognitive_complexity": int(raw.get("cognitive_complexity", 0)),
+        "duplication_pct": raw.get("duplicated_lines_density", 0.0),
+        "vulnerabilities": int(raw.get("vulnerabilities", 0)),
+        "security_hotspots": int(raw.get("security_hotspots", 0)),
+        "security_rating": rating_map.get(raw.get("security_rating", 0), "?"),
+        "reliability_rating": rating_map.get(raw.get("reliability_rating", 0), "?"),
+        "bugs": int(raw.get("bugs", 0)),
+        "ncloc": int(raw.get("ncloc", 0)),
+    }
+    return _sonar_cache
+
+
+def _reset_sonar_cache() -> None:
+    """Reset the sonar cache (for testing)."""
+    global _sonar_cache
+    _sonar_cache = None
+
+
+# ---------------------------------------------------------------------------
+# Test confidence metrics (fallback chain)
+# ---------------------------------------------------------------------------
+
+
+def test_confidence_metrics(project_root: Path) -> dict[str, Any]:
+    """Compute test confidence from best available source.
+
+    Fallback chain: SonarCloud -> coverage.json -> test_scope -> defaults.
+    """
+    # Source 1: SonarCloud coverage
+    sonar = sonar_detailed_metrics(project_root)
+    if sonar.get("available") and sonar.get("coverage_pct", 0) > 0:
+        return {
+            "source": "sonarcloud",
+            "coverage_pct": sonar["coverage_pct"],
+            "meets_threshold": sonar["coverage_pct"] >= 80,
+            "files_total": 0,
+            "files_covered": 0,
+            "untested_critical": [],
+        }
+
+    # Source 2: Local coverage.json
+    coverage_file = project_root / "coverage.json"
+    if coverage_file.exists():
+        try:
+            data = json.loads(coverage_file.read_text(encoding="utf-8"))
+            totals = data.get("totals", {})
+            pct = totals.get("percent_covered", 0.0)
+            # Count files
+            file_data = data.get("files", {})
+            files_total = len(file_data)
+            files_covered = sum(
+                1 for f in file_data.values() if f.get("summary", {}).get("percent_covered", 0) > 0
+            )
+            # Find untested files (0% coverage)
+            untested = [
+                name
+                for name, info in file_data.items()
+                if info.get("summary", {}).get("percent_covered", 0) == 0
+            ]
+            return {
+                "source": "coverage.json",
+                "coverage_pct": round(pct, 1),
+                "meets_threshold": pct >= 80,
+                "files_total": files_total,
+                "files_covered": files_covered,
+                "untested_critical": untested[:5],  # Top 5 untested
+            }
+        except Exception:
+            pass
+
+    # Source 3: Test scope mapping
+    try:
+        from ai_engineering.policy.test_scope import TEST_SCOPE_RULES
+
+        # Count unique source globs across all rules
+        all_source_globs: set[str] = set()
+        for rule in TEST_SCOPE_RULES:
+            all_source_globs.update(rule.source_globs)
+        # Count source files in src/
+        src_dir = project_root / "src"
+        src_files = list(src_dir.rglob("*.py")) if src_dir.is_dir() else []
+        src_files = [f for f in src_files if f.name != "__init__.py"]
+        total = len(src_files)
+        # Count files matching at least one scope rule glob
+        from fnmatch import fnmatch
+
+        mapped = 0
+        for sf in src_files:
+            rel = str(sf.relative_to(project_root))
+            for glob_pattern in all_source_globs:
+                if fnmatch(rel, glob_pattern):
+                    mapped += 1
+                    break
+        pct = round(mapped / total * 100, 1) if total > 0 else 0.0
+        return {
+            "source": "test_scope",
+            "coverage_pct": pct,
+            "meets_threshold": pct >= 80,
+            "files_total": total,
+            "files_covered": mapped,
+            "untested_critical": [],
+        }
+    except Exception:
+        pass
+
+    # Source 4: No data
+    return {
+        "source": "none",
+        "coverage_pct": 0.0,
+        "meets_threshold": False,
+        "files_total": 0,
+        "files_covered": 0,
+        "untested_critical": [],
+    }
+
+
+# ---------------------------------------------------------------------------
+# Security posture metrics (fallback chain)
+# ---------------------------------------------------------------------------
+
+
+def security_posture_metrics(project_root: Path) -> dict:
+    """Compute security posture from best available source.
+
+    Fallback chain: SonarCloud -> pip-audit -> defaults.
+    """
+    import subprocess
+
+    result: dict[str, Any] = {
+        "source": "none",
+        "vulnerabilities": 0,
+        "security_hotspots": 0,
+        "security_rating": "?",
+        "dep_vulns": 0,
+    }
+
+    # Source 1: SonarCloud
+    sonar = sonar_detailed_metrics(project_root)
+    if sonar.get("available"):
+        result["source"] = "sonarcloud"
+        result["vulnerabilities"] = sonar.get("vulnerabilities", 0)
+        result["security_hotspots"] = sonar.get("security_hotspots", 0)
+        result["security_rating"] = sonar.get("security_rating", "?")
+
+    # Dependency vulnerabilities via pip-audit (independent of SonarCloud)
+    try:
+        proc = subprocess.run(
+            ["pip-audit", "--format=json", "--output=-"],
+            capture_output=True,
+            text=True,
+            timeout=60,
+            cwd=project_root,
+        )
+        if proc.returncode == 0:
+            audit_data = json.loads(proc.stdout)
+            if isinstance(audit_data, list):
+                result["dep_vulns"] = len(audit_data)
+            elif isinstance(audit_data, dict):
+                result["dep_vulns"] = len(audit_data.get("dependencies", []))
+            if result["source"] == "none":
+                result["source"] = "pip-audit"
+            else:
+                result["source"] += "+pip-audit"
+        else:
+            # pip-audit returns non-zero when vulns found
+            try:
+                audit_data = json.loads(proc.stdout)
+                if isinstance(audit_data, list):
+                    result["dep_vulns"] = len(audit_data)
+                elif isinstance(audit_data, dict):
+                    vulns = audit_data.get("dependencies", [])
+                    result["dep_vulns"] = sum(1 for d in vulns if d.get("vulns"))
+            except (json.JSONDecodeError, TypeError):
+                pass
+            if result["source"] == "none":
+                result["source"] = "pip-audit"
+    except (FileNotFoundError, subprocess.TimeoutExpired, Exception):
+        pass
+
+    return result

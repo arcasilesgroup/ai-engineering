@@ -30,7 +30,10 @@ from ai_engineering.lib.signals import (
     lead_time_metrics,
     load_all_events,
     scan_metrics_from,
+    security_posture_metrics,
     session_metrics_from,
+    sonar_detailed_metrics,
+    test_confidence_metrics,
 )
 
 
@@ -130,6 +133,17 @@ def _sonar_metrics(project_root: Path) -> list[str]:
         if coverage_val:
             lines.append(f"- New code coverage: {coverage_val}%")
         lines.append(f"- Conditions: {len(conditions)}")
+
+        # Enrich with detailed measures if available
+        sonar = sonar_detailed_metrics(project_root)
+        if sonar.get("available"):
+            lines.append(f"- Coverage: {sonar['coverage_pct']}%")
+            lines.append(f"- Complexity: {sonar['cognitive_complexity']}")
+            lines.append(f"- Duplication: {sonar['duplication_pct']}%")
+            lines.append(
+                f"- Issues: {sonar['bugs']} bugs, {sonar['vulnerabilities']} vulnerabilities"
+            )
+
         return lines
     except Exception:
         return []
@@ -200,6 +214,33 @@ def observe_engineer(project_root: Path) -> str:
         lines.append(
             f"- Files changed: {build['files_changed']}, Tests added: {build['tests_added']}",
         )
+
+    # Security Posture
+    sec = security_posture_metrics(project_root)
+    lines.append("")
+    lines.append("## Security Posture")
+    if sec["source"] == "none":
+        lines.append("- No data — run `ai-eng setup sonar` or install pip-audit")
+    else:
+        lines.append(f"- Vulnerabilities: {sec['vulnerabilities']} ({sec['source']})")
+        lines.append(f"- Security hotspots: {sec['security_hotspots']}")
+        lines.append(f"- Security rating: {sec['security_rating']}")
+        lines.append(f"- Dependency vulnerabilities: {sec['dep_vulns']}")
+
+    # Test Confidence
+    tc = test_confidence_metrics(project_root)
+    lines.append("")
+    lines.append("## Test Confidence")
+    if tc["source"] == "none":
+        lines.append("- No data — run `pytest --cov` or configure SonarCloud")
+    else:
+        lines.append(f"- Coverage: {tc['coverage_pct']}% ({tc['source']})")
+        if tc["files_total"] > 0:
+            lines.append(f"- Files covered: {tc['files_covered']}/{tc['files_total']}")
+        threshold_status = "yes" if tc["meets_threshold"] else "no"
+        lines.append(f"- Meets threshold (80%): {threshold_status}")
+        if tc["untested_critical"]:
+            lines.append(f"- Untested critical: {', '.join(tc['untested_critical'][:3])}")
 
     lines.extend(
         [
@@ -480,6 +521,24 @@ def observe_health(project_root: Path) -> str:
     components.append(dora_score)
     component_names.append("DORA frequency")
 
+    # SonarCloud score (from detailed measures)
+    sonar = sonar_detailed_metrics(project_root)
+    if sonar.get("available") and sonar.get("coverage_pct", 0) > 0:
+        sonar_score: float | None = sonar["coverage_pct"]
+        components.append(sonar_score)
+        component_names.append("SonarCloud coverage")
+    else:
+        sonar_score = None
+
+    # Test confidence score
+    tc = test_confidence_metrics(project_root)
+    if tc["source"] != "none" and tc["coverage_pct"] > 0:
+        tc_score: float | None = tc["coverage_pct"]
+        components.append(tc_score)
+        component_names.append("Test confidence")
+    else:
+        tc_score = None
+
     overall = round(sum(components) / len(components))
 
     if overall >= 80:
@@ -507,6 +566,14 @@ def observe_health(project_root: Path) -> str:
     else:
         lines.append("- Decision health: No decisions")
     lines.append(f"- DORA frequency: {freq}/week -> {dora_score}/100")
+    if sonar_score is not None:
+        lines.append(f"- SonarCloud coverage: {sonar_score}% -> {sonar_score}/100")
+    else:
+        lines.append("- SonarCloud coverage: No data")
+    if tc_score is not None:
+        lines.append(f"- Test confidence: {tc_score}% -> {tc_score}/100")
+    else:
+        lines.append("- Test confidence: No data")
 
     lines.extend(
         [

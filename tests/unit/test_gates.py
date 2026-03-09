@@ -935,6 +935,10 @@ class TestSonarGateAdvisory:
             "ai_engineering.policy.checks.sonar.CredentialService.load_tools_state",
             lambda *_: ToolsState(),
         )
+        monkeypatch.setattr(
+            "ai_engineering.policy.checks.sonar._resolve_sonar_token",
+            lambda _: None,
+        )
         check_sonar_gate(tmp_path, result)
         assert result.checks[-1].passed is True
         assert "not configured" in result.checks[-1].output.lower()
