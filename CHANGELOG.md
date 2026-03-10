@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- **Release zero-rebuild** — `release.yml` no longer rebuilds the package; instead downloads the CI-validated `dist/` artifact and publishes it directly to PyPI and GitHub Releases, guaranteeing bit-identical output between CI and release.
+- **CI artifact retention** — `dist/` artifact in CI now has `retention-days: 5` to ensure availability for release workflow.
+- **Release CI verification** — new `verify-ci` job in release workflow checks CI status with retry/backoff before proceeding (handles race condition when tag pushed before CI finishes).
 - **Observe Rich dashboards** — all 5 `ai-eng observe` modes now render with Rich-formatted output (progress bars, score badges, color-coded metrics, section headers) instead of raw markdown strings.
 - **Observe dual-output** — `ai-eng observe <mode> --json` outputs structured JSON via SuccessEnvelope with HATEOAS next actions; human output goes to stderr per CLIG.
 - **Observe data-first architecture** — mode functions return structured dicts enabling both JSON and Rich rendering from the same data.
