@@ -1,7 +1,7 @@
 ---
 spec: "047"
-total: 10
-completed: 10
+total: 13
+completed: 13
 last_session: "2026-03-10"
 next_session: "CLOSED"
 ---
