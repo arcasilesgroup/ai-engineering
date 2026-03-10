@@ -14,6 +14,9 @@
     <a href="https://pypi.org/project/ai-engineering/"><img src="https://img.shields.io/pypi/v/ai-engineering.svg" alt="PyPI"></a>
     <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/Python-3.11%2B-blue.svg" alt="Python 3.11+"></a>
     <a href="https://github.com/arcasilesgroup/ai-engineering/actions"><img src="https://github.com/arcasilesgroup/ai-engineering/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+    <a href="https://sonarcloud.io/summary/overall?id=arcasilesgroup_ai-engineering"><img src="https://sonarcloud.io/api/project_badges/measure?project=arcasilesgroup_ai-engineering&metric=alert_status" alt="Quality Gate"></a>
+    <a href="https://sonarcloud.io/summary/overall?id=arcasilesgroup_ai-engineering"><img src="https://sonarcloud.io/api/project_badges/measure?project=arcasilesgroup_ai-engineering&metric=coverage" alt="Coverage"></a>
+    <a href="https://snyk.io/test/github/arcasilesgroup/ai-engineering"><img src="https://snyk.io/test/github/arcasilesgroup/ai-engineering/badge.svg" alt="Snyk"></a>
   </p>
 </div>
 
@@ -224,14 +227,16 @@ Expired risks block `git push` until you remediate or renew them.
 
 ## Tooling baseline
 
-| Tool | Purpose |
-|------|---------|
-| `uv` | Package and runtime management |
-| `ruff` | Linting and formatting |
-| `ty` | Type checking |
-| `pip-audit` | Dependency vulnerability scanning |
-| `gitleaks` | Secret detection |
-| `semgrep` | Static analysis (SAST/OWASP) |
+| Tool | Purpose | Scope |
+|------|---------|-------|
+| `uv` | Package and runtime management | Local |
+| `ruff` | Linting and formatting | Local + CI |
+| `ty` | Type checking | Local + CI |
+| `pip-audit` | Dependency vulnerability scanning | Local + CI |
+| `gitleaks` | Secret detection | Local + CI |
+| `semgrep` | Static analysis (SAST/OWASP) | Local + CI |
+| [SonarCloud](https://sonarcloud.io/summary/overall?id=arcasilesgroup_ai-engineering) | Code quality, coverage, and duplication analysis | CI |
+| [Snyk](https://snyk.io) | Dependency vulnerabilities + SAST (requires `SNYK_TOKEN`) | CI |
 
 ## Contributing
 
