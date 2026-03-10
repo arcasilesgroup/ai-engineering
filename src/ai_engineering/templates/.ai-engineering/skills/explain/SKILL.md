@@ -20,6 +20,8 @@ Technical explanations of code, concepts, patterns, and architecture for enginee
 - Command: agent invokes explain skill or user requests explanation.
 - Context: "explain", "how does this work", "what is this", "trace this", "why does this do X", "walk me through", "break this down", "teach me", user points at code and asks "why".
 
+> **Telemetry** (cross-IDE): run `ai-eng signals emit skill_invoked --actor=ai --detail='{"skill":"explain"}'` at skill start. Fail-open — skip if ai-eng unavailable.
+
 ## Procedure
 
 ### Phase 1: Context Gathering

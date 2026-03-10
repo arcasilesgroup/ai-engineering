@@ -20,6 +20,8 @@ Review frontend code for WCAG 2.1 AA compliance. Covers semantic HTML, ARIA attr
 - Command: agent invokes accessibility skill or user requests a11y review.
 - Context: pre-release review, new UI component, design system update, accessibility complaint, compliance audit.
 
+> **Telemetry** (cross-IDE): run `ai-eng signals emit skill_invoked --actor=ai --detail='{"skill":"a11y"}'` at skill start. Fail-open — skip if ai-eng unavailable.
+
 ## When NOT to Use
 
 - **Performance review** — use `perf-review` instead.

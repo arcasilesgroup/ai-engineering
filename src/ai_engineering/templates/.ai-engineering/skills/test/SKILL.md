@@ -20,6 +20,8 @@ Unified testing skill covering test strategy design, test execution, and coverag
 - Command: `/ai:test [plan|run|gap]`
 - Context: need to plan testing strategy, write/run tests, or find coverage gaps.
 
+> **Telemetry** (cross-IDE): run `ai-eng signals emit skill_invoked --actor=ai --detail='{"skill":"test"}'` at skill start. Fail-open — skip if ai-eng unavailable.
+
 ## Modes
 
 ### plan — Design test strategy

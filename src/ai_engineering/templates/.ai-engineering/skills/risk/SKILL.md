@@ -20,6 +20,8 @@ Unified procedure for the risk acceptance lifecycle: accepting new risks, resolv
 - Command: `/govern:risk-lifecycle accept|resolve|renew` or agent determines risk action is needed.
 - Context: a security/compliance finding needs acceptance, closure, or extension.
 
+> **Telemetry** (cross-IDE): run `ai-eng signals emit skill_invoked --actor=ai --detail='{"skill":"risk"}'` at skill start. Fail-open — skip if ai-eng unavailable.
+
 ## When NOT to Use
 
 - **Finding can be fixed now** — fix it directly, do not accept risk.

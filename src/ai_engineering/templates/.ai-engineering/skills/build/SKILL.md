@@ -20,6 +20,8 @@ Core implementation skill for writing code across all 20 supported stacks. Imple
 - Command: `/ai:build`
 - Context: implementation tasks requiring code changes across any stack.
 
+> **Telemetry** (cross-IDE): run `ai-eng signals emit skill_invoked --actor=ai --detail='{"skill":"build"}'` at skill start. Fail-open — skip if ai-eng unavailable.
+
 ## Procedure
 
 1. **Read context** -- understand the change: spec/task link, affected modules.

@@ -71,6 +71,8 @@ On session start (to resume planning):
 
 ## Behavior
 
+> **Telemetry** (cross-IDE): run `ai-eng signals emit agent_dispatched --actor=ai --detail='{"agent":"plan"}'` at agent activation. Fail-open — skip if ai-eng unavailable.
+
 ### Default Pipeline (mandatory for non-trivial work)
 
 1. **Read product context** -- read `context/product/product-contract.md` §7 (roadmap, KPIs, blockers) and `context/product/framework-contract.md` §2 (agentic model) to ground planning in current project state

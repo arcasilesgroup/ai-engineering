@@ -20,6 +20,8 @@ Structured migration skill for database schema changes, API versioning, breaking
 - Command: agent invokes migration skill or user requires schema/API/data migration.
 - Context: breaking changes, schema evolution, API version bump, data format migration, framework updates.
 
+> **Telemetry** (cross-IDE): run `ai-eng signals emit skill_invoked --actor=ai --detail='{"skill":"migrate"}'` at skill start. Fail-open — skip if ai-eng unavailable.
+
 ## Procedure
 
 1. **Assess impact** — determine migration scope.

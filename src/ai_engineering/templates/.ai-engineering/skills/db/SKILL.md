@@ -20,6 +20,8 @@ Database engineering skill covering schema design, data modeling, migration safe
 - Command: `/ai:db`
 - Context: schema design, data modeling, migration planning, query optimization, data lifecycle.
 
+> **Telemetry** (cross-IDE): run `ai-eng signals emit skill_invoked --actor=ai --detail='{"skill":"db"}'` at skill start. Fail-open — skip if ai-eng unavailable.
+
 ## Procedure
 
 1. **Analyze data model** -- entities, relationships, access patterns, data volume, growth projections. Apply normalization rules (3NF+), document denormalization decisions with rationale.

@@ -20,6 +20,8 @@ Define a controlled loop for proposing standards updates from measurable evidenc
 - Recurring failures/friction in governed workflows.
 - New risks or platform changes requiring policy updates.
 
+> **Telemetry** (cross-IDE): run `ai-eng signals emit skill_invoked --actor=ai --detail='{"skill":"standards"}'` at skill start. Fail-open — skip if ai-eng unavailable.
+
 ## Procedure
 
 1. Collect evidence from gates, audits, and incident patterns.
