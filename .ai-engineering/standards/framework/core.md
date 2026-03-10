@@ -18,6 +18,7 @@ Framework-owned baseline standards for every installed instance.
 - Protected branches are blocked for direct push flows.
 - Remote skills are content-only; no remote execution.
 - Documentation updates for user-visible changes (`CHANGELOG.md` and `README.md` for OSS GitHub users).
+- No suppression comments in source code (`# NOSONAR`, `# nosec`, `# type: ignore`, `# pragma: no cover`, `# noqa`, `// nolint`). Static analysis findings must be resolved by fixing the root cause or refactoring the code to satisfy the analyzer. False positives are never silenced — the code is made provably safe. If resolution is not possible, escalate to the user with full context.
 
 ## Enforcement Rules
 

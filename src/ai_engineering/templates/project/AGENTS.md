@@ -28,6 +28,7 @@ Mandatory. Skipping risks stale code, repeated decisions, or merge conflicts.
 4. **Code Citing** — Use `startLine:endLine:filepath` format. Never output code unless requested. Use `// ... existing code ...` for omissions.
 5. **Proactive Memory** — Read/write `state/decision-store.json` to persist learnings and avoid repeated questions.
 6. **Checkpoint on completion** — Save checkpoint after each task: `ai-eng checkpoint save`.
+7. **No Suppression Comments** — Never add `# NOSONAR`, `# nosec`, `# type: ignore`, `# pragma: no cover`, `# noqa`, or equivalent to bypass static analysis or quality findings. Fix the root cause or escalate to the user with full context.
 
 ## On-Demand Context Loading
 
