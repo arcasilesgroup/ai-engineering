@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Validator pointer format** — counter-accuracy and instruction-consistency validators support pointer format and use `product-contract.md` as canonical source.
 
 ### Added
+- **Snyk optional CI/CD integration** — new `snyk-security` job in CI workflow runs `snyk test` (dependency vulnerabilities), `snyk code test` (SAST), and `snyk monitor` (continuous monitoring on main). All steps conditional on `SNYK_TOKEN` secret; non-gating (`continue-on-error: true`). Registered as optional tool in `manifest.yml` and documented in CI/CD standards and security skill.
 - **Skill & agent telemetry** — cross-IDE usage tracking via `ai-eng signals emit skill_invoked` and `agent_dispatched` directives in all 35 skills and 7 agents; new `skill_usage_from()` and `agent_dispatch_from()` aggregators; observe team/ai dashboards now show Skill Usage, Agent Dispatch, and Skill & Agent Efficiency sections.
 - **Emit infrastructure** — gate events now include `fixable_failures` field tracking auto-fixable check failures (ruff-format, ruff-lint); `noise_ratio_from()` aggregator computes noise ratio from gate history.
 - **Enriched session events** — checkpoint save now passes spec ID, task progress, and skills context to `emit_session_event()` instead of bare `checkpoint_saved=True`.
