@@ -22,6 +22,7 @@ from ai_engineering.cli_output import output as route_output
 from ai_engineering.cli_output import set_json_mode
 from ai_engineering.lib.signals import (
     adoption_metrics,
+    agent_dispatch_from,
     build_metrics_from,
     checkpoint_status,
     data_quality_from,
@@ -39,6 +40,7 @@ from ai_engineering.lib.signals import (
     scan_metrics_from,
     security_posture_metrics,
     session_metrics_from,
+    skill_usage_from,
     sonar_detailed_metrics,
     test_confidence_metrics,
 )
@@ -407,6 +409,8 @@ def observe_team(project_root: Path) -> dict[str, Any]:
     scan = scan_metrics_from(all_events)
     sm = session_metrics_from(all_events)
     noise = noise_ratio_from(all_events)
+    skills = skill_usage_from(all_events)
+    agents = agent_dispatch_from(all_events)
 
     hooks_status = "installed" if adopt["hooks_installed"] else "not installed"
     if adopt["hooks_installed"]:
@@ -453,6 +457,16 @@ def observe_team(project_root: Path) -> dict[str, Any]:
             "total_failures": noise["total_failures"],
             "fixable_failures": noise["fixable_failures"],
             "noise_ratio_pct": noise["noise_ratio_pct"],
+        },
+        "skill_usage": {
+            "total_invocations": skills["total_invocations"],
+            "by_skill": skills["by_skill"],
+            "top_skill": skills["top_skill"],
+            "least_skill": skills["least_skill"],
+        },
+        "agent_dispatch": {
+            "total_dispatches": agents["total_dispatches"],
+            "by_agent": agents["by_agent"],
         },
         "actions": [
             "Run `/ai:scan governance` for framework health",
@@ -565,6 +579,27 @@ def _render_team(data: dict[str, Any]) -> None:
         if nr["noise_ratio_pct"] > 50:
             warning("High noise — run `ruff format` + `ruff check --fix` before committing")
 
+    # Skill Usage
+    section("Skill Usage")
+    su = data["skill_usage"]
+    if su["total_invocations"] == 0:
+        info("No skill telemetry — skills emit events when ai-eng is available")
+    else:
+        kv("Total invocations", su["total_invocations"])
+        kv("Top skill", su["top_skill"])
+        kv("Least used", su["least_skill"])
+        top_items = list(su["by_skill"].items())[:10]
+        metric_table([(name, str(count), "ok") for name, count in top_items])
+
+    # Agent Dispatch
+    section("Agent Dispatch")
+    ad_dispatch = data["agent_dispatch"]
+    if ad_dispatch["total_dispatches"] == 0:
+        info("No agent telemetry — agents emit events when ai-eng is available")
+    else:
+        kv("Total dispatches", ad_dispatch["total_dispatches"])
+        metric_table([(name, str(count), "ok") for name, count in ad_dispatch["by_agent"].items()])
+
     # Actions
     suggest_next([(a, "") for a in data["actions"]])
 
@@ -606,6 +641,10 @@ def observe_ai(project_root: Path) -> dict[str, Any]:
     avg_tokens = (
         round(sm["total_tokens"] / sm["sessions_analyzed"]) if sm["sessions_analyzed"] > 0 else 0
     )
+
+    # Skill/Agent efficiency
+    skills = skill_usage_from(all_events)
+    agents = agent_dispatch_from(all_events)
 
     # Session Recovery
     cp = checkpoint_status(project_root)
@@ -649,6 +688,12 @@ def observe_ai(project_root: Path) -> dict[str, Any]:
             "total": cp.get("total"),
             "progress_pct": cp.get("progress_pct"),
             "blocked_on": cp.get("blocked_on"),
+        },
+        "skill_agent_efficiency": {
+            "skill_invocations": skills["total_invocations"],
+            "unique_skills_used": len(skills["by_skill"]),
+            "agent_dispatches": agents["total_dispatches"],
+            "unique_agents_used": len(agents["by_agent"]),
         },
         "self_optimization_hints": hints,
         "actions": [
@@ -699,6 +744,17 @@ def _render_ai(data: dict[str, Any]) -> None:
         progress_bar("Progress", sr["progress_pct"])
         blocked = sr.get("blocked_on") or "nothing"
         kv("Blocked on", blocked)
+
+    # Skill & Agent Efficiency
+    section("Skill & Agent Efficiency")
+    sae = data["skill_agent_efficiency"]
+    if sae["skill_invocations"] == 0 and sae["agent_dispatches"] == 0:
+        info("No telemetry — skills/agents emit events when ai-eng is available")
+    else:
+        kv("Skill invocations", sae["skill_invocations"])
+        kv("Unique skills", sae["unique_skills_used"])
+        kv("Agent dispatches", sae["agent_dispatches"])
+        kv("Unique agents", sae["unique_agents_used"])
 
     # Self-Optimization Hints
     section("Self-Optimization Hints")

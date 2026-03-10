@@ -425,6 +425,72 @@ def noise_ratio_from(
     }
 
 
+def skill_usage_from(
+    events: list[dict[str, Any]],
+    *,
+    days: int = 30,
+) -> dict[str, Any]:
+    """Aggregate skill_invoked events into usage metrics.
+
+    Args:
+        events: Pre-loaded event list from load_all_events().
+        days: Window in days to consider.
+
+    Returns:
+        Dict with total_invocations, by_skill (sorted desc), top_skill, least_skill.
+    """
+    since = datetime.now(tz=UTC) - timedelta(days=days)
+    skill_events = filter_events(events, event_type="skill_invoked", since=since)
+
+    by_skill: dict[str, int] = {}
+    for event in skill_events:
+        name = _detail_field(event, "skill")
+        if isinstance(name, str) and name:
+            by_skill[name] = by_skill.get(name, 0) + 1
+
+    sorted_skills = dict(sorted(by_skill.items(), key=lambda x: x[1], reverse=True))
+    total = sum(sorted_skills.values())
+
+    return {
+        "total_invocations": total,
+        "by_skill": sorted_skills,
+        "top_skill": next(iter(sorted_skills), "none") if sorted_skills else "none",
+        "least_skill": min(sorted_skills, key=sorted_skills.get) if sorted_skills else "none",  # type: ignore[arg-type]
+    }
+
+
+def agent_dispatch_from(
+    events: list[dict[str, Any]],
+    *,
+    days: int = 30,
+) -> dict[str, Any]:
+    """Aggregate agent_dispatched events into dispatch metrics.
+
+    Args:
+        events: Pre-loaded event list from load_all_events().
+        days: Window in days to consider.
+
+    Returns:
+        Dict with total_dispatches, by_agent (sorted desc).
+    """
+    since = datetime.now(tz=UTC) - timedelta(days=days)
+    agent_events = filter_events(events, event_type="agent_dispatched", since=since)
+
+    by_agent: dict[str, int] = {}
+    for event in agent_events:
+        name = _detail_field(event, "agent")
+        if isinstance(name, str) and name:
+            by_agent[name] = by_agent.get(name, 0) + 1
+
+    sorted_agents = dict(sorted(by_agent.items(), key=lambda x: x[1], reverse=True))
+    total = sum(sorted_agents.values())
+
+    return {
+        "total_dispatches": total,
+        "by_agent": sorted_agents,
+    }
+
+
 def session_metrics_from(
     events: list[dict[str, Any]],
     *,
