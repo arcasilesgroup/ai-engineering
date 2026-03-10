@@ -10,6 +10,7 @@ Provides deterministic, zero-token commands for spec management:
 
 from __future__ import annotations
 
+import os
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated
@@ -120,9 +121,12 @@ def _auto_correct_frontmatter(tasks_path: Path, real_total: int, real_completed:
         else:
             new_lines.append(line)
 
-    resolved = tasks_path.resolve()
-    resolved.relative_to(tasks_path.parent.resolve())
-    resolved.write_text("\n".join(new_lines), encoding="utf-8")
+    canonical = os.path.realpath(tasks_path)
+    base = os.path.realpath(tasks_path.parent)
+    if not canonical.startswith(base + os.sep):
+        msg = f"Path traversal detected: {canonical}"
+        raise ValueError(msg)
+    Path(canonical).write_text("\n".join(new_lines), encoding="utf-8")
     return True
 
 

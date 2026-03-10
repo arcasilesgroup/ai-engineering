@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 _GATE_TRAILER = "Ai-Eng-Gate: passed"
@@ -51,9 +52,9 @@ def inject_gate_trailer(commit_msg_file: Path) -> None:
 
     updated = content.rstrip() + f"\n\n{_GATE_TRAILER}\n"
     try:
-        resolved = commit_msg_file.resolve()
-        if not any(p.name == ".git" for p in resolved.parents):
+        canonical = os.path.realpath(commit_msg_file)
+        if not any(p == ".git" for p in Path(canonical).parts):
             return
-        resolved.write_text(updated, encoding="utf-8")
+        Path(canonical).write_text(updated, encoding="utf-8")
     except OSError:
         return

@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import textwrap
 from dataclasses import dataclass, field
 from enum import StrEnum
@@ -490,12 +491,11 @@ def _read_json_safe(path: Path) -> dict:
 
 def _write_json_safe(path: Path, data: dict) -> None:
     """Write *data* as formatted JSON to *path*."""
-    resolved = path.resolve()
-    resolved.relative_to(resolved.parent)
-    if resolved.suffix != ".json":
-        msg = f"Refusing to write non-JSON file: {resolved}"
+    canonical = os.path.realpath(path)
+    if not canonical.endswith(".json"):
+        msg = f"Refusing to write non-JSON file: {canonical}"
         raise ValueError(msg)
-    resolved.write_text(
+    Path(canonical).write_text(
         json.dumps(data, indent=2, ensure_ascii=False) + "\n",
         encoding="utf-8",
     )

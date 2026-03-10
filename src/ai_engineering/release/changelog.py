@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import re
 from pathlib import Path
 
@@ -72,8 +73,8 @@ def promote_unreleased(changelog_path: Path, version: str, date_str: str) -> boo
     new_block = unreleased_replacement + promoted
     updated = text[:start] + new_block + text[end:]
 
-    resolved = changelog_path.resolve()
-    if resolved.name != "CHANGELOG.md":
+    canonical = os.path.realpath(changelog_path)
+    if Path(canonical).name != "CHANGELOG.md":
         return False
-    resolved.write_text(updated, encoding="utf-8")
+    Path(canonical).write_text(updated, encoding="utf-8")
     return True
