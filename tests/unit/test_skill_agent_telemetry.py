@@ -157,49 +157,262 @@ class TestAgentDispatchFrom:
 # ---------------------------------------------------------------------------
 
 
+_EMPTY_ADOPTION: dict = {
+    "stacks": [],
+    "providers": {"primary": "unknown", "enabled": []},
+    "ides": [],
+    "hooks_installed": False,
+    "hooks_verified": False,
+}
+
+_EMPTY_DECISION: dict = {
+    "total": 0,
+    "active": 0,
+    "expired": 0,
+    "resolved": 0,
+    "avg_age_days": 0,
+}
+
+_MODULE = "ai_engineering.cli_commands.observe"
+
+
 class TestObserveTeamSkillAgent:
     def test_team_includes_skill_usage(self) -> None:
         from ai_engineering.cli_commands.observe import observe_team
 
-        with patch("ai_engineering.cli_commands.observe.load_all_events") as mock_load:
+        with (
+            patch(f"{_MODULE}.load_all_events") as mock_load,
+            patch(f"{_MODULE}.decision_store_health", return_value=_EMPTY_DECISION),
+            patch(f"{_MODULE}.adoption_metrics", return_value=_EMPTY_ADOPTION),
+        ):
             mock_load.return_value = [
                 _skill_event("build"),
                 _skill_event("test"),
             ]
-            with patch("ai_engineering.cli_commands.observe.decision_store_health") as mock_dsh:
-                mock_dsh.return_value = {
-                    "total": 0,
-                    "active": 0,
-                    "expired": 0,
-                    "resolved": 0,
-                    "avg_age_days": 0,
-                }
-                with patch("ai_engineering.cli_commands.observe.adoption_metrics") as mock_adopt:
-                    mock_adopt.return_value = {
-                        "stacks": [],
-                        "providers": {"primary": "unknown", "enabled": []},
-                        "ides": [],
-                        "hooks_installed": False,
-                        "hooks_verified": False,
-                    }
-                    data = observe_team(Path("/tmp/fake"))
+            data = observe_team(Path("/tmp/fake"))
 
         assert "skill_usage" in data
         assert data["skill_usage"]["total_invocations"] == 2
         assert "agent_dispatch" in data
 
+    def test_team_skill_usage_with_data(self) -> None:
+        from ai_engineering.cli_commands.observe import observe_team
+
+        events = [
+            _skill_event("build"),
+            _skill_event("build"),
+            _skill_event("build"),
+            _skill_event("test"),
+            _agent_event("execute"),
+            _agent_event("build"),
+            _agent_event("build"),
+        ]
+        with (
+            patch(f"{_MODULE}.load_all_events", return_value=events),
+            patch(f"{_MODULE}.decision_store_health", return_value=_EMPTY_DECISION),
+            patch(f"{_MODULE}.adoption_metrics", return_value=_EMPTY_ADOPTION),
+        ):
+            data = observe_team(Path("/tmp/fake"))
+
+        su = data["skill_usage"]
+        assert su["total_invocations"] == 4
+        assert su["top_skill"] == "build"
+        assert su["by_skill"]["build"] == 3
+
+        ad = data["agent_dispatch"]
+        assert ad["total_dispatches"] == 3
+        assert ad["by_agent"]["build"] == 2
+
     def test_ai_includes_skill_agent_efficiency(self) -> None:
         from ai_engineering.cli_commands.observe import observe_ai
 
-        with patch("ai_engineering.cli_commands.observe.load_all_events") as mock_load:
+        with (
+            patch(f"{_MODULE}.load_all_events") as mock_load,
+            patch(f"{_MODULE}.checkpoint_status", return_value={"has_checkpoint": False}),
+        ):
             mock_load.return_value = [
                 _skill_event("build"),
                 _agent_event("execute"),
             ]
-            with patch("ai_engineering.cli_commands.observe.checkpoint_status") as mock_cp:
-                mock_cp.return_value = {"has_checkpoint": False}
-                data = observe_ai(Path("/tmp/fake"))
+            data = observe_ai(Path("/tmp/fake"))
 
         assert "skill_agent_efficiency" in data
         assert data["skill_agent_efficiency"]["skill_invocations"] == 1
         assert data["skill_agent_efficiency"]["agent_dispatches"] == 1
+
+    def test_ai_skill_agent_with_multiple_events(self) -> None:
+        from ai_engineering.cli_commands.observe import observe_ai
+
+        events = [
+            _skill_event("build"),
+            _skill_event("test"),
+            _skill_event("plan"),
+            _agent_event("execute"),
+            _agent_event("build"),
+        ]
+        with (
+            patch(f"{_MODULE}.load_all_events", return_value=events),
+            patch(f"{_MODULE}.checkpoint_status", return_value={"has_checkpoint": False}),
+        ):
+            data = observe_ai(Path("/tmp/fake"))
+
+        sae = data["skill_agent_efficiency"]
+        assert sae["skill_invocations"] == 3
+        assert sae["unique_skills_used"] == 3
+        assert sae["agent_dispatches"] == 2
+        assert sae["unique_agents_used"] == 2
+
+
+class TestRenderSkillAgentSections:
+    """Test rendering covers new skill/agent sections."""
+
+    def test_render_team_with_skill_data(self) -> None:
+        from ai_engineering.cli_commands.observe import _render_team
+
+        data = {
+            "data_quality": "LOW",
+            "total_events": 10,
+            "event_distribution": {
+                "gate_events": 5,
+                "scan_events": 0,
+                "build_events": 0,
+                "session_events": 0,
+                "deploy_events": 0,
+            },
+            "gate_health": {"pass_rate": 100.0, "most_friction": "none"},
+            "decision_store": _EMPTY_DECISION,
+            "adoption": {
+                "stacks": [],
+                "primary_provider": "unknown",
+                "ides": [],
+                "hooks_status": "not installed",
+            },
+            "scan_health": {"total_scans": 0, "avg_quality_score": 0},
+            "token_economy": {
+                "sessions_analyzed": 0,
+                "total_tokens": 0,
+                "utilization_pct": 0,
+                "skills_loaded": [],
+            },
+            "noise_ratio": {
+                "total_failures": 0,
+                "fixable_failures": 0,
+                "noise_ratio_pct": 0,
+            },
+            "skill_usage": {
+                "total_invocations": 5,
+                "by_skill": {"build": 3, "test": 2},
+                "top_skill": "build",
+                "least_skill": "test",
+            },
+            "agent_dispatch": {
+                "total_dispatches": 3,
+                "by_agent": {"execute": 2, "scan": 1},
+            },
+            "actions": ["Action 1"],
+        }
+        _render_team(data)
+
+    def test_render_team_empty_skill_data(self) -> None:
+        from ai_engineering.cli_commands.observe import _render_team
+
+        data = {
+            "data_quality": "LOW",
+            "total_events": 0,
+            "event_distribution": {
+                "gate_events": 0,
+                "scan_events": 0,
+                "build_events": 0,
+                "session_events": 0,
+                "deploy_events": 0,
+            },
+            "gate_health": {"pass_rate": 0, "most_friction": ""},
+            "decision_store": _EMPTY_DECISION,
+            "adoption": {
+                "stacks": [],
+                "primary_provider": "unknown",
+                "ides": [],
+                "hooks_status": "not installed",
+            },
+            "scan_health": {"total_scans": 0, "avg_quality_score": 0},
+            "token_economy": {
+                "sessions_analyzed": 0,
+                "total_tokens": 0,
+                "utilization_pct": 0,
+                "skills_loaded": [],
+            },
+            "noise_ratio": {
+                "total_failures": 0,
+                "fixable_failures": 0,
+                "noise_ratio_pct": 0,
+            },
+            "skill_usage": {
+                "total_invocations": 0,
+                "by_skill": {},
+                "top_skill": "none",
+                "least_skill": "none",
+            },
+            "agent_dispatch": {"total_dispatches": 0, "by_agent": {}},
+            "actions": [],
+        }
+        _render_team(data)
+
+    def test_render_ai_with_skill_data(self) -> None:
+        from ai_engineering.cli_commands.observe import _render_ai
+
+        data = {
+            "data_quality": "LOW",
+            "context_efficiency": {
+                "sessions_analyzed": 0,
+                "total_tokens": 0,
+                "avg_tokens_per_session": 0,
+                "tokens_available": 200000,
+                "utilization_pct": 0,
+                "skills_loaded": [],
+            },
+            "decision_continuity": {
+                "decisions_reused": 0,
+                "decisions_reprompted": 0,
+                "cache_hit_rate": 0,
+            },
+            "session_recovery": {"has_checkpoint": False},
+            "skill_agent_efficiency": {
+                "skill_invocations": 5,
+                "unique_skills_used": 3,
+                "agent_dispatches": 2,
+                "unique_agents_used": 2,
+            },
+            "self_optimization_hints": ["All patterns healthy"],
+            "actions": [],
+        }
+        _render_ai(data)
+
+    def test_render_ai_empty_skill_data(self) -> None:
+        from ai_engineering.cli_commands.observe import _render_ai
+
+        data = {
+            "data_quality": "LOW",
+            "context_efficiency": {
+                "sessions_analyzed": 0,
+                "total_tokens": 0,
+                "avg_tokens_per_session": 0,
+                "tokens_available": 200000,
+                "utilization_pct": 0,
+                "skills_loaded": [],
+            },
+            "decision_continuity": {
+                "decisions_reused": 0,
+                "decisions_reprompted": 0,
+                "cache_hit_rate": 0,
+            },
+            "session_recovery": {"has_checkpoint": False},
+            "skill_agent_efficiency": {
+                "skill_invocations": 0,
+                "unique_skills_used": 0,
+                "agent_dispatches": 0,
+                "unique_agents_used": 0,
+            },
+            "self_optimization_hints": ["No session data"],
+            "actions": [],
+        }
+        _render_ai(data)
