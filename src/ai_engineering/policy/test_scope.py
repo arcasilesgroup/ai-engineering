@@ -114,6 +114,7 @@ TEST_SCOPE_RULES: list[ScopeRule] = [
                 "tests/unit/test_parsing.py",
                 "tests/unit/test_security_posture.py",
                 "tests/unit/test_signal_aggregators.py",
+                "tests/unit/test_skill_agent_telemetry.py",
                 "tests/unit/test_spec_helpers.py",
                 "tests/unit/test_test_confidence.py",
             ],
