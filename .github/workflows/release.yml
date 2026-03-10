@@ -7,60 +7,113 @@ on:
 
 permissions:
   contents: write
+  actions: read
   id-token: write
 
 jobs:
-  build:
-    name: Build Package
+  verify-ci:
+    name: Verify CI Passed
     runs-on: ubuntu-latest
+    outputs:
+      ci-run-id: ${{ steps.find-run.outputs.run_id }}
     steps:
       - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
-        with:
-          enable-cache: true
-      - name: Install dependencies
-        run: uv sync --dev
-      - name: Ruff check
-        run: uv run ruff check src/ tests/
-      - name: Run tests
-        run: uv run pytest tests/ -v
-      - name: Build
-        run: uv build
-      - name: Upload dist
-        uses: actions/upload-artifact@v4
-        with:
-          name: dist
-          path: dist/
+      - name: Wait for CI and verify success
+        id: find-run
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          COMMIT_SHA="${{ github.sha }}"
+          echo "Checking CI status for commit ${COMMIT_SHA}..."
+
+          # Retry with backoff: wait for CI to finish (handles race condition
+          # when tag is pushed immediately after merge, before CI completes)
+          for attempt in 1 2 3 4 5 6 7 8 9 10; do
+            echo "Attempt ${attempt}/10..."
+
+            # Find the CI workflow run for this commit
+            RUN_JSON=$(gh run list \
+              --workflow=ci.yml \
+              --commit="${COMMIT_SHA}" \
+              --json databaseId,status,conclusion \
+              --limit 1)
+
+            if [ "$(echo "$RUN_JSON" | jq length)" -eq 0 ]; then
+              echo "No CI run found yet for commit ${COMMIT_SHA}"
+              if [ "$attempt" -lt 10 ]; then
+                sleep 30
+                continue
+              fi
+              echo "::error::No CI workflow run found for commit ${COMMIT_SHA} after 10 attempts"
+              exit 1
+            fi
+
+            STATUS=$(echo "$RUN_JSON" | jq -r '.[0].status')
+            CONCLUSION=$(echo "$RUN_JSON" | jq -r '.[0].conclusion')
+            RUN_ID=$(echo "$RUN_JSON" | jq -r '.[0].databaseId')
+
+            echo "CI run ${RUN_ID}: status=${STATUS}, conclusion=${CONCLUSION}"
+
+            if [ "$STATUS" = "completed" ]; then
+              if [ "$CONCLUSION" = "success" ]; then
+                echo "CI passed for commit ${COMMIT_SHA} (run ${RUN_ID})"
+                echo "run_id=${RUN_ID}" >> "$GITHUB_OUTPUT"
+                exit 0
+              else
+                echo "::error::CI failed for commit ${COMMIT_SHA} (conclusion: ${CONCLUSION}). Cannot release an unvalidated build."
+                exit 1
+              fi
+            fi
+
+            # CI still running — wait with backoff
+            echo "CI still ${STATUS}, waiting 30s..."
+            sleep 30
+          done
+
+          echo "::error::CI did not complete within timeout for commit ${COMMIT_SHA}"
+          exit 1
 
   publish:
     name: Publish to PyPI
     runs-on: ubuntu-latest
-    needs: build
+    needs: verify-ci
     environment:
       name: pypi
       url: https://pypi.org/project/ai-engineering/
     steps:
-      - name: Download dist
+      - name: Download dist from CI
         uses: actions/download-artifact@v4
         with:
           name: dist
           path: dist/
+          run-id: ${{ needs.verify-ci.outputs.ci-run-id }}
+          github-token: ${{ github.token }}
+      - name: Verify artifact contents
+        run: |
+          echo "Downloaded artifacts:"
+          ls -la dist/
+          if [ -z "$(ls -A dist/)" ]; then
+            echo "::error::dist/ is empty — CI artifact download failed"
+            exit 1
+          fi
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
 
   github-release:
     name: Create GitHub Release
     runs-on: ubuntu-latest
-    needs: publish
+    needs: [verify-ci, publish]
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v4
-      - name: Download dist
+      - name: Download dist from CI
         uses: actions/download-artifact@v4
         with:
           name: dist
           path: dist/
+          run-id: ${{ needs.verify-ci.outputs.ci-run-id }}
+          github-token: ${{ github.token }}
       - name: Extract release notes from CHANGELOG
         id: notes
         run: |
