@@ -20,6 +20,8 @@ Safe refactoring skill: improve internal code structure without changing externa
 - Command: agent invokes refactor skill or user requests code improvement.
 - Context: code smells, duplication, excessive complexity, poor naming, long functions.
 
+> **Telemetry** (cross-IDE): run `ai-eng signals emit skill_invoked --actor=ai --detail='{"skill":"refactor"}'` at skill start. Fail-open — skip if ai-eng unavailable.
+
 ## When NOT to Use
 
 - **Breaking changes or API migrations** — use `migrate` instead. Refactor preserves behavior; migration changes it.

@@ -21,6 +21,8 @@ Definitive procedure for creating a new spec before non-trivial work begins. Ens
 - Context: non-trivial work is about to begin — new feature, refactor, architectural change, governance content expansion, or any change touching >3 files.
 - Fallback: `_active.md` points to a completed spec (has `done.md`) or no active spec exists, and a non-trivial change is requested.
 
+> **Telemetry** (cross-IDE): run `ai-eng signals emit skill_invoked --actor=ai --detail='{"skill":"spec"}'` at skill start. Fail-open — skip if ai-eng unavailable.
+
 ## Non-Trivial Heuristic
 
 A change is **non-trivial** when ANY of these apply:

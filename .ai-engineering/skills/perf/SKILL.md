@@ -20,6 +20,8 @@ Multi-stack performance scanner that detects issues via static analysis + heuris
 - Command: `/ai:scan performance`
 - Context: performance audit, pre-release performance check, bottleneck investigation.
 
+> **Telemetry** (cross-IDE): run `ai-eng signals emit skill_invoked --actor=ai --detail='{"skill":"perf"}'` at skill start. Fail-open — skip if ai-eng unavailable.
+
 ## What it Detects (by stack)
 
 | Category | Python | .NET | TypeScript/React | Rust | SQL |

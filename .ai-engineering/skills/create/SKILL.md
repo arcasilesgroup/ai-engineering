@@ -20,6 +20,8 @@ Create new agents or skills with full registration in the governance framework. 
 - Command: `/ai:create agent <name>` or `/ai:create skill <name>`
 - Context: need to extend the framework with a new agent or skill.
 
+> **Telemetry** (cross-IDE): run `ai-eng signals emit skill_invoked --actor=ai --detail='{"skill":"create"}'` at skill start. Fail-open — skip if ai-eng unavailable.
+
 ## Procedure
 
 ### Create Agent

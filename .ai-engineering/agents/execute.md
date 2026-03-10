@@ -50,6 +50,8 @@ On session start:
 
 ## Behavior
 
+> **Telemetry** (cross-IDE): run `ai-eng signals emit agent_dispatched --actor=ai --detail='{"agent":"execute"}'` at agent activation. Fail-open — skip if ai-eng unavailable.
+
 ### Phase Execution
 1. Read plan.md for phase ordering and agent assignments
 2. Partition tasks into parallel groups (independent) and serial chains (dependent)

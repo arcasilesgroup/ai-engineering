@@ -20,6 +20,8 @@ Generate stack-aware CI/CD workflow files (GitHub Actions, Azure Pipelines) base
 - Command: agent invokes CI/CD generation skill or user requests CI/CD setup.
 - Context: new project setup, stack addition, framework enforcement update, CI/CD modernization.
 
+> **Telemetry** (cross-IDE): run `ai-eng signals emit skill_invoked --actor=ai --detail='{"skill":"cicd"}'` at skill start. Fail-open — skip if ai-eng unavailable.
+
 ## Procedure
 
 1. **Read install manifest** — load `install-manifest.json` for active stacks and providers.

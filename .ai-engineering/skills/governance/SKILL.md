@@ -20,6 +20,8 @@ Unified governance validation covering cross-reference integrity, contract compl
 - Command: `/ai:scan governance` or `/ai:governance [integrity|compliance|ownership|operational]`
 - Context: governance audit, pre-release governance check, post-install verification.
 
+> **Telemetry** (cross-IDE): run `ai-eng signals emit skill_invoked --actor=ai --detail='{"skill":"governance"}'` at skill start. Fail-open — skip if ai-eng unavailable.
+
 ## Modes
 
 ### integrity — Cross-reference validation
