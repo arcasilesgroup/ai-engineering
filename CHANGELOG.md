@@ -32,6 +32,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **AI self-optimization hints** — `observe ai` detects patterns (low decision reuse, high gate failures, missing checkpoints) and surfaces actionable suggestions.
 
 ### Fixed
+- **Install UX: VCS alias** — `ai-eng install --vcs azdo` now accepted as shorthand for `azure_devops`; normalizes internally, displays `azdo` in output.
+- **Install UX: clean output** — removed inline branch policy guide text from install output; guide accessible via `ai-eng guide`.
+- **Install UX: platform filtering** — platform setup no longer offers the opposite VCS provider (e.g., Azure DevOps when GitHub is selected).
+- **Install UX: Sonar URL normalization** — Sonar token validation now strips path from user-entered URLs before API call; helpful error on JSON parse failure.
 - **SonarCloud token resolution** — `_resolve_sonar_token()` now chains env var → OS keyring (`CredentialService`) → None; previously `query_sonar_quality_gate()` checked config flag but never retrieved the stored token.
 
 - **Observe enrichment phase 1** — 8 new signal aggregators (`code_quality_score`, `decision_health`, `adoption_rate`, `lead_time`, `change_failure_rate`, `session_recovery_rate`, `dependency_health`, `multi_variable_health`) in `lib/signals.py` expand dashboards with data computable from existing sources.

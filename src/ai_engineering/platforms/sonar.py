@@ -12,6 +12,7 @@ Only non-secret metadata (URL, project key) is persisted.
 
 from __future__ import annotations
 
+import json
 import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
@@ -89,7 +90,9 @@ class SonarSetup:
             Validation result with ``valid=True`` if the token is accepted.
         """
         result = SonarValidationResult(url=url)
-        api_url = urljoin(url.rstrip("/") + "/", "api/authentication/validate")
+        parsed = urlparse(url)
+        base = f"{parsed.scheme}://{parsed.netloc}"
+        api_url = urljoin(base.rstrip("/") + "/", "api/authentication/validate")
 
         try:
             import httpx as _httpx  # type: ignore[import-not-found]  # optional dependency
@@ -100,7 +103,14 @@ class SonarSetup:
                 timeout=10.0,
             )
             if response.status_code == 200:
-                data = response.json()
+                try:
+                    data = response.json()
+                except json.JSONDecodeError:
+                    result.error = (
+                        "Could not parse Sonar API response — "
+                        "verify the URL is a base URL like https://sonarcloud.io"
+                    )
+                    return result
                 result.valid = data.get("valid", False)
                 if not result.valid:
                     result.error = "Token rejected by Sonar server"
@@ -126,7 +136,9 @@ class SonarSetup:
         import json
 
         result = SonarValidationResult(url=url)
-        api_url = urljoin(url.rstrip("/") + "/", "api/authentication/validate")
+        parsed = urlparse(url)
+        base = f"{parsed.scheme}://{parsed.netloc}"
+        api_url = urljoin(base.rstrip("/") + "/", "api/authentication/validate")
         parsed = urlparse(api_url)
         if parsed.scheme not in {"https", "http"}:
             result.error = "Invalid Sonar API URL scheme"

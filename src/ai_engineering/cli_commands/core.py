@@ -19,7 +19,6 @@ from ai_engineering.cli_output import is_json_mode
 from ai_engineering.cli_progress import spinner
 from ai_engineering.cli_ui import (
     file_count,
-    header,
     kv,
     print_stdout,
     result_header,
@@ -51,7 +50,7 @@ def install_cmd(
     ] = None,
     vcs: Annotated[
         str | None,
-        typer.Option("--vcs", help="Primary VCS provider: github or azure_devops."),
+        typer.Option("--vcs", help="VCS provider: github or azdo."),
     ] = None,
     providers: Annotated[
         list[str] | None,
@@ -110,10 +109,11 @@ def install_cmd(
         file_count("Governance", len(result.governance_files.created))
         file_count("Project", len(result.project_files.created))
         kv("State", f"{len(result.state_files)} files")
-        kv("VCS", resolved_vcs)
+        kv("VCS", "azdo" if resolved_vcs == "azure_devops" else resolved_vcs)
         kv("AI Providers", ai_label)
         kv("Readiness", result.readiness_status)
 
+        typer.echo("")
         if result.manual_steps:
             warning("Manual steps required:")
             for step in result.manual_steps:
@@ -122,6 +122,7 @@ def install_cmd(
         if result.already_installed:
             print_stdout("  (framework was already installed \u2014 skipped existing files)")
 
+        typer.echo("")
         next_steps = [
             ("ai-eng doctor", "Run health diagnostics"),
             ("ai-eng setup platforms", "Configure platform credentials"),
@@ -134,12 +135,10 @@ def install_cmd(
         if result.guide_text:
             warning("Automatic branch policy application was not possible.")
             warning("You must configure branch protection manually to enforce governance gates.")
-            header("Branch Policy Setup Guide")
-            print_stdout(result.guide_text)
 
     # Optional platform onboarding prompt (D024-003: opt-in).
     if not is_json_mode():
-        _offer_platform_onboarding(root)
+        _offer_platform_onboarding(root, vcs_provider=resolved_vcs)
 
 
 def _resolve_vcs_provider(vcs: str | None, root: Path) -> str:
@@ -153,7 +152,7 @@ def _resolve_vcs_provider(vcs: str | None, root: Path) -> str:
         Resolved VCS provider string.
     """
     if vcs is not None:
-        return vcs
+        return "azure_devops" if vcs == "azdo" else vcs
 
     # Try autodetection from git remote
     from ai_engineering.git.operations import run_git
@@ -170,9 +169,9 @@ def _resolve_vcs_provider(vcs: str | None, root: Path) -> str:
         choice = typer.prompt(
             "No git remote detected. VCS provider",
             default="github",
-            type=click.Choice(["github", "azure_devops"]),
+            type=click.Choice(["github", "azdo"]),
         )
-        return choice
+        return "azure_devops" if choice == "azdo" else choice
     except (KeyboardInterrupt, EOFError, click.exceptions.Abort):
         return "github"
 
@@ -335,7 +334,7 @@ def version_cmd() -> None:
         typer.echo(f"ai-engineering {result.message}")
 
 
-def _offer_platform_onboarding(root: Path) -> None:
+def _offer_platform_onboarding(root: Path, *, vcs_provider: str | None = None) -> None:
     """Offer optional platform credential setup after install.
 
     Detects platform markers and prompts the user to run setup.
@@ -356,4 +355,4 @@ def _offer_platform_onboarding(root: Path) -> None:
     if run_setup:
         from ai_engineering.cli_commands.setup import setup_platforms_cmd
 
-        setup_platforms_cmd(root)
+        setup_platforms_cmd(root, vcs_provider=vcs_provider)

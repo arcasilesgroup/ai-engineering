@@ -26,6 +26,7 @@ logger = logging.getLogger(__name__)
 _PROVIDERS: dict[str, type[GitHubProvider] | type[AzureDevOpsProvider]] = {
     "github": GitHubProvider,
     "azure_devops": AzureDevOpsProvider,
+    "azdo": AzureDevOpsProvider,
 }
 
 

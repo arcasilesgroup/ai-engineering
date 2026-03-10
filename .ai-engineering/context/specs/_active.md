@@ -1,18 +1,18 @@
 ---
-active: "046-release-zero-rebuild"
+active: "047-install-ux-fixes"
 updated: "2026-03-10"
 ---
 
 # Active Spec
 
-**Spec 046 — Release Zero-Rebuild**
+**Spec 047 — Fix `ai-eng install` UX: VCS Alias, Output Clarity, Platform Filtering, Sonar URL**
 
-Eliminate rebuild in release workflow. Download CI-validated artifact and publish exactly what was tested — zero rebuild, zero drift.
+Fix four UX issues in `ai-eng install`: verbose VCS prompt, cluttered output, wrong-VCS platform prompts, and Sonar URL validation failure with page URLs.
 
 ## Quick Resume
 
-- Spec: [spec.md](specs/046-release-zero-rebuild/spec.md)
-- Plan: [plan.md](specs/046-release-zero-rebuild/plan.md)
-- Tasks: [tasks.md](specs/046-release-zero-rebuild/tasks.md)
-- Branch: `feat/046-release-zero-rebuild`
-- Next: Phase 1 — Implement
+- Spec: [spec.md](specs/047-install-ux-fixes/spec.md)
+- Plan: [plan.md](specs/047-install-ux-fixes/plan.md)
+- Tasks: [tasks.md](specs/047-install-ux-fixes/tasks.md)
+- Branch: `bug/047-install-ux-fixes`
+- Next: Phase 1 — VCS Alias + Output Cleanup

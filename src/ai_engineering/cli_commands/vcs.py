@@ -18,7 +18,7 @@ from ai_engineering.paths import resolve_project_root
 from ai_engineering.state.service import StateService
 from ai_engineering.vcs.factory import get_provider
 
-_VALID_PROVIDERS = ("github", "azure_devops")
+_VALID_PROVIDERS = ("github", "azure_devops", "azdo")
 
 
 def vcs_status(

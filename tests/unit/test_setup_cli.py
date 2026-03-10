@@ -575,3 +575,315 @@ class TestSetupPlatformsAllDetected:
         mock_github.assert_called_once()
         mock_sonar.assert_called_once()
         mock_azdo.assert_called_once()
+
+
+# ---------------------------------------------------------------
+# Fix 1: VCS alias "azdo" — _resolve_vcs_provider
+# ---------------------------------------------------------------
+
+
+class TestResolveVcsProvider:
+    """Tests for _resolve_vcs_provider in core.py."""
+
+    def test_azdo_alias_resolves_to_azure_devops(self, tmp_path: Path) -> None:
+        from ai_engineering.cli_commands.core import _resolve_vcs_provider
+
+        result = _resolve_vcs_provider("azdo", tmp_path)
+        assert result == "azure_devops"
+
+    def test_azure_devops_passthrough(self, tmp_path: Path) -> None:
+        from ai_engineering.cli_commands.core import _resolve_vcs_provider
+
+        result = _resolve_vcs_provider("azure_devops", tmp_path)
+        assert result == "azure_devops"
+
+    def test_github_passthrough(self, tmp_path: Path) -> None:
+        from ai_engineering.cli_commands.core import _resolve_vcs_provider
+
+        result = _resolve_vcs_provider("github", tmp_path)
+        assert result == "github"
+
+    @patch("ai_engineering.cli_commands.core.is_json_mode", return_value=True)
+    @patch("ai_engineering.git.operations.run_git", return_value=(False, ""))
+    def test_no_remote_json_mode_defaults_github(
+        self, mock_git: MagicMock, mock_json: MagicMock, tmp_path: Path
+    ) -> None:
+        from ai_engineering.cli_commands.core import _resolve_vcs_provider
+
+        result = _resolve_vcs_provider(None, tmp_path)
+        assert result == "github"
+
+    @patch("ai_engineering.cli_commands.core.detect_from_remote", return_value="azure_devops")
+    @patch(
+        "ai_engineering.git.operations.run_git",
+        return_value=(True, "https://dev.azure.com/org/proj"),
+    )
+    def test_autodetect_from_remote(
+        self, mock_git: MagicMock, mock_detect: MagicMock, tmp_path: Path
+    ) -> None:
+        from ai_engineering.cli_commands.core import _resolve_vcs_provider
+
+        result = _resolve_vcs_provider(None, tmp_path)
+        assert result == "azure_devops"
+
+
+class TestVcsFactoryAzdoAlias:
+    """Tests that the factory _PROVIDERS map includes the 'azdo' alias."""
+
+    def test_azdo_key_maps_to_azure_devops_provider(self) -> None:
+        from ai_engineering.vcs.azure_devops import AzureDevOpsProvider
+        from ai_engineering.vcs.factory import _PROVIDERS
+
+        assert "azdo" in _PROVIDERS
+        assert _PROVIDERS["azdo"] is AzureDevOpsProvider
+
+    def test_azdo_in_valid_providers_list(self) -> None:
+        from ai_engineering.cli_commands.vcs import _VALID_PROVIDERS
+
+        assert "azdo" in _VALID_PROVIDERS
+
+
+# ---------------------------------------------------------------
+# Fix 2: Clean output — no guide_text block in install output
+# ---------------------------------------------------------------
+
+
+class TestInstallCleanOutput:
+    """Tests that install output omits the branch policy guide text block."""
+
+    @patch("ai_engineering.cli_commands.core._offer_platform_onboarding")
+    @patch("ai_engineering.cli_commands.core.is_json_mode", return_value=False)
+    @patch("ai_engineering.cli_commands.core.install")
+    @patch("ai_engineering.cli_commands.core.resolve_project_root")
+    @patch("ai_engineering.cli_commands.core._resolve_vcs_provider", return_value="github")
+    def test_guide_text_not_printed_as_block(
+        self,
+        mock_vcs: MagicMock,
+        mock_resolve: MagicMock,
+        mock_install: MagicMock,
+        mock_json: MagicMock,
+        mock_onboard: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        """When guide_text is present, only warnings are shown — not the full text block."""
+        mock_resolve.return_value = tmp_path
+        result_obj = MagicMock()
+        result_obj.governance_files.created = ["a"]
+        result_obj.project_files.created = ["b"]
+        result_obj.state_files = ["c"]
+        result_obj.readiness_status = "ready"
+        result_obj.already_installed = False
+        result_obj.manual_steps = []
+        result_obj.guide_text = "Step 1: Go to settings\nStep 2: Enable protection"
+        mock_install.return_value = result_obj
+
+        import typer
+
+        # Use CliRunner to capture output
+        from typer.testing import CliRunner as _Runner
+
+        from ai_engineering.cli_commands.core import install_cmd
+
+        app = typer.Typer()
+        app.command()(install_cmd)
+        _runner = _Runner()
+        res = _runner.invoke(app, [str(tmp_path), "--vcs", "github"])
+
+        # The guide text body should NOT appear in output
+        assert "Step 1: Go to settings" not in res.output
+        assert "Step 2: Enable protection" not in res.output
+        # But warnings about manual branch policy SHOULD appear
+        out = res.output.lower()
+        assert "branch" in out or "policy" in out or "manual" in out
+
+
+# ---------------------------------------------------------------
+# Fix 3a: Platform filtering by vcs_provider
+# ---------------------------------------------------------------
+
+
+class TestSetupPlatformsFiltering:
+    """Tests that setup_platforms_cmd filters undetected platforms based on vcs_provider."""
+
+    @patch("ai_engineering.cli_commands.setup.CredentialService")
+    @patch("ai_engineering.cli_commands.setup.typer.confirm", return_value=False)
+    @patch("ai_engineering.cli_commands.setup._run_sonar_setup")
+    @patch(
+        "ai_engineering.cli_commands.setup.detect_platforms",
+        return_value=[PlatformKind.SONAR],
+    )
+    @patch("ai_engineering.cli_commands.setup.resolve_project_root")
+    def test_github_vcs_hides_azure_devops(
+        self,
+        mock_resolve: MagicMock,
+        mock_detect: MagicMock,
+        mock_sonar: MagicMock,
+        mock_confirm: MagicMock,
+        mock_cred: MagicMock,
+        project_root: Path,
+    ) -> None:
+        """When vcs_provider='github', AZURE_DEVOPS is not offered as undetected."""
+        mock_resolve.return_value = project_root
+        mock_state = MagicMock()
+        mock_state.sonar.configured = False
+        mock_state.sonar.url = ""
+        mock_cred.return_value.load_tools_state.return_value = mock_state
+
+        from ai_engineering.cli_commands.setup import setup_platforms_cmd
+
+        setup_platforms_cmd(project_root, vcs_provider="github")
+
+        # Confirm calls should NOT include azure_devops
+        for call in mock_confirm.call_args_list:
+            prompt_text = call[0][0] if call[0] else call[1].get("text", "")
+            assert "azure_devops" not in prompt_text.lower()
+
+    @patch("ai_engineering.cli_commands.setup.CredentialService")
+    @patch("ai_engineering.cli_commands.setup.typer.confirm", return_value=False)
+    @patch("ai_engineering.cli_commands.setup._run_sonar_setup")
+    @patch(
+        "ai_engineering.cli_commands.setup.detect_platforms",
+        return_value=[PlatformKind.SONAR],
+    )
+    @patch("ai_engineering.cli_commands.setup.resolve_project_root")
+    def test_azure_devops_vcs_hides_github(
+        self,
+        mock_resolve: MagicMock,
+        mock_detect: MagicMock,
+        mock_sonar: MagicMock,
+        mock_confirm: MagicMock,
+        mock_cred: MagicMock,
+        project_root: Path,
+    ) -> None:
+        """When vcs_provider='azure_devops', GITHUB is not offered as undetected."""
+        mock_resolve.return_value = project_root
+        mock_state = MagicMock()
+        mock_state.sonar.configured = False
+        mock_state.sonar.url = ""
+        mock_cred.return_value.load_tools_state.return_value = mock_state
+
+        from ai_engineering.cli_commands.setup import setup_platforms_cmd
+
+        setup_platforms_cmd(project_root, vcs_provider="azure_devops")
+
+        # Confirm calls should NOT include github
+        for call in mock_confirm.call_args_list:
+            prompt_text = call[0][0] if call[0] else call[1].get("text", "")
+            assert "github" not in prompt_text.lower()
+
+    @patch("ai_engineering.cli_commands.setup.CredentialService")
+    @patch("ai_engineering.cli_commands.setup.typer.confirm", return_value=False)
+    @patch(
+        "ai_engineering.cli_commands.setup.detect_platforms",
+        return_value=[],
+    )
+    @patch("ai_engineering.cli_commands.setup.resolve_project_root")
+    def test_no_vcs_provider_offers_all(
+        self,
+        mock_resolve: MagicMock,
+        mock_detect: MagicMock,
+        mock_confirm: MagicMock,
+        mock_cred: MagicMock,
+        project_root: Path,
+    ) -> None:
+        """When vcs_provider=None, all platforms are offered."""
+        mock_resolve.return_value = project_root
+        mock_state = MagicMock()
+        mock_state.sonar.configured = False
+        mock_state.sonar.url = ""
+        mock_cred.return_value.load_tools_state.return_value = mock_state
+
+        from ai_engineering.cli_commands.setup import setup_platforms_cmd
+
+        setup_platforms_cmd(project_root, vcs_provider=None)
+
+        # All three platform kinds should have been offered via confirm
+        confirm_texts = " ".join(
+            str(call[0][0]) if call[0] else "" for call in mock_confirm.call_args_list
+        )
+        assert "github" in confirm_texts.lower()
+        assert "azure_devops" in confirm_texts.lower()
+        assert "sonar" in confirm_texts.lower()
+
+
+# ---------------------------------------------------------------
+# Fix 3b: Sonar URL normalization
+# ---------------------------------------------------------------
+
+
+class TestSonarUrlNormalization:
+    """Tests that SonarSetup.validate_token normalizes URLs with paths."""
+
+    def _make_mock_httpx(self, mock_response: MagicMock) -> MagicMock:
+        """Create a fake httpx module with a mock get() function."""
+        import types
+
+        mock_httpx = types.ModuleType("httpx")
+        mock_httpx.get = MagicMock(return_value=mock_response)  # type: ignore[attr-defined]
+        return mock_httpx
+
+    def test_url_with_path_is_normalized(self) -> None:
+        """URL like https://sonarcloud.io/organizations/foo/projects is normalized."""
+        import sys
+
+        from ai_engineering.platforms.sonar import SonarSetup
+
+        mock_cred = MagicMock()
+        sonar = SonarSetup(mock_cred)
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"valid": True}
+
+        mock_httpx = self._make_mock_httpx(mock_response)
+        with patch.dict(sys.modules, {"httpx": mock_httpx}):
+            result = sonar.validate_token(
+                "https://sonarcloud.io/organizations/my-org/projects", "squ_token"
+            )
+
+        assert result.valid is True
+        # The API call should use the base URL, not the full path
+        called_url = mock_httpx.get.call_args[0][0]
+        assert called_url == "https://sonarcloud.io/api/authentication/validate"
+
+    def test_base_url_unchanged(self) -> None:
+        """A base URL like https://sonarcloud.io is used as-is."""
+        import sys
+
+        from ai_engineering.platforms.sonar import SonarSetup
+
+        mock_cred = MagicMock()
+        sonar = SonarSetup(mock_cred)
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"valid": True}
+
+        mock_httpx = self._make_mock_httpx(mock_response)
+        with patch.dict(sys.modules, {"httpx": mock_httpx}):
+            result = sonar.validate_token("https://sonarcloud.io", "squ_token")
+
+        assert result.valid is True
+        called_url = mock_httpx.get.call_args[0][0]
+        assert called_url == "https://sonarcloud.io/api/authentication/validate"
+
+    def test_json_parse_error_gives_helpful_message(self) -> None:
+        """When response is not valid JSON, a helpful message is returned."""
+        import json as _json
+        import sys
+
+        from ai_engineering.platforms.sonar import SonarSetup
+
+        mock_cred = MagicMock()
+        sonar = SonarSetup(mock_cred)
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.side_effect = _json.JSONDecodeError("msg", "doc", 0)
+
+        mock_httpx = self._make_mock_httpx(mock_response)
+        with patch.dict(sys.modules, {"httpx": mock_httpx}):
+            result = sonar.validate_token("https://sonarcloud.io", "squ_token")
+
+        assert result.valid is False
+        assert "base URL" in result.error
