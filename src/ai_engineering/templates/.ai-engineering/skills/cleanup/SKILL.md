@@ -22,6 +22,8 @@ Execute full repository hygiene — safely migrate to the default branch, aggres
 - Command: `/ai:cleanup`
 - Context: session start, after merging PRs, between tasks, or before `/ai:spec`.
 
+> **Telemetry** (cross-IDE): run `ai-eng signals emit skill_invoked --actor=ai --detail='{"skill":"cleanup"}'` at skill start. Fail-open — skip if ai-eng unavailable.
+
 ## Preconditions
 
 - **Required**: `git` on PATH. Abort with `ai-eng doctor --fix-tools` guidance if missing.

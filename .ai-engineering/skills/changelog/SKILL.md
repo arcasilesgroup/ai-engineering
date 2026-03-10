@@ -20,6 +20,8 @@ Transform technical git history into polished, user-friendly documentation that 
 - Command: agent invokes changelog skill or user requests changelog/release notes generation.
 - Context: preparing a release, documenting recent changes, writing app store update descriptions, creating customer-facing product updates, transitioning `[Unreleased]` to a versioned release.
 
+> **Telemetry** (cross-IDE): run `ai-eng signals emit skill_invoked --actor=ai --detail='{"skill":"changelog"}'` at skill start. Fail-open — skip if ai-eng unavailable.
+
 ## Procedure
 
 ### Phase 1: Gather Changes

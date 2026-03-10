@@ -34,6 +34,8 @@ Normative shared rules are defined in `skills/observe/SKILL.md` under **Shared R
 
 ## Behavior
 
+> **Telemetry** (cross-IDE): run `ai-eng signals emit agent_dispatched --actor=ai --detail='{"agent":"observe"}'` at agent activation. Fail-open — skip if ai-eng unavailable.
+
 1. **Apply shared observability rules** -- execute `OBS-R1..OBS-R4` from `skills/observe/SKILL.md`.
 2. **Render mode output** -- produce dashboard + trends + top 3 actions.
 3. **Enforce shared boundary** -- apply `OBS-B1` (strict read-only).

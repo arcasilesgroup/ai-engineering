@@ -27,6 +27,8 @@ This is the shared planning contract for both:
 - Need to assess scope before deciding whether to create a full spec
 - `agents/plan.md` needs shared planning stages before invoking `skills/spec/SKILL.md`
 
+> **Telemetry** (cross-IDE): run `ai-eng signals emit skill_invoked --actor=ai --detail='{"skill":"plan"}'` at skill start. Fail-open — skip if ai-eng unavailable.
+
 ## Shared Rules (Canonical)
 
 Use these rules as the single source of truth for planning behavior shared by skill and agent.

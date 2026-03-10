@@ -20,6 +20,8 @@ Agent-first CLI design skill for commands that serve both machine consumers (JSO
 - Command: agent invokes cli-ux skill or user requests CLI command design/review.
 - Context: new CLI command, CLI output review, adding `--json` support, improving terminal UX, adding progress indicators.
 
+> **Telemetry** (cross-IDE): run `ai-eng signals emit skill_invoked --actor=ai --detail='{"skill":"cli"}'` at skill start. Fail-open — skip if ai-eng unavailable.
+
 ## When NOT to Use
 
 - **API endpoint design** — use `api` for REST/GraphQL contract-first design.

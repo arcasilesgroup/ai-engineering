@@ -20,6 +20,8 @@ Analyze software architecture for drift from spec, coupling issues, cohesion pro
 - Command: `/ai:scan architecture`
 - Context: architecture review, drift detection, design decision assessment.
 
+> **Telemetry** (cross-IDE): run `ai-eng signals emit skill_invoked --actor=ai --detail='{"skill":"architecture"}'` at skill start. Fail-open — skip if ai-eng unavailable.
+
 ## Procedure
 
 1. **Read architecture docs** -- specs, ADRs, documented decisions.

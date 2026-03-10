@@ -22,6 +22,8 @@ Structured requirements elicitation skill that drives exhaustive discovery befor
 - Orchestrator DISCOVERY mode needs requirements clarification.
 - Scope creep detected during implementation.
 
+> **Telemetry** (cross-IDE): run `ai-eng signals emit skill_invoked --actor=ai --detail='{"skill":"discover"}'` at skill start. Fail-open — skip if ai-eng unavailable.
+
 ## Procedure
 
 ### Step 1 — Context Harvest

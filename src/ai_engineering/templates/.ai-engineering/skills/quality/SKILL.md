@@ -20,6 +20,8 @@ Unified quality assessment covering code metrics, Sonar integration, code review
 - Command: `/ai:scan quality` or `/ai:quality [code|sonar|review|docs]`
 - Context: quality gate, code review, pre-release quality check.
 
+> **Telemetry** (cross-IDE): run `ai-eng signals emit skill_invoked --actor=ai --detail='{"skill":"quality"}'` at skill start. Fail-open — skip if ai-eng unavailable.
+
 ## Modes
 
 ### code — Quality metrics

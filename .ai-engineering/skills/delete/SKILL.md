@@ -20,6 +20,8 @@ Delete agents or skills with full cleanup from the governance framework. Removes
 - Command: `/ai:delete agent <name>` or `/ai:delete skill <name>`
 - Context: removing an agent or skill from the framework.
 
+> **Telemetry** (cross-IDE): run `ai-eng signals emit skill_invoked --actor=ai --detail='{"skill":"delete"}'` at skill start. Fail-open — skip if ai-eng unavailable.
+
 ## Procedure
 
 ### Delete Agent

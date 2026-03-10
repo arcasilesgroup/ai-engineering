@@ -1,18 +1,18 @@
 ---
-active: "047-install-ux-fixes"
+active: "044-skill-agent-telemetry"
 updated: "2026-03-10"
 ---
 
 # Active Spec
 
-**Spec 047 — Fix `ai-eng install` UX: VCS Alias, Output Clarity, Platform Filtering, Sonar URL**
+**Spec 044 — Skill & Agent Telemetry: Cross-IDE Usage Tracking**
 
-Fix four UX issues in `ai-eng install`: verbose VCS prompt, cluttered output, wrong-VCS platform prompts, and Sonar URL validation failure with page URLs.
+Add `skill_invoked` and `agent_dispatched` events to the audit log via cross-IDE emit directives in all skill/agent markdown files. Wire aggregators and observe dashboards.
 
 ## Quick Resume
 
-- Spec: [spec.md](specs/047-install-ux-fixes/spec.md)
-- Plan: [plan.md](specs/047-install-ux-fixes/plan.md)
-- Tasks: [tasks.md](specs/047-install-ux-fixes/tasks.md)
-- Branch: `bug/047-install-ux-fixes`
-- Next: Phase 1 — VCS Alias + Output Cleanup
+- Spec: [spec.md](specs/044-skill-agent-telemetry/spec.md)
+- Plan: [plan.md](specs/044-skill-agent-telemetry/plan.md)
+- Tasks: [tasks.md](specs/044-skill-agent-telemetry/tasks.md)
+- Branch: `feat/044-skill-agent-telemetry`
+- Next: Phase 1 — Skill Emit Directives

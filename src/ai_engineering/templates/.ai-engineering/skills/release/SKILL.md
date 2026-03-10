@@ -20,6 +20,8 @@ Executes a structured GO/NO-GO checklist across all quality dimensions for relea
 - Command: agent invokes release-gate skill or user requests release readiness check.
 - Context: pre-release milestone, version tagging, merge-to-main decision.
 
+> **Telemetry** (cross-IDE): run `ai-eng signals emit skill_invoked --actor=ai --detail='{"skill":"release"}'` at skill start. Fail-open — skip if ai-eng unavailable.
+
 ## When NOT to Use
 
 - **Code quality only** (coverage, complexity, lint) — use `audit` instead. Release-gate aggregates all dimensions; audit focuses on code quality.

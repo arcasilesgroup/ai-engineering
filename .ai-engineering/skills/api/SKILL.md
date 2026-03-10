@@ -20,6 +20,8 @@ Contract-first API design and review skill. Covers OpenAPI specification authori
 - Command: agent invokes api-design skill or user requests API design/review.
 - Context: new API endpoint, API contract review, versioning decision, backward compatibility assessment, API documentation update.
 
+> **Telemetry** (cross-IDE): run `ai-eng signals emit skill_invoked --actor=ai --detail='{"skill":"api"}'` at skill start. Fail-open — skip if ai-eng unavailable.
+
 ## When NOT to Use
 
 - **Implementation of API endpoints** — use `code-review` for reviewing implementation code.

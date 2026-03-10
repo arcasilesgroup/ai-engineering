@@ -20,6 +20,8 @@ Systematic diagnosis skill for identifying, isolating, and fixing bugs. Follows 
 - Command: agent invokes debug skill or user reports a bug/error.
 - Context: unexpected behavior, test failure, runtime error, or regression.
 
+> **Telemetry** (cross-IDE): run `ai-eng signals emit skill_invoked --actor=ai --detail='{"skill":"debug"}'` at skill start. Fail-open — skip if ai-eng unavailable.
+
 ## Procedure
 
 1. **Reproduce** — confirm the bug is reproducible with a minimal case.

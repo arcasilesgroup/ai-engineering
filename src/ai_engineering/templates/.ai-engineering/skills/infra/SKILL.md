@@ -20,6 +20,8 @@ Infrastructure as Code design and generation skill. Covers Terraform, Bicep, and
 - Command: agent invokes infrastructure skill or user requests IaC design/generation.
 - Context: new cloud resource provisioning, infrastructure migration, deployment platform setup, container configuration, network architecture.
 
+> **Telemetry** (cross-IDE): run `ai-eng signals emit skill_invoked --actor=ai --detail='{"skill":"infra"}'` at skill start. Fail-open — skip if ai-eng unavailable.
+
 ## When NOT to Use
 
 - **CI/CD pipeline generation** — use `cicd` instead. This skill generates infrastructure, not pipelines.

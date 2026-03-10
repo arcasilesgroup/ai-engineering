@@ -22,6 +22,8 @@ Unified security assessment covering static analysis (SAST), dynamic analysis (D
 - Command: `/ai:scan security` or `/ai:security [static|dynamic|deps|sbom]`
 - Context: security review, pre-release security gate, dependency audit.
 
+> **Telemetry** (cross-IDE): run `ai-eng signals emit skill_invoked --actor=ai --detail='{"skill":"security"}'` at skill start. Fail-open — skip if ai-eng unavailable.
+
 ## Modes
 
 ### static — SAST review

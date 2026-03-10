@@ -45,6 +45,8 @@ Single source of truth mapping for procedures:
 
 ## Behavior
 
+> **Telemetry** (cross-IDE): run `ai-eng signals emit agent_dispatched --actor=ai --detail='{"agent":"release"}'` at agent activation. Fail-open — skip if ai-eng unavailable.
+
 ### Deliver Mode
 
 The primary delivery workflow. Preserves existing `/ai:commit` and `/ai:pr` contracts.

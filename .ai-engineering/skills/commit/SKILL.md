@@ -22,6 +22,8 @@ Execute the `/commit` governed workflow: stage all changes, run mandatory pre-co
 - Command: `/commit` or `/commit --only`
 - Context: user requests committing current changes with governance enforcement.
 
+> **Telemetry** (cross-IDE): run `ai-eng signals emit skill_invoked --actor=ai --detail='{"skill":"commit"}'` at skill start. Fail-open — skip if ai-eng unavailable.
+
 ## When NOT to Use
 
 - **Creating pull requests** — use `/pr` instead. Commit pushes to current branch; PR creates a pull request.

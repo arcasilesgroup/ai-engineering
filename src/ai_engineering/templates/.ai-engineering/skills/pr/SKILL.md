@@ -23,6 +23,8 @@ Execute the `/pr` governed workflow: conditionally run spec reset, stage, commit
 - Command: `/pr` or `/pr --only`
 - Context: user requests creating a pull request with governance enforcement.
 
+> **Telemetry** (cross-IDE): run `ai-eng signals emit skill_invoked --actor=ai --detail='{"skill":"pr"}'` at skill start. Fail-open — skip if ai-eng unavailable.
+
 ## When NOT to Use
 
 - **Commit-only without PR** — use `/commit --only` instead. PR always creates a pull request.
