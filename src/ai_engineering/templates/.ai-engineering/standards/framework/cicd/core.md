@@ -45,13 +45,13 @@ Defines the contract between local quality gates and CI/CD pipelines. Ensures pi
 - `vitest run` — test suite with coverage.
 - `npm audit` — dependency scan.
 
-## Optional CI Checks (Security)
+## Required CI Checks (Snyk Security)
 
-These checks run only when tools are available and configured:
+These checks require `SNYK_TOKEN` configured as a repository secret. When the token is absent, the job passes with a skip notice. When present, all checks must pass.
 
-- **Snyk dependency test** — `snyk test --file=requirements.txt --package-manager=pip` for dependency vulnerabilities. Uses `uv pip freeze` to export pinned versions. Requires `SNYK_TOKEN` secret. Non-gating (informational).
-- **Snyk code test** — `snyk code test` for SAST analysis. Requires `SNYK_TOKEN` secret and Snyk Code enabled in org settings. Non-gating (informational).
-- **Snyk monitor** — `snyk monitor --file=requirements.txt --package-manager=pip` for continuous monitoring. Runs on main branch pushes only. Requires `SNYK_TOKEN` secret.
+- **Snyk dependency test** — `snyk test --file=requirements.txt --package-manager=pip` for dependency vulnerabilities. Uses `uv pip freeze` to export pinned versions from the venv.
+- **Snyk code test** — `snyk code test` for SAST analysis. Requires Snyk Code enabled in org settings.
+- **Snyk monitor** — `snyk monitor --file=requirements.txt --package-manager=pip` for continuous monitoring. Runs on main branch pushes only.
 
 ## Optional CI Checks (Deployment-Stage)
 
