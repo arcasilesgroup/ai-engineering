@@ -30,6 +30,7 @@ Mandatory. Skipping risks stale code, repeated decisions, or merge conflicts.
 6. **NEVER** dismiss security findings without `state/decision-store.json` risk acceptance.
 7. **NEVER** disable/modify `.claude/settings.json` deny rules.
 8. **NEVER** use destructive git commands unless user explicitly requests.
+9. **NEVER** add suppression comments (`# NOSONAR`, `# nosec`, `# type: ignore`, `# pragma: no cover`, `# noqa`, `// nolint`) to bypass static analysis, security scanners, or quality gates. Fix the root cause. If a finding is a false positive, refactor the code to satisfy the analyzer or escalate to the user with a full explanation of why it fails and why it's safe.
 
 Gate failure: diagnose → fix → retry. Use `ai-eng doctor --fix-tools` or `--fix-hooks`.
 

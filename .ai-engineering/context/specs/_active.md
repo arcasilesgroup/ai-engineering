@@ -1,18 +1,18 @@
 ---
-active: "048-snyk-optional-cicd"
+active: "049-sonarcloud-quality-gate"
 updated: "2026-03-10"
 ---
 
 # Active Spec
 
-**Spec 048 — Snyk Optional CI/CD Integration**
+**Spec 049 — Fix SonarCloud Quality Gate + No-Suppression Rule**
 
-Add Snyk as optional CI/CD security steps (snyk test + snyk code test + snyk monitor) conditional on SNYK_TOKEN secret. Non-gating, complementary to existing gitleaks/semgrep/pip-audit gates.
+Fix SonarCloud Quality Gate failures (5 false-positive vulnerabilities) and add explicit no-suppression governance rule to prevent AI from using `# NOSONAR`/`# nosec`/`# noqa` shortcuts.
 
 ## Quick Resume
 
-- Spec: [spec.md](specs/048-snyk-optional-cicd/spec.md)
-- Plan: [plan.md](specs/048-snyk-optional-cicd/plan.md)
-- Tasks: [tasks.md](specs/048-snyk-optional-cicd/tasks.md)
-- Branch: `feat/048-snyk-optional-cicd`
-- Next: Phase 1 — CI Workflow
+- Spec: [spec.md](specs/049-sonarcloud-quality-gate/spec.md)
+- Plan: [plan.md](specs/049-sonarcloud-quality-gate/plan.md)
+- Tasks: [tasks.md](specs/049-sonarcloud-quality-gate/tasks.md)
+- Branch: `fix/049-sonarcloud-quality-gate`
+- Next: Phase 1 — No-Suppression Governance Rule
