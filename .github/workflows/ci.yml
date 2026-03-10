@@ -434,6 +434,44 @@ jobs:
             exit 1
           fi
 
+  snyk-security:
+    name: Snyk Security (Optional)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    env:
+      SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+    steps:
+      - name: Check Snyk token
+        id: check
+        run: |
+          if [ -z "$SNYK_TOKEN" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "SNYK_TOKEN not configured — skipping Snyk checks"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@v4
+        if: steps.check.outputs.skip == 'false'
+      - uses: astral-sh/setup-uv@v5
+        if: steps.check.outputs.skip == 'false'
+        with:
+          enable-cache: true
+      - name: Install dependencies
+        if: steps.check.outputs.skip == 'false'
+        run: uv sync --dev
+      - name: Install Snyk CLI
+        if: steps.check.outputs.skip == 'false'
+        run: npm install -g snyk
+      - name: Snyk dependency test
+        if: steps.check.outputs.skip == 'false'
+        run: snyk test --all-projects --severity-threshold=high
+      - name: Snyk code test (SAST)
+        if: steps.check.outputs.skip == 'false'
+        run: snyk code test --severity-threshold=high
+      - name: Snyk monitor (main only)
+        if: steps.check.outputs.skip == 'false' && github.ref == 'refs/heads/main'
+        run: snyk monitor --all-projects
+
   security:
     name: Security Audit
     runs-on: ubuntu-latest
