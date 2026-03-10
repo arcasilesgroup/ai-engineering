@@ -462,19 +462,16 @@ jobs:
       - name: Install Snyk CLI
         if: steps.check.outputs.skip == 'false'
         run: npm install -g snyk
-      - name: Export pinned requirements for Snyk
-        if: steps.check.outputs.skip == 'false'
-        run: uv pip freeze > requirements.txt
       - name: Snyk dependency test
         if: steps.check.outputs.skip == 'false'
-        run: snyk test --file=requirements.txt --package-manager=pip --severity-threshold=high --skip-unresolved
+        run: snyk test --file=pyproject.toml --package-manager=pip --severity-threshold=high --command=uv
       - name: Snyk code test (SAST)
         if: steps.check.outputs.skip == 'false'
         continue-on-error: true
         run: snyk code test --severity-threshold=high
       - name: Snyk monitor (main only)
         if: steps.check.outputs.skip == 'false' && github.ref == 'refs/heads/main'
-        run: snyk monitor --file=requirements.txt --package-manager=pip --skip-unresolved
+        run: snyk monitor --file=pyproject.toml --package-manager=pip --command=uv
 
   security:
     name: Security Audit

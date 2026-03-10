@@ -49,9 +49,9 @@ Defines the contract between local quality gates and CI/CD pipelines. Ensures pi
 
 These checks run only when tools are available and configured:
 
-- **Snyk dependency test** — `snyk test --file=requirements.txt --package-manager=pip` for dependency vulnerabilities. Uses `uv pip freeze` to export pinned versions. Requires `SNYK_TOKEN` secret. Non-gating (informational).
+- **Snyk dependency test** — `snyk test --file=pyproject.toml --package-manager=pip --command=uv` for dependency vulnerabilities. Uses `uv` for correct dependency resolution. Requires `SNYK_TOKEN` secret. Non-gating (informational).
 - **Snyk code test** — `snyk code test` for SAST analysis. Requires `SNYK_TOKEN` secret and Snyk Code enabled in org settings. Non-gating (informational).
-- **Snyk monitor** — `snyk monitor --file=requirements.txt --package-manager=pip` for continuous monitoring. Runs on main branch pushes only. Requires `SNYK_TOKEN` secret.
+- **Snyk monitor** — `snyk monitor --file=pyproject.toml --package-manager=pip --command=uv` for continuous monitoring. Runs on main branch pushes only. Requires `SNYK_TOKEN` secret.
 
 ## Optional CI Checks (Deployment-Stage)
 
