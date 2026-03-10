@@ -24,13 +24,13 @@ def parse_frontmatter(text: str) -> dict[str, str]:
     Returns:
         Dictionary of frontmatter keys to string values.
     """
-    match = re.match(r"^---\s*\n(.*?)\n---", text, re.DOTALL)
+    match = re.match(r"^---[ \t]*\n(.*?)\n---", text, re.DOTALL)
     if not match:
         return {}
 
     result: dict[str, str] = {}
     for line in match.group(1).splitlines():
-        m = re.match(r"^(\w[\w-]*):\s*(?:\"(.*?)\"|'(.*?)'|(.+))$", line.strip())
+        m = re.match(r"^(\w[\w-]*):[ \t]*(?:\"([^\"]*)\"|'([^']*)'|(.+))$", line.strip())
         if m:
             key = m.group(1)
             value = m.group(2) or m.group(3) or m.group(4)

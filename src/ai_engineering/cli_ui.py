@@ -194,3 +194,52 @@ def print_stdout(msg: str) -> None:
     """Write a plain-text line to stdout (for data/assertions)."""
     sys.stdout.write(msg + "\n")
     sys.stdout.flush()
+
+
+# ── Dashboard primitives (observe) ───────────────────────────────
+
+
+def section(title: str) -> None:
+    """Print a dashboard section title to stderr."""
+    _safe_print(f"\n[brand]{title}[/brand]")
+
+
+def progress_bar(
+    label: str,
+    value: float,
+    max_val: float = 100,
+    threshold: float | None = None,
+) -> None:
+    """Print a colored progress bar with label to stderr."""
+    pct = min(value / max_val * 100, 100) if max_val > 0 else 0
+    bar_width = 12
+    filled = round(pct / 100 * bar_width)
+    bar = "█" * filled + "░" * (bar_width - filled)
+    target = threshold if threshold is not None else 80
+    if pct >= target:
+        style = "success"
+    elif pct >= 60:
+        style = "warning"
+    else:
+        style = "error"
+    _safe_print(f"  [key]{label:<20}[/key] [{style}]{bar}[/{style}] {pct:.1f}%")
+
+
+def score_badge(score: int, label: str = "") -> None:
+    """Print a semaphore score badge to stderr."""
+    if score >= 80:
+        style, icon = "success", "●"
+    elif score >= 60:
+        style, icon = "warning", "●"
+    else:
+        style, icon = "error", "●"
+    prefix = f"{label} " if label else ""
+    _safe_print(f"  [{style}]{icon}[/{style}] {prefix}[key]{score}/100[/key]")
+
+
+def metric_table(rows: list[tuple[str, str, str]]) -> None:
+    """Print aligned metric rows with status coloring to stderr."""
+    status_styles = {"ok": "success", "warn": "warning", "fail": "error", "none": "muted"}
+    for label, value, status in rows:
+        style = status_styles.get(status, "muted")
+        _safe_print(f"  {label:<22} [{style}]{value}[/{style}]")

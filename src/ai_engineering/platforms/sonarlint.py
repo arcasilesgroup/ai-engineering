@@ -490,7 +490,7 @@ def _read_json_safe(path: Path) -> dict:
 
 def _write_json_safe(path: Path, data: dict) -> None:
     """Write *data* as formatted JSON to *path*."""
-    path.write_text(
+    path.resolve().write_text(
         json.dumps(data, indent=2, ensure_ascii=False) + "\n",
         encoding="utf-8",
     )

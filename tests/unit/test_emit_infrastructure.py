@@ -305,9 +305,8 @@ class TestTeamDashboardTokenEconomy:
         ):
             output = observe_team(tmp_path)
 
-        assert "## Token Economy" in output
-        assert "Sessions: 1" in output
-        assert "50,000" in output
+        assert output["token_economy"]["sessions_analyzed"] == 1
+        assert output["token_economy"]["total_tokens"] == 50000
 
     def test_shows_no_session_data_message(self, tmp_path: Path) -> None:
         from ai_engineering.cli_commands.observe import observe_team
@@ -324,8 +323,7 @@ class TestTeamDashboardTokenEconomy:
         ):
             output = observe_team(tmp_path)
 
-        assert "## Token Economy" in output
-        assert "No session data" in output
+        assert output["token_economy"]["sessions_analyzed"] == 0
 
 
 class TestTeamDashboardNoiseRatio:
@@ -350,9 +348,9 @@ class TestTeamDashboardNoiseRatio:
         ):
             output = observe_team(tmp_path)
 
-        assert "## Noise Ratio" in output
-        assert "Auto-fixable: 1" in output
-        assert "50.0%" in output
+        assert output["noise_ratio"]["total_failures"] == 2
+        assert output["noise_ratio"]["fixable_failures"] == 1
+        assert output["noise_ratio"]["noise_ratio_pct"] == 50.0
 
     def test_shows_no_failures_message(self, tmp_path: Path) -> None:
         from ai_engineering.cli_commands.observe import observe_team
@@ -370,8 +368,7 @@ class TestTeamDashboardNoiseRatio:
         ):
             output = observe_team(tmp_path)
 
-        assert "## Noise Ratio" in output
-        assert "all gates passing" in output
+        assert output["noise_ratio"]["total_failures"] == 0
 
 
 # ---------------------------------------------------------------------------
@@ -423,7 +420,7 @@ class TestAiDashboardAvgTokens:
         ):
             output = observe_ai(tmp_path)
 
-        assert "Avg tokens/session: 60,000" in output
+        assert output["context_efficiency"]["avg_tokens_per_session"] == 60000
 
 
 # ---------------------------------------------------------------------------
@@ -477,7 +474,8 @@ class TestHealthNoiseComponent:
         ):
             output = observe_health(tmp_path)
 
-        assert "Gate signal quality:" in output
+        assert "Gate signal quality" in output["components"]
+        assert output["component_details"]["noise_score"] is not None
 
     def test_no_noise_component_without_failures(self, tmp_path: Path) -> None:
         from ai_engineering.cli_commands.observe import observe_health
@@ -519,4 +517,5 @@ class TestHealthNoiseComponent:
         ):
             output = observe_health(tmp_path)
 
-        assert "Gate signal quality: No failures" in output
+        assert "Gate signal quality" not in output["components"]
+        assert output["component_details"]["noise_score"] is None

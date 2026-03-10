@@ -174,7 +174,7 @@ def list_gone_branches(project_root: Path) -> list[str]:
         return []
 
     active = current_branch(project_root)
-    gone_pattern = re.compile(r"^[\s*]*(\S+)\s+\S+\s+\[.+: gone\]")
+    gone_pattern = re.compile(r"^[\s*]*(\S+)\s+\S+\s+\[[^\]]+: gone\]")
     branches: list[str] = []
     for line in output.splitlines():
         m = gone_pattern.match(line)

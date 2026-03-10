@@ -261,7 +261,7 @@ def _read_spec_context(project_root: Path, spec: str) -> dict[str, str]:
 
     # Title from first H1: "# Spec NNN — <Title>"
     title = ""
-    title_match = re.search(r"^# .+? — (.+)$", text, re.MULTILINE)
+    title_match = re.search(r"^# [^\n]+? — (.+)$", text, re.MULTILINE)
     if title_match:
         title = title_match.group(1).strip()
 
@@ -281,7 +281,7 @@ def _extract_section(text: str, heading: str) -> str:
     Returns:
         First paragraph of the section, or empty string if not found.
     """
-    pattern = rf"^## {heading}\s*\n(.*?)(?=^## |\Z)"
+    pattern = rf"^## {heading}[ \t]*\n(.*?)(?=(?:^## )|\Z)"
     match = re.search(pattern, text, re.MULTILINE | re.DOTALL)
     if not match:
         return ""

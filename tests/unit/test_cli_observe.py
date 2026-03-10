@@ -294,12 +294,12 @@ class TestObserveEngineer:
             "ai_engineering.cli_commands.observe.subprocess.run",
             return_value=mock_result,
         ):
-            output = observe_engineer(tmp_path)
-        assert "# Engineer Dashboard" in output
-        assert "Data quality: LOW" in output
-        assert "Commits/week:" in output
-        assert "Gate Health" in output
-        assert "Actions" in output
+            result = observe_engineer(tmp_path)
+        assert result["data_quality"] == "LOW"
+        assert result["total_events"] == 0
+        assert "commits_per_week" in result["delivery_velocity"]
+        assert "gate_health" in result
+        assert "actions" in result
 
     def test_with_events(self, tmp_path: Path) -> None:
         events = [
@@ -313,11 +313,10 @@ class TestObserveEngineer:
             "ai_engineering.cli_commands.observe.subprocess.run",
             return_value=mock_result,
         ):
-            output = observe_engineer(tmp_path)
-        assert "# Engineer Dashboard" in output
-        assert "3 events" in output
-        assert "Pass rate:" in output
-        assert "Most failed check:" in output
+            result = observe_engineer(tmp_path)
+        assert result["total_events"] == 3
+        assert result["gate_health"]["pass_rate"] is not None
+        assert result["gate_health"]["most_failed_check"] is not None
 
     def test_security_posture_section(self, tmp_path: Path) -> None:
         """Engineer dashboard includes Security Posture section."""
@@ -339,12 +338,11 @@ class TestObserveEngineer:
                 },
             ),
         ):
-            output = observe_engineer(tmp_path)
-        assert "## Security Posture" in output
-        assert "Vulnerabilities: 2" in output
-        assert "Security hotspots: 3" in output
-        assert "Security rating: B" in output
-        assert "Dependency vulnerabilities: 1" in output
+            result = observe_engineer(tmp_path)
+        assert result["security_posture"]["vulnerabilities"] == 2
+        assert result["security_posture"]["security_hotspots"] == 3
+        assert result["security_posture"]["security_rating"] == "B"
+        assert result["security_posture"]["dep_vulns"] == 1
 
     def test_security_posture_no_data(self, tmp_path: Path) -> None:
         """Security Posture shows helpful message when no data."""
@@ -366,9 +364,8 @@ class TestObserveEngineer:
                 },
             ),
         ):
-            output = observe_engineer(tmp_path)
-        assert "No data" in output
-        assert "ai-eng setup sonar" in output
+            result = observe_engineer(tmp_path)
+        assert result["security_posture"]["source"] == "none"
 
     def test_test_confidence_section(self, tmp_path: Path) -> None:
         """Engineer dashboard includes Test Confidence section."""
@@ -391,11 +388,12 @@ class TestObserveEngineer:
                 },
             ),
         ):
-            output = observe_engineer(tmp_path)
-        assert "## Test Confidence" in output
-        assert "Coverage: 87.5% (sonarcloud)" in output
-        assert "Files covered: 45/50" in output
-        assert "Meets threshold (80%): yes" in output
+            result = observe_engineer(tmp_path)
+        assert result["test_confidence"]["coverage_pct"] == 87.5
+        assert result["test_confidence"]["source"] == "sonarcloud"
+        assert result["test_confidence"]["files_covered"] == 45
+        assert result["test_confidence"]["files_total"] == 50
+        assert result["test_confidence"]["meets_threshold"] is True
 
     def test_test_confidence_no_data(self, tmp_path: Path) -> None:
         """Test Confidence shows helpful message when no data."""
@@ -418,9 +416,9 @@ class TestObserveEngineer:
                 },
             ),
         ):
-            output = observe_engineer(tmp_path)
-        assert "No data" in output
-        assert "pytest --cov" in output
+            result = observe_engineer(tmp_path)
+        assert result["test_confidence"]["source"] == "none"
+        assert result["test_confidence"]["coverage_pct"] == 0.0
 
 
 # ---------------------------------------------------------------------------
@@ -433,10 +431,9 @@ class TestObserveTeam:
 
     def test_empty_audit_log(self, tmp_path: Path) -> None:
         (tmp_path / ".ai-engineering").mkdir(parents=True)
-        output = observe_team(tmp_path)
-        assert "# Team Dashboard" in output
-        assert "Data quality: LOW" in output
-        assert "Event Distribution" in output
+        result = observe_team(tmp_path)
+        assert result["data_quality"] == "LOW"
+        assert "event_distribution" in result
 
     def test_with_mixed_events(self, tmp_path: Path) -> None:
         events = [
@@ -447,14 +444,13 @@ class TestObserveTeam:
             _session_event(),
         ]
         _make_audit_log(tmp_path, events)
-        output = observe_team(tmp_path)
-        assert "# Team Dashboard" in output
-        assert "5 events" in output
-        assert "Scan events: 2" in output
-        assert "Build events: 1" in output
-        assert "Session events: 1" in output
-        assert "Gate Health" in output
-        assert "Actions" in output
+        result = observe_team(tmp_path)
+        assert result["total_events"] == 5
+        assert result["event_distribution"]["scan_events"] == 2
+        assert result["event_distribution"]["build_events"] == 1
+        assert result["event_distribution"]["session_events"] == 1
+        assert "gate_health" in result
+        assert "actions" in result
 
 
 # ---------------------------------------------------------------------------
@@ -467,10 +463,9 @@ class TestObserveAi:
 
     def test_empty_audit_log(self, tmp_path: Path) -> None:
         (tmp_path / ".ai-engineering").mkdir(parents=True)
-        output = observe_ai(tmp_path)
-        assert "# AI Self-Awareness" in output
-        assert "Data quality: LOW" in output
-        assert "Cache hit rate: 0.0%" in output
+        result = observe_ai(tmp_path)
+        assert result["data_quality"] == "LOW"
+        assert result["decision_continuity"]["cache_hit_rate"] == 0.0
 
     def test_with_session_events(self, tmp_path: Path) -> None:
         events = [
@@ -478,30 +473,29 @@ class TestObserveAi:
             _session_event(tokens_used=300, decisions_reused=3, decisions_reprompted=1),
         ]
         _make_audit_log(tmp_path, events)
-        output = observe_ai(tmp_path)
-        assert "# AI Self-Awareness" in output
-        assert "Sessions analyzed: 2" in output
-        assert "Total tokens (recent): 800" in output
-        assert "Decisions reused: 8" in output
-        assert "Decisions re-prompted: 3" in output
+        result = observe_ai(tmp_path)
+        assert result["context_efficiency"]["sessions_analyzed"] == 2
+        assert result["context_efficiency"]["total_tokens"] == 800
+        assert result["decision_continuity"]["decisions_reused"] == 8
+        assert result["decision_continuity"]["decisions_reprompted"] == 3
         # Cache hit rate: 8 / (8 + 3) * 100 = 72.7%
-        assert "Cache hit rate: 72.7%" in output
+        assert result["decision_continuity"]["cache_hit_rate"] == 72.7
 
     def test_zero_decisions_gives_zero_cache_hit(self, tmp_path: Path) -> None:
         events = [
             _session_event(tokens_used=100, decisions_reused=0, decisions_reprompted=0),
         ]
         _make_audit_log(tmp_path, events)
-        output = observe_ai(tmp_path)
-        assert "Cache hit rate: 0.0%" in output
+        result = observe_ai(tmp_path)
+        assert result["decision_continuity"]["cache_hit_rate"] == 0.0
 
     def test_non_dict_detail_is_handled(self, tmp_path: Path) -> None:
         events = [
             {"event": "session_metric", "timestamp": _ts(1), "detail": "not-a-dict"},
         ]
         _make_audit_log(tmp_path, events)
-        output = observe_ai(tmp_path)
-        assert "Total tokens (recent): 0" in output
+        result = observe_ai(tmp_path)
+        assert result["context_efficiency"]["total_tokens"] == 0
 
 
 # ---------------------------------------------------------------------------
@@ -519,12 +513,11 @@ class TestObserveDora:
             "ai_engineering.cli_commands.observe.subprocess.run",
             return_value=mock_result,
         ):
-            output = observe_dora(tmp_path)
-        assert "# DORA Metrics" in output
-        assert "Data quality: LOW" in output
-        assert "Deployment Frequency" in output
-        assert "Delivery Velocity" in output
-        assert "Rating: LOW" in output
+            result = observe_dora(tmp_path)
+        assert result["data_quality"] == "LOW"
+        assert "deployment_frequency" in result
+        assert "delivery_velocity" in result
+        assert result["deployment_frequency"]["rating"] == "LOW"
 
     def test_elite_freq_rating(self, tmp_path: Path) -> None:
         (tmp_path / ".ai-engineering").mkdir(parents=True)
@@ -535,8 +528,8 @@ class TestObserveDora:
             "ai_engineering.cli_commands.observe.subprocess.run",
             return_value=mock_result,
         ):
-            output = observe_dora(tmp_path)
-        assert "Rating: ELITE" in output
+            result = observe_dora(tmp_path)
+        assert result["deployment_frequency"]["rating"] == "ELITE"
 
     def test_high_freq_rating(self, tmp_path: Path) -> None:
         (tmp_path / ".ai-engineering").mkdir(parents=True)
@@ -547,8 +540,8 @@ class TestObserveDora:
             "ai_engineering.cli_commands.observe.subprocess.run",
             return_value=mock_result,
         ):
-            output = observe_dora(tmp_path)
-        assert "Rating: HIGH" in output
+            result = observe_dora(tmp_path)
+        assert result["deployment_frequency"]["rating"] == "HIGH"
 
     def test_medium_freq_rating(self, tmp_path: Path) -> None:
         (tmp_path / ".ai-engineering").mkdir(parents=True)
@@ -560,8 +553,8 @@ class TestObserveDora:
             "ai_engineering.cli_commands.observe.subprocess.run",
             return_value=mock_result,
         ):
-            output = observe_dora(tmp_path)
-        assert "Rating: MEDIUM" in output
+            result = observe_dora(tmp_path)
+        assert result["deployment_frequency"]["rating"] == "MEDIUM"
 
 
 # ---------------------------------------------------------------------------
@@ -579,12 +572,10 @@ class TestObserveHealth:
             "ai_engineering.cli_commands.observe.subprocess.run",
             return_value=mock_result,
         ):
-            output = observe_health(tmp_path)
-        assert "# Health Score:" in output
-        assert "RED" in output
-        assert "Components" in output
-        assert "Semaphore" in output
-        assert "Top Actions" in output
+            result = observe_health(tmp_path)
+        assert result["semaphore"] == "RED"
+        assert "components" in result
+        assert "actions" in result
 
     def test_green_semaphore(self, tmp_path: Path) -> None:
         """100% gate pass + high velocity => GREEN."""
@@ -597,8 +588,8 @@ class TestObserveHealth:
             "ai_engineering.cli_commands.observe.subprocess.run",
             return_value=mock_result,
         ):
-            output = observe_health(tmp_path)
-        assert "GREEN" in output
+            result = observe_health(tmp_path)
+        assert result["semaphore"] == "GREEN"
 
     def test_yellow_semaphore(self, tmp_path: Path) -> None:
         """Moderate gate pass + moderate velocity => YELLOW."""
@@ -616,8 +607,8 @@ class TestObserveHealth:
             "ai_engineering.cli_commands.observe.subprocess.run",
             return_value=mock_result,
         ):
-            output = observe_health(tmp_path)
-        assert "YELLOW" in output
+            result = observe_health(tmp_path)
+        assert result["semaphore"] == "YELLOW"
 
     def test_red_semaphore(self, tmp_path: Path) -> None:
         """Low gate pass + low velocity => RED."""
@@ -628,8 +619,8 @@ class TestObserveHealth:
             "ai_engineering.cli_commands.observe.subprocess.run",
             return_value=mock_result,
         ):
-            output = observe_health(tmp_path)
-        assert "RED" in output
+            result = observe_health(tmp_path)
+        assert result["semaphore"] == "RED"
 
     def test_velocity_capped_at_100(self, tmp_path: Path) -> None:
         """velocity_score is capped at 100."""
@@ -642,8 +633,8 @@ class TestObserveHealth:
             "ai_engineering.cli_commands.observe.subprocess.run",
             return_value=mock_result,
         ):
-            output = observe_health(tmp_path)
-        assert "GREEN" in output
+            result = observe_health(tmp_path)
+        assert result["semaphore"] == "GREEN"
 
     def test_sonar_score_component(self, tmp_path: Path) -> None:
         """Health includes SonarCloud coverage component when available."""
@@ -663,8 +654,8 @@ class TestObserveHealth:
                 return_value={"source": "none", "coverage_pct": 0.0},
             ),
         ):
-            output = observe_health(tmp_path)
-        assert "SonarCloud coverage: 85.0%" in output
+            result = observe_health(tmp_path)
+        assert result["components"]["SonarCloud coverage"] == 85.0
 
     def test_test_confidence_score_component(self, tmp_path: Path) -> None:
         """Health includes test confidence component when available."""
@@ -684,11 +675,11 @@ class TestObserveHealth:
                 return_value={"source": "test_scope", "coverage_pct": 78.0},
             ),
         ):
-            output = observe_health(tmp_path)
-        assert "Test confidence: 78.0%" in output
+            result = observe_health(tmp_path)
+        assert result["components"]["Test confidence"] == 78.0
 
     def test_no_sonar_no_tc_shows_no_data(self, tmp_path: Path) -> None:
-        """Health shows 'No data' for sonar and test confidence when unavailable."""
+        """Health shows no sonar/tc components when unavailable."""
         (tmp_path / ".ai-engineering").mkdir(parents=True)
         mock_result = subprocess.CompletedProcess(args=[], returncode=0, stdout="")
         with (
@@ -705,9 +696,9 @@ class TestObserveHealth:
                 return_value={"source": "none", "coverage_pct": 0.0},
             ),
         ):
-            output = observe_health(tmp_path)
-        assert "SonarCloud coverage: No data" in output
-        assert "Test confidence: No data" in output
+            result = observe_health(tmp_path)
+        assert result["component_details"]["sonar_score"] is None
+        assert result["component_details"]["tc_score"] is None
 
 
 # ---------------------------------------------------------------------------
@@ -853,8 +844,8 @@ class TestObserveEdgeCases:
             "ai_engineering.cli_commands.observe.subprocess.run",
             return_value=mock_result,
         ):
-            output = observe_engineer(tmp_path)
-        assert "2 events" in output
+            result = observe_engineer(tmp_path)
+        assert result["total_events"] == 2
 
     def test_date_range_with_timestamps(self, tmp_path: Path) -> None:
         """Engineer dashboard should show day span when timestamps differ."""
@@ -876,9 +867,9 @@ class TestObserveEdgeCases:
             "ai_engineering.cli_commands.observe.subprocess.run",
             return_value=mock_result,
         ):
-            output = observe_engineer(tmp_path)
+            result = observe_engineer(tmp_path)
         # Should show approximately 30 days span
-        assert "30 days" in output or "29 days" in output
+        assert result["days_span"] in (29, 30)
 
     def test_gate_events_with_failed_checks(self, tmp_path: Path) -> None:
         """Most failed check should be reported correctly."""
@@ -894,9 +885,9 @@ class TestObserveEdgeCases:
             "ai_engineering.cli_commands.observe.subprocess.run",
             return_value=mock_result,
         ):
-            output = observe_engineer(tmp_path)
-        assert "ruff" in output
-        assert "2x" in output
+            result = observe_engineer(tmp_path)
+        assert result["gate_health"]["most_failed_check"] == "ruff"
+        assert result["gate_health"]["most_failed_count"] == 2
 
     def test_observe_health_reuses_git_stats_for_dora(self, tmp_path: Path) -> None:
         """Health dashboard passes git_stats to _dora_metrics to avoid double call."""
@@ -923,8 +914,8 @@ class TestObserveEdgeCases:
     def test_no_audit_log_file(self, tmp_path: Path) -> None:
         """Missing audit-log.ndjson should be handled gracefully."""
         (tmp_path / ".ai-engineering").mkdir(parents=True)
-        output = observe_team(tmp_path)
-        assert "0 events" in output
+        result = observe_team(tmp_path)
+        assert result["total_events"] == 0
 
     def test_session_events_detail_missing_keys(self, tmp_path: Path) -> None:
         """Session events with missing detail fields default to 0."""
@@ -932,11 +923,11 @@ class TestObserveEdgeCases:
             {"event": "session_metric", "timestamp": _ts(1), "detail": {}},
         ]
         _make_audit_log(tmp_path, events)
-        output = observe_ai(tmp_path)
-        assert "Total tokens (recent): 0" in output
-        assert "Decisions reused: 0" in output
-        assert "Decisions re-prompted: 0" in output
-        assert "Cache hit rate: 0.0%" in output
+        result = observe_ai(tmp_path)
+        assert result["context_efficiency"]["total_tokens"] == 0
+        assert result["decision_continuity"]["decisions_reused"] == 0
+        assert result["decision_continuity"]["decisions_reprompted"] == 0
+        assert result["decision_continuity"]["cache_hit_rate"] == 0.0
 
 
 # ---------------------------------------------------------------------------
@@ -946,7 +937,7 @@ class TestObserveEdgeCases:
 
 class TestSmartActions:
     def test_shows_estimated_gain(self, tmp_path: Path) -> None:
-        """Health dashboard should show actions with +N pts estimates."""
+        """Health dashboard should show actions with potential_gain estimates."""
         events = [_gate_event("pass") for _ in range(5)]
         events.append(_gate_event("fail", ["ruff-lint"]))
         _make_audit_log(tmp_path, events)
@@ -961,9 +952,8 @@ class TestSmartActions:
                 return_value={"source": "none", "coverage_pct": 0},
             ),
         ):
-            output = observe_health(tmp_path)
-        assert "pts)" in output
-        assert "## Top Actions" in output
+            result = observe_health(tmp_path)
+        assert any(a["potential_gain"] > 0 for a in result["actions"])
 
     def test_all_healthy_message(self, tmp_path: Path) -> None:
         """When all components >= 90, show healthy message."""
@@ -993,8 +983,8 @@ class TestSmartActions:
                 return_value={"source": "none", "coverage_pct": 0},
             ),
         ):
-            output = observe_health(tmp_path)
-        assert "healthy" in output.lower()
+            result = observe_health(tmp_path)
+        assert any("healthy" in a["action"].lower() for a in result["actions"])
 
 
 # ---------------------------------------------------------------------------
@@ -1028,8 +1018,8 @@ class TestDirectionIndicator:
                 return_value={"source": "none", "coverage_pct": 0},
             ),
         ):
-            output = observe_health(tmp_path)
-        assert any(d in output for d in ["↑", "↓", "→"])
+            result = observe_health(tmp_path)
+        assert result["direction"] in ("↑", "↓", "→")
 
     def test_no_direction_without_history(self, tmp_path: Path) -> None:
         """No direction indicator when no history file exists."""
@@ -1046,11 +1036,8 @@ class TestDirectionIndicator:
                 return_value={"source": "none", "coverage_pct": 0},
             ),
         ):
-            output = observe_health(tmp_path)
-        first_line = output.split("\n")[0]
-        assert "↑" not in first_line
-        assert "↓" not in first_line
-        assert "→" not in first_line
+            result = observe_health(tmp_path)
+        assert result["direction"] == ""
 
     def test_persists_snapshot(self, tmp_path: Path) -> None:
         """Health dashboard saves a snapshot after computation."""
@@ -1083,18 +1070,19 @@ class TestDirectionIndicator:
 
 class TestSelfOptimizationHints:
     def test_shows_hints_section(self, tmp_path: Path) -> None:
-        """AI dashboard shows Self-Optimization Hints section."""
+        """AI dashboard shows self_optimization_hints key."""
         events = [_session_event()]
         _make_audit_log(tmp_path, events)
-        output = observe_ai(tmp_path)
-        assert "## Self-Optimization Hints" in output
+        result = observe_ai(tmp_path)
+        assert "self_optimization_hints" in result
 
     def test_low_decision_reuse_hint(self, tmp_path: Path) -> None:
         """Shows hint when decision cache hit rate is low."""
         events = [_session_event(decisions_reused=1, decisions_reprompted=5)]
         _make_audit_log(tmp_path, events)
-        output = observe_ai(tmp_path)
-        assert "decision reuse" in output.lower() or "decision-store" in output.lower()
+        result = observe_ai(tmp_path)
+        hints_lower = [h.lower() for h in result["self_optimization_hints"]]
+        assert any("decision reuse" in h or "decision-store" in h for h in hints_lower)
 
     def test_high_gate_failure_hint(self, tmp_path: Path) -> None:
         """Shows hint when gate pass rate is below 80%."""
@@ -1102,15 +1090,17 @@ class TestSelfOptimizationHints:
         events.append(_gate_event("pass"))
         events.append(_session_event())
         _make_audit_log(tmp_path, events)
-        output = observe_ai(tmp_path)
-        assert "ruff format" in output.lower()
+        result = observe_ai(tmp_path)
+        hints_lower = [h.lower() for h in result["self_optimization_hints"]]
+        assert any("ruff format" in h for h in hints_lower)
 
     def test_no_checkpoint_hint(self, tmp_path: Path) -> None:
         """Shows hint when no checkpoint exists."""
         events = [_session_event()]
         _make_audit_log(tmp_path, events)
-        output = observe_ai(tmp_path)
-        assert "checkpoint" in output.lower()
+        result = observe_ai(tmp_path)
+        hints_lower = [h.lower() for h in result["self_optimization_hints"]]
+        assert any("checkpoint" in h for h in hints_lower)
 
     def test_all_healthy_hint(self, tmp_path: Path) -> None:
         """Shows healthy message when all patterns are fine."""
@@ -1131,5 +1121,6 @@ class TestSelfOptimizationHints:
             ),
             encoding="utf-8",
         )
-        output = observe_ai(tmp_path)
-        assert "no optimization needed" in output.lower()
+        result = observe_ai(tmp_path)
+        hints_lower = [h.lower() for h in result["self_optimization_hints"]]
+        assert any("no optimization needed" in h for h in hints_lower)

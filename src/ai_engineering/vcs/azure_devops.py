@@ -395,24 +395,34 @@ class AzureDevOpsProvider:
     # Internal
     # ------------------------------------------------------------------
 
+    _AZ_BIN = shutil.which("az") or "az"
+
     @staticmethod
     def _run(cmd: list[str], ctx: VcsContext) -> VcsResult:
         """Execute an ``az`` command and return a VcsResult.
 
         Args:
-            cmd: Command and arguments.
+            cmd: Command and arguments (first element must be ``"az"``).
             ctx: VcsContext providing the working directory.
 
         Returns:
             VcsResult with captured output.
         """
+        if not cmd or cmd[0] != "az":
+            return VcsResult(
+                success=False,
+                output="Invalid command: must start with 'az'",
+            )
+        # Replace bare "az" with resolved binary path
+        safe_cmd = [AzureDevOpsProvider._AZ_BIN, *cmd[1:]]
         try:
             proc = subprocess.run(
-                cmd,
+                safe_cmd,
                 cwd=ctx.project_root,
                 capture_output=True,
                 text=True,
                 timeout=60,
+                shell=False,
                 encoding="utf-8",
                 errors="replace",
             )

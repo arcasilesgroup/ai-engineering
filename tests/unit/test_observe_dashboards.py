@@ -170,6 +170,12 @@ _BLOCKED_CHECKPOINT = {
     "blocked_on": "PR review pending",
 }
 
+_EMPTY_NOISE = {
+    "total_failures": 0,
+    "fixable_failures": 0,
+    "noise_ratio_pct": 0.0,
+}
+
 # Shared git mocks
 _GIT_STATS = {"commits": 10, "commits_per_week": 5.0, "period_days": 30}
 _DORA = {
@@ -185,6 +191,24 @@ _GATES = {
     "pass_rate": 90.0,
     "most_failed_check": "ruff",
     "most_failed_count": 2,
+}
+
+# Shared mocks for security/test confidence (needed by observe_engineer)
+_EMPTY_SECURITY = {
+    "source": "none",
+    "vulnerabilities": 0,
+    "security_hotspots": 0,
+    "security_rating": "N/A",
+    "dep_vulns": 0,
+}
+
+_EMPTY_TEST_CONFIDENCE = {
+    "source": "none",
+    "coverage_pct": 0,
+    "files_covered": 0,
+    "files_total": 0,
+    "meets_threshold": False,
+    "untested_critical": [],
 }
 
 
@@ -208,14 +232,17 @@ class TestEngineerNewSections:
             patch(f"{module}.lead_time_metrics", return_value=_GOOD_LEAD_TIME),
             patch(f"{module}.scan_metrics_from", return_value=_GOOD_SCAN),
             patch(f"{module}.build_metrics_from", return_value=_GOOD_BUILD),
-            patch(f"{module}._sonar_metrics", return_value=[]),
+            patch(f"{module}._sonar_metrics_data", return_value={"available": False}),
+            patch(f"{module}.security_posture_metrics", return_value=_EMPTY_SECURITY),
+            patch(f"{module}.test_confidence_metrics", return_value=_EMPTY_TEST_CONFIDENCE),
         ):
-            output = observe_engineer(tmp_path)
+            result = observe_engineer(tmp_path)
 
-        assert "## Code Quality (from scans)" in output
-        assert "Quality score: 85.0/100" in output
-        assert "Security score: 92.0/100" in output
-        assert "1 critical, 3 high" in output
+        cq = result["code_quality"]
+        assert cq["avg_quality_score"] == 85.0
+        assert cq["avg_security_score"] == 92.0
+        assert cq["findings"]["critical"] == 1
+        assert cq["findings"]["high"] == 3
 
     def test_build_activity_section_present(self, tmp_path: Path) -> None:
         """Engineer dashboard includes Build Activity section."""
@@ -229,17 +256,19 @@ class TestEngineerNewSections:
             patch(f"{module}.lead_time_metrics", return_value=_GOOD_LEAD_TIME),
             patch(f"{module}.scan_metrics_from", return_value=_GOOD_SCAN),
             patch(f"{module}.build_metrics_from", return_value=_GOOD_BUILD),
-            patch(f"{module}._sonar_metrics", return_value=[]),
+            patch(f"{module}._sonar_metrics_data", return_value={"available": False}),
+            patch(f"{module}.security_posture_metrics", return_value=_EMPTY_SECURITY),
+            patch(f"{module}.test_confidence_metrics", return_value=_EMPTY_TEST_CONFIDENCE),
         ):
-            output = observe_engineer(tmp_path)
+            result = observe_engineer(tmp_path)
 
-        assert "## Build Activity (last 30d)" in output
-        assert "Builds: 12" in output
-        assert "Files changed: 45" in output
-        assert "Tests added: 15" in output
+        ba = result["build_activity"]
+        assert ba["total_builds"] == 12
+        assert ba["files_changed"] == 45
+        assert ba["tests_added"] == 15
 
     def test_no_scan_data_message(self, tmp_path: Path) -> None:
-        """Engineer dashboard shows fallback when no scan events."""
+        """Engineer dashboard shows zero scans when no scan events."""
         module = "ai_engineering.cli_commands.observe"
         with (
             patch(f"{module}.load_all_events", return_value=[]),
@@ -250,14 +279,17 @@ class TestEngineerNewSections:
             patch(f"{module}.lead_time_metrics", return_value=_EMPTY_LEAD_TIME),
             patch(f"{module}.scan_metrics_from", return_value=_EMPTY_SCAN),
             patch(f"{module}.build_metrics_from", return_value=_EMPTY_BUILD),
-            patch(f"{module}._sonar_metrics", return_value=[]),
+            patch(f"{module}._sonar_metrics_data", return_value={"available": False}),
+            patch(f"{module}.security_posture_metrics", return_value=_EMPTY_SECURITY),
+            patch(f"{module}.test_confidence_metrics", return_value=_EMPTY_TEST_CONFIDENCE),
         ):
-            output = observe_engineer(tmp_path)
+            result = observe_engineer(tmp_path)
 
-        assert "No scan data" in output
+        assert result["code_quality"]["total_scans"] == 0
+        assert result["code_quality"]["findings"] is None
 
     def test_no_build_data_message(self, tmp_path: Path) -> None:
-        """Engineer dashboard shows fallback when no build events."""
+        """Engineer dashboard shows zero builds when no build events."""
         module = "ai_engineering.cli_commands.observe"
         with (
             patch(f"{module}.load_all_events", return_value=[]),
@@ -268,11 +300,13 @@ class TestEngineerNewSections:
             patch(f"{module}.lead_time_metrics", return_value=_EMPTY_LEAD_TIME),
             patch(f"{module}.scan_metrics_from", return_value=_EMPTY_SCAN),
             patch(f"{module}.build_metrics_from", return_value=_EMPTY_BUILD),
-            patch(f"{module}._sonar_metrics", return_value=[]),
+            patch(f"{module}._sonar_metrics_data", return_value={"available": False}),
+            patch(f"{module}.security_posture_metrics", return_value=_EMPTY_SECURITY),
+            patch(f"{module}.test_confidence_metrics", return_value=_EMPTY_TEST_CONFIDENCE),
         ):
-            output = observe_engineer(tmp_path)
+            result = observe_engineer(tmp_path)
 
-        assert "No build data" in output
+        assert result["build_activity"]["total_builds"] == 0
 
     def test_lead_time_section_with_data(self, tmp_path: Path) -> None:
         """Engineer dashboard shows Lead Time section with merge data."""
@@ -286,17 +320,19 @@ class TestEngineerNewSections:
             patch(f"{module}.lead_time_metrics", return_value=_GOOD_LEAD_TIME),
             patch(f"{module}.scan_metrics_from", return_value=_EMPTY_SCAN),
             patch(f"{module}.build_metrics_from", return_value=_EMPTY_BUILD),
-            patch(f"{module}._sonar_metrics", return_value=[]),
+            patch(f"{module}._sonar_metrics_data", return_value={"available": False}),
+            patch(f"{module}.security_posture_metrics", return_value=_EMPTY_SECURITY),
+            patch(f"{module}.test_confidence_metrics", return_value=_EMPTY_TEST_CONFIDENCE),
         ):
-            output = observe_engineer(tmp_path)
+            result = observe_engineer(tmp_path)
 
-        assert "## Lead Time" in output
-        assert "Median: 2.5 days" in output
-        assert "Rating: HIGH" in output
-        assert "Merges analyzed: 8" in output
+        lt = result["lead_time"]
+        assert lt["median_days"] == 2.5
+        assert lt["rating"] == "HIGH"
+        assert lt["merges_analyzed"] == 8
 
     def test_lead_time_insufficient_data(self, tmp_path: Path) -> None:
-        """Engineer dashboard shows fallback when no merge data."""
+        """Engineer dashboard shows zero merges when no merge data."""
         module = "ai_engineering.cli_commands.observe"
         with (
             patch(f"{module}.load_all_events", return_value=[]),
@@ -307,14 +343,16 @@ class TestEngineerNewSections:
             patch(f"{module}.lead_time_metrics", return_value=_EMPTY_LEAD_TIME),
             patch(f"{module}.scan_metrics_from", return_value=_EMPTY_SCAN),
             patch(f"{module}.build_metrics_from", return_value=_EMPTY_BUILD),
-            patch(f"{module}._sonar_metrics", return_value=[]),
+            patch(f"{module}._sonar_metrics_data", return_value={"available": False}),
+            patch(f"{module}.security_posture_metrics", return_value=_EMPTY_SECURITY),
+            patch(f"{module}.test_confidence_metrics", return_value=_EMPTY_TEST_CONFIDENCE),
         ):
-            output = observe_engineer(tmp_path)
+            result = observe_engineer(tmp_path)
 
-        assert "Insufficient merge data" in output
+        assert result["lead_time"]["merges_analyzed"] == 0
 
     def test_lead_time_in_delivery_velocity(self, tmp_path: Path) -> None:
-        """Engineer dashboard shows lead time in Delivery Velocity section."""
+        """Engineer dashboard shows lead time in delivery_velocity dict."""
         module = "ai_engineering.cli_commands.observe"
         with (
             patch(f"{module}.load_all_events", return_value=[]),
@@ -325,11 +363,13 @@ class TestEngineerNewSections:
             patch(f"{module}.lead_time_metrics", return_value=_GOOD_LEAD_TIME),
             patch(f"{module}.scan_metrics_from", return_value=_EMPTY_SCAN),
             patch(f"{module}.build_metrics_from", return_value=_EMPTY_BUILD),
-            patch(f"{module}._sonar_metrics", return_value=[]),
+            patch(f"{module}._sonar_metrics_data", return_value={"available": False}),
+            patch(f"{module}.security_posture_metrics", return_value=_EMPTY_SECURITY),
+            patch(f"{module}.test_confidence_metrics", return_value=_EMPTY_TEST_CONFIDENCE),
         ):
-            output = observe_engineer(tmp_path)
+            result = observe_engineer(tmp_path)
 
-        assert "Lead time (median): 2.5 days" in output
+        assert result["delivery_velocity"]["lead_time_median_days"] == 2.5
 
 
 # ---------------------------------------------------------------------------
@@ -350,17 +390,19 @@ class TestTeamNewSections:
             patch(f"{module}.decision_store_health", return_value=_GOOD_DECISION),
             patch(f"{module}.adoption_metrics", return_value=_DEFAULT_ADOPTION),
             patch(f"{module}.scan_metrics_from", return_value=_EMPTY_SCAN),
+            patch(f"{module}.session_metrics_from", return_value=_EMPTY_SESSION),
+            patch(f"{module}.noise_ratio_from", return_value=_EMPTY_NOISE),
         ):
-            output = observe_team(tmp_path)
+            result = observe_team(tmp_path)
 
-        assert "## Decision Store Health" in output
-        assert "Active: 5" in output
-        assert "Expired (need review): 2" in output
-        assert "Resolved: 3" in output
-        assert "Avg age: 14.5 days" in output
+        ds = result["decision_store"]
+        assert ds["active"] == 5
+        assert ds["expired"] == 2
+        assert ds["resolved"] == 3
+        assert ds["avg_age_days"] == 14.5
 
     def test_decision_store_no_decisions(self, tmp_path: Path) -> None:
-        """Team dashboard shows fallback when no decisions."""
+        """Team dashboard shows zero total when no decisions."""
         module = "ai_engineering.cli_commands.observe"
         with (
             patch(f"{module}.load_all_events", return_value=[]),
@@ -369,10 +411,12 @@ class TestTeamNewSections:
             patch(f"{module}.decision_store_health", return_value=_EMPTY_DECISION),
             patch(f"{module}.adoption_metrics", return_value=_EMPTY_ADOPTION),
             patch(f"{module}.scan_metrics_from", return_value=_EMPTY_SCAN),
+            patch(f"{module}.session_metrics_from", return_value=_EMPTY_SESSION),
+            patch(f"{module}.noise_ratio_from", return_value=_EMPTY_NOISE),
         ):
-            output = observe_team(tmp_path)
+            result = observe_team(tmp_path)
 
-        assert "No decisions recorded" in output
+        assert result["decision_store"]["total"] == 0
 
     def test_adoption_section(self, tmp_path: Path) -> None:
         """Team dashboard includes Adoption section with stacks/providers/ides."""
@@ -384,14 +428,16 @@ class TestTeamNewSections:
             patch(f"{module}.decision_store_health", return_value=_EMPTY_DECISION),
             patch(f"{module}.adoption_metrics", return_value=_DEFAULT_ADOPTION),
             patch(f"{module}.scan_metrics_from", return_value=_EMPTY_SCAN),
+            patch(f"{module}.session_metrics_from", return_value=_EMPTY_SESSION),
+            patch(f"{module}.noise_ratio_from", return_value=_EMPTY_NOISE),
         ):
-            output = observe_team(tmp_path)
+            result = observe_team(tmp_path)
 
-        assert "## Adoption" in output
-        assert "Stacks: python, typescript" in output
-        assert "Providers: anthropic" in output
-        assert "IDEs: claude-code, cursor" in output
-        assert "Hooks: installed/verified" in output
+        ad = result["adoption"]
+        assert ad["stacks"] == ["python", "typescript"]
+        assert ad["primary_provider"] == "anthropic"
+        assert ad["ides"] == ["claude-code", "cursor"]
+        assert ad["hooks_status"] == "installed/verified"
 
     def test_adoption_hooks_not_installed(self, tmp_path: Path) -> None:
         """Team dashboard shows not-installed hooks status."""
@@ -403,10 +449,12 @@ class TestTeamNewSections:
             patch(f"{module}.decision_store_health", return_value=_EMPTY_DECISION),
             patch(f"{module}.adoption_metrics", return_value=_EMPTY_ADOPTION),
             patch(f"{module}.scan_metrics_from", return_value=_EMPTY_SCAN),
+            patch(f"{module}.session_metrics_from", return_value=_EMPTY_SESSION),
+            patch(f"{module}.noise_ratio_from", return_value=_EMPTY_NOISE),
         ):
-            output = observe_team(tmp_path)
+            result = observe_team(tmp_path)
 
-        assert "Hooks: not installed" in output
+        assert result["adoption"]["hooks_status"] == "not installed"
 
     def test_adoption_hooks_installed_unverified(self, tmp_path: Path) -> None:
         """Team dashboard shows installed/unverified hooks status."""
@@ -419,10 +467,12 @@ class TestTeamNewSections:
             patch(f"{module}.decision_store_health", return_value=_EMPTY_DECISION),
             patch(f"{module}.adoption_metrics", return_value=adopt),
             patch(f"{module}.scan_metrics_from", return_value=_EMPTY_SCAN),
+            patch(f"{module}.session_metrics_from", return_value=_EMPTY_SESSION),
+            patch(f"{module}.noise_ratio_from", return_value=_EMPTY_NOISE),
         ):
-            output = observe_team(tmp_path)
+            result = observe_team(tmp_path)
 
-        assert "Hooks: installed/unverified" in output
+        assert result["adoption"]["hooks_status"] == "installed/unverified"
 
     def test_scan_health_section(self, tmp_path: Path) -> None:
         """Team dashboard includes Scan Health section."""
@@ -434,15 +484,17 @@ class TestTeamNewSections:
             patch(f"{module}.decision_store_health", return_value=_EMPTY_DECISION),
             patch(f"{module}.adoption_metrics", return_value=_EMPTY_ADOPTION),
             patch(f"{module}.scan_metrics_from", return_value=_GOOD_SCAN),
+            patch(f"{module}.session_metrics_from", return_value=_EMPTY_SESSION),
+            patch(f"{module}.noise_ratio_from", return_value=_EMPTY_NOISE),
         ):
-            output = observe_team(tmp_path)
+            result = observe_team(tmp_path)
 
-        assert "## Scan Health" in output
-        assert "Avg quality score: 85.0/100" in output
-        assert "Scans run: 5" in output
+        sh = result["scan_health"]
+        assert sh["avg_quality_score"] == 85.0
+        assert sh["total_scans"] == 5
 
     def test_scan_health_no_data(self, tmp_path: Path) -> None:
-        """Team dashboard shows fallback when no scan data."""
+        """Team dashboard shows zero scans when no scan data."""
         module = "ai_engineering.cli_commands.observe"
         with (
             patch(f"{module}.load_all_events", return_value=[]),
@@ -451,11 +503,12 @@ class TestTeamNewSections:
             patch(f"{module}.decision_store_health", return_value=_EMPTY_DECISION),
             patch(f"{module}.adoption_metrics", return_value=_EMPTY_ADOPTION),
             patch(f"{module}.scan_metrics_from", return_value=_EMPTY_SCAN),
+            patch(f"{module}.session_metrics_from", return_value=_EMPTY_SESSION),
+            patch(f"{module}.noise_ratio_from", return_value=_EMPTY_NOISE),
         ):
-            output = observe_team(tmp_path)
+            result = observe_team(tmp_path)
 
-        assert "## Scan Health" in output
-        assert "No scan data" in output
+        assert result["scan_health"]["total_scans"] == 0
 
     def test_deploy_events_in_distribution(self, tmp_path: Path) -> None:
         """Team dashboard includes deploy events in Event Distribution."""
@@ -467,10 +520,12 @@ class TestTeamNewSections:
             patch(f"{module}.decision_store_health", return_value=_EMPTY_DECISION),
             patch(f"{module}.adoption_metrics", return_value=_EMPTY_ADOPTION),
             patch(f"{module}.scan_metrics_from", return_value=_EMPTY_SCAN),
+            patch(f"{module}.session_metrics_from", return_value=_EMPTY_SESSION),
+            patch(f"{module}.noise_ratio_from", return_value=_EMPTY_NOISE),
         ):
-            output = observe_team(tmp_path)
+            result = observe_team(tmp_path)
 
-        assert "Deploy events:" in output
+        assert "deploy_events" in result["event_distribution"]
 
 
 # ---------------------------------------------------------------------------
@@ -490,16 +545,21 @@ class TestAiNewSections:
             patch(f"{module}.filter_events", return_value=[]),
             patch(f"{module}.session_metrics_from", return_value=_GOOD_SESSION),
             patch(f"{module}.checkpoint_status", return_value=_GOOD_CHECKPOINT),
+            patch(f"{module}.gate_pass_rate_from", return_value=_GATES),
         ):
-            output = observe_ai(tmp_path)
+            result = observe_ai(tmp_path)
 
-        assert "## Session Recovery" in output
-        assert "Last checkpoint: 6.3 (2h ago)" in output
-        assert "Progress: 3/5 (60.0%)" in output
-        assert "Blocked on: nothing" in output
+        sr = result["session_recovery"]
+        assert sr["has_checkpoint"] is True
+        assert sr["last_task"] == "6.3"
+        assert sr["age"] == "2h ago"
+        assert sr["completed"] == 3
+        assert sr["total"] == 5
+        assert sr["progress_pct"] == 60.0
+        assert sr["blocked_on"] is None
 
     def test_no_checkpoint_found(self, tmp_path: Path) -> None:
-        """AI dashboard shows 'No checkpoint found' when no checkpoint."""
+        """AI dashboard shows no checkpoint when none exists."""
         module = "ai_engineering.cli_commands.observe"
         with (
             patch(f"{module}.load_all_events", return_value=[]),
@@ -507,10 +567,11 @@ class TestAiNewSections:
             patch(f"{module}.filter_events", return_value=[]),
             patch(f"{module}.session_metrics_from", return_value=_EMPTY_SESSION),
             patch(f"{module}.checkpoint_status", return_value=_NO_CHECKPOINT),
+            patch(f"{module}.gate_pass_rate_from", return_value=_GATES),
         ):
-            output = observe_ai(tmp_path)
+            result = observe_ai(tmp_path)
 
-        assert "No checkpoint found" in output
+        assert result["session_recovery"]["has_checkpoint"] is False
 
     def test_blocked_checkpoint(self, tmp_path: Path) -> None:
         """AI dashboard shows blocked-on item when present."""
@@ -521,10 +582,11 @@ class TestAiNewSections:
             patch(f"{module}.filter_events", return_value=[]),
             patch(f"{module}.session_metrics_from", return_value=_GOOD_SESSION),
             patch(f"{module}.checkpoint_status", return_value=_BLOCKED_CHECKPOINT),
+            patch(f"{module}.gate_pass_rate_from", return_value=_GATES),
         ):
-            output = observe_ai(tmp_path)
+            result = observe_ai(tmp_path)
 
-        assert "Blocked on: PR review pending" in output
+        assert result["session_recovery"]["blocked_on"] == "PR review pending"
 
     def test_expanded_context_efficiency(self, tmp_path: Path) -> None:
         """AI dashboard shows expanded context efficiency with utilization."""
@@ -535,16 +597,19 @@ class TestAiNewSections:
             patch(f"{module}.filter_events", return_value=[]),
             patch(f"{module}.session_metrics_from", return_value=_GOOD_SESSION),
             patch(f"{module}.checkpoint_status", return_value=_NO_CHECKPOINT),
+            patch(f"{module}.gate_pass_rate_from", return_value=_GATES),
         ):
-            output = observe_ai(tmp_path)
+            result = observe_ai(tmp_path)
 
-        assert "Sessions analyzed: 5" in output
-        assert "Total tokens (recent): 150,000" in output
-        assert "Token utilization: 150000/200000 (15.0%)" in output
-        assert "Skills loaded: build, commit, test" in output
+        ce = result["context_efficiency"]
+        assert ce["sessions_analyzed"] == 5
+        assert ce["total_tokens"] == 150_000
+        assert ce["tokens_available"] == 200_000
+        assert ce["utilization_pct"] == 15.0
+        assert ce["skills_loaded"] == ["build", "commit", "test"]
 
     def test_context_efficiency_no_skills(self, tmp_path: Path) -> None:
-        """AI dashboard shows 'none' when no skills loaded."""
+        """AI dashboard shows empty skills list when no skills loaded."""
         module = "ai_engineering.cli_commands.observe"
         with (
             patch(f"{module}.load_all_events", return_value=[]),
@@ -552,10 +617,11 @@ class TestAiNewSections:
             patch(f"{module}.filter_events", return_value=[]),
             patch(f"{module}.session_metrics_from", return_value=_EMPTY_SESSION),
             patch(f"{module}.checkpoint_status", return_value=_NO_CHECKPOINT),
+            patch(f"{module}.gate_pass_rate_from", return_value=_GATES),
         ):
-            output = observe_ai(tmp_path)
+            result = observe_ai(tmp_path)
 
-        assert "Skills loaded: none" in output
+        assert result["context_efficiency"]["skills_loaded"] == []
 
 
 # ---------------------------------------------------------------------------
@@ -576,11 +642,11 @@ class TestDoraNewSections:
             patch(f"{module}.lead_time_metrics", return_value=_GOOD_LEAD_TIME),
             patch(f"{module}.deploy_metrics_from", return_value=_EMPTY_DEPLOY),
         ):
-            output = observe_dora(tmp_path)
+            result = observe_dora(tmp_path)
 
-        assert "## Lead Time for Changes" in output
-        assert "Median: 2.5 days" in output
-        assert "Rating: HIGH" in output
+        lt = result["lead_time"]
+        assert lt["median_days"] == 2.5
+        assert lt["rating"] == "HIGH"
 
     def test_change_failure_rate_section(self, tmp_path: Path) -> None:
         """DORA dashboard includes Change Failure Rate section."""
@@ -592,13 +658,13 @@ class TestDoraNewSections:
             patch(f"{module}.lead_time_metrics", return_value=_GOOD_LEAD_TIME),
             patch(f"{module}.deploy_metrics_from", return_value=_GOOD_DEPLOY),
         ):
-            output = observe_dora(tmp_path)
+            result = observe_dora(tmp_path)
 
-        assert "## Change Failure Rate" in output
-        assert "Deployments: 20" in output
-        assert "Rollbacks: 3" in output
-        assert "Rate: 15.0%" in output
-        assert "Rating: ELITE" in output  # 15.0% <= 15 => ELITE
+        cfr = result["change_failure_rate"]
+        assert cfr["total_deploys"] == 20
+        assert cfr["rollbacks"] == 3
+        assert cfr["rate_pct"] == 15.0
+        assert cfr["rating"] == "ELITE"  # 15.0% <= 15 => ELITE
 
     def test_cfr_rating_high(self, tmp_path: Path) -> None:
         """CFR rating HIGH for 16-30% failure rate."""
@@ -611,17 +677,9 @@ class TestDoraNewSections:
             patch(f"{module}.lead_time_metrics", return_value=_GOOD_LEAD_TIME),
             patch(f"{module}.deploy_metrics_from", return_value=deploy),
         ):
-            output = observe_dora(tmp_path)
+            result = observe_dora(tmp_path)
 
-        # Find the CFR rating specifically (not the deployment frequency rating)
-        lines = output.split("\n")
-        cfr_section = False
-        for line in lines:
-            if "## Change Failure Rate" in line:
-                cfr_section = True
-            if cfr_section and line.startswith("- Rating:"):
-                assert "HIGH" in line
-                break
+        assert result["change_failure_rate"]["rating"] == "HIGH"
 
     def test_cfr_rating_medium(self, tmp_path: Path) -> None:
         """CFR rating MEDIUM for 31-45% failure rate."""
@@ -634,16 +692,9 @@ class TestDoraNewSections:
             patch(f"{module}.lead_time_metrics", return_value=_GOOD_LEAD_TIME),
             patch(f"{module}.deploy_metrics_from", return_value=deploy),
         ):
-            output = observe_dora(tmp_path)
+            result = observe_dora(tmp_path)
 
-        lines = output.split("\n")
-        cfr_section = False
-        for line in lines:
-            if "## Change Failure Rate" in line:
-                cfr_section = True
-            if cfr_section and line.startswith("- Rating:"):
-                assert "MEDIUM" in line
-                break
+        assert result["change_failure_rate"]["rating"] == "MEDIUM"
 
     def test_cfr_rating_low(self, tmp_path: Path) -> None:
         """CFR rating LOW for >45% failure rate."""
@@ -655,16 +706,9 @@ class TestDoraNewSections:
             patch(f"{module}.lead_time_metrics", return_value=_GOOD_LEAD_TIME),
             patch(f"{module}.deploy_metrics_from", return_value=_HIGH_FAILURE_DEPLOY),
         ):
-            output = observe_dora(tmp_path)
+            result = observe_dora(tmp_path)
 
-        lines = output.split("\n")
-        cfr_section = False
-        for line in lines:
-            if "## Change Failure Rate" in line:
-                cfr_section = True
-            if cfr_section and line.startswith("- Rating:"):
-                assert "LOW" in line
-                break
+        assert result["change_failure_rate"]["rating"] == "LOW"
 
     def test_zero_deploys_cfr_elite(self, tmp_path: Path) -> None:
         """Zero deploys gives 0% failure rate => ELITE."""
@@ -676,9 +720,9 @@ class TestDoraNewSections:
             patch(f"{module}.lead_time_metrics", return_value=_EMPTY_LEAD_TIME),
             patch(f"{module}.deploy_metrics_from", return_value=_EMPTY_DEPLOY),
         ):
-            output = observe_dora(tmp_path)
+            result = observe_dora(tmp_path)
 
-        assert "Rate: 0.0%" in output
+        assert result["change_failure_rate"]["rate_pct"] == 0.0
 
 
 # ---------------------------------------------------------------------------
@@ -700,15 +744,22 @@ class TestHealthMultiVariable:
             patch(f"{module}._dora_metrics", return_value=_DORA),
             patch(f"{module}.scan_metrics_from", return_value=_EMPTY_SCAN),
             patch(f"{module}.decision_store_health", return_value=_EMPTY_DECISION),
+            patch(f"{module}.sonar_detailed_metrics", return_value={"available": False}),
+            patch(f"{module}.test_confidence_metrics", return_value=_EMPTY_TEST_CONFIDENCE),
+            patch(f"{module}.noise_ratio_from", return_value=_EMPTY_NOISE),
+            patch(f"{module}.load_health_history", return_value=[]),
+            patch(f"{module}.health_direction", return_value="stable"),
+            patch(f"{module}.save_health_snapshot"),
         ):
-            output = observe_health(tmp_path)
+            result = observe_health(tmp_path)
 
         # gate=90, velocity=min(5.0*10,100)=50, dora=75 (freq 2.0 >= 1)
         # 3 components: (90 + 50 + 75) / 3 = 71.67 => round => 72
-        assert "# Health Score: 72/100" in output
-        assert "YELLOW" in output
-        assert "Scan quality: No data" in output
-        assert "Decision health: No decisions" in output
+        assert result["score"] == 72
+        assert result["semaphore"] == "YELLOW"
+        assert result["components"].get("Scan quality") is None
+        assert result["component_details"]["scan_score"] is None
+        assert result["component_details"]["decision_score"] is None
 
     def test_score_with_all_components(self, tmp_path: Path) -> None:
         """Health score with all 5 components."""
@@ -721,16 +772,21 @@ class TestHealthMultiVariable:
             patch(f"{module}._dora_metrics", return_value=_DORA),
             patch(f"{module}.scan_metrics_from", return_value=_GOOD_SCAN),
             patch(f"{module}.decision_store_health", return_value=_GOOD_DECISION),
+            patch(f"{module}.sonar_detailed_metrics", return_value={"available": False}),
+            patch(f"{module}.test_confidence_metrics", return_value=_EMPTY_TEST_CONFIDENCE),
+            patch(f"{module}.noise_ratio_from", return_value=_EMPTY_NOISE),
+            patch(f"{module}.load_health_history", return_value=[]),
+            patch(f"{module}.health_direction", return_value="stable"),
+            patch(f"{module}.save_health_snapshot"),
         ):
-            output = observe_health(tmp_path)
+            result = observe_health(tmp_path)
 
         # gate=90, velocity=50, scan=85, decision=max(0,100-2*20)=60, dora=75
         # 5 components: (90 + 50 + 85 + 60 + 75) / 5 = 72
-        assert "# Health Score: 72/100" in output
-        assert "YELLOW" in output
-        assert "Scan quality: 85.0/100" in output
-        assert "Decision health: 60/100" in output
-        assert "DORA frequency:" in output
+        assert result["score"] == 72
+        assert result["semaphore"] == "YELLOW"
+        assert result["components"]["Scan quality"] == 85.0
+        assert result["component_details"]["decision_score"] == 60
 
     def test_green_score_all_high(self, tmp_path: Path) -> None:
         """Health score GREEN when all components are high."""
@@ -749,12 +805,18 @@ class TestHealthMultiVariable:
             patch(f"{module}._dora_metrics", return_value=high_dora),
             patch(f"{module}.scan_metrics_from", return_value=high_scan),
             patch(f"{module}.decision_store_health", return_value=no_expired),
+            patch(f"{module}.sonar_detailed_metrics", return_value={"available": False}),
+            patch(f"{module}.test_confidence_metrics", return_value=_EMPTY_TEST_CONFIDENCE),
+            patch(f"{module}.noise_ratio_from", return_value=_EMPTY_NOISE),
+            patch(f"{module}.load_health_history", return_value=[]),
+            patch(f"{module}.health_direction", return_value="stable"),
+            patch(f"{module}.save_health_snapshot"),
         ):
-            output = observe_health(tmp_path)
+            result = observe_health(tmp_path)
 
         # gate=100, velocity=100, scan=95, decision=100, dora=100
         # (100+100+95+100+100)/5 = 99
-        assert "GREEN" in output
+        assert result["semaphore"] == "GREEN"
 
     def test_red_score_all_low(self, tmp_path: Path) -> None:
         """Health score RED when components are poor."""
@@ -771,12 +833,18 @@ class TestHealthMultiVariable:
             patch(f"{module}._dora_metrics", return_value=low_dora),
             patch(f"{module}.scan_metrics_from", return_value=_EMPTY_SCAN),
             patch(f"{module}.decision_store_health", return_value=_EMPTY_DECISION),
+            patch(f"{module}.sonar_detailed_metrics", return_value={"available": False}),
+            patch(f"{module}.test_confidence_metrics", return_value=_EMPTY_TEST_CONFIDENCE),
+            patch(f"{module}.noise_ratio_from", return_value=_EMPTY_NOISE),
+            patch(f"{module}.load_health_history", return_value=[]),
+            patch(f"{module}.health_direction", return_value="stable"),
+            patch(f"{module}.save_health_snapshot"),
         ):
-            output = observe_health(tmp_path)
+            result = observe_health(tmp_path)
 
         # gate=20, velocity=5, dora=25
         # (20+5+25)/3 = 16.67 => 17
-        assert "RED" in output
+        assert result["semaphore"] == "RED"
 
     def test_decision_health_capped_at_zero(self, tmp_path: Path) -> None:
         """Decision score floors at 0 when many expired decisions."""
@@ -790,14 +858,20 @@ class TestHealthMultiVariable:
             patch(f"{module}._dora_metrics", return_value=_DORA),
             patch(f"{module}.scan_metrics_from", return_value=_EMPTY_SCAN),
             patch(f"{module}.decision_store_health", return_value=many_expired),
+            patch(f"{module}.sonar_detailed_metrics", return_value={"available": False}),
+            patch(f"{module}.test_confidence_metrics", return_value=_EMPTY_TEST_CONFIDENCE),
+            patch(f"{module}.noise_ratio_from", return_value=_EMPTY_NOISE),
+            patch(f"{module}.load_health_history", return_value=[]),
+            patch(f"{module}.health_direction", return_value="stable"),
+            patch(f"{module}.save_health_snapshot"),
         ):
-            output = observe_health(tmp_path)
+            result = observe_health(tmp_path)
 
         # decision_score = max(0, 100 - 10*20) = max(0, -100) = 0
-        assert "Decision health: 0/100" in output
+        assert result["component_details"]["decision_score"] == 0
 
     def test_semaphore_section_format(self, tmp_path: Path) -> None:
-        """Health dashboard uses new semaphore format."""
+        """Health dashboard uses semaphore field."""
         module = "ai_engineering.cli_commands.observe"
         with (
             patch(f"{module}.load_all_events", return_value=[]),
@@ -807,13 +881,20 @@ class TestHealthMultiVariable:
             patch(f"{module}._dora_metrics", return_value=_DORA),
             patch(f"{module}.scan_metrics_from", return_value=_EMPTY_SCAN),
             patch(f"{module}.decision_store_health", return_value=_EMPTY_DECISION),
+            patch(f"{module}.sonar_detailed_metrics", return_value={"available": False}),
+            patch(f"{module}.test_confidence_metrics", return_value=_EMPTY_TEST_CONFIDENCE),
+            patch(f"{module}.noise_ratio_from", return_value=_EMPTY_NOISE),
+            patch(f"{module}.load_health_history", return_value=[]),
+            patch(f"{module}.health_direction", return_value="stable"),
+            patch(f"{module}.save_health_snapshot"),
         ):
-            output = observe_health(tmp_path)
+            result = observe_health(tmp_path)
 
-        assert "## Semaphore:" in output
+        assert "semaphore" in result
+        assert result["semaphore"] in {"GREEN", "YELLOW", "RED"}
 
     def test_component_scores_displayed(self, tmp_path: Path) -> None:
-        """Health dashboard shows arrow notation for component scores."""
+        """Health dashboard shows component scores in components dict."""
         module = "ai_engineering.cli_commands.observe"
         with (
             patch(f"{module}.load_all_events", return_value=[]),
@@ -823,12 +904,18 @@ class TestHealthMultiVariable:
             patch(f"{module}._dora_metrics", return_value=_DORA),
             patch(f"{module}.scan_metrics_from", return_value=_EMPTY_SCAN),
             patch(f"{module}.decision_store_health", return_value=_EMPTY_DECISION),
+            patch(f"{module}.sonar_detailed_metrics", return_value={"available": False}),
+            patch(f"{module}.test_confidence_metrics", return_value=_EMPTY_TEST_CONFIDENCE),
+            patch(f"{module}.noise_ratio_from", return_value=_EMPTY_NOISE),
+            patch(f"{module}.load_health_history", return_value=[]),
+            patch(f"{module}.health_direction", return_value="stable"),
+            patch(f"{module}.save_health_snapshot"),
         ):
-            output = observe_health(tmp_path)
+            result = observe_health(tmp_path)
 
-        assert "Gate pass rate: 90.0% -> 90.0/100" in output
-        assert "Delivery velocity: 5.0/week -> 50.0/100" in output
-        assert "DORA frequency: 2.0/week -> 75/100" in output
+        assert result["components"]["Gate pass rate"] == 90.0
+        assert result["components"]["Delivery velocity"] == 50.0
+        assert result["components"]["DORA frequency"] == 75
 
     def test_dora_score_elite(self, tmp_path: Path) -> None:
         """DORA frequency score is 100 when freq >= 5."""
@@ -842,10 +929,16 @@ class TestHealthMultiVariable:
             patch(f"{module}._dora_metrics", return_value=high_dora),
             patch(f"{module}.scan_metrics_from", return_value=_EMPTY_SCAN),
             patch(f"{module}.decision_store_health", return_value=_EMPTY_DECISION),
+            patch(f"{module}.sonar_detailed_metrics", return_value={"available": False}),
+            patch(f"{module}.test_confidence_metrics", return_value=_EMPTY_TEST_CONFIDENCE),
+            patch(f"{module}.noise_ratio_from", return_value=_EMPTY_NOISE),
+            patch(f"{module}.load_health_history", return_value=[]),
+            patch(f"{module}.health_direction", return_value="stable"),
+            patch(f"{module}.save_health_snapshot"),
         ):
-            output = observe_health(tmp_path)
+            result = observe_health(tmp_path)
 
-        assert "DORA frequency: 6.0/week -> 100/100" in output
+        assert result["components"]["DORA frequency"] == 100
 
     def test_dora_score_low(self, tmp_path: Path) -> None:
         """DORA frequency score is 25 when freq < 0.25."""
@@ -859,7 +952,13 @@ class TestHealthMultiVariable:
             patch(f"{module}._dora_metrics", return_value=low_dora),
             patch(f"{module}.scan_metrics_from", return_value=_EMPTY_SCAN),
             patch(f"{module}.decision_store_health", return_value=_EMPTY_DECISION),
+            patch(f"{module}.sonar_detailed_metrics", return_value={"available": False}),
+            patch(f"{module}.test_confidence_metrics", return_value=_EMPTY_TEST_CONFIDENCE),
+            patch(f"{module}.noise_ratio_from", return_value=_EMPTY_NOISE),
+            patch(f"{module}.load_health_history", return_value=[]),
+            patch(f"{module}.health_direction", return_value="stable"),
+            patch(f"{module}.save_health_snapshot"),
         ):
-            output = observe_health(tmp_path)
+            result = observe_health(tmp_path)
 
-        assert "DORA frequency: 0.1/week -> 25/100" in output
+        assert result["components"]["DORA frequency"] == 25
