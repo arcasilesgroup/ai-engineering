@@ -39,29 +39,10 @@ def validate_commit_message(msg: str) -> list[str]:
     return errors
 
 
-_ALLOWED_COMMIT_MSG_NAMES = frozenset(
-    {
-        "COMMIT_EDITMSG",
-        "MERGE_MSG",
-        "SQUASH_MSG",
-        "TAG_EDITMSG",
-    }
-)
-
-
 def inject_gate_trailer(commit_msg_file: Path) -> None:
-    """Append gate verification trailer if not already present.
-
-    Only operates on known git commit message files to prevent
-    path-traversal attacks (S2083).
-    """
-    safe_path = commit_msg_file.resolve()
-
-    if safe_path.name not in _ALLOWED_COMMIT_MSG_NAMES:
-        return
-
+    """Append gate verification trailer if not already present."""
     try:
-        content = safe_path.read_text(encoding="utf-8")
+        content = commit_msg_file.read_text(encoding="utf-8")
     except OSError:
         return
 
@@ -70,6 +51,6 @@ def inject_gate_trailer(commit_msg_file: Path) -> None:
 
     updated = content.rstrip() + f"\n\n{_GATE_TRAILER}\n"
     try:
-        safe_path.write_text(updated, encoding="utf-8")
+        commit_msg_file.write_text(updated, encoding="utf-8")
     except OSError:
         return
