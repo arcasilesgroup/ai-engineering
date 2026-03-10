@@ -106,6 +106,7 @@ tooling:
     dast: ["zap-cli", "nuclei"]
     container: ["trivy"]
     sbom: ["cyclonedx-py", "cyclonedx-dotnet", "cdxgen"]
+    security: ["snyk"]
   readiness:
     require_install: true
     require_configuration: true

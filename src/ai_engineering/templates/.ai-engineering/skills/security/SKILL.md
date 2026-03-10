@@ -29,6 +29,7 @@ Unified security assessment covering static analysis (SAST), dynamic analysis (D
 ### static — SAST review
 OWASP Top 10 2025 analysis, secret detection, injection patterns, auth issues.
 Tools: `semgrep`, `gitleaks`, manual code analysis.
+Optional: `snyk code test` (requires `SNYK_TOKEN`, CI-only).
 
 ### dynamic — DAST review
 Runtime security testing, container scanning, cloud configuration.
@@ -37,6 +38,7 @@ Tools: `zap-cli`, `nuclei`, `trivy`.
 ### deps — Dependency audit
 Vulnerability scanning of all dependencies across stacks.
 Tools: `pip-audit`, `npm audit`, `dotnet list package --vulnerable`, `cargo audit`.
+Optional: `snyk test` (requires `SNYK_TOKEN`, CI-only).
 
 ### sbom — Software Bill of Materials
 Generate CycloneDX SBOM for all project dependencies.
