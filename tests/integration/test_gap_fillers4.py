@@ -130,12 +130,12 @@ def test_pipeline_duplication_and_gate_internal_edges(tmp_path: Path) -> None:
     from ai_engineering.policy.checks.commit_msg import _GATE_TRAILER, inject_gate_trailer
     from ai_engineering.policy.checks.stack_runner import run_tool_check
 
-    msg = tmp_path / "msg.txt"
+    msg = tmp_path / "COMMIT_EDITMSG"
     msg.write_text(f"feat: x\n\n{_GATE_TRAILER}\n", encoding="utf-8")
     inject_gate_trailer(msg)
     assert msg.read_text(encoding="utf-8").count(_GATE_TRAILER) == 1
 
-    msg2 = tmp_path / "msg2.txt"
+    msg2 = tmp_path / "COMMIT_EDITMSG"
     msg2.write_text("feat: y\n", encoding="utf-8")
     with patch.object(Path, "write_text", side_effect=OSError("nope")):
         inject_gate_trailer(msg2)
