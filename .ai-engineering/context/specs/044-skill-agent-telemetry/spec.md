@@ -1,7 +1,7 @@
 ---
 id: "044"
 slug: "skill-agent-telemetry"
-status: "in-progress"
+status: "complete"
 created: "2026-03-10"
 size: "M"
 tags: ["observability", "telemetry", "skills", "agents", "cross-ide"]
