@@ -57,6 +57,7 @@ def setup_platforms_cmd(
         Path | None,
         typer.Argument(help="Target project root. Defaults to cwd."),
     ] = None,
+    vcs_provider: str | None = None,
 ) -> None:
     """Detect and configure all platforms found in the repository."""
     root = resolve_project_root(target)
@@ -99,6 +100,12 @@ def setup_platforms_cmd(
     # Offer to configure platforms that were not auto-detected.
     all_platforms = set(PlatformKind)
     undetected = all_platforms - set(detected)
+
+    # Filter out opposite VCS platform — only offer VCS-agnostic platforms + matching VCS.
+    if vcs_provider == "azure_devops":
+        undetected.discard(PlatformKind.GITHUB)
+    elif vcs_provider == "github":
+        undetected.discard(PlatformKind.AZURE_DEVOPS)
 
     if undetected:
         names = ", ".join(p.value for p in sorted(undetected, key=lambda p: p.value))
@@ -257,7 +264,7 @@ def _run_sonar_setup(
     url = url_override or _read_sonar_url_from_properties(root)
     if not url:
         url = typer.prompt(
-            "  Sonar server URL",
+            "  Sonar server base URL (e.g. https://sonarcloud.io)",
             default=SONARCLOUD_URL,
         )
 
