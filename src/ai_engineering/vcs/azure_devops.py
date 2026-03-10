@@ -413,8 +413,15 @@ class AzureDevOpsProvider:
                 success=False,
                 output="Invalid command: must start with 'az'",
             )
-        # Replace bare "az" with resolved binary path
-        safe_cmd = [AzureDevOpsProvider._AZ_BIN, *cmd[1:]]
+        # Replace bare "az" with resolved binary path; validate all args are strings
+        safe_cmd = [AzureDevOpsProvider._AZ_BIN]
+        for arg in cmd[1:]:
+            if not isinstance(arg, str):
+                return VcsResult(
+                    success=False,
+                    output=f"Invalid argument type: {type(arg).__name__}",
+                )
+            safe_cmd.append(arg)
         try:
             proc = subprocess.run(
                 safe_cmd,

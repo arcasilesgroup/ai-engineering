@@ -120,7 +120,9 @@ def _auto_correct_frontmatter(tasks_path: Path, real_total: int, real_completed:
         else:
             new_lines.append(line)
 
-    tasks_path.resolve().write_text("\n".join(new_lines), encoding="utf-8")
+    resolved = tasks_path.resolve()
+    resolved.relative_to(tasks_path.parent.resolve())
+    resolved.write_text("\n".join(new_lines), encoding="utf-8")
     return True
 
 

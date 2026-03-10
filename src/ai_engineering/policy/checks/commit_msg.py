@@ -51,6 +51,9 @@ def inject_gate_trailer(commit_msg_file: Path) -> None:
 
     updated = content.rstrip() + f"\n\n{_GATE_TRAILER}\n"
     try:
-        commit_msg_file.write_text(updated, encoding="utf-8")
+        resolved = commit_msg_file.resolve()
+        if not any(p.name == ".git" for p in resolved.parents):
+            return
+        resolved.write_text(updated, encoding="utf-8")
     except OSError:
         return
