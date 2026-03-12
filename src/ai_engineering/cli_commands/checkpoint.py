@@ -37,12 +37,15 @@ def checkpoint_save(
     blocked_on: Annotated[
         str | None, typer.Option(help="What is blocking (null if nothing)")
     ] = None,
+    agent: Annotated[
+        str, typer.Option(help="Agent saving checkpoint (e.g., execute, release)")
+    ] = "",
 ) -> None:
     """Save a session checkpoint for recovery."""
     root = _project_root()
     path = _checkpoint_path(root)
 
-    checkpoint = {
+    entry = {
         "spec_id": spec_id,
         "current_task": current_task,
         "progress": progress,
@@ -51,8 +54,26 @@ def checkpoint_save(
         "timestamp": datetime.now(tz=UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
     }
 
+    # Namespaced checkpoint: each agent writes to its own section
+    # while preserving other agents' data. Backward-compatible with flat schema.
+    existing: dict = {}
+    if path.exists():
+        with contextlib.suppress(json.JSONDecodeError, OSError):
+            existing = json.loads(path.read_text(encoding="utf-8"))
+
+    if agent:
+        # Namespaced write: store under agents.<agent>
+        agents_section = existing.get("agents", {})
+        agents_section[agent] = entry
+        existing["agents"] = agents_section
+        # Also update top-level for backward compatibility
+        existing.update(entry)
+    else:
+        # Legacy flat write
+        existing.update(entry)
+
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(checkpoint, indent=2) + "\n", encoding="utf-8")
+    path.write_text(json.dumps(existing, indent=2) + "\n", encoding="utf-8")
 
     # Emit session metric event with checkpoint context (fail-open)
     with contextlib.suppress(Exception):
@@ -74,7 +95,9 @@ def checkpoint_save(
     typer.echo(f"Checkpoint saved: spec={spec_id} task={current_task} progress={progress}")
 
 
-def checkpoint_load() -> None:
+def checkpoint_load(
+    agent: Annotated[str, typer.Option(help="Load checkpoint for specific agent")] = "",
+) -> None:
     """Load the last session checkpoint."""
     root = _project_root()
     path = _checkpoint_path(root)
@@ -89,11 +112,26 @@ def checkpoint_load() -> None:
         typer.echo(f"Failed to load checkpoint: {exc}", err=True)
         raise typer.Exit(code=1) from None
 
+    # If agent-specific checkpoint requested, use namespaced data
+    if agent and "agents" in data and agent in data["agents"]:
+        data = data["agents"][agent]
+
     typer.echo("# Session Checkpoint")
     typer.echo("")
+    if agent:
+        typer.echo(f"- Agent: {agent}")
     typer.echo(f"- Spec: {data.get('spec_id', 'none')}")
     typer.echo(f"- Task: {data.get('current_task', 'none')}")
     typer.echo(f"- Progress: {data.get('progress', 'unknown')}")
     typer.echo(f"- Last reasoning: {data.get('last_reasoning', 'none')}")
     typer.echo(f"- Blocked on: {data.get('blocked_on', 'nothing')}")
     typer.echo(f"- Saved at: {data.get('timestamp', 'unknown')}")
+
+    # Show all agent checkpoints if no specific agent requested
+    if not agent and "agents" in data:
+        typer.echo("")
+        typer.echo("## Agent Checkpoints")
+        for agent_name, agent_data in data["agents"].items():
+            task = agent_data.get("current_task", "?")
+            prog = agent_data.get("progress", "?")
+            typer.echo(f"- {agent_name}: task={task} progress={prog}")

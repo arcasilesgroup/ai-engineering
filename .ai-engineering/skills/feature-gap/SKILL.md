@@ -67,3 +67,47 @@ Detect gaps between specifications and implementation, AND between implementatio
 ## Wiring Matrix
 | Implementation | Type | Expected Consumer | Connected | Status |
 ```
+
+## When NOT to Use
+
+- **Code quality metrics** (coverage, complexity) — use `quality` instead.
+- **Security vulnerability scanning** — use `security` instead.
+- **Architecture analysis** (coupling, cohesion) — use `architecture` instead.
+- **Bug investigation** — use `debug` instead.
+
+## Examples
+
+### Example 1: Pre-release feature verification
+
+User says: "Verify all spec-050 requirements are implemented before release."
+Actions:
+
+1. Load spec-050 requirements, cross-reference with codebase, and map test coverage per acceptance criterion.
+2. Detect any wiring gaps: code built but not registered in CLI or router.
+   Result: Traceability matrix showing implemented/missing/partial status for every requirement.
+
+### Example 2: Dead spec detection after refactor
+
+User says: "We removed the old auth module. Check for dead specs."
+Actions:
+
+1. Scan specs referencing auth module artifacts and verify they still exist in codebase.
+2. Flag specs with broken references as dead.
+   Result: List of specs that need updating or archiving.
+
+## Governance Notes
+
+- Feature-gap is read-only — produces reports, does not modify code.
+- Wiring gaps (implemented but disconnected) are distinct from missing features.
+- Critical wiring gaps (CLI commands defined but unregistered) are blocking for release.
+- Dead specs should be flagged for archive via cleanup skill.
+
+### Iteration Limits
+
+- Max 3 attempts to resolve ambiguous cross-references before escalating.
+
+## References
+
+- `agents/scan.md` — agent that invokes this skill as part of 7-mode assessment.
+- `skills/architecture/SKILL.md` — complementary architecture analysis.
+- `skills/cleanup/SKILL.md` — handles dead spec archival.
