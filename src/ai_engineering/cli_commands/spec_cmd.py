@@ -54,17 +54,34 @@ def _emit_signal(root: Path, event: str, detail: dict) -> None:
 
 
 def _find_all_spec_files(root: Path) -> list[Path]:
-    """Find all spec.md files in the archive directory."""
+    """Find all spec.md files in both archive and active spec directories."""
+    specs: list[Path] = []
+
+    # Scan archive directory
     archive = _archive_dir(root)
-    if not archive.is_dir():
-        return []
-    specs = []
-    for spec_dir in sorted(archive.iterdir()):
-        if not spec_dir.is_dir():
-            continue
-        spec_file = spec_dir / "spec.md"
-        if spec_file.exists():
-            specs.append(spec_file)
+    if archive.is_dir():
+        for spec_dir in sorted(archive.iterdir()):
+            if not spec_dir.is_dir():
+                continue
+            spec_file = spec_dir / "spec.md"
+            if spec_file.exists():
+                specs.append(spec_file)
+
+    # Scan active spec directories (siblings of archive)
+    specs_root = root / ".ai-engineering" / "context" / "specs"
+    if specs_root.is_dir():
+        seen_slugs = {s.parent.name for s in specs}
+        for spec_dir in sorted(specs_root.iterdir()):
+            if not spec_dir.is_dir():
+                continue
+            if spec_dir.name in ("archive", "_templates"):
+                continue
+            if spec_dir.name in seen_slugs:
+                continue
+            spec_file = spec_dir / "spec.md"
+            if spec_file.exists():
+                specs.append(spec_file)
+
     return specs
 
 

@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Annotated
 
 import typer
 
@@ -31,7 +32,12 @@ def _count_type(events: list, event_type: str) -> int:
     return sum(1 for e in events if e.get("event") == event_type)
 
 
-def metrics_collect(days: int = 30) -> None:
+def metrics_collect(
+    days: Annotated[
+        int,
+        typer.Option("--days", help="Number of days in metrics window"),
+    ] = 30,
+) -> None:
     """Collect aggregated metrics from audit events."""
     root = _project_root()
     since = datetime.now(tz=UTC) - timedelta(days=days)
