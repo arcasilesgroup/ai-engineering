@@ -516,6 +516,43 @@ jobs:
         run: uv sync --dev
       - name: Validate content integrity
         run: uv run ai-eng validate
+      - name: Governance consistency
+        run: uv run ai-eng governance diff
+      - name: Manifest validation
+        run: |
+          # Verify manifest.yml exists and has expected structure
+          python -c "
+          import yaml
+          from pathlib import Path
+          m = yaml.safe_load(Path('.ai-engineering/manifest.yml').read_text())
+          assert 'skills' in m or 'agents' in m, 'manifest missing skills/agents'
+          print(f'Manifest OK')
+          "
+      - name: Skill schema validation
+        run: |
+          # Verify all skills have valid SKILL.md with frontmatter
+          python -c "
+          from pathlib import Path
+          skills_dir = Path('.ai-engineering/skills')
+          errors = []
+          for skill_dir in sorted(skills_dir.iterdir()):
+              if not skill_dir.is_dir():
+                  continue
+              skill_file = skill_dir / 'SKILL.md'
+              if not skill_file.exists():
+                  errors.append(f'{skill_dir.name}: missing SKILL.md')
+                  continue
+              text = skill_file.read_text()
+              if not text.startswith('---'):
+                  errors.append(f'{skill_dir.name}: missing frontmatter')
+              if 'name:' not in text[:500]:
+                  errors.append(f'{skill_dir.name}: missing name in frontmatter')
+          if errors:
+              for e in errors:
+                  print(f'ERROR: {e}')
+              raise SystemExit(1)
+          print(f'All {len(list(skills_dir.iterdir()))} skills valid')
+          "
 
   build:
     name: Build Package
