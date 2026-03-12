@@ -72,10 +72,10 @@ Every phase MUST pass before dependent phases start:
 
 ### 2.4 Agent Coordination
 
-- Claim: each agent works on its own phase branch — no shared-file contention.
-- Isolate: no cross-phase file edits within a session.
-- Checkpoint: on completion, agent opens PR from phase branch → integration branch.
-- Merge + Gate: integration agent reviews, merges, runs gate checks before unblocking next phase.
+- Agents work on the current branch — flat main workflow for current scale (DEC-004).
+- Serialize governance content modifications — no parallel edits to `.ai-engineering/`.
+- Checkpoint: on task completion, update tasks.md checkbox → `ai-eng checkpoint save`.
+- Gate: validate each phase gate before advancing to next phase.
 
 ### 2.5 Context Threading
 

@@ -41,7 +41,7 @@ AI-assisted development lacks governance guardrails. Without local enforcement, 
 - CLI lifecycle: install, update, doctor, validate, release.
 - Multi-provider AI integration (Claude Code, GitHub Copilot, Gemini CLI, OpenAI Codex).
 - Multi-VCS support (GitHub, Azure DevOps).
-- Stack-aware enforcement (Python, .NET, Next.js).
+- Stack-aware enforcement (21 stacks: Python, .NET, TypeScript, Rust, Java/Kotlin, Swift, Ruby, PHP, C/C++, React, Next.js, NestJS, Node, React Native, Astro, Azure, Infrastructure, Database, Bash/PowerShell, Helm, Ansible).
 - Observability dashboards (engineer, team, AI, DORA, health).
 - Spec-driven delivery model with session recovery.
 
