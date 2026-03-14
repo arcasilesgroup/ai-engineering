@@ -73,41 +73,46 @@ def _check_key_phrases(source_text: str, ide_text: str) -> list[str]:
 def _count_skills_in_text(text: str) -> int:
     """Count skill references in text by looking for known skill names."""
     skill_names = [
-        "a11y",
+        "accessibility",
         "api",
         "architecture",
-        "build",
         "changelog",
-        "cicd",
         "cleanup",
         "cli",
-        "code-simplifier",
+        "code",
         "commit",
-        "create",
-        "db",
+        "contract",
+        "dashboard",
         "debug",
-        "delete",
         "discover",
-        "docs",
+        "dispatch",
+        "document",
+        "evolve",
         "explain",
-        "feature-gap",
+        "gap",
         "governance",
+        "guard",
+        "guide",
         "infra",
+        "lifecycle",
         "migrate",
-        "observe",
-        "perf",
+        "onboard",
+        "ops",
+        "performance",
+        "pipeline",
         "plan",
         "pr",
-        "product-contract",
         "quality",
         "refactor",
         "release",
         "risk",
+        "schema",
         "security",
+        "simplify",
         "spec",
         "standards",
         "test",
-        "work-item",
+        "triage",
     ]
     count = 0
     for name in skill_names:
@@ -187,7 +192,7 @@ def governance_sync() -> None:
 
     # Count skills and agents in source
     source_skills = _count_skills_in_text(source_text)
-    typer.echo(f"\nSkills referenced in source: {source_skills}/35")
+    typer.echo(f"\nSkills referenced in source: {source_skills}/40")
 
     # Check IDE files exist
     typer.echo("\nIDE file status:")

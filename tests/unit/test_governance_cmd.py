@@ -29,9 +29,9 @@ def _setup_governance(root: Path) -> None:
         "## Absolute Prohibitions\n\n"
         "NEVER use --no-verify.\n\n"
         "## Skills\n\n"
-        "35 skills.\n\n"
+        "40 skills.\n\n"
         "## Agents\n\n"
-        "7 agents.\n\n"
+        "10 agents.\n\n"
         "## Quick Reference\n\n"
         "Quality: coverage 80%.\n",
         encoding="utf-8",
@@ -47,9 +47,9 @@ def _setup_governance(root: Path) -> None:
         "## Absolute Prohibitions\n\n"
         "NEVER use --no-verify.\n\n"
         "## Skills\n\n"
-        "35 skills.\n\n"
+        "40 skills.\n\n"
         "## Agents\n\n"
-        "7 agents.\n\n"
+        "10 agents.\n\n"
         "## Quick Reference\n\n"
         "Quality: coverage 80%.\n",
         encoding="utf-8",

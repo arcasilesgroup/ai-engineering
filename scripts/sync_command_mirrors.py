@@ -135,7 +135,7 @@ COPILOT_AGENT_TOOLS = [
     "testFailures",
 ]
 
-# Short descriptions for the 6 consolidated agents
+# Short descriptions for the 10 consolidated agents
 AGENT_DESCRIPTIONS: dict[str, tuple[str, str]] = {
     "plan": (
         "Plan",
@@ -145,16 +145,35 @@ AGENT_DESCRIPTIONS: dict[str, tuple[str, str]] = {
         "Build",
         "Implementation across all stacks — the only code write agent",
     ),
-    "review": (
-        "Review",
-        "All reviews, security, quality, governance checks (individual modes)",
+    "execute": (
+        "Execute",
+        "Task execution agent — runs governed workflows end-to-end",
     ),
-    "scan": (
-        "Scan",
-        "Feature scanner — spec-vs-code gap analysis and architecture drift",
+    "guard": (
+        "Guard",
+        "Security and compliance guardian — policy enforcement and threat detection",
+    ),
+    "guide": (
+        "Guide",
+        "Onboarding and mentoring — helps teams adopt governance practices",
+    ),
+    "observe": (
+        "Observe",
+        "Observability agent — dashboards, metrics, and health monitoring",
+    ),
+    "operate": (
+        "Operate",
+        "Operations agent — infrastructure, deployments, and incident response",
+    ),
+    "verify": (
+        "Verify",
+        "Feature verifier — spec-vs-code gap analysis and architecture drift",
+    ),
+    "ship": (
+        "Ship",
+        "Release agent — packaging, versioning, and deployment orchestration",
     ),
     "write": ("Write", "Documentation, changelogs, explanations"),
-    "triage": ("Triage", "Auto-prioritize work items in Azure Boards / GitHub Issues"),
 }
 
 
