@@ -45,6 +45,6 @@ def test_skill_not_truncated(skill_dir: Path) -> None:
 
 
 def test_skill_count_matches_expected() -> None:
-    """There should be exactly 35 skills on disk."""
+    """There should be exactly 40 skills on disk."""
     skills = _all_skill_dirs()
-    assert len(skills) == 35, f"Expected 35 skills, found {len(skills)}: {[d.name for d in skills]}"
+    assert len(skills) == 40, f"Expected 40 skills, found {len(skills)}: {[d.name for d in skills]}"
