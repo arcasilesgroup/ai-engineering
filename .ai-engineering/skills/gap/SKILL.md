@@ -68,6 +68,23 @@ Detect gaps between specifications and implementation, AND between implementatio
 | Implementation | Type | Expected Consumer | Connected | Status |
 ```
 
+## Framework Self-Audit Mode
+
+When invoked with `--framework`, this skill audits the ai-engineering framework itself (not application code):
+
+1. **Read product-contract.md** — extract all claimed capabilities (agents, skills, CLI commands, standards).
+2. **Verify agents** — for each claimed agent, check `agents/<name>.md` exists and has >100 lines.
+3. **Verify skills** — for each claimed skill, check `skills/<name>/SKILL.md` exists and has >50 lines (not a stub).
+4. **Verify CLI** — for each claimed CLI command, check `src/ai_engineering/cli_commands/<name>.py` exists.
+5. **Verify standards** — for each claimed standard, check the file exists on disk.
+6. **Verify runbooks** — check all runbooks have `owner:` in frontmatter.
+7. **Produce gap report** — "contract says X, reality is Y" with severity:
+   - **Blocker**: claimed agent/skill doesn't exist on disk
+   - **Major**: claimed feature exists but is a stub (<50 lines for skills, <100 lines for agents)
+   - **Minor**: documentation mentions a feature not in the contract
+
+This mode runs at the END of every spec to ensure no facades ship.
+
 ## When NOT to Use
 
 - **Code quality metrics** (coverage, complexity) — use `quality` instead.

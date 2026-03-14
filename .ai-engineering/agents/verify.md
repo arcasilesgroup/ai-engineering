@@ -42,6 +42,7 @@ Absorbs capabilities from the former `review` agent (security, quality, governan
 | `feature-gap` | `/ai:verify feature` | Spec vs code gaps + wiring gaps (disconnected implementations) |
 | `architecture` | `/ai:verify architecture` | Drift, coupling, cohesion, boundaries, tech debt |
 | `platform` | `/ai:verify platform` | All 7 modes aggregated -> score 0-100 -> GO/NO-GO |
+| `framework` | `/ai:verify gap --framework` | Self-audit: verify all claimed capabilities exist and are functional |
 
 Auto-detect: when invoked without a mode, infer from context (changed files, spec state, recent activity).
 
