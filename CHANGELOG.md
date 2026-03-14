@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added — Architecture v3 (spec-051)
+- **3 new agents** — guard (proactive governance), guide (developer growth), operate (SRE/runbooks).
+- **7 new skills** — guard, dispatch, guide, onboard, evolve, ops, lifecycle.
+- **Self-improvement mechanism** — evolve skill analyzes audit-log and proposes improvements.
+- **Guard integration** — guard.advise runs as post-edit validation step in build agent.
+- **Agent-model standard** — new governance standard defining dispatch protocol and context handoff.
+
+### Changed — Architecture v3 (spec-051)
+- **Agent renames** — scan→verify, release→ship (clearer developer communication).
+- **Skill renames** — build→code, db→schema, cicd→pipeline, a11y→accessibility, feature-gap→gap, code-simplifier→simplify, perf→performance, docs→document, observe→dashboard, product-contract→contract, work-item→triage.
+- **Skill merges** — create+delete merged into lifecycle.
+- **5 stub skills expanded** — security (58→216L), quality (45→175L), governance (48→153L), build (45→257L), perf (46→150L).
+- **Explain skill reassigned** — from orphan to guide agent (primary owner).
+- **All 13 runbooks** — assigned `owner: operate` in frontmatter.
+- **Agent count**: 7→10. **Skill count**: 35→40.
+
 ### Changed
 - **Release zero-rebuild** — `release.yml` no longer rebuilds the package; instead downloads the CI-validated `dist/` artifact and publishes it directly to PyPI and GitHub Releases, guaranteeing bit-identical output between CI and release.
 - **CI artifact retention** — `dist/` artifact in CI now has `retention-days: 5` to ensure availability for release workflow.
