@@ -1,5 +1,5 @@
 ---
-name: scan
+name: verify
 version: 2.0.0
 scope: read-write
 capabilities: [governance-scan, security-scan, quality-scan, performance-scan, a11y-scan, feature-gap-scan, architecture-scan, platform-audit, spec-code-gap-analysis, architecture-drift-detection, work-item-sync]
@@ -11,11 +11,11 @@ references:
     - skills/security/SKILL.md
     - skills/quality/SKILL.md
     - skills/governance/SKILL.md
-    - skills/perf/SKILL.md
-    - skills/a11y/SKILL.md
-    - skills/feature-gap/SKILL.md
+    - skills/performance/SKILL.md
+    - skills/accessibility/SKILL.md
+    - skills/gap/SKILL.md
     - skills/architecture/SKILL.md
-    - skills/work-item/SKILL.md
+    - skills/triage/SKILL.md
   standards:
     - standards/framework/core.md
     - standards/framework/quality/core.md
@@ -34,14 +34,14 @@ Absorbs capabilities from the former `review` agent (security, quality, governan
 
 | Mode | Command | What it assesses |
 |------|---------|------------------|
-| `governance` | `/ai:scan governance` | Integrity, compliance, ownership boundaries |
-| `security` | `/ai:scan security` | OWASP SAST, secret detection, dependency vulns, SBOM |
-| `quality` | `/ai:scan quality` | Coverage, complexity, duplication, lint, code review |
-| `performance` | `/ai:scan performance` | N+1 queries, O(n^2), memory leaks, bundle size, I/O |
-| `a11y` | `/ai:scan a11y` | WCAG 2.1 AA compliance |
-| `feature-gap` | `/ai:scan feature` | Spec vs code gaps + wiring gaps (disconnected implementations) |
-| `architecture` | `/ai:scan architecture` | Drift, coupling, cohesion, boundaries, tech debt |
-| `platform` | `/ai:scan platform` | All 7 modes aggregated -> score 0-100 -> GO/NO-GO |
+| `governance` | `/ai:verify governance` | Integrity, compliance, ownership boundaries |
+| `security` | `/ai:verify security` | OWASP SAST, secret detection, dependency vulns, SBOM |
+| `quality` | `/ai:verify quality` | Coverage, complexity, duplication, lint, code review |
+| `performance` | `/ai:verify performance` | N+1 queries, O(n^2), memory leaks, bundle size, I/O |
+| `a11y` | `/ai:verify a11y` | WCAG 2.1 AA compliance |
+| `feature-gap` | `/ai:verify feature` | Spec vs code gaps + wiring gaps (disconnected implementations) |
+| `architecture` | `/ai:verify architecture` | Drift, coupling, cohesion, boundaries, tech debt |
+| `platform` | `/ai:verify platform` | All 7 modes aggregated -> score 0-100 -> GO/NO-GO |
 
 Auto-detect: when invoked without a mode, infer from context (changed files, spec state, recent activity).
 
@@ -52,7 +52,7 @@ Auto-detect: when invoked without a mode, infer from context (changed files, spe
 ### 1. Mode Selection
 
 Determine scan mode from user request or auto-detect:
-- Explicit: `/ai:scan security` -> security mode
+- Explicit: `/ai:verify security` -> security mode
 - Auto-detect: analyze `git diff --stat` + project state to select most relevant mode
 - Platform: runs all 7 modes sequentially, aggregates results
 

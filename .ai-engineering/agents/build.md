@@ -8,16 +8,16 @@ outputs: [implementation, findings-report, improvement-plan, architecture-recomm
 tags: [implementation, code, multi-stack, debug, refactor, simplify, infrastructure, cicd, api, database]
 references:
   skills:
-    - skills/build/SKILL.md
+    - skills/code/SKILL.md
     - skills/test/SKILL.md
     - skills/debug/SKILL.md
     - skills/refactor/SKILL.md
-    - skills/code-simplifier/SKILL.md
+    - skills/simplify/SKILL.md
     - skills/api/SKILL.md
     - skills/cli/SKILL.md
-    - skills/db/SKILL.md
+    - skills/schema/SKILL.md
     - skills/infra/SKILL.md
-    - skills/cicd/SKILL.md
+    - skills/pipeline/SKILL.md
     - skills/migrate/SKILL.md
   standards:
     - standards/framework/core.md
@@ -124,7 +124,7 @@ Compute metrics from `git diff --stat HEAD~1` or `git diff --numstat`. This feed
 ## Boundaries
 
 - The **ONLY** agent with code write permissions
-- Defers security assessment to `ai:scan`
+- Defers security assessment to `ai:verify`
 - Does not bypass quality gates
 - Does not execute destructive DDL without explicit user approval
 - Does not execute `terraform apply` without explicit user approval

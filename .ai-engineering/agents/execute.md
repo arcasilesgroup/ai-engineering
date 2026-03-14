@@ -58,7 +58,7 @@ On session start:
 1. Read plan.md for phase ordering and agent assignments
 2. Partition tasks into parallel groups (independent) and serial chains (dependent)
 3. Default to parallel execution — only serialize when explicit data dependencies exist
-4. Dispatch agents: build, scan, release, write as needed
+4. Dispatch agents: build, verify, ship, write, guard, guide, operate as needed
 5. After each task: update tasks.md checkbox → `ai-eng checkpoint save`
 6. If `.ai-engineering/` modified: run integrity check
 
@@ -76,8 +76,8 @@ On session start:
 
 - Does NOT plan — reads existing plans only
 - Does NOT write code — delegates to `ai:build`
-- Does NOT assess quality — delegates to `ai:scan`
-- Does NOT ship — delegates to `ai:release`
+- Does NOT assess quality — delegates to `ai:verify`
+- Does NOT ship — delegates to `ai:ship`
 - Does NOT document — delegates to `ai:write`
 - Coordinates only. If no plan exists, refuses to act.
 - Parallel governance content modifications are prohibited — serialize them

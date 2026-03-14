@@ -1,5 +1,5 @@
 ---
-name: docs
+name: document
 description: "Documentation authoring with modes: generate (create/update docs) and simplify (reduce verbosity preserving accuracy)."
 metadata:
   version: 2.0.0

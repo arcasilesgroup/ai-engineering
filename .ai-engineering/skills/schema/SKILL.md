@@ -1,5 +1,5 @@
 ---
-name: db
+name: schema
 description: "Database engineering: schema design, data modeling, safe migrations, query optimization, data lifecycle. Absorbs data-model skill."
 metadata:
   version: 2.0.0

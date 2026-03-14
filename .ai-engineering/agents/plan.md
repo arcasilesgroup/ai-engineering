@@ -15,7 +15,7 @@ references:
     - skills/risk/SKILL.md
     - skills/standards/SKILL.md
     - skills/lifecycle/SKILL.md
-    - skills/product-contract/SKILL.md
+    - skills/contract/SKILL.md
     - skills/guard/SKILL.md
   standards:
     - standards/framework/core.md
@@ -89,7 +89,7 @@ On session start (to resume planning):
 This boundary maps to shared rule `PLAN-B1`.
 
 Prohibited during `/ai:plan`:
-- invoking `ai:build`, `ai:scan`, `ai:release`, or `ai:write` for task execution,
+- invoking `ai:build`, `ai:verify`, `ai:ship`, or `ai:write` for task execution,
 - checking off implementation tasks as completed,
 - modifying source code as part of execution.
 

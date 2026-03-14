@@ -1,5 +1,5 @@
 ---
-name: code-simplifier
+name: simplify
 description: "Reduce code complexity with pattern-aware reconnaissance: guard clauses, early returns, extract methods — preserving behavior."
 metadata:
   version: 1.0.0

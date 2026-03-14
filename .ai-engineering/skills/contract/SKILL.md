@@ -1,5 +1,5 @@
 ---
-name: product-contract
+name: contract
 description: "Manage product contract lifecycle: init (scaffold from template), sync (auto-update from specs/KPIs/roadmap), validate (check completeness and freshness)."
 metadata:
   version: 1.0.0

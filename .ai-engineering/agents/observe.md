@@ -8,7 +8,7 @@ outputs: [engineer-dashboard, team-dashboard, ai-dashboard, dora-report, health-
 tags: [observability, metrics, dora, dashboard, analytics, monitoring]
 references:
   skills:
-    - skills/observe/SKILL.md
+    - skills/dashboard/SKILL.md
     - skills/evolve/SKILL.md
   standards:
     - standards/framework/core.md
@@ -103,7 +103,7 @@ Benchmarks: Elite (multiple/day, <1h, <1h, 0-15%), High (weekly, <1week, <1day, 
 ### Mode: Health
 
 Aggregated score combining all dimensions:
-- Scan dimensions (from /ai:scan platform): governance, security, quality, perf, features, architecture, a11y
+- Scan dimensions (from /ai:verify platform): governance, security, quality, perf, features, architecture, a11y
 - Delivery (from DORA): deploy frequency, lead time, MTTR, failure rate
 - AI Efficiency: token utilization, decision reuse, gate pass rate
 - Trend: 4-week history with direction indicator

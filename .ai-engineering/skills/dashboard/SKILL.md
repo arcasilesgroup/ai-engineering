@@ -1,5 +1,5 @@
 ---
-name: observe
+name: dashboard
 description: "Generate observability dashboards across 5 modes (engineer, team, AI, DORA, health) for 4 audience tiers."
 metadata:
   version: 1.0.0

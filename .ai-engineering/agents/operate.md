@@ -138,8 +138,8 @@ Operate owns ALL runbooks in `.ai-engineering/runbooks/`. It orchestrates execut
 
 - **Read-write for**: GitHub Issues, labels, comments, `state/audit-log.ndjson`
 - **Never modifies**: source code (delegates to build agent)
-- **Never performs**: security/quality analysis (delegates to scan agent)
-- **Never performs**: delivery operations (delegates to release agent)
+- **Never performs**: security/quality analysis (delegates to verify agent)
+- **Never performs**: delivery operations (delegates to ship agent)
 - **Never modifies**: standards, skills, or agent definitions
 - **Can read**: observe data, scan reports, decision store, session checkpoints
 - **Can create/update**: GitHub Issues, labels, comments for incident tracking

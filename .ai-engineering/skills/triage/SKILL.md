@@ -1,5 +1,5 @@
 ---
-name: work-item
+name: triage
 description: "Work-item management with sync and triage modes. Sync: bidirectional with GitHub Issues/Azure Boards. Triage: auto-prioritize backlog."
 metadata:
   version: 2.0.0

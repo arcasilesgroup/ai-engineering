@@ -1,5 +1,5 @@
 ---
-name: release
+name: ship
 version: 2.0.0
 scope: read-write
 capabilities: [commit, pr, release-gate, deployment, changelog, work-item-sync, triage, version-bump, alm-lifecycle]
@@ -12,7 +12,7 @@ references:
     - skills/pr/SKILL.md
     - skills/release/SKILL.md
     - skills/changelog/SKILL.md
-    - skills/work-item/SKILL.md
+    - skills/triage/SKILL.md
   standards:
     - standards/framework/core.md
     - standards/framework/cicd/core.md
@@ -31,11 +31,11 @@ Absorbs capabilities from the former `triage` agent (backlog management) and con
 | Mode | Command | What it does |
 |------|---------|-------------|
 | `deliver` | `/ai:commit`, `/ai:pr` | Stage + lint + commit + push + PR |
-| `gate` | `/ai:release gate` | Release readiness GO/NO-GO from scan results |
+| `gate` | `/ai:ship gate` | Release readiness GO/NO-GO from scan results |
 | `changelog` | `/ai:changelog` | Generate changelog from git history |
 | `work-item` | `/ai:work-item` | Sync with GitHub Issues / Azure Boards |
 | `triage` | `/ai:work-item triage` | Auto-prioritize backlog (p1/p2/p3) |
-| `version` | `/ai:release version` | Semantic version bump (major/minor/patch) |
+| `version` | `/ai:ship version` | Semantic version bump (major/minor/patch) |
 
 Single source of truth mapping for procedures:
 - `deliver` -> `skills/commit/SKILL.md` + `skills/pr/SKILL.md`

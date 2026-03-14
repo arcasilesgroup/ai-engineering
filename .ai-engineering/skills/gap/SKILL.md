@@ -1,5 +1,5 @@
 ---
-name: feature-gap
+name: gap
 description: "Detect spec-vs-code gaps and wiring gaps (implemented but disconnected code): unimplemented features, dead specs, acceptance criteria coverage, disconnected implementations."
 metadata:
   version: 1.1.0

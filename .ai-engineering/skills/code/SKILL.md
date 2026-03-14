@@ -1,5 +1,5 @@
 ---
-name: build
+name: code
 description: "Write code across all supported stacks following standards: implement features, write tests, validate."
 metadata:
   version: 2.0.0
