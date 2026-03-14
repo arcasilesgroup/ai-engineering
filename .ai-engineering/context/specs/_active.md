@@ -1,18 +1,18 @@
 ---
-active: "050-framework-v2-restructure"
-updated: "2026-03-12"
+active: "051-architecture-v3"
+updated: "2026-03-15"
 ---
 
 # Active Spec
 
-**Spec 050 — Framework v2 Restructure: Complete Platform Audit Remediation**
+**Spec 051 — Architecture v3: Clean-Sheet Redesign**
 
-Six-phase remediation plan covering all 15 critical findings from the 2026-03-12 comprehensive audit (6.9/10 → target ≥8.5/10). Foundation fixes, skills remediation, agent architecture, standards expansion, multi-IDE hardening, and validation.
+10 agents, 40 skills, self-improvement mechanism, guard integration into build, feature gap reviewer. Clean-sheet redesign applying SOLID, DRY, Anthropic skill-creator pattern, and AI 2027 readiness.
 
 ## Quick Resume
 
-- Spec: [spec.md](specs/050-framework-v2-restructure/spec.md)
-- Plan: [plan.md](specs/050-framework-v2-restructure/plan.md)
-- Tasks: [tasks.md](specs/050-framework-v2-restructure/tasks.md)
-- Branch: `main`
-- Next: Phase 1 — Foundation & Bugs (decision-store bootstrap, metrics_collect fix, checkpoint unification)
+- Spec: [spec.md](specs/051-architecture-v3/spec.md)
+- Plan: [plan.md](specs/051-architecture-v3/plan.md)
+- Tasks: [tasks.md](specs/051-architecture-v3/tasks.md)
+- Branch: `spec/051-architecture-v3`
+- Next: Phase 1 — Expand Stubs (security, quality, governance, build, perf)
