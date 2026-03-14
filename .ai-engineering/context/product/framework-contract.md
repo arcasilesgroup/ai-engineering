@@ -47,6 +47,7 @@ Binding rules for all agents and tools operating under the ai-engineering govern
 - Agents MUST operate as session-scoped workers with explicit scope, dependencies, and deliverables.
 - Each session MUST read context from governance content — no implicit knowledge assumed.
 - Session recovery MUST be deterministic: `_active.md` → `spec.md` → `tasks.md` → `decision-store.json` → `session-checkpoint.json`.
+- Pre-dispatch gate: `guard.gate` MUST run before any agent dispatch — validates scope, permissions, and governance compliance. Dispatch blocked on gate failure.
 - Spec-first check: if no active spec and work is non-trivial, invoke `create-spec` before proceeding.
 - Commit: 1 phase = 1 commit with `spec-NNN: Pase X.Y — <description>`.
 - Content integrity: if any `.ai-engineering/` file was created, deleted, renamed, or moved, execute `integrity-check`.
@@ -76,6 +77,7 @@ Every phase MUST pass before dependent phases start:
 - Serialize governance content modifications — no parallel edits to `.ai-engineering/`.
 - Checkpoint: on task completion, update tasks.md checkbox → `ai-eng checkpoint save`.
 - Gate: validate each phase gate before advancing to next phase.
+- Guard-Build integration: `guard.advise` provides real-time governance feedback to `build` during implementation — advisory, non-blocking, surfaced as inline warnings.
 
 ### 2.5 Context Threading
 
@@ -83,12 +85,26 @@ Every phase MUST pass before dependent phases start:
 - Context Aggregation: deduplicate findings, resolve conflicts (security > governance > quality > style), construct dependency graph.
 - Context Handoff MUST include: phase ID, agent ID, findings summary, unresolved questions, phase dependencies.
 - No Implicit Context: all shared context MUST flow through spec artifacts or explicit context summaries.
+- Evolve feedback loop: `observe` emits metrics and drift signals → `evolve` synthesizes improvement proposals → proposals reviewed by human → accepted proposals feed into `plan` as new specs. This loop is continuous and asynchronous.
 
 ### 2.6 Capability-Task Matching
 
 - The orchestrator MUST match task requirements to agent `capabilities` frontmatter before assignment.
-- Security tasks → security capability tokens. Code modification → `scope: read-write`. Read-only analysis → prefer `scope: read-only`.
 - No capability match → escalate to user. Multi-capability tasks SHOULD be split into sub-tasks for specialized agents.
+- Capability tokens by agent:
+
+| Agent | Capabilities | Scope |
+|-------|-------------|-------|
+| plan | discovery, risk-analysis, spec-authoring, architecture | read-write |
+| execute | orchestration, dispatch, coordination, reporting | read-write |
+| guard | governance, compliance, gate-validation, policy-enforcement | read-only |
+| build | code-generation, refactoring, implementation, testing | read-write |
+| verify | quality-analysis, security-scanning, coverage, linting | read-only |
+| ship | release, changelog, versioning, deployment-prep | read-write |
+| observe | metrics, drift-detection, health-monitoring, telemetry | read-only |
+| guide | onboarding, documentation, explanation, context-summary | read-only |
+| write | content-authoring, standards, templates, contracts | read-write |
+| operate | infrastructure, tooling, installation, configuration | read-write |
 
 ### 2.7 Task Tracking and Decisions
 
@@ -142,6 +158,12 @@ When weakening a directive is requested: warn user → generate remediation patc
 - `/ai:plan` → planning pipeline (classify → discover → risk → spec → execution plan → STOP)
 - `/ai:plan --plan-only` → advisory only (discover → risk → recommend, zero writes)
 - `/ai:execute` → read approved plan, dispatch agents, coordinate, report
+- `/ai:guard` → run governance gate (scope validation, policy check, compliance audit)
+- `/ai:guard --advise` → advisory mode (non-blocking governance feedback)
+- `/ai:verify` → quality and security pipeline (lint → type-check → test → coverage → SAST → dependency audit)
+- `/ai:ship` → release pipeline (changelog → version bump → tag → deployment prep)
+- `/ai:guide` → onboarding and context summary (explain architecture, summarize spec, generate walkthrough)
+- `/ai:operate` → infrastructure and tooling (install → configure → migrate → health check)
 - `/ai:commit` → stage + commit + push
 - `/ai:commit --only` → stage + commit
 - `/ai:pr` → stage + commit + push + PR + auto-complete (`--auto --squash --delete-branch`)
@@ -153,10 +175,10 @@ Auto-classified from `git diff --stat` + change type. User override: `/ai:plan -
 
 | Pipeline | When | Steps |
 |----------|------|-------|
-| full | Features, refactors, >3 files | discover → architecture → risk → spec → dispatch |
-| standard | Enhancements, 3-5 files | discover → risk → spec → dispatch |
-| hotfix | Bug fixes, <3 files | discover → risk → dispatch |
-| trivial | Typos, single-line | dispatch |
+| full | Features, refactors, >3 files | guard.gate → discover → architecture → risk → spec → dispatch |
+| standard | Enhancements, 3-5 files | guard.gate → discover → risk → spec → dispatch |
+| hotfix | Bug fixes, <3 files | guard.gate → discover → risk → dispatch |
+| trivial | Typos, single-line | guard.gate → dispatch |
 
 ### 5.3 Progressive Disclosure
 
@@ -169,7 +191,7 @@ Session start loads ONLY: `_active.md` → `spec.md` → `tasks.md` → `decisio
 | Session start | ~500 tokens |
 | Single skill | ~2,050 tokens |
 | Agent + 2 skills | ~3,200 tokens |
-| Platform audit (7 dim) | ~10,500 tokens |
+| Platform audit (10 dim) | ~14,000 tokens |
 
 ## 6. Distribution Model
 

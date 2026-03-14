@@ -11,8 +11,8 @@
 |-------|-------|
 | Name | ai-engineering |
 | Org/Repo | `arcasilesgroup/ai-engineering` |
-| Version | 0.1.0 (next: 0.2.0) |
-| Status | Active development -- Phase 2 (dogfooding + hardening) |
+| Version | 0.2.0 (next: 0.3.0) |
+| Status | Active development -- Phase 3 (Architecture v3) |
 | Model | Content-first, AI-governed |
 | License | MIT |
 
@@ -115,40 +115,47 @@ flowchart TB
 | **Knowledge Ops** | Spec lifecycle (verify, catalog, list, compact) | P0 | Done |
 | Knowledge Ops | Decision store with context hashing and reprompt conditions | P0 | Done |
 | Knowledge Ops | Session checkpoint save/load for recovery | P0 | Done |
-| **AI Ecosystem** | 35 procedural skills in flat organization | P0 | Active |
-| AI Ecosystem | 7 role-based agents with behavioral contracts | P0 | Done |
+| **AI Ecosystem** | 40 procedural skills in flat organization | P0 | Active |
+| AI Ecosystem | 10 role-based agents with behavioral contracts | P0 | Active |
 | AI Ecosystem | Multi-provider adapters (Claude Code, Copilot, Gemini, Codex) | P0 | Done |
 | AI Ecosystem | Governed parallel execution with phase gates | P1 | Active |
 
-#### Skills (35)
+#### Skills (40)
 
 Path: `.ai-engineering/skills/<name>/SKILL.md` (flat organization, no category subdirectories)
 
 | Domain | Skills |
 |--------|--------|
-| Planning | discover, plan, product-contract, spec, cleanup, explain |
-| Build | build, test, debug, refactor, code-simplifier, api, cli, db, infra, cicd, migrate |
-| Scan | security, quality, governance, architecture, perf, a11y, feature-gap |
-| Release | commit, pr, release, changelog, work-item |
-| Write | docs |
-| Observe | observe |
-| Governance | risk, standards, create, delete |
+| Planning | discover, plan, contract, spec, cleanup, explain |
+| Build | code, test, debug, refactor, simplify, api, cli, schema, pipeline, infra, migrate |
+| Verify | security, quality, governance, architecture, performance, accessibility, gap |
+| Ship | commit, pr, release, changelog, triage |
+| Write | document |
+| Observe | dashboard, evolve |
+| Guard | guard |
+| Guide | guide, onboard |
+| Execute | dispatch |
+| Operate | ops |
+| Governance | risk, standards, lifecycle |
 
 Slash commands: `/ai:<name>` for all skills and agents.
 
-#### Agents (7)
+#### Agents (10)
 
 Path: `.ai-engineering/agents/<name>.md`
 
 | Agent | Purpose | Scope |
 |-------|---------|-------|
-| plan | Planning pipeline, spec creation, execution plan — STOPS before execution | read-write |
-| execute | Read approved plan, dispatch agents, coordinate, checkpoint, report | read-write |
+| plan | Planning pipeline, spec creation -- STOPS before execution | read-write |
+| execute | Dispatch agents, coordinate, checkpoint, report | read-write |
+| guard | Proactive governance advisory during development | read-only + decision-store |
 | build | Implementation across 20 stacks (ONLY code write agent) | read-write |
-| scan | 7-mode assessment: governance, security, quality, perf, a11y, feature, architecture | read-write (work items only) |
-| release | ALM lifecycle: commit, PR, release gate, triage, work-items, deploy | read-write |
+| verify | 7-mode assessment: governance, security, quality, perf, accessibility, architecture, gap | read-write (work items) |
+| ship | ALM lifecycle: commit, PR, release, triage, deploy | read-write |
+| observe | Observability: 5 modes + DORA + health + self-improvement (evolve) | read-only |
+| guide | Developer growth: teach, onboard, explain, tour | read-only |
 | write | Documentation (generate/simplify modes) | read-write (docs only) |
-| observe | Observability: 5 modes across 4 audience tiers + DORA metrics + health scoring | read-only |
+| operate | SRE: runbook execution, incident response, operational health | read-write (issues only) |
 
 #### Python CLI (`ai-eng`)
 
@@ -533,9 +540,9 @@ sequenceDiagram
 
 | Dimension | Current | Target | Strategy |
 |-----------|---------|--------|----------|
-| Skills | 35 | 50+ | Flat organization, remote skill sources |
+| Skills | 40 | 50+ | Flat organization, remote skill sources |
 | Stacks | 3 (Python, .NET, Next.js) | 14+ | Stack-aware enforcement, pluggable checks |
-| Agents | 7 | 10+ | Capability-task matching, parallel execution |
+| Agents | 10 | 15+ | Capability-task matching, parallel execution |
 | Repos governed | 1 (dogfooding) | N | PyPI distribution, `ai-eng install .` |
 | AI providers | 4 | N | File-based adapters, no provider-specific code |
 
@@ -546,10 +553,11 @@ sequenceDiagram
 | Phase | Description | Status |
 |-------|------------|--------|
 | Phase 1 -- MVP | Core governance, hooks, CLI, state | Delivered |
-| Phase 2 -- Dogfooding | Signature enforcement, IDE adapters, SAST remediation to zero medium+ | In Progress |
-| Phase 3 -- Release Readiness | Parallel subagent orchestration, maintenance agents, docs site (Nextra) | Planned |
+| Phase 2 -- Dogfooding | Signature enforcement, IDE adapters, SAST remediation to zero medium+ | Delivered |
+| Phase 3 -- Architecture v3 | 10 agents, 40 skills, guard/guide/operate agents, skill domain restructure, parallel orchestration | In Progress |
+| Phase 4 -- Release Readiness | Docs site (Nextra), PyPI stable release, remote skill sources | Planned |
 
-**Blockers**: 7 semgrep findings must reach 0 medium+ before 0.2.0 release.
+**Blockers**: Architecture v3 restructure must complete before 0.3.0 release.
 
 ### 7.2 Active Epics / Features
 
@@ -571,7 +579,8 @@ sequenceDiagram
 | Test coverage | 80% | 91% |
 | Cross-OS CI matrix | 3x3 green | Stabilizing |
 | Token efficiency | >= 95% deferred | 99.19% |
-| Skills count | 35 | 35 |
+| Skills count | 40 | 40 |
+| Agents count | 10 | 10 |
 
 ### 7.4 Active Spec
 
@@ -586,3 +595,5 @@ Catalog: `context/specs/_catalog.md`.
 | RISK-001 | 7 semgrep findings blocking 0.2.0 release | High | DevSecOps | 30 days |
 | RISK-002 | `ty check` reports 84 diagnostics (non-blocking but technical debt) | Medium | Build | 60 days |
 | RISK-003 | Cross-OS CI matrix not fully green | Medium | Build | 60 days |
+| RISK-004 | Architecture v3 restructure: 3 new agents (guard, guide, operate) need behavioral contracts and testing | Medium | Build | 60 days |
+| RISK-005 | Skill rename/split (35 to 40) may break existing slash command references in user workflows | Medium | Build | 30 days |
