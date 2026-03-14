@@ -9,6 +9,8 @@ tags: [orchestration, execution, dispatch, coordination]
 references:
   skills:
     - skills/cleanup/SKILL.md
+    - skills/dispatch/SKILL.md
+    - skills/guard/SKILL.md
   standards:
     - standards/framework/core.md
 ---

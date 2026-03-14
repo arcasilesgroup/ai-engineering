@@ -3,6 +3,7 @@ name: pr-review
 schedule: "0 */4 * * *"
 environment: worktree
 layer: reporting
+owner: operate
 requires: [gh]
 ---
 

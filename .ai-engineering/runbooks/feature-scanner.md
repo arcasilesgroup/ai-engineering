@@ -3,6 +3,7 @@ name: feature-scanner
 schedule: "0 14 * * *"
 environment: worktree
 layer: scanner
+owner: operate
 requires: [gh]
 ---
 

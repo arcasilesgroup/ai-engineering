@@ -3,6 +3,7 @@ name: perf-scanner
 schedule: "0 15 * * *"
 environment: worktree
 layer: scanner
+owner: operate
 requires: [gh]
 ---
 

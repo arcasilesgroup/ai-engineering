@@ -3,6 +3,7 @@ name: changelog-gen
 schedule: "0 16 * * 5"
 environment: worktree
 layer: reporting
+owner: operate
 requires: [gh, git]
 ---
 

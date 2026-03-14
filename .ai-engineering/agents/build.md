@@ -76,12 +76,21 @@ Determine execution mode from user intent -> load matching skill.
 
 ### 3. Execute Per Skill Procedure
 
-Follow the loaded skill's procedure. After every file modification, run post-edit validation per stack:
+Follow the loaded skill's procedure. After every file modification, run post-edit validation:
+
+**Step 1 — Stack validation** (deterministic linters):
 - **Python**: `ruff check` + `ruff format --check`
 - **.NET**: `dotnet build --no-restore` + `dotnet format --verify-no-changes`
 - **TypeScript**: `tsc --noEmit` + lint
 - **Rust**: `cargo check` + `cargo clippy`
 - **Terraform**: `terraform fmt -check` + `terraform validate`
+
+**Step 2 — Guard advisory** (intelligent governance check):
+- Invoke `guard.advise` on changed files (shift-left governance).
+- Guard reads: changed files + applicable standards + decision-store.
+- Guard produces: advisory warnings (governance, security, architecture patterns).
+- Address warnings before proceeding. Fail-open: if guard is unavailable, continue.
+- This is how a senior engineer pair-programs — review each change before moving on.
 
 Fix validation failures before proceeding (max 3 attempts).
 

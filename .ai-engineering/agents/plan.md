@@ -12,12 +12,11 @@ references:
     - skills/discover/SKILL.md
     - skills/spec/SKILL.md
     - skills/cleanup/SKILL.md
-    - skills/explain/SKILL.md
     - skills/risk/SKILL.md
     - skills/standards/SKILL.md
-    - skills/create/SKILL.md
-    - skills/delete/SKILL.md
+    - skills/lifecycle/SKILL.md
     - skills/product-contract/SKILL.md
+    - skills/guard/SKILL.md
   standards:
     - standards/framework/core.md
 ---

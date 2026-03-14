@@ -3,6 +3,7 @@ name: ci-fixer
 schedule: "*/30 * * * *"
 environment: worktree
 layer: executor
+owner: operate
 requires: [gh, uv, git]
 ---
 

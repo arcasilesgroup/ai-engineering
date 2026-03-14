@@ -3,6 +3,7 @@ name: daily-triage
 schedule: "0 8 * * *"
 environment: worktree
 layer: triage
+owner: operate
 requires: [gh]
 ---
 

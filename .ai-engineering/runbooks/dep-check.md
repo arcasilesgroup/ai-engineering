@@ -3,6 +3,7 @@ name: dep-check
 schedule: "0 4 * * *"
 environment: worktree
 layer: scanner
+owner: operate
 requires: [uv, gh]
 ---
 

@@ -3,6 +3,7 @@ name: stale-issues
 schedule: "0 9 * * *"
 environment: worktree
 layer: triage
+owner: operate
 requires: [gh]
 ---
 

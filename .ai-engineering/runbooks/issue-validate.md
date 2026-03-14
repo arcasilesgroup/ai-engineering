@@ -3,6 +3,7 @@ name: issue-validate
 schedule: "0 10 * * 3"
 environment: worktree
 layer: scanner
+owner: operate
 requires: [gh]
 ---
 

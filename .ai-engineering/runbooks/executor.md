@@ -3,6 +3,7 @@ name: executor
 schedule: "0 * * * *"
 environment: worktree
 layer: executor
+owner: operate
 requires: [gh, uv, git, ruff, ty, gitleaks]
 ---
 

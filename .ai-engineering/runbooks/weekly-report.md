@@ -3,6 +3,7 @@ name: weekly-report
 schedule: "0 9 * * 1"
 environment: worktree
 layer: reporting
+owner: operate
 requires: [gh, uv]
 ---
 

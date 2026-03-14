@@ -3,6 +3,7 @@ name: scheduled-scan
 schedule: "0 2 * * *"
 environment: worktree
 layer: scanner
+owner: operate
 requires: [uv, ruff, ty, gitleaks, semgrep]
 ---
 

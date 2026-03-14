@@ -3,6 +3,7 @@ name: wiring-scanner
 schedule: "0 11 * * 2"
 environment: worktree
 layer: scanner
+owner: operate
 requires: [gh]
 ---
 
