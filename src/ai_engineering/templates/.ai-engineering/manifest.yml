@@ -131,10 +131,10 @@ update_metadata:
 
 governance_surface:
   agents:
-    total: 7
-    names: [plan, execute, build, scan, release, write, observe]
+    total: 10
+    names: [plan, execute, guard, build, verify, ship, observe, guide, write, operate]
   skills:
-    total: 35
+    total: 40
     organization: flat
     prefix: "ai:"
   integrity:

@@ -8,7 +8,7 @@ outputs: [documentation, changelog-entry, simplified-content]
 tags: [documentation, writing, changelog, explanation, simplification]
 references:
   skills:
-    - skills/docs/SKILL.md
+    - skills/document/SKILL.md
   standards:
     - standards/framework/core.md
     - standards/framework/quality/core.md
@@ -52,7 +52,7 @@ Normative shared rules are defined in `skills/docs/SKILL.md` under **Shared Rule
 - Read-write for documentation files ONLY -- does not modify source code or tests
 - This boundary maps to shared rule `DOC-B1`.
 - Does not execute tests -- delegates to `ai:build`
-- Does not assess code quality -- delegates to `ai:scan`
+- Does not assess code quality -- delegates to `ai:verify`
 - Never expose `.ai-engineering/` internals in user-facing documentation
 
 ### Escalation Protocol
