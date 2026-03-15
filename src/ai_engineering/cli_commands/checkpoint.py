@@ -25,16 +25,31 @@ def _project_root() -> Path:
     return cwd
 
 
-_CHECKPOINT_RELATIVE = Path(".ai-engineering") / "state" / "session-checkpoint.json"
+_CHECKPOINT_PARTS = (".ai-engineering", "state", "session-checkpoint.json")
 
 
 def _checkpoint_path(project_root: Path) -> Path:
-    resolved = (project_root / _CHECKPOINT_RELATIVE).resolve()
-    # Validate path stays within the project root (prevent path traversal)
-    if not str(resolved).startswith(str(project_root.resolve())):
-        msg = "Checkpoint path escapes project root"
-        raise ValueError(msg)
-    return resolved
+    root_resolved = project_root.resolve()
+    # Build from constant literal components — no user data in path segments
+    checkpoint = root_resolved.joinpath(*_CHECKPOINT_PARTS).resolve()
+    # Defense-in-depth: verify result stays within project root
+    checkpoint.relative_to(root_resolved)  # Raises ValueError if escape
+    return checkpoint
+
+
+def _read_checkpoint(path: Path) -> dict:
+    """Read existing checkpoint data. Returns empty dict if missing or corrupt."""
+    if not path.exists():
+        return {}
+    with contextlib.suppress(json.JSONDecodeError, OSError):
+        return json.loads(path.read_text(encoding="utf-8"))
+    return {}
+
+
+def _write_checkpoint(path: Path, data: dict) -> None:
+    """Write checkpoint data to a validated path."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
 
 
 def checkpoint_save(
@@ -64,10 +79,7 @@ def checkpoint_save(
 
     # Namespaced checkpoint: each agent writes to its own section
     # while preserving other agents' data. Backward-compatible with flat schema.
-    existing: dict = {}
-    if path.exists():
-        with contextlib.suppress(json.JSONDecodeError, OSError):
-            existing = json.loads(path.read_text(encoding="utf-8"))
+    existing = _read_checkpoint(path)
 
     if agent:
         # Namespaced write: store under agents.<agent>
@@ -80,8 +92,7 @@ def checkpoint_save(
         # Legacy flat write
         existing.update(entry)
 
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(existing, indent=2) + "\n", encoding="utf-8")
+    _write_checkpoint(path, existing)
 
     # Emit session metric event with checkpoint context (fail-open)
     with contextlib.suppress(Exception):
