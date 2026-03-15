@@ -3,6 +3,6 @@ description: "Review frontend code for WCAG 2.1 AA compliance: semantic HTML, AR
 mode: "agent"
 ---
 
-Read and execute the skill defined in `.ai-engineering/skills/a11y/SKILL.md`.
+Read and execute the skill defined in `.ai-engineering/skills/accessibility/SKILL.md`.
 
 Follow the complete procedure. Do not skip steps. Apply all governance notes.
