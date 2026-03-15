@@ -119,3 +119,219 @@ class TestSyncDriftDetection:
         expected = {f.stem for f in agents_dir.glob("*.md")}
         actual = {name for name, _ in agents}
         assert actual == expected
+
+
+# ── Generation functions (pure — input/output, no I/O) ────────────────────
+
+
+class TestGenerationFunctions:
+    """Test content generation — pure functions, no filesystem access."""
+
+    def test_generate_claude_skill_includes_frontmatter(self) -> None:
+        from scripts.sync_command_mirrors import generate_claude_skill
+
+        # Arrange
+        fm = {"description": "Test skill for testing", "argument-hint": "arg1|arg2"}
+
+        # Act
+        content = generate_claude_skill("test-skill", fm)
+
+        # Assert
+        assert "---" in content
+        assert "name: ai-test-skill" in content
+        assert 'description: "Test skill for testing"' in content
+        assert 'argument-hint: "arg1|arg2"' in content
+        assert ".ai-engineering/skills/test-skill/SKILL.md" in content
+        assert "$ARGUMENTS" in content
+
+    def test_generate_claude_skill_includes_extras_when_present(self) -> None:
+        from scripts.sync_command_mirrors import generate_claude_skill
+
+        # Arrange — accessibility has context:fork extra
+        fm = {"description": "Accessibility audit"}
+
+        # Act
+        content = generate_claude_skill("accessibility", fm)
+
+        # Assert
+        assert "context:fork" in content
+
+    def test_generate_claude_skill_no_extras_for_unknown_skill(self) -> None:
+        from scripts.sync_command_mirrors import generate_claude_skill
+
+        # Arrange
+        fm = {"description": "Unknown skill"}
+
+        # Act
+        content = generate_claude_skill("unknown-skill", fm)
+
+        # Assert
+        assert "context:fork" not in content
+
+    def test_generate_claude_agent_activation_format(self) -> None:
+        from scripts.sync_command_mirrors import AgentActivation, generate_claude_agent_activation
+
+        # Arrange
+        activation = AgentActivation(
+            agent_name="build",
+            description="Activate build agent",
+            argument_hint="impl|test",
+        )
+
+        # Act
+        content = generate_claude_agent_activation("code", activation)
+
+        # Assert
+        assert "name: ai-code" in content
+        assert "@ai-build" in content
+        assert ".ai-engineering/agents/build.md" in content
+        assert 'argument-hint: "impl|test"' in content
+
+    def test_generate_agents_agent_wrapper_format(self) -> None:
+        from scripts.sync_command_mirrors import AGENT_METADATA, generate_agents_agent
+
+        # Arrange
+        meta = AGENT_METADATA["build"]
+
+        # Act
+        content = generate_agents_agent("build", meta)
+
+        # Assert
+        assert "name: build" in content
+        assert ".ai-engineering/agents/build.md" in content
+        assert "Adopt the identity" in content
+
+    def test_generate_copilot_agent_includes_per_agent_metadata(self) -> None:
+        from scripts.sync_command_mirrors import AGENT_METADATA, generate_copilot_agent
+
+        # Arrange
+        meta = AGENT_METADATA["explorer"]
+
+        # Act
+        content = generate_copilot_agent("explorer", meta)
+
+        # Assert
+        assert 'name: "Explorer"' in content
+        assert "model: opus" in content
+        assert "color: teal" in content
+        assert "readFile" in content  # explorer has limited tools
+        assert "editFiles" not in content  # explorer is read-only
+
+    def test_generate_skill_copilot_prompt_format(self) -> None:
+        from scripts.sync_command_mirrors import generate_skill_copilot_prompt
+
+        # Act
+        content = generate_skill_copilot_prompt("commit", "Execute commit workflow")
+
+        # Assert
+        assert 'description: "Execute commit workflow"' in content
+        assert 'mode: "agent"' in content
+        assert ".ai-engineering/skills/commit/SKILL.md" in content
+
+
+# ── Validation functions ──────────────────────────────────────────────────
+
+
+class TestValidationFunctions:
+    """Test validation logic — uses tmp_path for filesystem state."""
+
+    def test_validate_runbooks_warns_when_empty(self, tmp_path: Path) -> None:
+        # Arrange — empty runbooks dir (monkeypatch RUNBOOKS_ROOT)
+        import scripts.sync_command_mirrors as mod
+        from scripts.sync_command_mirrors import validate_runbooks
+
+        original = mod.RUNBOOKS_ROOT
+        mod.RUNBOOKS_ROOT = tmp_path / "nonexistent"
+
+        # Act
+        warnings = validate_runbooks()
+
+        # Assert
+        assert any("not found" in w for w in warnings)
+
+        # Cleanup
+        mod.RUNBOOKS_ROOT = original
+
+    def test_check_or_write_unchanged_returns_none(self, tmp_path: Path) -> None:
+        from scripts.sync_command_mirrors import _check_or_write
+
+        # Arrange — file exists with same content
+        test_file = tmp_path / "test.md"
+        test_file.write_text("hello", encoding="utf-8")
+
+        import scripts.sync_command_mirrors as mod
+
+        original_root = mod.ROOT
+        mod.ROOT = tmp_path
+
+        # Act
+        result = _check_or_write(test_file, "hello", check_only=False)
+
+        # Assert
+        assert result is None  # unchanged
+
+        mod.ROOT = original_root
+
+    def test_check_or_write_drift_updates_file(self, tmp_path: Path) -> None:
+        from scripts.sync_command_mirrors import _check_or_write
+
+        # Arrange — file exists with different content
+        test_file = tmp_path / "test.md"
+        test_file.write_text("old content", encoding="utf-8")
+
+        import scripts.sync_command_mirrors as mod
+
+        original_root = mod.ROOT
+        mod.ROOT = tmp_path
+
+        # Act
+        result = _check_or_write(test_file, "new content", check_only=False)
+
+        # Assert
+        assert result is not None
+        assert "UPDATED" in result
+        assert test_file.read_text() == "new content"
+
+        mod.ROOT = original_root
+
+    def test_check_or_write_missing_creates_file(self, tmp_path: Path) -> None:
+        from scripts.sync_command_mirrors import _check_or_write
+
+        # Arrange — file doesn't exist
+        test_file = tmp_path / "subdir" / "new.md"
+
+        import scripts.sync_command_mirrors as mod
+
+        original_root = mod.ROOT
+        mod.ROOT = tmp_path
+
+        # Act
+        result = _check_or_write(test_file, "created", check_only=False)
+
+        # Assert
+        assert result is not None
+        assert "CREATED" in result
+        assert test_file.read_text() == "created"
+
+        mod.ROOT = original_root
+
+    def test_check_or_write_check_only_does_not_write(self, tmp_path: Path) -> None:
+        from scripts.sync_command_mirrors import _check_or_write
+
+        # Arrange — file exists with different content
+        test_file = tmp_path / "test.md"
+        test_file.write_text("old", encoding="utf-8")
+
+        import scripts.sync_command_mirrors as mod
+
+        original_root = mod.ROOT
+        mod.ROOT = tmp_path
+
+        # Act
+        result = _check_or_write(test_file, "new", check_only=True)
+
+        # Assert
+        assert "DRIFT" in result
+        assert test_file.read_text() == "old"  # NOT modified
+
+        mod.ROOT = original_root
