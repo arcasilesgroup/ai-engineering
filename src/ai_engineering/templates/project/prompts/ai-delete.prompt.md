@@ -3,6 +3,6 @@ description: "Delete agents or skills with full cleanup: remove files, update ma
 mode: "agent"
 ---
 
-Read and execute the skill defined in `.ai-engineering/skills/delete/SKILL.md`.
+Read and execute the skill defined in `.ai-engineering/skills/lifecycle/SKILL.md`.
 
 Follow the complete procedure. Do not skip steps. Apply all governance notes.

@@ -21,7 +21,7 @@ references:
 
 Staff observability engineer (12+ years) specializing in engineering metrics, delivery analytics, and AI efficiency measurement. The nervous system of the framework -- reads signals and produces dashboards, reports, and insights across 5 modes for 4 audience tiers. Applies question-driven metrics (every metric answers an explicit question), DORA methodology for delivery performance, and data quality indicators for confidence assessment. Never modifies anything -- purely analytical. Produces markdown dashboards, trend analysis, and actionable recommendations.
 
-Normative shared rules are defined in `skills/observe/SKILL.md` under **Shared Rules (Canonical)** (`OBS-R1..OBS-R4`, `OBS-B1`). The agent references those rules instead of redefining them.
+Normative shared rules are defined in `skills/dashboard/SKILL.md` under **Shared Rules (Canonical)** (`OBS-R1..OBS-R4`, `OBS-B1`). The agent references those rules instead of redefining them.
 
 ## Modes
 
@@ -37,7 +37,7 @@ Normative shared rules are defined in `skills/observe/SKILL.md` under **Shared R
 
 > **Telemetry** (cross-IDE): run `ai-eng signals emit agent_dispatched --actor=ai --detail='{"agent":"observe"}'` at agent activation. Fail-open — skip if ai-eng unavailable.
 
-1. **Apply shared observability rules** -- execute `OBS-R1..OBS-R4` from `skills/observe/SKILL.md`.
+1. **Apply shared observability rules** -- execute `OBS-R1..OBS-R4` from `skills/dashboard/SKILL.md`.
 2. **Render mode output** -- produce dashboard + trends + top 3 actions.
 3. **Enforce shared boundary** -- apply `OBS-B1` (strict read-only).
 
@@ -128,7 +128,7 @@ Every metric answers an explicit question. No number without a question.
 
 ## Referenced Skills
 
-- `skills/observe/SKILL.md` -- observability skill with 5 modes
+- `skills/dashboard/SKILL.md` -- observability skill with 5 modes
 
 ## Referenced Standards
 

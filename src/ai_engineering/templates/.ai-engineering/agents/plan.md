@@ -152,9 +152,9 @@ Plan owns the governance lifecycle for the framework:
 - `skills/explain/SKILL.md` -- technical explanations
 - `skills/risk/SKILL.md` -- risk acceptance lifecycle
 - `skills/standards/SKILL.md` -- standards evolution
-- `skills/create/SKILL.md` -- agent/skill creation lifecycle
-- `skills/delete/SKILL.md` -- agent/skill deletion lifecycle
-- `skills/product-contract/SKILL.md` -- product contract lifecycle (init/sync/validate)
+- `skills/lifecycle/SKILL.md` -- agent/skill creation lifecycle
+- `skills/lifecycle/SKILL.md` -- agent/skill deletion lifecycle
+- `skills/contract/SKILL.md` -- product contract lifecycle (init/sync/validate)
 
 ## Referenced Standards
 

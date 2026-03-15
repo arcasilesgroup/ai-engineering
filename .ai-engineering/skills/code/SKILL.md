@@ -254,4 +254,4 @@ User says: "The `spec verify` command miscounts completed tasks when a task line
 - `agents/build.md` -- the agent that invokes this skill.
 - `skills/debug/SKILL.md` -- systematic bug diagnosis (use instead for root-cause investigation).
 - `skills/refactor/SKILL.md` -- structural changes (use instead for move/rename/split).
-- `skills/code-simplifier/SKILL.md` -- complexity reduction (use instead for guard clauses, early returns).
+- `skills/simplify/SKILL.md` -- complexity reduction (use instead for guard clauses, early returns).

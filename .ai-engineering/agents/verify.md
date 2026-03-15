@@ -126,11 +126,11 @@ Every mode produces this format:
 - `skills/security/SKILL.md` -- OWASP SAST + DAST + deps + SBOM
 - `skills/quality/SKILL.md` -- coverage + complexity + duplication + review
 - `skills/governance/SKILL.md` -- integrity + compliance + ownership
-- `skills/perf/SKILL.md` -- performance profiling and bottleneck detection
-- `skills/a11y/SKILL.md` -- WCAG 2.1 AA compliance audit
-- `skills/feature-gap/SKILL.md` -- spec vs code gap detection
+- `skills/performance/SKILL.md` -- performance profiling and bottleneck detection
+- `skills/accessibility/SKILL.md` -- WCAG 2.1 AA compliance audit
+- `skills/gap/SKILL.md` -- spec vs code gap detection
 - `skills/architecture/SKILL.md` -- drift, coupling, cohesion, boundaries
-- `skills/work-item/SKILL.md` -- create work items for findings
+- `skills/triage/SKILL.md` -- create work items for findings
 
 ## Referenced Standards
 

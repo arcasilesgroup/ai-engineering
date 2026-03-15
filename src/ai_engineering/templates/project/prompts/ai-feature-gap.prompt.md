@@ -3,6 +3,6 @@ description: "Detect spec-vs-code gaps and wiring gaps (implemented but disconne
 mode: "agent"
 ---
 
-Read and execute the skill defined in `.ai-engineering/skills/feature-gap/SKILL.md`.
+Read and execute the skill defined in `.ai-engineering/skills/gap/SKILL.md`.
 
 Follow the complete procedure. Do not skip steps. Apply all governance notes.

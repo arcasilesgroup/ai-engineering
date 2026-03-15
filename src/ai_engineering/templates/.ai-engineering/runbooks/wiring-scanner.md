@@ -13,7 +13,7 @@ requires: [gh]
 
 Detect implemented but disconnected code: functions, modules, or exports that exist but are not connected to any entry point, route, CLI command, or consumer.
 
-1. Read `.ai-engineering/skills/feature-gap/SKILL.md` — follow the wiring gap detection procedure (step 5.5).
+1. Read `.ai-engineering/skills/gap/SKILL.md` — follow the wiring gap detection procedure (step 5.5).
 2. Scan the codebase for each wiring gap category:
    - **Route handlers** without route registration.
    - **CLI commands** without CLI wiring.

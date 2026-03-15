@@ -110,10 +110,10 @@ Compute metrics from `git diff --stat HEAD~1` or `git diff --numstat`. This feed
 
 ## Referenced Skills
 
-- `skills/build/SKILL.md`, `skills/test/SKILL.md`, `skills/debug/SKILL.md`
-- `skills/refactor/SKILL.md`, `skills/code-simplifier/SKILL.md`
-- `skills/api/SKILL.md`, `skills/cli/SKILL.md`, `skills/db/SKILL.md`
-- `skills/infra/SKILL.md`, `skills/cicd/SKILL.md`, `skills/migrate/SKILL.md`
+- `skills/code/SKILL.md`, `skills/test/SKILL.md`, `skills/debug/SKILL.md`
+- `skills/refactor/SKILL.md`, `skills/simplify/SKILL.md`
+- `skills/api/SKILL.md`, `skills/cli/SKILL.md`, `skills/schema/SKILL.md`
+- `skills/infra/SKILL.md`, `skills/pipeline/SKILL.md`, `skills/migrate/SKILL.md`
 
 ## Referenced Standards
 

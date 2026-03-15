@@ -272,8 +272,8 @@ All agents and skills must adopt these behavioral norms:
 
 - `standards/framework/core.md` — skill and agent base rules, progressive disclosure.
 - `context/product/framework-contract.md` — content-first product model, token efficiency principle.
-- `skills/create/SKILL.md` — skill and agent creation procedure.
-- `skills/delete/SKILL.md` — skill and agent deletion procedure.
+- `skills/lifecycle/SKILL.md` — skill and agent creation procedure.
+- `skills/lifecycle/SKILL.md` — skill and agent deletion procedure.
 
 ## Update Contract
 

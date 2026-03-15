@@ -22,7 +22,7 @@ Run the full quality and security gate for the repository. Execute each check in
 
 For each finding:
 - Check if a GitHub Issue already exists for this finding (search by title pattern).
-- If no existing issue, create one using the Issue Definition Standard from `.ai-engineering/skills/work-item/SKILL.md`.
+- If no existing issue, create one using the Issue Definition Standard from `.ai-engineering/skills/triage/SKILL.md`.
 - Label: `scan-finding`, `needs-triage`, and severity label (`p1-critical` for high/critical, `p2-high` for medium, `p3-normal` for low/info).
 - Title format: `[scan] <tool>: <brief description> in <file>`
 

@@ -41,7 +41,7 @@ Single source of truth mapping for procedures:
 - `deliver` -> `skills/commit/SKILL.md` + `skills/pr/SKILL.md`
 - `gate` -> `skills/release/SKILL.md`
 - `changelog` -> `skills/changelog/SKILL.md`
-- `work-item` and `triage` -> `skills/work-item/SKILL.md`
+- `work-item` and `triage` -> `skills/triage/SKILL.md`
 
 ## Behavior
 
@@ -121,7 +121,7 @@ Spec closed (done.md) -> auto-close linked issue
 - `skills/pr/SKILL.md` -- PR creation and auto-complete
 - `skills/release/SKILL.md` -- release gate assessment
 - `skills/changelog/SKILL.md` -- changelog generation
-- `skills/work-item/SKILL.md` -- work-item sync and triage
+- `skills/triage/SKILL.md` -- work-item sync and triage
 
 ## Referenced Standards
 

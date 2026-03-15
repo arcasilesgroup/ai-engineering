@@ -87,7 +87,7 @@ Comments alone are ephemeral — they vanish when the PR merges. Issues persist 
 - Uses: quality skill (review mode), security skill (static mode).
 - Reads: `.ai-engineering/standards/` for code standards.
 - Creates: GitHub Issues that feed into `executor` and `daily-triage` runbooks.
-- References: `skills/work-item/SKILL.md` for issue definition standard.
+- References: `skills/triage/SKILL.md` for issue definition standard.
 
 ## Safety
 

@@ -3,6 +3,6 @@ description: "Create new agents or skills with full registration: scaffold, mani
 mode: "agent"
 ---
 
-Read and execute the skill defined in `.ai-engineering/skills/create/SKILL.md`.
+Read and execute the skill defined in `.ai-engineering/skills/lifecycle/SKILL.md`.
 
 Follow the complete procedure. Do not skip steps. Apply all governance notes.
