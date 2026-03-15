@@ -42,17 +42,16 @@ def verify_quality(project_root: Path) -> VerifyScore:
 
     # Duplication
     try:
-        from ai_engineering.policy.duplication import check_duplication
+        from ai_engineering.policy.duplication import _duplication_ratio
 
-        dup_result = check_duplication(
+        ratio, _total, _dup = _duplication_ratio(
             project_root / "src" / "ai_engineering",
-            threshold=3.0,
         )
-        if not dup_result.passed:
+        if ratio > 3.0:
             score.add(
                 FindingSeverity.MAJOR,
                 "duplication",
-                f"Duplication ratio {dup_result.ratio:.1f}% exceeds 3%",
+                f"Duplication ratio {ratio:.1f}% exceeds 3%",
             )
     except Exception:
         pass  # duplication module may not be available
