@@ -25,8 +25,16 @@ def _project_root() -> Path:
     return cwd
 
 
+_CHECKPOINT_RELATIVE = Path(".ai-engineering") / "state" / "session-checkpoint.json"
+
+
 def _checkpoint_path(project_root: Path) -> Path:
-    return project_root / ".ai-engineering" / "state" / "session-checkpoint.json"
+    resolved = (project_root / _CHECKPOINT_RELATIVE).resolve()
+    # Validate path stays within the project root (prevent path traversal)
+    if not str(resolved).startswith(str(project_root.resolve())):
+        msg = "Checkpoint path escapes project root"
+        raise ValueError(msg)
+    return resolved
 
 
 def checkpoint_save(
@@ -113,12 +121,14 @@ def checkpoint_load(
         raise typer.Exit(code=1) from None
 
     # If agent-specific checkpoint requested, use namespaced data
+    found_agent_data = False
     if agent and "agents" in data and agent in data["agents"]:
         data = data["agents"][agent]
+        found_agent_data = True
 
     typer.echo("# Session Checkpoint")
     typer.echo("")
-    if agent:
+    if found_agent_data:
         typer.echo(f"- Agent: {agent}")
     typer.echo(f"- Spec: {data.get('spec_id', 'none')}")
     typer.echo(f"- Task: {data.get('current_task', 'none')}")
