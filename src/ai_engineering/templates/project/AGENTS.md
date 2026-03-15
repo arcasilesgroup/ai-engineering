@@ -58,6 +58,18 @@ Path: `.ai-engineering/runbooks/*.md` — 13 platform-agnostic runbooks for recu
 | Executor | executor, ci-fixer | Hourly/30min |
 | Reporting | weekly-report, changelog-gen, pr-review | Weekly/4h |
 
+## Absolute Prohibitions
+
+1. **NEVER** `--no-verify` on any git command.
+2. **NEVER** skip/silence a failing gate — fix root cause.
+3. **NEVER** weaken gate severity.
+4. **NEVER** modify hook scripts — hash-verified.
+5. **NEVER** push to protected branches (main, master).
+6. **NEVER** dismiss security findings without `state/decision-store.json` risk acceptance.
+7. **NEVER** add suppression comments to bypass static analysis or security scanners. Fix the root cause.
+
+Gate failure: diagnose → fix → retry. Use `ai-eng doctor --fix-tools` or `--fix-hooks`.
+
 ## Quick Reference
 
 - Skills (40): `.ai-engineering/skills/<name>/SKILL.md` — slash commands: `/ai:<name>`

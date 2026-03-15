@@ -32,6 +32,17 @@ During `/ai:plan`, do NOT use file-writing tools to create spec files. Instead:
    ```
 4. **STOP** — present the result and wait for the user to invoke `/ai:execute`.
 
+## Absolute Prohibitions
+
+1. **NEVER** `--no-verify` on any git command.
+2. **NEVER** skip/silence a failing gate — fix root cause.
+3. **NEVER** weaken gate severity.
+4. **NEVER** push to protected branches (main, master).
+5. **NEVER** dismiss security findings without `state/decision-store.json` risk acceptance.
+6. **NEVER** add suppression comments to bypass static analysis or security scanners.
+
+Gate failure: diagnose → fix → retry.
+
 ## Quick Reference
 
 - Skills (40): `.ai-engineering/skills/<name>/SKILL.md`
