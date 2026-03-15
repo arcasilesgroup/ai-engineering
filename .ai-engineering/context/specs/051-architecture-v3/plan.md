@@ -30,8 +30,8 @@ approach: "serial-phases"
 | `agents/plan.md` | Add guard.forecast, remove explain ref, add guide ref |
 | `agents/execute.md` | Add formal dispatch, guard.gate pre-dispatch |
 | `agents/build.md` | Add guard.advise to post-edit validation, rename build skill→code |
-| `agents/scan.md` → `agents/verify.md` | Rename + boundary clarification |
-| `agents/release.md` → `agents/ship.md` | Rename + boundary clarification |
+| `agents/verify.md` → `agents/verify.md` | Rename + boundary clarification |
+| `agents/ship.md` → `agents/ship.md` | Rename + boundary clarification |
 | `agents/observe.md` | Add evolve skill reference |
 | `agents/write.md` | Rename docs→document |
 | 5 stub skills | Expand to full procedures |

@@ -114,4 +114,4 @@ Actions:
 - `skills/changelog/SKILL.md` — changelog entry formatting (used by documentation gate).
 - `skills/document/SKILL.md` — README and documentation update procedure for OSS GitHub users (used by documentation gate).
 - `skills/pr/SKILL.md` — PR workflow.
-- `agents/release.md` — agent that validates commit workflow execution.
+- `agents/ship.md` — agent that validates commit workflow execution.

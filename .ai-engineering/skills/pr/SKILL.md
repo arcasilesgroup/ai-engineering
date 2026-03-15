@@ -141,4 +141,4 @@ Actions:
 - `skills/document/SKILL.md` — README and documentation updates.
 - `standards/framework/core.md` — non-negotiables and enforcement rules.
 - `standards/framework/quality/core.md` — gate structure.
-- `agents/release.md` — agent that validates PR workflow execution.
+- `agents/ship.md` — agent that validates PR workflow execution.

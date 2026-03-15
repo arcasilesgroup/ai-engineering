@@ -57,7 +57,7 @@ Resolve the execute/release `session-checkpoint.json` write conflict.
 
 - Define unified checkpoint schema with namespaced sections
 - Update `agents/execute.md` to write under `checkpoint.execute`
-- Update `agents/release.md` to write under `checkpoint.release`
+- Update `agents/ship.md` to write under `checkpoint.release`
 - Add schema validation in `ai-eng checkpoint load`
 
 ### 1.4 Clean Ghost References

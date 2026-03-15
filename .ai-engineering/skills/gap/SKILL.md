@@ -125,6 +125,6 @@ Actions:
 
 ## References
 
-- `agents/scan.md` — agent that invokes this skill as part of 7-mode assessment.
+- `agents/verify.md` — agent that invokes this skill as part of 7-mode assessment.
 - `skills/architecture/SKILL.md` — complementary architecture analysis.
 - `skills/cleanup/SKILL.md` — handles dead spec archival.

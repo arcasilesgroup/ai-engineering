@@ -22,7 +22,7 @@ estimated_tasks: 18
 ## Phase 3: Agent Instruction Updates (3 tasks)
 
 8. Update `.ai-engineering/agents/build.md` — add emission step after build operations
-9. Update `.ai-engineering/agents/scan.md` — add emission step after scan operations
+9. Update `.ai-engineering/agents/verify.md` — add emission step after scan operations
 10. Sync templates in `src/ai_engineering/templates/.ai-engineering/agents/`
 
 ## Phase 4: Dashboard Expansion (4 tasks)

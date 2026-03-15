@@ -249,4 +249,4 @@ When invoked by another agent (not directly by user) or in CI context:
 - `skills/architecture/SKILL.md` — architecture context methodology.
 - `skills/debug/SKILL.md` — root cause explanation patterns.
 - `agents/build.md` — agent that benefits from explanation capability.
-- `agents/scan.md` — agent that benefits from architecture explanations.
+- `agents/verify.md` — agent that benefits from architecture explanations.

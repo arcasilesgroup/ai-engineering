@@ -90,5 +90,5 @@ Actions:
 
 - `standards/framework/quality/core.md` — test and coverage requirements.
 - `agents/build.md` — agent that uses this skill systematically.
-- `agents/scan.md` — agent that uses debug for investigating verification failures.
+- `agents/verify.md` — agent that uses debug for investigating verification failures.
 - `skills/explain/SKILL.md` — Feynman-style explanations for root cause understanding.
