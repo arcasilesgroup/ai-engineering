@@ -525,7 +525,8 @@ jobs:
           import yaml
           from pathlib import Path
           m = yaml.safe_load(Path('.ai-engineering/manifest.yml').read_text())
-          assert 'skills' in m or 'agents' in m, 'manifest missing skills/agents'
+          gs = m.get('governance_surface', m)
+          assert 'skills' in gs or 'agents' in gs, 'manifest missing governance_surface.skills/agents'
           print(f'Manifest OK')
           "
       - name: Skill schema validation
