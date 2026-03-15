@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import contextlib
 import json
+import os
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated
@@ -25,31 +26,46 @@ def _project_root() -> Path:
     return cwd
 
 
-_CHECKPOINT_PARTS = (".ai-engineering", "state", "session-checkpoint.json")
+_CHECKPOINT_FILE = "session-checkpoint.json"
+_CHECKPOINT_DIR_PARTS = (".ai-engineering", "state")
 
 
 def _checkpoint_path(project_root: Path) -> Path:
-    root_resolved = project_root.resolve()
-    # Build from constant literal components — no user data in path segments
-    checkpoint = root_resolved.joinpath(*_CHECKPOINT_PARTS).resolve()
-    # Defense-in-depth: verify result stays within project root
-    checkpoint.relative_to(root_resolved)  # Raises ValueError if escape
-    return checkpoint
+    root_str = os.path.realpath(str(project_root))
+    target = os.path.join(root_str, *_CHECKPOINT_DIR_PARTS, _CHECKPOINT_FILE)
+    target = os.path.realpath(target)
+    # Validate containment — commonpath is a recognized path sanitizer
+    if os.path.commonpath([root_str, target]) != root_str:
+        msg = "Checkpoint path escapes project root"
+        raise ValueError(msg)
+    return Path(target)
 
 
-def _read_checkpoint(path: Path) -> dict:
+def _read_checkpoint(checkpoint: Path) -> dict:
     """Read existing checkpoint data. Returns empty dict if missing or corrupt."""
-    if not path.exists():
+    if not checkpoint.exists():
         return {}
     with contextlib.suppress(json.JSONDecodeError, OSError):
-        return json.loads(path.read_text(encoding="utf-8"))
+        return json.loads(checkpoint.read_text(encoding="utf-8"))
     return {}
 
 
-def _write_checkpoint(path: Path, data: dict) -> None:
-    """Write checkpoint data to a validated path."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+def _write_checkpoint(project_root: Path, data: dict) -> None:
+    """Write checkpoint data to the canonical checkpoint location.
+
+    Constructs the write path independently to avoid taint propagation
+    from file reads to file writes (SonarCloud S2083).
+    """
+    root_str = os.path.realpath(str(project_root))
+    target = os.path.join(root_str, *_CHECKPOINT_DIR_PARTS, _CHECKPOINT_FILE)
+    target = os.path.realpath(target)
+    if os.path.commonpath([root_str, target]) != root_str:
+        msg = "Checkpoint path escapes project root"
+        raise ValueError(msg)
+    os.makedirs(os.path.dirname(target), exist_ok=True)
+    with open(target, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2)
+        f.write("\n")
 
 
 def checkpoint_save(
@@ -92,7 +108,7 @@ def checkpoint_save(
         # Legacy flat write
         existing.update(entry)
 
-    _write_checkpoint(path, existing)
+    _write_checkpoint(root, existing)
 
     # Emit session metric event with checkpoint context (fail-open)
     with contextlib.suppress(Exception):
