@@ -41,22 +41,59 @@ For commands/pipelines: read `framework-contract.md` §5.
 
 Each LLM platform has adaptors that reference the canonical source of truth — never duplicate content.
 
-| Platform | Adaptor Path | Count |
-|----------|-------------|-------|
-| Claude Code | `.claude/commands/ai/*.md` | 37 |
-| GitHub Copilot | `.github/prompts/ai-*.prompt.md` + `.github/agents/*.agent.md` | 38 + 7 |
-| Codex / Gemini | `.agents/skills/*/SKILL.md` | 41 |
+| Platform | Skills Location | Count | Agents Location | Count |
+|----------|----------------|-------|-----------------|-------|
+| Claude Code | `.claude/skills/ai-*/SKILL.md` | 41 | `.claude/agents/ai-*.md` | 8 |
+| GitHub Copilot | `.github/prompts/ai-*.prompt.md` | 38 | `.github/agents/*.agent.md` | 8 |
+| Codex / Gemini | `.agents/skills/*/SKILL.md` | 38 | `.agents/agents/ai-*.md` | 8 |
+
+## Agents (8)
+
+Path: `.ai-engineering/agents/<name>.md`
+
+| Agent | Role | Purpose | Scope |
+|-------|------|---------|-------|
+| plan | Architect | Planning pipeline, spec creation, architecture design — stops before execution | read-write |
+| build | Engineer | ONLY code writer, multi-stack implementation across 20 stacks | read-write |
+| verify | Analyst | 7-mode scanning: governance, security, quality, performance, a11y, feature-gap, architecture | read-write (work items only) |
+| guard | Guardian | Proactive governance advisory, drift detection, shift-left enforcement | read-only + state |
+| guide | Mentor | Teaching, onboarding, architecture tours, decision archaeology | read-only |
+| operate | SRE | Runbook execution, incident response, operational health monitoring | read-write |
+| explorer | Context Gatherer | Deep codebase research, context discovery before other agents act | read-only |
+| simplifier | Code Cleaner | Guard clauses, extract methods, flatten nesting, reduce complexity | read-write |
+
+## Skills (38)
+
+Path: `.ai-engineering/skills/<name>/SKILL.md` (flat organization, no category subdirectories)
+
+| Skills (alphabetical) |
+|-----------------------|
+| accessibility, api, architecture, changelog, cleanup, code, commit, contract, dashboard, debug, discover, dispatch, document, evolve, explain, gap, governance, guard, infra, lifecycle, migrate, onboard, ops, performance, pipeline, plan, pr, quality, refactor, release, risk, schema, security, simplify, spec, standards, test, triage |
 
 ## Automation Runbooks
 
-Path: `.ai-engineering/runbooks/*.md` — 13 platform-agnostic runbooks for recurring automation tasks. Copy-paste any runbook prompt into Codex, Devin, cron + CLI, or GitHub Actions with AI.
+Path: `.ai-engineering/runbooks/*.md` — 5 runbooks for operational procedures. Recurring automation is handled by GitHub Agentic Workflows (`.github/workflows/ai-eng-*.yml`).
 
-| Layer | Runbooks | Schedule |
-|-------|----------|----------|
-| Scanner | scheduled-scan, dep-check, feature-scanner, perf-scanner, wiring-scanner, issue-validate | Daily/Weekly |
-| Triage | daily-triage, stale-issues | Daily |
-| Executor | executor, ci-fixer | Hourly/30min |
-| Reporting | weekly-report, changelog-gen, pr-review | Weekly/4h |
+| Runbook | Purpose | Trigger |
+|---------|---------|---------|
+| code-simplifier | Complexity reduction, dead code removal | `ai-eng-code-simplifier.yml` (Wed 5AM) |
+| dependency-upgrade | Safe major version bump guide | Manual / Dependabot |
+| governance-drift-repair | Mirror sync, expired decisions, counter accuracy | `ai-eng-governance-drift.yml` (Mon 4AM) |
+| incident-response | P0-P3 structured incident handling | Manual |
+| security-incident | Secret leak protocol, vulnerability disclosure | Manual |
+
+## Lifecycle
+
+Discovery → Architecture → Planning → Guard (advisory) → Implementation → Verify → Operate → Feedback.
+
+## Command Contract
+
+- `/ai:plan` → planning pipeline (classify → discover → risk → spec → execution plan → STOP)
+- `/ai:dispatch` → read approved plan, dispatch agents, coordinate, report
+- `/ai:commit` → stage + commit + push
+- `/ai:commit --only` → stage + commit
+- `/ai:pr` → stage + commit + push + PR + auto-complete (`--auto --squash --delete-branch`)
+- `/ai:pr --only` → create PR; warn if unpushed, propose auto-push
 
 ## Absolute Prohibitions
 
@@ -70,10 +107,25 @@ Path: `.ai-engineering/runbooks/*.md` — 13 platform-agnostic runbooks for recu
 
 Gate failure: diagnose → fix → retry. Use `ai-eng doctor --fix-tools` or `--fix-hooks`.
 
+## Progressive Disclosure
+
+Three-level loading: **Metadata** (always, ~50 tok/skill) → **Body** (on-demand) → **Resources** (on-demand).
+
+Session start loads ONLY: `_active.md` → `spec.md` → `tasks.md` → `decision-store.json`. Do NOT pre-load skills or agents.
+
+| Level | Budget |
+|-------|--------|
+| Session start | ~500 tokens |
+| Single skill | ~2,050 tokens |
+| Agent + 2 skills | ~3,200 tokens |
+| Platform audit (7 dim) | ~10,500 tokens |
+
+Schema: `.ai-engineering/standards/framework/skills-schema.md`. Organization: flat (no categories).
+
 ## Quick Reference
 
-- Skills (40): `.ai-engineering/skills/<name>/SKILL.md` — slash commands: `/ai:<name>`
-- Agents (10): `.ai-engineering/agents/<name>.md`
+- Skills (38): `.ai-engineering/skills/<name>/SKILL.md` — slash commands: `/ai:<name>`
+- Agents (8): `.ai-engineering/agents/<name>.md`
 - CLI: `ai-eng <command>` — deterministic tasks, zero AI tokens
 - Quality: coverage 80%, duplication ≤3%, cyclomatic ≤10, cognitive ≤15
 - Security: zero medium+ findings, zero leaks, zero dependency vulns

@@ -14,10 +14,107 @@ Supports ``--fix-hooks`` and ``--fix-tools`` remediation modes.
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 from ai_engineering.doctor.models import CheckResult, CheckStatus, DoctorReport
 
 __all__ = ["CheckResult", "CheckStatus", "DoctorReport"]
+
+
+def _check_github(cred_svc: Any, state: Any) -> CheckResult:
+    """Validate GitHub credentials."""
+    if not state.github.configured:
+        return CheckResult(
+            name="platform:github",
+            status=CheckStatus.WARN,
+            message="GitHub not configured",
+        )
+
+    from ai_engineering.platforms.github import GitHubSetup
+
+    gh_status = GitHubSetup.check_auth_status()
+    if gh_status.authenticated:
+        return CheckResult(
+            name="platform:github",
+            status=CheckStatus.OK,
+            message=f"Authenticated as {gh_status.username}",
+        )
+    return CheckResult(
+        name="platform:github",
+        status=CheckStatus.FAIL,
+        message=f"GitHub auth failed: {gh_status.error}",
+    )
+
+
+def _check_sonar(cred_svc: Any, state: Any) -> CheckResult:
+    """Validate SonarCloud credentials."""
+    if not (state.sonar.configured and state.sonar.url):
+        return CheckResult(
+            name="platform:sonar",
+            status=CheckStatus.WARN,
+            message="Sonar not configured",
+        )
+
+    from ai_engineering.platforms.sonar import SonarSetup
+
+    sonar = SonarSetup(cred_svc)
+    token = sonar.retrieve_token()
+    if not token:
+        return CheckResult(
+            name="platform:sonar",
+            status=CheckStatus.FAIL,
+            message="Token missing from keyring",
+        )
+
+    result = sonar.validate_token(state.sonar.url, token)
+    if result.valid:
+        return CheckResult(
+            name="platform:sonar",
+            status=CheckStatus.OK,
+            message=f"Token valid for {state.sonar.url}",
+        )
+    return CheckResult(
+        name="platform:sonar",
+        status=CheckStatus.FAIL,
+        message=f"Token invalid: {result.error}",
+    )
+
+
+def _check_azure_devops(cred_svc: Any, state: Any) -> CheckResult:
+    """Validate Azure DevOps credentials."""
+    if not (state.azure_devops.configured and state.azure_devops.org_url):
+        return CheckResult(
+            name="platform:azure_devops",
+            status=CheckStatus.WARN,
+            message="Azure DevOps not configured",
+        )
+
+    from ai_engineering.platforms.azure_devops import AzureDevOpsSetup
+
+    azdo = AzureDevOpsSetup(cred_svc)
+    pat = azdo.retrieve_pat()
+    if not pat:
+        return CheckResult(
+            name="platform:azure_devops",
+            status=CheckStatus.FAIL,
+            message="PAT missing from keyring",
+        )
+
+    result = azdo.validate_pat(state.azure_devops.org_url, pat)
+    if result.valid:
+        return CheckResult(
+            name="platform:azure_devops",
+            status=CheckStatus.OK,
+            message=f"PAT valid for {state.azure_devops.org_url}",
+        )
+    return CheckResult(
+        name="platform:azure_devops",
+        status=CheckStatus.FAIL,
+        message=f"PAT invalid: {result.error}",
+    )
+
+
+_PLATFORM_CHECKS = (_check_github, _check_sonar, _check_azure_devops)
 
 
 def check_platforms(target: Path, report: DoctorReport) -> None:
@@ -28,117 +125,8 @@ def check_platforms(target: Path, report: DoctorReport) -> None:
     cred_svc = CredentialService()
     state = cred_svc.load_tools_state(state_dir)
 
-    # GitHub check
-    if state.github.configured:
-        from ai_engineering.platforms.github import GitHubSetup
-
-        gh_status = GitHubSetup.check_auth_status()
-        if gh_status.authenticated:
-            report.checks.append(
-                CheckResult(
-                    name="platform:github",
-                    status=CheckStatus.OK,
-                    message=f"Authenticated as {gh_status.username}",
-                )
-            )
-        else:
-            report.checks.append(
-                CheckResult(
-                    name="platform:github",
-                    status=CheckStatus.FAIL,
-                    message=f"GitHub auth failed: {gh_status.error}",
-                )
-            )
-    else:
-        report.checks.append(
-            CheckResult(
-                name="platform:github",
-                status=CheckStatus.WARN,
-                message="GitHub not configured",
-            )
-        )
-
-    # Sonar check
-    if state.sonar.configured and state.sonar.url:
-        from ai_engineering.platforms.sonar import SonarSetup
-
-        sonar = SonarSetup(cred_svc)
-        token = sonar.retrieve_token()
-        if token:
-            result = sonar.validate_token(state.sonar.url, token)
-            if result.valid:
-                report.checks.append(
-                    CheckResult(
-                        name="platform:sonar",
-                        status=CheckStatus.OK,
-                        message=f"Token valid for {state.sonar.url}",
-                    )
-                )
-            else:
-                report.checks.append(
-                    CheckResult(
-                        name="platform:sonar",
-                        status=CheckStatus.FAIL,
-                        message=f"Token invalid: {result.error}",
-                    )
-                )
-        else:
-            report.checks.append(
-                CheckResult(
-                    name="platform:sonar",
-                    status=CheckStatus.FAIL,
-                    message="Token missing from keyring",
-                )
-            )
-    else:
-        report.checks.append(
-            CheckResult(
-                name="platform:sonar",
-                status=CheckStatus.WARN,
-                message="Sonar not configured",
-            )
-        )
-
-    # Azure DevOps check
-    if state.azure_devops.configured and state.azure_devops.org_url:
-        from ai_engineering.platforms.azure_devops import AzureDevOpsSetup
-
-        azdo = AzureDevOpsSetup(cred_svc)
-        pat = azdo.retrieve_pat()
-        if pat:
-            result = azdo.validate_pat(state.azure_devops.org_url, pat)
-            if result.valid:
-                report.checks.append(
-                    CheckResult(
-                        name="platform:azure_devops",
-                        status=CheckStatus.OK,
-                        message=f"PAT valid for {state.azure_devops.org_url}",
-                    )
-                )
-            else:
-                report.checks.append(
-                    CheckResult(
-                        name="platform:azure_devops",
-                        status=CheckStatus.FAIL,
-                        message=f"PAT invalid: {result.error}",
-                    )
-                )
-        else:
-            report.checks.append(
-                CheckResult(
-                    name="platform:azure_devops",
-                    status=CheckStatus.FAIL,
-                    message="PAT missing from keyring",
-                )
-            )
-    else:
-        report.checks.append(
-            CheckResult(
-                name="platform:azure_devops",
-                status=CheckStatus.WARN,
-                message="Azure DevOps not configured",
-            )
-        )
+    for checker in _PLATFORM_CHECKS:
+        report.checks.append(checker(cred_svc, state))
 
 
 def diagnose(

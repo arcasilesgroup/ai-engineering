@@ -45,7 +45,7 @@ Gate failure: diagnose → fix → retry.
 
 ## Quick Reference
 
-- Skills (40): `.ai-engineering/skills/<name>/SKILL.md`
-- Agents (10): `.ai-engineering/agents/<name>.md`
+- Skills (38): `.ai-engineering/skills/<name>/SKILL.md`
+- Agents (8): `.ai-engineering/agents/<name>.md`
 - Quality: coverage 80%, duplication ≤3%, cyclomatic ≤10, cognitive ≤15
 - Security: zero medium+ findings, zero leaks, zero dependency vulns

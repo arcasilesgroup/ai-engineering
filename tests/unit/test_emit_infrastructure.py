@@ -232,7 +232,10 @@ class TestEnrichedCheckpointEvent:
             captured.append(kwargs)
 
         with (
-            patch("ai_engineering.cli_commands.checkpoint._project_root", return_value=tmp_path),
+            patch(
+                "ai_engineering.cli_commands.checkpoint.find_project_root",
+                return_value=tmp_path,
+            ),
             patch("ai_engineering.cli_commands.checkpoint.emit_session_event", mock_emit),
         ):
             checkpoint_save(
@@ -259,7 +262,10 @@ class TestEnrichedCheckpointEvent:
             captured.append(kwargs)
 
         with (
-            patch("ai_engineering.cli_commands.checkpoint._project_root", return_value=tmp_path),
+            patch(
+                "ai_engineering.cli_commands.checkpoint.find_project_root",
+                return_value=tmp_path,
+            ),
             patch("ai_engineering.cli_commands.checkpoint.emit_session_event", mock_emit),
         ):
             checkpoint_save()
@@ -296,7 +302,7 @@ class TestTeamDashboardTokenEconomy:
         _make_audit_log(tmp_path, events)
 
         with (
-            patch("ai_engineering.cli_commands.observe._project_root", return_value=tmp_path),
+            patch("ai_engineering.cli_commands.observe.find_project_root", return_value=tmp_path),
             patch(
                 "ai_engineering.lib.signals.sonar_detailed_metrics",
                 return_value={"available": False},
@@ -314,7 +320,7 @@ class TestTeamDashboardTokenEconomy:
         _make_audit_log(tmp_path, [])
 
         with (
-            patch("ai_engineering.cli_commands.observe._project_root", return_value=tmp_path),
+            patch("ai_engineering.cli_commands.observe.find_project_root", return_value=tmp_path),
             patch(
                 "ai_engineering.lib.signals.sonar_detailed_metrics",
                 return_value={"available": False},
@@ -339,7 +345,7 @@ class TestTeamDashboardNoiseRatio:
         _make_audit_log(tmp_path, events)
 
         with (
-            patch("ai_engineering.cli_commands.observe._project_root", return_value=tmp_path),
+            patch("ai_engineering.cli_commands.observe.find_project_root", return_value=tmp_path),
             patch(
                 "ai_engineering.lib.signals.sonar_detailed_metrics",
                 return_value={"available": False},
@@ -359,7 +365,7 @@ class TestTeamDashboardNoiseRatio:
         _make_audit_log(tmp_path, events)
 
         with (
-            patch("ai_engineering.cli_commands.observe._project_root", return_value=tmp_path),
+            patch("ai_engineering.cli_commands.observe.find_project_root", return_value=tmp_path),
             patch(
                 "ai_engineering.lib.signals.sonar_detailed_metrics",
                 return_value={"available": False},
@@ -411,7 +417,7 @@ class TestAiDashboardAvgTokens:
         _make_audit_log(tmp_path, events)
 
         with (
-            patch("ai_engineering.cli_commands.observe._project_root", return_value=tmp_path),
+            patch("ai_engineering.cli_commands.observe.find_project_root", return_value=tmp_path),
             patch(
                 "ai_engineering.lib.signals.sonar_detailed_metrics",
                 return_value={"available": False},
@@ -441,7 +447,7 @@ class TestHealthNoiseComponent:
         _make_audit_log(tmp_path, events)
 
         with (
-            patch("ai_engineering.cli_commands.observe._project_root", return_value=tmp_path),
+            patch("ai_engineering.cli_commands.observe.find_project_root", return_value=tmp_path),
             patch(
                 "ai_engineering.cli_commands.observe._git_log_stat",
                 return_value={"commits": 10, "commits_per_week": 5, "period_days": 30},
@@ -484,7 +490,7 @@ class TestHealthNoiseComponent:
         _make_audit_log(tmp_path, events)
 
         with (
-            patch("ai_engineering.cli_commands.observe._project_root", return_value=tmp_path),
+            patch("ai_engineering.cli_commands.observe.find_project_root", return_value=tmp_path),
             patch(
                 "ai_engineering.cli_commands.observe._git_log_stat",
                 return_value={"commits": 10, "commits_per_week": 5, "period_days": 30},

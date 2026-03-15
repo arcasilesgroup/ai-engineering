@@ -1,0 +1,43 @@
+name: Scheduled Security Scan
+
+on:
+  schedule:
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - name: Install dependencies
+        run: uv sync --dev
+      - name: Install gitleaks
+        env:
+          GITLEAKS_VERSION: "8.30.0"
+        run: |
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" | tar xz -C /usr/local/bin gitleaks
+      - name: Full repo secret scan
+        run: gitleaks detect --source . --config .gitleaks.toml --no-banner --redact || true
+      - name: Dependency audit
+        run: uv run pip-audit --format json > dep-audit.json || true
+      - name: Install semgrep
+        run: python -m pip install semgrep
+      - name: SAST scan
+        run: semgrep --config .semgrep.yml --json . > semgrep-report.json || true
+      - name: Upload scan artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-scan-${{ github.run_number }}
+          path: |
+            dep-audit.json
+            semgrep-report.json
+          retention-days: 30

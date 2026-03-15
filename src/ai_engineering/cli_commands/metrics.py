@@ -7,29 +7,18 @@ from __future__ import annotations
 
 import json
 from datetime import UTC, datetime, timedelta
-from pathlib import Path
 from typing import Annotated
 
 import typer
 
 from ai_engineering.lib.signals import (
+    count_events_by_type,
     data_quality_from,
     filter_events,
     gate_pass_rate_from,
     load_all_events,
 )
-
-
-def _project_root() -> Path:
-    cwd = Path.cwd()
-    for parent in [cwd, *cwd.parents]:
-        if (parent / ".ai-engineering").is_dir():
-            return parent
-    return cwd
-
-
-def _count_type(events: list, event_type: str) -> int:
-    return sum(1 for e in events if e.get("event") == event_type)
+from ai_engineering.paths import find_project_root
 
 
 def metrics_collect(
@@ -39,7 +28,7 @@ def metrics_collect(
     ] = 30,
 ) -> None:
     """Collect aggregated metrics from audit events."""
-    root = _project_root()
+    root = find_project_root()
     since = datetime.now(tz=UTC) - timedelta(days=days)
 
     all_events = load_all_events(root)
@@ -55,14 +44,14 @@ def metrics_collect(
         "data_quality": quality,
         "events": {
             "total": len(windowed),
-            "scan_complete": _count_type(windowed, "scan_complete"),
-            "build_complete": _count_type(windowed, "build_complete"),
+            "scan_complete": count_events_by_type(windowed, "scan_complete"),
+            "build_complete": count_events_by_type(windowed, "build_complete"),
             "gate_result": gates["total"],
-            "deploy_complete": _count_type(
+            "deploy_complete": count_events_by_type(
                 windowed,
                 "deploy_complete",
             ),
-            "session_metric": _count_type(
+            "session_metric": count_events_by_type(
                 windowed,
                 "session_metric",
             ),

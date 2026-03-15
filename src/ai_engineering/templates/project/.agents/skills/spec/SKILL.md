@@ -1,8 +1,7 @@
 ---
 name: spec
-description: "Create a new spec before non-trivial work"
+description: "Create a new spec before non-trivial work: branch, scaffold spec/plan/tasks, activate, commit."
 ---
 
-Read and execute `.ai-engineering/skills/spec/SKILL.md`.
-
-Follow the complete procedure and all governance notes.
+Read and execute the skill defined in `.ai-engineering/skills/spec/SKILL.md`.
+Follow the complete procedure. Do not skip steps. Apply all governance notes.

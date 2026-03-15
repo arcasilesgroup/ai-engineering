@@ -1,9 +1,9 @@
 ---
 name: code
-description: "Write code across all supported stacks following standards: implement features, write tests, validate."
+description: "Write code across all supported stacks following standards: implement features, write tests, validate. Includes CLI design (agent-first, JSON + Rich dual-output)."
 metadata:
-  version: 2.0.0
-  tags: [implementation, code, multi-stack, features]
+  version: 2.1.0
+  tags: [implementation, code, multi-stack, features, cli]
   ai-engineering:
     scope: read-write
     token_estimate: 800
@@ -13,7 +13,7 @@ metadata:
 
 ## Purpose
 
-Core implementation skill for writing code across all 20 supported stacks. Implements features, writes tests, and validates against stack standards. The primary "write code" skill invoked by the build agent.
+Core implementation skill for writing code across all 20 supported stacks. Implements features, writes tests, and validates against stack standards. The primary "write code" skill invoked by the build agent. Also covers CLI design: agent-first commands with JSON envelope output (`--json`) and Rich human UX, dual-mode routing, and progress indicators (see `cli_output.py`, `cli_envelope.py`, `cli_ui.py`).
 
 ## Trigger
 

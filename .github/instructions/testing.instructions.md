@@ -96,5 +96,5 @@ uv run pytest -k "test_install"        # Filter by name
 
 ## Skills Reference
 
-- `.ai-engineering/skills/test-plan/SKILL.md` — test design procedure.
+- `.ai-engineering/skills/test/SKILL.md` — test design procedure.
 - `.ai-engineering/skills/debug/SKILL.md` — diagnosing test failures.

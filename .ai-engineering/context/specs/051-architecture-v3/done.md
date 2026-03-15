@@ -15,7 +15,7 @@ Clean-sheet architecture redesign: 7→10 agents, 35→40 skills, self-improveme
 | 11 skill renames (self-documenting names) | DONE — all cross-refs updated |
 | create+delete merged into lifecycle | DONE — 93 lines |
 | explain reassigned to guide agent | DONE — guide references it, plan removed ref |
-| 13 runbooks assigned owner: operate | DONE |
+| 5 runbooks assigned owner: operate (consolidated from 13) | DONE |
 | guard.advise in build post-edit validation | DONE — Step 2 in build agent |
 | verify.gap --framework self-audit mode | DONE — added to gap skill + verify modes |
 | evolve skill (self-improvement) | DONE — 12 analysis rules, report template |
@@ -27,7 +27,7 @@ Clean-sheet architecture redesign: 7→10 agents, 35→40 skills, self-improveme
 | CHANGELOG.md updated | DONE — v0.3.0 entry |
 | .ai-engineering/README.md created | DONE — developer guide |
 | Claude Code commands (44 files) | DONE — 13 renamed, 7 created, 1 deleted |
-| Template mirror synced | DONE — 10 agents, 40 skills, 13 runbooks |
+| Template mirror synced | DONE — 10 agents, 40 skills, 5 runbooks |
 | Python source updated (6 files) | DONE — audit.py, governance_cmd, sync_mirrors, 3 tests |
 | All tests pass | DONE — 1463 pass, 0 fail |
 
@@ -39,7 +39,7 @@ Clean-sheet architecture redesign: 7→10 agents, 35→40 skills, self-improveme
 | Skills | 35 | 40 |
 | Stub skills | 5 | 0 |
 | Orphan skills | 1 (explain) | 0 |
-| Runbook owners | 0 | 13 |
+| Runbook owners | 0 | 5 |
 | Tests | 1463 pass | 1463 pass |
 | Commits | — | 14 |
 | Lines added | — | ~6,700 |

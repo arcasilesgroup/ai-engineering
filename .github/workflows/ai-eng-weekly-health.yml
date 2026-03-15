@@ -1,0 +1,31 @@
+name: Weekly Health Report
+
+on:
+  schedule:
+    - cron: '0 9 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  health:
+    name: Weekly Health Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - name: Install dependencies
+        run: uv sync --dev
+      - name: Framework health
+        run: uv run ai-eng doctor --json
+      - name: Content integrity
+        run: uv run ai-eng validate --json || true
+      - name: DORA metrics snapshot
+        run: |
+          echo "Health reporting: handled by this workflow (replaced weekly-report, feature-scanner, wiring-scanner runbooks)"

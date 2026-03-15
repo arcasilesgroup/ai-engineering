@@ -102,6 +102,6 @@ Inherits language rules from `skills/explain/SKILL.md`: precise terminology, no 
 
 ## References
 
-- `skills/guide/SKILL.md` -- guide skill that invokes onboard.
+- `agents/guide.md` -- guide agent that invokes onboard.
 - `skills/explain/SKILL.md` -- 3-tier depth model, language rules.
 - `agents/guide.md` -- guide agent behavioral contract.

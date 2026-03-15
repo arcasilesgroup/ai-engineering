@@ -13,15 +13,8 @@ from typing import Annotated
 
 import typer
 
+from ai_engineering.paths import find_project_root
 from ai_engineering.state.service import StateService
-
-
-def _project_root() -> Path:
-    cwd = Path.cwd()
-    for parent in [cwd, *cwd.parents]:
-        if (parent / ".ai-engineering").is_dir():
-            return parent
-    return cwd
 
 
 def _load_store(root: Path):
@@ -36,7 +29,7 @@ def _load_store(root: Path):
 
 def decision_list() -> None:
     """List all decisions in the decision store."""
-    root = _project_root()
+    root = find_project_root()
     store = _load_store(root)
 
     if store is None or not store.decisions:
@@ -58,7 +51,7 @@ def decision_list() -> None:
 
 def decision_expire_check() -> None:
     """Check for decisions expiring within 7 days or already expired."""
-    root = _project_root()
+    root = find_project_root()
     store = _load_store(root)
 
     if store is None or not store.decisions:
@@ -139,7 +132,7 @@ def decision_record(
         RiskSeverity,
     )
 
-    root = _project_root()
+    root = find_project_root()
     svc = StateService(root)
     store_path = root / ".ai-engineering" / "state" / "decision-store.json"
 

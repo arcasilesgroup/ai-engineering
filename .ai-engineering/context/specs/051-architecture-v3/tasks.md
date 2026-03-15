@@ -41,7 +41,7 @@ next_session: "CLOSED"
 ### 2.3 Operate Agent
 - [x] T-019: Create `agents/operate.md` (156 lines)
 - [x] T-020: Create `skills/ops/SKILL.md` (142 lines)
-- [x] T-021: Add `owner: operate` to all 13 runbooks
+- [x] T-021: Add `owner: operate` to all 5 runbooks (consolidated from 13)
 
 ### 2.4 Evolve + Dispatch + Lifecycle
 - [x] T-022: Create `skills/evolve/SKILL.md` (193 lines)
@@ -53,7 +53,7 @@ next_session: "CLOSED"
 - [x] T-028: Update `agents/plan.md` — lifecycle replaces create+delete
 - [x] T-029: Delete `skills/create/` and `skills/delete/`
 
-**Phase 2 Gate**: PASS — 3 agents, 7 skills, 13 runbooks owned, explain reassigned
+**Phase 2 Gate**: PASS — 3 agents, 7 skills, 5 runbooks owned (consolidated from 13), explain reassigned
 
 ## Phase 3: Renames [L]
 
@@ -113,7 +113,7 @@ next_session: "CLOSED"
 **Phase 5 Gate**: PASS — contracts accurate, CHANGELOG updated, manifest updated
 
 ## Phase 6: Template Mirror + Validation [M]
-- [x] T-069: Sync to src/ai_engineering/templates/.ai-engineering/ — 10 agents, 40 skills, 13 runbooks, contracts
+- [x] T-069: Sync to src/ai_engineering/templates/.ai-engineering/ — 10 agents, 40 skills, 5 runbooks, contracts
 - [x] T-070: Run full test suite → 1463 passed, 0 failures
 - [x] T-071: PARTIAL — ai-eng validate not run (validator may flag counter mismatches until GOVERNANCE_SOURCE updated)
 - [x] T-072: Document gaps in done.md — see done.md gap register

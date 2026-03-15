@@ -54,7 +54,7 @@ Clean-sheet architecture redesign applying SOLID, DRY, Anthropic skill-creator p
 - Update all IDE adapters, templates, Python source, tests
 - Sync template mirror to src/ai_engineering/templates/
 - Update root README.md and CHANGELOG.md
-- Add owner to all 14 runbooks
+- Add owner to all 5 runbooks (consolidated from 14)
 
 ### Out of Scope
 
@@ -75,7 +75,7 @@ Clean-sheet architecture redesign applying SOLID, DRY, Anthropic skill-creator p
 | 5 | evolve skill produces self-improvement report from real data | Run evolve on audit-log → report with ≥3 patterns |
 | 6 | verify.gap --framework mode checks promise vs reality | Run on product-contract → gap report |
 | 7 | explain owned by guide, cleanup owned by plan+operate | Agent frontmatter references correct |
-| 8 | All 14 runbooks have owner: operate in frontmatter | Grep confirms |
+| 8 | All 5 runbooks have owner: operate in frontmatter | Grep confirms |
 | 9 | All Python tests pass after rename updates | pytest → 0 failures |
 | 10 | Template mirror byte-identical with canonical | ai-eng validate → 0 mirror findings |
 | 11 | Fresh ai-eng install works | Install in temp dir → success |

@@ -2,6 +2,8 @@
 name: verify
 version: 2.0.0
 scope: read-write
+model: opus
+color: red
 capabilities: [governance-scan, security-scan, quality-scan, performance-scan, a11y-scan, feature-gap-scan, architecture-scan, platform-audit, spec-code-gap-analysis, architecture-drift-detection, work-item-sync]
 inputs: [codebase, spec-hierarchy, architecture-docs, test-suite, scan-reports, install-manifest]
 outputs: [scan-report, gap-report, drift-report, coverage-map, platform-score]
@@ -80,7 +82,7 @@ After every scan mode completes, emit a structured event:
 ai-eng signals emit scan_complete --actor=scan --detail='{"mode":"<MODE>","score":<SCORE>,"findings":{"critical":<N>,"high":<N>,"medium":<N>,"low":<N>}}'
 ```
 
-This feeds the observe dashboards (Code Quality, Scan Health, Health Score).
+This feeds the `ai:dashboard` skill views (Code Quality, Scan Health, Health Score).
 
 ### 5. Report Generation
 

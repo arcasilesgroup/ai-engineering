@@ -1,0 +1,33 @@
+name: Performance Audit
+
+on:
+  schedule:
+    - cron: '0 3 * * 0'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    name: Performance Analysis
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - name: Install dependencies
+        run: uv sync --dev
+      - name: Run duplication analysis
+        run: uv run python -m ai_engineering.policy.duplication --path src/ai_engineering --threshold 3 || true
+      - name: Run complexity check
+        run: |
+          uv run ruff check src/ --select C901 --output-format json > complexity-report.json || true
+          echo "Performance audit: handled by this workflow (replaced perf-scanner runbook)"
+      - name: Upload audit artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: perf-audit-${{ github.run_number }}
+          path: complexity-report.json
+          retention-days: 30

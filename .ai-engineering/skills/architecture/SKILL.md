@@ -1,9 +1,10 @@
 ---
 name: architecture
-description: "Analyze software architecture: drift detection, coupling, cohesion, boundaries, tech debt assessment."
+description: "Analyze software architecture: drift detection, coupling, cohesion, boundaries, tech debt, backwards compatibility."
+argument-hint: "drift|coupling|boundaries|compatibility"
 metadata:
-  version: 2.0.0
-  tags: [architecture, dependencies, coupling, drift, tech-debt]
+  version: 2.1.0
+  tags: [architecture, dependencies, coupling, drift, tech-debt, compatibility]
   ai-engineering:
     scope: read-only
     token_estimate: 800
@@ -64,7 +65,15 @@ Analyze software architecture for drift from spec, coupling issues, cohesion pro
    - **Medium**: cohesion issues, naming drift.
    - **Low**: minor coupling, documentation gaps.
 
-7. **Report** — produce uniform scan output:
+7. **Check backwards compatibility** (compatibility mode) — analyze changes for breaking impacts:
+   - Public API surface: detect removed/renamed functions, changed signatures, narrowed types.
+   - Database schema: verify migrations are additive (new columns nullable or with defaults, no dropped columns without deprecation).
+   - Configuration formats: check that existing config keys still work, new keys have defaults.
+   - Exports: flag removed or renamed exports that downstream code depends on.
+   - Protocols/interfaces: verify existing contracts are not narrowed.
+   - Category: **Breaking** (removes capability) or **Compatible** (additive change).
+
+8. **Report** — produce uniform scan output:
 
 ```markdown
 # Scan Report: architecture
@@ -83,6 +92,9 @@ Analyze software architecture for drift from spec, coupling issues, cohesion pro
 
 ## Tech Debt Register
 | Item | Severity | Effort | Impact | Priority |
+
+## Compatibility Assessment
+| Surface | Change | Breaking | Migration Path | Status |
 ```
 
 ## Examples

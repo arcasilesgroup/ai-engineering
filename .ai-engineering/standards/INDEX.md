@@ -44,6 +44,35 @@
 | Helm | `framework/stacks/helm.md` | Helm 3, Kubernetes charts |
 | Ansible | `framework/stacks/ansible.md` | Ansible, playbooks, roles |
 
+### Review Standards (24)
+
+| Standard | Path | Description |
+|----------|------|-------------|
+| Core | `framework/review/core.md` | Confidence scoring, self-challenge gate, severity scale, output contract |
+| Python | `framework/review/languages/python.md` | Python idioms, N+1, type hints |
+| TypeScript | `framework/review/languages/typescript.md` | Type safety, async, null safety |
+| C# | `framework/review/languages/csharp.md` | Nullable refs, async/await, LINQ |
+| Rust | `framework/review/languages/rust.md` | Ownership, error handling, derives |
+| Go | `framework/review/languages/go.md` | Error handling, goroutines, interfaces |
+| Java | `framework/review/languages/java.md` | Optional, streams, Spring |
+| Ruby | `framework/review/languages/ruby.md` | Rails, ActiveRecord, RSpec |
+| Bash | `framework/review/languages/bash.md` | Safety, portability, BATS |
+| Django | `framework/review/frameworks/django.md` | ORM, views, CSRF |
+| ASP.NET Core | `framework/review/frameworks/aspnetcore.md` | Middleware, EF Core, DI |
+| .NET General | `framework/review/frameworks/dotnet.md` | WPF, MAUI, Blazor |
+| Angular | `framework/review/frameworks/angular.md` | Components, RxJS, OnPush |
+| Next.js | `framework/review/frameworks/nextjs.md` | App Router, RSC, data fetching |
+| React | `framework/review/frameworks/react.md` | Hooks, accessibility, state |
+| NestJS | `framework/review/frameworks/nestjs.md` | Modules, DI, guards |
+| Flutter | `framework/review/frameworks/flutter.md` | Widgets, state, platform |
+| Security | `framework/review/dimensions/security.md` | OWASP, injection, auth |
+| Performance | `framework/review/dimensions/performance.md` | N+1, complexity, memory |
+| Correctness | `framework/review/dimensions/correctness.md` | Intent alignment, logic |
+| Maintainability | `framework/review/dimensions/maintainability.md` | Clarity, naming, duplication |
+| Testing | `framework/review/dimensions/testing.md` | Coverage, quality, mocking |
+| Compatibility | `framework/review/dimensions/compatibility.md` | Breaking changes, API contracts |
+| Architecture | `framework/review/dimensions/architecture.md` | YAGNI, patterns, reuse |
+
 ### Cross-Cutting Standards (8)
 
 | Standard | Path | Description |
@@ -69,6 +98,7 @@
 - **Framework core**: 2
 - **Quality & Security**: 4
 - **Stack standards**: 21
+- **Review standards**: 24
 - **Cross-cutting standards**: 8
 - **Team standards**: 2
-- **Total**: 37
+- **Total**: 61

@@ -185,7 +185,6 @@ User says: `/ai:evolve` on a new project with 2 weeks of history.
 
 ## References
 
-- `agents/observe.md` -- owning agent, provides signal sources and data quality rules.
 - `skills/dashboard/SKILL.md` -- observability dashboards (current-state, not longitudinal).
 - `state/audit-log.ndjson` -- primary event store.
 - `state/decision-store.json` -- decision lifecycle data.

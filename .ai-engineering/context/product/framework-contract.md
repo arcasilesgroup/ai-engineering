@@ -85,7 +85,7 @@ Every phase MUST pass before dependent phases start:
 - Context Aggregation: deduplicate findings, resolve conflicts (security > governance > quality > style), construct dependency graph.
 - Context Handoff MUST include: phase ID, agent ID, findings summary, unresolved questions, phase dependencies.
 - No Implicit Context: all shared context MUST flow through spec artifacts or explicit context summaries.
-- Evolve feedback loop: `observe` emits metrics and drift signals → `evolve` synthesizes improvement proposals → proposals reviewed by human → accepted proposals feed into `plan` as new specs. This loop is continuous and asynchronous.
+- Evolve feedback loop: the `dashboard` skill emits metrics and drift signals → `evolve` skill synthesizes improvement proposals → proposals reviewed by human → accepted proposals feed into `plan` as new specs. This loop is continuous and asynchronous.
 
 ### 2.6 Capability-Task Matching
 
@@ -96,15 +96,13 @@ Every phase MUST pass before dependent phases start:
 | Agent | Capabilities | Scope |
 |-------|-------------|-------|
 | plan | discovery, risk-analysis, spec-authoring, architecture | read-write |
-| execute | orchestration, dispatch, coordination, reporting | read-write |
 | guard | governance, compliance, gate-validation, policy-enforcement | read-only |
 | build | code-generation, refactoring, implementation, testing | read-write |
 | verify | quality-analysis, security-scanning, coverage, linting | read-only |
-| ship | release, changelog, versioning, deployment-prep | read-write |
-| observe | metrics, drift-detection, health-monitoring, telemetry | read-only |
 | guide | onboarding, documentation, explanation, context-summary | read-only |
-| write | content-authoring, standards, templates, contracts | read-write |
 | operate | infrastructure, tooling, installation, configuration | read-write |
+| explorer | codebase-navigation, dependency-mapping, architecture-discovery, context-gathering | read-only |
+| simplifier | complexity-reduction, dead-code-removal, guard-clauses, early-returns | read-write |
 
 ### 2.7 Task Tracking and Decisions
 
@@ -157,13 +155,13 @@ When weakening a directive is requested: warn user → generate remediation patc
 
 - `/ai:plan` → planning pipeline (classify → discover → risk → spec → execution plan → STOP)
 - `/ai:plan --plan-only` → advisory only (discover → risk → recommend, zero writes)
-- `/ai:execute` → read approved plan, dispatch agents, coordinate, report
 - `/ai:guard` → run governance gate (scope validation, policy check, compliance audit)
 - `/ai:guard --advise` → advisory mode (non-blocking governance feedback)
 - `/ai:verify` → quality and security pipeline (lint → type-check → test → coverage → SAST → dependency audit)
-- `/ai:ship` → release pipeline (changelog → version bump → tag → deployment prep)
 - `/ai:guide` → onboarding and context summary (explain architecture, summarize spec, generate walkthrough)
 - `/ai:operate` → infrastructure and tooling (install → configure → migrate → health check)
+- `/ai:explorer` → codebase navigation, dependency mapping, architecture discovery
+- `/ai:simplifier` → background complexity reduction (guard clauses, early returns, dead code removal)
 - `/ai:commit` → stage + commit + push
 - `/ai:commit --only` → stage + commit
 - `/ai:pr` → stage + commit + push + PR + auto-complete (`--auto --squash --delete-branch`)

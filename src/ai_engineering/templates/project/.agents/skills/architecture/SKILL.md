@@ -1,8 +1,7 @@
 ---
 name: architecture
-description: "Analyze software architecture: drift, coupling, cohesion, boundaries"
+description: "Analyze software architecture: drift detection, coupling, cohesion, boundaries, tech debt assessment."
 ---
 
-Read and execute `.ai-engineering/skills/architecture/SKILL.md`.
-
-Follow the complete procedure and all governance notes.
+Read and execute the skill defined in `.ai-engineering/skills/architecture/SKILL.md`.
+Follow the complete procedure. Do not skip steps. Apply all governance notes.

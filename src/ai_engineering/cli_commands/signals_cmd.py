@@ -8,23 +8,15 @@ from __future__ import annotations
 
 import json
 from datetime import UTC, datetime
-from pathlib import Path
 from typing import Annotated
 
 import typer
 
 from ai_engineering.git.context import get_git_context
+from ai_engineering.paths import find_project_root
 from ai_engineering.state.models import AuditEntry
 from ai_engineering.state.service import StateService
 from ai_engineering.vcs.repo_context import get_repo_context
-
-
-def _project_root() -> Path:
-    cwd = Path.cwd()
-    for parent in [cwd, *cwd.parents]:
-        if (parent / ".ai-engineering").is_dir():
-            return parent
-    return cwd
 
 
 def signals_emit(
@@ -34,7 +26,7 @@ def signals_emit(
     spec: Annotated[str | None, typer.Option(help="Associated spec ID")] = None,
 ) -> None:
     """Emit a structured event to the audit log."""
-    root = _project_root()
+    root = find_project_root()
 
     try:
         detail = json.loads(detail_json)
@@ -70,7 +62,7 @@ def signals_query(
     """Query events from the audit log."""
     from ai_engineering.lib.signals import read_events
 
-    root = _project_root()
+    root = find_project_root()
     from datetime import timedelta
 
     since = datetime.now(tz=UTC) - timedelta(days=days)

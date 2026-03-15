@@ -203,7 +203,7 @@ class TestObserveTeamSkillAgent:
             _skill_event("build"),
             _skill_event("build"),
             _skill_event("test"),
-            _agent_event("execute"),
+            _agent_event("plan"),
             _agent_event("build"),
             _agent_event("build"),
         ]
@@ -232,7 +232,7 @@ class TestObserveTeamSkillAgent:
         ):
             mock_load.return_value = [
                 _skill_event("build"),
-                _agent_event("execute"),
+                _agent_event("plan"),
             ]
             data = observe_ai(Path("/tmp/fake"))
 
@@ -247,7 +247,7 @@ class TestObserveTeamSkillAgent:
             _skill_event("build"),
             _skill_event("test"),
             _skill_event("plan"),
-            _agent_event("execute"),
+            _agent_event("plan"),
             _agent_event("build"),
         ]
         with (
@@ -307,7 +307,7 @@ class TestRenderSkillAgentSections:
             },
             "agent_dispatch": {
                 "total_dispatches": 3,
-                "by_agent": {"execute": 2, "verify": 1},
+                "by_agent": {"plan": 2, "verify": 1},
             },
             "actions": ["Action 1"],
         }

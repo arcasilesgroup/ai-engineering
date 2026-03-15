@@ -1,6 +1,7 @@
 ---
 name: lifecycle
 description: "Use this skill to create or delete agents and skills with full registration: scaffold, manifest update, command creation, cross-reference updates, and integrity verification. Merges the former create and delete skills into a unified lifecycle manager."
+argument-hint: "create|transition|close"
 metadata:
   version: 1.0.0
   tags: [lifecycle, governance, agents, skills, creation, deletion]
@@ -36,11 +37,11 @@ The reason these operations live together is that creation and deletion are inve
 2. **Scaffold** — create `agents/<name>.md` with required frontmatter: name, version, scope, capabilities, inputs, outputs, tags, references. Add Identity, Modes, Behavior, Boundaries, Escalation sections.
 3. **Register** — update `manifest.yml`: increment agent count, add to names list.
 4. **Command adapters** — create:
-   - `.claude/commands/ai/<name>.md` (Claude Code slash command)
+   - `.claude/skills/ai-<name>/SKILL.md` (Claude Code slash command)
    - `.github/prompts/ai-<name>.prompt.md` (Copilot prompt)
    - `.github/agents/<name>.agent.md` (Copilot agent)
 5. **Mirror** — create corresponding files in `src/ai_engineering/templates/`.
-6. **Cross-reference** — update GOVERNANCE_SOURCE.md agent table. Update product-contract.md §2.2 if needed.
+6. **Cross-reference** — update AGENTS.md agent table. Update product-contract.md §2.2 if needed.
 7. **Verify** — run `ai-eng validate` to confirm registration. Fix any integrity findings.
 
 ## Create Skill
@@ -50,10 +51,10 @@ The reason these operations live together is that creation and deletion are inve
 3. **Register** — update `manifest.yml` skill count.
 4. **Link** — add skill reference to owning agent's `references.skills` frontmatter array.
 5. **Command adapters** — create:
-   - `.claude/commands/ai/<name>.md`
+   - `.claude/skills/ai-<name>/SKILL.md`
    - `.github/prompts/ai-<name>.prompt.md`
 6. **Mirror** — create corresponding files in `src/ai_engineering/templates/`.
-7. **Cross-reference** — update GOVERNANCE_SOURCE.md skill table if needed.
+7. **Cross-reference** — update AGENTS.md skill table if needed.
 8. **Verify** — run `ai-eng validate`. Fix any integrity findings.
 
 ## Delete Agent
@@ -63,11 +64,11 @@ The reason these operations live together is that creation and deletion are inve
 3. **Remove** — delete `agents/<name>.md`.
 4. **Deregister** — update `manifest.yml`: decrement agent count, remove from names list.
 5. **Command adapters** — remove:
-   - `.claude/commands/ai/<name>.md`
+   - `.claude/skills/ai-<name>/SKILL.md`
    - `.github/prompts/ai-<name>.prompt.md`
    - `.github/agents/<name>.agent.md`
 6. **Mirror** — remove from `src/ai_engineering/templates/`.
-7. **Cross-reference** — update GOVERNANCE_SOURCE.md, product-contract.md.
+7. **Cross-reference** — update AGENTS.md, product-contract.md.
 8. **Verify** — run `ai-eng validate`. Fix any findings.
 
 ## Delete Skill

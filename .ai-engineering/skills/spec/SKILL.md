@@ -1,6 +1,7 @@
 ---
 name: spec
 description: "Create a new spec before non-trivial work: branch, scaffold spec/plan/tasks, activate, commit."
+argument-hint: "[NNN title]"
 metadata:
   version: 1.0.0
   tags: [governance, spec, lifecycle, planning]
@@ -95,13 +96,18 @@ A change is **trivial** (spec exempt) when ALL of these apply:
        ### In Scope
        ### Out of Scope
      ## Acceptance Criteria
+
+     | # | Criterion | Verification Command | Expected |
+     |---|----------|---------------------|----------|
+     | 1 | [what should be true] | `[command to verify]` | [expected result] |
+
      ## Decisions
      ```
 
    - Problem: concrete description of what is wrong or missing.
    - Solution: what will be built/changed to fix it.
    - Scope: explicit in/out boundaries.
-   - Acceptance Criteria: numbered, verifiable conditions.
+   - Acceptance Criteria: table with Verification Command that anyone can execute. Every AC must have a concrete command — no prose-only criteria. If you can't write a command, the criterion is too vague.
    - Decisions: table with ID, Decision, Rationale columns.
 
 6. **Create plan.md** — the HOW document.

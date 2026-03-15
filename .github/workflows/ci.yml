@@ -55,6 +55,36 @@ jobs:
       - name: Ruff format check
         run: uv run ruff format --check src/ tests/
 
+  duplication:
+    name: Duplication Check
+    needs: [change-scope]
+    if: needs.change-scope.outputs.code == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - name: Install dependencies
+        run: uv sync --dev
+      - name: Check code duplication
+        run: uv run python -m ai_engineering.policy.duplication --path src/ai_engineering --threshold 3
+
+  risk-acceptance:
+    name: Risk Acceptance Check
+    needs: [change-scope]
+    if: needs.change-scope.outputs.code == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - name: Install dependencies
+        run: uv sync --dev
+      - name: Check risk acceptances
+        run: uv run ai-eng gate risk-check --strict
+
   typecheck:
     name: Type Check
     needs: [change-scope]
@@ -413,6 +443,8 @@ jobs:
         run: uv run python scripts/check_workflow_policy.py
       - name: Test mapping integrity
         run: uv run python scripts/check_test_mapping.py
+      - name: Mirror sync integrity
+        run: uv run python scripts/sync_command_mirrors.py --check
 
   verify-gate-trailers:
     name: Verify Gate Trailers
@@ -561,6 +593,8 @@ jobs:
       [
         change-scope,
         lint,
+        duplication,
+        risk-acceptance,
         typecheck,
         test-unit,
         test-integration,

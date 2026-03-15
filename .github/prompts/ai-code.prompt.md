@@ -1,5 +1,5 @@
 ---
-description: "Write code across all supported stacks following standards: implement features, write tests, validate."
+description: "Write code across all supported stacks following standards: implement features, write tests, validate. Includes CLI design (agent-first, JSON + Rich dual-output)."
 mode: "agent"
 ---
 

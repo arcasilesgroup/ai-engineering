@@ -1,6 +1,7 @@
 ---
 name: document
 description: "Documentation authoring with modes: generate (create/update docs) and simplify (reduce verbosity preserving accuracy)."
+argument-hint: "generate|simplify"
 metadata:
   version: 2.0.0
   tags: [documentation, open-source, readme, guides, simplification]
