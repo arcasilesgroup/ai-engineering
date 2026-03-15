@@ -713,12 +713,10 @@ def checkpoint_status(project_root: Path) -> dict[str, Any]:
 
         raw = json.loads(path.read_text(encoding="utf-8"))
 
-        # Support namespaced checkpoints: prefer agent-specific data
-        # if "agents" section exists, use the most recent agent entry
+        # Namespaced checkpoints: top-level fields are kept in sync by
+        # checkpoint_save's backward-compat write, so we always read from
+        # top-level regardless of whether agent sections exist.
         data = raw
-        if "agents" in raw and isinstance(raw["agents"], dict):
-            # Use top-level fields (backward compat) but note agents exist
-            pass  # top-level is already populated by checkpoint_save
 
         # Parse progress like "3/5" or empty
         progress_str = data.get("progress", "")

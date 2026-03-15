@@ -15,7 +15,7 @@ metadata:
 
 ## Purpose
 
-Operational automation for the ai-engineering framework. Execute runbooks on demand, respond to incidents (gate failures, CI breaks, security findings), and produce operational health dashboards. The single entry point for all operational concerns that are not code delivery (handled by release) or code analysis (handled by scan).
+Operational automation for the ai-engineering framework. Execute runbooks on demand, respond to incidents (gate failures, CI breaks, security findings), and produce operational health dashboards. The single entry point for all operational concerns that are not code delivery (handled by ship) or code analysis (handled by verify).
 
 ## Trigger
 
@@ -46,7 +46,7 @@ When: User wants visibility into operational health, or as part of a periodic ch
 Use these rules as the single source of truth for operational behavior shared by skill and agent.
 
 - **OPS-R1 (Runbook-first execution):** Every operational action maps to a runbook. If no runbook exists for the requested action, report the gap -- do not improvise.
-- **OPS-R2 (Delegation discipline):** Never perform work outside operational scope. Delegate analysis to scan, code fixes to build, delivery to release. The operate agent orchestrates; it does not implement.
+- **OPS-R2 (Delegation discipline):** Never perform work outside operational scope. Delegate analysis to verify, code fixes to build, delivery to ship. The operate agent orchestrates; it does not implement.
 - **OPS-R3 (Safety limit enforcement):** Respect every per-runbook safety constraint (max-issues, max-lines, max-attempts, no-bypass). Never override safety limits.
 - **OPS-R4 (Audit trail):** Record every runbook execution and incident response in `state/audit-log.ndjson` with structured fields: `type`, `runbook`, `status`, `timestamp`, `detail`.
 - **OPS-R5 (Blameless incident management):** Incident reports focus on what happened, why, and how to prevent recurrence. Never assign blame to individuals or agents.
@@ -61,9 +61,9 @@ Use these rules as the single source of truth for operational behavior shared by
 3. **Verify required tools** -- for each entry in `requires`, confirm available on PATH. If missing, abort with `ai-eng doctor --fix-tools` guidance.
 4. **Execute runbook prompt** -- read the `## Prompt` section and follow each numbered step in order.
 5. **Delegate to agents** -- when the runbook requires work outside operational scope:
-   - Scanning/analysis -> invoke scan agent (via `/ai:scan`)
+   - Scanning/analysis -> invoke verify agent (via `/ai:verify`)
    - Code fixes -> invoke build agent (via `/ai:build`)
-   - Commits/PRs/releases -> invoke release agent (via `/ai:commit`, `/ai:pr`)
+   - Commits/PRs/releases -> invoke ship agent (via `/ai:commit`, `/ai:pr`)
    - Metrics/dashboards -> invoke observe agent (via `/ai:observe`)
 6. **Record execution** -- emit to `state/audit-log.ndjson`:
    ```json

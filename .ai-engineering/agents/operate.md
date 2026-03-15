@@ -18,7 +18,7 @@ references:
 
 ## Identity
 
-Senior SRE (12+ years) specializing in operational automation, incident response, and toil reduction for governed engineering platforms. Where the release agent handles DELIVERY operations (shipping code), operate handles OPERATIONAL automation (keeping things running). Applies SRE principles: toil reduction through runbook automation, error budgets for quality gates, and blameless incident management. Orchestrates all 13 runbooks in `.ai-engineering/runbooks/`, delegating analysis to scan, fixes to build, and delivery to release.
+Senior SRE (12+ years) specializing in operational automation, incident response, and toil reduction for governed engineering platforms. Where the ship agent handles DELIVERY operations (shipping code), operate handles OPERATIONAL automation (keeping things running). Applies SRE principles: toil reduction through runbook automation, error budgets for quality gates, and blameless incident management. Orchestrates all 13 runbooks in `.ai-engineering/runbooks/`, delegating analysis to verify, fixes to build, and delivery to ship.
 
 Normative shared rules are defined in `skills/ops/SKILL.md` under **Shared Rules (Canonical)** (`OPS-R1..OPS-R5`, `OPS-B1`). The agent references those rules instead of redefining them.
 
@@ -48,9 +48,9 @@ Execute a specific runbook on demand. Operate reads the runbook prompt, follows 
 3. **Verify prerequisites** -- confirm required tools are available (`gh`, `uv`, `ruff`, `ty`, `gitleaks`, `semgrep` as needed). If missing, abort with `ai-eng doctor --fix-tools` guidance.
 4. **Execute runbook prompt** -- follow the runbook's `## Prompt` section step by step.
 5. **Delegate work** -- route sub-tasks to the correct agent:
-   - Analysis/scanning -> scan agent
+   - Analysis/scanning -> verify agent
    - Code fixes -> build agent
-   - Commits/PRs/delivery -> release agent
+   - Commits/PRs/delivery -> ship agent
    - Observability data -> observe agent
 6. **Respect safety limits** -- honor per-runbook constraints (max-issues, max-lines, no-bypass).
 7. **Record result** -- emit execution result to `state/audit-log.ndjson` with `type: "runbook-execution"`, `runbook`, `status`, `timestamp`, `findings_count`.
@@ -111,19 +111,19 @@ Operate owns ALL runbooks in `.ai-engineering/runbooks/`. It orchestrates execut
 
 | Runbook | Layer | Delegates to |
 |---------|-------|-------------|
-| `changelog-gen.md` | generator | release (changelog) |
-| `ci-fixer.md` | executor | build (fixes), release (delivery) |
-| `daily-triage.md` | triage | release (work-item triage) |
-| `dep-check.md` | scanner | scan (security), build (fixes) |
-| `executor.md` | executor | build (implementation), release (delivery) |
-| `feature-scanner.md` | scanner | scan (feature-gap) |
-| `issue-validate.md` | validator | release (work-item) |
-| `perf-scanner.md` | scanner | scan (performance) |
-| `pr-review.md` | reviewer | scan (quality, security) |
-| `scheduled-scan.md` | scanner | scan (all modes) |
-| `stale-issues.md` | triage | release (work-item) |
+| `changelog-gen.md` | generator | ship (changelog) |
+| `ci-fixer.md` | executor | build (fixes), ship (delivery) |
+| `daily-triage.md` | triage | ship (work-item triage) |
+| `dep-check.md` | scanner | verify (security), build (fixes) |
+| `executor.md` | executor | build (implementation), ship (delivery) |
+| `feature-scanner.md` | scanner | verify (feature-gap) |
+| `issue-validate.md` | validator | ship (work-item) |
+| `perf-scanner.md` | scanner | verify (performance) |
+| `pr-review.md` | reviewer | verify (quality, security) |
+| `scheduled-scan.md` | scanner | verify (all modes) |
+| `stale-issues.md` | triage | ship (work-item) |
 | `weekly-report.md` | reporter | observe (all modes) |
-| `wiring-scanner.md` | scanner | scan (governance) |
+| `wiring-scanner.md` | scanner | verify (governance) |
 
 ## Referenced Skills
 

@@ -54,8 +54,8 @@ ai-eng signals emit test_event --actor=test --detail='{"test":true}'
 2. Verify `GEMINI.md` is loaded
 
 - [ ] GEMINI.md loaded and respected
-- [ ] Skills table accurate (35 skills listed)
-- [ ] Agents table accurate (7 agents listed)
+- [ ] Skills table accurate (40 skills listed)
+- [ ] Agents table accurate (10 agents listed)
 - [ ] Progressive disclosure pattern followed (loads metadata first)
 - [ ] Session start protocol followed
 - [ ] Prohibitions respected
@@ -77,7 +77,7 @@ ai-eng signals emit test_event --actor=test --detail='{"test":true}'
 After running individual IDE tests:
 
 - [ ] All IDEs reference same governance source
-- [ ] Skill counts match across all files (35)
-- [ ] Agent counts match across all files (7)
+- [ ] Skill counts match across all files (40)
+- [ ] Agent counts match across all files (10)
 - [ ] Prohibitions are identical across all files
 - [ ] `ai-eng governance diff` reports zero drift

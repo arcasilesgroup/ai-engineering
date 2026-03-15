@@ -76,7 +76,7 @@ On session start (to resume planning):
 
 1. **Read product context** -- read `context/product/product-contract.md` §7 (roadmap, KPIs, blockers) and `context/product/framework-contract.md` §2 (agentic model) to ground planning in current project state
 2. **Apply shared planning rules** -- execute `PLAN-R1..PLAN-R4` from `skills/plan/SKILL.md`
-3. **Triage** (if configured) -- check for pending work items via release agent
+3. **Triage** (if configured) -- check for pending work items via ship agent
 5. **Spec creation** (MANDATORY for all pipelines) -- invoke `ai:spec` to scaffold. Every pipeline (full, standard, hotfix, trivial) must produce a spec so `/ai:execute` always has a spec/plan to dispatch agents and tasks from
 6. **Build execution plan** -- capability-match tasks to agents, build execution plan document in plan.md
    **Output**: execution plan with agent assignments, phase ordering, gate criteria

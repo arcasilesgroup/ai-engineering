@@ -26,9 +26,9 @@ Proactive governance advisory skill. Shift-left governance checks that run durin
 
 ## When NOT to Use
 
-- **Post-hoc governance audit** -- use `/ai:scan governance` instead. Guard is proactive; scan is forensic.
-- **Security vulnerability analysis** -- use `/ai:scan security`. Guard checks governance alignment, not CVEs.
-- **Code quality metrics** -- use `/ai:scan quality`. Guard warns about quality threshold trends, not exact measurements.
+- **Post-hoc governance audit** -- use `/ai:verify governance` instead. Guard is proactive; verify is forensic.
+- **Security vulnerability analysis** -- use `/ai:verify security`. Guard checks governance alignment, not CVEs.
+- **Code quality metrics** -- use `/ai:verify quality`. Guard warns about quality threshold trends, not exact measurements.
 - **Hard enforcement** -- git hooks handle blocking. Guard advises.
 - **Risk acceptance lifecycle** -- use `/ai:risk` to accept, resolve, or renew risks. Guard detects expired decisions but does not manage them.
 

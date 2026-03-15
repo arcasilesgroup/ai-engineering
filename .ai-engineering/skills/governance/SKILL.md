@@ -19,7 +19,7 @@ The CLI layer (`ai-eng validate`, `ai-eng doctor`) performs deterministic, repea
 
 ## Trigger
 
-- Command: `/ai:scan governance` or `/ai:governance [integrity|compliance|ownership|operational]`
+- Command: `/ai:verify governance` or `/ai:governance [integrity|compliance|ownership|operational]`
 - Context: governance audit, pre-release governance check, post-install verification.
 
 > **Telemetry** (cross-IDE): run `ai-eng signals emit skill_invoked --actor=ai --detail='{"skill":"governance"}'` at skill start. Fail-open -- skip if ai-eng unavailable.
@@ -113,9 +113,9 @@ The LLM adds value beyond CLI checks by connecting findings across modes. After 
 
 ## When NOT to Use
 
-- **Code quality issues** -- Use `/ai:scan quality` instead. Governance does not assess code metrics.
-- **Security vulnerabilities** -- Use `/ai:scan security`. Governance checks that security tools are configured, not what they find.
-- **Performance problems** -- Use `/ai:scan performance`. Governance does not profile runtime behavior.
+- **Code quality issues** -- Use `/ai:verify quality` instead. Governance does not assess code metrics.
+- **Security vulnerabilities** -- Use `/ai:verify security`. Governance checks that security tools are configured, not what they find.
+- **Performance problems** -- Use `/ai:verify performance`. Governance does not profile runtime behavior.
 - **Single-file questions** -- Governance operates at the framework level. For "does this file follow standards," use `/ai:quality review`.
 - **During active spec implementation** -- Governance checks are most valuable between phases, before releases, or after structural changes. Running mid-implementation generates noise from intentionally incomplete states.
 

@@ -13,11 +13,11 @@ metadata:
 
 ## Purpose
 
-Analyze software architecture for drift from spec, coupling issues, cohesion problems, boundary violations, and technical debt. Part of the scan agent's 7-mode assessment.
+Analyze software architecture for drift from spec, coupling issues, cohesion problems, boundary violations, and technical debt. Part of the verify agent's 7-mode assessment.
 
 ## Trigger
 
-- Command: `/ai:scan architecture` or `/ai:architecture`
+- Command: `/ai:verify architecture` or `/ai:architecture`
 - Context: architecture review, drift detection, design decision assessment, dependency analysis.
 
 > **Telemetry** (cross-IDE): run `ai-eng signals emit skill_invoked --actor=ai --detail='{"skill":"architecture"}'` at skill start. Fail-open — skip if ai-eng unavailable.
@@ -108,7 +108,7 @@ Actions:
 ## Governance Notes
 
 - Architecture is read-only — produces reports, does not modify code.
-- Findings feed into scan agent's aggregated quality gate assessment.
+- Findings feed into verify agent's aggregated quality gate assessment.
 - Critical findings (circular deps, boundary violations) are blocking for release gate.
 - Tech debt items should be tracked in decision-store if accepted as risk.
 

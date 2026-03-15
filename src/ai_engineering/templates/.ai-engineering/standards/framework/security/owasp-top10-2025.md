@@ -100,7 +100,7 @@ Maps each OWASP Top 10 2025 category to the specific framework controls, tools, 
 
 - `standards/framework/core.md` — mandatory local enforcement.
 - `skills/security/SKILL.md` — security review procedure (static, dynamic, deps, sbom modes).
-- `agents/verify.md` — scan agent (security mode).
+- `agents/verify.md` — verify agent (security mode).
 
 ## Update Contract
 

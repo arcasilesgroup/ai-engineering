@@ -25,14 +25,15 @@
       "title": "7-agent architecture with SRP boundaries",
       "description": "Consolidated from 19 agents to 6, then expanded to 7 (plan, execute, build, scan, release, write, observe). Each agent has a single responsibility. Plan plans, execute coordinates, build implements, scan validates, release ships, write documents, observe measures.",
       "category": "architecture",
-      "status": "active",
+      "status": "superseded",
       "criticality": "high",
       "source": "RECONSTRUCTED",
       "spec": "032",
       "created_at": "2026-03-04",
       "expires_at": "2027-03-04",
       "context_hash": null,
-      "acknowledged_by": "plan"
+      "acknowledged_by": "plan",
+      "superseded_by": "DEC-019"
     },
     {
       "id": "DEC-003",
@@ -257,6 +258,21 @@
       "expires_at": "2027-03-12",
       "context_hash": null,
       "acknowledged_by": "plan"
+    },
+    {
+      "id": "DEC-019",
+      "title": "10-agent architecture with SRP boundaries",
+      "description": "Expanded from 7 to 10 agents via spec-051 clean-sheet redesign. 10 agents: plan (specs/plans), execute (coordination/dispatch), guard (proactive governance advisory), build (code implementation), verify (7-mode validation), ship (delivery/ALM), observe (dashboards/metrics), guide (onboarding/teaching), write (documentation), operate (runbook execution). Each agent has single responsibility with declared capabilities and boundaries.",
+      "category": "architecture",
+      "status": "active",
+      "criticality": "high",
+      "source": "spec-051",
+      "spec": "051-architecture-v3",
+      "created_at": "2026-03-15",
+      "expires_at": "2027-03-15",
+      "context_hash": null,
+      "acknowledged_by": "guard",
+      "supersedes": "DEC-002"
     }
   ]
 }

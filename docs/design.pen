@@ -13550,6 +13550,1322 @@
           ]
         }
       ]
+    },
+    {
+      "type": "frame",
+      "id": "hTfZn",
+      "x": 8720,
+      "y": 0,
+      "name": "S8 — AI-Engineering Audit & Architecture",
+      "width": 2200,
+      "fill": "#F7F8FA",
+      "layout": "vertical",
+      "gap": 28,
+      "padding": 56,
+      "children": [
+        {
+          "type": "frame",
+          "id": "Y4tfx",
+          "name": "Header",
+          "width": "fill_container",
+          "height": 180,
+          "fill": "#FFFFFF",
+          "cornerRadius": 16,
+          "layout": "vertical",
+          "gap": 12,
+          "padding": 12,
+          "children": [
+            {
+              "type": "text",
+              "id": "hU9ih",
+              "name": "title",
+              "fill": "#111827",
+              "textGrowth": "fixed-width",
+              "width": "fill_container",
+              "content": "Architecture Cockpit — ai-engineering",
+              "lineHeight": 1.05,
+              "fontFamily": "IBM Plex Sans",
+              "fontSize": 52,
+              "fontWeight": "700"
+            },
+            {
+              "type": "text",
+              "id": "6fBOC",
+              "name": "subtitle",
+              "fill": "#374151",
+              "textGrowth": "fixed-width",
+              "width": "fill_container",
+              "content": "High-level + Architecture + Technical + Functional + Integrations + Behavior",
+              "lineHeight": 1.2,
+              "fontFamily": "IBM Plex Sans",
+              "fontSize": 22,
+              "fontWeight": "500"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "QzI30",
+          "name": "Master Flows",
+          "width": "fill_container",
+          "layout": "vertical",
+          "gap": 20,
+          "children": [
+            {
+              "type": "frame",
+              "id": "KOCuT",
+              "name": "01 Executive",
+              "width": "fill_container",
+              "fill": "#FFFFFF",
+              "cornerRadius": 14,
+              "layout": "vertical",
+              "gap": 8,
+              "padding": 16,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "gJAKy",
+                  "fill": "#0F172A",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "01) Executive Overview (Decision Board)",
+                  "fontFamily": "IBM Plex Sans",
+                  "fontSize": 28,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "OKaGW",
+                  "fill": "#334155",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Audit snapshot del repo: 543 archivos rastreados, 125 módulos Python en src, 76 archivos de test, 237 archivos en .ai-engineering.",
+                  "fontFamily": "IBM Plex Sans",
+                  "fontSize": 15,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "NHO2r",
+                  "fill": "#0F172A",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Branch actual: spec-037/pr-workflow-hardening · Active spec: none · Decision store: 0 decisiones activas",
+                  "fontFamily": "IBM Plex Mono",
+                  "fontSize": 14,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "frame",
+                  "id": "mhoTR",
+                  "name": "cards",
+                  "width": "fill_container",
+                  "height": 72,
+                  "gap": 8,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "p238z",
+                      "name": "a",
+                      "width": "fill_container",
+                      "height": "fill_container",
+                      "fill": "#EEF2FF",
+                      "cornerRadius": 8,
+                      "layout": "vertical",
+                      "gap": 2,
+                      "padding": 8,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "Y4J43",
+                          "fill": "#3730A3",
+                          "content": "Core",
+                          "fontFamily": "IBM Plex Sans",
+                          "fontSize": 11,
+                          "fontWeight": "700"
+                        },
+                        {
+                          "type": "text",
+                          "id": "kic9N",
+                          "fill": "#111827",
+                          "content": "CLI: 21 cmds",
+                          "fontFamily": "IBM Plex Mono",
+                          "fontSize": 16,
+                          "fontWeight": "700"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "cMDkf",
+                      "name": "b",
+                      "width": "fill_container",
+                      "height": "fill_container",
+                      "fill": "#ECFEFF",
+                      "cornerRadius": 8,
+                      "layout": "vertical",
+                      "gap": 2,
+                      "padding": 8,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "gz42K",
+                          "fill": "#155E75",
+                          "content": "Governance",
+                          "fontFamily": "IBM Plex Sans",
+                          "fontSize": 11,
+                          "fontWeight": "700"
+                        },
+                        {
+                          "type": "text",
+                          "id": "7Bd1q",
+                          "fill": "#111827",
+                          "content": "7 agents · 34 skills",
+                          "fontFamily": "IBM Plex Mono",
+                          "fontSize": 14,
+                          "fontWeight": "700"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "dgk5k",
+                      "name": "c",
+                      "width": "fill_container",
+                      "height": "fill_container",
+                      "fill": "#F0FDF4",
+                      "cornerRadius": 8,
+                      "layout": "vertical",
+                      "gap": 2,
+                      "padding": 8,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "oRzWx",
+                          "fill": "#166534",
+                          "content": "Reliability",
+                          "fontFamily": "IBM Plex Sans",
+                          "fontSize": 11,
+                          "fontWeight": "700"
+                        },
+                        {
+                          "type": "text",
+                          "id": "Kls4w",
+                          "fill": "#111827",
+                          "content": "Tests: 76",
+                          "fontFamily": "IBM Plex Mono",
+                          "fontSize": 16,
+                          "fontWeight": "700"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "lWXvs",
+                  "fill": "#991B1B",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Audit findings (depth): [F1] No active spec, [F2] decision-store without active decisions, [F3] docs/command mismatch around checkpoint, [F4] orchestration hotspot in workflows.py.",
+                  "fontFamily": "IBM Plex Sans",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "lr48B",
+                  "fill": "#166534",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Closure plan: P1 align command contract vs CLI binary; P2 seed ADR baseline; P3 split workflow orchestrator by bounded context; P4 add traceability matrix spec->task->PR->test->audit.",
+                  "fontFamily": "IBM Plex Sans",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "TLEjU",
+              "name": "02 C4 L1",
+              "width": "fill_container",
+              "fill": "#FFFFFF",
+              "cornerRadius": 14,
+              "layout": "vertical",
+              "gap": 8,
+              "padding": 16,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "P9TdS",
+                  "fill": "#0F172A",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "02) C4 Level 1 — System Context",
+                  "fontFamily": "IBM Plex Sans",
+                  "fontSize": 26,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "Ee3aK",
+                  "fill": "#334155",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Actores externos y límites del sistema: equipo, repos, CI, observabilidad, seguridad, dependencias de terceros.",
+                  "fontFamily": "IBM Plex Sans",
+                  "fontSize": 15,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "4SEZt",
+                  "fill": "#0F172A",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Decidir: fronteras de responsabilidad y contratos de entrada/salida por actor.",
+                  "fontFamily": "IBM Plex Mono",
+                  "fontSize": 14,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "frame",
+                  "id": "AAAVG",
+                  "name": "ctxtbl",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 6,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "hg2CV",
+                      "name": "r1",
+                      "width": "fill_container",
+                      "height": 38,
+                      "gap": 6,
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "jPmyV",
+                          "name": "r1a",
+                          "width": 360,
+                          "height": "fill_container",
+                          "fill": "#EFF6FF",
+                          "cornerRadius": 8,
+                          "padding": [
+                            0,
+                            10
+                          ],
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "BHZds",
+                              "fill": "#1E3A8A",
+                              "content": "Git providers",
+                              "fontFamily": "IBM Plex Mono",
+                              "fontSize": 12,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "Br5Vz",
+                          "name": "r1b",
+                          "width": "fill_container",
+                          "height": "fill_container",
+                          "fill": "#EFF6FF",
+                          "cornerRadius": 8,
+                          "padding": [
+                            0,
+                            10
+                          ],
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "jsRkG",
+                              "fill": "#0F172A",
+                              "content": "Adapters implementados: GitHub + Azure DevOps + api_fallback",
+                              "fontFamily": "IBM Plex Sans",
+                              "fontSize": 12,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "GPWtR",
+                      "name": "r2",
+                      "width": "fill_container",
+                      "height": 38,
+                      "gap": 6,
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "ZDGfo",
+                          "name": "r2a",
+                          "width": 360,
+                          "height": "fill_container",
+                          "fill": "#FFFBEB",
+                          "cornerRadius": 8,
+                          "padding": [
+                            0,
+                            10
+                          ],
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "bSMTa",
+                              "fill": "#92400E",
+                              "content": "Toolchain local",
+                              "fontFamily": "IBM Plex Mono",
+                              "fontSize": 12,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "IL3N0",
+                          "name": "r2b",
+                          "width": "fill_container",
+                          "height": "fill_container",
+                          "fill": "#FFFBEB",
+                          "cornerRadius": 8,
+                          "padding": [
+                            0,
+                            10
+                          ],
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "0XT3y",
+                              "fill": "#0F172A",
+                              "content": "pyproject define: typer, pydantic, keyring, rich + dev gates (ruff/pytest/ty/pip-audit)",
+                              "fontFamily": "IBM Plex Sans",
+                              "fontSize": 12,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "hcAfe",
+              "name": "03 C4 L2",
+              "width": "fill_container",
+              "fill": "#FFFFFF",
+              "cornerRadius": 14,
+              "layout": "vertical",
+              "gap": 8,
+              "padding": 16,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "S9StM",
+                  "fill": "#0F172A",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "03) C4 Level 2 — Containers",
+                  "fontFamily": "IBM Plex Sans",
+                  "fontSize": 26,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "JpQDf",
+                  "fill": "#334155",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Contenedores clave: CLI, Orchestrator (agents/skills), Policy/Gates, State/Decision Store, Observe/Release.",
+                  "fontFamily": "IBM Plex Sans",
+                  "fontSize": 15,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "EtrDa",
+                  "fill": "#0F172A",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Decidir: acoplamientos permitidos, APIs internas y ownership por contenedor.",
+                  "fontFamily": "IBM Plex Mono",
+                  "fontSize": 14,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "frame",
+                  "id": "sy70x",
+                  "name": "contTbl",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 6,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "CwWBH",
+                      "name": "cRow1",
+                      "width": "fill_container",
+                      "height": 38,
+                      "gap": 6,
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "Vvbhs",
+                          "name": "c1a",
+                          "width": 360,
+                          "height": "fill_container",
+                          "fill": "#EEF2FF",
+                          "cornerRadius": 8,
+                          "padding": [
+                            0,
+                            10
+                          ],
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "BlEEq",
+                              "fill": "#3730A3",
+                              "content": "CLI container",
+                              "fontFamily": "IBM Plex Mono",
+                              "fontSize": 12,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "qsor3",
+                          "name": "c1b",
+                          "width": "fill_container",
+                          "height": "fill_container",
+                          "fill": "#EEF2FF",
+                          "cornerRadius": 8,
+                          "padding": [
+                            0,
+                            10
+                          ],
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "4wWWG",
+                              "fill": "#0F172A",
+                              "content": "src/ai_engineering/cli_commands/* (21 módulos) + cli_factory.py",
+                              "fontFamily": "IBM Plex Sans",
+                              "fontSize": 12,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "dGZmu",
+                      "name": "cRow2",
+                      "width": "fill_container",
+                      "height": 38,
+                      "gap": 6,
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "iTjp5",
+                          "name": "c2a",
+                          "width": 360,
+                          "height": "fill_container",
+                          "fill": "#ECFEFF",
+                          "cornerRadius": 8,
+                          "padding": [
+                            0,
+                            10
+                          ],
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "PJej9",
+                              "fill": "#155E75",
+                              "content": "Policy container",
+                              "fontFamily": "IBM Plex Mono",
+                              "fontSize": 12,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "2y7Yw",
+                          "name": "c2b",
+                          "width": "fill_container",
+                          "height": "fill_container",
+                          "fill": "#ECFEFF",
+                          "cornerRadius": 8,
+                          "padding": [
+                            0,
+                            10
+                          ],
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "kpkKT",
+                              "fill": "#0F172A",
+                              "content": "policy/checks: branch_protection, commit_msg, risk, sonar, stack_runner",
+                              "fontFamily": "IBM Plex Sans",
+                              "fontSize": 12,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "PqjKF",
+                      "name": "cRow3",
+                      "width": "fill_container",
+                      "height": 38,
+                      "gap": 6,
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "84fwd",
+                          "name": "c3a",
+                          "width": 360,
+                          "height": "fill_container",
+                          "fill": "#F0FDF4",
+                          "cornerRadius": 8,
+                          "padding": [
+                            0,
+                            10
+                          ],
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "WGyEz",
+                              "fill": "#166534",
+                              "content": "State/Governance container",
+                              "fontFamily": "IBM Plex Mono",
+                              "fontSize": 12,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "7s75o",
+                          "name": "c3b",
+                          "width": "fill_container",
+                          "height": "fill_container",
+                          "fill": "#F0FDF4",
+                          "cornerRadius": 8,
+                          "padding": [
+                            0,
+                            10
+                          ],
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "MUmya",
+                              "fill": "#0F172A",
+                              "content": ".ai-engineering manifest + state (audit-log, decision-store, ownership-map)",
+                              "fontFamily": "IBM Plex Sans",
+                              "fontSize": 12,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "nojLE",
+                  "fill": "#0F172A",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Evidence map (containers):\n- CLI: src/ai_engineering/cli.py, cli_factory.py, cli_commands/* (21)\n- Workflow engine: src/ai_engineering/commands/workflows.py\n- Policy gates: src/ai_engineering/policy/gates.py + policy/checks/* (6)\n- State: src/ai_engineering/state/* + .ai-engineering/state/*\n- Installer: src/ai_engineering/installer/*\n- VCS adapters: src/ai_engineering/vcs/github.py, azure_devops.py, api_fallback.py",
+                  "fontFamily": "IBM Plex Mono",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "bwZoK",
+              "name": "04 C4 L3",
+              "width": "fill_container",
+              "fill": "#FFFFFF",
+              "cornerRadius": 14,
+              "layout": "vertical",
+              "gap": 8,
+              "padding": 16,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "Njsts",
+                  "fill": "#0F172A",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "04) C4 Level 3 — Components",
+                  "fontFamily": "IBM Plex Sans",
+                  "fontSize": 26,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "4Zknt",
+                  "fill": "#334155",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Componentes técnicos por contenedor: router, command handlers, policy evaluators, state writers, telemetry emitters.",
+                  "fontFamily": "IBM Plex Sans",
+                  "fontSize": 15,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "fFxtc",
+                  "fill": "#0F172A",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Decidir: interfaces estables, puntos de extensión y deuda técnica prioritaria.",
+                  "fontFamily": "IBM Plex Mono",
+                  "fontSize": 14,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "frame",
+                  "id": "sAuHp",
+                  "name": "compTbl",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 6,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "CIvij",
+                      "name": "p1",
+                      "width": "fill_container",
+                      "height": 38,
+                      "gap": 6,
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "FQjpB",
+                          "name": "p1a",
+                          "width": 360,
+                          "height": "fill_container",
+                          "fill": "#F5F3FF",
+                          "cornerRadius": 8,
+                          "padding": [
+                            0,
+                            10
+                          ],
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "1NPc1",
+                              "fill": "#5B21B6",
+                              "content": "PR workflow engine",
+                              "fontFamily": "IBM Plex Mono",
+                              "fontSize": 12,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "cNAjE",
+                          "name": "p1b",
+                          "width": "fill_container",
+                          "height": "fill_container",
+                          "fill": "#F5F3FF",
+                          "cornerRadius": 8,
+                          "padding": [
+                            0,
+                            10
+                          ],
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "0JmN0",
+                              "fill": "#0F172A",
+                              "content": "commands/workflows.py: commit/pr orchestration + auto-complete",
+                              "fontFamily": "IBM Plex Sans",
+                              "fontSize": 12,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "VUV7l",
+                      "name": "p2",
+                      "width": "fill_container",
+                      "height": 38,
+                      "gap": 6,
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "PD6hv",
+                          "name": "p2a",
+                          "width": 360,
+                          "height": "fill_container",
+                          "fill": "#FFFBEB",
+                          "cornerRadius": 8,
+                          "padding": [
+                            0,
+                            10
+                          ],
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "81J82",
+                              "fill": "#92400E",
+                              "content": "Installer core",
+                              "fontFamily": "IBM Plex Mono",
+                              "fontSize": 12,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "1VwPy",
+                          "name": "p2b",
+                          "width": "fill_container",
+                          "height": "fill_container",
+                          "fill": "#FFFBEB",
+                          "cornerRadius": 8,
+                          "padding": [
+                            0,
+                            10
+                          ],
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "XwFAt",
+                              "fill": "#0F172A",
+                              "content": "installer/service.py + templates.py + operations.py + tools.py",
+                              "fontFamily": "IBM Plex Sans",
+                              "fontSize": 12,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "PwOTD",
+                  "fill": "#0F172A",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Critical functions audited:\n- run_commit_workflow(), run_pr_workflow(), _run_pre_push_checks()\n- check_operational_readiness()\n- list_expired_decisions(), find_reusable_decision(), create_decision()\n- install(), _run_operational_phases()\n- provider methods: create_pr(), enable_auto_complete(), get_pipeline_status()",
+                  "fontFamily": "IBM Plex Mono",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "WlxY9",
+                  "fill": "#475569",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Complexity hotspot candidate: commands/workflows.py centraliza commit+PR orchestration y decisiones de branch unpushed; conviene segmentar por subflujos para reducir acoplamiento.",
+                  "fontFamily": "IBM Plex Sans",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "fUpJJ",
+              "name": "05 Runtime",
+              "width": "fill_container",
+              "fill": "#FFFFFF",
+              "cornerRadius": 14,
+              "layout": "vertical",
+              "gap": 8,
+              "padding": 16,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "z7uiK",
+                  "fill": "#0F172A",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "05) Functional Runtime Flows",
+                  "fontFamily": "IBM Plex Sans",
+                  "fontSize": 26,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "Q9PCU",
+                  "fill": "#334155",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Flujos E2E: trigger → validate gates → execute action → persist decision/audit → observe → feedback.",
+                  "fontFamily": "IBM Plex Sans",
+                  "fontSize": 15,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "2RVi5",
+                  "fill": "#0F172A",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Decidir: dónde fallar rápido, retry policy, fallback y rollback por flujo crítico.",
+                  "fontFamily": "IBM Plex Mono",
+                  "fontSize": 14,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "frame",
+                  "id": "4wNu6",
+                  "name": "runTbl",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 6,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "620No",
+                      "name": "rr1",
+                      "width": "fill_container",
+                      "height": 38,
+                      "gap": 6,
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "Zyi5T",
+                          "name": "rr1a",
+                          "width": 320,
+                          "height": "fill_container",
+                          "fill": "#EFF6FF",
+                          "cornerRadius": 8,
+                          "padding": [
+                            0,
+                            10
+                          ],
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "Az2pt",
+                              "fill": "#1E3A8A",
+                              "content": "Install flow",
+                              "fontFamily": "IBM Plex Mono",
+                              "fontSize": 12,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "FGnsm",
+                          "name": "rr1b",
+                          "width": "fill_container",
+                          "height": "fill_container",
+                          "fill": "#EFF6FF",
+                          "cornerRadius": 8,
+                          "padding": [
+                            0,
+                            10
+                          ],
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "xfG6R",
+                              "fill": "#0F172A",
+                              "content": "ai-eng install -> templates/hooks/state -> doctor/readiness",
+                              "fontFamily": "IBM Plex Sans",
+                              "fontSize": 12,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "ac2bg",
+                      "name": "rr2",
+                      "width": "fill_container",
+                      "height": 38,
+                      "gap": 6,
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "E3Eb1",
+                          "name": "rr2a",
+                          "width": 320,
+                          "height": "fill_container",
+                          "fill": "#F5F3FF",
+                          "cornerRadius": 8,
+                          "padding": [
+                            0,
+                            10
+                          ],
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "csTDC",
+                              "fill": "#5B21B6",
+                              "content": "PR flow",
+                              "fontFamily": "IBM Plex Mono",
+                              "fontSize": 12,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "JbcEF",
+                          "name": "rr2b",
+                          "width": "fill_container",
+                          "height": "fill_container",
+                          "fill": "#F5F3FF",
+                          "cornerRadius": 8,
+                          "padding": [
+                            0,
+                            10
+                          ],
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "E8aSm",
+                              "fill": "#0F172A",
+                              "content": "run_pr_workflow -> pre-push checks -> provider PR -> auto-complete",
+                              "fontFamily": "IBM Plex Sans",
+                              "fontSize": 12,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "boKgA",
+                  "fill": "#0F172A",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Runtime scenarios (repo-evidence):\nS1 Install path: ai-eng install -> templates copy -> hooks install -> state init -> doctor\nS2 Commit path: git add -> ruff format -> lint -> gitleaks -> commit -> push\nS3 PR path: run_commit_workflow -> pre-push checks -> provider PR -> auto-complete\nS4 Gate path: decision-store expiry check -> stack_runner (semgrep/pip-audit/tests/ty)\nS5 Risk path: create decision -> hash context -> expiry/renewal evaluation",
+                  "fontFamily": "IBM Plex Mono",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "20SO0",
+                  "fill": "#7C2D12",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Failure points to monitor: missing tools, hook conflicts, provider auth failures, expired risk decisions blocking release gates.",
+                  "fontFamily": "IBM Plex Sans",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "wknF0",
+              "name": "06 Dependencies",
+              "width": "fill_container",
+              "fill": "#FFFFFF",
+              "cornerRadius": 14,
+              "layout": "vertical",
+              "gap": 8,
+              "padding": 16,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "I1tIv",
+                  "fill": "#0F172A",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "06) Dependencies & Integrations",
+                  "fontFamily": "IBM Plex Sans",
+                  "fontSize": 26,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "f4WpC",
+                  "fill": "#334155",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Dependencias reales: typer, pydantic, pyyaml, rich, keyring + providers GH/Azure + toolchain local de calidad/seguridad.",
+                  "fontFamily": "IBM Plex Sans",
+                  "fontSize": 15,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "dsnKm",
+                  "fill": "#0F172A",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Decidir: dependencias a eliminar, encapsular o versionar para reducir riesgo sistémico.",
+                  "fontFamily": "IBM Plex Mono",
+                  "fontSize": 14,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "VO5NH",
+                  "fill": "#0F172A",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Dependency inventory (from pyproject + code):\nRuntime: typer, pyyaml, pydantic, keyring, rich\nDev/Gates: pytest, pytest-cov, pytest-xdist, ruff, ty, pip-audit\nSecurity/Gates used in flows: gitleaks, semgrep, pip-audit, sonar checks\nExternal integrations: GitHub CLI/API, Azure DevOps CLI/API, Sonar endpoints",
+                  "fontFamily": "IBM Plex Mono",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "OhSsR",
+                  "fill": "#334155",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Integration contract risk: providers share protocol but failure semantics differ; recommend normalizing error taxonomy (auth, policy, network, permissions).",
+                  "fontFamily": "IBM Plex Sans",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "DjVrF",
+              "name": "07 Deployment",
+              "width": "fill_container",
+              "fill": "#FFFFFF",
+              "cornerRadius": 14,
+              "layout": "vertical",
+              "gap": 8,
+              "padding": 16,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "5uabL",
+                  "fill": "#0F172A",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "07) Deployment + NFR/SLO",
+                  "fontFamily": "IBM Plex Sans",
+                  "fontSize": 26,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "0Prvo",
+                  "fill": "#334155",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "No hay despliegue de servicios runtime; modelo de operación local+repo con hooks Git y CI. NFR crítico: enforcement previo a push.",
+                  "fontFamily": "IBM Plex Sans",
+                  "fontSize": 15,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "wwL5T",
+                  "fill": "#0F172A",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Decidir: umbrales de gate de release, presupuesto de error y criterios de degradación controlada.",
+                  "fontFamily": "IBM Plex Mono",
+                  "fontSize": 14,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "Av7N6",
+                  "fill": "#334155",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "SLO recomendado para gobernanza local: gate pass >= 95%, MTTR de fallos de gate < 1 día, 0 bypass de hooks en ramas protegidas.",
+                  "fontFamily": "IBM Plex Sans",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "a3raa",
+                  "fill": "#0F172A",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Operational topology (actual): local CLI + git hooks + repo state + optional CI pipeline.\nNo long-running backend service; reliability depends on local toolchain consistency and hook integrity.",
+                  "fontFamily": "IBM Plex Mono",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "jilDg",
+                  "fill": "#0F172A",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Suggested measurable SLO set:\n- Gate pass rate >= 95% (rolling 30 days)\n- Hook integrity incidents = 0\n- Mean time to fix broken local readiness < 1 business day\n- Expired risk decisions in active branch = 0",
+                  "fontFamily": "IBM Plex Mono",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "gaAZY",
+                  "fill": "#7C2D12",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Current gap: checkpoint command contract exists in docs but CLI command not found in local binary observed during audit.",
+                  "fontFamily": "IBM Plex Sans",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "2kbmo",
+              "name": "08 ADRs",
+              "width": "fill_container",
+              "fill": "#FFFFFF",
+              "cornerRadius": 14,
+              "layout": "vertical",
+              "gap": 8,
+              "padding": 16,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "XhMjP",
+                  "fill": "#0F172A",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "08) ADR Log + Technical Debt",
+                  "fontFamily": "IBM Plex Sans",
+                  "fontSize": 26,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "kSSaQ",
+                  "fill": "#334155",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "ADRs formales: aun no evidenciados en decision-store (0 decisiones). Riesgo: trazabilidad de decisiones técnica incompleta.",
+                  "fontFamily": "IBM Plex Sans",
+                  "fontSize": 15,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "LKN7X",
+                  "fill": "#0F172A",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Decidir: qué ADRs son obligatorios antes de merge/release y cuándo renovar riesgos aceptados.",
+                  "fontFamily": "IBM Plex Mono",
+                  "fontSize": 14,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "UPlhy",
+                  "fill": "#334155",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Acción inmediata: poblar decision-store con ADR-001..ADR-00N (contexto, tradeoff, expiry, evidencia) y enlazar a specs/tasks.",
+                  "fontFamily": "IBM Plex Sans",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "q1KRA",
+                  "fill": "#0F172A",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Decision system evidence:\n- .ai-engineering/state/decision-store.json schema v1.1 present\n- decisions[] currently empty\n- session-checkpoint.json exists but no active spec in _active.md\n- audit-log.ndjson contains event history (86 lines observed)",
+                  "fontFamily": "IBM Plex Mono",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "AnsNR",
+                  "fill": "#991B1B",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Depth gap to close: convertir arquitectura implícita en ADRs explícitos (provider strategy, gate strictness, risk expiry policy, workflow decomposition).",
+                  "fontFamily": "IBM Plex Sans",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "ruukB",
+              "fill": "#1F2937",
+              "textGrowth": "fixed-width",
+              "width": "fill_container",
+              "content": "Usa este cockpit como índice maestro: cada bloque debe enlazar a un doc detallado (`solution-intent.md`, ADRs, runbooks, specs).",
+              "fontFamily": "IBM Plex Sans",
+              "fontSize": 15,
+              "fontWeight": "600"
+            },
+            {
+              "type": "text",
+              "id": "2YO12",
+              "fill": "#0F172A",
+              "textGrowth": "fixed-width",
+              "width": "fill_container",
+              "content": "Evidence scope used for this cockpit update: src/**, tests/**, .ai-engineering/**, pyproject.toml, README.md, state files, git branch/status.",
+              "fontFamily": "IBM Plex Mono",
+              "fontSize": 12,
+              "fontWeight": "normal"
+            }
+          ]
+        }
+      ]
     }
   ],
   "variables": {

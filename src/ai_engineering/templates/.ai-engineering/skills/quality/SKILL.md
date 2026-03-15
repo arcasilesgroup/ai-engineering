@@ -17,7 +17,7 @@ Unified quality assessment covering code metrics, Sonar integration, code review
 
 ## Trigger
 
-- Command: `/ai:scan quality` or `/ai:quality [code|sonar|review|docs]`
+- Command: `/ai:verify quality` or `/ai:quality [code|sonar|review|docs]`
 - Context: quality gate, code review, pre-release quality check.
 
 > **Telemetry** (cross-IDE): run `ai-eng signals emit skill_invoked --actor=ai --detail='{"skill":"quality"}'` at skill start. Fail-open -- skip if ai-eng unavailable.
@@ -128,7 +128,7 @@ Assess documentation health: coverage, cross-references, style, completeness.
 
 ## Output Contract
 
-Every mode produces this structure. Consumers (scan agent, CI, humans) rely on it.
+Every mode produces this structure. Consumers (verify agent, CI, humans) rely on it.
 
 ```markdown
 # Scan Report: quality/{mode}

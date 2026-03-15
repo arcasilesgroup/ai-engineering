@@ -116,7 +116,7 @@ def _count_skills_in_text(text: str) -> int:
     ]
     count = 0
     for name in skill_names:
-        if name in text:
+        if re.search(rf"\b{re.escape(name)}\b", text):
             count += 1
     return count
 
@@ -162,6 +162,7 @@ def governance_diff() -> None:
     typer.echo(f"\nTotal drift issues: {total_drift}")
     if total_drift > 0:
         typer.echo("Run governance review to align IDE files with GOVERNANCE_SOURCE.md.")
+        raise typer.Exit(code=1)
 
 
 def governance_sync() -> None:

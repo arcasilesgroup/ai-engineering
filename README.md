@@ -104,37 +104,49 @@ Rules and conventions that AI agents and quality gates follow.
 
 Standards use a two-layer model. The **framework layer** (`standards/framework/`) provides the baseline — coverage thresholds, complexity limits, security requirements. The **team layer** (`standards/team/`) is where you add overrides. Your team can raise the coverage threshold from 80% to 95%, add stricter linting rules, or define project-specific conventions. Framework updates never touch the team layer.
 
-Each supported stack (Python, .NET, Next.js) has its own standards file with tailored rules for linting, formatting, testing, and dependency management.
+Each supported stack (21 stacks: Python, .NET, TypeScript, Rust, Java/Kotlin, Swift, Ruby, PHP, C/C++, and more) has its own standards file with tailored rules for linting, formatting, testing, and dependency management.
 
-### Skills — 35 in flat organization
+### Skills — 40 in flat organization
 
 Skills are step-by-step procedures written in Markdown that any AI agent can read and execute. They define **what** the agent does, **when** to trigger, **how** to execute, and **what** to output. All skills live in `skills/<name>/SKILL.md` — no nested categories.
 
-Skill frontmatter follows the governed schema with `name` and `description` at top level, and versioning/classification under `metadata` (for example: `metadata.version`, `metadata.tags`, `metadata.ai-engineering`).
+Skill frontmatter follows the Anthropic skill-creator pattern with `name` and `description` (the primary trigger, under 1024 chars) at top level, and versioning/classification under `metadata`.
 
-| Skills (alphabetical) |
-|-----------------------|
-| a11y, api, architecture, build, changelog, cicd, cleanup, cli, code-simplifier, commit, create, db, debug, delete, discover, docs, explain, feature-gap, governance, infra, migrate, observe, perf, plan, pr, product-contract, quality, refactor, release, risk, security, spec, standards, test, work-item |
+| Domain | Skills |
+|--------|--------|
+| Planning | plan, discover, spec, risk, standards, lifecycle, contract, cleanup |
+| Build | code, test, debug, refactor, simplify, api, cli, schema, pipeline, infra, migrate |
+| Verify | security, quality, governance, performance, accessibility, architecture, gap |
+| Ship | commit, pr, release, changelog, triage |
+| Observe | dashboard, evolve |
+| Guard | guard |
+| Guide | guide, onboard, explain |
+| Execute | dispatch |
+| Write | document |
+| Operate | ops |
 
-Invoke any skill with `/ai:<name>` — for example, `/ai:debug` for systematic diagnosis, `/ai:security` for security assessment, or `/ai:refactor` for code restructuring.
+Invoke any skill with `/ai:<name>` — for example, `/ai:debug` for systematic diagnosis, `/ai:security` for security assessment, or `/ai:guard` for proactive governance advisory.
 
 Skills are provider-agnostic — the same skill works in Claude Code, GitHub Copilot, Gemini CLI, and OpenAI Codex without modification.
 
-### Agents — 7 role-based personas
+### Agents — 10 role-based personas
 
-Agents are behavioral contracts for AI. Each agent has an identity, capabilities, activation rules, referenced skills, output contract, and boundaries.
+Agents are behavioral contracts for AI (the ROLE). Skills are procedures (the HOW). Agents compose skills at runtime — this is the Strategy Pattern applied to AI governance.
 
 | Agent | Role | Scope |
 |-------|------|-------|
-| **plan** | Planning pipeline, spec creation, execution plan — stops before execution | read-write |
-| **execute** | Read approved plan, dispatch agents, coordinate, checkpoint, report | read-write |
-| **build** | Implementation across all stacks (only code write agent) | read-write |
-| **scan** | 7-mode assessment: governance, security, quality, perf, a11y, feature, architecture | read-write (work items only) |
-| **release** | ALM lifecycle: commit, PR, release gate, triage, work-items, deploy | read-write |
+| **plan** | Planning pipeline, spec creation — stops before execution | read-write |
+| **execute** | Dispatch agents via formal schema, coordinate, checkpoint | read-write |
+| **guard** | Proactive governance advisory during development (shift-left) | read-only + decision-store |
+| **build** | Implementation across 20+ stacks (only code write agent) | read-write |
+| **verify** | 7-mode assessment: security, quality, governance, performance, accessibility, architecture, gap | read-write (work items only) |
+| **ship** | ALM lifecycle: commit, PR, release gate, triage, deploy | read-write |
+| **observe** | 5-mode dashboards + DORA metrics + self-improvement (evolve) | read-only |
+| **guide** | Developer growth: teach, onboard, explain, architecture tour | read-only |
 | **write** | Documentation (generate/simplify modes) | read-write (docs only) |
-| **observe** | Observability: 5 modes across 4 audience tiers + DORA metrics + health scoring | read-only |
+| **operate** | SRE: runbook execution, incident response, operational health | read-write (issues only) |
 
-Activate any agent with `/ai:<name>` — for example, `/ai:build` for implementation or `/ai:scan` for assessment.
+Activate any agent with `/ai:<name>` — for example, `/ai:build` for implementation, `/ai:verify` for assessment, or `/ai:guard` for governance advisory.
 
 ### Context — your project memory
 

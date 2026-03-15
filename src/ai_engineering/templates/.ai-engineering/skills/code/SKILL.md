@@ -239,7 +239,7 @@ User says: "The `spec verify` command miscounts completed tasks when a task line
 - Never skip validation steps. Gate failure means "fix", not "ignore".
 - Record all non-trivial decisions in `decision-store.json` using `ai-eng decision record`.
 - Do not add suppression comments (`# noqa`, `# type: ignore`, `// nolint`, `# pragma: no cover`) to bypass quality gates. Fix the root cause or refactor the code.
-- If the build touches governance-critical paths (hooks, gates, install, CLI core), escalate to `ai:scan` for security review.
+- If the build touches governance-critical paths (hooks, gates, install, CLI core), escalate to `ai:verify` for security review.
 
 ### Iteration Limits
 

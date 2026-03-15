@@ -57,7 +57,7 @@ AI-assisted development lacks governance guardrails. Without local enforcement, 
 | Persona | Journey | Primary Actions |
 |---------|---------|-----------------|
 | Solo Developer | Install framework, configure stack, commit governed code | `ai-eng install`, `git commit`, `ai-eng doctor` |
-| Team Lead | Set team standards, review PRs, monitor quality | `standards/team/`, `/ai:scan`, `/ai:observe` |
+| Team Lead | Set team standards, review PRs, monitor quality | `standards/team/`, `/ai:verify`, `/ai:observe` |
 | DevSecOps Engineer | Enforce security gates, manage risk acceptances | `ai-eng gate`, `/ai:security`, `/ai:risk` |
 | Framework Maintainer | Evolve skills/agents, release updates, maintain templates | `/ai:create`, `/ai:release`, `ai-eng update` |
 | AI Agent (automated) | Read governance content, execute skills, report findings | Skills, agents, state files |

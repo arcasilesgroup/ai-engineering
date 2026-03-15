@@ -69,7 +69,7 @@ Auto-update specific sections based on project changes. Surgical updates only --
 | Spec closure (`done.md` created) | 7.2 epic status, 7.4 active spec | spec skill |
 | Release completion | 7.1 roadmap, 7.3 KPIs | release skill |
 | Stack add/remove | 3.1 stack & architecture | `manifest.yml` |
-| Security scan delta | 5.4 hardening checklist, 7.3 KPIs | scan agent |
+| Security scan delta | 5.4 hardening checklist, 7.3 KPIs | verify agent |
 | Decision store update | 2.2 if domain-relevant | `decision-store.json` |
 | Skill/agent add/remove | 2.2 AI Ecosystem row, 6.4 scalability | `manifest.yml` |
 

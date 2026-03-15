@@ -13,14 +13,14 @@ metadata:
 
 ## Purpose
 
-Multi-stack performance scanner that detects issues via static analysis + heuristics. Identifies N+1 queries, O(n^2) algorithms, memory leaks, I/O inefficiency, and bundle size problems. Part of the scan agent's 7-mode assessment. Renamed from perf-review.
+Multi-stack performance scanner that detects issues via static analysis + heuristics. Identifies N+1 queries, O(n^2) algorithms, memory leaks, I/O inefficiency, and bundle size problems. Part of the verify agent's 7-mode assessment. Renamed from perf-review.
 
 ## Trigger
 
-- Command: `/ai:scan performance`
+- Command: `/ai:verify performance`
 - Context: performance audit, pre-release performance check, bottleneck investigation.
 
-> **Telemetry** (cross-IDE): run `ai-eng signals emit skill_invoked --actor=ai --detail='{"skill":"perf"}'` at skill start. Fail-open — skip if ai-eng unavailable.
+> **Telemetry** (cross-IDE): run `ai-eng signals emit skill_invoked --actor=ai --detail='{"skill":"performance"}'` at skill start. Fail-open — skip if ai-eng unavailable.
 
 ## What it Detects (by stack)
 
@@ -83,7 +83,7 @@ Severity assignment:
 
 ### 5. Report
 
-Produce the uniform scan output contract (Score, Verdict, Findings table, Signals, Gate Check -- see scan agent). Add a **Hot Spots** section ranking top 3 files by cumulative finding severity so remediation focuses on the highest-impact areas first.
+Produce the uniform scan output contract (Score, Verdict, Findings table, Signals, Gate Check -- see verify agent). Add a **Hot Spots** section ranking top 3 files by cumulative finding severity so remediation focuses on the highest-impact areas first.
 
 Emit after report: `ai-eng signals emit scan_complete --actor=scan --detail='{"mode":"performance","score":<N>,"findings":{...}}'`
 
@@ -145,6 +145,6 @@ for order in orders:
 
 ## Output Contract
 
-Follows uniform scan output contract (see scan agent). Required additions beyond the standard contract:
+Follows uniform scan output contract (see verify agent). Required additions beyond the standard contract:
 - **Hot Spots**: top 3 files ranked by cumulative finding severity.
 - **Remediation**: every finding includes a concrete fix (eager load, gather, dict lookup, etc.), not just a description.

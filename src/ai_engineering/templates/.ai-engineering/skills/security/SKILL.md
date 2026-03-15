@@ -19,7 +19,7 @@ Unified security assessment covering static analysis (SAST), dynamic analysis (D
 
 ## Trigger
 
-- Command: `/ai:scan security` or `/ai:security [static|dynamic|deps|sbom]`
+- Command: `/ai:verify security` or `/ai:security [static|dynamic|deps|sbom]`
 - Context: security review, pre-release security gate, dependency audit, compliance reporting.
 
 > **Telemetry** (cross-IDE): run `ai-eng signals emit skill_invoked --actor=ai --detail='{"skill":"security"}'` at skill start. Fail-open -- skip if ai-eng unavailable.
@@ -174,7 +174,7 @@ Update base image to patched version. Pin by digest. Use multi-stage builds. Add
 
 ## Output Contract
 
-Every mode produces this format, per the scan agent's uniform contract.
+Every mode produces this format, per the verify agent's uniform contract.
 
 ```markdown
 # Scan Report: security / [mode]
@@ -213,4 +213,4 @@ Every mode produces this format, per the scan agent's uniform contract.
 
 - `standards/framework/security/owasp-top10-2025.md` -- full OWASP control mapping.
 - `standards/framework/core.md` -- governance non-negotiables and gate thresholds.
-- `agents/verify.md` -- scan agent that invokes this skill in 7-mode assessment.
+- `agents/verify.md` -- verify agent that invokes this skill in 7-mode assessment.

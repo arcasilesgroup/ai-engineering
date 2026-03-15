@@ -30,7 +30,7 @@ Do NOT fix any findings. Only detect and report.
 
 ## Context
 
-- Uses: scan agent (7 modes), quality skill, security skill.
+- Uses: verify agent (7 modes), quality skill, security skill.
 - Reads: `.ai-engineering/manifest.yml` for enforcement checks.
 - Reads: `.ai-engineering/standards/framework/quality/core.md` for thresholds.
 
