@@ -711,7 +711,12 @@ def checkpoint_status(project_root: Path) -> dict[str, Any]:
         if not path.exists():
             return no_checkpoint
 
-        data = json.loads(path.read_text(encoding="utf-8"))
+        raw = json.loads(path.read_text(encoding="utf-8"))
+
+        # Namespaced checkpoints: top-level fields are kept in sync by
+        # checkpoint_save's backward-compat write, so we always read from
+        # top-level regardless of whether agent sections exist.
+        data = raw
 
         # Parse progress like "3/5" or empty
         progress_str = data.get("progress", "")

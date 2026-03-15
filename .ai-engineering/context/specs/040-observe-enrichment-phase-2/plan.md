@@ -65,7 +65,7 @@ observe.py:observe_health()    ← +sonar_score, +test_confidence_score
 | 2 | `src/ai_engineering/lib/signals.py` | Edit — 3 new functions |
 | 3 | `src/ai_engineering/cli_commands/observe.py` | Edit — Security Posture, Test Confidence, enriched SonarCloud, health expansion |
 | 4 | `src/ai_engineering/cli_commands/checkpoint.py` | Edit — wire session emitter |
-| 5 | `.ai-engineering/agents/scan.md` | Edit — emission step |
+| 5 | `.ai-engineering/agents/verify.md` | Edit — emission step |
 | 6 | `.ai-engineering/agents/build.md` | Edit — emission step |
 | 7 | `tests/unit/test_sonar_measures.py` | Create |
 | 8 | `tests/unit/test_test_confidence.py` | Create |

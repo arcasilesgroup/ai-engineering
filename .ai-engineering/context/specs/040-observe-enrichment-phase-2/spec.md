@@ -56,7 +56,7 @@ After spec-039, observe dashboards are at ~65% of the observe agent spec. Key ga
 6. `ai-eng observe engineer` shows Security Posture, Test Confidence, enriched SonarCloud
 7. `ai-eng observe health` includes sonar_score and test_confidence_score components
 8. `checkpoint save` emits `session_metric` event
-9. `agents/scan.md` includes emission step
+9. `agents/verify.md` includes emission step
 10. `agents/build.md` includes emission step
 11. All tests pass, ruff clean, ty clean
 

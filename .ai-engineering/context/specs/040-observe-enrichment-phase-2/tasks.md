@@ -37,7 +37,7 @@ next_session: null
 - [x] 5.2 Add session emission test in `tests/unit/test_checkpoint_cmd.py`
 
 ### Phase 6: Scan/Build Agent Instructions [S]
-- [x] 6.1 Edit `agents/scan.md` — add post-scan emission step
+- [x] 6.1 Edit `agents/verify.md` — add post-scan emission step
 - [x] 6.2 Edit `agents/build.md` — add post-build emission step
 
 ### Phase 7: Dashboard Expansion [M]

@@ -12,12 +12,11 @@ references:
     - skills/discover/SKILL.md
     - skills/spec/SKILL.md
     - skills/cleanup/SKILL.md
-    - skills/explain/SKILL.md
     - skills/risk/SKILL.md
     - skills/standards/SKILL.md
-    - skills/create/SKILL.md
-    - skills/delete/SKILL.md
-    - skills/product-contract/SKILL.md
+    - skills/lifecycle/SKILL.md
+    - skills/contract/SKILL.md
+    - skills/guard/SKILL.md
   standards:
     - standards/framework/core.md
 ---
@@ -77,7 +76,7 @@ On session start (to resume planning):
 
 1. **Read product context** -- read `context/product/product-contract.md` §7 (roadmap, KPIs, blockers) and `context/product/framework-contract.md` §2 (agentic model) to ground planning in current project state
 2. **Apply shared planning rules** -- execute `PLAN-R1..PLAN-R4` from `skills/plan/SKILL.md`
-3. **Triage** (if configured) -- check for pending work items via release agent
+3. **Triage** (if configured) -- check for pending work items via ship agent
 5. **Spec creation** (MANDATORY for all pipelines) -- invoke `ai:spec` to scaffold. Every pipeline (full, standard, hotfix, trivial) must produce a spec so `/ai:execute` always has a spec/plan to dispatch agents and tasks from
 6. **Build execution plan** -- capability-match tasks to agents, build execution plan document in plan.md
    **Output**: execution plan with agent assignments, phase ordering, gate criteria
@@ -90,7 +89,7 @@ On session start (to resume planning):
 This boundary maps to shared rule `PLAN-B1`.
 
 Prohibited during `/ai:plan`:
-- invoking `ai:build`, `ai:scan`, `ai:release`, or `ai:write` for task execution,
+- invoking `ai:build`, `ai:verify`, `ai:ship`, or `ai:write` for task execution,
 - checking off implementation tasks as completed,
 - modifying source code as part of execution.
 
@@ -153,9 +152,9 @@ Plan owns the governance lifecycle for the framework:
 - `skills/explain/SKILL.md` -- technical explanations
 - `skills/risk/SKILL.md` -- risk acceptance lifecycle
 - `skills/standards/SKILL.md` -- standards evolution
-- `skills/create/SKILL.md` -- agent/skill creation lifecycle
-- `skills/delete/SKILL.md` -- agent/skill deletion lifecycle
-- `skills/product-contract/SKILL.md` -- product contract lifecycle (init/sync/validate)
+- `skills/lifecycle/SKILL.md` -- agent/skill creation lifecycle
+- `skills/lifecycle/SKILL.md` -- agent/skill deletion lifecycle
+- `skills/contract/SKILL.md` -- product contract lifecycle (init/sync/validate)
 
 ## Referenced Standards
 

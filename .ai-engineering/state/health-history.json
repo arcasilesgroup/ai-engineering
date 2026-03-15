@@ -10,6 +10,30 @@
         "DORA frequency": 25,
         "Test confidence": 26.4
       }
+    },
+    {
+      "date": "2026-03-10",
+      "overall": 66,
+      "semaphore": "YELLOW",
+      "components": {
+        "Gate pass rate": 92.2,
+        "Delivery velocity": 100,
+        "DORA frequency": 25,
+        "Test confidence": 26.4,
+        "Gate signal quality": 87.5
+      }
+    },
+    {
+      "date": "2026-03-11",
+      "overall": 66,
+      "semaphore": "YELLOW",
+      "components": {
+        "Gate pass rate": 92.2,
+        "Delivery velocity": 100,
+        "DORA frequency": 25,
+        "Test confidence": 26.4,
+        "Gate signal quality": 87.5
+      }
     }
   ]
 }

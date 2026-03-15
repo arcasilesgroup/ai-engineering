@@ -122,19 +122,19 @@ telemetry:
 # ══════════════════════════════════════════════════════════════════════════════
 
 schema_version: "2.0"
-framework_version: "0.2.0"
+framework_version: "0.3.0"
 
 update_metadata:
-  rationale: "plan/execute split: 7 agents (extract execution coordination from plan), 34 skills (add advisory plan skill)"
-  expected_gain: "structural boundary between planning and execution; human as natural gate; clean SRP per agent"
-  potential_impact: "/ai:plan now STOPS before execution; user must invoke /ai:execute separately"
+  rationale: "architecture v3: 10 agents, 40 skills, guard integration, self-improvement mechanism"
+  expected_gain: "clean-sheet architecture with guard advisory, operate runbooks, guide onboarding, and self-improvement via evolve"
+  potential_impact: "3 new agents (guard, guide, operate), 7 new skills, 2 agent renames (scan→verify, release→ship), 11 skill renames"
 
 governance_surface:
   agents:
-    total: 7
-    names: [plan, execute, build, scan, release, write, observe]
+    total: 10
+    names: [plan, execute, guard, build, verify, ship, observe, guide, write, operate]
   skills:
-    total: 35
+    total: 40
     organization: flat
     prefix: "ai:"
   integrity:

@@ -25,6 +25,7 @@ from ai_engineering.cli_commands import (
     core,
     decisions_cmd,
     gate,
+    governance_cmd,
     guide,
     maintenance,
     metrics,
@@ -396,5 +397,15 @@ def create_app() -> typer.Typer:
     )
     metrics_app.command("collect")(_safe(metrics.metrics_collect))
     app.add_typer(metrics_app, name="metrics")
+
+    # Governance sub-group (v3: IDE consistency validation)
+    governance_app = typer.Typer(
+        name="governance",
+        help="Validate IDE instruction file consistency.",
+        no_args_is_help=True,
+    )
+    governance_app.command("diff")(_safe(governance_cmd.governance_diff))
+    governance_app.command("sync")(_safe(governance_cmd.governance_sync))
+    app.add_typer(governance_app, name="governance")
 
     return app

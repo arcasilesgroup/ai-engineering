@@ -139,6 +139,7 @@ TEST_SCOPE_RULES: list[ScopeRule] = [
                 "tests/unit/test_spec_cmd.py",
                 "tests/unit/test_observe_dashboards.py",
                 "tests/unit/test_workflow_cmd.py",
+                "tests/unit/test_governance_cmd.py",
             ],
             "integration": [
                 "tests/integration/test_cli_command_modules.py",
@@ -310,6 +311,7 @@ TEST_SCOPE_RULES: list[ScopeRule] = [
                 "tests/unit/test_state.py",
                 "tests/unit/test_audit.py",
                 "tests/unit/test_risk_lifecycle.py",
+                "tests/unit/test_decision_store.py",
             ],
             "integration": [],
             "e2e": [],
@@ -331,6 +333,7 @@ TEST_SCOPE_RULES: list[ScopeRule] = [
             "unit": [
                 "tests/unit/test_validator.py",
                 "tests/unit/test_validator_extra.py",
+                "tests/unit/test_skill_schema_validation.py",
             ],
             "integration": [],
             "e2e": [],

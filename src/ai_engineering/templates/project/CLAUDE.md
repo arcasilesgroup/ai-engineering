@@ -43,8 +43,8 @@ For commands/pipelines: read `framework-contract.md` §5.
 
 ## Quick Reference
 
-- Skills (35): `.ai-engineering/skills/<name>/SKILL.md` — slash commands: `/ai:<name>`
-- Agents (7): `.ai-engineering/agents/<name>.md`
+- Skills (40): `.ai-engineering/skills/<name>/SKILL.md` — slash commands: `/ai:<name>`
+- Agents (10): `.ai-engineering/agents/<name>.md`
 - CLI: `ai-eng <command>` — see `product-contract.md` §2.2 for full table
 - Quality: coverage 80%, duplication ≤3%, cyclomatic ≤10, cognitive ≤15, zero blocker/critical
 - Security: zero medium+ findings, zero leaks, zero dependency vulns

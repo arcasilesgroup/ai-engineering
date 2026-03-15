@@ -36,7 +36,7 @@ Maps each OWASP Top 10 2025 category to the specific framework controls, tools, 
 ### A04: Insecure Design
 
 - **Controls**: architecture review, threat modeling.
-- **Skills**: `skills/architecture/SKILL.md`, `agents/scan.md`.
+- **Skills**: `skills/architecture/SKILL.md`, `agents/verify.md`.
 - **Notes**: design-level control — requires human judgment and architecture review.
 
 ### A05: Security Misconfiguration
@@ -64,7 +64,7 @@ Maps each OWASP Top 10 2025 category to the specific framework controls, tools, 
 
 - **Controls**: supply chain integrity, remote skill checksums, hook tamper resistance.
 - **Tools**: `gitleaks` (data integrity), framework checksum validation.
-- **Skills**: `agents/scan.md` (security mode — tamper resistance).
+- **Skills**: `agents/verify.md` (security mode — tamper resistance).
 - **Notes**: framework enforces `checksums_required` for remote skills, `non_bypassable` for hooks.
 
 ### A09: Security Logging and Monitoring Failures
@@ -100,7 +100,7 @@ Maps each OWASP Top 10 2025 category to the specific framework controls, tools, 
 
 - `standards/framework/core.md` — mandatory local enforcement.
 - `skills/security/SKILL.md` — security review procedure (static, dynamic, deps, sbom modes).
-- `agents/scan.md` — scan agent (security mode).
+- `agents/verify.md` — verify agent (security mode).
 
 ## Update Contract
 

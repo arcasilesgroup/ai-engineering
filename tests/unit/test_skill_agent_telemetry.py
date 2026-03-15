@@ -124,7 +124,7 @@ class TestAgentDispatchFrom:
         events = [
             _agent_event("build"),
             _agent_event("build"),
-            _agent_event("scan"),
+            _agent_event("verify"),
             _agent_event("plan"),
             _agent_event("plan"),
             _agent_event("plan"),
@@ -132,16 +132,16 @@ class TestAgentDispatchFrom:
         result = agent_dispatch_from(events)
         assert result["total_dispatches"] == 6
         keys = list(result["by_agent"].keys())
-        assert keys == ["plan", "build", "scan"]
+        assert keys == ["plan", "build", "verify"]
 
     def test_respects_time_window(self) -> None:
         events = [
             _agent_event("build", days_ago=0),
-            _agent_event("scan", days_ago=60),
+            _agent_event("verify", days_ago=60),
         ]
         result = agent_dispatch_from(events, days=30)
         assert result["total_dispatches"] == 1
-        assert "scan" not in result["by_agent"]
+        assert "verify" not in result["by_agent"]
 
     def test_handles_missing_detail_field(self) -> None:
         events = [
@@ -307,7 +307,7 @@ class TestRenderSkillAgentSections:
             },
             "agent_dispatch": {
                 "total_dispatches": 3,
-                "by_agent": {"execute": 2, "scan": 1},
+                "by_agent": {"execute": 2, "verify": 1},
             },
             "actions": ["Action 1"],
         }

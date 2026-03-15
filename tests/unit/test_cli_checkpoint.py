@@ -247,6 +247,135 @@ class TestCheckpointLoad:
         assert "Task: none" in result.output
         assert "Progress: unknown" in result.output
 
+    def test_save_with_agent_creates_namespaced_section(self, tmp_path: Path) -> None:
+        """Save with --agent stores entry under agents.<name> and top-level."""
+        (tmp_path / ".ai-engineering").mkdir(parents=True)
+        with patch(
+            "ai_engineering.cli_commands.checkpoint._project_root",
+            return_value=tmp_path,
+        ):
+            app = create_app()
+            result = runner.invoke(
+                app,
+                [
+                    "checkpoint",
+                    "save",
+                    "--agent",
+                    "build",
+                    "--spec-id",
+                    "051",
+                    "--current-task",
+                    "3.1",
+                ],
+            )
+        assert result.exit_code == 0
+
+        cp_path = tmp_path / ".ai-engineering" / "state" / "session-checkpoint.json"
+        data = json.loads(cp_path.read_text(encoding="utf-8"))
+        # Agent-namespaced data
+        assert "agents" in data
+        assert "build" in data["agents"]
+        assert data["agents"]["build"]["spec_id"] == "051"
+        assert data["agents"]["build"]["current_task"] == "3.1"
+        # Backward compat: top-level also updated
+        assert data["spec_id"] == "051"
+
+    def test_save_multiple_agents_preserves_each(self, tmp_path: Path) -> None:
+        """Saving for agent A then agent B preserves both."""
+        (tmp_path / ".ai-engineering").mkdir(parents=True)
+        with patch(
+            "ai_engineering.cli_commands.checkpoint._project_root",
+            return_value=tmp_path,
+        ):
+            app = create_app()
+            runner.invoke(
+                app,
+                ["checkpoint", "save", "--agent", "build", "--current-task", "1.0"],
+            )
+            runner.invoke(
+                app,
+                ["checkpoint", "save", "--agent", "verify", "--current-task", "2.0"],
+            )
+
+        cp_path = tmp_path / ".ai-engineering" / "state" / "session-checkpoint.json"
+        data = json.loads(cp_path.read_text(encoding="utf-8"))
+        assert data["agents"]["build"]["current_task"] == "1.0"
+        assert data["agents"]["verify"]["current_task"] == "2.0"
+
+    def test_load_with_agent_returns_namespaced_data(self, tmp_path: Path) -> None:
+        """Load with --agent returns that agent's checkpoint data."""
+        state_dir = tmp_path / ".ai-engineering" / "state"
+        state_dir.mkdir(parents=True)
+        (state_dir / "session-checkpoint.json").write_text(
+            json.dumps(
+                {
+                    "spec_id": "top-level",
+                    "current_task": "0.0",
+                    "progress": "",
+                    "last_reasoning": "",
+                    "blocked_on": None,
+                    "timestamp": "2026-03-15T00:00:00Z",
+                    "agents": {
+                        "build": {
+                            "spec_id": "051",
+                            "current_task": "3.1",
+                            "progress": "5/10",
+                            "last_reasoning": "building",
+                            "blocked_on": None,
+                            "timestamp": "2026-03-15T00:00:00Z",
+                        }
+                    },
+                },
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
+
+        with patch(
+            "ai_engineering.cli_commands.checkpoint._project_root",
+            return_value=tmp_path,
+        ):
+            app = create_app()
+            result = runner.invoke(app, ["checkpoint", "load", "--agent", "build"])
+        assert result.exit_code == 0
+        assert "Agent: build" in result.output
+        assert "051" in result.output
+        assert "3.1" in result.output
+
+    def test_load_without_agent_lists_all_agents(self, tmp_path: Path) -> None:
+        """Load without --agent shows all agent checkpoints."""
+        state_dir = tmp_path / ".ai-engineering" / "state"
+        state_dir.mkdir(parents=True)
+        (state_dir / "session-checkpoint.json").write_text(
+            json.dumps(
+                {
+                    "spec_id": "051",
+                    "current_task": "0.0",
+                    "progress": "",
+                    "last_reasoning": "",
+                    "blocked_on": None,
+                    "timestamp": "2026-03-15T00:00:00Z",
+                    "agents": {
+                        "build": {"current_task": "3.1", "progress": "5/10"},
+                        "verify": {"current_task": "4.2", "progress": "2/8"},
+                    },
+                },
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
+
+        with patch(
+            "ai_engineering.cli_commands.checkpoint._project_root",
+            return_value=tmp_path,
+        ):
+            app = create_app()
+            result = runner.invoke(app, ["checkpoint", "load"])
+        assert result.exit_code == 0
+        assert "Agent Checkpoints" in result.output
+        assert "build:" in result.output
+        assert "verify:" in result.output
+
     def test_save_then_load_roundtrip(self, tmp_path: Path) -> None:
         """Save followed by load produces consistent output."""
         (tmp_path / ".ai-engineering").mkdir(parents=True)

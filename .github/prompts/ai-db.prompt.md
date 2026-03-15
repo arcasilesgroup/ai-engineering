@@ -1,8 +1,0 @@
----
-description: "Database engineering: schema design, data modeling, safe migrations, query optimization, data lifecycle. Absorbs data-model skill."
-mode: "agent"
----
-
-Read and execute the skill defined in `.ai-engineering/skills/db/SKILL.md`.
-
-Follow the complete procedure. Do not skip steps. Apply all governance notes.

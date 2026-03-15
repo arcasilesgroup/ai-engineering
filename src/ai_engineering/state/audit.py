@@ -112,10 +112,10 @@ def emit_scan_event(
     _emit(
         project_root,
         event="scan_complete",
-        actor="scan",
+        actor="verify",
         detail={
             "type": "scan_complete",
-            "agent": "scan",
+            "agent": "verify",
             "mode": mode,
             "score": score,
             "findings": findings,
