@@ -35,13 +35,13 @@ Mandatory. Skipping risks stale code, repeated decisions, or merge conflicts.
 
 Gate failure: diagnose → fix → retry. Use `ai-eng doctor --fix-tools` or `--fix-hooks`.
 
-## Skills (35)
+## Skills (40)
 
 Path: `.ai-engineering/skills/<name>/SKILL.md` — slash commands: `/ai:<name>`
 
 a11y, api, architecture, build, changelog, cicd, cleanup, cli, code-simplifier, commit, create, db, debug, delete, discover, docs, explain, feature-gap, governance, infra, migrate, observe, perf, plan, pr, product-contract, quality, refactor, release, risk, security, spec, standards, test, work-item
 
-## Agents (7)
+## Agents (10)
 
 Path: `.ai-engineering/agents/<name>.md`
 
@@ -64,8 +64,8 @@ For commands/pipelines: read `framework-contract.md` §5.
 
 ## Quick Reference
 
-- Skills (35): `.ai-engineering/skills/<name>/SKILL.md` — slash commands: `/ai:<name>`
-- Agents (7): `.ai-engineering/agents/<name>.md`
+- Skills (40): `.ai-engineering/skills/<name>/SKILL.md` — slash commands: `/ai:<name>`
+- Agents (10): `.ai-engineering/agents/<name>.md`
 - CLI: `ai-eng <command>` — deterministic tasks, zero AI tokens
 - Quality: coverage 80%, duplication ≤3%, cyclomatic ≤10, cognitive ≤15, zero blocker/critical
 - Security: zero medium+ findings, zero leaks, zero dependency vulns

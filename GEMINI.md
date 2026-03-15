@@ -29,7 +29,7 @@ Mandatory. Skipping risks stale code, repeated decisions, or merge conflicts.
 
 Gate failure: diagnose → fix → retry. Use `ai-eng doctor --fix-tools` or `--fix-hooks`.
 
-## Skills (35)
+## Skills (40)
 
 Path: `.ai-engineering/skills/<name>/SKILL.md` (flat organization, no category subdirectories)
 
@@ -37,7 +37,7 @@ Path: `.ai-engineering/skills/<name>/SKILL.md` (flat organization, no category s
 |-----------------------|
 | a11y, api, architecture, build, changelog, cicd, cleanup, cli, code-simplifier, commit, create, db, debug, delete, discover, docs, explain, feature-gap, governance, infra, migrate, observe, perf, plan, pr, product-contract, quality, refactor, release, risk, security, spec, standards, test, work-item |
 
-## Agents (7)
+## Agents (10)
 
 Path: `.ai-engineering/agents/<name>.md`
 

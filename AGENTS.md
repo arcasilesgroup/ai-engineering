@@ -60,8 +60,8 @@ Path: `.ai-engineering/runbooks/*.md` — 13 platform-agnostic runbooks for recu
 
 ## Quick Reference
 
-- Skills (35): `.ai-engineering/skills/<name>/SKILL.md` — slash commands: `/ai:<name>`
-- Agents (7): `.ai-engineering/agents/<name>.md`
+- Skills (40): `.ai-engineering/skills/<name>/SKILL.md` — slash commands: `/ai:<name>`
+- Agents (10): `.ai-engineering/agents/<name>.md`
 - CLI: `ai-eng <command>` — deterministic tasks, zero AI tokens
 - Quality: coverage 80%, duplication ≤3%, cyclomatic ≤10, cognitive ≤15
 - Security: zero medium+ findings, zero leaks, zero dependency vulns

@@ -34,7 +34,7 @@ During `/ai:plan`, do NOT use file-writing tools to create spec files. Instead:
 
 ## Quick Reference
 
-- Skills (35): `.ai-engineering/skills/<name>/SKILL.md`
-- Agents (7): `.ai-engineering/agents/<name>.md`
+- Skills (40): `.ai-engineering/skills/<name>/SKILL.md`
+- Agents (10): `.ai-engineering/agents/<name>.md`
 - Quality: coverage 80%, duplication ≤3%, cyclomatic ≤10, cognitive ≤15
 - Security: zero medium+ findings, zero leaks, zero dependency vulns
