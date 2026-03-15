@@ -41,8 +41,15 @@ Execute the `/pr` governed workflow: run the shared commit pipeline (from `commi
 
 ### `/pr` (default: commit pipeline + pre-push + create PR + auto-complete)
 
-**Steps 0–6: Shared Commit Pipeline** — execute steps 0–6 from `commit/SKILL.md`:
-- Auto-branch from protected, stage, format, lint, secret detection, documentation gate.
+**Steps 0–6: Shared Commit Pipeline** — READ `skills/commit/SKILL.md` and execute steps 0 through 6 in full. Do NOT skip any step. The documentation gate (step 5) is mandatory — CHANGELOG.md and README.md must be evaluated and updated before proceeding.
+
+> IMPORTANT: Do not summarize or abbreviate the commit pipeline. Read the actual skill file and follow each step. The documentation gate at step 5 evaluates staged changes and auto-updates CHANGELOG.md (always for functional changes) and README.md (for user-visible changes). Skipping this step is a governance violation.
+
+6.5. **Doc gate verification** — before proceeding, verify the documentation gate was executed:
+   - If staged changes include `src/` or `.ai-engineering/` files (excluding `state/`):
+     - CHANGELOG.md MUST be in the staged files. If not: STOP and run step 5 (doc gate).
+     - For governance content changes (agents/, skills/, standards/): README.md SHOULD be staged.
+   - This is a safety net — if step 5 was followed correctly, this always passes.
 
 7. **Pre-push checks** — execute full pre-push gate:
    - `semgrep scan --config auto .`

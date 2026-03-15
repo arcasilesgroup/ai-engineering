@@ -137,6 +137,7 @@ Spec closed (done.md) -> auto-close linked issue
 - Must not skip pre-commit or pre-push gates
 - Must not push to protected branches (main, master)
 - Must not use `--no-verify` on any git command
+- `/ai:pr` MUST invoke the full commit pipeline from `skills/commit/SKILL.md` (steps 0–6). The documentation gate (step 5) is non-negotiable. Direct `git commit` without the commit pipeline is a governance violation.
 
 ### Escalation Protocol
 
