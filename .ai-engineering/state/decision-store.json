@@ -16,9 +16,12 @@
       "source": "RECONSTRUCTED",
       "spec": "031-framework-optimization",
       "created_at": "2026-03-02",
-      "expires_at": "2027-03-02",
+      "expires_at": "2027-03-02T00:00:00Z",
       "context_hash": null,
-      "acknowledged_by": "plan"
+      "acknowledged_by": "plan",
+      "decision": "Migrated from nested skill hierarchy (19 agents with embedded skills) to flat layout: skills/<name>/SKILL.md with unified /ai:<name> invocation. Reduces cognitive load and enables cross-IDE portability.",
+      "decidedAt": "2026-03-02T00:00:00Z",
+      "context": "architecture"
     },
     {
       "id": "DEC-002",
@@ -30,10 +33,13 @@
       "source": "RECONSTRUCTED",
       "spec": "032",
       "created_at": "2026-03-04",
-      "expires_at": "2027-03-04",
+      "expires_at": "2027-03-04T00:00:00Z",
       "context_hash": null,
       "acknowledged_by": "plan",
-      "superseded_by": "DEC-019"
+      "superseded_by": "DEC-019",
+      "decision": "Consolidated from 19 agents to 6, then expanded to 7 (plan, execute, build, scan, release, write, observe). Each agent has a single responsibility. Plan plans, execute coordinates, build implements, scan validates, release ships, write documents, observe measures.",
+      "decidedAt": "2026-03-04T00:00:00Z",
+      "context": "architecture"
     },
     {
       "id": "DEC-003",
@@ -45,9 +51,12 @@
       "source": "RECONSTRUCTED",
       "spec": "037-pr-workflow-hardening",
       "created_at": "2026-03-05",
-      "expires_at": "2027-03-05",
+      "expires_at": "2027-03-05T00:00:00Z",
       "context_hash": null,
-      "acknowledged_by": "plan"
+      "acknowledged_by": "plan",
+      "decision": "Plan agent produces specs and execution plans then STOPS. User must explicitly invoke /ai:execute to begin implementation. This creates a human gate between planning and execution, enabling review before action. Cross-IDE compatible — works with Write/Edit tools, no IDE plan mode required.",
+      "decidedAt": "2026-03-05T00:00:00Z",
+      "context": "governance"
     },
     {
       "id": "DEC-004",
@@ -59,9 +68,12 @@
       "source": "spec-050-audit",
       "spec": "050-framework-v2-restructure",
       "created_at": "2026-03-12",
-      "expires_at": "2027-03-12",
+      "expires_at": "2027-03-12T00:00:00Z",
       "context_hash": null,
-      "acknowledged_by": "plan"
+      "acknowledged_by": "plan",
+      "decision": "Framework-contract.md described phase branching (phase/2.x branches) but this was never implemented and adds unnecessary complexity at current project scale. Decision: use flat main with feature branches per spec. Revisit when team size exceeds 3 concurrent contributors.",
+      "decidedAt": "2026-03-12T00:00:00Z",
+      "context": "governance"
     },
     {
       "id": "DEC-005",
@@ -73,9 +85,12 @@
       "source": "spec-050-audit",
       "spec": "050-framework-v2-restructure",
       "created_at": "2026-03-12",
-      "expires_at": "2027-03-12",
+      "expires_at": "2027-03-12T00:00:00Z",
       "context_hash": null,
-      "acknowledged_by": "plan"
+      "acknowledged_by": "plan",
+      "decision": "Instead of manually maintaining CLAUDE.md, AGENTS.md, GEMINI.md, COPILOT.md, and .cursorrules independently (causing ~60% content overlap and drift), adopt a single GOVERNANCE_SOURCE.md and generate per-IDE files. This is a future implementation target tracked in spec-050 Phase 5.",
+      "decidedAt": "2026-03-12T00:00:00Z",
+      "context": "architecture"
     },
     {
       "id": "DEC-006",
@@ -87,9 +102,12 @@
       "source": "RECONSTRUCTED",
       "spec": "038-sonarcloud-quality-gate-integration",
       "created_at": "2026-03-09",
-      "expires_at": "2027-03-09",
+      "expires_at": "2027-03-09T00:00:00Z",
       "context_hash": null,
-      "acknowledged_by": "plan"
+      "acknowledged_by": "plan",
+      "decision": "Adopted SonarCloud for static analysis, coverage tracking, and quality gate enforcement. Integrated into CI (spec-030, spec-038) and observe dashboards. Quality gates: zero blocker/critical, coverage 80%, duplication ≤3%, complexity ≤10/≤15.",
+      "decidedAt": "2026-03-09T00:00:00Z",
+      "context": "tooling"
     },
     {
       "id": "DEC-007",
@@ -101,9 +119,12 @@
       "source": "RECONSTRUCTED",
       "spec": "039-observe-enrichment-phase-1",
       "created_at": "2026-03-04",
-      "expires_at": "2027-03-04",
+      "expires_at": "2027-03-04T00:00:00Z",
       "context_hash": null,
-      "acknowledged_by": "observe"
+      "acknowledged_by": "observe",
+      "decision": "All framework events (gates, scans, builds, deploys, sessions) write to a single NDJSON file: state/audit-log.ndjson. No dual-write. Weekly rotation with 90-day retention. Query via signals.py load_all_events + filter_events pattern.",
+      "decidedAt": "2026-03-04T00:00:00Z",
+      "context": "architecture"
     },
     {
       "id": "DEC-008",
@@ -115,9 +136,12 @@
       "source": "RECONSTRUCTED",
       "spec": "049-sonarcloud-quality-gate",
       "created_at": "2026-03-10",
-      "expires_at": "2027-03-10",
+      "expires_at": "2027-03-10T00:00:00Z",
       "context_hash": null,
-      "acknowledged_by": "plan"
+      "acknowledged_by": "plan",
+      "decision": "NEVER add suppression comments (# NOSONAR, # nosec, # type: ignore, # pragma: no cover, # noqa, // nolint) to bypass analysis. Fix the root cause. If false positive: refactor code to satisfy analyzer or escalate with full explanation. Added to CLAUDE.md absolute prohibitions.",
+      "decidedAt": "2026-03-10T00:00:00Z",
+      "context": "governance"
     },
     {
       "id": "DEC-009",
@@ -129,9 +153,12 @@
       "source": "RECONSTRUCTED",
       "spec": "048-snyk-optional-cicd",
       "created_at": "2026-03-10",
-      "expires_at": "2027-03-10",
+      "expires_at": "2027-03-10T00:00:00Z",
       "context_hash": null,
-      "acknowledged_by": "plan"
+      "acknowledged_by": "plan",
+      "decision": "Snyk CI/CD integration is optional (SNYK_TOKEN secret controls activation). Core security scanning uses gitleaks (secrets), semgrep (SAST), and pip-audit (dependencies). Snyk adds value but is not a gate blocker.",
+      "decidedAt": "2026-03-10T00:00:00Z",
+      "context": "tooling"
     },
     {
       "id": "DEC-010",
@@ -143,9 +170,12 @@
       "source": "RECONSTRUCTED",
       "spec": "014-dual-vcs-provider",
       "created_at": "2026-02-22",
-      "expires_at": "2027-02-22",
+      "expires_at": "2027-02-22T00:00:00Z",
       "context_hash": null,
-      "acknowledged_by": "plan"
+      "acknowledged_by": "plan",
+      "decision": "Framework supports both GitHub and Azure DevOps as VCS providers. Provider detection via manifest.yml or remote URL parsing. CLI commands (gh/az) are conditionally required based on configured provider. Implemented in spec-014.",
+      "decidedAt": "2026-02-22T00:00:00Z",
+      "context": "architecture"
     },
     {
       "id": "DEC-011",
@@ -155,11 +185,14 @@
       "status": "active",
       "criticality": "high",
       "source": "RECONSTRUCTED",
-      "spec": null,
+      "spec": "RECONSTRUCTED",
       "created_at": "2026-02-10",
-      "expires_at": "2027-02-10",
+      "expires_at": "2027-02-10T00:00:00Z",
       "context_hash": null,
-      "acknowledged_by": "plan"
+      "acknowledged_by": "plan",
+      "decision": "Secret detection runs at pre-commit (gitleaks protect --staged) for immediate feedback. Previously was at pre-push which was too late. Catches secrets before they enter git history.",
+      "decidedAt": "2026-02-10T00:00:00Z",
+      "context": "security"
     },
     {
       "id": "DEC-012",
@@ -171,9 +204,12 @@
       "source": "RECONSTRUCTED",
       "spec": "046-release-zero-rebuild",
       "created_at": "2026-03-08",
-      "expires_at": "2027-03-08",
+      "expires_at": "2027-03-08T00:00:00Z",
       "context_hash": null,
-      "acknowledged_by": "release"
+      "acknowledged_by": "release",
+      "decision": "Release workflow downloads the pre-built wheel from CI instead of rebuilding from source. Eliminates build divergence between CI and release, reduces release time, and ensures what was tested is what ships.",
+      "decidedAt": "2026-03-08T00:00:00Z",
+      "context": "delivery"
     },
     {
       "id": "DEC-013",
@@ -185,9 +221,12 @@
       "source": "RECONSTRUCTED",
       "spec": "044-skill-agent-telemetry",
       "created_at": "2026-03-07",
-      "expires_at": "2027-03-07",
+      "expires_at": "2027-03-07T00:00:00Z",
       "context_hash": null,
-      "acknowledged_by": "observe"
+      "acknowledged_by": "observe",
+      "decision": "All skills and agents emit telemetry via shell command: ai-eng signals emit <event> --actor=ai --detail='{...}'. Works in any IDE with shell access (Claude Code, Copilot, Gemini, Codex). Fail-open: skip if ai-eng unavailable.",
+      "decidedAt": "2026-03-07T00:00:00Z",
+      "context": "architecture"
     },
     {
       "id": "DEC-014",
@@ -199,9 +238,12 @@
       "source": "spec-050-audit",
       "spec": "050-framework-v2-restructure",
       "created_at": "2026-03-12",
-      "expires_at": "2027-03-12",
+      "expires_at": "2027-03-12T00:00:00Z",
       "context_hash": null,
-      "acknowledged_by": "plan"
+      "acknowledged_by": "plan",
+      "decision": "Stack standards should be concise and actionable (≤1 page). Template: Toolchain, Quality Gates, Security, CI Integration. Avoids standards fatigue. Detailed patterns belong in cross-cutting standards.",
+      "decidedAt": "2026-03-12T00:00:00Z",
+      "context": "governance"
     },
     {
       "id": "DEC-015",
@@ -211,11 +253,14 @@
       "status": "active",
       "criticality": "medium",
       "source": "RECONSTRUCTED",
-      "spec": null,
+      "spec": "RECONSTRUCTED",
       "created_at": "2026-02-10",
-      "expires_at": "2027-02-10",
+      "expires_at": "2027-02-10T00:00:00Z",
       "context_hash": null,
-      "acknowledged_by": "release"
+      "acknowledged_by": "release",
+      "decision": "Commit format: spec-NNN: Task X.Y — description (when spec active) or type(scope): description (conventional commits). Enables changelog generation, DORA metrics, and semantic version detection.",
+      "decidedAt": "2026-02-10T00:00:00Z",
+      "context": "delivery"
     },
     {
       "id": "DEC-016",
@@ -227,9 +272,12 @@
       "source": "RECONSTRUCTED",
       "spec": "043-slim-root-instructions",
       "created_at": "2026-03-06",
-      "expires_at": "2027-03-06",
+      "expires_at": "2027-03-06T00:00:00Z",
       "context_hash": null,
-      "acknowledged_by": "plan"
+      "acknowledged_by": "plan",
+      "decision": "Root instruction files (CLAUDE.md, AGENTS.md) kept minimal with pointers to .ai-engineering/ as source of truth. Reduces duplication between IDE instruction files. Implemented in spec-043.",
+      "decidedAt": "2026-03-06T00:00:00Z",
+      "context": "governance"
     },
     {
       "id": "DEC-017",
@@ -241,9 +289,12 @@
       "source": "spec-050-audit",
       "spec": "050-framework-v2-restructure",
       "created_at": "2026-03-12",
-      "expires_at": "2027-03-12",
+      "expires_at": "2027-03-12T00:00:00Z",
       "context_hash": null,
-      "acknowledged_by": "plan"
+      "acknowledged_by": "plan",
+      "decision": "Unified session-checkpoint.json schema with namespaced sections per agent (checkpoint.execute, checkpoint.release). Resolves write conflict between execute and release agents. Implemented in spec-050 Phase 1.",
+      "decidedAt": "2026-03-12T00:00:00Z",
+      "context": "architecture"
     },
     {
       "id": "DEC-018",
@@ -255,9 +306,12 @@
       "source": "spec-050-audit",
       "spec": "050-framework-v2-restructure",
       "created_at": "2026-03-12",
-      "expires_at": "2027-03-12",
+      "expires_at": "2027-03-12T00:00:00Z",
       "context_hash": null,
-      "acknowledged_by": "plan"
+      "acknowledged_by": "plan",
+      "decision": "The commit and PR skills share ~60% of their procedure (auto-branch, stage, format, lint, secrets, doc gate, spec verify). Extract shared pipeline as referenced behavior rather than duplicated code. PR = shared pipeline + PR creation + auto-complete.",
+      "decidedAt": "2026-03-12T00:00:00Z",
+      "context": "architecture"
     },
     {
       "id": "DEC-019",
@@ -269,10 +323,13 @@
       "source": "spec-051",
       "spec": "051-architecture-v3",
       "created_at": "2026-03-15",
-      "expires_at": "2027-03-15",
+      "expires_at": "2027-03-15T00:00:00Z",
       "context_hash": null,
       "acknowledged_by": "guard",
-      "supersedes": "DEC-002"
+      "supersedes": "DEC-002",
+      "decision": "Expanded from 7 to 10 agents via spec-051 clean-sheet redesign. 10 agents: plan (specs/plans), execute (coordination/dispatch), guard (proactive governance advisory), build (code implementation), verify (7-mode validation), ship (delivery/ALM), observe (dashboards/metrics), guide (onboarding/teaching), write (documentation), operate (runbook execution). Each agent has single responsibility with declared capabilities and boundaries.",
+      "decidedAt": "2026-03-15T00:00:00Z",
+      "context": "architecture"
     }
   ]
 }

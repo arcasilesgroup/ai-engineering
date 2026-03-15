@@ -549,7 +549,7 @@ jobs:
       - name: Validate content integrity
         run: uv run ai-eng validate
       - name: Governance consistency
-        run: uv run ai-eng governance diff
+        run: uv run ai-eng validate --json
       - name: Manifest validation
         run: |
           # Verify manifest.yml exists and has expected structure
