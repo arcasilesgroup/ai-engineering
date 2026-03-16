@@ -107,12 +107,20 @@ class TestComputeTestScope:
         self,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        self._patch_diff(monkeypatch, changed=["src/ai_engineering/updater/service.py"])
+        # Temporarily empty the updater rule's unit tests to trigger the fallback
+        from ai_engineering.policy.test_scope import TEST_SCOPE_RULES
 
+        updater_rule = next(r for r in TEST_SCOPE_RULES if r.name == "updater")
+        original = updater_rule.tiers["unit"]
+        monkeypatch.setitem(updater_rule.tiers, "unit", [])
+
+        self._patch_diff(monkeypatch, changed=["src/ai_engineering/updater/service.py"])
         scope = test_scope.compute_test_scope(Path("."), tier="unit", base_ref="main")
 
         assert scope.mode == "full"
         assert "empty_after_code_change" in scope.reasons
+
+        monkeypatch.setitem(updater_rule.tiers, "unit", original)
 
     def test_docs_only_changes_skip_tests(self, monkeypatch: pytest.MonkeyPatch) -> None:
         self._patch_diff(monkeypatch, changed=["README.md", "docs/notes.txt"])

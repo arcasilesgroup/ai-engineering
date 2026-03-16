@@ -319,7 +319,7 @@ TEST_SCOPE_RULES: list[ScopeRule] = [
         name="updater",
         source_globs=["src/ai_engineering/updater/**/*.py"],
         tiers={
-            "unit": [],
+            "unit": ["tests/unit/test_updater.py"],
             "integration": ["tests/integration/test_updater.py"],
             "e2e": [],
         },
