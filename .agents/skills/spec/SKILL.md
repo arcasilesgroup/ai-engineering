@@ -1,13 +1,10 @@
 ---
 name: spec
-description: "Create a new spec before non-trivial work: branch, scaffold spec/plan/tasks, activate, commit."
-argument-hint: "[NNN title]"
-metadata:
-  version: 1.0.0
-  tags: [governance, spec, lifecycle, planning]
-  ai-engineering:
-    scope: read-write
-    token_estimate: 2200
+version: 1.0.0
+description: 'Create a new spec before non-trivial work: branch, scaffold spec/plan/tasks,
+  activate, commit.'
+argument-hint: '[NNN title]'
+tags: [governance, spec, lifecycle, planning]
 ---
 
 # Create Spec
@@ -251,6 +248,6 @@ Actions:
 
 - `standards/framework/core.md` — governance structure, spec-first enforcement, session contract.
 - `context/product/framework-contract.md` — agentic model, session contract, branch strategy.
-- `skills/lifecycle/SKILL.md` — skill and agent create lifecycle.
-- `skills/lifecycle/SKILL.md` — skill and agent delete lifecycle.
-- `skills/pr/SKILL.md` — PR creation at spec closure.
+- `.agents/skills/lifecycle/SKILL.md` — skill and agent create lifecycle.
+- `.agents/skills/lifecycle/SKILL.md` — skill and agent delete lifecycle.
+- `.agents/skills/pr/SKILL.md` — PR creation at spec closure.

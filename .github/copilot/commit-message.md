@@ -2,8 +2,8 @@
 
 ## References
 
-- `.ai-engineering/skills/commit/SKILL.md` — full commit workflow procedure.
-- `.ai-engineering/skills/pr/SKILL.md` — PR creation procedure.
+- `.github/prompts/ai-commit.prompt.md` — full commit workflow procedure.
+- `.github/prompts/ai-pr.prompt.md` — PR creation procedure.
 
 ## Format
 

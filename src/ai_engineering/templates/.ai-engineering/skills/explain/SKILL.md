@@ -1,13 +1,11 @@
 ---
 name: explain
-description: "Engineer-grade technical explanations of code, concepts, patterns, and architecture with 3-tier depth control, ASCII diagrams, execution traces, and complexity analysis."
-argument-hint: "quick|deep|architecture"
-metadata:
-  version: 2.0.0
-  tags: [documentation, explanation, analysis, architecture]
-  ai-engineering:
-    scope: read-only
-    token_estimate: 950
+version: 2.0.0
+description: Engineer-grade technical explanations of code, concepts, patterns, and
+  architecture with 3-tier depth control, ASCII diagrams, execution traces, and complexity
+  analysis.
+argument-hint: quick|deep|architecture
+tags: [documentation, explanation, analysis, architecture]
 ---
 
 # Explain

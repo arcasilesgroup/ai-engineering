@@ -1,13 +1,12 @@
 ---
 name: guard
-description: "Use this skill for proactive governance advisory: check staged changes against standards, validate pre-dispatch governance compliance, detect decision drift. Invoke before committing, during build post-edit validation, or when reviewing architectural alignment."
-argument-hint: "all|advise|gate|drift"
-metadata:
-  version: 1.0.0
-  tags: [governance, advisory, shift-left, drift, compliance, proactive, guard]
-  ai-engineering:
-    scope: read-only + read-write (decision-store, audit-log)
-    token_estimate: 1200
+version: 1.0.0
+description: 'Use this skill for proactive governance advisory: check staged changes
+  against standards, validate pre-dispatch governance compliance, detect decision
+  drift. Invoke before committing, during build post-edit validation, or when reviewing
+  architectural alignment.'
+argument-hint: all|advise|gate|drift
+tags: [governance, advisory, shift-left, drift, compliance, proactive, guard]
 ---
 
 # Guard
@@ -208,7 +207,7 @@ Guard and scan are complementary, not overlapping:
 
 ## References
 
-- `skills/governance/SKILL.md` -- shared governance validation (integrity, compliance, ownership)
-- `skills/risk/SKILL.md` -- risk acceptance lifecycle for expired-decision context
+- `.agents/skills/governance/SKILL.md` -- shared governance validation (integrity, compliance, ownership)
+- `.agents/skills/risk/SKILL.md` -- risk acceptance lifecycle for expired-decision context
 - `standards/framework/core.md` -- governance structure and ownership model
 - `standards/framework/quality/core.md` -- quality thresholds for trend warnings

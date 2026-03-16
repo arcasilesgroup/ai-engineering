@@ -148,7 +148,12 @@ def copy_file_if_missing(src: Path, dest: Path) -> bool:
     return True
 
 
-def copy_template_tree(src_root: Path, dest_root: Path) -> CopyResult:
+def copy_template_tree(
+    src_root: Path,
+    dest_root: Path,
+    *,
+    exclude: list[str] | None = None,
+) -> CopyResult:
     """Recursively copy a template directory tree with create-only semantics.
 
     Walks *src_root* and copies each file to the corresponding relative path
@@ -157,6 +162,7 @@ def copy_template_tree(src_root: Path, dest_root: Path) -> CopyResult:
     Args:
         src_root: Root of the source template tree.
         dest_root: Root of the destination tree.
+        exclude: Optional list of path prefixes to skip (e.g., ``["agents/", "skills/"]``).
 
     Returns:
         CopyResult with lists of created and skipped paths.
@@ -166,6 +172,8 @@ def copy_template_tree(src_root: Path, dest_root: Path) -> CopyResult:
         if not src_file.is_file():
             continue
         relative = src_file.relative_to(src_root)
+        if exclude and any(relative.as_posix().startswith(e) for e in exclude):
+            continue
         dest_file = dest_root / relative
         if copy_file_if_missing(src_file, dest_file):
             result.created.append(dest_file)

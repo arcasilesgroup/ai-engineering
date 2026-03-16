@@ -1,12 +1,9 @@
 ---
 name: code
-description: "Write code across all supported stacks following standards: implement features, write tests, validate. Includes CLI design (agent-first, JSON + Rich dual-output)."
-metadata:
-  version: 2.1.0
-  tags: [implementation, code, multi-stack, features, cli]
-  ai-engineering:
-    scope: read-write
-    token_estimate: 800
+version: 2.1.0
+description: 'Write code across all supported stacks following standards: implement
+  features, write tests, validate. Includes CLI design (agent-first, JSON + Rich dual-output).'
+tags: [implementation, code, multi-stack, features, cli]
 ---
 
 # Build
@@ -251,7 +248,7 @@ User says: "The `spec verify` command miscounts completed tasks when a task line
 - `standards/framework/quality/core.md` -- coverage, complexity, duplication thresholds.
 - `standards/framework/stacks/python.md` -- Python-specific patterns and tooling.
 - `standards/framework/stacks/dotnet.md` -- .NET-specific patterns and tooling.
-- `agents/build.md` -- the agent that invokes this skill.
-- `skills/debug/SKILL.md` -- systematic bug diagnosis (use instead for root-cause investigation).
-- `skills/refactor/SKILL.md` -- structural changes (use instead for move/rename/split).
-- `skills/simplify/SKILL.md` -- complexity reduction (use instead for guard clauses, early returns).
+- `.agents/agents/ai-build.md` -- the agent that invokes this skill.
+- `.agents/skills/debug/SKILL.md` -- systematic bug diagnosis (use instead for root-cause investigation).
+- `.agents/skills/refactor/SKILL.md` -- structural changes (use instead for move/rename/split).
+- `.agents/skills/simplify/SKILL.md` -- complexity reduction (use instead for guard clauses, early returns).

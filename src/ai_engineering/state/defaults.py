@@ -95,8 +95,7 @@ _DEFAULT_OWNERSHIP_PATHS: list[tuple[str, OwnershipLevel, FrameworkUpdatePolicy]
     ),
     (".ai-engineering/standards/team/**", OwnershipLevel.TEAM_MANAGED, FrameworkUpdatePolicy.DENY),
     (".ai-engineering/context/**", OwnershipLevel.PROJECT_MANAGED, FrameworkUpdatePolicy.DENY),
-    (".ai-engineering/skills/**", OwnershipLevel.FRAMEWORK_MANAGED, FrameworkUpdatePolicy.ALLOW),
-    (".ai-engineering/agents/**", OwnershipLevel.FRAMEWORK_MANAGED, FrameworkUpdatePolicy.ALLOW),
+    (".agents/**", OwnershipLevel.FRAMEWORK_MANAGED, FrameworkUpdatePolicy.ALLOW),
     ("CLAUDE.md", OwnershipLevel.FRAMEWORK_MANAGED, FrameworkUpdatePolicy.ALLOW),
     ("AGENTS.md", OwnershipLevel.FRAMEWORK_MANAGED, FrameworkUpdatePolicy.ALLOW),
     (

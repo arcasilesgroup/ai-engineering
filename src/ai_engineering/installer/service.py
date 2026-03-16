@@ -111,7 +111,9 @@ def install(
 
     # 1. Copy governance templates
     src_root = get_ai_engineering_template_root()
-    result.governance_files = copy_template_tree(src_root, ai_eng_dir)
+    result.governance_files = copy_template_tree(
+        src_root, ai_eng_dir, exclude=["agents/", "skills/"]
+    )
 
     # 2. Copy project-level templates (provider-aware)
     result.project_files = copy_project_templates(target, providers=ai_providers)

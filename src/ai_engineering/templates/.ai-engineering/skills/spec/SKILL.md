@@ -1,13 +1,10 @@
 ---
 name: spec
-description: "Create a new spec before non-trivial work: branch, scaffold spec/plan/tasks, activate, commit."
-argument-hint: "[NNN title]"
-metadata:
-  version: 1.0.0
-  tags: [governance, spec, lifecycle, planning]
-  ai-engineering:
-    scope: read-write
-    token_estimate: 2200
+version: 1.0.0
+description: 'Create a new spec before non-trivial work: branch, scaffold spec/plan/tasks,
+  activate, commit.'
+argument-hint: '[NNN title]'
+tags: [governance, spec, lifecycle, planning]
 ---
 
 # Create Spec

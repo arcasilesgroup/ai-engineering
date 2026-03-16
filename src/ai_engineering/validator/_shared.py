@@ -142,12 +142,13 @@ def _instruction_files(target: Path) -> list[str]:
 
 
 # Mirror pairs: (canonical_root, mirror_root, glob_patterns, exclusion_prefixes)
+# Note: skills/ and agents/ are no longer in .ai-engineering/ — they live in
+# IDE-specific directories (.claude/, .agents/).  The governance mirror only
+# validates standards, runbooks, evals, and the manifest.
 _GOVERNANCE_MIRROR = (
     ".ai-engineering",
     "src/ai_engineering/templates/.ai-engineering",
     [
-        "skills/**/*.md",
-        "agents/**/*.md",
         "standards/framework/**/*.md",
         "runbooks/**/*.md",
         "evals/**/*.md",
@@ -173,12 +174,15 @@ _COPILOT_AGENTS_MIRROR = (
     "src/ai_engineering/templates/project/agents",
 )
 
-# Skill/agent listing patterns in instruction files
+# Skill/agent listing patterns in instruction files (IDE-specific paths)
 _SKILL_PATH_PATTERN = re.compile(
-    r"^- `\.ai-engineering/skills/([^`/]+)/SKILL\.md`",
+    r"^- `(?:\.claude|\.agents)/skills/([^`/]+)/SKILL\.md`",
     re.MULTILINE,
 )
-_AGENT_PATH_PATTERN = re.compile(r"^- `\.ai-engineering/agents/([^`/]+)\.md`", re.MULTILINE)
+_AGENT_PATH_PATTERN = re.compile(
+    r"^- `(?:\.claude|\.agents)/agents/([^`/]+)\.md`",
+    re.MULTILINE,
+)
 _SKILL_NAME_PATTERN = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 
 # Skill frontmatter patterns

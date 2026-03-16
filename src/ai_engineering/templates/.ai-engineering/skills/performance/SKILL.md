@@ -1,12 +1,9 @@
 ---
 name: performance
-description: "Multi-stack performance scanning: N+1 queries, O(n^2) patterns, memory leaks, bundle size, I/O bottlenecks."
-metadata:
-  version: 2.0.0
-  tags: [performance, profiling, optimization, bottlenecks, n-plus-one]
-  ai-engineering:
-    scope: read-only
-    token_estimate: 1000
+version: 2.0.0
+description: 'Multi-stack performance scanning: N+1 queries, O(n^2) patterns, memory
+  leaks, bundle size, I/O bottlenecks.'
+tags: [performance, profiling, optimization, bottlenecks, n-plus-one]
 ---
 
 # Performance

@@ -22,16 +22,17 @@ pytestmark = pytest.mark.unit
 # -- Helpers ----------------------------------------------------------------
 
 # Dynamic discovery from real project — never hardcode lists that can drift.
+# Skills and agents are no longer in .ai-engineering/ — canonical source is in templates.
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
-_AI_ENG_DIR = _PROJECT_ROOT / ".ai-engineering"
+_TEMPLATES_AI_DIR = _PROJECT_ROOT / "src" / "ai_engineering" / "templates" / ".ai-engineering"
 
 _SKILL_PATHS = sorted(
     f"skills/{d.name}/SKILL.md"
-    for d in (_AI_ENG_DIR / "skills").iterdir()
+    for d in (_TEMPLATES_AI_DIR / "skills").iterdir()
     if d.is_dir() and (d / "SKILL.md").is_file()
 )
 
-_AGENT_PATHS = sorted(f"agents/{f.name}" for f in (_AI_ENG_DIR / "agents").glob("*.md"))
+_AGENT_PATHS = sorted(f"agents/{f.name}" for f in (_TEMPLATES_AI_DIR / "agents").glob("*.md"))
 
 
 def _make_governance(root: Path) -> Path:
@@ -73,16 +74,20 @@ def _make_instruction_content(
     skills: list[str] | None = None,
     agents: list[str] | None = None,
 ) -> str:
-    """Build instruction file content with skill/agent listings (flat layout)."""
+    """Build instruction file content with skill/agent listings (IDE-specific paths).
+
+    The parser (_SKILL_PATH_PATTERN / _AGENT_PATH_PATTERN) expects IDE-specific
+    paths like ``.claude/skills/<name>/SKILL.md`` — not ``.ai-engineering/``.
+    """
     skill_list = skills if skills is not None else _SKILL_PATHS
     agent_list = agents if agents is not None else _AGENT_PATHS
     lines = ["# Instructions", "", "## Skills", ""]
     for s in skill_list:
-        lines.append(f"- `.ai-engineering/{s}`")
+        lines.append(f"- `.claude/{s}`")
     lines.append("")
     lines.extend(["## Agents", ""])
     for a in agent_list:
-        lines.append(f"- `.ai-engineering/{a}`")
+        lines.append(f"- `.claude/{a}`")
     lines.append("")
     return "\n".join(lines)
 
@@ -500,7 +505,8 @@ class TestMirrorSync:
     def test_synced_mirrors_pass(self, tmp_path: Path) -> None:
         ai = _setup_full_project(tmp_path)
         mirror_root = tmp_path / "src" / "ai_engineering" / "templates" / ".ai-engineering"
-        for subdir in ("skills", "agents", "standards/framework"):
+        # Only mirror governance files (standards, manifest, README) — not skills/agents
+        for subdir in ("standards/framework",):
             src_dir = ai / subdir
             if not src_dir.is_dir():
                 continue
@@ -531,8 +537,13 @@ class TestMirrorSync:
 
     def test_desynced_mirror_detected(self, tmp_path: Path) -> None:
         ai = _setup_full_project(tmp_path)
+        # Ensure canonical has a standards file to compare against
+        canonical_core = ai / "standards" / "framework" / "core.md"
+        canonical_core.parent.mkdir(parents=True, exist_ok=True)
+        canonical_core.write_text("CANONICAL CONTENT", encoding="utf-8")
         mirror_root = tmp_path / "src" / "ai_engineering" / "templates" / ".ai-engineering"
-        for subdir in ("skills", "agents", "standards/framework"):
+        # Only mirror governance files (standards, manifest, README) — not skills/agents
+        for subdir in ("standards/framework",):
             src_dir = ai / subdir
             if not src_dir.is_dir():
                 continue
@@ -541,7 +552,14 @@ class TestMirrorSync:
                 dest = mirror_root / rel
                 dest.parent.mkdir(parents=True, exist_ok=True)
                 dest.write_bytes(f.read_bytes())
-        desynced = mirror_root / "skills" / "commit" / "SKILL.md"
+        for root_file in ("manifest.yml", "README.md"):
+            src = ai / root_file
+            if src.is_file():
+                dest = mirror_root / root_file
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                dest.write_bytes(src.read_bytes())
+        # Desync a governance file that IS in the mirror pattern
+        desynced = mirror_root / "standards" / "framework" / "core.md"
         desynced.write_text("DESYNCED CONTENT", encoding="utf-8")
         report = validate_content_integrity(
             tmp_path,
@@ -557,7 +575,8 @@ def _setup_governance_mirror(root: Path) -> None:
     """Create minimal governance template mirror so _check_mirror_sync doesn't early-return."""
     ai = root / ".ai-engineering"
     mirror_root = root / "src" / "ai_engineering" / "templates" / ".ai-engineering"
-    for subdir in ("skills", "agents", "standards/framework"):
+    # Only mirror governance files (standards, manifest, README) — not skills/agents
+    for subdir in ("standards/framework",):
         src_dir = ai / subdir
         if not src_dir.is_dir():
             continue
@@ -566,6 +585,12 @@ def _setup_governance_mirror(root: Path) -> None:
             dest = mirror_root / rel
             dest.parent.mkdir(parents=True, exist_ok=True)
             dest.write_bytes(f.read_bytes())
+    for root_file in ("manifest.yml", "README.md"):
+        src = ai / root_file
+        if src.is_file():
+            dest = mirror_root / root_file
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.write_bytes(src.read_bytes())
 
 
 class TestCopilotPromptsMirror:
@@ -829,9 +854,11 @@ class TestCrossReference:
     """Tests for cross-reference validation."""
 
     def test_valid_references_pass(self, tmp_path: Path) -> None:
-        ai = _setup_full_project(tmp_path)
-        skill = ai / "skills" / "debug" / "SKILL.md"
-        skill.write_text(
+        _setup_full_project(tmp_path)
+        # Cross-reference validator scans IDE-specific dirs (.claude/skills/)
+        skill_dir = tmp_path / ".claude" / "skills" / "debug"
+        skill_dir.mkdir(parents=True, exist_ok=True)
+        (skill_dir / "SKILL.md").write_text(
             "# Debug\n\n## References\n\n- `skills/refactor/SKILL.md`\n",
             encoding="utf-8",
         )
@@ -842,9 +869,11 @@ class TestCrossReference:
         assert report.category_passed(IntegrityCategory.CROSS_REFERENCE)
 
     def test_broken_reference_detected(self, tmp_path: Path) -> None:
-        ai = _setup_full_project(tmp_path)
-        skill = ai / "skills" / "debug" / "SKILL.md"
-        skill.write_text(
+        _setup_full_project(tmp_path)
+        # Cross-reference validator scans IDE-specific dirs (.claude/skills/)
+        skill_dir = tmp_path / ".claude" / "skills" / "debug"
+        skill_dir.mkdir(parents=True, exist_ok=True)
+        (skill_dir / "SKILL.md").write_text(
             "# Debug\n\n## References\n\n- `skills/nonexistent/SKILL.md`\n",
             encoding="utf-8",
         )
@@ -893,10 +922,10 @@ class TestInstructionConsistency:
         _setup_full_project(tmp_path)
         lines = ["# Instructions", "", "## Skills", ""]
         for s in _SKILL_PATHS:
-            lines.append(f"- `.ai-engineering/{s}`")
+            lines.append(f"- `.claude/{s}`")
         lines.extend(["", "## Agents", ""])
         for a in _AGENT_PATHS:
-            lines.append(f"- `.ai-engineering/{a}`")
+            lines.append(f"- `.claude/{a}`")
         (tmp_path / "AGENTS.md").write_text("\n".join(lines), encoding="utf-8")
         report = validate_content_integrity(
             tmp_path,
@@ -961,14 +990,18 @@ class TestManifestCoherence:
     def test_missing_ownership_directory(self, tmp_path: Path) -> None:
         ai = _make_governance(tmp_path)
         _write_manifest(ai)
-        shutil.rmtree(ai / "agents")
+        # skills/ and agents/ no longer live under .ai-engineering/ — remove a
+        # directory that IS validated: standards/framework
+        shutil.rmtree(ai / "standards" / "framework")
         _write_active_spec(ai)
         report = validate_content_integrity(
             tmp_path,
             categories=[IntegrityCategory.MANIFEST_COHERENCE],
         )
         fail_checks = [
-            c for c in report.checks if c.status == IntegrityStatus.FAIL and "agents" in c.name
+            c
+            for c in report.checks
+            if c.status == IntegrityStatus.FAIL and "standards/framework" in c.name
         ]
         assert len(fail_checks) >= 1
 
@@ -988,10 +1021,11 @@ class TestSkillFrontmatter:
         assert report.category_passed(IntegrityCategory.SKILL_FRONTMATTER)
 
     def test_missing_frontmatter_fails(self, tmp_path: Path) -> None:
-        ai = _setup_full_project(tmp_path)
-        (ai / "skills" / "bad-skill").mkdir(parents=True, exist_ok=True)
-        bad = ai / "skills" / "bad-skill" / "SKILL.md"
-        bad.write_text("# bad-skill\n", encoding="utf-8")
+        _setup_full_project(tmp_path)
+        # Frontmatter validator scans IDE-specific dirs (.claude/skills/)
+        bad_dir = tmp_path / ".claude" / "skills" / "bad-skill"
+        bad_dir.mkdir(parents=True, exist_ok=True)
+        (bad_dir / "SKILL.md").write_text("# bad-skill\n", encoding="utf-8")
         report = validate_content_integrity(
             tmp_path,
             categories=[IntegrityCategory.SKILL_FRONTMATTER],
@@ -999,10 +1033,11 @@ class TestSkillFrontmatter:
         assert report.category_passed(IntegrityCategory.SKILL_FRONTMATTER) is False
 
     def test_invalid_requires_schema_fails(self, tmp_path: Path) -> None:
-        ai = _setup_full_project(tmp_path)
-        (ai / "skills" / "bad-requires").mkdir(parents=True, exist_ok=True)
-        bad = ai / "skills" / "bad-requires" / "SKILL.md"
-        bad.write_text(
+        _setup_full_project(tmp_path)
+        # Frontmatter validator scans IDE-specific dirs (.claude/skills/)
+        bad_dir = tmp_path / ".claude" / "skills" / "bad-requires"
+        bad_dir.mkdir(parents=True, exist_ok=True)
+        (bad_dir / "SKILL.md").write_text(
             "---\n"
             "name: bad-requires\n"
             "version: 1.0.0\n"

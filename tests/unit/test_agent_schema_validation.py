@@ -12,7 +12,14 @@ from pathlib import Path
 
 import pytest
 
-_AGENTS_DIR = Path(__file__).resolve().parents[2] / ".ai-engineering" / "agents"
+_AGENTS_DIR = (
+    Path(__file__).resolve().parents[2]
+    / "src"
+    / "ai_engineering"
+    / "templates"
+    / ".ai-engineering"
+    / "agents"
+)
 
 # Architecture v3: 8 agents
 _EXPECTED_AGENTS = frozenset(

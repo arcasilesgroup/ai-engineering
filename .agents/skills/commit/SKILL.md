@@ -1,15 +1,12 @@
 ---
 name: commit
-description: "Execute governed commit workflow: stage, lint, secret-detect, commit, and push current branch."
-argument-hint: "--only|[msg]"
-metadata:
-  version: 1.0.0
-  tags: [git, commit, push, hooks]
-  ai-engineering:
-    requires:
-      bins: [gitleaks, ruff]
-    scope: read-write
-    token_estimate: 800
+version: 1.0.0
+description: 'Execute governed commit workflow: stage, lint, secret-detect, commit,
+  and push current branch.'
+argument-hint: --only|[msg]
+tags: [git, commit, push, hooks]
+requires:
+  bins: [gitleaks, ruff]
 ---
 
 # Commit Workflow
@@ -57,7 +54,7 @@ Execute the `/commit` governed workflow: stage all changes, run mandatory pre-co
    - **CHANGELOG only**: any other functional change — src/ modifications, API changes, dependency bumps with behavioral impact, governance surface changes, workflow behavior changes.
    - **No updates needed**: changes with zero functional impact — typo fixes in comments, whitespace-only changes, test-only additions that don't change public behavior, CI config formatting. Log: "Documentation gate evaluated — no functional changes detected."
      b. Update **CHANGELOG.md** (when scope requires it):
-   - If `CHANGELOG.md` exists: add entries to `[Unreleased]` section per `skills/changelog/SKILL.md` format. Stage the updated file.
+   - If `CHANGELOG.md` exists: add entries to `[Unreleased]` section per `.agents/skills/changelog/SKILL.md` format. Stage the updated file.
    - If `CHANGELOG.md` does NOT exist: create it following Keep a Changelog format. Stage the new file.
      c. Update **README.md** (when scope includes README):
    - If `README.md` exists AND changes include new features, breaking changes, new CLI commands, or skill catalog changes: update relevant sections. Stage the updated file.
@@ -71,7 +68,7 @@ Execute the `/commit` governed workflow: stage all changes, run mandatory pre-co
        - `"pr"`: create branch, commit changes, push, create PR with auto-complete (use VCS-appropriate CLI), report PR URL.
        - `"push"`: commit changes, push directly to main branch.
      - Report what was updated and where.
-   e. **Governance documentation gate** — if staged changes include files in `.ai-engineering/agents/`, `.ai-engineering/skills/`, `.ai-engineering/standards/`, or `.ai-engineering/runbooks/`:
+   e. **Governance documentation gate** — if staged changes include files in `.claude/agents/`, `.claude/skills/`, `.github/agents/`, `.github/prompts/`, `.agents/agents/`, `.agents/skills/`, `.ai-engineering/standards/`, or `.ai-engineering/runbooks/`:
    - Update `.ai-engineering/README.md` to reflect current governance structure (agents, skills, workflow).
    - Mirror the updated file to `src/ai_engineering/templates/.ai-engineering/README.md`.
    - Stage both files.
@@ -117,7 +114,7 @@ Actions:
 - `standards/framework/core.md` — non-negotiables and enforcement rules.
 - `standards/framework/stacks/python.md` — Python-specific checks.
 - `standards/framework/quality/core.md` — gate structure (pre-commit gate).
-- `skills/changelog/SKILL.md` — changelog entry formatting (used by documentation gate).
-- `skills/document/SKILL.md` — README and documentation update procedure for OSS GitHub users (used by documentation gate).
-- `skills/pr/SKILL.md` — PR workflow.
-- `agents/operate.md` — agent that validates commit workflow execution.
+- `.agents/skills/changelog/SKILL.md` — changelog entry formatting (used by documentation gate).
+- `.agents/skills/document/SKILL.md` — README and documentation update procedure for OSS GitHub users (used by documentation gate).
+- `.agents/skills/pr/SKILL.md` — PR workflow.
+- `.agents/agents/ai-operate.md` — agent that validates commit workflow execution.

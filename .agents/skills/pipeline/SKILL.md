@@ -1,12 +1,10 @@
 ---
 name: pipeline
-description: "Generate stack-aware CI/CD workflow files from installed stacks and enforcement checks; use when setting up or modernizing CI/CD pipelines."
-metadata:
-  version: 1.0.0
-  tags: [ci-cd, github-actions, azure-devops, azure-pipelines, railway, cloudflare, automation]
-  ai-engineering:
-    scope: read-write
-    token_estimate: 775
+version: 1.0.0
+description: Generate stack-aware CI/CD workflow files from installed stacks and enforcement
+  checks; use when setting up or modernizing CI/CD pipelines.
+tags: [ci-cd, github-actions, azure-devops, azure-pipelines, railway, cloudflare,
+  automation]
 ---
 
 # CI/CD Workflow Generation

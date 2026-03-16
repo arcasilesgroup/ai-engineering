@@ -1,16 +1,13 @@
 ---
 name: pr
-description: "Execute governed PR workflow: shared commit pipeline, pre-push gates, create pull request with auto-complete squash merge."
-argument-hint: "review|create|update"
-metadata:
-  version: 3.0.0
-  tags: [git, pull-request, ci, merge]
-  ai-engineering:
-    requires:
-      bins: [gitleaks, ruff]
-      anyBins: [gh, az]
-    scope: read-write
-    token_estimate: 1000
+version: 3.0.0
+description: 'Execute governed PR workflow: shared commit pipeline, pre-push gates,
+  create pull request with auto-complete squash merge.'
+argument-hint: review|create|update
+tags: [git, pull-request, ci, merge]
+requires:
+  bins: [gitleaks, ruff]
+  anyBins: [gh, az]
 ---
 
 # PR Workflow

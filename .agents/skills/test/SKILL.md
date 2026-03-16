@@ -1,15 +1,13 @@
 ---
 name: test
-description: "Testing strategy, execution, and TDD — plan test suites, write and run tests, analyze coverage gaps, or drive implementation test-first with RED-GREEN-REFACTOR. Multi-stack: Python, TypeScript, .NET, React, Next.js, Node, NestJS, Rust, Go, Java."
-argument-hint: "plan|run|gap|tdd"
-metadata:
-  version: 2.0.0
-  tags: [testing, tdd, coverage, unit, integration, e2e, multi-stack]
-  ai-engineering:
-    requires:
-      anyBins: [pytest, vitest, jest, dotnet, cargo, go]
-    scope: read-write
-    token_estimate: 2000
+version: 2.0.0
+description: 'Testing strategy, execution, and TDD — plan test suites, write and run
+  tests, analyze coverage gaps, or drive implementation test-first with RED-GREEN-REFACTOR.
+  Multi-stack: Python, TypeScript, .NET, React, Next.js, Node, NestJS, Rust, Go, Java.'
+argument-hint: plan|run|gap|tdd
+tags: [testing, tdd, coverage, unit, integration, e2e, multi-stack]
+requires:
+  anyBins: [pytest, vitest, jest, dotnet, cargo, go]
 ---
 
 # Test
@@ -264,11 +262,11 @@ Before marking test work complete:
 
 - Read stack-specific standards from `standards/framework/stacks/<stack>.md` for quality thresholds.
 - Quality gate: coverage 80%, zero blocker/critical findings (source: `standards/framework/quality/core.md`).
-- For TDD mode, follow the Implementation Contract pattern from `agents/build.md` TDD Protocol.
+- For TDD mode, follow the Implementation Contract pattern from `.agents/agents/ai-build.md` TDD Protocol.
 - Tests that validate the REAL project (canary tests) should read from `.ai-engineering/` directly, not from `tmp_path` fixtures.
 
 ## References
 
-- `agents/build.md` — TDD Protocol (RED-GREEN-REFACTOR with Implementation Contract)
+- `.agents/agents/ai-build.md` — TDD Protocol (RED-GREEN-REFACTOR with Implementation Contract)
 - `standards/framework/quality/core.md` — coverage targets, quality gates
 - Stack-specific standards in `standards/framework/stacks/`

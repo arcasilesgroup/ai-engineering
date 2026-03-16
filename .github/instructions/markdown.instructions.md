@@ -26,12 +26,12 @@ applyTo: "**/*.md"
 - Owned by the project — living documents updated during active work.
 - Includes product contracts, specs, decisions.
 
-### Skills (`.ai-engineering/skills/**`)
+### Skills (`.github/prompts/` and `.github/agents/`)
 
 - Structured procedure documents with clear step-by-step flows.
 - Template: Purpose → Trigger → Procedure → Output Contract → Governance Notes → References.
 
-### Agents (`.ai-engineering/agents/**`)
+### Agents (`.github/agents/`)
 
 - Agent persona definitions.
 - Template: Identity → Capabilities → Activation → Behavior → Referenced Skills → Referenced Standards → Output Contract → Boundaries.

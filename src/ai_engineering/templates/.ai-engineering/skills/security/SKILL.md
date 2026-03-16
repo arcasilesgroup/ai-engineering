@@ -1,15 +1,12 @@
 ---
 name: security
-description: "Unified security scanning: SAST, DAST, dependency audit, SBOM generation. Modes: static | dynamic | deps | sbom."
-argument-hint: "all|static|dynamic|deps|sbom"
-metadata:
-  version: 2.0.0
-  tags: [security, sast, dast, dependencies, sbom, owasp]
-  ai-engineering:
-    requires:
-      bins: [gitleaks, semgrep]
-    scope: read-write
-    token_estimate: 1200
+version: 2.0.0
+description: 'Unified security scanning: SAST, DAST, dependency audit, SBOM generation.
+  Modes: static | dynamic | deps | sbom.'
+argument-hint: all|static|dynamic|deps|sbom
+tags: [security, sast, dast, dependencies, sbom, owasp]
+requires:
+  bins: [gitleaks, semgrep]
 ---
 
 # Security

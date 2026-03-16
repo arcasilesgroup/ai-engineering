@@ -1,12 +1,9 @@
 ---
 name: accessibility
-description: "Review frontend code for WCAG 2.1 AA compliance: semantic HTML, ARIA patterns, keyboard navigation, color contrast, and screen reader support."
-metadata:
-  version: 1.0.0
-  tags: [accessibility, wcag, a11y, aria, keyboard, screen-reader]
-  ai-engineering:
-    scope: read-only
-    token_estimate: 750
+version: 1.0.0
+description: 'Review frontend code for WCAG 2.1 AA compliance: semantic HTML, ARIA
+  patterns, keyboard navigation, color contrast, and screen reader support.'
+tags: [accessibility, wcag, a11y, aria, keyboard, screen-reader]
 ---
 
 # Accessibility Review
@@ -110,4 +107,4 @@ Review frontend code for WCAG 2.1 AA compliance. Covers semantic HTML, ARIA attr
 - `standards/framework/stacks/react.md` — React accessibility patterns.
 - `standards/framework/stacks/react-native.md` — React Native accessibility patterns.
 - `standards/framework/stacks/astro.md` — Astro accessibility patterns.
-- `agents/build.md` — agent for holistic frontend review.
+- `.agents/agents/ai-build.md` — agent for holistic frontend review.

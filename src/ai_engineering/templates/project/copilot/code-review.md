@@ -12,9 +12,9 @@ Use `.ai-engineering/` as the single source of truth for project governance and 
 
 ## Skills and Agents
 
-- Apply `.ai-engineering/agents/review.md` persona for thorough reviews.
-- Use `.ai-engineering/skills/code-review/SKILL.md` for structured review procedure.
-- Reference `.ai-engineering/skills/sec-review/SKILL.md` for security-focused reviews.
+- Apply `.github/agents/ai-review.agent.md` persona for thorough reviews.
+- Use `.github/prompts/ai-code-review.prompt.md` for structured review procedure.
+- Reference `.github/prompts/ai-sec-review.prompt.md` for security-focused reviews.
 
 ## Review Checklist
 

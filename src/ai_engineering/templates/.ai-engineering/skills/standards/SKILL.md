@@ -1,12 +1,10 @@
 ---
 name: standards
-description: "Propose and apply standards updates from measurable evidence (gate failures, audits, incidents). Use when recurring workflow friction, new risks, or platform changes require policy updates."
-metadata:
-  version: 1.0.0
-  tags: [governance, standards, adaptation, policy]
-  ai-engineering:
-    scope: read-write
-    token_estimate: 760
+version: 1.0.0
+description: Propose and apply standards updates from measurable evidence (gate failures,
+  audits, incidents). Use when recurring workflow friction, new risks, or platform
+  changes require policy updates.
+tags: [governance, standards, adaptation, policy]
 ---
 
 # Adaptive Standards

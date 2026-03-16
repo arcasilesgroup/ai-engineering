@@ -1,15 +1,10 @@
 ---
 name: triage
-description: "Work-item management with sync and triage modes. Sync: bidirectional with GitHub Issues/Azure Boards. Triage: auto-prioritize backlog."
-argument-hint: "sync|triage"
-metadata:
-  version: 2.0.0
-  tags: [work-items, github-issues, azure-boards, sync, triage, prioritization]
-  ai-engineering:
-    scope: read-write
-    token_estimate: 1200
-    gating:
-      anyBins: [gh, az]
+version: 2.0.0
+description: 'Work-item management with sync and triage modes. Sync: bidirectional
+  with GitHub Issues/Azure Boards. Triage: auto-prioritize backlog.'
+argument-hint: sync|triage
+tags: [work-items, github-issues, azure-boards, sync, triage, prioritization]
 ---
 
 # Work Item

@@ -1,13 +1,10 @@
 ---
 name: release
-description: "Aggregated GO/NO-GO release readiness gate; use before version tagging or merge-to-main to verify all quality dimensions pass."
-argument-hint: "[version]"
-metadata:
-  version: 1.0.0
-  tags: [quality, release, gate, go-no-go]
-  ai-engineering:
-    scope: read-only
-    token_estimate: 1282
+version: 1.0.0
+description: Aggregated GO/NO-GO release readiness gate; use before version tagging
+  or merge-to-main to verify all quality dimensions pass.
+argument-hint: '[version]'
+tags: [quality, release, gate, go-no-go]
 ---
 
 # Release Gate

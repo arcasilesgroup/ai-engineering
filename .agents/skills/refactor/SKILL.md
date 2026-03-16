@@ -1,12 +1,9 @@
 ---
 name: refactor
-description: "Improve internal code structure without changing external behavior; use when addressing code smells, duplication, or excessive complexity."
-metadata:
-  version: 1.0.0
-  tags: [refactoring, code-quality, simplification]
-  ai-engineering:
-    scope: read-write
-    token_estimate: 675
+version: 1.0.0
+description: Improve internal code structure without changing external behavior; use
+  when addressing code smells, duplication, or excessive complexity.
+tags: [refactoring, code-quality, simplification]
 ---
 
 # Refactor
@@ -62,7 +59,7 @@ Safe refactoring skill: improve internal code structure without changing externa
 
 ## Governance Notes
 
-- Never refactor without tests. If tests don't exist, write them first (see `skills/test/SKILL.md`).
+- Never refactor without tests. If tests don't exist, write them first (see `.agents/skills/test/SKILL.md`).
 - Refactoring must not introduce new features or fix bugs — those are separate tasks.
 - Keep refactoring PRs separate from feature PRs for clean review.
 - Follow `standards/framework/stacks/python.md` code patterns.
@@ -82,5 +79,5 @@ Safe refactoring skill: improve internal code structure without changing externa
 
 - `standards/framework/stacks/python.md` — code patterns and quality baseline.
 - `standards/framework/quality/core.md` — complexity thresholds.
-- `skills/test/SKILL.md` — for writing tests before refactoring.
-- `agents/build.md` — agent that uses this skill.
+- `.agents/skills/test/SKILL.md` — for writing tests before refactoring.
+- `.agents/agents/ai-build.md` — agent that uses this skill.

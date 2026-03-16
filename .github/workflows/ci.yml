@@ -566,7 +566,7 @@ jobs:
           # Verify all skills have valid SKILL.md with frontmatter
           python -c "
           from pathlib import Path
-          skills_dir = Path('.ai-engineering/skills')
+          skills_dir = Path('src/ai_engineering/templates/.ai-engineering/skills')
           errors = []
           for skill_dir in sorted(skills_dir.iterdir()):
               if not skill_dir.is_dir():

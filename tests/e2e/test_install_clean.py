@@ -44,8 +44,6 @@ class TestInstallClean:
             "standards/team",
             "context",
             "state",
-            "skills",
-            "agents",
         ]
         for dirname in required:
             assert (ai_dir / dirname).is_dir(), f"Missing: {dirname}"
