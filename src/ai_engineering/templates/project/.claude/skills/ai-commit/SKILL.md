@@ -70,7 +70,7 @@ Execute the `/commit` governed workflow: stage all changes, run mandatory pre-co
        - `"pr"`: create branch, commit changes, push, create PR with auto-complete (use VCS-appropriate CLI), report PR URL.
        - `"push"`: commit changes, push directly to main branch.
      - Report what was updated and where.
-   e. **Governance documentation gate** — if staged changes include files in `.ai-engineering/agents/`, `.ai-engineering/skills/`, `.ai-engineering/standards/`, or `.ai-engineering/runbooks/`:
+   e. **Governance documentation gate** — if staged changes include files in `.claude/agents/`, `.claude/skills/`, `.github/agents/`, `.github/prompts/`, `.agents/agents/`, `.agents/skills/`, `.ai-engineering/standards/`, or `.ai-engineering/runbooks/`:
    - Update `.ai-engineering/README.md` to reflect current governance structure (agents, skills, workflow).
    - Mirror the updated file to `src/ai_engineering/templates/.ai-engineering/README.md`.
    - Stage both files.

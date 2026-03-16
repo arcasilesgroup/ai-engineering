@@ -4,8 +4,6 @@
 # Framework governance (framework-managed)
 /.ai-engineering/                    @arcasilesgroup/ai-engineering-maintainers
 /.ai-engineering/standards/          @arcasilesgroup/ai-engineering-maintainers
-/.ai-engineering/agents/             @arcasilesgroup/ai-engineering-maintainers
-/.ai-engineering/skills/             @arcasilesgroup/ai-engineering-maintainers
 /.ai-engineering/runbooks/           @arcasilesgroup/ai-engineering-maintainers
 
 # Core implementation
