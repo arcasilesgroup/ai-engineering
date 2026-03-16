@@ -27,6 +27,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Template mirror** — full sync of 10 agents, 40 skills, 5 runbooks, standards, and IDE adapters to `src/ai_engineering/templates/`.
 - **Contracts rewritten** — framework-contract.md (10 agents, dispatch schema, guard integration, evolve loop) and product-contract.md (v0.3.0, updated roadmap and KPIs).
 
+### Fixed
+- **Dependabot CI gate** — exempted `dependabot[bot]` from `verify-gate-trailers` check; Dependabot creates commits server-side and cannot satisfy the local hook trailer requirement (DEC-020).
+- **Dependabot PR noise** — grouped all dependency updates by ecosystem (pip, github-actions) to consolidate ~7 individual PRs into max 2 per week.
+
 ### Fixed — Architecture v3 (spec-051)
 - **Sonar BLOCKER** — path traversal validation in checkpoint.py (S5145).
 - **CI manifest check** — support `governance_surface` nested structure.
