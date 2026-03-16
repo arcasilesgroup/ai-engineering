@@ -13,10 +13,10 @@ jobs:
     name: Automated PR Review
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
-      - uses: astral-sh/setup-uv@v5
+      - uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
       - name: Install dependencies
@@ -31,7 +31,7 @@ jobs:
       - name: Run quality scan
         run: uv run ai-eng verify quality --json > quality-report.json || true
       - name: Upload review artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: pr-review-reports
           path: |

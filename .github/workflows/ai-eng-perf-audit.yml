@@ -13,8 +13,8 @@ jobs:
     name: Performance Analysis
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
       - name: Install dependencies
@@ -26,7 +26,7 @@ jobs:
           uv run ruff check src/ --select C901 --output-format json > complexity-report.json || true
           echo "Performance audit: handled by this workflow (replaced perf-scanner runbook)"
       - name: Upload audit artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: perf-audit-${{ github.run_number }}
           path: complexity-report.json
