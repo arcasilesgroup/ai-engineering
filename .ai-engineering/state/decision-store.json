@@ -330,6 +330,23 @@
       "decision": "Expanded from 7 to 10 agents via spec-051 clean-sheet redesign. 10 agents: plan (specs/plans), execute (coordination/dispatch), guard (proactive governance advisory), build (code implementation), verify (7-mode validation), ship (delivery/ALM), observe (dashboards/metrics), guide (onboarding/teaching), write (documentation), operate (runbook execution). Each agent has single responsibility with declared capabilities and boundaries.",
       "decidedAt": "2026-03-15T00:00:00Z",
       "context": "architecture"
+    },
+    {
+      "id": "DEC-020",
+      "title": "Exempt automated actors from gate trailer verification",
+      "description": "Gate trailers prove local hook execution; server-side actors (Dependabot) have no local environment. CI security checks (gitleaks, pip-audit, semgrep, Snyk) provide independent verification for automated PRs. Dependabot PRs are also grouped into max 2 per week to reduce noise.",
+      "category": "governance",
+      "status": "active",
+      "criticality": "medium",
+      "source": "pr-audit-2026-03-16",
+      "spec": null,
+      "created_at": "2026-03-16",
+      "expires_at": "2027-03-16T00:00:00Z",
+      "context_hash": null,
+      "acknowledged_by": "guard",
+      "decision": "Skip verify-gate-trailers CI job when github.actor is dependabot[bot]. The Ai-Eng-Gate trailer proves a commit traversed local hooks — Dependabot creates commits server-side and cannot satisfy this requirement. CI independently validates all Dependabot PRs via gitleaks, pip-audit, semgrep, and Snyk. Additionally, Dependabot PRs are grouped by ecosystem (pip, github-actions) to consolidate ~7 individual PRs into max 2 per week.",
+      "decidedAt": "2026-03-16T00:00:00Z",
+      "context": "governance"
     }
   ]
 }
