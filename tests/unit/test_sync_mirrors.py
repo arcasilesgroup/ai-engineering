@@ -347,3 +347,168 @@ class TestValidationFunctions:
         assert test_file.read_text() == "old"  # NOT modified
 
         mod.ROOT = original_root
+
+
+# ── Canonical content helpers ──────────────────────────────────────────────
+
+
+class TestCanonicalHelpers:
+    """Test read/serialize/format helpers for canonical frontmatter."""
+
+    def test_read_canonical_frontmatter_returns_dict(self) -> None:
+        from scripts.sync_command_mirrors import SKILLS_ROOT, read_canonical_frontmatter
+
+        fm = read_canonical_frontmatter(SKILLS_ROOT / "commit" / "SKILL.md")
+        assert fm["name"] == "commit"
+        assert "version" in fm
+        assert "tags" in fm
+
+    def test_read_canonical_frontmatter_missing_frontmatter(self, tmp_path: Path) -> None:
+        f = tmp_path / "no-fm.md"
+        f.write_text("# No frontmatter here\n")
+
+        from scripts.sync_command_mirrors import read_canonical_frontmatter
+
+        fm = read_canonical_frontmatter(f)
+        assert fm == {}
+
+    def test_read_canonical_frontmatter_unclosed_fence(self, tmp_path: Path) -> None:
+        f = tmp_path / "bad-fm.md"
+        f.write_text("---\nname: broken\n# No closing fence\n")
+
+        from scripts.sync_command_mirrors import read_canonical_frontmatter
+
+        fm = read_canonical_frontmatter(f)
+        assert fm == {}
+
+    def test_serialize_frontmatter_round_trip(self) -> None:
+        from scripts.sync_command_mirrors import _serialize_frontmatter
+
+        data = {
+            "name": "test",
+            "version": "1.0.0",
+            "description": "A test skill",
+            "tags": ["a", "b"],
+        }
+        result = _serialize_frontmatter(data)
+        assert result.startswith("---")
+        assert result.endswith("---")
+        assert "name: test" in result
+        assert "tags: [a, b]" in result
+
+    def test_serialize_frontmatter_preserves_key_order(self) -> None:
+        from scripts.sync_command_mirrors import _serialize_frontmatter
+
+        data = {"tags": ["x"], "name": "first", "version": "2.0.0"}
+        result = _serialize_frontmatter(data)
+        lines = result.splitlines()
+        name_idx = next(i for i, ln in enumerate(lines) if ln.startswith("name:"))
+        tags_idx = next(i for i, ln in enumerate(lines) if ln.startswith("tags:"))
+        assert name_idx < tags_idx
+
+    def test_format_yaml_field_string(self) -> None:
+        from scripts.sync_command_mirrors import _format_yaml_field
+
+        assert _format_yaml_field("name", "test") == "name: test"
+
+    def test_format_yaml_field_string_with_special_chars(self) -> None:
+        from scripts.sync_command_mirrors import _format_yaml_field
+
+        result = _format_yaml_field("description", "Run tests: unit + integration")
+        assert result == 'description: "Run tests: unit + integration"'
+
+    def test_format_yaml_field_list(self) -> None:
+        from scripts.sync_command_mirrors import _format_yaml_field
+
+        result = _format_yaml_field("tags", ["a", "b", "c"])
+        assert result == "tags: [a, b, c]"
+
+    def test_format_yaml_field_dict(self) -> None:
+        from scripts.sync_command_mirrors import _format_yaml_field
+
+        result = _format_yaml_field("requires", {"bins": ["ruff"]})
+        assert "requires:" in result
+        assert "bins:" in result
+
+    def test_format_yaml_field_integer(self) -> None:
+        from scripts.sync_command_mirrors import _format_yaml_field
+
+        assert _format_yaml_field("count", 42) == "count: 42"
+
+
+# ── Cross-reference translation ───────────────────────────────────────────
+
+
+class TestCrossReferenceTranslation:
+    """Test transform_cross_references path translation for each IDE target."""
+
+    def test_translate_skill_path_claude(self) -> None:
+        from scripts.sync_command_mirrors import transform_cross_references
+
+        content = "Read `skills/plan/SKILL.md` for details."
+        result = transform_cross_references(content, "claude")
+        assert "`.claude/skills/ai-plan/SKILL.md`" in result
+
+    def test_translate_skill_path_copilot(self) -> None:
+        from scripts.sync_command_mirrors import transform_cross_references
+
+        content = "Read `skills/plan/SKILL.md` for details."
+        result = transform_cross_references(content, "copilot")
+        assert "`.github/prompts/ai-plan.prompt.md`" in result
+
+    def test_translate_skill_path_generic(self) -> None:
+        from scripts.sync_command_mirrors import transform_cross_references
+
+        content = "Read `skills/plan/SKILL.md` for details."
+        result = transform_cross_references(content, "generic")
+        assert "`.agents/skills/plan/SKILL.md`" in result
+
+    def test_translate_agent_path_claude(self) -> None:
+        from scripts.sync_command_mirrors import transform_cross_references
+
+        content = "Delegates to `agents/build.md`."
+        result = transform_cross_references(content, "claude")
+        assert "`.claude/agents/ai-build.md`" in result
+
+    def test_translate_agent_path_copilot(self) -> None:
+        from scripts.sync_command_mirrors import transform_cross_references
+
+        content = "Delegates to `agents/build.md`."
+        result = transform_cross_references(content, "copilot")
+        assert "`.github/agents/build.agent.md`" in result
+
+    def test_translate_with_ai_engineering_prefix(self) -> None:
+        from scripts.sync_command_mirrors import transform_cross_references
+
+        content = "Read `.ai-engineering/skills/test/SKILL.md`."
+        result = transform_cross_references(content, "claude")
+        assert "`.claude/skills/ai-test/SKILL.md`" in result
+
+    def test_standards_not_translated(self) -> None:
+        from scripts.sync_command_mirrors import transform_cross_references
+
+        content = "See `standards/framework/core.md`."
+        result = transform_cross_references(content, "claude")
+        assert "standards/framework/core.md" in result
+
+    def test_context_not_translated(self) -> None:
+        from scripts.sync_command_mirrors import transform_cross_references
+
+        content = "Check `.ai-engineering/context/specs/_active.md`."
+        result = transform_cross_references(content, "claude")
+        assert ".ai-engineering/context/specs/_active.md" in result
+
+    def test_multiple_references_in_one_line(self) -> None:
+        from scripts.sync_command_mirrors import transform_cross_references
+
+        content = "See `skills/plan/SKILL.md` and `agents/build.md`."
+        result = transform_cross_references(content, "claude")
+        assert ".claude/skills/ai-plan/SKILL.md" in result
+        assert ".claude/agents/ai-build.md" in result
+
+    def test_no_translation_for_bare_text(self) -> None:
+        from scripts.sync_command_mirrors import transform_cross_references
+
+        content = "No references here, just plain text."
+        result = transform_cross_references(content, "claude")
+        assert result == content

@@ -169,6 +169,61 @@ class TestCopyResult:
 
 
 # ---------------------------------------------------------------------------
+# copy_template_tree exclude parameter
+# ---------------------------------------------------------------------------
+
+
+class TestCopyTemplateTreeExclude:
+    """Verify copy_template_tree respects the exclude parameter."""
+
+    def test_exclude_skips_matching_prefixes(self, tmp_path: Path) -> None:
+        from ai_engineering.installer.templates import copy_template_tree
+
+        # Arrange — source tree with agents, skills, and standards
+        src = tmp_path / "src"
+        (src / "agents").mkdir(parents=True)
+        (src / "agents" / "plan.md").write_text("agent")
+        (src / "skills" / "test").mkdir(parents=True)
+        (src / "skills" / "test" / "SKILL.md").write_text("skill")
+        (src / "standards").mkdir(parents=True)
+        (src / "standards" / "core.md").write_text("standard")
+
+        dest = tmp_path / "dest"
+        dest.mkdir()
+
+        # Act
+        result = copy_template_tree(src, dest, exclude=["agents/", "skills/"])
+
+        # Assert — excluded dirs not copied, non-excluded dirs copied
+        assert not (dest / "agents" / "plan.md").exists()
+        assert not (dest / "skills" / "test" / "SKILL.md").exists()
+        assert (dest / "standards" / "core.md").exists()
+        assert len(result.created) == 1
+        assert len(result.skipped) == 0
+
+    def test_exclude_none_copies_everything(self, tmp_path: Path) -> None:
+        from ai_engineering.installer.templates import copy_template_tree
+
+        # Arrange
+        src = tmp_path / "src"
+        (src / "a").mkdir(parents=True)
+        (src / "a" / "file.md").write_text("content")
+        (src / "b").mkdir(parents=True)
+        (src / "b" / "file.md").write_text("content")
+
+        dest = tmp_path / "dest"
+        dest.mkdir()
+
+        # Act
+        result = copy_template_tree(src, dest, exclude=None)
+
+        # Assert
+        assert (dest / "a" / "file.md").exists()
+        assert (dest / "b" / "file.md").exists()
+        assert len(result.created) == 2
+
+
+# ---------------------------------------------------------------------------
 # install() orchestration (fully mocked)
 # ---------------------------------------------------------------------------
 
