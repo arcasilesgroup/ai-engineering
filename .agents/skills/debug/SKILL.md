@@ -89,6 +89,6 @@ Actions:
 ## References
 
 - `standards/framework/quality/core.md` — test and coverage requirements.
-- `agents/build.md` — agent that uses this skill systematically.
-- `agents/verify.md` — agent that uses debug for investigating verification failures.
-- `skills/explain/SKILL.md` — Feynman-style explanations for root cause understanding.
+- `.agents/agents/ai-build.md` — agent that uses this skill systematically.
+- `.agents/agents/ai-verify.md` — agent that uses debug for investigating verification failures.
+- `.agents/skills/explain/SKILL.md` — Feynman-style explanations for root cause understanding.

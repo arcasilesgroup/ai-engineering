@@ -209,6 +209,6 @@ Transform technical git history into polished, user-friendly documentation that 
 
 - `standards/framework/core.md` — governance structure and non-negotiables.
 - `context/product/framework-contract.md` — release model and versioning.
-- `skills/pr/SKILL.md` — PR workflow (changelog updates go through PRs).
-- `skills/security/SKILL.md` — security entry format and CVE handling.
-- `skills/migrate/SKILL.md` — breaking changes documentation requirements.
+- `.agents/skills/pr/SKILL.md` — PR workflow (changelog updates go through PRs).
+- `.agents/skills/security/SKILL.md` — security entry format and CVE handling.
+- `.agents/skills/migrate/SKILL.md` — breaking changes documentation requirements.

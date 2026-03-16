@@ -110,4 +110,4 @@ Review frontend code for WCAG 2.1 AA compliance. Covers semantic HTML, ARIA attr
 - `standards/framework/stacks/react.md` — React accessibility patterns.
 - `standards/framework/stacks/react-native.md` — React Native accessibility patterns.
 - `standards/framework/stacks/astro.md` — Astro accessibility patterns.
-- `agents/build.md` — agent for holistic frontend review.
+- `.agents/agents/ai-build.md` — agent for holistic frontend review.

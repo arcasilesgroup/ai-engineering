@@ -107,5 +107,5 @@ The **Squash-merged** check applies to all non-merged branches (local-only and g
 
 ## References
 
-- `skills/spec/SKILL.md` — spec creation composes cleanup before branch creation.
+- `.agents/skills/spec/SKILL.md` — spec creation composes cleanup before branch creation.
 - `standards/framework/core.md` — protected branch rules and enforcement.

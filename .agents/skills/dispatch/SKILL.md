@@ -171,7 +171,7 @@ Active spec modifies 3 governance files in `.ai-engineering/`.
 
 ## References
 
-- `skills/plan/SKILL.md` -- produces the plan.md that dispatch reads.
-- `agents/build.md` -- primary dispatch target for implementation tasks.
-- `agents/verify.md` -- dispatch target for quality and security validation.
+- `.agents/skills/plan/SKILL.md` -- produces the plan.md that dispatch reads.
+- `.agents/agents/ai-build.md` -- primary dispatch target for implementation tasks.
+- `.agents/agents/ai-verify.md` -- dispatch target for quality and security validation.
 - `standards/framework/core.md` -- governance rules for serialization requirements.

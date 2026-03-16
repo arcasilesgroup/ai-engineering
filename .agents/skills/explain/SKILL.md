@@ -245,9 +245,9 @@ When invoked by another agent (not directly by user) or in CI context:
 ## References
 
 - `standards/framework/core.md` — governance structure and precedence.
-- `skills/explain/references/analysis-playbook.md` — diagram templates, complexity patterns, edge case catalog.
-- `skills/quality/SKILL.md` — code understanding patterns.
-- `skills/architecture/SKILL.md` — architecture context methodology.
-- `skills/debug/SKILL.md` — root cause explanation patterns.
-- `agents/build.md` — agent that benefits from explanation capability.
-- `agents/verify.md` — agent that benefits from architecture explanations.
+- `.agents/skills/explain/SKILL.md` — diagram templates, complexity patterns, edge case catalog.
+- `.agents/skills/quality/SKILL.md` — code understanding patterns.
+- `.agents/skills/architecture/SKILL.md` — architecture context methodology.
+- `.agents/skills/debug/SKILL.md` — root cause explanation patterns.
+- `.agents/agents/ai-build.md` — agent that benefits from explanation capability.
+- `.agents/agents/ai-verify.md` — agent that benefits from architecture explanations.

@@ -102,5 +102,5 @@ Extend a risk acceptance before expiry (maximum 2 renewals).
 
 ## References
 
-- `skills/security/SKILL.md` — security assessment procedure.
+- `.agents/skills/security/SKILL.md` — security assessment procedure.
 - `standards/framework/core.md` — risk acceptance non-negotiables.

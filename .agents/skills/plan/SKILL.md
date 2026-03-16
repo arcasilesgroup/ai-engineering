@@ -19,14 +19,14 @@ Read-only planning skill that analyzes requirements, assesses risks, and recomme
 This is the shared planning contract for both:
 
 - `#ai-plan` / `/ai:plan --plan-only` (advisory output only), and
-- the planning stages inside `agents/plan.md` (classify/discover/assess/risk), before spec scaffolding and execution-plan assembly.
+- the planning stages inside `.agents/agents/ai-plan.md` (classify/discover/assess/risk), before spec scaffolding and execution-plan assembly.
 
 ## Trigger
 
 - User invokes `/ai:plan --plan-only`
 - Copilot prompt `#ai-plan`
 - Need to assess scope before deciding whether to create a full spec
-- `agents/plan.md` needs shared planning stages before invoking `skills/spec/SKILL.md`
+- `.agents/agents/ai-plan.md` needs shared planning stages before invoking `.agents/skills/spec/SKILL.md`
 
 > **Telemetry** (cross-IDE): run `ai-eng signals emit skill_invoked --actor=ai --detail='{"skill":"plan"}'` at skill start. Fail-open — skip if ai-eng unavailable.
 
@@ -134,10 +134,10 @@ Actions:
 - Output is conversational only — presented to the user for decision-making.
 - If the user wants to proceed, direct them to `/ai:plan` for full spec creation.
 - Enforces shared boundary `PLAN-B1` in advisory mode.
-- When the plan agent creates specs, it writes spec.md, plan.md, and tasks.md directly via Write tool. See `agents/plan.md` Spec-as-Gate Pattern.
+- When the plan agent creates specs, it writes spec.md, plan.md, and tasks.md directly via Write tool. See `.agents/agents/ai-plan.md` Spec-as-Gate Pattern.
 
 ## References
 
-- `agents/plan.md` — full planning agent (creates specs, produces execution plan)
-- `skills/discover/SKILL.md` — detailed discovery interrogation
-- `skills/risk/SKILL.md` — formal risk acceptance lifecycle
+- `.agents/agents/ai-plan.md` — full planning agent (creates specs, produces execution plan)
+- `.agents/skills/discover/SKILL.md` — detailed discovery interrogation
+- `.agents/skills/risk/SKILL.md` — formal risk acceptance lifecycle

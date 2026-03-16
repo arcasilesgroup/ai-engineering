@@ -131,5 +131,5 @@ Actions:
 
 ## References
 
-- `skills/spec/SKILL.md` — spec creation follows discovery.
-- `agents/plan.md` — planning agent invokes this skill for discovery.
+- `.agents/skills/spec/SKILL.md` — spec creation follows discovery.
+- `.agents/agents/ai-plan.md` — planning agent invokes this skill for discovery.

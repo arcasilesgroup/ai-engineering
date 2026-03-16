@@ -132,5 +132,5 @@ Actions:
 
 - `standards/framework/core.md` — governance structure and ownership model.
 - `standards/framework/quality/core.md` — quality thresholds (complexity, coverage).
-- `agents/verify.md` — agent that invokes this skill as part of 7-mode assessment.
+- `.agents/agents/ai-verify.md` — agent that invokes this skill as part of 7-mode assessment.
 - `context/product/product-contract.md` §3 — Technical Design (reference architecture).

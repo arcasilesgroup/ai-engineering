@@ -214,4 +214,4 @@ Every mode produces this format, per the verify agent's uniform contract.
 
 - `standards/framework/security/owasp-top10-2025.md` -- full OWASP control mapping.
 - `standards/framework/core.md` -- governance non-negotiables and gate thresholds.
-- `agents/verify.md` -- verify agent that invokes this skill in 7-mode assessment.
+- `.agents/agents/ai-verify.md` -- verify agent that invokes this skill in 7-mode assessment.

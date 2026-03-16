@@ -208,7 +208,7 @@ Guard and scan are complementary, not overlapping:
 
 ## References
 
-- `skills/governance/SKILL.md` -- shared governance validation (integrity, compliance, ownership)
-- `skills/risk/SKILL.md` -- risk acceptance lifecycle for expired-decision context
+- `.agents/skills/governance/SKILL.md` -- shared governance validation (integrity, compliance, ownership)
+- `.agents/skills/risk/SKILL.md` -- risk acceptance lifecycle for expired-decision context
 - `standards/framework/core.md` -- governance structure and ownership model
 - `standards/framework/quality/core.md` -- quality thresholds for trend warnings

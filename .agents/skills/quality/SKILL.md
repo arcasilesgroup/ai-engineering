@@ -170,7 +170,7 @@ Ordered list of actions by impact, highest first.
 - `standards/framework/quality/core.md` -- authoritative thresholds and gate structure.
 - `standards/framework/stacks/python.md` -- stack-specific quality baseline.
 - `standards/framework/core.md` -- governance enforcement rules.
-- `agents/verify.md` -- agent that invokes this skill.
-- `skills/security/SKILL.md` -- security scanning (separate concern).
-- `skills/test/SKILL.md` -- test execution (quality reports gaps, test fills them).
-- `skills/refactor/SKILL.md` -- code improvement (quality diagnoses, refactor treats).
+- `.agents/agents/ai-verify.md` -- agent that invokes this skill.
+- `.agents/skills/security/SKILL.md` -- security scanning (separate concern).
+- `.agents/skills/test/SKILL.md` -- test execution (quality reports gaps, test fills them).
+- `.agents/skills/refactor/SKILL.md` -- code improvement (quality diagnoses, refactor treats).

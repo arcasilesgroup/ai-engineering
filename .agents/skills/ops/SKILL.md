@@ -138,6 +138,6 @@ Use these rules as the single source of truth for operational behavior shared by
 
 ## References
 
-- `agents/operate.md` -- operate agent behavioral contract
-- `skills/cleanup/SKILL.md` -- repository hygiene (shared with plan)
+- `.agents/agents/ai-operate.md` -- operate agent behavioral contract
+- `.agents/skills/cleanup/SKILL.md` -- repository hygiene (shared with plan)
 - `standards/framework/core.md` -- governance structure and lifecycle

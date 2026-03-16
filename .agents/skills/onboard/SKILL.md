@@ -89,7 +89,7 @@ When invoked by another agent: skip Socratic checkpoints, run full 7-phase proce
 
 ## Governance Notes
 
-Inherits language rules from `skills/explain/SKILL.md`: precise terminology, no filler words, active voice.
+Inherits language rules from `.agents/skills/explain/SKILL.md`: precise terminology, no filler words, active voice.
 
 **Onboarding-specific**: never assume project knowledge (assume technology knowledge), progressive disclosure across phases, adapt pace to developer's existing knowledge. The learning path is a suggestion, not a mandate.
 
@@ -102,6 +102,6 @@ Inherits language rules from `skills/explain/SKILL.md`: precise terminology, no 
 
 ## References
 
-- `agents/guide.md` -- guide agent that invokes onboard.
-- `skills/explain/SKILL.md` -- 3-tier depth model, language rules.
-- `agents/guide.md` -- guide agent behavioral contract.
+- `.agents/agents/ai-guide.md` -- guide agent that invokes onboard.
+- `.agents/skills/explain/SKILL.md` -- 3-tier depth model, language rules.
+- `.agents/agents/ai-guide.md` -- guide agent behavioral contract.

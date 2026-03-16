@@ -264,11 +264,11 @@ Before marking test work complete:
 
 - Read stack-specific standards from `standards/framework/stacks/<stack>.md` for quality thresholds.
 - Quality gate: coverage 80%, zero blocker/critical findings (source: `standards/framework/quality/core.md`).
-- For TDD mode, follow the Implementation Contract pattern from `agents/build.md` TDD Protocol.
+- For TDD mode, follow the Implementation Contract pattern from `.agents/agents/ai-build.md` TDD Protocol.
 - Tests that validate the REAL project (canary tests) should read from `.ai-engineering/` directly, not from `tmp_path` fixtures.
 
 ## References
 
-- `agents/build.md` — TDD Protocol (RED-GREEN-REFACTOR with Implementation Contract)
+- `.agents/agents/ai-build.md` — TDD Protocol (RED-GREEN-REFACTOR with Implementation Contract)
 - `standards/framework/quality/core.md` — coverage targets, quality gates
 - Stack-specific standards in `standards/framework/stacks/`

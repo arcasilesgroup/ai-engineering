@@ -137,10 +137,10 @@ Actions:
 
 ## References
 
-- `skills/governance/SKILL.md` — compliance, ownership, integrity gates.
-- `skills/quality/SKILL.md` — code quality gate.
-- `skills/test/SKILL.md` — test confidence gate.
-- `skills/document/SKILL.md` — documentation coherence gate.
-- `skills/security/SKILL.md` — security enforcement gate.
-- `agents/operate.md` — orchestrator that uses this skill and command reliability source.
+- `.agents/skills/governance/SKILL.md` — compliance, ownership, integrity gates.
+- `.agents/skills/quality/SKILL.md` — code quality gate.
+- `.agents/skills/test/SKILL.md` — test confidence gate.
+- `.agents/skills/document/SKILL.md` — documentation coherence gate.
+- `.agents/skills/security/SKILL.md` — security enforcement gate.
+- `.agents/agents/ai-operate.md` — orchestrator that uses this skill and command reliability source.
 - `standards/framework/quality/core.md` — quality thresholds.

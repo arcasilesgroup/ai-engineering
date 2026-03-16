@@ -45,5 +45,5 @@ Define a controlled loop for proposing standards updates from measurable evidenc
 
 ## References
 
-- `agents/verify.md` — governance scan mode.
-- `skills/governance/SKILL.md` — integrity, compliance, ownership.
+- `.agents/agents/ai-verify.md` — governance scan mode.
+- `.agents/skills/governance/SKILL.md` — integrity, compliance, ownership.
