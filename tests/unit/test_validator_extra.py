@@ -218,6 +218,83 @@ def test_manifest_coherence_active_tilde(tmp_path: Path) -> None:
     assert report.category_passed(IntegrityCategory.MANIFEST_COHERENCE)
 
 
+def test_file_existence_resolves_via_ide_fallback(tmp_path: Path) -> None:
+    """Refs to skills/ in .ai-engineering/ docs resolve via .claude/ fallback."""
+    ai = _mk(tmp_path)
+    # Write a governance doc referencing a skill that only exists in .claude/
+    doc = ai / "standards" / "framework" / "core.md"
+    doc.parent.mkdir(parents=True, exist_ok=True)
+    doc.write_text(
+        "# Core\n\nSee `skills/code/SKILL.md` for details.\n",
+        encoding="utf-8",
+    )
+
+    # Skill exists in .claude/ (IDE fallback), not in .ai-engineering/
+    claude_skill = tmp_path / ".claude" / "skills" / "code"
+    claude_skill.mkdir(parents=True, exist_ok=True)
+    (claude_skill / "SKILL.md").write_text(
+        "---\nname: code\nversion: 1.0.0\n---\n\n# Code\n",
+        encoding="utf-8",
+    )
+
+    report = validate_content_integrity(tmp_path, categories=[IntegrityCategory.FILE_EXISTENCE])
+    # The ref should NOT be broken because .claude/ is a fallback root
+    broken = [
+        c
+        for c in report.checks
+        if c.name == "broken-reference" and c.status.value == "fail" and "skills/code" in c.message
+    ]
+    assert len(broken) == 0
+
+
+def test_cross_reference_resolves_via_ai_engineering_prefix(tmp_path: Path) -> None:
+    """Refs to standards/framework/core.md resolve via .ai-engineering/ fallback."""
+    _mk(tmp_path)
+    # Create the referenced governance file under .ai-engineering/
+    core = tmp_path / ".ai-engineering" / "standards" / "framework" / "core.md"
+    core.parent.mkdir(parents=True, exist_ok=True)
+    core.write_text("# Core Standard\n", encoding="utf-8")
+
+    # Skill in IDE dir references a governance path (no .ai-engineering/ prefix)
+    skill_dir = tmp_path / ".claude" / "skills" / "code"
+    skill_dir.mkdir(parents=True, exist_ok=True)
+    (skill_dir / "SKILL.md").write_text(
+        "# Code\n\n## References\n\n- `standards/framework/core.md`\n",
+        encoding="utf-8",
+    )
+
+    report = validate_content_integrity(tmp_path, categories=[IntegrityCategory.CROSS_REFERENCE])
+    assert report.category_passed(IntegrityCategory.CROSS_REFERENCE)
+
+
+def test_cross_reference_resolves_via_template_fallback(tmp_path: Path) -> None:
+    """Refs resolve via src/ai_engineering/templates/.ai-engineering/ fallback."""
+    _mk(tmp_path)
+    # Create the referenced file in the template canonical source
+    tpl = (
+        tmp_path
+        / "src"
+        / "ai_engineering"
+        / "templates"
+        / ".ai-engineering"
+        / "standards"
+        / "framework"
+        / "core.md"
+    )
+    tpl.parent.mkdir(parents=True, exist_ok=True)
+    tpl.write_text("# Core Standard\n", encoding="utf-8")
+
+    skill_dir = tmp_path / ".claude" / "skills" / "code"
+    skill_dir.mkdir(parents=True, exist_ok=True)
+    (skill_dir / "SKILL.md").write_text(
+        "# Code\n\n## References\n\n- `standards/framework/core.md`\n",
+        encoding="utf-8",
+    )
+
+    report = validate_content_integrity(tmp_path, categories=[IntegrityCategory.CROSS_REFERENCE])
+    assert report.category_passed(IntegrityCategory.CROSS_REFERENCE)
+
+
 def test_manifest_coherence_archive_spec_found(tmp_path: Path) -> None:
     """Active spec pointing to archive/ directory passes validation."""
     ai = _mk(tmp_path)
