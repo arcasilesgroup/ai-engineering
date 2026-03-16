@@ -49,7 +49,7 @@ Each LLM platform has adaptors that reference the canonical source of truth — 
 
 ## Agents (8)
 
-Path: `.ai-engineering/agents/<name>.md`
+Path: IDE-specific (`.claude/agents/ai-<name>.md`, `.github/agents/<name>.agent.md`, `.agents/agents/ai-<name>.md`)
 
 | Agent | Role | Purpose | Scope |
 |-------|------|---------|-------|
@@ -64,7 +64,7 @@ Path: `.ai-engineering/agents/<name>.md`
 
 ## Skills (38)
 
-Path: `.ai-engineering/skills/<name>/SKILL.md` (flat organization, no category subdirectories)
+Path: IDE-specific (`.claude/skills/ai-<name>/SKILL.md`, `.github/prompts/ai-<name>.prompt.md`, `.agents/skills/<name>/SKILL.md`)
 
 | Skills (alphabetical) |
 |-----------------------|
@@ -124,8 +124,8 @@ Schema: `.ai-engineering/standards/framework/skills-schema.md`. Organization: fl
 
 ## Quick Reference
 
-- Skills (38): `.ai-engineering/skills/<name>/SKILL.md` — slash commands: `/ai:<name>`
-- Agents (8): `.ai-engineering/agents/<name>.md`
+- Skills (38): `.claude/skills/ai-<name>/SKILL.md` — slash commands: `/ai:<name>`
+- Agents (8): `.claude/agents/ai-<name>.md`
 - CLI: `ai-eng <command>` — deterministic tasks, zero AI tokens
 - Quality: coverage 80%, duplication ≤3%, cyclomatic ≤10, cognitive ≤15
 - Security: zero medium+ findings, zero leaks, zero dependency vulns
