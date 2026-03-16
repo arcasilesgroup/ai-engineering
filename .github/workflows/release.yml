@@ -82,7 +82,7 @@ jobs:
       url: https://pypi.org/project/ai-engineering/
     steps:
       - name: Download dist from CI
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: dist
           path: dist/
@@ -108,7 +108,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Download dist from CI
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: dist
           path: dist/
