@@ -241,7 +241,7 @@ mindmap
     Ecosistema AI
       35 skills
       7 agents
-      13 runbooks
+      5 runbooks
       multi-provider adapters
 ```
 

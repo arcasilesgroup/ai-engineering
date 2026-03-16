@@ -1,5 +1,5 @@
 ---
-description: "Unified testing skill: plan test strategy, write and run tests, detect coverage gaps. Modes: plan | run | gap."
+description: "Testing strategy, execution, and TDD — plan test suites, write and run tests, analyze coverage gaps, or drive implementation test-first with RED-GREEN-REFACTOR. Multi-stack: Python, TypeScript, .NET, React, Next.js, Node, NestJS, Rust, Go, Java."
 mode: "agent"
 ---
 

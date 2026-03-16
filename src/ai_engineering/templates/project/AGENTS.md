@@ -41,22 +41,23 @@ For commands/pipelines: read `framework-contract.md` §5.
 
 Each LLM platform has adaptors that reference the canonical source of truth — never duplicate content.
 
-| Platform | Adaptor Path | Count |
-|----------|-------------|-------|
-| Claude Code | `.claude/commands/ai/*.md` | 37 |
-| GitHub Copilot | `.github/prompts/ai-*.prompt.md` + `.github/agents/*.agent.md` | 38 + 7 |
-| Codex / Gemini | `.agents/skills/*/SKILL.md` | 41 |
+| Platform | Skills Location | Count | Agents Location | Count |
+|----------|----------------|-------|-----------------|-------|
+| Claude Code | `.claude/skills/ai-*/SKILL.md` | 41 | `.claude/agents/ai-*.md` | 8 |
+| GitHub Copilot | `.github/prompts/ai-*.prompt.md` | 38 | `.github/agents/*.agent.md` | 8 |
+| Codex / Gemini | `.agents/skills/*/SKILL.md` | 38 | `.agents/agents/ai-*.md` | 8 |
 
 ## Automation Runbooks
 
-Path: `.ai-engineering/runbooks/*.md` — 13 platform-agnostic runbooks for recurring automation tasks. Copy-paste any runbook prompt into Codex, Devin, cron + CLI, or GitHub Actions with AI.
+Path: `.ai-engineering/runbooks/*.md` — 5 runbooks for operational procedures. Recurring automation is handled by GitHub Agentic Workflows (`.github/workflows/ai-eng-*.yml`).
 
-| Layer | Runbooks | Schedule |
-|-------|----------|----------|
-| Scanner | scheduled-scan, dep-check, feature-scanner, perf-scanner, wiring-scanner, issue-validate | Daily/Weekly |
-| Triage | daily-triage, stale-issues | Daily |
-| Executor | executor, ci-fixer | Hourly/30min |
-| Reporting | weekly-report, changelog-gen, pr-review | Weekly/4h |
+| Runbook | Purpose | Trigger |
+|---------|---------|---------|
+| code-simplifier | Complexity reduction, dead code removal | `ai-eng-code-simplifier.yml` (Wed 5AM) |
+| dependency-upgrade | Safe major version bump guide | Manual / Dependabot |
+| governance-drift-repair | Mirror sync, expired decisions, counter accuracy | `ai-eng-governance-drift.yml` (Mon 4AM) |
+| incident-response | P0-P3 structured incident handling | Manual |
+| security-incident | Secret leak protocol, vulnerability disclosure | Manual |
 
 ## Absolute Prohibitions
 
@@ -72,8 +73,8 @@ Gate failure: diagnose → fix → retry. Use `ai-eng doctor --fix-tools` or `--
 
 ## Quick Reference
 
-- Skills (40): `.ai-engineering/skills/<name>/SKILL.md` — slash commands: `/ai:<name>`
-- Agents (10): `.ai-engineering/agents/<name>.md`
+- Skills (38): `.ai-engineering/skills/<name>/SKILL.md` — slash commands: `/ai:<name>`
+- Agents (8): `.ai-engineering/agents/<name>.md`
 - CLI: `ai-eng <command>` — deterministic tasks, zero AI tokens
 - Quality: coverage 80%, duplication ≤3%, cyclomatic ≤10, cognitive ≤15
 - Security: zero medium+ findings, zero leaks, zero dependency vulns

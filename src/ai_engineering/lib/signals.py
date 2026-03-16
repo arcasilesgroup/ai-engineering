@@ -172,6 +172,22 @@ def count_events(
     return len(read_events(project_root, since=since))
 
 
+def count_events_by_type(
+    events: list[dict[str, Any]],
+    event_type: str,
+) -> int:
+    """Count events of a specific type from a pre-loaded list.
+
+    Args:
+        events: Pre-loaded event list from load_all_events().
+        event_type: The event type string to match against each event's "event" field.
+
+    Returns:
+        Number of events matching the given type.
+    """
+    return sum(1 for e in events if e.get("event") == event_type)
+
+
 def gate_pass_rate_from(
     events: list[dict[str, Any]],
     *,
@@ -313,39 +329,17 @@ def build_metrics_from(
     build_events = filter_events(events, event_type="build_complete", since=since)
 
     total_builds = len(build_events)
-    files_changed = 0
-    lines_added = 0
-    lines_removed = 0
-    tests_added = 0
+    _ACC_FIELDS = ("files_changed", "lines_added", "lines_removed", "tests_added")
+    accumulators: dict[str, int] = dict.fromkeys(_ACC_FIELDS, 0)
 
     for event in build_events:
-        for field, acc_name in (
-            ("files_changed", "files_changed"),
-            ("lines_added", "lines_added"),
-            ("lines_removed", "lines_removed"),
-            ("tests_added", "tests_added"),
-        ):
+        for field in _ACC_FIELDS:
             val = _detail_field(event, field)
             if val is not None:
-                try:
-                    if acc_name == "files_changed":
-                        files_changed += int(val)
-                    elif acc_name == "lines_added":
-                        lines_added += int(val)
-                    elif acc_name == "lines_removed":
-                        lines_removed += int(val)
-                    elif acc_name == "tests_added":
-                        tests_added += int(val)
-                except (TypeError, ValueError):
-                    pass
+                with contextlib.suppress(TypeError, ValueError):
+                    accumulators[field] += int(val)
 
-    return {
-        "total_builds": total_builds,
-        "files_changed": files_changed,
-        "lines_added": lines_added,
-        "lines_removed": lines_removed,
-        "tests_added": tests_added,
-    }
+    return {"total_builds": total_builds, **accumulators}
 
 
 def deploy_metrics_from(

@@ -1,6 +1,7 @@
 name: Bug Report
 description: Report a bug in the ai-engineering framework
-labels: ["bug", "needs-triage"]
+labels: ["type:bug", "needs-triage"]
+type: Bug
 body:
   - type: markdown
     attributes:
@@ -38,6 +39,38 @@ body:
       description: What actually happened.
     validations:
       required: true
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      description: Impact level following the project priority mapping.
+      options:
+        - P0 — Outage / data loss (same day SLA)
+        - P1 — Blocking workflow (3 days SLA)
+        - P2 — Normal (next sprint SLA)
+    validations:
+      required: true
+  - type: dropdown
+    id: size
+    attributes:
+      label: Size
+      description: Estimated effort to fix.
+      options:
+        - XS (< 30min)
+        - S (< 1h)
+        - M (1-4h)
+        - L (4-8h)
+        - XL (> 8h)
+    validations:
+      required: true
+  - type: input
+    id: spec-url
+    attributes:
+      label: Spec URL
+      description: Full GitHub URL to the related spec, if applicable.
+      placeholder: "https://github.com/arcasilesgroup/ai-engineering/blob/main/.ai-engineering/context/specs/036-platform-runbooks/spec.md"
+    validations:
+      required: false
   - type: input
     id: version
     attributes:

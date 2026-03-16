@@ -1,6 +1,7 @@
 ---
 name: governance
 description: "Unified governance validation: integrity, compliance, ownership, operational readiness. Modes: integrity | compliance | ownership | operational."
+argument-hint: "all|integrity|compliance|ownership"
 metadata:
   version: 2.0.0
   tags: [governance, integrity, compliance, ownership, validation]

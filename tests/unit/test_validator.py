@@ -28,7 +28,6 @@ _SKILL_PATHS = [
     "skills/architecture/SKILL.md",
     "skills/changelog/SKILL.md",
     "skills/cleanup/SKILL.md",
-    "skills/cli/SKILL.md",
     "skills/code/SKILL.md",
     "skills/commit/SKILL.md",
     "skills/contract/SKILL.md",
@@ -42,7 +41,6 @@ _SKILL_PATHS = [
     "skills/gap/SKILL.md",
     "skills/governance/SKILL.md",
     "skills/guard/SKILL.md",
-    "skills/guide/SKILL.md",
     "skills/infra/SKILL.md",
     "skills/lifecycle/SKILL.md",
     "skills/migrate/SKILL.md",
@@ -67,15 +65,13 @@ _SKILL_PATHS = [
 
 _AGENT_PATHS = [
     "agents/build.md",
-    "agents/execute.md",
+    "agents/explorer.md",
     "agents/guard.md",
     "agents/guide.md",
-    "agents/observe.md",
     "agents/operate.md",
     "agents/plan.md",
-    "agents/ship.md",
+    "agents/simplifier.md",
     "agents/verify.md",
-    "agents/write.md",
 ]
 
 

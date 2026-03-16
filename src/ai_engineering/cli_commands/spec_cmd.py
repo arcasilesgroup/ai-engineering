@@ -17,15 +17,7 @@ from typing import Annotated
 import typer
 
 from ai_engineering.lib.parsing import count_checkboxes, parse_frontmatter
-
-
-def _project_root() -> Path:
-    """Walk up from cwd to find the project root."""
-    cwd = Path.cwd()
-    for parent in [cwd, *cwd.parents]:
-        if (parent / ".ai-engineering").is_dir():
-            return parent
-    return cwd
+from ai_engineering.paths import find_project_root
 
 
 def _specs_dir(root: Path) -> Path:
@@ -149,7 +141,7 @@ def spec_verify(
     fix: Annotated[bool, typer.Option("--fix", help="Auto-correct drifted counters.")] = True,
 ) -> None:
     """Verify spec task counters and status consistency."""
-    root = _project_root()
+    root = find_project_root()
 
     # Resolve spec
     if spec_id is None:
@@ -234,7 +226,7 @@ def spec_verify(
 
 def spec_catalog() -> None:
     """Generate _catalog.md from all spec frontmatter."""
-    root = _project_root()
+    root = find_project_root()
     spec_files = _find_all_spec_files(root)
 
     if not spec_files:
@@ -334,7 +326,7 @@ def spec_catalog() -> None:
 
 def spec_list() -> None:
     """Display active specs with progress."""
-    root = _project_root()
+    root = find_project_root()
     active_path = _specs_dir(root) / "_active.md"
 
     if not active_path.exists():
@@ -393,7 +385,7 @@ def spec_compact(
     ] = False,
 ) -> None:
     """Archive old specs by removing spec/plan/tasks.md, keeping done.md."""
-    root = _project_root()
+    root = find_project_root()
     archive = _archive_dir(root)
 
     if not archive.is_dir():

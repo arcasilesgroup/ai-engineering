@@ -1,6 +1,7 @@
 ---
 name: security
 description: "Unified security scanning: SAST, DAST, dependency audit, SBOM generation. Modes: static | dynamic | deps | sbom."
+argument-hint: "all|static|dynamic|deps|sbom"
 metadata:
   version: 2.0.0
   tags: [security, sast, dast, dependencies, sbom, owasp]

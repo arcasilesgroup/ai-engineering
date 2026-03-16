@@ -25,6 +25,7 @@ from ai_engineering.lib.signals import (
     agent_dispatch_from,
     build_metrics_from,
     checkpoint_status,
+    count_events_by_type,
     data_quality_from,
     decision_store_health,
     deploy_metrics_from,
@@ -44,15 +45,7 @@ from ai_engineering.lib.signals import (
     sonar_detailed_metrics,
     test_confidence_metrics,
 )
-
-
-def _project_root() -> Path:
-    """Resolve project root from CWD."""
-    cwd = Path.cwd()
-    for parent in [cwd, *cwd.parents]:
-        if (parent / ".ai-engineering").is_dir():
-            return parent
-    return cwd
+from ai_engineering.paths import find_project_root
 
 
 def _git_log_stat(project_root: Path, days: int = 30) -> dict:
@@ -162,14 +155,6 @@ def _sonar_metrics_data(project_root: Path) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
-def _count_by_type(
-    all_events: list[dict[str, Any]],
-    event_type: str,
-) -> int:
-    """Count events of a specific type from pre-loaded list."""
-    return sum(1 for e in all_events if e.get("event") == event_type)
-
-
 def observe_engineer(project_root: Path) -> dict[str, Any]:
     """Generate engineer dashboard data."""
     all_events = load_all_events(project_root)
@@ -242,34 +227,21 @@ def observe_engineer(project_root: Path) -> dict[str, Any]:
     }
 
 
-def _render_engineer(data: dict[str, Any]) -> None:
-    """Render engineer dashboard with Rich formatting."""
-    from ai_engineering.cli_ui import (
-        header,
-        info,
-        kv,
-        metric_table,
-        progress_bar,
-        section,
-        status_line,
-        suggest_next,
-        warning,
-    )
+def _render_delivery_velocity(data: dict[str, Any]) -> None:
+    """Render the delivery velocity section."""
+    from ai_engineering.cli_ui import kv, section
 
-    header("Engineer Dashboard")
-    kv(
-        "Data quality",
-        f"{data['data_quality']} ({data['total_events']} events, {data['days_span']} days)",
-    )
-
-    # Delivery Velocity
     section("Delivery Velocity")
     dv = data["delivery_velocity"]
     kv("Commits/week", dv["commits_per_week"])
     kv("Total commits (30d)", dv["total_commits_30d"])
     kv("Lead time (median)", f"{dv['lead_time_median_days']} days")
 
-    # Gate Health
+
+def _render_gate_health(data: dict[str, Any]) -> None:
+    """Render the gate health section."""
+    from ai_engineering.cli_ui import kv, progress_bar, section, status_line
+
     section("Gate Health (last 30 days)")
     gh = data["gate_health"]
     kv("Total gate runs", gh["total"])
@@ -281,22 +253,32 @@ def _render_engineer(data: dict[str, Any]) -> None:
             f"most failed ({gh['most_failed_count']}x)",
         )
 
-    # SonarCloud (if available)
-    sonar = data["sonar"]
-    if sonar.get("available"):
-        section("SonarCloud Quality Gate")
-        kv("Status", sonar["status"])
-        if sonar.get("new_code_coverage"):
-            kv("New code coverage", f"{sonar['new_code_coverage']}%")
-        kv("Conditions", sonar["conditions_count"])
-        if "detailed" in sonar:
-            d = sonar["detailed"]
-            progress_bar("Coverage", d["coverage_pct"])
-            kv("Complexity", d["cognitive_complexity"])
-            kv("Duplication", f"{d['duplication_pct']}%")
-            kv("Issues", f"{d['bugs']} bugs, {d['vulnerabilities']} vulnerabilities")
 
-    # Lead Time
+def _render_sonar_section(data: dict[str, Any]) -> None:
+    """Render the SonarCloud quality gate section (if available)."""
+    from ai_engineering.cli_ui import kv, progress_bar, section
+
+    sonar = data["sonar"]
+    if not sonar.get("available"):
+        return
+
+    section("SonarCloud Quality Gate")
+    kv("Status", sonar["status"])
+    if sonar.get("new_code_coverage"):
+        kv("New code coverage", f"{sonar['new_code_coverage']}%")
+    kv("Conditions", sonar["conditions_count"])
+    if "detailed" in sonar:
+        d = sonar["detailed"]
+        progress_bar("Coverage", d["coverage_pct"])
+        kv("Complexity", d["cognitive_complexity"])
+        kv("Duplication", f"{d['duplication_pct']}%")
+        kv("Issues", f"{d['bugs']} bugs, {d['vulnerabilities']} vulnerabilities")
+
+
+def _render_lead_time(data: dict[str, Any]) -> None:
+    """Render the lead time section."""
+    from ai_engineering.cli_ui import info, kv, section
+
     section("Lead Time")
     lt = data["lead_time"]
     if lt["merges_analyzed"] == 0:
@@ -306,31 +288,40 @@ def _render_engineer(data: dict[str, Any]) -> None:
         kv("Rating", lt["rating"])
         kv("Merges analyzed", lt["merges_analyzed"])
 
-    # Code Quality
+
+def _render_code_quality(data: dict[str, Any]) -> None:
+    """Render the code quality section."""
+    from ai_engineering.cli_ui import info, metric_table, progress_bar, section
+
     section("Code Quality (from scans)")
     cq = data["code_quality"]
     if cq["total_scans"] == 0:
         info("No scan data — run /ai:scan quality")
-    else:
-        progress_bar("Quality score", cq["avg_quality_score"])
-        progress_bar("Security score", cq["avg_security_score"])
-        findings = cq["findings"]
-        metric_table(
-            [
-                (
-                    "Critical findings",
-                    str(findings["critical"]),
-                    "fail" if findings["critical"] > 0 else "ok",
-                ),
-                (
-                    "High findings",
-                    str(findings["high"]),
-                    "warn" if findings["high"] > 0 else "ok",
-                ),
-            ]
-        )
+        return
 
-    # Build Activity
+    progress_bar("Quality score", cq["avg_quality_score"])
+    progress_bar("Security score", cq["avg_security_score"])
+    findings = cq["findings"]
+    metric_table(
+        [
+            (
+                "Critical findings",
+                str(findings["critical"]),
+                "fail" if findings["critical"] > 0 else "ok",
+            ),
+            (
+                "High findings",
+                str(findings["high"]),
+                "warn" if findings["high"] > 0 else "ok",
+            ),
+        ]
+    )
+
+
+def _render_build_activity(data: dict[str, Any]) -> None:
+    """Render the build activity section."""
+    from ai_engineering.cli_ui import info, kv, section
+
     section("Build Activity (last 30d)")
     ba = data["build_activity"]
     if ba["total_builds"] == 0:
@@ -340,53 +331,82 @@ def _render_engineer(data: dict[str, Any]) -> None:
         kv("Files changed", ba["files_changed"])
         kv("Tests added", ba["tests_added"])
 
-    # Security Posture
+
+def _render_security_posture(data: dict[str, Any]) -> None:
+    """Render the security posture section."""
+    from ai_engineering.cli_ui import info, metric_table, section
+
     section("Security Posture")
     sp = data["security_posture"]
     if sp["source"] == "none":
         info("No data — run `ai-eng setup sonar` or install pip-audit")
-    else:
-        vuln_status = "ok" if sp["vulnerabilities"] == 0 else "fail"
-        metric_table(
-            [
-                (
-                    "Vulnerabilities",
-                    f"{sp['vulnerabilities']} ({sp['source']})",
-                    vuln_status,
-                ),
-                (
-                    "Security hotspots",
-                    str(sp["security_hotspots"]),
-                    "warn" if sp["security_hotspots"] > 0 else "ok",
-                ),
-                ("Security rating", sp["security_rating"], "none"),
-                (
-                    "Dep vulnerabilities",
-                    str(sp["dep_vulns"]),
-                    "warn" if sp["dep_vulns"] > 0 else "ok",
-                ),
-            ]
-        )
+        return
 
-    # Test Confidence
+    vuln_status = "ok" if sp["vulnerabilities"] == 0 else "fail"
+    metric_table(
+        [
+            (
+                "Vulnerabilities",
+                f"{sp['vulnerabilities']} ({sp['source']})",
+                vuln_status,
+            ),
+            (
+                "Security hotspots",
+                str(sp["security_hotspots"]),
+                "warn" if sp["security_hotspots"] > 0 else "ok",
+            ),
+            ("Security rating", sp["security_rating"], "none"),
+            (
+                "Dep vulnerabilities",
+                str(sp["dep_vulns"]),
+                "warn" if sp["dep_vulns"] > 0 else "ok",
+            ),
+        ]
+    )
+
+
+def _render_test_confidence(data: dict[str, Any]) -> None:
+    """Render the test confidence section."""
+    from ai_engineering.cli_ui import info, kv, progress_bar, section, status_line, warning
+
     section("Test Confidence")
     tc = data["test_confidence"]
     if tc["source"] == "none":
         info("No data — run `pytest --cov` or configure SonarCloud")
-    else:
-        progress_bar("Coverage", tc["coverage_pct"], threshold=80)
-        if tc["files_total"] > 0:
-            kv("Files covered", f"{tc['files_covered']}/{tc['files_total']}")
-        status = "ok" if tc["meets_threshold"] else "fail"
-        status_line(
-            status,
-            "Threshold (80%)",
-            "met" if tc["meets_threshold"] else "not met",
-        )
-        if tc["untested_critical"]:
-            warning(f"Untested critical: {', '.join(tc['untested_critical'][:3])}")
+        return
 
-    # Actions
+    progress_bar("Coverage", tc["coverage_pct"], threshold=80)
+    if tc["files_total"] > 0:
+        kv("Files covered", f"{tc['files_covered']}/{tc['files_total']}")
+    status = "ok" if tc["meets_threshold"] else "fail"
+    status_line(
+        status,
+        "Threshold (80%)",
+        "met" if tc["meets_threshold"] else "not met",
+    )
+    if tc["untested_critical"]:
+        warning(f"Untested critical: {', '.join(tc['untested_critical'][:3])}")
+
+
+def _render_engineer(data: dict[str, Any]) -> None:
+    """Render engineer dashboard with Rich formatting."""
+    from ai_engineering.cli_ui import header, kv, suggest_next
+
+    header("Engineer Dashboard")
+    kv(
+        "Data quality",
+        f"{data['data_quality']} ({data['total_events']} events, {data['days_span']} days)",
+    )
+
+    _render_delivery_velocity(data)
+    _render_gate_health(data)
+    _render_sonar_section(data)
+    _render_lead_time(data)
+    _render_code_quality(data)
+    _render_build_activity(data)
+    _render_security_posture(data)
+    _render_test_confidence(data)
+
     suggest_next(
         [
             (
@@ -421,10 +441,10 @@ def observe_team(project_root: Path) -> dict[str, Any]:
         "total_events": len(all_events),
         "event_distribution": {
             "gate_events": gates["total"],
-            "scan_events": _count_by_type(all_events, "scan_complete"),
-            "build_events": _count_by_type(all_events, "build_complete"),
-            "session_events": _count_by_type(all_events, "session_metric"),
-            "deploy_events": _count_by_type(all_events, "deploy_complete"),
+            "scan_events": count_events_by_type(all_events, "scan_complete"),
+            "build_events": count_events_by_type(all_events, "build_complete"),
+            "session_events": count_events_by_type(all_events, "session_metric"),
+            "deploy_events": count_events_by_type(all_events, "deploy_complete"),
         },
         "gate_health": {
             "pass_rate": gates["pass_rate"],
@@ -879,18 +899,22 @@ def _render_dora(data: dict[str, Any]) -> None:
     )
 
 
-def observe_health(project_root: Path) -> dict[str, Any]:
-    """Generate aggregated health score data."""
-    all_events = load_all_events(project_root)
-    dq = data_quality_from(all_events)
-    gates = gate_pass_rate_from(all_events)
-    git_stats = _git_log_stat(project_root)
-    dora = _dora_metrics(project_root, git_stats=git_stats)
+def _compute_component_scores(
+    project_root: Path,
+    all_events: list[dict[str, Any]],
+    gates: dict[str, Any],
+    git_stats: dict[str, Any],
+    dora: dict[str, Any],
+) -> dict[str, Any]:
+    """Compute individual health component scores.
 
+    Returns a dict with keys: components (name->score pairs), details (raw
+    values for component_details output), and intermediate results needed
+    by the caller (freq, noise).
+    """
     gate_score = min(gates["pass_rate"], 100)
     velocity_score = min(git_stats["commits_per_week"] * 10, 100)
 
-    # Multi-variable weighted score
     components: list[float] = [gate_score, velocity_score]
     component_names: list[str] = ["Gate pass rate", "Delivery velocity"]
 
@@ -922,7 +946,6 @@ def observe_health(project_root: Path) -> dict[str, Any]:
     components.append(dora_score)
     component_names.append("DORA frequency")
 
-    # SonarCloud score (from detailed measures)
     sonar = sonar_detailed_metrics(project_root)
     if sonar.get("available") and sonar.get("coverage_pct", 0) > 0:
         sonar_score: float | None = sonar["coverage_pct"]
@@ -931,7 +954,6 @@ def observe_health(project_root: Path) -> dict[str, Any]:
     else:
         sonar_score = None
 
-    # Test confidence score
     tc = test_confidence_metrics(project_root)
     if tc["source"] != "none" and tc["coverage_pct"] > 0:
         tc_score: float | None = tc["coverage_pct"]
@@ -940,7 +962,6 @@ def observe_health(project_root: Path) -> dict[str, Any]:
     else:
         tc_score = None
 
-    # Noise ratio score (inverse: low noise = high score)
     noise = noise_ratio_from(all_events)
     if noise["total_failures"] > 0:
         noise_score: float | None = max(0, 100 - noise["noise_ratio_pct"])
@@ -949,61 +970,11 @@ def observe_health(project_root: Path) -> dict[str, Any]:
     else:
         noise_score = None
 
-    overall = round(sum(components) / len(components))
-
-    if overall >= 80:
-        semaphore = "GREEN"
-    elif overall >= 60:
-        semaphore = "YELLOW"
-    else:
-        semaphore = "RED"
-
-    # Direction indicator from history
-    history = load_health_history(project_root)
-    direction = health_direction(history, overall)
-
-    # Smart actions: find weakest components and suggest fixes
-    _ACTION_MAP: dict[str, str] = {
-        "Gate pass rate": "Run `ruff format` + `ruff check --fix` before committing",
-        "Delivery velocity": "Increase commit frequency — ship smaller changes",
-        "Scan quality": "Run `/ai:scan quality` to improve code quality score",
-        "Decision health": "Run `ai-eng decision expire-check` to review expired decisions",
-        "DORA frequency": "Merge PRs more frequently — target weekly deploys",
-        "SonarCloud coverage": "Run `ai-eng setup sonar` and increase test coverage",
-        "Test confidence": "Run `pytest --cov` to generate coverage data",
-        "Gate signal quality": "Run `ruff format` + `ruff check --fix` to reduce noise",
-    }
-    scored = list(zip(component_names, components, strict=True))
-    scored.sort(key=lambda x: x[1])
-    num_c = len(components)
-    actions: list[dict[str, Any]] = []
-    for name, score in scored[:3]:
-        if score >= 90:
-            continue
-        gain = round((100 - score) / num_c)
-        cmd = _ACTION_MAP.get(name, f"Improve {name}")
-        actions.append({"action": cmd, "potential_gain": gain, "component": name})
-    if not actions:
-        actions.append(
-            {
-                "action": "All components healthy — maintain current practices",
-                "potential_gain": 0,
-                "component": "all",
-            }
-        )
-
-    comp_dict = dict(zip(component_names, components, strict=True))
-
-    # Persist snapshot for trend tracking
-    save_health_snapshot(project_root, overall, semaphore, comp_dict)
-
     return {
-        "score": overall,
-        "semaphore": semaphore,
-        "direction": direction,
-        "data_quality": dq,
-        "components": comp_dict,
-        "component_details": {
+        "components": dict(zip(component_names, components, strict=True)),
+        "component_values": components,
+        "component_names": component_names,
+        "details": {
             "gate_pass_rate": gates["pass_rate"],
             "commits_per_week": git_stats["commits_per_week"],
             "deployment_frequency_per_week": freq,
@@ -1014,6 +985,126 @@ def observe_health(project_root: Path) -> dict[str, Any]:
             "noise_score": noise_score,
             "noise_ratio_pct": noise["noise_ratio_pct"] if noise["total_failures"] > 0 else None,
         },
+    }
+
+
+def _compute_overall_health(
+    component_scores: dict[str, float],
+) -> tuple[int, str]:
+    """Compute the overall health score and semaphore from component scores.
+
+    Args:
+        component_scores: Dict mapping component name to its score (0-100).
+
+    Returns:
+        Tuple of (overall_score, semaphore_color).
+    """
+    values = list(component_scores.values())
+    overall = round(sum(values) / len(values))
+
+    if overall >= 80:
+        semaphore = "GREEN"
+    elif overall >= 60:
+        semaphore = "YELLOW"
+    else:
+        semaphore = "RED"
+
+    return overall, semaphore
+
+
+_HEALTH_ACTION_MAP: dict[str, str] = {
+    "Gate pass rate": "Run `ruff format` + `ruff check --fix` before committing",
+    "Delivery velocity": "Increase commit frequency — ship smaller changes",
+    "Scan quality": "Run `/ai:scan quality` to improve code quality score",
+    "Decision health": "Run `ai-eng decision expire-check` to review expired decisions",
+    "DORA frequency": "Merge PRs more frequently — target weekly deploys",
+    "SonarCloud coverage": "Run `ai-eng setup sonar` and increase test coverage",
+    "Test confidence": "Run `pytest --cov` to generate coverage data",
+    "Gate signal quality": "Run `ruff format` + `ruff check --fix` to reduce noise",
+}
+
+
+def _generate_health_actions(
+    component_scores: dict[str, float],
+) -> list[dict[str, Any]]:
+    """Generate recommended actions based on weakest health components.
+
+    Args:
+        component_scores: Dict mapping component name to its score (0-100).
+
+    Returns:
+        List of action dicts with keys: action, potential_gain, component.
+    """
+    scored = sorted(component_scores.items(), key=lambda x: x[1])
+    num_c = len(component_scores)
+    actions: list[dict[str, Any]] = []
+
+    for name, score in scored[:3]:
+        if score >= 90:
+            continue
+        gain = round((100 - score) / num_c)
+        cmd = _HEALTH_ACTION_MAP.get(name, f"Improve {name}")
+        actions.append({"action": cmd, "potential_gain": gain, "component": name})
+
+    if not actions:
+        actions.append(
+            {
+                "action": "All components healthy — maintain current practices",
+                "potential_gain": 0,
+                "component": "all",
+            }
+        )
+
+    return actions
+
+
+def _compute_health_direction(
+    project_root: Path,
+    current_score: int,
+) -> str:
+    """Compute the health trend direction from stored history.
+
+    Args:
+        project_root: Repository root path.
+        current_score: The current overall health score.
+
+    Returns:
+        Direction indicator string from health_direction().
+    """
+    history = load_health_history(project_root)
+    return health_direction(history, current_score)
+
+
+def observe_health(project_root: Path) -> dict[str, Any]:
+    """Generate aggregated health score data."""
+    all_events = load_all_events(project_root)
+    dq = data_quality_from(all_events)
+    gates = gate_pass_rate_from(all_events)
+    git_stats = _git_log_stat(project_root)
+    dora = _dora_metrics(project_root, git_stats=git_stats)
+
+    scores = _compute_component_scores(
+        project_root,
+        all_events,
+        gates,
+        git_stats,
+        dora,
+    )
+    comp_dict = scores["components"]
+    overall, semaphore = _compute_overall_health(comp_dict)
+    direction = _compute_health_direction(project_root, overall)
+    actions = _generate_health_actions(comp_dict)
+
+    # Persist snapshot for trend tracking
+    save_health_snapshot(project_root, overall, semaphore, comp_dict)
+
+    return {
+        "score": overall,
+        "semaphore": semaphore,
+        "direction": direction,
+        "data_quality": dq,
+        "components": comp_dict,
+        "component_details": scores["details"],
         "actions": actions,
     }
 
@@ -1143,7 +1234,7 @@ def observe_cmd(
     if json_output:
         set_json_mode(True)
 
-    root = _project_root()
+    root = find_project_root()
     data = _MODE_FUNCS[mode](root)
 
     route_output(

@@ -21,10 +21,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Skill merges** — create+delete merged into lifecycle.
 - **5 stub skills expanded** — security (58→216L), quality (45→175L), governance (48→153L), build (45→257L), perf (46→150L).
 - **Explain skill reassigned** — from orphan to guide agent (primary owner).
-- **All 13 runbooks** — assigned `owner: operate` in frontmatter.
+- **All 5 runbooks** — assigned `owner: operate` in frontmatter (consolidated from 13).
 - **Agent count**: 7→10. **Skill count**: 35→40.
 - **IDE adapters** — all Claude commands, Copilot prompts, and Copilot agents renamed to match new skill/agent names. 7 new command files created.
-- **Template mirror** — full sync of 10 agents, 40 skills, 13 runbooks, standards, and IDE adapters to `src/ai_engineering/templates/`.
+- **Template mirror** — full sync of 10 agents, 40 skills, 5 runbooks, standards, and IDE adapters to `src/ai_engineering/templates/`.
 - **Contracts rewritten** — framework-contract.md (10 agents, dispatch schema, guard integration, evolve loop) and product-contract.md (v0.3.0, updated roadmap and KPIs).
 
 ### Fixed — Architecture v3 (spec-051)
@@ -142,7 +142,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **Codex/Gemini platform adaptors** — 41 adaptor files (`.agents/skills/*/SKILL.md`) pointing to canonical skill/agent definitions; 7 agent adaptors use `-agent` suffix to avoid name collisions.
-- **Automation runbooks** — 13 platform-agnostic runbooks (`.ai-engineering/runbooks/*.md`) across 4 layers: scanner (6), triage (2), executor (2), reporting (3). Ready for Codex, Devin, cron+CLI, or GitHub Actions.
+- **Automation runbooks** — 5 operational runbooks (`.ai-engineering/runbooks/*.md`): code-simplifier, dependency-upgrade, governance-drift-repair, incident-response, security-incident. Recurring automation moved to GitHub Agentic Workflows.
 - **GitHub issue/PR templates** — bug, feature, task issue forms (`.github/ISSUE_TEMPLATE/*.yml`) and PR template (`.github/pull_request_template.md`); blank issues disabled.
 - **VCS-aware installer** — `copy_project_templates()` accepts `vcs_provider` parameter; GitHub platform copies issue/PR templates automatically.
 - **Issue Definition Standard** — `work-item` skill extended with required fields, priority mapping (P0→p1-critical), size guide (S/M/L/XL), and spec URL format.

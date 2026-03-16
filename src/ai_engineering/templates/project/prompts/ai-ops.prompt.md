@@ -1,6 +1,8 @@
 ---
-mode: agent
-description: "Invoke the ai:ops skill"
+description: "Use this skill for operational automation: execute runbooks on demand, respond to incidents (gate failures, CI breaks, security findings), or check operational health status. Owns all runbooks in the framework."
+mode: "agent"
 ---
 
-Follow the instructions in `.ai-engineering/skills/ops/SKILL.md` or `.ai-engineering/agents/ops.md`.
+Read and execute the skill defined in `.ai-engineering/skills/ops/SKILL.md`.
+
+Follow the complete procedure. Do not skip steps. Apply all governance notes.

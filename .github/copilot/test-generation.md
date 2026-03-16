@@ -12,7 +12,7 @@ Use `.ai-engineering/` as the single source of truth for project governance and 
 
 ## Skills
 
-- Use `.ai-engineering/skills/test-plan/SKILL.md` for test design procedure.
+- Use `.ai-engineering/skills/test/SKILL.md` for test design procedure.
 - Reference `.ai-engineering/skills/debug/SKILL.md` for diagnosing test failures.
 
 ## Conventions

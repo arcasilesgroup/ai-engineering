@@ -25,7 +25,6 @@ from ai_engineering.cli_commands import (
     core,
     decisions_cmd,
     gate,
-    governance_cmd,
     guide,
     maintenance,
     metrics,
@@ -41,6 +40,7 @@ from ai_engineering.cli_commands import (
     stack_ide,
     validate,
     vcs,
+    verify_cmd,
     work_item,
     workflow,
 )
@@ -113,6 +113,7 @@ def _app_callback(
                         "update",
                         "doctor",
                         "validate",
+                        "verify",
                         "version",
                         "guide",
                         "observe",
@@ -198,6 +199,7 @@ def create_app() -> typer.Typer:
     app.command("update")(_safe(core.update_cmd))
     app.command("doctor")(_safe(core.doctor_cmd))
     app.command("validate")(_safe(validate.validate_cmd))
+    app.command("verify")(_safe(verify_cmd.verify_cmd))
     app.command("version")(core.version_cmd)
     app.command("release")(_safe(release.release_cmd))
     app.command("guide")(_safe(guide.guide_cmd))
@@ -397,15 +399,5 @@ def create_app() -> typer.Typer:
     )
     metrics_app.command("collect")(_safe(metrics.metrics_collect))
     app.add_typer(metrics_app, name="metrics")
-
-    # Governance sub-group (v3: IDE consistency validation)
-    governance_app = typer.Typer(
-        name="governance",
-        help="Validate IDE instruction file consistency.",
-        no_args_is_help=True,
-    )
-    governance_app.command("diff")(_safe(governance_cmd.governance_diff))
-    governance_app.command("sync")(_safe(governance_cmd.governance_sync))
-    app.add_typer(governance_app, name="governance")
 
     return app

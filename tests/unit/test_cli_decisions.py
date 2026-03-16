@@ -51,7 +51,7 @@ class TestDecisionList:
         """When no decision-store.json exists, report empty."""
         (tmp_path / ".ai-engineering").mkdir(parents=True)
         with patch(
-            "ai_engineering.cli_commands.decisions_cmd._project_root",
+            "ai_engineering.cli_commands.decisions_cmd.find_project_root",
             return_value=tmp_path,
         ):
             app = create_app()
@@ -63,7 +63,7 @@ class TestDecisionList:
         """When decisions list is empty, report empty."""
         _make_decision_store(tmp_path, [])
         with patch(
-            "ai_engineering.cli_commands.decisions_cmd._project_root",
+            "ai_engineering.cli_commands.decisions_cmd.find_project_root",
             return_value=tmp_path,
         ):
             app = create_app()
@@ -78,7 +78,7 @@ class TestDecisionList:
             [_base_decision(expiresAt="2026-06-01T00:00:00Z")],
         )
         with patch(
-            "ai_engineering.cli_commands.decisions_cmd._project_root",
+            "ai_engineering.cli_commands.decisions_cmd.find_project_root",
             return_value=tmp_path,
         ):
             app = create_app()
@@ -100,7 +100,7 @@ class TestDecisionList:
             ],
         )
         with patch(
-            "ai_engineering.cli_commands.decisions_cmd._project_root",
+            "ai_engineering.cli_commands.decisions_cmd.find_project_root",
             return_value=tmp_path,
         ):
             app = create_app()
@@ -114,7 +114,7 @@ class TestDecisionList:
         """Decision without expiresAt shows 'no expiry'."""
         _make_decision_store(tmp_path, [_base_decision()])
         with patch(
-            "ai_engineering.cli_commands.decisions_cmd._project_root",
+            "ai_engineering.cli_commands.decisions_cmd.find_project_root",
             return_value=tmp_path,
         ):
             app = create_app()
@@ -128,7 +128,7 @@ class TestDecisionList:
         del dec["severity"]
         _make_decision_store(tmp_path, [dec])
         with patch(
-            "ai_engineering.cli_commands.decisions_cmd._project_root",
+            "ai_engineering.cli_commands.decisions_cmd.find_project_root",
             return_value=tmp_path,
         ):
             app = create_app()
@@ -142,7 +142,7 @@ class TestDecisionList:
         state_dir.mkdir(parents=True, exist_ok=True)
         (state_dir / "decision-store.json").write_text("NOT JSON", encoding="utf-8")
         with patch(
-            "ai_engineering.cli_commands.decisions_cmd._project_root",
+            "ai_engineering.cli_commands.decisions_cmd.find_project_root",
             return_value=tmp_path,
         ):
             app = create_app()
@@ -158,7 +158,7 @@ class TestDecisionExpireCheck:
         """When no decision-store.json exists, report nothing to check."""
         (tmp_path / ".ai-engineering").mkdir(parents=True)
         with patch(
-            "ai_engineering.cli_commands.decisions_cmd._project_root",
+            "ai_engineering.cli_commands.decisions_cmd.find_project_root",
             return_value=tmp_path,
         ):
             app = create_app()
@@ -174,7 +174,7 @@ class TestDecisionExpireCheck:
             [_base_decision(expiresAt=future)],
         )
         with patch(
-            "ai_engineering.cli_commands.decisions_cmd._project_root",
+            "ai_engineering.cli_commands.decisions_cmd.find_project_root",
             return_value=tmp_path,
         ):
             app = create_app()
@@ -190,7 +190,7 @@ class TestDecisionExpireCheck:
             [_base_decision(expiresAt=past)],
         )
         with patch(
-            "ai_engineering.cli_commands.decisions_cmd._project_root",
+            "ai_engineering.cli_commands.decisions_cmd.find_project_root",
             return_value=tmp_path,
         ):
             app = create_app()
@@ -207,7 +207,7 @@ class TestDecisionExpireCheck:
             [_base_decision(expiresAt=soon)],
         )
         with patch(
-            "ai_engineering.cli_commands.decisions_cmd._project_root",
+            "ai_engineering.cli_commands.decisions_cmd.find_project_root",
             return_value=tmp_path,
         ):
             app = create_app()
@@ -224,7 +224,7 @@ class TestDecisionExpireCheck:
             [_base_decision(status="expired", expiresAt=past)],
         )
         with patch(
-            "ai_engineering.cli_commands.decisions_cmd._project_root",
+            "ai_engineering.cli_commands.decisions_cmd.find_project_root",
             return_value=tmp_path,
         ):
             app = create_app()
@@ -239,7 +239,7 @@ class TestDecisionExpireCheck:
             [_base_decision()],  # no expiresAt
         )
         with patch(
-            "ai_engineering.cli_commands.decisions_cmd._project_root",
+            "ai_engineering.cli_commands.decisions_cmd.find_project_root",
             return_value=tmp_path,
         ):
             app = create_app()
@@ -259,7 +259,7 @@ class TestDecisionExpireCheck:
             ],
         )
         with patch(
-            "ai_engineering.cli_commands.decisions_cmd._project_root",
+            "ai_engineering.cli_commands.decisions_cmd.find_project_root",
             return_value=tmp_path,
         ):
             app = create_app()
@@ -278,7 +278,7 @@ class TestDecisionRecord:
         """Record creates decision-store.json with the new entry."""
         (tmp_path / ".ai-engineering" / "state").mkdir(parents=True)
         with patch(
-            "ai_engineering.cli_commands.decisions_cmd._project_root",
+            "ai_engineering.cli_commands.decisions_cmd.find_project_root",
             return_value=tmp_path,
         ):
             app = create_app()
@@ -310,7 +310,7 @@ class TestDecisionRecord:
         """Record appends to an existing store without losing entries."""
         _make_decision_store(tmp_path, [_base_decision(id="DEC-001")])
         with patch(
-            "ai_engineering.cli_commands.decisions_cmd._project_root",
+            "ai_engineering.cli_commands.decisions_cmd.find_project_root",
             return_value=tmp_path,
         ):
             app = create_app()
@@ -336,7 +336,7 @@ class TestDecisionRecord:
         """Record fails when the ID already exists."""
         _make_decision_store(tmp_path, [_base_decision(id="DEC-001")])
         with patch(
-            "ai_engineering.cli_commands.decisions_cmd._project_root",
+            "ai_engineering.cli_commands.decisions_cmd.find_project_root",
             return_value=tmp_path,
         ):
             app = create_app()
@@ -359,7 +359,7 @@ class TestDecisionRecord:
         """Record stores optional severity and category."""
         (tmp_path / ".ai-engineering" / "state").mkdir(parents=True)
         with patch(
-            "ai_engineering.cli_commands.decisions_cmd._project_root",
+            "ai_engineering.cli_commands.decisions_cmd.find_project_root",
             return_value=tmp_path,
         ):
             app = create_app()
@@ -391,7 +391,7 @@ class TestDecisionRecord:
         """Record stores expiry date."""
         (tmp_path / ".ai-engineering" / "state").mkdir(parents=True)
         with patch(
-            "ai_engineering.cli_commands.decisions_cmd._project_root",
+            "ai_engineering.cli_commands.decisions_cmd.find_project_root",
             return_value=tmp_path,
         ):
             app = create_app()
@@ -419,7 +419,7 @@ class TestDecisionRecord:
         """Record writes an audit-log entry (dual-write)."""
         (tmp_path / ".ai-engineering" / "state").mkdir(parents=True)
         with patch(
-            "ai_engineering.cli_commands.decisions_cmd._project_root",
+            "ai_engineering.cli_commands.decisions_cmd.find_project_root",
             return_value=tmp_path,
         ):
             app = create_app()

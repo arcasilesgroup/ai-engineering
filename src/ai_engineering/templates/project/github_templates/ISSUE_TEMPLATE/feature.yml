@@ -1,6 +1,7 @@
 name: Feature Request
 description: Propose a new feature or enhancement
-labels: ["enhancement", "needs-triage"]
+labels: ["type:feature", "needs-triage"]
+type: Feature
 body:
   - type: markdown
     attributes:
@@ -22,10 +23,49 @@ body:
     validations:
       required: true
   - type: textarea
-    id: alternatives
+    id: acceptance
     attributes:
-      label: Alternatives Considered
-      description: Other approaches you considered.
+      label: Acceptance Criteria
+      description: Verifiable conditions for "done".
+      placeholder: |
+        - [ ] Criterion 1
+        - [ ] Criterion 2
+    validations:
+      required: true
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      description: Impact level following the project priority mapping.
+      options:
+        - P0 — Outage / data loss (same day SLA)
+        - P1 — Blocking workflow (3 days SLA)
+        - P2 — Normal (next sprint SLA)
+    validations:
+      required: true
+  - type: dropdown
+    id: size
+    attributes:
+      label: Size
+      description: Estimated effort.
+      options:
+        - XS (< 30min)
+        - S (< 1h)
+        - M (1-4h)
+        - L (4-8h)
+        - XL (> 8h)
+    validations:
+      required: true
+  - type: dropdown
+    id: pipeline
+    attributes:
+      label: Pipeline Strategy
+      description: Auto-classified from change type. Override if needed.
+      options:
+        - full (features, refactors, >3 files)
+        - standard (enhancements, 3-5 files)
+        - hotfix (bug fixes, <3 files)
+        - trivial (typos, single-line)
     validations:
       required: false
   - type: dropdown
@@ -42,6 +82,21 @@ body:
         - Infrastructure (CI/CD, hooks)
     validations:
       required: true
+  - type: input
+    id: spec-url
+    attributes:
+      label: Spec URL
+      description: Full GitHub URL to the related spec, if applicable.
+      placeholder: "https://github.com/arcasilesgroup/ai-engineering/blob/main/.ai-engineering/context/specs/036-platform-runbooks/spec.md"
+    validations:
+      required: false
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: Other approaches you considered.
+    validations:
+      required: false
   - type: textarea
     id: context
     attributes:

@@ -1,6 +1,7 @@
 ---
 name: plan
 description: "Advisory planning: discover requirements, assess risks, recommend pipeline. Zero writes."
+argument-hint: "[topic]"
 metadata:
   version: 1.0.0
   tags: [planning, discovery, risk, advisory]
@@ -37,6 +38,7 @@ Use these rules as the single source of truth for planning behavior shared by sk
 - **PLAN-R2 (Discovery evidence):** gather evidence from active spec, code/tests, decision store, and contracts; label findings as `KNOWN`, `ASSUMED`, or `UNKNOWN`.
 - **PLAN-R3 (Architecture depth):** for `full`/`standard`, include components, integration points, and cross-cutting concerns.
 - **PLAN-R4 (Risk dimensions):** assess complexity, security, compatibility, and governance compliance.
+- **PLAN-R5 (Interrogation):** for `full`/`standard` pipelines, explore the codebase and ask clarifying questions ONE AT A TIME before classification. Map all findings as `KNOWN`/`ASSUMED`/`UNKNOWN`. Do not proceed to spec creation with unresolved `UNKNOWN` items.
 - **PLAN-B1 (No execution while planning):** planning outputs analysis/plans only; do not execute implementation/release tasks.
 
 ## Procedure
@@ -137,6 +139,5 @@ Actions:
 ## References
 
 - `agents/plan.md` — full planning agent (creates specs, produces execution plan)
-- `agents/execute.md` — execution agent (reads plan, dispatches agents)
 - `skills/discover/SKILL.md` — detailed discovery interrogation
 - `skills/risk/SKILL.md` — formal risk acceptance lifecycle

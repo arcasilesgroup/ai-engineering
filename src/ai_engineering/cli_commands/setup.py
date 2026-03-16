@@ -261,7 +261,7 @@ def _run_sonar_setup(
     sonar = SonarSetup(cred_svc)
 
     # 1. Get Sonar URL.
-    url = url_override or _read_sonar_url_from_properties(root)
+    url = url_override or _read_sonar_property(root, "sonar.host.url")
     if not url:
         url = typer.prompt(
             "  Sonar server base URL (e.g. https://sonarcloud.io)",
@@ -290,8 +290,8 @@ def _run_sonar_setup(
     success("Token stored in OS secret store")
 
     # 6. Get project key.
-    project_key = project_key_override or _read_sonar_project_key(root) or ""
-    organization = organization_override or _read_sonar_organization(root) or ""
+    project_key = project_key_override or _read_sonar_property(root, "sonar.projectKey") or ""
+    organization = organization_override or _read_sonar_property(root, "sonar.organization") or ""
 
     # 7. Update tools.json state.
     state = cred_svc.load_tools_state(_state_dir(root))
@@ -310,46 +310,15 @@ def _run_sonar_setup(
     success("State saved to tools.json")
 
 
-def _read_sonar_url_from_properties(root: Path) -> str:
-    """Read the Sonar server URL from ``sonar-project.properties`` if present."""
-    props_file = root / "sonar-project.properties"
-    if not props_file.is_file():
-        return ""
-    try:
-        for line in props_file.read_text(encoding="utf-8").splitlines():
-            if line.startswith("sonar.host.url="):
-                return line.split("=", 1)[1].strip()
-    except OSError:
-        pass
-    return ""
-
-
-def _read_sonar_project_key(root: Path) -> str:
-    """Read the Sonar project key from ``sonar-project.properties`` if present."""
-    props_file = root / "sonar-project.properties"
-    if not props_file.is_file():
-        return ""
-    try:
-        for line in props_file.read_text(encoding="utf-8").splitlines():
-            if line.startswith("sonar.projectKey="):
-                return line.split("=", 1)[1].strip()
-    except OSError:
-        pass
-    return ""
-
-
-def _read_sonar_organization(root: Path) -> str:
-    """Read Sonar organization from ``sonar-project.properties`` if present."""
-    props_file = root / "sonar-project.properties"
-    if not props_file.is_file():
-        return ""
-    try:
-        for line in props_file.read_text(encoding="utf-8").splitlines():
-            if line.startswith("sonar.organization="):
-                return line.split("=", 1)[1].strip()
-    except OSError:
-        pass
-    return ""
+def _read_sonar_property(root: Path, key: str) -> str | None:
+    """Read a property value from ``sonar-project.properties``."""
+    props = root / "sonar-project.properties"
+    if not props.exists():
+        return None
+    for line in props.read_text(encoding="utf-8").splitlines():
+        if line.startswith(f"{key}="):
+            return line.split("=", 1)[1].strip()
+    return None
 
 
 # ------------------------------------------------------------------
@@ -483,8 +452,12 @@ def _run_sonarlint_setup(
     cred_svc = CredentialService()
     state = cred_svc.load_tools_state(_state_dir(root))
 
-    sonar_url = url_override or state.sonar.url or _read_sonar_url_from_properties(root)
-    project_key = project_key_override or state.sonar.project_key or _read_sonar_project_key(root)
+    sonar_url = url_override or state.sonar.url or _read_sonar_property(root, "sonar.host.url")
+    project_key = (
+        project_key_override
+        or state.sonar.project_key
+        or _read_sonar_property(root, "sonar.projectKey")
+    )
 
     if not sonar_url:
         warning("No Sonar server URL configured.")

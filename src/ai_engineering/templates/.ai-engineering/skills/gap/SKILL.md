@@ -1,9 +1,10 @@
 ---
 name: gap
-description: "Detect spec-vs-code gaps and wiring gaps (implemented but disconnected code): unimplemented features, dead specs, acceptance criteria coverage, disconnected implementations."
+description: "Detect spec-vs-code gaps, wiring gaps, and correctness gaps: unimplemented features, dead specs, disconnected implementations, PR-vs-code mismatches."
+argument-hint: "all|feature|wiring|coverage|correctness"
 metadata:
-  version: 1.1.0
-  tags: [scanning, gap-analysis, specs, verification, features, wiring, dead-code-functional]
+  version: 1.2.0
+  tags: [scanning, gap-analysis, specs, verification, features, wiring, dead-code-functional, correctness]
   ai-engineering:
     scope: read-only
     token_estimate: 800
@@ -48,6 +49,13 @@ Detect gaps between specifications and implementation, AND between implementatio
    - CLI commands defined but not registered in command registry
    - Category: **Disconnected** (implemented, not wired)
 
+5.6. **Detect correctness gaps** -- verify that claimed behavior matches actual implementation:
+   - Compare PR description or spec claims against the actual code changes
+   - Verify that stated behavior is actually implemented (not just scaffolded)
+   - Check that integration boundaries work as described (APIs called, events emitted, data flows connected)
+   - Flag gaps between claimed and actual behavior
+   - Category: **Correctness** (claimed, not delivered)
+
 6. **Report** -- uniform scan output contract with score 0-100 and findings.
 
 ## Output
@@ -66,6 +74,9 @@ Detect gaps between specifications and implementation, AND between implementatio
 
 ## Wiring Matrix
 | Implementation | Type | Expected Consumer | Connected | Status |
+
+## Correctness Matrix
+| Claim (PR/Spec) | Expected Behavior | Actual Code | Verified | Status |
 ```
 
 ## Framework Self-Audit Mode

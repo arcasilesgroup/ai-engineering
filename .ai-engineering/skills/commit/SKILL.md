@@ -1,6 +1,7 @@
 ---
 name: commit
 description: "Execute governed commit workflow: stage, lint, secret-detect, commit, and push current branch."
+argument-hint: "--only|[msg]"
 metadata:
   version: 1.0.0
   tags: [git, commit, push, hooks]
@@ -70,6 +71,11 @@ Execute the `/commit` governed workflow: stage all changes, run mandatory pre-co
        - `"pr"`: create branch, commit changes, push, create PR with auto-complete (use VCS-appropriate CLI), report PR URL.
        - `"push"`: commit changes, push directly to main branch.
      - Report what was updated and where.
+   e. **Governance documentation gate** — if staged changes include files in `.ai-engineering/agents/`, `.ai-engineering/skills/`, `.ai-engineering/standards/`, or `.ai-engineering/runbooks/`:
+   - Update `.ai-engineering/README.md` to reflect current governance structure (agents, skills, workflow).
+   - Mirror the updated file to `src/ai_engineering/templates/.ai-engineering/README.md`.
+   - Stage both files.
+   - If no governance content changes detected, skip silently.
 6. **Spec verify** — if an active spec exists, run `ai-eng spec verify` to auto-correct task counters before committing.
 7. **Commit** — `git commit -m "<message>"` with a well-formed commit message following project conventions.
    - If active spec exists, use format: `spec-NNN: Task X.Y — <description>`.
@@ -114,4 +120,4 @@ Actions:
 - `skills/changelog/SKILL.md` — changelog entry formatting (used by documentation gate).
 - `skills/document/SKILL.md` — README and documentation update procedure for OSS GitHub users (used by documentation gate).
 - `skills/pr/SKILL.md` — PR workflow.
-- `agents/ship.md` — agent that validates commit workflow execution.
+- `agents/operate.md` — agent that validates commit workflow execution.

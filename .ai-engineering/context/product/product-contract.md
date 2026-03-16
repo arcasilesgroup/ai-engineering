@@ -104,7 +104,7 @@ flowchart TB
 | Governance/Enforcement | Risk acceptance lifecycle with severity-based expiry | P0 | Done |
 | **Health/Diagnostics** | `ai-eng doctor` with auto-fix for hooks and tools | P0 | Done |
 | Health/Diagnostics | Readiness checks per stack | P1 | Done |
-| **Content Integrity** | 6-category validation (mirror, counters, frontmatter, references, orphans, ownership) | P0 | Done |
+| **Content Integrity** | 7-category validation (file-existence, mirror-sync, counter-accuracy, cross-reference, instruction-consistency, manifest-coherence, skill-frontmatter) | P0 | Done |
 | **Release** | SemVer release with changelog, PR, tag, pipeline monitor | P0 | Done |
 | Release | Governed PR workflow with auto-complete squash merge | P0 | Done |
 | **VCS/Platforms** | GitHub and Azure DevOps provider detection and auth | P0 | Done |
@@ -115,47 +115,47 @@ flowchart TB
 | **Knowledge Ops** | Spec lifecycle (verify, catalog, list, compact) | P0 | Done |
 | Knowledge Ops | Decision store with context hashing and reprompt conditions | P0 | Done |
 | Knowledge Ops | Session checkpoint save/load for recovery | P0 | Done |
-| **AI Ecosystem** | 40 procedural skills in flat organization | P0 | Active |
-| AI Ecosystem | 10 role-based agents with behavioral contracts | P0 | Active |
+| **AI Ecosystem** | 38 procedural skills in flat organization | P0 | Active |
+| AI Ecosystem | 8 role-based agents with behavioral contracts | P0 | Active |
 | AI Ecosystem | Multi-provider adapters (Claude Code, Copilot, Gemini, Codex) | P0 | Done |
 | AI Ecosystem | Governed parallel execution with phase gates | P1 | Active |
 
-#### Skills (40)
+#### Skills (38)
 
 Path: `.ai-engineering/skills/<name>/SKILL.md` (flat organization, no category subdirectories)
 
 | Domain | Skills |
 |--------|--------|
 | Planning | discover, plan, contract, spec, cleanup, explain |
-| Build | code, test, debug, refactor, simplify, api, cli, schema, pipeline, infra, migrate |
+| Build | code, test, debug, refactor, simplify, api, schema, pipeline, infra, migrate |
 | Verify | security, quality, governance, architecture, performance, accessibility, gap |
 | Ship | commit, pr, release, changelog, triage |
 | Write | document |
 | Observe | dashboard, evolve |
 | Guard | guard |
-| Guide | guide, onboard |
+| Guide | onboard |
 | Execute | dispatch |
 | Operate | ops |
 | Governance | risk, standards, lifecycle |
 
+> Note: `cli` skill absorbed into `code`. `guide` is agent-only (no canonical SKILL.md).
+
 Slash commands: `/ai:<name>` for all skills and agents.
 
-#### Agents (10)
+#### Agents (8)
 
 Path: `.ai-engineering/agents/<name>.md`
 
 | Agent | Purpose | Scope |
 |-------|---------|-------|
 | plan | Planning pipeline, spec creation -- STOPS before execution | read-write |
-| execute | Dispatch agents, coordinate, checkpoint, report | read-write |
 | guard | Proactive governance advisory during development | read-only + decision-store |
 | build | Implementation across 20 stacks (ONLY code write agent) | read-write |
 | verify | 7-mode assessment: governance, security, quality, perf, accessibility, architecture, gap | read-write (work items) |
-| ship | ALM lifecycle: commit, PR, release, triage, deploy | read-write |
-| observe | Observability: 5 modes + DORA + health + self-improvement (evolve) | read-only |
 | guide | Developer growth: teach, onboard, explain, tour | read-only |
-| write | Documentation (generate/simplify modes) | read-write (docs only) |
 | operate | SRE: runbook execution, incident response, operational health | read-write (issues only) |
+| explorer | Context gatherer: codebase navigation, dependency mapping, architecture discovery | read-only |
+| simplifier | Background code cleaner: reduce complexity, guard clauses, early returns, dead code removal | read-write |
 
 #### Python CLI (`ai-eng`)
 
@@ -278,7 +278,7 @@ flowchart LR
 | VCS | Provider factory, GitHub, Azure DevOps | gh CLI, az CLI, keyring |
 | Release | Orchestrator, changelog, PR | VCS providers, SemVer |
 | Observe | Signals, dashboards, metrics | audit-log.ndjson, Rich tables |
-| Validator | 6-category integrity checks | File-based, content hashing |
+| Validator | 7-category integrity checks | File-based, content hashing |
 | Maintenance | Health reports, branch cleanup, spec reset | git, VCS APIs |
 
 ### 3.2 Environments
@@ -395,7 +395,7 @@ mindmap
 | Hook hash mismatch | `runbooks/hook-integrity.md` | Developer | Auto (`ai-eng doctor --fix-hooks`) |
 | Missing tool | `runbooks/tool-install.md` | Developer | Auto (`ai-eng doctor --fix-tools`) |
 | Risk acceptance expiring | `runbooks/risk-expiry.md` | Team Lead | Manual (renew or remediate) |
-| CI pipeline failure | `runbooks/ci-fixer.md` | Developer | Semi-auto (runbook-guided) |
+| CI pipeline failure | `runbooks/incident-response.md` | Developer | Semi-auto (runbook-guided) |
 | Spec staleness | `runbooks/spec-hygiene.md` | Plan agent | Auto (`maintenance spec-reset`) |
 
 ## 5. Security
@@ -540,9 +540,9 @@ sequenceDiagram
 
 | Dimension | Current | Target | Strategy |
 |-----------|---------|--------|----------|
-| Skills | 40 | 50+ | Flat organization, remote skill sources |
+| Skills | 38 | 50+ | Flat organization, remote skill sources |
 | Stacks | 3 (Python, .NET, Next.js) | 14+ | Stack-aware enforcement, pluggable checks |
-| Agents | 10 | 15+ | Capability-task matching, parallel execution |
+| Agents | 8 | 15+ | Capability-task matching, parallel execution |
 | Repos governed | 1 (dogfooding) | N | PyPI distribution, `ai-eng install .` |
 | AI providers | 4 | N | File-based adapters, no provider-specific code |
 
@@ -554,7 +554,7 @@ sequenceDiagram
 |-------|------------|--------|
 | Phase 1 -- MVP | Core governance, hooks, CLI, state | Delivered |
 | Phase 2 -- Dogfooding | Signature enforcement, IDE adapters, SAST remediation to zero medium+ | Delivered |
-| Phase 3 -- Architecture v3 | 10 agents, 40 skills, guard/guide/operate agents, skill domain restructure, parallel orchestration | In Progress |
+| Phase 3 -- Architecture v3 | 8 agents, 38 skills, guard/guide/operate/explorer/simplifier agents, skill domain restructure, parallel orchestration | In Progress |
 | Phase 4 -- Release Readiness | Docs site (Nextra), PyPI stable release, remote skill sources | Planned |
 
 **Blockers**: Architecture v3 restructure must complete before 0.3.0 release.
@@ -579,8 +579,8 @@ sequenceDiagram
 | Test coverage | 80% | 91% |
 | Cross-OS CI matrix | 3x3 green | Stabilizing |
 | Token efficiency | >= 95% deferred | 99.19% |
-| Skills count | 40 | 40 |
-| Agents count | 10 | 10 |
+| Skills count | 38 | 38 |
+| Agents count | 8 | 8 |
 
 ### 7.4 Active Spec
 
@@ -595,5 +595,5 @@ Catalog: `context/specs/_catalog.md`.
 | RISK-001 | 7 semgrep findings blocking 0.2.0 release | High | DevSecOps | 30 days |
 | RISK-002 | `ty check` reports 84 diagnostics (non-blocking but technical debt) | Medium | Build | 60 days |
 | RISK-003 | Cross-OS CI matrix not fully green | Medium | Build | 60 days |
-| RISK-004 | Architecture v3 restructure: 3 new agents (guard, guide, operate) need behavioral contracts and testing | Medium | Build | 60 days |
-| RISK-005 | Skill rename/split (35 to 40) may break existing slash command references in user workflows | Medium | Build | 30 days |
+| RISK-004 | Architecture v3 restructure: 2 new agents (explorer, simplifier) need behavioral contracts and testing | Medium | Build | 60 days |
+| RISK-005 | Skill consolidation (40 to 38) and agent reduction (10 to 8) may break existing slash command references in user workflows | Medium | Build | 30 days |

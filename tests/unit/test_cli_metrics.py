@@ -54,7 +54,7 @@ class TestMetricsCollect:
         """When no audit log exists, metrics returns zero counts."""
         (tmp_path / ".ai-engineering").mkdir(parents=True)
         with patch(
-            "ai_engineering.cli_commands.metrics._project_root",
+            "ai_engineering.cli_commands.metrics.find_project_root",
             return_value=tmp_path,
         ):
             app = create_app()
@@ -78,7 +78,7 @@ class TestMetricsCollect:
             ],
         )
         with patch(
-            "ai_engineering.cli_commands.metrics._project_root",
+            "ai_engineering.cli_commands.metrics.find_project_root",
             return_value=tmp_path,
         ):
             app = create_app()
@@ -113,7 +113,7 @@ class TestMetricsCollect:
             ],
         )
         with patch(
-            "ai_engineering.cli_commands.metrics._project_root",
+            "ai_engineering.cli_commands.metrics.find_project_root",
             return_value=tmp_path,
         ):
             app = create_app()
@@ -135,7 +135,7 @@ class TestMetricsCollect:
             ],
         )
         with patch(
-            "ai_engineering.cli_commands.metrics._project_root",
+            "ai_engineering.cli_commands.metrics.find_project_root",
             return_value=tmp_path,
         ):
             app = create_app()
@@ -159,7 +159,7 @@ class TestMetricsCollect:
             ],
         )
         with patch(
-            "ai_engineering.cli_commands.metrics._project_root",
+            "ai_engineering.cli_commands.metrics.find_project_root",
             return_value=tmp_path,
         ):
             app = create_app()
@@ -173,7 +173,7 @@ class TestMetricsCollect:
         """Output contains a generated_at timestamp."""
         (tmp_path / ".ai-engineering").mkdir(parents=True)
         with patch(
-            "ai_engineering.cli_commands.metrics._project_root",
+            "ai_engineering.cli_commands.metrics.find_project_root",
             return_value=tmp_path,
         ):
             app = create_app()
@@ -208,7 +208,7 @@ class TestMetricsCollect:
             ],
         )
         with patch(
-            "ai_engineering.cli_commands.metrics._project_root",
+            "ai_engineering.cli_commands.metrics.find_project_root",
             return_value=tmp_path,
         ):
             app = create_app()
@@ -234,7 +234,7 @@ class TestMetricsCollect:
             ],
         )
         with patch(
-            "ai_engineering.cli_commands.metrics._project_root",
+            "ai_engineering.cli_commands.metrics.find_project_root",
             return_value=tmp_path,
         ):
             app = create_app()
@@ -249,7 +249,7 @@ class TestMetricsCollect:
         """The output is well-formed JSON with expected top-level keys."""
         (tmp_path / ".ai-engineering").mkdir(parents=True)
         with patch(
-            "ai_engineering.cli_commands.metrics._project_root",
+            "ai_engineering.cli_commands.metrics.find_project_root",
             return_value=tmp_path,
         ):
             app = create_app()

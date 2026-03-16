@@ -1,6 +1,7 @@
 ---
 name: quality
 description: "Unified quality assessment: coverage, complexity, duplication, code review. Modes: code | sonar | review | docs."
+argument-hint: "all|code|sonar|review|docs"
 metadata:
   version: 2.0.0
   tags: [quality, coverage, complexity, duplication, review, sonar]

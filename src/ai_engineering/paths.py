@@ -52,3 +52,17 @@ def state_dir(project_root: Path) -> Path:
         Path to the ``.ai-engineering/state`` directory.
     """
     return project_root / ".ai-engineering" / "state"
+
+
+def find_project_root() -> Path:
+    """Walk up from cwd to find the project root containing ``.ai-engineering/``.
+
+    Returns:
+        The nearest ancestor directory containing ``.ai-engineering/``,
+        or cwd if none found.
+    """
+    cwd = Path.cwd()
+    for parent in [cwd, *cwd.parents]:
+        if (parent / ".ai-engineering").is_dir():
+            return parent
+    return cwd

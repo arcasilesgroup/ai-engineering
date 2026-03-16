@@ -27,7 +27,7 @@ class TestCheckpointSave:
         """Save with default (empty) options creates the checkpoint file."""
         (tmp_path / ".ai-engineering").mkdir(parents=True)
         with patch(
-            "ai_engineering.cli_commands.checkpoint._project_root",
+            "ai_engineering.cli_commands.checkpoint.find_project_root",
             return_value=tmp_path,
         ):
             app = create_app()
@@ -46,7 +46,7 @@ class TestCheckpointSave:
         """Save with all options populates the checkpoint fields."""
         (tmp_path / ".ai-engineering").mkdir(parents=True)
         with patch(
-            "ai_engineering.cli_commands.checkpoint._project_root",
+            "ai_engineering.cli_commands.checkpoint.find_project_root",
             return_value=tmp_path,
         ):
             app = create_app()
@@ -86,7 +86,7 @@ class TestCheckpointSave:
         (tmp_path / ".ai-engineering").mkdir(parents=True)
         # state/ dir does not exist yet
         with patch(
-            "ai_engineering.cli_commands.checkpoint._project_root",
+            "ai_engineering.cli_commands.checkpoint.find_project_root",
             return_value=tmp_path,
         ):
             app = create_app()
@@ -103,7 +103,7 @@ class TestCheckpointSave:
         cp_path.write_text(json.dumps({"spec_id": "old"}), encoding="utf-8")
 
         with patch(
-            "ai_engineering.cli_commands.checkpoint._project_root",
+            "ai_engineering.cli_commands.checkpoint.find_project_root",
             return_value=tmp_path,
         ):
             app = create_app()
@@ -116,7 +116,7 @@ class TestCheckpointSave:
         """When --blocked-on is not given, blocked_on is null."""
         (tmp_path / ".ai-engineering").mkdir(parents=True)
         with patch(
-            "ai_engineering.cli_commands.checkpoint._project_root",
+            "ai_engineering.cli_commands.checkpoint.find_project_root",
             return_value=tmp_path,
         ):
             app = create_app()
@@ -131,7 +131,7 @@ class TestCheckpointSave:
         (tmp_path / ".ai-engineering").mkdir(parents=True)
         with (
             patch(
-                "ai_engineering.cli_commands.checkpoint._project_root",
+                "ai_engineering.cli_commands.checkpoint.find_project_root",
                 return_value=tmp_path,
             ),
             patch(
@@ -157,7 +157,7 @@ class TestCheckpointSave:
         (tmp_path / ".ai-engineering").mkdir(parents=True)
         with (
             patch(
-                "ai_engineering.cli_commands.checkpoint._project_root",
+                "ai_engineering.cli_commands.checkpoint.find_project_root",
                 return_value=tmp_path,
             ),
             patch(
@@ -177,7 +177,7 @@ class TestCheckpointLoad:
         """When no checkpoint file exists, report starting fresh."""
         (tmp_path / ".ai-engineering").mkdir(parents=True)
         with patch(
-            "ai_engineering.cli_commands.checkpoint._project_root",
+            "ai_engineering.cli_commands.checkpoint.find_project_root",
             return_value=tmp_path,
         ):
             app = create_app()
@@ -202,7 +202,7 @@ class TestCheckpointLoad:
         )
 
         with patch(
-            "ai_engineering.cli_commands.checkpoint._project_root",
+            "ai_engineering.cli_commands.checkpoint.find_project_root",
             return_value=tmp_path,
         ):
             app = create_app()
@@ -223,7 +223,7 @@ class TestCheckpointLoad:
         (state_dir / "session-checkpoint.json").write_text("THIS IS NOT JSON", encoding="utf-8")
 
         with patch(
-            "ai_engineering.cli_commands.checkpoint._project_root",
+            "ai_engineering.cli_commands.checkpoint.find_project_root",
             return_value=tmp_path,
         ):
             app = create_app()
@@ -237,7 +237,7 @@ class TestCheckpointLoad:
         (state_dir / "session-checkpoint.json").write_text(json.dumps({}), encoding="utf-8")
 
         with patch(
-            "ai_engineering.cli_commands.checkpoint._project_root",
+            "ai_engineering.cli_commands.checkpoint.find_project_root",
             return_value=tmp_path,
         ):
             app = create_app()
@@ -251,7 +251,7 @@ class TestCheckpointLoad:
         """Save with --agent stores entry under agents.<name> and top-level."""
         (tmp_path / ".ai-engineering").mkdir(parents=True)
         with patch(
-            "ai_engineering.cli_commands.checkpoint._project_root",
+            "ai_engineering.cli_commands.checkpoint.find_project_root",
             return_value=tmp_path,
         ):
             app = create_app()
@@ -284,7 +284,7 @@ class TestCheckpointLoad:
         """Saving for agent A then agent B preserves both."""
         (tmp_path / ".ai-engineering").mkdir(parents=True)
         with patch(
-            "ai_engineering.cli_commands.checkpoint._project_root",
+            "ai_engineering.cli_commands.checkpoint.find_project_root",
             return_value=tmp_path,
         ):
             app = create_app()
@@ -332,7 +332,7 @@ class TestCheckpointLoad:
         )
 
         with patch(
-            "ai_engineering.cli_commands.checkpoint._project_root",
+            "ai_engineering.cli_commands.checkpoint.find_project_root",
             return_value=tmp_path,
         ):
             app = create_app()
@@ -366,7 +366,7 @@ class TestCheckpointLoad:
         )
 
         with patch(
-            "ai_engineering.cli_commands.checkpoint._project_root",
+            "ai_engineering.cli_commands.checkpoint.find_project_root",
             return_value=tmp_path,
         ):
             app = create_app()
@@ -380,7 +380,7 @@ class TestCheckpointLoad:
         """Save followed by load produces consistent output."""
         (tmp_path / ".ai-engineering").mkdir(parents=True)
         with patch(
-            "ai_engineering.cli_commands.checkpoint._project_root",
+            "ai_engineering.cli_commands.checkpoint.find_project_root",
             return_value=tmp_path,
         ):
             app = create_app()

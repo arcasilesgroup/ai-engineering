@@ -1,7 +1,7 @@
 """CLI command for content-integrity validation.
 
 Provides the ``ai-eng validate`` command that runs programmatic checks
-across all 6 content-integrity categories.
+across all 7 content-integrity categories.
 """
 
 from __future__ import annotations

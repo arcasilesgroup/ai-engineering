@@ -139,7 +139,6 @@ TEST_SCOPE_RULES: list[ScopeRule] = [
                 "tests/unit/test_spec_cmd.py",
                 "tests/unit/test_observe_dashboards.py",
                 "tests/unit/test_workflow_cmd.py",
-                "tests/unit/test_governance_cmd.py",
             ],
             "integration": [
                 "tests/integration/test_cli_command_modules.py",
@@ -334,6 +333,21 @@ TEST_SCOPE_RULES: list[ScopeRule] = [
                 "tests/unit/test_validator.py",
                 "tests/unit/test_validator_extra.py",
                 "tests/unit/test_skill_schema_validation.py",
+                "tests/unit/test_agent_schema_validation.py",
+                "tests/unit/test_real_project_integrity.py",
+                "tests/unit/test_sync_mirrors.py",
+            ],
+            "integration": [],
+            "e2e": [],
+        },
+    ),
+    ScopeRule(
+        name="verify",
+        source_globs=["src/ai_engineering/verify/**/*.py"],
+        tiers={
+            "unit": [
+                "tests/unit/test_verify_scoring.py",
+                "tests/unit/test_verify_service.py",
             ],
             "integration": [],
             "e2e": [],

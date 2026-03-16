@@ -122,19 +122,19 @@ telemetry:
 # ══════════════════════════════════════════════════════════════════════════════
 
 schema_version: "2.0"
-framework_version: "0.3.0"
+framework_version: "0.4.0"
 
 update_metadata:
-  rationale: "architecture v3: 10 agents, 40 skills, guard integration, self-improvement mechanism"
-  expected_gain: "clean-sheet architecture with guard advisory, operate runbooks, guide onboarding, and self-improvement via evolve"
-  potential_impact: "3 new agents (guard, guide, operate), 7 new skills, 2 agent renames (scan→verify, release→ship), 11 skill renames"
+  rationale: "architecture v3.1: 8 agents, 38 skills — consolidated surface with explorer for context gathering and simplifier for background cleanup"
+  expected_gain: "leaner agent surface (removed execute/ship/observe/write), explorer agent for deep codebase research, simplifier agent for automated code cleanup"
+  potential_impact: "removed 4 agents (execute, ship, observe, write), added 2 agents (explorer, simplifier), removed 2 skills (cli absorbed into code, guide became agent-only)"
 
 governance_surface:
   agents:
-    total: 10
-    names: [plan, execute, guard, build, verify, ship, observe, guide, write, operate]
+    total: 8
+    names: [plan, build, verify, guard, guide, operate, explorer, simplifier]
   skills:
-    total: 40
+    total: 38
     organization: flat
     prefix: "ai:"
   integrity:
@@ -175,7 +175,8 @@ ownership:
     - ".github/pull_request_template.md"
     - ".agents/**"
     - ".claude/settings.json"
-    - ".claude/commands/**"
+    - ".claude/skills/**"
+    - ".claude/agents/**"
 
 standards:
   precedence:

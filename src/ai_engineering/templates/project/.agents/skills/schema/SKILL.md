@@ -1,0 +1,7 @@
+---
+name: schema
+description: "Database engineering: schema design, data modeling, safe migrations, query optimization, data lifecycle. Absorbs data-model skill."
+---
+
+Read and execute the skill defined in `.ai-engineering/skills/schema/SKILL.md`.
+Follow the complete procedure. Do not skip steps. Apply all governance notes.

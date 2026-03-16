@@ -1,6 +1,7 @@
 ---
 name: pr
 description: "Execute governed PR workflow: shared commit pipeline, pre-push gates, create pull request with auto-complete squash merge."
+argument-hint: "review|create|update"
 metadata:
   version: 3.0.0
   tags: [git, pull-request, ci, merge]
@@ -49,6 +50,7 @@ Execute the `/pr` governed workflow: run the shared commit pipeline (from `commi
    - If staged changes include `src/` or `.ai-engineering/` files (excluding `state/`):
      - CHANGELOG.md MUST be in the staged files. If not: STOP and run step 5 (doc gate).
      - For governance content changes (agents/, skills/, standards/): README.md SHOULD be staged.
+     - For governance content changes (agents/, skills/, standards/, runbooks/): `.ai-engineering/README.md` SHOULD be staged and mirrored to `src/ai_engineering/templates/.ai-engineering/README.md`.
    - This is a safety net — if step 5 was followed correctly, this always passes.
 
 7. **Pre-push checks** — execute full pre-push gate:
@@ -148,4 +150,4 @@ Actions:
 - `skills/document/SKILL.md` — README and documentation updates.
 - `standards/framework/core.md` — non-negotiables and enforcement rules.
 - `standards/framework/quality/core.md` — gate structure.
-- `agents/ship.md` — agent that validates PR workflow execution.
+- `agents/operate.md` — agent that validates PR workflow execution.

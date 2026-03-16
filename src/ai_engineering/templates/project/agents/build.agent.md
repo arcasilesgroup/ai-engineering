@@ -1,6 +1,8 @@
 ---
 name: "Build"
 description: "Implementation across all stacks — the only code write agent"
+model: opus
+color: green
 tools: [codebase, editFiles, fetch, githubRepo, problems, readFile, runCommands, search, terminalLastCommand, testFailures]
 ---
 

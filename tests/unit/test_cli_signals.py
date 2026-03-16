@@ -57,7 +57,7 @@ class TestSignalsEmit:
         """Emit a simple event and verify it was written to the audit log."""
         (tmp_path / ".ai-engineering" / "state").mkdir(parents=True)
         with patch(
-            "ai_engineering.cli_commands.signals_cmd._project_root",
+            "ai_engineering.cli_commands.signals_cmd.find_project_root",
             return_value=tmp_path,
         ):
             app = create_app()
@@ -79,7 +79,7 @@ class TestSignalsEmit:
         """Emit with custom --actor flag."""
         (tmp_path / ".ai-engineering" / "state").mkdir(parents=True)
         with patch(
-            "ai_engineering.cli_commands.signals_cmd._project_root",
+            "ai_engineering.cli_commands.signals_cmd.find_project_root",
             return_value=tmp_path,
         ):
             app = create_app()
@@ -95,7 +95,7 @@ class TestSignalsEmit:
         (tmp_path / ".ai-engineering" / "state").mkdir(parents=True)
         detail = json.dumps({"result": "pass", "score": 100})
         with patch(
-            "ai_engineering.cli_commands.signals_cmd._project_root",
+            "ai_engineering.cli_commands.signals_cmd.find_project_root",
             return_value=tmp_path,
         ):
             app = create_app()
@@ -114,7 +114,7 @@ class TestSignalsEmit:
         """Emit with --spec associates the event to a spec."""
         (tmp_path / ".ai-engineering" / "state").mkdir(parents=True)
         with patch(
-            "ai_engineering.cli_commands.signals_cmd._project_root",
+            "ai_engineering.cli_commands.signals_cmd.find_project_root",
             return_value=tmp_path,
         ):
             app = create_app()
@@ -132,7 +132,7 @@ class TestSignalsEmit:
         """Invalid JSON in --detail produces exit code 1."""
         (tmp_path / ".ai-engineering" / "state").mkdir(parents=True)
         with patch(
-            "ai_engineering.cli_commands.signals_cmd._project_root",
+            "ai_engineering.cli_commands.signals_cmd.find_project_root",
             return_value=tmp_path,
         ):
             app = create_app()
@@ -146,7 +146,7 @@ class TestSignalsEmit:
         """Emit with empty detail JSON {} stores no detail (None)."""
         (tmp_path / ".ai-engineering" / "state").mkdir(parents=True)
         with patch(
-            "ai_engineering.cli_commands.signals_cmd._project_root",
+            "ai_engineering.cli_commands.signals_cmd.find_project_root",
             return_value=tmp_path,
         ):
             app = create_app()
@@ -169,7 +169,7 @@ class TestSignalsQuery:
         """When no audit log exists, report no events."""
         (tmp_path / ".ai-engineering").mkdir(parents=True)
         with patch(
-            "ai_engineering.cli_commands.signals_cmd._project_root",
+            "ai_engineering.cli_commands.signals_cmd.find_project_root",
             return_value=tmp_path,
         ):
             app = create_app()
@@ -188,7 +188,7 @@ class TestSignalsQuery:
             ],
         )
         with patch(
-            "ai_engineering.cli_commands.signals_cmd._project_root",
+            "ai_engineering.cli_commands.signals_cmd.find_project_root",
             return_value=tmp_path,
         ):
             app = create_app()
@@ -209,7 +209,7 @@ class TestSignalsQuery:
             ],
         )
         with patch(
-            "ai_engineering.cli_commands.signals_cmd._project_root",
+            "ai_engineering.cli_commands.signals_cmd.find_project_root",
             return_value=tmp_path,
         ):
             app = create_app()
@@ -226,7 +226,7 @@ class TestSignalsQuery:
         events = [_make_event(event=f"event_{i}", timestamp=now) for i in range(10)]
         _write_audit_log(tmp_path, events)
         with patch(
-            "ai_engineering.cli_commands.signals_cmd._project_root",
+            "ai_engineering.cli_commands.signals_cmd.find_project_root",
             return_value=tmp_path,
         ):
             app = create_app()
@@ -246,7 +246,7 @@ class TestSignalsQuery:
             ],
         )
         with patch(
-            "ai_engineering.cli_commands.signals_cmd._project_root",
+            "ai_engineering.cli_commands.signals_cmd.find_project_root",
             return_value=tmp_path,
         ):
             app = create_app()
@@ -264,7 +264,7 @@ class TestSignalsQuery:
             [_make_event(detail={"result": "pass"}, timestamp=now)],
         )
         with patch(
-            "ai_engineering.cli_commands.signals_cmd._project_root",
+            "ai_engineering.cli_commands.signals_cmd.find_project_root",
             return_value=tmp_path,
         ):
             app = create_app()
@@ -280,7 +280,7 @@ class TestSignalsQuery:
             [_make_event(detail="some detail text", timestamp=now)],
         )
         with patch(
-            "ai_engineering.cli_commands.signals_cmd._project_root",
+            "ai_engineering.cli_commands.signals_cmd.find_project_root",
             return_value=tmp_path,
         ):
             app = create_app()
@@ -296,7 +296,7 @@ class TestSignalsQuery:
             [_make_event(timestamp=now)],
         )
         with patch(
-            "ai_engineering.cli_commands.signals_cmd._project_root",
+            "ai_engineering.cli_commands.signals_cmd.find_project_root",
             return_value=tmp_path,
         ):
             app = create_app()

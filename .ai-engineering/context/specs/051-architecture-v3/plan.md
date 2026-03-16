@@ -38,7 +38,7 @@ approach: "serial-phases"
 | 12 skill directories | Rename to self-documenting names |
 | `skills/create/` + `skills/delete/` | Merge into `skills/lifecycle/` |
 | `skills/work-item/` | Rename to `skills/triage/` + refocus |
-| All 14 runbooks | Add `owner: operate` |
+| All 5 runbooks | Add `owner: operate` (consolidated from 14) |
 | `manifest.yml` | 10 agents, 40 skills |
 | `framework-contract.md` | Rewrite for v3 architecture |
 | `product-contract.md` | Rewrite for v3 |
@@ -63,7 +63,7 @@ All canonical `.ai-engineering/` content mirrors to `src/ai_engineering/template
 
 ### Phase 2: Create New Agents + Skills [L]
 - Agent: build + plan (governance)
-- Files: 3 agents, 6 skills, 14 runbooks, agent cross-references
+- Files: 3 agents, 6 skills, 5 runbooks, agent cross-references
 
 ### Phase 3: Renames [L]
 - Agent: build

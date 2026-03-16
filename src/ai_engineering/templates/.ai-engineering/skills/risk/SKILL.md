@@ -1,6 +1,7 @@
 ---
 name: risk
 description: "Manage risk acceptances: accept (record with severity/expiry), resolve (close after remediation), or renew (extend before expiry, max 2)."
+argument-hint: "accept|resolve|renew"
 metadata:
   version: 1.0.0
   tags: [governance, risk, acceptance, remediation, renewal, decision]

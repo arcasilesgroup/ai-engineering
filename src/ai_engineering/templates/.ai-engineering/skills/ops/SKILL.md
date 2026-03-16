@@ -1,6 +1,7 @@
 ---
 name: ops
 description: "Use this skill for operational automation: execute runbooks on demand, respond to incidents (gate failures, CI breaks, security findings), or check operational health status. Owns all runbooks in the framework."
+argument-hint: "all|runbook|incident|health"
 metadata:
   version: 1.0.0
   tags: [operations, sre, runbooks, incidents, automation, health, toil-reduction]
@@ -56,7 +57,7 @@ Use these rules as the single source of truth for operational behavior shared by
 
 ### Mode: run
 
-1. **Identify target runbook** -- match the user's request to a runbook in `.ai-engineering/runbooks/` (13 runbooks: `changelog-gen`, `ci-fixer`, `daily-triage`, `dep-check`, `executor`, `feature-scanner`, `issue-validate`, `perf-scanner`, `pr-review`, `scheduled-scan`, `stale-issues`, `weekly-report`, `wiring-scanner`).
+1. **Identify target runbook** -- match the user's request to a runbook in `.ai-engineering/runbooks/` (5 runbooks: `code-simplifier`, `dependency-upgrade`, `governance-drift-repair`, `incident-response`, `security-incident`).
 2. **Read runbook frontmatter** -- extract `schedule`, `layer`, `requires`, `environment`.
 3. **Verify required tools** -- for each entry in `requires`, confirm available on PATH. If missing, abort with `ai-eng doctor --fix-tools` guidance.
 4. **Execute runbook prompt** -- read the `## Prompt` section and follow each numbered step in order.
@@ -77,10 +78,10 @@ Use these rules as the single source of truth for operational behavior shared by
 
    | Type | Indicators | Applicable Runbook |
    |------|-----------|-------------------|
-   | Gate failure | Pre-commit/pre-push hook error (ruff, ty, gitleaks, pytest) | `ci-fixer.md` |
-   | CI break | GitHub Actions workflow failure | `ci-fixer.md` |
-   | Security finding | Vulnerability, secret leak, CVE | `scheduled-scan.md` + build |
-   | Dependency vuln | pip-audit finding, outdated package with CVE | `dep-check.md` |
+   | Gate failure | Pre-commit/pre-push hook error (ruff, ty, gitleaks, pytest) | `incident-response.md` |
+   | CI break | GitHub Actions workflow failure | `incident-response.md` |
+   | Security finding | Vulnerability, secret leak, CVE | `security-incident.md` + build |
+   | Dependency vuln | pip-audit finding, outdated package with CVE | `dependency-upgrade.md` |
 
 2. **Gather context** -- error output, recent changes (`git log -5 --oneline`), affected files (`git diff --name-only`), existing scan reports.
 3. **Determine severity**:

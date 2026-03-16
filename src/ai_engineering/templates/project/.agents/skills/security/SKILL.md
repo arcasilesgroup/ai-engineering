@@ -1,8 +1,7 @@
 ---
 name: security
-description: "Unified security scanning: SAST, DAST, dependency audit, SBOM"
+description: "Unified security scanning: SAST, DAST, dependency audit, SBOM generation. Modes: static | dynamic | deps | sbom."
 ---
 
-Read and execute `.ai-engineering/skills/security/SKILL.md`.
-
-Follow the complete procedure and all governance notes.
+Read and execute the skill defined in `.ai-engineering/skills/security/SKILL.md`.
+Follow the complete procedure. Do not skip steps. Apply all governance notes.

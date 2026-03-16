@@ -1,0 +1,34 @@
+# AI Engineering Framework - Code Owners
+# See https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Framework governance (framework-managed)
+/.ai-engineering/                    @arcasilesgroup/ai-engineering-maintainers
+/.ai-engineering/standards/          @arcasilesgroup/ai-engineering-maintainers
+/.ai-engineering/agents/             @arcasilesgroup/ai-engineering-maintainers
+/.ai-engineering/skills/             @arcasilesgroup/ai-engineering-maintainers
+/.ai-engineering/runbooks/           @arcasilesgroup/ai-engineering-maintainers
+
+# Core implementation
+/src/                                @arcasilesgroup/ai-engineering-maintainers
+/tests/                              @arcasilesgroup/ai-engineering-maintainers
+
+# CI/CD and workflows
+/.github/workflows/                  @arcasilesgroup/ai-engineering-maintainers
+/.github/agents/                     @arcasilesgroup/ai-engineering-maintainers
+/.github/prompts/                    @arcasilesgroup/ai-engineering-maintainers
+/.github/copilot/                    @arcasilesgroup/ai-engineering-maintainers
+/.github/instructions/               @arcasilesgroup/ai-engineering-maintainers
+
+# IDE mirror surfaces (generated — do not edit manually)
+/.claude/skills/                     @arcasilesgroup/ai-engineering-maintainers
+/.claude/agents/                     @arcasilesgroup/ai-engineering-maintainers
+/.agents/                            @arcasilesgroup/ai-engineering-maintainers
+
+# Root governance files
+/CLAUDE.md                           @arcasilesgroup/ai-engineering-maintainers
+/AGENTS.md                           @arcasilesgroup/ai-engineering-maintainers
+
+# Security-sensitive
+/.gitleaks.toml                      @arcasilesgroup/ai-engineering-maintainers
+/.semgrep.yml                        @arcasilesgroup/ai-engineering-maintainers
+/scripts/                            @arcasilesgroup/ai-engineering-maintainers

@@ -13,9 +13,7 @@ import pytest
 from typer.testing import CliRunner
 
 from ai_engineering.cli_commands.setup import (
-    _read_sonar_organization,
-    _read_sonar_project_key,
-    _read_sonar_url_from_properties,
+    _read_sonar_property,
     _state_dir,
     setup_app,
 )
@@ -62,31 +60,31 @@ class TestSonarPropertiesReaders:
     def test_read_url_from_properties(self, tmp_path: Path) -> None:
         props = tmp_path / "sonar-project.properties"
         props.write_text("sonar.host.url=https://sonarcloud.io\n", encoding="utf-8")
-        assert _read_sonar_url_from_properties(tmp_path) == "https://sonarcloud.io"
+        assert _read_sonar_property(tmp_path, "sonar.host.url") == "https://sonarcloud.io"
 
     def test_read_url_missing_file(self, tmp_path: Path) -> None:
-        assert _read_sonar_url_from_properties(tmp_path) == ""
+        assert _read_sonar_property(tmp_path, "sonar.host.url") is None
 
     def test_read_url_no_host_key(self, tmp_path: Path) -> None:
         props = tmp_path / "sonar-project.properties"
         props.write_text("sonar.projectKey=my-proj\n", encoding="utf-8")
-        assert _read_sonar_url_from_properties(tmp_path) == ""
+        assert _read_sonar_property(tmp_path, "sonar.host.url") is None
 
     def test_read_project_key(self, tmp_path: Path) -> None:
         props = tmp_path / "sonar-project.properties"
         props.write_text("sonar.projectKey=my-proj\n", encoding="utf-8")
-        assert _read_sonar_project_key(tmp_path) == "my-proj"
+        assert _read_sonar_property(tmp_path, "sonar.projectKey") == "my-proj"
 
     def test_read_project_key_missing_file(self, tmp_path: Path) -> None:
-        assert _read_sonar_project_key(tmp_path) == ""
+        assert _read_sonar_property(tmp_path, "sonar.projectKey") is None
 
     def test_read_organization(self, tmp_path: Path) -> None:
         props = tmp_path / "sonar-project.properties"
         props.write_text("sonar.organization=my-org\n", encoding="utf-8")
-        assert _read_sonar_organization(tmp_path) == "my-org"
+        assert _read_sonar_property(tmp_path, "sonar.organization") == "my-org"
 
     def test_read_organization_missing_file(self, tmp_path: Path) -> None:
-        assert _read_sonar_organization(tmp_path) == ""
+        assert _read_sonar_property(tmp_path, "sonar.organization") is None
 
 
 # ---------------------------------------------------------------

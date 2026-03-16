@@ -1,6 +1,7 @@
 ---
 name: release
 description: "Aggregated GO/NO-GO release readiness gate; use before version tagging or merge-to-main to verify all quality dimensions pass."
+argument-hint: "[version]"
 metadata:
   version: 1.0.0
   tags: [quality, release, gate, go-no-go]
@@ -141,5 +142,5 @@ Actions:
 - `skills/test/SKILL.md` — test confidence gate.
 - `skills/document/SKILL.md` — documentation coherence gate.
 - `skills/security/SKILL.md` — security enforcement gate.
-- `agents/ship.md` — orchestrator that uses this skill and command reliability source.
+- `agents/operate.md` — orchestrator that uses this skill and command reliability source.
 - `standards/framework/quality/core.md` — quality thresholds.

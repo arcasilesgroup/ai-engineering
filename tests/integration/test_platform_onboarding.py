@@ -241,13 +241,13 @@ class TestSonarPropertiesIntegration:
     """Tests for reading sonar-project.properties in setup flow."""
 
     def test_project_key_read_from_properties(self, project_root: Path) -> None:
-        from ai_engineering.cli_commands.setup import _read_sonar_project_key
+        from ai_engineering.cli_commands.setup import _read_sonar_property
 
-        key = _read_sonar_project_key(project_root)
+        key = _read_sonar_property(project_root, "sonar.projectKey")
         assert key == "my-org_my-project"
 
     def test_host_url_read_from_properties(self, project_root: Path) -> None:
-        from ai_engineering.cli_commands.setup import _read_sonar_url_from_properties
+        from ai_engineering.cli_commands.setup import _read_sonar_property
 
-        url = _read_sonar_url_from_properties(project_root)
+        url = _read_sonar_property(project_root, "sonar.host.url")
         assert url == "https://sonarcloud.io"

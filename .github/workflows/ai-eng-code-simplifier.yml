@@ -1,0 +1,42 @@
+name: Code Simplifier
+
+on:
+  schedule:
+    - cron: '0 5 * * 3'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  simplify:
+    name: Code Complexity Analysis
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - name: Install dependencies
+        run: uv sync --dev
+      - name: Find complex functions (cyclomatic > 10)
+        run: |
+          uv run ruff check src/ --select C901 --output-format json > complexity.json || true
+          python -c "
+          import json
+          from pathlib import Path
+          data = Path('complexity.json').read_text()
+          if data.strip():
+              findings = json.loads(data)
+              if findings:
+                  print(f'Found {len(findings)} functions exceeding complexity threshold')
+                  for f in findings[:20]:
+                      print(f'  {f.get(\"filename\", \"?\")}:{f.get(\"location\", {}).get(\"row\", \"?\")}: {f.get(\"message\", \"\")}')
+              else:
+                  print('No complexity issues found')
+          else:
+              print('No complexity data available')
+          "
+      - name: Check duplication
+        run: uv run python -m ai_engineering.policy.duplication --path src/ai_engineering --threshold 3 || true

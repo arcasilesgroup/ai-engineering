@@ -2,6 +2,8 @@
 name: guard
 version: 1.0.0
 scope: read-only + read-write (decision-store, audit-log)
+model: opus
+color: purple
 capabilities: [proactive-governance, policy-advisory, drift-detection, risk-forecast, compliance-check, shift-left-enforcement]
 inputs: [staged-changes, modified-files, decision-store, standards, framework-contract, dispatch-task, agent-capabilities]
 outputs: [advisory-warnings, gate-verdict, drift-report]
@@ -41,7 +43,7 @@ Guard is NOT redundant with verify. Verify validates the final product. Guard pr
 | Mode | Trigger | What it does |
 |------|---------|--------------|
 | `advise` | Post-edit validation in build | Analyze staged/modified files against standards and decisions |
-| `gate` | Pre-dispatch in execute | Validate task won't violate governance boundaries |
+| `gate` | Pre-dispatch in `ai:dispatch` | Validate task won't violate governance boundaries |
 | `drift` | On-demand or periodic | Compare implementation against architectural decisions |
 
 ## Behavior
@@ -72,14 +74,14 @@ Integrated into build's post-edit validation loop. After build modifies a file a
 
 ### Mode: gate
 
-Pre-dispatch governance check. Before execute dispatches an agent to a task, guard.gate validates that the task respects governance boundaries.
+Pre-dispatch governance check. Before `ai:dispatch` dispatches an agent to a task, guard.gate validates that the task respects governance boundaries.
 
-**Trigger**: execute prepares to dispatch an agent for a task.
+**Trigger**: `ai:dispatch` prepares to dispatch an agent for a task.
 
 **Procedure**:
 
-1. **Read dispatch context** -- receive the task description, assigned agent, and target files from execute.
-2. **Check scope boundaries** -- verify the assigned agent has capabilities matching the task requirements. Example: only `build` has code write permissions; a write task dispatched to `verify` is a boundary violation.
+1. **Read dispatch context** -- receive the task description, assigned agent, and target files from `ai:dispatch`.
+2. **Check scope boundaries** -- verify the assigned agent has capabilities matching the task requirements. Example: only `build` has code write permissions; a code-write task dispatched to `verify` is a boundary violation.
 3. **Verify agent capabilities** -- cross-reference the task's required capabilities against the agent's declared `capabilities` in its frontmatter.
 4. **Check expired decisions** -- scan `state/decision-store.json` for expired risk acceptances or architectural decisions that affect the task's target files or scope. Expired decisions mean the governance basis for the task may be invalid.
 5. **Check governance constraints** -- verify the task does not target framework-managed files with a non-framework agent, does not bypass required spec artifacts, and does not modify governance state without proper authorization.

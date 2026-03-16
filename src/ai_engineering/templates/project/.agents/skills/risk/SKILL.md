@@ -1,8 +1,7 @@
 ---
 name: risk
-description: "Manage risk acceptances: accept, resolve, or renew"
+description: "Manage risk acceptances: accept (record with severity/expiry), resolve (close after remediation), or renew (extend before expiry, max 2)."
 ---
 
-Read and execute `.ai-engineering/skills/risk/SKILL.md`.
-
-Follow the complete procedure and all governance notes.
+Read and execute the skill defined in `.ai-engineering/skills/risk/SKILL.md`.
+Follow the complete procedure. Do not skip steps. Apply all governance notes.

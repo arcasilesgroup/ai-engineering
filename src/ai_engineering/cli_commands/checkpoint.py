@@ -15,16 +15,8 @@ from typing import Annotated
 
 import typer
 
+from ai_engineering.paths import find_project_root
 from ai_engineering.state.audit import emit_session_event
-
-
-def _project_root() -> Path:
-    cwd = Path.cwd()
-    for parent in [cwd, *cwd.parents]:
-        if (parent / ".ai-engineering").is_dir():
-            return parent
-    return cwd
-
 
 _CHECKPOINT_FILE = "session-checkpoint.json"
 _CHECKPOINT_DIR_PARTS = (".ai-engineering", "state")
@@ -76,12 +68,10 @@ def checkpoint_save(
     blocked_on: Annotated[
         str | None, typer.Option(help="What is blocking (null if nothing)")
     ] = None,
-    agent: Annotated[
-        str, typer.Option(help="Agent saving checkpoint (e.g., execute, release)")
-    ] = "",
+    agent: Annotated[str, typer.Option(help="Agent saving checkpoint (e.g., build, plan)")] = "",
 ) -> None:
     """Save a session checkpoint for recovery."""
-    root = _project_root()
+    root = find_project_root()
     path = _checkpoint_path(root)
 
     entry = {
@@ -134,7 +124,7 @@ def checkpoint_load(
     agent: Annotated[str, typer.Option(help="Load checkpoint for specific agent")] = "",
 ) -> None:
     """Load the last session checkpoint."""
-    root = _project_root()
+    root = find_project_root()
     path = _checkpoint_path(root)
 
     if not path.exists():

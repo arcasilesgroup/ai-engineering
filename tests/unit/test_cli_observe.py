@@ -17,10 +17,8 @@ import pytest
 from typer.testing import CliRunner
 
 from ai_engineering.cli_commands.observe import (
-    _count_by_type,
     _dora_metrics,
     _git_log_stat,
-    _project_root,
     observe_ai,
     observe_dora,
     observe_engineer,
@@ -28,6 +26,8 @@ from ai_engineering.cli_commands.observe import (
     observe_team,
 )
 from ai_engineering.cli_factory import create_app
+from ai_engineering.lib.signals import count_events_by_type
+from ai_engineering.paths import find_project_root
 
 pytestmark = pytest.mark.unit
 
@@ -113,28 +113,28 @@ def _init_git_repo(path: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
-# _project_root tests
+# find_project_root tests
 # ---------------------------------------------------------------------------
 
 
 class TestProjectRoot:
-    """Tests for _project_root helper."""
+    """Tests for find_project_root helper."""
 
     def test_finds_ai_engineering_dir(self, tmp_path: Path) -> None:
         (tmp_path / ".ai-engineering").mkdir()
-        with patch("ai_engineering.cli_commands.observe.Path.cwd", return_value=tmp_path):
-            assert _project_root() == tmp_path
+        with patch("ai_engineering.paths.Path.cwd", return_value=tmp_path):
+            assert find_project_root() == tmp_path
 
     def test_finds_parent_with_ai_engineering(self, tmp_path: Path) -> None:
         (tmp_path / ".ai-engineering").mkdir()
         child = tmp_path / "src" / "sub"
         child.mkdir(parents=True)
-        with patch("ai_engineering.cli_commands.observe.Path.cwd", return_value=child):
-            assert _project_root() == tmp_path
+        with patch("ai_engineering.paths.Path.cwd", return_value=child):
+            assert find_project_root() == tmp_path
 
     def test_falls_back_to_cwd_when_not_found(self, tmp_path: Path) -> None:
-        with patch("ai_engineering.cli_commands.observe.Path.cwd", return_value=tmp_path):
-            assert _project_root() == tmp_path
+        with patch("ai_engineering.paths.Path.cwd", return_value=tmp_path):
+            assert find_project_root() == tmp_path
 
 
 # ---------------------------------------------------------------------------
@@ -252,12 +252,12 @@ class TestDoraMetrics:
 
 
 # ---------------------------------------------------------------------------
-# _count_by_type tests
+# count_events_by_type tests
 # ---------------------------------------------------------------------------
 
 
 class TestCountByType:
-    """Tests for _count_by_type helper."""
+    """Tests for count_events_by_type helper."""
 
     def test_counts_matching_events(self) -> None:
         events = [
@@ -265,18 +265,18 @@ class TestCountByType:
             {"event": "build_complete"},
             {"event": "scan_complete"},
         ]
-        assert _count_by_type(events, "scan_complete") == 2
+        assert count_events_by_type(events, "scan_complete") == 2
 
     def test_returns_zero_for_no_match(self) -> None:
         events = [{"event": "build_complete"}]
-        assert _count_by_type(events, "scan_complete") == 0
+        assert count_events_by_type(events, "scan_complete") == 0
 
     def test_handles_empty_list(self) -> None:
-        assert _count_by_type([], "scan_complete") == 0
+        assert count_events_by_type([], "scan_complete") == 0
 
     def test_handles_events_without_event_key(self) -> None:
         events = [{"other": "field"}, {"event": "scan_complete"}]
-        assert _count_by_type(events, "scan_complete") == 1
+        assert count_events_by_type(events, "scan_complete") == 1
 
 
 # ---------------------------------------------------------------------------
@@ -714,7 +714,7 @@ class TestObserveCli:
         mock_result = subprocess.CompletedProcess(args=[], returncode=0, stdout="")
         with (
             patch(
-                "ai_engineering.cli_commands.observe._project_root",
+                "ai_engineering.cli_commands.observe.find_project_root",
                 return_value=tmp_path,
             ),
             patch(
@@ -734,7 +734,7 @@ class TestObserveCli:
         mock_result = subprocess.CompletedProcess(args=[], returncode=0, stdout="abc commit1\n")
         with (
             patch(
-                "ai_engineering.cli_commands.observe._project_root",
+                "ai_engineering.cli_commands.observe.find_project_root",
                 return_value=tmp_path,
             ),
             patch(
@@ -750,7 +750,7 @@ class TestObserveCli:
         app = create_app()
         (tmp_path / ".ai-engineering").mkdir(parents=True)
         with patch(
-            "ai_engineering.cli_commands.observe._project_root",
+            "ai_engineering.cli_commands.observe.find_project_root",
             return_value=tmp_path,
         ):
             result = runner.invoke(app, ["observe", "team"])
@@ -761,7 +761,7 @@ class TestObserveCli:
         app = create_app()
         (tmp_path / ".ai-engineering").mkdir(parents=True)
         with patch(
-            "ai_engineering.cli_commands.observe._project_root",
+            "ai_engineering.cli_commands.observe.find_project_root",
             return_value=tmp_path,
         ):
             result = runner.invoke(app, ["observe", "ai"])
@@ -774,7 +774,7 @@ class TestObserveCli:
         mock_result = subprocess.CompletedProcess(args=[], returncode=0, stdout="")
         with (
             patch(
-                "ai_engineering.cli_commands.observe._project_root",
+                "ai_engineering.cli_commands.observe.find_project_root",
                 return_value=tmp_path,
             ),
             patch(
@@ -792,7 +792,7 @@ class TestObserveCli:
         mock_result = subprocess.CompletedProcess(args=[], returncode=0, stdout="")
         with (
             patch(
-                "ai_engineering.cli_commands.observe._project_root",
+                "ai_engineering.cli_commands.observe.find_project_root",
                 return_value=tmp_path,
             ),
             patch(
@@ -807,7 +807,7 @@ class TestObserveCli:
     def test_unknown_mode_exits_with_error(self, tmp_path: Path) -> None:
         app = create_app()
         with patch(
-            "ai_engineering.cli_commands.observe._project_root",
+            "ai_engineering.cli_commands.observe.find_project_root",
             return_value=tmp_path,
         ):
             result = runner.invoke(app, ["observe", "unknown"])

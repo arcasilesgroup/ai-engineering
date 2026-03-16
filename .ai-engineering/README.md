@@ -10,50 +10,45 @@ ai-eng install .
 ai-eng doctor
 ```
 
-## Agents (10)
+## Agents (8)
 
 Agents are roles with judgment about WHEN and WHY. Invoke with `/ai:<name>`.
 
-| Agent | What it does | When to use |
-|-------|-------------|-------------|
-| **plan** | Plans work, creates specs | Starting any non-trivial work |
-| **execute** | Coordinates agent dispatch | Running an approved plan |
-| **guard** | Proactive governance advisory | Checking compliance before committing |
-| **build** | Writes code (ONLY code writer) | Implementing features, fixing bugs |
-| **verify** | Assesses quality, security, governance | Reviewing code, pre-release checks |
-| **ship** | Commits, PRs, releases, triage | Delivering work |
-| **observe** | Metrics, dashboards, self-improvement | Checking project health |
-| **guide** | Teaches, onboards, explains | Understanding code or architecture |
-| **write** | Authors documentation | Creating or improving docs |
-| **operate** | Runs runbooks, handles incidents | Operational automation |
+| Agent | When to use |
+|-------|-------------|
+| **plan** | Architecture design, spec creation, roadmap guidance |
+| **build** | Implementation across all stacks (ONLY code writer) |
+| **verify** | 7-mode scanning: governance, security, quality, performance, a11y, feature-gap, architecture |
+| **guard** | Proactive governance advisory, drift detection |
+| **guide** | Teaching, onboarding, architecture tours |
+| **operate** | Runbook execution, incident response |
+| **explorer** | Deep codebase research, context gathering before other agents |
+| **simplifier** | Code simplification: guard clauses, extract methods, flatten nesting |
 
-## Skills (40)
+## Skills (38)
 
 Skills are procedures about HOW. Each agent composes skills at runtime.
 
 | Domain | Skills |
 |--------|--------|
-| Planning | plan, discover, spec, risk, standards, lifecycle, contract, cleanup |
-| Build | code, test, debug, refactor, simplify, api, cli, schema, pipeline, infra, migrate |
-| Verify | security, quality, governance, performance, accessibility, architecture, gap |
-| Ship | commit, pr, release, changelog, triage |
-| Observe | dashboard, evolve |
-| Guide | guide, onboard, explain |
-| Write | document |
-| Operate | ops |
-| Guard | guard |
-| Execute | dispatch |
+| Planning (5) | plan, discover, spec, risk, dispatch |
+| Build (10) | code, test, debug, refactor, simplify, api, schema, pipeline, infra, migrate |
+| Verify (7) | security, quality, governance, performance, accessibility, architecture, gap |
+| Delivery (5) | commit, pr, release, changelog, triage |
+| Observe (2) | dashboard, evolve |
+| Governance & Ops (9) | guard, standards, lifecycle, contract, cleanup, ops, document, explain, onboard |
 
 ## Workflow
 
 ```
 /ai:plan → creates spec + execution plan → STOP
 (human reviews and approves)
-/ai:execute → dispatches agents per plan → build, verify, ship
-/ai:observe → check health metrics
+/ai:build → implements per plan
+/ai:verify → scans for governance, security, quality issues
 /ai:guard → proactive governance check
-/ai:guide → learn about the codebase
 ```
+
+Three-step cycle: **plan** then **build** then **verify/guard**.
 
 ## Standards
 
