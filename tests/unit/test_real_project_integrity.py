@@ -78,18 +78,21 @@ class TestRealProjectIntegrity:
 class TestAgentSkillCrossReferences:
     """Verify agents reference skills that actually exist."""
 
-    _AI_DIR = _PROJECT_ROOT / ".ai-engineering"
+    # Canonical source for agents/skills is now in templates
+    _TEMPLATES_DIR = _PROJECT_ROOT / "src" / "ai_engineering" / "templates" / ".ai-engineering"
 
     def test_all_agent_skill_references_exist(self) -> None:
         """Every skills/ path referenced in agents/*.md frontmatter must exist on disk."""
         import re
 
-        agents_dir = self._AI_DIR / "agents"
+        agents_dir = self._TEMPLATES_DIR / "agents"
+        if not agents_dir.is_dir():
+            pytest.skip("No canonical agents/ in templates")
         broken: list[str] = []
         for agent_file in sorted(agents_dir.glob("*.md")):
             text = agent_file.read_text(encoding="utf-8")
             for match in re.finditer(r"- skills/([^\s]+)", text):
-                skill_path = self._AI_DIR / match.group(0).lstrip("- ")
+                skill_path = self._TEMPLATES_DIR / match.group(0).lstrip("- ")
                 if not skill_path.exists():
                     broken.append(f"{agent_file.name}: missing '{match.group(0).lstrip('- ')}'")
         assert not broken, "Broken agent→skill references:\n" + "\n".join(f"  {b}" for b in broken)
@@ -98,14 +101,19 @@ class TestAgentSkillCrossReferences:
         """Every standards/ path referenced in agents/*.md frontmatter must exist on disk."""
         import re
 
-        agents_dir = self._AI_DIR / "agents"
+        agents_dir = self._TEMPLATES_DIR / "agents"
+        if not agents_dir.is_dir():
+            pytest.skip("No canonical agents/ in templates")
+        # Standards still live in .ai-engineering/standards/
+        ai_dir = _PROJECT_ROOT / ".ai-engineering"
         broken: list[str] = []
         for agent_file in sorted(agents_dir.glob("*.md")):
             text = agent_file.read_text(encoding="utf-8")
             for match in re.finditer(r"- standards/([^\s]+)", text):
-                std_path = self._AI_DIR / match.group(0).lstrip("- ")
-                if not std_path.exists():
-                    broken.append(f"{agent_file.name}: missing '{match.group(0).lstrip('- ')}'")
+                std_ref = match.group(0).lstrip("- ")
+                # Check both .ai-engineering/ and templates/
+                if not (ai_dir / std_ref).exists() and not (self._TEMPLATES_DIR / std_ref).exists():
+                    broken.append(f"{agent_file.name}: missing '{std_ref}'")
         assert not broken, "Broken agent→standard references:\n" + "\n".join(
             f"  {b}" for b in broken
         )

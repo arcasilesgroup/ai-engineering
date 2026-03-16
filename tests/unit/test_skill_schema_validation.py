@@ -10,7 +10,14 @@ from ai_engineering.lib.parsing import parse_frontmatter
 
 pytestmark = pytest.mark.unit
 
-_SKILLS_DIR = Path(__file__).resolve().parents[2] / ".ai-engineering" / "skills"
+_SKILLS_DIR = (
+    Path(__file__).resolve().parents[2]
+    / "src"
+    / "ai_engineering"
+    / "templates"
+    / ".ai-engineering"
+    / "skills"
+)
 _REQUIRED_FIELDS = {"name"}
 
 

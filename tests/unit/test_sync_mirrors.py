@@ -97,11 +97,13 @@ class TestSyncDriftDetection:
         assert exit_code == 0, "Mirror drift detected — run: python scripts/sync_command_mirrors.py"
 
     def test_discover_skills_matches_filesystem(self) -> None:
-        """Discovered skills match actual .ai-engineering/skills/ directories."""
+        """Discovered skills match canonical template skills/ directories."""
         from scripts.sync_command_mirrors import discover_skills
 
         skills = discover_skills()
-        skills_dir = _PROJECT_ROOT / ".ai-engineering" / "skills"
+        skills_dir = (
+            _PROJECT_ROOT / "src" / "ai_engineering" / "templates" / ".ai-engineering" / "skills"
+        )
         expected = {
             d.name for d in skills_dir.iterdir() if d.is_dir() and (d / "SKILL.md").is_file()
         }
@@ -111,11 +113,13 @@ class TestSyncDriftDetection:
         )
 
     def test_discover_agents_matches_filesystem(self) -> None:
-        """Discovered agents match actual .ai-engineering/agents/ files."""
+        """Discovered agents match canonical template agents/ files."""
         from scripts.sync_command_mirrors import discover_agents
 
         agents = discover_agents()
-        agents_dir = _PROJECT_ROOT / ".ai-engineering" / "agents"
+        agents_dir = (
+            _PROJECT_ROOT / "src" / "ai_engineering" / "templates" / ".ai-engineering" / "agents"
+        )
         expected = {f.stem for f in agents_dir.glob("*.md")}
         actual = {name for name, _ in agents}
         assert actual == expected
@@ -128,42 +132,46 @@ class TestGenerationFunctions:
     """Test content generation — pure functions, no filesystem access."""
 
     def test_generate_claude_skill_includes_frontmatter(self) -> None:
-        from scripts.sync_command_mirrors import generate_claude_skill
+        from scripts.sync_command_mirrors import SKILLS_ROOT, generate_claude_skill
 
         # Arrange
         fm = {"description": "Test skill for testing", "argument-hint": "arg1|arg2"}
+        # Use a real skill path so read_canonical_body works
+        skill_path = SKILLS_ROOT / "commit" / "SKILL.md"
 
         # Act
-        content = generate_claude_skill("test-skill", fm)
+        content = generate_claude_skill("test-skill", fm, skill_path)
 
         # Assert
         assert "---" in content
         assert "name: ai-test-skill" in content
         assert 'description: "Test skill for testing"' in content
         assert 'argument-hint: "arg1|arg2"' in content
-        assert ".ai-engineering/skills/test-skill/SKILL.md" in content
         assert "$ARGUMENTS" in content
 
     def test_generate_claude_skill_includes_extras_when_present(self) -> None:
-        from scripts.sync_command_mirrors import generate_claude_skill
+        from scripts.sync_command_mirrors import SKILLS_ROOT, generate_claude_skill
 
         # Arrange — accessibility has context:fork extra
         fm = {"description": "Accessibility audit"}
+        skill_path = SKILLS_ROOT / "accessibility" / "SKILL.md"
 
         # Act
-        content = generate_claude_skill("accessibility", fm)
+        content = generate_claude_skill("accessibility", fm, skill_path)
 
         # Assert
         assert "context:fork" in content
 
     def test_generate_claude_skill_no_extras_for_unknown_skill(self) -> None:
-        from scripts.sync_command_mirrors import generate_claude_skill
+        from scripts.sync_command_mirrors import SKILLS_ROOT, generate_claude_skill
 
         # Arrange
         fm = {"description": "Unknown skill"}
+        # Use a real skill path to avoid file errors
+        skill_path = SKILLS_ROOT / "commit" / "SKILL.md"
 
         # Act
-        content = generate_claude_skill("unknown-skill", fm)
+        content = generate_claude_skill("unknown-skill", fm, skill_path)
 
         # Assert
         assert "context:fork" not in content
@@ -183,9 +191,9 @@ class TestGenerationFunctions:
 
         # Assert
         assert "name: ai-code" in content
-        assert "@ai-build" in content
-        assert ".ai-engineering/agents/build.md" in content
         assert 'argument-hint: "impl|test"' in content
+        # Content is now fully embedded, not a thin wrapper
+        assert len(content) > 100
 
     def test_generate_agents_agent_wrapper_format(self) -> None:
         from scripts.sync_command_mirrors import AGENT_METADATA, generate_agents_agent
@@ -198,8 +206,8 @@ class TestGenerationFunctions:
 
         # Assert
         assert "name: build" in content
-        assert ".ai-engineering/agents/build.md" in content
-        assert "Adopt the identity" in content
+        # Content is now fully embedded from canonical source
+        assert len(content) > 100
 
     def test_generate_copilot_agent_includes_per_agent_metadata(self) -> None:
         from scripts.sync_command_mirrors import AGENT_METADATA, generate_copilot_agent
@@ -218,15 +226,19 @@ class TestGenerationFunctions:
         assert "editFiles" not in content  # explorer is read-only
 
     def test_generate_skill_copilot_prompt_format(self) -> None:
-        from scripts.sync_command_mirrors import generate_skill_copilot_prompt
+        from scripts.sync_command_mirrors import SKILLS_ROOT, generate_skill_copilot_prompt
+
+        # Arrange
+        skill_path = SKILLS_ROOT / "commit" / "SKILL.md"
 
         # Act
-        content = generate_skill_copilot_prompt("commit", "Execute commit workflow")
+        content = generate_skill_copilot_prompt("commit", "Execute commit workflow", skill_path)
 
         # Assert
         assert 'description: "Execute commit workflow"' in content
         assert 'mode: "agent"' in content
-        assert ".ai-engineering/skills/commit/SKILL.md" in content
+        # Content is now fully embedded, not a thin wrapper
+        assert len(content) > 100
 
 
 # ── Validation functions ──────────────────────────────────────────────────

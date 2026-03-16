@@ -60,7 +60,13 @@ def _check_cross_references(
             if not ref_clean:
                 continue
             ref_path = target / ref_clean
-            if not ref_path.exists():
+            # References to standards/context/state are relative to .ai-engineering/
+            ai_eng_path = target / ".ai-engineering" / ref_clean
+            # Also check in canonical templates (for framework repo)
+            tpl_path = (
+                target / "src" / "ai_engineering" / "templates" / ".ai-engineering" / ref_clean
+            )
+            if not (ref_path.exists() or ai_eng_path.exists() or tpl_path.exists()):
                 broken += 1
                 report.checks.append(
                     IntegrityCheckResult(

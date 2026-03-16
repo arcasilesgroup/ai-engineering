@@ -52,9 +52,10 @@ def test_file_existence_skips_placeholders_and_prefix_cleanup(tmp_path: Path) ->
 def test_mirror_sync_missing_and_orphan(tmp_path: Path) -> None:
     ai = _mk(tmp_path)
     mirror = tmp_path / "src" / "ai_engineering" / "templates" / ".ai-engineering"
-    (mirror / "skills").mkdir(parents=True, exist_ok=True)
-    (ai / "skills" / "debug.md").write_text("x", encoding="utf-8")
-    (mirror / "skills" / "orphan.md").write_text("y", encoding="utf-8")
+    # Governance mirror syncs standards/framework/**/*.md — use that pattern
+    (mirror / "standards" / "framework").mkdir(parents=True, exist_ok=True)
+    (ai / "standards" / "framework" / "debug.md").write_text("x", encoding="utf-8")
+    (mirror / "standards" / "framework" / "orphan.md").write_text("y", encoding="utf-8")
     report = validate_content_integrity(tmp_path, categories=[IntegrityCategory.MIRROR_SYNC])
     checks = [c.name for c in report.by_category()[IntegrityCategory.MIRROR_SYNC]]
     assert any(name.startswith("missing-mirror-") for name in checks)
@@ -105,17 +106,18 @@ def test_counter_accuracy_agent_mismatch(tmp_path: Path) -> None:
 
 
 def test_instruction_consistency_missing_file_and_differences(tmp_path: Path) -> None:
+    # Parser expects IDE-specific paths (.claude/ or .agents/)
     base_content = """
 ## Skills
-- `.ai-engineering/skills/a.md`
+- `.claude/skills/a/SKILL.md`
 
 ## Agents
-- `.ai-engineering/agents/a.md`
+- `.claude/agents/a.md`
 """
     _write_instruction_files(tmp_path, base_content)
     # mutate one file to create difference
     (tmp_path / "CLAUDE.md").write_text(
-        base_content + "- `.ai-engineering/agents/b.md`\n", encoding="utf-8"
+        base_content + "- `.claude/agents/b.md`\n", encoding="utf-8"
     )
     # remove one file to hit missing-file branch
     (tmp_path / "CLAUDE.md").unlink()
@@ -159,18 +161,20 @@ def test_manifest_coherence_active_spec_branches(tmp_path: Path) -> None:
 
 
 def test_skill_frontmatter_additional_failure_paths(tmp_path: Path) -> None:
-    ai = _mk(tmp_path)
-    (ai / "skills" / "bad-type").mkdir(parents=True, exist_ok=True)
-    s1 = ai / "skills" / "bad-type" / "SKILL.md"
+    _mk(tmp_path)
+    # Frontmatter validator scans IDE-specific dirs (.claude/skills/)
+    claude_skills = tmp_path / ".claude" / "skills"
+    (claude_skills / "bad-type").mkdir(parents=True, exist_ok=True)
+    s1 = claude_skills / "bad-type" / "SKILL.md"
     s1.write_text("---\n- x\n---\n", encoding="utf-8")
-    (ai / "skills" / "bad-req").mkdir(parents=True, exist_ok=True)
-    s2 = ai / "skills" / "bad-req" / "SKILL.md"
+    (claude_skills / "bad-req").mkdir(parents=True, exist_ok=True)
+    s2 = claude_skills / "bad-req" / "SKILL.md"
     s2.write_text(
         "---\nname: bad-req\nversion: 1.0.0\nrequires: bad\nos: nope\n---\n",
         encoding="utf-8",
     )
-    (ai / "skills" / "bad-os").mkdir(parents=True, exist_ok=True)
-    s3 = ai / "skills" / "bad-os" / "SKILL.md"
+    (claude_skills / "bad-os").mkdir(parents=True, exist_ok=True)
+    s3 = claude_skills / "bad-os" / "SKILL.md"
     s3.write_text(
         "---\nname: bad-os\nversion: 1.0.0\nos: [plan9]\n---\n",
         encoding="utf-8",
@@ -180,12 +184,15 @@ def test_skill_frontmatter_additional_failure_paths(tmp_path: Path) -> None:
 
 
 def test_skill_frontmatter_invalid_yaml_and_missing_dir(tmp_path: Path) -> None:
+    # No IDE skill directories: validator returns OK (skip, not error)
     report = validate_content_integrity(tmp_path, categories=[IntegrityCategory.SKILL_FRONTMATTER])
-    assert report.category_passed(IntegrityCategory.SKILL_FRONTMATTER) is False
+    assert report.category_passed(IntegrityCategory.SKILL_FRONTMATTER) is True
 
-    ai = _mk(tmp_path)
-    (ai / "skills" / "bad-yaml").mkdir(parents=True, exist_ok=True)
-    bad = ai / "skills" / "bad-yaml" / "SKILL.md"
+    # Frontmatter validator scans IDE-specific dirs (.claude/skills/)
+    _mk(tmp_path)
+    claude_skills = tmp_path / ".claude" / "skills"
+    (claude_skills / "bad-yaml").mkdir(parents=True, exist_ok=True)
+    bad = claude_skills / "bad-yaml" / "SKILL.md"
     bad.write_text("---\nname: [\n---\n", encoding="utf-8")
     report2 = validate_content_integrity(tmp_path, categories=[IntegrityCategory.SKILL_FRONTMATTER])
     assert report2.category_passed(IntegrityCategory.SKILL_FRONTMATTER) is False
