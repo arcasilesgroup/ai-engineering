@@ -1,5 +1,5 @@
 ---
-description: "Review frontend code for WCAG 2.1 AA compliance: semantic HTML, ARIA patterns, keyboard navigation, color contrast, and screen reader support."
+description: "Review frontend code for WCAG 2.1 AA compliance: semantic HTML, ARIA"
 mode: "agent"
 ---
 

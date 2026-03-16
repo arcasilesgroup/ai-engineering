@@ -1,13 +1,11 @@
 ---
 name: gap
-description: "Detect spec-vs-code gaps, wiring gaps, and correctness gaps: unimplemented features, dead specs, disconnected implementations, PR-vs-code mismatches."
-argument-hint: "all|feature|wiring|coverage|correctness"
-metadata:
-  version: 1.2.0
-  tags: [scanning, gap-analysis, specs, verification, features, wiring, dead-code-functional, correctness]
-  ai-engineering:
-    scope: read-only
-    token_estimate: 800
+version: 1.2.0
+description: 'Detect spec-vs-code gaps, wiring gaps, and correctness gaps: unimplemented
+  features, dead specs, disconnected implementations, PR-vs-code mismatches.'
+argument-hint: all|feature|wiring|coverage|correctness
+tags: [scanning, gap-analysis, specs, verification, features, wiring, dead-code-functional,
+  correctness]
 ---
 
 # Feature Gap

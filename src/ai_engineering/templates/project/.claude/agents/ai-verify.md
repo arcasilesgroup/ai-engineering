@@ -2,8 +2,8 @@
 name: ai-verify
 model: opus
 description: "7-mode assessment: governance, security, quality, performance, a11y, feature-gap, architecture — produces GO/NO-GO verdicts."
+color: red
 tools: [Read, Glob, Grep, Bash]
-maxTurns: 40
 ---
 
 

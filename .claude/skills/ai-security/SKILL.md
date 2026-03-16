@@ -1,6 +1,6 @@
 ---
 name: ai-security
-description: "Unified security scanning: SAST, DAST, dependency audit, SBOM generation. Modes: static | dynamic | deps | sbom."
+description: "Unified security scanning: SAST, DAST, dependency audit, SBOM generation."
 argument-hint: "all|static|dynamic|deps|sbom"
 ---
 

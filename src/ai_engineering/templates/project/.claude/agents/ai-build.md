@@ -2,8 +2,8 @@
 name: ai-build
 model: opus
 description: "Implementation across all stacks — the only code write agent"
+color: green
 tools: [Read, Write, Edit, Bash, Glob, Grep]
-maxTurns: 50
 ---
 
 

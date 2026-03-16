@@ -2,8 +2,8 @@
 name: ai-operate
 model: sonnet
 description: "Operational runbook execution — incident response, health monitoring, maintenance tasks, and recovery procedures."
+color: orange
 tools: [Bash, Read, Glob, Grep]
-maxTurns: 30
 ---
 
 

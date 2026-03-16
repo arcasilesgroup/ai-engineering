@@ -1,12 +1,11 @@
 ---
 name: evolve
-description: "Use this skill to analyze framework telemetry and propose improvements. Reads audit-log, decision-store, and health-history to identify patterns, friction points, and optimization opportunities. Produces a self-improvement report with ranked proposals for human review."
-metadata:
-  version: 1.0.0
-  tags: [self-improvement, telemetry, analysis, optimization, proposals]
-  ai-engineering:
-    scope: read-only
-    token_estimate: 1800
+version: 1.0.0
+description: Use this skill to analyze framework telemetry and propose improvements.
+  Reads audit-log, decision-store, and health-history to identify patterns, friction
+  points, and optimization opportunities. Produces a self-improvement report with
+  ranked proposals for human review.
+tags: [self-improvement, telemetry, analysis, optimization, proposals]
 ---
 
 # Evolve

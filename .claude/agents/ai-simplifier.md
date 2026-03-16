@@ -2,8 +2,8 @@
 name: ai-simplifier
 model: opus
 description: "Background code simplifier — guard clauses, extract methods, flatten nesting, remove dead code. Runs post-build or continuous."
+color: lime
 tools: [Read, Glob, Grep, Edit]
-maxTurns: 30
 ---
 
 

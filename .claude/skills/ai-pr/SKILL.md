@@ -1,6 +1,6 @@
 ---
 name: ai-pr
-description: "Execute governed PR workflow: shared commit pipeline, pre-push gates, create pull request with auto-complete squash merge."
+description: "Execute governed PR workflow: shared commit pipeline, pre-push gates,"
 argument-hint: "review|create|update"
 ---
 

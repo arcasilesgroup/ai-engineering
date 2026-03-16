@@ -2,8 +2,8 @@
 name: ai-explorer
 model: opus
 description: "Context gatherer — deep codebase research, architecture mapping, dependency tracing, pattern identification, risk surfacing. Read-only."
+color: teal
 tools: [Read, Glob, Grep]
-maxTurns: 20
 ---
 
 

@@ -2,8 +2,8 @@
 name: ai-plan
 model: opus
 description: "Advisory planning: classify scope, assess risks, and recommend pipeline"
+color: blue
 tools: [Read, Glob, Grep, Bash, Write, Edit]
-maxTurns: 30
 ---
 
 

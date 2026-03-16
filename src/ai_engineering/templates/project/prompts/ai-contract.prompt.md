@@ -1,5 +1,5 @@
 ---
-description: "Manage product contract lifecycle: init (scaffold from template), sync (auto-update from specs/KPIs/roadmap), validate (check completeness and freshness)."
+description: "Manage product contract lifecycle: init (scaffold from template), sync"
 mode: "agent"
 ---
 

@@ -1,6 +1,6 @@
 ---
 name: ai-schema
-description: "Database engineering: schema design, data modeling, safe migrations, query optimization, data lifecycle. Absorbs data-model skill."
+description: "Database engineering: schema design, data modeling, safe migrations,"
 ---
 
 

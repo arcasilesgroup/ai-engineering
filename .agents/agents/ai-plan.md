@@ -1,6 +1,8 @@
 ---
 name: plan
 description: "Advisory planning: classify scope, assess risks, and recommend pipeline"
+model: opus
+color: blue
 ---
 
 

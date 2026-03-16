@@ -1,6 +1,6 @@
 ---
 name: ai-standards
-description: "Propose and apply standards updates from measurable evidence (gate failures, audits, incidents). Use when recurring workflow friction, new risks, or platform changes require policy updates."
+description: "Propose and apply standards updates from measurable evidence (gate failures,"
 ---
 
 

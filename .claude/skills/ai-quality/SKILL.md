@@ -1,6 +1,6 @@
 ---
 name: ai-quality
-description: "Unified quality assessment: coverage, complexity, duplication, code review. Modes: code | sonar | review | docs."
+description: "Unified quality assessment: coverage, complexity, duplication, code"
 argument-hint: "all|code|sonar|review|docs"
 ---
 

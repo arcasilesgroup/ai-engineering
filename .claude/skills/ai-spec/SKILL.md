@@ -1,6 +1,6 @@
 ---
 name: ai-spec
-description: "Create a new spec before non-trivial work: branch, scaffold spec/plan/tasks, activate, commit."
+description: "Create a new spec before non-trivial work: branch, scaffold spec/plan/tasks,"
 argument-hint: "[NNN title]"
 ---
 

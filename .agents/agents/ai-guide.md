@@ -1,6 +1,8 @@
 ---
 name: guide
 description: "Developer education and onboarding — architecture tours, decision archaeology, knowledge transfer."
+model: opus
+color: cyan
 ---
 
 

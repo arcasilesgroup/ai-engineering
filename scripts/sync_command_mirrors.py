@@ -76,7 +76,6 @@ class AgentMeta:
     color: str
     copilot_tools: tuple[str, ...]
     claude_tools: tuple[str, ...]
-    claude_max_turns: int
 
 
 @dataclass(frozen=True)
@@ -108,7 +107,6 @@ AGENT_METADATA: dict[str, AgentMeta] = {
             "testFailures",
         ),
         claude_tools=("Read", "Write", "Edit", "Bash", "Glob", "Grep"),
-        claude_max_turns=50,
     ),
     "explorer": AgentMeta(
         display_name="Explorer",
@@ -121,7 +119,6 @@ AGENT_METADATA: dict[str, AgentMeta] = {
         color="teal",
         copilot_tools=("codebase", "githubRepo", "readFile", "search"),
         claude_tools=("Read", "Glob", "Grep"),
-        claude_max_turns=20,
     ),
     "guard": AgentMeta(
         display_name="Guard",
@@ -140,7 +137,6 @@ AGENT_METADATA: dict[str, AgentMeta] = {
             "search",
         ),
         claude_tools=("Read", "Glob", "Grep"),
-        claude_max_turns=20,
     ),
     "guide": AgentMeta(
         display_name="Guide",
@@ -158,7 +154,6 @@ AGENT_METADATA: dict[str, AgentMeta] = {
             "search",
         ),
         claude_tools=("Read", "Glob", "Grep"),
-        claude_max_turns=25,
     ),
     "operate": AgentMeta(
         display_name="Operate",
@@ -177,7 +172,6 @@ AGENT_METADATA: dict[str, AgentMeta] = {
             "search",
         ),
         claude_tools=("Bash", "Read", "Glob", "Grep"),
-        claude_max_turns=30,
     ),
     "plan": AgentMeta(
         display_name="Plan",
@@ -197,7 +191,6 @@ AGENT_METADATA: dict[str, AgentMeta] = {
             "testFailures",
         ),
         claude_tools=("Read", "Glob", "Grep", "Bash", "Write", "Edit"),
-        claude_max_turns=30,
     ),
     "simplifier": AgentMeta(
         display_name="Simplifier",
@@ -218,7 +211,6 @@ AGENT_METADATA: dict[str, AgentMeta] = {
             "testFailures",
         ),
         claude_tools=("Read", "Glob", "Grep", "Edit"),
-        claude_max_turns=30,
     ),
     "verify": AgentMeta(
         display_name="Verify",
@@ -238,7 +230,6 @@ AGENT_METADATA: dict[str, AgentMeta] = {
             "search",
         ),
         claude_tools=("Read", "Glob", "Grep", "Bash"),
-        claude_max_turns=40,
     ),
 }
 
@@ -578,8 +569,8 @@ def generate_claude_agent(name: str, meta: AgentMeta) -> str:
     lines.append(f"name: ai-{name}")
     lines.append(f"model: {meta.model}")
     lines.append(f'description: "{meta.description}"')
+    lines.append(f"color: {meta.color}")
     lines.append(f"tools: [{tools_str}]")
-    lines.append(f"maxTurns: {meta.claude_max_turns}")
     lines.append("---")
     lines.append("")
     lines.append(body.rstrip())
@@ -604,7 +595,16 @@ def generate_agents_agent(name: str, meta: AgentMeta) -> str:
     body = read_canonical_body(agent_path)
     body = transform_cross_references(body, "generic")
 
-    return f'---\nname: {name}\ndescription: "{meta.description}"\n---\n\n{body.rstrip()}\n'
+    return (
+        f"---\n"
+        f"name: {name}\n"
+        f'description: "{meta.description}"\n'
+        f"model: {meta.model}\n"
+        f"color: {meta.color}\n"
+        f"---\n"
+        f"\n"
+        f"{body.rstrip()}\n"
+    )
 
 
 # ═══════════════════════════════════════════════════════════════════════════

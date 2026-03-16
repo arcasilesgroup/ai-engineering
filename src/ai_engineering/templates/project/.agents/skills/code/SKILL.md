@@ -1,12 +1,9 @@
 ---
 name: code
-description: "Write code across all supported stacks following standards: implement features, write tests, validate. Includes CLI design (agent-first, JSON + Rich dual-output)."
-metadata:
-  version: 2.1.0
-  tags: [implementation, code, multi-stack, features, cli]
-  ai-engineering:
-    scope: read-write
-    token_estimate: 800
+version: 2.1.0
+description: 'Write code across all supported stacks following standards: implement
+  features, write tests, validate. Includes CLI design (agent-first, JSON + Rich dual-output).'
+tags: [implementation, code, multi-stack, features, cli]
 ---
 
 # Build

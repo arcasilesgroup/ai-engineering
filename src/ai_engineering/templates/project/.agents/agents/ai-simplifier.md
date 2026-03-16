@@ -1,6 +1,8 @@
 ---
 name: simplifier
 description: "Background code simplifier — guard clauses, extract methods, flatten nesting, remove dead code. Runs post-build or continuous."
+model: opus
+color: lime
 ---
 
 

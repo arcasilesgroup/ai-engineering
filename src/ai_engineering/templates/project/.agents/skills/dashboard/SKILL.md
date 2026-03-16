@@ -1,13 +1,10 @@
 ---
 name: dashboard
-description: "Generate observability dashboards across 5 modes (engineer, team, AI, DORA, health) for 4 audience tiers."
-argument-hint: "all|engineer|team|ai|dora|health"
-metadata:
-  version: 1.0.0
-  tags: [observability, metrics, dora, dashboard, analytics]
-  ai-engineering:
-    scope: read-only
-    token_estimate: 1200
+version: 1.0.0
+description: Generate observability dashboards across 5 modes (engineer, team, AI,
+  DORA, health) for 4 audience tiers.
+argument-hint: all|engineer|team|ai|dora|health
+tags: [observability, metrics, dora, dashboard, analytics]
 ---
 
 # Observe

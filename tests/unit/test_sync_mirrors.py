@@ -83,7 +83,6 @@ class TestSyncScriptMetadata:
             assert meta.color, f"{name}: missing color"
             assert meta.copilot_tools, f"{name}: empty copilot_tools"
             assert meta.claude_tools, f"{name}: empty claude_tools"
-            assert meta.claude_max_turns > 0, f"{name}: invalid max_turns"
 
 
 class TestSyncDriftDetection:

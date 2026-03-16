@@ -1,6 +1,6 @@
 ---
 name: ai-triage
-description: "Work-item management with sync and triage modes. Sync: bidirectional with GitHub Issues/Azure Boards. Triage: auto-prioritize backlog."
+description: "Work-item management with sync and triage modes. Sync: bidirectional"
 argument-hint: "sync|triage"
 ---
 

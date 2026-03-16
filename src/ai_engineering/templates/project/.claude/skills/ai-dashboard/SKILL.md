@@ -1,6 +1,6 @@
 ---
 name: ai-dashboard
-description: "Generate observability dashboards across 5 modes (engineer, team, AI, DORA, health) for 4 audience tiers."
+description: "Generate observability dashboards across 5 modes (engineer, team, AI,"
 argument-hint: "all|engineer|team|ai|dora|health"
 ---
 

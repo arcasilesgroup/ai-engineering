@@ -1,15 +1,12 @@
 ---
 name: commit
-description: "Execute governed commit workflow: stage, lint, secret-detect, commit, and push current branch."
-argument-hint: "--only|[msg]"
-metadata:
-  version: 1.0.0
-  tags: [git, commit, push, hooks]
-  ai-engineering:
-    requires:
-      bins: [gitleaks, ruff]
-    scope: read-write
-    token_estimate: 800
+version: 1.0.0
+description: 'Execute governed commit workflow: stage, lint, secret-detect, commit,
+  and push current branch.'
+argument-hint: --only|[msg]
+tags: [git, commit, push, hooks]
+requires:
+  bins: [gitleaks, ruff]
 ---
 
 # Commit Workflow

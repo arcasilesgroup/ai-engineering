@@ -1,6 +1,8 @@
 ---
 name: operate
 description: "Operational runbook execution — incident response, health monitoring, maintenance tasks, and recovery procedures."
+model: sonnet
+color: orange
 ---
 
 

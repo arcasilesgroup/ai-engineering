@@ -1,13 +1,10 @@
 ---
 name: contract
-description: "Manage product contract lifecycle: init (scaffold from template), sync (auto-update from specs/KPIs/roadmap), validate (check completeness and freshness)."
-argument-hint: "init|sync|validate"
-metadata:
-  version: 1.0.0
-  tags: [product, contract, solution-intent, governance, planning]
-  ai-engineering:
-    scope: read-write
-    token_estimate: 1800
+version: 1.0.0
+description: 'Manage product contract lifecycle: init (scaffold from template), sync
+  (auto-update from specs/KPIs/roadmap), validate (check completeness and freshness).'
+argument-hint: init|sync|validate
+tags: [product, contract, solution-intent, governance, planning]
 ---
 
 # Product Contract

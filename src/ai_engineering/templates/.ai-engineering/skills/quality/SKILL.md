@@ -1,13 +1,10 @@
 ---
 name: quality
-description: "Unified quality assessment: coverage, complexity, duplication, code review. Modes: code | sonar | review | docs."
-argument-hint: "all|code|sonar|review|docs"
-metadata:
-  version: 2.0.0
-  tags: [quality, coverage, complexity, duplication, review, sonar]
-  ai-engineering:
-    scope: read-write
-    token_estimate: 1000
+version: 2.0.0
+description: 'Unified quality assessment: coverage, complexity, duplication, code
+  review. Modes: code | sonar | review | docs.'
+argument-hint: all|code|sonar|review|docs
+tags: [quality, coverage, complexity, duplication, review, sonar]
 ---
 
 # Quality

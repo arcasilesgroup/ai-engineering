@@ -1,12 +1,9 @@
 ---
 name: schema
-description: "Database engineering: schema design, data modeling, safe migrations, query optimization, data lifecycle. Absorbs data-model skill."
-metadata:
-  version: 2.0.0
-  tags: [database, sql, migration, schema, optimization, data-lifecycle, data-model]
-  ai-engineering:
-    scope: read-write
-    token_estimate: 900
+version: 2.0.0
+description: 'Database engineering: schema design, data modeling, safe migrations,
+  query optimization, data lifecycle. Absorbs data-model skill.'
+tags: [database, sql, migration, schema, optimization, data-lifecycle, data-model]
 ---
 
 # Database

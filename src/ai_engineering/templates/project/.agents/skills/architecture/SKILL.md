@@ -1,13 +1,10 @@
 ---
 name: architecture
-description: "Analyze software architecture: drift detection, coupling, cohesion, boundaries, tech debt, backwards compatibility."
-argument-hint: "drift|coupling|boundaries|compatibility"
-metadata:
-  version: 2.1.0
-  tags: [architecture, dependencies, coupling, drift, tech-debt, compatibility]
-  ai-engineering:
-    scope: read-only
-    token_estimate: 800
+version: 2.1.0
+description: 'Analyze software architecture: drift detection, coupling, cohesion,
+  boundaries, tech debt, backwards compatibility.'
+argument-hint: drift|coupling|boundaries|compatibility
+tags: [architecture, dependencies, coupling, drift, tech-debt, compatibility]
 ---
 
 # Architecture

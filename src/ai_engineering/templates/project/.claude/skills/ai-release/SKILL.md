@@ -1,6 +1,6 @@
 ---
 name: ai-release
-description: "Aggregated GO/NO-GO release readiness gate; use before version tagging or merge-to-main to verify all quality dimensions pass."
+description: "Aggregated GO/NO-GO release readiness gate; use before version tagging"
 argument-hint: "[version]"
 ---
 

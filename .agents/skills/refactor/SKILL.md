@@ -1,12 +1,9 @@
 ---
 name: refactor
-description: "Improve internal code structure without changing external behavior; use when addressing code smells, duplication, or excessive complexity."
-metadata:
-  version: 1.0.0
-  tags: [refactoring, code-quality, simplification]
-  ai-engineering:
-    scope: read-write
-    token_estimate: 675
+version: 1.0.0
+description: Improve internal code structure without changing external behavior; use
+  when addressing code smells, duplication, or excessive complexity.
+tags: [refactoring, code-quality, simplification]
 ---
 
 # Refactor

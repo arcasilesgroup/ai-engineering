@@ -1,6 +1,6 @@
 ---
 name: ai-debug
-description: "Systematic bug diagnosis using reproduce-isolate-identify-fix-test cycle; use when investigating unexpected behavior, test failures, or runtime errors."
+description: "Systematic bug diagnosis using reproduce-isolate-identify-fix-test cycle;"
 ---
 
 

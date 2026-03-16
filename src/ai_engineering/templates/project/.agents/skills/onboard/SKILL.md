@@ -1,12 +1,10 @@
 ---
 name: onboard
-description: "Use this skill for structured codebase onboarding: progressive discovery of architecture, key files, patterns, conventions, and team standards. Best for new team members or developers encountering an unfamiliar codebase."
-metadata:
-  version: 2.0.0
-  tags: [onboarding, codebase-discovery, architecture, conventions, learning-path]
-  ai-engineering:
-    scope: read-only
-    token_estimate: 900
+version: 2.0.0
+description: 'Use this skill for structured codebase onboarding: progressive discovery
+  of architecture, key files, patterns, conventions, and team standards. Best for
+  new team members or developers encountering an unfamiliar codebase.'
+tags: [onboarding, codebase-discovery, architecture, conventions, learning-path]
 ---
 
 # Onboard

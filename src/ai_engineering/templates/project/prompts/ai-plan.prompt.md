@@ -1,5 +1,5 @@
 ---
-description: "Advisory planning: discover requirements, assess risks, recommend pipeline. Zero writes."
+description: "Advisory planning: discover requirements, assess risks, recommend pipeline."
 mode: "agent"
 ---
 

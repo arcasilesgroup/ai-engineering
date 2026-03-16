@@ -1,5 +1,5 @@
 ---
-description: "Multi-stack performance scanning: N+1 queries, O(n^2) patterns, memory leaks, bundle size, I/O bottlenecks."
+description: "Multi-stack performance scanning: N+1 queries, O(n^2) patterns, memory"
 mode: "agent"
 ---
 

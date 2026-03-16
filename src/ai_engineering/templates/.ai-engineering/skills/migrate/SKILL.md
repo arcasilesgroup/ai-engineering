@@ -1,12 +1,9 @@
 ---
 name: migrate
-description: "Plan and execute safe, reversible migrations for schemas, APIs, data formats, and breaking changes; use when evolving contracts or data structures."
-metadata:
-  version: 1.0.0
-  tags: [migration, breaking-changes, compatibility]
-  ai-engineering:
-    scope: read-write
-    token_estimate: 750
+version: 1.0.0
+description: Plan and execute safe, reversible migrations for schemas, APIs, data
+  formats, and breaking changes; use when evolving contracts or data structures.
+tags: [migration, breaking-changes, compatibility]
 ---
 
 # Migration

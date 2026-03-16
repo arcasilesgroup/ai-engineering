@@ -1,5 +1,5 @@
 ---
-description: "Use this skill to analyze framework telemetry and propose improvements. Reads audit-log, decision-store, and health-history to identify patterns, friction points, and optimization opportunities. Produces a self-improvement report with ranked proposals for human review."
+description: "Use this skill to analyze framework telemetry and propose improvements."
 mode: "agent"
 ---
 

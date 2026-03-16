@@ -1,12 +1,9 @@
 ---
 name: simplify
-description: "Reduce code complexity with pattern-aware reconnaissance: guard clauses, early returns, extract methods — preserving behavior."
-metadata:
-  version: 1.0.0
-  tags: [simplification, complexity, readability, patterns]
-  ai-engineering:
-    scope: read-write
-    token_estimate: 800
+version: 1.0.0
+description: 'Reduce code complexity with pattern-aware reconnaissance: guard clauses,
+  early returns, extract methods — preserving behavior.'
+tags: [simplification, complexity, readability, patterns]
 ---
 
 # Code Simplifier

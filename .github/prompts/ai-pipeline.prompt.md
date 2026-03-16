@@ -1,5 +1,5 @@
 ---
-description: "Generate stack-aware CI/CD workflow files from installed stacks and enforcement checks; use when setting up or modernizing CI/CD pipelines."
+description: "Generate stack-aware CI/CD workflow files from installed stacks and enforcement"
 mode: "agent"
 ---
 

@@ -1,13 +1,10 @@
 ---
 name: plan
-description: "Advisory planning: discover requirements, assess risks, recommend pipeline. Zero writes."
-argument-hint: "[topic]"
-metadata:
-  version: 1.0.0
-  tags: [planning, discovery, risk, advisory]
-  ai-engineering:
-    scope: read-only
-    token_estimate: 1500
+version: 1.0.0
+description: 'Advisory planning: discover requirements, assess risks, recommend pipeline.
+  Zero writes.'
+argument-hint: '[topic]'
+tags: [planning, discovery, risk, advisory]
 ---
 
 # Advisory Planning

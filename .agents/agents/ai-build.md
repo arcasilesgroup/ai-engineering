@@ -1,6 +1,8 @@
 ---
 name: build
 description: "Implementation across all stacks — the only code write agent"
+model: opus
+color: green
 ---
 
 

@@ -1,12 +1,9 @@
 ---
 name: accessibility
-description: "Review frontend code for WCAG 2.1 AA compliance: semantic HTML, ARIA patterns, keyboard navigation, color contrast, and screen reader support."
-metadata:
-  version: 1.0.0
-  tags: [accessibility, wcag, a11y, aria, keyboard, screen-reader]
-  ai-engineering:
-    scope: read-only
-    token_estimate: 750
+version: 1.0.0
+description: 'Review frontend code for WCAG 2.1 AA compliance: semantic HTML, ARIA
+  patterns, keyboard navigation, color contrast, and screen reader support.'
+tags: [accessibility, wcag, a11y, aria, keyboard, screen-reader]
 ---
 
 # Accessibility Review

@@ -2,8 +2,8 @@
 name: ai-guard
 model: opus
 description: "Proactive governance advisor — checks standards, decisions, and quality trends during development. Never blocks, always advisory."
+color: purple
 tools: [Read, Glob, Grep]
-maxTurns: 20
 ---
 
 

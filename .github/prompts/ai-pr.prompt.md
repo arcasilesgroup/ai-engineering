@@ -1,5 +1,5 @@
 ---
-description: "Execute governed PR workflow: shared commit pipeline, pre-push gates, create pull request with auto-complete squash merge."
+description: "Execute governed PR workflow: shared commit pipeline, pre-push gates,"
 mode: "agent"
 ---
 

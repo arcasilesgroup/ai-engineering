@@ -1,6 +1,6 @@
 ---
 name: ai-cleanup
-description: "Full repository hygiene: safe migration to default branch, aggressive branch cleanup, and rich per-branch status report."
+description: "Full repository hygiene: safe migration to default branch, aggressive"
 ---
 
 

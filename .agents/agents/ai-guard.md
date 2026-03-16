@@ -1,6 +1,8 @@
 ---
 name: guard
 description: "Proactive governance advisor — checks standards, decisions, and quality trends during development. Never blocks, always advisory."
+model: opus
+color: purple
 ---
 
 

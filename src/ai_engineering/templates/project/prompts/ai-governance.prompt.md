@@ -1,5 +1,5 @@
 ---
-description: "Unified governance validation: integrity, compliance, ownership, operational readiness. Modes: integrity | compliance | ownership | operational."
+description: "Unified governance validation: integrity, compliance, ownership, operational"
 mode: "agent"
 ---
 

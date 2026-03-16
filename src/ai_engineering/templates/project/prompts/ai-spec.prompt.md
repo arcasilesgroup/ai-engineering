@@ -1,5 +1,5 @@
 ---
-description: "Create a new spec before non-trivial work: branch, scaffold spec/plan/tasks, activate, commit."
+description: "Create a new spec before non-trivial work: branch, scaffold spec/plan/tasks,"
 mode: "agent"
 ---
 

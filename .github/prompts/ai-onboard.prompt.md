@@ -1,5 +1,5 @@
 ---
-description: "Use this skill for structured codebase onboarding: progressive discovery of architecture, key files, patterns, conventions, and team standards. Best for new team members or developers encountering an unfamiliar codebase."
+description: "Use this skill for structured codebase onboarding: progressive discovery"
 mode: "agent"
 ---
 

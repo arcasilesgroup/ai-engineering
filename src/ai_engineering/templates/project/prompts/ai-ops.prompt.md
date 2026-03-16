@@ -1,5 +1,5 @@
 ---
-description: "Use this skill for operational automation: execute runbooks on demand, respond to incidents (gate failures, CI breaks, security findings), or check operational health status. Owns all runbooks in the framework."
+description: "Use this skill for operational automation: execute runbooks on demand,"
 mode: "agent"
 ---
 

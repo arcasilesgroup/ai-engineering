@@ -2,8 +2,8 @@
 name: ai-guide
 model: opus
 description: "Developer education and onboarding — architecture tours, decision archaeology, knowledge transfer."
+color: cyan
 tools: [Read, Glob, Grep]
-maxTurns: 25
 ---
 
 

@@ -1,6 +1,6 @@
 ---
 name: ai-api
-description: "Design and review APIs using contract-first approach with OpenAPI specification, versioning strategy, and backward compatibility analysis."
+description: "Design and review APIs using contract-first approach with OpenAPI specification,"
 ---
 
 

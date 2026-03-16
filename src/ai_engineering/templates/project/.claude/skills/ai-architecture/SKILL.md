@@ -1,6 +1,6 @@
 ---
 name: ai-architecture
-description: "Analyze software architecture: drift detection, coupling, cohesion, boundaries, tech debt, backwards compatibility."
+description: "Analyze software architecture: drift detection, coupling, cohesion,"
 argument-hint: "drift|coupling|boundaries|compatibility"
 ---
 

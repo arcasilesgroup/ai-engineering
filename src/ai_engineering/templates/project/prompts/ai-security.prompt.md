@@ -1,5 +1,5 @@
 ---
-description: "Unified security scanning: SAST, DAST, dependency audit, SBOM generation. Modes: static | dynamic | deps | sbom."
+description: "Unified security scanning: SAST, DAST, dependency audit, SBOM generation."
 mode: "agent"
 ---
 

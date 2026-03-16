@@ -1,5 +1,5 @@
 ---
-description: "Reduce code complexity with pattern-aware reconnaissance: guard clauses, early returns, extract methods — preserving behavior."
+description: "Reduce code complexity with pattern-aware reconnaissance: guard clauses,"
 mode: "agent"
 ---
 
