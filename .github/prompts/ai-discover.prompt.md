@@ -1,6 +1,9 @@
 ---
-description: "Relentless requirements discovery through structured interrogation; use"
-mode: "agent"
+name: ai-discover
+version: 1.0.0
+description: Relentless requirements discovery through structured interrogation; use before planning any non-trivial feature to surface unknowns, assumptions, and missing requirements.
+mode: agent
+tags: [discovery, requirements, interrogation, planning]
 ---
 
 

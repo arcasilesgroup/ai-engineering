@@ -1,6 +1,9 @@
 ---
-description: "Plan and execute safe, reversible migrations for schemas, APIs, data"
-mode: "agent"
+name: ai-migrate
+version: 1.0.0
+description: Plan and execute safe, reversible migrations for schemas, APIs, data formats, and breaking changes; use when evolving contracts or data structures.
+mode: agent
+tags: [migration, breaking-changes, compatibility]
 ---
 
 

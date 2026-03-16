@@ -1,7 +1,13 @@
 ---
 name: ai-security
-description: "Unified security scanning: SAST, DAST, dependency audit, SBOM generation."
+version: 2.0.0
+description: "Unified security scanning: SAST, DAST, dependency audit, SBOM generation. Modes: static | dynamic | deps | sbom."
 argument-hint: "all|static|dynamic|deps|sbom"
+tags: [security, sast, dast, dependencies, sbom, owasp]
+requires:
+  bins:
+  - gitleaks
+  - semgrep
 ---
 
 

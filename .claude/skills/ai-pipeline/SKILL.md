@@ -1,6 +1,8 @@
 ---
 name: ai-pipeline
-description: "Generate stack-aware CI/CD workflow files from installed stacks and enforcement"
+version: 1.0.0
+description: Generate stack-aware CI/CD workflow files from installed stacks and enforcement checks; use when setting up or modernizing CI/CD pipelines.
+tags: [ci-cd, github-actions, azure-devops, azure-pipelines, railway, cloudflare, automation]
 ---
 
 

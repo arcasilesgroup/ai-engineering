@@ -1,6 +1,10 @@
 ---
-description: "Manage product contract lifecycle: init (scaffold from template), sync"
-mode: "agent"
+name: ai-contract
+version: 1.0.0
+description: "Manage product contract lifecycle: init (scaffold from template), sync (auto-update from specs/KPIs/roadmap), validate (check completeness and freshness)."
+argument-hint: "init|sync|validate"
+mode: agent
+tags: [product, contract, solution-intent, governance, planning]
 ---
 
 

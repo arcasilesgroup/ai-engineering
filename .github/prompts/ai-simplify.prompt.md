@@ -1,6 +1,9 @@
 ---
-description: "Reduce code complexity with pattern-aware reconnaissance: guard clauses,"
-mode: "agent"
+name: ai-simplify
+version: 1.0.0
+description: "Reduce code complexity with pattern-aware reconnaissance: guard clauses, early returns, extract methods — preserving behavior."
+mode: agent
+tags: [simplification, complexity, readability, patterns]
 ---
 
 

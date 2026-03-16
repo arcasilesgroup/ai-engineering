@@ -1,6 +1,9 @@
 ---
-description: "Systematic bug diagnosis using reproduce-isolate-identify-fix-test cycle;"
-mode: "agent"
+name: ai-debug
+version: 1.0.0
+description: Systematic bug diagnosis using reproduce-isolate-identify-fix-test cycle; use when investigating unexpected behavior, test failures, or runtime errors.
+mode: agent
+tags: [debugging, diagnosis, root-cause, troubleshooting]
 ---
 
 

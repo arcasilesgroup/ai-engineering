@@ -1,6 +1,10 @@
 ---
-description: "Analyze software architecture: drift detection, coupling, cohesion,"
-mode: "agent"
+name: ai-architecture
+version: 2.1.0
+description: "Analyze software architecture: drift detection, coupling, cohesion, boundaries, tech debt, backwards compatibility."
+argument-hint: "drift|coupling|boundaries|compatibility"
+mode: agent
+tags: [architecture, dependencies, coupling, drift, tech-debt, compatibility]
 ---
 
 

@@ -1,6 +1,10 @@
 ---
-description: "Advisory planning: discover requirements, assess risks, recommend pipeline."
-mode: "agent"
+name: ai-plan
+version: 1.0.0
+description: "Advisory planning: discover requirements, assess risks, recommend pipeline. Zero writes."
+argument-hint: "[topic]"
+mode: agent
+tags: [planning, discovery, risk, advisory]
 ---
 
 

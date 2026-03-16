@@ -1,6 +1,9 @@
 ---
-description: "Database engineering: schema design, data modeling, safe migrations,"
-mode: "agent"
+name: ai-schema
+version: 2.0.0
+description: "Database engineering: schema design, data modeling, safe migrations, query optimization, data lifecycle. Absorbs data-model skill."
+mode: agent
+tags: [database, sql, migration, schema, optimization, data-lifecycle, data-model]
 ---
 
 

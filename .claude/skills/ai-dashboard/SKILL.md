@@ -1,7 +1,9 @@
 ---
 name: ai-dashboard
-description: "Generate observability dashboards across 5 modes (engineer, team, AI,"
+version: 1.0.0
+description: Generate observability dashboards across 5 modes (engineer, team, AI, DORA, health) for 4 audience tiers.
 argument-hint: "all|engineer|team|ai|dora|health"
+tags: [observability, metrics, dora, dashboard, analytics]
 ---
 
 

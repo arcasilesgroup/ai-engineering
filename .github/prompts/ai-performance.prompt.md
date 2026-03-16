@@ -1,6 +1,9 @@
 ---
-description: "Multi-stack performance scanning: N+1 queries, O(n^2) patterns, memory"
-mode: "agent"
+name: ai-performance
+version: 2.0.0
+description: "Multi-stack performance scanning: N+1 queries, O(n^2) patterns, memory leaks, bundle size, I/O bottlenecks."
+mode: agent
+tags: [performance, profiling, optimization, bottlenecks, n-plus-one]
 ---
 
 

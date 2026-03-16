@@ -1,6 +1,9 @@
 ---
-description: "Generate user-friendly changelogs and GitHub release notes from git history"
-mode: "agent"
+name: ai-changelog
+version: 1.0.0
+description: Generate user-friendly changelogs and GitHub release notes from git history using Keep a Changelog format and benefit-first language.
+mode: agent
+tags: [documentation, changelog, release-notes]
 ---
 
 

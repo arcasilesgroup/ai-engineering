@@ -133,19 +133,18 @@ class TestGenerationFunctions:
     def test_generate_claude_skill_includes_frontmatter(self) -> None:
         from scripts.sync_command_mirrors import SKILLS_ROOT, generate_claude_skill
 
-        # Arrange
-        fm = {"description": "Test skill for testing", "argument-hint": "arg1|arg2"}
-        # Use a real skill path so read_canonical_body works
+        # Arrange — use real canonical skill (frontmatter read from file)
+        fm = {"description": "ignored — read from canonical", "argument-hint": "ignored"}
         skill_path = SKILLS_ROOT / "commit" / "SKILL.md"
 
         # Act
-        content = generate_claude_skill("test-skill", fm, skill_path)
+        content = generate_claude_skill("commit", fm, skill_path)
 
-        # Assert
+        # Assert — frontmatter comes from canonical
         assert "---" in content
-        assert "name: ai-test-skill" in content
-        assert 'description: "Test skill for testing"' in content
-        assert 'argument-hint: "arg1|arg2"' in content
+        assert "name: ai-commit" in content
+        assert "version:" in content
+        assert "tags:" in content
         assert "$ARGUMENTS" in content
 
     def test_generate_claude_skill_includes_extras_when_present(self) -> None:
@@ -233,9 +232,11 @@ class TestGenerationFunctions:
         # Act
         content = generate_skill_copilot_prompt("commit", "Execute commit workflow", skill_path)
 
-        # Assert
-        assert 'description: "Execute commit workflow"' in content
-        assert 'mode: "agent"' in content
+        # Assert — frontmatter from canonical, mode added for Copilot
+        assert "name: ai-commit" in content
+        assert "mode: agent" in content
+        assert "version:" in content
+        assert "tags:" in content
         # Content is now fully embedded, not a thin wrapper
         assert len(content) > 100
 

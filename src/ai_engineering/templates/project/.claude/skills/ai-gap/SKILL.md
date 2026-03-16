@@ -1,7 +1,9 @@
 ---
 name: ai-gap
-description: "Detect spec-vs-code gaps, wiring gaps, and correctness gaps: unimplemented"
+version: 1.2.0
+description: "Detect spec-vs-code gaps, wiring gaps, and correctness gaps: unimplemented features, dead specs, disconnected implementations, PR-vs-code mismatches."
 argument-hint: "all|feature|wiring|coverage|correctness"
+tags: [scanning, gap-analysis, specs, verification, features, wiring, dead-code-functional, correctness]
 ---
 
 

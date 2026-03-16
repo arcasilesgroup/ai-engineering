@@ -1,6 +1,8 @@
 ---
 name: ai-dispatch
-description: "Use this skill to construct a task dependency DAG from plan.md and dispatch"
+version: 1.0.0
+description: Use this skill to construct a task dependency DAG from plan.md and dispatch agents using a formal schema. Replaces implicit English-text dispatch with structured task assignments.
+tags: [orchestration, dispatch, dag, task-management, coordination]
 ---
 
 

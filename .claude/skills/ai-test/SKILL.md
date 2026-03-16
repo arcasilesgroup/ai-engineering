@@ -1,7 +1,17 @@
 ---
 name: ai-test
-description: "Testing strategy, execution, and TDD — plan test suites, write and run"
+version: 2.0.0
+description: "Testing strategy, execution, and TDD — plan test suites, write and run tests, analyze coverage gaps, or drive implementation test-first with RED-GREEN-REFACTOR. Multi-stack: Python, TypeScript, .NET, React, Next.js, Node, NestJS, Rust, Go, Java."
 argument-hint: "plan|run|gap|tdd"
+tags: [testing, tdd, coverage, unit, integration, e2e, multi-stack]
+requires:
+  anyBins:
+  - pytest
+  - vitest
+  - jest
+  - dotnet
+  - cargo
+  - go
 ---
 
 

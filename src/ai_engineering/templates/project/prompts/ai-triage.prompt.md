@@ -1,6 +1,10 @@
 ---
-description: "Work-item management with sync and triage modes. Sync: bidirectional"
-mode: "agent"
+name: ai-triage
+version: 2.0.0
+description: "Work-item management with sync and triage modes. Sync: bidirectional with GitHub Issues/Azure Boards. Triage: auto-prioritize backlog."
+argument-hint: "sync|triage"
+mode: agent
+tags: [work-items, github-issues, azure-boards, sync, triage, prioritization]
 ---
 
 

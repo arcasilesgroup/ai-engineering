@@ -1,6 +1,8 @@
 ---
 name: ai-onboard
-description: "Use this skill for structured codebase onboarding: progressive discovery"
+version: 2.0.0
+description: "Use this skill for structured codebase onboarding: progressive discovery of architecture, key files, patterns, conventions, and team standards. Best for new team members or developers encountering an unfamiliar codebase."
+tags: [onboarding, codebase-discovery, architecture, conventions, learning-path]
 ---
 
 

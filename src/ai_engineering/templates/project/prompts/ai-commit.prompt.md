@@ -1,6 +1,14 @@
 ---
-description: "Execute governed commit workflow: stage, lint, secret-detect, commit,"
-mode: "agent"
+name: ai-commit
+version: 1.0.0
+description: "Execute governed commit workflow: stage, lint, secret-detect, commit, and push current branch."
+argument-hint: "--only|[msg]"
+mode: agent
+tags: [git, commit, push, hooks]
+requires:
+  bins:
+  - gitleaks
+  - ruff
 ---
 
 

@@ -1,6 +1,10 @@
 ---
-description: "Use this skill for proactive governance advisory: check staged changes"
-mode: "agent"
+name: ai-guard
+version: 1.0.0
+description: "Use this skill for proactive governance advisory: check staged changes against standards, validate pre-dispatch governance compliance, detect decision drift. Invoke before committing, during build post-edit validation, or when reviewing architectural alignment."
+argument-hint: "all|advise|gate|drift"
+mode: agent
+tags: [governance, advisory, shift-left, drift, compliance, proactive, guard]
 ---
 
 

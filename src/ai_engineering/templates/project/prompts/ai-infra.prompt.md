@@ -1,6 +1,9 @@
 ---
-description: "Design and generate Infrastructure as Code (Terraform, Bicep) with plan-before-apply"
-mode: "agent"
+name: ai-infra
+version: 1.0.0
+description: Design and generate Infrastructure as Code (Terraform, Bicep) with plan-before-apply safety, state management, and deployment configuration.
+mode: agent
+tags: [infrastructure, iac, terraform, bicep, cloud, deployment]
 ---
 
 

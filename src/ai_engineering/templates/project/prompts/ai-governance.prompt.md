@@ -1,6 +1,10 @@
 ---
-description: "Unified governance validation: integrity, compliance, ownership, operational"
-mode: "agent"
+name: ai-governance
+version: 2.0.0
+description: "Unified governance validation: integrity, compliance, ownership, operational readiness. Modes: integrity | compliance | ownership | operational."
+argument-hint: "all|integrity|compliance|ownership"
+mode: agent
+tags: [governance, integrity, compliance, ownership, validation]
 ---
 
 

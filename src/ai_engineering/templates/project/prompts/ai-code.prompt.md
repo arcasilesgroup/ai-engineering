@@ -1,6 +1,9 @@
 ---
-description: "Write code across all supported stacks following standards: implement"
-mode: "agent"
+name: ai-code
+version: 2.1.0
+description: "Write code across all supported stacks following standards: implement features, write tests, validate. Includes CLI design (agent-first, JSON + Rich dual-output)."
+mode: agent
+tags: [implementation, code, multi-stack, features, cli]
 ---
 
 

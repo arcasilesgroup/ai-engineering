@@ -1,7 +1,9 @@
 ---
 name: ai-lifecycle
-description: "Use this skill to create or delete agents and skills with full registration:"
+version: 1.0.0
+description: "Use this skill to create or delete agents and skills with full registration: scaffold, manifest update, command creation, cross-reference updates, and integrity verification. Merges the former create and delete skills into a unified lifecycle manager."
 argument-hint: "create|transition|close"
+tags: [lifecycle, governance, agents, skills, creation, deletion]
 ---
 
 

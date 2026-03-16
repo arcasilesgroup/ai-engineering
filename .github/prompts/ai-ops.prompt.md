@@ -1,6 +1,13 @@
 ---
-description: "Use this skill for operational automation: execute runbooks on demand,"
-mode: "agent"
+name: ai-ops
+version: 1.0.0
+description: "Use this skill for operational automation: execute runbooks on demand, respond to incidents (gate failures, CI breaks, security findings), or check operational health status. Owns all runbooks in the framework."
+argument-hint: "all|runbook|incident|health"
+mode: agent
+tags: [operations, sre, runbooks, incidents, automation, health, toil-reduction]
+requires:
+  bins:
+  - gh
 ---
 
 

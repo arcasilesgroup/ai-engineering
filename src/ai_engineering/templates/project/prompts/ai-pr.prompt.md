@@ -1,6 +1,17 @@
 ---
-description: "Execute governed PR workflow: shared commit pipeline, pre-push gates,"
-mode: "agent"
+name: ai-pr
+version: 3.0.0
+description: "Execute governed PR workflow: shared commit pipeline, pre-push gates, create pull request with auto-complete squash merge."
+argument-hint: "review|create|update"
+mode: agent
+tags: [git, pull-request, ci, merge]
+requires:
+  anyBins:
+  - gh
+  - az
+  bins:
+  - gitleaks
+  - ruff
 ---
 
 

@@ -1,6 +1,10 @@
 ---
-description: "Aggregated GO/NO-GO release readiness gate; use before version tagging"
-mode: "agent"
+name: ai-release
+version: 1.0.0
+description: Aggregated GO/NO-GO release readiness gate; use before version tagging or merge-to-main to verify all quality dimensions pass.
+argument-hint: "[version]"
+mode: agent
+tags: [quality, release, gate, go-no-go]
 ---
 
 

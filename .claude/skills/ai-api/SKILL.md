@@ -1,6 +1,8 @@
 ---
 name: ai-api
-description: "Design and review APIs using contract-first approach with OpenAPI specification,"
+version: 1.0.0
+description: Design and review APIs using contract-first approach with OpenAPI specification, versioning strategy, and backward compatibility analysis.
+tags: [api, rest, graphql, openapi, contract, versioning]
 ---
 
 

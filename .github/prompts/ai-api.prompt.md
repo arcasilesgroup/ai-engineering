@@ -1,6 +1,9 @@
 ---
-description: "Design and review APIs using contract-first approach with OpenAPI specification,"
-mode: "agent"
+name: ai-api
+version: 1.0.0
+description: Design and review APIs using contract-first approach with OpenAPI specification, versioning strategy, and backward compatibility analysis.
+mode: agent
+tags: [api, rest, graphql, openapi, contract, versioning]
 ---
 
 

@@ -1,6 +1,9 @@
 ---
-description: "Propose and apply standards updates from measurable evidence (gate failures,"
-mode: "agent"
+name: ai-standards
+version: 1.0.0
+description: Propose and apply standards updates from measurable evidence (gate failures, audits, incidents). Use when recurring workflow friction, new risks, or platform changes require policy updates.
+mode: agent
+tags: [governance, standards, adaptation, policy]
 ---
 
 

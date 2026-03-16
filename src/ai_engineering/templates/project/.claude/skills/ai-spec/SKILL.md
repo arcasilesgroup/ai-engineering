@@ -1,7 +1,9 @@
 ---
 name: ai-spec
-description: "Create a new spec before non-trivial work: branch, scaffold spec/plan/tasks,"
+version: 1.0.0
+description: "Create a new spec before non-trivial work: branch, scaffold spec/plan/tasks, activate, commit."
 argument-hint: "[NNN title]"
+tags: [governance, spec, lifecycle, planning]
 ---
 
 

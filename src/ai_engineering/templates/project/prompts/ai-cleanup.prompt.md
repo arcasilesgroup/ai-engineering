@@ -1,6 +1,12 @@
 ---
-description: "Full repository hygiene: safe migration to default branch, aggressive"
-mode: "agent"
+name: ai-cleanup
+version: 4.2.0
+description: "Full repository hygiene: safe migration to default branch, aggressive branch cleanup, and rich per-branch status report."
+mode: agent
+tags: [git, branch, cleanup, hygiene, status]
+requires:
+  bins:
+  - git
 ---
 
 

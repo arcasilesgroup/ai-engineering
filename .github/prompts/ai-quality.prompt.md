@@ -1,6 +1,10 @@
 ---
-description: "Unified quality assessment: coverage, complexity, duplication, code"
-mode: "agent"
+name: ai-quality
+version: 2.0.0
+description: "Unified quality assessment: coverage, complexity, duplication, code review. Modes: code | sonar | review | docs."
+argument-hint: "all|code|sonar|review|docs"
+mode: agent
+tags: [quality, coverage, complexity, duplication, review, sonar]
 ---
 
 

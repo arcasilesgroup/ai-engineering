@@ -1,6 +1,10 @@
 ---
-description: "Documentation authoring with modes: generate (create/update docs) and"
-mode: "agent"
+name: ai-document
+version: 2.0.0
+description: "Documentation authoring with modes: generate (create/update docs) and simplify (reduce verbosity preserving accuracy)."
+argument-hint: "generate|simplify"
+mode: agent
+tags: [documentation, open-source, readme, guides, simplification]
 ---
 
 

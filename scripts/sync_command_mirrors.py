@@ -395,6 +395,66 @@ def read_canonical_body(path: Path) -> str:
     return text[body_start:]
 
 
+def read_canonical_frontmatter(path: Path) -> dict:
+    """Read a canonical markdown file and return the parsed YAML frontmatter dict."""
+    import yaml
+
+    text = path.read_text(encoding="utf-8")
+    if not text.startswith("---"):
+        return {}
+    end = text.find("---", 3)
+    if end == -1:
+        return {}
+    fm_text = text[3:end].strip()
+    return yaml.safe_load(fm_text) or {}
+
+
+def _serialize_frontmatter(data: dict) -> str:
+    """Serialize a frontmatter dict to YAML string (between --- fences)."""
+
+    # Ordered keys: name, version, description, argument-hint, mode, tags, requires
+    ordered_keys = [
+        "name",
+        "version",
+        "description",
+        "argument-hint",
+        "mode",
+        "color",
+        "model",
+        "tags",
+        "requires",
+    ]
+    lines = ["---"]
+    for key in ordered_keys:
+        if key in data:
+            lines.append(_format_yaml_field(key, data[key]))
+    # Any remaining keys
+    for key in data:
+        if key not in ordered_keys:
+            lines.append(_format_yaml_field(key, data[key]))
+    lines.append("---")
+    return "\n".join(lines)
+
+
+def _format_yaml_field(key: str, value) -> str:
+    """Format a single YAML field for frontmatter."""
+    if isinstance(value, str):
+        # Quote strings that contain special YAML chars
+        if any(c in value for c in ":#{}[]|>&*!%@`"):
+            return f'{key}: "{value}"'
+        return f"{key}: {value}"
+    if isinstance(value, list):
+        # Inline list format: [item1, item2]
+        items = ", ".join(str(v) for v in value)
+        return f"key: [{items}]".replace("key:", f"{key}:")
+    if isinstance(value, dict):
+        import yaml
+
+        block = yaml.dump({key: value}, default_flow_style=False, allow_unicode=True).rstrip()
+        return block
+    return f"{key}: {value}"
+
+
 # ── Cross-reference path patterns ──────────────────────────────────────────
 # Matches references like `skills/plan/SKILL.md`, `.ai-engineering/skills/plan/SKILL.md`,
 # `agents/build.md`, `.ai-engineering/agents/build.md`
@@ -503,28 +563,26 @@ def discover_agents() -> list[tuple[str, dict[str, str]]]:
 
 def generate_claude_skill(name: str, fm: dict[str, str], skill_path: Path) -> str:
     """Generate .claude/skills/ai-<name>/SKILL.md with full embedded content."""
-    desc = fm.get("description", "").strip("\"'")
-    hint = fm.get("argument-hint", "").strip("\"'")
     extras = CLAUDE_SKILL_EXTRAS.get(name, "")
 
-    lines = ["---"]
-    lines.append(f"name: ai-{name}")
-    lines.append(f'description: "{desc}"')
-    if hint:
-        lines.append(f'argument-hint: "{hint}"')
-    lines.append("---")
-    lines.append("")
+    # Read full frontmatter from canonical and adapt for Claude
+    canon_fm = read_canonical_frontmatter(skill_path)
+    canon_fm["name"] = f"ai-{name}"
+    # Remove fields not relevant for Claude skills
+    canon_fm.pop("metadata", None)
+
+    header = _serialize_frontmatter(canon_fm)
 
     # Embed full canonical content with translated cross-references
     body = read_canonical_body(skill_path)
     body = transform_cross_references(body, "claude")
-    lines.append(body.rstrip())
 
+    parts = [header, "", body.rstrip()]
     if extras:
-        lines.append(extras)
-    lines.append("$ARGUMENTS")
-    lines.append("")
-    return "\n".join(lines)
+        parts.append(extras)
+    parts.append("$ARGUMENTS")
+    parts.append("")
+    return "\n".join(parts)
 
 
 def generate_claude_agent_activation(
@@ -614,11 +672,18 @@ def generate_agents_agent(name: str, meta: AgentMeta) -> str:
 
 def generate_skill_copilot_prompt(name: str, description: str, skill_path: Path) -> str:
     """Generate Copilot prompt file with full embedded skill content."""
-    desc = description or f"{name} skill"
+    # Read full frontmatter from canonical and adapt for Copilot
+    canon_fm = read_canonical_frontmatter(skill_path)
+    canon_fm["name"] = f"ai-{name}"
+    canon_fm["mode"] = "agent"
+    canon_fm.pop("metadata", None)
+
+    header = _serialize_frontmatter(canon_fm)
+
     body = read_canonical_body(skill_path)
     body = transform_cross_references(body, "copilot")
 
-    return f'---\ndescription: "{desc}"\nmode: "agent"\n---\n\n{body.rstrip()}\n'
+    return f"{header}\n\n{body.rstrip()}\n"
 
 
 def generate_copilot_agent(name: str, meta: AgentMeta) -> str:

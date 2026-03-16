@@ -1,6 +1,8 @@
 ---
 name: ai-migrate
-description: "Plan and execute safe, reversible migrations for schemas, APIs, data"
+version: 1.0.0
+description: Plan and execute safe, reversible migrations for schemas, APIs, data formats, and breaking changes; use when evolving contracts or data structures.
+tags: [migration, breaking-changes, compatibility]
 ---
 
 
