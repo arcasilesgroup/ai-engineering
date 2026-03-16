@@ -30,14 +30,18 @@ class TestOutputRouting:
     """Tests for the output() dual-mode routing function."""
 
     def test_json_mode_emits_envelope(self, capsys: pytest.CaptureFixture[str]) -> None:
+        # Arrange
         set_json_mode(True)
         try:
+            # Act
             output(
                 command="test-cmd",
                 result={"key": "val"},
                 human_fn=lambda: None,
             )
             data = json.loads(capsys.readouterr().out)
+
+            # Assert
             assert data["ok"] is True
             assert data["command"] == "test-cmd"
             assert data["result"]["key"] == "val"
@@ -45,20 +49,27 @@ class TestOutputRouting:
             set_json_mode(False)
 
     def test_human_mode_calls_human_fn(self) -> None:
+        # Arrange
         set_json_mode(False)
         called = []
+
+        # Act
         output(
             command="test-cmd",
             result={"key": "val"},
             human_fn=lambda: called.append(True),
         )
+
+        # Assert
         assert called == [True]
 
     def test_json_mode_with_next_actions(self, capsys: pytest.CaptureFixture[str]) -> None:
+        # Arrange
         from ai_engineering.cli_envelope import NextAction
 
         set_json_mode(True)
         try:
+            # Act
             output(
                 command="test-cmd",
                 result={"done": True},
@@ -66,6 +77,8 @@ class TestOutputRouting:
                 human_fn=lambda: None,
             )
             data = json.loads(capsys.readouterr().out)
+
+            # Assert
             assert len(data["next_actions"]) == 1
         finally:
             set_json_mode(False)

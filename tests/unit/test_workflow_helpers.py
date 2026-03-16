@@ -24,33 +24,49 @@ class TestRunCommand:
     """Tests for _run_command subprocess wrapper."""
 
     def test_success(self, tmp_path: Path) -> None:
+        # Arrange
         proc = MagicMock(returncode=0, stdout="ok", stderr="")
+
+        # Act
         with patch("ai_engineering.commands.workflows.subprocess.run", return_value=proc):
             passed, output = _run_command(["echo", "hi"], tmp_path)
+
+        # Assert
         assert passed is True
         assert "ok" in output
 
     def test_failure(self, tmp_path: Path) -> None:
+        # Arrange
         proc = MagicMock(returncode=1, stdout="", stderr="error")
+
+        # Act
         with patch("ai_engineering.commands.workflows.subprocess.run", return_value=proc):
             passed, _output = _run_command(["false"], tmp_path)
+
+        # Assert
         assert passed is False
 
     def test_command_not_found(self, tmp_path: Path) -> None:
+        # Act
         with patch(
             "ai_engineering.commands.workflows.subprocess.run",
             side_effect=FileNotFoundError("not found"),
         ):
             passed, output = _run_command(["nonexistent"], tmp_path)
+
+        # Assert
         assert passed is False
         assert "Command not found" in output
 
     def test_timeout(self, tmp_path: Path) -> None:
+        # Act
         with patch(
             "ai_engineering.commands.workflows.subprocess.run",
             side_effect=subprocess.TimeoutExpired(cmd="test", timeout=30),
         ):
             passed, output = _run_command(["slow"], tmp_path, timeout=30)
+
+        # Assert
         assert passed is False
         assert "Timeout" in output
 
@@ -71,6 +87,7 @@ class TestCheckUnpushedDecision:
         assert result is None
 
     def test_matching_decision_returned(self, tmp_path: Path) -> None:
+        # Arrange
         from ai_engineering.state.decision_logic import compute_context_hash
 
         state_dir = tmp_path / ".ai-engineering" / "state"
@@ -92,15 +109,24 @@ class TestCheckUnpushedDecision:
             ],
         }
         store_path.write_text(json.dumps(store_data))
+
+        # Act
         result = _check_unpushed_decision(tmp_path, "feature/test")
+
+        # Assert
         assert result == "defer-pr"
 
     def test_corrupt_store_returns_none(self, tmp_path: Path) -> None:
+        # Arrange
         state_dir = tmp_path / ".ai-engineering" / "state"
         state_dir.mkdir(parents=True)
         store_path = state_dir / "decision-store.json"
         store_path.write_text("not json")
+
+        # Act
         result = _check_unpushed_decision(tmp_path, "feature/x")
+
+        # Assert
         assert result is None
 
 
@@ -108,22 +134,29 @@ class TestWorkflowResult:
     """Tests for WorkflowResult dataclass."""
 
     def test_passed_all_steps(self) -> None:
+        # Arrange
         wr = WorkflowResult(
             workflow="commit",
             steps=[StepResult(name="a", passed=True), StepResult(name="b", passed=True)],
         )
+
+        # Assert
         assert wr.passed is True
         assert wr.failed_steps == []
 
     def test_failed_step(self) -> None:
+        # Arrange
         wr = WorkflowResult(
             workflow="commit",
             steps=[StepResult(name="a", passed=True), StepResult(name="b", passed=False)],
         )
+
+        # Assert
         assert wr.passed is False
         assert wr.failed_steps == ["b"]
 
     def test_skipped_step_counts_as_passed(self) -> None:
+        # Arrange
         wr = WorkflowResult(
             workflow="commit",
             steps=[
@@ -131,6 +164,8 @@ class TestWorkflowResult:
                 StepResult(name="b", passed=False, skipped=True),
             ],
         )
+
+        # Assert
         assert wr.passed is True
 
 
@@ -139,6 +174,7 @@ class TestGitleaksSubcommand:
 
     def test_gitleaks_uses_protect_subcommand(self, tmp_path: Path) -> None:
         """run_commit_workflow must call gitleaks with 'protect', not 'detect'."""
+        # Arrange
         calls_made: list[list[str]] = []
 
         def fake_run(
@@ -152,6 +188,7 @@ class TestGitleaksSubcommand:
                 return False, "simulated-gitleaks-output"
             return True, ""
 
+        # Act
         with (
             patch("ai_engineering.commands.workflows._run_command", side_effect=fake_run),
             patch(
@@ -161,6 +198,7 @@ class TestGitleaksSubcommand:
         ):
             run_commit_workflow(tmp_path, "test commit message")
 
+        # Assert
         gitleaks_calls = [c for c in calls_made if c and c[0] == "gitleaks"]
         assert gitleaks_calls, "Expected at least one gitleaks invocation"
         gitleaks_cmd = gitleaks_calls[0]

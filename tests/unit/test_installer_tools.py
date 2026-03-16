@@ -15,23 +15,30 @@ class TestEnsureTool:
     """Tests for the ensure_tool function."""
 
     def test_tool_already_available(self) -> None:
+        # Act
         with patch("ai_engineering.installer.tools.shutil.which", return_value="/usr/bin/gh"):
             result = ensure_tool("gh")
+
+        # Assert
         assert result.available is True
         assert result.attempted is False
         assert result.installed is False
 
     def test_tool_missing_auto_install_disabled(self) -> None:
+        # Arrange
+        import os
+
+        env = {k: v for k, v in os.environ.items() if k != "AI_ENG_AUTO_INSTALL_TOOLS"}
+
+        # Act
         with (
             patch("ai_engineering.installer.tools.shutil.which", return_value=None),
             patch.dict("os.environ", {}, clear=False),
+            patch.dict("os.environ", env, clear=True),
         ):
-            # Remove env var if present
-            import os
+            result = ensure_tool("gh", allow_install=False)
 
-            env = {k: v for k, v in os.environ.items() if k != "AI_ENG_AUTO_INSTALL_TOOLS"}
-            with patch.dict("os.environ", env, clear=True):
-                result = ensure_tool("gh", allow_install=False)
+        # Assert
         assert result.available is False
         assert result.attempted is False
         assert "disabled" in result.detail.lower() or result.detail == ""
@@ -43,44 +50,51 @@ class TestEnsureTool:
         assert result.attempted is False
 
     def test_tool_missing_no_package_manager(self) -> None:
+        # Arrange
         def which_side_effect(name: str) -> str | None:
-            # Tool not found, no package managers available
             return None
 
+        # Act
         with (
             patch("ai_engineering.installer.tools.shutil.which", side_effect=which_side_effect),
             patch("ai_engineering.installer.tools.platform.system", return_value="Unknown"),
         ):
             result = ensure_tool("gh", allow_install=True)
+
+        # Assert
         assert result.available is False
         assert result.attempted is False
         assert "No supported package manager" in result.detail
 
     def test_tool_install_via_brew_success(self) -> None:
+        # Arrange
         call_count = 0
 
         def which_side_effect(name: str) -> str | None:
             nonlocal call_count
             if name == "gh":
                 call_count += 1
-                # First call: not found. Second call (after install): found.
                 return "/usr/local/bin/gh" if call_count > 1 else None
             if name == "brew":
                 return "/usr/local/bin/brew"
             return None
 
+        # Act
         with (
             patch("ai_engineering.installer.tools.shutil.which", side_effect=which_side_effect),
             patch("ai_engineering.installer.tools.platform.system", return_value="Darwin"),
             patch("ai_engineering.installer.tools.subprocess.run"),
         ):
             result = ensure_tool("gh", allow_install=True)
+
+        # Assert
         assert result.available is True
         assert result.attempted is True
         assert result.installed is True
         assert result.method == "brew"
 
     def test_tool_install_failure(self) -> None:
+        # Arrange
         import subprocess
 
         def which_side_effect(name: str) -> str | None:
@@ -88,6 +102,7 @@ class TestEnsureTool:
                 return "/usr/local/bin/brew"
             return None
 
+        # Act
         with (
             patch("ai_engineering.installer.tools.shutil.which", side_effect=which_side_effect),
             patch("ai_engineering.installer.tools.platform.system", return_value="Darwin"),
@@ -97,6 +112,8 @@ class TestEnsureTool:
             ),
         ):
             result = ensure_tool("gh", allow_install=True)
+
+        # Assert
         assert result.available is False
         assert result.attempted is True
         assert result.installed is False
@@ -117,6 +134,7 @@ class TestEnsureTool:
         assert "No supported package manager" in result.detail
 
     def test_tool_install_via_apt_success(self) -> None:
+        # Arrange
         call_count = 0
 
         def which_side_effect(name: str) -> str | None:
@@ -130,16 +148,20 @@ class TestEnsureTool:
                 return None
             return None
 
+        # Act
         with (
             patch("ai_engineering.installer.tools.shutil.which", side_effect=which_side_effect),
             patch("ai_engineering.installer.tools.platform.system", return_value="Linux"),
             patch("ai_engineering.installer.tools.subprocess.run"),
         ):
             result = ensure_tool("gh", allow_install=True)
+
+        # Assert
         assert result.available is True
         assert result.method == "apt"
 
     def test_tool_install_via_winget_success(self) -> None:
+        # Arrange
         call_count = 0
 
         def which_side_effect(name: str) -> str | None:
@@ -153,12 +175,15 @@ class TestEnsureTool:
                 return None
             return None
 
+        # Act
         with (
             patch("ai_engineering.installer.tools.shutil.which", side_effect=which_side_effect),
             patch("ai_engineering.installer.tools.platform.system", return_value="Windows"),
             patch("ai_engineering.installer.tools.subprocess.run"),
         ):
             result = ensure_tool("gh", allow_install=True)
+
+        # Assert
         assert result.available is True
         assert result.method == "winget"
 

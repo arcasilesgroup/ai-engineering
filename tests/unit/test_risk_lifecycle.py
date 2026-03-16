@@ -89,7 +89,10 @@ class TestCreateRiskAcceptance:
     """Tests for creating risk acceptance decisions."""
 
     def test_creates_with_correct_fields(self) -> None:
+        # Arrange
         store = _empty_store()
+
+        # Act
         d = create_risk_acceptance(
             store,
             decision_id="RA-001",
@@ -100,6 +103,8 @@ class TestCreateRiskAcceptance:
             spec="004",
             accepted_by="dev@example.com",
         )
+
+        # Assert
         assert d.id == "RA-001"
         assert d.risk_category == RiskCategory.RISK_ACCEPTANCE
         assert d.severity == RiskSeverity.HIGH
@@ -110,8 +115,11 @@ class TestCreateRiskAcceptance:
         assert d.expires_at is not None
 
     def test_auto_calculates_expiry(self) -> None:
+        # Arrange
         store = _empty_store()
         before = datetime.now(tz=UTC)
+
+        # Act
         d = create_risk_acceptance(
             store,
             decision_id="RA-002",
@@ -122,12 +130,17 @@ class TestCreateRiskAcceptance:
             spec="004",
             accepted_by="test",
         )
+
+        # Assert
         expected_min = before + timedelta(days=_SEVERITY_EXPIRY_DAYS[RiskSeverity.CRITICAL])
         assert d.expires_at >= expected_min
 
     def test_explicit_expiry_overrides(self) -> None:
+        # Arrange
         store = _empty_store()
         exp = datetime(2099, 12, 31)
+
+        # Act
         d = create_risk_acceptance(
             store,
             decision_id="RA-003",
@@ -139,10 +152,15 @@ class TestCreateRiskAcceptance:
             accepted_by="test",
             expires_at=exp,
         )
+
+        # Assert
         assert d.expires_at == exp
 
     def test_adds_to_store(self) -> None:
+        # Arrange
         store = _empty_store()
+
+        # Act
         create_risk_acceptance(
             store,
             decision_id="RA-004",
@@ -153,6 +171,8 @@ class TestCreateRiskAcceptance:
             spec="004",
             accepted_by="test",
         )
+
+        # Assert
         assert len(store.decisions) == 1
 
 
@@ -175,8 +195,11 @@ class TestRenewDecision:
         )
 
     def test_creates_new_decision(self) -> None:
+        # Arrange
         store = _empty_store()
         self._create_risk(store)
+
+        # Act
         renewed = renew_decision(
             store,
             decision_id="RA-001",
@@ -184,13 +207,18 @@ class TestRenewDecision:
             spec="004",
             actor="dev",
         )
+
+        # Assert
         assert renewed.renewal_count == 1
         assert renewed.renewed_from == "RA-001"
         assert len(store.decisions) == 2
 
     def test_marks_original_superseded(self) -> None:
+        # Arrange
         store = _empty_store()
         self._create_risk(store)
+
+        # Act
         renew_decision(
             store,
             decision_id="RA-001",
@@ -198,15 +226,16 @@ class TestRenewDecision:
             spec="004",
             actor="dev",
         )
+
+        # Assert
         original = store.find_by_id("RA-001")
         assert original is not None
         assert original.status == DecisionStatus.SUPERSEDED
 
     def test_max_renewals_raises(self) -> None:
+        # Arrange
         store = _empty_store()
         self._create_risk(store)
-
-        # Renew twice (max 2)
         r1 = renew_decision(
             store,
             decision_id="RA-001",
@@ -222,9 +251,8 @@ class TestRenewDecision:
             actor="dev",
         )
 
-        # Third renewal should fail
+        # Act / Assert — third renewal should fail
         with pytest.raises(ValueError, match="maximum renewals"):
-            # Find the latest renewed decision
             latest = next(d for d in store.decisions if d.renewal_count == 2)
             renew_decision(
                 store,
@@ -246,8 +274,8 @@ class TestRenewDecision:
             )
 
     def test_non_risk_raises(self) -> None:
+        # Arrange
         store = _empty_store()
-        # Add a regular decision (not risk acceptance)
         store.decisions.append(
             Decision(
                 id="D-001",
@@ -257,6 +285,8 @@ class TestRenewDecision:
                 spec="004",
             )
         )
+
+        # Act / Assert
         with pytest.raises(ValueError, match="not a risk acceptance"):
             renew_decision(
                 store,
@@ -274,6 +304,7 @@ class TestRevokeDecision:
     """Tests for decision revocation."""
 
     def test_sets_revoked_status(self) -> None:
+        # Arrange
         store = _empty_store()
         create_risk_acceptance(
             store,
@@ -285,7 +316,11 @@ class TestRevokeDecision:
             spec="004",
             accepted_by="dev",
         )
+
+        # Act
         d = revoke_decision(store, decision_id="RA-001")
+
+        # Assert
         assert d.status == DecisionStatus.REVOKED
 
     def test_not_found_raises(self) -> None:
@@ -301,6 +336,7 @@ class TestMarkRemediated:
     """Tests for marking decisions as remediated."""
 
     def test_sets_remediated_status(self) -> None:
+        # Arrange
         store = _empty_store()
         create_risk_acceptance(
             store,
@@ -312,7 +348,11 @@ class TestMarkRemediated:
             spec="004",
             accepted_by="dev",
         )
+
+        # Act
         d = mark_remediated(store, decision_id="RA-001")
+
+        # Assert
         assert d.status == DecisionStatus.REMEDIATED
 
 
@@ -323,6 +363,7 @@ class TestListExpiredDecisions:
     """Tests for listing expired decisions."""
 
     def test_finds_expired(self) -> None:
+        # Arrange
         store = _empty_store()
         create_risk_acceptance(
             store,
@@ -335,11 +376,16 @@ class TestListExpiredDecisions:
             accepted_by="dev",
             expires_at=datetime(2020, 1, 1, tzinfo=UTC),
         )
+
+        # Act
         expired = list_expired_decisions(store)
+
+        # Assert
         assert len(expired) == 1
         assert expired[0].id == "RA-001"
 
     def test_excludes_non_expired(self) -> None:
+        # Arrange
         store = _empty_store()
         create_risk_acceptance(
             store,
@@ -352,10 +398,15 @@ class TestListExpiredDecisions:
             accepted_by="dev",
             expires_at=datetime(2099, 12, 31, tzinfo=UTC),
         )
+
+        # Act
         expired = list_expired_decisions(store)
+
+        # Assert
         assert len(expired) == 0
 
     def test_excludes_remediated(self) -> None:
+        # Arrange
         store = _empty_store()
         create_risk_acceptance(
             store,
@@ -369,7 +420,11 @@ class TestListExpiredDecisions:
             expires_at=datetime(2020, 1, 1, tzinfo=UTC),
         )
         mark_remediated(store, decision_id="RA-001")
+
+        # Act
         expired = list_expired_decisions(store)
+
+        # Assert
         assert len(expired) == 0
 
 
@@ -380,6 +435,7 @@ class TestListExpiringSoon:
     """Tests for listing soon-to-expire decisions."""
 
     def test_finds_expiring_within_threshold(self) -> None:
+        # Arrange
         store = _empty_store()
         create_risk_acceptance(
             store,
@@ -392,10 +448,15 @@ class TestListExpiringSoon:
             accepted_by="dev",
             expires_at=datetime.now(tz=UTC) + timedelta(days=3),
         )
+
+        # Act
         expiring = list_expiring_soon(store, days=7)
+
+        # Assert
         assert len(expiring) == 1
 
     def test_excludes_far_future(self) -> None:
+        # Arrange
         store = _empty_store()
         create_risk_acceptance(
             store,
@@ -408,10 +469,15 @@ class TestListExpiringSoon:
             accepted_by="dev",
             expires_at=datetime.now(tz=UTC) + timedelta(days=60),
         )
+
+        # Act
         expiring = list_expiring_soon(store, days=7)
+
+        # Assert
         assert len(expiring) == 0
 
     def test_excludes_already_expired(self) -> None:
+        # Arrange
         store = _empty_store()
         create_risk_acceptance(
             store,
@@ -424,7 +490,11 @@ class TestListExpiringSoon:
             accepted_by="dev",
             expires_at=datetime(2020, 1, 1, tzinfo=UTC),
         )
+
+        # Act
         expiring = list_expiring_soon(store, days=7)
+
+        # Assert
         assert len(expiring) == 0
 
 
@@ -436,6 +506,7 @@ class TestBackwardCompatibility:
 
     def test_old_decision_without_risk_fields(self) -> None:
         """Schema 1.0 decisions (no risk fields) should validate cleanly."""
+        # Arrange
         raw = {
             "id": "S1-001",
             "context": "old decision",
@@ -443,7 +514,11 @@ class TestBackwardCompatibility:
             "decidedAt": "2025-01-01T00:00:00Z",
             "spec": "001",
         }
+
+        # Act
         d = Decision.model_validate(raw)
+
+        # Assert
         assert d.risk_category is None
         assert d.severity is None
         assert d.status == DecisionStatus.ACTIVE
@@ -451,6 +526,7 @@ class TestBackwardCompatibility:
 
     def test_schema_1_0_store_validates(self) -> None:
         """Schema 1.0 store (no risk fields) should validate."""
+        # Arrange
         raw = {
             "schemaVersion": "1.0",
             "decisions": [
@@ -463,6 +539,10 @@ class TestBackwardCompatibility:
                 },
             ],
         }
+
+        # Act
         store = DecisionStore.model_validate(raw)
+
+        # Assert
         assert len(store.decisions) == 1
         assert store.risk_decisions() == []

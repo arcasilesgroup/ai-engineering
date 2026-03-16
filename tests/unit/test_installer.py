@@ -84,6 +84,7 @@ class TestInstallResultDefaults:
         assert result.total_skipped == 0
 
     def test_total_created_counts_all_categories(self) -> None:
+        # Arrange
         result = InstallResult()
         result.governance_files = CopyResult(
             created=[Path("a"), Path("b")],
@@ -94,9 +95,12 @@ class TestInstallResultDefaults:
             skipped=[],
         )
         result.state_files = [Path("d"), Path("e"), Path("f")]
+
+        # Assert
         assert result.total_created == 6
 
     def test_total_skipped_counts_both_categories(self) -> None:
+        # Arrange
         result = InstallResult()
         result.governance_files = CopyResult(
             created=[],
@@ -106,6 +110,8 @@ class TestInstallResultDefaults:
             created=[],
             skipped=[Path("c")],
         )
+
+        # Assert
         assert result.total_skipped == 3
 
 
@@ -262,11 +268,11 @@ class TestInstallCallsCopyTemplateTree:
     """install() calls copy_template_tree with correct args."""
 
     def test_called_with_template_root_and_ai_eng_dir(self, patched, tmp_path: Path) -> None:
-        # Make state file paths appear to already exist so _generate_state_files
-        # does not try to write them (keeps test focused).
+        # Act
         with patch.object(Path, "exists", return_value=True):
             install(tmp_path)
 
+        # Assert
         patched["copy_template_tree"].assert_called_once_with(
             Path("/fake/templates"),
             tmp_path / ".ai-engineering",
@@ -277,9 +283,11 @@ class TestInstallCallsCopyProjectTemplates:
     """install() calls copy_project_templates with correct target."""
 
     def test_called_with_target(self, patched, tmp_path: Path) -> None:
+        # Act
         with patch.object(Path, "exists", return_value=True):
             install(tmp_path)
 
+        # Assert
         patched["copy_project_templates"].assert_called_once_with(
             tmp_path,
             providers=None,
@@ -290,11 +298,11 @@ class TestInstallCreatesStateFiles:
     """install() creates state files that don't exist."""
 
     def test_writes_state_files_when_missing(self, patched, tmp_path: Path) -> None:
-        # Path.exists returns False so all state files are "missing"
+        # Act
         with patch.object(Path, "exists", return_value=False):
             result = install(tmp_path, stacks=["python"])
 
-        # write_json_model should be called for each of the 3 state files
+        # Assert
         assert patched["write_json_model"].call_count >= 3
         assert len(result.state_files) == 3
 
@@ -303,11 +311,11 @@ class TestInstallSkipsExistingStateFiles:
     """install() skips state files that already exist."""
 
     def test_no_writes_when_all_exist(self, patched, tmp_path: Path) -> None:
+        # Act
         with patch.object(Path, "exists", return_value=True):
             result = install(tmp_path)
 
-        # write_json_model is NOT called for state file creation
-        # (it may be called for the manifest update in _run_operational_phases)
+        # Assert
         state_write_calls = [
             c
             for c in patched["write_json_model"].call_args_list
@@ -517,18 +525,22 @@ class TestInstallAppendsAuditLog:
     """install() appends an audit log entry."""
 
     def test_append_ndjson_called(self, patched, tmp_path: Path) -> None:
+        # Act
         with patch.object(Path, "exists", return_value=True):
             install(tmp_path)
 
+        # Assert
         patched["append_ndjson"].assert_called_once()
         audit_call = patched["append_ndjson"].call_args
         audit_path = Path(audit_call[0][0])
         assert audit_path.parts[-2:] == ("state", "audit-log.ndjson")
 
     def test_audit_entry_event_is_install(self, patched, tmp_path: Path) -> None:
+        # Act
         with patch.object(Path, "exists", return_value=True):
             install(tmp_path)
 
+        # Assert
         audit_entry = patched["append_ndjson"].call_args[0][1]
         assert audit_entry.event == "install"
         assert audit_entry.actor == "ai-engineering-cli"
@@ -544,30 +556,39 @@ class TestInstallReturnsInstallResult:
         assert isinstance(result, InstallResult)
 
     def test_governance_files_from_copy_template_tree(self, patched, tmp_path: Path) -> None:
+        # Arrange
         expected = CopyResult(created=[Path("x")], skipped=[])
         patched["copy_template_tree"].return_value = expected
 
+        # Act
         with patch.object(Path, "exists", return_value=True):
             result = install(tmp_path)
 
+        # Assert
         assert result.governance_files is expected
 
     def test_project_files_from_copy_project_templates(self, patched, tmp_path: Path) -> None:
+        # Arrange
         expected = CopyResult(created=[Path("y")], skipped=[Path("z")])
         patched["copy_project_templates"].return_value = expected
 
+        # Act
         with patch.object(Path, "exists", return_value=True):
             result = install(tmp_path)
 
+        # Assert
         assert result.project_files is expected
 
     def test_hooks_from_install_hooks(self, patched, tmp_path: Path) -> None:
+        # Arrange
         expected = HookInstallResult(installed=["pre-commit"], skipped=[], conflicts=[])
         patched["install_hooks"].return_value = expected
 
+        # Act
         with patch.object(Path, "exists", return_value=True):
             result = install(tmp_path)
 
+        # Assert
         assert result.hooks is expected
 
 
@@ -611,6 +632,7 @@ class TestInstallAlreadyInstalled:
     """install() sets already_installed when nothing new was created."""
 
     def test_already_installed_when_no_new_files(self, patched, tmp_path: Path) -> None:
+        # Arrange
         patched["copy_template_tree"].return_value = CopyResult(
             created=[],
             skipped=[Path("a")],
@@ -620,9 +642,11 @@ class TestInstallAlreadyInstalled:
             skipped=[Path("b")],
         )
 
+        # Act
         with patch.object(Path, "exists", return_value=True):
             result = install(tmp_path)
 
+        # Assert
         assert result.already_installed is True
 
     def test_not_already_installed_when_governance_created(
@@ -630,14 +654,17 @@ class TestInstallAlreadyInstalled:
         patched,
         tmp_path: Path,
     ) -> None:
+        # Arrange
         patched["copy_template_tree"].return_value = CopyResult(
             created=[Path("new_file")],
             skipped=[],
         )
 
+        # Act
         with patch.object(Path, "exists", return_value=True):
             result = install(tmp_path)
 
+        # Assert
         assert result.already_installed is False
 
 
@@ -662,15 +689,19 @@ class TestResolveSonarCicdConfig:
     def test_returns_none_when_not_configured(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     ) -> None:
+        # Arrange
         monkeypatch.setattr(
             "ai_engineering.installer.service.CredentialService.load_tools_state",
             lambda *_: ToolsState(),
         )
+
+        # Act & Assert
         assert _resolve_sonar_cicd_config(tmp_path) is None
 
     def test_returns_none_for_sonarcloud_without_org(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     ) -> None:
+        # Arrange
         state = ToolsState(
             sonar=SonarConfig(
                 configured=True,
@@ -683,11 +714,14 @@ class TestResolveSonarCicdConfig:
             "ai_engineering.installer.service.CredentialService.load_tools_state",
             lambda *_: state,
         )
+
+        # Act & Assert
         assert _resolve_sonar_cicd_config(tmp_path) is None
 
     def test_returns_config_when_configured(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     ) -> None:
+        # Arrange
         state = ToolsState(
             sonar=SonarConfig(
                 configured=True,
@@ -700,7 +734,11 @@ class TestResolveSonarCicdConfig:
             "ai_engineering.installer.service.CredentialService.load_tools_state",
             lambda *_: state,
         )
+
+        # Act
         resolved = _resolve_sonar_cicd_config(tmp_path)
+
+        # Assert
         assert resolved is not None
         assert resolved.enabled is True
         assert resolved.project_key == "my-key"

@@ -35,12 +35,17 @@ class TestSuccessEnvelope:
         assert env.ok is True
 
     def test_serialises_to_valid_json(self) -> None:
+        # Arrange
         env = SuccessEnvelope(
             command="install",
             result={"root": "/tmp"},
             next_actions=[NextAction(command="doctor", description="Check health")],
         )
+
+        # Act
         data = json.loads(env.model_dump_json())
+
+        # Assert
         assert data["ok"] is True
         assert data["result"]["root"] == "/tmp"
         assert len(data["next_actions"]) == 1
@@ -72,22 +77,33 @@ class TestEmitFunctions:
     """Tests for emit_success and emit_error."""
 
     def test_emit_success_writes_json(self, capsys: pytest.CaptureFixture[str]) -> None:
+        # Act
         emit_success("test-cmd", {"key": "val"})
         data = json.loads(capsys.readouterr().out)
+
+        # Assert
         assert data["ok"] is True
         assert data["command"] == "test-cmd"
 
     def test_emit_error_writes_json(self, capsys: pytest.CaptureFixture[str]) -> None:
+        # Act
         emit_error("test-cmd", "boom", "ERR_BOOM", "fix it")
         data = json.loads(capsys.readouterr().out)
+
+        # Assert
         assert data["ok"] is False
         assert data["error"]["message"] == "boom"
         assert data["fix"] == "fix it"
 
     def test_emit_success_with_next_actions(self, capsys: pytest.CaptureFixture[str]) -> None:
+        # Arrange
         actions = [NextAction(command="doctor", description="Run doctor")]
+
+        # Act
         emit_success("install", {"root": "/tmp"}, actions)
         data = json.loads(capsys.readouterr().out)
+
+        # Assert
         assert len(data["next_actions"]) == 1
 
 
@@ -101,7 +117,10 @@ class TestTruncateList:
         assert result["truncated"] is False
 
     def test_truncation_applied(self) -> None:
+        # Act
         result = truncate_list(list(range(30)), max_items=10)
+
+        # Assert
         assert len(result["items"]) == 10
         assert result["total"] == 30
         assert result["truncated"] is True

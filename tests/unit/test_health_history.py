@@ -15,9 +15,14 @@ from ai_engineering.lib.signals import (
 
 class TestSaveHealthSnapshot:
     def test_creates_file_if_missing(self, tmp_path: Path) -> None:
+        # Arrange
         state_dir = tmp_path / ".ai-engineering" / "state"
         state_dir.mkdir(parents=True)
+
+        # Act
         save_health_snapshot(tmp_path, 75, "YELLOW", {"gate": 80.0})
+
+        # Assert
         path = state_dir / "health-history.json"
         assert path.exists()
         data = json.loads(path.read_text(encoding="utf-8"))
@@ -27,6 +32,7 @@ class TestSaveHealthSnapshot:
         assert data["entries"][0]["components"]["gate"] == 80.0
 
     def test_appends_to_existing(self, tmp_path: Path) -> None:
+        # Arrange
         state_dir = tmp_path / ".ai-engineering" / "state"
         state_dir.mkdir(parents=True)
         existing = {
@@ -35,21 +41,31 @@ class TestSaveHealthSnapshot:
             ]
         }
         (state_dir / "health-history.json").write_text(json.dumps(existing), encoding="utf-8")
+
+        # Act
         save_health_snapshot(tmp_path, 70, "YELLOW", {"gate": 85.0})
+
+        # Assert
         data = json.loads((state_dir / "health-history.json").read_text(encoding="utf-8"))
         assert len(data["entries"]) == 2
         assert data["entries"][1]["overall"] == 70
 
     def test_deduplicates_same_date(self, tmp_path: Path) -> None:
+        # Arrange
         state_dir = tmp_path / ".ai-engineering" / "state"
         state_dir.mkdir(parents=True)
         save_health_snapshot(tmp_path, 60, "YELLOW", {})
+
+        # Act
         save_health_snapshot(tmp_path, 70, "YELLOW", {})
+
+        # Assert
         data = json.loads((state_dir / "health-history.json").read_text(encoding="utf-8"))
         assert len(data["entries"]) == 1
         assert data["entries"][0]["overall"] == 70
 
     def test_rolling_window(self, tmp_path: Path) -> None:
+        # Arrange
         state_dir = tmp_path / ".ai-engineering" / "state"
         state_dir.mkdir(parents=True)
         entries = [
@@ -59,7 +75,11 @@ class TestSaveHealthSnapshot:
         (state_dir / "health-history.json").write_text(
             json.dumps({"entries": entries}), encoding="utf-8"
         )
+
+        # Act
         save_health_snapshot(tmp_path, 99, "GREEN", {})
+
+        # Assert
         data = json.loads((state_dir / "health-history.json").read_text(encoding="utf-8"))
         assert len(data["entries"]) == _MAX_HISTORY_ENTRIES
         assert data["entries"][-1]["overall"] == 99
@@ -72,20 +92,28 @@ class TestLoadHealthHistory:
         assert load_health_history(tmp_path) == []
 
     def test_returns_entries(self, tmp_path: Path) -> None:
+        # Arrange
         state_dir = tmp_path / ".ai-engineering" / "state"
         state_dir.mkdir(parents=True)
         entries = [{"date": "2026-03-01", "overall": 60, "semaphore": "YELLOW", "components": {}}]
         (state_dir / "health-history.json").write_text(
             json.dumps({"entries": entries}), encoding="utf-8"
         )
+
+        # Act
         result = load_health_history(tmp_path)
+
+        # Assert
         assert len(result) == 1
         assert result[0]["overall"] == 60
 
     def test_handles_corrupt_json(self, tmp_path: Path) -> None:
+        # Arrange
         state_dir = tmp_path / ".ai-engineering" / "state"
         state_dir.mkdir(parents=True)
         (state_dir / "health-history.json").write_text("not json", encoding="utf-8")
+
+        # Act & Assert
         assert load_health_history(tmp_path) == []
 
 

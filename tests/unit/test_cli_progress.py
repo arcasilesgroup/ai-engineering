@@ -34,12 +34,14 @@ class TestSpinner:
 
     def test_spinner_shows_on_tty(self) -> None:
         """Spinner activates when terminal is detected."""
+        # Arrange
         mock_console = MagicMock()
         mock_console.is_terminal = True
         mock_status = MagicMock()
         mock_console.status.return_value.__enter__ = MagicMock(return_value=mock_status)
         mock_console.status.return_value.__exit__ = MagicMock(return_value=False)
 
+        # Act
         with (
             patch("ai_engineering.cli_progress.is_json_mode", return_value=False),
             patch("ai_engineering.cli_progress.get_console", return_value=mock_console),
@@ -47,6 +49,7 @@ class TestSpinner:
         ):
             pass
 
+        # Assert
         mock_console.status.assert_called_once_with("Loading...", spinner="dots")
 
 
@@ -77,12 +80,14 @@ class TestStepProgress:
 
     def test_step_progress_shows_on_tty(self) -> None:
         """Step progress activates when terminal is detected."""
+        # Arrange
         mock_console = MagicMock()
         mock_console.is_terminal = True
         mock_status = MagicMock()
         mock_console.status.return_value.__enter__ = MagicMock(return_value=mock_status)
         mock_console.status.return_value.__exit__ = MagicMock(return_value=False)
 
+        # Act
         with (
             patch("ai_engineering.cli_progress.is_json_mode", return_value=False),
             patch("ai_engineering.cli_progress.get_console", return_value=mock_console),
@@ -91,6 +96,7 @@ class TestStepProgress:
             tracker.step("Step A")
             tracker.step("Step B")
 
+        # Assert
         mock_console.status.assert_called_once_with("[0/3] Running checks", spinner="dots")
         assert mock_status.update.call_count == 2
 
@@ -108,9 +114,18 @@ class TestStepTracker:
 
     def test_tracker_with_status_object(self) -> None:
         """Tracker with a status object updates spinner description."""
+        # Arrange
         mock_status = MagicMock()
         tracker = StepTracker(3, mock_status)
+
+        # Act
         tracker.step("first")
+
+        # Assert
         mock_status.update.assert_called_with("[1/3] first")
+
+        # Act
         tracker.step("second")
+
+        # Assert
         mock_status.update.assert_called_with("[2/3] second")
