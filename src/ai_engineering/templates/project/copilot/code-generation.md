@@ -15,8 +15,8 @@ Before generating code, consult:
 
 ## Skills and Agents
 
-- Apply `.ai-engineering/agents/build.md` persona for implementation and complexity reduction.
-- Follow `.ai-engineering/skills/refactor/SKILL.md` when restructuring code.
+- Apply `.github/agents/ai-build.agent.md` persona for implementation and complexity reduction.
+- Follow `.github/prompts/ai-refactor.prompt.md` when restructuring code.
 
 ## Ownership Safety
 

@@ -1,7 +1,8 @@
 """Local skill eligibility diagnostics.
 
-Evaluates which skills in `.ai-engineering/skills/` meet their runtime
-requirements (binaries, environment variables, config paths, OS).
+Evaluates which skills in `.claude/skills/`, `.agents/skills/`, or
+legacy `.ai-engineering/skills/` meet their runtime requirements
+(binaries, environment variables, config paths, OS).
 """
 
 from __future__ import annotations
@@ -35,21 +36,12 @@ class SkillStatus:
     errors: list[str] = field(default_factory=list)
 
 
-def list_local_skill_status(target: Path) -> list[SkillStatus]:
-    """Evaluate local `.ai-engineering/skills` requirement eligibility."""
-    skills_root = target / ".ai-engineering" / "skills"
+def _collect_skill_files(skills_root: Path) -> list[Path]:
+    """Collect skill definition files from a single skills directory."""
     if not skills_root.is_dir():
         return []
-
-    manifest = _safe_yaml_load(target / ".ai-engineering" / "manifest.yml")
-    install_manifest = _safe_json_load(
-        target / ".ai-engineering" / "state" / "install-manifest.json"
-    )
-    config_roots = [manifest, install_manifest]
-
-    # Only scan skill definition files:
-    # - Directory-based: skills/<category>/<name>/SKILL.md
-    # - File-based: skills/<category>/<name>.md (direct children of category dirs)
+    # Directory-based: skills/<category>/<name>/SKILL.md
+    # File-based: skills/<category>/<name>.md (direct children of category dirs)
     skill_files: list[Path] = []
     skill_files.extend(sorted(skills_root.rglob("SKILL.md")))
     for category_dir in sorted(skills_root.iterdir()):
@@ -57,6 +49,38 @@ def list_local_skill_status(target: Path) -> list[SkillStatus]:
             for md in sorted(category_dir.glob("*.md")):
                 if md.is_file() and md.name != "SKILL.md":
                     skill_files.append(md)
+    return skill_files
+
+
+# Skill directories to scan, in priority order.
+_SKILL_DIRS: list[str] = [
+    ".claude/skills",
+    ".agents/skills",
+    ".ai-engineering/skills",  # legacy, backwards compat
+]
+
+
+def list_local_skill_status(target: Path) -> list[SkillStatus]:
+    """Evaluate local skill requirement eligibility.
+
+    Scans ``.claude/skills/``, ``.agents/skills/``, and legacy
+    ``.ai-engineering/skills/`` for SKILL.md files.
+    """
+    manifest = _safe_yaml_load(target / ".ai-engineering" / "manifest.yml")
+    install_manifest = _safe_json_load(
+        target / ".ai-engineering" / "state" / "install-manifest.json"
+    )
+    config_roots = [manifest, install_manifest]
+
+    # Collect skill files from all known directories.
+    seen_paths: set[Path] = set()
+    skill_files: list[Path] = []
+    for rel_dir in _SKILL_DIRS:
+        for sf in _collect_skill_files(target / rel_dir):
+            resolved = sf.resolve()
+            if resolved not in seen_paths:
+                seen_paths.add(resolved)
+                skill_files.append(sf)
 
     statuses: list[SkillStatus] = []
     for skill_file in skill_files:

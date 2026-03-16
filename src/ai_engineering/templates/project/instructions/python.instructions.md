@@ -70,13 +70,13 @@ uv run pip-audit                  # Dependency vulnerabilities
 
 For complex Python tasks, consider referencing these agent definitions:
 
-- `.ai-engineering/agents/build.md` — implementation agent (debug, refactor, simplify modes).
-- `.ai-engineering/agents/review.md` — review agent (code review, quality).
+- `.github/agents/ai-build.agent.md` — implementation agent (debug, refactor, simplify modes).
+- `.github/agents/ai-review.agent.md` — review agent (code review, quality).
 
 ## Skills
 
 For structured procedures:
 
-- `.ai-engineering/skills/debug/SKILL.md` — debugging procedure.
-- `.ai-engineering/skills/refactor/SKILL.md` — refactoring procedure.
-- `.ai-engineering/skills/test-plan/SKILL.md` — test design.
+- `.github/prompts/ai-debug.prompt.md` — debugging procedure.
+- `.github/prompts/ai-refactor.prompt.md` — refactoring procedure.
+- `.github/prompts/ai-test-plan.prompt.md` — test design.

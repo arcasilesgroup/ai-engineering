@@ -12,8 +12,8 @@ Use `.ai-engineering/` as the single source of truth for project governance and 
 
 ## Skills
 
-- Use `.ai-engineering/skills/test-plan/SKILL.md` for test design procedure.
-- Reference `.ai-engineering/skills/debug/SKILL.md` for diagnosing test failures.
+- Use `.github/prompts/ai-test-plan.prompt.md` for test design procedure.
+- Reference `.github/prompts/ai-debug.prompt.md` for diagnosing test failures.
 
 ## Conventions
 
