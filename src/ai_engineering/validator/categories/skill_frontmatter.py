@@ -192,24 +192,32 @@ def _check_skill_frontmatter(
     target: Path, report: IntegrityReport, *, cache: FileCache | None = None
 ) -> None:
     """Validate YAML frontmatter in all skill files."""
-    skills_root = target / ".ai-engineering" / "skills"
-    if not skills_root.is_dir():
+    # Skills now live in IDE-specific directories, not .ai-engineering/skills/
+    ide_skill_dirs = [
+        target / ".claude" / "skills",
+        target / ".agents" / "skills",
+    ]
+    skills_roots = [d for d in ide_skill_dirs if d.is_dir()]
+    if not skills_roots:
+        # Neither IDE skill directory exists — return empty results, not an error
         report.checks.append(
             IntegrityCheckResult(
                 category=IntegrityCategory.SKILL_FRONTMATTER,
-                name="skills-directory",
-                status=IntegrityStatus.FAIL,
-                message="Skills directory not found: .ai-engineering/skills",
+                name="skill-frontmatter",
+                status=IntegrityStatus.OK,
+                message="No IDE skill directories found; skipping frontmatter validation",
             )
         )
         return
 
     checked = 0
     failures = 0
-    if cache:
-        skill_files = [p for p in cache.rglob(skills_root, "SKILL.md") if p.is_file()]
-    else:
-        skill_files = sorted(skills_root.rglob("SKILL.md"))
+    skill_files: list[Path] = []
+    for skills_root in skills_roots:
+        if cache:
+            skill_files.extend(p for p in cache.rglob(skills_root, "SKILL.md") if p.is_file())
+        else:
+            skill_files.extend(sorted(skills_root.rglob("SKILL.md")))
     for skill_file in skill_files:
         checked += 1
         rel = skill_file.relative_to(target).as_posix()
