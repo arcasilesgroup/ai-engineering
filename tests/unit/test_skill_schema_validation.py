@@ -44,7 +44,19 @@ def test_skill_not_truncated(skill_dir: Path) -> None:
     assert len(lines) >= 30, f"{name}/SKILL.md only {len(lines)} lines"
 
 
-def test_skill_count_matches_expected() -> None:
-    """There should be exactly 38 skills on disk (guide is agent-only, not a skill)."""
+def test_skill_count_matches_manifest() -> None:
+    """Skill count on disk must match manifest.yml governance_surface.skills.total."""
+    import yaml
+
+    # Arrange — read expected count from manifest (single source of truth)
+    manifest_path = _SKILLS_DIR.parent / "manifest.yml"
+    manifest = yaml.safe_load(manifest_path.read_text(encoding="utf-8"))
+    expected = manifest["governance_surface"]["skills"]["total"]
+
+    # Act
     skills = _all_skill_dirs()
-    assert len(skills) == 38, f"Expected 38 skills, found {len(skills)}: {[d.name for d in skills]}"
+
+    # Assert
+    assert len(skills) == expected, (
+        f"Manifest says {expected} skills, found {len(skills)} on disk: {[d.name for d in skills]}"
+    )

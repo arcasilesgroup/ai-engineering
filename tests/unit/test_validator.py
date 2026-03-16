@@ -21,58 +21,17 @@ pytestmark = pytest.mark.unit
 
 # -- Helpers ----------------------------------------------------------------
 
+# Dynamic discovery from real project — never hardcode lists that can drift.
+_PROJECT_ROOT = Path(__file__).resolve().parents[2]
+_AI_ENG_DIR = _PROJECT_ROOT / ".ai-engineering"
 
-_SKILL_PATHS = [
-    "skills/accessibility/SKILL.md",
-    "skills/api/SKILL.md",
-    "skills/architecture/SKILL.md",
-    "skills/changelog/SKILL.md",
-    "skills/cleanup/SKILL.md",
-    "skills/code/SKILL.md",
-    "skills/commit/SKILL.md",
-    "skills/contract/SKILL.md",
-    "skills/dashboard/SKILL.md",
-    "skills/debug/SKILL.md",
-    "skills/discover/SKILL.md",
-    "skills/dispatch/SKILL.md",
-    "skills/document/SKILL.md",
-    "skills/evolve/SKILL.md",
-    "skills/explain/SKILL.md",
-    "skills/gap/SKILL.md",
-    "skills/governance/SKILL.md",
-    "skills/guard/SKILL.md",
-    "skills/infra/SKILL.md",
-    "skills/lifecycle/SKILL.md",
-    "skills/migrate/SKILL.md",
-    "skills/onboard/SKILL.md",
-    "skills/ops/SKILL.md",
-    "skills/performance/SKILL.md",
-    "skills/pipeline/SKILL.md",
-    "skills/plan/SKILL.md",
-    "skills/pr/SKILL.md",
-    "skills/quality/SKILL.md",
-    "skills/refactor/SKILL.md",
-    "skills/release/SKILL.md",
-    "skills/risk/SKILL.md",
-    "skills/schema/SKILL.md",
-    "skills/security/SKILL.md",
-    "skills/simplify/SKILL.md",
-    "skills/spec/SKILL.md",
-    "skills/standards/SKILL.md",
-    "skills/test/SKILL.md",
-    "skills/triage/SKILL.md",
-]
+_SKILL_PATHS = sorted(
+    f"skills/{d.name}/SKILL.md"
+    for d in (_AI_ENG_DIR / "skills").iterdir()
+    if d.is_dir() and (d / "SKILL.md").is_file()
+)
 
-_AGENT_PATHS = [
-    "agents/build.md",
-    "agents/explorer.md",
-    "agents/guard.md",
-    "agents/guide.md",
-    "agents/operate.md",
-    "agents/plan.md",
-    "agents/simplifier.md",
-    "agents/verify.md",
-]
+_AGENT_PATHS = sorted(f"agents/{f.name}" for f in (_AI_ENG_DIR / "agents").glob("*.md"))
 
 
 def _make_governance(root: Path) -> Path:

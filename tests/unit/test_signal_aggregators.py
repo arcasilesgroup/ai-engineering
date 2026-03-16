@@ -76,6 +76,7 @@ class TestScanMetricsFrom:
     """Tests for scan_metrics_from()."""
 
     def test_normal_case(self) -> None:
+        # Arrange
         events = [
             _event(
                 "scan_complete",
@@ -105,8 +106,11 @@ class TestScanMetricsFrom:
                 days_ago=3,
             ),
         ]
+
+        # Act
         result = scan_metrics_from(events, days=30)
 
+        # Assert
         assert result["total_scans"] == 3
         assert result["avg_quality_score"] == pytest.approx(81.67, abs=0.01)
         assert result["avg_security_score"] == pytest.approx(80.0, abs=0.01)
@@ -169,6 +173,7 @@ class TestBuildMetricsFrom:
     """Tests for build_metrics_from()."""
 
     def test_normal_case(self) -> None:
+        # Arrange
         events = [
             _event(
                 "build_complete",
@@ -181,8 +186,11 @@ class TestBuildMetricsFrom:
                 days_ago=2,
             ),
         ]
+
+        # Act
         result = build_metrics_from(events, days=30)
 
+        # Assert
         assert result["total_builds"] == 2
         assert result["files_changed"] == 13
         assert result["lines_added"] == 230
@@ -239,13 +247,17 @@ class TestDeployMetricsFrom:
     """Tests for deploy_metrics_from()."""
 
     def test_normal_case(self) -> None:
+        # Arrange
         events = [
             _event("deploy_complete", {"rollback": False, "strategy": "blue-green"}, days_ago=1),
             _event("deploy_complete", {"rollback": True, "strategy": "rolling"}, days_ago=2),
             _event("deploy_complete", {"rollback": False, "strategy": "blue-green"}, days_ago=3),
         ]
+
+        # Act
         result = deploy_metrics_from(events, days=30)
 
+        # Assert
         assert result["total_deploys"] == 3
         assert result["rollbacks"] == 1
         assert result["failure_rate"] == pytest.approx(33.3, abs=0.1)
@@ -296,6 +308,7 @@ class TestSessionMetricsFrom:
     """Tests for session_metrics_from()."""
 
     def test_normal_case(self) -> None:
+        # Arrange
         events = [
             _event(
                 "session_metric",
@@ -320,8 +333,11 @@ class TestSessionMetricsFrom:
                 days_ago=2,
             ),
         ]
+
+        # Act
         result = session_metrics_from(events, limit=10)
 
+        # Assert
         assert result["sessions_analyzed"] == 2
         assert result["total_tokens"] == 130000
         assert result["tokens_available"] == 200000
@@ -373,6 +389,7 @@ class TestDecisionStoreHealth:
     """Tests for decision_store_health()."""
 
     def test_normal_case(self, tmp_path: Path) -> None:
+        # Arrange
         now = datetime.now(tz=UTC)
         future = (now + timedelta(days=30)).strftime("%Y-%m-%dT%H:%M:%SZ")
         past = (now - timedelta(days=10)).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -405,8 +422,11 @@ class TestDecisionStoreHealth:
             tmp_path / ".ai-engineering" / "state" / "decision-store.json",
             data,
         )
+
+        # Act
         result = decision_store_health(tmp_path)
 
+        # Assert
         assert result["total"] == 3
         assert result["active"] == 1
         assert result["expired"] == 1
@@ -414,13 +434,17 @@ class TestDecisionStoreHealth:
         assert result["avg_age_days"] == pytest.approx(20, abs=1)
 
     def test_empty_decisions(self, tmp_path: Path) -> None:
+        # Arrange
         data = {"schemaVersion": "1.1", "decisions": []}
         _write_json(
             tmp_path / ".ai-engineering" / "state" / "decision-store.json",
             data,
         )
+
+        # Act
         result = decision_store_health(tmp_path)
 
+        # Assert
         assert result["total"] == 0
         assert result["active"] == 0
 
@@ -431,15 +455,19 @@ class TestDecisionStoreHealth:
         assert result["active"] == 0
 
     def test_corrupt_json(self, tmp_path: Path) -> None:
+        # Arrange
         path = tmp_path / ".ai-engineering" / "state" / "decision-store.json"
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text("{invalid json", encoding="utf-8")
 
+        # Act
         result = decision_store_health(tmp_path)
 
+        # Assert
         assert result["total"] == 0
 
     def test_remediated_counted_as_resolved(self, tmp_path: Path) -> None:
+        # Arrange
         now = datetime.now(tz=UTC)
         future = (now + timedelta(days=30)).strftime("%Y-%m-%dT%H:%M:%SZ")
         created = (now - timedelta(days=5)).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -459,8 +487,11 @@ class TestDecisionStoreHealth:
             tmp_path / ".ai-engineering" / "state" / "decision-store.json",
             data,
         )
+
+        # Act
         result = decision_store_health(tmp_path)
 
+        # Assert
         assert result["resolved"] == 1
 
     def test_no_expires_at(self, tmp_path: Path) -> None:
@@ -492,6 +523,7 @@ class TestAdoptionMetrics:
     """Tests for adoption_metrics()."""
 
     def test_normal_case(self, tmp_path: Path) -> None:
+        # Arrange
         data = {
             "installedStacks": ["python", "nextjs"],
             "installedIdes": ["vscode", "terminal"],
@@ -510,8 +542,11 @@ class TestAdoptionMetrics:
             tmp_path / ".ai-engineering" / "state" / "install-manifest.json",
             data,
         )
+
+        # Act
         result = adoption_metrics(tmp_path)
 
+        # Assert
         assert result["stacks"] == ["python", "nextjs"]
         assert result["ides"] == ["vscode", "terminal"]
         assert result["providers"]["primary"] == "github"
@@ -525,25 +560,32 @@ class TestAdoptionMetrics:
         assert result["hooks_installed"] is False
 
     def test_minimal_manifest(self, tmp_path: Path) -> None:
+        # Arrange
         data = {"installedStacks": ["python"]}
         _write_json(
             tmp_path / ".ai-engineering" / "state" / "install-manifest.json",
             data,
         )
+
+        # Act
         result = adoption_metrics(tmp_path)
 
+        # Assert
         assert result["stacks"] == ["python"]
         assert result["ides"] == []
         assert result["providers"]["primary"] == "unknown"
         assert result["hooks_installed"] is False
 
     def test_corrupt_json(self, tmp_path: Path) -> None:
+        # Arrange
         path = tmp_path / ".ai-engineering" / "state" / "install-manifest.json"
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text("not json", encoding="utf-8")
 
+        # Act
         result = adoption_metrics(tmp_path)
 
+        # Assert
         assert result["stacks"] == []
         assert result["hooks_installed"] is False
 
@@ -557,6 +599,7 @@ class TestCheckpointStatus:
     """Tests for checkpoint_status()."""
 
     def test_normal_case(self, tmp_path: Path) -> None:
+        # Arrange
         ts = (datetime.now(tz=UTC) - timedelta(hours=2)).strftime("%Y-%m-%dT%H:%M:%SZ")
         data = {
             "spec_id": "spec-039",
@@ -570,8 +613,11 @@ class TestCheckpointStatus:
             tmp_path / ".ai-engineering" / "state" / "session-checkpoint.json",
             data,
         )
+
+        # Act
         result = checkpoint_status(tmp_path)
 
+        # Assert
         assert result["has_checkpoint"] is True
         assert result["last_task"] == "5.1 Add scan_metrics_from"
         assert result["completed"] == 3
@@ -603,6 +649,7 @@ class TestCheckpointStatus:
         assert result["has_checkpoint"] is False
 
     def test_blocked_checkpoint(self, tmp_path: Path) -> None:
+        # Arrange
         ts = (datetime.now(tz=UTC) - timedelta(days=3)).strftime("%Y-%m-%dT%H:%M:%SZ")
         data = {
             "spec_id": "spec-039",
@@ -616,8 +663,11 @@ class TestCheckpointStatus:
             tmp_path / ".ai-engineering" / "state" / "session-checkpoint.json",
             data,
         )
+
+        # Act
         result = checkpoint_status(tmp_path)
 
+        # Assert
         assert result["has_checkpoint"] is True
         assert result["blocked_on"] == "merge history unavailable"
         assert "d ago" in result["age"]
@@ -632,6 +682,7 @@ class TestCheckpointStatus:
         assert result["has_checkpoint"] is False
 
     def test_division_by_zero_progress(self, tmp_path: Path) -> None:
+        # Arrange
         ts = datetime.now(tz=UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
         data = {
             "current_task": "something",
@@ -642,8 +693,11 @@ class TestCheckpointStatus:
             tmp_path / ".ai-engineering" / "state" / "session-checkpoint.json",
             data,
         )
+
+        # Act
         result = checkpoint_status(tmp_path)
 
+        # Assert
         assert result["progress_pct"] == 0.0
 
 
@@ -656,6 +710,7 @@ class TestLeadTimeMetrics:
     """Tests for lead_time_metrics()."""
 
     def test_normal_case(self, tmp_path: Path) -> None:
+        # Arrange
         now = datetime.now(tz=UTC)
         merge1_date = now - timedelta(days=2)
         merge2_date = now - timedelta(days=5)
@@ -681,9 +736,11 @@ class TestLeadTimeMetrics:
                 result.returncode = 1
             return result
 
+        # Act
         with patch("subprocess.run", side_effect=mock_run):
             result = lead_time_metrics(tmp_path, days=30)
 
+        # Assert
         assert result["merges_analyzed"] == 2
         assert result["median_days"] > 0
         assert result["rating"] in ("ELITE", "HIGH", "MEDIUM", "LOW")

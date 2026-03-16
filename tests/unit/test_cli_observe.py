@@ -146,8 +146,13 @@ class TestGitLogStat:
     """Tests for _git_log_stat helper."""
 
     def test_returns_commit_stats(self, tmp_path: Path) -> None:
+        # Arrange
         _init_git_repo(tmp_path)
+
+        # Act
         stats = _git_log_stat(tmp_path, days=30)
+
+        # Assert
         assert "commits" in stats
         assert "commits_per_week" in stats
         assert "period_days" in stats
@@ -178,16 +183,21 @@ class TestGitLogStat:
             assert stats["commits"] == 0
 
     def test_commits_per_week_calculation(self, tmp_path: Path) -> None:
+        # Arrange
         mock_result = subprocess.CompletedProcess(
             args=[], returncode=0, stdout="abc1234 commit1\ndef5678 commit2\n"
         )
+
+        # Act
         with patch(
             "ai_engineering.cli_commands.observe.subprocess.run",
             return_value=mock_result,
         ):
             stats = _git_log_stat(tmp_path, days=14)
-            assert stats["commits"] == 2
-            assert stats["commits_per_week"] == 1.0  # 2 commits / 2 weeks
+
+        # Assert
+        assert stats["commits"] == 2
+        assert stats["commits_per_week"] == 1.0  # 2 commits / 2 weeks
 
     def test_empty_stdout(self, tmp_path: Path) -> None:
         mock_result = subprocess.CompletedProcess(args=[], returncode=0, stdout="")
@@ -208,19 +218,24 @@ class TestDoraMetrics:
     """Tests for _dora_metrics helper."""
 
     def test_computes_metrics_with_git_stats(self, tmp_path: Path) -> None:
+        # Arrange
         mock_result = subprocess.CompletedProcess(
             args=[], returncode=0, stdout="abc merge1\ndef merge2\n"
         )
+        git_stats = {"commits": 10, "commits_per_week": 5.0, "period_days": 30}
+
+        # Act
         with patch(
             "ai_engineering.cli_commands.observe.subprocess.run",
             return_value=mock_result,
         ):
-            git_stats = {"commits": 10, "commits_per_week": 5.0, "period_days": 30}
             metrics = _dora_metrics(tmp_path, git_stats=git_stats)
-            assert metrics["total_merges_30d"] == 2
-            assert metrics["deployment_frequency_per_week"] == round(2 / 4.3, 1)
-            assert metrics["commits_per_week"] == 5.0
-            assert metrics["total_commits_30d"] == 10
+
+        # Assert
+        assert metrics["total_merges_30d"] == 2
+        assert metrics["deployment_frequency_per_week"] == round(2 / 4.3, 1)
+        assert metrics["commits_per_week"] == 5.0
+        assert metrics["total_commits_30d"] == 10
 
     def test_computes_metrics_without_git_stats(self, tmp_path: Path) -> None:
         mock_result = subprocess.CompletedProcess(args=[], returncode=0, stdout="")
@@ -288,13 +303,18 @@ class TestObserveEngineer:
     """Tests for observe_engineer dashboard."""
 
     def test_empty_audit_log(self, tmp_path: Path) -> None:
+        # Arrange
         (tmp_path / ".ai-engineering").mkdir(parents=True)
         mock_result = subprocess.CompletedProcess(args=[], returncode=0, stdout="")
+
+        # Act
         with patch(
             "ai_engineering.cli_commands.observe.subprocess.run",
             return_value=mock_result,
         ):
             result = observe_engineer(tmp_path)
+
+        # Assert
         assert result["data_quality"] == "LOW"
         assert result["total_events"] == 0
         assert "commits_per_week" in result["delivery_velocity"]
@@ -302,6 +322,7 @@ class TestObserveEngineer:
         assert "actions" in result
 
     def test_with_events(self, tmp_path: Path) -> None:
+        # Arrange
         events = [
             _gate_event("pass"),
             _gate_event("pass"),
@@ -309,11 +330,15 @@ class TestObserveEngineer:
         ]
         _make_audit_log(tmp_path, events)
         mock_result = subprocess.CompletedProcess(args=[], returncode=0, stdout="abc commit1\n")
+
+        # Act
         with patch(
             "ai_engineering.cli_commands.observe.subprocess.run",
             return_value=mock_result,
         ):
             result = observe_engineer(tmp_path)
+
+        # Assert
         assert result["total_events"] == 3
         assert result["gate_health"]["pass_rate"] is not None
         assert result["gate_health"]["most_failed_check"] is not None
@@ -436,6 +461,7 @@ class TestObserveTeam:
         assert "event_distribution" in result
 
     def test_with_mixed_events(self, tmp_path: Path) -> None:
+        # Arrange
         events = [
             _gate_event("pass"),
             _scan_event(),
@@ -444,7 +470,11 @@ class TestObserveTeam:
             _session_event(),
         ]
         _make_audit_log(tmp_path, events)
+
+        # Act
         result = observe_team(tmp_path)
+
+        # Assert
         assert result["total_events"] == 5
         assert result["event_distribution"]["scan_events"] == 2
         assert result["event_distribution"]["build_events"] == 1
@@ -468,12 +498,17 @@ class TestObserveAi:
         assert result["decision_continuity"]["cache_hit_rate"] == 0.0
 
     def test_with_session_events(self, tmp_path: Path) -> None:
+        # Arrange
         events = [
             _session_event(tokens_used=500, decisions_reused=5, decisions_reprompted=2),
             _session_event(tokens_used=300, decisions_reused=3, decisions_reprompted=1),
         ]
         _make_audit_log(tmp_path, events)
+
+        # Act
         result = observe_ai(tmp_path)
+
+        # Assert
         assert result["context_efficiency"]["sessions_analyzed"] == 2
         assert result["context_efficiency"]["total_tokens"] == 800
         assert result["decision_continuity"]["decisions_reused"] == 8
@@ -482,19 +517,29 @@ class TestObserveAi:
         assert result["decision_continuity"]["cache_hit_rate"] == 72.7
 
     def test_zero_decisions_gives_zero_cache_hit(self, tmp_path: Path) -> None:
+        # Arrange
         events = [
             _session_event(tokens_used=100, decisions_reused=0, decisions_reprompted=0),
         ]
         _make_audit_log(tmp_path, events)
+
+        # Act
         result = observe_ai(tmp_path)
+
+        # Assert
         assert result["decision_continuity"]["cache_hit_rate"] == 0.0
 
     def test_non_dict_detail_is_handled(self, tmp_path: Path) -> None:
+        # Arrange
         events = [
             {"event": "session_metric", "timestamp": _ts(1), "detail": "not-a-dict"},
         ]
         _make_audit_log(tmp_path, events)
+
+        # Act
         result = observe_ai(tmp_path)
+
+        # Assert
         assert result["context_efficiency"]["total_tokens"] == 0
 
 
@@ -579,47 +624,56 @@ class TestObserveHealth:
 
     def test_green_semaphore(self, tmp_path: Path) -> None:
         """100% gate pass + high velocity => GREEN."""
+        # Arrange
         events = [_gate_event("pass") for _ in range(10)]
         _make_audit_log(tmp_path, events)
-        # 80 commits => 80 / (30/7) ~= 18.7 commits/week => velocity = min(187, 100) = 100
         commit_lines = "\n".join([f"abc{i} commit{i}" for i in range(80)])
         mock_result = subprocess.CompletedProcess(args=[], returncode=0, stdout=commit_lines + "\n")
+
+        # Act
         with patch(
             "ai_engineering.cli_commands.observe.subprocess.run",
             return_value=mock_result,
         ):
             result = observe_health(tmp_path)
+
+        # Assert
         assert result["semaphore"] == "GREEN"
 
     def test_yellow_semaphore(self, tmp_path: Path) -> None:
         """Moderate gate pass + moderate velocity => YELLOW."""
-        # 6 pass + 4 fail => 60% pass rate
+        # Arrange
         events = [_gate_event("pass") for _ in range(6)]
         events += [_gate_event("fail", ["ruff"]) for _ in range(4)]
         _make_audit_log(tmp_path, events)
-        # 14 commits => 14 / 4.29 ~= 3.3 commits/week => velocity = 33
-        # noise_score = 100 (0% fixable — old events lack fixable_failures)
-        # dora: 14 "merges" => freq = 3.3 => ELITE => 100
-        # overall = (60 + 33 + 100 + 100) / 4 = 73 => YELLOW
         commit_lines = "\n".join([f"abc{i} commit{i}" for i in range(14)])
         mock_result = subprocess.CompletedProcess(args=[], returncode=0, stdout=commit_lines + "\n")
+
+        # Act
         with patch(
             "ai_engineering.cli_commands.observe.subprocess.run",
             return_value=mock_result,
         ):
             result = observe_health(tmp_path)
+
+        # Assert
         assert result["semaphore"] == "YELLOW"
 
     def test_red_semaphore(self, tmp_path: Path) -> None:
         """Low gate pass + low velocity => RED."""
+        # Arrange
         events = [_gate_event("fail", ["ruff"]) for _ in range(10)]
         _make_audit_log(tmp_path, events)
         mock_result = subprocess.CompletedProcess(args=[], returncode=0, stdout="abc commit1\n")
+
+        # Act
         with patch(
             "ai_engineering.cli_commands.observe.subprocess.run",
             return_value=mock_result,
         ):
             result = observe_health(tmp_path)
+
+        # Assert
         assert result["semaphore"] == "RED"
 
     def test_velocity_capped_at_100(self, tmp_path: Path) -> None:
@@ -826,6 +880,7 @@ class TestObserveEdgeCases:
 
     def test_audit_log_with_malformed_json(self, tmp_path: Path) -> None:
         """Malformed NDJSON lines should be skipped gracefully."""
+        # Arrange
         state_dir = tmp_path / ".ai-engineering" / "state"
         state_dir.mkdir(parents=True, exist_ok=True)
         log_path = state_dir / "audit-log.ndjson"
@@ -840,11 +895,15 @@ class TestObserveEdgeCases:
             encoding="utf-8",
         )
         mock_result = subprocess.CompletedProcess(args=[], returncode=0, stdout="")
+
+        # Act
         with patch(
             "ai_engineering.cli_commands.observe.subprocess.run",
             return_value=mock_result,
         ):
             result = observe_engineer(tmp_path)
+
+        # Assert
         assert result["total_events"] == 2
 
     def test_date_range_with_timestamps(self, tmp_path: Path) -> None:

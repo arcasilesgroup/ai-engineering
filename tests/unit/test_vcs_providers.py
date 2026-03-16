@@ -32,17 +32,27 @@ class TestAzureDevOpsCheckAuth:
     """Tests for AzureDevOpsProvider.check_auth."""
 
     def test_check_auth_success(self, ctx: VcsContext) -> None:
+        # Arrange
         provider = AzureDevOpsProvider()
         proc = MagicMock(returncode=0, stdout='{"id": "abc"}', stderr="")
+
+        # Act
         with patch("subprocess.run", return_value=proc):
             result = provider.check_auth(ctx)
+
+        # Assert
         assert result.success is True
 
     def test_check_auth_failure(self, ctx: VcsContext) -> None:
+        # Arrange
         provider = AzureDevOpsProvider()
         proc = MagicMock(returncode=1, stdout="", stderr="not logged in")
+
+        # Act
         with patch("subprocess.run", return_value=proc):
             result = provider.check_auth(ctx)
+
+        # Assert
         assert result.success is False
 
 
@@ -50,20 +60,30 @@ class TestAzureDevOpsBranchPolicy:
     """Tests for AzureDevOpsProvider.apply_branch_policy."""
 
     def test_apply_branch_policy_success(self, ctx: VcsContext) -> None:
+        # Arrange
         provider = AzureDevOpsProvider()
         proc = MagicMock(returncode=0, stdout="[]", stderr="")
+
+        # Act
         with patch("subprocess.run", return_value=proc):
             result = provider.apply_branch_policy(
                 ctx, branch="main", required_checks=["ci", "lint"]
             )
+
+        # Assert
         assert result.success is True
         assert "ci,lint" in result.output
 
     def test_apply_branch_policy_failure(self, ctx: VcsContext) -> None:
+        # Arrange
         provider = AzureDevOpsProvider()
         proc = MagicMock(returncode=1, stdout="", stderr="unauthorized")
+
+        # Act
         with patch("subprocess.run", return_value=proc):
             result = provider.apply_branch_policy(ctx, branch="main", required_checks=["ci"])
+
+        # Assert
         assert result.success is False
 
 
@@ -71,8 +91,8 @@ class TestAzureDevOpsPostPrReview:
     """Tests for AzureDevOpsProvider.post_pr_review."""
 
     def test_post_pr_review_success(self, ctx: VcsContext) -> None:
+        # Arrange
         provider = AzureDevOpsProvider()
-        # First call: list PRs; Second call: post comment
         pr_list_json = json.dumps([{"pullRequestId": 42}])
         calls = iter(
             [
@@ -80,15 +100,24 @@ class TestAzureDevOpsPostPrReview:
                 MagicMock(returncode=0, stdout="{}", stderr=""),
             ]
         )
+
+        # Act
         with patch("subprocess.run", side_effect=lambda *a, **kw: next(calls)):
             result = provider.post_pr_review(ctx, body="review comment")
+
+        # Assert
         assert result.success is True
 
     def test_post_pr_review_no_active_pr(self, ctx: VcsContext) -> None:
+        # Arrange
         provider = AzureDevOpsProvider()
         proc = MagicMock(returncode=0, stdout="[]", stderr="")
+
+        # Act
         with patch("subprocess.run", return_value=proc):
             result = provider.post_pr_review(ctx, body="review")
+
+        # Assert
         assert result.success is False
         assert "No active PR" in result.output
 
@@ -133,11 +162,16 @@ class TestGitHubUpsertMethods:
     """Tests for GitHubProvider.find_open_pr/update_pr."""
 
     def test_find_open_pr_returns_first(self, ctx: VcsContext) -> None:
+        # Arrange
         provider = GitHubProvider()
         payload = json.dumps([{"number": 12, "title": "t", "body": "b", "url": "https://x/pr/12"}])
         proc = MagicMock(returncode=0, stdout=payload, stderr="")
+
+        # Act
         with patch("subprocess.run", return_value=proc):
             result = provider.find_open_pr(ctx)
+
+        # Assert
         assert result.success is True
         data = json.loads(result.output)
         assert data["number"] == 12
@@ -166,14 +200,19 @@ class TestGitHubUpsertMethods:
         assert result.output == ""
 
     def test_update_pr_uses_body_file_flag(self, ctx: VcsContext) -> None:
+        # Arrange
         provider = GitHubProvider()
         proc = MagicMock(returncode=0, stdout="ok", stderr="")
+
+        # Act
         with patch("subprocess.run", return_value=proc) as run_mock:
             result = provider.update_pr(
                 VcsContext(project_root=ctx.project_root, body="line1\nline2"),
                 pr_number="12",
                 title="same title",
             )
+
+        # Assert
         assert result.success is True
         cmd = run_mock.call_args[0][0]
         assert "--body-file" in cmd
@@ -197,16 +236,21 @@ class TestGitHubReleaseMethods:
         assert result.success is True
 
     def test_get_pipeline_status_filters_head_sha(self, ctx: VcsContext) -> None:
+        # Arrange
         provider = GitHubProvider()
         runs = [
             {"headSha": "abc", "status": "completed", "conclusion": "success", "url": "u1"},
             {"headSha": "zzz", "status": "completed", "conclusion": "failure", "url": "u2"},
         ]
         proc = MagicMock(returncode=0, stdout=json.dumps(runs), stderr="")
+
+        # Act
         with patch("subprocess.run", return_value=proc):
             result = provider.get_pipeline_status(
                 PipelineStatusContext(project_root=ctx.project_root, head_sha="abc")
             )
+
+        # Assert
         assert result.success is True
         parsed = json.loads(result.output)
         assert len(parsed) == 1
@@ -294,12 +338,15 @@ class TestGitHubIssueCreate:
     """Tests for GitHubProvider.create_issue."""
 
     def test_create_issue_success(self, ctx: VcsContext) -> None:
+        # Arrange
         provider = GitHubProvider()
         proc = MagicMock(
             returncode=0,
             stdout="https://github.com/org/repo/issues/7\n",
             stderr="",
         )
+
+        # Act
         with patch("subprocess.run", return_value=proc) as run_mock:
             issue_ctx = IssueContext(
                 project_root=ctx.project_root,
@@ -308,18 +355,23 @@ class TestGitHubIssueCreate:
                 body="Implement sync",
             )
             result = provider.create_issue(issue_ctx)
+
+        # Assert
         assert result.success is True
         cmd = run_mock.call_args[0][0]
         assert "gh" in cmd
         assert "--title" in cmd
 
     def test_create_issue_with_labels(self, ctx: VcsContext) -> None:
+        # Arrange
         provider = GitHubProvider()
         proc = MagicMock(
             returncode=0,
             stdout="https://github.com/org/repo/issues/8\n",
             stderr="",
         )
+
+        # Act
         with patch("subprocess.run", return_value=proc) as run_mock:
             issue_ctx = IssueContext(
                 project_root=ctx.project_root,
@@ -329,6 +381,8 @@ class TestGitHubIssueCreate:
                 labels=("spec-037", "enhancement"),
             )
             result = provider.create_issue(issue_ctx)
+
+        # Assert
         assert result.success is True
         cmd = run_mock.call_args[0][0]
         assert cmd.count("--label") == 2

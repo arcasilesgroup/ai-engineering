@@ -59,12 +59,15 @@ class TestReadActiveSpec:
     """Tests for reading the active spec identifier."""
 
     def test_returns_spec_id(self, tmp_path: Path) -> None:
+        # Arrange
         active = tmp_path / ".ai-engineering" / "context" / "specs" / "_active.md"
         active.parent.mkdir(parents=True)
         active.write_text(
             '---\nactive: "014-dual-vcs-provider"\nupdated: "2026-02-22"\n---\n',
             encoding="utf-8",
         )
+
+        # Act & Assert
         assert _read_active_spec(tmp_path) == "014-dual-vcs-provider"
 
     def test_returns_none_when_none(self, tmp_path: Path) -> None:
@@ -92,14 +95,18 @@ class TestRecentCommitSubjects:
     """Tests for fetching recent commit subjects."""
 
     def test_returns_subjects_from_diff(self, tmp_path: Path) -> None:
+        # Act
         with patch(
             "ai_engineering.vcs.pr_description.run_git",
             return_value=(True, "Fix bug\nAdd feature\n"),
         ):
             subjects = _recent_commit_subjects(tmp_path, max_commits=5)
+
+        # Assert
         assert subjects == ["Fix bug", "Add feature"]
 
     def test_falls_back_when_diff_empty(self, tmp_path: Path) -> None:
+        # Arrange
         calls: list[list[str]] = []
 
         def fake_run_git(args: list[str], cwd: Path, **kwargs: object) -> tuple[bool, str]:
@@ -108,8 +115,11 @@ class TestRecentCommitSubjects:
                 return (True, "")
             return (True, "Fallback commit\n")
 
+        # Act
         with patch("ai_engineering.vcs.pr_description.run_git", side_effect=fake_run_git):
             subjects = _recent_commit_subjects(tmp_path)
+
+        # Assert
         assert subjects == ["Fallback commit"]
         assert len(calls) == 2
 
@@ -131,15 +141,19 @@ class TestBuildPrTitle:
     """Tests for PR title generation."""
 
     def test_includes_spec_prefix(self, tmp_path: Path) -> None:
+        # Arrange
         active = tmp_path / ".ai-engineering" / "context" / "specs" / "_active.md"
         active.parent.mkdir(parents=True)
         active.write_text('---\nactive: "014-dual-vcs-provider"\n---\n', encoding="utf-8")
 
+        # Act
         with patch(
             "ai_engineering.vcs.pr_description.current_branch",
             return_value="feat/dual-vcs-provider",
         ):
             title = build_pr_title(tmp_path)
+
+        # Assert
         assert title == "spec-014-dual-vcs-provider: Dual vcs provider"
 
     def test_no_spec_uses_branch_only(self, tmp_path: Path) -> None:
@@ -160,6 +174,7 @@ class TestBuildPrDescription:
     """Tests for PR description generation."""
 
     def test_what_why_how_sections_with_spec(self, tmp_path: Path) -> None:
+        # Arrange
         specs_dir = tmp_path / ".ai-engineering" / "context" / "specs"
         active = specs_dir / "_active.md"
         specs_dir.mkdir(parents=True)
@@ -172,6 +187,7 @@ class TestBuildPrDescription:
             encoding="utf-8",
         )
 
+        # Act
         with (
             patch(
                 "ai_engineering.vcs.pr_description.run_git",
@@ -183,6 +199,8 @@ class TestBuildPrDescription:
             ),
         ):
             body = build_pr_description(tmp_path)
+
+        # Assert
         assert "## What" in body
         assert "Implements Spec 014 — My Feature." in body
         assert "## Why" in body
@@ -451,6 +469,7 @@ class TestReadSpecContext:
     """Tests for reading spec sections."""
 
     def test_reads_title_problem_solution(self, tmp_path: Path) -> None:
+        # Arrange
         spec_dir = tmp_path / ".ai-engineering" / "context" / "specs" / "001-test"
         spec_dir.mkdir(parents=True)
         (spec_dir / "spec.md").write_text(
@@ -458,19 +477,28 @@ class TestReadSpecContext:
             "## Problem\n\nThings are broken.\n\n## Solution\n\nFix them.\n",
             encoding="utf-8",
         )
+
+        # Act
         ctx = _read_spec_context(tmp_path, "001-test")
+
+        # Assert
         assert ctx["title"] == "My Feature Title"
         assert ctx["problem"] == "Things are broken."
         assert ctx["solution"] == "Fix them."
 
     def test_reads_from_archive(self, tmp_path: Path) -> None:
+        # Arrange
         archive = tmp_path / ".ai-engineering" / "context" / "specs" / "archive" / "001-test"
         archive.mkdir(parents=True)
         (archive / "spec.md").write_text(
             "# Spec 001 — Archived Feature\n\n## Problem\n\nOld issue.\n",
             encoding="utf-8",
         )
+
+        # Act
         ctx = _read_spec_context(tmp_path, "001-test")
+
+        # Assert
         assert ctx["title"] == "Archived Feature"
         assert ctx["problem"] == "Old issue."
 
@@ -488,13 +516,18 @@ class TestReadSpecContext:
         assert ctx == {"title": "", "problem": "", "solution": ""}
 
     def test_returns_first_paragraph_only(self, tmp_path: Path) -> None:
+        # Arrange
         spec_dir = tmp_path / ".ai-engineering" / "context" / "specs" / "002-multi"
         spec_dir.mkdir(parents=True)
         (spec_dir / "spec.md").write_text(
             "# Spec 002 — Multi Para\n\n## Problem\n\nFirst paragraph.\n\nSecond paragraph.\n",
             encoding="utf-8",
         )
+
+        # Act
         ctx = _read_spec_context(tmp_path, "002-multi")
+
+        # Assert
         assert ctx["problem"] == "First paragraph."
 
 

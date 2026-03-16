@@ -59,25 +59,35 @@ class TestDeprecationBlocking:
     """Tests for CLI callback blocking deprecated versions."""
 
     def test_blocks_deprecated_on_install(self) -> None:
+        # Arrange
         app = create_app()
         result_mock = _make_check_result(
             is_deprecated=True,
             status=VersionStatus.DEPRECATED,
             message="0.1.0 (deprecated — CVE-2025-9999)",
         )
+
+        # Act
         with patch(_PATCH_TARGET, return_value=result_mock):
             result = runner.invoke(app, ["install"])
+
+        # Assert
         assert result.exit_code == 1
 
     def test_blocks_eol_on_install(self) -> None:
+        # Arrange
         app = create_app()
         result_mock = _make_check_result(
             is_eol=True,
             status=VersionStatus.EOL,
             message="0.1.0 (end-of-life)",
         )
+
+        # Act
         with patch(_PATCH_TARGET, return_value=result_mock):
             result = runner.invoke(app, ["install"])
+
+        # Assert
         assert result.exit_code == 1
 
 
@@ -90,14 +100,19 @@ class TestExemptCommands:
     """Tests that exempt commands work even with deprecated version."""
 
     def test_version_allowed_when_deprecated(self) -> None:
+        # Arrange
         app = create_app()
         result_mock = _make_check_result(
             is_deprecated=True,
             status=VersionStatus.DEPRECATED,
             message="0.1.0 (deprecated)",
         )
+
+        # Act
         with patch(_PATCH_TARGET, return_value=result_mock):
             result = runner.invoke(app, ["version"])
+
+        # Assert
         assert result.exit_code == 0
         assert "deprecated" in result.output.lower()
 
@@ -117,6 +132,7 @@ class TestOutdatedWarning:
     """Tests that outdated versions produce a warning but don't block."""
 
     def test_warns_outdated_on_version_cmd(self) -> None:
+        # Arrange
         app = create_app()
         result_mock = _make_check_result(
             is_outdated=True,
@@ -124,8 +140,12 @@ class TestOutdatedWarning:
             message="0.1.0 (outdated — latest is 0.2.0)",
             latest="0.2.0",
         )
+
+        # Act
         with patch(_PATCH_TARGET, return_value=result_mock):
             result = runner.invoke(app, ["version"])
+
+        # Assert
         assert result.exit_code == 0
 
 
@@ -138,14 +158,19 @@ class TestCurrentVersionSilent:
     """Tests that current versions produce no warnings."""
 
     def test_no_warning_when_current(self) -> None:
+        # Arrange
         app = create_app()
         result_mock = _make_check_result(
             is_current=True,
             status=VersionStatus.CURRENT,
             message="0.1.0 (current)",
         )
+
+        # Act
         with patch(_PATCH_TARGET, return_value=result_mock):
             result = runner.invoke(app, ["version"])
+
+        # Assert
         assert result.exit_code == 0
         assert "BLOCKED" not in result.output
 
@@ -178,12 +203,17 @@ class TestVersionCmd:
     """Tests for the version command output."""
 
     def test_shows_lifecycle_status(self) -> None:
+        # Arrange
         app = create_app()
         result_mock = _make_check_result(
             is_current=True,
             status=VersionStatus.CURRENT,
             message="0.1.0 (current)",
         )
+
+        # Act
         with patch(_PATCH_TARGET, return_value=result_mock):
             result = runner.invoke(app, ["version"])
+
+        # Assert
         assert "0.1.0 (current)" in result.output

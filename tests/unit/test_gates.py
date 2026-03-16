@@ -180,12 +180,14 @@ class TestRunToolCheck:
     """Tests for run_tool_check with mocked subprocess and shutil."""
 
     def test_tool_found_subprocess_passes(self) -> None:
+        # Arrange
         result = GateResult(hook=GateHook.PRE_COMMIT)
         mock_proc = MagicMock()
         mock_proc.returncode = 0
         mock_proc.stdout = "all good"
         mock_proc.stderr = ""
 
+        # Act
         with (
             patch(
                 "ai_engineering.policy.checks.stack_runner.shutil.which",
@@ -202,17 +204,20 @@ class TestRunToolCheck:
                 cwd=Path("/fake"),
             )
 
+        # Assert
         assert len(result.checks) == 1
         assert result.checks[0].passed is True
         assert result.checks[0].name == "ruff-lint"
 
     def test_tool_found_subprocess_fails(self) -> None:
+        # Arrange
         result = GateResult(hook=GateHook.PRE_COMMIT)
         mock_proc = MagicMock()
         mock_proc.returncode = 1
         mock_proc.stdout = ""
         mock_proc.stderr = "lint errors found"
 
+        # Act
         with (
             patch(
                 "ai_engineering.policy.checks.stack_runner.shutil.which",
@@ -229,11 +234,14 @@ class TestRunToolCheck:
                 cwd=Path("/fake"),
             )
 
+        # Assert
         assert result.checks[0].passed is False
 
     def test_tool_not_found_required_fails(self) -> None:
+        # Arrange
         result = GateResult(hook=GateHook.PRE_COMMIT)
 
+        # Act
         with patch("ai_engineering.policy.checks.stack_runner.shutil.which", return_value=None):
             run_tool_check(
                 result,
@@ -243,12 +251,15 @@ class TestRunToolCheck:
                 required=True,
             )
 
+        # Assert
         assert result.checks[0].passed is False
         assert "not found" in result.checks[0].output.lower()
 
     def test_subprocess_timeout_fails(self) -> None:
+        # Arrange
         result = GateResult(hook=GateHook.PRE_COMMIT)
 
+        # Act
         with (
             patch(
                 "ai_engineering.policy.checks.stack_runner.shutil.which",
@@ -267,12 +278,15 @@ class TestRunToolCheck:
                 timeout=10,
             )
 
+        # Assert
         assert result.checks[0].passed is False
         assert "timed out" in result.checks[0].output.lower()
 
     def test_tool_not_found_advisory_passes(self) -> None:
+        # Arrange
         result = GateResult(hook=GateHook.PRE_COMMIT)
 
+        # Act
         with patch("ai_engineering.policy.checks.stack_runner.shutil.which", return_value=None):
             run_tool_check(
                 result,
@@ -282,16 +296,19 @@ class TestRunToolCheck:
                 required=False,
             )
 
+        # Assert
         assert result.checks[0].passed is True
         assert "not found" in result.checks[0].output.lower()
 
     def test_custom_timeout_passed_to_subprocess(self) -> None:
+        # Arrange
         result = GateResult(hook=GateHook.PRE_COMMIT)
         mock_proc = MagicMock()
         mock_proc.returncode = 0
         mock_proc.stdout = "ok"
         mock_proc.stderr = ""
 
+        # Act
         with (
             patch(
                 "ai_engineering.policy.checks.stack_runner.shutil.which",
@@ -309,6 +326,7 @@ class TestRunToolCheck:
                 timeout=42,
             )
 
+        # Assert
         mock_run.assert_called_once()
         call_kwargs = mock_run.call_args
         assert call_kwargs.kwargs["timeout"] == 42
@@ -321,19 +339,21 @@ class TestGetActiveStacks:
     """Tests for _get_active_stacks with mocked manifest loading."""
 
     def test_manifest_with_stacks(self, tmp_path: Path) -> None:
+        # Arrange
         manifest_path = tmp_path / ".ai-engineering" / "state" / "install-manifest.json"
         manifest_path.parent.mkdir(parents=True)
-        manifest_path.write_text("{}")  # Needs to exist for path check
-
+        manifest_path.write_text("{}")
         mock_manifest = MagicMock()
         mock_manifest.installed_stacks = ["python", "dotnet"]
 
+        # Act
         with patch(
             "ai_engineering.policy.gates.read_json_model",
             return_value=mock_manifest,
         ):
             stacks = _get_active_stacks(tmp_path)
 
+        # Assert
         assert stacks == ["python", "dotnet"]
 
     def test_no_manifest_returns_python_fallback(self, tmp_path: Path) -> None:
@@ -342,32 +362,37 @@ class TestGetActiveStacks:
         assert stacks == ["python"]
 
     def test_invalid_manifest_returns_python_fallback(self, tmp_path: Path) -> None:
+        # Arrange
         manifest_path = tmp_path / ".ai-engineering" / "state" / "install-manifest.json"
         manifest_path.parent.mkdir(parents=True)
         manifest_path.write_text("{}")
 
+        # Act
         with patch(
             "ai_engineering.policy.gates.read_json_model",
             side_effect=ValueError("bad json"),
         ):
             stacks = _get_active_stacks(tmp_path)
 
+        # Assert
         assert stacks == ["python"]
 
     def test_empty_stacks_returns_python_fallback(self, tmp_path: Path) -> None:
+        # Arrange
         manifest_path = tmp_path / ".ai-engineering" / "state" / "install-manifest.json"
         manifest_path.parent.mkdir(parents=True)
         manifest_path.write_text("{}")
-
         mock_manifest = MagicMock()
         mock_manifest.installed_stacks = []
 
+        # Act
         with patch(
             "ai_engineering.policy.gates.read_json_model",
             return_value=mock_manifest,
         ):
             stacks = _get_active_stacks(tmp_path)
 
+        # Assert
         assert stacks == ["python"]
 
 
@@ -378,12 +403,14 @@ class TestRunChecksForStacks:
     """Tests for run_checks_for_stacks dispatch logic."""
 
     def test_dispatches_common_and_stack_checks(self) -> None:
+        # Arrange
         result = GateResult(hook=GateHook.PRE_COMMIT)
         registry: dict[str, list[CheckConfig]] = {
             "common": [CheckConfig(name="common-check", cmd=["common"])],
             "python": [CheckConfig(name="py-check", cmd=["py"])],
         }
 
+        # Act
         with patch("ai_engineering.policy.checks.stack_runner.run_tool_check") as mock_run:
             run_checks_for_stacks(
                 Path("/fake"),
@@ -392,18 +419,21 @@ class TestRunChecksForStacks:
                 ["python"],
             )
 
+        # Assert
         assert mock_run.call_count == 2
         call_names = [c.kwargs["name"] for c in mock_run.call_args_list]
         assert "common-check" in call_names
         assert "py-check" in call_names
 
     def test_unknown_stack_only_common_checks(self) -> None:
+        # Arrange
         result = GateResult(hook=GateHook.PRE_COMMIT)
         registry: dict[str, list[CheckConfig]] = {
             "common": [CheckConfig(name="common-check", cmd=["common"])],
             "python": [CheckConfig(name="py-check", cmd=["py"])],
         }
 
+        # Act
         with patch("ai_engineering.policy.checks.stack_runner.run_tool_check") as mock_run:
             run_checks_for_stacks(
                 Path("/fake"),
@@ -412,6 +442,7 @@ class TestRunChecksForStacks:
                 ["rust"],  # unknown stack
             )
 
+        # Assert
         assert mock_run.call_count == 1
         assert mock_run.call_args.kwargs["name"] == "common-check"
 
@@ -435,6 +466,7 @@ class TestRunGate:
         result.checks.append(GateCheckResult(name="hook-integrity", passed=True))
 
     def test_pre_commit_runs_checks(self) -> None:
+        # Act
         with (
             patch(
                 "ai_engineering.policy.checks.branch_protection.check_branch_protection",
@@ -452,10 +484,12 @@ class TestRunGate:
         ):
             result = run_gate(GateHook.PRE_COMMIT, Path("/fake"))
 
+        # Assert
         mock_pre_commit.assert_called_once()
         assert result.hook == GateHook.PRE_COMMIT
 
     def test_branch_protection_fail_returns_early(self) -> None:
+        # Act
         with (
             patch(
                 "ai_engineering.policy.checks.branch_protection.check_branch_protection",
@@ -465,13 +499,16 @@ class TestRunGate:
         ):
             result = run_gate(GateHook.PRE_COMMIT, Path("/fake"))
 
+        # Assert
         mock_pre_commit.assert_not_called()
         assert result.passed is False
 
     def test_commit_msg_valid_message(self, tmp_path: Path) -> None:
+        # Arrange
         msg_file = tmp_path / "COMMIT_EDITMSG"
         msg_file.write_text("fix: correct typo\n", encoding="utf-8")
 
+        # Act
         with (
             patch(
                 "ai_engineering.policy.checks.branch_protection.check_branch_protection",
@@ -492,13 +529,13 @@ class TestRunGate:
                 commit_msg_file=msg_file,
             )
 
-        # Should have branch-protection, version-deprecation, hook-integrity,
-        # plus commit-msg-format check
+        # Assert
         check_names = [c.name for c in result.checks]
         assert "commit-msg-format" in check_names
         assert result.passed is True
 
     def test_pre_push_runs_checks(self) -> None:
+        # Act
         with (
             patch(
                 "ai_engineering.policy.checks.branch_protection.check_branch_protection",
@@ -516,6 +553,7 @@ class TestRunGate:
         ):
             result = run_gate(GateHook.PRE_PUSH, Path("/fake"))
 
+        # Assert
         mock_pre_push.assert_called_once()
         assert result.hook == GateHook.PRE_PUSH
 
@@ -527,9 +565,11 @@ class TestCheckExpiringRiskAcceptances:
     """Tests for expiring risk advisory check."""
 
     def test_no_expiring_no_warning(self, tmp_path: Path) -> None:
+        # Arrange
         result = GateResult(hook=GateHook.PRE_COMMIT)
         mock_store = MagicMock(spec=DecisionStore)
 
+        # Act
         with (
             patch(
                 "ai_engineering.policy.checks.risk.load_decision_store",
@@ -542,14 +582,15 @@ class TestCheckExpiringRiskAcceptances:
         ):
             check_expiring_risk_acceptances(tmp_path, result)
 
+        # Assert
         assert len(result.checks) == 1
         assert result.checks[0].passed is True
         assert "risk acceptance(s) expiring" not in result.checks[0].output
 
     def test_expiring_risks_adds_advisory(self, tmp_path: Path) -> None:
+        # Arrange
         result = GateResult(hook=GateHook.PRE_COMMIT)
         mock_store = MagicMock(spec=DecisionStore)
-
         expiring_decision = Decision(
             id="RA-001",
             context="CVE-2025-99999 in dependency X",
@@ -562,6 +603,7 @@ class TestCheckExpiringRiskAcceptances:
             status=DecisionStatus.ACTIVE,
         )
 
+        # Act
         with (
             patch(
                 "ai_engineering.policy.checks.risk.load_decision_store",
@@ -574,21 +616,24 @@ class TestCheckExpiringRiskAcceptances:
         ):
             check_expiring_risk_acceptances(tmp_path, result)
 
+        # Assert
         assert len(result.checks) == 1
-        # Advisory: still passes
         assert result.checks[0].passed is True
         assert "expiring" in result.checks[0].output.lower()
         assert "RA-001" in result.checks[0].output
 
     def test_no_decision_store_skipped(self, tmp_path: Path) -> None:
+        # Arrange
         result = GateResult(hook=GateHook.PRE_COMMIT)
 
+        # Act
         with patch(
             "ai_engineering.policy.checks.risk.load_decision_store",
             return_value=None,
         ):
             check_expiring_risk_acceptances(tmp_path, result)
 
+        # Assert
         assert len(result.checks) == 1
         assert result.checks[0].passed is True
         assert "skipped" in result.checks[0].output.lower()
@@ -601,9 +646,11 @@ class TestCheckExpiredRiskAcceptances:
     """Tests for expired risk blocking check."""
 
     def test_no_expired_passes(self, tmp_path: Path) -> None:
+        # Arrange
         result = GateResult(hook=GateHook.PRE_PUSH)
         mock_store = MagicMock(spec=DecisionStore)
 
+        # Act
         with (
             patch(
                 "ai_engineering.policy.checks.risk.load_decision_store",
@@ -616,13 +663,14 @@ class TestCheckExpiredRiskAcceptances:
         ):
             check_expired_risk_acceptances(tmp_path, result)
 
+        # Assert
         assert len(result.checks) == 1
         assert result.checks[0].passed is True
 
     def test_expired_risks_blocks_gate(self, tmp_path: Path) -> None:
+        # Arrange
         result = GateResult(hook=GateHook.PRE_PUSH)
         mock_store = MagicMock(spec=DecisionStore)
-
         expired_decision = Decision(
             id="RA-002",
             context="Expired vulnerability acceptance in lib Y",
@@ -635,6 +683,7 @@ class TestCheckExpiredRiskAcceptances:
             status=DecisionStatus.ACTIVE,
         )
 
+        # Act
         with (
             patch(
                 "ai_engineering.policy.checks.risk.load_decision_store",
@@ -647,19 +696,23 @@ class TestCheckExpiredRiskAcceptances:
         ):
             check_expired_risk_acceptances(tmp_path, result)
 
+        # Assert
         assert len(result.checks) == 1
         assert result.checks[0].passed is False
         assert "RA-002" in result.checks[0].output
 
     def test_no_decision_store_skipped(self, tmp_path: Path) -> None:
+        # Arrange
         result = GateResult(hook=GateHook.PRE_PUSH)
 
+        # Act
         with patch(
             "ai_engineering.policy.checks.risk.load_decision_store",
             return_value=None,
         ):
             check_expired_risk_acceptances(tmp_path, result)
 
+        # Assert
         assert len(result.checks) == 1
         assert result.checks[0].passed is True
         assert "skipped" in result.checks[0].output.lower()
@@ -672,11 +725,15 @@ class TestRegistryValidation:
     """Validate registry constants contain expected configuration."""
 
     def test_pre_push_python_stack_tests_flags(self) -> None:
+        # Arrange
         python_checks = PRE_PUSH_CHECKS["python"]
         stack_tests = [c for c in python_checks if c.name == "stack-tests"]
         assert len(stack_tests) == 1, "Expected exactly one stack-tests check for python"
 
+        # Act
         cmd = stack_tests[0].cmd
+
+        # Assert
         assert "-n" in cmd, "Expected -n (parallel workers) in stack-tests cmd"
         n_idx = cmd.index("-n")
         assert cmd[n_idx + 1] == "auto", "Expected 'auto' after -n"
@@ -905,26 +962,37 @@ class TestSonarGateAdvisory:
     def test_skips_when_scanner_missing(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     ) -> None:
+        # Arrange
         result = GateResult(hook=GateHook.PRE_PUSH)
         monkeypatch.setattr("ai_engineering.policy.checks.sonar.shutil.which", lambda _: None)
+
+        # Act
         check_sonar_gate(tmp_path, result)
+
+        # Assert
         assert result.checks[-1].passed is True
         assert "skipped" in result.checks[-1].output.lower()
 
     def test_skips_when_no_properties_file(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     ) -> None:
+        # Arrange
         result = GateResult(hook=GateHook.PRE_PUSH)
         monkeypatch.setattr(
             "ai_engineering.policy.checks.sonar.shutil.which", lambda _: "/usr/bin/sonar"
         )
+
+        # Act
         check_sonar_gate(tmp_path, result)
+
+        # Assert
         assert result.checks[-1].passed is True
         assert "sonar-project.properties" in result.checks[-1].output
 
     def test_skips_when_no_token_and_not_configured(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     ) -> None:
+        # Arrange
         result = GateResult(hook=GateHook.PRE_PUSH)
         (tmp_path / "sonar-project.properties").write_text("sonar.projectKey=x\n", encoding="utf-8")
         monkeypatch.delenv("SONAR_TOKEN", raising=False)
@@ -939,13 +1007,18 @@ class TestSonarGateAdvisory:
             "ai_engineering.policy.checks.sonar._resolve_sonar_token",
             lambda _: None,
         )
+
+        # Act
         check_sonar_gate(tmp_path, result)
+
+        # Assert
         assert result.checks[-1].passed is True
         assert "not configured" in result.checks[-1].output.lower()
 
     def test_skips_when_subprocess_missing_after_check(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     ) -> None:
+        # Arrange
         result = GateResult(hook=GateHook.PRE_PUSH)
         (tmp_path / "sonar-project.properties").write_text("sonar.projectKey=x\n", encoding="utf-8")
         monkeypatch.setenv("SONAR_TOKEN", "token")
@@ -956,20 +1029,24 @@ class TestSonarGateAdvisory:
             "ai_engineering.policy.checks.sonar.subprocess.run",
             lambda *_, **__: (_ for _ in ()).throw(FileNotFoundError()),
         )
+
+        # Act
         check_sonar_gate(tmp_path, result)
+
+        # Assert
         assert result.checks[-1].passed is True
         assert "skipped" in result.checks[-1].output.lower()
 
     def test_scanner_failure_is_advisory(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     ) -> None:
+        # Arrange
         result = GateResult(hook=GateHook.PRE_PUSH)
         (tmp_path / "sonar-project.properties").write_text("sonar.projectKey=x\n", encoding="utf-8")
         monkeypatch.setenv("SONAR_TOKEN", "token")
         monkeypatch.setattr(
             "ai_engineering.policy.checks.sonar.shutil.which", lambda _: "/usr/bin/sonar"
         )
-
         proc = MagicMock()
         proc.returncode = 1
         proc.stdout = ""
@@ -978,19 +1055,22 @@ class TestSonarGateAdvisory:
             "ai_engineering.policy.checks.sonar.subprocess.run", lambda *_, **__: proc
         )
 
+        # Act
         check_sonar_gate(tmp_path, result)
+
+        # Assert
         assert result.checks[-1].passed is True
         assert "advisory" in result.checks[-1].output.lower()
         assert "failed" in result.checks[-1].output.lower()
 
     def test_scanner_success_passes(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+        # Arrange
         result = GateResult(hook=GateHook.PRE_PUSH)
         (tmp_path / "sonar-project.properties").write_text("sonar.projectKey=x\n", encoding="utf-8")
         monkeypatch.setenv("SONAR_TOKEN", "token")
         monkeypatch.setattr(
             "ai_engineering.policy.checks.sonar.shutil.which", lambda _: "/usr/bin/sonar"
         )
-
         proc = MagicMock()
         proc.returncode = 0
         proc.stdout = "Sonar gate passed"
@@ -999,6 +1079,9 @@ class TestSonarGateAdvisory:
             "ai_engineering.policy.checks.sonar.subprocess.run", lambda *_, **__: proc
         )
 
+        # Act
         check_sonar_gate(tmp_path, result)
+
+        # Assert
         assert result.checks[-1].passed is True
         assert "passed" in result.checks[-1].output.lower()

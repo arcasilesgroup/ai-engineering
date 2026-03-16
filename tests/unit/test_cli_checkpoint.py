@@ -25,13 +25,18 @@ class TestCheckpointSave:
 
     def test_save_defaults(self, tmp_path: Path) -> None:
         """Save with default (empty) options creates the checkpoint file."""
+        # Arrange
         (tmp_path / ".ai-engineering").mkdir(parents=True)
+
+        # Act
         with patch(
             "ai_engineering.cli_commands.checkpoint.find_project_root",
             return_value=tmp_path,
         ):
             app = create_app()
             result = runner.invoke(app, ["checkpoint", "save"])
+
+        # Assert
         assert result.exit_code == 0
         assert "Checkpoint saved" in result.output
 
@@ -44,7 +49,10 @@ class TestCheckpointSave:
 
     def test_save_with_all_options(self, tmp_path: Path) -> None:
         """Save with all options populates the checkpoint fields."""
+        # Arrange
         (tmp_path / ".ai-engineering").mkdir(parents=True)
+
+        # Act
         with patch(
             "ai_engineering.cli_commands.checkpoint.find_project_root",
             return_value=tmp_path,
@@ -67,6 +75,8 @@ class TestCheckpointSave:
                     "Missing dependency",
                 ],
             )
+
+        # Assert
         assert result.exit_code == 0
         assert "spec=spec-031" in result.output
         assert "task=3.2" in result.output
@@ -83,44 +93,58 @@ class TestCheckpointSave:
 
     def test_save_creates_parent_dirs(self, tmp_path: Path) -> None:
         """Save creates the state directory if it doesn't exist."""
+        # Arrange
         (tmp_path / ".ai-engineering").mkdir(parents=True)
         # state/ dir does not exist yet
+
+        # Act
         with patch(
             "ai_engineering.cli_commands.checkpoint.find_project_root",
             return_value=tmp_path,
         ):
             app = create_app()
             result = runner.invoke(app, ["checkpoint", "save"])
+
+        # Assert
         assert result.exit_code == 0
         cp_path = tmp_path / ".ai-engineering" / "state" / "session-checkpoint.json"
         assert cp_path.exists()
 
     def test_save_overwrites_existing(self, tmp_path: Path) -> None:
         """Save overwrites an existing checkpoint file."""
+        # Arrange
         state_dir = tmp_path / ".ai-engineering" / "state"
         state_dir.mkdir(parents=True)
         cp_path = state_dir / "session-checkpoint.json"
         cp_path.write_text(json.dumps({"spec_id": "old"}), encoding="utf-8")
 
+        # Act
         with patch(
             "ai_engineering.cli_commands.checkpoint.find_project_root",
             return_value=tmp_path,
         ):
             app = create_app()
             result = runner.invoke(app, ["checkpoint", "save", "--spec-id", "new-spec"])
+
+        # Assert
         assert result.exit_code == 0
         data = json.loads(cp_path.read_text(encoding="utf-8"))
         assert data["spec_id"] == "new-spec"
 
     def test_save_blocked_on_none_by_default(self, tmp_path: Path) -> None:
         """When --blocked-on is not given, blocked_on is null."""
+        # Arrange
         (tmp_path / ".ai-engineering").mkdir(parents=True)
+
+        # Act
         with patch(
             "ai_engineering.cli_commands.checkpoint.find_project_root",
             return_value=tmp_path,
         ):
             app = create_app()
             result = runner.invoke(app, ["checkpoint", "save"])
+
+        # Assert
         assert result.exit_code == 0
         cp_path = tmp_path / ".ai-engineering" / "state" / "session-checkpoint.json"
         data = json.loads(cp_path.read_text(encoding="utf-8"))
@@ -128,7 +152,10 @@ class TestCheckpointSave:
 
     def test_save_emits_session_event(self, tmp_path: Path) -> None:
         """checkpoint_save emits session_metric event after saving."""
+        # Arrange
         (tmp_path / ".ai-engineering").mkdir(parents=True)
+
+        # Act
         with (
             patch(
                 "ai_engineering.cli_commands.checkpoint.find_project_root",
@@ -143,6 +170,8 @@ class TestCheckpointSave:
                 app,
                 ["checkpoint", "save", "--spec-id", "040", "--current-task", "5.1"],
             )
+
+        # Assert
         assert result.exit_code == 0
         mock_emit.assert_called_once_with(
             tmp_path,
@@ -154,7 +183,10 @@ class TestCheckpointSave:
 
     def test_save_emission_failure_doesnt_break(self, tmp_path: Path) -> None:
         """If emission fails, checkpoint save still succeeds (fail-open)."""
+        # Arrange
         (tmp_path / ".ai-engineering").mkdir(parents=True)
+
+        # Act
         with (
             patch(
                 "ai_engineering.cli_commands.checkpoint.find_project_root",
@@ -167,6 +199,8 @@ class TestCheckpointSave:
         ):
             app = create_app()
             result = runner.invoke(app, ["checkpoint", "save", "--spec-id", "040"])
+
+        # Assert
         assert result.exit_code == 0  # Fail-open
 
 
@@ -175,18 +209,24 @@ class TestCheckpointLoad:
 
     def test_no_checkpoint_file(self, tmp_path: Path) -> None:
         """When no checkpoint file exists, report starting fresh."""
+        # Arrange
         (tmp_path / ".ai-engineering").mkdir(parents=True)
+
+        # Act
         with patch(
             "ai_engineering.cli_commands.checkpoint.find_project_root",
             return_value=tmp_path,
         ):
             app = create_app()
             result = runner.invoke(app, ["checkpoint", "load"])
+
+        # Assert
         assert result.exit_code == 0
         assert "No checkpoint found" in result.output
 
     def test_load_valid_checkpoint(self, tmp_path: Path) -> None:
         """Load a valid checkpoint and display all fields."""
+        # Arrange
         state_dir = tmp_path / ".ai-engineering" / "state"
         state_dir.mkdir(parents=True)
         checkpoint = {
@@ -201,12 +241,15 @@ class TestCheckpointLoad:
             json.dumps(checkpoint, indent=2), encoding="utf-8"
         )
 
+        # Act
         with patch(
             "ai_engineering.cli_commands.checkpoint.find_project_root",
             return_value=tmp_path,
         ):
             app = create_app()
             result = runner.invoke(app, ["checkpoint", "load"])
+
+        # Assert
         assert result.exit_code == 0
         assert "# Session Checkpoint" in result.output
         assert "spec-031" in result.output
@@ -218,30 +261,38 @@ class TestCheckpointLoad:
 
     def test_load_corrupted_json(self, tmp_path: Path) -> None:
         """Corrupted checkpoint JSON produces exit code 1."""
+        # Arrange
         state_dir = tmp_path / ".ai-engineering" / "state"
         state_dir.mkdir(parents=True)
         (state_dir / "session-checkpoint.json").write_text("THIS IS NOT JSON", encoding="utf-8")
 
+        # Act
         with patch(
             "ai_engineering.cli_commands.checkpoint.find_project_root",
             return_value=tmp_path,
         ):
             app = create_app()
             result = runner.invoke(app, ["checkpoint", "load"])
+
+        # Assert
         assert result.exit_code != 0
 
     def test_load_missing_fields_use_defaults(self, tmp_path: Path) -> None:
         """Checkpoint with missing fields shows default values."""
+        # Arrange
         state_dir = tmp_path / ".ai-engineering" / "state"
         state_dir.mkdir(parents=True)
         (state_dir / "session-checkpoint.json").write_text(json.dumps({}), encoding="utf-8")
 
+        # Act
         with patch(
             "ai_engineering.cli_commands.checkpoint.find_project_root",
             return_value=tmp_path,
         ):
             app = create_app()
             result = runner.invoke(app, ["checkpoint", "load"])
+
+        # Assert
         assert result.exit_code == 0
         assert "Spec: none" in result.output
         assert "Task: none" in result.output
@@ -249,7 +300,10 @@ class TestCheckpointLoad:
 
     def test_save_with_agent_creates_namespaced_section(self, tmp_path: Path) -> None:
         """Save with --agent stores entry under agents.<name> and top-level."""
+        # Arrange
         (tmp_path / ".ai-engineering").mkdir(parents=True)
+
+        # Act
         with patch(
             "ai_engineering.cli_commands.checkpoint.find_project_root",
             return_value=tmp_path,
@@ -268,6 +322,8 @@ class TestCheckpointLoad:
                     "3.1",
                 ],
             )
+
+        # Assert
         assert result.exit_code == 0
 
         cp_path = tmp_path / ".ai-engineering" / "state" / "session-checkpoint.json"
@@ -282,7 +338,10 @@ class TestCheckpointLoad:
 
     def test_save_multiple_agents_preserves_each(self, tmp_path: Path) -> None:
         """Saving for agent A then agent B preserves both."""
+        # Arrange
         (tmp_path / ".ai-engineering").mkdir(parents=True)
+
+        # Act
         with patch(
             "ai_engineering.cli_commands.checkpoint.find_project_root",
             return_value=tmp_path,
@@ -297,6 +356,7 @@ class TestCheckpointLoad:
                 ["checkpoint", "save", "--agent", "verify", "--current-task", "2.0"],
             )
 
+        # Assert
         cp_path = tmp_path / ".ai-engineering" / "state" / "session-checkpoint.json"
         data = json.loads(cp_path.read_text(encoding="utf-8"))
         assert data["agents"]["build"]["current_task"] == "1.0"
@@ -304,6 +364,7 @@ class TestCheckpointLoad:
 
     def test_load_with_agent_returns_namespaced_data(self, tmp_path: Path) -> None:
         """Load with --agent returns that agent's checkpoint data."""
+        # Arrange
         state_dir = tmp_path / ".ai-engineering" / "state"
         state_dir.mkdir(parents=True)
         (state_dir / "session-checkpoint.json").write_text(
@@ -331,12 +392,15 @@ class TestCheckpointLoad:
             encoding="utf-8",
         )
 
+        # Act
         with patch(
             "ai_engineering.cli_commands.checkpoint.find_project_root",
             return_value=tmp_path,
         ):
             app = create_app()
             result = runner.invoke(app, ["checkpoint", "load", "--agent", "build"])
+
+        # Assert
         assert result.exit_code == 0
         assert "Agent: build" in result.output
         assert "051" in result.output
@@ -344,6 +408,7 @@ class TestCheckpointLoad:
 
     def test_load_without_agent_lists_all_agents(self, tmp_path: Path) -> None:
         """Load without --agent shows all agent checkpoints."""
+        # Arrange
         state_dir = tmp_path / ".ai-engineering" / "state"
         state_dir.mkdir(parents=True)
         (state_dir / "session-checkpoint.json").write_text(
@@ -365,12 +430,15 @@ class TestCheckpointLoad:
             encoding="utf-8",
         )
 
+        # Act
         with patch(
             "ai_engineering.cli_commands.checkpoint.find_project_root",
             return_value=tmp_path,
         ):
             app = create_app()
             result = runner.invoke(app, ["checkpoint", "load"])
+
+        # Assert
         assert result.exit_code == 0
         assert "Agent Checkpoints" in result.output
         assert "build:" in result.output
@@ -378,7 +446,10 @@ class TestCheckpointLoad:
 
     def test_save_then_load_roundtrip(self, tmp_path: Path) -> None:
         """Save followed by load produces consistent output."""
+        # Arrange
         (tmp_path / ".ai-engineering").mkdir(parents=True)
+
+        # Act
         with patch(
             "ai_engineering.cli_commands.checkpoint.find_project_root",
             return_value=tmp_path,
@@ -400,6 +471,8 @@ class TestCheckpointLoad:
             assert save_result.exit_code == 0
 
             load_result = runner.invoke(app, ["checkpoint", "load"])
+
+        # Assert
         assert load_result.exit_code == 0
         assert "spec-099" in load_result.output
         assert "1.1" in load_result.output

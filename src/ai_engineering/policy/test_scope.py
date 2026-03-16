@@ -282,7 +282,6 @@ TEST_SCOPE_RULES: list[ScopeRule] = [
             "unit": [
                 "tests/unit/test_gates.py",
                 "tests/unit/test_duplication.py",
-                "tests/unit/test_duplication_main.py",
                 "tests/unit/test_sonar_measures.py",
                 "tests/unit/test_test_scope.py",
             ],

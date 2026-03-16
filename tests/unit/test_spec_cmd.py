@@ -91,34 +91,49 @@ class TestAutoCorrectFrontmatter:
 
     def test_corrects_drifted_total(self, tmp_path: Path) -> None:
         """Drifted total is corrected."""
+        # Arrange
         tasks = tmp_path / "tasks.md"
         tasks.write_text(
             '---\nspec: "001"\ntotal: 3\ncompleted: 1\n---\n\n'
             "- [x] Done\n- [ ] Todo\n- [ ] Todo\n- [ ] Todo\n- [ ] Todo\n"
         )
+
+        # Act
         result = _auto_correct_frontmatter(tasks, 5, 1)
+
+        # Assert
         assert result is True
         fm = parse_frontmatter(tasks.read_text())
         assert fm["total"] == "5"
 
     def test_corrects_drifted_completed(self, tmp_path: Path) -> None:
         """Drifted completed is corrected."""
+        # Arrange
         tasks = tmp_path / "tasks.md"
         tasks.write_text(
             '---\nspec: "001"\ntotal: 3\ncompleted: 0\n---\n\n- [x] Done\n- [x] Done\n- [ ] Todo\n'
         )
+
+        # Act
         result = _auto_correct_frontmatter(tasks, 3, 2)
+
+        # Assert
         assert result is True
         fm = parse_frontmatter(tasks.read_text())
         assert fm["completed"] == "2"
 
     def test_no_correction_when_accurate(self, tmp_path: Path) -> None:
         """No changes when frontmatter matches reality."""
+        # Arrange
         tasks = tmp_path / "tasks.md"
         tasks.write_text(
             '---\nspec: "001"\ntotal: 3\ncompleted: 1\n---\n\n- [x] Done\n- [ ] Todo\n- [ ] Todo\n'
         )
+
+        # Act
         result = _auto_correct_frontmatter(tasks, 3, 1)
+
+        # Assert
         assert result is False
 
 
@@ -127,18 +142,26 @@ class TestFindAllSpecFiles:
 
     def test_finds_specs_in_archive(self, tmp_path: Path) -> None:
         """Finds spec.md files in archive subdirectories."""
+        # Arrange
         _create_spec_tree(tmp_path, "001", "alpha")
         _create_spec_tree(tmp_path, "002", "beta")
 
+        # Act
         specs = _find_all_spec_files(tmp_path)
+
+        # Assert
         assert len(specs) == 2
 
     def test_empty_archive(self, tmp_path: Path) -> None:
         """Empty archive returns empty list."""
+        # Arrange
         archive = tmp_path / ".ai-engineering" / "context" / "specs" / "archive"
         archive.mkdir(parents=True)
 
+        # Act
         specs = _find_all_spec_files(tmp_path)
+
+        # Assert
         assert specs == []
 
     def test_no_archive(self, tmp_path: Path) -> None:
@@ -173,14 +196,20 @@ class TestCountAndVerify:
 
     def test_checkbox_count_matches_tasks(self, tmp_path: Path) -> None:
         """Checkbox count should match the tasks created."""
+        # Arrange
         spec_dir = _create_spec_tree(tmp_path, "010", "test", total=5, completed=3)
+
+        # Act
         tasks_text = (spec_dir / "tasks.md").read_text()
         total, checked = count_checkboxes(tasks_text)
+
+        # Assert
         assert total == 5
         assert checked == 3
 
     def test_drift_detected_and_fixed(self, tmp_path: Path) -> None:
         """When frontmatter says 2/5 but checkboxes say 3/5, auto-fix corrects."""
+        # Arrange
         spec_dir = _create_spec_tree(tmp_path, "011", "drift", total=5, completed=2)
         tasks_path = spec_dir / "tasks.md"
 
@@ -189,13 +218,15 @@ class TestCountAndVerify:
             '---\nspec: "011"\ntotal: 5\ncompleted: 2\n---\n\n'
             "- [x] A\n- [x] B\n- [x] C\n- [ ] D\n- [ ] E\n"
         )
+
+        # Act
         real_total, real_completed = count_checkboxes(tasks_path.read_text())
+        corrected = _auto_correct_frontmatter(tasks_path, real_total, real_completed)
+
+        # Assert
         assert real_total == 5
         assert real_completed == 3
-
-        corrected = _auto_correct_frontmatter(tasks_path, real_total, real_completed)
         assert corrected is True
-
         fm = parse_frontmatter(tasks_path.read_text())
         assert fm["completed"] == "3"
         assert fm["total"] == "5"

@@ -86,52 +86,90 @@ class TestMessageHelpers:
     """Tests for success/warning/error/info helpers."""
 
     def test_success_writes_to_stderr(self, capsys: pytest.CaptureFixture[str]) -> None:
+        # Arrange
         get_console.cache_clear()
+
+        # Act
         success("done")
         err = capsys.readouterr().err
+
+        # Assert
         assert "done" in err
 
     def test_warning_writes_to_stderr(self, capsys: pytest.CaptureFixture[str]) -> None:
+        # Arrange
         get_console.cache_clear()
+
+        # Act
         warning("caution")
         err = capsys.readouterr().err
+
+        # Assert
         assert "caution" in err
 
     def test_info_writes_to_stderr(self, capsys: pytest.CaptureFixture[str]) -> None:
+        # Arrange
         get_console.cache_clear()
+
+        # Act
         info("note")
         err = capsys.readouterr().err
+
+        # Assert
         assert "note" in err
 
     def test_kv_writes_pair(self, capsys: pytest.CaptureFixture[str]) -> None:
+        # Arrange
         get_console.cache_clear()
+
+        # Act
         kv("Name", "value")
         err = capsys.readouterr().err
+
+        # Assert
         assert "Name" in err
         assert "value" in err
 
     def test_status_line_ok(self, capsys: pytest.CaptureFixture[str]) -> None:
+        # Arrange
         get_console.cache_clear()
+
+        # Act
         status_line("ok", "ruff", "passed")
         err = capsys.readouterr().err
+
+        # Assert
         assert "ruff" in err
         assert "passed" in err
 
     def test_result_header_pass(self, capsys: pytest.CaptureFixture[str]) -> None:
+        # Arrange
         get_console.cache_clear()
+
+        # Act
         result_header("Doctor", "PASS", "/tmp/test")
         err = capsys.readouterr().err
+
+        # Assert
         assert "Doctor" in err
         assert "PASS" in err
 
     def test_result_header_fail(self, capsys: pytest.CaptureFixture[str]) -> None:
+        # Arrange
         get_console.cache_clear()
+
+        # Act
         result_header("Doctor", "FAIL")
         err = capsys.readouterr().err
+
+        # Assert
         assert "FAIL" in err
 
     def test_suggest_next_lists_steps(self, capsys: pytest.CaptureFixture[str]) -> None:
+        # Arrange
         get_console.cache_clear()
+
+        # Act
         suggest_next(
             [
                 ("ai-eng doctor", "Run health diagnostics"),
@@ -139,20 +177,32 @@ class TestMessageHelpers:
             ]
         )
         err = capsys.readouterr().err
+
+        # Assert
         assert "ai-eng doctor" in err
         assert "Run health diagnostics" in err
         assert "ai-eng setup" in err
 
     def test_file_count_formats(self, capsys: pytest.CaptureFixture[str]) -> None:
+        # Arrange
         get_console.cache_clear()
+
+        # Act
         file_count("Governance", 42)
         err = capsys.readouterr().err
+
+        # Assert
         assert "42 files" in err
 
     def test_header_prints_rule(self, capsys: pytest.CaptureFixture[str]) -> None:
+        # Arrange
         get_console.cache_clear()
+
+        # Act
         header("Section")
         err = capsys.readouterr().err
+
+        # Assert
         assert "Section" in err
 
 
@@ -162,23 +212,33 @@ class TestSafePrintFallback:
     def test_safe_print_falls_back_on_import_error(
         self, capsys: pytest.CaptureFixture[str]
     ) -> None:
+        # Arrange
         from ai_engineering.cli_ui import _safe_print
 
         get_console.cache_clear()
+
+        # Act
         with patch.object(get_console(), "print", side_effect=ImportError("fake")):
             _safe_print("[bold]hello[/bold]")
         err = capsys.readouterr().err
+
+        # Assert
         assert "hello" in err
         # Markup should be stripped
         assert "[bold]" not in err
 
     def test_safe_print_strips_nested_markup(self, capsys: pytest.CaptureFixture[str]) -> None:
+        # Arrange
         from ai_engineering.cli_ui import _safe_print
 
         get_console.cache_clear()
+
+        # Act
         with patch.object(get_console(), "print", side_effect=ModuleNotFoundError("fake")):
             _safe_print("[success]done[/success]")
         err = capsys.readouterr().err
+
+        # Assert
         assert "done" in err
         assert "[success]" not in err
 
@@ -187,11 +247,16 @@ class TestShowLogoTty:
     """Tests for show_logo on TTY-like console."""
 
     def test_show_logo_prints_on_tty(self, capsys: pytest.CaptureFixture[str]) -> None:
+        # Arrange
         get_console.cache_clear()
         con = get_console()
+
+        # Act
         with patch.object(type(con), "is_terminal", new_callable=lambda: property(lambda s: True)):
             show_logo()
         err = capsys.readouterr().err
+
+        # Assert
         assert "ai" in err or "engineering" in err
 
     def test_show_logo_handles_import_error(self) -> None:
@@ -208,10 +273,15 @@ class TestHeaderFallback:
     """Tests for header() ImportError fallback."""
 
     def test_header_fallback_on_import_error(self, capsys: pytest.CaptureFixture[str]) -> None:
+        # Arrange
         get_console.cache_clear()
+
+        # Act
         with patch.object(get_console(), "print", side_effect=ImportError("fake")):
             header("MySection")
         err = capsys.readouterr().err
+
+        # Assert
         assert "MySection" in err
 
 
@@ -219,11 +289,16 @@ class TestErrorHelper:
     """Tests for the error() helper."""
 
     def test_error_writes_to_stderr(self, capsys: pytest.CaptureFixture[str]) -> None:
+        # Arrange
         from ai_engineering.cli_ui import error
 
         get_console.cache_clear()
+
+        # Act
         error("something broke")
         err = capsys.readouterr().err
+
+        # Assert
         assert "something broke" in err
 
 

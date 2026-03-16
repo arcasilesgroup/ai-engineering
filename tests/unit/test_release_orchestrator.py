@@ -109,12 +109,15 @@ class _Runner:
 
 
 def test_execute_release_returns_validation_errors(tmp_path: Path) -> None:
+    # Arrange
     config = ReleaseConfig(version="0.2.0", project_root=tmp_path)
     provider = _FakeProvider()
 
+    # Act
     with patch("ai_engineering.release.orchestrator._validate", return_value=["boom"]):
         result = execute_release(config, provider)
 
+    # Assert
     assert result.success is False
     assert result.errors == ["boom"]
     assert result.phases[0].phase == "validate"
@@ -122,9 +125,9 @@ def test_execute_release_returns_validation_errors(tmp_path: Path) -> None:
 
 
 def test_execute_release_dry_run_outputs_plan(tmp_path: Path) -> None:
+    # Arrange
     config = ReleaseConfig(version="0.2.0", project_root=tmp_path, dry_run=True)
     provider = _FakeProvider()
-
     state = ReleaseState(
         release_branch="release/v0.2.0",
         local_branch_exists=False,
@@ -132,20 +135,23 @@ def test_execute_release_dry_run_outputs_plan(tmp_path: Path) -> None:
         tag_exists=False,
         current_version="0.1.0",
     )
+
+    # Act
     with (
         patch("ai_engineering.release.orchestrator._validate", return_value=[]),
         patch("ai_engineering.release.orchestrator._detect_state", return_value=state),
     ):
         result = execute_release(config, provider, clock=_FixedClock())
 
+    # Assert
     assert result.success is True
     assert any(phase.phase == "plan" and phase.skipped for phase in result.phases)
 
 
 def test_execute_release_noops_when_tag_exists(tmp_path: Path) -> None:
+    # Arrange
     config = ReleaseConfig(version="0.2.0", project_root=tmp_path)
     provider = _FakeProvider()
-
     state = ReleaseState(
         release_branch="release/v0.2.0",
         local_branch_exists=False,
@@ -153,6 +159,8 @@ def test_execute_release_noops_when_tag_exists(tmp_path: Path) -> None:
         tag_exists=True,
         current_version="0.2.0",
     )
+
+    # Act
     with (
         patch("ai_engineering.release.orchestrator._validate", return_value=[]),
         patch("ai_engineering.release.orchestrator._detect_state", return_value=state),
@@ -160,6 +168,7 @@ def test_execute_release_noops_when_tag_exists(tmp_path: Path) -> None:
     ):
         result = execute_release(config, provider, clock=_FixedClock())
 
+    # Assert
     assert result.success is True
     assert result.release_url.endswith("/releases/tag/v0.2.0")
     assert any(phase.phase == "tag" and phase.skipped for phase in result.phases)
@@ -179,13 +188,18 @@ def test_validate_returns_empty_when_tag_exists(tmp_path: Path) -> None:
 
 
 def test_detect_state_reads_refs_and_current_version(tmp_path: Path) -> None:
+    # Arrange
     cfg = ReleaseConfig(version="0.2.0", project_root=tmp_path)
     seq = [(True, ""), (False, ""), (True, "")]
+
+    # Act
     with (
         patch("ai_engineering.release.orchestrator.run_git", side_effect=seq),
         patch("ai_engineering.release.orchestrator.detect_current_version", return_value="0.1.0"),
     ):
         state = _detect_state(cfg, _FakeProvider())
+
+    # Assert
     assert state.local_branch_exists is True
     assert state.remote_branch_exists is False
     assert state.tag_exists is True
@@ -193,24 +207,37 @@ def test_detect_state_reads_refs_and_current_version(tmp_path: Path) -> None:
 
 
 def test_prepare_branch_returns_skip_when_branch_exists(tmp_path: Path) -> None:
+    # Arrange
     cfg = ReleaseConfig(version="0.2.0", project_root=tmp_path)
+
+    # Act
     with patch("ai_engineering.release.orchestrator.run_git", return_value=(True, "")):
         phase = _prepare_branch(cfg, _FixedClock())
+
+    # Assert
     assert phase.skipped is True
 
 
 def test_prepare_branch_handles_checkout_failure(tmp_path: Path) -> None:
+    # Arrange
     cfg = ReleaseConfig(version="0.2.0", project_root=tmp_path)
     seq = [(False, ""), (False, "oops")]
+
+    # Act
     with patch("ai_engineering.release.orchestrator.run_git", side_effect=seq):
         phase = _prepare_branch(cfg, _FixedClock())
+
+    # Assert
     assert phase.success is False
     assert "Failed to create branch" in phase.output
 
 
 def test_prepare_branch_handles_bump_failure(tmp_path: Path) -> None:
+    # Arrange
     cfg = ReleaseConfig(version="0.2.0", project_root=tmp_path)
     seq = [(False, ""), (True, "")]
+
+    # Act
     with (
         patch("ai_engineering.release.orchestrator.run_git", side_effect=seq),
         patch(
@@ -218,11 +245,14 @@ def test_prepare_branch_handles_bump_failure(tmp_path: Path) -> None:
         ),
     ):
         phase = _prepare_branch(cfg, _FixedClock())
+
+    # Assert
     assert phase.success is False
     assert phase.output == "x"
 
 
 def test_prepare_branch_success_path(tmp_path: Path) -> None:
+    # Arrange
     cfg = ReleaseConfig(version="0.2.0", project_root=tmp_path)
     bump = type("Bump", (), {})()
     bump.old_version = "0.1.0"
@@ -231,19 +261,23 @@ def test_prepare_branch_success_path(tmp_path: Path) -> None:
         tmp_path / "pyproject.toml",
         tmp_path / "src" / "ai_engineering" / "__version__.py",
     ]
-
     seq = [(False, ""), (True, ""), (True, ""), (True, "")]
+
+    # Act
     with (
         patch("ai_engineering.release.orchestrator.run_git", side_effect=seq),
         patch("ai_engineering.release.orchestrator.bump_python_version", return_value=bump),
         patch("ai_engineering.release.orchestrator.promote_unreleased", return_value=True),
     ):
         phase = _prepare_branch(cfg, _FixedClock())
+
+    # Assert
     assert phase.success is True
     assert "pyproject.toml" in phase.output
 
 
 def test_create_release_pr_handles_existing_pr_url(tmp_path: Path) -> None:
+    # Arrange
     cfg = ReleaseConfig(version="0.2.0", project_root=tmp_path)
 
     class _P(_FakeProvider):
@@ -251,6 +285,7 @@ def test_create_release_pr_handles_existing_pr_url(tmp_path: Path) -> None:
             del ctx
             return VcsResult(success=False, output="already")
 
+    # Act
     with (
         patch("ai_engineering.release.orchestrator.run_git", return_value=(True, "")),
         patch(
@@ -259,11 +294,14 @@ def test_create_release_pr_handles_existing_pr_url(tmp_path: Path) -> None:
         ),
     ):
         phase = _create_release_pr(cfg, _P(), _Runner())
+
+    # Assert
     assert phase.success is True
     assert phase.skipped is True
 
 
 def test_create_release_pr_auto_complete_failure(tmp_path: Path) -> None:
+    # Arrange
     cfg = ReleaseConfig(version="0.2.0", project_root=tmp_path)
 
     class _P(_FakeProvider):
@@ -271,21 +309,30 @@ def test_create_release_pr_auto_complete_failure(tmp_path: Path) -> None:
             del ctx
             return VcsResult(success=False, output="bad")
 
+    # Act
     with patch("ai_engineering.release.orchestrator.run_git", return_value=(True, "")):
         phase = _create_release_pr(cfg, _P(), _Runner())
+
+    # Assert
     assert phase.success is False
     assert "Auto-complete failed" in phase.output
 
 
 def test_wait_for_merge_github_success(tmp_path: Path) -> None:
+    # Arrange
     cfg = ReleaseConfig(version="0.2.0", project_root=tmp_path)
     runner = _Runner(ok=True, out='{"mergedAt":"now","url":"https://x/pr/1"}')
+
+    # Act
     with patch("ai_engineering.release.orchestrator.time.time", side_effect=[0, 1]):
         phase = _wait_for_merge(cfg, _FakeProvider(), 5, runner)
+
+    # Assert
     assert phase.success is True
 
 
 def test_wait_for_merge_non_github_success(tmp_path: Path) -> None:
+    # Arrange
     cfg = ReleaseConfig(version="0.2.0", project_root=tmp_path)
 
     class _P(_FakeProvider):
@@ -293,24 +340,31 @@ def test_wait_for_merge_non_github_success(tmp_path: Path) -> None:
             return "azure_devops"
 
     seq = [(True, ""), (False, ""), (True, "")]
+
+    # Act
     with (
         patch("ai_engineering.release.orchestrator.time.time", side_effect=[0, 1]),
         patch("ai_engineering.release.orchestrator.run_git", side_effect=seq),
         patch("ai_engineering.release.orchestrator._version_from_git_ref", return_value="0.2.0"),
     ):
         phase = _wait_for_merge(cfg, _P(), 5, _Runner())
+
+    # Assert
     assert phase.success is True
 
 
 def test_create_tag_failure_and_success_paths(tmp_path: Path) -> None:
+    # Arrange
     cfg = ReleaseConfig(version="0.2.0", project_root=tmp_path)
     provider = _FakeProvider()
 
+    # Act / Assert — failure path
     seq_fail_checkout = [(False, ""), (True, ""), (False, "no")]
     with patch("ai_engineering.release.orchestrator.run_git", side_effect=seq_fail_checkout):
         phase = _create_tag(cfg, provider)
     assert phase.success is False
 
+    # Act / Assert — success path
     seq_success = [(False, ""), (True, ""), (True, ""), (True, ""), (True, "abc123\n")]
     with patch("ai_engineering.release.orchestrator.run_git", side_effect=seq_success):
         phase_ok = _create_tag(cfg, provider)
@@ -324,21 +378,29 @@ def test_update_manifest_skips_when_missing(tmp_path: Path) -> None:
 
 
 def test_update_manifest_updates_release_fields(tmp_path: Path) -> None:
+    # Arrange
     cfg = ReleaseConfig(version="0.2.0", project_root=tmp_path)
     manifest_path = tmp_path / ".ai-engineering" / "state" / "install-manifest.json"
     write_json_model(manifest_path, default_install_manifest())
+
+    # Act
     phase = _update_manifest(cfg, _FixedClock())
+
+    # Assert
     assert phase.success is True
 
 
 def test_monitor_pipeline_success_and_failure(tmp_path: Path) -> None:
+    # Arrange
     cfg = ReleaseConfig(version="0.2.0", project_root=tmp_path)
     provider = _FakeProvider()
 
+    # Act / Assert — failure path
     with patch("ai_engineering.release.orchestrator.run_git", return_value=(False, "bad")):
         phase = _monitor_pipeline(cfg, provider, 1)
     assert phase.success is False
 
+    # Act / Assert — success path
     provider.pipeline_output = (
         '[{"status":"completed","conclusion":"success","url":"https://x/run"}]'
     )
@@ -385,6 +447,7 @@ def test_find_existing_pr_url_and_default_branch(tmp_path: Path) -> None:
 
 
 def test_execute_release_wait_path_success(tmp_path: Path) -> None:
+    # Arrange
     config = ReleaseConfig(version="0.2.0", project_root=tmp_path, wait=True)
     provider = _FakeProvider()
     state = ReleaseState(
@@ -394,6 +457,8 @@ def test_execute_release_wait_path_success(tmp_path: Path) -> None:
         tag_exists=False,
         current_version="0.1.0",
     )
+
+    # Act
     with (
         patch("ai_engineering.release.orchestrator._validate", return_value=[]),
         patch("ai_engineering.release.orchestrator._detect_state", return_value=state),
@@ -427,12 +492,14 @@ def test_execute_release_wait_path_success(tmp_path: Path) -> None:
     ):
         result = execute_release(config, provider, clock=_FixedClock())
 
+    # Assert
     assert result.success is True
     assert result.pr_url == "https://example/pr/1"
     assert result.release_url == "https://example/release/v0.2.0"
 
 
 def test_validate_collects_branch_provider_and_changelog_errors(tmp_path: Path) -> None:
+    # Arrange
     cfg = ReleaseConfig(version="0.2.0", project_root=tmp_path)
     (tmp_path / "CHANGELOG.md").write_text("# Changelog\n", encoding="utf-8")
 
@@ -440,6 +507,7 @@ def test_validate_collects_branch_provider_and_changelog_errors(tmp_path: Path) 
         def is_available(self) -> bool:
             return False
 
+    # Act
     with (
         patch(
             "ai_engineering.release.orchestrator.run_git", side_effect=[(False, ""), (False, "x")]
@@ -453,6 +521,7 @@ def test_validate_collects_branch_provider_and_changelog_errors(tmp_path: Path) 
     ):
         errors = _validate(cfg, _P())
 
+    # Assert
     assert any("main/master" in e for e in errors)
     assert any("Unable to check git status" in e for e in errors)
     assert any("VCS provider unavailable" in e for e in errors)
@@ -528,12 +597,17 @@ def test_create_release_pr_push_create_and_default_output(tmp_path: Path) -> Non
 
 
 def test_wait_for_merge_github_timeout(tmp_path: Path) -> None:
+    # Arrange
     cfg = ReleaseConfig(version="0.2.0", project_root=tmp_path)
+
+    # Act
     with (
         patch("ai_engineering.release.orchestrator.time.time", side_effect=[0, 20]),
         patch("ai_engineering.release.orchestrator.time.sleep"),
     ):
         phase = _wait_for_merge(cfg, _FakeProvider(), 10, _Runner(ok=True, out="not-json"))
+
+    # Assert
     assert phase.success is False
 
 
@@ -651,6 +725,7 @@ def test_system_clock_returns_utc_timezone() -> None:
 
 
 def test_subprocess_runner_success_not_found_and_timeout(tmp_path: Path) -> None:
+    # Arrange
     runner = SubprocessRunner()
 
     class _Proc:
@@ -658,16 +733,19 @@ def test_subprocess_runner_success_not_found_and_timeout(tmp_path: Path) -> None
         stdout = "ok"
         stderr = ""
 
+    # Act / Assert — success path
     with patch("subprocess.run", return_value=_Proc()):
         ok, out = runner.run(["echo", "x"], tmp_path)
     assert ok is True
     assert "ok" in out
 
+    # Act / Assert — not found path
     with patch("subprocess.run", side_effect=FileNotFoundError):
         ok2, out2 = runner.run(["missing"], tmp_path)
     assert ok2 is False
     assert "Command not found" in out2
 
+    # Act / Assert — timeout path
     with patch(
         "subprocess.run",
         side_effect=subprocess.TimeoutExpired(cmd=["sleep", "1"], timeout=1),

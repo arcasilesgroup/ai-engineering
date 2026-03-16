@@ -42,37 +42,53 @@ class TestDetectPipelines:
     """Tests for pipeline file detection."""
 
     def test_detects_github_actions(self, tmp_path: Path) -> None:
+        # Arrange
         wf_dir = tmp_path / ".github" / "workflows"
         wf_dir.mkdir(parents=True)
         (wf_dir / "ci.yml").write_text("name: CI")
         (wf_dir / "release.yml").write_text("name: Release")
 
+        # Act
         pipelines = detect_pipelines(tmp_path)
+
+        # Assert
         assert len(pipelines) == 2
         assert all(p.pipeline_type == PipelineType.GITHUB_ACTIONS for p in pipelines)
 
     def test_detects_azure_devops_root(self, tmp_path: Path) -> None:
+        # Arrange
         (tmp_path / "azure-pipelines.yml").write_text("trigger: main")
 
+        # Act
         pipelines = detect_pipelines(tmp_path)
+
+        # Assert
         assert len(pipelines) == 1
         assert pipelines[0].pipeline_type == PipelineType.AZURE_DEVOPS
 
     def test_detects_azure_devops_dir(self, tmp_path: Path) -> None:
+        # Arrange
         az_dir = tmp_path / ".azure-pipelines"
         az_dir.mkdir()
         (az_dir / "build.yml").write_text("steps:")
 
+        # Act
         pipelines = detect_pipelines(tmp_path)
+
+        # Assert
         assert len(pipelines) == 1
         assert pipelines[0].pipeline_type == PipelineType.AZURE_DEVOPS
 
     def test_detects_both_platforms(self, tmp_path: Path) -> None:
+        # Arrange
         (tmp_path / ".github" / "workflows").mkdir(parents=True)
         (tmp_path / ".github" / "workflows" / "ci.yml").write_text("name: CI")
         (tmp_path / "azure-pipelines.yml").write_text("trigger: main")
 
+        # Act
         pipelines = detect_pipelines(tmp_path)
+
+        # Assert
         types = {p.pipeline_type for p in pipelines}
         assert PipelineType.GITHUB_ACTIONS in types
         assert PipelineType.AZURE_DEVOPS in types
@@ -97,6 +113,7 @@ class TestScanPipeline:
     """Tests for individual pipeline compliance scanning."""
 
     def test_compliant_with_risk_gate(self, tmp_path: Path) -> None:
+        # Arrange
         wf_dir = tmp_path / ".github" / "workflows"
         wf_dir.mkdir(parents=True)
         (wf_dir / "ci.yml").write_text(
@@ -108,10 +125,15 @@ class TestScanPipeline:
             path=Path(".github/workflows/ci.yml"),
             pipeline_type=PipelineType.GITHUB_ACTIONS,
         )
+
+        # Act
         result = scan_pipeline(tmp_path, pipeline)
+
+        # Assert
         assert result.compliant
 
     def test_non_compliant_without_risk_gate(self, tmp_path: Path) -> None:
+        # Arrange
         wf_dir = tmp_path / ".github" / "workflows"
         wf_dir.mkdir(parents=True)
         (wf_dir / "ci.yml").write_text("name: CI\njobs:\n  build:\n    steps: []\n")
@@ -119,7 +141,11 @@ class TestScanPipeline:
             path=Path(".github/workflows/ci.yml"),
             pipeline_type=PipelineType.GITHUB_ACTIONS,
         )
+
+        # Act
         result = scan_pipeline(tmp_path, pipeline)
+
+        # Assert
         assert not result.compliant
 
     def test_unreadable_file(self, tmp_path: Path) -> None:
@@ -142,6 +168,7 @@ class TestScanPipeline:
         assert not result.compliant
 
     def test_sonar_check_is_informational_when_missing(self, tmp_path: Path) -> None:
+        # Arrange
         wf_dir = tmp_path / ".github" / "workflows"
         wf_dir.mkdir(parents=True)
         (wf_dir / "ci.yml").write_text("name: CI\nsteps:\n  - run: ai-eng gate risk-check\n")
@@ -149,12 +176,17 @@ class TestScanPipeline:
             path=Path(".github/workflows/ci.yml"),
             pipeline_type=PipelineType.GITHUB_ACTIONS,
         )
+
+        # Act
         result = scan_pipeline(tmp_path, pipeline)
         sonar_check = next(c for c in result.checks if c.name == "sonar-analysis-present")
+
+        # Assert
         assert sonar_check.passed is True
         assert "No Sonar analysis" in sonar_check.detail
 
     def test_sonar_check_detects_sonar_step(self, tmp_path: Path) -> None:
+        # Arrange
         wf_dir = tmp_path / ".github" / "workflows"
         wf_dir.mkdir(parents=True)
         (wf_dir / "ci.yml").write_text(
@@ -167,8 +199,12 @@ class TestScanPipeline:
             path=Path(".github/workflows/ci.yml"),
             pipeline_type=PipelineType.GITHUB_ACTIONS,
         )
+
+        # Act
         result = scan_pipeline(tmp_path, pipeline)
         sonar_check = next(c for c in result.checks if c.name == "sonar-analysis-present")
+
+        # Assert
         assert sonar_check.passed is True
         assert "found" in sonar_check.detail.lower()
 
@@ -196,12 +232,16 @@ class TestScanAllPipelines:
         assert len(report.warnings) > 0
 
     def test_reports_all_pipelines(self, tmp_path: Path) -> None:
+        # Arrange
         wf_dir = tmp_path / ".github" / "workflows"
         wf_dir.mkdir(parents=True)
         (wf_dir / "ci.yml").write_text("name: CI\nsteps:\n  - run: risk-check\n")
         (wf_dir / "deploy.yml").write_text("name: Deploy\nsteps:\n  - run: ai-eng review pr\n")
 
+        # Act
         report = scan_all_pipelines(tmp_path)
+
+        # Assert
         assert report.total_pipelines == 2
 
 
@@ -258,29 +298,44 @@ class TestSuggestInjection:
     """Tests for pipeline injection suggestions."""
 
     def test_github_suggestion(self) -> None:
+        # Arrange
         pipeline = PipelineFile(
             path=Path(".github/workflows/ci.yml"),
             pipeline_type=PipelineType.GITHUB_ACTIONS,
         )
+
+        # Act
         suggestion = suggest_injection(pipeline)
+
+        # Assert
         assert "ci.yml" in suggestion
         assert "risk-check" in suggestion
 
     def test_azure_suggestion(self) -> None:
+        # Arrange
         pipeline = PipelineFile(
             path=Path("azure-pipelines.yml"),
             pipeline_type=PipelineType.AZURE_DEVOPS,
         )
+
+        # Act
         suggestion = suggest_injection(pipeline)
+
+        # Assert
         assert "azure-pipelines.yml" in suggestion
         assert "risk-check" in suggestion
 
     def test_sonar_suggestion_uses_sonar_snippet(self) -> None:
+        # Arrange
         pipeline = PipelineFile(
             path=Path(".github/workflows/ci.yml"),
             pipeline_type=PipelineType.GITHUB_ACTIONS,
         )
+
+        # Act
         suggestion = suggest_injection(pipeline, injection_type="sonar")
+
+        # Assert
         assert "sonar" in suggestion.lower()
 
 

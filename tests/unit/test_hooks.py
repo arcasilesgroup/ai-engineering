@@ -159,9 +159,14 @@ class TestDetectConflicts:
         assert conflicts[0].manager == "pre-commit"
 
     def test_detects_multiple_conflicts(self, tmp_path: Path) -> None:
+        # Arrange
         (tmp_path / ".husky").mkdir()
         (tmp_path / ".pre-commit-config.yaml").write_text("")
+
+        # Act
         conflicts = detect_conflicts(tmp_path)
+
+        # Assert
         managers = {c.manager for c in conflicts}
         assert "husky" in managers
         assert "pre-commit" in managers
@@ -211,8 +216,10 @@ class TestInstallHooks:
     """Tests for hook installation."""
 
     def test_installs_all_hooks_by_default(self, git_hooks_dir: Path) -> None:
+        # Act
         result = install_hooks(git_hooks_dir)
 
+        # Assert
         assert len(result.installed) == 3
         assert "pre-commit" in result.installed
         assert "commit-msg" in result.installed
@@ -224,32 +231,47 @@ class TestInstallHooks:
             assert _HOOK_MARKER in hook_path.read_text()
 
     def test_installs_specific_hooks(self, git_hooks_dir: Path) -> None:
+        # Act
         result = install_hooks(git_hooks_dir, hooks=[GateHook.PRE_COMMIT])
+
+        # Assert
         assert result.installed == ["pre-commit"]
         assert (git_hooks_dir / ".git" / "hooks" / "pre-commit").is_file()
         assert not (git_hooks_dir / ".git" / "hooks" / "commit-msg").exists()
 
     def test_skips_existing_unmanaged_hooks(self, git_hooks_dir: Path) -> None:
+        # Arrange
         hook_path = git_hooks_dir / ".git" / "hooks" / "pre-commit"
         hook_path.write_text("#!/bin/bash\necho 'custom'")
 
+        # Act
         result = install_hooks(git_hooks_dir)
+
+        # Assert
         assert "pre-commit" in result.skipped
         assert hook_path.read_text() == "#!/bin/bash\necho 'custom'"
 
     def test_overwrites_managed_hooks(self, git_hooks_dir: Path) -> None:
+        # Arrange
         hook_path = git_hooks_dir / ".git" / "hooks" / "pre-commit"
         hook_path.write_text(f"#!/bin/bash\n{_HOOK_MARKER}\nold version")
 
+        # Act
         result = install_hooks(git_hooks_dir)
+
+        # Assert
         assert "pre-commit" in result.installed
         assert "old version" not in hook_path.read_text()
 
     def test_force_overwrites_unmanaged_hooks(self, git_hooks_dir: Path) -> None:
+        # Arrange
         hook_path = git_hooks_dir / ".git" / "hooks" / "pre-commit"
         hook_path.write_text("#!/bin/bash\necho 'custom'")
 
+        # Act
         result = install_hooks(git_hooks_dir, force=True)
+
+        # Assert
         assert "pre-commit" in result.installed
         assert _HOOK_MARKER in hook_path.read_text()
 
@@ -265,19 +287,27 @@ class TestInstallHooks:
             install_hooks(tmp_path)
 
     def test_reports_conflicts(self, git_hooks_dir: Path) -> None:
+        # Arrange
         (git_hooks_dir / ".husky").mkdir()
+
+        # Act
         result = install_hooks(git_hooks_dir)
+
+        # Assert
         assert len(result.conflicts) == 1
         assert result.conflicts[0].manager == "husky"
 
     def test_records_hook_hashes_when_manifest_exists(self, git_hooks_dir: Path) -> None:
+        # Arrange
         state_dir = git_hooks_dir / ".ai-engineering" / "state"
         state_dir.mkdir(parents=True, exist_ok=True)
         manifest_path = state_dir / "install-manifest.json"
         write_json_model(manifest_path, default_install_manifest())
 
+        # Act
         install_hooks(git_hooks_dir)
 
+        # Assert
         import json
 
         data = json.loads(manifest_path.read_text(encoding="utf-8"))
@@ -296,17 +326,26 @@ class TestUninstallHooks:
     """Tests for hook removal."""
 
     def test_removes_managed_hooks(self, git_hooks_dir: Path) -> None:
+        # Arrange
         install_hooks(git_hooks_dir)
+
+        # Act
         removed = uninstall_hooks(git_hooks_dir)
+
+        # Assert
         assert len(removed) == 3
         for hook in GateHook:
             assert not (git_hooks_dir / ".git" / "hooks" / hook.value).exists()
 
     def test_leaves_unmanaged_hooks(self, git_hooks_dir: Path) -> None:
+        # Arrange
         hook_path = git_hooks_dir / ".git" / "hooks" / "pre-commit"
         hook_path.write_text("#!/bin/bash\ncustom")
 
+        # Act
         removed = uninstall_hooks(git_hooks_dir)
+
+        # Assert
         assert "pre-commit" not in removed
         assert hook_path.is_file()
 
@@ -315,8 +354,13 @@ class TestUninstallHooks:
         assert removed == []
 
     def test_removes_specific_hooks(self, git_hooks_dir: Path) -> None:
+        # Arrange
         install_hooks(git_hooks_dir)
+
+        # Act
         removed = uninstall_hooks(git_hooks_dir, hooks=[GateHook.PRE_COMMIT])
+
+        # Assert
         assert removed == ["pre-commit"]
         assert (git_hooks_dir / ".git" / "hooks" / "commit-msg").is_file()
 
@@ -337,9 +381,14 @@ class TestVerifyHooks:
     """Tests for hook integrity verification."""
 
     def test_all_valid_after_install(self, git_hooks_dir: Path) -> None:
+        # Arrange
         _setup_manifest(git_hooks_dir)
         install_hooks(git_hooks_dir)
+
+        # Act
         status = verify_hooks(git_hooks_dir)
+
+        # Assert
         assert all(status.values())
 
     def test_missing_hooks_report_false(self, git_hooks_dir: Path) -> None:
@@ -347,11 +396,16 @@ class TestVerifyHooks:
         assert all(v is False for v in status.values())
 
     def test_tampered_hook_reports_false(self, git_hooks_dir: Path) -> None:
+        # Arrange
         _setup_manifest(git_hooks_dir)
         install_hooks(git_hooks_dir)
         hook_path = git_hooks_dir / ".git" / "hooks" / "pre-commit"
         hook_path.write_text("#!/bin/bash\ntampered")
+
+        # Act
         status = verify_hooks(git_hooks_dir)
+
+        # Assert
         assert status["pre-commit"] is False
         assert status["commit-msg"] is True
 
