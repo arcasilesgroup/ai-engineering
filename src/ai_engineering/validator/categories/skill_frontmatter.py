@@ -34,8 +34,15 @@ def _validate_skill_identity(
     file_stem: str,
     rel: str,
     report: IntegrityReport,
+    *,
+    require_version: bool = True,
 ) -> int:
-    """Validate name and version fields. Returns failure count."""
+    """Validate name and version fields. Returns failure count.
+
+    Args:
+        require_version: When False, skip version validation.  Claude Code
+            skills use a different frontmatter schema without version.
+    """
     failures = 0
     name = frontmatter.get("name")
     version = frontmatter.get("version")
@@ -58,7 +65,7 @@ def _validate_skill_identity(
             )
         )
 
-    if not isinstance(version, str) or not _SEMVER_RE.fullmatch(version):
+    if require_version and (not isinstance(version, str) or not _SEMVER_RE.fullmatch(version)):
         failures += 1
         report.checks.append(
             IntegrityCheckResult(
@@ -218,6 +225,7 @@ def _check_skill_frontmatter(
             skill_files.extend(p for p in cache.rglob(skills_root, "SKILL.md") if p.is_file())
         else:
             skill_files.extend(sorted(skills_root.rglob("SKILL.md")))
+    claude_skills_dir = target / ".claude" / "skills"
     for skill_file in skill_files:
         checked += 1
         rel = skill_file.relative_to(target).as_posix()
@@ -231,7 +239,11 @@ def _check_skill_frontmatter(
         # Directory layout: skills/<name>/SKILL.md (flat, no categories)
         # name = parent directory (e.g. "debug")
         skill_name = skill_file.parent.name
-        failures += _validate_skill_identity(frontmatter, skill_name, rel, report)
+        # Claude Code skills use a different schema (no version field)
+        is_claude = skill_file.is_relative_to(claude_skills_dir)
+        failures += _validate_skill_identity(
+            frontmatter, skill_name, rel, report, require_version=not is_claude
+        )
         failures += _validate_skill_requires(frontmatter, rel, report)
 
     if failures == 0:
