@@ -13,6 +13,7 @@ Modes:
 from __future__ import annotations
 
 import difflib
+import logging
 import shutil
 import tempfile
 from dataclasses import dataclass, field
@@ -32,8 +33,17 @@ from ai_engineering.state.models import (
 )
 from ai_engineering.vcs.repo_context import get_repo_context
 
+logger = logging.getLogger(__name__)
+
 _DIFF_MAX_LINES = 50
 """Maximum number of diff lines shown in CLI output."""
+
+_GOVERNANCE_EXCLUDE_PREFIXES = ("agents/", "skills/")
+"""Path prefixes to skip when evaluating governance templates.
+
+Agents and skills are delivered through IDE-specific project templates
+(e.g., ``.claude/``, ``.github/agents/``), not under ``.ai-engineering/``.
+This mirrors the installer exclude in ``copy_template_tree``."""
 
 
 @dataclass
@@ -126,7 +136,10 @@ def update(
         if backup_dir is not None:
             shutil.rmtree(backup_dir, ignore_errors=True)
 
-    # --- Phase 3: audit log ---
+    # --- Phase 3: migrate legacy agents/skills directories ---
+    _migrate_legacy_dirs(target, ai_eng_dir)
+
+    # --- Phase 4: audit log ---
     _log_update_event(ai_eng_dir, result)
 
     return result
@@ -150,7 +163,13 @@ def _evaluate_governance_files(
             continue
 
         relative = src_file.relative_to(template_root)
-        ownership_path = f".ai-engineering/{relative.as_posix()}"
+        relative_posix = relative.as_posix()
+
+        # Skip agents/ and skills/ — delivered via IDE project templates
+        if any(relative_posix.startswith(p) for p in _GOVERNANCE_EXCLUDE_PREFIXES):
+            continue
+
+        ownership_path = f".ai-engineering/{relative_posix}"
         dest = ai_eng_dir / relative
 
         change = _evaluate_file_change(src_file, dest, ownership_path, ownership)
@@ -325,6 +344,81 @@ def _restore_backup(backup_dir: Path, target: Path) -> None:
         dest = target / relative
         dest.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(backup_file, dest)
+
+
+# ---------------------------------------------------------------------------
+# Legacy migration
+# ---------------------------------------------------------------------------
+
+
+_LEGACY_DIRS = ("agents", "skills")
+"""Directory names under ``.ai-engineering/`` that are considered legacy."""
+
+
+def _migrate_legacy_dirs(target: Path, ai_eng_dir: Path) -> list[str]:
+    """Remove legacy agents/ and skills/ directories from .ai-engineering/.
+
+    The migration is safe: a legacy directory is only removed when at least
+    one IDE-specific directory already contains files (confirming the normal
+    project template update flow has populated them).
+
+    Args:
+        target: Project root directory.
+        ai_eng_dir: The ``.ai-engineering/`` directory within the project.
+
+    Returns:
+        List of legacy directory names that were removed.
+    """
+    legacy_dirs = [ai_eng_dir / d for d in _LEGACY_DIRS if (ai_eng_dir / d).is_dir()]
+    if not legacy_dirs:
+        return []
+
+    # Safety check: confirm at least one IDE directory has content.
+    # IDE directories live at the project root (e.g., .claude/, .github/agents/,
+    # .agents/).
+    ide_candidates = [
+        target / ".claude",
+        target / ".github" / "agents",
+        target / ".agents",
+    ]
+    ide_has_content = any(d.is_dir() and any(d.rglob("*")) for d in ide_candidates)
+    if not ide_has_content:
+        logger.debug("Skipping legacy migration: no IDE directory with content found")
+        return []
+
+    logger.info("Migrating legacy agents/skills to IDE directories...")
+
+    removed: list[str] = []
+    for legacy_dir in legacy_dirs:
+        name = legacy_dir.name
+        shutil.rmtree(legacy_dir)
+        removed.append(name)
+        logger.info("Removed legacy directory: .ai-engineering/%s", name)
+
+    _log_migration_event(ai_eng_dir, removed)
+    return removed
+
+
+def _log_migration_event(ai_eng_dir: Path, removed: list[str]) -> None:
+    """Append an audit-log entry for legacy directory migration."""
+    audit_path = ai_eng_dir / "state" / "audit-log.ndjson"
+    if not audit_path.parent.exists():
+        return
+    project_root = ai_eng_dir.parent
+    repo_ctx = get_repo_context(project_root)
+    git_ctx = get_git_context(project_root)
+    entry = AuditEntry(
+        event="migrate-legacy-dirs",
+        actor="ai-engineering-cli",
+        detail=f"removed={','.join(removed)}",
+        vcs_provider=repo_ctx.provider if repo_ctx else None,
+        vcs_organization=repo_ctx.organization if repo_ctx else None,
+        vcs_project=repo_ctx.project if repo_ctx else None,
+        vcs_repository=repo_ctx.repository if repo_ctx else None,
+        branch=git_ctx.branch if git_ctx else None,
+        commit_sha=git_ctx.commit_sha if git_ctx else None,
+    )
+    append_ndjson(audit_path, entry)
 
 
 # ---------------------------------------------------------------------------
