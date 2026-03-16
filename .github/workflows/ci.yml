@@ -621,3 +621,140 @@ jobs:
           name: dist
           path: dist/
           retention-days: 5
+
+  ci-result:
+    name: CI Result
+    if: always()
+    needs:
+      [
+        change-scope,
+        lint,
+        duplication,
+        risk-acceptance,
+        typecheck,
+        test-unit,
+        test-integration,
+        test-e2e,
+        sonarcloud,
+        framework-smoke,
+        workflow-sanity,
+        verify-gate-trailers,
+        snyk-security,
+        security,
+        content-integrity,
+        build,
+      ]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Evaluate CI results
+        run: |
+          set -euo pipefail
+
+          CODE="${{ needs.change-scope.outputs.code }}"
+          IS_PR="${{ github.event_name == 'pull_request' }}"
+          IS_DEPENDABOT="${{ github.actor == 'dependabot[bot]' }}"
+
+          # ── always-required: MUST succeed ──
+          always_required=(
+            "workflow-sanity:${{ needs.workflow-sanity.result }}"
+            "security:${{ needs.security.result }}"
+            "content-integrity:${{ needs.content-integrity.result }}"
+          )
+
+          # ── code-conditional: MUST succeed when code changed, skip accepted otherwise ──
+          code_conditional=(
+            "lint:${{ needs.lint.result }}"
+            "duplication:${{ needs.duplication.result }}"
+            "risk-acceptance:${{ needs.risk-acceptance.result }}"
+            "typecheck:${{ needs.typecheck.result }}"
+            "test-unit:${{ needs.test-unit.result }}"
+            "test-integration:${{ needs.test-integration.result }}"
+            "test-e2e:${{ needs.test-e2e.result }}"
+            "sonarcloud:${{ needs.sonarcloud.result }}"
+            "framework-smoke:${{ needs.framework-smoke.result }}"
+            "build:${{ needs.build.result }}"
+          )
+
+          # ── pr-only: MUST succeed on non-dependabot PRs, skip accepted otherwise ──
+          pr_only=(
+            "verify-gate-trailers:${{ needs.verify-gate-trailers.result }}"
+          )
+
+          # ── optional: may skip but MUST NOT fail ──
+          optional=(
+            "snyk-security:${{ needs.snyk-security.result }}"
+          )
+
+          FAILED=0
+
+          echo "=== CI Result Gate ==="
+          echo "code=$CODE is_pr=$IS_PR is_dependabot=$IS_DEPENDABOT"
+          echo ""
+
+          echo "── Always Required ──"
+          for entry in "${always_required[@]}"; do
+            name="${entry%%:*}"
+            result="${entry##*:}"
+            echo "  $name: $result"
+            if [[ "$result" != "success" ]]; then
+              echo "  ✗ FAIL: $name is required but got $result"
+              FAILED=1
+            fi
+          done
+
+          echo ""
+          echo "── Code-Conditional ──"
+          for entry in "${code_conditional[@]}"; do
+            name="${entry%%:*}"
+            result="${entry##*:}"
+            echo "  $name: $result (code=$CODE)"
+            if [[ "$CODE" == "true" ]]; then
+              if [[ "$result" != "success" ]]; then
+                echo "  ✗ FAIL: $name is required (code changed) but got $result"
+                FAILED=1
+              fi
+            else
+              if [[ "$result" == "failure" ]]; then
+                echo "  ✗ FAIL: $name failed unexpectedly"
+                FAILED=1
+              fi
+            fi
+          done
+
+          echo ""
+          echo "── PR-Only ──"
+          for entry in "${pr_only[@]}"; do
+            name="${entry%%:*}"
+            result="${entry##*:}"
+            echo "  $name: $result (is_pr=$IS_PR, is_dependabot=$IS_DEPENDABOT)"
+            if [[ "$IS_PR" == "true" && "$IS_DEPENDABOT" == "false" ]]; then
+              if [[ "$result" != "success" ]]; then
+                echo "  ✗ FAIL: $name is required for non-dependabot PRs but got $result"
+                FAILED=1
+              fi
+            else
+              if [[ "$result" == "failure" ]]; then
+                echo "  ✗ FAIL: $name failed unexpectedly"
+                FAILED=1
+              fi
+            fi
+          done
+
+          echo ""
+          echo "── Optional ──"
+          for entry in "${optional[@]}"; do
+            name="${entry%%:*}"
+            result="${entry##*:}"
+            echo "  $name: $result"
+            if [[ "$result" == "failure" ]]; then
+              echo "  ✗ FAIL: $name is optional but must not fail (got failure)"
+              FAILED=1
+            fi
+          done
+
+          echo ""
+          if [[ "$FAILED" -eq 1 ]]; then
+            echo "✗ CI Result: FAILED"
+            exit 1
+          fi
+          echo "✓ CI Result: PASSED"

@@ -1,10 +1,19 @@
 ---
 name: pipeline
 version: 1.0.0
-description: Generate stack-aware CI/CD workflow files from installed stacks and enforcement
+description:
+  Generate stack-aware CI/CD workflow files from installed stacks and enforcement
   checks; use when setting up or modernizing CI/CD pipelines.
-tags: [ci-cd, github-actions, azure-devops, azure-pipelines, railway, cloudflare,
-  automation]
+tags:
+  [
+    ci-cd,
+    github-actions,
+    azure-devops,
+    azure-pipelines,
+    railway,
+    cloudflare,
+    automation,
+  ]
 ---
 
 # CI/CD Workflow Generation
@@ -38,17 +47,18 @@ Generate stack-aware CI/CD workflow files (GitHub Actions, Azure Pipelines) base
    - Jobs/stages: lint → build → test → security.
    - Common checks run once (gitleaks, semgrep).
    - Stack-specific checks run per matrix entry / stage.
-    - Coverage upload as artifact.
-    - If Sonar is configured (`ai-eng setup sonar` with project key), include Sonar analysis in primary `ci.yml`.
-      - GitHub: SonarCloud/SonarQube scan action based on configured host URL.
-      - Azure: SonarCloud/SonarQube Prepare/Analyze/Publish tasks with service-connection fallback.
+   - Coverage upload as artifact.
+   - If Sonar is configured (`ai-eng setup sonar` with project key), include Sonar analysis in primary `ci.yml`.
+     - GitHub: SonarCloud/SonarQube scan action based on configured host URL.
+     - Azure: SonarCloud/SonarQube Prepare/Analyze/Publish tasks with service-connection fallback.
 
 3b. **Generate deployment configuration** (if applicable) — create platform-specific deploy config.
-   - **Railway**: `railway.toml` with build/start commands, health checks.
-   - **Cloudflare Workers/Pages**: `wrangler.toml` with compatibility date, bindings, routes.
-   - **Vercel**: `vercel.json` with build output, rewrites, env references.
-   - **Netlify**: `netlify.toml` with build command, publish directory, redirects.
-   - All deployment configs reference environment variables, never inline secrets.
+
+- **Railway**: `railway.toml` with build/start commands, health checks.
+- **Cloudflare Workers/Pages**: `wrangler.toml` with compatibility date, bindings, routes.
+- **Vercel**: `vercel.json` with build output, rewrites, env references.
+- **Netlify**: `netlify.toml` with build command, publish directory, redirects.
+- All deployment configs reference environment variables, never inline secrets.
 
 4. **Generate AI PR review workflow** — create provider-specific `ai-pr-review` pipeline.
    - Add `ai-eng review pr --strict` step.

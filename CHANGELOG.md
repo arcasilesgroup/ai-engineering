@@ -8,7 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **CI Result gate job** — context-aware `ci-result` aggregator in `ci.yml` that becomes the sole required Branch Protection check. Categorizes jobs as always-required, code-conditional, PR-only, or optional — unblocking docs-only PRs, Dependabot PRs, and external contributions (DEC-054-06).
+- **Dependabot auto-lock workflow** — `dependabot-auto-lock.yml` regenerates `uv.lock` when Dependabot updates `pyproject.toml`, eliminating manual lock-file maintenance.
+- **CICD standards expansion** — 7 new policy sections in `cicd/core.md`: action version pinning, Dependabot contract, Azure Pipelines standards, reusable components contract, environment protection, concurrency/performance, and required check strategy.
 - **Sprint review presentation** — `generate_sprint_review.py` produces a 12-slide dark-mode `.pptx` covering Feb 16 - Mar 16, 2026 sprint (architecture v3, IDE mirrors, observability, security, testing, CI/CD, quality metrics, governance surface, risks, and next sprint).
+
+### Changed
+- **Pipeline skill v2** — comprehensive rewrite with GitHub Actions (12 sections: CI result gate, reusable workflows, composite actions, SHA pinning, concurrency, matrix, caching, environments, merge queue, badges, Dependabot) and Azure Pipelines (11 sections: template composition, manager pattern, variable groups, KeyVault, environment gates, deployment strategies, SonarCloud, artifact promotion, branch-conditional deployment, self-hosted agents) at full parity.
+- **Dependabot config** — added `commit-message.prefix` for conventional commits (`chore(deps)`, `chore(deps-dev)`, `ci(deps)`).
 
 ### Added — Architecture v3 (spec-051)
 - **3 new agents** — guard (proactive governance), guide (developer growth), operate (SRE/runbooks).
