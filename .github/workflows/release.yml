@@ -17,7 +17,7 @@ jobs:
     outputs:
       ci-run-id: ${{ steps.find-run.outputs.run_id }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Wait for CI and verify success
         id: find-run
         env:
@@ -106,7 +106,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Download dist from CI
         uses: actions/download-artifact@v4
         with:
