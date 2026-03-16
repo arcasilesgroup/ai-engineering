@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Sprint review presentation** — `generate_sprint_review.py` produces a 12-slide dark-mode `.pptx` covering Feb 16 - Mar 16, 2026 sprint (architecture v3, IDE mirrors, observability, security, testing, CI/CD, quality metrics, governance surface, risks, and next sprint).
+
 ### Added — Architecture v3 (spec-051)
 - **3 new agents** — guard (proactive governance), guide (developer growth), operate (SRE/runbooks).
 - **7 new skills** — guard, dispatch, guide, onboard, evolve, ops, lifecycle.

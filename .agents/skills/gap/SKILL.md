@@ -1,13 +1,11 @@
 ---
 name: gap
-description: "Detect spec-vs-code gaps, wiring gaps, and correctness gaps: unimplemented features, dead specs, disconnected implementations, PR-vs-code mismatches."
-argument-hint: "all|feature|wiring|coverage|correctness"
-metadata:
-  version: 1.2.0
-  tags: [scanning, gap-analysis, specs, verification, features, wiring, dead-code-functional, correctness]
-  ai-engineering:
-    scope: read-only
-    token_estimate: 800
+version: 1.2.0
+description: 'Detect spec-vs-code gaps, wiring gaps, and correctness gaps: unimplemented
+  features, dead specs, disconnected implementations, PR-vs-code mismatches.'
+argument-hint: all|feature|wiring|coverage|correctness
+tags: [scanning, gap-analysis, specs, verification, features, wiring, dead-code-functional,
+  correctness]
 ---
 
 # Feature Gap
@@ -136,6 +134,6 @@ Actions:
 
 ## References
 
-- `agents/verify.md` — agent that invokes this skill as part of 7-mode assessment.
-- `skills/architecture/SKILL.md` — complementary architecture analysis.
-- `skills/cleanup/SKILL.md` — handles dead spec archival.
+- `.agents/agents/ai-verify.md` — agent that invokes this skill as part of 7-mode assessment.
+- `.agents/skills/architecture/SKILL.md` — complementary architecture analysis.
+- `.agents/skills/cleanup/SKILL.md` — handles dead spec archival.

@@ -1,12 +1,9 @@
 ---
 name: changelog
-description: "Generate user-friendly changelogs and GitHub release notes from git history using Keep a Changelog format and benefit-first language."
-metadata:
-  version: 1.0.0
-  tags: [documentation, changelog, release-notes]
-  ai-engineering:
-    scope: read-write
-    token_estimate: 800
+version: 1.0.0
+description: Generate user-friendly changelogs and GitHub release notes from git history
+  using Keep a Changelog format and benefit-first language.
+tags: [documentation, changelog, release-notes]
 ---
 
 # Changelog Documentation
@@ -209,6 +206,6 @@ Transform technical git history into polished, user-friendly documentation that 
 
 - `standards/framework/core.md` — governance structure and non-negotiables.
 - `context/product/framework-contract.md` — release model and versioning.
-- `skills/pr/SKILL.md` — PR workflow (changelog updates go through PRs).
-- `skills/security/SKILL.md` — security entry format and CVE handling.
-- `skills/migrate/SKILL.md` — breaking changes documentation requirements.
+- `.agents/skills/pr/SKILL.md` — PR workflow (changelog updates go through PRs).
+- `.agents/skills/security/SKILL.md` — security entry format and CVE handling.
+- `.agents/skills/migrate/SKILL.md` — breaking changes documentation requirements.

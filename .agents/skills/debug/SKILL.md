@@ -1,12 +1,9 @@
 ---
 name: debug
-description: "Systematic bug diagnosis using reproduce-isolate-identify-fix-test cycle; use when investigating unexpected behavior, test failures, or runtime errors."
-metadata:
-  version: 1.0.0
-  tags: [debugging, diagnosis, root-cause, troubleshooting]
-  ai-engineering:
-    scope: read-write
-    token_estimate: 625
+version: 1.0.0
+description: Systematic bug diagnosis using reproduce-isolate-identify-fix-test cycle;
+  use when investigating unexpected behavior, test failures, or runtime errors.
+tags: [debugging, diagnosis, root-cause, troubleshooting]
 ---
 
 # Debug
@@ -89,6 +86,6 @@ Actions:
 ## References
 
 - `standards/framework/quality/core.md` — test and coverage requirements.
-- `agents/build.md` — agent that uses this skill systematically.
-- `agents/verify.md` — agent that uses debug for investigating verification failures.
-- `skills/explain/SKILL.md` — Feynman-style explanations for root cause understanding.
+- `.agents/agents/ai-build.md` — agent that uses this skill systematically.
+- `.agents/agents/ai-verify.md` — agent that uses debug for investigating verification failures.
+- `.agents/skills/explain/SKILL.md` — Feynman-style explanations for root cause understanding.

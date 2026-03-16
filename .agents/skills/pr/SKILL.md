@@ -1,16 +1,13 @@
 ---
 name: pr
-description: "Execute governed PR workflow: shared commit pipeline, pre-push gates, create pull request with auto-complete squash merge."
-argument-hint: "review|create|update"
-metadata:
-  version: 3.0.0
-  tags: [git, pull-request, ci, merge]
-  ai-engineering:
-    requires:
-      bins: [gitleaks, ruff]
-      anyBins: [gh, az]
-    scope: read-write
-    token_estimate: 1000
+version: 3.0.0
+description: 'Execute governed PR workflow: shared commit pipeline, pre-push gates,
+  create pull request with auto-complete squash merge.'
+argument-hint: review|create|update
+tags: [git, pull-request, ci, merge]
+requires:
+  bins: [gitleaks, ruff]
+  anyBins: [gh, az]
 ---
 
 # PR Workflow
@@ -42,7 +39,7 @@ Execute the `/pr` governed workflow: run the shared commit pipeline (from `commi
 
 ### `/pr` (default: commit pipeline + pre-push + create PR + auto-complete)
 
-**Steps 0–6: Shared Commit Pipeline** — READ `skills/commit/SKILL.md` and execute steps 0 through 6 in full. Do NOT skip any step. The documentation gate (step 5) is mandatory — CHANGELOG.md and README.md must be evaluated and updated before proceeding.
+**Steps 0–6: Shared Commit Pipeline** — READ `.agents/skills/commit/SKILL.md` and execute steps 0 through 6 in full. Do NOT skip any step. The documentation gate (step 5) is mandatory — CHANGELOG.md and README.md must be evaluated and updated before proceeding.
 
 > IMPORTANT: Do not summarize or abbreviate the commit pipeline. Read the actual skill file and follow each step. The documentation gate at step 5 evaluates staged changes and auto-updates CHANGELOG.md (always for functional changes) and README.md (for user-visible changes). Skipping this step is a governance violation.
 
@@ -145,9 +142,9 @@ Actions:
 
 ## References
 
-- `skills/commit/SKILL.md` — shared commit pipeline (steps 0–6).
-- `skills/changelog/SKILL.md` — changelog entry formatting.
-- `skills/document/SKILL.md` — README and documentation updates.
+- `.agents/skills/commit/SKILL.md` — shared commit pipeline (steps 0–6).
+- `.agents/skills/changelog/SKILL.md` — changelog entry formatting.
+- `.agents/skills/document/SKILL.md` — README and documentation updates.
 - `standards/framework/core.md` — non-negotiables and enforcement rules.
 - `standards/framework/quality/core.md` — gate structure.
-- `agents/operate.md` — agent that validates PR workflow execution.
+- `.agents/agents/ai-operate.md` — agent that validates PR workflow execution.

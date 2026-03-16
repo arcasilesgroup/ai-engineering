@@ -1,15 +1,13 @@
 ---
 name: ops
-description: "Use this skill for operational automation: execute runbooks on demand, respond to incidents (gate failures, CI breaks, security findings), or check operational health status. Owns all runbooks in the framework."
-argument-hint: "all|runbook|incident|health"
-metadata:
-  version: 1.0.0
-  tags: [operations, sre, runbooks, incidents, automation, health, toil-reduction]
-  ai-engineering:
-    requires:
-      bins: [gh]
-    scope: read-write
-    token_estimate: 1500
+version: 1.0.0
+description: 'Use this skill for operational automation: execute runbooks on demand,
+  respond to incidents (gate failures, CI breaks, security findings), or check operational
+  health status. Owns all runbooks in the framework.'
+argument-hint: all|runbook|incident|health
+tags: [operations, sre, runbooks, incidents, automation, health, toil-reduction]
+requires:
+  bins: [gh]
 ---
 
 # Ops
@@ -138,6 +136,6 @@ Use these rules as the single source of truth for operational behavior shared by
 
 ## References
 
-- `agents/operate.md` -- operate agent behavioral contract
-- `skills/cleanup/SKILL.md` -- repository hygiene (shared with plan)
+- `.agents/agents/ai-operate.md` -- operate agent behavioral contract
+- `.agents/skills/cleanup/SKILL.md` -- repository hygiene (shared with plan)
 - `standards/framework/core.md` -- governance structure and lifecycle

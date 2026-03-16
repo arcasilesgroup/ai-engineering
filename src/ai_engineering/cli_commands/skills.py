@@ -30,7 +30,7 @@ def skill_status(
 ) -> None:
     """Check which local skills meet their runtime requirements.
 
-    Scans .ai-engineering/skills/ and evaluates each skill's 'requires' block
+    Scans local skill directories and evaluates each skill's 'requires' block
     (bins, env vars, config paths, OS). Use --all to include eligible skills.
     """
     root = resolve_project_root(target)
@@ -64,7 +64,7 @@ def skill_status(
         return
 
     if not statuses:
-        info("No local skills found under .ai-engineering/skills")
+        info("No local skills found")
         return
 
     ineligible = [s for s in statuses if not s.eligible]

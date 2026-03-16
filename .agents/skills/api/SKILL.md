@@ -1,12 +1,9 @@
 ---
 name: api
-description: "Design and review APIs using contract-first approach with OpenAPI specification, versioning strategy, and backward compatibility analysis."
-metadata:
-  version: 1.0.0
-  tags: [api, rest, graphql, openapi, contract, versioning]
-  ai-engineering:
-    scope: read-write
-    token_estimate: 800
+version: 1.0.0
+description: Design and review APIs using contract-first approach with OpenAPI specification,
+  versioning strategy, and backward compatibility analysis.
+tags: [api, rest, graphql, openapi, contract, versioning]
 ---
 
 # API Design
@@ -97,4 +94,4 @@ Contract-first API design and review skill. Covers OpenAPI specification authori
 - `standards/framework/stacks/typescript.md` — TypeScript API implementation patterns.
 - `standards/framework/stacks/dotnet.md` — .NET API implementation patterns.
 - `standards/framework/stacks/nestjs.md` — NestJS API patterns.
-- `agents/build.md` — implementation agent that performs API design.
+- `.agents/agents/ai-build.md` — implementation agent that performs API design.

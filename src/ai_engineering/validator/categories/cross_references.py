@@ -28,15 +28,18 @@ def _check_cross_references(
     target: Path, report: IntegrityReport, *, cache: FileCache | None = None
 ) -> None:
     """Verify bidirectional cross-references in skills and agents."""
-    ai_dir = target / ".ai-engineering"
-    if not ai_dir.is_dir():
-        return
+    # Skills and agents now live in IDE-specific directories
+    ide_dirs = [
+        target / ".claude" / "skills",
+        target / ".claude" / "agents",
+        target / ".agents" / "skills",
+        target / ".agents" / "agents",
+    ]
 
     # Build reference map: file -> list of referenced paths
     ref_map: dict[str, list[str]] = {}
 
-    for subdir in ["skills", "agents"]:
-        base = ai_dir / subdir
+    for base in ide_dirs:
         if not base.is_dir():
             continue
         if cache:
@@ -46,7 +49,7 @@ def _check_cross_references(
         for md_file in md_files:
             content = md_file.read_text(encoding="utf-8", errors="replace")
             refs = _parse_references(content)
-            rel_key = md_file.relative_to(ai_dir).as_posix()
+            rel_key = md_file.relative_to(target).as_posix()
             ref_map[rel_key] = refs
 
     # Validate each reference exists
@@ -56,8 +59,14 @@ def _check_cross_references(
             ref_clean = ref.strip()
             if not ref_clean:
                 continue
-            ref_path = ai_dir / ref_clean
-            if not ref_path.exists():
+            ref_path = target / ref_clean
+            # References to standards/context/state are relative to .ai-engineering/
+            ai_eng_path = target / ".ai-engineering" / ref_clean
+            # Also check in canonical templates (for framework repo)
+            tpl_path = (
+                target / "src" / "ai_engineering" / "templates" / ".ai-engineering" / ref_clean
+            )
+            if not (ref_path.exists() or ai_eng_path.exists() or tpl_path.exists()):
                 broken += 1
                 report.checks.append(
                     IntegrityCheckResult(

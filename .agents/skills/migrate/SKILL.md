@@ -1,12 +1,9 @@
 ---
 name: migrate
-description: "Plan and execute safe, reversible migrations for schemas, APIs, data formats, and breaking changes; use when evolving contracts or data structures."
-metadata:
-  version: 1.0.0
-  tags: [migration, breaking-changes, compatibility]
-  ai-engineering:
-    scope: read-write
-    token_estimate: 750
+version: 1.0.0
+description: Plan and execute safe, reversible migrations for schemas, APIs, data
+  formats, and breaking changes; use when evolving contracts or data structures.
+tags: [migration, breaking-changes, compatibility]
 ---
 
 # Migration
@@ -90,6 +87,6 @@ Structured migration skill for database schema changes, API versioning, breaking
 
 - `standards/framework/core.md` — update contract and ownership safety.
 - `context/product/framework-contract.md` — release model (SemVer + migration scripts).
-- `agents/verify.md` — verify agent for E2E verification of migration testing.
-- `skills/schema/SKILL.md` — database-specific migration safety and rollback procedures.
-- `agents/build.md` — implementation agent for complex database migration decisions.
+- `.agents/agents/ai-verify.md` — verify agent for E2E verification of migration testing.
+- `.agents/skills/schema/SKILL.md` — database-specific migration safety and rollback procedures.
+- `.agents/agents/ai-build.md` — implementation agent for complex database migration decisions.

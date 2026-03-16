@@ -1,14 +1,11 @@
 ---
 name: cleanup
-description: "Full repository hygiene: safe migration to default branch, aggressive branch cleanup, and rich per-branch status report."
-metadata:
-  version: 4.2.0
-  tags: [git, branch, cleanup, hygiene, status]
-  ai-engineering:
-    requires:
-      bins: [git]
-    scope: read-write
-    token_estimate: 1400
+version: 4.2.0
+description: 'Full repository hygiene: safe migration to default branch, aggressive
+  branch cleanup, and rich per-branch status report.'
+tags: [git, branch, cleanup, hygiene, status]
+requires:
+  bins: [git]
 ---
 
 # Repository Cleanup
@@ -107,5 +104,5 @@ The **Squash-merged** check applies to all non-merged branches (local-only and g
 
 ## References
 
-- `skills/spec/SKILL.md` — spec creation composes cleanup before branch creation.
+- `.agents/skills/spec/SKILL.md` — spec creation composes cleanup before branch creation.
 - `standards/framework/core.md` — protected branch rules and enforcement.

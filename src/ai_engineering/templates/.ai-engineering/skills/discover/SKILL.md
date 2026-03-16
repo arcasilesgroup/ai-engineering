@@ -1,12 +1,10 @@
 ---
 name: discover
-description: "Relentless requirements discovery through structured interrogation; use before planning any non-trivial feature to surface unknowns, assumptions, and missing requirements."
-metadata:
-  version: 1.0.0
-  tags: [discovery, requirements, interrogation, planning]
-  ai-engineering:
-    scope: read-only
-    token_estimate: 800
+version: 1.0.0
+description: Relentless requirements discovery through structured interrogation; use
+  before planning any non-trivial feature to surface unknowns, assumptions, and missing
+  requirements.
+tags: [discovery, requirements, interrogation, planning]
 ---
 
 # Discovery Interrogation

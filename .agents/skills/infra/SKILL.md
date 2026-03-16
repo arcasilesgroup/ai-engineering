@@ -1,12 +1,9 @@
 ---
 name: infra
-description: "Design and generate Infrastructure as Code (Terraform, Bicep) with plan-before-apply safety, state management, and deployment configuration."
-metadata:
-  version: 1.0.0
-  tags: [infrastructure, iac, terraform, bicep, cloud, deployment]
-  ai-engineering:
-    scope: read-write
-    token_estimate: 850
+version: 1.0.0
+description: Design and generate Infrastructure as Code (Terraform, Bicep) with plan-before-apply
+  safety, state management, and deployment configuration.
+tags: [infrastructure, iac, terraform, bicep, cloud, deployment]
 ---
 
 # Infrastructure
@@ -95,4 +92,4 @@ Infrastructure as Code design and generation skill. Covers Terraform, Bicep, and
 
 - `standards/framework/stacks/infrastructure.md` — IaC patterns and safety rules.
 - `standards/framework/stacks/azure.md` — Azure-specific patterns.
-- `agents/build.md` — implementation agent that designs infrastructure.
+- `.agents/agents/ai-build.md` — implementation agent that designs infrastructure.

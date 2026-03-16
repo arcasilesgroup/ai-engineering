@@ -65,11 +65,27 @@ def _check_file_existence(
                 continue
             if "{" in ref_path and "}" in ref_path:
                 continue
+            # Skip IDE directory references (e.g. .agents/agents/, .agents/skills/)
+            # These are matched by the regex but are not governance paths
+            if ref_path.startswith(("agents/agents/", "agents/skills/")):
+                continue
             # Skip known-optional governance paths (exist only conditionally)
             if ref_path in _KNOWN_OPTIONAL_PATHS:
                 continue
             full_path = ai_dir / ref_path
             if not full_path.exists():
+                # Fallback: skills/ and agents/ now live in the template
+                # canonical source, not in .ai-engineering/ directly.
+                # Also check IDE directories (.claude/, .agents/, .github/)
+                # where IDE-adapted filenames may reside.
+                fallback_roots = [
+                    target / "src" / "ai_engineering" / "templates" / ".ai-engineering",
+                    target / ".claude",
+                    target / ".agents",
+                    target / ".github",
+                ]
+                if any((root / ref_path).exists() for root in fallback_roots):
+                    continue
                 rel_source = md_file.relative_to(target).as_posix()
                 broken_refs.append((rel_source, ref_path))
 

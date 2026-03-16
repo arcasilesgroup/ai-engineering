@@ -1,13 +1,11 @@
 ---
 name: explain
-description: "Engineer-grade technical explanations of code, concepts, patterns, and architecture with 3-tier depth control, ASCII diagrams, execution traces, and complexity analysis."
-argument-hint: "quick|deep|architecture"
-metadata:
-  version: 2.0.0
-  tags: [documentation, explanation, analysis, architecture]
-  ai-engineering:
-    scope: read-only
-    token_estimate: 950
+version: 2.0.0
+description: Engineer-grade technical explanations of code, concepts, patterns, and
+  architecture with 3-tier depth control, ASCII diagrams, execution traces, and complexity
+  analysis.
+argument-hint: quick|deep|architecture
+tags: [documentation, explanation, analysis, architecture]
 ---
 
 # Explain
@@ -245,9 +243,9 @@ When invoked by another agent (not directly by user) or in CI context:
 ## References
 
 - `standards/framework/core.md` — governance structure and precedence.
-- `skills/explain/references/analysis-playbook.md` — diagram templates, complexity patterns, edge case catalog.
-- `skills/quality/SKILL.md` — code understanding patterns.
-- `skills/architecture/SKILL.md` — architecture context methodology.
-- `skills/debug/SKILL.md` — root cause explanation patterns.
-- `agents/build.md` — agent that benefits from explanation capability.
-- `agents/verify.md` — agent that benefits from architecture explanations.
+- `.agents/skills/explain/SKILL.md` — diagram templates, complexity patterns, edge case catalog.
+- `.agents/skills/quality/SKILL.md` — code understanding patterns.
+- `.agents/skills/architecture/SKILL.md` — architecture context methodology.
+- `.agents/skills/debug/SKILL.md` — root cause explanation patterns.
+- `.agents/agents/ai-build.md` — agent that benefits from explanation capability.
+- `.agents/agents/ai-verify.md` — agent that benefits from architecture explanations.

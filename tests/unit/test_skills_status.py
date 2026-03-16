@@ -138,6 +138,53 @@ class TestLoadSkillFrontmatter:
 # ── _platform_matches ────────────────────────────────────────────────
 
 
+class TestMultiDirScanning:
+    """Tests for _SKILL_DIRS multi-directory scanning."""
+
+    def test_claude_skills_dir_found(self, tmp_path: Path) -> None:
+        """Skills in .claude/skills/ are discovered."""
+        skill_dir = tmp_path / ".claude" / "skills" / "code"
+        skill_dir.mkdir(parents=True)
+        (skill_dir / "SKILL.md").write_text(
+            "---\nname: code\nversion: 1.0.0\n---\n\n# Code\n",
+            encoding="utf-8",
+        )
+        # manifest and install-manifest not required (returns empty dict)
+        statuses = list_local_skill_status(tmp_path)
+        names = [s.name for s in statuses]
+        assert "code" in names
+
+    def test_agents_skills_dir_found(self, tmp_path: Path) -> None:
+        """Skills in .agents/skills/ are discovered."""
+        skill_dir = tmp_path / ".agents" / "skills" / "debug"
+        skill_dir.mkdir(parents=True)
+        (skill_dir / "SKILL.md").write_text(
+            "---\nname: debug\nversion: 1.0.0\n---\n\n# Debug\n",
+            encoding="utf-8",
+        )
+        statuses = list_local_skill_status(tmp_path)
+        names = [s.name for s in statuses]
+        assert "debug" in names
+
+    def test_deduplicates_across_dirs(self, tmp_path: Path) -> None:
+        """Same skill in multiple dirs is reported only once."""
+        for rel_dir in [".claude/skills/code", ".ai-engineering/skills/code"]:
+            d = tmp_path / rel_dir
+            d.mkdir(parents=True, exist_ok=True)
+        # Write identical SKILL.md content but different physical paths
+        (tmp_path / ".claude" / "skills" / "code" / "SKILL.md").write_text(
+            "---\nname: code\nversion: 1.0.0\n---\n\n# Code\n",
+            encoding="utf-8",
+        )
+        (tmp_path / ".ai-engineering" / "skills" / "code" / "SKILL.md").write_text(
+            "---\nname: code\nversion: 1.0.0\n---\n\n# Code\n",
+            encoding="utf-8",
+        )
+        statuses = list_local_skill_status(tmp_path)
+        code_entries = [s for s in statuses if s.name == "code"]
+        assert len(code_entries) == 2  # different resolved paths = separate entries
+
+
 class TestPlatformMatches:
     def test_current_platform_matches(self) -> None:
         import sys

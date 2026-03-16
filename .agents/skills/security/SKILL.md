@@ -1,15 +1,12 @@
 ---
 name: security
-description: "Unified security scanning: SAST, DAST, dependency audit, SBOM generation. Modes: static | dynamic | deps | sbom."
-argument-hint: "all|static|dynamic|deps|sbom"
-metadata:
-  version: 2.0.0
-  tags: [security, sast, dast, dependencies, sbom, owasp]
-  ai-engineering:
-    requires:
-      bins: [gitleaks, semgrep]
-    scope: read-write
-    token_estimate: 1200
+version: 2.0.0
+description: 'Unified security scanning: SAST, DAST, dependency audit, SBOM generation.
+  Modes: static | dynamic | deps | sbom.'
+argument-hint: all|static|dynamic|deps|sbom
+tags: [security, sast, dast, dependencies, sbom, owasp]
+requires:
+  bins: [gitleaks, semgrep]
 ---
 
 # Security
@@ -214,4 +211,4 @@ Every mode produces this format, per the verify agent's uniform contract.
 
 - `standards/framework/security/owasp-top10-2025.md` -- full OWASP control mapping.
 - `standards/framework/core.md` -- governance non-negotiables and gate thresholds.
-- `agents/verify.md` -- verify agent that invokes this skill in 7-mode assessment.
+- `.agents/agents/ai-verify.md` -- verify agent that invokes this skill in 7-mode assessment.

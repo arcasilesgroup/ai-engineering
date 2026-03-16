@@ -1,13 +1,10 @@
 ---
 name: release
-description: "Aggregated GO/NO-GO release readiness gate; use before version tagging or merge-to-main to verify all quality dimensions pass."
-argument-hint: "[version]"
-metadata:
-  version: 1.0.0
-  tags: [quality, release, gate, go-no-go]
-  ai-engineering:
-    scope: read-only
-    token_estimate: 1282
+version: 1.0.0
+description: Aggregated GO/NO-GO release readiness gate; use before version tagging
+  or merge-to-main to verify all quality dimensions pass.
+argument-hint: '[version]'
+tags: [quality, release, gate, go-no-go]
 ---
 
 # Release Gate
@@ -137,10 +134,10 @@ Actions:
 
 ## References
 
-- `skills/governance/SKILL.md` — compliance, ownership, integrity gates.
-- `skills/quality/SKILL.md` — code quality gate.
-- `skills/test/SKILL.md` — test confidence gate.
-- `skills/document/SKILL.md` — documentation coherence gate.
-- `skills/security/SKILL.md` — security enforcement gate.
-- `agents/operate.md` — orchestrator that uses this skill and command reliability source.
+- `.agents/skills/governance/SKILL.md` — compliance, ownership, integrity gates.
+- `.agents/skills/quality/SKILL.md` — code quality gate.
+- `.agents/skills/test/SKILL.md` — test confidence gate.
+- `.agents/skills/document/SKILL.md` — documentation coherence gate.
+- `.agents/skills/security/SKILL.md` — security enforcement gate.
+- `.agents/agents/ai-operate.md` — orchestrator that uses this skill and command reliability source.
 - `standards/framework/quality/core.md` — quality thresholds.
