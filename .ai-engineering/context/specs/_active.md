@@ -1,18 +1,18 @@
 ---
-active: "052-plan-tdd-acceptance"
-updated: "2026-03-15"
+active: "053-full-ide-adapted-mirrors"
+updated: "2026-03-16"
 ---
 
 # Active Spec
 
-**Spec 052 — Interrogación Profunda, TDD Two-Agent, y Acceptance Criteria Ejecutables**
+**Spec 053 — Full IDE-Adapted Mirrors**
 
-Tres cambios estructurales: (1) plan agent interroga antes de planificar, (2) acceptance criteria ejecutables en spec.md, (3) TDD two-agent con verify escribiendo tests (RED) y build implementando (GREEN).
+Eliminar `.ai-engineering/agents/` y `.ai-engineering/skills/` de todos los repos. Copiar contenido FULL IDE-adapted a `.claude/`, `.github/`, `.agents/`. Fuente canónica única: `src/ai_engineering/templates/.ai-engineering/`.
 
 ## Quick Resume
 
-- Spec: [spec.md](specs/052-plan-tdd-acceptance/spec.md)
-- Plan: [plan.md](specs/052-plan-tdd-acceptance/plan.md)
-- Tasks: [tasks.md](specs/052-plan-tdd-acceptance/tasks.md)
-- Branch: `spec/052-plan-tdd-acceptance`
-- Next: Phase 1 — Interrogation Phase en plan agent
+- Spec: [spec.md](specs/053-full-ide-adapted-mirrors/spec.md)
+- Plan: [plan.md](specs/053-full-ide-adapted-mirrors/plan.md)
+- Tasks: [tasks.md](specs/053-full-ide-adapted-mirrors/tasks.md)
+- Branch: `spec/053-full-ide-adapted-mirrors`
+- Next: Phase 1 — Core Generator (sync_command_mirrors.py)
