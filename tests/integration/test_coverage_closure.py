@@ -243,9 +243,9 @@ def test_validator_remaining_branches(tmp_path: Path) -> None:
     )
     assert report.category_passed(validator.IntegrityCategory.CROSS_REFERENCE)
 
-    # explicit frontmatter list type failure (directory-based skill layout)
-    (ai / "skills" / "dev" / "bad-skill").mkdir(parents=True, exist_ok=True)
-    g = ai / "skills" / "dev" / "bad-skill" / "SKILL.md"
+    # explicit frontmatter list type failure — skills now live in IDE dirs
+    (tmp_path / ".claude" / "skills" / "bad-skill").mkdir(parents=True, exist_ok=True)
+    g = tmp_path / ".claude" / "skills" / "bad-skill" / "SKILL.md"
     g.write_text("---\n- a\n---\n", encoding="utf-8")
     report2 = validator.validate_content_integrity(
         tmp_path, categories=[validator.IntegrityCategory.SKILL_FRONTMATTER]
