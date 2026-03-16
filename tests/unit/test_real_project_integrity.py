@@ -72,3 +72,67 @@ class TestRealProjectIntegrity:
             for c in report.checks
             if c.status == IntegrityStatus.FAIL
         )
+
+
+@pytest.mark.skipif(not _has_governance_dir(), reason="No .ai-engineering/ in project")
+class TestAgentSkillCrossReferences:
+    """Verify agents reference skills that actually exist."""
+
+    _AI_DIR = _PROJECT_ROOT / ".ai-engineering"
+
+    def test_all_agent_skill_references_exist(self) -> None:
+        """Every skills/ path referenced in agents/*.md frontmatter must exist on disk."""
+        import re
+
+        agents_dir = self._AI_DIR / "agents"
+        broken: list[str] = []
+        for agent_file in sorted(agents_dir.glob("*.md")):
+            text = agent_file.read_text(encoding="utf-8")
+            for match in re.finditer(r"- skills/([^\s]+)", text):
+                skill_path = self._AI_DIR / match.group(0).lstrip("- ")
+                if not skill_path.exists():
+                    broken.append(f"{agent_file.name}: missing '{match.group(0).lstrip('- ')}'")
+        assert not broken, "Broken agent→skill references:\n" + "\n".join(f"  {b}" for b in broken)
+
+    def test_all_agent_standard_references_exist(self) -> None:
+        """Every standards/ path referenced in agents/*.md frontmatter must exist on disk."""
+        import re
+
+        agents_dir = self._AI_DIR / "agents"
+        broken: list[str] = []
+        for agent_file in sorted(agents_dir.glob("*.md")):
+            text = agent_file.read_text(encoding="utf-8")
+            for match in re.finditer(r"- standards/([^\s]+)", text):
+                std_path = self._AI_DIR / match.group(0).lstrip("- ")
+                if not std_path.exists():
+                    broken.append(f"{agent_file.name}: missing '{match.group(0).lstrip('- ')}'")
+        assert not broken, "Broken agent→standard references:\n" + "\n".join(
+            f"  {b}" for b in broken
+        )
+
+    def test_test_scope_covers_all_source_files(self) -> None:
+        """Every src/**/*.py file should be covered by at least one TEST_SCOPE_RULE."""
+        from ai_engineering.policy.test_scope import TEST_SCOPE_RULES
+
+        # Collect all source globs
+        covered_globs: list[str] = []
+        for rule in TEST_SCOPE_RULES:
+            covered_globs.extend(rule.source_globs)
+
+        # Collect all source files
+        src_dir = _PROJECT_ROOT / "src" / "ai_engineering"
+        all_py = {str(f.relative_to(_PROJECT_ROOT)) for f in src_dir.rglob("*.py") if f.is_file()}
+
+        # Check each file matches at least one glob
+        # Reuse the matching logic from test_scope.py itself
+        from ai_engineering.policy.test_scope import _matches_any_glob
+
+        uncovered: list[str] = []
+        for py_file in sorted(all_py):
+            if not _matches_any_glob(py_file, covered_globs):
+                uncovered.append(py_file)
+
+        assert not uncovered, (
+            f"{len(uncovered)} source files not covered by TEST_SCOPE_RULES:\n"
+            + "\n".join(f"  {f}" for f in uncovered[:20])
+        )
