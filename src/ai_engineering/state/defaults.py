@@ -44,6 +44,7 @@ def default_install_manifest(
     ides: list[str] | None = None,
     vcs_provider: str = "github",
     ai_providers: list[str] | None = None,
+    external_references: dict[str, str] | None = None,
 ) -> InstallManifest:
     """Create a default install manifest for a new installation.
 
@@ -84,6 +85,7 @@ def default_install_manifest(
             ),
         ),
         tooling_readiness=ToolingReadiness(),
+        externalReferences=external_references or {},
     )
 
 

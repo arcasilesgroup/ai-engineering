@@ -67,16 +67,24 @@ def install_cmd(
     # Resolve VCS provider: explicit flag > autodetect > interactive prompt
     resolved_vcs = _resolve_vcs_provider(vcs, root)
 
+    # Resolve AI providers: explicit flag > interactive prompt > default
+    resolved_providers = _resolve_ai_providers(providers)
+
+    # Optional external CI/CD documentation reference
+    external_cicd_url = _prompt_external_cicd_docs()
+
     with spinner("Installing governance framework..."):
+        ext_refs = {"cicd_standards": external_cicd_url} if external_cicd_url else None
         result = install(
             root,
             stacks=stacks or [],
             ides=ides or [],
             vcs_provider=resolved_vcs,
-            ai_providers=providers,
+            ai_providers=resolved_providers,
+            external_references=ext_refs,
         )
 
-    ai_label = ", ".join(providers) if providers else "claude_code"
+    ai_label = ", ".join(resolved_providers)
 
     if is_json_mode():
         emit_success(
@@ -133,6 +141,7 @@ def install_cmd(
 
         # Branch policy guide at the END — only when automation failed
         if result.guide_text:
+            typer.echo("")
             warning("Automatic branch policy application was not possible.")
             warning("You must configure branch protection manually to enforce governance gates.")
 
@@ -174,6 +183,53 @@ def _resolve_vcs_provider(vcs: str | None, root: Path) -> str:
         return "azure_devops" if choice == "azdo" else choice
     except (KeyboardInterrupt, EOFError, click.exceptions.Abort):
         return "github"
+
+
+_PROVIDER_ALIASES: dict[str, str] = {
+    "claude": "claude_code",
+    "copilot": "github_copilot",
+    "gemini": "gemini",
+    "codex": "codex",
+}
+
+
+def _prompt_external_cicd_docs() -> str:
+    """Prompt for optional external CI/CD standards documentation URL."""
+    if is_json_mode():
+        return ""
+    try:
+        url = typer.prompt(
+            "External CI/CD standards URL (optional, Enter to skip)",
+            default="",
+            show_default=False,
+        )
+        return url.strip()
+    except (KeyboardInterrupt, EOFError, click.exceptions.Abort):
+        return ""
+
+
+def _resolve_ai_providers(providers: list[str] | None) -> list[str]:
+    """Resolve AI providers from explicit flag or interactive prompt.
+
+    Short names (claude, copilot, gemini, codex) are mapped to internal names.
+    """
+    if providers:
+        return [_PROVIDER_ALIASES.get(p, p) for p in providers]
+
+    if is_json_mode():
+        return ["claude_code"]
+
+    try:
+        raw = typer.prompt(
+            "AI assistants (comma-separated)",
+            default="claude",
+            show_default=True,
+        )
+        names = [n.strip().lower() for n in raw.split(",") if n.strip()]
+        resolved = [_PROVIDER_ALIASES.get(n, n) for n in names]
+        return resolved if resolved else ["claude_code"]
+    except (KeyboardInterrupt, EOFError, click.exceptions.Abort):
+        return ["claude_code"]
 
 
 def update_cmd(
@@ -341,12 +397,23 @@ def _offer_platform_onboarding(root: Path, *, vcs_provider: str | None = None) -
     When no platforms are auto-detected, still offers manual setup.
     Always skippable (D024-003).
     """
-    detected = detect_platforms(root)
+    detected = detect_platforms(root, vcs_provider=vcs_provider)
     if detected:
         names = ", ".join(p.value for p in detected)
         typer.echo(f"\n  Detected platforms: {names}")
     else:
         typer.echo("\n  No platforms auto-detected.")
+
+    # Offer SonarCloud/SonarQube setup directly (B.3)
+    from ai_engineering.credentials.models import PlatformKind as PK
+
+    if PK.SONAR not in detected:
+        try:
+            setup_sonar = typer.confirm("  Configure SonarCloud/SonarQube?", default=False)
+        except (KeyboardInterrupt, EOFError, click.exceptions.Abort):
+            setup_sonar = False
+        if setup_sonar:
+            detected.append(PK.SONAR)
 
     try:
         run_setup = typer.confirm("  Configure platform credentials now?", default=False)

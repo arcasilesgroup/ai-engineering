@@ -293,6 +293,7 @@ class InstallManifest(BaseModel):
         alias="operationalReadiness",
     )
     release: ReleaseInfo = Field(default_factory=ReleaseInfo)
+    external_references: dict[str, str] = Field(default_factory=dict, alias="externalReferences")
 
     model_config = {"populate_by_name": True}
 

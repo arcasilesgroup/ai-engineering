@@ -388,6 +388,15 @@ TEST_SCOPE_RULES: list[ScopeRule] = [
             "e2e": [],
         },
     ),
+    ScopeRule(
+        name="scripts",
+        source_globs=["scripts/**/*.py"],
+        tiers={
+            "unit": ["tests/unit/test_check_workflow_policy.py"],
+            "integration": [],
+            "e2e": [],
+        },
+    ),
 ]
 
 _DOC_EXTENSIONS: frozenset[str] = frozenset({".md", ".mdx", ".rst", ".txt"})
