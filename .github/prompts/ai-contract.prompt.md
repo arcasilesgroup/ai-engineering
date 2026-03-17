@@ -16,7 +16,7 @@ Manage the product contract (`context/product/product-contract.md`) lifecycle. T
 
 ## Trigger
 
-- Command: `/ai:product-contract init`, `/ai:product-contract sync`, `/ai:product-contract validate`
+- Command: `/ai-product-contract init`, `/ai-product-contract sync`, `/ai-product-contract validate`
 - Context: product contract needs initialization, synchronization after changes, or completeness validation.
 
 > **Telemetry** (cross-IDE): run `ai-eng signals emit skill_invoked --actor=ai --detail='{"skill":"product-contract"}'` at skill start. Fail-open — skip if ai-eng unavailable.
@@ -24,8 +24,8 @@ Manage the product contract (`context/product/product-contract.md`) lifecycle. T
 ## When NOT to Use
 
 - **Framework contract changes** -- use `framework-contract.md` directly (framework-managed).
-- **Spec creation** -- use `/ai:spec` for individual spec lifecycle.
-- **Release notes** -- use `/ai:changelog` for changelog updates.
+- **Spec creation** -- use `/ai-spec` for individual spec lifecycle.
+- **Release notes** -- use `/ai-changelog` for changelog updates.
 
 ## Preconditions
 

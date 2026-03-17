@@ -136,7 +136,7 @@ governance_surface:
   skills:
     total: 38
     organization: flat
-    prefix: "ai:"
+    prefix: "ai-"
   integrity:
     patterns_category_present: false
     orphan_skills: 0

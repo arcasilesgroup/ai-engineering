@@ -32,7 +32,7 @@ Guard is NOT redundant with verify. Verify validates the final product. Guard pr
 | Mode | Trigger | What it does |
 |------|---------|--------------|
 | `advise` | Post-edit validation in build | Analyze staged/modified files against standards and decisions |
-| `gate` | Pre-dispatch in `ai:dispatch` | Validate task won't violate governance boundaries |
+| `gate` | Pre-dispatch in `ai-dispatch` | Validate task won't violate governance boundaries |
 | `drift` | On-demand or periodic | Compare implementation against architectural decisions |
 
 ## Behavior
@@ -63,13 +63,13 @@ Integrated into build's post-edit validation loop. After build modifies a file a
 
 ### Mode: gate
 
-Pre-dispatch governance check. Before `ai:dispatch` dispatches an agent to a task, guard.gate validates that the task respects governance boundaries.
+Pre-dispatch governance check. Before `ai-dispatch` dispatches an agent to a task, guard.gate validates that the task respects governance boundaries.
 
-**Trigger**: `ai:dispatch` prepares to dispatch an agent for a task.
+**Trigger**: `ai-dispatch` prepares to dispatch an agent for a task.
 
 **Procedure**:
 
-1. **Read dispatch context** -- receive the task description, assigned agent, and target files from `ai:dispatch`.
+1. **Read dispatch context** -- receive the task description, assigned agent, and target files from `ai-dispatch`.
 2. **Check scope boundaries** -- verify the assigned agent has capabilities matching the task requirements. Example: only `build` has code write permissions; a code-write task dispatched to `verify` is a boundary violation.
 3. **Verify agent capabilities** -- cross-reference the task's required capabilities against the agent's declared `capabilities` in its frontmatter.
 4. **Check expired decisions** -- scan `state/decision-store.json` for expired risk acceptances or architectural decisions that affect the task's target files or scope. Expired decisions mean the governance basis for the task may be invalid.
@@ -81,7 +81,7 @@ Pre-dispatch governance check. Before `ai:dispatch` dispatches an agent to a tas
 
 Compare current implementation against active decisions in the decision store. Detect when code has drifted from architectural decisions over time.
 
-**Trigger**: on-demand via `/ai:guard drift` or as part of periodic governance review.
+**Trigger**: on-demand via `/ai-guard drift` or as part of periodic governance review.
 
 **Procedure**:
 

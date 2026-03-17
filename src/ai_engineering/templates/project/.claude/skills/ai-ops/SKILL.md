@@ -17,9 +17,9 @@ Normative shared rules are defined in `.claude/skills/ai-ops/SKILL.md` under **S
 
 | Mode | Command | Question answered |
 |------|---------|-------------------|
-| `run` | `/ai:ops run <runbook>` | "Execute this specific runbook on demand." |
-| `incident` | `/ai:ops incident` | "What broke, why, and how do we recover?" |
-| `status` | `/ai:ops status` | "Is the operational machinery healthy?" |
+| `run` | `/ai-ops run <runbook>` | "Execute this specific runbook on demand." |
+| `incident` | `/ai-ops incident` | "What broke, why, and how do we recover?" |
+| `status` | `/ai-ops status` | "Is the operational machinery healthy?" |
 
 ## Behavior
 
@@ -41,8 +41,8 @@ Execute a specific runbook on demand. Operate reads the runbook prompt, follows 
 5. **Delegate work** -- route sub-tasks to the correct agent or skill:
    - Analysis/scanning -> verify agent
    - Code fixes -> build agent
-   - Commits/PRs/delivery -> `ai:commit` / `ai:release` skills
-   - Dashboards/metrics -> `ai:dashboard` skill
+   - Commits/PRs/delivery -> `ai-commit` / `ai-release` skills
+   - Dashboards/metrics -> `ai-dashboard` skill
 6. **Respect safety limits** -- honor per-runbook constraints (max-issues, max-lines, no-bypass).
 7. **Record result** -- emit execution result to `state/audit-log.ndjson` with `type: "runbook-execution"`, `runbook`, `status`, `timestamp`, `findings_count`.
 8. **Report outcome** -- summarize what was executed, findings count, actions taken, delegations made.
@@ -74,7 +74,7 @@ Operational health dashboard: aggregate operational signals into a summary.
 2. **Decision store health** -- read `state/decision-store.json`, identify expired decisions (past `expires` date), pending renewals, and unresolved risk acceptances.
 3. **CI pipeline status** -- if GitHub CLI available, check recent workflow runs via `gh run list --limit 5 --json status,conclusion,name`.
 4. **Issue backlog health** -- check for stale items (`gh issue list --label needs-triage --state open --json number,createdAt`), agent-blocked items, and backlog size.
-5. **Dashboard integration** -- read latest health score from `ai:dashboard` skill data for cross-reference.
+5. **Dashboard integration** -- read latest health score from `ai-dashboard` skill data for cross-reference.
 6. **Produce summary** -- render operational health dashboard:
 
 ```markdown
@@ -86,7 +86,7 @@ Operational health dashboard: aggregate operational signals into a summary.
 | Decision Store | GREEN/YELLOW/RED | N expired, M pending renewal |
 | CI Pipeline | GREEN/YELLOW/RED | Last N runs: X passed, Y failed |
 | Issue Backlog | GREEN/YELLOW/RED | N needs-triage, M agent-blocked |
-| Overall Health | GREEN/YELLOW/RED | Score from `ai:dashboard` skill |
+| Overall Health | GREEN/YELLOW/RED | Score from `ai-dashboard` skill |
 
 ### Top 3 Operational Actions
 1. ...
@@ -105,7 +105,7 @@ Operate owns ALL runbooks in `.ai-engineering/runbooks/`. It orchestrates execut
 | `code-simplifier.md` | Complexity reduction, dead code removal | verify (analysis), build (fixes) |
 | `dependency-upgrade.md` | Safe major version bump guide | verify (security), build (fixes) |
 | `governance-drift-repair.md` | Mirror sync, expired decisions, counter accuracy | verify (governance), build (fixes) |
-| `incident-response.md` | P0-P3 structured incident handling | build (fixes), `ai:commit` / `ai:release` (delivery) |
+| `incident-response.md` | P0-P3 structured incident handling | build (fixes), `ai-commit` / `ai-release` (delivery) |
 | `security-incident.md` | Secret leak protocol, vulnerability disclosure | verify (security), build (fixes) |
 
 ## Referenced Skills
@@ -122,7 +122,7 @@ Operate owns ALL runbooks in `.ai-engineering/runbooks/`. It orchestrates execut
 - **Read-write for**: GitHub Issues, labels, comments, `state/audit-log.ndjson`
 - **Never modifies**: source code (delegates to build agent)
 - **Never performs**: security/quality analysis (delegates to verify agent)
-- **Never performs**: delivery operations (delegates to `ai:commit` / `ai:release` skills)
+- **Never performs**: delivery operations (delegates to `ai-commit` / `ai-release` skills)
 - **Never modifies**: standards, skills, or agent definitions
 - **Can read**: dashboard data, scan reports, decision store, session checkpoints
 - **Can create/update**: GitHub Issues, labels, comments for incident tracking

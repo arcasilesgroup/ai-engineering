@@ -14,7 +14,7 @@ Multi-stack performance scanner that detects issues via static analysis + heuris
 
 ## Trigger
 
-- Command: `/ai:verify performance`
+- Command: `/ai-verify performance`
 - Context: performance audit, pre-release performance check, bottleneck investigation.
 
 > **Telemetry** (cross-IDE): run `ai-eng signals emit skill_invoked --actor=ai --detail='{"skill":"performance"}'` at skill start. Fail-open — skip if ai-eng unavailable.

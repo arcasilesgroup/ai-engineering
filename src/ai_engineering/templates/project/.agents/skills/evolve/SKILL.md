@@ -18,7 +18,7 @@ Owned by the **observe agent**. Extends observe's dashboard capabilities with lo
 
 ## Trigger
 
-- Command: `/ai:evolve`
+- Command: `/ai-evolve`
 - Context: periodic framework health review, post-spec retrospective, or when observe dashboards show declining trends.
 - Recommended cadence: after every 3-5 completed specs, or when health score drops to YELLOW.
 
@@ -158,15 +158,15 @@ Always display the data quality level prominently in the report header. When dat
 
 ## When NOT to Use
 
-- **Real-time monitoring** -- use `/ai:observe` for current-state dashboards.
-- **Incident response** -- use `/ai:debug` for active issue diagnosis.
+- **Real-time monitoring** -- use `/ai-observe` for current-state dashboards.
+- **Incident response** -- use `/ai-debug` for active issue diagnosis.
 - **Decision making** -- evolve proposes, humans decide. Do not use evolve output as automatic justification for changes.
 
 ## Examples
 
 ### Example 1: Post-sprint retrospective
 
-User says: `/ai:evolve` after completing 3 specs.
+User says: `/ai-evolve` after completing 3 specs.
 
 1. **Load**: 847 audit-log events, 12 decisions, 8 weeks of health history, 156 commits.
 2. **Analyze**: Rule 1 fires (ruff format fails 52% of the time), Rule 3 fires (3 decisions about import ordering), Rule 10 fires (lead time grew from 2 days to 5 days over 4 weeks).
@@ -175,7 +175,7 @@ User says: `/ai:evolve` after completing 3 specs.
 
 ### Example 2: Low data quality
 
-User says: `/ai:evolve` on a new project with 2 weeks of history.
+User says: `/ai-evolve` on a new project with 2 weeks of history.
 
 1. **Load**: 73 audit-log events, 2 decisions, 2 weeks of health history, 28 commits.
 2. **Data quality**: LOW (<100 events). Report header shows caveat.

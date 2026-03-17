@@ -12,7 +12,7 @@ ai-eng doctor
 
 ## Agents (8)
 
-Agents are roles with judgment about WHEN and WHY. Invoke with `/ai:<name>`.
+Agents are roles with judgment about WHEN and WHY. Invoke with `/ai-<name>`.
 
 | Agent | When to use |
 |-------|-------------|
@@ -41,11 +41,11 @@ Skills are procedures about HOW. Each agent composes skills at runtime.
 ## Workflow
 
 ```
-/ai:plan → creates spec + execution plan → STOP
+/ai-plan → creates spec + execution plan → STOP
 (human reviews and approves)
-/ai:build → implements per plan
-/ai:verify → scans for governance, security, quality issues
-/ai:guard → proactive governance check
+/ai-build → implements per plan
+/ai-verify → scans for governance, security, quality issues
+/ai-guard → proactive governance check
 ```
 
 Three-step cycle: **plan** then **build** then **verify/guard**.

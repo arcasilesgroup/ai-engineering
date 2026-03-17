@@ -36,15 +36,15 @@ Absorbs capabilities from the former `review` agent (security, quality, governan
 
 | Mode | Command | What it assesses |
 |------|---------|------------------|
-| `governance` | `/ai:verify governance` | Integrity, compliance, ownership boundaries |
-| `security` | `/ai:verify security` | OWASP SAST, secret detection, dependency vulns, SBOM |
-| `quality` | `/ai:verify quality` | Coverage, complexity, duplication, lint, code review |
-| `performance` | `/ai:verify performance` | N+1 queries, O(n^2), memory leaks, bundle size, I/O |
-| `a11y` | `/ai:verify a11y` | WCAG 2.1 AA compliance |
-| `feature-gap` | `/ai:verify feature` | Spec vs code gaps + wiring gaps (disconnected implementations) |
-| `architecture` | `/ai:verify architecture` | Drift, coupling, cohesion, boundaries, tech debt |
-| `platform` | `/ai:verify platform` | All 7 modes aggregated -> score 0-100 -> GO/NO-GO |
-| `framework` | `/ai:verify gap --framework` | Self-audit: verify all claimed capabilities exist and are functional |
+| `governance` | `/ai-verify governance` | Integrity, compliance, ownership boundaries |
+| `security` | `/ai-verify security` | OWASP SAST, secret detection, dependency vulns, SBOM |
+| `quality` | `/ai-verify quality` | Coverage, complexity, duplication, lint, code review |
+| `performance` | `/ai-verify performance` | N+1 queries, O(n^2), memory leaks, bundle size, I/O |
+| `a11y` | `/ai-verify a11y` | WCAG 2.1 AA compliance |
+| `feature-gap` | `/ai-verify feature` | Spec vs code gaps + wiring gaps (disconnected implementations) |
+| `architecture` | `/ai-verify architecture` | Drift, coupling, cohesion, boundaries, tech debt |
+| `platform` | `/ai-verify platform` | All 7 modes aggregated -> score 0-100 -> GO/NO-GO |
+| `framework` | `/ai-verify gap --framework` | Self-audit: verify all claimed capabilities exist and are functional |
 
 Auto-detect: when invoked without a mode, infer from context (changed files, spec state, recent activity).
 
@@ -55,7 +55,7 @@ Auto-detect: when invoked without a mode, infer from context (changed files, spe
 ### 1. Mode Selection
 
 Determine scan mode from user request or auto-detect:
-- Explicit: `/ai:verify security` -> security mode
+- Explicit: `/ai-verify security` -> security mode
 - Auto-detect: analyze `git diff --stat` + project state to select most relevant mode
 - Platform: runs all 7 modes sequentially, aggregates results
 
@@ -82,7 +82,7 @@ After every scan mode completes, emit a structured event:
 ai-eng signals emit scan_complete --actor=scan --detail='{"mode":"<MODE>","score":<SCORE>,"findings":{"critical":<N>,"high":<N>,"medium":<N>,"low":<N>}}'
 ```
 
-This feeds the `ai:dashboard` skill views (Code Quality, Scan Health, Health Score).
+This feeds the `ai-dashboard` skill views (Code Quality, Scan Health, Health Score).
 
 ### 5. Report Generation
 
@@ -150,7 +150,7 @@ Every mode produces this format:
 - **Read-write for audit log** -- emits scan signals
 - Does not fix issues -- produces findings with remediation guidance
 - Does not override architectural decisions -- reports drift
-- Delegates implementation fixes to `ai:build`
+- Delegates implementation fixes to `ai-build`
 
 ### Escalation Protocol
 

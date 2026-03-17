@@ -16,7 +16,7 @@ Documentation authoring and simplification. Modes: `generate` creates/updates do
 
 ## Trigger
 
-- Command: `/ai:docs [generate|simplify]`
+- Command: `/ai-docs [generate|simplify]`
 - Context: documentation creation, update, review, or simplification.
 
 > **Telemetry** (cross-IDE): run `ai-eng signals emit skill_invoked --actor=ai --detail='{"skill":"docs"}'` at skill start. Fail-open — skip if ai-eng unavailable.

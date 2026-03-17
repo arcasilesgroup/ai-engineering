@@ -77,7 +77,7 @@ After completing implementation tasks, emit build metrics:
 ai-eng signals emit build_complete --actor=build --detail='{"mode":"<MODE>","files_changed":<N>,"lines_added":<N>,"lines_removed":<N>,"tests_added":<N>,"stack":"<STACK>"}'
 ```
 
-Compute metrics from `git diff --stat HEAD~1` or `git diff --numstat`. This feeds the `ai:dashboard` skill views (Build Activity, Health Score).
+Compute metrics from `git diff --stat HEAD~1` or `git diff --numstat`. This feeds the `ai-dashboard` skill views (Build Activity, Health Score).
 
 ### Code-Simplifier vs Refactor
 
@@ -132,7 +132,7 @@ When dispatch assigns tasks with TDD requirement, or when implementing new funct
 ## Boundaries
 
 - The **ONLY** agent with code write permissions
-- Defers security assessment to `ai:verify`
+- Defers security assessment to `ai-verify`
 - Does not bypass quality gates
 - Does not execute destructive DDL without explicit user approval
 - Does not execute `terraform apply` without explicit user approval

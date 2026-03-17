@@ -21,7 +21,7 @@ Add explicit prohibition to all instruction files and core standards.
 - `.ai-engineering/standards/framework/core.md` — add to Non-Negotiables
 - Template mirrors: `src/ai_engineering/templates/project/CLAUDE.md`, `src/ai_engineering/templates/project/AGENTS.md`, `src/ai_engineering/templates/.ai-engineering/standards/framework/core.md`
 
-**Agent**: `ai:build`
+**Agent**: `ai-build`
 
 ## Phase 2: Fix SonarCloud Vulnerabilities
 
@@ -35,7 +35,7 @@ Fix 5 vulnerabilities by adding path/argument validation.
 | `src/ai_engineering/platforms/sonarlint.py` | 493 | S2083 | Suffix + containment validation |
 | `src/ai_engineering/vcs/azure_devops.py` | 419 | S6350 | Argument type validation |
 
-**Agent**: `ai:build`
+**Agent**: `ai-build`
 
 ## Phase 3: Validation + PR
 
@@ -44,7 +44,7 @@ Fix 5 vulnerabilities by adding path/argument validation.
 - Run `ai-eng validate .` for content integrity
 - Create PR targeting main
 
-**Agent**: `ai:release`
+**Agent**: `ai-release`
 
 ## User Action (post-merge)
 

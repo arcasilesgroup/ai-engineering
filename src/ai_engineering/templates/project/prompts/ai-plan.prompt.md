@@ -16,12 +16,12 @@ Read-only planning skill that analyzes requirements, assesses risks, and recomme
 
 This is the shared planning contract for both:
 
-- `#ai-plan` / `/ai:plan --plan-only` (advisory output only), and
+- `#ai-plan` / `/ai-plan --plan-only` (advisory output only), and
 - the planning stages inside `.github/agents/plan.agent.md` (classify/discover/assess/risk), before spec scaffolding and execution-plan assembly.
 
 ## Trigger
 
-- User invokes `/ai:plan --plan-only`
+- User invokes `/ai-plan --plan-only`
 - Copilot prompt `#ai-plan`
 - Need to assess scope before deciding whether to create a full spec
 - `.github/agents/plan.agent.md` needs shared planning stages before invoking `.github/prompts/ai-spec.prompt.md`
@@ -109,15 +109,15 @@ Produce a conversational planning document:
 
 ### Next Step
 
-- Run `/ai:plan` to create a full spec and execution plan
-- Or proceed directly with `/ai:execute` if plan already exists
+- Run `/ai-plan` to create a full spec and execution plan
+- Or proceed directly with `/ai-execute` if plan already exists
 ```
 
 ## Examples
 
 ### Example 1: Assess scope of a feature request
 
-User says: `/ai:plan --plan-only "add OAuth support"`.
+User says: `/ai-plan --plan-only "add OAuth support"`.
 Actions:
 
 1. Classify as full pipeline (new feature, likely >3 files).
@@ -130,7 +130,7 @@ Actions:
 - This skill is **read-only** — it produces analysis, not files.
 - Zero writes to disk. No spec creation, no branch creation, no task creation.
 - Output is conversational only — presented to the user for decision-making.
-- If the user wants to proceed, direct them to `/ai:plan` for full spec creation.
+- If the user wants to proceed, direct them to `/ai-plan` for full spec creation.
 - Enforces shared boundary `PLAN-B1` in advisory mode.
 - When the plan agent creates specs, it writes spec.md, plan.md, and tasks.md directly via Write tool. See `.github/agents/plan.agent.md` Spec-as-Gate Pattern.
 

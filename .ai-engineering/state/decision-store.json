@@ -9,7 +9,7 @@
     {
       "id": "DEC-001",
       "title": "Flat skill layout with unified ai: namespace",
-      "description": "Migrated from nested skill hierarchy (19 agents with embedded skills) to flat layout: skills/<name>/SKILL.md with unified /ai:<name> invocation. Reduces cognitive load and enables cross-IDE portability.",
+      "description": "Migrated from nested skill hierarchy (19 agents with embedded skills) to flat layout: skills/<name>/SKILL.md with unified /ai-<name> invocation. Reduces cognitive load and enables cross-IDE portability.",
       "category": "architecture",
       "status": "active",
       "criticality": "high",
@@ -19,7 +19,7 @@
       "expires_at": "2027-03-02T00:00:00Z",
       "context_hash": "",
       "acknowledged_by": "plan",
-      "decision": "Migrated from nested skill hierarchy (19 agents with embedded skills) to flat layout: skills/<name>/SKILL.md with unified /ai:<name> invocation. Reduces cognitive load and enables cross-IDE portability.",
+      "decision": "Migrated from nested skill hierarchy (19 agents with embedded skills) to flat layout: skills/<name>/SKILL.md with unified /ai-<name> invocation. Reduces cognitive load and enables cross-IDE portability.",
       "decidedAt": "2026-03-02T00:00:00Z",
       "context": "architecture"
     },
@@ -44,7 +44,7 @@
     {
       "id": "DEC-003",
       "title": "Plan/Execute split with Spec-as-Gate",
-      "description": "Plan agent produces specs and execution plans then STOPS. User must explicitly invoke /ai:execute to begin implementation. This creates a human gate between planning and execution, enabling review before action. Cross-IDE compatible — works with Write/Edit tools, no IDE plan mode required.",
+      "description": "Plan agent produces specs and execution plans then STOPS. User must explicitly invoke /ai-execute to begin implementation. This creates a human gate between planning and execution, enabling review before action. Cross-IDE compatible — works with Write/Edit tools, no IDE plan mode required.",
       "category": "governance",
       "status": "active",
       "criticality": "high",
@@ -54,7 +54,7 @@
       "expires_at": "2027-03-05T00:00:00Z",
       "context_hash": "",
       "acknowledged_by": "plan",
-      "decision": "Plan agent produces specs and execution plans then STOPS. User must explicitly invoke /ai:execute to begin implementation. This creates a human gate between planning and execution, enabling review before action. Cross-IDE compatible — works with Write/Edit tools, no IDE plan mode required.",
+      "decision": "Plan agent produces specs and execution plans then STOPS. User must explicitly invoke /ai-execute to begin implementation. This creates a human gate between planning and execution, enabling review before action. Cross-IDE compatible — works with Write/Edit tools, no IDE plan mode required.",
       "decidedAt": "2026-03-05T00:00:00Z",
       "context": "governance"
     },
@@ -347,6 +347,40 @@
       "decision": "Skip verify-gate-trailers CI job when github.actor is dependabot[bot]. The Ai-Eng-Gate trailer proves a commit traversed local hooks — Dependabot creates commits server-side and cannot satisfy this requirement. CI independently validates all Dependabot PRs via gitleaks, pip-audit, semgrep, and Snyk. Additionally, Dependabot PRs are grouped by ecosystem (pip, github-actions) to consolidate ~7 individual PRs into max 2 per week.",
       "decidedAt": "2026-03-16T00:00:00Z",
       "context": "governance"
+    },
+    {
+      "id": "DEC-021",
+      "title": "Skill invocation uses hyphen prefix (ai-) not colon (ai:)",
+      "description": "All skill and agent references use /ai-<name> (hyphen) syntax, not /ai:<name> (colon). The colon syntax was an internal convention (DEC-001) that never matched how Claude Code, GitHub Copilot, or other IDEs register slash commands. Fixed 651 occurrences across 207 files. manifest.yml prefix updated from ai: to ai-.",
+      "category": "architecture",
+      "status": "active",
+      "criticality": "medium",
+      "source": "spec-054",
+      "spec": "054-naming-convention-ghaw",
+      "created_at": "2026-03-17",
+      "expires_at": "2027-03-17T00:00:00Z",
+      "context_hash": "",
+      "acknowledged_by": "plan",
+      "decision": "All skill and agent references standardized to /ai-<name> (hyphen) syntax. Colon syntax /ai:<name> was inconsistent with IDE registration. Bulk rename applied to canonical templates, live files, and mirrors. sync_command_mirrors.py workflow alias generation (Surface 4b) removed — only ai-prefixed prompts are generated.",
+      "decidedAt": "2026-03-17T00:00:00Z",
+      "context": "architecture"
+    },
+    {
+      "id": "DEC-022",
+      "title": "Scheduled runbook workflows migrated to GitHub Agentic Workflows (gh-aw)",
+      "description": "6 scheduled workflows (code-simplifier, daily-triage, governance-drift, perf-audit, security-scan, weekly-health) migrated from GitHub Actions YAML to gh-aw markdown format. Engine: GitHub Copilot (default, zero config). Event-driven workflows (pr-review, ci-fixer) and core CI remain as standard Actions.",
+      "category": "delivery",
+      "status": "active",
+      "criticality": "medium",
+      "source": "spec-054",
+      "spec": "054-naming-convention-ghaw",
+      "created_at": "2026-03-17",
+      "expires_at": "2027-03-17T00:00:00Z",
+      "context_hash": "",
+      "acknowledged_by": "plan",
+      "decision": "Migrated 6 scheduled runbook workflows to gh-aw markdown format with YAML frontmatter (triggers, permissions, safe-outputs) and natural language instructions. Created 3 missing runbooks (daily-triage, perf-audit, weekly-health). GitHub Copilot as default engine — no API key required, included with GitHub subscription. Claude Max used for IDE work only.",
+      "decidedAt": "2026-03-17T00:00:00Z",
+      "context": "delivery"
     }
   ]
 }

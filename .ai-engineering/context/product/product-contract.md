@@ -57,9 +57,9 @@ AI-assisted development lacks governance guardrails. Without local enforcement, 
 | Persona | Journey | Primary Actions |
 |---------|---------|-----------------|
 | Solo Developer | Install framework, configure stack, commit governed code | `ai-eng install`, `git commit`, `ai-eng doctor` |
-| Team Lead | Set team standards, review PRs, monitor quality | `standards/team/`, `/ai:verify`, `/ai:observe` |
-| DevSecOps Engineer | Enforce security gates, manage risk acceptances | `ai-eng gate`, `/ai:security`, `/ai:risk` |
-| Framework Maintainer | Evolve skills/agents, release updates, maintain templates | `/ai:create`, `/ai:release`, `ai-eng update` |
+| Team Lead | Set team standards, review PRs, monitor quality | `standards/team/`, `/ai-verify`, `/ai-observe` |
+| DevSecOps Engineer | Enforce security gates, manage risk acceptances | `ai-eng gate`, `/ai-security`, `/ai-risk` |
+| Framework Maintainer | Evolve skills/agents, release updates, maintain templates | `/ai-create`, `/ai-release`, `ai-eng update` |
 | AI Agent (automated) | Read governance content, execute skills, report findings | Skills, agents, state files |
 
 ## 2. Requirements (Solution Intent)
@@ -140,7 +140,7 @@ Path: `.ai-engineering/skills/<name>/SKILL.md` (flat organization, no category s
 
 > Note: `cli` skill absorbed into `code`. `guide` is agent-only (no canonical SKILL.md).
 
-Slash commands: `/ai:<name>` for all skills and agents.
+Slash commands: `/ai-<name>` for all skills and agents.
 
 #### Agents (8)
 

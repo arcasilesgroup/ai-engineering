@@ -17,7 +17,7 @@ Owned by the **execute agent**. Formalizes the dispatch step that execute perfor
 
 ## Trigger
 
-- Command: `/ai:dispatch`
+- Command: `/ai-dispatch`
 - Context: an approved plan exists (plan.md + tasks.md) and the execute agent needs a structured dispatch plan before running phases.
 - Typically invoked by the execute agent as its first step, or by a human who wants to review the dispatch plan before execution.
 
@@ -34,7 +34,7 @@ Load the active spec's execution artifacts:
 3. Read `tasks.md` for the checkbox task list with phase groupings.
 4. Read `decision-store.json` for constraints that affect dispatch (e.g., serialization requirements, blocked paths).
 
-If no active spec exists: STOP. Output: "No active plan found. Run `/ai:plan` first."
+If no active spec exists: STOP. Output: "No active plan found. Run `/ai-plan` first."
 
 ### Step 2 -- Parse Task Structure
 
@@ -142,7 +142,7 @@ The execute agent reads this plan and coordinates agent dispatch accordingly.
 
 ## When NOT to Use
 
-- **No plan exists** -- use `/ai:plan` first to create plan.md and tasks.md.
+- **No plan exists** -- use `/ai-plan` first to create plan.md and tasks.md.
 - **Trivial changes** -- single-task changes do not need a DAG. Execute directly.
 - **Active execution** -- do not re-dispatch mid-execution. Complete or checkpoint the current plan first.
 

@@ -17,7 +17,7 @@ The reason these operations live together is that creation and deletion are inve
 
 ## Trigger
 
-- Command: `/ai:lifecycle create agent|skill <name>` or `/ai:lifecycle delete agent|skill <name>`
+- Command: `/ai-lifecycle create agent|skill <name>` or `/ai-lifecycle delete agent|skill <name>`
 - Context: extending or reducing the framework's agent/skill catalog.
 
 > **Telemetry** (cross-IDE): run `ai-eng signals emit skill_invoked --actor=ai --detail='{"skill":"lifecycle"}'` at skill start. Fail-open — skip if ai-eng unavailable.

@@ -317,5 +317,5 @@ Phase 6 is always last.
 Plan complete. Review the execution plan above. To begin implementation:
 
 ```
-/ai:execute
+/ai-execute
 ```

@@ -133,10 +133,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 - **`learnings.md`** — project learnings file removed from context layer (both canonical and templates).
 - **`sources.lock.json`** — remote skill source tracking removed from state layer.
-- **Legacy IDE command files** — `.claude/commands/{cleanup,commit,pr}.md` and `.github/prompts/{cleanup,commit,pr}.prompt.md` removed (slash commands via `/ai:<name>` are the canonical path).
+- **Legacy IDE command files** — `.claude/commands/{cleanup,commit,pr}.md` and `.github/prompts/{cleanup,commit,pr}.prompt.md` removed (slash commands via `/ai-<name>` are the canonical path).
 
 ### Added
-- **`product-contract` skill** — new skill (`/ai:product-contract`) for maintaining product contract documents in sync mode; includes Claude command, Copilot prompt, and Codex agent adaptors.
+- **`product-contract` skill** — new skill (`/ai-product-contract`) for maintaining product contract documents in sync mode; includes Claude command, Copilot prompt, and Codex agent adaptors.
 - **`ai-eng work-item sync` CLI** — syncs specs to external work items (GitHub Issues / Azure DevOps Boards) via new `work_items` service module.
 - **VCS issue operations** — `VcsProvider` protocol extended with `create_issue`, `find_issue`, `close_issue`, and `link_issue_to_pr` methods; GitHub and Azure DevOps implementations included.
 - **Explain analysis playbook** — reference document (`skills/explain/references/analysis-playbook.md`) for structured code analysis.
@@ -165,7 +165,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - **Agent/skill shared-rule normalization** — `plan`, `observe`, and `write/docs` now use canonical shared rules in skills (`PLAN-*`, `OBS-*`, `DOC-*`) with agent contracts referencing rules instead of duplicating procedures.
-- **Plan no-execution enforcement** — `/ai:plan` contract now explicitly maps to `PLAN-B1` and requires handoff to `/ai:execute` for execution.
+- **Plan no-execution enforcement** — `/ai-plan` contract now explicitly maps to `PLAN-B1` and requires handoff to `/ai-execute` for execution.
 - **Copilot plan agent metadata alignment** — `Plan` agent description synchronized to advisory-planning semantics across GitHub and project templates.
 - **PR description format** — `build_pr_description()` now generates What/Why/How/Checklist/Stats sections (matching PR #91 convention) instead of the old Spec/Changes format. Reads `spec.md` sections (Problem, Solution) to auto-populate What and Why.
 - **Archive-aware spec URLs** — `_build_spec_url()` checks both active (`specs/{slug}/`) and archived (`specs/archive/{slug}/`) paths on disk; URLs stay valid after spec-reset archives the directory.
@@ -195,8 +195,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **`execute` agent** — reads approved plan, dispatches specialized agents, coordinates execution, checkpoints progress, and reports results.
-- **`plan` skill** — standalone planning skill (`/ai:plan`) with input classification, pipeline strategy, and spec creation.
-- **`/ai:plan` and `/ai:execute` command contract** — plan pipeline (classify → discover → risk → spec → execution plan → STOP) and execute dispatcher documented in CLAUDE.md.
+- **`plan` skill** — standalone planning skill (`/ai-plan`) with input classification, pipeline strategy, and spec creation.
+- **`/ai-plan` and `/ai-execute` command contract** — plan pipeline (classify → discover → risk → spec → execution plan → STOP) and execute dispatcher documented in CLAUDE.md.
 - **Audit prompt catalog** — `.ai-engineering/references/audit-prompt-catalog.md` reference for structured audit prompts.
 - **State service** — `state/service.py` centralized state management module.
 - **`doctor/models.py`** — extracted `CheckResult`, `CheckStatus`, `DoctorReport` from `doctor/service.py` to break circular imports between doctor modules.
@@ -275,13 +275,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **SonarLint auto-configuration** — install automatically configures SonarLint Connected Mode when Sonar is enabled and IDE markers are detected.
 
 ### Changed
-- **Minimalist command descriptions** — rewrote first line of all 53 `/ai:*` command files (`.claude/commands/ai/*.md`) with short, actionable descriptions that display in autocomplete. Synchronized descriptions to `.github/prompts/ai-*.prompt.md` frontmatter, template mirrors, and both `GEMINI.md` files.
+- **Minimalist command descriptions** — rewrote first line of all 53 `/ai-*` command files (`.claude/commands/ai/*.md`) with short, actionable descriptions that display in autocomplete. Synchronized descriptions to `.github/prompts/ai-*.prompt.md` frontmatter, template mirrors, and both `GEMINI.md` files.
 - **Command Contract added to GEMINI.md** — inserted `## Command Contract` section in root and template `GEMINI.md` matching the existing section in `CLAUDE.md`.
 - **Provider-aware templates** — `copy_project_templates` and `remove_provider_templates` now operate per-provider with shared-file deduplication (e.g., AGENTS.md shared by copilot/gemini/codex).
 - **Schema version 1.2** — `InstallManifest` adds `aiProviders` config with `primary` and `enabled` fields, and `deferredSetup` to `operationalReadiness`.
 - **Security tool auto-install** — install attempts `ensure_tool()` for gitleaks and semgrep before falling back to manual step instructions.
 - **Branch policy guide repositioned** — guide now appears after suggested next steps with clearer messaging about manual configuration requirement.
-- **`/ai:plan` spec creation enforced** — plan agent pipeline step 4 (spec creation) marked as MANDATORY to ensure traceability.
+- **`/ai-plan` spec creation enforced** — plan agent pipeline step 4 (spec creation) marked as MANDATORY to ensure traceability.
 
 ### Removed
 - **`GEMINI.md` template** — Gemini CLI reads `AGENTS.md` natively. Removed dedicated `GEMINI.md` template and ownership entry.
@@ -289,10 +289,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **3 new skills** — `work-item` (Azure Boards + GitHub Issues bidirectional sync), `agent-card` (platform-portable agent descriptors for Copilot/Foundry/AgentKit/Vertex), `triage` (auto-prioritization with p1/p2/p3 rules and throttle at 10+ open items).
-- **`ai:scan` agent** — feature scanner that cross-references specs against code to detect unimplemented features, architecture drift, missing tests, dead specifications, and dependency gaps.
-- **`ai:triage` agent** — auto-prioritization agent that scans work items using priority rules (security > bugs > features > perf > tests > arch > dx).
-- **`ai:plan` planning pipeline** — default 6-step pipeline: triage check → discovery → prompt design → spec creation → work-item sync → dispatch.
-- **`ai:review` individual modes** — 14 review modes invokable individually: `security`, `performance`, `architecture`, `accessibility`, `quality`, `pr`, `smoke`, `platform`, `release`, `dx`, `integrity`, `compliance`, `ownership`.
+- **`ai-scan` agent** — feature scanner that cross-references specs against code to detect unimplemented features, architecture drift, missing tests, dead specifications, and dependency gaps.
+- **`ai-triage` agent** — auto-prioritization agent that scans work items using priority rules (security > bugs > features > perf > tests > arch > dx).
+- **`ai-plan` planning pipeline** — default 6-step pipeline: triage check → discovery → prompt design → spec creation → work-item sync → dispatch.
+- **`ai-review` individual modes** — 14 review modes invokable individually: `security`, `performance`, `architecture`, `accessibility`, `quality`, `pr`, `smoke`, `platform`, `release`, `dx`, `integrity`, `compliance`, `ownership`.
 - **Work-item integration** — manifest.yml `work_items` section supporting GitHub Issues and Azure Boards with bidirectional spec sync and auto-transition.
 - **Discovery interrogation skill** (`discover`) — structured requirements elicitation through 8-dimension completeness checks, 5 Whys probing, and KNOWN/ASSUMED/UNKNOWN classification.
 - **Architecture patterns table** in product-contract.md section 7.4 — documents scanner/executor separation, single-system-multiple-access-points, finding deduplication, context threading, progressive disclosure, and mode dispatch patterns.
@@ -302,12 +302,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Skill frontmatter schema aligned** — moved `version` and `tags` from top-level frontmatter keys to `metadata.version` and `metadata.tags` across all 47 skills and template mirrors for stricter Anthropic guide compatibility.
 - **Top skill usage examples added** — added `## Examples` sections to 10 frequently used skills (`commit`, `cleanup`, `spec`, `pr`, `code-review`, `test-run`, `debug`, `audit`, `release`, `discover`) and mirrored templates.
 - **Validator compatibility updated** — integrity validator now accepts skill version from `metadata.version` (with backward compatibility), preserving `skill-frontmatter` checks after schema alignment.
-- **Agent scope model refined** — `ai:review` and `ai:scan` now use `read-write (work items only)` scope to create/sync follow-up work items in Azure Boards or GitHub Issues/Projects while keeping code and governance content non-editable by these agents.
+- **Agent scope model refined** — `ai-review` and `ai-scan` now use `read-write (work items only)` scope to create/sync follow-up work items in Azure Boards or GitHub Issues/Projects while keeping code and governance content non-editable by these agents.
 - **Review/scan behavior contracts updated** — agent definitions and template mirrors now include explicit work-item synchronization steps via `skills/work-item/SKILL.md`, preserving finding-to-work-item traceability.
 - **README governance section expanded** — added the full skills table (47 skills) under the Skills section and aligned agent scope text with the updated non-code work-item write model.
-- **Consolidated 19 agents to 6** — `ai:plan` (orchestration + planning pipeline), `ai:build` (implementation across all stacks, merges 8 agents), `ai:review` (reviews + governance, merges 6 agents), `ai:scan` (feature scanner), `ai:write` (documentation), `ai:triage` (auto-prioritization). Only `ai:build` has code write permissions.
+- **Consolidated 19 agents to 6** — `ai-plan` (orchestration + planning pipeline), `ai-build` (implementation across all stacks, merges 8 agents), `ai-review` (reviews + governance, merges 6 agents), `ai-scan` (feature scanner), `ai-write` (documentation), `ai-triage` (auto-prioritization). Only `ai-build` has code write permissions.
 - **Flat skill organization** — restructured 44 skills from 6 nested categories (`workflows/`, `dev/`, `review/`, `docs/`, `govern/`, `quality/`) to flat `skills/<name>/` layout. Added 3 new skills for 47 total. Removed `category` from frontmatter schema; replaced with optional `tags` array.
-- **Unified `ai:` command namespace** — replaced 7 prefixes (`dev:`, `review:`, `docs:`, `govern:`, `quality:`, `workflows:`, `agent:`) with single `ai:` prefix. All slash commands now use `/ai:<name>` format.
+- **Unified `ai-` command namespace** — replaced 7 prefixes (`dev:`, `review:`, `docs:`, `govern:`, `quality:`, `workflows:`, `agent:`) with single `ai-` prefix. All slash commands now use `/ai-<name>` format.
 - **Skill rename map** — 10 skills renamed for clarity: `test-strategy` → `test-plan`, `test-runner` → `test-run`, `data-modeling` → `data-model`, `deps-update` → `deps`, `cicd-generate` → `cicd`, `cli-ux` → `cli`, `api-design` → `api`, `infrastructure` → `infra`, `database-ops` → `db`, `sonar-gate` → `sonar`, `discovery-interrogation` → `discover`, `self-improve` → `improve`, `writer` → `docs`, `prompt-design` → `prompt`, and 14 review/govern/quality renames.
 - **Consolidated 50 skills to 44** (prior spec) — merged accept-risk + resolve-risk + renew-risk into `risk` (mode: accept/resolve/renew); create-agent + delete-agent into `agent-lifecycle` (mode: create/delete); create-skill + delete-skill into `skill-lifecycle` (mode: create/delete); dast + container-security + data-security into `sec-deep` (mode: dast/container/data). Removed standalone acho skill (redirected to commit/pr).
 - **Compacted CLAUDE.md** from 280 to 114 lines (~810 tokens). Replaced verbose skill/agent path lists with compact table format. Propagated to all 6 instruction file mirrors.
@@ -320,7 +320,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 - **19 old agent files** — api-designer, architect, code-simplifier, database-engineer, debugger, devops-engineer, docs-writer, frontend-specialist, governance-steward, infrastructure-engineer, navigator, orchestrator, platform-auditor, pr-reviewer, principal-engineer, quality-auditor, security-reviewer, test-master, verify-app. Capabilities absorbed into 6 new agents.
 - **6 skill category directories** — `workflows/`, `dev/`, `review/`, `docs/`, `govern/`, `quality/` replaced by flat `skills/<name>/` structure.
-- **7 command prefixes** — `dev:`, `review:`, `docs:`, `govern:`, `quality:`, `workflows:`, `agent:` replaced by unified `ai:` prefix.
+- **7 command prefixes** — `dev:`, `review:`, `docs:`, `govern:`, `quality:`, `workflows:`, `agent:` replaced by unified `ai-` prefix.
 - Standalone skills (prior spec): `govern/accept-risk`, `govern/resolve-risk`, `govern/renew-risk`, `govern/create-agent`, `govern/delete-agent`, `govern/create-skill`, `govern/delete-skill`, `review/dast`, `review/container-security`, `review/data-security`, `workflows/acho` (11 skills removed, 4 consolidated replacements + 1 new = net -6).
 
 ### Fixed
