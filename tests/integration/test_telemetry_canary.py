@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 import os
 import stat
+import sys
 from pathlib import Path
 
 import pytest
@@ -24,6 +25,9 @@ ROOT = Path(__file__).resolve().parents[2]
 class TestHookScripts:
     """Verify hook scripts exist and are executable."""
 
+    @pytest.mark.skipif(
+        sys.platform == "win32", reason="Unix executable bit not available on Windows"
+    )
     @pytest.mark.parametrize(
         "script",
         [

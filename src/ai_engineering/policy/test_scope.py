@@ -397,6 +397,19 @@ TEST_SCOPE_RULES: list[ScopeRule] = [
             "e2e": [],
         },
     ),
+    ScopeRule(
+        name="telemetry-hooks",
+        source_globs=[
+            "scripts/hooks/**",
+            ".github/hooks/**",
+            ".claude/settings.json",
+        ],
+        tiers={
+            "unit": [],
+            "integration": ["tests/integration/test_telemetry_canary.py"],
+            "e2e": [],
+        },
+    ),
 ]
 
 _DOC_EXTENSIONS: frozenset[str] = frozenset({".md", ".mdx", ".rst", ".txt"})
