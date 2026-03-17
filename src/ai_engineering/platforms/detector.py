@@ -18,7 +18,7 @@ _MARKERS: dict[PlatformKind, list[str]] = {
 }
 
 
-def detect_platforms(root: Path) -> list[PlatformKind]:
+def detect_platforms(root: Path, *, vcs_provider: str | None = None) -> list[PlatformKind]:
     """Detect platforms from repo-root markers in *root*.
 
     Checks for well-known directories and files:
@@ -26,6 +26,10 @@ def detect_platforms(root: Path) -> list[PlatformKind]:
     * ``.github/`` → GitHub
     * ``azure-pipelines.yml`` or ``.azuredevops/`` → Azure DevOps
     * ``sonar-project.properties`` → SonarCloud / SonarQube
+
+    When *vcs_provider* is given, the corresponding platform is always
+    included and conflicting VCS platforms are excluded (e.g. selecting
+    ``azure_devops`` suppresses a false-positive ``.github/`` detection).
 
     Returns a list of detected :class:`PlatformKind` values,
     ordered by detection priority. The list may be empty.
@@ -38,5 +42,17 @@ def detect_platforms(root: Path) -> list[PlatformKind]:
             if candidate.exists():
                 detected.append(platform)
                 break  # one match is enough per platform
+
+    # Reconcile with explicit VCS provider selection
+    if vcs_provider == "azure_devops":
+        if PlatformKind.GITHUB in detected:
+            detected.remove(PlatformKind.GITHUB)
+        if PlatformKind.AZURE_DEVOPS not in detected:
+            detected.insert(0, PlatformKind.AZURE_DEVOPS)
+    elif vcs_provider == "github":
+        if PlatformKind.AZURE_DEVOPS in detected:
+            detected.remove(PlatformKind.AZURE_DEVOPS)
+        if PlatformKind.GITHUB not in detected:
+            detected.insert(0, PlatformKind.GITHUB)
 
     return detected

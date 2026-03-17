@@ -399,6 +399,7 @@ class TestInstallUpdatesManifest:
             ides=["vscode", "terminal"],
             vcs_provider="github",
             ai_providers=None,
+            external_references=None,
         )
 
     def test_default_stacks_none_forwarded(self, patched, tmp_path: Path) -> None:
@@ -410,6 +411,7 @@ class TestInstallUpdatesManifest:
             ides=None,
             vcs_provider="github",
             ai_providers=None,
+            external_references=None,
         )
 
 
@@ -660,6 +662,7 @@ class TestInstallWithEmptyStacks:
             ides=None,
             vcs_provider="github",
             ai_providers=None,
+            external_references=None,
         )
 
     def test_returns_valid_result(self, patched, tmp_path: Path) -> None:
@@ -681,6 +684,7 @@ class TestInstallWithMultipleStacks:
             ides=None,
             vcs_provider="github",
             ai_providers=None,
+            external_references=None,
         )
 
 
@@ -736,6 +740,7 @@ class TestInstallVcsProvider:
             ides=None,
             vcs_provider="azure_devops",
             ai_providers=None,
+            external_references=None,
         )
 
 

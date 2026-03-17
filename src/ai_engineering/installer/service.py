@@ -90,6 +90,7 @@ def install(
     ides: list[str] | None = None,
     vcs_provider: str = "github",
     ai_providers: list[str] | None = None,
+    external_references: dict[str, str] | None = None,
 ) -> InstallResult:
     """Bootstrap the ai-engineering framework in a target project.
 
@@ -125,6 +126,7 @@ def install(
         ides=ides,
         vcs_provider=vcs_provider,
         ai_providers=ai_providers,
+        external_references=external_references,
     )
 
     # If no state files were generated, installation was already present
@@ -151,6 +153,7 @@ def _generate_state_files(
     ides: list[str] | None,
     vcs_provider: str = "github",
     ai_providers: list[str] | None = None,
+    external_references: dict[str, str] | None = None,
 ) -> list[Path]:
     """Generate default state files if they don't already exist.
 
@@ -172,6 +175,7 @@ def _generate_state_files(
             ides=ides,
             vcs_provider=vcs_provider,
             ai_providers=ai_providers,
+            external_references=external_references,
         ),
         _STATE_FILES["ownership-map"]: default_ownership_map(),
         _STATE_FILES["decision-store"]: default_decision_store(),
