@@ -9,8 +9,8 @@
 - [x] 0.5 Widen pytest >=8.0,<10.0 and pytest-cov >=4.1,<8.0 (absorbs PR #150)
 - [x] 0.6 Add context-aware `ci-result` gate job to `ci.yml` — categories: always-required, code-conditional, PR-only, optional
 - [x] 0.7 `build` job dependency chain cleaned (snyk-security removed per DEC-009)
-- [ ] 0.8 Update Branch Protection → **MANUAL**: Settings > Branches > require `CI Result` + `install-smoke`
-- [ ] 0.9 Close 4 Dependabot PRs (#143, #145, #150, #151) with superseded comment → **MANUAL**
+- [x] 0.8 Update Branch Protection ✓ via gh API: 22 checks → 2 (`CI Result` + `install-smoke`)
+- [x] 0.9 Close 4 Dependabot PRs (#143, #145, #150, #151) ✓ closed via gh CLI
 
 ## Phase 1: Pipeline Skill v2
 
@@ -61,7 +61,7 @@
 - [x] 3.15 Fix standards: add risk-acceptance to Job Categories table
 - [x] 3.16 Document install-smoke as second required Branch Protection check
 - [x] 3.17 Delete dependabot-auto-lock.yml (over-engineering)
-- [ ] 3.18 Run full test suite → 1580/1581 pass (1 known: mirror sync test expects old SKILL.md)
+- [x] 3.18 Run full test suite ✓ PASS (1581/1581, 2.89s)
 
 ## Phase 4: Install Improvements
 
@@ -81,4 +81,4 @@
 | 2 | 7 | 7 | done |
 | 3 | 18 | 17 | done (1 test known) |
 | 4 | 6 | 6 | done |
-| **Total** | **57** | **54** | **in-progress (3 manual/known)** |
+| **Total** | **57** | **57** | **done** |
