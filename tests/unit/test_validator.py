@@ -22,7 +22,8 @@ pytestmark = pytest.mark.unit
 # -- Helpers ----------------------------------------------------------------
 
 # Dynamic discovery from real project — never hardcode lists that can drift.
-# Skills and agents are no longer in .ai-engineering/ — canonical source is in templates.
+# Canonical source is templates/.ai-engineering/ (used by sync script to generate
+# IDE-adapted mirrors in .claude/, .agents/, .github/).
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 _TEMPLATES_AI_DIR = _PROJECT_ROOT / "src" / "ai_engineering" / "templates" / ".ai-engineering"
 

@@ -43,6 +43,14 @@ During `/ai-plan`, do NOT use file-writing tools to create spec files. Instead:
 
 Gate failure: diagnose → fix → retry.
 
+## Observability
+
+Telemetry is **automatic via hooks** — configured in `.github/hooks/hooks.json`.
+- `post_tool_call` hook emits `skill_invoked` events automatically
+- `session_end` hook emits `session_end` events automatically
+- All events → `.ai-engineering/state/audit-log.ndjson`
+- Dashboards: `ai-eng observe [engineer|team|ai|dora|health]`
+
 ## Quick Reference
 
 - Skills (38): `.github/prompts/ai-<name>.prompt.md`

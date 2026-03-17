@@ -41,6 +41,14 @@ Before governance decisions: read `framework-contract.md` §2-3 (agentic model, 
 For skills/agents/CLI reference: read `product-contract.md` §2.2.
 For commands/pipelines: read `framework-contract.md` §5.
 
+## Observability
+
+Telemetry is **automatic via hooks** — no manual `ai-eng signals emit` needed in Claude Code.
+- `PostToolUse(Skill)` hook emits `skill_invoked` events automatically
+- `Stop` hook emits `session_end` events automatically
+- All events → `.ai-engineering/state/audit-log.ndjson`
+- Dashboards: `ai-eng observe [engineer|team|ai|dora|health]`
+
 ## Quick Reference
 
 - Skills (38): `.claude/skills/ai-<name>/SKILL.md` — slash commands: `/ai-<name>`

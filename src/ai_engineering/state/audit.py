@@ -10,6 +10,9 @@ Event types:
 - build_complete: Build agent task completion
 - deploy_complete: Deployment outcomes
 - session_metric: AI session efficiency metrics
+- guard_advisory: Guard advise mode findings
+- guard_gate: Guard gate mode verdicts
+- guard_drift: Guard drift detection results
 """
 
 from __future__ import annotations
@@ -176,6 +179,74 @@ def emit_deploy_event(
             "version": version,
             "result": result,
             "rollback": rollback,
+        },
+    )
+
+
+def emit_guard_advisory(
+    project_root: Path,
+    *,
+    files_checked: int = 0,
+    warnings: int = 0,
+    concerns: int = 0,
+) -> None:
+    """Emit a guard_advisory event after advise mode analysis."""
+    _emit(
+        project_root,
+        event="guard_advisory",
+        actor="guard",
+        detail={
+            "type": "guard_advisory",
+            "mode": "advise",
+            "files_checked": files_checked,
+            "warnings": warnings,
+            "concerns": concerns,
+        },
+    )
+
+
+def emit_guard_gate(
+    project_root: Path,
+    *,
+    verdict: str,
+    task: str = "",
+    agent: str = "",
+    findings: int = 0,
+) -> None:
+    """Emit a guard_gate event after gate mode validation."""
+    _emit(
+        project_root,
+        event="guard_gate",
+        actor="guard",
+        detail={
+            "type": "guard_gate",
+            "mode": "gate",
+            "verdict": verdict,
+            "task": task,
+            "agent": agent,
+            "findings": findings,
+        },
+    )
+
+
+def emit_guard_drift(
+    project_root: Path,
+    *,
+    decisions_checked: int = 0,
+    drifted: int = 0,
+    critical: int = 0,
+) -> None:
+    """Emit a guard_drift event after drift detection."""
+    _emit(
+        project_root,
+        event="guard_drift",
+        actor="guard",
+        detail={
+            "type": "guard_drift",
+            "mode": "drift",
+            "decisions_checked": decisions_checked,
+            "drifted": drifted,
+            "critical": critical,
         },
     )
 

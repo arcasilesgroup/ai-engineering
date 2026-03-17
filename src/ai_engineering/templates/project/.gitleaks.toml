@@ -1,0 +1,19 @@
+# Gitleaks configuration for ai-engineering
+# https://github.com/gitleaks/gitleaks
+
+title = "ai-engineering gitleaks config"
+
+[extend]
+# Use the default gitleaks rules as the base
+useDefault = true
+
+[allowlist]
+description = "Global allowlist"
+paths = [
+  '''\.ai-engineering/state/.*\.json$''',
+  '''\.ai-engineering/state/.*\.ndjson$''',
+  '''node_modules/''',
+  '''\.venv/''',
+  '''__pycache__/''',
+  '''\.git/''',
+]

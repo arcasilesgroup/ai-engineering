@@ -37,13 +37,6 @@ _PROVIDER_FILE_MAPS: dict[str, dict[str, str]] = {
     "github_copilot": {
         "AGENTS.md": "AGENTS.md",
         "copilot-instructions.md": ".github/copilot-instructions.md",
-        "copilot/code-generation.md": ".github/copilot/code-generation.md",
-        "copilot/code-review.md": ".github/copilot/code-review.md",
-        "copilot/commit-message.md": ".github/copilot/commit-message.md",
-        "copilot/test-generation.md": ".github/copilot/test-generation.md",
-        "instructions/python.instructions.md": ".github/instructions/python.instructions.md",
-        "instructions/testing.instructions.md": ".github/instructions/testing.instructions.md",
-        "instructions/markdown.instructions.md": ".github/instructions/markdown.instructions.md",
     },
     "gemini": {
         "AGENTS.md": "AGENTS.md",
@@ -53,6 +46,12 @@ _PROVIDER_FILE_MAPS: dict[str, dict[str, str]] = {
     },
 }
 
+# Files deployed regardless of AI provider (security, quality tooling).
+_COMMON_FILE_MAPS: dict[str, str] = {
+    ".gitleaks.toml": ".gitleaks.toml",
+    ".semgrep.yml": ".semgrep.yml",
+}
+
 _PROVIDER_TREE_MAPS: dict[str, list[tuple[str, str]]] = {
     "claude_code": [
         (".claude", ".claude"),
@@ -60,6 +59,8 @@ _PROVIDER_TREE_MAPS: dict[str, list[tuple[str, str]]] = {
     "github_copilot": [
         ("prompts", ".github/prompts"),
         ("agents", ".github/agents"),
+        ("copilot", ".github/copilot"),
+        ("instructions", ".github/instructions"),
     ],
     "gemini": [
         (".agents", ".agents"),
@@ -71,6 +72,13 @@ _PROVIDER_TREE_MAPS: dict[str, list[tuple[str, str]]] = {
 
 # VCS-platform-specific templates (independent of AI provider).
 # When a VCS provider is specified, these trees are also copied.
+# Common templates copied for ALL providers (observability hooks).
+_COMMON_TREE_MAPS: list[tuple[str, str]] = [
+    ("scripts/hooks", "scripts/hooks"),
+]
+
+# VCS-platform-specific templates (independent of AI provider).
+# When a VCS provider is specified, these trees are also copied.
 _VCS_TEMPLATE_TREES: dict[str, list[tuple[str, str]]] = {
     "github": [
         ("github_templates", ".github"),
@@ -79,6 +87,8 @@ _VCS_TEMPLATE_TREES: dict[str, list[tuple[str, str]]] = {
 }
 
 # Legacy combined maps kept for updater backward compatibility.
+# Common files are NOT included here — they are handled by the dedicated loop
+# in copy_project_templates() to avoid double-processing.
 _PROJECT_TEMPLATE_MAP: dict[str, str] = {}
 for _prov_files in _PROVIDER_FILE_MAPS.values():
     for _src, _dst in _prov_files.items():
@@ -255,6 +265,26 @@ def copy_project_templates(
             result.skipped.append(dest_file)
 
     for src_tree, dest_tree in tree_list:
+        src_dir = project_root / src_tree
+        if not src_dir.is_dir():
+            continue
+        tree_result = copy_template_tree(src_dir, target / dest_tree)
+        result.created.extend(tree_result.created)
+        result.skipped.extend(tree_result.skipped)
+
+    # Common file templates (security/quality — all providers)
+    for src_relative, dest_relative in sorted(_COMMON_FILE_MAPS.items()):
+        src_file = project_root / src_relative
+        if not src_file.is_file():
+            continue
+        dest_file = target / dest_relative
+        if copy_file_if_missing(src_file, dest_file):
+            result.created.append(dest_file)
+        else:
+            result.skipped.append(dest_file)
+
+    # Common tree templates (observability hooks — all providers)
+    for src_tree, dest_tree in _COMMON_TREE_MAPS:
         src_dir = project_root / src_tree
         if not src_dir.is_dir():
             continue

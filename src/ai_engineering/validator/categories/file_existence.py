@@ -74,17 +74,26 @@ def _check_file_existence(
                 continue
             full_path = ai_dir / ref_path
             if not full_path.exists():
-                # Fallback: skills/ and agents/ now live in the template
-                # canonical source, not in .ai-engineering/ directly.
-                # Also check IDE directories (.claude/, .agents/, .github/)
-                # where IDE-adapted filenames may reside.
+                # Fallback: skills/ and agents/ live in IDE-adapted mirrors
+                # (.claude/, .agents/, .github/), not in .ai-engineering/.
+                # IDE mirrors use ai- prefix (e.g. agents/build.md → .claude/agents/ai-build.md,
+                # skills/test/SKILL.md → .claude/skills/ai-test/SKILL.md).
                 fallback_roots = [
-                    target / "src" / "ai_engineering" / "templates" / ".ai-engineering",
                     target / ".claude",
                     target / ".agents",
                     target / ".github",
                 ]
-                if any((root / ref_path).exists() for root in fallback_roots):
+                # Build IDE-adapted path variant (ai- prefix)
+                ide_ref = ref_path
+                if ref_path.startswith("agents/"):
+                    name = ref_path.removeprefix("agents/")
+                    ide_ref = f"agents/ai-{name}"
+                elif ref_path.startswith("skills/"):
+                    parts = ref_path.removeprefix("skills/").split("/", 1)
+                    if len(parts) == 2:
+                        ide_ref = f"skills/ai-{parts[0]}/{parts[1]}"
+                candidates = [ref_path, ide_ref]
+                if any((root / c).exists() for root in fallback_roots for c in candidates):
                     continue
                 rel_source = md_file.relative_to(target).as_posix()
                 broken_refs.append((rel_source, ref_path))

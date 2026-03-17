@@ -36,5 +36,30 @@
       "Bash(git rebase*--no-verify*)",
       "Bash(*--no-verify*)"
     ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Skill",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/scripts/hooks/telemetry-skill.sh\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/scripts/hooks/telemetry-session.sh\" end",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
   }
 }

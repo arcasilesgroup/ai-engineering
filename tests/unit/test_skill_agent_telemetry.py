@@ -8,7 +8,12 @@ from unittest.mock import patch
 
 import pytest
 
-from ai_engineering.lib.signals import agent_dispatch_from, skill_usage_from
+from ai_engineering.lib.signals import (
+    agent_dispatch_from,
+    guard_advisory_from,
+    guard_drift_from,
+    skill_usage_from,
+)
 
 pytestmark = pytest.mark.unit
 
@@ -416,3 +421,100 @@ class TestRenderSkillAgentSections:
             "actions": [],
         }
         _render_ai(data)
+
+
+# ---------------------------------------------------------------------------
+# guard_advisory_from
+# ---------------------------------------------------------------------------
+
+
+def _guard_advisory_event(warnings: int = 0, concerns: int = 0, days_ago: int = 0) -> dict:
+    return {
+        "timestamp": _ts(days_ago),
+        "event": "guard_advisory",
+        "actor": "guard",
+        "detail": {
+            "mode": "advise",
+            "files_checked": 3,
+            "warnings": warnings,
+            "concerns": concerns,
+        },
+    }
+
+
+def _guard_drift_event(
+    decisions_checked: int = 5, drifted: int = 0, critical: int = 0, days_ago: int = 0
+) -> dict:
+    return {
+        "timestamp": _ts(days_ago),
+        "event": "guard_drift",
+        "actor": "guard",
+        "detail": {
+            "mode": "drift",
+            "decisions_checked": decisions_checked,
+            "drifted": drifted,
+            "critical": critical,
+        },
+    }
+
+
+class TestGuardAdvisoryFrom:
+    def test_empty_events(self) -> None:
+        result = guard_advisory_from([])
+        assert result["total_advisories"] == 0
+        assert result["total_warnings"] == 0
+
+    def test_single_advisory(self) -> None:
+        events = [_guard_advisory_event(warnings=3, concerns=1)]
+        result = guard_advisory_from(events)
+        assert result["total_advisories"] == 1
+        assert result["total_warnings"] == 3
+        assert result["total_concerns"] == 1
+
+    def test_multiple_advisories(self) -> None:
+        events = [
+            _guard_advisory_event(warnings=2),
+            _guard_advisory_event(warnings=1, concerns=2),
+        ]
+        result = guard_advisory_from(events)
+        assert result["total_advisories"] == 2
+        assert result["total_warnings"] == 3
+        assert result["total_concerns"] == 2
+
+    def test_respects_time_window(self) -> None:
+        events = [
+            _guard_advisory_event(warnings=1, days_ago=0),
+            _guard_advisory_event(warnings=5, days_ago=60),
+        ]
+        result = guard_advisory_from(events, days=30)
+        assert result["total_advisories"] == 1
+        assert result["total_warnings"] == 1
+
+
+class TestGuardDriftFrom:
+    def test_empty_events(self) -> None:
+        result = guard_drift_from([])
+        assert result["total_checks"] == 0
+        assert result["alignment_pct"] == 0.0
+
+    def test_perfect_alignment(self) -> None:
+        events = [_guard_drift_event(decisions_checked=10, drifted=0)]
+        result = guard_drift_from(events)
+        assert result["alignment_pct"] == 100.0
+        assert result["total_drifted"] == 0
+
+    def test_partial_drift(self) -> None:
+        events = [_guard_drift_event(decisions_checked=10, drifted=3, critical=1)]
+        result = guard_drift_from(events)
+        assert result["alignment_pct"] == 70.0
+        assert result["total_drifted"] == 3
+        assert result["total_critical"] == 1
+
+    def test_respects_time_window(self) -> None:
+        events = [
+            _guard_drift_event(decisions_checked=5, drifted=1, days_ago=0),
+            _guard_drift_event(decisions_checked=10, drifted=5, days_ago=60),
+        ]
+        result = guard_drift_from(events, days=30)
+        assert result["total_checks"] == 1
+        assert result["total_drifted"] == 1

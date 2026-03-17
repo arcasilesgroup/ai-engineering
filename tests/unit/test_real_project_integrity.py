@@ -78,7 +78,7 @@ class TestRealProjectIntegrity:
 class TestAgentSkillCrossReferences:
     """Verify agents reference skills that actually exist."""
 
-    # Canonical source for agents/skills is now in templates
+    # Canonical source for agents/skills is in templates
     _TEMPLATES_DIR = _PROJECT_ROOT / "src" / "ai_engineering" / "templates" / ".ai-engineering"
 
     def test_all_agent_skill_references_exist(self) -> None:

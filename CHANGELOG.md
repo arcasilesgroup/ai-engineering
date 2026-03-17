@@ -12,10 +12,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Dependabot auto-lock workflow** — `dependabot-auto-lock.yml` regenerates `uv.lock` when Dependabot updates `pyproject.toml`, eliminating manual lock-file maintenance.
 - **CICD standards expansion** — 7 new policy sections in `cicd/core.md`: action version pinning, Dependabot contract, Azure Pipelines standards, reusable components contract, environment protection, concurrency/performance, and required check strategy.
 - **Sprint review presentation** — `generate_sprint_review.py` produces a 12-slide dark-mode `.pptx` covering Feb 16 - Mar 16, 2026 sprint (architecture v3, IDE mirrors, observability, security, testing, CI/CD, quality metrics, governance surface, risks, and next sprint).
+- **Telemetry hooks** — 4 cross-platform scripts (`telemetry-session.sh/ps1`, `telemetry-skill.sh/ps1`) emit `session_end` and `skill_invoked` events automatically via Claude Code `PostToolUse(Skill)` and `Stop` hooks.
+- **Guard telemetry** — `guard_advisory`, `guard_gate`, and `guard_drift` event emitters in `audit.py` with matching aggregators in `signals.py` for guard-mode observability.
+- **Common installer templates** — `.gitleaks.toml` and `.semgrep.yml` now deploy to every target project regardless of AI provider; `scripts/hooks/` deploys observability hooks for all providers.
+- **Project scaffolding templates** — `CODEOWNERS`, `dependabot.yml`, SonarQube MCP instructions, and VCS hook configs added to the project template set.
+- **Telemetry canary test** — integration test verifying end-to-end hook telemetry emission.
 
 ### Changed
 - **Pipeline skill v2** — comprehensive rewrite with GitHub Actions (12 sections: CI result gate, reusable workflows, composite actions, SHA pinning, concurrency, matrix, caching, environments, merge queue, badges, Dependabot) and Azure Pipelines (11 sections: template composition, manager pattern, variable groups, KeyVault, environment gates, deployment strategies, SonarCloud, artifact promotion, branch-conditional deployment, self-hosted agents) at full parity.
 - **Dependabot config** — added `commit-message.prefix` for conventional commits (`chore(deps)`, `chore(deps-dev)`, `ci(deps)`).
+- **Installer template maps** — removed legacy Copilot instruction file maps, added `_COMMON_FILE_MAPS` and `_COMMON_TREE_MAPS` for provider-agnostic deployment, moved Copilot subtrees to tree maps.
+- **Observe dashboard** — guard advisory and drift metrics added to the AI dashboard mode.
+- **Evolve skill** — updated across all IDE mirrors (Claude, Copilot, Agents).
+- **Instruction files** — added Observability section to `CLAUDE.md` and `copilot-instructions.md` documenting automatic telemetry hooks.
+
+### Removed
+- **Legacy evals directory** — `templates/.ai-engineering/evals/` (README.md, benchmarks, registry.json) removed.
+- **Legacy semgrep location** — `templates/.semgrep.yml` relocated to `templates/project/.semgrep.yml`.
 
 ### Added — Architecture v3 (spec-051)
 - **3 new agents** — guard (proactive governance), guide (developer growth), operate (SRE/runbooks).

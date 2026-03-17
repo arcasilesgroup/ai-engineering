@@ -32,6 +32,8 @@ from ai_engineering.lib.signals import (
     event_date_range_from,
     filter_events,
     gate_pass_rate_from,
+    guard_advisory_from,
+    guard_drift_from,
     health_direction,
     lead_time_metrics,
     load_all_events,
@@ -431,6 +433,8 @@ def observe_team(project_root: Path) -> dict[str, Any]:
     noise = noise_ratio_from(all_events)
     skills = skill_usage_from(all_events)
     agents = agent_dispatch_from(all_events)
+    guard_adv = guard_advisory_from(all_events)
+    guard_dft = guard_drift_from(all_events)
 
     hooks_status = "installed" if adopt["hooks_installed"] else "not installed"
     if adopt["hooks_installed"]:
@@ -487,6 +491,14 @@ def observe_team(project_root: Path) -> dict[str, Any]:
         "agent_dispatch": {
             "total_dispatches": agents["total_dispatches"],
             "by_agent": agents["by_agent"],
+        },
+        "guard_governance": {
+            "advisories": guard_adv["total_advisories"],
+            "warnings": guard_adv["total_warnings"],
+            "concerns": guard_adv["total_concerns"],
+            "drift_checks": guard_dft["total_checks"],
+            "alignment_pct": guard_dft["alignment_pct"],
+            "critical_drifts": guard_dft["total_critical"],
         },
         "actions": [
             "Run `/ai-scan governance` for framework health",

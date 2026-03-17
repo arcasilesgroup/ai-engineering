@@ -142,21 +142,19 @@ def _instruction_files(target: Path) -> list[str]:
 
 
 # Mirror pairs: (canonical_root, mirror_root, glob_patterns, exclusion_prefixes)
-# Note: skills/ and agents/ are no longer in .ai-engineering/ — they live in
-# IDE-specific directories (.claude/, .agents/).  The governance mirror only
-# validates standards, runbooks, evals, and the manifest.
+# Note: skills/, agents/, and evals/ are no longer in templates — skills/agents
+# live in IDE-specific directories (.claude/, .agents/), evals/ is runtime state.
+# The governance mirror only validates standards, runbooks, and the manifest.
 _GOVERNANCE_MIRROR = (
     ".ai-engineering",
     "src/ai_engineering/templates/.ai-engineering",
     [
         "standards/framework/**/*.md",
         "runbooks/**/*.md",
-        "evals/**/*.md",
-        "evals/**/*.json",
         "manifest.yml",
         "README.md",
     ],
-    ["context/", "state/", "standards/team/"],
+    ["context/", "state/", "standards/team/", "evals/"],
 )
 
 _CLAUDE_COMMANDS_MIRROR = (

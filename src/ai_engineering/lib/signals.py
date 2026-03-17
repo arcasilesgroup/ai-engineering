@@ -485,6 +485,75 @@ def agent_dispatch_from(
     }
 
 
+def guard_advisory_from(
+    events: list[dict[str, Any]],
+    *,
+    days: int = 30,
+) -> dict[str, Any]:
+    """Aggregate guard_advisory events into advisory metrics.
+
+    Args:
+        events: Pre-loaded event list from load_all_events().
+        days: Window in days to consider.
+
+    Returns:
+        Dict with total_advisories, total_warnings, total_concerns.
+    """
+    since = datetime.now(tz=UTC) - timedelta(days=days)
+    advisory_events = filter_events(events, event_type="guard_advisory", since=since)
+
+    total_warnings = 0
+    total_concerns = 0
+    for event in advisory_events:
+        total_warnings += _detail_field(event, "warnings") or 0
+        total_concerns += _detail_field(event, "concerns") or 0
+
+    return {
+        "total_advisories": len(advisory_events),
+        "total_warnings": total_warnings,
+        "total_concerns": total_concerns,
+    }
+
+
+def guard_drift_from(
+    events: list[dict[str, Any]],
+    *,
+    days: int = 30,
+) -> dict[str, Any]:
+    """Aggregate guard_drift events into drift metrics.
+
+    Args:
+        events: Pre-loaded event list from load_all_events().
+        days: Window in days to consider.
+
+    Returns:
+        Dict with total_checks, total_drifted, total_critical, alignment_pct.
+    """
+    since = datetime.now(tz=UTC) - timedelta(days=days)
+    drift_events = filter_events(events, event_type="guard_drift", since=since)
+
+    total_checked = 0
+    total_drifted = 0
+    total_critical = 0
+    for event in drift_events:
+        total_checked += _detail_field(event, "decisions_checked") or 0
+        total_drifted += _detail_field(event, "drifted") or 0
+        total_critical += _detail_field(event, "critical") or 0
+
+    if total_checked > 0:
+        alignment_pct = round((1 - total_drifted / total_checked) * 100, 1)
+    else:
+        alignment_pct = 0.0
+
+    return {
+        "total_checks": len(drift_events),
+        "total_decisions_checked": total_checked,
+        "total_drifted": total_drifted,
+        "total_critical": total_critical,
+        "alignment_pct": alignment_pct,
+    }
+
+
 def session_metrics_from(
     events: list[dict[str, Any]],
     *,
