@@ -14,7 +14,7 @@ Generate stack-aware CI/CD workflows and guide engineers in evolving them. The g
 ## Procedure
 
 1. **Detect context** — read `install-manifest.json` for stacks, VCS provider, Sonar config, and `externalReferences.cicd_standards` for team CI/CD docs.
-2. **Generate baseline** — run `ai-eng cicd regenerate`. Produces multi-job CI with lint, test, security, and gate jobs. SHA-pinned actions from `action-pins.yml`.
+2. **Generate baseline** — run `ai-eng cicd regenerate`. Produces multi-job CI with lint, test, security, and gate jobs. SHA-pinned actions from action-pins.yml (in templates/pipeline/).
 3. **Validate** — run `actionlint` on generated files. Run `python scripts/check_workflow_policy.py` to verify timeout, concurrency, and SHA pinning compliance.
 4. **Configure Branch Protection** — manual: require `CI Result` (or `ci` job) + `install-smoke` as status checks.
 5. **Evolve** — apply advanced patterns below based on project maturity and team CI/CD standards.
@@ -152,7 +152,7 @@ All third-party actions must use SHA pins. First-party (`actions/*`) may use maj
 - uses: some-org/some-action@v2
 ```
 
-Centralized pins: `templates/pipeline/action-pins.yml`. Dependabot updates SHAs automatically.
+Centralized pins: action-pins.yml (in templates/pipeline/). Dependabot updates SHAs automatically.
 
 ### Dependabot Configuration
 
@@ -279,7 +279,7 @@ variables:
 ## References
 
 - `standards/framework/cicd/core.md` — CI/CD standards (pinning, Dependabot, Azure, environments, ci-result pattern)
-- `templates/pipeline/action-pins.yml` — centralized SHA pins
+- action-pins.yml (in templates/pipeline/) — centralized SHA pins
 - `manifest.yml` — per-stack enforcement check definitions
 - `standards/framework/stacks/python.md` — Python check details
 - `standards/framework/stacks/dotnet.md` — .NET check details
