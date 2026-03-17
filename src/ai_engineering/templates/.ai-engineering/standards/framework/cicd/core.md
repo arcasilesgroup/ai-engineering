@@ -126,7 +126,7 @@ Dependency updates must be managed through Dependabot with proper grouping and a
 
 - **Ecosystem grouping**: all dependencies within an ecosystem grouped into a single PR (reduces review overhead).
 - **Conventional commit prefixes**: `chore(deps)` for runtime, `chore(deps-dev)` for dev, `ci(deps)` for actions.
-- **Auto-lock workflow**: Python projects using `uv` must have `dependabot-auto-lock.yml` to regenerate `uv.lock` after `pyproject.toml` changes. Node projects regenerate `package-lock.json`.
+- **Lock file updates**: Dependabot includes lock file updates in its PRs (e.g., `uv.lock` for Python/uv, `package-lock.json` for Node). No separate auto-lock workflow is needed.
 - **Weekly schedule**: Monday for all ecosystems (configurable per project).
 - **PR limit**: 5 open PRs per ecosystem maximum.
 
@@ -263,7 +263,7 @@ Conditional jobs (`if: code == 'true'`) that are skipped show as "Expected" or "
 | Category | Jobs | Rule |
 |----------|------|------|
 | always-required | `security`, `content-integrity`, `workflow-sanity` | Must succeed always |
-| code-conditional | `lint`, `typecheck`, `test-*`, `duplication`, `sonarcloud`, `framework-smoke`, `build` | Must succeed when code changes detected; skip accepted when no code changes |
+| code-conditional | `lint`, `typecheck`, `test-*`, `duplication`, `risk-acceptance`, `sonarcloud`, `framework-smoke`, `build` | Must succeed when code changes detected; skip accepted when no code changes |
 | PR-only | `verify-gate-trailers` | Must succeed on non-Dependabot PRs; skip accepted for Dependabot and push events |
 | optional | `snyk-security` | May skip (token absent) but must not fail |
 
@@ -281,8 +281,11 @@ Settings → Branches → Branch protection rules → main
   ✓ Require status checks to pass before merging
   ✓ Require branches to be up to date before merging
   Status checks that are required:
-    → CI Result (only this one)
+    → CI Result         (from ci.yml — aggregates all quality gates)
+    → install-smoke     (from install-smoke.yml — validates package installs cleanly)
 ```
+
+`install-smoke` runs in a separate workflow to validate the package builds and installs correctly. It cannot be absorbed into `ci-result` because it uses a different workflow file. Both checks are required for merge.
 
 ## Update Contract
 

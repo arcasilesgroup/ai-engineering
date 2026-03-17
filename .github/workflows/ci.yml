@@ -9,10 +9,15 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   change-scope:
     name: Change Scope
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     outputs:
       code: ${{ steps.filter.outputs.code }}
       test-config: ${{ steps.filter.outputs.test-config }}
@@ -20,15 +25,17 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: dorny/paths-filter@v3
+      - uses: dorny/paths-filter@d1c1ffe0248fe513906c8e24db8ea791d46f8590 # v3.0.3
         id: filter
         with:
           filters: |
             code:
               - 'src/**'
               - 'tests/**'
+              - 'scripts/**'
               - '**/*.py'
               - '**/*.toml'
+              - 'uv.lock'
             test-config:
               - 'pyproject.toml'
               - 'tests/conftest.py'
@@ -43,9 +50,10 @@ jobs:
     needs: [change-scope]
     if: needs.change-scope.outputs.code == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5.4.2
         with:
           enable-cache: true
       - name: Install dependencies
@@ -60,9 +68,10 @@ jobs:
     needs: [change-scope]
     if: needs.change-scope.outputs.code == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5.4.2
         with:
           enable-cache: true
       - name: Install dependencies
@@ -75,9 +84,10 @@ jobs:
     needs: [change-scope]
     if: needs.change-scope.outputs.code == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5.4.2
         with:
           enable-cache: true
       - name: Install dependencies
@@ -90,9 +100,10 @@ jobs:
     needs: [change-scope]
     if: needs.change-scope.outputs.code == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5.4.2
         with:
           enable-cache: true
       - name: Install dependencies
@@ -105,6 +116,7 @@ jobs:
     needs: [change-scope]
     if: needs.change-scope.outputs.code == 'true'
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
     defaults:
       run:
         shell: bash
@@ -117,7 +129,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: astral-sh/setup-uv@v5
+      - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5.4.2
         with:
           enable-cache: true
       - name: Set Python version
@@ -193,6 +205,7 @@ jobs:
     needs: [change-scope]
     if: needs.change-scope.outputs.code == 'true'
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
     defaults:
       run:
         shell: bash
@@ -205,7 +218,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: astral-sh/setup-uv@v5
+      - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5.4.2
         with:
           enable-cache: true
       - name: Set Python version
@@ -273,6 +286,7 @@ jobs:
     needs: [change-scope]
     if: needs.change-scope.outputs.code == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     defaults:
       run:
         shell: bash
@@ -280,7 +294,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: astral-sh/setup-uv@v5
+      - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5.4.2
         with:
           enable-cache: true
       - name: Set Python version
@@ -335,8 +349,9 @@ jobs:
   sonarcloud:
     name: SonarCloud
     needs: [change-scope, test-unit, test-integration, test-e2e]
-    if: needs.change-scope.outputs.code == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+    if: needs.change-scope.outputs.code == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
         with:
@@ -369,6 +384,7 @@ jobs:
     needs: [change-scope]
     if: needs.change-scope.outputs.code == 'true'
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
     defaults:
       run:
         shell: bash
@@ -381,7 +397,7 @@ jobs:
           - { os: macos-latest, python-version: "3.12" }
     steps:
       - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5.4.2
         with:
           enable-cache: true
       - name: Set Python version
@@ -426,13 +442,14 @@ jobs:
   workflow-sanity:
     name: Workflow Sanity
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - name: Install actionlint
         run: |
           bash <(curl -sSfL https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash)
           pwd >> "$GITHUB_PATH"
-      - uses: astral-sh/setup-uv@v5
+      - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5.4.2
         with:
           enable-cache: true
       - name: Install dependencies
@@ -450,6 +467,7 @@ jobs:
     name: Verify Gate Trailers
     if: github.event_name == 'pull_request' && github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
         with:
@@ -469,6 +487,7 @@ jobs:
   snyk-security:
     name: Snyk Security
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     env:
       SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
     steps:
@@ -483,7 +502,7 @@ jobs:
           fi
       - uses: actions/checkout@v4
         if: steps.check.outputs.skip == 'false'
-      - uses: astral-sh/setup-uv@v5
+      - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5.4.2
         if: steps.check.outputs.skip == 'false'
         with:
           enable-cache: true
@@ -515,9 +534,10 @@ jobs:
   security:
     name: Security Audit
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5.4.2
         with:
           enable-cache: true
       - name: Install dependencies
@@ -539,9 +559,10 @@ jobs:
   content-integrity:
     name: Content Integrity
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5.4.2
         with:
           enable-cache: true
       - name: Install dependencies
@@ -602,15 +623,15 @@ jobs:
         sonarcloud,
         framework-smoke,
         security,
-        snyk-security,
         content-integrity,
         workflow-sanity,
       ]
     if: needs.change-scope.outputs.code == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5.4.2
         with:
           enable-cache: true
       - name: Build
@@ -625,6 +646,7 @@ jobs:
   ci-result:
     name: CI Result
     if: always()
+    timeout-minutes: 5
     needs:
       [
         change-scope,
@@ -689,6 +711,15 @@ jobs:
 
           echo "=== CI Result Gate ==="
           echo "code=$CODE is_pr=$IS_PR is_dependabot=$IS_DEPENDABOT"
+          echo ""
+
+          # ── change-scope must succeed (upstream data provider) ──
+          CHANGE_SCOPE="${{ needs.change-scope.result }}"
+          echo "change-scope: $CHANGE_SCOPE"
+          if [[ "$CHANGE_SCOPE" != "success" ]]; then
+            echo "  ✗ FAIL: change-scope must succeed but got $CHANGE_SCOPE"
+            FAILED=1
+          fi
           echo ""
 
           echo "── Always Required ──"

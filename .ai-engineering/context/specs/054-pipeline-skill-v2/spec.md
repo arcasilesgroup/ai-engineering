@@ -1,7 +1,7 @@
 ---
 id: "054"
 slug: "pipeline-skill-v2"
-status: "draft"
+status: "in-progress"
 created: "2026-03-16"
 size: "L"
 tags: ["cicd", "pipeline", "github-actions", "azure-pipelines", "dependabot", "skill"]
