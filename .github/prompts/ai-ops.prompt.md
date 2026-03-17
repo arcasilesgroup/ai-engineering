@@ -19,7 +19,7 @@ Operational automation for the ai-engineering framework. Execute runbooks on dem
 
 ## Trigger
 
-- Command: `/ai:ops [run <runbook>|incident|status]`
+- Command: `/ai-ops [run <runbook>|incident|status]`
 - Context: runbook execution, incident response, operational health check, or toil reduction.
 
 > **Telemetry** (cross-IDE): run `ai-eng signals emit skill_invoked --actor=ai --detail='{"skill":"ops"}'` at skill start. Fail-open -- skip if ai-eng unavailable.
@@ -61,10 +61,10 @@ Use these rules as the single source of truth for operational behavior shared by
 3. **Verify required tools** -- for each entry in `requires`, confirm available on PATH. If missing, abort with `ai-eng doctor --fix-tools` guidance.
 4. **Execute runbook prompt** -- read the `## Prompt` section and follow each numbered step in order.
 5. **Delegate to agents** -- when the runbook requires work outside operational scope:
-   - Scanning/analysis -> invoke verify agent (via `/ai:verify`)
-   - Code fixes -> invoke build agent (via `/ai:build`)
-   - Commits/PRs/releases -> invoke ship agent (via `/ai:commit`, `/ai:pr`)
-   - Metrics/dashboards -> invoke observe agent (via `/ai:observe`)
+   - Scanning/analysis -> invoke verify agent (via `/ai-verify`)
+   - Code fixes -> invoke build agent (via `/ai-build`)
+   - Commits/PRs/releases -> invoke ship agent (via `/ai-commit`, `/ai-pr`)
+   - Metrics/dashboards -> invoke observe agent (via `/ai-observe`)
 6. **Record execution** -- emit to `state/audit-log.ndjson`:
    ```json
    {"type": "runbook-execution", "runbook": "<name>", "status": "success|failure|partial", "findings": <N>, "actions": <N>, "timestamp": "<ISO-8601>"}

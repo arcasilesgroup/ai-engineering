@@ -220,9 +220,9 @@ def observe_engineer(project_root: Path) -> dict[str, Any]:
             "untested_critical": tc.get("untested_critical", []),
         },
         "actions": [
-            "Run `/ai:scan quality` for code quality metrics",
-            "Run `/ai:scan security` for security posture",
-            "Run `/ai:test gap` for test confidence",
+            "Run `/ai-scan quality` for code quality metrics",
+            "Run `/ai-scan security` for security posture",
+            "Run `/ai-test gap` for test confidence",
         ],
     }
 
@@ -296,7 +296,7 @@ def _render_code_quality(data: dict[str, Any]) -> None:
     section("Code Quality (from scans)")
     cq = data["code_quality"]
     if cq["total_scans"] == 0:
-        info("No scan data — run /ai:scan quality")
+        info("No scan data — run /ai-scan quality")
         return
 
     progress_bar("Quality score", cq["avg_quality_score"])
@@ -489,7 +489,7 @@ def observe_team(project_root: Path) -> dict[str, Any]:
             "by_agent": agents["by_agent"],
         },
         "actions": [
-            "Run `/ai:scan governance` for framework health",
+            "Run `/ai-scan governance` for framework health",
             "Review decision store for expired decisions",
         ],
     }
@@ -1015,7 +1015,7 @@ def _compute_overall_health(
 _HEALTH_ACTION_MAP: dict[str, str] = {
     "Gate pass rate": "Run `ruff format` + `ruff check --fix` before committing",
     "Delivery velocity": "Increase commit frequency — ship smaller changes",
-    "Scan quality": "Run `/ai:scan quality` to improve code quality score",
+    "Scan quality": "Run `/ai-scan quality` to improve code quality score",
     "Decision health": "Run `ai-eng decision expire-check` to review expired decisions",
     "DORA frequency": "Merge PRs more frequently — target weekly deploys",
     "SonarCloud coverage": "Run `ai-eng setup sonar` and increase test coverage",

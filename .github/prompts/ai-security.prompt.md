@@ -20,7 +20,7 @@ Unified security assessment covering static analysis (SAST), dynamic analysis (D
 
 ## Trigger
 
-- Command: `/ai:verify security` or `/ai:security [static|dynamic|deps|sbom]`
+- Command: `/ai-verify security` or `/ai-security [static|dynamic|deps|sbom]`
 - Context: security review, pre-release security gate, dependency audit, compliance reporting.
 
 > **Telemetry** (cross-IDE): run `ai-eng signals emit skill_invoked --actor=ai --detail='{"skill":"security"}'` at skill start. Fail-open -- skip if ai-eng unavailable.
@@ -32,7 +32,7 @@ Unified security assessment covering static analysis (SAST), dynamic analysis (D
 - **Performance bottlenecks** -- use `perf`.
 - **Governance contract compliance** -- use `governance`.
 - **Risk acceptance recording** -- use `risk`.
-- **Writing or fixing code** -- this skill reports. Delegate fixes to `ai:build`.
+- **Writing or fixing code** -- this skill reports. Delegate fixes to `ai-build`.
 
 ## Modes
 

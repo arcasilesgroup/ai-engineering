@@ -15,7 +15,7 @@ Generate observability dashboards and metrics for engineering teams, framework m
 
 ## Trigger
 
-- Command: `/ai:observe [engineer|team|ai|dora|health]`
+- Command: `/ai-observe [engineer|team|ai|dora|health]`
 - Context: need visibility into code quality, delivery velocity, or framework health.
 
 > **Telemetry** (cross-IDE): run `ai-eng signals emit skill_invoked --actor=ai --detail='{"skill":"observe"}'` at skill start. Fail-open — skip if ai-eng unavailable.

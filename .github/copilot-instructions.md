@@ -18,7 +18,7 @@ Before non-trivial work:
 
 ## Plan/Execute Flow (Spec-as-Gate)
 
-During `/ai:plan`, do NOT use file-writing tools to create spec files. Instead:
+During `/ai-plan`, do NOT use file-writing tools to create spec files. Instead:
 
 1. **Analyze** — read code, discover requirements, assess risk (read-only).
 2. **Produce spec as text** — write the full spec as markdown in the conversation.
@@ -30,7 +30,7 @@ During `/ai:plan`, do NOT use file-writing tools to create spec files. Instead:
    ...
    EOF
    ```
-4. **STOP** — present the result and wait for the user to invoke `/ai:execute`.
+4. **STOP** — present the result and wait for the user to invoke `/ai-execute`.
 
 ## Absolute Prohibitions
 

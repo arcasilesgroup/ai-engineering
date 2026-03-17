@@ -17,7 +17,7 @@ Uses `.claude/skills/ai-plan/SKILL.md` as the shared planning contract for class
 
 Normative shared rules are defined in `.claude/skills/ai-plan/SKILL.md` under **Shared Rules (Canonical)** (`PLAN-R1..PLAN-R4`, `PLAN-B1`). The agent references those rules instead of redefining them.
 
-Planning boundary is architectural: plan produces the execution plan document, then STOPS. The human reviews and explicitly invokes `/ai:dispatch` to begin execution.
+Planning boundary is architectural: plan produces the execution plan document, then STOPS. The human reviews and explicitly invokes `/ai-dispatch` to begin execution.
 
 ## Pipeline Strategy Pattern
 
@@ -44,7 +44,7 @@ pipelines:
     triggers: [typo, comment, single-line]
 ```
 
-Auto-classification: pipeline selected automatically from `git diff --stat` + change type. User override always available: `/ai:plan --pipeline=hotfix`.
+Auto-classification: pipeline selected automatically from `git diff --stat` + change type. User override always available: `/ai-plan --pipeline=hotfix`.
 
 ## Session Recovery (Hamilton)
 
@@ -84,30 +84,30 @@ For `hotfix` and `trivial` pipelines, the interrogation phase is abbreviated: ex
 
 1. **Read product context** -- read `context/product/product-contract.md` §7 (roadmap, KPIs, blockers) and `context/product/framework-contract.md` §2 (agentic model) to ground planning in current project state
 2. **Apply shared planning rules** -- execute `PLAN-R1..PLAN-R5` from `.claude/skills/ai-plan/SKILL.md`
-3. **Triage** (if configured) -- check for pending work items via `ai:triage` skill
-5. **Spec creation** (MANDATORY for all pipelines) -- invoke `ai:spec` to scaffold. Every pipeline (full, standard, hotfix, trivial) must produce a spec so `/ai:dispatch` always has a spec/plan to dispatch agents and tasks from
+3. **Triage** (if configured) -- check for pending work items via `ai-triage` skill
+5. **Spec creation** (MANDATORY for all pipelines) -- invoke `ai-spec` to scaffold. Every pipeline (full, standard, hotfix, trivial) must produce a spec so `/ai-dispatch` always has a spec/plan to dispatch agents and tasks from
 6. **Build execution plan** -- capability-match tasks to agents, build execution plan document in plan.md
    **Output**: execution plan with agent assignments, phase ordering, gate criteria
-  **STOP**: Present execution plan to user. To execute, user runs `/ai:dispatch`.
+  **STOP**: Present execution plan to user. To execute, user runs `/ai-dispatch`.
 
 ### No-Execution Protocol (mandatory)
 
-`/ai:plan` is planning-only. It MUST NOT execute implementation or release work.
+`/ai-plan` is planning-only. It MUST NOT execute implementation or release work.
 
 This boundary maps to shared rule `PLAN-B1`.
 
-Prohibited during `/ai:plan`:
-- invoking `ai:build`, `ai:verify`, or `ai:release` for task execution,
+Prohibited during `/ai-plan`:
+- invoking `ai-build`, `ai-verify`, or `ai-release` for task execution,
 - checking off implementation tasks as completed,
 - modifying source code as part of execution.
 
-Allowed during `/ai:plan`:
+Allowed during `/ai-plan`:
 - discovery, risk assessment, and architecture/planning analysis,
 - producing spec content as **structured text in the conversation**,
 - using Write tool to create spec.md, plan.md, tasks.md directly,
 - using Edit tool to update `_active.md`,
 - producing agent assignments and phase ordering,
-- stopping with explicit handoff to `/ai:dispatch`.
+- stopping with explicit handoff to `/ai-dispatch`.
 
 ### Spec-as-Gate Pattern (mandatory)
 
@@ -117,7 +117,7 @@ The plan agent MUST follow the artifact-as-gate pattern for spec creation:
 2. **Persist via Write tool** — create spec.md, plan.md, and tasks.md directly using the Write tool into the appropriate `context/specs/NNN-<slug>/` directory.
 3. **Update _active.md** — use the Write or Edit tool to point `_active.md` to the new spec.
 4. **Commit via Bash** — stage and commit the new files with message: `spec-NNN: Phase 0 — scaffold spec files and activate`.
-5. **STOP** — present the result and stop. The user must explicitly invoke `/ai:dispatch` to begin implementation.
+5. **STOP** — present the result and stop. The user must explicitly invoke `/ai-dispatch` to begin implementation.
 
 Example:
 ```
@@ -146,10 +146,10 @@ When asked for roadmap guidance or "what next":
 ### Governance Lifecycle
 
 Plan owns the governance lifecycle for the framework:
-- `ai:create agent|skill` -- create new agents or skills with full registration
-- `ai:delete agent|skill` -- remove agents or skills with cleanup
-- `ai:risk` -- manage risk acceptances (accept, resolve, renew)
-- `ai:standards` -- evolve standards from delivery outcomes
+- `ai-create agent|skill` -- create new agents or skills with full registration
+- `ai-delete agent|skill` -- remove agents or skills with cleanup
+- `ai-risk` -- manage risk acceptances (accept, resolve, renew)
+- `ai-standards` -- evolve standards from delivery outcomes
 
 ## Referenced Skills
 
@@ -170,8 +170,8 @@ Plan owns the governance lifecycle for the framework:
 
 ## Boundaries
 
-- Coordinates work; does not implement code -- delegates to `ai:build`
-- `/ai:plan` must stop after planning output and handoff to `/ai:dispatch`
+- Coordinates work; does not implement code -- delegates to `ai-build`
+- `/ai-plan` must stop after planning output and handoff to `/ai-dispatch`
 - Must not weaken standards or skip required checks
 - Does not bypass governance gates
 - Parallel governance content modifications are prohibited -- serialize them

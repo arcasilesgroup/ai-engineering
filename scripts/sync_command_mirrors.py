@@ -321,41 +321,7 @@ CLAUDE_SKILL_EXTRAS: dict[str, str] = {
 }
 
 
-# ── Copilot workflow aliases ────────────────────────────────────────────────
-ROOT_WORKFLOW_ALIASES = ("commit", "pr", "cleanup")
-
-COPILOT_WORKFLOW_DESCRIPTIONS: dict[str, str] = {
-    "commit": (
-        "Execute governed commit workflow:"
-        " stage, lint, secret-detect, commit, and push current branch."
-    ),
-    "pr": ("Execute governed PR workflow: commit + push + create PR + auto-complete."),
-    "cleanup": ("Repository hygiene: status, sync, prune, branch cleanup, spec reset."),
-}
-
-COPILOT_WORKFLOW_PRECONDITIONS: dict[str, str] = {
-    "commit": (
-        "Before executing, verify these preconditions:\n"
-        "\n"
-        "1. Current branch is NOT `main` or `master`"
-        " (abort with warning if so).\n"
-        "2. Working tree has staged or unstaged changes"
-        " (abort if nothing to commit).\n"
-        "3. Active spec is read from"
-        " `.ai-engineering/context/specs/_active.md`.\n"
-    ),
-    "pr": (
-        "Before executing, verify these preconditions:\n"
-        "\n"
-        "1. Current branch is NOT `main` or `master`"
-        " (abort with warning if so).\n"
-        "2. Working tree has staged or unstaged changes,"
-        " or commits ahead of remote"
-        " (abort if nothing to push/PR).\n"
-        "3. Active spec is read from"
-        " `.ai-engineering/context/specs/_active.md`.\n"
-    ),
-}
+# ── Copilot workflow aliases (removed — use ai-prefixed prompts exclusively) ──
 
 
 # ── Cross-reference validation targets ──────────────────────────────────────
@@ -946,30 +912,7 @@ def sync_all(*, check_only: bool = False, verbose: bool = False) -> int:
         content = generate_skill_copilot_prompt(name, description, skill_path)
         _generate_surface(path, content, check_only, verbose, generated_paths, diffs, tpl_path=tpl)
 
-    # Surface 4b: .github/prompts/ (workflow aliases — these use preconditions, not full embed)
-    for alias in ROOT_WORKFLOW_ALIASES:
-        desc = COPILOT_WORKFLOW_DESCRIPTIONS.get(alias, f"{alias} workflow")
-        if alias in COPILOT_WORKFLOW_PRECONDITIONS:
-            preconditions = COPILOT_WORKFLOW_PRECONDITIONS[alias]
-            # Embed the full skill content after preconditions
-            skill_path = SKILLS_ROOT / alias / "SKILL.md"
-            if skill_path.is_file():
-                skill_body = read_canonical_body(skill_path)
-                skill_body = transform_cross_references(skill_body, "copilot")
-                body = preconditions + "\n" + skill_body.rstrip() + "\n"
-            else:
-                body = preconditions
-        else:
-            skill_path = SKILLS_ROOT / alias / "SKILL.md"
-            if skill_path.is_file():
-                body = read_canonical_body(skill_path)
-                body = transform_cross_references(body, "copilot").rstrip() + "\n"
-            else:
-                body = f"Execute the {alias} workflow.\n"
-        path = GITHUB_PROMPTS / f"{alias}.prompt.md"
-        tpl = TPL_GITHUB_PROMPTS / f"{alias}.prompt.md"
-        content = f'---\ndescription: "{desc}"\nmode: "agent"\n---\n\n{body}'
-        _generate_surface(path, content, check_only, verbose, generated_paths, diffs, tpl_path=tpl)
+    # Surface 4b: (removed — workflow aliases without ai- prefix no longer generated)
 
     # Surface 5: .github/agents/ (full content)
     for name, _fm in agents:

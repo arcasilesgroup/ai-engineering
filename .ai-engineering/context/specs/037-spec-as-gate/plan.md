@@ -56,7 +56,7 @@ Register in `cli_factory.py`.
 ### Phase 2: Update agent + skills [S]
 
 - `agents/plan.md`: change behavior to produce spec as structured text in conversation, then call `ai-eng spec save` via Bash, then STOP.
-- `skills/spec/SKILL.md`: add "CLI-driven path" section documenting `ai-eng spec save` as preferred when invoked from `/ai:plan`.
+- `skills/spec/SKILL.md`: add "CLI-driven path" section documenting `ai-eng spec save` as preferred when invoked from `/ai-plan`.
 - `skills/plan/SKILL.md`: add reference to CLI save mechanism.
 
 ### Phase 3: Cross-IDE configuration [S]

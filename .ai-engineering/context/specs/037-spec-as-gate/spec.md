@@ -27,11 +27,11 @@ No current mechanism provides "scoped writes" (specs/plans only) during planning
 
 Replace dependency on IDE plan modes with an **artifact-as-gate** pattern inspired by GSD, Spec Kit, and BMAD Method:
 
-1. **`/ai:plan`** — LLM analyzes and produces spec as **structured text in the conversation** (not file writes). Then calls `ai-eng spec save` (deterministic CLI) to persist. Then STOPS.
+1. **`/ai-plan`** — LLM analyzes and produces spec as **structured text in the conversation** (not file writes). Then calls `ai-eng spec save` (deterministic CLI) to persist. Then STOPS.
 2. **User reviews** the spec (in chat or on disk). Iterates if needed.
-3. **`/ai:execute`** — LLM reads spec from disk (source of truth) and implements.
+3. **`/ai-execute`** — LLM reads spec from disk (source of truth) and implements.
 
-The gate between plan and execute is the **user typing `/ai:execute`** — a hard stop no LLM can bypass.
+The gate between plan and execute is the **user typing `/ai-execute`** — a hard stop no LLM can bypass.
 
 ### Design Principles
 
@@ -53,7 +53,7 @@ The gate between plan and execute is the **user typing `/ai:execute`** — a har
 ### Out of Scope
 
 - PreToolCall hooks for enforcement (future enhancement, not needed with this approach).
-- Changes to `/ai:execute` agent (already reads spec from disk).
+- Changes to `/ai-execute` agent (already reads spec from disk).
 - IDE plugin development.
 - Removing existing manual spec creation flow (remains as alternative).
 
@@ -64,7 +64,7 @@ The gate between plan and execute is the **user typing `/ai:execute`** — a har
 3. `agents/plan.md` produces spec as conversation text, calls `ai-eng spec save`, then STOPS.
 4. `.github/copilot-instructions.md` exists and references the framework's plan/execute flow.
 5. `.cursor/rules/ai-engineering.mdc` exists and references the framework's plan/execute flow.
-6. End-to-end: `/ai:plan` produces spec -> `ai-eng spec save` persists -> `/ai:execute` reads and works.
+6. End-to-end: `/ai-plan` produces spec -> `ai-eng spec save` persists -> `/ai-execute` reads and works.
 7. No IDE plan mode is required at any point in the workflow.
 
 ## Decisions
@@ -74,4 +74,4 @@ The gate between plan and execute is the **user typing `/ai:execute`** — a har
 | D-037-1 | CLI persists specs, not LLM | Eliminates execution leak — LLM produces text, CLI writes files |
 | D-037-2 | No IDE plan mode dependency | Binary modes (read-only/full) don't support scoped writes |
 | D-037-3 | Spec from stdin (pipe) | Universal across shells/IDEs; fallback `--file` for edge cases |
-| D-037-4 | Existing manual spec flow preserved | `ai-eng spec save` is preferred path, manual remains for direct `/ai:spec` |
+| D-037-4 | Existing manual spec flow preserved | `ai-eng spec save` is preferred path, manual remains for direct `/ai-spec` |

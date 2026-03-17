@@ -88,12 +88,12 @@ Discovery → Architecture → Planning → Guard (advisory) → Implementation 
 
 ## Command Contract
 
-- `/ai:plan` → planning pipeline (classify → discover → risk → spec → execution plan → STOP)
-- `/ai:dispatch` → read approved plan, dispatch agents, coordinate, report
-- `/ai:commit` → stage + commit + push
-- `/ai:commit --only` → stage + commit
-- `/ai:pr` → stage + commit + push + PR + auto-complete (`--auto --squash --delete-branch`)
-- `/ai:pr --only` → create PR; warn if unpushed, propose auto-push
+- `/ai-plan` → planning pipeline (classify → discover → risk → spec → execution plan → STOP)
+- `/ai-dispatch` → read approved plan, dispatch agents, coordinate, report
+- `/ai-commit` → stage + commit + push
+- `/ai-commit --only` → stage + commit
+- `/ai-pr` → stage + commit + push + PR + auto-complete (`--auto --squash --delete-branch`)
+- `/ai-pr --only` → create PR; warn if unpushed, propose auto-push
 
 ## Absolute Prohibitions
 
@@ -124,7 +124,7 @@ Schema: `.ai-engineering/standards/framework/skills-schema.md`. Organization: fl
 
 ## Quick Reference
 
-- Skills (38): `.claude/skills/ai-<name>/SKILL.md` — slash commands: `/ai:<name>`
+- Skills (38): `.claude/skills/ai-<name>/SKILL.md` — slash commands: `/ai-<name>`
 - Agents (8): `.claude/agents/ai-<name>.md`
 - CLI: `ai-eng <command>` — deterministic tasks, zero AI tokens
 - Quality: coverage 80%, duplication ≤3%, cyclomatic ≤10, cognitive ≤15

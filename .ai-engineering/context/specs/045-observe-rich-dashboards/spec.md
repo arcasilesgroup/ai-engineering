@@ -16,7 +16,7 @@ decisions: []
 
 The 5 `ai-eng observe` dashboards (engineer, team, ai, dora, health) output raw markdown strings via `typer.echo()`. The output is plain text — no colors, no visual hierarchy, no progress bars, no semantic indicators. This contrasts with other CLI commands (doctor, gate, install) that use Rich primitives (`cli_ui.py`) for branded, color-coded output with clear visual structure.
 
-Additionally, observe is the only major command that lacks `--json` support, breaking the dual-output pattern established by `cli_output.py` and the `ai:cli` skill contract.
+Additionally, observe is the only major command that lacks `--json` support, breaking the dual-output pattern established by `cli_output.py` and the `ai-cli` skill contract.
 
 ## Solution
 

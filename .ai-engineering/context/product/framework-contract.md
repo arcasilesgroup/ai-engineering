@@ -153,23 +153,23 @@ When weakening a directive is requested: warn user → generate remediation patc
 
 ### 5.1 Agent Commands
 
-- `/ai:plan` → planning pipeline (classify → discover → risk → spec → execution plan → STOP)
-- `/ai:plan --plan-only` → advisory only (discover → risk → recommend, zero writes)
-- `/ai:guard` → run governance gate (scope validation, policy check, compliance audit)
-- `/ai:guard --advise` → advisory mode (non-blocking governance feedback)
-- `/ai:verify` → quality and security pipeline (lint → type-check → test → coverage → SAST → dependency audit)
-- `/ai:guide` → onboarding and context summary (explain architecture, summarize spec, generate walkthrough)
-- `/ai:operate` → infrastructure and tooling (install → configure → migrate → health check)
-- `/ai:explorer` → codebase navigation, dependency mapping, architecture discovery
-- `/ai:simplifier` → background complexity reduction (guard clauses, early returns, dead code removal)
-- `/ai:commit` → stage + commit + push
-- `/ai:commit --only` → stage + commit
-- `/ai:pr` → stage + commit + push + PR + auto-complete (`--auto --squash --delete-branch`)
-- `/ai:pr --only` → create PR; warn if unpushed, propose auto-push
+- `/ai-plan` → planning pipeline (classify → discover → risk → spec → execution plan → STOP)
+- `/ai-plan --plan-only` → advisory only (discover → risk → recommend, zero writes)
+- `/ai-guard` → run governance gate (scope validation, policy check, compliance audit)
+- `/ai-guard --advise` → advisory mode (non-blocking governance feedback)
+- `/ai-verify` → quality and security pipeline (lint → type-check → test → coverage → SAST → dependency audit)
+- `/ai-guide` → onboarding and context summary (explain architecture, summarize spec, generate walkthrough)
+- `/ai-operate` → infrastructure and tooling (install → configure → migrate → health check)
+- `/ai-explorer` → codebase navigation, dependency mapping, architecture discovery
+- `/ai-simplifier` → background complexity reduction (guard clauses, early returns, dead code removal)
+- `/ai-commit` → stage + commit + push
+- `/ai-commit --only` → stage + commit
+- `/ai-pr` → stage + commit + push + PR + auto-complete (`--auto --squash --delete-branch`)
+- `/ai-pr --only` → create PR; warn if unpushed, propose auto-push
 
 ### 5.2 Pipeline Strategy
 
-Auto-classified from `git diff --stat` + change type. User override: `/ai:plan --pipeline=<type>`.
+Auto-classified from `git diff --stat` + change type. User override: `/ai-plan --pipeline=<type>`.
 
 | Pipeline | When | Steps |
 |----------|------|-------|

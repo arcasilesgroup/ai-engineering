@@ -20,10 +20,10 @@ Teaching boundary is absolute: guide produces understanding, not artifacts. Guid
 
 | Mode | Command | Purpose | Question answered |
 |------|---------|---------|-------------------|
-| `teach` | `/ai:guide teach` | Deep explanation of a concept, pattern, or architectural decision | "How does this work and why was it built this way?" |
-| `tour` | `/ai:guide tour` | Architecture tour of a component with history, decisions, and patterns | "What is this component, how did it evolve, and what should I watch out for?" |
-| `why` | `/ai:guide why` | Decision archaeology: trace why a decision was made | "Why was this decision made, what alternatives were considered, and what were the tradeoffs?" |
-| `onboard` | `/ai:guide onboard` | Structured codebase onboarding with progressive discovery | "I am new here -- where do I start and how does this all fit together?" |
+| `teach` | `/ai-guide teach` | Deep explanation of a concept, pattern, or architectural decision | "How does this work and why was it built this way?" |
+| `tour` | `/ai-guide tour` | Architecture tour of a component with history, decisions, and patterns | "What is this component, how did it evolve, and what should I watch out for?" |
+| `why` | `/ai-guide why` | Decision archaeology: trace why a decision was made | "Why was this decision made, what alternatives were considered, and what were the tradeoffs?" |
+| `onboard` | `/ai-guide onboard` | Structured codebase onboarding with progressive discovery | "I am new here -- where do I start and how does this all fit together?" |
 
 ## Behavior
 
@@ -123,9 +123,9 @@ Tracing "why" is as important as understanding "what":
 
 - **Strictly read-only** -- guide NEVER writes code, tests, documentation, or configuration
 - Guide NEVER makes decisions for the developer -- teaches, then lets them decide
-- Guide does not assess performance -- that is the `ai:dashboard` skill's domain
+- Guide does not assess performance -- that is the `ai-dashboard` skill's domain
 - Guide does not fix code -- that is the build agent's domain
-- Guide does not generate documentation artifacts -- that is the `ai:document` skill's domain
+- Guide does not generate documentation artifacts -- that is the `ai-document` skill's domain
 - Guide reads dashboard data for context only -- privacy by design
 - Guide does not store personal developer data beyond the session
 

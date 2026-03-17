@@ -73,7 +73,7 @@ Gate failure: diagnose → fix → retry. Use `ai-eng doctor --fix-tools` or `--
 
 ## Quick Reference
 
-- Skills (38): `.agents/skills/<name>/SKILL.md` — slash commands: `/ai:<name>`
+- Skills (38): `.agents/skills/<name>/SKILL.md` — slash commands: `/ai-<name>`
 - Agents (8): `.agents/agents/ai-<name>.md`
 - CLI: `ai-eng <command>` — deterministic tasks, zero AI tokens
 - Quality: coverage 80%, duplication ≤3%, cyclomatic ≤10, cognitive ≤15

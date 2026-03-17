@@ -43,7 +43,7 @@ For commands/pipelines: read `framework-contract.md` §5.
 
 ## Quick Reference
 
-- Skills (38): `.claude/skills/ai-<name>/SKILL.md` — slash commands: `/ai:<name>`
+- Skills (38): `.claude/skills/ai-<name>/SKILL.md` — slash commands: `/ai-<name>`
 - Agents (8): `.claude/agents/ai-<name>.md`
 - CLI: `ai-eng <command>` — see `product-contract.md` §2.2 for full table
 - Quality: coverage 80%, duplication ≤3%, cyclomatic ≤10, cognitive ≤15, zero blocker/critical
