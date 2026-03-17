@@ -85,7 +85,7 @@ def default_install_manifest(
             ),
         ),
         tooling_readiness=ToolingReadiness(),
-        external_references=external_references or {},
+        externalReferences=external_references or {},
     )
 
 

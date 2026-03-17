@@ -225,7 +225,7 @@ def _render_github_ci(
     }
 
     # --- SonarCloud job (optional) ---
-    if has_sonar:
+    if has_sonar and sonar_config is not None:
         sonar_action = _pin("SonarSource/sonarqube-scan-action", pins)
         sonar_name = "SonarCloud Scan" if sonar_config.is_sonarcloud else "SonarQube Scan"
         sonar_args = f"-Dsonar.projectKey={sonar_config.project_key}"
@@ -380,7 +380,7 @@ def _render_azure_ci(
             steps.append({"script": "npx c8 report --reporter=lcov", "displayName": "JS coverage"})
 
     # Sonar tasks
-    if has_sonar:
+    if has_sonar and sonar_config is not None:
         steps.extend(_render_azure_sonar_steps(sonar_config))
 
     # Security
