@@ -18,7 +18,7 @@ jobs:
     outputs:
       ci-run-id: ${{ steps.find-run.outputs.run_id }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Wait for CI and verify success
         id: find-run
         env:
@@ -84,7 +84,7 @@ jobs:
       url: https://pypi.org/project/ai-engineering/
     steps:
       - name: Download dist from CI
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: dist
           path: dist/
@@ -99,7 +99,7 @@ jobs:
             exit 1
           fi
       - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@76f52bc884231f62b9a034ebfe128415bbaabdfc # v1.12.4
+        uses: pypa/gh-action-pypi-publish@ed0c53931b1dc9bd32cbe73a98c7f6766f8a527e # v1.13.0
 
   github-release:
     name: Create GitHub Release
@@ -109,9 +109,9 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Download dist from CI
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: dist
           path: dist/
