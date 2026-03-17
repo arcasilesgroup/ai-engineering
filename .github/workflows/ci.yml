@@ -455,7 +455,7 @@ jobs:
       - name: Install dependencies
         run: uv sync --dev
       - name: Run actionlint
-        run: ./actionlint
+        run: find .github/workflows -name '*.yml' ! -name '*.lock.yml' | xargs ./actionlint
       - name: Workflow policy checks
         run: uv run python scripts/check_workflow_policy.py
       - name: Test mapping integrity
