@@ -1,6 +1,0 @@
-trigger: none
-pr:
-  - "*"
-steps:
-  - script: ai-eng gate risk-check --strict
-    displayName: AI engineering gate
