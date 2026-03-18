@@ -411,6 +411,627 @@ variables:
 | `develop` | Integration (INT) | None |
 | `release/*` | Acceptance (ACC) | 1 reviewer |
 | `main` | Production (PRO) | 2 reviewers + business hours |
+### Azure Pipelines: Manager Pattern
+
+Organize reusable templates into domain-specific managers. Each manager owns one concern and is composed from the central template repository.
+
+```yaml
+# templates/managers/build-manager.yml
+parameters:
+  - name: buildConfiguration
+    type: string
+    default: Release
+  - name: projects
+    type: string
+    default: '**/*.csproj'
+  - name: pool
+    type: string
+    default: ubuntu-latest
+
+stages:
+  - stage: Build
+    pool:
+      vmImage: ${{ parameters.pool }}
+    jobs:
+      - job: BuildJob
+        steps:
+          - task: UseDotNet@2
+            inputs:
+              packageType: sdk
+              version: '8.x'
+          - task: DotNetCoreCLI@2
+            displayName: Restore
+            inputs:
+              command: restore
+              projects: ${{ parameters.projects }}
+          - task: DotNetCoreCLI@2
+            displayName: Build
+            inputs:
+              command: build
+              projects: ${{ parameters.projects }}
+              arguments: '--configuration ${{ parameters.buildConfiguration }} --no-restore'
+          - task: DotNetCoreCLI@2
+            displayName: Test
+            inputs:
+              command: test
+              projects: '**/*Tests.csproj'
+              arguments: '--configuration ${{ parameters.buildConfiguration }} --collect:"XPlat Code Coverage"'
+          - publish: $(Build.ArtifactStagingDirectory)
+            artifact: drop
+            displayName: Publish Artifact
+```
+
+```yaml
+# templates/managers/deploy-manager.yml
+parameters:
+  - name: environment
+    type: string
+  - name: serviceConnection
+    type: string
+  - name: appName
+    type: string
+  - name: resourceGroup
+    type: string
+  - name: dependsOn
+    type: object
+    default: []
+
+stages:
+  - stage: Deploy_${{ parameters.environment }}
+    dependsOn: ${{ parameters.dependsOn }}
+    jobs:
+      - deployment: DeployJob
+        environment: ${{ parameters.environment }}
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - download: current
+                  artifact: drop
+                - task: AzureWebApp@1
+                  displayName: 'Deploy to ${{ parameters.environment }}'
+                  inputs:
+                    azureSubscription: ${{ parameters.serviceConnection }}
+                    appName: ${{ parameters.appName }}
+                    resourceGroupName: ${{ parameters.resourceGroup }}
+                    package: '$(Pipeline.Workspace)/drop/**/*.zip'
+```
+
+```yaml
+# templates/managers/artifact-manager.yml
+parameters:
+  - name: artifactName
+    type: string
+    default: drop
+  - name: feedName
+    type: string
+    default: ''
+
+stages:
+  - stage: Artifact
+    jobs:
+      - job: PublishArtifact
+        steps:
+          - download: current
+            artifact: ${{ parameters.artifactName }}
+          - ${{ if ne(parameters.feedName, '') }}:
+            - task: UniversalPackages@0
+              displayName: Publish to Feed
+              inputs:
+                command: publish
+                feedsToUse: internal
+                publishDirectory: '$(Pipeline.Workspace)/${{ parameters.artifactName }}'
+                vstsFeedPublish: ${{ parameters.feedName }}
+                packagePublishDescription: 'Build $(Build.BuildNumber)'
+```
+
+```yaml
+# templates/managers/security-manager.yml
+parameters:
+  - name: scanners
+    type: object
+    default: [credential-scan, dependency-check]
+
+stages:
+  - stage: Security
+    jobs:
+      - job: SecurityScan
+        steps:
+          - ${{ if containsValue(parameters.scanners, 'credential-scan') }}:
+            - task: CredScan@3
+              displayName: Credential Scan
+          - ${{ if containsValue(parameters.scanners, 'dependency-check') }}:
+            - task: DependencyCheck@0
+              displayName: OWASP Dependency Check
+              inputs:
+                projectName: '$(Build.Repository.Name)'
+                scanPath: '$(Build.SourcesDirectory)'
+                format: 'HTML,JSON'
+          - task: PublishTestResults@2
+            displayName: Publish Security Results
+            condition: always()
+            inputs:
+              testResultsFormat: JUnit
+              testResultsFiles: '**/dependency-check-junit.xml'
+```
+
+Compose managers in a project pipeline:
+
+```yaml
+# azure-pipelines.yml -- composing managers
+resources:
+  repositories:
+    - repository: templates
+      type: git
+      name: MyOrg/pipeline-templates
+      ref: refs/tags/v2.0
+
+trigger:
+  branches:
+    include: [main, develop, release/*]
+
+stages:
+  - template: managers/build-manager.yml@templates
+    parameters:
+      buildConfiguration: Release
+
+  - template: managers/security-manager.yml@templates
+    parameters:
+      scanners: [credential-scan, dependency-check]
+
+  - template: managers/deploy-manager.yml@templates
+    parameters:
+      environment: INT
+      serviceConnection: azure-int
+      appName: myapp-int
+      resourceGroup: rg-int
+      dependsOn: [Build, Security]
+```
+
+### Azure Pipelines: SonarCloud Template
+
+Reusable SonarCloud analysis template for Azure Pipelines. Uses the three-task pattern: Prepare, Analyze, Publish.
+
+```yaml
+# templates/steps/sonarcloud.yml
+parameters:
+  - name: sonarOrganization
+    type: string
+  - name: sonarProjectKey
+    type: string
+  - name: sonarProjectName
+    type: string
+  - name: extraProperties
+    type: string
+    default: ''
+
+steps:
+  - task: SonarCloudPrepare@3
+    displayName: SonarCloud Prepare
+    inputs:
+      SonarCloud: 'SonarCloudServiceConnection'
+      organization: ${{ parameters.sonarOrganization }}
+      scannerMode: 'MSBuild'
+      projectKey: ${{ parameters.sonarProjectKey }}
+      projectName: ${{ parameters.sonarProjectName }}
+      extraProperties: |
+        sonar.coverage.exclusions=**/Tests/**
+        sonar.cs.opencover.reportsPaths=$(Agent.TempDirectory)/**/coverage.opencover.xml
+        ${{ parameters.extraProperties }}
+
+  # Build and test steps run here (caller inserts between Prepare and Analyze)
+
+  - task: SonarCloudAnalyze@3
+    displayName: SonarCloud Analyze
+    condition: succeeded()
+
+  - task: SonarCloudPublish@3
+    displayName: SonarCloud Publish
+    condition: succeeded()
+    inputs:
+      pollingTimeoutSec: 300
+```
+
+Usage in a pipeline:
+
+```yaml
+# azure-pipelines.yml -- SonarCloud integration
+stages:
+  - stage: Build
+    jobs:
+      - job: BuildAndAnalyze
+        pool:
+          vmImage: ubuntu-latest
+        steps:
+          - checkout: self
+            fetchDepth: 0
+
+          - template: steps/sonarcloud.yml@templates
+            parameters:
+              sonarOrganization: my-org
+              sonarProjectKey: my-org_my-project
+              sonarProjectName: My Project
+
+          - task: DotNetCoreCLI@2
+            displayName: Build
+            inputs:
+              command: build
+              arguments: '--configuration Release'
+
+          - task: DotNetCoreCLI@2
+            displayName: Test with Coverage
+            inputs:
+              command: test
+              arguments: '--configuration Release --collect:"XPlat Code Coverage" -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=opencover'
+
+          - task: SonarCloudAnalyze@3
+            displayName: SonarCloud Analyze
+
+          - task: SonarCloudPublish@3
+            displayName: SonarCloud Publish
+            inputs:
+              pollingTimeoutSec: 300
+```
+
+For Python projects, use the CLI scanner mode instead of MSBuild:
+
+```yaml
+# templates/steps/sonarcloud-cli.yml
+parameters:
+  - name: sonarOrganization
+    type: string
+  - name: sonarProjectKey
+    type: string
+  - name: sonarProjectName
+    type: string
+
+steps:
+  - task: SonarCloudPrepare@3
+    displayName: SonarCloud Prepare
+    inputs:
+      SonarCloud: 'SonarCloudServiceConnection'
+      organization: ${{ parameters.sonarOrganization }}
+      scannerMode: 'CLI'
+      configMode: 'manual'
+      cliProjectKey: ${{ parameters.sonarProjectKey }}
+      cliProjectName: ${{ parameters.sonarProjectName }}
+      extraProperties: |
+        sonar.python.coverage.reportPaths=coverage.xml
+        sonar.sources=src/
+        sonar.tests=tests/
+
+  - task: SonarCloudAnalyze@3
+    displayName: SonarCloud Analyze
+
+  - task: SonarCloudPublish@3
+    displayName: SonarCloud Publish
+    inputs:
+      pollingTimeoutSec: 300
+```
+
+### Azure Pipelines: Build-Once-Deploy-Many (Artifact Promotion)
+
+Build the artifact once, then promote the same binary through INT, ACC, and PRO environments. Uses pipeline artifacts and deployment jobs with environment approvals.
+
+```yaml
+# azure-pipelines.yml -- Build Once, Deploy Many
+trigger:
+  branches:
+    include: [main, develop, release/*]
+
+variables:
+  - group: app-settings-common
+  - name: buildConfiguration
+    value: Release
+
+stages:
+  # Stage 1: Build and publish artifact (runs once)
+  - stage: Build
+    jobs:
+      - job: BuildJob
+        pool:
+          vmImage: ubuntu-latest
+        steps:
+          - task: DotNetCoreCLI@2
+            displayName: Restore
+            inputs:
+              command: restore
+          - task: DotNetCoreCLI@2
+            displayName: Build
+            inputs:
+              command: build
+              arguments: '--configuration $(buildConfiguration) --no-restore'
+          - task: DotNetCoreCLI@2
+            displayName: Test
+            inputs:
+              command: test
+              arguments: '--configuration $(buildConfiguration) --no-build'
+          - task: DotNetCoreCLI@2
+            displayName: Publish
+            inputs:
+              command: publish
+              arguments: '--configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory)'
+              zipAfterPublish: true
+          - publish: $(Build.ArtifactStagingDirectory)
+            artifact: drop
+            displayName: Publish Pipeline Artifact
+
+  # Stage 2: Deploy to INT (automatic on develop)
+  - stage: Deploy_INT
+    dependsOn: Build
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/develop'))
+    variables:
+      - group: app-settings-INT
+    jobs:
+      - deployment: DeployINT
+        environment: INT
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - download: current
+                  artifact: drop
+                - task: AzureWebApp@1
+                  inputs:
+                    azureSubscription: 'azure-int'
+                    appName: '$(appName)-int'
+                    package: '$(Pipeline.Workspace)/drop/**/*.zip'
+
+  # Stage 3: Deploy to ACC (requires 1 approval, on release branches)
+  - stage: Deploy_ACC
+    dependsOn: Build
+    condition: and(succeeded(), startsWith(variables['Build.SourceBranch'], 'refs/heads/release/'))
+    variables:
+      - group: app-settings-ACC
+    jobs:
+      - deployment: DeployACC
+        environment: ACC  # configure 1 approval in Azure DevOps
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - download: current
+                  artifact: drop
+                - task: AzureWebApp@1
+                  inputs:
+                    azureSubscription: 'azure-acc'
+                    appName: '$(appName)-acc'
+                    package: '$(Pipeline.Workspace)/drop/**/*.zip'
+
+  # Stage 4: Deploy to PRO (requires 2 approvals, main only)
+  - stage: Deploy_PRO
+    dependsOn: Deploy_ACC
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+    variables:
+      - group: app-settings-PRO
+    jobs:
+      - deployment: DeployPRO
+        environment: PRO  # configure 2 approvals + business hours in Azure DevOps
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - download: current
+                  artifact: drop
+                - task: AzureWebApp@1
+                  inputs:
+                    azureSubscription: 'azure-pro'
+                    appName: '$(appName)-pro'
+                    package: '$(Pipeline.Workspace)/drop/**/*.zip'
+```
+
+Key principles:
+- **Same artifact** -- every environment deploys the exact binary produced in the Build stage via `download: current`.
+- **Environment gates** -- approvals are configured on the Azure DevOps Environment resource, not in YAML.
+- **Variable groups per environment** -- each stage loads its own `app-settings-<ENV>` variable group for connection strings, feature flags, and URLs.
+
+### Azure Pipelines: Deployment Strategies
+
+Azure Pipelines deployment jobs support three strategies: rolling, canary, and blue-green. Configure these in the `strategy` block of a `deployment` job.
+
+**Rolling Deployment** -- deploy to instances in batches, reducing blast radius:
+
+```yaml
+# Rolling: update instances in batches
+jobs:
+  - deployment: RollingDeploy
+    environment:
+      name: PRO
+      resourceType: VirtualMachine  # requires VM resource in environment
+    strategy:
+      rolling:
+        maxParallel: 25%  # deploy to 25% of targets at a time
+        preDeploy:
+          steps:
+            - script: echo "Validating pre-deployment health"
+            - task: AzureCLI@2
+              displayName: Health Check Pre-Deploy
+              inputs:
+                azureSubscription: 'azure-pro'
+                scriptType: bash
+                scriptLocation: inlineScript
+                inlineScript: |
+                  az webapp show --name $(appName) --query state -o tsv
+        deploy:
+          steps:
+            - download: current
+              artifact: drop
+            - task: AzureWebApp@1
+              inputs:
+                azureSubscription: 'azure-pro'
+                appName: '$(appName)'
+                package: '$(Pipeline.Workspace)/drop/**/*.zip'
+        routeTraffic:
+          steps:
+            - script: echo "Routing traffic to updated instances"
+        postRouteTraffic:
+          steps:
+            - task: AzureCLI@2
+              displayName: Smoke Test
+              inputs:
+                azureSubscription: 'azure-pro'
+                scriptType: bash
+                scriptLocation: inlineScript
+                inlineScript: |
+                  response=$(curl -s -o /dev/null -w "%{http_code}" https://$(appName).azurewebsites.net/health)
+                  if [ "$response" != "200" ]; then
+                    echo "##vso[task.logissue type=error]Health check failed with status $response"
+                    exit 1
+                  fi
+        on:
+          failure:
+            steps:
+              - script: echo "Rolling deployment failed -- initiating rollback"
+          success:
+            steps:
+              - script: echo "Rolling deployment completed successfully"
+```
+
+**Canary Deployment** -- route a percentage of traffic to the new version before full rollout:
+
+```yaml
+# Canary: incremental traffic shifting
+jobs:
+  - deployment: CanaryDeploy
+    environment: PRO
+    strategy:
+      canary:
+        increments: [10, 50, 100]  # shift 10%, then 50%, then 100%
+        preDeploy:
+          steps:
+            - script: echo "Preparing canary deployment"
+        deploy:
+          steps:
+            - download: current
+              artifact: drop
+            - task: AzureWebApp@1
+              inputs:
+                azureSubscription: 'azure-pro'
+                appName: '$(appName)'
+                package: '$(Pipeline.Workspace)/drop/**/*.zip'
+                deployToSlotOrASE: true
+                slotName: canary
+        routeTraffic:
+          steps:
+            - task: AzureAppServiceManage@0
+              displayName: 'Route $(strategy.increment)% traffic to canary'
+              inputs:
+                azureSubscription: 'azure-pro'
+                resourceGroupName: '$(resourceGroup)'
+                webAppName: '$(appName)'
+                action: 'Set Traffic Routing'
+                trafficRoutingMethod: percentage
+                percentage: $(strategy.increment)
+        postRouteTraffic:
+          steps:
+            - task: AzureCLI@2
+              displayName: Validate Canary Health
+              inputs:
+                azureSubscription: 'azure-pro'
+                scriptType: bash
+                scriptLocation: inlineScript
+                inlineScript: |
+                  echo "Validating canary at $(strategy.increment)% traffic"
+                  response=$(curl -s -o /dev/null -w "%{http_code}" https://$(appName)-canary.azurewebsites.net/health)
+                  if [ "$response" != "200" ]; then
+                    echo "##vso[task.logissue type=error]Canary health check failed"
+                    exit 1
+                  fi
+        on:
+          failure:
+            steps:
+              - task: AzureAppServiceManage@0
+                displayName: Rollback -- Route 100% to production
+                inputs:
+                  azureSubscription: 'azure-pro'
+                  resourceGroupName: '$(resourceGroup)'
+                  webAppName: '$(appName)'
+                  action: 'Set Traffic Routing'
+                  trafficRoutingMethod: percentage
+                  percentage: 0
+          success:
+            steps:
+              - task: AzureAppServiceManage@0
+                displayName: Swap canary to production
+                inputs:
+                  azureSubscription: 'azure-pro'
+                  resourceGroupName: '$(resourceGroup)'
+                  webAppName: '$(appName)'
+                  action: 'Swap Slots'
+                  sourceSlot: canary
+```
+
+**Blue-Green Deployment** -- deploy to a staging slot, validate, then swap:
+
+```yaml
+# Blue-Green: deploy to staging slot, swap after validation
+jobs:
+  - deployment: BlueGreenDeploy
+    environment: PRO
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+            - download: current
+              artifact: drop
+
+            # Deploy to staging slot (green)
+            - task: AzureWebApp@1
+              displayName: Deploy to Staging Slot
+              inputs:
+                azureSubscription: 'azure-pro'
+                appName: '$(appName)'
+                package: '$(Pipeline.Workspace)/drop/**/*.zip'
+                deployToSlotOrASE: true
+                slotName: staging
+
+            # Validate staging slot
+            - task: AzureCLI@2
+              displayName: Validate Staging Slot
+              inputs:
+                azureSubscription: 'azure-pro'
+                scriptType: bash
+                scriptLocation: inlineScript
+                inlineScript: |
+                  echo "Running smoke tests against staging slot"
+                  response=$(curl -s -o /dev/null -w "%{http_code}" https://$(appName)-staging.azurewebsites.net/health)
+                  if [ "$response" != "200" ]; then
+                    echo "##vso[task.logissue type=error]Staging validation failed with status $response"
+                    exit 1
+                  fi
+
+            # Swap staging to production
+            - task: AzureAppServiceManage@0
+              displayName: Swap Staging to Production
+              inputs:
+                azureSubscription: 'azure-pro'
+                resourceGroupName: '$(resourceGroup)'
+                webAppName: '$(appName)'
+                action: 'Swap Slots'
+                sourceSlot: staging
+                targetSlot: production
+
+            # Verify production after swap
+            - task: AzureCLI@2
+              displayName: Post-Swap Verification
+              inputs:
+                azureSubscription: 'azure-pro'
+                scriptType: bash
+                scriptLocation: inlineScript
+                inlineScript: |
+                  echo "Verifying production after swap"
+                  response=$(curl -s -o /dev/null -w "%{http_code}" https://$(appName).azurewebsites.net/health)
+                  if [ "$response" != "200" ]; then
+                    echo "##vso[task.logissue type=error]Post-swap verification failed -- consider swap-back"
+                    exit 1
+                  fi
+```
+
+| Strategy | Use Case | Rollback | Traffic Control |
+|----------|----------|----------|-----------------|
+| Rolling | VM-based workloads, batch updates | Automatic on failure | By instance batch |
+| Canary | Gradual validation, risk-sensitive releases | Route traffic to 0% canary | Percentage-based increments |
+| Blue-Green | Zero-downtime, instant rollback needed | Swap back to previous slot | Slot swap (instant) |
 
 ## What Requires Manual Setup
 
