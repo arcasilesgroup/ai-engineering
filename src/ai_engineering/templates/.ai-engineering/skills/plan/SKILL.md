@@ -135,6 +135,5 @@ Actions:
 
 ## References
 
-- `agents/plan.md` — full planning agent (creates specs, produces execution plan)
-- `skills/discover/SKILL.md` — detailed discovery interrogation
-- `skills/risk/SKILL.md` — formal risk acceptance lifecycle
+- `agents/plan.md` — full planning agent (creates specs, produces execution plan; discover mode embedded)
+- `skills/governance/SKILL.md` — governance validation including risk acceptance lifecycle

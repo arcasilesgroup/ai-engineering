@@ -14,9 +14,8 @@ Before non-trivial work:
 
 1. **Read active spec** — `.ai-engineering/context/specs/_active.md` and linked spec/plan/tasks.
 2. **Read decision store** — `.ai-engineering/state/decision-store.json`.
-3. **Load checkpoint** — `ai-eng checkpoint load` for session recovery.
-4. **Run cleanup** — `/cleanup` to sync repo.
-5. **Verify tooling** — ruff, gitleaks, pytest, ty.
+3. **Run cleanup** — `/cleanup` to sync repo.
+4. **Verify tooling** — ruff, gitleaks, pytest, ty.
 
 Mandatory. Skipping risks stale code, repeated decisions, or merge conflicts.
 
@@ -41,9 +40,17 @@ Before governance decisions: read `framework-contract.md` §2-3 (agentic model, 
 For skills/agents/CLI reference: read `product-contract.md` §2.2.
 For commands/pipelines: read `framework-contract.md` §5.
 
+## Observability
+
+Telemetry is **automatic via hooks** — no manual `ai-eng signals emit` needed in Claude Code.
+- `PostToolUse(Skill)` hook emits `skill_invoked` events automatically
+- `Stop` hook emits `session_end` events automatically
+- All events → `.ai-engineering/state/audit-log.ndjson`
+- Dashboards: `ai-eng observe [engineer|team|ai|dora|health]`
+
 ## Quick Reference
 
-- Skills (38): `.claude/skills/ai-<name>/SKILL.md` — slash commands: `/ai-<name>`
+- Skills (34): `.claude/skills/ai-<name>/SKILL.md` — slash commands: `/ai-<name>`
 - Agents (8): `.claude/agents/ai-<name>.md`
 - CLI: `ai-eng <command>` — see `product-contract.md` §2.2 for full table
 - Quality: coverage 80%, duplication ≤3%, cyclomatic ≤10, cognitive ≤15, zero blocker/critical

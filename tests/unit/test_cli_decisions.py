@@ -540,4 +540,4 @@ class TestDecisionRecord:
         line = audit_path.read_text().strip()
         audit = json.loads(line)
         assert audit["event"] == "decision_recorded"
-        assert "d-test-005" in audit["detail"]
+        assert "d-test-005" in audit["detail"]["message"]

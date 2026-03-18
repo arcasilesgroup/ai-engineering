@@ -147,8 +147,7 @@ Actions:
 ## References
 
 - `.claude/skills/ai-commit/SKILL.md` — shared commit pipeline (steps 0–6).
-- `.claude/skills/ai-changelog/SKILL.md` — changelog entry formatting.
-- `.claude/skills/ai-document/SKILL.md` — README and documentation updates.
+- `.claude/skills/ai-document/SKILL.md` — changelog entry formatting (changelog mode) and README/documentation updates.
 - `standards/framework/core.md` — non-negotiables and enforcement rules.
 - `standards/framework/quality/core.md` — gate structure.
 - `.claude/agents/ai-operate.md` — agent that validates PR workflow execution.

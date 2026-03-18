@@ -16,6 +16,7 @@ are rejected.
 from __future__ import annotations
 
 import os
+import time as _time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -78,20 +79,27 @@ def run_gate(
         check_version_deprecation,
     )
 
+    t0 = _time.monotonic()
     result = GateResult(hook=hook)
 
     # Branch protection check (all hooks)
     check_branch_protection(project_root, result)
     if not result.passed:
+        elapsed_ms = int((_time.monotonic() - t0) * 1000)
+        emit_gate_event(project_root, result, duration_ms=elapsed_ms)
         return result
 
     # Version deprecation check (defense-in-depth, all hooks)
     check_version_deprecation(result)
     if not result.passed:
+        elapsed_ms = int((_time.monotonic() - t0) * 1000)
+        emit_gate_event(project_root, result, duration_ms=elapsed_ms)
         return result
 
     check_hook_integrity(project_root, result)
     if not result.passed:
+        elapsed_ms = int((_time.monotonic() - t0) * 1000)
+        emit_gate_event(project_root, result, duration_ms=elapsed_ms)
         return result
 
     if hook == GateHook.PRE_COMMIT:
@@ -101,8 +109,26 @@ def run_gate(
     elif hook == GateHook.PRE_PUSH:
         _run_pre_push_checks(project_root, result)
 
-    # Emit audit event for observability (Phase 0 instrumentation)
-    emit_gate_event(project_root, result)
+    # Emit audit event for observability with timing
+    elapsed_ms = int((_time.monotonic() - t0) * 1000)
+    emit_gate_event(project_root, result, duration_ms=elapsed_ms)
+
+    # Emit build_complete on successful pre-push
+    if result.passed and hook == GateHook.PRE_PUSH:
+        import contextlib
+
+        with contextlib.suppress(Exception):
+            from ai_engineering.state.audit import emit_build_event
+
+            stats = _git_diff_stats(project_root)
+            emit_build_event(
+                project_root,
+                mode="pre-push",
+                files_changed=stats["files"],
+                lines_added=stats["insertions"],
+                lines_removed=stats["deletions"],
+                stack=",".join(_get_active_stacks(project_root)),
+            )
 
     return result
 
@@ -121,6 +147,33 @@ def _get_active_stacks(project_root: Path) -> list[str]:
         return stacks if stacks else ["python"]
     except (OSError, ValueError):
         return ["python"]
+
+
+def _git_diff_stats(project_root: Path) -> dict[str, int]:
+    """Get diff stats for changes being pushed (fail-open)."""
+    import subprocess
+
+    try:
+        proc = subprocess.run(
+            ["git", "diff", "--cached", "--numstat"],
+            capture_output=True,
+            text=True,
+            cwd=project_root,
+            timeout=10,
+        )
+        files = insertions = deletions = 0
+        for line in proc.stdout.strip().splitlines():
+            parts = line.split("\t")
+            if len(parts) >= 3:
+                files += 1
+                try:
+                    insertions += int(parts[0]) if parts[0] != "-" else 0
+                    deletions += int(parts[1]) if parts[1] != "-" else 0
+                except ValueError:
+                    pass
+        return {"files": files, "insertions": insertions, "deletions": deletions}
+    except Exception:
+        return {"files": 0, "insertions": 0, "deletions": 0}
 
 
 def _run_commit_msg_checks(

@@ -315,6 +315,10 @@ CLAUDE_SKILL_EXTRAS: dict[str, str] = {
         " `correctness` (verify code does what PR/spec claims).\n"
     ),
     "governance": ("\nUse context:fork for isolated execution when performing heavy analysis.\n"),
+    "integrity": (
+        "\nUse context:fork for isolated execution when performing heavy analysis.\n"
+        "\nModes: `full` (default), `quick`, `sync`.\n"
+    ),
     "performance": ("\nUse context:fork for isolated execution when performing heavy analysis.\n"),
     "quality": ("\nUse context:fork for isolated execution when performing heavy analysis.\n"),
     "security": ("\nUse context:fork for isolated execution when performing heavy analysis.\n"),

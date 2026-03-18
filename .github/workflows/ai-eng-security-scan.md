@@ -5,14 +5,10 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
-  issues: write
 safe-outputs:
   create-issue:
     title-prefix: "[security-scan] "
     labels: [automation, security]
-  upload-artifact:
-    name: security-reports
-    retention-days: 30
 ---
 
 # Scheduled Security Scan

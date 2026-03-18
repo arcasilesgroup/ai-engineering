@@ -205,11 +205,11 @@ def _log_install_event(ai_eng_dir: Path, result: InstallResult) -> None:
     entry = AuditEntry(
         event="install",
         actor="ai-engineering-cli",
-        detail=(
-            f"created={result.total_created} "
-            f"skipped={result.total_skipped} "
-            f"state_files={len(result.state_files)}"
-        ),
+        detail={
+            "created": result.total_created,
+            "skipped": result.total_skipped,
+            "state_files": len(result.state_files),
+        },
         vcs_provider=repo_ctx.provider if repo_ctx else None,
         vcs_organization=repo_ctx.organization if repo_ctx else None,
         vcs_project=repo_ctx.project if repo_ctx else None,

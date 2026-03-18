@@ -23,8 +23,6 @@ Normative shared rules are defined in `.claude/skills/ai-ops/SKILL.md` under **S
 
 ## Behavior
 
-> **Telemetry** (cross-IDE): run `ai-eng signals emit agent_dispatched --actor=ai --detail='{"agent":"operate"}'` at agent activation. Fail-open -- skip if ai-eng unavailable.
-
 ### Apply Shared Rules
 
 1. **Apply shared operational rules** -- execute `OPS-R1..OPS-R5` from `.claude/skills/ai-ops/SKILL.md`.

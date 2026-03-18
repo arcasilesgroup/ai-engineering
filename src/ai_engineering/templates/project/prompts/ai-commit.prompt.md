@@ -57,7 +57,7 @@ Execute the `/commit` governed workflow: stage all changes, run mandatory pre-co
    - **CHANGELOG only**: any other functional change — src/ modifications, API changes, dependency bumps with behavioral impact, governance surface changes, workflow behavior changes.
    - **No updates needed**: changes with zero functional impact — typo fixes in comments, whitespace-only changes, test-only additions that don't change public behavior, CI config formatting. Log: "Documentation gate evaluated — no functional changes detected."
      b. Update **CHANGELOG.md** (when scope requires it):
-   - If `CHANGELOG.md` exists: add entries to `[Unreleased]` section per `.github/prompts/ai-changelog.prompt.md` format. Stage the updated file.
+   - If `CHANGELOG.md` exists: add entries to `[Unreleased]` section per `.github/prompts/ai-document.prompt.md` changelog mode format. Stage the updated file.
    - If `CHANGELOG.md` does NOT exist: create it following Keep a Changelog format. Stage the new file.
      c. Update **README.md** (when scope includes README):
    - If `README.md` exists AND changes include new features, breaking changes, new CLI commands, or skill catalog changes: update relevant sections. Stage the updated file.
@@ -117,7 +117,6 @@ Actions:
 - `standards/framework/core.md` — non-negotiables and enforcement rules.
 - `standards/framework/stacks/python.md` — Python-specific checks.
 - `standards/framework/quality/core.md` — gate structure (pre-commit gate).
-- `.github/prompts/ai-changelog.prompt.md` — changelog entry formatting (used by documentation gate).
-- `.github/prompts/ai-document.prompt.md` — README and documentation update procedure for OSS GitHub users (used by documentation gate).
+- `.github/prompts/ai-document.prompt.md` — changelog entry formatting (changelog mode) and README/documentation update procedure (used by documentation gate).
 - `.github/prompts/ai-pr.prompt.md` — PR workflow.
 - `.github/agents/operate.agent.md` — agent that validates commit workflow execution.

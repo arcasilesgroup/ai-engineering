@@ -12,7 +12,6 @@ references:
   skills:
     - skills/guard/SKILL.md
     - skills/governance/SKILL.md
-    - skills/risk/SKILL.md
   standards:
     - standards/framework/core.md
     - standards/framework/quality/core.md
@@ -47,8 +46,6 @@ Guard is NOT redundant with verify. Verify validates the final product. Guard pr
 | `drift` | On-demand or periodic | Compare implementation against architectural decisions |
 
 ## Behavior
-
-> **Telemetry** (cross-IDE): run `ai-eng signals emit agent_dispatched --actor=ai --detail='{"agent":"guard"}'` at agent activation. Fail-open -- skip if ai-eng unavailable.
 
 ### Mode: advise
 
@@ -135,8 +132,7 @@ Guard never uses `error`, `critical`, `blocker` -- those belong to verify and ho
 ## Referenced Skills
 
 - `skills/guard/SKILL.md` -- primary skill with detailed procedures
-- `skills/governance/SKILL.md` -- shared governance validation patterns
-- `skills/risk/SKILL.md` -- risk acceptance lifecycle (shared, for expired-decision checks)
+- `skills/governance/SKILL.md` -- shared governance validation patterns (includes risk acceptance lifecycle)
 
 ## Referenced Standards
 

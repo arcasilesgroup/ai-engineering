@@ -459,22 +459,23 @@ class AuditEntry(BaseModel):
 
     Appended to `.ai-engineering/state/audit-log.ndjson` (one JSON object per line).
 
-    The ``detail`` field accepts both simple strings and structured dicts,
-    enabling enriched events (scan results, gate outcomes, deploy signals)
-    while maintaining backward compatibility with existing string-only entries.
+    The ``detail`` field is always a structured dict, enabling enriched events
+    (scan results, gate outcomes, deploy signals) for database-ready analytics.
     """
 
     timestamp: datetime = Field(default_factory=lambda: datetime.now(tz=UTC))
     event: str
     actor: str
-    spec: str | None = None
-    task: str | None = None
-    detail: str | dict[str, Any] | None = None
-    session: str | None = None
+    detail: dict[str, Any] | None = None
+    # VCS context (auto-populated by _emit)
     vcs_provider: str | None = None
     vcs_organization: str | None = None
     vcs_project: str | None = None
     vcs_repository: str | None = None
     branch: str | None = None
     commit_sha: str | None = None
-    session_id: str | None = None
+    # Enrichment fields (auto-populated by _emit)
+    source: str | None = None
+    spec_id: str | None = None
+    stack: str | None = None
+    duration_ms: int | None = None

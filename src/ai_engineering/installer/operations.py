@@ -126,7 +126,7 @@ def _save_manifest_and_log(
     entry = AuditEntry(
         event=event,
         actor="ai-engineering-cli",
-        detail=detail,
+        detail={"message": detail},
         vcs_provider=repo_ctx.provider if repo_ctx else None,
         vcs_organization=repo_ctx.organization if repo_ctx else None,
         vcs_project=repo_ctx.project if repo_ctx else None,

@@ -6,6 +6,9 @@ with findings, severity levels, and a pass/warn/fail verdict.
 
 from __future__ import annotations
 
+import contextlib
+import json
+import time as _time
 from pathlib import Path
 from typing import Annotated
 
@@ -30,6 +33,10 @@ def verify_cmd(
         Path | None,
         typer.Option("--target", "-t", help="Project root to verify. Defaults to cwd."),
     ] = None,
+    output_json: Annotated[
+        bool,
+        typer.Option("--json", help="Output report as JSON (deprecated: use global --json)."),
+    ] = False,
 ) -> None:
     """Run verification in the specified mode and produce a scored report."""
     if mode not in MODES:
@@ -40,10 +47,37 @@ def verify_cmd(
     root = resolve_project_root(target)
     func = MODES[mode]
 
+    t0 = _time.monotonic()
     with spinner(f"Running {mode} verification..."):
         result = func(root)
+    elapsed_ms = int((_time.monotonic() - t0) * 1000)
 
-    if is_json_mode():
+    # Emit scan and advisory events (fail-open)
+    with contextlib.suppress(Exception):
+        from ai_engineering.state.audit import emit_scan_event
+
+        emit_scan_event(
+            root,
+            mode=mode,
+            score=result.score,
+            findings=result.summary(),
+            duration_ms=elapsed_ms,
+        )
+
+    with contextlib.suppress(Exception):
+        from ai_engineering.state.audit import emit_guard_advisory
+
+        summary = result.summary()
+        emit_guard_advisory(
+            root,
+            files_checked=len({f.file for f in result.findings if f.file}),
+            warnings=summary.get("blocker", 0)
+            + summary.get("critical", 0)
+            + summary.get("major", 0),
+            concerns=summary.get("minor", 0) + summary.get("info", 0),
+        )
+
+    if is_json_mode() or output_json:
         report = {
             "mode": mode,
             "score": result.score,
@@ -60,15 +94,18 @@ def verify_cmd(
                 for f in result.findings
             ],
         }
-        next_actions = []
-        if result.verdict.value == "FAIL":
-            next_actions = [
-                NextAction(
-                    command="ai-eng doctor",
-                    description="Run health diagnostics",
-                ),
-            ]
-        emit_success(f"ai-eng verify {mode}", report, next_actions)
+        if is_json_mode():
+            next_actions = []
+            if result.verdict.value == "FAIL":
+                next_actions = [
+                    NextAction(
+                        command="ai-eng doctor",
+                        description="Run health diagnostics",
+                    ),
+                ]
+            emit_success(f"ai-eng verify {mode}", report, next_actions)
+        else:
+            typer.echo(json.dumps(report, indent=2))
     else:
         result_header("Verify", result.verdict.value, f"{mode} @ {root}")
         kv("Score", f"{result.score}/100")

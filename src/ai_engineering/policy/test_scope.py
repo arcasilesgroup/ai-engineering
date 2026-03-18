@@ -134,7 +134,7 @@ TEST_SCOPE_RULES: list[ScopeRule] = [
                 "tests/unit/test_cli_decisions.py",
                 "tests/unit/test_cli_scan_report.py",
                 "tests/unit/test_cli_signals.py",
-                "tests/unit/test_cli_checkpoint.py",
+                "tests/unit/test_cli_sync.py",
                 "tests/unit/test_cli_metrics.py",
                 "tests/unit/test_spec_cmd.py",
                 "tests/unit/test_observe_dashboards.py",
@@ -394,6 +394,19 @@ TEST_SCOPE_RULES: list[ScopeRule] = [
         tiers={
             "unit": ["tests/unit/test_check_workflow_policy.py"],
             "integration": [],
+            "e2e": [],
+        },
+    ),
+    ScopeRule(
+        name="telemetry-hooks",
+        source_globs=[
+            "scripts/hooks/**",
+            ".github/hooks/**",
+            ".claude/settings.json",
+        ],
+        tiers={
+            "unit": [],
+            "integration": ["tests/integration/test_telemetry_canary.py"],
             "e2e": [],
         },
     ),

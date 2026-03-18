@@ -148,8 +148,7 @@ Actions:
 ## References
 
 - `.github/prompts/ai-commit.prompt.md` — shared commit pipeline (steps 0–6).
-- `.github/prompts/ai-changelog.prompt.md` — changelog entry formatting.
-- `.github/prompts/ai-document.prompt.md` — README and documentation updates.
+- `.github/prompts/ai-document.prompt.md` — changelog entry formatting (changelog mode) and README/documentation updates.
 - `standards/framework/core.md` — non-negotiables and enforcement rules.
 - `standards/framework/quality/core.md` — gate structure.
 - `.github/agents/operate.agent.md` — agent that validates PR workflow execution.

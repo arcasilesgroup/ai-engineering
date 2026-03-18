@@ -56,8 +56,6 @@ On session start (to resume planning):
 
 ## Behavior
 
-> **Telemetry** (cross-IDE): run `ai-eng signals emit agent_dispatched --actor=ai --detail='{"agent":"plan"}'` at agent activation. Fail-open — skip if ai-eng unavailable.
-
 ### Interrogation Phase (mandatory for full/standard pipelines)
 
 Before classifying or producing any spec, interrogate the request. This phase applies shared rule `PLAN-R5`.
@@ -148,20 +146,17 @@ When asked for roadmap guidance or "what next":
 Plan owns the governance lifecycle for the framework:
 - `ai-create agent|skill` -- create new agents or skills with full registration
 - `ai-delete agent|skill` -- remove agents or skills with cleanup
-- `ai-risk` -- manage risk acceptances (accept, resolve, renew)
-- `ai-standards` -- evolve standards from delivery outcomes
+- `ai-governance risk` -- manage risk acceptances (accept, resolve, renew)
+- `ai-governance standards` -- evolve standards from delivery outcomes
 
 ## Referenced Skills
 
 - `.github/prompts/ai-plan.prompt.md` -- shared planning contract (classification, discovery, risk)
-- `.github/prompts/ai-discover.prompt.md` -- structured requirements discovery
 - `.github/prompts/ai-spec.prompt.md` -- branch creation and spec scaffolding
 - `.github/prompts/ai-cleanup.prompt.md` -- repository hygiene
 - `.github/prompts/ai-explain.prompt.md` -- technical explanations
-- `.github/prompts/ai-risk.prompt.md` -- risk acceptance lifecycle
-- `.github/prompts/ai-standards.prompt.md` -- standards evolution
-- `.github/prompts/ai-lifecycle.prompt.md` -- agent/skill creation lifecycle
-- `.github/prompts/ai-lifecycle.prompt.md` -- agent/skill deletion lifecycle
+- `.github/prompts/ai-governance.prompt.md` -- governance validation, risk acceptance, standards evolution
+- `.github/prompts/ai-lifecycle.prompt.md` -- agent/skill creation and deletion lifecycle
 - `.github/prompts/ai-contract.prompt.md` -- product contract lifecycle (init/sync/validate)
 
 ## Referenced Standards

@@ -71,7 +71,7 @@ Maps each OWASP Top 10 2025 category to the specific framework controls, tools, 
 
 - **Controls**: audit log enforcement, governance event logging.
 - **Tools**: `state/audit-log.ndjson` (governance events).
-- **Skills**: `skills/risk/SKILL.md` (audit trail — mode: `accept`, `resolve`, `renew`).
+- **Skills**: `skills/governance/SKILL.md` (risk mode — audit trail: `accept`, `resolve`, `renew`).
 - **Notes**: all risk decisions logged; governance events are append-only.
 
 ### A10: Server-Side Request Forgery (SSRF)

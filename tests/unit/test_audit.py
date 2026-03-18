@@ -10,8 +10,10 @@ import pytest
 from ai_engineering.state.audit import (
     emit_build_event,
     emit_deploy_event,
+    emit_guard_advisory,
+    emit_guard_drift,
+    emit_guard_gate,
     emit_scan_event,
-    emit_session_event,
 )
 
 pytestmark = pytest.mark.unit
@@ -95,10 +97,10 @@ class TestEmitDeployEvent:
         assert "deploy_complete" in content
 
 
-class TestEmitSessionEvent:
-    """Tests for session_metric audit emission."""
+class TestEmitGuardAdvisory:
+    """Tests for guard_advisory audit emission."""
 
-    def test_emits_session_event(self, tmp_path: Path) -> None:
+    def test_emits_guard_advisory(self, tmp_path: Path) -> None:
         # Arrange
         log_path = tmp_path / ".ai-engineering" / "state" / "audit-log.ndjson"
         log_path.parent.mkdir(parents=True)
@@ -108,12 +110,66 @@ class TestEmitSessionEvent:
             "ai_engineering.state.audit.audit_log_path",
             return_value=log_path,
         ):
-            emit_session_event(
+            emit_guard_advisory(
                 tmp_path,
-                tokens_used=5000,
-                skills_loaded=["build", "test"],
+                files_checked=5,
+                warnings=2,
+                concerns=1,
             )
 
         # Assert
         content = log_path.read_text(encoding="utf-8")
-        assert "session_metric" in content
+        assert "guard_advisory" in content
+        assert '"warnings": 2' in content
+
+
+class TestEmitGuardGate:
+    """Tests for guard_gate audit emission."""
+
+    def test_emits_guard_gate(self, tmp_path: Path) -> None:
+        # Arrange
+        log_path = tmp_path / ".ai-engineering" / "state" / "audit-log.ndjson"
+        log_path.parent.mkdir(parents=True)
+
+        # Act
+        with patch(
+            "ai_engineering.state.audit.audit_log_path",
+            return_value=log_path,
+        ):
+            emit_guard_gate(
+                tmp_path,
+                verdict="PASS",
+                task="T1",
+                agent="build",
+            )
+
+        # Assert
+        content = log_path.read_text(encoding="utf-8")
+        assert "guard_gate" in content
+        assert "PASS" in content
+
+
+class TestEmitGuardDrift:
+    """Tests for guard_drift audit emission."""
+
+    def test_emits_guard_drift(self, tmp_path: Path) -> None:
+        # Arrange
+        log_path = tmp_path / ".ai-engineering" / "state" / "audit-log.ndjson"
+        log_path.parent.mkdir(parents=True)
+
+        # Act
+        with patch(
+            "ai_engineering.state.audit.audit_log_path",
+            return_value=log_path,
+        ):
+            emit_guard_drift(
+                tmp_path,
+                decisions_checked=10,
+                drifted=2,
+                critical=1,
+            )
+
+        # Assert
+        content = log_path.read_text(encoding="utf-8")
+        assert "guard_drift" in content
+        assert '"drifted": 2' in content

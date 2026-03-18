@@ -175,8 +175,8 @@ def decision_record(
     audit = AuditEntry(
         event="decision_recorded",
         actor="cli",
-        spec=spec_id or None,
-        detail=f"Recorded decision {decision_id}",
+        spec_id=spec_id or None,
+        detail={"message": f"Recorded decision {decision_id}"},
     )
     svc.append_audit(audit)
 

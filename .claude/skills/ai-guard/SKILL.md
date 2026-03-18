@@ -35,8 +35,6 @@ Guard is NOT redundant with verify. Verify validates the final product. Guard pr
 
 ## Behavior
 
-> **Telemetry** (cross-IDE): run `ai-eng signals emit agent_dispatched --actor=ai --detail='{"agent":"guard"}'` at agent activation. Fail-open -- skip if ai-eng unavailable.
-
 ### Mode: advise
 
 Integrated into build's post-edit validation loop. After build modifies a file and runs stack-specific checks (ruff, tsc, etc.), guard.advise runs as an intelligent governance check.
@@ -122,8 +120,7 @@ Guard never uses `error`, `critical`, `blocker` -- those belong to verify and ho
 ## Referenced Skills
 
 - `.claude/skills/ai-guard/SKILL.md` -- primary skill with detailed procedures
-- `.claude/skills/ai-governance/SKILL.md` -- shared governance validation patterns
-- `.claude/skills/ai-risk/SKILL.md` -- risk acceptance lifecycle (shared, for expired-decision checks)
+- `.claude/skills/ai-governance/SKILL.md` -- shared governance validation patterns (includes risk acceptance lifecycle)
 
 ## Referenced Standards
 

@@ -137,14 +137,14 @@ The execute agent reads this plan and coordinates agent dispatch accordingly.
 
 - This skill formalizes the **human's dispatch experience** -- it structures what execute already does implicitly.
 - True programmatic dispatch (machine-readable DAG with automated agent invocation) is aspirational and tracked as spec-052.
-- Dispatch entries are consumed by the execute agent within a single Claude Code session. Cross-session dispatch requires checkpoint recovery.
+- Dispatch entries are consumed by the execute agent within a single Claude Code session. 
 - The skill cannot validate that agents will succeed -- it only validates that the plan is structurally sound.
 
 ## When NOT to Use
 
 - **No plan exists** -- use `/ai-plan` first to create plan.md and tasks.md.
 - **Trivial changes** -- single-task changes do not need a DAG. Execute directly.
-- **Active execution** -- do not re-dispatch mid-execution. Complete or checkpoint the current plan first.
+- **Active execution** -- do not re-dispatch mid-execution. Complete the current plan first.
 
 ## Examples
 

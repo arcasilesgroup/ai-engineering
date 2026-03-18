@@ -224,6 +224,171 @@ class TestCopyTemplateTreeExclude:
 
 
 # ---------------------------------------------------------------------------
+# Common file maps and template map completeness
+# ---------------------------------------------------------------------------
+
+
+class TestCommonFileMaps:
+    """Verify _COMMON_FILE_MAPS contains security/quality templates."""
+
+    def test_gitleaks_toml_present(self) -> None:
+        from ai_engineering.installer.templates import _COMMON_FILE_MAPS
+
+        assert ".gitleaks.toml" in _COMMON_FILE_MAPS
+        assert _COMMON_FILE_MAPS[".gitleaks.toml"] == ".gitleaks.toml"
+
+    def test_semgrep_yml_present(self) -> None:
+        from ai_engineering.installer.templates import _COMMON_FILE_MAPS
+
+        assert ".semgrep.yml" in _COMMON_FILE_MAPS
+        assert _COMMON_FILE_MAPS[".semgrep.yml"] == ".semgrep.yml"
+
+    def test_common_files_not_in_legacy_map(self) -> None:
+        """Common files are handled by the dedicated loop, not the legacy map."""
+        from ai_engineering.installer.templates import _PROJECT_TEMPLATE_MAP
+
+        assert ".gitleaks.toml" not in _PROJECT_TEMPLATE_MAP
+        assert ".semgrep.yml" not in _PROJECT_TEMPLATE_MAP
+
+
+class TestCopyProjectTemplatesCommonFiles:
+    """Verify copy_project_templates deploys common files."""
+
+    def test_common_files_deployed(self, tmp_path: Path) -> None:
+        from ai_engineering.installer.templates import copy_project_templates
+
+        # Act
+        result = copy_project_templates(tmp_path, providers=["claude_code"])
+
+        # Assert — common files deployed regardless of provider
+        gitleaks = tmp_path / ".gitleaks.toml"
+        semgrep = tmp_path / ".semgrep.yml"
+        assert gitleaks.exists()
+        assert semgrep.exists()
+        assert gitleaks in result.created
+        assert semgrep in result.created
+
+    def test_common_files_not_overwritten(self, tmp_path: Path) -> None:
+        from ai_engineering.installer.templates import copy_project_templates
+
+        # Pre-existing files
+        (tmp_path / ".gitleaks.toml").write_text("custom")
+        (tmp_path / ".semgrep.yml").write_text("custom")
+
+        # Act
+        copy_project_templates(tmp_path, providers=["claude_code"])
+
+        # Assert — existing files not overwritten
+        assert (tmp_path / ".gitleaks.toml").read_text() == "custom"
+        assert (tmp_path / ".semgrep.yml").read_text() == "custom"
+
+
+class TestCopilotInstructionsTreeMap:
+    """Verify copilot/ and instructions/ are tree-mapped for github_copilot."""
+
+    def test_copilot_tree_in_provider_tree_maps(self) -> None:
+        from ai_engineering.installer.templates import _PROVIDER_TREE_MAPS
+
+        copilot_trees = _PROVIDER_TREE_MAPS["github_copilot"]
+        assert ("copilot", ".github/copilot") in copilot_trees
+        assert ("instructions", ".github/instructions") in copilot_trees
+
+    def test_sonarqube_instruction_deployed(self, tmp_path: Path) -> None:
+        from ai_engineering.installer.templates import copy_project_templates
+
+        # Act
+        copy_project_templates(
+            tmp_path,
+            providers=["github_copilot"],
+        )
+
+        # Assert
+        sonar_inst = tmp_path / ".github" / "instructions" / "sonarqube_mcp.instructions.md"
+        assert sonar_inst.exists()
+
+
+class TestVcsTemplatesDeployed:
+    """Verify VCS-specific templates (CODEOWNERS, dependabot) are deployed."""
+
+    def test_codeowners_deployed_for_github(self, tmp_path: Path) -> None:
+        from ai_engineering.installer.templates import copy_project_templates
+
+        # Act
+        copy_project_templates(
+            tmp_path,
+            providers=["claude_code"],
+            vcs_provider="github",
+        )
+
+        # Assert
+        assert (tmp_path / ".github" / "CODEOWNERS").exists()
+
+    def test_dependabot_deployed_for_github(self, tmp_path: Path) -> None:
+        from ai_engineering.installer.templates import copy_project_templates
+
+        # Act
+        copy_project_templates(
+            tmp_path,
+            providers=["claude_code"],
+            vcs_provider="github",
+        )
+
+        # Assert
+        assert (tmp_path / ".github" / "dependabot.yml").exists()
+
+    def test_vcs_templates_not_deployed_without_vcs_provider(self, tmp_path: Path) -> None:
+        from ai_engineering.installer.templates import copy_project_templates
+
+        # Act
+        copy_project_templates(
+            tmp_path,
+            providers=["claude_code"],
+        )
+
+        # Assert — no VCS-specific files without vcs_provider
+        assert not (tmp_path / ".github" / "CODEOWNERS").exists()
+        assert not (tmp_path / ".github" / "dependabot.yml").exists()
+
+
+class TestCanonicalTemplateStructure:
+    """Verify governance template structure is correct."""
+
+    def test_agents_exist_for_sync_script(self) -> None:
+        """agents/ must exist — sync script reads canonical source from here."""
+        from ai_engineering.installer.templates import get_ai_engineering_template_root
+
+        root = get_ai_engineering_template_root()
+        assert (root / "agents").is_dir()
+
+    def test_skills_exist_for_sync_script(self) -> None:
+        """skills/ must exist — sync script reads canonical source from here."""
+        from ai_engineering.installer.templates import get_ai_engineering_template_root
+
+        root = get_ai_engineering_template_root()
+        assert (root / "skills").is_dir()
+
+    def test_no_evals_in_governance_templates(self) -> None:
+        """evals/ is runtime state, not a governance template."""
+        from ai_engineering.installer.templates import get_ai_engineering_template_root
+
+        root = get_ai_engineering_template_root()
+        assert not (root / "evals").exists()
+
+    def test_agents_excluded_by_installer(self, tmp_path: Path) -> None:
+        """agents/ exists but is excluded during installation (deployed via IDE mirrors)."""
+        from ai_engineering.installer.templates import (
+            copy_template_tree,
+            get_ai_engineering_template_root,
+        )
+
+        root = get_ai_engineering_template_root()
+        result = copy_template_tree(root, tmp_path, exclude=["agents/", "skills/"])
+        created_rels = [p.relative_to(tmp_path).as_posix() for p in result.created]
+        assert not any(r.startswith("agents/") for r in created_rels)
+        assert not any(r.startswith("skills/") for r in created_rels)
+
+
+# ---------------------------------------------------------------------------
 # install() orchestration (fully mocked)
 # ---------------------------------------------------------------------------
 

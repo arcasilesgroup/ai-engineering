@@ -15,10 +15,10 @@ Work-item management covering bidirectional sync with external trackers and auto
 
 ## Trigger
 
-- Command: `/ai-work-item [sync|triage]`
+- Command: `/ai-triage [sync|triage]`
 - Context: work-item creation, sync with external trackers, backlog prioritization.
 
-> **Telemetry** (cross-IDE): run `ai-eng signals emit skill_invoked --actor=ai --detail='{"skill":"work-item"}'` at skill start. Fail-open — skip if ai-eng unavailable.
+> **Telemetry** (cross-IDE): run `ai-eng signals emit skill_invoked --actor=ai --detail='{"skill":"triage"}'` at skill start. Fail-open — skip if ai-eng unavailable.
 
 ## Modes
 

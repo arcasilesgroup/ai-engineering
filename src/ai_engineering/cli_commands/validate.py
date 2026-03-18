@@ -6,7 +6,9 @@ across all 7 content-integrity categories.
 
 from __future__ import annotations
 
+import contextlib
 import json
+import time as _time
 from pathlib import Path
 from typing import Annotated
 
@@ -60,8 +62,38 @@ def validate_cmd(
             raise typer.Exit(code=2)
         categories = [_CATEGORY_NAMES[category]]
 
+    t0 = _time.monotonic()
     with spinner("Validating content integrity..."):
         report = validate_content_integrity(root, categories=categories)
+    elapsed_ms = int((_time.monotonic() - t0) * 1000)
+
+    # Emit events (fail-open)
+    with contextlib.suppress(Exception):
+        from ai_engineering.state.audit import emit_scan_event
+
+        passed_count = sum(1 for cat in IntegrityCategory if report.category_passed(cat))
+        total_cats = len(IntegrityCategory)
+        score = int(passed_count / total_cats * 100) if total_cats > 0 else 0
+        emit_scan_event(
+            root,
+            mode="integrity",
+            score=score,
+            findings={"pass": passed_count, "fail": total_cats - passed_count},
+            duration_ms=elapsed_ms,
+        )
+
+    with contextlib.suppress(Exception):
+        from ai_engineering.state.audit import emit_guard_drift
+
+        passed_count = sum(1 for cat in IntegrityCategory if report.category_passed(cat))
+        total_cats = len(IntegrityCategory)
+        failed_cats = total_cats - passed_count
+        emit_guard_drift(
+            root,
+            decisions_checked=total_cats,
+            drifted=failed_cats,
+            critical=0,
+        )
 
     if is_json_mode() or output_json:
         report_dict = report.to_dict()

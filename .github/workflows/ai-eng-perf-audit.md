@@ -5,10 +5,6 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
-safe-outputs:
-  upload-artifact:
-    name: perf-reports
-    retention-days: 30
 ---
 
 # Performance Audit

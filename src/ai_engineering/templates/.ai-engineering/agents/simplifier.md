@@ -42,8 +42,6 @@ Operates at a different level than refactor: refactor changes STRUCTURE (move fi
 
 ## Behavior
 
-> **Telemetry** (cross-IDE): run `ai-eng signals emit agent_dispatched --actor=ai --detail='{"agent":"simplifier"}'` at agent activation. Fail-open — skip if ai-eng unavailable.
-
 ### 1. Identify Targets
 
 - Scan changed files (post-build) or specified scope.

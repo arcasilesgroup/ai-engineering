@@ -20,7 +20,6 @@ from typing import Annotated
 import typer
 
 from ai_engineering.cli_commands import (
-    checkpoint,
     cicd,
     core,
     decisions_cmd,
@@ -38,6 +37,7 @@ from ai_engineering.cli_commands import (
     skills,
     spec_cmd,
     stack_ide,
+    sync,
     validate,
     vcs,
     verify_cmd,
@@ -117,6 +117,7 @@ def _app_callback(
                         "version",
                         "guide",
                         "observe",
+                        "sync",
                         "stack",
                         "ide",
                         "provider",
@@ -129,7 +130,6 @@ def _app_callback(
                         "setup",
                         "release",
                         "signals",
-                        "checkpoint",
                         "decision",
                         "scan-report",
                         "metrics",
@@ -206,6 +206,9 @@ def create_app() -> typer.Typer:
 
     # Observe command (v3: observability dashboards)
     app.command("observe")(_safe(observe.observe_cmd))
+
+    # Sync command (mirror management)
+    app.command("sync")(_safe(sync.sync_cmd))
 
     # Stack sub-group
     stack_app = typer.Typer(
@@ -328,16 +331,6 @@ def create_app() -> typer.Typer:
     signals_app.command("emit")(_safe(signals_cmd.signals_emit))
     signals_app.command("query")(_safe(signals_cmd.signals_query))
     app.add_typer(signals_app, name="signals")
-
-    # Checkpoint sub-group (v3: session recovery)
-    checkpoint_app = typer.Typer(
-        name="checkpoint",
-        help="Save and load session checkpoints for recovery.",
-        no_args_is_help=True,
-    )
-    checkpoint_app.command("save")(_safe(checkpoint.checkpoint_save))
-    checkpoint_app.command("load")(_safe(checkpoint.checkpoint_load))
-    app.add_typer(checkpoint_app, name="checkpoint")
 
     # Decision sub-group (v3: decision store management)
     decision_app = typer.Typer(

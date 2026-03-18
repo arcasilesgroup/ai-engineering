@@ -136,6 +136,5 @@ Actions:
 
 ## References
 
-- `.github/agents/plan.agent.md` — full planning agent (creates specs, produces execution plan)
-- `.github/prompts/ai-discover.prompt.md` — detailed discovery interrogation
-- `.github/prompts/ai-risk.prompt.md` — formal risk acceptance lifecycle
+- `.github/agents/plan.agent.md` — full planning agent (creates specs, produces execution plan; discover mode embedded)
+- `.github/prompts/ai-governance.prompt.md` — governance validation including risk acceptance lifecycle

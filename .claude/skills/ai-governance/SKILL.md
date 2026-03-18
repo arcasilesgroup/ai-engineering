@@ -1,9 +1,9 @@
 ---
 name: ai-governance
 version: 2.0.0
-description: "Unified governance validation: integrity, compliance, ownership, operational readiness. Modes: integrity | compliance | ownership | operational."
-argument-hint: "all|integrity|compliance|ownership"
-tags: [governance, integrity, compliance, ownership, validation]
+description: "Unified governance validation: integrity, compliance, ownership, operational readiness, risk lifecycle, adaptive standards. Modes: integrity | compliance | ownership | operational | risk | standards."
+argument-hint: "all|integrity|compliance|ownership|operational|risk|standards"
+tags: [governance, integrity, compliance, ownership, validation, risk, standards]
 ---
 
 
@@ -11,13 +11,13 @@ tags: [governance, integrity, compliance, ownership, validation]
 
 ## Purpose
 
-Unified governance validation covering cross-reference integrity, contract compliance, ownership boundaries, and operational readiness. Consolidates integrity, compliance, ownership, and install skills.
+Unified governance validation covering cross-reference integrity, contract compliance, ownership boundaries, operational readiness, risk acceptance lifecycle, and adaptive standards evolution. Consolidates integrity, compliance, ownership, install, risk, and standards skills.
 
 The CLI layer (`ai-eng validate`, `ai-eng doctor`) performs deterministic, repeatable checks. The LLM layer interprets those results in context -- connecting findings across modes, identifying root causes, and surfacing systemic patterns that no single check can detect alone.
 
 ## Trigger
 
-- Command: `/ai-verify governance` or `/ai-governance [integrity|compliance|ownership|operational]`
+- Command: `/ai-verify governance` or `/ai-governance [integrity|compliance|ownership|operational|risk|standards]`
 - Context: governance audit, pre-release governance check, post-install verification.
 
 > **Telemetry** (cross-IDE): run `ai-eng signals emit skill_invoked --actor=ai --detail='{"skill":"governance"}'` at skill start. Fail-open -- skip if ai-eng unavailable.
@@ -36,7 +36,7 @@ Validate that every countable claim in the manifest and governance files matches
 2. **Agent-skill references** -- For each agent definition in `agents/*.md`, verify every path listed under `references.skills` resolves to an existing `SKILL.md`. Flag orphan references (agent points to deleted skill) and shadow skills (skill exists but no agent references it).
 3. **Agent names list** -- Confirm `governance_surface.agents.names` in the manifest matches the actual filenames in `agents/` (minus the `.md` extension). Order does not matter; presence does.
 4. **Command file existence** -- For every skill listed in `skills/`, verify the `SKILL.md` file is non-empty and contains valid YAML frontmatter with required fields (`name`, `description`, `metadata`).
-5. **State file schemas** -- Confirm each file under `state/` is valid JSON (or NDJSON for `audit-log.ndjson`). Verify required keys exist: `decision-store.json` must have a `decisions` array, `session-checkpoint.json` must have `last_session`, `install-manifest.json` must have `version`.
+5. **State file schemas** -- Confirm each file under `state/` is valid JSON (or NDJSON for `audit-log.ndjson`). Verify required keys exist: `decision-store.json` must have a `decisions` array, `install-manifest.json` must have `version`.
 
 **Interpreting output**: Each check reports PASS or FAIL with the specific mismatch. A single FAIL in integrity is a blocker -- it means governance metadata is lying about the actual state, which poisons every downstream decision.
 
@@ -88,6 +88,80 @@ Verify that the installed instance is ready to operate: tools present, hooks ins
 
 **Interpreting output**: `ai-eng doctor` produces a checklist of PASS/WARN/FAIL per tool. FAIL means a required tool is missing or broken -- commits and pushes will be blocked until fixed. WARN means degraded but functional. Use `ai-eng doctor --fix-tools` for automated remediation, `ai-eng doctor --fix-hooks` for hook repair.
 
+### risk -- Risk acceptance lifecycle
+
+Manage the full risk acceptance lifecycle: accepting new risks with time-limited expiry, resolving them after remediation, and renewing when more time is needed. Ensures every risk is tracked, auditable, and subject to governance enforcement.
+
+**CLI**: `ai-eng maintenance risk-status`
+
+**Sub-modes**: `accept`, `resolve`, `renew` (specified as second argument, e.g., `/ai-governance risk accept`).
+
+#### Accept procedure
+
+Record a time-limited risk acceptance when immediate remediation is not feasible.
+
+1. **Classify** -- identify the finding (source tool, description, affected scope).
+2. **Determine severity** -- `critical` (exploitable, user-exposed), `high` (exploitable, limited mitigation), `medium` (conditional), `low` (informational).
+3. **Assess remediation** -- if fixable now, fix it instead. If deferred, document why.
+4. **Register** -- create decision in `decision-store.json`:
+   - `risk_category`: `"risk-acceptance"`
+   - `severity`: from step 2
+   - `criticality`: derive from severity -- `critical` -> `critical`, `high` -> `high`, `medium` -> `medium`, `low` -> `low`
+   - `follow_up_action`: **mandatory** concrete remediation plan
+   - `accepted_by`: actor accepting the risk
+   - `acknowledgedBy`: array of all stakeholders who reviewed
+   - `expires_at`: ISO 8601 date, auto from severity (Critical 15d, High 30d, Medium 60d, Low 90d) or explicit override
+5. **Log** -- append `risk-acceptance-created` to audit log.
+6. **Verify** -- confirm in `ai-eng maintenance risk-status` as `active`.
+
+#### Resolve procedure
+
+Close a risk acceptance after the finding has been remediated.
+
+1. **Locate** -- find decision by ID. Must be `active` or `expired`.
+2. **Validate fix** -- confirm code change committed, security scan clean, no regression.
+3. **Run checks** -- `ai-eng gate risk-check` passes, tool-specific scan no longer flags finding.
+4. **Close** -- mark decision as `remediated` (remains in store for audit trail -- NOT deleted).
+5. **Log** -- append `risk-acceptance-remediated` to audit log.
+6. **Verify** -- decision shows `remediated` in status. Gates green.
+
+#### Renew procedure
+
+Extend a risk acceptance before expiry (maximum 2 renewals).
+
+1. **Locate** -- find decision by ID. Check `renewal_count`.
+2. **Check eligibility** -- if `renewal_count >= 2`: **deny**. Remediation is mandatory.
+3. **Justify** -- require concrete justification (not generic). Update `follow_up_action` if plan changed.
+4. **Extend** -- create new decision: `renewed_from` = original ID, `renewal_count` + 1, recalculated expiry. Original marked `superseded`.
+5. **Log** -- append `risk-acceptance-renewed` with renewal count and justification.
+6. **Warn on final** -- if renewal count = 2: "Final renewal. No further extensions."
+7. **Verify** -- new decision `active`, original `superseded`, gates pass.
+
+**Governance notes**: Risk acceptances are **time-limited** -- expire by severity. Expired acceptances **block pre-push** and **warn in pre-commit**. Maximum **2 renewals** per chain -- non-negotiable. `follow_up_action` is **mandatory** -- no acceptance without a remediation plan. After 2 renewals: remediate or start a new acceptance chain with fresh justification. Partial fixes: do not resolve -- complete the fix or renew.
+
+**Interpreting output**: Each sub-mode produces a decision record. Accept creates a new tracked risk. Resolve marks it closed with audit trail preserved. Renew extends with strict limits. Any expired, unresolved acceptance is a blocker in pre-push gates.
+
+### standards -- Adaptive standards from evidence
+
+Define a controlled loop for proposing and applying standards updates from measurable evidence (gate failures, audits, incident patterns). Use when recurring workflow friction, new risks, or platform changes require policy updates.
+
+**Procedure**:
+
+1. **Collect evidence** -- gather data from gate failures, audit findings, and incident patterns. Quantify: how often, how severe, what impact.
+2. **Draft standards delta** -- propose specific changes with rationale, expected gain, and impact assessment. Each change must cite evidence.
+3. **Validate non-negotiables** -- confirm proposed changes do not weaken non-negotiable standards. Verify ownership boundaries are respected.
+4. **Apply updates** -- implement changes with mirror synchronization across IDE configurations. Run integrity-check after application.
+
+**Post-action validation**:
+
+- Run integrity-check to verify 7/7 categories pass.
+- Run contract-compliance against `framework-contract.md` to verify no regression.
+- If validation fails, fix issues and re-validate (max 3 attempts per iteration limits).
+
+**Governance notes**: Never weaken non-negotiables without explicit risk acceptance (use the `risk` mode to record it). Standards changes must be evidence-driven -- no speculative policy updates.
+
+**Interpreting output**: Standards mode produces a change proposal with evidence citations and impact analysis. After application, integrity and compliance checks confirm the change did not introduce regressions. Failed post-action validation means the standards change must be revised or reverted.
+
 ## Systemic Pattern Analysis
 
 The LLM adds value beyond CLI checks by connecting findings across modes. After collecting results from all requested modes, perform this analysis:
@@ -108,6 +182,11 @@ The LLM adds value beyond CLI checks by connecting findings across modes. After 
 | Team file modified by framework commit | ownership | Updater bug or manual error | Restore from git, file issue against updater |
 | `gh` not authenticated | operational | Fresh clone, no `gh auth login` | Run `gh auth login` then `ai-eng doctor` |
 | State file contains invalid JSON | integrity | Interrupted write, merge conflict | Regenerate from defaults: `ai-eng state reset <file>` |
+| Risk acceptance expired, blocking push | risk | Expiry passed without remediation or renewal | Resolve the finding or renew (max 2) via `/ai-governance risk` |
+| Renewal denied (count >= 2) | risk | Maximum renewals exhausted | Remediate the finding -- no further extensions allowed |
+| Risk accepted without follow_up_action | risk | Missing mandatory field | Add concrete remediation plan to decision |
+| Standards change weakened non-negotiable | standards | Proposed delta relaxes a core rule | Revert change, use risk acceptance if deferral needed |
+| Post-action integrity-check failed | standards | Standards update broke cross-references | Fix mismatches, re-run integrity-check (max 3 attempts) |
 
 ## When NOT to Use
 
@@ -138,6 +217,10 @@ Every governance scan produces this format:
 - Critical findings: N (threshold: 0)
 - Verdict justification: ...
 ```
+
+**Risk mode output** additionally includes: decision ID, severity, expiry date, renewal count, and sub-mode action taken (accepted/resolved/renewed).
+
+**Standards mode output** additionally includes: evidence citations, proposed delta, post-action validation results (integrity-check 7/7, contract-compliance status).
 
 **Scoring**: Start at 100. Deduct per finding: blocker -25, critical -15, major -5, minor -1. Floor at 0. Verdict: PASS >= 90, WARN >= 70, FAIL < 70.
 

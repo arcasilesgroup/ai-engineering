@@ -5,7 +5,6 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
-  issues: write
 safe-outputs:
   create-issue:
     title-prefix: "[code-simplifier] "

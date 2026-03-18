@@ -206,7 +206,6 @@ Guard and scan are complementary, not overlapping:
 
 ## References
 
-- `.github/prompts/ai-governance.prompt.md` -- shared governance validation (integrity, compliance, ownership)
-- `.github/prompts/ai-risk.prompt.md` -- risk acceptance lifecycle for expired-decision context
+- `.github/prompts/ai-governance.prompt.md` -- shared governance validation (integrity, compliance, ownership, risk, standards)
 - `standards/framework/core.md` -- governance structure and ownership model
 - `standards/framework/quality/core.md` -- quality thresholds for trend warnings

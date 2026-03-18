@@ -4,13 +4,12 @@ on:
   schedule: "0 9 * * 1-5"
   workflow_dispatch:
 permissions:
-  issues: write
   contents: read
 safe-outputs:
   add-labels:
-    allowed-labels: [stale, needs-triage, priority-high, priority-medium, priority-low]
+    allowed: [stale, needs-triage, priority-high, priority-medium, priority-low]
   close-issue:
-    require-label: stale
+    required-labels: [stale]
 ---
 
 # Daily Issue Triage

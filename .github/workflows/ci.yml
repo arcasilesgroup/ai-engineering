@@ -455,13 +455,13 @@ jobs:
       - name: Install dependencies
         run: uv sync --dev
       - name: Run actionlint
-        run: ./actionlint
+        run: find .github/workflows -name '*.yml' ! -name '*.lock.yml' -exec ./actionlint {} +
       - name: Workflow policy checks
         run: uv run python scripts/check_workflow_policy.py
       - name: Test mapping integrity
         run: uv run python scripts/check_test_mapping.py
       - name: Mirror sync integrity
-        run: uv run python scripts/sync_command_mirrors.py --check
+        run: uv run ai-eng sync --check
 
   verify-gate-trailers:
     name: Verify Gate Trailers

@@ -32,9 +32,9 @@ def _write_audit_log(root: Path, entries: list[dict]) -> None:
 def _make_event(
     event: str = "scan_complete",
     actor: str = "cli",
-    detail: dict | str | None = None,
+    detail: dict | None = None,
     timestamp: datetime | None = None,
-    spec: str | None = None,
+    spec_id: str | None = None,
 ) -> dict:
     """Build a minimal audit event dict."""
     ts = (timestamp or datetime.now(tz=UTC)).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -45,8 +45,8 @@ def _make_event(
     }
     if detail is not None:
         entry["detail"] = detail
-    if spec is not None:
-        entry["spec"] = spec
+    if spec_id is not None:
+        entry["spec_id"] = spec_id
     return entry
 
 
@@ -110,8 +110,8 @@ class TestSignalsEmit:
         assert entry["detail"]["result"] == "pass"
         assert entry["detail"]["score"] == 100
 
-    def test_emit_with_spec(self, tmp_path: Path) -> None:
-        """Emit with --spec associates the event to a spec."""
+    def test_emit_with_source(self, tmp_path: Path) -> None:
+        """Emit with --source associates the event source."""
         (tmp_path / ".ai-engineering" / "state").mkdir(parents=True)
         with patch(
             "ai_engineering.cli_commands.signals_cmd.find_project_root",
@@ -120,13 +120,13 @@ class TestSignalsEmit:
             app = create_app()
             result = runner.invoke(
                 app,
-                ["signals", "emit", "build_complete", "--spec", "spec-042"],
+                ["signals", "emit", "build_complete", "--source", "hook"],
             )
         assert result.exit_code == 0
 
         log_path = tmp_path / ".ai-engineering" / "state" / "audit-log.ndjson"
         entry = json.loads(log_path.read_text(encoding="utf-8").strip())
-        assert entry["spec"] == "spec-042"
+        assert entry["source"] == "hook"
 
     def test_emit_invalid_detail_json(self, tmp_path: Path) -> None:
         """Invalid JSON in --detail produces exit code 1."""
@@ -273,12 +273,12 @@ class TestSignalsQuery:
         assert "result" in result.output
 
     def test_query_with_string_detail(self, tmp_path: Path) -> None:
-        """Events with string details show the string."""
+        """Old events with string details (backward compat) show the string."""
         now = datetime.now(tz=UTC)
-        _write_audit_log(
-            tmp_path,
-            [_make_event(detail="some detail text", timestamp=now)],
-        )
+        # Simulate an old-format event where detail was a plain string.
+        old_event = _make_event(timestamp=now)
+        old_event["detail"] = "some detail text"
+        _write_audit_log(tmp_path, [old_event])
         with patch(
             "ai_engineering.cli_commands.signals_cmd.find_project_root",
             return_value=tmp_path,

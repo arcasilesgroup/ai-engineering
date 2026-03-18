@@ -34,8 +34,6 @@ Python, .NET, React, TypeScript, Next.js, Node, NestJS, React Native, Rust, YAML
 
 ## Behavior
 
-> **Telemetry** (cross-IDE): run `ai-eng signals emit agent_dispatched --actor=ai --detail='{"agent":"build"}'` at agent activation. Fail-open — skip if ai-eng unavailable.
-
 ### 1. Detect Stack
 
 Identify technology stack from project files:

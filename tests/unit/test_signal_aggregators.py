@@ -4,10 +4,8 @@ Tests the 8 aggregation functions added in spec-039 Phase 5:
 - scan_metrics_from (event-based)
 - build_metrics_from (event-based)
 - deploy_metrics_from (event-based)
-- session_metrics_from (event-based)
 - decision_store_health (file-based)
 - adoption_metrics (file-based)
-- checkpoint_status (file-based)
 - lead_time_metrics (git-based)
 """
 
@@ -23,12 +21,10 @@ import pytest
 from ai_engineering.lib.signals import (
     adoption_metrics,
     build_metrics_from,
-    checkpoint_status,
     decision_store_health,
     deploy_metrics_from,
     lead_time_metrics,
     scan_metrics_from,
-    session_metrics_from,
 )
 
 pytestmark = pytest.mark.unit
@@ -300,87 +296,6 @@ class TestDeployMetricsFrom:
 
 
 # ---------------------------------------------------------------------------
-# 5.4 session_metrics_from
-# ---------------------------------------------------------------------------
-
-
-class TestSessionMetricsFrom:
-    """Tests for session_metrics_from()."""
-
-    def test_normal_case(self) -> None:
-        # Arrange
-        events = [
-            _event(
-                "session_metric",
-                {
-                    "tokens_used": 50000,
-                    "tokens_available": 200000,
-                    "skills_loaded": ["commit", "pr"],
-                    "decisions_reused": 3,
-                    "decisions_reprompted": 1,
-                },
-                days_ago=1,
-            ),
-            _event(
-                "session_metric",
-                {
-                    "tokens_used": 80000,
-                    "tokens_available": 200000,
-                    "skills_loaded": ["build", "commit"],
-                    "decisions_reused": 2,
-                    "decisions_reprompted": 0,
-                },
-                days_ago=2,
-            ),
-        ]
-
-        # Act
-        result = session_metrics_from(events, limit=10)
-
-        # Assert
-        assert result["sessions_analyzed"] == 2
-        assert result["total_tokens"] == 130000
-        assert result["tokens_available"] == 200000
-        assert result["utilization_pct"] == pytest.approx(32.5, abs=0.1)
-        assert sorted(result["skills_loaded"]) == ["build", "commit", "pr"]
-        assert result["decisions_reused"] == 5
-        assert result["decisions_reprompted"] == 1
-
-    def test_empty_events(self) -> None:
-        result = session_metrics_from([], limit=10)
-
-        assert result["sessions_analyzed"] == 0
-        assert result["total_tokens"] == 0
-        assert result["utilization_pct"] == 0.0
-        assert result["skills_loaded"] == []
-
-    def test_limit_respected(self) -> None:
-        events = [_event("session_metric", {"tokens_used": 1000}, days_ago=i) for i in range(20)]
-        result = session_metrics_from(events, limit=5)
-
-        assert result["sessions_analyzed"] == 5
-
-    def test_missing_optional_fields(self) -> None:
-        events = [
-            _event("session_metric", {"tokens_used": 5000}, days_ago=1),
-        ]
-        result = session_metrics_from(events, limit=10)
-
-        assert result["sessions_analyzed"] == 1
-        assert result["total_tokens"] == 5000
-        assert result["skills_loaded"] == []
-        assert result["decisions_reused"] == 0
-
-    def test_default_tokens_available(self) -> None:
-        events = [
-            _event("session_metric", {"tokens_used": 10000}, days_ago=1),
-        ]
-        result = session_metrics_from(events, limit=10)
-
-        assert result["tokens_available"] == 200000
-
-
-# ---------------------------------------------------------------------------
 # 5.5 decision_store_health
 # ---------------------------------------------------------------------------
 
@@ -591,117 +506,6 @@ class TestAdoptionMetrics:
 
 
 # ---------------------------------------------------------------------------
-# 5.7 checkpoint_status
-# ---------------------------------------------------------------------------
-
-
-class TestCheckpointStatus:
-    """Tests for checkpoint_status()."""
-
-    def test_normal_case(self, tmp_path: Path) -> None:
-        # Arrange
-        ts = (datetime.now(tz=UTC) - timedelta(hours=2)).strftime("%Y-%m-%dT%H:%M:%SZ")
-        data = {
-            "spec_id": "spec-039",
-            "current_task": "5.1 Add scan_metrics_from",
-            "progress": "3/8",
-            "last_reasoning": "implementing aggregators",
-            "blocked_on": None,
-            "timestamp": ts,
-        }
-        _write_json(
-            tmp_path / ".ai-engineering" / "state" / "session-checkpoint.json",
-            data,
-        )
-
-        # Act
-        result = checkpoint_status(tmp_path)
-
-        # Assert
-        assert result["has_checkpoint"] is True
-        assert result["last_task"] == "5.1 Add scan_metrics_from"
-        assert result["completed"] == 3
-        assert result["total"] == 8
-        assert result["progress_pct"] == pytest.approx(37.5, abs=0.1)
-        assert result["blocked_on"] is None
-        assert "h ago" in result["age"]
-
-    def test_file_not_found(self, tmp_path: Path) -> None:
-        result = checkpoint_status(tmp_path)
-
-        assert result["has_checkpoint"] is False
-
-    def test_empty_checkpoint(self, tmp_path: Path) -> None:
-        data = {
-            "spec_id": "",
-            "current_task": "",
-            "progress": "",
-            "last_reasoning": "",
-            "blocked_on": None,
-            "timestamp": "2026-03-05T11:11:38Z",
-        }
-        _write_json(
-            tmp_path / ".ai-engineering" / "state" / "session-checkpoint.json",
-            data,
-        )
-        result = checkpoint_status(tmp_path)
-
-        assert result["has_checkpoint"] is False
-
-    def test_blocked_checkpoint(self, tmp_path: Path) -> None:
-        # Arrange
-        ts = (datetime.now(tz=UTC) - timedelta(days=3)).strftime("%Y-%m-%dT%H:%M:%SZ")
-        data = {
-            "spec_id": "spec-039",
-            "current_task": "5.8 lead_time_metrics",
-            "progress": "7/8",
-            "last_reasoning": "needs git history",
-            "blocked_on": "merge history unavailable",
-            "timestamp": ts,
-        }
-        _write_json(
-            tmp_path / ".ai-engineering" / "state" / "session-checkpoint.json",
-            data,
-        )
-
-        # Act
-        result = checkpoint_status(tmp_path)
-
-        # Assert
-        assert result["has_checkpoint"] is True
-        assert result["blocked_on"] == "merge history unavailable"
-        assert "d ago" in result["age"]
-
-    def test_corrupt_json(self, tmp_path: Path) -> None:
-        path = tmp_path / ".ai-engineering" / "state" / "session-checkpoint.json"
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text("{bad", encoding="utf-8")
-
-        result = checkpoint_status(tmp_path)
-
-        assert result["has_checkpoint"] is False
-
-    def test_division_by_zero_progress(self, tmp_path: Path) -> None:
-        # Arrange
-        ts = datetime.now(tz=UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
-        data = {
-            "current_task": "something",
-            "progress": "0/0",
-            "timestamp": ts,
-        }
-        _write_json(
-            tmp_path / ".ai-engineering" / "state" / "session-checkpoint.json",
-            data,
-        )
-
-        # Act
-        result = checkpoint_status(tmp_path)
-
-        # Assert
-        assert result["progress_pct"] == 0.0
-
-
-# ---------------------------------------------------------------------------
 # 5.8 lead_time_metrics
 # ---------------------------------------------------------------------------
 
@@ -856,3 +660,123 @@ class TestLeadTimeMetrics:
 
         assert result["merges_analyzed"] == 0
         assert result["rating"] == "LOW"
+
+
+# ---------------------------------------------------------------------------
+# guard_advisory_from
+# ---------------------------------------------------------------------------
+
+
+class TestGuardAdvisoryFrom:
+    """Tests for guard_advisory_from aggregator."""
+
+    def test_no_events_returns_zeros(self) -> None:
+        from ai_engineering.lib.signals import guard_advisory_from
+
+        result = guard_advisory_from([])
+        assert result["total_advisories"] == 0
+        assert result["total_warnings"] == 0
+        assert result["total_concerns"] == 0
+
+    def test_aggregates_warnings_and_concerns(self) -> None:
+        from ai_engineering.lib.signals import guard_advisory_from
+
+        now = datetime.now(tz=UTC).isoformat()
+        events = [
+            {
+                "event": "guard_advisory",
+                "timestamp": now,
+                "detail": {"warnings": 3, "concerns": 1},
+            },
+            {
+                "event": "guard_advisory",
+                "timestamp": now,
+                "detail": {"warnings": 2, "concerns": 4},
+            },
+        ]
+        result = guard_advisory_from(events)
+        assert result["total_advisories"] == 2
+        assert result["total_warnings"] == 5
+        assert result["total_concerns"] == 5
+
+    def test_excludes_old_events(self) -> None:
+        from ai_engineering.lib.signals import guard_advisory_from
+
+        old = (datetime.now(tz=UTC) - timedelta(days=60)).isoformat()
+        events = [
+            {"event": "guard_advisory", "timestamp": old, "detail": {"warnings": 10}},
+        ]
+        result = guard_advisory_from(events, days=30)
+        assert result["total_advisories"] == 0
+
+
+# ---------------------------------------------------------------------------
+# guard_drift_from
+# ---------------------------------------------------------------------------
+
+
+class TestGuardDriftFrom:
+    """Tests for guard_drift_from aggregator."""
+
+    def test_no_events_returns_zeros(self) -> None:
+        from ai_engineering.lib.signals import guard_drift_from
+
+        result = guard_drift_from([])
+        assert result["total_checks"] == 0
+        assert result["alignment_pct"] == 0.0
+
+    def test_perfect_alignment(self) -> None:
+        from ai_engineering.lib.signals import guard_drift_from
+
+        now = datetime.now(tz=UTC).isoformat()
+        events = [
+            {
+                "event": "guard_drift",
+                "timestamp": now,
+                "detail": {"decisions_checked": 10, "drifted": 0, "critical": 0},
+            },
+        ]
+        result = guard_drift_from(events)
+        assert result["total_checks"] == 1
+        assert result["total_decisions_checked"] == 10
+        assert result["total_drifted"] == 0
+        assert result["alignment_pct"] == 100.0
+
+    def test_partial_drift(self) -> None:
+        from ai_engineering.lib.signals import guard_drift_from
+
+        now = datetime.now(tz=UTC).isoformat()
+        events = [
+            {
+                "event": "guard_drift",
+                "timestamp": now,
+                "detail": {"decisions_checked": 10, "drifted": 3, "critical": 1},
+            },
+        ]
+        result = guard_drift_from(events)
+        assert result["total_drifted"] == 3
+        assert result["total_critical"] == 1
+        assert result["alignment_pct"] == 70.0
+
+    def test_multiple_events_aggregate(self) -> None:
+        from ai_engineering.lib.signals import guard_drift_from
+
+        now = datetime.now(tz=UTC).isoformat()
+        events = [
+            {
+                "event": "guard_drift",
+                "timestamp": now,
+                "detail": {"decisions_checked": 5, "drifted": 1, "critical": 0},
+            },
+            {
+                "event": "guard_drift",
+                "timestamp": now,
+                "detail": {"decisions_checked": 5, "drifted": 1, "critical": 1},
+            },
+        ]
+        result = guard_drift_from(events)
+        assert result["total_checks"] == 2
+        assert result["total_decisions_checked"] == 10
+        assert result["total_drifted"] == 2
+        assert result["total_critical"] == 1
+        assert result["alignment_pct"] == 80.0

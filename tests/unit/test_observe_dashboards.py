@@ -128,48 +128,6 @@ _HIGH_FAILURE_DEPLOY = {
     "strategies": {"rolling": 10},
 }
 
-_EMPTY_SESSION = {
-    "sessions_analyzed": 0,
-    "total_tokens": 0,
-    "tokens_available": 200_000,
-    "utilization_pct": 0.0,
-    "skills_loaded": [],
-    "decisions_reused": 0,
-    "decisions_reprompted": 0,
-}
-
-_GOOD_SESSION = {
-    "sessions_analyzed": 5,
-    "total_tokens": 150_000,
-    "tokens_available": 200_000,
-    "utilization_pct": 15.0,
-    "skills_loaded": ["build", "commit", "test"],
-    "decisions_reused": 10,
-    "decisions_reprompted": 2,
-}
-
-_NO_CHECKPOINT = {"has_checkpoint": False}
-
-_GOOD_CHECKPOINT = {
-    "has_checkpoint": True,
-    "last_task": "6.3",
-    "age": "2h ago",
-    "completed": 3,
-    "total": 5,
-    "progress_pct": 60.0,
-    "blocked_on": None,
-}
-
-_BLOCKED_CHECKPOINT = {
-    "has_checkpoint": True,
-    "last_task": "4.1",
-    "age": "1d ago",
-    "completed": 2,
-    "total": 8,
-    "progress_pct": 25.0,
-    "blocked_on": "PR review pending",
-}
-
 _EMPTY_NOISE = {
     "total_failures": 0,
     "fixable_failures": 0,
@@ -390,7 +348,6 @@ class TestTeamNewSections:
             patch(f"{module}.decision_store_health", return_value=_GOOD_DECISION),
             patch(f"{module}.adoption_metrics", return_value=_DEFAULT_ADOPTION),
             patch(f"{module}.scan_metrics_from", return_value=_EMPTY_SCAN),
-            patch(f"{module}.session_metrics_from", return_value=_EMPTY_SESSION),
             patch(f"{module}.noise_ratio_from", return_value=_EMPTY_NOISE),
         ):
             result = observe_team(tmp_path)
@@ -411,7 +368,6 @@ class TestTeamNewSections:
             patch(f"{module}.decision_store_health", return_value=_EMPTY_DECISION),
             patch(f"{module}.adoption_metrics", return_value=_EMPTY_ADOPTION),
             patch(f"{module}.scan_metrics_from", return_value=_EMPTY_SCAN),
-            patch(f"{module}.session_metrics_from", return_value=_EMPTY_SESSION),
             patch(f"{module}.noise_ratio_from", return_value=_EMPTY_NOISE),
         ):
             result = observe_team(tmp_path)
@@ -428,7 +384,6 @@ class TestTeamNewSections:
             patch(f"{module}.decision_store_health", return_value=_EMPTY_DECISION),
             patch(f"{module}.adoption_metrics", return_value=_DEFAULT_ADOPTION),
             patch(f"{module}.scan_metrics_from", return_value=_EMPTY_SCAN),
-            patch(f"{module}.session_metrics_from", return_value=_EMPTY_SESSION),
             patch(f"{module}.noise_ratio_from", return_value=_EMPTY_NOISE),
         ):
             result = observe_team(tmp_path)
@@ -449,7 +404,6 @@ class TestTeamNewSections:
             patch(f"{module}.decision_store_health", return_value=_EMPTY_DECISION),
             patch(f"{module}.adoption_metrics", return_value=_EMPTY_ADOPTION),
             patch(f"{module}.scan_metrics_from", return_value=_EMPTY_SCAN),
-            patch(f"{module}.session_metrics_from", return_value=_EMPTY_SESSION),
             patch(f"{module}.noise_ratio_from", return_value=_EMPTY_NOISE),
         ):
             result = observe_team(tmp_path)
@@ -467,7 +421,6 @@ class TestTeamNewSections:
             patch(f"{module}.decision_store_health", return_value=_EMPTY_DECISION),
             patch(f"{module}.adoption_metrics", return_value=adopt),
             patch(f"{module}.scan_metrics_from", return_value=_EMPTY_SCAN),
-            patch(f"{module}.session_metrics_from", return_value=_EMPTY_SESSION),
             patch(f"{module}.noise_ratio_from", return_value=_EMPTY_NOISE),
         ):
             result = observe_team(tmp_path)
@@ -484,7 +437,6 @@ class TestTeamNewSections:
             patch(f"{module}.decision_store_health", return_value=_EMPTY_DECISION),
             patch(f"{module}.adoption_metrics", return_value=_EMPTY_ADOPTION),
             patch(f"{module}.scan_metrics_from", return_value=_GOOD_SCAN),
-            patch(f"{module}.session_metrics_from", return_value=_EMPTY_SESSION),
             patch(f"{module}.noise_ratio_from", return_value=_EMPTY_NOISE),
         ):
             result = observe_team(tmp_path)
@@ -503,7 +455,6 @@ class TestTeamNewSections:
             patch(f"{module}.decision_store_health", return_value=_EMPTY_DECISION),
             patch(f"{module}.adoption_metrics", return_value=_EMPTY_ADOPTION),
             patch(f"{module}.scan_metrics_from", return_value=_EMPTY_SCAN),
-            patch(f"{module}.session_metrics_from", return_value=_EMPTY_SESSION),
             patch(f"{module}.noise_ratio_from", return_value=_EMPTY_NOISE),
         ):
             result = observe_team(tmp_path)
@@ -520,7 +471,6 @@ class TestTeamNewSections:
             patch(f"{module}.decision_store_health", return_value=_EMPTY_DECISION),
             patch(f"{module}.adoption_metrics", return_value=_EMPTY_ADOPTION),
             patch(f"{module}.scan_metrics_from", return_value=_EMPTY_SCAN),
-            patch(f"{module}.session_metrics_from", return_value=_EMPTY_SESSION),
             patch(f"{module}.noise_ratio_from", return_value=_EMPTY_NOISE),
         ):
             result = observe_team(tmp_path)
@@ -536,58 +486,6 @@ class TestTeamNewSections:
 class TestAiNewSections:
     """Tests for new sections in observe_ai."""
 
-    def test_session_recovery_section(self, tmp_path: Path) -> None:
-        """AI dashboard includes Session Recovery section."""
-        module = "ai_engineering.cli_commands.observe"
-        with (
-            patch(f"{module}.load_all_events", return_value=[]),
-            patch(f"{module}.data_quality_from", return_value="LOW"),
-            patch(f"{module}.filter_events", return_value=[]),
-            patch(f"{module}.session_metrics_from", return_value=_GOOD_SESSION),
-            patch(f"{module}.checkpoint_status", return_value=_GOOD_CHECKPOINT),
-            patch(f"{module}.gate_pass_rate_from", return_value=_GATES),
-        ):
-            result = observe_ai(tmp_path)
-
-        sr = result["session_recovery"]
-        assert sr["has_checkpoint"] is True
-        assert sr["last_task"] == "6.3"
-        assert sr["age"] == "2h ago"
-        assert sr["completed"] == 3
-        assert sr["total"] == 5
-        assert sr["progress_pct"] == 60.0
-        assert sr["blocked_on"] is None
-
-    def test_no_checkpoint_found(self, tmp_path: Path) -> None:
-        """AI dashboard shows no checkpoint when none exists."""
-        module = "ai_engineering.cli_commands.observe"
-        with (
-            patch(f"{module}.load_all_events", return_value=[]),
-            patch(f"{module}.data_quality_from", return_value="LOW"),
-            patch(f"{module}.filter_events", return_value=[]),
-            patch(f"{module}.session_metrics_from", return_value=_EMPTY_SESSION),
-            patch(f"{module}.checkpoint_status", return_value=_NO_CHECKPOINT),
-            patch(f"{module}.gate_pass_rate_from", return_value=_GATES),
-        ):
-            result = observe_ai(tmp_path)
-
-        assert result["session_recovery"]["has_checkpoint"] is False
-
-    def test_blocked_checkpoint(self, tmp_path: Path) -> None:
-        """AI dashboard shows blocked-on item when present."""
-        module = "ai_engineering.cli_commands.observe"
-        with (
-            patch(f"{module}.load_all_events", return_value=[]),
-            patch(f"{module}.data_quality_from", return_value="LOW"),
-            patch(f"{module}.filter_events", return_value=[]),
-            patch(f"{module}.session_metrics_from", return_value=_GOOD_SESSION),
-            patch(f"{module}.checkpoint_status", return_value=_BLOCKED_CHECKPOINT),
-            patch(f"{module}.gate_pass_rate_from", return_value=_GATES),
-        ):
-            result = observe_ai(tmp_path)
-
-        assert result["session_recovery"]["blocked_on"] == "PR review pending"
-
     def test_expanded_context_efficiency(self, tmp_path: Path) -> None:
         """AI dashboard shows expanded context efficiency with utilization."""
         module = "ai_engineering.cli_commands.observe"
@@ -595,18 +493,13 @@ class TestAiNewSections:
             patch(f"{module}.load_all_events", return_value=[]),
             patch(f"{module}.data_quality_from", return_value="LOW"),
             patch(f"{module}.filter_events", return_value=[]),
-            patch(f"{module}.session_metrics_from", return_value=_GOOD_SESSION),
-            patch(f"{module}.checkpoint_status", return_value=_NO_CHECKPOINT),
             patch(f"{module}.gate_pass_rate_from", return_value=_GATES),
         ):
             result = observe_ai(tmp_path)
 
         ce = result["context_efficiency"]
-        assert ce["sessions_analyzed"] == 5
-        assert ce["total_tokens"] == 150_000
-        assert ce["tokens_available"] == 200_000
-        assert ce["utilization_pct"] == 15.0
-        assert ce["skills_loaded"] == ["build", "commit", "test"]
+        assert ce["sessions_analyzed"] == 0
+        assert ce["total_tokens"] == 0
 
     def test_context_efficiency_no_skills(self, tmp_path: Path) -> None:
         """AI dashboard shows empty skills list when no skills loaded."""
@@ -615,8 +508,6 @@ class TestAiNewSections:
             patch(f"{module}.load_all_events", return_value=[]),
             patch(f"{module}.data_quality_from", return_value="LOW"),
             patch(f"{module}.filter_events", return_value=[]),
-            patch(f"{module}.session_metrics_from", return_value=_EMPTY_SESSION),
-            patch(f"{module}.checkpoint_status", return_value=_NO_CHECKPOINT),
             patch(f"{module}.gate_pass_rate_from", return_value=_GATES),
         ):
             result = observe_ai(tmp_path)

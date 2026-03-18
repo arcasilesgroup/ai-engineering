@@ -120,7 +120,7 @@ flowchart TB
 | AI Ecosystem | Multi-provider adapters (Claude Code, Copilot, Gemini, Codex) | P0 | Done |
 | AI Ecosystem | Governed parallel execution with phase gates | P1 | Active |
 
-#### Skills (38)
+#### Skills (34)
 
 Path: `.ai-engineering/skills/<name>/SKILL.md` (flat organization, no category subdirectories)
 

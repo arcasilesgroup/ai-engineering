@@ -120,25 +120,31 @@ flowchart TB
 | AI Ecosystem | Multi-provider adapters (Claude Code, Copilot, Gemini, Codex) | P0 | Done |
 | AI Ecosystem | Governed parallel execution with phase gates | P1 | Active |
 
-#### Skills (38)
+#### Skills (34)
 
 Path: `.ai-engineering/skills/<name>/SKILL.md` (flat organization, no category subdirectories)
 
 | Domain | Skills |
 |--------|--------|
-| Planning | discover, plan, contract, spec, cleanup, explain |
+| Planning | plan, contract, spec, cleanup, explain |
 | Build | code, test, debug, refactor, simplify, api, schema, pipeline, infra, migrate |
-| Verify | security, quality, governance, architecture, performance, accessibility, gap |
-| Ship | commit, pr, release, changelog, triage |
+| Verify | security, quality, governance, architecture, performance, accessibility, gap, integrity |
+| Ship | commit, pr, release, triage |
 | Write | document |
 | Observe | dashboard, evolve |
 | Guard | guard |
-| Guide | onboard |
 | Execute | dispatch |
 | Operate | ops |
-| Governance | risk, standards, lifecycle |
+| Governance | lifecycle |
 
-> Note: `cli` skill absorbed into `code`. `guide` is agent-only (no canonical SKILL.md).
+> Notes:
+> - `changelog` absorbed into `document` (mode: changelog). `risk` and `standards` absorbed into `governance` (modes: risk, standards).
+> - `discover` absorbed into `plan` agent (interrogation phase). `onboard` absorbed into `guide` agent (onboard mode).
+> - `guide` and `explore` are agent-only (no canonical SKILL.md). `verify` is agent-only.
+
+**Skill vs Agent clarification**: Agent-activation skills (code, explore, guard, guide, ops, plan, simplify, verify) ARE agents — invoking `/ai-verify` activates the verify agent. Standalone skills are focused procedures that agents can invoke. Use the agent-activation skill for broad capability; use the standalone skill for a specific focused procedure.
+
+**Naming convention**: Domain nouns for what you assess (security, quality, governance); action verbs for what you do (commit, test, debug); agent-activation names match the agent's action (plan, guard, verify).
 
 Slash commands: `/ai-<name>` for all skills and agents.
 

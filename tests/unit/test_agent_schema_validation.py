@@ -1,7 +1,7 @@
 """Validate agent definitions in .ai-engineering/agents/ against architecture v3.
 
 Unlike test_validator.py which creates isolated fixture worlds, these tests
-parametrize against the REAL .ai-engineering/agents/ directory. If an agent
+parametrize against the REAL .ai-engineering/agents/ template directory. If an agent
 is added, removed, or has broken frontmatter, these tests FAIL.
 """
 
