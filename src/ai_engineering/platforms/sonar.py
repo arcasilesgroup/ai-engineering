@@ -95,7 +95,9 @@ class SonarSetup:
         api_url = urljoin(base.rstrip("/") + "/", "api/authentication/validate")
 
         try:
-            import httpx as _httpx
+            import importlib
+
+            _httpx = importlib.import_module("httpx")
 
             response = _httpx.get(
                 api_url,
