@@ -856,3 +856,123 @@ class TestLeadTimeMetrics:
 
         assert result["merges_analyzed"] == 0
         assert result["rating"] == "LOW"
+
+
+# ---------------------------------------------------------------------------
+# guard_advisory_from
+# ---------------------------------------------------------------------------
+
+
+class TestGuardAdvisoryFrom:
+    """Tests for guard_advisory_from aggregator."""
+
+    def test_no_events_returns_zeros(self) -> None:
+        from ai_engineering.lib.signals import guard_advisory_from
+
+        result = guard_advisory_from([])
+        assert result["total_advisories"] == 0
+        assert result["total_warnings"] == 0
+        assert result["total_concerns"] == 0
+
+    def test_aggregates_warnings_and_concerns(self) -> None:
+        from ai_engineering.lib.signals import guard_advisory_from
+
+        now = datetime.now(tz=UTC).isoformat()
+        events = [
+            {
+                "event": "guard_advisory",
+                "timestamp": now,
+                "detail": {"warnings": 3, "concerns": 1},
+            },
+            {
+                "event": "guard_advisory",
+                "timestamp": now,
+                "detail": {"warnings": 2, "concerns": 4},
+            },
+        ]
+        result = guard_advisory_from(events)
+        assert result["total_advisories"] == 2
+        assert result["total_warnings"] == 5
+        assert result["total_concerns"] == 5
+
+    def test_excludes_old_events(self) -> None:
+        from ai_engineering.lib.signals import guard_advisory_from
+
+        old = (datetime.now(tz=UTC) - timedelta(days=60)).isoformat()
+        events = [
+            {"event": "guard_advisory", "timestamp": old, "detail": {"warnings": 10}},
+        ]
+        result = guard_advisory_from(events, days=30)
+        assert result["total_advisories"] == 0
+
+
+# ---------------------------------------------------------------------------
+# guard_drift_from
+# ---------------------------------------------------------------------------
+
+
+class TestGuardDriftFrom:
+    """Tests for guard_drift_from aggregator."""
+
+    def test_no_events_returns_zeros(self) -> None:
+        from ai_engineering.lib.signals import guard_drift_from
+
+        result = guard_drift_from([])
+        assert result["total_checks"] == 0
+        assert result["alignment_pct"] == 0.0
+
+    def test_perfect_alignment(self) -> None:
+        from ai_engineering.lib.signals import guard_drift_from
+
+        now = datetime.now(tz=UTC).isoformat()
+        events = [
+            {
+                "event": "guard_drift",
+                "timestamp": now,
+                "detail": {"decisions_checked": 10, "drifted": 0, "critical": 0},
+            },
+        ]
+        result = guard_drift_from(events)
+        assert result["total_checks"] == 1
+        assert result["total_decisions_checked"] == 10
+        assert result["total_drifted"] == 0
+        assert result["alignment_pct"] == 100.0
+
+    def test_partial_drift(self) -> None:
+        from ai_engineering.lib.signals import guard_drift_from
+
+        now = datetime.now(tz=UTC).isoformat()
+        events = [
+            {
+                "event": "guard_drift",
+                "timestamp": now,
+                "detail": {"decisions_checked": 10, "drifted": 3, "critical": 1},
+            },
+        ]
+        result = guard_drift_from(events)
+        assert result["total_drifted"] == 3
+        assert result["total_critical"] == 1
+        assert result["alignment_pct"] == 70.0
+
+    def test_multiple_events_aggregate(self) -> None:
+        from ai_engineering.lib.signals import guard_drift_from
+
+        now = datetime.now(tz=UTC).isoformat()
+        events = [
+            {
+                "event": "guard_drift",
+                "timestamp": now,
+                "detail": {"decisions_checked": 5, "drifted": 1, "critical": 0},
+            },
+            {
+                "event": "guard_drift",
+                "timestamp": now,
+                "detail": {"decisions_checked": 5, "drifted": 1, "critical": 1},
+            },
+        ]
+        result = guard_drift_from(events)
+        assert result["total_checks"] == 2
+        assert result["total_decisions_checked"] == 10
+        assert result["total_drifted"] == 2
+        assert result["total_critical"] == 1
+        assert result["alignment_pct"] == 80.0

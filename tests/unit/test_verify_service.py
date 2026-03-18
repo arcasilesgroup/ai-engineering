@@ -237,3 +237,42 @@ class TestModes:
     def test_all_modes_are_callable(self) -> None:
         for name, func in MODES.items():
             assert callable(func), f"MODES['{name}'] is not callable"
+
+
+# ── verify_cmd CLI --json flag ────────────────────────────────────────────
+
+
+class TestVerifyCmdJsonFlag:
+    """Tests for verify_cmd local --json output."""
+
+    def test_local_json_flag_outputs_json(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """verify_cmd with output_json=True produces valid JSON."""
+        from ai_engineering.cli_commands.verify_cmd import verify_cmd
+        from ai_engineering.verify.scoring import VerifyScore
+
+        score = VerifyScore(raw=100, findings=[])
+        monkeypatch.setattr(
+            "ai_engineering.cli_commands.verify_cmd.MODES",
+            {"security": lambda _root: score},
+        )
+        monkeypatch.setattr(
+            "ai_engineering.cli_commands.verify_cmd.resolve_project_root",
+            lambda _t: Path("/tmp"),
+        )
+        monkeypatch.setattr(
+            "ai_engineering.cli_commands.verify_cmd.is_json_mode",
+            lambda: False,
+        )
+        captured: list[str] = []
+        monkeypatch.setattr(
+            "typer.echo",
+            lambda msg=None, **kw: captured.append(str(msg)) if msg else None,
+        )
+
+        verify_cmd(mode="security", target=None, output_json=True)
+
+        output = "\n".join(captured)
+        parsed = json.loads(output)
+        assert parsed["mode"] == "security"
+        assert parsed["score"] == 100
+        assert parsed["verdict"] == "PASS"
