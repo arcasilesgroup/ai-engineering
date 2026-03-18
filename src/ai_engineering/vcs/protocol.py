@@ -105,7 +105,7 @@ class VcsProvider(Protocol):
         Returns:
             VcsResult with success flag and PR URL on success.
         """
-        ...  # pragma: no cover
+        ...
 
     def find_open_pr(self, ctx: VcsContext) -> VcsResult:
         """Find an existing open pull request for ``ctx.branch``.
@@ -114,7 +114,7 @@ class VcsProvider(Protocol):
             VcsResult where ``output`` contains a single PR JSON object,
             or empty output when no open PR exists.
         """
-        ...  # pragma: no cover
+        ...
 
     def update_pr(self, ctx: VcsContext, *, pr_number: str, title: str = "") -> VcsResult:
         """Update an existing pull request.
@@ -127,7 +127,7 @@ class VcsProvider(Protocol):
         Returns:
             VcsResult with success flag.
         """
-        ...  # pragma: no cover
+        ...
 
     def enable_auto_complete(self, ctx: VcsContext) -> VcsResult:
         """Enable auto-complete / auto-merge on the current PR.
@@ -138,7 +138,7 @@ class VcsProvider(Protocol):
         Returns:
             VcsResult with success flag.
         """
-        ...  # pragma: no cover
+        ...
 
     def is_available(self) -> bool:
         """Check if the provider CLI tool is installed and accessible.
@@ -146,7 +146,7 @@ class VcsProvider(Protocol):
         Returns:
             True if the CLI tool is found on PATH.
         """
-        ...  # pragma: no cover
+        ...
 
     def provider_name(self) -> str:
         """Return the provider identifier.
@@ -154,7 +154,7 @@ class VcsProvider(Protocol):
         Returns:
             Provider name string (e.g. ``"github"``, ``"azure_devops"``).
         """
-        ...  # pragma: no cover
+        ...
 
     def check_auth(self, ctx: VcsContext) -> VcsResult:
         """Check whether provider authentication is currently valid.
@@ -165,7 +165,7 @@ class VcsProvider(Protocol):
         Returns:
             VcsResult with success=True when auth is valid.
         """
-        ...  # pragma: no cover
+        ...
 
     def apply_branch_policy(
         self,
@@ -184,7 +184,7 @@ class VcsProvider(Protocol):
         Returns:
             VcsResult for policy application.
         """
-        ...  # pragma: no cover
+        ...
 
     def post_pr_review(self, ctx: VcsContext, *, body: str) -> VcsResult:
         """Post a PR review comment for the current branch/PR.
@@ -196,15 +196,15 @@ class VcsProvider(Protocol):
         Returns:
             VcsResult for the review operation.
         """
-        ...  # pragma: no cover
+        ...
 
     def create_tag(self, ctx: CreateTagContext) -> VcsResult:
         """Create a tag reference for a commit SHA."""
-        ...  # pragma: no cover
+        ...
 
     def get_pipeline_status(self, ctx: PipelineStatusContext) -> VcsResult:
         """Return pipeline/workflow status for a commit SHA."""
-        ...  # pragma: no cover
+        ...
 
     def create_issue(self, ctx: IssueContext) -> VcsResult:
         """Create a work item / issue linked to a spec.
@@ -215,7 +215,7 @@ class VcsProvider(Protocol):
         Returns:
             VcsResult with issue number/ID in ``output``.
         """
-        ...  # pragma: no cover
+        ...
 
     def find_issue(self, ctx: IssueContext) -> VcsResult:
         """Find an existing issue by ``spec-NNN`` label/tag.
@@ -224,7 +224,7 @@ class VcsProvider(Protocol):
             VcsResult where ``output`` contains the issue number/ID,
             or empty output when no issue exists.
         """
-        ...  # pragma: no cover
+        ...
 
     def close_issue(self, ctx: IssueContext, *, issue_id: str) -> VcsResult:
         """Close a work item / issue.
@@ -236,7 +236,7 @@ class VcsProvider(Protocol):
         Returns:
             VcsResult with success flag.
         """
-        ...  # pragma: no cover
+        ...
 
     def link_issue_to_pr(self, ctx: IssueContext, *, issue_id: str, pr_number: str) -> VcsResult:
         """Link a work item to a pull request.
@@ -249,4 +249,4 @@ class VcsProvider(Protocol):
         Returns:
             VcsResult with success flag.
         """
-        ...  # pragma: no cover
+        ...

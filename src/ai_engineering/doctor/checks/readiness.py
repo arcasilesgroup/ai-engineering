@@ -16,7 +16,7 @@ def check_operational_readiness(target: Path, report: DoctorReport) -> None:
         return
     try:
         manifest = read_json_model(manifest_path, InstallManifest)
-    except Exception as exc:  # pragma: no cover
+    except Exception as exc:
         report.checks.append(
             CheckResult(
                 name="operational-readiness",
