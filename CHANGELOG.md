@@ -17,6 +17,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Common installer templates** — `.gitleaks.toml` and `.semgrep.yml` now deploy to every target project regardless of AI provider; `scripts/hooks/` deploys observability hooks for all providers.
 - **Project scaffolding templates** — `CODEOWNERS`, `dependabot.yml`, SonarQube MCP instructions, and VCS hook configs added to the project template set.
 - **Telemetry canary test** — integration test verifying end-to-end hook telemetry emission.
+- **Audit auto-enrichment** — events now auto-attach `spec_id` and `stack` from project context, plus `duration_ms` on gate and scan events, eliminating manual field wiring.
+- **Agent telemetry hooks** — `telemetry-agent.sh/ps1` scripts for agent dispatch event emission.
+- **Gate duration tracking** — `run_gate()` now measures and emits `duration_ms` on every gate event for performance observability.
+- **Validate sync mode** — `ai-eng validate --mode sync` checks all mirrors are up-to-date (moved from separate `ai-eng sync --check`).
 
 ### Changed
 - **Pipeline skill v2** — comprehensive rewrite with GitHub Actions (12 sections: CI result gate, reusable workflows, composite actions, SHA pinning, concurrency, matrix, caching, environments, merge queue, badges, Dependabot) and Azure Pipelines (11 sections: template composition, manager pattern, variable groups, KeyVault, environment gates, deployment strategies, SonarCloud, artifact promotion, branch-conditional deployment, self-hosted agents) at full parity.
@@ -25,10 +29,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Observe dashboard** — guard advisory and drift metrics added to the AI dashboard mode.
 - **Evolve skill** — updated across all IDE mirrors (Claude, Copilot, Agents).
 - **Instruction files** — added Observability section to `CLAUDE.md` and `copilot-instructions.md` documenting automatic telemetry hooks.
+- **Checkpoint command removed** — `ai-eng checkpoint` CLI subgroup deleted; checkpoint state file removed from defaults.
+- **Observe simplified** — removed `session_metrics_from` and `checkpoint_status` aggregators; observe modes streamlined to use direct event queries.
+- **Audit emitters consolidated** — `emit_session_event` removed; replaced by richer auto-enriched event model with `_enrich()` helper.
+- **Agent/skill mirrors updated** — all 8 agents and governance-related skills refreshed across Claude, Copilot, and Agents IDE mirrors.
 
 ### Removed
 - **Legacy evals directory** — `templates/.ai-engineering/evals/` (README.md, benchmarks, registry.json) removed.
 - **Legacy semgrep location** — `templates/.semgrep.yml` relocated to `templates/project/.semgrep.yml`.
+- **Checkpoint CLI** — `ai-eng checkpoint save/load/status` commands removed (session-checkpoint.json deleted).
 
 ### Added — Architecture v3 (spec-051)
 - **3 new agents** — guard (proactive governance), guide (developer growth), operate (SRE/runbooks).

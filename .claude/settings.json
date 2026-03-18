@@ -30,6 +30,16 @@
             "timeout": 10
           }
         ]
+      },
+      {
+        "matcher": "Agent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/scripts/hooks/telemetry-agent.sh\"",
+            "timeout": 10
+          }
+        ]
       }
     ],
     "Stop": [

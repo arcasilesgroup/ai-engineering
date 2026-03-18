@@ -29,6 +29,7 @@ case "$MODE" in
     end)
         ai-eng signals emit session_end \
             --actor=ai-session \
+            --source=hook \
             --detail='{"type":"session_end"}' \
             2>/dev/null || true
         ;;

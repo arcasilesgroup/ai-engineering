@@ -50,8 +50,6 @@ Auto-detect: when invoked without a mode, infer from context (changed files, spe
 
 ## Behavior
 
-> **Telemetry** (cross-IDE): run `ai-eng signals emit agent_dispatched --actor=ai --detail='{"agent":"verify"}'` at agent activation. Fail-open — skip if ai-eng unavailable.
-
 ### 1. Mode Selection
 
 Determine scan mode from user request or auto-detect:

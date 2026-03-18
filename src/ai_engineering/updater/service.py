@@ -410,7 +410,7 @@ def _log_migration_event(ai_eng_dir: Path, removed: list[str]) -> None:
     entry = AuditEntry(
         event="migrate-legacy-dirs",
         actor="ai-engineering-cli",
-        detail=f"removed={','.join(removed)}",
+        detail={"removed": list(removed)},
         vcs_provider=repo_ctx.provider if repo_ctx else None,
         vcs_organization=repo_ctx.organization if repo_ctx else None,
         vcs_project=repo_ctx.project if repo_ctx else None,
@@ -435,7 +435,7 @@ def _log_update_event(ai_eng_dir: Path, result: UpdateResult) -> None:
     entry = AuditEntry(
         event="update",
         actor="ai-engineering-cli",
-        detail=f"applied={result.applied_count} denied={result.denied_count}",
+        detail={"applied": result.applied_count, "denied": result.denied_count},
         vcs_provider=repo_ctx.provider if repo_ctx else None,
         vcs_organization=repo_ctx.organization if repo_ctx else None,
         vcs_project=repo_ctx.project if repo_ctx else None,

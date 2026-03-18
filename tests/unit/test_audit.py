@@ -14,7 +14,6 @@ from ai_engineering.state.audit import (
     emit_guard_drift,
     emit_guard_gate,
     emit_scan_event,
-    emit_session_event,
 )
 
 pytestmark = pytest.mark.unit
@@ -174,27 +173,3 @@ class TestEmitGuardDrift:
         content = log_path.read_text(encoding="utf-8")
         assert "guard_drift" in content
         assert '"drifted": 2' in content
-
-
-class TestEmitSessionEvent:
-    """Tests for session_metric audit emission."""
-
-    def test_emits_session_event(self, tmp_path: Path) -> None:
-        # Arrange
-        log_path = tmp_path / ".ai-engineering" / "state" / "audit-log.ndjson"
-        log_path.parent.mkdir(parents=True)
-
-        # Act
-        with patch(
-            "ai_engineering.state.audit.audit_log_path",
-            return_value=log_path,
-        ):
-            emit_session_event(
-                tmp_path,
-                tokens_used=5000,
-                skills_loaded=["build", "test"],
-            )
-
-        # Assert
-        content = log_path.read_text(encoding="utf-8")
-        assert "session_metric" in content

@@ -130,11 +130,6 @@ _DEFAULT_OWNERSHIP_PATHS: list[tuple[str, OwnershipLevel, FrameworkUpdatePolicy]
         OwnershipLevel.SYSTEM_MANAGED,
         FrameworkUpdatePolicy.APPEND_ONLY,
     ),
-    (
-        "state/session-checkpoint.json",
-        OwnershipLevel.SYSTEM_MANAGED,
-        FrameworkUpdatePolicy.ALLOW,
-    ),
 ]
 
 

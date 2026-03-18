@@ -23,7 +23,9 @@ def signals_emit(
     event: Annotated[str, typer.Argument(help="Event type (e.g., scan_complete, gate_result)")],
     actor: Annotated[str, typer.Option(help="Actor that emitted the event")] = "cli",
     detail_json: Annotated[str, typer.Option("--detail", help="JSON detail payload")] = "{}",
-    spec: Annotated[str | None, typer.Option(help="Associated spec ID")] = None,
+    source: Annotated[
+        str | None, typer.Option("--source", help="Event source: hook, cli, gate-engine, ci")
+    ] = None,
 ) -> None:
     """Emit a structured event to the audit log."""
     root = find_project_root()
@@ -36,12 +38,17 @@ def signals_emit(
 
     repo_ctx = get_repo_context(root)
     git_ctx = get_git_context(root)
+
+    from ai_engineering.state.audit import _read_active_spec, _read_active_stack
+
     entry = AuditEntry(
         timestamp=datetime.now(tz=UTC),
         event=event,
         actor=actor,
-        spec=spec,
         detail=detail if detail else None,
+        source=source,
+        spec_id=_read_active_spec(root),
+        stack=_read_active_stack(root),
         vcs_provider=repo_ctx.provider if repo_ctx else None,
         vcs_organization=repo_ctx.organization if repo_ctx else None,
         vcs_project=repo_ctx.project if repo_ctx else None,

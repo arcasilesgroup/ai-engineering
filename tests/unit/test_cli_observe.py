@@ -1153,33 +1153,11 @@ class TestSelfOptimizationHints:
         hints_lower = [h.lower() for h in result["self_optimization_hints"]]
         assert any("ruff format" in h for h in hints_lower)
 
-    def test_no_checkpoint_hint(self, tmp_path: Path) -> None:
-        """Shows hint when no checkpoint exists."""
-        events = [_session_event()]
-        _make_audit_log(tmp_path, events)
-        result = observe_ai(tmp_path)
-        hints_lower = [h.lower() for h in result["self_optimization_hints"]]
-        assert any("checkpoint" in h for h in hints_lower)
-
     def test_all_healthy_hint(self, tmp_path: Path) -> None:
         """Shows healthy message when all patterns are fine."""
         events = [_session_event(decisions_reused=10, decisions_reprompted=1)]
         events.extend([_gate_event("pass") for _ in range(10)])
         _make_audit_log(tmp_path, events)
-        state_dir = tmp_path / ".ai-engineering" / "state"
-        state_dir.mkdir(parents=True, exist_ok=True)
-        import json as _json
-
-        (state_dir / "session-checkpoint.json").write_text(
-            _json.dumps(
-                {
-                    "current_task": "test",
-                    "progress": "5/5",
-                    "timestamp": _ts(0),
-                }
-            ),
-            encoding="utf-8",
-        )
         result = observe_ai(tmp_path)
         hints_lower = [h.lower() for h in result["self_optimization_hints"]]
         assert any("no optimization needed" in h for h in hints_lower)

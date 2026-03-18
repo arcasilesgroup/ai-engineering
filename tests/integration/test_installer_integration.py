@@ -291,7 +291,7 @@ class TestInstallOnEmptyRepo:
         entry = json.loads(lines[0])
         assert entry["event"] == "install"
         assert entry["actor"] == "ai-engineering-cli"
-        assert f"created={result.total_created}" in entry["detail"]
+        assert entry["detail"]["created"] == result.total_created
 
 
 class TestInstallOnExistingRepo:
@@ -360,7 +360,8 @@ class TestAddStack:
         audit = _read_audit_log(installed_project)
         stack_events = [e for e in audit if e["event"] == "stack-add"]
         assert len(stack_events) == 1
-        assert "python" in stack_events[0]["detail"]
+        detail = stack_events[0]["detail"]
+        assert "python" in (detail.get("message", "") if isinstance(detail, dict) else detail)
 
 
 class TestRemoveStack:

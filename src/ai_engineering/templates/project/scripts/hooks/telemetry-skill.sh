@@ -52,6 +52,7 @@ fi
 # Emit event — fail-open
 ai-eng signals emit skill_invoked \
     --actor=ai \
+    --source=hook \
     --detail="{\"skill\":\"${CANONICAL_NAME}\"}" \
     2>/dev/null || true
 

@@ -28,8 +28,6 @@ Teaching boundary is absolute: guide produces understanding, not artifacts. Guid
 
 ## Behavior
 
-> **Telemetry** (cross-IDE): run `ai-eng signals emit agent_dispatched --actor=ai --detail='{"agent":"guide"}'` at agent activation. Fail-open -- skip if ai-eng unavailable.
-
 ### Context Loading (all modes)
 
 Before any teaching interaction:

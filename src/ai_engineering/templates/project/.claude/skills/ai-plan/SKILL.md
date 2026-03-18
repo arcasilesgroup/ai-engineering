@@ -54,8 +54,6 @@ On session start (to resume planning):
 
 ## Behavior
 
-> **Telemetry** (cross-IDE): run `ai-eng signals emit agent_dispatched --actor=ai --detail='{"agent":"plan"}'` at agent activation. Fail-open — skip if ai-eng unavailable.
-
 ### Interrogation Phase (mandatory for full/standard pipelines)
 
 Before classifying or producing any spec, interrogate the request. This phase applies shared rule `PLAN-R5`.

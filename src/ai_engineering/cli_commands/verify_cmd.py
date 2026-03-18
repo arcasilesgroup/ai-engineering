@@ -6,7 +6,9 @@ with findings, severity levels, and a pass/warn/fail verdict.
 
 from __future__ import annotations
 
+import contextlib
 import json
+import time as _time
 from pathlib import Path
 from typing import Annotated
 
@@ -45,8 +47,35 @@ def verify_cmd(
     root = resolve_project_root(target)
     func = MODES[mode]
 
+    t0 = _time.monotonic()
     with spinner(f"Running {mode} verification..."):
         result = func(root)
+    elapsed_ms = int((_time.monotonic() - t0) * 1000)
+
+    # Emit scan and advisory events (fail-open)
+    with contextlib.suppress(Exception):
+        from ai_engineering.state.audit import emit_scan_event
+
+        emit_scan_event(
+            root,
+            mode=mode,
+            score=result.score,
+            findings=result.summary(),
+            duration_ms=elapsed_ms,
+        )
+
+    with contextlib.suppress(Exception):
+        from ai_engineering.state.audit import emit_guard_advisory
+
+        summary = result.summary()
+        emit_guard_advisory(
+            root,
+            files_checked=len({f.file for f in result.findings if f.file}),
+            warnings=summary.get("blocker", 0)
+            + summary.get("critical", 0)
+            + summary.get("major", 0),
+            concerns=summary.get("minor", 0) + summary.get("info", 0),
+        )
 
     if is_json_mode() or output_json:
         report = {

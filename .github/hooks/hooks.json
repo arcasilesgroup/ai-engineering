@@ -9,6 +9,11 @@
       "type": "session_end",
       "script": "scripts/hooks/telemetry-session.sh end",
       "description": "Emit session_end telemetry when session closes"
+    },
+    {
+      "type": "post_tool_call",
+      "script": "scripts/hooks/telemetry-agent.sh",
+      "description": "Emit agent_dispatched telemetry after agent use"
     }
   ]
 }

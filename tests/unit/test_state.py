@@ -329,19 +329,25 @@ class TestAuditEntry:
         entry = AuditEntry(event="install", actor="agent-1")
         assert entry.event == "install"
         assert entry.actor == "agent-1"
-        assert entry.spec is None
+        assert entry.spec_id is None
+        assert entry.source is None
+        assert entry.stack is None
+        assert entry.duration_ms is None
 
     def test_create_full(self) -> None:
         entry = AuditEntry(
             event="task-complete",
             actor="agent-1",
-            spec="001-rewrite-v2",
-            task="9.1",
-            detail="created models.py",
-            session="S9",
+            spec_id="001",
+            detail={"message": "created models.py"},
+            source="cli",
+            stack="python",
+            duration_ms=1234,
         )
-        assert entry.task == "9.1"
-        assert entry.session == "S9"
+        assert entry.spec_id == "001"
+        assert entry.source == "cli"
+        assert entry.stack == "python"
+        assert entry.duration_ms == 1234
 
 
 class TestUpdateMetadata:
@@ -422,8 +428,8 @@ class TestNdjsonIO:
     def test_append_and_read(self, tmp_path: Path) -> None:
         # Arrange
         path = tmp_path / "audit-log.ndjson"
-        entry1 = AuditEntry(event="install", actor="agent-1", spec="001")
-        entry2 = AuditEntry(event="task-complete", actor="agent-1", task="9.1")
+        entry1 = AuditEntry(event="install", actor="agent-1", spec_id="001")
+        entry2 = AuditEntry(event="task-complete", actor="agent-1")
 
         # Act
         append_ndjson(path, entry1)

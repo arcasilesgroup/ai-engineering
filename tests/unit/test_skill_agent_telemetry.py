@@ -231,10 +231,7 @@ class TestObserveTeamSkillAgent:
     def test_ai_includes_skill_agent_efficiency(self) -> None:
         from ai_engineering.cli_commands.observe import observe_ai
 
-        with (
-            patch(f"{_MODULE}.load_all_events") as mock_load,
-            patch(f"{_MODULE}.checkpoint_status", return_value={"has_checkpoint": False}),
-        ):
+        with patch(f"{_MODULE}.load_all_events") as mock_load:
             mock_load.return_value = [
                 _skill_event("build"),
                 _agent_event("plan"),
@@ -255,10 +252,7 @@ class TestObserveTeamSkillAgent:
             _agent_event("plan"),
             _agent_event("build"),
         ]
-        with (
-            patch(f"{_MODULE}.load_all_events", return_value=events),
-            patch(f"{_MODULE}.checkpoint_status", return_value={"has_checkpoint": False}),
-        ):
+        with patch(f"{_MODULE}.load_all_events", return_value=events):
             data = observe_ai(Path("/tmp/fake"))
 
         sae = data["skill_agent_efficiency"]
@@ -293,12 +287,6 @@ class TestRenderSkillAgentSections:
                 "hooks_status": "not installed",
             },
             "scan_health": {"total_scans": 0, "avg_quality_score": 0},
-            "token_economy": {
-                "sessions_analyzed": 0,
-                "total_tokens": 0,
-                "utilization_pct": 0,
-                "skills_loaded": [],
-            },
             "noise_ratio": {
                 "total_failures": 0,
                 "fixable_failures": 0,
@@ -340,12 +328,6 @@ class TestRenderSkillAgentSections:
                 "hooks_status": "not installed",
             },
             "scan_health": {"total_scans": 0, "avg_quality_score": 0},
-            "token_economy": {
-                "sessions_analyzed": 0,
-                "total_tokens": 0,
-                "utilization_pct": 0,
-                "skills_loaded": [],
-            },
             "noise_ratio": {
                 "total_failures": 0,
                 "fixable_failures": 0,
@@ -380,7 +362,6 @@ class TestRenderSkillAgentSections:
                 "decisions_reprompted": 0,
                 "cache_hit_rate": 0,
             },
-            "session_recovery": {"has_checkpoint": False},
             "skill_agent_efficiency": {
                 "skill_invocations": 5,
                 "unique_skills_used": 3,
@@ -410,7 +391,6 @@ class TestRenderSkillAgentSections:
                 "decisions_reprompted": 0,
                 "cache_hit_rate": 0,
             },
-            "session_recovery": {"has_checkpoint": False},
             "skill_agent_efficiency": {
                 "skill_invocations": 0,
                 "unique_skills_used": 0,

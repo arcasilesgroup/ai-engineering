@@ -6,6 +6,7 @@ Performance-critical: no logo, no stage banner, minimal colour.
 
 from __future__ import annotations
 
+import contextlib
 from pathlib import Path
 from typing import Annotated
 
@@ -153,7 +154,14 @@ def gate_risk_check(
     With --strict: exits 1 if any expired risk acceptances exist.
     """
     root = resolve_project_root(target)
-    if _check_risk_inline(root, strict):
+    failed = _check_risk_inline(root, strict)
+
+    with contextlib.suppress(Exception):
+        from ai_engineering.state.audit import emit_guard_gate
+
+        emit_guard_gate(root, verdict="fail" if failed else "pass", task="risk-check")
+
+    if failed:
         raise typer.Exit(code=1)
 
 
@@ -185,6 +193,17 @@ def gate_all(
     risk_failed = _check_risk_inline(root, strict)
     if risk_failed:
         any_failed = True
+
+    with contextlib.suppress(Exception):
+        from ai_engineering.state.audit import emit_guard_gate
+
+        total_failed = sum(len(r.failed_checks) for r in all_results)
+        emit_guard_gate(
+            root,
+            verdict="fail" if any_failed else "pass",
+            task="gate-all",
+            findings=total_failed,
+        )
 
     if is_json_mode():
         checks = []

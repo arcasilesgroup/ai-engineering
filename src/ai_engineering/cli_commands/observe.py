@@ -2,8 +2,8 @@
 
 Computes and displays observability metrics across 5 modes:
 - engineer: code quality, security, test confidence, delivery velocity
-- team: framework health, skill usage, token economy
-- ai: context efficiency, decision continuity, session recovery
+- team: framework health, skill usage, guard governance
+- ai: context efficiency, decision continuity, skill/agent efficiency
 - dora: deployment frequency, lead time, MTTR, change failure rate
 - health: aggregated 0-100 score with semaphore
 """
@@ -24,7 +24,6 @@ from ai_engineering.lib.signals import (
     adoption_metrics,
     agent_dispatch_from,
     build_metrics_from,
-    checkpoint_status,
     count_events_by_type,
     data_quality_from,
     decision_store_health,
@@ -42,7 +41,6 @@ from ai_engineering.lib.signals import (
     save_health_snapshot,
     scan_metrics_from,
     security_posture_metrics,
-    session_metrics_from,
     skill_usage_from,
     sonar_detailed_metrics,
     test_confidence_metrics,
@@ -429,7 +427,6 @@ def observe_team(project_root: Path) -> dict[str, Any]:
     dsh = decision_store_health(project_root)
     adopt = adoption_metrics(project_root)
     scan = scan_metrics_from(all_events)
-    sm = session_metrics_from(all_events)
     noise = noise_ratio_from(all_events)
     skills = skill_usage_from(all_events)
     agents = agent_dispatch_from(all_events)
@@ -470,12 +467,6 @@ def observe_team(project_root: Path) -> dict[str, Any]:
         "scan_health": {
             "total_scans": scan["total_scans"],
             "avg_quality_score": scan["avg_quality_score"],
-        },
-        "token_economy": {
-            "sessions_analyzed": sm["sessions_analyzed"],
-            "total_tokens": sm["total_tokens"],
-            "utilization_pct": sm["utilization_pct"],
-            "skills_loaded": sm["skills_loaded"],
         },
         "noise_ratio": {
             "total_failures": noise["total_failures"],
@@ -587,18 +578,6 @@ def _render_team(data: dict[str, Any]) -> None:
         progress_bar("Quality score", sh["avg_quality_score"])
         kv("Scans run", sh["total_scans"])
 
-    # Token Economy
-    section("Token Economy")
-    te = data["token_economy"]
-    if te["sessions_analyzed"] == 0:
-        info("No session data — checkpoint save emits session metrics")
-    else:
-        kv("Sessions", te["sessions_analyzed"])
-        kv("Total tokens", f"{te['total_tokens']:,}")
-        progress_bar("Utilization", te["utilization_pct"])
-        if te["skills_loaded"]:
-            kv("Skills active", ", ".join(te["skills_loaded"]))
-
     # Noise Ratio
     section("Noise Ratio")
     nr = data["noise_ratio"]
@@ -668,18 +647,13 @@ def observe_ai(project_root: Path) -> dict[str, Any]:
     else:
         cache_hit_rate = 0.0
 
-    # Expanded context efficiency via session_metrics_from
-    sm = session_metrics_from(all_events)
-    avg_tokens = (
-        round(sm["total_tokens"] / sm["sessions_analyzed"]) if sm["sessions_analyzed"] > 0 else 0
-    )
+    # Context efficiency from session events
+    sessions_analyzed = len(session_events)
+    avg_tokens = round(total_tokens / sessions_analyzed) if sessions_analyzed > 0 else 0
 
     # Skill/Agent efficiency
     skills = skill_usage_from(all_events)
     agents = agent_dispatch_from(all_events)
-
-    # Session Recovery
-    cp = checkpoint_status(project_root)
 
     # Self-Optimization Hints
     hints: list[str] = []
@@ -688,38 +662,35 @@ def observe_ai(project_root: Path) -> dict[str, Any]:
     gates = gate_pass_rate_from(all_events)
     if gates["total"] > 0 and gates["pass_rate"] < 80:
         hints.append("High gate failure rate — run `ruff format` before committing")
-    if not cp["has_checkpoint"]:
-        hints.append("No checkpoint — use `ai-eng checkpoint save` for session recovery")
-    if sm["utilization_pct"] > 90:
-        hints.append("Token utilization >90% — sessions near context limit")
-    if sm["sessions_analyzed"] == 0:
-        hints.append("No session data — checkpoint save emits session metrics")
     if not hints:
         hints.append("All patterns healthy — no optimization needed")
 
     return {
         "data_quality": dq,
         "context_efficiency": {
-            "sessions_analyzed": sm["sessions_analyzed"],
-            "total_tokens": sm["total_tokens"],
+            "sessions_analyzed": sessions_analyzed,
+            "total_tokens": total_tokens,
             "avg_tokens_per_session": avg_tokens,
-            "tokens_available": sm["tokens_available"],
-            "utilization_pct": sm["utilization_pct"],
-            "skills_loaded": sm["skills_loaded"],
+            "tokens_available": 200_000,
+            "utilization_pct": (
+                round(total_tokens / (sessions_analyzed * 200_000) * 100, 1)
+                if sessions_analyzed > 0
+                else 0.0
+            ),
+            "skills_loaded": sorted(
+                {
+                    s
+                    for e in session_events
+                    if isinstance(e.get("detail"), dict)
+                    for s in (e["detail"].get("skills_loaded") or [])
+                    if isinstance(s, str)
+                }
+            ),
         },
         "decision_continuity": {
             "decisions_reused": decisions_reused,
             "decisions_reprompted": decisions_reprompted,
             "cache_hit_rate": cache_hit_rate,
-        },
-        "session_recovery": {
-            "has_checkpoint": cp["has_checkpoint"],
-            "last_task": cp.get("last_task"),
-            "age": cp.get("age"),
-            "completed": cp.get("completed"),
-            "total": cp.get("total"),
-            "progress_pct": cp.get("progress_pct"),
-            "blocked_on": cp.get("blocked_on"),
         },
         "skill_agent_efficiency": {
             "skill_invocations": skills["total_invocations"],
@@ -730,7 +701,6 @@ def observe_ai(project_root: Path) -> dict[str, Any]:
         "self_optimization_hints": hints,
         "actions": [
             "Review decision store for expiring decisions",
-            "Check session checkpoint for recovery state",
         ],
     }
 
@@ -766,17 +736,6 @@ def _render_ai(data: dict[str, Any]) -> None:
     kv("Decisions re-prompted", dc["decisions_reprompted"])
     progress_bar("Cache hit rate", dc["cache_hit_rate"])
 
-    # Session Recovery
-    section("Session Recovery")
-    sr = data["session_recovery"]
-    if not sr["has_checkpoint"]:
-        info("No checkpoint found")
-    else:
-        kv("Last checkpoint", f"{sr['last_task']} ({sr['age']})")
-        progress_bar("Progress", sr["progress_pct"])
-        blocked = sr.get("blocked_on") or "nothing"
-        kv("Blocked on", blocked)
-
     # Skill & Agent Efficiency
     section("Skill & Agent Efficiency")
     sae = data["skill_agent_efficiency"]
@@ -794,8 +753,6 @@ def _render_ai(data: dict[str, Any]) -> None:
         # Determine status based on hint content
         if "healthy" in hint.lower() or "no optimization" in hint.lower():
             status_line("ok", "Status", hint)
-        elif "no checkpoint" in hint.lower() or "no session" in hint.lower():
-            status_line("warn", "Hint", hint)
         else:
             status_line("warn", "Hint", hint)
 
@@ -1205,7 +1162,6 @@ _NEXT_ACTIONS: dict[str, list[NextAction]] = {
     ],
     "ai": [
         NextAction(command="observe health", description="View health score"),
-        NextAction(command="checkpoint save", description="Save session checkpoint"),
         NextAction(command="decision list", description="List active decisions"),
     ],
     "dora": [

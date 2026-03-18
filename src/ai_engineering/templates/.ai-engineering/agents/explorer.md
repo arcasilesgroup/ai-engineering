@@ -30,8 +30,6 @@ Inspired by the `code-review-context-explorer` pattern, but generalized for ANY 
 
 ## Behavior
 
-> **Telemetry** (cross-IDE): run `ai-eng signals emit agent_dispatched --actor=ai --detail='{"agent":"explorer"}'` at agent activation. Fail-open — skip if ai-eng unavailable.
-
 ### 1. Scope the Investigation
 
 Determine what the requesting agent or user needs to understand:

@@ -9,7 +9,6 @@ Event types:
 - scan_complete: Scanner mode completion with score/findings
 - build_complete: Build agent task completion
 - deploy_complete: Deployment outcomes
-- session_metric: AI session efficiency metrics
 - guard_advisory: Guard advise mode findings
 - guard_gate: Guard gate mode verdicts
 - guard_drift: Guard drift detection results
@@ -18,6 +17,7 @@ Event types:
 from __future__ import annotations
 
 import logging
+import re
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -34,12 +34,82 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+# ---------------------------------------------------------------------------
+# Auto-enrichment helpers (fail-open, cached per-process)
+# ---------------------------------------------------------------------------
+
+_UNSET = object()  # stable sentinel for "not yet cached"
+
+_cached_spec_id: str | None | object = _UNSET
+_cached_stack: str | None | object = _UNSET
+
+
+def _read_active_spec(root: Path) -> str | None:
+    """Read active spec ID from _active.md (fail-open, cached)."""
+    global _cached_spec_id
+    if _cached_spec_id is not _UNSET:
+        return _cached_spec_id  # type: ignore[return-value]
+    try:
+        active_path = root / ".ai-engineering" / "context" / "specs" / "_active.md"
+        if not active_path.exists():
+            _cached_spec_id = None
+            return None
+        content = active_path.read_text(encoding="utf-8")
+        for line in content.splitlines():
+            line_s = line.strip()
+            if line_s and not line_s.startswith("#") and not line_s.startswith("<!--"):
+                match = re.search(r"(\d{3})-", line_s)
+                if match:
+                    _cached_spec_id = match.group(1)
+                    return _cached_spec_id  # type: ignore[return-value]
+        _cached_spec_id = None
+        return None
+    except Exception:
+        _cached_spec_id = None
+        return None
+
+
+def _read_active_stack(root: Path) -> str | None:
+    """Read primary stack from install-manifest.json (fail-open)."""
+    global _cached_stack
+    if _cached_stack is not _UNSET:
+        return _cached_stack  # type: ignore[return-value]
+    try:
+        import json
+
+        manifest_path = root / ".ai-engineering" / "state" / "install-manifest.json"
+        if not manifest_path.exists():
+            _cached_stack = None
+            return None
+        data = json.loads(manifest_path.read_text(encoding="utf-8"))
+        stacks = data.get("installedStacks", [])
+        _cached_stack = stacks[0] if stacks else None
+        return _cached_stack  # type: ignore[return-value]
+    except Exception:
+        _cached_stack = None
+        return None
+
+
+def _reset_enrichment_cache() -> None:
+    """Reset enrichment caches (for testing)."""
+    global _cached_spec_id, _cached_stack
+    _cached_spec_id = _UNSET
+    _cached_stack = _UNSET
+
+
+# ---------------------------------------------------------------------------
+# Core emit
+# ---------------------------------------------------------------------------
+
+
 def _emit(
     project_root: Path,
     *,
     event: str,
     actor: str,
     detail: dict[str, Any],
+    source: str | None = None,
+    duration_ms: int | None = None,
 ) -> None:
     """Emit a structured event to the audit log (fail-open)."""
     # Resolve VCS context (cached, fail-open)
@@ -51,6 +121,10 @@ def _emit(
         event=event,
         actor=actor,
         detail=detail,
+        source=source,
+        spec_id=_read_active_spec(project_root),
+        stack=_read_active_stack(project_root),
+        duration_ms=duration_ms,
         vcs_provider=repo_ctx.provider if repo_ctx else None,
         vcs_organization=repo_ctx.organization if repo_ctx else None,
         vcs_project=repo_ctx.project if repo_ctx else None,
@@ -77,7 +151,13 @@ _FIXABLE_CHECKS: frozenset[str] = frozenset(
 )
 
 
-def emit_gate_event(project_root: Path, result: GateResult) -> None:
+def emit_gate_event(
+    project_root: Path,
+    result: GateResult,
+    *,
+    source: str | None = None,
+    duration_ms: int | None = None,
+) -> None:
     """Emit a gate_result event after gate execution."""
     checks_detail: dict[str, str] = {}
     for check in result.checks:
@@ -91,7 +171,6 @@ def emit_gate_event(project_root: Path, result: GateResult) -> None:
         event="gate_result",
         actor="gate-engine",
         detail={
-            "type": "gate_result",
             "gate": result.hook.value,
             "result": "pass" if result.passed else "fail",
             "checks": checks_detail,
@@ -99,6 +178,8 @@ def emit_gate_event(project_root: Path, result: GateResult) -> None:
             "failed_checks": failed,
             "fixable_failures": fixable_failures,
         },
+        source=source or "gate-engine",
+        duration_ms=duration_ms,
     )
 
 
@@ -110,6 +191,7 @@ def emit_scan_event(
     findings: dict[str, int],
     stacks_scanned: list[str] | None = None,
     duration_ms: int = 0,
+    source: str | None = None,
 ) -> None:
     """Emit a scan_complete event to the audit log."""
     _emit(
@@ -117,14 +199,14 @@ def emit_scan_event(
         event="scan_complete",
         actor="verify",
         detail={
-            "type": "scan_complete",
             "agent": "verify",
             "mode": mode,
             "score": score,
             "findings": findings,
             "stacks_scanned": stacks_scanned or [],
-            "duration_ms": duration_ms,
         },
+        source=source or "cli",
+        duration_ms=duration_ms,
     )
 
 
@@ -138,6 +220,7 @@ def emit_build_event(
     tests_added: int = 0,
     stack: str = "",
     duration_ms: int = 0,
+    source: str | None = None,
 ) -> None:
     """Emit a build_complete event to the audit log."""
     _emit(
@@ -145,7 +228,6 @@ def emit_build_event(
         event="build_complete",
         actor="build",
         detail={
-            "type": "build_complete",
             "agent": "build",
             "mode": mode,
             "files_changed": files_changed,
@@ -153,8 +235,9 @@ def emit_build_event(
             "lines_removed": lines_removed,
             "tests_added": tests_added,
             "stack": stack,
-            "duration_ms": duration_ms,
         },
+        source=source or "gate-engine",
+        duration_ms=duration_ms,
     )
 
 
@@ -166,6 +249,7 @@ def emit_deploy_event(
     version: str,
     result: str,
     rollback: bool = False,
+    source: str | None = None,
 ) -> None:
     """Emit a deploy_complete event to the audit log."""
     _emit(
@@ -173,13 +257,13 @@ def emit_deploy_event(
         event="deploy_complete",
         actor="release",
         detail={
-            "type": "deploy_complete",
             "environment": environment,
             "strategy": strategy,
             "version": version,
             "result": result,
             "rollback": rollback,
         },
+        source=source or "cli",
     )
 
 
@@ -189,6 +273,7 @@ def emit_guard_advisory(
     files_checked: int = 0,
     warnings: int = 0,
     concerns: int = 0,
+    source: str | None = None,
 ) -> None:
     """Emit a guard_advisory event after advise mode analysis."""
     _emit(
@@ -196,12 +281,12 @@ def emit_guard_advisory(
         event="guard_advisory",
         actor="guard",
         detail={
-            "type": "guard_advisory",
             "mode": "advise",
             "files_checked": files_checked,
             "warnings": warnings,
             "concerns": concerns,
         },
+        source=source or "cli",
     )
 
 
@@ -212,6 +297,7 @@ def emit_guard_gate(
     task: str = "",
     agent: str = "",
     findings: int = 0,
+    source: str | None = None,
 ) -> None:
     """Emit a guard_gate event after gate mode validation."""
     _emit(
@@ -219,13 +305,13 @@ def emit_guard_gate(
         event="guard_gate",
         actor="guard",
         detail={
-            "type": "guard_gate",
             "mode": "gate",
             "verdict": verdict,
             "task": task,
             "agent": agent,
             "findings": findings,
         },
+        source=source or "cli",
     )
 
 
@@ -235,6 +321,7 @@ def emit_guard_drift(
     decisions_checked: int = 0,
     drifted: int = 0,
     critical: int = 0,
+    source: str | None = None,
 ) -> None:
     """Emit a guard_drift event after drift detection."""
     _emit(
@@ -242,37 +329,10 @@ def emit_guard_drift(
         event="guard_drift",
         actor="guard",
         detail={
-            "type": "guard_drift",
             "mode": "drift",
             "decisions_checked": decisions_checked,
             "drifted": drifted,
             "critical": critical,
         },
-    )
-
-
-def emit_session_event(
-    project_root: Path,
-    *,
-    tokens_used: int = 0,
-    tokens_available: int = 200000,
-    skills_loaded: list[str] | None = None,
-    decisions_reused: int = 0,
-    decisions_reprompted: int = 0,
-    checkpoint_saved: bool = False,
-) -> None:
-    """Emit a session_metric event to the audit log."""
-    _emit(
-        project_root,
-        event="session_metric",
-        actor="ai-session",
-        detail={
-            "type": "session_metric",
-            "tokens_used": tokens_used,
-            "tokens_available": tokens_available,
-            "skills_loaded": skills_loaded or [],
-            "decisions_reused": decisions_reused,
-            "decisions_reprompted": decisions_reprompted,
-            "checkpoint_saved": checkpoint_saved,
-        },
+        source=source or "cli",
     )

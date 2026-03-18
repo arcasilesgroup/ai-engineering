@@ -37,7 +37,7 @@ Validate that every countable claim in the manifest and governance files matches
 2. **Agent-skill references** -- For each agent definition in `agents/*.md`, verify every path listed under `references.skills` resolves to an existing `SKILL.md`. Flag orphan references (agent points to deleted skill) and shadow skills (skill exists but no agent references it).
 3. **Agent names list** -- Confirm `governance_surface.agents.names` in the manifest matches the actual filenames in `agents/` (minus the `.md` extension). Order does not matter; presence does.
 4. **Command file existence** -- For every skill listed in `skills/`, verify the `SKILL.md` file is non-empty and contains valid YAML frontmatter with required fields (`name`, `description`, `metadata`).
-5. **State file schemas** -- Confirm each file under `state/` is valid JSON (or NDJSON for `audit-log.ndjson`). Verify required keys exist: `decision-store.json` must have a `decisions` array, `session-checkpoint.json` must have `last_session`, `install-manifest.json` must have `version`.
+5. **State file schemas** -- Confirm each file under `state/` is valid JSON (or NDJSON for `audit-log.ndjson`). Verify required keys exist: `decision-store.json` must have a `decisions` array, `install-manifest.json` must have `version`.
 
 **Interpreting output**: Each check reports PASS or FAIL with the specific mismatch. A single FAIL in integrity is a blocker -- it means governance metadata is lying about the actual state, which poisons every downstream decision.
 
