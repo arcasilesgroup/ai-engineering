@@ -18,13 +18,19 @@ Before non-trivial work:
 
 ## Plan/Execute Flow (Spec-as-Gate)
 
-During `/ai-plan`:
+During `/ai-plan`, do NOT use file-writing tools to create spec files. Instead:
 
 1. **Analyze** — read code, discover requirements, assess risk (read-only).
 2. **Produce spec as text** — write the full spec as markdown in the conversation.
-3. **Persist via Write tool** — create spec.md, plan.md, and tasks.md directly using the Write tool into the appropriate `context/specs/NNN-<slug>/` directory. Update `_active.md` via the Edit tool.
-4. **Commit** — stage and commit the new files.
-5. **STOP** — present the result and wait for the user to invoke `/ai-dispatch`.
+3. **Persist via CLI** — pipe the spec to `ai-eng spec save`:
+   ```bash
+   cat <<'EOF' | ai-eng spec save --title "Feature Name" --pipeline standard --size M
+   # Feature Name
+   ## Problem
+   ...
+   EOF
+   ```
+4. **STOP** — present the result and wait for the user to invoke `/ai-execute`.
 
 ## Absolute Prohibitions
 
