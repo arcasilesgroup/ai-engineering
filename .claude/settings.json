@@ -1,0 +1,57 @@
+{
+  "permissions": {
+    "allow": [
+      "*"
+    ],
+    "deny": [
+      "Bash(rm -rf *)",
+      "Bash(git push --force *)",
+      "Bash(git push -f *)",
+      "Bash(git reset --hard *)",
+      "Bash(git checkout -- . *)",
+      "Bash(git checkout . *)",
+      "Bash(git restore . *)",
+      "Bash(git clean -f *)",
+      "Bash(git commit*--no-verify*)",
+      "Bash(git push*--no-verify*)",
+      "Bash(git merge*--no-verify*)",
+      "Bash(git rebase*--no-verify*)",
+      "Bash(*--no-verify*)"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Skill",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/scripts/hooks/telemetry-skill.sh\"",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "Agent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/scripts/hooks/telemetry-agent.sh\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/scripts/hooks/telemetry-session.sh\" end",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

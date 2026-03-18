@@ -1,0 +1,3 @@
+# Gitleaks fingerprint allowlist
+# These are example API keys in deleted documentation files (stacks/*/security.md).
+# They are not real secrets — they were illustrative examples for security best practices.

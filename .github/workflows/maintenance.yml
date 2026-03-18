@@ -1,0 +1,29 @@
+name: Weekly Maintenance
+
+on:
+  schedule:
+    # Every Monday at 06:00 UTC
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  maintenance:
+    name: Maintenance Report
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
+        with:
+          enable-cache: true
+      - name: Set Python version
+        run: uv python install 3.12
+      - name: Install dependencies
+        run: uv sync --dev
+      - name: Run maintenance
+        run: uv run ai-eng maintenance all

@@ -1,0 +1,108 @@
+---
+spec: "037"
+approach: "mixed"
+---
+
+# Plan — PR Workflow Hardening
+
+## Architecture
+
+### New Files
+
+| File | Purpose |
+|---|---|
+| `.ai-engineering/context/specs/037-pr-workflow-hardening/spec.md` | Define problem, scope, acceptance criteria |
+| `.ai-engineering/context/specs/037-pr-workflow-hardening/plan.md` | Define implementation architecture and phases |
+| `.ai-engineering/context/specs/037-pr-workflow-hardening/tasks.md` | Track phased execution and progress |
+
+### Modified Files
+
+| File | Purpose |
+|---|---|
+| `src/ai_engineering/commands/workflows.py` | Enforce deterministic PR create-or-update flow |
+| `src/ai_engineering/vcs/pr_description.py` | Harden PR body generation/update contract |
+| `.ai-engineering/skills/pr/SKILL.md` | Clarify upsert and payload handling rules |
+| `.github/prompts/ai-pr.prompt.md` | Keep prompt behavior aligned with canonical PR contract |
+| `.github/prompts/pr.prompt.md` | Remove semantic drift with PR prompt surface |
+| `tests/integration/test_command_workflows.py` | Add PR create/update regression coverage |
+| `tests/unit/test_vcs_providers.py` | Validate provider-level PR upsert behavior |
+
+### Mirror Copies
+
+| Canonical | Mirror |
+|---|---|
+| `.ai-engineering/skills/pr/SKILL.md` | `src/ai_engineering/templates/.ai-engineering/skills/pr/SKILL.md` |
+| `.github/prompts/ai-pr.prompt.md` | `src/ai_engineering/templates/project/prompts/ai-pr.prompt.md` |
+| `.github/prompts/pr.prompt.md` | `src/ai_engineering/templates/project/prompts/pr.prompt.md` |
+
+## File Structure
+
+- `.ai-engineering/context/specs/037-pr-workflow-hardening/`
+  - `spec.md`
+  - `plan.md`
+  - `tasks.md`
+
+## Session Map
+
+### Phase 0 — Scaffold and Activate [S]
+- Create spec directory and core lifecycle docs.
+- Activate `_active.md` and link product contract.
+
+### Phase 1 — Contract Parity Baseline [M]
+- Build a parity matrix: skill vs manifest vs workflow implementation.
+- Identify authoritative PR behavior and drift points.
+
+### Phase 2 — Deterministic PR Upsert Path [L]
+- Implement existing-PR detection by head branch.
+- Route create vs append-update through one deterministic command path.
+
+### Phase 3 — Body Reliability Hardening [M]
+- Enforce file-based body payload handling.
+- Preserve structured body sections in both create and update paths.
+
+### Phase 4 — Validation and Governance Closure [L]
+- Add regression tests for create/update/automerge behavior.
+- Run lint, type, tests, and governance validation.
+- Prepare closure artifacts (`done.md`) when AC are met.
+
+## Agent Assignments
+
+### Phase 1 — Contract Parity Baseline
+
+| Task | Primary Agent | Supporting Agent | Notes |
+|---|---|---|---|
+| 1.1 | `build` | `write` | Build parity matrix from implementation + contracts |
+| 1.2 | `write` | `scan` | Document drift points and target behavior |
+| 1.3 | `release` | `write` | Confirm and document prompt surface consolidation |
+
+### Phase 2 — Deterministic PR Upsert Path
+
+| Task | Primary Agent | Supporting Agent | Notes |
+|---|---|---|---|
+| 2.1 | `build` | `scan` | Implement existing-PR detection by head branch |
+| 2.2 | `build` | `write` | Implement append-only update behavior |
+| 2.3 | `build` | `release` | Preserve create path and PR contract compatibility |
+
+### Phase 3 — Body Reliability Hardening
+
+| Task | Primary Agent | Supporting Agent | Notes |
+|---|---|---|---|
+| 3.1 | `build` | `scan` | Replace inline multiline body handling with file-backed flow |
+| 3.2 | `build` | `write` | Ensure deterministic body extension semantics |
+
+### Phase 4 — Validation and Governance Closure
+
+| Task | Primary Agent | Supporting Agent | Notes |
+|---|---|---|---|
+| 4.1 | `build` | `scan` | Integration coverage for create/update PR flows |
+| 4.2 | `build` | `scan` | Provider-level upsert behavior consistency checks |
+| 4.3 | `scan` | `release` | Run and confirm all required gates and validations |
+| 4.4 | `write` | `release` | Prepare closure artifacts and PR closure evidence |
+
+## Patterns
+
+- Contract-first: skill/manifest/workflow parity before behavior changes.
+- Deterministic branching: explicit create-path and update-path decisions.
+- Append-only updates: never overwrite existing PR body content.
+- Mirror parity: keep canonical and template mirrors synchronized.
+- Safety-first validation: pass security, quality, and governance gates before PR.

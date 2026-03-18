@@ -1,0 +1,481 @@
+"""Pydantic models for ai-engineering state files.
+
+Defines schemas for:
+- InstallManifest: installation metadata, stacks, IDEs, tooling readiness.
+- OwnershipMap: path-level ownership for safe updates.
+- DecisionStore: risk and flow decisions with context hashing.
+- AuditEntry: governance event log entries.
+"""
+
+from __future__ import annotations
+
+from datetime import UTC, datetime
+from enum import StrEnum
+from typing import Any
+from urllib.parse import urlparse
+
+from pydantic import BaseModel, Field
+
+# --- Enums ---
+
+
+class OwnershipLevel(StrEnum):
+    """Ownership levels for governance paths."""
+
+    FRAMEWORK_MANAGED = "framework-managed"
+    TEAM_MANAGED = "team-managed"
+    PROJECT_MANAGED = "project-managed"
+    SYSTEM_MANAGED = "system-managed"
+
+
+class FrameworkUpdatePolicy(StrEnum):
+    """How framework updates interact with a path."""
+
+    ALLOW = "allow"
+    DENY = "deny"
+    APPEND_ONLY = "append-only"
+
+
+class GateHook(StrEnum):
+    """Git hook types used as quality gates."""
+
+    PRE_COMMIT = "pre-commit"
+    COMMIT_MSG = "commit-msg"
+    PRE_PUSH = "pre-push"
+
+
+class AiProvider(StrEnum):
+    """Supported AI coding assistant providers."""
+
+    CLAUDE_CODE = "claude_code"
+    GITHUB_COPILOT = "github_copilot"
+    GEMINI = "gemini"
+    CODEX = "codex"
+
+
+class RiskCategory(StrEnum):
+    """Category of a decision in the decision store."""
+
+    RISK_ACCEPTANCE = "risk-acceptance"
+    FLOW_DECISION = "flow-decision"
+    ARCHITECTURE_DECISION = "architecture-decision"
+
+
+class RiskSeverity(StrEnum):
+    """Severity level for risk acceptances."""
+
+    CRITICAL = "critical"
+    HIGH = "high"
+    MEDIUM = "medium"
+    LOW = "low"
+
+
+class DecisionStatus(StrEnum):
+    """Lifecycle status of a decision."""
+
+    ACTIVE = "active"
+    EXPIRED = "expired"
+    REVOKED = "revoked"
+    SUPERSEDED = "superseded"
+    REMEDIATED = "remediated"
+
+
+# --- Shared Components ---
+
+
+class UpdateMetadata(BaseModel):
+    """Metadata block required on every governance document update."""
+
+    rationale: str
+    expected_gain: str = Field(alias="expectedGain")
+    potential_impact: str = Field(alias="potentialImpact")
+
+    model_config = {"populate_by_name": True}
+
+
+# --- InstallManifest ---
+
+
+class ToolStatus(BaseModel):
+    """Status of a single tool."""
+
+    ready: bool = False
+
+
+class PythonTooling(BaseModel):
+    """Python-specific tooling readiness."""
+
+    uv: ToolStatus = Field(default_factory=ToolStatus)
+    ruff: ToolStatus = Field(default_factory=ToolStatus)
+    ty: ToolStatus = Field(default_factory=ToolStatus)
+    pip_audit: ToolStatus = Field(default_factory=ToolStatus, alias="pipAudit")
+
+    model_config = {"populate_by_name": True}
+
+
+class DotnetTooling(BaseModel):
+    """`.NET`-specific tooling readiness."""
+
+    dotnet: ToolStatus = Field(default_factory=ToolStatus)
+
+    model_config = {"populate_by_name": True}
+
+
+class NextjsTooling(BaseModel):
+    """Next.js/TypeScript-specific tooling readiness."""
+
+    node: ToolStatus = Field(default_factory=ToolStatus)
+    npm: ToolStatus = Field(default_factory=ToolStatus)
+    eslint: ToolStatus = Field(default_factory=ToolStatus)
+    prettier: ToolStatus = Field(default_factory=ToolStatus)
+
+    model_config = {"populate_by_name": True}
+
+
+class VcsProviderStatus(BaseModel):
+    """Status of a VCS provider."""
+
+    installed: bool = False
+    configured: bool = False
+    authenticated: bool = False
+    required_now: bool = Field(default=False, alias="requiredNow")
+    mode: str = "cli"
+    message: str | None = None
+
+    model_config = {"populate_by_name": True}
+
+
+class AzureDevOpsExtension(BaseModel):
+    """Azure DevOps extension configuration."""
+
+    enabled: bool = False
+    organization: str | None = None
+    project: str | None = None
+    repository: str | None = None
+
+
+class VcsExtensions(BaseModel):
+    """VCS provider extensions."""
+
+    azure_devops: AzureDevOpsExtension = Field(
+        default_factory=AzureDevOpsExtension,
+        alias="azure_devops",
+    )
+
+    model_config = {"populate_by_name": True}
+
+
+class VcsProviders(BaseModel):
+    """VCS provider configuration."""
+
+    primary: str = "github"
+    enabled: list[str] = Field(default_factory=lambda: ["github"])
+    extensions: VcsExtensions = Field(default_factory=VcsExtensions)
+
+
+class GitHooksStatus(BaseModel):
+    """Git hooks installation status."""
+
+    installed: bool = False
+    integrity_verified: bool = Field(default=False, alias="integrityVerified")
+    hook_hashes: dict[str, str] = Field(default_factory=dict, alias="hookHashes")
+
+    model_config = {"populate_by_name": True}
+
+
+class ToolingReadiness(BaseModel):
+    """Overall tooling readiness status."""
+
+    gh: VcsProviderStatus = Field(default_factory=VcsProviderStatus)
+    az: VcsProviderStatus = Field(default_factory=VcsProviderStatus)
+    git_hooks: GitHooksStatus = Field(default_factory=GitHooksStatus, alias="gitHooks")
+    python: PythonTooling = Field(default_factory=PythonTooling)
+    dotnet: DotnetTooling | None = None
+    nextjs: NextjsTooling | None = None
+
+    model_config = {"populate_by_name": True}
+
+
+class SonarCicdConfig(BaseModel):
+    """Sonar configuration for generated CI/CD pipelines."""
+
+    enabled: bool = False
+    host_url: str = Field(default="https://sonarcloud.io", alias="hostUrl")
+    project_key: str = Field(default="", alias="projectKey")
+    organization: str = ""
+    service_connection: str = Field(default="", alias="serviceConnection")
+
+    model_config = {"populate_by_name": True}
+
+    @property
+    def is_sonarcloud(self) -> bool:
+        """Return True when host resolves to SonarCloud."""
+        host = urlparse(self.host_url.lower()).hostname or ""
+        return host in {"", "sonarcloud.io"}
+
+
+class CicdStatus(BaseModel):
+    """Status of generated CI/CD pipelines."""
+
+    generated: bool = False
+    provider: str | None = None
+    files: list[str] = Field(default_factory=list)
+    sonar: SonarCicdConfig = Field(default_factory=SonarCicdConfig)
+
+
+class BranchPolicyStatus(BaseModel):
+    """Status of branch policy/protection setup."""
+
+    applied: bool = False
+    mode: str = "api"
+    manual_guide: str | None = Field(default=None, alias="manualGuide")
+    message: str | None = None
+
+    model_config = {"populate_by_name": True}
+
+
+class AiProviderConfig(BaseModel):
+    """AI provider selection for a project."""
+
+    primary: str = "claude_code"
+    enabled: list[str] = Field(default_factory=lambda: ["claude_code"])
+
+    model_config = {"populate_by_name": True}
+
+
+class OperationalReadiness(BaseModel):
+    """High-level install-to-operational readiness status."""
+
+    status: str = "pending"
+    manual_steps_required: bool = Field(default=False, alias="manualStepsRequired")
+    manual_steps: list[str] = Field(default_factory=list, alias="manualSteps")
+    deferred_setup: bool = Field(default=False, alias="deferredSetup")
+
+    model_config = {"populate_by_name": True}
+
+
+class ReleaseInfo(BaseModel):
+    """Last known release metadata for this installation."""
+
+    last_version: str = Field(default="", alias="lastVersion")
+    last_released_at: datetime | None = Field(default=None, alias="lastReleasedAt")
+
+    model_config = {"populate_by_name": True}
+
+
+class InstallManifest(BaseModel):
+    """Installation manifest for the ai-engineering framework.
+
+    Tracks what stacks, IDEs, and tools are installed and their readiness state.
+    Stored at `.ai-engineering/state/install-manifest.json`.
+    """
+
+    schema_version: str = Field(default="1.2", alias="schemaVersion")
+    update_metadata: UpdateMetadata | None = Field(default=None, alias="updateMetadata")
+    framework_version: str = Field(default="0.1.0", alias="frameworkVersion")
+    installed_at: datetime = Field(
+        default_factory=lambda: datetime.now(tz=UTC), alias="installedAt"
+    )
+    installed_stacks: list[str] = Field(default_factory=list, alias="installedStacks")
+    installed_ides: list[str] = Field(default_factory=list, alias="installedIdes")
+    ai_providers: AiProviderConfig = Field(default_factory=AiProviderConfig, alias="aiProviders")
+    providers: VcsProviders = Field(default_factory=VcsProviders)
+    tooling_readiness: ToolingReadiness = Field(
+        default_factory=ToolingReadiness, alias="toolingReadiness"
+    )
+    cicd: CicdStatus = Field(default_factory=CicdStatus)
+    branch_policy: BranchPolicyStatus = Field(
+        default_factory=BranchPolicyStatus,
+        alias="branchPolicy",
+    )
+    operational_readiness: OperationalReadiness = Field(
+        default_factory=OperationalReadiness,
+        alias="operationalReadiness",
+    )
+    release: ReleaseInfo = Field(default_factory=ReleaseInfo)
+    external_references: dict[str, str] = Field(default_factory=dict, alias="externalReferences")
+
+    model_config = {"populate_by_name": True}
+
+
+# --- OwnershipMap ---
+
+
+class OwnershipEntry(BaseModel):
+    """A single path ownership entry."""
+
+    pattern: str
+    owner: OwnershipLevel
+    framework_update: FrameworkUpdatePolicy = Field(alias="frameworkUpdate")
+
+    model_config = {"populate_by_name": True}
+
+
+class OwnershipMap(BaseModel):
+    """Path-level ownership map for safe framework updates.
+
+    Determines which paths can be overwritten by framework update flows
+    and which are protected (team/project-managed).
+    Stored at `.ai-engineering/state/ownership-map.json`.
+    """
+
+    schema_version: str = Field(default="1.0", alias="schemaVersion")
+    update_metadata: UpdateMetadata | None = Field(default=None, alias="updateMetadata")
+    paths: list[OwnershipEntry] = Field(default_factory=list)
+
+    model_config = {"populate_by_name": True}
+
+    def is_writable_by_framework(self, path: str) -> bool:
+        """Check if a path can be written by framework update flows.
+
+        Returns True for both ``ALLOW`` and ``APPEND_ONLY`` policies.
+        Use :meth:`is_update_allowed` for the stricter updater check that
+        excludes append-only paths.
+
+        Args:
+            path: Relative path to check against ownership patterns.
+
+        Returns:
+            True if the path is writable (allow or append-only).
+        """
+        from fnmatch import fnmatch
+
+        for entry in self.paths:
+            if fnmatch(path, entry.pattern):
+                return entry.framework_update != FrameworkUpdatePolicy.DENY
+        # Default: deny if no rule matches
+        return False
+
+    def is_update_allowed(self, path: str) -> bool:
+        """Check if a path can be fully replaced by a framework update.
+
+        Stricter than :meth:`is_writable_by_framework`: only ``ALLOW``
+        returns True.  ``APPEND_ONLY`` returns False because the updater
+        performs full file replacement, not appending.
+
+        Args:
+            path: Relative path to check against ownership patterns.
+
+        Returns:
+            True only if the matching rule has policy ``ALLOW``.
+            False for ``DENY``, ``APPEND_ONLY``, or no matching rule.
+        """
+        from fnmatch import fnmatch
+
+        for entry in self.paths:
+            if fnmatch(path, entry.pattern):
+                return entry.framework_update == FrameworkUpdatePolicy.ALLOW
+        # No matching rule → deny by default
+        return False
+
+    def has_deny_rule(self, path: str) -> bool:
+        """Check if a path has an explicit deny rule.
+
+        Used to decide whether creating a new file should be blocked.
+
+        Args:
+            path: Relative path to check.
+
+        Returns:
+            True if an explicit ``DENY`` rule matches the path.
+        """
+        from fnmatch import fnmatch
+
+        for entry in self.paths:
+            if fnmatch(path, entry.pattern):
+                return entry.framework_update == FrameworkUpdatePolicy.DENY
+        return False
+
+
+# --- DecisionStore ---
+
+
+class Decision(BaseModel):
+    """A single risk or flow decision.
+
+    Schema 1.1 adds risk lifecycle fields. All new fields are optional
+    for backward compatibility with schema 1.0 data.
+    """
+
+    id: str
+    context: str
+    decision: str
+    decided_at: datetime = Field(alias="decidedAt")
+    spec: str
+    context_hash: str | None = Field(default=None, alias="contextHash")
+    expires_at: datetime | None = Field(default=None, alias="expiresAt")
+
+    # Risk lifecycle fields (schema 1.1)
+    risk_category: RiskCategory | None = Field(default=None, alias="riskCategory")
+    severity: RiskSeverity | None = Field(default=None)
+    accepted_by: str | None = Field(default=None, alias="acceptedBy")
+    follow_up_action: str | None = Field(default=None, alias="followUpAction")
+    status: DecisionStatus = Field(default=DecisionStatus.ACTIVE)
+    renewed_from: str | None = Field(default=None, alias="renewedFrom")
+    renewal_count: int = Field(default=0, alias="renewalCount")
+
+    model_config = {"populate_by_name": True}
+
+
+class DecisionStore(BaseModel):
+    """Persistent store for risk and flow decisions.
+
+    Prevents prompt fatigue by reusing previously-made decisions.
+    Supports context hashing for decision relevance tracking.
+    Schema 1.1 adds risk lifecycle support.
+    Stored at ``.ai-engineering/state/decision-store.json``.
+    """
+
+    schema_version: str = Field(default="1.1", alias="schemaVersion")
+    update_metadata: UpdateMetadata | None = Field(default=None, alias="updateMetadata")
+    decisions: list[Decision] = Field(default_factory=list)
+
+    model_config = {"populate_by_name": True}
+
+    def find_by_context_hash(self, context_hash: str) -> Decision | None:
+        """Find a decision by its context hash."""
+        for d in self.decisions:
+            if d.context_hash == context_hash:
+                return d
+        return None
+
+    def find_by_id(self, decision_id: str) -> Decision | None:
+        """Find a decision by its ID."""
+        for d in self.decisions:
+            if d.id == decision_id:
+                return d
+        return None
+
+    def risk_decisions(self) -> list[Decision]:
+        """Return only risk acceptance decisions."""
+        return [d for d in self.decisions if d.risk_category == RiskCategory.RISK_ACCEPTANCE]
+
+
+# --- AuditEntry ---
+
+
+class AuditEntry(BaseModel):
+    """A single governance event log entry.
+
+    Appended to `.ai-engineering/state/audit-log.ndjson` (one JSON object per line).
+
+    The ``detail`` field is always a structured dict, enabling enriched events
+    (scan results, gate outcomes, deploy signals) for database-ready analytics.
+    """
+
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(tz=UTC))
+    event: str
+    actor: str
+    detail: dict[str, Any] | None = None
+    # VCS context (auto-populated by _emit)
+    vcs_provider: str | None = None
+    vcs_organization: str | None = None
+    vcs_project: str | None = None
+    vcs_repository: str | None = None
+    branch: str | None = None
+    commit_sha: str | None = None
+    # Enrichment fields (auto-populated by _emit)
+    source: str | None = None
+    spec_id: str | None = None
+    stack: str | None = None
+    duration_ms: int | None = None

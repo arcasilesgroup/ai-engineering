@@ -1,0 +1,124 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 440" font-family="JetBrains Mono, Inter, sans-serif">
+
+  <rect width="900" height="440" fill="#0B1120" rx="12" stroke="#1A2A40" stroke-width="1"/>
+
+  <!-- Title -->
+  <text x="450" y="38" text-anchor="middle" fill="#F8FAFB" font-size="22" font-weight="700">Plain AI Instructions vs ai-engineering</text>
+  <text x="450" y="60" text-anchor="middle" fill="#94A3B8" font-size="13">"Instructions tell AI what to do. ai-engineering ensures it actually does it."</text>
+
+  <!-- Table columns: Capability x=60 w=320, Plain AI x=380 w=220, ai-engineering x=600 w=240 -->
+  <!-- Column centers: 220, 490, 720 -->
+
+  <!-- Table header -->
+  <rect x="60" y="80" width="320" height="35" rx="0" fill="#00D4AA"/>
+  <text x="220" y="103" text-anchor="middle" fill="#0B1120" font-size="13" font-weight="700">Capability</text>
+
+  <rect x="380" y="80" width="220" height="35" rx="0" fill="#2A4F7A"/>
+  <text x="490" y="103" text-anchor="middle" fill="#0B1120" font-size="13" font-weight="700">Plain AI Instructions</text>
+
+  <rect x="600" y="80" width="240" height="35" rx="0" fill="#00D4AA"/>
+  <text x="720" y="103" text-anchor="middle" fill="#0B1120" font-size="13" font-weight="700">ai-engineering</text>
+
+  <!-- Row 1: Enforcement (y=115, h=35) -->
+  <rect x="60" y="115" width="320" height="35" rx="0" fill="#1A2A40"/>
+  <text x="80" y="138" fill="#F8FAFB" font-size="12">Quality Gate Enforcement</text>
+  <rect x="380" y="115" width="220" height="35" rx="0" fill="#0B1120"/>
+  <circle cx="425" cy="132" r="10" fill="#0B1120" stroke="#EF4444" stroke-width="1.5"/>
+  <text x="425" y="137" text-anchor="middle" fill="#EF4444" font-size="14" font-weight="700">&#x2717;</text>
+  <text x="448" y="137" fill="#64748B" font-size="10">Suggestions only</text>
+  <rect x="600" y="115" width="240" height="35" rx="0" fill="#c8ede7"/>
+  <circle cx="645" cy="132" r="10" fill="#1a9e8c"/>
+  <text x="645" y="137" text-anchor="middle" fill="#0B1120" font-size="14" font-weight="700">&#x2713;</text>
+  <text x="668" y="137" fill="#0d5c52" font-size="10">Non-bypassable</text>
+
+  <!-- Row 2: State Persistence (y=150) -->
+  <rect x="60" y="150" width="320" height="35" rx="0" fill="#0B1120"/>
+  <text x="80" y="173" fill="#F8FAFB" font-size="12">State Persistence Across Sessions</text>
+  <rect x="380" y="150" width="220" height="35" rx="0" fill="#1A2A40"/>
+  <circle cx="425" cy="167" r="10" fill="#0B1120" stroke="#EF4444" stroke-width="1.5"/>
+  <text x="425" y="172" text-anchor="middle" fill="#EF4444" font-size="14" font-weight="700">&#x2717;</text>
+  <text x="448" y="172" fill="#64748B" font-size="10">Starts from zero</text>
+  <rect x="600" y="150" width="240" height="35" rx="0" fill="#c8ede7" opacity="0.5"/>
+  <circle cx="645" cy="167" r="10" fill="#1a9e8c"/>
+  <text x="645" y="172" text-anchor="middle" fill="#0B1120" font-size="14" font-weight="700">&#x2713;</text>
+  <text x="668" y="172" fill="#0d5c52" font-size="10">Decision store</text>
+
+  <!-- Row 3: Ownership Model (y=185) -->
+  <rect x="60" y="185" width="320" height="35" rx="0" fill="#1A2A40"/>
+  <text x="80" y="208" fill="#F8FAFB" font-size="12">Ownership Boundaries</text>
+  <rect x="380" y="185" width="220" height="35" rx="0" fill="#0B1120"/>
+  <circle cx="425" cy="202" r="10" fill="#0B1120" stroke="#EF4444" stroke-width="1.5"/>
+  <text x="425" y="207" text-anchor="middle" fill="#EF4444" font-size="14" font-weight="700">&#x2717;</text>
+  <text x="448" y="207" fill="#64748B" font-size="10">Anyone overwrites</text>
+  <rect x="600" y="185" width="240" height="35" rx="0" fill="#c8ede7"/>
+  <circle cx="645" cy="202" r="10" fill="#1a9e8c"/>
+  <text x="645" y="207" text-anchor="middle" fill="#0B1120" font-size="14" font-weight="700">&#x2713;</text>
+  <text x="668" y="207" fill="#0d5c52" font-size="10">4-layer model</text>
+
+  <!-- Row 4: Audit Trail (y=220) -->
+  <rect x="60" y="220" width="320" height="35" rx="0" fill="#0B1120"/>
+  <text x="80" y="243" fill="#F8FAFB" font-size="12">Audit Trail</text>
+  <rect x="380" y="220" width="220" height="35" rx="0" fill="#1A2A40"/>
+  <circle cx="425" cy="237" r="10" fill="#0B1120" stroke="#EF4444" stroke-width="1.5"/>
+  <text x="425" y="242" text-anchor="middle" fill="#EF4444" font-size="14" font-weight="700">&#x2717;</text>
+  <text x="448" y="242" fill="#64748B" font-size="10">No records</text>
+  <rect x="600" y="220" width="240" height="35" rx="0" fill="#c8ede7" opacity="0.5"/>
+  <circle cx="645" cy="237" r="10" fill="#1a9e8c"/>
+  <text x="645" y="242" text-anchor="middle" fill="#0B1120" font-size="14" font-weight="700">&#x2713;</text>
+  <text x="668" y="242" fill="#0d5c52" font-size="10">Append-only log</text>
+
+  <!-- Row 5: Security Scanning (y=255) -->
+  <rect x="60" y="255" width="320" height="35" rx="0" fill="#1A2A40"/>
+  <text x="80" y="278" fill="#F8FAFB" font-size="12">Local Security Scanning</text>
+  <rect x="380" y="255" width="220" height="35" rx="0" fill="#0B1120"/>
+  <circle cx="425" cy="272" r="10" fill="#0B1120" stroke="#EF4444" stroke-width="1.5"/>
+  <text x="425" y="277" text-anchor="middle" fill="#EF4444" font-size="14" font-weight="700">&#x2717;</text>
+  <text x="448" y="277" fill="#64748B" font-size="10">CI-dependent</text>
+  <rect x="600" y="255" width="240" height="35" rx="0" fill="#c8ede7"/>
+  <circle cx="645" cy="272" r="10" fill="#1a9e8c"/>
+  <text x="645" y="277" text-anchor="middle" fill="#0B1120" font-size="14" font-weight="700">&#x2713;</text>
+  <text x="668" y="277" fill="#0d5c52" font-size="10">Pre-push gates</text>
+
+  <!-- Row 6: Risk Management (y=290) -->
+  <rect x="60" y="290" width="320" height="35" rx="0" fill="#0B1120"/>
+  <text x="80" y="313" fill="#F8FAFB" font-size="12">Risk Acceptance Lifecycle</text>
+  <rect x="380" y="290" width="220" height="35" rx="0" fill="#1A2A40"/>
+  <circle cx="425" cy="307" r="10" fill="#0B1120" stroke="#EF4444" stroke-width="1.5"/>
+  <text x="425" y="312" text-anchor="middle" fill="#EF4444" font-size="14" font-weight="700">&#x2717;</text>
+  <text x="448" y="312" fill="#64748B" font-size="10">No tracking</text>
+  <rect x="600" y="290" width="240" height="35" rx="0" fill="#c8ede7" opacity="0.5"/>
+  <circle cx="645" cy="307" r="10" fill="#1a9e8c"/>
+  <text x="645" y="312" text-anchor="middle" fill="#0B1120" font-size="14" font-weight="700">&#x2713;</text>
+  <text x="668" y="312" fill="#0d5c52" font-size="10">Severity + expiry</text>
+
+  <!-- Row 7: Multi-IDE (y=325) -->
+  <rect x="60" y="325" width="320" height="35" rx="0" fill="#1A2A40"/>
+  <text x="80" y="348" fill="#F8FAFB" font-size="12">Cross-IDE / Cross-Provider</text>
+  <rect x="380" y="325" width="220" height="35" rx="0" fill="#0B1120"/>
+  <circle cx="425" cy="342" r="10" fill="#0B1120" stroke="#2A4F7A" stroke-width="1.5"/>
+  <text x="425" y="347" text-anchor="middle" fill="#2A4F7A" font-size="14" font-weight="700">~</text>
+  <text x="448" y="347" fill="#64748B" font-size="10">Per-provider files</text>
+  <rect x="600" y="325" width="240" height="35" rx="0" fill="#c8ede7"/>
+  <circle cx="645" cy="342" r="10" fill="#1a9e8c"/>
+  <text x="645" y="347" text-anchor="middle" fill="#0B1120" font-size="14" font-weight="700">&#x2713;</text>
+  <text x="668" y="347" fill="#0d5c52" font-size="10">Single source</text>
+
+  <!-- Row 8: Spec-Driven Delivery (y=360) -->
+  <rect x="60" y="360" width="320" height="35" rx="0" fill="#0B1120"/>
+  <text x="80" y="383" fill="#F8FAFB" font-size="12">Spec-Driven Delivery Lifecycle</text>
+  <rect x="380" y="360" width="220" height="35" rx="0" fill="#1A2A40"/>
+  <circle cx="425" cy="377" r="10" fill="#0B1120" stroke="#EF4444" stroke-width="1.5"/>
+  <text x="425" y="382" text-anchor="middle" fill="#EF4444" font-size="14" font-weight="700">&#x2717;</text>
+  <text x="448" y="382" fill="#64748B" font-size="10">Ad-hoc</text>
+  <rect x="600" y="360" width="240" height="35" rx="0" fill="#c8ede7" opacity="0.5"/>
+  <circle cx="645" cy="377" r="10" fill="#1a9e8c"/>
+  <text x="645" y="382" text-anchor="middle" fill="#0B1120" font-size="14" font-weight="700">&#x2713;</text>
+  <text x="668" y="382" fill="#0d5c52" font-size="10">4-doc pattern</text>
+
+  <!-- Score summary (aligned with column edges) -->
+  <rect x="380" y="405" width="220" height="30" rx="6" fill="#0B1120" stroke="#2A4F7A" stroke-width="1.5"/>
+  <text x="490" y="425" text-anchor="middle" fill="#2A4F7A" font-size="13" font-weight="700">0 / 8 enforced</text>
+
+  <rect x="600" y="405" width="240" height="30" rx="6" fill="#0B1120" stroke="#00D4AA" stroke-width="1.5"/>
+  <text x="720" y="425" text-anchor="middle" fill="#00D4AA" font-size="13" font-weight="700">8 / 8 enforced</text>
+</svg>

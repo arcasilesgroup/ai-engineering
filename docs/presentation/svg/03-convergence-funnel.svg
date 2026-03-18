@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 420" font-family="JetBrains Mono, Inter, sans-serif">
+
+  <rect width="900" height="420" fill="#0B1120" rx="12" stroke="#1A2A40" stroke-width="1"/>
+
+  <!-- Title -->
+  <text x="450" y="40" text-anchor="middle" fill="#F8FAFB" font-size="22" font-weight="700">The Journey: 5 Rewrites to ai-engineering</text>
+  <text x="450" y="63" text-anchor="middle" fill="#94A3B8" font-size="13">Each framework solves part of the puzzle</text>
+
+  <!-- Input frameworks - left side -->
+  <rect x="40" y="95" width="210" height="50" rx="8" fill="#1A2A40" stroke="#2e6ba4" stroke-width="1.5"/>
+  <text x="150" y="118" text-anchor="middle" fill="#2e6ba4" font-size="13" font-weight="700">SpecKit</text>
+  <text x="150" y="135" text-anchor="middle" fill="#94A3B8" font-size="10">Good spec management, no enforcement</text>
+
+  <rect x="40" y="160" width="210" height="50" rx="8" fill="#1A2A40" stroke="#7b3fa0" stroke-width="1.5"/>
+  <text x="150" y="183" text-anchor="middle" fill="#7b3fa0" font-size="13" font-weight="700">BMAD Method</text>
+  <text x="150" y="200" text-anchor="middle" fill="#94A3B8" font-size="10">Strong multi-agent, heavyweight</text>
+
+  <rect x="40" y="225" width="210" height="50" rx="8" fill="#1A2A40" stroke="#2A4F7A" stroke-width="1.5"/>
+  <text x="150" y="248" text-anchor="middle" fill="#2A4F7A" font-size="13" font-weight="700">GSD</text>
+  <text x="150" y="265" text-anchor="middle" fill="#94A3B8" font-size="10">Pragmatic, no governance backbone</text>
+
+  <rect x="40" y="290" width="210" height="50" rx="8" fill="#1A2A40" stroke="#1a9e8c" stroke-width="1.5"/>
+  <text x="150" y="313" text-anchor="middle" fill="#1a9e8c" font-size="13" font-weight="700">OpenSpec</text>
+  <text x="150" y="330" text-anchor="middle" fill="#94A3B8" font-size="10">Open standard aspirations, no tooling</text>
+
+  <rect x="40" y="355" width="210" height="50" rx="8" fill="#1A2A40" stroke="#7b3fa0" stroke-width="1.5"/>
+  <text x="150" y="378" text-anchor="middle" fill="#b38bcf" font-size="13" font-weight="700">Internal v1-v4</text>
+  <text x="150" y="395" text-anchor="middle" fill="#94A3B8" font-size="10">4 prior internal iterations</text>
+
+  <!-- Arrows from inputs to funnel -->
+  <line x1="250" y1="120" x2="370" y2="195" stroke="#2e6ba4" stroke-width="1.5" opacity="0.5"/>
+  <line x1="250" y1="185" x2="370" y2="205" stroke="#7b3fa0" stroke-width="1.5" opacity="0.5"/>
+  <line x1="250" y1="250" x2="370" y2="220" stroke="#2A4F7A" stroke-width="1.5" opacity="0.5"/>
+  <line x1="250" y1="315" x2="370" y2="240" stroke="#1a9e8c" stroke-width="1.5" opacity="0.5"/>
+  <line x1="250" y1="380" x2="370" y2="260" stroke="#7b3fa0" stroke-width="1.5" opacity="0.5"/>
+
+  <!-- Funnel -->
+  <path d="M370,140 L530,140 L500,290 L400,290 Z" fill="#1A2A40" stroke="#1A2A40" stroke-width="2" opacity="0.8"/>
+  <text x="450" y="190" text-anchor="middle" fill="#64748B" font-size="14" font-weight="700">5 Iterations</text>
+  <text x="450" y="210" text-anchor="middle" fill="#94A3B8" font-size="11">Filter + Combine</text>
+  <text x="450" y="230" text-anchor="middle" fill="#94A3B8" font-size="11">+ Simplify</text>
+
+  <!-- Arrow from funnel to result -->
+  <line x1="450" y1="290" x2="450" y2="310" stroke="#00D4AA" stroke-width="2"/>
+  <polygon points="450,320 443,308 457,308" fill="#00D4AA"/>
+
+  <!-- Result: ai-engineering -->
+  <rect x="540" y="170" width="320" height="200" rx="12" fill="#1A2A40" stroke="#00D4AA" stroke-width="2.5"/>
+  <text x="700" y="200" text-anchor="middle" fill="#00D4AA" font-size="18" font-weight="700">ai-engineering</text>
+  <text x="700" y="222" text-anchor="middle" fill="#94A3B8" font-size="11">Content-first governance</text>
+
+  <!-- Key properties -->
+  <circle cx="575" cy="250" r="4" fill="#00D4AA"/>
+  <text x="590" y="254" fill="#F8FAFB" font-size="11">Simple to adopt</text>
+
+  <circle cx="575" cy="275" r="4" fill="#00D4AA"/>
+  <text x="590" y="279" fill="#F8FAFB" font-size="11">Strict for enforcement</text>
+
+  <circle cx="575" cy="300" r="4" fill="#00D4AA"/>
+  <text x="590" y="304" fill="#F8FAFB" font-size="11">Flexible to scale across teams</text>
+
+  <circle cx="575" cy="325" r="4" fill="#00D4AA"/>
+  <text x="590" y="329" fill="#F8FAFB" font-size="11">Provider-agnostic (IDE + AI)</text>
+
+  <circle cx="575" cy="350" r="4" fill="#00D4AA"/>
+  <text x="590" y="354" fill="#F8FAFB" font-size="11">Non-bypassable quality gates</text>
+
+  <!-- Connection arrow from funnel to result box -->
+  <path d="M500,215 L538,215" stroke="#00D4AA" stroke-width="2" marker-end="none"/>
+  <polygon points="540,215 530,210 530,220" fill="#00D4AA"/>
+</svg>

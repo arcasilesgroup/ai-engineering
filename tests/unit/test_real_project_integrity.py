@@ -1,0 +1,146 @@
+"""Validate the REAL project's content integrity.
+
+These tests run the validator service against the actual .ai-engineering/
+directory in the repo — NOT against tmp_path fixtures. If governance files
+are missing, mirrors are out of sync, or counts don't match, these tests FAIL.
+
+This is the "canary test" — it breaks immediately when the architecture
+changes without updating all mirrors and instruction files.
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+import pytest
+
+from ai_engineering.validator._shared import IntegrityCategory, IntegrityStatus
+from ai_engineering.validator.service import validate_content_integrity
+
+_PROJECT_ROOT = Path(__file__).resolve().parents[2]
+
+
+def _has_governance_dir() -> bool:
+    return (_PROJECT_ROOT / ".ai-engineering").is_dir()
+
+
+def _run_category(category: IntegrityCategory) -> list[str]:
+    """Run a single integrity category and return failure messages."""
+    report = validate_content_integrity(
+        _PROJECT_ROOT,
+        categories=[category],
+    )
+    return [f"{c.category}: {c.message}" for c in report.checks if c.status == IntegrityStatus.FAIL]
+
+
+@pytest.mark.skipif(not _has_governance_dir(), reason="No .ai-engineering/ in project")
+class TestRealProjectIntegrity:
+    """Run content integrity checks against the actual repo."""
+
+    def test_file_existence(self) -> None:
+        """All internal path references in governance docs resolve to files."""
+        failures = _run_category(IntegrityCategory.FILE_EXISTENCE)
+        assert not failures, "File existence failures:\n" + "\n".join(f"  {f}" for f in failures)
+
+    def test_counter_accuracy(self) -> None:
+        """Skill/agent counts are consistent across instruction files."""
+        failures = _run_category(IntegrityCategory.COUNTER_ACCURACY)
+        assert not failures, "Counter accuracy failures:\n" + "\n".join(f"  {f}" for f in failures)
+
+    def test_manifest_coherence(self) -> None:
+        """Manifest governance_surface matches filesystem reality."""
+        failures = _run_category(IntegrityCategory.MANIFEST_COHERENCE)
+        assert not failures, "Manifest coherence failures:\n" + "\n".join(
+            f"  {f}" for f in failures
+        )
+
+    def test_skill_frontmatter(self) -> None:
+        """All skill SKILL.md files have valid YAML frontmatter."""
+        failures = _run_category(IntegrityCategory.SKILL_FRONTMATTER)
+        assert not failures, "Skill frontmatter failures:\n" + "\n".join(f"  {f}" for f in failures)
+
+    def test_cross_references(self) -> None:
+        """Bidirectional references between skills and agents are valid."""
+        failures = _run_category(IntegrityCategory.CROSS_REFERENCE)
+        assert not failures, "Cross-reference failures:\n" + "\n".join(f"  {f}" for f in failures)
+
+    def test_all_categories_pass(self) -> None:
+        """All 7 integrity categories pass together."""
+        report = validate_content_integrity(_PROJECT_ROOT)
+        assert report.passed, f"Integrity check failed: {report.summary}\n" + "\n".join(
+            f"  [{c.status.value}] {c.category}: {c.message}"
+            for c in report.checks
+            if c.status == IntegrityStatus.FAIL
+        )
+
+
+@pytest.mark.skipif(not _has_governance_dir(), reason="No .ai-engineering/ in project")
+class TestAgentSkillCrossReferences:
+    """Verify agents reference skills that actually exist."""
+
+    # Canonical source for agents/skills is in templates
+    _TEMPLATES_DIR = _PROJECT_ROOT / "src" / "ai_engineering" / "templates" / ".ai-engineering"
+
+    def test_all_agent_skill_references_exist(self) -> None:
+        """Every skills/ path referenced in agents/*.md frontmatter must exist on disk."""
+        import re
+
+        agents_dir = self._TEMPLATES_DIR / "agents"
+        if not agents_dir.is_dir():
+            pytest.skip("No canonical agents/ in templates")
+        broken: list[str] = []
+        for agent_file in sorted(agents_dir.glob("*.md")):
+            text = agent_file.read_text(encoding="utf-8")
+            for match in re.finditer(r"- skills/([^\s]+)", text):
+                skill_path = self._TEMPLATES_DIR / match.group(0).lstrip("- ")
+                if not skill_path.exists():
+                    broken.append(f"{agent_file.name}: missing '{match.group(0).lstrip('- ')}'")
+        assert not broken, "Broken agent→skill references:\n" + "\n".join(f"  {b}" for b in broken)
+
+    def test_all_agent_standard_references_exist(self) -> None:
+        """Every standards/ path referenced in agents/*.md frontmatter must exist on disk."""
+        import re
+
+        agents_dir = self._TEMPLATES_DIR / "agents"
+        if not agents_dir.is_dir():
+            pytest.skip("No canonical agents/ in templates")
+        # Standards still live in .ai-engineering/standards/
+        ai_dir = _PROJECT_ROOT / ".ai-engineering"
+        broken: list[str] = []
+        for agent_file in sorted(agents_dir.glob("*.md")):
+            text = agent_file.read_text(encoding="utf-8")
+            for match in re.finditer(r"- standards/([^\s]+)", text):
+                std_ref = match.group(0).lstrip("- ")
+                # Check both .ai-engineering/ and templates/
+                if not (ai_dir / std_ref).exists() and not (self._TEMPLATES_DIR / std_ref).exists():
+                    broken.append(f"{agent_file.name}: missing '{std_ref}'")
+        assert not broken, "Broken agent→standard references:\n" + "\n".join(
+            f"  {b}" for b in broken
+        )
+
+    def test_test_scope_covers_all_source_files(self) -> None:
+        """Every src/**/*.py file should be covered by at least one TEST_SCOPE_RULE."""
+        from ai_engineering.policy.test_scope import TEST_SCOPE_RULES
+
+        # Collect all source globs
+        covered_globs: list[str] = []
+        for rule in TEST_SCOPE_RULES:
+            covered_globs.extend(rule.source_globs)
+
+        # Collect all source files
+        src_dir = _PROJECT_ROOT / "src" / "ai_engineering"
+        all_py = {str(f.relative_to(_PROJECT_ROOT)) for f in src_dir.rglob("*.py") if f.is_file()}
+
+        # Check each file matches at least one glob
+        # Reuse the matching logic from test_scope.py itself
+        from ai_engineering.policy.test_scope import _matches_any_glob
+
+        uncovered: list[str] = []
+        for py_file in sorted(all_py):
+            if not _matches_any_glob(py_file, covered_globs):
+                uncovered.append(py_file)
+
+        assert not uncovered, (
+            f"{len(uncovered)} source files not covered by TEST_SCOPE_RULES:\n"
+            + "\n".join(f"  {f}" for f in uncovered[:20])
+        )

@@ -1,0 +1,131 @@
+"""Tests for the cli_progress module."""
+
+from __future__ import annotations
+
+from unittest.mock import MagicMock, patch
+
+import pytest
+
+from ai_engineering.cli_progress import StepTracker, spinner, step_progress
+
+pytestmark = pytest.mark.unit
+
+
+class TestSpinner:
+    """Tests for the spinner context manager."""
+
+    def test_spinner_noop_in_json_mode(self) -> None:
+        """Spinner does nothing in JSON mode."""
+        with (
+            patch("ai_engineering.cli_progress.is_json_mode", return_value=True),
+            spinner("test"),
+        ):
+            pass  # Should not raise
+
+    def test_spinner_noop_in_non_tty(self) -> None:
+        """Spinner does nothing when not a terminal."""
+        with (
+            patch("ai_engineering.cli_progress.is_json_mode", return_value=False),
+            patch("ai_engineering.cli_progress.get_console") as mock_console,
+        ):
+            mock_console.return_value.is_terminal = False
+            with spinner("test"):
+                pass  # Should not raise
+
+    def test_spinner_shows_on_tty(self) -> None:
+        """Spinner activates when terminal is detected."""
+        # Arrange
+        mock_console = MagicMock()
+        mock_console.is_terminal = True
+        mock_status = MagicMock()
+        mock_console.status.return_value.__enter__ = MagicMock(return_value=mock_status)
+        mock_console.status.return_value.__exit__ = MagicMock(return_value=False)
+
+        # Act
+        with (
+            patch("ai_engineering.cli_progress.is_json_mode", return_value=False),
+            patch("ai_engineering.cli_progress.get_console", return_value=mock_console),
+            spinner("Loading..."),
+        ):
+            pass
+
+        # Assert
+        mock_console.status.assert_called_once_with("Loading...", spinner="dots")
+
+
+class TestStepProgress:
+    """Tests for the step_progress context manager."""
+
+    def test_step_progress_noop_in_json_mode(self) -> None:
+        """Step progress does nothing in JSON mode."""
+        with (
+            patch("ai_engineering.cli_progress.is_json_mode", return_value=True),
+            step_progress(3, "test") as tracker,
+        ):
+            assert isinstance(tracker, StepTracker)
+            tracker.step("step 1")
+            tracker.step("step 2")
+            tracker.step("step 3")
+
+    def test_step_progress_noop_in_non_tty(self) -> None:
+        """Step progress does nothing when not a terminal."""
+        with (
+            patch("ai_engineering.cli_progress.is_json_mode", return_value=False),
+            patch("ai_engineering.cli_progress.get_console") as mock_console,
+        ):
+            mock_console.return_value.is_terminal = False
+            with step_progress(2, "test") as tracker:
+                tracker.step("a")
+                tracker.step("b")
+
+    def test_step_progress_shows_on_tty(self) -> None:
+        """Step progress activates when terminal is detected."""
+        # Arrange
+        mock_console = MagicMock()
+        mock_console.is_terminal = True
+        mock_status = MagicMock()
+        mock_console.status.return_value.__enter__ = MagicMock(return_value=mock_status)
+        mock_console.status.return_value.__exit__ = MagicMock(return_value=False)
+
+        # Act
+        with (
+            patch("ai_engineering.cli_progress.is_json_mode", return_value=False),
+            patch("ai_engineering.cli_progress.get_console", return_value=mock_console),
+            step_progress(3, "Running checks") as tracker,
+        ):
+            tracker.step("Step A")
+            tracker.step("Step B")
+
+        # Assert
+        mock_console.status.assert_called_once_with("[0/3] Running checks", spinner="dots")
+        assert mock_status.update.call_count == 2
+
+
+class TestStepTracker:
+    """Tests for StepTracker."""
+
+    def test_tracker_without_status_object(self) -> None:
+        """Tracker with None status (suppressed mode) works silently."""
+        tracker = StepTracker(3, None)
+        tracker.step("one")
+        tracker.step("two")
+        tracker.step("three")
+        # No assertion needed — just verify it doesn't raise
+
+    def test_tracker_with_status_object(self) -> None:
+        """Tracker with a status object updates spinner description."""
+        # Arrange
+        mock_status = MagicMock()
+        tracker = StepTracker(3, mock_status)
+
+        # Act
+        tracker.step("first")
+
+        # Assert
+        mock_status.update.assert_called_with("[1/3] first")
+
+        # Act
+        tracker.step("second")
+
+        # Assert
+        mock_status.update.assert_called_with("[2/3] second")
