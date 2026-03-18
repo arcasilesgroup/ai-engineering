@@ -133,7 +133,19 @@ class TestProjectRoot:
             assert find_project_root() == tmp_path
 
     def test_falls_back_to_cwd_when_not_found(self, tmp_path: Path) -> None:
-        with patch("ai_engineering.paths.Path.cwd", return_value=tmp_path):
+        # Prevent parent walk from finding stale .ai-engineering/ dirs
+        # (e.g., /tmp/.ai-engineering/ created by other tests on CI)
+        original_is_dir = Path.is_dir
+
+        def _no_ai_eng_dir(self: Path) -> bool:
+            if self.name == ".ai-engineering":
+                return False
+            return original_is_dir(self)
+
+        with (
+            patch("ai_engineering.paths.Path.cwd", return_value=tmp_path),
+            patch.object(Path, "is_dir", _no_ai_eng_dir),
+        ):
             assert find_project_root() == tmp_path
 
 
