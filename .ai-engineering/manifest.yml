@@ -125,7 +125,7 @@ schema_version: "2.0"
 framework_version: "0.4.0"
 
 update_metadata:
-  rationale: "architecture v3.1: 8 agents, 38 skills — consolidated surface with explorer for context gathering and simplifier for background cleanup"
+  rationale: "architecture v3.2: 8 agents, 34 skills — merged changelog→document, risk+standards→governance, onboard→guide, discover→plan; added integrity skill; fixed 5 CLI naming divergences; added ai-eng sync CLI command"
   expected_gain: "leaner agent surface (removed execute/ship/observe/write), explorer agent for deep codebase research, simplifier agent for automated code cleanup"
   potential_impact: "removed 4 agents (execute, ship, observe, write), added 2 agents (explorer, simplifier), removed 2 skills (cli absorbed into code, guide became agent-only)"
 
@@ -134,7 +134,7 @@ governance_surface:
     total: 8
     names: [plan, build, verify, guard, guide, operate, explorer, simplifier]
   skills:
-    total: 38
+    total: 34
     organization: flat
     prefix: "ai-"
   integrity:

@@ -147,20 +147,17 @@ When asked for roadmap guidance or "what next":
 Plan owns the governance lifecycle for the framework:
 - `ai-create agent|skill` -- create new agents or skills with full registration
 - `ai-delete agent|skill` -- remove agents or skills with cleanup
-- `ai-risk` -- manage risk acceptances (accept, resolve, renew)
-- `ai-standards` -- evolve standards from delivery outcomes
+- `ai-governance risk` -- manage risk acceptances (accept, resolve, renew)
+- `ai-governance standards` -- evolve standards from delivery outcomes
 
 ## Referenced Skills
 
 - `.agents/skills/plan/SKILL.md` -- shared planning contract (classification, discovery, risk)
-- `.agents/skills/discover/SKILL.md` -- structured requirements discovery
 - `.agents/skills/spec/SKILL.md` -- branch creation and spec scaffolding
 - `.agents/skills/cleanup/SKILL.md` -- repository hygiene
 - `.agents/skills/explain/SKILL.md` -- technical explanations
-- `.agents/skills/risk/SKILL.md` -- risk acceptance lifecycle
-- `.agents/skills/standards/SKILL.md` -- standards evolution
-- `.agents/skills/lifecycle/SKILL.md` -- agent/skill creation lifecycle
-- `.agents/skills/lifecycle/SKILL.md` -- agent/skill deletion lifecycle
+- `.agents/skills/governance/SKILL.md` -- governance validation, risk acceptance, standards evolution
+- `.agents/skills/lifecycle/SKILL.md` -- agent/skill creation and deletion lifecycle
 - `.agents/skills/contract/SKILL.md` -- product contract lifecycle (init/sync/validate)
 
 ## Referenced Standards

@@ -124,8 +124,7 @@ Guard never uses `error`, `critical`, `blocker` -- those belong to verify and ho
 ## Referenced Skills
 
 - `.claude/skills/ai-guard/SKILL.md` -- primary skill with detailed procedures
-- `.claude/skills/ai-governance/SKILL.md` -- shared governance validation patterns
-- `.claude/skills/ai-risk/SKILL.md` -- risk acceptance lifecycle (shared, for expired-decision checks)
+- `.claude/skills/ai-governance/SKILL.md` -- shared governance validation patterns (includes risk acceptance lifecycle)
 
 ## Referenced Standards
 

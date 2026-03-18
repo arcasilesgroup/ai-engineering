@@ -43,9 +43,9 @@ Each LLM platform has adaptors that reference the canonical source of truth — 
 
 | Platform | Skills Location | Count | Agents Location | Count |
 |----------|----------------|-------|-----------------|-------|
-| Claude Code | `.claude/skills/ai-*/SKILL.md` | 41 | `.claude/agents/ai-*.md` | 8 |
-| GitHub Copilot | `.github/prompts/ai-*.prompt.md` | 38 | `.github/agents/*.agent.md` | 8 |
-| Codex / Gemini | `.agents/skills/*/SKILL.md` | 38 | `.agents/agents/ai-*.md` | 8 |
+| Claude Code | `.claude/skills/ai-*/SKILL.md` | 37 | `.claude/agents/ai-*.md` | 8 |
+| GitHub Copilot | `.github/prompts/ai-*.prompt.md` | 34 | `.github/agents/*.agent.md` | 8 |
+| Codex / Gemini | `.agents/skills/*/SKILL.md` | 34 | `.agents/agents/ai-*.md` | 8 |
 
 ## Agents (8)
 
@@ -62,13 +62,13 @@ Path: IDE-specific (`.claude/agents/ai-<name>.md`, `.github/agents/<name>.agent.
 | explorer | Context Gatherer | Deep codebase research, context discovery before other agents act | read-only |
 | simplifier | Code Cleaner | Guard clauses, extract methods, flatten nesting, reduce complexity | read-write |
 
-## Skills (38)
+## Skills (34)
 
 Path: IDE-specific (`.claude/skills/ai-<name>/SKILL.md`, `.github/prompts/ai-<name>.prompt.md`, `.agents/skills/<name>/SKILL.md`)
 
 | Skills (alphabetical) |
 |-----------------------|
-| accessibility, api, architecture, changelog, cleanup, code, commit, contract, dashboard, debug, discover, dispatch, document, evolve, explain, gap, governance, guard, infra, lifecycle, migrate, onboard, ops, performance, pipeline, plan, pr, quality, refactor, release, risk, schema, security, simplify, spec, standards, test, triage |
+| accessibility, api, architecture, cleanup, code, commit, contract, dashboard, debug, dispatch, document, evolve, explain, gap, governance, guard, infra, integrity, lifecycle, migrate, ops, performance, pipeline, plan, pr, quality, refactor, release, schema, security, simplify, spec, test, triage |
 
 ## Automation Runbooks
 
@@ -124,7 +124,7 @@ Schema: `.ai-engineering/standards/framework/skills-schema.md`. Organization: fl
 
 ## Quick Reference
 
-- Skills (38): `.claude/skills/ai-<name>/SKILL.md` — slash commands: `/ai-<name>`
+- Skills (34): `.claude/skills/ai-<name>/SKILL.md` — slash commands: `/ai-<name>`
 - Agents (8): `.claude/agents/ai-<name>.md`
 - CLI: `ai-eng <command>` — deterministic tasks, zero AI tokens
 - Quality: coverage 80%, duplication ≤3%, cyclomatic ≤10, cognitive ≤15

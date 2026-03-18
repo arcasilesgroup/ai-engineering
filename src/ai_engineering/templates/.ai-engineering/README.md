@@ -25,7 +25,7 @@ Agents are roles with judgment about WHEN and WHY. Invoke with `/ai-<name>`.
 | **explorer** | Deep codebase research, context gathering before other agents |
 | **simplifier** | Code simplification: guard clauses, extract methods, flatten nesting |
 
-## Skills (38)
+## Skills (34)
 
 Skills are procedures about HOW. Each agent composes skills at runtime.
 

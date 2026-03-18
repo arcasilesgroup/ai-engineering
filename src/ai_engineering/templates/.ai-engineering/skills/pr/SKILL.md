@@ -143,8 +143,7 @@ Actions:
 ## References
 
 - `skills/commit/SKILL.md` — shared commit pipeline (steps 0–6).
-- `skills/changelog/SKILL.md` — changelog entry formatting.
-- `skills/document/SKILL.md` — README and documentation updates.
+- `skills/document/SKILL.md` — changelog entry formatting (changelog mode) and README/documentation updates.
 - `standards/framework/core.md` — non-negotiables and enforcement rules.
 - `standards/framework/quality/core.md` — gate structure.
 - `agents/operate.md` — agent that validates PR workflow execution.

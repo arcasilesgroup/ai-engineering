@@ -461,7 +461,7 @@ jobs:
       - name: Test mapping integrity
         run: uv run python scripts/check_test_mapping.py
       - name: Mirror sync integrity
-        run: uv run python scripts/sync_command_mirrors.py --check
+        run: uv run ai-eng sync --check
 
   verify-gate-trailers:
     name: Verify Gate Trailers

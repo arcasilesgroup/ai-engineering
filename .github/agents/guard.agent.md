@@ -124,8 +124,7 @@ Guard never uses `error`, `critical`, `blocker` -- those belong to verify and ho
 ## Referenced Skills
 
 - `.github/prompts/ai-guard.prompt.md` -- primary skill with detailed procedures
-- `.github/prompts/ai-governance.prompt.md` -- shared governance validation patterns
-- `.github/prompts/ai-risk.prompt.md` -- risk acceptance lifecycle (shared, for expired-decision checks)
+- `.github/prompts/ai-governance.prompt.md` -- shared governance validation patterns (includes risk acceptance lifecycle)
 
 ## Referenced Standards
 

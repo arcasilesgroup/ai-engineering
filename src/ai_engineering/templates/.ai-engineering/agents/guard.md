@@ -12,7 +12,6 @@ references:
   skills:
     - skills/guard/SKILL.md
     - skills/governance/SKILL.md
-    - skills/risk/SKILL.md
   standards:
     - standards/framework/core.md
     - standards/framework/quality/core.md
@@ -135,8 +134,7 @@ Guard never uses `error`, `critical`, `blocker` -- those belong to verify and ho
 ## Referenced Skills
 
 - `skills/guard/SKILL.md` -- primary skill with detailed procedures
-- `skills/governance/SKILL.md` -- shared governance validation patterns
-- `skills/risk/SKILL.md` -- risk acceptance lifecycle (shared, for expired-decision checks)
+- `skills/governance/SKILL.md` -- shared governance validation patterns (includes risk acceptance lifecycle)
 
 ## Referenced Standards
 

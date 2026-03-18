@@ -123,8 +123,7 @@ Guard never uses `error`, `critical`, `blocker` -- those belong to verify and ho
 ## Referenced Skills
 
 - `.agents/skills/guard/SKILL.md` -- primary skill with detailed procedures
-- `.agents/skills/governance/SKILL.md` -- shared governance validation patterns
-- `.agents/skills/risk/SKILL.md` -- risk acceptance lifecycle (shared, for expired-decision checks)
+- `.agents/skills/governance/SKILL.md` -- shared governance validation patterns (includes risk acceptance lifecycle)
 
 ## Referenced Standards
 

@@ -38,6 +38,7 @@ from ai_engineering.cli_commands import (
     skills,
     spec_cmd,
     stack_ide,
+    sync,
     validate,
     vcs,
     verify_cmd,
@@ -117,6 +118,7 @@ def _app_callback(
                         "version",
                         "guide",
                         "observe",
+                        "sync",
                         "stack",
                         "ide",
                         "provider",
@@ -206,6 +208,9 @@ def create_app() -> typer.Typer:
 
     # Observe command (v3: observability dashboards)
     app.command("observe")(_safe(observe.observe_cmd))
+
+    # Sync command (mirror management)
+    app.command("sync")(_safe(sync.sync_cmd))
 
     # Stack sub-group
     stack_app = typer.Typer(
