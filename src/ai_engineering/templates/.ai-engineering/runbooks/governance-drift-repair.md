@@ -1,3 +1,7 @@
+---
+owner: operate
+---
+
 # Runbook: Governance Drift Repair
 
 ## Purpose
