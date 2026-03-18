@@ -210,6 +210,165 @@ publish:
     - uses: pypa/gh-action-pypi-publish@SHA
 ```
 
+### Reusable Workflows (`workflow_call`)
+
+Create shared CI logic consumed by multiple repositories or workflows:
+
+```yaml
+# .github/workflows/reusable-test.yml — Callee
+name: Reusable Test Suite
+on:
+  workflow_call:
+    inputs:
+      python-version:
+        type: string
+        default: "3.12"
+    secrets:
+      SONAR_TOKEN:
+        required: true
+    outputs:
+      coverage:
+        description: "Coverage percentage"
+        value: ${{ jobs.test.outputs.cov }}
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    outputs:
+      cov: ${{ steps.cov.outputs.pct }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@SHA
+      - run: uv run pytest --cov --cov-report=xml
+      - id: cov
+        run: echo "pct=$(coverage report --format=total)" >> "$GITHUB_OUTPUT"
+```
+
+```yaml
+# .github/workflows/ci.yml — Caller
+jobs:
+  test:
+    uses: ./.github/workflows/reusable-test.yml
+    with:
+      python-version: "3.12"
+    secrets:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+  # Cross-repo reusable workflow
+  lint:
+    uses: org/shared-workflows/.github/workflows/lint.yml@main
+    secrets: inherit
+```
+
+Constraints: max 4 levels of nesting; `secrets: inherit` passes all caller secrets.
+
+### Composite Actions
+
+Bundle multi-step logic into a single reusable action:
+
+```yaml
+# .github/actions/setup-python-env/action.yml
+name: "Setup Python Environment"
+description: "Install Python, uv, and project dependencies"
+inputs:
+  python-version:
+    description: "Python version"
+    required: false
+    default: "3.12"
+outputs:
+  cache-hit:
+    description: "Whether cache was hit"
+    value: ${{ steps.cache.outputs.cache-hit }}
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+    - uses: astral-sh/setup-uv@SHA
+    - id: cache
+      uses: actions/cache@v4
+      with:
+        path: .cache/uv
+        key: uv-${{ runner.os }}-${{ hashFiles('uv.lock') }}
+    - run: uv sync --frozen
+      shell: bash  # required for composite actions
+```
+
+Usage: `- uses: ./.github/actions/setup-python-env` (local) or `- uses: org/repo/.github/actions/setup-python-env@SHA` (cross-repo).
+
+### Caching Strategies
+
+Use `actions/cache` with stack-specific paths and key patterns:
+
+```yaml
+# Python (uv)
+- uses: actions/cache@v4
+  with:
+    path: .cache/uv
+    key: uv-${{ runner.os }}-${{ hashFiles('uv.lock') }}
+    restore-keys: uv-${{ runner.os }}-
+
+# Node.js (npm)
+- uses: actions/cache@v4
+  with:
+    path: ~/.npm
+    key: npm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+    restore-keys: npm-${{ runner.os }}-
+
+# .NET (NuGet)
+- uses: actions/cache@v4
+  with:
+    path: ~/.nuget/packages
+    key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj') }}
+    restore-keys: nuget-${{ runner.os }}-
+
+# Rust (cargo)
+- uses: actions/cache@v4
+  with:
+    path: |
+      ~/.cargo/registry
+      ~/.cargo/git
+      target/
+    key: cargo-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
+    restore-keys: cargo-${{ runner.os }}-
+```
+
+Key pattern: `<tool>-<os>-<lockfile-hash>`. Always provide `restore-keys` for partial cache hits.
+
+### Status Badges
+
+Add CI status badges to README:
+
+```markdown
+![CI](https://github.com/OWNER/REPO/actions/workflows/ci.yml/badge.svg)
+![CI](https://github.com/OWNER/REPO/actions/workflows/ci.yml/badge.svg?branch=main)
+![Release](https://github.com/OWNER/REPO/actions/workflows/release.yml/badge.svg?event=release)
+```
+
+Pattern: `https://github.com/{owner}/{repo}/actions/workflows/{workflow}.yml/badge.svg` with optional `?branch=` or `?event=` query params.
+
+### Merge Queue
+
+Enable merge queue with `merge_group` event trigger:
+
+```yaml
+on:
+  pull_request:
+    branches: [main]
+  merge_group:       # Triggered when PR enters merge queue
+    types: [checks_requested]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: uv run pytest
+```
+
+Setup: Settings > Branch protection > Require merge queue. The queue batches PRs, runs CI on the merged result, and merges only if checks pass. Use `merge_group` alongside `pull_request` so the same workflow validates both PR checks and queue checks.
+
 ### Azure Pipelines: Template Composition
 
 Central template repository with `resources.repositories`:
