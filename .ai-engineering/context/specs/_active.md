@@ -1,18 +1,18 @@
 ---
-active: "054-pipeline-skill-v2"
-updated: "2026-03-16"
+active: "055-radical-simplification"
+updated: "2026-03-19"
 ---
 
 # Active Spec
 
-**Spec 054 — Pipeline Skill v2: Enterprise CI/CD Generation**
+**Spec 055 — Radical Simplification of ai-engineering**
 
-Rewrite the `pipeline` skill with full GitHub Actions + Azure Pipelines parity. Fix Dependabot PR failures. Add SHA pinning, reusable workflows, composite actions, template composition, manager pattern, environment gates, and Dependabot management.
+Redesign the entire framework based on patterns from Superpowers (brainstorming hard-gate, TDD for skills), review-code (handler-as-workflow, parallel agents, self-challenge), dotfiles/ai (agent matrix, SDLC skills), and autoresearch (radical simplicity). Skills 37→28, standards 65→0 (contexts/), contracts 2→0, state 6→2.
 
 ## Quick Resume
 
-- Spec: [spec.md](specs/054-pipeline-skill-v2/spec.md)
-- Plan: [plan.md](specs/054-pipeline-skill-v2/plan.md)
-- Tasks: [tasks.md](specs/054-pipeline-skill-v2/tasks.md)
-- Branch: `spec/054-pipeline-skill-v2`
-- Next: Phase 0 — Dependabot Triage
+- Spec: [spec.md](specs/055-radical-simplification/spec.md)
+- Plan: [plan.md](specs/055-radical-simplification/plan.md)
+- Tasks: [tasks.md](specs/055-radical-simplification/tasks.md)
+- Branch: `spec/055-radical-simplification`
+- Next: Fase 2 — Write 28 skills (start with core workflow)
