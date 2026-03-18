@@ -71,7 +71,7 @@ def generate_github_sonar_step() -> str:
           if: >
             ${{ github.event_name != 'pull_request' ||
                 github.event.pull_request.head.repo.full_name == github.repository }}
-          uses: SonarSource/sonarcloud-github-action@v3
+          uses: SonarSource/sonarqube-scan-action@fd88b7d7ccbaefd23d8f36f73b59db7a3d246602  # v6
           env:
             SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           with:
