@@ -91,7 +91,9 @@ class AzureDevOpsSetup:
         )
 
         try:
-            import httpx as _httpx  # type: ignore[import-not-found]  # optional dependency
+            import importlib
+
+            _httpx = importlib.import_module("httpx")
 
             response = _httpx.get(
                 api_url,

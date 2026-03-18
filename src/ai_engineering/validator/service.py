@@ -14,12 +14,12 @@ from __future__ import annotations
 
 # Re-export everything needed by tests and consumers for backward compatibility.
 # Includes re module (used by integration tests that patch patterns).
-import re  # noqa: F401
+import re
 from collections.abc import Callable
 from pathlib import Path
 
 from ai_engineering.validator._shared import (
-    _PATH_REF_PATTERN,  # noqa: F401 — re-exported for test patching
+    _PATH_REF_PATTERN,
     FileCache,
     IntegrityCategory,
     IntegrityCheckResult,
@@ -43,6 +43,8 @@ from ai_engineering.validator.categories.mirror_sync import (
 )
 
 __all__ = [
+    "_PATH_REF_PATTERN",
+    "FileCache",
     "IntegrityCategory",
     "IntegrityCheckResult",
     "IntegrityReport",
@@ -58,6 +60,7 @@ __all__ = [
     "_check_mirror_sync",
     "_check_skill_frontmatter",
     "_parse_counter",
+    "re",
     "validate_content_integrity",
 ]
 

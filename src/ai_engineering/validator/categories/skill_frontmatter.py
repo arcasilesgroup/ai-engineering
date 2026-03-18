@@ -102,7 +102,7 @@ def _validate_skill_requires(
                 )
             )
         else:
-            req_dict: dict[str, object] = requires  # type: ignore[assignment]
+            req_dict = cast(dict[str, object], requires)
             for req_key in ("bins", "anyBins", "env", "config"):
                 if req_key in req_dict and _as_string_list(req_dict[req_key]) is None:
                     failures += 1

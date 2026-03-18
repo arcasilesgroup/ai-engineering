@@ -75,7 +75,7 @@ def compare_versions(current: str, new: str) -> int:
         return -1
 
     # Narrowing: both branches are guaranteed non-None at this point
-    if c_pre is None or n_pre is None:  # pragma: no cover
+    if c_pre is None or n_pre is None:
         msg = "unreachable: pre-release None after guard clauses"
         raise AssertionError(msg)
     c_parts = c_pre[2]

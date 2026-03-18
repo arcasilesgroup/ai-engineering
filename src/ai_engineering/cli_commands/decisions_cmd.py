@@ -163,8 +163,8 @@ def decision_record(
         decidedAt=now,
         spec=spec_id,
         severity=parsed_severity,
-        riskCategory=parsed_category,  # type: ignore[call-arg]
-        expiresAt=parsed_expires,  # type: ignore[call-arg]
+        risk_category=parsed_category,
+        expires_at=parsed_expires,
         status=DecisionStatus.ACTIVE,
     )
 

@@ -39,9 +39,7 @@ class Clock(Protocol):
 class CommandRunner(Protocol):
     """Command execution abstraction for deterministic tests."""
 
-    def run(
-        self, cmd: list[str], cwd: Path, timeout: int = 60
-    ) -> tuple[bool, str]: ...  # pragma: no cover
+    def run(self, cmd: list[str], cwd: Path, timeout: int = 60) -> tuple[bool, str]: ...
 
 
 class SystemClock:
