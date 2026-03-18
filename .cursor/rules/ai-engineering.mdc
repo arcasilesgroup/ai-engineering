@@ -18,9 +18,9 @@ When the user says `/ai-plan`:
 
 1. Read `.ai-engineering/agents/plan.md` and follow its behavior.
 2. Analyze the request: read code, discover requirements, assess risk.
-3. Produce the spec as **text in the conversation** — do NOT write files directly.
-4. Persist via CLI: `cat <<'EOF' | ai-eng spec save --title "..." --pipeline standard --size M`
-5. STOP and wait for the user to invoke `/ai-execute`.
+3. Produce the spec as **text in the conversation**.
+4. Persist via Write tool: create spec.md, plan.md, and tasks.md directly using the Write tool into `context/specs/NNN-<slug>/`. Update `_active.md` via the Edit tool.
+5. STOP and wait for the user to invoke `/ai-dispatch`.
 
 When the user says `/ai-execute`:
 
