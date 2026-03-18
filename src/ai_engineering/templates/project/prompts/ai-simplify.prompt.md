@@ -18,7 +18,7 @@ Identifies and reduces code complexity with pattern-aware reconnaissance. Improv
 - Command: `/ai-code-simplifier [files|scope]`
 - Context: code has high complexity, deep nesting, or readability issues.
 
-> **Telemetry** (cross-IDE): run `ai-eng signals emit skill_invoked --actor=ai --detail='{"skill":"code-simplifier"}'` at skill start. Fail-open — skip if ai-eng unavailable.
+> **Telemetry** (cross-IDE): run `ai-eng signals emit skill_invoked --actor=ai --detail='{"skill":"simplify"}'` at skill start. Fail-open — skip if ai-eng unavailable.
 
 ## Procedure
 

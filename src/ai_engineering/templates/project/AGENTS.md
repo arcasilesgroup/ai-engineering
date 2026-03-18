@@ -43,9 +43,9 @@ Each LLM platform has adaptors that reference the canonical source of truth — 
 
 | Platform | Skills Location | Count | Agents Location | Count |
 |----------|----------------|-------|-----------------|-------|
-| Claude Code | `.claude/skills/ai-*/SKILL.md` | 41 | `.claude/agents/ai-*.md` | 8 |
-| GitHub Copilot | `.github/prompts/ai-*.prompt.md` | 38 | `.github/agents/*.agent.md` | 8 |
-| Codex / Gemini | `.agents/skills/*/SKILL.md` | 38 | `.agents/agents/ai-*.md` | 8 |
+| Claude Code | `.claude/skills/ai-*/SKILL.md` | 37 | `.claude/agents/ai-*.md` | 8 |
+| GitHub Copilot | `.github/prompts/ai-*.prompt.md` | 34 | `.github/agents/*.agent.md` | 8 |
+| Codex / Gemini | `.agents/skills/*/SKILL.md` | 34 | `.agents/agents/ai-*.md` | 8 |
 
 ## Automation Runbooks
 
