@@ -125,7 +125,7 @@ def update(
     try:
         for change in actionable:
             if change.src is None:
-                continue  # pragma: no cover - defensive
+                continue
             change.path.parent.mkdir(parents=True, exist_ok=True)
             change.path.write_bytes(change.src.read_bytes())
     except Exception:
@@ -322,7 +322,7 @@ def _backup_targets(changes: list[FileChange], target: Path) -> Path | None:
         try:
             relative = change.path.relative_to(target)
         except ValueError:
-            continue  # pragma: no cover - defensive
+            continue
         backup_file = backup_dir / relative
         backup_file.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(change.path, backup_file)
