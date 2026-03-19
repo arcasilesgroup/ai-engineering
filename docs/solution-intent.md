@@ -785,7 +785,7 @@ The following items require verification or team definition before they can be d
 
 | What | Where |
 |------|-------|
-| Skills (30) | `.claude/skills/ai-<name>/SKILL.md` |
+| Skills (31) | `.claude/skills/ai-<name>/SKILL.md` |
 | Agents (8) | `.claude/agents/ai-<name>.md` |
 | Config | `.ai-engineering/manifest.yml` |
 | Decisions (20+) | `.ai-engineering/state/decision-store.json` |

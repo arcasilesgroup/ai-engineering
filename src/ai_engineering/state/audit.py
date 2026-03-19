@@ -20,7 +20,7 @@ import logging
 import re
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from ai_engineering.git.context import get_git_context
 from ai_engineering.lib.signals import audit_log_path
@@ -48,7 +48,7 @@ def _read_active_spec(root: Path) -> str | None:
     """Read active spec ID from specs/spec.md frontmatter (fail-open, cached)."""
     global _cached_spec_id
     if _cached_spec_id is not _UNSET:
-        return _cached_spec_id  # type: ignore[return-value]
+        return cast("str | None", _cached_spec_id)
     try:
         spec_path = root / ".ai-engineering" / "specs" / "spec.md"
         if not spec_path.exists():
@@ -66,7 +66,7 @@ def _read_active_spec(root: Path) -> str | None:
                 value = line_s.split(":", 1)[1].strip().strip("\"'")
                 if value:
                     _cached_spec_id = value
-                    return _cached_spec_id  # type: ignore[return-value]
+                    return _cached_spec_id
         # Fallback: scan for NNN- pattern
         for line in content.splitlines():
             line_s = line.strip()
@@ -74,7 +74,7 @@ def _read_active_spec(root: Path) -> str | None:
                 match = re.search(r"(\d{3})-", line_s)
                 if match:
                     _cached_spec_id = match.group(1)
-                    return _cached_spec_id  # type: ignore[return-value]
+                    return _cached_spec_id
         _cached_spec_id = None
         return None
     except Exception:
@@ -86,7 +86,7 @@ def _read_active_stack(root: Path) -> str | None:
     """Read primary stack from install-manifest.json (fail-open)."""
     global _cached_stack
     if _cached_stack is not _UNSET:
-        return _cached_stack  # type: ignore[return-value]
+        return cast("str | None", _cached_stack)
     try:
         import json
 
@@ -97,7 +97,7 @@ def _read_active_stack(root: Path) -> str | None:
         data = json.loads(manifest_path.read_text(encoding="utf-8"))
         stacks = data.get("installedStacks", [])
         _cached_stack = stacks[0] if stacks else None
-        return _cached_stack  # type: ignore[return-value]
+        return _cached_stack
     except Exception:
         _cached_stack = None
         return None

@@ -4,7 +4,7 @@ Completed specs. Details in git history.
 
 | ID | Title | Status | Created | Branch |
 |----|-------|--------|---------|--------|
-| 055 | Radical Simplification | active | 2026-03-17 | spec/055-radical-simplification |
+| 055 | Radical Simplification | done | 2026-03-17 | spec/055-radical-simplification |
 | 054 | Pipeline Skill v2: Enterprise CI/CD Generation | done | 2026-03-16 | spec/054-pipeline-skill-v2 |
 | 053 | Full IDE-Adapted Mirrors | done | 2026-03-16 | spec/053-full-ide-adapted-mirrors |
 | 052 | Interrogation, TDD Two-Agent, Executable Acceptance Criteria | done | 2026-03-15 | spec/052-plan-tdd-acceptance |
