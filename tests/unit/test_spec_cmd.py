@@ -172,3 +172,95 @@ class TestSpecMdWorkingBuffer:
         plan_path = _create_plan_md(tmp_path, placeholder=True)
         content = plan_path.read_text()
         assert content.strip().startswith("# No active plan")
+
+
+class TestSpecVerifyCli:
+    """Tests for spec_verify CLI function."""
+
+    def test_verify_no_plan_exits(self, tmp_path: Path) -> None:
+        from unittest.mock import patch
+
+        import click
+
+        from ai_engineering.cli_commands.spec_cmd import spec_verify
+
+        with (
+            patch("ai_engineering.cli_commands.spec_cmd.find_project_root", return_value=tmp_path),
+            pytest.raises(click.exceptions.Exit),
+        ):
+            spec_verify()
+
+    def test_verify_placeholder_plan(self, tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
+        from unittest.mock import patch
+
+        from ai_engineering.cli_commands.spec_cmd import spec_verify
+
+        _create_plan_md(tmp_path, placeholder=True)
+        with patch("ai_engineering.cli_commands.spec_cmd.find_project_root", return_value=tmp_path):
+            spec_verify()
+        assert "No active plan" in capsys.readouterr().out
+
+    def test_verify_counters_match(self, tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
+        from unittest.mock import patch
+
+        from ai_engineering.cli_commands.spec_cmd import spec_verify
+
+        _create_plan_md(tmp_path, total=3, completed=1)
+        with patch("ai_engineering.cli_commands.spec_cmd.find_project_root", return_value=tmp_path):
+            spec_verify()
+        out = capsys.readouterr().out
+        assert "Checkboxes: 1/3" in out
+        assert "OK" in out
+
+    def test_verify_drift_auto_fixed(self, tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
+        from unittest.mock import patch
+
+        from ai_engineering.cli_commands.spec_cmd import spec_verify
+
+        plan_path = _create_plan_md(tmp_path, total=5, completed=2)
+        plan_path.write_text(
+            "---\ntotal: 5\ncompleted: 2\n---\n\n- [x] A\n- [x] B\n- [x] C\n- [ ] D\n- [ ] E\n"
+        )
+        with patch("ai_engineering.cli_commands.spec_cmd.find_project_root", return_value=tmp_path):
+            spec_verify(fix=True)
+        out = capsys.readouterr().out
+        assert "DRIFT DETECTED" in out
+        assert "AUTO-FIXED" in out
+
+
+class TestSpecListCli:
+    """Tests for spec_list CLI function."""
+
+    def test_list_no_spec(self, tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
+        from unittest.mock import patch
+
+        from ai_engineering.cli_commands.spec_cmd import spec_list
+
+        with patch("ai_engineering.cli_commands.spec_cmd.find_project_root", return_value=tmp_path):
+            spec_list()
+        assert "No specs/spec.md found" in capsys.readouterr().out
+
+    def test_list_placeholder_spec(self, tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
+        from unittest.mock import patch
+
+        from ai_engineering.cli_commands.spec_cmd import spec_list
+
+        _create_spec_md(tmp_path, placeholder=True)
+        with patch("ai_engineering.cli_commands.spec_cmd.find_project_root", return_value=tmp_path):
+            spec_list()
+        assert "No active spec" in capsys.readouterr().out
+
+    def test_list_active_spec_with_plan(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture
+    ) -> None:
+        from unittest.mock import patch
+
+        from ai_engineering.cli_commands.spec_cmd import spec_list
+
+        _create_spec_md(tmp_path, title="Radical Simplification")
+        _create_plan_md(tmp_path, total=10, completed=7)
+        with patch("ai_engineering.cli_commands.spec_cmd.find_project_root", return_value=tmp_path):
+            spec_list()
+        out = capsys.readouterr().out
+        assert "Radical Simplification" in out
+        assert "7/10" in out
