@@ -10,7 +10,9 @@ import pytest
 from ai_engineering.vcs.protocol import VcsResult
 from ai_engineering.work_items.service import (
     SyncReport,
+    get_hierarchy_rules,
     get_linked_issue_id,
+    resolve_closeable_refs,
     sync_spec_issues,
 )
 
@@ -293,3 +295,95 @@ class TestPrDescriptionIssueLink:
 
         # Assert
         assert result is None
+
+
+# ---------------------------------------------------------------
+# Hierarchy rules + closeable refs
+# ---------------------------------------------------------------
+
+
+class TestGetHierarchyRules:
+    """Tests for get_hierarchy_rules()."""
+
+    def test_returns_defaults_when_no_manifest(self, tmp_path: Path) -> None:
+        rules = get_hierarchy_rules(tmp_path)
+        assert rules["feature"] == "never_close"
+        assert rules["task"] == "close_on_pr"
+
+    def test_reads_hierarchy_from_manifest(self, tmp_path: Path) -> None:
+        manifest = tmp_path / ".ai-engineering" / "manifest.yml"
+        manifest.parent.mkdir(parents=True)
+        manifest.write_text(
+            "work_items:\n"
+            "  hierarchy:\n"
+            "    feature: never_close\n"
+            "    user_story: close_on_pr\n"
+            "    task: close_on_pr\n"
+            "    bug: close_on_pr\n"
+        )
+        rules = get_hierarchy_rules(tmp_path)
+        assert rules["feature"] == "never_close"
+        assert rules["bug"] == "close_on_pr"
+
+    def test_returns_defaults_on_malformed_yaml(self, tmp_path: Path) -> None:
+        manifest = tmp_path / ".ai-engineering" / "manifest.yml"
+        manifest.parent.mkdir(parents=True)
+        manifest.write_text(": invalid yaml [[[")
+        rules = get_hierarchy_rules(tmp_path)
+        assert "feature" in rules
+
+    def test_returns_defaults_when_no_work_items(self, tmp_path: Path) -> None:
+        manifest = tmp_path / ".ai-engineering" / "manifest.yml"
+        manifest.parent.mkdir(parents=True)
+        manifest.write_text("name: test\n")
+        rules = get_hierarchy_rules(tmp_path)
+        assert rules["feature"] == "never_close"
+
+    def test_returns_defaults_when_no_hierarchy(self, tmp_path: Path) -> None:
+        manifest = tmp_path / ".ai-engineering" / "manifest.yml"
+        manifest.parent.mkdir(parents=True)
+        manifest.write_text("work_items:\n  provider: github\n")
+        rules = get_hierarchy_rules(tmp_path)
+        assert rules["feature"] == "never_close"
+
+    def test_merges_custom_over_defaults(self, tmp_path: Path) -> None:
+        manifest = tmp_path / ".ai-engineering" / "manifest.yml"
+        manifest.parent.mkdir(parents=True)
+        manifest.write_text("work_items:\n  hierarchy:\n    custom_type: track_only\n")
+        rules = get_hierarchy_rules(tmp_path)
+        assert rules["custom_type"] == "track_only"
+        assert rules["feature"] == "never_close"
+
+
+class TestResolveCloseableRefs:
+    """Tests for resolve_closeable_refs()."""
+
+    def test_features_never_closed(self, tmp_path: Path) -> None:
+        manifest = tmp_path / ".ai-engineering" / "manifest.yml"
+        manifest.parent.mkdir(parents=True)
+        manifest.write_text(
+            "work_items:\n  hierarchy:\n    feature: never_close\n    task: close_on_pr\n"
+        )
+        refs = {"features": ["AB#100"], "tasks": ["AB#101", "AB#102"]}
+        closeable, mention_only = resolve_closeable_refs(tmp_path, refs)
+        assert "AB#100" in mention_only
+        assert "AB#101" in closeable
+        assert "AB#102" in closeable
+
+    def test_empty_refs(self, tmp_path: Path) -> None:
+        closeable, mention_only = resolve_closeable_refs(tmp_path, {})
+        assert closeable == []
+        assert mention_only == []
+
+    def test_unknown_category_ignored(self, tmp_path: Path) -> None:
+        refs = {"unknowns": ["X#1"]}
+        closeable, mention_only = resolve_closeable_refs(tmp_path, refs)
+        assert closeable == []
+        assert mention_only == []
+
+    def test_issues_closeable_by_default(self, tmp_path: Path) -> None:
+        refs = {"issues": ["#45", "#46"]}
+        closeable, mention_only = resolve_closeable_refs(tmp_path, refs)
+        assert "#45" in closeable
+        assert "#46" in closeable
+        assert mention_only == []
