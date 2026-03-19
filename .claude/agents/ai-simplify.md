@@ -1,8 +1,8 @@
 ---
 name: ai-simplify
-model: sonnet
-color: green
 description: "Code simplification and complexity reduction. Guard clauses, method extraction, nesting flattening, dead code removal. Behavior preserved."
+color: green
+model: sonnet
 tools: [Read, Glob, Grep, Edit, Bash]
 ---
 
@@ -91,7 +91,7 @@ If any answer is unfavorable, revert and move to the next target.
 
 ## Referenced Standards
 
-- `standards/framework/quality/core.md` -- complexity thresholds (cyclomatic <=10, cognitive <=15)
+- `.ai-engineering/manifest.yml` -- complexity thresholds (cyclomatic <=10, cognitive <=15)
 
 ## Boundaries
 

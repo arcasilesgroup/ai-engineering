@@ -1,8 +1,8 @@
 ---
 name: "Guard"
 description: "Proactive governance advisor -- checks standards, decisions, and quality trends during development. Never blocks, always advisory."
+color: yellow
 model: opus
-color: purple
 tools: [codebase, githubRepo, problems, readFile, search]
 ---
 

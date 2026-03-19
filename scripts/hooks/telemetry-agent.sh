@@ -52,23 +52,29 @@ DESCRIPTION=$(extract_description)
 # Skip if no agent type extracted
 [ -z "$AGENT_TYPE" ] && exit 0
 
+# Normalize: lowercase + ensure ai- prefix
+AGENT_TYPE=$(echo "$AGENT_TYPE" | tr '[:upper:]' '[:lower:]')
+AGENT_TYPE="${AGENT_TYPE#ai-}"
+AGENT_TYPE="ai-${AGENT_TYPE}"
+
 # Resolve project root
 ROOT_DIR="${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "$0")/../.." && pwd)}"
+AUDIT_LOG="${ROOT_DIR}/.ai-engineering/state/audit-log.ndjson"
+TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+BRANCH=$(git -C "$ROOT_DIR" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
+COMMIT=$(git -C "$ROOT_DIR" rev-parse --short HEAD 2>/dev/null || echo "")
 
-# Activate venv if present
-if [ -f "$ROOT_DIR/.venv/bin/activate" ]; then
-    # shellcheck disable=SC1091
-    source "$ROOT_DIR/.venv/bin/activate" 2>/dev/null
-elif [ -f "$ROOT_DIR/.venv/Scripts/activate" ]; then
-    # shellcheck disable=SC1091
-    source "$ROOT_DIR/.venv/Scripts/activate" 2>/dev/null
+# Escape description for JSON (replace quotes and newlines)
+SAFE_DESC=$(echo "$DESCRIPTION" | tr '"' "'" | tr '\n' ' ')
+
+# Write directly to audit log — no CLI dependency
+printf '{"actor":"ai","agent":"%s","branch":"%s","commit_sha":"%s","detail":{"agent":"%s","description":"%s"},"event":"agent_dispatched","source":"hook","timestamp":"%s"}\n' \
+    "$AGENT_TYPE" "$BRANCH" "$COMMIT" "$AGENT_TYPE" "$SAFE_DESC" "$TIMESTAMP" >> "$AUDIT_LOG" 2>/dev/null || true
+
+# Debug mode
+if [ "${AIENG_TELEMETRY_DEBUG:-}" = "1" ]; then
+    DEBUG_LOG="${ROOT_DIR}/.ai-engineering/state/telemetry-debug.log"
+    printf '[%s] agent_dispatched: %s (desc: %s)\n' "$TIMESTAMP" "$AGENT_TYPE" "$SAFE_DESC" >> "$DEBUG_LOG" 2>/dev/null || true
 fi
-
-# Emit event — fail-open
-ai-eng signals emit agent_dispatched \
-    --actor=ai \
-    --source=hook \
-    --detail="{\"agent\":\"${AGENT_TYPE}\",\"description\":\"${DESCRIPTION}\"}" \
-    2>/dev/null || true
 
 exit 0

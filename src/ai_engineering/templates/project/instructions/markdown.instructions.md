@@ -6,25 +6,19 @@ applyTo: "**/*.md"
 
 ## Governance References
 
-- `.ai-engineering/standards/framework/core.md` — governance structure, ownership model.
-- `.ai-engineering/context/product/framework-contract.md` — framework identity and contract.
+- `.ai-engineering/manifest.yml` — governance structure, ownership model.
 
 ## Document Categories
 
-### Framework-Managed (`.ai-engineering/standards/framework/**`)
+### Framework-Managed (`.ai-engineering/contexts/**`)
 
 - Owned by the framework — updated through governed update flows.
 - Changes require rationale, expected gain, and potential impact.
 
-### Team-Managed (`.ai-engineering/standards/team/**`)
+### Team-Managed (`.ai-engineering/contexts/team/**`)
 
 - Owned by the team — never overwritten by framework updates.
 - Team decides format and content.
-
-### Project-Managed (`.ai-engineering/context/**`)
-
-- Owned by the project — living documents updated during active work.
-- Includes product contracts, specs, decisions.
 
 ### Skills
 
@@ -48,7 +42,7 @@ applyTo: "**/*.md"
 
 ## Cross-Reference Style
 
-- Reference other governance docs with relative paths from `.ai-engineering/`: `standards/framework/core.md`.
+- Reference other governance docs with relative paths from `.ai-engineering/`: `manifest.yml`.
 - Reference skills with: `skills/debug/SKILL.md`.
 - Reference agents with: `agents/build.md`.
 - Use markdown links for external references.

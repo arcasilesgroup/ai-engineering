@@ -111,8 +111,8 @@ Fix: add `config = yaml.safe_load(f) or {}` instead of `config = yaml.safe_load(
 
 ## Integration
 
-- **Called by**: `/ai-dispatch` (debug tasks), `/ai-code` (when tests fail), user directly
+- **Called by**: `/ai-dispatch` (debug tasks), `ai-build agent` (when tests fail), user directly
 - **Calls**: test runners (to reproduce), `/ai-test` (regression test)
-- **Transitions to**: `/ai-code` (fix implementation), `/ai-commit` (after verified fix)
+- **Transitions to**: `ai-build` (fix implementation), `/ai-commit` (after verified fix)
 
 $ARGUMENTS

@@ -45,16 +45,29 @@ _cached_stack: str | None | object = _UNSET
 
 
 def _read_active_spec(root: Path) -> str | None:
-    """Read active spec ID from _active.md (fail-open, cached)."""
+    """Read active spec ID from specs/spec.md frontmatter (fail-open, cached)."""
     global _cached_spec_id
     if _cached_spec_id is not _UNSET:
         return _cached_spec_id  # type: ignore[return-value]
     try:
-        active_path = root / ".ai-engineering" / "specs" / "_active.md"
-        if not active_path.exists():
+        spec_path = root / ".ai-engineering" / "specs" / "spec.md"
+        if not spec_path.exists():
             _cached_spec_id = None
             return None
-        content = active_path.read_text(encoding="utf-8")
+        content = spec_path.read_text(encoding="utf-8")
+        # Placeholder means no active spec
+        if content.strip().startswith("# No active spec"):
+            _cached_spec_id = None
+            return None
+        # Try frontmatter id field first
+        for line in content.splitlines():
+            line_s = line.strip()
+            if line_s.startswith("id:"):
+                value = line_s.split(":", 1)[1].strip().strip("\"'")
+                if value:
+                    _cached_spec_id = value
+                    return _cached_spec_id  # type: ignore[return-value]
+        # Fallback: scan for NNN- pattern
         for line in content.splitlines():
             line_s = line.strip()
             if line_s and not line_s.startswith("#") and not line_s.startswith("<!--"):

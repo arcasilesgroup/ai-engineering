@@ -1,0 +1,17 @@
+{
+  "entries": [
+    {
+      "date": "2026-03-19",
+      "overall": 70,
+      "semaphore": "YELLOW",
+      "components": {
+        "Gate pass rate": 78.9,
+        "Delivery velocity": 100,
+        "Decision health": 100,
+        "DORA frequency": 25,
+        "Test confidence": 25.7,
+        "Gate signal quality": 91.7
+      }
+    }
+  ]
+}

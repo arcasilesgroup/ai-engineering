@@ -1,8 +1,8 @@
 ---
 name: "Verify"
 description: "7-mode assessment: governance, security, quality, performance, a11y, feature-gap, architecture -- produces GO/NO-GO verdicts."
+color: green
 model: opus
-color: red
 tools: [codebase, githubRepo, problems, readFile, runCommands, search]
 ---
 
@@ -95,10 +95,9 @@ If the counter-argument is stronger than the finding, drop it. Document dropped 
 
 ## Referenced Skills
 
-- `.github/prompts/ai-security.prompt.md`, `.github/prompts/ai-quality.prompt.md`
-- `.github/prompts/ai-governance.prompt.md`, `.github/prompts/ai-performance.prompt.md`
-- `.github/prompts/ai-accessibility.prompt.md`, `.github/prompts/ai-gap.prompt.md`
-- `.github/prompts/ai-architecture.prompt.md`
+- `.github/prompts/ai-security.prompt.md` -- OWASP SAST, secrets, dependency audit
+- `.github/prompts/ai-governance.prompt.md` -- compliance, ownership, risk lifecycle
+- `.github/prompts/ai-verify.prompt.md` -- self-reference for unified assessment modes
 
 ## Boundaries
 

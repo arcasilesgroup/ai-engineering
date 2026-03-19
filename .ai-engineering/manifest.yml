@@ -17,9 +17,9 @@ providers:
 work_items:
   provider: github
 
-# Skills registry (28 skills)
+# Skills registry (30 skills)
 skills:
-  total: 28
+  total: 30
   prefix: "ai-"
   registry:
     # Core workflow
@@ -40,6 +40,7 @@ skills:
     ai-governance: {type: enterprise, tags: [compliance]}
     ai-pipeline: {type: enterprise, tags: [cicd]}
     ai-schema: {type: enterprise, tags: [database]}
+    ai-solution-intent: {type: enterprise, tags: [documentation]}
     # Teaching + Writing
     ai-explain: {type: teaching, tags: [learning]}
     ai-guide: {type: teaching, tags: [onboarding]}
@@ -56,6 +57,7 @@ skills:
     ai-learn: {type: meta, tags: [improvement]}
     ai-prompt: {type: meta, tags: [optimization]}
     ai-onboard: {type: meta, tags: [bootstrap]}
+    ai-analyze-permissions: {type: meta, tags: [permissions]}
 
 # Agents (8)
 agents:
@@ -72,7 +74,7 @@ quality:
 # Ownership
 ownership:
   framework: [".claude/skills/**", ".claude/agents/**", ".ai-engineering/**"]
-  team: [".ai-engineering/contexts/team/**", ".ai-engineering/tasks/**"]
+  team: [".ai-engineering/contexts/team/**"]
   system: [".ai-engineering/state/**"]
 
 # Tooling

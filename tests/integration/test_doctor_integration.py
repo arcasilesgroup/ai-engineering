@@ -79,11 +79,11 @@ class TestLayoutCheck:
     def test_fails_on_missing_subdirectory(self, installed_project: Path) -> None:
         import shutil
 
-        shutil.rmtree(installed_project / ".ai-engineering" / "standards")
+        shutil.rmtree(installed_project / ".ai-engineering" / "contexts")
         report = diagnose(installed_project)
         layout = _find_check(report, "framework-layout")
         assert layout.status == CheckStatus.FAIL
-        assert "standards" in layout.message
+        assert "contexts" in layout.message
 
 
 # ---------------------------------------------------------------------------

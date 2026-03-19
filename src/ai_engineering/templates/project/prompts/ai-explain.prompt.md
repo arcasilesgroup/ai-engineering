@@ -1,6 +1,5 @@
 ---
 name: ai-explain
-version: 3.0.0
 description: "Use when explaining code, concepts, patterns, or architecture: engineer-grade technical explanations with 3-tier depth control, ASCII diagrams, and execution traces."
 argument-hint: "<topic>|--depth brief|standard|deep"
 mode: agent
@@ -16,8 +15,8 @@ Engineer-grade technical explanations of code, concepts, patterns, and architect
 ## When to Use
 
 - "How does this work?", "What is this?", "Why does this do X?", "Trace this."
-- NOT for generating documentation -- use `/ai-document`.
-- NOT for writing/fixing code -- use `/ai-code` or `/ai-debug`.
+- NOT for generating documentation -- use `/ai-write`.
+- NOT for writing/fixing code -- use `ai-build agent` or `/ai-debug`.
 
 ## Process
 
@@ -84,5 +83,5 @@ Use Grep/Glob to find real instances. Codebase examples with `file:line` referen
 ## References
 
 - `.github/prompts/ai-guide.prompt.md` -- uses explain for teaching interactions.
-- `.github/prompts/ai-architecture.prompt.md` -- architecture context methodology.
+- `.github/prompts/ai-verify.prompt.md` -- architecture assessment mode.
 $ARGUMENTS

@@ -33,7 +33,14 @@ def parse_frontmatter(text: str) -> dict[str, str]:
         m = re.match(r"^(\w[\w-]*):[ \t]*(?:\"([^\"]*)\"|'([^']*)'|(.+))$", line.strip())
         if m:
             key = m.group(1)
-            value = m.group(2) or m.group(3) or m.group(4)
+            # Use 'is not None' — empty strings (e.g. `key: ""`) are valid values.
+            value = (
+                m.group(2)
+                if m.group(2) is not None
+                else m.group(3)
+                if m.group(3) is not None
+                else m.group(4) or ""
+            )
             result[key] = value.strip()
     return result
 
@@ -56,11 +63,11 @@ def count_checkboxes(text: str) -> tuple[int, int]:
 
 
 def next_spec_number(specs_dir: Path) -> int:
-    """Determine next spec number from existing directories.
+    """Determine next spec number from ``_history.md``.
 
-    Scans ``specs_dir`` (and its ``archive/`` subdirectory) for directories
-    matching the ``NNN-<slug>`` pattern and returns ``max + 1``.  Returns 1
-    when the directory is empty or does not exist.
+    Parses the history table for rows matching ``| NNN | ...`` and
+    returns ``max + 1``.  Falls back to scanning ``spec.md`` frontmatter
+    for the current ID.  Returns 1 when no history exists.
 
     Args:
         specs_dir: Path to the specs directory (e.g. ``specs/``).
@@ -69,20 +76,27 @@ def next_spec_number(specs_dir: Path) -> int:
         Next sequential spec number.
     """
     max_num = 0
-    if specs_dir.is_dir():
-        for child in specs_dir.iterdir():
-            if child.is_dir():
-                match = re.match(r"^(\d{3})-", child.name)
-                if match:
-                    max_num = max(max_num, int(match.group(1)))
-    # Also check archive
-    archive = specs_dir / "archive"
-    if archive.is_dir():
-        for child in archive.iterdir():
-            if child.is_dir():
-                match = re.match(r"^(\d{3})-", child.name)
-                if match:
-                    max_num = max(max_num, int(match.group(1)))
+
+    # Parse _history.md table rows
+    history_path = specs_dir / "_history.md"
+    if history_path.exists():
+        text = history_path.read_text(encoding="utf-8")
+        for line in text.splitlines():
+            match = re.match(r"^\|\s*(\d{3})\s*\|", line)
+            if match:
+                max_num = max(max_num, int(match.group(1)))
+
+    # Also check current spec.md frontmatter ID
+    spec_path = specs_dir / "spec.md"
+    if spec_path.exists():
+        from ai_engineering.lib.parsing import parse_frontmatter
+
+        fm = parse_frontmatter(spec_path.read_text(encoding="utf-8"))
+        spec_id = fm.get("id", "")
+        id_match = re.match(r"^(\d{3})$", spec_id.strip())
+        if id_match:
+            max_num = max(max_num, int(id_match.group(1)))
+
     return max_num + 1
 
 

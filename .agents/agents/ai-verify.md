@@ -94,10 +94,9 @@ If the counter-argument is stronger than the finding, drop it. Document dropped 
 
 ## Referenced Skills
 
-- `.agents/skills/security/SKILL.md`, `.agents/skills/quality/SKILL.md`
-- `.agents/skills/governance/SKILL.md`, `.agents/skills/performance/SKILL.md`
-- `.agents/skills/accessibility/SKILL.md`, `.agents/skills/gap/SKILL.md`
-- `.agents/skills/architecture/SKILL.md`
+- `.agents/skills/security/SKILL.md` -- OWASP SAST, secrets, dependency audit
+- `.agents/skills/governance/SKILL.md` -- compliance, ownership, risk lifecycle
+- `.agents/skills/verify/SKILL.md` -- self-reference for unified assessment modes
 
 ## Boundaries
 

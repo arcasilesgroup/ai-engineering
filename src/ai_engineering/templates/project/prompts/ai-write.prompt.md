@@ -1,6 +1,5 @@
 ---
 name: ai-write
-version: 1.0.0
 description: "Use when writing technical content: documentation, changelogs, articles, pitches, sprint reviews, and presentation outlines. Handler-based with audience targeting."
 argument-hint: "docs|changelog|content <type>|--audience developer|manager|executive"
 mode: agent
@@ -19,7 +18,7 @@ Router skill for comprehensive technical writing. Dispatches to handler files ba
 - Generating changelogs from conventional commits.
 - Creating pitch decks, sprint reviews, blog posts, architecture board presentations.
 - NOT for code explanations -- use `/ai-explain`.
-- NOT for code changes -- use `/ai-code`.
+- NOT for code changes -- use `ai-build agent`.
 
 ## Routing
 
@@ -71,8 +70,7 @@ Default: `developer`.
 
 ## References
 
-- `.github/prompts/ai-document.prompt.md` -- existing documentation skill (overlapping).
-- `standards/framework/core.md` -- governance documentation requirements.
+- `.ai-engineering/manifest.yml` -- governance documentation requirements.
 $ARGUMENTS
 
 ---

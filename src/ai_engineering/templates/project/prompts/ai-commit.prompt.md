@@ -1,6 +1,5 @@
 ---
 name: ai-commit
-version: 2.0.0
 description: "Use when committing changes: governed commit workflow with staging, lint, secret scan, conventional commit message, and push."
 argument-hint: "--force|--only|[message hint]"
 mode: agent
@@ -104,7 +103,6 @@ Execute steps 1-7. Skip push.
 
 ## References
 
-- `.github/prompts/ai-document.prompt.md` -- changelog formatting.
-- `standards/framework/core.md` -- non-negotiables.
-- `standards/framework/quality/core.md` -- gate structure.
+- `.github/prompts/ai-write.prompt.md` -- changelog formatting.
+- `.ai-engineering/manifest.yml` -- quality gates and non-negotiables.
 $ARGUMENTS

@@ -1,8 +1,8 @@
 ---
 name: "Review"
 description: "Code review agent -- multi-pass review with architecture, security, quality, and style checks."
+color: red
 model: opus
-color: yellow
 tools: [codebase, githubRepo, problems, readFile, search]
 ---
 

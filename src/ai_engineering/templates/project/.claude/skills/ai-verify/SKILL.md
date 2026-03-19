@@ -110,7 +110,7 @@ Every scan mode produces:
 
 ## Integration
 
-- **Called by**: `/ai-dispatch` (post-task review), `/ai-code` (after implementation), user directly
+- **Called by**: `/ai-dispatch` (post-task review), `ai-build agent` (after implementation), user directly
 - **Calls**: stack-specific tools (pytest, ruff, gitleaks, etc.)
 - **Read-only**: never modifies source code -- produces findings with remediation
 

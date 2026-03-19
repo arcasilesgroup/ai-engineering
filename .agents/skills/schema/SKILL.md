@@ -1,6 +1,5 @@
 ---
 name: schema
-version: 3.0.0
 description: Use when designing schemas, writing migrations, optimizing queries, or managing data lifecycle across PostgreSQL, MySQL, SQLite, and MongoDB.
 argument-hint: "design|migrate|optimize|lifecycle"
 tags: [database, sql, migration, schema, optimization, enterprise]
@@ -79,5 +78,5 @@ Schema design, safe migration generation, query optimization, and data lifecycle
 
 ## References
 
-- `standards/framework/core.md` -- governance rules for destructive operations.
+- `.ai-engineering/manifest.yml` -- governance rules for destructive operations.
 $ARGUMENTS

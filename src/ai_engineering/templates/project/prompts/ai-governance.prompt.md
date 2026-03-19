@@ -1,6 +1,5 @@
 ---
 name: ai-governance
-version: 3.0.0
 description: "Use when validating compliance, ownership, risk lifecycle, or framework integrity for regulated industries. Modes: compliance | ownership | risk | integrity."
 argument-hint: "all|compliance|ownership|risk|integrity|--report"
 mode: agent
@@ -110,7 +109,6 @@ Scoring: start at 100. Deduct: blocker -25, critical -15, major -5, minor -1. Fl
 
 ## References
 
-- `standards/framework/core.md` -- governance non-negotiables.
-- `standards/framework/quality/core.md` -- quality thresholds.
+- `.ai-engineering/manifest.yml` -- governance non-negotiables and quality thresholds.
 - `state/decision-store.json` -- risk acceptance records.
 $ARGUMENTS

@@ -15,8 +15,8 @@ Project onboarding, architecture tours, and decision archaeology. Optimized for 
 - New to a project and need orientation.
 - Want to understand component relationships and data flow.
 - Asking "why was X chosen over Y?"
-- NOT for writing code -- use `/ai-code`.
-- NOT for generating docs -- use `/ai-document`.
+- NOT for writing code -- use `ai-build agent`.
+- NOT for generating docs -- use `/ai-write`.
 
 ## Modes
 
@@ -83,6 +83,6 @@ Project onboarding, architecture tours, and decision archaeology. Optimized for 
 ## References
 
 - `.claude/skills/ai-explain/SKILL.md` -- 3-tier depth model.
-- `standards/framework/core.md` -- governance structure.
+- `.ai-engineering/manifest.yml` -- governance structure.
 - `state/decision-store.json` -- decision records.
 $ARGUMENTS

@@ -6,9 +6,9 @@ applyTo: "**/tests/**"
 
 ## Governance References
 
-- `.ai-engineering/standards/framework/quality/core.md` — coverage targets, quality gates.
-- `.ai-engineering/standards/framework/stacks/python.md` — Python-specific test requirements.
-- `.ai-engineering/standards/framework/stacks/python.md` — testing patterns section.
+- `.ai-engineering/manifest.yml` — coverage targets, quality gates.
+- `.ai-engineering/contexts/languages/python.md` — Python-specific test requirements.
+- `.ai-engineering/contexts/languages/python.md` — testing patterns section.
 
 ## Framework
 
@@ -96,5 +96,5 @@ uv run pytest -k "test_install"        # Filter by name
 
 ## Skills Reference
 
-- `.github/prompts/ai-test-plan.prompt.md` — test design procedure.
+- `.github/prompts/ai-test.prompt.md` — test design procedure.
 - `.github/prompts/ai-debug.prompt.md` — diagnosing test failures.

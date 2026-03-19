@@ -1,6 +1,5 @@
 ---
 name: ai-pr
-version: 4.0.0
 description: "Use when creating pull requests: governed PR workflow with commit pipeline, pre-push gates, auto-generated summary, and auto-complete squash merge."
 argument-hint: "review|create|update|--draft|--only|[title]"
 tags: [git, pull-request, ci, merge, delivery]
@@ -36,6 +35,12 @@ Safety net: verify documentation gate executed correctly.
 - If staged changes include `src/` or `.ai-engineering/` files (excluding `state/`): CHANGELOG.md MUST be staged.
 - For governance content changes: `.ai-engineering/README.md` SHOULD be staged and mirrored.
 
+### 6.7. Solution intent sync
+
+If staged changes include architecture files (agents/, skills/, manifest.yml, contexts/, specs/):
+- Invoke `/ai-solution-intent sync` to update `docs/solution-intent.md`
+- Stage the updated file
+
 ### 7. Pre-push checks
 
 Execute full pre-push gate:
@@ -48,7 +53,15 @@ If any check fails, report and stop.
 
 ### 8. Spec operations
 
-- If active spec: run `ai-eng spec verify` then `ai-eng spec catalog`.
+If `.ai-engineering/specs/spec.md` has content (not placeholder):
+1. Read spec.md + plan.md to generate PR description sections
+2. Run `ai-eng spec verify --fix` to auto-correct task counts
+3. Update spec.md and plan.md to reflect ACTUAL scope of this PR
+4. Use the updated content for the PR body (Summary from spec, Test Plan from plan)
+5. Add entry to `specs/_history.md`: | ID | Title | date | branch |
+6. Clear spec.md with: `# No active spec\n\nRun /ai-brainstorm to start a new spec.\n`
+7. Clear plan.md with: `# No active plan\n\nRun /ai-plan after brainstorm approval.\n`
+8. Stage the cleared files
 
 ### 9. Commit and push
 
@@ -133,6 +146,6 @@ Same as default flow but create as draft PR.
 ## References
 
 - `.claude/skills/ai-commit/SKILL.md` -- shared commit pipeline.
-- `.claude/skills/ai-document/SKILL.md` -- changelog and documentation updates.
-- `standards/framework/core.md` -- non-negotiables.
+- `.claude/skills/ai-write/SKILL.md` -- changelog and documentation updates.
+- `.ai-engineering/manifest.yml` -- quality gates and non-negotiables.
 $ARGUMENTS

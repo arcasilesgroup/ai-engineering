@@ -91,7 +91,7 @@ If any answer is unfavorable, revert and move to the next target.
 
 ## Referenced Standards
 
-- `standards/framework/quality/core.md` -- complexity thresholds (cyclomatic <=10, cognitive <=15)
+- `.ai-engineering/manifest.yml` -- complexity thresholds (cyclomatic <=10, cognitive <=15)
 
 ## Boundaries
 

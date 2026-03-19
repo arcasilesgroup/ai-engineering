@@ -346,13 +346,11 @@ def create_app() -> typer.Typer:
     # Spec sub-group (v3: spec lifecycle management)
     spec_app = typer.Typer(
         name="spec",
-        help="Spec lifecycle: verify counters, generate catalog, list active.",
+        help="Spec lifecycle: verify counters, list current spec.",
         no_args_is_help=True,
     )
     spec_app.command("verify")(_safe(spec_cmd.spec_verify))
-    spec_app.command("catalog")(_safe(spec_cmd.spec_catalog))
     spec_app.command("list")(_safe(spec_cmd.spec_list))
-    spec_app.command("compact")(_safe(spec_cmd.spec_compact))
     app.add_typer(spec_app, name="spec")
 
     # Work-item sub-group

@@ -1,7 +1,7 @@
 """Unit tests for spec helper functions in ai_engineering.lib.parsing.
 
 Covers:
-- next_spec_number: sequential numbering, archive scanning, empty/missing dirs.
+- next_spec_number: history parsing, frontmatter fallback, empty/missing dirs.
 - slugify: kebab-case conversion, special characters, truncation.
 """
 
@@ -55,7 +55,7 @@ class TestSlugify:
 
 
 class TestNextSpecNumber:
-    """Tests for next_spec_number()."""
+    """Tests for next_spec_number() (Working Buffer model)."""
 
     def test_empty_directory(self, tmp_path: Path) -> None:
         """Empty specs directory returns 1."""
@@ -68,47 +68,55 @@ class TestNextSpecNumber:
         specs = tmp_path / "nonexistent"
         assert next_spec_number(specs) == 1
 
-    def test_existing_specs(self, tmp_path: Path) -> None:
-        """Returns max existing number + 1."""
+    def test_reads_from_history(self, tmp_path: Path) -> None:
+        """Reads highest ID from _history.md table."""
         specs = tmp_path / "specs"
         specs.mkdir()
-        (specs / "035-something").mkdir()
-        (specs / "036-other").mkdir()
+        (specs / "_history.md").write_text(
+            "# Spec History\n\n"
+            "| ID | Title | Date | Branch |\n"
+            "|-----|-------|------|--------|\n"
+            "| 035 | Something | 2026-01-01 | spec/035 |\n"
+            "| 036 | Other | 2026-01-15 | spec/036 |\n"
+        )
         assert next_spec_number(specs) == 37
 
-    def test_scans_archive(self, tmp_path: Path) -> None:
-        """Archive directory is included in the scan."""
+    def test_reads_from_current_spec_frontmatter(self, tmp_path: Path) -> None:
+        """Reads current spec ID from spec.md frontmatter."""
         specs = tmp_path / "specs"
         specs.mkdir()
-        archive = specs / "archive"
-        archive.mkdir()
-        (archive / "030-old").mkdir()
-        (specs / "036-current").mkdir()
-        assert next_spec_number(specs) == 37
-
-    def test_archive_has_higher_number(self, tmp_path: Path) -> None:
-        """When archive contains the highest number, it is respected."""
-        specs = tmp_path / "specs"
-        specs.mkdir()
-        archive = specs / "archive"
-        archive.mkdir()
-        (archive / "040-archived").mkdir()
-        (specs / "036-current").mkdir()
+        (specs / "spec.md").write_text('---\nid: "040"\n---\n\n# Feature\n')
         assert next_spec_number(specs) == 41
 
-    def test_ignores_non_matching_dirs(self, tmp_path: Path) -> None:
-        """Directories without NNN- prefix are ignored."""
+    def test_history_and_spec_combined(self, tmp_path: Path) -> None:
+        """Takes the maximum of history and current spec."""
         specs = tmp_path / "specs"
         specs.mkdir()
-        (specs / "readme.md").touch()
-        (specs / "_active.md").touch()
-        (specs / "not-a-spec").mkdir()
-        (specs / "005-real-spec").mkdir()
-        assert next_spec_number(specs) == 6
+        (specs / "_history.md").write_text(
+            "# Spec History\n\n"
+            "| ID | Title | Date | Branch |\n"
+            "|-----|-------|------|--------|\n"
+            "| 030 | Old | 2025-01-01 | spec/030 |\n"
+        )
+        (specs / "spec.md").write_text('---\nid: "042"\n---\n\n# Current\n')
+        assert next_spec_number(specs) == 43
 
-    def test_ignores_files(self, tmp_path: Path) -> None:
-        """Files (not directories) are ignored even if they match the pattern."""
+    def test_ignores_placeholder_spec(self, tmp_path: Path) -> None:
+        """Placeholder spec.md does not contribute a number."""
         specs = tmp_path / "specs"
         specs.mkdir()
-        (specs / "099-this-is-a-file.md").touch()
+        (specs / "spec.md").write_text("# No active spec\n\nRun /ai-brainstorm.\n")
         assert next_spec_number(specs) == 1
+
+    def test_ignores_non_numeric_ids_in_history(self, tmp_path: Path) -> None:
+        """Non-numeric table rows in _history.md are ignored."""
+        specs = tmp_path / "specs"
+        specs.mkdir()
+        (specs / "_history.md").write_text(
+            "# Spec History\n\n"
+            "| ID | Title | Date | Branch |\n"
+            "|-----|-------|------|--------|\n"
+            "| abc | Invalid | 2026-01-01 | x |\n"
+            "| 005 | Valid | 2026-01-02 | y |\n"
+        )
+        assert next_spec_number(specs) == 6

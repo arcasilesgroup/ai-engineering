@@ -187,12 +187,8 @@ def _build_spec_url(project_root: Path, spec: str) -> str | None:
     if not repo_url:
         return None
 
-    specs_dir = project_root / ".ai-engineering" / "specs"
-    archive_spec = specs_dir / "archive" / spec / "spec.md"
-    if archive_spec.exists():
-        spec_path = f".ai-engineering/specs/archive/{spec}/spec.md"
-    else:
-        spec_path = f".ai-engineering/specs/{spec}/spec.md"
+    # Working Buffer model: spec lives at fixed path
+    spec_path = ".ai-engineering/specs/spec.md"
 
     if "github.com" in repo_url:
         return f"{repo_url}/blob/main/{spec_path}"
@@ -204,53 +200,58 @@ def _build_spec_url(project_root: Path, spec: str) -> str | None:
 
 
 def _read_active_spec(project_root: Path) -> str | None:
-    """Read the active spec identifier from ``_active.md``.
+    """Read the active spec identifier from ``specs/spec.md``.
 
-    Parses the YAML frontmatter ``active:`` field.
+    Extracts the ``id`` field from YAML frontmatter, or falls back
+    to scanning for a ``# Spec NNN`` heading pattern.
 
     Args:
         project_root: Root directory of the project.
 
     Returns:
-        Active spec identifier (e.g. ``"014-dual-vcs-provider"``),
+        Active spec identifier (e.g. ``"055"``),
         or None if no spec is active or file is missing.
     """
-    active_path = project_root / ".ai-engineering" / "specs" / "_active.md"
-    if not active_path.exists():
+    spec_path = project_root / ".ai-engineering" / "specs" / "spec.md"
+    if not spec_path.exists():
         return None
 
     try:
-        text = active_path.read_text(encoding="utf-8")
+        text = spec_path.read_text(encoding="utf-8")
     except OSError:
         return None
 
-    match = re.search(r'^active:\s*"(.+?)"', text, re.MULTILINE)
+    # Placeholder means no active spec
+    if text.strip().startswith("# No active spec"):
+        return None
+
+    # Try frontmatter id field
+    match = re.search(r'^id:\s*["\']?(\S+?)["\']?\s*$', text, re.MULTILINE)
     if match:
-        value = match.group(1).strip()
-        if value.lower() == "none":
-            return None
-        return value
+        return match.group(1).strip()
+
+    # Fallback: NNN- pattern in headings
+    match = re.search(r"^# .*?(\d{3})-", text, re.MULTILINE)
+    if match:
+        return match.group(1)
+
     return None
 
 
 def _read_spec_context(project_root: Path, spec: str) -> dict[str, str]:
-    """Read ``spec.md`` and extract key sections for the PR description.
+    """Read ``specs/spec.md`` and extract key sections for the PR description.
 
-    Checks both the active ``specs/{slug}/`` and archived
-    ``specs/archive/{slug}/`` locations.
+    Uses the Working Buffer model: spec lives at ``specs/spec.md`` (fixed path).
 
     Args:
         project_root: Root directory of the project.
-        spec: Spec slug (e.g. ``"036-platform-runbooks"``).
+        spec: Spec identifier (used for logging, not path construction).
 
     Returns:
         Dict with ``title``, ``problem``, ``solution`` (may be empty strings).
     """
     empty: dict[str, str] = {"title": "", "problem": "", "solution": ""}
-    specs_dir = project_root / ".ai-engineering" / "specs"
-    spec_path = specs_dir / spec / "spec.md"
-    if not spec_path.exists():
-        spec_path = specs_dir / "archive" / spec / "spec.md"
+    spec_path = project_root / ".ai-engineering" / "specs" / "spec.md"
     if not spec_path.exists():
         return empty
 

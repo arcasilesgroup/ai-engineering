@@ -1,8 +1,8 @@
 ---
 name: ai-verify
-model: opus
-color: green
 description: "Quality + security assessment. Evidence before claims. Dispatches parallel checks, self-challenges findings, produces scored verdicts."
+color: green
+model: opus
 tools: [Read, Glob, Grep, Bash]
 ---
 
@@ -94,10 +94,9 @@ If the counter-argument is stronger than the finding, drop it. Document dropped 
 
 ## Referenced Skills
 
-- `.claude/skills/ai-security/SKILL.md`, `.claude/skills/ai-quality/SKILL.md`
-- `.claude/skills/ai-governance/SKILL.md`, `.claude/skills/ai-performance/SKILL.md`
-- `.claude/skills/ai-accessibility/SKILL.md`, `.claude/skills/ai-gap/SKILL.md`
-- `.claude/skills/ai-architecture/SKILL.md`
+- `.claude/skills/ai-security/SKILL.md` -- OWASP SAST, secrets, dependency audit
+- `.claude/skills/ai-governance/SKILL.md` -- compliance, ownership, risk lifecycle
+- `.claude/skills/ai-verify/SKILL.md` -- self-reference for unified assessment modes
 
 ## Boundaries
 

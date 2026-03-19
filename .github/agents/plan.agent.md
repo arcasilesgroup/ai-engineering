@@ -1,8 +1,8 @@
 ---
 name: "Plan"
 description: "Advisory planning: classify scope, assess risks, and recommend pipeline"
+color: purple
 model: opus
-color: blue
 tools: [codebase, editFiles, fetch, githubRepo, problems, readFile, runCommands, search, terminalLastCommand, testFailures]
 ---
 
@@ -57,8 +57,7 @@ Auto-classify from `git diff --stat` + change type. User override always availab
 ### Spec-as-Gate Pattern
 
 1. **Produce spec as text** -- write full spec in conversation
-2. **Persist via Write tool** -- create spec.md, plan.md, tasks.md in `specs/NNN-<slug>/`
-3. **Update _active.md** -- point to new spec
+2. **Persist via Write tool** -- write spec.md and plan.md to `specs/`
 4. **Commit** -- `spec-NNN: Phase 0 -- scaffold spec files and activate`
 5. **STOP** -- present result. User must explicitly invoke `/ai-dispatch` to begin execution.
 
@@ -83,8 +82,7 @@ Document challenges and responses in the spec under `## Risks and Mitigations`.
 ## Referenced Skills
 
 - `.github/prompts/ai-plan.prompt.md` -- classification, discovery, risk
-- `.github/prompts/ai-brainstorm.prompt.md` -- divergent exploration before convergence
-- `.github/prompts/ai-spec.prompt.md` -- branch creation and spec scaffolding
+- `.github/prompts/ai-brainstorm.prompt.md` -- divergent exploration, spec creation, branch scaffolding
 - `.github/prompts/ai-governance.prompt.md` -- governance validation, risk acceptance
 
 ## Boundaries

@@ -23,10 +23,10 @@ HARD GATE: this skill produces a spec. No implementation happens until the user 
 
 ## Process
 
-1. **Load context** -- read `_active.md`, `decision-store.json`, and `product-contract.md` section 7 (roadmap)
+1. **Load context** -- read `specs/spec.md`, `decision-store.json`, and `docs/solution-intent.md` section 7 (roadmap)
 2. **Interrogate** -- follow `handlers/interrogate.md` for the questioning flow
 3. **Propose approaches** -- present 2-3 options with trade-offs (never just one)
-4. **Draft spec** -- write spec to `specs/NNN-<slug>/spec.md`
+4. **Draft spec** -- write spec to `specs/spec.md`
 5. **Review spec** -- follow `handlers/spec-review.md` for the review loop (max 3 iterations)
 6. **STOP** -- present approved spec. User runs `/ai-plan` to continue.
 
@@ -61,7 +61,7 @@ HARD GATE: this skill produces a spec. No implementation happens until the user 
 
 - **Called by**: user directly, or `/ai-plan` when requirements are unclear
 - **Calls**: `handlers/interrogate.md`, `handlers/spec-review.md`
-- **Transitions to**: `/ai-plan` (ONLY -- never to `/ai-code` or `/ai-dispatch`)
+- **Transitions to**: `/ai-plan` (ONLY -- never directly to `ai-build` or `/ai-dispatch`)
 
 $ARGUMENTS
 
@@ -164,7 +164,7 @@ Dispatch a spec-reviewer subagent to challenge the draft spec. The reviewer argu
 
 ### Step 1 -- Write the Spec
 
-Create `specs/NNN-<slug>/spec.md` with this structure:
+Create `specs/spec.md` with this structure:
 
 ```markdown
 # Spec NNN: [Title]

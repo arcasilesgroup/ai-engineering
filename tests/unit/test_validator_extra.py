@@ -39,6 +39,9 @@ def _write_instruction_files(root: Path, content: str) -> None:
 
 def test_file_existence_skips_placeholders_and_prefix_cleanup(tmp_path: Path) -> None:
     ai = _mk(tmp_path)
+    # Create Working Buffer spec files to pass spec-buffer check
+    (ai / "specs" / "spec.md").write_text("# No active spec\n", encoding="utf-8")
+    (ai / "specs" / "plan.md").write_text("# No active plan\n", encoding="utf-8")
     src = ai / "skills" / "debug.md"
     src.write_text(
         "---\nname: debug\nversion: 1.0.0\n---\n\n"
@@ -141,21 +144,23 @@ def test_instruction_consistency_single_file_returns_early(tmp_path: Path) -> No
 def test_manifest_coherence_active_spec_branches(tmp_path: Path) -> None:
     ai = _mk(tmp_path)
     (ai / "manifest.yml").write_text("name: x\n", encoding="utf-8")
-    active = ai / "specs" / "_active.md"
+    spec_path = ai / "specs" / "spec.md"
 
-    active.write_text('active: "none"\n', encoding="utf-8")
+    # Placeholder spec passes
+    spec_path.write_text(
+        "# No active spec\n\nRun /ai-brainstorm to start a new spec.\n",
+        encoding="utf-8",
+    )
     r1 = validate_content_integrity(tmp_path, categories=[IntegrityCategory.MANIFEST_COHERENCE])
     assert r1.category_passed(IntegrityCategory.MANIFEST_COHERENCE)
 
-    active.write_text('active: "999-missing"\n', encoding="utf-8")
+    # Active spec passes
+    spec_path.write_text(
+        '---\nid: "042"\n---\n\n# My Feature\n\nContent.\n',
+        encoding="utf-8",
+    )
     r2 = validate_content_integrity(tmp_path, categories=[IntegrityCategory.MANIFEST_COHERENCE])
-    assert r2.category_passed(IntegrityCategory.MANIFEST_COHERENCE) is False
-
-    spec = ai / "specs" / "abc"
-    spec.mkdir(parents=True, exist_ok=True)
-    active.write_text('active: "abc"\n', encoding="utf-8")
-    r3 = validate_content_integrity(tmp_path, categories=[IntegrityCategory.MANIFEST_COHERENCE])
-    assert r3.category_passed(IntegrityCategory.MANIFEST_COHERENCE) is False
+    assert r2.category_passed(IntegrityCategory.MANIFEST_COHERENCE)
 
 
 def test_skill_frontmatter_additional_failure_paths(tmp_path: Path) -> None:
@@ -196,22 +201,14 @@ def test_skill_frontmatter_invalid_yaml_and_missing_dir(tmp_path: Path) -> None:
     assert report2.category_passed(IntegrityCategory.SKILL_FRONTMATTER) is False
 
 
-def test_manifest_coherence_active_null_unquoted(tmp_path: Path) -> None:
-    """Unquoted `active: null` is treated as no active spec (passes)."""
+def test_manifest_coherence_placeholder_spec_passes(tmp_path: Path) -> None:
+    """Placeholder spec.md is treated as no active spec (passes)."""
     ai = _mk(tmp_path)
     (ai / "manifest.yml").write_text("name: x\n", encoding="utf-8")
-    active = ai / "specs" / "_active.md"
-    active.write_text("active: null\n", encoding="utf-8")
-    report = validate_content_integrity(tmp_path, categories=[IntegrityCategory.MANIFEST_COHERENCE])
-    assert report.category_passed(IntegrityCategory.MANIFEST_COHERENCE)
-
-
-def test_manifest_coherence_active_tilde(tmp_path: Path) -> None:
-    """YAML tilde `~` is a null alias and should pass."""
-    ai = _mk(tmp_path)
-    (ai / "manifest.yml").write_text("name: x\n", encoding="utf-8")
-    active = ai / "specs" / "_active.md"
-    active.write_text("active: ~\n", encoding="utf-8")
+    (ai / "specs" / "spec.md").write_text(
+        "# No active spec\n\nRun /ai-brainstorm to start a new spec.\n",
+        encoding="utf-8",
+    )
     report = validate_content_integrity(tmp_path, categories=[IntegrityCategory.MANIFEST_COHERENCE])
     assert report.category_passed(IntegrityCategory.MANIFEST_COHERENCE)
 
@@ -293,16 +290,16 @@ def test_cross_reference_resolves_via_template_fallback(tmp_path: Path) -> None:
     assert report.category_passed(IntegrityCategory.CROSS_REFERENCE)
 
 
-def test_manifest_coherence_archive_spec_found(tmp_path: Path) -> None:
-    """Active spec pointing to archive/ directory passes validation."""
+def test_manifest_coherence_missing_spec_md_warns(tmp_path: Path) -> None:
+    """Missing specs/spec.md produces a warning."""
     ai = _mk(tmp_path)
     (ai / "manifest.yml").write_text("name: x\n", encoding="utf-8")
-    # Create spec in archive dir
-    spec_dir = ai / "specs" / "archive" / "033-archived"
-    spec_dir.mkdir(parents=True, exist_ok=True)
-    for f in ("spec.md", "plan.md", "tasks.md"):
-        (spec_dir / f).write_text(f"# {f}\n", encoding="utf-8")
-    active = ai / "specs" / "_active.md"
-    active.write_text('active: "033-archived"\n', encoding="utf-8")
+    # Remove spec.md to trigger warning
+    spec_md = ai / "specs" / "spec.md"
+    if spec_md.exists():
+        spec_md.unlink()
     report = validate_content_integrity(tmp_path, categories=[IntegrityCategory.MANIFEST_COHERENCE])
-    assert report.category_passed(IntegrityCategory.MANIFEST_COHERENCE)
+    warn_checks = [
+        c for c in report.checks if c.name == "active-spec-pointer" and c.status.value == "warn"
+    ]
+    assert len(warn_checks) == 1

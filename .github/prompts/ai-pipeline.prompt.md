@@ -1,6 +1,5 @@
 ---
 name: ai-pipeline
-version: 3.0.0
 description: "Use when creating or evolving CI/CD pipelines: stack-aware generation for GitHub Actions and Azure Pipelines with security enforcement."
 argument-hint: "generate|evolve|validate|--provider github|azure"
 mode: agent
@@ -55,8 +54,8 @@ Default (no sub-command): `generate`.
 
 ## References
 
-- `standards/framework/cicd/core.md` -- CI/CD standards.
-- `standards/framework/stacks/` -- per-stack check definitions.
+- `.ai-engineering/manifest.yml` -- CI/CD standards.
+- `.ai-engineering/contexts/` -- per-stack check definitions.
 $ARGUMENTS
 
 ---

@@ -1,8 +1,8 @@
 ---
 name: ai-plan
-model: opus
-color: purple
 description: "Relentless interrogator. Extracts every detail, assumption, and blind spot before anything gets built."
+color: purple
+model: opus
 tools: [Read, Glob, Grep, Bash, Write, Edit]
 ---
 
@@ -56,8 +56,7 @@ Auto-classify from `git diff --stat` + change type. User override always availab
 ### Spec-as-Gate Pattern
 
 1. **Produce spec as text** -- write full spec in conversation
-2. **Persist via Write tool** -- create spec.md, plan.md, tasks.md in `specs/NNN-<slug>/`
-3. **Update _active.md** -- point to new spec
+2. **Persist via Write tool** -- write spec.md and plan.md to `specs/`
 4. **Commit** -- `spec-NNN: Phase 0 -- scaffold spec files and activate`
 5. **STOP** -- present result. User must explicitly invoke `/ai-dispatch` to begin execution.
 
@@ -82,8 +81,7 @@ Document challenges and responses in the spec under `## Risks and Mitigations`.
 ## Referenced Skills
 
 - `.claude/skills/ai-plan/SKILL.md` -- classification, discovery, risk
-- `.claude/skills/ai-brainstorm/SKILL.md` -- divergent exploration before convergence
-- `.claude/skills/ai-spec/SKILL.md` -- branch creation and spec scaffolding
+- `.claude/skills/ai-brainstorm/SKILL.md` -- divergent exploration, spec creation, branch scaffolding
 - `.claude/skills/ai-governance/SKILL.md` -- governance validation, risk acceptance
 
 ## Boundaries

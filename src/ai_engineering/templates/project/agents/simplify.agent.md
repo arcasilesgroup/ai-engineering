@@ -1,8 +1,8 @@
 ---
 name: "Simplifier"
 description: "Background code simplifier -- guard clauses, extract methods, flatten nesting, remove dead code. Runs post-build or continuous."
+color: green
 model: opus
-color: lime
 tools: [codebase, editFiles, problems, readFile, runCommands, search, testFailures]
 ---
 
@@ -92,7 +92,7 @@ If any answer is unfavorable, revert and move to the next target.
 
 ## Referenced Standards
 
-- `standards/framework/quality/core.md` -- complexity thresholds (cyclomatic <=10, cognitive <=15)
+- `.ai-engineering/manifest.yml` -- complexity thresholds (cyclomatic <=10, cognitive <=15)
 
 ## Boundaries
 

@@ -1,6 +1,5 @@
 ---
 name: ai-release
-version: 2.0.0
 description: "Use when preparing a release: aggregated GO/NO-GO gate checking coverage, security, tests, lint, and dependency vulnerabilities against manifest thresholds."
 argument-hint: "[version]|--check-only"
 tags: [quality, release, gate, go-no-go, delivery]
@@ -114,5 +113,5 @@ Aggregated GO/NO-GO release readiness gate. Checks every quality dimension again
 
 - `.claude/skills/ai-security/SKILL.md` -- security gate.
 - `.claude/skills/ai-governance/SKILL.md` -- compliance and risk.
-- `standards/framework/quality/core.md` -- quality thresholds.
+- `.ai-engineering/manifest.yml` -- quality thresholds.
 $ARGUMENTS

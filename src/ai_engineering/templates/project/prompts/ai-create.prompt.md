@@ -91,4 +91,152 @@ After creating any skill or agent:
 /ai-create agent reviewer    # create a new reviewer agent
 ```
 
+## Integration
+
+- **Calls**: `handlers/create-skill.md`, `handlers/create-agent.md`, `handlers/validate.md`
+- **Triggers sync**: `python scripts/sync_command_mirrors.py` after creation
+
 $ARGUMENTS
+
+---
+
+# Handler: create-agent
+
+## Purpose
+
+Scaffold a new agent with standardized frontmatter, defined mandate, referenced skills, and mirror generation.
+
+## Procedure
+
+### 1. Validate name
+- Must not conflict with existing agents (check `.github/agents/`)
+
+### 2. Define identity
+- What is the agent's singular responsibility?
+- What model? (opus for complex tasks, sonnet for simple/fast)
+- What color? (check existing agents to avoid duplicates)
+- What tools? (Read, Write, Edit, Bash, Glob, Grep — pick minimum needed)
+
+### 3. Scaffold agent file
+Frontmatter order (mandatory):
+```yaml
+---
+name: ai-<name>
+description: "[Mandate in one sentence]."
+color: <color>
+model: <opus|sonnet>
+tools: [Read, Glob, Grep, ...]
+---
+```
+
+Body structure:
+1. `# <Name>` (no prefix)
+2. `## Identity` — 3-4 sentences defining expertise and perspective
+3. `## Mandate` — singular responsibility, 1-2 sentences
+4. `## Behavior` — numbered sections for the agent's workflow
+5. `## Referenced Skills` — list of skill paths (validate they exist!)
+6. `## Boundaries` — what the agent does NOT do
+7. `### Escalation Protocol` — iteration limit, never loop silently
+
+### 4. Register
+- Add to `.ai-engineering/manifest.yml` agents section
+- Increment `total` count
+
+### 5. Generate mirrors
+- Run `python scripts/sync_command_mirrors.py`
+# Handler: create-skill
+
+## Purpose
+
+Scaffold a new skill with standardized frontmatter, CSO-optimized description, optional handlers, manifest registration, and mirror generation.
+
+## Procedure
+
+### 1. Validate name
+- Must not conflict with existing skills (check `.github/prompts/`)
+- Prefix with `ai-` automatically if not provided
+
+### 2. Interrogate (max 3 questions)
+- What does the skill do? (→ Purpose)
+- What triggers it? (→ CSO description: "Use when...")
+- Does it have multiple modes? (→ handlers needed?)
+
+### 3. Scaffold SKILL.md
+Frontmatter order (mandatory):
+```yaml
+---
+name: ai-<name>
+description: "Use when [trigger condition]. [What it does]."
+argument-hint: "[args]"
+---
+```
+
+Body structure:
+1. `# <Name>` (no prefix)
+2. `## Purpose` — 2-3 sentences
+3. `## When to Use` — bullet list of trigger conditions
+4. `## Process` — numbered steps or mode dispatch
+5. `## Quick Reference` — code block with invocation examples
+6. `## Integration` — Called by, Calls, Transitions to
+7. `## References` — related skills/files
+8. `$ARGUMENTS`
+
+### 4. Create handlers (if multi-mode)
+For each mode: create `handlers/<mode>.md` with Purpose, Procedure sections.
+
+### 5. Register
+- Add to `.ai-engineering/manifest.yml` skills registry
+- Increment `total` count
+
+### 6. Generate mirrors
+- Run `python scripts/sync_command_mirrors.py`
+
+### 7. Pressure-test
+Present 5 example prompts that SHOULD trigger this skill. Verify the CSO description would match.
+
+## CSO Description Rules
+
+- Start with "Use when" (trigger-focused, not summary-focused)
+- Bad: "Generates standup notes from PR activity"
+- Good: "Use when preparing daily standup notes or summarizing recent PR and commit activity for team updates"
+# Handler: validate
+
+## Purpose
+
+Post-creation validation. Verifies a skill or agent is correctly configured across all surfaces.
+
+## Procedure
+
+### 1. CSO Description Quality
+- Does description start with "Use when"?
+- Does it describe a trigger condition, not a summary?
+- Is it specific enough to distinguish from other skills?
+
+### 2. Frontmatter Order
+- Check field order matches canonical:
+  - Agents: name, description, color, model, tools
+  - Skills: name, description, [optional fields], argument-hint
+
+### 3. Mirror Parity
+- Verify skill/agent exists in all 3 surfaces:
+  - `.github/prompts/ai-<name>.prompt.md` or `.github/agents/<name>.agent.md`
+  - `.agents/skills/<name>/SKILL.md` or `.agents/agents/ai-<name>.md`
+  - `.github/prompts/ai-<name>.prompt.md` or `.github/agents/<name>.agent.md`
+- Verify handlers are mirrored too (if any)
+
+### 4. Manifest Registration
+- Verify skill/agent is in `.ai-engineering/manifest.yml`
+- Verify `total` count matches actual count
+
+### 5. Cross-Reference Integrity
+- All Referenced Skills paths point to existing files
+- No ghost skill references
+
+### 6. Report
+```
+✓ CSO description: PASS
+✓ Frontmatter order: PASS
+✓ Mirror parity: 3/3 surfaces
+✓ Manifest registered: PASS
+✓ Cross-references: PASS (0 broken)
+```

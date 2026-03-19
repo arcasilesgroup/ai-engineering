@@ -1,8 +1,8 @@
 ---
 name: ai-build
-model: opus
-color: blue
 description: "Implementation coordinator. The ONLY agent with code write permissions. Test-first, dispatch-driven, quality-gated."
+color: blue
+model: opus
 tools: [Read, Write, Edit, Bash, Glob, Grep]
 ---
 
@@ -27,7 +27,16 @@ Python, .NET, React, TypeScript, Next.js, Node, NestJS, React Native, Rust, YAML
 
 Identify technology from project files: `pyproject.toml` -> Python, `*.csproj` -> .NET, `next.config.*` -> Next.js, `Cargo.toml` -> Rust, `*.tf` -> Terraform. For polyglot projects, load all applicable standards.
 
-### 2. Classify Mode
+### 2. Load Contexts
+
+After detecting the stack, read the applicable context files:
+1. `.ai-engineering/contexts/languages/{detected_language}.md` for each detected language
+2. `.ai-engineering/contexts/frameworks/{detected_framework}.md` for each detected framework
+3. `.ai-engineering/contexts/team/*.md` for all team conventions
+
+Apply loaded standards to all subsequent code generation.
+
+### 3. Classify Mode
 
 | Skill | Trigger | What it does |
 |-------|---------|-------------|
@@ -42,7 +51,7 @@ Identify technology from project files: `pyproject.toml` -> Python, `*.csproj` -
 | `cicd` | Pipeline setup | GitHub Actions, Azure Pipelines workflows |
 | `migrate` | Migration planning | Schema, API, stack migrations with rollback |
 
-### 3. Execute Per Skill Procedure
+### 4. Execute Per Skill Procedure
 
 Follow the loaded skill's procedure. After every file modification, run post-edit validation:
 
@@ -59,7 +68,7 @@ Follow the loaded skill's procedure. After every file modification, run post-edi
 
 Fix validation failures before proceeding (max 3 attempts).
 
-### 4. TDD Protocol
+### 5. TDD Protocol
 
 **RED** -- Write failing tests. AAA pattern, clear names, real assertions. Confirm FAIL for the expected reason. STOP.
 
@@ -69,7 +78,7 @@ Fix validation failures before proceeding (max 3 attempts).
 
 **Iron Law**: NEVER weaken, skip, or modify tests to make implementation easier. If tests are wrong, escalate to the user.
 
-### 5. Dispatch Pattern
+### 6. Dispatch Pattern
 
 For multi-task plans, dispatch subagents per task with fresh context:
 - Each task gets its own agent invocation with scoped instructions
@@ -79,10 +88,8 @@ For multi-task plans, dispatch subagents per task with fresh context:
 
 ## Referenced Skills
 
-- `.claude/skills/ai-code/SKILL.md`, `.claude/skills/ai-test/SKILL.md`, `.claude/skills/ai-debug/SKILL.md`
-- `.claude/skills/ai-refactor/SKILL.md`, `.claude/skills/ai-simplify/SKILL.md`
-- `.claude/skills/ai-api/SKILL.md`, `.claude/skills/ai-schema/SKILL.md`
-- `.claude/skills/ai-infra/SKILL.md`, `.claude/skills/ai-pipeline/SKILL.md`, `.claude/skills/ai-migrate/SKILL.md`
+- `.claude/skills/ai-test/SKILL.md`, `.claude/skills/ai-debug/SKILL.md`, `.claude/skills/ai-simplify/SKILL.md`
+- `.claude/skills/ai-schema/SKILL.md`, `.claude/skills/ai-pipeline/SKILL.md`
 - `.claude/skills/ai-dispatch/SKILL.md` -- task dispatch and agent coordination
 
 ## Boundaries

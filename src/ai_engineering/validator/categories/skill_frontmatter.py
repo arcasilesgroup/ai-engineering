@@ -225,7 +225,8 @@ def _check_skill_frontmatter(
             skill_files.extend(p for p in cache.rglob(skills_root, "SKILL.md") if p.is_file())
         else:
             skill_files.extend(sorted(skills_root.rglob("SKILL.md")))
-    claude_skills_dir = target / ".claude" / "skills"
+    # IDE skill directories use simplified frontmatter (no version field).
+    ide_roots = {d.resolve() for d in skills_roots}
     for skill_file in skill_files:
         checked += 1
         rel = skill_file.relative_to(target).as_posix()
@@ -239,10 +240,10 @@ def _check_skill_frontmatter(
         # Directory layout: skills/<name>/SKILL.md (flat, no categories)
         # name = parent directory (e.g. "debug")
         skill_name = skill_file.parent.name
-        # Claude Code skills use a different schema (no version field)
-        is_claude = skill_file.is_relative_to(claude_skills_dir)
+        # Skills under IDE directories (.claude/, .agents/) don't require version
+        is_ide_skill = any(skill_file.resolve().is_relative_to(root) for root in ide_roots)
         failures += _validate_skill_identity(
-            frontmatter, skill_name, rel, report, require_version=not is_claude
+            frontmatter, skill_name, rel, report, require_version=not is_ide_skill
         )
         failures += _validate_skill_requires(frontmatter, rel, report)
 

@@ -10,14 +10,17 @@ from ai_engineering.lib.parsing import parse_frontmatter
 
 pytestmark = pytest.mark.unit
 
-_SKILLS_DIR = (
-    Path(__file__).resolve().parents[2]
-    / "src"
-    / "ai_engineering"
-    / "templates"
-    / ".ai-engineering"
-    / "skills"
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+
+# Skills now live in IDE-specific directories under the template project.
+# Use .claude/skills/ (canonical source) for validation.
+_SKILLS_DIR = _REPO_ROOT / "src" / "ai_engineering" / "templates" / "project" / ".claude" / "skills"
+
+# Manifest lives under templates/.ai-engineering/ (not alongside skills)
+_MANIFEST_PATH = (
+    _REPO_ROOT / "src" / "ai_engineering" / "templates" / ".ai-engineering" / "manifest.yml"
 )
+
 _REQUIRED_FIELDS = {"name"}
 
 
@@ -56,9 +59,8 @@ def test_skill_count_matches_manifest() -> None:
     import yaml
 
     # Arrange — read expected count from manifest (single source of truth)
-    manifest_path = _SKILLS_DIR.parent / "manifest.yml"
-    manifest = yaml.safe_load(manifest_path.read_text(encoding="utf-8"))
-    expected = manifest["governance_surface"]["skills"]["total"]
+    manifest = yaml.safe_load(_MANIFEST_PATH.read_text(encoding="utf-8"))
+    expected = manifest["skills"]["total"]
 
     # Act
     skills = _all_skill_dirs()

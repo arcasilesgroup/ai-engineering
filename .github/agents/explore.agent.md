@@ -1,8 +1,8 @@
 ---
 name: "Explorer"
 description: "Context gatherer -- deep codebase research, architecture mapping, dependency tracing, pattern identification, risk surfacing. Read-only."
+color: cyan
 model: opus
-color: teal
 tools: [codebase, githubRepo, readFile, search]
 ---
 

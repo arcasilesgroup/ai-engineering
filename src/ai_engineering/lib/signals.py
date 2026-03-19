@@ -440,6 +440,9 @@ def skill_usage_from(
     for event in skill_events:
         name = _detail_field(event, "skill")
         if isinstance(name, str) and name:
+            # Normalize: lowercase + ensure ai- prefix
+            name = name.lower().removeprefix("ai-").removeprefix("ai:")
+            name = f"ai-{name}"
             by_skill[name] = by_skill.get(name, 0) + 1
 
     sorted_skills = dict(sorted(by_skill.items(), key=lambda x: x[1], reverse=True))
@@ -474,6 +477,9 @@ def agent_dispatch_from(
     for event in agent_events:
         name = _detail_field(event, "agent")
         if isinstance(name, str) and name:
+            # Normalize: lowercase + ensure ai- prefix
+            name = name.lower().removeprefix("ai-").removeprefix("ai:")
+            name = f"ai-{name}"
             by_agent[name] = by_agent.get(name, 0) + 1
 
     sorted_agents = dict(sorted(by_agent.items(), key=lambda x: x[1], reverse=True))

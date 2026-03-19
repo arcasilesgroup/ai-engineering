@@ -90,4 +90,9 @@ After creating any skill or agent:
 /ai-create agent reviewer    # create a new reviewer agent
 ```
 
+## Integration
+
+- **Calls**: `handlers/create-skill.md`, `handlers/create-agent.md`, `handlers/validate.md`
+- **Triggers sync**: `python scripts/sync_command_mirrors.py` after creation
+
 $ARGUMENTS

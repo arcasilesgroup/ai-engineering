@@ -17,21 +17,22 @@ _AGENTS_DIR = (
     / "src"
     / "ai_engineering"
     / "templates"
-    / ".ai-engineering"
+    / "project"
+    / ".claude"
     / "agents"
 )
 
-# Architecture v3: 8 agents
+# Post spec-055: 8 agents
 _EXPECTED_AGENTS = frozenset(
     {
-        "build",
-        "explorer",
-        "guard",
-        "guide",
-        "operate",
-        "plan",
-        "simplifier",
-        "verify",
+        "ai-build",
+        "ai-explore",
+        "ai-guard",
+        "ai-guide",
+        "ai-plan",
+        "ai-review",
+        "ai-simplify",
+        "ai-verify",
     }
 )
 

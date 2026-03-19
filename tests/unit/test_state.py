@@ -502,10 +502,9 @@ class TestDefaults:
         om = default_ownership_map()
         levels = {entry.owner for entry in om.paths}
 
-        # Assert
+        # Assert — PROJECT_MANAGED was removed (no entries use it currently)
         assert OwnershipLevel.FRAMEWORK_MANAGED in levels
         assert OwnershipLevel.TEAM_MANAGED in levels
-        assert OwnershipLevel.PROJECT_MANAGED in levels
         assert OwnershipLevel.SYSTEM_MANAGED in levels
 
     def test_default_decision_store_empty(self) -> None:

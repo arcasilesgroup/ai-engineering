@@ -1,6 +1,5 @@
 ---
 name: security
-version: 3.0.0
 description: "Use when scanning for security vulnerabilities: SAST, dependency audit, secret detection, and SBOM generation with OWASP mapping and CWE references."
 argument-hint: "all|static|deps|secrets|sbom|--fix"
 tags: [security, sast, dependencies, sbom, owasp, enterprise]
@@ -117,6 +116,6 @@ When `--fix` is passed, attempt automatic remediation:
 
 ## References
 
-- `standards/framework/security/owasp-top10-2025.md` -- OWASP control mapping.
-- `standards/framework/core.md` -- non-negotiables and gate thresholds.
+- `.ai-engineering/contexts/frameworks/` -- security and OWASP control mapping.
+- `.ai-engineering/manifest.yml` -- non-negotiables and gate thresholds.
 $ARGUMENTS

@@ -194,10 +194,9 @@ class TestSyncSpecIssues:
         # Arrange
         specs_dir = tmp_path / ".ai-engineering" / "specs"
         specs_dir.mkdir(parents=True)
-        (specs_dir / "_active.md").write_text("active: none", encoding="utf-8")
-        (specs_dir / "_catalog.md").write_text("catalog", encoding="utf-8")
-        archive_dir = specs_dir / "archive"
-        archive_dir.mkdir()
+        (specs_dir / "_history.md").write_text("# History", encoding="utf-8")
+        (specs_dir / "spec.md").write_text("# No active spec", encoding="utf-8")
+        (specs_dir / "plan.md").write_text("# No active plan", encoding="utf-8")
         provider = _mock_provider()
 
         # Act

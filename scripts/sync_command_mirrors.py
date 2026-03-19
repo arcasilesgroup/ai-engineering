@@ -78,7 +78,7 @@ AGENT_METADATA: dict[str, AgentMeta] = {
         display_name="Build",
         description="Implementation across all stacks -- the only code write agent",
         model="opus",
-        color="green",
+        color="blue",
         copilot_tools=(
             "codebase",
             "editFiles",
@@ -101,7 +101,7 @@ AGENT_METADATA: dict[str, AgentMeta] = {
             " Read-only."
         ),
         model="opus",
-        color="teal",
+        color="cyan",
         copilot_tools=("codebase", "githubRepo", "readFile", "search"),
         claude_tools=("Read", "Glob", "Grep"),
     ),
@@ -113,7 +113,7 @@ AGENT_METADATA: dict[str, AgentMeta] = {
             " Never blocks, always advisory."
         ),
         model="opus",
-        color="purple",
+        color="yellow",
         copilot_tools=(
             "codebase",
             "githubRepo",
@@ -144,7 +144,7 @@ AGENT_METADATA: dict[str, AgentMeta] = {
         display_name="Plan",
         description="Advisory planning: classify scope, assess risks, and recommend pipeline",
         model="opus",
-        color="blue",
+        color="purple",
         copilot_tools=(
             "codebase",
             "editFiles",
@@ -166,7 +166,7 @@ AGENT_METADATA: dict[str, AgentMeta] = {
             " architecture, security, quality, and style checks."
         ),
         model="opus",
-        color="yellow",
+        color="red",
         copilot_tools=(
             "codebase",
             "githubRepo",
@@ -184,7 +184,7 @@ AGENT_METADATA: dict[str, AgentMeta] = {
             " Runs post-build or continuous."
         ),
         model="opus",
-        color="lime",
+        color="green",
         copilot_tools=(
             "codebase",
             "editFiles",
@@ -204,7 +204,7 @@ AGENT_METADATA: dict[str, AgentMeta] = {
             " -- produces GO/NO-GO verdicts."
         ),
         model="opus",
-        color="red",
+        color="green",
         copilot_tools=(
             "codebase",
             "githubRepo",
@@ -219,18 +219,53 @@ AGENT_METADATA: dict[str, AgentMeta] = {
 
 
 # ── Cross-reference validation targets ──────────────────────────────────────
+# ── Instruction generation from contexts ─────────────────────────────────────
+CONTEXTS_LANGUAGES = ROOT / ".ai-engineering" / "contexts" / "languages"
+TPL_INSTRUCTIONS = TPL_PROJECT / "instructions"
+
+# Maps language context file stem to Copilot applyTo glob pattern
+LANG_EXTENSIONS: dict[str, str] = {
+    "python": "**/*.py",
+    "typescript": "**/*.ts,**/*.tsx",
+    "javascript": "**/*.js,**/*.jsx",
+    "rust": "**/*.rs",
+    "go": "**/*.go",
+    "java": "**/*.java",
+    "kotlin": "**/*.kt,**/*.kts",
+    "csharp": "**/*.cs",
+    "swift": "**/*.swift",
+    "dart": "**/*.dart",
+    "ruby": "**/*.rb",
+    "php": "**/*.php",
+    "elixir": "**/*.ex,**/*.exs",
+    "bash": "**/*.sh,**/*.bash",
+    "sql": "**/*.sql",
+}
+
+# Hand-maintained instruction files (not auto-generated)
+MANUAL_INSTRUCTIONS: set[str] = {
+    "testing.instructions.md",
+    "markdown.instructions.md",
+    "sonarqube_mcp.instructions.md",
+}
+
+
+def generate_instruction_from_context(lang: str, context_path: Path) -> str:
+    """Generate an instructions file from a language context.
+
+    Wraps context content with applyTo frontmatter for Copilot auto-injection.
+    """
+    apply_to = LANG_EXTENSIONS.get(lang, f"**/*.{lang}")
+    content = context_path.read_text(encoding="utf-8")
+    source = f".ai-engineering/contexts/languages/{lang}.md"
+    header = f"# {lang.title()} Instructions"
+    return f'---\napplyTo: "{apply_to}"\n---\n\n{header}\n\nGenerated from `{source}`.\n\n{content}'
+
+
 CROSS_REFERENCE_FILES: list[Path] = [
     ROOT / "CLAUDE.md",
     ROOT / "AGENTS.md",
     ROOT / ".github" / "copilot-instructions.md",
-    ROOT / ".github" / "copilot" / "code-generation.md",
-    ROOT / ".github" / "copilot" / "code-review.md",
-    ROOT / ".github" / "copilot" / "commit-message.md",
-    ROOT / ".github" / "copilot" / "test-generation.md",
-    ROOT / ".github" / "instructions" / "python.instructions.md",
-    ROOT / ".github" / "instructions" / "testing.instructions.md",
-    ROOT / ".github" / "instructions" / "markdown.instructions.md",
-    ROOT / ".github" / "instructions" / "sonarqube_mcp.instructions.md",
 ]
 
 
@@ -271,12 +306,14 @@ def _serialize_frontmatter(data: dict) -> str:
     """Serialize a frontmatter dict to YAML string (between --- fences)."""
     ordered_keys = [
         "name",
-        "version",
         "description",
-        "argument-hint",
-        "mode",
         "color",
         "model",
+        "allowed-tools",
+        "argument-hint",
+        "disable-model-invocation",
+        "mode",
+        "version",
         "tags",
         "requires",
         "tools",
@@ -347,6 +384,19 @@ def translate_refs(content: str, target_ide: str) -> str:
 
     content = _XREF_CLAUDE_SKILL.sub(_replace_skill, content)
     content = _XREF_CLAUDE_AGENT.sub(_replace_agent, content)
+
+    # Directory path translations (broader patterns -- run AFTER specific file translations)
+    if target_ide == "generic":
+        # .claude/skills/ (directory, not followed by ai-) -> .agents/skills/
+        content = re.sub(r"\.claude/skills/(?!ai-)", ".agents/skills/", content)
+        # .claude/agents/ (directory) -> .agents/agents/
+        content = re.sub(r"\.claude/agents/(?!ai-)", ".agents/agents/", content)
+    elif target_ide == "copilot":
+        # .claude/skills/ -> .github/prompts/
+        content = re.sub(r"\.claude/skills/(?!ai-)", ".github/prompts/", content)
+        # .claude/agents/ -> .github/agents/
+        content = re.sub(r"\.claude/agents/(?!ai-)", ".github/agents/", content)
+
     return content
 
 
@@ -419,6 +469,21 @@ def discover_handlers(skill_dir: Path) -> list[tuple[str, Path]]:
     for handler_file in sorted(handlers_dir.glob("*.md")):
         handlers.append((handler_file.stem, handler_file))
     return handlers
+
+
+def discover_scripts(skill_dir: Path) -> list[tuple[str, Path]]:
+    """Discover script files under a skill's scripts/ directory.
+
+    Returns (script_name, script_path) tuples sorted by name.
+    """
+    scripts_dir = skill_dir / "scripts"
+    if not scripts_dir.is_dir():
+        return []
+    scripts = []
+    for script_file in sorted(scripts_dir.glob("*")):
+        if script_file.is_file():
+            scripts.append((script_file.name, script_file))
+    return scripts
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -506,8 +571,8 @@ def generate_copilot_agent(name: str, meta: AgentMeta, agent_path: Path) -> str:
         f"---\n"
         f'name: "{meta.display_name}"\n'
         f'description: "{meta.description}"\n'
-        f"model: {meta.model}\n"
         f"color: {meta.color}\n"
+        f"model: {meta.model}\n"
         f"tools: [{tools_str}]\n"
         f"---\n"
         f"\n"
@@ -721,6 +786,17 @@ def sync_all(*, check_only: bool = False, verbose: bool = False) -> int:
         _generate_surface(path, content, check_only, verbose, generated_paths, diffs)
         _generate_surface(tpl, content, check_only, verbose, generated_paths, diffs)
 
+        # Also copy scripts if they exist
+        for script_name, script_path in discover_scripts(skill_path.parent):
+            for target in (
+                AGENTS_SKILLS / name / "scripts" / script_name,
+                TPL_AGENTS_SKILLS / name / "scripts" / script_name,
+            ):
+                script_content = script_path.read_text(encoding="utf-8")
+                _generate_surface(
+                    target, script_content, check_only, verbose, generated_paths, diffs
+                )
+
     # Surface 2: .agents/agents/ai-<name>.md
     for name, _fm, agent_path in agents:
         path = AGENTS_AGENTS / f"ai-{name}.md"
@@ -764,10 +840,27 @@ def sync_all(*, check_only: bool = False, verbose: bool = False) -> int:
                 tpl_handler, handler_content, check_only, verbose, generated_paths, diffs
             )
 
+        # Also copy scripts if they exist
+        for script_name, script_path in discover_scripts(skill_path.parent):
+            tpl_script = TPL_CLAUDE_SKILLS / f"ai-{name}" / "scripts" / script_name
+            script_content = script_path.read_text(encoding="utf-8")
+            _generate_surface(
+                tpl_script, script_content, check_only, verbose, generated_paths, diffs
+            )
+
     for name, _fm, agent_path in agents:
         tpl = TPL_CLAUDE_AGENTS / f"ai-{name}.md"
         content = generate_install_claude_agent(agent_path)
         _generate_surface(tpl, content, check_only, verbose, generated_paths, diffs)
+
+    # Surface 6: instructions/{lang}.instructions.md (generated from contexts)
+    if CONTEXTS_LANGUAGES.is_dir():
+        for ctx_file in sorted(CONTEXTS_LANGUAGES.glob("*.md")):
+            lang = ctx_file.stem
+            if lang in LANG_EXTENSIONS:
+                tpl = TPL_INSTRUCTIONS / f"{lang}.instructions.md"
+                content = generate_instruction_from_context(lang, ctx_file)
+                _generate_surface(tpl, content, check_only, verbose, generated_paths, diffs)
 
     # ── Phase 3: Orphan detection ───────────────────────────────────────
     orphan_diffs = _handle_orphans(generated_paths, check_only, verbose)

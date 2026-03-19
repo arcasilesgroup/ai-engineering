@@ -4,7 +4,7 @@ Governed AI-assisted software development framework for regulated industries.
 
 ## What Gets Installed
 
-- `.claude/skills/` -- 28 AI skills (slash commands)
+- `.claude/skills/` -- 30 AI skills (slash commands)
 - `.claude/agents/` -- 8 specialized AI agents
 - `.ai-engineering/` -- governance, contexts, state
 - `CLAUDE.md` -- Claude Code instructions
@@ -41,6 +41,7 @@ Governed AI-assisted software development framework for regulated industries.
 | /ai-governance | Compliance validation |
 | /ai-pipeline | CI/CD generation |
 | /ai-schema | Database engineering |
+| /ai-solution-intent | Architecture document lifecycle |
 
 ### Teaching and Writing
 
@@ -69,6 +70,7 @@ Governed AI-assisted software development framework for regulated industries.
 | /ai-learn | Continuous improvement from outcomes |
 | /ai-prompt | Prompt optimization |
 | /ai-onboard | Session bootstrap and enforcement |
+| /ai-analyze-permissions | Permission pattern consolidation |
 
 ## Agents
 
@@ -97,9 +99,6 @@ Governed AI-assisted software development framework for regulated industries.
   specs/                # Architecture specs and decisions
     _active.md
     archive/
-  tasks/                # Execution tracking
-    todo.md
-    lessons.md
   state/                # Compliance state
     decision-store.json
     audit-log.ndjson
@@ -125,10 +124,25 @@ Edit `manifest.yml` to customize:
 
 ## Using with Other IDEs
 
-If your IDE is not directly supported, copy the contents of `AGENTS.md`
-into your IDE's instruction file (e.g., `.cursorrules`, custom system prompt).
-The skills in `.agents/skills/` and agents in `.agents/agents/` use a
-generic format compatible with any AI coding assistant.
+ai-engineering supports three IDE surfaces out of the box:
+
+| Surface | IDE | Skills | Agents |
+|---------|-----|--------|--------|
+| `.claude/` | Claude Code | `skills/ai-*/SKILL.md` | `agents/ai-*.md` |
+| `.github/` | GitHub Copilot | `prompts/ai-*.prompt.md` | `agents/*.agent.md` |
+| `.agents/` | Codex / Gemini CLI | `skills/*/SKILL.md` | `agents/ai-*.md` |
+
+For unsupported IDEs (Windsurf, Aider, Cursor, etc.):
+
+1. Copy `AGENTS.md` into your IDE's instruction file (e.g., `.cursorrules`, `.windsurfrules`)
+2. Point your IDE to `.agents/skills/` and `.agents/agents/` for skill and agent definitions
+3. These use a generic markdown format compatible with any AI coding assistant
+
+To generate a custom IDE surface, ask your AI assistant:
+```
+Read AGENTS.md and .agents/ directory structure, then create equivalent
+files for [your IDE] following its native format conventions.
+```
 
 ## CLI
 

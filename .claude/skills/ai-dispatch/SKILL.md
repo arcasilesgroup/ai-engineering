@@ -19,7 +19,7 @@ Execution engine for approved plans. Reads plan.md and tasks.md, dispatches one 
 
 ## Process
 
-1. **Load plan** -- read `_active.md` -> spec.md -> plan.md -> tasks.md
+1. **Load plan** -- read `specs/spec.md` -> `specs/plan.md`
 2. **Load decisions** -- read `decision-store.json` for constraints
 3. **Build DAG** -- parse task dependencies, identify parallel groups
 4. **Execute phase by phase** -- for each phase:
@@ -123,7 +123,7 @@ Update tasks.md in real-time:
 ## Integration
 
 - **Called by**: user directly (after `/ai-plan` approval)
-- **Calls**: `/ai-code` (build tasks), `/ai-verify` (scan tasks), `/ai-guard` (gate checks)
+- **Calls**: `ai-build agent` (build tasks), `/ai-verify` (scan tasks), `/ai-guard` (gate checks)
 - **Transitions to**: `/ai-commit` (after all tasks DONE), or back to `/ai-plan` (if re-plan needed)
 
 $ARGUMENTS

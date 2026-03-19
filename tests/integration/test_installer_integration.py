@@ -231,7 +231,7 @@ class TestCopyProjectTemplates:
         agents_dir = tmp_path / ".agents" / "skills"
         assert agents_dir.is_dir()
         skill_files = list(agents_dir.glob("*/SKILL.md"))
-        assert len(skill_files) >= 34  # 34 skills in .agents/skills/
+        assert len(skill_files) >= 28  # skills in .agents/skills/
 
 
 # ---------------------------------------------------------------------------
@@ -251,7 +251,7 @@ class TestInstallOnEmptyRepo:
 
         # Governance structure created
         assert (tmp_path / ".ai-engineering" / "manifest.yml").is_file()
-        assert (tmp_path / ".ai-engineering" / "standards" / "framework" / "core.md").is_file()
+        assert (tmp_path / ".ai-engineering" / "contexts" / "languages" / "python.md").is_file()
 
         # State files generated
         assert (tmp_path / ".ai-engineering" / "state" / "install-manifest.json").is_file()

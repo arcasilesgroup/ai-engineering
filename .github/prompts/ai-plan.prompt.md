@@ -18,20 +18,20 @@ HARD GATE: user must approve the plan before `/ai-dispatch` can run.
 ## When to Use
 
 - After `/ai-brainstorm` produces an approved spec
-- When a spec exists but has no plan.md or tasks.md
+- When a spec exists but plan.md has placeholder content
 - When re-planning is needed (plan failed, scope changed)
 
 ## Process
 
-1. **Read spec** -- load `specs/_active.md`, then the linked spec.md
-2. **Read context** -- `product-contract.md` section 7 (roadmap), `decision-store.json` (constraints)
+1. **Read spec** -- load `specs/spec.md`
+2. **Read context** -- `docs/solution-intent.md` section 7 (roadmap), `decision-store.json` (constraints)
 3. **Explore codebase** -- understand current architecture, patterns, and affected files
 4. **Classify pipeline** -- select full/standard/hotfix/trivial based on change scope
 5. **Decompose into tasks** -- bite-sized (2-5 min each), single-agent, single-concern
 6. **Assign agents** -- capability-match each task to the right agent
 7. **Order phases** -- define phase boundaries and gate criteria
 8. **Review plan** -- self-review with spec-reviewer pattern (max 2 iterations)
-9. **Write artifacts** -- persist plan.md and tasks.md via Write tool
+9. **Write artifacts** -- persist plan.md via Write tool to `specs/plan.md`
 10. **STOP** -- present plan. User runs `/ai-dispatch` to execute.
 
 ## Pipeline Classification
@@ -88,19 +88,6 @@ Each task MUST be:
 ...
 ```
 
-### tasks.md
-
-```markdown
-# Tasks: spec-NNN
-
-## Phase 1: [name]
-- [ ] T-1.1: [description] @build
-- [ ] T-1.2: [description] @build
-
-## Phase 2: [name]
-- [ ] T-2.1: [description] @verify
-```
-
 ## Common Mistakes
 
 - Tasks too large (> 5 min). Split them.
@@ -113,13 +100,12 @@ Each task MUST be:
 ## No-Execution Protocol
 
 `/ai-plan` is planning-only. It MUST NOT:
-- Invoke `/ai-code` or `/ai-dispatch` for task execution
+- Invoke `ai-build agent` or `/ai-dispatch` for task execution
 - Modify source code
 - Check off implementation tasks as completed
 
 It MAY:
-- Create spec.md, plan.md, tasks.md via Write tool
-- Update `_active.md` via Edit tool
+- Write plan.md via Write tool to `specs/plan.md`
 - Run codebase exploration (read-only)
 
 ## Integration

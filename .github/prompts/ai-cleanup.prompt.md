@@ -1,6 +1,5 @@
 ---
 name: ai-cleanup
-version: 5.0.0
 description: "Use when cleaning up the repository: safe migration to default branch, branch cleanup with merged/stale detection, and rich per-branch status report."
 argument-hint: "--branches|--sync|--all"
 mode: agent
@@ -18,7 +17,7 @@ Full repository hygiene: safely migrate to the default branch, delete merged and
 
 ## When to Use
 
-- Session start, after merging PRs, between tasks, before `/ai-spec`.
+- Session start, after merging PRs, between tasks, before `/ai-brainstorm`.
 - NOT for committing -- use `/ai-commit`.
 
 ## Process
@@ -84,12 +83,12 @@ Full repository hygiene: safely migrate to the default branch, delete merged and
 
 ## Integration
 
-- Run before `/ai-spec` to start clean.
+- Run before `/ai-brainstorm` to start clean.
 - Composes with session start protocol.
 - Protected branches (`main`, `master`) are never deleted.
 
 ## References
 
-- `standards/framework/core.md` -- protected branch rules.
-- `.github/prompts/ai-spec.prompt.md` -- spec creation composes cleanup.
+- `.ai-engineering/manifest.yml` -- protected branch rules.
+- `.github/prompts/ai-brainstorm.prompt.md` -- spec creation composes cleanup.
 $ARGUMENTS

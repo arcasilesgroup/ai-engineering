@@ -22,29 +22,28 @@ pytestmark = pytest.mark.unit
 # -- Helpers ----------------------------------------------------------------
 
 # Dynamic discovery from real project — never hardcode lists that can drift.
-# Canonical source is templates/.ai-engineering/ (used by sync script to generate
-# IDE-adapted mirrors in .claude/, .agents/, .github/).
+# Canonical source is templates/project/.claude/ (skills and agents live here post spec-055).
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
-_TEMPLATES_AI_DIR = _PROJECT_ROOT / "src" / "ai_engineering" / "templates" / ".ai-engineering"
+_TEMPLATES_CLAUDE_DIR = (
+    _PROJECT_ROOT / "src" / "ai_engineering" / "templates" / "project" / ".claude"
+)
 
 _SKILL_PATHS = sorted(
     f"skills/{d.name}/SKILL.md"
-    for d in (_TEMPLATES_AI_DIR / "skills").iterdir()
+    for d in (_TEMPLATES_CLAUDE_DIR / "skills").iterdir()
     if d.is_dir() and (d / "SKILL.md").is_file()
 )
 
-_AGENT_PATHS = sorted(f"agents/{f.name}" for f in (_TEMPLATES_AI_DIR / "agents").glob("*.md"))
+_AGENT_PATHS = sorted(f"agents/{f.name}" for f in (_TEMPLATES_CLAUDE_DIR / "agents").glob("*.md"))
 
 
 def _make_governance(root: Path) -> Path:
     """Create a minimal .ai-engineering governance tree."""
     ai = root / ".ai-engineering"
     for d in [
-        "skills",
-        "agents",
-        "standards/framework",
-        "standards/team",
-        "context/product",
+        "contexts/languages",
+        "contexts/frameworks",
+        "contexts/team",
         "specs",
         "state",
     ]:
@@ -160,18 +159,18 @@ def _write_active_spec(
     ai: Path,
     spec_name: str = "006-test",
 ) -> Path:
-    """Write _active.md and create the spec directory."""
-    active = ai / "specs" / "_active.md"
-    active.parent.mkdir(parents=True, exist_ok=True)
-    active.write_text(
-        f'---\nactive: "{spec_name}"\n---\n',
+    """Write Working Buffer spec.md and plan.md."""
+    specs_dir = ai / "specs"
+    specs_dir.mkdir(parents=True, exist_ok=True)
+    (specs_dir / "spec.md").write_text(
+        f'---\nid: "006"\n---\n\n# {spec_name}\n\nTest spec.\n',
         encoding="utf-8",
     )
-    spec_dir = ai / "specs" / spec_name
-    spec_dir.mkdir(parents=True, exist_ok=True)
-    for f in ("spec.md", "plan.md", "tasks.md"):
-        (spec_dir / f).write_text(f"# {f}\n", encoding="utf-8")
-    return spec_dir
+    (specs_dir / "plan.md").write_text(
+        "---\ntotal: 3\ncompleted: 1\n---\n\n# Plan\n\n- [x] Done\n- [ ] Todo\n- [ ] Todo\n",
+        encoding="utf-8",
+    )
+    return specs_dir
 
 
 def _write_readme(ai: Path) -> None:
@@ -417,9 +416,11 @@ class TestFileExistence:
 
     def test_broken_reference_detected(self, tmp_path: Path) -> None:
         ai = _setup_full_project(tmp_path)
-        skill = ai / "skills" / "commit" / "SKILL.md"
-        skill.write_text(
-            "# Commit\n\nSee `skills/nonexistent/phantom.md` for details.\n",
+        # Write a governance doc with a broken reference
+        doc = ai / "contexts" / "languages" / "broken.md"
+        doc.parent.mkdir(parents=True, exist_ok=True)
+        doc.write_text(
+            "# Broken\n\nSee `skills/nonexistent/phantom.md` for details.\n",
             encoding="utf-8",
         )
         report = validate_content_integrity(
@@ -433,48 +434,32 @@ class TestFileExistence:
         ]
         assert len(fail_checks) >= 1
 
-    def test_spec_directory_completeness(self, tmp_path: Path) -> None:
+    def test_spec_buffer_completeness(self, tmp_path: Path) -> None:
+        """Missing spec buffer files (spec.md or plan.md) are flagged."""
         ai = _setup_full_project(tmp_path)
-        bad_spec = ai / "specs" / "007-incomplete"
-        bad_spec.mkdir(parents=True)
-        (bad_spec / "spec.md").write_text("# spec\n", encoding="utf-8")
+        # Remove plan.md to trigger failure
+        (ai / "specs" / "plan.md").unlink()
         report = validate_content_integrity(
             tmp_path,
             categories=[IntegrityCategory.FILE_EXISTENCE],
         )
         fail_checks = [
-            c
-            for c in report.checks
-            if c.name == "spec-007-incomplete" and c.status == IntegrityStatus.FAIL
+            c for c in report.checks if c.name == "spec-buffer" and c.status == IntegrityStatus.FAIL
         ]
         assert len(fail_checks) == 1
         assert "plan.md" in fail_checks[0].message
 
-    def test_closed_spec_archives_skipped(self, tmp_path: Path) -> None:
-        """Closed specs (with done.md) are historical archives; stale refs ignored."""
-        ai = _setup_full_project(tmp_path)
-        closed = ai / "specs" / "001-old"
-        closed.mkdir(parents=True)
-        (closed / "spec.md").write_text("# old\n", encoding="utf-8")
-        (closed / "plan.md").write_text("# plan\n", encoding="utf-8")
-        (closed / "tasks.md").write_text(
-            "See `skills/nonexistent/phantom.md` for details.\n",
-            encoding="utf-8",
-        )
-        (closed / "done.md").write_text("# done\n", encoding="utf-8")
+    def test_spec_buffer_present_passes(self, tmp_path: Path) -> None:
+        """Complete spec buffer files (spec.md + plan.md) pass validation."""
+        _setup_full_project(tmp_path)
         report = validate_content_integrity(
             tmp_path,
             categories=[IntegrityCategory.FILE_EXISTENCE],
         )
-        # The stale reference in the closed spec should NOT cause a failure
-        broken = [
-            c
-            for c in report.checks
-            if c.name == "broken-reference"
-            and c.status == IntegrityStatus.FAIL
-            and "phantom" in c.message
+        ok_checks = [
+            c for c in report.checks if c.name == "spec-buffer" and c.status == IntegrityStatus.OK
         ]
-        assert len(broken) == 0
+        assert len(ok_checks) == 1
 
 
 # -- Category 2: Mirror Sync ----------------------------------------------
@@ -506,8 +491,8 @@ class TestMirrorSync:
     def test_synced_mirrors_pass(self, tmp_path: Path) -> None:
         ai = _setup_full_project(tmp_path)
         mirror_root = tmp_path / "src" / "ai_engineering" / "templates" / ".ai-engineering"
-        # Only mirror governance files (standards, manifest, README) — not skills/agents
-        for subdir in ("standards/framework",):
+        # Mirror governance files (contexts, runbooks, manifest, README)
+        for subdir in ("contexts",):
             src_dir = ai / subdir
             if not src_dir.is_dir():
                 continue
@@ -538,13 +523,13 @@ class TestMirrorSync:
 
     def test_desynced_mirror_detected(self, tmp_path: Path) -> None:
         ai = _setup_full_project(tmp_path)
-        # Ensure canonical has a standards file to compare against
-        canonical_core = ai / "standards" / "framework" / "core.md"
-        canonical_core.parent.mkdir(parents=True, exist_ok=True)
-        canonical_core.write_text("CANONICAL CONTENT", encoding="utf-8")
+        # Ensure canonical has a contexts file to compare against
+        canonical_lang = ai / "contexts" / "languages" / "python.md"
+        canonical_lang.parent.mkdir(parents=True, exist_ok=True)
+        canonical_lang.write_text("CANONICAL CONTENT", encoding="utf-8")
         mirror_root = tmp_path / "src" / "ai_engineering" / "templates" / ".ai-engineering"
-        # Only mirror governance files (standards, manifest, README) — not skills/agents
-        for subdir in ("standards/framework",):
+        # Mirror governance files (contexts, manifest, README)
+        for subdir in ("contexts",):
             src_dir = ai / subdir
             if not src_dir.is_dir():
                 continue
@@ -560,7 +545,7 @@ class TestMirrorSync:
                 dest.parent.mkdir(parents=True, exist_ok=True)
                 dest.write_bytes(src.read_bytes())
         # Desync a governance file that IS in the mirror pattern
-        desynced = mirror_root / "standards" / "framework" / "core.md"
+        desynced = mirror_root / "contexts" / "languages" / "python.md"
         desynced.write_text("DESYNCED CONTENT", encoding="utf-8")
         report = validate_content_integrity(
             tmp_path,
@@ -576,8 +561,8 @@ def _setup_governance_mirror(root: Path) -> None:
     """Create minimal governance template mirror so _check_mirror_sync doesn't early-return."""
     ai = root / ".ai-engineering"
     mirror_root = root / "src" / "ai_engineering" / "templates" / ".ai-engineering"
-    # Only mirror governance files (standards, manifest, README) — not skills/agents
-    for subdir in ("standards/framework",):
+    # Mirror governance files (contexts, runbooks, manifest, README)
+    for subdir in ("contexts",):
         src_dir = ai / subdir
         if not src_dir.is_dir():
             continue
@@ -787,23 +772,6 @@ class TestCounterAccuracy:
         ]
         assert len(fail_checks) >= 1
 
-    def test_product_contract_mismatch_detected(self, tmp_path: Path) -> None:
-        ai = _setup_full_project(tmp_path)
-        # Write product-contract with different skills/agents than instruction files
-        _write_product_contract(
-            ai, skills=["extra-skill-a", "extra-skill-b"], agents=["extra-agent"]
-        )
-        report = validate_content_integrity(
-            tmp_path,
-            categories=[IntegrityCategory.COUNTER_ACCURACY],
-        )
-        fail_checks = [
-            c
-            for c in report.checks
-            if c.name.startswith("product-contract-") and c.status == IntegrityStatus.FAIL
-        ]
-        assert len(fail_checks) >= 1
-
     def test_missing_instruction_file(self, tmp_path: Path) -> None:
         _setup_full_project(tmp_path)
         (tmp_path / "CLAUDE.md").unlink()
@@ -857,10 +825,11 @@ class TestCrossReference:
     def test_valid_references_pass(self, tmp_path: Path) -> None:
         _setup_full_project(tmp_path)
         # Cross-reference validator scans IDE-specific dirs (.claude/skills/)
-        skill_dir = tmp_path / ".claude" / "skills" / "debug"
+        # Reference ai-commit which exists in the setup via _SKILL_PATHS
+        skill_dir = tmp_path / ".claude" / "skills" / "ai-debug"
         skill_dir.mkdir(parents=True, exist_ok=True)
         (skill_dir / "SKILL.md").write_text(
-            "# Debug\n\n## References\n\n- `skills/refactor/SKILL.md`\n",
+            "# Debug\n\n## References\n\n- `skills/ai-commit/SKILL.md`\n",
             encoding="utf-8",
         )
         report = validate_content_integrity(
@@ -970,39 +939,33 @@ class TestManifestCoherence:
         ]
         assert len(ok_checks) == 1
 
-    def test_active_spec_missing_directory(self, tmp_path: Path) -> None:
+    def test_active_spec_placeholder(self, tmp_path: Path) -> None:
         ai = _setup_full_project(tmp_path)
-        active = ai / "specs" / "_active.md"
-        active.write_text(
-            '---\nactive: "999-nonexistent"\n---\n',
+        (ai / "specs" / "spec.md").write_text(
+            "# No active spec\n\nRun /ai-brainstorm to start a new spec.\n",
             encoding="utf-8",
         )
         report = validate_content_integrity(
             tmp_path,
             categories=[IntegrityCategory.MANIFEST_COHERENCE],
         )
-        fail_checks = [
-            c
-            for c in report.checks
-            if c.name == "active-spec-dir" and c.status == IntegrityStatus.FAIL
+        ok_checks = [
+            c for c in report.checks if c.name == "active-spec" and c.status == IntegrityStatus.OK
         ]
-        assert len(fail_checks) == 1
+        assert len(ok_checks) == 1
 
     def test_missing_ownership_directory(self, tmp_path: Path) -> None:
         ai = _make_governance(tmp_path)
         _write_manifest(ai)
-        # skills/ and agents/ no longer live under .ai-engineering/ — remove a
-        # directory that IS validated: standards/framework
-        shutil.rmtree(ai / "standards" / "framework")
+        # Remove a directory that IS validated by manifest coherence: contexts
+        shutil.rmtree(ai / "contexts")
         _write_active_spec(ai)
         report = validate_content_integrity(
             tmp_path,
             categories=[IntegrityCategory.MANIFEST_COHERENCE],
         )
         fail_checks = [
-            c
-            for c in report.checks
-            if c.status == IntegrityStatus.FAIL and "standards/framework" in c.name
+            c for c in report.checks if c.status == IntegrityStatus.FAIL and "contexts" in c.name
         ]
         assert len(fail_checks) >= 1
 

@@ -81,7 +81,7 @@ Continuous improvement from delivery outcomes. Analyzes merged PRs to find where
 
 When a user corrects AI behavior during a session (not just PR review):
 1. Capture the correction: what was wrong, what the user wanted instead
-2. Append to `.ai-engineering/tasks/lessons.md` with date and context
-3. On next `/ai-learn apply`, include lessons.md patterns in synthesis
+2. Append the pattern to `.ai-engineering/contexts/team/lessons.md` following the format in that file
+3. On next `/ai-learn apply`, include lesson-type decisions in synthesis
 
 $ARGUMENTS
