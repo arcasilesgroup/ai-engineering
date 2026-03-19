@@ -189,16 +189,12 @@ class TestQuerySonarQualityGateWithToken:
         props.write_text("sonar.projectKey=my-key\nsonar.host.url=https://sonarcloud.io\n")
         monkeypatch.setenv("SONAR_TOKEN", "squ_test_123")
 
-        api_response = json.dumps({"projectStatus": {"status": "OK", "conditions": []}}).encode()
-        mock_resp = MagicMock()
-        mock_resp.read.return_value = api_response
-        mock_resp.__enter__ = lambda s: s
-        mock_resp.__exit__ = MagicMock(return_value=False)
+        api_data = {"projectStatus": {"status": "OK", "conditions": []}}
 
         from ai_engineering.policy.checks.sonar import query_sonar_quality_gate
 
         # Act
-        with patch("ai_engineering.policy.checks.sonar.urlopen", return_value=mock_resp):
+        with patch("ai_engineering.policy.checks.sonar._sonar_api_get", return_value=api_data):
             result = query_sonar_quality_gate(tmp_path)
 
         # Assert
@@ -216,10 +212,7 @@ class TestQuerySonarQualityGateWithToken:
         from ai_engineering.policy.checks.sonar import query_sonar_quality_gate
 
         # Act & Assert
-        with patch(
-            "ai_engineering.policy.checks.sonar.urlopen",
-            side_effect=OSError("Connection refused"),
-        ):
+        with patch("ai_engineering.policy.checks.sonar._sonar_api_get", return_value=None):
             assert query_sonar_quality_gate(tmp_path) is None
 
 
@@ -256,10 +249,7 @@ class TestCheckSonarApiGate:
         monkeypatch.setenv("SONAR_TOKEN", "squ_test_123")
 
         api_response = json.dumps({"projectStatus": {"status": "OK", "conditions": []}}).encode()
-        mock_resp = MagicMock()
-        mock_resp.read.return_value = api_response
-        mock_resp.__enter__ = lambda s: s
-        mock_resp.__exit__ = MagicMock(return_value=False)
+        api_data = json.loads(api_response)
 
         from ai_engineering.policy.checks.sonar import _check_sonar_api_gate
         from ai_engineering.policy.gates import GateResult
@@ -268,7 +258,7 @@ class TestCheckSonarApiGate:
         result = GateResult(hook=GateHook.PRE_PUSH, checks=[])
 
         # Act
-        with patch("ai_engineering.policy.checks.sonar.urlopen", return_value=mock_resp):
+        with patch("ai_engineering.policy.checks.sonar._sonar_api_get", return_value=api_data):
             _check_sonar_api_gate(tmp_path, result)
 
         # Assert
@@ -342,6 +332,82 @@ class TestObserveSonarMetrics:
         assert result["available"] is True
         assert result["status"] == "ERROR"
         assert result["new_code_coverage"] is None
+
+
+# ---------------------------------------------------------------
+# URL builder
+# ---------------------------------------------------------------
+
+
+class TestBuildSonarUrl:
+    """Tests for _build_sonar_url URL validation."""
+
+    def test_valid_https_url(self) -> None:
+        from ai_engineering.policy.checks.sonar import _build_sonar_url
+
+        url = _build_sonar_url(
+            "https://sonarcloud.io",
+            "/api/qualitygates/project_status",
+            {"projectKey": "my-project"},
+        )
+        assert url is not None
+        assert url.startswith("https://sonarcloud.io/api/qualitygates/project_status")
+        assert "projectKey=my-project" in url
+
+    def test_valid_http_localhost(self) -> None:
+        from ai_engineering.policy.checks.sonar import _build_sonar_url
+
+        url = _build_sonar_url(
+            "http://localhost:9000",
+            "/api/measures/component",
+            {"component": "proj", "metricKeys": "coverage"},
+        )
+        assert url is not None
+        assert url.startswith("http://localhost:9000/api/measures/component")
+
+    def test_rejects_ftp_scheme(self) -> None:
+        from ai_engineering.policy.checks.sonar import _build_sonar_url
+
+        assert _build_sonar_url("ftp://evil.com", "/api/qualitygates/project_status", {}) is None
+
+    def test_rejects_file_scheme(self) -> None:
+        from ai_engineering.policy.checks.sonar import _build_sonar_url
+
+        assert (
+            _build_sonar_url("file:///etc/passwd", "/api/qualitygates/project_status", {}) is None
+        )
+
+    def test_rejects_unknown_api_path(self) -> None:
+        from ai_engineering.policy.checks.sonar import _build_sonar_url
+
+        assert _build_sonar_url("https://sonarcloud.io", "/api/admin/delete", {"key": "x"}) is None
+
+    def test_rejects_empty_hostname(self) -> None:
+        from ai_engineering.policy.checks.sonar import _build_sonar_url
+
+        assert _build_sonar_url("https://", "/api/qualitygates/project_status", {}) is None
+
+    def test_preserves_port(self) -> None:
+        from ai_engineering.policy.checks.sonar import _build_sonar_url
+
+        url = _build_sonar_url(
+            "https://sonar.internal:9443",
+            "/api/qualitygates/project_status",
+            {"projectKey": "p"},
+        )
+        assert url is not None
+        assert ":9443" in url
+
+    def test_encodes_special_chars(self) -> None:
+        from ai_engineering.policy.checks.sonar import _build_sonar_url
+
+        url = _build_sonar_url(
+            "https://sonarcloud.io",
+            "/api/qualitygates/project_status",
+            {"projectKey": "org:my-project"},
+        )
+        assert url is not None
+        assert "org%3Amy-project" in url
 
 
 # ---------------------------------------------------------------

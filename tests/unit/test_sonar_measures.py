@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -114,19 +113,15 @@ class TestQuerySonarQualityGateTokenFix:
 
         props = tmp_path / "sonar-project.properties"
         props.write_text("sonar.projectKey=test-key\nsonar.host.url=https://sonar.test\n")
-        response_data = json.dumps({"projectStatus": {"status": "OK", "conditions": []}}).encode()
-        mock_resp = MagicMock()
-        mock_resp.read.return_value = response_data
-        mock_resp.__enter__ = MagicMock(return_value=mock_resp)
-        mock_resp.__exit__ = MagicMock(return_value=False)
+        api_data = {"projectStatus": {"status": "OK", "conditions": []}}
         with (
             patch(
                 "ai_engineering.policy.checks.sonar._resolve_sonar_token",
                 return_value="keyring-tok",
             ),
             patch(
-                "ai_engineering.policy.checks.sonar.urlopen",
-                return_value=mock_resp,
+                "ai_engineering.policy.checks.sonar._sonar_api_get",
+                return_value=api_data,
             ),
         ):
             result = query_sonar_quality_gate(tmp_path)
@@ -175,30 +170,24 @@ class TestQuerySonarMeasures:
 
         props = tmp_path / "sonar-project.properties"
         props.write_text("sonar.projectKey=test-key\nsonar.host.url=https://sonar.test\n")
-        response_data = json.dumps(
-            {
-                "component": {
-                    "measures": [
-                        {"metric": "coverage", "value": "87.5"},
-                        {"metric": "duplicated_lines_density", "value": "2.1"},
-                        {"metric": "vulnerabilities", "value": "3"},
-                        {"metric": "cognitive_complexity", "value": "145"},
-                    ]
-                }
+        api_data = {
+            "component": {
+                "measures": [
+                    {"metric": "coverage", "value": "87.5"},
+                    {"metric": "duplicated_lines_density", "value": "2.1"},
+                    {"metric": "vulnerabilities", "value": "3"},
+                    {"metric": "cognitive_complexity", "value": "145"},
+                ]
             }
-        ).encode()
-        mock_resp = MagicMock()
-        mock_resp.read.return_value = response_data
-        mock_resp.__enter__ = MagicMock(return_value=mock_resp)
-        mock_resp.__exit__ = MagicMock(return_value=False)
+        }
         with (
             patch(
                 "ai_engineering.policy.checks.sonar._resolve_sonar_token",
                 return_value="tok",
             ),
             patch(
-                "ai_engineering.policy.checks.sonar.urlopen",
-                return_value=mock_resp,
+                "ai_engineering.policy.checks.sonar._sonar_api_get",
+                return_value=api_data,
             ),
         ):
             result = query_sonar_measures(
@@ -228,8 +217,8 @@ class TestQuerySonarMeasures:
                 return_value="tok",
             ),
             patch(
-                "ai_engineering.policy.checks.sonar.urlopen",
-                side_effect=Exception("timeout"),
+                "ai_engineering.policy.checks.sonar._sonar_api_get",
+                return_value=None,
             ),
         ):
             result = query_sonar_measures(tmp_path)
@@ -241,18 +230,12 @@ class TestQuerySonarMeasures:
 
         props = tmp_path / "sonar-project.properties"
         props.write_text("sonar.projectKey=my-proj\nsonar.host.url=https://sc.io\n")
-        response_data = json.dumps(
-            {"component": {"measures": [{"metric": "coverage", "value": "90"}]}}
-        ).encode()
-        mock_resp = MagicMock()
-        mock_resp.read.return_value = response_data
-        mock_resp.__enter__ = MagicMock(return_value=mock_resp)
-        mock_resp.__exit__ = MagicMock(return_value=False)
-        captured_url: list[str] = []
+        api_data = {"component": {"measures": [{"metric": "coverage", "value": "90"}]}}
+        captured_urls: list[str] = []
 
-        def capture_urlopen(req, **kw):
-            captured_url.append(req.full_url)
-            return mock_resp
+        def capture_api_get(url: str, token: str) -> dict | None:
+            captured_urls.append(url)
+            return api_data
 
         with (
             patch(
@@ -260,12 +243,12 @@ class TestQuerySonarMeasures:
                 return_value="tok",
             ),
             patch(
-                "ai_engineering.policy.checks.sonar.urlopen",
-                side_effect=capture_urlopen,
+                "ai_engineering.policy.checks.sonar._sonar_api_get",
+                side_effect=capture_api_get,
             ),
         ):
             query_sonar_measures(tmp_path, ["coverage"])
-        assert "metricKeys=coverage" in captured_url[0]
+        assert "metricKeys=coverage" in captured_urls[0]
 
 
 # --- sonar_detailed_metrics tests ---
