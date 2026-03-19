@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Dev-setup scripts** — `scripts/dev-setup.sh` (bash) and `scripts/dev-setup.ps1` (PowerShell) for one-command editable install of `ai-eng` as a global tool via `uv tool install`.
 - **CI Result gate job** — context-aware `ci-result` aggregator in `ci.yml` that becomes the sole required Branch Protection check. Categorizes jobs as always-required, code-conditional, PR-only, or optional — unblocking docs-only PRs, Dependabot PRs, and external contributions (DEC-054-06).
 - **Dependabot auto-lock workflow** — `dependabot-auto-lock.yml` regenerates `uv.lock` when Dependabot updates `pyproject.toml`, eliminating manual lock-file maintenance.
 - **CICD standards expansion** — 7 new policy sections in `cicd/core.md`: action version pinning, Dependabot contract, Azure Pipelines standards, reusable components contract, environment protection, concurrency/performance, and required check strategy.
