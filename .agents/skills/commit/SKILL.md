@@ -30,6 +30,16 @@ If current branch is `main` or `master`:
 3. Create branch: `git checkout -b <prefix>/<slug>`.
 4. Report: "Auto-created branch: `<branch-name>`."
 
+### 0.5. Work item context (optional)
+
+If `.ai-engineering/specs/spec.md` has frontmatter with `refs`:
+1. Read the refs (features, user_stories, tasks, issues)
+2. Include work item references in the commit message body as trailers:
+   ```
+   Refs: AB#101, AB#102, #45
+   ```
+3. Only include refs for items that are `close_on_pr` in the hierarchy — do NOT include features.
+
 ### 1. Stage changes
 
 Stage specific files -- `git add <file1> <file2>`. Use `git add -A` only when user explicitly requests or all files are relevant. Review what is staged; exclude generated files, secrets, large binaries.

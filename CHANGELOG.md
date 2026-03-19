@@ -8,6 +8,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Work items integration** — expanded `manifest.yml` `work_items` section with provider-specific config (Azure DevOps `area_path`, GitHub `team_label`), hierarchy rules (`never_close` for features, `close_on_pr` for user stories/tasks/bugs), and spec frontmatter `refs` for traceability from specs to work items.
+- **Sprint review skill** — new `/ai-sprint-review` skill (31st skill) that gathers sprint data from work items and git, generates a python-pptx script with the ai-engineering dark-mode brand, and produces a PowerPoint slide deck for stakeholders.
+- **PR work item linking** — `/ai-pr` now reads spec frontmatter `refs` and adds hierarchy-aware work item references to PR descriptions (closes user stories/tasks/bugs, mentions features without closing).
+- **Brainstorm work item context** — `/ai-brainstorm` can accept a work item ID to fetch hierarchy (Feature > User Story > Task) from Azure DevOps or GitHub Issues, pre-filling spec refs and reducing interrogation questions.
+- **Manifest enforcement** — pre-conditions added to `/ai-sprint`, `/ai-standup`, `/ai-commit`, and `/ai-write` docs handler requiring manifest `work_items` and `documentation` config reads before acting.
+- **Recursive README updates** — `documentation.auto_update.readme: true` now explicitly scans ALL README*.md files recursively, updating each in context of its directory.
+
+### Fixed
+- **Installer copilot template** — removed stale `("copilot", ".github/copilot")` tree mapping from `templates.py` after the `copilot/` template directory was deleted in spec-055.
+
+### Added
 - **Dev-setup scripts** — `scripts/dev-setup.sh` (bash) and `scripts/dev-setup.ps1` (PowerShell) for one-command editable install of `ai-eng` as a global tool via `uv tool install`.
 - **CI Result gate job** — context-aware `ci-result` aggregator in `ci.yml` that becomes the sole required Branch Protection check. Categorizes jobs as always-required, code-conditional, PR-only, or optional — unblocking docs-only PRs, Dependabot PRs, and external contributions (DEC-054-06).
 - **Dependabot auto-lock workflow** — `dependabot-auto-lock.yml` regenerates `uv.lock` when Dependabot updates `pyproject.toml`, eliminating manual lock-file maintenance.

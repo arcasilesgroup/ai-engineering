@@ -16,6 +16,15 @@ Sprint lifecycle management: plan new sprints from backlog, run data-driven retr
 - Command: `/ai-sprint plan|retro|goals`
 - Context: sprint boundary (start or end of sprint), goal tracking mid-sprint.
 
+## Pre-conditions (MANDATORY)
+
+1. Read `.ai-engineering/manifest.yml` — `work_items` section.
+2. Determine active provider (`github` or `azure_devops`).
+3. Use provider-specific config:
+   - **Azure DevOps**: filter by `area_path`, auto-detect current `iteration_path`
+   - **GitHub**: filter by `team_label`, use milestones for sprint boundaries
+4. Use all standard and custom fields the platform provides.
+
 ## Modes
 
 ### plan -- New sprint planning

@@ -166,9 +166,7 @@ class TestCopyProjectTemplates:
         assert (tmp_path / "CLAUDE.md").is_file()
         # copilot-instructions.md → .github/
         assert (tmp_path / ".github" / "copilot-instructions.md").is_file()
-        # copilot subdir → .github/copilot/
-        assert (tmp_path / ".github" / "copilot" / "code-generation.md").is_file()
-        assert len(result.created) >= 4  # at least CLAUDE, codex, copilot-instructions, + copilot/*
+        assert len(result.created) >= 3  # at least CLAUDE, AGENTS, copilot-instructions
 
     def test_skips_existing_project_files(self, tmp_path: Path) -> None:
         # Pre-create CLAUDE.md

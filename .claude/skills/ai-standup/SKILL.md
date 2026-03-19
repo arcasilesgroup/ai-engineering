@@ -28,6 +28,14 @@ Generate standup notes from actual PR and commit activity. Produces concise, cop
 - **Sprint-level summaries** -- use `/ai-sprint retro`
 - **Incident timelines** -- use `/ai-postmortem`
 
+## Pre-conditions (MANDATORY)
+
+1. Read `.ai-engineering/manifest.yml` — `work_items` section.
+2. Use the active provider to gather work item data:
+   - **GitHub**: `gh issue list --label <team_label> --state all --json ...`
+   - **Azure DevOps**: `az boards query --wiql "..."` filtered by `area_path` and current iteration
+3. Include work item status in standup notes when available.
+
 ## Procedure
 
 1. **Determine lookback** -- default: 1 working day. Override with `--days N`. Skip weekends unless `--days` explicitly covers them.

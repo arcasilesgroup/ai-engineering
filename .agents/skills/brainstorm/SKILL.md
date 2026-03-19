@@ -1,7 +1,7 @@
 ---
 name: brainstorm
 description: "Use when the user wants to design, architect, or explore a feature before building it. HARD GATE: no implementation until the user approves the spec."
-argument-hint: "[feature or problem description]"
+argument-hint: "[feature or problem description] [optional: work item ID e.g. AB#100, #45]"
 ---
 
 
@@ -23,6 +23,14 @@ HARD GATE: this skill produces a spec. No implementation happens until the user 
 ## Process
 
 1. **Load context** -- read `specs/spec.md`, `decision-store.json`, and `docs/solution-intent.md` section 7 (roadmap)
+   - If a work item ID is provided (e.g., `AB#100` or `#45`):
+     a. Read `.ai-engineering/manifest.yml` `work_items` section for active provider and team config
+     b. Fetch work item and its hierarchy from the provider:
+        - **GitHub**: `gh issue view <number> --json title,body,labels,milestone,assignees`
+        - **Azure DevOps**: `az boards work-item show --id <number> --expand relations -o json`
+     c. Walk the hierarchy: Feature → User Story → Tasks (follow parent/child relations)
+     d. Use all standard and custom fields the platform provides
+     e. Pre-fill `refs` section in the generated spec frontmatter
 2. **Interrogate** -- follow `handlers/interrogate.md` for the questioning flow
 3. **Propose approaches** -- present 2-3 options with trade-offs (never just one)
 4. **Draft spec** -- write spec to `specs/spec.md`

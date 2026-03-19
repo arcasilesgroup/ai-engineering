@@ -52,6 +52,21 @@ Execute full pre-push gate:
 
 If any check fails, report and stop.
 
+### 7.5. Pre-conditions: work items
+
+1. Read `.ai-engineering/manifest.yml` — focus on `work_items` section (provider, hierarchy rules, team config).
+2. Read `.ai-engineering/specs/spec.md` frontmatter — extract `refs` if present.
+3. Store hierarchy rules from `work_items.hierarchy` for step 8.5.
+
+Spec frontmatter refs format:
+```yaml
+refs:
+  features: [AB#100]        # never closed by AI
+  user_stories: [AB#101]    # closed on PR merge
+  tasks: [AB#102, AB#103]   # closed on PR merge
+  issues: ["#45", "#46"]    # closed on PR merge
+```
+
 ### 8. Spec operations
 
 If `.ai-engineering/specs/spec.md` has content (not placeholder):
@@ -63,6 +78,18 @@ If `.ai-engineering/specs/spec.md` has content (not placeholder):
 6. Clear spec.md with: `# No active spec\n\nRun /ai-brainstorm to start a new spec.\n`
 7. Clear plan.md with: `# No active plan\n\nRun /ai-plan after brainstorm approval.\n`
 8. Stage the cleared files
+
+### 8.5. Work item references
+
+If spec frontmatter contains `refs`:
+
+1. For each ref where hierarchy rule is `close_on_pr` (user_stories, tasks, bugs, issues):
+   - **GitHub**: add `Closes #N` to PR body (one per line)
+   - **Azure DevOps**: add `AB#NNN` to PR body (auto-closes on merge)
+2. For each ref where hierarchy rule is `never_close` (features):
+   - Add as mention only: `Related: AB#100` (NO close keyword)
+3. **NEVER close features** — the `never_close` rule is absolute, regardless of other configuration.
+4. If no `refs` in frontmatter, fall back to the existing spec-label-based issue linking.
 
 ### 9. Commit and push
 
@@ -113,6 +140,12 @@ Same as default flow but create as draft PR.
 - [ ] [Specific verification steps]
 - [ ] [Edge cases to validate]
 
+## Work Items
+- Closes AB#101 (user story)
+- Closes AB#102, AB#103 (tasks)
+- Closes #45, #46 (issues)
+- Related: AB#100 (feature — not closed)
+
 ## Checklist
 - [ ] Lint and format pass
 - [ ] Secret scan clean
@@ -142,7 +175,8 @@ Same as default flow but create as draft PR.
 
 - Invokes `/ai-commit` pipeline (steps 0-6) as prerequisite.
 - Auto-updates CHANGELOG.md and README.md via documentation gate.
-- Links to issues: GitHub `Closes #N`, Azure DevOps `AB#NNN`.
+- Links to work items from spec frontmatter refs (hierarchy-aware: features never closed, user stories/tasks/bugs/issues closed on merge).
+- Falls back to spec-label-based issue linking when no frontmatter refs present.
 
 ## References
 

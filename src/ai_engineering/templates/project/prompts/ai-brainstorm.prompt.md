@@ -1,7 +1,7 @@
 ---
 name: ai-brainstorm
 description: "Use when the user wants to design, architect, or explore a feature before building it. HARD GATE: no implementation until the user approves the spec."
-argument-hint: "[feature or problem description]"
+argument-hint: "[feature or problem description] [optional: work item ID e.g. AB#100, #45]"
 mode: agent
 ---
 
@@ -24,6 +24,14 @@ HARD GATE: this skill produces a spec. No implementation happens until the user 
 ## Process
 
 1. **Load context** -- read `specs/spec.md`, `decision-store.json`, and `docs/solution-intent.md` section 7 (roadmap)
+   - If a work item ID is provided (e.g., `AB#100` or `#45`):
+     a. Read `.ai-engineering/manifest.yml` `work_items` section for active provider and team config
+     b. Fetch work item and its hierarchy from the provider:
+        - **GitHub**: `gh issue view <number> --json title,body,labels,milestone,assignees`
+        - **Azure DevOps**: `az boards work-item show --id <number> --expand relations -o json`
+     c. Walk the hierarchy: Feature → User Story → Tasks (follow parent/child relations)
+     d. Use all standard and custom fields the platform provides
+     e. Pre-fill `refs` section in the generated spec frontmatter
 2. **Interrogate** -- follow `handlers/interrogate.md` for the questioning flow
 3. **Propose approaches** -- present 2-3 options with trade-offs (never just one)
 4. **Draft spec** -- write spec to `specs/spec.md`
@@ -85,6 +93,18 @@ Before asking questions, gather context silently:
 4. Read decision store for relevant architectural decisions
 
 Do NOT ask the user what you can learn from the code.
+
+### Step 1.5 -- Work Item Context (if provided)
+
+If a work item was fetched during context loading:
+
+1. Read the work item title, description, and acceptance criteria
+2. Read child items (tasks under a user story, stories under a feature)
+3. Read all standard and custom fields from the platform (status, priority, effort, etc.)
+4. Add to the **KNOWN** map: confirmed requirements from the work item fields
+5. Add to the **ASSUMED** map: inferences from the work item description
+6. Pre-fill the spec `refs` from the work item hierarchy
+7. Use the work item context to reduce the number of questions needed
 
 ### Step 2 -- Classify What You Know
 

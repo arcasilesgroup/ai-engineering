@@ -6,6 +6,8 @@ Azure DevOps Boards) via the VCS provider abstraction.
 Functions:
     sync_spec_issues — sync all specs to external issues.
     get_linked_issue_id — retrieve linked issue number for a spec.
+    get_hierarchy_rules — read work-item hierarchy rules from manifest.
+    resolve_closeable_refs — split spec refs into closeable vs mention-only.
 """
 
 from __future__ import annotations
@@ -14,8 +16,27 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
+import yaml
+
 from ai_engineering.vcs.factory import get_provider
 from ai_engineering.vcs.protocol import IssueContext
+
+# Default hierarchy rules: features are never auto-closed,
+# user stories / tasks / bugs close on PR merge.
+_DEFAULT_HIERARCHY: dict[str, str] = {
+    "feature": "never_close",
+    "user_story": "close_on_pr",
+    "task": "close_on_pr",
+    "bug": "close_on_pr",
+}
+
+# Maps spec frontmatter ref categories to hierarchy rule keys.
+_REF_CATEGORY_MAP: dict[str, str] = {
+    "features": "feature",
+    "user_stories": "user_story",
+    "tasks": "task",
+    "issues": "bug",
+}
 
 
 @dataclass
@@ -118,6 +139,82 @@ def get_linked_issue_id(project_root: Path, spec_id: str) -> str | None:
     if result.success and result.output.strip():
         return result.output.strip()
     return None
+
+
+def get_hierarchy_rules(project_root: Path) -> dict[str, str]:
+    """Read work-item hierarchy rules from the project manifest.
+
+    Looks for ``work_items.hierarchy`` in ``manifest.yml``.  Falls back
+    to sensible defaults when the section is absent or malformed.
+
+    Args:
+        project_root: Root directory of the project.
+
+    Returns:
+        Dict mapping work-item type to disposition rule
+        (e.g. ``{"feature": "never_close", "task": "close_on_pr"}``).
+    """
+    manifest_path = project_root / ".ai-engineering" / "manifest.yml"
+    if not manifest_path.exists():
+        return dict(_DEFAULT_HIERARCHY)
+
+    try:
+        data = yaml.safe_load(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, yaml.YAMLError):
+        return dict(_DEFAULT_HIERARCHY)
+
+    if not isinstance(data, dict):
+        return dict(_DEFAULT_HIERARCHY)
+
+    work_items = data.get("work_items")
+    if not isinstance(work_items, dict):
+        return dict(_DEFAULT_HIERARCHY)
+
+    hierarchy = work_items.get("hierarchy")
+    if not isinstance(hierarchy, dict):
+        return dict(_DEFAULT_HIERARCHY)
+
+    # Merge configured values over defaults.
+    rules = dict(_DEFAULT_HIERARCHY)
+    for key, value in hierarchy.items():
+        if isinstance(key, str) and isinstance(value, str):
+            rules[key] = value
+    return rules
+
+
+def resolve_closeable_refs(
+    project_root: Path,
+    refs: dict[str, list[str]],
+) -> tuple[list[str], list[str]]:
+    """Split spec frontmatter refs into closeable and mention-only lists.
+
+    Uses hierarchy rules from the manifest to decide which work items
+    should be closed on PR merge and which should only be mentioned.
+
+    Args:
+        project_root: Root directory of the project.
+        refs: Dict from spec frontmatter (keys: features, user_stories,
+              tasks, issues; values: lists of ref strings).
+
+    Returns:
+        Tuple of ``(closeable_refs, mention_only_refs)``.
+    """
+    rules = get_hierarchy_rules(project_root)
+    closeable: list[str] = []
+    mention_only: list[str] = []
+
+    for category, items in refs.items():
+        hierarchy_key = _REF_CATEGORY_MAP.get(category)
+        if hierarchy_key is None:
+            continue
+        disposition = rules.get(hierarchy_key, "close_on_pr")
+        for ref in items:
+            if disposition == "never_close":
+                mention_only.append(ref)
+            else:
+                closeable.append(ref)
+
+    return closeable, mention_only
 
 
 def _parse_spec_for_issue(spec_md: Path, spec_id: str) -> tuple[str, str]:

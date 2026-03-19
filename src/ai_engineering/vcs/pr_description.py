@@ -88,9 +88,28 @@ def build_pr_description(project_root: Path, *, max_commits: int = 20) -> str:
 
     # -- Issue link -----------------------------------------------------
     if spec:
-        issue_ref = _build_issue_reference(project_root, spec)
-        if issue_ref:
-            lines.append(f"{issue_ref}\n")
+        spec_refs = _read_spec_refs(project_root)
+        if spec_refs:
+            closeable, mention_only = _resolve_refs(project_root, spec_refs)
+            if closeable or mention_only:
+                for ref in closeable:
+                    if ref.startswith("AB#"):
+                        lines.append(ref)
+                    else:
+                        lines.append(f"Closes {ref}")
+                for ref in mention_only:
+                    lines.append(f"Related: {ref}")
+                lines.append("")
+            else:
+                # Refs present but nothing resolved — fall back
+                issue_ref = _build_issue_reference(project_root, spec)
+                if issue_ref:
+                    lines.append(f"{issue_ref}\n")
+        else:
+            # No frontmatter refs — use legacy lookup
+            issue_ref = _build_issue_reference(project_root, spec)
+            if issue_ref:
+                lines.append(f"{issue_ref}\n")
 
     # -- Checklist -----------------------------------------------------
     lines.append("## Checklist\n")
@@ -236,6 +255,87 @@ def _read_active_spec(project_root: Path) -> str | None:
         return match.group(1)
 
     return None
+
+
+def _read_spec_refs(project_root: Path) -> dict[str, list[str]]:
+    """Read work-item refs from spec frontmatter.
+
+    Parses the ``refs`` block in ``specs/spec.md`` YAML frontmatter::
+
+        ---
+        id: "055"
+        refs:
+          features: [AB#100]
+          user_stories: [AB#101]
+          tasks: [AB#102, AB#103]
+          issues: ["#45", "#46"]
+        ---
+
+    Args:
+        project_root: Root directory of the project.
+
+    Returns:
+        Dict with keys ``features``, ``user_stories``, ``tasks``,
+        ``issues`` (each a list of strings).  Empty dict if no refs
+        or no frontmatter found.
+    """
+    spec_path = project_root / ".ai-engineering" / "specs" / "spec.md"
+    if not spec_path.exists():
+        return {}
+
+    try:
+        text = spec_path.read_text(encoding="utf-8")
+    except OSError:
+        return {}
+
+    # Extract frontmatter block
+    fm_match = re.match(r"^---\n(.+?)\n---", text, re.DOTALL)
+    if not fm_match:
+        return {}
+
+    frontmatter = fm_match.group(1)
+
+    # Check if refs section exists
+    refs_match = re.search(r"^refs:\s*$", frontmatter, re.MULTILINE)
+    if not refs_match:
+        return {}
+
+    # Extract each ref category
+    result: dict[str, list[str]] = {}
+    for key in ("features", "user_stories", "tasks", "issues"):
+        pattern = rf"^\s+{key}:\s*\[([^\]]*)\]"
+        match = re.search(pattern, frontmatter, re.MULTILINE)
+        if match:
+            raw = match.group(1).strip()
+            if raw:
+                items = [item.strip().strip("\"'") for item in raw.split(",") if item.strip()]
+                result[key] = items
+
+    return result
+
+
+def _resolve_refs(
+    project_root: Path,
+    refs: dict[str, list[str]],
+) -> tuple[list[str], list[str]]:
+    """Resolve spec refs into closeable and mention-only lists.
+
+    Delegates to ``work_items.service.resolve_closeable_refs``
+    for hierarchy rule evaluation.
+
+    Args:
+        project_root: Root directory of the project.
+        refs: Ref dict from ``_read_spec_refs``.
+
+    Returns:
+        Tuple of ``(closeable_refs, mention_only_refs)``.
+    """
+    try:
+        from ai_engineering.work_items.service import resolve_closeable_refs
+    except ImportError:
+        return [], []
+
+    return resolve_closeable_refs(project_root, refs)
 
 
 def _read_spec_context(project_root: Path, spec: str) -> dict[str, str]:
