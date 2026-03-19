@@ -63,8 +63,8 @@ class TestSkillUsageFrom:
         events = [_skill_event("build")]
         result = skill_usage_from(events)
         assert result["total_invocations"] == 1
-        assert result["by_skill"] == {"build": 1}
-        assert result["top_skill"] == "build"
+        assert result["by_skill"] == {"ai-build": 1}
+        assert result["top_skill"] == "ai-build"
 
     def test_multiple_skills_sorted(self) -> None:
         events = [
@@ -77,10 +77,10 @@ class TestSkillUsageFrom:
         ]
         result = skill_usage_from(events)
         assert result["total_invocations"] == 6
-        assert result["top_skill"] == "build"
-        assert result["least_skill"] == "commit"
+        assert result["top_skill"] == "ai-build"
+        assert result["least_skill"] == "ai-commit"
         keys = list(result["by_skill"].keys())
-        assert keys == ["build", "test", "commit"]
+        assert keys == ["ai-build", "ai-test", "ai-commit"]
 
     def test_respects_time_window(self) -> None:
         events = [
@@ -123,7 +123,7 @@ class TestAgentDispatchFrom:
         events = [_agent_event("build")]
         result = agent_dispatch_from(events)
         assert result["total_dispatches"] == 1
-        assert result["by_agent"] == {"build": 1}
+        assert result["by_agent"] == {"ai-build": 1}
 
     def test_multiple_agents_sorted(self) -> None:
         events = [
@@ -137,7 +137,7 @@ class TestAgentDispatchFrom:
         result = agent_dispatch_from(events)
         assert result["total_dispatches"] == 6
         keys = list(result["by_agent"].keys())
-        assert keys == ["plan", "build", "verify"]
+        assert keys == ["ai-plan", "ai-build", "ai-verify"]
 
     def test_respects_time_window(self) -> None:
         events = [
@@ -221,12 +221,12 @@ class TestObserveTeamSkillAgent:
 
         su = data["skill_usage"]
         assert su["total_invocations"] == 4
-        assert su["top_skill"] == "build"
-        assert su["by_skill"]["build"] == 3
+        assert su["top_skill"] == "ai-build"
+        assert su["by_skill"]["ai-build"] == 3
 
         ad = data["agent_dispatch"]
         assert ad["total_dispatches"] == 3
-        assert ad["by_agent"]["build"] == 2
+        assert ad["by_agent"]["ai-build"] == 2
 
     def test_ai_includes_skill_agent_efficiency(self) -> None:
         from ai_engineering.cli_commands.observe import observe_ai

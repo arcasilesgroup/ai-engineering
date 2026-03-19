@@ -319,7 +319,7 @@ def maintenance_spec_reset(
         typer.Option("--dry-run", help="Report findings without modifying files."),
     ] = False,
 ) -> None:
-    """Reset spec state: archive completed specs, clear _active.md."""
+    """Reset spec state: append to history, clear spec buffer."""
     root = resolve_project_root(target)
     result = run_spec_reset(root, dry_run=dry_run)
 

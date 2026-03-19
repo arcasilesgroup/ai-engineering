@@ -62,7 +62,7 @@ class TestInstallExisting:
         install(tmp_path, stacks=["python"], ides=["vscode"])
 
         # Modify a team-managed file
-        team_file = tmp_path / ".ai-engineering" / "standards" / "team" / "core.md"
+        team_file = tmp_path / ".ai-engineering" / "contexts" / "team" / "README.md"
         if team_file.exists():
             team_file.write_text("# Team customised\n", encoding="utf-8")
 
@@ -95,7 +95,7 @@ class TestInstallExisting:
         install(tmp_path, stacks=["python"], ides=["vscode"])
 
         # Modify a team-managed file
-        team_file = tmp_path / ".ai-engineering" / "standards" / "team" / "core.md"
+        team_file = tmp_path / ".ai-engineering" / "contexts" / "team" / "README.md"
         original = ""
         if team_file.exists():
             original = team_file.read_text(encoding="utf-8")
@@ -118,19 +118,7 @@ class TestInstallExisting:
 
         # Create a git repo with history
         subprocess.run(
-            ["git", "init"],
-            cwd=tmp_path,
-            check=True,
-            capture_output=True,
-        )
-        subprocess.run(
-            ["git", "config", "user.email", "test@test.com"],
-            cwd=tmp_path,
-            check=True,
-            capture_output=True,
-        )
-        subprocess.run(
-            ["git", "config", "user.name", "Test"],
+            ["git", "init", "-b", "main"],
             cwd=tmp_path,
             check=True,
             capture_output=True,
@@ -174,17 +162,17 @@ class TestInstallExisting:
         """Update restores modified .claude/ tree files."""
         install(tmp_path, stacks=["python"], ides=["vscode"])
 
-        commit_md = tmp_path / ".claude" / "commands" / "commit.md"
-        if not commit_md.exists():
-            pytest.skip("commit.md not deployed by installer")
+        skill_md = tmp_path / ".claude" / "skills" / "ai-commit" / "SKILL.md"
+        if not skill_md.exists():
+            pytest.skip("ai-commit skill not deployed by installer")
 
-        original = commit_md.read_bytes()
-        commit_md.write_text("modified by user")
+        original = skill_md.read_bytes()
+        skill_md.write_text("modified by user")
 
         result = update(tmp_path, dry_run=False)
 
-        assert commit_md.read_bytes() == original
-        updated = [c for c in result.changes if c.path == commit_md and c.action == "update"]
+        assert skill_md.read_bytes() == original
+        updated = [c for c in result.changes if c.path == skill_md and c.action == "update"]
         assert len(updated) == 1
 
     def test_update_rollback_preserves_state(
@@ -196,11 +184,10 @@ class TestInstallExisting:
 
         install(tmp_path, stacks=["python"], ides=["vscode"])
 
-        core_md = tmp_path / ".ai-engineering" / "standards" / "framework" / "core.md"
+        core_md = tmp_path / ".ai-engineering" / "contexts" / "languages" / "python.md"
         core_md.write_text("modified content")
-        stacks_dir = tmp_path / ".ai-engineering" / "standards" / "framework" / "stacks"
-        stacks_md = stacks_dir / "python.md"
-        stacks_md.write_text("also modified")
+        rust_md = tmp_path / ".ai-engineering" / "contexts" / "languages" / "rust.md"
+        rust_md.write_text("also modified")
 
         original_write = Path.write_bytes
         call_count = 0

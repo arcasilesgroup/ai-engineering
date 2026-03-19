@@ -35,19 +35,7 @@ def git_repo(tmp_path: Path) -> Path:
         Path to the repository root.
     """
     subprocess.run(
-        ["git", "init", str(tmp_path)],
-        check=True,
-        capture_output=True,
-    )
-    subprocess.run(
-        ["git", "config", "user.email", "test@test.com"],
-        cwd=tmp_path,
-        check=True,
-        capture_output=True,
-    )
-    subprocess.run(
-        ["git", "config", "user.name", "Test User"],
-        cwd=tmp_path,
+        ["git", "init", "-b", "main", str(tmp_path)],
         check=True,
         capture_output=True,
     )

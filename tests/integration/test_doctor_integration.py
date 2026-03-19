@@ -41,19 +41,7 @@ def installed_git_project(tmp_path: Path) -> Path:
     """Create a fully installed project with a git repo."""
     import subprocess
 
-    subprocess.run(["git", "init", str(tmp_path)], check=True, capture_output=True)
-    subprocess.run(
-        ["git", "config", "user.email", "test@test.com"],
-        cwd=tmp_path,
-        check=True,
-        capture_output=True,
-    )
-    subprocess.run(
-        ["git", "config", "user.name", "Test"],
-        cwd=tmp_path,
-        check=True,
-        capture_output=True,
-    )
+    subprocess.run(["git", "init", "-b", "main", str(tmp_path)], check=True, capture_output=True)
     install(tmp_path)
     return tmp_path
 
@@ -79,11 +67,11 @@ class TestLayoutCheck:
     def test_fails_on_missing_subdirectory(self, installed_project: Path) -> None:
         import shutil
 
-        shutil.rmtree(installed_project / ".ai-engineering" / "standards")
+        shutil.rmtree(installed_project / ".ai-engineering" / "contexts")
         report = diagnose(installed_project)
         layout = _find_check(report, "framework-layout")
         assert layout.status == CheckStatus.FAIL
-        assert "standards" in layout.message
+        assert "contexts" in layout.message
 
 
 # ---------------------------------------------------------------------------

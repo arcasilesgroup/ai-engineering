@@ -40,13 +40,13 @@ class InstallerError(Exception):
 def get_available_stacks() -> list[str]:
     """Return the list of stack names that have bundled instruction files.
 
-    Scans the ``standards/framework/stacks/`` template directory for
+    Scans the ``contexts/languages/`` template directory for
     ``.md`` files and returns their stems as valid stack identifiers.
 
     Returns:
         Sorted list of available stack names (e.g. ``["python"]``).
     """
-    stacks_dir = TEMPLATES_ROOT / ".ai-engineering" / "standards" / "framework" / "stacks"
+    stacks_dir = TEMPLATES_ROOT / ".ai-engineering" / "contexts" / "languages"
     if not stacks_dir.is_dir():
         return []
     return sorted(p.stem for p in stacks_dir.glob("*.md"))

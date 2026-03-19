@@ -1,133 +1,163 @@
-# AGENTS.md
+# CLAUDE.md
 
-Operational contract for AI agents. Consumed by GitHub Copilot, Claude Code, Gemini CLI, Codex, and other AI coding agents.
+Multi-IDE instruction file. Consumed by Claude Code, GitHub Copilot, Codex, Gemini CLI, and other AI coding assistants.
+This file is self-contained -- no other instruction files are required.
+
+## Workflow Orchestration
+
+Read the active spec before touching code: `.ai-engineering/specs/spec.md` and `.ai-engineering/specs/plan.md`.
+Read the decision store to avoid repeating settled questions: `.ai-engineering/state/decision-store.json`.
+
+### 1. Plan Mode Default
+
+- Enter plan mode for ANY non-trivial task (3+ steps or architectural decisions)
+- If something goes sideways, STOP and re-plan immediately -- don't keep pushing
+- Use plan mode for verification steps, not just building
+- Write detailed specs upfront to reduce ambiguity via `/ai-brainstorm`
+
+### 2. Subagent Strategy
+
+- Offload research, exploration, and parallel analysis to subagents
+- For complex problems, throw more compute at it via subagents
+- One task per subagent for focused execution
+- Never have a subagent do two unrelated things
+
+### 3. Self-Improvement Loop
+
+- After ANY correction from the user: update `.ai-engineering/contexts/team/lessons.md` with the pattern
+- Write rules for yourself that prevent the same mistake
+- Ruthlessly iterate on these lessons until mistake rate drops
+- Review lessons at session start: read `.ai-engineering/contexts/team/lessons.md` proactively
+
+### 4. Verification Before Done
+
+- Never mark a task complete without proving it works
+- Run the tests. Run the linter. Check the output
+- Diff behavior between main and your changes when relevant
+- Ask yourself: "Would a staff engineer approve this?"
+
+### 5. Demand Elegance (Balanced)
+
+- For non-trivial changes: pause and ask "is there a more elegant way?"
+- If a fix feels hacky: "Knowing everything I know now, implement the elegant solution"
+- Skip this for simple, obvious fixes -- don't over-engineer
+- Clever is bad. Simple and clear is elegant
+
+### 6. Autonomous Bug Fixing
+
+- When given a bug report: just fix it. Don't ask for hand-holding
+- Point at logs, errors, failing tests -- then resolve them
+- If you see a bug while working on something else -- fix it and mention it in the commit
+- Zero context switching required from the user
+
+### 7. Parallel Execution
+
+- Batch independent operations into simultaneous tool calls
+- Never go sequential when you can go parallel
+
+### 8. Context Efficiency
+
+- Never re-read files already in context. Never dump code the user did not ask for
+- Use `startLine:endLine:filepath` to cite. Use `// ... existing code ...` for omissions
+
+### 9. Proactive Memory
+
+- Read/write `.ai-engineering/contexts/team/lessons.md` to persist learnings across sessions
+
+## Task Management
+
+1. **Plan First**: Write plan via `/ai-plan` to `.ai-engineering/specs/plan.md` with checkable items
+2. **Verify Plan**: Check in before starting implementation
+3. **Track Progress**: Mark items complete in `.ai-engineering/specs/plan.md` as you go
+4. **Explain Changes**: High-level summary at each step
+5. **Document Results**: Add review to the spec tasks file
+6. **Capture Lessons**: Update `.ai-engineering/contexts/team/lessons.md` after corrections
+
+## Core Principles
+
+- **Simplicity First**: Make every change as simple as possible. Impact minimal code.
+- **No Laziness**: Find root causes. No temporary fixes. Senior developer standards.
+- **Minimal Impact**: Changes should only touch what's necessary. Avoid introducing bugs.
+
+## Agent Selection
+
+| Task | Agent | Invoke |
+|------|-------|--------|
+| Planning, specs, architecture | plan | `/ai-brainstorm` |
+| Writing/editing code | build | `/ai-dispatch` (after plan) |
+| Quality + security scanning | verify | `/ai-verify` |
+| Governance, compliance | guard | `/ai-governance` |
+| Code review (parallel agents) | review | `/ai-review` |
+| Deep codebase research | explore | direct dispatch |
+| Onboarding, teaching | guide | `/ai-guide` |
+| Simplify/refactor code | simplify | `/ai-simplify` |
+
+## Platform Mirrors
+
+Each IDE has its own skill and agent files. Same content, platform-native format.
+
+| Platform | Skills | Agents |
+|----------|--------|--------|
+| Claude Code | `.claude/skills/ai-*/SKILL.md` | `.claude/agents/ai-*.md` |
+| GitHub Copilot | `.github/prompts/ai-*.prompt.md` | `.github/agents/*.agent.md` |
+| Codex / Gemini | `.agents/skills/*/SKILL.md` | `.agents/agents/ai-*.md` |
+
+## Skills (31)
+
+Grouped by type. Invoke as `/ai-<name>`.
+
+**Workflow:** brainstorm, plan, dispatch, test, debug, verify, review
+**Delivery:** commit, pr, release, cleanup
+**Enterprise:** security, governance, pipeline, schema, solution-intent
+**Teaching:** explain, guide, write
+**SDLC:** note, standup, sprint, sprint-review, postmortem, support, resolve-conflicts
+**Meta:** create, learn, prompt, onboard, analyze-permissions
+
+## Quality Gates
+
+| Metric | Threshold |
+|--------|-----------|
+| Test coverage | >= 80% |
+| Code duplication | <= 3% |
+| Cyclomatic complexity | <= 10 per function |
+| Cognitive complexity | <= 15 per function |
+| Blocker/critical issues | 0 |
+| Security findings (medium+) | 0 |
+| Secret leaks | 0 |
+| Dependency vulnerabilities | 0 |
+
+Tooling: `ruff` + `ty` (lint/format), `pytest` (test), `gitleaks` (secrets), `pip-audit` (deps).
+
+## Observability
+
+Telemetry is automatic via hooks -- no manual `ai-eng signals emit` needed.
+- `PostToolUse(Skill)` hook emits `skill_invoked` events
+- `Stop` hook emits `session_end` events
+- All events flow to `.ai-engineering/state/audit-log.ndjson`
+- Dashboards: `ai-eng observe [engineer|team|ai|dora|health]`
+
+## Don't
+
+1. **NEVER** `--no-verify` on any git command.
+2. **NEVER** skip or silence a failing gate -- fix the root cause.
+3. **NEVER** weaken gate severity or coverage thresholds.
+4. **NEVER** modify hook scripts -- they are hash-verified.
+5. **NEVER** push to protected branches (main, master).
+6. **NEVER** dismiss security findings without `state/decision-store.json` risk acceptance.
+7. **NEVER** disable or modify `.claude/settings.json` deny rules.
+8. **NEVER** add suppression comments (`# noqa`, `# nosec`, `# type: ignore`, `# pragma: no cover`, `# NOSONAR`, `// nolint`) to bypass quality gates. Fix the code. If it is a false positive, refactor to satisfy the analyzer or escalate with a full explanation.
+
+Gate failure: diagnose, fix, retry. Use `ai-eng doctor --fix-tools` or `--fix-hooks`.
 
 ## Source of Truth
 
-- Governance rules: `.ai-engineering/context/product/framework-contract.md`
-- Product context: `.ai-engineering/context/product/product-contract.md`
-- Contract: `.ai-engineering/manifest.yml`
-
-## Session Start Protocol
-
-Before non-trivial work:
-
-1. **Read active spec** — `.ai-engineering/context/specs/_active.md` and linked spec/plan/tasks.
-2. **Read decision store** — `.ai-engineering/state/decision-store.json`.
-3. **Load checkpoint** — `ai-eng checkpoint load` for session recovery.
-4. **Run cleanup** — sync repo (status, git pull, prune, branch cleanup).
-5. **Verify tooling** — ruff, gitleaks, pytest, ty.
-
-Mandatory. Skipping risks stale code, repeated decisions, or merge conflicts.
-
-## Agent Behavior Mandates
-
-1. **The `<think>` Protocol** — Before complex git operations, broad changes, or task conclusion: use internal reasoning to plan. Verify all context is discovered.
-2. **Parallel Execution** — Batch independent operations into simultaneous tool calls. Never sequential when parallelizable.
-3. **Context Efficiency** — Never re-read files already in context window.
-4. **Code Citing** — Use `startLine:endLine:filepath` format. Never output code unless requested. Use `// ... existing code ...` for omissions.
-5. **Proactive Memory** — Read/write `state/decision-store.json` to persist learnings and avoid repeated questions.
-6. **Checkpoint on completion** — Save checkpoint after each task: `ai-eng checkpoint save`.
-7. **No Suppression Comments** — Never add `# NOSONAR`, `# nosec`, `# type: ignore`, `# pragma: no cover`, `# noqa`, or equivalent to bypass static analysis or quality findings. Fix the root cause or escalate to the user with full context.
-
-## On-Demand Context Loading
-
-Before planning or creating specs: read `product-contract.md` §7 (roadmap, KPIs, blockers).
-Before governance decisions: read `framework-contract.md` §2-3 (agentic model, ownership).
-For skills/agents/CLI reference: read `product-contract.md` §2.2.
-For commands/pipelines: read `framework-contract.md` §5.
-
-## Platform Adaptors
-
-Each LLM platform has adaptors that reference the canonical source of truth — never duplicate content.
-
-| Platform | Skills Location | Count | Agents Location | Count |
-|----------|----------------|-------|-----------------|-------|
-| Claude Code | `.claude/skills/ai-*/SKILL.md` | 37 | `.claude/agents/ai-*.md` | 8 |
-| GitHub Copilot | `.github/prompts/ai-*.prompt.md` | 34 | `.github/agents/*.agent.md` | 8 |
-| Codex / Gemini | `.agents/skills/*/SKILL.md` | 34 | `.agents/agents/ai-*.md` | 8 |
-
-## Agents (8)
-
-Path: IDE-specific (`.claude/agents/ai-<name>.md`, `.github/agents/<name>.agent.md`, `.agents/agents/ai-<name>.md`)
-
-| Agent | Role | Purpose | Scope |
-|-------|------|---------|-------|
-| plan | Architect | Planning pipeline, spec creation, architecture design — stops before execution | read-write |
-| build | Engineer | ONLY code writer, multi-stack implementation across 20 stacks | read-write |
-| verify | Analyst | 7-mode scanning: governance, security, quality, performance, a11y, feature-gap, architecture | read-write (work items only) |
-| guard | Guardian | Proactive governance advisory, drift detection, shift-left enforcement | read-only + state |
-| guide | Mentor | Teaching, onboarding, architecture tours, decision archaeology | read-only |
-| operate | SRE | Runbook execution, incident response, operational health monitoring | read-write |
-| explorer | Context Gatherer | Deep codebase research, context discovery before other agents act | read-only |
-| simplifier | Code Cleaner | Guard clauses, extract methods, flatten nesting, reduce complexity | read-write |
-
-## Skills (34)
-
-Path: IDE-specific (`.claude/skills/ai-<name>/SKILL.md`, `.github/prompts/ai-<name>.prompt.md`, `.agents/skills/<name>/SKILL.md`)
-
-| Skills (alphabetical) |
-|-----------------------|
-| accessibility, api, architecture, cleanup, code, commit, contract, dashboard, debug, dispatch, document, evolve, explain, gap, governance, guard, infra, integrity, lifecycle, migrate, ops, performance, pipeline, plan, pr, quality, refactor, release, schema, security, simplify, spec, test, triage |
-
-## Automation Runbooks
-
-Path: `.ai-engineering/runbooks/*.md` — 5 runbooks for operational procedures. Recurring automation is handled by GitHub Agentic Workflows (`.github/workflows/ai-eng-*.yml`).
-
-| Runbook | Purpose | Trigger |
-|---------|---------|---------|
-| code-simplifier | Complexity reduction, dead code removal | `ai-eng-code-simplifier.yml` (Wed 5AM) |
-| dependency-upgrade | Safe major version bump guide | Manual / Dependabot |
-| governance-drift-repair | Mirror sync, expired decisions, counter accuracy | `ai-eng-governance-drift.yml` (Mon 4AM) |
-| incident-response | P0-P3 structured incident handling | Manual |
-| security-incident | Secret leak protocol, vulnerability disclosure | Manual |
-
-## Lifecycle
-
-Discovery → Architecture → Planning → Guard (advisory) → Implementation → Verify → Operate → Feedback.
-
-## Command Contract
-
-- `/ai-plan` → planning pipeline (classify → discover → risk → spec → execution plan → STOP)
-- `/ai-dispatch` → read approved plan, dispatch agents, coordinate, report
-- `/ai-commit` → stage + commit + push
-- `/ai-commit --only` → stage + commit
-- `/ai-pr` → stage + commit + push + PR + auto-complete (`--auto --squash --delete-branch`)
-- `/ai-pr --only` → create PR; warn if unpushed, propose auto-push
-
-## Absolute Prohibitions
-
-1. **NEVER** `--no-verify` on any git command.
-2. **NEVER** skip/silence a failing gate — fix root cause.
-3. **NEVER** weaken gate severity.
-4. **NEVER** modify hook scripts — hash-verified.
-5. **NEVER** push to protected branches (main, master).
-6. **NEVER** dismiss security findings without `state/decision-store.json` risk acceptance.
-7. **NEVER** add suppression comments to bypass static analysis or security scanners. Fix the root cause.
-
-Gate failure: diagnose → fix → retry. Use `ai-eng doctor --fix-tools` or `--fix-hooks`.
-
-## Progressive Disclosure
-
-Three-level loading: **Metadata** (always, ~50 tok/skill) → **Body** (on-demand) → **Resources** (on-demand).
-
-Session start loads ONLY: `_active.md` → `spec.md` → `tasks.md` → `decision-store.json`. Do NOT pre-load skills or agents.
-
-| Level | Budget |
-|-------|--------|
-| Session start | ~500 tokens |
-| Single skill | ~2,050 tokens |
-| Agent + 2 skills | ~3,200 tokens |
-| Platform audit (7 dim) | ~10,500 tokens |
-
-Schema: `.ai-engineering/standards/framework/skills-schema.md`. Organization: flat (no categories).
-
-## Quick Reference
-
-- Skills (34): `.claude/skills/ai-<name>/SKILL.md` — slash commands: `/ai-<name>`
-- Agents (8): `.claude/agents/ai-<name>.md`
-- CLI: `ai-eng <command>` — deterministic tasks, zero AI tokens
-- Quality: coverage 80%, duplication ≤3%, cyclomatic ≤10, cognitive ≤15
-- Security: zero medium+ findings, zero leaks, zero dependency vulns
-- Tooling: `uv` · `ruff` · `ty` · `pip-audit`
-- Validation: `ruff`, `pytest`, `ty`, `gitleaks`, `semgrep`, `pip-audit`
+| What | Where |
+|------|-------|
+| Skills (31) | `.claude/skills/ai-<name>/SKILL.md` |
+| Agents (8) | `.claude/agents/ai-<name>.md` |
+| Config | `.ai-engineering/manifest.yml` |
+| Decisions | `.ai-engineering/state/decision-store.json` |
+| Active spec | `.ai-engineering/specs/spec.md` |
+| Contexts | `.ai-engineering/contexts/languages/`, `frameworks/`, `team/` |
+| Lessons | `.ai-engineering/contexts/team/lessons.md` |
+| CLI | `ai-eng <command>` |

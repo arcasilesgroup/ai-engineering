@@ -104,15 +104,13 @@ class IntegrityReport:
 _PATH_REF_PATTERN = re.compile(
     r"`?\.?(?:ai-engineering/)?(skills/[^\s`*]+\.md"
     r"|agents/[^\s`*]+\.md"
-    r"|standards/[^\s`*]+\.md"
+    r"|contexts/[^\s`*]+\.md"
     r"|context/[^\s`*]+\.md)`?"
 )
 
 # Paths referenced in governance docs but only exist conditionally.
 # The file-existence checker skips these to avoid false positives.
-_KNOWN_OPTIONAL_PATHS: set[str] = {
-    "context/specs/_active.md",
-}
+_KNOWN_OPTIONAL_PATHS: set[str] = set()
 
 # Instruction files that must stay in sync.
 # Base files exist in every governed project; template files only in the source repo.
@@ -149,12 +147,12 @@ _GOVERNANCE_MIRROR = (
     ".ai-engineering",
     "src/ai_engineering/templates/.ai-engineering",
     [
-        "standards/framework/**/*.md",
+        "contexts/**/*.md",
         "runbooks/**/*.md",
         "manifest.yml",
         "README.md",
     ],
-    ["context/", "state/", "standards/team/", "evals/"],
+    ["context/", "state/", "evals/", "tasks/"],
 )
 
 _CLAUDE_COMMANDS_MIRROR = (

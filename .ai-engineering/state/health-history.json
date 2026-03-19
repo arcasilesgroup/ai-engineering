@@ -1,38 +1,16 @@
 {
   "entries": [
     {
-      "date": "2026-03-09",
-      "overall": 60,
+      "date": "2026-03-19",
+      "overall": 70,
       "semaphore": "YELLOW",
       "components": {
-        "Gate pass rate": 87.0,
+        "Gate pass rate": 78.9,
         "Delivery velocity": 100,
+        "Decision health": 100,
         "DORA frequency": 25,
-        "Test confidence": 26.4
-      }
-    },
-    {
-      "date": "2026-03-10",
-      "overall": 66,
-      "semaphore": "YELLOW",
-      "components": {
-        "Gate pass rate": 92.2,
-        "Delivery velocity": 100,
-        "DORA frequency": 25,
-        "Test confidence": 26.4,
-        "Gate signal quality": 87.5
-      }
-    },
-    {
-      "date": "2026-03-11",
-      "overall": 66,
-      "semaphore": "YELLOW",
-      "components": {
-        "Gate pass rate": 92.2,
-        "Delivery velocity": 100,
-        "DORA frequency": 25,
-        "Test confidence": 26.4,
-        "Gate signal quality": 87.5
+        "Test confidence": 25.7,
+        "Gate signal quality": 91.7
       }
     }
   ]

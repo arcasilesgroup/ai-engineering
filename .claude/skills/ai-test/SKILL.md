@@ -1,17 +1,7 @@
 ---
 name: ai-test
-version: 2.0.0
-description: "Testing strategy, execution, and TDD — plan test suites, write and run tests, analyze coverage gaps, or drive implementation test-first with RED-GREEN-REFACTOR. Multi-stack: Python, TypeScript, .NET, React, Next.js, Node, NestJS, Rust, Go, Java."
-argument-hint: "plan|run|gap|tdd"
-tags: [testing, tdd, coverage, unit, integration, e2e, multi-stack]
-requires:
-  anyBins:
-  - pytest
-  - vitest
-  - jest
-  - dotnet
-  - cargo
-  - go
+description: "Use when writing tests, enforcing TDD (RED-GREEN-REFACTOR), analyzing coverage gaps, or planning test strategy. Supports Python, TypeScript, .NET, Rust, Go."
+argument-hint: "plan|run|gap|tdd [target]"
 ---
 
 
@@ -19,260 +9,137 @@ requires:
 
 ## Purpose
 
-Unified testing skill for all 20 supported stacks. Tests are first-class production code — the executable specification of what the system does and the safety net that makes confident refactoring possible.
+TDD enforcement and testing skill. Tests are executable specifications -- they define what the system does before the system does it. Maximum confidence per minute of developer time.
 
-**Core principle**: Tests exist to give you confidence to change code. Maximum confidence per minute of developer time — not maximum coverage.
+## When to Use
 
-Write tests that:
-- **Fail for the right reasons** — when behavior changes, not when implementation details shift
-- **Explain the system** — reading test names tells you what the system does
-- **Run fast** — unit tests in milliseconds, full suite under a minute
-- **Are independent** — every test runs alone, in any order, same result
+- `tdd`: driving new features test-first (RED-GREEN-REFACTOR)
+- `run`: writing and executing tests for existing code
+- `gap`: analyzing coverage gaps and missing edge cases
+- `plan`: designing test strategy before writing tests
 
-> **Telemetry** (cross-IDE): run `ai-eng signals emit skill_invoked --actor=ai --detail='{"skill":"test"}'` at skill start. Fail-open.
+## Process
 
-## Modes
-
-### Mode: `plan`
-Design test strategy: identify what to test, assign test categories (unit/integration/e2e), define coverage targets, map critical paths.
-
-### Mode: `run`
-Write and execute tests following stack standards. Detect framework from project files. Follow existing conventions (directory structure, naming, fixtures). Run with stack-appropriate command.
-
-### Mode: `gap`
-Analyze coverage gaps: map untested critical paths, identify missing edge cases, check branch coverage vs line coverage. Produce gap report with prioritized recommendations.
-
-### Mode: `tdd`
-Drive implementation test-first using RED-GREEN-REFACTOR. See TDD Cycle below.
-
-## TDD Cycle
+### Mode: tdd (RED-GREEN-REFACTOR)
 
 ```
 NO PRODUCTION CODE WITHOUT A FAILING TEST FIRST
 ```
 
-This is the Iron Law. Violating the letter of the rules IS violating the spirit.
+**Phase RED -- Write Failing Test**
 
-### RED — Write Failing Test
+1. Write ONE test showing what SHOULD happen
+2. Name: `test_<unit>_<scenario>_<expected_outcome>`
+3. AAA pattern: Arrange, Act, Assert (visually separated)
+4. Run test -- confirm FAIL for the expected reason (missing feature, not syntax error)
+5. Produce Implementation Contract:
 
-1. Write ONE minimal test showing what SHOULD happen
-2. Clear name: `test_<unit>_<scenario>_<expected_outcome>`
-3. Real assertions (no mock-testing-mocks)
-4. Run test — confirm it FAILS for the expected reason (missing feature, not typo)
+```markdown
+## Implementation Contract
+- Test files: [exact paths]
+- Verification: [exact command]
+- Failure reason: [why it fails -- tied to missing behavior]
+- Constraint: DO NOT modify these test files during GREEN
+```
 
-If test passes immediately → you're testing existing behavior. Fix the test.
-If test errors (syntax/import) → fix the error, re-run until it fails correctly.
+6. STOP. Do not implement.
 
-### GREEN — Minimal Code
+**Phase GREEN -- Minimal Code**
 
-1. Write the simplest code to make the test pass
-2. No extras, no features-ahead, no "while I'm here" improvements (YAGNI)
-3. Run test — confirm it PASSES
-4. Run ALL tests — confirm nothing else broke
+1. Read the Implementation Contract
+2. DO NOT modify test files (they are immutable)
+3. Write the simplest code to make the test pass (YAGNI)
+4. Run test -- confirm PASS
+5. Run ALL tests -- confirm no regressions
 
-If test still fails → fix your code, not the test.
+If the test still fails: fix your code, not the test.
 
-### REFACTOR — Clean Up (after GREEN only)
+**Phase REFACTOR -- Clean Up (after GREEN only)**
 
 - Remove duplication, improve names, extract helpers
 - Tests MUST stay green throughout
 - Do NOT add behavior during refactor
 
-### Implementation Contract
+### Mode: run
 
-After RED phase, produce:
+1. Detect test framework from project files
+2. Follow existing conventions (directory structure, naming, fixtures)
+3. Write tests using AAA pattern with descriptive names
+4. Run with stack-appropriate command
+5. Report results: pass/fail count, coverage delta
 
-```markdown
-## Test Files
-- [exact paths to test files written]
+### Mode: gap
 
-## Verification
-- Command: [exact test command]
-- Result: FAIL (expected)
-- Failure reason: [1-2 lines tied to missing behavior]
+1. Run coverage tool with branch coverage enabled
+2. Identify untested critical paths (business logic > glue code)
+3. Check for missing edge cases: null, empty, boundary, error paths
+4. Produce gap report with prioritized recommendations
 
-## Constraints
-- DO NOT modify these test files during GREEN phase
-- Implement in: [paths or modules]
-- Completion gate: [exact command] passes
-```
+### Mode: plan
 
-### When Stuck
+1. Map the testing surface (modules, public APIs, critical paths)
+2. Assign test categories: unit, integration, e2e
+3. Define coverage targets per module
+4. Identify infrastructure needs (test containers, fixtures, fakes)
 
-| Problem | Solution |
-|---------|----------|
-| Don't know how to test | Write the API you wish existed. Write the assertion first. |
-| Test too complicated | Design too complicated. Simplify the interface. |
-| Must mock everything | Code too coupled. Use dependency injection. |
-| Test setup is huge | Extract helpers. Still complex? Simplify the design. |
+## Stack Commands
 
-## AAA Pattern (Non-Negotiable)
+| Stack | Runner | Coverage | Async |
+|-------|--------|----------|-------|
+| Python | `uv run pytest` | `pytest-cov` (branch=true) | `asyncio_mode = "auto"` |
+| TypeScript | `vitest` or `jest` | `c8` / `istanbul` | `async/await` |
+| .NET | `dotnet test` + xUnit | `coverlet` | `async Task` |
+| Rust | `cargo test` | `cargo tarpaulin` | `#[tokio::test]` |
+| Go | `go test ./...` | `go test -cover` | goroutine tests |
 
-Every test has exactly three sections, visually separated:
+## Testing Rules
 
-```
-# Arrange — set up inputs and dependencies
-# Act — call the function/method under test
-# Assert — verify the outcome
-```
+**Fakes over mocks**. Mocks test implementation details. Fakes implement the same interface.
 
-Name pattern: `test_<unit>_<scenario>_<expected_outcome>`
-
-Good: `test_parse_email_rejects_missing_at_symbol`
-Bad: `test_parse_email`, `test_1`, `test_process`
-
-## Fakes Over Mocks
-
-Mocks (`MagicMock`, `jest.fn()`) test implementation details. Prefer fakes: in-memory implementations of the same interface your production code uses.
-
-**Fake design**:
-- Implement the same Protocol/interface as production code
-- Add test helpers as separate methods (`assert_published()`, `get_saved()`)
-- Make behavior configurable (`fake.set_decline("insufficient funds")`)
-- Keep simple enough that fakes don't need their own tests
-
-**When mocks ARE appropriate** (3 cases only):
+Mocks are acceptable ONLY for:
 1. Verifying something was NOT called
-2. Simulating transient errors for retry logic (`side_effect=ConnectionError()`)
-3. Third-party libraries you can't easily fake — but wrap them in your own adapter first
+2. Simulating transient errors for retry logic
+3. Third-party libraries (but wrap in your own adapter first)
 
-## Test Categories
+**AAA pattern** (non-negotiable):
 
-### Unit Tests
-Fast, no I/O, no network, no database. Test pure logic in isolation. Use fakes for dependencies.
+```python
+# Arrange -- set up inputs and dependencies
+# Act -- call the function under test
+# Assert -- verify the outcome
+```
 
-### Integration Tests
-Cross boundaries: your code with a real database, HTTP API, or filesystem. Use test containers for real infrastructure. Transactional isolation (rollback after each test).
+**Name pattern**: `test_<unit>_<scenario>_<expected_outcome>`
+- Good: `test_parse_email_rejects_missing_at_symbol`
+- Bad: `test_parse_email`, `test_1`, `test_it_works`
 
-### E2E Tests
-Full system through public API. Use sparingly — only critical business flows. Real infrastructure, realistic data, mark as slow.
+## Anti-Patterns (Reject These)
 
-## Stack-Specific Testing
+| Anti-Pattern | Why It Fails |
+|-------------|-------------|
+| Testing the mock | Proves the mock works, not the code |
+| No-op test (assert True) | Tests nothing, inflates coverage |
+| Testing implementation | Breaks on refactor, proves nothing about behavior |
+| Huge test setup | Design is too coupled -- simplify the interface |
+| sleep() for sync | Flaky -- use events, barriers, wait_for |
+| Exact float comparison | Flaky -- use approx/closeTo |
 
-### Python
-- **Runner**: `pytest` via `uv run pytest`
-- **Coverage**: `pytest-cov` (branch=true, target 80%)
-- **Fixtures**: factory functions (`make_user()`) over fixtures. `conftest.py` for infrastructure only.
-- **Async**: `asyncio_mode = "auto"`, never `asyncio.sleep()` for sync — use `asyncio.Event`
-- **CLI**: `typer.testing.CliRunner`
-- **Parametrize**: `@pytest.mark.parametrize` with `ids=` for readable output
+## Iron Law
 
-### TypeScript
-- **Runner**: `vitest` (preferred) or `jest`
-- **Coverage**: `c8` or `istanbul` (branch coverage enabled)
-- **Fixtures**: factory functions, `beforeEach` for infrastructure cleanup
-- **Async**: `async/await` in tests, `vi.useFakeTimers()` for time control
-- **DOM**: `@testing-library` for component tests, `jsdom` environment
+If tests are wrong, escalate to the user. NEVER weaken, skip, or modify tests to make implementation easier. "Tests are wrong" means the requirement changed -- not that passing them is hard.
 
-### .NET
-- **Runner**: `dotnet test` with `xUnit`
-- **Coverage**: `coverlet` (target 80%)
-- **Fixtures**: `IClassFixture<T>` for shared state, `WebApplicationFactory<T>` for API tests
-- **DI**: Override services in test setup, use in-memory DB for EF Core tests
-- **Async**: `async Task` test methods, `CancellationToken` testing
+## Common Mistakes
 
-### React
-- **Runner**: `vitest` + `@testing-library/react`
-- **Coverage**: Component render + hook behavior + user interaction
-- **Fixtures**: `render()` helpers, mock providers for context
-- **Patterns**: Test user behavior not implementation. Query by role/label, not test-id.
-- **Hooks**: `renderHook()` from `@testing-library/react`
+- Writing tests after implementation (tests-after prove what IS, not what SHOULD be)
+- Testing private methods (test the public API)
+- 100% coverage with meaningless assertions
+- Skipping edge cases (null, empty, boundary, concurrent access)
+- Not running ALL tests after changes
 
-### Next.js
-- **Runner**: `vitest` with `next/jest` config
-- **Server Components**: Test as pure functions (no React rendering)
-- **API Routes**: Test handler functions directly with mocked `NextRequest`
-- **Middleware**: Test with `NextResponse` assertions
-- **E2E**: Playwright for full browser tests
+## Integration
 
-### Node / NestJS
-- **Runner**: `vitest` or `jest`
-- **API**: `supertest` for HTTP assertions
-- **NestJS**: `Test.createTestingModule()` for DI container testing
-- **Middleware**: Test as pure functions with mock req/res
-- **Streams**: Test with `Readable.from()` and collect with `for await`
+- **Called by**: `/ai-dispatch` (build tasks), `ai-build agent` (TDD mode), user directly
+- **Calls**: stack-specific test runners
+- **Transitions to**: `ai-build` (GREEN phase), `/ai-verify` (coverage validation)
 
-### Rust
-- **Runner**: `cargo test`
-- **Coverage**: `cargo tarpaulin` or `cargo llvm-cov`
-- **Fixtures**: Builder pattern for test data, `#[test]` attribute
-- **Async**: `#[tokio::test]` for async tests
-- **Property**: `proptest` crate for property-based testing
-
-### Go
-- **Runner**: `go test ./...`
-- **Coverage**: `go test -cover` (target 80%)
-- **Fixtures**: Table-driven tests, `testing.T` helpers
-- **Mocks**: Interface-based fakes, `gomock` for generated mocks
-- **HTTP**: `httptest.NewServer()` for integration tests
-
-### Java / Kotlin
-- **Runner**: JUnit 5 (`@Test`, `@ParameterizedTest`)
-- **Coverage**: JaCoCo (branch coverage, target 80%)
-- **Mocks**: Mockito for stubs, prefer manual fakes for repositories
-- **Spring**: `@SpringBootTest` + `@MockBean` for integration
-- **Async**: `CompletableFuture` assertions, `Awaitility` for async waiting
-
-## Coverage Strategy
-
-Coverage is a guide, not a goal. 100% with bad assertions is worse than 70% with meaningful tests.
-
-- **80-90%** for core domain logic — where bugs cost the most
-- **50-70%** for adapters — integration tests cover critical paths
-- **Don't chase** glue code, config, wiring, CLI boilerplate
-- **Branch coverage > line coverage** — enable `branch = true`
-- **Quality gate**: 80% minimum (SonarCloud)
-
-## Rationalization Table
-
-| Excuse | Reality |
-|--------|---------|
-| "Too simple to test" | Simple code breaks. Test takes 30 seconds. |
-| "I'll test after" | Tests-after pass immediately, proving nothing. |
-| "Tests-after achieve same goals" | Tests-after: "what does this do?" Tests-first: "what SHOULD this do?" |
-| "Already manually tested" | Ad-hoc is not systematic. No record, can't re-run. |
-| "Deleting X hours is wasteful" | Sunk cost fallacy. Keeping unverified code is debt. |
-| "Keep as reference, write tests first" | You'll adapt it. That's testing-after. Delete means delete. |
-| "Need to explore first" | Fine. Throw away exploration code, start fresh with TDD. |
-| "Test is hard = skip it" | Hard to test = hard to use. Listen to the test. Simplify design. |
-| "TDD will slow me down" | TDD is faster than debugging in production. |
-| "This is different because..." | It's not. Delete code. Start over with TDD. |
-
-## Flaky Test Diagnostic
-
-When a test is flaky, check these 6 categories in order:
-
-1. **Time dependency** — `datetime.now()`, `Date.now()` without injection. Fix: inject a clock.
-2. **Order dependency** — shared mutable state between tests. Fix: isolate via fixtures.
-3. **Async race** — `sleep()` for synchronization. Fix: use events/barriers/wait_for.
-4. **External service** — real HTTP calls, rate limits. Fix: fakes or mocks at boundary.
-5. **Resource exhaustion** — unclosed connections, file handles. Fix: context managers, cleanup.
-6. **Float precision** — exact float comparison. Fix: `pytest.approx`, `Decimal`, `toBeCloseTo`.
-
-## Verification Checklist
-
-Before marking test work complete:
-
-- [ ] Every new function/method has a test
-- [ ] Watched each test fail before implementing (TDD mode)
-- [ ] Each test failed for expected reason (feature missing, not typo)
-- [ ] Wrote minimal code to pass each test
-- [ ] All tests pass, output pristine (no errors, warnings)
-- [ ] Tests use real code (mocks only for the 3 legitimate cases)
-- [ ] Edge cases and error paths covered
-- [ ] Test names describe behavior (`test_X_when_Y_then_Z`)
-- [ ] AAA pattern in every test
-
-## Governance Notes
-
-- Read stack-specific standards from `standards/framework/stacks/<stack>.md` for quality thresholds.
-- Quality gate: coverage 80%, zero blocker/critical findings (source: `standards/framework/quality/core.md`).
-- For TDD mode, follow the Implementation Contract pattern from `.claude/agents/ai-build.md` TDD Protocol.
-- Tests that validate the REAL project (canary tests) should read from `.ai-engineering/` directly, not from `tmp_path` fixtures.
-
-## References
-
-- `.claude/agents/ai-build.md` — TDD Protocol (RED-GREEN-REFACTOR with Implementation Contract)
-- `standards/framework/quality/core.md` — coverage targets, quality gates
-- Stack-specific standards in `standards/framework/stacks/`
 $ARGUMENTS

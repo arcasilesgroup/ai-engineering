@@ -1,9 +1,8 @@
 ---
 name: ai-commit
-version: 1.0.0
-description: "Execute governed commit workflow: stage, lint, secret-detect, commit, and push current branch."
-argument-hint: "--only|[msg]"
-tags: [git, commit, push, hooks]
+description: "Use when committing changes: governed commit workflow with staging, lint, secret scan, conventional commit message, and push."
+argument-hint: "--force|--only|[message hint]"
+tags: [git, commit, push, hooks, delivery]
 requires:
   bins:
   - gitleaks
@@ -13,110 +12,105 @@ requires:
 
 # Commit Workflow
 
-## Purpose
+Governed commit pipeline: stage specific files, format, lint, secret-detect, compose message, and push. NEVER uses `--no-verify`. NEVER pushes to `main` or `master`.
 
-Execute the `/commit` governed workflow: stage all changes, run mandatory pre-commit checks, commit with a well-formed message, and push to the current branch. The `--only` variant stages and commits without pushing.
+## When to Use
 
-## Trigger
+- Committing current changes with quality enforcement.
+- NOT for creating PRs -- use `/ai-pr` instead.
 
-- Command: `/commit` or `/commit --only`
-- Context: user requests committing current changes with governance enforcement.
+## Process
 
-> **Telemetry** (cross-IDE): run `ai-eng signals emit skill_invoked --actor=ai --detail='{"skill":"commit"}'` at skill start. Fail-open — skip if ai-eng unavailable.
+### 0. Auto-branch from protected
 
-## When NOT to Use
+If current branch is `main` or `master`:
+1. Analyze pending changes to infer type (`feat/`, `fix/`, `chore/`, `docs/`, `refactor/`).
+2. Generate descriptive slug (kebab-case, max 50 chars).
+3. Create branch: `git checkout -b <prefix>/<slug>`.
+4. Report: "Auto-created branch: `<branch-name>`."
 
-- **Creating pull requests** — use `/pr` instead. Commit pushes to current branch; PR creates a pull request.
-- **Governance content changes without active spec** — create a spec first with `spec`.
+### 0.5. Work item context (optional)
 
-## Preconditions (MUST verify before proceeding)
+If `.ai-engineering/specs/spec.md` has frontmatter with `refs`:
+1. Read the refs (features, user_stories, tasks, issues)
+2. Include work item references in the commit message body as trailers:
+   ```
+   Refs: AB#101, AB#102, #45
+   ```
+3. Only include refs for items that are `close_on_pr` in the hierarchy — do NOT include features.
 
-- **Required binaries**: `gitleaks`, `ruff` — all must be available on PATH.
-- Abort with remediation guidance if missing. Run `ai-eng doctor --fix-tools` to auto-install.
+### 1. Stage changes
 
-## Procedure
+Stage specific files -- `git add <file1> <file2>`. Use `git add -A` only when user explicitly requests or all files are relevant. Review what is staged; exclude generated files, secrets, large binaries.
 
-### `/commit` (default: stage + commit + push)
+### 2. Format
 
-0. **Auto-branch from protected** — if current branch is `main` or `master`:
-   a. Analyze pending changes (`git diff --stat` + file paths) to infer change type.
-   b. Select prefix: `feat/` | `fix/` | `chore/` | `docs/` | `refactor/` based on change type.
-   c. Generate a descriptive slug (kebab-case, max 50 chars) from the changes.
-   d. Create branch: `git checkout -b <prefix>/<slug>`.
-   e. Report: "Auto-created branch: `<branch-name>`" and continue.
-   If NOT on a protected branch, skip this step.
+Run `ruff format .` to auto-fix formatting.
 
-1. **Stage changes** — `git add -A` (or selective staging if user specifies files).
-2. **Run formatter** — `ruff format .` to auto-fix formatting.
-3. **Run linter** — `ruff check . --fix` to auto-fix safe lint issues. If unfixable issues remain, report and stop.
-4. **Run secret detection** — `gitleaks protect --staged --no-banner`. If secrets found, report and stop.
-5. **Documentation gate** — evaluate and update documentation for OSS GitHub users.
-   a. Analyze staged changes and classify documentation scope:
-   - **CHANGELOG + README**: new features, breaking changes, new CLI commands, skill/agent additions or removals, config schema changes, architecture changes visible to users.
-   - **CHANGELOG only**: any other functional change — src/ modifications, API changes, dependency bumps with behavioral impact, governance surface changes, workflow behavior changes.
-   - **No updates needed**: changes with zero functional impact — typo fixes in comments, whitespace-only changes, test-only additions that don't change public behavior, CI config formatting. Log: "Documentation gate evaluated — no functional changes detected."
-     b. Update **CHANGELOG.md** (when scope requires it):
-   - If `CHANGELOG.md` exists: add entries to `[Unreleased]` section per `.claude/skills/ai-document/SKILL.md` changelog mode format. Stage the updated file.
-   - If `CHANGELOG.md` does NOT exist: create it following Keep a Changelog format. Stage the new file.
-     c. Update **README.md** (when scope includes README):
-   - If `README.md` exists AND changes include new features, breaking changes, new CLI commands, or skill catalog changes: update relevant sections. Stage the updated file.
-   - If `README.md` does NOT exist AND changes are non-trivial: create it targeting OSS GitHub audience. Stage the new file.
-     d. **External documentation portal**:
-   - Read `manifest.yml → documentation.external_portal`.
-   - If `enabled: false` or `source` is null: skip silently.
-   - If `enabled: true` and `source` is set:
-     - **Local path** (source exists as local directory): update relevant doc files in-place, stage changes in that repo.
-     - **Git URL** (source starts with `https://` or `git@`): clone to temp directory if not already local. Then apply `update_method`:
-       - `"pr"`: create branch, commit changes, push, create PR with auto-complete (use VCS-appropriate CLI), report PR URL.
-       - `"push"`: commit changes, push directly to main branch.
-     - Report what was updated and where.
-   e. **Governance documentation gate** — if staged changes include files in `.claude/agents/`, `.claude/skills/`, `.github/agents/`, `.github/prompts/`, `.agents/agents/`, `.agents/skills/`, `.ai-engineering/standards/`, or `.ai-engineering/runbooks/`:
-   - Update `.ai-engineering/README.md` to reflect current governance structure (agents, skills, workflow).
-   - Mirror the updated file to `src/ai_engineering/templates/.ai-engineering/README.md`.
-   - Stage both files.
-   - If no governance content changes detected, skip silently.
-6. **Spec verify** — if an active spec exists, run `ai-eng spec verify` to auto-correct task counters before committing.
-7. **Commit** — `git commit -m "<message>"` with a well-formed commit message following project conventions.
-   - If active spec exists, use format: `spec-NNN: Task X.Y — <description>`.
-   - Otherwise, use conventional commit format: `type(scope): description`.
-8. **Push** — `git push origin <current-branch>`.
-   - If current branch is `main` or `master`, **block** and report protected branch violation.
+### 3. Lint
 
-### `/commit --only` (stage + commit, no push)
+Run `ruff check . --fix` to auto-fix safe issues. If unfixable issues remain, report and stop.
 
-Follow steps 1–6 above. Skip step 7.
+### 4. Secret scan
 
-## Examples
+Run `gitleaks protect --staged --no-banner`. If secrets found, report and **stop**. No bypass.
 
-### Example 1: Standard feature commit
+### 5. Documentation gate
 
-User says: "Run /commit with message spec-031: Task 2.1 — add examples to skills."
-Actions:
+Evaluate staged changes and classify scope:
 
-1. Stage changes and run formatter, linter, and gitleaks on staged content.
-2. Evaluate documentation gate, commit with provided message, and push current branch.
-   Result: Commit is created and pushed, or workflow stops with a clear remediation if any gate fails.
+| Scope | Trigger | Updates |
+|-------|---------|---------|
+| CHANGELOG + README | New features, breaking changes, CLI commands, skill additions/removals | Both files |
+| CHANGELOG only | Any other functional change in `src/`, API, deps, governance | CHANGELOG.md |
+| None | Typo fixes, whitespace, test-only, CI formatting | Skip silently |
 
-## Output Contract
+- If `CHANGELOG.md` exists: add entries to `[Unreleased]`. If not: create per Keep a Changelog format.
+- If README update needed and `README.md` exists: update relevant sections.
+- External portal: read `manifest.yml` -> `documentation.external_portal`. If enabled, apply `update_method` (`pr` or `push`).
+- Governance doc gate: if changes touch agents/skills/standards, update `.ai-engineering/README.md` and mirror to templates.
 
-- Terminal output showing each step's result (pass/fail).
-- On success: commit hash and branch name displayed.
-- On failure: specific check that failed with remediation guidance.
+### 6. Spec verify
 
-## Governance Notes
+If active spec exists, run `ai-eng spec verify` to auto-correct task counters.
 
-- Protected branch push is always blocked. No exceptions.
-- Secret detection (`gitleaks`) failure is a hard stop. No bypass.
-- Formatter and linter run with auto-fix before checking; only unfixable issues block.
-- If `ruff` or `gitleaks` is not installed, attempt auto-remediation: `uv tool install ruff` / `brew install gitleaks` / `winget install gitleaks` as appropriate.
-- All quality gate failures must be fixed locally before retrying.
+### 7. Commit
+
+Compose message following conventions:
+- **With active spec**: `spec-NNN: Task X.Y -- <description>`
+- **Without spec**: `type(scope): description` (conventional commits, imperative mood)
+- If user provides `--force`, skip preview. Otherwise, preview message and confirm.
+
+### 8. Push
+
+`git push origin <current-branch>`. Block if on `main` or `master`.
+
+### `/commit --only`
+
+Execute steps 1-7. Skip push.
+
+## Quick Reference
+
+```
+/ai-commit                   # full: stage + lint + scan + commit + push
+/ai-commit --only            # commit without push
+/ai-commit --force "msg"     # skip preview, use provided message hint
+```
+
+## Common Mistakes
+
+- Using `git add -A` blindly -- always review staged files for secrets and binaries.
+- Committing on `main` -- the skill auto-branches, but verify.
+- Skipping documentation gate -- CHANGELOG updates are mandatory for functional changes.
+
+## Integration
+
+- **Pre-commit hooks** enforce the same checks. This skill runs them explicitly for visibility.
+- **PR workflow** (`/ai-pr`) calls this pipeline as steps 0-6 before creating the PR.
+- **Spec system** auto-corrects task counters in step 6.
 
 ## References
 
-- `standards/framework/core.md` — non-negotiables and enforcement rules.
-- `standards/framework/stacks/python.md` — Python-specific checks.
-- `standards/framework/quality/core.md` — gate structure (pre-commit gate).
-- `.claude/skills/ai-document/SKILL.md` — changelog entry formatting (changelog mode) and README/documentation update procedure (used by documentation gate).
-- `.claude/skills/ai-pr/SKILL.md` — PR workflow.
-- `.claude/agents/ai-operate.md` — agent that validates commit workflow execution.
+- `.claude/skills/ai-write/SKILL.md` -- changelog formatting.
+- `.ai-engineering/manifest.yml` -- quality gates and non-negotiables.
 $ARGUMENTS

@@ -152,3 +152,4 @@ credentials*.json
 # ai-engineering specific
 .ai-engineering/local.yml
 .ai-engineering/.cache/
+.claude/session-topics/

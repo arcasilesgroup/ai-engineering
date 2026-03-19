@@ -1,140 +1,117 @@
 ---
 name: ai-verify
-description: "Activate the ai-verify agent for 7-mode scanning: governance, security, quality, performance, a11y, feature-gap, architecture."
-argument-hint: "governance|security|quality|performance|a11y|feature|architecture|platform"
+description: "Use when you need to PROVE a claim with evidence, run quality/security scans, or validate that work is actually complete. Evidence before claims -- no 'should work' allowed."
+argument-hint: "claim|governance|security|quality|performance|a11y|feature|architecture|platform"
 ---
 
 
-# Scan
+# Verify
 
-## Identity
+## Purpose
 
-Staff security and quality engineer (15+ years) specializing in multi-dimensional assessment across governance, security, quality, performance, accessibility, feature completeness, and architecture. The unified assessment agent — all read-only analysis routes through this agent. Applies OWASP methodology, CWE classification, WCAG 2.1 AA standards, and governance contract validation. Produces uniform scan reports with scores (0-100), verdicts (PASS/WARN/FAIL), and structured findings. Can aggregate all 7 modes into a platform-level GO/NO-GO assessment.
+Evidence before claims. This skill has two faces: (1) a verification protocol that proves claims with commands, and (2) a multi-mode scanner for quality, security, and governance. Both share the same principle: run the command, read the output, check the exit code. No guessing.
 
-Absorbs capabilities from the former `review` agent (security, quality, governance modes) and expands the former `scan` agent (spec-code gap analysis) into a comprehensive 7-mode scanner.
+## When to Use
 
-## Modes
+- Before claiming "it works" (run the test, show the output)
+- Before claiming "it's secure" (run the scan, show the findings)
+- Before claiming "Done!" (verify every acceptance criterion with evidence)
+- When running quality/security/governance scans on a codebase
+
+## Process
+
+### Verification Protocol (claim mode)
+
+For every claim, follow IRRV:
+
+**I -- IDENTIFY**: What command proves this claim?
+- "Tests pass" -> `uv run pytest tests/ -v`
+- "No lint errors" -> `ruff check .`
+- "No secrets" -> `gitleaks protect --staged`
+- "File exists" -> `ls -la path/to/file`
+
+**R -- RUN**: Execute the FULL command. Not a subset. Not from memory. Fresh execution.
+
+**R -- READ**: Read the FULL output. Check:
+- Exit code (0 = success, non-zero = failure)
+- Warning lines (even with exit code 0)
+- Actual numbers (test count, coverage %, finding count)
+
+**V -- VERIFY**: Does the output CONFIRM the claim?
+- If yes: report with evidence (exact command + key output lines)
+- If no: report the discrepancy. Do not claim success.
+
+**Forbidden words** (never use these without evidence):
+- "should work", "probably fine", "seems to", "looks good"
+- "Done!", "Perfect!", "All set!"
+- "I believe", "I think", "most likely"
+
+### Scan Modes (7 parallel modes)
 
 | Mode | Command | What it assesses |
 |------|---------|------------------|
 | `governance` | `/ai-verify governance` | Integrity, compliance, ownership boundaries |
-| `security` | `/ai-verify security` | OWASP SAST, secret detection, dependency vulns, SBOM |
-| `quality` | `/ai-verify quality` | Coverage, complexity, duplication, lint, code review |
-| `performance` | `/ai-verify performance` | N+1 queries, O(n^2), memory leaks, bundle size, I/O |
+| `security` | `/ai-verify security` | OWASP SAST, secret detection, dependency vulns |
+| `quality` | `/ai-verify quality` | Coverage, complexity, duplication, lint |
+| `performance` | `/ai-verify performance` | N+1 queries, O(n^2), memory leaks, bundle size |
 | `a11y` | `/ai-verify a11y` | WCAG 2.1 AA compliance |
-| `feature-gap` | `/ai-verify feature` | Spec vs code gaps + wiring gaps (disconnected implementations) |
-| `architecture` | `/ai-verify architecture` | Drift, coupling, cohesion, boundaries, tech debt |
-| `platform` | `/ai-verify platform` | All 7 modes aggregated -> score 0-100 -> GO/NO-GO |
-| `framework` | `/ai-verify gap --framework` | Self-audit: verify all claimed capabilities exist and are functional |
+| `feature` | `/ai-verify feature` | Spec vs code gaps, disconnected implementations |
+| `architecture` | `/ai-verify architecture` | Drift, coupling, cohesion, boundaries |
+| `platform` | `/ai-verify platform` | All 7 modes aggregated -> GO/NO-GO |
 
-Auto-detect: when invoked without a mode, infer from context (changed files, spec state, recent activity).
+Auto-detect: when invoked without a mode, infer from context.
 
-## Behavior
+### Scan Output Contract
 
-### 1. Mode Selection
-
-Determine scan mode from user request or auto-detect:
-- Explicit: `/ai-verify security` -> security mode
-- Auto-detect: analyze `git diff --stat` + project state to select most relevant mode
-- Platform: runs all 7 modes sequentially, aggregates results
-
-### 2. Data Collection (Python CLI Layer)
-
-For deterministic checks, delegate to `ai-eng` CLI:
-- `ai-eng integrity` -> governance integrity data
-- `ai-eng compliance` -> contract compliance data
-- `ai-eng ownership` -> boundary validation data
-- `ai-eng gate pre-push` -> security + quality tool outputs
-
-### 3. Analysis (LLM Layer)
-
-Interpret raw findings with contextual understanding:
-- Classify severity: blocker > critical > major > minor > info
-- Prioritize by impact on the specific codebase
-- Generate actionable remediation guidance
-- Cross-reference findings across modes for systemic issues
-
-### 4. Signal Emission (post-scan)
-
-After every scan mode completes, emit a structured event:
-```
-ai-eng signals emit scan_complete --actor=scan --detail='{"mode":"<MODE>","score":<SCORE>,"findings":{"critical":<N>,"high":<N>,"medium":<N>,"low":<N>}}'
-```
-
-This feeds the `ai-dashboard` skill views (Code Quality, Scan Health, Health Score).
-
-### 5. Report Generation
-
-All modes produce the uniform Scan Output Contract (see below).
-
-## Scan Output Contract
-
-Every mode produces this format:
+Every scan mode produces:
 
 ```markdown
-# Scan Report: [mode]
-
 ## Score: N/100
 ## Verdict: PASS | WARN | FAIL
 
 ## Findings
 | # | Severity | Category | Description | Location | Remediation |
 
-## Signals
-{ "mode": "<mode>", "score": N, "findings": { "blocker": 0, "critical": N, "major": N }, "timestamp": "..." }
-
 ## Gate Check
 - Blocker findings: N (threshold: 0)
 - Critical findings: N (threshold: 0)
-- Verdict justification: ...
 ```
 
-## Scan Thresholds
+### Scan Thresholds
 
 | Mode | Blocker if... | Critical if... |
 |------|--------------|----------------|
-| governance | Any integrity FAIL | Any compliance FAIL clause |
-| security | Any critical/high CVE | Any secret detected |
-| quality | Coverage < 80% | Blocker/critical lint issues |
-| performance | N+1 in critical path | O(n^2) in hot path, memory leak |
-| a11y | -- (diagnostic) | Critical WCAG violation |
-| feature-gap | Disconnected critical-path code | Critical feature missing, >5 unwired exports |
+| governance | Any integrity FAIL | Any compliance FAIL |
+| security | Critical/high CVE | Any secret detected |
+| quality | Coverage < 80% | Blocker/critical lint |
+| performance | N+1 in critical path | O(n^2) in hot path |
 | architecture | Circular dependency | Critical drift from spec |
 | **platform** | Any blocker in ANY mode | Score < 60 |
 
-## Referenced Skills
+## Verification Checklist (use before claiming DONE)
 
-- `.claude/skills/ai-security/SKILL.md` -- OWASP SAST + DAST + deps + SBOM
-- `.claude/skills/ai-quality/SKILL.md` -- coverage + complexity + duplication + review
-- `.claude/skills/ai-governance/SKILL.md` -- integrity + compliance + ownership
-- `.claude/skills/ai-performance/SKILL.md` -- performance profiling and bottleneck detection
-- `.claude/skills/ai-accessibility/SKILL.md` -- WCAG 2.1 AA compliance audit
-- `.claude/skills/ai-gap/SKILL.md` -- spec vs code gap detection
-- `.claude/skills/ai-architecture/SKILL.md` -- drift, coupling, cohesion, boundaries
-- `.claude/skills/ai-triage/SKILL.md` -- create work items for findings
+```
+- [ ] Every acceptance criterion verified with a command
+- [ ] All tests pass (exact count reported)
+- [ ] Lint/format clean (zero warnings)
+- [ ] No secrets in staged files
+- [ ] Coverage maintained or improved (exact % reported)
+- [ ] No forbidden words used in the completion report
+```
 
-## Referenced Standards
+## Common Mistakes
 
-- `standards/framework/core.md` -- governance non-negotiables
-- `standards/framework/quality/core.md` -- coverage, complexity thresholds
-- `standards/framework/security/owasp-top10-2025.md` -- OWASP compliance
+- Claiming success without running the command
+- Running a subset of tests instead of the full suite
+- Ignoring warnings when exit code is 0
+- Using forbidden words ("should work") instead of evidence
+- Not checking exit codes
+- Reporting coverage from memory instead of from the tool output
 
-## Boundaries
+## Integration
 
-- **NEVER** write scan reports, audit reports, or findings as local files.
-  Output destinations: conversation chat (interactive) or GitHub Issues / Azure Boards (automated).
-  Persistent state goes to `state/audit-log.ndjson` only via `ai-eng signals emit`.
-- **Read-only for code** -- never modifies source code or tests
-- **Read-write for work items** -- can create/update issues for findings
-- **Read-write for audit log** -- emits scan signals
-- Does not fix issues -- produces findings with remediation guidance
-- Does not override architectural decisions -- reports drift
-- Delegates implementation fixes to `ai-build`
-
-### Escalation Protocol
-
-- **Iteration limit**: max 3 attempts per scan mode before escalating to user.
-- **Escalation format**: present what was tried, what failed, and options.
-- **Never loop silently**: if stuck, surface the problem immediately.
+- **Called by**: `/ai-dispatch` (post-task review), `ai-build agent` (after implementation), user directly
+- **Calls**: stack-specific tools (pytest, ruff, gitleaks, etc.)
+- **Read-only**: never modifies source code -- produces findings with remediation
 
 $ARGUMENTS

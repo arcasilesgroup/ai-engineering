@@ -32,28 +32,27 @@ SKILL_NAME=$(extract_skill)
 # Skip if no skill name extracted
 [ -z "$SKILL_NAME" ] && exit 0
 
-# Strip "ai-" prefix for canonical name (ai-plan → plan)
-CANONICAL_NAME="${SKILL_NAME#ai-}"
-# Also strip "ai:" prefix (ai:plan → plan)
-CANONICAL_NAME="${CANONICAL_NAME#ai:}"
+# Normalize: lowercase + ensure ai- prefix
+CANONICAL_NAME=$(echo "$SKILL_NAME" | tr '[:upper:]' '[:lower:]')
+CANONICAL_NAME="${CANONICAL_NAME#ai-}"   # strip if already has, to re-add clean
+CANONICAL_NAME="${CANONICAL_NAME#ai:}"   # strip colon variant
+CANONICAL_NAME="ai-${CANONICAL_NAME}"    # ensure prefix
 
 # Resolve project root
 ROOT_DIR="${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "$0")/../.." && pwd)}"
+AUDIT_LOG="${ROOT_DIR}/.ai-engineering/state/audit-log.ndjson"
+TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+BRANCH=$(git -C "$ROOT_DIR" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
+COMMIT=$(git -C "$ROOT_DIR" rev-parse --short HEAD 2>/dev/null || echo "")
 
-# Activate venv if present
-if [ -f "$ROOT_DIR/.venv/bin/activate" ]; then
-    # shellcheck disable=SC1091
-    source "$ROOT_DIR/.venv/bin/activate" 2>/dev/null
-elif [ -f "$ROOT_DIR/.venv/Scripts/activate" ]; then
-    # shellcheck disable=SC1091
-    source "$ROOT_DIR/.venv/Scripts/activate" 2>/dev/null
+# Write directly to audit log — no CLI dependency
+printf '{"actor":"ai","branch":"%s","commit_sha":"%s","detail":{"skill":"%s"},"event":"skill_invoked","source":"hook","timestamp":"%s"}\n' \
+    "$BRANCH" "$COMMIT" "$CANONICAL_NAME" "$TIMESTAMP" >> "$AUDIT_LOG" 2>/dev/null || true
+
+# Debug mode
+if [ "${AIENG_TELEMETRY_DEBUG:-}" = "1" ]; then
+    DEBUG_LOG="${ROOT_DIR}/.ai-engineering/state/telemetry-debug.log"
+    printf '[%s] skill_invoked: %s (raw: %s)\n' "$TIMESTAMP" "$CANONICAL_NAME" "$SKILL_NAME" >> "$DEBUG_LOG" 2>/dev/null || true
 fi
-
-# Emit event — fail-open
-ai-eng signals emit skill_invoked \
-    --actor=ai \
-    --source=hook \
-    --detail="{\"skill\":\"${CANONICAL_NAME}\"}" \
-    2>/dev/null || true
 
 exit 0

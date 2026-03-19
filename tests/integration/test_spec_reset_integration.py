@@ -1,6 +1,8 @@
 """Integration tests for ai_engineering.maintenance.spec_reset.
 
-Tests run_spec_reset() with real filesystem operations.
+Tests run_spec_reset() with real filesystem operations using the
+Working Buffer model: fixed files specs/spec.md, specs/plan.md,
+specs/_history.md -- no numbered directories, no archive.
 """
 
 from __future__ import annotations
@@ -10,6 +12,7 @@ from pathlib import Path
 import pytest
 
 from ai_engineering.maintenance.spec_reset import (
+    SpecResetResult,
     run_spec_reset,
 )
 
@@ -17,164 +20,159 @@ pytestmark = pytest.mark.integration
 
 
 def _create_project(tmp_path: Path) -> Path:
-    """Create a project with .ai-engineering/context/specs/ structure."""
-    specs_dir = tmp_path / ".ai-engineering" / "context" / "specs"
-    archive_dir = specs_dir / "archive"
-    archive_dir.mkdir(parents=True)
+    """Create a project with .ai-engineering/specs/ structure."""
+    specs_dir = tmp_path / ".ai-engineering" / "specs"
+    specs_dir.mkdir(parents=True)
     return tmp_path
 
 
-def _add_spec(
+def _set_active_spec(
     project: Path,
-    slug: str,
+    title: str,
     *,
-    done: bool = False,
-    tasks_complete: bool = False,
-):
-    """Add a spec directory to the project."""
-    specs_dir = project / ".ai-engineering" / "context" / "specs"
-    spec_dir = specs_dir / slug
-    spec_dir.mkdir(parents=True)
-    (spec_dir / "spec.md").write_text(f"# Spec {slug}\n")
-    (spec_dir / "plan.md").write_text(f"# Plan {slug}\n")
+    spec_id: str = "055",
+) -> None:
+    """Write an active spec into specs/spec.md with frontmatter."""
+    spec_path = project / ".ai-engineering" / "specs" / "spec.md"
+    content = f'---\nid: "{spec_id}"\n---\n\n# {title}\n\nSpec content.\n'
+    spec_path.write_text(content, encoding="utf-8")
 
-    if done:
-        (spec_dir / "done.md").write_text("# Done\nCompleted.\n")
 
-    total = 5
-    completed = total if tasks_complete else 2
-    (spec_dir / "tasks.md").write_text(
-        f'---\nspec: "{slug}"\ntotal: {total}\ncompleted: {completed}\n---\n\n# Tasks\n'
+def _set_placeholder(project: Path) -> None:
+    """Write placeholder (no active spec) to specs/spec.md."""
+    spec_path = project / ".ai-engineering" / "specs" / "spec.md"
+    spec_path.write_text(
+        "# No active spec\n\nRun /ai-brainstorm to start a new spec.\n",
+        encoding="utf-8",
     )
-
-
-def _set_active(project: Path, slug: str | None):
-    """Set _active.md to point to slug."""
-    active_path = project / ".ai-engineering" / "context" / "specs" / "_active.md"
-    if slug is None:
-        content = '---\nactive: null\nupdated: "2026-01-01"\n---\n\n# No active spec.\n'
-    else:
-        content = f'---\nactive: "{slug}"\nupdated: "2026-01-01"\n---\n\n# Active: {slug}\n'
-    active_path.write_text(content)
 
 
 class TestRunSpecResetIntegration:
     """Integration tests for run_spec_reset()."""
 
-    def test_archives_completed_spec_with_done_md(self, tmp_path):
-        """Spec with done.md is archived."""
+    def test_resets_active_spec(self, tmp_path: Path) -> None:
+        """Active spec is cleared and history is updated."""
         project = _create_project(tmp_path)
-        _add_spec(project, "001-done", done=True)
-        _add_spec(project, "002-wip")
-        _set_active(project, "001-done")
+        _set_active_spec(project, "Feature Alpha", spec_id="042")
 
         result = run_spec_reset(project)
 
         assert result.success
-        assert "001-done" in result.archived_specs
-        assert "002-wip" not in result.archived_specs
-        assert result.active_spec_cleared is True
-        assert result.active_spec_was == "001-done"
+        assert result.spec_title == "Feature Alpha"
+        assert result.history_updated is True
+        assert result.files_cleared is True
 
-        # Verify filesystem
-        specs_dir = project / ".ai-engineering" / "context" / "specs"
-        assert (specs_dir / "archive" / "001-done" / "spec.md").exists()
-        assert not (specs_dir / "001-done").exists()
-        assert (specs_dir / "002-wip" / "spec.md").exists()
+        # spec.md now has placeholder
+        spec_text = (project / ".ai-engineering" / "specs" / "spec.md").read_text()
+        assert "No active spec" in spec_text
 
-    def test_archives_completed_spec_with_tasks(self, tmp_path):
-        """Spec with done.md and tasks completed==total is archived."""
+        # plan.md now has placeholder
+        plan_text = (project / ".ai-engineering" / "specs" / "plan.md").read_text()
+        assert "No active plan" in plan_text
+
+    def test_creates_history_file_on_first_reset(self, tmp_path: Path) -> None:
+        """_history.md is created with table header on first reset."""
         project = _create_project(tmp_path)
-        _add_spec(project, "003-tasks-done", done=True, tasks_complete=True)
-        _set_active(project, "003-tasks-done")
-
-        result = run_spec_reset(project)
-
-        assert "003-tasks-done" in result.archived_specs
-        assert result.active_spec_cleared is True
-
-    def test_does_not_archive_in_progress(self, tmp_path):
-        """In-progress spec is not archived."""
-        project = _create_project(tmp_path)
-        _add_spec(project, "004-wip")
-        _set_active(project, "004-wip")
-
-        result = run_spec_reset(project)
-
-        assert result.archived_specs == []
-        assert result.active_spec_cleared is False
-
-    def test_resets_active_md(self, tmp_path):
-        """_active.md is reset after archiving."""
-        project = _create_project(tmp_path)
-        _add_spec(project, "005-done", done=True)
-        _set_active(project, "005-done")
+        _set_active_spec(project, "First Spec", spec_id="001")
 
         run_spec_reset(project)
 
-        active_content = (
-            project / ".ai-engineering" / "context" / "specs" / "_active.md"
-        ).read_text()
-        assert "active: null" in active_content
-        assert "No active spec" in active_content
+        history_path = project / ".ai-engineering" / "specs" / "_history.md"
+        assert history_path.exists()
+        text = history_path.read_text()
+        assert "# Spec History" in text
+        assert "| 001 |" in text
+        assert "First Spec" in text
 
-    def test_dry_run_does_not_modify(self, tmp_path):
-        """Dry run reports but does not modify files."""
+    def test_appends_to_existing_history(self, tmp_path: Path) -> None:
+        """Second reset appends to existing _history.md."""
         project = _create_project(tmp_path)
-        _add_spec(project, "006-done", done=True)
-        _set_active(project, "006-done")
+
+        # First reset
+        _set_active_spec(project, "Spec One", spec_id="001")
+        run_spec_reset(project)
+
+        # Second reset
+        _set_active_spec(project, "Spec Two", spec_id="002")
+        run_spec_reset(project)
+
+        history_text = (project / ".ai-engineering" / "specs" / "_history.md").read_text()
+        assert "| 001 |" in history_text
+        assert "| 002 |" in history_text
+
+    def test_noop_when_no_active_spec(self, tmp_path: Path) -> None:
+        """No-op when spec.md has placeholder content."""
+        project = _create_project(tmp_path)
+        _set_placeholder(project)
+
+        result = run_spec_reset(project)
+
+        assert result.success
+        assert result.spec_title is None
+        assert result.history_updated is False
+        assert result.files_cleared is False
+
+    def test_noop_when_spec_md_missing(self, tmp_path: Path) -> None:
+        """No-op when specs/ exists but spec.md does not."""
+        project = _create_project(tmp_path)
+
+        result = run_spec_reset(project)
+
+        assert result.success
+        assert result.spec_title is None
+
+    def test_dry_run_does_not_modify(self, tmp_path: Path) -> None:
+        """Dry run reports findings without modifying files."""
+        project = _create_project(tmp_path)
+        _set_active_spec(project, "Dry Run Spec", spec_id="099")
 
         result = run_spec_reset(project, dry_run=True)
 
-        assert "006-done" in result.orphan_specs
-        assert result.archived_specs == []
-        assert result.active_spec_cleared is False
+        assert result.success
+        assert result.spec_title == "Dry Run Spec"
+        assert result.history_updated is False
+        assert result.files_cleared is False
 
-        # Spec still exists in place
-        specs_dir = project / ".ai-engineering" / "context" / "specs"
-        assert (specs_dir / "006-done" / "spec.md").exists()
+        # spec.md still has real content
+        spec_text = (project / ".ai-engineering" / "specs" / "spec.md").read_text()
+        assert "Dry Run Spec" in spec_text
 
-    def test_multiple_orphans_archived(self, tmp_path):
-        """Multiple completed specs are all archived."""
-        project = _create_project(tmp_path)
-        _add_spec(project, "007-done-a", done=True)
-        _add_spec(project, "008-done-b", done=True, tasks_complete=True)
-        _add_spec(project, "009-wip")
-        _set_active(project, "007-done-a")
-
-        result = run_spec_reset(project)
-
-        assert "007-done-a" in result.archived_specs
-        assert "008-done-b" in result.archived_specs
-        assert "009-wip" not in result.archived_specs
-        assert len(result.archived_specs) == 2
-
-    def test_null_active_no_orphans(self, tmp_path):
-        """Null active with no completed specs is a no-op."""
-        project = _create_project(tmp_path)
-        _add_spec(project, "010-wip")
-        _set_active(project, None)
-
-        result = run_spec_reset(project)
-
-        assert result.archived_specs == []
-        assert result.active_spec_cleared is False
-        assert result.active_spec_was is None
-
-    def test_missing_specs_dir(self, tmp_path):
+    def test_missing_specs_dir(self, tmp_path: Path) -> None:
         """Missing specs directory returns error."""
         result = run_spec_reset(tmp_path)
         assert not result.success
         assert len(result.errors) > 0
 
-    def test_markdown_output(self, tmp_path):
+    def test_result_is_spec_reset_result(self, tmp_path: Path) -> None:
+        """run_spec_reset returns SpecResetResult dataclass."""
+        project = _create_project(tmp_path)
+        _set_active_spec(project, "Type Check")
+
+        result = run_spec_reset(project)
+
+        assert isinstance(result, SpecResetResult)
+
+    def test_markdown_output(self, tmp_path: Path) -> None:
         """to_markdown renders after a real reset."""
         project = _create_project(tmp_path)
-        _add_spec(project, "011-done", done=True)
-        _set_active(project, "011-done")
+        _set_active_spec(project, "Markdown Test", spec_id="011")
 
         result = run_spec_reset(project)
         md = result.to_markdown()
 
         assert "## Spec Reset Summary" in md
-        assert "`011-done`" in md
+        assert "`Markdown Test`" in md
+        assert "History updated" in md
+
+    def test_to_dict_output(self, tmp_path: Path) -> None:
+        """to_dict serializes correctly after reset."""
+        project = _create_project(tmp_path)
+        _set_active_spec(project, "Dict Test", spec_id="012")
+
+        result = run_spec_reset(project)
+        data = result.to_dict()
+
+        assert data["success"] is True
+        assert data["spec_title"] == "Dict Test"
+        assert data["history_updated"] is True
+        assert data["files_cleared"] is True

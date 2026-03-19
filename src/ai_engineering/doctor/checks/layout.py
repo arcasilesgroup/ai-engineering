@@ -8,9 +8,7 @@ from ai_engineering.doctor.models import CheckResult, CheckStatus, DoctorReport
 
 # Required directories under .ai-engineering/
 _REQUIRED_DIRS: list[str] = [
-    "standards",
-    "standards/framework",
-    "context",
+    "contexts",
     "state",
 ]
 

@@ -56,33 +56,33 @@ class TestHumanizeBranch:
 
 
 class TestReadActiveSpec:
-    """Tests for reading the active spec identifier."""
+    """Tests for reading the active spec identifier from specs/spec.md."""
 
     def test_returns_spec_id(self, tmp_path: Path) -> None:
-        # Arrange
-        active = tmp_path / ".ai-engineering" / "context" / "specs" / "_active.md"
-        active.parent.mkdir(parents=True)
-        active.write_text(
-            '---\nactive: "014-dual-vcs-provider"\nupdated: "2026-02-22"\n---\n',
+        spec = tmp_path / ".ai-engineering" / "specs" / "spec.md"
+        spec.parent.mkdir(parents=True)
+        spec.write_text(
+            '---\nid: "014"\n---\n\n# Spec 014 -- Dual VCS Provider\n',
             encoding="utf-8",
         )
+        assert _read_active_spec(tmp_path) == "014"
 
-        # Act & Assert
-        assert _read_active_spec(tmp_path) == "014-dual-vcs-provider"
-
-    def test_returns_none_when_none(self, tmp_path: Path) -> None:
-        active = tmp_path / ".ai-engineering" / "context" / "specs" / "_active.md"
-        active.parent.mkdir(parents=True)
-        active.write_text('---\nactive: "none"\n---\n', encoding="utf-8")
+    def test_returns_none_when_placeholder(self, tmp_path: Path) -> None:
+        spec = tmp_path / ".ai-engineering" / "specs" / "spec.md"
+        spec.parent.mkdir(parents=True)
+        spec.write_text(
+            "# No active spec\n\nRun /ai-brainstorm to start a new spec.\n",
+            encoding="utf-8",
+        )
         assert _read_active_spec(tmp_path) is None
 
     def test_returns_none_when_missing(self, tmp_path: Path) -> None:
         assert _read_active_spec(tmp_path) is None
 
-    def test_returns_none_when_no_frontmatter(self, tmp_path: Path) -> None:
-        active = tmp_path / ".ai-engineering" / "context" / "specs" / "_active.md"
-        active.parent.mkdir(parents=True)
-        active.write_text("# Active Spec\nNothing here.\n", encoding="utf-8")
+    def test_returns_none_when_empty_content(self, tmp_path: Path) -> None:
+        spec = tmp_path / ".ai-engineering" / "specs" / "spec.md"
+        spec.parent.mkdir(parents=True)
+        spec.write_text("# No active spec\n", encoding="utf-8")
         assert _read_active_spec(tmp_path) is None
 
 
@@ -142,9 +142,9 @@ class TestBuildPrTitle:
 
     def test_includes_spec_prefix(self, tmp_path: Path) -> None:
         # Arrange
-        active = tmp_path / ".ai-engineering" / "context" / "specs" / "_active.md"
-        active.parent.mkdir(parents=True)
-        active.write_text('---\nactive: "014-dual-vcs-provider"\n---\n', encoding="utf-8")
+        spec = tmp_path / ".ai-engineering" / "specs" / "spec.md"
+        spec.parent.mkdir(parents=True)
+        spec.write_text('---\nid: "014"\n---\n\n# Spec 014\n', encoding="utf-8")
 
         # Act
         with patch(
@@ -154,7 +154,7 @@ class TestBuildPrTitle:
             title = build_pr_title(tmp_path)
 
         # Assert
-        assert title == "spec-014-dual-vcs-provider: Dual vcs provider"
+        assert title == "spec-014: Dual vcs provider"
 
     def test_no_spec_uses_branch_only(self, tmp_path: Path) -> None:
         with patch(
@@ -175,14 +175,10 @@ class TestBuildPrDescription:
 
     def test_what_why_how_sections_with_spec(self, tmp_path: Path) -> None:
         # Arrange
-        specs_dir = tmp_path / ".ai-engineering" / "context" / "specs"
-        active = specs_dir / "_active.md"
+        specs_dir = tmp_path / ".ai-engineering" / "specs"
         specs_dir.mkdir(parents=True)
-        active.write_text('---\nactive: "014-my-feature"\n---\n', encoding="utf-8")
-        spec_file = specs_dir / "014-my-feature" / "spec.md"
-        spec_file.parent.mkdir()
-        spec_file.write_text(
-            "---\nid: 014\n---\n# Spec 014 — My Feature\n\n"
+        (specs_dir / "spec.md").write_text(
+            '---\nid: "014"\n---\n# Spec 014 — My Feature\n\n'
             "## Problem\n\nSomething is broken.\n\n## Solution\n\nFix it.\n",
             encoding="utf-8",
         )
@@ -202,7 +198,7 @@ class TestBuildPrDescription:
 
         # Assert
         assert "## What" in body
-        assert "Implements Spec 014 — My Feature." in body
+        assert "Implements Spec 014" in body
         assert "## Why" in body
         assert "Something is broken." in body
         assert "## How" in body
@@ -243,14 +239,10 @@ class TestBuildPrDescription:
         assert "## Checklist" in body
 
     def test_includes_spec_url_when_repo_detected(self, tmp_path: Path) -> None:
-        specs_dir = tmp_path / ".ai-engineering" / "context" / "specs"
-        active = specs_dir / "_active.md"
+        specs_dir = tmp_path / ".ai-engineering" / "specs"
         specs_dir.mkdir(parents=True)
-        active.write_text('---\nactive: "036-platform-runbooks"\n---\n', encoding="utf-8")
-        spec_file = specs_dir / "036-platform-runbooks" / "spec.md"
-        spec_file.parent.mkdir()
-        spec_file.write_text(
-            "# Spec 036 — Platform Runbooks\n\n## Problem\n\nMissing.\n",
+        (specs_dir / "spec.md").write_text(
+            '---\nid: "036"\n---\n# Spec 036 — Platform Runbooks\n\n## Problem\n\nMissing.\n',
             encoding="utf-8",
         )
 
@@ -268,18 +260,17 @@ class TestBuildPrDescription:
         ):
             body = build_pr_description(tmp_path)
 
-        assert "[036-platform-runbooks]" in body
+        assert "[036]" in body
         assert "github.com/org/repo/blob/main/" in body
         assert "spec.md)" in body
 
     def test_stats_section_with_diff(self, tmp_path: Path) -> None:
-        specs_dir = tmp_path / ".ai-engineering" / "context" / "specs"
-        active = specs_dir / "_active.md"
+        specs_dir = tmp_path / ".ai-engineering" / "specs"
         specs_dir.mkdir(parents=True)
-        active.write_text('---\nactive: "001-test"\n---\n', encoding="utf-8")
-        spec_file = specs_dir / "001-test" / "spec.md"
-        spec_file.parent.mkdir()
-        spec_file.write_text("# Spec 001 — Test\n", encoding="utf-8")
+        (specs_dir / "spec.md").write_text(
+            '---\nid: "001"\n---\n# Spec 001 — Test\n',
+            encoding="utf-8",
+        )
 
         call_count = 0
 
@@ -379,66 +370,26 @@ class TestGetRepoUrl:
 
 
 class TestBuildSpecUrl:
-    """Tests for spec URL construction."""
+    """Tests for spec URL construction (Working Buffer model)."""
 
-    def test_github_spec_url_active(self, tmp_path: Path) -> None:
-        """Active (non-archived) spec uses specs/{slug}/ path."""
+    def test_github_spec_url(self, tmp_path: Path) -> None:
+        """Spec URL uses fixed specs/spec.md path."""
         with patch(
             "ai_engineering.vcs.pr_description.run_git",
             return_value=(True, "https://github.com/org/repo"),
         ):
-            url = _build_spec_url(tmp_path, "036-platform-runbooks")
-        assert url == (
-            "https://github.com/org/repo/blob/main/"
-            ".ai-engineering/context/specs/036-platform-runbooks/spec.md"
-        )
-
-    def test_github_spec_url_archived(self, tmp_path: Path) -> None:
-        """Archived spec uses specs/archive/{slug}/ path."""
-        archive = (
-            tmp_path / ".ai-engineering" / "context" / "specs" / "archive" / "036-platform-runbooks"
-        )
-        archive.mkdir(parents=True)
-        (archive / "spec.md").write_text("# Spec", encoding="utf-8")
-
-        with patch(
-            "ai_engineering.vcs.pr_description.run_git",
-            return_value=(True, "https://github.com/org/repo"),
-        ):
-            url = _build_spec_url(tmp_path, "036-platform-runbooks")
-        assert url == (
-            "https://github.com/org/repo/blob/main/"
-            ".ai-engineering/context/specs/archive/036-platform-runbooks/spec.md"
-        )
+            url = _build_spec_url(tmp_path, "036")
+        assert url == ("https://github.com/org/repo/blob/main/.ai-engineering/specs/spec.md")
 
     def test_azure_devops_spec_url(self, tmp_path: Path) -> None:
         with patch(
             "ai_engineering.vcs.pr_description.run_git",
             return_value=(True, "https://dev.azure.com/myorg/myproj/_git/myrepo"),
         ):
-            url = _build_spec_url(tmp_path, "036-platform-runbooks")
+            url = _build_spec_url(tmp_path, "036")
         assert url == (
             "https://dev.azure.com/myorg/myproj/_git/myrepo"
-            "?path=/.ai-engineering/context/specs/036-platform-runbooks/spec.md"
-            "&version=GBmain"
-        )
-
-    def test_azure_devops_spec_url_archived(self, tmp_path: Path) -> None:
-        """Archived spec uses archive path on Azure DevOps."""
-        archive = (
-            tmp_path / ".ai-engineering" / "context" / "specs" / "archive" / "036-platform-runbooks"
-        )
-        archive.mkdir(parents=True)
-        (archive / "spec.md").write_text("# Spec", encoding="utf-8")
-
-        with patch(
-            "ai_engineering.vcs.pr_description.run_git",
-            return_value=(True, "https://dev.azure.com/myorg/myproj/_git/myrepo"),
-        ):
-            url = _build_spec_url(tmp_path, "036-platform-runbooks")
-        assert url == (
-            "https://dev.azure.com/myorg/myproj/_git/myrepo"
-            "?path=/.ai-engineering/context/specs/archive/036-platform-runbooks/spec.md"
+            "?path=/.ai-engineering/specs/spec.md"
             "&version=GBmain"
         )
 
@@ -450,9 +401,6 @@ class TestBuildSpecUrl:
             assert _build_spec_url(tmp_path, "036") is None
 
     def test_returns_none_for_unknown_provider(self, tmp_path: Path) -> None:
-        specs = tmp_path / ".ai-engineering" / "context" / "specs" / "036" / "spec.md"
-        specs.parent.mkdir(parents=True)
-        specs.write_text("spec", encoding="utf-8")
         with patch(
             "ai_engineering.vcs.pr_description.run_git",
             return_value=(True, "https://gitlab.com/org/repo.git"),
@@ -466,68 +414,45 @@ class TestBuildSpecUrl:
 
 
 class TestReadSpecContext:
-    """Tests for reading spec sections."""
+    """Tests for reading spec sections from Working Buffer."""
 
     def test_reads_title_problem_solution(self, tmp_path: Path) -> None:
-        # Arrange
-        spec_dir = tmp_path / ".ai-engineering" / "context" / "specs" / "001-test"
-        spec_dir.mkdir(parents=True)
-        (spec_dir / "spec.md").write_text(
+        specs_dir = tmp_path / ".ai-engineering" / "specs"
+        specs_dir.mkdir(parents=True)
+        (specs_dir / "spec.md").write_text(
             "---\nid: 001\n---\n# Spec 001 — My Feature Title\n\n"
             "## Problem\n\nThings are broken.\n\n## Solution\n\nFix them.\n",
             encoding="utf-8",
         )
 
-        # Act
-        ctx = _read_spec_context(tmp_path, "001-test")
+        ctx = _read_spec_context(tmp_path, "001")
 
-        # Assert
         assert ctx["title"] == "My Feature Title"
         assert ctx["problem"] == "Things are broken."
         assert ctx["solution"] == "Fix them."
-
-    def test_reads_from_archive(self, tmp_path: Path) -> None:
-        # Arrange
-        archive = tmp_path / ".ai-engineering" / "context" / "specs" / "archive" / "001-test"
-        archive.mkdir(parents=True)
-        (archive / "spec.md").write_text(
-            "# Spec 001 — Archived Feature\n\n## Problem\n\nOld issue.\n",
-            encoding="utf-8",
-        )
-
-        # Act
-        ctx = _read_spec_context(tmp_path, "001-test")
-
-        # Assert
-        assert ctx["title"] == "Archived Feature"
-        assert ctx["problem"] == "Old issue."
 
     def test_returns_empty_when_missing(self, tmp_path: Path) -> None:
         ctx = _read_spec_context(tmp_path, "nonexistent")
         assert ctx == {"title": "", "problem": "", "solution": ""}
 
     def test_returns_empty_on_os_error(self, tmp_path: Path) -> None:
-        spec_dir = tmp_path / ".ai-engineering" / "context" / "specs" / "003-err"
-        spec_dir.mkdir(parents=True)
-        spec_file = spec_dir / "spec.md"
-        spec_file.write_text("# Spec 003 — Err\n", encoding="utf-8")
+        specs_dir = tmp_path / ".ai-engineering" / "specs"
+        specs_dir.mkdir(parents=True)
+        (specs_dir / "spec.md").write_text("# Spec 003 — Err\n", encoding="utf-8")
         with patch.object(Path, "read_text", side_effect=OSError("perm denied")):
-            ctx = _read_spec_context(tmp_path, "003-err")
+            ctx = _read_spec_context(tmp_path, "003")
         assert ctx == {"title": "", "problem": "", "solution": ""}
 
     def test_returns_first_paragraph_only(self, tmp_path: Path) -> None:
-        # Arrange
-        spec_dir = tmp_path / ".ai-engineering" / "context" / "specs" / "002-multi"
-        spec_dir.mkdir(parents=True)
-        (spec_dir / "spec.md").write_text(
+        specs_dir = tmp_path / ".ai-engineering" / "specs"
+        specs_dir.mkdir(parents=True)
+        (specs_dir / "spec.md").write_text(
             "# Spec 002 — Multi Para\n\n## Problem\n\nFirst paragraph.\n\nSecond paragraph.\n",
             encoding="utf-8",
         )
 
-        # Act
-        ctx = _read_spec_context(tmp_path, "002-multi")
+        ctx = _read_spec_context(tmp_path, "002")
 
-        # Assert
         assert ctx["problem"] == "First paragraph."
 
 

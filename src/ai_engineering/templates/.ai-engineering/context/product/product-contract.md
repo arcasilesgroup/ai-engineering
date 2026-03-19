@@ -584,9 +584,9 @@ sequenceDiagram
 
 ### 7.4 Active Spec
 
-Read: `context/specs/_active.md`.
+Read: `specs/_active.md`.
 Verify: `ai-eng spec list`.
-Catalog: `context/specs/_catalog.md`.
+Catalog: `specs/_catalog.md`.
 
 ### 7.5 Blockers and Risks
 

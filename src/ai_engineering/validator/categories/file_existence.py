@@ -31,28 +31,16 @@ def _check_file_existence(
         )
         return
 
-    # Collect closed spec directories (have done.md = historical archive)
-    specs_dir_path = ai_dir / "context" / "specs"
-    closed_specs: set[Path] = set()
-    if specs_dir_path.is_dir():
-        for spec_dir in specs_dir_path.iterdir():
-            if spec_dir.is_dir() and (spec_dir / "done.md").exists():
-                closed_specs.add(spec_dir)
-        # The archive/ directory contains moved closed specs — always excluded
-        archive_dir = specs_dir_path / "archive"
-        if archive_dir.is_dir():
-            closed_specs.add(archive_dir)
+    # Working Buffer model: specs are transient files, not directories
+    # No closed-spec directory exclusion needed
 
-    # Scan all .md files for internal references (skip closed spec archives)
+    # Scan all .md files for internal references
     broken_refs: list[tuple[str, str]] = []
     if cache:
         md_files = [p for p in cache.rglob(ai_dir, "*.md") if p.is_file()]
     else:
         md_files = sorted(ai_dir.rglob("*.md"))
     for md_file in md_files:
-        # Skip files in closed spec directories — historical archives with old paths
-        if any(md_file.is_relative_to(s) for s in closed_specs):
-            continue
         content = md_file.read_text(encoding="utf-8", errors="replace")
         for match in _PATH_REF_PATTERN.finditer(content):
             ref_path = match.group(1) if match.group(1) else match.group(0)
@@ -119,34 +107,28 @@ def _check_file_existence(
             )
         )
 
-    # Verify spec directory completeness
-    specs_dir = ai_dir / "context" / "specs"
+    # Verify Working Buffer spec files exist
+    specs_dir = ai_dir / "specs"
     if specs_dir.is_dir():
-        for spec_dir in sorted(specs_dir.iterdir()):
-            if not spec_dir.is_dir() or spec_dir.name.startswith("_"):
-                continue
-            # Skip archive directory — historical specs with known stale paths
-            if spec_dir.name == "archive":
-                continue
-            required = ["spec.md", "plan.md", "tasks.md"]
-            missing = [f for f in required if not (spec_dir / f).exists()]
-            if missing:
-                report.checks.append(
-                    IntegrityCheckResult(
-                        category=IntegrityCategory.FILE_EXISTENCE,
-                        name=f"spec-{spec_dir.name}",
-                        status=IntegrityStatus.FAIL,
-                        message=f"Missing files: {', '.join(missing)}",
-                        file_path=spec_dir.relative_to(target).as_posix(),
-                    )
+        required_spec_files = ["spec.md", "plan.md"]
+        missing_spec = [f for f in required_spec_files if not (specs_dir / f).exists()]
+        if missing_spec:
+            report.checks.append(
+                IntegrityCheckResult(
+                    category=IntegrityCategory.FILE_EXISTENCE,
+                    name="spec-buffer",
+                    status=IntegrityStatus.FAIL,
+                    message=f"Missing spec files: {', '.join(missing_spec)}",
+                    file_path="specs/",
                 )
-            else:
-                report.checks.append(
-                    IntegrityCheckResult(
-                        category=IntegrityCategory.FILE_EXISTENCE,
-                        name=f"spec-{spec_dir.name}",
-                        status=IntegrityStatus.OK,
-                        message="Spec directory complete",
-                        file_path=spec_dir.relative_to(target).as_posix(),
-                    )
+            )
+        else:
+            report.checks.append(
+                IntegrityCheckResult(
+                    category=IntegrityCategory.FILE_EXISTENCE,
+                    name="spec-buffer",
+                    status=IntegrityStatus.OK,
+                    message="Spec buffer files present (spec.md, plan.md)",
+                    file_path="specs/",
                 )
+            )

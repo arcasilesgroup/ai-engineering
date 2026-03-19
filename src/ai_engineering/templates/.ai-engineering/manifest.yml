@@ -1,318 +1,115 @@
-# ══════════════════════════════════════════════════════════════════════════════
-# ENGINEER CONFIGURATION — Fill these sections for your project
-# ══════════════════════════════════════════════════════════════════════════════
-
-# Project identity — set your project name and description.
-metadata:
-  name: "ai-engineering"
-  description: "AI governance framework with mandatory local enforcement, observability, and DevSecOps"
-  updated: "2026-03-04"
-
-# Version control provider — which VCS platform does this project use?
-# Set primary to "github" or "azure-devops". Enable extensions if using Azure DevOps.
-providers:
-  vcs:
-    primary: "github"
-    enabled: ["github"]
-    extensions:
-      azure_devops:
-        enabled: false
-        organization: null
-        project: null
-        repository: null
-        work_item_type: "User Story"
-        constraints:
-          branch_name_required: true
-          work_item_link_optional: true
-
-# Work item tracking — connect to your project management tool.
-# Supports GitHub Projects, GitHub Issues, and Azure Boards.
-# Set enabled: false if you don't use work item tracking.
-work_items:
-  enabled: true
-  primary: "github-projects"
-  sources:
-    - type: "github-projects"
-      project: "https://github.com/orgs/arcasilesgroup/projects/4"
-      project_id: "PVT_kwDOC-uI1c4BQt9A"
-      fields:
-        status: "PVTSSF_lADOC-uI1c4BQt9Azg-wcrY"
-        priority: "PVTSSF_lADOC-uI1c4BQt9Azg-wcuM"
-        size: "PVTSSF_lADOC-uI1c4BQt9Azg-wcuQ"
-      status_options:
-        backlog: "f75ad846"
-        ready: "61e4505c"
-        in_progress: "47fc9ee4"
-        in_review: "df73e18b"
-        done: "98236657"
-      priority_options:
-        p0: "79628723"
-        p1: "0a877460"
-        p2: "da944a9c"
-      size_options:
-        xs: "6c6483d2"
-        s: "f784b110"
-        m: "7515a9f1"
-        l: "817d0097"
-        xl: "db339eb2"
-      labels_type: ["type:bug", "type:feature", "type:task", "type:refactor", "type:governance", "type:docs"]
-      labels_ready: ["ready", "agent-ready"]
-      labels_priority: ["p1-critical", "p2-high", "p3-normal"]
-    - type: "github-issues"
-      labels_ready: ["ready", "agent-ready"]
-    - type: "azure-boards"
-      project: null
-      query_ready: "[System.Tags] CONTAINS 'agent-ready'"
-  sync:
-    direction: bidirectional
-    on_spec_create: create_linked_issue
-    on_spec_close: close_linked_issue
-    on_task_complete: update_sub_issue
-
-# Issue format — field requirements and label mappings for work items.
-issue_standard:
-  source_of_truth: "project_fields"
-  labels_role: "compatibility_and_search"
-  required_fields: ["title", "type", "labels", "description", "priority", "size"]
-  required_on_start: ["start_date"]
-  required_on_create: ["target_date", "estimate"]
-  spec_url_format: "https://github.com/{owner}/{repo}/blob/{branch}/.ai-engineering/context/specs/{spec_id}/spec.md"
-  priority_labels: ["p1-critical", "p2-high", "p3-normal"]
-  size_labels: ["XS", "S", "M", "L", "XL"]
-  priority_mapping:
-    P0: "p1-critical"
-    P1: "p2-high"
-    P2: "p3-normal"
-
-# External documentation portal — auto-update a separate docs repo on commit/PR.
-# Set enabled: true and source to a local path or Git URL to activate.
-# update_method: "pr" creates a PR in the docs repo; "push" pushes directly.
-documentation:
-  external_portal:
-    enabled: false
-    source: null        # path local (e.g. "../docs-repo") o URL Git (e.g. "https://github.com/org/docs")
-    update_method: "pr" # "pr" = branch + PR con auto-complete | "push" = push directo a branch principal
-
-# Required and optional tooling per stack.
-# The framework checks these tools are installed via `ai-eng doctor`.
-tooling:
-  required:
-    python: ["uv", "ruff", "ty", "pip-audit"]
-    dotnet: ["dotnet"]
-    nextjs: ["node", "npm"]
-    security: ["gitleaks", "semgrep"]
-    vcs_cli: ["gh", "az"]
-  optional:
-    dast: ["zap-cli", "nuclei"]
-    container: ["trivy"]
-    sbom: ["cyclonedx-py", "cyclonedx-dotnet", "cdxgen"]
-    security: ["snyk"]
-  readiness:
-    require_install: true
-    require_configuration: true
-    require_auth_when_applicable: true
-
-# Telemetry — strictly opt-in. Set default_enabled: true only if you want telemetry on by default.
-telemetry:
-  mode: "strict_opt_in"
-  default_enabled: false
-
-# ══════════════════════════════════════════════════════════════════════════════
-# FRAMEWORK INTERNALS — Managed automatically, rarely edit manually
-# ══════════════════════════════════════════════════════════════════════════════
-
+# ai-engineering manifest
+# This file is user-configurable. Edit providers, stacks, quality gates,
+# and documentation settings to match your project.
+# Skills and agents registries are managed by the framework.
 schema_version: "2.0"
 framework_version: "0.4.0"
+name: ai-engineering
+version: "1.0.0"
 
-update_metadata:
-  rationale: "architecture v3.2: 8 agents, 34 skills — merged changelog→document, risk+standards→governance, onboard→guide, discover→plan; added integrity skill; fixed 5 CLI naming divergences; added ai-eng sync CLI command"
-  expected_gain: "leaner agent surface (removed execute/ship/observe/write), explorer agent for deep codebase research, simplifier agent for automated code cleanup"
-  potential_impact: "removed 4 agents (execute, ship, observe, write), added 2 agents (explorer, simplifier), removed 2 skills (cli absorbed into code, guide became agent-only)"
+# Providers
+providers:
+  vcs: github
+  ides: [claude_code, github_copilot]
+  stacks: [python]
 
-governance_surface:
-  agents:
-    total: 8
-    names: [plan, build, verify, guard, guide, operate, explorer, simplifier]
-  skills:
-    total: 34
-    organization: flat
-    prefix: "ai-"
-  integrity:
-    patterns_category_present: false
-    orphan_skills: 0
+# Work items — board/issue tracker integration
+# Configure your team's area path (Azure DevOps) or team label (GitHub Issues).
+# Both provider configs are always present — switching is a one-line change.
+work_items:
+  provider: github # 'github' or 'azure_devops'
+  azure_devops:
+    area_path: "Project\\TeamName"
+    # iteration_path: auto-detected from current sprint
+  github:
+    team_label: "team:core"
+    # project: optional GitHub project number
+  hierarchy:
+    feature: never_close # features are never closed by AI
+    user_story: close_on_pr # closed when PR merges
+    task: close_on_pr
+    bug: close_on_pr
 
+# Skills registry (31 skills)
+skills:
+  total: 31
+  prefix: "ai-"
+  registry:
+    # Core workflow
+    ai-brainstorm: { type: workflow, tags: [planning] }
+    ai-plan: { type: workflow, tags: [planning] }
+    ai-dispatch: { type: workflow, tags: [execution] }
+    ai-test: { type: workflow, tags: [quality] }
+    ai-debug: { type: workflow, tags: [quality] }
+    ai-verify: { type: workflow, tags: [quality] }
+    ai-review: { type: workflow, tags: [quality] }
+    # Delivery
+    ai-commit: { type: delivery, tags: [git] }
+    ai-pr: { type: delivery, tags: [git] }
+    ai-release: { type: delivery, tags: [release] }
+    ai-cleanup: { type: delivery, tags: [git] }
+    # Enterprise
+    ai-security: { type: enterprise, tags: [security] }
+    ai-governance: { type: enterprise, tags: [compliance] }
+    ai-pipeline: { type: enterprise, tags: [cicd] }
+    ai-schema: { type: enterprise, tags: [database] }
+    ai-solution-intent: { type: enterprise, tags: [documentation] }
+    # Teaching + Writing
+    ai-explain: { type: teaching, tags: [learning] }
+    ai-guide: { type: teaching, tags: [onboarding] }
+    ai-write: { type: writing, tags: [docs] }
+    # SDLC
+    ai-note: { type: sdlc, tags: [knowledge] }
+    ai-standup: { type: sdlc, tags: [reporting] }
+    ai-sprint: { type: sdlc, tags: [planning] }
+    ai-sprint-review: { type: sdlc, tags: [presentation, reporting] }
+    ai-postmortem: { type: sdlc, tags: [incident] }
+    ai-support: { type: sdlc, tags: [customer] }
+    ai-resolve-conflicts: { type: sdlc, tags: [git] }
+    # Meta
+    ai-create: { type: meta, tags: [framework] }
+    ai-learn: { type: meta, tags: [improvement] }
+    ai-prompt: { type: meta, tags: [optimization] }
+    ai-onboard: { type: meta, tags: [bootstrap] }
+    ai-analyze-permissions: { type: meta, tags: [permissions] }
+
+# Agents (8)
+agents:
+  total: 8
+  names: [plan, build, verify, guard, review, explore, guide, simplify]
+
+# Quality gates
+quality:
+  coverage: 80
+  duplication: 3
+  cyclomatic: 10
+  cognitive: 15
+
+# Ownership
 ownership:
-  root: ".ai-engineering"
-  model:
-    framework_managed:
-      - "standards/framework/**"
-      - "skills/**"
-      - "agents/**"
-      - "runbooks/**"
-      - "context/product/framework-contract.md"
-    team_managed:
-      - "standards/team/**"
-    project_managed:
-      - "context/**"
-    system_managed:
-      - "state/install-manifest.json"
-      - "state/ownership-map.json"
-      - "state/decision-store.json"
-      - "state/audit-log.ndjson"
-  external_framework_managed:
-    - "AGENTS.md"
-    - "CLAUDE.md"
-    - ".github/copilot-instructions.md"
-    - ".github/instructions/**"
-    - ".github/copilot/code-generation.md"
-    - ".github/copilot/test-generation.md"
-    - ".github/copilot/code-review.md"
-    - ".github/copilot/commit-message.md"
-    - ".github/prompts/**"
-    - ".github/agents/**"
-    - ".github/ISSUE_TEMPLATE/**"
-    - ".github/pull_request_template.md"
-    - ".agents/**"
-    - ".claude/settings.json"
-    - ".claude/skills/**"
-    - ".claude/agents/**"
+  framework: [".claude/skills/**", ".claude/agents/**", ".ai-engineering/**"]
+  team: [".ai-engineering/contexts/team/**"]
+  system: [".ai-engineering/state/**"]
 
-standards:
-  precedence:
-    - "standards/framework/core.md"
-    - "standards/framework/stacks/<stack>.md"
-    - "standards/team/core.md"
-    - "standards/team/stacks/<stack>.md"
-  non_negotiables:
-    - "mandatory_local_enforcement"
-    - "no_direct_commits_to_main_or_master"
-    - "protected_branch_push_block"
-    - "no_policy_weakening_without_risk_acceptance"
+# Tooling
+tooling: [uv, ruff, gitleaks, pytest, ty, pip-audit]
 
-commands:
-  commit:
-    default: ["stage", "commit", "push_current_branch"]
-    only: ["stage", "commit"]
-  pr:
-    default:
-      [
-        "stage",
-        "commit",
-        "push_current_branch",
-        "check_existing_pr",
-        "create_or_update_pr",
-        "enable_pr_auto_complete",
-      ]
-    only: ["check_existing_pr", "create_or_update_pr"]
-    when_branch_not_pushed:
-      severity: "warning"
-      propose_auto_push: true
-      continue_modes: ["defer-pr", "attempt-pr-anyway", "export-pr-payload"]
-  management:
-    stack: ["add", "remove", "list"]
-    ide: ["add", "remove", "list"]
+# Telemetry
+telemetry:
+  consent: strict-opt-in
+  default: disabled
 
-enforcement:
-  hooks:
-    non_bypassable: true
-    required: ["pre-commit", "commit-msg", "pre-push"]
-  ci:
-    required_workflows: ["ci", "ai-pr-review", "ai-eng-gate"]
-    block_on_findings: ["high", "critical"]
-  checks:
-    pre_commit:
-      common: ["gitleaks"]
-      python: ["ruff-format", "ruff-lint"]
-      dotnet: ["dotnet-format"]
-      nextjs: ["prettier-check", "eslint"]
-    pre_push:
-      common: ["semgrep"]
-      python: ["pip-audit", "stack-tests", "ty-check"]
-      dotnet: ["dotnet-build", "dotnet-test", "dotnet-vuln"]
-      nextjs: ["tsc-check", "vitest", "npm-audit"]
-
-pipelines:
-  full:
-    steps: [discover, architecture, risk, test-plan, spec, dispatch]
-    gates: [spec-required, user-approval-before-dispatch]
-    triggers: [new-feature, refactor, governance-change]
-  standard:
-    steps: [discover, risk, spec, dispatch]
-    gates: [spec-required]
-    triggers: [enhancement]
-  hotfix:
-    steps: [discover, risk, dispatch]
-    gates: [risk-acknowledged]
-    triggers: [bug-fix, security-patch]
-  trivial:
-    steps: [dispatch]
-    gates: []
-    triggers: [typo, comment, single-line]
-
-observability:
-  event_store: "state/audit-log.ndjson"
-  rotation: weekly
-  archive_pattern: "state/audit-archive/audit-YYYY-WW.ndjson"
-  retention_days: 90
-  audiences: [engineer, team, ai]
-  dora_enabled: true
-
-risk_acceptance:
-  remediation:
-    suggest_patch: true
-    auto_apply: false
-  persistence:
-    decision_store: ".ai-engineering/state/decision-store.json"
-    audit_log: ".ai-engineering/state/audit-log.ndjson"
-  reprompt_conditions:
-    - "decision_expired"
-    - "scope_changed"
-    - "severity_changed"
-    - "policy_changed"
-    - "material_context_hash_changed"
-
-agentic:
-  model: "session_scoped"
-  parallel_execution: true
-  session_contract:
-    start_sequence:
-      - "context/specs/_active.md"
-      - "<active_spec>/spec.md"
-      - "<active_spec>/tasks.md"
-      - "state/decision-store.json"
-    commit_format: "spec-{spec_id}: Task {task_id} — {description}"
-    close_actions:
-      - "update_task_checkboxes"
-      - "update_tasks_frontmatter"
-      - "validate_content_integrity"
-      - "report_summary"
-  branch_strategy:
-    integration_branch_pattern: "<spec_branch>"
-    phase_branch_pattern: "<spec_branch>-phase-{phase_number}"
-    serial_phases: "work_on_integration_branch"
-    parallel_phases: "work_on_phase_branch"
-    merge_protocol: "rebase_before_merge"
-  phase_gates:
-    required:
-      - "all_tasks_checked"
-      - "branch_merged_if_parallel"
-      - "quality_checks_pass"
-      - "decisions_recorded"
-    serial_block: true
-  decision_continuity:
-    store: "state/decision-store.json"
-    context_hash: "sha256"
-    reprompt_conditions:
-      - "decision_expired"
-      - "scope_changed"
-      - "severity_changed"
-      - "policy_changed"
-      - "material_context_hash_changed"
-
-context_optimization:
-  policy: "strict_efficiency_no_hard_category_caps"
-  required_fields_per_update: ["rationale", "expected_gain", "potential_impact"]
-  maintenance_agent:
-    cadence: "weekly"
-    output_mode: "local_report_first"
-    pr_after_approval: true
+# Documentation auto-update
+# readme: true — recursively scans ALL README*.md files (root + subdirectories)
+#   and updates each in context of its directory.
+# changelog: true — keeps CHANGELOG.md current with each PR.
+# solution_intent: true — syncs docs/solution-intent.md on architecture changes.
+documentation:
+  auto_update:
+    readme: true
+    changelog: true
+    solution_intent: true
+  external_portal:
+    enabled: false
+    source: null
+    update_method: "pr"

@@ -1,139 +1,116 @@
 ---
 name: plan
-version: 1.0.0
-description: 'Advisory planning: discover requirements, assess risks, recommend pipeline.
-  Zero writes.'
-argument-hint: '[topic]'
-tags: [planning, discovery, risk, advisory]
+description: Use when an approved spec exists and needs to be broken into executable tasks with agent assignments. Creates the implementation plan that /ai-dispatch executes.
+argument-hint: "[spec-NNN or topic]"
 ---
 
-# Advisory Planning
+
+
+# Plan
 
 ## Purpose
 
-Read-only planning skill that analyzes requirements, assesses risks, and recommends a pipeline strategy — without creating specs or modifying any files. Use when you need planning guidance without committing to a spec.
+Implementation planning skill. Takes an approved spec (from `/ai-brainstorm` or manual creation) and produces a phased execution plan with bite-sized tasks, agent assignments, and gate criteria. The plan is the contract that `/ai-dispatch` executes.
 
-This is the shared planning contract for both:
+HARD GATE: user must approve the plan before `/ai-dispatch` can run.
 
-- `#ai-plan` / `/ai-plan --plan-only` (advisory output only), and
-- the planning stages inside `.agents/agents/ai-plan.md` (classify/discover/assess/risk), before spec scaffolding and execution-plan assembly.
+## When to Use
 
-## Trigger
+- After `/ai-brainstorm` produces an approved spec
+- When a spec exists but plan.md has placeholder content
+- When re-planning is needed (plan failed, scope changed)
 
-- User invokes `/ai-plan --plan-only`
-- Copilot prompt `#ai-plan`
-- Need to assess scope before deciding whether to create a full spec
-- `.agents/agents/ai-plan.md` needs shared planning stages before invoking `.agents/skills/spec/SKILL.md`
+## Process
 
-> **Telemetry** (cross-IDE): run `ai-eng signals emit skill_invoked --actor=ai --detail='{"skill":"plan"}'` at skill start. Fail-open — skip if ai-eng unavailable.
+1. **Read spec** -- load `specs/spec.md`
+2. **Read context** -- `docs/solution-intent.md` section 7 (roadmap), `decision-store.json` (constraints)
+3. **Explore codebase** -- understand current architecture, patterns, and affected files
+4. **Classify pipeline** -- select full/standard/hotfix/trivial based on change scope
+5. **Decompose into tasks** -- bite-sized (2-5 min each), single-agent, single-concern
+6. **Assign agents** -- capability-match each task to the right agent
+7. **Order phases** -- define phase boundaries and gate criteria
+8. **Review plan** -- self-review with spec-reviewer pattern (max 2 iterations)
+9. **Write artifacts** -- persist plan.md via Write tool to `specs/plan.md`
+10. **STOP** -- present plan. User runs `/ai-dispatch` to execute.
 
-## Shared Rules (Canonical)
+## Pipeline Classification
 
-Use these rules as the single source of truth for planning behavior shared by skill and agent.
+| Pipeline | Trigger | Steps |
+|----------|---------|-------|
+| `full` | New feature, refactor, >5 files | discover, architecture, risk, test-plan, spec, dispatch |
+| `standard` | Enhancement, 3-5 files | discover, risk, spec, dispatch |
+| `hotfix` | Bug fix, security patch, <3 files | discover, risk, spec, dispatch |
+| `trivial` | Typo, comment, single-line | spec, dispatch |
 
-- **PLAN-R1 (Classification):** classify using the pipeline matrix in Step 1 (`full|standard|hotfix|trivial`).
-- **PLAN-R2 (Discovery evidence):** gather evidence from active spec, code/tests, decision store, and contracts; label findings as `KNOWN`, `ASSUMED`, or `UNKNOWN`.
-- **PLAN-R3 (Architecture depth):** for `full`/`standard`, include components, integration points, and cross-cutting concerns.
-- **PLAN-R4 (Risk dimensions):** assess complexity, security, compatibility, and governance compliance.
-- **PLAN-R5 (Interrogation):** for `full`/`standard` pipelines, explore the codebase and ask clarifying questions ONE AT A TIME before classification. Map all findings as `KNOWN`/`ASSUMED`/`UNKNOWN`. Do not proceed to spec creation with unresolved `UNKNOWN` items.
-- **PLAN-B1 (No execution while planning):** planning outputs analysis/plans only; do not execute implementation/release tasks.
+Override: `/ai-plan --pipeline=hotfix`.
 
-## Procedure
+## Task Decomposition Rules
 
-### Step 1 — Classify
+Each task MUST be:
 
-Analyze the request and classify the pipeline type:
+- **Bite-sized**: completable in 2-5 minutes by an agent
+- **Single-agent**: assigned to exactly one agent (build, verify, guard)
+- **Single-concern**: does one thing (not "implement feature AND write tests")
+- **Verifiable**: has a clear done condition (test passes, lint clean, file exists)
+- **Ordered**: dependencies are explicit (T-3 blocked by T-2)
 
-| Pipeline | Criteria                                           |
-| -------- | -------------------------------------------------- |
-| full     | New feature, refactor, governance change, >3 files |
-| standard | Enhancement, 3-5 files                             |
-| hotfix   | Bug fix, security patch, <3 files                  |
-| trivial  | Typo, comment, single-line change                  |
+**TDD enforcement**: for features needing tests, always produce paired tasks:
+- `T-N: Write failing tests for [feature]` (RED) -- assigned to build/test mode
+- `T-N+1: Implement [feature] to pass tests` (GREEN, blocked by T-N) -- assigned to build/code mode, constraint: "DO NOT modify test files from T-N"
 
-### Step 2 — Discover
+## Agent Assignment
 
-Scan available context to understand the request:
+| Agent | Capabilities | Assign when... |
+|-------|-------------|----------------|
+| `build` | Code read-write, tests, debug | Implementation, test writing, bug fixes |
+| `verify` | Read-only scanning, 7 modes | Quality checks, security scans, gap analysis |
+| `guard` | Advisory, drift detection | Pre-dispatch governance checks |
 
-- Active spec and completed specs (prior art)
-- Relevant source code and tests
-- Decision store (constraints from prior decisions)
-- Product and framework contracts
+## Plan Artifacts
 
-Classify findings as KNOWN, ASSUMED, or UNKNOWN.
-
-### Step 3 — Architecture Assessment
-
-For full/standard pipelines:
-
-- Identify affected components and integration points
-- Assess impact on existing architecture
-- Note any cross-cutting concerns (security, performance, accessibility)
-
-### Step 4 — Risk Assessment
-
-Evaluate risks across dimensions:
-
-- Technical complexity and unknowns
-- Security implications
-- Breaking changes or backward compatibility
-- Governance compliance gaps
-
-### Step 5 — Recommend
-
-Produce a conversational planning document:
+### plan.md
 
 ```markdown
-## Planning Assessment
+# Plan: spec-NNN [title]
 
-### Classification
+## Pipeline: [full|standard|hotfix|trivial]
+## Phases: N
+## Tasks: N (build: N, verify: N, guard: N)
 
-- **Pipeline**: full | standard | hotfix | trivial
-- **Scope**: [files/components affected]
-- **Estimated complexity**: low | medium | high
+### Phase 1: [name]
+**Gate**: [what must be true before Phase 2 starts]
+- T-1.1: [task description] (agent: build)
+- T-1.2: [task description] (agent: build)
 
-### Key Requirements
-
-- [Confirmed requirements from discovery]
-
-### Risks
-
-- [Risk, likelihood, impact, mitigation]
-
-### Recommended Approach
-
-- [Pipeline steps to execute]
-- [Agent assignments]
-- [Phase ordering]
-
-### Next Step
-
-- Run `/ai-plan` to create a full spec and execution plan
-- Or proceed directly with `/ai-execute` if plan already exists
+### Phase 2: [name]
+**Gate**: [what must be true before Phase 3 starts]
+...
 ```
 
-## Examples
+## Common Mistakes
 
-### Example 1: Assess scope of a feature request
+- Tasks too large (> 5 min). Split them.
+- Missing dependencies between tasks.
+- Assigning code-write tasks to verify (verify is read-only).
+- Not pairing RED/GREEN tasks for TDD.
+- Planning implementation details (plan says WHAT, code says HOW).
+- Skipping the review step.
 
-User says: `/ai-plan --plan-only "add OAuth support"`.
-Actions:
+## No-Execution Protocol
 
-1. Classify as full pipeline (new feature, likely >3 files).
-2. Discover: scan auth-related code, check decision store for prior auth decisions.
-3. Risk: security implications, integration with existing auth flow.
-4. Recommend: full pipeline with build + scan + security review.
+`/ai-plan` is planning-only. It MUST NOT:
+- Invoke `ai-build agent` or `/ai-dispatch` for task execution
+- Modify source code
+- Check off implementation tasks as completed
 
-## Governance Notes
+It MAY:
+- Write plan.md via Write tool to `specs/plan.md`
+- Run codebase exploration (read-only)
 
-- This skill is **read-only** — it produces analysis, not files.
-- Zero writes to disk. No spec creation, no branch creation, no task creation.
-- Output is conversational only — presented to the user for decision-making.
-- If the user wants to proceed, direct them to `/ai-plan` for full spec creation.
-- Enforces shared boundary `PLAN-B1` in advisory mode.
-- When the plan agent creates specs, it writes spec.md, plan.md, and tasks.md directly via Write tool. See `.agents/agents/ai-plan.md` Spec-as-Gate Pattern.
+## Integration
 
-## References
+- **Called by**: user directly, or after `/ai-brainstorm` approval
+- **Calls**: `/ai-explore` (codebase context), Write tool (artifact creation)
+- **Transitions to**: `/ai-dispatch` (ONLY -- user must invoke explicitly)
 
-- `.agents/agents/ai-plan.md` — full planning agent (creates specs, produces execution plan; discover mode embedded)
-- `.agents/skills/governance/SKILL.md` — governance validation including risk acceptance lifecycle
+$ARGUMENTS

@@ -1,21 +1,21 @@
 #!/usr/bin/env python3
-"""Sync command mirrors across all IDE surfaces with full embedded content.
+"""Sync command mirrors across all IDE surfaces from canonical .claude/ sources.
 
-Reads canonical skill and agent definitions from
-  src/ai_engineering/templates/.ai-engineering/
-then generates FULL IDE-adapted mirrors in:
-  - .claude/skills/          (Claude Code native skills — full content)
-  - .claude/agents/          (Claude Code native agents — full content)
-  - .agents/skills/          (generic IDE skills — full copy)
-  - .agents/agents/          (generic IDE agents — full content)
-  - .github/prompts/         (GitHub Copilot prompt files — full content)
-  - .github/agents/          (GitHub Copilot agent personas — full content)
+Canonical source (repo root):
+  .claude/skills/ai-*/SKILL.md   (+ optional handlers/)
+  .claude/agents/ai-*.md
 
-Also generates pre-built templates for ai-eng install in:
-  - src/ai_engineering/templates/project/.claude/
-  - src/ai_engineering/templates/project/prompts/
-  - src/ai_engineering/templates/project/agents/
-  - src/ai_engineering/templates/project/.agents/
+Generates mirrors in:
+  - .agents/skills/          (generic IDE skills -- strip ai- prefix from dir)
+  - .agents/agents/          (generic IDE agents -- copy as-is)
+  - .github/prompts/         (GitHub Copilot prompt files -- flatten handlers)
+  - .github/agents/          (GitHub Copilot agent personas)
+  - src/ai_engineering/templates/project/.claude/skills/   (install template)
+  - src/ai_engineering/templates/project/.claude/agents/   (install template)
+  - src/ai_engineering/templates/project/.agents/skills/   (install template)
+  - src/ai_engineering/templates/project/.agents/agents/   (install template)
+  - src/ai_engineering/templates/project/prompts/          (install template)
+  - src/ai_engineering/templates/project/agents/           (install template)
 
 Usage:
   python scripts/sync_command_mirrors.py            # generate all mirrors
@@ -37,16 +37,13 @@ ROOT = Path(__file__).resolve().parent.parent
 # Allow importing from src/ for shared utilities
 sys.path.insert(0, str(ROOT / "src"))
 
-# ── Canonical source paths (inside the Python package) ────────────────────
-CANONICAL_ROOT = ROOT / "src" / "ai_engineering" / "templates" / ".ai-engineering"
-SKILLS_ROOT = CANONICAL_ROOT / "skills"
-AGENTS_ROOT = CANONICAL_ROOT / "agents"
+# ── Canonical source paths (repo root .claude/) ──────────────────────────
+CLAUDE_SKILLS = ROOT / ".claude" / "skills"
+CLAUDE_AGENTS = ROOT / ".claude" / "agents"
 MANIFEST_PATH = ROOT / ".ai-engineering" / "manifest.yml"
 RUNBOOKS_ROOT = ROOT / ".ai-engineering" / "runbooks"
 
 # ── Mirror surface paths ────────────────────────────────────────────────
-CLAUDE_SKILLS = ROOT / ".claude" / "skills"
-CLAUDE_AGENTS = ROOT / ".claude" / "agents"
 AGENTS_SKILLS = ROOT / ".agents" / "skills"
 AGENTS_AGENTS = ROOT / ".agents" / "agents"
 GITHUB_PROMPTS = ROOT / ".github" / "prompts"
@@ -60,9 +57,6 @@ TPL_AGENTS_SKILLS = TPL_PROJECT / ".agents" / "skills"
 TPL_AGENTS_AGENTS = TPL_PROJECT / ".agents" / "agents"
 TPL_GITHUB_PROMPTS = TPL_PROJECT / "prompts"
 TPL_GITHUB_AGENTS = TPL_PROJECT / "agents"
-
-# Directories under skills/ that are NOT skills (no SKILL.md)
-SKILLS_EXCLUDE = {"references"}
 
 
 # ── Dataclasses ─────────────────────────────────────────────────────────────
@@ -78,104 +72,11 @@ class AgentMeta:
     claude_tools: tuple[str, ...]
 
 
-@dataclass(frozen=True)
-class AgentActivation:
-    """Mapping from skill name to agent activation."""
-
-    agent_name: str
-    description: str
-    argument_hint: str = ""
-
-
 # ── Agent metadata (single source for all surfaces) ────────────────────────
 AGENT_METADATA: dict[str, AgentMeta] = {
     "build": AgentMeta(
         display_name="Build",
-        description="Implementation across all stacks — the only code write agent",
-        model="opus",
-        color="green",
-        copilot_tools=(
-            "codebase",
-            "editFiles",
-            "fetch",
-            "githubRepo",
-            "problems",
-            "readFile",
-            "runCommands",
-            "search",
-            "terminalLastCommand",
-            "testFailures",
-        ),
-        claude_tools=("Read", "Write", "Edit", "Bash", "Glob", "Grep"),
-    ),
-    "explorer": AgentMeta(
-        display_name="Explorer",
-        description=(
-            "Context gatherer — deep codebase research, architecture mapping,"
-            " dependency tracing, pattern identification, risk surfacing."
-            " Read-only."
-        ),
-        model="opus",
-        color="teal",
-        copilot_tools=("codebase", "githubRepo", "readFile", "search"),
-        claude_tools=("Read", "Glob", "Grep"),
-    ),
-    "guard": AgentMeta(
-        display_name="Guard",
-        description=(
-            "Proactive governance advisor — checks standards, decisions,"
-            " and quality trends during development."
-            " Never blocks, always advisory."
-        ),
-        model="opus",
-        color="purple",
-        copilot_tools=(
-            "codebase",
-            "githubRepo",
-            "problems",
-            "readFile",
-            "search",
-        ),
-        claude_tools=("Read", "Glob", "Grep"),
-    ),
-    "guide": AgentMeta(
-        display_name="Guide",
-        description=(
-            "Developer education and onboarding — architecture tours,"
-            " decision archaeology, knowledge transfer."
-        ),
-        model="opus",
-        color="cyan",
-        copilot_tools=(
-            "codebase",
-            "fetch",
-            "githubRepo",
-            "readFile",
-            "search",
-        ),
-        claude_tools=("Read", "Glob", "Grep"),
-    ),
-    "operate": AgentMeta(
-        display_name="Operate",
-        description=(
-            "Operational runbook execution — incident response,"
-            " health monitoring, maintenance tasks, and recovery procedures."
-        ),
-        model="sonnet",
-        color="orange",
-        copilot_tools=(
-            "codebase",
-            "githubRepo",
-            "problems",
-            "readFile",
-            "runCommands",
-            "search",
-        ),
-        claude_tools=("Bash", "Read", "Glob", "Grep"),
-    ),
-    "plan": AgentMeta(
-        display_name="Plan",
-        description=("Advisory planning: classify scope, assess risks, and recommend pipeline"),
+        description="Implementation across all stacks -- the only code write agent",
         model="opus",
         color="blue",
         copilot_tools=(
@@ -190,17 +91,100 @@ AGENT_METADATA: dict[str, AgentMeta] = {
             "terminalLastCommand",
             "testFailures",
         ),
+        claude_tools=("Read", "Write", "Edit", "Bash", "Glob", "Grep"),
+    ),
+    "explore": AgentMeta(
+        display_name="Explorer",
+        description=(
+            "Context gatherer -- deep codebase research, architecture mapping,"
+            " dependency tracing, pattern identification, risk surfacing."
+            " Read-only."
+        ),
+        model="opus",
+        color="cyan",
+        copilot_tools=("codebase", "githubRepo", "readFile", "search"),
+        claude_tools=("Read", "Glob", "Grep"),
+    ),
+    "guard": AgentMeta(
+        display_name="Guard",
+        description=(
+            "Proactive governance advisor -- checks standards, decisions,"
+            " and quality trends during development."
+            " Never blocks, always advisory."
+        ),
+        model="opus",
+        color="yellow",
+        copilot_tools=(
+            "codebase",
+            "githubRepo",
+            "problems",
+            "readFile",
+            "search",
+        ),
+        claude_tools=("Read", "Glob", "Grep"),
+    ),
+    "guide": AgentMeta(
+        display_name="Guide",
+        description=(
+            "Developer education and onboarding -- architecture tours,"
+            " decision archaeology, knowledge transfer."
+        ),
+        model="opus",
+        color="cyan",
+        copilot_tools=(
+            "codebase",
+            "fetch",
+            "githubRepo",
+            "readFile",
+            "search",
+        ),
+        claude_tools=("Read", "Glob", "Grep"),
+    ),
+    "plan": AgentMeta(
+        display_name="Plan",
+        description="Advisory planning: classify scope, assess risks, and recommend pipeline",
+        model="opus",
+        color="purple",
+        copilot_tools=(
+            "codebase",
+            "editFiles",
+            "fetch",
+            "githubRepo",
+            "problems",
+            "readFile",
+            "runCommands",
+            "search",
+            "terminalLastCommand",
+            "testFailures",
+        ),
         claude_tools=("Read", "Glob", "Grep", "Bash", "Write", "Edit"),
     ),
-    "simplifier": AgentMeta(
+    "review": AgentMeta(
+        display_name="Review",
+        description=(
+            "Code review agent -- multi-pass review with"
+            " architecture, security, quality, and style checks."
+        ),
+        model="opus",
+        color="red",
+        copilot_tools=(
+            "codebase",
+            "githubRepo",
+            "problems",
+            "readFile",
+            "search",
+        ),
+        claude_tools=("Read", "Glob", "Grep"),
+    ),
+    "simplify": AgentMeta(
         display_name="Simplifier",
         description=(
-            "Background code simplifier — guard clauses, extract methods,"
+            "Background code simplifier -- guard clauses, extract methods,"
             " flatten nesting, remove dead code."
             " Runs post-build or continuous."
         ),
         model="opus",
-        color="lime",
+        color="green",
         copilot_tools=(
             "codebase",
             "editFiles",
@@ -217,10 +201,10 @@ AGENT_METADATA: dict[str, AgentMeta] = {
         description=(
             "7-mode assessment: governance, security, quality, performance,"
             " a11y, feature-gap, architecture"
-            " — produces GO/NO-GO verdicts."
+            " -- produces GO/NO-GO verdicts."
         ),
         model="opus",
-        color="red",
+        color="green",
         copilot_tools=(
             "codebase",
             "githubRepo",
@@ -234,113 +218,54 @@ AGENT_METADATA: dict[str, AgentMeta] = {
 }
 
 
-# ── Agent-activation skills ────────────────────────────────────────────────
-# These .claude/skills/ entries activate an agent instead of a canonical skill.
-AGENT_ACTIVATION_SKILLS: dict[str, AgentActivation] = {
-    "code": AgentActivation(
-        "build",
-        "Activate the ai-build agent for multi-stack implementation,"
-        " testing, debugging, refactoring.",
-    ),
-    "explore": AgentActivation(
-        "explorer",
-        "Activate the ai-explorer agent for deep codebase research,"
-        " architecture mapping, and context gathering.",
-    ),
-    "guard": AgentActivation(
-        "guard",
-        "Activate the ai-guard agent for proactive governance advisory,"
-        " drift detection, and shift-left enforcement.",
-        "all|advise|gate|drift",
-    ),
-    "guide": AgentActivation(
-        "guide",
-        "Activate the ai-guide agent for teaching, onboarding,"
-        " architecture tours, and decision archaeology.",
-        "teach|tour|why|onboard",
-    ),
-    "ops": AgentActivation(
-        "operate",
-        "Activate the ai-operate agent for runbook execution,"
-        " incident response, and operational health monitoring.",
-        "run|incident|status",
-    ),
-    "plan": AgentActivation(
-        "plan",
-        "Activate the ai-plan agent for architecture, planning,"
-        " spec creation, and roadmap guidance.",
-        "[topic]",
-    ),
-    "simplify": AgentActivation(
-        "simplifier",
-        "Activate the ai-simplifier agent for code simplification:"
-        " guard clauses, extract methods, flatten nesting, remove dead code.",
-    ),
-    "verify": AgentActivation(
-        "verify",
-        "Activate the ai-verify agent for 7-mode scanning:"
-        " governance, security, quality, performance, a11y,"
-        " feature-gap, architecture.",
-        "governance|security|quality|performance|a11y|feature|architecture|platform",
-    ),
-}
-
-# Skills that are ONLY agent-activation (no canonical SKILL.md exists)
-AGENT_ONLY_SKILLS = frozenset({"explore", "guide", "verify"})
-
-
-# ── Claude-specific skill extras ───────────────────────────────────────────
-# Additional body content appended AFTER the canonical skill body
-CLAUDE_SKILL_EXTRAS: dict[str, str] = {
-    "accessibility": (
-        "\nUse context:fork for isolated execution when performing heavy analysis.\n"
-    ),
-    "architecture": (
-        "\nUse context:fork for isolated execution"
-        " when performing heavy analysis.\n"
-        "\nModes: `architecture` (default),"
-        " `compatibility` (backwards compatibility analysis).\n"
-    ),
-    "dashboard": (
-        "\nUse context:fork for isolated execution"
-        " when performing heavy analysis.\n"
-        "\nModes: `engineer`, `team`, `ai`, `dora`, `health`.\n"
-    ),
-    "evolve": ("\nUse context:fork for isolated execution when performing heavy analysis.\n"),
-    "gap": (
-        "\nUse context:fork for isolated execution"
-        " when performing heavy analysis.\n"
-        "\nModes: `all` (default), `feature`, `wiring`,"
-        " `framework` (self-audit),"
-        " `correctness` (verify code does what PR/spec claims).\n"
-    ),
-    "governance": ("\nUse context:fork for isolated execution when performing heavy analysis.\n"),
-    "integrity": (
-        "\nUse context:fork for isolated execution when performing heavy analysis.\n"
-        "\nModes: `full` (default), `quick`, `sync`.\n"
-    ),
-    "performance": ("\nUse context:fork for isolated execution when performing heavy analysis.\n"),
-    "quality": ("\nUse context:fork for isolated execution when performing heavy analysis.\n"),
-    "security": ("\nUse context:fork for isolated execution when performing heavy analysis.\n"),
-}
-
-
-# ── Copilot workflow aliases (removed — use ai-prefixed prompts exclusively) ──
-
-
 # ── Cross-reference validation targets ──────────────────────────────────────
+# ── Instruction generation from contexts ─────────────────────────────────────
+CONTEXTS_LANGUAGES = ROOT / ".ai-engineering" / "contexts" / "languages"
+TPL_INSTRUCTIONS = TPL_PROJECT / "instructions"
+
+# Maps language context file stem to Copilot applyTo glob pattern
+LANG_EXTENSIONS: dict[str, str] = {
+    "python": "**/*.py",
+    "typescript": "**/*.ts,**/*.tsx",
+    "javascript": "**/*.js,**/*.jsx",
+    "rust": "**/*.rs",
+    "go": "**/*.go",
+    "java": "**/*.java",
+    "kotlin": "**/*.kt,**/*.kts",
+    "csharp": "**/*.cs",
+    "swift": "**/*.swift",
+    "dart": "**/*.dart",
+    "ruby": "**/*.rb",
+    "php": "**/*.php",
+    "elixir": "**/*.ex,**/*.exs",
+    "bash": "**/*.sh,**/*.bash",
+    "sql": "**/*.sql",
+}
+
+# Hand-maintained instruction files (not auto-generated)
+MANUAL_INSTRUCTIONS: set[str] = {
+    "testing.instructions.md",
+    "markdown.instructions.md",
+    "sonarqube_mcp.instructions.md",
+}
+
+
+def generate_instruction_from_context(lang: str, context_path: Path) -> str:
+    """Generate an instructions file from a language context.
+
+    Wraps context content with applyTo frontmatter for Copilot auto-injection.
+    """
+    apply_to = LANG_EXTENSIONS.get(lang, f"**/*.{lang}")
+    content = context_path.read_text(encoding="utf-8")
+    source = f".ai-engineering/contexts/languages/{lang}.md"
+    header = f"# {lang.title()} Instructions"
+    return f'---\napplyTo: "{apply_to}"\n---\n\n{header}\n\nGenerated from `{source}`.\n\n{content}'
+
+
 CROSS_REFERENCE_FILES: list[Path] = [
     ROOT / "CLAUDE.md",
     ROOT / "AGENTS.md",
     ROOT / ".github" / "copilot-instructions.md",
-    ROOT / ".github" / "copilot" / "code-generation.md",
-    ROOT / ".github" / "copilot" / "code-review.md",
-    ROOT / ".github" / "copilot" / "commit-message.md",
-    ROOT / ".github" / "copilot" / "test-generation.md",
-    ROOT / ".github" / "instructions" / "python.instructions.md",
-    ROOT / ".github" / "instructions" / "testing.instructions.md",
-    ROOT / ".github" / "instructions" / "markdown.instructions.md",
-    ROOT / ".github" / "instructions" / "sonarqube_mcp.instructions.md",
 ]
 
 
@@ -349,24 +274,22 @@ CROSS_REFERENCE_FILES: list[Path] = [
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-def read_canonical_body(path: Path) -> str:
-    """Read a canonical markdown file and return the body (without YAML frontmatter)."""
+def read_body(path: Path) -> str:
+    """Read a markdown file and return the body (without YAML frontmatter)."""
     text = path.read_text(encoding="utf-8")
     if not text.startswith("---"):
         return text
-    # Find the closing --- of the frontmatter block
     end = text.find("---", 3)
     if end == -1:
         return text
-    # Skip past the closing --- and any trailing newline
     body_start = end + 3
     if body_start < len(text) and text[body_start] == "\n":
         body_start += 1
     return text[body_start:]
 
 
-def read_canonical_frontmatter(path: Path) -> dict:
-    """Read a canonical markdown file and return the parsed YAML frontmatter dict."""
+def read_frontmatter(path: Path) -> dict:
+    """Read a markdown file and return the parsed YAML frontmatter dict."""
     import yaml
 
     text = path.read_text(encoding="utf-8")
@@ -381,24 +304,24 @@ def read_canonical_frontmatter(path: Path) -> dict:
 
 def _serialize_frontmatter(data: dict) -> str:
     """Serialize a frontmatter dict to YAML string (between --- fences)."""
-
-    # Ordered keys: name, version, description, argument-hint, mode, tags, requires
     ordered_keys = [
         "name",
-        "version",
         "description",
-        "argument-hint",
-        "mode",
         "color",
         "model",
+        "allowed-tools",
+        "argument-hint",
+        "disable-model-invocation",
+        "mode",
+        "version",
         "tags",
         "requires",
+        "tools",
     ]
     lines = ["---"]
     for key in ordered_keys:
         if key in data:
             lines.append(_format_yaml_field(key, data[key]))
-    # Any remaining keys
     for key in data:
         if key not in ordered_keys:
             lines.append(_format_yaml_field(key, data[key]))
@@ -409,14 +332,12 @@ def _serialize_frontmatter(data: dict) -> str:
 def _format_yaml_field(key: str, value) -> str:
     """Format a single YAML field for frontmatter."""
     if isinstance(value, str):
-        # Quote strings that contain special YAML chars
         if any(c in value for c in ":#{}[]|>&*!%@`"):
             return f'{key}: "{value}"'
         return f"{key}: {value}"
     if isinstance(value, list):
-        # Inline list format: [item1, item2]
         items = ", ".join(str(v) for v in value)
-        return f"key: [{items}]".replace("key:", f"{key}:")
+        return f"{key}: [{items}]"
     if isinstance(value, dict):
         import yaml
 
@@ -425,255 +346,253 @@ def _format_yaml_field(key: str, value) -> str:
     return f"{key}: {value}"
 
 
-# ── Cross-reference path patterns ──────────────────────────────────────────
-# Matches references like `skills/plan/SKILL.md`, `.ai-engineering/skills/plan/SKILL.md`,
-# `agents/build.md`, `.ai-engineering/agents/build.md`
-_XREF_PATTERN = re.compile(r"(`?)(?:\.ai-engineering/)?((?:skills|agents)/[^\s`*<>]+\.md)`?")
+# ── Cross-reference path translation ────────────────────────────────────────
+# Matches .claude/skills/ai-X/SKILL.md and .claude/agents/ai-X.md references
+_XREF_CLAUDE_SKILL = re.compile(r"(`?)\.claude/skills/ai-([^/`\s]+)/SKILL\.md(`?)")
+_XREF_CLAUDE_AGENT = re.compile(r"(`?)\.claude/agents/ai-([^.`\s]+)\.md(`?)")
 
 
-def _translate_path(match: re.Match[str], target_ide: str) -> str:
-    """Translate a single canonical path reference to IDE-specific path."""
-    backtick = match.group(1)
-    rel_path = match.group(2)
+def translate_refs(content: str, target_ide: str) -> str:
+    """Translate .claude/ path references to target IDE paths.
 
-    # Parse the path
-    parts = rel_path.split("/")
-    if len(parts) < 2:
-        return match.group(0)  # Can't parse, leave unchanged
-
-    category = parts[0]  # "skills" or "agents"
-
-    if category == "skills" and len(parts) >= 3:
-        # skills/<name>/SKILL.md
-        name = parts[1]
-        if target_ide == "claude":
-            new_path = f".claude/skills/ai-{name}/SKILL.md"
-        elif target_ide == "copilot":
-            new_path = f".github/prompts/ai-{name}.prompt.md"
-        else:  # generic
-            new_path = f".agents/skills/{name}/SKILL.md"
-    elif category == "agents" and len(parts) >= 2:
-        # agents/<name>.md
-        name = parts[1].removesuffix(".md")
-        if target_ide == "claude":
-            new_path = f".claude/agents/ai-{name}.md"
-        elif target_ide == "copilot":
-            new_path = f".github/agents/{name}.agent.md"
-        else:  # generic
-            new_path = f".agents/agents/ai-{name}.md"
-    else:
-        return match.group(0)  # Can't parse, leave unchanged
-
-    if backtick:
-        return f"`{new_path}`"
-    return new_path
-
-
-def transform_cross_references(content: str, target_ide: str) -> str:
-    """Translate canonical path references to IDE-specific paths.
-
-    Translates:
-      - skills/<name>/SKILL.md → IDE-specific skill path
-      - agents/<name>.md → IDE-specific agent path
-      - .ai-engineering/skills/... → same translation
-      - .ai-engineering/agents/... → same translation
-
-    Preserves:
-      - standards/... → .ai-engineering/standards/... (unchanged)
-      - context/... → .ai-engineering/context/... (unchanged)
-      - state/... → .ai-engineering/state/... (unchanged)
+    Canonical form: .claude/skills/ai-X/SKILL.md, .claude/agents/ai-X.md
+    Target surfaces:
+      - generic (.agents/): .agents/skills/X/SKILL.md, .agents/agents/ai-X.md
+      - copilot (.github/): .github/prompts/ai-X.prompt.md, .github/agents/X.agent.md
+      - claude: unchanged (canonical)
     """
-    return _XREF_PATTERN.sub(lambda m: _translate_path(m, target_ide), content)
+    if target_ide == "claude":
+        return content
+
+    def _replace_skill(m: re.Match[str]) -> str:
+        bt = m.group(1)
+        name = m.group(2)
+        if target_ide == "generic":
+            path = f".agents/skills/{name}/SKILL.md"
+        else:  # copilot
+            path = f".github/prompts/ai-{name}.prompt.md"
+        return f"{bt}{path}{bt}" if bt else path
+
+    def _replace_agent(m: re.Match[str]) -> str:
+        bt = m.group(1)
+        name = m.group(2)
+        if target_ide == "generic":
+            path = f".agents/agents/ai-{name}.md"
+        else:  # copilot
+            path = f".github/agents/{name}.agent.md"
+        return f"{bt}{path}{bt}" if bt else path
+
+    content = _XREF_CLAUDE_SKILL.sub(_replace_skill, content)
+    content = _XREF_CLAUDE_AGENT.sub(_replace_agent, content)
+
+    # Directory path translations (broader patterns -- run AFTER specific file translations)
+    if target_ide == "generic":
+        # .claude/skills/ (directory, not followed by ai-) -> .agents/skills/
+        content = re.sub(r"\.claude/skills/(?!ai-)", ".agents/skills/", content)
+        # .claude/agents/ (directory) -> .agents/agents/
+        content = re.sub(r"\.claude/agents/(?!ai-)", ".agents/agents/", content)
+    elif target_ide == "copilot":
+        # .claude/skills/ -> .github/prompts/
+        content = re.sub(r"\.claude/skills/(?!ai-)", ".github/prompts/", content)
+        # .claude/agents/ -> .github/agents/
+        content = re.sub(r"\.claude/agents/(?!ai-)", ".github/agents/", content)
+
+    return content
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# Discovery
+# Discovery (from canonical .claude/ sources)
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-def parse_frontmatter(path: Path) -> dict[str, str]:
-    """Extract YAML frontmatter fields from a markdown file."""
-    from ai_engineering.lib.parsing import parse_frontmatter as _parse
+def parse_frontmatter_simple(path: Path) -> dict[str, str]:
+    """Extract YAML frontmatter fields from a markdown file.
 
-    text = path.read_text(encoding="utf-8")
-    return _parse(text)
+    Uses full YAML parsing to handle complex values (lists, nested dicts)
+    then flattens to string values for the discovery interface.
+    """
+    fm = read_frontmatter(path)
+    # Flatten to strings for compatibility with discovery interface
+    result: dict[str, str] = {}
+    for key, value in fm.items():
+        if isinstance(value, str):
+            result[key] = value
+        elif isinstance(value, list):
+            result[key] = ", ".join(str(v) for v in value)
+        elif value is not None:
+            result[key] = str(value)
+    return result
 
 
 def discover_skills() -> list[tuple[str, dict[str, str], Path]]:
-    """Discover all skills from flat layout.
+    """Discover all skills from .claude/skills/ai-*/SKILL.md.
 
     Returns (name, frontmatter, skill_file_path) tuples.
+    Name is the bare name without the ai- prefix.
     """
     skills = []
-    for skill_dir in sorted(SKILLS_ROOT.iterdir()):
-        if not skill_dir.is_dir() or skill_dir.name in SKILLS_EXCLUDE:
+    for skill_dir in sorted(CLAUDE_SKILLS.iterdir()):
+        if not skill_dir.is_dir() or not skill_dir.name.startswith("ai-"):
             continue
         skill_file = skill_dir / "SKILL.md"
         if skill_file.is_file():
-            fm = parse_frontmatter(skill_file)
-            name = fm.get("name", skill_dir.name)
-            skills.append((name, fm, skill_file))
+            fm = parse_frontmatter_simple(skill_file)
+            # Strip ai- prefix for the bare name
+            bare_name = skill_dir.name.removeprefix("ai-")
+            skills.append((bare_name, fm, skill_file))
     return skills
 
 
-def discover_agents() -> list[tuple[str, dict[str, str]]]:
-    """Discover all agents. Returns (name, frontmatter) tuples."""
+def discover_agents() -> list[tuple[str, dict[str, str], Path]]:
+    """Discover all agents from .claude/agents/ai-*.md.
+
+    Returns (name, frontmatter, agent_file_path) tuples.
+    Name is the bare name without the ai- prefix.
+    """
     agents = []
-    for agent_file in sorted(AGENTS_ROOT.glob("*.md")):
-        fm = parse_frontmatter(agent_file)
-        name = fm.get("name", agent_file.stem)
-        agents.append((name, fm))
+    for agent_file in sorted(CLAUDE_AGENTS.glob("ai-*.md")):
+        fm = parse_frontmatter_simple(agent_file)
+        bare_name = agent_file.stem.removeprefix("ai-")
+        agents.append((bare_name, fm, agent_file))
     return agents
 
 
-# ═══════════════════════════════════════════════════════════════════════════
-# Generation — .claude/skills/ (full embedded content)
-# ═══════════════════════════════════════════════════════════════════════════
+def discover_handlers(skill_dir: Path) -> list[tuple[str, Path]]:
+    """Discover handler files under a skill's handlers/ directory.
 
-
-def generate_claude_skill(name: str, fm: dict[str, str], skill_path: Path) -> str:
-    """Generate .claude/skills/ai-<name>/SKILL.md with full embedded content."""
-    extras = CLAUDE_SKILL_EXTRAS.get(name, "")
-
-    # Read full frontmatter from canonical and adapt for Claude
-    canon_fm = read_canonical_frontmatter(skill_path)
-    canon_fm["name"] = f"ai-{name}"
-    # Remove fields not relevant for Claude skills
-    canon_fm.pop("metadata", None)
-
-    header = _serialize_frontmatter(canon_fm)
-
-    # Embed full canonical content with translated cross-references
-    body = read_canonical_body(skill_path)
-    body = transform_cross_references(body, "claude")
-
-    parts = [header, "", body.rstrip()]
-    if extras:
-        parts.append(extras)
-    parts.append("$ARGUMENTS")
-    parts.append("")
-    return "\n".join(parts)
-
-
-def generate_claude_agent_activation(
-    skill_name: str,
-    activation: AgentActivation,
-) -> str:
-    """Generate .claude/skills/ai-<name>/SKILL.md for agent-activation skills.
-
-    Embeds the full agent content so the behavior executes directly.
+    Returns (handler_name, handler_path) tuples sorted by name.
     """
-    agent_path = AGENTS_ROOT / f"{activation.agent_name}.md"
-    body = read_canonical_body(agent_path)
-    body = transform_cross_references(body, "claude")
-
-    lines = ["---"]
-    lines.append(f"name: ai-{skill_name}")
-    lines.append(f'description: "{activation.description}"')
-    if activation.argument_hint:
-        lines.append(f'argument-hint: "{activation.argument_hint}"')
-    lines.append("---")
-    lines.append("")
-    lines.append(body.rstrip())
-    lines.append("")
-    lines.append("$ARGUMENTS")
-    lines.append("")
-    return "\n".join(lines)
+    handlers_dir = skill_dir / "handlers"
+    if not handlers_dir.is_dir():
+        return []
+    handlers = []
+    for handler_file in sorted(handlers_dir.glob("*.md")):
+        handlers.append((handler_file.stem, handler_file))
+    return handlers
 
 
-# ═══════════════════════════════════════════════════════════════════════════
-# Generation — .claude/agents/ (full embedded content)
-# ═══════════════════════════════════════════════════════════════════════════
+def discover_scripts(skill_dir: Path) -> list[tuple[str, Path]]:
+    """Discover script files under a skill's scripts/ directory.
 
-
-def generate_claude_agent(name: str, meta: AgentMeta) -> str:
-    """Generate .claude/agents/ai-<name>.md with full embedded content."""
-    agent_path = AGENTS_ROOT / f"{name}.md"
-    body = read_canonical_body(agent_path)
-    body = transform_cross_references(body, "claude")
-
-    tools_str = ", ".join(meta.claude_tools)
-    lines = ["---"]
-    lines.append(f"name: ai-{name}")
-    lines.append(f"model: {meta.model}")
-    lines.append(f'description: "{meta.description}"')
-    lines.append(f"color: {meta.color}")
-    lines.append(f"tools: [{tools_str}]")
-    lines.append("---")
-    lines.append("")
-    lines.append(body.rstrip())
-    lines.append("")
-    return "\n".join(lines)
+    Returns (script_name, script_path) tuples sorted by name.
+    """
+    scripts_dir = skill_dir / "scripts"
+    if not scripts_dir.is_dir():
+        return []
+    scripts = []
+    for script_file in sorted(scripts_dir.glob("*")):
+        if script_file.is_file():
+            scripts.append((script_file.name, script_file))
+    return scripts
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# Generation — .agents/skills/ and .agents/agents/ (full content)
+# Generation -- .agents/skills/ (generic IDE)
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-def generate_agents_skill(canonical_path: Path) -> str:
-    """Generate .agents/skills/<name>/SKILL.md — full copy with translated refs."""
-    content = canonical_path.read_text(encoding="utf-8")
-    return transform_cross_references(content, "generic")
+def generate_agents_skill(name: str, skill_path: Path) -> str:
+    """Generate .agents/skills/<name>/SKILL.md -- translated refs, stripped ai- prefix."""
+    fm = read_frontmatter(skill_path)
+    body = read_body(skill_path)
 
+    # Adapt frontmatter: use bare name (no ai- prefix)
+    fm["name"] = name
+    fm.pop("metadata", None)
 
-def generate_agents_agent(name: str, meta: AgentMeta) -> str:
-    """Generate .agents/agents/ai-<name>.md — full embedded content."""
-    agent_path = AGENTS_ROOT / f"{name}.md"
-    body = read_canonical_body(agent_path)
-    body = transform_cross_references(body, "generic")
-
-    return (
-        f"---\n"
-        f"name: {name}\n"
-        f'description: "{meta.description}"\n'
-        f"model: {meta.model}\n"
-        f"color: {meta.color}\n"
-        f"---\n"
-        f"\n"
-        f"{body.rstrip()}\n"
-    )
-
-
-# ═══════════════════════════════════════════════════════════════════════════
-# Generation — .github/prompts/ and .github/agents/ (full content)
-# ═══════════════════════════════════════════════════════════════════════════
-
-
-def generate_skill_copilot_prompt(name: str, description: str, skill_path: Path) -> str:
-    """Generate Copilot prompt file with full embedded skill content."""
-    # Read full frontmatter from canonical and adapt for Copilot
-    canon_fm = read_canonical_frontmatter(skill_path)
-    canon_fm["name"] = f"ai-{name}"
-    canon_fm["mode"] = "agent"
-    canon_fm.pop("metadata", None)
-
-    header = _serialize_frontmatter(canon_fm)
-
-    body = read_canonical_body(skill_path)
-    body = transform_cross_references(body, "copilot")
+    header = _serialize_frontmatter(fm)
+    body = translate_refs(body, "generic")
 
     return f"{header}\n\n{body.rstrip()}\n"
 
 
-def generate_copilot_agent(name: str, meta: AgentMeta) -> str:
-    """Generate Copilot agent file with full embedded content."""
-    agent_path = AGENTS_ROOT / f"{name}.md"
-    body = read_canonical_body(agent_path)
-    body = transform_cross_references(body, "copilot")
+def generate_agents_agent(name: str, agent_path: Path) -> str:
+    """Generate .agents/agents/ai-<name>.md -- translated refs."""
+    fm = read_frontmatter(agent_path)
+    body = read_body(agent_path)
+
+    # Keep ai- prefix for agents in .agents/ surface
+    fm.pop("tools", None)  # tools are IDE-specific
+    fm.pop("metadata", None)
+
+    header = _serialize_frontmatter(fm)
+    body = translate_refs(body, "generic")
+
+    return f"{header}\n\n{body.rstrip()}\n"
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Generation -- .github/prompts/ and .github/agents/ (Copilot)
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+def generate_copilot_prompt(name: str, skill_path: Path) -> str:
+    """Generate .github/prompts/ai-<name>.prompt.md.
+
+    Merges SKILL.md + handlers/ into a single flattened prompt file.
+    """
+    fm = read_frontmatter(skill_path)
+    body = read_body(skill_path)
+
+    # Adapt frontmatter for Copilot
+    fm["name"] = f"ai-{name}"
+    fm["mode"] = "agent"
+    fm.pop("metadata", None)
+
+    header = _serialize_frontmatter(fm)
+    body = translate_refs(body, "copilot")
+
+    # Merge handlers into the body
+    skill_dir = skill_path.parent
+    handlers = discover_handlers(skill_dir)
+    handler_sections = []
+    for _handler_name, handler_path in handlers:
+        handler_content = handler_path.read_text(encoding="utf-8").rstrip()
+        handler_content = translate_refs(handler_content, "copilot")
+        handler_sections.append(handler_content)
+
+    parts = [header, "", body.rstrip()]
+    if handler_sections:
+        parts.append("")
+        parts.append("---")
+        parts.append("")
+        parts.extend(handler_sections)
+    parts.append("")
+    return "\n".join(parts)
+
+
+def generate_copilot_agent(name: str, meta: AgentMeta, agent_path: Path) -> str:
+    """Generate .github/agents/<name>.agent.md with full embedded content."""
+    body = read_body(agent_path)
+    body = translate_refs(body, "copilot")
 
     tools_str = ", ".join(meta.copilot_tools)
     return (
         f"---\n"
         f'name: "{meta.display_name}"\n'
         f'description: "{meta.description}"\n'
-        f"model: {meta.model}\n"
         f"color: {meta.color}\n"
+        f"model: {meta.model}\n"
         f"tools: [{tools_str}]\n"
         f"---\n"
         f"\n"
         f"{body.rstrip()}\n"
     )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Generation -- templates/project/ (for ai-eng install)
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+def generate_install_claude_skill(skill_path: Path) -> str:
+    """Copy .claude/skills/ai-<name>/SKILL.md as-is for install template."""
+    return skill_path.read_text(encoding="utf-8")
+
+
+def generate_install_claude_agent(agent_path: Path) -> str:
+    """Copy .claude/agents/ai-<name>.md as-is for install template."""
+    return agent_path.read_text(encoding="utf-8")
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -683,7 +602,7 @@ def generate_copilot_agent(name: str, meta: AgentMeta) -> str:
 
 def validate_canonical(
     skills: list[tuple[str, dict[str, str], Path]],
-    agents: list[tuple[str, dict[str, str]]],
+    agents: list[tuple[str, dict[str, str], Path]],
 ) -> tuple[list[str], list[str]]:
     """Validate canonical frontmatter: name + description required."""
     errors: list[str] = []
@@ -692,7 +611,7 @@ def validate_canonical(
         rel = path.relative_to(ROOT)
         if not fm.get("description"):
             errors.append(f"{rel}: missing 'description' in frontmatter")
-    for name, fm in agents:
+    for name, fm, _path in agents:
         if not fm.get("name"):
             warnings.append(f"Agent '{name}': missing 'name' in frontmatter")
     return errors, warnings
@@ -700,16 +619,16 @@ def validate_canonical(
 
 def validate_manifest(
     skills: list[tuple[str, dict[str, str], Path]],
-    agents: list[tuple[str, dict[str, str]]],
+    agents: list[tuple[str, dict[str, str], Path]],
 ) -> tuple[list[str], list[str]]:
-    """Validate governance_surface counts in manifest.yml."""
+    """Validate skill and agent counts against manifest.yml."""
     errors: list[str] = []
     warnings: list[str] = []
 
     try:
         import yaml
     except ImportError:
-        warnings.append("pyyaml not installed — skipping manifest validation")
+        warnings.append("pyyaml not installed -- skipping manifest validation")
         return errors, warnings
 
     if not MANIFEST_PATH.is_file():
@@ -717,20 +636,41 @@ def validate_manifest(
         return errors, warnings
 
     data = yaml.safe_load(MANIFEST_PATH.read_text(encoding="utf-8"))
-    gov = data.get("governance_surface", {})
-    m_agents = gov.get("agents", {})
-    m_skills = gov.get("skills", {})
 
-    expected_agent_count = m_agents.get("total", 0)
-    expected_agent_names = set(m_agents.get("names", []))
+    # Skills validation
+    m_skills = data.get("skills", {})
     expected_skill_count = m_skills.get("total", 0)
-
-    actual_agent_names = {name for name, _ in agents}
     actual_skill_count = len(skills)
 
-    if len(agents) != expected_agent_count:
+    if actual_skill_count != expected_skill_count:
         errors.append(
-            f"Agent count mismatch: manifest={expected_agent_count}, discovered={len(agents)}"
+            f"Skill count mismatch: manifest={expected_skill_count},"
+            f" discovered={actual_skill_count}"
+        )
+
+    # Check skill names match registry
+    registry = m_skills.get("registry", {})
+    expected_skill_names = {name.removeprefix("ai-") for name in registry}
+    actual_skill_names = {name for name, _, _ in skills}
+
+    missing_skills = expected_skill_names - actual_skill_names
+    extra_skills = actual_skill_names - expected_skill_names
+    if missing_skills:
+        errors.append(f"Skills in manifest but not found: {sorted(missing_skills)}")
+    if extra_skills:
+        errors.append(f"Skills found but not in manifest: {sorted(extra_skills)}")
+
+    # Agents validation
+    m_agents = data.get("agents", {})
+    expected_agent_count = m_agents.get("total", 0)
+    expected_agent_names = set(m_agents.get("names", []))
+    actual_agent_names = {name for name, _, _ in agents}
+    actual_agent_count = len(agents)
+
+    if actual_agent_count != expected_agent_count:
+        errors.append(
+            f"Agent count mismatch: manifest={expected_agent_count},"
+            f" discovered={actual_agent_count}"
         )
     if actual_agent_names != expected_agent_names:
         missing = expected_agent_names - actual_agent_names
@@ -739,12 +679,6 @@ def validate_manifest(
             errors.append(f"Agents in manifest but not found: {sorted(missing)}")
         if extra:
             errors.append(f"Agents found but not in manifest: {sorted(extra)}")
-
-    if actual_skill_count != expected_skill_count:
-        errors.append(
-            f"Skill count mismatch: manifest={expected_skill_count},"
-            f" discovered={actual_skill_count}"
-        )
 
     return errors, warnings
 
@@ -760,15 +694,9 @@ def validate_cross_references(*, verbose: bool = False) -> list[str]:
         text = ref_file.read_text(encoding="utf-8")
         for match in pattern.finditer(text):
             ref_path = ROOT / ".ai-engineering" / match.group(1)
-            # Allow glob-like references (e.g. **) and placeholders (e.g. <stack>)
+            # Allow glob-like references and placeholders
             if "*" in match.group(1) or "<" in match.group(1):
                 continue
-            # Allow agents/ and skills/ references that now live in templates
-            ref_rel = match.group(1)
-            if ref_rel.startswith(("agents/", "skills/")):
-                tpl_path = CANONICAL_ROOT / ref_rel
-                if tpl_path.exists():
-                    continue
             if not ref_path.exists():
                 rel_file = ref_file.relative_to(ROOT)
                 warnings.append(f"{rel_file}: broken reference `.ai-engineering/{match.group(1)}`")
@@ -799,20 +727,12 @@ def _generate_surface(
     verbose: bool,
     generated_paths: set[Path],
     diffs: list[str],
-    *,
-    tpl_path: Path | None = None,
 ) -> None:
-    """Generate a mirror file and optionally its template counterpart."""
+    """Generate a mirror file."""
     generated_paths.add(path)
     diff = _check_or_write(path, content, check_only, verbose)
     if diff:
         diffs.append(diff)
-    # Also generate in templates/project/ for ai-eng install
-    if tpl_path is not None:
-        generated_paths.add(tpl_path)
-        diff = _check_or_write(tpl_path, content, check_only, verbose)
-        if diff:
-            diffs.append(diff)
 
 
 def sync_all(*, check_only: bool = False, verbose: bool = False) -> int:
@@ -829,7 +749,7 @@ def sync_all(*, check_only: bool = False, verbose: bool = False) -> int:
     generated_paths: set[Path] = set()
 
     # ── Phase 1: Validate ───────────────────────────────────────────────
-    print("Validating canonical sources...")
+    print("Validating canonical sources (.claude/)...")
     errors, warnings = validate_canonical(skills, agents)
     if warnings:
         _print_issues("Canonical warnings", warnings)
@@ -854,79 +774,93 @@ def sync_all(*, check_only: bool = False, verbose: bool = False) -> int:
 
     skill_count = len(skills)
     agent_count = len(agents)
-    print(
-        f"Discovered: {skill_count} skills, {agent_count} agents,"
-        f" {len(AGENT_ACTIVATION_SKILLS)} agent-activation skills"
-    )
+    print(f"Discovered: {skill_count} skills, {agent_count} agents")
 
     # ── Phase 2: Generate surfaces ──────────────────────────────────────
 
-    # Surface 1: .claude/skills/ (full content)
-    for name, fm, skill_path in skills:
-        if name in AGENT_ACTIVATION_SKILLS:
-            continue  # Handled below as agent-activation
-        path = CLAUDE_SKILLS / f"ai-{name}" / "SKILL.md"
-        tpl = TPL_CLAUDE_SKILLS / f"ai-{name}" / "SKILL.md"
-        content = generate_claude_skill(name, fm, skill_path)
-        _generate_surface(path, content, check_only, verbose, generated_paths, diffs, tpl_path=tpl)
-
-    for skill_name, activation in AGENT_ACTIVATION_SKILLS.items():
-        path = CLAUDE_SKILLS / f"ai-{skill_name}" / "SKILL.md"
-        tpl = TPL_CLAUDE_SKILLS / f"ai-{skill_name}" / "SKILL.md"
-        content = generate_claude_agent_activation(skill_name, activation)
-        _generate_surface(path, content, check_only, verbose, generated_paths, diffs, tpl_path=tpl)
-
-    # Surface 1b: .claude/agents/ (full content — previously validate-only)
-    for name, _fm in agents:
-        meta = AGENT_METADATA.get(name)
-        if not meta:
-            print(f"  WARNING: No metadata for agent '{name}', skipping")
-            continue
-        path = CLAUDE_AGENTS / f"ai-{name}.md"
-        tpl = TPL_CLAUDE_AGENTS / f"ai-{name}.md"
-        content = generate_claude_agent(name, meta)
-        _generate_surface(path, content, check_only, verbose, generated_paths, diffs, tpl_path=tpl)
-
-    # Surface 2: .agents/skills/ (full copies with translated refs)
+    # Surface 1: .agents/skills/<name>/SKILL.md (strip ai- prefix)
     for name, _fm, skill_path in skills:
-        if name in AGENT_ONLY_SKILLS:
-            continue
         path = AGENTS_SKILLS / name / "SKILL.md"
         tpl = TPL_AGENTS_SKILLS / name / "SKILL.md"
-        content = generate_agents_skill(skill_path)
-        _generate_surface(path, content, check_only, verbose, generated_paths, diffs, tpl_path=tpl)
+        content = generate_agents_skill(name, skill_path)
+        _generate_surface(path, content, check_only, verbose, generated_paths, diffs)
+        _generate_surface(tpl, content, check_only, verbose, generated_paths, diffs)
 
-    # Surface 3: .agents/agents/ (full content)
-    for name, _fm in agents:
-        meta = AGENT_METADATA.get(name)
-        if not meta:
-            continue
+        # Also copy scripts if they exist
+        for script_name, script_path in discover_scripts(skill_path.parent):
+            for target in (
+                AGENTS_SKILLS / name / "scripts" / script_name,
+                TPL_AGENTS_SKILLS / name / "scripts" / script_name,
+            ):
+                script_content = script_path.read_text(encoding="utf-8")
+                _generate_surface(
+                    target, script_content, check_only, verbose, generated_paths, diffs
+                )
+
+    # Surface 2: .agents/agents/ai-<name>.md
+    for name, _fm, agent_path in agents:
         path = AGENTS_AGENTS / f"ai-{name}.md"
         tpl = TPL_AGENTS_AGENTS / f"ai-{name}.md"
-        content = generate_agents_agent(name, meta)
-        _generate_surface(path, content, check_only, verbose, generated_paths, diffs, tpl_path=tpl)
+        content = generate_agents_agent(name, agent_path)
+        _generate_surface(path, content, check_only, verbose, generated_paths, diffs)
+        _generate_surface(tpl, content, check_only, verbose, generated_paths, diffs)
 
-    # Surface 4: .github/prompts/ (full content, skip agent-only)
-    for name, fm, skill_path in skills:
-        if name in AGENT_ONLY_SKILLS:
-            continue
-        description = fm.get("description", "").strip("\"'")
+    # Surface 3: .github/prompts/ai-<name>.prompt.md (flatten handlers)
+    for name, _fm, skill_path in skills:
         path = GITHUB_PROMPTS / f"ai-{name}.prompt.md"
         tpl = TPL_GITHUB_PROMPTS / f"ai-{name}.prompt.md"
-        content = generate_skill_copilot_prompt(name, description, skill_path)
-        _generate_surface(path, content, check_only, verbose, generated_paths, diffs, tpl_path=tpl)
+        content = generate_copilot_prompt(name, skill_path)
+        _generate_surface(path, content, check_only, verbose, generated_paths, diffs)
+        _generate_surface(tpl, content, check_only, verbose, generated_paths, diffs)
 
-    # Surface 4b: (removed — workflow aliases without ai- prefix no longer generated)
-
-    # Surface 5: .github/agents/ (full content)
-    for name, _fm in agents:
+    # Surface 4: .github/agents/<name>.agent.md
+    for name, _fm, agent_path in agents:
         meta = AGENT_METADATA.get(name)
         if not meta:
+            print(f"  WARNING: No metadata for agent '{name}', skipping .github/agents/")
             continue
         path = GITHUB_AGENTS / f"{name}.agent.md"
         tpl = TPL_GITHUB_AGENTS / f"{name}.agent.md"
-        content = generate_copilot_agent(name, meta)
-        _generate_surface(path, content, check_only, verbose, generated_paths, diffs, tpl_path=tpl)
+        content = generate_copilot_agent(name, meta, agent_path)
+        _generate_surface(path, content, check_only, verbose, generated_paths, diffs)
+        _generate_surface(tpl, content, check_only, verbose, generated_paths, diffs)
+
+    # Surface 5: templates/project/.claude/ (copy canonical as-is for install)
+    for name, _fm, skill_path in skills:
+        tpl = TPL_CLAUDE_SKILLS / f"ai-{name}" / "SKILL.md"
+        content = generate_install_claude_skill(skill_path)
+        _generate_surface(tpl, content, check_only, verbose, generated_paths, diffs)
+
+        # Also copy handlers if they exist
+        handlers = discover_handlers(skill_path.parent)
+        for handler_name, handler_path in handlers:
+            tpl_handler = TPL_CLAUDE_SKILLS / f"ai-{name}" / "handlers" / f"{handler_name}.md"
+            handler_content = handler_path.read_text(encoding="utf-8")
+            _generate_surface(
+                tpl_handler, handler_content, check_only, verbose, generated_paths, diffs
+            )
+
+        # Also copy scripts if they exist
+        for script_name, script_path in discover_scripts(skill_path.parent):
+            tpl_script = TPL_CLAUDE_SKILLS / f"ai-{name}" / "scripts" / script_name
+            script_content = script_path.read_text(encoding="utf-8")
+            _generate_surface(
+                tpl_script, script_content, check_only, verbose, generated_paths, diffs
+            )
+
+    for name, _fm, agent_path in agents:
+        tpl = TPL_CLAUDE_AGENTS / f"ai-{name}.md"
+        content = generate_install_claude_agent(agent_path)
+        _generate_surface(tpl, content, check_only, verbose, generated_paths, diffs)
+
+    # Surface 6: instructions/{lang}.instructions.md (generated from contexts)
+    if CONTEXTS_LANGUAGES.is_dir():
+        for ctx_file in sorted(CONTEXTS_LANGUAGES.glob("*.md")):
+            lang = ctx_file.stem
+            if lang in LANG_EXTENSIONS:
+                tpl = TPL_INSTRUCTIONS / f"{lang}.instructions.md"
+                content = generate_instruction_from_context(lang, ctx_file)
+                _generate_surface(tpl, content, check_only, verbose, generated_paths, diffs)
 
     # ── Phase 3: Orphan detection ───────────────────────────────────────
     orphan_diffs = _handle_orphans(generated_paths, check_only, verbose)
@@ -993,20 +927,6 @@ def _handle_orphans(
     """Find and handle orphan files across all generated surfaces."""
     orphans: list[Path] = []
 
-    # .claude/skills/ai-*/SKILL.md
-    if CLAUDE_SKILLS.is_dir():
-        for skill_dir in CLAUDE_SKILLS.iterdir():
-            if skill_dir.is_dir() and skill_dir.name.startswith("ai-"):
-                skill_file = skill_dir / "SKILL.md"
-                if skill_file.is_file() and skill_file not in generated:
-                    orphans.append(skill_file)
-
-    # .claude/agents/ai-*.md
-    if CLAUDE_AGENTS.is_dir():
-        for f in CLAUDE_AGENTS.glob("ai-*.md"):
-            if f not in generated:
-                orphans.append(f)
-
     # .agents/skills/*/SKILL.md
     if AGENTS_SKILLS.is_dir():
         for skill_dir in AGENTS_SKILLS.iterdir():
@@ -1033,6 +953,46 @@ def _handle_orphans(
             if f not in generated:
                 orphans.append(f)
 
+    # templates/project/.claude/skills/ai-*/SKILL.md
+    if TPL_CLAUDE_SKILLS.is_dir():
+        for skill_dir in TPL_CLAUDE_SKILLS.iterdir():
+            if skill_dir.is_dir() and skill_dir.name.startswith("ai-"):
+                for f in skill_dir.rglob("*.md"):
+                    if f not in generated:
+                        orphans.append(f)
+
+    # templates/project/.claude/agents/ai-*.md
+    if TPL_CLAUDE_AGENTS.is_dir():
+        for f in TPL_CLAUDE_AGENTS.glob("ai-*.md"):
+            if f not in generated:
+                orphans.append(f)
+
+    # templates/project/.agents/skills/*/SKILL.md
+    if TPL_AGENTS_SKILLS.is_dir():
+        for skill_dir in TPL_AGENTS_SKILLS.iterdir():
+            if skill_dir.is_dir():
+                skill_file = skill_dir / "SKILL.md"
+                if skill_file.is_file() and skill_file not in generated:
+                    orphans.append(skill_file)
+
+    # templates/project/.agents/agents/ai-*.md
+    if TPL_AGENTS_AGENTS.is_dir():
+        for f in TPL_AGENTS_AGENTS.glob("ai-*.md"):
+            if f not in generated:
+                orphans.append(f)
+
+    # templates/project/prompts/*.prompt.md
+    if TPL_GITHUB_PROMPTS.is_dir():
+        for f in TPL_GITHUB_PROMPTS.glob("*.prompt.md"):
+            if f not in generated:
+                orphans.append(f)
+
+    # templates/project/agents/*.agent.md
+    if TPL_GITHUB_AGENTS.is_dir():
+        for f in TPL_GITHUB_AGENTS.glob("*.agent.md"):
+            if f not in generated:
+                orphans.append(f)
+
     orphans.sort()
     diffs: list[str] = []
     if orphans:
@@ -1044,10 +1004,11 @@ def _handle_orphans(
                 diffs.append(f"ORPHAN: {rel}")
             else:
                 orphan.unlink()
-                # Remove empty parent directories
+                # Remove empty parent directories up to the surface root
                 parent = orphan.parent
-                if parent.is_dir() and not any(parent.iterdir()):
+                while parent != ROOT and parent.is_dir() and not any(parent.iterdir()):
                     parent.rmdir()
+                    parent = parent.parent
                 diffs.append(f"REMOVED: {rel}")
     return diffs
 
@@ -1066,7 +1027,7 @@ def _print_issues(header: str, items: list[str]) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Sync mirror surfaces from canonical template sources.",
+        description="Sync mirror surfaces from canonical .claude/ sources.",
     )
     parser.add_argument(
         "--check",

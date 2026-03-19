@@ -4,14 +4,15 @@ Project instructions are canonical in `.ai-engineering/`.
 
 ## Source of Truth
 
-- Governance rules: `.ai-engineering/context/product/framework-contract.md`
-- Product context: `.ai-engineering/context/product/product-contract.md`
+- Config: `.ai-engineering/manifest.yml`
+- Decisions: `.ai-engineering/state/decision-store.json`
+- Contexts: `.ai-engineering/contexts/` (languages, frameworks, team)
 
 ## Session Start Protocol
 
 Before non-trivial work:
 
-1. **Read active spec** — `.ai-engineering/context/specs/_active.md` and linked spec/plan/tasks.
+1. **Read active spec** — `.ai-engineering/specs/spec.md` and `.ai-engineering/specs/plan.md`.
 2. **Read decision store** — `.ai-engineering/state/decision-store.json`.
 3. **Run cleanup** — sync repo (status, git pull, prune, branch cleanup).
 4. **Verify tooling** — ruff, gitleaks, pytest, ty.
@@ -22,7 +23,7 @@ During `/ai-plan`:
 
 1. **Analyze** — read code, discover requirements, assess risk (read-only).
 2. **Produce spec as text** — write the full spec as markdown in the conversation.
-3. **Persist via Write tool** — create spec.md, plan.md, and tasks.md directly using the Write tool into the appropriate `context/specs/NNN-<slug>/` directory. Update `_active.md` via the Edit tool.
+3. **Persist via Write tool** — write spec.md and plan.md directly to `specs/`.
 4. **Commit** — stage and commit the new files.
 5. **STOP** — present the result and wait for the user to invoke `/ai-dispatch`.
 
@@ -47,7 +48,7 @@ Telemetry is **automatic via hooks** — configured in `.github/hooks/hooks.json
 
 ## Quick Reference
 
-- Skills (34): `.github/prompts/ai-<name>.prompt.md`
+- Skills (31): `.github/prompts/ai-<name>.prompt.md`
 - Agents (8): `.github/agents/<name>.agent.md`
 - Quality: coverage 80%, duplication ≤3%, cyclomatic ≤10, cognitive ≤15
 - Security: zero medium+ findings, zero leaks, zero dependency vulns

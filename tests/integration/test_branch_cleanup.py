@@ -33,18 +33,6 @@ pytestmark = pytest.mark.integration
 def git_repo_with_branches(tmp_path: Path) -> Path:
     """Create a git repo with main + two merged feature branches."""
     subprocess.run(["git", "init", "-b", "main", str(tmp_path)], check=True, capture_output=True)
-    subprocess.run(
-        ["git", "config", "user.email", "test@test.com"],
-        cwd=tmp_path,
-        check=True,
-        capture_output=True,
-    )
-    subprocess.run(
-        ["git", "config", "user.name", "Test"],
-        cwd=tmp_path,
-        check=True,
-        capture_output=True,
-    )
     (tmp_path / "README.md").write_text("init")
     subprocess.run(["git", "add", "."], cwd=tmp_path, check=True, capture_output=True)
     subprocess.run(
@@ -131,18 +119,6 @@ class TestListMergedBranches:
     def test_empty_when_no_branches(self, tmp_path: Path) -> None:
         subprocess.run(
             ["git", "init", "-b", "main", str(tmp_path)], check=True, capture_output=True
-        )
-        subprocess.run(
-            ["git", "config", "user.email", "t@t.com"],
-            cwd=tmp_path,
-            check=True,
-            capture_output=True,
-        )
-        subprocess.run(
-            ["git", "config", "user.name", "T"],
-            cwd=tmp_path,
-            check=True,
-            capture_output=True,
         )
         (tmp_path / "f.txt").write_text("f")
         subprocess.run(["git", "add", "."], cwd=tmp_path, check=True, capture_output=True)
@@ -263,22 +239,12 @@ def git_repo_with_gone_branch(tmp_path: Path) -> Path:
     local = tmp_path / "local"
 
     # Create bare origin
-    subprocess.run(["git", "init", "--bare", str(origin)], check=True, capture_output=True)
+    subprocess.run(
+        ["git", "init", "--bare", "-b", "main", str(origin)], check=True, capture_output=True
+    )
 
     # Clone to local
     subprocess.run(["git", "clone", str(origin), str(local)], check=True, capture_output=True)
-    subprocess.run(
-        ["git", "config", "user.email", "test@test.com"],
-        cwd=local,
-        check=True,
-        capture_output=True,
-    )
-    subprocess.run(
-        ["git", "config", "user.name", "Test"],
-        cwd=local,
-        check=True,
-        capture_output=True,
-    )
 
     # Initial commit on main
     (local / "README.md").write_text("init")

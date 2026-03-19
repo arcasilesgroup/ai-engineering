@@ -88,9 +88,28 @@ def build_pr_description(project_root: Path, *, max_commits: int = 20) -> str:
 
     # -- Issue link -----------------------------------------------------
     if spec:
-        issue_ref = _build_issue_reference(project_root, spec)
-        if issue_ref:
-            lines.append(f"{issue_ref}\n")
+        spec_refs = _read_spec_refs(project_root)
+        if spec_refs:
+            closeable, mention_only = _resolve_refs(project_root, spec_refs)
+            if closeable or mention_only:
+                for ref in closeable:
+                    if ref.startswith("AB#"):
+                        lines.append(ref)
+                    else:
+                        lines.append(f"Closes {ref}")
+                for ref in mention_only:
+                    lines.append(f"Related: {ref}")
+                lines.append("")
+            else:
+                # Refs present but nothing resolved — fall back
+                issue_ref = _build_issue_reference(project_root, spec)
+                if issue_ref:
+                    lines.append(f"{issue_ref}\n")
+        else:
+            # No frontmatter refs — use legacy lookup
+            issue_ref = _build_issue_reference(project_root, spec)
+            if issue_ref:
+                lines.append(f"{issue_ref}\n")
 
     # -- Checklist -----------------------------------------------------
     lines.append("## Checklist\n")
@@ -187,12 +206,8 @@ def _build_spec_url(project_root: Path, spec: str) -> str | None:
     if not repo_url:
         return None
 
-    specs_dir = project_root / ".ai-engineering" / "context" / "specs"
-    archive_spec = specs_dir / "archive" / spec / "spec.md"
-    if archive_spec.exists():
-        spec_path = f".ai-engineering/context/specs/archive/{spec}/spec.md"
-    else:
-        spec_path = f".ai-engineering/context/specs/{spec}/spec.md"
+    # Working Buffer model: spec lives at fixed path
+    spec_path = ".ai-engineering/specs/spec.md"
 
     if "github.com" in repo_url:
         return f"{repo_url}/blob/main/{spec_path}"
@@ -204,53 +219,139 @@ def _build_spec_url(project_root: Path, spec: str) -> str | None:
 
 
 def _read_active_spec(project_root: Path) -> str | None:
-    """Read the active spec identifier from ``_active.md``.
+    """Read the active spec identifier from ``specs/spec.md``.
 
-    Parses the YAML frontmatter ``active:`` field.
+    Extracts the ``id`` field from YAML frontmatter, or falls back
+    to scanning for a ``# Spec NNN`` heading pattern.
 
     Args:
         project_root: Root directory of the project.
 
     Returns:
-        Active spec identifier (e.g. ``"014-dual-vcs-provider"``),
+        Active spec identifier (e.g. ``"055"``),
         or None if no spec is active or file is missing.
     """
-    active_path = project_root / ".ai-engineering" / "context" / "specs" / "_active.md"
-    if not active_path.exists():
+    spec_path = project_root / ".ai-engineering" / "specs" / "spec.md"
+    if not spec_path.exists():
         return None
 
     try:
-        text = active_path.read_text(encoding="utf-8")
+        text = spec_path.read_text(encoding="utf-8")
     except OSError:
         return None
 
-    match = re.search(r'^active:\s*"(.+?)"', text, re.MULTILINE)
+    # Placeholder means no active spec
+    if text.strip().startswith("# No active spec"):
+        return None
+
+    # Try frontmatter id field
+    match = re.search(r'^id:\s*["\']?(\S+?)["\']?\s*$', text, re.MULTILINE)
     if match:
-        value = match.group(1).strip()
-        if value.lower() == "none":
-            return None
-        return value
+        return match.group(1).strip()
+
+    # Fallback: NNN- pattern in headings
+    match = re.search(r"^# .*?(\d{3})-", text, re.MULTILINE)
+    if match:
+        return match.group(1)
+
     return None
 
 
-def _read_spec_context(project_root: Path, spec: str) -> dict[str, str]:
-    """Read ``spec.md`` and extract key sections for the PR description.
+def _read_spec_refs(project_root: Path) -> dict[str, list[str]]:
+    """Read work-item refs from spec frontmatter.
 
-    Checks both the active ``specs/{slug}/`` and archived
-    ``specs/archive/{slug}/`` locations.
+    Parses the ``refs`` block in ``specs/spec.md`` YAML frontmatter::
+
+        ---
+        id: "055"
+        refs:
+          features: [AB#100]
+          user_stories: [AB#101]
+          tasks: [AB#102, AB#103]
+          issues: ["#45", "#46"]
+        ---
 
     Args:
         project_root: Root directory of the project.
-        spec: Spec slug (e.g. ``"036-platform-runbooks"``).
+
+    Returns:
+        Dict with keys ``features``, ``user_stories``, ``tasks``,
+        ``issues`` (each a list of strings).  Empty dict if no refs
+        or no frontmatter found.
+    """
+    spec_path = project_root / ".ai-engineering" / "specs" / "spec.md"
+    if not spec_path.exists():
+        return {}
+
+    try:
+        text = spec_path.read_text(encoding="utf-8")
+    except OSError:
+        return {}
+
+    # Extract frontmatter block
+    fm_match = re.match(r"^---\n(.+?)\n---", text, re.DOTALL)
+    if not fm_match:
+        return {}
+
+    frontmatter = fm_match.group(1)
+
+    # Check if refs section exists
+    refs_match = re.search(r"^refs:\s*$", frontmatter, re.MULTILINE)
+    if not refs_match:
+        return {}
+
+    # Extract each ref category
+    result: dict[str, list[str]] = {}
+    for key in ("features", "user_stories", "tasks", "issues"):
+        pattern = rf"^\s+{key}:\s*\[([^\]]*)\]"
+        match = re.search(pattern, frontmatter, re.MULTILINE)
+        if match:
+            raw = match.group(1).strip()
+            if raw:
+                items = [item.strip().strip("\"'") for item in raw.split(",") if item.strip()]
+                result[key] = items
+
+    return result
+
+
+def _resolve_refs(
+    project_root: Path,
+    refs: dict[str, list[str]],
+) -> tuple[list[str], list[str]]:
+    """Resolve spec refs into closeable and mention-only lists.
+
+    Delegates to ``work_items.service.resolve_closeable_refs``
+    for hierarchy rule evaluation.
+
+    Args:
+        project_root: Root directory of the project.
+        refs: Ref dict from ``_read_spec_refs``.
+
+    Returns:
+        Tuple of ``(closeable_refs, mention_only_refs)``.
+    """
+    try:
+        from ai_engineering.work_items.service import resolve_closeable_refs
+    except ImportError:
+        return [], []
+
+    return resolve_closeable_refs(project_root, refs)
+
+
+def _read_spec_context(project_root: Path, spec: str) -> dict[str, str]:
+    """Read ``specs/spec.md`` and extract key sections for the PR description.
+
+    Uses the Working Buffer model: spec lives at ``specs/spec.md`` (fixed path).
+
+    Args:
+        project_root: Root directory of the project.
+        spec: Spec identifier (used for logging, not path construction).
 
     Returns:
         Dict with ``title``, ``problem``, ``solution`` (may be empty strings).
     """
     empty: dict[str, str] = {"title": "", "problem": "", "solution": ""}
-    specs_dir = project_root / ".ai-engineering" / "context" / "specs"
-    spec_path = specs_dir / spec / "spec.md"
-    if not spec_path.exists():
-        spec_path = specs_dir / "archive" / spec / "spec.md"
+    spec_path = project_root / ".ai-engineering" / "specs" / "spec.md"
     if not spec_path.exists():
         return empty
 

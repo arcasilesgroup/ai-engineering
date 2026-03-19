@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "*",
+      "WebSearch",
+      "mcp__notebooklm__list_notebooks",
+      "mcp__notebooklm__get_health",
+      "mcp__notebooklm__get_library_stats",
+      "mcp__notebooklm__setup_auth",
+      "mcp__notebooklm__cleanup_data",
+      "mcp__notebooklm-mcp__notebook_list"
+    ],
+    "deny": []
+  }
+}

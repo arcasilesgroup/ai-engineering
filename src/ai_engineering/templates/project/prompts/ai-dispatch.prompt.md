@@ -1,175 +1,131 @@
 ---
 name: ai-dispatch
-version: 1.0.0
-description: Use this skill to construct a task dependency DAG from plan.md and dispatch agents using a formal schema. Replaces implicit English-text dispatch with structured task assignments.
+description: Use when an approved plan exists (plan.md + tasks.md) and you need to execute it. Dispatches subagents per task with two-stage review and progress tracking.
+argument-hint: "[spec-NNN or --resume]"
 mode: agent
-tags: [orchestration, dispatch, dag, task-management, coordination]
 ---
+
 
 
 # Dispatch
 
 ## Purpose
 
-Construct a task dependency DAG from plan.md and produce structured dispatch entries for agent assignment. Replaces implicit English-text dispatch ("now run build on these files") with a formal schema that the execute agent can follow deterministically. This skill builds the dispatch plan; the execute agent runs it.
+Execution engine for approved plans. Reads plan.md and tasks.md, dispatches one subagent per task (fresh context), runs two-stage review on each deliverable, and tracks progress. If stuck: STOP and re-plan.
 
-Owned by the **execute agent**. Formalizes the dispatch step that execute performs before coordinating agents.
+## When to Use
 
-## Trigger
+- After `/ai-plan` produces an approved plan
+- To resume execution: `/ai-dispatch --resume`
+- Never without an approved plan (run `/ai-plan` first)
 
-- Command: `/ai-dispatch`
-- Context: an approved plan exists (plan.md + tasks.md) and the execute agent needs a structured dispatch plan before running phases.
-- Typically invoked by the execute agent as its first step, or by a human who wants to review the dispatch plan before execution.
+## Process
 
-> **Telemetry** (cross-IDE): run `ai-eng signals emit skill_invoked --actor=ai --detail='{"skill":"dispatch"}'` at skill start. Fail-open -- skip if ai-eng unavailable.
+1. **Load plan** -- read `specs/spec.md` -> `specs/plan.md`
+2. **Load decisions** -- read `decision-store.json` for constraints
+3. **Build DAG** -- parse task dependencies, identify parallel groups
+4. **Execute phase by phase** -- for each phase:
+   a. Dispatch one subagent per task (fresh context window)
+   b. Each subagent receives: task description, file scope, boundaries, constraints
+   c. Run two-stage review on deliverable (see below)
+   d. Update task status in tasks.md
+   e. Check phase gate before advancing
+5. **Track progress** -- update tasks.md checkboxes after each task
+6. **Report completion** -- summary of all tasks, any concerns raised
 
-## Procedure
+## Task Statuses
 
-### Step 1 -- Read Plan and Tasks
+| Status | Meaning | Action |
+|--------|---------|--------|
+| `DONE` | Task completed, reviews passed | Check off, advance |
+| `DONE_WITH_CONCERNS` | Completed but reviewer flagged issues | Check off, log concerns for follow-up |
+| `NEEDS_CONTEXT` | Agent needs information not in the plan | Pause, ask user, then resume |
+| `BLOCKED` | Cannot proceed (dependency, access, ambiguity) | STOP execution, re-plan |
 
-Load the active spec's execution artifacts:
+## Two-Stage Review
 
-1. Read `context/specs/_active.md` to identify the current spec.
-2. Read `plan.md` for phase ordering, agent assignments, and architecture decisions.
-3. Read `tasks.md` for the checkbox task list with phase groupings.
-4. Read `decision-store.json` for constraints that affect dispatch (e.g., serialization requirements, blocked paths).
+Every task deliverable goes through two reviews before marking DONE:
 
-If no active spec exists: STOP. Output: "No active plan found. Run `/ai-plan` first."
+### Stage 1: Spec Compliance
 
-### Step 2 -- Parse Task Structure
+- Does the deliverable match the task description?
+- Does it satisfy the acceptance criteria from spec.md?
+- Are all file scope boundaries respected (no out-of-scope changes)?
 
-Extract tasks from tasks.md into a structured list:
+### Stage 2: Code Quality
 
-- **Task ID**: derived from phase + sequence (e.g., `P1.1`, `P2.3`)
-- **Description**: the task text from the checkbox line
-- **Phase**: which phase the task belongs to
-- **Agent**: assigned agent from plan.md (build, scan, release, write, observe)
-- **Status**: `pending`, `in-progress`, or `done` (from checkbox state)
-- **File scope**: files or patterns the task will touch (inferred from description and plan architecture)
+- Stack validation passes (ruff, tsc, cargo check, etc.)
+- No new lint warnings introduced
+- Test coverage maintained or improved
+- No governance advisory warnings from guard
 
-Skip tasks already marked `[x]` (done). They do not need dispatch.
+If either stage fails: fix and re-review (max 2 retries per stage).
 
-### Step 3 -- Build Dependency DAG
+## DAG Construction
 
-Determine execution order by analyzing task dependencies:
+**Independent** (can run in parallel):
+- Different file scopes with no overlap
+- No producer-consumer relationship
+- Different modules with no shared state
 
-**Independence test** -- two tasks are independent (parallelizable) when:
-- They touch different files or directories
-- Neither produces output consumed by the other
-- They belong to different modules with no shared state
+**Dependent** (must serialize):
+- Task B reads files Task A creates
+- Task B depends on Task A's output
+- Both modify governance artifacts (`.ai-engineering/` must serialize)
+- Plan explicitly orders them
 
-**Dependency test** -- two tasks are dependent (must serialize) when:
-- Task B reads a file that Task A creates or modifies
-- Task B depends on Task A's output (e.g., "update config" before "run migration")
-- Plan.md explicitly states ordering (e.g., "Phase 2 after Phase 1 gate")
-- Both tasks modify the same governance artifact (`.ai-engineering/` files must serialize)
+## Subagent Context
 
-**DAG construction**:
-- Group independent tasks into **parallel groups** (can run simultaneously)
-- Chain dependent tasks into **serial chains** (must run in order)
-- Respect phase boundaries: all tasks in Phase N must complete before Phase N+1 starts
-
-### Step 4 -- Construct Dispatch Entries
-
-For each task (or parallel group), produce a structured dispatch entry:
+Each subagent receives a focused context window:
 
 ```yaml
-dispatch:
-  phase: <phase-id>          # e.g., "P1", "P2"
-  agent: <agent-name>        # e.g., "build", "scan", "release"
-  tasks: [<task-ids>]        # e.g., ["P1.1", "P1.2"]
-  scope:
-    files: [<file patterns>] # e.g., ["src/commands/*.py", "tests/test_commands.py"]
-    boundaries: [<exclusions>] # e.g., ["Do NOT modify install.sh", "Do NOT touch hooks/"]
-  gate:
-    pre: [guard.gate]        # gates to pass before starting
-    post: [verify.quality]   # gates to pass after completing
-  on_failure: escalate | retry | skip_and_log
+task: T-2.1
+description: "Implement the parse_config function"
+agent: build
+scope:
+  files: ["src/config.py", "tests/test_config.py"]
+  boundaries: ["Do NOT modify src/main.py", "Do NOT touch hooks/"]
+constraints:
+  - "Follow existing ConfigParser pattern in src/base_config.py"
+  - "TDD: test files from T-2.0 are IMMUTABLE"
+gate:
+  post: ["ruff check", "pytest tests/test_config.py"]
 ```
 
-**Field rules**:
-- `agent`: must match a known agent from `agents/` directory.
-- `scope.files`: be as specific as possible. Glob patterns are acceptable.
-- `scope.boundaries`: explicitly state what the agent must NOT touch. Prevents scope creep.
-- `gate.pre`: typically `guard.gate` (pre-flight checks). Add `security.scan` for security-sensitive tasks.
-- `gate.post`: typically `verify.quality` (lint, type check, tests). Add `verify.coverage` for test tasks.
-- `on_failure`: default to `escalate`. Use `retry` only for idempotent tasks. Use `skip_and_log` only for non-blocking tasks explicitly marked optional in the plan.
+## Stuck Protocol
 
-### Step 5 -- Validate Dispatch Plan
+If a task fails after 2 retries:
 
-Before presenting the dispatch plan, validate it:
+1. Mark task as BLOCKED with reason
+2. Check if other tasks in the phase can proceed independently
+3. If phase is blocked entirely: STOP execution
+4. Report to user: what failed, what was tried, options (re-plan, skip, manual fix)
 
-1. **Capability match**: verify each agent has the capabilities required by its assigned tasks. Cross-reference against the agent's `capabilities` list in its frontmatter. Flag mismatches.
-2. **Coverage check**: every pending task in tasks.md must appear in exactly one dispatch entry. No task left unassigned, no task assigned twice.
-3. **Cycle detection**: verify the DAG has no circular dependencies. If cycles are found, report the cycle and ask the human to resolve the ordering.
-4. **Boundary conflicts**: verify no two parallel tasks have overlapping file scopes. If overlap is found, serialize them.
+Never loop silently. Never retry the same approach more than twice.
 
-### Step 6 -- Present Dispatch Plan
+## Progress Tracking
 
-Output the complete dispatch plan as YAML, with a summary header:
+Update tasks.md in real-time:
 
 ```markdown
-## Dispatch Plan: spec-NNN
-
-**Tasks**: X pending (Y parallel groups, Z serial chains)
-**Agents**: [list of agents involved]
-**Estimated phases**: N
-**Validation**: PASS | FAIL (with details)
-
-### Phase 1: <phase name>
-
-[Dispatch entries for Phase 1 as YAML blocks]
-
-### Phase 2: <phase name>
-
-[Dispatch entries for Phase 2 as YAML blocks]
+- [x] T-1.1: Create config module @build -- DONE
+- [x] T-1.2: Add validation logic @build -- DONE_WITH_CONCERNS (perf warning)
+- [ ] T-2.1: Write integration tests @build -- IN PROGRESS
+- [ ] T-2.2: Security scan @verify -- PENDING
 ```
 
-The execute agent reads this plan and coordinates agent dispatch accordingly.
+## Common Mistakes
 
-## Output
+- Dispatching without an approved plan.
+- Giving subagents the entire codebase context (scope them tightly).
+- Skipping the two-stage review.
+- Continuing past a BLOCKED task without user input.
+- Modifying test files from a RED phase during a GREEN phase task.
 
-- Structured dispatch plan (YAML blocks in markdown)
-- Presented in conversation for human review, or written to plan.md as an appendix if the human approves
-- The execute agent uses this as its coordination blueprint
+## Integration
 
-## Limitations
+- **Called by**: user directly (after `/ai-plan` approval)
+- **Calls**: `ai-build agent` (build tasks), `/ai-verify` (scan tasks), `/ai-guard` (gate checks)
+- **Transitions to**: `/ai-commit` (after all tasks DONE), or back to `/ai-plan` (if re-plan needed)
 
-- This skill formalizes the **human's dispatch experience** -- it structures what execute already does implicitly.
-- True programmatic dispatch (machine-readable DAG with automated agent invocation) is aspirational and tracked as spec-052.
-- Dispatch entries are consumed by the execute agent within a single Claude Code session. 
-- The skill cannot validate that agents will succeed -- it only validates that the plan is structurally sound.
-
-## When NOT to Use
-
-- **No plan exists** -- use `/ai-plan` first to create plan.md and tasks.md.
-- **Trivial changes** -- single-task changes do not need a DAG. Execute directly.
-- **Active execution** -- do not re-dispatch mid-execution. Complete the current plan first.
-
-## Examples
-
-### Example 1: Multi-phase feature spec
-
-Active spec has 3 phases, 8 tasks, 2 agents (build + scan).
-
-1. **Parse**: 8 tasks extracted, 2 already done, 6 pending.
-2. **DAG**: Phase 2 has 3 independent build tasks (different files) -> parallel group. Phase 3 has scan depending on all builds -> serial after Phase 2.
-3. **Dispatch**: 2 parallel build entries for Phase 2, 1 scan entry for Phase 3.
-4. **Validate**: all agents have required capabilities, no file overlaps in parallel group.
-5. **Output**: structured plan with 2 phases, 3 dispatch entries.
-
-### Example 2: Governance change requiring serialization
-
-Active spec modifies 3 governance files in `.ai-engineering/`.
-
-1. **Parse**: 3 tasks, all touching `.ai-engineering/` directory.
-2. **DAG**: governance files must serialize (framework rule). All 3 tasks become a serial chain.
-3. **Dispatch**: 3 sequential dispatch entries, each with `gate.post: [verify.integrity]`.
-4. **Validate**: no parallel groups (correct for governance changes).
-
-## References
-
-- `.github/prompts/ai-plan.prompt.md` -- produces the plan.md that dispatch reads.
-- `.github/agents/build.agent.md` -- primary dispatch target for implementation tasks.
-- `.github/agents/verify.agent.md` -- dispatch target for quality and security validation.
-- `standards/framework/core.md` -- governance rules for serialization requirements.
+$ARGUMENTS

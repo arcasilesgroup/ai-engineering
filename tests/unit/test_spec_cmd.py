@@ -1,10 +1,8 @@
-"""Unit tests for ai_engineering.cli_commands.spec_cmd.
+"""Unit tests for ai_engineering.cli_commands.spec_cmd (Working Buffer model).
 
 Covers:
-- spec_verify: drift detection, auto-fix, signal emission, done.md warning.
-- spec_catalog: generation, tag index.
-- spec_list: active spec display.
-- spec_compact: age calculation, dry-run, done.md preservation.
+- spec_verify: drift detection, auto-fix, signal emission, placeholder handling.
+- spec_list: title extraction, progress display, placeholder handling.
 """
 
 from __future__ import annotations
@@ -13,244 +11,256 @@ from pathlib import Path
 
 import pytest
 
-from ai_engineering.cli_commands.spec_cmd import (
-    _auto_correct_frontmatter,
-    _find_all_spec_files,
-    _parse_age_threshold,
-)
+from ai_engineering.cli_commands.spec_cmd import _auto_correct_frontmatter
 from ai_engineering.lib.parsing import count_checkboxes, parse_frontmatter
 
 pytestmark = pytest.mark.unit
 
 
-def _create_spec_tree(
+def _create_plan_md(
     root: Path,
-    spec_id: str,
-    slug: str,
     *,
-    status: str = "in-progress",
-    created: str = "2025-01-15",
-    tags: str = "",
     total: int = 5,
     completed: int = 2,
-    done: bool = False,
     tasks_checkboxes: str | None = None,
+    placeholder: bool = False,
 ) -> Path:
-    """Create a minimal spec directory tree under archive/."""
-    archive = root / ".ai-engineering" / "context" / "specs" / "archive"
-    spec_dir = archive / f"{spec_id}-{slug}"
-    spec_dir.mkdir(parents=True, exist_ok=True)
-
-    tags_line = f"tags: [{tags}]" if tags else ""
-    spec_content = (
-        f"---\n"
-        f'id: "{spec_id}"\n'
-        f'slug: "{slug}"\n'
-        f'status: "{status}"\n'
-        f'created: "{created}"\n'
-        f"{tags_line}\n"
-        f"---\n\n"
-        f"# Spec {spec_id} — {slug}\n"
-    )
-    (spec_dir / "spec.md").write_text(spec_content)
-
-    if tasks_checkboxes is None:
-        checked_lines = "\n".join(f"- [x] {i}.1 Done" for i in range(completed))
-        unchecked_lines = "\n".join(f"- [ ] {i}.1 Todo" for i in range(completed, total))
-        tasks_checkboxes = f"{checked_lines}\n{unchecked_lines}"
-
-    tasks_content = (
-        f"---\n"
-        f'spec: "{spec_id}"\n'
-        f"total: {total}\n"
-        f"completed: {completed}\n"
-        f"---\n\n"
-        f"# Tasks\n\n{tasks_checkboxes}\n"
-    )
-    (spec_dir / "tasks.md").write_text(tasks_content)
-
-    if done:
-        (spec_dir / "done.md").write_text("# Done\n\nCompleted.\n")
-
-    return spec_dir
-
-
-def _create_active_md(root: Path, slug: str | None) -> None:
-    """Create _active.md pointing to given slug."""
-    specs_dir = root / ".ai-engineering" / "context" / "specs"
+    """Create a plan.md in the Working Buffer model."""
+    specs_dir = root / ".ai-engineering" / "specs"
     specs_dir.mkdir(parents=True, exist_ok=True)
-    if slug is None:
-        content = '---\nactive: null\nupdated: "2026-01-01"\n---\n\n# Active Spec\n'
+
+    if placeholder:
+        content = "# No active plan\n\nRun /ai-plan after brainstorm approval.\n"
     else:
-        content = f'---\nactive: "{slug}"\nupdated: "2026-01-01"\n---\n\n# Active Spec\n'
-    (specs_dir / "_active.md").write_text(content)
+        if tasks_checkboxes is None:
+            checked_lines = "\n".join(f"- [x] {i}.1 Done" for i in range(completed))
+            unchecked_lines = "\n".join(f"- [ ] {i}.1 Todo" for i in range(completed, total))
+            tasks_checkboxes = f"{checked_lines}\n{unchecked_lines}"
+
+        content = (
+            f"---\ntotal: {total}\ncompleted: {completed}\n---\n\n# Plan\n\n{tasks_checkboxes}\n"
+        )
+
+    plan_path = specs_dir / "plan.md"
+    plan_path.write_text(content)
+    return plan_path
+
+
+def _create_spec_md(
+    root: Path,
+    *,
+    title: str = "Test Feature",
+    placeholder: bool = False,
+) -> Path:
+    """Create a spec.md in the Working Buffer model."""
+    specs_dir = root / ".ai-engineering" / "specs"
+    specs_dir.mkdir(parents=True, exist_ok=True)
+
+    if placeholder:
+        content = "# No active spec\n\nRun /ai-brainstorm to start a new spec.\n"
+    else:
+        content = f'---\nid: "055"\n---\n\n# {title}\n\nSpec content here.\n'
+
+    spec_path = specs_dir / "spec.md"
+    spec_path.write_text(content)
+    return spec_path
 
 
 class TestAutoCorrectFrontmatter:
     """Tests for _auto_correct_frontmatter()."""
 
+    def _write_plan(self, root: Path, content: str) -> Path:
+        specs_dir = root / ".ai-engineering" / "specs"
+        specs_dir.mkdir(parents=True, exist_ok=True)
+        plan = specs_dir / "plan.md"
+        plan.write_text(content)
+        return plan
+
     def test_corrects_drifted_total(self, tmp_path: Path) -> None:
         """Drifted total is corrected."""
-        # Arrange
-        tasks = tmp_path / "tasks.md"
-        tasks.write_text(
-            '---\nspec: "001"\ntotal: 3\ncompleted: 1\n---\n\n'
-            "- [x] Done\n- [ ] Todo\n- [ ] Todo\n- [ ] Todo\n- [ ] Todo\n"
+        plan = self._write_plan(
+            tmp_path,
+            "---\ntotal: 3\ncompleted: 1\n---\n\n"
+            "- [x] Done\n- [ ] Todo\n- [ ] Todo\n- [ ] Todo\n- [ ] Todo\n",
         )
 
-        # Act
-        result = _auto_correct_frontmatter(tasks, 5, 1)
+        result = _auto_correct_frontmatter(tmp_path, 5, 1)
 
-        # Assert
         assert result is True
-        fm = parse_frontmatter(tasks.read_text())
+        fm = parse_frontmatter(plan.read_text())
         assert fm["total"] == "5"
 
     def test_corrects_drifted_completed(self, tmp_path: Path) -> None:
         """Drifted completed is corrected."""
-        # Arrange
-        tasks = tmp_path / "tasks.md"
-        tasks.write_text(
-            '---\nspec: "001"\ntotal: 3\ncompleted: 0\n---\n\n- [x] Done\n- [x] Done\n- [ ] Todo\n'
+        plan = self._write_plan(
+            tmp_path,
+            "---\ntotal: 3\ncompleted: 0\n---\n\n- [x] Done\n- [x] Done\n- [ ] Todo\n",
         )
 
-        # Act
-        result = _auto_correct_frontmatter(tasks, 3, 2)
+        result = _auto_correct_frontmatter(tmp_path, 3, 2)
 
-        # Assert
         assert result is True
-        fm = parse_frontmatter(tasks.read_text())
+        fm = parse_frontmatter(plan.read_text())
         assert fm["completed"] == "2"
 
     def test_no_correction_when_accurate(self, tmp_path: Path) -> None:
         """No changes when frontmatter matches reality."""
-        # Arrange
-        tasks = tmp_path / "tasks.md"
-        tasks.write_text(
-            '---\nspec: "001"\ntotal: 3\ncompleted: 1\n---\n\n- [x] Done\n- [ ] Todo\n- [ ] Todo\n'
+        self._write_plan(
+            tmp_path,
+            "---\ntotal: 3\ncompleted: 1\n---\n\n- [x] Done\n- [ ] Todo\n- [ ] Todo\n",
         )
 
-        # Act
-        result = _auto_correct_frontmatter(tasks, 3, 1)
+        result = _auto_correct_frontmatter(tmp_path, 3, 1)
 
-        # Assert
         assert result is False
-
-
-class TestFindAllSpecFiles:
-    """Tests for _find_all_spec_files()."""
-
-    def test_finds_specs_in_archive(self, tmp_path: Path) -> None:
-        """Finds spec.md files in archive subdirectories."""
-        # Arrange
-        _create_spec_tree(tmp_path, "001", "alpha")
-        _create_spec_tree(tmp_path, "002", "beta")
-
-        # Act
-        specs = _find_all_spec_files(tmp_path)
-
-        # Assert
-        assert len(specs) == 2
-
-    def test_empty_archive(self, tmp_path: Path) -> None:
-        """Empty archive returns empty list."""
-        # Arrange
-        archive = tmp_path / ".ai-engineering" / "context" / "specs" / "archive"
-        archive.mkdir(parents=True)
-
-        # Act
-        specs = _find_all_spec_files(tmp_path)
-
-        # Assert
-        assert specs == []
-
-    def test_no_archive(self, tmp_path: Path) -> None:
-        """Missing archive dir returns empty list."""
-        specs = _find_all_spec_files(tmp_path)
-        assert specs == []
-
-
-class TestParseAgeThreshold:
-    """Tests for _parse_age_threshold()."""
-
-    def test_months(self) -> None:
-        assert _parse_age_threshold("6m") == 180
-
-    def test_years(self) -> None:
-        assert _parse_age_threshold("1y") == 365
-
-    def test_days(self) -> None:
-        assert _parse_age_threshold("30d") == 30
-
-    def test_invalid_raises(self) -> None:
-        with pytest.raises(SystemExit):
-            try:
-                _parse_age_threshold("abc")
-            except Exception as exc:
-                # typer.Exit wraps click.exceptions.Exit
-                raise SystemExit(1) from exc
 
 
 class TestCountAndVerify:
     """Integration-style tests for verify logic."""
 
-    def test_checkbox_count_matches_tasks(self, tmp_path: Path) -> None:
-        """Checkbox count should match the tasks created."""
-        # Arrange
-        spec_dir = _create_spec_tree(tmp_path, "010", "test", total=5, completed=3)
+    def test_checkbox_count_matches_plan(self, tmp_path: Path) -> None:
+        """Checkbox count should match the tasks in plan.md."""
+        plan_path = _create_plan_md(tmp_path, total=5, completed=3)
 
-        # Act
-        tasks_text = (spec_dir / "tasks.md").read_text()
-        total, checked = count_checkboxes(tasks_text)
+        plan_text = plan_path.read_text()
+        total, checked = count_checkboxes(plan_text)
 
-        # Assert
         assert total == 5
         assert checked == 3
 
     def test_drift_detected_and_fixed(self, tmp_path: Path) -> None:
         """When frontmatter says 2/5 but checkboxes say 3/5, auto-fix corrects."""
-        # Arrange
-        spec_dir = _create_spec_tree(tmp_path, "011", "drift", total=5, completed=2)
-        tasks_path = spec_dir / "tasks.md"
+        plan_path = _create_plan_md(tmp_path, total=5, completed=2)
 
         # Write content with 3 checked but frontmatter says 2
-        tasks_path.write_text(
-            '---\nspec: "011"\ntotal: 5\ncompleted: 2\n---\n\n'
-            "- [x] A\n- [x] B\n- [x] C\n- [ ] D\n- [ ] E\n"
+        plan_path.write_text(
+            "---\ntotal: 5\ncompleted: 2\n---\n\n- [x] A\n- [x] B\n- [x] C\n- [ ] D\n- [ ] E\n"
         )
 
-        # Act
-        real_total, real_completed = count_checkboxes(tasks_path.read_text())
-        corrected = _auto_correct_frontmatter(tasks_path, real_total, real_completed)
+        real_total, real_completed = count_checkboxes(plan_path.read_text())
+        corrected = _auto_correct_frontmatter(tmp_path, real_total, real_completed)
 
-        # Assert
         assert real_total == 5
         assert real_completed == 3
         assert corrected is True
-        fm = parse_frontmatter(tasks_path.read_text())
+        fm = parse_frontmatter(plan_path.read_text())
         assert fm["completed"] == "3"
         assert fm["total"] == "5"
 
 
-class TestSpecCompactLogic:
-    """Tests for compact threshold and done.md preservation."""
+class TestSpecMdWorkingBuffer:
+    """Tests for the Working Buffer spec.md model."""
 
-    def test_old_spec_is_candidate(self, tmp_path: Path) -> None:
-        """Spec older than 6 months is a compact candidate."""
-        spec_dir = _create_spec_tree(tmp_path, "001", "old", created="2024-01-01", done=True)
-        assert (spec_dir / "done.md").exists()
-        assert (spec_dir / "spec.md").exists()
+    def test_placeholder_spec_detected(self, tmp_path: Path) -> None:
+        """Placeholder content is recognized as no active spec."""
+        spec_path = _create_spec_md(tmp_path, placeholder=True)
+        content = spec_path.read_text()
+        assert content.strip().startswith("# No active spec")
 
-        fm = parse_frontmatter((spec_dir / "spec.md").read_text())
-        assert fm["created"] == "2024-01-01"
+    def test_active_spec_title_extracted(self, tmp_path: Path) -> None:
+        """Title is extracted from first H1 heading."""
+        spec_path = _create_spec_md(tmp_path, title="Radical Simplification")
+        content = spec_path.read_text()
+        for line in content.splitlines():
+            if line.startswith("# "):
+                title = line[2:].strip()
+                break
+        assert title == "Radical Simplification"
 
-    def test_recent_spec_not_candidate(self, tmp_path: Path) -> None:
-        """Spec newer than threshold is not a candidate."""
-        spec_dir = _create_spec_tree(tmp_path, "033", "recent", created="2026-02-01", done=True)
-        fm = parse_frontmatter((spec_dir / "spec.md").read_text())
-        assert fm["created"] == "2026-02-01"
+    def test_placeholder_plan_detected(self, tmp_path: Path) -> None:
+        """Placeholder plan is recognized."""
+        plan_path = _create_plan_md(tmp_path, placeholder=True)
+        content = plan_path.read_text()
+        assert content.strip().startswith("# No active plan")
 
-    def test_spec_without_done_not_candidate(self, tmp_path: Path) -> None:
-        """Spec without done.md cannot be compacted."""
-        spec_dir = _create_spec_tree(tmp_path, "005", "nodone", created="2024-01-01", done=False)
-        assert not (spec_dir / "done.md").exists()
+
+class TestSpecVerifyCli:
+    """Tests for spec_verify CLI function."""
+
+    def test_verify_no_plan_exits(self, tmp_path: Path) -> None:
+        from unittest.mock import patch
+
+        import click
+
+        from ai_engineering.cli_commands.spec_cmd import spec_verify
+
+        with (
+            patch("ai_engineering.cli_commands.spec_cmd.find_project_root", return_value=tmp_path),
+            pytest.raises(click.exceptions.Exit),
+        ):
+            spec_verify()
+
+    def test_verify_placeholder_plan(self, tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
+        from unittest.mock import patch
+
+        from ai_engineering.cli_commands.spec_cmd import spec_verify
+
+        _create_plan_md(tmp_path, placeholder=True)
+        with patch("ai_engineering.cli_commands.spec_cmd.find_project_root", return_value=tmp_path):
+            spec_verify()
+        assert "No active plan" in capsys.readouterr().out
+
+    def test_verify_counters_match(self, tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
+        from unittest.mock import patch
+
+        from ai_engineering.cli_commands.spec_cmd import spec_verify
+
+        _create_plan_md(tmp_path, total=3, completed=1)
+        with patch("ai_engineering.cli_commands.spec_cmd.find_project_root", return_value=tmp_path):
+            spec_verify()
+        out = capsys.readouterr().out
+        assert "Checkboxes: 1/3" in out
+        assert "OK" in out
+
+    def test_verify_drift_auto_fixed(self, tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
+        from unittest.mock import patch
+
+        from ai_engineering.cli_commands.spec_cmd import spec_verify
+
+        plan_path = _create_plan_md(tmp_path, total=5, completed=2)
+        plan_path.write_text(
+            "---\ntotal: 5\ncompleted: 2\n---\n\n- [x] A\n- [x] B\n- [x] C\n- [ ] D\n- [ ] E\n"
+        )
+        with patch("ai_engineering.cli_commands.spec_cmd.find_project_root", return_value=tmp_path):
+            spec_verify(fix=True)
+        out = capsys.readouterr().out
+        assert "DRIFT DETECTED" in out
+        assert "AUTO-FIXED" in out
+
+
+class TestSpecListCli:
+    """Tests for spec_list CLI function."""
+
+    def test_list_no_spec(self, tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
+        from unittest.mock import patch
+
+        from ai_engineering.cli_commands.spec_cmd import spec_list
+
+        with patch("ai_engineering.cli_commands.spec_cmd.find_project_root", return_value=tmp_path):
+            spec_list()
+        assert "No specs/spec.md found" in capsys.readouterr().out
+
+    def test_list_placeholder_spec(self, tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
+        from unittest.mock import patch
+
+        from ai_engineering.cli_commands.spec_cmd import spec_list
+
+        _create_spec_md(tmp_path, placeholder=True)
+        with patch("ai_engineering.cli_commands.spec_cmd.find_project_root", return_value=tmp_path):
+            spec_list()
+        assert "No active spec" in capsys.readouterr().out
+
+    def test_list_active_spec_with_plan(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture
+    ) -> None:
+        from unittest.mock import patch
+
+        from ai_engineering.cli_commands.spec_cmd import spec_list
+
+        _create_spec_md(tmp_path, title="Radical Simplification")
+        _create_plan_md(tmp_path, total=10, completed=7)
+        with patch("ai_engineering.cli_commands.spec_cmd.find_project_root", return_value=tmp_path):
+            spec_list()
+        out = capsys.readouterr().out
+        assert "Radical Simplification" in out
+        assert "7/10" in out

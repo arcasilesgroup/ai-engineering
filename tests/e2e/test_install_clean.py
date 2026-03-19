@@ -39,9 +39,9 @@ class TestInstallClean:
         ai_dir = tmp_path / ".ai-engineering"
 
         required = [
-            "standards",
-            "standards/framework",
-            "standards/team",
+            "contexts",
+            "contexts/languages",
+            "contexts/team",
             "context",
             "state",
         ]
@@ -100,8 +100,8 @@ class TestInstallClean:
         # Should have the manifest template
         assert (ai_dir / "manifest.yml").is_file()
 
-        # Should have framework standards
-        assert (ai_dir / "standards" / "framework" / "core.md").is_file()
+        # Should have language contexts
+        assert (ai_dir / "contexts" / "languages" / "python.md").is_file()
 
     def test_install_result_counts(
         self,
@@ -137,7 +137,9 @@ class TestInstallClean:
         self,
         tmp_path: Path,
     ) -> None:
-        subprocess.run(["git", "init", str(tmp_path)], check=True, capture_output=True)
+        subprocess.run(
+            ["git", "init", "-b", "main", str(tmp_path)], check=True, capture_output=True
+        )
         result = install(tmp_path, stacks=["python"], ides=["vscode"])
         hooks_dir = tmp_path / ".git" / "hooks"
         assert (hooks_dir / "pre-commit").is_file()

@@ -3,7 +3,7 @@
 Implements programmatic validation of the 7 content-integrity categories:
 1. File Existence — verify all internal path references resolve.
 2. Mirror Sync — SHA-256 compare canonical vs template mirrors.
-3. Counter Accuracy — skill/agent counts match across instruction files and product-contract.
+3. Counter Accuracy — skill/agent counts match across instruction files and manifest.yml.
 4. Cross-Reference Integrity — bidirectional reference validation.
 5. Instruction File Consistency — all 6 instruction files list identical skills/agents.
 6. Manifest Coherence — ownership globs match filesystem, active spec valid.

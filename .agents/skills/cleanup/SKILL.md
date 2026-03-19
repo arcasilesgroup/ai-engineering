@@ -1,108 +1,93 @@
 ---
 name: cleanup
-version: 4.2.0
-description: 'Full repository hygiene: safe migration to default branch, aggressive
-  branch cleanup, and rich per-branch status report.'
-tags: [git, branch, cleanup, hygiene, status]
+description: "Use when cleaning up the repository: safe migration to default branch, branch cleanup with merged/stale detection, and rich per-branch status report."
+argument-hint: "--branches|--sync|--all"
+tags: [git, branch, cleanup, hygiene, status, delivery]
 requires:
-  bins: [git]
+  bins:
+  - git
 ---
+
+
 
 # Repository Cleanup
 
-## Purpose
+Full repository hygiene: safely migrate to the default branch, delete merged and squash-merged branches, and produce a per-branch status report. No destructive operations without confirmation.
 
-Execute full repository hygiene — safely migrate to the default branch, aggressively delete all branches that can be removed without compromising existing development, and produce a rich per-branch report so the user can assess repository health at a glance.
+## When to Use
 
-## Trigger
+- Session start, after merging PRs, between tasks, before `/ai-brainstorm`.
+- NOT for committing -- use `/ai-commit`.
 
-- Command: `/ai-cleanup`
-- Context: session start, after merging PRs, between tasks, or before `/ai-spec`.
+## Process
 
-> **Telemetry** (cross-IDE): run `ai-eng signals emit skill_invoked --actor=ai --detail='{"skill":"cleanup"}'` at skill start. Fail-open — skip if ai-eng unavailable.
+### Phase 0: Safe Migration (`--sync` or `--all`)
 
-## Preconditions
+1. **Detect default branch** -- `git symbolic-ref refs/remotes/origin/HEAD` (main or master).
+2. **Record current branch** for the report.
+3. **Auto-stash if dirty** -- `git stash push -m "cleanup-auto-stash-$(date +%s)"`.
+4. **Switch to default** -- `git checkout <default>`.
+5. **Pull latest** -- `git pull --ff-only origin <default>`. If ff-only fails: WARN and STOP.
+6. **Restore stash** -- `git stash pop`. If conflict: WARN, leave stash, continue cleanup.
 
-- **Required**: `git` on PATH. Abort with `ai-eng doctor --fix-tools` guidance if missing.
+### Phase 1: Branch Analysis (`--branches` or `--all`)
 
-## Procedure
-
-### Phase 0: Safe Migration to Default Branch
-
-1. **Detect default branch** — `main` or `master` (check `git symbolic-ref refs/remotes/origin/HEAD`).
-2. **Record current branch** — save current branch name for the report.
-3. **Auto-stash if dirty** — if `git status --porcelain` shows changes:
-   - `git stash push -m "cleanup-auto-stash-$(date +%s)"`.
-   - Record that a stash was created.
-4. **Switch to default** — `git checkout <default>`.
-5. **Pull latest** — `git pull --ff-only origin <default>`.
-   - If ff-only fails (diverged): WARN and STOP. Do not force-pull.
-6. **Restore stash** (if created in step 3) — `git stash pop`.
-   - If pop conflicts: WARN, leave stash intact (`git stash list` to show it), continue cleanup. User resolves manually after cleanup.
-
-### Phase 1: Fetch, Prune & Branch Analysis
-
-7. **Fetch and prune** — `git fetch --prune origin` to remove stale remote-tracking refs.
-8. **Enumerate all local branches** (excluding protected: `main`, `master`).
-9. **Classify each branch** into one of these categories:
+7. **Fetch and prune** -- `git fetch --prune origin`.
+8. **Enumerate** all local branches (excluding `main`, `master`).
+9. **Classify each branch**:
 
 | Category | Criteria | Action |
 |----------|----------|--------|
-| **Merged** | In `git branch --merged <default>` | Delete (`git branch -d`) |
-| **Squash-merged** | NOT in `--merged`, but `git diff <default>..<branch>` (two dots, tip-to-tip) has no content diff — branch tip is identical to default | Delete (`git branch -D`) |
-| **Gone (safe)** | Tracking ref is `[gone]` AND `git diff <default>..<branch>` has no content diff | Delete (`git branch -D`) |
-| **Gone (has dev)** | Tracking ref is `[gone]` BUT has content diff vs default | KEEP — has unmerged local development |
-| **Active (remote)** | Has remote tracking branch, not merged | KEEP — active development with remote |
-| **Local only** | No remote tracking, has commits ahead of default, has content diff vs default | KEEP — local-only development |
-| **Protected** | `main` or `master` | SKIP — never touched |
+| Merged | In `git branch --merged <default>` | Delete (`git branch -d`) |
+| Squash-merged | Not in `--merged` but `git diff <default>..<branch>` is empty | Delete (`git branch -D`) |
+| Gone (safe) | Tracking ref `[gone]` AND no content diff | Delete (`git branch -D`) |
+| Gone (has dev) | Tracking ref `[gone]` BUT has content diff | KEEP |
+| Active | Has remote tracking, not merged | KEEP |
+| Local only | No remote, has commits ahead | KEEP |
 
-The **Squash-merged** check applies to all non-merged branches (local-only and gone) before classifying them as kept. Use `git diff <default>..<branch>` (two dots, tip-to-tip comparison) — if the output is empty, the branch content is already fully integrated into the default branch regardless of merge strategy (squash, rebase, or cherry-pick). Note: `git cherry -v` does NOT reliably detect squash merges because the squash commit gets a different patch-id than the original commits.
+10. **Delete eligible** -- merged with `-d`, squash-merged and gone-safe with `-D`.
 
-10. **Delete eligible branches** — merged with `-d`, gone-safe and squash-merged with `-D`.
+### Phase 2: Status Report
 
-### Phase 2: Rich Summary Report
-
-11. **Build per-branch table** — for every local branch that existed (excluding protected), show:
+11. **Build per-branch table**:
 
 ```markdown
 ## Repository Cleanup Report
 
-**Default branch**: `main` (up to date with origin)
+**Default branch**: `main` (up to date)
 **Previous branch**: `feat/old-feature`
-**Working tree**: clean | stash restored | stash pending (conflict)
+**Working tree**: clean | stash restored | stash pending
 
-### Branch Detail
-
-| Branch | Action | Reason | Remote Status | Ahead/Behind |
-|--------|--------|--------|---------------|--------------|
-| `feat/merged-feature` | DELETED | Merged into main | — | — |
-| `feat/squash-merged` | DELETED | Squash-merged (all commits applied) | — | — |
-| `feat/gone-no-diff` | DELETED | Remote deleted, no local diff | — | — |
-| `feat/active-work` | KEPT | Unmerged development (5 commits) | `origin/feat/active-work` | +5 / -2 |
-| `feat/local-experiment` | KEPT | Local-only development (3 commits) | no remote | +3 |
-| `fix/gone-with-changes` | KEPT | Remote deleted, has local diff | gone | +2 |
+| Branch | Action | Reason | Remote | Ahead/Behind |
+|--------|--------|--------|--------|--------------|
+| `feat/done` | DELETED | Merged | -- | -- |
+| `feat/squashed` | DELETED | Squash-merged | -- | -- |
+| `feat/active` | KEPT | Unmerged (5 commits) | origin/feat/active | +5/-2 |
 ```
 
-12. **Display report** — render the full table in terminal output. This is the primary deliverable of cleanup.
+## Quick Reference
 
-## Post-condition
+```
+/ai-cleanup              # full: sync + branch cleanup + report
+/ai-cleanup --sync       # sync to default branch only
+/ai-cleanup --branches   # branch cleanup only (no migration)
+/ai-cleanup --all        # explicit full cleanup
+```
 
-- Repo is on the default branch (`main` or `master`).
-- Working tree is clean (or stash pending if pop conflicted).
-- All safely deletable branches are gone.
-- User has a clear per-branch report of what happened and why.
+## Common Mistakes
 
-## Governance Notes
+- Force-pulling when ff-only fails -- STOP and resolve manually.
+- Deleting branches with unmerged local work -- always check content diff.
+- Running on `main` -- migration is a no-op but branch cleanup still runs.
 
+## Integration
+
+- Run before `/ai-brainstorm` to start clean.
+- Composes with session start protocol.
 - Protected branches (`main`, `master`) are never deleted.
-- Merged branches: `git branch -d` (safe — git refuses if not fully merged).
-- Squash-merged branches: `git branch -D` ONLY if `git diff <default>..<branch>` (tip-to-tip) shows no content diff.
-- Gone branches: `git branch -D` (force) ONLY if `git diff <default>..<branch>` shows no content diff. If there is a diff, the branch is kept.
-- No `--no-verify` usage.
-- If `git pull --ff-only` fails, WARN and STOP — do not force-pull or rebase.
-- No destructive git operations beyond branch deletion of eligible branches.
 
 ## References
 
-- `.agents/skills/spec/SKILL.md` — spec creation composes cleanup before branch creation.
-- `standards/framework/core.md` — protected branch rules and enforcement.
+- `.ai-engineering/manifest.yml` -- protected branch rules.
+- `.agents/skills/brainstorm/SKILL.md` -- spec creation composes cleanup.
+$ARGUMENTS

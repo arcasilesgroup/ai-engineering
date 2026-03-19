@@ -243,11 +243,11 @@ class TestOwnershipMap:
 
     def test_writable_by_framework_allow(self) -> None:
         om = default_ownership_map()
-        assert om.is_writable_by_framework(".ai-engineering/standards/framework/core.md") is True
+        assert om.is_writable_by_framework(".ai-engineering/contexts/languages/python.md") is True
 
     def test_writable_by_framework_deny(self) -> None:
         om = default_ownership_map()
-        assert om.is_writable_by_framework(".ai-engineering/standards/team/custom.md") is False
+        assert om.is_writable_by_framework(".ai-engineering/contexts/team/custom.md") is False
 
     def test_writable_by_framework_no_match_defaults_deny(self) -> None:
         om = default_ownership_map()
@@ -259,11 +259,11 @@ class TestOwnershipMap:
 
     def test_update_allowed_for_framework_managed(self) -> None:
         om = default_ownership_map()
-        assert om.is_update_allowed(".ai-engineering/standards/framework/core.md") is True
+        assert om.is_update_allowed(".ai-engineering/contexts/languages/python.md") is True
 
     def test_update_denied_for_team_managed(self) -> None:
         om = default_ownership_map()
-        assert om.is_update_allowed(".ai-engineering/standards/team/custom.md") is False
+        assert om.is_update_allowed(".ai-engineering/contexts/team/custom.md") is False
 
     def test_update_denied_for_append_only(self) -> None:
         om = default_ownership_map()
@@ -275,7 +275,7 @@ class TestOwnershipMap:
 
     def test_has_deny_rule_true(self) -> None:
         om = default_ownership_map()
-        assert om.has_deny_rule(".ai-engineering/standards/team/core.md") is True
+        assert om.has_deny_rule(".ai-engineering/contexts/team/core.md") is True
 
     def test_has_deny_rule_false_for_allow(self) -> None:
         om = default_ownership_map()
@@ -502,10 +502,9 @@ class TestDefaults:
         om = default_ownership_map()
         levels = {entry.owner for entry in om.paths}
 
-        # Assert
+        # Assert — PROJECT_MANAGED was removed (no entries use it currently)
         assert OwnershipLevel.FRAMEWORK_MANAGED in levels
         assert OwnershipLevel.TEAM_MANAGED in levels
-        assert OwnershipLevel.PROJECT_MANAGED in levels
         assert OwnershipLevel.SYSTEM_MANAGED in levels
 
     def test_default_decision_store_empty(self) -> None:
@@ -863,3 +862,97 @@ class TestOperationalReadinessDeferredSetup:
 
         # Assert
         assert r.deferred_setup is True
+
+
+# ── Audit enrichment helpers ──────────────────────────────────────────
+
+
+class TestAuditEnrichment:
+    """Tests for audit.py enrichment cache functions."""
+
+    def setup_method(self) -> None:
+        from ai_engineering.state.audit import _reset_enrichment_cache
+
+        _reset_enrichment_cache()
+
+    def teardown_method(self) -> None:
+        from ai_engineering.state.audit import _reset_enrichment_cache
+
+        _reset_enrichment_cache()
+
+    def test_read_active_spec_from_frontmatter(self, tmp_path: Path) -> None:
+        from ai_engineering.state.audit import _read_active_spec
+
+        specs_dir = tmp_path / ".ai-engineering" / "specs"
+        specs_dir.mkdir(parents=True)
+        (specs_dir / "spec.md").write_text('---\nid: "055"\n---\n\n# Test Spec\n')
+        assert _read_active_spec(tmp_path) == "055"
+
+    def test_read_active_spec_placeholder_returns_none(self, tmp_path: Path) -> None:
+        from ai_engineering.state.audit import _read_active_spec
+
+        specs_dir = tmp_path / ".ai-engineering" / "specs"
+        specs_dir.mkdir(parents=True)
+        (specs_dir / "spec.md").write_text("# No active spec\n\nRun /ai-brainstorm.\n")
+        assert _read_active_spec(tmp_path) is None
+
+    def test_read_active_spec_missing_file(self, tmp_path: Path) -> None:
+        from ai_engineering.state.audit import _read_active_spec
+
+        assert _read_active_spec(tmp_path) is None
+
+    def test_read_active_spec_fallback_nnn_pattern(self, tmp_path: Path) -> None:
+        from ai_engineering.state.audit import _read_active_spec
+
+        specs_dir = tmp_path / ".ai-engineering" / "specs"
+        specs_dir.mkdir(parents=True)
+        (specs_dir / "spec.md").write_text("---\ntitle: test\n---\n\n055-radical-simplification\n")
+        assert _read_active_spec(tmp_path) == "055"
+
+    def test_read_active_spec_caches_result(self, tmp_path: Path) -> None:
+        from ai_engineering.state.audit import _read_active_spec
+
+        specs_dir = tmp_path / ".ai-engineering" / "specs"
+        specs_dir.mkdir(parents=True)
+        (specs_dir / "spec.md").write_text('---\nid: "055"\n---\n')
+        assert _read_active_spec(tmp_path) == "055"
+        # Modify file — should still return cached value
+        (specs_dir / "spec.md").write_text('---\nid: "999"\n---\n')
+        assert _read_active_spec(tmp_path) == "055"
+
+    def test_read_active_stack_from_manifest(self, tmp_path: Path) -> None:
+        from ai_engineering.state.audit import _read_active_stack
+
+        state_dir = tmp_path / ".ai-engineering" / "state"
+        state_dir.mkdir(parents=True)
+        (state_dir / "install-manifest.json").write_text(
+            json.dumps({"installedStacks": ["python", "rust"]})
+        )
+        assert _read_active_stack(tmp_path) == "python"
+
+    def test_read_active_stack_missing_file(self, tmp_path: Path) -> None:
+        from ai_engineering.state.audit import _read_active_stack
+
+        assert _read_active_stack(tmp_path) is None
+
+    def test_read_active_stack_empty_stacks(self, tmp_path: Path) -> None:
+        from ai_engineering.state.audit import _read_active_stack
+
+        state_dir = tmp_path / ".ai-engineering" / "state"
+        state_dir.mkdir(parents=True)
+        (state_dir / "install-manifest.json").write_text(json.dumps({"installedStacks": []}))
+        assert _read_active_stack(tmp_path) is None
+
+    def test_reset_clears_cache(self, tmp_path: Path) -> None:
+        from ai_engineering.state.audit import (
+            _read_active_spec,
+            _reset_enrichment_cache,
+        )
+
+        specs_dir = tmp_path / ".ai-engineering" / "specs"
+        specs_dir.mkdir(parents=True)
+        (specs_dir / "spec.md").write_text('---\nid: "055"\n---\n')
+        assert _read_active_spec(tmp_path) == "055"
+        _reset_enrichment_cache()
+        (specs_dir / "spec.md").write_text('---\nid: "099"\n---\n')
+        assert _read_active_spec(tmp_path) == "099"

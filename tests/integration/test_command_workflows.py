@@ -56,18 +56,6 @@ def git_project(installed_project: Path) -> Path:
         check=True,
         capture_output=True,
     )
-    subprocess.run(
-        ["git", "config", "user.email", "test@example.com"],
-        cwd=installed_project,
-        check=True,
-        capture_output=True,
-    )
-    subprocess.run(
-        ["git", "config", "user.name", "Test User"],
-        cwd=installed_project,
-        check=True,
-        capture_output=True,
-    )
     # Initial commit on main
     subprocess.run(
         ["git", "add", "-A"],

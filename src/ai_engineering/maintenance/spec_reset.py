@@ -1,33 +1,35 @@
-"""Spec lifecycle reset after PR merge.
+"""Spec lifecycle reset after PR merge (Working Buffer model).
 
-Detects completed specs, archives them, and resets ``_active.md``
-so the repository is ready for the next ``/create-spec`` invocation.
+Reads the current spec from ``specs/spec.md``, appends a history entry
+to ``specs/_history.md``, and writes placeholder content to clear the
+working buffer for the next ``/ai-brainstorm`` invocation.
 
 Functions:
-- ``check_active_spec`` — read ``_active.md`` and determine completion status.
-- ``find_completed_specs`` — scan specs directory for completed specs.
-- ``archive_spec`` — move a completed spec to ``specs/archive/``.
-- ``reset_active_md`` — write a clean ``_active.md`` with no active spec.
-- ``run_spec_reset`` — orchestrate the full reset flow.
+- ``check_active_spec`` -- read ``specs/spec.md`` and determine if content exists.
+- ``clear_spec_buffer`` -- write placeholder content to spec.md and plan.md.
+- ``append_history`` -- add a line to ``_history.md``.
+- ``run_spec_reset`` -- orchestrate the full reset flow.
 """
 
 from __future__ import annotations
 
-import shutil
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from pathlib import Path
 
 from ai_engineering.lib.parsing import parse_frontmatter as _parse_frontmatter
+
+_SPEC_PLACEHOLDER = "# No active spec\n\nRun /ai-brainstorm to start a new spec.\n"
+_PLAN_PLACEHOLDER = "# No active plan\n\nRun /ai-plan after brainstorm approval.\n"
 
 
 @dataclass
 class SpecResetResult:
     """Outcome of a spec reset operation."""
 
-    active_spec_cleared: bool = False
-    archived_specs: list[str] = field(default_factory=list)
-    orphan_specs: list[str] = field(default_factory=list)
-    active_spec_was: str | None = None
+    spec_title: str | None = None
+    history_updated: bool = False
+    files_cleared: bool = False
     errors: list[str] = field(default_factory=list)
 
     @property
@@ -39,10 +41,9 @@ class SpecResetResult:
         """Serialize the spec reset result as a plain dictionary for JSON output."""
         return {
             "success": self.success,
-            "active_spec_cleared": self.active_spec_cleared,
-            "active_spec_was": self.active_spec_was,
-            "archived_specs": self.archived_specs,
-            "orphan_specs": self.orphan_specs,
+            "spec_title": self.spec_title,
+            "history_updated": self.history_updated,
+            "files_cleared": self.files_cleared,
             "errors": self.errors,
         }
 
@@ -56,29 +57,14 @@ class SpecResetResult:
         lines.append("## Spec Reset Summary")
         lines.append("")
 
-        if self.active_spec_was:
-            lines.append(f"- **Previous active spec**: `{self.active_spec_was}`")
+        if self.spec_title:
+            lines.append(f"- **Spec cleared**: `{self.spec_title}`")
         else:
-            lines.append("- **Previous active spec**: none")
+            lines.append("- **Spec cleared**: none (no active spec)")
 
-        lines.append(f"- **Active spec cleared**: {'yes' if self.active_spec_cleared else 'no'}")
-        lines.append(f"- **Specs archived**: {len(self.archived_specs)}")
-        lines.append(f"- **Orphan specs found**: {len(self.orphan_specs)}")
+        lines.append(f"- **History updated**: {'yes' if self.history_updated else 'no'}")
+        lines.append(f"- **Files cleared**: {'yes' if self.files_cleared else 'no'}")
         lines.append("")
-
-        if self.archived_specs:
-            lines.append("### Archived")
-            lines.append("")
-            for slug in sorted(self.archived_specs):
-                lines.append(f"- `{slug}`")
-            lines.append("")
-
-        if self.orphan_specs:
-            lines.append("### Orphans (completed but not yet archived)")
-            lines.append("")
-            for slug in sorted(self.orphan_specs):
-                lines.append(f"- `{slug}`")
-            lines.append("")
 
         if self.errors:
             lines.append("### Errors")
@@ -90,118 +76,85 @@ class SpecResetResult:
         return "\n".join(lines)
 
 
-def check_active_spec(ai_eng_dir: Path) -> tuple[str | None, bool]:
-    """Read ``_active.md`` and determine if the active spec is completed.
+def check_active_spec(ai_eng_dir: Path) -> tuple[str | None, str | None]:
+    """Read ``specs/spec.md`` and extract title and ID.
 
-    A spec is considered completed when its directory contains ``done.md``.
-    ``completed == total`` in ``tasks.md`` frontmatter is a necessary
-    precondition but is **not sufficient** on its own — ``done.md`` is
-    mandatory for closure.
+    A spec is considered active when ``spec.md`` has real content
+    (not the placeholder).
 
     Args:
         ai_eng_dir: Path to the ``.ai-engineering`` directory.
 
     Returns:
-        Tuple of (slug_or_None, is_completed).
+        Tuple of (title_or_None, spec_id_or_None).
     """
-    active_path = ai_eng_dir / "context" / "specs" / "_active.md"
-    if not active_path.exists():
-        return None, False
+    spec_path = ai_eng_dir / "specs" / "spec.md"
+    if not spec_path.exists():
+        return None, None
 
-    text = active_path.read_text(encoding="utf-8")
+    text = spec_path.read_text(encoding="utf-8")
+
+    # Check for placeholder
+    if text.strip().startswith("# No active spec"):
+        return None, None
+
+    # Extract title from first H1
+    title = None
+    for line in text.splitlines():
+        if line.startswith("# "):
+            title = line[2:].strip()
+            break
+
+    # Extract ID from frontmatter
     fm = _parse_frontmatter(text)
-    slug = fm.get("active", "").strip()
+    spec_id = fm.get("id", None)
 
-    if not slug or slug == "null" or slug == "none":
-        return None, False
-
-    spec_dir = ai_eng_dir / "context" / "specs" / slug
-    if not spec_dir.is_dir():
-        return slug, False
-
-    # done.md is mandatory for closure
-    if (spec_dir / "done.md").exists():
-        return slug, True
-
-    # completed==total is necessary but NOT sufficient — done.md required
-    return slug, False
+    return title, spec_id
 
 
-def find_completed_specs(specs_dir: Path) -> list[str]:
-    """Find completed specs outside the ``archive/`` directory.
+def append_history(
+    specs_dir: Path,
+    spec_id: str | None,
+    title: str | None,
+    branch: str = "",
+) -> bool:
+    """Append a line to ``_history.md`` recording the completed spec.
 
-    Detection heuristic: spec directory contains ``done.md``.
-    ``completed == total`` in frontmatter is NOT sufficient on its own.
+    Creates the file with a table header if it does not exist.
 
     Args:
-        specs_dir: Path to ``context/specs/`` directory.
+        specs_dir: Path to ``specs/`` directory.
+        spec_id: Spec ID (e.g. ``"055"``).
+        title: Spec title.
+        branch: Git branch name (optional).
 
     Returns:
-        List of slug names for completed specs outside archive.
+        True if the entry was appended.
     """
-    completed: list[str] = []
+    history_path = specs_dir / "_history.md"
+    today = datetime.now(tz=UTC).strftime("%Y-%m-%d")
 
-    for item in sorted(specs_dir.iterdir()):
-        if not item.is_dir():
-            continue
-        if item.name == "archive" or item.name.startswith("_"):
-            continue
+    if not history_path.exists():
+        header = (
+            "# Spec History\n\n| ID | Title | Date | Branch |\n|-----|-------|------|--------|\n"
+        )
+        history_path.write_text(header, encoding="utf-8")
 
-        # done.md is mandatory for closure
-        if (item / "done.md").exists():
-            completed.append(item.name)
+    entry = f"| {spec_id or '?'} | {title or 'untitled'} | {today} | {branch} |\n"
+    with history_path.open("a", encoding="utf-8") as f:
+        f.write(entry)
 
-    return completed
-
-
-def archive_spec(specs_dir: Path, slug: str) -> bool:
-    """Move a spec directory to ``specs/archive/``.
-
-    Args:
-        specs_dir: Path to ``context/specs/`` directory.
-        slug: Spec directory name (e.g. ``022-test-pyramid-rewrite``).
-
-    Returns:
-        True if the spec was successfully archived.
-    """
-    source = specs_dir / slug
-    if not source.is_dir():
-        return False
-
-    archive_dir = specs_dir / "archive"
-    archive_dir.mkdir(parents=True, exist_ok=True)
-
-    dest = archive_dir / slug
-    if dest.exists():
-        return False  # Already archived
-
-    shutil.move(str(source), str(dest))
     return True
 
 
-def reset_active_md(active_path: Path) -> None:
-    """Write a clean ``_active.md`` with no active spec.
+def clear_spec_buffer(specs_dir: Path) -> None:
+    """Write placeholder content to ``spec.md`` and ``plan.md``.
 
     Args:
-        active_path: Path to ``_active.md`` file.
+        specs_dir: Path to ``specs/`` directory.
     """
-    from datetime import UTC, datetime
-
-    today = datetime.now(tz=UTC).strftime("%Y-%m-%d")
-    content = f"""---
-active: null
-updated: "{today}"
----
-
-# Active Spec
-
-No active spec. Ready for `/create-spec`.
-
-## Quick Resume
-
-No spec in progress.
-"""
-    active_path.write_text(content, encoding="utf-8")
+    (specs_dir / "spec.md").write_text(_SPEC_PLACEHOLDER, encoding="utf-8")
+    (specs_dir / "plan.md").write_text(_PLAN_PLACEHOLDER, encoding="utf-8")
 
 
 def run_spec_reset(
@@ -212,10 +165,9 @@ def run_spec_reset(
     """Orchestrate the full spec reset flow.
 
     Steps:
-    1. Check if ``_active.md`` points to a completed spec.
-    2. Find any completed specs outside ``archive/``.
-    3. Archive completed specs (unless dry_run).
-    4. Reset ``_active.md`` (unless dry_run).
+    1. Read ``specs/spec.md`` -- extract title and ID.
+    2. Append entry to ``specs/_history.md``.
+    3. Write placeholder content to ``spec.md`` and ``plan.md``.
 
     Args:
         project_root: Root directory of the project.
@@ -226,38 +178,34 @@ def run_spec_reset(
     """
     result = SpecResetResult()
     ai_eng_dir = project_root / ".ai-engineering"
-    specs_dir = ai_eng_dir / "context" / "specs"
+    specs_dir = ai_eng_dir / "specs"
 
     if not specs_dir.is_dir():
         result.errors.append("Specs directory not found")
         return result
 
-    # Check active spec
-    active_slug, active_completed = check_active_spec(ai_eng_dir)
-    result.active_spec_was = active_slug
+    # Check current spec
+    title, spec_id = check_active_spec(ai_eng_dir)
+    result.spec_title = title
 
-    # Find all completed specs outside archive
-    completed = find_completed_specs(specs_dir)
-    result.orphan_specs = completed
+    if title is None:
+        # No active spec -- nothing to reset
+        return result
 
     if dry_run:
         return result
 
-    # Archive completed specs
-    for slug in completed:
-        try:
-            if archive_spec(specs_dir, slug):
-                result.archived_specs.append(slug)
-        except OSError as e:
-            result.errors.append(f"Failed to archive {slug}: {e}")
+    # Append to history
+    try:
+        result.history_updated = append_history(specs_dir, spec_id, title)
+    except OSError as e:
+        result.errors.append(f"Failed to update history: {e}")
 
-    # Reset _active.md if active spec is completed or was archived
-    active_path = specs_dir / "_active.md"
-    if active_completed or (active_slug and active_slug in completed):
-        reset_active_md(active_path)
-        result.active_spec_cleared = True
-
-    # Update orphans list — remove successfully archived ones
-    result.orphan_specs = [s for s in completed if s not in result.archived_specs]
+    # Clear the buffer
+    try:
+        clear_spec_buffer(specs_dir)
+        result.files_cleared = True
+    except OSError as e:
+        result.errors.append(f"Failed to clear spec buffer: {e}")
 
     return result

@@ -3,8 +3,8 @@
 Covers:
 - Dry-run mode reports changes without writing.
 - Apply mode writes changes to disk.
-- Ownership safety: team/project-managed paths never overwritten.
-- Ownership deny blocks file creation.
+- Ownership safety: team-managed paths never overwritten.
+- Ownership deny blocks file creation for team-managed paths.
 - Framework-managed paths updated correctly.
 - Template trees (`.claude/`) updated correctly.
 - Unchanged files skipped.
@@ -49,7 +49,7 @@ class TestDryRun:
 
     def test_dry_run_does_not_modify_files(self, installed_project: Path) -> None:
         # Modify a framework-managed file to create a diff
-        core_md = installed_project / ".ai-engineering" / "standards" / "framework" / "core.md"
+        core_md = installed_project / ".ai-engineering" / "contexts" / "languages" / "python.md"
         core_md.read_text()
         core_md.write_text("modified content")
 
@@ -80,7 +80,7 @@ class TestApply:
 
     def test_applies_changes(self, installed_project: Path) -> None:
         # Modify a framework-managed file
-        core_md = installed_project / ".ai-engineering" / "standards" / "framework" / "core.md"
+        core_md = installed_project / ".ai-engineering" / "contexts" / "languages" / "python.md"
         core_md.write_text("outdated content")
 
         result = update(installed_project, dry_run=False)
@@ -91,7 +91,7 @@ class TestApply:
 
     def test_apply_logs_audit_entry(self, installed_project: Path) -> None:
         # Create a diff to trigger an update
-        core_md = installed_project / ".ai-engineering" / "standards" / "framework" / "core.md"
+        core_md = installed_project / ".ai-engineering" / "contexts" / "languages" / "python.md"
         core_md.write_text("outdated")
 
         audit_path = installed_project / ".ai-engineering" / "state" / "audit-log.ndjson"
@@ -113,29 +113,22 @@ class TestApply:
 
 
 class TestOwnershipSafety:
-    """Tests that team/project-managed paths are never modified."""
+    """Tests that team-managed paths are never modified."""
 
     def test_team_managed_path_not_overwritten(self, installed_project: Path) -> None:
-        team_core = installed_project / ".ai-engineering" / "standards" / "team" / "core.md"
-        team_core.write_text("custom team content")
+        team_lessons = installed_project / ".ai-engineering" / "contexts" / "team" / "lessons.md"
+        team_lessons.parent.mkdir(parents=True, exist_ok=True)
+        team_lessons.write_text("custom team content")
 
         update(installed_project, dry_run=False)
 
-        assert team_core.read_text() == "custom team content"
-
-    def test_context_path_not_overwritten(self, installed_project: Path) -> None:
-        context_file = (
-            installed_project / ".ai-engineering" / "context" / "product" / "framework-contract.md"
-        )
-        if context_file.exists():
-            context_file.write_text("custom project content")
-            update(installed_project, dry_run=False)
-            assert context_file.read_text() == "custom project content"
+        assert team_lessons.read_text() == "custom team content"
 
     def test_denied_changes_reported(self, installed_project: Path) -> None:
         # Modify a team-managed file that exists in templates
-        team_core = installed_project / ".ai-engineering" / "standards" / "team" / "core.md"
-        team_core.write_text("custom team content")
+        team_lessons = installed_project / ".ai-engineering" / "contexts" / "team" / "lessons.md"
+        team_lessons.parent.mkdir(parents=True, exist_ok=True)
+        team_lessons.write_text("custom team content")
 
         result = update(installed_project, dry_run=True)
 
@@ -143,29 +136,28 @@ class TestOwnershipSafety:
         denied = [
             c
             for c in result.changes
-            if c.action == "skip-denied" and "standards" in str(c.path) and "team" in str(c.path)
+            if c.action == "skip-denied" and "contexts" in str(c.path) and "team" in str(c.path)
         ]
         assert len(denied) >= 1, "Expected at least one denied team-managed change"
 
     def test_create_blocked_by_deny_ownership(self, installed_project: Path) -> None:
-        """An explicit deny pattern prevents creation of a new file."""
-        # Delete a context file (project-managed → deny) that exists in templates
-        context_file = (
-            installed_project / ".ai-engineering" / "context" / "product" / "framework-contract.md"
+        """An explicit deny pattern prevents creation of a new file in team-managed paths."""
+        # Delete a team-managed file that exists in templates
+        team_lessons = installed_project / ".ai-engineering" / "contexts" / "team" / "lessons.md"
+        team_lessons.parent.mkdir(parents=True, exist_ok=True)
+        if team_lessons.exists():
+            team_lessons.unlink()
+
+        result = update(installed_project, dry_run=True)
+
+        # The file should be reported as skip-denied even though it doesn't exist,
+        # because the ownership pattern denies creation on contexts/team/** paths
+        match = next(
+            (c for c in result.changes if c.path == team_lessons),
+            None,
         )
-        if context_file.exists():
-            context_file.unlink()
-
-            result = update(installed_project, dry_run=True)
-
-            # The file should be reported as skip-denied even though it doesn't exist,
-            # because the ownership pattern denies creation on context/** paths
-            match = next(
-                (c for c in result.changes if c.path == context_file),
-                None,
-            )
-            assert match is not None, "Expected context file in changes"
-            assert match.action == "skip-denied"
+        assert match is not None, "Expected team lessons file in changes"
+        assert match.action == "skip-denied"
 
 
 # ---------------------------------------------------------------------------
@@ -177,18 +169,18 @@ class TestTemplateTrees:
     """Tests that _PROJECT_TEMPLATE_TREES files are processed by the updater."""
 
     def test_project_template_trees_updated(self, installed_project: Path) -> None:
-        """Modify a .claude/commands/ file and verify update restores it."""
-        commit_md = installed_project / ".claude" / "commands" / "commit.md"
-        if not commit_md.exists():
-            pytest.skip("commit.md not found in installed project")
+        """Modify a .claude/skills/ file and verify update restores it."""
+        skill_md = installed_project / ".claude" / "skills" / "ai-commit" / "SKILL.md"
+        if not skill_md.exists():
+            pytest.skip("ai-commit skill not found in installed project")
 
-        original = commit_md.read_bytes()
-        commit_md.write_text("modified command")
+        original = skill_md.read_bytes()
+        skill_md.write_text("modified skill")
 
         result = update(installed_project, dry_run=False)
 
-        assert commit_md.read_bytes() == original
-        updated = [c for c in result.changes if c.path == commit_md and c.action == "update"]
+        assert skill_md.read_bytes() == original
+        updated = [c for c in result.changes if c.path == skill_md and c.action == "update"]
         assert len(updated) == 1
 
     def test_claude_settings_updated(self, installed_project: Path) -> None:
@@ -252,7 +244,7 @@ class TestDiffGeneration:
 
     def test_diff_generated_for_updates(self, installed_project: Path) -> None:
         """Modified file should have a unified diff attached."""
-        core_md = installed_project / ".ai-engineering" / "standards" / "framework" / "core.md"
+        core_md = installed_project / ".ai-engineering" / "contexts" / "languages" / "python.md"
         core_md.write_text("outdated content")
 
         result = update(installed_project, dry_run=True)
@@ -278,11 +270,12 @@ class TestRollback:
     def test_rollback_on_write_failure(self, installed_project: Path) -> None:
         """If a write fails mid-apply, already-modified files are restored."""
         # Modify two framework-managed files so write_bytes is called twice
-        core_md = installed_project / ".ai-engineering" / "standards" / "framework" / "core.md"
+        core_md = installed_project / ".ai-engineering" / "contexts" / "languages" / "python.md"
+        core_md.parent.mkdir(parents=True, exist_ok=True)
         core_md.write_text("will be restored")
-        stacks_dir = installed_project / ".ai-engineering" / "standards" / "framework" / "stacks"
-        stacks_md = stacks_dir / "python.md"
-        stacks_md.write_text("will also be restored")
+        fw_md = installed_project / ".ai-engineering" / "contexts" / "frameworks" / "react.md"
+        fw_md.parent.mkdir(parents=True, exist_ok=True)
+        fw_md.write_text("will also be restored")
 
         original_write = Path.write_bytes
         call_count = 0

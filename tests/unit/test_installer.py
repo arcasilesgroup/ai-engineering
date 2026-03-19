@@ -290,7 +290,8 @@ class TestCopilotInstructionsTreeMap:
         from ai_engineering.installer.templates import _PROVIDER_TREE_MAPS
 
         copilot_trees = _PROVIDER_TREE_MAPS["github_copilot"]
-        assert ("copilot", ".github/copilot") in copilot_trees
+        assert ("prompts", ".github/prompts") in copilot_trees
+        assert ("agents", ".github/agents") in copilot_trees
         assert ("instructions", ".github/instructions") in copilot_trees
 
     def test_sonarqube_instruction_deployed(self, tmp_path: Path) -> None:
@@ -355,17 +356,17 @@ class TestCanonicalTemplateStructure:
 
     def test_agents_exist_for_sync_script(self) -> None:
         """agents/ must exist — sync script reads canonical source from here."""
-        from ai_engineering.installer.templates import get_ai_engineering_template_root
+        from ai_engineering.installer.templates import get_project_template_root
 
-        root = get_ai_engineering_template_root()
-        assert (root / "agents").is_dir()
+        root = get_project_template_root()
+        assert (root / ".claude" / "agents").is_dir()
 
     def test_skills_exist_for_sync_script(self) -> None:
         """skills/ must exist — sync script reads canonical source from here."""
-        from ai_engineering.installer.templates import get_ai_engineering_template_root
+        from ai_engineering.installer.templates import get_project_template_root
 
-        root = get_ai_engineering_template_root()
-        assert (root / "skills").is_dir()
+        root = get_project_template_root()
+        assert (root / ".claude" / "skills").is_dir()
 
     def test_no_evals_in_governance_templates(self) -> None:
         """evals/ is runtime state, not a governance template."""
