@@ -45,7 +45,7 @@ def _make_governance(root: Path) -> Path:
         "standards/framework",
         "standards/team",
         "context/product",
-        "context/specs",
+        "specs",
         "state",
     ]:
         (ai / d).mkdir(parents=True, exist_ok=True)
@@ -161,13 +161,13 @@ def _write_active_spec(
     spec_name: str = "006-test",
 ) -> Path:
     """Write _active.md and create the spec directory."""
-    active = ai / "context" / "specs" / "_active.md"
+    active = ai / "specs" / "_active.md"
     active.parent.mkdir(parents=True, exist_ok=True)
     active.write_text(
         f'---\nactive: "{spec_name}"\n---\n',
         encoding="utf-8",
     )
-    spec_dir = ai / "context" / "specs" / spec_name
+    spec_dir = ai / "specs" / spec_name
     spec_dir.mkdir(parents=True, exist_ok=True)
     for f in ("spec.md", "plan.md", "tasks.md"):
         (spec_dir / f).write_text(f"# {f}\n", encoding="utf-8")
@@ -435,7 +435,7 @@ class TestFileExistence:
 
     def test_spec_directory_completeness(self, tmp_path: Path) -> None:
         ai = _setup_full_project(tmp_path)
-        bad_spec = ai / "context" / "specs" / "007-incomplete"
+        bad_spec = ai / "specs" / "007-incomplete"
         bad_spec.mkdir(parents=True)
         (bad_spec / "spec.md").write_text("# spec\n", encoding="utf-8")
         report = validate_content_integrity(
@@ -453,7 +453,7 @@ class TestFileExistence:
     def test_closed_spec_archives_skipped(self, tmp_path: Path) -> None:
         """Closed specs (with done.md) are historical archives; stale refs ignored."""
         ai = _setup_full_project(tmp_path)
-        closed = ai / "context" / "specs" / "001-old"
+        closed = ai / "specs" / "001-old"
         closed.mkdir(parents=True)
         (closed / "spec.md").write_text("# old\n", encoding="utf-8")
         (closed / "plan.md").write_text("# plan\n", encoding="utf-8")
@@ -972,7 +972,7 @@ class TestManifestCoherence:
 
     def test_active_spec_missing_directory(self, tmp_path: Path) -> None:
         ai = _setup_full_project(tmp_path)
-        active = ai / "context" / "specs" / "_active.md"
+        active = ai / "specs" / "_active.md"
         active.write_text(
             '---\nactive: "999-nonexistent"\n---\n',
             encoding="utf-8",

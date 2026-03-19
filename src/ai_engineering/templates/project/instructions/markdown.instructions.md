@@ -55,7 +55,7 @@ applyTo: "**/*.md"
 
 ## Spec Documents
 
-Specs follow the structure defined in `.ai-engineering/context/specs/`:
+Specs follow the structure defined in `.ai-engineering/specs/`:
 
 - `spec.md` — WHAT: problem, solution, scope, risks.
 - `plan.md` — HOW: phases, session map, dependencies.

@@ -1,6 +1,7 @@
 ---
 name: ai-guide
 model: sonnet
+color: cyan
 description: "Project onboarding and teaching. Architecture tours, decision archaeology, knowledge transfer. Reads everything, writes nothing."
 tools: [Read, Glob, Grep, Bash]
 ---
@@ -55,7 +56,7 @@ Before any teaching interaction:
 
 1. **Search decision store** -- look in `state/decision-store.json` for formal decisions
 2. **Search git history** -- `git log --all --grep` for related commits
-3. **Search specs** -- look in `context/specs/` for specs that introduced the decision
+3. **Search specs** -- look in `specs/` for specs that introduced the decision
 4. **Reconstruct reasoning** -- what was known, what constraints existed, what alternatives were considered
 5. **Assess current relevance** -- has the context changed? Are original constraints still valid?
 6. **Do NOT recommend changing the decision** -- present analysis, let the developer decide

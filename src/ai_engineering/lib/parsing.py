@@ -63,7 +63,7 @@ def next_spec_number(specs_dir: Path) -> int:
     when the directory is empty or does not exist.
 
     Args:
-        specs_dir: Path to the specs directory (e.g. ``context/specs/``).
+        specs_dir: Path to the specs directory (e.g. ``specs/``).
 
     Returns:
         Next sequential spec number.

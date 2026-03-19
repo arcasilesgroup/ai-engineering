@@ -8,7 +8,7 @@ Dispatch a spec-reviewer subagent to challenge the draft spec. The reviewer argu
 
 ### Step 1 -- Write the Spec
 
-Create `context/specs/NNN-<slug>/spec.md` with this structure:
+Create `specs/NNN-<slug>/spec.md` with this structure:
 
 ```markdown
 # Spec NNN: [Title]

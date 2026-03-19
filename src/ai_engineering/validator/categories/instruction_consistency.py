@@ -96,7 +96,7 @@ def _check_instruction_consistency(
 
     Files can use either detailed listings (tables/bullets) or pointer format
     ('Skills (35)'). Pointer-format files are validated against the canonical
-    source: product-contract.md.
+    source: manifest.yml.
     """
     # Detailed listings per file
     detailed_skills: dict[str, set[str]] = {}
@@ -147,13 +147,20 @@ def _check_instruction_consistency(
                 )
             )
 
-    # Get canonical listings from product-contract.md
-    pc_path = target / ".ai-engineering" / "context" / "product" / "product-contract.md"
+    # Get canonical listings from manifest.yml (source of truth)
+    manifest_path = target / ".ai-engineering" / "manifest.yml"
     canonical_skills: set[str] = set()
     canonical_agents: set[str] = set()
-    if pc_path.exists():
-        pc_content = pc_path.read_text(encoding="utf-8", errors="replace")
-        canonical_skills, canonical_agents = _extract_listings(pc_content)
+    if manifest_path.exists():
+        manifest_content = manifest_path.read_text(encoding="utf-8", errors="replace")
+        # Extract skill names from registry keys (e.g. "ai-commit: {type: ...}")
+        skill_key_re = re.compile(r"^\s+(ai-[a-z0-9-]+):\s*\{", re.MULTILINE)
+        canonical_skills = set(skill_key_re.findall(manifest_content))
+        # Extract agent names from the names list
+        agent_names_re = re.compile(r"^\s+names:\s*\[([^\]]+)\]", re.MULTILINE)
+        agent_match = agent_names_re.search(manifest_content)
+        if agent_match:
+            canonical_agents = {n.strip() for n in agent_match.group(1).split(",") if n.strip()}
 
     # Compare files with detailed listings against each other
     if len(detailed_skills) >= 2:
@@ -239,7 +246,7 @@ def _check_instruction_consistency(
                         status=IntegrityStatus.FAIL,
                         message=(
                             f"{file_rel} says {count} skills, "
-                            f"product-contract.md lists {len(canonical_skills)}"
+                            f"manifest.yml lists {len(canonical_skills)}"
                         ),
                         file_path=file_rel,
                     )
@@ -255,7 +262,7 @@ def _check_instruction_consistency(
                         status=IntegrityStatus.FAIL,
                         message=(
                             f"{file_rel} says {count} agents, "
-                            f"product-contract.md lists {len(canonical_agents)}"
+                            f"manifest.yml lists {len(canonical_agents)}"
                         ),
                         file_path=file_rel,
                     )
@@ -273,7 +280,7 @@ def _check_instruction_consistency(
                 status=IntegrityStatus.OK,
                 message=(
                     f"{len(all_pointer_files)} pointer-format files match "
-                    f"product-contract.md canonical counts"
+                    f"manifest.yml canonical counts"
                 ),
             )
         )

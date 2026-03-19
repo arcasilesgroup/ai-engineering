@@ -104,7 +104,7 @@ def check_active_spec(ai_eng_dir: Path) -> tuple[str | None, bool]:
     Returns:
         Tuple of (slug_or_None, is_completed).
     """
-    active_path = ai_eng_dir / "context" / "specs" / "_active.md"
+    active_path = ai_eng_dir / "specs" / "_active.md"
     if not active_path.exists():
         return None, False
 
@@ -115,7 +115,7 @@ def check_active_spec(ai_eng_dir: Path) -> tuple[str | None, bool]:
     if not slug or slug == "null" or slug == "none":
         return None, False
 
-    spec_dir = ai_eng_dir / "context" / "specs" / slug
+    spec_dir = ai_eng_dir / "specs" / slug
     if not spec_dir.is_dir():
         return slug, False
 
@@ -134,7 +134,7 @@ def find_completed_specs(specs_dir: Path) -> list[str]:
     ``completed == total`` in frontmatter is NOT sufficient on its own.
 
     Args:
-        specs_dir: Path to ``context/specs/`` directory.
+        specs_dir: Path to ``specs/`` directory.
 
     Returns:
         List of slug names for completed specs outside archive.
@@ -158,7 +158,7 @@ def archive_spec(specs_dir: Path, slug: str) -> bool:
     """Move a spec directory to ``specs/archive/``.
 
     Args:
-        specs_dir: Path to ``context/specs/`` directory.
+        specs_dir: Path to ``specs/`` directory.
         slug: Spec directory name (e.g. ``022-test-pyramid-rewrite``).
 
     Returns:
@@ -226,7 +226,7 @@ def run_spec_reset(
     """
     result = SpecResetResult()
     ai_eng_dir = project_root / ".ai-engineering"
-    specs_dir = ai_eng_dir / "context" / "specs"
+    specs_dir = ai_eng_dir / "specs"
 
     if not specs_dir.is_dir():
         result.errors.append("Specs directory not found")

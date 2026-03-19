@@ -37,7 +37,7 @@ def _create_spec_tree(
     tasks_checkboxes: str | None = None,
 ) -> Path:
     """Create a minimal spec directory tree under archive/."""
-    archive = root / ".ai-engineering" / "context" / "specs" / "archive"
+    archive = root / ".ai-engineering" / "specs" / "archive"
     spec_dir = archive / f"{spec_id}-{slug}"
     spec_dir.mkdir(parents=True, exist_ok=True)
 
@@ -77,7 +77,7 @@ def _create_spec_tree(
 
 def _create_active_md(root: Path, slug: str | None) -> None:
     """Create _active.md pointing to given slug."""
-    specs_dir = root / ".ai-engineering" / "context" / "specs"
+    specs_dir = root / ".ai-engineering" / "specs"
     specs_dir.mkdir(parents=True, exist_ok=True)
     if slug is None:
         content = '---\nactive: null\nupdated: "2026-01-01"\n---\n\n# Active Spec\n'
@@ -155,7 +155,7 @@ class TestFindAllSpecFiles:
     def test_empty_archive(self, tmp_path: Path) -> None:
         """Empty archive returns empty list."""
         # Arrange
-        archive = tmp_path / ".ai-engineering" / "context" / "specs" / "archive"
+        archive = tmp_path / ".ai-engineering" / "specs" / "archive"
         archive.mkdir(parents=True)
 
         # Act

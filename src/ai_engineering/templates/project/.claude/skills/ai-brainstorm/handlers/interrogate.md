@@ -12,7 +12,7 @@ Before asking questions, gather context silently:
 
 1. Read codebase structure (Glob for relevant files)
 2. Read existing patterns (Grep for conventions)
-3. Read related specs (check `context/specs/` for prior work)
+3. Read related specs (check `specs/` for prior work)
 4. Read decision store for relevant architectural decisions
 
 Do NOT ask the user what you can learn from the code.

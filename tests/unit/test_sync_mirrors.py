@@ -494,9 +494,9 @@ class TestCrossReferenceTranslation:
     def test_context_not_translated(self) -> None:
         from scripts.sync_command_mirrors import transform_cross_references
 
-        content = "Check `.ai-engineering/context/specs/_active.md`."
+        content = "Check `.ai-engineering/specs/_active.md`."
         result = transform_cross_references(content, "claude")
-        assert ".ai-engineering/context/specs/_active.md" in result
+        assert ".ai-engineering/specs/_active.md" in result
 
     def test_multiple_references_in_one_line(self) -> None:
         from scripts.sync_command_mirrors import transform_cross_references

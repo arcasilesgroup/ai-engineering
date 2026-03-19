@@ -37,7 +37,7 @@ Generate standup notes from actual PR and commit activity. Produces concise, cop
 2. **Collect activity** -- scan the following sources:
    a. `git log --since="N days ago" --author="<name>"` -- local commits
    b. `gh pr list --author="<name>" --state=all --json title,url,state,updatedAt` -- PRs
-   c. Active spec tasks from `.ai-engineering/context/specs/_active.md` -- current work
+   c. Active spec tasks from `.ai-engineering/specs/_active.md` -- current work
 
 3. **Classify items** into three groups:
 

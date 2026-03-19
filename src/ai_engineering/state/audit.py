@@ -50,7 +50,7 @@ def _read_active_spec(root: Path) -> str | None:
     if _cached_spec_id is not _UNSET:
         return _cached_spec_id  # type: ignore[return-value]
     try:
-        active_path = root / ".ai-engineering" / "context" / "specs" / "_active.md"
+        active_path = root / ".ai-engineering" / "specs" / "_active.md"
         if not active_path.exists():
             _cached_spec_id = None
             return None

@@ -1,6 +1,7 @@
 ---
 name: ai-guard
 description: Proactive governance advisor. Checks standards, decisions, and quality trends during development. Always advisory, NEVER blocks.
+color: yellow
 model: sonnet
 ---
 

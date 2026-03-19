@@ -33,7 +33,7 @@ def _check_manifest_coherence(target: Path, report: IntegrityReport, **_kwargs: 
     # Note: skills/ and agents/ no longer live under .ai-engineering/ —
     # they have moved to IDE-specific directories (.claude/, .agents/).
     ownership_dirs = [
-        ("standards/framework", "framework_managed"),
+        ("contexts", "framework_managed"),
         ("context", "project_managed"),
         ("state", "system_managed"),
     ]
@@ -61,7 +61,7 @@ def _check_manifest_coherence(target: Path, report: IntegrityReport, **_kwargs: 
             )
 
     # Verify active spec pointer
-    active_path = ai_dir / "context" / "specs" / "_active.md"
+    active_path = ai_dir / "specs" / "_active.md"
     if active_path.exists():
         content = active_path.read_text(encoding="utf-8", errors="replace")
         # Extract active spec from frontmatter (quoted or unquoted)
@@ -80,8 +80,8 @@ def _check_manifest_coherence(target: Path, report: IntegrityReport, **_kwargs: 
                     )
                 )
             elif not (
-                (ai_dir / "context" / "specs" / active_spec).is_dir()
-                or (ai_dir / "context" / "specs" / "archive" / active_spec).is_dir()
+                (ai_dir / "specs" / active_spec).is_dir()
+                or (ai_dir / "specs" / "archive" / active_spec).is_dir()
             ):
                 report.checks.append(
                     IntegrityCheckResult(
@@ -93,9 +93,9 @@ def _check_manifest_coherence(target: Path, report: IntegrityReport, **_kwargs: 
                 )
             else:
                 # Resolve the actual spec directory
-                spec_base = ai_dir / "context" / "specs" / active_spec
+                spec_base = ai_dir / "specs" / active_spec
                 if not spec_base.is_dir():
-                    spec_base = ai_dir / "context" / "specs" / "archive" / active_spec
+                    spec_base = ai_dir / "specs" / "archive" / active_spec
                 if not (spec_base / "spec.md").exists():
                     report.checks.append(
                         IntegrityCheckResult(

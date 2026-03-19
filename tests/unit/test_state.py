@@ -243,11 +243,11 @@ class TestOwnershipMap:
 
     def test_writable_by_framework_allow(self) -> None:
         om = default_ownership_map()
-        assert om.is_writable_by_framework(".ai-engineering/standards/framework/core.md") is True
+        assert om.is_writable_by_framework(".ai-engineering/contexts/languages/python.md") is True
 
     def test_writable_by_framework_deny(self) -> None:
         om = default_ownership_map()
-        assert om.is_writable_by_framework(".ai-engineering/standards/team/custom.md") is False
+        assert om.is_writable_by_framework(".ai-engineering/contexts/team/custom.md") is False
 
     def test_writable_by_framework_no_match_defaults_deny(self) -> None:
         om = default_ownership_map()
@@ -259,11 +259,11 @@ class TestOwnershipMap:
 
     def test_update_allowed_for_framework_managed(self) -> None:
         om = default_ownership_map()
-        assert om.is_update_allowed(".ai-engineering/standards/framework/core.md") is True
+        assert om.is_update_allowed(".ai-engineering/contexts/languages/python.md") is True
 
     def test_update_denied_for_team_managed(self) -> None:
         om = default_ownership_map()
-        assert om.is_update_allowed(".ai-engineering/standards/team/custom.md") is False
+        assert om.is_update_allowed(".ai-engineering/contexts/team/custom.md") is False
 
     def test_update_denied_for_append_only(self) -> None:
         om = default_ownership_map()
@@ -275,7 +275,7 @@ class TestOwnershipMap:
 
     def test_has_deny_rule_true(self) -> None:
         om = default_ownership_map()
-        assert om.has_deny_rule(".ai-engineering/standards/team/core.md") is True
+        assert om.has_deny_rule(".ai-engineering/contexts/team/core.md") is True
 
     def test_has_deny_rule_false_for_allow(self) -> None:
         om = default_ownership_map()

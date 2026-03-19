@@ -294,7 +294,7 @@ def test_updater_validator_and_vcs_edges(tmp_path: Path) -> None:
     with patch("ai_engineering.vcs.factory.detect_from_remote", return_value="unknown"):
         assert factory.get_provider(tmp_path).provider_name() == "github"
 
-    active = tmp_path / ".ai-engineering" / "context" / "specs" / "_active.md"
+    active = tmp_path / ".ai-engineering" / "specs" / "_active.md"
     active.parent.mkdir(parents=True, exist_ok=True)
     active.write_text('active: "123-test"\n', encoding="utf-8")
     with patch.object(Path, "read_text", side_effect=OSError("x")):
@@ -306,7 +306,7 @@ def test_validator_remaining_branches(tmp_path: Path) -> None:
     (ai / "skills").mkdir(parents=True, exist_ok=True)
     (ai / "agents").mkdir(parents=True, exist_ok=True)
     (ai / "context" / "product").mkdir(parents=True, exist_ok=True)
-    (ai / "context" / "specs").mkdir(parents=True, exist_ok=True)
+    (ai / "specs").mkdir(parents=True, exist_ok=True)
     (ai / "state").mkdir(parents=True, exist_ok=True)
     (ai / "manifest.yml").write_text("name: x\n", encoding="utf-8")
 

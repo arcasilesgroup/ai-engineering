@@ -12,7 +12,7 @@ Operational guide for Claude Code sessions. Conflicts with `.ai-engineering/**` 
 
 Before non-trivial work:
 
-1. **Read active spec** — `.ai-engineering/context/specs/_active.md` and linked spec/plan/tasks.
+1. **Read active spec** — `.ai-engineering/specs/_active.md` and linked spec/plan/tasks.
 2. **Read decision store** — `.ai-engineering/state/decision-store.json`.
 3. **Run cleanup** — `/cleanup` to sync repo.
 4. **Verify tooling** — ruff, gitleaks, pytest, ty.

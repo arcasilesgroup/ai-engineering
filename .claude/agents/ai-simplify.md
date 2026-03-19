@@ -1,6 +1,7 @@
 ---
 name: ai-simplify
 model: sonnet
+color: green
 description: "Code simplification and complexity reduction. Guard clauses, method extraction, nesting flattening, dead code removal. Behavior preserved."
 tools: [Read, Glob, Grep, Edit, Bash]
 ---

@@ -6,7 +6,7 @@
 
 <!-- WHY is this change needed? Link to spec if applicable. -->
 
-**Spec:** <!-- https://github.com/arcasilesgroup/ai-engineering/blob/main/.ai-engineering/context/specs/NNN-name/spec.md -->
+**Spec:** <!-- https://github.com/arcasilesgroup/ai-engineering/blob/main/.ai-engineering/specs/NNN-name/spec.md -->
 
 ## How
 

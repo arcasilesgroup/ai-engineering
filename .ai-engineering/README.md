@@ -1,80 +1,143 @@
 # ai-engineering
 
-Governance framework that turns any repository into a governed AI workspace with mandatory local enforcement, observability, and DevSecOps.
+Governed AI-assisted software development framework for regulated industries.
 
-## Quick Start
+## What Gets Installed
 
-```bash
-pip install ai-engineering
-ai-eng install .
-ai-eng doctor
+- `.claude/skills/` -- 28 AI skills (slash commands)
+- `.claude/agents/` -- 8 specialized AI agents
+- `.ai-engineering/` -- governance, contexts, state
+- `CLAUDE.md` -- Claude Code instructions
+- `AGENTS.md` -- multi-IDE instructions (Copilot, Codex, Gemini)
+
+## Skills by Category
+
+### Core Workflow
+
+| Skill | Purpose |
+|-------|---------|
+| /ai-brainstorm | Design interrogation before implementation |
+| /ai-plan | Implementation planning with task decomposition |
+| /ai-dispatch | Execute plan with subagents |
+| /ai-test | TDD enforcement (RED-GREEN-REFACTOR) |
+| /ai-debug | Systematic 4-phase debugging |
+| /ai-verify | Evidence-based verification |
+| /ai-review | Parallel 8-agent code review |
+
+### Delivery
+
+| Skill | Purpose |
+|-------|---------|
+| /ai-commit | Governed commit (lint + secrets + push) |
+| /ai-pr | Pull request with auto-generated summary |
+| /ai-release | GO/NO-GO release gate |
+| /ai-cleanup | Branch cleanup and repo hygiene |
+
+### Enterprise
+
+| Skill | Purpose |
+|-------|---------|
+| /ai-security | SAST, dependency audit, SBOM |
+| /ai-governance | Compliance validation |
+| /ai-pipeline | CI/CD generation |
+| /ai-schema | Database engineering |
+
+### Teaching and Writing
+
+| Skill | Purpose |
+|-------|---------|
+| /ai-explain | Technical explanations |
+| /ai-guide | Project onboarding |
+| /ai-write | Docs, changelogs, articles |
+
+### SDLC
+
+| Skill | Purpose |
+|-------|---------|
+| /ai-note | Technical discovery notes |
+| /ai-standup | Standup notes from PR activity |
+| /ai-sprint | Sprint planning and retros |
+| /ai-postmortem | Incident postmortems (DERP) |
+| /ai-support | Customer support investigation |
+| /ai-resolve-conflicts | Git conflict resolution |
+
+### Meta
+
+| Skill | Purpose |
+|-------|---------|
+| /ai-create | Create new skills/agents (TDD) |
+| /ai-learn | Continuous improvement from outcomes |
+| /ai-prompt | Prompt optimization |
+| /ai-onboard | Session bootstrap and enforcement |
+
+## Agents
+
+| Agent | Role | Model |
+|-------|------|-------|
+| plan | Design interrogation | opus |
+| build | Implementation | opus |
+| verify | Quality scanning | opus |
+| guard | Governance advisory | sonnet |
+| review | Parallel code review | opus |
+| explore | Codebase research | sonnet |
+| guide | Teaching/onboarding | sonnet |
+| simplify | Code simplification | sonnet |
+
+## Directory Structure
+
 ```
-
-## Agents (8)
-
-Agents are roles with judgment about WHEN and WHY. Invoke with `/ai-<name>`.
-
-| Agent | When to use |
-|-------|-------------|
-| **plan** | Architecture design, spec creation, roadmap guidance |
-| **build** | Implementation across all stacks (ONLY code writer) |
-| **verify** | 7-mode scanning: governance, security, quality, performance, a11y, feature-gap, architecture |
-| **guard** | Proactive governance advisory, drift detection |
-| **guide** | Teaching, onboarding, architecture tours |
-| **operate** | Runbook execution, incident response |
-| **explorer** | Deep codebase research, context gathering before other agents |
-| **simplifier** | Code simplification: guard clauses, extract methods, flatten nesting |
-
-## Skills (34)
-
-Skills are procedures about HOW. Each agent composes skills at runtime.
-
-| Domain | Skills |
-|--------|--------|
-| Planning (5) | plan, discover, spec, risk, dispatch |
-| Build (10) | code, test, debug, refactor, simplify, api, schema, pipeline, infra, migrate |
-| Verify (7) | security, quality, governance, performance, accessibility, architecture, gap |
-| Delivery (5) | commit, pr, release, changelog, triage |
-| Observe (2) | dashboard, evolve |
-| Governance & Ops (9) | guard, standards, lifecycle, contract, cleanup, ops, document, explain, onboard |
+.ai-engineering/
+  manifest.yml          # Framework configuration (editable)
+  README.md             # This file
+  contexts/             # Language, framework, org, team conventions
+    languages/
+    frameworks/
+    orgs/
+    team/               # Your team's custom conventions
+  specs/                # Architecture specs and decisions
+    _active.md
+    archive/
+  tasks/                # Execution tracking
+    todo.md
+    lessons.md
+  state/                # Compliance state
+    decision-store.json
+    audit-log.ndjson
+```
 
 ## Workflow
 
-```
-/ai-plan → creates spec + execution plan → STOP
-(human reviews and approves)
-/ai-build → implements per plan
-/ai-verify → scans for governance, security, quality issues
-/ai-guard → proactive governance check
-```
+1. **Brainstorm** -- Design interrogation, spec approval
+2. **Plan** -- Task decomposition, agent assignments
+3. **Execute** -- Subagent per task, TDD, verification
+4. **Review** -- 8 parallel agents, self-challenge
+5. **Ship** -- Commit, PR, release gate
+6. **Learn** -- Analyze outcomes, update lessons
 
-Three-step cycle: **plan** then **build** then **verify/guard**.
+## Configuration
 
-## Standards
+Edit `manifest.yml` to customize:
+- VCS provider (GitHub/Azure DevOps)
+- IDE support (Claude Code, Copilot, Codex, Gemini)
+- Quality gates (coverage, complexity thresholds)
+- Documentation auto-update settings
+- Stack contexts
 
-Layered (higher tightens, never weakens):
-1. `standards/framework/core.md` — non-negotiables
-2. `standards/framework/stacks/` — per-technology (21 stacks)
-3. `standards/framework/cross-cutting/` — error handling, testing, etc.
-4. `standards/team/` — team overrides (never overwritten by framework)
+## Using with Other IDEs
 
-## State
-
-| File | Purpose |
-|------|---------|
-| `state/decision-store.json` | Persistent decisions with SHA-256 context hash |
-| `state/audit-log.ndjson` | Append-only event trail (90-day retention) |
-| `state/session-checkpoint.json` | Session recovery |
-| `state/health-history.json` | Health score trend |
+If your IDE is not directly supported, copy the contents of `AGENTS.md`
+into your IDE's instruction file (e.g., `.cursorrules`, custom system prompt).
+The skills in `.agents/skills/` and agents in `.agents/agents/` use a
+generic format compatible with any AI coding assistant.
 
 ## CLI
 
-```bash
-ai-eng observe [engineer|team|ai|dora|health]
-ai-eng gate [pre-commit|pre-push|all]
-ai-eng doctor [--fix-hooks] [--fix-tools]
-ai-eng validate
-ai-eng spec [verify|catalog|list|compact]
-ai-eng decision [list|expire-check]
-ai-eng checkpoint [save|load]
+```
+ai-eng install     # Install framework
+ai-eng update      # Update to latest
+ai-eng doctor      # Diagnose issues
+ai-eng validate    # Verify manifest
+ai-eng sync        # Regenerate IDE mirrors
+ai-eng gate        # Run quality gates
+ai-eng observe     # Observability dashboards
 ```

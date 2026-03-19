@@ -23,7 +23,7 @@ HARD GATE: user must approve the plan before `/ai-dispatch` can run.
 
 ## Process
 
-1. **Read spec** -- load `context/specs/_active.md`, then the linked spec.md
+1. **Read spec** -- load `specs/_active.md`, then the linked spec.md
 2. **Read context** -- `product-contract.md` section 7 (roadmap), `decision-store.json` (constraints)
 3. **Explore codebase** -- understand current architecture, patterns, and affected files
 4. **Classify pipeline** -- select full/standard/hotfix/trivial based on change scope

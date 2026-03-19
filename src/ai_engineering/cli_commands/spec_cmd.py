@@ -21,7 +21,7 @@ from ai_engineering.paths import find_project_root
 
 
 def _specs_dir(root: Path) -> Path:
-    return root / ".ai-engineering" / "context" / "specs"
+    return root / ".ai-engineering" / "specs"
 
 
 def _archive_dir(root: Path) -> Path:
@@ -60,7 +60,7 @@ def _find_all_spec_files(root: Path) -> list[Path]:
                 specs.append(spec_file)
 
     # Scan active spec directories (siblings of archive)
-    specs_root = root / ".ai-engineering" / "context" / "specs"
+    specs_root = root / ".ai-engineering" / "specs"
     if specs_root.is_dir():
         seen_slugs = {s.parent.name for s in specs}
         for spec_dir in sorted(specs_root.iterdir()):

@@ -26,7 +26,7 @@ HARD GATE: this skill produces a spec. No implementation happens until the user 
 1. **Load context** -- read `_active.md`, `decision-store.json`, and `product-contract.md` section 7 (roadmap)
 2. **Interrogate** -- follow `handlers/interrogate.md` for the questioning flow
 3. **Propose approaches** -- present 2-3 options with trade-offs (never just one)
-4. **Draft spec** -- write spec to `context/specs/NNN-<slug>/spec.md`
+4. **Draft spec** -- write spec to `specs/NNN-<slug>/spec.md`
 5. **Review spec** -- follow `handlers/spec-review.md` for the review loop (max 3 iterations)
 6. **STOP** -- present approved spec. User runs `/ai-plan` to continue.
 
@@ -81,7 +81,7 @@ Before asking questions, gather context silently:
 
 1. Read codebase structure (Glob for relevant files)
 2. Read existing patterns (Grep for conventions)
-3. Read related specs (check `context/specs/` for prior work)
+3. Read related specs (check `specs/` for prior work)
 4. Read decision store for relevant architectural decisions
 
 Do NOT ask the user what you can learn from the code.
@@ -164,7 +164,7 @@ Dispatch a spec-reviewer subagent to challenge the draft spec. The reviewer argu
 
 ### Step 1 -- Write the Spec
 
-Create `context/specs/NNN-<slug>/spec.md` with this structure:
+Create `specs/NNN-<slug>/spec.md` with this structure:
 
 ```markdown
 # Spec NNN: [Title]

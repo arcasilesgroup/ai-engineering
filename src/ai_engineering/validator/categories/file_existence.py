@@ -32,7 +32,7 @@ def _check_file_existence(
         return
 
     # Collect closed spec directories (have done.md = historical archive)
-    specs_dir_path = ai_dir / "context" / "specs"
+    specs_dir_path = ai_dir / "specs"
     closed_specs: set[Path] = set()
     if specs_dir_path.is_dir():
         for spec_dir in specs_dir_path.iterdir():
@@ -120,7 +120,7 @@ def _check_file_existence(
         )
 
     # Verify spec directory completeness
-    specs_dir = ai_dir / "context" / "specs"
+    specs_dir = ai_dir / "specs"
     if specs_dir.is_dir():
         for spec_dir in sorted(specs_dir.iterdir()):
             if not spec_dir.is_dir() or spec_dir.name.startswith("_"):

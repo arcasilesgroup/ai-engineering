@@ -4,7 +4,7 @@
 
 Enter plan mode for any non-trivial task (3+ steps). Think before you build.
 
-Read the active spec before touching code: `.ai-engineering/context/specs/_active.md` and linked plan/tasks.
+Read the active spec before touching code: `.ai-engineering/specs/_active.md` and linked plan/tasks.
 Read the decision store to avoid repeating settled questions: `.ai-engineering/state/decision-store.json`.
 
 If something goes sideways -- stop, re-read context, re-plan. Do not push through a broken approach.
@@ -111,6 +111,6 @@ Telemetry is automatic via hooks -- no manual `ai-eng signals emit` needed.
 | Agents (8) | `.claude/agents/ai-<name>.md` |
 | Config | `.ai-engineering/manifest.yml` |
 | Decisions | `.ai-engineering/state/decision-store.json` |
-| Active spec | `.ai-engineering/context/specs/_active.md` |
+| Active spec | `.ai-engineering/specs/_active.md` |
 | Contexts | `.ai-engineering/contexts/languages/`, `frameworks/`, `team/` |
 | CLI | `ai-eng <command>` |

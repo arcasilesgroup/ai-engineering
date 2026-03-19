@@ -12,7 +12,7 @@ Operational contract for AI agents. Consumed by GitHub Copilot, Claude Code, Gem
 
 Before non-trivial work:
 
-1. **Read active spec** — `.ai-engineering/context/specs/_active.md` and linked spec/plan/tasks.
+1. **Read active spec** — `.ai-engineering/specs/_active.md` and linked spec/plan/tasks.
 2. **Read decision store** — `.ai-engineering/state/decision-store.json`.
 3. **Load checkpoint** — `ai-eng checkpoint load` for session recovery.
 4. **Run cleanup** — sync repo (status, git pull, prune, branch cleanup).

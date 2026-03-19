@@ -19,7 +19,7 @@ pytestmark = pytest.mark.unit
 
 def _make_spec_dir(root: Path, spec_id: str, *, done: bool = False, spec_text: str = "") -> Path:
     """Create a minimal spec directory structure."""
-    spec_dir = root / ".ai-engineering" / "context" / "specs" / spec_id
+    spec_dir = root / ".ai-engineering" / "specs" / spec_id
     spec_dir.mkdir(parents=True, exist_ok=True)
     if spec_text:
         (spec_dir / "spec.md").write_text(spec_text, encoding="utf-8")
@@ -192,7 +192,7 @@ class TestSyncSpecIssues:
 
     def test_skips_archive_and_special_files(self, tmp_path: Path) -> None:
         # Arrange
-        specs_dir = tmp_path / ".ai-engineering" / "context" / "specs"
+        specs_dir = tmp_path / ".ai-engineering" / "specs"
         specs_dir.mkdir(parents=True)
         (specs_dir / "_active.md").write_text("active: none", encoding="utf-8")
         (specs_dir / "_catalog.md").write_text("catalog", encoding="utf-8")

@@ -187,12 +187,12 @@ def _build_spec_url(project_root: Path, spec: str) -> str | None:
     if not repo_url:
         return None
 
-    specs_dir = project_root / ".ai-engineering" / "context" / "specs"
+    specs_dir = project_root / ".ai-engineering" / "specs"
     archive_spec = specs_dir / "archive" / spec / "spec.md"
     if archive_spec.exists():
-        spec_path = f".ai-engineering/context/specs/archive/{spec}/spec.md"
+        spec_path = f".ai-engineering/specs/archive/{spec}/spec.md"
     else:
-        spec_path = f".ai-engineering/context/specs/{spec}/spec.md"
+        spec_path = f".ai-engineering/specs/{spec}/spec.md"
 
     if "github.com" in repo_url:
         return f"{repo_url}/blob/main/{spec_path}"
@@ -215,7 +215,7 @@ def _read_active_spec(project_root: Path) -> str | None:
         Active spec identifier (e.g. ``"014-dual-vcs-provider"``),
         or None if no spec is active or file is missing.
     """
-    active_path = project_root / ".ai-engineering" / "context" / "specs" / "_active.md"
+    active_path = project_root / ".ai-engineering" / "specs" / "_active.md"
     if not active_path.exists():
         return None
 
@@ -247,7 +247,7 @@ def _read_spec_context(project_root: Path, spec: str) -> dict[str, str]:
         Dict with ``title``, ``problem``, ``solution`` (may be empty strings).
     """
     empty: dict[str, str] = {"title": "", "problem": "", "solution": ""}
-    specs_dir = project_root / ".ai-engineering" / "context" / "specs"
+    specs_dir = project_root / ".ai-engineering" / "specs"
     spec_path = specs_dir / spec / "spec.md"
     if not spec_path.exists():
         spec_path = specs_dir / "archive" / spec / "spec.md"

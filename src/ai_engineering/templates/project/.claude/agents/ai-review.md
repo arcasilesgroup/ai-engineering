@@ -1,6 +1,7 @@
 ---
 name: ai-review
 model: opus
+color: red
 description: "Specialized code review with 8 parallel focus areas. Self-challenging, confidence-scored, cross-corroborated."
 tools: [Read, Glob, Grep, Bash]
 ---

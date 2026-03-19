@@ -1,6 +1,7 @@
 ---
 name: ai-explore
 model: sonnet
+color: cyan
 description: "Deep codebase research. Architecture mapping. Dependency tracing. Pattern identification. Strictly read-only."
 tools: [Read, Glob, Grep, Bash]
 ---

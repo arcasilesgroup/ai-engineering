@@ -57,7 +57,7 @@ Auto-classify from `git diff --stat` + change type. User override always availab
 ### Spec-as-Gate Pattern
 
 1. **Produce spec as text** -- write full spec in conversation
-2. **Persist via Write tool** -- create spec.md, plan.md, tasks.md in `context/specs/NNN-<slug>/`
+2. **Persist via Write tool** -- create spec.md, plan.md, tasks.md in `specs/NNN-<slug>/`
 3. **Update _active.md** -- point to new spec
 4. **Commit** -- `spec-NNN: Phase 0 -- scaffold spec files and activate`
 5. **STOP** -- present result. User must explicitly invoke `/ai-dispatch` to begin execution.

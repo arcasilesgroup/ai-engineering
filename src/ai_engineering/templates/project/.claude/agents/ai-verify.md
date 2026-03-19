@@ -1,6 +1,7 @@
 ---
 name: ai-verify
 model: opus
+color: green
 description: "Quality + security assessment. Evidence before claims. Dispatches parallel checks, self-challenges findings, produces scored verdicts."
 tools: [Read, Glob, Grep, Bash]
 ---

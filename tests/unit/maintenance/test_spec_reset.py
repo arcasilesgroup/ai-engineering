@@ -65,7 +65,7 @@ class TestCheckActiveSpec:
     def test_active_with_done_md(self, tmp_path):
         """Active spec with done.md is detected as completed."""
         ai_eng = tmp_path / ".ai-engineering"
-        specs_dir = ai_eng / "context" / "specs"
+        specs_dir = ai_eng / "specs"
         specs_dir.mkdir(parents=True)
 
         _create_spec_dir(specs_dir, "001-feature", done=True)
@@ -82,7 +82,7 @@ class TestCheckActiveSpec:
         not sufficient.
         """
         ai_eng = tmp_path / ".ai-engineering"
-        specs_dir = ai_eng / "context" / "specs"
+        specs_dir = ai_eng / "specs"
         specs_dir.mkdir(parents=True)
 
         _create_spec_dir(specs_dir, "002-refactor", tasks_complete=True)
@@ -95,7 +95,7 @@ class TestCheckActiveSpec:
     def test_active_in_progress(self, tmp_path):
         """Active spec without done.md and incomplete tasks is not completed."""
         ai_eng = tmp_path / ".ai-engineering"
-        specs_dir = ai_eng / "context" / "specs"
+        specs_dir = ai_eng / "specs"
         specs_dir.mkdir(parents=True)
 
         _create_spec_dir(specs_dir, "003-wip")
@@ -108,7 +108,7 @@ class TestCheckActiveSpec:
     def test_null_active(self, tmp_path):
         """Null active returns (None, False)."""
         ai_eng = tmp_path / ".ai-engineering"
-        specs_dir = ai_eng / "context" / "specs"
+        specs_dir = ai_eng / "specs"
         specs_dir.mkdir(parents=True)
 
         _create_active_md(specs_dir, None)
@@ -120,7 +120,7 @@ class TestCheckActiveSpec:
     def test_missing_active_file(self, tmp_path):
         """Missing _active.md returns (None, False)."""
         ai_eng = tmp_path / ".ai-engineering"
-        (ai_eng / "context" / "specs").mkdir(parents=True)
+        (ai_eng / "specs").mkdir(parents=True)
 
         slug, completed = check_active_spec(ai_eng)
         assert slug is None
@@ -129,7 +129,7 @@ class TestCheckActiveSpec:
     def test_missing_spec_dir(self, tmp_path):
         """Active pointing to non-existent dir returns (slug, False)."""
         ai_eng = tmp_path / ".ai-engineering"
-        specs_dir = ai_eng / "context" / "specs"
+        specs_dir = ai_eng / "specs"
         specs_dir.mkdir(parents=True)
 
         _create_active_md(specs_dir, "999-nonexistent")

@@ -1,6 +1,7 @@
 ---
 name: ai-build
 model: opus
+color: blue
 description: "Implementation coordinator. The ONLY agent with code write permissions. Test-first, dispatch-driven, quality-gated."
 tools: [Read, Write, Edit, Bash, Glob, Grep]
 ---

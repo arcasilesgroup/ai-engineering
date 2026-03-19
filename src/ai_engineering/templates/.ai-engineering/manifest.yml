@@ -76,7 +76,7 @@ issue_standard:
   required_fields: ["title", "type", "labels", "description", "priority", "size"]
   required_on_start: ["start_date"]
   required_on_create: ["target_date", "estimate"]
-  spec_url_format: "https://github.com/{owner}/{repo}/blob/{branch}/.ai-engineering/context/specs/{spec_id}/spec.md"
+  spec_url_format: "https://github.com/{owner}/{repo}/blob/{branch}/.ai-engineering/specs/{spec_id}/spec.md"
   priority_labels: ["p1-critical", "p2-high", "p3-normal"]
   size_labels: ["XS", "S", "M", "L", "XL"]
   priority_mapping:
@@ -145,13 +145,13 @@ ownership:
   root: ".ai-engineering"
   model:
     framework_managed:
-      - "standards/framework/**"
+      - "contexts/languages/**"
+      - "contexts/frameworks/**"
       - "skills/**"
       - "agents/**"
       - "runbooks/**"
-      - "context/product/framework-contract.md"
     team_managed:
-      - "standards/team/**"
+      - "contexts/team/**"
     project_managed:
       - "context/**"
     system_managed:
@@ -179,10 +179,9 @@ ownership:
 
 standards:
   precedence:
-    - "standards/framework/core.md"
-    - "standards/framework/stacks/<stack>.md"
-    - "standards/team/core.md"
-    - "standards/team/stacks/<stack>.md"
+    - "contexts/languages/<stack>.md"
+    - "contexts/frameworks/<framework>.md"
+    - "contexts/team/core.md"
   non_negotiables:
     - "mandatory_local_enforcement"
     - "no_direct_commits_to_main_or_master"
@@ -276,7 +275,7 @@ agentic:
   parallel_execution: true
   session_contract:
     start_sequence:
-      - "context/specs/_active.md"
+      - "specs/_active.md"
       - "<active_spec>/spec.md"
       - "<active_spec>/tasks.md"
       - "state/decision-store.json"

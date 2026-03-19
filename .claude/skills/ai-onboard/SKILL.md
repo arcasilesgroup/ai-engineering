@@ -22,7 +22,7 @@ Framework bootstrap and enforcement. Detects available skills, loads active cont
 1. **Detect skills** -- scan `.claude/skills/` for available SKILL.md files. Build a capability map.
 
 2. **Load active context**:
-   - Read `.ai-engineering/context/specs/_active.md` -- current spec and tasks
+   - Read `.ai-engineering/specs/_active.md` -- current spec and tasks
    - Read `.ai-engineering/state/decision-store.json` -- active decisions and risk acceptances
    - Read `.ai-engineering/tasks/lessons.md` -- recent corrections (if exists)
 

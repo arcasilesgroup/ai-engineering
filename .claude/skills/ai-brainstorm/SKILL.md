@@ -24,7 +24,7 @@ HARD GATE: this skill produces a spec. No implementation happens until the user 
 1. **Load context** -- read `_active.md`, `decision-store.json`, and `product-contract.md` section 7 (roadmap)
 2. **Interrogate** -- follow `handlers/interrogate.md` for the questioning flow
 3. **Propose approaches** -- present 2-3 options with trade-offs (never just one)
-4. **Draft spec** -- write spec to `context/specs/NNN-<slug>/spec.md`
+4. **Draft spec** -- write spec to `specs/NNN-<slug>/spec.md`
 5. **Review spec** -- follow `handlers/spec-review.md` for the review loop (max 3 iterations)
 6. **STOP** -- present approved spec. User runs `/ai-plan` to continue.
 

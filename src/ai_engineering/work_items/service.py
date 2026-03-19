@@ -31,7 +31,7 @@ class SyncReport:
 def sync_spec_issues(project_root: Path, *, dry_run: bool = False) -> SyncReport:
     """Sync all specs to external work items.
 
-    For each spec directory in ``context/specs/``:
+    For each spec directory in ``specs/``:
     - Finds existing issue by ``spec-NNN`` label/tag.
     - Creates a new issue if none exists.
     - Closes the issue if ``done.md`` exists.
@@ -46,7 +46,7 @@ def sync_spec_issues(project_root: Path, *, dry_run: bool = False) -> SyncReport
     report = SyncReport()
     provider = get_provider(project_root)
 
-    specs_dir = project_root / ".ai-engineering" / "context" / "specs"
+    specs_dir = project_root / ".ai-engineering" / "specs"
     if not specs_dir.is_dir():
         return report
 

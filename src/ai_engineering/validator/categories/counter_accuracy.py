@@ -40,7 +40,7 @@ def _extract_skill_agent_counts(
 
 
 def _check_counter_accuracy(target: Path, report: IntegrityReport, **_kwargs: object) -> None:
-    """Verify skill/agent counts match across instruction files and product-contract."""
+    """Verify skill/agent counts match across instruction files and manifest.yml."""
     counts: dict[str, tuple[int, int, bool]] = {}  # file -> (skills, agents, is_pointer)
 
     for file_rel in _instruction_files(target):
@@ -63,15 +63,21 @@ def _check_counter_accuracy(target: Path, report: IntegrityReport, **_kwargs: ob
     if not counts:
         return
 
-    # Extract canonical counts from product-contract.md (source of truth)
-    pc_path = target / ".ai-engineering" / "context" / "product" / "product-contract.md"
+    # Extract canonical counts from manifest.yml (source of truth)
+    manifest_path = target / ".ai-engineering" / "manifest.yml"
     canonical_skills = 0
     canonical_agents = 0
-    if pc_path.exists():
-        pc_content = pc_path.read_text(encoding="utf-8", errors="replace")
-        pc_skills, pc_agents = _extract_listings(pc_content)
-        canonical_skills = len(pc_skills)
-        canonical_agents = len(pc_agents)
+    if manifest_path.exists():
+        manifest_content = manifest_path.read_text(encoding="utf-8", errors="replace")
+        # Extract skill total from "total: N" under skills section
+        skill_total_re = re.compile(r"^skills:\s*\n\s+total:\s*(\d+)", re.MULTILINE)
+        agent_total_re = re.compile(r"^agents:\s*\n\s+total:\s*(\d+)", re.MULTILINE)
+        skill_match = skill_total_re.search(manifest_content)
+        agent_match = agent_total_re.search(manifest_content)
+        if skill_match:
+            canonical_skills = int(skill_match.group(1))
+        if agent_match:
+            canonical_agents = int(agent_match.group(1))
 
     # All instruction files should report consistent counts
     skill_counts = {f: c[0] for f, c in counts.items()}
@@ -122,29 +128,31 @@ def _check_counter_accuracy(target: Path, report: IntegrityReport, **_kwargs: ob
             )
         )
 
-    # Verify pointer-format files match canonical counts from product-contract.md
+    # Verify pointer-format files match canonical counts from manifest.yml
     if canonical_skills > 0:
         ref_skills = next(iter(unique_skill_counts), 0)
         if ref_skills != canonical_skills:
             report.checks.append(
                 IntegrityCheckResult(
                     category=IntegrityCategory.COUNTER_ACCURACY,
-                    name="product-contract-skills",
+                    name="manifest-skills",
                     status=IntegrityStatus.FAIL,
                     message=(
-                        f"product-contract.md lists {canonical_skills} skills, "
+                        f"manifest.yml lists {canonical_skills} skills, "
                         f"instruction files report {ref_skills}"
                     ),
-                    file_path=pc_path.relative_to(target).as_posix() if pc_path.exists() else None,
+                    file_path=manifest_path.relative_to(target).as_posix()
+                    if manifest_path.exists()
+                    else None,
                 )
             )
         else:
             report.checks.append(
                 IntegrityCheckResult(
                     category=IntegrityCategory.COUNTER_ACCURACY,
-                    name="product-contract-skills",
+                    name="manifest-skills",
                     status=IntegrityStatus.OK,
-                    message=f"product-contract.md skill count matches: {canonical_skills}",
+                    message=f"manifest.yml skill count matches: {canonical_skills}",
                 )
             )
 
@@ -154,21 +162,23 @@ def _check_counter_accuracy(target: Path, report: IntegrityReport, **_kwargs: ob
             report.checks.append(
                 IntegrityCheckResult(
                     category=IntegrityCategory.COUNTER_ACCURACY,
-                    name="product-contract-agents",
+                    name="manifest-agents",
                     status=IntegrityStatus.FAIL,
                     message=(
-                        f"product-contract.md lists {canonical_agents} agents, "
+                        f"manifest.yml lists {canonical_agents} agents, "
                         f"instruction files report {ref_agents}"
                     ),
-                    file_path=pc_path.relative_to(target).as_posix() if pc_path.exists() else None,
+                    file_path=manifest_path.relative_to(target).as_posix()
+                    if manifest_path.exists()
+                    else None,
                 )
             )
         else:
             report.checks.append(
                 IntegrityCheckResult(
                     category=IntegrityCategory.COUNTER_ACCURACY,
-                    name="product-contract-agents",
+                    name="manifest-agents",
                     status=IntegrityStatus.OK,
-                    message=f"product-contract.md agent count matches: {canonical_agents}",
+                    message=f"manifest.yml agent count matches: {canonical_agents}",
                 )
             )

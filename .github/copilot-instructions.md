@@ -12,7 +12,7 @@ Project instructions are canonical in `.ai-engineering/`.
 
 Before non-trivial work:
 
-1. **Read active spec** — `.ai-engineering/context/specs/_active.md` and linked spec/plan/tasks.
+1. **Read active spec** — `.ai-engineering/specs/_active.md` and linked spec/plan/tasks.
 2. **Read decision store** — `.ai-engineering/state/decision-store.json`.
 3. **Run cleanup** — sync repo (status, git pull, prune, branch cleanup).
 4. **Verify tooling** — ruff, gitleaks, pytest, ty.
@@ -23,7 +23,7 @@ During `/ai-plan`:
 
 1. **Analyze** — read code, discover requirements, assess risk (read-only).
 2. **Produce spec as text** — write the full spec as markdown in the conversation.
-3. **Persist via Write tool** — create spec.md, plan.md, and tasks.md directly using the Write tool into the appropriate `context/specs/NNN-<slug>/` directory. Update `_active.md` via the Edit tool.
+3. **Persist via Write tool** — create spec.md, plan.md, and tasks.md directly using the Write tool into the appropriate `specs/NNN-<slug>/` directory. Update `_active.md` via the Edit tool.
 4. **Commit** — stage and commit the new files.
 5. **STOP** — present the result and wait for the user to invoke `/ai-dispatch`.
 

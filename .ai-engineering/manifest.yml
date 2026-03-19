@@ -1,4 +1,7 @@
 # ai-engineering manifest
+# This file is user-configurable. Edit providers, stacks, quality gates,
+# and documentation settings to match your project.
+# Skills and agents registries are managed by the framework.
 schema_version: "2.0"
 framework_version: "0.4.0"
 name: ai-engineering
@@ -81,6 +84,8 @@ telemetry:
   default: disabled
 
 # Documentation auto-update
+# When enabled, updates ALL README.md files in the project (root and subdirectories),
+# not just the root README.
 documentation:
   auto_update:
     readme: true

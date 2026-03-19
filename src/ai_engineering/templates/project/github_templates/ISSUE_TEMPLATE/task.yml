@@ -19,7 +19,7 @@ body:
     attributes:
       label: Spec URL
       description: Full GitHub URL to the related spec.
-      placeholder: "https://github.com/arcasilesgroup/ai-engineering/blob/main/.ai-engineering/context/specs/036-platform-runbooks/spec.md"
+      placeholder: "https://github.com/arcasilesgroup/ai-engineering/blob/main/.ai-engineering/specs/036-platform-runbooks/spec.md"
     validations:
       required: false
   - type: dropdown

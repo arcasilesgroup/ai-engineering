@@ -17,8 +17,8 @@ pytestmark = pytest.mark.integration
 
 
 def _create_project(tmp_path: Path) -> Path:
-    """Create a project with .ai-engineering/context/specs/ structure."""
-    specs_dir = tmp_path / ".ai-engineering" / "context" / "specs"
+    """Create a project with .ai-engineering/specs/ structure."""
+    specs_dir = tmp_path / ".ai-engineering" / "specs"
     archive_dir = specs_dir / "archive"
     archive_dir.mkdir(parents=True)
     return tmp_path
@@ -32,7 +32,7 @@ def _add_spec(
     tasks_complete: bool = False,
 ):
     """Add a spec directory to the project."""
-    specs_dir = project / ".ai-engineering" / "context" / "specs"
+    specs_dir = project / ".ai-engineering" / "specs"
     spec_dir = specs_dir / slug
     spec_dir.mkdir(parents=True)
     (spec_dir / "spec.md").write_text(f"# Spec {slug}\n")
@@ -50,7 +50,7 @@ def _add_spec(
 
 def _set_active(project: Path, slug: str | None):
     """Set _active.md to point to slug."""
-    active_path = project / ".ai-engineering" / "context" / "specs" / "_active.md"
+    active_path = project / ".ai-engineering" / "specs" / "_active.md"
     if slug is None:
         content = '---\nactive: null\nupdated: "2026-01-01"\n---\n\n# No active spec.\n'
     else:
@@ -77,7 +77,7 @@ class TestRunSpecResetIntegration:
         assert result.active_spec_was == "001-done"
 
         # Verify filesystem
-        specs_dir = project / ".ai-engineering" / "context" / "specs"
+        specs_dir = project / ".ai-engineering" / "specs"
         assert (specs_dir / "archive" / "001-done" / "spec.md").exists()
         assert not (specs_dir / "001-done").exists()
         assert (specs_dir / "002-wip" / "spec.md").exists()
@@ -112,9 +112,7 @@ class TestRunSpecResetIntegration:
 
         run_spec_reset(project)
 
-        active_content = (
-            project / ".ai-engineering" / "context" / "specs" / "_active.md"
-        ).read_text()
+        active_content = (project / ".ai-engineering" / "specs" / "_active.md").read_text()
         assert "active: null" in active_content
         assert "No active spec" in active_content
 
@@ -131,7 +129,7 @@ class TestRunSpecResetIntegration:
         assert result.active_spec_cleared is False
 
         # Spec still exists in place
-        specs_dir = project / ".ai-engineering" / "context" / "specs"
+        specs_dir = project / ".ai-engineering" / "specs"
         assert (specs_dir / "006-done" / "spec.md").exists()
 
     def test_multiple_orphans_archived(self, tmp_path):
