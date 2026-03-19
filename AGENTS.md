@@ -5,8 +5,8 @@ For Claude Code-specific behavior, see `CLAUDE.md`.
 
 ## Source of Truth
 
-Config: `.ai-engineering/manifest.yml`. Governance: `.ai-engineering/context/product/framework-contract.md`.
-Product context: `.ai-engineering/context/product/product-contract.md`.
+Config: `.ai-engineering/manifest.yml`. Decisions: `.ai-engineering/state/decision-store.json`.
+Contexts: `.ai-engineering/contexts/` (languages, frameworks, team).
 
 ## Before You Start
 

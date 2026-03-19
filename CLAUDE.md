@@ -107,9 +107,10 @@ Telemetry is automatic via hooks -- no manual `ai-eng signals emit` needed.
 
 | What | Where |
 |------|-------|
-| Skills (34+) | `.claude/skills/ai-<name>/SKILL.md` |
+| Skills (28) | `.claude/skills/ai-<name>/SKILL.md` |
 | Agents (8) | `.claude/agents/ai-<name>.md` |
 | Config | `.ai-engineering/manifest.yml` |
-| Governance | `.ai-engineering/context/product/framework-contract.md` |
-| Product context | `.ai-engineering/context/product/product-contract.md` |
-| CLI | `ai-eng <command>` -- see `product-contract.md` section 2.2 |
+| Decisions | `.ai-engineering/state/decision-store.json` |
+| Active spec | `.ai-engineering/context/specs/_active.md` |
+| Contexts | `.ai-engineering/contexts/languages/`, `frameworks/`, `team/` |
+| CLI | `ai-eng <command>` |
