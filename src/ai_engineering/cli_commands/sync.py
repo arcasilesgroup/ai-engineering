@@ -1,8 +1,9 @@
 """CLI command for syncing command mirrors across IDE surfaces.
 
 Provides the ``ai-eng sync`` command that regenerates all IDE-adapted
-mirrors from canonical skill and agent definitions, or verifies they
-are in sync (``--check`` mode).
+mirrors from canonical ``.claude/skills/`` and ``.claude/agents/``
+sources into ``.agents/``, ``.github/``, and project templates,
+or verifies they are in sync (``--check`` mode).
 """
 
 from __future__ import annotations
@@ -37,8 +38,9 @@ def sync_cmd(
 ) -> None:
     """Sync command mirrors across all IDE surfaces.
 
-    Regenerates skill and agent mirrors from canonical templates into
-    .claude/, .agents/, .github/, and project templates.
+    Regenerates skill and agent mirrors from canonical .claude/skills/
+    and .claude/agents/ sources into .agents/, .github/, and project
+    templates.
 
     Use --check to verify without writing changes.
     """
@@ -104,7 +106,7 @@ def sync_cmd(
                 command="ai-eng sync",
                 message="Canonical source validation failed",
                 code="VALIDATION_ERROR",
-                fix="Check canonical skill/agent definitions for errors.",
+                fix="Check .claude/skills/ and .claude/agents/ for errors.",
             )
         else:
             result_header("Sync", "FAIL", str(root))
