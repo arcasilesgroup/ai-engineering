@@ -410,6 +410,73 @@ class TestBuildSonarUrl:
         assert "org%3Amy-project" in url
 
 
+class TestSonarApiGet:
+    """Tests for _sonar_api_get HTTP client."""
+
+    def test_returns_none_for_empty_hostname(self) -> None:
+        from ai_engineering.policy.checks.sonar import _sonar_api_get
+
+        assert _sonar_api_get("https:///path", "token") is None
+
+    def test_returns_none_on_connection_error(self) -> None:
+        from ai_engineering.policy.checks.sonar import _sonar_api_get
+
+        # Use a non-routable address to trigger connection error
+        result = _sonar_api_get("https://192.0.2.1:1/api/test", "tok")
+        assert result is None
+
+    def test_returns_none_on_non_200(self) -> None:
+        from unittest.mock import MagicMock, patch
+
+        from ai_engineering.policy.checks.sonar import _sonar_api_get
+
+        mock_conn = MagicMock()
+        mock_resp = MagicMock()
+        mock_resp.status = 401
+        mock_conn.getresponse.return_value = mock_resp
+
+        with patch(
+            "ai_engineering.policy.checks.sonar.http.client.HTTPSConnection", return_value=mock_conn
+        ):
+            result = _sonar_api_get("https://sonar.io/api/test?key=x", "tok")
+        assert result is None
+
+    def test_returns_parsed_json_on_200(self) -> None:
+        from unittest.mock import MagicMock, patch
+
+        from ai_engineering.policy.checks.sonar import _sonar_api_get
+
+        mock_conn = MagicMock()
+        mock_resp = MagicMock()
+        mock_resp.status = 200
+        mock_resp.read.return_value = b'{"status": "OK"}'
+        mock_conn.getresponse.return_value = mock_resp
+
+        with patch(
+            "ai_engineering.policy.checks.sonar.http.client.HTTPSConnection", return_value=mock_conn
+        ):
+            result = _sonar_api_get("https://sonar.io/api/test?key=x", "tok")
+        assert result == {"status": "OK"}
+
+    def test_uses_http_for_non_https(self) -> None:
+        from unittest.mock import MagicMock, patch
+
+        from ai_engineering.policy.checks.sonar import _sonar_api_get
+
+        mock_conn = MagicMock()
+        mock_resp = MagicMock()
+        mock_resp.status = 200
+        mock_resp.read.return_value = b'{"ok": true}'
+        mock_conn.getresponse.return_value = mock_resp
+
+        with patch(
+            "ai_engineering.policy.checks.sonar.http.client.HTTPConnection", return_value=mock_conn
+        ) as mock_cls:
+            result = _sonar_api_get("http://localhost:9000/api/test", "tok")
+        mock_cls.assert_called_once()
+        assert result == {"ok": True}
+
+
 # ---------------------------------------------------------------
 # Script argument generation
 # ---------------------------------------------------------------

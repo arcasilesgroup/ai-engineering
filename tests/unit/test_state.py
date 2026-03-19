@@ -862,3 +862,97 @@ class TestOperationalReadinessDeferredSetup:
 
         # Assert
         assert r.deferred_setup is True
+
+
+# ── Audit enrichment helpers ──────────────────────────────────────────
+
+
+class TestAuditEnrichment:
+    """Tests for audit.py enrichment cache functions."""
+
+    def setup_method(self) -> None:
+        from ai_engineering.state.audit import _reset_enrichment_cache
+
+        _reset_enrichment_cache()
+
+    def teardown_method(self) -> None:
+        from ai_engineering.state.audit import _reset_enrichment_cache
+
+        _reset_enrichment_cache()
+
+    def test_read_active_spec_from_frontmatter(self, tmp_path: Path) -> None:
+        from ai_engineering.state.audit import _read_active_spec
+
+        specs_dir = tmp_path / ".ai-engineering" / "specs"
+        specs_dir.mkdir(parents=True)
+        (specs_dir / "spec.md").write_text('---\nid: "055"\n---\n\n# Test Spec\n')
+        assert _read_active_spec(tmp_path) == "055"
+
+    def test_read_active_spec_placeholder_returns_none(self, tmp_path: Path) -> None:
+        from ai_engineering.state.audit import _read_active_spec
+
+        specs_dir = tmp_path / ".ai-engineering" / "specs"
+        specs_dir.mkdir(parents=True)
+        (specs_dir / "spec.md").write_text("# No active spec\n\nRun /ai-brainstorm.\n")
+        assert _read_active_spec(tmp_path) is None
+
+    def test_read_active_spec_missing_file(self, tmp_path: Path) -> None:
+        from ai_engineering.state.audit import _read_active_spec
+
+        assert _read_active_spec(tmp_path) is None
+
+    def test_read_active_spec_fallback_nnn_pattern(self, tmp_path: Path) -> None:
+        from ai_engineering.state.audit import _read_active_spec
+
+        specs_dir = tmp_path / ".ai-engineering" / "specs"
+        specs_dir.mkdir(parents=True)
+        (specs_dir / "spec.md").write_text("---\ntitle: test\n---\n\n055-radical-simplification\n")
+        assert _read_active_spec(tmp_path) == "055"
+
+    def test_read_active_spec_caches_result(self, tmp_path: Path) -> None:
+        from ai_engineering.state.audit import _read_active_spec
+
+        specs_dir = tmp_path / ".ai-engineering" / "specs"
+        specs_dir.mkdir(parents=True)
+        (specs_dir / "spec.md").write_text('---\nid: "055"\n---\n')
+        assert _read_active_spec(tmp_path) == "055"
+        # Modify file — should still return cached value
+        (specs_dir / "spec.md").write_text('---\nid: "999"\n---\n')
+        assert _read_active_spec(tmp_path) == "055"
+
+    def test_read_active_stack_from_manifest(self, tmp_path: Path) -> None:
+        from ai_engineering.state.audit import _read_active_stack
+
+        state_dir = tmp_path / ".ai-engineering" / "state"
+        state_dir.mkdir(parents=True)
+        (state_dir / "install-manifest.json").write_text(
+            json.dumps({"installedStacks": ["python", "rust"]})
+        )
+        assert _read_active_stack(tmp_path) == "python"
+
+    def test_read_active_stack_missing_file(self, tmp_path: Path) -> None:
+        from ai_engineering.state.audit import _read_active_stack
+
+        assert _read_active_stack(tmp_path) is None
+
+    def test_read_active_stack_empty_stacks(self, tmp_path: Path) -> None:
+        from ai_engineering.state.audit import _read_active_stack
+
+        state_dir = tmp_path / ".ai-engineering" / "state"
+        state_dir.mkdir(parents=True)
+        (state_dir / "install-manifest.json").write_text(json.dumps({"installedStacks": []}))
+        assert _read_active_stack(tmp_path) is None
+
+    def test_reset_clears_cache(self, tmp_path: Path) -> None:
+        from ai_engineering.state.audit import (
+            _read_active_spec,
+            _reset_enrichment_cache,
+        )
+
+        specs_dir = tmp_path / ".ai-engineering" / "specs"
+        specs_dir.mkdir(parents=True)
+        (specs_dir / "spec.md").write_text('---\nid: "055"\n---\n')
+        assert _read_active_spec(tmp_path) == "055"
+        _reset_enrichment_cache()
+        (specs_dir / "spec.md").write_text('---\nid: "099"\n---\n')
+        assert _read_active_spec(tmp_path) == "099"
