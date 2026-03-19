@@ -1,38 +1,82 @@
 ---
 name: ai-schema
-version: 2.0.0
-description: "Database engineering: schema design, data modeling, safe migrations, query optimization, data lifecycle. Absorbs data-model skill."
-tags: [database, sql, migration, schema, optimization, data-lifecycle, data-model]
+version: 3.0.0
+description: "Use when designing schemas, writing migrations, optimizing queries, or managing data lifecycle across PostgreSQL, MySQL, SQLite, and MongoDB."
+argument-hint: "design|migrate|optimize|lifecycle"
+tags: [database, sql, migration, schema, optimization, enterprise]
 ---
 
 
-# Database
+# Database Engineering
 
-## Purpose
+Schema design, safe migration generation, query optimization, and data lifecycle management. Multi-DB: PostgreSQL, MySQL, SQLite, MongoDB. Multi-ORM: SQLAlchemy, Prisma, TypeORM, Drizzle, Entity Framework, Diesel.
 
-Database engineering skill covering schema design, data modeling, migration safety, query optimization, connection pool tuning, and data lifecycle management. Consolidates db and data-model skills. Works across ORMs (Entity Framework, Prisma, SQLAlchemy, TypeORM, Drizzle, Diesel) and databases (PostgreSQL, SQL Server, MySQL, SQLite).
+## When to Use
 
-## Trigger
+- Designing or modifying database schemas.
+- Planning safe migrations with rollback.
+- Optimizing slow queries.
+- Defining retention policies or archival strategies.
+- NOT for infrastructure provisioning -- use `/ai-infra`.
 
-- Command: `/ai-schema`
-- Context: schema design, data modeling, migration planning, query optimization, data lifecycle.
+## Modes
 
-> **Telemetry** (cross-IDE): run `ai-eng signals emit skill_invoked --actor=ai --detail='{"skill":"schema"}'` at skill start. Fail-open — skip if ai-eng unavailable.
+### design -- Schema Design
 
-## Procedure
+1. **Analyze data model** -- entities, relationships, access patterns, data volume, growth projections.
+2. **Apply normalization** -- 3NF+ by default. Document denormalization decisions with rationale.
+3. **Design schema** -- tables, indexes, constraints, partitioning for large tables.
+4. **Validate referential integrity** -- every FK has a matching PK, cascade rules defined.
+5. **Output**: DDL script + entity relationship description.
 
-1. **Analyze data model** -- entities, relationships, access patterns, data volume, growth projections. Apply normalization rules (3NF+), document denormalization decisions with rationale.
+### migrate -- Safe Migrations
 
-2. **Design schema** -- create or modify tables, indexes, constraints. Validate referential integrity. Consider partitioning for large tables.
+1. **Assess impact** -- locking impact, backward compatibility, data volume affected.
+2. **Use expand-contract** -- for breaking changes (add new, migrate data, drop old).
+3. **Generate forward migration** -- with explicit transaction boundaries.
+4. **Generate rollback migration** -- ALWAYS required. No migration ships without rollback.
+5. **Test migration** -- verify on representative data volume.
+6. **Output**: forward script, rollback script, execution plan.
 
-3. **Plan migration** -- assess locking impact, backward compatibility, rollback procedure. Use expand-contract pattern for breaking changes. Rollback scripts are ALWAYS required alongside forward migrations.
+### optimize -- Query Optimization
 
-4. **Optimize queries** -- analyze execution plans (`EXPLAIN ANALYZE`), recommend indexes, fix N+1 patterns. Connection pool configuration and tuning.
+1. **Analyze execution plan** -- `EXPLAIN ANALYZE` (PostgreSQL), `EXPLAIN` (MySQL).
+2. **Identify bottlenecks** -- sequential scans, missing indexes, N+1 patterns.
+3. **Recommend indexes** -- composite indexes based on query patterns, partial indexes for filtered queries.
+4. **Connection pool tuning** -- pool size, timeout, idle connection management.
+5. **Output**: optimized query, index recommendations, before/after execution plan.
 
-5. **Design lifecycle** -- retention policies, archival strategies, GDPR compliance. Multi-database architecture considerations (read replicas, caching layers).
+### lifecycle -- Data Lifecycle
 
-## When NOT to Use
+1. **Retention policies** -- define per-table retention based on regulatory requirements.
+2. **Archival strategies** -- partition-based archival, cold storage migration.
+3. **GDPR compliance** -- right to erasure procedures, data anonymization.
+4. **Multi-DB architecture** -- read replicas, caching layers, write distribution.
+5. **Output**: lifecycle policy document, archival procedures.
 
-- **Infrastructure provisioning** (cloud database instances) -- use `infra`.
-- **CI/CD pipeline setup** -- use `cicd`.
+## Quick Reference
+
+```
+/ai-schema design           # schema design with normalization
+/ai-schema migrate          # safe migration with rollback
+/ai-schema optimize         # query optimization with EXPLAIN
+/ai-schema lifecycle        # retention and archival policies
+```
+
+## Common Mistakes
+
+- Shipping migrations without rollback scripts -- always generate both.
+- Adding indexes without checking write impact -- indexes speed reads but slow writes.
+- Denormalizing without documenting why -- future developers will re-normalize.
+- Running DDL without `--dry-run` first -- destructive DDL requires explicit user approval.
+
+## Integration
+
+- Migration files integrate with ORM migration systems (Alembic, Prisma Migrate, EF Migrations).
+- Schema changes trigger `/ai-security` for injection pattern review.
+- Destructive DDL (DROP, TRUNCATE) requires explicit user approval.
+
+## References
+
+- `standards/framework/core.md` -- governance rules for destructive operations.
 $ARGUMENTS

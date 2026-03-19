@@ -1,102 +1,23 @@
 {
-  "frameworkVersion": "0.2.0",
-  "installedAt": "2026-02-08T00:00:00Z",
-  "installedIdes": [
-    "terminal",
-    "vscode",
-    "claude",
-    "codex",
-    "copilot"
-  ],
-  "installedStacks": [
+  "schema_version": "1.0",
+  "tooling_readiness": {
+    "git_hooks": {
+      "installed": true,
+      "integrity_verified": true,
+      "hook_hashes": {
+        "pre-commit": "c563e2b16739fdff3139d28a36eb5166b1c6a93f859ab7ad64087a11f68f6a06",
+        "commit-msg": "a4bd14fad928b36fa92ce2459ec5be007bb02a2787506f4dd530b9972f6d2e4d",
+        "pre-push": "278025ecb3747840f2b0fd5e9fdd4e4c0a7ef99fa207bb71b64ac2686d160a06"
+      }
+    }
+  },
+  "stacks": [
     "python"
   ],
-  "aiProviders": {
-    "primary": "claude_code",
-    "enabled": [
+  "providers": {
+    "vcs": "github",
+    "ides": [
       "claude_code"
     ]
-  },
-  "providers": {
-    "enabled": [
-      "github"
-    ],
-    "extensions": {
-      "azure_devops": {
-        "enabled": false
-      }
-    },
-    "primary": "github"
-  },
-  "schemaVersion": "1.2",
-  "cicd": {
-    "generated": false,
-    "provider": null,
-    "files": [],
-    "sonar": {
-      "enabled": false,
-      "hostUrl": "https://sonarcloud.io",
-      "projectKey": "",
-      "organization": "",
-      "serviceConnection": ""
-    }
-  },
-  "branchPolicy": {
-    "applied": false,
-    "mode": "api",
-    "manualGuide": null,
-    "message": null
-  },
-  "operationalReadiness": {
-    "status": "pending",
-    "manualStepsRequired": false,
-    "manualSteps": [],
-    "deferredSetup": false
-  },
-  "release": {
-    "lastVersion": "",
-    "lastReleasedAt": null
-  },
-  "toolingReadiness": {
-    "az": {
-      "authenticated": false,
-      "configured": false,
-      "installed": false,
-      "requiredNow": false
-    },
-    "gh": {
-      "authenticated": true,
-      "configured": true,
-      "installed": true,
-      "requiredNow": false
-    },
-    "gitHooks": {
-      "hookHashes": {
-        "commit-msg": "0e4c8f94d1eaab6f18ba51b8984160f278e7859f08e6ec17d3eea438dadf05fd",
-        "pre-commit": "50840b71ec54b2d163ce4901e5ee8026714a6a9aaa87ad539ae3c0910c4e41ea",
-        "pre-push": "dd8036ee24743c9541f2299b19bf1a1e9f81342668c459b38024c416534d9791"
-      },
-      "installed": true,
-      "integrityVerified": true
-    },
-    "python": {
-      "pipAudit": {
-        "ready": true
-      },
-      "ruff": {
-        "ready": true
-      },
-      "ty": {
-        "ready": true
-      },
-      "uv": {
-        "ready": true
-      }
-    }
-  },
-  "updateMetadata": {
-    "expectedGain": "consistent readiness tracking",
-    "potentialImpact": "installer and doctor must maintain this file",
-    "rationale": "initialize system-managed installation contract"
   }
 }

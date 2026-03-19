@@ -1,144 +1,118 @@
 ---
 name: ai-release
-version: 1.0.0
-description: Aggregated GO/NO-GO release readiness gate; use before version tagging or merge-to-main to verify all quality dimensions pass.
-argument-hint: "[version]"
-tags: [quality, release, gate, go-no-go]
+version: 2.0.0
+description: "Use when preparing a release: aggregated GO/NO-GO gate checking coverage, security, tests, lint, and dependency vulnerabilities against manifest thresholds."
+argument-hint: "[version]|--check-only"
+tags: [quality, release, gate, go-no-go, delivery]
 ---
 
 
 # Release Gate
 
-## Purpose
+Aggregated GO/NO-GO release readiness gate. Checks every quality dimension against `manifest.yml` thresholds and produces a verdict with evidence. Run before version tagging or merge-to-main.
 
-Executes a structured GO/NO-GO checklist across all quality dimensions for release readiness. Aggregates results from contract compliance, security enforcement, command reliability, ownership safety, test confidence, documentation coherence, and packaging integrity into a single verdict with blocking issues and residual risk.
+## When to Use
 
-## Trigger
+- Pre-release milestone, version tagging, merge-to-main decision.
+- NOT for code quality only -- use `/ai-quality`.
+- NOT for security only -- use `/ai-security`.
 
-- Command: agent invokes release-gate skill or user requests release readiness check.
-- Context: pre-release milestone, version tagging, merge-to-main decision.
-
-> **Telemetry** (cross-IDE): run `ai-eng signals emit skill_invoked --actor=ai --detail='{"skill":"release"}'` at skill start. Fail-open — skip if ai-eng unavailable.
-
-## When NOT to Use
-
-- **Code quality only** (coverage, complexity, lint) — use `audit` instead. Release-gate aggregates all dimensions; audit focuses on code quality.
-- **Security only** (OWASP, secrets, dependencies) — use `sec-review` instead.
-- **Test coverage analysis** — use `test-gap` instead.
-- **Full platform audit** (8+ dimensions with scoring) — use `agent:review` instead. Release-gate covers 7 dimensions; review agent covers all 8+ with weighted scoring.
-
-## Procedure
+## Process
 
 ### Phase 1: Gate Dimensions
 
-1. **Contract compliance** — verify framework contracts are satisfied.
-   - Invoke `compliance/SKILL.md` or review most recent compliance report.
-   - Gate: no FAIL clauses (PARTIAL acceptable with risk acceptance).
+1. **Coverage** -- verify test coverage meets threshold.
+   - Run `pytest tests/ --cov --cov-report=term-missing`.
+   - Gate: coverage >= threshold from `manifest.yml` (default 80%).
 
-2. **Security enforcement** — verify security posture.
-   - Invoke `sec-review/SKILL.md` checks or review most recent security report.
-   - Gate: no critical/high findings. Medium findings documented.
-   - Check: hooks installed, gitleaks clean, pip-audit clean, semgrep clean.
+2. **Security** -- verify zero medium+ findings.
+   - Run `gitleaks protect --staged`, `semgrep scan --config auto .`, `pip-audit`.
+   - Gate: zero critical/high findings. Medium findings documented.
 
-3. **Command reliability** — verify all commands work as contracted.
-   - Review verify-app results for command contract compliance.
-   - Gate: all commands execute their contracted step sequence.
-   - Check: /commit, /commit --only, /pr, /pr --only.
+3. **Tests** -- verify all tests pass.
+   - Run `pytest tests/ -v`.
+   - Gate: 100% pass rate. Zero skipped governance tests.
 
-4. **Ownership safety** — verify update flows respect boundaries.
-   - Invoke `ownership/SKILL.md` or review most recent ownership report.
-   - Gate: no ownership violations, updater safety confirmed.
+4. **Lint** -- verify clean lint and format.
+   - Run `ruff check .`, `ruff format --check .`.
+   - Gate: zero unfixable lint errors.
 
-5. **Test confidence** — verify test coverage meets thresholds.
-   - Invoke `test-gap/SKILL.md` or review most recent gap analysis.
-   - Gate: 100% coverage, no untested critical paths.
-   - Check: all tests passing, no skipped governance tests.
+5. **Dependency vulnerabilities** -- verify clean dependency tree.
+   - Run `pip-audit --strict`.
+   - Gate: zero known vulnerabilities. Accepted risks must be in `decision-store.json`.
 
-6. **Documentation coherence** — verify docs are current and correct.
-   - Invoke `docs-audit/SKILL.md` or review most recent docs report.
-   - Gate: no misplaced files, no stale critical content, template compliance.
+6. **Type checking** -- verify type correctness.
+   - Run `ty check src/`.
+   - Gate: zero errors.
 
-7. **Packaging integrity** — verify distribution readiness.
-   - Invoke `install/SKILL.md` or review most recent install check.
-   - Gate: clean install works, doctor passes, all artifacts bundled.
-   - Check: wheel builds, pip install succeeds, template tree complete.
+7. **Documentation coherence** -- verify docs are current.
+   - CHANGELOG.md has `[Unreleased]` entries or versioned section.
+   - README.md reflects current features.
 
-8. **Sonar quality gate** (optional) — verify Sonar analysis passes.
-   - Invoke `sonar/SKILL.md` or review most recent Sonar report.
-   - Gate: Sonar quality gate status is PASS or SKIP (not configured).
-   - Check: coverage, duplication, blocker/critical issues match framework contract.
-   - **Silent skip**: if Sonar is not configured, this dimension is auto-PASS.
+8. **Packaging integrity** -- verify distribution builds.
+   - Run `uv build` or equivalent.
+   - Gate: wheel builds cleanly, no missing files.
 
 ### Phase 2: Aggregate Verdict
 
-8. **Collect gate results** — compile pass/fail for each dimension.
-   - Record: dimension name, status, blocking issues, residual risk.
-
-9. **Determine verdict** — apply GO/NO-GO logic.
-   - **GO**: all 7 dimensions pass (no blocking issues).
-   - **CONDITIONAL GO**: all dimensions pass except non-critical items with risk acceptance.
+9. **Determine verdict**:
+   - **GO**: all dimensions pass.
+   - **CONDITIONAL GO**: all pass except non-critical items with risk acceptance in `decision-store.json`.
    - **NO-GO**: one or more blocking issues without risk acceptance.
 
-10. **Define closure path** — for NO-GO, list minimum actions to reach GO.
+10. **Produce closure path** (for NO-GO):
+    - List specific blockers with fix suggestions.
     - Prioritize by blocking severity.
-    - Estimate effort per action.
-    - Identify parallel vs sequential work.
-
-## Examples
-
-### Example 1: Final release readiness decision
-
-User says: "Run release gate before tagging v1.6.0."
-Actions:
-
-1. Aggregate gate evidence across compliance, security, quality, ownership, testing, docs, and packaging dimensions.
-2. Determine GO, CONDITIONAL GO, or NO-GO and list blocking actions if needed.
-   Result: Release decision is documented with explicit blockers, risks, and closure path.
+    - Estimate effort per fix.
 
 ## Output Contract
 
-```
-## Release Readiness Report
+```markdown
+## Release Readiness: [version]
 
 ### Verdict: GO | CONDITIONAL GO | NO-GO
 
-### Gate Results
-| Dimension | Status | Blocking Issues | Residual Risk |
-|-----------|--------|-----------------|---------------|
-| Contract Compliance | PASS/FAIL | ... | ... |
-| Security Enforcement | PASS/FAIL | ... | ... |
-| Command Reliability | PASS/FAIL | ... | ... |
-| Ownership Safety | PASS/FAIL | ... | ... |
-| Test Confidence | PASS/FAIL | ... | ... |
-| Documentation Coherence | PASS/FAIL | ... | ... |
-| Packaging Integrity | PASS/FAIL | ... | ... |
-| Sonar Quality Gate | PASS/FAIL/SKIP | ... | ... |
+| Dimension | Status | Detail |
+|-----------|--------|--------|
+| Coverage | PASS 87% (>= 80%) | -- |
+| Security | PASS | 0 findings |
+| Tests | PASS | 142/142 pass |
+| Lint | PASS | 0 errors |
+| Dependencies | PASS | 0 vulns |
+| Types | PASS | 0 errors |
+| Docs | PASS | CHANGELOG current |
+| Packaging | PASS | wheel builds |
 
-### Blocking Issues (if NO-GO)
-- [Prioritized list with severity and remediation]
+### Blockers (if NO-GO)
+- [Issue, severity, fix suggestion]
 
-### Closure Path (if NO-GO)
-- [Minimum actions to reach GO with effort estimates]
-
-### Residual Risk Statement
-- [Accepted risks with decision-store references]
+### Residual Risk
+- [Risk acceptances from decision-store.json]
 ```
 
-## Governance Notes
+## Quick Reference
 
-- Release gate is the final quality checkpoint before version tagging or merge to main.
-- NO-GO verdict blocks release — no override without explicit risk acceptance for each blocking issue.
-- CONDITIONAL GO requires all risk acceptances recorded in `state/decision-store.json`.
-- This skill provides the procedural complement to the `platform-auditor` agent's orchestrated assessment.
-- Each gate dimension maps to a specific skill — this skill aggregates, it does not duplicate their procedures.
+```
+/ai-release              # full GO/NO-GO gate
+/ai-release v2.0.0       # gate for specific version
+/ai-release --check-only # report without blocking
+```
+
+## Common Mistakes
+
+- Running release gate on a dirty working tree -- commit first.
+- Ignoring CONDITIONAL GO risks -- each must have a `decision-store.json` entry.
+- Skipping packaging integrity -- wheel build failures are release blockers.
+
+## Integration
+
+- Aggregates results from `/ai-security`, `/ai-quality`, `/ai-test`.
+- Reads thresholds from `manifest.yml`.
+- Risk acceptances from `state/decision-store.json`.
 
 ## References
 
-- `.claude/skills/ai-governance/SKILL.md` — compliance, ownership, integrity gates.
-- `.claude/skills/ai-quality/SKILL.md` — code quality gate.
-- `.claude/skills/ai-test/SKILL.md` — test confidence gate.
-- `.claude/skills/ai-document/SKILL.md` — documentation coherence gate.
-- `.claude/skills/ai-security/SKILL.md` — security enforcement gate.
-- `.claude/agents/ai-operate.md` — orchestrator that uses this skill and command reliability source.
-- `standards/framework/quality/core.md` — quality thresholds.
+- `.claude/skills/ai-security/SKILL.md` -- security gate.
+- `.claude/skills/ai-governance/SKILL.md` -- compliance and risk.
+- `standards/framework/quality/core.md` -- quality thresholds.
 $ARGUMENTS

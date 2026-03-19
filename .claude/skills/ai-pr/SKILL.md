@@ -1,9 +1,9 @@
 ---
 name: ai-pr
-version: 3.0.0
-description: "Execute governed PR workflow: shared commit pipeline, pre-push gates, create pull request with auto-complete squash merge."
-argument-hint: "review|create|update"
-tags: [git, pull-request, ci, merge]
+version: 4.0.0
+description: "Use when creating pull requests: governed PR workflow with commit pipeline, pre-push gates, auto-generated summary, and auto-complete squash merge."
+argument-hint: "review|create|update|--draft|--only|[title]"
+tags: [git, pull-request, ci, merge, delivery]
 requires:
   anyBins:
   - gh
@@ -16,139 +16,123 @@ requires:
 
 # PR Workflow
 
-## Purpose
+Governed PR creation: run full commit pipeline, execute pre-push gates, create or update PR with structured summary and test plan, enable auto-complete with squash merge and branch deletion.
 
-Execute the `/pr` governed workflow: run the shared commit pipeline (from `commit/SKILL.md`), add pre-push gates, create a pull request, and enable auto-complete with squash merge. The `--only` variant creates the PR without the commit pipeline.
+## When to Use
 
-## Trigger
+- Creating or updating a pull request with governance enforcement.
+- NOT for commit-only -- use `/ai-commit` instead.
+- NOT for draft explorations -- use `/ai-commit` first, then `/ai-pr` when ready.
 
-- Command: `/pr` or `/pr --only`
-- Context: user requests creating a pull request with governance enforcement.
+## Process
 
-> **Telemetry** (cross-IDE): run `ai-eng signals emit skill_invoked --actor=ai --detail='{"skill":"pr"}'` at skill start. Fail-open — skip if ai-eng unavailable.
+### Steps 0-6: Shared Commit Pipeline
 
-## When NOT to Use
+READ `.claude/skills/ai-commit/SKILL.md` and execute steps 0-6 in full. Do NOT skip any step. The documentation gate (step 5) is mandatory.
 
-- **Commit-only without PR** — use `/commit --only` instead.
-- **Quick push without PR** — use `/commit` instead.
-- **Draft explorations** (not ready for review) — use `/commit` to push first, then `/pr` when ready.
+### 6.5. Doc gate verification
 
-## Preconditions (MUST verify before proceeding)
+Safety net: verify documentation gate executed correctly.
+- If staged changes include `src/` or `.ai-engineering/` files (excluding `state/`): CHANGELOG.md MUST be staged.
+- For governance content changes: `.ai-engineering/README.md` SHOULD be staged and mirrored.
 
-- **Required binaries**: `gitleaks`, `ruff` — must be available on PATH.
-- **VCS CLI**: At least one of `gh` (GitHub) or `az` (Azure DevOps) — must be available and authenticated.
-- Abort with remediation guidance if missing. Run `ai-eng doctor --fix-tools` to auto-install.
+### 7. Pre-push checks
 
-## Procedure
+Execute full pre-push gate:
+- `semgrep scan --config auto .`
+- `pip-audit`
+- `pytest tests/ -v`
+- `ty check src/`
 
-### `/pr` (default: commit pipeline + pre-push + create PR + auto-complete)
+If any check fails, report and stop.
 
-**Steps 0–6: Shared Commit Pipeline** — READ `.claude/skills/ai-commit/SKILL.md` and execute steps 0 through 6 in full. Do NOT skip any step. The documentation gate (step 5) is mandatory — CHANGELOG.md and README.md must be evaluated and updated before proceeding.
+### 8. Spec operations
 
-> IMPORTANT: Do not summarize or abbreviate the commit pipeline. Read the actual skill file and follow each step. The documentation gate at step 5 evaluates staged changes and auto-updates CHANGELOG.md (always for functional changes) and README.md (for user-visible changes). Skipping this step is a governance violation.
+- If active spec: run `ai-eng spec verify` then `ai-eng spec catalog`.
 
-6.5. **Doc gate verification** — before proceeding, verify the documentation gate was executed:
-   - If staged changes include `src/` or `.ai-engineering/` files (excluding `state/`):
-     - CHANGELOG.md MUST be in the staged files. If not: STOP and run step 5 (doc gate).
-     - For governance content changes (agents/, skills/, standards/): README.md SHOULD be staged.
-     - For governance content changes (agents/, skills/, standards/, runbooks/): `.ai-engineering/README.md` SHOULD be staged and mirrored to `src/ai_engineering/templates/.ai-engineering/README.md`.
-   - This is a safety net — if step 5 was followed correctly, this always passes.
+### 9. Commit and push
 
-7. **Pre-push checks** — execute full pre-push gate:
-   - `semgrep scan --config auto .`
-   - `pip-audit`
-   - `pytest tests/ -v`
-   - `ty check src/`
-   If any check fails, report and stop.
+- Commit with well-formed message (spec format or conventional commits).
+- Push to current branch. Block if `main`/`master`.
 
-8. **Spec verify** — if an active spec exists, run `ai-eng spec verify` to auto-correct counters.
+### 10. Detect VCS provider
 
-9. **Spec catalog** — run `ai-eng spec catalog` to regenerate the spec catalog before PR.
+1. Check `manifest.yml` -> `providers.vcs.primary`.
+2. Fallback: parse `git remote get-url origin` (`github.com` -> `gh`, `dev.azure.com` -> `az repos`).
+3. Verify CLI authenticated.
 
-10. **Commit** — `git commit -m "<message>"` with well-formed message.
-    - If active spec exists: `spec-NNN: Task X.Y — <description>`.
-    - Otherwise: conventional commit format.
+### 11. Check for existing PR
 
-11. **Push** — `git push origin <current-branch>`.
-    - If current branch is `main`/`master`, **block** and report protected branch violation.
+- **GitHub**: `gh pr list --head <branch> --json number,title,body --state open`
+- **Azure**: `az repos pr list --source-branch <branch> --status active -o json`
 
-12. **Detect VCS provider** — determine which CLI to use:
-    a. Check `manifest.yml` → `providers.vcs.primary`.
-    b. Fallback: parse `git remote get-url origin`:
-       - `github.com` → GitHub (`gh`)
-       - `dev.azure.com` or `visualstudio.com` → Azure DevOps (`az repos`)
-    c. Verify CLI authenticated: `gh auth status` / `az account show`.
+### 12. Create or update PR
 
-13. **Check for existing PR** — query open PRs for current branch:
-    - **GitHub**: `gh pr list --head <branch> --json number,title,body --state open`
-    - **Azure DevOps**: `az repos pr list --source-branch <branch> --status active -o json`
+**New PR**:
+- **GitHub**: `gh pr create --title "<title>" --body "<body>"`
+- **Azure**: `az repos pr create --source-branch <branch> --target-branch <target> --title "<title>" --description "<body>"`
 
-14. **Create or update PR**:
-    - **If NO existing PR** → create new:
-      - **GitHub**: `gh pr create --title "<title>" --body "<body>"`
-      - **Azure DevOps**: `az repos pr create --source-branch <branch> --target-branch <target> --title "<title>" --description "<body>"`
-    - **If existing PR found** → extend (NEVER overwrite):
-      a. Read existing title and body from the query result.
-      b. Append separator `\n\n---\n\n` + new section `## Additional Changes`.
-      c. Update:
-         - **GitHub**: `gh pr edit <number> --body "<extended_body>"`
-         - **Azure DevOps**: `az repos pr update --id <id> --description "<extended_body>"`
+**Existing PR** (extend, NEVER overwrite):
+- Read existing body, append `\n\n---\n\n## Additional Changes` section.
+- Update via `gh pr edit` or `az repos pr update`.
 
-15. **Enable auto-complete** — squash merge with branch deletion:
-    - **GitHub**: `gh pr merge --auto --squash --delete-branch`
-    - **Azure DevOps**: `az repos pr update --id <id> --auto-complete true --squash true --delete-source-branch true`
+### 13. Enable auto-complete
 
-### `/pr --only` (create PR only)
+- **GitHub**: `gh pr merge --auto --squash --delete-branch`
+- **Azure**: `az repos pr update --id <id> --auto-complete true --squash true --delete-source-branch true`
 
-1. **Check branch status** — verify current branch is pushed to remote.
-   - If NOT pushed: emit warning and propose auto-push.
-   - If user accepts: `git push origin <current-branch>`, then continue.
-   - If user declines: continue with selected handling mode.
-2. **Detect VCS provider** — same as step 12 above.
-3. **Check for existing PR** — same as step 13 above.
-4. **Create or update PR** — same as step 14 above.
-5. **Enable auto-complete** — same as step 15 above.
+### `/pr --only`
+
+Create PR without commit pipeline: verify branch is pushed, detect VCS, create/update PR, enable auto-complete.
+
+### `/pr --draft`
+
+Same as default flow but create as draft PR.
 
 ## PR Structure
 
-1. **Title** — `type(scope): description` or `spec-NNN: Task X.Y — description`. Max 72 chars.
-2. **Description** — What (2-3 sentences), Why (link to spec/task), How (key decisions).
-3. **Checklist** — code standards, tests, linting, secrets, CHANGELOG, README, breaking changes.
-4. **Labels** — size (S/M/L/XL), area, spec link.
-5. **Review assignment** — auto-assign if CODEOWNERS configured.
-6. **Issue linking** — GitHub: `Closes #N`; Azure DevOps: `AB#NNN`.
+```markdown
+## Summary
+- [2-3 bullet points: what changed and why]
 
-## Output Contract
+## Test Plan
+- [ ] [Specific verification steps]
+- [ ] [Edge cases to validate]
 
-- Terminal output showing each step's result (pass/fail).
-- On success: PR URL displayed with auto-complete status confirmed.
-- On failure: specific check that failed with remediation guidance.
+## Checklist
+- [ ] Lint and format pass
+- [ ] Secret scan clean
+- [ ] Tests pass
+- [ ] CHANGELOG updated
+- [ ] Breaking changes documented
+```
 
-## Governance Notes
+**Title**: `type(scope): description` or `spec-NNN: Task X.Y -- description`. Max 72 chars.
 
-- Protected branch push is always blocked.
-- All pre-push checks must pass before PR creation.
-- Auto-complete with squash merge and branch deletion is mandatory.
-- When updating an existing PR, body is ALWAYS extended, never replaced.
-- Secret detection failure is a hard stop.
-- Spec reset runs only in `/pr` default flow.
+## Quick Reference
 
-## Examples
+```
+/ai-pr                  # full: commit pipeline + pre-push + create PR
+/ai-pr --only           # create PR only (no commit pipeline)
+/ai-pr --draft          # create as draft PR
+/ai-pr "fix login flow" # with title hint
+```
 
-### Example 1: Full governed PR flow
+## Common Mistakes
 
-User says: "Run /pr for my current branch changes."
-Actions:
+- Skipping pre-push checks -- `semgrep`, `pip-audit`, `pytest`, and `ty` must all pass.
+- Overwriting existing PR body -- always extend, never replace.
+- Missing auto-complete -- squash merge with branch deletion is mandatory.
 
-1. Execute shared commit pipeline (auto-branch, stage, format, lint, secrets, doc gate).
-2. Run pre-push gates, commit, push, create PR, enable auto-complete.
-   Result: Governed PR opened with all checks and merge automation.
+## Integration
+
+- Invokes `/ai-commit` pipeline (steps 0-6) as prerequisite.
+- Auto-updates CHANGELOG.md and README.md via documentation gate.
+- Links to issues: GitHub `Closes #N`, Azure DevOps `AB#NNN`.
 
 ## References
 
-- `.claude/skills/ai-commit/SKILL.md` — shared commit pipeline (steps 0–6).
-- `.claude/skills/ai-document/SKILL.md` — changelog entry formatting (changelog mode) and README/documentation updates.
-- `standards/framework/core.md` — non-negotiables and enforcement rules.
-- `standards/framework/quality/core.md` — gate structure.
-- `.claude/agents/ai-operate.md` — agent that validates PR workflow execution.
+- `.claude/skills/ai-commit/SKILL.md` -- shared commit pipeline.
+- `.claude/skills/ai-document/SKILL.md` -- changelog and documentation updates.
+- `standards/framework/core.md` -- non-negotiables.
 $ARGUMENTS

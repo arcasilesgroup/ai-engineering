@@ -1,8 +1,7 @@
 ---
 name: ai-debug
-version: 1.0.0
-description: Systematic bug diagnosis using reproduce-isolate-identify-fix-test cycle; use when investigating unexpected behavior, test failures, or runtime errors.
-tags: [debugging, diagnosis, root-cause, troubleshooting]
+description: "Use when investigating unexpected behavior, test failures, runtime errors, or regressions. Systematic 4-phase diagnosis: symptom analysis, reproduction, root cause, solution."
+argument-hint: "[error description or file:line]"
 ---
 
 
@@ -10,83 +9,108 @@ tags: [debugging, diagnosis, root-cause, troubleshooting]
 
 ## Purpose
 
-Systematic diagnosis skill for identifying, isolating, and fixing bugs. Follows a structured reproduce → isolate → identify → fix → test cycle to ensure root cause resolution, not symptom patching.
+Systematic debugging skill. Four phases, always in order. NEVER fix symptoms -- always find and fix the root cause. After 2 failed fix attempts, escalate to the user.
 
-## Trigger
+## When to Use
 
-- Command: agent invokes debug skill or user reports a bug/error.
-- Context: unexpected behavior, test failure, runtime error, or regression.
+- Test failures (expected vs actual mismatch)
+- Runtime errors (exceptions, crashes, hangs)
+- Regressions (worked before, broken now)
+- Unexpected behavior (no error, but wrong result)
 
-> **Telemetry** (cross-IDE): run `ai-eng signals emit skill_invoked --actor=ai --detail='{"skill":"debug"}'` at skill start. Fail-open — skip if ai-eng unavailable.
+## Process
 
-## Procedure
+### Phase 1: Symptom Analysis (WHAT, WHEN, WHERE)
 
-1. **Reproduce** — confirm the bug is reproducible with a minimal case.
-   - Gather error output, stack trace, logs.
-   - Identify the exact input/state that triggers the issue.
-   - If not reproducible, document conditions and stop.
+Gather facts before forming hypotheses:
 
-2. **Isolate** — narrow down the scope.
-   - Identify the module, function, and line where failure occurs.
-   - Use binary search (comment out code, add assertions) to isolate.
-   - Check recent changes (`git log`, `git diff`) for regression candidates.
+1. **WHAT**: exact error message, stack trace, log output
+2. **WHEN**: always? intermittent? after a specific change? under load?
+3. **WHERE**: which file, function, line? which test? which environment?
+4. **SINCE WHEN**: `git log --oneline -20` -- what changed recently?
 
-3. **Identify** — determine root cause.
-   - Distinguish symptom from cause. Ask "why" at least 3 times.
-   - Check edge cases: null/empty inputs, boundary values, concurrency, state mutation.
-   - Verify assumptions about dependencies, APIs, and data contracts.
+Output: symptom report with all facts classified as KNOWN or SUSPECTED.
 
-4. **Fix** — implement the minimal correct fix.
-   - Fix the root cause, not the symptom.
-   - Keep the fix small and focused. One logical change.
-   - Ensure fix doesn't break existing behavior — run existing tests first.
+### Phase 2: Reproduction (MINIMAL REPRO)
 
-5. **Test** — verify the fix and prevent regression.
-   - Write a test that fails without the fix and passes with it.
-   - Run full test suite to confirm no regressions.
-   - Test edge cases around the fixed area.
+Make the bug reproducible with the smallest possible case:
 
-## When NOT to Use
+1. Run the failing test or reproduce the error
+2. If not reproducible: document exact conditions and STOP (cannot debug what cannot be reproduced)
+3. Strip to minimal repro: remove unrelated code, simplify inputs, isolate the component
+4. Confirm: the minimal repro fails consistently
 
-- **Code review** (PR feedback, pattern assessment) — use `code-review` instead.
-- **Test writing** (designing test strategy, writing test suites) — use `test-run` or `test-plan` instead. Debug writes regression tests for fixes; test-run writes comprehensive test suites.
-- **Refactoring** (improving code structure) — use `refactor` instead. Debug fixes bugs; refactor improves structure.
-- **Architecture analysis** (coupling, cohesion, boundaries) — use `arch-review` instead.
+Output: exact command to reproduce the failure.
 
-## Examples
+### Phase 3: Root Cause (WHY)
 
-### Example 1: Diagnose failing integration test
+Apply the 5 Whys to move from symptom to cause:
 
-User says: "This integration test started failing after yesterday's changes; debug it."
-Actions:
+1. **Why** does it fail? -> [immediate cause]
+2. **Why** does that happen? -> [deeper cause]
+3. **Why** does that happen? -> [root cause]
+   (Continue until you reach a cause you can fix directly)
 
-1. Reproduce failure, isolate failing module/line, and identify root cause from recent deltas.
-2. Apply minimal root-cause fix and add a regression test.
-   Result: Failure is resolved with reproducible evidence and regression protection.
+**Techniques** (use as appropriate):
+- **Binary search**: comment out code, add assertions to narrow the location
+- **Git bisect**: `git bisect start HEAD <known-good>` to find the breaking commit
+- **Print tracing**: add targeted print/log statements at decision points
+- **Diff analysis**: `git diff <known-good>..HEAD -- <file>` to see what changed
+- **Assumption check**: list every assumption the code makes, verify each one
 
-## Output Contract
+**Classification**: identify the root cause category:
+- Logic error (wrong condition, off-by-one, missing case)
+- State corruption (mutation, shared state, race condition)
+- Contract violation (caller sends wrong type, missing field)
+- Environment (missing dependency, wrong version, config)
+- Data (unexpected input, encoding, edge case)
 
-- Root cause analysis: what went wrong and why.
-- Fix description: what was changed and why.
-- Test evidence: new test(s) that cover the fix.
-- Regression check: full test suite passes.
+Output: root cause statement (1-2 sentences, specific and testable).
 
-## Governance Notes
+### Phase 4: Solution Design (FIX + REGRESSION TEST)
 
-- Never guess at fixes. Always reproduce first.
-- If the bug is in a governance-critical path (hooks, gates, install, update), escalate severity.
-- Record any new decisions or risk acceptances in `state/decision-store.json`.
-- Do not introduce workarounds that mask the root cause.
+1. **Design the fix**: minimal change that addresses the root cause
+   - Fix the ROOT CAUSE, not the symptom
+   - One logical change only
+   - If the fix is large, the root cause analysis may be wrong -- revisit Phase 3
+2. **Write regression test**: a test that fails without the fix and passes with it
+3. **Apply the fix**
+4. **Verify**: regression test passes AND all existing tests pass
+5. **Check for siblings**: does the same bug pattern exist elsewhere? (`grep` for similar code)
 
-### Iteration Limits
+## Escalation Protocol
 
-- Max 3 attempts to resolve the same issue. After 3 failures, escalate to user with evidence of attempts.
-- Each attempt must try a different approach — repeating the same action is not a valid retry.
+| Attempt | Action |
+|---------|--------|
+| 1st fix fails | Try a different approach (not the same thing again) |
+| 2nd fix fails | STOP. Escalate to user with: symptom, repro, root cause analysis, 2 approaches tried |
 
-## References
+Never retry the same approach. Never loop silently.
 
-- `standards/framework/quality/core.md` — test and coverage requirements.
-- `.claude/agents/ai-build.md` — agent that uses this skill systematically.
-- `.claude/agents/ai-verify.md` — agent that uses debug for investigating verification failures.
-- `.claude/skills/ai-explain/SKILL.md` — Feynman-style explanations for root cause understanding.
+## 5 Whys Example
+
+```
+Symptom: test_parse_config_handles_empty fails with KeyError
+Why 1: config["database"] raises KeyError
+Why 2: parse_config returns empty dict when file is empty
+Why 3: the YAML parser returns None for empty files, not empty dict
+Root cause: missing None -> {} coercion after yaml.safe_load()
+Fix: add `config = yaml.safe_load(f) or {}` instead of `config = yaml.safe_load(f)`
+```
+
+## Common Mistakes
+
+- Fixing the symptom (add a try/except) instead of the root cause
+- Not writing a regression test for the fix
+- Guessing without reproducing first
+- Changing multiple things at once (change one thing, verify, repeat)
+- Retrying the same approach that already failed
+- Not checking for sibling bugs (same pattern elsewhere)
+
+## Integration
+
+- **Called by**: `/ai-dispatch` (debug tasks), `/ai-code` (when tests fail), user directly
+- **Calls**: test runners (to reproduce), `/ai-test` (regression test)
+- **Transitions to**: `/ai-code` (fix implementation), `/ai-commit` (after verified fix)
+
 $ARGUMENTS

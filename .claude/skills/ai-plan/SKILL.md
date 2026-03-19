@@ -1,179 +1,129 @@
 ---
 name: ai-plan
-description: "Activate the ai-plan agent for architecture, planning, spec creation, and roadmap guidance."
-argument-hint: "[topic]"
+description: "Use when an approved spec exists and needs to be broken into executable tasks with agent assignments. Creates the implementation plan that /ai-dispatch executes."
+argument-hint: "[spec-NNN or topic]"
 ---
 
 
 # Plan
 
-## Identity
+## Purpose
 
-Principal delivery architect (15+ years) specializing in planning pipelines and governance lifecycle for governed engineering platforms. The entry point for all non-trivial work. Applies the Session Map pattern (context -> plan -> STOP), pipeline auto-classification (Carmack: measure then optimize), session recovery with checkpoints (Hamilton: design for failure), and message passing between agents (Kay: no shared state). Iterates on plans with the human, runs discovery, creates specs, and produces execution plans with agent assignments. Does NOT execute — delegates execution to the `dispatch` skill.
+Implementation planning skill. Takes an approved spec (from `/ai-brainstorm` or manual creation) and produces a phased execution plan with bite-sized tasks, agent assignments, and gate criteria. The plan is the contract that `/ai-dispatch` executes.
 
-Uses `.claude/skills/ai-plan/SKILL.md` as the shared planning contract for classification, discovery, architecture assessment, and risk framing. For full planning flows, extends that shared contract with spec scaffolding and execution-plan generation.
+HARD GATE: user must approve the plan before `/ai-dispatch` can run.
 
-Normative shared rules are defined in `.claude/skills/ai-plan/SKILL.md` under **Shared Rules (Canonical)** (`PLAN-R1..PLAN-R4`, `PLAN-B1`). The agent references those rules instead of redefining them.
+## When to Use
 
-Planning boundary is architectural: plan produces the execution plan document, then STOPS. The human reviews and explicitly invokes `/ai-dispatch` to begin execution.
+- After `/ai-brainstorm` produces an approved spec
+- When a spec exists but has no plan.md or tasks.md
+- When re-planning is needed (plan failed, scope changed)
 
-## Pipeline Strategy Pattern
+## Process
 
-```yaml
-pipelines:
-  full:                               # Features, refactors
-    steps: [discover, architecture, risk, test-plan, spec, dispatch]
-    gates: [spec-required, user-approval-before-dispatch]
-    triggers: [new-feature, refactor, governance-change, >3-files]
+1. **Read spec** -- load `context/specs/_active.md`, then the linked spec.md
+2. **Read context** -- `product-contract.md` section 7 (roadmap), `decision-store.json` (constraints)
+3. **Explore codebase** -- understand current architecture, patterns, and affected files
+4. **Classify pipeline** -- select full/standard/hotfix/trivial based on change scope
+5. **Decompose into tasks** -- bite-sized (2-5 min each), single-agent, single-concern
+6. **Assign agents** -- capability-match each task to the right agent
+7. **Order phases** -- define phase boundaries and gate criteria
+8. **Review plan** -- self-review with spec-reviewer pattern (max 2 iterations)
+9. **Write artifacts** -- persist plan.md and tasks.md via Write tool
+10. **STOP** -- present plan. User runs `/ai-dispatch` to execute.
 
-  standard:                            # Medium changes
-    steps: [discover, risk, spec, dispatch]
-    gates: [spec-required]
-    triggers: [3-5-files, enhancement]
+## Pipeline Classification
 
-  hotfix:                              # Urgent fixes
-    steps: [discover, risk, spec, dispatch]
-    gates: [spec-required, risk-acknowledged]
-    triggers: [bug-fix, <3-files, security-patch]
+| Pipeline | Trigger | Steps |
+|----------|---------|-------|
+| `full` | New feature, refactor, >5 files | discover, architecture, risk, test-plan, spec, dispatch |
+| `standard` | Enhancement, 3-5 files | discover, risk, spec, dispatch |
+| `hotfix` | Bug fix, security patch, <3 files | discover, risk, spec, dispatch |
+| `trivial` | Typo, comment, single-line | spec, dispatch |
 
-  trivial:                             # Typos, 1-line
-    steps: [spec, dispatch]
-    gates: [spec-required]
-    triggers: [typo, comment, single-line]
+Override: `/ai-plan --pipeline=hotfix`.
+
+## Task Decomposition Rules
+
+Each task MUST be:
+
+- **Bite-sized**: completable in 2-5 minutes by an agent
+- **Single-agent**: assigned to exactly one agent (build, verify, guard)
+- **Single-concern**: does one thing (not "implement feature AND write tests")
+- **Verifiable**: has a clear done condition (test passes, lint clean, file exists)
+- **Ordered**: dependencies are explicit (T-3 blocked by T-2)
+
+**TDD enforcement**: for features needing tests, always produce paired tasks:
+- `T-N: Write failing tests for [feature]` (RED) -- assigned to build/test mode
+- `T-N+1: Implement [feature] to pass tests` (GREEN, blocked by T-N) -- assigned to build/code mode, constraint: "DO NOT modify test files from T-N"
+
+## Agent Assignment
+
+| Agent | Capabilities | Assign when... |
+|-------|-------------|----------------|
+| `build` | Code read-write, tests, debug | Implementation, test writing, bug fixes |
+| `verify` | Read-only scanning, 7 modes | Quality checks, security scans, gap analysis |
+| `guard` | Advisory, drift detection | Pre-dispatch governance checks |
+
+## Plan Artifacts
+
+### plan.md
+
+```markdown
+# Plan: spec-NNN [title]
+
+## Pipeline: [full|standard|hotfix|trivial]
+## Phases: N
+## Tasks: N (build: N, verify: N, guard: N)
+
+### Phase 1: [name]
+**Gate**: [what must be true before Phase 2 starts]
+- T-1.1: [task description] (agent: build)
+- T-1.2: [task description] (agent: build)
+
+### Phase 2: [name]
+**Gate**: [what must be true before Phase 3 starts]
+...
 ```
 
-Auto-classification: pipeline selected automatically from `git diff --stat` + change type. User override always available: `/ai-plan --pipeline=hotfix`.
+### tasks.md
 
-## Session Recovery (Hamilton)
+```markdown
+# Tasks: spec-NNN
 
-On session start (to resume planning):
-1. Read `_active.md` -> spec -> plan -> tasks
-2. Read `session-checkpoint.json` -> resume from last planning step
-3. Read `decision-store.json` -> reuse active decisions
-4. If `checkpoint.blocked_on != null` -> surface to user immediately
+## Phase 1: [name]
+- [ ] T-1.1: [description] @build
+- [ ] T-1.2: [description] @build
 
-## Behavior
-
-### Interrogation Phase (mandatory for full/standard pipelines)
-
-Before classifying or producing any spec, interrogate the request. This phase applies shared rule `PLAN-R5`.
-
-1. **Explore codebase** — launch explorer agents to map current state, architecture, and patterns relevant to the request. Understand what exists before proposing what to build.
-2. **Ask ONE question at a time** — never batch questions. Wait for the answer before asking the next. Max 7 questions per session. Prefer multiple-choice when possible.
-3. **Challenge vague language** — "mejorar", "optimizar", "limpiar", "refactorizar" are not requirements. Ask: what specifically? How would you measure success? What's the current behavior vs desired?
-4. **Map findings** — classify every piece of information as:
-   - **KNOWN**: confirmed by code, docs, or user statement
-   - **ASSUMED**: inferred but not confirmed (document explicitly as `ASSUMPTION: ...`)
-   - **UNKNOWN**: need more information (block on this — do not guess)
-5. **Challenge assumptions** — "Is this the right problem to solve?" "What happens if we don't do this?" "Is there a simpler approach that gets 80% of the value?"
-6. **Second-order consequences** — "If we change X, what else breaks?" "What tests need updating?" "Which mirrors/templates/instruction files are affected?"
-7. **Surface constraints** — timeline, team size, dependencies, technical limitations, backward compatibility requirements the user hasn't mentioned
-
-**Gate**: Do NOT proceed to spec creation until:
-- Zero UNKNOWN items remain (all converted to KNOWN or documented as ASSUMED)
-- User has confirmed scope and approach
-- Codebase exploration has validated feasibility
-
-For `hotfix` and `trivial` pipelines, the interrogation phase is abbreviated: explore codebase + 1-2 targeted questions.
-
-### Default Pipeline (mandatory for non-trivial work)
-
-1. **Read product context** -- read `context/product/product-contract.md` §7 (roadmap, KPIs, blockers) and `context/product/framework-contract.md` §2 (agentic model) to ground planning in current project state
-2. **Apply shared planning rules** -- execute `PLAN-R1..PLAN-R5` from `.claude/skills/ai-plan/SKILL.md`
-3. **Triage** (if configured) -- check for pending work items via `ai-triage` skill
-5. **Spec creation** (MANDATORY for all pipelines) -- invoke `ai-spec` to scaffold. Every pipeline (full, standard, hotfix, trivial) must produce a spec so `/ai-dispatch` always has a spec/plan to dispatch agents and tasks from
-6. **Build execution plan** -- capability-match tasks to agents, build execution plan document in plan.md
-   **Output**: execution plan with agent assignments, phase ordering, gate criteria
-  **STOP**: Present execution plan to user. To execute, user runs `/ai-dispatch`.
-
-### No-Execution Protocol (mandatory)
-
-`/ai-plan` is planning-only. It MUST NOT execute implementation or release work.
-
-This boundary maps to shared rule `PLAN-B1`.
-
-Prohibited during `/ai-plan`:
-- invoking `ai-build`, `ai-verify`, or `ai-release` for task execution,
-- checking off implementation tasks as completed,
-- modifying source code as part of execution.
-
-Allowed during `/ai-plan`:
-- discovery, risk assessment, and architecture/planning analysis,
-- producing spec content as **structured text in the conversation**,
-- using Write tool to create spec.md, plan.md, tasks.md directly,
-- using Edit tool to update `_active.md`,
-- producing agent assignments and phase ordering,
-- stopping with explicit handoff to `/ai-dispatch`.
-
-### Spec-as-Gate Pattern (mandatory)
-
-The plan agent MUST follow the artifact-as-gate pattern for spec creation:
-
-1. **Produce spec as text** — write the full spec (Problem, Solution, Scope, Tasks, etc.) as markdown directly in the conversation output.
-2. **Persist via Write tool** — create spec.md, plan.md, and tasks.md directly using the Write tool into the appropriate `context/specs/NNN-<slug>/` directory.
-3. **Update _active.md** — use the Write or Edit tool to point `_active.md` to the new spec.
-4. **Commit via Bash** — stage and commit the new files with message: `spec-NNN: Phase 0 — scaffold spec files and activate`.
-5. **STOP** — present the result and stop. The user must explicitly invoke `/ai-dispatch` to begin implementation.
-
-Example:
-```
-# 1. Produce spec content in conversation, then persist:
-Write tool → context/specs/<NNN>-<slug>/spec.md
-Write tool → context/specs/<NNN>-<slug>/plan.md
-Write tool → context/specs/<NNN>-<slug>/tasks.md
-Edit tool  → context/specs/_active.md
-
-# 2. Commit:
-git add .ai-engineering/context/specs/<NNN>-<slug>/ .ai-engineering/context/specs/_active.md
-git commit -m "spec-<NNN>: Phase 0 — scaffold spec files and activate"
+## Phase 2: [name]
+- [ ] T-2.1: [description] @verify
 ```
 
-This pattern is cross-IDE: it works identically in Claude Code, GitHub Copilot, Cursor, OpenCode, Codex, or any chat with Write/Edit tool access. No IDE plan mode is required.
+## Common Mistakes
 
-### Strategic Analysis Mode
+- Tasks too large (> 5 min). Split them.
+- Missing dependencies between tasks.
+- Assigning code-write tasks to verify (verify is read-only).
+- Not pairing RED/GREEN tasks for TDD.
+- Planning implementation details (plan says WHAT, code says HOW).
+- Skipping the review step.
 
-When asked for roadmap guidance or "what next":
-1. Read context (active spec, completed specs, contracts, decision store)
-2. Assess progress against roadmap targets
-3. Identify gaps by impact/risk
-4. Produce 2-4 options with trade-off matrix
-5. Recommend one path with justification
+## No-Execution Protocol
 
-### Governance Lifecycle
+`/ai-plan` is planning-only. It MUST NOT:
+- Invoke `/ai-code` or `/ai-dispatch` for task execution
+- Modify source code
+- Check off implementation tasks as completed
 
-Plan owns the governance lifecycle for the framework:
-- `ai-create agent|skill` -- create new agents or skills with full registration
-- `ai-delete agent|skill` -- remove agents or skills with cleanup
-- `ai-governance risk` -- manage risk acceptances (accept, resolve, renew)
-- `ai-governance standards` -- evolve standards from delivery outcomes
+It MAY:
+- Create spec.md, plan.md, tasks.md via Write tool
+- Update `_active.md` via Edit tool
+- Run codebase exploration (read-only)
 
-## Referenced Skills
+## Integration
 
-- `.claude/skills/ai-plan/SKILL.md` -- shared planning contract (classification, discovery, risk)
-- `.claude/skills/ai-spec/SKILL.md` -- branch creation and spec scaffolding
-- `.claude/skills/ai-cleanup/SKILL.md` -- repository hygiene
-- `.claude/skills/ai-explain/SKILL.md` -- technical explanations
-- `.claude/skills/ai-governance/SKILL.md` -- governance validation, risk acceptance, standards evolution
-- `.claude/skills/ai-lifecycle/SKILL.md` -- agent/skill creation and deletion lifecycle
-- `.claude/skills/ai-contract/SKILL.md` -- product contract lifecycle (init/sync/validate)
-
-## Referenced Standards
-
-- `standards/framework/core.md` -- governance structure, lifecycle, ownership
-
-## Boundaries
-
-- Coordinates work; does not implement code -- delegates to `ai-build`
-- `/ai-plan` must stop after planning output and handoff to `/ai-dispatch`
-- Must not weaken standards or skip required checks
-- Does not bypass governance gates
-- Parallel governance content modifications are prohibited -- serialize them
-- Read-only for strategic analysis mode
-
-### Escalation Protocol
-
-- **Iteration limit**: max 3 attempts before escalating to user.
-- **Escalation format**: present what was tried, what failed, and options.
-- **Never loop silently**: if stuck, surface the problem immediately.
+- **Called by**: user directly, or after `/ai-brainstorm` approval
+- **Calls**: `/ai-explore` (codebase context), Write tool (artifact creation)
+- **Transitions to**: `/ai-dispatch` (ONLY -- user must invoke explicitly)
 
 $ARGUMENTS
