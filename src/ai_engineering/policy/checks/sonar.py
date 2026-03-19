@@ -6,10 +6,34 @@ import os
 import shutil
 import subprocess
 from pathlib import Path
+from urllib.parse import urlencode, urlparse
 from urllib.request import Request, urlopen
 
 from ai_engineering.credentials.service import CredentialService
 from ai_engineering.policy.gates import GateCheckResult, GateResult
+
+_ALLOWED_SCHEMES = frozenset({"https", "http"})
+_ALLOWED_API_PATHS = frozenset(
+    {
+        "/api/qualitygates/project_status",
+        "/api/measures/component",
+    }
+)
+
+
+def _build_sonar_url(host_url: str, path: str, params: dict[str, str]) -> str | None:
+    """Build and validate a SonarCloud API URL. Returns None if invalid."""
+    parsed = urlparse(host_url)
+    if parsed.scheme not in _ALLOWED_SCHEMES:
+        return None
+    if not parsed.hostname:
+        return None
+    if path not in _ALLOWED_API_PATHS:
+        return None
+    base = f"{parsed.scheme}://{parsed.hostname}"
+    if parsed.port:
+        base = f"{base}:{parsed.port}"
+    return f"{base}{path}?{urlencode(params)}"
 
 
 def _resolve_sonar_token(project_root: Path) -> str | None:
@@ -143,7 +167,11 @@ def query_sonar_quality_gate(project_root: Path) -> dict | None:
     if not token:
         return None
 
-    api_url = f"{host_url}/api/qualitygates/project_status?projectKey={project_key}"
+    api_url = _build_sonar_url(
+        host_url, "/api/qualitygates/project_status", {"projectKey": project_key}
+    )
+    if not api_url:
+        return None
     try:
         req = Request(api_url, headers={"Authorization": f"Bearer {token}"})
         with urlopen(req, timeout=15) as resp:
@@ -191,14 +219,16 @@ def query_sonar_measures(
             "ncloc",
         ]
 
-    api_url = f"{host_url}/api/measures/component"
-    params = f"component={project_key}&metricKeys={','.join(metrics)}"
+    api_url = _build_sonar_url(
+        host_url,
+        "/api/measures/component",
+        {"component": project_key, "metricKeys": ",".join(metrics)},
+    )
+    if not api_url:
+        return None
 
     try:
-        req = Request(
-            f"{api_url}?{params}",
-            headers={"Authorization": f"Bearer {token}"},
-        )
+        req = Request(api_url, headers={"Authorization": f"Bearer {token}"})
         with urlopen(req, timeout=15) as resp:
             import json
 

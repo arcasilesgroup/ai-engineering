@@ -83,7 +83,11 @@ def _auto_correct_frontmatter(plan_path: Path, real_total: int, real_completed: 
         else:
             new_lines.append(line)
 
-    plan_path.resolve().write_text("\n".join(new_lines), encoding="utf-8")
+    resolved = plan_path.resolve()
+    expected_parent = plan_path.parent.resolve()
+    if not resolved.is_relative_to(expected_parent):
+        return False
+    resolved.write_text("\n".join(new_lines), encoding="utf-8")
     return True
 
 
