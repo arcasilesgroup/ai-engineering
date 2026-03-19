@@ -95,18 +95,6 @@ def _build_event() -> dict:
 def _init_git_repo(path: Path) -> None:
     """Initialize a git repo with one commit so git log works."""
     subprocess.run(["git", "init", "-b", "main"], cwd=path, capture_output=True, check=True)
-    subprocess.run(
-        ["git", "config", "user.email", "test@test.com"],
-        cwd=path,
-        capture_output=True,
-        check=True,
-    )
-    subprocess.run(
-        ["git", "config", "user.name", "Test"],
-        cwd=path,
-        capture_output=True,
-        check=True,
-    )
     (path / "readme.txt").write_text("init", encoding="utf-8")
     subprocess.run(["git", "add", "-A"], cwd=path, capture_output=True, check=True)
     subprocess.run(["git", "commit", "-m", "init"], cwd=path, capture_output=True, check=True)

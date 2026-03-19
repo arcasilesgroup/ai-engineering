@@ -118,19 +118,7 @@ class TestInstallExisting:
 
         # Create a git repo with history
         subprocess.run(
-            ["git", "init"],
-            cwd=tmp_path,
-            check=True,
-            capture_output=True,
-        )
-        subprocess.run(
-            ["git", "config", "user.email", "test@test.com"],
-            cwd=tmp_path,
-            check=True,
-            capture_output=True,
-        )
-        subprocess.run(
-            ["git", "config", "user.name", "Test"],
+            ["git", "init", "-b", "main"],
             cwd=tmp_path,
             check=True,
             capture_output=True,

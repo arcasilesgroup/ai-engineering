@@ -137,7 +137,9 @@ class TestInstallClean:
         self,
         tmp_path: Path,
     ) -> None:
-        subprocess.run(["git", "init", str(tmp_path)], check=True, capture_output=True)
+        subprocess.run(
+            ["git", "init", "-b", "main", str(tmp_path)], check=True, capture_output=True
+        )
         result = install(tmp_path, stacks=["python"], ides=["vscode"])
         hooks_dir = tmp_path / ".git" / "hooks"
         assert (hooks_dir / "pre-commit").is_file()

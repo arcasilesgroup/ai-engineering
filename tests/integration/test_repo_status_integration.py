@@ -29,8 +29,6 @@ def _git(args: list[str], cwd: Path) -> None:
 def git_repo(tmp_path: Path) -> Path:
     """Create a git repo with main and a feature branch."""
     _git(["init", "-b", "main", str(tmp_path)], cwd=tmp_path)
-    _git(["config", "user.email", "test@test.com"], cwd=tmp_path)
-    _git(["config", "user.name", "Test"], cwd=tmp_path)
 
     (tmp_path / "README.md").write_text("init")
     _git(["add", "."], cwd=tmp_path)
