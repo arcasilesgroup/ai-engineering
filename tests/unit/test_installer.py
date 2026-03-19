@@ -290,7 +290,8 @@ class TestCopilotInstructionsTreeMap:
         from ai_engineering.installer.templates import _PROVIDER_TREE_MAPS
 
         copilot_trees = _PROVIDER_TREE_MAPS["github_copilot"]
-        assert ("copilot", ".github/copilot") in copilot_trees
+        assert ("prompts", ".github/prompts") in copilot_trees
+        assert ("agents", ".github/agents") in copilot_trees
         assert ("instructions", ".github/instructions") in copilot_trees
 
     def test_sonarqube_instruction_deployed(self, tmp_path: Path) -> None:
