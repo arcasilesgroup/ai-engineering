@@ -39,11 +39,12 @@ def _emit_signal(root: Path, event: str, detail: dict) -> None:
         pass
 
 
-def _auto_correct_frontmatter(plan_path: Path, real_total: int, real_completed: int) -> bool:
+def _auto_correct_frontmatter(root: Path, real_total: int, real_completed: int) -> bool:
     """Rewrite total/completed in plan.md frontmatter if they drift.
 
     Returns True if corrections were made.
     """
+    plan_path = _specs_dir(root) / "plan.md"
     text = plan_path.read_text(encoding="utf-8")
     fm = parse_frontmatter(text)
     fm_total = fm.get("total", "")
@@ -83,11 +84,7 @@ def _auto_correct_frontmatter(plan_path: Path, real_total: int, real_completed: 
         else:
             new_lines.append(line)
 
-    resolved = plan_path.resolve()
-    expected_parent = plan_path.parent.resolve()
-    if not resolved.is_relative_to(expected_parent):
-        return False
-    resolved.write_text("\n".join(new_lines), encoding="utf-8")
+    plan_path.write_text("\n".join(new_lines), encoding="utf-8")
     return True
 
 
@@ -127,7 +124,7 @@ def spec_verify(
     if drift_detected:
         typer.echo("  DRIFT DETECTED")
         if fix:
-            corrected = _auto_correct_frontmatter(plan_path, real_total, real_completed)
+            corrected = _auto_correct_frontmatter(root, real_total, real_completed)
             if corrected:
                 typer.echo(f"  AUTO-FIXED: total={real_total}, completed={real_completed}")
     else:

@@ -69,15 +69,22 @@ def _create_spec_md(
 class TestAutoCorrectFrontmatter:
     """Tests for _auto_correct_frontmatter()."""
 
+    def _write_plan(self, root: Path, content: str) -> Path:
+        specs_dir = root / ".ai-engineering" / "specs"
+        specs_dir.mkdir(parents=True, exist_ok=True)
+        plan = specs_dir / "plan.md"
+        plan.write_text(content)
+        return plan
+
     def test_corrects_drifted_total(self, tmp_path: Path) -> None:
         """Drifted total is corrected."""
-        plan = tmp_path / "plan.md"
-        plan.write_text(
+        plan = self._write_plan(
+            tmp_path,
             "---\ntotal: 3\ncompleted: 1\n---\n\n"
-            "- [x] Done\n- [ ] Todo\n- [ ] Todo\n- [ ] Todo\n- [ ] Todo\n"
+            "- [x] Done\n- [ ] Todo\n- [ ] Todo\n- [ ] Todo\n- [ ] Todo\n",
         )
 
-        result = _auto_correct_frontmatter(plan, 5, 1)
+        result = _auto_correct_frontmatter(tmp_path, 5, 1)
 
         assert result is True
         fm = parse_frontmatter(plan.read_text())
@@ -85,10 +92,12 @@ class TestAutoCorrectFrontmatter:
 
     def test_corrects_drifted_completed(self, tmp_path: Path) -> None:
         """Drifted completed is corrected."""
-        plan = tmp_path / "plan.md"
-        plan.write_text("---\ntotal: 3\ncompleted: 0\n---\n\n- [x] Done\n- [x] Done\n- [ ] Todo\n")
+        plan = self._write_plan(
+            tmp_path,
+            "---\ntotal: 3\ncompleted: 0\n---\n\n- [x] Done\n- [x] Done\n- [ ] Todo\n",
+        )
 
-        result = _auto_correct_frontmatter(plan, 3, 2)
+        result = _auto_correct_frontmatter(tmp_path, 3, 2)
 
         assert result is True
         fm = parse_frontmatter(plan.read_text())
@@ -96,10 +105,12 @@ class TestAutoCorrectFrontmatter:
 
     def test_no_correction_when_accurate(self, tmp_path: Path) -> None:
         """No changes when frontmatter matches reality."""
-        plan = tmp_path / "plan.md"
-        plan.write_text("---\ntotal: 3\ncompleted: 1\n---\n\n- [x] Done\n- [ ] Todo\n- [ ] Todo\n")
+        self._write_plan(
+            tmp_path,
+            "---\ntotal: 3\ncompleted: 1\n---\n\n- [x] Done\n- [ ] Todo\n- [ ] Todo\n",
+        )
 
-        result = _auto_correct_frontmatter(plan, 3, 1)
+        result = _auto_correct_frontmatter(tmp_path, 3, 1)
 
         assert result is False
 
@@ -127,7 +138,7 @@ class TestCountAndVerify:
         )
 
         real_total, real_completed = count_checkboxes(plan_path.read_text())
-        corrected = _auto_correct_frontmatter(plan_path, real_total, real_completed)
+        corrected = _auto_correct_frontmatter(tmp_path, real_total, real_completed)
 
         assert real_total == 5
         assert real_completed == 3
