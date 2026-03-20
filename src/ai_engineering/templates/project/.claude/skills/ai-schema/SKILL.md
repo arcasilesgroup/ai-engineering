@@ -1,6 +1,8 @@
 ---
 name: ai-schema
 description: "Use when designing schemas, writing migrations, optimizing queries, or managing data lifecycle across PostgreSQL, MySQL, SQLite, and MongoDB."
+model: opus
+effort: max
 argument-hint: "design|migrate|optimize|lifecycle"
 tags: [database, sql, migration, schema, optimization, enterprise]
 ---

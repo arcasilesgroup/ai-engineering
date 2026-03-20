@@ -1,6 +1,8 @@
 ---
 name: write
 description: "Use when writing technical content: documentation, changelogs, articles, pitches, sprint reviews, and presentation outlines. Handler-based with audience targeting."
+model: opus
+effort: high
 argument-hint: "docs|changelog|content <type>|--audience developer|manager|executive"
 tags: [writing, documentation, changelog, content, communication]
 ---

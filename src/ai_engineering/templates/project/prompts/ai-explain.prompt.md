@@ -1,6 +1,8 @@
 ---
 name: ai-explain
 description: "Use when explaining code, concepts, patterns, or architecture: engineer-grade technical explanations with 3-tier depth control, ASCII diagrams, and execution traces."
+model: opus
+effort: high
 argument-hint: "<topic>|--depth brief|standard|deep"
 mode: agent
 tags: [explanation, teaching, analysis, architecture]

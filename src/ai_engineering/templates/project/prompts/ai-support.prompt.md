@@ -1,6 +1,8 @@
 ---
 name: ai-support
 description: Use when investigating a customer support ticket, reproducing a reported issue, or documenting support findings.
+model: opus
+effort: high
 argument-hint: "start <ticket-id>|find [query]"
 mode: agent
 ---

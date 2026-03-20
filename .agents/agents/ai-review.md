@@ -1,8 +1,8 @@
 ---
 name: ai-review
 description: Specialized code review with 8 parallel focus areas. Self-challenging, confidence-scored, cross-corroborated.
-color: red
 model: opus
+color: red
 ---
 
 

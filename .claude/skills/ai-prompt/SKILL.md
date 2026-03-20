@@ -1,6 +1,8 @@
 ---
 name: ai-prompt
 description: "Use when optimizing prompts, skill descriptions, or agent instructions for clarity, specificity, and behavioral effectiveness."
+model: opus
+effort: high
 argument-hint: "<text>|--skill <name>"
 ---
 

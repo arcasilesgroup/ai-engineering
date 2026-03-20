@@ -1,8 +1,8 @@
 ---
 name: ai-build
 description: "Implementation coordinator. The ONLY agent with code write permissions. Test-first, dispatch-driven, quality-gated."
-color: blue
 model: opus
+color: blue
 tools: [Read, Write, Edit, Bash, Glob, Grep]
 ---
 

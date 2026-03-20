@@ -1,6 +1,8 @@
 ---
 name: ai-verify
 description: "Use when you need to PROVE a claim with evidence, run quality/security scans, or validate that work is actually complete. Evidence before claims -- no 'should work' allowed."
+model: opus
+effort: max
 argument-hint: "claim|governance|security|quality|performance|a11y|feature|architecture|platform"
 ---
 

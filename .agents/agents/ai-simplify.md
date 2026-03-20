@@ -1,8 +1,8 @@
 ---
 name: ai-simplify
 description: Code simplification and complexity reduction. Guard clauses, method extraction, nesting flattening, dead code removal. Behavior preserved.
-color: green
 model: sonnet
+color: green
 ---
 
 
