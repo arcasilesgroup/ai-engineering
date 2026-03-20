@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **GitHub Copilot hooks parity** — migrated `.github/hooks/hooks.json` from broken flat-array format to Copilot's native `{ version: 1, hooks: { eventType: [...] } }` schema with all 6 hook types: `sessionStart`, `sessionEnd`, `userPromptSubmitted`, `preToolUse`, `postToolUse`, `errorOccurred`.
+- **Copilot preToolUse deny-list** — new `copilot-deny.sh` script enforces the same 13 dangerous-operation patterns blocked by Claude Code's `settings.json` (force push, `rm -rf *`, `--no-verify`, etc.) via Copilot's native `preToolUse` hook with `permissionDecision: "deny"` output.
+- **Copilot telemetry scripts** — 5 new hook scripts (`copilot-skill.sh`, `copilot-agent.sh`, `copilot-session-start.sh`, `copilot-session-end.sh`, `copilot-error.sh`) emit NDJSON events to `audit-log.ndjson` matching existing Claude telemetry format. Each has a PowerShell fail-open stub.
+- **Codex handler parity** — adapted 6 missing handler files for `.agents/skills/` (create: 3, solution-intent: 3) from Claude sources with provider-neutral paths (zero `.claude/` references).
+- **Manifest ownership expansion** — `ownership.framework` now includes `.github/agents/**`, `.github/prompts/**`, `.github/hooks/**`, `.github/copilot-instructions.md`, and `.agents/**`.
+
+### Changed
+- **copilot-instructions.md** — Observability section now lists all 6 Copilot-native camelCase hook event types instead of old `post_tool_call`/`session_end` naming.
+
+### Added
 - **Watch & fix loop for /ai-pr** — step 14 now autonomously monitors PR until merge: diagnoses and fixes failing CI checks, resolves merge conflicts via rebase, and handles review comments (team/org-internal bot = autonomous, external = user confirmation). Polls every 1 min (active) or 3 min (passive). Escalates after 3 failed fix attempts. Full GitHub and Azure DevOps VCS support. New `handlers/watch.md` handler with 7-step procedure.
 - **Work items integration** — expanded `manifest.yml` `work_items` section with provider-specific config (Azure DevOps `area_path`, GitHub `team_label`), hierarchy rules (`never_close` for features, `close_on_pr` for user stories/tasks/bugs), and spec frontmatter `refs` for traceability from specs to work items.
 - **Sprint review skill** — new `/ai-sprint-review` skill (31st skill) that gathers sprint data from work items and git, generates a python-pptx script with the ai-engineering dark-mode brand, and produces a PowerPoint slide deck for stakeholders.

@@ -1,19 +1,59 @@
 {
-  "hooks": [
-    {
-      "type": "post_tool_call",
-      "script": "scripts/hooks/telemetry-skill.sh",
-      "description": "Emit skill_invoked telemetry after tool use"
-    },
-    {
-      "type": "session_end",
-      "script": "scripts/hooks/telemetry-session.sh end",
-      "description": "Emit session_end telemetry when session closes"
-    },
-    {
-      "type": "post_tool_call",
-      "script": "scripts/hooks/telemetry-agent.sh",
-      "description": "Emit agent_dispatched telemetry after agent use"
-    }
-  ]
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      {
+        "type": "command",
+        "bash": "./scripts/hooks/copilot-session-start.sh",
+        "powershell": "./scripts/hooks/copilot-session-start.ps1",
+        "timeoutSec": 10,
+        "comment": "Emit session_start telemetry on session initialization"
+      }
+    ],
+    "sessionEnd": [
+      {
+        "type": "command",
+        "bash": "./scripts/hooks/copilot-session-end.sh",
+        "powershell": "./scripts/hooks/copilot-session-end.ps1",
+        "timeoutSec": 10,
+        "comment": "Emit session_end telemetry when session closes"
+      }
+    ],
+    "userPromptSubmitted": [
+      {
+        "type": "command",
+        "bash": "./scripts/hooks/copilot-skill.sh",
+        "powershell": "./scripts/hooks/copilot-skill.ps1",
+        "timeoutSec": 10,
+        "comment": "Emit skill_invoked telemetry on /ai-* commands"
+      }
+    ],
+    "preToolUse": [
+      {
+        "type": "command",
+        "bash": "./scripts/hooks/copilot-deny.sh",
+        "powershell": "./scripts/hooks/copilot-deny.ps1",
+        "timeoutSec": 5,
+        "comment": "Enforce deny-list: block dangerous operations (rm -rf, force push, --no-verify)"
+      }
+    ],
+    "postToolUse": [
+      {
+        "type": "command",
+        "bash": "./scripts/hooks/copilot-agent.sh",
+        "powershell": "./scripts/hooks/copilot-agent.ps1",
+        "timeoutSec": 10,
+        "comment": "Emit agent_dispatched telemetry on agent tool use"
+      }
+    ],
+    "errorOccurred": [
+      {
+        "type": "command",
+        "bash": "./scripts/hooks/copilot-error.sh",
+        "powershell": "./scripts/hooks/copilot-error.ps1",
+        "timeoutSec": 10,
+        "comment": "Emit error_occurred telemetry on failures"
+      }
+    ]
+  }
 }
