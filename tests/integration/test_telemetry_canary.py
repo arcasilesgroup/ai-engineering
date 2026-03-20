@@ -62,12 +62,12 @@ class TestClaudeCodeHooks:
         data = json.loads(settings_path.read_text(encoding="utf-8"))
         assert "hooks" in data, "settings.json missing 'hooks' key"
 
-    def test_post_tool_use_skill_matcher(self) -> None:
+    def test_user_prompt_submit_skill_matcher(self) -> None:
         settings_path = ROOT / ".claude" / "settings.json"
         data = json.loads(settings_path.read_text(encoding="utf-8"))
-        post_hooks = data["hooks"].get("PostToolUse", [])
-        skill_matchers = [h for h in post_hooks if h.get("matcher") == "Skill"]
-        assert len(skill_matchers) >= 1, "No PostToolUse hook with Skill matcher"
+        prompt_hooks = data["hooks"].get("UserPromptSubmit", [])
+        skill_matchers = [h for h in prompt_hooks if h.get("matcher") == "/ai-"]
+        assert len(skill_matchers) >= 1, "No UserPromptSubmit hook with /ai- matcher"
 
     def test_stop_hook_exists(self) -> None:
         settings_path = ROOT / ".claude" / "settings.json"

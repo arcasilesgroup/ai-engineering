@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Recursive README updates** — `documentation.auto_update.readme: true` now explicitly scans ALL README*.md files recursively, updating each in context of its directory.
 
 ### Fixed
+- **Skill telemetry hook** — replaced `PostToolUse(Skill)` hook with `UserPromptSubmit(/ai-*)` to capture slash command invocations. `PostToolUse(Skill)` never fired because Claude Code expands skills as prompts without calling the Skill tool.
 - **Installer copilot template** — removed stale `("copilot", ".github/copilot")` tree mapping from `templates.py` after the `copilot/` template directory was deleted in spec-055.
 
 ### Added

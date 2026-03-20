@@ -4,6 +4,8 @@ Completed specs. Details in git history.
 
 | ID | Title | Status | Created | Branch |
 |----|-------|--------|---------|--------|
+| 057 | Fix skill_invoked telemetry — UserPromptSubmit hook | done | 2026-03-20 | fix/skill-telemetry-hook |
+| 056 | Enterprise Artifact Feed & Manifest Reorganization | done | 2026-03-20 | feat/skill-effort-model-frontmatter |
 | 055 | Radical Simplification | done | 2026-03-17 | spec/055-radical-simplification |
 | 054 | Pipeline Skill v2: Enterprise CI/CD Generation | done | 2026-03-16 | spec/054-pipeline-skill-v2 |
 | 053 | Full IDE-Adapted Mirrors | done | 2026-03-16 | spec/053-full-ide-adapted-mirrors |
