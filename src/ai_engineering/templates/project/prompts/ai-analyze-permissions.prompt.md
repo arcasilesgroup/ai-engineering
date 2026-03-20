@@ -1,6 +1,8 @@
 ---
 name: ai-analyze-permissions
 description: Use when Claude Code permissions have accumulated in settings.local.json and you want to audit, consolidate, or clean up tool permission patterns.
+model: sonnet
+effort: medium
 argument-hint: "[analyze|apply|cleanup]"
 disable-model-invocation: True
 mode: agent

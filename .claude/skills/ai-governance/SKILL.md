@@ -1,6 +1,8 @@
 ---
 name: ai-governance
 description: "Use when validating compliance, ownership, risk lifecycle, or framework integrity for regulated industries. Modes: compliance | ownership | risk | integrity."
+model: opus
+effort: max
 argument-hint: "all|compliance|ownership|risk|integrity|--report"
 tags: [governance, compliance, ownership, risk, integrity, enterprise]
 ---

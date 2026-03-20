@@ -1,8 +1,8 @@
 ---
 name: ai-guide
 description: "Project onboarding and teaching. Architecture tours, decision archaeology, knowledge transfer. Reads everything, writes nothing."
-color: cyan
 model: sonnet
+color: cyan
 tools: [Read, Glob, Grep, Bash]
 ---
 

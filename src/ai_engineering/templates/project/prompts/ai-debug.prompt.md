@@ -1,6 +1,8 @@
 ---
 name: ai-debug
 description: "Use when investigating unexpected behavior, test failures, runtime errors, or regressions. Systematic 4-phase diagnosis: symptom analysis, reproduction, root cause, solution."
+model: opus
+effort: max
 argument-hint: "[error description or file:line]"
 mode: agent
 ---

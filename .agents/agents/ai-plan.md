@@ -1,8 +1,8 @@
 ---
 name: ai-plan
 description: Relentless interrogator. Extracts every detail, assumption, and blind spot before anything gets built.
-color: purple
 model: opus
+color: purple
 ---
 
 

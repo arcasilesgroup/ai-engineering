@@ -1,6 +1,8 @@
 ---
 name: commit
 description: "Use when committing changes: governed commit workflow with staging, lint, secret scan, conventional commit message, and push."
+model: sonnet
+effort: medium
 argument-hint: "--force|--only|[message hint]"
 tags: [git, commit, push, hooks, delivery]
 requires:
