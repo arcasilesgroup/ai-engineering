@@ -1,7 +1,6 @@
 ---
 name: ai-sprint-review
 description: "Use when generating sprint review presentations: gathers sprint data from work items and git, generates a python-pptx script, and produces a branded PowerPoint slide deck."
-model: sonnet
 effort: medium
 argument-hint: "[--sprint <YYYY-MM>] [--iteration <name>]"
 tags: [presentation, sprint, reporting, sdlc]

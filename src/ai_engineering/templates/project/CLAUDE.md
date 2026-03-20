@@ -113,15 +113,15 @@ Grouped by type. Invoke as `/ai-<name>`.
 **SDLC:** note, standup, sprint, sprint-review, postmortem, support, resolve-conflicts
 **Meta:** create, learn, prompt, onboard, analyze-permissions
 
-## Effort + Model
+## Effort Levels
 
-Each skill declares `model` and `effort` in frontmatter. Assignment by cognitive weight:
+Each skill declares `effort` in frontmatter. Assignment by cognitive weight:
 
-| Tier | Model | Effort | Count |
-|------|-------|--------|-------|
-| MAX | opus | max | 8 (brainstorm, plan, review, verify, security, debug, governance, schema) |
-| HIGH | opus | high | 12 (dispatch, test, write, explain, guide, pr, solution-intent, support, postmortem, pipeline, create, prompt) |
-| MEDIUM | sonnet | medium | 11 (commit, cleanup, standup, note, onboard, release, resolve-conflicts, sprint, sprint-review, learn, analyze-permissions) |
+| Effort | Count |
+|--------|-------|
+| max | 8 (brainstorm, plan, review, verify, security, debug, governance, schema) |
+| high | 12 (dispatch, test, write, explain, guide, pr, solution-intent, support, postmortem, pipeline, create, prompt) |
+| medium | 11 (commit, cleanup, standup, note, onboard, release, resolve-conflicts, sprint, sprint-review, learn, analyze-permissions) |
 
 ## Quality Gates
 

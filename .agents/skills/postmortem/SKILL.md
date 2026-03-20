@@ -1,7 +1,6 @@
 ---
 name: postmortem
 description: Use when documenting an incident, outage, or production failure using the structured DERP model (Detection, Escalation, Recovery, Prevention).
-model: opus
 effort: high
 argument-hint: "start|continue <id>|find [query]|generate"
 ---

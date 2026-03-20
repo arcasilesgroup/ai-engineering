@@ -1,7 +1,6 @@
 ---
 name: ai-learn
 description: Use when analyzing merged PRs for AI blind spots, extracting patterns from human reviewer feedback, or applying accumulated learnings to context files.
-model: sonnet
 effort: medium
 argument-hint: "single <pr>|batch|apply"
 mode: agent

@@ -1,7 +1,6 @@
 ---
 name: ai-security
 description: "Use when scanning for security vulnerabilities: SAST, dependency audit, secret detection, and SBOM generation with OWASP mapping and CWE references."
-model: opus
 effort: max
 argument-hint: "all|static|deps|secrets|sbom|--fix"
 tags: [security, sast, dependencies, sbom, owasp, enterprise]

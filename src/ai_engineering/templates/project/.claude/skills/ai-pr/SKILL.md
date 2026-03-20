@@ -1,7 +1,6 @@
 ---
 name: ai-pr
 description: "Use when creating pull requests: governed PR workflow with commit pipeline, pre-push gates, auto-generated summary, and auto-complete squash merge."
-model: opus
 effort: high
 argument-hint: "review|create|update|--draft|--only|[title]"
 tags: [git, pull-request, ci, merge, delivery]

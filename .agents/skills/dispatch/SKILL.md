@@ -1,7 +1,6 @@
 ---
 name: dispatch
 description: Use when an approved plan exists (plan.md + tasks.md) and you need to execute it. Dispatches subagents per task with two-stage review and progress tracking.
-model: opus
 effort: high
 argument-hint: "[spec-NNN or --resume]"
 ---
