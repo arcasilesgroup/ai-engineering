@@ -62,3 +62,4 @@ Completed specs. Details in git history.
 | 003 | Governance Enforcement | done | 2026-02-10 | spec/003-governance-enforcement |
 | 002 | Cross-Reference Hardening + Skill Registration | done | 2026-02-09 | spec/002-cross-ref-hardening |
 | 001 | AI-Engineering Framework: Rewrite from Scratch | done | 2026-02-08 | spec/001-rewrite-v2 |
+| 055 | GitHub Copilot Parity — Hooks, Deny-List, Multi-Platform Completeness | done | 2026-03-20 | feat/spec-055-copilot-hooks-parity |

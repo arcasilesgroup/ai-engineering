@@ -111,7 +111,7 @@ agents:
 
 # Ownership
 ownership:
-  framework: [".claude/skills/**", ".claude/agents/**", ".ai-engineering/**"]
+  framework: [".claude/skills/**", ".claude/agents/**", ".ai-engineering/**", ".github/agents/**", ".github/prompts/**", ".github/hooks/**", ".github/copilot-instructions.md", ".agents/**"]
   team: [".ai-engineering/contexts/team/**"]
   system: [".ai-engineering/state/**"]
 
