@@ -1,7 +1,8 @@
 # ai-engineering manifest
-# This file is user-configurable. Edit providers, stacks, quality gates,
-# and documentation settings to match your project.
-# Skills and agents registries are managed by the framework.
+
+# === USER CONFIGURATION ===
+# Edit this section to match your project and organization.
+
 schema_version: "2.0"
 framework_version: "0.4.0"
 name: ai-engineering
@@ -12,6 +13,11 @@ providers:
   vcs: github
   ides: [claude_code, github_copilot]
   stacks: [python]
+
+# Artifact feeds — configure your private feed in pyproject.toml [tool.uv.index]
+# See the commented section in pyproject.toml for instructions.
+artifact_feeds:
+  python: pyproject.toml  # pointer to actual config location
 
 # Work items — board/issue tracker integration
 # Configure your team's area path (Azure DevOps) or team label (GitHub Issues).
@@ -29,6 +35,31 @@ work_items:
     user_story: close_on_pr # closed when PR merges
     task: close_on_pr
     bug: close_on_pr
+
+# Quality gates
+quality:
+  coverage: 80
+  duplication: 3
+  cyclomatic: 10
+  cognitive: 15
+
+# Documentation auto-update
+# readme: true — recursively scans ALL README*.md files (root + subdirectories)
+#   and updates each in context of its directory.
+# changelog: true — keeps CHANGELOG.md current with each PR.
+# solution_intent: true — syncs docs/solution-intent.md on architecture changes.
+documentation:
+  auto_update:
+    readme: true
+    changelog: true
+    solution_intent: true
+  external_portal:
+    enabled: false
+    source: null
+    update_method: "pr"
+
+# === FRAMEWORK MANAGED (do not edit below this line) ===
+# These sections are maintained by ai-engineering automatically.
 
 # Skills registry (31 skills)
 skills:
@@ -78,13 +109,6 @@ agents:
   total: 8
   names: [plan, build, verify, guard, review, explore, guide, simplify]
 
-# Quality gates
-quality:
-  coverage: 80
-  duplication: 3
-  cyclomatic: 10
-  cognitive: 15
-
 # Ownership
 ownership:
   framework: [".claude/skills/**", ".claude/agents/**", ".ai-engineering/**"]
@@ -98,18 +122,3 @@ tooling: [uv, ruff, gitleaks, pytest, ty, pip-audit]
 telemetry:
   consent: strict-opt-in
   default: disabled
-
-# Documentation auto-update
-# readme: true — recursively scans ALL README*.md files (root + subdirectories)
-#   and updates each in context of its directory.
-# changelog: true — keeps CHANGELOG.md current with each PR.
-# solution_intent: true — syncs docs/solution-intent.md on architecture changes.
-documentation:
-  auto_update:
-    readme: true
-    changelog: true
-    solution_intent: true
-  external_portal:
-    enabled: false
-    source: null
-    update_method: "pr"

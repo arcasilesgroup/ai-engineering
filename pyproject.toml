@@ -25,6 +25,51 @@ dev = [
   "pytest-xdist>=3.5,<4.0",
 ]
 
+# === USER CONFIGURATION: Enterprise Artifact Feed ===
+#
+# If your organization uses a private package feed (Azure Artifacts, JFrog
+# Artifactory, Nexus), uncomment and configure the section below.
+#
+# This enables "distribution lock": ALL packages resolve from your private
+# feed only — no fallback to public PyPI.
+#
+# Authentication: uses system keyring (cross-platform).
+#   macOS:   Keychain Access
+#   Windows: Credential Manager
+#   Linux:   Secret Service (GNOME Keyring / KWallet)
+#
+# Setup:
+#   1. Store credentials: keyring set <feed-url> <username>
+#   2. Enable uv keyring: export UV_KEYRING_PROVIDER=subprocess
+#   3. Uncomment ONE of the provider blocks below and fill in your values.
+#
+# In CI (no keyring available), use environment variables instead:
+#   UV_INDEX_CORPORATE_USERNAME=<user>
+#   UV_INDEX_CORPORATE_PASSWORD=<token>
+#
+# --- Azure Artifacts ---
+# [[tool.uv.index]]
+# name = "corporate"
+# url = "https://pkgs.dev.azure.com/ORG/PROJECT/_packaging/FEED/pypi/simple/"
+# default = true  # replaces PyPI as the default package source
+#
+# --- JFrog Artifactory ---
+# [[tool.uv.index]]
+# name = "corporate"
+# url = "https://COMPANY.jfrog.io/artifactory/api/pypi/REPO/simple/"
+# default = true  # replaces PyPI as the default package source
+#
+# --- Nexus Repository ---
+# [[tool.uv.index]]
+# name = "corporate"
+# url = "https://nexus.company.com/repository/REPO/simple/"
+# default = true  # replaces PyPI as the default package source
+#
+# IMPORTANT: Do NOT add a pypi.org entry. Omitting it enforces distribution
+# lock — uv will only resolve from your private feed.
+#
+# === END USER CONFIGURATION ===
+
 [project.scripts]
 ai-eng = "ai_engineering.cli:app"
 

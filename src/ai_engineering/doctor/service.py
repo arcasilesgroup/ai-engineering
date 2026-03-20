@@ -148,6 +148,7 @@ def diagnose(
         DoctorReport with all check results.
     """
     from ai_engineering.doctor.checks.branch_policy import check_branch_policy
+    from ai_engineering.doctor.checks.feeds import check_feeds
     from ai_engineering.doctor.checks.hooks import check_hooks
     from ai_engineering.doctor.checks.layout import check_layout
     from ai_engineering.doctor.checks.readiness import check_operational_readiness
@@ -166,6 +167,7 @@ def diagnose(
     check_vcs_tools(report)
     check_branch_policy(target, report)
     check_operational_readiness(target, report)
+    check_feeds(target, report)
     check_version(report)
 
     if include_platforms:

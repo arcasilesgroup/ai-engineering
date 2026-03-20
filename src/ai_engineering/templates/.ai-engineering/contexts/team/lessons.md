@@ -13,4 +13,8 @@ When the user corrects AI behavior:
 
 ## Patterns
 
-_(Empty — lessons will accumulate here as the team works)_
+### Plan tasks must have checkboxes for progress tracking
+
+**Context**: `/ai-plan` generates `plan.md` as the contract for `/ai-dispatch`.
+**Learning**: Every task line MUST use `- [ ] T-N.N:` format, not `- T-N.N:`. Without checkboxes, `/ai-dispatch` cannot track progress and the user cannot see completion state at a glance.
+**Rule**: When writing plan.md, always prefix tasks with `- [ ]`.
