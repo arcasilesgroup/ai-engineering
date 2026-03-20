@@ -311,7 +311,6 @@ def check_operational_readiness(project_root: Path) -> ReadinessReport:
         manifest.tooling_readiness.gh if provider == "github" else manifest.tooling_readiness.az
     )
     report.tools.append(ToolInfo(name=f"auth:{provider}", available=provider_status.authenticated))
-    report.tools.append(ToolInfo(name="cicd:generated", available=manifest.cicd.generated))
     report.tools.append(
         ToolInfo(name="branch-policy:applied", available=manifest.branch_policy.applied)
     )

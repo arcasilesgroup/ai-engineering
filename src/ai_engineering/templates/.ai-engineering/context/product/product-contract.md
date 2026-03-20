@@ -176,7 +176,6 @@ Deterministic tasks run locally without AI tokens:
 | `ai-eng maintenance report\|pr\|all` | Repo hygiene + maintenance |
 | `ai-eng vcs status\|set-primary` | VCS operations |
 | `ai-eng review pr` | PR review |
-| `ai-eng cicd regenerate` | CI/CD workflow generation |
 | `ai-eng setup platforms\|github\|sonar` | Platform setup |
 | `ai-eng scan-report format` | Format scan findings → markdown |
 | `ai-eng metrics collect` | Collect signals → dashboard data |
@@ -255,7 +254,7 @@ flowchart LR
     CMDS --> MAINT[maintenance.*]
     CMDS --> VCSF[vcs.factory]
 
-    INST --> TPL[installer.templates + cicd + branch_policy]
+    INST --> TPL[installer.templates + branch_policy]
     INST --> HOOKM[hooks.manager]
     INST --> STIO[state.io + defaults]
     POL --> CHK[policy.checks/* + stack_runner]
@@ -319,7 +318,6 @@ flowchart LR
 |----------|--------|--------|---------|
 | Python package | `uv build` + `twine upload` | PyPI (`ai-engineering`) | `ai-eng release <version>` |
 | Git tag | `git tag v<version>` | GitHub/Azure DevOps | Release command |
-| CI workflows | Template generation | `.github/workflows/` | `ai-eng cicd regenerate` |
 | Governance root | `ai-eng install .` | Target repo `.ai-engineering/` | User command |
 
 ## 4. Observability Plan

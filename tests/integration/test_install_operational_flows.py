@@ -72,7 +72,6 @@ def test_install_operational_ready_github_cli(tmp_path: Path, monkeypatch: objec
     assert manifest.operational_readiness.status == "READY"
     assert manifest.tooling_readiness.gh.mode == "cli"
     assert manifest.tooling_readiness.gh.authenticated is True
-    assert manifest.cicd.generated is True
     assert manifest.branch_policy.applied is True
 
 

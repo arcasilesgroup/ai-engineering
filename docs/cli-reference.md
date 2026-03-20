@@ -75,8 +75,6 @@ ai-eng maintenance branch-cleanup --dry-run        # Preview without deleting
 ai-eng maintenance branch-cleanup --base develop   # Use non-default base branch
 ai-eng maintenance branch-cleanup --force          # Force-delete unmerged branches
 ai-eng maintenance risk-status                     # Show risk acceptance status
-ai-eng maintenance pipeline-compliance             # Scan pipelines for risk gates
-ai-eng maintenance pipeline-compliance --suggest   # Show injection snippets for fixes
 ai-eng maintenance repo-status                    # Repository branch and PR dashboard
 ai-eng maintenance repo-status --no-prs           # Exclude open PR listing
 ai-eng maintenance spec-reset                     # Archive completed specs, clear _active.md
@@ -97,7 +95,6 @@ ai-eng provider list               # List active AI providers
 ```bash
 ai-eng vcs status                  # Show current VCS provider
 ai-eng vcs set-primary <provider>  # Switch primary VCS provider (github, azure_devops)
-ai-eng vcs set-primary <provider> --no-cicd  # Switch without regenerating CI/CD
 ```
 
 ## Platform setup
@@ -116,8 +113,3 @@ ai-eng setup sonarlint             # Configure SonarLint Connected Mode in IDEs
 ai-eng review pr                   # Run AI-assisted PR review
 ```
 
-## CI/CD
-
-```bash
-ai-eng cicd regenerate             # Generate or update CI/CD workflows
-```

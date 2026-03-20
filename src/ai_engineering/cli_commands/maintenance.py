@@ -1,8 +1,7 @@
-"""Maintenance CLI commands: report, pr, branch-cleanup, risk-status, pipeline-compliance, all.
+"""Maintenance CLI commands: report, pr, branch-cleanup, risk-status, all.
 
 Framework maintenance operations including health reports, PR creation,
-branch cleanup, risk governance status, pipeline compliance scanning,
-and combined dashboard.
+branch cleanup, risk governance status, and combined dashboard.
 """
 
 from __future__ import annotations
@@ -33,8 +32,6 @@ from ai_engineering.maintenance.report import (
 )
 from ai_engineering.maintenance.spec_reset import run_spec_reset
 from ai_engineering.paths import resolve_project_root
-from ai_engineering.pipeline.compliance import scan_all_pipelines
-from ai_engineering.pipeline.injector import suggest_injection
 from ai_engineering.state.decision_logic import (
     list_expired_decisions,
     list_expiring_soon,
@@ -241,40 +238,6 @@ def maintenance_risk_status(
         _display_risk_status(root)
 
 
-def maintenance_pipeline_compliance(
-    target: Annotated[
-        Path | None,
-        typer.Option("--target", "-t", help="Target project root."),
-    ] = None,
-    suggest: Annotated[
-        bool,
-        typer.Option("--suggest", help="Show injection snippets for non-compliant pipelines."),
-    ] = False,
-) -> None:
-    """Scan CI/CD pipelines for risk governance compliance."""
-    root = resolve_project_root(target)
-    report = scan_all_pipelines(root)
-
-    if is_json_mode():
-        emit_success(
-            "ai-eng maintenance pipeline-compliance",
-            report.to_dict(),
-            [
-                NextAction(
-                    command="ai-eng maintenance pipeline-compliance --suggest",
-                    description="Show injection snippets",
-                ),
-            ],
-        )
-    else:
-        typer.echo(report.to_markdown())
-
-        if suggest:
-            for r in report.results:
-                if not r.compliant:
-                    typer.echo(suggest_injection(r.pipeline))
-
-
 def maintenance_repo_status(
     target: Annotated[
         Path | None,
@@ -351,18 +314,16 @@ def maintenance_all(
 ) -> None:
     """Run all maintenance checks and produce a combined report.
 
-    Executes: report, risk-status, pipeline-compliance, repo-status,
-    and spec-reset (dry-run). Intended for dashboard overview.
+    Executes: report, risk-status, repo-status, and spec-reset (dry-run).
+    Intended for dashboard overview.
     """
     root = resolve_project_root(target)
 
-    with step_progress(5, "Running maintenance checks") as tracker:
+    with step_progress(4, "Running maintenance checks") as tracker:
         tracker.step("Generating framework report...")
         report = generate_report(root, staleness_days=staleness_days)
         tracker.step("Checking risk status...")
         risk_data = _collect_risk_status(root)
-        tracker.step("Scanning pipeline compliance...")
-        compliance = scan_all_pipelines(root)
         tracker.step("Analyzing repository status...")
         repo = run_repo_status(root, base_branch=base)
         tracker.step("Checking spec reset...")
@@ -377,7 +338,6 @@ def maintenance_all(
                 "passed": not any_issue,
                 "report": report.to_dict(),
                 "risk_status": risk_data,
-                "pipeline_compliance": compliance.to_dict(),
                 "repo_status": repo.to_dict(),
                 "spec_reset": spec.to_dict(),
             },
@@ -395,9 +355,6 @@ def maintenance_all(
 
         header("Risk Status")
         _display_risk_status(root)
-
-        header("Pipeline Compliance")
-        typer.echo(compliance.to_markdown())
 
         header("Repository Status")
         typer.echo(repo.to_markdown())

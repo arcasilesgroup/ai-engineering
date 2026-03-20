@@ -58,6 +58,12 @@ documentation:
     source: null
     update_method: "pr"
 
+# CI/CD standards
+# Set standards_url to your team's CI/CD documentation.
+# /ai-pipeline reads this URL to generate compliant pipelines.
+cicd:
+  standards_url: null  # optional, set during install or edit manually
+
 # === FRAMEWORK MANAGED (do not edit below this line) ===
 # These sections are maintained by ai-engineering automatically.
 

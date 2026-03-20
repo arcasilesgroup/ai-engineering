@@ -272,7 +272,6 @@ class TestCheckOperationalReadiness:
         mock_manifest = MagicMock()
         mock_manifest.providers.primary = "github"
         mock_manifest.tooling_readiness.gh.authenticated = True
-        mock_manifest.cicd.generated = True
         mock_manifest.branch_policy.applied = False
         mock_read.return_value = mock_manifest
 
@@ -280,7 +279,6 @@ class TestCheckOperationalReadiness:
         assert isinstance(report, ReadinessReport)
         tool_names = [t.name for t in report.tools]
         assert "auth:github" in tool_names
-        assert "cicd:generated" in tool_names
         assert "branch-policy:applied" in tool_names
 
     def test_returns_empty_report_if_no_manifest(self, tmp_path: Path) -> None:

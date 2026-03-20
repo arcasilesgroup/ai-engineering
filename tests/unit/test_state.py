@@ -27,7 +27,6 @@ from ai_engineering.state.io import (
 )
 from ai_engineering.state.models import (
     AuditEntry,
-    CicdStatus,
     DecisionStore,
     DotnetTooling,
     InstallManifest,
@@ -35,7 +34,6 @@ from ai_engineering.state.models import (
     OwnershipLevel,
     OwnershipMap,
     ReleaseInfo,
-    SonarCicdConfig,
     ToolingReadiness,
     UpdateMetadata,
 )
@@ -117,49 +115,6 @@ class TestDefaultInstallManifest:
         m = default_install_manifest(ai_providers=["copilot", "claude_code"])
         assert m.ai_providers.primary == "copilot"
         assert m.ai_providers.enabled == ["copilot", "claude_code"]
-
-
-class TestSonarCicdConfig:
-    """Tests for Sonar CI/CD model behavior."""
-
-    def test_defaults(self) -> None:
-        cfg = SonarCicdConfig()
-        assert cfg.enabled is False
-        assert cfg.host_url == "https://sonarcloud.io"
-        assert cfg.project_key == ""
-        assert cfg.organization == ""
-        assert cfg.service_connection == ""
-
-    def test_is_sonarcloud_handles_mixed_case_trailing_slash(self) -> None:
-        cfg = SonarCicdConfig(hostUrl="https://SONARCLOUD.IO/")
-        assert cfg.is_sonarcloud is True
-
-    def test_is_sonarcloud_false_for_qube_host(self) -> None:
-        cfg = SonarCicdConfig(hostUrl="https://sonar.corp.local")
-        assert cfg.is_sonarcloud is False
-
-    def test_cicd_status_contains_sonar(self) -> None:
-        status = CicdStatus()
-        assert isinstance(status.sonar, SonarCicdConfig)
-
-    def test_manifest_serializes_sonar_aliases(self) -> None:
-        # Arrange
-        manifest = InstallManifest()
-        manifest.cicd.sonar = SonarCicdConfig(
-            enabled=True,
-            hostUrl="https://sonarcloud.io",
-            projectKey="my-key",
-            organization="my-org",
-            serviceConnection="svc-conn",
-        )
-
-        # Act
-        data = manifest.model_dump(by_alias=True)
-
-        # Assert
-        assert data["cicd"]["sonar"]["hostUrl"] == "https://sonarcloud.io"
-        assert data["cicd"]["sonar"]["projectKey"] == "my-key"
-        assert data["cicd"]["sonar"]["serviceConnection"] == "svc-conn"
 
 
 class TestDotnetTooling:

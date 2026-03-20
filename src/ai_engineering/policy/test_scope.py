@@ -255,15 +255,6 @@ TEST_SCOPE_RULES: list[ScopeRule] = [
         },
     ),
     ScopeRule(
-        name="pipeline",
-        source_globs=["src/ai_engineering/pipeline/**/*.py"],
-        tiers={
-            "unit": ["tests/unit/test_pipeline_compliance.py"],
-            "integration": [],
-            "e2e": [],
-        },
-    ),
-    ScopeRule(
         name="platforms",
         source_globs=["src/ai_engineering/platforms/**/*.py"],
         tiers={

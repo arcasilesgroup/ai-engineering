@@ -1,7 +1,0 @@
-trigger:
-  - "*"
-pr:
-  - "*"
-steps:
-  - script: ai-eng gate pre-push
-    displayName: CI checks
