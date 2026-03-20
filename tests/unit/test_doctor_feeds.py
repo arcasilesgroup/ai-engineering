@@ -210,6 +210,7 @@ class TestCheckFeedsKeyring:
         report = DoctorReport()
         monkeypatch.setattr("shutil.which", lambda cmd: None)
         monkeypatch.delenv("CI", raising=False)
+        monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
 
         # Act
         check_feeds(target, report)
@@ -231,6 +232,7 @@ class TestCheckFeedsKeyring:
             lambda cmd: "/usr/bin/keyring" if cmd == "keyring" else None,
         )
         monkeypatch.delenv("CI", raising=False)
+        monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
         mock_run = MagicMock(
             side_effect=subprocess.CalledProcessError(
                 returncode=1, cmd=["keyring", "--list-backends"]
@@ -259,6 +261,7 @@ class TestCheckFeedsKeyring:
             lambda cmd: "/usr/bin/keyring" if cmd == "keyring" else None,
         )
         monkeypatch.delenv("CI", raising=False)
+        monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
 
         def mock_run(*args: object, **kwargs: object) -> subprocess.CompletedProcess[str]:
             cmd = args[0] if args else kwargs.get("args", [])
