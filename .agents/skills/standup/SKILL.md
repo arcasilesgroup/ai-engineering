@@ -1,7 +1,6 @@
 ---
 name: standup
 description: Use when preparing daily standup notes or summarizing recent PR and commit activity for team updates.
-model: sonnet
 effort: medium
 argument-hint: "--days N|--author <name>"
 ---

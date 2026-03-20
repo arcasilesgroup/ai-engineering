@@ -1,7 +1,6 @@
 ---
 name: ai-test
 description: Use when writing tests, enforcing TDD (RED-GREEN-REFACTOR), analyzing coverage gaps, or planning test strategy. Supports Python, TypeScript, .NET, Rust, Go.
-model: opus
 effort: high
 argument-hint: "plan|run|gap|tdd [target]"
 mode: agent

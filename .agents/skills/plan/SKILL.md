@@ -1,7 +1,6 @@
 ---
 name: plan
 description: Use when an approved spec exists and needs to be broken into executable tasks with agent assignments. Creates the implementation plan that /ai-dispatch executes.
-model: opus
 effort: max
 argument-hint: "[spec-NNN or topic]"
 ---

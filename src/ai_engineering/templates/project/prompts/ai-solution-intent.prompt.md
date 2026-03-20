@@ -1,7 +1,6 @@
 ---
 name: ai-solution-intent
 description: "Use when maintaining the solution intent document: scaffolding new projects (init), surgical updates after architectural changes (sync), or completeness validation (validate)."
-model: opus
 effort: high
 argument-hint: "init|sync|validate"
 mode: agent

@@ -1,7 +1,6 @@
 ---
 name: ai-create
 description: Use when creating a new skill or agent for the ai-engineering framework, with TDD-based pressure testing and CSO-optimized descriptions.
-model: opus
 effort: high
 argument-hint: "skill <name>|agent <name>"
 mode: agent

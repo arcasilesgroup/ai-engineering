@@ -1,7 +1,6 @@
 ---
 name: ai-review
 description: Use when reviewing code changes (PRs, diffs, or files) with parallel specialized agents. 8-agent review with self-challenge protocol and cross-agent corroboration.
-model: opus
 effort: max
 argument-hint: "review|find|learn [PR number or file paths]"
 mode: agent

@@ -1,7 +1,6 @@
 ---
 name: ai-sprint
 description: Use when planning a new sprint, running a retrospective, or tracking sprint-level goals against actual delivery.
-model: sonnet
 effort: medium
 argument-hint: "plan|retro|goals [--sprint <name>]"
 mode: agent

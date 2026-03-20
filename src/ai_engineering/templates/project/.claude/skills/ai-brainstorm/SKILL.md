@@ -1,7 +1,6 @@
 ---
 name: ai-brainstorm
 description: "Use when the user wants to design, architect, or explore a feature before building it. HARD GATE: no implementation until the user approves the spec."
-model: opus
 effort: max
 argument-hint: "[feature or problem description] [optional: work item ID e.g. AB#100, #45]"
 ---

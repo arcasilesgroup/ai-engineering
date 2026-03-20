@@ -1,7 +1,6 @@
 ---
 name: guide
 description: "Use when onboarding to a project, exploring architecture, or understanding why decisions were made: interactive tours, decision archaeology, and codebase discovery."
-model: opus
 effort: high
 argument-hint: "tour|find <topic>|history <decision>|onboard"
 tags: [onboarding, architecture, teaching, archaeology]

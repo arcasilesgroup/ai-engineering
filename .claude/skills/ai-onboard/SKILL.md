@@ -1,7 +1,6 @@
 ---
 name: ai-onboard
 description: "Use at session start to detect available skills, load active context, and enforce skill usage discipline for the current session."
-model: sonnet
 effort: medium
 argument-hint: ""
 ---

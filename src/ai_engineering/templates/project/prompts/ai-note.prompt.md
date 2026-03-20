@@ -1,7 +1,6 @@
 ---
 name: ai-note
 description: Use when a debugging session, research, or investigation yields non-obvious findings worth preserving for future sessions.
-model: sonnet
 effort: medium
 argument-hint: "find [query]|<slug>"
 mode: agent

@@ -1,7 +1,6 @@
 ---
 name: ai-release
 description: "Use when preparing a release: aggregated GO/NO-GO gate checking coverage, security, tests, lint, and dependency vulnerabilities against manifest thresholds."
-model: sonnet
 effort: medium
 argument-hint: "[version]|--check-only"
 tags: [quality, release, gate, go-no-go, delivery]

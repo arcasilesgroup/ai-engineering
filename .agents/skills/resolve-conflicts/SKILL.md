@@ -1,7 +1,6 @@
 ---
 name: resolve-conflicts
 description: Use when git reports merge conflicts during rebase, merge, cherry-pick, or revert operations.
-model: sonnet
 effort: medium
 argument-hint: 
 ---

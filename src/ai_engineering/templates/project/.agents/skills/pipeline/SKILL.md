@@ -1,7 +1,6 @@
 ---
 name: pipeline
 description: "Use when creating or evolving CI/CD pipelines: stack-aware generation for GitHub Actions and Azure Pipelines with security enforcement."
-model: opus
 effort: high
 argument-hint: "generate|evolve|validate|--provider github|azure"
 tags: [ci-cd, github-actions, azure-pipelines, enterprise]

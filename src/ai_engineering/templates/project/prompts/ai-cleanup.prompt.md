@@ -1,7 +1,6 @@
 ---
 name: ai-cleanup
 description: "Use when cleaning up the repository: safe migration to default branch, branch cleanup with merged/stale detection, and rich per-branch status report."
-model: sonnet
 effort: medium
 argument-hint: "--branches|--sync|--all"
 mode: agent
