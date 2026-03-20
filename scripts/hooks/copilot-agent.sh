@@ -64,6 +64,7 @@ except Exception:
         AGENT_TYPE="$TOOL_NAME"
     fi
 
+
     # Skip if no agent type extracted
     [ -z "$AGENT_TYPE" ] && return 0
 
