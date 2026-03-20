@@ -28,20 +28,31 @@
 1. **Reorganizar `manifest.yml`**: dos bloques con comentario separador
    - Arriba: `# === USER CONFIGURATION ===` (providers, work_items, quality, documentation, puntero a feeds)
    - Abajo: `# === FRAMEWORK MANAGED (do not edit) ===` (skills, agents, ownership, tooling, telemetry)
+   - `ownership` va en FRAMEWORK MANAGED porque los paths son definidos por el framework
+   - `quality` va en USER CONFIGURATION porque los umbrales son decisiones del equipo
 
 2. **Seccion comentada en `pyproject.toml`**: bloque `[[tool.uv.index]]` documentado, listo para descomentarla
+   - Insertar despues de `[dependency-groups]` y antes de `[project.scripts]` (linea 27 del pyproject.toml actual)
    - Instrucciones claras de como rellenar URL y nombre
+   - Explicar que `default = true` reemplaza PyPI como fuente por defecto
    - Indicacion de que auth va por keyring
    - Ejemplo para Azure Artifacts, JFrog, Nexus
    - Sin entrada de `pypi.org` (distribution lock estricto)
    - Cabecera tipo `# === USER CONFIGURATION ===` igual que en manifest
 
-3. **Validacion en `ai-eng doctor`**: nuevos checks
-   - Si `[[tool.uv.index]]` configurado sin PyPI: verificar que `uv.lock` no contenga `source = { registry = "https://pypi.org/simple" }`
-   - Si feed privado configurado: verificar que keyring responde para la URL (`keyring get <url> <username>`)
-   - Warning si feed configurado pero distribution lock incompleto (PyPI aun presente como index)
+3. **Validacion en `ai-eng doctor`**: nuevo modulo `src/ai_engineering/doctor/checks/feeds.py` con 4 checks:
+   - `feed-lock-leak`: feed privado configurado sin PyPI en indexes, PERO `pypi.org` encontrado en `uv.lock` → ERROR (distribution lock roto)
+   - `feed-mixed-sources`: feed privado configurado Y `pypi.org` tambien presente como index → WARNING (distribution lock no enforced)
+   - `feed-keyring`: feed privado configurado → verificar keyring accesible. Tres niveles:
+     - `keyring` CLI no encontrado → ERROR con instruccion de instalacion
+     - `keyring` CLI encontrado pero sin backend disponible → WARNING con link a docs de headless setup
+     - `keyring` CLI encontrado, backend disponible, pero sin credencial para la URL → WARNING con instruccion `keyring set`
+   - `feed-lock-freshness`: feed configurado → verificar que `uv.lock` existe y no es mas viejo que `pyproject.toml`
+     - Si `uv.lock` no existe → WARNING ("run `uv lock` to generate lockfile")
+     - Si `uv.lock` no existe, `feed-lock-leak` → SKIP (no se puede validar sin lockfile)
 
 4. **Documentar incompatibilidad Dependabot**: ejemplo comentado de seccion `registries` en `dependabot.yml`
+   - Solo aplica cuando `providers.vcs: github` (Dependabot es GitHub-only)
 
 ### Out of scope
 
@@ -49,6 +60,7 @@
 - Integracion con `/ai-onboard` o `/ai-guide` para setup guiado
 - Cambios en `pip-audit` o CI workflow
 - Incluir feed config en template de proyecto
+- Autenticacion en CI (CI no tiene keyring; los equipos usan `UV_INDEX_<NAME>_PASSWORD` como secret — esto es configuracion de pipeline, no del framework)
 
 ## Design
 
@@ -77,7 +89,15 @@ artifact_feeds:
 # Work items
 work_items:
   provider: github
-  # ...
+  azure_devops:
+    area_path: "Project\\TeamName"
+  github:
+    team_label: "team:core"
+  hierarchy:
+    feature: never_close
+    user_story: close_on_pr
+    task: close_on_pr
+    bug: close_on_pr
 
 # Quality gates
 quality:
@@ -102,15 +122,21 @@ documentation:
 
 # Skills registry (31 skills)
 skills:
-  # ...
+  total: 31
+  prefix: "ai-"
+  registry:
+    # ... (current registry content unchanged)
 
 # Agents (8)
 agents:
-  # ...
+  total: 8
+  names: [plan, build, verify, guard, review, explore, guide, simplify]
 
 # Ownership
 ownership:
-  # ...
+  framework: [".claude/skills/**", ".claude/agents/**", ".ai-engineering/**"]
+  team: [".ai-engineering/contexts/team/**"]
+  system: [".ai-engineering/state/**"]
 
 # Tooling
 tooling: [uv, ruff, gitleaks, pytest, ty, pip-audit]
@@ -122,6 +148,8 @@ telemetry:
 ```
 
 ### pyproject.toml — seccion de feeds
+
+Insertar despues de `[dependency-groups]` (linea 27) y antes de `[project.scripts]` (linea 28):
 
 ```toml
 # === USER CONFIGURATION: Enterprise Artifact Feed ===
@@ -137,29 +165,32 @@ telemetry:
 #   Windows: Credential Manager
 #   Linux:   Secret Service (GNOME Keyring / KWallet)
 #
-# Setup keyring credentials:
-#   keyring set <feed-url> <username>
+# Setup:
+#   1. Store credentials: keyring set <feed-url> <username>
+#   2. Enable uv keyring: export UV_KEYRING_PROVIDER=subprocess
+#   3. Uncomment ONE of the provider blocks below and fill in your values.
 #
-# Enable uv keyring integration:
-#   export UV_KEYRING_PROVIDER=subprocess
+# In CI (no keyring available), use environment variables instead:
+#   UV_INDEX_CORPORATE_USERNAME=<user>
+#   UV_INDEX_CORPORATE_PASSWORD=<token>
 #
 # --- Azure Artifacts ---
 # [[tool.uv.index]]
 # name = "corporate"
 # url = "https://pkgs.dev.azure.com/ORG/PROJECT/_packaging/FEED/pypi/simple/"
-# default = true
+# default = true  # replaces PyPI as the default package source
 #
 # --- JFrog Artifactory ---
 # [[tool.uv.index]]
 # name = "corporate"
 # url = "https://COMPANY.jfrog.io/artifactory/api/pypi/REPO/simple/"
-# default = true
+# default = true  # replaces PyPI as the default package source
 #
 # --- Nexus Repository ---
 # [[tool.uv.index]]
 # name = "corporate"
 # url = "https://nexus.company.com/repository/REPO/simple/"
-# default = true
+# default = true  # replaces PyPI as the default package source
 #
 # IMPORTANT: Do NOT add a pypi.org entry. Omitting it enforces distribution
 # lock — uv will only resolve from your private feed.
@@ -169,24 +200,39 @@ telemetry:
 
 ### ai-eng doctor — nuevos checks
 
+Nuevo fichero: `src/ai_engineering/doctor/checks/feeds.py`
+
 ```
-Check: feed-coherence
-  Trigger: [[tool.uv.index]] present in pyproject.toml without pypi.org entry
+Check: feed-lock-leak
+  Trigger: [[tool.uv.index]] present WITHOUT pypi.org entry
   Validate: uv.lock does not contain 'registry = "https://pypi.org/simple"'
-  Severity: ERROR if violated (distribution lock broken)
+  If uv.lock missing: SKIP
+  Severity: ERROR if violated (distribution lock broken — regenerate with `uv lock`)
+
+Check: feed-mixed-sources
+  Trigger: [[tool.uv.index]] present WITH non-pypi URL AND pypi.org also present as index
+  Validate: n/a (presence alone triggers)
+  Severity: WARNING ("distribution lock not enforced — remove pypi.org entry to lock")
 
 Check: feed-keyring
   Trigger: [[tool.uv.index]] present with non-pypi URL
-  Validate: UV_KEYRING_PROVIDER=subprocess is set, keyring responds for feed URL
-  Severity: WARNING if keyring not accessible
+  Validate (graduated):
+    1. `keyring` CLI found in PATH → if not: ERROR ("install keyring: pip install keyring")
+    2. keyring backend available → if not: WARNING ("no keyring backend — see docs")
+    3. credential stored for feed URL → if not: WARNING ("run: keyring set <url> <user>")
+  CI detection: if CI=true or GITHUB_ACTIONS=true → SKIP (CI uses env vars, not keyring)
+  Severity: ERROR or WARNING per level above
 
 Check: feed-lock-freshness
   Trigger: [[tool.uv.index]] present
-  Validate: uv.lock exists and is not older than pyproject.toml
+  Validate: uv.lock exists and mtime >= pyproject.toml mtime
+  If uv.lock missing: WARNING ("run `uv lock` to generate lockfile")
   Severity: WARNING if stale
 ```
 
 ### dependabot.yml — ejemplo comentado
+
+Aplica solo cuando `providers.vcs: github`.
 
 ```yaml
 # NOTE: With distribution lock (private feed only, no PyPI), Dependabot
@@ -212,20 +258,23 @@ Check: feed-lock-freshness
 | File | Change |
 |------|--------|
 | `.ai-engineering/manifest.yml` | Reorganize: user config above, managed below. Add `artifact_feeds` pointer. |
-| `pyproject.toml` | Add commented `[[tool.uv.index]]` section with instructions. |
+| `pyproject.toml` | Add commented `[[tool.uv.index]]` section after `[dependency-groups]`, before `[project.scripts]`. |
 | `.github/dependabot.yml` | Add commented `registries` example. |
-| `src/ai_engineering/cli/doctor.py` | Add feed-coherence, feed-keyring, feed-lock-freshness checks. |
-| `src/ai_engineering/templates/project/.ai-engineering/manifest.yml` | Same manifest reorganization for template. |
+| `src/ai_engineering/doctor/checks/feeds.py` | New file. 4 checks: feed-lock-leak, feed-mixed-sources, feed-keyring, feed-lock-freshness. |
+| `src/ai_engineering/doctor/service.py` | Register new feeds checks module. |
+| `tests/unit/test_doctor_feeds.py` | Tests for the 4 new checks. |
 
 ## Acceptance criteria
 
-- [ ] `manifest.yml` has clear `USER CONFIGURATION` / `FRAMEWORK MANAGED` separation
-- [ ] `pyproject.toml` has commented feed section with instructions for 3 providers
-- [ ] `ai-eng doctor` detects broken distribution lock (PyPI in uv.lock when feed is private)
-- [ ] `ai-eng doctor` warns when keyring is not configured for feed URL
-- [ ] `dependabot.yml` has commented registries example
-- [ ] Template manifest matches the same reorganization
-- [ ] All existing functionality unchanged (no regression)
+- [x] `manifest.yml` has clear `USER CONFIGURATION` / `FRAMEWORK MANAGED` separation
+- [x] `pyproject.toml` has commented feed section with instructions for 3 providers (Azure, JFrog, Nexus)
+- [x] `ai-eng doctor` detects broken distribution lock (PyPI in uv.lock when private feed configured without PyPI index)
+- [x] `ai-eng doctor` warns when PyPI coexists with private feed (mixed sources)
+- [x] `ai-eng doctor` validates keyring with 3 graduated levels (not installed, no backend, no credential)
+- [x] `ai-eng doctor` skips keyring check in CI environments
+- [x] `ai-eng doctor` warns when uv.lock is missing or stale
+- [x] `dependabot.yml` has commented registries example
+- [x] All existing tests pass (no regression)
 
 ## Refs
 

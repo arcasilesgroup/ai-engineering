@@ -1,6 +1,7 @@
 """Doctor diagnostic check modules."""
 
 from ai_engineering.doctor.checks.branch_policy import check_branch_policy
+from ai_engineering.doctor.checks.feeds import check_feeds
 from ai_engineering.doctor.checks.hooks import check_hooks
 from ai_engineering.doctor.checks.layout import check_layout
 from ai_engineering.doctor.checks.readiness import check_operational_readiness
@@ -11,6 +12,7 @@ from ai_engineering.doctor.checks.version_check import check_version
 
 __all__ = [
     "check_branch_policy",
+    "check_feeds",
     "check_hooks",
     "check_layout",
     "check_operational_readiness",

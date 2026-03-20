@@ -195,7 +195,7 @@ TEST_SCOPE_RULES: list[ScopeRule] = [
         name="doctor",
         source_globs=["src/ai_engineering/doctor/**/*.py"],
         tiers={
-            "unit": ["tests/unit/test_doctor.py"],
+            "unit": ["tests/unit/test_doctor.py", "tests/unit/test_doctor_feeds.py"],
             "integration": ["tests/integration/test_doctor_integration.py"],
             "e2e": [],
         },
