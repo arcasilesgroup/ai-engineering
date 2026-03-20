@@ -124,17 +124,19 @@ If spec frontmatter contains `refs`:
 - **GitHub**: `gh pr merge --auto --squash --delete-branch`
 - **Azure**: `az repos pr update --id <id> --auto-complete true --squash true --delete-source-branch true`
 
-### 14. Wait for merge
+### 14. Watch and fix until merge
 
-Poll until the PR is merged. Do NOT declare the PR "done" at auto-complete — auto-complete only queues the merge; CI checks must pass first.
+Do NOT declare the PR "done" at auto-complete -- auto-complete only queues the merge; CI checks must pass first.
 
-- **GitHub**: `gh pr view <number> --json state,mergedAt`
-- **Azure**: `az repos pr show --id <id> -o json --query '{status: status, mergeStatus: mergeStatus}'`
-
-Poll every 30 seconds. Report CI status on each iteration. If a check fails, report and stop — do NOT keep polling a stuck PR.
+Enter the watch-and-fix loop. Follow `handlers/watch.md` for the full procedure:
+- Polls every 1 min (active) or 3 min (passive -- waiting for review)
+- Autonomously fixes: failing CI checks, merge conflicts
+- Review comments: autonomous if from team member or org-internal bot, confirmation if from external
+- Escalates after 3 failed fix attempts on the same check
+- Draft PRs: skip the loop entirely (drafts cannot merge)
 
 Once `state == "MERGED"`:
-1. Run `/ai-cleanup --all` — syncs to default branch, deletes merged/squash-merged branches, produces status report.
+1. Run `/ai-cleanup --all` -- syncs to default branch, deletes merged/squash-merged branches, produces status report.
 2. Report: PR merged, cleanup complete.
 
 ### `/pr --only`
@@ -185,6 +187,9 @@ Same as default flow but create as draft PR.
 - Skipping pre-push checks -- `semgrep`, `pip-audit`, `pytest`, and `ty` must all pass.
 - Overwriting existing PR body -- always extend, never replace.
 - Missing auto-complete -- squash merge with branch deletion is mandatory.
+- Skipping the commit pipeline during watch fixes -- all fixes must pass through steps 0-6.
+- Acting on external review comments without confirmation -- only team/org-internal-bot comments are autonomous.
+- Weakening test assertions to make tests pass -- fix the code, not the tests.
 
 ## Integration
 
@@ -192,6 +197,7 @@ Same as default flow but create as draft PR.
 - Auto-updates CHANGELOG.md and README.md via documentation gate.
 - Links to work items from spec frontmatter refs (hierarchy-aware: features never closed, user stories/tasks/bugs/issues closed on merge).
 - Falls back to spec-label-based issue linking when no frontmatter refs present.
+- Step 14 monitors PR until merge, autonomously fixing CI failures, merge conflicts, and review comments from team/org-internal bots.
 
 ## References
 
