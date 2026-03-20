@@ -27,11 +27,21 @@ except Exception:
 " 2>/dev/null)
     fi
 
-    # Only proceed if toolName matches "task" or contains "agent" (case-insensitive)
+    # Detect agent dispatch: match registered agent names OR generic "task"/"agent" patterns.
+    # Copilot sends the agent's registered `name` as toolName (e.g., "Build", "Explorer").
+    # Claude sends "task" or tools containing "agent" in the name.
     TOOL_LOWER=$(echo "$TOOL_NAME" | tr '[:upper:]' '[:lower:]')
-    [[ "$TOOL_LOWER" == "task" || "$TOOL_LOWER" == *"agent"* ]] || return 0
 
-    # Extract agent type from .toolArgs (parse as JSON, look for agent_type field)
+    # Registered agent names from .github/agents/*.agent.md
+    case "$TOOL_LOWER" in
+        build|explorer|plan|review|verify|guard|guide|simplifier) ;;
+        task) ;;
+        *agent*) ;;
+        *) return 0 ;;
+    esac
+
+    # Extract agent type: try toolArgs.agent_type first (Claude pattern),
+    # then fall back to toolName itself (Copilot pattern).
     AGENT_TYPE=""
     if command -v jq >/dev/null 2>&1; then
         AGENT_TYPE=$(echo "$INPUT" | jq -r '.toolArgs | if type == "string" then fromjson else . end | .agent_type // empty' 2>/dev/null)
@@ -48,6 +58,12 @@ except Exception:
     pass
 " 2>/dev/null)
     fi
+
+    # Fallback: use toolName as agent type (Copilot sends agent name directly)
+    if [ -z "$AGENT_TYPE" ]; then
+        AGENT_TYPE="$TOOL_NAME"
+    fi
+
 
     # Skip if no agent type extracted
     [ -z "$AGENT_TYPE" ] && return 0
