@@ -141,7 +141,7 @@ Tooling: `ruff` + `ty` (lint/format), `pytest` (test), `gitleaks` (secrets), `pi
 ## Observability
 
 Telemetry is automatic via hooks -- no manual `ai-eng signals emit` needed.
-- `PostToolUse(Skill)` hook emits `skill_invoked` events
+- `UserPromptSubmit(/ai-*)` hook emits `skill_invoked` events
 - `Stop` hook emits `session_end` events
 - All events flow to `.ai-engineering/state/audit-log.ndjson`
 - Dashboards: `ai-eng observe [engineer|team|ai|dora|health]`

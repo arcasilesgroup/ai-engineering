@@ -38,9 +38,9 @@
     ]
   },
   "hooks": {
-    "PostToolUse": [
+    "UserPromptSubmit": [
       {
-        "matcher": "Skill",
+        "matcher": "/ai-",
         "hooks": [
           {
             "type": "command",
@@ -48,7 +48,9 @@
             "timeout": 10
           }
         ]
-      },
+      }
+    ],
+    "PostToolUse": [
       {
         "matcher": "Agent",
         "hooks": [
