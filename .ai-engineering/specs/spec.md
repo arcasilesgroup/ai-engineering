@@ -262,19 +262,19 @@ Aplica solo cuando `providers.vcs: github`.
 | `.github/dependabot.yml` | Add commented `registries` example. |
 | `src/ai_engineering/doctor/checks/feeds.py` | New file. 4 checks: feed-lock-leak, feed-mixed-sources, feed-keyring, feed-lock-freshness. |
 | `src/ai_engineering/doctor/service.py` | Register new feeds checks module. |
-| `tests/test_doctor_feeds.py` | Tests for the 4 new checks. |
+| `tests/unit/test_doctor_feeds.py` | Tests for the 4 new checks. |
 
 ## Acceptance criteria
 
-- [ ] `manifest.yml` has clear `USER CONFIGURATION` / `FRAMEWORK MANAGED` separation
-- [ ] `pyproject.toml` has commented feed section with instructions for 3 providers (Azure, JFrog, Nexus)
-- [ ] `ai-eng doctor` detects broken distribution lock (PyPI in uv.lock when private feed configured without PyPI index)
-- [ ] `ai-eng doctor` warns when PyPI coexists with private feed (mixed sources)
-- [ ] `ai-eng doctor` validates keyring with 3 graduated levels (not installed, no backend, no credential)
-- [ ] `ai-eng doctor` skips keyring check in CI environments
-- [ ] `ai-eng doctor` warns when uv.lock is missing or stale
-- [ ] `dependabot.yml` has commented registries example
-- [ ] All existing tests pass (no regression)
+- [x] `manifest.yml` has clear `USER CONFIGURATION` / `FRAMEWORK MANAGED` separation
+- [x] `pyproject.toml` has commented feed section with instructions for 3 providers (Azure, JFrog, Nexus)
+- [x] `ai-eng doctor` detects broken distribution lock (PyPI in uv.lock when private feed configured without PyPI index)
+- [x] `ai-eng doctor` warns when PyPI coexists with private feed (mixed sources)
+- [x] `ai-eng doctor` validates keyring with 3 graduated levels (not installed, no backend, no credential)
+- [x] `ai-eng doctor` skips keyring check in CI environments
+- [x] `ai-eng doctor` warns when uv.lock is missing or stale
+- [x] `dependabot.yml` has commented registries example
+- [x] All existing tests pass (no regression)
 
 ## Refs
 
