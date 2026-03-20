@@ -123,6 +123,19 @@ If spec frontmatter contains `refs`:
 - **GitHub**: `gh pr merge --auto --squash --delete-branch`
 - **Azure**: `az repos pr update --id <id> --auto-complete true --squash true --delete-source-branch true`
 
+### 14. Wait for merge
+
+Poll until the PR is merged. Do NOT declare the PR "done" at auto-complete — auto-complete only queues the merge; CI checks must pass first.
+
+- **GitHub**: `gh pr view <number> --json state,mergedAt`
+- **Azure**: `az repos pr show --id <id> -o json --query '{status: status, mergeStatus: mergeStatus}'`
+
+Poll every 30 seconds. Report CI status on each iteration. If a check fails, report and stop — do NOT keep polling a stuck PR.
+
+Once `state == "MERGED"`:
+1. Run `/ai-cleanup --all` — syncs to default branch, deletes merged/squash-merged branches, produces status report.
+2. Report: PR merged, cleanup complete.
+
 ### `/pr --only`
 
 Create PR without commit pipeline: verify branch is pushed, detect VCS, create/update PR, enable auto-complete.
