@@ -11,8 +11,18 @@ permissions:
 
 jobs:
   install-smoke:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 10
+    defaults:
+      run:
+        shell: bash
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest }
+          - { os: windows-latest }
+          - { os: macos-latest }
     steps:
       - uses: actions/checkout@v6
       - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
@@ -23,14 +33,45 @@ jobs:
       - name: Create clean venv and install package
         run: |
           python -m venv .smoke-venv
-          . .smoke-venv/bin/activate
-          pip install --upgrade pip
+          . .smoke-venv/bin/activate || . .smoke-venv/Scripts/activate
           pip install dist/*.whl
-      - name: Run CLI smoke commands
+      - name: Validate CLI version
         run: |
-          . .smoke-venv/bin/activate
-          ai-eng version
+          . .smoke-venv/bin/activate || . .smoke-venv/Scripts/activate
+          VERSION_OUTPUT="$(ai-eng version)"
+          echo "$VERSION_OUTPUT"
+          echo "$VERSION_OUTPUT" | grep -qE '^ai-engineering [0-9]+\.[0-9]+\.[0-9]+'
+      - name: Configure git defaults
+        run: |
+          git config --global init.defaultBranch main
+          git config --global user.email "ci@test.com"
+          git config --global user.name "CI"
+      - name: Install into smoke target
+        run: |
+          . .smoke-venv/bin/activate || . .smoke-venv/Scripts/activate
           mkdir -p smoke-target
           git init smoke-target
-          ai-eng install smoke-target
-          ai-eng doctor smoke-target --json
+          ai-eng install smoke-target --non-interactive
+      - name: Doctor diagnostics
+        run: |
+          . .smoke-venv/bin/activate || . .smoke-venv/Scripts/activate
+          set +e
+          ai-eng doctor smoke-target --json | tee doctor-output.json
+          EXIT_CODE=$?
+          set -e
+          if [ "$EXIT_CODE" -eq 1 ]; then
+            echo "ERROR: Doctor reported failures"
+            exit 1
+          fi
+          # Exit code 0 (all ok) or 2 (warnings only) are acceptable
+          python3 -c "
+          import json, sys
+          data = json.load(open('doctor-output.json'))
+          fails = [c for c in data['checks'] if c['status'] == 'fail']
+          warns = [c for c in data['checks'] if c['status'] == 'warn']
+          if fails:
+              for f in fails:
+                  print(f'FAIL: {f[\"name\"]}: {f[\"message\"]}')
+              sys.exit(1)
+          print(f'Doctor: {len(warns)} warnings, 0 failures')
+          "

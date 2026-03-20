@@ -13,11 +13,13 @@ Includes:
 from __future__ import annotations
 
 import functools
+import json
 import sys
 from collections.abc import Callable
 from typing import Annotated
 
 import typer
+from pydantic import ValidationError
 
 from ai_engineering.cli_commands import (
     cicd,
@@ -53,15 +55,19 @@ _USER_FACING_EXCEPTIONS: tuple[type[Exception], ...] = (
     FileNotFoundError,
     NotADirectoryError,
     PermissionError,
+    json.JSONDecodeError,
+    ValidationError,
 )
 
 
 def _cli_error_boundary(func: Callable[..., object]) -> Callable[..., object]:
-    """Wrap a CLI command to catch OS path errors and emit a clean message.
+    """Wrap a CLI command to catch user-facing errors and emit a clean message.
 
-    Converts FileNotFoundError, NotADirectoryError, and PermissionError into
-    a single-line ``Error: <message>`` on stderr with exit code 1, instead of
-    a raw Python traceback.  In JSON mode, emits an error envelope instead.
+    Converts OS path errors (FileNotFoundError, NotADirectoryError,
+    PermissionError) and data errors (JSONDecodeError, ValidationError)
+    into a single-line ``Error: <message>`` on stderr with exit code 1,
+    instead of a raw Python traceback.  In JSON mode, emits an error
+    envelope instead.
     """
 
     @functools.wraps(func)

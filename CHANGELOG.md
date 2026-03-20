@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **CI false positives eliminated** — Dependabot PRs that change workflow YAML now trigger full CI (paths-filter expanded). Snyk job reports `skipped` instead of vacuous `success` when token is absent. Gate Trailer verification checks ALL non-merge PR commits (not just HEAD). SonarCloud fails when zero coverage reports exist. Semgrep skip ratio capped at 50%.
+- **Install Smoke false positives eliminated** — `ai-eng doctor` now exits 0 (ok), 1 (fail), or 2 (warnings only) instead of always 0. `ai-eng version` output validated against expected pattern. Doctor JSON output parsed and asserted. Git config sets `init.defaultBranch main`.
+
+### Added
+- **`--non-interactive` flag for `ai-eng install`** — suppresses all 5 interactive prompts, uses defaults. Required for CI smoke tests.
+- **Cross-platform Install Smoke** — workflow now runs on ubuntu, windows, and macos (was ubuntu-only).
+- **`DoctorReport.has_warnings` property** — True when warnings exist with no failures.
+- **Error boundary expansion** — `json.JSONDecodeError` and `pydantic.ValidationError` now caught by CLI error boundary for clean error messages.
+
 ### Added
 - **GitHub Copilot hooks parity** — migrated `.github/hooks/hooks.json` from broken flat-array format to Copilot's native `{ version: 1, hooks: { eventType: [...] } }` schema with all 6 hook types: `sessionStart`, `sessionEnd`, `userPromptSubmitted`, `preToolUse`, `postToolUse`, `errorOccurred`.
 - **Copilot preToolUse deny-list** — new `copilot-deny.sh` script enforces the same 13 dangerous-operation patterns blocked by Claude Code's `settings.json` (force push, `rm -rf *`, `--no-verify`, etc.) via Copilot's native `preToolUse` hook with `permissionDecision: "deny"` output.
