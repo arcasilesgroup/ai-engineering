@@ -36,15 +36,18 @@ class TestNonInteractiveFlagExists:
 
     def test_help_shows_non_interactive_option(self) -> None:
         """ai-eng install --help must list --non-interactive in its output."""
+        import re
+
         # Arrange
         app = create_app()
 
         # Act
         result = runner.invoke(app, ["install", "--help"])
 
-        # Assert
+        # Assert -- strip ANSI escape codes before checking
+        clean = re.sub(r"\x1b\[[0-9;]*m", "", result.output)
         assert result.exit_code == 0
-        assert "--non-interactive" in result.output
+        assert "--non-interactive" in clean
 
 
 # ---------------------------------------------------------------------------
