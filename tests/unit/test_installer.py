@@ -853,3 +853,65 @@ class TestInstallVcsProvider:
             ai_providers=None,
             external_references=None,
         )
+
+
+# ---------------------------------------------------------------------------
+# _write_cicd_standards_url
+# ---------------------------------------------------------------------------
+
+
+class TestWriteCicdStandardsUrl:
+    """Tests for _write_cicd_standards_url helper."""
+
+    def test_writes_url_to_manifest(self, tmp_path: Path) -> None:
+        from ai_engineering.cli_commands.core import _write_cicd_standards_url
+
+        manifest = tmp_path / ".ai-engineering" / "manifest.yml"
+        manifest.parent.mkdir(parents=True)
+        manifest.write_text("providers:\n  vcs: github\n", encoding="utf-8")
+
+        _write_cicd_standards_url(tmp_path, "https://example.com/cicd")
+
+        import yaml
+
+        data = yaml.safe_load(manifest.read_text(encoding="utf-8"))
+        assert data["cicd"]["standards_url"] == "https://example.com/cicd"
+        assert data["providers"]["vcs"] == "github"  # preserved
+
+    def test_creates_cicd_section_if_missing(self, tmp_path: Path) -> None:
+        from ai_engineering.cli_commands.core import _write_cicd_standards_url
+
+        manifest = tmp_path / ".ai-engineering" / "manifest.yml"
+        manifest.parent.mkdir(parents=True)
+        manifest.write_text("providers:\n  vcs: github\n", encoding="utf-8")
+
+        _write_cicd_standards_url(tmp_path, "https://docs.example.com")
+
+        import yaml
+
+        data = yaml.safe_load(manifest.read_text(encoding="utf-8"))
+        assert "cicd" in data
+        assert data["cicd"]["standards_url"] == "https://docs.example.com"
+
+    def test_skips_if_manifest_missing(self, tmp_path: Path) -> None:
+        from ai_engineering.cli_commands.core import _write_cicd_standards_url
+
+        # Should not raise
+        _write_cicd_standards_url(tmp_path, "https://example.com")
+
+    def test_overwrites_existing_url(self, tmp_path: Path) -> None:
+        from ai_engineering.cli_commands.core import _write_cicd_standards_url
+
+        manifest = tmp_path / ".ai-engineering" / "manifest.yml"
+        manifest.parent.mkdir(parents=True)
+        manifest.write_text(
+            "cicd:\n  standards_url: https://old.example.com\n",
+            encoding="utf-8",
+        )
+
+        _write_cicd_standards_url(tmp_path, "https://new.example.com")
+
+        import yaml
+
+        data = yaml.safe_load(manifest.read_text(encoding="utf-8"))
+        assert data["cicd"]["standards_url"] == "https://new.example.com"
