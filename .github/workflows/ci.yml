@@ -21,10 +21,21 @@ jobs:
     outputs:
       code: ${{ steps.filter.outputs.code }}
       test-config: ${{ steps.filter.outputs.test-config }}
+      has-snyk-token: ${{ steps.tokens.outputs.has-snyk-token }}
     steps:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
+      - name: Check optional tokens
+        id: tokens
+        run: |
+          if [ -n "$SNYK_TOKEN" ]; then
+            echo "has-snyk-token=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has-snyk-token=false" >> "$GITHUB_OUTPUT"
+          fi
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
       - uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v4.0.1
         id: filter
         with:
@@ -36,6 +47,8 @@ jobs:
               - '**/*.py'
               - '**/*.toml'
               - 'uv.lock'
+              - '.github/workflows/**'
+              - '**/*.yml'
             test-config:
               - 'pyproject.toml'
               - 'tests/conftest.py'
@@ -369,7 +382,8 @@ jobs:
           if [ "$count" -gt 0 ]; then
             echo "Found $count coverage report(s)"
           else
-            echo "No coverage reports found (tests may have been skipped)"
+            echo "ERROR: No coverage reports found — tests may have been skipped but coverage is required"
+            exit 1
           fi
       - name: SonarCloud Scan
         uses: SonarSource/sonarqube-scan-action@a31c9398be7ace6bbfaf30c0bd5d415f843d45e9 # v7.0.0
@@ -427,7 +441,16 @@ jobs:
         env:
           PYTHONUTF8: "1"
       - name: Doctor diagnostics
-        run: uv run ai-eng doctor smoke-repo --json
+        run: |
+          set +e
+          uv run ai-eng doctor smoke-repo --json
+          EXIT_CODE=$?
+          set -e
+          if [ "$EXIT_CODE" -eq 1 ]; then
+            echo "ERROR: Doctor reported failures"
+            exit 1
+          fi
+          # Exit 0 (all ok) or 2 (warnings only) are acceptable in smoke
         env:
           PYTHONUTF8: "1"
       - name: Commit-msg gate smoke
@@ -472,64 +495,64 @@ jobs:
       - uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.head.sha }}
-          fetch-depth: 1
+          fetch-depth: 0
       - name: Ensure PR commits include gate trailer
         shell: bash
         run: |
           set -euo pipefail
-          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
-          msg="$(git log -1 --format=%B "$HEAD_SHA")"
-          if ! printf "%s" "$msg" | grep -q "^Ai-Eng-Gate: passed$"; then
-            echo "Missing trailer in latest commit: $HEAD_SHA"
+          BASE="${{ github.event.pull_request.base.sha }}"
+          HEAD="${{ github.event.pull_request.head.sha }}"
+          FAILED=0
+          for sha in $(git log --no-merges --format=%H "$BASE".."$HEAD"); do
+            msg="$(git log -1 --format=%B "$sha")"
+            if ! printf "%s" "$msg" | grep -q "^Ai-Eng-Gate: passed$"; then
+              echo "Missing trailer in commit: $sha"
+              echo "  Message: $(git log -1 --format=%s "$sha")"
+              FAILED=1
+            fi
+          done
+          if [ "$FAILED" -eq 1 ]; then
+            echo "One or more commits are missing the Ai-Eng-Gate trailer."
             exit 1
           fi
+          echo "All $(git log --no-merges --format=%H "$BASE".."$HEAD" | wc -l | tr -d ' ') commits verified."
 
   snyk-security:
     name: Snyk Security
+    needs: [change-scope]
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    env:
-      SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+    if: needs.change-scope.outputs.has-snyk-token == 'true'
     steps:
-      - name: Check Snyk token
-        id: check
-        run: |
-          if [ -z "$SNYK_TOKEN" ]; then
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-            echo "SNYK_TOKEN not configured — skipping Snyk checks"
-          else
-            echo "skip=false" >> "$GITHUB_OUTPUT"
-          fi
       - uses: actions/checkout@v6
-        if: steps.check.outputs.skip == 'false'
       - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
-        if: steps.check.outputs.skip == 'false'
         with:
           enable-cache: true
       - name: Install dependencies
-        if: steps.check.outputs.skip == 'false'
         run: uv sync --dev
       - name: Install Snyk CLI
-        if: steps.check.outputs.skip == 'false'
         run: npm install -g snyk
       - name: Export pinned requirements for Snyk
-        if: steps.check.outputs.skip == 'false'
         run: |
           uv pip freeze > requirements.txt
           echo "Exported $(wc -l < requirements.txt) pinned packages"
       - name: Snyk dependency test
-        if: steps.check.outputs.skip == 'false'
         run: |
           . .venv/bin/activate
           snyk test --file=requirements.txt --package-manager=pip --severity-threshold=high
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
       - name: Snyk code test (SAST)
-        if: steps.check.outputs.skip == 'false'
         run: snyk code test --severity-threshold=high
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
       - name: Snyk monitor (main only)
-        if: steps.check.outputs.skip == 'false' && github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main'
         run: |
           . .venv/bin/activate
           snyk monitor --file=requirements.txt --package-manager=pip
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
 
   security:
     name: Security Audit
@@ -554,7 +577,25 @@ jobs:
       - name: Install semgrep
         run: python -m pip install semgrep
       - name: semgrep
-        run: semgrep --config .semgrep.yml --error .
+        run: semgrep --config .semgrep.yml --error --json . > semgrep-results.json
+      - name: Check semgrep skip ratio
+        run: |
+          python3 -c "
+          import json, sys
+          data = json.load(open('semgrep-results.json'))
+          scanned = len(data.get('paths', {}).get('scanned', []))
+          skipped = len(data.get('paths', {}).get('skipped', []))
+          total = scanned + skipped
+          if total == 0:
+              print('No files processed by semgrep')
+              sys.exit(1)
+          ratio = skipped / total * 100
+          print(f'Semgrep: {scanned} scanned, {skipped} skipped ({ratio:.1f}%)')
+          if ratio > 50:
+              print(f'ERROR: Skip ratio {ratio:.1f}% exceeds 50% threshold')
+              sys.exit(1)
+          print('Skip ratio within threshold')
+          "
 
   content-integrity:
     name: Content Integrity

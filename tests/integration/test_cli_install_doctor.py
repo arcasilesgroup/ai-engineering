@@ -108,8 +108,8 @@ class TestDoctorCommand:
         app: object,
     ) -> None:
         result = runner.invoke(app, ["doctor", str(installed_dir)])
-        # May pass or fail depending on tools, but should not crash
-        assert result.exit_code in (0, 1)
+        # May pass, warn, or fail depending on tools, but should not crash
+        assert result.exit_code in (0, 1, 2)
         assert "Doctor" in result.output
 
     def test_doctor_json_output(
@@ -121,7 +121,7 @@ class TestDoctorCommand:
             app,
             ["doctor", str(installed_dir), "--json"],
         )
-        assert result.exit_code in (0, 1)
+        assert result.exit_code in (0, 1, 2)
         # JSON output should be parseable
         data = json.loads(result.output)
         assert "passed" in data
