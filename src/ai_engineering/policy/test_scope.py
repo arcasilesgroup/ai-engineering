@@ -224,7 +224,6 @@ TEST_SCOPE_RULES: list[ScopeRule] = [
         source_globs=["src/ai_engineering/installer/**/*.py"],
         tiers={
             "unit": [
-                "tests/unit/test_cicd_sonar.py",
                 "tests/unit/test_installer.py",
                 "tests/unit/test_installer_tools.py",
             ],
