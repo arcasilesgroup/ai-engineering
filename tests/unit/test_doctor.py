@@ -9,9 +9,11 @@ TDD-ready: AAA pattern, centralized fakes, behavior-focused assertions.
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
+import typer
+from typer.testing import CliRunner
 
 from ai_engineering.doctor.models import CheckResult, CheckStatus, DoctorReport
 from ai_engineering.doctor.service import diagnose
@@ -238,3 +240,149 @@ class TestDiagnose:
 
         # Assert
         assert isinstance(report, DoctorReport)
+
+
+# -- DoctorReport.has_warnings property ------------------------------------
+
+
+class TestDoctorReportHasWarnings:
+    """Tests for DoctorReport.has_warnings — True iff WARNs exist and no FAILs."""
+
+    def test_has_warnings_true_when_warns_exist_no_fails(self) -> None:
+        """has_warnings is True when at least one WARN check and no FAIL checks."""
+        # Arrange
+        report = DoctorReport(
+            checks=[
+                CheckResult(name="a", status=CheckStatus.OK, message="ok"),
+                CheckResult(name="b", status=CheckStatus.WARN, message="warning"),
+            ]
+        )
+
+        # Assert
+        assert report.has_warnings is True
+
+    def test_has_warnings_false_when_all_ok(self) -> None:
+        """has_warnings is False when all checks are OK."""
+        # Arrange
+        report = DoctorReport(
+            checks=[
+                CheckResult(name="a", status=CheckStatus.OK, message="ok"),
+            ]
+        )
+
+        # Assert
+        assert report.has_warnings is False
+
+    def test_has_warnings_false_when_fails_exist(self) -> None:
+        """has_warnings is False when any check is FAIL (even with WARNs)."""
+        # Arrange
+        report = DoctorReport(
+            checks=[
+                CheckResult(name="a", status=CheckStatus.WARN, message="warning"),
+                CheckResult(name="b", status=CheckStatus.FAIL, message="failed"),
+            ]
+        )
+
+        # Assert
+        assert report.has_warnings is False
+
+    def test_has_warnings_false_on_empty_report(self) -> None:
+        """has_warnings is False when the report has no checks."""
+        # Arrange & Assert
+        assert DoctorReport().has_warnings is False
+
+    def test_has_warnings_true_with_multiple_warns(self) -> None:
+        """has_warnings is True when multiple WARNs exist and no FAILs."""
+        # Arrange
+        report = DoctorReport(
+            checks=[
+                CheckResult(name="a", status=CheckStatus.WARN, message="w1"),
+                CheckResult(name="b", status=CheckStatus.WARN, message="w2"),
+                CheckResult(name="c", status=CheckStatus.OK, message="ok"),
+            ]
+        )
+
+        # Assert
+        assert report.has_warnings is True
+
+    def test_has_warnings_false_with_fixed_only(self) -> None:
+        """has_warnings is False when only FIXED and OK checks exist."""
+        # Arrange
+        report = DoctorReport(
+            checks=[
+                CheckResult(name="a", status=CheckStatus.FIXED, message="fixed"),
+                CheckResult(name="b", status=CheckStatus.OK, message="ok"),
+            ]
+        )
+
+        # Assert
+        assert report.has_warnings is False
+
+
+# -- doctor_cmd exit codes -------------------------------------------------
+
+
+class TestDoctorCmdExitCodes:
+    """Tests for doctor_cmd exit codes: 0 (clean), 1 (fail), 2 (warnings only).
+
+    Uses mocked diagnose() to control the DoctorReport returned, then invokes
+    the CLI via CliRunner to capture the exit code.
+    """
+
+    @pytest.fixture()
+    def app(self) -> typer.Typer:
+        """Create a fresh CLI app for exit code tests."""
+        from ai_engineering.cli_factory import create_app
+
+        return create_app()
+
+    def test_exit_0_when_all_ok(self, app: typer.Typer, tmp_path: Path) -> None:
+        """doctor exits 0 when all checks pass (no FAIL, no WARN)."""
+        # Arrange
+        ok_report = DoctorReport(
+            checks=[
+                CheckResult(name="a", status=CheckStatus.OK, message="ok"),
+                CheckResult(name="b", status=CheckStatus.OK, message="ok"),
+            ]
+        )
+
+        # Act
+        with patch("ai_engineering.cli_commands.core.diagnose", return_value=ok_report):
+            result = CliRunner().invoke(app, ["doctor", str(tmp_path)])
+
+        # Assert
+        assert result.exit_code == 0
+
+    def test_exit_1_when_any_fail(self, app: typer.Typer, tmp_path: Path) -> None:
+        """doctor exits 1 when any check is FAIL."""
+        # Arrange
+        fail_report = DoctorReport(
+            checks=[
+                CheckResult(name="a", status=CheckStatus.OK, message="ok"),
+                CheckResult(name="b", status=CheckStatus.FAIL, message="broken"),
+            ]
+        )
+
+        # Act
+        with patch("ai_engineering.cli_commands.core.diagnose", return_value=fail_report):
+            result = CliRunner().invoke(app, ["doctor", str(tmp_path)])
+
+        # Assert
+        assert result.exit_code == 1
+
+    def test_exit_2_when_warns_only(self, app: typer.Typer, tmp_path: Path) -> None:
+        """doctor exits 2 when warnings exist but no failures."""
+        # Arrange
+        warn_report = DoctorReport(
+            checks=[
+                CheckResult(name="a", status=CheckStatus.OK, message="ok"),
+                CheckResult(name="b", status=CheckStatus.WARN, message="degraded"),
+            ]
+        )
+
+        # Act
+        with patch("ai_engineering.cli_commands.core.diagnose", return_value=warn_report):
+            result = CliRunner().invoke(app, ["doctor", str(tmp_path)])
+
+        # Assert
+        assert result.exit_code == 2

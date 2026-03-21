@@ -36,6 +36,13 @@ class DoctorReport:
         return all(c.status != CheckStatus.FAIL for c in self.checks)
 
     @property
+    def has_warnings(self) -> bool:
+        """True if at least one WARN exists and no FAIL exists."""
+        has_warn = any(c.status == CheckStatus.WARN for c in self.checks)
+        has_fail = any(c.status == CheckStatus.FAIL for c in self.checks)
+        return has_warn and not has_fail
+
+    @property
     def summary(self) -> dict[str, int]:
         """Count of checks by status."""
         counts: dict[str, int] = {}

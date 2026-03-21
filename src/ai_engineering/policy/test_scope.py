@@ -139,6 +139,7 @@ TEST_SCOPE_RULES: list[ScopeRule] = [
                 "tests/unit/test_spec_cmd.py",
                 "tests/unit/test_observe_dashboards.py",
                 "tests/unit/test_workflow_cmd.py",
+                "tests/unit/test_cli_install_non_interactive.py",
             ],
             "integration": [
                 "tests/integration/test_cli_command_modules.py",

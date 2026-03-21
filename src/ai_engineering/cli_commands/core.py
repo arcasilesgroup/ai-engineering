@@ -15,7 +15,7 @@ import typer
 
 from ai_engineering.__version__ import __version__
 from ai_engineering.cli_envelope import NextAction, emit_success
-from ai_engineering.cli_output import is_json_mode
+from ai_engineering.cli_output import is_json_mode, set_json_mode
 from ai_engineering.cli_progress import spinner
 from ai_engineering.cli_ui import (
     file_count,
@@ -60,8 +60,18 @@ def install_cmd(
             help="AI providers to enable (e.g. claude_code, github_copilot).",
         ),
     ] = None,
+    non_interactive: Annotated[
+        bool,
+        typer.Option(
+            "--non-interactive",
+            help="Run without interactive prompts, using defaults.",
+        ),
+    ] = False,
 ) -> None:
     """Install the ai-engineering governance framework."""
+    if non_interactive:
+        set_json_mode(True)
+
     root = resolve_project_root(target)
 
     # Resolve VCS provider: explicit flag > autodetect > interactive prompt
@@ -149,7 +159,7 @@ def install_cmd(
 
     # Optional platform onboarding prompt (D024-003: opt-in).
     if not is_json_mode():
-        _offer_platform_onboarding(root, vcs_provider=resolved_vcs)
+        _offer_platform_onboarding(root, vcs_provider=resolved_vcs, non_interactive=non_interactive)
 
 
 def _resolve_vcs_provider(vcs: str | None, root: Path) -> str:
@@ -395,6 +405,8 @@ def doctor_cmd(
 
     if not report.passed:
         raise typer.Exit(code=1)
+    if report.has_warnings:
+        raise typer.Exit(code=2)
 
 
 def version_cmd() -> None:
@@ -415,13 +427,20 @@ def version_cmd() -> None:
         typer.echo(f"ai-engineering {result.message}")
 
 
-def _offer_platform_onboarding(root: Path, *, vcs_provider: str | None = None) -> None:
+def _offer_platform_onboarding(
+    root: Path,
+    *,
+    vcs_provider: str | None = None,
+    non_interactive: bool = False,
+) -> None:
     """Offer optional platform credential setup after install.
 
     Detects platform markers and prompts the user to run setup.
     When no platforms are auto-detected, still offers manual setup.
     Always skippable (D024-003).
     """
+    if non_interactive:
+        return
     detected = detect_platforms(root, vcs_provider=vcs_provider)
     if detected:
         names = ", ".join(p.value for p in detected)
