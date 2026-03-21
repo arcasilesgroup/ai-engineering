@@ -441,7 +441,16 @@ jobs:
         env:
           PYTHONUTF8: "1"
       - name: Doctor diagnostics
-        run: uv run ai-eng doctor smoke-repo --json
+        run: |
+          set +e
+          uv run ai-eng doctor smoke-repo --json
+          EXIT_CODE=$?
+          set -e
+          if [ "$EXIT_CODE" -eq 1 ]; then
+            echo "ERROR: Doctor reported failures"
+            exit 1
+          fi
+          # Exit 0 (all ok) or 2 (warnings only) are acceptable in smoke
         env:
           PYTHONUTF8: "1"
       - name: Commit-msg gate smoke
