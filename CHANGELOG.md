@@ -18,6 +18,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Error boundary expansion** — `json.JSONDecodeError` and `pydantic.ValidationError` now caught by CLI error boundary for clean error messages.
 
 ### Added
+- **CI/CD standards URL in manifest** -- new `cicd.standards_url` field in `manifest.yml` allows teams to reference their CI/CD documentation. `/ai-pipeline generate` reads this URL to produce compliant pipelines; falls back to AI best practices when unset.
+
+### Removed
+- **Programmatic pipeline generator** -- removed `installer/cicd.py`, `pipeline/` module (compliance, injector), and `templates/pipeline/` directory. Pipeline generation is now fully AI-driven via `/ai-pipeline`.
+- **`ai-eng cicd regenerate` command** -- replaced by `/ai-pipeline generate` as the single entry point for pipeline creation.
+- **`ai-eng maintenance pipeline-compliance`** -- compliance checking delegated to `/ai-pipeline validate`.
+- **`--no-cicd` flag on `ai-eng vcs set-provider`** -- no longer needed since pipelines aren't auto-generated.
+- **Pipeline auto-generation during install** -- `ai-eng install` no longer generates CI/CD pipelines. Users invoke `/ai-pipeline` when ready.
+
+### Added
 - **GitHub Copilot hooks parity** — migrated `.github/hooks/hooks.json` from broken flat-array format to Copilot's native `{ version: 1, hooks: { eventType: [...] } }` schema with all 6 hook types: `sessionStart`, `sessionEnd`, `userPromptSubmitted`, `preToolUse`, `postToolUse`, `errorOccurred`.
 - **Copilot preToolUse deny-list** — new `copilot-deny.sh` script enforces the same 13 dangerous-operation patterns blocked by Claude Code's `settings.json` (force push, `rm -rf *`, `--no-verify`, etc.) via Copilot's native `preToolUse` hook with `permissionDecision: "deny"` output.
 - **Copilot telemetry scripts** — 5 new hook scripts (`copilot-skill.sh`, `copilot-agent.sh`, `copilot-session-start.sh`, `copilot-session-end.sh`, `copilot-error.sh`) emit NDJSON events to `audit-log.ndjson` matching existing Claude telemetry format. Each has a PowerShell fail-open stub.

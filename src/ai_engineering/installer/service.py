@@ -18,7 +18,6 @@ import logging
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from ai_engineering.credentials.service import CredentialService
 from ai_engineering.detector.readiness import check_tools_for_stacks
 from ai_engineering.git.context import get_git_context
 from ai_engineering.hooks.manager import HookInstallResult, install_hooks
@@ -28,13 +27,12 @@ from ai_engineering.state.defaults import (
     default_ownership_map,
 )
 from ai_engineering.state.io import append_ndjson, read_json_model, write_json_model
-from ai_engineering.state.models import AuditEntry, InstallManifest, SonarCicdConfig
+from ai_engineering.state.models import AuditEntry, InstallManifest
 from ai_engineering.vcs.factory import get_provider
 from ai_engineering.vcs.repo_context import get_repo_context
 
 from .auth import check_vcs_auth
 from .branch_policy import apply_branch_policy
-from .cicd import generate_pipelines
 from .templates import (
     CopyResult,
     copy_project_templates,
@@ -140,7 +138,7 @@ def install(
     with contextlib.suppress(FileNotFoundError):
         result.hooks = install_hooks(target)
 
-    # 6. Install-to-operational phases (tooling/auth/cicd/policy)
+    # 6. Install-to-operational phases (tooling/auth/policy)
     _run_operational_phases(target, vcs_provider=vcs_provider, result=result)
 
     return result
@@ -264,27 +262,7 @@ def _run_operational_phases(target: Path, *, vcs_provider: str, result: InstallR
     if not auth_result.authenticated:
         result.manual_steps.append(auth_result.message)
 
-    # Phase 4: CI/CD generation
-    sonar_config = _resolve_sonar_cicd_config(target)
-    cicd_result = generate_pipelines(
-        target,
-        provider=vcs_provider,
-        stacks=manifest.installed_stacks,
-        sonar_config=sonar_config,
-    )
-    manifest.cicd.generated = bool(cicd_result.created or cicd_result.skipped)
-    manifest.cicd.provider = vcs_provider
-    manifest.cicd.files = [
-        str(p.relative_to(target)) for p in (cicd_result.created + cicd_result.skipped)
-    ]
-    manifest.cicd.sonar = sonar_config or SonarCicdConfig()
-    _create_sonar_properties_if_needed(target, sonar_config, manifest.installed_stacks)
-
-    # SonarLint IDE auto-configuration
-    if sonar_config and sonar_config.enabled:
-        _configure_sonarlint_if_possible(target, sonar_config)
-
-    # Phase 5: branch policy apply + manual fallback
+    # Phase 4: branch policy apply + manual fallback
     policy_result = apply_branch_policy(
         provider_name=vcs_provider,
         provider=provider,
@@ -303,92 +281,10 @@ def _run_operational_phases(target: Path, *, vcs_provider: str, result: InstallR
 
     if not result.manual_steps:
         result.readiness_status = "READY"
-    elif manifest.cicd.generated:
-        result.readiness_status = "READY WITH MANUAL STEPS"
     else:
-        result.readiness_status = "FAILED"
+        result.readiness_status = "READY WITH MANUAL STEPS"
     manifest.operational_readiness.status = result.readiness_status
     manifest.operational_readiness.manual_steps_required = bool(result.manual_steps)
     manifest.operational_readiness.manual_steps = result.manual_steps
 
     write_json_model(manifest_path, manifest)
-
-
-def _resolve_sonar_cicd_config(target: Path) -> SonarCicdConfig | None:
-    """Resolve Sonar CI/CD config from persisted tools state."""
-    try:
-        tools_state = CredentialService.load_tools_state(target / ".ai-engineering" / "state")
-    except (OSError, ValueError):
-        return None
-    sonar = tools_state.sonar
-    if not sonar.configured or not sonar.project_key:
-        return None
-
-    config = SonarCicdConfig(
-        enabled=True,
-        host_url=sonar.url or "https://sonarcloud.io",
-        project_key=sonar.project_key,
-        organization=sonar.organization,
-        service_connection="",
-    )
-    if config.is_sonarcloud and not config.organization:
-        return None
-    return config
-
-
-def _create_sonar_properties_if_needed(
-    target: Path,
-    sonar_config: SonarCicdConfig | None,
-    stacks: list[str],
-) -> None:
-    """Create sonar-project.properties file only when needed and missing."""
-    if sonar_config is None or not sonar_config.enabled or not sonar_config.project_key:
-        return
-
-    props_path = target / "sonar-project.properties"
-    if props_path.exists():
-        return
-
-    props_template = (
-        get_ai_engineering_template_root().parent / "pipeline" / "sonar-project.properties"
-    )
-    if props_template.exists():
-        content = props_template.read_text(encoding="utf-8")
-    else:
-        content = (
-            "sonar.projectKey={project_key}\n"
-            "sonar.organization={organization}\n"
-            "sonar.host.url={host_url}\n"
-            "sonar.sources={sources}\n"
-        )
-
-    sources = "src" if "python" in stacks else "."
-    tests = "tests" if "python" in stacks else "."
-    rendered = content.format(
-        project_key=sonar_config.project_key,
-        organization=sonar_config.organization,
-        host_url=sonar_config.host_url,
-        sources=sources,
-        tests=tests,
-    )
-    props_path.write_text(rendered, encoding="utf-8")
-
-
-def _configure_sonarlint_if_possible(
-    target: Path,
-    sonar_config: SonarCicdConfig,
-) -> None:
-    """Auto-configure SonarLint for detected IDEs if the platform module is available."""
-    try:
-        from ai_engineering.platforms.sonarlint import configure_all_ides, detect_ide_families
-
-        families = detect_ide_families(target)
-        if families:
-            configure_all_ides(
-                target,
-                sonar_url=sonar_config.host_url,
-                project_key=sonar_config.project_key,
-                ide_families=families,
-            )
-    except Exception:  # best-effort SonarLint config
-        logger.debug("SonarLint IDE configuration failed", exc_info=True)

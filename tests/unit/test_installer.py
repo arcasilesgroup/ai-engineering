@@ -14,13 +14,11 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from ai_engineering.credentials.models import SonarConfig, ToolsState
 from ai_engineering.hooks.manager import HookInstallResult
 from ai_engineering.installer.service import (
     _AUDIT_LOG_PATH,
     _STATE_FILES,
     InstallResult,
-    _resolve_sonar_cicd_config,
     install,
 )
 from ai_engineering.installer.templates import CopyResult
@@ -411,7 +409,6 @@ def _build_install_mocks() -> dict[str, MagicMock]:
     mocks["read_json_model"] = MagicMock()
     mocks["check_tools_for_stacks"] = MagicMock()
     mocks["check_vcs_auth"] = MagicMock()
-    mocks["generate_pipelines"] = MagicMock()
     mocks["apply_branch_policy"] = MagicMock()
     mocks["get_provider"] = MagicMock()
     mocks["ensure_tool"] = MagicMock()
@@ -456,7 +453,6 @@ def _apply_patches(mocks: dict[str, MagicMock]):
     stack.enter_context(patch(f"{_SVC}.read_json_model", mocks["read_json_model"]))
     stack.enter_context(patch(f"{_SVC}.check_tools_for_stacks", mocks["check_tools_for_stacks"]))
     stack.enter_context(patch(f"{_SVC}.check_vcs_auth", mocks["check_vcs_auth"]))
-    stack.enter_context(patch(f"{_SVC}.generate_pipelines", mocks["generate_pipelines"]))
     stack.enter_context(patch(f"{_SVC}.apply_branch_policy", mocks["apply_branch_policy"]))
     stack.enter_context(patch(f"{_SVC}.get_provider", mocks["get_provider"]))
     stack.enter_context(patch(f"{_SVC}.ensure_tool", mocks["ensure_tool"]))
@@ -607,7 +603,6 @@ class TestInstallCallsCheckToolsForStacks:
         # Simulate manifest existing for _run_operational_phases
         from ai_engineering.installer.auth import AuthResult
         from ai_engineering.installer.branch_policy import BranchPolicyResult
-        from ai_engineering.installer.cicd import CicdGenerationResult
         from ai_engineering.state.defaults import default_install_manifest as real_manifest
 
         manifest = real_manifest(stacks=["python"])
@@ -618,9 +613,6 @@ class TestInstallCallsCheckToolsForStacks:
             mode="cli",
             authenticated=True,
             message="ok",
-        )
-        patched["generate_pipelines"].return_value = CicdGenerationResult(
-            provider="github",
         )
         patched["apply_branch_policy"].return_value = BranchPolicyResult(
             applied=True,
@@ -641,7 +633,6 @@ class TestInstallCallsCheckVcsAuth:
     def test_called_when_manifest_exists(self, patched, tmp_path: Path) -> None:
         from ai_engineering.installer.auth import AuthResult
         from ai_engineering.installer.branch_policy import BranchPolicyResult
-        from ai_engineering.installer.cicd import CicdGenerationResult
         from ai_engineering.state.defaults import default_install_manifest as real_manifest
 
         manifest = real_manifest(stacks=["python"])
@@ -652,9 +643,6 @@ class TestInstallCallsCheckVcsAuth:
             mode="cli",
             authenticated=True,
             message="ok",
-        )
-        patched["generate_pipelines"].return_value = CicdGenerationResult(
-            provider="github",
         )
         patched["apply_branch_policy"].return_value = BranchPolicyResult(
             applied=True,
@@ -669,52 +657,12 @@ class TestInstallCallsCheckVcsAuth:
         patched["check_vcs_auth"].assert_called_once()
 
 
-class TestInstallCallsGeneratePipelines:
-    """install() calls generate_pipelines in operational phase."""
-
-    def test_called_when_manifest_exists(self, patched, tmp_path: Path) -> None:
-        from ai_engineering.installer.auth import AuthResult
-        from ai_engineering.installer.branch_policy import BranchPolicyResult
-        from ai_engineering.installer.cicd import CicdGenerationResult
-        from ai_engineering.state.defaults import default_install_manifest as real_manifest
-
-        manifest = real_manifest(stacks=["python"])
-        patched["read_json_model"].return_value = manifest
-        patched["check_tools_for_stacks"].return_value = MagicMock(tools=[])
-        patched["check_vcs_auth"].return_value = AuthResult(
-            provider="github",
-            mode="cli",
-            authenticated=True,
-            message="ok",
-        )
-        patched["generate_pipelines"].return_value = CicdGenerationResult(
-            provider="github",
-        )
-        patched["apply_branch_policy"].return_value = BranchPolicyResult(
-            applied=True,
-            mode="cli",
-            message="ok",
-        )
-        patched["provider_required_tools"].return_value = []
-
-        with patch.object(Path, "exists", return_value=True):
-            install(tmp_path, stacks=["python"])
-
-        patched["generate_pipelines"].assert_called_once_with(
-            tmp_path,
-            provider="github",
-            stacks=manifest.installed_stacks,
-            sonar_config=None,
-        )
-
-
 class TestInstallCallsApplyBranchPolicy:
     """install() calls apply_branch_policy in operational phase."""
 
     def test_called_when_manifest_exists(self, patched, tmp_path: Path) -> None:
         from ai_engineering.installer.auth import AuthResult
         from ai_engineering.installer.branch_policy import BranchPolicyResult
-        from ai_engineering.installer.cicd import CicdGenerationResult
         from ai_engineering.state.defaults import default_install_manifest as real_manifest
 
         manifest = real_manifest(stacks=["python"])
@@ -725,9 +673,6 @@ class TestInstallCallsApplyBranchPolicy:
             mode="cli",
             authenticated=True,
             message="ok",
-        )
-        patched["generate_pipelines"].return_value = CicdGenerationResult(
-            provider="github",
         )
         patched["apply_branch_policy"].return_value = BranchPolicyResult(
             applied=True,
@@ -910,63 +855,63 @@ class TestInstallVcsProvider:
         )
 
 
-class TestResolveSonarCicdConfig:
-    """Tests for Sonar CI/CD resolution from tools state."""
+# ---------------------------------------------------------------------------
+# _write_cicd_standards_url
+# ---------------------------------------------------------------------------
 
-    def test_returns_none_when_not_configured(
-        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-    ) -> None:
-        # Arrange
-        monkeypatch.setattr(
-            "ai_engineering.installer.service.CredentialService.load_tools_state",
-            lambda *_: ToolsState(),
+
+class TestWriteCicdStandardsUrl:
+    """Tests for _write_cicd_standards_url helper."""
+
+    def test_writes_url_to_manifest(self, tmp_path: Path) -> None:
+        from ai_engineering.cli_commands.core import _write_cicd_standards_url
+
+        manifest = tmp_path / ".ai-engineering" / "manifest.yml"
+        manifest.parent.mkdir(parents=True)
+        manifest.write_text("providers:\n  vcs: github\n", encoding="utf-8")
+
+        _write_cicd_standards_url(tmp_path, "https://example.com/cicd")
+
+        import yaml
+
+        data = yaml.safe_load(manifest.read_text(encoding="utf-8"))
+        assert data["cicd"]["standards_url"] == "https://example.com/cicd"
+        assert data["providers"]["vcs"] == "github"  # preserved
+
+    def test_creates_cicd_section_if_missing(self, tmp_path: Path) -> None:
+        from ai_engineering.cli_commands.core import _write_cicd_standards_url
+
+        manifest = tmp_path / ".ai-engineering" / "manifest.yml"
+        manifest.parent.mkdir(parents=True)
+        manifest.write_text("providers:\n  vcs: github\n", encoding="utf-8")
+
+        _write_cicd_standards_url(tmp_path, "https://docs.example.com")
+
+        import yaml
+
+        data = yaml.safe_load(manifest.read_text(encoding="utf-8"))
+        assert "cicd" in data
+        assert data["cicd"]["standards_url"] == "https://docs.example.com"
+
+    def test_skips_if_manifest_missing(self, tmp_path: Path) -> None:
+        from ai_engineering.cli_commands.core import _write_cicd_standards_url
+
+        # Should not raise
+        _write_cicd_standards_url(tmp_path, "https://example.com")
+
+    def test_overwrites_existing_url(self, tmp_path: Path) -> None:
+        from ai_engineering.cli_commands.core import _write_cicd_standards_url
+
+        manifest = tmp_path / ".ai-engineering" / "manifest.yml"
+        manifest.parent.mkdir(parents=True)
+        manifest.write_text(
+            "cicd:\n  standards_url: https://old.example.com\n",
+            encoding="utf-8",
         )
 
-        # Act & Assert
-        assert _resolve_sonar_cicd_config(tmp_path) is None
+        _write_cicd_standards_url(tmp_path, "https://new.example.com")
 
-    def test_returns_none_for_sonarcloud_without_org(
-        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-    ) -> None:
-        # Arrange
-        state = ToolsState(
-            sonar=SonarConfig(
-                configured=True,
-                url="https://sonarcloud.io",
-                project_key="my-key",
-                organization="",
-            )
-        )
-        monkeypatch.setattr(
-            "ai_engineering.installer.service.CredentialService.load_tools_state",
-            lambda *_: state,
-        )
+        import yaml
 
-        # Act & Assert
-        assert _resolve_sonar_cicd_config(tmp_path) is None
-
-    def test_returns_config_when_configured(
-        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-    ) -> None:
-        # Arrange
-        state = ToolsState(
-            sonar=SonarConfig(
-                configured=True,
-                url="https://sonarcloud.io",
-                project_key="my-key",
-                organization="my-org",
-            )
-        )
-        monkeypatch.setattr(
-            "ai_engineering.installer.service.CredentialService.load_tools_state",
-            lambda *_: state,
-        )
-
-        # Act
-        resolved = _resolve_sonar_cicd_config(tmp_path)
-
-        # Assert
-        assert resolved is not None
-        assert resolved.enabled is True
-        assert resolved.project_key == "my-key"
-        assert resolved.organization == "my-org"
+        data = yaml.safe_load(manifest.read_text(encoding="utf-8"))
+        assert data["cicd"]["standards_url"] == "https://new.example.com"

@@ -84,15 +84,17 @@ def install_cmd(
     external_cicd_url = _prompt_external_cicd_docs()
 
     with spinner("Installing governance framework..."):
-        ext_refs = {"cicd_standards": external_cicd_url} if external_cicd_url else None
         result = install(
             root,
             stacks=stacks or [],
             ides=ides or [],
             vcs_provider=resolved_vcs,
             ai_providers=resolved_providers,
-            external_references=ext_refs,
         )
+
+    # Write CI/CD standards URL to manifest.yml (not install-manifest.json)
+    if external_cicd_url:
+        _write_cicd_standards_url(root, external_cicd_url)
 
     ai_label = ", ".join(resolved_providers)
 
@@ -216,6 +218,29 @@ def _prompt_external_cicd_docs() -> str:
         return url.strip()
     except (KeyboardInterrupt, EOFError, click.exceptions.Abort):
         return ""
+
+
+def _write_cicd_standards_url(root: Path, url: str) -> None:
+    """Write CI/CD standards URL to the project's manifest.yml.
+
+    Updates the ``cicd.standards_url`` field. If the manifest file does not
+    exist or is unreadable, the write is silently skipped (install may not
+    have created it yet in edge cases).
+    """
+    import yaml
+
+    manifest_path = root / ".ai-engineering" / "manifest.yml"
+    if not manifest_path.exists():
+        return
+
+    text = manifest_path.read_text(encoding="utf-8")
+    data = yaml.safe_load(text) or {}
+    cicd = data.setdefault("cicd", {})
+    cicd["standards_url"] = url
+    manifest_path.write_text(
+        yaml.safe_dump(data, default_flow_style=False, sort_keys=False),
+        encoding="utf-8",
+    )
 
 
 def _resolve_ai_providers(providers: list[str] | None) -> list[str]:

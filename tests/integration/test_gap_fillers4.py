@@ -13,7 +13,6 @@ from ai_engineering.hooks import manager as hooks_manager
 from ai_engineering.installer import templates as installer_templates
 from ai_engineering.maintenance import branch_cleanup
 from ai_engineering.maintenance import report as maintenance_report
-from ai_engineering.pipeline import injector
 from ai_engineering.policy import duplication, gates
 from ai_engineering.skills import service as skills_service
 from ai_engineering.state import decision_logic, defaults
@@ -112,9 +111,6 @@ def test_maintenance_report_exception_branches(tmp_path: Path) -> None:
 
 
 def test_pipeline_duplication_and_gate_internal_edges(tmp_path: Path) -> None:
-    unknown = injector.PipelineFile(path=Path("x.yml"), pipeline_type=injector.PipelineType.UNKNOWN)
-    assert "Unknown pipeline type" in injector.suggest_injection(unknown)
-
     py = tmp_path / "a.py"
     py.write_text("# c\n\nprint('x')\n", encoding="utf-8")
     test_py = tmp_path / "test_skip.py"

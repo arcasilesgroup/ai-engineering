@@ -12,7 +12,6 @@ import pytest
 import typer
 
 from ai_engineering.cli_commands import (
-    cicd,
     core,
     gate,
     maintenance,
@@ -121,23 +120,6 @@ def test_maintenance_branch_cleanup_fail_exits(tmp_path: Path) -> None:
         pytest.raises(typer.Exit),
     ):
         maintenance.maintenance_branch_cleanup(target=tmp_path)
-
-
-def test_maintenance_pipeline_compliance_with_suggest(
-    capsys: pytest.CaptureFixture[str], tmp_path: Path
-) -> None:
-    report = SimpleNamespace(
-        to_markdown=lambda: "report",
-        results=[SimpleNamespace(compliant=False, pipeline=".github/workflows/ci.yml")],
-    )
-    with (
-        patch("ai_engineering.cli_commands.maintenance.scan_all_pipelines", return_value=report),
-        patch("ai_engineering.cli_commands.maintenance.suggest_injection", return_value="inject"),
-    ):
-        maintenance.maintenance_pipeline_compliance(target=tmp_path, suggest=True)
-    out = capsys.readouterr().out
-    assert "report" in out
-    assert "inject" in out
 
 
 def test_validate_unknown_category_exits(tmp_path: Path) -> None:
@@ -358,19 +340,6 @@ def test_review_pr_blocks_on_high_findings(tmp_path: Path) -> None:
         review.review_pr(target=tmp_path, findings_json=findings)
 
 
-def test_cicd_regenerate_updates_manifest(tmp_path: Path) -> None:
-    manifest_path = tmp_path / ".ai-engineering" / "state" / "install-manifest.json"
-    manifest_path.parent.mkdir(parents=True, exist_ok=True)
-    write_json_model(manifest_path, default_install_manifest(vcs_provider="github"))
-    fake_result = SimpleNamespace(
-        created=[tmp_path / ".github" / "workflows" / "ci.yml"], skipped=[]
-    )
-    with patch("ai_engineering.cli_commands.cicd.generate_pipelines", return_value=fake_result):
-        cicd.cicd_regenerate(target=tmp_path)
-    updated = json.loads(manifest_path.read_text(encoding="utf-8"))
-    assert updated["cicd"]["generated"] is True
-
-
 def test_gate_all_combined_pass(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     with (
         patch(
@@ -399,14 +368,14 @@ def test_gate_all_any_fail_exits(tmp_path: Path) -> None:
 def test_maintenance_all_combined_report(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    report = SimpleNamespace(to_markdown=lambda: "report-md")
-    compliance = SimpleNamespace(to_markdown=lambda: "compliance-md", results=[])
-    repo = SimpleNamespace(to_markdown=lambda: "repo-md")
-    spec = SimpleNamespace(to_markdown=lambda: "spec-md", success=True)
+    report = SimpleNamespace(to_markdown=lambda: "report-md", to_dict=lambda: {})
+    repo = SimpleNamespace(to_markdown=lambda: "repo-md", to_dict=lambda: {})
+    spec = SimpleNamespace(to_markdown=lambda: "spec-md", success=True, to_dict=lambda: {})
     with (
         patch("ai_engineering.cli_commands.maintenance.generate_report", return_value=report),
         patch(
-            "ai_engineering.cli_commands.maintenance.scan_all_pipelines", return_value=compliance
+            "ai_engineering.cli_commands.maintenance._collect_risk_status",
+            return_value={"active": 0, "expired": 0, "expiring_soon": 0},
         ),
         patch("ai_engineering.cli_commands.maintenance.run_repo_status", return_value=repo),
         patch("ai_engineering.cli_commands.maintenance.run_spec_reset", return_value=spec),

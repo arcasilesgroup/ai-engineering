@@ -1,9 +1,0 @@
-name: AI Engineering Gate
-on:
-  pull_request:
-jobs:
-  gate:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - run: ai-eng gate risk-check --strict

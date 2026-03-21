@@ -5,6 +5,7 @@ Completed specs. Details in git history.
 | ID | Title | Status | Created | Branch |
 |----|-------|--------|---------|--------|
 | 060 | CI & Install Smoke Audit — Eliminate False Positives | done | 2026-03-20 | feat/ci-smoke-audit-fixes |
+| 059 | CI/CD Standards-Driven Pipeline Generation | done | 2026-03-20 | feat/cicd-standards-manifest |
 | 058 | Watch & Fix Loop for /ai-pr | done | 2026-03-20 | feat/pr-wait-merge-cleanup |
 | 057 | Fix skill_invoked telemetry — UserPromptSubmit hook | done | 2026-03-20 | fix/skill-telemetry-hook |
 | 056 | Enterprise Artifact Feed & Manifest Reorganization | done | 2026-03-20 | feat/skill-effort-model-frontmatter |

@@ -7,14 +7,14 @@ Create new CI/CD pipeline from project analysis.
 1. **Detect context**:
    - Read project files for stacks: `pyproject.toml` (Python), `*.csproj` (.NET), `package.json` (Node), `Cargo.toml` (Rust).
    - Read `manifest.yml` for VCS provider, Sonar config.
-   - Read `externalReferences.cicd_standards` for team CI/CD docs.
+   - Read `cicd.standards_url` from `.ai-engineering/manifest.yml`. If set, fetch and use those standards. If null, generate using AI best practices.
 
 2. **Select provider**:
    - `--provider github`: GitHub Actions (`.github/workflows/`).
    - `--provider azure`: Azure Pipelines (`.azure-pipelines/`).
    - Default: detect from `git remote get-url origin`.
 
-3. **Generate baseline** -- run `ai-eng cicd regenerate`. Produces:
+3. **Generate pipelines** -- produce workflow files directly:
 
    | Provider | Files | Content |
    |----------|-------|---------|
@@ -28,7 +28,7 @@ Create new CI/CD pipeline from project analysis.
    - Rust: `cargo check`, `cargo clippy`, `cargo test`, `cargo audit`.
 
 5. **Apply security**:
-   - SHA pin all third-party actions (reference `action-pins.yml`).
+   - SHA pin all third-party actions (resolve latest SHA for each action).
    - Add `gitleaks` and `semgrep` jobs.
    - Add `pip-audit` / `npm audit` / `cargo audit` per stack.
    - Configure OIDC for deployment steps where possible.

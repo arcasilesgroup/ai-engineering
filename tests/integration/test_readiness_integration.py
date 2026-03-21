@@ -330,12 +330,10 @@ class TestCheckOperationalReadiness:
         manifest_path.parent.mkdir(parents=True, exist_ok=True)
         manifest = default_install_manifest(vcs_provider="github")
         manifest.tooling_readiness.gh.authenticated = True
-        manifest.cicd.generated = True
         manifest.branch_policy.applied = False
         write_json_model(manifest_path, manifest)
 
         report = check_operational_readiness(tmp_path)
         by_name = {t.name: t.available for t in report.tools}
         assert by_name["auth:github"] is True
-        assert by_name["cicd:generated"] is True
         assert by_name["branch-policy:applied"] is False

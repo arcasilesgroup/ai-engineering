@@ -22,7 +22,6 @@ import typer
 from pydantic import ValidationError
 
 from ai_engineering.cli_commands import (
-    cicd,
     core,
     decisions_cmd,
     gate,
@@ -132,7 +131,6 @@ def _app_callback(
                         "maintenance",
                         "vcs",
                         "review",
-                        "cicd",
                         "setup",
                         "release",
                         "signals",
@@ -270,7 +268,6 @@ def create_app() -> typer.Typer:
     maint_app.command("pr")(_safe(maintenance.maintenance_pr))
     maint_app.command("branch-cleanup")(_safe(maintenance.maintenance_branch_cleanup))
     maint_app.command("risk-status")(_safe(maintenance.maintenance_risk_status))
-    maint_app.command("pipeline-compliance")(_safe(maintenance.maintenance_pipeline_compliance))
     maint_app.command("repo-status")(_safe(maintenance.maintenance_repo_status))
     maint_app.command("spec-reset")(_safe(maintenance.maintenance_spec_reset))
     maint_app.command("all")(_safe(maintenance.maintenance_all))
@@ -305,15 +302,6 @@ def create_app() -> typer.Typer:
     )
     review_app.command("pr")(_safe(review.review_pr))
     app.add_typer(review_app, name="review")
-
-    # CI/CD sub-group
-    cicd_app = typer.Typer(
-        name="cicd",
-        help="Manage generated CI/CD pipelines.",
-        no_args_is_help=True,
-    )
-    cicd_app.command("regenerate")(_safe(cicd.cicd_regenerate))
-    app.add_typer(cicd_app, name="cicd")
 
     # Setup sub-group
     setup_app = typer.Typer(

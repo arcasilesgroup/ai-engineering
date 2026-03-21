@@ -224,7 +224,6 @@ TEST_SCOPE_RULES: list[ScopeRule] = [
         source_globs=["src/ai_engineering/installer/**/*.py"],
         tiers={
             "unit": [
-                "tests/unit/test_cicd_sonar.py",
                 "tests/unit/test_installer.py",
                 "tests/unit/test_installer_tools.py",
             ],
@@ -252,15 +251,6 @@ TEST_SCOPE_RULES: list[ScopeRule] = [
                 "tests/integration/test_repo_status_integration.py",
                 "tests/integration/test_spec_reset_integration.py",
             ],
-            "e2e": [],
-        },
-    ),
-    ScopeRule(
-        name="pipeline",
-        source_globs=["src/ai_engineering/pipeline/**/*.py"],
-        tiers={
-            "unit": ["tests/unit/test_pipeline_compliance.py"],
-            "integration": [],
             "e2e": [],
         },
     ),
