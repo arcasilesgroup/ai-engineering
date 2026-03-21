@@ -10,7 +10,8 @@ permissions:
   contents: read
 
 jobs:
-  install-smoke:
+  smoke-test:
+    name: Install Smoke (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 10
     defaults:
@@ -75,3 +76,18 @@ jobs:
               sys.exit(1)
           print(f'Doctor: {len(warns)} warnings, 0 failures')
           "
+
+  install-smoke:
+    name: install-smoke
+    if: always()
+    needs: [smoke-test]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Evaluate smoke results
+        run: |
+          if [[ "${{ needs.smoke-test.result }}" != "success" ]]; then
+            echo "Smoke tests failed: ${{ needs.smoke-test.result }}"
+            exit 1
+          fi
+          echo "All smoke tests passed"
