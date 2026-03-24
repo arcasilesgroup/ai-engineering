@@ -43,29 +43,29 @@ def merge_settings(template_data: dict, target_path: Path, *, base: Path) -> Pat
         ValueError: If ``target_path`` resolves outside ``base``.
     """
     # Validate target_path is within the trusted base (CWE-22 / S2083).
-    # Use os.path.realpath + string-prefix so the safe variable is derived
-    # from validated strings, not from the tainted parameter.
+    # os.path.realpath() resolves symlinks; the prefix check enforces containment.
+    # All I/O uses the validated string ``real_target`` directly -- never a Path
+    # object derived from it -- so SonarCloud tracks the sanitization correctly.
     real_base = os.path.realpath(base)
     real_target = os.path.realpath(target_path)
     if real_target != real_base and not real_target.startswith(real_base + os.sep):
         msg = f"Path traversal rejected: {target_path!r} is outside trusted base {base!r}"
         raise ValueError(msg)
 
-    # Use the realpath-derived safe variable for all I/O from here on.
-    safe_target = Path(real_target)
-
     try:
-        target_data = json.loads(safe_target.read_text(encoding="utf-8"))
+        with open(real_target, encoding="utf-8") as fh:
+            target_data = json.load(fh)
     except (json.JSONDecodeError, ValueError):
-        backup = safe_target.with_suffix(".json.bak")
-        shutil.copy2(safe_target, backup)
+        backup = real_target + ".bak"
+        shutil.copy2(real_target, backup)
         logger.warning(
             "Malformed settings.json at %s; backed up to %s. Custom deny rules may have been lost.",
-            safe_target,
+            real_target,
             backup,
         )
-        safe_target.write_text(json.dumps(template_data, indent=2) + "\n", encoding="utf-8")
-        return safe_target
+        with open(real_target, "w", encoding="utf-8") as fh:
+            fh.write(json.dumps(template_data, indent=2) + "\n")
+        return Path(real_target)
 
     merged = dict(target_data)
 
@@ -97,8 +97,9 @@ def merge_settings(template_data: dict, target_path: Path, *, base: Path) -> Pat
                     target_rules.append(rule)
             target_perms[key] = target_rules
 
-    safe_target.write_text(json.dumps(merged, indent=2) + "\n", encoding="utf-8")
-    return safe_target
+    with open(real_target, "w", encoding="utf-8") as fh:
+        fh.write(json.dumps(merged, indent=2) + "\n")
+    return Path(real_target)
 
 
 def validate_settings_structure(data: dict) -> list[str]:

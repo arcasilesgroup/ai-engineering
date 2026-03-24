@@ -653,10 +653,8 @@ class TestInstallCleanOutput:
     @patch("ai_engineering.cli_commands.core.is_json_mode", return_value=False)
     @patch("ai_engineering.cli_commands.core.install_with_pipeline")
     @patch("ai_engineering.cli_commands.core.resolve_project_root")
-    @patch("ai_engineering.cli_commands.core._resolve_vcs_provider", return_value="github")
     def test_guide_text_not_printed_as_block(
         self,
-        mock_vcs: MagicMock,
         mock_resolve: MagicMock,
         mock_install: MagicMock,
         mock_json: MagicMock,
@@ -682,8 +680,6 @@ class TestInstallCleanOutput:
         mock_install.return_value = (result_obj, summary_obj)
 
         import typer
-
-        # Use CliRunner to capture output
         from typer.testing import CliRunner as _Runner
 
         from ai_engineering.cli_commands.core import install_cmd
@@ -691,7 +687,21 @@ class TestInstallCleanOutput:
         app = typer.Typer()
         app.command()(install_cmd)
         _runner = _Runner()
-        res = _runner.invoke(app, [str(tmp_path), "--vcs", "github"])
+        # Provide all flags to skip wizard
+        res = _runner.invoke(
+            app,
+            [
+                str(tmp_path),
+                "--vcs",
+                "github",
+                "--stack",
+                "python",
+                "--provider",
+                "claude_code",
+                "--ide",
+                "terminal",
+            ],
+        )
 
         # The guide text body should NOT appear in output
         assert "Step 1: Go to settings" not in res.output
