@@ -85,9 +85,47 @@ _VCS_TEMPLATE_TREES: dict[str, list[tuple[str, str]]] = {
     "azure_devops": [],
 }
 
-# Legacy combined maps kept for updater backward compatibility.
-# Common files are NOT included here — they are handled by the dedicated loop
-# in copy_project_templates() to avoid double-processing.
+
+@dataclass
+class ResolvedTemplateMaps:
+    """Complete set of template maps for a given configuration."""
+
+    file_map: dict[str, str]
+    tree_list: list[tuple[str, str]]
+    common_file_map: dict[str, str]
+    common_tree_list: list[tuple[str, str]]
+    vcs_tree_list: list[tuple[str, str]]
+
+
+def resolve_template_maps(
+    providers: list[str] | None = None,
+    vcs_provider: str | None = None,
+) -> ResolvedTemplateMaps:
+    """Resolve the complete set of template maps for a given configuration.
+
+    This is the public API for determining which templates should be installed.
+    Used by the installer, updater, and phase pipeline.
+
+    Args:
+        providers: AI provider identifiers, or None for all providers.
+        vcs_provider: VCS platform identifier (e.g., ``"github"``).
+
+    Returns:
+        ResolvedTemplateMaps with all file and tree maps.
+    """
+    file_map, tree_list = _resolve_provider_maps(providers)
+    vcs_trees = list(_VCS_TEMPLATE_TREES.get(vcs_provider or "", []))
+    return ResolvedTemplateMaps(
+        file_map=file_map,
+        tree_list=tree_list,
+        common_file_map=dict(_COMMON_FILE_MAPS),
+        common_tree_list=list(_COMMON_TREE_MAPS),
+        vcs_tree_list=vcs_trees,
+    )
+
+
+# Legacy combined maps — kept for updater backward compatibility.
+# Use resolve_template_maps() for new code. Will be removed after updater migration.
 _PROJECT_TEMPLATE_MAP: dict[str, str] = {}
 for _prov_files in _PROVIDER_FILE_MAPS.values():
     for _src, _dst in _prov_files.items():
@@ -196,15 +234,15 @@ def _resolve_provider_maps(
 ) -> tuple[dict[str, str], list[tuple[str, str]]]:
     """Merge file maps and tree maps for the given providers.
 
-    When *providers* is ``None``, returns the full combined maps (backward
-    compat for the updater).  Otherwise returns only the union of maps for
-    the requested providers, deduplicating destination paths.
+    When *providers* is ``None``, returns the union of all provider maps.
+    Otherwise returns only the union of maps for the requested providers,
+    deduplicating destination paths.
 
     Returns:
         Tuple of (file_map, tree_list).
     """
     if providers is None:
-        return dict(_PROJECT_TEMPLATE_MAP), list(_PROJECT_TEMPLATE_TREES)
+        providers = list(_PROVIDER_FILE_MAPS.keys())
 
     file_map: dict[str, str] = {}
     tree_list: list[tuple[str, str]] = []
