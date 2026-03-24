@@ -137,6 +137,13 @@ If tests are wrong, escalate to the user. NEVER weaken, skip, or modify tests to
 - Skipping edge cases (null, empty, boundary, concurrent access)
 - Not running ALL tests after changes
 
+## Handlers
+
+| Handler | File | Activation |
+|---------|------|-----------|
+| E2E Testing | `handlers/e2e.md` | Activated when `*.spec.ts`, `playwright.config.ts`, or `e2e/` directory detected |
+| TDD Mode | `handlers/tdd.md` | Activated when `mode=tdd` |
+
 ## Integration
 
 - **Called by**: `/ai-dispatch` (build tasks), `ai-build agent` (TDD mode), user directly

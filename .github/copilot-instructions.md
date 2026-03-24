@@ -52,7 +52,7 @@ Telemetry is **automatic via hooks** — configured in `.github/hooks/hooks.json
 
 ## Quick Reference
 
-- Skills (32): `.github/prompts/ai-<name>.prompt.md`
-- Agents (8): `.github/agents/<name>.agent.md`
+- Skills (37): `.github/prompts/ai-<name>.prompt.md`
+- Agents (9): `.github/agents/<name>.agent.md`
 - Quality: coverage 80%, duplication ≤3%, cyclomatic ≤10, cognitive ≤15
 - Security: zero medium+ findings, zero leaks, zero dependency vulns

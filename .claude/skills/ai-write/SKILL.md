@@ -19,6 +19,10 @@ Router skill for comprehensive technical writing. Dispatches to handler files ba
 - NOT for code explanations -- use `/ai-explain`.
 - NOT for code changes -- use `ai-build agent`.
 
+## Writing Philosophy
+
+Edit, don't generate. Start from what exists: notes, transcripts, data, examples, real output. Every sentence must earn its place. Template language is a failure mode, not a starting point.
+
 ## Routing
 
 | Sub-command | Handler | Purpose |
@@ -30,6 +34,8 @@ Router skill for comprehensive technical writing. Dispatches to handler files ba
 | `crosspost` | `handlers/crosspost.md` | Multi-platform content distribution and adaptation |
 | `market-research` | `handlers/market-research.md` | Research-to-decision synthesis (diligence, competitive, sizing) |
 | `investor-materials` | `handlers/investor-materials.md` | Pitch decks, one-pagers, financial models, applications |
+| `x-api` | `handlers/x-api.md` | X API v2 posting, threads, media |
+| `investor-outreach` | `handlers/investor-outreach.md` | Cold emails, warm intros, follow-ups |
 
 Default (no sub-command): `docs`.
 

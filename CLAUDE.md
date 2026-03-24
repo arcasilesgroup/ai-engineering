@@ -91,6 +91,7 @@ Read the decision store to avoid repeating settled questions: `.ai-engineering/s
 | Deep codebase research | explore | direct dispatch |
 | Onboarding, teaching | guide | `/ai-guide` |
 | Simplify/refactor code | simplify | `/ai-simplify` |
+| Multi-spec autonomous execution | autopilot | `/ai-autopilot` |
 
 ## Platform Mirrors
 
@@ -102,16 +103,16 @@ Each IDE has its own skill and agent files. Same content, platform-native format
 | GitHub Copilot | `.github/prompts/ai-*.prompt.md` | `.github/agents/*.agent.md` |
 | Codex / Gemini | `.agents/skills/*/SKILL.md` | `.agents/agents/ai-*.md` |
 
-## Skills (32)
+## Skills (37)
 
 Grouped by type. Invoke as `/ai-<name>`.
 
-**Workflow:** brainstorm, plan, dispatch, test, debug, verify, review
+**Workflow:** brainstorm, plan, dispatch, test, debug, verify, review, eval
 **Delivery:** commit, pr, release, cleanup
 **Enterprise:** security, governance, pipeline, schema, solution-intent
-**Teaching:** explain, guide, write
+**Teaching:** explain, guide, write, slides, media, video-editing
 **SDLC:** note, standup, sprint, sprint-review, postmortem, support, resolve-conflicts
-**Meta:** create, learn, prompt, onboard, analyze-permissions, instinct
+**Meta:** create, learn, prompt, onboard, analyze-permissions, instinct, autopilot
 
 ## Effort Levels
 
@@ -119,8 +120,8 @@ Each skill declares `effort` in frontmatter. Assignment by cognitive weight:
 
 | Effort | Count |
 |--------|-------|
-| max | 9 (brainstorm, plan, review, verify, security, debug, governance, schema, instinct) |
-| high | 12 (dispatch, test, write, explain, guide, pr, solution-intent, support, postmortem, pipeline, create, prompt) |
+| max | 11 (brainstorm, plan, review, verify, security, debug, governance, schema, instinct, eval, autopilot) |
+| high | 15 (dispatch, test, write, explain, guide, pr, solution-intent, support, postmortem, pipeline, create, prompt, slides, media, video-editing) |
 | medium | 11 (commit, cleanup, standup, note, onboard, release, resolve-conflicts, sprint, sprint-review, learn, analyze-permissions) |
 
 ## Quality Gates
@@ -163,8 +164,8 @@ Gate failure: diagnose, fix, retry. Use `ai-eng doctor --fix-tools` or `--fix-ho
 
 | What | Where |
 |------|-------|
-| Skills (32) | `.claude/skills/ai-<name>/SKILL.md` |
-| Agents (8) | `.claude/agents/ai-<name>.md` |
+| Skills (37) | `.claude/skills/ai-<name>/SKILL.md` |
+| Agents (9) | `.claude/agents/ai-<name>.md` |
 | Config | `.ai-engineering/manifest.yml` |
 | Decisions | `.ai-engineering/state/decision-store.json` |
 | Active spec | `.ai-engineering/specs/spec.md` |

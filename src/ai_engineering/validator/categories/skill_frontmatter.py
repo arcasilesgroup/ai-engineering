@@ -103,7 +103,7 @@ def _validate_skill_requires(
             )
         else:
             req_dict = cast(dict[str, object], requires)
-            for req_key in ("bins", "anyBins", "env", "config"):
+            for req_key in ("bins", "anyBins", "env", "config", "mcp", "skills"):
                 if req_key in req_dict and _as_string_list(req_dict[req_key]) is None:
                     failures += 1
                     report.checks.append(

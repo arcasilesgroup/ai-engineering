@@ -11,9 +11,10 @@ from pathlib import Path
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 # Expected architecture values (post spec-055 radical simplification)
-_EXPECTED_AGENT_COUNT = 8
+_EXPECTED_AGENT_COUNT = 9
 _EXPECTED_AGENT_NAMES = frozenset(
     {
+        "autopilot",
         "build",
         "explore",
         "guard",

@@ -607,3 +607,50 @@ Chronological log of observations that shaped this instinct.
 | `remote` | string | Git remote URL (null if no remote) |
 | `created_at` | ISO 8601 | When the project was first observed |
 | `last_seen` | ISO 8601 | When the project was last active |
+
+## Compaction and Instincts
+
+Context compaction (automatic or manual) discards intermediate session state to free context window space. Instincts interact with compaction in specific ways that practitioners must understand.
+
+### What Survives Compaction
+
+| Artifact | Why It Survives |
+|----------|----------------|
+| `CLAUDE.md` | Always reloaded as system instruction |
+| Active task list (plan.md) | Referenced in CLAUDE.md workflow |
+| Memory files (`~/.claude/` memory) | Persisted on disk, reloaded at session start |
+| Git state (branch, status, recent commits) | Regenerated from git CLI |
+| Instinct YAML files on disk | Persisted in `~/.ai-engineering/instincts/` -- always available for reload |
+
+### What Is Lost
+
+| Artifact | Impact |
+|----------|--------|
+| Intermediate reasoning | Agent loses chain-of-thought context |
+| File contents read during session | Must re-read files if needed |
+| Tool call history | No memory of which tools were invoked or their outputs |
+| Verbal preferences stated in conversation | Only survives if captured in memory files or instincts |
+| In-session observation counts | Observation counters reset -- instinct confidence adjustments from this session may be incomplete |
+
+### Phase Transition Guide
+
+Compaction is safe at natural phase boundaries but dangerous mid-task.
+
+| Transition | Compact? | Rationale |
+|-----------|----------|-----------|
+| Research -> Planning | YES | Research findings should be in spec/plan, not in context |
+| Planning -> Implementation | YES | Plan is written to plan.md, safe to compact |
+| Mid-implementation | NO | Active code changes, test state, and partial edits will be lost |
+| Debug -> Next feature | YES | Debug resolution is committed, clean slate for next task |
+| After failed approach | YES | Discard stale reasoning, re-read the problem fresh |
+| Mid-TDD (between RED/GREEN) | NO | Implementation contract and test state must stay in context |
+
+### Instinct Persistence vs Session State
+
+Instinct YAML files persist on disk at `~/.ai-engineering/instincts/` and survive any compaction or session restart. However, **in-session observation counts are lost** during compaction. This means:
+
+- A pattern observed 5 times in a single session may only register 1-2 observations if compaction occurs mid-session.
+- Confidence adjustments that depend on observation frequency may be underestimated after compaction.
+- The instinct file's `updated_at` timestamp reflects the last write, not the last observation.
+
+To mitigate: the observer should flush pending observation counts to disk before compaction when possible.

@@ -67,9 +67,9 @@ cicd:
 # === FRAMEWORK MANAGED (do not edit below this line) ===
 # These sections are maintained by ai-engineering automatically.
 
-# Skills registry (32 skills)
+# Skills registry (37 skills)
 skills:
-  total: 32
+  total: 37
   prefix: "ai-"
   registry:
     # Core workflow
@@ -110,11 +110,17 @@ skills:
     ai-onboard: { type: meta, tags: [bootstrap] }
     ai-analyze-permissions: { type: meta, tags: [permissions] }
     ai-instinct: { type: meta, tags: [meta, learning, continuous-improvement] }
+    ai-autopilot: { type: meta, tags: [orchestration, autonomous, multi-spec] }
+    # ECC Integration (spec-062)
+    ai-slides: { type: writing, tags: [presentation, html, css] }
+    ai-media: { type: writing, tags: [media, generation] }
+    ai-video-editing: { type: writing, tags: [video, editing] }
+    ai-eval: { type: workflow, tags: [quality, evals] }
 
-# Agents (8)
+# Agents (9)
 agents:
-  total: 8
-  names: [plan, build, verify, guard, review, explore, guide, simplify]
+  total: 9
+  names: [plan, build, verify, guard, review, explore, guide, simplify, autopilot]
 
 # Ownership
 ownership:

@@ -21,6 +21,10 @@ Router skill for comprehensive technical writing. Dispatches to handler files ba
 - NOT for code explanations -- use `/ai-explain`.
 - NOT for code changes -- use `ai-build agent`.
 
+## Writing Philosophy
+
+Edit, don't generate. Start from what exists: notes, transcripts, data, examples, real output. Every sentence must earn its place. Template language is a failure mode, not a starting point.
+
 ## Routing
 
 | Sub-command | Handler | Purpose |
@@ -32,6 +36,8 @@ Router skill for comprehensive technical writing. Dispatches to handler files ba
 | `crosspost` | `handlers/crosspost.md` | Multi-platform content distribution and adaptation |
 | `market-research` | `handlers/market-research.md` | Research-to-decision synthesis (diligence, competitive, sizing) |
 | `investor-materials` | `handlers/investor-materials.md` | Pitch decks, one-pagers, financial models, applications |
+| `x-api` | `handlers/x-api.md` | X API v2 posting, threads, media |
+| `investor-outreach` | `handlers/investor-outreach.md` | Cold emails, warm intros, follow-ups |
 
 Default (no sub-command): `docs`.
 
@@ -292,6 +298,42 @@ Solution intent document (SAFe-style).
 - **Manager**: focus on timeline, resource needs, risk, progress metrics.
 - **Executive**: focus on business value, strategic alignment, ROI, competitive advantage.
 
+## Voice Capture
+
+### Input Collection
+
+Before writing in someone's voice, gather at least 3 of:
+- Published articles or blog posts
+- Newsletters or email campaigns
+- Social media posts (X, LinkedIn, Threads)
+- Internal docs, memos, or Slack messages
+- An explicit style guide
+
+### What to Extract
+
+| Signal | What to Look For |
+|--------|-----------------|
+| Sentence rhythm | Short/long mix, fragments, run-ons, parentheticals |
+| Register | Formal, conversational, sharp/provocative, academic |
+| Rhetorical devices | Questions, analogies, lists, repetition, callbacks |
+| Humor tolerance | None, dry, self-deprecating, absurdist |
+| Formatting habits | Header frequency, bullet vs prose, code blocks, pull quotes |
+
+### Default Fallback
+
+When no voice references are provided, default to: **direct, operator-style voice**. Concrete, practical, low on hype. Lead with the thing, explain after. Prefer short sentences.
+
+### Banned Patterns
+
+Delete and rewrite any of these on sight:
+- "In today's rapidly evolving landscape" (and all variants)
+- "Moreover" / "Furthermore" / "Additionally" as paragraph openers
+- "game-changer" / "cutting-edge" / "revolutionary" / "disruptive"
+- Vague claims without evidence ("significantly improves", "greatly enhances")
+- Bio or credibility claims not backed by provided context ("as a thought leader")
+
+If a draft contains any banned pattern, it is not finished.
+
 ## Output
 
 - Structured content document in markdown.
@@ -433,6 +475,45 @@ If your liveness probe does anything beyond "is this process running," audit it 
 - **Respect each platform's culture**. LinkedIn is professional. X is direct. Threads is casual. Bluesky is early-adopter.
 - **One CTA per platform**. Do not stack "follow me on X, subscribe to my newsletter, and check out my YouTube."
 - **No meta-references**. Do not say "I also posted this on LinkedIn" or "thread incoming."
+
+## API Integration
+
+### Posting Execution Patterns
+
+When the user requests actual posting (not just drafting), use the X API v2 handler for execution.
+
+**Single post:**
+```
+1. Draft and confirm content with the user.
+2. Delegate to handlers/x-api.md for X posting.
+3. Use platform-native APIs or tools for LinkedIn, Threads, Bluesky.
+4. Log post URLs and timestamps for the consistency check.
+```
+
+**Thread (X):**
+```
+1. Split content into thread segments respecting 280-char boundaries.
+2. Post the first tweet, capture the tweet ID.
+3. Reply-chain subsequent tweets using in_reply_to_tweet_id.
+4. Return the thread URL (first tweet URL).
+```
+
+**Media attachments:**
+```
+1. Upload media first (image, video, GIF) to get a media_id.
+2. Attach media_id to the post payload.
+3. Alt text is required for all images (accessibility).
+```
+
+**Stagger pattern:**
+```
+Platform 1 (primary):  T+0 minutes
+Platform 2:            T+30 minutes
+Platform 3:            T+60 minutes
+Platform 4:            T+90 minutes
+```
+
+Log each published URL. After all platforms are posted, run the consistency check: verify all versions agree on facts, numbers, and claims.
 
 ## Output
 
@@ -653,6 +734,105 @@ Investors pattern-match on these. Any one can sink a deal.
 
 ---
 
+# Handler: Investor Outreach
+
+## Purpose
+
+Draft cold emails, warm intro requests, follow-ups, and post-meeting updates for fundraising outreach. Produces concise, personalized, investor-facing messaging for angels, VCs, strategic investors, and accelerators.
+
+## Activation
+
+Dispatched when the write skill involves investor communication: cold emails, warm introductions, follow-up sequences, investor updates, or any reference to fundraising outreach.
+
+## Procedure
+
+### Step 1 -- Gather Personalization Context
+
+Before drafting any outreach, collect at least one of:
+
+- Relevant portfolio companies the investor has backed
+- A public thesis, talk, post, or article by the investor
+- A mutual connection
+- A clear market or product fit with the investor's focus area
+
+If context is missing, ask the user for it. If unavailable, mark the draft as a template awaiting personalization. Never send generic copy that could go to any investor.
+
+### Step 2 -- Cold Email (5-Part Structure)
+
+1. **Subject line**: Short and specific. No clickbait. Reference the connection point.
+2. **Opener**: Why this investor specifically. One sentence linking their thesis/portfolio to the opportunity.
+3. **Pitch**: What the company does, why now, what proof matters. Use metrics, not adjectives.
+4. **Ask**: One concrete next step. Low friction. ("15-min call this week?" not "Would love to explore synergies.")
+5. **Sign-off**: Name, role, one credibility anchor if relevant. No fluff.
+
+Rules:
+- Personalize every message. Reference one of the sources from Step 1.
+- Use proof, not adjectives. "3x revenue growth" not "incredible traction."
+- Keep the ask low-friction. One action, not a menu of options.
+- Stay concise. Under 150 words for the body.
+
+### Step 3 -- Follow-Up Cadence
+
+Default three-touch sequence:
+
+| Day | Content |
+|-----|---------|
+| D0 | Initial outbound (cold email from Step 2) |
+| D4-5 | Short follow-up with one new data point (metric, press mention, partnership) |
+| D10-12 | Final follow-up with a clean close ("I will assume timing is not right if I do not hear back") |
+
+Do not send more than three touches unless the user explicitly requests a longer sequence. Persistence is good; pestering destroys reputation.
+
+Each follow-up must add value. Never just "bumping this to the top of your inbox."
+
+### Step 4 -- Warm Intro Request
+
+When asking a mutual connection for an introduction:
+
+1. Explain why the intro is a fit (one sentence connecting investor thesis to your company)
+2. Make life easy for the connector -- include a forwardable blurb
+3. Keep the forwardable blurb under 100 words
+
+Forwardable blurb structure:
+- One line on what the company does
+- One line on traction/proof
+- One line on what you are looking for
+- One line on why this investor specifically
+
+The connector should be able to forward the blurb with zero editing.
+
+### Step 5 -- Post-Meeting Update
+
+After a meeting with an investor, send a follow-up that includes:
+
+1. The specific thing discussed (shows you were listening)
+2. The answer or update promised during the meeting
+3. One new proof point if available (closed a deal, hit a milestone, press)
+4. The next step with a clear timeline
+
+Keep it under 100 words. The investor had 5 other meetings that day -- make yours the one they remember.
+
+## Output Format
+
+Each deliverable is a complete email draft:
+- Subject line
+- Body (structured per the relevant template above)
+- Notes on personalization sources used
+
+For sequences, deliver all touches as a numbered set with send dates.
+
+## Quality Gate
+
+- Message is personalized to a specific investor (not generic)
+- The ask is explicit and low-friction
+- No fluff or begging language ("Would be honored", "Incredible opportunity")
+- At least one concrete proof point (metric, milestone, or reference)
+- Word count stays tight: body under 150 words for cold, under 100 for follow-ups
+- Forwardable blurbs are under 100 words and require zero editing by the connector
+- Follow-up sequence adds new value at each touch
+
+---
+
 # Handler: market-research
 
 Research synthesis that moves from raw information to defensible decisions. Structured for investors, operators, and strategists.
@@ -781,3 +961,217 @@ Every research deliverable follows this structure:
 - Structured research document in the output format above.
 - All sources numbered and traceable.
 - Confidence level stated for the overall recommendation.
+
+---
+
+# Handler: X (Twitter) API Integration
+
+## Purpose
+
+Programmatic interaction with X (Twitter) for posting tweets, threads, reading timelines, searching content, uploading media, and handling rate limits. Covers OAuth authentication patterns, error handling, and security rules.
+
+## Activation
+
+Dispatched when the write skill involves X/Twitter integration: posting tweets, reading timelines, searching content, building bots, or any reference to "tweet", "X API", or "Twitter API".
+
+## Procedure
+
+### Step 1 -- Choose Authentication Method
+
+**OAuth 2.0 (Bearer Token)** -- for read-heavy operations, search, public data:
+
+```bash
+export X_BEARER_TOKEN="your-bearer-token"
+```
+
+```python
+import os
+import requests
+
+bearer = os.environ["X_BEARER_TOKEN"]
+headers = {"Authorization": f"Bearer {bearer}"}
+```
+
+**OAuth 1.0a (User Context)** -- required for posting tweets, managing account, DMs:
+
+```bash
+export X_API_KEY="your-api-key"
+export X_API_SECRET="your-api-secret"
+export X_ACCESS_TOKEN="your-access-token"
+export X_ACCESS_SECRET="your-access-secret"
+```
+
+```python
+import os
+from requests_oauthlib import OAuth1Session
+
+oauth = OAuth1Session(
+    os.environ["X_API_KEY"],
+    client_secret=os.environ["X_API_SECRET"],
+    resource_owner_key=os.environ["X_ACCESS_TOKEN"],
+    resource_owner_secret=os.environ["X_ACCESS_SECRET"],
+)
+```
+
+Decision guide:
+- Reading public data only -> OAuth 2.0 Bearer
+- Posting, replying, managing account -> OAuth 1.0a
+- Both reading and writing -> OAuth 1.0a (superset)
+
+### Step 2 -- Post a Tweet
+
+```python
+resp = oauth.post(
+    "https://api.x.com/2/tweets",
+    json={"text": "Hello from the API"}
+)
+resp.raise_for_status()
+tweet_id = resp.json()["data"]["id"]
+```
+
+Single tweet limit: 280 characters. Validate length before posting.
+
+### Step 3 -- Post a Thread (Reply Chain)
+
+```python
+def post_thread(oauth, tweets: list[str]) -> list[str]:
+    """Post a thread by chaining replies. Returns list of tweet IDs."""
+    ids = []
+    reply_to = None
+    for text in tweets:
+        payload = {"text": text}
+        if reply_to:
+            payload["reply"] = {"in_reply_to_tweet_id": reply_to}
+        resp = oauth.post("https://api.x.com/2/tweets", json=payload)
+        resp.raise_for_status()
+        tweet_id = resp.json()["data"]["id"]
+        ids.append(tweet_id)
+        reply_to = tweet_id
+    return ids
+```
+
+Each tweet in the thread is a reply to the previous one. If any post fails mid-thread, return the IDs of successfully posted tweets for cleanup.
+
+### Step 4 -- Read User Timeline
+
+```python
+resp = requests.get(
+    f"https://api.x.com/2/users/{user_id}/tweets",
+    headers=headers,
+    params={
+        "max_results": 10,
+        "tweet.fields": "created_at,public_metrics",
+    }
+)
+```
+
+### Step 5 -- Search Tweets
+
+```python
+resp = requests.get(
+    "https://api.x.com/2/tweets/search/recent",
+    headers=headers,
+    params={
+        "query": "from:username -is:retweet",
+        "max_results": 10,
+        "tweet.fields": "public_metrics,created_at",
+    }
+)
+```
+
+### Step 6 -- Get User by Username
+
+```python
+resp = requests.get(
+    "https://api.x.com/2/users/by/username/target_username",
+    headers=headers,
+    params={"user.fields": "public_metrics,description,created_at"}
+)
+```
+
+### Step 7 -- Upload Media and Post
+
+Media upload uses the v1.1 endpoint, then attach to a v2 tweet:
+
+```python
+# Step 1: Upload media (v1.1)
+media_resp = oauth.post(
+    "https://upload.twitter.com/1.1/media/upload.json",
+    files={"media": open("image.png", "rb")}
+)
+media_id = media_resp.json()["media_id_string"]
+
+# Step 2: Post tweet with media (v2)
+resp = oauth.post(
+    "https://api.x.com/2/tweets",
+    json={"text": "Check this out", "media": {"media_ids": [media_id]}}
+)
+```
+
+### Step 8 -- Rate Limit Management
+
+**Rate limits reference**:
+
+| Endpoint | Limit | Window |
+|----------|-------|--------|
+| POST /2/tweets | 200 | 15 min |
+| GET /2/tweets/search/recent | 450 | 15 min |
+| GET /2/users/:id/tweets | 1500 | 15 min |
+| GET /2/users/by/username | 300 | 15 min |
+| POST media/upload | 415 | 15 min |
+
+**Inspect rate limit headers on every response**:
+
+```python
+import time
+
+remaining = int(resp.headers.get("x-rate-limit-remaining", 0))
+reset_at = int(resp.headers.get("x-rate-limit-reset", 0))
+
+if remaining < 5:
+    wait = max(0, reset_at - int(time.time()))
+    print(f"Rate limit approaching. Resets in {wait}s")
+```
+
+### Step 9 -- Error Handling
+
+```python
+resp = oauth.post("https://api.x.com/2/tweets", json={"text": content})
+
+if resp.status_code == 201:
+    return resp.json()["data"]["id"]
+elif resp.status_code == 429:
+    reset = int(resp.headers["x-rate-limit-reset"])
+    raise RateLimitError(f"Rate limited. Resets at {reset}")
+elif resp.status_code == 403:
+    raise PermissionError(
+        f"Forbidden: {resp.json().get('detail', 'check permissions')}"
+    )
+else:
+    raise APIError(f"X API error {resp.status_code}: {resp.text}")
+```
+
+Handle these status codes:
+- **201**: Success (tweet created)
+- **429**: Rate limited -- back off until `x-rate-limit-reset`
+- **403**: Permission denied -- check token scopes and app permissions
+- **401**: Authentication failed -- verify credentials
+- **400**: Bad request -- validate payload before sending
+
+## Output Format
+
+Generated code includes:
+- Authentication setup (env vars, OAuth session)
+- API interaction functions with proper error handling
+- Rate limit inspection on every response
+- No hardcoded tokens anywhere in source
+
+## Quality Gate
+
+- All tokens sourced from environment variables -- zero hardcoded credentials
+- `.env` files listed in `.gitignore`
+- Rate limit headers inspected after every API call
+- Error handling covers 201, 429, 403, 401, 400 status codes
+- Tweet text validated against 280-character limit before posting
+- Thread posting includes partial-failure recovery (return posted IDs)
+- Media upload uses v1.1 endpoint; tweet creation uses v2 endpoint

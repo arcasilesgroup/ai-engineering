@@ -102,16 +102,16 @@ Each IDE has its own skill and agent files. Same content, platform-native format
 | GitHub Copilot | `.github/prompts/ai-*.prompt.md` | `.github/agents/*.agent.md` |
 | Codex / Gemini | `.agents/skills/*/SKILL.md` | `.agents/agents/ai-*.md` |
 
-## Skills (32)
+## Skills (37)
 
 Grouped by type. Invoke as `/ai-<name>`.
 
-**Workflow:** brainstorm, plan, dispatch, test, debug, verify, review
+**Workflow:** brainstorm, plan, dispatch, test, debug, verify, review, eval
 **Delivery:** commit, pr, release, cleanup
 **Enterprise:** security, governance, pipeline, schema, solution-intent
-**Teaching:** explain, guide, write
+**Teaching:** explain, guide, write, slides, media, video-editing
 **SDLC:** note, standup, sprint, sprint-review, postmortem, support, resolve-conflicts
-**Meta:** create, learn, prompt, onboard, analyze-permissions, instinct
+**Meta:** create, learn, prompt, onboard, analyze-permissions, instinct, autopilot
 
 ## Quality Gates
 
@@ -153,8 +153,8 @@ Gate failure: diagnose, fix, retry. Use `ai-eng doctor --fix-tools` or `--fix-ho
 
 | What | Where |
 |------|-------|
-| Skills (32) | `.claude/skills/ai-<name>/SKILL.md` |
-| Agents (8) | `.claude/agents/ai-<name>.md` |
+| Skills (37) | `.claude/skills/ai-<name>/SKILL.md` |
+| Agents (9) | `.claude/agents/ai-<name>.md` |
 | Config | `.ai-engineering/manifest.yml` |
 | Decisions | `.ai-engineering/state/decision-store.json` |
 | Active spec | `.ai-engineering/specs/spec.md` |

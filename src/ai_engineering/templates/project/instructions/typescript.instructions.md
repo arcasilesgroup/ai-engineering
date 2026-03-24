@@ -6,6 +6,18 @@ applyTo: "**/*.ts,**/*.tsx"
 
 Generated from `.ai-engineering/contexts/languages/typescript.md`.
 
+## Naming Conventions
+
+| Category | Convention | Example |
+|----------|-----------|---------|
+| Functions | verb-noun | `fetchMarketData`, `validateInput`, `parseResponse` |
+| Booleans | `is`/`has`/`should` prefix | `isValid`, `hasPermission`, `shouldRetry` |
+| Components | PascalCase | `MarketCard`, `UserProfile`, `ErrorBoundary` |
+| Type files | `.types.ts` suffix | `market.types.ts`, `api.types.ts` |
+| Hooks | `use` prefix | `useMarketData`, `useToggle`, `useDebounce` |
+| Constants | UPPER_SNAKE_CASE | `MAX_RETRIES`, `API_BASE_URL` |
+| Interfaces | PascalCase, no `I` prefix | `MarketData` (not `IMarketData`) |
+
 ## Type Safety
 
 **Critical type issues:**
@@ -48,6 +60,65 @@ async function fetchData(): Promise<Data> {
 // Bad: floating promise
 fetch('/api/data'); // Promise not handled!
 ```text
+
+### CRITICAL: Immutability
+
+```typescript
+// ❌ BAD: Mutable state -- leads to bugs in React, Redux, and shared references
+function addItem(items: Item[], newItem: Item): Item[] {
+    items.push(newItem);  // mutates the original array
+    return items;
+}
+
+const config = { retries: 3, timeout: 5000 };
+config.retries = 0;  // mutates shared config object
+
+// ✅ GOOD: Immutable operations -- safe everywhere
+function addItem(items: readonly Item[], newItem: Item): readonly Item[] {
+    return [...items, newItem];  // returns new array, original untouched
+}
+
+const config = { retries: 3, timeout: 5000 } as const;
+// config.retries = 0;  // TypeScript error: Cannot assign to 'retries'
+```
+
+Use `readonly` arrays, `Readonly<T>` utility, and `as const` assertions to prevent accidental mutation. This is especially critical in React state updates and Redux reducers.
+
+## Promise.all Parallel
+
+```typescript
+// ❌ BAD: Sequential -- each await blocks the next (3x slower)
+async function fetchDashboard(userId: string) {
+    const user = await fetchUser(userId);           // ~200ms
+    const orders = await fetchOrders(userId);       // ~300ms
+    const analytics = await fetchAnalytics(userId); // ~250ms
+    // Total: ~750ms
+    return { user, orders, analytics };
+}
+
+// ✅ GOOD: Parallel -- all requests fire simultaneously
+async function fetchDashboard(userId: string) {
+    const [user, orders, analytics] = await Promise.all([
+        fetchUser(userId),       // ~200ms
+        fetchOrders(userId),     // ~300ms
+        fetchAnalytics(userId),  // ~250ms
+    ]);
+    // Total: ~300ms (limited by slowest)
+    return { user, orders, analytics };
+}
+
+// ✅ GOOD: Promise.allSettled when partial failure is acceptable
+const results = await Promise.allSettled([
+    fetchCriticalData(),
+    fetchOptionalData(),
+    fetchAnalytics(),
+]);
+
+const successes = results.filter(r => r.status === 'fulfilled');
+const failures = results.filter(r => r.status === 'rejected');
+```
+
+Use `Promise.all` when all results are required. Use `Promise.allSettled` when some failures are tolerable. Never use sequential awaits for independent operations.
 
 ## Generics & Type Constraints
 

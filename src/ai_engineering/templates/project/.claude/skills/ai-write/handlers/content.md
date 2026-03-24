@@ -58,6 +58,42 @@ Solution intent document (SAFe-style).
 - **Manager**: focus on timeline, resource needs, risk, progress metrics.
 - **Executive**: focus on business value, strategic alignment, ROI, competitive advantage.
 
+## Voice Capture
+
+### Input Collection
+
+Before writing in someone's voice, gather at least 3 of:
+- Published articles or blog posts
+- Newsletters or email campaigns
+- Social media posts (X, LinkedIn, Threads)
+- Internal docs, memos, or Slack messages
+- An explicit style guide
+
+### What to Extract
+
+| Signal | What to Look For |
+|--------|-----------------|
+| Sentence rhythm | Short/long mix, fragments, run-ons, parentheticals |
+| Register | Formal, conversational, sharp/provocative, academic |
+| Rhetorical devices | Questions, analogies, lists, repetition, callbacks |
+| Humor tolerance | None, dry, self-deprecating, absurdist |
+| Formatting habits | Header frequency, bullet vs prose, code blocks, pull quotes |
+
+### Default Fallback
+
+When no voice references are provided, default to: **direct, operator-style voice**. Concrete, practical, low on hype. Lead with the thing, explain after. Prefer short sentences.
+
+### Banned Patterns
+
+Delete and rewrite any of these on sight:
+- "In today's rapidly evolving landscape" (and all variants)
+- "Moreover" / "Furthermore" / "Additionally" as paragraph openers
+- "game-changer" / "cutting-edge" / "revolutionary" / "disruptive"
+- Vague claims without evidence ("significantly improves", "greatly enhances")
+- Bio or credibility claims not backed by provided context ("as a thought leader")
+
+If a draft contains any banned pattern, it is not finished.
+
 ## Output
 
 - Structured content document in markdown.

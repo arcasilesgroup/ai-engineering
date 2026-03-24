@@ -18,10 +18,10 @@
 | Entry point | `ai-eng` (via `ai_engineering.cli:app`) |
 | Distribution | PyPI (`pip install ai-engineering`) |
 | Build system | hatchling >= 1.25.0 |
-| Status | Active development -- spec-055 (radical simplification) |
+| Status | Active development -- spec-063 (ai-autopilot orchestrator) |
 | Model | Content-first, AI-governed, multi-IDE |
 
-The framework provides deterministic CLI tooling, 30 AI skills, 8 specialized agents, and a governance surface that spans Claude Code, GitHub Copilot, and Codex. It targets regulated enterprises (banking, healthcare, investment) that require auditable, governed AI-assisted software delivery.
+The framework provides deterministic CLI tooling, 37 AI skills, 9 specialized agents, and a governance surface that spans Claude Code, GitHub Copilot, and Codex. It targets regulated enterprises (banking, healthcare, investment) that require auditable, governed AI-assisted software delivery.
 
 ### Providers (from manifest.yml)
 

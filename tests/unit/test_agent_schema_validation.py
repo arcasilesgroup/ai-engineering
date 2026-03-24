@@ -33,6 +33,7 @@ _EXPECTED_AGENTS = frozenset(
         "ai-review",
         "ai-simplify",
         "ai-verify",
+        "ai-autopilot",
     }
 )
 

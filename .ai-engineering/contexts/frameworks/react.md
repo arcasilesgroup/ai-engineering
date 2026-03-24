@@ -60,6 +60,419 @@ Flag these patterns in React/TypeScript code:
 - Missing null/undefined checks
 - Props spreading losing type safety
 
+## Implementation Patterns
+
+### Composition Over Inheritance
+
+```tsx
+// ✅ Compose small, focused components instead of extending base classes
+interface CardProps {
+  children: React.ReactNode
+  variant?: 'default' | 'outlined'
+}
+
+export function Card({ children, variant = 'default' }: CardProps) {
+  return <div className={`card card-${variant}`}>{children}</div>
+}
+
+export function CardHeader({ children }: { children: React.ReactNode }) {
+  return <div className="card-header">{children}</div>
+}
+
+export function CardBody({ children }: { children: React.ReactNode }) {
+  return <div className="card-body">{children}</div>
+}
+
+// Usage -- compose freely without inheritance chains
+<Card variant="outlined">
+  <CardHeader>Title</CardHeader>
+  <CardBody>Content</CardBody>
+</Card>
+```
+
+### Compound Components (WAI-ARIA Tabs)
+
+```tsx
+interface TabsContextValue {
+  activeTab: string
+  setActiveTab: (tab: string) => void
+}
+
+const TabsContext = createContext<TabsContextValue | undefined>(undefined)
+
+export function Tabs({ children, defaultTab }: {
+  children: React.ReactNode
+  defaultTab: string
+}) {
+  const [activeTab, setActiveTab] = useState(defaultTab)
+
+  return (
+    <TabsContext.Provider value={{ activeTab, setActiveTab }}>
+      {children}
+    </TabsContext.Provider>
+  )
+}
+
+export function TabList({ children }: { children: React.ReactNode }) {
+  return <div role="tablist">{children}</div>
+}
+
+export function Tab({ id, children }: { id: string; children: React.ReactNode }) {
+  const context = useContext(TabsContext)
+  if (!context) throw new Error('Tab must be used within Tabs')
+
+  return (
+    <button
+      role="tab"
+      aria-selected={context.activeTab === id}
+      aria-controls={`panel-${id}`}
+      id={`tab-${id}`}
+      tabIndex={context.activeTab === id ? 0 : -1}
+      onClick={() => context.setActiveTab(id)}
+    >
+      {children}
+    </button>
+  )
+}
+
+export function TabPanel({ id, children }: { id: string; children: React.ReactNode }) {
+  const context = useContext(TabsContext)
+  if (!context) throw new Error('TabPanel must be used within Tabs')
+  if (context.activeTab !== id) return null
+
+  return (
+    <div role="tabpanel" id={`panel-${id}`} aria-labelledby={`tab-${id}`}>
+      {children}
+    </div>
+  )
+}
+
+// Usage
+<Tabs defaultTab="overview">
+  <TabList>
+    <Tab id="overview">Overview</Tab>
+    <Tab id="details">Details</Tab>
+  </TabList>
+  <TabPanel id="overview">Overview content</TabPanel>
+  <TabPanel id="details">Details content</TabPanel>
+</Tabs>
+```
+
+### Custom Hooks
+
+```tsx
+// useToggle -- clean boolean state management
+export function useToggle(initialValue = false): [boolean, () => void] {
+  const [value, setValue] = useState(initialValue)
+  const toggle = useCallback(() => setValue(v => !v), [])
+  return [value, toggle]
+}
+
+// useDebounce -- with proper cleanup on unmount
+export function useDebounce<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value)
+
+  useEffect(() => {
+    const handler = setTimeout(() => setDebouncedValue(value), delay)
+    return () => clearTimeout(handler) // cleanup prevents stale updates
+  }, [value, delay])
+
+  return debouncedValue
+}
+
+// Usage
+const [isOpen, toggleOpen] = useToggle()
+const debouncedQuery = useDebounce(searchQuery, 500)
+```
+
+### Context + useReducer
+
+```tsx
+interface State {
+  items: Item[]
+  selectedItem: Item | null
+  loading: boolean
+}
+
+type Action =
+  | { type: 'SET_ITEMS'; payload: Item[] }
+  | { type: 'SELECT_ITEM'; payload: Item }
+  | { type: 'SET_LOADING'; payload: boolean }
+
+function reducer(state: State, action: Action): State {
+  switch (action.type) {
+    case 'SET_ITEMS':
+      return { ...state, items: action.payload }
+    case 'SELECT_ITEM':
+      return { ...state, selectedItem: action.payload }
+    case 'SET_LOADING':
+      return { ...state, loading: action.payload }
+    default:
+      return state
+  }
+}
+
+const ItemContext = createContext<{
+  state: State
+  dispatch: Dispatch<Action>
+} | undefined>(undefined)
+
+export function ItemProvider({ children }: { children: React.ReactNode }) {
+  const [state, dispatch] = useReducer(reducer, {
+    items: [],
+    selectedItem: null,
+    loading: false,
+  })
+
+  return (
+    <ItemContext.Provider value={{ state, dispatch }}>
+      {children}
+    </ItemContext.Provider>
+  )
+}
+
+export function useItems() {
+  const context = useContext(ItemContext)
+  if (!context) throw new Error('useItems must be used within ItemProvider')
+  return context
+}
+```
+
+### Code Splitting
+
+```tsx
+import { lazy, Suspense } from 'react'
+
+const HeavyChart = lazy(() => import('./HeavyChart'))
+const AdminPanel = lazy(() => import('./AdminPanel'))
+
+export function Dashboard() {
+  return (
+    <div>
+      <Suspense fallback={<ChartSkeleton />}>
+        <HeavyChart data={data} />
+      </Suspense>
+
+      {isAdmin && (
+        <Suspense fallback={<Spinner />}>
+          <AdminPanel />
+        </Suspense>
+      )}
+    </div>
+  )
+}
+```
+
+### Virtualization
+
+```tsx
+import { useVirtualizer } from '@tanstack/react-virtual'
+
+export function VirtualList({ items }: { items: Item[] }) {
+  const parentRef = useRef<HTMLDivElement>(null)
+
+  const virtualizer = useVirtualizer({
+    count: items.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 100,
+    overscan: 5,
+  })
+
+  return (
+    <div ref={parentRef} style={{ height: '600px', overflow: 'auto' }}>
+      <div
+        style={{
+          height: `${virtualizer.getTotalSize()}px`,
+          position: 'relative',
+        }}
+      >
+        {virtualizer.getVirtualItems().map(virtualRow => (
+          <div
+            key={virtualRow.index}
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: `${virtualRow.size}px`,
+              transform: `translateY(${virtualRow.start}px)`,
+            }}
+          >
+            <ItemCard item={items[virtualRow.index]} />
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+```
+
+### Error Boundary
+
+```tsx
+interface ErrorBoundaryState {
+  hasError: boolean
+  error: Error | null
+}
+
+export class ErrorBoundary extends React.Component<
+  { children: React.ReactNode; fallback?: React.ReactNode },
+  ErrorBoundaryState
+> {
+  state: ErrorBoundaryState = { hasError: false, error: null }
+
+  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+    return { hasError: true, error }
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error('Error boundary caught:', error, errorInfo)
+  }
+
+  render() {
+    if (this.state.hasError) {
+      if (this.props.fallback) return this.props.fallback
+      return (
+        <div role="alert">
+          <h2>Something went wrong</h2>
+          <p>{this.state.error?.message}</p>
+          <button onClick={() => this.setState({ hasError: false, error: null })}>
+            Try again
+          </button>
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
+
+// Usage -- wrap error-prone sections
+<ErrorBoundary fallback={<p>Chart failed to load.</p>}>
+  <HeavyChart data={data} />
+</ErrorBoundary>
+```
+
+### Framer Motion Animations
+
+```tsx
+import { motion, AnimatePresence } from 'framer-motion'
+
+// List animations
+export function AnimatedList({ items }: { items: Item[] }) {
+  return (
+    <AnimatePresence>
+      {items.map(item => (
+        <motion.div
+          key={item.id}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -20 }}
+          transition={{ duration: 0.3 }}
+        >
+          <ItemCard item={item} />
+        </motion.div>
+      ))}
+    </AnimatePresence>
+  )
+}
+
+// Modal animations (accessible)
+export function AnimatedModal({ isOpen, onClose, children }: ModalProps) {
+  const contentRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!isOpen) return
+    const handleEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', handleEsc)
+    contentRef.current?.focus()
+    return () => document.removeEventListener('keydown', handleEsc)
+  }, [isOpen, onClose])
+
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <>
+          <motion.div
+            className="modal-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={onClose}
+            aria-hidden="true"
+          />
+          <motion.div
+            ref={contentRef}
+            className="modal-content"
+            role="dialog"
+            aria-modal="true"
+            tabIndex={-1}
+            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+          >
+            {children}
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
+  )
+}
+```
+
+### Stale Closure Trap
+
+```tsx
+// ❌ BAD: Stale closure -- count is captured at render time
+function Counter() {
+  const [count, setCount] = useState(0)
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      setCount(count + 1) // always reads the initial count value
+    }, 1000)
+    return () => clearInterval(id)
+  }, []) // empty deps = stale closure
+
+  return <span>{count}</span>
+}
+
+// ✅ GOOD: Functional updater reads the latest state
+function Counter() {
+  const [count, setCount] = useState(0)
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      setCount(prev => prev + 1) // always reads current state
+    }, 1000)
+    return () => clearInterval(id)
+  }, [])
+
+  return <span>{count}</span>
+}
+```
+
+### Conditional Rendering
+
+```tsx
+// ✅ GOOD: && pattern for simple presence checks
+{items.length > 0 && <ItemList items={items} />}
+{error && <ErrorBanner message={error.message} />}
+
+// ✅ GOOD: Ternary for binary toggle
+{isLoading ? <Spinner /> : <DataView data={data} />}
+
+// ❌ BAD: Nested ternaries (ternary hell)
+{isLoading ? <Spinner /> : error ? <Error /> : data ? <View data={data} /> : <Empty />}
+
+// ✅ GOOD: Early returns or a lookup instead of nested ternaries
+function StatusView({ isLoading, error, data }: Props) {
+  if (isLoading) return <Spinner />
+  if (error) return <Error message={error.message} />
+  if (!data) return <Empty />
+  return <View data={data} />
+}
+```
+
 ## Common Anti-Patterns
 
 **useEffect misuse:**

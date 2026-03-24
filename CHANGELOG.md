@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **`/ai-autopilot` skill (spec-063)** -- multi-spec autonomous orchestrator that splits large specs into focused sub-specs, executes sequentially with fresh-context agents, verifies anti-hallucination gates, and delivers via PR. 5 phase handlers (split, explore, execute, verify, pr) with `--resume` and `--no-watch` flags.
+- **`ai-autopilot` agent** -- 9th agent (orchestrator role), read-only + bash tools, delegates all code changes to subagents.
+- **DEC-023 governance override** -- autopilot invocation is approval for the full pipeline; internal gates are automatic with 2-failure stop.
+- **ECC integration skills (spec-062)** -- 4 new skills: `/ai-slides` (HTML presentations with style presets, PPT conversion), `/ai-media` (AI media generation via fal.ai), `/ai-video-editing` (FFmpeg + Remotion pipeline), `/ai-eval` (eval-driven development with pass@k metrics). Total skills: 37.
+- **Test skill handlers** -- `handlers/e2e.md` (end-to-end testing patterns) and `handlers/tdd.md` (RED-GREEN-REFACTOR cycle) added to `/ai-test`.
+- **Write skill handlers** -- `handlers/investor-outreach.md` and `handlers/x-api.md` added to `/ai-write`.
+- **Framework contexts** -- 8 new context files: `api-design.md`, `backend-patterns.md`, `bun.md`, `claude-api.md`, `mcp-sdk.md`, `nextjs.md`, `universal.md` (languages), `mcp-integrations.md` (team).
+- **Strategic compact hook** -- `scripts/hooks/strategic-compact.py` with Claude Code `Edit|Write|MultiEdit` hook for strategic context management during long sessions.
+
+### Changed
+- **Manifest registry** -- skill count 32 -> 37, agent count 8 -> 9, all new skills registered with types and tags.
+- **Skill frontmatter validator** -- added `mcp` and `skills` as valid keys in `requires` block.
+- **All IDE mirrors updated** -- `.claude/`, `.github/`, `.agents/`, and template mirrors regenerated for all new and modified skills.
+
 ### Fixed
 - **Mirror sync: 46 handler files added to `.agents/` mirrors** -- write (4), review (8), debug (8), create (3), solution-intent (3) handlers were missing from Codex/Gemini mirrors (root + template). Routing tables referenced nonexistent files.
 - **Skill count synced to 32 across all instruction files** -- CLAUDE.md, AGENTS.md, copilot-instructions.md, and template manifest updated. `ai-instinct` added to Meta group and Effort Levels table (max: 8 -> 9).
