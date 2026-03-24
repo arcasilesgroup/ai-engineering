@@ -111,7 +111,7 @@ class HooksPhase:
         if not src.is_file():
             return
         if action.action_type == "merge":
-            merge_settings(src, dest)
+            merge_settings(src, dest, base=context.target)
             result.created.append(_SETTINGS_REL)
         elif action.action_type == "create":
             if copy_file_if_missing(src, dest):

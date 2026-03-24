@@ -241,12 +241,13 @@ class TestCommonFileMaps:
         assert ".semgrep.yml" in _COMMON_FILE_MAPS
         assert _COMMON_FILE_MAPS[".semgrep.yml"] == ".semgrep.yml"
 
-    def test_common_files_not_in_legacy_map(self) -> None:
-        """Common files are handled by the dedicated loop, not the legacy map."""
-        from ai_engineering.installer.templates import _PROJECT_TEMPLATE_MAP
+    def test_common_files_not_in_provider_maps(self) -> None:
+        """Common files are handled by the dedicated loop, not provider maps."""
+        from ai_engineering.installer.templates import resolve_template_maps
 
-        assert ".gitleaks.toml" not in _PROJECT_TEMPLATE_MAP
-        assert ".semgrep.yml" not in _PROJECT_TEMPLATE_MAP
+        maps = resolve_template_maps()
+        assert ".gitleaks.toml" not in maps.file_map
+        assert ".semgrep.yml" not in maps.file_map
 
 
 class TestCopyProjectTemplatesCommonFiles:

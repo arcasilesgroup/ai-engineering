@@ -4,6 +4,17 @@
 # Fail-open: exit 0 always — never blocks IDE.
 set -uo pipefail
 
+# Escape a string for safe JSON embedding in printf
+safe_json_string() {
+    local v="$1"
+    v="${v//\\/\\\\}"
+    v="${v//\"/\\\"}"
+    v="${v//$'\n'/\\n}"
+    v="${v//$'\r'/\\r}"
+    v="${v//$'\t'/\\t}"
+    printf '%s' "$v"
+}
+
 # Read JSON from stdin (UserPromptSubmit event data)
 INPUT=$(cat)
 
@@ -38,12 +49,12 @@ COMMIT=$(git -C "$ROOT_DIR" rev-parse --short HEAD 2>/dev/null || echo "")
 
 # Write directly to audit log — no CLI dependency
 printf '{"actor":"ai","branch":"%s","commit_sha":"%s","detail":{"skill":"%s"},"event":"skill_invoked","source":"hook","timestamp":"%s"}\n' \
-    "$BRANCH" "$COMMIT" "$SKILL_NAME" "$TIMESTAMP" >> "$AUDIT_LOG" 2>/dev/null || true
+    "$(safe_json_string "$BRANCH")" "$(safe_json_string "$COMMIT")" "$(safe_json_string "$SKILL_NAME")" "$(safe_json_string "$TIMESTAMP")" >> "$AUDIT_LOG" 2>/dev/null || true
 
 # Debug mode
 if [ "${AIENG_TELEMETRY_DEBUG:-}" = "1" ]; then
     DEBUG_LOG="${ROOT_DIR}/.ai-engineering/state/telemetry-debug.log"
-    printf '[%s] skill_invoked: %s (prompt: %s)\n' "$TIMESTAMP" "$SKILL_NAME" "$PROMPT" >> "$DEBUG_LOG" 2>/dev/null || true
+    printf '[%s] skill_invoked: %s (prompt: %s)\n' "$(safe_json_string "$TIMESTAMP")" "$(safe_json_string "$SKILL_NAME")" "$(safe_json_string "$PROMPT")" >> "$DEBUG_LOG" 2>/dev/null || true
 fi
 
 exit 0

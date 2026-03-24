@@ -124,24 +124,6 @@ def resolve_template_maps(
     )
 
 
-# Legacy combined maps — kept for updater backward compatibility.
-# Use resolve_template_maps() for new code. Will be removed after updater migration.
-_PROJECT_TEMPLATE_MAP: dict[str, str] = {}
-for _prov_files in _PROVIDER_FILE_MAPS.values():
-    for _src, _dst in _prov_files.items():
-        if _src not in _PROJECT_TEMPLATE_MAP:
-            _PROJECT_TEMPLATE_MAP[_src] = _dst
-
-_PROJECT_TEMPLATE_TREES: list[tuple[str, str]] = []
-_seen_trees: set[tuple[str, str]] = set()
-for _prov_trees in _PROVIDER_TREE_MAPS.values():
-    for _entry in _prov_trees:
-        if _entry not in _seen_trees:
-            _PROJECT_TEMPLATE_TREES.append(_entry)
-            _seen_trees.add(_entry)
-del _prov_files, _prov_trees, _src, _dst, _seen_trees, _entry
-
-
 @dataclass
 class CopyResult:
     """Tracks files created and skipped during a copy operation."""

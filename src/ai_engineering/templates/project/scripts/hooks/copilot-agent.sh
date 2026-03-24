@@ -4,6 +4,17 @@
 # Fail-open: exit 0 always — never blocks IDE.
 set -uo pipefail
 
+# Escape a string for safe JSON embedding in printf
+safe_json_string() {
+    local v="$1"
+    v="${v//\\/\\\\}"
+    v="${v//\"/\\\"}"
+    v="${v//$'\n'/\\n}"
+    v="${v//$'\r'/\\r}"
+    v="${v//$'\t'/\\t}"
+    printf '%s' "$v"
+}
+
 main() {
     # Read JSON from stdin (postToolUse event data)
     INPUT=$(cat)
@@ -92,7 +103,7 @@ except Exception:
             >> "$AUDIT_LOG" 2>/dev/null
     else
         printf '{"actor":"ai","agent":"%s","branch":"%s","commit_sha":"%s","detail":{"agent":"%s"},"event":"agent_dispatched","source":"hook","timestamp":"%s"}\n' \
-            "$AGENT_TYPE" "$BRANCH" "$COMMIT" "$AGENT_TYPE" "$TIMESTAMP" >> "$AUDIT_LOG" 2>/dev/null
+            "$(safe_json_string "$AGENT_TYPE")" "$(safe_json_string "$BRANCH")" "$(safe_json_string "$COMMIT")" "$(safe_json_string "$AGENT_TYPE")" "$(safe_json_string "$TIMESTAMP")" >> "$AUDIT_LOG" 2>/dev/null
     fi
 }
 

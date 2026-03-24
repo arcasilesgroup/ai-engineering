@@ -25,13 +25,13 @@ from ai_engineering.installer.operations import (
 )
 from ai_engineering.installer.service import InstallResult, install
 from ai_engineering.installer.templates import (
-    _PROJECT_TEMPLATE_TREES,
     _VCS_TEMPLATE_TREES,
     copy_file_if_missing,
     copy_project_templates,
     copy_template_tree,
     get_ai_engineering_template_root,
     get_project_template_root,
+    resolve_template_maps,
 )
 from ai_engineering.state.models import InstallManifest
 
@@ -177,7 +177,8 @@ class TestCopyProjectTemplates:
         assert any(p.name == "CLAUDE.md" for p in result.skipped)
 
     def test_project_template_trees_include_prompts_and_agents(self) -> None:
-        tree_map = dict(_PROJECT_TEMPLATE_TREES)
+        maps = resolve_template_maps()
+        tree_map = dict(maps.tree_list)
         assert "prompts" in tree_map
         assert tree_map["prompts"] == ".github/prompts"
         assert "agents" in tree_map

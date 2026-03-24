@@ -45,7 +45,10 @@ class TestDetectPhase:
             for a in plan.actions
             if "tool check" in a.rationale.lower() or "not found" in a.rationale.lower()
         ]
-        assert len(tool_actions) >= 0  # At least informational
+        assert len(tool_actions) >= 4  # One per tool in _CHECKED_TOOLS
+        rationales = " ".join(a.rationale for a in tool_actions)
+        assert "gitleaks" in rationales
+        assert "ruff" in rationales
 
     def test_detects_legacy_path(self, tmp_path: Path) -> None:
         """Legacy context/ path detected and migration planned."""

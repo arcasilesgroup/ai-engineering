@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from ai_engineering.installer.phases import (
@@ -190,6 +192,43 @@ class TestPhaseResult:
 # ---------------------------------------------------------------------------
 # Phase name constants
 # ---------------------------------------------------------------------------
+
+
+class TestCopyTreeForMode:
+    def test_fresh_produces_relative_paths(self, tmp_path: Path) -> None:
+        """copy_tree_for_mode in FRESH mode produces relative paths."""
+        from ai_engineering.installer.templates import copy_tree_for_mode
+
+        src = tmp_path / "src"
+        src.mkdir()
+        (src / "a.txt").write_text("a")
+        dest = tmp_path / "project" / "out"
+        target_root = tmp_path / "project"
+        target_root.mkdir(parents=True)
+
+        created: list[str] = []
+        skipped: list[str] = []
+        copy_tree_for_mode(src, dest, target_root, fresh=True, created=created, skipped=skipped)
+        assert len(created) == 1
+        assert not created[0].startswith("/")
+        assert created[0] == "out/a.txt"
+
+    def test_non_fresh_produces_relative_paths(self, tmp_path: Path) -> None:
+        """copy_tree_for_mode in non-FRESH mode produces relative paths."""
+        from ai_engineering.installer.templates import copy_tree_for_mode
+
+        src = tmp_path / "src"
+        src.mkdir()
+        (src / "b.txt").write_text("b")
+        dest = tmp_path / "project" / "out"
+        target_root = tmp_path / "project"
+        target_root.mkdir(parents=True)
+
+        created: list[str] = []
+        skipped: list[str] = []
+        copy_tree_for_mode(src, dest, target_root, fresh=False, created=created, skipped=skipped)
+        assert len(created) == 1
+        assert not created[0].startswith("/")
 
 
 class TestPhaseConstants:

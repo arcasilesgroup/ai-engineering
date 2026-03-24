@@ -9,12 +9,13 @@ from __future__ import annotations
 
 import json
 import logging
+import shutil
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
 
-def merge_settings(template_path: Path, target_path: Path) -> Path:
+def merge_settings(template_path: Path, target_path: Path, *, base: Path) -> Path:
     """Merge a framework template ``settings.json`` into an existing target.
 
     Merge semantics:
@@ -31,20 +32,36 @@ def merge_settings(template_path: Path, target_path: Path) -> Path:
     Args:
         template_path: Path to the framework template file.
         target_path: Path to the user's existing settings file.
+        base: Trusted root directory; ``target_path`` must resolve within it (CWE-22).
 
     Returns:
         The path that was written (always *target_path*).
+
+    Raises:
+        ValueError: If ``target_path`` resolves outside ``base``.
     """
-    # Resolve to canonical paths to remove path traversal sequences (CWE-22)
+    # Resolve to canonical paths and validate against the trusted base (CWE-22)
     template_path = template_path.resolve()
     target_path = target_path.resolve()
+    base = base.resolve()
+    try:
+        target_path.relative_to(base)
+    except ValueError:
+        msg = f"Path traversal rejected: {target_path!r} is outside trusted base {base!r}"
+        raise ValueError(msg) from None
 
     template_data = json.loads(template_path.read_text(encoding="utf-8"))
 
     try:
         target_data = json.loads(target_path.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, ValueError):
-        logger.warning("Malformed settings.json at %s; replacing with template", target_path)
+        backup = target_path.with_suffix(".json.bak")
+        shutil.copy2(target_path, backup)
+        logger.warning(
+            "Malformed settings.json at %s; backed up to %s. Custom deny rules may have been lost.",
+            target_path,
+            backup,
+        )
         target_path.write_text(json.dumps(template_data, indent=2) + "\n", encoding="utf-8")
         return target_path
 

@@ -46,13 +46,9 @@ def test_hooks_and_installer_templates_missing_inputs(tmp_path: Path) -> None:
             "ai_engineering.installer.templates.get_project_template_root",
             return_value=fake_root,
         ),
-        patch.object(
-            installer_templates,
-            "_PROJECT_TEMPLATE_MAP",
-            {"missing.md": "dest/missing.md"},
-        ),
-        patch.object(
-            installer_templates, "_PROJECT_TEMPLATE_TREES", [("missing-dir", "dest-tree")]
+        patch(
+            "ai_engineering.installer.templates._resolve_provider_maps",
+            return_value=({"missing.md": "dest/missing.md"}, [("missing-dir", "dest-tree")]),
         ),
     ):
         result = installer_templates.copy_project_templates(tmp_path / "target")
