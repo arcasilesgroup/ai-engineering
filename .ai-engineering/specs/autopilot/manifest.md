@@ -8,9 +8,9 @@ by-dependency — linear chain where each sub-spec builds on the previous. Templ
 | # | Title | Status | Depends On | Work Units | Estimated Complexity |
 |---|-------|--------|------------|------------|---------------------|
 | sub-001 | Template Parity | complete | None | 5 | medium |
-| sub-002 | Templates Public API + VCS Fix | pending | sub-001 | 3 | low |
-| sub-003 | Phase Pipeline Foundation | pending | sub-002 | 4 | high |
-| sub-004 | Core Phases + Merge | pending | sub-003 | 5 | high |
+| sub-002 | Templates Public API + VCS Fix | complete | sub-001 | 3 | low |
+| sub-003 | Phase Pipeline Foundation | complete | sub-002 | 4 | high |
+| sub-004 | Core Phases + Merge | complete | sub-003 | 5 | high |
 | sub-005 | Service Refactor + Update Migration | pending | sub-004 | 5 | high |
 | sub-006 | Wizard UX + CLI Modes | pending | sub-005 | 5 | high |
 | sub-007 | Tests + CI | pending | sub-006 | 5 | medium |

@@ -1,14 +1,20 @@
 """Install orchestrator for the ai-engineering framework.
 
-Provides the top-level ``install`` function that bootstraps a complete
-``.ai-engineering/`` governance structure in a target project directory.
+Provides two entry points:
 
-Steps performed by ``install()``:
-1. Copy ``.ai-engineering/`` governance templates (create-only).
-2. Copy project-level IDE agent templates (CLAUDE.md, .github/copilot/, etc.).
-3. Generate state files from defaults (install-manifest, ownership-map,
-   decision-store).
-4. Append an audit-log entry recording the installation.
+- ``install()`` — legacy orchestrator that bootstraps a complete
+  ``.ai-engineering/`` governance structure.  Preserved for backward
+  compatibility with existing callers and tests.
+- ``install_with_pipeline()`` — new phase-pipeline orchestrator that
+  supports all install modes (INSTALL, FRESH, REPAIR, RECONFIGURE).
+
+Steps performed by the pipeline:
+1. Detect environment (VCS, tools, existing install, legacy paths).
+2. Copy ``.ai-engineering/`` governance templates.
+3. Deploy IDE-specific configuration files.
+4. Install hook scripts and merge settings.json.
+5. Generate state files (manifest, ownership, decisions).
+6. Verify/install required CLI tools.
 """
 
 from __future__ import annotations
@@ -21,6 +27,14 @@ from pathlib import Path
 from ai_engineering.detector.readiness import check_tools_for_stacks
 from ai_engineering.git.context import get_git_context
 from ai_engineering.hooks.manager import HookInstallResult, install_hooks
+from ai_engineering.installer.phases import InstallContext, InstallMode
+from ai_engineering.installer.phases.detect import DetectPhase
+from ai_engineering.installer.phases.governance import GovernancePhase
+from ai_engineering.installer.phases.hooks import HooksPhase
+from ai_engineering.installer.phases.ide_config import IdeConfigPhase
+from ai_engineering.installer.phases.pipeline import PipelineRunner, PipelineSummary
+from ai_engineering.installer.phases.state import StatePhase
+from ai_engineering.installer.phases.tools import ToolsPhase
 from ai_engineering.state.defaults import (
     default_decision_store,
     default_install_manifest,
@@ -140,6 +154,129 @@ def install(
 
     # 6. Install-to-operational phases (tooling/auth/policy)
     _run_operational_phases(target, vcs_provider=vcs_provider, result=result)
+
+    return result
+
+
+def install_with_pipeline(
+    target: Path,
+    *,
+    mode: InstallMode = InstallMode.INSTALL,
+    stacks: list[str] | None = None,
+    ides: list[str] | None = None,
+    vcs_provider: str = "github",
+    ai_providers: list[str] | None = None,
+    external_references: dict[str, str] | None = None,
+    dry_run: bool = False,
+) -> tuple[InstallResult, PipelineSummary]:
+    """Run the install pipeline and return both legacy and pipeline results.
+
+    This is the new entry point that orchestrates install through the
+    6-phase pipeline (detect, governance, ide_config, hooks, state, tools).
+    Returns a tuple of ``(InstallResult, PipelineSummary)`` so that
+    callers can use either the legacy result format or the richer
+    pipeline summary.
+
+    Args:
+        target: Root directory of the target project.
+        mode: Install mode. Defaults to ``INSTALL``.
+        stacks: Initial stacks to install. Defaults to ``["python"]``.
+        ides: Initial IDEs to configure. Defaults to ``["terminal"]``.
+        vcs_provider: Primary VCS provider. Defaults to ``"github"``.
+        ai_providers: AI providers to enable. Defaults to ``["claude_code"]``.
+        external_references: External reference URLs for the manifest.
+        dry_run: When True, only plan without writing files.
+
+    Returns:
+        Tuple of (InstallResult, PipelineSummary).
+    """
+    # Auto-detect mode when caller uses the default
+    if mode is InstallMode.INSTALL:
+        manifest_path = target / ".ai-engineering" / "state" / "install-manifest.json"
+        if manifest_path.exists():
+            mode = InstallMode.REPAIR
+
+    # Build context
+    context = InstallContext(
+        target=target,
+        mode=mode,
+        providers=ai_providers or [],
+        vcs_provider=vcs_provider,
+        stacks=stacks or [],
+        ides=ides or [],
+    )
+
+    # Create the 6 phases in order
+    phases = [
+        DetectPhase(),
+        GovernancePhase(),
+        IdeConfigPhase(),
+        HooksPhase(),
+        StatePhase(),
+        ToolsPhase(),
+    ]
+
+    # Run the pipeline
+    runner = PipelineRunner(phases)
+    summary = runner.run(context, dry_run=dry_run)
+
+    # Convert PipelineSummary to InstallResult
+    result = _summary_to_install_result(summary, mode)
+
+    return result, summary
+
+
+def _summary_to_install_result(
+    summary: PipelineSummary,
+    mode: InstallMode,
+) -> InstallResult:
+    """Convert a PipelineSummary into a legacy InstallResult.
+
+    Aggregates created/skipped files from phase results into the
+    governance_files and project_files CopyResult fields.
+
+    Args:
+        summary: The pipeline summary to convert.
+        mode: The install mode that was used.
+
+    Returns:
+        An InstallResult populated from the pipeline summary.
+    """
+    result = InstallResult()
+
+    governance_created: list[Path] = []
+    governance_skipped: list[Path] = []
+    project_created: list[Path] = []
+    project_skipped: list[Path] = []
+
+    for phase_result in summary.results:
+        if phase_result.phase_name == "governance":
+            governance_created.extend(Path(p) for p in phase_result.created)
+            governance_skipped.extend(Path(p) for p in phase_result.skipped)
+        elif phase_result.phase_name in ("ide_config", "hooks"):
+            project_created.extend(Path(p) for p in phase_result.created)
+            project_skipped.extend(Path(p) for p in phase_result.skipped)
+        elif phase_result.phase_name == "state":
+            result.state_files = [Path(p) for p in phase_result.created]
+        elif phase_result.phase_name == "tools":
+            result.manual_steps.extend(phase_result.warnings)
+
+    result.governance_files = CopyResult(
+        created=governance_created,
+        skipped=governance_skipped,
+    )
+    result.project_files = CopyResult(
+        created=project_created,
+        skipped=project_skipped,
+    )
+
+    # Set already_installed if mode was detected as existing
+    if (
+        mode in (InstallMode.REPAIR, InstallMode.RECONFIGURE)
+        and not governance_created
+        and not result.state_files
+    ):
+        result.already_installed = True
 
     return result
 

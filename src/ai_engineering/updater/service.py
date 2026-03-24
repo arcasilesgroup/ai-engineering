@@ -21,10 +21,9 @@ from pathlib import Path
 
 from ai_engineering.git.context import get_git_context
 from ai_engineering.installer.templates import (
-    _PROJECT_TEMPLATE_MAP,
-    _PROJECT_TEMPLATE_TREES,
     get_ai_engineering_template_root,
     get_project_template_root,
+    resolve_template_maps,
 )
 from ai_engineering.state.io import append_ndjson, read_json_model
 from ai_engineering.state.models import (
@@ -184,10 +183,12 @@ def _evaluate_project_files(
 ) -> list[FileChange]:
     """Evaluate changes for project-level template files."""
     project_root = get_project_template_root()
+    resolved = resolve_template_maps(None)
     changes: list[FileChange] = []
 
-    # 1. Individual file mappings
-    for src_relative, dest_relative in sorted(_PROJECT_TEMPLATE_MAP.items()):
+    # 1. Individual file mappings (provider + common)
+    all_file_maps = {**resolved.file_map, **resolved.common_file_map}
+    for src_relative, dest_relative in sorted(all_file_maps.items()):
         src_file = project_root / src_relative
         if not src_file.is_file():
             continue
@@ -198,8 +199,9 @@ def _evaluate_project_files(
         change = _evaluate_file_change(src_file, dest, ownership_path, ownership)
         changes.append(change)
 
-    # 2. Directory tree mappings
-    for src_tree, dest_tree in _PROJECT_TEMPLATE_TREES:
+    # 2. Directory tree mappings (provider + common + VCS)
+    all_trees = resolved.tree_list + resolved.common_tree_list + resolved.vcs_tree_list
+    for src_tree, dest_tree in all_trees:
         src_dir = project_root / src_tree
         if not src_dir.is_dir():
             continue
