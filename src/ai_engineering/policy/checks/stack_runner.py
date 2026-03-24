@@ -50,7 +50,11 @@ PRE_PUSH_CHECKS: dict[str, list[CheckConfig]] = {
         ),
     ],
     "python": [
-        CheckConfig(name="pip-audit", cmd=["pip-audit"]),
+        CheckConfig(
+            name="pip-audit",
+            # CVE-2026-4539: ReDoS in pygments (CVSS 3.3, no patch). DEC-025.
+            cmd=["pip-audit", "--ignore-vuln", "CVE-2026-4539"],
+        ),
         CheckConfig(
             name="stack-tests",
             cmd=[

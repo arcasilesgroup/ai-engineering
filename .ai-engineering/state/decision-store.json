@@ -44,7 +44,7 @@
     {
       "id": "DEC-003",
       "title": "Plan/Execute split with Spec-as-Gate",
-      "description": "Plan agent produces specs and execution plans then STOPS. User must explicitly invoke /ai-execute to begin implementation. This creates a human gate between planning and execution, enabling review before action. Cross-IDE compatible — works with Write/Edit tools, no IDE plan mode required.",
+      "description": "Plan agent produces specs and execution plans then STOPS. User must explicitly invoke /ai-execute to begin implementation. This creates a human gate between planning and execution, enabling review before action. Cross-IDE compatible \u2014 works with Write/Edit tools, no IDE plan mode required.",
       "category": "governance",
       "status": "active",
       "criticality": "high",
@@ -54,13 +54,13 @@
       "expires_at": "2027-03-05T00:00:00Z",
       "context_hash": "",
       "acknowledged_by": "plan",
-      "decision": "Plan agent produces specs and execution plans then STOPS. User must explicitly invoke /ai-execute to begin implementation. This creates a human gate between planning and execution, enabling review before action. Cross-IDE compatible — works with Write/Edit tools, no IDE plan mode required.",
+      "decision": "Plan agent produces specs and execution plans then STOPS. User must explicitly invoke /ai-execute to begin implementation. This creates a human gate between planning and execution, enabling review before action. Cross-IDE compatible \u2014 works with Write/Edit tools, no IDE plan mode required.",
       "decidedAt": "2026-03-05T00:00:00Z",
       "context": "governance"
     },
     {
       "id": "DEC-004",
-      "title": "Phase branching descoped — flat main for current scale",
+      "title": "Phase branching descoped \u2014 flat main for current scale",
       "description": "Framework-contract.md described phase branching (phase/2.x branches) but this was never implemented and adds unnecessary complexity at current project scale. Decision: use flat main with feature branches per spec. Revisit when team size exceeds 3 concurrent contributors.",
       "category": "governance",
       "status": "active",
@@ -95,7 +95,7 @@
     {
       "id": "DEC-006",
       "title": "SonarCloud as primary quality gate platform",
-      "description": "Adopted SonarCloud for static analysis, coverage tracking, and quality gate enforcement. Integrated into CI (spec-030, spec-038) and observe dashboards. Quality gates: zero blocker/critical, coverage 80%, duplication ≤3%, complexity ≤10/≤15.",
+      "description": "Adopted SonarCloud for static analysis, coverage tracking, and quality gate enforcement. Integrated into CI (spec-030, spec-038) and observe dashboards. Quality gates: zero blocker/critical, coverage 80%, duplication \u22643%, complexity \u226410/\u226415.",
       "category": "tooling",
       "status": "active",
       "criticality": "high",
@@ -105,13 +105,13 @@
       "expires_at": "2027-03-09T00:00:00Z",
       "context_hash": "",
       "acknowledged_by": "plan",
-      "decision": "Adopted SonarCloud for static analysis, coverage tracking, and quality gate enforcement. Integrated into CI (spec-030, spec-038) and observe dashboards. Quality gates: zero blocker/critical, coverage 80%, duplication ≤3%, complexity ≤10/≤15.",
+      "decision": "Adopted SonarCloud for static analysis, coverage tracking, and quality gate enforcement. Integrated into CI (spec-030, spec-038) and observe dashboards. Quality gates: zero blocker/critical, coverage 80%, duplication \u22643%, complexity \u226410/\u226415.",
       "decidedAt": "2026-03-09T00:00:00Z",
       "context": "tooling"
     },
     {
       "id": "DEC-007",
-      "title": "Single event store — audit-log.ndjson",
+      "title": "Single event store \u2014 audit-log.ndjson",
       "description": "All framework events (gates, scans, builds, deploys, sessions) write to a single NDJSON file: state/audit-log.ndjson. No dual-write. Weekly rotation with 90-day retention. Query via signals.py load_all_events + filter_events pattern.",
       "category": "architecture",
       "status": "active",
@@ -128,7 +128,7 @@
     },
     {
       "id": "DEC-008",
-      "title": "No-suppression rule — never bypass static analysis",
+      "title": "No-suppression rule \u2014 never bypass static analysis",
       "description": "NEVER add suppression comments (# NOSONAR, # nosec, # type: ignore, # pragma: no cover, # noqa, // nolint) to bypass analysis. Fix the root cause. If false positive: refactor code to satisfy analyzer or escalate with full explanation. Added to CLAUDE.md absolute prohibitions.",
       "category": "governance",
       "status": "active",
@@ -145,7 +145,7 @@
     },
     {
       "id": "DEC-009",
-      "title": "Snyk as optional — not required for CI",
+      "title": "Snyk as optional \u2014 not required for CI",
       "description": "Snyk CI/CD integration is optional (SNYK_TOKEN secret controls activation). Core security scanning uses gitleaks (secrets), semgrep (SAST), and pip-audit (dependencies). Snyk adds value but is not a gate blocker.",
       "category": "tooling",
       "status": "active",
@@ -162,7 +162,7 @@
     },
     {
       "id": "DEC-010",
-      "title": "Dual VCS provider support — GitHub + Azure DevOps",
+      "title": "Dual VCS provider support \u2014 GitHub + Azure DevOps",
       "description": "Framework supports both GitHub and Azure DevOps as VCS providers. Provider detection via manifest.yml or remote URL parsing. CLI commands (gh/az) are conditionally required based on configured provider. Implemented in spec-014.",
       "category": "architecture",
       "status": "active",
@@ -196,7 +196,7 @@
     },
     {
       "id": "DEC-012",
-      "title": "Release zero-rebuild — download CI artifacts",
+      "title": "Release zero-rebuild \u2014 download CI artifacts",
       "description": "Release workflow downloads the pre-built wheel from CI instead of rebuilding from source. Eliminates build divergence between CI and release, reduces release time, and ensures what was tested is what ships.",
       "category": "delivery",
       "status": "active",
@@ -230,8 +230,8 @@
     },
     {
       "id": "DEC-014",
-      "title": "Lean stack standards — max 1 page per stack",
-      "description": "Stack standards should be concise and actionable (≤1 page). Template: Toolchain, Quality Gates, Security, CI Integration. Avoids standards fatigue. Detailed patterns belong in cross-cutting standards.",
+      "title": "Lean stack standards \u2014 max 1 page per stack",
+      "description": "Stack standards should be concise and actionable (\u22641 page). Template: Toolchain, Quality Gates, Security, CI Integration. Avoids standards fatigue. Detailed patterns belong in cross-cutting standards.",
       "category": "governance",
       "status": "active",
       "criticality": "low",
@@ -241,14 +241,14 @@
       "expires_at": "2027-03-12T00:00:00Z",
       "context_hash": "",
       "acknowledged_by": "plan",
-      "decision": "Stack standards should be concise and actionable (≤1 page). Template: Toolchain, Quality Gates, Security, CI Integration. Avoids standards fatigue. Detailed patterns belong in cross-cutting standards.",
+      "decision": "Stack standards should be concise and actionable (\u22641 page). Template: Toolchain, Quality Gates, Security, CI Integration. Avoids standards fatigue. Detailed patterns belong in cross-cutting standards.",
       "decidedAt": "2026-03-12T00:00:00Z",
       "context": "governance"
     },
     {
       "id": "DEC-015",
       "title": "Conventional commits with spec-NNN prefix",
-      "description": "Commit format: spec-NNN: Task X.Y — description (when spec active) or type(scope): description (conventional commits). Enables changelog generation, DORA metrics, and semantic version detection.",
+      "description": "Commit format: spec-NNN: Task X.Y \u2014 description (when spec active) or type(scope): description (conventional commits). Enables changelog generation, DORA metrics, and semantic version detection.",
       "category": "delivery",
       "status": "active",
       "criticality": "medium",
@@ -258,13 +258,13 @@
       "expires_at": "2027-02-10T00:00:00Z",
       "context_hash": "",
       "acknowledged_by": "release",
-      "decision": "Commit format: spec-NNN: Task X.Y — description (when spec active) or type(scope): description (conventional commits). Enables changelog generation, DORA metrics, and semantic version detection.",
+      "decision": "Commit format: spec-NNN: Task X.Y \u2014 description (when spec active) or type(scope): description (conventional commits). Enables changelog generation, DORA metrics, and semantic version detection.",
       "decidedAt": "2026-02-10T00:00:00Z",
       "context": "delivery"
     },
     {
       "id": "DEC-016",
-      "title": "Slim root instructions — deduplicate CLAUDE.md/AGENTS.md",
+      "title": "Slim root instructions \u2014 deduplicate CLAUDE.md/AGENTS.md",
       "description": "Root instruction files (CLAUDE.md, AGENTS.md) kept minimal with pointers to .ai-engineering/ as source of truth. Reduces duplication between IDE instruction files. Implemented in spec-043.",
       "category": "governance",
       "status": "active",
@@ -298,7 +298,7 @@
     },
     {
       "id": "DEC-018",
-      "title": "PR skill decomposition — extract shared pipeline",
+      "title": "PR skill decomposition \u2014 extract shared pipeline",
       "description": "The commit and PR skills share ~60% of their procedure (auto-branch, stage, format, lint, secrets, doc gate, spec verify). Extract shared pipeline as referenced behavior rather than duplicated code. PR = shared pipeline + PR creation + auto-complete.",
       "category": "architecture",
       "status": "active",
@@ -344,7 +344,7 @@
       "expires_at": "2027-03-16T00:00:00Z",
       "context_hash": "",
       "acknowledged_by": "guard",
-      "decision": "Skip verify-gate-trailers CI job when github.actor is dependabot[bot]. The Ai-Eng-Gate trailer proves a commit traversed local hooks — Dependabot creates commits server-side and cannot satisfy this requirement. CI independently validates all Dependabot PRs via gitleaks, pip-audit, semgrep, and Snyk. Additionally, Dependabot PRs are grouped by ecosystem (pip, github-actions) to consolidate ~7 individual PRs into max 2 per week.",
+      "decision": "Skip verify-gate-trailers CI job when github.actor is dependabot[bot]. The Ai-Eng-Gate trailer proves a commit traversed local hooks \u2014 Dependabot creates commits server-side and cannot satisfy this requirement. CI independently validates all Dependabot PRs via gitleaks, pip-audit, semgrep, and Snyk. Additionally, Dependabot PRs are grouped by ecosystem (pip, github-actions) to consolidate ~7 individual PRs into max 2 per week.",
       "decidedAt": "2026-03-16T00:00:00Z",
       "context": "governance"
     },
@@ -361,7 +361,7 @@
       "expires_at": "2027-03-17T00:00:00Z",
       "context_hash": "",
       "acknowledged_by": "plan",
-      "decision": "All skill and agent references standardized to /ai-<name> (hyphen) syntax. Colon syntax /ai:<name> was inconsistent with IDE registration. Bulk rename applied to canonical templates, live files, and mirrors. sync_command_mirrors.py workflow alias generation (Surface 4b) removed — only ai-prefixed prompts are generated.",
+      "decision": "All skill and agent references standardized to /ai-<name> (hyphen) syntax. Colon syntax /ai:<name> was inconsistent with IDE registration. Bulk rename applied to canonical templates, live files, and mirrors. sync_command_mirrors.py workflow alias generation (Surface 4b) removed \u2014 only ai-prefixed prompts are generated.",
       "decidedAt": "2026-03-17T00:00:00Z",
       "context": "architecture"
     },
@@ -378,7 +378,7 @@
       "expires_at": "2027-03-17T00:00:00Z",
       "context_hash": "",
       "acknowledged_by": "plan",
-      "decision": "Migrated 6 scheduled runbook workflows to gh-aw markdown format with YAML frontmatter (triggers, permissions, safe-outputs) and natural language instructions. Created 3 missing runbooks (daily-triage, perf-audit, weekly-health). GitHub Copilot as default engine — no API key required, included with GitHub subscription. Claude Max used for IDE work only.",
+      "decision": "Migrated 6 scheduled runbook workflows to gh-aw markdown format with YAML frontmatter (triggers, permissions, safe-outputs) and natural language instructions. Created 3 missing runbooks (daily-triage, perf-audit, weekly-health). GitHub Copilot as default engine \u2014 no API key required, included with GitHub subscription. Claude Max used for IDE work only.",
       "decidedAt": "2026-03-17T00:00:00Z",
       "context": "delivery"
     },
@@ -402,7 +402,7 @@
     {
       "id": "DEC-024",
       "title": "Copilot subagent orchestration via sync pipeline",
-      "description": "Copilot-specific subagent properties (agents, handoffs, hooks) are injected via AGENT_METADATA in scripts/sync_command_mirrors.py during mirror generation. This keeps .claude/ canonical sources clean of platform-specific properties while enabling full orchestration in GitHub Copilot VS Code, CLI, and Coding Agent. Properties: agents (allowlist of delegatable subagents), handoffs (guided workflow transitions), hooks (per-agent lifecycle hooks). Based on official VS Code docs (Mar 2026) — uses modern properties instead of deprecated infer.",
+      "description": "Copilot-specific subagent properties (agents, handoffs, hooks) are injected via AGENT_METADATA in scripts/sync_command_mirrors.py during mirror generation. This keeps .claude/ canonical sources clean of platform-specific properties while enabling full orchestration in GitHub Copilot VS Code, CLI, and Coding Agent. Properties: agents (allowlist of delegatable subagents), handoffs (guided workflow transitions), hooks (per-agent lifecycle hooks). Based on official VS Code docs (Mar 2026) \u2014 uses modern properties instead of deprecated infer.",
       "category": "architecture",
       "status": "active",
       "criticality": "high",
@@ -412,10 +412,29 @@
       "expires_at": "2027-03-24T00:00:00Z",
       "context_hash": "",
       "acknowledged_by": "plan",
-      "decision": "Copilot-specific subagent properties (agents, handoffs, hooks) are injected via AGENT_METADATA in scripts/sync_command_mirrors.py during mirror generation. This keeps .claude/ canonical sources clean of platform-specific properties while enabling full orchestration in GitHub Copilot VS Code, CLI, and Coding Agent. Properties: agents (allowlist of delegatable subagents), handoffs (guided workflow transitions), hooks (per-agent lifecycle hooks). Based on official VS Code docs (Mar 2026) — uses modern properties instead of deprecated infer.",
+      "decision": "Copilot-specific subagent properties (agents, handoffs, hooks) are injected via AGENT_METADATA in scripts/sync_command_mirrors.py during mirror generation. This keeps .claude/ canonical sources clean of platform-specific properties while enabling full orchestration in GitHub Copilot VS Code, CLI, and Coding Agent. Properties: agents (allowlist of delegatable subagents), handoffs (guided workflow transitions), hooks (per-agent lifecycle hooks). Based on official VS Code docs (Mar 2026) \u2014 uses modern properties instead of deprecated infer.",
       "decidedAt": "2026-03-24T00:00:00Z",
       "context": "architecture",
-      "refs": ["https://code.visualstudio.com/docs/copilot/customization/custom-agents"]
+      "refs": [
+        "https://code.visualstudio.com/docs/copilot/customization/custom-agents"
+      ]
+    },
+    {
+      "id": "DEC-025",
+      "title": "Accept CVE-2026-4539 in pygments (no patched version)",
+      "description": "pygments 2.19.2 has CVE-2026-4539 (ReDoS in AdlLexer, CVSS 3.3, local-only). No patched version exists as of 2026-03-24. Accepted as low risk; pip-audit --ignore-vuln added to CI and gate. Remove when pygments >= 2.19.3 is released.",
+      "category": "security",
+      "status": "active",
+      "criticality": "low",
+      "source": "pip-audit",
+      "spec": "064-install-flow-redesign",
+      "created_at": "2026-03-24",
+      "expires_at": "2027-03-24T00:00:00Z",
+      "context_hash": "",
+      "acknowledged_by": "ai-engineering-cli",
+      "decision": "Accept CVE-2026-4539 (ReDoS, CVSS 3.3) in pygments. No fix available. Re-evaluate when a patched pygments version is released.",
+      "decidedAt": "2026-03-24T00:00:00Z",
+      "context": "security"
     }
   ]
 }
