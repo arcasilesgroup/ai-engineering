@@ -7,7 +7,10 @@ Human-first Rich output by default; ``--json`` for agent consumption.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Annotated
+from typing import TYPE_CHECKING, Annotated, Any
+
+if TYPE_CHECKING:
+    from ai_engineering.installer.autodetect import DetectionResult
 
 import click
 import click.exceptions
@@ -108,12 +111,19 @@ def install_cmd(
     # Dry-run mode: use pipeline, output JSON plan
     if dry_run:
         set_json_mode(True)
-        resolved_vcs = _resolve_vcs_provider(vcs, root)
-        resolved_providers = _resolve_ai_providers(providers)
+        from ai_engineering.installer.autodetect import detect_all as _detect_all
+
+        _detected = _detect_all(root)
+        resolved_vcs = vcs or _detected.vcs
+        resolved_providers = (
+            [_PROVIDER_ALIASES.get(p, p) for p in providers]
+            if providers
+            else (_detected.providers or ["claude_code"])
+        )
         _result, summary = install_with_pipeline(
             root,
-            stacks=stacks or [],
-            ides=ides or [],
+            stacks=stacks or _detected.stacks or [],
+            ides=ides or _detected.ides or ["terminal"],
             vcs_provider=resolved_vcs,
             ai_providers=resolved_providers,
             dry_run=True,
@@ -145,20 +155,45 @@ def install_cmd(
     elif manifest_path.exists() and non_interactive:
         mode = InstallMode.REPAIR
 
-    # Resolve VCS provider: explicit flag > autodetect > interactive prompt
-    resolved_vcs = _resolve_vcs_provider(vcs, root)
+    # Auto-detect project configuration
+    from ai_engineering.installer.autodetect import detect_all
 
-    # Resolve AI providers: explicit flag > interactive prompt > default
-    resolved_providers = _resolve_ai_providers(providers)
+    detected = detect_all(root)
 
-    # Prompt for stacks and IDEs when flags absent
-    resolved_stacks = stacks or _prompt_stacks()
-    resolved_ides = ides or _prompt_ides()
+    # Build resolved dict from CLI flags
+    resolved: dict[str, Any] = {}
+    if stacks:
+        resolved["stacks"] = stacks
+    if providers:
+        resolved["providers"] = [_PROVIDER_ALIASES.get(p, p) for p in providers]
+    if ides:
+        resolved["ides"] = ides
+    if vcs is not None:
+        resolved["vcs"] = "azure_devops" if vcs == "azdo" else vcs
 
-    # Optional external CI/CD documentation reference
-    external_cicd_url = _prompt_external_cicd_docs()
+    # Determine final selections: flags > wizard > detection > defaults
+    all_resolved = all(k in resolved for k in ("stacks", "providers", "ides", "vcs"))
 
-    # Show detection summary in interactive mode
+    if all_resolved or is_json_mode():
+        resolved_stacks = resolved.get("stacks", detected.stacks or ["python"])
+        resolved_providers = resolved.get("providers", detected.providers or ["claude_code"])
+        resolved_ides = resolved.get("ides", detected.ides or ["terminal"])
+        resolved_vcs = resolved.get("vcs", detected.vcs)
+    else:
+        # Show detection summary
+        if not is_json_mode():
+            _show_detection_summary(detected)
+
+        # Run wizard for unresolved categories
+        from ai_engineering.installer.wizard import run_wizard
+
+        wizard_result = run_wizard(detected, resolved if resolved else None)
+        resolved_stacks = wizard_result.stacks
+        resolved_providers = wizard_result.providers
+        resolved_ides = wizard_result.ides
+        resolved_vcs = wizard_result.vcs
+
+    # Show tool availability in interactive mode
     if not is_json_mode():
         import shutil as _shutil
 
@@ -183,10 +218,6 @@ def install_cmd(
     # Render steps from pipeline summary
     if not is_json_mode():
         _render_pipeline_steps(summary)
-
-    # Write CI/CD standards URL to manifest.yml (not install-manifest.json)
-    if external_cicd_url:
-        _write_cicd_standards_url(root, external_cicd_url)
 
     ai_label = ", ".join(resolved_providers)
 
@@ -335,26 +366,19 @@ def _render_pipeline_steps(summary: object) -> None:
         )
 
 
-def _prompt_stacks() -> list[str]:
-    """Prompt for stacks when --stack flag absent."""
-    if is_json_mode():
-        return ["python"]
-    try:
-        raw = typer.prompt("Technology stacks (comma-separated)", default="python")
-        return [s.strip().lower() for s in raw.split(",") if s.strip()]
-    except (KeyboardInterrupt, EOFError, click.exceptions.Abort):
-        return ["python"]
-
-
-def _prompt_ides() -> list[str]:
-    """Prompt for IDEs when --ide flag absent."""
-    if is_json_mode():
-        return ["terminal"]
-    try:
-        raw = typer.prompt("IDE integrations (comma-separated)", default="terminal")
-        return [s.strip().lower() for s in raw.split(",") if s.strip()]
-    except (KeyboardInterrupt, EOFError, click.exceptions.Abort):
-        return ["terminal"]
+def _show_detection_summary(detected: DetectionResult) -> None:
+    """Show auto-detection results before the wizard."""
+    parts = []
+    if detected.stacks:
+        parts.append(f"Stacks: {', '.join(detected.stacks)}")
+    if detected.providers:
+        parts.append(f"Providers: {', '.join(detected.providers)}")
+    if detected.ides:
+        parts.append(f"IDEs: {', '.join(detected.ides)}")
+    if parts:
+        typer.echo(f"\n  Detected: {' | '.join(parts)}\n")
+    else:
+        typer.echo("\n  No project markers detected.\n")
 
 
 def _replay_plan(root: Path, plan_path: Path) -> None:
@@ -406,7 +430,7 @@ def _replay_plan(root: Path, plan_path: Path) -> None:
 
 
 def _resolve_vcs_provider(vcs: str | None, root: Path) -> str:
-    """Resolve VCS provider from flag, remote detection, or interactive prompt.
+    """Resolve VCS provider from flag or remote auto-detection.
 
     Args:
         vcs: Explicit --vcs flag value, or None.
@@ -417,27 +441,7 @@ def _resolve_vcs_provider(vcs: str | None, root: Path) -> str:
     """
     if vcs is not None:
         return "azure_devops" if vcs == "azdo" else vcs
-
-    # Try autodetection from git remote
-    from ai_engineering.git.operations import run_git
-
-    ok, _ = run_git(["remote", "get-url", "origin"], root)
-    if ok:
-        return detect_from_remote(root)
-
-    # No remote — prompt interactively (or default in non-interactive/JSON mode)
-    if is_json_mode():
-        return "github"
-
-    try:
-        choice = typer.prompt(
-            "No git remote detected. VCS provider",
-            default="github",
-            type=click.Choice(["github", "azdo"]),
-        )
-        return "azure_devops" if choice == "azdo" else choice
-    except (KeyboardInterrupt, EOFError, click.exceptions.Abort):
-        return "github"
+    return detect_from_remote(root)
 
 
 _PROVIDER_ALIASES: dict[str, str] = {
@@ -448,66 +452,15 @@ _PROVIDER_ALIASES: dict[str, str] = {
 }
 
 
-def _prompt_external_cicd_docs() -> str:
-    """Prompt for optional external CI/CD standards documentation URL."""
-    if is_json_mode():
-        return ""
-    try:
-        url = typer.prompt(
-            "External CI/CD standards URL (optional, Enter to skip)",
-            default="",
-            show_default=False,
-        )
-        return url.strip()
-    except (KeyboardInterrupt, EOFError, click.exceptions.Abort):
-        return ""
-
-
-def _write_cicd_standards_url(root: Path, url: str) -> None:
-    """Write CI/CD standards URL to the project's manifest.yml.
-
-    Updates the ``cicd.standards_url`` field. If the manifest file does not
-    exist or is unreadable, the write is silently skipped (install may not
-    have created it yet in edge cases).
-    """
-    import yaml
-
-    manifest_path = root / ".ai-engineering" / "manifest.yml"
-    if not manifest_path.exists():
-        return
-
-    text = manifest_path.read_text(encoding="utf-8")
-    data = yaml.safe_load(text) or {}
-    cicd = data.setdefault("cicd", {})
-    cicd["standards_url"] = url
-    manifest_path.write_text(
-        yaml.safe_dump(data, default_flow_style=False, sort_keys=False),
-        encoding="utf-8",
-    )
-
-
 def _resolve_ai_providers(providers: list[str] | None) -> list[str]:
-    """Resolve AI providers from explicit flag or interactive prompt.
+    """Resolve AI providers from explicit flag.
 
     Short names (claude, copilot, gemini, codex) are mapped to internal names.
+    Returns default when no flag provided.
     """
     if providers:
         return [_PROVIDER_ALIASES.get(p, p) for p in providers]
-
-    if is_json_mode():
-        return ["claude_code"]
-
-    try:
-        raw = typer.prompt(
-            "AI assistants (comma-separated)",
-            default="claude",
-            show_default=True,
-        )
-        names = [n.strip().lower() for n in raw.split(",") if n.strip()]
-        resolved = [_PROVIDER_ALIASES.get(n, n) for n in names]
-        return resolved if resolved else ["claude_code"]
-    except (KeyboardInterrupt, EOFError, click.exceptions.Abort):
-        return ["claude_code"]
+    return ["claude_code"]
 
 
 def update_cmd(

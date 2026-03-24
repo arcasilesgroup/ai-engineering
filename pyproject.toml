@@ -12,6 +12,7 @@ dependencies = [
   "pydantic>=2.0,<3.0",
   "keyring>=25.0,<26.0",
   "rich>=13.0,<15.0",
+  "questionary>=2.0,<3.0",
 ]
 
 [dependency-groups]

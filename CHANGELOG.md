@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Install flow redesign (spec-064)** -- replaced 4 hostile free-text prompts with auto-detection + `questionary` checkbox wizard. Auto-detects stacks (13 markers), AI providers (claude_code, github_copilot), IDEs (.vscode, .idea), and VCS (git remote). Empty repos show wizard with nothing preselected. CLI flags (`--stack`, `--provider`, `--ide`, `--vcs`) skip wizard for automation. Removed CI/CD URL prompt from install.
 - **Copilot subagent orchestration (spec-064)** -- full parity with Claude Code multi-agent delegation. 5 orchestrator agents (Autopilot, Build, Plan, Review, Verify) can now delegate to subagents via `agents` property, `handoffs` (guided transitions), and per-agent `hooks`. Sync pipeline injects Copilot-specific properties via `AGENT_METADATA` — canonical `.claude/` sources remain clean. Works across VS Code, CLI, and Coding Agent.
 - **`docs/copilot-subagents.md`** -- comprehensive guide covering sync architecture, Copilot properties, usage examples for all 3 environments, capabilities matrix, and handoff chain diagram.
 - **DEC-024** -- Copilot subagent orchestration via sync pipeline (architecture decision, active, high criticality).
