@@ -208,12 +208,20 @@ def test_updater_validator_and_vcs_edges(tmp_path: Path) -> None:
 
     project_root = tmp_path / "project_templates"
     project_root.mkdir(parents=True, exist_ok=True)
+    from ai_engineering.installer.templates import ResolvedTemplateMaps
+
+    fake_resolved = ResolvedTemplateMaps(
+        file_map={"missing.md": "dest.md"},
+        tree_list=[("missing-dir", "dest-tree")],
+        common_file_map={},
+        common_tree_list=[],
+        vcs_tree_list=[],
+    )
     with (
         patch(
             "ai_engineering.updater.service.get_project_template_root", return_value=project_root
         ),
-        patch.object(updater, "_PROJECT_TEMPLATE_MAP", {"missing.md": "dest.md"}),
-        patch.object(updater, "_PROJECT_TEMPLATE_TREES", [("missing-dir", "dest-tree")]),
+        patch("ai_engineering.updater.service.resolve_template_maps", return_value=fake_resolved),
     ):
         changes = updater._evaluate_project_files(tmp_path, updater.OwnershipMap())
     assert changes == []

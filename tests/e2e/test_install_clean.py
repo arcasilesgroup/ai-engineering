@@ -42,7 +42,7 @@ class TestInstallClean:
             "contexts",
             "contexts/languages",
             "contexts/team",
-            "context",
+            "contexts/product",
             "state",
         ]
         for dirname in required:
