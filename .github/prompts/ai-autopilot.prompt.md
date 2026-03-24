@@ -1,30 +1,30 @@
 ---
 name: ai-autopilot
-description: "Use when executing large approved specs autonomously: splits into focused sub-specs, explores deeply, implements with fresh-context agents, verifies anti-hallucination gates, and delivers via PR. Invocation IS approval."
+description: "Use when executing large approved specs autonomously: decomposes into focused sub-specs, deep-plans each with parallel agents, builds a DAG, implements in waves, runs a quality convergence loop (verify+guard+review x3), and delivers via PR with full integrity report. Invocation IS approval."
 effort: max
 argument-hint: "'implement spec-NNN'|--resume|--no-watch"
 mode: agent
-tags: [orchestration, autonomous, multi-spec, pipeline, execution]
+tags: [orchestration, autonomous, multi-spec, pipeline, execution, dag, transparency]
 ---
 
 
 
-# Autopilot
+# Autopilot v2
 
 ## Purpose
 
-Autonomous execution of large approved specs. Splits a spec with N work units into focused sub-specs, executes each sequentially with fresh-context agents, verifies every increment against anti-hallucination gates, and delivers the full changeset via PR. One invocation, zero interruptions.
+Autonomous execution of large approved specs via a 6-phase pipeline. Decomposes a spec into N focused sub-specs, deep-plans each with parallel agents, orchestrates a dependency-aware execution DAG, implements in waves, converges on quality through iterative verify+guard+review loops, and delivers the full changeset via PR with a transparency report. One invocation, zero interruptions, full disclosure.
 
 ## When to Use
 
-- Spec has >5 tasks or touches >10 files
-- After `/ai-brainstorm` approval and `/ai-plan` completion
+- Spec has >= 3 independent concerns or touches >= 10 files
+- After `/ai-brainstorm` approval (spec.md exists and is not a placeholder)
 - When manual `/ai-dispatch` would overflow context within a single session
-- Multi-phase work that benefits from incremental verify gates
+- Multi-concern work that benefits from parallel intelligence gathering and DAG-driven execution
 
 ## When NOT to Use
 
-- <5 tasks -- use `/ai-dispatch` directly
+- < 3 concerns -- use `/ai-dispatch` directly (autopilot overhead not justified)
 - Draft or unapproved spec -- run `/ai-brainstorm` first
 - Need human review between phases -- use `/ai-dispatch` with manual checkpoints
 - Cross-repo changes -- coordinate manually
@@ -35,110 +35,115 @@ Autonomous execution of large approved specs. Splits a spec with N work units in
 ### Step 0: Load and Validate
 
 1. Read `.ai-engineering/specs/spec.md` -- confirm it is not a placeholder
-2. Read `.ai-engineering/specs/plan.md` -- confirm tasks exist
-3. Read `.ai-engineering/state/decision-store.json` -- load constraints
-4. If spec is placeholder or plan is empty: STOP. Report: "No approved spec. Run `/ai-brainstorm` first."
+2. Read `.ai-engineering/state/decision-store.json` -- load constraints
+3. If spec is placeholder: STOP. Report: "No approved spec. Run `/ai-brainstorm` first."
+4. If `--resume` flag: read `specs/autopilot/manifest.md` and jump to the Resume Protocol (Phase 6 handler)
+5. Note: plan.md is NOT required. Phase 2 agents generate their own plans (D7).
 
-### Step 1: Split + Explore
+### Step 1: DECOMPOSE
 
-Read `handlers/phase-split.md` and execute:
+Read `handlers/phase-decompose.md` and execute:
 
-1. Decompose the spec into ordered sub-specs (one concern per sub-spec)
-2. Write each to `.ai-engineering/specs/autopilot/sub-NNN.md` with: scope, inputs, outputs, verify checklist
-3. Write execution manifest to `.ai-engineering/specs/autopilot/manifest.md`
-4. Dispatch parallel Agent(Explore) to map codebase state relevant to each sub-spec
-5. Collect findings into `.ai-engineering/specs/autopilot/exploration.md`
-6. Update sub-specs with discovered file paths, patterns, and constraints
+1. Extract N independent concerns from the spec
+2. If N < 3: abort, recommend `/ai-dispatch`
+3. Write sub-spec shells to `specs/autopilot/sub-NNN.md`
+4. Write execution manifest to `specs/autopilot/manifest.md`
 
-### Step 2: Execute Loop (sequential, per sub-spec)
+### Step 2: DEEP PLAN
 
-For each sub-spec in manifest order:
+Read `handlers/phase-deep-plan.md` and execute:
 
-**2a. Plan + Implement** -- Read `handlers/phase-execute.md` and execute:
-- Read the sub-spec and relevant SKILL.md files
-- Compose the build prompt with embedded context (file paths, patterns, constraints, acceptance criteria)
-- Dispatch Agent(Build) with fresh context -- no carry-over from previous sub-specs
-- Build agent receives: sub-spec scope, referenced files, stack standards, verify checklist
+1. Dispatch N Agent(Explore+Plan) in parallel -- one per sub-spec
+2. Each agent deep-explores the codebase and writes a detailed plan with exports/imports declarations
+3. Gate: every sub-spec has enriched Exploration + Plan sections
+4. Failed agents retry once, then mark `plan-failed`
 
-**2b. Verify** -- Read `handlers/phase-verify.md` and execute:
-- Dispatch Agent(Verify) against the sub-spec's acceptance criteria
-- Gate checklist: functional correctness, anti-hallucination (files/functions/imports exist), stack validation (linters/types), no regressions (existing tests pass)
-- If verify passes: commit the increment, update manifest.md marking sub-spec complete
-- If verify fails: retry implementation ONCE with the failure report embedded in the build prompt
-- If second attempt also fails: **STOP the entire pipeline**. Report: what was attempted, what failed, the verify report, and rollback instructions
+### Step 3: ORCHESTRATE
 
-### Step 3: Final Verification
+Read `handlers/phase-orchestrate.md` and execute:
 
-After all sub-specs complete:
+1. Analyze all N plans together
+2. Build file-overlap matrix and import-chain graph
+3. Construct execution DAG with wave assignments
+4. Merge sub-specs with unresolvable conflicts
 
-1. Run full test suite: `pytest tests/ -v`
-2. Run full lint pass: `ruff check` + `ruff format --check`
-3. Run type check: `ty check src/`
-4. Dispatch Agent(Verify) on the full changeset against the original spec
-5. Confirm no regressions against main branch
-6. If final verify fails: escalate -- do not attempt to fix at this stage
+### Step 4: IMPLEMENT
 
-### Step 4: PR Pipeline
+Read `handlers/phase-implement.md` and execute:
 
-Read `handlers/phase-pr.md` and execute:
+1. For each wave in DAG order: dispatch Agent(Build) per sub-spec (parallel within wave)
+2. Each agent writes a Self-Report (real/aspirational/stub/failing/invented/hallucinated)
+3. Commit per wave, update manifest
+4. Cascade-block dependents of failed sub-specs
 
-1. Follow `.github/prompts/ai-pr.prompt.md` in full
-2. PR body includes: summary of all sub-specs delivered, verify reports as evidence
-3. Enable auto-complete with squash merge
-4. Enter watch-and-fix loop (unless `--no-watch`)
+### Step 5: QUALITY LOOP
 
-### Step 5: Cleanup
+Read `handlers/phase-quality.md` and execute:
 
-After PR merges (or immediately if `--no-watch`):
+1. Dispatch Agent(Verify) + Agent(Guard) + Agent(Review) in parallel on full changeset
+2. Consolidate findings with unified severity mapping
+3. If clean (0 blockers+criticals+highs): proceed to Phase 6
+4. If issues remain and round < 3: dispatch fix agents, commit, repeat
+5. If round = 3: blockers -> STOP; criticals/highs -> Phase 6 flagged
 
-1. Delete `.ai-engineering/specs/autopilot/` directory
-2. Clear `specs/spec.md` with placeholder
-3. Clear `specs/plan.md` with placeholder
-4. Run `/ai-cleanup --all`
+### Step 6: DELIVER
+
+Read `handlers/phase-deliver.md` and execute:
+
+1. Build Integrity Report from Self-Reports + quality audit
+2. Follow `/ai-pr` SKILL.md in full
+3. Cleanup: delete autopilot state, clear spec.md + plan.md, verify cleanup
+4. Resume Protocol handles mid-pipeline re-entry via `--resume`
 
 ## Handler Dispatch Table
 
 | Phase | Handler | Agent Pattern |
 |-------|---------|---------------|
-| Split + Explore | `handlers/phase-split.md` | Explore x N parallel |
-| Execute | `handlers/phase-execute.md` | Plan + Build per sub-spec |
-| Verify | `handlers/phase-verify.md` | Verify per sub-spec |
-| PR + Deliver | `handlers/phase-pr.md` | PR pipeline |
+| 1. Decompose | `handlers/phase-decompose.md` | Orchestrator (read-only analysis) |
+| 2. Deep Plan | `handlers/phase-deep-plan.md` | Explore+Plan x N parallel |
+| 3. Orchestrate | `handlers/phase-orchestrate.md` | Orchestrator (DAG construction) |
+| 4. Implement | `handlers/phase-implement.md` | Build x N per wave (DAG-driven) |
+| 5. Quality Loop | `handlers/phase-quality.md` | Verify + Guard + Review parallel, Build for fixes |
+| 6. Deliver | `handlers/phase-deliver.md` | PR pipeline + cleanup |
 
 ## Flags
 
 | Flag | Behavior |
 |------|----------|
-| `--resume` | Read `specs/autopilot/manifest.md`, find last incomplete sub-spec, continue from there. Skip already-completed sub-specs. |
-| `--no-watch` | Create PR without the watch-and-fix loop (step 14 of ai-pr). Useful for draft delivery or when CI is managed externally. |
+| `--resume` | Read `specs/autopilot/manifest.md`, determine pipeline state, re-enter at the correct phase/wave. Never re-executes completed phases. See Resume Protocol in phase-deliver handler. |
+| `--no-watch` | Create PR without the watch-and-fix loop. Useful for draft delivery or when CI is managed externally. |
 
 ## Thin Orchestrator Principle
 
 This skill READS other skills' SKILL.md files and EMBEDS their instructions into subagent prompts. It does NOT contain implementation logic. The phases delegate to:
 
-- `/ai-dispatch` patterns for task execution
-- `/ai-verify` for anti-hallucination gates
-- `/ai-pr` for pull request creation and delivery
-- `/ai-commit` for incremental commit protocol
+- `.github/prompts/ai-verify.prompt.md` for quality gates (Phase 5)
+- `.github/prompts/ai-review.prompt.md` for code review (Phase 5)
+- `.github/prompts/ai-pr.prompt.md` for pull request creation and delivery (Phase 6)
+- `.github/prompts/ai-commit.prompt.md` for incremental commit protocol (Phase 4, 5)
 
 When those skills improve, autopilot benefits automatically. No duplication, no drift.
 
 ## Governance
 
-DEC-023: User invocation of `/ai-autopilot` is the single approval gate. All internal gates (spec validation, sub-spec review, verify gates) are automatic and cannot be bypassed.
+DEC-023: User invocation of `/ai-autopilot` is the single approval gate. All internal gates (sub-spec validation, DAG verification, quality convergence) are automatic and cannot be bypassed.
 
 State transitions are recorded on disk in `specs/autopilot/manifest.md` -- never in agent memory. Any phase can be audited post-hoc.
+
+D7: plan.md is not required. Phase 2 agents generate their own detailed plans per sub-spec.
 
 ## Failure Recovery
 
 | Scenario | Recovery |
 |----------|----------|
-| Verify fails 2x on a sub-spec | Pipeline halts. Report includes: sub-spec, attempts, verify reports, rollback command. |
-| Mid-pipeline crash | Run `/ai-autopilot --resume`. Reads manifest.md, continues from last incomplete sub-spec. |
-| Final verify fails | Escalate to user. Do not attempt fixes on the assembled changeset. |
-| PR watch loop fails 3x | Escalate per ai-pr handler protocol. |
+| Phase 2 agent fails (timeout, crash) | Retry once. If second attempt fails: mark sub-spec `plan-failed`. Evaluate subset viability. |
+| Build agent fails in Phase 4 | Mark sub-spec `blocked`. Cascade-block dependents. Continue with remaining sub-specs in wave. |
+| Quality loop exhausted (3 rounds) with blockers | STOP. Do NOT create PR. Report blockers and escalate to user. |
+| Quality loop exhausted with only criticals/highs | Proceed to Phase 6. PR created but flagged. Integrity Report documents remaining issues. |
+| Mid-pipeline crash | Run `/ai-autopilot --resume`. Reads manifest, continues from last incomplete phase/wave. |
+| Final cleanup fails | Warn but do not block -- PR is already delivered. |
 
-Rollback: `git reset --soft HEAD~N` where N = number of sub-spec commits. Included in failure reports.
+Rollback: `git reset --soft HEAD~N` where N = number of wave + quality-fix commits. Included in failure reports.
 
 ## Telemetry
 
@@ -147,35 +152,39 @@ Events emitted at each phase transition via hook system:
 | Event | Trigger |
 |-------|---------|
 | `autopilot.started` | Step 0 completes |
-| `autopilot.split_complete` | Step 1 completes |
-| `autopilot.subspec_complete` | Each sub-spec passes verify |
-| `autopilot.subspec_failed` | Sub-spec fails verify 2x |
-| `autopilot.final_verify` | Step 3 completes |
-| `autopilot.pr_created` | Step 4 completes |
-| `autopilot.done` | Step 5 completes |
+| `autopilot.decompose_complete` | Phase 1 completes |
+| `autopilot.deep_plan_complete` | Phase 2 completes |
+| `autopilot.dag_built` | Phase 3 completes |
+| `autopilot.subspec_complete` | Each sub-spec passes implementation |
+| `autopilot.quality_round` | Each quality loop round completes |
+| `autopilot.subspec_failed` | Sub-spec blocked or cascade-blocked |
+| `autopilot.final_verify` | Phase 5 completes (pass or exhausted) |
+| `autopilot.pr_created` | Phase 6 PR created |
+| `autopilot.done` | Phase 6 cleanup completes |
 
 ## Quick Reference
 
 ```
-/ai-autopilot "implement spec-062"     # full pipeline
-/ai-autopilot --resume                  # continue from failure
+/ai-autopilot "implement spec-065"     # full 6-phase pipeline
+/ai-autopilot --resume                  # continue from failure point
 /ai-autopilot "spec" --no-watch         # skip PR watch loop
 ```
 
 ## Common Mistakes
 
 - Running on draft or unapproved specs -- brainstorm approval is a hard prerequisite.
-- Running on specs with <5 tasks -- use `/ai-dispatch` instead, autopilot overhead is not justified.
+- Running on specs with < 3 concerns -- use `/ai-dispatch` instead, autopilot overhead is not justified.
 - Cross-repo work -- autopilot operates within a single repository.
-- Skipping the verify gate -- every sub-spec MUST pass verify before the next begins.
+- Expecting plan.md to exist -- v2 does NOT require it. Phase 2 agents plan independently.
 - Carrying context between sub-specs -- each build agent gets fresh context by design.
-- Attempting to fix failures after final verify -- escalate, do not compound errors.
+- Attempting to fix failures after quality loop exhaustion with blockers -- escalate, do not compound errors.
+- Hand-editing mirrors instead of running `sync_command_mirrors.py` after changes.
 
 ## Integration
 
-- **Called by**: user directly (after `/ai-brainstorm` + `/ai-plan` approval)
-- **Reads**: `ai-dispatch/SKILL.md`, `ai-verify/SKILL.md`, `ai-pr/SKILL.md`, `ai-commit/SKILL.md`
-- **Delegates to**: Agent(Explore) for research, Agent(Build) for implementation, Agent(Verify) for gates
+- **Called by**: user directly (after `/ai-brainstorm` approval)
+- **Reads**: `ai-verify/SKILL.md`, `ai-review/SKILL.md`, `ai-pr/SKILL.md`, `ai-commit/SKILL.md`
+- **Delegates to**: Agent(Explore) for research, Agent(Build) for implementation, Agent(Verify) for gates, Agent(Guard) for governance advisory, Agent(Review) for code review
 - **Transitions to**: `/ai-cleanup` after merge, or back to user on failure
 
 $ARGUMENTS
