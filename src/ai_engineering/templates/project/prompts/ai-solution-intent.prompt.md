@@ -167,6 +167,9 @@ Show sections populated vs TBD.
 **Writing patterns**: use `/ai-write` conventions — audience = technical team, concise, no filler.
 
 **Ownership**: `docs/solution-intent.md` is project-managed. The sync mode updates data fields but never removes user-authored content. The framework updater (`ai-eng update`) does not touch this file.
+
+---
+
 # Handler: sync
 
 ## Purpose
@@ -213,6 +216,9 @@ Surgical update of specific sections based on project changes. Never rewrites th
 - **Idempotent** -- running sync twice with no changes produces no diff
 - **Diagrams** -- update Mermaid diagrams if the underlying data changed (e.g., new module in architecture)
 - **TBD sections** -- do NOT fill TBD sections during sync. Only init or user can populate those.
+
+---
+
 # Handler: validate
 
 ## Purpose

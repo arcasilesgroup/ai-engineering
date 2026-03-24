@@ -175,6 +175,9 @@ Present 2-3 approaches with this structure:
 - Edge cases have been discussed
 
 Hand off to spec drafting (main SKILL.md step 4).
+
+---
+
 # Handler: Spec Review
 
 ## Purpose

@@ -111,6 +111,9 @@ Rolling (VM batches), Canary (incremental traffic), Blue-Green (slot swap). Each
 - Updated workflow files with new patterns.
 - Validation report (`actionlint`).
 - Migration notes for any breaking changes.
+
+---
+
 # Handler: generate
 
 Create new CI/CD pipeline from project analysis.
@@ -159,6 +162,9 @@ Create new CI/CD pipeline from project analysis.
 - `dependabot.yml` configuration.
 - Validation report.
 - Branch Protection recommendations.
+
+---
+
 # Handler: validate
 
 Check CI/CD pipeline compliance against governance standards.

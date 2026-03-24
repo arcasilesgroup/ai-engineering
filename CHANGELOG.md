@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- **Mirror sync: 46 handler files added to `.agents/` mirrors** -- write (4), review (8), debug (8), create (3), solution-intent (3) handlers were missing from Codex/Gemini mirrors (root + template). Routing tables referenced nonexistent files.
+- **Skill count synced to 32 across all instruction files** -- CLAUDE.md, AGENTS.md, copilot-instructions.md, and template manifest updated. `ai-instinct` added to Meta group and Effort Levels table (max: 8 -> 9).
+- **Handler separators in sync script** -- `sync_command_mirrors.py` now inserts `---` between handler sections in concatenated `.prompt.md` files, matching the existing `ai-debug` convention.
+- **`deployment-patterns.md` mirror** -- canonical governance context file was missing its template mirror.
+
+### Added
+- **`test_handler_routing_completeness`** -- 90 parametrized tests verifying every handler referenced in SKILL.md routing tables exists on disk across all 4 IDE mirror trees.
+- **`test_template_prompt_parity`** -- 35 tests ensuring `.github/prompts/` and template prompt files stay byte-for-byte identical.
+
+### Fixed
 - **CI false positives eliminated** — Dependabot PRs that change workflow YAML now trigger full CI (paths-filter expanded). Snyk job reports `skipped` instead of vacuous `success` when token is absent. Gate Trailer verification checks ALL non-merge PR commits (not just HEAD). SonarCloud fails when zero coverage reports exist. Semgrep skip ratio capped at 50%.
 - **Install Smoke false positives eliminated** — `ai-eng doctor` now exits 0 (ok), 1 (fail), or 2 (warnings only) instead of always 0. `ai-eng version` output validated against expected pattern. Doctor JSON output parsed and asserted. Git config sets `init.defaultBranch main`.
 

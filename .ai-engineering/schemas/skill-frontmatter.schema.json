@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://arcasilesgroup.github.io/ai-engineering/schemas/skill-frontmatter.schema.json",
+  "title": "Skill Frontmatter",
+  "description": "Validates YAML frontmatter of SKILL.md files.",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^ai-[a-z][a-z0-9-]*$"
+    },
+    "description": {
+      "type": "string",
+      "minLength": 10
+    },
+    "effort": {
+      "type": "string",
+      "enum": ["max", "high", "medium", "low"]
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "argument-hint": {
+      "type": "string"
+    },
+    "tags": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "type": {
+      "type": "string",
+      "enum": ["workflow", "delivery", "enterprise", "teaching", "writing", "sdlc", "meta"]
+    },
+    "requires": {
+      "type": "object",
+      "properties": {
+        "bins": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "env": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "skills": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^ai-[a-z][a-z0-9-]*$"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "platforms": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["claude_code", "github_copilot", "codex", "gemini", "cursor"]
+      },
+      "uniqueItems": true
+    },
+    "deprecated": {
+      "type": "boolean"
+    },
+    "successor": {
+      "type": "string",
+      "pattern": "^ai-[a-z][a-z0-9-]*$"
+    }
+  },
+  "required": ["name", "description", "effort"],
+  "additionalProperties": false
+}

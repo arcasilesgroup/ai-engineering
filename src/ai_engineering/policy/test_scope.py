@@ -326,6 +326,8 @@ TEST_SCOPE_RULES: list[ScopeRule] = [
                 "tests/unit/test_agent_schema_validation.py",
                 "tests/unit/test_real_project_integrity.py",
                 "tests/unit/test_sync_mirrors.py",
+                "tests/unit/test_handler_routing_completeness.py",
+                "tests/unit/test_template_prompt_parity.py",
             ],
             "integration": [],
             "e2e": [],

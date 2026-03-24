@@ -1,0 +1,142 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://arcasilesgroup.github.io/ai-engineering/schemas/hooks.schema.json",
+  "title": "Hooks Configuration",
+  "description": "Validates hooks configuration. Supports both full settings.json format (with permissions + hooks) and a bare hooks map.",
+  "$defs": {
+    "hookEventName": {
+      "type": "string",
+      "enum": [
+        "PreToolUse",
+        "PostToolUse",
+        "UserPromptSubmit",
+        "Stop",
+        "SubagentStop",
+        "PreCompact",
+        "PostCompact",
+        "Notification",
+        "ModelResponse",
+        "ToolError",
+        "McpConnectionChange",
+        "SessionPause",
+        "SessionResume",
+        "TaskStart",
+        "TaskComplete",
+        "ContextTruncation",
+        "RateLimitHit",
+        "PermissionRequest"
+      ]
+    },
+    "hookCommand": {
+      "type": "object",
+      "properties": {
+        "type": { "type": "string", "const": "command" },
+        "command": { "type": "string", "minLength": 1 },
+        "timeout": { "type": "integer", "minimum": 1 },
+        "async": { "type": "boolean" },
+        "fail_open": { "type": "boolean" }
+      },
+      "required": ["type", "command"],
+      "additionalProperties": false
+    },
+    "hookHttp": {
+      "type": "object",
+      "properties": {
+        "type": { "type": "string", "const": "http" },
+        "url": { "type": "string", "format": "uri", "minLength": 1 },
+        "headers": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "timeout": { "type": "integer", "minimum": 1 },
+        "fail_open": { "type": "boolean" }
+      },
+      "required": ["type", "url"],
+      "additionalProperties": false
+    },
+    "hookPrompt": {
+      "type": "object",
+      "properties": {
+        "type": { "type": "string", "const": "prompt" },
+        "prompt": { "type": "string", "minLength": 1 },
+        "model": { "type": "string" },
+        "timeout": { "type": "integer", "minimum": 1 },
+        "fail_open": { "type": "boolean" }
+      },
+      "required": ["type", "prompt"],
+      "additionalProperties": false
+    },
+    "hookItem": {
+      "oneOf": [
+        { "$ref": "#/$defs/hookCommand" },
+        { "$ref": "#/$defs/hookHttp" },
+        { "$ref": "#/$defs/hookPrompt" }
+      ]
+    },
+    "matcherValue": {
+      "oneOf": [
+        {
+          "type": "string",
+          "minLength": 1
+        },
+        {
+          "type": "object",
+          "additionalProperties": true
+        }
+      ]
+    },
+    "matcherEntry": {
+      "type": "object",
+      "properties": {
+        "matcher": { "$ref": "#/$defs/matcherValue" },
+        "hooks": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/hookItem" },
+          "minItems": 1
+        },
+        "description": { "type": "string" }
+      },
+      "required": ["hooks"],
+      "additionalProperties": false
+    },
+    "hooksMap": {
+      "type": "object",
+      "propertyNames": { "$ref": "#/$defs/hookEventName" },
+      "additionalProperties": {
+        "type": "array",
+        "items": { "$ref": "#/$defs/matcherEntry" },
+        "minItems": 1
+      }
+    },
+    "permissions": {
+      "type": "object",
+      "properties": {
+        "allow": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "deny": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "oneOf": [
+    {
+      "type": "object",
+      "description": "Full settings.json format with permissions and hooks.",
+      "properties": {
+        "permissions": { "$ref": "#/$defs/permissions" },
+        "hooks": { "$ref": "#/$defs/hooksMap" }
+      },
+      "required": ["hooks"],
+      "additionalProperties": false
+    },
+    {
+      "$ref": "#/$defs/hooksMap",
+      "description": "Bare hooks map (keys are event names, values are matcher arrays)."
+    }
+  ]
+}
