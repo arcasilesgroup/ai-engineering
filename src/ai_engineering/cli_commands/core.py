@@ -174,7 +174,9 @@ def install_cmd(
     # Determine final selections: flags > wizard > detection > defaults
     all_resolved = all(k in resolved for k in ("stacks", "providers", "ides", "vcs"))
 
-    if all_resolved or is_json_mode():
+    import sys
+
+    if all_resolved or is_json_mode() or not sys.stdin.isatty():
         resolved_stacks = resolved.get("stacks", detected.stacks or ["python"])
         resolved_providers = resolved.get("providers", detected.providers or ["claude_code"])
         resolved_ides = resolved.get("ides", detected.ides or ["terminal"])

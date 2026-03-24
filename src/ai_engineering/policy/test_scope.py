@@ -231,6 +231,8 @@ TEST_SCOPE_RULES: list[ScopeRule] = [
                 "tests/unit/installer/test_merge.py",
                 "tests/unit/installer/test_detect.py",
                 "tests/unit/installer/test_ui.py",
+                "tests/unit/installer/test_autodetect.py",
+                "tests/unit/installer/test_wizard.py",
             ],
             "integration": [
                 "tests/integration/test_installer_integration.py",
