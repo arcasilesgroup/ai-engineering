@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Copilot subagent orchestration (spec-064)** -- full parity with Claude Code multi-agent delegation. 5 orchestrator agents (Autopilot, Build, Plan, Review, Verify) can now delegate to subagents via `agents` property, `handoffs` (guided transitions), and per-agent `hooks`. Sync pipeline injects Copilot-specific properties via `AGENT_METADATA` — canonical `.claude/` sources remain clean. Works across VS Code, CLI, and Coding Agent.
+- **`docs/copilot-subagents.md`** -- comprehensive guide covering sync architecture, Copilot properties, usage examples for all 3 environments, capabilities matrix, and handoff chain diagram.
+- **DEC-024** -- Copilot subagent orchestration via sync pipeline (architecture decision, active, high criticality).
 - **`/ai-autopilot` skill (spec-063)** -- multi-spec autonomous orchestrator that splits large specs into focused sub-specs, executes sequentially with fresh-context agents, verifies anti-hallucination gates, and delivers via PR. 5 phase handlers (split, explore, execute, verify, pr) with `--resume` and `--no-watch` flags.
 - **`ai-autopilot` agent** -- 9th agent (orchestrator role), read-only + bash tools, delegates all code changes to subagents.
 - **DEC-023 governance override** -- autopilot invocation is approval for the full pipeline; internal gates are automatic with 2-failure stop.
@@ -18,11 +21,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Strategic compact hook** -- `scripts/hooks/strategic-compact.py` with Claude Code `Edit|Write|MultiEdit` hook for strategic context management during long sessions.
 
 ### Changed
+- **Sync script (`sync_command_mirrors.py`)** -- extended `AgentMeta` dataclass with `copilot_agents`, `copilot_handoffs`, `copilot_hooks` fields; `generate_copilot_agent()` serializes new frontmatter properties for 5 orchestrator agents.
+- **Canonical agent instructions** -- replaced `Dispatch Agent(X)` syntax with "Use the X agent" pattern in `ai-autopilot.md` and `ai-build.md`; added "Subagent Orchestration" section to autopilot; added Guard/Explorer delegation references to Build.
+- **Copilot instructions** -- added "Subagent Orchestration" section to `.github/copilot-instructions.md` with orchestrator delegation table.
 - **Manifest registry** -- skill count 32 -> 37, agent count 8 -> 9, all new skills registered with types and tags.
 - **Skill frontmatter validator** -- added `mcp` and `skills` as valid keys in `requires` block.
 - **All IDE mirrors updated** -- `.claude/`, `.github/`, `.agents/`, and template mirrors regenerated for all new and modified skills.
 
 ### Fixed
+- **Autopilot skill cross-platform path bug** -- `.claude/skills/ai-pr/handlers/watch.md` handler path in `phase-pr.md` replaced with `.claude/skills/ai-pr/SKILL.md step 14` (handler paths aren't translated by sync regex).
+- **Dispatch skill agent names** -- normalized generic "subagent" references to canonical agent names (`ai-build`, `ai-verify`, `ai-guard`) for consistent cross-platform translation.
 - **Mirror sync: 46 handler files added to `.agents/` mirrors** -- write (4), review (8), debug (8), create (3), solution-intent (3) handlers were missing from Codex/Gemini mirrors (root + template). Routing tables referenced nonexistent files.
 - **Skill count synced to 32 across all instruction files** -- CLAUDE.md, AGENTS.md, copilot-instructions.md, and template manifest updated. `ai-instinct` added to Meta group and Effort Levels table (max: 8 -> 9).
 - **Handler separators in sync script** -- `sync_command_mirrors.py` now inserts `---` between handler sections in concatenated `.prompt.md` files, matching the existing `ai-debug` convention.

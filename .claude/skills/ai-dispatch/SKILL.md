@@ -80,7 +80,7 @@ Each subagent receives a focused context window:
 ```yaml
 task: T-2.1
 description: "Implement the parse_config function"
-agent: build
+agent: ai-build
 scope:
   files: ["src/config.py", "tests/test_config.py"]
   boundaries: ["Do NOT modify src/main.py", "Do NOT touch hooks/"]
@@ -107,10 +107,10 @@ Never loop silently. Never retry the same approach more than twice.
 Update tasks.md in real-time:
 
 ```markdown
-- [x] T-1.1: Create config module @build -- DONE
-- [x] T-1.2: Add validation logic @build -- DONE_WITH_CONCERNS (perf warning)
-- [ ] T-2.1: Write integration tests @build -- IN PROGRESS
-- [ ] T-2.2: Security scan @verify -- PENDING
+- [x] T-1.1: Create config module @ai-build -- DONE
+- [x] T-1.2: Add validation logic @ai-build -- DONE_WITH_CONCERNS (perf warning)
+- [ ] T-2.1: Write integration tests @ai-build -- IN PROGRESS
+- [ ] T-2.2: Security scan @ai-verify -- PENDING
 ```
 
 ## Common Mistakes
@@ -124,7 +124,7 @@ Update tasks.md in real-time:
 ## Integration
 
 - **Called by**: user directly (after `/ai-plan` approval)
-- **Calls**: `ai-build agent` (build tasks), `/ai-verify` (scan tasks), `/ai-guard` (gate checks)
+- **Calls**: `ai-build` (build tasks), `ai-verify` (scan tasks), `ai-guard` (gate checks)
 - **Transitions to**: `/ai-commit` (after all tasks DONE), or back to `/ai-plan` (if re-plan needed)
 
 $ARGUMENTS

@@ -50,6 +50,23 @@ Telemetry is **automatic via hooks** — configured in `.github/hooks/hooks.json
 - All events → `.ai-engineering/state/audit-log.ndjson`
 - Dashboards: `ai-eng observe [engineer|team|ai|dora|health]`
 
+## Subagent Orchestration
+
+Orchestrator agents can delegate tasks to specialized subagents via the `agent` tool:
+
+| Orchestrator | Delegates To | Handoffs |
+|-------------|-------------|----------|
+| Autopilot | Build, Explorer, Verify, Plan, Guard | → Create PR |
+| Build | Guard, Explorer | → Verify, → Review |
+| Plan | Explorer, Guard | → Autopilot |
+| Review | Explorer | → Build |
+| Verify | Explorer | — |
+
+Leaf agents (Explorer, Guard, Guide, Simplifier) cannot delegate — they are terminal nodes.
+
+Handoffs provide guided transitions between agents in VS Code (buttons after responses).
+Per-agent hooks (e.g., auto-format in Build) require `chat.useCustomAgentHooks: true`.
+
 ## Quick Reference
 
 - Skills (37): `.github/prompts/ai-<name>.prompt.md`

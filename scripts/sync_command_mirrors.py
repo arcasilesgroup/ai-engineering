@@ -70,6 +70,9 @@ class AgentMeta:
     color: str
     copilot_tools: tuple[str, ...]
     claude_tools: tuple[str, ...]
+    copilot_agents: tuple[str, ...] = ()
+    copilot_handoffs: tuple[dict, ...] = ()
+    copilot_hooks: dict | None = None
 
 
 # ── Agent metadata (single source for all surfaces) ────────────────────────
@@ -92,6 +95,22 @@ AGENT_METADATA: dict[str, AgentMeta] = {
             "testFailures",
         ),
         claude_tools=("Read", "Write", "Edit", "Bash", "Glob", "Grep"),
+        copilot_agents=("Guard", "Explorer"),
+        copilot_handoffs=(
+            {
+                "label": "✅ Verify Changes",
+                "agent": "Verify",
+                "prompt": "Verify the implementation changes made above.",
+                "send": False,
+            },
+            {
+                "label": "🔍 Review Changes",
+                "agent": "Review",
+                "prompt": "Review the code changes made above.",
+                "send": False,
+            },
+        ),
+        copilot_hooks={"PostToolUse": [{"type": "command", "command": "ruff format --quiet"}]},
     ),
     "explore": AgentMeta(
         display_name="Explorer",
@@ -158,6 +177,15 @@ AGENT_METADATA: dict[str, AgentMeta] = {
             "testFailures",
         ),
         claude_tools=("Read", "Glob", "Grep", "Bash", "Write", "Edit"),
+        copilot_agents=("Explorer", "Guard"),
+        copilot_handoffs=(
+            {
+                "label": "▶ Dispatch Implementation",
+                "agent": "Autopilot",
+                "prompt": "Execute the plan outlined above following the approved spec.",
+                "send": False,
+            },
+        ),
     ),
     "review": AgentMeta(
         display_name="Review",
@@ -175,6 +203,15 @@ AGENT_METADATA: dict[str, AgentMeta] = {
             "search",
         ),
         claude_tools=("Read", "Glob", "Grep"),
+        copilot_agents=("Explorer",),
+        copilot_handoffs=(
+            {
+                "label": "🔧 Fix Issues",
+                "agent": "Build",
+                "prompt": "Fix the issues identified in the review above.",
+                "send": False,
+            },
+        ),
     ),
     "simplify": AgentMeta(
         display_name="Simplifier",
@@ -214,6 +251,7 @@ AGENT_METADATA: dict[str, AgentMeta] = {
             "search",
         ),
         claude_tools=("Read", "Glob", "Grep", "Bash"),
+        copilot_agents=("Explorer",),
     ),
     "autopilot": AgentMeta(
         display_name="Autopilot",
@@ -232,6 +270,15 @@ AGENT_METADATA: dict[str, AgentMeta] = {
             "search",
         ),
         claude_tools=("Read", "Glob", "Grep", "Bash"),
+        copilot_agents=("Build", "Explorer", "Verify", "Plan", "Guard"),
+        copilot_handoffs=(
+            {
+                "label": "📋 Create PR",
+                "agent": "agent",
+                "prompt": "Create a PR with the changes from the autopilot execution.",
+                "send": False,
+            },
+        ),
     ),
 }
 
@@ -583,21 +630,51 @@ def generate_copilot_prompt(name: str, skill_path: Path) -> str:
 
 def generate_copilot_agent(name: str, meta: AgentMeta, agent_path: Path) -> str:
     """Generate .github/agents/<name>.agent.md with full embedded content."""
+    import yaml
+
     body = read_body(agent_path)
     body = translate_refs(body, "copilot")
 
-    tools_str = ", ".join(meta.copilot_tools)
-    return (
-        f"---\n"
-        f'name: "{meta.display_name}"\n'
-        f'description: "{meta.description}"\n'
-        f"color: {meta.color}\n"
-        f"model: {meta.model}\n"
-        f"tools: [{tools_str}]\n"
-        f"---\n"
-        f"\n"
-        f"{body.rstrip()}\n"
-    )
+    # Build tools list — inject "agent" when subagents are declared
+    tools = list(meta.copilot_tools)
+    if meta.copilot_agents:
+        tools.append("agent")
+    tools_str = ", ".join(tools)
+
+    lines = [
+        "---",
+        f'name: "{meta.display_name}"',
+        f'description: "{meta.description}"',
+        f"color: {meta.color}",
+        f"model: {meta.model}",
+        f"tools: [{tools_str}]",
+    ]
+
+    if meta.copilot_agents:
+        agents_str = ", ".join(meta.copilot_agents)
+        lines.append(f"agents: [{agents_str}]")
+
+    if meta.copilot_handoffs:
+        handoffs_yaml = yaml.dump(
+            {"handoffs": [dict(h) for h in meta.copilot_handoffs]},
+            default_flow_style=False,
+            allow_unicode=True,
+            sort_keys=False,
+        ).rstrip()
+        lines.append(handoffs_yaml)
+
+    if meta.copilot_hooks is not None:
+        hooks_yaml = yaml.dump(
+            {"hooks": meta.copilot_hooks},
+            default_flow_style=False,
+            allow_unicode=True,
+            sort_keys=False,
+        ).rstrip()
+        lines.append(hooks_yaml)
+
+    lines.append("---")
+
+    return "\n".join(lines) + f"\n\n{body.rstrip()}\n"
 
 
 # ═══════════════════════════════════════════════════════════════════════════
