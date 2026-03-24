@@ -8,6 +8,7 @@ and performs an intelligent merge of ``.claude/settings.json`` when the
 from __future__ import annotations
 
 import contextlib
+import json
 import shutil
 from pathlib import Path
 
@@ -111,7 +112,8 @@ class HooksPhase:
         if not src.is_file():
             return
         if action.action_type == "merge":
-            merge_settings(src, dest, base=context.target)
+            template_data = json.loads(src.read_text(encoding="utf-8"))
+            merge_settings(template_data, dest, base=context.target)
             result.created.append(_SETTINGS_REL)
         elif action.action_type == "create":
             if copy_file_if_missing(src, dest):

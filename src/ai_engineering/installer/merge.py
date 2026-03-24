@@ -16,7 +16,7 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 
-def merge_settings(template_path: Path, target_path: Path, *, base: Path) -> Path:
+def merge_settings(template_data: dict, target_path: Path, *, base: Path) -> Path:
     """Merge a framework template ``settings.json`` into an existing target.
 
     Merge semantics:
@@ -31,7 +31,8 @@ def merge_settings(template_path: Path, target_path: Path, *, base: Path) -> Pat
     template is copied as-is.
 
     Args:
-        template_path: Path to the framework template file.
+        template_data: Pre-parsed template dict (caller loads from package
+            resources; not a user-controlled path).
         target_path: Path to the user's existing settings file.
         base: Trusted root directory; ``target_path`` must resolve within it (CWE-22).
 
@@ -42,19 +43,16 @@ def merge_settings(template_path: Path, target_path: Path, *, base: Path) -> Pat
         ValueError: If ``target_path`` resolves outside ``base``.
     """
     # Validate target_path is within the trusted base (CWE-22 / S2083).
-    # Use os.path.realpath + string-prefix check so that the sanitized path
-    # variable is not tainted by the original parameter in static analysis.
+    # Use os.path.realpath + string-prefix so the safe variable is derived
+    # from validated strings, not from the tainted parameter.
     real_base = os.path.realpath(base)
     real_target = os.path.realpath(target_path)
     if real_target != real_base and not real_target.startswith(real_base + os.sep):
         msg = f"Path traversal rejected: {target_path!r} is outside trusted base {base!r}"
         raise ValueError(msg)
 
-    # Operate exclusively on the realpath-derived safe variable from here on.
+    # Use the realpath-derived safe variable for all I/O from here on.
     safe_target = Path(real_target)
-    template_path = Path(os.path.realpath(template_path))
-
-    template_data = json.loads(template_path.read_text(encoding="utf-8"))
 
     try:
         target_data = json.loads(safe_target.read_text(encoding="utf-8"))

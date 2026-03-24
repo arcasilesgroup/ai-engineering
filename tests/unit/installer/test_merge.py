@@ -20,41 +20,24 @@ pytestmark = pytest.mark.unit
 class TestMergeSettings:
     def test_adds_missing_hooks(self, tmp_path: Path) -> None:
         """Template hooks are added when missing from target."""
-        template = tmp_path / "template.json"
+        template_data = {
+            "permissions": {"allow": [], "deny": []},
+            "hooks": {
+                "UserPromptSubmit": [
+                    {
+                        "matcher": "/ai-",
+                        "hooks": [{"type": "command", "command": "test", "timeout": 10}],
+                    }
+                ],
+                "Stop": [
+                    {
+                        "matcher": "",
+                        "hooks": [{"type": "command", "command": "cost", "timeout": 10}],
+                    }
+                ],
+            },
+        }
         target = tmp_path / "target.json"
-        template.write_text(
-            json.dumps(
-                {
-                    "permissions": {"allow": [], "deny": []},
-                    "hooks": {
-                        "UserPromptSubmit": [
-                            {
-                                "matcher": "/ai-",
-                                "hooks": [
-                                    {
-                                        "type": "command",
-                                        "command": "test",
-                                        "timeout": 10,
-                                    }
-                                ],
-                            }
-                        ],
-                        "Stop": [
-                            {
-                                "matcher": "",
-                                "hooks": [
-                                    {
-                                        "type": "command",
-                                        "command": "cost",
-                                        "timeout": 10,
-                                    }
-                                ],
-                            }
-                        ],
-                    },
-                }
-            )
-        )
         target.write_text(
             json.dumps(
                 {
@@ -63,20 +46,14 @@ class TestMergeSettings:
                         "UserPromptSubmit": [
                             {
                                 "matcher": "/ai-",
-                                "hooks": [
-                                    {
-                                        "type": "command",
-                                        "command": "custom",
-                                        "timeout": 5,
-                                    }
-                                ],
+                                "hooks": [{"type": "command", "command": "custom", "timeout": 5}],
                             }
                         ],
                     },
                 }
             )
         )
-        merge_settings(template, target, base=tmp_path)
+        merge_settings(template_data, target, base=tmp_path)
         result = json.loads(target.read_text())
         assert "Stop" in result["hooks"]  # Added from template
         # User's existing hook preserved (same matcher)
@@ -84,16 +61,11 @@ class TestMergeSettings:
 
     def test_preserves_user_hooks(self, tmp_path: Path) -> None:
         """User-added hooks with unique matchers are preserved."""
-        template = tmp_path / "template.json"
+        template_data = {
+            "permissions": {"allow": [], "deny": []},
+            "hooks": {"Stop": [{"matcher": "", "hooks": []}]},
+        }
         target = tmp_path / "target.json"
-        template.write_text(
-            json.dumps(
-                {
-                    "permissions": {"allow": [], "deny": []},
-                    "hooks": {"Stop": [{"matcher": "", "hooks": []}]},
-                }
-            )
-        )
         target.write_text(
             json.dumps(
                 {
@@ -107,26 +79,18 @@ class TestMergeSettings:
                 }
             )
         )
-        merge_settings(template, target, base=tmp_path)
+        merge_settings(template_data, target, base=tmp_path)
         result = json.loads(target.read_text())
         matchers = [h["matcher"] for h in result["hooks"]["Stop"]]
         assert "custom" in matchers
 
     def test_preserves_user_permissions(self, tmp_path: Path) -> None:
         """User-added permission rules are preserved."""
-        template = tmp_path / "template.json"
+        template_data = {
+            "permissions": {"allow": ["Bash(ruff *)"], "deny": ["Bash(rm -rf *)"]},
+            "hooks": {},
+        }
         target = tmp_path / "target.json"
-        template.write_text(
-            json.dumps(
-                {
-                    "permissions": {
-                        "allow": ["Bash(ruff *)"],
-                        "deny": ["Bash(rm -rf *)"],
-                    },
-                    "hooks": {},
-                }
-            )
-        )
         target.write_text(
             json.dumps(
                 {
@@ -138,7 +102,7 @@ class TestMergeSettings:
                 }
             )
         )
-        merge_settings(template, target, base=tmp_path)
+        merge_settings(template_data, target, base=tmp_path)
         result = json.loads(target.read_text())
         assert "Bash(ruff *)" in result["permissions"]["allow"]
         assert "Bash(custom *)" in result["permissions"]["allow"]
@@ -146,9 +110,8 @@ class TestMergeSettings:
 
     def test_preserves_user_top_level_keys(self, tmp_path: Path) -> None:
         """User-added top-level keys are preserved."""
-        template = tmp_path / "template.json"
+        template_data = {"permissions": {"allow": [], "deny": []}, "hooks": {}}
         target = tmp_path / "target.json"
-        template.write_text(json.dumps({"permissions": {"allow": [], "deny": []}, "hooks": {}}))
         target.write_text(
             json.dumps(
                 {
@@ -158,35 +121,26 @@ class TestMergeSettings:
                 }
             )
         )
-        merge_settings(template, target, base=tmp_path)
+        merge_settings(template_data, target, base=tmp_path)
         result = json.loads(target.read_text())
         assert result.get("custom") == "value"
 
     def test_malformed_target_fallback(self, tmp_path: Path) -> None:
         """Malformed target JSON falls back to template copy."""
-        template = tmp_path / "template.json"
+        template_data = {"permissions": {"allow": [], "deny": []}, "hooks": {"Stop": []}}
         target = tmp_path / "target.json"
-        template.write_text(
-            json.dumps(
-                {
-                    "permissions": {"allow": [], "deny": []},
-                    "hooks": {"Stop": []},
-                }
-            )
-        )
         target.write_text("not json {{{")
-        merge_settings(template, target, base=tmp_path)
+        merge_settings(template_data, target, base=tmp_path)
         result = json.loads(target.read_text())
         assert "Stop" in result["hooks"]
 
     def test_malformed_target_creates_backup(self, tmp_path: Path) -> None:
         """Malformed target creates .json.bak before replacement."""
-        template = tmp_path / "template.json"
+        template_data = {"permissions": {"allow": [], "deny": []}, "hooks": {}}
         target = tmp_path / "target.json"
-        template.write_text(json.dumps({"permissions": {"allow": [], "deny": []}, "hooks": {}}))
         malformed_content = "not json {{{"
         target.write_text(malformed_content)
-        merge_settings(template, target, base=tmp_path)
+        merge_settings(template_data, target, base=tmp_path)
 
         backup = target.with_suffix(".json.bak")
         assert backup.exists()
@@ -196,12 +150,10 @@ class TestMergeSettings:
         """target_path outside base raises ValueError (CWE-22)."""
         base = tmp_path / "project"
         base.mkdir()
-        template = base / "template.json"
-        template.write_text(json.dumps({"permissions": {}, "hooks": {}}))
         outside = tmp_path / "outside.json"
         outside.write_text(json.dumps({"permissions": {}, "hooks": {}}))
         with pytest.raises(ValueError, match="Path traversal rejected"):
-            merge_settings(template, outside, base=base)
+            merge_settings({"permissions": {}, "hooks": {}}, outside, base=base)
 
 
 # ---------------------------------------------------------------------------
