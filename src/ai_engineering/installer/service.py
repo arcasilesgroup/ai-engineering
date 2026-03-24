@@ -207,12 +207,14 @@ def install_with_pipeline(
     )
 
     # Create the 6 phases in order
+    # StatePhase must run before HooksPhase so that _record_hook_hashes()
+    # can find the install-manifest.json when saving hook integrity hashes.
     phases = [
         DetectPhase(),
         GovernancePhase(),
         IdeConfigPhase(),
-        HooksPhase(),
         StatePhase(),
+        HooksPhase(),
         ToolsPhase(),
     ]
 
@@ -222,6 +224,23 @@ def install_with_pipeline(
 
     # Convert PipelineSummary to InstallResult
     result = _summary_to_install_result(summary, mode)
+
+    # Write operational readiness status into the manifest.
+    # The pipeline does not call _run_operational_phases(), so we compute
+    # the status here based on whether any manual steps were collected.
+    if not dry_run:
+        manifest_path = target / ".ai-engineering" / "state" / "install-manifest.json"
+        if manifest_path.is_file():
+            try:
+                manifest = read_json_model(manifest_path, InstallManifest)
+                if manifest.operational_readiness.status == "pending":
+                    status = "READY WITH MANUAL STEPS" if result.manual_steps else "READY"
+                    manifest.operational_readiness.status = status
+                    manifest.operational_readiness.manual_steps_required = bool(result.manual_steps)
+                    manifest.operational_readiness.manual_steps = list(result.manual_steps)
+                    write_json_model(manifest_path, manifest)
+            except Exception:
+                pass
 
     return result, summary
 

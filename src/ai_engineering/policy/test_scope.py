@@ -237,6 +237,7 @@ TEST_SCOPE_RULES: list[ScopeRule] = [
                 "tests/integration/test_install_operational_flows.py",
                 "tests/integration/test_provider_commands.py",
                 "tests/integration/test_install_matrix.py",
+                "tests/integration/test_phase_failure.py",
             ],
             "e2e": [
                 "tests/e2e/test_install_clean.py",
@@ -416,8 +417,8 @@ TEST_SCOPE_RULES: list[ScopeRule] = [
         name="templates",
         source_globs=["src/ai_engineering/templates/**/*.py"],
         tiers={
-            "unit": ["tests/unit/installer/test_phases.py"],
-            "integration": ["tests/integration/test_install_matrix.py"],
+            "unit": ["tests/unit/test_template_parity.py"],
+            "integration": [],
             "e2e": [],
         },
     ),
