@@ -3,7 +3,8 @@ name: "Verify"
 description: "7-mode assessment: governance, security, quality, performance, a11y, feature-gap, architecture -- produces GO/NO-GO verdicts."
 color: green
 model: opus
-tools: [codebase, githubRepo, problems, readFile, runCommands, search]
+tools: [codebase, githubRepo, problems, readFile, runCommands, search, agent]
+agents: [Explorer]
 ---
 
 

@@ -72,7 +72,7 @@ If existing PR found: extend body per ai-pr protocol (append, never overwrite).
 
 If `--no-watch` flag was passed: skip to Step 6.
 
-Read `.claude/skills/ai-pr/handlers/watch.md` and execute the full watch-and-fix loop:
+Read `.claude/skills/ai-pr/SKILL.md` step 14 and execute the full watch-and-fix loop:
 
 - Poll every 60s (active) or 180s (passive)
 - Autonomously fix CI failures via commit pipeline (ai-commit steps 0-6)
