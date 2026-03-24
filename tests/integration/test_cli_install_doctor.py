@@ -88,10 +88,12 @@ class TestInstallCommand:
     ) -> None:
         result = runner.invoke(
             app,
-            ["install", str(installed_dir), "--stack", "python"],
+            ["install", str(installed_dir), "--stack", "python", "--non-interactive"],
         )
         assert result.exit_code == 0
-        assert "already installed" in result.output
+        # Non-interactive mode produces JSON; check the already_installed field
+        data = json.loads(result.output)
+        assert data["result"]["already_installed"] is True
 
 
 # ---------------------------------------------------------------------------

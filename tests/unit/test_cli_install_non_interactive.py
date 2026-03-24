@@ -55,6 +55,26 @@ class TestNonInteractiveFlagExists:
 # ---------------------------------------------------------------------------
 
 
+def _mock_install_with_pipeline() -> MagicMock:
+    """Build a mock for install_with_pipeline that returns (InstallResult, PipelineSummary)."""
+    from ai_engineering.installer.phases.pipeline import PipelineSummary
+
+    mock_result = MagicMock(
+        governance_files=MagicMock(created=[Path("a")]),
+        project_files=MagicMock(created=[Path("b")]),
+        state_files=[Path("c")],
+        hooks=MagicMock(installed=[]),
+        readiness_status="pending",
+        already_installed=False,
+        manual_steps=[],
+        guide_text="",
+        total_created=3,
+    )
+    mock_summary = PipelineSummary(dry_run=False)
+    mock_fn = MagicMock(return_value=(mock_result, mock_summary))
+    return mock_fn
+
+
 class TestNonInteractiveSkipsPrompts:
     """When --non-interactive is passed, install must not call any prompt."""
 
@@ -67,19 +87,10 @@ class TestNonInteractiveSkipsPrompts:
         """
         # Arrange
         app = create_app()
-        mock_install = MagicMock()
-        mock_install.return_value = MagicMock(
-            governance_files=MagicMock(created=[Path("a")]),
-            project_files=MagicMock(created=[Path("b")]),
-            state_files=[Path("c")],
-            readiness_status="pending",
-            already_installed=False,
-            manual_steps=[],
-            guide_text="",
-        )
+        mock_install = _mock_install_with_pipeline()
 
         with (
-            patch(f"{_CORE}.install", mock_install),
+            patch(f"{_CORE}.install_with_pipeline", mock_install),
             patch(f"{_CORE}.typer.prompt") as mock_prompt,
             patch(f"{_CORE}.typer.confirm") as mock_confirm,
             patch(f"{_CORE}.detect_platforms", return_value=[]),
@@ -103,19 +114,10 @@ class TestNonInteractiveSkipsPrompts:
         """In non-interactive mode without --vcs, the default 'github' must be used."""
         # Arrange
         app = create_app()
-        mock_install = MagicMock()
-        mock_install.return_value = MagicMock(
-            governance_files=MagicMock(created=[Path("a")]),
-            project_files=MagicMock(created=[Path("b")]),
-            state_files=[],
-            readiness_status="pending",
-            already_installed=False,
-            manual_steps=[],
-            guide_text="",
-        )
+        mock_install = _mock_install_with_pipeline()
 
         with (
-            patch(f"{_CORE}.install", mock_install),
+            patch(f"{_CORE}.install_with_pipeline", mock_install),
             patch("ai_engineering.git.operations.run_git", return_value=(False, "")),
             patch(f"{_CORE}.detect_platforms", return_value=[]),
         ):
@@ -138,19 +140,10 @@ class TestNonInteractiveSkipsPrompts:
         """In non-interactive mode without --provider, default ['claude_code'] must be used."""
         # Arrange
         app = create_app()
-        mock_install = MagicMock()
-        mock_install.return_value = MagicMock(
-            governance_files=MagicMock(created=[Path("a")]),
-            project_files=MagicMock(created=[Path("b")]),
-            state_files=[],
-            readiness_status="pending",
-            already_installed=False,
-            manual_steps=[],
-            guide_text="",
-        )
+        mock_install = _mock_install_with_pipeline()
 
         with (
-            patch(f"{_CORE}.install", mock_install),
+            patch(f"{_CORE}.install_with_pipeline", mock_install),
             patch("ai_engineering.git.operations.run_git", return_value=(False, "")),
             patch(f"{_CORE}.detect_platforms", return_value=[]),
         ):

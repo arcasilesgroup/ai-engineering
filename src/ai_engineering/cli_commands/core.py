@@ -28,7 +28,15 @@ from ai_engineering.cli_ui import (
     warning,
 )
 from ai_engineering.doctor.service import diagnose
-from ai_engineering.installer.service import install
+from ai_engineering.installer.phases import InstallMode, PhasePlan
+from ai_engineering.installer.service import install_with_pipeline
+from ai_engineering.installer.ui import (
+    StepStatus,
+    render_detection,
+    render_reinstall_options,
+    render_step,
+    render_summary,
+)
 from ai_engineering.paths import resolve_project_root
 from ai_engineering.platforms.detector import detect_platforms
 from ai_engineering.updater.service import _DIFF_MAX_LINES, update
@@ -67,6 +75,20 @@ def install_cmd(
             help="Run without interactive prompts, using defaults.",
         ),
     ] = False,
+    dry_run: Annotated[
+        bool,
+        typer.Option(
+            "--dry-run",
+            help="Output JSON plan to stdout, create zero files.",
+        ),
+    ] = False,
+    plan_file: Annotated[
+        Path | None,
+        typer.Option(
+            "--plan",
+            help="Replay a saved install plan (JSON).",
+        ),
+    ] = None,
 ) -> None:
     """Install the ai-engineering governance framework."""
     if non_interactive:
@@ -74,23 +96,84 @@ def install_cmd(
 
     root = resolve_project_root(target)
 
+    # Dry-run mode: use pipeline, output JSON plan
+    if dry_run:
+        set_json_mode(True)
+        resolved_vcs = _resolve_vcs_provider(vcs, root)
+        resolved_providers = _resolve_ai_providers(providers)
+        _result, summary = install_with_pipeline(
+            root,
+            stacks=stacks or [],
+            ides=ides or [],
+            vcs_provider=resolved_vcs,
+            ai_providers=resolved_providers,
+            dry_run=True,
+        )
+        import json
+
+        plans = [p.to_dict() for p in summary.plans]
+        print(json.dumps({"schema_version": "1", "plans": plans}, indent=2))
+        return
+
+    # Plan replay mode
+    if plan_file:
+        _replay_plan(root, plan_file)
+        return
+
+    # Check for existing installation
+    manifest_path = root / ".ai-engineering" / "state" / "install-manifest.json"
+    mode = InstallMode.INSTALL
+
+    if manifest_path.exists() and not non_interactive:
+        choice = render_reinstall_options()
+        if choice == "cancel":
+            raise typer.Exit(0)
+        mode = {
+            "fresh": InstallMode.FRESH,
+            "repair": InstallMode.REPAIR,
+            "reconfigure": InstallMode.RECONFIGURE,
+        }[choice]
+    elif manifest_path.exists() and non_interactive:
+        mode = InstallMode.REPAIR
+
     # Resolve VCS provider: explicit flag > autodetect > interactive prompt
     resolved_vcs = _resolve_vcs_provider(vcs, root)
 
     # Resolve AI providers: explicit flag > interactive prompt > default
     resolved_providers = _resolve_ai_providers(providers)
 
+    # Prompt for stacks and IDEs when flags absent
+    resolved_stacks = stacks or _prompt_stacks()
+    resolved_ides = ides or _prompt_ides()
+
     # Optional external CI/CD documentation reference
     external_cicd_url = _prompt_external_cicd_docs()
 
+    # Show detection summary in interactive mode
+    if not is_json_mode():
+        import shutil as _shutil
+
+        tools = {
+            "gh": _shutil.which("gh") is not None,
+            "gitleaks": _shutil.which("gitleaks") is not None,
+            "ruff": _shutil.which("ruff") is not None,
+        }
+        render_detection(resolved_vcs, resolved_providers, tools)
+
+    # Run pipeline with step rendering
     with spinner("Installing governance framework..."):
-        result = install(
+        result, summary = install_with_pipeline(
             root,
-            stacks=stacks or [],
-            ides=ides or [],
+            mode=mode,
+            stacks=resolved_stacks,
+            ides=resolved_ides,
             vcs_provider=resolved_vcs,
             ai_providers=resolved_providers,
         )
+
+    # Render steps from pipeline summary
+    if not is_json_mode():
+        _render_pipeline_steps(summary)
 
     # Write CI/CD standards URL to manifest.yml (not install-manifest.json)
     if external_cicd_url:
@@ -151,7 +234,29 @@ def install_cmd(
             next_steps.append(("ai-eng guide", "View branch policy setup guide"))
         suggest_next(next_steps)
 
-        # Branch policy guide at the END — only when automation failed
+        # Summary panel with next steps
+        pending_setup: list[tuple[str, str]] = []
+        next_steps_list: list[tuple[str, str]] = [
+            ("ai-eng doctor", "Verify everything works"),
+        ]
+        if result.manual_steps:
+            for step in result.manual_steps:
+                if "setup" in step.lower():
+                    pending_setup.append(("ai-eng setup", step))
+
+        next_steps_list.append(("/ai-brainstorm", "Design your first spec"))
+
+        hooks_count = len(result.hooks.installed) if result.hooks.installed else 0
+
+        render_summary(
+            files_created=result.total_created,
+            hooks_installed=hooks_count,
+            warnings=[s for s in result.manual_steps if s],
+            pending_setup=pending_setup,
+            next_steps=next_steps_list,
+        )
+
+        # Branch policy guide at the END -- only when automation failed
         if result.guide_text:
             typer.echo("")
             warning("Automatic branch policy application was not possible.")
@@ -160,6 +265,122 @@ def install_cmd(
     # Optional platform onboarding prompt (D024-003: opt-in).
     if not is_json_mode():
         _offer_platform_onboarding(root, vcs_provider=resolved_vcs, non_interactive=non_interactive)
+
+
+def _render_pipeline_steps(summary: object) -> None:
+    """Render each phase from the pipeline summary as a wizard step."""
+    from ai_engineering.installer.phases.pipeline import PipelineSummary
+
+    if not isinstance(summary, PipelineSummary):
+        return
+
+    phase_names = ["detect", "governance", "ide_config", "hooks", "state", "tools"]
+    phase_labels = {
+        "detect": "Detection",
+        "governance": "Governance framework",
+        "ide_config": "IDE configuration",
+        "hooks": "Git hooks",
+        "state": "State initialization",
+        "tools": "Tool verification",
+    }
+
+    for i, name in enumerate(phase_names):
+        phase_result = next((r for r in summary.results if r.phase_name == name), None)
+        status = "ok"
+        detail = ""
+        if phase_result:
+            count = len(phase_result.created)
+            detail = f"{count} files" if count else "up to date"
+            if phase_result.failed:
+                status = "fail"
+            elif phase_result.warnings:
+                status = "warn"
+        elif summary.failed_phase and name not in summary.completed_phases:
+            status = "skip"
+            detail = "skipped"
+
+        label = phase_labels.get(name, name)
+        desc = f"{'Setting up' if status != 'skip' else 'Skipped'} {label.lower()}..."
+        render_step(
+            StepStatus(
+                number=i + 1,
+                total=len(phase_names),
+                name=label,
+                description=desc,
+                status=status,
+                detail=detail,
+            )
+        )
+
+
+def _prompt_stacks() -> list[str]:
+    """Prompt for stacks when --stack flag absent."""
+    if is_json_mode():
+        return ["python"]
+    try:
+        raw = typer.prompt("Technology stacks (comma-separated)", default="python")
+        return [s.strip().lower() for s in raw.split(",") if s.strip()]
+    except (KeyboardInterrupt, EOFError, click.exceptions.Abort):
+        return ["python"]
+
+
+def _prompt_ides() -> list[str]:
+    """Prompt for IDEs when --ide flag absent."""
+    if is_json_mode():
+        return ["terminal"]
+    try:
+        raw = typer.prompt("IDE integrations (comma-separated)", default="terminal")
+        return [s.strip().lower() for s in raw.split(",") if s.strip()]
+    except (KeyboardInterrupt, EOFError, click.exceptions.Abort):
+        return ["terminal"]
+
+
+def _replay_plan(root: Path, plan_path: Path) -> None:
+    """Replay a saved install plan with security validation.
+
+    Reads a JSON plan file and executes the file operations it describes.
+    All paths are validated against traversal attacks by PhasePlan.from_dict.
+
+    Args:
+        root: Target project root directory.
+        plan_path: Path to the JSON plan file.
+    """
+    import json
+    import shutil
+
+    data = json.loads(plan_path.read_text(encoding="utf-8"))
+
+    schema_version = data.get("schema_version")
+    if schema_version != "1":
+        typer.echo(
+            f"Error: plan schema version mismatch (expected 1, got {schema_version})",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+
+    from ai_engineering.installer.templates import (
+        get_ai_engineering_template_root,
+        get_project_template_root,
+    )
+
+    for plan_data in data.get("plans", []):
+        plan = PhasePlan.from_dict(plan_data)  # validates path security
+        for action in plan.actions:
+            if action.action_type == "skip":
+                continue
+            dest = root / action.destination
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            if action.source:
+                for template_root in [
+                    get_project_template_root(),
+                    get_ai_engineering_template_root(),
+                ]:
+                    src = template_root / action.source
+                    if src.exists():
+                        shutil.copy2(src, dest)
+                        break
+
+    typer.echo(f"Plan replayed successfully to {root}")
 
 
 def _resolve_vcs_provider(vcs: str | None, root: Path) -> str:
