@@ -26,6 +26,7 @@ Determine what the requesting agent or user needs:
 - **Component-scoped**: deep dive into a specific module, package, or service
 - **Change-scoped**: analyze impact of pending changes (pre-build or pre-review)
 - **Question-scoped**: answer a specific architectural question
+- **Web research**: gather external context via MCP tools (documentation, APIs, competitive analysis, technical references)
 
 ### 2. Map Architecture
 
@@ -65,9 +66,34 @@ Determine what the requesting agent or user needs:
 - **Boundary detection**: look for packages, namespaces, barrel files, API surfaces
 - **History correlation**: `git log --oneline --since="3 months ago"` for hot spots
 
+### MCP Tool Declarations (Web Research)
+
+When the web-research scope is active, the following MCP tools may be used if configured:
+- **firecrawl**: scrape and extract structured content from URLs
+- **exa**: semantic search across the web for technical references
+
+These tools are optional. If not configured, fall back to information available in the codebase and git history.
+
+### Parallel Subagent Pattern (Broad Research)
+
+For broad research topics, decompose into 3-5 sub-questions and investigate in parallel:
+
+```
+Topic: "How do similar frameworks handle plugin systems?"
+
+Sub-questions (parallel):
+  1. Plugin architecture in ESLint/Prettier ecosystem
+  2. Plugin systems in Terraform providers
+  3. Extension patterns in VS Code
+  4. Hook-based extensibility in webpack/vite
+  5. Middleware patterns in Express/Fastify
+```
+
+Each sub-question gets its own focused investigation. Results are synthesized into a single output.
+
 ## Output Contract
 
-Every exploration produces this structured format:
+Every exploration produces this structured format. For web research scopes, every external claim must include a URL source.
 
 ```markdown
 ## Architecture Map
@@ -84,7 +110,12 @@ Every exploration produces this structured format:
 
 ## Files of Interest
 [Ranked list with annotations: file path, relevance, key insight]
+
+## Sources Consulted
+[URL list with brief annotation for each external source referenced]
 ```
+
+**Citation standard**: every factual claim sourced from external research must include the URL where the information was found. Internal codebase findings cite file paths instead.
 
 ## Referenced Skills
 

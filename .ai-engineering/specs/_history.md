@@ -4,6 +4,8 @@ Completed specs. Details in git history.
 
 | ID | Title | Status | Created | Branch |
 |----|-------|--------|---------|--------|
+| 063 | /ai-autopilot — Multi-Spec Autonomous Orchestrator | done | 2026-03-24 | spec/063-ai-autopilot |
+| 062 | ECC Integration — slides, media, video-editing, eval | done | 2026-03-24 | spec/063-ai-autopilot |
 | 060 | CI & Install Smoke Audit — Eliminate False Positives | done | 2026-03-20 | feat/ci-smoke-audit-fixes |
 | 059 | CI/CD Standards-Driven Pipeline Generation | done | 2026-03-20 | feat/cicd-standards-manifest |
 | 058 | Watch & Fix Loop for /ai-pr | done | 2026-03-20 | feat/pr-wait-merge-cleanup |

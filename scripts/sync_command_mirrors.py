@@ -215,6 +215,24 @@ AGENT_METADATA: dict[str, AgentMeta] = {
         ),
         claude_tools=("Read", "Glob", "Grep", "Bash"),
     ),
+    "autopilot": AgentMeta(
+        display_name="Autopilot",
+        description=(
+            "Autonomous multi-spec orchestrator -- splits large specs into"
+            " focused sub-specs, executes sequentially with fresh-context"
+            " agents, verifies anti-hallucination gates, delivers via PR."
+        ),
+        model="opus",
+        color="purple",
+        copilot_tools=(
+            "codebase",
+            "githubRepo",
+            "readFile",
+            "runCommands",
+            "search",
+        ),
+        claude_tools=("Read", "Glob", "Grep", "Bash"),
+    ),
 }
 
 

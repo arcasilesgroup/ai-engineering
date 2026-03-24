@@ -530,6 +530,157 @@ describe('GET /api/users/:id', () => {
 });
 ```text
 
+## Architecture Patterns (TypeScript)
+
+### Repository Pattern
+
+```typescript
+// Interface -- defines the contract, independent of data source
+interface UserRepository {
+  findAll(filters?: UserFilters): Promise<User[]>
+  findById(id: string): Promise<User | null>
+  create(data: CreateUserDto): Promise<User>
+  update(id: string, data: UpdateUserDto): Promise<User>
+  delete(id: string): Promise<void>
+}
+
+// Implementation -- concrete data access (swap without changing business logic)
+class PostgresUserRepository implements UserRepository {
+  constructor(private pool: Pool) {}
+
+  async findById(id: string): Promise<User | null> {
+    const { rows } = await this.pool.query(
+      'SELECT * FROM users WHERE id = $1',
+      [id]
+    );
+    return rows[0] ?? null;
+  }
+
+  async findAll(filters?: UserFilters): Promise<User[]> {
+    let query = 'SELECT * FROM users WHERE 1=1';
+    const params: unknown[] = [];
+
+    if (filters?.role) {
+      params.push(filters.role);
+      query += ` AND role = $${params.length}`;
+    }
+
+    if (filters?.limit) {
+      params.push(filters.limit);
+      query += ` LIMIT $${params.length}`;
+    }
+
+    const { rows } = await this.pool.query(query, params);
+    return rows;
+  }
+
+  async create(data: CreateUserDto): Promise<User> {
+    const { rows } = await this.pool.query(
+      'INSERT INTO users (email, name, role) VALUES ($1, $2, $3) RETURNING *',
+      [data.email, data.name, data.role]
+    );
+    return rows[0];
+  }
+
+  async update(id: string, data: UpdateUserDto): Promise<User> {
+    const { rows } = await this.pool.query(
+      'UPDATE users SET name = COALESCE($1, name), role = COALESCE($2, role) WHERE id = $3 RETURNING *',
+      [data.name, data.role, id]
+    );
+    return rows[0];
+  }
+
+  async delete(id: string): Promise<void> {
+    await this.pool.query('DELETE FROM users WHERE id = $1', [id]);
+  }
+}
+```
+
+### Service Layer
+
+```typescript
+// Business logic separated from data access and HTTP concerns
+class UserService {
+  constructor(private userRepo: UserRepository) {}
+
+  async getUser(id: string): Promise<User> {
+    const user = await this.userRepo.findById(id);
+    if (!user) {
+      throw new NotFoundError(`User ${id} not found`);
+    }
+    return user;
+  }
+
+  async createUser(data: CreateUserDto): Promise<User> {
+    const existing = await this.userRepo.findAll({ email: data.email });
+    if (existing.length > 0) {
+      throw new ConflictError(`User with email ${data.email} already exists`);
+    }
+    return this.userRepo.create(data);
+  }
+
+  async deactivateUser(id: string): Promise<User> {
+    const user = await this.getUser(id);
+    if (user.role === 'admin') {
+      throw new ForbiddenError('Cannot deactivate admin users');
+    }
+    return this.userRepo.update(id, { active: false });
+  }
+}
+```
+
+### CachedRepository Decorator
+
+```typescript
+// Wraps any repository with caching -- same interface, transparent to consumers
+class CachedUserRepository implements UserRepository {
+  constructor(
+    private baseRepo: UserRepository,
+    private cache: Map<string, { data: User; expiry: number }> = new Map(),
+    private ttlMs: number = 300_000 // 5 minutes
+  ) {}
+
+  async findById(id: string): Promise<User | null> {
+    const cached = this.cache.get(id);
+    if (cached && cached.expiry > Date.now()) {
+      return cached.data;
+    }
+
+    const user = await this.baseRepo.findById(id);
+    if (user) {
+      this.cache.set(id, { data: user, expiry: Date.now() + this.ttlMs });
+    }
+    return user;
+  }
+
+  async create(data: CreateUserDto): Promise<User> {
+    const user = await this.baseRepo.create(data);
+    this.cache.set(user.id, { data: user, expiry: Date.now() + this.ttlMs });
+    return user;
+  }
+
+  async update(id: string, data: UpdateUserDto): Promise<User> {
+    this.cache.delete(id); // invalidate on write
+    return this.baseRepo.update(id, data);
+  }
+
+  async delete(id: string): Promise<void> {
+    this.cache.delete(id);
+    return this.baseRepo.delete(id);
+  }
+
+  // Delegate non-cached methods
+  findAll(filters?: UserFilters): Promise<User[]> {
+    return this.baseRepo.findAll(filters);
+  }
+}
+
+// Composition -- stack decorators without changing any consumer code
+const baseRepo = new PostgresUserRepository(pool);
+const cachedRepo = new CachedUserRepository(baseRepo);
+const userService = new UserService(cachedRepo);
+```
+
 ### Common Anti-Patterns
 
 **Avoid:**

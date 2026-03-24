@@ -398,8 +398,11 @@ TEST_SCOPE_RULES: list[ScopeRule] = [
             ".claude/settings.json",
         ],
         tiers={
-            "unit": [],
-            "integration": ["tests/integration/test_telemetry_canary.py"],
+            "unit": ["tests/unit/test_strategic_compact.py"],
+            "integration": [
+                "tests/integration/test_telemetry_canary.py",
+                "tests/integration/test_strategic_compact_integration.py",
+            ],
             "e2e": [],
         },
     ),

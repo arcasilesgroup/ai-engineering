@@ -50,6 +50,14 @@
             "type": "string",
             "pattern": "^ai-[a-z][a-z0-9-]*$"
           }
+        },
+        "anyBins": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "mcp": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
         }
       },
       "additionalProperties": false
