@@ -12,7 +12,7 @@ by-dependency — linear chain where each sub-spec builds on the previous. Templ
 | sub-003 | Phase Pipeline Foundation | complete | sub-002 | 4 | high |
 | sub-004 | Core Phases + Merge | complete | sub-003 | 5 | high |
 | sub-005 | Service Refactor + Update Migration | complete | sub-004 | 5 | high |
-| sub-006 | Wizard UX + CLI Modes | pending | sub-005 | 5 | high |
+| sub-006 | Wizard UX + CLI Modes | complete | sub-005 | 5 | high |
 | sub-007 | Tests + CI | pending | sub-006 | 5 | medium |
 
 ## Totals

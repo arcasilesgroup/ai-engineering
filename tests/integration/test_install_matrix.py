@@ -1,0 +1,90 @@
+"""Integration tests: provider x VCS install matrix."""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+import pytest
+
+from ai_engineering.installer.service import install
+
+pytestmark = pytest.mark.integration
+
+# Matrix: (providers, vcs, expected_files)
+_SINGLE_PROVIDER_CASES = [
+    (["claude_code"], "github", ["CLAUDE.md", ".claude"]),
+    (["claude_code"], "azure_devops", ["CLAUDE.md", ".claude"]),
+    (["github_copilot"], "github", ["AGENTS.md", ".github/copilot-instructions.md"]),
+    (
+        ["github_copilot"],
+        "azure_devops",
+        ["AGENTS.md", ".github/copilot-instructions.md"],
+    ),
+    (["gemini"], "github", ["AGENTS.md", ".agents"]),
+    (["gemini"], "azure_devops", ["AGENTS.md", ".agents"]),
+    (["codex"], "github", ["AGENTS.md", ".agents"]),
+    (["codex"], "azure_devops", ["AGENTS.md", ".agents"]),
+]
+
+_MULTI_PROVIDER_CASES = [
+    (
+        ["claude_code", "github_copilot"],
+        "github",
+        ["CLAUDE.md", "AGENTS.md", ".claude", ".github/copilot-instructions.md"],
+    ),
+    (
+        ["claude_code", "gemini"],
+        "github",
+        ["CLAUDE.md", "AGENTS.md", ".claude", ".agents"],
+    ),
+]
+
+
+@pytest.fixture()
+def clean_target(tmp_path: Path) -> Path:
+    """Create a minimal git repo target."""
+    git_dir = tmp_path / ".git"
+    git_dir.mkdir()
+    return tmp_path
+
+
+class TestInstallMatrix:
+    @pytest.mark.parametrize("providers,vcs,expected", _SINGLE_PROVIDER_CASES)
+    def test_single_provider(
+        self,
+        clean_target: Path,
+        providers: list[str],
+        vcs: str,
+        expected: list[str],
+    ) -> None:
+        """Single provider installs the correct files."""
+        install(
+            clean_target,
+            stacks=["python"],
+            ides=["terminal"],
+            vcs_provider=vcs,
+            ai_providers=providers,
+        )
+        for expected_path in expected:
+            full = clean_target / expected_path
+            assert full.exists() or full.is_dir(), f"Missing: {expected_path}"
+
+    @pytest.mark.parametrize("providers,vcs,expected", _MULTI_PROVIDER_CASES)
+    def test_multi_provider(
+        self,
+        clean_target: Path,
+        providers: list[str],
+        vcs: str,
+        expected: list[str],
+    ) -> None:
+        """Multi-provider installs all provider files."""
+        install(
+            clean_target,
+            stacks=["python"],
+            ides=["terminal"],
+            vcs_provider=vcs,
+            ai_providers=providers,
+        )
+        for expected_path in expected:
+            full = clean_target / expected_path
+            assert full.exists() or full.is_dir(), f"Missing: {expected_path}"

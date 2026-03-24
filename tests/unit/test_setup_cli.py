@@ -651,7 +651,7 @@ class TestInstallCleanOutput:
 
     @patch("ai_engineering.cli_commands.core._offer_platform_onboarding")
     @patch("ai_engineering.cli_commands.core.is_json_mode", return_value=False)
-    @patch("ai_engineering.cli_commands.core.install")
+    @patch("ai_engineering.cli_commands.core.install_with_pipeline")
     @patch("ai_engineering.cli_commands.core.resolve_project_root")
     @patch("ai_engineering.cli_commands.core._resolve_vcs_provider", return_value="github")
     def test_guide_text_not_printed_as_block(
@@ -672,8 +672,14 @@ class TestInstallCleanOutput:
         result_obj.readiness_status = "ready"
         result_obj.already_installed = False
         result_obj.manual_steps = []
+        result_obj.total_created = 3
         result_obj.guide_text = "Step 1: Go to settings\nStep 2: Enable protection"
-        mock_install.return_value = result_obj
+        summary_obj = MagicMock()
+        summary_obj.results = []
+        summary_obj.verdicts = []
+        summary_obj.completed_phases = []
+        summary_obj.failed_phase = None
+        mock_install.return_value = (result_obj, summary_obj)
 
         import typer
 

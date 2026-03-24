@@ -226,11 +226,17 @@ TEST_SCOPE_RULES: list[ScopeRule] = [
             "unit": [
                 "tests/unit/test_installer.py",
                 "tests/unit/test_installer_tools.py",
+                "tests/unit/installer/test_phases.py",
+                "tests/unit/installer/test_pipeline.py",
+                "tests/unit/installer/test_merge.py",
+                "tests/unit/installer/test_detect.py",
+                "tests/unit/installer/test_ui.py",
             ],
             "integration": [
                 "tests/integration/test_installer_integration.py",
                 "tests/integration/test_install_operational_flows.py",
                 "tests/integration/test_provider_commands.py",
+                "tests/integration/test_install_matrix.py",
             ],
             "e2e": [
                 "tests/e2e/test_install_clean.py",
@@ -403,6 +409,15 @@ TEST_SCOPE_RULES: list[ScopeRule] = [
                 "tests/integration/test_telemetry_canary.py",
                 "tests/integration/test_strategic_compact_integration.py",
             ],
+            "e2e": [],
+        },
+    ),
+    ScopeRule(
+        name="templates",
+        source_globs=["src/ai_engineering/templates/**/*.py"],
+        tiers={
+            "unit": ["tests/unit/installer/test_phases.py"],
+            "integration": ["tests/integration/test_install_matrix.py"],
             "e2e": [],
         },
     ),
