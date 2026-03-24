@@ -1,0 +1,132 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://arcasilesgroup.github.io/ai-engineering/schemas/decision-store.schema.json",
+  "title": "Decision Store",
+  "description": "Validates decision-store.json containing risk, architecture, and flow decisions.",
+  "$defs": {
+    "decision": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^DEC-\\d{3,}$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "decision": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string"
+        },
+        "category": {
+          "type": "string",
+          "enum": [
+            "architecture",
+            "governance",
+            "tooling",
+            "security",
+            "delivery",
+            "risk-acceptance",
+            "flow-decision"
+          ]
+        },
+        "status": {
+          "type": "string",
+          "enum": ["active", "expired", "superseded", "revoked", "remediated"]
+        },
+        "criticality": {
+          "type": "string",
+          "enum": ["critical", "high", "medium", "low"]
+        },
+        "source": {
+          "type": "string"
+        },
+        "spec": {
+          "type": "string"
+        },
+        "created_at": {
+          "type": "string"
+        },
+        "expires_at": {
+          "type": "string"
+        },
+        "acknowledged_by": {
+          "type": "string",
+          "minLength": 1
+        },
+        "context_hash": {
+          "type": "string"
+        },
+        "context": {
+          "type": "string"
+        },
+        "decidedAt": {
+          "type": "string"
+        },
+        "supersedes": {
+          "type": "string",
+          "pattern": "^DEC-\\d{3,}$"
+        },
+        "superseded_by": {
+          "type": "string",
+          "pattern": "^DEC-\\d{3,}$"
+        },
+        "renewal_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "max_renewals": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "severity": {
+          "type": "string",
+          "enum": ["critical", "high", "medium", "low"]
+        },
+        "accepted_by": {
+          "type": "string"
+        },
+        "follow_up_action": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "decision",
+        "category",
+        "status",
+        "created_at",
+        "expires_at",
+        "acknowledged_by"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "type": "object",
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+$"
+    },
+    "updateMetadata": {
+      "type": "object",
+      "properties": {
+        "rationale": { "type": "string" },
+        "expectedGain": { "type": "string" },
+        "potentialImpact": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "decisions": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/decision" }
+    }
+  },
+  "required": ["schemaVersion", "decisions"],
+  "additionalProperties": false
+}

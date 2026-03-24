@@ -145,6 +145,9 @@ Body structure:
 
 ### 5. Generate mirrors
 - Run `python scripts/sync_command_mirrors.py`
+
+---
+
 # Handler: create-skill
 
 ## Purpose
@@ -200,6 +203,9 @@ Present 5 example prompts that SHOULD trigger this skill. Verify the CSO descrip
 - Start with "Use when" (trigger-focused, not summary-focused)
 - Bad: "Generates standup notes from PR activity"
 - Good: "Use when preparing daily standup notes or summarizing recent PR and commit activity for team updates"
+
+---
+
 # Handler: validate
 
 ## Purpose

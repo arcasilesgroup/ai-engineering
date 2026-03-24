@@ -2,7 +2,7 @@
 name: ai-write
 description: "Use when writing technical content: documentation, changelogs, articles, pitches, sprint reviews, and presentation outlines. Handler-based with audience targeting."
 effort: high
-argument-hint: "docs|changelog|content <type>|--audience developer|manager|executive"
+argument-hint: "docs|changelog|content <type>|content-engine|crosspost|market-research|investor-materials|--audience developer|manager|executive"
 tags: [writing, documentation, changelog, content, communication]
 ---
 
@@ -26,6 +26,10 @@ Router skill for comprehensive technical writing. Dispatches to handler files ba
 | `docs` | `handlers/docs.md` | README, API docs, guides, wiki pages |
 | `changelog` | `handlers/changelog.md` | Release notes from conventional commits |
 | `content` | `handlers/content.md` | Articles, pitches, presentations, sprint reviews |
+| `content-engine` | `handlers/content-engine.md` | Platform-native social content with repurposing cascade |
+| `crosspost` | `handlers/crosspost.md` | Multi-platform content distribution and adaptation |
+| `market-research` | `handlers/market-research.md` | Research-to-decision synthesis (diligence, competitive, sizing) |
+| `investor-materials` | `handlers/investor-materials.md` | Pitch decks, one-pagers, financial models, applications |
 
 Default (no sub-command): `docs`.
 
@@ -50,6 +54,10 @@ Default: `developer`.
 /ai-write content presentation              # presentation outline
 /ai-write content architecture-board        # architecture decision for review
 /ai-write content solution-intent           # solution intent document
+/ai-write content-engine                    # platform-native social content
+/ai-write crosspost                         # multi-platform distribution
+/ai-write market-research                   # research synthesis (diligence, competitive, sizing)
+/ai-write investor-materials                # pitch deck, one-pager, financial model
 /ai-write docs --audience manager           # manager-targeted docs
 ```
 

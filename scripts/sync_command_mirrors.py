@@ -558,7 +558,7 @@ def generate_copilot_prompt(name: str, skill_path: Path) -> str:
         parts.append("")
         parts.append("---")
         parts.append("")
-        parts.extend(handler_sections)
+        parts.append(("\n\n---\n\n").join(handler_sections))
     parts.append("")
     return "\n".join(parts)
 
