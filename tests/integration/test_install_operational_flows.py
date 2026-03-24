@@ -8,7 +8,10 @@ from types import SimpleNamespace
 import pytest
 
 from ai_engineering.installer import service
-from ai_engineering.installer.service import install
+from ai_engineering.installer.phases import PhaseResult
+from ai_engineering.installer.phases.pipeline import PipelineSummary
+from ai_engineering.installer.phases.tools import ToolsPhase
+from ai_engineering.installer.service import install, install_with_pipeline
 from ai_engineering.state.io import read_json_model
 from ai_engineering.state.models import InstallManifest
 from ai_engineering.vcs.protocol import VcsContext, VcsResult
@@ -100,3 +103,61 @@ def test_install_operational_ready_with_manual_steps_azure_fallback(
     assert manifest.branch_policy.applied is False
     assert manifest.branch_policy.manual_guide
     assert "Manual Branch Policy Setup" in manifest.branch_policy.manual_guide
+
+
+# ---------------------------------------------------------------------------
+# install_with_pipeline tests
+# ---------------------------------------------------------------------------
+
+
+def test_pipeline_install_writes_operational_readiness(tmp_path: Path) -> None:
+    """install_with_pipeline sets operational_readiness.status to non-pending."""
+    _result, summary = install_with_pipeline(tmp_path, vcs_provider="github")
+
+    manifest = read_json_model(
+        tmp_path / ".ai-engineering" / "state" / "install-manifest.json",
+        InstallManifest,
+    )
+
+    assert isinstance(summary, PipelineSummary)
+    assert manifest.operational_readiness.status != "pending"
+
+
+def test_pipeline_dry_run_does_not_write_manifest(tmp_path: Path) -> None:
+    """install_with_pipeline in dry_run skips all file writes."""
+    _result, summary = install_with_pipeline(tmp_path, dry_run=True)
+
+    manifest_path = tmp_path / ".ai-engineering" / "state" / "install-manifest.json"
+    assert not manifest_path.exists()
+    assert summary.dry_run is True
+
+
+def test_pipeline_auto_detects_repair_mode(tmp_path: Path) -> None:
+    """Second call auto-detects REPAIR mode when manifest already exists."""
+    install_with_pipeline(tmp_path)
+    # Second call — should not raise and should return valid result
+    result, _summary = install_with_pipeline(tmp_path)
+    assert result is not None
+
+
+def test_pipeline_writes_ready_with_manual_steps(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """READY WITH MANUAL STEPS is written when ToolsPhase reports missing tools."""
+
+    def _execute_with_warning(self: ToolsPhase, plan: object, context: object) -> PhaseResult:
+        r = PhaseResult(phase_name=self.name)
+        r.warnings.append("Tool 'gh' not found.")
+        return r
+
+    monkeypatch.setattr(ToolsPhase, "execute", _execute_with_warning)
+
+    install_with_pipeline(tmp_path, vcs_provider="github")
+
+    manifest = read_json_model(
+        tmp_path / ".ai-engineering" / "state" / "install-manifest.json",
+        InstallManifest,
+    )
+
+    assert manifest.operational_readiness.status == "READY WITH MANUAL STEPS"
+    assert manifest.operational_readiness.manual_steps_required is True

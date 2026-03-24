@@ -195,6 +195,41 @@ def copy_file_if_missing(src: Path, dest: Path) -> bool:
     return True
 
 
+def copy_tree_for_mode(
+    src_dir: Path,
+    dest_dir: Path,
+    target_root: Path,
+    *,
+    fresh: bool,
+    created: list[str],
+    skipped: list[str],
+) -> None:
+    """Copy a template tree using FRESH (overwrite) or create-only semantics.
+
+    All paths appended to *created* and *skipped* are relative to *target_root*.
+
+    Args:
+        src_dir: Source directory to copy from.
+        dest_dir: Destination directory to copy to.
+        target_root: Project root for computing relative paths.
+        fresh: When True, overwrite existing files (FRESH mode).
+        created: List to append created relative paths to.
+        skipped: List to append skipped relative paths to.
+    """
+    if fresh:
+        for f in sorted(src_dir.rglob("*")):
+            if not f.is_file():
+                continue
+            d = dest_dir / f.relative_to(src_dir)
+            d.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(f, d)
+            created.append(str(d.relative_to(target_root)))
+    else:
+        tr = copy_template_tree(src_dir, dest_dir)
+        created.extend(str(p.relative_to(target_root)) for p in tr.created)
+        skipped.extend(str(p.relative_to(target_root)) for p in tr.skipped)
+
+
 def copy_template_tree(
     src_root: Path,
     dest_root: Path,

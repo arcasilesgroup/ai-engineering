@@ -35,6 +35,10 @@ def merge_settings(template_path: Path, target_path: Path) -> Path:
     Returns:
         The path that was written (always *target_path*).
     """
+    # Resolve to canonical paths to remove path traversal sequences (CWE-22)
+    template_path = template_path.resolve()
+    target_path = target_path.resolve()
+
     template_data = json.loads(template_path.read_text(encoding="utf-8"))
 
     try:

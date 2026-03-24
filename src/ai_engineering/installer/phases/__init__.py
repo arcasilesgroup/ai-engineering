@@ -15,6 +15,17 @@ from typing import Protocol, runtime_checkable
 from ai_engineering.state.models import InstallManifest
 
 # ---------------------------------------------------------------------------
+# Phase name constants
+# ---------------------------------------------------------------------------
+
+PHASE_DETECT = "detect"
+PHASE_GOVERNANCE = "governance"
+PHASE_IDE_CONFIG = "ide_config"
+PHASE_HOOKS = "hooks"
+PHASE_STATE = "state"
+PHASE_TOOLS = "tools"
+
+# ---------------------------------------------------------------------------
 # Install mode
 # ---------------------------------------------------------------------------
 
@@ -51,6 +62,15 @@ class PlannedAction:
                 f"Must be one of {sorted(_VALID_ACTION_TYPES)}"
             )
             raise ValueError(msg)
+
+        # Validate source path (skip empty strings used by informational actions)
+        if self.source:
+            if self.source.startswith("/"):
+                msg = f"Absolute source path rejected: {self.source!r}"
+                raise ValueError(msg)
+            if ".." in Path(self.source).parts:
+                msg = f"Source path traversal rejected: {self.source!r}"
+                raise ValueError(msg)
 
 
 @dataclass
@@ -116,6 +136,7 @@ class PhaseResult:
     skipped: list[str] = field(default_factory=list)
     failed: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
+    deleted: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -170,6 +191,12 @@ class PhaseProtocol(Protocol):
 # ---------------------------------------------------------------------------
 
 __all__ = [
+    "PHASE_DETECT",
+    "PHASE_GOVERNANCE",
+    "PHASE_HOOKS",
+    "PHASE_IDE_CONFIG",
+    "PHASE_STATE",
+    "PHASE_TOOLS",
     "InstallContext",
     "InstallMode",
     "PhasePlan",

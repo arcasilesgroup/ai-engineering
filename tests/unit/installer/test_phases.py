@@ -9,6 +9,7 @@ import pytest
 from ai_engineering.installer.phases import (
     InstallContext,
     InstallMode,
+    PhaseResult,
 )
 
 pytestmark = pytest.mark.unit
@@ -180,6 +181,68 @@ class TestStatePhase:
 # ---------------------------------------------------------------------------
 # ToolsPhase
 # ---------------------------------------------------------------------------
+
+
+class TestIdeConfigReconfigure:
+    def test_reconfigure_with_manifest_generates_deletes(self, tmp_path: Path) -> None:
+        """RECONFIGURE with existing_manifest generates delete actions."""
+        from unittest.mock import MagicMock
+
+        from ai_engineering.installer.phases.ide_config import IdeConfigPhase
+
+        manifest = MagicMock()
+        manifest.ai_providers.enabled = ["claude_code", "github_copilot"]
+
+        ctx = _ctx(tmp_path, mode=InstallMode.RECONFIGURE, providers=["claude_code"])
+        ctx.existing_manifest = manifest
+
+        phase = IdeConfigPhase()
+        plan = phase.plan(ctx)
+        delete_actions = [a for a in plan.actions if a.action_type == "delete"]
+        assert len(delete_actions) > 0
+        assert any("github_copilot" in a.rationale for a in delete_actions)
+
+    def test_reconfigure_deletions_use_deleted_field(self, tmp_path: Path) -> None:
+        """RECONFIGURE deletions go to PhaseResult.deleted, not created."""
+        result = PhaseResult(phase_name="ide_config")
+        result.deleted.append("removed/file.txt")
+        assert "removed/file.txt" not in result.created
+        assert "removed/file.txt" in result.deleted
+
+
+class TestDetectPhaseMutation:
+    def test_plan_does_not_mutate_context(self, tmp_path: Path) -> None:
+        """DetectPhase.plan() does NOT mutate context.vcs_provider."""
+        from unittest.mock import patch
+
+        from ai_engineering.installer.phases.detect import DetectPhase
+
+        ctx = _ctx(tmp_path)
+        ctx.vcs_provider = "original"
+        phase = DetectPhase()
+        with patch(
+            "ai_engineering.installer.phases.detect._detect_vcs",
+            return_value="azure_devops",
+        ):
+            phase.plan(ctx)
+        assert ctx.vcs_provider == "original"
+
+    def test_execute_sets_vcs_from_plan(self, tmp_path: Path) -> None:
+        """DetectPhase.execute() DOES set context.vcs_provider from plan."""
+        from unittest.mock import patch
+
+        from ai_engineering.installer.phases.detect import DetectPhase
+
+        ctx = _ctx(tmp_path)
+        phase = DetectPhase()
+        with patch(
+            "ai_engineering.installer.phases.detect._detect_vcs",
+            return_value="azure_devops",
+        ):
+            plan = phase.plan(ctx)
+        ctx.vcs_provider = "original"
+        phase.execute(plan, ctx)
+        assert ctx.vcs_provider == "azure_devops"
 
 
 class TestToolsPhase:

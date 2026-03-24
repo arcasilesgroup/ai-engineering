@@ -28,7 +28,16 @@ from ai_engineering.cli_ui import (
     warning,
 )
 from ai_engineering.doctor.service import diagnose
-from ai_engineering.installer.phases import InstallMode, PhasePlan
+from ai_engineering.installer.phases import (
+    PHASE_DETECT,
+    PHASE_GOVERNANCE,
+    PHASE_HOOKS,
+    PHASE_IDE_CONFIG,
+    PHASE_STATE,
+    PHASE_TOOLS,
+    InstallMode,
+    PhasePlan,
+)
 from ai_engineering.installer.service import install_with_pipeline
 from ai_engineering.installer.ui import (
     StepStatus,
@@ -274,14 +283,21 @@ def _render_pipeline_steps(summary: object) -> None:
     if not isinstance(summary, PipelineSummary):
         return
 
-    phase_names = ["detect", "governance", "ide_config", "hooks", "state", "tools"]
+    phase_names = [
+        PHASE_DETECT,
+        PHASE_GOVERNANCE,
+        PHASE_IDE_CONFIG,
+        PHASE_HOOKS,
+        PHASE_STATE,
+        PHASE_TOOLS,
+    ]
     phase_labels = {
-        "detect": "Detection",
-        "governance": "Governance framework",
-        "ide_config": "IDE configuration",
-        "hooks": "Git hooks",
-        "state": "State initialization",
-        "tools": "Tool verification",
+        PHASE_DETECT: "Detection",
+        PHASE_GOVERNANCE: "Governance framework",
+        PHASE_IDE_CONFIG: "IDE configuration",
+        PHASE_HOOKS: "Git hooks",
+        PHASE_STATE: "State initialization",
+        PHASE_TOOLS: "Tool verification",
     }
 
     for i, name in enumerate(phase_names):
@@ -290,7 +306,13 @@ def _render_pipeline_steps(summary: object) -> None:
         detail = ""
         if phase_result:
             count = len(phase_result.created)
-            detail = f"{count} files" if count else "up to date"
+            del_count = len(phase_result.deleted)
+            parts = []
+            if count:
+                parts.append(f"{count} files")
+            if del_count:
+                parts.append(f"{del_count} deleted")
+            detail = ", ".join(parts) if parts else "up to date"
             if phase_result.failed:
                 status = "fail"
             elif phase_result.warnings:

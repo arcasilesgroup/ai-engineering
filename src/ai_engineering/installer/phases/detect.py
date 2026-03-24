@@ -53,7 +53,6 @@ class DetectPhase:
                 rationale=f"VCS detected: {vcs}",
             )
         )
-        context.vcs_provider = vcs
 
         # --- Existing installation ---
         manifest_path = context.target / _MANIFEST_REL
@@ -100,6 +99,12 @@ class DetectPhase:
 
     def execute(self, plan: PhasePlan, context: InstallContext) -> PhaseResult:
         result = PhaseResult(phase_name=self.name)
+
+        # Apply VCS detection from plan metadata
+        for action in plan.actions:
+            if action.rationale.startswith("VCS detected:"):
+                context.vcs_provider = action.rationale.split(": ", 1)[1]
+                break
 
         for action in plan.actions:
             if action.action_type == "skip":

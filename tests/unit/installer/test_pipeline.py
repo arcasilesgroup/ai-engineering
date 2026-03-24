@@ -5,6 +5,12 @@ from __future__ import annotations
 import pytest
 
 from ai_engineering.installer.phases import (
+    PHASE_DETECT,
+    PHASE_GOVERNANCE,
+    PHASE_HOOKS,
+    PHASE_IDE_CONFIG,
+    PHASE_STATE,
+    PHASE_TOOLS,
     InstallContext,
     InstallMode,
     PhasePlan,
@@ -146,3 +152,52 @@ class TestPhasePlanSecurity:
         assert restored.phase_name == plan.phase_name
         assert len(restored.actions) == len(plan.actions)
         assert restored.actions[0].destination == "b.txt"
+
+    def test_rejects_source_traversal(self) -> None:
+        """Source path traversal is rejected."""
+        with pytest.raises(ValueError, match="Source path traversal rejected"):
+            PlannedAction("create", "../../../etc/passwd", "out.txt", "exploit")
+
+    def test_rejects_absolute_source(self) -> None:
+        """Absolute source paths are rejected."""
+        with pytest.raises(ValueError, match="Absolute source path rejected"):
+            PlannedAction("create", "/etc/passwd", "out.txt", "exploit")
+
+    def test_allows_empty_source(self) -> None:
+        """Empty source is allowed for informational actions."""
+        action = PlannedAction("skip", "", "info.txt", "informational")
+        assert action.source == ""
+
+
+# ---------------------------------------------------------------------------
+# PhaseResult
+# ---------------------------------------------------------------------------
+
+
+class TestPhaseResult:
+    def test_deleted_field_defaults_empty(self) -> None:
+        """PhaseResult.deleted defaults to empty list."""
+        result = PhaseResult(phase_name="test")
+        assert result.deleted == []
+
+    def test_deleted_field_usable(self) -> None:
+        """PhaseResult.deleted can be populated."""
+        result = PhaseResult(phase_name="test")
+        result.deleted.append("removed/file.txt")
+        assert result.deleted == ["removed/file.txt"]
+
+
+# ---------------------------------------------------------------------------
+# Phase name constants
+# ---------------------------------------------------------------------------
+
+
+class TestPhaseConstants:
+    def test_constants_importable(self) -> None:
+        """Phase name constants are importable from phases package."""
+        assert PHASE_DETECT == "detect"
+        assert PHASE_GOVERNANCE == "governance"
+        assert PHASE_IDE_CONFIG == "ide_config"
+        assert PHASE_HOOKS == "hooks"
+        assert PHASE_STATE == "state"
+        assert PHASE_TOOLS == "tools"

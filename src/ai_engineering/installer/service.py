@@ -20,6 +20,7 @@ Steps performed by the pipeline:
 from __future__ import annotations
 
 import contextlib
+import json
 import logging
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -27,7 +28,15 @@ from pathlib import Path
 from ai_engineering.detector.readiness import check_tools_for_stacks
 from ai_engineering.git.context import get_git_context
 from ai_engineering.hooks.manager import HookInstallResult, install_hooks
-from ai_engineering.installer.phases import InstallContext, InstallMode
+from ai_engineering.installer.phases import (
+    PHASE_GOVERNANCE,
+    PHASE_HOOKS,
+    PHASE_IDE_CONFIG,
+    PHASE_STATE,
+    PHASE_TOOLS,
+    InstallContext,
+    InstallMode,
+)
 from ai_engineering.installer.phases.detect import DetectPhase
 from ai_engineering.installer.phases.governance import GovernancePhase
 from ai_engineering.installer.phases.hooks import HooksPhase
@@ -196,6 +205,16 @@ def install_with_pipeline(
         if manifest_path.exists():
             mode = InstallMode.REPAIR
 
+    # Load existing manifest for REPAIR/RECONFIGURE modes
+    existing_manifest = None
+    if mode in (InstallMode.REPAIR, InstallMode.RECONFIGURE):
+        manifest_path = target / ".ai-engineering" / "state" / "install-manifest.json"
+        if manifest_path.exists():
+            try:
+                existing_manifest = read_json_model(manifest_path, InstallManifest)
+            except (json.JSONDecodeError, ValueError, OSError) as exc:
+                logger.warning("Cannot read existing manifest: %s", exc)
+
     # Build context
     context = InstallContext(
         target=target,
@@ -204,6 +223,7 @@ def install_with_pipeline(
         vcs_provider=vcs_provider,
         stacks=stacks or [],
         ides=ides or [],
+        existing_manifest=existing_manifest,
     )
 
     # Create the 6 phases in order
@@ -225,22 +245,9 @@ def install_with_pipeline(
     # Convert PipelineSummary to InstallResult
     result = _summary_to_install_result(summary, mode)
 
-    # Write operational readiness status into the manifest.
-    # The pipeline does not call _run_operational_phases(), so we compute
-    # the status here based on whether any manual steps were collected.
+    # Run operational phases (VCS auth, branch policy, tooling readiness)
     if not dry_run:
-        manifest_path = target / ".ai-engineering" / "state" / "install-manifest.json"
-        if manifest_path.is_file():
-            try:
-                manifest = read_json_model(manifest_path, InstallManifest)
-                if manifest.operational_readiness.status == "pending":
-                    status = "READY WITH MANUAL STEPS" if result.manual_steps else "READY"
-                    manifest.operational_readiness.status = status
-                    manifest.operational_readiness.manual_steps_required = bool(result.manual_steps)
-                    manifest.operational_readiness.manual_steps = list(result.manual_steps)
-                    write_json_model(manifest_path, manifest)
-            except Exception:
-                pass
+        _run_operational_phases(target, vcs_provider=vcs_provider, result=result)
 
     return result, summary
 
@@ -269,15 +276,15 @@ def _summary_to_install_result(
     project_skipped: list[Path] = []
 
     for phase_result in summary.results:
-        if phase_result.phase_name == "governance":
+        if phase_result.phase_name == PHASE_GOVERNANCE:
             governance_created.extend(Path(p) for p in phase_result.created)
             governance_skipped.extend(Path(p) for p in phase_result.skipped)
-        elif phase_result.phase_name in ("ide_config", "hooks"):
+        elif phase_result.phase_name in (PHASE_IDE_CONFIG, PHASE_HOOKS):
             project_created.extend(Path(p) for p in phase_result.created)
             project_skipped.extend(Path(p) for p in phase_result.skipped)
-        elif phase_result.phase_name == "state":
+        elif phase_result.phase_name == PHASE_STATE:
             result.state_files = [Path(p) for p in phase_result.created]
-        elif phase_result.phase_name == "tools":
+        elif phase_result.phase_name == PHASE_TOOLS:
             result.manual_steps.extend(phase_result.warnings)
 
     result.governance_files = CopyResult(

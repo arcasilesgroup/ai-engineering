@@ -15,7 +15,7 @@ from ai_engineering.hooks.manager import install_hooks
 from ai_engineering.installer.merge import merge_settings
 from ai_engineering.installer.templates import (
     copy_file_if_missing,
-    copy_template_tree,
+    copy_tree_for_mode,
     get_project_template_root,
     resolve_template_maps,
 )
@@ -28,12 +28,16 @@ _SETTINGS_REL = ".claude/settings.json"
 class HooksPhase:
     """Deploy hook scripts, install git hooks, and merge settings.json."""
 
+    def __init__(self) -> None:
+        self._resolved_maps = None
+
     @property
     def name(self) -> str:
         return "hooks"
 
     def plan(self, context: InstallContext) -> PhasePlan:
-        maps = resolve_template_maps(context.providers, context.vcs_provider)
+        self._resolved_maps = resolve_template_maps(context.providers, context.vcs_provider)
+        maps = self._resolved_maps
         actions: list[PlannedAction] = []
         fresh = context.mode is InstallMode.FRESH
 
@@ -63,24 +67,20 @@ class HooksPhase:
     def execute(self, plan: PhasePlan, context: InstallContext) -> PhaseResult:
         result = PhaseResult(phase_name=self.name)
         pr = get_project_template_root()
-        maps = resolve_template_maps(context.providers, context.vcs_provider)
+        maps = self._resolved_maps or resolve_template_maps(context.providers, context.vcs_provider)
 
         for src_tree, dest_tree in maps.common_tree_list:
             sd = pr / src_tree
             if not sd.is_dir():
                 continue
-            if context.mode is InstallMode.FRESH:
-                for f in sorted(sd.rglob("*")):
-                    if not f.is_file():
-                        continue
-                    d = context.target / dest_tree / f.relative_to(sd)
-                    d.parent.mkdir(parents=True, exist_ok=True)
-                    shutil.copy2(f, d)
-                    result.created.append(str(d.relative_to(context.target)))
-            else:
-                tr = copy_template_tree(sd, context.target / dest_tree)
-                result.created.extend(str(p.relative_to(context.target)) for p in tr.created)
-                result.skipped.extend(str(p.relative_to(context.target)) for p in tr.skipped)
+            copy_tree_for_mode(
+                sd,
+                context.target / dest_tree,
+                context.target,
+                fresh=context.mode is InstallMode.FRESH,
+                created=result.created,
+                skipped=result.skipped,
+            )
 
         with contextlib.suppress(FileNotFoundError):
             hr = install_hooks(context.target)

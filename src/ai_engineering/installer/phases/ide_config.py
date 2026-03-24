@@ -7,12 +7,11 @@ cleaned up.
 
 from __future__ import annotations
 
-import shutil
 from pathlib import Path
 
 from ai_engineering.installer.templates import (
     copy_file_if_missing,
-    copy_template_tree,
+    copy_tree_for_mode,
     get_project_template_root,
     provider_template_dest_paths,
     remove_provider_templates,
@@ -41,30 +40,19 @@ def _tree_actions(root: Path, src_tree: str, dest_tree: str, target: Path, ow: b
         yield _file_action(dr, target / dr, ow, tag)
 
 
-def _copy_tree(src_dir: Path, dest_dir: Path, mode: InstallMode, result: PhaseResult) -> None:
-    if mode is InstallMode.FRESH:
-        for f in sorted(src_dir.rglob("*")):
-            if not f.is_file():
-                continue
-            d = dest_dir / f.relative_to(src_dir)
-            d.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(f, d)
-            result.created.append(str(d))
-    else:
-        tr = copy_template_tree(src_dir, dest_dir)
-        result.created.extend(str(p) for p in tr.created)
-        result.skipped.extend(str(p) for p in tr.skipped)
-
-
 class IdeConfigPhase:
     """Deploy IDE-specific configuration files based on selected providers."""
+
+    def __init__(self) -> None:
+        self._resolved_maps = None
 
     @property
     def name(self) -> str:
         return "ide_config"
 
     def plan(self, context: InstallContext) -> PhasePlan:
-        maps = resolve_template_maps(context.providers, context.vcs_provider)
+        self._resolved_maps = resolve_template_maps(context.providers, context.vcs_provider)
+        maps = self._resolved_maps
         pr = get_project_template_root()
         ow = context.mode is InstallMode.FRESH
         actions: list[PlannedAction] = []
@@ -90,8 +78,9 @@ class IdeConfigPhase:
 
     def execute(self, plan: PhasePlan, context: InstallContext) -> PhaseResult:
         result = PhaseResult(phase_name=self.name)
-        maps = resolve_template_maps(context.providers, context.vcs_provider)
+        maps = self._resolved_maps or resolve_template_maps(context.providers, context.vcs_provider)
         pr = get_project_template_root()
+        import shutil
 
         for sr, dr in sorted({**maps.file_map, **maps.common_file_map}.items()):
             src, dest = pr / sr, context.target / dr
@@ -109,18 +98,25 @@ class IdeConfigPhase:
         for st, dt in maps.tree_list + maps.vcs_tree_list:
             sd = pr / st
             if sd.is_dir():
-                _copy_tree(sd, context.target / dt, context.mode, result)
+                copy_tree_for_mode(
+                    sd,
+                    context.target / dt,
+                    context.target,
+                    fresh=context.mode is InstallMode.FRESH,
+                    created=result.created,
+                    skipped=result.skipped,
+                )
 
         if context.mode is InstallMode.RECONFIGURE and context.existing_manifest:
             old = context.existing_manifest.ai_providers.enabled
             for rm in set(old) - set(context.providers):
                 deleted = remove_provider_templates(context.target, rm, context.providers)
-                result.created.extend(f"deleted:{p}" for p in deleted)
+                result.deleted.extend(str(p) for p in deleted)
 
         return result
 
     def verify(self, result: PhaseResult, context: InstallContext) -> PhaseVerdict:
-        maps = resolve_template_maps(context.providers, context.vcs_provider)
+        maps = self._resolved_maps or resolve_template_maps(context.providers, context.vcs_provider)
         errors = [
             f"Missing: {dr}"
             for _sr, dr in maps.file_map.items()
