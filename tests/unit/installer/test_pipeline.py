@@ -210,8 +210,8 @@ class TestCopyTreeForMode:
         skipped: list[str] = []
         copy_tree_for_mode(src, dest, target_root, fresh=True, created=created, skipped=skipped)
         assert len(created) == 1
-        assert not created[0].startswith("/")
-        assert created[0] == "out/a.txt"
+        assert not Path(created[0]).is_absolute()
+        assert Path(created[0]) == Path("out/a.txt")
 
     def test_non_fresh_produces_relative_paths(self, tmp_path: Path) -> None:
         """copy_tree_for_mode in non-FRESH mode produces relative paths."""
@@ -228,7 +228,7 @@ class TestCopyTreeForMode:
         skipped: list[str] = []
         copy_tree_for_mode(src, dest, target_root, fresh=False, created=created, skipped=skipped)
         assert len(created) == 1
-        assert not created[0].startswith("/")
+        assert not Path(created[0]).is_absolute()
 
 
 class TestPhaseConstants:
