@@ -3,7 +3,13 @@ name: "Plan"
 description: "Advisory planning: classify scope, assess risks, and recommend pipeline"
 color: purple
 model: opus
-tools: [codebase, editFiles, fetch, githubRepo, problems, readFile, runCommands, search, terminalLastCommand, testFailures]
+tools: [codebase, editFiles, fetch, githubRepo, problems, readFile, runCommands, search, terminalLastCommand, testFailures, agent]
+agents: [Explorer, Guard]
+handoffs:
+- label: ▶ Dispatch Implementation
+  agent: Autopilot
+  prompt: Execute the plan outlined above following the approved spec.
+  send: false
 ---
 
 

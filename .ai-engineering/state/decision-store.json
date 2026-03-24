@@ -398,6 +398,24 @@
       "decision": "When invoked via /ai-autopilot, the user invocation serves as the single approval gate for the entire pipeline (brainstorm split -> plan -> dispatch -> verify -> PR). This overrides DEC-003 human gates between phases. Automatic spec-review and verify gates compensate. Failure after 2 retries restores manual control.",
       "decidedAt": "2026-03-24T00:00:00Z",
       "context": "governance"
+    },
+    {
+      "id": "DEC-024",
+      "title": "Copilot subagent orchestration via sync pipeline",
+      "description": "Copilot-specific subagent properties (agents, handoffs, hooks) are injected via AGENT_METADATA in scripts/sync_command_mirrors.py during mirror generation. This keeps .claude/ canonical sources clean of platform-specific properties while enabling full orchestration in GitHub Copilot VS Code, CLI, and Coding Agent. Properties: agents (allowlist of delegatable subagents), handoffs (guided workflow transitions), hooks (per-agent lifecycle hooks). Based on official VS Code docs (Mar 2026) — uses modern properties instead of deprecated infer.",
+      "category": "architecture",
+      "status": "active",
+      "criticality": "high",
+      "source": "spec-064",
+      "spec": "064",
+      "created_at": "2026-03-24",
+      "expires_at": "2027-03-24T00:00:00Z",
+      "context_hash": "",
+      "acknowledged_by": "plan",
+      "decision": "Copilot-specific subagent properties (agents, handoffs, hooks) are injected via AGENT_METADATA in scripts/sync_command_mirrors.py during mirror generation. This keeps .claude/ canonical sources clean of platform-specific properties while enabling full orchestration in GitHub Copilot VS Code, CLI, and Coding Agent. Properties: agents (allowlist of delegatable subagents), handoffs (guided workflow transitions), hooks (per-agent lifecycle hooks). Based on official VS Code docs (Mar 2026) — uses modern properties instead of deprecated infer.",
+      "decidedAt": "2026-03-24T00:00:00Z",
+      "context": "architecture",
+      "refs": ["https://code.visualstudio.com/docs/copilot/customization/custom-agents"]
     }
   ]
 }
