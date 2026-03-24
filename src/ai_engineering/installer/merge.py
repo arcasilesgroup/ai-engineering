@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import shutil
 from pathlib import Path
 
@@ -40,30 +41,33 @@ def merge_settings(template_path: Path, target_path: Path, *, base: Path) -> Pat
     Raises:
         ValueError: If ``target_path`` resolves outside ``base``.
     """
-    # Resolve to canonical paths and validate against the trusted base (CWE-22)
-    template_path = template_path.resolve()
-    target_path = target_path.resolve()
-    base = base.resolve()
-    try:
-        target_path.relative_to(base)
-    except ValueError:
+    # Validate target_path is within the trusted base (CWE-22 / S2083).
+    # Use os.path.realpath + string-prefix check so that the sanitized path
+    # variable is not tainted by the original parameter in static analysis.
+    real_base = os.path.realpath(base)
+    real_target = os.path.realpath(target_path)
+    if real_target != real_base and not real_target.startswith(real_base + os.sep):
         msg = f"Path traversal rejected: {target_path!r} is outside trusted base {base!r}"
-        raise ValueError(msg) from None
+        raise ValueError(msg)
+
+    # Operate exclusively on the realpath-derived safe variable from here on.
+    safe_target = Path(real_target)
+    template_path = Path(os.path.realpath(template_path))
 
     template_data = json.loads(template_path.read_text(encoding="utf-8"))
 
     try:
-        target_data = json.loads(target_path.read_text(encoding="utf-8"))
+        target_data = json.loads(safe_target.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, ValueError):
-        backup = target_path.with_suffix(".json.bak")
-        shutil.copy2(target_path, backup)
+        backup = safe_target.with_suffix(".json.bak")
+        shutil.copy2(safe_target, backup)
         logger.warning(
             "Malformed settings.json at %s; backed up to %s. Custom deny rules may have been lost.",
-            target_path,
+            safe_target,
             backup,
         )
-        target_path.write_text(json.dumps(template_data, indent=2) + "\n", encoding="utf-8")
-        return target_path
+        safe_target.write_text(json.dumps(template_data, indent=2) + "\n", encoding="utf-8")
+        return safe_target
 
     merged = dict(target_data)
 
@@ -95,8 +99,8 @@ def merge_settings(template_path: Path, target_path: Path, *, base: Path) -> Pat
                     target_rules.append(rule)
             target_perms[key] = target_rules
 
-    target_path.write_text(json.dumps(merged, indent=2) + "\n", encoding="utf-8")
-    return target_path
+    safe_target.write_text(json.dumps(merged, indent=2) + "\n", encoding="utf-8")
+    return safe_target
 
 
 def validate_settings_structure(data: dict) -> list[str]:
