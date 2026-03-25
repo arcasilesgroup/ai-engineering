@@ -11,8 +11,9 @@ ai-eng update [TARGET] --apply     # Apply framework file updates
 ai-eng update [TARGET] --diff      # Show unified diffs for updated files
 ai-eng update [TARGET] --json      # Output report as JSON
 ai-eng doctor [TARGET]             # Diagnose framework health
-ai-eng doctor --fix-hooks          # Reinstall git hooks
-ai-eng doctor --fix-tools          # Install missing tools
+ai-eng doctor --fix                # Repair all phases
+ai-eng doctor --fix --phase hooks  # Reinstall git hooks only
+ai-eng doctor --fix --phase tools  # Install missing tools only
 ai-eng doctor --json               # Output report as JSON
 ai-eng validate [TARGET]           # Validate content integrity (all 6 categories)
 ai-eng validate --category <cat>   # Run a specific category only
@@ -55,11 +56,6 @@ ai-eng gate all --strict           # Also fail on expiring risk acceptances
 ## Skills management
 
 ```bash
-ai-eng skill list                  # List remote skill sources
-ai-eng skill sync                  # Sync from remote sources
-ai-eng skill sync --offline        # Use cached content only
-ai-eng skill add <url>             # Add a remote skill source
-ai-eng skill remove <url>          # Remove a remote skill source
 ai-eng skill status                # Check skill health and requirements
 ai-eng skill status --all          # Include all eligible skills in output
 ```
@@ -105,11 +101,5 @@ ai-eng setup github                # Verify GitHub CLI authentication and scopes
 ai-eng setup sonar                 # Configure SonarCloud / SonarQube credentials
 ai-eng setup azure-devops          # Configure Azure DevOps PAT credentials
 ai-eng setup sonarlint             # Configure SonarLint Connected Mode in IDEs
-```
-
-## Review
-
-```bash
-ai-eng review pr                   # Run AI-assisted PR review
 ```
 

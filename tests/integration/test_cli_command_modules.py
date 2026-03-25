@@ -15,7 +15,6 @@ from ai_engineering.cli_commands import (
     core,
     gate,
     maintenance,
-    review,
     stack_ide,
     validate,
     vcs,
@@ -49,25 +48,6 @@ def test_gate_print_failure_shows_first_five_lines(capsys: pytest.CaptureFixture
     assert "line-1" in captured.err
     assert "line-5" in captured.err
     assert "line-6" not in captured.err
-
-
-def test_gate_print_scope_diagnostic_even_when_passed(
-    capsys: pytest.CaptureFixture[str],
-) -> None:
-    result = GateResult(
-        hook=GateHook.PRE_PUSH,
-        checks=[
-            GateCheckResult(
-                name="test-scope",
-                passed=True,
-                output="mode=shadow\nresolved_mode=selective\ntest_count=1",
-            )
-        ],
-    )
-    gate._print_gate_result(result)
-    captured = capsys.readouterr()
-    assert "mode=shadow" in captured.err
-    assert "resolved_mode=selective" in captured.err
 
 
 def test_gate_risk_check_no_store_prints_message(
@@ -325,33 +305,6 @@ def test_skills_cli_branches(tmp_path: Path, capsys: pytest.CaptureFixture[str])
         skills.skill_status(target=tmp_path)
     captured = capsys.readouterr()
     assert "No local skills" in captured.err
-
-
-def test_review_pr_strict_failure_exits(tmp_path: Path) -> None:
-    provider = SimpleNamespace(
-        post_pr_review=lambda _ctx, body: SimpleNamespace(success=False, output="boom")
-    )
-    with (
-        patch("ai_engineering.cli_commands.review.get_provider", return_value=provider),
-        pytest.raises(typer.Exit),
-    ):
-        review.review_pr(target=tmp_path, strict=True)
-
-
-def test_review_pr_blocks_on_high_findings(tmp_path: Path) -> None:
-    findings = tmp_path / "findings.json"
-    findings.write_text(
-        json.dumps({"findings": [{"severity": "high"}, {"severity": "low"}]}),
-        encoding="utf-8",
-    )
-    provider = SimpleNamespace(
-        post_pr_review=lambda _ctx, body: SimpleNamespace(success=True, output="ok")
-    )
-    with (
-        patch("ai_engineering.cli_commands.review.get_provider", return_value=provider),
-        pytest.raises(typer.Exit),
-    ):
-        review.review_pr(target=tmp_path, findings_json=findings)
 
 
 def test_gate_all_combined_pass(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:

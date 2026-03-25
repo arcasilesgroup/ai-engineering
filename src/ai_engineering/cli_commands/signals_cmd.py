@@ -1,7 +1,7 @@
-"""Signal emission and query CLI commands.
+"""Signal emission CLI command.
 
-Provides `ai-eng signals emit` and `ai-eng signals query` for
-interacting with the single event store (audit-log.ndjson).
+Provides `ai-eng signals emit` for writing structured events
+to the single event store (audit-log.ndjson).
 """
 
 from __future__ import annotations
@@ -59,37 +59,3 @@ def signals_emit(
 
     StateService(root).append_audit(entry)
     typer.echo(f"Emitted: {event} by {actor}")
-
-
-def signals_query(
-    event_type: Annotated[str | None, typer.Option("--type", help="Filter by event type")] = None,
-    limit: Annotated[int, typer.Option(help="Max events to show")] = 20,
-    days: Annotated[int, typer.Option(help="Only events from last N days")] = 30,
-) -> None:
-    """Query events from the audit log."""
-    from ai_engineering.lib.signals import read_events
-
-    root = find_project_root()
-    from datetime import timedelta
-
-    since = datetime.now(tz=UTC) - timedelta(days=days)
-
-    events = read_events(root, event_type=event_type, since=since, limit=limit)
-
-    if not events:
-        typer.echo("No events found matching criteria.")
-        return
-
-    typer.echo(f"# Events ({len(events)} shown, last {days} days)")
-    typer.echo("")
-    for event in events:
-        ts = event.get("timestamp", "?")
-        evt = event.get("event", "?")
-        actor = event.get("actor", "?")
-        detail = event.get("detail", "")
-        detail_summary = ""
-        if isinstance(detail, dict):
-            detail_summary = f" | {json.dumps(detail, default=str)[:100]}"
-        elif isinstance(detail, str) and detail:
-            detail_summary = f" | {detail[:100]}"
-        typer.echo(f"  {ts} | {evt} | {actor}{detail_summary}")

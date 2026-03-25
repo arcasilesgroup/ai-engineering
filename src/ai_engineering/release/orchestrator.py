@@ -76,7 +76,6 @@ class ReleaseConfig:
 
     version: str
     project_root: Path
-    draft: bool = False
     wait: bool = False
     dry_run: bool = False
     skip_bump: bool = False

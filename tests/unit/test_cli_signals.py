@@ -1,13 +1,12 @@
 """Unit tests for ai_engineering.cli_commands.signals_cmd module.
 
-Tests the signals emit and signals query CLI commands using the
-Typer CLI runner with temporary audit log files.
+Tests the signals emit CLI command using the Typer CLI runner
+with temporary audit log files.
 """
 
 from __future__ import annotations
 
 import json
-from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from unittest.mock import patch
 
@@ -19,35 +18,6 @@ from ai_engineering.cli_factory import create_app
 pytestmark = pytest.mark.unit
 
 runner = CliRunner()
-
-
-def _write_audit_log(root: Path, entries: list[dict]) -> None:
-    """Write entries as NDJSON to the audit-log.ndjson file."""
-    log_path = root / ".ai-engineering" / "state" / "audit-log.ndjson"
-    log_path.parent.mkdir(parents=True, exist_ok=True)
-    lines = [json.dumps(e, default=str) for e in entries]
-    log_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-
-
-def _make_event(
-    event: str = "scan_complete",
-    actor: str = "cli",
-    detail: dict | None = None,
-    timestamp: datetime | None = None,
-    spec_id: str | None = None,
-) -> dict:
-    """Build a minimal audit event dict."""
-    ts = (timestamp or datetime.now(tz=UTC)).strftime("%Y-%m-%dT%H:%M:%SZ")
-    entry: dict = {
-        "event": event,
-        "actor": actor,
-        "timestamp": ts,
-    }
-    if detail is not None:
-        entry["detail"] = detail
-    if spec_id is not None:
-        entry["spec_id"] = spec_id
-    return entry
 
 
 class TestSignalsEmit:
@@ -160,146 +130,3 @@ class TestSignalsEmit:
         entry = json.loads(log_path.read_text(encoding="utf-8").strip())
         # detail is {} which is falsy, so model gets detail=None → excluded from dump
         assert "detail" not in entry
-
-
-class TestSignalsQuery:
-    """Tests for `ai-eng signals query`."""
-
-    def test_no_events_found(self, tmp_path: Path) -> None:
-        """When no audit log exists, report no events."""
-        (tmp_path / ".ai-engineering").mkdir(parents=True)
-        with patch(
-            "ai_engineering.cli_commands.signals_cmd.find_project_root",
-            return_value=tmp_path,
-        ):
-            app = create_app()
-            result = runner.invoke(app, ["signals", "query"])
-        assert result.exit_code == 0
-        assert "No events found" in result.output
-
-    def test_query_shows_events(self, tmp_path: Path) -> None:
-        """Query returns events from the audit log."""
-        now = datetime.now(tz=UTC)
-        _write_audit_log(
-            tmp_path,
-            [
-                _make_event(event="scan_complete", actor="agent1", timestamp=now),
-                _make_event(event="gate_result", actor="agent2", timestamp=now),
-            ],
-        )
-        with patch(
-            "ai_engineering.cli_commands.signals_cmd.find_project_root",
-            return_value=tmp_path,
-        ):
-            app = create_app()
-            result = runner.invoke(app, ["signals", "query"])
-        assert result.exit_code == 0
-        assert "Events" in result.output
-        assert "scan_complete" in result.output
-        assert "gate_result" in result.output
-
-    def test_query_filter_by_type(self, tmp_path: Path) -> None:
-        """Query with --type filters to matching events only."""
-        now = datetime.now(tz=UTC)
-        _write_audit_log(
-            tmp_path,
-            [
-                _make_event(event="scan_complete", timestamp=now),
-                _make_event(event="gate_result", timestamp=now),
-            ],
-        )
-        with patch(
-            "ai_engineering.cli_commands.signals_cmd.find_project_root",
-            return_value=tmp_path,
-        ):
-            app = create_app()
-            result = runner.invoke(app, ["signals", "query", "--type", "gate_result"])
-        assert result.exit_code == 0
-        assert "gate_result" in result.output
-        # scan_complete should not appear in the event lines
-        event_lines = [line for line in result.output.split("\n") if "scan_complete" in line]
-        assert len(event_lines) == 0
-
-    def test_query_limit(self, tmp_path: Path) -> None:
-        """Query with --limit restricts the number of events shown."""
-        now = datetime.now(tz=UTC)
-        events = [_make_event(event=f"event_{i}", timestamp=now) for i in range(10)]
-        _write_audit_log(tmp_path, events)
-        with patch(
-            "ai_engineering.cli_commands.signals_cmd.find_project_root",
-            return_value=tmp_path,
-        ):
-            app = create_app()
-            result = runner.invoke(app, ["signals", "query", "--limit", "3"])
-        assert result.exit_code == 0
-        assert "3 shown" in result.output
-
-    def test_query_days_filter(self, tmp_path: Path) -> None:
-        """Query with --days filters out old events."""
-        now = datetime.now(tz=UTC)
-        old = now - timedelta(days=60)
-        _write_audit_log(
-            tmp_path,
-            [
-                _make_event(event="old_event", timestamp=old),
-                _make_event(event="new_event", timestamp=now),
-            ],
-        )
-        with patch(
-            "ai_engineering.cli_commands.signals_cmd.find_project_root",
-            return_value=tmp_path,
-        ):
-            app = create_app()
-            result = runner.invoke(app, ["signals", "query", "--days", "7"])
-        assert result.exit_code == 0
-        assert "new_event" in result.output
-        # old_event should be filtered out
-        assert "old_event" not in result.output
-
-    def test_query_with_dict_detail(self, tmp_path: Path) -> None:
-        """Events with dict details show a JSON summary."""
-        now = datetime.now(tz=UTC)
-        _write_audit_log(
-            tmp_path,
-            [_make_event(detail={"result": "pass"}, timestamp=now)],
-        )
-        with patch(
-            "ai_engineering.cli_commands.signals_cmd.find_project_root",
-            return_value=tmp_path,
-        ):
-            app = create_app()
-            result = runner.invoke(app, ["signals", "query"])
-        assert result.exit_code == 0
-        assert "result" in result.output
-
-    def test_query_with_string_detail(self, tmp_path: Path) -> None:
-        """Old events with string details (backward compat) show the string."""
-        now = datetime.now(tz=UTC)
-        # Simulate an old-format event where detail was a plain string.
-        old_event = _make_event(timestamp=now)
-        old_event["detail"] = "some detail text"
-        _write_audit_log(tmp_path, [old_event])
-        with patch(
-            "ai_engineering.cli_commands.signals_cmd.find_project_root",
-            return_value=tmp_path,
-        ):
-            app = create_app()
-            result = runner.invoke(app, ["signals", "query"])
-        assert result.exit_code == 0
-        assert "some detail text" in result.output
-
-    def test_query_with_no_detail(self, tmp_path: Path) -> None:
-        """Events without detail don't add extra text."""
-        now = datetime.now(tz=UTC)
-        _write_audit_log(
-            tmp_path,
-            [_make_event(timestamp=now)],
-        )
-        with patch(
-            "ai_engineering.cli_commands.signals_cmd.find_project_root",
-            return_value=tmp_path,
-        ):
-            app = create_app()
-            result = runner.invoke(app, ["signals", "query"])
-        assert result.exit_code == 0
-        assert "scan_complete" in result.output

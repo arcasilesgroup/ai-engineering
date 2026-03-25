@@ -50,7 +50,6 @@ from ai_engineering.installer.ui import (
 )
 from ai_engineering.paths import resolve_project_root
 from ai_engineering.updater.service import _DIFF_MAX_LINES, update
-from ai_engineering.vcs.factory import detect_from_remote
 
 
 def install_cmd(
@@ -423,21 +422,6 @@ def _replay_plan(root: Path, plan_path: Path) -> None:
                         break
 
     typer.echo(f"Plan replayed successfully to {root}")
-
-
-def _resolve_vcs_provider(vcs: str | None, root: Path) -> str:
-    """Resolve VCS provider from flag or remote auto-detection.
-
-    Args:
-        vcs: Explicit --vcs flag value, or None.
-        root: Project root for remote detection.
-
-    Returns:
-        Resolved VCS provider string.
-    """
-    if vcs is not None:
-        return "azure_devops" if vcs == "azdo" else vcs
-    return detect_from_remote(root)
 
 
 _PROVIDER_ALIASES: dict[str, str] = {

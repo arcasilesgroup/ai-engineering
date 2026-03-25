@@ -222,7 +222,7 @@ ai-engineering uses a content-first approach — configuration lives in `.ai-eng
 
 **Updates** are dry-run by default. Run `ai-eng update` to preview, then `ai-eng update --apply` to write. The updater only touches framework-managed files.
 
-**Doctor remediation** provides `--fix-hooks` to reinstall git hooks and `--fix-tools` to auto-install missing tools (`ruff`, `ty`, `gitleaks`, `semgrep`, `pip-audit`).
+**Doctor remediation** provides `--fix` to repair the framework and `--fix --phase <name>` to target a specific phase (e.g. `hooks` to reinstall git hooks, `tools` to auto-install missing tools such as `ruff`, `ty`, `gitleaks`, `semgrep`, `pip-audit`).
 
 **Risk lifecycle** enforces severity-based expiry:
 

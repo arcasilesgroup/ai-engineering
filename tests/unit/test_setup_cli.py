@@ -575,56 +575,6 @@ class TestSetupPlatformsAllDetected:
         mock_azdo.assert_called_once()
 
 
-# ---------------------------------------------------------------
-# Fix 1: VCS alias "azdo" — _resolve_vcs_provider
-# ---------------------------------------------------------------
-
-
-class TestResolveVcsProvider:
-    """Tests for _resolve_vcs_provider in core.py."""
-
-    def test_azdo_alias_resolves_to_azure_devops(self, tmp_path: Path) -> None:
-        from ai_engineering.cli_commands.core import _resolve_vcs_provider
-
-        result = _resolve_vcs_provider("azdo", tmp_path)
-        assert result == "azure_devops"
-
-    def test_azure_devops_passthrough(self, tmp_path: Path) -> None:
-        from ai_engineering.cli_commands.core import _resolve_vcs_provider
-
-        result = _resolve_vcs_provider("azure_devops", tmp_path)
-        assert result == "azure_devops"
-
-    def test_github_passthrough(self, tmp_path: Path) -> None:
-        from ai_engineering.cli_commands.core import _resolve_vcs_provider
-
-        result = _resolve_vcs_provider("github", tmp_path)
-        assert result == "github"
-
-    @patch("ai_engineering.cli_commands.core.is_json_mode", return_value=True)
-    @patch("ai_engineering.git.operations.run_git", return_value=(False, ""))
-    def test_no_remote_json_mode_defaults_github(
-        self, mock_git: MagicMock, mock_json: MagicMock, tmp_path: Path
-    ) -> None:
-        from ai_engineering.cli_commands.core import _resolve_vcs_provider
-
-        result = _resolve_vcs_provider(None, tmp_path)
-        assert result == "github"
-
-    @patch("ai_engineering.cli_commands.core.detect_from_remote", return_value="azure_devops")
-    @patch(
-        "ai_engineering.git.operations.run_git",
-        return_value=(True, "https://dev.azure.com/org/proj"),
-    )
-    def test_autodetect_from_remote(
-        self, mock_git: MagicMock, mock_detect: MagicMock, tmp_path: Path
-    ) -> None:
-        from ai_engineering.cli_commands.core import _resolve_vcs_provider
-
-        result = _resolve_vcs_provider(None, tmp_path)
-        assert result == "azure_devops"
-
-
 class TestVcsFactoryAzdoAlias:
     """Tests that the factory _PROVIDERS map includes the 'azdo' alias."""
 

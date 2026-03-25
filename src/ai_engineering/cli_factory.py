@@ -27,12 +27,9 @@ from ai_engineering.cli_commands import (
     gate,
     guide,
     maintenance,
-    metrics,
     observe,
     provider,
     release,
-    review,
-    scan_report,
     setup,
     signals_cmd,
     skills,
@@ -130,13 +127,10 @@ def _app_callback(
                         "skill",
                         "maintenance",
                         "vcs",
-                        "review",
                         "setup",
                         "release",
                         "signals",
                         "decision",
-                        "scan-report",
-                        "metrics",
                         "work-item",
                         "workflow",
                     ]
@@ -294,15 +288,6 @@ def create_app() -> typer.Typer:
     vcs_app.command("set-primary")(_safe(vcs.vcs_set_primary))
     app.add_typer(vcs_app, name="vcs")
 
-    # Review sub-group
-    review_app = typer.Typer(
-        name="review",
-        help="Run provider-backed review operations.",
-        no_args_is_help=True,
-    )
-    review_app.command("pr")(_safe(review.review_pr))
-    app.add_typer(review_app, name="review")
-
     # Setup sub-group
     setup_app = typer.Typer(
         name="setup",
@@ -319,11 +304,10 @@ def create_app() -> typer.Typer:
     # Signals sub-group (v3: event store operations)
     signals_app = typer.Typer(
         name="signals",
-        help="Emit and query events in the audit log.",
+        help="Emit events to the audit log.",
         no_args_is_help=True,
     )
     signals_app.command("emit")(_safe(signals_cmd.signals_emit))
-    signals_app.command("query")(_safe(signals_cmd.signals_query))
     app.add_typer(signals_app, name="signals")
 
     # Decision sub-group (v3: decision store management)
@@ -366,23 +350,5 @@ def create_app() -> typer.Typer:
     workflow_app.command("pr")(_safe(workflow.workflow_pr))
     workflow_app.command("pr-only")(_safe(workflow.workflow_pr_only))
     app.add_typer(workflow_app, name="workflow")
-
-    # Scan report sub-group (v3: raw findings formatter)
-    scan_report_app = typer.Typer(
-        name="scan-report",
-        help="Format raw scan findings into the standard report contract.",
-        no_args_is_help=True,
-    )
-    scan_report_app.command("format")(_safe(scan_report.scan_report_format))
-    app.add_typer(scan_report_app, name="scan-report")
-
-    # Metrics sub-group (v3: event store aggregation)
-    metrics_app = typer.Typer(
-        name="metrics",
-        help="Collect aggregated metrics from the event store.",
-        no_args_is_help=True,
-    )
-    metrics_app.command("collect")(_safe(metrics.metrics_collect))
-    app.add_typer(metrics_app, name="metrics")
 
     return app

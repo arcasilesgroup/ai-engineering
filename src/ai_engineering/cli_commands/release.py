@@ -25,7 +25,6 @@ def release_cmd(
         typer.Argument(help="Semver version (e.g. 0.2.0, 1.0.0-rc.1)"),
     ],
     target: Annotated[Path | None, typer.Option("--target", "-t")] = None,
-    draft: Annotated[bool, typer.Option("--draft", help="Create pre-release")] = False,
     wait: Annotated[bool, typer.Option("--wait", help="Wait for pipeline")] = False,
     dry_run: Annotated[bool, typer.Option("--dry-run", help="Validate only")] = False,
     skip_bump: Annotated[bool, typer.Option("--skip-bump", help="Skip version bump")] = False,
@@ -38,7 +37,6 @@ def release_cmd(
     config = ReleaseConfig(
         version=normalized,
         project_root=root,
-        draft=draft,
         wait=wait,
         dry_run=dry_run,
         skip_bump=skip_bump,
