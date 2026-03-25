@@ -1,6 +1,7 @@
 """Unit tests for the install wizard module.
 
 Covers AC9, AC10, AC11, AC12, AC13, AC16b from spec-064.
+Updated for spec-072: popularity ordering, VCS no-default, Ctrl+C abort.
 All questionary interactions are mocked at module level.
 """
 
@@ -19,30 +20,31 @@ pytestmark = pytest.mark.unit
 # Helpers
 # ---------------------------------------------------------------------------
 
+# Popularity-ordered lists (matching Octoverse 2025 ranking)
 _STACKS = [
-    "bash",
+    "typescript",
+    "python",
+    "javascript",
+    "java",
     "csharp",
+    "go",
+    "php",
+    "rust",
+    "ruby",
+    "kotlin",
+    "swift",
     "dart",
     "elixir",
-    "go",
-    "java",
-    "javascript",
-    "kotlin",
-    "php",
-    "python",
-    "ruby",
-    "rust",
     "sql",
-    "swift",
-    "typescript",
+    "bash",
     "universal",
 ]
 
-_PROVIDERS = ["claude_code", "codex", "gemini", "github_copilot"]
+_PROVIDERS = ["github_copilot", "claude_code", "gemini", "codex"]
 
-_IDES = ["cursor", "jetbrains", "terminal", "vscode"]
+_IDES = ["vscode", "jetbrains", "cursor", "terminal"]
 
-_VCS_CHOICES = ["azure_devops", "github"]
+_VCS_CHOICES = ["github", "azure_devops"]
 
 
 def _detected(
@@ -85,6 +87,7 @@ class TestDetectedPreselection:
         with (
             patch("ai_engineering.installer.wizard.questionary.checkbox", mock_checkbox),
             patch("ai_engineering.installer.wizard.questionary.select", mock_select),
+            patch("ai_engineering.installer.wizard.questionary.print"),
         ):
             run_wizard(detected)
 
@@ -114,6 +117,7 @@ class TestDetectedPreselection:
         with (
             patch("ai_engineering.installer.wizard.questionary.checkbox", mock_checkbox),
             patch("ai_engineering.installer.wizard.questionary.select", mock_select),
+            patch("ai_engineering.installer.wizard.questionary.print"),
         ):
             run_wizard(detected)
 
@@ -141,6 +145,7 @@ class TestDetectedPreselection:
         with (
             patch("ai_engineering.installer.wizard.questionary.checkbox", mock_checkbox),
             patch("ai_engineering.installer.wizard.questionary.select", mock_select),
+            patch("ai_engineering.installer.wizard.questionary.print"),
         ):
             run_wizard(detected)
 
@@ -153,14 +158,14 @@ class TestDetectedPreselection:
 
 
 # ---------------------------------------------------------------------------
-# AC10: All valid options are shown
+# AC10: All valid options are shown (popularity ordered)
 # ---------------------------------------------------------------------------
 
 
 class TestAllOptionsShown:
-    """AC10: Wizard shows all valid options including non-detected ones."""
+    """AC10: Wizard shows all valid options in popularity order."""
 
-    def test_all_stacks_shown(self) -> None:
+    def test_all_stacks_shown_popularity_ordered(self) -> None:
         from ai_engineering.installer.wizard import run_wizard
 
         detected = _detected(stacks=["python"])
@@ -177,7 +182,11 @@ class TestAllOptionsShown:
         with (
             patch("ai_engineering.installer.wizard.questionary.checkbox", mock_checkbox),
             patch("ai_engineering.installer.wizard.questionary.select", mock_select),
-            patch("ai_engineering.installer.operations.get_available_stacks", return_value=_STACKS),
+            patch(
+                "ai_engineering.installer.operations.get_available_stacks",
+                return_value=_STACKS,
+            ),
+            patch("ai_engineering.installer.wizard.questionary.print"),
         ):
             run_wizard(detected)
 
@@ -185,8 +194,10 @@ class TestAllOptionsShown:
             choices = stacks_call.kwargs.get("choices", [])
             choice_names = [c.title for c in choices]
             assert choice_names == _STACKS
+            assert choice_names[0] == "typescript"
+            assert choice_names[-1] == "universal"
 
-    def test_all_providers_shown(self) -> None:
+    def test_all_providers_shown_popularity_ordered(self) -> None:
         from ai_engineering.installer.wizard import run_wizard
 
         detected = _detected(providers=["claude_code"])
@@ -203,6 +214,7 @@ class TestAllOptionsShown:
         with (
             patch("ai_engineering.installer.wizard.questionary.checkbox", mock_checkbox),
             patch("ai_engineering.installer.wizard.questionary.select", mock_select),
+            patch("ai_engineering.installer.wizard.questionary.print"),
         ):
             run_wizard(detected)
 
@@ -210,8 +222,9 @@ class TestAllOptionsShown:
             choices = providers_call.kwargs.get("choices", [])
             choice_names = [c.title for c in choices]
             assert choice_names == _PROVIDERS
+            assert choice_names[0] == "github_copilot"
 
-    def test_all_ides_shown(self) -> None:
+    def test_all_ides_shown_popularity_ordered(self) -> None:
         from ai_engineering.installer.wizard import run_wizard
 
         detected = _detected(ides=["vscode"])
@@ -228,7 +241,11 @@ class TestAllOptionsShown:
         with (
             patch("ai_engineering.installer.wizard.questionary.checkbox", mock_checkbox),
             patch("ai_engineering.installer.wizard.questionary.select", mock_select),
-            patch("ai_engineering.installer.operations.get_available_ides", return_value=_IDES),
+            patch(
+                "ai_engineering.installer.operations.get_available_ides",
+                return_value=_IDES,
+            ),
+            patch("ai_engineering.installer.wizard.questionary.print"),
         ):
             run_wizard(detected)
 
@@ -236,8 +253,9 @@ class TestAllOptionsShown:
             choices = ides_call.kwargs.get("choices", [])
             choice_names = [c.title for c in choices]
             assert choice_names == _IDES
+            assert choice_names[0] == "vscode"
 
-    def test_all_vcs_shown(self) -> None:
+    def test_all_vcs_shown_popularity_ordered(self) -> None:
         from ai_engineering.installer.wizard import run_wizard
 
         detected = _detected(vcs="github")
@@ -255,6 +273,7 @@ class TestAllOptionsShown:
             select_call = mock_q.select.call_args_list[0]
             choices = select_call.kwargs.get("choices", select_call[1].get("choices", []))
             assert choices == _VCS_CHOICES
+            assert choices[0] == "github"
 
 
 # ---------------------------------------------------------------------------
@@ -282,6 +301,7 @@ class TestEmptyDetection:
         with (
             patch("ai_engineering.installer.wizard.questionary.checkbox", mock_checkbox),
             patch("ai_engineering.installer.wizard.questionary.select", mock_select),
+            patch("ai_engineering.installer.wizard.questionary.print"),
         ):
             run_wizard(detected)
 
@@ -307,6 +327,7 @@ class TestEmptyDetection:
         with (
             patch("ai_engineering.installer.wizard.questionary.checkbox", mock_checkbox),
             patch("ai_engineering.installer.wizard.questionary.select", mock_select),
+            patch("ai_engineering.installer.wizard.questionary.print"),
         ):
             run_wizard(detected)
 
@@ -332,6 +353,7 @@ class TestEmptyDetection:
         with (
             patch("ai_engineering.installer.wizard.questionary.checkbox", mock_checkbox),
             patch("ai_engineering.installer.wizard.questionary.select", mock_select),
+            patch("ai_engineering.installer.wizard.questionary.print"),
         ):
             run_wizard(detected)
 
@@ -386,6 +408,27 @@ class TestVCSUsesSelect:
 
             select_call = mock_q.select.call_args
             assert select_call.kwargs.get("default") == "azure_devops"
+
+    def test_vcs_empty_detection_no_default(self) -> None:
+        """When VCS detection returns empty, no default is passed."""
+        from ai_engineering.installer.wizard import run_wizard
+
+        detected = _detected(vcs="")
+
+        with patch("ai_engineering.installer.wizard.questionary") as mock_q:
+            mock_q.checkbox.return_value.ask.side_effect = [
+                [],
+                [],
+                [],
+            ]
+            mock_q.select.return_value.ask.return_value = "github"
+
+            run_wizard(detected)
+
+            select_call = mock_q.select.call_args
+            assert "default" not in select_call.kwargs
+            # "Detected: none" note should have been printed
+            mock_q.print.assert_called_once()
 
 
 # ---------------------------------------------------------------------------
@@ -545,7 +588,7 @@ class TestInterruptHandling:
                 None,  # providers
                 None,  # ides
             ]
-            mock_q.select.return_value.ask.return_value = None  # vcs
+            mock_q.select.return_value.ask.return_value = "github"
 
             result = run_wizard(detected)
 
@@ -554,7 +597,8 @@ class TestInterruptHandling:
             assert result.ides == []
             assert result.vcs == "github"
 
-    def test_select_returns_none_defaults_to_github(self) -> None:
+    def test_vcs_select_returns_none_aborts_install(self) -> None:
+        """Ctrl+C during VCS select aborts install with SystemExit(1)."""
         from ai_engineering.installer.wizard import run_wizard
 
         detected = _detected(vcs="azure_devops")
@@ -567,9 +611,10 @@ class TestInterruptHandling:
             ]
             mock_q.select.return_value.ask.return_value = None
 
-            result = run_wizard(detected)
+            with pytest.raises(SystemExit) as exc_info:
+                run_wizard(detected)
 
-            assert result.vcs == "github"
+            assert exc_info.value.code == 1
 
 
 # ---------------------------------------------------------------------------

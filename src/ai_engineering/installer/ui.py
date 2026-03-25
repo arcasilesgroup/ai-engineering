@@ -130,9 +130,10 @@ def render_reinstall_options() -> str:
 
 def render_detection(vcs: str, providers: list[str], tools: dict[str, bool]) -> None:
     """Show auto-detection results."""
+    vcs_display = vcs or "none detected"
     if _HAS_RICH and _console:
         _console.print("\n[bold]Auto-detected configuration:[/]")
-        _console.print(f"  VCS provider:  [cyan]{vcs}[/]")
+        _console.print(f"  VCS provider:  [cyan]{vcs_display}[/]")
         _console.print(f"  AI providers:  [cyan]{', '.join(providers)}[/]")
         tool_lines = []
         for name, available in tools.items():
@@ -141,7 +142,7 @@ def render_detection(vcs: str, providers: list[str], tools: dict[str, bool]) -> 
         _console.print(f"  Tools:         {' | '.join(tool_lines)}")
     else:
         print("\nAuto-detected configuration:", file=sys.stderr)
-        print(f"  VCS provider:  {vcs}", file=sys.stderr)
+        print(f"  VCS provider:  {vcs_display}", file=sys.stderr)
         print(f"  AI providers:  {', '.join(providers)}", file=sys.stderr)
         for name, available in tools.items():
             status = "\u2713" if available else "\u2717"

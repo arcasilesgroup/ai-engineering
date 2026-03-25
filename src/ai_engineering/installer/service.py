@@ -19,9 +19,9 @@ Steps performed by the pipeline:
 
 from __future__ import annotations
 
-import contextlib
 import json
 import logging
+import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -160,9 +160,10 @@ def install(
     # 4. Audit log entry
     _log_install_event(ai_eng_dir, result)
 
-    # 5. Install git hooks (skip silently if not a git repo)
-    with contextlib.suppress(FileNotFoundError):
-        result.hooks = install_hooks(target)
+    # 5. Ensure git repo exists, then install hooks
+    if not (target / ".git").is_dir():
+        subprocess.run(["git", "init"], cwd=target, capture_output=True, check=True)
+    result.hooks = install_hooks(target)
 
     # 6. Install-to-operational phases (tooling/auth/policy)
     _run_operational_phases(target, vcs_provider=vcs_provider, result=result)

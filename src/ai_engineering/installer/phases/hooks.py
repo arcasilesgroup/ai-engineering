@@ -7,7 +7,6 @@ and performs an intelligent merge of ``.claude/settings.json`` when the
 
 from __future__ import annotations
 
-import contextlib
 import json
 import shutil
 from pathlib import Path
@@ -83,22 +82,24 @@ class HooksPhase:
                 skipped=result.skipped,
             )
 
-        with contextlib.suppress(FileNotFoundError):
-            hr = install_hooks(context.target)
-            result.created.extend(f".git/hooks/{h}" for h in hr.installed)
-            result.skipped.extend(f".git/hooks/{h}" for h in hr.skipped)
+        hr = install_hooks(context.target)
+        result.created.extend(f".git/hooks/{h}" for h in hr.installed)
+        result.skipped.extend(f".git/hooks/{h}" for h in hr.skipped)
 
         self._handle_settings(plan, context, pr, result)
         return result
 
     def verify(self, result: PhaseResult, context: InstallContext) -> PhaseVerdict:
         w: list[str] = []
+        errors: list[str] = []
+        passed = True
         if not (context.target / ".git/hooks/pre-commit").exists():
-            w.append("pre-commit hook not installed")
+            errors.append("pre-commit hook not installed")
+            passed = False
         hd = context.target / ".ai-engineering" / "scripts" / "hooks"
         if not hd.is_dir() or not any(hd.iterdir()):
             w.append(".ai-engineering/scripts/hooks/ empty or missing")
-        return PhaseVerdict(phase_name=self.name, passed=True, warnings=w)
+        return PhaseVerdict(phase_name=self.name, passed=passed, warnings=w, errors=errors)
 
     @staticmethod
     def _handle_settings(

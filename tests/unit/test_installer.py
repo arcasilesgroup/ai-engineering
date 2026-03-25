@@ -566,14 +566,15 @@ class TestInstallCallsInstallHooks:
 
         patched["install_hooks"].assert_called_once_with(tmp_path)
 
-    def test_hooks_suppresses_file_not_found(self, patched, tmp_path: Path) -> None:
-        """FileNotFoundError from install_hooks is suppressed gracefully."""
+    def test_hooks_propagates_file_not_found(self, patched, tmp_path: Path) -> None:
+        """FileNotFoundError from install_hooks now propagates (not suppressed)."""
         patched["install_hooks"].side_effect = FileNotFoundError("no .git")
-        with patch.object(Path, "exists", return_value=True):
-            result = install(tmp_path)
-
-        # Should not raise; result.hooks stays at default
-        assert isinstance(result.hooks, HookInstallResult)
+        with (
+            patch.object(Path, "exists", return_value=True),
+            patch.object(Path, "is_dir", return_value=True),
+            pytest.raises(FileNotFoundError, match=r"no \.git"),
+        ):
+            install(tmp_path)
 
 
 class TestInstallCallsCheckToolsForStacks:
