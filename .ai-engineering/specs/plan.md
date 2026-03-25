@@ -1,108 +1,57 @@
-# Plan: spec-066 Relocate scripts/hooks/ into .ai-engineering/
+# Plan: spec-067 Auto-optimize brainstorm input via ai-prompt preprocessing
 
-## Pipeline: standard
-## Phases: 5
-## Tasks: 10 (build: 8, verify: 2)
+## Pipeline: hotfix
+## Phases: 2
+## Tasks: 4 (build: 3, verify: 1)
 
 ---
 
-### Phase 1: File Moves
-**Gate**: Template and dogfooding hooks exist at new paths. Old paths don't exist.
+### Phase 1: Build canonical files
+**Gate**: Handler exists, SKILL.md has step 1.5, both follow existing patterns.
 
-- [x]T-1.1: Move template source (agent: build)
-  - `git mv src/ai_engineering/templates/project/scripts/hooks/ src/ai_engineering/templates/project/.ai-engineering/scripts/hooks/`
-  - Verify `src/ai_engineering/templates/project/scripts/` is empty, remove it
-  - Verify `src/ai_engineering/templates/project/.ai-engineering/scripts/hooks/` contains all 34+ files + `_lib/`
-  - **Done when**: Template source at new path, old `scripts/` dir gone (AC3, AC5)
+- [x] T-1.1: Create `handlers/prompt-enhance.md` (agent: build) -- DONE
+  - Create `.claude/skills/ai-brainstorm/handlers/prompt-enhance.md`
+  - Define quality evaluation criteria: detect vague markers in ES ("mejorar", "optimizar", "arreglar", "limpiar") and EN ("improve", "optimize", "fix", "clean up"), plus absence of measurable criteria
+  - Apply ai-prompt technique #1 (Be Explicit Over Implicit): transform vague terms into precise, measurable descriptions
+  - Apply ai-prompt technique #5 (Positive Framing): state what to build, not what to avoid
+  - Skip logic: if input has no vague markers AND contains specific/measurable terms, output "Input ya optimo, continuando..." and proceed
+  - Preserve breadth of intentionally exploratory inputs (do not narrow scope, only clarify terms)
+  - Display format: show `**Input original:**` / `**Input optimizado:**` then auto-continue
+  - Follow existing handler structure (same as `interrogate.md` and `spec-review.md`: Purpose, Procedure with steps, Exit Criteria)
+  - **Done when**: Handler file exists with all criteria (AC1, AC2, AC3, AC4, AC5)
 
-- [x]T-1.2: Move dogfooding copy (agent: build)
-  - `git mv scripts/hooks/ .ai-engineering/scripts/hooks/`
-  - Remove empty `scripts/` directory
-  - **Done when**: Dogfooding at `.ai-engineering/scripts/hooks/`, old `scripts/` gone (AC4)
+- [x] T-1.2: Update brainstorm SKILL.md (agent: build, blocked by T-1.1) -- DONE
+  - Add step 1.5 "Enhance input" between step 1 "Load context" and step 2 "Interrogate":
+    ```
+    1.5. **Enhance input** -- follow `handlers/prompt-enhance.md` to evaluate and optimize user input
+    ```
+  - Add row to Quick Reference table between "Load context" and "Interrogate":
+    ```
+    | Enhance input | Input quality checked | Optimized input (or original if already specific) |
+    ```
+  - Update Integration section "Calls" to include `handlers/prompt-enhance.md`
+  - Do NOT change any other behavior or steps
+  - **Done when**: SKILL.md has step 1.5, table row, and handler reference (AC6, AC7, AC8)
 
-### Phase 2: Installer + Updater Code (parallel tasks)
-**Gate**: `_COMMON_TREE_MAPS` points to new path. Hooks phase verifies new path. Migration function exists in updater.
+### Phase 2: Sync mirrors + verify
+**Gate**: All 3 mirrors reflect canonical changes. No regressions.
 
-- [x]T-2.1: Update installer templates.py and phases/hooks.py (agent: build, blocked by T-1.1)
-  - `templates.py` line 76: `("scripts/hooks", "scripts/hooks")` → `(".ai-engineering/scripts/hooks", ".ai-engineering/scripts/hooks")`
-  - `phases/hooks.py` line 98: `context.target / "scripts/hooks"` → `context.target / ".ai-engineering" / "scripts" / "hooks"`
-  - `phases/hooks.py` line 100: `"scripts/hooks/ empty or missing"` → `".ai-engineering/scripts/hooks/ empty or missing"`
-  - **Done when**: Installer deploys to and verifies new path (AC10, AC11)
+- [x] T-2.1: Run mirror sync (agent: build, blocked by T-1.2) -- DONE
+  - Run `python scripts/sync_command_mirrors.py`
+  - This auto-syncs:
+    - `.github/prompts/ai-brainstorm.prompt.md` (flattens handler inline)
+    - `.agents/skills/brainstorm/SKILL.md` (copies SKILL.md)
+    - `.agents/skills/brainstorm/handlers/prompt-enhance.md` (copies handler)
+  - **Done when**: All 3 mirrors exist and reflect changes (AC13, AC14, AC15)
 
-- [x]T-2.2: Add migration function to updater/service.py (agent: build, blocked by T-1.1)
-  - Add `_migrate_hooks_dir(target: Path)` near existing `_migrate_legacy_dirs()` (~line 360)
-  - Logic: if `target / "scripts" / "hooks"` exists and is dir → `shutil.copytree` to `target / ".ai-engineering" / "scripts" / "hooks"`, then `shutil.rmtree` old, then remove empty `scripts/` dir if empty
-  - Must be idempotent: if new path already exists, skip silently
-  - Call from `update()` before `_evaluate_project_files()`
-  - Update `_evaluate_project_files()` lines ~203-217: tree map paths are read from `_COMMON_TREE_MAPS` which is already updated by T-2.1, no extra changes needed here (verify this)
-  - **Done when**: `ai-eng update` migrates old hooks to new path (AC12, AC13, AC14)
-
-### Phase 3: Path References (all tasks parallel, blocked by T-1.1 + T-1.2)
-**Gate**: All settings.json, hooks.json, shell, and PowerShell references point to `.ai-engineering/scripts/hooks/`.
-
-- [x]T-3.1: Update Claude Code settings.json (template + dogfooding) (agent: build, blocked by T-1.1)
-  - Template: `src/ai_engineering/templates/project/.claude/settings.json` — replace all `scripts/hooks/` → `.ai-engineering/scripts/hooks/` (~10 occurrences)
-  - Dogfooding: `.claude/settings.json` — same replacement (~10 occurrences)
-  - Use `replace_all` for efficiency
-  - **Done when**: All settings.json hook paths updated (AC6)
-
-- [x]T-3.2: Update GitHub Copilot hooks.json (template + dogfooding) (agent: build, blocked by T-1.1)
-  - Template: `src/ai_engineering/templates/project/github_templates/hooks/hooks.json` — replace `scripts/hooks/` → `.ai-engineering/scripts/hooks/` (3 entries)
-  - Dogfooding: `.github/hooks/hooks.json` — replace `./scripts/hooks/` → `./.ai-engineering/scripts/hooks/` (12 entries)
-  - **Done when**: All hooks.json paths updated (AC7)
-
-- [x]T-3.3: Fix shell script dirname navigation (agent: build, blocked by T-1.1)
-  - 3 telemetry scripts: replace `$(dirname "$0")/../..` → `$(dirname "$0")/../../..`
-    - `.ai-engineering/scripts/hooks/telemetry-skill.sh` (line ~33)
-    - `.ai-engineering/scripts/hooks/telemetry-session.sh` (line ~17)
-    - `.ai-engineering/scripts/hooks/telemetry-agent.sh` (line ~61)
-  - 5 copilot scripts: replace `"$SCRIPT_DIR/../.."` → `"$SCRIPT_DIR/../../.."`
-    - `.ai-engineering/scripts/hooks/copilot-skill.sh` (line ~13)
-    - `.ai-engineering/scripts/hooks/copilot-session-start.sh` (line ~13)
-    - `.ai-engineering/scripts/hooks/copilot-session-end.sh` (line ~13)
-    - `.ai-engineering/scripts/hooks/copilot-error.sh` (line ~13)
-    - `.ai-engineering/scripts/hooks/copilot-agent.sh` (line ~13)
-  - Also update same lines in template copies at `src/ai_engineering/templates/project/.ai-engineering/scripts/hooks/`
-  - **Done when**: All 8 scripts navigate 3 levels up (AC8)
-
-- [x]T-3.4: Fix PowerShell script path navigation (agent: build, blocked by T-1.1)
-  - 2 scripts: add one `Split-Path -Parent` level
-    - `.ai-engineering/scripts/hooks/telemetry-session.ps1` (line ~10)
-    - `.ai-engineering/scripts/hooks/telemetry-skill.ps1` (line ~18)
-  - Also update template copies
-  - **Done when**: 2 PowerShell scripts navigate 3 levels up (AC9)
-
-### Phase 4: Tests + Policy
-**Gate**: All tests pass with new paths.
-
-- [x]T-4.1: Update test paths and policy scope (agent: build, blocked by T-3.3)
-  - `tests/unit/test_template_parity.py` line 15: `"scripts" / "hooks"` → `".ai-engineering" / "scripts" / "hooks"`
-  - `tests/unit/test_template_parity.py` line 16: `"project" / "scripts" / "hooks"` → `"project" / ".ai-engineering" / "scripts" / "hooks"`
-  - `tests/unit/test_strategic_compact.py` line 16: `"scripts" / "hooks"` → `".ai-engineering" / "scripts" / "hooks"`
-  - `tests/integration/test_strategic_compact_integration.py` line 15: same change
-  - `tests/integration/test_telemetry_canary.py` lines 34,35,47,48: `"scripts/hooks/..."` → `".ai-engineering/scripts/hooks/..."`
-  - `tests/integration/test_telemetry_canary.py` line 106: `"scripts" / "hooks"` → `".ai-engineering" / "scripts" / "hooks"`
-  - `src/ai_engineering/policy/test_scope.py` line 405: `"scripts/hooks/**"` → `".ai-engineering/scripts/hooks/**"`
-  - **Done when**: All test/policy paths point to new location (AC15-AC17)
-
-### Phase 5: Verification
-**Gate**: Full test suite passes. Hooks fire. CHANGELOG untouched.
-
-- [x]T-5.1: Run full test suite + lint (agent: verify, blocked by T-4.1)
-  - `uv run pytest tests/ -x --tb=short` — all pass
-  - `uv run ruff check src/ tests/` — lint clean
-  - Verify `test_template_parity.py` passes (AC15)
-  - Verify `test_strategic_compact.py` passes (AC16)
-  - Verify `test_telemetry_canary.py` passes (AC17)
-  - Verify CHANGELOG.md has NO changes to `scripts/hooks` references (AC20)
-  - **Done when**: All gates green, zero regressions (AC18)
-
-- [x]T-5.2: Smoke test install + update (agent: build, blocked by T-5.1)
-  - Create temp dir, `git init`, `ai-eng install --stack python --provider claude_code --ide terminal --vcs github`
-  - Verify `.ai-engineering/scripts/hooks/` exists with hooks
-  - Verify `scripts/hooks/` does NOT exist at project root
-  - Verify `.claude/settings.json` references `.ai-engineering/scripts/hooks/`
-  - **Done when**: Clean install deploys hooks at new path (AC1, AC2, AC10)
+- [x] T-2.2: Verify correctness (agent: verify, blocked by T-2.1) -- DONE (11/11 AC PASS)
+  - Verify `.github/prompts/ai-brainstorm.prompt.md` contains "Enhance input" section with handler content flattened inline
+  - Verify `.agents/skills/brainstorm/SKILL.md` contains step 1.5
+  - Verify `.agents/skills/brainstorm/handlers/prompt-enhance.md` exists and matches canonical
+  - Verify canonical SKILL.md step order: 1 → 1.5 → 2 → 3 → 4 → 5 → 6
+  - Verify handler has skip logic, before/after display, both ES+EN markers
+  - Spot-check: no behavioral AC can be CI-tested (AC9-AC12 are LLM-behavioral, verified by manual invocation)
+  - **Done when**: All mirrors correct, canonical structure validated (AC13-AC15)
 
 ---
 
@@ -110,40 +59,23 @@
 
 | Agent | Tasks | Purpose |
 |-------|-------|---------|
-| build | 8 | File moves, code changes, path updates, smoke test |
-| verify | 2 | Full test suite, lint, CHANGELOG check |
+| build | 3 | Create handler, update SKILL.md, run sync |
+| verify | 1 | Validate mirrors and canonical structure |
 
 ## Dependencies
 
 ```
-T-1.1 ─┬→ T-2.1 ──────────────────┐
-        ├→ T-2.2                    │
-        ├→ T-3.1                    │
-        ├→ T-3.2                    ├→ T-4.1 → T-5.1 → T-5.2
-        ├→ T-3.3                    │
-        └→ T-3.4                    │
-T-1.2 ──────────────────────────────┘
+T-1.1 → T-1.2 → T-2.1 → T-2.2
 ```
 
-Phase 1 tasks are sequential (T-1.1 then T-1.2).
-Phase 2 and Phase 3 tasks are ALL parallel (6 independent tasks, all blocked by Phase 1).
-Phase 4 depends on all of Phase 2+3.
-Phase 5 is final verification.
+Fully sequential — each task depends on the previous.
 
 ## Files Modified
 
 | File | Phase | Action |
 |------|-------|--------|
-| `src/ai_engineering/templates/project/scripts/hooks/` | 1 | move to `project/.ai-engineering/scripts/hooks/` |
-| `scripts/hooks/` | 1 | move to `.ai-engineering/scripts/hooks/` |
-| `src/ai_engineering/installer/templates.py` | 2 | tuple update |
-| `src/ai_engineering/installer/phases/hooks.py` | 2 | verification path |
-| `src/ai_engineering/updater/service.py` | 2 | migration function |
-| `src/ai_engineering/templates/project/.claude/settings.json` | 3 | 10 hook paths |
-| `.claude/settings.json` | 3 | 10 hook paths |
-| `src/ai_engineering/templates/project/github_templates/hooks/hooks.json` | 3 | 3 script paths |
-| `.github/hooks/hooks.json` | 3 | 12 script paths |
-| 8 shell scripts (template + dogfooding) | 3 | dirname 2→3 levels |
-| 2 PowerShell scripts (template + dogfooding) | 3 | Split-Path 2→3 levels |
-| 4 test files | 4 | path constants |
-| `src/ai_engineering/policy/test_scope.py` | 4 | scope glob |
+| `.claude/skills/ai-brainstorm/handlers/prompt-enhance.md` | 1 | create |
+| `.claude/skills/ai-brainstorm/SKILL.md` | 1 | modify (step 1.5, table, integration) |
+| `.github/prompts/ai-brainstorm.prompt.md` | 2 | sync (auto) |
+| `.agents/skills/brainstorm/SKILL.md` | 2 | sync (auto) |
+| `.agents/skills/brainstorm/handlers/prompt-enhance.md` | 2 | sync (auto) |
