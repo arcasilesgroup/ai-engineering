@@ -39,11 +39,20 @@ class _AiProviderConfig:
         self.enabled = enabled
 
 
+class _FakeProviders:
+    """Minimal mock for ManifestConfig.providers."""
+
+    def __init__(self, ides: list[str]) -> None:
+        self.ides = ides
+        self.stacks: list[str] = []
+        self.vcs = "github"
+
+
 class _FakeManifest:
-    """Minimal mock that satisfies provider CLI's `manifest.ai_providers` access."""
+    """Minimal mock that satisfies provider CLI's ManifestConfig access."""
 
     def __init__(self, *providers: str, primary: str = "claude_code") -> None:
-        self.ai_providers = _AiProviderConfig(primary=primary, enabled=list(providers))
+        self.providers = _FakeProviders(ides=list(providers) if providers else [primary])
 
 
 def _manifest(*providers: str, primary: str = "claude_code") -> _FakeManifest:

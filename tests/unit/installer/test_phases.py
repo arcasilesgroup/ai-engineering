@@ -185,16 +185,25 @@ class TestStatePhase:
 
 class TestIdeConfigReconfigure:
     def test_reconfigure_with_manifest_generates_deletes(self, tmp_path: Path) -> None:
-        """RECONFIGURE with existing_manifest generates delete actions."""
-        from unittest.mock import MagicMock
+        """RECONFIGURE with existing state + manifest generates delete actions."""
+        import yaml
 
         from ai_engineering.installer.phases.ide_config import IdeConfigPhase
+        from ai_engineering.state.models import InstallState
 
-        manifest = MagicMock()
-        manifest.ai_providers.enabled = ["claude_code", "github_copilot"]
+        # Write a manifest.yml with old providers (claude_code + github_copilot)
+        ai_dir = tmp_path / ".ai-engineering"
+        ai_dir.mkdir(parents=True)
+        manifest_data = {
+            "schema_version": "2.0",
+            "framework_version": "0.1.0",
+            "name": "test",
+            "providers": {"vcs": "github", "ides": ["claude_code", "github_copilot"], "stacks": []},
+        }
+        (ai_dir / "manifest.yml").write_text(yaml.dump(manifest_data))
 
         ctx = _ctx(tmp_path, mode=InstallMode.RECONFIGURE, providers=["claude_code"])
-        ctx.existing_manifest = manifest
+        ctx.existing_state = InstallState()
 
         phase = IdeConfigPhase()
         plan = phase.plan(ctx)
