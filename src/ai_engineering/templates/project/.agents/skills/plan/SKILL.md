@@ -80,8 +80,8 @@ Each task MUST be:
 
 ### Phase 1: [name]
 **Gate**: [what must be true before Phase 2 starts]
-- T-1.1: [task description] (agent: build)
-- T-1.2: [task description] (agent: build)
+- [ ] T-1.1: [task description] (agent: build)
+- [ ] T-1.2: [task description] (agent: build)
 
 ### Phase 2: [name]
 **Gate**: [what must be true before Phase 3 starts]
