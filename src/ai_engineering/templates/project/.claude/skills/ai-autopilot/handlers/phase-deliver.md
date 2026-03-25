@@ -8,14 +8,14 @@ Build the Integrity Report from Phase 4 Self-Reports and Phase 5 quality audit, 
 
 - Phase 5 (QUALITY LOOP) is complete: either PASS (0 blockers/criticals/highs) or exhausted (round 3 reached with only criticals/highs remaining).
 - Manifest at `specs/autopilot/manifest.md` has `## Quality Rounds` section with round log.
-- Sub-spec files exist at `specs/autopilot/sub-NNN.md` with populated `## Self-Report` sections from Phase 4 implementation agents.
+- Sub-spec directories exist at `specs/autopilot/sub-NNN/` with `plan.md` containing populated `## Self-Report` sections from Phase 4 implementation agents.
 - Parent spec is available at `specs/spec.md`.
 
 ## Procedure
 
 ### Step 1: Build Transparency Report
 
-1. Glob `specs/autopilot/sub-*.md`. For each sub-spec, read the `## Self-Report` section. Extract per-file/function classifications: real, aspirational, stub, failing, invented, hallucinated.
+1. Glob `specs/autopilot/sub-*/plan.md`. For each sub-spec, read the `## Self-Report` section. Extract per-file/function classifications: real, aspirational, stub, failing, invented, hallucinated.
 2. Read the manifest's `## Quality Rounds` section. Extract the consolidated findings from Phase 5: final state (CLEAN or remaining issues with severity breakdown), number of rounds executed, and per-round summaries.
 3. If any sub-specs have status `blocked` or `cascade-blocked` in the manifest: collect their ID, title, scope, and blocking reason. These form the "Blocked / Undelivered" section.
 4. Aggregate all classifications across sub-specs into totals. Cross-reference against quality findings -- a file classified as "real" in a Self-Report but failing checks in Phase 5 should be reclassified as "failing".

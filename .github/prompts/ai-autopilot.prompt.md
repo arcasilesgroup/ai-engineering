@@ -46,7 +46,7 @@ Read `handlers/phase-decompose.md` and execute:
 
 1. Extract N independent concerns from the spec
 2. If N < 3: abort, recommend `/ai-dispatch`
-3. Write sub-spec shells to `specs/autopilot/sub-NNN.md`
+3. Write sub-spec directories `specs/autopilot/sub-NNN/` with `spec.md` + `plan.md` shells
 4. Write execution manifest to `specs/autopilot/manifest.md`
 
 ### Step 2: DEEP PLAN
@@ -54,7 +54,7 @@ Read `handlers/phase-decompose.md` and execute:
 Read `handlers/phase-deep-plan.md` and execute:
 
 1. Dispatch N Agent(Explore+Plan) in parallel -- one per sub-spec
-2. Each agent deep-explores the codebase and writes a detailed plan with exports/imports declarations
+2. Each agent deep-explores the codebase and enriches `sub-NNN/spec.md` (Exploration) and `sub-NNN/plan.md` (checkbox-formatted tasks with exports/imports declarations)
 3. Gate: every sub-spec has enriched Exploration + Plan sections
 4. Failed agents retry once, then mark `plan-failed`
 
@@ -72,7 +72,7 @@ Read `handlers/phase-orchestrate.md` and execute:
 Read `handlers/phase-implement.md` and execute:
 
 1. For each wave in DAG order: dispatch Agent(Build) per sub-spec (parallel within wave)
-2. Each agent writes a Self-Report (real/aspirational/stub/failing/invented/hallucinated)
+2. Each agent marks checkboxes `- [x]` in `sub-NNN/plan.md` as tasks complete, then writes a Self-Report (real/aspirational/stub/failing/invented/hallucinated) to `plan.md`
 3. Commit per wave, update manifest
 4. Cascade-block dependents of failed sub-specs
 
@@ -90,9 +90,9 @@ Read `handlers/phase-quality.md` and execute:
 
 Read `handlers/phase-deliver.md` and execute:
 
-1. Build Integrity Report from Self-Reports + quality audit
+1. Build Integrity Report from Self-Reports (in `sub-NNN/plan.md`) + quality audit
 2. Follow `/ai-pr` SKILL.md in full
-3. Cleanup: delete autopilot state, clear spec.md + plan.md, verify cleanup
+3. Cleanup: delete `specs/autopilot/` (all subdirectories), clear spec.md + plan.md, verify cleanup
 4. Resume Protocol handles mid-pipeline re-entry via `--resume`
 
 ## Handler Dispatch Table
@@ -231,14 +231,18 @@ This is a hard gate. Do not proceed. Do not attempt to split concerns further to
 
 ### Step 3 -- Write Sub-Spec Shells
 
-For each concern, write a shell file to `specs/autopilot/sub-NNN.md` using the Shell Schema:
+For each concern, create a directory `specs/autopilot/sub-NNN/` containing two files:
+
+**`specs/autopilot/sub-NNN/spec.md`** (Shell Schema):
 
 ```markdown
 ---
 id: sub-NNN
 parent: spec-XXX
 title: "Concern title"
-files: []  # best guess -- Phase 2 refines
+status: planning
+files: []
+depends_on: []
 ---
 
 # Sub-Spec NNN: [title]
@@ -248,6 +252,17 @@ files: []  # best guess -- Phase 2 refines
 
 ## Exploration
 [EMPTY -- populated by Phase 2]
+```
+
+**`specs/autopilot/sub-NNN/plan.md`**:
+
+```markdown
+---
+total: 0
+completed: 0
+---
+
+# Plan: sub-NNN [title]
 
 ## Plan
 [EMPTY -- populated by Phase 2]
@@ -257,8 +272,9 @@ files: []  # best guess -- Phase 2 refines
 ```
 
 Rules:
-- Number sub-specs sequentially: `sub-001`, `sub-002`, ..., `sub-NNN`
-- The `files` field is a best guess based on spec mentions and project conventions. Phase 2 agents refine it after codebase exploration.
+- Number sub-spec directories sequentially: `sub-001/`, `sub-002/`, ..., `sub-NNN/`
+- The `parent`, `files`, and `depends_on` fields live in `spec.md` frontmatter. The `files` field is a best guess based on spec mentions and project conventions. Phase 2 agents refine it after codebase exploration.
+- The `plan.md` frontmatter tracks `total` and `completed` task counts (both start at 0, updated by later phases).
 - The `parent` field references the spec ID (e.g., `spec-065`)
 - Scope text must trace back to specific sections of the parent spec. Do not invent requirements.
 
@@ -278,9 +294,9 @@ Format:
 
 | # | Title | Status | Depends On | Files (best guess) |
 |---|-------|--------|------------|---------------------|
-| sub-001 | [title] | planning | None | `path/a`, `path/b` |
-| sub-002 | [title] | planning | None | `path/c` |
-| sub-003 | [title] | planning | sub-001 | `path/d`, `path/e` |
+| sub-001/ | [title] | planning | None | `path/a`, `path/b` |
+| sub-002/ | [title] | planning | None | `path/c` |
+| sub-003/ | [title] | planning | sub-001 | `path/d`, `path/e` |
 
 ## Totals
 - Sub-specs: N
@@ -294,7 +310,7 @@ Dependency rules:
 
 ### Step 5 -- Validate Coverage
 
-Walk every section and requirement of the parent spec. Confirm each maps to at least one sub-spec scope. Build a traceability check:
+Walk every section and requirement of the parent spec. Confirm each maps to at least one sub-spec's `spec.md` scope. Build a traceability check:
 
 ```
 Spec Section -> Sub-Spec(s)
@@ -305,14 +321,14 @@ Section C    -> sub-004
 ...
 ```
 
-**Orphan detection**: if any spec section or requirement does not map to a sub-spec, reassign it to the most relevant existing sub-spec. Update that sub-spec's Scope and `files` field.
+**Orphan detection**: if any spec section or requirement does not map to a sub-spec, reassign it to the most relevant existing sub-spec. Update that sub-spec's `spec.md` Scope and `files` field.
 
 If orphans remain after 2 reassignment attempts: **STOP**. Report the orphan requirements to the orchestrator for human review.
 
 ## Output
 
 Artifacts written:
-- N sub-spec shells at `specs/autopilot/sub-001.md` through `specs/autopilot/sub-NNN.md`
+- N sub-spec directories at `specs/autopilot/sub-001/` through `specs/autopilot/sub-NNN/` (each containing `spec.md` and `plan.md`)
 - Execution manifest at `specs/autopilot/manifest.md`
 
 Report to orchestrator:
@@ -346,7 +362,7 @@ Dispatch N parallel agents (one per sub-spec) to deep-explore the codebase and w
 ## Prerequisites
 
 - Phase 1 (DECOMPOSE) is complete.
-- Sub-spec shell files exist at `specs/autopilot/sub-NNN.md` with populated `## Scope` and `files:` frontmatter.
+- Sub-spec directories exist at `specs/autopilot/sub-NNN/` with `spec.md` (Scope + `files:` frontmatter) and `plan.md` (Plan placeholder).
 - Manifest exists at `specs/autopilot/manifest.md` with all sub-spec statuses set to `planning`.
 - Parent spec is available at `specs/spec.md`.
 - Decision store is loaded from `state/decision-store.json`.
@@ -355,8 +371,8 @@ Dispatch N parallel agents (one per sub-spec) to deep-explore the codebase and w
 
 ### Step 1: Load Sub-Specs
 
-1. Glob `specs/autopilot/sub-*.md`. Collect the full list of sub-spec files.
-2. For each sub-spec file, extract:
+1. Glob `specs/autopilot/sub-*/spec.md`. Collect the full list of sub-spec directories.
+2. For each `sub-NNN/spec.md`, extract:
    - `id` from frontmatter (e.g., `sub-001`)
    - `title` from frontmatter
    - `files:` list from frontmatter (Phase 1 best-guess file list)
@@ -388,7 +404,7 @@ Then read analogous implementations in the codebase -- files that solve a simila
 
 #### 2b. Write Exploration Section
 
-Populate `## Exploration` in the sub-spec file with the following required subsections:
+Populate `## Exploration` in `sub-NNN/spec.md` with the following required subsections:
 
 ```markdown
 ## Exploration
@@ -414,7 +430,7 @@ Assumptions that need validation. Missing test coverage.]
 
 #### 2c. Write Plan Section
 
-Populate `## Plan` in the sub-spec file with ordered tasks:
+Populate `## Plan` in `sub-NNN/plan.md` with ordered tasks using simplified checkbox format:
 
 ```markdown
 ## Plan
@@ -422,21 +438,17 @@ Populate `## Plan` in the sub-spec file with ordered tasks:
 exports: [list of modules/classes/functions this sub-spec creates or exposes]
 imports: [list of modules/classes/functions this sub-spec expects from other sub-specs]
 
-### T-N.1: [Task title]
-- **Description**: What to implement and why.
-- **Files**: List of file paths to create or modify.
-- **Done condition**: Observable, verifiable condition that proves this task is complete.
-
-### T-N.2: [Task title]
-- **Description**: ...
-- **Files**: ...
-- **Done condition**: ...
-[TDD pair: write test first, then implementation]
+- [ ] T-N.1: [Task title]
+  - **Files**: [list of file paths]
+  - **Done**: [verifiable condition]
+- [ ] T-N.2: [Task title]
+  - **Files**: [list of file paths]
+  - **Done**: [verifiable condition]
 ```
 
 Requirements for the plan:
 - Minimum 2 tasks per sub-spec. No upper limit.
-- Every task MUST have explicit file paths and a done condition.
+- Every task MUST have explicit file paths and a verifiable done condition.
 - TDD pairs: where tests are needed, the test task precedes the implementation task.
 - `exports:` declares modules, classes, or functions this sub-spec creates that other sub-specs may consume. Phase 3 uses these for DAG construction.
 - `imports:` declares what this sub-spec expects from other sub-specs. Can be empty (`imports: []`) if there are no cross-sub-spec dependencies.
@@ -444,11 +456,11 @@ Requirements for the plan:
 
 #### 2d. Refine File List
 
-Update the sub-spec's `files:` frontmatter with the actual files discovered during exploration. This replaces Phase 1's best-guess list with a verified, complete list. Add files that were discovered during exploration but not in the original list. Remove files that turned out to be irrelevant.
+Update `sub-NNN/spec.md` frontmatter `files:` field with the actual files discovered during exploration. This replaces Phase 1's best-guess list with a verified, complete list. Add files that were discovered during exploration but not in the original list. Remove files that turned out to be irrelevant.
 
 #### 2e. Self-Assess
 
-Append a brief assessment to the sub-spec:
+Append a brief assessment to `sub-NNN/plan.md` (after Plan, before Self-Report placeholder):
 
 ```markdown
 ### Confidence
@@ -494,8 +506,9 @@ Write a summary line to the manifest:
 
 ## Output
 
-- N enriched sub-spec files at `specs/autopilot/sub-NNN.md`, each containing populated `## Exploration`, `## Plan`, and confidence assessment.
-- Updated `files:` frontmatter in each sub-spec reflecting actual discovered files.
+- N enriched sub-spec directories at `specs/autopilot/sub-NNN/`:
+  - `spec.md` containing populated `## Exploration` and updated `files:` frontmatter reflecting actual discovered files.
+  - `plan.md` containing `## Plan` with checkbox-formatted tasks, `exports:`/`imports:` declarations, and confidence assessment.
 - Updated manifest with `planned` or `plan-failed` statuses.
 - Summary report: N planned, M failed, confidence distribution.
 
@@ -503,9 +516,9 @@ Write a summary line to the manifest:
 
 All of the following must pass for each sub-spec to be marked `planned`:
 
-1. **Exploration completeness**: `## Exploration` is non-empty and contains at least the "Existing Files" and "Patterns to Follow" subsections with substantive content (not placeholders or TODOs).
-2. **Plan minimum tasks**: `## Plan` contains at least 2 tasks (sections matching `### T-N.K`), each with explicit `Files:` paths and a `Done condition:` statement.
-3. **Dependency declarations**: the Plan section declares both `exports:` and `imports:`. Either can be an empty list (`[]`) if there are no cross-sub-spec dependencies, but the declaration must be present.
+1. **Exploration completeness**: `sub-NNN/spec.md` contains `## Exploration` that is non-empty and includes at least the "Existing Files" and "Patterns to Follow" subsections with substantive content (not placeholders or TODOs).
+2. **Plan minimum tasks**: `sub-NNN/plan.md` contains at least 2 checkbox items matching `- [ ] T-N.K`, each with explicit `**Files**:` paths and a `**Done**:` condition.
+3. **Dependency declarations**: `sub-NNN/plan.md` declares both `exports:` and `imports:` in the Plan section. Either can be an empty list (`[]`) if there are no cross-sub-spec dependencies, but the declaration must be present.
 
 ## Failure Modes
 
@@ -567,14 +580,14 @@ Build the Integrity Report from Phase 4 Self-Reports and Phase 5 quality audit, 
 
 - Phase 5 (QUALITY LOOP) is complete: either PASS (0 blockers/criticals/highs) or exhausted (round 3 reached with only criticals/highs remaining).
 - Manifest at `specs/autopilot/manifest.md` has `## Quality Rounds` section with round log.
-- Sub-spec files exist at `specs/autopilot/sub-NNN.md` with populated `## Self-Report` sections from Phase 4 implementation agents.
+- Sub-spec directories exist at `specs/autopilot/sub-NNN/` with `plan.md` containing populated `## Self-Report` sections from Phase 4 implementation agents.
 - Parent spec is available at `specs/spec.md`.
 
 ## Procedure
 
 ### Step 1: Build Transparency Report
 
-1. Glob `specs/autopilot/sub-*.md`. For each sub-spec, read the `## Self-Report` section. Extract per-file/function classifications: real, aspirational, stub, failing, invented, hallucinated.
+1. Glob `specs/autopilot/sub-*/plan.md`. For each sub-spec, read the `## Self-Report` section. Extract per-file/function classifications: real, aspirational, stub, failing, invented, hallucinated.
 2. Read the manifest's `## Quality Rounds` section. Extract the consolidated findings from Phase 5: final state (CLEAN or remaining issues with severity breakdown), number of rounds executed, and per-round summaries.
 3. If any sub-specs have status `blocked` or `cascade-blocked` in the manifest: collect their ID, title, scope, and blocking reason. These form the "Blocked / Undelivered" section.
 4. Aggregate all classifications across sub-specs into totals. Cross-reference against quality findings -- a file classified as "real" in a Self-Report but failing checks in Phase 5 should be reclassified as "failing".
@@ -753,256 +766,6 @@ Read the manifest. Inspect sub-spec statuses, section presence, and wave complet
 
 ---
 
-# Handler: Execute Sub-Spec
-
-## Purpose
-
-Implement one sub-spec by: (1) planning tasks via the ai-plan pattern, (2) dispatching build agents via the ai-dispatch pattern, (3) committing the increment. Called once per sub-spec in the sequential loop from Step 2 of the parent skill.
-
-## Thin Orchestrator Protocol
-
-This handler does NOT contain implementation logic. It reads SKILL.md files from `/ai-dispatch` and `/ai-plan`, then embeds their instructions into subagent prompts. When those skills improve, this handler benefits automatically. No duplication, no drift.
-
-## Inputs
-
-| Input | Source | Required |
-|-------|--------|----------|
-| Sub-spec | `.ai-engineering/specs/autopilot/sub-NNN.md` | Yes |
-| Exploration context | `.ai-engineering/specs/autopilot/exploration.md` | Yes |
-| Manifest | `.ai-engineering/specs/autopilot/manifest.md` | Yes |
-| Decision constraints | `.ai-engineering/state/decision-store.json` | Yes |
-
-## Procedure
-
-### Step 1 -- Plan the Sub-Spec
-
-Read `.github/prompts/ai-plan.prompt.md` to load the current planning protocol.
-
-Dispatch Agent(Plan) with a prompt composed from the plan skill's decomposition rules:
-
-```yaml
-agent: plan
-context:
-  sub_spec: "[contents of specs/autopilot/sub-NNN.md]"
-  exploration: "[relevant section from exploration.md]"
-  constraints: "[from decision-store.json]"
-instructions: |
-  Decompose this sub-spec into tasks following the ai-plan protocol:
-
-  1. Each task MUST be bite-sized (2-5 min), single-agent, single-concern
-  2. Each task MUST have a verifiable done condition
-  3. Dependencies are explicit (T-M.2 blocked by T-M.1)
-  4. TDD enforcement: paired RED/GREEN tasks where tests are needed
-     - T-N: Write failing tests (RED)
-     - T-N+1: Implement to pass tests (GREEN, blocked by T-N)
-     - GREEN task constraint: "DO NOT modify test files from T-N"
-  5. Assign agents per task: build (code r/w), verify (read-only scan)
-
-  Write the sub-plan to: specs/autopilot/sub-NNN-plan.md
-
-  Format:
-    # Sub-Plan: sub-NNN [title]
-    ## Tasks: N (build: N, verify: N)
-    - T-M.1: [description] (agent: build) -- [done condition]
-    - T-M.2: [description] (agent: build, blocked by T-M.1) -- [done condition]
-output: "specs/autopilot/sub-NNN-plan.md"
-```
-
-Gate: Sub-plan exists and contains at least one task with a done condition.
-
-### Step 2 -- Build the DAG
-
-Read `.github/prompts/ai-dispatch.prompt.md` to load the current execution protocol.
-
-Parse the sub-plan and classify tasks:
-
-**Independent** (dispatch in parallel):
-- Different file scopes with no overlap
-- No producer-consumer relationship
-- No shared mutable state
-
-**Dependent** (dispatch sequentially):
-- Task B reads files Task A creates
-- Task B depends on Task A output
-- Both modify `.ai-engineering/` artifacts
-- Explicit `blocked by` declarations
-
-### Step 3 -- Execute Tasks
-
-For each task (or parallel group), dispatch Agent(Build) with focused context:
-
-```yaml
-agent: build
-context:
-  task: "T-M.N"
-  description: "[from sub-plan]"
-  scope:
-    files: ["[files from sub-spec scope]"]
-    boundaries: ["Do NOT modify files outside scope"]
-  constraints:
-    - "[from decision-store.json]"
-    - "[stack standards from contexts/languages/ and contexts/frameworks/]"
-    - "[architectural patterns from exploration.md]"
-  gate:
-    post: ["[stack validation commands for detected stack]"]
-instructions: |
-  Implement this task following the ai-dispatch execution protocol.
-
-  You receive fresh context -- no carry-over from previous tasks.
-  Respect file scope boundaries. Do not modify files outside your scope.
-  Follow existing patterns found in the exploration context.
-```
-
-After each task completes, run the two-stage review from the dispatch protocol:
-
-**Stage 1 -- Spec Compliance:**
-- Deliverable matches the task description
-- Acceptance criteria from the sub-spec are satisfied
-- No out-of-scope file modifications
-
-**Stage 2 -- Code Quality:**
-- Stack validation passes (auto-detected)
-- No new lint warnings introduced
-- Test coverage maintained or improved
-
-If either stage fails: fix and re-review (max 2 retries per stage). If still failing after 2 retries: mark task BLOCKED, report to parent orchestrator.
-
-Update sub-plan progress after each task:
-```
-- [x] T-M.1: [description] -- DONE
-- [ ] T-M.2: [description] -- IN PROGRESS
-```
-
-### Step 4 -- Post-Implementation Validation
-
-After all tasks in the sub-spec complete:
-
-1. **Auto-fix formatting**: `ruff format .`
-2. **Auto-fix lint**: `ruff check . --fix`
-3. **Check for unfixable issues**: `ruff check .`
-   - If unfixable issues remain: report them and mark sub-spec as `needs-attention` in manifest.md
-   - Do NOT add suppression comments (`# noqa`, `# type: ignore`) -- fix the code
-4. **Run affected tests**: `pytest tests/unit/ -q`
-   - If tests fail: analyze failures, attempt fix (1 retry), then escalate
-
-### Step 5 -- Commit the Increment
-
-Stage only files within the sub-spec scope:
-
-```bash
-git add [specific files from sub-spec scope]
-git commit -m "spec-NNN: sub-spec M -- [sub-spec title]"
-```
-
-Post-commit verification:
-- `pytest tests/unit/ -q` passes
-- `ruff check .` clean
-- No untracked files that should have been committed
-
-If post-commit verification fails: diagnose, fix, amend commit (one attempt), then escalate.
-
-## Output
-
-- Sub-plan written to `specs/autopilot/sub-NNN-plan.md`
-- Code changes committed to branch
-- Task progress updated in sub-plan checkboxes
-- Manifest updated: sub-spec marked `complete` or `needs-attention`
-
-## Gate
-
-Sub-spec is complete when ALL hold: (1) all tasks DONE, (2) `ruff check .` clean, (3) `ruff format --check .` clean, (4) `pytest tests/unit/ -q` passes, (5) increment committed with correct message format, (6) manifest updated.
-
-If any gate fails after retry: the parent orchestrator's Step 2b (phase-verify) handles escalation.
-
----
-
-# Handler: Deep Explore
-
-## Purpose
-
-Dispatch Agent(Explore) x N in parallel to gather deep codebase context for each sub-spec before implementation begins. Enriches every sub-spec with architectural context so that build agents receive full situational awareness on first attempt.
-
-## Prerequisites
-
-- Phase Split is complete
-- Sub-spec files exist at `specs/autopilot/sub-NNN.md`
-- Each sub-spec contains a `files:` list and `## Scope` section
-
-## Procedure
-
-### Step 1 -- Load Sub-Specs
-
-1. Glob `specs/autopilot/sub-*.md` to discover all sub-spec files.
-2. For each sub-spec, extract:
-   - `files:` list (files to create or modify)
-   - `## Scope` section content
-   - Sub-spec number (NNN from filename)
-3. If no sub-specs found: STOP. Report: "No sub-specs found. Run phase-split first."
-
-### Step 2 -- Dispatch Explorers
-
-For each sub-spec, launch Agent(Explore) with `run_in_background: true` using this prompt:
-
-```
-Gather implementation context for sub-spec NNN.
-
-**Files to create/modify:**
-{files list from sub-spec}
-
-**Sub-spec scope:**
-{scope section from sub-spec}
-
-Explore the codebase to understand:
-1. Full context of files that will be modified (read them entirely)
-2. Existing patterns for similar functionality nearby
-3. Callers and importers of functions that will change
-4. Reusable utilities, helpers, and conventions in scope
-5. Test patterns used in this area of the codebase
-
-Time-box: 2-3 minutes.
-
-Output: structured context report with absolute file paths and patterns found.
-```
-
-All N explorers run in parallel. Do NOT wait for one to finish before launching the next.
-
-### Step 3 -- Collect and Enrich
-
-Wait for all explorers to complete. For each explorer result:
-
-1. Read the explorer output.
-2. Append an `## Architectural Context` section to the corresponding sub-spec file containing:
-   - **Patterns found**: design patterns, naming conventions, structural idioms in scope
-   - **Dependencies mapped**: import chains, coupling points, callers of modified functions
-   - **Utilities to reuse**: existing helpers, shared modules, test fixtures available
-   - **Key files read**: absolute paths with one-line annotations
-3. Write the enriched sub-spec back to disk.
-
-### Step 4 -- Validate Enrichment
-
-For each sub-spec file:
-
-1. Confirm `## Architectural Context` section exists and is non-empty.
-2. Reject placeholder content -- if any section contains only "TODO", "TBD", or "N/A", re-dispatch a single explorer for that sub-spec with a narrower prompt.
-3. After re-dispatch (max 1 retry per sub-spec), if context is still empty: mark the sub-spec with `context: partial` and proceed. Do not block the pipeline.
-
-## Output
-
-- Every sub-spec file enriched with `## Architectural Context`
-- Exploration summary appended to `specs/autopilot/exploration.md`
-- Pipeline ready to proceed to Phase 2 (Execute Loop)
-
-## Failure Modes
-
-| Condition | Action |
-|-----------|--------|
-| Explorer times out | Mark sub-spec `context: partial`, proceed |
-| Explorer returns empty output | Retry once with narrower scope |
-| All explorers fail | STOP. Report: "Exploration failed for all sub-specs." |
-| Sub-spec file missing after split | STOP. Report: "Sub-spec NNN missing. Re-run phase-split." |
-
----
-
 # Handler: Phase 4 -- IMPLEMENT
 
 ## Purpose
@@ -1053,14 +816,15 @@ If all sub-specs in the wave are blocked, the wave is empty. Log and proceed to 
 
 For each non-blocked sub-spec in the wave, dispatch an Agent(Build) with a fresh context containing:
 
-1. **Sub-spec content** -- the full `specs/autopilot/sub-NNN.md` file (Scope, Exploration, Plan, file list).
+1. **Sub-spec scope and exploration** -- from `specs/autopilot/sub-NNN/spec.md` (Scope, Exploration, file ownership).
+1b. **Sub-spec plan** -- from `specs/autopilot/sub-NNN/plan.md` (task checkboxes).
 2. **Decision-store constraints** -- relevant entries from `state/decision-store.json` that apply to this sub-spec's domain.
 3. **Stack standards** -- loaded from `contexts/languages/` and `contexts/frameworks/` matching the detected stack.
 4. **File boundary enforcement** -- explicit instruction embedded in the agent prompt:
 
 ```
 HARD BOUNDARY: You may ONLY modify these files:
-  - [list of files from sub-spec file ownership]
+  - [list of files from sub-NNN/spec.md frontmatter files: field]
 
 Do NOT create, modify, or delete any file outside this list.
 If your plan requires touching a file outside scope, STOP and
@@ -1071,16 +835,18 @@ All agents in the wave dispatch in parallel. They do not share context with each
 
 #### 2c -- Agent Executes Plan Tasks
 
-Each Agent(Build) executes the plan tasks listed in its sub-spec, in order. The agent follows standard build procedures:
+Each Agent(Build) executes the plan tasks listed in its sub-spec's `plan.md`, in order. The agent follows standard build procedures:
 
 - Write code following stack standards loaded from contexts.
 - Run post-edit validation per the stack (ruff, tsc, cargo check, etc.).
 - Fix validation failures (max 3 attempts per file, then report failure).
 - Respect quality gates: no suppression comments, no weakened thresholds.
 
+After completing task T-N.K, edit `specs/autopilot/sub-NNN/plan.md` to change `- [ ] T-N.K` to `- [x] T-N.K`.
+
 #### 2d -- Agent Writes Self-Report
 
-After completing (or failing) its plan tasks, each agent appends a `## Self-Report` section to the end of its sub-spec file (`specs/autopilot/sub-NNN.md`) using the Transparency Protocol:
+After completing (or failing) its plan tasks, each agent appends a `## Self-Report` section to `specs/autopilot/sub-NNN/plan.md` using the Transparency Protocol:
 
 ```markdown
 ## Self-Report
@@ -1169,14 +935,14 @@ IMPLEMENT COMPLETE
 
 Artifacts produced:
 - Committed waves -- one commit per wave with implementation changes.
-- Self-Reports -- appended to each sub-spec file (`specs/autopilot/sub-NNN.md`).
+- Self-Reports -- appended to each `specs/autopilot/sub-NNN/plan.md`.
 - Updated manifest -- `specs/autopilot/manifest.md` with `implemented`, `blocked`, or `cascade-blocked` statuses per sub-spec, plus wave commit hashes.
 
 ## Gate
 
 A wave is complete when ALL of the following hold:
 
-1. Every non-blocked sub-spec in the wave has a Self-Report written in its sub-spec file.
+1. Every non-blocked sub-spec in the wave has a Self-Report written in its `plan.md`.
 2. Every non-blocked sub-spec's changed files are committed.
 3. The manifest is updated with statuses for all sub-specs in the wave.
 4. Cascade blocking has been applied for any newly blocked sub-specs.
@@ -1190,7 +956,7 @@ The phase is complete when all waves have been processed and the orchestrator re
 | Build agent fails (cannot complete plan tasks) | Mark sub-spec `blocked` in manifest. Write a partial Self-Report documenting what was completed and what failed. Continue with remaining sub-specs in the wave. |
 | All sub-specs in a wave are blocked or cascade-blocked | Wave is empty. Log it. Proceed to the next wave. Cascade blocking propagates to dependents automatically. |
 | Commit fails (pre-commit hook rejects) | Diagnose the failure. Apply automated fixes: `ruff format .`, `ruff check --fix .` for Python; equivalent for other stacks. Retry commit once. If second commit fails, report the hook failure and escalate to the orchestrator. |
-| Agent violates file boundary | Agent MUST stop immediately and report the conflict. Do not commit boundary-violating changes. Mark the sub-spec `blocked` and cascade-block dependents. |
+| Agent violates file boundary (declared in `sub-NNN/spec.md` frontmatter `files:` field) | Agent MUST stop immediately and report the conflict. Do not commit boundary-violating changes. Mark the sub-spec `blocked` and cascade-block dependents. |
 | Agent produces `hallucinated` classification | Not a blocking failure during Phase 4. The Self-Report flags it. Phase 5 (Quality Loop) will detect and address phantom references. |
 | Agent exceeds 3 validation fix attempts on a file | Mark that file's work as `failing` in the Self-Report. Continue with remaining plan tasks. Do not block the entire sub-spec for a single file failure. |
 | Manifest write fails (disk error, permissions) | STOP. Cannot proceed without persistent state. Escalate immediately -- pipeline integrity depends on manifest accuracy. |
@@ -1205,22 +971,22 @@ Analyze all N enriched sub-spec plans together, detect file overlaps and import 
 
 ## Prerequisites
 
-Phase 2 (Deep Plan) complete. All non-failed sub-specs have enriched `## Exploration` and `## Plan` sections. Each plan declares `exports:` and `imports:` lists -- Phase 3 uses these structured declarations for DAG construction, not code analysis.
+Phase 2 (Deep Plan) complete. All non-failed sub-specs have enriched `## Exploration` sections (in `sub-NNN/spec.md`) and `## Plan` sections (in `sub-NNN/plan.md`). Each plan declares `exports:` and `imports:` lists -- Phase 3 uses these structured declarations for DAG construction, not code analysis.
 
 Required state:
 - `specs/autopilot/manifest.md` exists with sub-spec list and statuses
-- Non-failed sub-specs (`planning` or `planned`) have non-empty `## Plan` sections
+- Non-failed sub-specs (`planning` or `planned`) have non-empty `## Plan` sections in their `sub-NNN/plan.md`
 - Sub-specs marked `plan-failed` are excluded from DAG construction
 
 ## Procedure
 
 ### Step 1 -- Extract Declarations
 
-Read all non-failed sub-spec files from `specs/autopilot/`. For each sub-spec, extract:
+Read all non-failed sub-spec directories from `specs/autopilot/sub-*/`. For each sub-spec, extract:
 
-1. **files**: the `files:` list from frontmatter (refined by Phase 2)
-2. **exports**: the `exports:` declarations from `## Plan` (modules, classes, or functions this sub-spec creates)
-3. **imports**: the `imports:` declarations from `## Plan` (modules, classes, or functions this sub-spec expects from other sub-specs)
+1. **files**: the `files:` list from `sub-NNN/spec.md` frontmatter (refined by Phase 2)
+2. **exports**: the `exports:` declarations from `sub-NNN/plan.md` `## Plan` section (modules, classes, or functions this sub-spec creates)
+3. **imports**: the `imports:` declarations from `sub-NNN/plan.md` `## Plan` section (modules, classes, or functions this sub-spec expects from other sub-specs)
 
 Build a lookup table:
 
@@ -1289,7 +1055,7 @@ A conflict is unresolvable when two sub-specs must modify the same function with
 1. Create a new sub-spec that combines the scopes, plans, and file lists of both
 2. Preserve the lower sub-spec number (e.g., merge sub-003 into sub-001 -> result is sub-001)
 3. Remove the higher-numbered sub-spec from the manifest
-4. Update the merged sub-spec file with combined `## Scope`, `## Exploration`, `## Plan`, and `files:` frontmatter
+4. Update the merged sub-spec's `spec.md` (combined Scope, Exploration, files frontmatter) and `plan.md` (combined Plan, exports/imports)
 5. Re-check the DAG edges for the merged sub-spec (it inherits all edges of both originals)
 6. Log the merge with rationale:
 
@@ -1335,7 +1101,7 @@ Run two validation checks:
 
 Artifacts written:
 - Updated `specs/autopilot/manifest.md` with `## Execution DAG` section
-- Updated sub-spec files (only if merges occurred in Step 5)
+- Updated sub-spec `spec.md` and `plan.md` files (only if merges occurred in Step 5)
 
 Report to orchestrator:
 
@@ -1364,143 +1130,6 @@ ORCHESTRATE COMPLETE
 
 ---
 
-# Handler: PR + Deliver
-
-## Purpose
-
-Execute the final delivery pipeline: commit gates, push, create PR, optionally watch until merge, and clean up autopilot state. This handler reads ai-pr and ai-commit SKILL.md files and follows their instructions. It does NOT reimplement the PR pipeline.
-
-## Prerequisites
-
-- All sub-specs in `specs/autopilot/manifest.md` marked complete
-- Final verification (Step 3 of parent skill) passed
-- All sub-spec commits exist on the current branch
-- Current branch is NOT main/master
-
-## Procedure
-
-### Step 1 -- Pre-Push Gates
-
-Read `.github/prompts/ai-pr.prompt.md` steps 7-7.5. Execute:
-
-1. `ruff check .` and `ruff format --check .`
-2. `gitleaks protect --staged --no-banner`
-3. `pytest tests/unit/ -v`
-4. `sync_command_mirrors.py --check` (if script exists)
-
-If any check fails: fix and retry once. If still failing: STOP and report which gate failed with full output.
-
-### Step 2 -- Push
-
-1. Confirm current branch is not `main`/`master`. If it is: STOP.
-2. `git push -u origin <current-branch>`
-3. If push fails (e.g., rejected): report and STOP.
-
-### Step 3 -- Create PR
-
-Read `.github/prompts/ai-pr.prompt.md` steps 10-12.
-
-1. **Detect VCS provider**: check `manifest.yml` -> `providers.vcs.primary`, fallback to `git remote get-url origin`.
-2. **Check for existing PR**: `gh pr list --head <branch> --json number --state open`.
-3. **Create PR** with structured body:
-
-```markdown
-## Summary
-- [What the autopilot implemented -- derived from parent spec title and scope]
-- [Key architectural decisions or patterns applied]
-
-## Sub-Specs Completed
-| # | Title | Status |
-|---|-------|--------|
-| sub-001 | [title] | VERIFIED |
-| sub-002 | [title] | VERIFIED |
-| ... | ... | ... |
-
-## Test Plan
-- [ ] [Verification results from final verify pass]
-- [ ] [Regression check against main]
-- [ ] [Lint, type check, secret scan all clean]
-
-## Telemetry
-- Sub-specs: N completed, 0 failed
-- Duration: Xm (from autopilot start to PR creation)
-- Verify passes: N/N
-```
-
-If existing PR found: extend body per ai-pr protocol (append, never overwrite).
-
-### Step 4 -- Auto-Complete
-
-- **GitHub**: `gh pr merge --auto --squash --delete-branch`
-- **Azure DevOps**: `az repos pr update --id <id> --auto-complete true --squash true --delete-source-branch true`
-
-### Step 5 -- Watch (unless --no-watch)
-
-If `--no-watch` flag was passed: skip to Step 6.
-
-Read `.github/prompts/ai-pr.prompt.md` step 14 and execute the full watch-and-fix loop:
-
-- Poll every 60s (active) or 180s (passive)
-- Autonomously fix CI failures via commit pipeline (ai-commit steps 0-6)
-- Autonomously resolve merge conflicts via rebase with `--force-with-lease`
-- Escalate after 3 failed fix attempts on the same check
-- Exit on merge, close, or escalation
-
-### Step 6 -- Cleanup
-
-After merge (or immediately if `--no-watch`):
-
-1. Delete `specs/autopilot/` directory entirely: `rm -rf .ai-engineering/specs/autopilot/`
-2. Clear `specs/spec.md`:
-   ```
-   # No active spec
-
-   Run /ai-brainstorm to start a new spec.
-   ```
-3. Clear `specs/plan.md`:
-   ```
-   # No active plan
-
-   Run /ai-plan after brainstorm approval.
-   ```
-4. Stage and commit cleanup: `chore: clear autopilot state after spec-NNN delivery`
-5. Run `/ai-cleanup --all` -- switch to default branch, pull, delete merged branch.
-
-### Step 7 -- Final Report
-
-```
-Autopilot Complete!
-
-Spec: spec-NNN -- [title]
-Sub-specs: N completed, 0 failed
-Duration: Xm
-PR: #NNN (merged|pending)
-
-Sub-specs delivered:
-1. sub-001: [title] -- VERIFIED
-2. sub-002: [title] -- VERIFIED
-...
-```
-
-## Output
-
-- PR created (and merged if watch enabled)
-- `specs/autopilot/` cleaned up
-- `specs/spec.md` and `specs/plan.md` reset to placeholders
-- Repository on default branch, up to date
-
-## Failure Modes
-
-| Condition | Action |
-|-----------|--------|
-| Pre-push gate fails 2x | STOP. Report gate name and output |
-| Push rejected | STOP. Report error |
-| PR creation fails | STOP. Report VCS provider error |
-| Watch loop escalates (3x same check) | STOP per watch.md protocol |
-| Cleanup fails | Warn but do not block -- PR is already delivered |
-
----
-
 # Handler: Phase 5 -- QUALITY LOOP
 
 ## Purpose
@@ -1512,7 +1141,7 @@ Converge on quality through iterative assessment and fixing. Dispatch Agent(Veri
 | Condition | Source |
 |-----------|--------|
 | Phase 4 complete | All waves committed. Manifest updated with per-sub-spec statuses. |
-| Sub-spec Self-Reports exist | Each implemented sub-spec has a Self-Report section in its `sub-NNN.md` with classifications (real/aspirational/stub/failing/invented/hallucinated). |
+| Sub-spec Self-Reports exist | Each implemented sub-spec has a Self-Report section in its `sub-NNN/plan.md` with classifications (real/aspirational/stub/failing/invented/hallucinated). |
 | Manifest has sub-spec statuses | `specs/autopilot/manifest.md` shows `complete` or `blocked` per sub-spec. |
 
 ## Thin Orchestrator
@@ -1623,7 +1252,7 @@ For each finding at blocker, critical, or high unified severity:
 
 1. **Dispatch Agent(Build)** with focused context:
    - The finding: severity, description, file, line
-   - The affected sub-spec context (scope + plan from `sub-NNN.md`)
+   - The affected sub-spec context (scope from `sub-NNN/spec.md`, plan from `sub-NNN/plan.md`)
    - The Self-Report entry for that area (so the agent understands what was claimed)
 
 2. **Agent writes the fix** and updates the Self-Report classification:
@@ -1725,294 +1354,3 @@ The following actions are prohibited during this phase:
 - **Do NOT** modify assessment agent findings to make them less severe.
 - **Do NOT** use forbidden language in status reports: "should work", "looks good", "probably fine", "seems to", "I think", "most likely".
 - **Do NOT** merge findings in a way that loses information. Every finding must be traceable to its source agent.
-
----
-
-# Handler: Split + Explore
-
-## Purpose
-
-Take a large approved spec and decompose it into N focused sub-specs (max 3-5 tasks each), then enrich each with deep codebase exploration. Every sub-spec must be independently implementable by a fresh-context agent that reads only the sub-spec file and the referenced source files.
-
-## Inputs
-
-- `specs/spec.md` -- the approved parent spec
-- `specs/plan.md` -- the task breakdown (if exists)
-- `state/decision-store.json` -- active constraints
-
-## Procedure
-
-### Step 1 -- Analyze the Spec
-
-Read `specs/spec.md` end-to-end. Extract:
-
-1. **Work units**: every discrete implementation item (a file to create, a file to modify, a config entry to add, a test to write). Number them sequentially: W-001, W-002, ...
-2. **Dependency edges**: for each work unit, note which other work units it reads from, writes to, or imports. Record as `W-003 -> W-007` (003 must complete before 007).
-3. **File manifest**: for each work unit, list every file it will create or modify. One work unit may touch multiple files; one file must belong to exactly one work unit.
-
-If `specs/plan.md` exists and has checkable items, cross-reference. Every plan item must map to at least one work unit. Flag orphans.
-
-### Step 2 -- Determine Split Strategy
-
-Evaluate three grouping strategies against the work units:
-
-| Strategy | Rule | Best when |
-|----------|------|-----------|
-| **By domain** | Group by functional area (contexts, skills, handlers, config, tests) | Spec spans multiple system layers |
-| **By dependency** | Group items that form a dependency chain together | Spec has deep sequential dependencies |
-| **By file scope** | Group items that touch the same files or directories | Spec modifies many files with clear ownership boundaries |
-
-Choose the strategy that minimizes cross-sub-spec file conflicts. If two strategies tie, prefer by-dependency -- it produces the most predictable execution order.
-
-Document the choice and reasoning in one line:
-```
-Split strategy: [by-domain|by-dependency|by-file-scope] -- [one sentence why]
-```
-
-### Step 3 -- Form Groups
-
-Apply the chosen strategy. Assign each work unit to exactly one group.
-
-**Hard constraints:**
-- Each group has 3-5 work units (split large groups, merge small ones)
-- No file appears in more than one group
-- Dependency edges between groups flow in one direction (no cycles)
-- Groups are numbered in execution order: group 1 has no dependencies on later groups
-
-**Soft preferences:**
-- Keep related tests in the same group as their implementation
-- Keep config/registry updates in the group that creates the thing being registered
-- If a file is read by multiple groups but written by one, assign it to the writer
-
-### Step 4 -- Generate Sub-Specs
-
-Create `specs/autopilot/` directory. For each group, write `specs/autopilot/sub-NNN.md`:
-
-```markdown
----
-id: sub-NNN
-parent: spec-XXX
-title: "Sub-spec title"
-status: pending
-files:
-  - path/to/file-1.ext
-  - path/to/file-2.ext
-depends_on: []
----
-
-# Sub-Spec NNN: [title]
-
-## Scope
-
-[2-3 sentences: what this sub-spec implements from the parent spec. Reference parent spec sections by name.]
-
-## Work Units
-
-- W-XXX: [description]
-- W-YYY: [description]
-
-## Files
-
-| Action | Path | Notes |
-|--------|------|-------|
-| create | path/to/new-file.ext | [what it contains] |
-| modify | path/to/existing.ext | [what changes] |
-
-## Acceptance Criteria
-
-- [ ] [Testable criterion -- one per work unit minimum]
-- [ ] [Additional criteria from parent spec that apply to this sub-spec]
-
-## Dependencies
-
-[Which sub-specs must complete before this one, or "None -- first in sequence."]
-
-## Architectural Context
-
-[Populated by Step 5. Left blank during generation.]
-```
-
-Number sub-specs with zero-padded three-digit IDs: sub-001, sub-002, ... sub-NNN.
-
-### Step 5 -- Deep Explore
-
-For each sub-spec, dispatch an Agent(Explore) in parallel. Each explorer receives:
-
-**Prompt**: "Read sub-spec `specs/autopilot/sub-NNN.md`. For every file listed in the Files table:"
-
-1. **If the file exists**: read it. Summarize its current structure (exports, classes, key functions). Note the patterns it follows (naming conventions, import style, error handling).
-2. **If the file will be created**: find the closest existing analog in the codebase. Read it. Document the pattern to replicate.
-3. **Map dependencies**: for each file, find who imports it (`Grep` for the module name) and what it imports. List direct dependents.
-4. **Identify patterns**: read one existing file of the same type (e.g., if creating a handler, read an existing handler). Extract the template: frontmatter schema, section order, tone, line count range.
-5. **Check for conflicts**: verify no other sub-spec lists the same files. If conflict found, report it -- do not resolve.
-
-Each explorer appends its findings to the sub-spec's `## Architectural Context` section:
-
-```markdown
-## Architectural Context
-
-### Existing Files
-- `path/to/file.ext`: [summary of current state, key exports, line count]
-
-### Patterns to Follow
-- [Pattern name]: [file that exemplifies it] -- [what to replicate]
-
-### Dependencies Map
-- `module.name` imported by: [list of importers]
-- `module.name` imports: [list of dependencies]
-
-### Risks
-- [Any discovered constraint or conflict]
-```
-
-### Step 6 -- Validate
-
-Run these checks. All must pass before proceeding.
-
-1. **Existence**: every `specs/autopilot/sub-NNN.md` file exists and has >30 lines
-2. **Coverage**: every work unit (W-XXX) from Step 1 appears in exactly one sub-spec
-3. **No overlap**: no file path appears in the Files table of more than one sub-spec
-4. **Valid DAG**: sub-spec dependency order contains no cycles (if sub-002 depends on sub-001, sub-001 must not depend on sub-002 or any successor of sub-002)
-5. **Enriched**: every sub-spec has a non-empty `## Architectural Context` section
-
-If any check fails:
-- Overlap or coverage gap: reassign the conflicting work unit and regenerate affected sub-specs
-- Cycle: reorder groups to break the cycle
-- Missing context: re-run the explorer for that sub-spec
-- Max 2 fix attempts. If still failing after 2: STOP and report the validation failures to the orchestrator
-
-## Output
-
-```
-specs/autopilot/sub-001.md
-specs/autopilot/sub-002.md
-...
-specs/autopilot/sub-NNN.md
-```
-
-Report to orchestrator:
-```
-Split complete.
-- Strategy: [chosen strategy]
-- Sub-specs: N
-- Work units: M (distributed across N sub-specs)
-- Estimated complexity: [low|medium|high] per sub-spec
-- Dependency chain depth: D (longest path through the DAG)
-- Validation: all 5 checks passed
-```
-
-## Anti-Patterns
-
-- Generating sub-specs without reading the parent spec first (always start from spec.md)
-- Splitting too fine (1-2 work units per sub-spec creates overhead without value)
-- Splitting too coarse (6+ work units defeats the purpose of splitting)
-- Assigning the same file to multiple sub-specs (guaranteed merge conflicts)
-- Skipping the explore phase (agents without context hallucinate file paths and APIs)
-- Hand-waving acceptance criteria (every criterion must be verifiable by a command or assertion)
-- Creating circular dependencies between sub-specs (makes sequential execution impossible)
-
----
-
-# Handler: Verify Sub-Spec (Anti-Hallucination Gate)
-
-## Purpose
-
-Verify that a sub-spec implementation is real and functional -- not hallucinated, incomplete, or disconnected. This is the quality gate between sub-specs.
-
-## Why This Exists
-
-AI agents can:
-- Create files that exist but are never imported or called (dead code)
-- Write functions with correct signatures but wrong behavior
-- Reference modules that do not exist (phantom imports)
-- Mark tasks DONE without the code actually working
-
-This gate catches those failures BEFORE moving to the next sub-spec.
-
-## Procedure
-
-### Step 1 -- Read Verify Pattern
-
-Read `.github/prompts/ai-verify.prompt.md`. Use the IRRV protocol (Identify, Run, Read, Verify) as the foundation for every check below. No claim without evidence.
-
-### Step 2 -- Collect Evidence
-
-Get the list of files changed in this sub-spec:
-
-```bash
-git diff HEAD~1 --name-only
-```
-
-Load the sub-spec from `.ai-engineering/specs/autopilot/sub-NNN.md` and extract its `files:` list and acceptance criteria.
-
-### Step 3 -- Dispatch Verify Agent
-
-Dispatch Agent(Verify) with the changed files and this five-level checklist.
-
-**Level 1: Existence**
-- [ ] Every file listed in sub-spec `files:` exists on disk
-- [ ] No file is empty (>10 lines of actual content, not just headers)
-- [ ] File extensions match expected types
-
-**Level 2: Syntax**
-- [ ] `ruff check .` passes with zero errors
-- [ ] `ruff format --check .` reports no changes needed
-- [ ] For YAML files: valid YAML (`python -c "import yaml; yaml.safe_load(open(f))"`)
-- [ ] For JSON files: valid JSON (`python -c "import json; json.load(open(f))"`)
-
-**Level 3: Integration**
-- [ ] No phantom imports: for each `import X` or `from X import Y` in new code, verify X exists
-- [ ] No dead code: every new function/class is referenced from at least one other file
-- [ ] For skills: routing table references match handler files on disk
-- [ ] For handlers: cross-references to other handlers/skills resolve
-- [ ] `sync_command_mirrors.py --check` reports zero drift (if applicable)
-
-**Level 4: Functional**
-- [ ] `pytest tests/unit/ -q` passes
-- [ ] If new test files were created: they run and pass
-- [ ] Sub-spec acceptance criteria from `sub-NNN.md` are met
-
-**Level 5: Consistency**
-- [ ] `scripts/check_test_mapping.py` passes (new tests mapped)
-- [ ] Manifest counts match disk reality
-- [ ] No CLAUDE.md/AGENTS.md counter drift
-
-### Step 4 -- Evaluate Results
-
-**ALL PASS**: Mark sub-spec as VERIFIED in `specs/autopilot/manifest.md`, continue to next.
-
-**Level 1-2 failures** (auto-fixable):
-1. Run `ruff check . --fix` and `ruff format .`
-2. Re-check once
-3. If still failing: treat as Level 3-5 failure
-
-**Level 3-5 failures** (structural):
-1. Report findings with evidence: which check failed, file path, line number, error message
-2. If first failure for this sub-spec: retry the execute phase with the failure report embedded in the build prompt
-3. If second failure: STOP the autopilot pipeline. Report to user with:
-   - Sub-spec identifier
-   - Both verify reports (attempt 1 and attempt 2)
-   - Specific checks that failed and why
-   - Rollback command: `git reset --soft HEAD~N`
-
-## Output
-
-```
---- Verify: sub-NNN ---
-Level 1 (Existence):  PASS | FAIL (details)
-Level 2 (Syntax):     PASS | FAIL (details)
-Level 3 (Integration): PASS | FAIL (details)
-Level 4 (Functional): PASS | FAIL (details)
-Level 5 (Consistency): PASS | FAIL (details)
-Verdict: VERIFIED | RETRY (attempt 1/2) | FAILED (pipeline halted)
----
-```
-
-## Behavioral Negatives (Must NOT)
-
-- Weaken or skip any check level to force a pass
-- Modify test assertions to make tests pass
-- Claim VERIFIED without running every applicable check
-- Use forbidden words: "should work", "looks good", "probably fine"
-- Proceed to the next sub-spec on a FAILED verdict
-- Retry more than once (2 total attempts max, then escalate)
