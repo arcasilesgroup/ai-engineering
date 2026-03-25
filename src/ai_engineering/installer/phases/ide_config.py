@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from ai_engineering.config.loader import load_manifest_config
 from ai_engineering.installer.templates import (
     copy_file_if_missing,
     copy_tree_for_mode,
@@ -68,8 +69,8 @@ class IdeConfigPhase:
         for st, dt in maps.vcs_tree_list:
             actions.extend(_tree_actions(pr, st, dt, context.target, ow, "VCS"))
 
-        if context.mode is InstallMode.RECONFIGURE and context.existing_manifest:
-            old = context.existing_manifest.ai_providers.enabled
+        if context.mode is InstallMode.RECONFIGURE and context.existing_state:
+            old = load_manifest_config(context.target).providers.ides
             for rm in set(old) - set(context.providers):
                 for dp in provider_template_dest_paths(rm):
                     actions.append(PlannedAction("delete", "", dp, f"remove {rm}"))
@@ -107,8 +108,8 @@ class IdeConfigPhase:
                     skipped=result.skipped,
                 )
 
-        if context.mode is InstallMode.RECONFIGURE and context.existing_manifest:
-            old = context.existing_manifest.ai_providers.enabled
+        if context.mode is InstallMode.RECONFIGURE and context.existing_state:
+            old = load_manifest_config(context.target).providers.ides
             for rm in set(old) - set(context.providers):
                 deleted = remove_provider_templates(context.target, rm, context.providers)
                 result.deleted.extend(str(p) for p in deleted)
