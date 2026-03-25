@@ -1,120 +1,108 @@
-# Plan: spec-064 Install Flow Redesign
+# Plan: spec-066 Relocate scripts/hooks/ into .ai-engineering/
 
 ## Pipeline: standard
-## Phases: 4
-## Tasks: 11 (build: 9, verify: 2)
+## Phases: 5
+## Tasks: 10 (build: 8, verify: 2)
 
 ---
 
-### Phase 1: Auto-Detection Module (TDD)
-**Gate**: All autodetect unit tests pass. `detect_all()` returns correct `DetectionResult` for repos with markers and empty repos.
+### Phase 1: File Moves
+**Gate**: Template and dogfooding hooks exist at new paths. Old paths don't exist.
 
-- [x] T-1.1: Write failing tests for `detect_stacks()` (agent: build)
-  - Create `tests/unit/installer/test_autodetect.py`
-  - Test all 13 stack markers (python, javascript, typescript, go, rust, csharp, java, ruby, dart, elixir, swift, php, kotlin)
-  - Test empty directory returns `[]`
-  - Test multi-stack (pyproject.toml + tsconfig.json → `["python", "typescript"]`)
-  - Test javascript vs typescript disambiguation (package.json alone → javascript, with tsconfig.json → typescript)
-  - Use `tmp_path` fixtures, `pytest.mark.unit`
-  - **Done when**: Tests exist and FAIL (RED)
+- [x]T-1.1: Move template source (agent: build)
+  - `git mv src/ai_engineering/templates/project/scripts/hooks/ src/ai_engineering/templates/project/.ai-engineering/scripts/hooks/`
+  - Verify `src/ai_engineering/templates/project/scripts/` is empty, remove it
+  - Verify `src/ai_engineering/templates/project/.ai-engineering/scripts/hooks/` contains all 34+ files + `_lib/`
+  - **Done when**: Template source at new path, old `scripts/` dir gone (AC3, AC5)
 
-- [x] T-1.2: Implement `detect_stacks()` to pass tests (agent: build, blocked by T-1.1)
-  - Create `src/ai_engineering/installer/autodetect.py`
-  - Define `_STACK_MARKERS: dict[str, list[str]]` mapping marker files to stack names
-  - Special-case: typescript vs javascript (tsconfig.json presence)
-  - Special-case: `*.csproj`, `*.sln` use glob (root-level only)
-  - Define `DetectionResult` dataclass with `stacks`, `providers`, `ides`, `vcs` fields
-  - **Done when**: T-1.1 tests pass (GREEN)
-  - **Constraint**: DO NOT modify test files from T-1.1
+- [x]T-1.2: Move dogfooding copy (agent: build)
+  - `git mv scripts/hooks/ .ai-engineering/scripts/hooks/`
+  - Remove empty `scripts/` directory
+  - **Done when**: Dogfooding at `.ai-engineering/scripts/hooks/`, old `scripts/` gone (AC4)
 
-- [x] T-1.3: Write failing tests for `detect_ai_providers()`, `detect_ides()`, `detect_vcs()`, `detect_all()` (agent: build)
-  - Add tests to `test_autodetect.py`
-  - AI providers: `.claude/` → claude_code, `.github/copilot-instructions.md` → github_copilot, `.github/prompts/` → github_copilot, `.agents/` → NOT detected, empty → `[]`
-  - IDEs: `.vscode/` → vscode, `.idea/` → jetbrains, both → both, neither → `[]`
-  - VCS: mock `detect_from_remote()` → returns "github" or "azure_devops"
-  - `detect_all()`: returns `DetectionResult` aggregating all functions
-  - **Done when**: Tests exist and FAIL (RED)
+### Phase 2: Installer + Updater Code (parallel tasks)
+**Gate**: `_COMMON_TREE_MAPS` points to new path. Hooks phase verifies new path. Migration function exists in updater.
 
-- [x] T-1.4: Implement remaining autodetect functions (agent: build, blocked by T-1.3)
-  - `detect_ai_providers(root)` — check directory/file existence
-  - `detect_ides(root)` — check `.vscode/`, `.idea/`
-  - `detect_vcs(root)` — delegate to `detect_from_remote()`, fallback "github" on failure
-  - `detect_all(root)` — call all four, return `DetectionResult`
-  - **Done when**: All T-1.3 tests pass (GREEN)
-  - **Constraint**: DO NOT modify test files from T-1.3
+- [x]T-2.1: Update installer templates.py and phases/hooks.py (agent: build, blocked by T-1.1)
+  - `templates.py` line 76: `("scripts/hooks", "scripts/hooks")` → `(".ai-engineering/scripts/hooks", ".ai-engineering/scripts/hooks")`
+  - `phases/hooks.py` line 98: `context.target / "scripts/hooks"` → `context.target / ".ai-engineering" / "scripts" / "hooks"`
+  - `phases/hooks.py` line 100: `"scripts/hooks/ empty or missing"` → `".ai-engineering/scripts/hooks/ empty or missing"`
+  - **Done when**: Installer deploys to and verifies new path (AC10, AC11)
 
-### Phase 2: Wizard Module (TDD)
-**Gate**: Wizard tests pass. `questionary` is importable. `run_wizard()` returns correct `WizardResult` for all scenarios.
+- [x]T-2.2: Add migration function to updater/service.py (agent: build, blocked by T-1.1)
+  - Add `_migrate_hooks_dir(target: Path)` near existing `_migrate_legacy_dirs()` (~line 360)
+  - Logic: if `target / "scripts" / "hooks"` exists and is dir → `shutil.copytree` to `target / ".ai-engineering" / "scripts" / "hooks"`, then `shutil.rmtree` old, then remove empty `scripts/` dir if empty
+  - Must be idempotent: if new path already exists, skip silently
+  - Call from `update()` before `_evaluate_project_files()`
+  - Update `_evaluate_project_files()` lines ~203-217: tree map paths are read from `_COMMON_TREE_MAPS` which is already updated by T-2.1, no extra changes needed here (verify this)
+  - **Done when**: `ai-eng update` migrates old hooks to new path (AC12, AC13, AC14)
 
-- [x] T-2.1: Add `questionary` dependency and write wizard tests (agent: build)
-  - Add `"questionary>=2.0,<3.0"` to `pyproject.toml` `[project] dependencies`
-  - Run `uv sync` to install
-  - Create `tests/unit/installer/test_wizard.py`
-  - Test: detected items are preselected, non-detected are available
-  - Test: empty detection → nothing preselected
-  - Test: `WizardResult` dataclass has `stacks`, `providers`, `ides`, `vcs` fields
-  - Test: partial resolution (some categories resolved by flags) → wizard skips those
-  - Mock `questionary.checkbox()` and `questionary.select()` returns
-  - **Done when**: Tests exist, `questionary` imports, tests FAIL (RED)
+### Phase 3: Path References (all tasks parallel, blocked by T-1.1 + T-1.2)
+**Gate**: All settings.json, hooks.json, shell, and PowerShell references point to `.ai-engineering/scripts/hooks/`.
 
-- [x] T-2.2: Implement `wizard.py` (agent: build, blocked by T-2.1)
-  - Create `src/ai_engineering/installer/wizard.py`
-  - `WizardResult` dataclass with `stacks`, `providers`, `ides`, `vcs` fields
-  - `run_wizard(detected: DetectionResult, resolved: dict | None = None) -> WizardResult`
-    - `resolved` keys = categories already provided via CLI flags (skip in wizard)
-    - Unresolved categories: `questionary.checkbox()` with detected items as defaults
-    - VCS: `questionary.select()` with detected value as default
-    - Use `get_available_stacks()`, `get_available_ides()` from `installer/operations.py` for option lists
-    - Use `_VALID_AI_PROVIDERS` from `installer/operations.py` for provider options
-  - **Done when**: T-2.1 tests pass (GREEN)
-  - **Constraint**: DO NOT modify test files from T-2.1
+- [x]T-3.1: Update Claude Code settings.json (template + dogfooding) (agent: build, blocked by T-1.1)
+  - Template: `src/ai_engineering/templates/project/.claude/settings.json` — replace all `scripts/hooks/` → `.ai-engineering/scripts/hooks/` (~10 occurrences)
+  - Dogfooding: `.claude/settings.json` — same replacement (~10 occurrences)
+  - Use `replace_all` for efficiency
+  - **Done when**: All settings.json hook paths updated (AC6)
 
-### Phase 3: CLI Integration
-**Gate**: `ai-eng install` runs with new detect→wizard flow. Old prompts removed. Flags work. `--non-interactive` works. `--dry-run` works.
+- [x]T-3.2: Update GitHub Copilot hooks.json (template + dogfooding) (agent: build, blocked by T-1.1)
+  - Template: `src/ai_engineering/templates/project/github_templates/hooks/hooks.json` — replace `scripts/hooks/` → `.ai-engineering/scripts/hooks/` (3 entries)
+  - Dogfooding: `.github/hooks/hooks.json` — replace `./scripts/hooks/` → `./.ai-engineering/scripts/hooks/` (12 entries)
+  - **Done when**: All hooks.json paths updated (AC7)
 
-- [x] T-3.1: Replace prompt functions in `core.py` (agent: build, blocked by T-1.4, T-2.2)
-  - Remove `_prompt_stacks()` function
-  - Remove `_prompt_ides()` function
-  - Remove `_prompt_external_cicd_docs()` function
-  - Remove `_write_cicd_standards_url()` function
-  - Remove CI/CD URL prompt call and manifest write from `install_cmd`
-  - Simplify `_resolve_ai_providers()`: keep flag-resolution, remove `typer.prompt()` path
-  - Simplify `_resolve_vcs_provider()`: keep flag + autodetect paths, remove `typer.prompt()` path
-  - New flow in `install_cmd`:
-    1. Auto-detect: `detected = detect_all(root)`
-    2. Build resolved dict from CLI flags
-    3. All categories resolved OR `--non-interactive` → skip wizard
-    4. Otherwise → `run_wizard(detected, resolved)`
-    5. Merge results → `install_with_pipeline()`
-  - Show detection summary before wizard if anything detected
-  - `--non-interactive`: uses detection + defaults for undetected categories (no wizard)
-  - **Done when**: `ai-eng install` works with new flow, no old prompts remain
+- [x]T-3.3: Fix shell script dirname navigation (agent: build, blocked by T-1.1)
+  - 3 telemetry scripts: replace `$(dirname "$0")/../..` → `$(dirname "$0")/../../..`
+    - `.ai-engineering/scripts/hooks/telemetry-skill.sh` (line ~33)
+    - `.ai-engineering/scripts/hooks/telemetry-session.sh` (line ~17)
+    - `.ai-engineering/scripts/hooks/telemetry-agent.sh` (line ~61)
+  - 5 copilot scripts: replace `"$SCRIPT_DIR/../.."` → `"$SCRIPT_DIR/../../.."`
+    - `.ai-engineering/scripts/hooks/copilot-skill.sh` (line ~13)
+    - `.ai-engineering/scripts/hooks/copilot-session-start.sh` (line ~13)
+    - `.ai-engineering/scripts/hooks/copilot-session-end.sh` (line ~13)
+    - `.ai-engineering/scripts/hooks/copilot-error.sh` (line ~13)
+    - `.ai-engineering/scripts/hooks/copilot-agent.sh` (line ~13)
+  - Also update same lines in template copies at `src/ai_engineering/templates/project/.ai-engineering/scripts/hooks/`
+  - **Done when**: All 8 scripts navigate 3 levels up (AC8)
 
-- [x] T-3.2: Update CLI-level install tests (agent: build, blocked by T-3.1)
-  - Update tests that mock `typer.prompt` → mock `questionary` instead
-  - Verify `--non-interactive` uses detection + defaults
-  - Verify partial flags (e.g. `--stack python` only) → wizard for remaining
-  - Verify full flags → no wizard
-  - Verify `--dry-run` → no wizard
-  - **Done when**: All install tests pass
+- [x]T-3.4: Fix PowerShell script path navigation (agent: build, blocked by T-1.1)
+  - 2 scripts: add one `Split-Path -Parent` level
+    - `.ai-engineering/scripts/hooks/telemetry-session.ps1` (line ~10)
+    - `.ai-engineering/scripts/hooks/telemetry-skill.ps1` (line ~18)
+  - Also update template copies
+  - **Done when**: 2 PowerShell scripts navigate 3 levels up (AC9)
 
-### Phase 4: Verification
-**Gate**: Full test suite passes. Lint clean. No regressions.
+### Phase 4: Tests + Policy
+**Gate**: All tests pass with new paths.
 
-- [x] T-4.1: Full verification suite (agent: verify, blocked by T-3.2)
-  - `pytest tests/ -x --tb=short` — all pass
-  - `ruff check src/ tests/` — lint clean
-  - `ruff format --check src/ tests/` — format clean
-  - Verify `test_pipeline.py` passes WITHOUT modification (AC26)
-  - **Done when**: All gates green
+- [x]T-4.1: Update test paths and policy scope (agent: build, blocked by T-3.3)
+  - `tests/unit/test_template_parity.py` line 15: `"scripts" / "hooks"` → `".ai-engineering" / "scripts" / "hooks"`
+  - `tests/unit/test_template_parity.py` line 16: `"project" / "scripts" / "hooks"` → `"project" / ".ai-engineering" / "scripts" / "hooks"`
+  - `tests/unit/test_strategic_compact.py` line 16: `"scripts" / "hooks"` → `".ai-engineering" / "scripts" / "hooks"`
+  - `tests/integration/test_strategic_compact_integration.py` line 15: same change
+  - `tests/integration/test_telemetry_canary.py` lines 34,35,47,48: `"scripts/hooks/..."` → `".ai-engineering/scripts/hooks/..."`
+  - `tests/integration/test_telemetry_canary.py` line 106: `"scripts" / "hooks"` → `".ai-engineering" / "scripts" / "hooks"`
+  - `src/ai_engineering/policy/test_scope.py` line 405: `"scripts/hooks/**"` → `".ai-engineering/scripts/hooks/**"`
+  - **Done when**: All test/policy paths point to new location (AC15-AC17)
 
-- [x] T-4.2: Smoke test in clean directory (agent: build, blocked by T-4.1)
-  - `mktemp -d` → `cd` → `git init` → `ai-eng install`
-  - Verify: "no markers found" message or detection summary
-  - Verify: checkbox wizard appears
-  - Verify: install completes
-  - `ai-eng install --stack python --provider claude_code --ide terminal --vcs github` in another temp dir → no wizard, success
-  - **Done when**: Both flows produce valid installations
+### Phase 5: Verification
+**Gate**: Full test suite passes. Hooks fire. CHANGELOG untouched.
+
+- [x]T-5.1: Run full test suite + lint (agent: verify, blocked by T-4.1)
+  - `uv run pytest tests/ -x --tb=short` — all pass
+  - `uv run ruff check src/ tests/` — lint clean
+  - Verify `test_template_parity.py` passes (AC15)
+  - Verify `test_strategic_compact.py` passes (AC16)
+  - Verify `test_telemetry_canary.py` passes (AC17)
+  - Verify CHANGELOG.md has NO changes to `scripts/hooks` references (AC20)
+  - **Done when**: All gates green, zero regressions (AC18)
+
+- [x]T-5.2: Smoke test install + update (agent: build, blocked by T-5.1)
+  - Create temp dir, `git init`, `ai-eng install --stack python --provider claude_code --ide terminal --vcs github`
+  - Verify `.ai-engineering/scripts/hooks/` exists with hooks
+  - Verify `scripts/hooks/` does NOT exist at project root
+  - Verify `.claude/settings.json` references `.ai-engineering/scripts/hooks/`
+  - **Done when**: Clean install deploys hooks at new path (AC1, AC2, AC10)
 
 ---
 
@@ -122,30 +110,40 @@
 
 | Agent | Tasks | Purpose |
 |-------|-------|---------|
-| build | 9 | TDD tests, autodetect module, wizard module, CLI integration |
-| verify | 2 | Full test suite, lint, smoke test validation |
+| build | 8 | File moves, code changes, path updates, smoke test |
+| verify | 2 | Full test suite, lint, CHANGELOG check |
 
 ## Dependencies
 
 ```
-T-1.1 → T-1.2 ──┐
-T-1.3 → T-1.4 ──┤
-                 ├→ T-3.1 → T-3.2 → T-4.1 → T-4.2
-T-2.1 → T-2.2 ──┘
+T-1.1 ─┬→ T-2.1 ──────────────────┐
+        ├→ T-2.2                    │
+        ├→ T-3.1                    │
+        ├→ T-3.2                    ├→ T-4.1 → T-5.1 → T-5.2
+        ├→ T-3.3                    │
+        └→ T-3.4                    │
+T-1.2 ──────────────────────────────┘
 ```
 
-Phase 1 TDD pairs (T-1.1→T-1.2 and T-1.3→T-1.4) can run in parallel with Phase 2 (T-2.1→T-2.2).
-Phase 3 requires all three pairs complete.
-Phase 4 is final verification.
+Phase 1 tasks are sequential (T-1.1 then T-1.2).
+Phase 2 and Phase 3 tasks are ALL parallel (6 independent tasks, all blocked by Phase 1).
+Phase 4 depends on all of Phase 2+3.
+Phase 5 is final verification.
 
 ## Files Modified
 
 | File | Phase | Action |
 |------|-------|--------|
-| `src/ai_engineering/installer/autodetect.py` | 1 | create |
-| `tests/unit/installer/test_autodetect.py` | 1 | create |
-| `pyproject.toml` | 2 | modify (add questionary) |
-| `src/ai_engineering/installer/wizard.py` | 2 | create |
-| `tests/unit/installer/test_wizard.py` | 2 | create |
-| `src/ai_engineering/cli_commands/core.py` | 3 | modify (replace prompts) |
-| `tests/unit/installer/test_pipeline.py` | 3 | verify unchanged |
+| `src/ai_engineering/templates/project/scripts/hooks/` | 1 | move to `project/.ai-engineering/scripts/hooks/` |
+| `scripts/hooks/` | 1 | move to `.ai-engineering/scripts/hooks/` |
+| `src/ai_engineering/installer/templates.py` | 2 | tuple update |
+| `src/ai_engineering/installer/phases/hooks.py` | 2 | verification path |
+| `src/ai_engineering/updater/service.py` | 2 | migration function |
+| `src/ai_engineering/templates/project/.claude/settings.json` | 3 | 10 hook paths |
+| `.claude/settings.json` | 3 | 10 hook paths |
+| `src/ai_engineering/templates/project/github_templates/hooks/hooks.json` | 3 | 3 script paths |
+| `.github/hooks/hooks.json` | 3 | 12 script paths |
+| 8 shell scripts (template + dogfooding) | 3 | dirname 2→3 levels |
+| 2 PowerShell scripts (template + dogfooding) | 3 | Split-Path 2→3 levels |
+| 4 test files | 4 | path constants |
+| `src/ai_engineering/policy/test_scope.py` | 4 | scope glob |

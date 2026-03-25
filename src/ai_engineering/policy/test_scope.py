@@ -402,7 +402,7 @@ TEST_SCOPE_RULES: list[ScopeRule] = [
     ScopeRule(
         name="telemetry-hooks",
         source_globs=[
-            "scripts/hooks/**",
+            ".ai-engineering/scripts/hooks/**",
             ".github/hooks/**",
             ".claude/settings.json",
         ],

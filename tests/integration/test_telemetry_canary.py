@@ -31,8 +31,8 @@ class TestHookScripts:
     @pytest.mark.parametrize(
         "script",
         [
-            "scripts/hooks/telemetry-skill.sh",
-            "scripts/hooks/telemetry-session.sh",
+            ".ai-engineering/scripts/hooks/telemetry-skill.sh",
+            ".ai-engineering/scripts/hooks/telemetry-session.sh",
         ],
     )
     def test_script_exists_and_executable(self, script: str) -> None:
@@ -44,8 +44,8 @@ class TestHookScripts:
     @pytest.mark.parametrize(
         "script",
         [
-            "scripts/hooks/telemetry-skill.ps1",
-            "scripts/hooks/telemetry-session.ps1",
+            ".ai-engineering/scripts/hooks/telemetry-skill.ps1",
+            ".ai-engineering/scripts/hooks/telemetry-session.ps1",
         ],
     )
     def test_powershell_stub_exists(self, script: str) -> None:
@@ -103,7 +103,7 @@ class TestTemplateHookSync:
 
     def test_template_hook_scripts_exist(self) -> None:
         for script in ("telemetry-skill.sh", "telemetry-session.sh"):
-            path = self.TEMPLATE_ROOT / "scripts" / "hooks" / script
+            path = self.TEMPLATE_ROOT / ".ai-engineering" / "scripts" / "hooks" / script
             assert path.exists(), f"Template missing {script}"
 
     def test_template_copilot_hooks_json(self) -> None:

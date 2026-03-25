@@ -10,7 +10,7 @@ main() {
 
     # Resolve project root from script location
     SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    PROJECT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
+    PROJECT_DIR="$(cd "$SCRIPT_DIR/../../.." && pwd)"
     AUDIT_LOG="$PROJECT_DIR/.ai-engineering/state/audit-log.ndjson"
 
     # Extract error.message and error.name from stdin JSON

@@ -73,7 +73,7 @@ _PROVIDER_TREE_MAPS: dict[str, list[tuple[str, str]]] = {
 # When a VCS provider is specified, these trees are also copied.
 # Common templates copied for ALL providers (observability hooks).
 _COMMON_TREE_MAPS: list[tuple[str, str]] = [
-    ("scripts/hooks", "scripts/hooks"),
+    (".ai-engineering/scripts/hooks", ".ai-engineering/scripts/hooks"),
 ]
 
 # VCS-platform-specific templates (independent of AI provider).

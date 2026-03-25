@@ -15,7 +15,7 @@ try {
     $CanonicalName = $skill.ToLower() -replace '^ai[-:]', ''
     $CanonicalName = "ai-$CanonicalName"
 
-    $RootDir = if ($env:CLAUDE_PROJECT_DIR) { $env:CLAUDE_PROJECT_DIR } else { Split-Path -Parent (Split-Path -Parent $PSScriptRoot) }
+    $RootDir = if ($env:CLAUDE_PROJECT_DIR) { $env:CLAUDE_PROJECT_DIR } else { Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $PSScriptRoot)) }
 
     # Write directly to audit log — no CLI dependency
     $AuditLog = Join-Path $RootDir ".ai-engineering/state/audit-log.ndjson"

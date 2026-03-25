@@ -95,9 +95,9 @@ class HooksPhase:
         w: list[str] = []
         if not (context.target / ".git/hooks/pre-commit").exists():
             w.append("pre-commit hook not installed")
-        hd = context.target / "scripts/hooks"
+        hd = context.target / ".ai-engineering" / "scripts" / "hooks"
         if not hd.is_dir() or not any(hd.iterdir()):
-            w.append("scripts/hooks/ empty or missing")
+            w.append(".ai-engineering/scripts/hooks/ empty or missing")
         return PhaseVerdict(phase_name=self.name, passed=True, warnings=w)
 
     @staticmethod

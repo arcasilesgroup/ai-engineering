@@ -12,8 +12,17 @@ from pathlib import Path
 import pytest
 
 _ROOT = Path(__file__).resolve().parents[2]
-_LIVE_HOOKS = _ROOT / "scripts" / "hooks"
-_TEMPLATE_HOOKS = _ROOT / "src" / "ai_engineering" / "templates" / "project" / "scripts" / "hooks"
+_LIVE_HOOKS = _ROOT / ".ai-engineering" / "scripts" / "hooks"
+_TEMPLATE_HOOKS = (
+    _ROOT
+    / "src"
+    / "ai_engineering"
+    / "templates"
+    / "project"
+    / ".ai-engineering"
+    / "scripts"
+    / "hooks"
+)
 _LIVE_SETTINGS = _ROOT / ".claude" / "settings.json"
 _TEMPLATE_SETTINGS = (
     _ROOT / "src" / "ai_engineering" / "templates" / "project" / ".claude" / "settings.json"

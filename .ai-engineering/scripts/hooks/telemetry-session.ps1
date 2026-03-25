@@ -7,7 +7,7 @@ $ErrorActionPreference = "SilentlyContinue"
 try {
     $mode = if ($args[0]) { $args[0] } else { "end" }
 
-    $root = if ($env:CLAUDE_PROJECT_DIR) { $env:CLAUDE_PROJECT_DIR } else { Split-Path -Parent (Split-Path -Parent $PSScriptRoot) }
+    $root = if ($env:CLAUDE_PROJECT_DIR) { $env:CLAUDE_PROJECT_DIR } else { Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $PSScriptRoot)) }
 
     # Activate venv if present
     $venvActivate = Join-Path $root ".venv\Scripts\Activate.ps1"

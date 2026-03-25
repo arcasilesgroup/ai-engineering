@@ -104,6 +104,9 @@ def update(
     else:
         ownership = OwnershipMap()
 
+    # --- Phase 0: migrate hooks from legacy scripts/hooks/ to .ai-engineering/ ---
+    _migrate_hooks_dir(target)
+
     # --- Phase 1: evaluate all changes (pure, no disk writes) ---
     changes: list[FileChange] = []
     changes.extend(_evaluate_governance_files(ai_eng_dir, ownership))
@@ -351,6 +354,31 @@ def _restore_backup(backup_dir: Path, target: Path) -> None:
 # ---------------------------------------------------------------------------
 # Legacy migration
 # ---------------------------------------------------------------------------
+
+
+def _migrate_hooks_dir(target: Path) -> None:
+    """Migrate hooks from legacy ``scripts/hooks/`` to ``.ai-engineering/scripts/hooks/``.
+
+    Idempotent: if the new path already exists, skip silently.
+    """
+    old_hooks = target / "scripts" / "hooks"
+    new_hooks = target / ".ai-engineering" / "scripts" / "hooks"
+
+    if not old_hooks.is_dir():
+        return
+    if new_hooks.is_dir():
+        logger.debug("Hooks already at new path, skipping migration")
+        return
+
+    logger.info("Migrating hooks from scripts/hooks/ to .ai-engineering/scripts/hooks/")
+    new_hooks.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(old_hooks, new_hooks)
+    shutil.rmtree(old_hooks)
+
+    # Remove empty scripts/ directory if nothing else is in it
+    scripts_dir = target / "scripts"
+    if scripts_dir.is_dir() and not any(scripts_dir.iterdir()):
+        scripts_dir.rmdir()
 
 
 _LEGACY_DIRS = ("agents", "skills")

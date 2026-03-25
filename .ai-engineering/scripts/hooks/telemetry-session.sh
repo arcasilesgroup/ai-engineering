@@ -14,7 +14,7 @@ if [ ! -t 0 ]; then
 fi
 
 # Resolve project root
-ROOT_DIR="${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "$0")/../.." && pwd)}"
+ROOT_DIR="${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "$0")/../../.." && pwd)}"
 
 # Activate venv if present
 if [ -f "$ROOT_DIR/.venv/bin/activate" ]; then
