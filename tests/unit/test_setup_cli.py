@@ -649,7 +649,6 @@ class TestVcsFactoryAzdoAlias:
 class TestInstallCleanOutput:
     """Tests that install output omits the branch policy guide text block."""
 
-    @patch("ai_engineering.cli_commands.core._offer_platform_onboarding")
     @patch("ai_engineering.cli_commands.core.is_json_mode", return_value=False)
     @patch("ai_engineering.cli_commands.core.install_with_pipeline")
     @patch("ai_engineering.cli_commands.core.resolve_project_root")
@@ -658,7 +657,6 @@ class TestInstallCleanOutput:
         mock_resolve: MagicMock,
         mock_install: MagicMock,
         mock_json: MagicMock,
-        mock_onboard: MagicMock,
         tmp_path: Path,
     ) -> None:
         """When guide_text is present, only warnings are shown — not the full text block."""

@@ -13,6 +13,7 @@ Modes:
 from __future__ import annotations
 
 import difflib
+import json
 import logging
 import shutil
 import tempfile
@@ -28,8 +29,11 @@ from ai_engineering.installer.templates import (
 from ai_engineering.state.io import append_ndjson, read_json_model
 from ai_engineering.state.models import (
     AuditEntry,
+    InstallManifest,
+    InstallState,
     OwnershipMap,
 )
+from ai_engineering.state.service import load_install_state, save_install_state
 from ai_engineering.vcs.repo_context import get_repo_context
 
 logger = logging.getLogger(__name__)
@@ -104,7 +108,12 @@ def update(
     else:
         ownership = OwnershipMap()
 
-    # --- Phase 0: migrate hooks from legacy scripts/hooks/ to .ai-engineering/ ---
+    # --- Phase 0a: migrate state files (spec-068) ---
+    if not dry_run:
+        _migrate_install_manifest(ai_eng_dir)
+        _migrate_tools_json(ai_eng_dir)
+
+    # --- Phase 0b: migrate hooks from legacy scripts/hooks/ to .ai-engineering/ ---
     _migrate_hooks_dir(target)
 
     # --- Phase 1: evaluate all changes (pure, no disk writes) ---
@@ -349,6 +358,79 @@ def _restore_backup(backup_dir: Path, target: Path) -> None:
         dest = target / relative
         dest.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(backup_file, dest)
+
+
+# ---------------------------------------------------------------------------
+# State-file migration (spec-068)
+# ---------------------------------------------------------------------------
+
+
+def _migrate_install_manifest(ai_eng_dir: Path) -> bool:
+    """Migrate legacy ``install-manifest.json`` to ``install-state.json``.
+
+    If both old and new files exist, the old file takes precedence
+    (re-migrate). After successful conversion the old file is deleted.
+
+    Args:
+        ai_eng_dir: The ``.ai-engineering/`` directory.
+
+    Returns:
+        True if a migration was performed, False otherwise.
+    """
+    state_dir = ai_eng_dir / "state"
+    old_path = state_dir / "install-manifest.json"
+
+    if not old_path.exists():
+        return False
+
+    logger.info("Migrating install-manifest.json -> install-state.json")
+
+    data = json.loads(old_path.read_text(encoding="utf-8"))
+    manifest = InstallManifest.model_validate(data)
+    state = InstallState.from_legacy(manifest)
+
+    save_install_state(state_dir, state)
+    old_path.unlink()
+    return True
+
+
+def _migrate_tools_json(ai_eng_dir: Path) -> bool:
+    """Merge legacy ``tools.json`` platform data into ``install-state.json``.
+
+    Loads (or creates) the current ``install-state.json``, then merges
+    platform entries extracted from ``tools.json``. After merge, the old
+    file is deleted.
+
+    Args:
+        ai_eng_dir: The ``.ai-engineering/`` directory.
+
+    Returns:
+        True if a migration was performed, False otherwise.
+    """
+    state_dir = ai_eng_dir / "state"
+    tools_path = state_dir / "tools.json"
+
+    if not tools_path.exists():
+        return False
+
+    logger.info("Migrating tools.json -> install-state.json (platforms)")
+
+    tools_data = json.loads(tools_path.read_text(encoding="utf-8"))
+
+    # Load existing install-state (or defaults if it doesn't exist yet)
+    install_state = load_install_state(state_dir)
+
+    # Extract platforms from tools.json via the same helper used by from_legacy
+    from ai_engineering.state.models import _extract_platforms
+
+    merged_platforms = _extract_platforms(tools_data)
+
+    # Merge: tools.json platforms overwrite matching keys
+    install_state.platforms.update(merged_platforms)
+
+    save_install_state(state_dir, install_state)
+    tools_path.unlink()
+    return True
 
 
 # ---------------------------------------------------------------------------

@@ -47,20 +47,20 @@
 ### Phase 2: State file I/O + migration infrastructure
 **Gate**: install-state.json can be read/written. Migration converts old files to new format. No consumers switched yet.
 
-- [ ] T-2.1: Add InstallState load/save to state service (agent: build)
+- [x] T-2.1: Add InstallState load/save to state service (agent: build) -- DONE
   - Add `load_install_state()` / `save_install_state()` to `state/service.py` (or `credentials/service.py`)
   - File: `.ai-engineering/state/install-state.json`
   - Coexist with old `load_tools_state()` -- don't delete yet
   - **Done when**: Can write and read InstallState to install-state.json
 
-- [ ] T-2.2: Add migration functions to updater/service.py (agent: build)
+- [x] T-2.2: Add migration functions to updater/service.py (agent: build) -- DONE
   - `_migrate_install_manifest()`: read install-manifest.json -> extract state fields -> write install-state.json -> delete old
   - `_migrate_tools_json()`: read tools.json -> merge into install-state.json platforms section -> delete old
   - Both idempotent: no-op if source absent, overwrite if both exist (old wins)
   - Wire into `update()` flow before existing migrations
   - **Done when**: Migration converts fixture files correctly
 
-- [ ] T-2.3: Write tests for migration (agent: build)
+- [x] T-2.3: Write tests for migration (agent: build) -- DONE (8 tests)
   - Test: migrate install-manifest.json -> install-state.json (config fields stripped, state preserved)
   - Test: migrate tools.json -> platforms section merged
   - Test: both files absent -> no-op
@@ -68,7 +68,7 @@
   - Test: idempotent (run twice, same result)
   - **Done when**: All migration tests pass
 
-- [ ] T-2.4: Verify migration (agent: verify)
+- [x] T-2.4: Verify migration (agent: verify) -- DONE (75/75 new tests pass)
   - Run migration tests
   - Verify old models still work (no breakage to existing consumers)
   - **Done when**: Full test suite green
@@ -78,13 +78,13 @@
 ### Phase 3: Remove platform onboarding from install
 **Gate**: `ai-eng install` no longer prompts for SonarCloud or platform credentials. `ai-eng setup platforms` unchanged.
 
-- [ ] T-3.1: Remove _offer_platform_onboarding from core.py (agent: build)
+- [x] T-3.1: Remove _offer_platform_onboarding from core.py (agent: build) -- DONE
   - Delete `_offer_platform_onboarding()` function
   - Remove the call at end of `install_cmd()`
   - Add `("ai-eng setup platforms", "Configure platform credentials")` to `suggest_next` list
   - **Done when**: Install flow ends after summary panel without interactive prompts
 
-- [ ] T-3.2: Update install tests (agent: build)
+- [x] T-3.2: Update install tests (agent: build) -- DONE
   - Remove/update tests that expect SonarCloud/platform prompts during install
   - Verify test_install_clean, test_install_existing still pass
   - **Done when**: All install tests pass without prompt expectations

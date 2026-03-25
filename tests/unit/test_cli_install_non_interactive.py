@@ -1,12 +1,8 @@
 """Unit tests for --non-interactive flag on the install command.
 
-RED phase: these tests define the expected behavior of --non-interactive
-and MUST FAIL until the implementation is complete.
-
 Tests verify:
 1. The --non-interactive flag exists on install_cmd.
 2. When passed, install completes without interactive prompts (defaults used).
-3. _offer_platform_onboarding skips prompts in non-interactive mode.
 """
 
 from __future__ import annotations
@@ -93,7 +89,6 @@ class TestNonInteractiveSkipsPrompts:
             patch(f"{_CORE}.install_with_pipeline", mock_install),
             patch(f"{_CORE}.typer.prompt") as mock_prompt,
             patch(f"{_CORE}.typer.confirm") as mock_confirm,
-            patch(f"{_CORE}.detect_platforms", return_value=[]),
         ):
             # Act
             result = runner.invoke(
@@ -119,7 +114,6 @@ class TestNonInteractiveSkipsPrompts:
         with (
             patch(f"{_CORE}.install_with_pipeline", mock_install),
             patch("ai_engineering.git.operations.run_git", return_value=(False, "")),
-            patch(f"{_CORE}.detect_platforms", return_value=[]),
         ):
             # Act
             result = runner.invoke(
@@ -145,7 +139,6 @@ class TestNonInteractiveSkipsPrompts:
         with (
             patch(f"{_CORE}.install_with_pipeline", mock_install),
             patch("ai_engineering.git.operations.run_git", return_value=(False, "")),
-            patch(f"{_CORE}.detect_platforms", return_value=[]),
         ):
             # Act
             result = runner.invoke(
@@ -160,47 +153,3 @@ class TestNonInteractiveSkipsPrompts:
             assert call_kwargs.kwargs.get("ai_providers") == ["claude_code"] or (
                 len(call_kwargs.args) > 0 and "claude_code" in str(call_kwargs)
             )
-
-
-# ---------------------------------------------------------------------------
-# Test 3: _offer_platform_onboarding respects non-interactive
-# ---------------------------------------------------------------------------
-
-
-class TestOfferPlatformOnboardingNonInteractive:
-    """_offer_platform_onboarding must skip prompts in non-interactive mode."""
-
-    def test_skips_confirm_prompts(self, tmp_path: Path) -> None:
-        """When non-interactive, _offer_platform_onboarding must not call
-        typer.confirm and must not invoke setup_platforms_cmd.
-        """
-        from ai_engineering.cli_commands.core import _offer_platform_onboarding
-
-        with (
-            patch(f"{_CORE}.detect_platforms", return_value=[]),
-            patch(f"{_CORE}.typer.confirm") as mock_confirm,
-            patch(f"{_CORE}.typer.echo"),
-        ):
-            # Act -- call with non_interactive=True
-            # This will fail until the function signature accepts the flag
-            _offer_platform_onboarding(tmp_path, vcs_provider="github", non_interactive=True)
-
-            # Assert -- no confirmation prompts
-            mock_confirm.assert_not_called()
-
-    def test_does_not_invoke_setup_platforms(self, tmp_path: Path) -> None:
-        """When non-interactive, setup_platforms_cmd must never be called."""
-        from ai_engineering.cli_commands.core import _offer_platform_onboarding
-
-        with (
-            patch(f"{_CORE}.detect_platforms", return_value=[]),
-            patch(f"{_CORE}.typer.confirm", return_value=True) as mock_confirm,
-            patch(f"{_CORE}.typer.echo"),
-            patch("ai_engineering.cli_commands.setup.setup_platforms_cmd") as mock_setup,
-        ):
-            # Act
-            _offer_platform_onboarding(tmp_path, vcs_provider="github", non_interactive=True)
-
-            # Assert
-            mock_confirm.assert_not_called()
-            mock_setup.assert_not_called()

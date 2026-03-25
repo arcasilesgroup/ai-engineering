@@ -12,8 +12,6 @@ from typing import TYPE_CHECKING, Annotated, Any
 if TYPE_CHECKING:
     from ai_engineering.installer.autodetect import DetectionResult
 
-import click
-import click.exceptions
 import typer
 
 from ai_engineering.__version__ import __version__
@@ -50,7 +48,6 @@ from ai_engineering.installer.ui import (
     render_summary,
 )
 from ai_engineering.paths import resolve_project_root
-from ai_engineering.platforms.detector import detect_platforms
 from ai_engineering.updater.service import _DIFF_MAX_LINES, update
 from ai_engineering.vcs.factory import detect_from_remote
 
@@ -303,10 +300,6 @@ def install_cmd(
             typer.echo("")
             warning("Automatic branch policy application was not possible.")
             warning("You must configure branch protection manually to enforce governance gates.")
-
-    # Optional platform onboarding prompt (D024-003: opt-in).
-    if not is_json_mode():
-        _offer_platform_onboarding(root, vcs_provider=resolved_vcs, non_interactive=non_interactive)
 
 
 def _render_pipeline_steps(summary: object) -> None:
@@ -623,45 +616,3 @@ def version_cmd() -> None:
         registry = load_registry()
         result = check_version(__version__, registry)
         typer.echo(f"ai-engineering {result.message}")
-
-
-def _offer_platform_onboarding(
-    root: Path,
-    *,
-    vcs_provider: str | None = None,
-    non_interactive: bool = False,
-) -> None:
-    """Offer optional platform credential setup after install.
-
-    Detects platform markers and prompts the user to run setup.
-    When no platforms are auto-detected, still offers manual setup.
-    Always skippable (D024-003).
-    """
-    if non_interactive:
-        return
-    detected = detect_platforms(root, vcs_provider=vcs_provider)
-    if detected:
-        names = ", ".join(p.value for p in detected)
-        typer.echo(f"\n  Detected platforms: {names}")
-    else:
-        typer.echo("\n  No platforms auto-detected.")
-
-    # Offer SonarCloud/SonarQube setup directly (B.3)
-    from ai_engineering.credentials.models import PlatformKind as PK
-
-    if PK.SONAR not in detected:
-        try:
-            setup_sonar = typer.confirm("  Configure SonarCloud/SonarQube?", default=False)
-        except (KeyboardInterrupt, EOFError, click.exceptions.Abort):
-            setup_sonar = False
-        if setup_sonar:
-            detected.append(PK.SONAR)
-
-    try:
-        run_setup = typer.confirm("  Configure platform credentials now?", default=False)
-    except (KeyboardInterrupt, EOFError, click.exceptions.Abort):
-        return
-    if run_setup:
-        from ai_engineering.cli_commands.setup import setup_platforms_cmd
-
-        setup_platforms_cmd(root, vcs_provider=vcs_provider)
