@@ -11,8 +11,11 @@ version: "1.0.0"
 # Providers
 providers:
   vcs: github
-  ides: [claude_code, github_copilot]
+  ides: [terminal]
   stacks: [python]
+  ai_providers:
+    enabled: [claude_code, github_copilot]
+    primary: claude_code
 
 # AI Providers
 ai_providers:
