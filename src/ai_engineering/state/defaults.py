@@ -93,6 +93,11 @@ _DEFAULT_OWNERSHIP_PATHS: list[tuple[str, OwnershipLevel, FrameworkUpdatePolicy]
         OwnershipLevel.SYSTEM_MANAGED,
         FrameworkUpdatePolicy.APPEND_ONLY,
     ),
+    (
+        ".ai-engineering/state/health-history.json",
+        OwnershipLevel.SYSTEM_MANAGED,
+        FrameworkUpdatePolicy.ALLOW,
+    ),
     # -- project root files -------------------------------------------------
     ("CLAUDE.md", OwnershipLevel.FRAMEWORK_MANAGED, FrameworkUpdatePolicy.ALLOW),
     ("AGENTS.md", OwnershipLevel.FRAMEWORK_MANAGED, FrameworkUpdatePolicy.ALLOW),

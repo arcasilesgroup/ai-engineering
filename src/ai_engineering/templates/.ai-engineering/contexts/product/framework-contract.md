@@ -46,7 +46,7 @@ Binding rules for all agents and tools operating under the ai-engineering govern
 
 - Agents MUST operate as session-scoped workers with explicit scope, dependencies, and deliverables.
 - Each session MUST read context from governance content — no implicit knowledge assumed.
-- Session recovery MUST be deterministic: `_active.md` → `spec.md` → `tasks.md` → `decision-store.json` → `session-checkpoint.json`.
+- Session recovery MUST be deterministic: `_active.md` → `spec.md` → `tasks.md` → `decision-store.json`.
 - Pre-dispatch gate: `guard.gate` MUST run before any agent dispatch — validates scope, permissions, and governance compliance. Dispatch blocked on gate failure.
 - Spec-first check: if no active spec and work is non-trivial, invoke `create-spec` before proceeding.
 - Commit: 1 phase = 1 commit with `spec-NNN: Pase X.Y — <description>`.
@@ -120,7 +120,7 @@ Every phase MUST pass before dependent phases start:
 - **external framework-managed** (updatable, outside `.ai-engineering/`): `CLAUDE.md`, `AGENTS.md`, `.github/copilot-instructions.md`, `.github/copilot/**`, `.github/instructions/**`, `.github/prompts/**`, `.github/agents/**`, `.github/ISSUE_TEMPLATE/**`, `.github/pull_request_template.md`, `.agents/**`, `.claude/settings.json`, `.claude/commands/**`.
 - **team-managed** (never overwritten): `standards/team/**`.
 - **project-managed** (never overwritten): `context/**` (except `context/product/framework-contract.md`).
-- **system-managed**: `state/install-manifest.json`, `state/ownership-map.json`, `state/decision-store.json`, `state/audit-log.ndjson`, `state/session-checkpoint.json`.
+- **system-managed**: `state/install-state.json`, `state/ownership-map.json`, `state/decision-store.json`, `state/audit-log.ndjson`, `state/health-history.json`.
 
 ### 3.2 Update Rules
 
@@ -182,7 +182,7 @@ Auto-classified from `git diff --stat` + change type. User override: `/ai-plan -
 
 Three-level loading: **Metadata** (always, ~50 tok/skill) → **Body** (on-demand) → **Resources** (on-demand).
 
-Session start loads ONLY: `_active.md` → `spec.md` → `tasks.md` → `decision-store.json` → `session-checkpoint.json`. Do NOT pre-load skills or agents.
+Session start loads ONLY: `_active.md` → `spec.md` → `tasks.md` → `decision-store.json`. Do NOT pre-load skills or agents.
 
 | Level | Budget |
 |-------|--------|
