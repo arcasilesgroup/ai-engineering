@@ -126,21 +126,25 @@ def test_validate_json_and_failure_exit(capsys: pytest.CaptureFixture[str], tmp_
 
 
 def test_vcs_status_and_set_primary(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    state_dir = tmp_path / ".ai-engineering" / "state"
+    ai_eng_dir = tmp_path / ".ai-engineering"
+    state_dir = ai_eng_dir / "state"
     state_dir.mkdir(parents=True, exist_ok=True)
     save_install_state(state_dir, default_install_state())
+
+    manifest_yml = ai_eng_dir / "manifest.yml"
+    manifest_yml.write_text(
+        "providers:\n  vcs: github\n  stacks:\n    - python\n", encoding="utf-8"
+    )
 
     provider = SimpleNamespace(provider_name=lambda: "github", is_available=lambda: True)
     with patch("ai_engineering.cli_commands.vcs.get_provider", return_value=provider):
         vcs.vcs_status(target=tmp_path)
     captured = capsys.readouterr()
-    # kv() writes to stderr via Rich Console
     assert "Primary provider" in captured.err
 
     vcs.vcs_set_primary("azure_devops", target=tmp_path)
     import yaml
 
-    manifest_yml = tmp_path / ".ai-engineering" / "manifest.yml"
     updated = yaml.safe_load(manifest_yml.read_text(encoding="utf-8"))
     assert updated["providers"]["vcs"] == "azure_devops"
 
