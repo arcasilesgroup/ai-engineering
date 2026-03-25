@@ -15,6 +15,7 @@ from pathlib import Path
 
 import pytest
 
+from ai_engineering.config.manifest import ManifestConfig
 from ai_engineering.installer.operations import (
     InstallerError,
     add_ide,
@@ -33,7 +34,6 @@ from ai_engineering.installer.templates import (
     get_project_template_root,
     resolve_template_maps,
 )
-from ai_engineering.state.models import InstallState
 
 pytestmark = pytest.mark.integration
 
@@ -343,7 +343,7 @@ class TestAddStack:
     def test_adds_new_stack(self, installed_project: Path) -> None:
         remove_stack(installed_project, "python")
         manifest = add_stack(installed_project, "python")
-        assert "python" in manifest.installed_stacks
+        assert "python" in manifest.providers.stacks
 
     def test_raises_on_duplicate_stack(self, installed_project: Path) -> None:
         with pytest.raises(InstallerError, match="already installed"):
@@ -368,7 +368,7 @@ class TestRemoveStack:
 
     def test_removes_existing_stack(self, installed_project: Path) -> None:
         manifest = remove_stack(installed_project, "python")
-        assert "python" not in manifest.installed_stacks
+        assert "python" not in manifest.providers.stacks
 
     def test_raises_on_missing_stack(self, installed_project: Path) -> None:
         with pytest.raises(InstallerError, match="not installed"):
@@ -380,8 +380,8 @@ class TestAddIde:
 
     def test_adds_new_ide(self, installed_project: Path) -> None:
         manifest = add_ide(installed_project, "vscode")
-        assert "vscode" in manifest.installed_ides
-        assert "terminal" in manifest.installed_ides
+        assert "vscode" in manifest.providers.ides
+        assert "terminal" in manifest.providers.ides
 
     def test_raises_on_duplicate_ide(self, installed_project: Path) -> None:
         with pytest.raises(InstallerError, match="already installed"):
@@ -393,7 +393,7 @@ class TestRemoveIde:
 
     def test_removes_existing_ide(self, installed_project: Path) -> None:
         manifest = remove_ide(installed_project, "terminal")
-        assert "terminal" not in manifest.installed_ides
+        assert "terminal" not in manifest.providers.ides
 
     def test_raises_on_missing_ide(self, installed_project: Path) -> None:
         with pytest.raises(InstallerError, match="not installed"):
@@ -405,14 +405,14 @@ class TestListStatus:
 
     def test_returns_current_manifest(self, installed_project: Path) -> None:
         manifest = list_status(installed_project)
-        assert isinstance(manifest, InstallState)
-        assert "python" in manifest.installed_stacks
+        assert isinstance(manifest, ManifestConfig)
+        assert "python" in manifest.providers.stacks
 
     def test_reflects_mutations(self, installed_project: Path) -> None:
         remove_stack(installed_project, "python")
         add_stack(installed_project, "python")
         manifest = list_status(installed_project)
-        assert "python" in manifest.installed_stacks
+        assert "python" in manifest.providers.stacks
 
     def test_raises_without_install(self, tmp_path: Path) -> None:
         with pytest.raises(InstallerError, match="not installed"):

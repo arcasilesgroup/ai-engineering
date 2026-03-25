@@ -290,6 +290,7 @@ class ToolEntry(BaseModel):
 
     installed: bool = False
     authenticated: bool = False
+    integrity_verified: bool = False
     mode: str = "cli"
     scopes: list[str] = Field(default_factory=list)
 

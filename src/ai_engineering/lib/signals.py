@@ -680,7 +680,7 @@ def adoption_metrics(project_root: Path) -> dict[str, Any]:
 
         git_hooks_entry = state.tooling.get("git_hooks")
         hooks_installed = git_hooks_entry.installed if git_hooks_entry else False
-        hooks_verified = git_hooks_entry.authenticated if git_hooks_entry else False
+        hooks_verified = git_hooks_entry.integrity_verified if git_hooks_entry else False
 
         return {
             "stacks": stacks,
