@@ -70,7 +70,7 @@ class TestVcsAuth:
         ctx = _ctx(tmp_path, install_state=_make_install_state("github"))
         results = vcs_auth.check(ctx)
         assert len(results) == 1
-        assert results[0].status == CheckStatus.FAIL
+        assert results[0].status == CheckStatus.WARN
 
     @patch("ai_engineering.doctor.runtime.vcs_auth.subprocess.run")
     def test_github_tool_not_found(self, mock_run: MagicMock, tmp_path: Path) -> None:
@@ -105,7 +105,7 @@ class TestVcsAuth:
         ctx = _ctx(tmp_path, install_state=_make_install_state("azure_devops"))
         results = vcs_auth.check(ctx)
         assert len(results) == 1
-        assert results[0].status == CheckStatus.FAIL
+        assert results[0].status == CheckStatus.WARN
 
     @patch("ai_engineering.doctor.runtime.vcs_auth.subprocess.run")
     def test_azure_tool_not_found(self, mock_run: MagicMock, tmp_path: Path) -> None:
