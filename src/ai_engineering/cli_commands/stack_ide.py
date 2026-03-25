@@ -38,11 +38,11 @@ def stack_add(
         if is_json_mode():
             emit_success(
                 "ai-eng stack add",
-                {"action": "add", "stack": stack, "active_stacks": manifest.installed_stacks},
+                {"action": "add", "stack": stack, "active_stacks": manifest.providers.stacks},
             )
         else:
             success(f"Added stack '{stack}'")
-            kv("Active stacks", ", ".join(manifest.installed_stacks))
+            kv("Active stacks", ", ".join(manifest.providers.stacks))
     except InstallerError as exc:
         if is_json_mode():
             emit_error("ai-eng stack add", str(exc), "STACK_ADD_FAILED", "Check stack name")
@@ -65,11 +65,11 @@ def stack_remove(
         if is_json_mode():
             emit_success(
                 "ai-eng stack remove",
-                {"action": "remove", "stack": stack, "active_stacks": manifest.installed_stacks},
+                {"action": "remove", "stack": stack, "active_stacks": manifest.providers.stacks},
             )
         else:
             success(f"Removed stack '{stack}'")
-            kv("Active stacks", ", ".join(manifest.installed_stacks))
+            kv("Active stacks", ", ".join(manifest.providers.stacks))
     except InstallerError as exc:
         if is_json_mode():
             emit_error("ai-eng stack remove", str(exc), "STACK_REMOVE_FAILED", "Check stack name")
@@ -91,11 +91,11 @@ def stack_list(
         if is_json_mode():
             emit_success(
                 "ai-eng stack list",
-                {"stacks": manifest.installed_stacks},
+                {"stacks": manifest.providers.stacks},
             )
         else:
-            if manifest.installed_stacks:
-                for s in manifest.installed_stacks:
+            if manifest.providers.stacks:
+                for s in manifest.providers.stacks:
                     info(f"  - {s}")
             else:
                 info("No stacks configured")
@@ -121,11 +121,11 @@ def ide_add(
         if is_json_mode():
             emit_success(
                 "ai-eng ide add",
-                {"action": "add", "ide": ide, "active_ides": manifest.installed_ides},
+                {"action": "add", "ide": ide, "active_ides": manifest.providers.ides},
             )
         else:
             success(f"Added IDE '{ide}'")
-            kv("Active IDEs", ", ".join(manifest.installed_ides))
+            kv("Active IDEs", ", ".join(manifest.providers.ides))
     except InstallerError as exc:
         if is_json_mode():
             emit_error("ai-eng ide add", str(exc), "IDE_ADD_FAILED", "Check IDE name")
@@ -148,11 +148,11 @@ def ide_remove(
         if is_json_mode():
             emit_success(
                 "ai-eng ide remove",
-                {"action": "remove", "ide": ide, "active_ides": manifest.installed_ides},
+                {"action": "remove", "ide": ide, "active_ides": manifest.providers.ides},
             )
         else:
             success(f"Removed IDE '{ide}'")
-            kv("Active IDEs", ", ".join(manifest.installed_ides))
+            kv("Active IDEs", ", ".join(manifest.providers.ides))
     except InstallerError as exc:
         if is_json_mode():
             emit_error("ai-eng ide remove", str(exc), "IDE_REMOVE_FAILED", "Check IDE name")
@@ -174,11 +174,11 @@ def ide_list(
         if is_json_mode():
             emit_success(
                 "ai-eng ide list",
-                {"ides": manifest.installed_ides},
+                {"ides": manifest.providers.ides},
             )
         else:
-            if manifest.installed_ides:
-                for i in manifest.installed_ides:
+            if manifest.providers.ides:
+                for i in manifest.providers.ides:
                     info(f"  - {i}")
             else:
                 info("No IDEs configured")
