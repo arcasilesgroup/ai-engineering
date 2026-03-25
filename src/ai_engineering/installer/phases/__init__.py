@@ -25,6 +25,17 @@ PHASE_HOOKS = "hooks"
 PHASE_STATE = "state"
 PHASE_TOOLS = "tools"
 
+# Canonical pipeline ordering.  StatePhase must run before HooksPhase so that
+# _record_hook_hashes() can find install-state.json when saving hook hashes.
+PHASE_ORDER: tuple[str, ...] = (
+    PHASE_DETECT,
+    PHASE_GOVERNANCE,
+    PHASE_IDE_CONFIG,
+    PHASE_STATE,
+    PHASE_HOOKS,
+    PHASE_TOOLS,
+)
+
 # ---------------------------------------------------------------------------
 # Install mode
 # ---------------------------------------------------------------------------
@@ -195,6 +206,7 @@ __all__ = [
     "PHASE_GOVERNANCE",
     "PHASE_HOOKS",
     "PHASE_IDE_CONFIG",
+    "PHASE_ORDER",
     "PHASE_STATE",
     "PHASE_TOOLS",
     "InstallContext",

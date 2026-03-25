@@ -83,7 +83,7 @@ def check_hook_integrity(project_root: Path, result: GateResult) -> None:
                 output=(
                     "Hook integrity check failed for: "
                     + ", ".join(sorted(failing))
-                    + ". Reinstall hooks with 'ai-eng doctor --fix-hooks'."
+                    + ". Reinstall hooks with 'ai-eng doctor --fix --phase hooks'."
                 ),
             )
         )

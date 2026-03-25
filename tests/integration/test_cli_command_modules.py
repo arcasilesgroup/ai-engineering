@@ -187,8 +187,19 @@ def test_core_update_json_and_doctor_fail(
 
     report = SimpleNamespace(
         passed=False,
+        installed=True,
         summary={"fail": 1},
-        checks=[SimpleNamespace(status=SimpleNamespace(value="fail"), name="x", message="bad")],
+        phases=[
+            SimpleNamespace(
+                name="detect",
+                status=SimpleNamespace(value="fail"),
+                checks=[
+                    SimpleNamespace(status=SimpleNamespace(value="fail"), name="x", message="bad")
+                ],
+            )
+        ],
+        runtime=[],
+        has_warnings=False,
     )
     with (
         patch("ai_engineering.cli_commands.core.diagnose", return_value=report),

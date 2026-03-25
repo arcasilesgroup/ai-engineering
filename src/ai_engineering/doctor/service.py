@@ -1,180 +1,181 @@
-"""Diagnostic and remediation service for ai-engineering installations.
+"""Diagnostic orchestrator for ai-engineering installations (spec-071).
 
-Validates:
-- Framework layout (required directories and files).
-- State file integrity (parseable JSON matching expected schemas).
-- Git hooks installation and integrity.
-- Venv health (pyvenv.cfg home path validity).
-- Tool availability (ruff, ty, gitleaks, semgrep, pip-audit, gh, az).
-- Branch policy (not on protected branch).
-
-Supports ``--fix-hooks`` and ``--fix-tools`` remediation modes.
+Runs phase checks in ``PHASE_ORDER``, then runtime checks, collecting
+results into a :class:`DoctorReport`.  Supports fix mode, dry-run,
+and single-phase filtering.
 """
 
 from __future__ import annotations
 
+import importlib
+import logging
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
 
-from ai_engineering.doctor.models import CheckResult, CheckStatus, DoctorReport
+from ai_engineering.config.loader import load_manifest_config
+from ai_engineering.doctor.models import (
+    CheckStatus,
+    DoctorContext,
+    DoctorReport,
+    PhaseReport,
+)
+from ai_engineering.installer.phases import PHASE_ORDER
+from ai_engineering.state.io import append_ndjson
+from ai_engineering.state.models import AuditEntry
+from ai_engineering.state.service import load_install_state
 
-__all__ = ["CheckResult", "CheckStatus", "DoctorReport"]
+logger = logging.getLogger(__name__)
 
+_RUNTIME_MODULES: tuple[str, ...] = (
+    "vcs_auth",
+    "feeds",
+    "branch_policy",
+    "version",
+)
 
-def _check_github(cred_svc: Any, platforms: dict[str, Any]) -> CheckResult:
-    """Validate GitHub credentials."""
-    gh = platforms.get("github")
-    if not gh or not gh.configured:
-        return CheckResult(
-            name="platform:github",
-            status=CheckStatus.WARN,
-            message="GitHub not configured",
-        )
-
-    from ai_engineering.platforms.github import GitHubSetup
-
-    gh_status = GitHubSetup.check_auth_status()
-    if gh_status.authenticated:
-        return CheckResult(
-            name="platform:github",
-            status=CheckStatus.OK,
-            message=f"Authenticated as {gh_status.username}",
-        )
-    return CheckResult(
-        name="platform:github",
-        status=CheckStatus.FAIL,
-        message=f"GitHub auth failed: {gh_status.error}",
-    )
-
-
-def _check_sonar(cred_svc: Any, platforms: dict[str, Any]) -> CheckResult:
-    """Validate SonarCloud credentials."""
-    sonar = platforms.get("sonar")
-    if not sonar or not (sonar.configured and sonar.url):
-        return CheckResult(
-            name="platform:sonar",
-            status=CheckStatus.WARN,
-            message="Sonar not configured",
-        )
-
-    from ai_engineering.platforms.sonar import SonarSetup
-
-    sonar_setup = SonarSetup(cred_svc)
-    token = sonar_setup.retrieve_token()
-    if not token:
-        return CheckResult(
-            name="platform:sonar",
-            status=CheckStatus.FAIL,
-            message="Token missing from keyring",
-        )
-
-    result = sonar_setup.validate_token(sonar.url, token)
-    if result.valid:
-        return CheckResult(
-            name="platform:sonar",
-            status=CheckStatus.OK,
-            message=f"Token valid for {sonar.url}",
-        )
-    return CheckResult(
-        name="platform:sonar",
-        status=CheckStatus.FAIL,
-        message=f"Token invalid: {result.error}",
-    )
-
-
-def _check_azure_devops(cred_svc: Any, platforms: dict[str, Any]) -> CheckResult:
-    """Validate Azure DevOps credentials."""
-    azdo = platforms.get("azure_devops")
-    if not azdo or not (azdo.configured and azdo.url):
-        return CheckResult(
-            name="platform:azure_devops",
-            status=CheckStatus.WARN,
-            message="Azure DevOps not configured",
-        )
-
-    from ai_engineering.platforms.azure_devops import AzureDevOpsSetup
-
-    azdo_setup = AzureDevOpsSetup(cred_svc)
-    pat = azdo_setup.retrieve_pat()
-    if not pat:
-        return CheckResult(
-            name="platform:azure_devops",
-            status=CheckStatus.FAIL,
-            message="PAT missing from keyring",
-        )
-
-    result = azdo_setup.validate_pat(azdo.url, pat)
-    if result.valid:
-        return CheckResult(
-            name="platform:azure_devops",
-            status=CheckStatus.OK,
-            message=f"PAT valid for {azdo.url}",
-        )
-    return CheckResult(
-        name="platform:azure_devops",
-        status=CheckStatus.FAIL,
-        message=f"PAT invalid: {result.error}",
-    )
-
-
-_PLATFORM_CHECKS = (_check_github, _check_sonar, _check_azure_devops)
-
-
-def check_platforms(target: Path, report: DoctorReport) -> None:
-    """Validate stored platform credentials are still valid."""
-    from ai_engineering.credentials.service import CredentialService
-    from ai_engineering.state.service import load_install_state
-
-    state_dir = target / ".ai-engineering" / "state"
-    cred_svc = CredentialService()
-    state = load_install_state(state_dir)
-
-    for checker in _PLATFORM_CHECKS:
-        report.checks.append(checker(cred_svc, state.platforms))
+_PRE_INSTALL_RUNTIME: tuple[str, ...] = (
+    "branch_policy",
+    "version",
+)
 
 
 def diagnose(
     target: Path,
     *,
-    fix_hooks: bool = False,
-    fix_tools: bool = False,
-    include_platforms: bool = False,
+    fix: bool = False,
+    dry_run: bool = False,
+    phase_filter: str | None = None,
 ) -> DoctorReport:
-    """Run all diagnostic checks on a target project.
+    """Run all diagnostic checks on *target* and return a structured report.
 
-    Args:
-        target: Root directory of the target project.
-        fix_hooks: If True, attempt to reinstall hooks on failure.
-        fix_tools: If True, attempt to install missing tools via pip/uv.
-        include_platforms: If True, validate stored platform credentials.
+    Parameters
+    ----------
+    target:
+        Root directory of the project to diagnose.
+    fix:
+        When True, attempt remediation on fixable failures.
+    dry_run:
+        When True (and *fix* is True), show planned fixes without executing.
+    phase_filter:
+        If set, only run the named phase (e.g. ``"hooks"``).
 
-    Returns:
-        DoctorReport with all check results.
+    Returns
+    -------
+    DoctorReport
+        Phase-grouped diagnostic report.
     """
-    from ai_engineering.doctor.checks.branch_policy import check_branch_policy
-    from ai_engineering.doctor.checks.feeds import check_feeds
-    from ai_engineering.doctor.checks.hooks import check_hooks
-    from ai_engineering.doctor.checks.layout import check_layout
-    from ai_engineering.doctor.checks.readiness import check_operational_readiness
-    from ai_engineering.doctor.checks.state_files import check_state_files
-    from ai_engineering.doctor.checks.tools import check_tools, check_vcs_tools
-    from ai_engineering.doctor.checks.venv import check_venv_health
-    from ai_engineering.doctor.checks.version_check import check_version
+    # -- 1. Load state --------------------------------------------------------
+    state_dir = target / ".ai-engineering" / "state"
+    try:
+        install_state = load_install_state(state_dir)
+        # A default InstallState with vcs_provider=None means no real install
+        state_file = state_dir / "install-state.json"
+        if not state_file.exists():
+            install_state = None
+    except Exception:
+        install_state = None
+
+    # -- 2. Load manifest config ----------------------------------------------
+    try:
+        manifest_config = load_manifest_config(target)
+    except Exception:
+        manifest_config = None
+
+    # -- 3. Create context ----------------------------------------------------
+    ctx = DoctorContext(
+        target=target,
+        install_state=install_state,
+        manifest_config=manifest_config,
+        fix_mode=fix,
+        dry_run=dry_run,
+        phase_filter=phase_filter,
+    )
 
     report = DoctorReport()
 
-    check_layout(target, report)
-    check_state_files(target, report)
-    check_hooks(target, report, fix=fix_hooks)
-    check_venv_health(target, report, fix=fix_tools)
-    check_tools(report, fix=fix_tools)
-    check_vcs_tools(report)
-    check_branch_policy(target, report)
-    check_operational_readiness(target, report)
-    check_feeds(target, report)
-    check_version(report)
+    # -- 4. Pre-install mode --------------------------------------------------
+    if install_state is None:
+        report.installed = False
+        _run_phase(ctx, "tools", report, fix=fix, dry_run=dry_run)
+        _run_runtime_modules(ctx, _PRE_INSTALL_RUNTIME, report)
+        _emit_audit_log(target, report, fix=fix)
+        return report
 
-    if include_platforms:
-        check_platforms(target, report)
+    # -- 5. Run phase checks in PHASE_ORDER -----------------------------------
+    for phase_name in PHASE_ORDER:
+        if phase_filter is not None and phase_name != phase_filter:
+            continue
+        _run_phase(ctx, phase_name, report, fix=fix, dry_run=dry_run)
+
+    # -- 6. Run runtime checks ------------------------------------------------
+    _run_runtime_modules(ctx, _RUNTIME_MODULES, report)
+
+    # -- 7. Emit audit log ----------------------------------------------------
+    _emit_audit_log(target, report, fix=fix)
 
     return report
+
+
+# ---------------------------------------------------------------------------
+# Internal helpers
+# ---------------------------------------------------------------------------
+
+
+def _run_phase(
+    ctx: DoctorContext,
+    phase_name: str,
+    report: DoctorReport,
+    *,
+    fix: bool,
+    dry_run: bool,
+) -> None:
+    """Import and run a single phase module, appending to *report*."""
+    phase_mod = importlib.import_module(f"ai_engineering.doctor.phases.{phase_name}")
+    results = phase_mod.check(ctx)
+
+    if fix:
+        fixable = [
+            r for r in results if r.status in (CheckStatus.FAIL, CheckStatus.WARN) and r.fixable
+        ]
+        if fixable:
+            fixed = phase_mod.fix(ctx, fixable, dry_run=dry_run)
+            # Replace matching results with their fixed versions
+            fixed_names = {r.name for r in fixed}
+            results = [
+                next((f for f in fixed if f.name == r.name), r) if r.name in fixed_names else r
+                for r in results
+            ]
+
+    report.phases.append(PhaseReport(name=phase_name, checks=results))
+
+
+def _run_runtime_modules(
+    ctx: DoctorContext,
+    modules: tuple[str, ...],
+    report: DoctorReport,
+) -> None:
+    """Import and run runtime check modules, appending to ``report.runtime``."""
+    for mod_name in modules:
+        mod = importlib.import_module(f"ai_engineering.doctor.runtime.{mod_name}")
+        results = mod.check(ctx)
+        report.runtime.extend(results)
+
+
+def _emit_audit_log(target: Path, report: DoctorReport, *, fix: bool) -> None:
+    """Write a single audit log entry for this doctor invocation."""
+    audit_path = target / ".ai-engineering" / "state" / "audit-log.ndjson"
+    entry = AuditEntry(
+        event="doctor",
+        actor="ai-engineering-cli",
+        timestamp=datetime.now(tz=UTC),
+        detail={
+            "mode": "fix" if fix else "diagnose",
+            "phases_checked": len(report.phases),
+            "runtime_checked": len(report.runtime),
+            "summary": report.summary,
+            "fixes_applied": [
+                c.name for p in report.phases for c in p.checks if c.status == CheckStatus.FIXED
+            ],
+        },
+    )
+    append_ndjson(audit_path, entry)

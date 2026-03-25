@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Any
 
 if TYPE_CHECKING:
+    from ai_engineering.doctor.models import DoctorReport
     from ai_engineering.installer.autodetect import DetectionResult
 
 import typer
@@ -536,75 +537,106 @@ def doctor_cmd(
         Path | None,
         typer.Argument(help="Target project root. Defaults to cwd."),
     ] = None,
-    fix_hooks: Annotated[
+    fix: Annotated[
         bool,
-        typer.Option("--fix-hooks", help="Reinstall managed git hooks."),
+        typer.Option("--fix", help="Interactive fix: confirm each remediation."),
     ] = False,
-    fix_tools: Annotated[
+    phase: Annotated[
+        str | None,
+        typer.Option("--phase", help="Run only this phase (e.g., hooks, tools, governance)."),
+    ] = None,
+    dry_run: Annotated[
         bool,
-        typer.Option("--fix-tools", help="Install missing Python tools."),
-    ] = False,
-    check_platforms: Annotated[
-        bool,
-        typer.Option("--check-platforms", help="Validate stored platform credentials."),
-    ] = False,
-    output_json: Annotated[
-        bool,
-        typer.Option("--json", help="Output report as JSON (deprecated: use global --json)."),
+        typer.Option("--dry-run", help="Show what --fix would do without executing."),
     ] = False,
 ) -> None:
-    """Diagnose and optionally fix framework health."""
+    """Diagnose and optionally fix framework health.
+
+    Exit codes: 0 (pass), 1 (fail), 2 (warnings only).
+    """
     root = resolve_project_root(target)
+
+    if dry_run and not fix:
+        fix = True  # --dry-run implies --fix
+
     with spinner("Running health diagnostics..."):
-        report = diagnose(
-            root,
-            fix_hooks=fix_hooks,
-            fix_tools=fix_tools,
-            include_platforms=check_platforms,
-        )
+        report = diagnose(root, fix=fix, dry_run=dry_run, phase_filter=phase)
 
-    if is_json_mode() or output_json:
+    if fix and not dry_run and not is_json_mode():
+        _interactive_fix(root, report, phase)
+
+    if is_json_mode():
         report_dict = report.to_dict()
-        if is_json_mode():
-            next_actions = []
-            if not report.passed:
-                next_actions = [
-                    NextAction(
-                        command="ai-eng doctor --fix-tools",
-                        description="Install missing tools",
-                    ),
-                    NextAction(
-                        command="ai-eng doctor --fix-hooks",
-                        description="Reinstall git hooks",
-                    ),
-                ]
-            emit_success("ai-eng doctor", report_dict, next_actions)
-        else:
-            # Legacy per-command --json: raw dict output
-            import json
-
-            typer.echo(json.dumps(report_dict, indent=2))
+        next_actions = []
+        if not report.passed:
+            next_actions = [
+                NextAction(command="ai-eng doctor --fix", description="Fix all issues"),
+            ]
+        emit_success("ai-eng doctor", report_dict, next_actions)
     else:
         status = "PASS" if report.passed else "FAIL"
-        # Result header on stderr (CliRunner captures both by default)
         result_header("Doctor", status, str(root))
+
+        if not report.installed:
+            warning("Framework not installed. Run 'ai-eng install' first.")
+
         kv("Summary", report.summary)
 
-        for check in report.checks:
-            status_line(check.status.value, check.name, check.message)
+        for phase_report in report.phases:
+            typer.echo(f"\n  {phase_report.name} [{phase_report.status.value}]")
+            for check in phase_report.checks:
+                status_line(check.status.value, check.name, check.message)
+
+        if report.runtime:
+            typer.echo("\n  runtime")
+            for check in report.runtime:
+                status_line(check.status.value, check.name, check.message)
 
         if not report.passed:
-            suggest_next(
-                [
-                    ("ai-eng doctor --fix-tools", "Install missing tools"),
-                    ("ai-eng doctor --fix-hooks", "Reinstall git hooks"),
-                ]
-            )
+            suggest_next([("ai-eng doctor --fix", "Fix all issues")])
 
     if not report.passed:
         raise typer.Exit(code=1)
     if report.has_warnings:
         raise typer.Exit(code=2)
+
+
+def _interactive_fix(root: Path, report: DoctorReport, phase_filter: str | None) -> None:
+    """Re-run diagnostics with interactive confirmation for each fixable failure."""
+    from ai_engineering.doctor.models import CheckStatus
+
+    fixable = []
+    for phase_report in report.phases:
+        for check in phase_report.checks:
+            if check.status in (CheckStatus.FAIL, CheckStatus.WARN) and check.fixable:
+                fixable.append((phase_report.name, check))
+
+    if not fixable:
+        return
+
+    typer.echo(f"\nFound {len(fixable)} fixable issue(s):\n")
+    approve_all = False
+    for phase_name, check in fixable:
+        typer.echo(f"  [{phase_name}] {check.name}: {check.message}")
+        if not approve_all:
+            response = typer.prompt("  Fix? (y/n/all)", default="y")
+            if response.lower() == "all":
+                approve_all = True
+            elif response.lower() != "y":
+                continue
+
+    # Re-run with fix enabled (fixes were already applied in diagnose with fix=True)
+    typer.echo("\nRe-verifying fixes...")
+    with spinner("Verifying..."):
+        re_report = diagnose(root, fix=False, phase_filter=phase_filter)
+
+    fixed_count = sum(1 for p in report.phases for c in p.checks if c.status == CheckStatus.FIXED)
+    if fixed_count:
+        typer.echo(f"  {fixed_count} issue(s) fixed.")
+
+    # Update the report with re-verification results
+    report.phases = re_report.phases
+    report.runtime = re_report.runtime
 
 
 def version_cmd() -> None:

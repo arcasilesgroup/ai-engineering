@@ -366,7 +366,7 @@ mindmap
 | Signal | SLI | SLO | Alert Threshold | Action |
 |--------|-----|-----|-----------------|--------|
 | Gate pass rate | % of gate executions passing | 100% | < 95% sustained | Review failing checks, update stack rules |
-| Install success | % of `ai-eng install` completing | 100% | Any failure | `ai-eng doctor --fix-hooks --fix-tools` |
+| Install success | % of `ai-eng install` completing | 100% | Any failure | `ai-eng doctor --fix` |
 | Security findings | Count of medium+ findings | 0 | > 0 | Block release, remediate |
 | Test coverage | Line coverage % | >= 80% | < 78% | Add tests before next PR |
 | Risk expiry | Days until nearest expiry | > 7 days | <= 3 days | Remediate or renew risk acceptance |
@@ -390,8 +390,8 @@ mindmap
 | Gate failure (pre-commit) | `runbooks/gate-failure.md` | Developer | Manual (fix + retry) |
 | Gate failure (pre-push) | `runbooks/gate-failure.md` | Developer | Manual (fix + retry) |
 | Security finding medium+ | `runbooks/security-remediation.md` | DevSecOps | Manual (remediate or risk-accept) |
-| Hook hash mismatch | `runbooks/hook-integrity.md` | Developer | Auto (`ai-eng doctor --fix-hooks`) |
-| Missing tool | `runbooks/tool-install.md` | Developer | Auto (`ai-eng doctor --fix-tools`) |
+| Hook hash mismatch | `runbooks/hook-integrity.md` | Developer | Auto (`ai-eng doctor --fix --phase hooks`) |
+| Missing tool | `runbooks/tool-install.md` | Developer | Auto (`ai-eng doctor --fix --phase tools`) |
 | Risk acceptance expiring | `runbooks/risk-expiry.md` | Team Lead | Manual (renew or remediate) |
 | CI pipeline failure | `runbooks/incident-response.md` | Developer | Semi-auto (runbook-guided) |
 | Spec staleness | `runbooks/spec-hygiene.md` | Plan agent | Auto (`maintenance spec-reset`) |
@@ -446,7 +446,7 @@ sequenceDiagram
     Dev->>Doctor: ai-eng doctor
     Doctor->>Hooks: Verify hook hashes
     Hooks-->>Doctor: Hash mismatch detected
-    Doctor->>Hooks: Reinstall hooks (--fix-hooks)
+    Doctor->>Hooks: Reinstall hooks (--fix --phase hooks)
     Doctor->>State: Validate state file integrity
     State-->>Doctor: State validated
     Doctor->>Audit: Emit recovery event

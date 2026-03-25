@@ -230,7 +230,7 @@ def gate_all(
         if any_failed:
             suggest_next(
                 [
-                    ("ai-eng doctor --fix-tools", "Install missing tools"),
+                    ("ai-eng doctor --fix --phase tools", "Install missing tools"),
                     ("ai-eng gate pre-commit", "Re-run specific gate"),
                 ]
             )

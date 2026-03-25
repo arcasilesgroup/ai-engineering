@@ -11,7 +11,6 @@ import pytest
 import typer
 
 from ai_engineering.cli_commands import gate, maintenance, skills, stack_ide, validate, vcs
-from ai_engineering.doctor import service as doctor
 from ai_engineering.maintenance import branch_cleanup
 from ai_engineering.policy import gates
 from ai_engineering.skills import service as skills_service
@@ -134,37 +133,38 @@ def test_branch_cleanup_remaining_paths(tmp_path: Path) -> None:
 
 
 def test_doctor_remaining_branches(tmp_path: Path) -> None:
-    from ai_engineering.doctor.checks.branch_policy import check_branch_policy
-    from ai_engineering.doctor.checks.tools import check_tools
-    from ai_engineering.doctor.checks.version_check import check_version
+    from ai_engineering.doctor.models import CheckStatus, DoctorContext
+    from ai_engineering.doctor.phases import tools as doctor_tools
+    from ai_engineering.doctor.runtime import branch_policy as doctor_branch
+    from ai_engineering.doctor.runtime import version as doctor_version
 
-    report = doctor.DoctorReport()
-    with patch("ai_engineering.doctor.checks.tools.is_tool_available", return_value=False):
-        check_tools(report, fix=False)
-    assert any(c.status == doctor.CheckStatus.WARN for c in report.checks)
+    ctx = DoctorContext(target=tmp_path)
 
-    report2 = doctor.DoctorReport()
+    with patch("ai_engineering.doctor.phases.tools.is_tool_available", return_value=False):
+        results = doctor_tools.check(ctx)
+    assert any(c.status == CheckStatus.WARN for c in results)
+
     with (
-        patch("ai_engineering.doctor.checks.tools.is_tool_available", return_value=False),
-        patch("ai_engineering.doctor.checks.tools.try_install", return_value=False),
+        patch("ai_engineering.doctor.phases.tools.is_tool_available", return_value=False),
+        patch("ai_engineering.doctor.phases.tools.try_install", return_value=False),
     ):
-        check_tools(report2, fix=True)
-    assert any(c.status == doctor.CheckStatus.FAIL for c in report2.checks)
+        failed = [c for c in doctor_tools.check(ctx) if c.fixable and c.status == CheckStatus.WARN]
+        fixed = doctor_tools.fix(ctx, failed)
+    assert any(c.status == CheckStatus.WARN for c in fixed)
 
-    report3 = doctor.DoctorReport()
     with patch(
-        "ai_engineering.doctor.checks.branch_policy.get_current_branch", return_value="main"
+        "ai_engineering.doctor.runtime.branch_policy.subprocess.run",
+        return_value=SimpleNamespace(returncode=0, stdout="main\n"),
     ):
-        check_branch_policy(tmp_path, report3)
-    assert any("protected branch" in c.message for c in report3.checks)
+        results3 = doctor_branch.check(ctx)
+    assert any("protected branch" in c.message for c in results3)
 
-    report4 = doctor.DoctorReport()
-    version = SimpleNamespace(
+    version_result = SimpleNamespace(
         status=None, message="warn", is_current=False, is_deprecated=False, is_eol=False
     )
-    with patch("ai_engineering.version.checker.check_version", return_value=version):
-        check_version(report4)
-    assert any(c.name == "version-lifecycle" for c in report4.checks)
+    with patch("ai_engineering.doctor.runtime.version.check_version", return_value=version_result):
+        results4 = doctor_version.check(ctx)
+    assert any(c.name == "version" for c in results4)
 
     from ai_engineering.detector.readiness import try_install
 

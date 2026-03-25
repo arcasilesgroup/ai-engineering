@@ -33,6 +33,7 @@ from ai_engineering.installer.phases import (
     PHASE_GOVERNANCE,
     PHASE_HOOKS,
     PHASE_IDE_CONFIG,
+    PHASE_ORDER,
     PHASE_STATE,
     PHASE_TOOLS,
     InstallContext,
@@ -229,17 +230,16 @@ def install_with_pipeline(
         existing_state=existing_state,
     )
 
-    # Create the 6 phases in order
-    # StatePhase must run before HooksPhase so that _record_hook_hashes()
-    # can find the install-state.json when saving hook integrity hashes.
-    phases = [
-        DetectPhase(),
-        GovernancePhase(),
-        IdeConfigPhase(),
-        StatePhase(),
-        HooksPhase(),
-        ToolsPhase(),
-    ]
+    # Build phases in PHASE_ORDER (canonical ordering defined in phases/__init__.py).
+    _phase_classes = {
+        "detect": DetectPhase,
+        "governance": GovernancePhase,
+        "ide_config": IdeConfigPhase,
+        "state": StatePhase,
+        "hooks": HooksPhase,
+        "tools": ToolsPhase,
+    }
+    phases = [_phase_classes[name]() for name in PHASE_ORDER]
 
     # Run the pipeline
     runner = PipelineRunner(phases)

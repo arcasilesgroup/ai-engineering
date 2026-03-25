@@ -230,7 +230,7 @@ class TestToolCheckRequired:
         check = _find_check(result, "fake-tool")
         assert not check.passed
         assert "required" in check.output
-        assert "ai-eng doctor --fix-tools" in check.output
+        assert "ai-eng doctor --fix --phase tools" in check.output
 
     def test_tool_success_records_pass(self, tmp_path: Path) -> None:
         result = GateResult(hook=GateHook.PRE_COMMIT)
