@@ -107,11 +107,11 @@ Add two new phases to ai-dispatch after task execution:
 | `ai-autopilot/handlers/phase-deliver.md` | Modified: update globs and cleanup for subdirectories |
 | `ai-autopilot/handlers/phase-orchestrate.md` | Modified: update file paths in glob and plan extraction |
 | `ai-autopilot/SKILL.md` | Modified: update Process steps 1, 2, 4, 6 to reference `sub-NNN/` structure |
-| `ai-autopilot/handlers/phase-execute.md` | Delete (legacy v1 handler, not in Handler Dispatch Table) |
-| `ai-autopilot/handlers/phase-explore.md` | Delete (legacy v1 handler) |
-| `ai-autopilot/handlers/phase-split.md` | Delete (legacy v1 handler) |
-| `ai-autopilot/handlers/phase-verify.md` | Delete (legacy v1 handler) |
-| `ai-autopilot/handlers/phase-pr.md` | Delete (legacy v1 handler) |
+| ~~phase-execute.md~~ | Deleted (legacy v1 handler) |
+| ~~phase-explore.md~~ | Deleted (legacy v1 handler) |
+| ~~phase-split.md~~ | Deleted (legacy v1 handler) |
+| ~~phase-verify.md~~ | Deleted (legacy v1 handler) |
+| ~~phase-pr.md~~ | Deleted (legacy v1 handler) |
 | `ai-dispatch/SKILL.md` | Modified: add quality+deliver phases, remove `/ai-commit` transition |
 | `ai-dispatch/handlers/quality.md` | **NEW**: Verify+Review parallel, max 2 rounds, fix cycle |
 | `ai-dispatch/handlers/deliver.md` | **NEW**: ai-pr with simplified quality report |
@@ -162,7 +162,7 @@ Add two new phases to ai-dispatch after task execution:
 - [ ] AC13: ai-dispatch delivers via ai-pr after quality passes (not `/ai-commit`)
 - [ ] AC14: ai-dispatch SKILL.md does not reference `/ai-commit` as a transition target
 - [ ] AC15: No handler in `ai-autopilot/handlers/` references `sub-NNN.md` as a flat file path
-- [ ] AC16: Legacy handlers (phase-execute, phase-explore, phase-split, phase-verify, phase-pr) are deleted
+- [x] AC16: Legacy handlers (phase-execute, phase-explore, phase-split, phase-verify, phase-pr) are deleted
 - [ ] AC17: ai-dispatch SKILL.md Integration section lists ai-verify, ai-review, and ai-pr as called skills
 - [ ] AC18: ai-dispatch `--resume` re-enters at Phase 3 if all tasks are DONE but no PR exists
 
@@ -177,11 +177,11 @@ Add two new phases to ai-dispatch after task execution:
 | `.claude/skills/ai-autopilot/handlers/phase-deliver.md` | Update globs, cleanup for subdirectories |
 | `.claude/skills/ai-autopilot/handlers/phase-orchestrate.md` | Update file paths in glob and plan extraction |
 | `.claude/skills/ai-autopilot/SKILL.md` | Update Process steps and structure references |
-| `.claude/skills/ai-autopilot/handlers/phase-execute.md` | **DELETE**: legacy v1 handler |
-| `.claude/skills/ai-autopilot/handlers/phase-explore.md` | **DELETE**: legacy v1 handler |
-| `.claude/skills/ai-autopilot/handlers/phase-split.md` | **DELETE**: legacy v1 handler |
-| `.claude/skills/ai-autopilot/handlers/phase-verify.md` | **DELETE**: legacy v1 handler |
-| `.claude/skills/ai-autopilot/handlers/phase-pr.md` | **DELETE**: legacy v1 handler |
+| ~~phase-execute.md~~ | **DELETED** (legacy v1 handler) |
+| ~~phase-explore.md~~ | **DELETED** (legacy v1 handler) |
+| ~~phase-split.md~~ | **DELETED** (legacy v1 handler) |
+| ~~phase-verify.md~~ | **DELETED** (legacy v1 handler) |
+| ~~phase-pr.md~~ | **DELETED** (legacy v1 handler) |
 | `.claude/skills/ai-dispatch/SKILL.md` | Add quality+deliver phases, remove `/ai-commit` transition |
 | `.claude/skills/ai-dispatch/handlers/quality.md` | **NEW**: Verify+Review, max 2 rounds, fix cycle |
 | `.claude/skills/ai-dispatch/handlers/deliver.md` | **NEW**: ai-pr with simplified quality report |
