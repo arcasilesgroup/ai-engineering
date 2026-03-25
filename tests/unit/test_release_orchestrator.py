@@ -895,6 +895,43 @@ def test_execute_release_tag_manifest_and_monitor_failures(tmp_path: Path) -> No
     assert r3.success is False
 
 
+def test_execute_release_no_wait_skips_tag(tmp_path: Path) -> None:
+    """Without --wait, tag phase must be skipped (not called)."""
+    # Arrange
+    config = ReleaseConfig(version="0.2.0", project_root=tmp_path, wait=False)
+    provider = _FakeProvider()
+    state = ReleaseState(
+        release_branch="release/v0.2.0",
+        local_branch_exists=False,
+        remote_branch_exists=False,
+        tag_exists=False,
+        current_version="0.1.0",
+    )
+
+    # Act — _create_tag is NOT patched; if called, it would hit real git and fail
+    with (
+        patch("ai_engineering.release.orchestrator._validate", return_value=[]),
+        patch("ai_engineering.release.orchestrator._detect_state", return_value=state),
+        patch(
+            "ai_engineering.release.orchestrator._prepare_branch",
+            return_value=PhaseResult("prepare", True, "pyproject.toml"),
+        ),
+        patch(
+            "ai_engineering.release.orchestrator._create_release_pr",
+            return_value=PhaseResult("pr", True, "https://example/pr/1"),
+        ),
+        patch("ai_engineering.release.orchestrator._repo_slug", return_value="acme/repo"),
+    ):
+        result = execute_release(config, provider, clock=_FixedClock())
+
+    # Assert
+    assert result.success is True
+    tag_phases = [p for p in result.phases if p.phase == "tag"]
+    assert len(tag_phases) == 1
+    assert tag_phases[0].skipped is True
+    assert "deferred" in tag_phases[0].output.lower()
+
+
 def test_parse_runs_and_helpers_extra_branches(tmp_path: Path) -> None:
     assert _parse_runs("prefix [broken]") == []
 

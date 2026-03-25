@@ -25,7 +25,7 @@ import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from ai_engineering.config.loader import load_manifest_config
+from ai_engineering.config.loader import load_manifest_config, update_manifest_field
 from ai_engineering.detector.readiness import check_tools_for_stacks
 from ai_engineering.git.context import get_git_context
 from ai_engineering.hooks.manager import HookInstallResult, install_hooks
@@ -142,6 +142,9 @@ def install(
 
     # 2. Copy project-level templates (provider-aware)
     result.project_files = copy_project_templates(target, providers=ai_providers)
+
+    # 2b. Persist ai_providers selection to manifest
+    _write_ai_providers(target, ai_providers)
 
     # 3. Generate state files (create-only)
     result.state_files = _generate_state_files(
@@ -309,6 +312,23 @@ def _summary_to_install_result(
         result.already_installed = True
 
     return result
+
+
+def _write_ai_providers(target: Path, ai_providers: list[str] | None) -> None:
+    """Persist the selected AI providers to manifest.yml.
+
+    Called after governance templates are copied so that the manifest
+    reflects the actual provider selection rather than template defaults.
+    """
+    providers = ai_providers or ["claude_code"]
+    manifest_path = target / ".ai-engineering" / "manifest.yml"
+    if not manifest_path.is_file():
+        return
+    try:
+        update_manifest_field(target, "ai_providers.enabled", providers)
+        update_manifest_field(target, "ai_providers.primary", providers[0])
+    except KeyError:
+        logger.debug("ai_providers key not found in manifest; skipping write")
 
 
 def _generate_state_files(

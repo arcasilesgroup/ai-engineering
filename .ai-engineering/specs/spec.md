@@ -1,323 +1,197 @@
 ---
-id: spec-072
-title: "Install UX: Recursive Detection, Popularity Ordering, Git Init"
-status: draft
+id: spec-074
+title: "Provider/IDE Field Separation, Release Flow Fix, Verify Governance Rewrite"
+status: approved
 created: 2026-03-25
 refs: []
 ---
 
-# spec-072: Install UX: Recursive Detection, Popularity Ordering, Git Init
+# spec-074: Provider/IDE Field Separation, Release Flow Fix, Verify Governance Rewrite
 
 ## Problem
 
-`ai-eng install` has three UX deficiencies and one correctness bug:
+Three bugs identified in the CLI audit, all requiring schema or behavioral changes.
 
-### 1. Shallow detection (stacks + IDEs)
+### 1. `providers.ides` conflates AI providers with IDEs
 
-`detect_stacks()` only checks root-level files (`root / filename`). `detect_ides()` only checks `.vscode/` and `.idea/` at root. In monorepos or projects with nested structure, markers in subdirectories are invisible.
+`ProvidersConfig` has a single `ides: list[str]` field that stores both AI providers (`claude_code`, `github_copilot`) and IDEs (`vscode`, `jetbrains`). The default value is `["claude_code"]` — an AI provider, not an IDE.
 
-**Evidence**: Running `ai-eng install` in a directory with `backend/pyproject.toml` and `frontend/package.json` detects zero stacks.
+**Impact:**
+- `ai-eng provider list` shows IDEs as providers
+- `ai-eng ide list` shows AI providers as IDEs
+- `ide_config` phase treats all entries as AI providers for template deployment
+- `doctor/phases/ide_config` passes IDE names to `resolve_template_maps(providers=...)`
 
-### 2. Alphabetical ordering
+**Double bug in operations.py:** `add_provider()` reads `providers.ides` for duplicate check but never calls `update_manifest_field` — the provider is never persisted. Same for `remove_provider()`.
 
-All selection lists use `sorted()`, producing alphabetical order. The user sees `bash` first and `typescript` last. This is counterintuitive — popular stacks should appear first.
+**Evidence:** `InstallContext` already has separate `providers` and `ides` fields. The separation exists at runtime but not in the manifest schema. `_KNOWN_IDES` and `_VALID_AI_PROVIDERS` sets are already defined and disjoint in `operations.py`.
 
-**Evidence**: Wizard output shows `bash` at top of stacks list instead of `typescript`/`python`/`javascript`.
+### 2. `release` without `--wait` creates tag before PR merge
 
-### 3. GitHub hardcoded as VCS default
+Without `--wait`, the release flow: create PR (phase 4) → skip wait-for-merge → `_create_tag()` which runs `git checkout main && git pull --ff-only`. If the PR hasn't merged, `pull --ff-only` either fails or tags the wrong commit.
 
-`detect_vcs()` returns `"github"` on any detection failure. `_DEFAULT_VCS = "github"` in wizard.py. The wizard pre-selects `github` even when no remote exists and no VCS was detected.
+**Evidence:** `orchestrator.py` lines 216-219 return `PhaseResult(success=True, skipped=True)` for the wait phase, then line 221 immediately calls `_create_tag()`.
 
-**Evidence**: In a directory with no git remote, the VCS prompt shows `github` pre-selected.
+### 3. `verify governance` is a subprocess proxy
 
-### 4. Silent hook skip on non-git directories
+`verify_governance()` calls `["uv", "run", "ai-eng", "validate", "--json"]` as subprocess. It depends on `uv` being installed, discards all structured output from validate, and produces only a single `CRITICAL` finding with no detail about which category failed.
 
-When `.git/` doesn't exist, `install_hooks()` raises `FileNotFoundError`, which `HooksPhase.execute()` silences via `contextlib.suppress()`. `verify()` emits a warning but always returns `passed=True`. The install reports success with no hooks installed.
-
-**Evidence**: `HooksPhase.execute()` at `phases/hooks.py:86-89` wraps `install_hooks()` in `contextlib.suppress(FileNotFoundError)`. No `git init` exists anywhere in the codebase. Legacy `install()` at `service.py:164` has the same `contextlib.suppress` pattern.
+**Evidence:** `verify/service.py` lines 116-131.
 
 ## Solution
 
-Four changes to the install flow, following Approach B (single walker + git init in detect phase).
+### Group 1: Provider/IDE Field Separation
 
-### 4.1 Recursive detection with single-pass walker
+Add `AiProvidersConfig` sub-model to `ProvidersConfig` with `enabled: list[str]` and `primary: str`. Migrate all consumers.
 
-Replace per-function detection with a single recursive walker in `autodetect.py` that traverses the directory tree once, collecting both stack markers and IDE markers in a single pass.
-
-**Exclusion set** (directories skipped entirely):
+**Schema change in `config/manifest.py`:**
 
 ```python
-_WALK_EXCLUDE: frozenset[str] = frozenset({
-    "node_modules", ".venv", "venv", "vendor", ".git",
-    "__pycache__", "build", "dist", ".tox", ".nox",
-    ".mypy_cache", ".ruff_cache", ".pytest_cache",
-    "target",       # Rust/Java build output
-    ".gradle",      # Gradle cache
-    "Pods",         # iOS CocoaPods
-    ".dart_tool",   # Dart cache
-    ".build",       # Swift build
-})
+class AiProvidersConfig(BaseModel):
+    enabled: list[str] = Field(default_factory=lambda: ["claude_code"])
+    primary: str = "claude_code"
+
+class ProvidersConfig(BaseModel):
+    vcs: str = "github"
+    ai_providers: AiProvidersConfig = Field(default_factory=AiProvidersConfig)
+    ides: list[str] = Field(default_factory=list)  # now truly IDEs only
+    stacks: list[str] = Field(default_factory=lambda: ["python"])
 ```
 
-**Walker design**:
+**manifest.yml migration:** Existing `providers.ides` values are split: entries matching `_VALID_AI_PROVIDERS` move to `providers.ai_providers.enabled`, remainder stays in `providers.ides`. The `load_manifest_config()` loader handles legacy format transparently.
+
+**Consumer updates:**
+
+| Consumer | Current | After |
+|----------|---------|-------|
+| `provider.py` (CLI) | `manifest.providers.ides` | `manifest.providers.ai_providers.enabled` |
+| `operations.py` `add_provider()` | reads `providers.ides`, never writes | reads/writes `providers.ai_providers.enabled` |
+| `operations.py` `remove_provider()` | reads `providers.ides`, never writes | reads/writes `providers.ai_providers.enabled` |
+| `installer/phases/ide_config.py` | `manifest.providers.ides` as providers | `manifest.providers.ai_providers.enabled` |
+| `doctor/phases/ide_config.py` | `manifest.providers.ides` as providers | `manifest.providers.ai_providers.enabled` |
+| `stack_ide.py` `ide_*` | `manifest.providers.ides` | unchanged (now correctly only IDEs) |
+| `lib/signals.py` | reads `providers.ides` for telemetry | `providers.ai_providers.enabled` |
+
+**Fix `add_provider()`/`remove_provider()`:** After template copy/removal, call `update_manifest_field(target, "providers.ai_providers.enabled", updated_list)` to actually persist the change.
+
+### Group 2: Release Flow Fix
+
+Make `--wait` the default behavior. Without `--wait`, stop after creating the PR — do NOT attempt to create the tag.
+
+**Change in `orchestrator.py`:**
+
+When `config.wait` is False:
+- Phases "prepare" and "pr" execute normally
+- Phase "wait-for-merge" is skipped (as now)
+- Phase "tag" is **also skipped** with message: "Tag creation deferred — run `ai-eng release <version> --wait` to tag after merge"
+- Phase "monitor" is skipped
+
+This is a behavioral change but prevents the silent bug. The tag is only created when we can verify the PR is merged.
+
+### Group 3: Verify Governance Direct Import
+
+Replace the subprocess call with a direct Python import of the validation logic.
+
+**Change in `verify/service.py`:**
 
 ```python
-def _walk_markers(root: Path) -> tuple[set[str], set[str]]:
-    """Single-pass recursive walk. Returns (stack_names, ide_names).
+# Before: subprocess
+result = subprocess.run(["uv", "run", "ai-eng", "validate", "--json"], ...)
 
-    Uses os.walk(followlinks=False) to avoid symlink loops.
-    JS/TS detection is per-directory: if a directory has tsconfig.json,
-    "typescript" is added. If it has package.json WITHOUT tsconfig.json,
-    "javascript" is added. In a monorepo with both a JS backend and a TS
-    frontend in different subdirectories, BOTH "javascript" and "typescript"
-    are detected. This is intentional — the project uses both stacks.
-
-    AI provider detection is NOT included in the walker. It remains
-    root-level only via detect_ai_providers(), because .claude/ and
-    .github/ are project-root markers by definition.
-    """
-    stacks: set[str] = set()
-    ides: set[str] = set()
-
-    for dirpath, dirnames, filenames in os.walk(root):
-        # Prune excluded directories in-place
-        dirnames[:] = [d for d in dirnames if d not in _WALK_EXCLUDE]
-
-        # Check filenames against _FILE_MARKERS
-        for fname in filenames:
-            if fname in _FILE_MARKERS:
-                stacks.update(_FILE_MARKERS[fname])
-            # Glob-equivalent: check extensions
-            if fname.endswith((".csproj", ".sln")):
-                stacks.add("csharp")
-
-        # IDE markers: directory names
-        dir_name = Path(dirpath).name
-        if dir_name == ".vscode":
-            ides.add("vscode")
-        elif dir_name == ".idea":
-            ides.add("jetbrains")
-
-        # JS/TS detection per directory
-        fset = set(filenames)
-        if "tsconfig.json" in fset:
-            stacks.add("typescript")
-        elif "package.json" in fset:
-            stacks.add("javascript")
-
-    return stacks, ides
+# After: direct import
+from ai_engineering.validator.service import validate_content_integrity
+report = validate_content_integrity(project_root)
+# Map each failed category to a Finding with proper severity and detail
 ```
 
-**Integration with existing API**:
-
-- `detect_stacks()` and `detect_ides()` become thin wrappers that call `_walk_markers()` and return their respective results, ordered by popularity.
-- `detect_all()` calls `_walk_markers()` once and distributes results to avoid double traversal.
-- `detect_ai_providers()` remains unchanged — root-level only. `.claude/` and `.github/` are project-root markers by definition and should NOT be detected recursively.
-- `package.json` and `tsconfig.json` remain outside `_FILE_MARKERS` to preserve the per-directory ts-overrides-js logic.
-
-### 4.2 Popularity-based ordering
-
-Replace `sorted()` with explicit popularity tuples based on GitHub Octoverse 2025 rankings.
-
-**Stacks** (Octoverse 2025 contributor count order):
-
-```python
-_STACK_POPULARITY: tuple[str, ...] = (
-    "typescript",   # #1 Octoverse 2025
-    "python",       # #2
-    "javascript",   # #3
-    "java",         # #4
-    "csharp",       # #5
-    "go",           # #6
-    "php",          # #7
-    "rust",         # #8
-    "ruby",         # #9
-    "kotlin",       # #10
-    "swift",        # #11
-    "dart",         # #12
-    "elixir",       # #13
-    "sql",          # not ranked — utility language
-    "bash",         # not ranked — utility language
-    "universal",    # meta — always last
-)
-```
-
-**IDEs** (market share order):
-
-```python
-_IDE_POPULARITY: tuple[str, ...] = (
-    "vscode",       # ~74% market share
-    "jetbrains",    # ~27%
-    "cursor",       # growing, VS Code fork
-    "terminal",     # niche
-)
-```
-
-**AI Providers** (user adoption order):
-
-```python
-_PROVIDER_POPULARITY: tuple[str, ...] = (
-    "github_copilot",  # largest installed base
-    "claude_code",     # second
-    "gemini",          # third
-    "codex",           # newest
-)
-```
-
-**VCS** (market share order):
-
-```python
-_VCS_POPULARITY: tuple[str, ...] = (
-    "github",        # dominant
-    "azure_devops",  # enterprise
-)
-```
-
-A shared `_order_by_popularity(items, ranking)` function sorts any list according to its ranking tuple, appending unknown items at the end alphabetically.
-
-### 4.3 VCS without default pre-selection
-
-Three changes:
-
-1. **`detect_vcs()` in `autodetect.py`**: Return `""` (empty string) when detection fails instead of `"github"`. Since `detect_vcs()` delegates to `detect_from_remote()` in `vcs/factory.py` (which also returns `"github"` as fallback), the wrapper translates: call `detect_from_remote()`, but if the underlying `git remote get-url origin` command fails (non-zero exit or exception), return `""` instead of trusting the fallback. `detect_from_remote()` itself is NOT modified (it's used by other consumers that expect `"github"` fallback).
-
-2. **`_detect_vcs()` in `phases/detect.py`**: Same change — return `""` instead of `"github"` when the subprocess fails or returns non-zero.
-
-3. **Wizard `_ask_select()`**: Make `default` parameter optional (`default: str | None = None`). When `None`, call `questionary.select()` without the `default` kwarg. Before the VCS prompt, print a styled note: `"  Detected: none"` when `detected.vcs` is empty.
-
-**Ctrl+C / abort handling**: `WizardResult.vcs` must NEVER be empty. If `questionary.select().ask()` returns `None` (Ctrl+C), abort the install entirely via `raise SystemExit(1)`. This is different from the current behavior that falls back to `"github"` — an unselected VCS is not a recoverable state. The `_ask_select` function changes from returning `_DEFAULT_VCS` on `None` to raising `SystemExit(1)`.
-
-**Pipeline boundary**: The empty string `""` exists ONLY in `DetectionResult.vcs` (auto-detection output). After the wizard runs, `WizardResult.vcs` is always `"github"` or `"azure_devops"`. `InstallContext.vcs_provider` receives from `WizardResult`, never from raw detection.
-
-**`DetectPhase.execute()` overwrite guard**: `DetectPhase.execute()` currently overwrites `context.vcs_provider` with whatever `_detect_vcs()` returns (line 106 of `detect.py`). Change this to only overwrite when the detected value is non-empty:
-
-```python
-if action.rationale.startswith("VCS detected:"):
-    detected_vcs = action.rationale.split(": ", 1)[1]
-    if detected_vcs:  # Only overwrite if detection succeeded
-        context.vcs_provider = detected_vcs
-```
-
-### 4.4 Automatic `git init` in detect phase
-
-Add `git init` to `DetectPhase` when `.git/` does not exist. This ensures hooks can always be installed.
-
-**Phase ordering**: VCS detection runs first (returns `""` for non-git directories), then `git init` is planned. This ordering is correct — detection informs the plan, `git init` prepares the environment for later phases.
-
-**In `DetectPhase.plan()`**:
-- Check if `context.target / ".git"` exists
-- If not, add a `PlannedAction(action_type="create", destination=".git", rationale="git init — repository not initialized")`
-
-**In `DetectPhase.execute()`**:
-- When the `git init` action is present, run `subprocess.run(["git", "init"], cwd=context.target, check=True)`
-- If `git` binary is not found (`FileNotFoundError`), raise `InstallerError("git is required but not installed. Install git and retry.")` — the framework fundamentally requires git
-- Log to result: `result.created.append(".git")`
-
-**In `HooksPhase.execute()`** (pipeline path):
-- **Remove** `contextlib.suppress(FileNotFoundError)` — hooks must never silently fail
-- If `install_hooks()` raises, let it propagate as a pipeline error
-
-**In legacy `install()` at `service.py:164`** (legacy path):
-- **Remove** `contextlib.suppress(FileNotFoundError)` from this path too
-- Add the same `git init` logic before calling `install_hooks()`
-- Consistency: both code paths handle missing `.git/` the same way
-
-**In `HooksPhase.verify()`**:
-- Change `passed=True` to `passed=False` when pre-commit hook is missing — missing hooks is a failure, not a warning
+This eliminates the `uv` dependency, provides structured output (which categories failed and why), and removes the opaque single-CRITICAL-finding behavior.
 
 ## Scope
 
 ### In Scope
 
-1. Rewrite `autodetect.py`: replace shallow detection with single-pass recursive walker + exclusion set
-2. Add `_WALK_EXCLUDE` constant with documented exclusion directories
-3. Add popularity ordering tuples (`_STACK_POPULARITY`, `_IDE_POPULARITY`, `_PROVIDER_POPULARITY`, `_VCS_POPULARITY`) to `autodetect.py`
-4. Add `_order_by_popularity()` helper function
-5. Update `wizard.py`: use popularity ordering for all checkbox/select prompts
-6. Update `wizard.py`: make `_ask_select` default optional, abort install on Ctrl+C, show "Detected: none" note
-7. Update `detect_vcs()` in `autodetect.py`: return `""` on failure (wrapper logic, `detect_from_remote()` untouched)
-8. Update `_detect_vcs()` in `phases/detect.py`: return `""` on failure instead of `"github"`
-9. Add `DetectPhase.execute()` overwrite guard: only overwrite `context.vcs_provider` when detected value is non-empty
-10. Add `git init` logic to `DetectPhase.plan()` and `DetectPhase.execute()` with `git`-not-installed error handling
-11. Remove `contextlib.suppress(FileNotFoundError)` from `HooksPhase.execute()` (pipeline path)
-12. Remove `contextlib.suppress(FileNotFoundError)` from legacy `install()` at `service.py:164`
-13. Add `git init` logic to legacy `install()` path for consistency
-14. Change `HooksPhase.verify()` to return `passed=False` when hooks are missing
-15. Update `ui.py` `render_detection()` to handle empty VCS display
-16. Unit tests for recursive walker (monorepo fixtures, exclusion verification)
-17. Unit tests for popularity ordering (including unknown items appended alphabetically)
-18. Unit tests for git init in detect phase (including git-not-installed scenario)
-19. Integration test: install on empty directory (no .git) succeeds with hooks installed
-20. Update existing tests to match new behavior (popularity ordering, recursive detection, strict hooks)
+1. Add `AiProvidersConfig` model to `config/manifest.py` with `enabled` and `primary` fields
+2. Update `ProvidersConfig.ides` default from `["claude_code"]` to `[]`
+3. Add migration logic in `load_manifest_config()` for legacy `providers.ides` containing AI provider values
+4. Update `provider.py` CLI to read/write `providers.ai_providers.enabled`
+5. Fix `add_provider()` to actually write to manifest via `update_manifest_field`
+6. Fix `remove_provider()` to actually write to manifest via `update_manifest_field`
+7. Update `installer/phases/ide_config.py` to read `providers.ai_providers.enabled`
+8. Update `doctor/phases/ide_config.py` to read `providers.ai_providers.enabled`
+9. Update `lib/signals.py` telemetry to read `providers.ai_providers.enabled`
+10. Fix `test_provider_commands.py` integration tests to pass with new model
+11. Update `installer/service.py` to populate `providers.ai_providers` during install
+12. Update `orchestrator.py`: skip tag phase when `wait=False`
+13. Update release tests for new skip behavior
+14. Replace `verify_governance()` subprocess with direct import of `validate_content_integrity()`
+15. Update verify tests for new governance implementation
+16. Update dogfooding `manifest.yml` to new schema
+17. Update manifest template for new projects
 
 ### Out of Scope
 
-- Modifying hook scripts themselves (only the installation flow)
-- Adding new VCS providers (only changing default behavior)
-- Changing `detect_from_remote()` in `vcs/factory.py` (other consumers expect `"github"` fallback)
-- Changing `git remote add` behavior (user's responsibility)
-- Modifying the `operations.py` stack/IDE management (only detection and wizard)
-- Making `detect_ai_providers()` recursive (root-level only by design)
-- Doctor phase updates (spec-071 will adapt to these changes)
+- Changing `_KNOWN_IDES` or `_VALID_AI_PROVIDERS` sets (already correct)
+- Adding new AI providers or IDEs
+- Changing the `ide` CLI command behavior (now correctly scoped to IDEs)
+- Release `--wait` polling mechanism (already works correctly)
+- Verify scoring/thresholds (only the governance mode is changed)
 
 ## Acceptance Criteria
 
-- [ ] AC1: `ai-eng install` in a monorepo with `backend/pyproject.toml` + `frontend/tsconfig.json` detects both `python` and `typescript`
-- [ ] AC2: `ai-eng install` in a project with `apps/web/.vscode/` nested directory detects `vscode`
-- [ ] AC3: Stack selection shows `typescript` first, `universal` last (Octoverse order)
-- [ ] AC4: IDE selection shows `vscode` first, `terminal` last
-- [ ] AC5: AI provider selection shows `github_copilot` first
-- [ ] AC6: VCS selection shows no pre-selection when no git remote exists, with "Detected: none" note
-- [ ] AC7: VCS selection pre-selects correctly when a GitHub or Azure DevOps remote IS detected
-- [ ] AC8: `ai-eng install` in an empty directory (no `.git/`) runs `git init` automatically and installs hooks
-- [ ] AC9: After install on empty directory, `.git/hooks/pre-commit` exists and is executable
-- [ ] AC10: `HooksPhase.verify()` returns `passed=False` when hooks are missing
-- [ ] AC11: Recursive walker skips `node_modules`, `.venv`, `vendor/`, and all exclusion directories
-- [ ] AC12: Walker does NOT follow symlinks (prevents infinite loops)
-- [ ] AC13: Monorepo with `backend/package.json` (no tsconfig) + `frontend/tsconfig.json` detects both `javascript` AND `typescript`
-- [ ] AC14: Ctrl+C during VCS select aborts install (`SystemExit(1)`), does not produce empty VCS
-- [ ] AC15: `_order_by_popularity()` appends unknown items alphabetically after ranked items
-- [ ] AC16: `ai-eng install` fails with clear error when `git` binary is not installed
-- [ ] AC17: `detect_ai_providers()` does NOT detect `.claude/` in subdirectories (root-only)
-- [ ] AC18: All existing tests updated to match new behavior and passing (zero regressions)
+- [ ] AC1: `ProvidersConfig` has `ai_providers: AiProvidersConfig` field with `enabled` and `primary`
+- [ ] AC2: `ProvidersConfig.ides` defaults to `[]` (empty list, not `["claude_code"]`)
+- [ ] AC3: `ai-eng provider add github_copilot` writes to `providers.ai_providers.enabled` in manifest.yml
+- [ ] AC4: `ai-eng provider remove github_copilot` writes to `providers.ai_providers.enabled` in manifest.yml
+- [ ] AC5: `ai-eng provider list` shows only AI providers, not IDEs
+- [ ] AC6: `ai-eng ide list` shows only IDEs, not AI providers
+- [ ] AC7: Legacy manifest.yml with `providers.ides: ["claude_code"]` loads correctly (migration)
+- [ ] AC8: `test_provider_commands.py` integration tests all pass
+- [ ] AC9: `ai-eng release 1.0.0` (without --wait) creates PR but does NOT create tag
+- [ ] AC10: `ai-eng release 1.0.0 --wait` creates PR, waits for merge, THEN creates tag
+- [ ] AC11: `ai-eng verify governance` produces per-category findings, not a single opaque CRITICAL
+- [ ] AC12: `ai-eng verify governance` does NOT spawn a subprocess
+- [ ] AC13: All existing tests pass (`pytest tests/ -x`)
+- [ ] AC14: `ruff check src/` passes
 
 ## Files Modified
 
 | File | Change |
 |------|--------|
-| `installer/autodetect.py` | Recursive walker, popularity tuples, `_order_by_popularity()`, `detect_vcs()` returns `""` |
-| `installer/wizard.py` | Popularity ordering, optional `default` in `_ask_select`, abort on Ctrl+C, "Detected: none" note |
-| `installer/ui.py` | Handle empty VCS in `render_detection()` |
-| `installer/phases/detect.py` | `git init` logic, `_detect_vcs()` returns `""`, VCS overwrite guard |
-| `installer/phases/hooks.py` | Remove `contextlib.suppress`, `verify()` returns `passed=False` |
-| `installer/service.py` | Remove `contextlib.suppress` from legacy `install()`, add `git init` for legacy path |
-| `tests/unit/test_autodetect.py` | Update for recursive detection, add walker/exclusion/popularity tests |
-| `tests/unit/test_wizard.py` | Update for popularity ordering, empty VCS, Ctrl+C abort |
-| `tests/unit/test_detect_phase.py` | New tests for git init and git-not-installed |
-| `tests/unit/test_hooks_phase.py` | Update for strict hook verification |
-| `tests/integration/test_cli_install_doctor.py` | Integration test: empty dir install |
+| `src/ai_engineering/config/manifest.py` | Add `AiProvidersConfig`, update `ProvidersConfig` |
+| `src/ai_engineering/config/loader.py` | Migration logic for legacy `providers.ides` |
+| `src/ai_engineering/cli_commands/provider.py` | Read/write `ai_providers.enabled` |
+| `src/ai_engineering/installer/operations.py` | Fix add/remove to write manifest, use `ai_providers` |
+| `src/ai_engineering/installer/phases/ide_config.py` | Read `ai_providers.enabled` |
+| `src/ai_engineering/doctor/phases/ide_config.py` | Read `ai_providers.enabled` |
+| `src/ai_engineering/installer/service.py` | Populate `ai_providers` during install |
+| `src/ai_engineering/lib/signals.py` | Read `ai_providers.enabled` for telemetry |
+| `src/ai_engineering/release/orchestrator.py` | Skip tag when `wait=False` |
+| `src/ai_engineering/verify/service.py` | Direct import instead of subprocess |
+| `tests/integration/test_provider_commands.py` | Fix for new model |
+| `tests/unit/test_provider_cli.py` | Update mocks for new field |
+| `tests/unit/test_release_orchestrator.py` | Test skip-tag behavior |
+| `tests/unit/test_verify_service.py` | Test direct import governance |
+| `tests/unit/test_manifest_config.py` | Test AiProvidersConfig + migration |
+| `.ai-engineering/manifest.yml` | Update to new schema |
+| `src/ai_engineering/templates/.ai-engineering/manifest.yml` | Update template |
 
 ## Assumptions
 
-- ASSUMPTION: `os.walk()` with in-place `dirnames` pruning is sufficient for performance (no need for parallel traversal)
-- ASSUMPTION: `os.walk(followlinks=False)` is the default — symlinks to directories are not followed, symlinks to files are still yielded (acceptable behavior)
-- ASSUMPTION: GitHub Octoverse 2025 ranking is a stable-enough reference for ordering (updated annually)
-- ASSUMPTION: Running `git init` in an empty directory is always safe and has no side effects beyond creating `.git/`
-- ASSUMPTION: `detect_from_remote()` in `vcs/factory.py` is used by other consumers that expect `"github"` fallback — changing it is out of scope
+- The disjoint sets `_KNOWN_IDES` and `_VALID_AI_PROVIDERS` in operations.py are sufficient for migration detection
+- `validate_content_integrity()` is importable without side effects
+- No external tools depend on the `providers.ides` field containing AI providers
+- The `primary` field in `AiProvidersConfig` defaults to the first entry in `enabled`
 
 ## Risks
 
 | Risk | Mitigation |
 |------|-----------|
-| Recursive walk slow on very large repos | `_WALK_EXCLUDE` prunes heavy directories (node_modules, target, etc.). `os.walk` with pruning is O(relevant files), not O(all files) |
-| `git init` unexpected by user | The framework requires git — there's no valid scenario without it. Install output shows "Initialized git repository" as feedback |
-| Popularity ordering becomes stale | Tuples are explicit constants, easy to update. Annual review when Octoverse publishes |
-| Removing `contextlib.suppress` causes install failures on edge cases | Desired behavior — hooks MUST be installed. `git init` in detect phase ensures `.git/` always exists before hooks phase runs |
-| Empty VCS propagates to downstream code | Prevented by design: `""` exists only in `DetectionResult.vcs`. Wizard always resolves to non-empty value or aborts. `DetectPhase` overwrite guard skips empty values |
-| `git` binary not installed | `DetectPhase.execute()` catches `FileNotFoundError` and raises `InstallerError` with clear message |
-| JS/TS detection in different subdirectories produces both stacks | Intentional: a monorepo with JS and TS subdirs genuinely uses both stacks |
+| Legacy manifest.yml breaks on load | Migration in loader transparently converts old format |
+| Release users expect tag without --wait | Behavioral change documented in CLI output with clear next-step message |
+| verify governance loses subprocess isolation | Direct import is simpler and provides richer output; no isolation needed for same-process validation |
+| Updater touches manifest.yml | Updater uses `update_manifest_field` which preserves structure; new fields are additive |
 
 ## Dependencies
 
-- None. This spec can be implemented independently.
-- spec-071 (Doctor Redesign) should be aware of the `git init` addition in detect phase when implementing `doctor/phases/detect.py`.
+- None external. Builds on spec-073 (dead commands removed).
+- Does NOT touch any files from spec-072 (installer/autodetect.py, wizard.py).

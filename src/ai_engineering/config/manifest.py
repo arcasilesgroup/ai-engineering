@@ -12,6 +12,13 @@ from pydantic import BaseModel, Field
 # --- Nested models ---
 
 
+class AiProvidersConfig(BaseModel):
+    """AI coding assistant provider configuration."""
+
+    enabled: list[str] = Field(default_factory=lambda: ["claude_code"])
+    primary: str = "claude_code"
+
+
 class ProvidersConfig(BaseModel):
     """VCS, IDE, and stack provider configuration."""
 
@@ -153,6 +160,7 @@ class ManifestConfig(BaseModel):
     version: str = ""
 
     providers: ProvidersConfig = Field(default_factory=ProvidersConfig)
+    ai_providers: AiProvidersConfig = Field(default_factory=AiProvidersConfig)
     artifact_feeds: ArtifactFeedsConfig = Field(default_factory=ArtifactFeedsConfig)
     work_items: WorkItemsConfig = Field(default_factory=WorkItemsConfig)
     quality: QualityConfig = Field(default_factory=QualityConfig)

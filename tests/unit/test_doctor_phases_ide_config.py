@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from ai_engineering.config.manifest import ManifestConfig, ProvidersConfig
+from ai_engineering.config.manifest import AiProvidersConfig, ManifestConfig, ProvidersConfig
 from ai_engineering.doctor.models import CheckResult, CheckStatus, DoctorContext
 from ai_engineering.doctor.phases import ide_config
 
@@ -35,25 +35,28 @@ def claude_project(tmp_path: Path) -> Path:
 
 @pytest.fixture()
 def claude_manifest() -> ManifestConfig:
-    """ManifestConfig with claude_code as the only IDE provider."""
+    """ManifestConfig with claude_code as the only AI provider."""
     return ManifestConfig(
         providers=ProvidersConfig(vcs="github", ides=["claude_code"]),
+        ai_providers=AiProvidersConfig(enabled=["claude_code"], primary="claude_code"),
     )
 
 
 @pytest.fixture()
 def copilot_manifest() -> ManifestConfig:
-    """ManifestConfig with github_copilot as the only IDE provider."""
+    """ManifestConfig with github_copilot as the only AI provider."""
     return ManifestConfig(
         providers=ProvidersConfig(vcs="github", ides=["github_copilot"]),
+        ai_providers=AiProvidersConfig(enabled=["github_copilot"], primary="github_copilot"),
     )
 
 
 @pytest.fixture()
 def no_ide_manifest() -> ManifestConfig:
-    """ManifestConfig with no IDE providers."""
+    """ManifestConfig with no AI providers."""
     return ManifestConfig(
         providers=ProvidersConfig(vcs="github", ides=[]),
+        ai_providers=AiProvidersConfig(enabled=[], primary=""),
     )
 
 

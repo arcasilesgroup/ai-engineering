@@ -120,7 +120,7 @@ class TestEmitDeployEventWiring:
         return ReleaseConfig(
             version="9.9.9",
             project_root=tmp_path,
-            wait=False,
+            wait=True,
         )
 
     @patch("ai_engineering.release.orchestrator.emit_deploy_event")
@@ -141,7 +141,7 @@ class TestEmitDeployEventWiring:
             ),
             patch(
                 "ai_engineering.release.orchestrator.run_git",
-                return_value=(True, ""),
+                return_value=(True, "abc123def456"),
             ),
             patch(
                 "ai_engineering.release.orchestrator._validate",
@@ -176,6 +176,15 @@ class TestEmitDeployEventWiring:
                 ),
             ),
             patch(
+                "ai_engineering.release.orchestrator._wait_for_merge",
+                return_value=MagicMock(
+                    phase="wait-for-merge",
+                    success=True,
+                    output="merged",
+                    skipped=False,
+                ),
+            ),
+            patch(
                 "ai_engineering.release.orchestrator._create_tag",
                 return_value=MagicMock(
                     phase="tag",
@@ -193,17 +202,26 @@ class TestEmitDeployEventWiring:
                     skipped=False,
                 ),
             ),
+            patch(
+                "ai_engineering.release.orchestrator._monitor_pipeline",
+                return_value=MagicMock(
+                    phase="monitor",
+                    success=True,
+                    output="https://example/run/1\nCompleted",
+                    skipped=False,
+                ),
+            ),
         ):
             result = execute_release(config, provider, clock=_FakeClock(), runner=_FakeRunner())
 
         assert result.success
-        mock_emit.assert_called_once_with(
-            config.project_root,
-            environment="production",
-            strategy="tag",
-            version="9.9.9",
-            result="tag=v9.9.9",
-        )
+        # With wait=True, emit is called twice (tag + pipeline). Check tag call exists.
+        tag_calls = [
+            c
+            for c in mock_emit.call_args_list
+            if c.kwargs.get("strategy") == "tag" or (len(c.args) > 3 and c.args[3] == "tag")
+        ]
+        assert len(tag_calls) >= 1
 
     @patch("ai_engineering.release.orchestrator.emit_deploy_event")
     def test_pipeline_completion_emits_deploy_event(

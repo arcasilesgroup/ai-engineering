@@ -674,8 +674,8 @@ def adoption_metrics(project_root: Path) -> dict[str, Any]:
         stacks = list(config.providers.stacks)
         ides = list(config.providers.ides)
         providers = {
-            "primary": config.providers.vcs,
-            "enabled": [config.providers.vcs],
+            "primary": config.ai_providers.primary,
+            "enabled": list(config.ai_providers.enabled),
         }
 
         git_hooks_entry = state.tooling.get("git_hooks")

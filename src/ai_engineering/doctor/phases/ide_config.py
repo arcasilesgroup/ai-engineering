@@ -47,12 +47,12 @@ def _check_provider_templates(ctx: DoctorContext) -> CheckResult:
             status=CheckStatus.FAIL,
             message="No manifest config available; cannot determine providers",
         )
-    ides = ctx.manifest_config.providers.ides
+    ides = ctx.manifest_config.ai_providers.enabled
     if not ides:
         return CheckResult(
             name="provider-templates",
             status=CheckStatus.OK,
-            message="No IDE providers configured",
+            message="No AI providers configured",
         )
     vcs = ctx.manifest_config.providers.vcs
     maps = resolve_template_maps(providers=ides, vcs_provider=vcs)
@@ -95,8 +95,8 @@ def _check_settings_merge(ctx: DoctorContext) -> CheckResult:
             status=CheckStatus.OK,
             message="No manifest config available; skipping settings check",
         )
-    ides = ctx.manifest_config.providers.ides
-    if "claude_code" not in ides:
+    ai_providers = ctx.manifest_config.ai_providers.enabled
+    if "claude_code" not in ai_providers:
         return CheckResult(
             name="settings-merge",
             status=CheckStatus.OK,

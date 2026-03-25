@@ -1,33 +1,28 @@
-# Autopilot Manifest: spec-064
+# Autopilot Manifest: spec-074
 
 ## Split Strategy
-by-dependency — linear chain where each sub-spec builds on the previous. Template files first, then infrastructure, then phases, then orchestration, then UX, then tests.
+By-domain: schema/migration (sub-001), release behavior (sub-002), verify implementation (sub-003). All independent with zero file overlap.
 
 ## Sub-Specs
 
-| # | Title | Status | Depends On | Work Units | Estimated Complexity |
-|---|-------|--------|------------|------------|---------------------|
-| sub-001 | Template Parity | complete | None | 5 | medium |
-| sub-002 | Templates Public API + VCS Fix | complete | sub-001 | 3 | low |
-| sub-003 | Phase Pipeline Foundation | complete | sub-002 | 4 | high |
-| sub-004 | Core Phases + Merge | complete | sub-003 | 5 | high |
-| sub-005 | Service Refactor + Update Migration | complete | sub-004 | 5 | high |
-| sub-006 | Wizard UX + CLI Modes | complete | sub-005 | 5 | high |
-| sub-007 | Tests + CI | pending | sub-006 | 5 | medium |
+| # | Title | Status | Depends On | Files |
+|---|-------|--------|------------|-------|
+| sub-001 | Provider/IDE Field Separation | planned | None | `config/manifest.py`, `config/loader.py`, `cli_commands/provider.py`, `installer/operations.py`, `installer/phases/ide_config.py`, `doctor/phases/ide_config.py`, `installer/service.py`, `lib/signals.py`, tests x4, `manifest.yml` x2 |
+| sub-002 | Release Flow Fix | planned | None | `release/orchestrator.py`, `tests/unit/test_release_orchestrator.py` |
+| sub-003 | Verify Governance Direct Import | planned | None | `verify/service.py`, `tests/unit/test_verify_service.py` |
 
 ## Totals
-- Sub-specs: 7
-- Work units: 32
-- Dependency chain depth: 7 (linear)
+- Sub-specs: 3
+- Dependency chain depth: 0 (all independent)
 
-## File Ownership (no overlaps)
+## Coverage Traceability
 
-| Sub-Spec | Files |
-|----------|-------|
-| sub-001 | `templates/project/scripts/hooks/**`, `templates/project/.claude/settings.json`, `templates/.ai-engineering/context*/`, `templates/project/.ai-engineering/` |
-| sub-002 | `src/ai_engineering/installer/templates.py` |
-| sub-003 | `src/ai_engineering/installer/phases/__init__.py`, `phases/detect.py`, `phases/pipeline.py` |
-| sub-004 | `src/ai_engineering/installer/phases/governance.py`, `phases/ide_config.py`, `phases/hooks.py`, `phases/state.py`, `phases/tools.py`, `installer/merge.py` |
-| sub-005 | `src/ai_engineering/installer/service.py`, `src/ai_engineering/updater/service.py` |
-| sub-006 | `src/ai_engineering/cli_commands/core.py`, `src/ai_engineering/installer/ui.py` |
-| sub-007 | `tests/unit/installer/**`, `tests/integration/**`, `.github/workflows/install-smoke.yml` |
+```
+Spec Group 1 (Provider/IDE Separation) -> sub-001
+Spec Group 2 (Release Flow Fix)        -> sub-002
+Spec Group 3 (Verify Governance)       -> sub-003
+AC1-AC8 (provider/ide verification)    -> sub-001
+AC9-AC10 (release verification)        -> sub-002
+AC11-AC12 (verify verification)        -> sub-003
+AC13-AC14 (cross-cutting quality)      -> Phase 5 quality loop
+```

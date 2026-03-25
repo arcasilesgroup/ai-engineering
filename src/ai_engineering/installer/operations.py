@@ -294,15 +294,19 @@ def add_provider(target: Path, provider: str) -> ManifestConfig:
     audit_path = _resolve_audit_path(target)
     config = _load_config(target)
 
-    if provider in config.providers.ides:
+    if provider in config.ai_providers.enabled:
         msg = f"Provider '{provider}' is already enabled."
         raise InstallerError(msg)
 
     # Copy provider templates
     copy_project_templates(target, providers=[provider])
 
-    # Note: AI providers are tracked in manifest.yml providers.ides for now.
-    # This will be refined when a dedicated providers.ai_providers field is added.
+    # Persist to manifest
+    new_enabled = [*config.ai_providers.enabled, provider]
+    update_manifest_field(target, "ai_providers.enabled", new_enabled)
+    if len(new_enabled) == 1:
+        update_manifest_field(target, "ai_providers.primary", new_enabled[0])
+
     _log_audit(audit_path, event="provider-add", detail=f"added AI provider: {provider}")
 
     return load_manifest_config(target)
@@ -327,11 +331,22 @@ def remove_provider(target: Path, provider: str) -> ManifestConfig:
     audit_path = _resolve_audit_path(target)
     config = _load_config(target)
 
-    # For now providers are in config.providers.ides -- check there
-    remaining = [p for p in config.providers.ides if p != provider]
+    if provider not in config.ai_providers.enabled:
+        msg = f"Provider '{provider}' is not enabled."
+        raise InstallerError(msg)
+
+    remaining = [p for p in config.ai_providers.enabled if p != provider]
+
+    if not remaining:
+        msg = "Cannot remove the last AI provider."
+        raise InstallerError(msg)
 
     # Remove provider templates (respects shared files)
     remove_provider_templates(target, provider, remaining)
+
+    # Persist to manifest
+    update_manifest_field(target, "ai_providers.enabled", remaining)
+    update_manifest_field(target, "ai_providers.primary", remaining[0])
 
     _log_audit(audit_path, event="provider-remove", detail=f"removed AI provider: {provider}")
 

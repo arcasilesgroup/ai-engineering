@@ -461,7 +461,7 @@ class TestAdoptionMetrics:
         result = adoption_metrics(tmp_path)
         assert result["stacks"] == ["python", "nextjs"]
         assert result["ides"] == ["vscode", "terminal"]
-        assert result["providers"]["primary"] == "github"
+        assert result["providers"]["primary"] == "claude_code"
 
     def test_file_not_found(self, tmp_path: Path) -> None:
         result = adoption_metrics(tmp_path)
