@@ -150,13 +150,13 @@ class TestStatePhaseChecks:
 class TestHookChecks:
     """Tests for git hook verification."""
 
-    def test_warns_when_not_git_repo(self, installed_project: Path) -> None:
+    def test_ok_when_installed_with_git(self, installed_project: Path) -> None:
+        # Since spec-072, install() auto-initializes git and installs hooks
         report = diagnose(installed_project)
         hooks_phase = _find_phase(report, "hooks")
         hook_check = next((c for c in hooks_phase.checks if c.name == "hooks-integrity"), None)
         assert hook_check is not None
-        # Without a git repo, hooks check should warn or fail
-        assert hook_check.status in (CheckStatus.WARN, CheckStatus.FAIL)
+        assert hook_check.status == CheckStatus.OK
 
     def test_fails_when_hooks_missing(self, installed_git_project: Path) -> None:
         # Remove auto-installed hooks to simulate missing state

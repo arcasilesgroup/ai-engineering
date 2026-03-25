@@ -196,7 +196,7 @@ def test_stack_and_ide_empty_lists_and_errors(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    empty_manifest = SimpleNamespace(installed_stacks=[], installed_ides=[])
+    empty_manifest = SimpleNamespace(providers=SimpleNamespace(stacks=[], ides=[]))
     with patch("ai_engineering.cli_commands.stack_ide.list_status", return_value=empty_manifest):
         stack_ide.stack_list(target=tmp_path)
         stack_ide.ide_list(target=tmp_path)

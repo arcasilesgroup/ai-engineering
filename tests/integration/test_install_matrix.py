@@ -43,8 +43,9 @@ _MULTI_PROVIDER_CASES = [
 @pytest.fixture()
 def clean_target(tmp_path: Path) -> Path:
     """Create a minimal git repo target."""
-    git_dir = tmp_path / ".git"
-    git_dir.mkdir()
+    import subprocess
+
+    subprocess.run(["git", "init"], cwd=tmp_path, check=True, capture_output=True)
     return tmp_path
 
 
