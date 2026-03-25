@@ -509,8 +509,15 @@ def update_cmd(
     kv("Applied", result.applied_count)
     kv("Denied", result.denied_count)
 
+    _STATUS_MAP = {
+        "create": "ok",
+        "update": "ok",
+        "skip-unchanged": "info",
+        "skip-denied": "fail",
+    }
+
     for change in result.changes:
-        st = "ok" if change.action in ("create", "update") else "fail"
+        st = _STATUS_MAP.get(change.action, "fail")
         status_line(st, str(change.path), change.action)
 
         if show_diff and change.diff:

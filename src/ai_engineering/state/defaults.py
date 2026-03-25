@@ -43,6 +43,19 @@ def default_install_state() -> InstallState:
 
 
 _DEFAULT_OWNERSHIP_PATHS: list[tuple[str, OwnershipLevel, FrameworkUpdatePolicy]] = [
+    # -- .ai-engineering/ governance ----------------------------------------
+    (".ai-engineering/README.md", OwnershipLevel.FRAMEWORK_MANAGED, FrameworkUpdatePolicy.ALLOW),
+    (".ai-engineering/manifest.yml", OwnershipLevel.TEAM_MANAGED, FrameworkUpdatePolicy.DENY),
+    (
+        ".ai-engineering/runbooks/**",
+        OwnershipLevel.FRAMEWORK_MANAGED,
+        FrameworkUpdatePolicy.ALLOW,
+    ),
+    (
+        ".ai-engineering/scripts/hooks/**",
+        OwnershipLevel.FRAMEWORK_MANAGED,
+        FrameworkUpdatePolicy.ALLOW,
+    ),
     (
         ".ai-engineering/contexts/languages/**",
         OwnershipLevel.FRAMEWORK_MANAGED,
@@ -54,17 +67,12 @@ _DEFAULT_OWNERSHIP_PATHS: list[tuple[str, OwnershipLevel, FrameworkUpdatePolicy]
         FrameworkUpdatePolicy.ALLOW,
     ),
     (".ai-engineering/contexts/team/**", OwnershipLevel.TEAM_MANAGED, FrameworkUpdatePolicy.DENY),
-    (".agents/**", OwnershipLevel.FRAMEWORK_MANAGED, FrameworkUpdatePolicy.ALLOW),
-    ("CLAUDE.md", OwnershipLevel.FRAMEWORK_MANAGED, FrameworkUpdatePolicy.ALLOW),
-    ("AGENTS.md", OwnershipLevel.FRAMEWORK_MANAGED, FrameworkUpdatePolicy.ALLOW),
+    (".ai-engineering/contexts/orgs/**", OwnershipLevel.TEAM_MANAGED, FrameworkUpdatePolicy.DENY),
     (
-        ".github/copilot-instructions.md",
-        OwnershipLevel.FRAMEWORK_MANAGED,
-        FrameworkUpdatePolicy.ALLOW,
+        ".ai-engineering/contexts/product/**",
+        OwnershipLevel.TEAM_MANAGED,
+        FrameworkUpdatePolicy.DENY,
     ),
-    (".github/prompts/**", OwnershipLevel.FRAMEWORK_MANAGED, FrameworkUpdatePolicy.ALLOW),
-    (".github/agents/**", OwnershipLevel.FRAMEWORK_MANAGED, FrameworkUpdatePolicy.ALLOW),
-    (".claude/**", OwnershipLevel.FRAMEWORK_MANAGED, FrameworkUpdatePolicy.ALLOW),
     (
         ".ai-engineering/state/install-state.json",
         OwnershipLevel.SYSTEM_MANAGED,
@@ -85,6 +93,38 @@ _DEFAULT_OWNERSHIP_PATHS: list[tuple[str, OwnershipLevel, FrameworkUpdatePolicy]
         OwnershipLevel.SYSTEM_MANAGED,
         FrameworkUpdatePolicy.APPEND_ONLY,
     ),
+    # -- project root files -------------------------------------------------
+    ("CLAUDE.md", OwnershipLevel.FRAMEWORK_MANAGED, FrameworkUpdatePolicy.ALLOW),
+    ("AGENTS.md", OwnershipLevel.FRAMEWORK_MANAGED, FrameworkUpdatePolicy.ALLOW),
+    (".gitleaks.toml", OwnershipLevel.FRAMEWORK_MANAGED, FrameworkUpdatePolicy.ALLOW),
+    (".semgrep.yml", OwnershipLevel.FRAMEWORK_MANAGED, FrameworkUpdatePolicy.ALLOW),
+    # -- .claude/ (specific before glob) ------------------------------------
+    (".claude/settings.json", OwnershipLevel.TEAM_MANAGED, FrameworkUpdatePolicy.DENY),
+    (".claude/**", OwnershipLevel.FRAMEWORK_MANAGED, FrameworkUpdatePolicy.ALLOW),
+    # -- .agents/ -----------------------------------------------------------
+    (".agents/**", OwnershipLevel.FRAMEWORK_MANAGED, FrameworkUpdatePolicy.ALLOW),
+    # -- .github/ (specific before globs) -----------------------------------
+    (
+        ".github/copilot-instructions.md",
+        OwnershipLevel.FRAMEWORK_MANAGED,
+        FrameworkUpdatePolicy.ALLOW,
+    ),
+    (".github/CODEOWNERS", OwnershipLevel.TEAM_MANAGED, FrameworkUpdatePolicy.DENY),
+    (".github/dependabot.yml", OwnershipLevel.TEAM_MANAGED, FrameworkUpdatePolicy.DENY),
+    (
+        ".github/pull_request_template.md",
+        OwnershipLevel.TEAM_MANAGED,
+        FrameworkUpdatePolicy.DENY,
+    ),
+    (".github/prompts/**", OwnershipLevel.FRAMEWORK_MANAGED, FrameworkUpdatePolicy.ALLOW),
+    (".github/agents/**", OwnershipLevel.FRAMEWORK_MANAGED, FrameworkUpdatePolicy.ALLOW),
+    (".github/instructions/**", OwnershipLevel.FRAMEWORK_MANAGED, FrameworkUpdatePolicy.ALLOW),
+    (
+        ".github/ISSUE_TEMPLATE/**",
+        OwnershipLevel.FRAMEWORK_MANAGED,
+        FrameworkUpdatePolicy.ALLOW,
+    ),
+    (".github/hooks/**", OwnershipLevel.FRAMEWORK_MANAGED, FrameworkUpdatePolicy.ALLOW),
 ]
 
 

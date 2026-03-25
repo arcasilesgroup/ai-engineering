@@ -155,6 +155,7 @@ def status_line(status: str, name: str, msg: str) -> None:
     """
     icons = {
         "ok": "[success]\u2713 PASS[/success]",
+        "info": "[dim]\u00b7 SKIP[/dim]",
         "warn": "[warning]\u26a0 WARN[/warning]",
         "fail": "[error]\u2717 FAIL[/error]",
         "fixed": "[info]\U0001f527 FIXED[/info]",

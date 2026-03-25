@@ -183,20 +183,19 @@ class TestTemplateTrees:
         updated = [c for c in result.changes if c.path == skill_md and c.action == "update"]
         assert len(updated) == 1
 
-    def test_claude_settings_updated(self, installed_project: Path) -> None:
-        """Modify .claude/settings.json and verify update restores it."""
+    def test_claude_settings_denied(self, installed_project: Path) -> None:
+        """settings.json is team-managed — update must NOT overwrite it."""
         settings = installed_project / ".claude" / "settings.json"
         if not settings.exists():
             pytest.skip("settings.json not found in installed project")
 
-        original = settings.read_bytes()
         settings.write_text('{"modified": true}')
 
         result = update(installed_project, dry_run=False)
 
-        assert settings.read_bytes() == original
-        updated = [c for c in result.changes if c.path == settings and c.action == "update"]
-        assert len(updated) == 1
+        assert settings.read_bytes() == b'{"modified": true}'
+        denied = [c for c in result.changes if c.path == settings and c.action == "skip-denied"]
+        assert len(denied) == 1
 
     def test_update_handles_prompt_files(self, installed_project: Path) -> None:
         """Modify a .github/prompts/ file and verify update restores it."""

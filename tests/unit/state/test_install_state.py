@@ -421,6 +421,36 @@ class TestFromLegacyDict:
         assert state.branch_policy.manual_guide == "See https://docs.example.com/branch-policy"
         assert state.branch_policy.message == "Manual setup required"
 
+    def test_legacy_vcs_provider_extracted(self) -> None:
+        """VCS provider is extracted from legacy providers.primary."""
+        legacy = {
+            "installedAt": "2026-01-01T00:00:00Z",
+            "providers": {"primary": "github", "enabled": ["github"]},
+            "ai_providers": {
+                "primary": "claude_code",
+                "enabled": ["claude_code", "github_copilot"],
+            },
+        }
+        state = InstallState.from_legacy_dict(legacy)
+        assert state.vcs_provider == "github"
+        assert state.ai_providers == ["claude_code", "github_copilot"]
+
+    def test_legacy_without_providers_key(self) -> None:
+        """Without providers key, vcs_provider defaults to None."""
+        legacy = {"installedAt": "2026-01-01T00:00:00Z"}
+        state = InstallState.from_legacy_dict(legacy)
+        assert state.vcs_provider is None
+        assert state.ai_providers is None
+
+    def test_legacy_camel_case_ai_providers(self) -> None:
+        """Legacy manifests may use camelCase aiProviders."""
+        legacy = {
+            "installedAt": "2026-01-01T00:00:00Z",
+            "aiProviders": {"primary": "claude_code", "enabled": ["claude_code"]},
+        }
+        state = InstallState.from_legacy_dict(legacy)
+        assert state.ai_providers == ["claude_code"]
+
 
 # -- Tooling Dict Flexibility ---------------------------------------------
 
