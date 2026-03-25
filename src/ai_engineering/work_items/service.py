@@ -16,8 +16,7 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
-import yaml
-
+from ai_engineering.config.loader import load_manifest_config
 from ai_engineering.vcs.factory import get_provider
 from ai_engineering.vcs.protocol import IssueContext
 
@@ -154,29 +153,14 @@ def get_hierarchy_rules(project_root: Path) -> dict[str, str]:
         Dict mapping work-item type to disposition rule
         (e.g. ``{"feature": "never_close", "task": "close_on_pr"}``).
     """
-    manifest_path = project_root / ".ai-engineering" / "manifest.yml"
-    if not manifest_path.exists():
-        return dict(_DEFAULT_HIERARCHY)
-
     try:
-        data = yaml.safe_load(manifest_path.read_text(encoding="utf-8"))
-    except (OSError, yaml.YAMLError):
-        return dict(_DEFAULT_HIERARCHY)
-
-    if not isinstance(data, dict):
-        return dict(_DEFAULT_HIERARCHY)
-
-    work_items = data.get("work_items")
-    if not isinstance(work_items, dict):
-        return dict(_DEFAULT_HIERARCHY)
-
-    hierarchy = work_items.get("hierarchy")
-    if not isinstance(hierarchy, dict):
+        hierarchy = load_manifest_config(project_root).work_items.hierarchy
+    except (OSError, ValueError):
         return dict(_DEFAULT_HIERARCHY)
 
     # Merge configured values over defaults.
     rules = dict(_DEFAULT_HIERARCHY)
-    for key, value in hierarchy.items():
+    for key, value in hierarchy.model_dump().items():
         if isinstance(key, str) and isinstance(value, str):
             rules[key] = value
     return rules

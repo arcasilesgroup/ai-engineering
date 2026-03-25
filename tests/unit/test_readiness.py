@@ -259,21 +259,28 @@ class TestRemediateMissingTools:
 
 
 class TestCheckOperationalReadiness:
-    """Tests for check_operational_readiness() with mocked manifest."""
+    """Tests for check_operational_readiness() with install-state.json."""
 
-    @patch("ai_engineering.detector.readiness.read_json_model")
-    def test_reads_manifest_and_returns_status(self, mock_read: MagicMock, tmp_path: Path) -> None:
-        """When manifest exists and is valid, returns provider/cicd/branch checks."""
-        # Set up the manifest file path to exist
-        manifest_path = tmp_path / ".ai-engineering" / "state" / "install-manifest.json"
-        manifest_path.parent.mkdir(parents=True, exist_ok=True)
-        manifest_path.write_text("{}", encoding="utf-8")
+    def test_reads_state_and_returns_status(self, tmp_path: Path) -> None:
+        """When install-state.json exists and is valid, returns provider/cicd/branch checks."""
+        from ai_engineering.state.models import InstallState, ToolEntry
 
-        mock_manifest = MagicMock()
-        mock_manifest.providers.primary = "github"
-        mock_manifest.tooling_readiness.gh.authenticated = True
-        mock_manifest.branch_policy.applied = False
-        mock_read.return_value = mock_manifest
+        state_dir = tmp_path / ".ai-engineering" / "state"
+        state_dir.mkdir(parents=True, exist_ok=True)
+
+        # Create install-state.json with gh authenticated
+        state = InstallState(
+            tooling={"gh": ToolEntry(installed=True, authenticated=True)},
+        )
+        from ai_engineering.state.service import save_install_state
+
+        save_install_state(state_dir, state)
+
+        # Create minimal manifest.yml (config reader needs it)
+        ai_dir = tmp_path / ".ai-engineering"
+        (ai_dir / "manifest.yml").write_text(
+            "schema_version: '2.0'\nproviders:\n  vcs: github\n  stacks:\n    - python\n"
+        )
 
         report = check_operational_readiness(tmp_path)
         assert isinstance(report, ReadinessReport)
@@ -281,7 +288,7 @@ class TestCheckOperationalReadiness:
         assert "auth:github" in tool_names
         assert "branch-policy:applied" in tool_names
 
-    def test_returns_empty_report_if_no_manifest(self, tmp_path: Path) -> None:
-        """When manifest file does not exist, returns empty report."""
+    def test_returns_empty_report_if_no_state(self, tmp_path: Path) -> None:
+        """When install-state.json does not exist, returns empty report."""
         report = check_operational_readiness(tmp_path)
         assert report.tools == []

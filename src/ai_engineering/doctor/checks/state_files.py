@@ -6,11 +6,11 @@ from pathlib import Path
 
 from ai_engineering.doctor.models import CheckResult, CheckStatus, DoctorReport
 from ai_engineering.state.io import read_json_model
-from ai_engineering.state.models import InstallManifest, OwnershipMap
+from ai_engineering.state.models import InstallState, OwnershipMap
 
 # Required state files
 _REQUIRED_STATE_FILES: list[str] = [
-    "state/install-manifest.json",
+    "state/install-state.json",
     "state/ownership-map.json",
     "state/decision-store.json",
 ]
@@ -35,8 +35,8 @@ def check_state_files(target: Path, report: DoctorReport) -> None:
             continue
 
         try:
-            if "install-manifest" in relative:
-                read_json_model(path, InstallManifest)
+            if "install-state" in relative:
+                read_json_model(path, InstallState)
             elif "ownership-map" in relative:
                 read_json_model(path, OwnershipMap)
             else:

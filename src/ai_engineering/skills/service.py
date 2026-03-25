@@ -18,6 +18,8 @@ from typing import cast
 
 import yaml
 
+from ai_engineering.config.loader import load_manifest_config
+
 _logger = logging.getLogger(__name__)
 
 
@@ -66,11 +68,9 @@ def list_local_skill_status(target: Path) -> list[SkillStatus]:
     Scans ``.claude/skills/``, ``.agents/skills/``, and legacy
     ``.ai-engineering/skills/`` for SKILL.md files.
     """
-    manifest = _safe_yaml_load(target / ".ai-engineering" / "manifest.yml")
-    install_manifest = _safe_json_load(
-        target / ".ai-engineering" / "state" / "install-manifest.json"
-    )
-    config_roots = [manifest, install_manifest]
+    manifest = load_manifest_config(target).model_dump()
+    install_state = _safe_json_load(target / ".ai-engineering" / "state" / "install-state.json")
+    config_roots = [manifest, install_state]
 
     # Collect skill files from all known directories.
     seen_paths: set[Path] = set()

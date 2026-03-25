@@ -1,0 +1,618 @@
+"""Unit tests for the install wizard module.
+
+Covers AC9, AC10, AC11, AC12, AC13, AC16b from spec-064.
+All questionary interactions are mocked at module level.
+"""
+
+from __future__ import annotations
+
+from unittest.mock import MagicMock, patch
+
+import pytest
+
+from ai_engineering.installer.autodetect import DetectionResult
+
+pytestmark = pytest.mark.unit
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+_STACKS = [
+    "bash",
+    "csharp",
+    "dart",
+    "elixir",
+    "go",
+    "java",
+    "javascript",
+    "kotlin",
+    "php",
+    "python",
+    "ruby",
+    "rust",
+    "sql",
+    "swift",
+    "typescript",
+    "universal",
+]
+
+_PROVIDERS = ["claude_code", "codex", "gemini", "github_copilot"]
+
+_IDES = ["cursor", "jetbrains", "terminal", "vscode"]
+
+_VCS_CHOICES = ["azure_devops", "github"]
+
+
+def _detected(
+    *,
+    stacks: list[str] | None = None,
+    providers: list[str] | None = None,
+    ides: list[str] | None = None,
+    vcs: str = "github",
+) -> DetectionResult:
+    return DetectionResult(
+        stacks=stacks or [],
+        providers=providers or [],
+        ides=ides or [],
+        vcs=vcs,
+    )
+
+
+# ---------------------------------------------------------------------------
+# AC9: Detected items preselected (checked=True)
+# ---------------------------------------------------------------------------
+
+
+class TestDetectedPreselection:
+    """AC9: Wizard shows checkboxes with detected items preselected."""
+
+    def test_detected_stacks_are_checked(self) -> None:
+        from ai_engineering.installer.wizard import run_wizard
+
+        detected = _detected(stacks=["python", "go"])
+
+        mock_checkbox = MagicMock()
+        mock_checkbox.return_value.ask.side_effect = [
+            ["python", "go"],
+            ["claude_code"],
+            ["vscode"],
+        ]
+        mock_select = MagicMock()
+        mock_select.return_value.ask.return_value = "github"
+
+        with (
+            patch("ai_engineering.installer.wizard.questionary.checkbox", mock_checkbox),
+            patch("ai_engineering.installer.wizard.questionary.select", mock_select),
+        ):
+            run_wizard(detected)
+
+            # First checkbox call is stacks
+            stacks_call = mock_checkbox.call_args_list[0]
+            choices = stacks_call.kwargs.get("choices", [])
+            checked_names = {c.title for c in choices if c.checked}
+            unchecked_names = {c.title for c in choices if not c.checked}
+            assert "python" in checked_names
+            assert "go" in checked_names
+            assert "rust" in unchecked_names
+
+    def test_detected_providers_are_checked(self) -> None:
+        from ai_engineering.installer.wizard import run_wizard
+
+        detected = _detected(providers=["claude_code", "github_copilot"])
+
+        mock_checkbox = MagicMock()
+        mock_checkbox.return_value.ask.side_effect = [
+            ["python"],
+            ["claude_code", "github_copilot"],
+            ["terminal"],
+        ]
+        mock_select = MagicMock()
+        mock_select.return_value.ask.return_value = "github"
+
+        with (
+            patch("ai_engineering.installer.wizard.questionary.checkbox", mock_checkbox),
+            patch("ai_engineering.installer.wizard.questionary.select", mock_select),
+        ):
+            run_wizard(detected)
+
+            # Second checkbox call is providers
+            providers_call = mock_checkbox.call_args_list[1]
+            choices = providers_call.kwargs.get("choices", [])
+            checked_names = {c.title for c in choices if c.checked}
+            assert "claude_code" in checked_names
+            assert "github_copilot" in checked_names
+
+    def test_detected_ides_are_checked(self) -> None:
+        from ai_engineering.installer.wizard import run_wizard
+
+        detected = _detected(ides=["vscode", "jetbrains"])
+
+        mock_checkbox = MagicMock()
+        mock_checkbox.return_value.ask.side_effect = [
+            ["python"],
+            ["claude_code"],
+            ["vscode", "jetbrains"],
+        ]
+        mock_select = MagicMock()
+        mock_select.return_value.ask.return_value = "github"
+
+        with (
+            patch("ai_engineering.installer.wizard.questionary.checkbox", mock_checkbox),
+            patch("ai_engineering.installer.wizard.questionary.select", mock_select),
+        ):
+            run_wizard(detected)
+
+            # Third checkbox call is ides
+            ides_call = mock_checkbox.call_args_list[2]
+            choices = ides_call.kwargs.get("choices", [])
+            checked_names = {c.title for c in choices if c.checked}
+            assert "vscode" in checked_names
+            assert "jetbrains" in checked_names
+
+
+# ---------------------------------------------------------------------------
+# AC10: All valid options are shown
+# ---------------------------------------------------------------------------
+
+
+class TestAllOptionsShown:
+    """AC10: Wizard shows all valid options including non-detected ones."""
+
+    def test_all_stacks_shown(self) -> None:
+        from ai_engineering.installer.wizard import run_wizard
+
+        detected = _detected(stacks=["python"])
+
+        mock_checkbox = MagicMock()
+        mock_checkbox.return_value.ask.side_effect = [
+            ["python"],
+            ["claude_code"],
+            ["terminal"],
+        ]
+        mock_select = MagicMock()
+        mock_select.return_value.ask.return_value = "github"
+
+        with (
+            patch("ai_engineering.installer.wizard.questionary.checkbox", mock_checkbox),
+            patch("ai_engineering.installer.wizard.questionary.select", mock_select),
+            patch("ai_engineering.installer.operations.get_available_stacks", return_value=_STACKS),
+        ):
+            run_wizard(detected)
+
+            stacks_call = mock_checkbox.call_args_list[0]
+            choices = stacks_call.kwargs.get("choices", [])
+            choice_names = [c.title for c in choices]
+            assert choice_names == _STACKS
+
+    def test_all_providers_shown(self) -> None:
+        from ai_engineering.installer.wizard import run_wizard
+
+        detected = _detected(providers=["claude_code"])
+
+        mock_checkbox = MagicMock()
+        mock_checkbox.return_value.ask.side_effect = [
+            ["python"],
+            ["claude_code"],
+            ["terminal"],
+        ]
+        mock_select = MagicMock()
+        mock_select.return_value.ask.return_value = "github"
+
+        with (
+            patch("ai_engineering.installer.wizard.questionary.checkbox", mock_checkbox),
+            patch("ai_engineering.installer.wizard.questionary.select", mock_select),
+        ):
+            run_wizard(detected)
+
+            providers_call = mock_checkbox.call_args_list[1]
+            choices = providers_call.kwargs.get("choices", [])
+            choice_names = [c.title for c in choices]
+            assert choice_names == _PROVIDERS
+
+    def test_all_ides_shown(self) -> None:
+        from ai_engineering.installer.wizard import run_wizard
+
+        detected = _detected(ides=["vscode"])
+
+        mock_checkbox = MagicMock()
+        mock_checkbox.return_value.ask.side_effect = [
+            ["python"],
+            ["claude_code"],
+            ["vscode"],
+        ]
+        mock_select = MagicMock()
+        mock_select.return_value.ask.return_value = "github"
+
+        with (
+            patch("ai_engineering.installer.wizard.questionary.checkbox", mock_checkbox),
+            patch("ai_engineering.installer.wizard.questionary.select", mock_select),
+            patch("ai_engineering.installer.operations.get_available_ides", return_value=_IDES),
+        ):
+            run_wizard(detected)
+
+            ides_call = mock_checkbox.call_args_list[2]
+            choices = ides_call.kwargs.get("choices", [])
+            choice_names = [c.title for c in choices]
+            assert choice_names == _IDES
+
+    def test_all_vcs_shown(self) -> None:
+        from ai_engineering.installer.wizard import run_wizard
+
+        detected = _detected(vcs="github")
+
+        with patch("ai_engineering.installer.wizard.questionary") as mock_q:
+            mock_q.checkbox.return_value.ask.side_effect = [
+                ["python"],
+                ["claude_code"],
+                ["terminal"],
+            ]
+            mock_q.select.return_value.ask.return_value = "github"
+
+            run_wizard(detected)
+
+            select_call = mock_q.select.call_args_list[0]
+            choices = select_call.kwargs.get("choices", select_call[1].get("choices", []))
+            assert choices == _VCS_CHOICES
+
+
+# ---------------------------------------------------------------------------
+# AC11: Empty detection -> nothing preselected
+# ---------------------------------------------------------------------------
+
+
+class TestEmptyDetection:
+    """AC11: Empty repo -> wizard shows all options with nothing preselected."""
+
+    def test_no_stacks_detected_none_checked(self) -> None:
+        from ai_engineering.installer.wizard import run_wizard
+
+        detected = _detected()
+
+        mock_checkbox = MagicMock()
+        mock_checkbox.return_value.ask.side_effect = [
+            ["python"],
+            ["claude_code"],
+            ["terminal"],
+        ]
+        mock_select = MagicMock()
+        mock_select.return_value.ask.return_value = "github"
+
+        with (
+            patch("ai_engineering.installer.wizard.questionary.checkbox", mock_checkbox),
+            patch("ai_engineering.installer.wizard.questionary.select", mock_select),
+        ):
+            run_wizard(detected)
+
+            stacks_call = mock_checkbox.call_args_list[0]
+            choices = stacks_call.kwargs.get("choices", [])
+            checked = [c for c in choices if c.checked]
+            assert checked == []
+
+    def test_no_providers_detected_none_checked(self) -> None:
+        from ai_engineering.installer.wizard import run_wizard
+
+        detected = _detected()
+
+        mock_checkbox = MagicMock()
+        mock_checkbox.return_value.ask.side_effect = [
+            [],
+            ["claude_code"],
+            ["terminal"],
+        ]
+        mock_select = MagicMock()
+        mock_select.return_value.ask.return_value = "github"
+
+        with (
+            patch("ai_engineering.installer.wizard.questionary.checkbox", mock_checkbox),
+            patch("ai_engineering.installer.wizard.questionary.select", mock_select),
+        ):
+            run_wizard(detected)
+
+            providers_call = mock_checkbox.call_args_list[1]
+            choices = providers_call.kwargs.get("choices", [])
+            checked = [c for c in choices if c.checked]
+            assert checked == []
+
+    def test_no_ides_detected_none_checked(self) -> None:
+        from ai_engineering.installer.wizard import run_wizard
+
+        detected = _detected()
+
+        mock_checkbox = MagicMock()
+        mock_checkbox.return_value.ask.side_effect = [
+            [],
+            [],
+            ["terminal"],
+        ]
+        mock_select = MagicMock()
+        mock_select.return_value.ask.return_value = "github"
+
+        with (
+            patch("ai_engineering.installer.wizard.questionary.checkbox", mock_checkbox),
+            patch("ai_engineering.installer.wizard.questionary.select", mock_select),
+        ):
+            run_wizard(detected)
+
+            ides_call = mock_checkbox.call_args_list[2]
+            choices = ides_call.kwargs.get("choices", [])
+            checked = [c for c in choices if c.checked]
+            assert checked == []
+
+
+# ---------------------------------------------------------------------------
+# AC12: VCS uses questionary.select() not checkbox()
+# ---------------------------------------------------------------------------
+
+
+class TestVCSUsesSelect:
+    """AC12: VCS selection uses radio buttons (single select), not checkboxes."""
+
+    def test_vcs_uses_select(self) -> None:
+        from ai_engineering.installer.wizard import run_wizard
+
+        detected = _detected(vcs="azure_devops")
+
+        with patch("ai_engineering.installer.wizard.questionary") as mock_q:
+            mock_q.checkbox.return_value.ask.side_effect = [
+                ["python"],
+                ["claude_code"],
+                ["terminal"],
+            ]
+            mock_q.select.return_value.ask.return_value = "azure_devops"
+
+            run_wizard(detected)
+
+            # select() called exactly once for VCS
+            assert mock_q.select.call_count == 1
+            select_call = mock_q.select.call_args
+            assert "Select VCS provider:" in select_call[0][0]
+
+    def test_vcs_default_from_detection(self) -> None:
+        from ai_engineering.installer.wizard import run_wizard
+
+        detected = _detected(vcs="azure_devops")
+
+        with patch("ai_engineering.installer.wizard.questionary") as mock_q:
+            mock_q.checkbox.return_value.ask.side_effect = [
+                [],
+                [],
+                [],
+            ]
+            mock_q.select.return_value.ask.return_value = "azure_devops"
+
+            run_wizard(detected)
+
+            select_call = mock_q.select.call_args
+            assert select_call.kwargs.get("default") == "azure_devops"
+
+
+# ---------------------------------------------------------------------------
+# AC13: Returns WizardResult dataclass with correct fields
+# ---------------------------------------------------------------------------
+
+
+class TestWizardResult:
+    """AC13: Wizard returns a WizardResult dataclass with all selections."""
+
+    def test_returns_wizard_result(self) -> None:
+        from ai_engineering.installer.wizard import WizardResult, run_wizard
+
+        detected = _detected(stacks=["python"], providers=["claude_code"])
+
+        with patch("ai_engineering.installer.wizard.questionary") as mock_q:
+            mock_q.checkbox.return_value.ask.side_effect = [
+                ["python", "go"],
+                ["claude_code"],
+                ["vscode", "terminal"],
+            ]
+            mock_q.select.return_value.ask.return_value = "github"
+
+            result = run_wizard(detected)
+
+            assert isinstance(result, WizardResult)
+            assert result.stacks == ["python", "go"]
+            assert result.providers == ["claude_code"]
+            assert result.ides == ["vscode", "terminal"]
+            assert result.vcs == "github"
+
+    def test_result_has_all_fields(self) -> None:
+        from ai_engineering.installer.wizard import WizardResult
+
+        result = WizardResult(
+            stacks=["python"],
+            providers=["claude_code"],
+            ides=["terminal"],
+            vcs="github",
+        )
+        assert result.stacks == ["python"]
+        assert result.providers == ["claude_code"]
+        assert result.ides == ["terminal"]
+        assert result.vcs == "github"
+
+
+# ---------------------------------------------------------------------------
+# AC16b: Partial resolution — resolved categories skip wizard
+# ---------------------------------------------------------------------------
+
+
+class TestPartialResolution:
+    """AC16b: resolved dict categories skip wizard prompts."""
+
+    def test_stacks_resolved_skips_stacks_prompt(self) -> None:
+        from ai_engineering.installer.wizard import run_wizard
+
+        detected = _detected()
+        resolved = {"stacks": ["python", "typescript"]}
+
+        with patch("ai_engineering.installer.wizard.questionary") as mock_q:
+            # Only 2 checkbox calls: providers, ides (stacks skipped)
+            mock_q.checkbox.return_value.ask.side_effect = [
+                ["claude_code"],
+                ["terminal"],
+            ]
+            mock_q.select.return_value.ask.return_value = "github"
+
+            result = run_wizard(detected, resolved=resolved)
+
+            assert result.stacks == ["python", "typescript"]
+            assert mock_q.checkbox.call_count == 2
+
+            # Verify the first checkbox is providers (not stacks)
+            first_call_prompt = mock_q.checkbox.call_args_list[0][0][0]
+            assert "provider" in first_call_prompt.lower()
+
+    def test_all_categories_resolved_no_prompts(self) -> None:
+        from ai_engineering.installer.wizard import run_wizard
+
+        detected = _detected()
+        resolved = {
+            "stacks": ["python"],
+            "providers": ["claude_code"],
+            "ides": ["terminal"],
+            "vcs": "github",
+        }
+
+        with patch("ai_engineering.installer.wizard.questionary") as mock_q:
+            result = run_wizard(detected, resolved=resolved)
+
+            mock_q.checkbox.assert_not_called()
+            mock_q.select.assert_not_called()
+            assert result.stacks == ["python"]
+            assert result.providers == ["claude_code"]
+            assert result.ides == ["terminal"]
+            assert result.vcs == "github"
+
+    def test_vcs_resolved_skips_select(self) -> None:
+        from ai_engineering.installer.wizard import run_wizard
+
+        detected = _detected()
+        resolved = {"vcs": "azure_devops"}
+
+        with patch("ai_engineering.installer.wizard.questionary") as mock_q:
+            mock_q.checkbox.return_value.ask.side_effect = [
+                ["python"],
+                ["claude_code"],
+                ["terminal"],
+            ]
+
+            result = run_wizard(detected, resolved=resolved)
+
+            mock_q.select.assert_not_called()
+            assert result.vcs == "azure_devops"
+
+    def test_providers_and_ides_resolved(self) -> None:
+        from ai_engineering.installer.wizard import run_wizard
+
+        detected = _detected(stacks=["python"])
+        resolved = {
+            "providers": ["claude_code", "github_copilot"],
+            "ides": ["vscode"],
+        }
+
+        with patch("ai_engineering.installer.wizard.questionary") as mock_q:
+            # Only 1 checkbox call: stacks
+            mock_q.checkbox.return_value.ask.side_effect = [
+                ["python", "go"],
+            ]
+            mock_q.select.return_value.ask.return_value = "github"
+
+            result = run_wizard(detected, resolved=resolved)
+
+            assert result.stacks == ["python", "go"]
+            assert result.providers == ["claude_code", "github_copilot"]
+            assert result.ides == ["vscode"]
+            assert mock_q.checkbox.call_count == 1
+
+
+# ---------------------------------------------------------------------------
+# Keyboard interrupt / None handling
+# ---------------------------------------------------------------------------
+
+
+class TestInterruptHandling:
+    """User presses Ctrl+C or questionary returns None."""
+
+    def test_checkbox_returns_none_yields_empty_list(self) -> None:
+        from ai_engineering.installer.wizard import run_wizard
+
+        detected = _detected()
+
+        with patch("ai_engineering.installer.wizard.questionary") as mock_q:
+            mock_q.checkbox.return_value.ask.side_effect = [
+                None,  # stacks -> Ctrl+C
+                None,  # providers
+                None,  # ides
+            ]
+            mock_q.select.return_value.ask.return_value = None  # vcs
+
+            result = run_wizard(detected)
+
+            assert result.stacks == []
+            assert result.providers == []
+            assert result.ides == []
+            assert result.vcs == "github"
+
+    def test_select_returns_none_defaults_to_github(self) -> None:
+        from ai_engineering.installer.wizard import run_wizard
+
+        detected = _detected(vcs="azure_devops")
+
+        with patch("ai_engineering.installer.wizard.questionary") as mock_q:
+            mock_q.checkbox.return_value.ask.side_effect = [
+                ["python"],
+                ["claude_code"],
+                ["terminal"],
+            ]
+            mock_q.select.return_value.ask.return_value = None
+
+            result = run_wizard(detected)
+
+            assert result.vcs == "github"
+
+
+# ---------------------------------------------------------------------------
+# Empty user selection
+# ---------------------------------------------------------------------------
+
+
+class TestEmptySelection:
+    """User selects nothing in checkboxes."""
+
+    def test_empty_stacks_selection(self) -> None:
+        from ai_engineering.installer.wizard import run_wizard
+
+        detected = _detected(stacks=["python"])
+
+        with patch("ai_engineering.installer.wizard.questionary") as mock_q:
+            mock_q.checkbox.return_value.ask.side_effect = [
+                [],  # user deselected everything
+                ["claude_code"],
+                ["terminal"],
+            ]
+            mock_q.select.return_value.ask.return_value = "github"
+
+            result = run_wizard(detected)
+
+            assert result.stacks == []
+
+    def test_all_empty_selections(self) -> None:
+        from ai_engineering.installer.wizard import run_wizard
+
+        detected = _detected()
+
+        with patch("ai_engineering.installer.wizard.questionary") as mock_q:
+            mock_q.checkbox.return_value.ask.side_effect = [
+                [],
+                [],
+                [],
+            ]
+            mock_q.select.return_value.ask.return_value = "github"
+
+            result = run_wizard(detected)
+
+            assert result.stacks == []
+            assert result.providers == []
+            assert result.ides == []
+            assert result.vcs == "github"

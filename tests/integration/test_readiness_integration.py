@@ -26,8 +26,7 @@ from ai_engineering.detector.readiness import (
     check_tools_for_stacks,
     remediate_missing_tools,
 )
-from ai_engineering.state.defaults import default_install_manifest
-from ai_engineering.state.io import write_json_model
+from ai_engineering.state.defaults import default_install_state
 
 pytestmark = pytest.mark.integration
 
@@ -325,13 +324,22 @@ class TestCheckOperationalReadiness:
         report = check_operational_readiness(tmp_path)
         assert report.tools == []
 
-    def test_reads_manifest_auth_cicd_policy(self, tmp_path) -> None:
-        manifest_path = tmp_path / ".ai-engineering" / "state" / "install-manifest.json"
-        manifest_path.parent.mkdir(parents=True, exist_ok=True)
-        manifest = default_install_manifest(vcs_provider="github")
-        manifest.tooling_readiness.gh.authenticated = True
-        manifest.branch_policy.applied = False
-        write_json_model(manifest_path, manifest)
+    def test_reads_state_auth_cicd_policy(self, tmp_path) -> None:
+        from ai_engineering.state.models import ToolEntry
+        from ai_engineering.state.service import save_install_state
+
+        state_dir = tmp_path / ".ai-engineering" / "state"
+        state_dir.mkdir(parents=True, exist_ok=True)
+        state = default_install_state()
+        state.tooling["gh"] = ToolEntry(installed=True, authenticated=True)
+        state.branch_policy.applied = False
+        save_install_state(state_dir, state)
+
+        # manifest.yml needed for config reader
+        ai_dir = tmp_path / ".ai-engineering"
+        (ai_dir / "manifest.yml").write_text(
+            "schema_version: '2.0'\nproviders:\n  vcs: github\n  stacks:\n    - python\n"
+        )
 
         report = check_operational_readiness(tmp_path)
         by_name = {t.name: t.available for t in report.tools}

@@ -1,438 +1,262 @@
-# SPEC: GitHub Copilot Subagent Orchestration — Full Parity with Claude Code
-
-## Status: APPROVED
-
-## Refs
-
-- Official docs: https://code.visualstudio.com/docs/copilot/customization/custom-agents (Mar 2026)
-- Inspiration: returngis.net — "Haz que tus custom agents sean subagents de GitHub Copilot" (Feb 2026)
-- Decisions: DEC-022 (GitHub Agentic Workflows), DEC-023 (Autopilot invocation-as-approval)
-- Manifest: `.ai-engineering/manifest.yml` → `providers.ides: [claude_code, github_copilot]`
-
+---
+id: spec-068
+title: "State Unification: Eliminate tools.json, Redesign install-manifest.json, Model manifest.yml"
+status: draft
+created: 2026-03-25
+refs: []
 ---
 
-## Problem Statement
+# spec-068: State Unification
+
+## Problem
+
+Three state/config files store overlapping information with no clear contract:
+
+1. **`manifest.yml`** (YAML, human + framework-managed) — project config: vcs, stacks, ides, quality gates, skills registry. No Pydantic model. Read via raw `yaml.safe_load()` or regex. 2 direct consumers.
 
-ai-engineering tiene **paridad 100% en lógica** entre Claude Code y GitHub Copilot (9 agentes, 37 skills, hooks configurados). Sin embargo, los agentes de Copilot **no orquestan subagentes** porque:
+2. **`install-manifest.json`** (JSON, machine-managed) — duplicates config from manifest.yml (stacks, ides, providers, vcs) AND stores runtime state (tooling_readiness, branch_policy, operational_readiness). 43 refs in 24 files.
 
-1. **Ningún agente orquestador tiene el tool `agent`** en su frontmatter — requerido por Copilot para delegar a subagentes.
-2. **Ningún agente orquestador declara la propiedad `agents`** — la lista explícita de subagentes permitidos que Copilot necesita para el routing.
-3. **No hay `handoffs` configurados** — la funcionalidad nativa de Copilot para transiciones guiadas entre agentes (Plan → Build → Verify) no se aprovecha.
-4. **Las instrucciones usan sintaxis genérica** (`Dispatch Agent(Build)`) sin referenciar el mecanismo nativo de delegación de Copilot.
-5. **No hay documentación** sobre cómo usar subagentes en los 3 entornos (VS Code, CLI terminal, Coding Agent cloud).
-6. **No se usa `hooks` per-agent** — Copilot soporta hooks scoped al agente (e.g., auto-format en Build) via `chat.useCustomAgentHooks`.
+3. **`tools.json`** (JSON, machine-managed) — credential metadata for GitHub, SonarCloud, Azure DevOps. 15 refs in 4 files. Only created when user runs `ai-eng setup platforms`. Orphaned otherwise.
 
-### Hallazgo clave de la documentación oficial
+### Specific issues
 
-La propiedad `infer` está **DEPRECATED**. Las propiedades correctas son:
+- **Config duplication**: `manifest.yml:providers.stacks` = `["python"]` AND `install-manifest.json:installedStacks` = `["python"]`. Same data, two sources of truth, can diverge.
+- **No typed access to manifest.yml**: Consumers use `yaml.safe_load()` -> raw dict, regex extraction, or custom dotted-path evaluation. No validation, no autocomplete, no schema enforcement.
+- **tools.json is orphaned**: Never created during install. Only appears after `ai-eng setup platforms`. Doctor checks read it but it may not exist.
+- **`_offer_platform_onboarding` re-detects instead of reading manifest**: After install gathers stacks/ides/vcs/providers and saves to manifest, the platform onboarding block ignores all of it and re-scans the filesystem.
+- **Sonar prompt embedded in install flow**: `_offer_platform_onboarding` prompts "Configure SonarCloud?" during install. This is a setup concern, not an install concern.
 
-| Propiedad | Default | Propósito |
-|-----------|---------|-----------|
-| `user-invocable` | `true` | Visible en el picker de agentes |
-| `disable-model-invocation` | `false` | Permite/bloquea invocación como subagente |
-| `agents` | (none) | Lista explícita de subagentes permitidos |
-| `handoffs` | (none) | Transiciones guiadas entre agentes |
+## Solution
 
-La propiedad `isSticky` **NO EXISTE** en Copilot.
+Three changes:
 
-**Nota sobre defaults**: Los 9 agentes usan los valores por defecto de `user-invocable` (true) y `disable-model-invocation` (false). No se necesitan overrides porque todos los agentes deben ser: (a) visibles en el picker para invocación directa, y (b) invocables como subagentes por agentes orquestadores. La delegación se controla via la propiedad `agents` del orquestador (allowlist explícita), no bloqueando el subagente.
+### A) Create `ManifestConfig` Pydantic model for `manifest.yml`
 
-## Goal
+Typed read access to the user-editable config file. All consumers that need project config (stacks, ides, vcs, quality gates, work items) read from this model instead of raw YAML.
 
-Alcanzar **paridad funcional completa** con Claude Code en orquestación multi-agente, usando las APIs nativas de Copilot (`agents`, `handoffs`, `agent` tool, per-agent `hooks`), en los tres entornos: VS Code, Copilot CLI terminal, y Coding Agent (cloud).
+### B) Redesign `install-manifest.json` -> `install-state.json`
 
-## Non-Goals
+Strip all config duplication. The state file stores ONLY runtime state that changes during install/setup/doctor lifecycle. Absorb `tools.json` as the `platforms` section.
 
-- Modificar la lógica de los skills (ya son idénticos cross-platform)
-- Cambiar agentes de Claude Code (`.claude/agents/`)
-- Crear nuevos agentes (los 9 existentes cubren todos los roles)
-- Implementar hooks globales de Claude en Copilot (scope de otro spec)
-- Añadir `infer` (deprecated) — usar las propiedades modernas
-- Modificar `AGENTS.md` o `CLAUDE.md` (root instruction files)
-- Modificar `.agents/agents/` mirror (propiedades `agents`, `handoffs` y `hooks` son Copilot-específicas)
+### C) Remove `_offer_platform_onboarding` from install flow
 
----
+Platform credential setup is a post-install concern. Users run `ai-eng setup platforms` explicitly. The install flow ends after the pipeline summary.
 
-## Sync Architecture (Critical Context)
+## Scope
 
-**El flujo de cambios es unidireccional**:
+### In Scope
 
-```
-.claude/ (CANONICAL)
-    │
-    │  scripts/sync_command_mirrors.py
-    │  + AGENT_METADATA dict (static mapping)
-    │
-    ├──▶ .agents/     (generic mirror — tools stripped, refs translated)
-    ├──▶ .github/     (Copilot mirror — tools translated, skills flattened)
-    └──▶ templates/   (install templates)
-```
+**A) ManifestConfig model**
 
-**Regla fundamental**: NUNCA editar mirrors directamente. Todos los cambios van a:
-1. `.claude/` (para lógica de agentes/skills — body text, instrucciones)
-2. `scripts/sync_command_mirrors.py` (para metadata platform-specific — `agents`, `handoffs`, `hooks`)
+1. Create `src/ai_engineering/config/manifest.py` with Pydantic model:
+   ```python
+   class ProvidersConfig(BaseModel):
+       vcs: str = "github"
+       ides: list[str] = Field(default_factory=lambda: ["claude_code"])
+       stacks: list[str] = Field(default_factory=lambda: ["python"])
 
-El sync script tiene:
-- `AgentMeta` dataclass (line 63-72) — metadata per-agent
-- `AGENT_METADATA` dict (line 76-236) — `copilot_tools`, `claude_tools` per agent
-- `generate_copilot_agent()` (line 584-600) — genera frontmatter Copilot
-
-**Las propiedades `agents`, `handoffs`, `hooks` son Copilot-only** — se inyectan SOLO en la generación de `.github/agents/` via el sync script.
-
----
-
-## Requirements
-
-### R1: Extender `AgentMeta` dataclass con propiedades Copilot subagent
-
-**Archivo**: `scripts/sync_command_mirrors.py` (line 63-72)
-
-Añadir campos opcionales a `AgentMeta`:
-
-```python
-@dataclass(frozen=True)
-class AgentMeta:
-    display_name: str
-    description: str
-    model: str
-    color: str
-    copilot_tools: tuple[str, ...]
-    claude_tools: tuple[str, ...]
-    # NEW: Copilot subagent orchestration
-    copilot_agents: tuple[str, ...] = ()      # Allowed subagent names
-    copilot_handoffs: tuple[dict, ...] = ()    # Handoff transitions
-    copilot_hooks: dict | None = None          # Per-agent hooks
-```
-
-### R2: Actualizar `AGENT_METADATA` con datos de subagentes
-
-**Archivo**: `scripts/sync_command_mirrors.py` (line 76-236)
-
-Actualizar las entradas de los 5 agentes orquestadores:
-
-| Agente | `copilot_agents` | `copilot_handoffs` | `copilot_hooks` |
-|--------|-------------------|--------------------|-----------------| 
-| `autopilot` | `('Build', 'Explorer', 'Verify', 'Plan', 'Guard')` | `[{label: "📋 Create PR", agent: "agent", ...}]` | None |
-| `build` | `('Guard', 'Explorer')` | `[{label: "✅ Verify", agent: "Verify", ...}, {label: "🔍 Review", agent: "Review", ...}]` | `{PostToolUse: [{type: command, command: "ruff format --quiet"}]}` |
-| `plan` | `('Explorer', 'Guard')` | `[{label: "▶ Dispatch", agent: "Autopilot", ...}]` | None |
-| `review` | `('Explorer',)` | `[{label: "🔧 Fix Issues", agent: "Build", ...}]` | None |
-| `verify` | `('Explorer',)` | None | None |
-
-Los 4 agentes leaf (explore, guard, guide, simplify) mantienen defaults vacíos.
-
-### R3: Actualizar `generate_copilot_agent()` para serializar nuevas propiedades
-
-**Archivo**: `scripts/sync_command_mirrors.py` (line 584-600)
-
-Modificar la función para:
-1. Añadir `agent` al array de `tools` cuando `copilot_agents` no está vacío
-2. Serializar `agents: [...]` en frontmatter cuando `copilot_agents` existe
-3. Serializar `handoffs: [...]` en frontmatter cuando `copilot_handoffs` existe
-4. Serializar `hooks: {...}` en frontmatter cuando `copilot_hooks` existe
-
-Considerar migrar de frontmatter manual a usar `_serialize_frontmatter()` para mantener consistencia.
-
-### R4: Actualizar body del autopilot CANONICAL con orquestación explícita
-
-**Archivo**: `.claude/agents/ai-autopilot.md` (CANONICAL)
-
-Añadir sección "Subagent Orchestration" al body:
-
-```markdown
-## Subagent Orchestration
-
-You coordinate specialized agents for multi-phase delivery:
-
-1. **Research**: Use the Explorer agent to gather codebase context
-2. **Implement**: Use the Build agent for code changes (fresh context per sub-spec)
-3. **Verify**: Use the Verify agent for anti-hallucination gates
-4. **Govern**: Use the Guard agent for governance advisory (optional)
-5. **Plan**: Use the Plan agent for sub-spec decomposition (optional)
-```
-
-El sync script traducirá los nombres automáticamente para cada plataforma.
-
-### R5: Actualizar body del build CANONICAL con delegación
-
-**Archivo**: `.claude/agents/ai-build.md` (CANONICAL)
-
-Actualizar dos puntos:
-
-1. **Step 2 (guard.advise)**: Cambiar a referencia de subagente
-2. **Step 6 (Dispatch Pattern)**: Añadir Explorer como subagente consultable
-
-### R6: Unificar sintaxis de delegación en CANONICAL
-
-**Archivos**: `.claude/agents/ai-autopilot.md`, `.claude/agents/ai-build.md` (CANONICAL)
-
-Reemplazar TODAS las referencias legacy `Dispatch Agent(X)` por la sintaxis "Use the X agent to..." en los archivos canónicos. El sync propagará el cambio a todos los mirrors.
-
-### R7: Fix bug de path cruzado en autopilot CANONICAL
-
-**Archivo**: `.claude/skills/ai-autopilot/SKILL.md` (CANONICAL)
-
-Verificar y corregir cualquier referencia que cause el bug descubierto en la investigación (`.claude/` path en skill que debería usar path relativo a la plataforma). El sync script traduce paths automáticamente — el bug está en el CANONICAL si el sync lo genera mal, o en el sync script si no traduce correctamente.
-
-### R8: Actualizar dispatch skill CANONICAL con nombres de agentes
-
-**Archivo**: `.claude/skills/ai-dispatch/SKILL.md` (CANONICAL)
-
-Actualizar las referencias genéricas de `Agent(Build)`, `Agent(Verify)`, etc. para usar nombres descriptivos que el sync pueda traducir correctamente.
-
-### R9: Ejecutar sync y verificar mirrors
-
-Después de todos los cambios en canonical + sync script:
-
-```bash
-python scripts/sync_command_mirrors.py --verbose
-ai-eng sync --check  # Debe pasar (exit 0)
-```
-
-Verificar que los `.github/agents/*.agent.md` generados tienen:
-- `agent` en tools (orquestadores)
-- `agents: [...]` con nombres correctos
-- `handoffs: [...]` donde aplique
-- `hooks: {...}` en build
-
-### R10: Documentación de subagentes
-
-Crear `docs/copilot-subagents.md` con guía que incluya:
-- Cómo funciona el sync (canonical → mirrors)
-- Propiedades Copilot-specific inyectadas por el sync
-- Patrones de orquestación por entorno (VS Code, CLI, Coding Agent)
-- Matriz de capacidades
-- Al menos 1 ejemplo por entorno
-
-### R11: Actualizar copilot-instructions.md
-
-Añadir sección "Subagent Orchestration" en `.github/copilot-instructions.md` documentando la capacidad de delegación.
-
-### R12: Decisión en decision-store.json
-
-Registrar como DEC-024:
-- Title: "Copilot subagent orchestration via sync pipeline"
-- Rationale: Propiedades Copilot-only (`agents`, `handoffs`, `hooks`) se inyectan via `AGENT_METADATA` en el sync script, manteniendo `.claude/` como canonical source sin contaminar con propiedades platform-specific
-- Status: active
-- Criticality: high
-
-### R13: Actualizar mirror_sync validator si necesario
-
-**Archivo**: `src/ai_engineering/validator/categories/mirror_sync.py`
-
-Verificar que el parity validator (spec-006) NO flagee drift por las propiedades Copilot-only (`agents`, `handoffs`, `hooks`) que solo existen en `.github/agents/`. Si flagea, ajustar la lógica de comparación.
-
-> **Nota sobre interacción de hooks**: Los per-agent hooks y los global hooks (`.github/hooks/hooks.json`) son pipelines independientes. El hook global `postToolUse` (telemetría) y el per-agent hook (auto-format) se ejecutan ambos sin bloquearse mutuamente.
-
-> **Requisito VS Code**: Per-agent hooks requieren `chat.useCustomAgentHooks: true` en VS Code settings. Esto es **opcional** — la delegación de subagentes (R1-R3) funciona SIN este setting.
-
----
-
-## Architecture
-
-### Change Flow (Sync Pipeline)
-
-```
-┌──────────────────────────────────────────────────────┐
-│  STEP 1: Edit canonical sources                       │
-│                                                       │
-│  .claude/agents/ai-autopilot.md   (body text)        │
-│  .claude/agents/ai-build.md      (body text)         │
-│  .claude/skills/ai-dispatch/     (skill logic)       │
-│  .claude/skills/ai-autopilot/    (fix path bug)      │
-│                                                       │
-│  scripts/sync_command_mirrors.py  (AGENT_METADATA)   │
-│    ├── AgentMeta: +copilot_agents, +copilot_handoffs │
-│    ├── AGENT_METADATA: per-agent subagent config     │
-│    └── generate_copilot_agent(): serialize new props  │
-└───────────────────────┬──────────────────────────────┘
-                        │
-                        ▼  python scripts/sync_command_mirrors.py
-┌──────────────────────────────────────────────────────┐
-│  STEP 2: Auto-generated mirrors                       │
-│                                                       │
-│  .github/agents/autopilot.agent.md  ← agents, handoffs│
-│  .github/agents/build.agent.md     ← agents, handoffs, hooks│
-│  .github/agents/plan.agent.md      ← agents, handoffs│
-│  .github/agents/review.agent.md    ← agents, handoffs│
-│  .github/agents/verify.agent.md    ← agents          │
-│  .github/prompts/ai-dispatch.prompt.md  ← updated refs│
-│  .github/prompts/ai-autopilot.prompt.md ← fixed path │
-│                                                       │
-│  .agents/agents/ai-*.md            ← body only (no   │
-│  .agents/skills/*/SKILL.md           Copilot props)   │
-└───────────────────────┬──────────────────────────────┘
-                        │
-                        ▼  ai-eng sync --check
-┌──────────────────────────────────────────────────────┐
-│  STEP 3: Validation                                   │
-│                                                       │
-│  ✓ SHA-256 parity check (canonical vs mirrors)       │
-│  ✓ Manifest coherence (37 skills, 9 agents)          │
-│  ✓ Cross-reference validation (no broken paths)      │
-│  ✓ CI gate: exit 0 = all mirrors in sync             │
-└──────────────────────────────────────────────────────┘
-```
-
-### Delegation Model (3 entornos)
-
-```
-┌──────────────────────────────────────────────────────────┐
-│                      VS Code Chat                         │
-│                                                           │
-│  User → @Autopilot (tools: [agent], agents: [Build,...]) │
-│           ├── Build agent (implementation)                │
-│           │     └── handoff → Verify                     │
-│           ├── Verify agent (anti-hallucination gates)    │
-│           ├── Explorer agent (codebase research)         │
-│           └── Guard agent (governance advisory)          │
-│                                                           │
-│  Handoffs: Plan ──▶ Autopilot ──▶ PR                    │
-│            Build ──▶ Verify / Review                     │
-│            Review ──▶ Build (fix issues)                 │
-│                                                           │
-│  No special VS Code setting needed — works by default    │
-└──────────────────────────────────────────────────────────┘
-
-┌──────────────────────────────────────────────────────────┐
-│                   Copilot CLI Terminal                     │
-│                                                           │
-│  User → /ai-autopilot → task tool delegation              │
-│           ├── task(agent_type: "build", ...)              │
-│           ├── task(agent_type: "verify", ...)             │
-│           └── task(agent_type: "explore", ...)            │
-│                                                           │
-│  Agents auto-registered from .github/agents/*.agent.md   │
-│  Handoffs not applicable (CLI uses task tool directly)    │
-└──────────────────────────────────────────────────────────┘
-
-┌──────────────────────────────────────────────────────────┐
-│                Coding Agent (Cloud)                        │
-│                                                           │
-│  Issue → Coding Agent → repo .agent.md discovery          │
-│           ├── Discovers agents from .github/agents/       │
-│           ├── Uses agents property for delegation         │
-│           └── Handoffs available for workflow transitions  │
-│                                                           │
-│  No config needed — agents discovered from repo           │
-└──────────────────────────────────────────────────────────┘
-```
-
-### Orchestration Flow (Autopilot with subagents)
-
-```
-autopilot.agent.md
-  tools: [agent, codebase, githubRepo, readFile, runCommands, search]
-  agents: [Build, Explorer, Verify, Plan, Guard]
-    │
-    ├── Split Phase: decompose spec into sub-specs
-    │
-    ├── Explore Phase: delegate to Explorer agent (parallel)
-    │     └── Explorer reads codebase, returns findings
-    │
-    ├── Execute Loop (per sub-spec):
-    │     ├── Plan: read sub-spec + skill SKILL.md
-    │     ├── Implement: delegate to Build agent (fresh context)
-    │     │     └── Build.hooks.PostToolUse: auto-format via ruff
-    │     ├── Verify: delegate to Verify agent (anti-hallucination)
-    │     └── Commit: if verify passes, incremental commit
-    │
-    ├── Deliver: handoff → PR creation
-    │
-    └── Handoff buttons:
-          └── [📋 Create PR] → default agent with PR prompt
-```
-
-### Handoff Chain (VS Code)
-
-```
-@Plan ──[▶ Dispatch Implementation]──▶ @Autopilot
-                                          │
-                        ┌─────────────────┼─────────────────┐
-                        ▼                 ▼                 ▼
-                   @Explorer          @Build            @Verify
-                                        │
-                              ┌─────────┼─────────┐
-                              ▼                   ▼
-                   [✅ Verify Changes]    [🔍 Review Changes]
-                         │                      │
-                         ▼                      ▼
-                      @Verify              @Review
-                                              │
-                                    [🔧 Fix Issues]
-                                              │
-                                              ▼
-                                           @Build
-```
-
----
+   class QualityConfig(BaseModel):
+       coverage: int = 80
+       duplication: int = 3
+       cyclomatic: int = 10
+       cognitive: int = 15
+
+   class ManifestConfig(BaseModel):
+       schema_version: str = "2.0"
+       framework_version: str
+       name: str
+       providers: ProvidersConfig
+       quality: QualityConfig
+       tooling: list[str]
+       # ... remaining sections
+   ```
+
+2. Create `src/ai_engineering/config/loader.py` with `load_manifest_config(root: Path) -> ManifestConfig` -- YAML parse + Pydantic validation.
+
+3. Migrate consumers that read config from `install-manifest.json` to `ManifestConfig`:
+   - `policy/gates.py` -- `installed_stacks` -> `manifest.providers.stacks`
+   - `vcs/factory.py` -- `providers.primary` -> `manifest.providers.vcs` AND `tooling_readiness.gh.mode` -> `InstallState.tooling.gh.mode` (needs BOTH models)
+   - `installer/operations.py` -- stack/ide/provider add/remove -> mutate manifest.yml
+   - `skills/service.py` -- already reads manifest.yml, switch to typed model
+   - `work_items/service.py` -- already reads manifest.yml, switch to typed model
+   - `validator/categories/counter_accuracy.py` -- regex -> typed model
+   - `validator/categories/instruction_consistency.py` -- raw dict -> typed model
+
+**B) Redesign state file**
+
+4. Rename `install-manifest.json` -> `install-state.json`. New schema:
+   ```json
+   {
+     "schema_version": "2.0",
+     "installed_at": "2026-03-25T10:00:00Z",
+     "tooling": {
+       "gh": { "installed": true, "authenticated": true, "mode": "cli", "scopes": ["repo"] },
+       "az": { "installed": false, "authenticated": false, "mode": "api" },
+       "gitleaks": { "installed": true },
+       "ruff": { "installed": true },
+       "semgrep": { "installed": false }
+     },
+     "platforms": {
+       "sonar": {
+         "configured": true,
+         "url": "https://sonarcloud.io",
+         "project_key": "my-project",
+         "organization": "my-org",
+         "credential_ref": { "service": "ai-engineering/sonar", "username": "token" }
+       }
+     },
+     "branch_policy": { "applied": true, "mode": "cli" },
+     "operational_readiness": { "status": "READY", "pending_steps": [] },
+     "release": { "last_version": "0.4.0", "last_released_at": "2026-03-20T00:00:00Z" }
+   }
+   ```
+
+5. Create `InstallState` Pydantic model in `src/ai_engineering/state/models.py` (replaces `InstallManifest`).
+
+6. Delete `ToolsState`, `GitHubConfig`, `SonarConfig`, `AzureDevOpsConfig` from `credentials/models.py`.
+
+7. Migrate `CredentialService.load_tools_state()` / `save_tools_state()` -> `load_install_state()` / `save_install_state()` reading from `install-state.json`.
+
+8. Migrate all 24 files that import `InstallManifest`:
+   - Files that read **config** (stacks, ides, providers) -> `ManifestConfig`
+   - Files that read **state** (tooling, platforms, branch_policy) -> `InstallState`
+   - Files that read both -> import both models
+
+9. Add migration in `updater/service.py`:
+   - If `install-manifest.json` exists: read it, extract state-only fields, write `install-state.json`, delete `install-manifest.json`
+   - If `tools.json` exists: read it, merge platform data into `install-state.json`, delete `tools.json`
+
+**C) Remove platform onboarding from install**
+
+10. Delete `_offer_platform_onboarding()` from `core.py`.
+11. Remove the call at `core.py:307`.
+12. `ai-eng setup platforms` remains unchanged as the explicit entry point.
+13. Add "Run `ai-eng setup platforms` to configure credentials" to the install summary's `suggest_next` list.
+
+**D) Tests**
+
+14. Unit tests for `ManifestConfig` model (parse valid manifest.yml, handle missing sections, validate defaults).
+15. Unit tests for `InstallState` model (roundtrip serialize/deserialize, migration from old format).
+16. Update existing tests that import `InstallManifest` -> `InstallState` or `ManifestConfig`.
+17. Update setup.py tests to use `install-state.json` instead of `tools.json`.
+
+### Out of Scope
+
+- Changes to `manifest.yml` structure or content (it stays as-is, we just model it)
+- Changes to the 6-phase install pipeline logic
+- Changes to `ai-eng setup platforms` command behavior
+- Changes to the credential service keyring operations
+- Moving manifest.yml to a different location
+- Modifying the skills/agents registry sections of manifest.yml
+
+## Design Decisions
+
+| # | Decision | Rationale |
+|---|----------|-----------|
+| D1 | `ManifestConfig` is read-only for most consumers | manifest.yml is human-editable. Only `installer/operations.py` (stack/ide/provider add/remove) writes to it. All others read. |
+| D2 | State file stays JSON, not YAML | Pydantic serializes cleanly to JSON. YAML write is fragile (comment preservation, ordering). JSON is the right format for machine-managed state. |
+| D3 | Rename to `install-state.json` | Signals the change: this is runtime state, not a manifest. Old name was confusing -- "install manifest" sounds like config. |
+| D4 | `tooling` section is flat, not nested by category | Current `ToolingReadiness` has `gh`, `az`, `python.ruff`, `python.uv` etc. Flatten to tool-level. Stack-specific tooling grouping adds complexity without value -- `ruff` is `ruff` whether it's under `python` or not. `gh.mode` and `az.mode` are preserved (consumers like `vcs/factory.py` depend on them). |
+| D5 | `platforms` absorbs `tools.json` | Credential metadata (URL, project_key, credential_ref) is runtime state, not config. Lives alongside tooling state, not in manifest.yml. |
+| D6 | Migration is mandatory in `ai-eng update` | Projects with existing `install-manifest.json` and/or `tools.json` must be migrated automatically. No manual intervention. |
+| D7 | Remove `_offer_platform_onboarding` entirely | It re-detects what install already knows, duplicates the SonarCloud prompt, and the detected list doesn't even pass through to `setup_platforms_cmd`. Clean cut. |
 
 ## Acceptance Criteria
 
-### Sync Pipeline (R1-R3)
-1. `AgentMeta` dataclass tiene campos `copilot_agents`, `copilot_handoffs`, `copilot_hooks`
-2. `AGENT_METADATA` tiene subagent data para los 5 orquestadores (autopilot, build, plan, review, verify)
-3. `generate_copilot_agent()` serializa `agents`, `handoffs`, `hooks` en frontmatter generado
+### ManifestConfig Model
+- [ ] AC1: `ManifestConfig` parses the current `manifest.yml` without errors
+- [ ] AC2: `load_manifest_config()` returns typed model with all sections accessible
+- [ ] AC3: Missing optional sections use sensible defaults (same as current behavior)
+- [ ] AC4: `policy/gates.py` reads stacks from `ManifestConfig` instead of `InstallManifest`
+- [ ] AC5: `vcs/factory.py` reads VCS provider from `ManifestConfig` instead of `InstallManifest`
 
-### Generated Mirrors (R9 — verificado post-sync)
-4. Los 5 `.github/agents/*.agent.md` generados tienen `agent` en `tools`
-5. Los 5 `.github/agents/*.agent.md` generados tienen `agents: [...]` correctos
-6. Los 4 con handoffs tienen `handoffs: [...]` (plan, autopilot, build, review)
-7. `build.agent.md` generado tiene `hooks: {PostToolUse: ...}`
-8. `ai-eng sync --check` pasa (exit 0) después de regenerar mirrors
+### State File Redesign
+- [ ] AC6: `install-state.json` has no config duplication (no stacks, ides, providers, framework_version)
+- [ ] AC7: `install-state.json` includes `platforms` section (absorbed from tools.json)
+- [ ] AC8: `InstallState` Pydantic model validates the new schema
+- [ ] AC9: `CredentialService` reads/writes platform state from `install-state.json`
+- [ ] AC10: `tools.json` is no longer created or read by any code path
 
-### Canonical Body Changes (R4-R8)
-9. `.claude/agents/ai-autopilot.md` tiene sección "Subagent Orchestration"
-10. `.claude/agents/ai-build.md` referencia Guard y Explorer como subagentes
-11. No coexisten `Dispatch Agent(X)` y "Use the X agent" en ningún archivo canonical
-12. El bug de path `.claude/` en la skill autopilot está corregido en canonical
+### Migration
+- [ ] AC11: `ai-eng update` migrates `install-manifest.json` -> `install-state.json`
+- [ ] AC11a: If neither `install-manifest.json` nor `tools.json` exists, migration is a no-op with no error
+- [ ] AC12: `ai-eng update` merges `tools.json` data into `install-state.json`
+- [ ] AC13: Migration deletes old files after successful conversion
+- [ ] AC14: Migration is idempotent — if `install-state.json` exists and old files are absent, migration is a no-op. If both old and new exist (partial migration), old file takes precedence and overwrites
 
-### Documentation & Governance (R10-R13)
-13. `docs/copilot-subagents.md` existe con ≥1 ejemplo por entorno
-14. `.github/copilot-instructions.md` tiene sección "Subagent Orchestration"
-15. `decision-store.json` tiene DEC-024
-16. Mirror sync validator no flagea drift por propiedades Copilot-only
+### Platform Onboarding Removal
+- [ ] AC15: `ai-eng install` does NOT prompt "Configure SonarCloud/SonarQube?"
+- [ ] AC16: `ai-eng install` does NOT prompt "Configure platform credentials now?"
+- [ ] AC17: Install summary suggests `ai-eng setup platforms` as a next step
+- [ ] AC18: `ai-eng setup platforms` continues to work unchanged
 
-### Negative Checks
-17. Los 4 leaf agents (explore, guard, guide, simplify) NO tienen `agent` en tools, `agents`, `handoffs`, ni `hooks`
-18. `.claude/agents/` no contiene propiedades Copilot-only (`agents`, `handoffs`, `hooks`)
-19. `.agents/agents/` no contiene propiedades Copilot-only
-20. Linters pasan: `ruff check src/ scripts/` y `gitleaks detect`
+### YAML Write (operations.py)
+- [ ] AC19: `stack add` / `stack remove` persists changes to `manifest.yml`
+- [ ] AC20: YAML roundtrip preserves existing comments and structure in manifest.yml
+- [ ] AC21: `provider add` / `provider remove` persists to `manifest.yml` and verifies read-back
 
----
+### Tests
+- [ ] AC22: Unit tests for ManifestConfig parsing (valid, partial, empty)
+- [ ] AC23: Unit tests for InstallState (serialize, deserialize, migration)
+- [ ] AC24: All existing tests pass after migration (zero regressions)
+- [ ] AC25: No imports of `InstallManifest` remain in production code (verified by grep)
+- [ ] AC26: No imports of `ToolsState` remain in production code (verified by grep)
+- [ ] AC27: No production code references the string `tools.json` (verified by grep)
 
-## Rollback Plan
+## Files Changed
 
-Si la delegación de subagentes causa mis-routing (agentes incorrectos reciben tareas):
-
-1. Revertir los cambios de frontmatter (git revert del commit)
-2. Los agentes siguen funcionando como invocación directa sin delegación
-3. Los handoffs desaparecen — no hay side effects
-4. Los per-agent hooks se desactivan al revertir
-
----
+| Action | Path | Notes |
+|--------|------|-------|
+| create | `src/ai_engineering/config/manifest.py` | ManifestConfig Pydantic model |
+| create | `src/ai_engineering/config/loader.py` | YAML loader with validation |
+| create | `src/ai_engineering/config/__init__.py` | Package init |
+| modify | `src/ai_engineering/state/models.py` | Replace InstallManifest with InstallState |
+| modify | `src/ai_engineering/credentials/models.py` | Remove ToolsState, GitHubConfig, SonarConfig, AzureDevOpsConfig |
+| modify | `src/ai_engineering/credentials/service.py` | Migrate load/save to install-state.json |
+| modify | `src/ai_engineering/cli_commands/core.py` | Remove _offer_platform_onboarding |
+| modify | `src/ai_engineering/cli_commands/setup.py` | Use InstallState instead of ToolsState |
+| modify | `src/ai_engineering/installer/service.py` | Use ManifestConfig + InstallState |
+| modify | `src/ai_engineering/installer/operations.py` | Read/write manifest.yml for config mutations |
+| modify | `src/ai_engineering/vcs/factory.py` | Read VCS from ManifestConfig |
+| modify | `src/ai_engineering/policy/gates.py` | Read stacks from ManifestConfig |
+| modify | `src/ai_engineering/doctor/service.py` | Use InstallState for platform checks |
+| modify | `src/ai_engineering/doctor/checks/readiness.py` | Use InstallState |
+| modify | `src/ai_engineering/doctor/checks/state_files.py` | Check install-state.json |
+| modify | `src/ai_engineering/updater/service.py` | Migration logic + new paths |
+| modify | `src/ai_engineering/state/defaults.py` | Default InstallState factory |
+| modify | `src/ai_engineering/state/service.py` | Load/save InstallState |
+| modify | `src/ai_engineering/release/orchestrator.py` | Use InstallState for release tracking |
+| modify | `src/ai_engineering/skills/service.py` | Use ManifestConfig |
+| modify | `src/ai_engineering/work_items/service.py` | Use ManifestConfig |
+| modify | `src/ai_engineering/validator/categories/counter_accuracy.py` | Use ManifestConfig |
+| modify | `src/ai_engineering/validator/categories/instruction_consistency.py` | Use ManifestConfig |
+| modify | `src/ai_engineering/maintenance/report.py` | Use ManifestConfig for version |
+| modify | `src/ai_engineering/installer/phases/__init__.py` | Remove InstallManifest import, use InstallState |
+| modify | `src/ai_engineering/installer/phases/detect.py` | Rename path string to install-state.json |
+| modify | `src/ai_engineering/installer/phases/state.py` | Rename path string to install-state.json |
+| modify | `src/ai_engineering/installer/phases/governance.py` | Rename path string to install-state.json |
+| modify | `src/ai_engineering/state/audit.py` | Update _STATE_REGENERATED set to install-state.json |
+| modify | `src/ai_engineering/lib/signals.py` | Rename path string to install-state.json |
+| modify | `src/ai_engineering/cli_commands/guide.py` | Rename path string to install-state.json |
+| modify | `src/ai_engineering/detector/readiness.py` | Use InstallState (reads tooling + branch_policy) |
+| modify | `src/ai_engineering/credentials/__init__.py` | Remove ToolsState re-exports if present |
+| delete | (runtime) `tools.json` | Migrated into install-state.json |
+| rename | (runtime) `install-manifest.json` -> `install-state.json` | State file redesign |
+| create | `tests/unit/config/test_manifest.py` | ManifestConfig tests |
+| create | `tests/unit/state/test_install_state.py` | InstallState tests |
+| modify | `tests/` (multiple) | Update InstallManifest -> InstallState imports |
 
 ## Risks
 
-| Risk | Probability | Impact | Mitigation |
-|------|------------|--------|------------|
-| Copilot CLI no soporta `agents` property | Media | Bajo | CLI usa `task` tool directamente; `agents` es solo para VS Code routing |
-| Handoffs no soportados en Coding Agent | Baja | Bajo | Fail-open: agentes siguen delegando via `agents` property |
-| `chat.useCustomAgentHooks` deshabilitado por defecto | Alta | Bajo | Documentar en guide; hooks son enhancement, no requisito |
-| Agente incorrecto recibe delegación | Baja | Medio | `agents` property es allowlist explícita — limita routing |
-| Coding Agent ignora per-agent hooks | Alta | Bajo | Hooks son VS Code-only enhancement; no bloquea funcionalidad core |
-| Parity validator (spec-006) flag drift en `.agents/` mirror | Media | Bajo | Si el validator flagea drift por `agents`/`handoffs`/`hooks` (propiedades Copilot-specific), ajustar la lógica de comparación del validator para ignorar estas propiedades. Esto es un fix menor, no un spec separado |
+| Risk | Mitigation |
+|------|-----------|
+| 24-file migration is error-prone | Mechanical: search/replace InstallManifest imports, verify each caller reads config vs state. Type checker catches mismatches. |
+| manifest.yml format changes break ManifestConfig | Model uses optional fields with defaults. `yaml.safe_load()` handles missing sections. Versioned via `schema_version`. |
+| Existing installations have install-manifest.json | Migration in `ai-eng update` handles conversion automatically. |
+| tools.json may not exist (never ran setup) | Migration handles absence gracefully -- `platforms` section starts empty. |
+| `installer/operations.py` now writes YAML | Use `ruamel.yaml` (required dependency) for comment-preserving writes. AC20 validates roundtrip correctness. |
 
----
+## Dependencies
 
-## Out of Scope
-
-- Hooks globales de seguridad (prompt-injection-guard para Copilot)
-- Cost tracking para Copilot
-- Instinct extraction para Copilot
-- Nuevos agentes o skills
-- Editar `.github/agents/` o `.github/prompts/` directamente (son mirrors auto-generados)
-- Editar `.agents/agents/` directamente (es mirror auto-generado)
-- Añadir propiedades Copilot-only a `.claude/` canonical (se inyectan via sync script)
-- Cambios en `AGENTS.md` o `CLAUDE.md` (root instruction files)
-- Cambios en `manifest.yml` (agent count y names no cambian)
-- Crear `.vscode/settings.json` (subagentes funcionan por defecto)
+- `pyyaml` (already a dependency, used for read-only loading)
+- `ruamel.yaml` (new dependency, required for comment-preserving YAML writes in `operations.py`)

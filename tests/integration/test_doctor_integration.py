@@ -88,18 +88,18 @@ class TestStateFileChecks:
         assert all(c.status == CheckStatus.OK for c in state_checks)
         assert len(state_checks) == 3
 
-    def test_fails_on_missing_manifest(self, installed_project: Path) -> None:
-        manifest = installed_project / ".ai-engineering" / "state" / "install-manifest.json"
-        manifest.unlink()
+    def test_fails_on_missing_state(self, installed_project: Path) -> None:
+        state_file = installed_project / ".ai-engineering" / "state" / "install-state.json"
+        state_file.unlink()
         report = diagnose(installed_project)
-        check = _find_check(report, "state:install-manifest.json")
+        check = _find_check(report, "state:install-state.json")
         assert check.status == CheckStatus.FAIL
 
-    def test_fails_on_corrupt_manifest(self, installed_project: Path) -> None:
-        manifest = installed_project / ".ai-engineering" / "state" / "install-manifest.json"
-        manifest.write_text("{invalid json", encoding="utf-8")
+    def test_fails_on_corrupt_state(self, installed_project: Path) -> None:
+        state_file = installed_project / ".ai-engineering" / "state" / "install-state.json"
+        state_file.write_text("{invalid json", encoding="utf-8")
         report = diagnose(installed_project)
-        check = _find_check(report, "state:install-manifest.json")
+        check = _find_check(report, "state:install-state.json")
         assert check.status == CheckStatus.FAIL
 
 

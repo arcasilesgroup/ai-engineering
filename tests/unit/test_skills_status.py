@@ -37,14 +37,14 @@ def test_list_local_skill_status_reports_missing_requirements(tmp_path: Path) ->
             "  bins: [definitely-missing-binary]\n"
             "  anyBins: [missing-a, missing-b]\n"
             "  env: [MISSING_ENV]\n"
-            "  config: [providers.primary]\n"
+            "  config: [providers.vcs]\n"
             "---\n\n"
             "# Sample\n"
         ),
     )
     manifest = tmp_path / ".ai-engineering" / "manifest.yml"
     manifest.parent.mkdir(parents=True, exist_ok=True)
-    manifest.write_text("providers:\n  primary: github\n", encoding="utf-8")
+    manifest.write_text("providers:\n  vcs: github\n", encoding="utf-8")
 
     status = list_local_skill_status(tmp_path)
     assert len(status) == 1

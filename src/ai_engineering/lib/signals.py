@@ -647,7 +647,7 @@ def decision_store_health(project_root: Path) -> dict[str, Any]:
 
 
 def adoption_metrics(project_root: Path) -> dict[str, Any]:
-    """Read install-manifest.json and compute adoption metrics.
+    """Read manifest.yml config and install-state.json to compute adoption metrics.
 
     Args:
         project_root: Repository root path.
@@ -664,25 +664,23 @@ def adoption_metrics(project_root: Path) -> dict[str, Any]:
         "hooks_verified": False,
     }
     try:
-        path = project_root / ".ai-engineering" / "state" / "install-manifest.json"
-        if not path.exists():
-            return defaults
+        from ai_engineering.config.loader import load_manifest_config
+        from ai_engineering.state.service import load_install_state
 
-        data = json.loads(path.read_text(encoding="utf-8"))
+        config = load_manifest_config(project_root)
+        state_dir = project_root / ".ai-engineering" / "state"
+        state = load_install_state(state_dir)
 
-        stacks = data.get("installedStacks", [])
-        ides = data.get("installedIdes", [])
-
-        providers_data = data.get("providers", {})
+        stacks = list(config.providers.stacks)
+        ides = list(config.providers.ides)
         providers = {
-            "primary": providers_data.get("primary", "unknown"),
-            "enabled": providers_data.get("enabled", []),
+            "primary": config.providers.vcs,
+            "enabled": [config.providers.vcs],
         }
 
-        tooling = data.get("toolingReadiness", {})
-        git_hooks = tooling.get("gitHooks", {})
-        hooks_installed = git_hooks.get("installed", False)
-        hooks_verified = git_hooks.get("integrityVerified", False)
+        git_hooks_entry = state.tooling.get("git_hooks")
+        hooks_installed = git_hooks_entry.installed if git_hooks_entry else False
+        hooks_verified = git_hooks_entry.authenticated if git_hooks_entry else False
 
         return {
             "stacks": stacks,

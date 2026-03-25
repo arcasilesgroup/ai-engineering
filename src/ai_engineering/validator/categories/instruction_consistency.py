@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from ai_engineering.config.loader import load_manifest_config
 from ai_engineering.validator._shared import (
     _REQUIRED_SUBSECTIONS,
     _SUBSECTION_PATTERN,
@@ -148,19 +149,9 @@ def _check_instruction_consistency(
             )
 
     # Get canonical listings from manifest.yml (source of truth)
-    manifest_path = target / ".ai-engineering" / "manifest.yml"
-    canonical_skills: set[str] = set()
-    canonical_agents: set[str] = set()
-    if manifest_path.exists():
-        manifest_content = manifest_path.read_text(encoding="utf-8", errors="replace")
-        # Extract skill names from registry keys (e.g. "ai-commit: {type: ...}")
-        skill_key_re = re.compile(r"^\s+(ai-[a-z0-9-]+):\s*\{", re.MULTILINE)
-        canonical_skills = set(skill_key_re.findall(manifest_content))
-        # Extract agent names from the names list
-        agent_names_re = re.compile(r"^\s+names:\s*\[([^\]]+)\]", re.MULTILINE)
-        agent_match = agent_names_re.search(manifest_content)
-        if agent_match:
-            canonical_agents = {n.strip() for n in agent_match.group(1).split(",") if n.strip()}
+    cfg = load_manifest_config(target)
+    canonical_skills: set[str] = set(cfg.skills.registry.keys())
+    canonical_agents: set[str] = set(cfg.agents.names)
 
     # Compare files with detailed listings against each other
     if len(detailed_skills) >= 2:

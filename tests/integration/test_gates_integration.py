@@ -654,50 +654,26 @@ class TestGetActiveStacks:
         stacks = _get_active_stacks(tmp_path)
         assert stacks == ["python"]
 
-    def test_reads_stacks_from_manifest(self, tmp_path: Path) -> None:
-        import json
-
-        ds_dir = tmp_path / ".ai-engineering" / "state"
-        ds_dir.mkdir(parents=True)
-        (ds_dir / "install-manifest.json").write_text(
-            json.dumps(
-                {
-                    "schemaVersion": "1.1",
-                    "frameworkVersion": "0.1.0",
-                    "installedAt": "2026-02-22T00:00:00Z",
-                    "installedStacks": ["python", "dotnet"],
-                    "installedIdes": [],
-                    "toolingReadiness": {},
-                }
-            )
+    def test_reads_stacks_from_manifest_yml(self, tmp_path: Path) -> None:
+        ai_dir = tmp_path / ".ai-engineering"
+        ai_dir.mkdir(parents=True)
+        (ai_dir / "manifest.yml").write_text(
+            "schema_version: '2.0'\nproviders:\n  stacks:\n    - python\n    - dotnet\n"
         )
         stacks = _get_active_stacks(tmp_path)
         assert stacks == ["python", "dotnet"]
 
-    def test_returns_python_when_manifest_empty_stacks(self, tmp_path: Path) -> None:
-        import json
-
-        ds_dir = tmp_path / ".ai-engineering" / "state"
-        ds_dir.mkdir(parents=True)
-        (ds_dir / "install-manifest.json").write_text(
-            json.dumps(
-                {
-                    "schemaVersion": "1.1",
-                    "frameworkVersion": "0.1.0",
-                    "installedAt": "2026-02-22T00:00:00Z",
-                    "installedStacks": [],
-                    "installedIdes": [],
-                    "toolingReadiness": {},
-                }
-            )
-        )
+    def test_returns_python_when_empty_stacks(self, tmp_path: Path) -> None:
+        ai_dir = tmp_path / ".ai-engineering"
+        ai_dir.mkdir(parents=True)
+        (ai_dir / "manifest.yml").write_text("schema_version: '2.0'\nproviders:\n  stacks: []\n")
         stacks = _get_active_stacks(tmp_path)
         assert stacks == ["python"]
 
-    def test_returns_python_when_manifest_invalid(self, tmp_path: Path) -> None:
-        ds_dir = tmp_path / ".ai-engineering" / "state"
-        ds_dir.mkdir(parents=True)
-        (ds_dir / "install-manifest.json").write_text("invalid json")
+    def test_returns_python_when_config_invalid(self, tmp_path: Path) -> None:
+        ai_dir = tmp_path / ".ai-engineering"
+        ai_dir.mkdir(parents=True)
+        (ai_dir / "manifest.yml").write_text("not: valid: yaml: [")
         stacks = _get_active_stacks(tmp_path)
         assert stacks == ["python"]
 

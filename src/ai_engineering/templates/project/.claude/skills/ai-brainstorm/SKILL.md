@@ -31,6 +31,7 @@ HARD GATE: this skill produces a spec. No implementation happens until the user 
      c. Walk the hierarchy: Feature → User Story → Tasks (follow parent/child relations)
      d. Use all standard and custom fields the platform provides
      e. Pre-fill `refs` section in the generated spec frontmatter
+1.5. **Enhance input** -- follow `handlers/prompt-enhance.md` to evaluate and optimize user input for clarity and specificity before interrogation
 2. **Interrogate** -- follow `handlers/interrogate.md` for the questioning flow
 3. **Propose approaches** -- present 2-3 options with trade-offs (never just one)
 4. **Draft spec** -- write spec to `specs/spec.md`
@@ -41,6 +42,7 @@ HARD GATE: this skill produces a spec. No implementation happens until the user 
 
 | Step | Gate | Output |
 |------|------|--------|
+| Enhance input | Input quality checked | Optimized input (or original if already specific) |
 | Interrogate | All UNKNOWNs resolved | Requirements map |
 | Propose | User selects approach | Chosen design |
 | Spec draft | Written to disk | spec.md |
@@ -67,7 +69,7 @@ HARD GATE: this skill produces a spec. No implementation happens until the user 
 ## Integration
 
 - **Called by**: user directly, or `/ai-plan` when requirements are unclear
-- **Calls**: `handlers/interrogate.md`, `handlers/spec-review.md`
+- **Calls**: `handlers/prompt-enhance.md`, `handlers/interrogate.md`, `handlers/spec-review.md`
 - **Transitions to**: `/ai-plan` (ONLY -- never directly to `ai-build` or `/ai-dispatch`)
 
 $ARGUMENTS

@@ -7,18 +7,13 @@ with sensible initial values. Used by the installer during first-time setup.
 from __future__ import annotations
 
 from .models import (
-    AiProviderConfig,
-    AzureDevOpsExtension,
     DecisionStore,
     FrameworkUpdatePolicy,
-    InstallManifest,
+    InstallState,
     OwnershipEntry,
     OwnershipLevel,
     OwnershipMap,
-    ToolingReadiness,
     UpdateMetadata,
-    VcsExtensions,
-    VcsProviders,
 )
 
 
@@ -38,55 +33,13 @@ def default_update_metadata(*, context: str) -> UpdateMetadata:
     )
 
 
-def default_install_manifest(
-    *,
-    stacks: list[str] | None = None,
-    ides: list[str] | None = None,
-    vcs_provider: str = "github",
-    ai_providers: list[str] | None = None,
-    external_references: dict[str, str] | None = None,
-) -> InstallManifest:
-    """Create a default install manifest for a new installation.
-
-    Args:
-        stacks: Initial stacks to install. Defaults to ["python"].
-        ides: Initial IDEs to install. Defaults to ["terminal"].
-        vcs_provider: Primary VCS provider. Defaults to "github".
-            Accepted values: "github", "azure_devops".
-        ai_providers: AI providers to enable. Defaults to ["claude_code"].
-            First element becomes the primary provider.
+def default_install_state() -> InstallState:
+    """Create a default install state for a new installation.
 
     Returns:
-        InstallManifest with default tooling readiness.
+        InstallState with empty tooling and platforms dicts.
     """
-    enabled = [vcs_provider]
-    if vcs_provider != "github" and "github" not in enabled:
-        enabled.append("github")
-
-    ai_list = ai_providers or ["claude_code"]
-
-    return InstallManifest(
-        schema_version="1.2",
-        update_metadata=default_update_metadata(context="installation manifest"),
-        framework_version="0.1.0",
-        installedStacks=stacks or ["python"],
-        installedIdes=ides or ["terminal"],
-        ai_providers=AiProviderConfig(
-            primary=ai_list[0],
-            enabled=list(ai_list),
-        ),
-        providers=VcsProviders(
-            primary=vcs_provider,
-            enabled=enabled,
-            extensions=VcsExtensions(
-                azure_devops=AzureDevOpsExtension(
-                    enabled=vcs_provider == "azure_devops",
-                ),
-            ),
-        ),
-        tooling_readiness=ToolingReadiness(),
-        externalReferences=external_references or {},
-    )
+    return InstallState()
 
 
 _DEFAULT_OWNERSHIP_PATHS: list[tuple[str, OwnershipLevel, FrameworkUpdatePolicy]] = [
@@ -113,7 +66,7 @@ _DEFAULT_OWNERSHIP_PATHS: list[tuple[str, OwnershipLevel, FrameworkUpdatePolicy]
     (".github/agents/**", OwnershipLevel.FRAMEWORK_MANAGED, FrameworkUpdatePolicy.ALLOW),
     (".claude/**", OwnershipLevel.FRAMEWORK_MANAGED, FrameworkUpdatePolicy.ALLOW),
     (
-        ".ai-engineering/state/install-manifest.json",
+        ".ai-engineering/state/install-state.json",
         OwnershipLevel.SYSTEM_MANAGED,
         FrameworkUpdatePolicy.ALLOW,
     ),

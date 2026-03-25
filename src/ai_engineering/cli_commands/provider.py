@@ -42,14 +42,14 @@ def provider_add(
                 {
                     "action": "add",
                     "provider": provider,
-                    "active_providers": manifest.ai_providers.enabled,
-                    "primary": manifest.ai_providers.primary,
+                    "active_providers": manifest.providers.ides,
+                    "primary": manifest.providers.ides[0] if manifest.providers.ides else "none",
                 },
             )
         else:
             success(f"Added provider '{provider}'")
-            kv("Active providers", ", ".join(manifest.ai_providers.enabled))
-            kv("Primary", manifest.ai_providers.primary)
+            kv("Active providers", ", ".join(manifest.providers.ides))
+            kv("Primary", manifest.providers.ides[0] if manifest.providers.ides else "none")
     except InstallerError as exc:
         if is_json_mode():
             emit_error(
@@ -83,14 +83,14 @@ def provider_remove(
                 {
                     "action": "remove",
                     "provider": provider,
-                    "active_providers": manifest.ai_providers.enabled,
-                    "primary": manifest.ai_providers.primary,
+                    "active_providers": manifest.providers.ides,
+                    "primary": manifest.providers.ides[0] if manifest.providers.ides else "none",
                 },
             )
         else:
             success(f"Removed provider '{provider}'")
-            kv("Active providers", ", ".join(manifest.ai_providers.enabled))
-            kv("Primary", manifest.ai_providers.primary)
+            kv("Active providers", ", ".join(manifest.providers.ides))
+            kv("Primary", manifest.providers.ides[0] if manifest.providers.ides else "none")
     except InstallerError as exc:
         if is_json_mode():
             emit_error(
@@ -118,14 +118,15 @@ def provider_list(
             emit_success(
                 "ai-eng provider list",
                 {
-                    "providers": manifest.ai_providers.enabled,
-                    "primary": manifest.ai_providers.primary,
+                    "providers": manifest.providers.ides,
+                    "primary": manifest.providers.ides[0] if manifest.providers.ides else "none",
                 },
             )
         else:
-            if manifest.ai_providers.enabled:
-                for p in manifest.ai_providers.enabled:
-                    marker = " (primary)" if p == manifest.ai_providers.primary else ""
+            if manifest.providers.ides:
+                primary = manifest.providers.ides[0]
+                for p in manifest.providers.ides:
+                    marker = " (primary)" if p == primary else ""
                     info(f"  - {p}{marker}")
             else:
                 info("No providers configured")

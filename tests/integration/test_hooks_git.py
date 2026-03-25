@@ -20,9 +20,9 @@ from ai_engineering.hooks.manager import (
     uninstall_hooks,
     verify_hooks,
 )
-from ai_engineering.state.defaults import default_install_manifest
-from ai_engineering.state.io import write_json_model
+from ai_engineering.state.defaults import default_install_state
 from ai_engineering.state.models import GateHook
+from ai_engineering.state.service import save_install_state
 
 pytestmark = pytest.mark.integration
 
@@ -77,7 +77,7 @@ class TestInstallHooksInRealRepo:
         # Manifest must exist so install_hooks records hashes for verification
         state_dir = git_repo / ".ai-engineering" / "state"
         state_dir.mkdir(parents=True, exist_ok=True)
-        write_json_model(state_dir / "install-manifest.json", default_install_manifest())
+        save_install_state(state_dir, default_install_state())
         install_hooks(git_repo)
         status = verify_hooks(git_repo)
         assert all(status.values())
@@ -124,7 +124,7 @@ class TestInstallHooksInRealRepo:
         # Manifest must exist so hooks pass integrity check and reach gitleaks
         state_dir = git_repo / ".ai-engineering" / "state"
         state_dir.mkdir(parents=True, exist_ok=True)
-        write_json_model(state_dir / "install-manifest.json", default_install_manifest())
+        save_install_state(state_dir, default_install_state())
         install_hooks(git_repo)
 
         tools_dir = git_repo / "mock-tools"

@@ -13,7 +13,7 @@ pytestmark = pytest.mark.unit
 # The hook uses sys.path.insert to import _lib.audit.
 # We patch the module-level constants and test pure functions in isolation.
 
-HOOK_DIR = Path(__file__).resolve().parents[2] / "scripts" / "hooks"
+HOOK_DIR = Path(__file__).resolve().parents[2] / ".ai-engineering" / "scripts" / "hooks"
 
 
 @pytest.fixture(autouse=True)

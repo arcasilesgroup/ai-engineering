@@ -73,7 +73,7 @@ _PROVIDER_TREE_MAPS: dict[str, list[tuple[str, str]]] = {
 # When a VCS provider is specified, these trees are also copied.
 # Common templates copied for ALL providers (observability hooks).
 _COMMON_TREE_MAPS: list[tuple[str, str]] = [
-    ("scripts/hooks", "scripts/hooks"),
+    (".ai-engineering/scripts/hooks", ".ai-engineering/scripts/hooks"),
 ]
 
 # VCS-platform-specific templates (independent of AI provider).
@@ -85,23 +85,43 @@ _VCS_TEMPLATE_TREES: dict[str, list[tuple[str, str]]] = {
     "azure_devops": [],
 }
 
-# Legacy combined maps kept for updater backward compatibility.
-# Common files are NOT included here — they are handled by the dedicated loop
-# in copy_project_templates() to avoid double-processing.
-_PROJECT_TEMPLATE_MAP: dict[str, str] = {}
-for _prov_files in _PROVIDER_FILE_MAPS.values():
-    for _src, _dst in _prov_files.items():
-        if _src not in _PROJECT_TEMPLATE_MAP:
-            _PROJECT_TEMPLATE_MAP[_src] = _dst
 
-_PROJECT_TEMPLATE_TREES: list[tuple[str, str]] = []
-_seen_trees: set[tuple[str, str]] = set()
-for _prov_trees in _PROVIDER_TREE_MAPS.values():
-    for _entry in _prov_trees:
-        if _entry not in _seen_trees:
-            _PROJECT_TEMPLATE_TREES.append(_entry)
-            _seen_trees.add(_entry)
-del _prov_files, _prov_trees, _src, _dst, _seen_trees, _entry
+@dataclass
+class ResolvedTemplateMaps:
+    """Complete set of template maps for a given configuration."""
+
+    file_map: dict[str, str]
+    tree_list: list[tuple[str, str]]
+    common_file_map: dict[str, str]
+    common_tree_list: list[tuple[str, str]]
+    vcs_tree_list: list[tuple[str, str]]
+
+
+def resolve_template_maps(
+    providers: list[str] | None = None,
+    vcs_provider: str | None = None,
+) -> ResolvedTemplateMaps:
+    """Resolve the complete set of template maps for a given configuration.
+
+    This is the public API for determining which templates should be installed.
+    Used by the installer, updater, and phase pipeline.
+
+    Args:
+        providers: AI provider identifiers, or None for all providers.
+        vcs_provider: VCS platform identifier (e.g., ``"github"``).
+
+    Returns:
+        ResolvedTemplateMaps with all file and tree maps.
+    """
+    file_map, tree_list = _resolve_provider_maps(providers)
+    vcs_trees = list(_VCS_TEMPLATE_TREES.get(vcs_provider or "", []))
+    return ResolvedTemplateMaps(
+        file_map=file_map,
+        tree_list=tree_list,
+        common_file_map=dict(_COMMON_FILE_MAPS),
+        common_tree_list=list(_COMMON_TREE_MAPS),
+        vcs_tree_list=vcs_trees,
+    )
 
 
 @dataclass
@@ -157,6 +177,41 @@ def copy_file_if_missing(src: Path, dest: Path) -> bool:
     return True
 
 
+def copy_tree_for_mode(
+    src_dir: Path,
+    dest_dir: Path,
+    target_root: Path,
+    *,
+    fresh: bool,
+    created: list[str],
+    skipped: list[str],
+) -> None:
+    """Copy a template tree using FRESH (overwrite) or create-only semantics.
+
+    All paths appended to *created* and *skipped* are relative to *target_root*.
+
+    Args:
+        src_dir: Source directory to copy from.
+        dest_dir: Destination directory to copy to.
+        target_root: Project root for computing relative paths.
+        fresh: When True, overwrite existing files (FRESH mode).
+        created: List to append created relative paths to.
+        skipped: List to append skipped relative paths to.
+    """
+    if fresh:
+        for f in sorted(src_dir.rglob("*")):
+            if not f.is_file():
+                continue
+            d = dest_dir / f.relative_to(src_dir)
+            d.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(f, d)
+            created.append(str(d.relative_to(target_root)))
+    else:
+        tr = copy_template_tree(src_dir, dest_dir)
+        created.extend(str(p.relative_to(target_root)) for p in tr.created)
+        skipped.extend(str(p.relative_to(target_root)) for p in tr.skipped)
+
+
 def copy_template_tree(
     src_root: Path,
     dest_root: Path,
@@ -196,15 +251,15 @@ def _resolve_provider_maps(
 ) -> tuple[dict[str, str], list[tuple[str, str]]]:
     """Merge file maps and tree maps for the given providers.
 
-    When *providers* is ``None``, returns the full combined maps (backward
-    compat for the updater).  Otherwise returns only the union of maps for
-    the requested providers, deduplicating destination paths.
+    When *providers* is ``None``, returns the union of all provider maps.
+    Otherwise returns only the union of maps for the requested providers,
+    deduplicating destination paths.
 
     Returns:
         Tuple of (file_map, tree_list).
     """
     if providers is None:
-        return dict(_PROJECT_TEMPLATE_MAP), list(_PROJECT_TEMPLATE_TREES)
+        providers = list(_PROVIDER_FILE_MAPS.keys())
 
     file_map: dict[str, str] = {}
     tree_list: list[tuple[str, str]] = []

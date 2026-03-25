@@ -11,7 +11,6 @@ from ai_engineering.cli_envelope import emit_success
 from ai_engineering.cli_output import is_json_mode
 from ai_engineering.cli_ui import header, info, print_stdout, warning
 from ai_engineering.paths import resolve_project_root
-from ai_engineering.state.service import StateService
 
 
 def guide_cmd(
@@ -22,14 +21,16 @@ def guide_cmd(
 ) -> None:
     """Display branch policy setup instructions."""
     root = resolve_project_root(target)
-    manifest_path = root / ".ai-engineering" / "state" / "install-manifest.json"
+    state_path = root / ".ai-engineering" / "state" / "install-state.json"
 
-    if not manifest_path.exists():
+    if not state_path.exists():
         warning("Framework not installed. Run 'ai-eng install' first.")
         raise typer.Exit(code=1)
 
-    manifest = StateService(root).load_manifest()
-    guide_text = manifest.branch_policy.manual_guide
+    from ai_engineering.state.service import load_install_state
+
+    state = load_install_state(root / ".ai-engineering" / "state")
+    guide_text = state.branch_policy.manual_guide
 
     if is_json_mode():
         emit_success(

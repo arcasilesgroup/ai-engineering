@@ -4,6 +4,10 @@ Completed specs. Details in git history.
 
 | ID | Title | Status | Created | Branch |
 |----|-------|--------|---------|--------|
+| 067 | Auto-optimize brainstorm input via ai-prompt preprocessing | done | 2026-03-25 | spec/064-install-flow-redesign |
+| 066 | Relocate scripts/hooks/ into .ai-engineering/ | draft | 2026-03-24 | spec/064-install-flow-redesign |
+| 065 | Autopilot v2 — 6-phase DAG pipeline | done | 2026-03-24 | spec/064-install-flow-redesign |
+| 064 | Install Flow Redesign: Auto-Detection + Wizard UX | done | 2026-03-24 | spec/064-install-flow-redesign |
 | 063 | /ai-autopilot — Multi-Spec Autonomous Orchestrator | done | 2026-03-24 | spec/063-ai-autopilot |
 | 062 | ECC Integration — slides, media, video-editing, eval | done | 2026-03-24 | spec/063-ai-autopilot |
 | 060 | CI & Install Smoke Audit — Eliminate False Positives | done | 2026-03-20 | feat/ci-smoke-audit-fixes |

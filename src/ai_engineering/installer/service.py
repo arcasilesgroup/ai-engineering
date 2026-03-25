@@ -1,33 +1,58 @@
 """Install orchestrator for the ai-engineering framework.
 
-Provides the top-level ``install`` function that bootstraps a complete
-``.ai-engineering/`` governance structure in a target project directory.
+Provides two entry points:
 
-Steps performed by ``install()``:
-1. Copy ``.ai-engineering/`` governance templates (create-only).
-2. Copy project-level IDE agent templates (CLAUDE.md, .github/copilot/, etc.).
-3. Generate state files from defaults (install-manifest, ownership-map,
-   decision-store).
-4. Append an audit-log entry recording the installation.
+- ``install()`` — legacy orchestrator that bootstraps a complete
+  ``.ai-engineering/`` governance structure.  Preserved for backward
+  compatibility with existing callers and tests.
+- ``install_with_pipeline()`` — new phase-pipeline orchestrator that
+  supports all install modes (INSTALL, FRESH, REPAIR, RECONFIGURE).
+
+Steps performed by the pipeline:
+1. Detect environment (VCS, tools, existing install, legacy paths).
+2. Copy ``.ai-engineering/`` governance templates.
+3. Deploy IDE-specific configuration files.
+4. Install hook scripts and merge settings.json.
+5. Generate state files (manifest, ownership, decisions).
+6. Verify/install required CLI tools.
 """
 
 from __future__ import annotations
 
 import contextlib
+import json
 import logging
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from ai_engineering.config.loader import load_manifest_config
 from ai_engineering.detector.readiness import check_tools_for_stacks
 from ai_engineering.git.context import get_git_context
 from ai_engineering.hooks.manager import HookInstallResult, install_hooks
+from ai_engineering.installer.phases import (
+    PHASE_GOVERNANCE,
+    PHASE_HOOKS,
+    PHASE_IDE_CONFIG,
+    PHASE_STATE,
+    PHASE_TOOLS,
+    InstallContext,
+    InstallMode,
+)
+from ai_engineering.installer.phases.detect import DetectPhase
+from ai_engineering.installer.phases.governance import GovernancePhase
+from ai_engineering.installer.phases.hooks import HooksPhase
+from ai_engineering.installer.phases.ide_config import IdeConfigPhase
+from ai_engineering.installer.phases.pipeline import PipelineRunner, PipelineSummary
+from ai_engineering.installer.phases.state import StatePhase
+from ai_engineering.installer.phases.tools import ToolsPhase
 from ai_engineering.state.defaults import (
     default_decision_store,
-    default_install_manifest,
+    default_install_state,
     default_ownership_map,
 )
-from ai_engineering.state.io import append_ndjson, read_json_model, write_json_model
-from ai_engineering.state.models import AuditEntry, InstallManifest
+from ai_engineering.state.io import append_ndjson, write_json_model
+from ai_engineering.state.models import AuditEntry
+from ai_engineering.state.service import load_install_state, save_install_state
 from ai_engineering.vcs.factory import get_provider
 from ai_engineering.vcs.repo_context import get_repo_context
 
@@ -45,7 +70,7 @@ logger = logging.getLogger(__name__)
 
 # Relative paths under ``.ai-engineering/`` for each state file.
 _STATE_FILES: dict[str, str] = {
-    "install-manifest": "state/install-manifest.json",
+    "install-state": "state/install-state.json",
     "ownership-map": "state/ownership-map.json",
     "decision-store": "state/decision-store.json",
 }
@@ -114,6 +139,15 @@ def install(
         src_root, ai_eng_dir, exclude=["agents/", "skills/"]
     )
 
+    # 1b. Write caller-supplied stacks/ides/providers into manifest.yml
+    _apply_manifest_params(
+        target,
+        stacks=stacks,
+        ides=ides,
+        vcs_provider=vcs_provider,
+        ai_providers=ai_providers,
+    )
+
     # 2. Copy project-level templates (provider-aware)
     result.project_files = copy_project_templates(target, providers=ai_providers)
 
@@ -144,6 +178,177 @@ def install(
     return result
 
 
+def install_with_pipeline(
+    target: Path,
+    *,
+    mode: InstallMode = InstallMode.INSTALL,
+    stacks: list[str] | None = None,
+    ides: list[str] | None = None,
+    vcs_provider: str = "github",
+    ai_providers: list[str] | None = None,
+    external_references: dict[str, str] | None = None,
+    dry_run: bool = False,
+) -> tuple[InstallResult, PipelineSummary]:
+    """Run the install pipeline and return both legacy and pipeline results.
+
+    This is the new entry point that orchestrates install through the
+    6-phase pipeline (detect, governance, ide_config, hooks, state, tools).
+    Returns a tuple of ``(InstallResult, PipelineSummary)`` so that
+    callers can use either the legacy result format or the richer
+    pipeline summary.
+
+    Args:
+        target: Root directory of the target project.
+        mode: Install mode. Defaults to ``INSTALL``.
+        stacks: Initial stacks to install. Defaults to ``["python"]``.
+        ides: Initial IDEs to configure. Defaults to ``["terminal"]``.
+        vcs_provider: Primary VCS provider. Defaults to ``"github"``.
+        ai_providers: AI providers to enable. Defaults to ``["claude_code"]``.
+        external_references: External reference URLs for the manifest.
+        dry_run: When True, only plan without writing files.
+
+    Returns:
+        Tuple of (InstallResult, PipelineSummary).
+    """
+    # Auto-detect mode when caller uses the default
+    if mode is InstallMode.INSTALL:
+        state_path = target / ".ai-engineering" / "state" / "install-state.json"
+        # Also check legacy path for backward compatibility
+        legacy_path = target / ".ai-engineering" / "state" / "install-manifest.json"
+        if state_path.exists() or legacy_path.exists():
+            mode = InstallMode.REPAIR
+
+    # Load existing state for REPAIR/RECONFIGURE modes
+    existing_state = None
+    if mode in (InstallMode.REPAIR, InstallMode.RECONFIGURE):
+        state_dir = target / ".ai-engineering" / "state"
+        try:
+            existing_state = load_install_state(state_dir)
+        except (json.JSONDecodeError, ValueError, OSError) as exc:
+            logger.warning("Cannot read existing install state: %s", exc)
+
+    # Build context
+    context = InstallContext(
+        target=target,
+        mode=mode,
+        providers=ai_providers or [],
+        vcs_provider=vcs_provider,
+        stacks=stacks or [],
+        ides=ides or [],
+        existing_state=existing_state,
+    )
+
+    # Create the 6 phases in order
+    # StatePhase must run before HooksPhase so that _record_hook_hashes()
+    # can find the install-state.json when saving hook integrity hashes.
+    phases = [
+        DetectPhase(),
+        GovernancePhase(),
+        IdeConfigPhase(),
+        StatePhase(),
+        HooksPhase(),
+        ToolsPhase(),
+    ]
+
+    # Run the pipeline
+    runner = PipelineRunner(phases)
+    summary = runner.run(context, dry_run=dry_run)
+
+    # Convert PipelineSummary to InstallResult
+    result = _summary_to_install_result(summary, mode)
+
+    # Run operational phases (VCS auth, branch policy, tooling readiness)
+    if not dry_run:
+        _run_operational_phases(target, vcs_provider=vcs_provider, result=result)
+
+    return result, summary
+
+
+def _summary_to_install_result(
+    summary: PipelineSummary,
+    mode: InstallMode,
+) -> InstallResult:
+    """Convert a PipelineSummary into a legacy InstallResult.
+
+    Aggregates created/skipped files from phase results into the
+    governance_files and project_files CopyResult fields.
+
+    Args:
+        summary: The pipeline summary to convert.
+        mode: The install mode that was used.
+
+    Returns:
+        An InstallResult populated from the pipeline summary.
+    """
+    result = InstallResult()
+
+    governance_created: list[Path] = []
+    governance_skipped: list[Path] = []
+    project_created: list[Path] = []
+    project_skipped: list[Path] = []
+
+    for phase_result in summary.results:
+        if phase_result.phase_name == PHASE_GOVERNANCE:
+            governance_created.extend(Path(p) for p in phase_result.created)
+            governance_skipped.extend(Path(p) for p in phase_result.skipped)
+        elif phase_result.phase_name in (PHASE_IDE_CONFIG, PHASE_HOOKS):
+            project_created.extend(Path(p) for p in phase_result.created)
+            project_skipped.extend(Path(p) for p in phase_result.skipped)
+        elif phase_result.phase_name == PHASE_STATE:
+            result.state_files = [Path(p) for p in phase_result.created]
+        elif phase_result.phase_name == PHASE_TOOLS:
+            result.manual_steps.extend(phase_result.warnings)
+
+    result.governance_files = CopyResult(
+        created=governance_created,
+        skipped=governance_skipped,
+    )
+    result.project_files = CopyResult(
+        created=project_created,
+        skipped=project_skipped,
+    )
+
+    # Set already_installed if mode was detected as existing
+    if (
+        mode in (InstallMode.REPAIR, InstallMode.RECONFIGURE)
+        and not governance_created
+        and not result.state_files
+    ):
+        result.already_installed = True
+
+    return result
+
+
+def _apply_manifest_params(
+    target: Path,
+    *,
+    stacks: list[str] | None,
+    ides: list[str] | None,
+    vcs_provider: str = "github",
+    ai_providers: list[str] | None = None,
+) -> None:
+    """Write caller-supplied install parameters into manifest.yml.
+
+    Only runs when manifest.yml exists (i.e., after the template copy).
+    No-op for None parameters (uses template defaults).
+    """
+    from ai_engineering.config.loader import update_manifest_field
+
+    manifest_path = target / ".ai-engineering" / "manifest.yml"
+    if not manifest_path.is_file():
+        return
+    if stacks is not None:
+        update_manifest_field(target, "providers.stacks", stacks)
+    if ides is not None:
+        update_manifest_field(target, "providers.ides", ides)
+    if ai_providers is not None:
+        update_manifest_field(target, "providers.ai_providers.enabled", ai_providers)
+        if ai_providers:
+            update_manifest_field(target, "providers.ai_providers.primary", ai_providers[0])
+    if vcs_provider != "github":
+        update_manifest_field(target, "providers.vcs", vcs_provider)
+
+
 def _generate_state_files(
     ai_eng_dir: Path,
     *,
@@ -168,13 +373,7 @@ def _generate_state_files(
     created: list[Path] = []
 
     state_models = {
-        _STATE_FILES["install-manifest"]: default_install_manifest(
-            stacks=stacks,
-            ides=ides,
-            vcs_provider=vcs_provider,
-            ai_providers=ai_providers,
-            external_references=external_references,
-        ),
+        _STATE_FILES["install-state"]: default_install_state(),
         _STATE_FILES["ownership-map"]: default_ownership_map(),
         _STATE_FILES["decision-store"]: default_decision_store(),
     }
@@ -219,22 +418,27 @@ def _log_install_event(ai_eng_dir: Path, result: InstallResult) -> None:
 
 
 def _run_operational_phases(target: Path, *, vcs_provider: str, result: InstallResult) -> None:
-    manifest_path = target / ".ai-engineering" / "state" / "install-manifest.json"
-    if not manifest_path.exists():
-        return
+    state_dir = target / ".ai-engineering" / "state"
+    state = load_install_state(state_dir)
 
-    manifest = read_json_model(manifest_path, InstallManifest)
+    # Read stacks from manifest.yml config (not from state)
+    config = load_manifest_config(target)
 
     # Phase 2: required tooling (provider-aware + stack-aware)
-    stack_report = check_tools_for_stacks(manifest.installed_stacks)
+    stack_report = check_tools_for_stacks(config.providers.stacks)
     for tool in provider_required_tools(vcs_provider):
         install_result = ensure_tool(tool)
-        status = getattr(manifest.tooling_readiness, tool, None)
-        if status is not None:
-            status.installed = install_result.available
-            status.required_now = True
-            status.mode = "cli" if install_result.available else "api"
-            status.message = install_result.detail
+        tool_entry = state.tooling.get(tool)
+        if tool_entry is not None:
+            tool_entry.installed = install_result.available
+            tool_entry.mode = "cli" if install_result.available else "api"
+        else:
+            from ai_engineering.state.models import ToolEntry
+
+            state.tooling[tool] = ToolEntry(
+                installed=install_result.available,
+                mode="cli" if install_result.available else "api",
+            )
         if not install_result.available:
             result.manual_steps.append(f"Install or enable `{tool}` CLI")
 
@@ -246,8 +450,7 @@ def _run_operational_phases(target: Path, *, vcs_provider: str, result: InstallR
                 result.manual_steps.append(f"Install required security tool `{item.name}`")
 
     # Deferred setup for projects without stacks
-    if not manifest.installed_stacks:
-        manifest.operational_readiness.deferred_setup = True
+    if not config.providers.stacks:
         result.manual_steps.append(
             "No stacks configured. Run 'ai-eng stack add <name>' to configure tooling."
         )
@@ -255,10 +458,18 @@ def _run_operational_phases(target: Path, *, vcs_provider: str, result: InstallR
     # Phase 3: VCS auth
     provider = get_provider(target)
     auth_result = check_vcs_auth(vcs_provider, provider, target)
-    status = getattr(manifest.tooling_readiness, "gh" if vcs_provider == "github" else "az")
-    status.authenticated = auth_result.authenticated
-    status.mode = auth_result.mode
-    status.message = auth_result.message
+    tool_key = "gh" if vcs_provider == "github" else "az"
+    vcs_entry = state.tooling.get(tool_key)
+    if vcs_entry is not None:
+        vcs_entry.authenticated = auth_result.authenticated
+        vcs_entry.mode = auth_result.mode
+    else:
+        from ai_engineering.state.models import ToolEntry
+
+        state.tooling[tool_key] = ToolEntry(
+            authenticated=auth_result.authenticated,
+            mode=auth_result.mode,
+        )
     if not auth_result.authenticated:
         result.manual_steps.append(auth_result.message)
 
@@ -271,11 +482,11 @@ def _run_operational_phases(target: Path, *, vcs_provider: str, result: InstallR
         required_checks=["ai-eng-gate", "ai-pr-review", "ci"],
         mode=auth_result.mode,
     )
-    manifest.branch_policy.applied = policy_result.applied
-    manifest.branch_policy.mode = policy_result.mode
-    manifest.branch_policy.message = policy_result.message
+    state.branch_policy.applied = policy_result.applied
+    state.branch_policy.mode = policy_result.mode
+    state.branch_policy.message = policy_result.message
     if policy_result.manual_guide is not None:
-        manifest.branch_policy.manual_guide = policy_result.manual_guide
+        state.branch_policy.manual_guide = policy_result.manual_guide
         result.guide_text = policy_result.manual_guide
         result.manual_steps.append("Run 'ai-eng guide' to view branch policy setup instructions")
 
@@ -283,8 +494,7 @@ def _run_operational_phases(target: Path, *, vcs_provider: str, result: InstallR
         result.readiness_status = "READY"
     else:
         result.readiness_status = "READY WITH MANUAL STEPS"
-    manifest.operational_readiness.status = result.readiness_status
-    manifest.operational_readiness.manual_steps_required = bool(result.manual_steps)
-    manifest.operational_readiness.manual_steps = result.manual_steps
+    state.operational_readiness.status = result.readiness_status
+    state.operational_readiness.pending_steps = list(result.manual_steps)
 
-    write_json_model(manifest_path, manifest)
+    save_install_state(state_dir, state)

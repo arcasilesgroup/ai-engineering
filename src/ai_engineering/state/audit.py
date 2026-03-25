@@ -83,19 +83,15 @@ def _read_active_spec(root: Path) -> str | None:
 
 
 def _read_active_stack(root: Path) -> str | None:
-    """Read primary stack from install-manifest.json (fail-open)."""
+    """Read primary stack from manifest.yml config (fail-open)."""
     global _cached_stack
     if _cached_stack is not _UNSET:
         return cast("str | None", _cached_stack)
     try:
-        import json
+        from ai_engineering.config.loader import load_manifest_config
 
-        manifest_path = root / ".ai-engineering" / "state" / "install-manifest.json"
-        if not manifest_path.exists():
-            _cached_stack = None
-            return None
-        data = json.loads(manifest_path.read_text(encoding="utf-8"))
-        stacks = data.get("installedStacks", [])
+        config = load_manifest_config(root)
+        stacks = config.providers.stacks
         _cached_stack = stacks[0] if stacks else None
         return _cached_stack
     except Exception:

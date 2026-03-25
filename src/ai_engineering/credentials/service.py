@@ -13,12 +13,8 @@ Security invariants
 
 from __future__ import annotations
 
-import json
 import logging
-from pathlib import Path
 from typing import TYPE_CHECKING
-
-from ai_engineering.credentials.models import ToolsState
 
 if TYPE_CHECKING:
     import keyring.backend
@@ -94,30 +90,6 @@ class CredentialService:
     def exists(self, platform: str, username: str) -> bool:
         """Return ``True`` if a credential exists for *platform*/*username*."""
         return self.retrieve(platform, username) is not None
-
-    # ------------------------------------------------------------------
-    # tools.json state management
-    # ------------------------------------------------------------------
-
-    @staticmethod
-    def load_tools_state(state_dir: Path) -> ToolsState:
-        """Load ``tools.json`` from *state_dir*, returning defaults if absent."""
-        path = state_dir / "tools.json"
-        if path.exists():
-            data = json.loads(path.read_text(encoding="utf-8"))
-            return ToolsState.model_validate(data)
-        return ToolsState()
-
-    @staticmethod
-    def save_tools_state(state_dir: Path, state: ToolsState) -> None:
-        """Persist *state* to ``tools.json`` in *state_dir*."""
-        path = state_dir / "tools.json"
-        state_dir.mkdir(parents=True, exist_ok=True)
-        path.write_text(
-            state.model_dump_json(indent=2) + "\n",
-            encoding="utf-8",
-        )
-        logger.debug("tools.json written to %s", path)
 
     @staticmethod
     def mask_secret(value: str, visible_chars: int = 4) -> str:

@@ -26,7 +26,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from ai_engineering.credentials.models import ToolsState
 from ai_engineering.policy.checks.commit_msg import validate_commit_message
 from ai_engineering.policy.checks.risk import (
     check_expired_risk_acceptances,
@@ -339,19 +338,16 @@ class TestGetActiveStacks:
     """Tests for _get_active_stacks with mocked manifest loading."""
 
     def test_manifest_with_stacks(self, tmp_path: Path) -> None:
-        # Arrange
-        manifest_path = tmp_path / ".ai-engineering" / "state" / "install-manifest.json"
+        # Arrange: write a manifest.yml with stacks
+        manifest_path = tmp_path / ".ai-engineering" / "manifest.yml"
         manifest_path.parent.mkdir(parents=True)
-        manifest_path.write_text("{}")
-        mock_manifest = MagicMock()
-        mock_manifest.installed_stacks = ["python", "dotnet"]
+        manifest_path.write_text(
+            "providers:\n  stacks: [python, dotnet]\n",
+            encoding="utf-8",
+        )
 
         # Act
-        with patch(
-            "ai_engineering.policy.gates.read_json_model",
-            return_value=mock_manifest,
-        ):
-            stacks = _get_active_stacks(tmp_path)
+        stacks = _get_active_stacks(tmp_path)
 
         # Assert
         assert stacks == ["python", "dotnet"]
@@ -362,35 +358,28 @@ class TestGetActiveStacks:
         assert stacks == ["python"]
 
     def test_invalid_manifest_returns_python_fallback(self, tmp_path: Path) -> None:
-        # Arrange
-        manifest_path = tmp_path / ".ai-engineering" / "state" / "install-manifest.json"
+        # Arrange: write an invalid manifest.yml
+        manifest_path = tmp_path / ".ai-engineering" / "manifest.yml"
         manifest_path.parent.mkdir(parents=True)
-        manifest_path.write_text("{}")
+        manifest_path.write_text(": bad yaml [[[", encoding="utf-8")
 
         # Act
-        with patch(
-            "ai_engineering.policy.gates.read_json_model",
-            side_effect=ValueError("bad json"),
-        ):
-            stacks = _get_active_stacks(tmp_path)
+        stacks = _get_active_stacks(tmp_path)
 
         # Assert
         assert stacks == ["python"]
 
     def test_empty_stacks_returns_python_fallback(self, tmp_path: Path) -> None:
-        # Arrange
-        manifest_path = tmp_path / ".ai-engineering" / "state" / "install-manifest.json"
+        # Arrange: write a manifest.yml with empty stacks list
+        manifest_path = tmp_path / ".ai-engineering" / "manifest.yml"
         manifest_path.parent.mkdir(parents=True)
-        manifest_path.write_text("{}")
-        mock_manifest = MagicMock()
-        mock_manifest.installed_stacks = []
+        manifest_path.write_text(
+            "providers:\n  stacks: []\n",
+            encoding="utf-8",
+        )
 
         # Act
-        with patch(
-            "ai_engineering.policy.gates.read_json_model",
-            return_value=mock_manifest,
-        ):
-            stacks = _get_active_stacks(tmp_path)
+        stacks = _get_active_stacks(tmp_path)
 
         # Assert
         assert stacks == ["python"]
@@ -998,10 +987,6 @@ class TestSonarGateAdvisory:
         monkeypatch.delenv("SONAR_TOKEN", raising=False)
         monkeypatch.setattr(
             "ai_engineering.policy.checks.sonar.shutil.which", lambda _: "/usr/bin/sonar"
-        )
-        monkeypatch.setattr(
-            "ai_engineering.policy.checks.sonar.CredentialService.load_tools_state",
-            lambda *_: ToolsState(),
         )
         monkeypatch.setattr(
             "ai_engineering.policy.checks.sonar._resolve_sonar_token",

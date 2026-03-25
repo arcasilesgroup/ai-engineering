@@ -12,7 +12,7 @@ import pytest
 
 pytestmark = pytest.mark.integration
 
-HOOK_DIR = Path(__file__).resolve().parents[2] / "scripts" / "hooks"
+HOOK_DIR = Path(__file__).resolve().parents[2] / ".ai-engineering" / "scripts" / "hooks"
 
 
 def _import_hook():

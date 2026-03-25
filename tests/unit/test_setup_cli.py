@@ -649,18 +649,14 @@ class TestVcsFactoryAzdoAlias:
 class TestInstallCleanOutput:
     """Tests that install output omits the branch policy guide text block."""
 
-    @patch("ai_engineering.cli_commands.core._offer_platform_onboarding")
     @patch("ai_engineering.cli_commands.core.is_json_mode", return_value=False)
-    @patch("ai_engineering.cli_commands.core.install")
+    @patch("ai_engineering.cli_commands.core.install_with_pipeline")
     @patch("ai_engineering.cli_commands.core.resolve_project_root")
-    @patch("ai_engineering.cli_commands.core._resolve_vcs_provider", return_value="github")
     def test_guide_text_not_printed_as_block(
         self,
-        mock_vcs: MagicMock,
         mock_resolve: MagicMock,
         mock_install: MagicMock,
         mock_json: MagicMock,
-        mock_onboard: MagicMock,
         tmp_path: Path,
     ) -> None:
         """When guide_text is present, only warnings are shown — not the full text block."""
@@ -672,12 +668,16 @@ class TestInstallCleanOutput:
         result_obj.readiness_status = "ready"
         result_obj.already_installed = False
         result_obj.manual_steps = []
+        result_obj.total_created = 3
         result_obj.guide_text = "Step 1: Go to settings\nStep 2: Enable protection"
-        mock_install.return_value = result_obj
+        summary_obj = MagicMock()
+        summary_obj.results = []
+        summary_obj.verdicts = []
+        summary_obj.completed_phases = []
+        summary_obj.failed_phase = None
+        mock_install.return_value = (result_obj, summary_obj)
 
         import typer
-
-        # Use CliRunner to capture output
         from typer.testing import CliRunner as _Runner
 
         from ai_engineering.cli_commands.core import install_cmd
@@ -685,7 +685,21 @@ class TestInstallCleanOutput:
         app = typer.Typer()
         app.command()(install_cmd)
         _runner = _Runner()
-        res = _runner.invoke(app, [str(tmp_path), "--vcs", "github"])
+        # Provide all flags to skip wizard
+        res = _runner.invoke(
+            app,
+            [
+                str(tmp_path),
+                "--vcs",
+                "github",
+                "--stack",
+                "python",
+                "--provider",
+                "claude_code",
+                "--ide",
+                "terminal",
+            ],
+        )
 
         # The guide text body should NOT appear in output
         assert "Step 1: Go to settings" not in res.output

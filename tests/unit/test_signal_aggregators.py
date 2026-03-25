@@ -437,70 +437,51 @@ class TestDecisionStoreHealth:
 class TestAdoptionMetrics:
     """Tests for adoption_metrics()."""
 
-    def test_normal_case(self, tmp_path: Path) -> None:
-        # Arrange
-        data = {
-            "installedStacks": ["python", "nextjs"],
-            "installedIdes": ["vscode", "terminal"],
-            "providers": {
-                "primary": "github",
-                "enabled": ["github"],
-            },
-            "toolingReadiness": {
-                "gitHooks": {
-                    "installed": True,
-                    "integrityVerified": True,
-                },
-            },
-        }
-        _write_json(
-            tmp_path / ".ai-engineering" / "state" / "install-manifest.json",
-            data,
+    def _setup_project(self, tmp_path: Path, *, stacks: list[str], ides: list[str]) -> None:
+        """Create manifest.yml and install-state.json for adoption metric tests."""
+        ai_dir = tmp_path / ".ai-engineering"
+        ai_dir.mkdir(parents=True, exist_ok=True)
+        stacks_yaml = "\n".join(f"    - {s}" for s in stacks) if stacks else "  []"
+        ides_yaml = "\n".join(f"    - {i}" for i in ides) if ides else "  []"
+        content = (
+            f"schema_version: '2.0'\nproviders:\n  vcs: github\n"
+            f"  stacks:\n{stacks_yaml}\n  ides:\n{ides_yaml}\n"
         )
+        (ai_dir / "manifest.yml").write_text(content)
+        state_dir = ai_dir / "state"
+        state_dir.mkdir(parents=True, exist_ok=True)
+        _write_json(state_dir / "install-state.json", {"schema_version": "2.0"})
 
-        # Act
+    def test_normal_case(self, tmp_path: Path) -> None:
+        self._setup_project(
+            tmp_path,
+            stacks=["python", "nextjs"],
+            ides=["vscode", "terminal"],
+        )
         result = adoption_metrics(tmp_path)
-
-        # Assert
         assert result["stacks"] == ["python", "nextjs"]
         assert result["ides"] == ["vscode", "terminal"]
         assert result["providers"]["primary"] == "github"
-        assert result["hooks_installed"] is True
-        assert result["hooks_verified"] is True
 
     def test_file_not_found(self, tmp_path: Path) -> None:
         result = adoption_metrics(tmp_path)
-
-        assert result["stacks"] == []
-        assert result["hooks_installed"] is False
-
-    def test_minimal_manifest(self, tmp_path: Path) -> None:
-        # Arrange
-        data = {"installedStacks": ["python"]}
-        _write_json(
-            tmp_path / ".ai-engineering" / "state" / "install-manifest.json",
-            data,
-        )
-
-        # Act
-        result = adoption_metrics(tmp_path)
-
-        # Assert
+        # ManifestConfig returns defaults when no manifest.yml exists
         assert result["stacks"] == ["python"]
-        assert result["ides"] == []
-        assert result["providers"]["primary"] == "unknown"
         assert result["hooks_installed"] is False
+
+    def test_minimal_config(self, tmp_path: Path) -> None:
+        self._setup_project(tmp_path, stacks=["python"], ides=[])
+        result = adoption_metrics(tmp_path)
+        assert result["stacks"] == ["python"]
 
     def test_corrupt_json(self, tmp_path: Path) -> None:
-        # Arrange
-        path = tmp_path / ".ai-engineering" / "state" / "install-manifest.json"
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text("not json", encoding="utf-8")
-
-        # Act
+        ai_dir = tmp_path / ".ai-engineering"
+        ai_dir.mkdir(parents=True, exist_ok=True)
+        (ai_dir / "manifest.yml").write_text("not: valid: yaml: [")
+        state_dir = ai_dir / "state"
+        state_dir.mkdir(parents=True, exist_ok=True)
+        (state_dir / "install-state.json").write_text("not json", encoding="utf-8")
         result = adoption_metrics(tmp_path)
-
-        # Assert
         assert result["stacks"] == []
         assert result["hooks_installed"] is False
 

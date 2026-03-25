@@ -573,7 +573,9 @@ jobs:
       - name: gitleaks
         run: gitleaks detect --source . --config .gitleaks.toml --no-banner --redact
       - name: pip-audit
-        run: uv run pip-audit
+        # CVE-2026-4539: ReDoS in pygments AdlLexer (CVSS 3.3, local-only, no patch yet).
+        # Risk accepted in DEC-025. Remove when pygments >= 2.19.3 is released.
+        run: uv run pip-audit --ignore-vuln CVE-2026-4539
       - name: Install semgrep
         run: python -m pip install semgrep
       - name: semgrep

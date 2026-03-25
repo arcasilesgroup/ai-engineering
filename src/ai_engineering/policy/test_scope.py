@@ -226,11 +226,20 @@ TEST_SCOPE_RULES: list[ScopeRule] = [
             "unit": [
                 "tests/unit/test_installer.py",
                 "tests/unit/test_installer_tools.py",
+                "tests/unit/installer/test_phases.py",
+                "tests/unit/installer/test_pipeline.py",
+                "tests/unit/installer/test_merge.py",
+                "tests/unit/installer/test_detect.py",
+                "tests/unit/installer/test_ui.py",
+                "tests/unit/installer/test_autodetect.py",
+                "tests/unit/installer/test_wizard.py",
             ],
             "integration": [
                 "tests/integration/test_installer_integration.py",
                 "tests/integration/test_install_operational_flows.py",
                 "tests/integration/test_provider_commands.py",
+                "tests/integration/test_install_matrix.py",
+                "tests/integration/test_phase_failure.py",
             ],
             "e2e": [
                 "tests/e2e/test_install_clean.py",
@@ -262,7 +271,7 @@ TEST_SCOPE_RULES: list[ScopeRule] = [
                 "tests/unit/test_platforms.py",
                 "tests/unit/test_sonarlint.py",
             ],
-            "integration": ["tests/integration/test_platform_onboarding.py"],
+            "integration": [],
             "e2e": [],
         },
     ),
@@ -301,6 +310,20 @@ TEST_SCOPE_RULES: list[ScopeRule] = [
                 "tests/unit/test_audit.py",
                 "tests/unit/test_risk_lifecycle.py",
                 "tests/unit/test_decision_store.py",
+                "tests/unit/state/test_install_state.py",
+                "tests/unit/state/test_migration.py",
+            ],
+            "integration": [],
+            "e2e": [],
+        },
+    ),
+    ScopeRule(
+        name="config",
+        source_globs=["src/ai_engineering/config/**/*.py"],
+        tiers={
+            "unit": [
+                "tests/unit/config/test_manifest.py",
+                "tests/unit/config/test_yaml_write.py",
             ],
             "integration": [],
             "e2e": [],
@@ -393,7 +416,7 @@ TEST_SCOPE_RULES: list[ScopeRule] = [
     ScopeRule(
         name="telemetry-hooks",
         source_globs=[
-            "scripts/hooks/**",
+            ".ai-engineering/scripts/hooks/**",
             ".github/hooks/**",
             ".claude/settings.json",
         ],
@@ -403,6 +426,15 @@ TEST_SCOPE_RULES: list[ScopeRule] = [
                 "tests/integration/test_telemetry_canary.py",
                 "tests/integration/test_strategic_compact_integration.py",
             ],
+            "e2e": [],
+        },
+    ),
+    ScopeRule(
+        name="templates",
+        source_globs=["src/ai_engineering/templates/**/*.py"],
+        tiers={
+            "unit": ["tests/unit/test_template_parity.py"],
+            "integration": [],
             "e2e": [],
         },
     ),

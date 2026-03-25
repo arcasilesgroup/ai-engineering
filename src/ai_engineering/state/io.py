@@ -1,7 +1,7 @@
 """JSON and NDJSON I/O for ai-engineering state files.
 
 Provides:
-- read/write for JSON state files (install-manifest, ownership-map, decision-store, sources.lock).
+- read/write for JSON state files (install-state, ownership-map, decision-store, sources.lock).
 - append-only write for NDJSON audit log.
 - Stable JSON formatting (sorted keys, 2-space indent) for clean diffs.
 - ISO 8601 timestamp serialization.

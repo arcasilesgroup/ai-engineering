@@ -166,7 +166,7 @@ class TestOwnershipSafety:
 
 
 class TestTemplateTrees:
-    """Tests that _PROJECT_TEMPLATE_TREES files are processed by the updater."""
+    """Tests that provider template tree files are processed by the updater."""
 
     def test_project_template_trees_updated(self, installed_project: Path) -> None:
         """Modify a .claude/skills/ file and verify update restores it."""

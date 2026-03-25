@@ -13,6 +13,7 @@ Modes:
 from __future__ import annotations
 
 import difflib
+import json
 import logging
 import shutil
 import tempfile
@@ -21,16 +22,17 @@ from pathlib import Path
 
 from ai_engineering.git.context import get_git_context
 from ai_engineering.installer.templates import (
-    _PROJECT_TEMPLATE_MAP,
-    _PROJECT_TEMPLATE_TREES,
     get_ai_engineering_template_root,
     get_project_template_root,
+    resolve_template_maps,
 )
 from ai_engineering.state.io import append_ndjson, read_json_model
 from ai_engineering.state.models import (
     AuditEntry,
+    InstallState,
     OwnershipMap,
 )
+from ai_engineering.state.service import load_install_state, save_install_state
 from ai_engineering.vcs.repo_context import get_repo_context
 
 logger = logging.getLogger(__name__)
@@ -104,6 +106,14 @@ def update(
         ownership = read_json_model(ownership_path, OwnershipMap)
     else:
         ownership = OwnershipMap()
+
+    # --- Phase 0a: migrate state files (spec-068) ---
+    if not dry_run:
+        _migrate_install_manifest(ai_eng_dir)
+        _migrate_tools_json(ai_eng_dir)
+
+    # --- Phase 0b: migrate hooks from legacy scripts/hooks/ to .ai-engineering/ ---
+    _migrate_hooks_dir(target)
 
     # --- Phase 1: evaluate all changes (pure, no disk writes) ---
     changes: list[FileChange] = []
@@ -184,10 +194,12 @@ def _evaluate_project_files(
 ) -> list[FileChange]:
     """Evaluate changes for project-level template files."""
     project_root = get_project_template_root()
+    resolved = resolve_template_maps(None)
     changes: list[FileChange] = []
 
-    # 1. Individual file mappings
-    for src_relative, dest_relative in sorted(_PROJECT_TEMPLATE_MAP.items()):
+    # 1. Individual file mappings (provider + common)
+    all_file_maps = {**resolved.file_map, **resolved.common_file_map}
+    for src_relative, dest_relative in sorted(all_file_maps.items()):
         src_file = project_root / src_relative
         if not src_file.is_file():
             continue
@@ -198,8 +210,9 @@ def _evaluate_project_files(
         change = _evaluate_file_change(src_file, dest, ownership_path, ownership)
         changes.append(change)
 
-    # 2. Directory tree mappings
-    for src_tree, dest_tree in _PROJECT_TEMPLATE_TREES:
+    # 2. Directory tree mappings (provider + common + VCS)
+    all_trees = resolved.tree_list + resolved.common_tree_list + resolved.vcs_tree_list
+    for src_tree, dest_tree in all_trees:
         src_dir = project_root / src_tree
         if not src_dir.is_dir():
             continue
@@ -347,8 +360,105 @@ def _restore_backup(backup_dir: Path, target: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
+# State-file migration (spec-068)
+# ---------------------------------------------------------------------------
+
+
+def _migrate_install_manifest(ai_eng_dir: Path) -> bool:
+    """Migrate legacy ``install-manifest.json`` to ``install-state.json``.
+
+    If both old and new files exist, the old file takes precedence
+    (re-migrate). After successful conversion the old file is deleted.
+
+    Args:
+        ai_eng_dir: The ``.ai-engineering/`` directory.
+
+    Returns:
+        True if a migration was performed, False otherwise.
+    """
+    state_dir = ai_eng_dir / "state"
+    old_path = state_dir / "install-manifest.json"
+
+    if not old_path.exists():
+        return False
+
+    logger.info("Migrating install-manifest.json -> install-state.json")
+
+    data = json.loads(old_path.read_text(encoding="utf-8"))
+    state = InstallState.from_legacy_dict(data)
+
+    save_install_state(state_dir, state)
+    old_path.unlink()
+    return True
+
+
+def _migrate_tools_json(ai_eng_dir: Path) -> bool:
+    """Merge legacy ``tools.json`` platform data into ``install-state.json``.
+
+    Loads (or creates) the current ``install-state.json``, then merges
+    platform entries extracted from ``tools.json``. After merge, the old
+    file is deleted.
+
+    Args:
+        ai_eng_dir: The ``.ai-engineering/`` directory.
+
+    Returns:
+        True if a migration was performed, False otherwise.
+    """
+    state_dir = ai_eng_dir / "state"
+    tools_path = state_dir / "tools.json"
+
+    if not tools_path.exists():
+        return False
+
+    logger.info("Migrating tools.json -> install-state.json (platforms)")
+
+    tools_data = json.loads(tools_path.read_text(encoding="utf-8"))
+
+    # Load existing install-state (or defaults if it doesn't exist yet)
+    install_state = load_install_state(state_dir)
+
+    # Extract platforms from tools.json via the dict-based helper
+    from ai_engineering.state.models import _extract_platforms_from_dict
+
+    merged_platforms = _extract_platforms_from_dict(tools_data)
+
+    # Merge: tools.json platforms overwrite matching keys
+    install_state.platforms.update(merged_platforms)
+
+    save_install_state(state_dir, install_state)
+    tools_path.unlink()
+    return True
+
+
+# ---------------------------------------------------------------------------
 # Legacy migration
 # ---------------------------------------------------------------------------
+
+
+def _migrate_hooks_dir(target: Path) -> None:
+    """Migrate hooks from legacy ``scripts/hooks/`` to ``.ai-engineering/scripts/hooks/``.
+
+    Idempotent: if the new path already exists, skip silently.
+    """
+    old_hooks = target / "scripts" / "hooks"
+    new_hooks = target / ".ai-engineering" / "scripts" / "hooks"
+
+    if not old_hooks.is_dir():
+        return
+    if new_hooks.is_dir():
+        logger.debug("Hooks already at new path, skipping migration")
+        return
+
+    logger.info("Migrating hooks from scripts/hooks/ to .ai-engineering/scripts/hooks/")
+    new_hooks.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(old_hooks, new_hooks)
+    shutil.rmtree(old_hooks)
+
+    # Remove empty scripts/ directory if nothing else is in it
+    scripts_dir = target / "scripts"
+    if scripts_dir.is_dir() and not any(scripts_dir.iterdir()):
+        scripts_dir.rmdir()
 
 
 _LEGACY_DIRS = ("agents", "skills")

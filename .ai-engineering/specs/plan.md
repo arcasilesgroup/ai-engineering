@@ -1,183 +1,193 @@
-# Plan: Copilot Subagent Orchestration — Full Parity with Claude Code
+# Plan: spec-068 State Unification
 
-## Pipeline: standard
-## Phases: 5
-## Tasks: 17 (build: 13, verify: 3, conditional: 1)
-
----
-
-### Phase 1: Sync Pipeline Infrastructure
-**Gate**: `AgentMeta` extended, `AGENT_METADATA` updated, `generate_copilot_agent()` serializes new properties. `ruff check scripts/` passes.
-
-- [x] T-1.1: Extend `AgentMeta` dataclass with `copilot_agents`, `copilot_handoffs`, `copilot_hooks` fields (agent: build)
-  - File: `scripts/sync_command_mirrors.py` lines 63-72
-  - Add 3 optional fields with defaults (empty tuple, empty tuple, None)
-  - Constraint: frozen dataclass — use default_factory pattern or direct defaults
-
-- [x] T-1.2: Update `AGENT_METADATA` dict with subagent config for 5 orchestrators (agent: build)
-  - File: `scripts/sync_command_mirrors.py` lines 76-236
-  - Add `copilot_agents` to: autopilot, build, plan, review, verify
-  - Add `copilot_handoffs` to: autopilot, build, plan, review
-  - Add `copilot_hooks` to: build only
-  - 4 leaf agents (explore, guard, guide, simplify) keep empty defaults
-  - Note: autopilot handoff uses `agent: "agent"` (intentional — targets the built-in default Copilot chat agent for PR creation, returning control to user)
-
-- [x] T-1.3: Update `generate_copilot_agent()` to serialize new frontmatter properties (agent: build)
-  - File: `scripts/sync_command_mirrors.py` lines 584-600
-  - Inject `agent` into tools list when `copilot_agents` is non-empty
-  - Serialize `agents: [...]` when non-empty
-  - Serialize `handoffs:` block (list of dicts) when non-empty
-  - Serialize `hooks:` block (nested dict) when non-empty
-  - Use `_format_yaml_field()` (line 352) for dict/list serialization
-  - Constraint: DO NOT modify `_serialize_frontmatter()` — it's for skills, not agents
-
-- [x] T-1.4: Lint and type-check sync script changes (agent: build)
-  - Run: `ruff check scripts/sync_command_mirrors.py`
-  - Run: `ruff format --check scripts/sync_command_mirrors.py`
-  - Fix any issues before proceeding
-
-### Phase 2: Canonical Agent Body Updates
-**Gate**: All `Dispatch Agent(X)` replaced with "Use the X agent" syntax. Autopilot has "Subagent Orchestration" section. Build references Guard/Explorer as subagents. No `.claude/` contains Copilot-only properties.
-
-- [x] T-2.1: Add "Subagent Orchestration" section to autopilot canonical (agent: build)
-  - File: `.claude/agents/ai-autopilot.md`
-  - Add new section after "Capabilities" (after line 26)
-  - Content per spec R4: 5-point delegation protocol
-
-- [x] T-2.2: Replace all `Dispatch Agent(X)` references in autopilot AND build canonicals (agent: build)
-  - File: `.claude/agents/ai-autopilot.md` — 8 occurrences at lines: 23, 24, 25, 42, 43, 53, 55, 68
-  - File: `.claude/agents/ai-build.md` — scan for ANY `Dispatch Agent(` occurrences beyond lines 65-87
-  - Replace with "Use the X agent to..." pattern
-  - Constraint: preserve meaning and context of each reference
-
-- [x] T-2.3: Update Build canonical — guard.advise and dispatch pattern (agent: build)
-  - File: `.claude/agents/ai-build.md`
-  - Line 65-66: Replace `guard.advise` with Guard agent subagent reference
-  - Lines 81-87: Add Explorer as consultable subagent in dispatch pattern
-
-- [x] T-2.4: Investigate and fix autopilot skill path bug (agent: build)
-  - File: `.claude/skills/ai-autopilot/SKILL.md`
-  - Investigation found: line 83 mentions "watch-and-fix loop" — verify if there's a handler reference that the `translate_refs()` regex misses
-  - Check all `.claude/` path references in the skill that the regex `_XREF_CLAUDE_SKILL` might not match (e.g., handler paths not rooted at the skill's SKILL.md)
-  - Fix any path references that won't translate correctly via sync
-
-- [x] T-2.5: Update dispatch skill canonical with agent name references (agent: build)
-  - File: `.claude/skills/ai-dispatch/SKILL.md`
-  - Replace any generic "subagent" references with explicit agent names where appropriate
-  - Ensure names used will be translated by `translate_refs()` for each platform
-
-### Phase 3: Sync, Regenerate, and Validate
-**Gate**: `ai-eng sync --check` passes (exit 0). Generated mirrors have correct frontmatter. Validator doesn't flag false drift.
-
-- [x] T-3.1: Run sync to regenerate all mirrors (agent: build)
-  - Run: `python scripts/sync_command_mirrors.py --verbose`
-  - Verify output: 9 agents × 3 surfaces + 37 skills × 3 surfaces regenerated
-  - Check generated `.github/agents/autopilot.agent.md` — must have `agents`, `handoffs`, `agent` in tools
-  - Check generated `.github/agents/build.agent.md` — must have `agents`, `handoffs`, `hooks`, `agent` in tools
-
-- [x] T-3.2: Run sync check to verify parity (agent: verify)
-  - Run: `ai-eng sync --check` or `python scripts/sync_command_mirrors.py --check`
-  - Must exit 0 (no drift)
-  - If fails: the mirror_sync validator may need updating (T-3.3)
-
-- [x] T-3.3: Update mirror_sync validator if needed (agent: build) — NOT NEEDED (sync passes)
-  - File: `src/ai_engineering/validator/categories/mirror_sync.py`
-  - ONLY if T-3.2 fails due to Copilot-only properties
-  - The validator uses full-file SHA-256 comparison (line 315)
-  - Since sync script GENERATES the mirrors, the hashes should match after regeneration
-  - If validator compares canonical `.claude/` vs `.github/` directly (not via sync), it will fail — adjust comparison logic
-  - Blocked by: T-3.2 (only execute if T-3.2 fails)
-
-### Phase 4: Documentation and Governance
-**Gate**: `docs/copilot-subagents.md` exists with 3 environment examples. `copilot-instructions.md` has subagent section. DEC-024 registered.
-
-- [x] T-4.1: Create `docs/copilot-subagents.md` (agent: build)
-  - New file: `docs/copilot-subagents.md`
-  - Must include:
-    - Sync architecture explanation (canonical → mirrors)
-    - Copilot-specific properties (`agents`, `handoffs`, `hooks`)
-    - VS Code usage example (agent tool + agents property)
-    - Copilot CLI usage example (task tool with agent_type)
-    - Coding Agent usage example (auto-discovery from repo)
-    - Capabilities matrix by environment
-    - Handoff chain diagram
-    - Reference to official docs + returngis article
-
-- [x] T-4.2: Add "Subagent Orchestration" section to copilot-instructions.md (agent: build)
-  - File: `.github/copilot-instructions.md`
-  - Add section after "Observability" (after line 51)
-  - Document: orchestrator agents, subagent tool, handoffs, and roles
-
-- [x] T-4.3: Register DEC-024 in decision-store.json (agent: build)
-  - File: `.ai-engineering/state/decision-store.json`
-  - ID: DEC-024
-  - Title: "Copilot subagent orchestration via sync pipeline"
-  - Status: active, Criticality: high
-  - Record rationale: platform-specific properties injected via AGENT_METADATA
-
-### Phase 5: Final Verification
-**Gate**: All 20 acceptance criteria pass. Linters clean. No regressions.
-
-- [x] T-5.1: Run full linter suite (agent: verify)
-  - `ruff check src/ scripts/`
-  - `ruff format --check src/ scripts/`
-  - `gitleaks detect`
-  - All must pass
-
-- [x] T-5.2: Verify all 20 acceptance criteria (agent: verify) — 20/20 PASS
-  - Check AC 1-3: sync pipeline (AgentMeta, AGENT_METADATA, generate function)
-  - Check AC 4-8: generated mirrors (frontmatter properties, sync --check)
-  - Check AC 9-12: canonical body changes (sections, syntax, path fix)
-  - Check AC 13-16: docs and governance (files exist, DEC-024, validator)
-  - Check AC 17-20: negative checks (leaf agents clean, no Copilot props in canonical, linters)
+## Pipeline: full
+## Phases: 7
+## Tasks: 22 (build: 17, verify: 5)
 
 ---
 
-## Agent Assignments Summary
+### Phase 1: New models (additive, zero breakage)
+**Gate**: ManifestConfig parses manifest.yml; InstallState serializes/deserializes correctly. No existing code modified.
 
-| Agent | Tasks | Purpose |
-|-------|-------|---------|
-| build | 13 | Sync script changes, canonical body updates, docs, governance |
-| verify | 3 | Sync check, lint suite, AC verification |
+- [x] T-1.1: Create `config/` package with ManifestConfig model (agent: build) -- DONE
+  - Create `src/ai_engineering/config/__init__.py`, `manifest.py`, `loader.py`
+  - ManifestConfig models all sections of manifest.yml (providers, quality, tooling, work_items, documentation, cicd, skills, agents, ownership)
+  - `load_manifest_config(root) -> ManifestConfig` -- yaml.safe_load + Pydantic validate
+  - All fields optional with sensible defaults (graceful degradation for partial manifests)
+  - **Done when**: `ManifestConfig.model_validate(yaml.safe_load(manifest.yml))` succeeds on this repo's manifest
 
-## Dependencies
+- [x] T-1.2: Write tests for ManifestConfig (agent: build) -- DONE (46 tests)
+  - Create `tests/unit/config/test_manifest.py`
+  - Test: parse real manifest.yml, parse partial manifest, parse empty file, missing file
+  - Test: all config fields accessible via typed attributes
+  - **Done when**: Tests pass GREEN
 
-```
-T-1.1 → T-1.2 → T-1.3 → T-1.4
-                              ↘
-T-2.1 ──┐                     T-3.1 → T-3.2 → T-3.3 (conditional)
-T-2.2 ──┤ (parallel)                              ↓
-T-2.3 ──┤                     T-4.1 ──┐
-T-2.4 ──┤                     T-4.2 ──┤ (parallel, after Phase 3)
-T-2.5 ──┘                     T-4.3 ──┘
-                                       ↓
-                               T-5.1 → T-5.2
-```
+- [x] T-1.3: Create InstallState model in state/models.py (agent: build) -- DONE
+  - Add `InstallState` as NEW class alongside existing `InstallManifest` (don't delete yet)
+  - Flat tooling section: `ToolEntry` with installed/authenticated/mode/scopes
+  - Platforms section: absorb SonarConfig, AzureDevOpsConfig, GitHubConfig structures
+  - Keep branch_policy, operational_readiness, release sections
+  - No stacks, ides, providers, ai_providers, framework_version (config lives in manifest.yml)
+  - **Done when**: `InstallState` model defined, coexists with `InstallManifest`
 
-Phase 1 and Phase 2 can run in parallel (different files).
-Phase 3 requires both Phase 1 and Phase 2 complete.
-Phase 4 can start after Phase 3.
-Phase 5 runs last.
+- [x] T-1.4: Write tests for InstallState (agent: build) -- DONE (21 tests)
+  - Create `tests/unit/state/test_install_state.py`
+  - Test: serialize/deserialize roundtrip, default values, platform credential refs
+  - Test: migration helper (convert old InstallManifest dict -> InstallState)
+  - **Done when**: Tests pass GREEN
 
-## Files Modified (Expected)
+- [x] T-1.5: Verify new models (agent: verify) -- DONE (67/67 pass, 1945/1946 unit suite)
+  - Verify ManifestConfig parses this repo's manifest.yml
+  - Verify InstallState roundtrip matches expected JSON schema from spec
+  - Verify no existing tests broke (new code is purely additive)
+  - **Done when**: `pytest tests/unit/config/ tests/unit/state/test_install_state.py` passes, full suite green
 
-| File | Phase | Change Type |
-|------|-------|-------------|
-| `scripts/sync_command_mirrors.py` | 1 | Extend dataclass, metadata, generator |
-| `.claude/agents/ai-autopilot.md` | 2 | Add section, unify syntax |
-| `.claude/agents/ai-build.md` | 2 | Update guard.advise, add Explorer |
-| `.claude/skills/ai-autopilot/SKILL.md` | 2 | Fix path bug |
-| `.claude/skills/ai-dispatch/SKILL.md` | 2 | Update agent references |
-| `src/ai_engineering/validator/categories/mirror_sync.py` | 3 | Conditional — only if validator fails |
-| `docs/copilot-subagents.md` | 4 | New file |
-| `.github/copilot-instructions.md` | 4 | Add section |
-| `.ai-engineering/state/decision-store.json` | 4 | Add DEC-024 |
+---
 
-## Auto-generated (via sync, NOT manually edited)
+### Phase 2: State file I/O + migration infrastructure
+**Gate**: install-state.json can be read/written. Migration converts old files to new format. No consumers switched yet.
 
-| File | Source |
-|------|--------|
-| `.github/agents/*.agent.md` (9 files) | sync from `.claude/agents/` + `AGENT_METADATA` |
-| `.github/prompts/*.prompt.md` (37 files) | sync from `.claude/skills/` |
-| `.agents/agents/*.md` (9 files) | sync from `.claude/agents/` |
-| `.agents/skills/*/SKILL.md` (37 dirs) | sync from `.claude/skills/` |
+- [x] T-2.1: Add InstallState load/save to state service (agent: build) -- DONE
+  - Add `load_install_state()` / `save_install_state()` to `state/service.py` (or `credentials/service.py`)
+  - File: `.ai-engineering/state/install-state.json`
+  - Coexist with old `load_tools_state()` -- don't delete yet
+  - **Done when**: Can write and read InstallState to install-state.json
+
+- [x] T-2.2: Add migration functions to updater/service.py (agent: build) -- DONE
+  - `_migrate_install_manifest()`: read install-manifest.json -> extract state fields -> write install-state.json -> delete old
+  - `_migrate_tools_json()`: read tools.json -> merge into install-state.json platforms section -> delete old
+  - Both idempotent: no-op if source absent, overwrite if both exist (old wins)
+  - Wire into `update()` flow before existing migrations
+  - **Done when**: Migration converts fixture files correctly
+
+- [x] T-2.3: Write tests for migration (agent: build) -- DONE (8 tests)
+  - Test: migrate install-manifest.json -> install-state.json (config fields stripped, state preserved)
+  - Test: migrate tools.json -> platforms section merged
+  - Test: both files absent -> no-op
+  - Test: both old and new exist -> old overwrites new
+  - Test: idempotent (run twice, same result)
+  - **Done when**: All migration tests pass
+
+- [x] T-2.4: Verify migration (agent: verify) -- DONE (75/75 new tests pass)
+  - Run migration tests
+  - Verify old models still work (no breakage to existing consumers)
+  - **Done when**: Full test suite green
+
+---
+
+### Phase 3: Remove platform onboarding from install
+**Gate**: `ai-eng install` no longer prompts for SonarCloud or platform credentials. `ai-eng setup platforms` unchanged.
+
+- [x] T-3.1: Remove _offer_platform_onboarding from core.py (agent: build) -- DONE
+  - Delete `_offer_platform_onboarding()` function
+  - Remove the call at end of `install_cmd()`
+  - Add `("ai-eng setup platforms", "Configure platform credentials")` to `suggest_next` list
+  - **Done when**: Install flow ends after summary panel without interactive prompts
+
+- [x] T-3.2: Update install tests (agent: build) -- DONE
+  - Remove/update tests that expect SonarCloud/platform prompts during install
+  - Verify test_install_clean, test_install_existing still pass
+  - **Done when**: All install tests pass without prompt expectations
+
+---
+
+### Phase 4: Migrate config consumers to ManifestConfig
+**Gate**: All files that read config (stacks, ides, providers, vcs) use ManifestConfig. InstallManifest still exists but config fields are no longer read from it.
+
+- [ ] T-4.1: Migrate config-only consumers (agent: build)
+  - `policy/gates.py`: `installed_stacks` -> `load_manifest_config(root).providers.stacks`
+  - `skills/service.py`: raw yaml.safe_load -> `load_manifest_config(root)`
+  - `work_items/service.py`: raw yaml.safe_load -> `load_manifest_config(root)`
+  - `validator/categories/counter_accuracy.py`: regex -> `load_manifest_config(root).skills.total`
+  - `validator/categories/instruction_consistency.py`: raw dict -> `load_manifest_config(root)`
+  - `maintenance/report.py`: `framework_version` -> `load_manifest_config(root).framework_version`
+  - **Done when**: No config-field reads from InstallManifest in these files
+
+- [x] T-4.2: Migrate dual consumers (config+state) (agent: build) -- DONE
+  - `vcs/factory.py`: split -- VCS from ManifestConfig, mode from InstallState
+  - `installer/service.py`: split -- config from ManifestConfig, state writes to InstallState
+  - `detector/readiness.py`: split -- stacks from ManifestConfig, tooling/branch from InstallState
+  - `installer/operations.py`: config mutations write to manifest.yml via update_manifest_field()
+  - `installer/phases/__init__.py`: InstallManifest -> InstallState (existing_state field)
+  - **Done when**: These files import ManifestConfig + InstallState, not InstallManifest
+
+- [x] T-4.3: Add ruamel.yaml dependency + YAML write for operations.py (agent: build) -- DONE (12 tests)
+  - Add `ruamel.yaml` to pyproject.toml
+  - Implement comment-preserving YAML write in operations.py for stack/ide/provider mutations
+  - Test roundtrip: load manifest.yml -> add stack -> save -> reload -> verify comments preserved
+  - **Done when**: `stack add python` roundtrip preserves manifest.yml structure
+
+---
+
+### Phase 5: Migrate state consumers to InstallState
+**Gate**: All files that read/write state use InstallState. InstallManifest still exists but unused.
+
+- [x] T-5.1: Migrate state-only consumers (agent: build) -- DONE
+  - `doctor/checks/readiness.py`: InstallManifest -> InstallState
+  - `doctor/checks/state_files.py`: path string -> install-state.json, InstallManifest -> InstallState
+  - `doctor/service.py`: ToolsState -> InstallState.platforms
+  - `release/orchestrator.py`: InstallManifest -> InstallState (release section)
+  - `hooks/manager.py`: InstallManifest -> InstallState (hook hashes stored as ToolEntry)
+  - `cli_commands/setup.py`: ToolsState -> InstallState.platforms
+  - `credentials/service.py`: kept old methods (Phase 6 deletes)
+  - **Done when**: No imports of ToolsState or state-field reads from InstallManifest
+
+- [x] T-5.2: Migrate path-string references (agent: build) -- DONE
+  - `installer/phases/detect.py`: string `install-manifest.json` -> `install-state.json`
+  - `installer/phases/state.py`: string -> `install-state.json`
+  - `installer/phases/governance.py`: string -> `install-state.json`
+  - `installer/phases/__init__.py`: InstallManifest import -> InstallState
+  - `state/audit.py`: `_read_active_stack` reads from ManifestConfig now
+  - `state/defaults.py`: added `default_install_state()`, updated ownership path
+  - `lib/signals.py`: `adoption_metrics` reads from ManifestConfig + InstallState
+  - `cli_commands/guide.py`: path string -> `install-state.json`, uses load_install_state
+  - `cli_commands/core.py`: path string -> `install-state.json`
+  - `cli_commands/vcs.py`: migrated to ManifestConfig + update_manifest_field
+  - `skills/service.py`: path string -> `install-state.json`
+  - **Done when**: grep for `install-manifest.json` in src/ returns zero results (except migration/legacy code)
+
+- [x] T-5.3: Verify zero InstallManifest/ToolsState usage (agent: verify) -- DONE (only definition/migration/legacy remain)
+  - grep `InstallManifest` in src/ -- only models.py (definition) should remain
+  - grep `ToolsState` in src/ -- zero results
+  - grep `tools.json` in src/ -- zero results
+  - grep `install-manifest.json` in src/ -- zero results
+  - **Done when**: All greps clean
+
+---
+
+### Phase 6: Delete old code
+**Gate**: Old models removed. Only InstallState and ManifestConfig exist.
+
+- [x] T-6.1: Delete InstallManifest and ToolsState (agent: build) -- DONE
+  - Remove `InstallManifest` class from state/models.py (keep other models: OwnershipMap, DecisionStore, AuditEntry)
+  - Remove `default_install_manifest()` from state/defaults.py
+  - Remove `ToolsState`, `GitHubConfig`, `SonarConfig`, `AzureDevOpsConfig` from credentials/models.py
+  - Remove `load_tools_state()` / `save_tools_state()` from credentials/service.py
+  - Clean up `credentials/__init__.py` re-exports
+  - Remove all supporting sub-models only used by InstallManifest (ToolingReadiness, PythonTooling, etc.)
+  - **Done when**: Old models deleted, no import errors
+
+---
+
+### Phase 7: Test migration + final verification
+**Gate**: Full test suite green. AC25/AC26/AC27 verified.
+
+- [x] T-7.1: Migrate test files (agent: build) -- DONE (22 files updated, 1 deleted)
+  - Update ~17 test files: `InstallManifest` -> `InstallState` or `ManifestConfig`
+  - Update fixture helpers (conftest.py `install()` calls)
+  - Update `install-manifest.json` path strings -> `install-state.json`
+  - Update `tools.json` -> `install-state.json` platform section
+  - Key files: test_state.py, test_installer.py, test_install_clean.py, test_install_existing.py, test_installer_integration.py, test_install_operational_flows.py, test_credentials.py, test_sonar_gate.py, conftest.py
+  - **Done when**: All test imports updated
+
+- [x] T-7.2: Run full test suite (agent: verify) -- DONE (1934 passed, 1 preexistente)
+  - `pytest` full run
+  - Fix any failures
+  - **Done when**: Full suite green
+
+- [x] T-7.3: Final grep verification (agent: verify) -- DONE (only docstrings remain)
+  - AC25: `grep -r "InstallManifest" src/` -> zero (definition removed)
+  - AC26: `grep -r "ToolsState" src/` -> zero
+  - AC27: `grep -r "tools\.json" src/` -> zero
+  - `grep -r "install-manifest\.json" src/` -> zero
+  - **Done when**: All greps return zero matches in production code

@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from ai_engineering.config.loader import load_manifest_config
 from ai_engineering.validator._shared import (
     IntegrityCategory,
     IntegrityCheckResult,
@@ -64,20 +65,9 @@ def _check_counter_accuracy(target: Path, report: IntegrityReport, **_kwargs: ob
         return
 
     # Extract canonical counts from manifest.yml (source of truth)
-    manifest_path = target / ".ai-engineering" / "manifest.yml"
-    canonical_skills = 0
-    canonical_agents = 0
-    if manifest_path.exists():
-        manifest_content = manifest_path.read_text(encoding="utf-8", errors="replace")
-        # Extract skill total from "total: N" under skills section
-        skill_total_re = re.compile(r"^skills:\s*\n\s+total:\s*(\d+)", re.MULTILINE)
-        agent_total_re = re.compile(r"^agents:\s*\n\s+total:\s*(\d+)", re.MULTILINE)
-        skill_match = skill_total_re.search(manifest_content)
-        agent_match = agent_total_re.search(manifest_content)
-        if skill_match:
-            canonical_skills = int(skill_match.group(1))
-        if agent_match:
-            canonical_agents = int(agent_match.group(1))
+    cfg = load_manifest_config(target)
+    canonical_skills = cfg.skills.total
+    canonical_agents = cfg.agents.total
 
     # All instruction files should report consistent counts
     skill_counts = {f: c[0] for f, c in counts.items()}
@@ -141,9 +131,7 @@ def _check_counter_accuracy(target: Path, report: IntegrityReport, **_kwargs: ob
                         f"manifest.yml lists {canonical_skills} skills, "
                         f"instruction files report {ref_skills}"
                     ),
-                    file_path=manifest_path.relative_to(target).as_posix()
-                    if manifest_path.exists()
-                    else None,
+                    file_path=".ai-engineering/manifest.yml",
                 )
             )
         else:
@@ -168,9 +156,7 @@ def _check_counter_accuracy(target: Path, report: IntegrityReport, **_kwargs: ob
                         f"manifest.yml lists {canonical_agents} agents, "
                         f"instruction files report {ref_agents}"
                     ),
-                    file_path=manifest_path.relative_to(target).as_posix()
-                    if manifest_path.exists()
-                    else None,
+                    file_path=".ai-engineering/manifest.yml",
                 )
             )
         else:

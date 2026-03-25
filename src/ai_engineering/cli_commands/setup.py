@@ -24,15 +24,14 @@ from ai_engineering.cli_envelope import emit_error, emit_success
 from ai_engineering.cli_output import is_json_mode
 from ai_engineering.cli_ui import error, header, info, kv, success, warning
 from ai_engineering.credentials.models import (
-    AzureDevOpsConfig,
-    CredentialRef,
-    GitHubConfig,
     PlatformKind,
-    SonarConfig,
 )
 from ai_engineering.credentials.service import CredentialService
 from ai_engineering.paths import resolve_project_root
 from ai_engineering.platforms.detector import detect_platforms
+from ai_engineering.state.models import CredentialRef as StateCredentialRef
+from ai_engineering.state.models import PlatformEntry
+from ai_engineering.state.service import load_install_state, save_install_state
 
 setup_app = typer.Typer(
     name="setup",
@@ -64,16 +63,18 @@ def setup_platforms_cmd(
 
     if is_json_mode():
         detected = detect_platforms(root)
-        cred_svc = CredentialService()
-        state = cred_svc.load_tools_state(_state_dir(root))
+        state = load_install_state(_state_dir(root))
+        gh_entry = state.platforms.get("github")
+        sonar_entry = state.platforms.get("sonar")
+        azdo_entry = state.platforms.get("azure_devops")
         emit_success(
             "ai-eng setup platforms",
             {
                 "detected": [p.value for p in detected],
                 "configured": {
-                    "github": state.github.configured,
-                    "sonar": state.sonar.configured,
-                    "azure_devops": state.azure_devops.configured,
+                    "github": gh_entry.configured if gh_entry else False,
+                    "sonar": sonar_entry.configured if sonar_entry else False,
+                    "azure_devops": azdo_entry.configured if azdo_entry else False,
                 },
             },
         )
@@ -124,9 +125,9 @@ def setup_platforms_cmd(
                 break
 
     # After platform setup, offer SonarLint IDE configuration if Sonar is configured.
-    cred_svc = CredentialService()
-    state = cred_svc.load_tools_state(_state_dir(root))
-    if state.sonar.configured and state.sonar.url:
+    state = load_install_state(_state_dir(root))
+    sonar_entry = state.platforms.get("sonar")
+    if sonar_entry and sonar_entry.configured and sonar_entry.url:
         header("SonarLint IDE Configuration")
         if typer.confirm("  Configure SonarLint Connected Mode in your IDEs?", default=True):
             _run_sonarlint_setup(root)
@@ -191,16 +192,14 @@ def _run_github_setup(root: Path) -> None:
     else:
         success(f"Scopes OK: {', '.join(status.scopes or [])}")
 
-    # Update tools.json state.
-    cred_svc = CredentialService()
-    state = cred_svc.load_tools_state(_state_dir(root))
-    state.github = GitHubConfig(
+    # Update install-state.json platforms.
+    state = load_install_state(_state_dir(root))
+    state.platforms["github"] = PlatformEntry(
         configured=status.authenticated,
-        cli_authenticated=status.authenticated,
-        scopes=status.scopes or [],
+        url="https://github.com",
     )
-    cred_svc.save_tools_state(_state_dir(root), state)
-    success("State saved to tools.json")
+    save_install_state(_state_dir(root), state)
+    success("State saved to install-state.json")
 
 
 # ------------------------------------------------------------------
@@ -293,21 +292,20 @@ def _run_sonar_setup(
     project_key = project_key_override or _read_sonar_property(root, "sonar.projectKey") or ""
     organization = organization_override or _read_sonar_property(root, "sonar.organization") or ""
 
-    # 7. Update tools.json state.
-    state = cred_svc.load_tools_state(_state_dir(root))
-    state.sonar = SonarConfig(
+    # 7. Update install-state.json platforms.
+    state = load_install_state(_state_dir(root))
+    state.platforms["sonar"] = PlatformEntry(
         configured=True,
         url=url,
         project_key=project_key,
         organization=organization,
-        credential_ref=CredentialRef(
-            service_name=cred_svc.service_name("sonar"),
+        credential_ref=StateCredentialRef(
+            service=cred_svc.service_name("sonar"),
             username="token",
-            configured=True,
         ),
     )
-    cred_svc.save_tools_state(_state_dir(root), state)
-    success("State saved to tools.json")
+    save_install_state(_state_dir(root), state)
+    success("State saved to install-state.json")
 
 
 def _read_sonar_property(root: Path, key: str) -> str | None:
@@ -385,19 +383,18 @@ def _run_azure_devops_setup(root: Path, *, org_url_override: str | None = None) 
     azdo.store_pat(pat)
     success("PAT stored in OS secret store")
 
-    # 6. Update tools.json state.
-    state = cred_svc.load_tools_state(_state_dir(root))
-    state.azure_devops = AzureDevOpsConfig(
+    # 6. Update install-state.json platforms.
+    state = load_install_state(_state_dir(root))
+    state.platforms["azure_devops"] = PlatformEntry(
         configured=True,
-        org_url=org_url,
-        credential_ref=CredentialRef(
-            service_name=cred_svc.service_name("azure_devops"),
+        url=org_url,
+        credential_ref=StateCredentialRef(
+            service=cred_svc.service_name("azure_devops"),
             username="pat",
-            configured=True,
         ),
     )
-    cred_svc.save_tools_state(_state_dir(root), state)
-    success("State saved to tools.json")
+    save_install_state(_state_dir(root), state)
+    success("State saved to install-state.json")
 
 
 # ------------------------------------------------------------------
@@ -449,13 +446,17 @@ def _run_sonarlint_setup(
     header("SonarLint IDE Setup")
 
     # 1. Resolve Sonar connection info.
-    cred_svc = CredentialService()
-    state = cred_svc.load_tools_state(_state_dir(root))
+    state = load_install_state(_state_dir(root))
+    sonar_entry = state.platforms.get("sonar")
 
-    sonar_url = url_override or state.sonar.url or _read_sonar_property(root, "sonar.host.url")
+    sonar_url = (
+        url_override
+        or (sonar_entry.url if sonar_entry else "")
+        or _read_sonar_property(root, "sonar.host.url")
+    )
     project_key = (
         project_key_override
-        or state.sonar.project_key
+        or (sonar_entry.project_key if sonar_entry else "")
         or _read_sonar_property(root, "sonar.projectKey")
     )
 

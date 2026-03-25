@@ -1,25 +1,16 @@
 """Unit tests for the credential service module.
 
-All OS keyring interactions are mocked — no real secrets are
+All OS keyring interactions are mocked -- no real secrets are
 stored or retrieved during testing.
 """
 
 from __future__ import annotations
 
-import json
-from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
 
-from ai_engineering.credentials.models import (
-    AzureDevOpsConfig,
-    CredentialRef,
-    GitHubConfig,
-    PlatformKind,
-    SonarConfig,
-    ToolsState,
-)
+from ai_engineering.credentials.models import PlatformKind
 from ai_engineering.credentials.service import CredentialService
 
 pytestmark = pytest.mark.unit
@@ -49,46 +40,7 @@ def svc(mock_backend: MagicMock) -> CredentialService:
 
 
 class TestModels:
-    """Tests for Pydantic models."""
-
-    def test_credential_ref_defaults(self) -> None:
-        ref = CredentialRef(service_name="ai-engineering/sonar", username="token")
-        assert ref.configured is False
-
-    def test_tools_state_defaults(self) -> None:
-        state = ToolsState()
-        assert state.github.configured is False
-        assert state.sonar.configured is False
-        assert state.azure_devops.configured is False
-
-    def test_tools_state_round_trip(self) -> None:
-        # Arrange
-        state = ToolsState(
-            github=GitHubConfig(configured=True, cli_authenticated=True, scopes=["repo"]),
-            sonar=SonarConfig(
-                configured=True,
-                url="https://sonarcloud.io",
-                project_key="my-proj",
-                organization="my-org",
-                credential_ref=CredentialRef(
-                    service_name="ai-engineering/sonar",
-                    username="token",
-                    configured=True,
-                ),
-            ),
-            azure_devops=AzureDevOpsConfig(configured=False),
-        )
-
-        # Act
-        payload = state.model_dump_json()
-        restored = ToolsState.model_validate_json(payload)
-
-        # Assert
-        assert restored.github.scopes == ["repo"]
-        assert restored.sonar.url == "https://sonarcloud.io"
-        assert restored.sonar.organization == "my-org"
-        assert restored.sonar.credential_ref is not None
-        assert restored.sonar.credential_ref.configured is True
+    """Tests for remaining Pydantic models."""
 
     def test_platform_kind_values(self) -> None:
         assert PlatformKind.GITHUB.value == "github"
@@ -97,7 +49,7 @@ class TestModels:
 
 
 # ---------------------------------------------------------------
-# CredentialService — keyring operations
+# CredentialService -- keyring operations
 # ---------------------------------------------------------------
 
 
@@ -138,55 +90,6 @@ class TestCredentialServiceKeyring:
 
     def test_exists_returns_false_when_absent(self, svc: CredentialService) -> None:
         assert svc.exists("sonar", "token") is False
-
-
-# ---------------------------------------------------------------
-# CredentialService — tools.json state
-# ---------------------------------------------------------------
-
-
-class TestToolsJsonState:
-    """Tests for load / save tools.json."""
-
-    def test_load_returns_defaults_when_missing(self, tmp_path: Path) -> None:
-        state = CredentialService.load_tools_state(tmp_path)
-        assert state.github.configured is False
-        assert state.sonar.configured is False
-
-    def test_save_creates_file(self, tmp_path: Path) -> None:
-        # Arrange
-        state = ToolsState(github=GitHubConfig(configured=True))
-
-        # Act
-        CredentialService.save_tools_state(tmp_path, state)
-
-        # Assert
-        path = tmp_path / "tools.json"
-        assert path.exists()
-        data = json.loads(path.read_text(encoding="utf-8"))
-        assert data["github"]["configured"] is True
-
-    def test_load_reads_saved_state(self, tmp_path: Path) -> None:
-        # Arrange
-        original = ToolsState(sonar=SonarConfig(configured=True, url="https://sonarcloud.io"))
-        CredentialService.save_tools_state(tmp_path, original)
-
-        # Act
-        loaded = CredentialService.load_tools_state(tmp_path)
-
-        # Assert
-        assert loaded.sonar.configured is True
-        assert loaded.sonar.url == "https://sonarcloud.io"
-
-    def test_save_creates_parent_dirs(self, tmp_path: Path) -> None:
-        # Arrange
-        nested = tmp_path / "deep" / "state"
-
-        # Act
-        CredentialService.save_tools_state(nested, ToolsState())
-
-        # Assert
-        assert (nested / "tools.json").exists()
 
 
 # ---------------------------------------------------------------
