@@ -62,8 +62,8 @@ def _check_github_auth() -> CheckResult:
         )
     return CheckResult(
         name="vcs-auth",
-        status=CheckStatus.FAIL,
-        message="GitHub authentication failed; run 'gh auth login'",
+        status=CheckStatus.WARN,
+        message="GitHub authentication not configured; run 'gh auth login'",
     )
 
 
@@ -97,6 +97,6 @@ def _check_azure_auth() -> CheckResult:
         )
     return CheckResult(
         name="vcs-auth",
-        status=CheckStatus.FAIL,
-        message="Azure authentication failed; run 'az login'",
+        status=CheckStatus.WARN,
+        message="Azure authentication not configured; run 'az login'",
     )
