@@ -146,9 +146,17 @@ def test_validate_json_and_failure_exit(capsys: pytest.CaptureFixture[str], tmp_
 
 
 def test_vcs_status_and_set_primary(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    state_dir = tmp_path / ".ai-engineering" / "state"
+    import shutil
+
+    from ai_engineering.installer.templates import get_ai_engineering_template_root
+
+    ai_eng_dir = tmp_path / ".ai-engineering"
+    ai_eng_dir.mkdir(parents=True, exist_ok=True)
+    state_dir = ai_eng_dir / "state"
     state_dir.mkdir(parents=True, exist_ok=True)
     save_install_state(state_dir, default_install_state())
+    # Copy template manifest.yml so vcs_set_primary can update it
+    shutil.copy2(get_ai_engineering_template_root() / "manifest.yml", ai_eng_dir / "manifest.yml")
 
     provider = SimpleNamespace(provider_name=lambda: "github", is_available=lambda: True)
     with patch("ai_engineering.cli_commands.vcs.get_provider", return_value=provider):
@@ -201,7 +209,7 @@ def test_stack_and_ide_empty_lists_and_errors(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    empty_manifest = SimpleNamespace(installed_stacks=[], installed_ides=[])
+    empty_manifest = SimpleNamespace(providers=SimpleNamespace(stacks=[], ides=[]))
     with patch("ai_engineering.cli_commands.stack_ide.list_status", return_value=empty_manifest):
         stack_ide.stack_list(target=tmp_path)
         stack_ide.ide_list(target=tmp_path)

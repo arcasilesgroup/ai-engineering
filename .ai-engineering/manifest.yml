@@ -11,8 +11,11 @@ version: "1.0.0"
 # Providers
 providers:
   vcs: github
-  ides: [claude_code, github_copilot]
+  ides: [terminal]
   stacks: [python]
+  ai_providers:
+    enabled: [claude_code, github_copilot]
+    primary: claude_code
 
 # Artifact feeds — configure your private feed in pyproject.toml [tool.uv.index]
 # See the commented section in pyproject.toml for instructions.

@@ -139,6 +139,15 @@ def install(
         src_root, ai_eng_dir, exclude=["agents/", "skills/"]
     )
 
+    # 1b. Write caller-supplied stacks/ides/providers into manifest.yml
+    _apply_manifest_params(
+        target,
+        stacks=stacks,
+        ides=ides,
+        vcs_provider=vcs_provider,
+        ai_providers=ai_providers,
+    )
+
     # 2. Copy project-level templates (provider-aware)
     result.project_files = copy_project_templates(target, providers=ai_providers)
 
@@ -308,6 +317,36 @@ def _summary_to_install_result(
         result.already_installed = True
 
     return result
+
+
+def _apply_manifest_params(
+    target: Path,
+    *,
+    stacks: list[str] | None,
+    ides: list[str] | None,
+    vcs_provider: str = "github",
+    ai_providers: list[str] | None = None,
+) -> None:
+    """Write caller-supplied install parameters into manifest.yml.
+
+    Only runs when manifest.yml exists (i.e., after the template copy).
+    No-op for None parameters (uses template defaults).
+    """
+    from ai_engineering.config.loader import update_manifest_field
+
+    manifest_path = target / ".ai-engineering" / "manifest.yml"
+    if not manifest_path.is_file():
+        return
+    if stacks is not None:
+        update_manifest_field(target, "providers.stacks", stacks)
+    if ides is not None:
+        update_manifest_field(target, "providers.ides", ides)
+    if ai_providers is not None:
+        update_manifest_field(target, "providers.ai_providers.enabled", ai_providers)
+        if ai_providers:
+            update_manifest_field(target, "providers.ai_providers.primary", ai_providers[0])
+    if vcs_provider != "github":
+        update_manifest_field(target, "providers.vcs", vcs_provider)
 
 
 def _generate_state_files(

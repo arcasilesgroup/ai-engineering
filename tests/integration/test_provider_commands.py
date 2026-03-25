@@ -21,9 +21,9 @@ class TestProviderAdd:
     """Tests for add_provider operation."""
 
     def test_add_provider_to_installed_project(self, tmp_path: Path) -> None:
-        install(tmp_path)
+        install(tmp_path, ai_providers=["claude_code"])
         manifest = add_provider(tmp_path, "github_copilot")
-        assert "github_copilot" in manifest.ai_providers.enabled
+        assert "github_copilot" in manifest.providers.ai_providers.enabled
         # Verify copilot files were created
         assert (tmp_path / "AGENTS.md").is_file()
         assert (tmp_path / ".github" / "copilot-instructions.md").is_file()
@@ -54,11 +54,11 @@ class TestProviderRemove:
     def test_remove_provider(self, tmp_path: Path) -> None:
         install(tmp_path, ai_providers=["claude_code", "github_copilot"])
         manifest = remove_provider(tmp_path, "github_copilot")
-        assert "github_copilot" not in manifest.ai_providers.enabled
-        assert "claude_code" in manifest.ai_providers.enabled
+        assert "github_copilot" not in manifest.providers.ai_providers.enabled
+        assert "claude_code" in manifest.providers.ai_providers.enabled
 
     def test_remove_last_provider_raises(self, tmp_path: Path) -> None:
-        install(tmp_path)
+        install(tmp_path, ai_providers=["claude_code"])
         with pytest.raises(InstallerError, match="Cannot remove the last"):
             remove_provider(tmp_path, "claude_code")
 
@@ -70,7 +70,7 @@ class TestProviderRemove:
     def test_remove_primary_promotes_next(self, tmp_path: Path) -> None:
         install(tmp_path, ai_providers=["claude_code", "github_copilot"])
         manifest = remove_provider(tmp_path, "claude_code")
-        assert manifest.ai_providers.primary == "github_copilot"
+        assert manifest.providers.ai_providers.primary == "github_copilot"
 
     def test_remove_does_not_delete_shared_agents_md(
         self,
@@ -92,14 +92,14 @@ class TestProviderList:
     def test_list_default_providers(self, tmp_path: Path) -> None:
         install(tmp_path)
         manifest = list_status(tmp_path)
-        assert manifest.ai_providers.primary == "claude_code"
-        assert "claude_code" in manifest.ai_providers.enabled
+        assert manifest.providers.ai_providers.primary == "claude_code"
+        assert "claude_code" in manifest.providers.ai_providers.enabled
 
     def test_list_custom_providers(self, tmp_path: Path) -> None:
         install(tmp_path, ai_providers=["github_copilot", "gemini"])
         manifest = list_status(tmp_path)
-        assert manifest.ai_providers.primary == "github_copilot"
-        assert "gemini" in manifest.ai_providers.enabled
+        assert manifest.providers.ai_providers.primary == "github_copilot"
+        assert "gemini" in manifest.providers.ai_providers.enabled
 
 
 class TestProviderAwareInstall:

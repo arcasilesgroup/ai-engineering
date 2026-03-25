@@ -12,12 +12,20 @@ from pydantic import BaseModel, Field
 # --- Nested models ---
 
 
+class AiProvidersConfig(BaseModel):
+    """AI coding assistant provider configuration."""
+
+    enabled: list[str] = Field(default_factory=lambda: ["claude_code"])
+    primary: str = "claude_code"
+
+
 class ProvidersConfig(BaseModel):
     """VCS, IDE, and stack provider configuration."""
 
     vcs: str = "github"
-    ides: list[str] = Field(default_factory=lambda: ["claude_code"])
+    ides: list[str] = Field(default_factory=lambda: ["terminal"])
     stacks: list[str] = Field(default_factory=lambda: ["python"])
+    ai_providers: AiProvidersConfig = Field(default_factory=AiProvidersConfig)
 
 
 class ArtifactFeedsConfig(BaseModel):

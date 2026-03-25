@@ -176,7 +176,8 @@ def test_skills_state_and_defaults_edges(tmp_path: Path) -> None:
         decision_logic.mark_remediated(ds, decision_id="missing")
 
     manifest = defaults.default_install_state()
-    assert "github" in manifest.providers.enabled
+    assert isinstance(manifest, InstallState)
+    assert manifest.schema_version == "2.0"
 
     with pytest.raises(TypeError):
         state_io._json_serializer(object())
