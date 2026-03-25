@@ -38,7 +38,7 @@ class TestPhaseFailureResilience:
 
     def test_full_pipeline_completes_on_clean_dir(self, tmp_path: Path) -> None:
         """Basic sanity: pipeline completes on a clean directory."""
-        (tmp_path / ".git").mkdir()
+        (tmp_path / ".git" / "hooks").mkdir(parents=True)
         context = _make_context(tmp_path)
         runner = PipelineRunner(
             [
@@ -73,7 +73,7 @@ class TestPhaseFailureResilience:
 
     def test_repair_fills_gaps(self, tmp_path: Path) -> None:
         """REPAIR mode creates missing files without overwriting existing."""
-        (tmp_path / ".git").mkdir()
+        (tmp_path / ".git" / "hooks").mkdir(parents=True)
 
         # First install
         ctx1 = _make_context(tmp_path)

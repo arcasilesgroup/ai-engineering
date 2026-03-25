@@ -6,22 +6,22 @@ Analyze all N enriched sub-spec plans together, detect file overlaps and import 
 
 ## Prerequisites
 
-Phase 2 (Deep Plan) complete. All non-failed sub-specs have enriched `## Exploration` and `## Plan` sections. Each plan declares `exports:` and `imports:` lists -- Phase 3 uses these structured declarations for DAG construction, not code analysis.
+Phase 2 (Deep Plan) complete. All non-failed sub-specs have enriched `## Exploration` sections (in `sub-NNN/spec.md`) and `## Plan` sections (in `sub-NNN/plan.md`). Each plan declares `exports:` and `imports:` lists -- Phase 3 uses these structured declarations for DAG construction, not code analysis.
 
 Required state:
 - `specs/autopilot/manifest.md` exists with sub-spec list and statuses
-- Non-failed sub-specs (`planning` or `planned`) have non-empty `## Plan` sections
+- Non-failed sub-specs (`planning` or `planned`) have non-empty `## Plan` sections in their `sub-NNN/plan.md`
 - Sub-specs marked `plan-failed` are excluded from DAG construction
 
 ## Procedure
 
 ### Step 1 -- Extract Declarations
 
-Read all non-failed sub-spec files from `specs/autopilot/`. For each sub-spec, extract:
+Read all non-failed sub-spec directories from `specs/autopilot/sub-*/`. For each sub-spec, extract:
 
-1. **files**: the `files:` list from frontmatter (refined by Phase 2)
-2. **exports**: the `exports:` declarations from `## Plan` (modules, classes, or functions this sub-spec creates)
-3. **imports**: the `imports:` declarations from `## Plan` (modules, classes, or functions this sub-spec expects from other sub-specs)
+1. **files**: the `files:` list from `sub-NNN/spec.md` frontmatter (refined by Phase 2)
+2. **exports**: the `exports:` declarations from `sub-NNN/plan.md` `## Plan` section (modules, classes, or functions this sub-spec creates)
+3. **imports**: the `imports:` declarations from `sub-NNN/plan.md` `## Plan` section (modules, classes, or functions this sub-spec expects from other sub-specs)
 
 Build a lookup table:
 
@@ -90,7 +90,7 @@ A conflict is unresolvable when two sub-specs must modify the same function with
 1. Create a new sub-spec that combines the scopes, plans, and file lists of both
 2. Preserve the lower sub-spec number (e.g., merge sub-003 into sub-001 -> result is sub-001)
 3. Remove the higher-numbered sub-spec from the manifest
-4. Update the merged sub-spec file with combined `## Scope`, `## Exploration`, `## Plan`, and `files:` frontmatter
+4. Update the merged sub-spec's `spec.md` (combined Scope, Exploration, files frontmatter) and `plan.md` (combined Plan, exports/imports)
 5. Re-check the DAG edges for the merged sub-spec (it inherits all edges of both originals)
 6. Log the merge with rationale:
 
@@ -136,7 +136,7 @@ Run two validation checks:
 
 Artifacts written:
 - Updated `specs/autopilot/manifest.md` with `## Execution DAG` section
-- Updated sub-spec files (only if merges occurred in Step 5)
+- Updated sub-spec `spec.md` and `plan.md` files (only if merges occurred in Step 5)
 
 Report to orchestrator:
 

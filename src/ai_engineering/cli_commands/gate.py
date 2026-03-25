@@ -58,7 +58,7 @@ def _print_gate_result(result: GateResult) -> None:
         for check in result.checks:
             st = "ok" if check.passed else "fail"
             status_line(st, check.name, "passed" if check.passed else "failed")
-            show_output = (not check.passed) or check.name == "test-scope"
+            show_output = not check.passed
             if show_output and check.output:
                 for line in check.output.splitlines()[:5]:
                     info(f"  {line}")
@@ -230,7 +230,7 @@ def gate_all(
         if any_failed:
             suggest_next(
                 [
-                    ("ai-eng doctor --fix-tools", "Install missing tools"),
+                    ("ai-eng doctor --fix --phase tools", "Install missing tools"),
                     ("ai-eng gate pre-commit", "Re-run specific gate"),
                 ]
             )

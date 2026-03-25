@@ -44,7 +44,7 @@ Read `handlers/phase-decompose.md` and execute:
 
 1. Extract N independent concerns from the spec
 2. If N < 3: abort, recommend `/ai-dispatch`
-3. Write sub-spec shells to `specs/autopilot/sub-NNN.md`
+3. Write sub-spec directories `specs/autopilot/sub-NNN/` with `spec.md` + `plan.md` shells
 4. Write execution manifest to `specs/autopilot/manifest.md`
 
 ### Step 2: DEEP PLAN
@@ -52,7 +52,7 @@ Read `handlers/phase-decompose.md` and execute:
 Read `handlers/phase-deep-plan.md` and execute:
 
 1. Dispatch N Agent(Explore+Plan) in parallel -- one per sub-spec
-2. Each agent deep-explores the codebase and writes a detailed plan with exports/imports declarations
+2. Each agent deep-explores the codebase and enriches `sub-NNN/spec.md` (Exploration) and `sub-NNN/plan.md` (checkbox-formatted tasks with exports/imports declarations)
 3. Gate: every sub-spec has enriched Exploration + Plan sections
 4. Failed agents retry once, then mark `plan-failed`
 
@@ -70,7 +70,7 @@ Read `handlers/phase-orchestrate.md` and execute:
 Read `handlers/phase-implement.md` and execute:
 
 1. For each wave in DAG order: dispatch Agent(Build) per sub-spec (parallel within wave)
-2. Each agent writes a Self-Report (real/aspirational/stub/failing/invented/hallucinated)
+2. Each agent marks checkboxes `- [x]` in `sub-NNN/plan.md` as tasks complete, then writes a Self-Report (real/aspirational/stub/failing/invented/hallucinated) to `plan.md`
 3. Commit per wave, update manifest
 4. Cascade-block dependents of failed sub-specs
 
@@ -88,9 +88,9 @@ Read `handlers/phase-quality.md` and execute:
 
 Read `handlers/phase-deliver.md` and execute:
 
-1. Build Integrity Report from Self-Reports + quality audit
+1. Build Integrity Report from Self-Reports (in `sub-NNN/plan.md`) + quality audit
 2. Follow `/ai-pr` SKILL.md in full
-3. Cleanup: delete autopilot state, clear spec.md + plan.md, verify cleanup
+3. Cleanup: delete `specs/autopilot/` (all subdirectories), clear spec.md + plan.md, verify cleanup
 4. Resume Protocol handles mid-pipeline re-entry via `--resume`
 
 ## Handler Dispatch Table

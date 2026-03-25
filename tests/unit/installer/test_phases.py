@@ -198,15 +198,7 @@ class TestIdeConfigReconfigure:
             "schema_version": "2.0",
             "framework_version": "0.1.0",
             "name": "test",
-            "providers": {
-                "vcs": "github",
-                "ides": ["terminal"],
-                "stacks": [],
-                "ai_providers": {
-                    "enabled": ["claude_code", "github_copilot"],
-                    "primary": "claude_code",
-                },
-            },
+            "providers": {"vcs": "github", "ides": ["claude_code", "github_copilot"], "stacks": []},
         }
         (ai_dir / "manifest.yml").write_text(yaml.dump(manifest_data))
 

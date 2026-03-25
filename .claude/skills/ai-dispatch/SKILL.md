@@ -27,10 +27,11 @@ Execution engine for approved plans. Reads plan.md and tasks.md, dispatches one 
    a. Dispatch one subagent per task (fresh context window)
    b. Each subagent receives: task description, file scope, boundaries, constraints
    c. Run two-stage review on deliverable (see below)
-   d. Update task status in tasks.md
+   d. Update task status in plan.md
    e. Check phase gate before advancing
-5. **Track progress** -- update tasks.md checkboxes after each task
-6. **Report completion** -- summary of all tasks, any concerns raised
+5. **Track progress** -- update plan.md checkboxes after each task
+6. **Quality check** -- read `handlers/quality.md` and execute: Verify+Review on full changeset, max 2 rounds
+7. **Deliver** -- read `handlers/deliver.md` and execute: PR via ai-pr with quality report
 
 ## Task Statuses
 
@@ -41,9 +42,9 @@ Execution engine for approved plans. Reads plan.md and tasks.md, dispatches one 
 | `NEEDS_CONTEXT` | Agent needs information not in the plan | Pause, ask user, then resume |
 | `BLOCKED` | Cannot proceed (dependency, access, ambiguity) | STOP execution, re-plan |
 
-## Two-Stage Review
+## Two-Stage Review (Per-Task)
 
-Every task deliverable goes through two reviews before marking DONE:
+Every task deliverable goes through two reviews before marking DONE. This is the per-task quality check during Phase 4 execution. A separate full-changeset quality check runs in Phase 6 (see `handlers/quality.md`).
 
 ### Stage 1: Spec Compliance
 
@@ -104,7 +105,7 @@ Never loop silently. Never retry the same approach more than twice.
 
 ## Progress Tracking
 
-Update tasks.md in real-time:
+Update plan.md in real-time:
 
 ```markdown
 - [x] T-1.1: Create config module @ai-build -- DONE
@@ -113,6 +114,22 @@ Update tasks.md in real-time:
 - [ ] T-2.2: Security scan @ai-verify -- PENDING
 ```
 
+## Resume Protocol
+
+When invoked with `--resume`, read `specs/plan.md` and determine re-entry point:
+
+1. **Incomplete tasks remain**: resume at the first incomplete phase. Skip completed tasks.
+2. **All tasks DONE but no quality check recorded**: resume at Phase 6 (Quality Check). Read `handlers/quality.md`.
+3. **Quality passed but no PR created**: resume at Phase 7 (Deliver). Read `handlers/deliver.md`.
+4. **PR exists but not merged**: resume at watch-and-fix loop per `handlers/deliver.md`.
+
+## Handler Dispatch Table
+
+| Phase | Handler | Agent Pattern |
+|-------|---------|---------------|
+| 6. Quality Check | `handlers/quality.md` | Verify + Review parallel |
+| 7. Deliver | `handlers/deliver.md` | PR pipeline + cleanup |
+
 ## Common Mistakes
 
 - Dispatching without an approved plan.
@@ -120,11 +137,13 @@ Update tasks.md in real-time:
 - Skipping the two-stage review.
 - Continuing past a BLOCKED task without user input.
 - Modifying test files from a RED phase during a GREEN phase task.
+- Skipping the quality check after task execution.
 
 ## Integration
 
 - **Called by**: user directly (after `/ai-plan` approval)
-- **Calls**: `ai-build` (build tasks), `ai-verify` (scan tasks), `ai-guard` (gate checks)
-- **Transitions to**: `/ai-commit` (after all tasks DONE), or back to `/ai-plan` (if re-plan needed)
+- **Calls**: `ai-build` (build tasks), `ai-verify` (scan tasks, quality check), `ai-review` (quality check), `ai-pr` (deliver)
+- **Reads**: `ai-verify/SKILL.md`, `ai-review/SKILL.md`, `ai-pr/SKILL.md` (thin orchestrator, embedded at dispatch time)
+- **Transitions to**: PR merge (after deliver), or back to `/ai-plan` (if re-plan needed)
 
 $ARGUMENTS

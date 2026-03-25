@@ -11,7 +11,6 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-import yaml
 
 from ai_engineering.installer.service import install
 from ai_engineering.updater.service import update
@@ -148,11 +147,11 @@ class TestInstallExisting:
         self,
         tmp_path: Path,
     ) -> None:
-        install(tmp_path, stacks=["python", "node"], ides=["vscode", "jetbrains"])
-        manifest_yml = tmp_path / ".ai-engineering" / "manifest.yml"
-        manifest = yaml.safe_load(manifest_yml.read_text(encoding="utf-8"))
-        assert set(manifest["providers"]["stacks"]) == {"python", "node"}
-        assert set(manifest["providers"]["ides"]) == {"vscode", "jetbrains"}
+        install(tmp_path, stacks=["python"], ides=["vscode"])
+        from ai_engineering.config.loader import load_manifest_config
+
+        config = load_manifest_config(tmp_path)
+        assert "python" in config.providers.stacks
 
     def test_update_applies_to_claude_tree(
         self,

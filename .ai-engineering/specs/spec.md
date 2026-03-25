@@ -1,262 +1,214 @@
 ---
-id: spec-068
-title: "State Unification: Eliminate tools.json, Redesign install-manifest.json, Model manifest.yml"
+id: spec-076
+title: "Autopilot Sub-Spec Quality Parity and Dispatch Quality+Deliver Phases"
 status: draft
 created: 2026-03-25
 refs: []
 ---
 
-# spec-068: State Unification
+# spec-076: Autopilot Sub-Spec Quality Parity and Dispatch Quality+Deliver Phases
 
 ## Problem
 
-Three state/config files store overlapping information with no clear contract:
+### 1. Autopilot sub-plans lack progress tracking
 
-1. **`manifest.yml`** (YAML, human + framework-managed) — project config: vcs, stacks, ides, quality gates, skills registry. No Pydantic model. Read via raw `yaml.safe_load()` or regex. 2 direct consumers.
+Phase 2 (Deep Plan) handler specifies `### T-N.K` task format but no checkboxes. In practice, agents produce `### Step N` headers instead. This means:
+- No checkbox tracking during Phase 4 implementation
+- Sub-plans are not treated as first-class plans like `plan.md`
+- Progress is invisible -- only manifest status (planned/implemented/blocked) is tracked
 
-2. **`install-manifest.json`** (JSON, machine-managed) — duplicates config from manifest.yml (stacks, ides, providers, vcs) AND stores runtime state (tooling_readiness, branch_policy, operational_readiness). 43 refs in 24 files.
+### 2. Autopilot sub-specs are monolithic files
 
-3. **`tools.json`** (JSON, machine-managed) — credential metadata for GitHub, SonarCloud, Azure DevOps. 15 refs in 4 files. Only created when user runs `ai-eng setup platforms`. Orphaned otherwise.
+Each `sub-NNN.md` mixes four concerns with different lifecycles:
+- **Scope** (Phase 1) -- requirements contract
+- **Exploration** (Phase 2) -- codebase analysis
+- **Plan** (Phase 2) -- task list
+- **Self-Report** (Phase 4) -- implementation evidence
 
-### Specific issues
+This violates the spec/plan separation that the framework enforces at the top level (`spec.md` / `plan.md`). Sub-specs are not treated as complete spec+plan pairs, degrading quality assurance.
 
-- **Config duplication**: `manifest.yml:providers.stacks` = `["python"]` AND `install-manifest.json:installedStacks` = `["python"]`. Same data, two sources of truth, can diverge.
-- **No typed access to manifest.yml**: Consumers use `yaml.safe_load()` -> raw dict, regex extraction, or custom dotted-path evaluation. No validation, no autocomplete, no schema enforcement.
-- **tools.json is orphaned**: Never created during install. Only appears after `ai-eng setup platforms`. Doctor checks read it but it may not exist.
-- **`_offer_platform_onboarding` re-detects instead of reading manifest**: After install gathers stacks/ides/vcs/providers and saves to manifest, the platform onboarding block ignores all of it and re-scans the filesystem.
-- **Sonar prompt embedded in install flow**: `_offer_platform_onboarding` prompts "Configure SonarCloud?" during install. This is a setup concern, not an install concern.
+### 3. ai-dispatch lacks quality and delivery phases
+
+Dispatch's Two-Stage Review (per-task spec compliance + code quality) never evaluates the full changeset as a unit. After all tasks complete, dispatch transitions to `/ai-commit` without:
+- Running quality tools on the complete changeset
+- Creating a PR with review context
+- Any final quality gate
+
+This is a gap: autopilot has Phase 5 (quality loop) and Phase 6 (deliver via PR), but dispatch -- the more commonly used execution skill -- has neither.
 
 ## Solution
 
-Three changes:
+### Group 1: Autopilot Sub-Spec Split
 
-### A) Create `ManifestConfig` Pydantic model for `manifest.yml`
+Split each `sub-NNN.md` into a subdirectory with two files:
 
-Typed read access to the user-editable config file. All consumers that need project config (stacks, ides, vcs, quality gates, work items) read from this model instead of raw YAML.
+```
+specs/autopilot/sub-NNN/spec.md   # Scope + Exploration
+specs/autopilot/sub-NNN/plan.md   # Plan (checkboxes) + Self-Report
+```
 
-### B) Redesign `install-manifest.json` -> `install-state.json`
+**spec.md** contains:
+- Frontmatter (id, parent, title, status, files, depends_on)
+- `## Scope` -- requirements extracted from parent spec
+- `## Exploration` -- codebase analysis (Existing Files, Patterns, Dependencies, Risks)
 
-Strip all config duplication. The state file stores ONLY runtime state that changes during install/setup/doctor lifecycle. Absorb `tools.json` as the `platforms` section.
+**plan.md** contains:
+- Frontmatter (total, completed task counts)
+- `## Plan` with simplified checkbox format:
+  ```markdown
+  exports: [modules/classes this sub-spec creates]
+  imports: [modules/classes expected from other sub-specs]
 
-### C) Remove `_offer_platform_onboarding` from install flow
+  - [ ] T-N.1: [task title]
+    - **Files**: [paths]
+    - **Done**: [verifiable condition]
+  - [ ] T-N.2: [task title]
+    - **Files**: [paths]
+    - **Done**: [verifiable condition]
+  ```
+- `## Self-Report` (populated by Phase 4 Agent(Build))
 
-Platform credential setup is a post-install concern. Users run `ai-eng setup platforms` explicitly. The install flow ends after the pipeline summary.
+No phases, no gates, no agent assignments in the sub-plan. The Agent(Build) executes all tasks sequentially. The real quality gate is Phase 5.
+
+### Group 2: Dispatch Quality + Deliver Phases
+
+Add two new phases to ai-dispatch after task execution:
+
+**Phase 3: Quality Check** (new handler `handlers/quality.md`):
+- Dispatch Agent(Verify) + Agent(Review) in parallel on full changeset (`git diff main...HEAD`)
+- Consolidate findings with unified severity mapping
+- If clean (0 blockers + 0 criticals + 0 highs): proceed to Phase 4
+- If issues remain: dispatch fix agents, commit, retry
+- Max 2 rounds total. Round 2 with blockers: STOP and escalate
+- No Agent(Guard) -- guard is for multi-sub-spec governance, not relevant for dispatch-scale work
+
+**Dispatch quality does NOT check** (by design):
+- Decision-store constraint violations (no Agent(Guard))
+- Expired risk acceptances, ownership violations, framework integrity drift
+- Users working on governance-sensitive changes must run `/ai-governance` separately
+
+**Phase 4: Deliver** (new handler `handlers/deliver.md`):
+- Follow ai-pr SKILL.md starting from Step 7 (pre-push checks). Steps 0-6 (commit pipeline) run only if unstaged changes exist (quality report files, manifest updates). Dispatch commits changes per-task and per-quality-round, so the commit pipeline is typically unnecessary.
+- PR body includes simplified quality report: final severity counts, rounds executed, changeset scope
+- No Self-Reports, no Integrity Report (dispatch has no sub-specs)
+- Enable auto-complete with squash merge
+- Enter watch-and-fix loop per ai-pr
+
+**Removed transition**: dispatch no longer transitions to `/ai-commit`. Delivery is always via PR through ai-pr.
+
+### Handler Impact Matrix
+
+| Handler | Change Type |
+|---------|-------------|
+| `ai-autopilot/handlers/phase-decompose.md` | Modified: create `sub-NNN/` directories with spec.md + plan.md shells |
+| `ai-autopilot/handlers/phase-deep-plan.md` | Modified: enrich both files; plan with checkbox format |
+| `ai-autopilot/handlers/phase-implement.md` | Modified: mark checkboxes in plan.md, write Self-Report to plan.md |
+| `ai-autopilot/handlers/phase-quality.md` | Modified: update file paths for subdirectory structure |
+| `ai-autopilot/handlers/phase-deliver.md` | Modified: update globs and cleanup for subdirectories |
+| `ai-autopilot/handlers/phase-orchestrate.md` | Modified: update file paths in glob and plan extraction |
+| `ai-autopilot/SKILL.md` | Modified: update Process steps 1, 2, 4, 6 to reference `sub-NNN/` structure |
+| ~~phase-execute.md~~ | Deleted (legacy v1 handler) |
+| ~~phase-explore.md~~ | Deleted (legacy v1 handler) |
+| ~~phase-split.md~~ | Deleted (legacy v1 handler) |
+| ~~phase-verify.md~~ | Deleted (legacy v1 handler) |
+| ~~phase-pr.md~~ | Deleted (legacy v1 handler) |
+| `ai-dispatch/SKILL.md` | Modified: add quality+deliver phases, remove `/ai-commit` transition |
+| `ai-dispatch/handlers/quality.md` | **NEW**: Verify+Review parallel, max 2 rounds, fix cycle |
+| `ai-dispatch/handlers/deliver.md` | **NEW**: ai-pr with simplified quality report |
 
 ## Scope
 
 ### In Scope
 
-**A) ManifestConfig model**
-
-1. Create `src/ai_engineering/config/manifest.py` with Pydantic model:
-   ```python
-   class ProvidersConfig(BaseModel):
-       vcs: str = "github"
-       ides: list[str] = Field(default_factory=lambda: ["claude_code"])
-       stacks: list[str] = Field(default_factory=lambda: ["python"])
-
-   class QualityConfig(BaseModel):
-       coverage: int = 80
-       duplication: int = 3
-       cyclomatic: int = 10
-       cognitive: int = 15
-
-   class ManifestConfig(BaseModel):
-       schema_version: str = "2.0"
-       framework_version: str
-       name: str
-       providers: ProvidersConfig
-       quality: QualityConfig
-       tooling: list[str]
-       # ... remaining sections
-   ```
-
-2. Create `src/ai_engineering/config/loader.py` with `load_manifest_config(root: Path) -> ManifestConfig` -- YAML parse + Pydantic validation.
-
-3. Migrate consumers that read config from `install-manifest.json` to `ManifestConfig`:
-   - `policy/gates.py` -- `installed_stacks` -> `manifest.providers.stacks`
-   - `vcs/factory.py` -- `providers.primary` -> `manifest.providers.vcs` AND `tooling_readiness.gh.mode` -> `InstallState.tooling.gh.mode` (needs BOTH models)
-   - `installer/operations.py` -- stack/ide/provider add/remove -> mutate manifest.yml
-   - `skills/service.py` -- already reads manifest.yml, switch to typed model
-   - `work_items/service.py` -- already reads manifest.yml, switch to typed model
-   - `validator/categories/counter_accuracy.py` -- regex -> typed model
-   - `validator/categories/instruction_consistency.py` -- raw dict -> typed model
-
-**B) Redesign state file**
-
-4. Rename `install-manifest.json` -> `install-state.json`. New schema:
-   ```json
-   {
-     "schema_version": "2.0",
-     "installed_at": "2026-03-25T10:00:00Z",
-     "tooling": {
-       "gh": { "installed": true, "authenticated": true, "mode": "cli", "scopes": ["repo"] },
-       "az": { "installed": false, "authenticated": false, "mode": "api" },
-       "gitleaks": { "installed": true },
-       "ruff": { "installed": true },
-       "semgrep": { "installed": false }
-     },
-     "platforms": {
-       "sonar": {
-         "configured": true,
-         "url": "https://sonarcloud.io",
-         "project_key": "my-project",
-         "organization": "my-org",
-         "credential_ref": { "service": "ai-engineering/sonar", "username": "token" }
-       }
-     },
-     "branch_policy": { "applied": true, "mode": "cli" },
-     "operational_readiness": { "status": "READY", "pending_steps": [] },
-     "release": { "last_version": "0.4.0", "last_released_at": "2026-03-20T00:00:00Z" }
-   }
-   ```
-
-5. Create `InstallState` Pydantic model in `src/ai_engineering/state/models.py` (replaces `InstallManifest`).
-
-6. Delete `ToolsState`, `GitHubConfig`, `SonarConfig`, `AzureDevOpsConfig` from `credentials/models.py`.
-
-7. Migrate `CredentialService.load_tools_state()` / `save_tools_state()` -> `load_install_state()` / `save_install_state()` reading from `install-state.json`.
-
-8. Migrate all 24 files that import `InstallManifest`:
-   - Files that read **config** (stacks, ides, providers) -> `ManifestConfig`
-   - Files that read **state** (tooling, platforms, branch_policy) -> `InstallState`
-   - Files that read both -> import both models
-
-9. Add migration in `updater/service.py`:
-   - If `install-manifest.json` exists: read it, extract state-only fields, write `install-state.json`, delete `install-manifest.json`
-   - If `tools.json` exists: read it, merge platform data into `install-state.json`, delete `tools.json`
-
-**C) Remove platform onboarding from install**
-
-10. Delete `_offer_platform_onboarding()` from `core.py`.
-11. Remove the call at `core.py:307`.
-12. `ai-eng setup platforms` remains unchanged as the explicit entry point.
-13. Add "Run `ai-eng setup platforms` to configure credentials" to the install summary's `suggest_next` list.
-
-**D) Tests**
-
-14. Unit tests for `ManifestConfig` model (parse valid manifest.yml, handle missing sections, validate defaults).
-15. Unit tests for `InstallState` model (roundtrip serialize/deserialize, migration from old format).
-16. Update existing tests that import `InstallManifest` -> `InstallState` or `ManifestConfig`.
-17. Update setup.py tests to use `install-state.json` instead of `tools.json`.
+1. Update `phase-decompose.md`: create `sub-NNN/` subdirectories with `spec.md` + `plan.md` shell files
+2. Update `phase-deep-plan.md`: enrich `sub-NNN/spec.md` with Exploration, enrich `sub-NNN/plan.md` with checkbox-formatted tasks
+3. Update `phase-implement.md`: mark checkboxes `- [x]` as tasks complete, write Self-Report to `plan.md`
+4. Update `phase-quality.md`: update glob patterns from `sub-NNN.md` to `sub-NNN/spec.md` + `sub-NNN/plan.md`
+5. Update `phase-deliver.md`: update globs, update cleanup logic for subdirectory structure
+6. Update `phase-orchestrate.md`: update glob patterns and file references from `sub-NNN.md` to `sub-NNN/spec.md` + `sub-NNN/plan.md` (DAG logic unchanged, only paths)
+7. Update autopilot `SKILL.md`: update Process steps 1, 2, 4, 6 to reference `sub-NNN/` structure; verify Thin Orchestrator and Integration sections remain accurate
+8. Delete 5 legacy v1 handlers: `phase-execute.md`, `phase-explore.md`, `phase-split.md`, `phase-verify.md`, `phase-pr.md` (not in Handler Dispatch Table, dead code)
+9. Create `ai-dispatch/handlers/quality.md`: Verify+Review parallel, max 2 rounds, fix cycle
+10. Create `ai-dispatch/handlers/deliver.md`: ai-pr with simplified quality report
+11. Update `ai-dispatch/SKILL.md`: add Phases 3+4, remove `/ai-commit` transition, update Integration section (add ai-verify, ai-review, ai-pr to "Calls"), update process flow
+12. Define dispatch `--resume` behavior for Phases 3-4: if all tasks DONE but quality not passed, resume at Phase 3; if quality passed but PR not created, resume at Phase 4
+13. Update `phase-decompose.md` manifest format: reflect subdirectory paths in file references
+14. Update IDE mirrors via `sync_command_mirrors.py` for both modified skills
 
 ### Out of Scope
 
-- Changes to `manifest.yml` structure or content (it stays as-is, we just model it)
-- Changes to the 6-phase install pipeline logic
-- Changes to `ai-eng setup platforms` command behavior
-- Changes to the credential service keyring operations
-- Moving manifest.yml to a different location
-- Modifying the skills/agents registry sections of manifest.yml
-
-## Design Decisions
-
-| # | Decision | Rationale |
-|---|----------|-----------|
-| D1 | `ManifestConfig` is read-only for most consumers | manifest.yml is human-editable. Only `installer/operations.py` (stack/ide/provider add/remove) writes to it. All others read. |
-| D2 | State file stays JSON, not YAML | Pydantic serializes cleanly to JSON. YAML write is fragile (comment preservation, ordering). JSON is the right format for machine-managed state. |
-| D3 | Rename to `install-state.json` | Signals the change: this is runtime state, not a manifest. Old name was confusing -- "install manifest" sounds like config. |
-| D4 | `tooling` section is flat, not nested by category | Current `ToolingReadiness` has `gh`, `az`, `python.ruff`, `python.uv` etc. Flatten to tool-level. Stack-specific tooling grouping adds complexity without value -- `ruff` is `ruff` whether it's under `python` or not. `gh.mode` and `az.mode` are preserved (consumers like `vcs/factory.py` depend on them). |
-| D5 | `platforms` absorbs `tools.json` | Credential metadata (URL, project_key, credential_ref) is runtime state, not config. Lives alongside tooling state, not in manifest.yml. |
-| D6 | Migration is mandatory in `ai-eng update` | Projects with existing `install-manifest.json` and/or `tools.json` must be migrated automatically. No manual intervention. |
-| D7 | Remove `_offer_platform_onboarding` entirely | It re-detects what install already knows, duplicates the SonarCloud prompt, and the detected list doesn't even pass through to `setup_platforms_cmd`. Clean cut. |
+- Changing Phase 3 (Orchestrate) DAG construction logic (only file path references updated)
+- Changing Phase 5 quality agents, severity mapping, or round limits for autopilot
+- Adding Self-Reports to dispatch (dispatch has no sub-spec decomposition)
+- Adding Agent(Guard) to dispatch quality check (guard is for multi-sub-spec governance)
+- Modifying ai-verify, ai-review, or ai-pr SKILL.md files (consumed as-is by both skills)
+- Modifying ai-commit SKILL.md (remains usable standalone, just no longer called by dispatch)
+- Changing the content or structure of Exploration or Self-Report sections (only file location changes)
 
 ## Acceptance Criteria
 
-### ManifestConfig Model
-- [ ] AC1: `ManifestConfig` parses the current `manifest.yml` without errors
-- [ ] AC2: `load_manifest_config()` returns typed model with all sections accessible
-- [ ] AC3: Missing optional sections use sensible defaults (same as current behavior)
-- [ ] AC4: `policy/gates.py` reads stacks from `ManifestConfig` instead of `InstallManifest`
-- [ ] AC5: `vcs/factory.py` reads VCS provider from `ManifestConfig` instead of `InstallManifest`
+- [ ] AC1: Phase 1 creates `specs/autopilot/sub-NNN/spec.md` and `specs/autopilot/sub-NNN/plan.md` for each concern
+- [ ] AC2: `sub-NNN/plan.md` uses `- [ ] T-N.K` checkbox format for all tasks
+- [ ] AC3: Phase 4 Agent(Build) marks checkboxes `- [x]` in `plan.md` as tasks complete
+- [ ] AC4: Phase 4 Agent(Build) writes `## Self-Report` to `sub-NNN/plan.md`
+- [ ] AC5: Phase 2 populates `sub-NNN/spec.md` with `## Exploration` section (Existing Files + Patterns mandatory)
+- [ ] AC6: Phase 2 populates `sub-NNN/plan.md` with checkbox-formatted tasks including `exports:`/`imports:` declarations
+- [ ] AC7: Phase 5 reads Self-Reports from `sub-NNN/plan.md` for cross-reference against quality findings
+- [ ] AC8: Phase 6 cleanup deletes `specs/autopilot/` including all subdirectories
+- [ ] AC9: `--resume` correctly identifies pipeline state from new directory structure
+- [ ] AC10: ai-dispatch runs Verify+Review in parallel on full changeset after all tasks complete
+- [ ] AC11: ai-dispatch quality check blocks delivery when blockers, criticals, or highs remain
+- [ ] AC12: ai-dispatch fix cycle runs max 2 rounds before escalating
+- [ ] AC13: ai-dispatch delivers via ai-pr after quality passes (not `/ai-commit`)
+- [ ] AC14: ai-dispatch SKILL.md does not reference `/ai-commit` as a transition target
+- [ ] AC15: No handler in `ai-autopilot/handlers/` references `sub-NNN.md` as a flat file path
+- [x] AC16: Legacy handlers (phase-execute, phase-explore, phase-split, phase-verify, phase-pr) are deleted
+- [ ] AC17: ai-dispatch SKILL.md Integration section lists ai-verify, ai-review, and ai-pr as called skills
+- [ ] AC18: ai-dispatch `--resume` re-enters at Phase 3 if all tasks are DONE but no PR exists
 
-### State File Redesign
-- [ ] AC6: `install-state.json` has no config duplication (no stacks, ides, providers, framework_version)
-- [ ] AC7: `install-state.json` includes `platforms` section (absorbed from tools.json)
-- [ ] AC8: `InstallState` Pydantic model validates the new schema
-- [ ] AC9: `CredentialService` reads/writes platform state from `install-state.json`
-- [ ] AC10: `tools.json` is no longer created or read by any code path
+## Files Modified
 
-### Migration
-- [ ] AC11: `ai-eng update` migrates `install-manifest.json` -> `install-state.json`
-- [ ] AC11a: If neither `install-manifest.json` nor `tools.json` exists, migration is a no-op with no error
-- [ ] AC12: `ai-eng update` merges `tools.json` data into `install-state.json`
-- [ ] AC13: Migration deletes old files after successful conversion
-- [ ] AC14: Migration is idempotent — if `install-state.json` exists and old files are absent, migration is a no-op. If both old and new exist (partial migration), old file takes precedence and overwrites
+| File | Change |
+|------|--------|
+| `.claude/skills/ai-autopilot/handlers/phase-decompose.md` | Create `sub-NNN/` directories with `spec.md` + `plan.md` shells |
+| `.claude/skills/ai-autopilot/handlers/phase-deep-plan.md` | Enrich both files; plan with checkbox format |
+| `.claude/skills/ai-autopilot/handlers/phase-implement.md` | Mark checkboxes, write Self-Report to `plan.md` |
+| `.claude/skills/ai-autopilot/handlers/phase-quality.md` | Update file paths for new structure |
+| `.claude/skills/ai-autopilot/handlers/phase-deliver.md` | Update globs, cleanup for subdirectories |
+| `.claude/skills/ai-autopilot/handlers/phase-orchestrate.md` | Update file paths in glob and plan extraction |
+| `.claude/skills/ai-autopilot/SKILL.md` | Update Process steps and structure references |
+| ~~phase-execute.md~~ | **DELETED** (legacy v1 handler) |
+| ~~phase-explore.md~~ | **DELETED** (legacy v1 handler) |
+| ~~phase-split.md~~ | **DELETED** (legacy v1 handler) |
+| ~~phase-verify.md~~ | **DELETED** (legacy v1 handler) |
+| ~~phase-pr.md~~ | **DELETED** (legacy v1 handler) |
+| `.claude/skills/ai-dispatch/SKILL.md` | Add quality+deliver phases, remove `/ai-commit` transition |
+| `.claude/skills/ai-dispatch/handlers/quality.md` | **NEW**: Verify+Review, max 2 rounds, fix cycle |
+| `.claude/skills/ai-dispatch/handlers/deliver.md` | **NEW**: ai-pr with simplified quality report |
 
-### Platform Onboarding Removal
-- [ ] AC15: `ai-eng install` does NOT prompt "Configure SonarCloud/SonarQube?"
-- [ ] AC16: `ai-eng install` does NOT prompt "Configure platform credentials now?"
-- [ ] AC17: Install summary suggests `ai-eng setup platforms` as a next step
-- [ ] AC18: `ai-eng setup platforms` continues to work unchanged
+## Assumptions
 
-### YAML Write (operations.py)
-- [ ] AC19: `stack add` / `stack remove` persists changes to `manifest.yml`
-- [ ] AC20: YAML roundtrip preserves existing comments and structure in manifest.yml
-- [ ] AC21: `provider add` / `provider remove` persists to `manifest.yml` and verifies read-back
-
-### Tests
-- [ ] AC22: Unit tests for ManifestConfig parsing (valid, partial, empty)
-- [ ] AC23: Unit tests for InstallState (serialize, deserialize, migration)
-- [ ] AC24: All existing tests pass after migration (zero regressions)
-- [ ] AC25: No imports of `InstallManifest` remain in production code (verified by grep)
-- [ ] AC26: No imports of `ToolsState` remain in production code (verified by grep)
-- [ ] AC27: No production code references the string `tools.json` (verified by grep)
-
-## Files Changed
-
-| Action | Path | Notes |
-|--------|------|-------|
-| create | `src/ai_engineering/config/manifest.py` | ManifestConfig Pydantic model |
-| create | `src/ai_engineering/config/loader.py` | YAML loader with validation |
-| create | `src/ai_engineering/config/__init__.py` | Package init |
-| modify | `src/ai_engineering/state/models.py` | Replace InstallManifest with InstallState |
-| modify | `src/ai_engineering/credentials/models.py` | Remove ToolsState, GitHubConfig, SonarConfig, AzureDevOpsConfig |
-| modify | `src/ai_engineering/credentials/service.py` | Migrate load/save to install-state.json |
-| modify | `src/ai_engineering/cli_commands/core.py` | Remove _offer_platform_onboarding |
-| modify | `src/ai_engineering/cli_commands/setup.py` | Use InstallState instead of ToolsState |
-| modify | `src/ai_engineering/installer/service.py` | Use ManifestConfig + InstallState |
-| modify | `src/ai_engineering/installer/operations.py` | Read/write manifest.yml for config mutations |
-| modify | `src/ai_engineering/vcs/factory.py` | Read VCS from ManifestConfig |
-| modify | `src/ai_engineering/policy/gates.py` | Read stacks from ManifestConfig |
-| modify | `src/ai_engineering/doctor/service.py` | Use InstallState for platform checks |
-| modify | `src/ai_engineering/doctor/checks/readiness.py` | Use InstallState |
-| modify | `src/ai_engineering/doctor/checks/state_files.py` | Check install-state.json |
-| modify | `src/ai_engineering/updater/service.py` | Migration logic + new paths |
-| modify | `src/ai_engineering/state/defaults.py` | Default InstallState factory |
-| modify | `src/ai_engineering/state/service.py` | Load/save InstallState |
-| modify | `src/ai_engineering/release/orchestrator.py` | Use InstallState for release tracking |
-| modify | `src/ai_engineering/skills/service.py` | Use ManifestConfig |
-| modify | `src/ai_engineering/work_items/service.py` | Use ManifestConfig |
-| modify | `src/ai_engineering/validator/categories/counter_accuracy.py` | Use ManifestConfig |
-| modify | `src/ai_engineering/validator/categories/instruction_consistency.py` | Use ManifestConfig |
-| modify | `src/ai_engineering/maintenance/report.py` | Use ManifestConfig for version |
-| modify | `src/ai_engineering/installer/phases/__init__.py` | Remove InstallManifest import, use InstallState |
-| modify | `src/ai_engineering/installer/phases/detect.py` | Rename path string to install-state.json |
-| modify | `src/ai_engineering/installer/phases/state.py` | Rename path string to install-state.json |
-| modify | `src/ai_engineering/installer/phases/governance.py` | Rename path string to install-state.json |
-| modify | `src/ai_engineering/state/audit.py` | Update _STATE_REGENERATED set to install-state.json |
-| modify | `src/ai_engineering/lib/signals.py` | Rename path string to install-state.json |
-| modify | `src/ai_engineering/cli_commands/guide.py` | Rename path string to install-state.json |
-| modify | `src/ai_engineering/detector/readiness.py` | Use InstallState (reads tooling + branch_policy) |
-| modify | `src/ai_engineering/credentials/__init__.py` | Remove ToolsState re-exports if present |
-| delete | (runtime) `tools.json` | Migrated into install-state.json |
-| rename | (runtime) `install-manifest.json` -> `install-state.json` | State file redesign |
-| create | `tests/unit/config/test_manifest.py` | ManifestConfig tests |
-| create | `tests/unit/state/test_install_state.py` | InstallState tests |
-| modify | `tests/` (multiple) | Update InstallManifest -> InstallState imports |
+- ai-pr SKILL.md is stable and usable by both autopilot and dispatch without modification
+- Agent(Build) can reliably mark checkboxes in plan files via Edit tool on markdown
+- Subdirectory structure does not break existing glob patterns outside autopilot handlers
+- Two quality rounds is sufficient for dispatch-scale changes (typically <3 concerns, <10 files)
+- Removing `/ai-commit` transition from dispatch does not affect users who invoke `/ai-commit` directly
+- Dispatch-scale work (typically <3 concerns) does not require governance verification during quality check; users can invoke `/ai-governance` directly for governance-sensitive changes
+- `sync_command_mirrors.py` creates new mirror files for new handlers (not just updates existing ones); if it only syncs existing files, manual mirror creation is needed for dispatch handlers
 
 ## Risks
 
 | Risk | Mitigation |
 |------|-----------|
-| 24-file migration is error-prone | Mechanical: search/replace InstallManifest imports, verify each caller reads config vs state. Type checker catches mismatches. |
-| manifest.yml format changes break ManifestConfig | Model uses optional fields with defaults. `yaml.safe_load()` handles missing sections. Versioned via `schema_version`. |
-| Existing installations have install-manifest.json | Migration in `ai-eng update` handles conversion automatically. |
-| tools.json may not exist (never ran setup) | Migration handles absence gracefully -- `platforms` section starts empty. |
-| `installer/operations.py` now writes YAML | Use `ruamel.yaml` (required dependency) for comment-preserving writes. AC20 validates roundtrip correctness. |
+| Agents may not reliably mark checkboxes | Explicit instruction in handler: "After completing T-N.K, edit plan.md to mark `- [x] T-N.K`" |
+| Subdirectory structure increases Phase 1 file creation | Mechanical overhead only: 2 Write calls per concern instead of 1 |
+| Dispatch quality adds latency to small changes | Proportionate: 2 agents, 2 max rounds vs autopilot's 3 agents, 3 rounds |
+| `/ai-commit` standalone usage confusion | ai-commit remains available as standalone skill; only dispatch stops calling it |
+| Resume protocol must handle new directory structure | Resume reads manifest (unchanged location); manifest references `sub-NNN/` paths instead of `sub-NNN.md` |
+| sync_command_mirrors.py may not create mirrors for NEW handler files | Verify script behavior for new files during implementation; add manual mirror creation if needed |
+| Dispatch deliver re-runs commit pipeline unnecessarily | Deliver starts from ai-pr Step 7 by default; Steps 0-6 only if unstaged changes exist |
 
 ## Dependencies
 
-- `pyyaml` (already a dependency, used for read-only loading)
-- `ruamel.yaml` (new dependency, required for comment-preserving YAML writes in `operations.py`)
+- Must execute after spec-074 and spec-075 complete (no file overlap, but uses current autopilot format)
+- No external dependencies

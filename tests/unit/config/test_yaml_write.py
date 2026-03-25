@@ -36,6 +36,11 @@ providers:
   ides: [claude_code, github_copilot]
   stacks: [python]
 
+# AI Providers
+ai_providers:
+  enabled: [claude_code, github_copilot]
+  primary: claude_code
+
 # Work items
 work_items:
   provider: github # 'github' or 'azure_devops'

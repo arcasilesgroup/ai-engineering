@@ -76,7 +76,6 @@ class ReleaseConfig:
 
     version: str
     project_root: Path
-    draft: bool = False
     wait: bool = False
     dry_run: bool = False
     skip_bump: bool = False
@@ -214,32 +213,27 @@ def execute_release(
         if not wait_phase.success:
             result.errors.append(wait_phase.output)
             return result
-    else:
-        phases.append(
-            PhaseResult(phase="wait-for-merge", success=True, skipped=True, output="--wait off")
+
+        tag_phase = _create_tag(config, provider)
+        phases.append(tag_phase)
+        if not tag_phase.success:
+            result.errors.append(tag_phase.output)
+            return result
+
+        manifest_phase = _update_manifest(config, clock)
+        phases.append(manifest_phase)
+        if not manifest_phase.success:
+            result.errors.append(manifest_phase.output)
+            return result
+
+        emit_deploy_event(
+            config.project_root,
+            environment="production",
+            strategy="tag",
+            version=config.version,
+            result=f"tag={tag_name}",
         )
 
-    tag_phase = _create_tag(config, provider)
-    phases.append(tag_phase)
-    if not tag_phase.success:
-        result.errors.append(tag_phase.output)
-        return result
-
-    manifest_phase = _update_manifest(config, clock)
-    phases.append(manifest_phase)
-    if not manifest_phase.success:
-        result.errors.append(manifest_phase.output)
-        return result
-
-    emit_deploy_event(
-        config.project_root,
-        environment="production",
-        strategy="tag",
-        version=config.version,
-        result=f"tag={tag_name}",
-    )
-
-    if config.wait:
         monitor_phase = _monitor_pipeline(config, provider, config.wait_timeout)
         phases.append(monitor_phase)
         if not monitor_phase.success:
@@ -256,6 +250,14 @@ def execute_release(
             result=monitor_phase.output,
         )
     else:
+        skip_msg = "Tag deferred -- run `ai-eng release <version> --wait` after merge"
+        phases.append(
+            PhaseResult(phase="wait-for-merge", success=True, skipped=True, output="--wait off")
+        )
+        phases.append(PhaseResult(phase="tag", success=True, skipped=True, output=skip_msg))
+        phases.append(
+            PhaseResult(phase="manifest", success=True, skipped=True, output="--wait off")
+        )
         phases.append(PhaseResult(phase="monitor", success=True, skipped=True, output="--wait off"))
 
     result.success = True

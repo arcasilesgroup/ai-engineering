@@ -23,9 +23,8 @@ class ProvidersConfig(BaseModel):
     """VCS, IDE, and stack provider configuration."""
 
     vcs: str = "github"
-    ides: list[str] = Field(default_factory=lambda: ["terminal"])
+    ides: list[str] = Field(default_factory=lambda: ["claude_code"])
     stacks: list[str] = Field(default_factory=lambda: ["python"])
-    ai_providers: AiProvidersConfig = Field(default_factory=AiProvidersConfig)
 
 
 class ArtifactFeedsConfig(BaseModel):
@@ -161,6 +160,7 @@ class ManifestConfig(BaseModel):
     version: str = ""
 
     providers: ProvidersConfig = Field(default_factory=ProvidersConfig)
+    ai_providers: AiProvidersConfig = Field(default_factory=AiProvidersConfig)
     artifact_feeds: ArtifactFeedsConfig = Field(default_factory=ArtifactFeedsConfig)
     work_items: WorkItemsConfig = Field(default_factory=WorkItemsConfig)
     quality: QualityConfig = Field(default_factory=QualityConfig)

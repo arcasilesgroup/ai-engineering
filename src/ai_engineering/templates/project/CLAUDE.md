@@ -158,7 +158,7 @@ Telemetry is automatic via hooks -- no manual `ai-eng signals emit` needed.
 7. **NEVER** disable or modify `.claude/settings.json` deny rules.
 8. **NEVER** add suppression comments (`# noqa`, `# nosec`, `# type: ignore`, `# pragma: no cover`, `# NOSONAR`, `// nolint`) to bypass quality gates. Fix the code. If it is a false positive, refactor to satisfy the analyzer or escalate with a full explanation.
 
-Gate failure: diagnose, fix, retry. Use `ai-eng doctor --fix-tools` or `--fix-hooks`.
+Gate failure: diagnose, fix, retry. Use `ai-eng doctor --fix` or `ai-eng doctor --fix --phase <name>`.
 
 ## Source of Truth
 

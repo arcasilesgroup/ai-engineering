@@ -26,7 +26,8 @@ from ai_engineering.installer.templates import (
     get_project_template_root,
     resolve_template_maps,
 )
-from ai_engineering.state.io import append_ndjson, read_json_model
+from ai_engineering.state.defaults import default_ownership_map
+from ai_engineering.state.io import append_ndjson, read_json_model, write_json_model
 from ai_engineering.state.models import (
     AuditEntry,
     InstallState,
@@ -99,13 +100,17 @@ def update(
         UpdateResult with details of all changes.
     """
     ai_eng_dir = target / ".ai-engineering"
+    state_dir = ai_eng_dir / "state"
 
     # Load ownership map
-    ownership_path = ai_eng_dir / "state" / "ownership-map.json"
+    ownership_path = state_dir / "ownership-map.json"
     if ownership_path.exists():
         ownership = read_json_model(ownership_path, OwnershipMap)
     else:
         ownership = OwnershipMap()
+
+    # Auto-merge missing default rules (additive only)
+    rules_added = _merge_missing_ownership_rules(ownership)
 
     # --- Phase 0a: migrate state files (spec-068) ---
     if not dry_run:
@@ -115,10 +120,14 @@ def update(
     # --- Phase 0b: migrate hooks from legacy scripts/hooks/ to .ai-engineering/ ---
     _migrate_hooks_dir(target)
 
+    # Load install state for VCS provider
+    install_state = load_install_state(state_dir)
+    vcs_provider = install_state.vcs_provider
+
     # --- Phase 1: evaluate all changes (pure, no disk writes) ---
     changes: list[FileChange] = []
     changes.extend(_evaluate_governance_files(ai_eng_dir, ownership))
-    changes.extend(_evaluate_project_files(target, ownership))
+    changes.extend(_evaluate_project_files(target, ownership, vcs_provider=vcs_provider))
 
     result = UpdateResult(dry_run=dry_run, changes=changes)
 
@@ -146,13 +155,48 @@ def update(
         if backup_dir is not None:
             shutil.rmtree(backup_dir, ignore_errors=True)
 
-    # --- Phase 3: migrate legacy agents/skills directories ---
+    # --- Phase 3: persist merged ownership rules ---
+    if rules_added:
+        write_json_model(ownership_path, ownership)
+
+    # --- Phase 4: migrate legacy agents/skills directories ---
     _migrate_legacy_dirs(target, ai_eng_dir)
 
-    # --- Phase 4: audit log ---
+    # --- Phase 5: audit log ---
     _log_update_event(ai_eng_dir, result)
 
     return result
+
+
+# ---------------------------------------------------------------------------
+# Ownership auto-merge
+# ---------------------------------------------------------------------------
+
+
+def _merge_missing_ownership_rules(ownership: OwnershipMap) -> bool:
+    """Add missing default ownership rules to an existing map.
+
+    Inserts new rules at the START of the list so that specific patterns
+    (e.g., ``.claude/settings.json`` deny) match before broad globs
+    (e.g., ``.claude/**`` allow).  Existing rules are never modified
+    or removed.
+
+    Args:
+        ownership: The ownership map to merge into (mutated in place).
+
+    Returns:
+        True if any rules were added, False if already up-to-date.
+    """
+    existing_patterns = {entry.pattern for entry in ownership.paths}
+    defaults = default_ownership_map()
+    to_add = [entry for entry in defaults.paths if entry.pattern not in existing_patterns]
+
+    if not to_add:
+        return False
+
+    # Insert at position 0 so new specific rules match before old broad ones
+    ownership.paths = to_add + ownership.paths
+    return True
 
 
 # ---------------------------------------------------------------------------
@@ -191,10 +235,12 @@ def _evaluate_governance_files(
 def _evaluate_project_files(
     target: Path,
     ownership: OwnershipMap,
+    *,
+    vcs_provider: str | None = None,
 ) -> list[FileChange]:
     """Evaluate changes for project-level template files."""
     project_root = get_project_template_root()
-    resolved = resolve_template_maps(None)
+    resolved = resolve_template_maps(None, vcs_provider=vcs_provider)
     changes: list[FileChange] = []
 
     # 1. Individual file mappings (provider + common)

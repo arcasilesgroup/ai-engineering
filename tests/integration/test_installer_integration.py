@@ -267,28 +267,20 @@ class TestInstallOnEmptyRepo:
     def test_state_files_contain_valid_json(self, tmp_path: Path) -> None:
         install(tmp_path)
 
-        state_path = tmp_path / ".ai-engineering" / "state" / "install-state.json"
-        data = json.loads(state_path.read_text())
+        manifest_path = tmp_path / ".ai-engineering" / "state" / "install-state.json"
+        data = json.loads(manifest_path.read_text())
         assert data["schema_version"] == "2.0"
         assert "operational_readiness" in data
-
-        # Stacks and IDEs live in manifest.yml (not state)
-        import yaml
-
-        manifest_yml = tmp_path / ".ai-engineering" / "manifest.yml"
-        manifest = yaml.safe_load(manifest_yml.read_text())
-        assert "python" in manifest["providers"]["stacks"]
-        assert "terminal" in manifest["providers"]["ides"]
 
     def test_custom_stacks_and_ides(self, tmp_path: Path) -> None:
         install(tmp_path, stacks=["python", "node"], ides=["vscode", "terminal"])
 
         import yaml
 
-        manifest_yml = tmp_path / ".ai-engineering" / "manifest.yml"
-        manifest = yaml.safe_load(manifest_yml.read_text())
-        assert manifest["providers"]["stacks"] == ["python", "node"]
-        assert manifest["providers"]["ides"] == ["vscode", "terminal"]
+        manifest_path2 = tmp_path / ".ai-engineering" / "manifest.yml"
+        manifest_data = yaml.safe_load(manifest_path2.read_text())
+        assert manifest_data["providers"]["stacks"] == ["python", "node"]
+        assert manifest_data["providers"]["ides"] == ["vscode", "terminal"]
 
     def test_audit_log_records_install_event(self, tmp_path: Path) -> None:
         result = install(tmp_path)

@@ -290,6 +290,7 @@ class ToolEntry(BaseModel):
 
     installed: bool = False
     authenticated: bool = False
+    integrity_verified: bool = False
     mode: str = "cli"
     scopes: list[str] = Field(default_factory=list)
 
@@ -353,6 +354,8 @@ class InstallState(BaseModel):
 
     schema_version: str = "2.0"
     installed_at: datetime = Field(default_factory=lambda: datetime.now(tz=UTC))
+    vcs_provider: str | None = None
+    ai_providers: list[str] | None = None
     tooling: dict[str, ToolEntry] = Field(default_factory=dict)
     platforms: dict[str, PlatformEntry] = Field(default_factory=dict)
     branch_policy: BranchPolicyState = Field(default_factory=BranchPolicyState)
@@ -386,12 +389,19 @@ class InstallState(BaseModel):
         installed_at_raw = manifest_dict.get("installedAt")
         installed_at = _dt.fromisoformat(installed_at_raw) if installed_at_raw else _dt.now(tz=UTC)
 
+        providers = manifest_dict.get("providers", {})
+        vcs_provider = providers.get("primary")
+        ai_prov = manifest_dict.get("ai_providers", manifest_dict.get("aiProviders", {}))
+        ai_providers = ai_prov.get("enabled") if ai_prov else None
+
         bp = manifest_dict.get("branchPolicy", {})
         op = manifest_dict.get("operationalReadiness", {})
         rel = manifest_dict.get("release", {})
 
         return cls(
             installed_at=installed_at,
+            vcs_provider=vcs_provider,
+            ai_providers=ai_providers,
             tooling=tooling,
             platforms=platforms,
             branch_policy=BranchPolicyState(

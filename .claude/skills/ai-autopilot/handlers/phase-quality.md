@@ -9,7 +9,7 @@ Converge on quality through iterative assessment and fixing. Dispatch Agent(Veri
 | Condition | Source |
 |-----------|--------|
 | Phase 4 complete | All waves committed. Manifest updated with per-sub-spec statuses. |
-| Sub-spec Self-Reports exist | Each implemented sub-spec has a Self-Report section in its `sub-NNN.md` with classifications (real/aspirational/stub/failing/invented/hallucinated). |
+| Sub-spec Self-Reports exist | Each implemented sub-spec has a Self-Report section in its `sub-NNN/plan.md` with classifications (real/aspirational/stub/failing/invented/hallucinated). |
 | Manifest has sub-spec statuses | `specs/autopilot/manifest.md` shows `complete` or `blocked` per sub-spec. |
 
 ## Thin Orchestrator
@@ -120,7 +120,7 @@ For each finding at blocker, critical, or high unified severity:
 
 1. **Dispatch Agent(Build)** with focused context:
    - The finding: severity, description, file, line
-   - The affected sub-spec context (scope + plan from `sub-NNN.md`)
+   - The affected sub-spec context (scope from `sub-NNN/spec.md`, plan from `sub-NNN/plan.md`)
    - The Self-Report entry for that area (so the agent understands what was claimed)
 
 2. **Agent writes the fix** and updates the Self-Report classification:

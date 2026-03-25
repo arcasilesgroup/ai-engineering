@@ -674,13 +674,13 @@ def adoption_metrics(project_root: Path) -> dict[str, Any]:
         stacks = list(config.providers.stacks)
         ides = list(config.providers.ides)
         providers = {
-            "primary": config.providers.vcs,
-            "enabled": [config.providers.vcs],
+            "primary": config.ai_providers.primary,
+            "enabled": list(config.ai_providers.enabled),
         }
 
         git_hooks_entry = state.tooling.get("git_hooks")
         hooks_installed = git_hooks_entry.installed if git_hooks_entry else False
-        hooks_verified = git_hooks_entry.authenticated if git_hooks_entry else False
+        hooks_verified = git_hooks_entry.integrity_verified if git_hooks_entry else False
 
         return {
             "stacks": stacks,
@@ -861,7 +861,7 @@ def _reset_sonar_cache() -> None:
 def test_confidence_metrics(project_root: Path) -> dict[str, Any]:
     """Compute test confidence from best available source.
 
-    Fallback chain: SonarCloud -> coverage.json -> test_scope -> defaults.
+    Fallback chain: SonarCloud -> coverage.json -> defaults.
     """
     # Source 1: SonarCloud coverage
     sonar = sonar_detailed_metrics(project_root)
@@ -905,42 +905,7 @@ def test_confidence_metrics(project_root: Path) -> dict[str, Any]:
         except Exception:
             pass
 
-    # Source 3: Test scope mapping
-    try:
-        from ai_engineering.policy.test_scope import TEST_SCOPE_RULES
-
-        # Count unique source globs across all rules
-        all_source_globs: set[str] = set()
-        for rule in TEST_SCOPE_RULES:
-            all_source_globs.update(rule.source_globs)
-        # Count source files in src/
-        src_dir = project_root / "src"
-        src_files = list(src_dir.rglob("*.py")) if src_dir.is_dir() else []
-        src_files = [f for f in src_files if f.name != "__init__.py"]
-        total = len(src_files)
-        # Count files matching at least one scope rule glob
-        from fnmatch import fnmatch
-
-        mapped = 0
-        for sf in src_files:
-            rel = str(sf.relative_to(project_root))
-            for glob_pattern in all_source_globs:
-                if fnmatch(rel, glob_pattern):
-                    mapped += 1
-                    break
-        pct = round(mapped / total * 100, 1) if total > 0 else 0.0
-        return {
-            "source": "test_scope",
-            "coverage_pct": pct,
-            "meets_threshold": pct >= 80,
-            "files_total": total,
-            "files_covered": mapped,
-            "untested_critical": [],
-        }
-    except Exception:
-        pass
-
-    # Source 4: No data
+    # Source 3: No data
     return {
         "source": "none",
         "coverage_pct": 0.0,

@@ -146,9 +146,11 @@ class TestInstallClean:
         assert (hooks_dir / "pre-push").is_file()
         assert len(result.hooks.installed) == 3
 
-    def test_install_skips_hooks_without_git(
+    def test_install_auto_inits_git_and_installs_hooks(
         self,
         tmp_path: Path,
     ) -> None:
+        """Without .git/, install runs git init and installs hooks."""
         result = install(tmp_path, stacks=["python"], ides=["vscode"])
-        assert len(result.hooks.installed) == 0
+        assert (tmp_path / ".git").is_dir()
+        assert len(result.hooks.installed) == 3

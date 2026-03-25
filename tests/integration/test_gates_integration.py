@@ -34,10 +34,8 @@ from ai_engineering.policy.gates import (
     GateCheckResult,
     GateResult,
     _get_active_stacks,
-    _run_pre_push_checks,
     run_gate,
 )
-from ai_engineering.policy.test_scope import TestScope
 from ai_engineering.state.models import GateHook
 
 pytestmark = pytest.mark.integration
@@ -232,7 +230,7 @@ class TestToolCheckRequired:
         check = _find_check(result, "fake-tool")
         assert not check.passed
         assert "required" in check.output
-        assert "ai-eng doctor --fix-tools" in check.output
+        assert "ai-eng doctor --fix --phase tools" in check.output
 
     def test_tool_success_records_pass(self, tmp_path: Path) -> None:
         result = GateResult(hook=GateHook.PRE_COMMIT)
@@ -722,165 +720,6 @@ class TestRunChecksForStacks:
         assert "gitleaks" in names
         assert "pip-audit" in names
         assert "npm-audit" in names
-
-
-class TestSelectiveScopeIntegration:
-    """Integration-level tests for selective scope behavior in pre-push gates."""
-
-    def test_selective_enforce_overrides_stack_tests(self, git_repo: Path) -> None:
-        seen_cmds: list[list[str]] = []
-
-        def fake_run_tool_check(
-            result: GateResult,
-            *,
-            name: str,
-            cmd: list[str],
-            **kwargs: object,
-        ) -> None:
-            seen_cmds.append(cmd)
-            result.checks.append(GateCheckResult(name=name, passed=True, output="ok"))
-
-        with (
-            patch.dict(
-                "os.environ",
-                {"AI_ENG_TEST_SCOPE_MODE": "enforce"},
-                clear=False,
-            ),
-            patch("ai_engineering.policy.gates._get_active_stacks", return_value=["python"]),
-            patch(
-                "ai_engineering.policy.gates._compute_test_scope",
-                return_value=TestScope(
-                    selected_tests=["tests/unit/test_hooks.py"],
-                    mode="selective",
-                    reasons=["selective"],
-                    changed_files=["src/ai_engineering/hooks/manager.py"],
-                    matched_rules=["hooks"],
-                    unmatched_src_files=[],
-                ),
-            ),
-            patch("ai_engineering.policy.gates._check_expired_risk_acceptances", return_value=None),
-            patch(
-                "ai_engineering.policy.checks.stack_runner.run_tool_check",
-                side_effect=fake_run_tool_check,
-            ),
-        ):
-            result = GateResult(hook=GateHook.PRE_PUSH)
-            _run_pre_push_checks(git_repo, result)
-
-        pytest_cmd = next(cmd for cmd in seen_cmds if "pytest" in cmd)
-        assert "tests/unit/test_hooks.py" in pytest_cmd
-        assert _find_check(result, "test-scope").passed
-
-    def test_full_mode_keeps_unscoped_stack_tests(self, git_repo: Path) -> None:
-        seen_cmds: list[list[str]] = []
-
-        def fake_run_tool_check(
-            result: GateResult,
-            *,
-            name: str,
-            cmd: list[str],
-            **kwargs: object,
-        ) -> None:
-            seen_cmds.append(cmd)
-            result.checks.append(GateCheckResult(name=name, passed=True, output="ok"))
-
-        with (
-            patch.dict("os.environ", {"AI_ENG_TEST_SCOPE_MODE": "enforce"}, clear=False),
-            patch("ai_engineering.policy.gates._get_active_stacks", return_value=["python"]),
-            patch(
-                "ai_engineering.policy.gates._compute_test_scope",
-                return_value=TestScope(
-                    selected_tests=["tests/unit"],
-                    mode="full",
-                    reasons=["full_suite_trigger_changed"],
-                    changed_files=["pyproject.toml"],
-                    matched_rules=[],
-                    unmatched_src_files=[],
-                ),
-            ),
-            patch("ai_engineering.policy.gates._check_expired_risk_acceptances", return_value=None),
-            patch(
-                "ai_engineering.policy.checks.stack_runner.run_tool_check",
-                side_effect=fake_run_tool_check,
-            ),
-        ):
-            result = GateResult(hook=GateHook.PRE_PUSH)
-            _run_pre_push_checks(git_repo, result)
-
-        pytest_cmd = next(cmd for cmd in seen_cmds if "pytest" in cmd)
-        assert "tests/unit/test_hooks.py" not in pytest_cmd
-
-    def test_scope_computation_failure_falls_back_full(self, git_repo: Path) -> None:
-        seen_cmds: list[list[str]] = []
-
-        def fake_run_tool_check(
-            result: GateResult,
-            *,
-            name: str,
-            cmd: list[str],
-            **kwargs: object,
-        ) -> None:
-            seen_cmds.append(cmd)
-            result.checks.append(GateCheckResult(name=name, passed=True, output="ok"))
-
-        with (
-            patch.dict("os.environ", {"AI_ENG_TEST_SCOPE_MODE": "enforce"}, clear=False),
-            patch("ai_engineering.policy.gates._get_active_stacks", return_value=["python"]),
-            patch(
-                "ai_engineering.policy.gates._compute_test_scope",
-                side_effect=RuntimeError("boom"),
-            ),
-            patch("ai_engineering.policy.gates._check_expired_risk_acceptances", return_value=None),
-            patch(
-                "ai_engineering.policy.checks.stack_runner.run_tool_check",
-                side_effect=fake_run_tool_check,
-            ),
-        ):
-            result = GateResult(hook=GateHook.PRE_PUSH)
-            _run_pre_push_checks(git_repo, result)
-
-        pytest_cmd = next(cmd for cmd in seen_cmds if "pytest" in cmd)
-        assert "tests/unit/test_hooks.py" not in pytest_cmd
-        diagnostic = _find_check(result, "test-scope")
-        assert "scope_computation_failed" in diagnostic.output
-
-    def test_docs_only_scope_skips_stack_tests(self, git_repo: Path) -> None:
-        seen_names: list[str] = []
-
-        def fake_run_tool_check(
-            result: GateResult,
-            *,
-            name: str,
-            cmd: list[str],
-            **kwargs: object,
-        ) -> None:
-            seen_names.append(name)
-            result.checks.append(GateCheckResult(name=name, passed=True, output="ok"))
-
-        with (
-            patch.dict("os.environ", {"AI_ENG_TEST_SCOPE_MODE": "enforce"}, clear=False),
-            patch("ai_engineering.policy.gates._get_active_stacks", return_value=["python"]),
-            patch(
-                "ai_engineering.policy.gates._compute_test_scope",
-                return_value=TestScope(
-                    selected_tests=[],
-                    mode="selective",
-                    reasons=["docs_only"],
-                    changed_files=["README.md"],
-                    matched_rules=[],
-                    unmatched_src_files=[],
-                ),
-            ),
-            patch("ai_engineering.policy.gates._check_expired_risk_acceptances", return_value=None),
-            patch(
-                "ai_engineering.policy.checks.stack_runner.run_tool_check",
-                side_effect=fake_run_tool_check,
-            ),
-        ):
-            result = GateResult(hook=GateHook.PRE_PUSH)
-            _run_pre_push_checks(git_repo, result)
-
-        assert "stack-tests" not in seen_names
 
 
 # ---------------------------------------------------------------------------

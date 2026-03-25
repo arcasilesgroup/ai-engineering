@@ -19,13 +19,13 @@ Steps performed by the pipeline:
 
 from __future__ import annotations
 
-import contextlib
 import json
 import logging
+import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from ai_engineering.config.loader import load_manifest_config
+from ai_engineering.config.loader import load_manifest_config, update_manifest_field
 from ai_engineering.detector.readiness import check_tools_for_stacks
 from ai_engineering.git.context import get_git_context
 from ai_engineering.hooks.manager import HookInstallResult, install_hooks
@@ -33,6 +33,7 @@ from ai_engineering.installer.phases import (
     PHASE_GOVERNANCE,
     PHASE_HOOKS,
     PHASE_IDE_CONFIG,
+    PHASE_ORDER,
     PHASE_STATE,
     PHASE_TOOLS,
     InstallContext,
@@ -139,17 +140,12 @@ def install(
         src_root, ai_eng_dir, exclude=["agents/", "skills/"]
     )
 
-    # 1b. Write caller-supplied stacks/ides/providers into manifest.yml
-    _apply_manifest_params(
-        target,
-        stacks=stacks,
-        ides=ides,
-        vcs_provider=vcs_provider,
-        ai_providers=ai_providers,
-    )
-
     # 2. Copy project-level templates (provider-aware)
     result.project_files = copy_project_templates(target, providers=ai_providers)
+
+    # 2b. Persist ai_providers selection to manifest
+    _write_ai_providers(target, ai_providers)
+    _write_providers(target, stacks=stacks, ides=ides, vcs_provider=vcs_provider)
 
     # 3. Generate state files (create-only)
     result.state_files = _generate_state_files(
@@ -168,9 +164,10 @@ def install(
     # 4. Audit log entry
     _log_install_event(ai_eng_dir, result)
 
-    # 5. Install git hooks (skip silently if not a git repo)
-    with contextlib.suppress(FileNotFoundError):
-        result.hooks = install_hooks(target)
+    # 5. Ensure git repo exists, then install hooks
+    if not (target / ".git").is_dir():
+        subprocess.run(["git", "init"], cwd=target, capture_output=True, check=True)
+    result.hooks = install_hooks(target)
 
     # 6. Install-to-operational phases (tooling/auth/policy)
     _run_operational_phases(target, vcs_provider=vcs_provider, result=result)
@@ -238,17 +235,16 @@ def install_with_pipeline(
         existing_state=existing_state,
     )
 
-    # Create the 6 phases in order
-    # StatePhase must run before HooksPhase so that _record_hook_hashes()
-    # can find the install-state.json when saving hook integrity hashes.
-    phases = [
-        DetectPhase(),
-        GovernancePhase(),
-        IdeConfigPhase(),
-        StatePhase(),
-        HooksPhase(),
-        ToolsPhase(),
-    ]
+    # Build phases in PHASE_ORDER (canonical ordering defined in phases/__init__.py).
+    _phase_classes = {
+        "detect": DetectPhase,
+        "governance": GovernancePhase,
+        "ide_config": IdeConfigPhase,
+        "state": StatePhase,
+        "hooks": HooksPhase,
+        "tools": ToolsPhase,
+    }
+    phases = [_phase_classes[name]() for name in PHASE_ORDER]
 
     # Run the pipeline
     runner = PipelineRunner(phases)
@@ -256,6 +252,11 @@ def install_with_pipeline(
 
     # Convert PipelineSummary to InstallResult
     result = _summary_to_install_result(summary, mode)
+
+    # Persist selected stacks, ides, and ai_providers to manifest.yml
+    if not dry_run:
+        _write_providers(target, stacks=stacks, ides=ides, vcs_provider=vcs_provider)
+        _write_ai_providers(target, ai_providers)
 
     # Run operational phases (VCS auth, branch policy, tooling readiness)
     if not dry_run:
@@ -319,34 +320,43 @@ def _summary_to_install_result(
     return result
 
 
-def _apply_manifest_params(
+def _write_providers(
     target: Path,
     *,
     stacks: list[str] | None,
     ides: list[str] | None,
     vcs_provider: str = "github",
-    ai_providers: list[str] | None = None,
 ) -> None:
-    """Write caller-supplied install parameters into manifest.yml.
-
-    Only runs when manifest.yml exists (i.e., after the template copy).
-    No-op for None parameters (uses template defaults).
-    """
-    from ai_engineering.config.loader import update_manifest_field
-
+    """Persist stacks, ides, and vcs to manifest.yml after template copy."""
     manifest_path = target / ".ai-engineering" / "manifest.yml"
     if not manifest_path.is_file():
         return
-    if stacks is not None:
-        update_manifest_field(target, "providers.stacks", stacks)
-    if ides is not None:
-        update_manifest_field(target, "providers.ides", ides)
-    if ai_providers is not None:
-        update_manifest_field(target, "providers.ai_providers.enabled", ai_providers)
-        if ai_providers:
-            update_manifest_field(target, "providers.ai_providers.primary", ai_providers[0])
-    if vcs_provider != "github":
-        update_manifest_field(target, "providers.vcs", vcs_provider)
+    try:
+        if stacks is not None:
+            update_manifest_field(target, "providers.stacks", stacks)
+        if ides is not None:
+            update_manifest_field(target, "providers.ides", ides)
+        if vcs_provider != "github":
+            update_manifest_field(target, "providers.vcs", vcs_provider)
+    except KeyError:
+        logger.debug("providers key not found in manifest; skipping write")
+
+
+def _write_ai_providers(target: Path, ai_providers: list[str] | None) -> None:
+    """Persist the selected AI providers to manifest.yml.
+
+    Called after governance templates are copied so that the manifest
+    reflects the actual provider selection rather than template defaults.
+    """
+    providers = ai_providers or ["claude_code"]
+    manifest_path = target / ".ai-engineering" / "manifest.yml"
+    if not manifest_path.is_file():
+        return
+    try:
+        update_manifest_field(target, "ai_providers.enabled", providers)
+        update_manifest_field(target, "ai_providers.primary", providers[0])
+    except KeyError:
+        logger.debug("ai_providers key not found in manifest; skipping write")
 
 
 def _generate_state_files(

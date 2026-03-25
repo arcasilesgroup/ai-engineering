@@ -121,13 +121,14 @@ class TestDoctorCommand:
     ) -> None:
         result = runner.invoke(
             app,
-            ["doctor", str(installed_dir), "--json"],
+            ["--json", "doctor", str(installed_dir)],
         )
         assert result.exit_code in (0, 1, 2)
-        # JSON output should be parseable
+        # JSON output should be parseable (envelope wraps result)
         data = json.loads(result.output)
-        assert "passed" in data
-        assert "checks" in data
+        report = data["result"]
+        assert "passed" in report
+        assert "phases" in report
 
 
 # ---------------------------------------------------------------------------
@@ -236,7 +237,7 @@ class TestIDECommands:
             ["ide", "list", "--target", str(installed_dir)],
         )
         assert result.exit_code == 0
-        assert "terminal" in result.output
+        assert "vscode" in result.output
 
     def test_ide_add_and_remove(
         self,

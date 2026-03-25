@@ -52,7 +52,12 @@ class _FakeManifest:
     """Minimal mock that satisfies provider CLI's ManifestConfig access."""
 
     def __init__(self, *providers: str, primary: str = "claude_code") -> None:
-        self.providers = _FakeProviders(ides=list(providers) if providers else [primary])
+        enabled = list(providers) if providers else [primary]
+        self.providers = _FakeProviders(ides=enabled)
+        self.ai_providers = _AiProviderConfig(
+            primary=primary if primary else (enabled[0] if enabled else ""),
+            enabled=enabled,
+        )
 
 
 def _manifest(*providers: str, primary: str = "claude_code") -> _FakeManifest:

@@ -64,7 +64,7 @@ def git_project(installed_project: Path) -> Path:
         capture_output=True,
     )
     subprocess.run(
-        ["git", "commit", "-m", "initial"],
+        ["git", "-c", "core.hooksPath=/dev/null", "commit", "-m", "initial"],
         cwd=installed_project,
         check=True,
         capture_output=True,

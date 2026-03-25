@@ -349,7 +349,7 @@ def _record_hook_hashes(project_root: Path) -> None:
     # Store hook state in the tooling dict under "git_hooks"
     state.tooling["git_hooks"] = ToolEntry(
         installed=bool(hook_hashes),
-        authenticated=bool(hook_hashes),  # integrity_verified mapped to authenticated
+        integrity_verified=bool(hook_hashes),
         scopes=list(hook_hashes.keys()),
     )
     # Also store the hashes for integrity verification in a top-level key.

@@ -1,13 +1,16 @@
 """Auto-detection of project stacks, AI providers, IDEs, and VCS.
 
-Scans a project root directory for known marker files and directories
-to determine the technology stacks, AI provider configurations, IDE
-integrations, and version control system in use.
+Scans a project root directory recursively for known marker files and
+directories to determine the technology stacks, AI provider configurations,
+IDE integrations, and version control system in use.
+
+Uses a single-pass ``os.walk`` walker with exclusion pruning for efficiency.
+AI provider detection remains root-level only by design.
 
 Functions:
-    detect_stacks     -- language/framework markers -> sorted stack list
-    detect_ai_providers -- AI tool config markers -> sorted provider list
-    detect_ides       -- IDE config directories -> sorted IDE list
+    detect_stacks     -- recursive markers -> popularity-ordered stack list
+    detect_ai_providers -- root-level AI tool config -> sorted provider list
+    detect_ides       -- recursive IDE config dirs -> popularity-ordered list
     detect_vcs        -- delegate to vcs.factory -> provider string
     detect_all        -- aggregate all detections into DetectionResult
 """
@@ -15,12 +18,64 @@ Functions:
 from __future__ import annotations
 
 import logging
+import os
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
 from ai_engineering.vcs.factory import detect_from_remote
 
 logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Popularity ordering (GitHub Octoverse 2025)
+# ---------------------------------------------------------------------------
+
+_STACK_POPULARITY: tuple[str, ...] = (
+    "typescript",  # #1 Octoverse 2025
+    "python",  # #2
+    "javascript",  # #3
+    "java",  # #4
+    "csharp",  # #5
+    "go",  # #6
+    "php",  # #7
+    "rust",  # #8
+    "ruby",  # #9
+    "kotlin",  # #10
+    "swift",  # #11
+    "dart",  # #12
+    "elixir",  # #13
+    "sql",  # utility
+    "bash",  # utility
+    "universal",  # meta — always last
+)
+
+_IDE_POPULARITY: tuple[str, ...] = (
+    "vscode",  # ~74% market share
+    "jetbrains",  # ~27%
+    "cursor",  # growing
+    "terminal",  # niche
+)
+
+_PROVIDER_POPULARITY: tuple[str, ...] = (
+    "github_copilot",
+    "claude_code",
+    "gemini",
+    "codex",
+)
+
+_VCS_POPULARITY: tuple[str, ...] = (
+    "github",
+    "azure_devops",
+)
+
+
+def _order_by_popularity(items: Iterable[str], ranking: tuple[str, ...]) -> list[str]:
+    """Sort *items* by *ranking* position; unknowns appended alphabetically."""
+    item_set = dict.fromkeys(items)  # deduplicate, preserve insertion order
+    rank_map = {name: idx for idx, name in enumerate(ranking)}
+    sentinel = len(ranking)
+    return sorted(item_set, key=lambda x: (rank_map.get(x, sentinel), x))
 
 
 @dataclass
@@ -34,11 +89,12 @@ class DetectionResult:
 
 
 # ---------------------------------------------------------------------------
-# Stack detection
+# Recursive walker
 # ---------------------------------------------------------------------------
 
 # Mapping: marker filename -> stack name(s).
-# For glob-based markers (*.csproj, *.sln), see _GLOB_MARKERS below.
+# Note: package.json and tsconfig.json are handled separately for per-directory
+# ts-overrides-js logic.
 _FILE_MARKERS: dict[str, list[str]] = {
     "pyproject.toml": ["python"],
     "setup.py": ["python"],
@@ -56,59 +112,89 @@ _FILE_MARKERS: dict[str, list[str]] = {
     "composer.json": ["php"],
 }
 
-# Root-level glob patterns -> stack name.
-_GLOB_MARKERS: dict[str, str] = {
-    "*.csproj": "csharp",
-    "*.sln": "csharp",
+_WALK_EXCLUDE: frozenset[str] = frozenset(
+    {
+        "node_modules",
+        ".venv",
+        "venv",
+        "vendor",
+        ".git",
+        "__pycache__",
+        "build",
+        "dist",
+        ".tox",
+        ".nox",
+        ".mypy_cache",
+        ".ruff_cache",
+        ".pytest_cache",
+        "target",
+        ".gradle",
+        "Pods",
+        ".dart_tool",
+        ".build",
+    }
+)
+
+_CSHARP_EXTENSIONS: tuple[str, ...] = (".csproj", ".sln")
+
+_IDE_DIR_MAP: dict[str, str] = {
+    ".vscode": "vscode",
+    ".idea": "jetbrains",
 }
 
 
-def detect_stacks(root: Path) -> list[str]:
-    """Scan *root* for file markers and return a sorted list of stack names.
+def _walk_markers(root: Path) -> tuple[set[str], set[str]]:
+    """Single-pass recursive walk. Returns (stack_names, ide_names).
 
-    Special rules:
-    - ``package.json`` without ``tsconfig.json`` -> ``"javascript"``
-    - ``tsconfig.json`` (with or without ``package.json``) -> ``"typescript"``
-    - ``build.gradle.kts`` produces both ``"java"`` and ``"kotlin"``
-    - ``*.csproj`` / ``*.sln`` use root-level glob (not recursive)
+    Uses ``os.walk(followlinks=False)`` to avoid symlink loops.
+    JS/TS detection is per-directory: tsconfig.json suppresses package.json
+    within the same directory, but different subdirectories are independent.
     """
     stacks: set[str] = set()
+    ides: set[str] = set()
 
-    # Fixed-name markers
-    for filename, names in _FILE_MARKERS.items():
-        if (root / filename).exists():
-            stacks.update(names)
+    for dirpath, dirnames, filenames in os.walk(root, followlinks=False):
+        # Prune excluded directories in-place
+        dirnames[:] = [d for d in dirnames if d not in _WALK_EXCLUDE]
 
-    # Glob markers (root-level only)
-    for pattern, name in _GLOB_MARKERS.items():
-        if any(root.glob(pattern)):
-            stacks.add(name)
+        # Check filenames against _FILE_MARKERS
+        for fname in filenames:
+            if fname in _FILE_MARKERS:
+                stacks.update(_FILE_MARKERS[fname])
+            if fname.endswith(_CSHARP_EXTENSIONS):
+                stacks.add("csharp")
 
-    # JavaScript / TypeScript special handling
-    has_package_json = (root / "package.json").is_file()
-    has_tsconfig = (root / "tsconfig.json").is_file()
+        # IDE markers: directory name
+        dir_name = Path(dirpath).name
+        ide = _IDE_DIR_MAP.get(dir_name)
+        if ide:
+            ides.add(ide)
 
-    if has_tsconfig:
-        stacks.add("typescript")
-    elif has_package_json:
-        stacks.add("javascript")
+        # JS/TS per-directory detection
+        fset = set(filenames)
+        if "tsconfig.json" in fset:
+            stacks.add("typescript")
+        elif "package.json" in fset:
+            stacks.add("javascript")
 
-    return sorted(stacks)
+    return stacks, ides
+
+
+def detect_stacks(root: Path) -> list[str]:
+    """Recursively scan *root* and return stacks in popularity order."""
+    stacks, _ides = _walk_markers(root)
+    return _order_by_popularity(stacks, _STACK_POPULARITY)
 
 
 # ---------------------------------------------------------------------------
-# AI provider detection
+# AI provider detection (root-level only by design)
 # ---------------------------------------------------------------------------
 
 
 def detect_ai_providers(root: Path) -> list[str]:
     """Detect AI coding assistants configured in *root*.
 
-    Markers:
-    - ``.claude/`` directory -> ``"claude_code"``
-    - ``.github/copilot-instructions.md`` or ``.github/prompts/`` -> ``"github_copilot"``
-
-    The ``.agents/`` directory is explicitly ignored (ambiguous provider).
+    Root-level only — ``.claude/`` and ``.github/`` are project-root markers.
     """
     providers: list[str] = []
 
@@ -129,21 +215,9 @@ def detect_ai_providers(root: Path) -> list[str]:
 
 
 def detect_ides(root: Path) -> list[str]:
-    """Detect IDE configuration directories in *root*.
-
-    Markers:
-    - ``.vscode/`` -> ``"vscode"``
-    - ``.idea/`` -> ``"jetbrains"``
-    """
-    ides: list[str] = []
-
-    if (root / ".vscode").is_dir():
-        ides.append("vscode")
-
-    if (root / ".idea").is_dir():
-        ides.append("jetbrains")
-
-    return sorted(ides)
+    """Recursively scan *root* for IDE config directories, popularity-ordered."""
+    _stacks, ides = _walk_markers(root)
+    return _order_by_popularity(ides, _IDE_POPULARITY)
 
 
 # ---------------------------------------------------------------------------
@@ -154,14 +228,17 @@ def detect_ides(root: Path) -> list[str]:
 def detect_vcs(root: Path) -> str:
     """Detect the VCS provider by delegating to ``detect_from_remote``.
 
-    Returns ``"github"`` as fallback when detection raises any exception
-    (e.g. git not installed, not a git repository).
+    Returns ``""`` (empty string) when detection fails. The empty value
+    signals the wizard to show no pre-selection.
+    ``detect_from_remote()`` in ``vcs/factory.py`` is NOT modified — it
+    still returns ``"github"`` as its own fallback. This wrapper intercepts
+    exceptions to return ``""`` instead.
     """
     try:
         return detect_from_remote(root)
     except Exception:
-        logger.debug("VCS detection failed, falling back to github", exc_info=True)
-        return "github"
+        logger.debug("VCS detection failed, returning empty", exc_info=True)
+        return ""
 
 
 # ---------------------------------------------------------------------------
@@ -170,10 +247,15 @@ def detect_vcs(root: Path) -> str:
 
 
 def detect_all(root: Path) -> DetectionResult:
-    """Run all detection functions and return an aggregated result."""
+    """Run all detection functions and return an aggregated result.
+
+    Uses a single walker pass for stacks + IDEs to avoid double traversal.
+    AI provider detection remains root-level only.
+    """
+    raw_stacks, raw_ides = _walk_markers(root)
     return DetectionResult(
-        stacks=detect_stacks(root),
+        stacks=_order_by_popularity(raw_stacks, _STACK_POPULARITY),
         providers=detect_ai_providers(root),
-        ides=detect_ides(root),
+        ides=_order_by_popularity(raw_ides, _IDE_POPULARITY),
         vcs=detect_vcs(root),
     )

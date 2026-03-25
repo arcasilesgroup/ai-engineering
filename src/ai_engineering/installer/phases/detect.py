@@ -12,6 +12,8 @@ import shutil
 import subprocess
 from pathlib import Path
 
+from ai_engineering.installer.operations import InstallerError
+
 from . import (
     InstallContext,
     PhasePlan,
@@ -42,6 +44,17 @@ class DetectPhase:
 
     def plan(self, context: InstallContext) -> PhasePlan:
         actions: list[PlannedAction] = []
+
+        # --- Git init (if needed) ---
+        if not (context.target / ".git").is_dir():
+            actions.append(
+                PlannedAction(
+                    action_type="create",
+                    source="",
+                    destination=".git",
+                    rationale="git init -- repository not initialized",
+                )
+            )
 
         # --- VCS detection ---
         vcs = _detect_vcs(context)
@@ -100,13 +113,19 @@ class DetectPhase:
     def execute(self, plan: PhasePlan, context: InstallContext) -> PhaseResult:
         result = PhaseResult(phase_name=self.name)
 
-        # Apply VCS detection from plan metadata
         for action in plan.actions:
-            if action.rationale.startswith("VCS detected:"):
-                context.vcs_provider = action.rationale.split(": ", 1)[1]
-                break
+            # Git init
+            if action.action_type == "create" and action.destination == ".git":
+                self._run_git_init(context, result)
+                continue
 
-        for action in plan.actions:
+            # Apply VCS detection from plan metadata (only if non-empty)
+            if action.rationale.startswith("VCS detected:"):
+                detected_vcs = action.rationale.split(": ", 1)[1]
+                if detected_vcs:
+                    context.vcs_provider = detected_vcs
+                continue
+
             if action.action_type == "skip":
                 if action.destination:
                     result.skipped.append(action.destination)
@@ -116,6 +135,21 @@ class DetectPhase:
                 self._migrate_legacy_context(context, result)
 
         return result
+
+    @staticmethod
+    def _run_git_init(context: InstallContext, result: PhaseResult) -> None:
+        """Initialize a git repository in the target directory."""
+        try:
+            subprocess.run(
+                ["git", "init"],
+                cwd=context.target,
+                capture_output=True,
+                check=True,
+            )
+        except FileNotFoundError:
+            msg = "git is required but not installed. Install git and retry."
+            raise InstallerError(msg) from None
+        result.created.append(".git")
 
     # ------------------------------------------------------------------
     # verify
@@ -171,7 +205,10 @@ class DetectPhase:
 
 
 def _detect_vcs(context: InstallContext) -> str:
-    """Detect VCS provider from the git remote URL."""
+    """Detect VCS provider from the git remote URL.
+
+    Returns ``""`` when detection fails (no git, no remote, timeout).
+    """
     try:
         proc = subprocess.run(
             ["git", "remote", "get-url", "origin"],
@@ -181,10 +218,10 @@ def _detect_vcs(context: InstallContext) -> str:
             timeout=10,
         )
     except (FileNotFoundError, subprocess.TimeoutExpired):
-        return "github"
+        return ""
 
     if proc.returncode != 0:
-        return "github"
+        return ""
 
     url = proc.stdout.strip().lower()
     if "dev.azure.com" in url or "visualstudio.com" in url:

@@ -16,7 +16,14 @@ from typing import Any
 
 import questionary
 
-from ai_engineering.installer.autodetect import DetectionResult
+from ai_engineering.installer.autodetect import (
+    _IDE_POPULARITY,
+    _PROVIDER_POPULARITY,
+    _STACK_POPULARITY,
+    _VCS_POPULARITY,
+    DetectionResult,
+    _order_by_popularity,
+)
 
 
 @dataclass
@@ -29,14 +36,17 @@ class WizardResult:
     vcs: str
 
 
-# Valid AI provider identifiers (sorted for consistent display).
-_VALID_AI_PROVIDERS: list[str] = sorted(["claude_code", "github_copilot", "gemini", "codex"])
+# Valid AI provider identifiers (popularity ordered).
+_VALID_AI_PROVIDERS: list[str] = _order_by_popularity(
+    ["claude_code", "github_copilot", "gemini", "codex"],
+    _PROVIDER_POPULARITY,
+)
 
-# Valid VCS choices (sorted for consistent display).
-_VCS_CHOICES: list[str] = sorted(["github", "azure_devops"])
-
-# Default VCS when detection or user input fails.
-_DEFAULT_VCS: str = "github"
+# Valid VCS choices (popularity ordered).
+_VCS_CHOICES: list[str] = _order_by_popularity(
+    ["github", "azure_devops"],
+    _VCS_POPULARITY,
+)
 
 
 def _build_choices(
@@ -55,11 +65,14 @@ def _ask_checkbox(prompt: str, choices: list[questionary.Choice]) -> list[str]:
     return result
 
 
-def _ask_select(prompt: str, choices: list[str], default: str) -> str:
-    """Run a select prompt and handle None (Ctrl+C) gracefully."""
-    result = questionary.select(prompt, choices=choices, default=default).ask()
+def _ask_select(prompt: str, choices: list[str], default: str | None = None) -> str:
+    """Run a select prompt. Abort install on Ctrl+C."""
+    kwargs: dict[str, Any] = {"choices": choices}
+    if default:
+        kwargs["default"] = default
+    result = questionary.select(prompt, **kwargs).ask()
     if result is None:
-        return _DEFAULT_VCS
+        raise SystemExit(1)
     return result
 
 
@@ -89,7 +102,8 @@ def run_wizard(
     if "stacks" in resolved:
         stacks = resolved["stacks"]
     else:
-        stacks_choices = _build_choices(get_available_stacks(), detected.stacks)
+        available = _order_by_popularity(get_available_stacks(), _STACK_POPULARITY)
+        stacks_choices = _build_choices(available, detected.stacks)
         stacks = _ask_checkbox("Select technology stacks:", stacks_choices)
 
     # -- Providers ------------------------------------------------------------
@@ -103,13 +117,17 @@ def run_wizard(
     if "ides" in resolved:
         ides = resolved["ides"]
     else:
-        ide_choices = _build_choices(get_available_ides(), detected.ides)
+        available_ides = _order_by_popularity(get_available_ides(), _IDE_POPULARITY)
+        ide_choices = _build_choices(available_ides, detected.ides)
         ides = _ask_checkbox("Select IDE integrations:", ide_choices)
 
     # -- VCS ------------------------------------------------------------------
     if "vcs" in resolved:
         vcs = resolved["vcs"]
     else:
-        vcs = _ask_select("Select VCS provider:", _VCS_CHOICES, detected.vcs)
+        vcs_default = detected.vcs if detected.vcs else None
+        if not vcs_default:
+            questionary.print("  Detected: none", style="bold yellow")
+        vcs = _ask_select("Select VCS provider:", _VCS_CHOICES, vcs_default)
 
     return WizardResult(stacks=stacks, providers=providers, ides=ides, vcs=vcs)

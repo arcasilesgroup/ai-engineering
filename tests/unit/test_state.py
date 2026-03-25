@@ -118,10 +118,83 @@ class TestOwnershipMap:
         assert om.has_deny_rule("unknown/path.txt") is False
 
     def test_claude_tree_ownership(self) -> None:
-        """The .claude/** pattern covers settings.json and commands/."""
+        """The .claude/** pattern covers skills and agents but not settings.json."""
         om = default_ownership_map()
-        assert om.is_update_allowed(".claude/settings.json") is True
-        assert om.is_update_allowed(".claude/commands/commit.md") is True
+        assert om.is_update_allowed(".claude/skills/ai-commit/SKILL.md") is True
+        assert om.is_update_allowed(".claude/agents/ai-build.md") is True
+
+    def test_claude_settings_denied(self) -> None:
+        """settings.json is team-managed (deny) — specific rule before .claude/** glob."""
+        om = default_ownership_map()
+        assert om.is_update_allowed(".claude/settings.json") is False
+        assert om.has_deny_rule(".claude/settings.json") is True
+
+    # -- spec-070: new ownership rules tests -----------------------------------
+
+    def test_governance_readme_allowed(self) -> None:
+        om = default_ownership_map()
+        assert om.is_update_allowed(".ai-engineering/README.md") is True
+
+    def test_manifest_yml_denied(self) -> None:
+        om = default_ownership_map()
+        assert om.is_update_allowed(".ai-engineering/manifest.yml") is False
+        assert om.has_deny_rule(".ai-engineering/manifest.yml") is True
+
+    def test_runbooks_allowed(self) -> None:
+        om = default_ownership_map()
+        assert om.is_update_allowed(".ai-engineering/runbooks/daily-triage.md") is True
+
+    def test_hooks_allowed(self) -> None:
+        om = default_ownership_map()
+        assert om.is_update_allowed(".ai-engineering/scripts/hooks/observe.py") is True
+
+    def test_contexts_orgs_denied(self) -> None:
+        om = default_ownership_map()
+        assert om.is_update_allowed(".ai-engineering/contexts/orgs/README.md") is False
+        assert om.has_deny_rule(".ai-engineering/contexts/orgs/README.md") is True
+
+    def test_contexts_product_denied(self) -> None:
+        om = default_ownership_map()
+        assert om.is_update_allowed(".ai-engineering/contexts/product/product-contract.md") is False
+        assert om.has_deny_rule(".ai-engineering/contexts/product/product-contract.md") is True
+
+    def test_gitleaks_allowed(self) -> None:
+        om = default_ownership_map()
+        assert om.is_update_allowed(".gitleaks.toml") is True
+
+    def test_semgrep_allowed(self) -> None:
+        om = default_ownership_map()
+        assert om.is_update_allowed(".semgrep.yml") is True
+
+    def test_github_instructions_allowed(self) -> None:
+        om = default_ownership_map()
+        assert om.is_update_allowed(".github/instructions/python.instructions.md") is True
+
+    def test_github_issue_template_allowed(self) -> None:
+        om = default_ownership_map()
+        assert om.is_update_allowed(".github/ISSUE_TEMPLATE/bug.yml") is True
+
+    def test_github_hooks_allowed(self) -> None:
+        om = default_ownership_map()
+        assert om.is_update_allowed(".github/hooks/hooks.json") is True
+
+    def test_github_codeowners_denied(self) -> None:
+        om = default_ownership_map()
+        assert om.is_update_allowed(".github/CODEOWNERS") is False
+        assert om.has_deny_rule(".github/CODEOWNERS") is True
+
+    def test_github_dependabot_denied(self) -> None:
+        om = default_ownership_map()
+        assert om.is_update_allowed(".github/dependabot.yml") is False
+        assert om.has_deny_rule(".github/dependabot.yml") is True
+
+    def test_github_pr_template_denied(self) -> None:
+        om = default_ownership_map()
+        assert om.is_update_allowed(".github/pull_request_template.md") is False
+        assert om.has_deny_rule(".github/pull_request_template.md") is True
+
+
+# -- DecisionStore tests ------------------------------------------------------
 
 
 # -- DecisionStore tests ------------------------------------------------------

@@ -153,7 +153,7 @@ def run_tool_check(
                     passed=False,
                     output=(
                         f"{tool_name} not found — required. "
-                        "Run 'ai-eng doctor --fix-tools' to install."
+                        "Run 'ai-eng doctor --fix --phase tools' to install."
                     ),
                 )
             )
@@ -162,7 +162,9 @@ def run_tool_check(
                 GateCheckResult(
                     name=name,
                     passed=True,
-                    output=f"{tool_name} not found — skipped (run 'ai-eng doctor --fix-tools')",
+                    output=(
+                        f"{tool_name} not found — skipped (run 'ai-eng doctor --fix --phase tools')"
+                    ),
                 )
             )
         return
@@ -191,7 +193,8 @@ def run_tool_check(
         if required:
             passed = False
             output = (
-                f"{tool_name} not found — required. Run 'ai-eng doctor --fix-tools' to install."
+                f"{tool_name} not found — required."
+                " Run 'ai-eng doctor --fix --phase tools' to install."
             )
         else:
             passed = True

@@ -15,7 +15,6 @@ from ai_engineering.cli_commands import (
     core,
     gate,
     maintenance,
-    review,
     stack_ide,
     validate,
     vcs,
@@ -49,25 +48,6 @@ def test_gate_print_failure_shows_first_five_lines(capsys: pytest.CaptureFixture
     assert "line-1" in captured.err
     assert "line-5" in captured.err
     assert "line-6" not in captured.err
-
-
-def test_gate_print_scope_diagnostic_even_when_passed(
-    capsys: pytest.CaptureFixture[str],
-) -> None:
-    result = GateResult(
-        hook=GateHook.PRE_PUSH,
-        checks=[
-            GateCheckResult(
-                name="test-scope",
-                passed=True,
-                output="mode=shadow\nresolved_mode=selective\ntest_count=1",
-            )
-        ],
-    )
-    gate._print_gate_result(result)
-    captured = capsys.readouterr()
-    assert "mode=shadow" in captured.err
-    assert "resolved_mode=selective" in captured.err
 
 
 def test_gate_risk_check_no_store_prints_message(
@@ -146,29 +126,25 @@ def test_validate_json_and_failure_exit(capsys: pytest.CaptureFixture[str], tmp_
 
 
 def test_vcs_status_and_set_primary(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    import shutil
-
-    from ai_engineering.installer.templates import get_ai_engineering_template_root
-
     ai_eng_dir = tmp_path / ".ai-engineering"
-    ai_eng_dir.mkdir(parents=True, exist_ok=True)
     state_dir = ai_eng_dir / "state"
     state_dir.mkdir(parents=True, exist_ok=True)
     save_install_state(state_dir, default_install_state())
-    # Copy template manifest.yml so vcs_set_primary can update it
-    shutil.copy2(get_ai_engineering_template_root() / "manifest.yml", ai_eng_dir / "manifest.yml")
+
+    manifest_yml = ai_eng_dir / "manifest.yml"
+    manifest_yml.write_text(
+        "providers:\n  vcs: github\n  stacks:\n    - python\n", encoding="utf-8"
+    )
 
     provider = SimpleNamespace(provider_name=lambda: "github", is_available=lambda: True)
     with patch("ai_engineering.cli_commands.vcs.get_provider", return_value=provider):
         vcs.vcs_status(target=tmp_path)
     captured = capsys.readouterr()
-    # kv() writes to stderr via Rich Console
     assert "Primary provider" in captured.err
 
     vcs.vcs_set_primary("azure_devops", target=tmp_path)
     import yaml
 
-    manifest_yml = tmp_path / ".ai-engineering" / "manifest.yml"
     updated = yaml.safe_load(manifest_yml.read_text(encoding="utf-8"))
     assert updated["providers"]["vcs"] == "azure_devops"
 
@@ -195,8 +171,19 @@ def test_core_update_json_and_doctor_fail(
 
     report = SimpleNamespace(
         passed=False,
+        installed=True,
         summary={"fail": 1},
-        checks=[SimpleNamespace(status=SimpleNamespace(value="fail"), name="x", message="bad")],
+        phases=[
+            SimpleNamespace(
+                name="detect",
+                status=SimpleNamespace(value="fail"),
+                checks=[
+                    SimpleNamespace(status=SimpleNamespace(value="fail"), name="x", message="bad")
+                ],
+            )
+        ],
+        runtime=[],
+        has_warnings=False,
     )
     with (
         patch("ai_engineering.cli_commands.core.diagnose", return_value=report),
@@ -322,33 +309,6 @@ def test_skills_cli_branches(tmp_path: Path, capsys: pytest.CaptureFixture[str])
         skills.skill_status(target=tmp_path)
     captured = capsys.readouterr()
     assert "No local skills" in captured.err
-
-
-def test_review_pr_strict_failure_exits(tmp_path: Path) -> None:
-    provider = SimpleNamespace(
-        post_pr_review=lambda _ctx, body: SimpleNamespace(success=False, output="boom")
-    )
-    with (
-        patch("ai_engineering.cli_commands.review.get_provider", return_value=provider),
-        pytest.raises(typer.Exit),
-    ):
-        review.review_pr(target=tmp_path, strict=True)
-
-
-def test_review_pr_blocks_on_high_findings(tmp_path: Path) -> None:
-    findings = tmp_path / "findings.json"
-    findings.write_text(
-        json.dumps({"findings": [{"severity": "high"}, {"severity": "low"}]}),
-        encoding="utf-8",
-    )
-    provider = SimpleNamespace(
-        post_pr_review=lambda _ctx, body: SimpleNamespace(success=True, output="ok")
-    )
-    with (
-        patch("ai_engineering.cli_commands.review.get_provider", return_value=provider),
-        pytest.raises(typer.Exit),
-    ):
-        review.review_pr(target=tmp_path, findings_json=findings)
 
 
 def test_gate_all_combined_pass(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:

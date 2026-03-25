@@ -51,16 +51,23 @@ For every claim, follow IRRV:
 
 ### Scan Modes (7 parallel modes)
 
+**CLI-backed** (run via `ai-eng verify <mode>`):
+
 | Mode | Command | What it assesses |
 |------|---------|------------------|
 | `governance` | `/ai-verify governance` | Integrity, compliance, ownership boundaries |
 | `security` | `/ai-verify security` | OWASP SAST, secret detection, dependency vulns |
 | `quality` | `/ai-verify quality` | Coverage, complexity, duplication, lint |
+| `platform` | `/ai-verify platform` | All 7 modes aggregated -> GO/NO-GO |
+
+**Agentic** (invoked via skill argument, no CLI backing):
+
+| Mode | Command | What it assesses |
+|------|---------|------------------|
 | `performance` | `/ai-verify performance` | N+1 queries, O(n^2), memory leaks, bundle size |
 | `a11y` | `/ai-verify a11y` | WCAG 2.1 AA compliance |
 | `feature` | `/ai-verify feature` | Spec vs code gaps, disconnected implementations |
 | `architecture` | `/ai-verify architecture` | Drift, coupling, cohesion, boundaries |
-| `platform` | `/ai-verify platform` | All 7 modes aggregated -> GO/NO-GO |
 
 Auto-detect: when invoked without a mode, infer from context.
 

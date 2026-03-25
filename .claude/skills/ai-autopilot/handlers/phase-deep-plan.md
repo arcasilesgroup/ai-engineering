@@ -7,7 +7,7 @@ Dispatch N parallel agents (one per sub-spec) to deep-explore the codebase and w
 ## Prerequisites
 
 - Phase 1 (DECOMPOSE) is complete.
-- Sub-spec shell files exist at `specs/autopilot/sub-NNN.md` with populated `## Scope` and `files:` frontmatter.
+- Sub-spec directories exist at `specs/autopilot/sub-NNN/` with `spec.md` (Scope + `files:` frontmatter) and `plan.md` (Plan placeholder).
 - Manifest exists at `specs/autopilot/manifest.md` with all sub-spec statuses set to `planning`.
 - Parent spec is available at `specs/spec.md`.
 - Decision store is loaded from `state/decision-store.json`.
@@ -16,8 +16,8 @@ Dispatch N parallel agents (one per sub-spec) to deep-explore the codebase and w
 
 ### Step 1: Load Sub-Specs
 
-1. Glob `specs/autopilot/sub-*.md`. Collect the full list of sub-spec files.
-2. For each sub-spec file, extract:
+1. Glob `specs/autopilot/sub-*/spec.md`. Collect the full list of sub-spec directories.
+2. For each `sub-NNN/spec.md`, extract:
    - `id` from frontmatter (e.g., `sub-001`)
    - `title` from frontmatter
    - `files:` list from frontmatter (Phase 1 best-guess file list)
@@ -49,7 +49,7 @@ Then read analogous implementations in the codebase -- files that solve a simila
 
 #### 2b. Write Exploration Section
 
-Populate `## Exploration` in the sub-spec file with the following required subsections:
+Populate `## Exploration` in `sub-NNN/spec.md` with the following required subsections:
 
 ```markdown
 ## Exploration
@@ -75,7 +75,7 @@ Assumptions that need validation. Missing test coverage.]
 
 #### 2c. Write Plan Section
 
-Populate `## Plan` in the sub-spec file with ordered tasks:
+Populate `## Plan` in `sub-NNN/plan.md` with ordered tasks using simplified checkbox format:
 
 ```markdown
 ## Plan
@@ -83,21 +83,17 @@ Populate `## Plan` in the sub-spec file with ordered tasks:
 exports: [list of modules/classes/functions this sub-spec creates or exposes]
 imports: [list of modules/classes/functions this sub-spec expects from other sub-specs]
 
-### T-N.1: [Task title]
-- **Description**: What to implement and why.
-- **Files**: List of file paths to create or modify.
-- **Done condition**: Observable, verifiable condition that proves this task is complete.
-
-### T-N.2: [Task title]
-- **Description**: ...
-- **Files**: ...
-- **Done condition**: ...
-[TDD pair: write test first, then implementation]
+- [ ] T-N.1: [Task title]
+  - **Files**: [list of file paths]
+  - **Done**: [verifiable condition]
+- [ ] T-N.2: [Task title]
+  - **Files**: [list of file paths]
+  - **Done**: [verifiable condition]
 ```
 
 Requirements for the plan:
 - Minimum 2 tasks per sub-spec. No upper limit.
-- Every task MUST have explicit file paths and a done condition.
+- Every task MUST have explicit file paths and a verifiable done condition.
 - TDD pairs: where tests are needed, the test task precedes the implementation task.
 - `exports:` declares modules, classes, or functions this sub-spec creates that other sub-specs may consume. Phase 3 uses these for DAG construction.
 - `imports:` declares what this sub-spec expects from other sub-specs. Can be empty (`imports: []`) if there are no cross-sub-spec dependencies.
@@ -105,11 +101,11 @@ Requirements for the plan:
 
 #### 2d. Refine File List
 
-Update the sub-spec's `files:` frontmatter with the actual files discovered during exploration. This replaces Phase 1's best-guess list with a verified, complete list. Add files that were discovered during exploration but not in the original list. Remove files that turned out to be irrelevant.
+Update `sub-NNN/spec.md` frontmatter `files:` field with the actual files discovered during exploration. This replaces Phase 1's best-guess list with a verified, complete list. Add files that were discovered during exploration but not in the original list. Remove files that turned out to be irrelevant.
 
 #### 2e. Self-Assess
 
-Append a brief assessment to the sub-spec:
+Append a brief assessment to `sub-NNN/plan.md` (after Plan, before Self-Report placeholder):
 
 ```markdown
 ### Confidence
@@ -155,8 +151,9 @@ Write a summary line to the manifest:
 
 ## Output
 
-- N enriched sub-spec files at `specs/autopilot/sub-NNN.md`, each containing populated `## Exploration`, `## Plan`, and confidence assessment.
-- Updated `files:` frontmatter in each sub-spec reflecting actual discovered files.
+- N enriched sub-spec directories at `specs/autopilot/sub-NNN/`:
+  - `spec.md` containing populated `## Exploration` and updated `files:` frontmatter reflecting actual discovered files.
+  - `plan.md` containing `## Plan` with checkbox-formatted tasks, `exports:`/`imports:` declarations, and confidence assessment.
 - Updated manifest with `planned` or `plan-failed` statuses.
 - Summary report: N planned, M failed, confidence distribution.
 
@@ -164,9 +161,9 @@ Write a summary line to the manifest:
 
 All of the following must pass for each sub-spec to be marked `planned`:
 
-1. **Exploration completeness**: `## Exploration` is non-empty and contains at least the "Existing Files" and "Patterns to Follow" subsections with substantive content (not placeholders or TODOs).
-2. **Plan minimum tasks**: `## Plan` contains at least 2 tasks (sections matching `### T-N.K`), each with explicit `Files:` paths and a `Done condition:` statement.
-3. **Dependency declarations**: the Plan section declares both `exports:` and `imports:`. Either can be an empty list (`[]`) if there are no cross-sub-spec dependencies, but the declaration must be present.
+1. **Exploration completeness**: `sub-NNN/spec.md` contains `## Exploration` that is non-empty and includes at least the "Existing Files" and "Patterns to Follow" subsections with substantive content (not placeholders or TODOs).
+2. **Plan minimum tasks**: `sub-NNN/plan.md` contains at least 2 checkbox items matching `- [ ] T-N.K`, each with explicit `**Files**:` paths and a `**Done**:` condition.
+3. **Dependency declarations**: `sub-NNN/plan.md` declares both `exports:` and `imports:` in the Plan section. Either can be an empty list (`[]`) if there are no cross-sub-spec dependencies, but the declaration must be present.
 
 ## Failure Modes
 

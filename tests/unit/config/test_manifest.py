@@ -99,8 +99,8 @@ class TestProviders:
     def test_ides(self, real_manifest_data: dict) -> None:
         config = ManifestConfig.model_validate(real_manifest_data)
         assert "terminal" in config.providers.ides
-        assert "claude_code" in config.providers.ai_providers.enabled
-        assert "github_copilot" in config.providers.ai_providers.enabled
+        assert "claude_code" in config.ai_providers.enabled
+        assert "github_copilot" in config.ai_providers.enabled
 
     def test_stacks(self, real_manifest_data: dict) -> None:
         config = ManifestConfig.model_validate(real_manifest_data)

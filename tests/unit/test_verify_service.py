@@ -170,9 +170,14 @@ class TestVerifySecurity:
 
 
 class TestVerifyGovernance:
-    def test_validate_pass_returns_clean_score(self, fake_run: FakeSubprocess) -> None:
-        # Arrange — ai-eng validate succeeds
-        fake_run.set_response("ai-eng", returncode=0, stdout="")
+    def test_validate_pass_returns_clean_score(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        # Arrange — validate_content_integrity returns empty report
+        from ai_engineering.validator._shared import IntegrityReport
+
+        monkeypatch.setattr(
+            "ai_engineering.verify.service.validate_content_integrity",
+            lambda _root, **_kw: IntegrityReport(),
+        )
 
         # Act
         result = verify_governance(Path("/fake"))
@@ -181,23 +186,82 @@ class TestVerifyGovernance:
         assert result.score == 100
         assert not result.findings
 
-    def test_validate_failure_reports_critical_finding(self, fake_run: FakeSubprocess) -> None:
-        # Arrange — ai-eng validate fails
-        fake_run.set_response("ai-eng", returncode=1, stdout="")
+    def test_validate_failure_reports_critical(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        # Arrange — report with a FAIL check
+        from ai_engineering.validator._shared import (
+            IntegrityCategory,
+            IntegrityCheckResult,
+            IntegrityReport,
+            IntegrityStatus,
+        )
+
+        report = IntegrityReport(
+            checks=[
+                IntegrityCheckResult(
+                    category=IntegrityCategory.MIRROR_SYNC,
+                    name="mirror-mismatch",
+                    status=IntegrityStatus.FAIL,
+                    message="CLAUDE.md mirror out of sync",
+                    file_path="CLAUDE.md",
+                ),
+            ]
+        )
+        monkeypatch.setattr(
+            "ai_engineering.verify.service.validate_content_integrity",
+            lambda _root, **_kw: report,
+        )
 
         # Act
         result = verify_governance(Path("/fake"))
 
         # Assert
         assert result.score < 100
-        assert any(f.category == "integrity" for f in result.findings)
+        assert len(result.findings) == 1
+        assert result.findings[0].severity == FindingSeverity.CRITICAL
+        assert result.findings[0].category == "mirror-sync"
+
+    def test_validate_warn_reports_minor(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        # Arrange — report with a WARN check
+        from ai_engineering.validator._shared import (
+            IntegrityCategory,
+            IntegrityCheckResult,
+            IntegrityReport,
+            IntegrityStatus,
+        )
+
+        report = IntegrityReport(
+            checks=[
+                IntegrityCheckResult(
+                    category=IntegrityCategory.SKILL_FRONTMATTER,
+                    name="optional-field-missing",
+                    status=IntegrityStatus.WARN,
+                    message="Optional field 'os' missing",
+                    file_path="skills/ai-test/SKILL.md",
+                ),
+            ]
+        )
+        monkeypatch.setattr(
+            "ai_engineering.verify.service.validate_content_integrity",
+            lambda _root, **_kw: report,
+        )
+
+        # Act
+        result = verify_governance(Path("/fake"))
+
+        # Assert
+        assert result.score == 99  # MINOR penalty = 1
+        assert len(result.findings) == 1
+        assert result.findings[0].severity == FindingSeverity.MINOR
+        assert result.findings[0].category == "skill-frontmatter"
 
 
 # ── verify_platform ───────────────────────────────────────────────────────
 
 
 class TestVerifyPlatform:
-    def test_aggregates_findings_from_all_modes(self, fake_run: FakeSubprocess) -> None:
+    def test_aggregates_findings_from_all_modes(
+        self, fake_run: FakeSubprocess, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         # Arrange — ruff finds 1 issue, gitleaks finds 1 leak
         fake_run.set_response(
             "ruff",
@@ -208,6 +272,13 @@ class TestVerifyPlatform:
             "gitleaks",
             returncode=1,
             stdout=json.dumps([{"Description": "key", "File": "b.py", "StartLine": 2}]),
+        )
+        # Governance now calls validate_content_integrity directly — mock it
+        from ai_engineering.validator._shared import IntegrityReport
+
+        monkeypatch.setattr(
+            "ai_engineering.verify.service.validate_content_integrity",
+            lambda _root, **_kw: IntegrityReport(),
         )
 
         # Act

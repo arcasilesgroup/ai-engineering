@@ -70,7 +70,7 @@ class IdeConfigPhase:
             actions.extend(_tree_actions(pr, st, dt, context.target, ow, "VCS"))
 
         if context.mode is InstallMode.RECONFIGURE and context.existing_state:
-            old = load_manifest_config(context.target).providers.ai_providers.enabled
+            old = load_manifest_config(context.target).ai_providers.enabled
             for rm in set(old) - set(context.providers):
                 for dp in provider_template_dest_paths(rm):
                     actions.append(PlannedAction("delete", "", dp, f"remove {rm}"))
@@ -109,7 +109,7 @@ class IdeConfigPhase:
                 )
 
         if context.mode is InstallMode.RECONFIGURE and context.existing_state:
-            old = load_manifest_config(context.target).providers.ai_providers.enabled
+            old = load_manifest_config(context.target).ai_providers.enabled
             for rm in set(old) - set(context.providers):
                 deleted = remove_provider_templates(context.target, rm, context.providers)
                 result.deleted.extend(str(p) for p in deleted)

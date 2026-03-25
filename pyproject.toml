@@ -14,7 +14,6 @@ dependencies = [
   "rich>=13.0,<15.0",
   "questionary>=2.0,<3.0",
   "ruamel-yaml>=0.18,<1.0",
-  "requests==2.33.0",
 ]
 
 [dependency-groups]

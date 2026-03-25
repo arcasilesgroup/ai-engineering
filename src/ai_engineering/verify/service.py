@@ -6,6 +6,8 @@ import json
 import subprocess
 from pathlib import Path
 
+from ai_engineering.validator._shared import IntegrityStatus
+from ai_engineering.validator.service import validate_content_integrity
 from ai_engineering.verify.scoring import FindingSeverity, VerifyScore
 
 
@@ -116,19 +118,22 @@ def verify_security(project_root: Path) -> VerifyScore:
 def verify_governance(project_root: Path) -> VerifyScore:
     """Run governance checks and produce a scored report."""
     score = VerifyScore()
-
-    # ai-eng validate
-    result = _run(
-        ["uv", "run", "ai-eng", "validate", "--json"],
-        project_root,
-    )
-    if result.returncode != 0:
-        score.add(
-            FindingSeverity.CRITICAL,
-            "integrity",
-            "Content integrity validation failed",
-        )
-
+    report = validate_content_integrity(project_root)
+    for check in report.checks:
+        if check.status == IntegrityStatus.FAIL:
+            score.add(
+                FindingSeverity.CRITICAL,
+                check.category.value,
+                check.message,
+                file=check.file_path,
+            )
+        elif check.status == IntegrityStatus.WARN:
+            score.add(
+                FindingSeverity.MINOR,
+                check.category.value,
+                check.message,
+                file=check.file_path,
+            )
     return score
 
 

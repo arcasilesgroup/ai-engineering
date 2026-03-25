@@ -4,6 +4,15 @@ Completed specs. Details in git history.
 
 | ID | Title | Status | Created | Branch |
 |----|-------|--------|---------|--------|
+| 076 | Autopilot Sub-Spec Quality Parity and Dispatch Quality+Deliver Phases | done | 2026-03-25 | refactor/069-remove-test-scope-rules |
+| 075 | Missing Test Coverage: VCS CLI, Stack Operations, Install Pipeline | done | 2026-03-25 | refactor/069-remove-test-scope-rules |
+| 074 | Provider/IDE Field Separation, Release Flow Fix, Verify Governance Rewrite | done | 2026-03-25 | refactor/069-remove-test-scope-rules |
+| 073 | Eliminate Dead Commands, Fix Bugs, Sync Docs | done | 2026-03-25 | refactor/069-remove-test-scope-rules |
+| 072 | Recursive Detection, Popularity Ordering, Git Init | done | 2026-03-25 | refactor/069-remove-test-scope-rules |
+| 071 | Doctor Redesign: Phase-Mirrored Install Verifier | done | 2026-03-25 | refactor/069-remove-test-scope-rules |
+| 070 | Update Command Parity with Install | done | 2026-03-25 | refactor/069-remove-test-scope-rules |
+| 069 | Remove TEST_SCOPE_RULES System | done | 2026-03-25 | refactor/069-remove-test-scope-rules |
+| 068 | State Unification: ManifestConfig + InstallState | done | 2026-03-25 | refactor/069-remove-test-scope-rules |
 | 067 | Auto-optimize brainstorm input via ai-prompt preprocessing | done | 2026-03-25 | spec/064-install-flow-redesign |
 | 066 | Relocate scripts/hooks/ into .ai-engineering/ | draft | 2026-03-24 | spec/064-install-flow-redesign |
 | 065 | Autopilot v2 — 6-phase DAG pipeline | done | 2026-03-24 | spec/064-install-flow-redesign |
