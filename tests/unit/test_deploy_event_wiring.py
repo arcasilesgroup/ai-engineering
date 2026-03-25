@@ -17,8 +17,8 @@ from ai_engineering.release.orchestrator import (
     ReleaseConfig,
     execute_release,
 )
-from ai_engineering.state.defaults import default_install_manifest
-from ai_engineering.state.io import write_json_model
+from ai_engineering.state.defaults import default_install_state
+from ai_engineering.state.service import save_install_state
 from ai_engineering.vcs.protocol import (
     CreateTagContext,
     PipelineStatusContext,
@@ -102,8 +102,7 @@ class TestEmitDeployEventWiring:
         """Create minimal project structure for a release dry-run bypass."""
         state_dir = tmp_path / ".ai-engineering" / "state"
         state_dir.mkdir(parents=True)
-        manifest = default_install_manifest()
-        write_json_model(state_dir / "install-manifest.json", manifest)
+        save_install_state(state_dir, default_install_state())
         # Create audit log directory
         (state_dir / "audit-log.ndjson").touch()
         # Create CHANGELOG.md with [Unreleased] section

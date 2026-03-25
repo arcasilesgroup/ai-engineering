@@ -21,8 +21,8 @@ from ai_engineering.cli_commands import (
     vcs,
 )
 from ai_engineering.policy.gates import GateCheckResult, GateHook, GateResult
-from ai_engineering.state.defaults import default_install_manifest
-from ai_engineering.state.io import write_json_model
+from ai_engineering.state.defaults import default_install_state
+from ai_engineering.state.service import save_install_state
 
 pytestmark = pytest.mark.integration
 
@@ -146,9 +146,9 @@ def test_validate_json_and_failure_exit(capsys: pytest.CaptureFixture[str], tmp_
 
 
 def test_vcs_status_and_set_primary(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    manifest_path = tmp_path / ".ai-engineering" / "state" / "install-manifest.json"
-    manifest_path.parent.mkdir(parents=True, exist_ok=True)
-    write_json_model(manifest_path, default_install_manifest(vcs_provider="github"))
+    state_dir = tmp_path / ".ai-engineering" / "state"
+    state_dir.mkdir(parents=True, exist_ok=True)
+    save_install_state(state_dir, default_install_state())
 
     provider = SimpleNamespace(provider_name=lambda: "github", is_available=lambda: True)
     with patch("ai_engineering.cli_commands.vcs.get_provider", return_value=provider):
@@ -158,8 +158,11 @@ def test_vcs_status_and_set_primary(tmp_path: Path, capsys: pytest.CaptureFixtur
     assert "Primary provider" in captured.err
 
     vcs.vcs_set_primary("azure_devops", target=tmp_path)
-    updated = json.loads(manifest_path.read_text(encoding="utf-8"))
-    assert updated["providers"]["primary"] == "azure_devops"
+    import yaml
+
+    manifest_yml = tmp_path / ".ai-engineering" / "manifest.yml"
+    updated = yaml.safe_load(manifest_yml.read_text(encoding="utf-8"))
+    assert updated["providers"]["vcs"] == "azure_devops"
 
 
 def test_vcs_set_primary_invalid_provider_exits(tmp_path: Path) -> None:

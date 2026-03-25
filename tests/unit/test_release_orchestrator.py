@@ -30,8 +30,8 @@ from ai_engineering.release.orchestrator import (
     _wait_for_merge,
     execute_release,
 )
-from ai_engineering.state.defaults import default_install_manifest
-from ai_engineering.state.io import write_json_model
+from ai_engineering.state.defaults import default_install_state
+from ai_engineering.state.service import save_install_state
 from ai_engineering.vcs.protocol import (
     CreateTagContext,
     PipelineStatusContext,
@@ -380,8 +380,8 @@ def test_update_manifest_skips_when_missing(tmp_path: Path) -> None:
 def test_update_manifest_updates_release_fields(tmp_path: Path) -> None:
     # Arrange
     cfg = ReleaseConfig(version="0.2.0", project_root=tmp_path)
-    manifest_path = tmp_path / ".ai-engineering" / "state" / "install-manifest.json"
-    write_json_model(manifest_path, default_install_manifest())
+    state_dir = tmp_path / ".ai-engineering" / "state"
+    save_install_state(state_dir, default_install_state())
 
     # Act
     phase = _update_manifest(cfg, _FixedClock())

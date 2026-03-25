@@ -20,7 +20,7 @@ from ai_engineering.state import io as state_io
 from ai_engineering.state.models import (
     AuditEntry,
     DecisionStore,
-    InstallManifest,
+    InstallState,
 )
 from ai_engineering.updater import service as updater
 from ai_engineering.validator import service as validator
@@ -35,7 +35,7 @@ def test_hooks_and_installer_templates_missing_inputs(tmp_path: Path) -> None:
     hooks_dir = tmp_path / ".git" / "hooks"
     state_dir.mkdir(parents=True, exist_ok=True)
     hooks_dir.mkdir(parents=True, exist_ok=True)
-    (state_dir / "install-manifest.json").write_text("{}", encoding="utf-8")
+    (state_dir / "install-state.json").write_text("{}", encoding="utf-8")
     with patch("ai_engineering.state.io.read_json_model", side_effect=OSError("boom")):
         hooks_manager._record_hook_hashes(tmp_path)
 
@@ -79,7 +79,7 @@ def test_branch_cleanup_edge_branches_and_delete_failures(tmp_path: Path) -> Non
 def test_maintenance_report_exception_branches(tmp_path: Path) -> None:
     ai = tmp_path / ".ai-engineering"
     (ai / "state").mkdir(parents=True, exist_ok=True)
-    (ai / "state" / "install-manifest.json").write_text(
+    (ai / "state" / "install-state.json").write_text(
         '{"frameworkVersion": "0.1.0", "schemaVersion": "1.2"}',
         encoding="utf-8",
     )
@@ -175,7 +175,7 @@ def test_skills_state_and_defaults_edges(tmp_path: Path) -> None:
     with pytest.raises(ValueError):
         decision_logic.mark_remediated(ds, decision_id="missing")
 
-    manifest = defaults.default_install_manifest(vcs_provider="azure_devops")
+    manifest = defaults.default_install_state()
     assert "github" in manifest.providers.enabled
 
     with pytest.raises(TypeError):
@@ -285,12 +285,9 @@ def test_updater_validator_and_vcs_edges(tmp_path: Path) -> None:
         auto = provider.enable_auto_complete(ctx)
     assert auto.success is False
 
-    manifest_path = tmp_path / ".ai-engineering" / "state" / "install-manifest.json"
-    manifest_path.parent.mkdir(parents=True, exist_ok=True)
-    state_io.write_json_model(
-        manifest_path,
-        InstallManifest(providers={"primary": "invalid", "enabled": ["invalid"]}),
-    )
+    state_path = tmp_path / ".ai-engineering" / "state" / "install-state.json"
+    state_path.parent.mkdir(parents=True, exist_ok=True)
+    state_io.write_json_model(state_path, InstallState())
     with patch("ai_engineering.vcs.factory.detect_from_remote", return_value="unknown"):
         assert factory.get_provider(tmp_path).provider_name() == "github"
 

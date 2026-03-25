@@ -290,12 +290,11 @@ class TestPlatformCredentialRefs:
 # -- from_legacy() Conversion ---------------------------------------------
 
 
-class TestFromLegacy:
-    """Converting old InstallManifest + ToolsState into new InstallState."""
+class TestFromLegacyDict:
+    """Converting old InstallManifest dicts into new InstallState via from_legacy_dict."""
 
     def test_basic_manifest_conversion(self) -> None:
         """Extracts state fields from legacy manifest dict, drops config."""
-        # Arrange
         legacy = {
             "schemaVersion": "1.2",
             "frameworkVersion": "0.1.0",
@@ -315,11 +314,6 @@ class TestFromLegacy:
                     "authenticated": False,
                     "mode": "api",
                 },
-                "gitHooks": {
-                    "installed": True,
-                    "integrityVerified": True,
-                    "hookHashes": {},
-                },
                 "python": {
                     "uv": {"ready": True},
                     "ruff": {"ready": True},
@@ -336,13 +330,8 @@ class TestFromLegacy:
             "release": {"lastVersion": "0.3.0", "lastReleasedAt": "2026-03-20T00:00:00Z"},
         }
 
-        # Act
-        from ai_engineering.state.models import InstallManifest
+        state = InstallState.from_legacy_dict(legacy)
 
-        manifest = InstallManifest.model_validate(legacy)
-        state = InstallState.from_legacy(manifest)
-
-        # Assert -- state fields preserved
         assert state.schema_version == "2.0"
         assert state.installed_at == datetime(2026, 3, 25, 10, 0, 0, tzinfo=UTC)
         assert state.tooling["gh"].installed is True
@@ -355,16 +344,12 @@ class TestFromLegacy:
         assert state.operational_readiness.status == "READY"
         assert state.release.last_version == "0.3.0"
 
-        # Assert -- config fields NOT present (no installedStacks, etc.)
         data = state.model_dump(mode="json")
         assert "installedStacks" not in data
         assert "installed_stacks" not in data
-        assert "frameworkVersion" not in data
-        assert "framework_version" not in data
 
     def test_legacy_python_tools_flattened(self) -> None:
         """Legacy nested python.ruff, python.uv -> flat ruff, uv entries."""
-        # Arrange
         legacy = {
             "installedAt": "2026-01-01T00:00:00Z",
             "toolingReadiness": {
@@ -377,29 +362,17 @@ class TestFromLegacy:
             },
         }
 
-        from ai_engineering.state.models import InstallManifest
+        state = InstallState.from_legacy_dict(legacy)
 
-        manifest = InstallManifest.model_validate(legacy)
-        state = InstallState.from_legacy(manifest)
-
-        # Assert -- Python tools flattened into top-level tooling
         assert state.tooling["ruff"].installed is True
         assert state.tooling["uv"].installed is True
         assert state.tooling["pip_audit"].installed is True
         assert state.tooling["ty"].installed is False
 
     def test_legacy_with_tools_state_merges_platforms(self) -> None:
-        """ToolsState dict merges platform data into InstallState.platforms."""
-        # Arrange
-        legacy = {
-            "installedAt": "2026-01-01T00:00:00Z",
-        }
+        """tools_state dict merges platform data into InstallState.platforms."""
+        legacy = {"installedAt": "2026-01-01T00:00:00Z"}
         tools_state_dict = {
-            "github": {
-                "configured": True,
-                "cli_authenticated": True,
-                "scopes": ["repo", "read:org"],
-            },
             "sonar": {
                 "configured": True,
                 "url": "https://sonarcloud.io",
@@ -411,17 +384,11 @@ class TestFromLegacy:
                     "configured": True,
                 },
             },
-            "azure_devops": {
-                "configured": False,
-            },
+            "azure_devops": {"configured": False},
         }
 
-        from ai_engineering.state.models import InstallManifest
+        state = InstallState.from_legacy_dict(legacy, tools_state_dict=tools_state_dict)
 
-        manifest = InstallManifest.model_validate(legacy)
-        state = InstallState.from_legacy(manifest, tools_state_dict=tools_state_dict)
-
-        # Assert -- platforms populated from tools_state
         assert "sonar" in state.platforms
         assert state.platforms["sonar"].configured is True
         assert state.platforms["sonar"].url == "https://sonarcloud.io"
@@ -431,20 +398,12 @@ class TestFromLegacy:
 
     def test_legacy_without_tools_state_empty_platforms(self) -> None:
         """Without tools_state, platforms dict is empty."""
-        # Arrange
         legacy = {"installedAt": "2026-01-01T00:00:00Z"}
-
-        from ai_engineering.state.models import InstallManifest
-
-        manifest = InstallManifest.model_validate(legacy)
-        state = InstallState.from_legacy(manifest)
-
-        # Assert
+        state = InstallState.from_legacy_dict(legacy)
         assert state.platforms == {}
 
     def test_legacy_branch_policy_preserves_manual_guide(self) -> None:
-        """manual_guide field carries over from legacy BranchPolicyStatus."""
-        # Arrange
+        """manual_guide field carries over from legacy branchPolicy dict."""
         legacy = {
             "installedAt": "2026-01-01T00:00:00Z",
             "branchPolicy": {
@@ -455,12 +414,8 @@ class TestFromLegacy:
             },
         }
 
-        from ai_engineering.state.models import InstallManifest
+        state = InstallState.from_legacy_dict(legacy)
 
-        manifest = InstallManifest.model_validate(legacy)
-        state = InstallState.from_legacy(manifest)
-
-        # Assert
         assert state.branch_policy.applied is False
         assert state.branch_policy.mode == "manual"
         assert state.branch_policy.manual_guide == "See https://docs.example.com/branch-policy"

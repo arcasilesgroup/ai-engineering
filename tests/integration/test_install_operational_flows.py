@@ -12,8 +12,7 @@ from ai_engineering.installer.phases import PhaseResult
 from ai_engineering.installer.phases.pipeline import PipelineSummary
 from ai_engineering.installer.phases.tools import ToolsPhase
 from ai_engineering.installer.service import install, install_with_pipeline
-from ai_engineering.state.io import read_json_model
-from ai_engineering.state.models import InstallManifest
+from ai_engineering.state.service import load_install_state
 from ai_engineering.vcs.protocol import VcsContext, VcsResult
 
 pytestmark = pytest.mark.integration
@@ -66,16 +65,14 @@ def test_install_operational_ready_github_cli(tmp_path: Path, monkeypatch: objec
 
     result = install(tmp_path, vcs_provider="github")
 
-    manifest = read_json_model(
-        tmp_path / ".ai-engineering" / "state" / "install-manifest.json",
-        InstallManifest,
-    )
+    state_dir = tmp_path / ".ai-engineering" / "state"
+    state = load_install_state(state_dir)
 
     assert result.readiness_status == "READY"
-    assert manifest.operational_readiness.status == "READY"
-    assert manifest.tooling_readiness.gh.mode == "cli"
-    assert manifest.tooling_readiness.gh.authenticated is True
-    assert manifest.branch_policy.applied is True
+    assert state.operational_readiness.status == "READY"
+    assert state.tooling.get("gh") is not None
+    assert state.tooling["gh"].authenticated is True
+    assert state.branch_policy.applied is True
 
 
 def test_install_operational_ready_with_manual_steps_azure_fallback(
@@ -91,18 +88,14 @@ def test_install_operational_ready_with_manual_steps_azure_fallback(
 
     result = install(tmp_path, vcs_provider="azure_devops")
 
-    manifest = read_json_model(
-        tmp_path / ".ai-engineering" / "state" / "install-manifest.json",
-        InstallManifest,
-    )
+    state_dir = tmp_path / ".ai-engineering" / "state"
+    state = load_install_state(state_dir)
 
     assert result.readiness_status == "READY WITH MANUAL STEPS"
-    assert manifest.operational_readiness.status == "READY WITH MANUAL STEPS"
-    assert manifest.tooling_readiness.az.mode == "api"
-    assert manifest.tooling_readiness.az.authenticated is False
-    assert manifest.branch_policy.applied is False
-    assert manifest.branch_policy.manual_guide
-    assert "Manual Branch Policy Setup" in manifest.branch_policy.manual_guide
+    assert state.operational_readiness.status == "READY WITH MANUAL STEPS"
+    assert state.branch_policy.applied is False
+    assert state.branch_policy.manual_guide is not None
+    assert "Manual Branch Policy Setup" in state.branch_policy.manual_guide
 
 
 # ---------------------------------------------------------------------------
@@ -114,28 +107,25 @@ def test_pipeline_install_writes_operational_readiness(tmp_path: Path) -> None:
     """install_with_pipeline sets operational_readiness.status to non-pending."""
     _result, summary = install_with_pipeline(tmp_path, vcs_provider="github")
 
-    manifest = read_json_model(
-        tmp_path / ".ai-engineering" / "state" / "install-manifest.json",
-        InstallManifest,
-    )
+    state_dir = tmp_path / ".ai-engineering" / "state"
+    state = load_install_state(state_dir)
 
     assert isinstance(summary, PipelineSummary)
-    assert manifest.operational_readiness.status != "pending"
+    assert state.operational_readiness.status != "pending"
 
 
-def test_pipeline_dry_run_does_not_write_manifest(tmp_path: Path) -> None:
+def test_pipeline_dry_run_does_not_write_state(tmp_path: Path) -> None:
     """install_with_pipeline in dry_run skips all file writes."""
     _result, summary = install_with_pipeline(tmp_path, dry_run=True)
 
-    manifest_path = tmp_path / ".ai-engineering" / "state" / "install-manifest.json"
-    assert not manifest_path.exists()
+    state_path = tmp_path / ".ai-engineering" / "state" / "install-state.json"
+    assert not state_path.exists()
     assert summary.dry_run is True
 
 
 def test_pipeline_auto_detects_repair_mode(tmp_path: Path) -> None:
-    """Second call auto-detects REPAIR mode when manifest already exists."""
+    """Second call auto-detects REPAIR mode when state already exists."""
     install_with_pipeline(tmp_path)
-    # Second call — should not raise and should return valid result
     result, _summary = install_with_pipeline(tmp_path)
     assert result is not None
 
@@ -154,10 +144,8 @@ def test_pipeline_writes_ready_with_manual_steps(
 
     install_with_pipeline(tmp_path, vcs_provider="github")
 
-    manifest = read_json_model(
-        tmp_path / ".ai-engineering" / "state" / "install-manifest.json",
-        InstallManifest,
-    )
+    state_dir = tmp_path / ".ai-engineering" / "state"
+    state = load_install_state(state_dir)
 
-    assert manifest.operational_readiness.status == "READY WITH MANUAL STEPS"
-    assert manifest.operational_readiness.manual_steps_required is True
+    assert state.operational_readiness.status == "READY WITH MANUAL STEPS"
+    assert len(state.operational_readiness.pending_steps) > 0

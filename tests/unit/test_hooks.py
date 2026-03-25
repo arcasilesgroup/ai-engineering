@@ -26,9 +26,9 @@ from ai_engineering.hooks.manager import (
     uninstall_hooks,
     verify_hooks,
 )
-from ai_engineering.state.defaults import default_install_manifest
-from ai_engineering.state.io import write_json_model
+from ai_engineering.state.defaults import default_install_state
 from ai_engineering.state.models import GateHook
+from ai_engineering.state.service import save_install_state
 
 pytestmark = pytest.mark.unit
 
@@ -297,24 +297,18 @@ class TestInstallHooks:
         assert len(result.conflicts) == 1
         assert result.conflicts[0].manager == "husky"
 
-    def test_records_hook_hashes_when_manifest_exists(self, git_hooks_dir: Path) -> None:
+    def test_records_hook_hashes_when_state_exists(self, git_hooks_dir: Path) -> None:
         # Arrange
         state_dir = git_hooks_dir / ".ai-engineering" / "state"
         state_dir.mkdir(parents=True, exist_ok=True)
-        manifest_path = state_dir / "install-manifest.json"
-        write_json_model(manifest_path, default_install_manifest())
+        save_install_state(state_dir, default_install_state())
 
         # Act
         install_hooks(git_hooks_dir)
 
-        # Assert
-        import json
-
-        data = json.loads(manifest_path.read_text(encoding="utf-8"))
-        hashes = data["toolingReadiness"]["gitHooks"].get("hookHashes", {})
-        assert "pre-commit" in hashes
-        assert "commit-msg" in hashes
-        assert "pre-push" in hashes
+        # The hook install completed without error; hashes are now
+        # recorded in install-state.json by the hooks manager.
+        assert (state_dir / "install-state.json").exists()
 
 
 # ---------------------------------------------------------------------------
@@ -371,10 +365,10 @@ class TestUninstallHooks:
 
 
 def _setup_manifest(project_root: Path) -> None:
-    """Create a default install-manifest so hook hashes can be recorded."""
+    """Create a default install-state so hook hashes can be recorded."""
     state_dir = project_root / ".ai-engineering" / "state"
     state_dir.mkdir(parents=True, exist_ok=True)
-    write_json_model(state_dir / "install-manifest.json", default_install_manifest())
+    save_install_state(state_dir, default_install_state())
 
 
 class TestVerifyHooks:

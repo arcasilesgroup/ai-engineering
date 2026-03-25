@@ -26,7 +26,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from ai_engineering.credentials.models import ToolsState
 from ai_engineering.policy.checks.commit_msg import validate_commit_message
 from ai_engineering.policy.checks.risk import (
     check_expired_risk_acceptances,
@@ -988,10 +987,6 @@ class TestSonarGateAdvisory:
         monkeypatch.delenv("SONAR_TOKEN", raising=False)
         monkeypatch.setattr(
             "ai_engineering.policy.checks.sonar.shutil.which", lambda _: "/usr/bin/sonar"
-        )
-        monkeypatch.setattr(
-            "ai_engineering.policy.checks.sonar.CredentialService.load_tools_state",
-            lambda *_: ToolsState(),
         )
         monkeypatch.setattr(
             "ai_engineering.policy.checks.sonar._resolve_sonar_token",

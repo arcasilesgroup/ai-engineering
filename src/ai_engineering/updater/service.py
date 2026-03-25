@@ -29,7 +29,6 @@ from ai_engineering.installer.templates import (
 from ai_engineering.state.io import append_ndjson, read_json_model
 from ai_engineering.state.models import (
     AuditEntry,
-    InstallManifest,
     InstallState,
     OwnershipMap,
 )
@@ -386,8 +385,7 @@ def _migrate_install_manifest(ai_eng_dir: Path) -> bool:
     logger.info("Migrating install-manifest.json -> install-state.json")
 
     data = json.loads(old_path.read_text(encoding="utf-8"))
-    manifest = InstallManifest.model_validate(data)
-    state = InstallState.from_legacy(manifest)
+    state = InstallState.from_legacy_dict(data)
 
     save_install_state(state_dir, state)
     old_path.unlink()
@@ -420,10 +418,10 @@ def _migrate_tools_json(ai_eng_dir: Path) -> bool:
     # Load existing install-state (or defaults if it doesn't exist yet)
     install_state = load_install_state(state_dir)
 
-    # Extract platforms from tools.json via the same helper used by from_legacy
-    from ai_engineering.state.models import _extract_platforms
+    # Extract platforms from tools.json via the dict-based helper
+    from ai_engineering.state.models import _extract_platforms_from_dict
 
-    merged_platforms = _extract_platforms(tools_data)
+    merged_platforms = _extract_platforms_from_dict(tools_data)
 
     # Merge: tools.json platforms overwrite matching keys
     install_state.platforms.update(merged_platforms)

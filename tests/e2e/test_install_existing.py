@@ -14,7 +14,7 @@ import pytest
 
 from ai_engineering.installer.service import install
 from ai_engineering.state.io import read_json_model
-from ai_engineering.state.models import InstallManifest
+from ai_engineering.state.models import InstallState
 from ai_engineering.updater.service import update
 
 pytestmark = pytest.mark.e2e
@@ -79,7 +79,7 @@ class TestInstallExisting:
         install(tmp_path, stacks=["python"], ides=["vscode"])
 
         # Snapshot state before update
-        manifest_path = tmp_path / ".ai-engineering" / "state" / "install-manifest.json"
+        manifest_path = tmp_path / ".ai-engineering" / "state" / "install-state.json"
         before = manifest_path.read_text(encoding="utf-8")
 
         result = update(tmp_path, dry_run=True)
@@ -150,8 +150,8 @@ class TestInstallExisting:
         tmp_path: Path,
     ) -> None:
         install(tmp_path, stacks=["python", "node"], ides=["vscode", "jetbrains"])
-        manifest_path = tmp_path / ".ai-engineering" / "state" / "install-manifest.json"
-        manifest = read_json_model(manifest_path, InstallManifest)
+        manifest_path = tmp_path / ".ai-engineering" / "state" / "install-state.json"
+        manifest = read_json_model(manifest_path, InstallState)
         assert set(manifest.installed_stacks) == {"python", "node"}
         assert set(manifest.installed_ides) == {"vscode", "jetbrains"}
 

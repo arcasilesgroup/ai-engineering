@@ -15,7 +15,6 @@ from typer.testing import CliRunner
 
 from ai_engineering.cli_factory import create_app
 from ai_engineering.installer.operations import InstallerError
-from ai_engineering.state.models import AiProviderConfig, InstallManifest
 
 pytestmark = pytest.mark.unit
 
@@ -32,11 +31,24 @@ _PROVIDER_OPS = {
 }
 
 
-def _manifest(*providers: str, primary: str = "claude_code") -> InstallManifest:
-    """Build a minimal InstallManifest with the given enabled providers."""
-    return InstallManifest(
-        ai_providers=AiProviderConfig(primary=primary, enabled=list(providers)),
-    )
+class _AiProviderConfig:
+    """Lightweight mock for the ai_providers attribute used by provider CLI."""
+
+    def __init__(self, primary: str, enabled: list[str]) -> None:
+        self.primary = primary
+        self.enabled = enabled
+
+
+class _FakeManifest:
+    """Minimal mock that satisfies provider CLI's `manifest.ai_providers` access."""
+
+    def __init__(self, *providers: str, primary: str = "claude_code") -> None:
+        self.ai_providers = _AiProviderConfig(primary=primary, enabled=list(providers))
+
+
+def _manifest(*providers: str, primary: str = "claude_code") -> _FakeManifest:
+    """Build a minimal mock manifest with the given enabled providers."""
+    return _FakeManifest(*providers, primary=primary)
 
 
 @pytest.fixture()

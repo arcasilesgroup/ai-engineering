@@ -145,22 +145,22 @@ class TestStatePhase:
         ctx = _ctx(tmp_path)
         plan = phase.plan(ctx)
         dests = [a.destination for a in plan.actions if a.action_type == "create"]
-        assert any("install-manifest" in d for d in dests)
+        assert any("install-state" in d for d in dests)
 
-    def test_fresh_regenerates_manifest(self, tmp_path: Path) -> None:
-        """FRESH mode regenerates install-manifest."""
+    def test_fresh_regenerates_state(self, tmp_path: Path) -> None:
+        """FRESH mode regenerates install-state."""
         from ai_engineering.installer.phases.state import StatePhase
 
         phase = StatePhase()
-        # Create existing manifest
+        # Create existing state
         state_dir = tmp_path / ".ai-engineering" / "state"
         state_dir.mkdir(parents=True)
-        (state_dir / "install-manifest.json").write_text("{}")
+        (state_dir / "install-state.json").write_text("{}")
 
         ctx = _ctx(tmp_path, mode=InstallMode.FRESH)
         plan = phase.plan(ctx)
         overwrite_actions = [a for a in plan.actions if a.action_type == "overwrite"]
-        assert any("install-manifest" in a.destination for a in overwrite_actions)
+        assert any("install-state" in a.destination for a in overwrite_actions)
 
     def test_never_overwrites_decision_store(self, tmp_path: Path) -> None:
         """Decision store is never overwritten."""

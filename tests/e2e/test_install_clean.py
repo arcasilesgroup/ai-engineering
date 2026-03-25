@@ -15,7 +15,7 @@ import pytest
 
 from ai_engineering.installer.service import install
 from ai_engineering.state.io import read_json_model, read_ndjson_entries
-from ai_engineering.state.models import AuditEntry, InstallManifest
+from ai_engineering.state.models import AuditEntry, InstallState
 
 pytestmark = pytest.mark.e2e
 
@@ -56,22 +56,21 @@ class TestInstallClean:
         state_dir = tmp_path / ".ai-engineering" / "state"
 
         expected_files = [
-            "install-manifest.json",
+            "install-state.json",
             "ownership-map.json",
             "decision-store.json",
         ]
         for fname in expected_files:
             assert (state_dir / fname).is_file(), f"Missing: {fname}"
 
-    def test_install_manifest_has_correct_stacks(
+    def test_install_state_roundtrips(
         self,
         tmp_path: Path,
     ) -> None:
         install(tmp_path, stacks=["python"], ides=["vscode"])
-        manifest_path = tmp_path / ".ai-engineering" / "state" / "install-manifest.json"
-        manifest = read_json_model(manifest_path, InstallManifest)
-        assert "python" in manifest.installed_stacks
-        assert "vscode" in manifest.installed_ides
+        state_path = tmp_path / ".ai-engineering" / "state" / "install-state.json"
+        state = read_json_model(state_path, InstallState)
+        assert state.schema_version == "2.0"
 
     def test_install_creates_audit_entry(
         self,

@@ -33,7 +33,7 @@ from ai_engineering.installer.templates import (
     get_project_template_root,
     resolve_template_maps,
 )
-from ai_engineering.state.models import InstallManifest
+from ai_engineering.state.models import InstallState
 
 pytestmark = pytest.mark.integration
 
@@ -253,7 +253,7 @@ class TestInstallOnEmptyRepo:
         assert (tmp_path / ".ai-engineering" / "contexts" / "languages" / "python.md").is_file()
 
         # State files generated
-        assert (tmp_path / ".ai-engineering" / "state" / "install-manifest.json").is_file()
+        assert (tmp_path / ".ai-engineering" / "state" / "install-state.json").is_file()
         assert (tmp_path / ".ai-engineering" / "state" / "ownership-map.json").is_file()
         assert (tmp_path / ".ai-engineering" / "state" / "decision-store.json").is_file()
 
@@ -267,7 +267,7 @@ class TestInstallOnEmptyRepo:
     def test_state_files_contain_valid_json(self, tmp_path: Path) -> None:
         install(tmp_path)
 
-        manifest_path = tmp_path / ".ai-engineering" / "state" / "install-manifest.json"
+        manifest_path = tmp_path / ".ai-engineering" / "state" / "install-state.json"
         data = json.loads(manifest_path.read_text())
         assert data["schemaVersion"] == "1.2"
         assert "python" in data["installedStacks"]
@@ -277,7 +277,7 @@ class TestInstallOnEmptyRepo:
     def test_custom_stacks_and_ides(self, tmp_path: Path) -> None:
         install(tmp_path, stacks=["python", "node"], ides=["vscode", "terminal"])
 
-        manifest_path = tmp_path / ".ai-engineering" / "state" / "install-manifest.json"
+        manifest_path = tmp_path / ".ai-engineering" / "state" / "install-state.json"
         data = json.loads(manifest_path.read_text())
         assert data["installedStacks"] == ["python", "node"]
         assert data["installedIdes"] == ["vscode", "terminal"]
@@ -405,7 +405,7 @@ class TestListStatus:
 
     def test_returns_current_manifest(self, installed_project: Path) -> None:
         manifest = list_status(installed_project)
-        assert isinstance(manifest, InstallManifest)
+        assert isinstance(manifest, InstallState)
         assert "python" in manifest.installed_stacks
 
     def test_reflects_mutations(self, installed_project: Path) -> None:

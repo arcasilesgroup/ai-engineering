@@ -14,7 +14,6 @@ from ai_engineering.state.io import append_ndjson, read_json_model, write_json_m
 from ai_engineering.state.models import (
     AuditEntry,
     DecisionStore,
-    InstallManifest,
     InstallState,
     OwnershipMap,
 )
@@ -33,14 +32,6 @@ class StateService:
     def state_dir(self) -> Path:
         """Return the state directory path."""
         return self._state_dir
-
-    def load_manifest(self) -> InstallManifest:
-        """Load the install manifest."""
-        return read_json_model(self._state_dir / "install-manifest.json", InstallManifest)
-
-    def save_manifest(self, manifest: InstallManifest) -> None:
-        """Save the install manifest."""
-        write_json_model(self._state_dir / "install-manifest.json", manifest)
 
     def load_decisions(self) -> DecisionStore:
         """Load the decision store."""

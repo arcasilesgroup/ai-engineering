@@ -1,4 +1,4 @@
-"""Tests for ai_engineering.state — models, io, defaults, decision_logic."""
+"""Tests for ai_engineering.state -- models, io, defaults, decision_logic."""
 
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ from ai_engineering.state.decision_logic import (
 )
 from ai_engineering.state.defaults import (
     default_decision_store,
-    default_install_manifest,
+    default_install_state,
     default_ownership_map,
 )
 from ai_engineering.state.io import (
@@ -28,169 +28,46 @@ from ai_engineering.state.io import (
 from ai_engineering.state.models import (
     AuditEntry,
     DecisionStore,
-    DotnetTooling,
-    InstallManifest,
-    NextjsTooling,
+    InstallState,
     OwnershipLevel,
     OwnershipMap,
-    ReleaseInfo,
-    ToolingReadiness,
+    ToolEntry,
     UpdateMetadata,
 )
 
 pytestmark = pytest.mark.unit
 
-# ── Models ──────────────────────────────────────────────────────────────
+# -- InstallState model tests ------------------------------------------------
 
 
-class TestInstallManifest:
-    """Tests for InstallManifest model."""
+class TestInstallState:
+    """Tests for InstallState model."""
 
     def test_create_with_defaults(self) -> None:
-        manifest = InstallManifest()
-        assert manifest.schema_version == "1.2"
-        assert manifest.installed_stacks == []
-        assert manifest.installed_ides == []
-        assert isinstance(manifest.release, ReleaseInfo)
-        assert manifest.release.last_version == ""
-        assert manifest.ai_providers.primary == "claude_code"
-        assert manifest.ai_providers.enabled == ["claude_code"]
+        state = InstallState()
+        assert state.schema_version == "2.0"
+        assert state.tooling == {}
+        assert state.platforms == {}
+        assert state.branch_policy.applied is False
+        assert state.operational_readiness.status == "pending"
+        assert state.release.last_version == ""
 
     def test_roundtrip_from_json(self) -> None:
-        # Arrange
-        raw = {
-            "schemaVersion": "1.2",
-            "frameworkVersion": "0.1.0",
-            "installedAt": "2026-01-01T00:00:00Z",
-            "installedStacks": ["python"],
-            "installedIdes": ["vscode"],
-            "aiProviders": {"primary": "claude_code", "enabled": ["claude_code"]},
-        }
-
-        # Act
-        m = InstallManifest.model_validate(raw)
-
-        # Assert
-        assert m.installed_stacks == ["python"]
-        assert m.installed_ides == ["vscode"]
-        assert m.ai_providers.primary == "claude_code"
-
-    def test_serialize_by_alias(self) -> None:
-        # Arrange
-        manifest = InstallManifest(
-            installedStacks=["python"],
-            installedIdes=["terminal"],
+        state = InstallState(
+            tooling={"ruff": ToolEntry(installed=True)},
         )
+        data = json.loads(state.model_dump_json())
+        restored = InstallState.model_validate(data)
+        assert restored.tooling["ruff"].installed is True
 
-        # Act
-        data = manifest.model_dump(by_alias=True)
-
-        # Assert
-        assert "installedStacks" in data
-        assert "installedIdes" in data
-        assert "installed_stacks" not in data
-
-
-class TestDefaultInstallManifest:
-    """Tests for default_install_manifest factory."""
-
-    def test_default_github_provider(self) -> None:
-        m = default_install_manifest()
-        assert m.providers.primary == "github"
-        assert m.providers.enabled == ["github"]
-
-    def test_azure_provider_also_enables_github(self) -> None:
-        m = default_install_manifest(vcs_provider="azure_devops")
-        assert m.providers.primary == "azure_devops"
-        assert "azure_devops" in m.providers.enabled
-        assert "github" in m.providers.enabled
-        assert m.providers.extensions.azure_devops.enabled is True
-
-    def test_custom_stacks_and_ides(self) -> None:
-        m = default_install_manifest(stacks=["node"], ides=["vscode"])
-        assert m.installed_stacks == ["node"]
-        assert m.installed_ides == ["vscode"]
-
-    def test_custom_ai_providers(self) -> None:
-        m = default_install_manifest(ai_providers=["copilot", "claude_code"])
-        assert m.ai_providers.primary == "copilot"
-        assert m.ai_providers.enabled == ["copilot", "claude_code"]
+    def test_default_install_state_factory(self) -> None:
+        state = default_install_state()
+        assert isinstance(state, InstallState)
+        assert state.schema_version == "2.0"
+        assert state.tooling == {}
 
 
-class TestDotnetTooling:
-    """Tests for DotnetTooling model."""
-
-    def test_create_with_defaults(self) -> None:
-        tooling = DotnetTooling()
-        assert tooling.dotnet.ready is False
-
-    def test_create_with_ready(self) -> None:
-        tooling = DotnetTooling.model_validate({"dotnet": {"ready": True}})
-        assert tooling.dotnet.ready is True
-
-
-class TestNextjsTooling:
-    """Tests for NextjsTooling model."""
-
-    def test_create_with_defaults(self) -> None:
-        tooling = NextjsTooling()
-        assert tooling.node.ready is False
-        assert tooling.npm.ready is False
-        assert tooling.eslint.ready is False
-        assert tooling.prettier.ready is False
-
-    def test_create_with_ready(self) -> None:
-        tooling = NextjsTooling.model_validate(
-            {
-                "node": {"ready": True},
-                "npm": {"ready": True},
-                "eslint": {"ready": True},
-                "prettier": {"ready": True},
-            }
-        )
-        assert tooling.node.ready is True
-        assert tooling.npm.ready is True
-
-
-class TestToolingReadinessMultiStack:
-    """Tests for multi-stack ToolingReadiness extensions."""
-
-    def test_dotnet_and_nextjs_optional(self) -> None:
-        readiness = ToolingReadiness()
-        assert readiness.dotnet is None
-        assert readiness.nextjs is None
-
-    def test_with_dotnet(self) -> None:
-        readiness = ToolingReadiness(dotnet=DotnetTooling())
-        assert readiness.dotnet is not None
-        assert readiness.dotnet.dotnet.ready is False
-
-    def test_with_nextjs(self) -> None:
-        readiness = ToolingReadiness(nextjs=NextjsTooling())
-        assert readiness.nextjs is not None
-        assert readiness.nextjs.node.ready is False
-
-    def test_roundtrip_with_multi_stack(self) -> None:
-        # Arrange
-        raw = {
-            "schemaVersion": "1.2",
-            "frameworkVersion": "0.1.0",
-            "installedAt": "2026-02-22T00:00:00Z",
-            "installedStacks": ["python", "dotnet"],
-            "installedIdes": [],
-            "toolingReadiness": {
-                "python": {"uv": {"ready": True}, "ruff": {"ready": True}},
-                "dotnet": {"dotnet": {"ready": True}},
-            },
-        }
-
-        # Act
-        m = InstallManifest.model_validate(raw)
-
-        # Assert
-        assert m.installed_stacks == ["python", "dotnet"]
-        assert m.tooling_readiness.dotnet is not None
-        assert m.tooling_readiness.dotnet.dotnet.ready is True
+# -- OwnershipMap tests -------------------------------------------------------
 
 
 class TestOwnershipMap:
@@ -247,6 +124,9 @@ class TestOwnershipMap:
         assert om.is_update_allowed(".claude/commands/commit.md") is True
 
 
+# -- DecisionStore tests ------------------------------------------------------
+
+
 class TestDecisionStore:
     """Tests for DecisionStore model."""
 
@@ -255,7 +135,6 @@ class TestDecisionStore:
         assert store.decisions == []
 
     def test_find_by_id(self) -> None:
-        # Arrange
         store = default_decision_store()
         create_decision(
             store,
@@ -264,17 +143,16 @@ class TestDecisionStore:
             decision_text="decided yes",
             spec="001",
         )
-
-        # Act
         found = store.find_by_id("S1-001")
-
-        # Assert
         assert found is not None
         assert found.decision == "decided yes"
 
     def test_find_by_id_missing(self) -> None:
         store = default_decision_store()
         assert store.find_by_id("nonexistent") is None
+
+
+# -- AuditEntry tests ---------------------------------------------------------
 
 
 class TestAuditEntry:
@@ -305,6 +183,9 @@ class TestAuditEntry:
         assert entry.duration_ms == 1234
 
 
+# -- UpdateMetadata tests -----------------------------------------------------
+
+
 class TestUpdateMetadata:
     """Tests for UpdateMetadata model."""
 
@@ -318,25 +199,19 @@ class TestUpdateMetadata:
         assert meta.potential_impact == "impact"
 
 
-# ── I/O ─────────────────────────────────────────────────────────────────
+# -- I/O tests ----------------------------------------------------------------
 
 
 class TestJsonIO:
     """Tests for JSON read/write operations."""
 
-    def test_write_and_read_manifest(self, tmp_path: Path) -> None:
-        # Arrange
-        path = tmp_path / "state" / "install-manifest.json"
-        manifest = default_install_manifest(stacks=["python"], ides=["vscode"])
-
-        # Act
-        write_json_model(path, manifest)
-        loaded = read_json_model(path, InstallManifest)
-
-        # Assert
+    def test_write_and_read_install_state(self, tmp_path: Path) -> None:
+        path = tmp_path / "state" / "install-state.json"
+        state = default_install_state()
+        write_json_model(path, state)
+        loaded = read_json_model(path, InstallState)
         assert path.exists()
-        assert loaded.installed_stacks == ["python"]
-        assert loaded.installed_ides == ["vscode"]
+        assert loaded.schema_version == "2.0"
 
     def test_write_creates_parent_dirs(self, tmp_path: Path) -> None:
         path = tmp_path / "deep" / "nested" / "file.json"
@@ -345,15 +220,10 @@ class TestJsonIO:
         assert path.exists()
 
     def test_stable_formatting(self, tmp_path: Path) -> None:
-        # Arrange
         path = tmp_path / "test.json"
         store = default_decision_store()
-
-        # Act
         write_json_model(path, store)
         content = path.read_text(encoding="utf-8")
-
-        # Assert — stable: sorted keys, 2-space indent, trailing newline
         assert content.endswith("\n")
         parsed = json.loads(content)
         assert isinstance(parsed, dict)
@@ -361,37 +231,30 @@ class TestJsonIO:
     def test_read_missing_file_raises(self, tmp_path: Path) -> None:
         path = tmp_path / "nonexistent.json"
         with pytest.raises(FileNotFoundError):
-            read_json_model(path, InstallManifest)
+            read_json_model(path, InstallState)
 
     def test_roundtrip_ownership_map(self, tmp_path: Path) -> None:
-        # Arrange
         path = tmp_path / "ownership-map.json"
         om = default_ownership_map()
-
-        # Act
         write_json_model(path, om)
         loaded = read_json_model(path, OwnershipMap)
-
-        # Assert
         assert len(loaded.paths) == len(om.paths)
         assert loaded.paths[0].owner == OwnershipLevel.FRAMEWORK_MANAGED
+
+
+# -- NDJSON I/O tests ---------------------------------------------------------
 
 
 class TestNdjsonIO:
     """Tests for NDJSON append/read operations."""
 
     def test_append_and_read(self, tmp_path: Path) -> None:
-        # Arrange
         path = tmp_path / "audit-log.ndjson"
         entry1 = AuditEntry(event="install", actor="agent-1", spec_id="001")
         entry2 = AuditEntry(event="task-complete", actor="agent-1")
-
-        # Act
         append_ndjson(path, entry1)
         append_ndjson(path, entry2)
         entries = read_ndjson_entries(path, AuditEntry)
-
-        # Assert
         assert len(entries) == 2
         assert entries[0].event == "install"
         assert entries[1].event == "task-complete"
@@ -414,50 +277,35 @@ class TestNdjsonIO:
         assert path.exists()
 
     def test_each_entry_is_one_line(self, tmp_path: Path) -> None:
-        # Arrange
         path = tmp_path / "log.ndjson"
-
-        # Act
         for i in range(3):
             append_ndjson(path, AuditEntry(event=f"event-{i}", actor="agent"))
         lines = path.read_text(encoding="utf-8").strip().splitlines()
-
-        # Assert
         assert len(lines) == 3
         for line in lines:
             parsed = json.loads(line)
             assert "event" in parsed
 
 
-# ── Defaults ────────────────────────────────────────────────────────────
+# -- Defaults tests ------------------------------------------------------------
 
 
 class TestDefaults:
     """Tests for default state factory functions."""
 
-    def test_default_install_manifest(self) -> None:
-        manifest = default_install_manifest()
-        assert manifest.installed_stacks == ["python"]
-        assert manifest.installed_ides == ["terminal"]
-        assert manifest.schema_version == "1.2"
-        assert manifest.ai_providers.primary == "claude_code"
-        assert manifest.ai_providers.enabled == ["claude_code"]
-
-    def test_default_install_manifest_custom(self) -> None:
-        manifest = default_install_manifest(stacks=["python", "node"], ides=["vscode"])
-        assert manifest.installed_stacks == ["python", "node"]
-        assert manifest.installed_ides == ["vscode"]
+    def test_default_install_state(self) -> None:
+        state = default_install_state()
+        assert state.schema_version == "2.0"
+        assert state.tooling == {}
+        assert state.platforms == {}
 
     def test_default_ownership_map_has_entries(self) -> None:
         om = default_ownership_map()
         assert len(om.paths) > 0
 
     def test_default_ownership_map_covers_all_levels(self) -> None:
-        # Arrange / Act
         om = default_ownership_map()
         levels = {entry.owner for entry in om.paths}
-
-        # Assert — PROJECT_MANAGED was removed (no entries use it currently)
         assert OwnershipLevel.FRAMEWORK_MANAGED in levels
         assert OwnershipLevel.TEAM_MANAGED in levels
         assert OwnershipLevel.SYSTEM_MANAGED in levels
@@ -467,7 +315,7 @@ class TestDefaults:
         assert store.decisions == []
 
 
-# ── Decision Logic ──────────────────────────────────────────────────────
+# -- Decision Logic tests -----------------------------------------------------
 
 
 class TestContextHash:
@@ -485,7 +333,7 @@ class TestContextHash:
 
     def test_hash_is_hex_sha256(self) -> None:
         h = compute_context_hash("test")
-        assert len(h) == 64  # SHA-256 produces 64 hex chars
+        assert len(h) == 64
         assert all(c in "0123456789abcdef" for c in h)
 
 
@@ -493,7 +341,6 @@ class TestFindReusableDecision:
     """Tests for decision reuse lookup."""
 
     def test_finds_matching_decision(self) -> None:
-        # Arrange
         store = default_decision_store()
         create_decision(
             store,
@@ -502,11 +349,7 @@ class TestFindReusableDecision:
             decision_text="yes, use pydantic v2",
             spec="001",
         )
-
-        # Act
         found = find_reusable_decision(store, "should we use pydantic?")
-
-        # Assert
         assert found is not None
         assert found.decision == "yes, use pydantic v2"
 
@@ -516,7 +359,6 @@ class TestFindReusableDecision:
         assert found is None
 
     def test_expired_decision_not_reused(self) -> None:
-        # Arrange
         store = default_decision_store()
         past = datetime.now(tz=UTC) - timedelta(days=1)
         create_decision(
@@ -527,17 +369,11 @@ class TestFindReusableDecision:
             spec="001",
             expires_at=past,
         )
-        # Override the expiry on the stored decision
         store.decisions[0].expires_at = past
-
-        # Act
         found = find_reusable_decision(store, "temporary decision")
-
-        # Assert
         assert found is None
 
     def test_non_expired_decision_reused(self) -> None:
-        # Arrange
         store = default_decision_store()
         future = datetime.now(tz=UTC) + timedelta(days=30)
         create_decision(
@@ -548,11 +384,7 @@ class TestFindReusableDecision:
             spec="001",
             expires_at=future,
         )
-
-        # Act
         found = find_reusable_decision(store, "long-lived decision")
-
-        # Assert
         assert found is not None
 
 
@@ -560,10 +392,7 @@ class TestCreateDecision:
     """Tests for decision creation."""
 
     def test_adds_to_store(self) -> None:
-        # Arrange
         store = default_decision_store()
-
-        # Act
         create_decision(
             store,
             decision_id="S1-001",
@@ -571,17 +400,12 @@ class TestCreateDecision:
             decision_text="decided",
             spec="001",
         )
-
-        # Assert
         assert len(store.decisions) == 1
         assert store.decisions[0].id == "S1-001"
 
     def test_sets_context_hash(self) -> None:
-        # Arrange
         store = default_decision_store()
         expected_hash = compute_context_hash("test context")
-
-        # Act
         d = create_decision(
             store,
             decision_id="S1-001",
@@ -589,8 +413,6 @@ class TestCreateDecision:
             decision_text="ok",
             spec="001",
         )
-
-        # Assert
         assert d.context_hash == expected_hash
 
 
@@ -602,30 +424,20 @@ class TestNextDecisionId:
         assert next_decision_id(store, "S1") == "S1-001"
 
     def test_increments_correctly(self) -> None:
-        # Arrange
         store = default_decision_store()
         create_decision(store, decision_id="S1-001", context="a", decision_text="x", spec="001")
         create_decision(store, decision_id="S1-002", context="b", decision_text="y", spec="001")
-
-        # Act
         result = next_decision_id(store, "S1")
-
-        # Assert
         assert result == "S1-003"
 
     def test_different_sessions_independent(self) -> None:
-        # Arrange
         store = default_decision_store()
         create_decision(store, decision_id="S1-001", context="a", decision_text="x", spec="001")
-
-        # Act
         result = next_decision_id(store, "S2")
-
-        # Assert
         assert result == "S2-001"
 
 
-# ── Schema 1.1 backward compatibility ──────────────────────────────────
+# -- Schema 1.1 backward compatibility ----------------------------------------
 
 
 class TestSchema11BackwardCompat:
@@ -636,10 +448,8 @@ class TestSchema11BackwardCompat:
         assert store.schema_version == "1.1"
 
     def test_old_decision_validates(self) -> None:
-        """A decision without risk fields validates with defaults."""
         from ai_engineering.state.models import Decision, DecisionStatus
 
-        # Arrange
         raw = {
             "id": "S1-001",
             "context": "old decision",
@@ -647,21 +457,15 @@ class TestSchema11BackwardCompat:
             "decidedAt": "2025-01-01T00:00:00Z",
             "spec": "001",
         }
-
-        # Act
         d = Decision.model_validate(raw)
-
-        # Assert
         assert d.risk_category is None
         assert d.severity is None
         assert d.status == DecisionStatus.ACTIVE
         assert d.renewal_count == 0
 
     def test_risk_decisions_empty_for_old_data(self) -> None:
-        """Old decisions without riskCategory are not returned by risk_decisions."""
         from ai_engineering.state.models import DecisionStore
 
-        # Arrange
         store = DecisionStore.model_validate(
             {
                 "schemaVersion": "1.0",
@@ -676,15 +480,11 @@ class TestSchema11BackwardCompat:
                 ],
             }
         )
-
-        # Act / Assert
         assert store.risk_decisions() == []
 
     def test_risk_decisions_returns_risk_acceptance(self) -> None:
-        """Decisions with riskCategory are returned by risk_decisions."""
         from ai_engineering.state.models import DecisionStore, RiskCategory
 
-        # Arrange
         store = DecisionStore.model_validate(
             {
                 "schemaVersion": "1.1",
@@ -700,16 +500,12 @@ class TestSchema11BackwardCompat:
                 ],
             }
         )
-
-        # Act
         risk = store.risk_decisions()
-
-        # Assert
         assert len(risk) == 1
         assert risk[0].risk_category == RiskCategory.RISK_ACCEPTANCE
 
 
-# ── AI Provider models ───────────────────────────────────────────────────
+# -- AiProvider enum tests (kept: enum still exists) ---------------------------
 
 
 class TestAiProvider:
@@ -729,97 +525,7 @@ class TestAiProvider:
         assert isinstance(AiProvider.CLAUDE_CODE, str)
 
 
-class TestAiProviderConfig:
-    """Tests for AiProviderConfig model."""
-
-    def test_defaults(self) -> None:
-        from ai_engineering.state.models import AiProviderConfig
-
-        config = AiProviderConfig()
-        assert config.primary == "claude_code"
-        assert config.enabled == ["claude_code"]
-
-    def test_custom_providers(self) -> None:
-        from ai_engineering.state.models import AiProviderConfig
-
-        config = AiProviderConfig(
-            primary="github_copilot",
-            enabled=["github_copilot", "gemini"],
-        )
-        assert config.primary == "github_copilot"
-        assert "gemini" in config.enabled
-
-    def test_manifest_roundtrip_with_ai_providers(self) -> None:
-        # Arrange
-        raw = {
-            "schemaVersion": "1.2",
-            "frameworkVersion": "0.1.0",
-            "installedAt": "2026-01-01T00:00:00Z",
-            "installedStacks": ["python"],
-            "installedIdes": [],
-            "aiProviders": {
-                "primary": "github_copilot",
-                "enabled": ["github_copilot", "gemini"],
-            },
-        }
-
-        # Act
-        m = InstallManifest.model_validate(raw)
-
-        # Assert
-        assert m.ai_providers.primary == "github_copilot"
-        assert m.ai_providers.enabled == ["github_copilot", "gemini"]
-
-    def test_manifest_serializes_ai_providers_alias(self) -> None:
-        # Arrange
-        manifest = InstallManifest()
-
-        # Act
-        data = manifest.model_dump(by_alias=True)
-
-        # Assert
-        assert "aiProviders" in data
-        assert data["aiProviders"]["primary"] == "claude_code"
-
-    def test_default_manifest_with_custom_providers(self) -> None:
-        # Act
-        manifest = default_install_manifest(
-            ai_providers=["github_copilot", "gemini"],
-        )
-
-        # Assert
-        assert manifest.ai_providers.primary == "github_copilot"
-        assert manifest.ai_providers.enabled == ["github_copilot", "gemini"]
-
-
-class TestOperationalReadinessDeferredSetup:
-    """Tests for deferred_setup field."""
-
-    def test_default_false(self) -> None:
-        from ai_engineering.state.models import OperationalReadiness
-
-        readiness = OperationalReadiness()
-        assert readiness.deferred_setup is False
-
-    def test_roundtrip(self) -> None:
-        from ai_engineering.state.models import OperationalReadiness
-
-        # Arrange
-        raw = {
-            "status": "pending",
-            "manualStepsRequired": True,
-            "manualSteps": [],
-            "deferredSetup": True,
-        }
-
-        # Act
-        r = OperationalReadiness.model_validate(raw)
-
-        # Assert
-        assert r.deferred_setup is True
-
-
-# ── Audit enrichment helpers ──────────────────────────────────────────
+# -- Audit enrichment helpers --------------------------------------------------
 
 
 class TestAuditEnrichment:
@@ -871,31 +577,32 @@ class TestAuditEnrichment:
         specs_dir.mkdir(parents=True)
         (specs_dir / "spec.md").write_text('---\nid: "055"\n---\n')
         assert _read_active_spec(tmp_path) == "055"
-        # Modify file — should still return cached value
         (specs_dir / "spec.md").write_text('---\nid: "999"\n---\n')
         assert _read_active_spec(tmp_path) == "055"
 
-    def test_read_active_stack_from_manifest(self, tmp_path: Path) -> None:
+    def test_read_active_stack_from_manifest_yml(self, tmp_path: Path) -> None:
+        """_read_active_stack reads from manifest.yml (not install-manifest.json)."""
         from ai_engineering.state.audit import _read_active_stack
 
-        state_dir = tmp_path / ".ai-engineering" / "state"
-        state_dir.mkdir(parents=True)
-        (state_dir / "install-manifest.json").write_text(
-            json.dumps({"installedStacks": ["python", "rust"]})
+        ai_dir = tmp_path / ".ai-engineering"
+        ai_dir.mkdir(parents=True)
+        (ai_dir / "manifest.yml").write_text(
+            "schema_version: '2.0'\nproviders:\n  stacks:\n    - python\n    - rust\n"
         )
         assert _read_active_stack(tmp_path) == "python"
 
     def test_read_active_stack_missing_file(self, tmp_path: Path) -> None:
         from ai_engineering.state.audit import _read_active_stack
 
-        assert _read_active_stack(tmp_path) is None
+        # ManifestConfig returns defaults when no manifest.yml exists
+        assert _read_active_stack(tmp_path) == "python"
 
     def test_read_active_stack_empty_stacks(self, tmp_path: Path) -> None:
         from ai_engineering.state.audit import _read_active_stack
 
-        state_dir = tmp_path / ".ai-engineering" / "state"
-        state_dir.mkdir(parents=True)
-        (state_dir / "install-manifest.json").write_text(json.dumps({"installedStacks": []}))
+        ai_dir = tmp_path / ".ai-engineering"
+        ai_dir.mkdir(parents=True)
+        (ai_dir / "manifest.yml").write_text("schema_version: '2.0'\nproviders:\n  stacks: []\n")
         assert _read_active_stack(tmp_path) is None
 
     def test_reset_clears_cache(self, tmp_path: Path) -> None:

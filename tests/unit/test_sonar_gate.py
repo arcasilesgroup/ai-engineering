@@ -12,53 +12,17 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from ai_engineering.credentials.models import (
-    CredentialRef,
-    SonarConfig,
-    ToolsState,
-)
 from ai_engineering.credentials.service import CredentialService
 
 pytestmark = pytest.mark.unit
 
 # ---------------------------------------------------------------
-# Skip logic — tools.json state
+# Skip logic -- keyring-based (ToolsState removed)
 # ---------------------------------------------------------------
 
 
 class TestSonarGateSkipLogic:
     """Tests for the silent-skip decision tree."""
-
-    def test_skip_when_sonar_not_configured(self, tmp_path: Path) -> None:
-        """Sonar gate skips when tools.json has sonar.configured=false."""
-        state = ToolsState()  # defaults: sonar.configured=False
-        CredentialService.save_tools_state(tmp_path, state)
-        loaded = CredentialService.load_tools_state(tmp_path)
-        assert loaded.sonar.configured is False
-
-    def test_run_when_sonar_configured(self, tmp_path: Path) -> None:
-        """Sonar gate runs when tools.json has sonar.configured=true."""
-        # Arrange
-        state = ToolsState(
-            sonar=SonarConfig(
-                configured=True,
-                url="https://sonarcloud.io",
-                project_key="my-proj",
-                credential_ref=CredentialRef(
-                    service_name="ai-engineering/sonar",
-                    username="token",
-                    configured=True,
-                ),
-            )
-        )
-
-        # Act
-        CredentialService.save_tools_state(tmp_path, state)
-        loaded = CredentialService.load_tools_state(tmp_path)
-
-        # Assert
-        assert loaded.sonar.configured is True
-        assert loaded.sonar.url == "https://sonarcloud.io"
 
     def test_skip_when_no_token_in_keyring(self) -> None:
         """Sonar gate skips when keyring has no token."""
@@ -85,8 +49,6 @@ class TestThresholdMapping:
 
     def test_coverage_threshold(self) -> None:
         """Coverage threshold is 80% (aligned with SonarCloud Quality Gate)."""
-        # This validates the contract constant — the actual enforcement
-        # is in sonar-project.properties and the Sonar quality gate.
         assert 80 <= 100
 
     def test_duplication_threshold(self) -> None:
@@ -94,7 +56,7 @@ class TestThresholdMapping:
         assert 3 <= 100
 
     def test_complexity_thresholds(self) -> None:
-        """Cyclomatic ≤ 10, cognitive ≤ 15."""
+        """Cyclomatic <= 10, cognitive <= 15."""
         max_cyclomatic = 10
         max_cognitive = 15
         assert max_cyclomatic < max_cognitive
@@ -109,7 +71,6 @@ class TestPropertiesParsing:
     """Tests for sonar-project.properties parsing."""
 
     def test_parse_properties(self, tmp_path: Path) -> None:
-        # Arrange
         props = tmp_path / "sonar-project.properties"
         props.write_text(
             "sonar.projectKey=my-key\n"
@@ -120,10 +81,7 @@ class TestPropertiesParsing:
         )
         from ai_engineering.policy.checks.sonar import _parse_properties
 
-        # Act
         result = _parse_properties(props)
-
-        # Assert
         assert result["sonar.projectKey"] == "my-key"
         assert result["sonar.organization"] == "my-org"
         assert result["sonar.qualitygate.wait"] == "true"
@@ -159,17 +117,11 @@ class TestQuerySonarQualityGate:
     def test_returns_none_when_no_token(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        # Arrange
         props = tmp_path / "sonar-project.properties"
         props.write_text("sonar.projectKey=my-key\nsonar.host.url=https://sonarcloud.io\n")
         monkeypatch.delenv("SONAR_TOKEN", raising=False)
-        state_dir = tmp_path / ".ai-engineering" / "state"
-        state_dir.mkdir(parents=True)
-        state = ToolsState()
-        CredentialService.save_tools_state(state_dir, state)
         from ai_engineering.policy.checks.sonar import query_sonar_quality_gate
 
-        # Act & Assert
         assert query_sonar_quality_gate(tmp_path) is None
 
 
@@ -184,7 +136,6 @@ class TestQuerySonarQualityGateWithToken:
     def test_returns_status_on_successful_api_call(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        # Arrange
         props = tmp_path / "sonar-project.properties"
         props.write_text("sonar.projectKey=my-key\nsonar.host.url=https://sonarcloud.io\n")
         monkeypatch.setenv("SONAR_TOKEN", "squ_test_123")
@@ -193,25 +144,21 @@ class TestQuerySonarQualityGateWithToken:
 
         from ai_engineering.policy.checks.sonar import query_sonar_quality_gate
 
-        # Act
         with patch("ai_engineering.policy.checks.sonar._sonar_api_get", return_value=api_data):
             result = query_sonar_quality_gate(tmp_path)
 
-        # Assert
         assert result is not None
         assert result["status"] == "OK"
 
     def test_returns_none_on_api_error(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        # Arrange
         props = tmp_path / "sonar-project.properties"
         props.write_text("sonar.projectKey=my-key\nsonar.host.url=https://sonarcloud.io\n")
         monkeypatch.setenv("SONAR_TOKEN", "squ_test_123")
 
         from ai_engineering.policy.checks.sonar import query_sonar_quality_gate
 
-        # Act & Assert
         with patch("ai_engineering.policy.checks.sonar._sonar_api_get", return_value=None):
             assert query_sonar_quality_gate(tmp_path) is None
 
@@ -225,17 +172,12 @@ class TestCheckSonarApiGate:
     """Tests for _check_sonar_api_gate advisory check."""
 
     def test_appends_skip_when_api_unavailable(self, tmp_path: Path) -> None:
-        # Arrange
         from ai_engineering.policy.checks.sonar import _check_sonar_api_gate
         from ai_engineering.policy.gates import GateResult
         from ai_engineering.state.models import GateHook
 
         result = GateResult(hook=GateHook.PRE_PUSH, checks=[])
-
-        # Act
         _check_sonar_api_gate(tmp_path, result)
-
-        # Assert
         assert len(result.checks) == 1
         assert result.checks[0].passed is True
         assert "skipped" in result.checks[0].output
@@ -243,7 +185,6 @@ class TestCheckSonarApiGate:
     def test_appends_status_when_api_returns_data(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        # Arrange
         props = tmp_path / "sonar-project.properties"
         props.write_text("sonar.projectKey=my-key\nsonar.host.url=https://sonarcloud.io\n")
         monkeypatch.setenv("SONAR_TOKEN", "squ_test_123")
@@ -257,11 +198,9 @@ class TestCheckSonarApiGate:
 
         result = GateResult(hook=GateHook.PRE_PUSH, checks=[])
 
-        # Act
         with patch("ai_engineering.policy.checks.sonar._sonar_api_get", return_value=api_data):
             _check_sonar_api_gate(tmp_path, result)
 
-        # Assert
         assert len(result.checks) == 1
         assert result.checks[0].passed is True
         assert "OK" in result.checks[0].output
@@ -282,7 +221,6 @@ class TestObserveSonarMetrics:
         assert result == {"available": False}
 
     def test_sonar_metrics_returns_dict_with_coverage(self, tmp_path: Path) -> None:
-        # Arrange
         qg_data = {
             "status": "OK",
             "conditions": [
@@ -291,7 +229,6 @@ class TestObserveSonarMetrics:
         }
         from ai_engineering.cli_commands.observe import _sonar_metrics_data
 
-        # Act
         with (
             patch(
                 "ai_engineering.policy.checks.sonar.query_sonar_quality_gate",
@@ -304,18 +241,15 @@ class TestObserveSonarMetrics:
         ):
             result = _sonar_metrics_data(tmp_path)
 
-        # Assert
         assert result["available"] is True
         assert result["status"] == "OK"
         assert result["new_code_coverage"] == "85.2"
         assert result["conditions_count"] == 1
 
     def test_sonar_metrics_without_coverage_condition(self, tmp_path: Path) -> None:
-        # Arrange
         qg_data = {"status": "ERROR", "conditions": []}
         from ai_engineering.cli_commands.observe import _sonar_metrics_data
 
-        # Act
         with (
             patch(
                 "ai_engineering.policy.checks.sonar.query_sonar_quality_gate",
@@ -328,7 +262,6 @@ class TestObserveSonarMetrics:
         ):
             result = _sonar_metrics_data(tmp_path)
 
-        # Assert
         assert result["available"] is True
         assert result["status"] == "ERROR"
         assert result["new_code_coverage"] is None
@@ -421,7 +354,6 @@ class TestSonarApiGet:
     def test_returns_none_on_connection_error(self) -> None:
         from ai_engineering.policy.checks.sonar import _sonar_api_get
 
-        # Use a non-routable address to trigger connection error
         result = _sonar_api_get("https://192.0.2.1:1/api/test", "tok")
         assert result is None
 
