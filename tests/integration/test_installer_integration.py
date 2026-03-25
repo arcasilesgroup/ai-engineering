@@ -269,18 +269,18 @@ class TestInstallOnEmptyRepo:
 
         manifest_path = tmp_path / ".ai-engineering" / "state" / "install-state.json"
         data = json.loads(manifest_path.read_text())
-        assert data["schemaVersion"] == "1.2"
-        assert "python" in data["installedStacks"]
-        assert "terminal" in data["installedIdes"]
-        assert "operationalReadiness" in data
+        assert data["schema_version"] == "2.0"
+        assert "operational_readiness" in data
 
     def test_custom_stacks_and_ides(self, tmp_path: Path) -> None:
         install(tmp_path, stacks=["python", "node"], ides=["vscode", "terminal"])
 
-        manifest_path = tmp_path / ".ai-engineering" / "state" / "install-state.json"
-        data = json.loads(manifest_path.read_text())
-        assert data["installedStacks"] == ["python", "node"]
-        assert data["installedIdes"] == ["vscode", "terminal"]
+        import yaml
+
+        manifest_path2 = tmp_path / ".ai-engineering" / "manifest.yml"
+        manifest_data = yaml.safe_load(manifest_path2.read_text())
+        assert manifest_data["providers"]["stacks"] == ["python", "node"]
+        assert manifest_data["providers"]["ides"] == ["vscode", "terminal"]
 
     def test_audit_log_records_install_event(self, tmp_path: Path) -> None:
         result = install(tmp_path)

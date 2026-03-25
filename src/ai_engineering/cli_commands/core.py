@@ -533,11 +533,17 @@ def doctor_cmd(
         bool,
         typer.Option("--dry-run", help="Show what --fix would do without executing."),
     ] = False,
+    output_json: Annotated[
+        bool,
+        typer.Option("--json", help="Output report as JSON for agent consumption."),
+    ] = False,
 ) -> None:
     """Diagnose and optionally fix framework health.
 
     Exit codes: 0 (pass), 1 (fail), 2 (warnings only).
     """
+    if output_json:
+        set_json_mode(True)
     root = resolve_project_root(target)
 
     if dry_run and not fix:

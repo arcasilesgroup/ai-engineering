@@ -237,7 +237,7 @@ class TestIDECommands:
             ["ide", "list", "--target", str(installed_dir)],
         )
         assert result.exit_code == 0
-        assert "claude_code" in result.output
+        assert "vscode" in result.output
 
     def test_ide_add_and_remove(
         self,

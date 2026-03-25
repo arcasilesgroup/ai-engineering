@@ -145,6 +145,7 @@ def install(
 
     # 2b. Persist ai_providers selection to manifest
     _write_ai_providers(target, ai_providers)
+    _write_providers(target, stacks=stacks, ides=ides, vcs_provider=vcs_provider)
 
     # 3. Generate state files (create-only)
     result.state_files = _generate_state_files(
@@ -252,6 +253,11 @@ def install_with_pipeline(
     # Convert PipelineSummary to InstallResult
     result = _summary_to_install_result(summary, mode)
 
+    # Persist selected stacks, ides, and ai_providers to manifest.yml
+    if not dry_run:
+        _write_providers(target, stacks=stacks, ides=ides, vcs_provider=vcs_provider)
+        _write_ai_providers(target, ai_providers)
+
     # Run operational phases (VCS auth, branch policy, tooling readiness)
     if not dry_run:
         _run_operational_phases(target, vcs_provider=vcs_provider, result=result)
@@ -312,6 +318,28 @@ def _summary_to_install_result(
         result.already_installed = True
 
     return result
+
+
+def _write_providers(
+    target: Path,
+    *,
+    stacks: list[str] | None,
+    ides: list[str] | None,
+    vcs_provider: str = "github",
+) -> None:
+    """Persist stacks, ides, and vcs to manifest.yml after template copy."""
+    manifest_path = target / ".ai-engineering" / "manifest.yml"
+    if not manifest_path.is_file():
+        return
+    try:
+        if stacks is not None:
+            update_manifest_field(target, "providers.stacks", stacks)
+        if ides is not None:
+            update_manifest_field(target, "providers.ides", ides)
+        if vcs_provider != "github":
+            update_manifest_field(target, "providers.vcs", vcs_provider)
+    except KeyError:
+        logger.debug("providers key not found in manifest; skipping write")
 
 
 def _write_ai_providers(target: Path, ai_providers: list[str] | None) -> None:
