@@ -325,17 +325,18 @@ def _hook_sha256(path: Path) -> str:
 
 
 def _record_hook_hashes(project_root: Path) -> None:
-    """Persist installed hook hashes into install-manifest when available."""
-    from ai_engineering.state.io import read_json_model, write_json_model
-    from ai_engineering.state.models import InstallManifest
+    """Persist installed hook hashes into install-state when available."""
+    from ai_engineering.state.models import ToolEntry
+    from ai_engineering.state.service import load_install_state, save_install_state
 
-    manifest_path = project_root / ".ai-engineering" / "state" / "install-manifest.json"
+    state_dir = project_root / ".ai-engineering" / "state"
+    state_path = state_dir / "install-state.json"
     hooks_dir = project_root / ".git" / "hooks"
-    if not manifest_path.is_file() or not hooks_dir.is_dir():
+    if not state_path.is_file() or not hooks_dir.is_dir():
         return
 
     try:
-        manifest = read_json_model(manifest_path, InstallManifest)
+        state = load_install_state(state_dir)
     except (OSError, ValueError):
         return
 
@@ -345,24 +346,42 @@ def _record_hook_hashes(project_root: Path) -> None:
         if hook_path.is_file() and is_managed_hook(hook_path):
             hook_hashes[hook.value] = _hook_sha256(hook_path)
 
-    manifest.tooling_readiness.git_hooks.installed = bool(hook_hashes)
-    manifest.tooling_readiness.git_hooks.integrity_verified = bool(hook_hashes)
-    manifest.tooling_readiness.git_hooks.hook_hashes = hook_hashes
+    # Store hook state in the tooling dict under "git_hooks"
+    state.tooling["git_hooks"] = ToolEntry(
+        installed=bool(hook_hashes),
+        authenticated=bool(hook_hashes),  # integrity_verified mapped to authenticated
+        scopes=list(hook_hashes.keys()),
+    )
+    # Also store the hashes for integrity verification in a top-level key.
+    # We use a convention: store hash values as JSON in the mode field is too
+    # restrictive, so instead we store each hook hash as a separate tool entry.
+    for hook_name, hash_value in hook_hashes.items():
+        state.tooling[f"hook_hash:{hook_name}"] = ToolEntry(
+            installed=True,
+            mode=hash_value,
+        )
 
-    write_json_model(manifest_path, manifest)
+    save_install_state(state_dir, state)
 
 
 def _load_expected_hook_hashes(project_root: Path) -> dict[str, str]:
-    """Load expected hook hashes from install-manifest."""
-    from ai_engineering.state.io import read_json_model
-    from ai_engineering.state.models import InstallManifest
+    """Load expected hook hashes from install-state."""
+    from ai_engineering.state.service import load_install_state
 
-    manifest_path = project_root / ".ai-engineering" / "state" / "install-manifest.json"
-    if not manifest_path.is_file():
+    state_dir = project_root / ".ai-engineering" / "state"
+    state_path = state_dir / "install-state.json"
+    if not state_path.is_file():
         return {}
 
     try:
-        manifest = read_json_model(manifest_path, InstallManifest)
+        state = load_install_state(state_dir)
     except (OSError, ValueError):
         return {}
-    return manifest.tooling_readiness.git_hooks.hook_hashes
+
+    # Read hook hashes from tool entries with "hook_hash:" prefix
+    hashes: dict[str, str] = {}
+    for key, entry in state.tooling.items():
+        if key.startswith("hook_hash:"):
+            hook_name = key.removeprefix("hook_hash:")
+            hashes[hook_name] = entry.mode
+    return hashes

@@ -12,6 +12,7 @@ from .models import (
     DecisionStore,
     FrameworkUpdatePolicy,
     InstallManifest,
+    InstallState,
     OwnershipEntry,
     OwnershipLevel,
     OwnershipMap,
@@ -89,6 +90,15 @@ def default_install_manifest(
     )
 
 
+def default_install_state() -> InstallState:
+    """Create a default install state for a new installation.
+
+    Returns:
+        InstallState with empty tooling and platforms dicts.
+    """
+    return InstallState()
+
+
 _DEFAULT_OWNERSHIP_PATHS: list[tuple[str, OwnershipLevel, FrameworkUpdatePolicy]] = [
     (
         ".ai-engineering/contexts/languages/**",
@@ -113,7 +123,7 @@ _DEFAULT_OWNERSHIP_PATHS: list[tuple[str, OwnershipLevel, FrameworkUpdatePolicy]
     (".github/agents/**", OwnershipLevel.FRAMEWORK_MANAGED, FrameworkUpdatePolicy.ALLOW),
     (".claude/**", OwnershipLevel.FRAMEWORK_MANAGED, FrameworkUpdatePolicy.ALLOW),
     (
-        ".ai-engineering/state/install-manifest.json",
+        ".ai-engineering/state/install-state.json",
         OwnershipLevel.SYSTEM_MANAGED,
         FrameworkUpdatePolicy.ALLOW,
     ),

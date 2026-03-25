@@ -14,8 +14,9 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from ai_engineering.config.loader import load_manifest_config
 from ai_engineering.state.io import read_json_model, read_ndjson_entries
-from ai_engineering.state.models import AuditEntry, DecisionStore, InstallManifest
+from ai_engineering.state.models import AuditEntry, DecisionStore
 from ai_engineering.vcs.factory import get_provider
 from ai_engineering.vcs.protocol import VcsContext
 
@@ -176,13 +177,12 @@ def generate_report(
         report.warnings.append("Framework not installed")
         return report
 
-    # Load install manifest
-    manifest_path = ai_eng_dir / "state" / "install-manifest.json"
-    if manifest_path.exists():
-        manifest = read_json_model(manifest_path, InstallManifest)
-        report.install_manifest_version = manifest.framework_version
+    # Load framework version from manifest.yml
+    cfg = load_manifest_config(target)
+    if cfg.framework_version:
+        report.install_manifest_version = cfg.framework_version
     else:
-        report.warnings.append("Install manifest not found")
+        report.warnings.append("Framework version not found in manifest")
 
     # Version lifecycle status
     try:

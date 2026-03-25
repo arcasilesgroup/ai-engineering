@@ -5,9 +5,10 @@ Implements the quality gates invoked by git hooks:
 - **commit-msg**: commit message format validation.
 - **pre-push**: stack-aware tests/type-checks/vuln-scans + semgrep + expired risk blocking.
 
-Gate dispatch is stack-aware: reads ``installedStacks`` from
-``install-manifest.json`` and runs only checks relevant to active stacks.
-Falls back to Python-only checks if no manifest exists.
+Gate dispatch is stack-aware: reads ``providers.stacks`` from
+``manifest.yml`` via :func:`load_manifest_config` and runs only checks
+relevant to active stacks.  Falls back to Python-only checks if no
+manifest exists.
 
 Also enforces protected branch blocking: direct commits to main/master
 are rejected.
@@ -21,10 +22,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from ai_engineering.config.loader import load_manifest_config
 from ai_engineering.policy.test_scope import TestScope, compute_test_scope, resolve_scope_mode
 from ai_engineering.state.audit import emit_gate_event
-from ai_engineering.state.io import read_json_model
-from ai_engineering.state.models import GateHook, InstallManifest
+from ai_engineering.state.models import GateHook
 
 if TYPE_CHECKING:
     from ai_engineering.policy.checks.stack_runner import CheckConfig
@@ -137,13 +138,9 @@ def run_gate(
 
 
 def _get_active_stacks(project_root: Path) -> list[str]:
-    """Read installed stacks from install-manifest.json."""
-    manifest_path = project_root / ".ai-engineering" / "state" / "install-manifest.json"
-    if not manifest_path.exists():
-        return ["python"]
+    """Read installed stacks from manifest.yml."""
     try:
-        manifest = read_json_model(manifest_path, InstallManifest)
-        stacks = manifest.installed_stacks
+        stacks = load_manifest_config(project_root).providers.stacks
         return stacks if stacks else ["python"]
     except (OSError, ValueError):
         return ["python"]

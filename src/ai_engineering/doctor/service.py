@@ -21,9 +21,10 @@ from ai_engineering.doctor.models import CheckResult, CheckStatus, DoctorReport
 __all__ = ["CheckResult", "CheckStatus", "DoctorReport"]
 
 
-def _check_github(cred_svc: Any, state: Any) -> CheckResult:
+def _check_github(cred_svc: Any, platforms: dict[str, Any]) -> CheckResult:
     """Validate GitHub credentials."""
-    if not state.github.configured:
+    gh = platforms.get("github")
+    if not gh or not gh.configured:
         return CheckResult(
             name="platform:github",
             status=CheckStatus.WARN,
@@ -46,9 +47,10 @@ def _check_github(cred_svc: Any, state: Any) -> CheckResult:
     )
 
 
-def _check_sonar(cred_svc: Any, state: Any) -> CheckResult:
+def _check_sonar(cred_svc: Any, platforms: dict[str, Any]) -> CheckResult:
     """Validate SonarCloud credentials."""
-    if not (state.sonar.configured and state.sonar.url):
+    sonar = platforms.get("sonar")
+    if not sonar or not (sonar.configured and sonar.url):
         return CheckResult(
             name="platform:sonar",
             status=CheckStatus.WARN,
@@ -57,8 +59,8 @@ def _check_sonar(cred_svc: Any, state: Any) -> CheckResult:
 
     from ai_engineering.platforms.sonar import SonarSetup
 
-    sonar = SonarSetup(cred_svc)
-    token = sonar.retrieve_token()
+    sonar_setup = SonarSetup(cred_svc)
+    token = sonar_setup.retrieve_token()
     if not token:
         return CheckResult(
             name="platform:sonar",
@@ -66,12 +68,12 @@ def _check_sonar(cred_svc: Any, state: Any) -> CheckResult:
             message="Token missing from keyring",
         )
 
-    result = sonar.validate_token(state.sonar.url, token)
+    result = sonar_setup.validate_token(sonar.url, token)
     if result.valid:
         return CheckResult(
             name="platform:sonar",
             status=CheckStatus.OK,
-            message=f"Token valid for {state.sonar.url}",
+            message=f"Token valid for {sonar.url}",
         )
     return CheckResult(
         name="platform:sonar",
@@ -80,9 +82,10 @@ def _check_sonar(cred_svc: Any, state: Any) -> CheckResult:
     )
 
 
-def _check_azure_devops(cred_svc: Any, state: Any) -> CheckResult:
+def _check_azure_devops(cred_svc: Any, platforms: dict[str, Any]) -> CheckResult:
     """Validate Azure DevOps credentials."""
-    if not (state.azure_devops.configured and state.azure_devops.org_url):
+    azdo = platforms.get("azure_devops")
+    if not azdo or not (azdo.configured and azdo.url):
         return CheckResult(
             name="platform:azure_devops",
             status=CheckStatus.WARN,
@@ -91,8 +94,8 @@ def _check_azure_devops(cred_svc: Any, state: Any) -> CheckResult:
 
     from ai_engineering.platforms.azure_devops import AzureDevOpsSetup
 
-    azdo = AzureDevOpsSetup(cred_svc)
-    pat = azdo.retrieve_pat()
+    azdo_setup = AzureDevOpsSetup(cred_svc)
+    pat = azdo_setup.retrieve_pat()
     if not pat:
         return CheckResult(
             name="platform:azure_devops",
@@ -100,12 +103,12 @@ def _check_azure_devops(cred_svc: Any, state: Any) -> CheckResult:
             message="PAT missing from keyring",
         )
 
-    result = azdo.validate_pat(state.azure_devops.org_url, pat)
+    result = azdo_setup.validate_pat(azdo.url, pat)
     if result.valid:
         return CheckResult(
             name="platform:azure_devops",
             status=CheckStatus.OK,
-            message=f"PAT valid for {state.azure_devops.org_url}",
+            message=f"PAT valid for {azdo.url}",
         )
     return CheckResult(
         name="platform:azure_devops",
@@ -120,13 +123,14 @@ _PLATFORM_CHECKS = (_check_github, _check_sonar, _check_azure_devops)
 def check_platforms(target: Path, report: DoctorReport) -> None:
     """Validate stored platform credentials are still valid."""
     from ai_engineering.credentials.service import CredentialService
+    from ai_engineering.state.service import load_install_state
 
     state_dir = target / ".ai-engineering" / "state"
     cred_svc = CredentialService()
-    state = cred_svc.load_tools_state(state_dir)
+    state = load_install_state(state_dir)
 
     for checker in _PLATFORM_CHECKS:
-        report.checks.append(checker(cred_svc, state))
+        report.checks.append(checker(cred_svc, state.platforms))
 
 
 def diagnose(

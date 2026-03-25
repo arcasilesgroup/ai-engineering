@@ -1,6 +1,6 @@
 """State phase -- generate and persist installation state files.
 
-Creates ``install-manifest.json``, ``ownership-map.json``, and
+Creates ``install-state.json``, ``ownership-map.json``, and
 ``decision-store.json``.  Append-only files are never overwritten.
 """
 
@@ -10,7 +10,7 @@ from datetime import UTC, datetime
 
 from ai_engineering.state.defaults import (
     default_decision_store,
-    default_install_manifest,
+    default_install_state,
     default_ownership_map,
 )
 from ai_engineering.state.io import append_ndjson, write_json_model
@@ -19,7 +19,7 @@ from ai_engineering.state.models import AuditEntry
 from . import InstallContext, InstallMode, PhasePlan, PhaseResult, PhaseVerdict, PlannedAction
 
 _SD = ".ai-engineering/state"
-_MANIFEST = f"{_SD}/install-manifest.json"
+_STATE = f"{_SD}/install-state.json"
 _OWNERSHIP = f"{_SD}/ownership-map.json"
 _DECISIONS = f"{_SD}/decision-store.json"
 _AUDIT_LOG = f"{_SD}/audit-log.ndjson"
@@ -34,7 +34,7 @@ class StatePhase:
 
     def plan(self, context: InstallContext) -> PhasePlan:
         actions = [
-            self._plan_file(context, _MANIFEST, regenerate_on_fresh=True),
+            self._plan_file(context, _STATE, regenerate_on_fresh=True),
             self._plan_file(context, _OWNERSHIP, regenerate_on_fresh=True),
             self._plan_file(context, _DECISIONS, regenerate_on_fresh=False),
             PlannedAction("skip", "", _AUDIT_LOG, "append-only; created on first write"),
@@ -44,12 +44,7 @@ class StatePhase:
     def execute(self, plan: PhasePlan, context: InstallContext) -> PhaseResult:
         result = PhaseResult(phase_name=self.name)
         generators = {
-            _MANIFEST: lambda: default_install_manifest(
-                stacks=context.stacks or None,
-                ides=context.ides or None,
-                vcs_provider=context.vcs_provider,
-                ai_providers=context.providers or None,
-            ),
+            _STATE: default_install_state,
             _OWNERSHIP: default_ownership_map,
             _DECISIONS: default_decision_store,
         }
@@ -77,7 +72,7 @@ class StatePhase:
     def verify(self, result: PhaseResult, context: InstallContext) -> PhaseVerdict:
         errors = [
             f"State file missing: {r}"
-            for r in (_MANIFEST, _OWNERSHIP, _DECISIONS)
+            for r in (_STATE, _OWNERSHIP, _DECISIONS)
             if not (context.target / r).exists()
         ]
         return PhaseVerdict(phase_name=self.name, passed=not errors, errors=errors)

@@ -25,6 +25,7 @@ import logging
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from ai_engineering.config.loader import load_manifest_config
 from ai_engineering.detector.readiness import check_tools_for_stacks
 from ai_engineering.git.context import get_git_context
 from ai_engineering.hooks.manager import HookInstallResult, install_hooks
@@ -46,11 +47,12 @@ from ai_engineering.installer.phases.state import StatePhase
 from ai_engineering.installer.phases.tools import ToolsPhase
 from ai_engineering.state.defaults import (
     default_decision_store,
-    default_install_manifest,
+    default_install_state,
     default_ownership_map,
 )
-from ai_engineering.state.io import append_ndjson, read_json_model, write_json_model
-from ai_engineering.state.models import AuditEntry, InstallManifest
+from ai_engineering.state.io import append_ndjson, write_json_model
+from ai_engineering.state.models import AuditEntry
+from ai_engineering.state.service import load_install_state, save_install_state
 from ai_engineering.vcs.factory import get_provider
 from ai_engineering.vcs.repo_context import get_repo_context
 
@@ -68,7 +70,7 @@ logger = logging.getLogger(__name__)
 
 # Relative paths under ``.ai-engineering/`` for each state file.
 _STATE_FILES: dict[str, str] = {
-    "install-manifest": "state/install-manifest.json",
+    "install-state": "state/install-state.json",
     "ownership-map": "state/ownership-map.json",
     "decision-store": "state/decision-store.json",
 }
@@ -201,19 +203,20 @@ def install_with_pipeline(
     """
     # Auto-detect mode when caller uses the default
     if mode is InstallMode.INSTALL:
-        manifest_path = target / ".ai-engineering" / "state" / "install-manifest.json"
-        if manifest_path.exists():
+        state_path = target / ".ai-engineering" / "state" / "install-state.json"
+        # Also check legacy path for backward compatibility
+        legacy_path = target / ".ai-engineering" / "state" / "install-manifest.json"
+        if state_path.exists() or legacy_path.exists():
             mode = InstallMode.REPAIR
 
-    # Load existing manifest for REPAIR/RECONFIGURE modes
-    existing_manifest = None
+    # Load existing state for REPAIR/RECONFIGURE modes
+    existing_state = None
     if mode in (InstallMode.REPAIR, InstallMode.RECONFIGURE):
-        manifest_path = target / ".ai-engineering" / "state" / "install-manifest.json"
-        if manifest_path.exists():
-            try:
-                existing_manifest = read_json_model(manifest_path, InstallManifest)
-            except (json.JSONDecodeError, ValueError, OSError) as exc:
-                logger.warning("Cannot read existing manifest: %s", exc)
+        state_dir = target / ".ai-engineering" / "state"
+        try:
+            existing_state = load_install_state(state_dir)
+        except (json.JSONDecodeError, ValueError, OSError) as exc:
+            logger.warning("Cannot read existing install state: %s", exc)
 
     # Build context
     context = InstallContext(
@@ -223,12 +226,12 @@ def install_with_pipeline(
         vcs_provider=vcs_provider,
         stacks=stacks or [],
         ides=ides or [],
-        existing_manifest=existing_manifest,
+        existing_state=existing_state,
     )
 
     # Create the 6 phases in order
     # StatePhase must run before HooksPhase so that _record_hook_hashes()
-    # can find the install-manifest.json when saving hook integrity hashes.
+    # can find the install-state.json when saving hook integrity hashes.
     phases = [
         DetectPhase(),
         GovernancePhase(),
@@ -331,13 +334,7 @@ def _generate_state_files(
     created: list[Path] = []
 
     state_models = {
-        _STATE_FILES["install-manifest"]: default_install_manifest(
-            stacks=stacks,
-            ides=ides,
-            vcs_provider=vcs_provider,
-            ai_providers=ai_providers,
-            external_references=external_references,
-        ),
+        _STATE_FILES["install-state"]: default_install_state(),
         _STATE_FILES["ownership-map"]: default_ownership_map(),
         _STATE_FILES["decision-store"]: default_decision_store(),
     }
@@ -382,22 +379,27 @@ def _log_install_event(ai_eng_dir: Path, result: InstallResult) -> None:
 
 
 def _run_operational_phases(target: Path, *, vcs_provider: str, result: InstallResult) -> None:
-    manifest_path = target / ".ai-engineering" / "state" / "install-manifest.json"
-    if not manifest_path.exists():
-        return
+    state_dir = target / ".ai-engineering" / "state"
+    state = load_install_state(state_dir)
 
-    manifest = read_json_model(manifest_path, InstallManifest)
+    # Read stacks from manifest.yml config (not from state)
+    config = load_manifest_config(target)
 
     # Phase 2: required tooling (provider-aware + stack-aware)
-    stack_report = check_tools_for_stacks(manifest.installed_stacks)
+    stack_report = check_tools_for_stacks(config.providers.stacks)
     for tool in provider_required_tools(vcs_provider):
         install_result = ensure_tool(tool)
-        status = getattr(manifest.tooling_readiness, tool, None)
-        if status is not None:
-            status.installed = install_result.available
-            status.required_now = True
-            status.mode = "cli" if install_result.available else "api"
-            status.message = install_result.detail
+        tool_entry = state.tooling.get(tool)
+        if tool_entry is not None:
+            tool_entry.installed = install_result.available
+            tool_entry.mode = "cli" if install_result.available else "api"
+        else:
+            from ai_engineering.state.models import ToolEntry
+
+            state.tooling[tool] = ToolEntry(
+                installed=install_result.available,
+                mode="cli" if install_result.available else "api",
+            )
         if not install_result.available:
             result.manual_steps.append(f"Install or enable `{tool}` CLI")
 
@@ -409,8 +411,7 @@ def _run_operational_phases(target: Path, *, vcs_provider: str, result: InstallR
                 result.manual_steps.append(f"Install required security tool `{item.name}`")
 
     # Deferred setup for projects without stacks
-    if not manifest.installed_stacks:
-        manifest.operational_readiness.deferred_setup = True
+    if not config.providers.stacks:
         result.manual_steps.append(
             "No stacks configured. Run 'ai-eng stack add <name>' to configure tooling."
         )
@@ -418,10 +419,18 @@ def _run_operational_phases(target: Path, *, vcs_provider: str, result: InstallR
     # Phase 3: VCS auth
     provider = get_provider(target)
     auth_result = check_vcs_auth(vcs_provider, provider, target)
-    status = getattr(manifest.tooling_readiness, "gh" if vcs_provider == "github" else "az")
-    status.authenticated = auth_result.authenticated
-    status.mode = auth_result.mode
-    status.message = auth_result.message
+    tool_key = "gh" if vcs_provider == "github" else "az"
+    vcs_entry = state.tooling.get(tool_key)
+    if vcs_entry is not None:
+        vcs_entry.authenticated = auth_result.authenticated
+        vcs_entry.mode = auth_result.mode
+    else:
+        from ai_engineering.state.models import ToolEntry
+
+        state.tooling[tool_key] = ToolEntry(
+            authenticated=auth_result.authenticated,
+            mode=auth_result.mode,
+        )
     if not auth_result.authenticated:
         result.manual_steps.append(auth_result.message)
 
@@ -434,11 +443,11 @@ def _run_operational_phases(target: Path, *, vcs_provider: str, result: InstallR
         required_checks=["ai-eng-gate", "ai-pr-review", "ci"],
         mode=auth_result.mode,
     )
-    manifest.branch_policy.applied = policy_result.applied
-    manifest.branch_policy.mode = policy_result.mode
-    manifest.branch_policy.message = policy_result.message
+    state.branch_policy.applied = policy_result.applied
+    state.branch_policy.mode = policy_result.mode
+    state.branch_policy.message = policy_result.message
     if policy_result.manual_guide is not None:
-        manifest.branch_policy.manual_guide = policy_result.manual_guide
+        state.branch_policy.manual_guide = policy_result.manual_guide
         result.guide_text = policy_result.manual_guide
         result.manual_steps.append("Run 'ai-eng guide' to view branch policy setup instructions")
 
@@ -446,8 +455,7 @@ def _run_operational_phases(target: Path, *, vcs_provider: str, result: InstallR
         result.readiness_status = "READY"
     else:
         result.readiness_status = "READY WITH MANUAL STEPS"
-    manifest.operational_readiness.status = result.readiness_status
-    manifest.operational_readiness.manual_steps_required = bool(result.manual_steps)
-    manifest.operational_readiness.manual_steps = result.manual_steps
+    state.operational_readiness.status = result.readiness_status
+    state.operational_readiness.pending_steps = list(result.manual_steps)
 
-    write_json_model(manifest_path, manifest)
+    save_install_state(state_dir, state)

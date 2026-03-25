@@ -28,7 +28,7 @@ _EXCLUDE_PREFIXES = ("agents/", "skills/")
 
 _TEAM_OWNED = "contexts/team/"
 _STATE_PREFIX = "state/"
-_STATE_REGENERATED = {"state/install-manifest.json", "state/ownership-map.json"}
+_STATE_REGENERATED = {"state/install-state.json", "state/ownership-map.json"}
 
 
 class GovernancePhase:

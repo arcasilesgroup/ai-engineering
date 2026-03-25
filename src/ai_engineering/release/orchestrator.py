@@ -20,8 +20,7 @@ from ai_engineering.release.version_bump import (
     validate_semver,
 )
 from ai_engineering.state.audit import emit_deploy_event
-from ai_engineering.state.io import read_json_model, write_json_model
-from ai_engineering.state.models import InstallManifest
+from ai_engineering.state.service import load_install_state, save_install_state
 from ai_engineering.vcs.protocol import (
     CreateTagContext,
     PipelineStatusContext,
@@ -522,20 +521,21 @@ def _create_tag(config: ReleaseConfig, provider: VcsProvider) -> PhaseResult:
 
 
 def _update_manifest(config: ReleaseConfig, clock: Clock) -> PhaseResult:
-    manifest_path = config.project_root / ".ai-engineering" / "state" / "install-manifest.json"
-    if not manifest_path.exists():
+    state_dir = config.project_root / ".ai-engineering" / "state"
+    state_path = state_dir / "install-state.json"
+    if not state_path.exists():
         return PhaseResult(
             phase="manifest",
             success=True,
             skipped=True,
-            output="install-manifest.json not found",
+            output="install-state.json not found",
         )
 
-    manifest = read_json_model(manifest_path, InstallManifest)
-    manifest.release.last_version = config.version
-    manifest.release.last_released_at = clock.utcnow()
-    write_json_model(manifest_path, manifest)
-    return PhaseResult(phase="manifest", success=True, output="install-manifest.json updated")
+    state = load_install_state(state_dir)
+    state.release.last_version = config.version
+    state.release.last_released_at = clock.utcnow()
+    save_install_state(state_dir, state)
+    return PhaseResult(phase="manifest", success=True, output="install-state.json updated")
 
 
 def _monitor_pipeline(config: ReleaseConfig, provider: VcsProvider, timeout: int) -> PhaseResult:

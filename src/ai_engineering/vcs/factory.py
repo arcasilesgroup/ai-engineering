@@ -1,7 +1,8 @@
 """VCS provider factory — dispatch based on manifest configuration.
 
-Reads ``install-manifest.json`` to determine which VCS provider to use,
-with fallback to remote URL detection and ultimately to GitHub.
+Reads ``manifest.yml`` for the VCS provider and ``install-state.json``
+for the tooling mode, with fallback to remote URL detection and
+ultimately to GitHub.
 
 Functions:
     get_provider — resolve and return the appropriate VcsProvider.
@@ -12,9 +13,9 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
+from ai_engineering.config.loader import load_manifest_config
 from ai_engineering.git.operations import run_git
-from ai_engineering.state.io import read_json_model
-from ai_engineering.state.models import InstallManifest
+from ai_engineering.state.service import load_install_state
 from ai_engineering.vcs.api_fallback import ApiFallbackProvider
 from ai_engineering.vcs.azure_devops import AzureDevOpsProvider
 from ai_engineering.vcs.github import GitHubProvider
@@ -35,7 +36,8 @@ def get_provider(project_root: Path) -> VcsProvider:
 
     Resolution order:
 
-    1. Read ``providers.primary`` from ``install-manifest.json``.
+    1. Read ``providers.vcs`` from ``manifest.yml`` (config) and
+       tooling mode from ``install-state.json`` (state).
     2. If not set or unknown, detect from the ``origin`` remote URL.
     3. Default to ``GitHubProvider``.
 
@@ -45,24 +47,26 @@ def get_provider(project_root: Path) -> VcsProvider:
     Returns:
         An instance satisfying the VcsProvider protocol.
     """
-    # 1. Try manifest
-    manifest_path = project_root / ".ai-engineering" / "state" / "install-manifest.json"
-    if manifest_path.exists():
-        try:
-            manifest = read_json_model(manifest_path, InstallManifest)
-            primary = manifest.providers.primary
-            mode = ""
-            if primary == "github":
-                mode = manifest.tooling_readiness.gh.mode
-            elif primary == "azure_devops":
-                mode = manifest.tooling_readiness.az.mode
-            if mode == "api":
-                return ApiFallbackProvider(primary)
-            cls = _PROVIDERS.get(primary)
-            if cls is not None:
-                return cls()
-        except Exception:  # fail-open: fall through to remote detection
-            logger.debug("Manifest-based provider lookup failed", exc_info=True)
+    # 1. Try manifest config + install state
+    try:
+        config = load_manifest_config(project_root)
+        primary = config.providers.vcs
+
+        state_dir = project_root / ".ai-engineering" / "state"
+        state = load_install_state(state_dir)
+
+        mode = ""
+        tool_key = "gh" if primary == "github" else "az"
+        tool_entry = state.tooling.get(tool_key)
+        if tool_entry is not None:
+            mode = tool_entry.mode
+        if mode == "api":
+            return ApiFallbackProvider(primary)
+        cls = _PROVIDERS.get(primary)
+        if cls is not None:
+            return cls()
+    except Exception:  # fail-open: fall through to remote detection
+        logger.debug("Config/state-based provider lookup failed", exc_info=True)
 
     # 2. Detect from remote URL
     provider_name = detect_from_remote(project_root)

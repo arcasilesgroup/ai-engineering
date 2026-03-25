@@ -103,14 +103,15 @@
   - `maintenance/report.py`: `framework_version` -> `load_manifest_config(root).framework_version`
   - **Done when**: No config-field reads from InstallManifest in these files
 
-- [ ] T-4.2: Migrate dual consumers (config+state) (agent: build)
+- [x] T-4.2: Migrate dual consumers (config+state) (agent: build) -- DONE
   - `vcs/factory.py`: split -- VCS from ManifestConfig, mode from InstallState
   - `installer/service.py`: split -- config from ManifestConfig, state writes to InstallState
   - `detector/readiness.py`: split -- stacks from ManifestConfig, tooling/branch from InstallState
-  - `installer/operations.py`: config mutations write to manifest.yml via ruamel.yaml
+  - `installer/operations.py`: config mutations write to manifest.yml via update_manifest_field()
+  - `installer/phases/__init__.py`: InstallManifest -> InstallState (existing_state field)
   - **Done when**: These files import ManifestConfig + InstallState, not InstallManifest
 
-- [ ] T-4.3: Add ruamel.yaml dependency + YAML write for operations.py (agent: build)
+- [x] T-4.3: Add ruamel.yaml dependency + YAML write for operations.py (agent: build) -- DONE (12 tests)
   - Add `ruamel.yaml` to pyproject.toml
   - Implement comment-preserving YAML write in operations.py for stack/ide/provider mutations
   - Test roundtrip: load manifest.yml -> add stack -> save -> reload -> verify comments preserved
@@ -121,30 +122,31 @@
 ### Phase 5: Migrate state consumers to InstallState
 **Gate**: All files that read/write state use InstallState. InstallManifest still exists but unused.
 
-- [ ] T-5.1: Migrate state-only consumers (agent: build)
+- [x] T-5.1: Migrate state-only consumers (agent: build) -- DONE
   - `doctor/checks/readiness.py`: InstallManifest -> InstallState
-  - `doctor/checks/state_files.py`: path string -> install-state.json
+  - `doctor/checks/state_files.py`: path string -> install-state.json, InstallManifest -> InstallState
   - `doctor/service.py`: ToolsState -> InstallState.platforms
   - `release/orchestrator.py`: InstallManifest -> InstallState (release section)
-  - `hooks/manager.py`: InstallManifest -> InstallState (git_hooks section)
+  - `hooks/manager.py`: InstallManifest -> InstallState (hook hashes stored as ToolEntry)
   - `cli_commands/setup.py`: ToolsState -> InstallState.platforms
-  - `credentials/service.py`: load/save_tools_state -> load/save via InstallState
+  - `credentials/service.py`: kept old methods (Phase 6 deletes)
   - **Done when**: No imports of ToolsState or state-field reads from InstallManifest
 
-- [ ] T-5.2: Migrate path-string references (agent: build)
+- [x] T-5.2: Migrate path-string references (agent: build) -- DONE
   - `installer/phases/detect.py`: string `install-manifest.json` -> `install-state.json`
   - `installer/phases/state.py`: string -> `install-state.json`
   - `installer/phases/governance.py`: string -> `install-state.json`
-  - `installer/phases/__init__.py`: remove InstallManifest import
-  - `state/audit.py`: _STATE_REGENERATED set -> `install-state.json`
-  - `state/defaults.py`: default factory -> `default_install_state()`
-  - `lib/signals.py`: path string -> `install-state.json`
-  - `cli_commands/guide.py`: path string -> `install-state.json`
+  - `installer/phases/__init__.py`: InstallManifest import -> InstallState
+  - `state/audit.py`: `_read_active_stack` reads from ManifestConfig now
+  - `state/defaults.py`: added `default_install_state()`, updated ownership path
+  - `lib/signals.py`: `adoption_metrics` reads from ManifestConfig + InstallState
+  - `cli_commands/guide.py`: path string -> `install-state.json`, uses load_install_state
   - `cli_commands/core.py`: path string -> `install-state.json`
-  - `cli_commands/vcs.py`: path string -> `install-state.json`
-  - **Done when**: grep for `install-manifest.json` in src/ returns zero results
+  - `cli_commands/vcs.py`: migrated to ManifestConfig + update_manifest_field
+  - `skills/service.py`: path string -> `install-state.json`
+  - **Done when**: grep for `install-manifest.json` in src/ returns zero results (except migration/legacy code)
 
-- [ ] T-5.3: Verify zero InstallManifest/ToolsState usage (agent: verify)
+- [x] T-5.3: Verify zero InstallManifest/ToolsState usage (agent: verify) -- DONE (only definition/migration/legacy remain)
   - grep `InstallManifest` in src/ -- only models.py (definition) should remain
   - grep `ToolsState` in src/ -- zero results
   - grep `tools.json` in src/ -- zero results

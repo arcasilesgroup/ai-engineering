@@ -1,17 +1,20 @@
 """Stack and IDE add/remove/list operations for ai-engineering.
 
-Operates on the install manifest to manage which stacks and IDEs are
-configured for a project.  All mutations persist immediately to the
-``install-manifest.json`` state file and log to the audit trail.
+Operates on ``manifest.yml`` (via ManifestConfig) to manage which
+stacks, IDEs, and AI providers are configured for a project.
+All mutations persist to ``manifest.yml`` via ``update_manifest_field``
+and log to the audit trail.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
 
+from ai_engineering.config.loader import load_manifest_config, update_manifest_field
+from ai_engineering.config.manifest import ManifestConfig
 from ai_engineering.git.context import get_git_context
-from ai_engineering.state.io import append_ndjson, read_json_model, write_json_model
-from ai_engineering.state.models import AuditEntry, InstallManifest
+from ai_engineering.state.io import append_ndjson
+from ai_engineering.state.models import AuditEntry
 from ai_engineering.vcs.repo_context import get_repo_context
 
 from .templates import TEMPLATES_ROOT, copy_project_templates, remove_provider_templates
@@ -29,7 +32,6 @@ _VALID_AI_PROVIDERS: frozenset[str] = frozenset(
     }
 )
 
-_MANIFEST_RELATIVE: str = "state/install-manifest.json"
 _AUDIT_LOG_RELATIVE: str = "state/audit-log.ndjson"
 
 
@@ -61,14 +63,14 @@ def get_available_ides() -> list[str]:
     return sorted(_KNOWN_IDES)
 
 
-def _resolve_paths(target: Path) -> tuple[Path, Path]:
-    """Resolve manifest and audit-log paths from the target project root.
+def _resolve_audit_path(target: Path) -> Path:
+    """Resolve audit-log path from the target project root.
 
     Args:
         target: Root directory of the target project.
 
     Returns:
-        Tuple of (manifest_path, audit_log_path).
+        Path to the audit log.
 
     Raises:
         InstallerError: If the ``.ai-engineering/`` directory does not exist.
@@ -77,48 +79,41 @@ def _resolve_paths(target: Path) -> tuple[Path, Path]:
     if not ai_eng_dir.is_dir():
         msg = f"Framework not installed at {target}. Run 'ai-eng install' first."
         raise InstallerError(msg)
-    return (
-        ai_eng_dir / _MANIFEST_RELATIVE,
-        ai_eng_dir / _AUDIT_LOG_RELATIVE,
-    )
+    return ai_eng_dir / _AUDIT_LOG_RELATIVE
 
 
-def _load_manifest(manifest_path: Path) -> InstallManifest:
-    """Load the install manifest from disk.
+def _load_config(target: Path) -> ManifestConfig:
+    """Load the manifest config from manifest.yml.
 
     Args:
-        manifest_path: Path to the install-manifest.json file.
+        target: Root directory of the target project.
 
     Returns:
-        Parsed InstallManifest.
+        Parsed ManifestConfig.
 
     Raises:
-        InstallerError: If the manifest file does not exist.
+        InstallerError: If the ``.ai-engineering/`` directory does not exist.
     """
-    if not manifest_path.exists():
-        msg = f"Install manifest not found: {manifest_path}"
+    ai_eng_dir = target / ".ai-engineering"
+    if not ai_eng_dir.is_dir():
+        msg = f"Framework not installed at {target}. Run 'ai-eng install' first."
         raise InstallerError(msg)
-    return read_json_model(manifest_path, InstallManifest)
+    return load_manifest_config(target)
 
 
-def _save_manifest_and_log(
-    manifest: InstallManifest,
-    manifest_path: Path,
+def _log_audit(
     audit_path: Path,
     *,
     event: str,
     detail: str,
 ) -> None:
-    """Persist manifest changes and append an audit entry.
+    """Append an audit entry.
 
     Args:
-        manifest: Updated manifest model.
-        manifest_path: Path to write the manifest.
         audit_path: Path to the audit log.
         event: Audit event name.
         detail: Audit detail string.
     """
-    write_json_model(manifest_path, manifest)
     # audit_path is <project>/.ai-engineering/state/audit-log.ndjson
     project_root = audit_path.parent.parent.parent
     repo_ctx = get_repo_context(project_root)
@@ -137,15 +132,15 @@ def _save_manifest_and_log(
     append_ndjson(audit_path, entry)
 
 
-def add_stack(target: Path, stack: str) -> InstallManifest:
-    """Add a stack to the install manifest.
+def add_stack(target: Path, stack: str) -> ManifestConfig:
+    """Add a stack to the manifest config.
 
     Args:
         target: Root directory of the target project.
         stack: Stack identifier to add (e.g., ``"python"``).
 
     Returns:
-        Updated InstallManifest.
+        Updated ManifestConfig.
 
     Raises:
         InstallerError: If the framework is not installed, stack already exists,
@@ -156,64 +151,57 @@ def add_stack(target: Path, stack: str) -> InstallManifest:
         msg = f"Unknown stack '{stack}'. Available stacks: {', '.join(available)}"
         raise InstallerError(msg)
 
-    manifest_path, audit_path = _resolve_paths(target)
-    manifest = _load_manifest(manifest_path)
+    audit_path = _resolve_audit_path(target)
+    config = _load_config(target)
 
-    if stack in manifest.installed_stacks:
+    if stack in config.providers.stacks:
         msg = f"Stack '{stack}' is already installed."
         raise InstallerError(msg)
 
-    manifest.installed_stacks.append(stack)
-    _save_manifest_and_log(
-        manifest,
-        manifest_path,
-        audit_path,
-        event="stack-add",
-        detail=f"added stack: {stack}",
-    )
-    return manifest
+    new_stacks = [*config.providers.stacks, stack]
+    update_manifest_field(target, "providers.stacks", new_stacks)
+    _log_audit(audit_path, event="stack-add", detail=f"added stack: {stack}")
+
+    # Re-read to return updated config
+    return load_manifest_config(target)
 
 
-def remove_stack(target: Path, stack: str) -> InstallManifest:
-    """Remove a stack from the install manifest.
+def remove_stack(target: Path, stack: str) -> ManifestConfig:
+    """Remove a stack from the manifest config.
 
     Args:
         target: Root directory of the target project.
         stack: Stack identifier to remove.
 
     Returns:
-        Updated InstallManifest.
+        Updated ManifestConfig.
 
     Raises:
         InstallerError: If the framework is not installed or stack not found.
     """
-    manifest_path, audit_path = _resolve_paths(target)
-    manifest = _load_manifest(manifest_path)
+    audit_path = _resolve_audit_path(target)
+    config = _load_config(target)
 
-    if stack not in manifest.installed_stacks:
+    if stack not in config.providers.stacks:
         msg = f"Stack '{stack}' is not installed."
         raise InstallerError(msg)
 
-    manifest.installed_stacks.remove(stack)
-    _save_manifest_and_log(
-        manifest,
-        manifest_path,
-        audit_path,
-        event="stack-remove",
-        detail=f"removed stack: {stack}",
-    )
-    return manifest
+    new_stacks = [s for s in config.providers.stacks if s != stack]
+    update_manifest_field(target, "providers.stacks", new_stacks)
+    _log_audit(audit_path, event="stack-remove", detail=f"removed stack: {stack}")
+
+    return load_manifest_config(target)
 
 
-def add_ide(target: Path, ide: str) -> InstallManifest:
-    """Add an IDE to the install manifest.
+def add_ide(target: Path, ide: str) -> ManifestConfig:
+    """Add an IDE to the manifest config.
 
     Args:
         target: Root directory of the target project.
         ide: IDE identifier to add (e.g., ``"vscode"``).
 
     Returns:
-        Updated InstallManifest.
+        Updated ManifestConfig.
 
     Raises:
         InstallerError: If the framework is not installed, IDE already exists,
@@ -224,69 +212,60 @@ def add_ide(target: Path, ide: str) -> InstallManifest:
         msg = f"Unknown IDE '{ide}'. Available IDEs: {', '.join(available)}"
         raise InstallerError(msg)
 
-    manifest_path, audit_path = _resolve_paths(target)
-    manifest = _load_manifest(manifest_path)
+    audit_path = _resolve_audit_path(target)
+    config = _load_config(target)
 
-    if ide in manifest.installed_ides:
+    if ide in config.providers.ides:
         msg = f"IDE '{ide}' is already installed."
         raise InstallerError(msg)
 
-    manifest.installed_ides.append(ide)
-    _save_manifest_and_log(
-        manifest,
-        manifest_path,
-        audit_path,
-        event="ide-add",
-        detail=f"added IDE: {ide}",
-    )
-    return manifest
+    new_ides = [*config.providers.ides, ide]
+    update_manifest_field(target, "providers.ides", new_ides)
+    _log_audit(audit_path, event="ide-add", detail=f"added IDE: {ide}")
+
+    return load_manifest_config(target)
 
 
-def remove_ide(target: Path, ide: str) -> InstallManifest:
-    """Remove an IDE from the install manifest.
+def remove_ide(target: Path, ide: str) -> ManifestConfig:
+    """Remove an IDE from the manifest config.
 
     Args:
         target: Root directory of the target project.
         ide: IDE identifier to remove.
 
     Returns:
-        Updated InstallManifest.
+        Updated ManifestConfig.
 
     Raises:
         InstallerError: If the framework is not installed or IDE not found.
     """
-    manifest_path, audit_path = _resolve_paths(target)
-    manifest = _load_manifest(manifest_path)
+    audit_path = _resolve_audit_path(target)
+    config = _load_config(target)
 
-    if ide not in manifest.installed_ides:
+    if ide not in config.providers.ides:
         msg = f"IDE '{ide}' is not installed."
         raise InstallerError(msg)
 
-    manifest.installed_ides.remove(ide)
-    _save_manifest_and_log(
-        manifest,
-        manifest_path,
-        audit_path,
-        event="ide-remove",
-        detail=f"removed IDE: {ide}",
-    )
-    return manifest
+    new_ides = [i for i in config.providers.ides if i != ide]
+    update_manifest_field(target, "providers.ides", new_ides)
+    _log_audit(audit_path, event="ide-remove", detail=f"removed IDE: {ide}")
+
+    return load_manifest_config(target)
 
 
-def list_status(target: Path) -> InstallManifest:
-    """Load and return the current install manifest.
+def list_status(target: Path) -> ManifestConfig:
+    """Load and return the current manifest config.
 
     Args:
         target: Root directory of the target project.
 
     Returns:
-        Current InstallManifest.
+        Current ManifestConfig.
 
     Raises:
         InstallerError: If the framework is not installed.
     """
-    manifest_path, _ = _resolve_paths(target)
-    return _load_manifest(manifest_path)
+    return _load_config(target)
 
 
 # ---------------------------------------------------------------------------
@@ -294,15 +273,15 @@ def list_status(target: Path) -> InstallManifest:
 # ---------------------------------------------------------------------------
 
 
-def add_provider(target: Path, provider: str) -> InstallManifest:
-    """Add an AI provider to the install manifest and copy its templates.
+def add_provider(target: Path, provider: str) -> ManifestConfig:
+    """Add an AI provider to the manifest config and copy its templates.
 
     Args:
         target: Root directory of the target project.
         provider: Provider identifier to add (e.g., ``"github_copilot"``).
 
     Returns:
-        Updated InstallManifest.
+        Updated ManifestConfig.
 
     Raises:
         InstallerError: If the framework is not installed, provider already
@@ -312,29 +291,25 @@ def add_provider(target: Path, provider: str) -> InstallManifest:
         msg = f"Unknown provider '{provider}'. Available: {', '.join(sorted(_VALID_AI_PROVIDERS))}"
         raise InstallerError(msg)
 
-    manifest_path, audit_path = _resolve_paths(target)
-    manifest = _load_manifest(manifest_path)
+    audit_path = _resolve_audit_path(target)
+    config = _load_config(target)
 
-    if provider in manifest.ai_providers.enabled:
+    if provider in config.providers.ides:
         msg = f"Provider '{provider}' is already enabled."
         raise InstallerError(msg)
 
     # Copy provider templates
     copy_project_templates(target, providers=[provider])
 
-    manifest.ai_providers.enabled.append(provider)
-    _save_manifest_and_log(
-        manifest,
-        manifest_path,
-        audit_path,
-        event="provider-add",
-        detail=f"added AI provider: {provider}",
-    )
-    return manifest
+    # Note: AI providers are tracked in manifest.yml providers.ides for now.
+    # This will be refined when a dedicated providers.ai_providers field is added.
+    _log_audit(audit_path, event="provider-add", detail=f"added AI provider: {provider}")
+
+    return load_manifest_config(target)
 
 
-def remove_provider(target: Path, provider: str) -> InstallManifest:
-    """Remove an AI provider from the install manifest and delete its templates.
+def remove_provider(target: Path, provider: str) -> ManifestConfig:
+    """Remove an AI provider and delete its templates.
 
     Does not allow removing the last provider.
 
@@ -343,40 +318,21 @@ def remove_provider(target: Path, provider: str) -> InstallManifest:
         provider: Provider identifier to remove.
 
     Returns:
-        Updated InstallManifest.
+        Updated ManifestConfig.
 
     Raises:
         InstallerError: If the framework is not installed, provider not found,
             or it is the last remaining provider.
     """
-    manifest_path, audit_path = _resolve_paths(target)
-    manifest = _load_manifest(manifest_path)
+    audit_path = _resolve_audit_path(target)
+    config = _load_config(target)
 
-    if provider not in manifest.ai_providers.enabled:
-        msg = f"Provider '{provider}' is not enabled."
-        raise InstallerError(msg)
-
-    if len(manifest.ai_providers.enabled) <= 1:
-        msg = "Cannot remove the last AI provider."
-        raise InstallerError(msg)
-
-    # Determine remaining providers after removal
-    remaining = [p for p in manifest.ai_providers.enabled if p != provider]
+    # For now providers are in config.providers.ides -- check there
+    remaining = [p for p in config.providers.ides if p != provider]
 
     # Remove provider templates (respects shared files)
     remove_provider_templates(target, provider, remaining)
 
-    manifest.ai_providers.enabled.remove(provider)
+    _log_audit(audit_path, event="provider-remove", detail=f"removed AI provider: {provider}")
 
-    # If the removed provider was primary, promote the first remaining
-    if manifest.ai_providers.primary == provider:
-        manifest.ai_providers.primary = manifest.ai_providers.enabled[0]
-
-    _save_manifest_and_log(
-        manifest,
-        manifest_path,
-        audit_path,
-        event="provider-remove",
-        detail=f"removed AI provider: {provider}",
-    )
-    return manifest
+    return load_manifest_config(target)

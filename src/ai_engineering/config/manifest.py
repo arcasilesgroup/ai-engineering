@@ -40,8 +40,12 @@ class GitHubWorkItems(BaseModel):
     project: int | None = None
 
 
-class WorkItemHierarchy(BaseModel):
-    """Close-policy per work-item type."""
+class WorkItemHierarchy(BaseModel, extra="allow"):
+    """Close-policy per work-item type.
+
+    Known types have defaults; extra keys are preserved so teams can
+    define custom work-item types (e.g. ``custom_type: track_only``).
+    """
 
     feature: str = "never_close"
     user_story: str = "close_on_pr"

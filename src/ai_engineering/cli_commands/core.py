@@ -137,7 +137,7 @@ def install_cmd(
         return
 
     # Check for existing installation
-    manifest_path = root / ".ai-engineering" / "state" / "install-manifest.json"
+    manifest_path = root / ".ai-engineering" / "state" / "install-state.json"
     mode = InstallMode.INSTALL
 
     if manifest_path.exists() and not non_interactive:

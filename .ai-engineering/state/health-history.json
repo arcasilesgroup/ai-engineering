@@ -12,6 +12,19 @@
         "Test confidence": 25.7,
         "Gate signal quality": 91.7
       }
+    },
+    {
+      "date": "2026-03-24",
+      "overall": 70,
+      "semaphore": "YELLOW",
+      "components": {
+        "Gate pass rate": 82.7,
+        "Delivery velocity": 100,
+        "Decision health": 100,
+        "DORA frequency": 25,
+        "Test confidence": 36.8,
+        "Gate signal quality": 77.8
+      }
     }
   ]
 }

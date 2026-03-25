@@ -1,0 +1,85 @@
+{
+  "schema_version": "2.0",
+  "installed_at": "2026-03-25T01:35:33.803691Z",
+  "tooling": {
+    "gh": {
+      "installed": false,
+      "authenticated": false,
+      "mode": "cli",
+      "scopes": []
+    },
+    "az": {
+      "installed": false,
+      "authenticated": false,
+      "mode": "cli",
+      "scopes": []
+    },
+    "uv": {
+      "installed": false,
+      "authenticated": false,
+      "mode": "cli",
+      "scopes": []
+    },
+    "ruff": {
+      "installed": false,
+      "authenticated": false,
+      "mode": "cli",
+      "scopes": []
+    },
+    "ty": {
+      "installed": false,
+      "authenticated": false,
+      "mode": "cli",
+      "scopes": []
+    },
+    "pip_audit": {
+      "installed": false,
+      "authenticated": false,
+      "mode": "cli",
+      "scopes": []
+    },
+    "git_hooks": {
+      "installed": true,
+      "authenticated": true,
+      "mode": "cli",
+      "scopes": [
+        "pre-commit",
+        "commit-msg",
+        "pre-push"
+      ]
+    },
+    "hook_hash:pre-commit": {
+      "installed": true,
+      "authenticated": false,
+      "mode": "c563e2b16739fdff3139d28a36eb5166b1c6a93f859ab7ad64087a11f68f6a06",
+      "scopes": []
+    },
+    "hook_hash:commit-msg": {
+      "installed": true,
+      "authenticated": false,
+      "mode": "a4bd14fad928b36fa92ce2459ec5be007bb02a2787506f4dd530b9972f6d2e4d",
+      "scopes": []
+    },
+    "hook_hash:pre-push": {
+      "installed": true,
+      "authenticated": false,
+      "mode": "278025ecb3747840f2b0fd5e9fdd4e4c0a7ef99fa207bb71b64ac2686d160a06",
+      "scopes": []
+    }
+  },
+  "platforms": {},
+  "branch_policy": {
+    "applied": false,
+    "mode": "api",
+    "message": null,
+    "manual_guide": null
+  },
+  "operational_readiness": {
+    "status": "pending",
+    "pending_steps": []
+  },
+  "release": {
+    "last_version": "",
+    "last_released_at": null
+  }
+}

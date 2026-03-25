@@ -12,7 +12,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Protocol, runtime_checkable
 
-from ai_engineering.state.models import InstallManifest
+from ai_engineering.state.models import InstallState
 
 # ---------------------------------------------------------------------------
 # Phase name constants
@@ -164,7 +164,7 @@ class InstallContext:
     vcs_provider: str = "github"
     stacks: list[str] = field(default_factory=list)
     ides: list[str] = field(default_factory=list)
-    existing_manifest: InstallManifest | None = None
+    existing_state: InstallState | None = None
 
 
 # ---------------------------------------------------------------------------

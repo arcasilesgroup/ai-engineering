@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 _CHECKED_TOOLS = ("gh", "az", "gitleaks", "ruff")
 
-_MANIFEST_REL = ".ai-engineering/state/install-manifest.json"
+_MANIFEST_REL = ".ai-engineering/state/install-state.json"
 _LEGACY_CONTEXT_REL = ".ai-engineering/context"
 _CONTEXTS_REL = ".ai-engineering/contexts"
 
@@ -62,7 +62,7 @@ class DetectPhase:
                     action_type="skip",
                     source="",
                     destination=_MANIFEST_REL,
-                    rationale="Existing installation detected (install-manifest.json present)",
+                    rationale="Existing installation detected (install-state.json present)",
                 )
             )
 

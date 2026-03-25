@@ -16,8 +16,8 @@ import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from ai_engineering.state.io import read_json_model
-from ai_engineering.state.models import InstallManifest
+from ai_engineering.config.loader import load_manifest_config
+from ai_engineering.state.service import load_install_state
 
 
 @dataclass
@@ -292,26 +292,28 @@ def _try_install(package: str) -> bool:
 
 
 def check_operational_readiness(project_root: Path) -> ReadinessReport:
-    """Check auth/pipeline/policy readiness from install manifest state."""
+    """Check auth/pipeline/policy readiness from config and install state."""
     report = ReadinessReport()
-    manifest_path = project_root / ".ai-engineering" / "state" / "install-manifest.json"
-    if not manifest_path.exists():
+    state_dir = project_root / ".ai-engineering" / "state"
+    state_path = state_dir / "install-state.json"
+    if not state_path.exists():
         return report
 
     try:
-        manifest = read_json_model(manifest_path, InstallManifest)
+        config = load_manifest_config(project_root)
+        state = load_install_state(state_dir)
     except Exception:
         report.tools.append(
-            ToolInfo(name="manifest", available=False, version=None, path=str(manifest_path))
+            ToolInfo(name="state", available=False, version=None, path=str(state_path))
         )
         return report
 
-    provider = manifest.providers.primary
-    provider_status = (
-        manifest.tooling_readiness.gh if provider == "github" else manifest.tooling_readiness.az
-    )
-    report.tools.append(ToolInfo(name=f"auth:{provider}", available=provider_status.authenticated))
+    provider = config.providers.vcs
+    tool_key = "gh" if provider == "github" else "az"
+    tool_entry = state.tooling.get(tool_key)
+    authenticated = tool_entry.authenticated if tool_entry else False
+    report.tools.append(ToolInfo(name=f"auth:{provider}", available=authenticated))
     report.tools.append(
-        ToolInfo(name="branch-policy:applied", available=manifest.branch_policy.applied)
+        ToolInfo(name="branch-policy:applied", available=state.branch_policy.applied)
     )
     return report
