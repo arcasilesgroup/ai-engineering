@@ -9,20 +9,20 @@
 ### Phase 1: New models (additive, zero breakage)
 **Gate**: ManifestConfig parses manifest.yml; InstallState serializes/deserializes correctly. No existing code modified.
 
-- [ ] T-1.1: Create `config/` package with ManifestConfig model (agent: build)
+- [x] T-1.1: Create `config/` package with ManifestConfig model (agent: build) -- DONE
   - Create `src/ai_engineering/config/__init__.py`, `manifest.py`, `loader.py`
   - ManifestConfig models all sections of manifest.yml (providers, quality, tooling, work_items, documentation, cicd, skills, agents, ownership)
   - `load_manifest_config(root) -> ManifestConfig` -- yaml.safe_load + Pydantic validate
   - All fields optional with sensible defaults (graceful degradation for partial manifests)
   - **Done when**: `ManifestConfig.model_validate(yaml.safe_load(manifest.yml))` succeeds on this repo's manifest
 
-- [ ] T-1.2: Write tests for ManifestConfig (agent: build)
+- [x] T-1.2: Write tests for ManifestConfig (agent: build) -- DONE (46 tests)
   - Create `tests/unit/config/test_manifest.py`
   - Test: parse real manifest.yml, parse partial manifest, parse empty file, missing file
   - Test: all config fields accessible via typed attributes
   - **Done when**: Tests pass GREEN
 
-- [ ] T-1.3: Create InstallState model in state/models.py (agent: build)
+- [x] T-1.3: Create InstallState model in state/models.py (agent: build) -- DONE
   - Add `InstallState` as NEW class alongside existing `InstallManifest` (don't delete yet)
   - Flat tooling section: `ToolEntry` with installed/authenticated/mode/scopes
   - Platforms section: absorb SonarConfig, AzureDevOpsConfig, GitHubConfig structures
@@ -30,13 +30,13 @@
   - No stacks, ides, providers, ai_providers, framework_version (config lives in manifest.yml)
   - **Done when**: `InstallState` model defined, coexists with `InstallManifest`
 
-- [ ] T-1.4: Write tests for InstallState (agent: build)
+- [x] T-1.4: Write tests for InstallState (agent: build) -- DONE (21 tests)
   - Create `tests/unit/state/test_install_state.py`
   - Test: serialize/deserialize roundtrip, default values, platform credential refs
   - Test: migration helper (convert old InstallManifest dict -> InstallState)
   - **Done when**: Tests pass GREEN
 
-- [ ] T-1.5: Verify new models (agent: verify)
+- [x] T-1.5: Verify new models (agent: verify) -- DONE (67/67 pass, 1945/1946 unit suite)
   - Verify ManifestConfig parses this repo's manifest.yml
   - Verify InstallState roundtrip matches expected JSON schema from spec
   - Verify no existing tests broke (new code is purely additive)

@@ -450,3 +450,211 @@ class AuditEntry(BaseModel):
     spec_id: str | None = None
     stack: str | None = None
     duration_ms: int | None = None
+
+
+# --- InstallState (spec-068: state unification) ---
+
+
+class ToolEntry(BaseModel):
+    """Status of a single tool in the flattened tooling dict.
+
+    Unlike the legacy ``ToolStatus`` (which has only ``ready``),
+    this captures install/auth/mode/scopes per tool.
+    """
+
+    installed: bool = False
+    authenticated: bool = False
+    mode: str = "cli"
+    scopes: list[str] = Field(default_factory=list)
+
+
+class CredentialRef(BaseModel):
+    """Reference to a credential stored in the OS secret store.
+
+    Simplified version of ``credentials.models.CredentialRef``.
+    Contains only the lookup keys -- never the secret itself.
+    """
+
+    service: str
+    username: str
+
+
+class PlatformEntry(BaseModel):
+    """Configuration metadata for a single platform (sonar, azure_devops, etc.).
+
+    Absorbs what was previously in ``tools.json`` per-platform configs.
+    """
+
+    configured: bool = False
+    url: str = ""
+    project_key: str = ""
+    organization: str = ""
+    credential_ref: CredentialRef | None = None
+
+
+class BranchPolicyState(BaseModel):
+    """Runtime state of branch policy/protection setup."""
+
+    applied: bool = False
+    mode: str = "api"
+    message: str | None = None
+    manual_guide: str | None = None
+
+
+class OperationalState(BaseModel):
+    """High-level install-to-operational readiness status."""
+
+    status: str = "pending"
+    pending_steps: list[str] = Field(default_factory=list)
+
+
+class ReleaseState(BaseModel):
+    """Last known release metadata for this installation."""
+
+    last_version: str = ""
+    last_released_at: datetime | None = None
+
+
+class InstallState(BaseModel):
+    """New-generation state file model (spec-068).
+
+    Stores ONLY runtime state -- no config duplication.
+    Replaces both ``InstallManifest`` and ``ToolsState``.
+    Persisted at ``.ai-engineering/state/install-state.json``.
+
+    The ``tooling`` and ``platforms`` dicts use string keys so that
+    new tools/platforms can be added without model changes.
+    """
+
+    schema_version: str = "2.0"
+    installed_at: datetime = Field(default_factory=lambda: datetime.now(tz=UTC))
+    tooling: dict[str, ToolEntry] = Field(default_factory=dict)
+    platforms: dict[str, PlatformEntry] = Field(default_factory=dict)
+    branch_policy: BranchPolicyState = Field(default_factory=BranchPolicyState)
+    operational_readiness: OperationalState = Field(default_factory=OperationalState)
+    release: ReleaseState = Field(default_factory=ReleaseState)
+
+    @classmethod
+    def from_legacy(
+        cls,
+        manifest: InstallManifest,
+        tools_state_dict: dict[str, Any] | None = None,
+    ) -> InstallState:
+        """Convert a legacy InstallManifest (+ optional ToolsState dict) into InstallState.
+
+        Extracts runtime state from the old manifest. Config-only fields
+        (installed_stacks, installed_ides, ai_providers, framework_version)
+        are intentionally dropped -- they belong in ``ManifestConfig``.
+
+        Args:
+            manifest: The legacy InstallManifest model instance.
+            tools_state_dict: Optional raw dict from tools.json (ToolsState).
+                If provided, platform data is merged into ``platforms``.
+
+        Returns:
+            A new InstallState with state fields extracted.
+        """
+        tooling = _extract_tooling(manifest.tooling_readiness)
+        platforms = _extract_platforms(tools_state_dict) if tools_state_dict else {}
+
+        return cls(
+            installed_at=manifest.installed_at,
+            tooling=tooling,
+            platforms=platforms,
+            branch_policy=BranchPolicyState(
+                applied=manifest.branch_policy.applied,
+                mode=manifest.branch_policy.mode,
+                message=manifest.branch_policy.message,
+                manual_guide=manifest.branch_policy.manual_guide,
+            ),
+            operational_readiness=OperationalState(
+                status=manifest.operational_readiness.status,
+                pending_steps=list(manifest.operational_readiness.manual_steps),
+            ),
+            release=ReleaseState(
+                last_version=manifest.release.last_version,
+                last_released_at=manifest.release.last_released_at,
+            ),
+        )
+
+
+def _extract_tooling(readiness: ToolingReadiness) -> dict[str, ToolEntry]:
+    """Flatten legacy ToolingReadiness into a flat dict of ToolEntry.
+
+    VCS providers (gh, az) map directly.  Stack-specific tools
+    (python.ruff, python.uv, etc.) are promoted to top-level keys.
+    """
+    tooling: dict[str, ToolEntry] = {}
+
+    # VCS providers -> direct mapping
+    for name, provider in [("gh", readiness.gh), ("az", readiness.az)]:
+        tooling[name] = ToolEntry(
+            installed=provider.installed,
+            authenticated=provider.authenticated,
+            mode=provider.mode,
+        )
+
+    # Python tools -> flatten (ready maps to installed)
+    if readiness.python is not None:
+        tooling["uv"] = ToolEntry(installed=readiness.python.uv.ready)
+        tooling["ruff"] = ToolEntry(installed=readiness.python.ruff.ready)
+        tooling["ty"] = ToolEntry(installed=readiness.python.ty.ready)
+        tooling["pip_audit"] = ToolEntry(installed=readiness.python.pip_audit.ready)
+
+    # Dotnet tools -> flatten
+    if readiness.dotnet is not None:
+        tooling["dotnet"] = ToolEntry(installed=readiness.dotnet.dotnet.ready)
+
+    # Next.js tools -> flatten
+    if readiness.nextjs is not None:
+        tooling["node"] = ToolEntry(installed=readiness.nextjs.node.ready)
+        tooling["npm"] = ToolEntry(installed=readiness.nextjs.npm.ready)
+        tooling["eslint"] = ToolEntry(installed=readiness.nextjs.eslint.ready)
+        tooling["prettier"] = ToolEntry(installed=readiness.nextjs.prettier.ready)
+
+    return tooling
+
+
+def _extract_platforms(tools_state_dict: dict[str, Any]) -> dict[str, PlatformEntry]:
+    """Convert a legacy ToolsState dict into platform entries.
+
+    Maps each platform section from tools.json into a PlatformEntry.
+    Only configured platforms are included.
+    """
+    platforms: dict[str, PlatformEntry] = {}
+
+    # Sonar
+    sonar = tools_state_dict.get("sonar", {})
+    if sonar.get("configured"):
+        cred_ref = None
+        raw_ref = sonar.get("credential_ref")
+        if raw_ref and raw_ref.get("service_name"):
+            cred_ref = CredentialRef(
+                service=raw_ref["service_name"],
+                username=raw_ref.get("username", ""),
+            )
+        platforms["sonar"] = PlatformEntry(
+            configured=True,
+            url=sonar.get("url", ""),
+            project_key=sonar.get("project_key", ""),
+            organization=sonar.get("organization", ""),
+            credential_ref=cred_ref,
+        )
+
+    # Azure DevOps
+    azdo = tools_state_dict.get("azure_devops", {})
+    if azdo.get("configured"):
+        cred_ref = None
+        raw_ref = azdo.get("credential_ref")
+        if raw_ref and raw_ref.get("service_name"):
+            cred_ref = CredentialRef(
+                service=raw_ref["service_name"],
+                username=raw_ref.get("username", ""),
+            )
+        platforms["azure_devops"] = PlatformEntry(
+            configured=True,
+            url=azdo.get("org_url", ""),
+            credential_ref=cred_ref,
+        )
+
+    return platforms
