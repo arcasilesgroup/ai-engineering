@@ -11,10 +11,9 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+import yaml
 
 from ai_engineering.installer.service import install
-from ai_engineering.state.io import read_json_model
-from ai_engineering.state.models import InstallState
 from ai_engineering.updater.service import update
 
 pytestmark = pytest.mark.e2e
@@ -150,10 +149,10 @@ class TestInstallExisting:
         tmp_path: Path,
     ) -> None:
         install(tmp_path, stacks=["python", "node"], ides=["vscode", "jetbrains"])
-        manifest_path = tmp_path / ".ai-engineering" / "state" / "install-state.json"
-        manifest = read_json_model(manifest_path, InstallState)
-        assert set(manifest.installed_stacks) == {"python", "node"}
-        assert set(manifest.installed_ides) == {"vscode", "jetbrains"}
+        manifest_yml = tmp_path / ".ai-engineering" / "manifest.yml"
+        manifest = yaml.safe_load(manifest_yml.read_text(encoding="utf-8"))
+        assert set(manifest["providers"]["stacks"]) == {"python", "node"}
+        assert set(manifest["providers"]["ides"]) == {"vscode", "jetbrains"}
 
     def test_update_applies_to_claude_tree(
         self,
