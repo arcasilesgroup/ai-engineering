@@ -117,30 +117,3 @@ class TestAgentSkillCrossReferences:
         assert not broken, "Broken agent→standard references:\n" + "\n".join(
             f"  {b}" for b in broken
         )
-
-    def test_test_scope_covers_all_source_files(self) -> None:
-        """Every src/**/*.py file should be covered by at least one TEST_SCOPE_RULE."""
-        from ai_engineering.policy.test_scope import TEST_SCOPE_RULES
-
-        # Collect all source globs
-        covered_globs: list[str] = []
-        for rule in TEST_SCOPE_RULES:
-            covered_globs.extend(rule.source_globs)
-
-        # Collect all source files
-        src_dir = _PROJECT_ROOT / "src" / "ai_engineering"
-        all_py = {str(f.relative_to(_PROJECT_ROOT)) for f in src_dir.rglob("*.py") if f.is_file()}
-
-        # Check each file matches at least one glob
-        # Reuse the matching logic from test_scope.py itself
-        from ai_engineering.policy.test_scope import _matches_any_glob
-
-        uncovered: list[str] = []
-        for py_file in sorted(all_py):
-            if not _matches_any_glob(py_file, covered_globs):
-                uncovered.append(py_file)
-
-        assert not uncovered, (
-            f"{len(uncovered)} source files not covered by TEST_SCOPE_RULES:\n"
-            + "\n".join(f"  {f}" for f in uncovered[:20])
-        )

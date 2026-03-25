@@ -21,6 +21,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Framework contexts** -- 8 new context files: `api-design.md`, `backend-patterns.md`, `bun.md`, `claude-api.md`, `mcp-sdk.md`, `nextjs.md`, `universal.md` (languages), `mcp-integrations.md` (team).
 - **Strategic compact hook** -- `scripts/hooks/strategic-compact.py` with Claude Code `Edit|Write|MultiEdit` hook for strategic context management during long sessions.
 
+### Removed
+- **`TEST_SCOPE_RULES` system (spec-069)** -- deleted manual test-selection engine (760 LOC, 25 rules), `check_test_mapping.py` integrity script, and all consumers. CI now runs full suite unconditionally per tier with `paths-ignore` for docs-only changes. Suite speed (24s unit, 5m integration) makes selective filtering unnecessary.
+
 ### Changed
 - **Hooks relocated (spec-066)** -- moved `scripts/hooks/` to `.ai-engineering/scripts/hooks/` for both templates and dogfooding. Updated all path references in settings.json, hooks.json, shell/PowerShell dirname navigation, installer, and tests. Added `_migrate_hooks_dir()` to updater for automatic migration of existing projects.
 - **Sync script (`sync_command_mirrors.py`)** -- extended `AgentMeta` dataclass with `copilot_agents`, `copilot_handoffs`, `copilot_hooks` fields; `generate_copilot_agent()` serializes new frontmatter properties for 5 orchestrator agents.

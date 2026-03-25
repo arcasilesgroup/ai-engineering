@@ -72,40 +72,14 @@ class TestTestConfidenceMetrics:
         assert result["files_covered"] == 2
         assert "src/bar.py" in result["untested_critical"]
 
-    def test_test_scope_fallback(self, tmp_path: Path):
-        """Falls back to test_scope mapping when no coverage data."""
+    def test_no_data_fallback(self, tmp_path: Path):
+        """Returns defaults when no data source available."""
         from ai_engineering.lib.signals import _reset_sonar_cache, test_confidence_metrics
 
         _reset_sonar_cache()
-        # Create src structure
-        src = tmp_path / "src" / "mymod"
-        src.mkdir(parents=True)
-        (src / "__init__.py").touch()
-        (src / "foo.py").touch()
-        (src / "bar.py").touch()
         with patch(
             "ai_engineering.lib.signals.sonar_detailed_metrics",
             return_value={"available": False},
-        ):
-            result = test_confidence_metrics(tmp_path)
-        assert result["source"] == "test_scope"
-
-    def test_no_data_fallback(self, tmp_path: Path):
-        """Returns defaults when no data source available."""
-        import sys
-
-        from ai_engineering.lib.signals import _reset_sonar_cache, test_confidence_metrics
-
-        _reset_sonar_cache()
-        with (
-            patch(
-                "ai_engineering.lib.signals.sonar_detailed_metrics",
-                return_value={"available": False},
-            ),
-            patch.dict(
-                sys.modules,
-                {"ai_engineering.policy.test_scope": None},
-            ),
         ):
             result = test_confidence_metrics(tmp_path)
         assert result["source"] == "none"
@@ -123,7 +97,7 @@ class TestTestConfidenceMetrics:
             return_value={"available": False},
         ):
             result = test_confidence_metrics(tmp_path)
-        assert result["source"] in ("test_scope", "none")
+        assert result["source"] == "none"
 
     def test_coverage_json_meets_threshold_true(self, tmp_path: Path):
         """coverage.json with >= 80% meets threshold."""
@@ -192,13 +166,13 @@ class TestTestConfidenceMetrics:
 
         _reset_sonar_cache()
         sonar_data = {"available": True, "coverage_pct": 0, "source": "sonarcloud"}
-        # No coverage.json, so should fall through to test_scope
+        # No coverage.json, so should fall through to defaults
         with patch(
             "ai_engineering.lib.signals.sonar_detailed_metrics",
             return_value=sonar_data,
         ):
             result = test_confidence_metrics(tmp_path)
-        assert result["source"] in ("test_scope", "none")
+        assert result["source"] == "none"
 
     def test_sonarcloud_not_available_skipped(self, tmp_path: Path):
         """SonarCloud not available falls through to next source."""
