@@ -259,15 +259,11 @@ def test_updater_validator_and_vcs_edges(tmp_path: Path) -> None:
         file_path = tmp_path / "src" / "ai_engineering" / "templates" / "project" / name
         file_path.parent.mkdir(parents=True, exist_ok=True)
         file_path.write_text(instruction + "- `.ai-engineering/agents/b.md`\n", encoding="utf-8")
-    product_contract = tmp_path / ".ai-engineering" / "context" / "product"
-    product_contract.mkdir(parents=True, exist_ok=True)
-    (product_contract / "product-contract.md").write_text("1 skills, 1 agents", encoding="utf-8")
     ri = validator.validate_content_integrity(
         tmp_path,
         categories=[
             validator.IntegrityCategory.COUNTER_ACCURACY,
             validator.IntegrityCategory.CROSS_REFERENCE,
-            validator.IntegrityCategory.INSTRUCTION_CONSISTENCY,
             validator.IntegrityCategory.MANIFEST_COHERENCE,
             validator.IntegrityCategory.SKILL_FRONTMATTER,
         ],
@@ -303,7 +299,6 @@ def test_validator_remaining_branches(tmp_path: Path) -> None:
     ai = tmp_path / ".ai-engineering"
     (ai / "skills").mkdir(parents=True, exist_ok=True)
     (ai / "agents").mkdir(parents=True, exist_ok=True)
-    (ai / "context" / "product").mkdir(parents=True, exist_ok=True)
     (ai / "specs").mkdir(parents=True, exist_ok=True)
     (ai / "state").mkdir(parents=True, exist_ok=True)
     (ai / "manifest.yml").write_text("name: x\n", encoding="utf-8")
@@ -349,17 +344,12 @@ def test_validator_remaining_branches(tmp_path: Path) -> None:
         "---\nname: BadName\nversion: one\n---\n",
         encoding="utf-8",
     )
-    (ai / "context" / "product" / "product-contract.md").write_text(
-        "1 skills, 1 agents", encoding="utf-8"
-    )
-
     report = validator.validate_content_integrity(
         tmp_path,
         categories=[
             validator.IntegrityCategory.FILE_EXISTENCE,
             validator.IntegrityCategory.MIRROR_SYNC,
             validator.IntegrityCategory.CROSS_REFERENCE,
-            validator.IntegrityCategory.INSTRUCTION_CONSISTENCY,
             validator.IntegrityCategory.MANIFEST_COHERENCE,
             validator.IntegrityCategory.SKILL_FRONTMATTER,
         ],
@@ -399,31 +389,7 @@ def test_validator_internal_line_coverage_targets(tmp_path: Path) -> None:
     cross_report = validator.IntegrityReport()
     validator._check_cross_references(tmp_path, cross_report)
 
-    # line 782: create missing agent in non-reference instruction file
-    base_ref = (
-        "## Skills\n"
-        "- `.ai-engineering/skills/a.md`\n"
-        "## Agents\n"
-        "- `.ai-engineering/agents/a.md`\n"
-        "- `.ai-engineering/agents/b.md`\n"
-    )
-    base_other = (
-        "## Skills\n- `.ai-engineering/skills/a.md`\n## Agents\n- `.ai-engineering/agents/a.md`\n"
-    )
-    files = {
-        ".github/copilot-instructions.md": base_ref,
-        "AGENTS.md": base_other,
-        "CLAUDE.md": base_other,
-        "src/ai_engineering/templates/project/copilot-instructions.md": base_other,
-        "src/ai_engineering/templates/project/AGENTS.md": base_other,
-        "src/ai_engineering/templates/project/CLAUDE.md": base_other,
-    }
-    for rel, content in files.items():
-        p = tmp_path / rel
-        p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_text(content, encoding="utf-8")
-    consistency = validator.IntegrityReport()
-    validator._check_instruction_consistency(tmp_path, consistency)
+    # instruction_consistency category removed -- no direct call needed
 
 
 def test_validator_claude_commands_mirror_ok_path(tmp_path: Path) -> None:

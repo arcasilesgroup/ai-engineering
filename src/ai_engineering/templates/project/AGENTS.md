@@ -102,7 +102,7 @@ Each IDE has its own skill and agent files. Same content, platform-native format
 | GitHub Copilot | `.github/skills/ai-*/SKILL.md` | `.github/agents/*.agent.md` |
 | Codex / Gemini | `.agents/skills/*/SKILL.md` | `.agents/agents/ai-*.md` |
 
-## Skills (37)
+## Skills (38)
 
 Grouped by type. Invoke as `/ai-<name>`.
 
@@ -111,7 +111,7 @@ Grouped by type. Invoke as `/ai-<name>`.
 **Enterprise:** security, governance, pipeline, schema, solution-intent
 **Teaching:** explain, guide, write, slides, media, video-editing
 **SDLC:** note, standup, sprint, sprint-review, postmortem, support, resolve-conflicts
-**Meta:** create, learn, prompt, onboard, analyze-permissions, instinct, autopilot
+**Meta:** create, learn, prompt, onboard, analyze-permissions, instinct, autopilot, project-identity
 
 ## Quality Gates
 
@@ -153,7 +153,7 @@ Gate failure: diagnose, fix, retry. Use `ai-eng doctor --fix` or `ai-eng doctor 
 
 | What | Where |
 |------|-------|
-| Skills (37) | `.claude/skills/ai-<name>/SKILL.md` |
+| Skills (38) | `.claude/skills/ai-<name>/SKILL.md` |
 | Agents (9) | `.claude/agents/ai-<name>.md` |
 | Config | `.ai-engineering/manifest.yml` |
 | Decisions | `.ai-engineering/state/decision-store.json` |

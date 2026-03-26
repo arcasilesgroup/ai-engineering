@@ -76,6 +76,94 @@ class TestGovernancePhase:
         verdict = phase.verify(result, ctx)
         assert verdict.passed
 
+    def test_plan_install_creates_team_seed_actions(self, tmp_path: Path) -> None:
+        """INSTALL mode produces create actions for team seed files."""
+        from ai_engineering.installer.phases.governance import GovernancePhase
+
+        phase = GovernancePhase()
+        ctx = _ctx(tmp_path, mode=InstallMode.INSTALL)
+        plan = phase.plan(ctx)
+        team_actions = [a for a in plan.actions if "contexts/team/" in a.destination]
+        assert len(team_actions) == 2
+        for a in team_actions:
+            assert a.action_type == "create"
+            assert a.rationale == "team seed file"
+
+    def test_plan_install_skips_team_if_exists(self, tmp_path: Path) -> None:
+        """INSTALL mode with existing team files produces skip actions."""
+        from ai_engineering.installer.phases.governance import GovernancePhase
+
+        # Pre-create team files
+        team_dir = tmp_path / ".ai-engineering" / "contexts" / "team"
+        team_dir.mkdir(parents=True)
+        (team_dir / "README.md").write_text("custom")
+        (team_dir / "lessons.md").write_text("custom")
+
+        phase = GovernancePhase()
+        ctx = _ctx(tmp_path, mode=InstallMode.INSTALL)
+        plan = phase.plan(ctx)
+        team_actions = [a for a in plan.actions if "contexts/team/" in a.destination]
+        assert len(team_actions) == 2
+        for a in team_actions:
+            assert a.action_type == "skip"
+            assert a.rationale == "team seed already exists"
+
+    def test_plan_fresh_overwrites_team_seeds(self, tmp_path: Path) -> None:
+        """FRESH mode produces overwrite actions for team files."""
+        from ai_engineering.installer.phases.governance import GovernancePhase
+
+        phase = GovernancePhase()
+        ctx = _ctx(tmp_path, mode=InstallMode.FRESH)
+        plan = phase.plan(ctx)
+        team_actions = [a for a in plan.actions if "contexts/team/" in a.destination]
+        assert len(team_actions) == 2
+        for a in team_actions:
+            assert a.action_type == "overwrite"
+
+    def test_plan_repair_skips_team(self, tmp_path: Path) -> None:
+        """REPAIR mode skips team files."""
+        from ai_engineering.installer.phases.governance import GovernancePhase
+
+        phase = GovernancePhase()
+        ctx = _ctx(tmp_path, mode=InstallMode.REPAIR)
+        plan = phase.plan(ctx)
+        team_actions = [a for a in plan.actions if "contexts/team/" in a.destination]
+        assert len(team_actions) == 2
+        for a in team_actions:
+            assert a.action_type == "skip"
+            assert a.rationale == "team-owned file"
+
+    def test_plan_includes_specs_directory_files(self, tmp_path: Path) -> None:
+        """Plan includes specs/spec.md and specs/plan.md as create actions."""
+        from ai_engineering.installer.phases.governance import GovernancePhase
+
+        phase = GovernancePhase()
+        ctx = _ctx(tmp_path, mode=InstallMode.INSTALL)
+        plan = phase.plan(ctx)
+        specs_actions = [a for a in plan.actions if "specs/" in a.destination]
+        specs_dests = sorted(a.destination for a in specs_actions)
+        assert ".ai-engineering/specs/plan.md" in specs_dests
+        assert ".ai-engineering/specs/spec.md" in specs_dests
+        for a in specs_actions:
+            assert a.action_type == "create"
+
+    def test_execute_creates_team_and_specs(self, tmp_path: Path) -> None:
+        """Execute in INSTALL mode creates team seed files and specs placeholders."""
+        from ai_engineering.installer.phases.governance import GovernancePhase
+
+        phase = GovernancePhase()
+        ctx = _ctx(tmp_path, mode=InstallMode.INSTALL)
+        plan = phase.plan(ctx)
+        phase.execute(plan, ctx)
+
+        ai_dir = tmp_path / ".ai-engineering"
+        # Team seed files
+        assert (ai_dir / "contexts" / "team" / "README.md").is_file()
+        assert (ai_dir / "contexts" / "team" / "lessons.md").is_file()
+        # Specs placeholders
+        assert (ai_dir / "specs" / "spec.md").is_file()
+        assert (ai_dir / "specs" / "plan.md").is_file()
+
 
 # ---------------------------------------------------------------------------
 # IdeConfigPhase

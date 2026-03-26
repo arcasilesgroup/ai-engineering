@@ -125,6 +125,12 @@ class GovernancePhase:
     def _classify(rel: str, dest_path: Path, mode: InstallMode) -> tuple[str, str]:
         """Return (action_type, rationale) for a single file."""
         if rel.startswith(_TEAM_OWNED):
+            if mode is InstallMode.INSTALL:
+                if dest_path.exists():
+                    return "skip", "team seed already exists"
+                return "create", "team seed file"
+            if mode is InstallMode.FRESH:
+                return "overwrite", "FRESH mode: overwrite framework-owned"
             return "skip", "team-owned file"
 
         if rel.startswith(_STATE_PREFIX):

@@ -23,7 +23,7 @@ HARD GATE: this skill produces a spec. No implementation happens until the user 
 
 ## Process
 
-1. **Load context** -- read `specs/spec.md`, `decision-store.json`, and `docs/solution-intent.md` section 7 (roadmap)
+1. **Load context** -- read `specs/spec.md`, `decision-store.json`, `.ai-engineering/contexts/project-identity.md` (project boundaries), and `docs/solution-intent.md` section 7 (roadmap)
    - If a work item ID is provided (e.g., `AB#100` or `#45`):
      a. Read `.ai-engineering/manifest.yml` `work_items` section for active provider and team config
      b. Fetch work item and its hierarchy from the provider:

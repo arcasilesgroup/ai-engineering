@@ -2,7 +2,7 @@
 """Pre/PostToolUse hook: record tool usage observations for instinct extraction.
 
 Writes observations to ~/.ai-engineering/instincts/projects/<hash>/observations.jsonl.
-Also absorbs telemetry-agent.sh logic: emits agent_dispatched to audit-log when
+Replaces former telemetry-agent.sh. Emits agent_dispatched to audit-log when
 tool_name == 'Agent'.
 
 Fail-open: exit 0 always -- never blocks IDE.

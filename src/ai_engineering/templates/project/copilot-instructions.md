@@ -4,7 +4,7 @@ Project instructions are canonical in `.ai-engineering/`.
 
 ## Source of Truth
 
-- Governance rules: `.ai-engineering/context/product/framework-contract.md`
+- Project identity: `.ai-engineering/contexts/project-identity.md`
 - Product context: `docs/solution-intent.md`
 
 ## Session Start Protocol
@@ -13,8 +13,10 @@ Before non-trivial work:
 
 1. **Read active spec** — `.ai-engineering/specs/spec.md` and `.ai-engineering/specs/plan.md`.
 2. **Read decision store** — `.ai-engineering/state/decision-store.json`.
-3. **Run cleanup** — sync repo (status, git pull, prune, branch cleanup).
-4. **Verify tooling** — ruff, gitleaks, pytest, ty.
+3. **Read project identity** — `.ai-engineering/contexts/project-identity.md` (if it exists).
+4. **Load contexts** — read `.ai-engineering/contexts/languages/{lang}.md`, `frameworks/{fw}.md`, and `team/*.md` for each detected stack before writing code.
+5. **Run cleanup** — sync repo (status, git pull, prune, branch cleanup).
+6. **Verify tooling** — ruff, gitleaks, pytest, ty.
 
 ## Plan/Execute Flow (Spec-as-Gate)
 
@@ -47,7 +49,7 @@ Telemetry is **automatic via hooks** — configured in `.github/hooks/hooks.json
 
 ## Quick Reference
 
-- Skills (37): `.github/skills/ai-<name>/SKILL.md`
+- Skills (38): `.github/skills/ai-<name>/SKILL.md`
 - Agents (9): `.github/agents/ai-<name>.agent.md`
 - Quality: coverage 80%, duplication ≤3%, cyclomatic ≤10, cognitive ≤15
 - Security: zero medium+ findings, zero leaks, zero dependency vulns

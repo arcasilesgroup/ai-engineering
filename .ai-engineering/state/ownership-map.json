@@ -38,11 +38,6 @@
     {
       "frameworkUpdate": "deny",
       "owner": "team-managed",
-      "pattern": ".ai-engineering/contexts/orgs/**"
-    },
-    {
-      "frameworkUpdate": "deny",
-      "owner": "team-managed",
       "pattern": ".ai-engineering/contexts/product/**"
     },
     {

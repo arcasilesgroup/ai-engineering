@@ -435,6 +435,38 @@
       "decision": "Accept CVE-2026-4539 (ReDoS, CVSS 3.3) in pygments. No fix available. Re-evaluate when a patched pygments version is released.",
       "decidedAt": "2026-03-24T00:00:00Z",
       "context": "security"
+    },
+    {
+      "id": "DEC-026",
+      "title": "contexts/orgs eliminated -- aspirational stub with no implementation",
+      "category": "architecture",
+      "status": "active",
+      "criticality": "low",
+      "source": "spec-079",
+      "spec": "079",
+      "created_at": "2026-03-26",
+      "expires_at": "2027-03-26T00:00:00Z",
+      "context_hash": "",
+      "acknowledged_by": "plan",
+      "decision": "contexts/orgs eliminated -- aspirational stub with no implementation. The directory promised 'Auto-detected from git remote' organization conventions but zero skills, agents, or CLI commands ever referenced it. Use contexts/team/ for team-wide conventions.",
+      "decidedAt": "2026-03-26T00:00:00Z",
+      "context": "architecture"
+    },
+    {
+      "id": "DEC-027",
+      "title": "contracts replaced by project-identity.md + CLAUDE.md + manifest.yml",
+      "category": "architecture",
+      "status": "active",
+      "criticality": "medium",
+      "source": "spec-079",
+      "spec": "079",
+      "created_at": "2026-03-26",
+      "expires_at": "2027-03-26T00:00:00Z",
+      "context_hash": "",
+      "acknowledged_by": "plan",
+      "decision": "framework-contract.md and product-contract.md eliminated from templates. Governance rules now live in CLAUDE.md (prohibitions, gates), manifest.yml (counts, ownership, tooling), and project-identity.md (project name, purpose, boundaries, stakeholders). The instruction_consistency validator category was absorbed into counter_accuracy; cross-file listing comparison dropped since counter_accuracy already validates against manifest.yml as source of truth. Skill count updated from 37 to 38 with new /ai-project-identity skill.",
+      "decidedAt": "2026-03-26T00:00:00Z",
+      "context": "architecture"
     }
   ]
 }

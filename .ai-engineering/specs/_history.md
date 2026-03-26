@@ -4,6 +4,7 @@ Completed specs. Details in git history.
 
 | ID | Title | Status | Created | Branch |
 |----|-------|--------|---------|--------|
+| 079 | Install & Contexts Cleanup — Project Identity, Hooks, Orgs, Enforcement, README | done | 2026-03-26 | spec-079/install-contexts-cleanup |
 | 078 | git init -b main: Fix default branch name in installer and CI | done | 2026-03-26 | feat/prompt-to-skills-migration-cleanup |
 | 077 | Prompt-to-Skills Migration: Replace .github/prompts/ with .github/skills/ | done | 2026-03-26 | feat/prompt-to-skills-migration-cleanup |
 | 076 | Autopilot Sub-Spec Quality Parity and Dispatch Quality+Deliver Phases | done | 2026-03-25 | refactor/069-remove-test-scope-rules |

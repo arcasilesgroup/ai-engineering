@@ -11,9 +11,9 @@ from ai_engineering.validator._shared import (
     IntegrityCheckResult,
     IntegrityReport,
     IntegrityStatus,
+    _extract_listings,
     _instruction_files,
 )
-from ai_engineering.validator.categories.instruction_consistency import _extract_listings
 
 # Pattern to extract counts from pointer format: "Skills (35)" or "Agents (7)"
 _POINTER_COUNT_RE = re.compile(r"Skills\s*\((\d+)\)", re.IGNORECASE)

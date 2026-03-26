@@ -14,6 +14,7 @@ Before asking questions, gather context silently:
 2. Read existing patterns (Grep for conventions)
 3. Read related specs (check `specs/` for prior work)
 4. Read decision store for relevant architectural decisions
+5. Read project identity (`.ai-engineering/contexts/project-identity.md`) for project boundaries and stakeholders
 
 Do NOT ask the user what you can learn from the code.
 

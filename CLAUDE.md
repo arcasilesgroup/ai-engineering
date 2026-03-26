@@ -7,6 +7,7 @@ This file is self-contained -- no other instruction files are required.
 
 Read the active spec before touching code: `.ai-engineering/specs/spec.md` and `.ai-engineering/specs/plan.md`.
 Read the decision store to avoid repeating settled questions: `.ai-engineering/state/decision-store.json`.
+Before writing code or designing features, read `.ai-engineering/contexts/project-identity.md` if it exists.
 
 ### 1. Plan Mode Default
 
@@ -64,6 +65,15 @@ Read the decision store to avoid repeating settled questions: `.ai-engineering/s
 
 - Read/write `.ai-engineering/contexts/team/lessons.md` to persist learnings across sessions
 
+### 10. Context Loading
+
+Before writing or reviewing code, load the applicable context files:
+1. Detect the project's languages from file extensions and build config
+2. Read `.ai-engineering/contexts/languages/{language}.md` for each detected language
+3. Read `.ai-engineering/contexts/frameworks/{framework}.md` for each detected framework
+4. Read `.ai-engineering/contexts/team/*.md` for team conventions
+5. Apply loaded standards to all code generation and review
+
 ## Task Management
 
 1. **Plan First**: Write plan via `/ai-plan` to `.ai-engineering/specs/plan.md` with checkable items
@@ -103,7 +113,7 @@ Each IDE has its own skill and agent files. Same content, platform-native format
 | GitHub Copilot | `.github/skills/ai-*/SKILL.md` | `.github/agents/*.agent.md` |
 | Codex / Gemini | `.agents/skills/*/SKILL.md` | `.agents/agents/ai-*.md` |
 
-## Skills (37)
+## Skills (38)
 
 Grouped by type. Invoke as `/ai-<name>`.
 
@@ -112,7 +122,7 @@ Grouped by type. Invoke as `/ai-<name>`.
 **Enterprise:** security, governance, pipeline, schema, solution-intent
 **Teaching:** explain, guide, write, slides, media, video-editing
 **SDLC:** note, standup, sprint, sprint-review, postmortem, support, resolve-conflicts
-**Meta:** create, learn, prompt, onboard, analyze-permissions, instinct, autopilot
+**Meta:** create, learn, prompt, onboard, analyze-permissions, instinct, autopilot, project-identity
 
 ## Effort Levels
 
@@ -122,7 +132,7 @@ Each skill declares `effort` in frontmatter. Assignment by cognitive weight:
 |--------|-------|
 | max | 11 (brainstorm, plan, review, verify, security, debug, governance, schema, instinct, eval, autopilot) |
 | high | 15 (dispatch, test, write, explain, guide, pr, solution-intent, support, postmortem, pipeline, create, prompt, slides, media, video-editing) |
-| medium | 11 (commit, cleanup, standup, note, onboard, release, resolve-conflicts, sprint, sprint-review, learn, analyze-permissions) |
+| medium | 12 (commit, cleanup, standup, note, onboard, release, resolve-conflicts, sprint, sprint-review, learn, analyze-permissions, project-identity) |
 
 ## Quality Gates
 
@@ -164,7 +174,7 @@ Gate failure: diagnose, fix, retry. Use `ai-eng doctor --fix` or `ai-eng doctor 
 
 | What | Where |
 |------|-------|
-| Skills (37) | `.claude/skills/ai-<name>/SKILL.md` |
+| Skills (38) | `.claude/skills/ai-<name>/SKILL.md` |
 | Agents (9) | `.claude/agents/ai-<name>.md` |
 | Config | `.ai-engineering/manifest.yml` |
 | Decisions | `.ai-engineering/state/decision-store.json` |

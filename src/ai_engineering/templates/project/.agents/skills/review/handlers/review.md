@@ -48,6 +48,17 @@ findings:
       adjusted_confidence: N
 ```
 
+### Step 2b -- Language-Specific Review
+
+For each language detected in the diff:
+1. If a dedicated handler exists (`lang-{language}.md`), dispatch it
+2. Otherwise, dispatch `lang-generic.md` with the detected language
+
+Dedicated handlers exist for: cpp, flutter, go, java, kotlin, python, rust, typescript.
+All other languages use the generic handler.
+
+Language handler findings feed into Step 3 aggregation with the same YAML format.
+
 ### Step 3 -- Aggregate and Correlate
 
 After all 8 agents report:

@@ -7,6 +7,21 @@ from pathlib import Path
 
 import pytest
 
+from ai_engineering.validator._shared import (
+    FileCache,
+    _extract_listings,
+    _extract_section,
+    _extract_subsection,
+    _glob_files,
+    _instruction_files,
+    _is_excluded,
+    _is_source_repo,
+    _is_table_separator,
+    _parse_agent_names,
+    _parse_agent_names_from_subsection,
+    _parse_skill_names,
+    _parse_skill_names_from_subsection,
+)
 from ai_engineering.validator.service import (
     IntegrityCategory,
     IntegrityCheckResult,
@@ -111,39 +126,6 @@ def _write_all_instruction_files(
         f.write_text(text, encoding="utf-8")
 
 
-def _write_product_contract(
-    ai: Path,
-    *,
-    skills: list[str] | None = None,
-    agents: list[str] | None = None,
-) -> None:
-    """Write a minimal product-contract.md with skill/agent tables.
-
-    Uses the canonical table format matching the actual product-contract.md.
-    Defaults to the project's standard skill/agent lists.
-    """
-    skill_list = skills if skills is not None else [s.split("/")[1] for s in _SKILL_PATHS]
-    agent_list = (
-        agents
-        if agents is not None
-        else [a.split("/")[1].removesuffix(".md") for a in _AGENT_PATHS]
-    )
-
-    pc = ai / "context" / "product" / "product-contract.md"
-    pc.parent.mkdir(parents=True, exist_ok=True)
-
-    skill_row = "| " + ", ".join(skill_list) + " |"
-    agent_rows = "\n".join(f"| {a} | purpose | scope |" for a in agent_list)
-    pc.write_text(
-        f"# Product\n\n"
-        f"#### Skills ({len(skill_list)})\n\n"
-        f"| Domain | Skills |\n|--------|--------|\n{skill_row}\n\n"
-        f"#### Agents ({len(agent_list)})\n\n"
-        f"| Agent | Purpose | Scope |\n|-------|---------|-------|\n{agent_rows}\n",
-        encoding="utf-8",
-    )
-
-
 def _write_manifest(ai: Path) -> None:
     """Write a minimal manifest.yml."""
     m = ai / "manifest.yml"
@@ -187,7 +169,6 @@ def _setup_full_project(root: Path) -> Path:
     for a in _AGENT_PATHS:
         _write_skill(ai, a)
     _write_all_instruction_files(root)
-    _write_product_contract(ai)
     _write_manifest(ai)
     _write_readme(ai)
     _write_active_spec(ai)
@@ -881,51 +862,7 @@ class TestCrossReference:
         assert report.passed is True
 
 
-# -- Category 5: Instruction Consistency -----------------------------------
-
-
-class TestInstructionConsistency:
-    """Tests for instruction-consistency validation."""
-
-    def test_identical_files_pass(self, tmp_path: Path) -> None:
-        _setup_full_project(tmp_path)
-        report = validate_content_integrity(
-            tmp_path,
-            categories=[IntegrityCategory.INSTRUCTION_CONSISTENCY],
-        )
-        assert report.category_passed(IntegrityCategory.INSTRUCTION_CONSISTENCY)
-
-    def test_different_skills_detected(self, tmp_path: Path) -> None:
-        _setup_full_project(tmp_path)
-        (tmp_path / "AGENTS.md").write_text(
-            _make_instruction_content(skills=_SKILL_PATHS[:5]),
-            encoding="utf-8",
-        )
-        report = validate_content_integrity(
-            tmp_path,
-            categories=[IntegrityCategory.INSTRUCTION_CONSISTENCY],
-        )
-        assert report.category_passed(IntegrityCategory.INSTRUCTION_CONSISTENCY) is False
-
-    def test_flat_layout_no_subsections_passes(self, tmp_path: Path) -> None:
-        """Flat skill layout has no category subsections — should pass."""
-        _setup_full_project(tmp_path)
-        lines = ["# Instructions", "", "## Skills", ""]
-        for s in _SKILL_PATHS:
-            lines.append(f"- `.claude/{s}`")
-        lines.extend(["", "## Agents", ""])
-        for a in _AGENT_PATHS:
-            lines.append(f"- `.claude/{a}`")
-        (tmp_path / "AGENTS.md").write_text("\n".join(lines), encoding="utf-8")
-        report = validate_content_integrity(
-            tmp_path,
-            categories=[IntegrityCategory.INSTRUCTION_CONSISTENCY],
-        )
-        fail_checks = [c for c in report.checks if "missing-subsections" in c.name]
-        assert len(fail_checks) == 0
-
-
-# -- Category 6: Manifest Coherence ---------------------------------------
+# -- Category 5: Manifest Coherence ---------------------------------------
 
 
 class TestManifestCoherence:
@@ -1050,7 +987,6 @@ class TestValidateContentIntegrity:
         cats_found = {c.category for c in report.checks}
         assert IntegrityCategory.FILE_EXISTENCE in cats_found
         assert IntegrityCategory.COUNTER_ACCURACY in cats_found
-        assert IntegrityCategory.INSTRUCTION_CONSISTENCY in cats_found
         assert IntegrityCategory.MANIFEST_COHERENCE in cats_found
 
     def test_category_filter_limits_checks(self, tmp_path: Path) -> None:
@@ -1073,3 +1009,560 @@ class TestValidateContentIntegrity:
         assert "passed" in d
         assert "categories" in d
         assert isinstance(d["categories"], dict)
+
+
+# -- Shared utility functions from _shared.py -----------------------------
+
+
+class TestIsSourceRepo:
+    """Tests for _is_source_repo detection."""
+
+    def test_source_repo_detected(self, tmp_path: Path) -> None:
+        (tmp_path / "src" / "ai_engineering" / "templates").mkdir(parents=True)
+        assert _is_source_repo(tmp_path) is True
+
+    def test_non_source_repo(self, tmp_path: Path) -> None:
+        assert _is_source_repo(tmp_path) is False
+
+
+class TestInstructionFiles:
+    """Tests for _instruction_files returning correct list by repo type."""
+
+    def test_source_repo_includes_templates(self, tmp_path: Path) -> None:
+        (tmp_path / "src" / "ai_engineering" / "templates").mkdir(parents=True)
+        files = _instruction_files(tmp_path)
+        assert any("templates" in f for f in files)
+        assert len(files) == 6  # 3 base + 3 template
+
+    def test_non_source_repo_base_only(self, tmp_path: Path) -> None:
+        files = _instruction_files(tmp_path)
+        assert len(files) == 3
+        assert all("templates" not in f for f in files)
+
+
+class TestGlobFiles:
+    """Tests for _glob_files utility."""
+
+    def test_glob_collects_matching_files(self, tmp_path: Path) -> None:
+        (tmp_path / "a.md").write_text("a")
+        (tmp_path / "b.md").write_text("b")
+        (tmp_path / "c.txt").write_text("c")
+        result = _glob_files(tmp_path, ["*.md"])
+        names = {p.name for p in result}
+        assert names == {"a.md", "b.md"}
+
+    def test_glob_multiple_patterns(self, tmp_path: Path) -> None:
+        (tmp_path / "x.md").write_text("x")
+        (tmp_path / "y.yml").write_text("y: 1")
+        result = _glob_files(tmp_path, ["*.md", "*.yml"])
+        names = {p.name for p in result}
+        assert names == {"x.md", "y.yml"}
+
+    def test_glob_excludes_directories(self, tmp_path: Path) -> None:
+        sub = tmp_path / "subdir.md"
+        sub.mkdir()
+        (tmp_path / "real.md").write_text("real")
+        result = _glob_files(tmp_path, ["*.md"])
+        assert all(p.is_file() for p in result)
+        assert len(result) == 1
+
+
+class TestIsExcluded:
+    """Tests for _is_excluded prefix checking."""
+
+    def test_excluded_prefix_matches(self) -> None:
+        assert _is_excluded(Path("contexts/team/readme.md"), ["contexts/team/"]) is True
+
+    def test_non_excluded_prefix(self) -> None:
+        assert _is_excluded(Path("contexts/languages/python.md"), ["contexts/team/"]) is False
+
+
+class TestExtractSection:
+    """Tests for _extract_section markdown parser."""
+
+    def test_extracts_section_content(self) -> None:
+        content = "## Skills\n\nList of skills.\n\n## Agents\n\nList of agents.\n"
+        section = _extract_section(content, "Skills")
+        assert "List of skills" in section
+        assert "List of agents" not in section
+
+    def test_missing_section_returns_empty(self) -> None:
+        content = "## Other\n\nSome content.\n"
+        assert _extract_section(content, "Skills") == ""
+
+    def test_last_section_captures_to_end(self) -> None:
+        content = "## Skills\n\nOnly section.\n"
+        section = _extract_section(content, "Skills")
+        assert "Only section." in section
+
+
+class TestIsTableSeparator:
+    """Tests for _is_table_separator."""
+
+    def test_separator_row(self) -> None:
+        assert _is_table_separator("|---|---|") is True
+        assert _is_table_separator("|:---:|:---:|") is True
+
+    def test_non_separator(self) -> None:
+        assert _is_table_separator("| name | value |") is False
+        assert _is_table_separator("") is False
+
+
+class TestParseSkillNames:
+    """Tests for _parse_skill_names from bullet and table formats."""
+
+    def test_bullet_format(self) -> None:
+        section = "- `.claude/skills/ai-test/SKILL.md`\n- `.claude/skills/ai-debug/SKILL.md`\n"
+        names = _parse_skill_names(section)
+        assert names == {"ai-test", "ai-debug"}
+
+    def test_table_format(self) -> None:
+        section = "| Skills (alphabetical) |\n|---|\n| ai-test, ai-debug |\n"
+        names = _parse_skill_names(section)
+        assert names == {"ai-test", "ai-debug"}
+
+    def test_empty_section(self) -> None:
+        assert _parse_skill_names("") == set()
+
+
+class TestParseAgentNames:
+    """Tests for _parse_agent_names from bullet and table formats."""
+
+    def test_bullet_format(self) -> None:
+        section = "- `.claude/agents/ai-build.md`\n- `.claude/agents/ai-plan.md`\n"
+        names = _parse_agent_names(section)
+        assert names == {"ai-build", "ai-plan"}
+
+    def test_table_format(self) -> None:
+        section = (
+            "| Agent | Purpose |\n|---|---|\n| ai-build | writes code |\n| ai-plan | planning |\n"
+        )
+        names = _parse_agent_names(section)
+        assert names == {"ai-build", "ai-plan"}
+
+    def test_skips_header_row(self) -> None:
+        section = "| Agent | Purpose |\n|---|---|\n"
+        names = _parse_agent_names(section)
+        assert names == set()
+
+    def test_empty_cells_skipped(self) -> None:
+        section = "| | Purpose |\n|---|---|\n"
+        names = _parse_agent_names(section)
+        assert names == set()
+
+
+class TestExtractSubsection:
+    """Tests for _extract_subsection (level-4 heading parser)."""
+
+    def test_extracts_subsection(self) -> None:
+        content = "#### Skills\n\nSkill content.\n\n#### Agents\n\nAgent content.\n"
+        section = _extract_subsection(content, "Skills")
+        assert "Skill content" in section
+        assert "Agent content" not in section
+
+    def test_missing_subsection_returns_empty(self) -> None:
+        content = "#### Other\n\nSome content.\n"
+        assert _extract_subsection(content, "Skills") == ""
+
+    def test_stops_at_higher_heading(self) -> None:
+        content = "#### Skills\n\nContent.\n\n### Higher\n\nOther.\n"
+        section = _extract_subsection(content, "Skills")
+        assert "Content." in section
+        assert "Other." not in section
+
+    def test_stops_at_same_level_heading(self) -> None:
+        content = "#### Skills\n\nFirst.\n\n#### Next\n\nSecond.\n"
+        section = _extract_subsection(content, "Skills")
+        assert "First." in section
+        assert "Second." not in section
+
+
+class TestParseNamesFromSubsection:
+    """Tests for _parse_skill_names_from_subsection and _parse_agent_names_from_subsection."""
+
+    def test_skill_names_from_subsection(self) -> None:
+        content = "#### Skills\n\n- `.claude/skills/ai-test/SKILL.md`\n\n#### Agents\n\n"
+        names = _parse_skill_names_from_subsection(content, "Skills")
+        assert names == {"ai-test"}
+
+    def test_agent_names_from_subsection(self) -> None:
+        content = "#### Skills\n\n\n#### Agents\n\n- `.agents/agents/ai-build.md`\n"
+        names = _parse_agent_names_from_subsection(content, "Agents")
+        assert names == {"ai-build"}
+
+    def test_missing_subsection_returns_empty(self) -> None:
+        assert _parse_skill_names_from_subsection("#### Other\n", "Skills") == set()
+        assert _parse_agent_names_from_subsection("#### Other\n", "Agents") == set()
+
+
+class TestExtractListings:
+    """Tests for _extract_listings with fallback to subsection parsing."""
+
+    def test_top_level_sections(self) -> None:
+        content = (
+            "## Skills\n\n"
+            "- `.claude/skills/ai-test/SKILL.md`\n\n"
+            "## Agents\n\n"
+            "- `.claude/agents/ai-build.md`\n"
+        )
+        skills, agents = _extract_listings(content)
+        assert skills == {"ai-test"}
+        assert agents == {"ai-build"}
+
+    def test_fallback_to_subsections(self) -> None:
+        content = (
+            "## Overview\n\nSome overview.\n\n"
+            "#### Skills\n\n"
+            "- `.claude/skills/ai-debug/SKILL.md`\n\n"
+            "#### Agents\n\n"
+            "- `.agents/agents/ai-plan.md`\n"
+        )
+        skills, agents = _extract_listings(content)
+        assert skills == {"ai-debug"}
+        assert agents == {"ai-plan"}
+
+    def test_empty_content(self) -> None:
+        skills, agents = _extract_listings("")
+        assert skills == set()
+        assert agents == set()
+
+
+class TestFileCache:
+    """Tests for FileCache utility."""
+
+    def test_sha256_caching(self, tmp_path: Path) -> None:
+        f = tmp_path / "test.txt"
+        f.write_text("hello")
+        cache = FileCache()
+        h1 = cache.sha256(f)
+        h2 = cache.sha256(f)
+        assert h1 == h2
+        assert len(h1) == 64  # SHA-256 hex digest length
+
+    def test_rglob_caching(self, tmp_path: Path) -> None:
+        (tmp_path / "a.md").write_text("a")
+        (tmp_path / "b.md").write_text("b")
+        cache = FileCache()
+        r1 = cache.rglob(tmp_path, "*.md")
+        r2 = cache.rglob(tmp_path, "*.md")
+        assert r1 == r2
+        assert len(r1) == 2
+
+    def test_glob_files_via_cache(self, tmp_path: Path) -> None:
+        (tmp_path / "x.md").write_text("x")
+        (tmp_path / "y.yml").write_text("y: 1")
+        cache = FileCache()
+        result = cache.glob_files(tmp_path, ["*.md", "*.yml"])
+        assert len(result) == 2
+
+
+# -- Counter Accuracy: pointer format and manifest checks -----------------
+
+
+class TestCounterAccuracyPointerFormat:
+    """Tests for pointer-format counting (Skills (N) / Agents (N)) in instruction files."""
+
+    def test_pointer_format_consistent(self, tmp_path: Path) -> None:
+        """Instruction files using 'Skills (N)' pointer format produce consistent counts."""
+        ai = _make_governance(tmp_path)
+        _write_manifest(ai)
+        _write_readme(ai)
+        _write_active_spec(ai)
+
+        pointer_content = (
+            "# Instructions\n\n"
+            "## Skills (5)\n\nSee skills directory for details.\n\n"
+            "## Agents (3)\n\nSee agents directory for details.\n"
+        )
+        _write_all_instruction_files(tmp_path, content=pointer_content)
+
+        report = validate_content_integrity(
+            tmp_path,
+            categories=[IntegrityCategory.COUNTER_ACCURACY],
+        )
+        ok_checks = [
+            c
+            for c in report.checks
+            if c.category == IntegrityCategory.COUNTER_ACCURACY
+            and c.status == IntegrityStatus.OK
+            and "consistent" in c.name
+        ]
+        assert len(ok_checks) >= 1
+
+    def test_agent_count_mismatch_detected(self, tmp_path: Path) -> None:
+        """Mismatched agent counts across instruction files are flagged."""
+        _setup_full_project(tmp_path)
+        # Overwrite one file with different agent list
+        shorter_agents = _AGENT_PATHS[:-1]
+        shorter = _make_instruction_content(agents=shorter_agents)
+        (tmp_path / "AGENTS.md").write_text(shorter, encoding="utf-8")
+        report = validate_content_integrity(
+            tmp_path,
+            categories=[IntegrityCategory.COUNTER_ACCURACY],
+        )
+        fail_checks = [
+            c
+            for c in report.checks
+            if c.category == IntegrityCategory.COUNTER_ACCURACY
+            and c.status == IntegrityStatus.FAIL
+            and "agent-count-mismatch" in c.name
+        ]
+        assert len(fail_checks) >= 1
+
+    def test_no_instruction_files_returns_empty(self, tmp_path: Path) -> None:
+        """No instruction files results in no counter checks (early return)."""
+        ai = _make_governance(tmp_path)
+        _write_manifest(ai)
+        _write_active_spec(ai)
+        report = validate_content_integrity(
+            tmp_path,
+            categories=[IntegrityCategory.COUNTER_ACCURACY],
+        )
+        counter_checks = [
+            c for c in report.checks if c.category == IntegrityCategory.COUNTER_ACCURACY
+        ]
+        # With no files found, the checker returns early -- no results
+        assert all(c.name.startswith("missing-") for c in counter_checks)
+
+
+class TestCounterAccuracyManifest:
+    """Tests for manifest.yml skill/agent count matching."""
+
+    def test_manifest_skill_mismatch(self, tmp_path: Path) -> None:
+        """Manifest skills.total != instruction file count is flagged."""
+        ai = _make_governance(tmp_path)
+        _write_readme(ai)
+        _write_active_spec(ai)
+        # Manifest with skills.total = 99 (wrong)
+        (ai / "manifest.yml").write_text(
+            "name: test\nskills:\n  total: 99\nagents:\n  total: 0\n",
+            encoding="utf-8",
+        )
+        _write_all_instruction_files(tmp_path)
+        report = validate_content_integrity(
+            tmp_path,
+            categories=[IntegrityCategory.COUNTER_ACCURACY],
+        )
+        fail_checks = [
+            c
+            for c in report.checks
+            if c.name == "manifest-skills" and c.status == IntegrityStatus.FAIL
+        ]
+        assert len(fail_checks) == 1
+        assert "99" in fail_checks[0].message
+
+    def test_manifest_skill_match(self, tmp_path: Path) -> None:
+        """Manifest skills.total matching instruction file count passes."""
+        ai = _make_governance(tmp_path)
+        _write_readme(ai)
+        _write_active_spec(ai)
+        skill_count = len(_SKILL_PATHS)
+        (ai / "manifest.yml").write_text(
+            f"name: test\nskills:\n  total: {skill_count}\nagents:\n  total: 0\n",
+            encoding="utf-8",
+        )
+        _write_all_instruction_files(tmp_path)
+        report = validate_content_integrity(
+            tmp_path,
+            categories=[IntegrityCategory.COUNTER_ACCURACY],
+        )
+        ok_checks = [
+            c
+            for c in report.checks
+            if c.name == "manifest-skills" and c.status == IntegrityStatus.OK
+        ]
+        assert len(ok_checks) == 1
+
+    def test_manifest_agent_mismatch(self, tmp_path: Path) -> None:
+        """Manifest agents.total != instruction file count is flagged."""
+        ai = _make_governance(tmp_path)
+        _write_readme(ai)
+        _write_active_spec(ai)
+        (ai / "manifest.yml").write_text(
+            "name: test\nskills:\n  total: 0\nagents:\n  total: 99\n",
+            encoding="utf-8",
+        )
+        _write_all_instruction_files(tmp_path)
+        report = validate_content_integrity(
+            tmp_path,
+            categories=[IntegrityCategory.COUNTER_ACCURACY],
+        )
+        fail_checks = [
+            c
+            for c in report.checks
+            if c.name == "manifest-agents" and c.status == IntegrityStatus.FAIL
+        ]
+        assert len(fail_checks) == 1
+        assert "99" in fail_checks[0].message
+
+    def test_manifest_agent_match(self, tmp_path: Path) -> None:
+        """Manifest agents.total matching instruction file count passes."""
+        ai = _make_governance(tmp_path)
+        _write_readme(ai)
+        _write_active_spec(ai)
+        agent_count = len(_AGENT_PATHS)
+        (ai / "manifest.yml").write_text(
+            f"name: test\nskills:\n  total: 0\nagents:\n  total: {agent_count}\n",
+            encoding="utf-8",
+        )
+        _write_all_instruction_files(tmp_path)
+        report = validate_content_integrity(
+            tmp_path,
+            categories=[IntegrityCategory.COUNTER_ACCURACY],
+        )
+        ok_checks = [
+            c
+            for c in report.checks
+            if c.name == "manifest-agents" and c.status == IntegrityStatus.OK
+        ]
+        assert len(ok_checks) == 1
+
+
+# -- Skill Frontmatter: additional coverage --------------------------------
+
+
+class TestSkillFrontmatterExtended:
+    """Extended tests for skill frontmatter edge cases."""
+
+    def test_invalid_yaml_frontmatter(self, tmp_path: Path) -> None:
+        """Invalid YAML in frontmatter block is flagged."""
+        _setup_full_project(tmp_path)
+        bad_dir = tmp_path / ".claude" / "skills" / "bad-yaml"
+        bad_dir.mkdir(parents=True, exist_ok=True)
+        (bad_dir / "SKILL.md").write_text(
+            "---\nname: bad-yaml\ninvalid: [unclosed\n---\n\n# bad-yaml\n",
+            encoding="utf-8",
+        )
+        report = validate_content_integrity(
+            tmp_path,
+            categories=[IntegrityCategory.SKILL_FRONTMATTER],
+        )
+        assert report.category_passed(IntegrityCategory.SKILL_FRONTMATTER) is False
+
+    def test_frontmatter_not_a_mapping(self, tmp_path: Path) -> None:
+        """Frontmatter that parses to a non-mapping type is flagged."""
+        _setup_full_project(tmp_path)
+        bad_dir = tmp_path / ".claude" / "skills" / "bad-type"
+        bad_dir.mkdir(parents=True, exist_ok=True)
+        (bad_dir / "SKILL.md").write_text(
+            "---\n- just\n- a\n- list\n---\n\n# bad-type\n",
+            encoding="utf-8",
+        )
+        report = validate_content_integrity(
+            tmp_path,
+            categories=[IntegrityCategory.SKILL_FRONTMATTER],
+        )
+        assert report.category_passed(IntegrityCategory.SKILL_FRONTMATTER) is False
+
+    def test_name_mismatch_fails(self, tmp_path: Path) -> None:
+        """Skill name not matching directory name is flagged."""
+        _setup_full_project(tmp_path)
+        bad_dir = tmp_path / ".claude" / "skills" / "ai-mismatch"
+        bad_dir.mkdir(parents=True, exist_ok=True)
+        (bad_dir / "SKILL.md").write_text(
+            "---\nname: ai-wrong-name\nversion: 1.0.0\n---\n\n# mismatch\n",
+            encoding="utf-8",
+        )
+        report = validate_content_integrity(
+            tmp_path,
+            categories=[IntegrityCategory.SKILL_FRONTMATTER],
+        )
+        fail_checks = [c for c in report.checks if c.name == "invalid-name"]
+        assert len(fail_checks) >= 1
+
+    def test_valid_os_field(self, tmp_path: Path) -> None:
+        """Skill with valid os field passes."""
+        _setup_full_project(tmp_path)
+        skill_dir = tmp_path / ".claude" / "skills" / "ai-os-valid"
+        skill_dir.mkdir(parents=True, exist_ok=True)
+        (skill_dir / "SKILL.md").write_text(
+            "---\nname: ai-os-valid\nos:\n  - linux\n  - darwin\n---\n\n# os-valid\n",
+            encoding="utf-8",
+        )
+        report = validate_content_integrity(
+            tmp_path,
+            categories=[IntegrityCategory.SKILL_FRONTMATTER],
+        )
+        os_fails = [c for c in report.checks if c.name == "invalid-os-values"]
+        assert len(os_fails) == 0
+
+    def test_invalid_os_values(self, tmp_path: Path) -> None:
+        """Skill with unsupported OS values is flagged."""
+        _setup_full_project(tmp_path)
+        skill_dir = tmp_path / ".claude" / "skills" / "ai-os-bad"
+        skill_dir.mkdir(parents=True, exist_ok=True)
+        (skill_dir / "SKILL.md").write_text(
+            "---\nname: ai-os-bad\nos:\n  - not-an-os\n---\n\n# os-bad\n",
+            encoding="utf-8",
+        )
+        report = validate_content_integrity(
+            tmp_path,
+            categories=[IntegrityCategory.SKILL_FRONTMATTER],
+        )
+        os_fails = [c for c in report.checks if c.name == "invalid-os-values"]
+        assert len(os_fails) == 1
+
+    def test_os_not_a_list(self, tmp_path: Path) -> None:
+        """Skill with os field that is not a list is flagged."""
+        _setup_full_project(tmp_path)
+        skill_dir = tmp_path / ".claude" / "skills" / "ai-os-str"
+        skill_dir.mkdir(parents=True, exist_ok=True)
+        (skill_dir / "SKILL.md").write_text(
+            "---\nname: ai-os-str\nos: linux\n---\n\n# os-str\n",
+            encoding="utf-8",
+        )
+        report = validate_content_integrity(
+            tmp_path,
+            categories=[IntegrityCategory.SKILL_FRONTMATTER],
+        )
+        os_fails = [c for c in report.checks if c.name == "invalid-os"]
+        assert len(os_fails) == 1
+
+    def test_requires_valid_list_fields(self, tmp_path: Path) -> None:
+        """Skill with valid requires list fields passes."""
+        _setup_full_project(tmp_path)
+        skill_dir = tmp_path / ".claude" / "skills" / "ai-req-valid"
+        skill_dir.mkdir(parents=True, exist_ok=True)
+        (skill_dir / "SKILL.md").write_text(
+            "---\nname: ai-req-valid\nrequires:\n  bins:\n    - ruff\n    - pytest\n---\n\n# req\n",
+            encoding="utf-8",
+        )
+        report = validate_content_integrity(
+            tmp_path,
+            categories=[IntegrityCategory.SKILL_FRONTMATTER],
+        )
+        req_fails = [c for c in report.checks if "invalid-requires" in c.name]
+        assert len(req_fails) == 0
+
+    def test_version_in_metadata_block(self, tmp_path: Path) -> None:
+        """Skill with version in metadata sub-block is accepted."""
+        _setup_full_project(tmp_path)
+        skill_dir = tmp_path / ".claude" / "skills" / "ai-meta-ver"
+        skill_dir.mkdir(parents=True, exist_ok=True)
+        (skill_dir / "SKILL.md").write_text(
+            "---\nname: ai-meta-ver\nmetadata:\n  version: 2.0.0\n---\n\n# meta-ver\n",
+            encoding="utf-8",
+        )
+        report = validate_content_integrity(
+            tmp_path,
+            categories=[IntegrityCategory.SKILL_FRONTMATTER],
+        )
+        ver_fails = [c for c in report.checks if c.name == "invalid-version"]
+        assert len(ver_fails) == 0
+
+    def test_no_skill_dirs_returns_ok(self, tmp_path: Path) -> None:
+        """No IDE skill directories results in OK skip."""
+        ai = _make_governance(tmp_path)
+        _write_manifest(ai)
+        _write_active_spec(ai)
+        report = validate_content_integrity(
+            tmp_path,
+            categories=[IntegrityCategory.SKILL_FRONTMATTER],
+        )
+        ok_checks = [
+            c
+            for c in report.checks
+            if c.category == IntegrityCategory.SKILL_FRONTMATTER and c.status == IntegrityStatus.OK
+        ]
+        assert len(ok_checks) == 1
+        assert "skipping" in ok_checks[0].message.lower()
