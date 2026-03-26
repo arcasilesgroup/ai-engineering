@@ -65,6 +65,15 @@ Before writing code or designing features, read `.ai-engineering/contexts/projec
 
 - Read/write `.ai-engineering/contexts/team/lessons.md` to persist learnings across sessions
 
+### 10. Context Loading
+
+Before writing or reviewing code, load the applicable context files:
+1. Detect the project's languages from file extensions and build config
+2. Read `.ai-engineering/contexts/languages/{language}.md` for each detected language
+3. Read `.ai-engineering/contexts/frameworks/{framework}.md` for each detected framework
+4. Read `.ai-engineering/contexts/team/*.md` for team conventions
+5. Apply loaded standards to all code generation and review
+
 ## Task Management
 
 1. **Plan First**: Write plan via `/ai-plan` to `.ai-engineering/specs/plan.md` with checkable items

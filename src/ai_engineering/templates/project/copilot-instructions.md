@@ -14,8 +14,9 @@ Before non-trivial work:
 1. **Read active spec** — `.ai-engineering/specs/spec.md` and `.ai-engineering/specs/plan.md`.
 2. **Read decision store** — `.ai-engineering/state/decision-store.json`.
 3. **Read project identity** — `.ai-engineering/contexts/project-identity.md` (if it exists).
-3. **Run cleanup** — sync repo (status, git pull, prune, branch cleanup).
-4. **Verify tooling** — ruff, gitleaks, pytest, ty.
+4. **Load contexts** — read `.ai-engineering/contexts/languages/{lang}.md`, `frameworks/{fw}.md`, and `team/*.md` for each detected stack before writing code.
+5. **Run cleanup** — sync repo (status, git pull, prune, branch cleanup).
+6. **Verify tooling** — ruff, gitleaks, pytest, ty.
 
 ## Plan/Execute Flow (Spec-as-Gate)
 

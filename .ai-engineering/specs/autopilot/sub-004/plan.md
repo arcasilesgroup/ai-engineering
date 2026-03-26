@@ -1,6 +1,6 @@
 ---
 total: 12
-completed: 0
+completed: 12
 ---
 
 # Plan: sub-004 Context Loading Enforcement + Language Cleanup
@@ -8,32 +8,32 @@ completed: 0
 ## Plan
 
 ### Task 1: Delete ruby.md from dogfood and template contexts
-- [ ] Delete `.ai-engineering/contexts/languages/ruby.md`
-- [ ] Delete `src/ai_engineering/templates/.ai-engineering/contexts/languages/ruby.md`
+- [x] Delete `.ai-engineering/contexts/languages/ruby.md`
+- [x] Delete `src/ai_engineering/templates/.ai-engineering/contexts/languages/ruby.md`
 - **Files**: `.ai-engineering/contexts/languages/ruby.md`, `src/ai_engineering/templates/.ai-engineering/contexts/languages/ruby.md`
 - **Done**: Neither file exists. `ls` confirms 0 matches for `ruby.md` in both directories.
 
 ### Task 2: Delete elixir.md from dogfood and template contexts
-- [ ] Delete `.ai-engineering/contexts/languages/elixir.md`
-- [ ] Delete `src/ai_engineering/templates/.ai-engineering/contexts/languages/elixir.md`
+- [x] Delete `.ai-engineering/contexts/languages/elixir.md`
+- [x] Delete `src/ai_engineering/templates/.ai-engineering/contexts/languages/elixir.md`
 - **Files**: `.ai-engineering/contexts/languages/elixir.md`, `src/ai_engineering/templates/.ai-engineering/contexts/languages/elixir.md`
 - **Done**: Neither file exists. `ls` confirms 0 matches for `elixir.md` in both directories.
 
 ### Task 3: Delete universal.md from dogfood and template contexts
-- [ ] Delete `.ai-engineering/contexts/languages/universal.md`
-- [ ] Delete `src/ai_engineering/templates/.ai-engineering/contexts/languages/universal.md`
+- [x] Delete `.ai-engineering/contexts/languages/universal.md`
+- [x] Delete `src/ai_engineering/templates/.ai-engineering/contexts/languages/universal.md`
 - **Files**: `.ai-engineering/contexts/languages/universal.md`, `src/ai_engineering/templates/.ai-engineering/contexts/languages/universal.md`
 - **Done**: Neither file exists. `ls` confirms 0 matches for `universal.md` in both directories.
 
 ### Task 4: Delete ruby and elixir template instruction files
-- [ ] Delete `src/ai_engineering/templates/project/instructions/ruby.instructions.md`
-- [ ] Delete `src/ai_engineering/templates/project/instructions/elixir.instructions.md`
+- [x] Delete `src/ai_engineering/templates/project/instructions/ruby.instructions.md`
+- [x] Delete `src/ai_engineering/templates/project/instructions/elixir.instructions.md`
 - **Files**: `src/ai_engineering/templates/project/instructions/ruby.instructions.md`, `src/ai_engineering/templates/project/instructions/elixir.instructions.md`
 - **Done**: Neither file exists in `src/ai_engineering/templates/project/instructions/`.
 
 ### Task 5: Create cpp.md context file (dogfood + template)
-- [ ] Create `.ai-engineering/contexts/languages/cpp.md` following the pattern of existing context files (200+ lines)
-- [ ] Copy to `src/ai_engineering/templates/.ai-engineering/contexts/languages/cpp.md`
+- [x] Create `.ai-engineering/contexts/languages/cpp.md` following the pattern of existing context files (200+ lines)
+- [x] Copy to `src/ai_engineering/templates/.ai-engineering/contexts/languages/cpp.md`
 - **Content structure** (follow go.md/rust.md pattern):
   - Naming conventions (snake_case functions, PascalCase types, UPPER_SNAKE constants)
   - Memory management (smart pointers over raw, RAII, no manual new/delete)
@@ -49,9 +49,9 @@ completed: 0
 - **Done**: Both files exist with 200+ lines. Content covers all sections listed above. No TODOs or stubs remain.
 
 ### Task 6: Create lang-generic.md handler (all 3 mirrors)
-- [ ] Create `.claude/skills/ai-review/handlers/lang-generic.md`
-- [ ] Copy to `.github/skills/ai-review/handlers/lang-generic.md`
-- [ ] Copy to `.agents/skills/review/handlers/lang-generic.md`
+- [x] Create `.claude/skills/ai-review/handlers/lang-generic.md`
+- [x] Copy to `.github/skills/ai-review/handlers/lang-generic.md`
+- [x] Copy to `.agents/skills/review/handlers/lang-generic.md`
 - **Content structure** (follow lang-python.md pattern):
   - Purpose: Generic language review handler for languages without a dedicated `lang-{language}.md` handler
   - Integration: Step 2b, same YAML format, +10% confidence bonus on corroboration
@@ -67,9 +67,9 @@ completed: 0
 - **Done**: All 3 files exist with identical content. Structure matches lang-python.md pattern. Extension-to-language mapping covers all 14 supported languages.
 
 ### Task 7: Update review.md with fallback dispatch instruction (all 3 mirrors)
-- [ ] Edit `.claude/skills/ai-review/handlers/review.md` -- add Step 2b between Step 2 and Step 3
-- [ ] Edit `.github/skills/ai-review/handlers/review.md` -- same change
-- [ ] Edit `.agents/skills/review/handlers/review.md` -- same change
+- [x] Edit `.claude/skills/ai-review/handlers/review.md` -- add Step 2b between Step 2 and Step 3
+- [x] Edit `.github/skills/ai-review/handlers/review.md` -- same change
+- [x] Edit `.agents/skills/review/handlers/review.md` -- same change
 - **Change**: After existing Step 2 ("Dispatch 8 Agents"), add:
   ```
   ### Step 2b -- Language-Specific Review
@@ -87,8 +87,8 @@ completed: 0
 - **Done**: All 3 files contain Step 2b with dedicated handler list and generic fallback instruction. Step numbering is consistent (Steps 1, 2, 2b, 3, 4).
 
 ### Task 8: Update CLAUDE.md with context loading instruction (root + template)
-- [ ] Edit `CLAUDE.md` -- add context loading instruction in Workflow Orchestration section
-- [ ] Edit `src/ai_engineering/templates/project/CLAUDE.md` -- same change
+- [x] Edit `CLAUDE.md` -- add context loading instruction in Workflow Orchestration section
+- [x] Edit `src/ai_engineering/templates/project/CLAUDE.md` -- same change
 - **Change**: Add a new numbered subsection (after sub-003's project-identity instruction, which will be in the Workflow Orchestration area). Insert as the LAST numbered item before "## Task Management":
   ```
   ### 10. Context Loading
@@ -105,8 +105,8 @@ completed: 0
 - **Done**: Both files contain the context loading instruction in the Workflow Orchestration section. The instruction follows sub-003's project-identity instruction.
 
 ### Task 9: Update copilot-instructions.md with context loading instruction (root + template)
-- [ ] Edit `.github/copilot-instructions.md` -- add context loading instruction
-- [ ] Edit `src/ai_engineering/templates/project/copilot-instructions.md` -- add context loading instruction
+- [x] Edit `.github/copilot-instructions.md` -- add context loading instruction
+- [x] Edit `src/ai_engineering/templates/project/copilot-instructions.md` -- add context loading instruction
 - **Change**: Add under Session Start Protocol (after sub-003's project-identity instruction):
   ```
   5. **Load contexts** -- read `.ai-engineering/contexts/languages/{lang}.md`, `frameworks/{fw}.md`, and `team/*.md` for each detected stack before writing code.
@@ -116,7 +116,7 @@ completed: 0
 - **Done**: Both files contain the context loading instruction. Root file has it in Session Start Protocol. Template file has it in the equivalent section.
 
 ### Task 10: Update ai-build.md with enumerated language list
-- [ ] Edit `.claude/agents/ai-build.md` lines 32-35 -- replace generic `{detected_language}` with enumerated list
+- [x] Edit `.claude/agents/ai-build.md` lines 32-35 -- replace generic `{detected_language}` with enumerated list
 - **Change**: Replace the Load Contexts section content with:
   ```
   ### 2. Load Contexts
@@ -134,18 +134,18 @@ completed: 0
 - **Done**: ai-build.md contains enumerated list of 14 languages and 15 frameworks. The `{detected_language}` generic pattern is replaced.
 
 ### Task 11: Verify no stale references remain
-- [ ] Grep entire repo for `ruby.md`, `elixir.md`, `universal.md` in contexts/languages paths -- should only appear in spec files, CHANGELOG, and out-of-scope Python code (autodetect.py, sync_command_mirrors.py, test files, injection_patterns.py)
-- [ ] Verify `injection_patterns.py` ruby reference is UNTOUCHED (security pattern, not language context)
-- [ ] Verify autodetect.py, sync_command_mirrors.py, test_autodetect.py, test_wizard.py are NOT modified (out of scope)
+- [x] Grep entire repo for `ruby.md`, `elixir.md`, `universal.md` in contexts/languages paths -- should only appear in spec files, CHANGELOG, and out-of-scope Python code (autodetect.py, sync_command_mirrors.py, test files, injection_patterns.py)
+- [x] Verify `injection_patterns.py` ruby reference is UNTOUCHED (security pattern, not language context)
+- [x] Verify autodetect.py, sync_command_mirrors.py, test_autodetect.py, test_wizard.py are NOT modified (out of scope)
 - **Files**: none modified (verification only)
 - **Done**: Grep confirms zero references to ruby.md/elixir.md/universal.md in contexts paths except spec files and out-of-scope code. injection_patterns.py is untouched.
 
 ### Task 12: Verify final file counts and consistency
-- [ ] Count files in `.ai-engineering/contexts/languages/` -- should be 14 (13 original minus 3 deleted plus 1 created plus rust = 14)
-- [ ] Count files in `src/ai_engineering/templates/.ai-engineering/contexts/languages/` -- should be 14
-- [ ] Count files in `src/ai_engineering/templates/project/instructions/` -- should be 16 (was 18, minus 2 ruby/elixir)
-- [ ] Verify all 3 review.md mirrors have identical Step 2b content
-- [ ] Verify all 3 lang-generic.md mirrors have identical content
+- [x] Count files in `.ai-engineering/contexts/languages/` -- should be 14 (13 original minus 3 deleted plus 1 created plus rust = 14)
+- [x] Count files in `src/ai_engineering/templates/.ai-engineering/contexts/languages/` -- should be 14
+- [x] Count files in `src/ai_engineering/templates/project/instructions/` -- should be 16 (was 18, minus 2 ruby/elixir)
+- [x] Verify all 3 review.md mirrors have identical Step 2b content
+- [x] Verify all 3 lang-generic.md mirrors have identical content
 - **Files**: none modified (verification only)
 - **Done**: All counts match expected values. All mirrors are identical.
 
@@ -179,4 +179,35 @@ completed: 0
 All files identified. Patterns well understood. The only ambiguity is the exact insertion point in CLAUDE.md/copilot-instructions.md which depends on sub-003's changes -- mitigated by reading files at execution time.
 
 ## Self-Report
-[EMPTY -- populated by Phase 4]
+
+**Status**: COMPLETE (12/12 tasks)
+**Confidence**: 100%
+
+### Summary
+
+All 12 tasks executed successfully with zero retries.
+
+### Deletions (Tasks 1-4)
+- Deleted 6 language context files: ruby.md, elixir.md, universal.md from both dogfood and template directories
+- Deleted 2 instruction files: ruby.instructions.md, elixir.instructions.md from template instructions directory
+
+### Creations (Tasks 5-6)
+- Created `cpp.md` (329 lines) in both dogfood and template directories. Covers: modern C++ standards (C++17/20), memory management (RAII, smart pointers), naming conventions, error handling, const correctness, concurrency, move semantics, templates/concepts, common pitfalls (UB), performance, build/tooling (compiler warnings, sanitizers, clang-tidy), testing (Google Test/Catch2), header hygiene, anti-patterns
+- Created `lang-generic.md` handler in all 3 IDE mirrors. Follows lang-python.md structure with parameterized language detection, context-file-driven checks, severity mapping, and diagnostic tool cross-reference
+
+### Edits (Tasks 7-10)
+- Added Step 2b (Language-Specific Review) to all 3 review.md mirrors with dedicated handler list and generic fallback dispatch
+- Added section "### 10. Context Loading" to CLAUDE.md (root + template) after sub-003's project-identity instruction
+- Added step 4 "Load contexts" to copilot-instructions.md Session Start Protocol (root + template), fixed duplicate numbering (3,3 -> 3,4,5,6)
+- Replaced generic `{detected_language}` in ai-build.md with enumerated list: 14 languages, 15 frameworks
+
+### Verification (Tasks 11-12)
+- Grep confirms zero stale references to ruby.md/elixir.md/universal.md outside spec files
+- All out-of-scope files (autodetect.py, sync_command_mirrors.py, test_autodetect.py, test_wizard.py, injection_patterns.py) confirmed UNTOUCHED
+- File counts: dogfood languages = 14, template languages = 14, template instructions = 16
+- All 3 review.md mirrors identical. All 3 lang-generic.md mirrors identical
+
+### Decisions
+- Language count is 14 (not 13) because rust.md stays per spec analysis. The parent spec line 219 says "(14)" which is correct
+- copilot-instructions.md had duplicate step numbering (two items numbered "3"). Fixed by renumbering to sequential 3,4,5,6 when adding the context loading step
+- cpp.md at 329 lines exceeds the 200-line minimum. Depth was warranted given C++ complexity (memory safety, UB, concurrency all need thorough coverage)

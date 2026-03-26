@@ -2,7 +2,7 @@
 id: sub-004
 parent: spec-079
 title: "Context Loading Enforcement + Language Cleanup"
-status: planning
+status: complete
 files: [".ai-engineering/contexts/languages/ruby.md", ".ai-engineering/contexts/languages/elixir.md", ".ai-engineering/contexts/languages/universal.md", ".ai-engineering/contexts/languages/cpp.md", "src/ai_engineering/templates/.ai-engineering/contexts/languages/ruby.md", "src/ai_engineering/templates/.ai-engineering/contexts/languages/elixir.md", "src/ai_engineering/templates/.ai-engineering/contexts/languages/universal.md", "src/ai_engineering/templates/.ai-engineering/contexts/languages/cpp.md", ".claude/skills/ai-review/handlers/lang-generic.md", ".claude/skills/ai-review/handlers/review.md", ".claude/skills/ai-review/handlers/lang-ruby.md", ".claude/skills/ai-review/handlers/lang-elixir.md", ".claude/agents/ai-build.md", "CLAUDE.md", "src/ai_engineering/templates/project/CLAUDE.md", "src/ai_engineering/templates/project/copilot-instructions.md", ".github/skills/ai-review/handlers/lang-generic.md", ".github/skills/ai-review/handlers/review.md", ".agents/skills/review/handlers/lang-generic.md", ".agents/skills/review/handlers/review.md"]
 depends_on: ["sub-003"]
 ---

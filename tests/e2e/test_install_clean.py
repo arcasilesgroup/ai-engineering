@@ -42,6 +42,7 @@ class TestInstallClean:
             "contexts",
             "contexts/languages",
             "contexts/team",
+            "specs",
             "state",
         ]
         for dirname in required_dirs:
@@ -103,6 +104,42 @@ class TestInstallClean:
 
         # Should have language contexts
         assert (ai_dir / "contexts" / "languages" / "python.md").is_file()
+
+    def test_install_creates_team_seed_files(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        install(tmp_path, stacks=["python"], ides=["vscode"])
+        team_dir = tmp_path / ".ai-engineering" / "contexts" / "team"
+
+        # Exactly 2 seed files
+        team_files = sorted(f.name for f in team_dir.iterdir() if f.is_file())
+        assert team_files == ["README.md", "lessons.md"]
+
+        # lessons.md is generic (no project-specific patterns)
+        lessons = (team_dir / "lessons.md").read_text(encoding="utf-8")
+        assert "## Rules & Patterns" in lessons
+        assert "## How to Add Lessons" in lessons
+        assert "## Patterns" in lessons
+        # Must NOT contain ai-engineering specific lesson entries
+        assert "/ai-pr" not in lessons
+        assert "/ai-plan" not in lessons
+
+    def test_install_creates_specs_placeholders(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        install(tmp_path, stacks=["python"], ides=["vscode"])
+        specs_dir = tmp_path / ".ai-engineering" / "specs"
+
+        assert (specs_dir / "spec.md").is_file()
+        assert (specs_dir / "plan.md").is_file()
+
+        spec_content = (specs_dir / "spec.md").read_text(encoding="utf-8")
+        assert "No active spec" in spec_content
+
+        plan_content = (specs_dir / "plan.md").read_text(encoding="utf-8")
+        assert "No active plan" in plan_content
 
     def test_install_result_counts(
         self,
