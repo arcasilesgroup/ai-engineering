@@ -1,6 +1,6 @@
 ---
 total: 3
-completed: 0
+completed: 3
 ---
 
 # Plan: sub-005 Build Standards Validation
@@ -47,11 +47,11 @@ Status values:
 - `.claude/skills/ai-code/SKILL.md`
 
 **Done:**
-- [ ] T-5.1 ai-code/SKILL.md contains a "Self-Check Against Loaded Contexts" step with the three-category procedure
-- [ ] T-5.1 ai-code/SKILL.md contains the compliance trace format (table with Category, Status, Details)
-- [ ] T-5.1 Status values (checked, deviation, n/a) are documented with clear definitions
-- [ ] T-5.1 Deviation-found behavior is documented (fix before proceeding, record fix in trace)
-- [ ] T-5.1 Category-to-header mapping logic is documented (how to find naming/anti-pattern/error sections in arbitrary context files)
+- [x] T-5.1 ai-code/SKILL.md contains a "Self-Check Against Loaded Contexts" step with the three-category procedure
+- [x] T-5.1 ai-code/SKILL.md contains the compliance trace format (table with Category, Status, Details)
+- [x] T-5.1 Status values (checked, deviation, n/a) are documented with clear definitions
+- [x] T-5.1 Deviation-found behavior is documented (fix before proceeding, record fix in trace)
+- [x] T-5.1 Category-to-header mapping logic is documented (how to find naming/anti-pattern/error sections in arbitrary context files)
 
 ### T-5.2: Add role clarification comment to lang-generic.md
 
@@ -67,9 +67,9 @@ Note: Build-time validation in /ai-code performs a lightweight self-check of 3 c
 - `.claude/skills/ai-review/handlers/lang-generic.md`
 
 **Done:**
-- [ ] T-5.2 lang-generic.md contains a note clarifying its role as exhaustive review-time counterpart to build-time checks
-- [ ] T-5.2 All 5 existing categories in Step 2 (naming, idiomatic, anti-patterns, error handling, testing) are unchanged
-- [ ] T-5.2 No behavioral change to lang-generic.md -- output format, severity mapping, and procedure remain identical
+- [x] T-5.2 lang-generic.md contains a note clarifying its role as exhaustive review-time counterpart to build-time checks
+- [x] T-5.2 All 5 existing categories in Step 2 (naming, idiomatic, anti-patterns, error handling, testing) are unchanged
+- [x] T-5.2 No behavioral change to lang-generic.md -- output format, severity mapping, and procedure remain identical
 
 ### T-5.3: Validate no regression in per-language review handlers
 
@@ -91,8 +91,8 @@ This is a read-only verification task. No files are modified.
 - (none modified -- read-only verification)
 
 **Done:**
-- [ ] T-5.3 All 8 per-language handlers verified: no modifications needed, all check categories intact
-- [ ] T-5.3 Verification note appended to Self-Report confirming no regression
+- [x] T-5.3 All 8 per-language handlers verified: no modifications needed, all check categories intact
+- [x] T-5.3 Verification note appended to Self-Report confirming no regression
 
 ## Confidence Assessment
 
@@ -113,4 +113,18 @@ This is a read-only verification task. No files are modified.
 - ai-code/SKILL.md (from sub-004) -- the skill file must exist with a self-review step that T-5.1 enriches
 
 ## Self-Report
-[EMPTY -- populated by Phase 4]
+
+| File / Scope | Classification | Notes |
+|-------------|----------------|-------|
+| `.claude/skills/ai-code/SKILL.md` Step 6 | real | Enriched self-review with 5 sub-steps (6a-6e): context file identification, H2 header mapping table, 3-category check procedure, compliance trace format, deviation-found fix-before-proceeding behavior |
+| `.claude/skills/ai-review/handlers/lang-generic.md` Purpose section | real | Added blockquote note clarifying build-time vs review-time validation division; zero behavioral change to existing procedure, severity mapping, or output format |
+| `lang-python.md` | verified (read-only) | 6-step procedure intact: detect, critical, high, medium, framework, diagnostics |
+| `lang-typescript.md` | verified (read-only) | 7-step procedure intact: PR readiness, detect, critical, high, medium, Node.js, diagnostics |
+| `lang-go.md` | verified (read-only) | 5-step procedure intact: detect, critical, high, medium, diagnostics |
+| `lang-rust.md` | verified (read-only) | 5-step procedure intact: detect, critical, high, medium, diagnostics |
+| `lang-java.md` | verified (read-only) | 6-step procedure intact: detect, critical, high, medium, workflow/state machine, diagnostics |
+| `lang-kotlin.md` | verified (read-only) | 6-step procedure intact: detect, critical, high, medium, Android security, diagnostics |
+| `lang-cpp.md` | verified (read-only) | 5-step procedure intact: detect, critical, high, medium, diagnostics |
+| `lang-flutter.md` | verified (read-only) | 7-step procedure intact: detect, critical, high, medium, accessibility, i18n, diagnostics |
+
+**No regression**: All 8 per-language handlers retain their complete check categories. The only file behavioral change is in `ai-code/SKILL.md` (enriched self-review step). `lang-generic.md` received an informational note only.
