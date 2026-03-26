@@ -25,32 +25,34 @@ ROOT = Path(__file__).resolve().parents[2]
 class TestHookScripts:
     """Verify hook scripts exist and are executable."""
 
+    @pytest.mark.parametrize(
+        "script",
+        [
+            ".ai-engineering/scripts/hooks/telemetry-skill.py",
+            ".ai-engineering/scripts/hooks/cost-tracker.py",
+            ".ai-engineering/scripts/hooks/observe.py",
+        ],
+    )
+    def test_python_hook_exists(self, script: str) -> None:
+        path = ROOT / script
+        assert path.exists(), f"{script} does not exist"
+
     @pytest.mark.skipif(
         sys.platform == "win32", reason="Unix executable bit not available on Windows"
     )
     @pytest.mark.parametrize(
         "script",
         [
-            ".ai-engineering/scripts/hooks/telemetry-skill.sh",
-            ".ai-engineering/scripts/hooks/telemetry-session.sh",
+            ".ai-engineering/scripts/hooks/copilot-telemetry-skill.sh",
+            ".ai-engineering/scripts/hooks/copilot-session-end.sh",
+            ".ai-engineering/scripts/hooks/copilot-agent.sh",
         ],
     )
-    def test_script_exists_and_executable(self, script: str) -> None:
+    def test_copilot_script_exists_and_executable(self, script: str) -> None:
         path = ROOT / script
         assert path.exists(), f"{script} does not exist"
         mode = os.stat(path).st_mode
         assert mode & stat.S_IXUSR, f"{script} is not executable"
-
-    @pytest.mark.parametrize(
-        "script",
-        [
-            ".ai-engineering/scripts/hooks/telemetry-skill.ps1",
-            ".ai-engineering/scripts/hooks/telemetry-session.ps1",
-        ],
-    )
-    def test_powershell_stub_exists(self, script: str) -> None:
-        path = ROOT / script
-        assert path.exists(), f"{script} does not exist"
 
 
 class TestClaudeCodeHooks:
@@ -102,7 +104,7 @@ class TestTemplateHookSync:
         assert "hooks" in data, "Template settings.json missing 'hooks' key"
 
     def test_template_hook_scripts_exist(self) -> None:
-        for script in ("telemetry-skill.sh", "telemetry-session.sh"):
+        for script in ("telemetry-skill.py", "cost-tracker.py", "observe.py"):
             path = self.TEMPLATE_ROOT / ".ai-engineering" / "scripts" / "hooks" / script
             assert path.exists(), f"Template missing {script}"
 

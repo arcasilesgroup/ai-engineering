@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Stop hook: track token usage and estimate costs per session.
 
-Absorbs telemetry-session.sh functionality. Emits session_end event to
+Replaces former telemetry-session.sh. Emits session_end event to
 audit-log with token counts and estimated cost. Also appends to
 ~/.claude/metrics/costs.jsonl for ECC compatibility.
 

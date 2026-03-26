@@ -91,10 +91,9 @@ Governed AI-assisted software development framework for regulated industries.
 .ai-engineering/
   manifest.yml          # Framework configuration (editable)
   README.md             # This file
-  contexts/             # Language, framework, org, team conventions
+  contexts/             # Language, framework, team conventions
     languages/
     frameworks/
-    orgs/
     team/               # Your team's custom conventions
   specs/                # Architecture specs and decisions
     _active.md

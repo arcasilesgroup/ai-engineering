@@ -148,11 +148,6 @@ class TestOwnershipMap:
         om = default_ownership_map()
         assert om.is_update_allowed(".ai-engineering/scripts/hooks/observe.py") is True
 
-    def test_contexts_orgs_denied(self) -> None:
-        om = default_ownership_map()
-        assert om.is_update_allowed(".ai-engineering/contexts/orgs/README.md") is False
-        assert om.has_deny_rule(".ai-engineering/contexts/orgs/README.md") is True
-
     def test_contexts_product_denied(self) -> None:
         om = default_ownership_map()
         assert om.is_update_allowed(".ai-engineering/contexts/product/product-contract.md") is False

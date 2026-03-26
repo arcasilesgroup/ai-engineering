@@ -614,9 +614,10 @@ mindmap
             Weekly rotation
             90-day retention
         Telemetry Scripts
-            telemetry-skill.sh/.ps1
-            telemetry-agent.sh/.ps1
-            telemetry-session.sh/.ps1
+            telemetry-skill.py (Claude Code)
+            observe.py (Claude Code)
+            cost-tracker.py (Claude Code)
+            copilot-*.sh/.ps1 (GitHub Copilot)
         Dashboards
             ai-eng observe engineer
             ai-eng observe team

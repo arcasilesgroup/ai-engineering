@@ -67,7 +67,6 @@ _DEFAULT_OWNERSHIP_PATHS: list[tuple[str, OwnershipLevel, FrameworkUpdatePolicy]
         FrameworkUpdatePolicy.ALLOW,
     ),
     (".ai-engineering/contexts/team/**", OwnershipLevel.TEAM_MANAGED, FrameworkUpdatePolicy.DENY),
-    (".ai-engineering/contexts/orgs/**", OwnershipLevel.TEAM_MANAGED, FrameworkUpdatePolicy.DENY),
     (
         ".ai-engineering/contexts/product/**",
         OwnershipLevel.TEAM_MANAGED,

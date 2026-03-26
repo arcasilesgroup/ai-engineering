@@ -3,7 +3,7 @@
 
 Called by Claude Code hooks (UserPromptSubmit event).
 Fail-open: exit 0 always -- never blocks IDE.
-Migrates telemetry-skill.sh to Python.
+Replaces former telemetry-skill.sh.
 """
 
 import re
