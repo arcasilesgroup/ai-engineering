@@ -151,7 +151,7 @@ _GOVERNANCE_MIRROR = (
         "manifest.yml",
         "README.md",
     ],
-    ["context/", "state/", "evals/", "tasks/"],
+    ["context/", "contexts/team/", "contexts/project-identity.md", "state/", "evals/", "tasks/"],
 )
 
 _CLAUDE_COMMANDS_MIRROR = (

@@ -1,9 +1,10 @@
 ---
-name: ai-project-identity
+name: project-identity
 description: "Use when setting up or updating a project's identity document. Auto-detects project metadata and guides the user through a short Q&A to fill gaps."
 effort: medium
 argument-hint: "[generate|update]"
 ---
+
 
 
 # Project Identity

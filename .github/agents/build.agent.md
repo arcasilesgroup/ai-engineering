@@ -45,9 +45,11 @@ Identify technology from project files: `pyproject.toml` -> Python, `*.csproj` -
 ### 2. Load Contexts
 
 After detecting the stack, read the applicable context files:
-1. `.ai-engineering/contexts/languages/{detected_language}.md` for each detected language
-2. `.ai-engineering/contexts/frameworks/{detected_framework}.md` for each detected framework
-3. `.ai-engineering/contexts/team/*.md` for all team conventions
+1. **Languages** -- read `.ai-engineering/contexts/languages/{lang}.md` for each detected language.
+   Available (14): bash, cpp, csharp, dart, go, java, javascript, kotlin, php, python, rust, sql, swift, typescript
+2. **Frameworks** -- read `.ai-engineering/contexts/frameworks/{fw}.md` for each detected framework.
+   Available (15): android, api-design, aspnetcore, backend-patterns, bun, claude-api, deployment-patterns, django, flutter, ios, mcp-sdk, nextjs, nodejs, react, react-native
+3. **Team** -- read `.ai-engineering/contexts/team/*.md` for all team conventions.
 
 Apply loaded standards to all subsequent code generation.
 
