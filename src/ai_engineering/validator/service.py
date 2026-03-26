@@ -1,13 +1,12 @@
 """Content integrity validation service for ai-engineering governance.
 
-Implements programmatic validation of the 7 content-integrity categories:
+Implements programmatic validation of the 6 content-integrity categories:
 1. File Existence — verify all internal path references resolve.
 2. Mirror Sync — SHA-256 compare canonical vs template mirrors.
 3. Counter Accuracy — skill/agent counts match across instruction files and manifest.yml.
 4. Cross-Reference Integrity — bidirectional reference validation.
-5. Instruction File Consistency — all 6 instruction files list identical skills/agents.
-6. Manifest Coherence — ownership globs match filesystem, active spec valid.
-7. Skill Frontmatter — required YAML metadata and requirement schema validity.
+5. Manifest Coherence — ownership globs match filesystem, active spec valid.
+6. Skill Frontmatter — required YAML metadata and requirement schema validity.
 """
 
 from __future__ import annotations
@@ -31,7 +30,6 @@ from ai_engineering.validator.categories import (
     _check_counter_accuracy,
     _check_cross_references,
     _check_file_existence,
-    _check_instruction_consistency,
     _check_manifest_coherence,
     _check_mirror_sync,
     _check_skill_frontmatter,
@@ -55,7 +53,6 @@ __all__ = [
     "_check_counter_accuracy",
     "_check_cross_references",
     "_check_file_existence",
-    "_check_instruction_consistency",
     "_check_manifest_coherence",
     "_check_mirror_sync",
     "_check_skill_frontmatter",
@@ -72,7 +69,7 @@ def validate_content_integrity(
 ) -> IntegrityReport:
     """Run content-integrity validation on a project.
 
-    Validates governance content across 7 categories. If *categories* is
+    Validates governance content across 6 categories. If *categories* is
     provided, only the specified categories are checked.
 
     Args:
@@ -93,7 +90,6 @@ def validate_content_integrity(
             IntegrityCategory.CROSS_REFERENCE,
             lambda t, r: _check_cross_references(t, r, cache=cache),
         ),
-        (IntegrityCategory.INSTRUCTION_CONSISTENCY, _check_instruction_consistency),
         (IntegrityCategory.MANIFEST_COHERENCE, _check_manifest_coherence),
         (
             IntegrityCategory.SKILL_FRONTMATTER,

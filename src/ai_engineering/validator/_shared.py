@@ -16,7 +16,6 @@ class IntegrityCategory(StrEnum):
     MIRROR_SYNC = "mirror-sync"
     COUNTER_ACCURACY = "counter-accuracy"
     CROSS_REFERENCE = "cross-reference"
-    INSTRUCTION_CONSISTENCY = "instruction-consistency"
     MANIFEST_COHERENCE = "manifest-coherence"
     SKILL_FRONTMATTER = "skill-frontmatter"
 
@@ -191,11 +190,6 @@ _SUPPORTED_OSES = {"linux", "darwin", "win32"}
 _REFERENCES_SECTION = re.compile(r"^## References\s*\n(.*?)(?=\n## |\Z)", re.MULTILINE | re.DOTALL)
 _REF_LINE = re.compile(r"^- `([^`]+)`", re.MULTILINE)
 
-# Instruction consistency patterns
-_SUBSECTION_PATTERN = re.compile(r"^### (.+)$", re.MULTILINE)
-_REQUIRED_SUBSECTIONS: set[str] = set()
-
-
 # ---------------------------------------------------------------------------
 # Shared utility functions
 # ---------------------------------------------------------------------------
@@ -298,6 +292,61 @@ def _parse_agent_names(section: str) -> set[str]:
             agents.add(first)
 
     return agents
+
+
+def _extract_subsection(content: str, heading: str) -> str:
+    """Extract markdown content under a level-4 heading until next same-or-higher heading."""
+    lines = content.splitlines()
+    heading_prefix = f"#### {heading}".lower()
+    start: int | None = None
+
+    for index, line in enumerate(lines):
+        if line.strip().lower().startswith(heading_prefix):
+            start = index + 1
+            break
+
+    if start is None:
+        return ""
+
+    end = len(lines)
+    for index in range(start, len(lines)):
+        stripped = lines[index].strip()
+        if stripped.startswith(("#### ", "### ", "## ")):
+            end = index
+            break
+
+    return "\n".join(lines[start:end])
+
+
+def _parse_skill_names_from_subsection(content: str, heading: str) -> set[str]:
+    """Parse skill names from a #### subsection."""
+    section = _extract_subsection(content, heading)
+    return _parse_skill_names(section)
+
+
+def _parse_agent_names_from_subsection(content: str, heading: str) -> set[str]:
+    """Parse agent names from a #### subsection."""
+    section = _extract_subsection(content, heading)
+    return _parse_agent_names(section)
+
+
+def _extract_listings(content: str) -> tuple[set[str], set[str]]:
+    """Extract skill and agent sets from an instruction file.
+
+    Looks for ## Skills and ## Agents sections with detailed listings.
+    Also checks #### Skills and #### Agents subsections (product-contract format).
+    """
+    skill_section = _extract_section(content, "Skills")
+    agent_section = _extract_section(content, "Agents")
+    skills = _parse_skill_names(skill_section)
+    agents = _parse_agent_names(agent_section)
+
+    if not skills:
+        skills = _parse_skill_names_from_subsection(content, "Skills")
+    if not agents:
+        agents = _parse_agent_names_from_subsection(content, "Agents")
+
+    return skills, agents
 
 
 def _parse_counter(text: str, separator: str) -> tuple[int, int] | None:

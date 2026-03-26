@@ -111,39 +111,6 @@ def _write_all_instruction_files(
         f.write_text(text, encoding="utf-8")
 
 
-def _write_product_contract(
-    ai: Path,
-    *,
-    skills: list[str] | None = None,
-    agents: list[str] | None = None,
-) -> None:
-    """Write a minimal product-contract.md with skill/agent tables.
-
-    Uses the canonical table format matching the actual product-contract.md.
-    Defaults to the project's standard skill/agent lists.
-    """
-    skill_list = skills if skills is not None else [s.split("/")[1] for s in _SKILL_PATHS]
-    agent_list = (
-        agents
-        if agents is not None
-        else [a.split("/")[1].removesuffix(".md") for a in _AGENT_PATHS]
-    )
-
-    pc = ai / "context" / "product" / "product-contract.md"
-    pc.parent.mkdir(parents=True, exist_ok=True)
-
-    skill_row = "| " + ", ".join(skill_list) + " |"
-    agent_rows = "\n".join(f"| {a} | purpose | scope |" for a in agent_list)
-    pc.write_text(
-        f"# Product\n\n"
-        f"#### Skills ({len(skill_list)})\n\n"
-        f"| Domain | Skills |\n|--------|--------|\n{skill_row}\n\n"
-        f"#### Agents ({len(agent_list)})\n\n"
-        f"| Agent | Purpose | Scope |\n|-------|---------|-------|\n{agent_rows}\n",
-        encoding="utf-8",
-    )
-
-
 def _write_manifest(ai: Path) -> None:
     """Write a minimal manifest.yml."""
     m = ai / "manifest.yml"
@@ -187,7 +154,6 @@ def _setup_full_project(root: Path) -> Path:
     for a in _AGENT_PATHS:
         _write_skill(ai, a)
     _write_all_instruction_files(root)
-    _write_product_contract(ai)
     _write_manifest(ai)
     _write_readme(ai)
     _write_active_spec(ai)
@@ -881,51 +847,7 @@ class TestCrossReference:
         assert report.passed is True
 
 
-# -- Category 5: Instruction Consistency -----------------------------------
-
-
-class TestInstructionConsistency:
-    """Tests for instruction-consistency validation."""
-
-    def test_identical_files_pass(self, tmp_path: Path) -> None:
-        _setup_full_project(tmp_path)
-        report = validate_content_integrity(
-            tmp_path,
-            categories=[IntegrityCategory.INSTRUCTION_CONSISTENCY],
-        )
-        assert report.category_passed(IntegrityCategory.INSTRUCTION_CONSISTENCY)
-
-    def test_different_skills_detected(self, tmp_path: Path) -> None:
-        _setup_full_project(tmp_path)
-        (tmp_path / "AGENTS.md").write_text(
-            _make_instruction_content(skills=_SKILL_PATHS[:5]),
-            encoding="utf-8",
-        )
-        report = validate_content_integrity(
-            tmp_path,
-            categories=[IntegrityCategory.INSTRUCTION_CONSISTENCY],
-        )
-        assert report.category_passed(IntegrityCategory.INSTRUCTION_CONSISTENCY) is False
-
-    def test_flat_layout_no_subsections_passes(self, tmp_path: Path) -> None:
-        """Flat skill layout has no category subsections — should pass."""
-        _setup_full_project(tmp_path)
-        lines = ["# Instructions", "", "## Skills", ""]
-        for s in _SKILL_PATHS:
-            lines.append(f"- `.claude/{s}`")
-        lines.extend(["", "## Agents", ""])
-        for a in _AGENT_PATHS:
-            lines.append(f"- `.claude/{a}`")
-        (tmp_path / "AGENTS.md").write_text("\n".join(lines), encoding="utf-8")
-        report = validate_content_integrity(
-            tmp_path,
-            categories=[IntegrityCategory.INSTRUCTION_CONSISTENCY],
-        )
-        fail_checks = [c for c in report.checks if "missing-subsections" in c.name]
-        assert len(fail_checks) == 0
-
-
-# -- Category 6: Manifest Coherence ---------------------------------------
+# -- Category 5: Manifest Coherence ---------------------------------------
 
 
 class TestManifestCoherence:
@@ -1050,7 +972,6 @@ class TestValidateContentIntegrity:
         cats_found = {c.category for c in report.checks}
         assert IntegrityCategory.FILE_EXISTENCE in cats_found
         assert IntegrityCategory.COUNTER_ACCURACY in cats_found
-        assert IntegrityCategory.INSTRUCTION_CONSISTENCY in cats_found
         assert IntegrityCategory.MANIFEST_COHERENCE in cats_found
 
     def test_category_filter_limits_checks(self, tmp_path: Path) -> None:

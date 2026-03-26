@@ -16,7 +16,6 @@ def _mk(root: Path) -> Path:
     (ai / "skills").mkdir(parents=True, exist_ok=True)
     (ai / "agents").mkdir(parents=True, exist_ok=True)
     (ai / "contexts").mkdir(parents=True, exist_ok=True)
-    (ai / "context" / "product").mkdir(parents=True, exist_ok=True)
     (ai / "specs").mkdir(parents=True, exist_ok=True)
     (ai / "state").mkdir(parents=True, exist_ok=True)
     (ai / "tasks").mkdir(parents=True, exist_ok=True)
@@ -104,41 +103,6 @@ def test_counter_accuracy_agent_mismatch(tmp_path: Path) -> None:
     _write_instruction_files(tmp_path, content)
     report = validate_content_integrity(tmp_path, categories=[IntegrityCategory.COUNTER_ACCURACY])
     assert report.category_passed(IntegrityCategory.COUNTER_ACCURACY) is False
-
-
-def test_instruction_consistency_missing_file_and_differences(tmp_path: Path) -> None:
-    # Parser expects IDE-specific paths (.claude/ or .agents/)
-    base_content = """
-## Skills
-- `.claude/skills/a/SKILL.md`
-
-## Agents
-- `.claude/agents/a.md`
-"""
-    _write_instruction_files(tmp_path, base_content)
-    # mutate one file to create difference
-    (tmp_path / "CLAUDE.md").write_text(
-        base_content + "- `.claude/agents/b.md`\n", encoding="utf-8"
-    )
-    # remove one file to hit missing-file branch
-    (tmp_path / "CLAUDE.md").unlink()
-    report = validate_content_integrity(
-        tmp_path,
-        categories=[IntegrityCategory.INSTRUCTION_CONSISTENCY],
-    )
-    assert report.category_passed(IntegrityCategory.INSTRUCTION_CONSISTENCY) is False
-
-
-def test_instruction_consistency_single_file_returns_early(tmp_path: Path) -> None:
-    content = "## Skills\n## Agents\n"
-    only = tmp_path / "AGENTS.md"
-    only.parent.mkdir(parents=True, exist_ok=True)
-    only.write_text(content, encoding="utf-8")
-    report = validate_content_integrity(
-        tmp_path,
-        categories=[IntegrityCategory.INSTRUCTION_CONSISTENCY],
-    )
-    assert report.category_passed(IntegrityCategory.INSTRUCTION_CONSISTENCY) is False
 
 
 def test_manifest_coherence_active_spec_branches(tmp_path: Path) -> None:

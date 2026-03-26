@@ -38,15 +38,17 @@ class TestInstallClean:
         install(tmp_path, stacks=["python"], ides=["vscode"])
         ai_dir = tmp_path / ".ai-engineering"
 
-        required = [
+        required_dirs = [
             "contexts",
             "contexts/languages",
             "contexts/team",
-            "contexts/product",
             "state",
         ]
-        for dirname in required:
-            assert (ai_dir / dirname).is_dir(), f"Missing: {dirname}"
+        for dirname in required_dirs:
+            assert (ai_dir / dirname).is_dir(), f"Missing dir: {dirname}"
+        assert (ai_dir / "contexts" / "project-identity.md").is_file(), (
+            "Missing: contexts/project-identity.md"
+        )
 
     def test_install_creates_state_files(
         self,
