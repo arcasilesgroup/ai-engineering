@@ -1,7 +1,8 @@
-"""Category 2: Mirror Sync — SHA-256 compare canonical vs template mirrors."""
+"""Category 2: Mirror Sync -- SHA-256 compare canonical vs template mirrors."""
 
 from __future__ import annotations
 
+import re
 from collections.abc import Callable
 from pathlib import Path
 
@@ -15,11 +16,30 @@ from ai_engineering.validator._shared import (
     IntegrityCheckResult,
     IntegrityReport,
     IntegrityStatus,
+    _extract_section,
     _glob_files,
     _is_excluded,
     _is_source_repo,
     _sha256,
 )
+
+# Sections in CLAUDE.md that must also appear in AGENTS.md.
+# Excludes Claude-specific items that are intentionally stripped.
+_REQUIRED_AGENTS_SECTIONS: list[str] = [
+    "Workflow Orchestration",
+    "Task Management",
+    "Core Principles",
+    "Agent Selection",
+    "Skills",
+    "Effort Levels",
+    "Quality Gates",
+    "Observability",
+    "Don't",
+    "Source of Truth",
+]
+
+# Pattern to extract skill/agent count from section header like "## Skills (40)"
+_SECTION_COUNT_RE = re.compile(r"\((\d+)\)")
 
 
 def _check_mirror_sync(
@@ -132,6 +152,9 @@ def _check_mirror_sync(
     # Copilot skills and agents mirrors
     _check_copilot_skills_mirror(target, report, _sha)
     _check_copilot_agents_mirror(target, report, _sha)
+
+    # Instruction file parity (CLAUDE.md <-> AGENTS.md section content)
+    _check_instruction_parity(target, report)
 
     if mismatches == 0 and not (canonical_relatives - mirror_relatives):
         report.checks.append(
@@ -265,3 +288,148 @@ def _check_copilot_agents_mirror(
         "Copilot agent",
         sha_fn=sha_fn,
     )
+
+
+def _check_instruction_parity(
+    target: Path,
+    report: IntegrityReport,
+) -> None:
+    """Verify AGENTS.md contains all required sections from CLAUDE.md.
+
+    Also checks that skill/agent counts in section headers match manifest.
+    This is section-level parity (not byte-level, since path translations differ).
+    """
+    claude_md = target / "CLAUDE.md"
+    agents_md = target / "AGENTS.md"
+
+    if not claude_md.is_file() or not agents_md.is_file():
+        report.checks.append(
+            IntegrityCheckResult(
+                category=IntegrityCategory.MIRROR_SYNC,
+                name="instruction-parity-skipped",
+                status=IntegrityStatus.WARN,
+                message="CLAUDE.md or AGENTS.md not found, skipping parity check",
+            )
+        )
+        return
+
+    claude_content = claude_md.read_text(encoding="utf-8")
+    agents_content = agents_md.read_text(encoding="utf-8")
+
+    # Only check sections that actually exist in CLAUDE.md
+    # (test environments may use minimal instruction files)
+    present_in_claude = [
+        section
+        for section in _REQUIRED_AGENTS_SECTIONS
+        if _extract_section(claude_content, section).strip()
+    ]
+
+    if not present_in_claude:
+        # CLAUDE.md has none of the expected sections -- skip parity check
+        return
+
+    # Check required sections exist in AGENTS.md
+    missing_sections: list[str] = []
+    for section in present_in_claude:
+        extracted = _extract_section(agents_content, section)
+        if not extracted.strip():
+            missing_sections.append(section)
+
+    if missing_sections:
+        for section in missing_sections:
+            report.checks.append(
+                IntegrityCheckResult(
+                    category=IntegrityCategory.MIRROR_SYNC,
+                    name=f"instruction-missing-section-{section.lower().replace(' ', '-')}",
+                    status=IntegrityStatus.FAIL,
+                    message=f"AGENTS.md missing section: {section}",
+                    file_path="AGENTS.md",
+                )
+            )
+    else:
+        report.checks.append(
+            IntegrityCheckResult(
+                category=IntegrityCategory.MIRROR_SYNC,
+                name="instruction-section-parity",
+                status=IntegrityStatus.OK,
+                message=(
+                    f"AGENTS.md contains all {len(present_in_claude)}"
+                    " required sections from CLAUDE.md"
+                ),
+            )
+        )
+
+    # Check skill/agent counts match manifest
+    manifest_path = target / ".ai-engineering" / "manifest.yml"
+    if not manifest_path.is_file():
+        return
+
+    try:
+        import yaml
+    except ImportError:
+        return
+
+    manifest = yaml.safe_load(manifest_path.read_text(encoding="utf-8"))
+    expected_skills = manifest.get("skills", {}).get("total", 0)
+    expected_agents = manifest.get("agents", {}).get("total", 0)
+
+    # Check counts in both CLAUDE.md and AGENTS.md
+    for file_path, label in [(claude_md, "CLAUDE.md"), (agents_md, "AGENTS.md")]:
+        content = file_path.read_text(encoding="utf-8")
+
+        # Extract skill count from "## Skills (N)" header
+        skills_section_header = ""
+        for line in content.splitlines():
+            if line.strip().lower().startswith("## skills"):
+                skills_section_header = line
+                break
+
+        if skills_section_header:
+            count_match = _SECTION_COUNT_RE.search(skills_section_header)
+            if count_match:
+                found_count = int(count_match.group(1))
+                if found_count != expected_skills:
+                    report.checks.append(
+                        IntegrityCheckResult(
+                            category=IntegrityCategory.MIRROR_SYNC,
+                            name=f"instruction-skill-count-{label.lower().replace('.', '-')}",
+                            status=IntegrityStatus.FAIL,
+                            message=(
+                                f"{label} skill count ({found_count})"
+                                f" != manifest ({expected_skills})"
+                            ),
+                            file_path=label,
+                        )
+                    )
+
+        # Check Source of Truth section for skill/agent counts
+        sot_section = _extract_section(content, "Source of Truth")
+        if sot_section:
+            skills_sot = re.search(r"Skills\s*\((\d+)\)", sot_section)
+            agents_sot = re.search(r"Agents\s*\((\d+)\)", sot_section)
+            if skills_sot and int(skills_sot.group(1)) != expected_skills:
+                report.checks.append(
+                    IntegrityCheckResult(
+                        category=IntegrityCategory.MIRROR_SYNC,
+                        name=f"instruction-sot-skills-{label.lower().replace('.', '-')}",
+                        status=IntegrityStatus.FAIL,
+                        message=(
+                            f"{label} Source of Truth skill count"
+                            f" ({skills_sot.group(1)}) != manifest ({expected_skills})"
+                        ),
+                        file_path=label,
+                    )
+                )
+            if agents_sot and int(agents_sot.group(1)) != expected_agents:
+                report.checks.append(
+                    IntegrityCheckResult(
+                        category=IntegrityCategory.MIRROR_SYNC,
+                        name=f"instruction-sot-agents-{label.lower().replace('.', '-')}",
+                        status=IntegrityStatus.FAIL,
+                        message=(
+                            f"{label} Source of Truth agent count"
+                            f" ({agents_sot.group(1)}) != manifest ({expected_agents})"
+                        ),
+                        file_path=label,
+                    )
+                )

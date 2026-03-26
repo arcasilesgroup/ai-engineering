@@ -32,10 +32,12 @@ HARD GATE: this skill produces a spec. No implementation happens until the user 
      c. Walk the hierarchy: Feature → User Story → Tasks (follow parent/child relations)
      d. Use all standard and custom fields the platform provides
      e. Pre-fill `refs` section in the generated spec frontmatter
+     f. Invoke `/ai-board-sync refinement <work-item-ref>` to transition the work item to refinement state (fail-open: do not block brainstorm if this fails)
 1.5. **Enhance input** -- follow `handlers/prompt-enhance.md` to evaluate and optimize user input for clarity and specificity before interrogation
 2. **Interrogate** -- follow `handlers/interrogate.md` for the questioning flow
 3. **Propose approaches** -- present 2-3 options with trade-offs (never just one)
 4. **Draft spec** -- write spec to `specs/spec.md`
+4.5. **Board sync (ready)** -- if a work item ID was provided in step 1, invoke `/ai-board-sync ready <work-item-ref>` to transition the work item to ready state (fail-open: do not block brainstorm if this fails)
 5. **Review spec** -- follow `handlers/spec-review.md` for the review loop (max 3 iterations)
 6. **STOP** -- present approved spec. User runs `/ai-plan` to continue.
 
@@ -70,7 +72,7 @@ HARD GATE: this skill produces a spec. No implementation happens until the user 
 ## Integration
 
 - **Called by**: user directly, or `/ai-plan` when requirements are unclear
-- **Calls**: `handlers/prompt-enhance.md`, `handlers/interrogate.md`, `handlers/spec-review.md`
+- **Calls**: `handlers/prompt-enhance.md`, `handlers/interrogate.md`, `handlers/spec-review.md`, `/ai-board-sync` (refinement + ready transitions)
 - **Transitions to**: `/ai-plan` (ONLY -- never directly to `ai-build` or `/ai-dispatch`)
 
 $ARGUMENTS

@@ -6,13 +6,17 @@ Full parallel code review workflow. Dispatches 8 specialized agents, each analyz
 
 ## Procedure
 
+### Step 0 -- Read Manifest Stacks
+
+Read `.ai-engineering/manifest.yml` field `providers.stacks` for the project's declared stacks. Use this as the authoritative stack list for context loading and review dispatch.
+
 ### Step 1 -- Gather Context
 
 Before any review agent runs:
 
 1. Run `/ai-explore` on the changed files to produce an Architecture Map
 2. Identify the diff scope: `git diff --stat` for file list, `git diff` for full content
-3. Detect languages in the diff (file extensions) and read:
+3. Supplement with languages detected in the diff (file extensions) and read:
    - `.ai-engineering/contexts/languages/{lang}.md` for each language found
    - `.ai-engineering/contexts/frameworks/{framework}.md` if framework imports detected
    - `.ai-engineering/contexts/team/*.md` for team conventions

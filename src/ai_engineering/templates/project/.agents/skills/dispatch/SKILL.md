@@ -23,16 +23,18 @@ Execution engine for approved plans. Reads plan.md and tasks.md, dispatches one 
 
 1. **Load plan** -- read `specs/spec.md` -> `specs/plan.md`
 2. **Load decisions** -- read `decision-store.json` for constraints
-3. **Build DAG** -- parse task dependencies, identify parallel groups
-4. **Execute phase by phase** -- for each phase:
+2.5. **Board sync (in_progress)** -- read `specs/spec.md` frontmatter `refs`; for each work item ref where the hierarchy rule is not `never_close` (i.e., user_stories, tasks, bugs, issues), invoke `/ai-board-sync in_progress <work-item-ref>`. Fail-open: do not block DAG construction if this fails.
+3. **Guard advisory** -- before dispatching any build task, invoke the Guard agent (`ai-guard`) in `gate` mode for governance advisory. Fail-open: if guard is unavailable or errors, log warning and continue -- never block dispatch.
+4. **Build DAG** -- parse task dependencies, identify parallel groups
+5. **Execute phase by phase** -- for each phase:
    a. Dispatch one subagent per task (fresh context window)
    b. Each subagent receives: task description, file scope, boundaries, constraints
    c. Run two-stage review on deliverable (see below)
    d. Update task status in plan.md
    e. Check phase gate before advancing
-5. **Track progress** -- update plan.md checkboxes after each task
-6. **Quality check** -- read `handlers/quality.md` and execute: Verify+Review on full changeset, max 2 rounds
-7. **Deliver** -- read `handlers/deliver.md` and execute: PR via ai-pr with quality report
+6. **Track progress** -- update plan.md checkboxes after each task
+7. **Quality check** -- read `handlers/quality.md` and execute: Verify+Review on full changeset, max 2 rounds
+8. **Deliver** -- read `handlers/deliver.md` and execute: PR via ai-pr with quality report
 
 ## Task Statuses
 
@@ -89,9 +91,17 @@ scope:
 constraints:
   - "Follow existing ConfigParser pattern in src/base_config.py"
   - "TDD: test files from T-2.0 are IMMUTABLE"
+contexts:
+  languages: [".ai-engineering/contexts/languages/python.md"]
+  frameworks: [".ai-engineering/contexts/frameworks/backend-patterns.md"]
+  team: [".ai-engineering/contexts/team/*.md"]
 gate:
   post: ["ruff check", "pytest tests/test_config.py"]
 ```
+
+### Context Injection
+
+The dispatcher detects the stack from `providers.stacks` in `.ai-engineering/manifest.yml` and resolves applicable context file paths. These paths are included in the `contexts:` field of the subagent YAML. The subagent reads these files before executing its task. This acts as a safety net -- even if a skill lacks its own Step 0, contexts are injected by the dispatcher.
 
 ## Stuck Protocol
 
@@ -143,7 +153,7 @@ When invoked with `--resume`, read `specs/plan.md` and determine re-entry point:
 ## Integration
 
 - **Called by**: user directly (after `/ai-plan` approval)
-- **Calls**: `ai-build` (build tasks), `ai-verify` (scan tasks, quality check), `ai-review` (quality check), `ai-pr` (deliver)
+- **Calls**: `ai-build` (build tasks), `ai-verify` (scan tasks, quality check), `ai-review` (quality check), `ai-pr` (deliver), `/ai-board-sync` (in_progress transition)
 - **Reads**: `ai-verify/SKILL.md`, `ai-review/SKILL.md`, `ai-pr/SKILL.md` (thin orchestrator, embedded at dispatch time)
 - **Transitions to**: PR merge (after deliver), or back to `/ai-plan` (if re-plan needed)
 

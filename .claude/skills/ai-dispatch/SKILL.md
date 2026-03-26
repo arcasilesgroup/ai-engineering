@@ -90,9 +90,17 @@ scope:
 constraints:
   - "Follow existing ConfigParser pattern in src/base_config.py"
   - "TDD: test files from T-2.0 are IMMUTABLE"
+contexts:
+  languages: [".ai-engineering/contexts/languages/python.md"]
+  frameworks: [".ai-engineering/contexts/frameworks/backend-patterns.md"]
+  team: [".ai-engineering/contexts/team/*.md"]
 gate:
   post: ["ruff check", "pytest tests/test_config.py"]
 ```
+
+### Context Injection
+
+The dispatcher detects the stack from `providers.stacks` in `.ai-engineering/manifest.yml` and resolves applicable context file paths. These paths are included in the `contexts:` field of the subagent YAML. The subagent reads these files before executing its task. This acts as a safety net -- even if a skill lacks its own Step 0, contexts are injected by the dispatcher.
 
 ## Stuck Protocol
 

@@ -34,8 +34,8 @@ Collect authoritative data from ALL sources:
 - `.ai-engineering/state/decision-store.json` -- active decisions, risk acceptances
 - `.ai-engineering/specs/spec.md` -- current spec status
 - Recent spec closures (done.md files)
-- `.claude/skills/` -- actual skill count and categories
-- `.claude/agents/` -- actual agent count
+- `.github/skills/` -- actual skill count and categories
+- `.github/agents/` -- actual agent count
 - Source code structure (`src/`) -- module layout, CLI commands
 - Quality/security tool outputs if available
 

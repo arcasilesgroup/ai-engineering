@@ -51,7 +51,7 @@ For each non-blocked sub-spec in the wave, dispatch the build agent with a fresh
 1. **Sub-spec scope and exploration** -- from `specs/autopilot/sub-NNN/spec.md` (Scope, Exploration, file ownership).
 1b. **Sub-spec plan** -- from `specs/autopilot/sub-NNN/plan.md` (task checkboxes).
 2. **Decision-store constraints** -- relevant entries from `state/decision-store.json` that apply to this sub-spec's domain.
-3. **Stack standards** -- loaded from `contexts/languages/` and `contexts/frameworks/` matching the detected stack.
+3. **Stack standards** -- loaded from `contexts/languages/` and `contexts/frameworks/` matching the detected stack, plus `contexts/team/*.md` for team conventions.
 4. **File boundary enforcement** -- explicit instruction embedded in the agent prompt:
 
 ```

@@ -90,6 +90,24 @@ For multi-task plans, use specialized agents per task with fresh context:
 - Two-stage review per task: spec compliance + code quality
 - If stuck after 2 attempts on any task, escalate immediately
 
+## Context Output Contract
+
+Every build task produces this structured output to enable downstream agents (verify, review, guard) to assess the work without re-reading the full codebase.
+
+```markdown
+## Findings
+[Validation results, guard advisories addressed, stack-specific lint/format outcomes]
+
+## Dependencies Discovered
+[Imports added or modified, new package dependencies, cross-module coupling introduced]
+
+## Risks Identified
+[Complexity warnings, test coverage gaps, areas where implementation deviates from spec]
+
+## Recommendations
+[Follow-up tasks, refactoring opportunities, tech debt introduced intentionally]
+```
+
 ## Referenced Skills
 
 - `.claude/skills/ai-test/SKILL.md`, `.claude/skills/ai-debug/SKILL.md`, `.claude/skills/ai-simplify/SKILL.md`

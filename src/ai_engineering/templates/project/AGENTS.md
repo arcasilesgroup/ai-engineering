@@ -1,4 +1,4 @@
-# CLAUDE.md
+# AGENTS.md
 
 Multi-IDE instruction file. Consumed by Claude Code, GitHub Copilot, Codex, Gemini CLI, and other AI coding assistants.
 This file is self-contained -- no other instruction files are required.
@@ -7,6 +7,7 @@ This file is self-contained -- no other instruction files are required.
 
 Read the active spec before touching code: `.ai-engineering/specs/spec.md` and `.ai-engineering/specs/plan.md`.
 Read the decision store to avoid repeating settled questions: `.ai-engineering/state/decision-store.json`.
+Before writing code or designing features, read `.ai-engineering/contexts/project-identity.md` if it exists.
 
 ### 1. Plan Mode Default
 
@@ -64,6 +65,15 @@ Read the decision store to avoid repeating settled questions: `.ai-engineering/s
 
 - Read/write `.ai-engineering/contexts/team/lessons.md` to persist learnings across sessions
 
+### 10. Context Loading
+
+Before writing or reviewing code, load the applicable context files:
+1. Detect the project's languages from file extensions and build config
+2. Read `.ai-engineering/contexts/languages/{language}.md` for each detected language
+3. Read `.ai-engineering/contexts/frameworks/{framework}.md` for each detected framework
+4. Read `.ai-engineering/contexts/team/*.md` for team conventions
+5. Apply loaded standards to all code generation and review
+
 ## Task Management
 
 1. **Plan First**: Write plan via `/ai-plan` to `.ai-engineering/specs/plan.md` with checkable items
@@ -92,6 +102,7 @@ Read the decision store to avoid repeating settled questions: `.ai-engineering/s
 | Deep codebase research | explore | direct dispatch |
 | Onboarding, teaching | guide | `/ai-guide` |
 | Simplify/refactor code | simplify | `/ai-simplify` |
+| Multi-spec autonomous execution | autopilot | `/ai-autopilot` |
 
 ## Platform Mirrors
 
@@ -99,7 +110,7 @@ Each IDE has its own skill and agent files. Same content, platform-native format
 
 | Platform | Skills | Agents |
 |----------|--------|--------|
-| Claude Code | `.claude/skills/ai-*/SKILL.md` | `.claude/agents/ai-*.md` |
+| Claude Code | `.agents/skills/*/SKILL.md` | `.agents/agents/ai-*.md` |
 | GitHub Copilot | `.github/skills/ai-*/SKILL.md` | `.github/agents/*.agent.md` |
 | Codex / Gemini | `.agents/skills/*/SKILL.md` | `.agents/agents/ai-*.md` |
 
@@ -109,10 +120,20 @@ Grouped by type. Invoke as `/ai-<name>`.
 
 **Workflow:** brainstorm, plan, dispatch, test, debug, verify, review, eval
 **Delivery:** commit, pr, release, cleanup
-**Enterprise:** security, governance, pipeline, schema, solution-intent, board-discover, board-sync
+**Enterprise:** security, governance, pipeline, schema, docs, board-discover, board-sync
 **Teaching:** explain, guide, write, slides, media, video-editing
 **SDLC:** note, standup, sprint, sprint-review, postmortem, support, resolve-conflicts
 **Meta:** create, learn, prompt, onboard, analyze-permissions, instinct, autopilot, project-identity
+
+## Effort Levels
+
+Each skill declares `effort` in frontmatter. Assignment by cognitive weight:
+
+| Effort | Count |
+|--------|-------|
+| max | 11 (brainstorm, plan, review, verify, security, debug, governance, schema, instinct, eval, autopilot) |
+| high | 16 (dispatch, test, write, explain, guide, pr, docs, support, postmortem, pipeline, create, prompt, slides, media, video-editing, board-discover) |
+| medium | 13 (commit, cleanup, standup, note, onboard, release, resolve-conflicts, sprint, sprint-review, learn, analyze-permissions, project-identity, board-sync) |
 
 ## Quality Gates
 
@@ -132,7 +153,7 @@ Tooling: `ruff` + `ty` (lint/format), `pytest` (test), `gitleaks` (secrets), `pi
 ## Observability
 
 Telemetry is automatic via hooks -- no manual `ai-eng signals emit` needed.
-- `PostToolUse(Skill)` hook emits `skill_invoked` events
+- `UserPromptSubmit(/ai-*)` hook emits `skill_invoked` events
 - `Stop` hook emits `session_end` events
 - All events flow to `.ai-engineering/state/audit-log.ndjson`
 - Dashboards: `ai-eng observe [engineer|team|ai|dora|health]`
@@ -145,9 +166,8 @@ Telemetry is automatic via hooks -- no manual `ai-eng signals emit` needed.
 4. **NEVER** modify hook scripts -- they are hash-verified.
 5. **NEVER** push to protected branches (main, master).
 6. **NEVER** dismiss security findings without `state/decision-store.json` risk acceptance.
-7. **NEVER** disable or modify `.claude/settings.json` deny rules.
-8. **NEVER** add suppression comments (`# noqa`, `# nosec`, `# type: ignore`, `# pragma: no cover`, `# NOSONAR`, `// nolint`) to bypass quality gates. Fix the code. If it is a false positive, refactor to satisfy the analyzer or escalate with a full explanation.
-9. **NEVER** weaken a gate, threshold, or severity level without the full protocol: warn user of impact, generate a remediation patch, require explicit risk acceptance, persist to `state/decision-store.json`, and append to `state/audit-log.ndjson`.
+7. **NEVER** add suppression comments (`# noqa`, `# nosec`, `# type: ignore`, `# pragma: no cover`, `# NOSONAR`, `// nolint`) to bypass quality gates. Fix the code. If it is a false positive, refactor to satisfy the analyzer or escalate with a full explanation.
+8. **NEVER** weaken a gate, threshold, or severity level without the full protocol: warn user of impact, generate a remediation patch, require explicit risk acceptance, persist to `state/decision-store.json`, and append to `state/audit-log.ndjson`.
 
 Gate failure: diagnose, fix, retry. Use `ai-eng doctor --fix` or `ai-eng doctor --fix --phase <name>`.
 
@@ -155,8 +175,8 @@ Gate failure: diagnose, fix, retry. Use `ai-eng doctor --fix` or `ai-eng doctor 
 
 | What | Where |
 |------|-------|
-| Skills (40) | `.claude/skills/ai-<name>/SKILL.md` |
-| Agents (9) | `.claude/agents/ai-<name>.md` |
+| Skills (40) | `.agents/skills/<name>/SKILL.md` |
+| Agents (9) | `.agents/agents/ai-<name>.md` |
 | Config | `.ai-engineering/manifest.yml` |
 | Decisions | `.ai-engineering/state/decision-store.json` |
 | Active spec | `.ai-engineering/specs/spec.md` |

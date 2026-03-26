@@ -123,6 +123,10 @@ If spec frontmatter contains `refs`:
 - Read existing body, append `\n\n---\n\n## Additional Changes` section.
 - Update via `gh pr edit` or `az repos pr update`.
 
+### 12.5. Board sync (in_review)
+
+For **new PRs only** (not extend/update): if spec frontmatter contains `refs`, invoke `/ai-board-sync in_review <work-item-ref>` for each ref where the hierarchy rule is not `never_close` (i.e., user_stories, tasks, bugs, issues). Include the PR URL as comment context. Fail-open: do not block auto-complete or the watch loop if this fails.
+
 ### 13. Enable auto-complete
 
 - **GitHub**: `gh pr merge --auto --squash --delete-branch`
@@ -202,6 +206,7 @@ Same as default flow but create as draft PR.
 - Links to work items from spec frontmatter refs (hierarchy-aware: features never closed, user stories/tasks/bugs/issues closed on merge).
 - Falls back to spec-label-based issue linking when no frontmatter refs present.
 - Step 14 monitors PR until merge, autonomously fixing CI failures, merge conflicts, and review comments from team/org-internal bots.
+- Invokes `/ai-board-sync` (in_review transition) after new PR creation (step 12.5).
 
 ## References
 

@@ -1,13 +1,13 @@
 ---
 total: 5
-completed: 0
+completed: 5
 ---
 
 # Plan: sub-006 AGENTS.md Single-Source Generation
 
 ## Plan
 
-### T-6.1: Add AGENTS.md generation to sync_command_mirrors.py
+### T-6.1: Add AGENTS.md generation to sync_command_mirrors.py [x]
 
 Add a new generation function and surface entry that produces `AGENTS.md` from `CLAUDE.md` as canonical source. The generator must:
 
@@ -28,7 +28,7 @@ This restores all 5 missing items automatically since they exist in CLAUDE.md an
 
 ---
 
-### T-6.2: Add copilot-instructions.md generation to sync_command_mirrors.py
+### T-6.2: Add copilot-instructions.md generation to sync_command_mirrors.py [x]
 
 Add a generation function that produces `.github/copilot-instructions.md` from CLAUDE.md as canonical source, plus Copilot-specific additions.
 
@@ -55,7 +55,7 @@ The generator must:
 
 ---
 
-### T-6.3: Add instruction file parity check to validator
+### T-6.3: Add instruction file parity check to validator [x]
 
 Add a new check in the validator that verifies CLAUDE.md, AGENTS.md, and copilot-instructions.md share consistent content sections. This is section-level parity (not byte-level, since path translations differ).
 
@@ -76,7 +76,7 @@ This builds on existing `_extract_listings()` and `_extract_section()` in `_shar
 
 ---
 
-### T-6.4: Update CLAUDE.md skill listings and effort table for current disk state
+### T-6.4: Update CLAUDE.md skill listings and effort table for current disk state [x]
 
 Update CLAUDE.md sections to reflect the actual skills on disk. Currently 38 skills. If other sub-specs have added/removed skills by execution time, the counts and listings should match what `discover_skills()` finds.
 
@@ -96,7 +96,7 @@ This task runs AFTER T-6.1 and T-6.2 so the generated AGENTS.md and copilot-inst
 
 ---
 
-### T-6.5: Verify end-to-end generation and validator pass
+### T-6.5: Verify end-to-end generation and validator pass [x]
 
 Run full verification to confirm all changes work together:
 
@@ -125,4 +125,39 @@ Run full verification to confirm all changes work together:
 Overall confidence: **HIGH** -- all tasks extend existing, well-understood patterns in sync_command_mirrors.py and the validator.
 
 ## Self-Report
-[EMPTY -- populated by Phase 4]
+
+**Status**: COMPLETE -- all 5 tasks executed successfully.
+
+### Changes Made
+
+**scripts/sync_command_mirrors.py** (T-6.1, T-6.2):
+- Added `generate_agents_md()` function: reads CLAUDE.md, replaces title `# CLAUDE.md` -> `# AGENTS.md`, strips Don't item 7 (`.claude/settings.json` deny rules), renumbers remaining items, translates `.claude/` -> `.agents/` paths via `translate_refs()`
+- Added `_renumber_dont_items()` helper for sequential renumbering after item stripping
+- Added `generate_copilot_instructions()` function: produces condensed copilot-instructions.md with Source of Truth, Session Start Protocol, Plan/Execute Flow, Absolute Prohibitions, Observability (Copilot hook event names), Subagent Orchestration table (auto-generated from AGENT_METADATA), Quick Reference
+- Added Surface 7 (AGENTS.md root + template) and Surface 8 (copilot-instructions.md root + template) in `sync_all()`
+
+**src/ai_engineering/validator/categories/mirror_sync.py** (T-6.3):
+- Added `_check_instruction_parity()` function: verifies AGENTS.md contains all non-Claude-specific sections from CLAUDE.md (section-level parity, not byte-level). Checks skill/agent counts in section headers and Source of Truth table match manifest.yml. Gracefully skips when CLAUDE.md has minimal sections (test environments).
+- Called from `_check_mirror_sync()` after copilot agent mirror checks
+
+**AGENTS.md** and **src/ai_engineering/templates/project/AGENTS.md** (T-6.1):
+- Now auto-generated, byte-identical root and template
+- All 5 previously missing items restored (project-identity.md, Context Loading subsection, Autopilot agent row, Effort Levels section, correct UserPromptSubmit hook name)
+- Title is `# AGENTS.md` (no `# CLAUDE.md` leak)
+- Don't section has 8 items (item 7 stripped, remainder renumbered)
+
+**.github/copilot-instructions.md** and **src/ai_engineering/templates/project/copilot-instructions.md** (T-6.2):
+- Now auto-generated, byte-identical root and template
+- Template no longer has wrong `ai-<name>.agent.md` paths (correct: `<name>.agent.md`)
+- Subagent Orchestration table auto-generated from AGENT_METADATA
+
+**CLAUDE.md and template** (T-6.4):
+- Already matched disk state (40 skills, 11 max + 16 high + 13 medium = 40). No changes needed.
+
+### Verification Results (T-6.5)
+
+- `python scripts/sync_command_mirrors.py --check`: 548 mirror files in sync, zero drift
+- `ruff check`: all checks passed on all modified Python files
+- `ruff format --check`: all files already formatted
+- `pytest -k "validator or sync"`: 194 passed, 0 failed
+- Manual inspection: AGENTS.md title correct, all 5 missing items present, template copilot paths correct

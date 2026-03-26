@@ -2,7 +2,7 @@
 id: sub-003
 parent: spec-080
 title: "Context Loading Enforcement"
-status: planning
+status: implemented
 files: [".claude/skills/ai-test/SKILL.md", ".claude/skills/ai-debug/SKILL.md", ".claude/skills/ai-review/SKILL.md", ".claude/skills/ai-verify/SKILL.md", ".claude/skills/ai-schema/SKILL.md", ".claude/skills/ai-pipeline/SKILL.md", ".claude/skills/ai-security/SKILL.md", ".claude/skills/ai-dispatch/SKILL.md", ".claude/skills/ai-autopilot/handlers/phase-implement.md", ".claude/skills/ai-autopilot/handlers/phase-deep-plan.md", ".github/skills/ai-test/SKILL.md", ".github/skills/ai-debug/SKILL.md", ".github/skills/ai-review/SKILL.md", ".github/skills/ai-verify/SKILL.md", ".github/skills/ai-schema/SKILL.md", ".github/skills/ai-pipeline/SKILL.md", ".github/skills/ai-security/SKILL.md", ".github/skills/ai-dispatch/SKILL.md", ".agents/skills/test/SKILL.md", ".agents/skills/debug/SKILL.md", ".agents/skills/review/SKILL.md", ".agents/skills/verify/SKILL.md", ".agents/skills/schema/SKILL.md", ".agents/skills/pipeline/SKILL.md", ".agents/skills/security/SKILL.md", ".agents/skills/dispatch/SKILL.md"]
 depends_on: [sub-002]
 ---

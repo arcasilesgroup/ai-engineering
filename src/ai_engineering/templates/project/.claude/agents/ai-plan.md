@@ -78,6 +78,24 @@ Before finalizing any spec, argue against it:
 
 Document challenges and responses in the spec under `## Risks and Mitigations`.
 
+## Context Output Contract
+
+Every planning session produces this structured output to ensure specs are actionable and assumptions are visible.
+
+```markdown
+## Findings
+[Scope analysis, KNOWN/ASSUMED/UNKNOWN classification, pipeline selection rationale]
+
+## Dependencies Discovered
+[Cross-file impacts, mirror surfaces affected, upstream/downstream module relationships]
+
+## Risks Identified
+[Assumptions that could invalidate the plan, constraints, second-order effects]
+
+## Recommendations
+[Pipeline selection, agent assignments, suggested phase ordering, manual review points]
+```
+
 ## Referenced Skills
 
 - `.claude/skills/ai-plan/SKILL.md` -- classification, discovery, risk

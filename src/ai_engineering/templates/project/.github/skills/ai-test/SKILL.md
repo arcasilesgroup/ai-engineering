@@ -23,6 +23,18 @@ TDD enforcement and testing skill. Tests are executable specifications -- they d
 
 ## Process
 
+### Step 0: Load Contexts
+
+Read `.ai-engineering/manifest.yml` field `providers.stacks` for the project's declared stacks. Then load the applicable context files:
+
+1. **Languages** -- read `.ai-engineering/contexts/languages/{lang}.md` for each detected language.
+   Available (14): bash, cpp, csharp, dart, go, java, javascript, kotlin, php, python, rust, sql, swift, typescript
+2. **Frameworks** -- read `.ai-engineering/contexts/frameworks/{fw}.md` for each detected framework.
+   Available (15): android, api-design, aspnetcore, backend-patterns, bun, claude-api, deployment-patterns, django, flutter, ios, mcp-sdk, nextjs, nodejs, react, react-native
+3. **Team** -- read `.ai-engineering/contexts/team/*.md` for all team conventions.
+
+Apply loaded standards to all subsequent test generation and review.
+
 ### Mode: tdd (RED-GREEN-REFACTOR)
 
 ```
