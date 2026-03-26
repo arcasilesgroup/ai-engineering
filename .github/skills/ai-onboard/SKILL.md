@@ -29,6 +29,7 @@ Framework bootstrap and enforcement. Detects available skills, loads active cont
    - Read `.ai-engineering/specs/plan.md` -- current tasks
    - Read `.ai-engineering/state/decision-store.json` -- active decisions and risk acceptances
    - Read `.ai-engineering/contexts/team/lessons.md` -- accumulated rules and patterns
+   - Read `.ai-engineering/manifest.yml` `work_items` section -- board config including `state_mapping`, `process_template`, `github_project`, `custom_fields`
 
 3. **Present status** -- concise summary to user:
    ```
@@ -36,7 +37,13 @@ Framework bootstrap and enforcement. Detects available skills, loads active cont
    Tasks: 12/18 complete, 2 blocked
    Decisions: 3 active, 1 expiring in 5 days
    Skills: 29 loaded
+   Board: GitHub Projects v2 #4, 5 states mapped
    ```
+   Board status examples:
+   - Configured: `Board: GitHub Projects v2 #4, 5 states mapped`
+   - Labels fallback: `Board: GitHub Labels (status: labels), 5 states mapped`
+   - ADO: `Board: Azure DevOps (Agile), 5 states mapped`
+   - Not configured: `Board: not configured (run /ai-board-discover)`
 
 4. **Enforce skill discipline** -- install the following rule for the session:
 

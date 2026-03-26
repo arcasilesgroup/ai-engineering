@@ -47,7 +47,7 @@ Default (no sub-command): `generate`.
 
 ## Integration
 
-- Stack detection: reads `pyproject.toml`, `*.csproj`, `package.json`, `Cargo.toml`.
+- Stack detection: reads `providers.stacks` from `.ai-engineering/manifest.yml`.
 - Validation: `actionlint` for GitHub Actions.
 - Policy: `scripts/check_workflow_policy.py` for SHA pinning and timeout compliance.
 

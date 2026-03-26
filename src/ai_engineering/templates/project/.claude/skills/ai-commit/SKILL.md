@@ -71,6 +71,10 @@ Evaluate staged changes and classify scope:
 - External portal: read `manifest.yml` -> `documentation.external_portal`. If enabled, apply `update_method` (`pr` or `push`).
 - Governance doc gate: if changes touch agents/skills/standards, update `.ai-engineering/README.md` and mirror to templates.
 
+### 5.5. Content integrity check
+
+If any file under `.ai-engineering/` was created, deleted, or renamed in the staged changes, run `ai-eng validate` to verify manifest counters, decision-store schema, and spec structure. If validation fails, report and stop.
+
 ### 6. Spec verify
 
 If active spec exists, run `ai-eng spec verify` to auto-correct task counters.

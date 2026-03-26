@@ -1,8 +1,9 @@
 """Doctor phase: detect -- validates install-state presence and coherence.
 
 Mirrors the ``detect`` installer phase. Checks that install-state.json
-exists, parses correctly, has the expected schema version, and that the
-detected VCS provider matches the current git remote.
+exists, parses correctly, has the expected schema version, that the
+detected VCS provider matches the current git remote, and that manifest
+stacks match file-system-detected stacks.
 """
 
 from __future__ import annotations
@@ -13,6 +14,7 @@ import subprocess
 from pathlib import Path
 
 from ai_engineering.doctor.models import CheckResult, CheckStatus, DoctorContext
+from ai_engineering.installer.autodetect import detect_stacks
 from ai_engineering.state.models import InstallState
 
 logger = logging.getLogger(__name__)
@@ -26,6 +28,7 @@ def check(ctx: DoctorContext) -> list[CheckResult]:
     results.append(_check_install_state_exists(ctx))
     results.append(_check_install_state_coherent(ctx))
     results.append(_check_detection_current(ctx))
+    results.append(_check_stack_drift(ctx))
     return results
 
 
@@ -128,6 +131,42 @@ def _check_detection_current(ctx: DoctorContext) -> CheckResult:
         name="detection-current",
         status=CheckStatus.OK,
         message=f"VCS provider matches: {current_vcs}",
+    )
+
+
+def _check_stack_drift(ctx: DoctorContext) -> CheckResult:
+    """Warn when manifest stacks diverge from file-system-detected stacks."""
+    if ctx.manifest_config is None:
+        return CheckResult(
+            name="stack-drift",
+            status=CheckStatus.WARN,
+            message="No manifest config available; cannot verify stack drift",
+        )
+    manifest_stacks = set(ctx.manifest_config.providers.stacks)
+    if not manifest_stacks:
+        return CheckResult(
+            name="stack-drift",
+            status=CheckStatus.WARN,
+            message="Manifest providers.stacks is empty",
+        )
+    detected = set(detect_stacks(ctx.target))
+    extra_in_manifest = sorted(manifest_stacks - detected)
+    missing_from_manifest = sorted(detected - manifest_stacks)
+    if extra_in_manifest or missing_from_manifest:
+        parts: list[str] = []
+        if extra_in_manifest:
+            parts.append(f"in manifest but not detected: {', '.join(extra_in_manifest)}")
+        if missing_from_manifest:
+            parts.append(f"detected but not in manifest: {', '.join(missing_from_manifest)}")
+        return CheckResult(
+            name="stack-drift",
+            status=CheckStatus.WARN,
+            message=f"Stack drift: {'; '.join(parts)}",
+        )
+    return CheckResult(
+        name="stack-drift",
+        status=CheckStatus.OK,
+        message="Manifest stacks match detected stacks",
     )
 
 

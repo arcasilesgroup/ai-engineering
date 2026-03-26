@@ -37,7 +37,18 @@ work_items:
     # iteration_path: auto-detected from current sprint
   github:
     team_label: "team:core"
-    # project: optional GitHub project number
+  state_mapping:
+    refinement: null
+    ready: null
+    in_progress: null
+    in_review: null
+    done: null
+  process_template: null
+  custom_fields: []
+  github_project:
+    number: null
+    status_field_id: null
+    status_options: {}
   hierarchy:
     feature: never_close # features are never closed by AI
     user_story: close_on_pr # closed when PR merges
@@ -70,14 +81,14 @@ documentation:
 # Set standards_url to your team's CI/CD documentation.
 # /ai-pipeline reads this URL to generate compliant pipelines.
 cicd:
-  standards_url: null  # optional, set during install or edit manually
+  standards_url: null
 
 # === FRAMEWORK MANAGED (do not edit below this line) ===
 # These sections are maintained by ai-engineering automatically.
 
-# Skills registry (38 skills)
+# Skills registry (40 skills)
 skills:
-  total: 38
+  total: 40
   prefix: "ai-"
   registry:
     # Core workflow
@@ -98,7 +109,7 @@ skills:
     ai-governance: { type: enterprise, tags: [compliance] }
     ai-pipeline: { type: enterprise, tags: [cicd] }
     ai-schema: { type: enterprise, tags: [database] }
-    ai-solution-intent: { type: enterprise, tags: [documentation] }
+    ai-docs: { type: enterprise, tags: [documentation, architecture, governance] }
     # Teaching + Writing
     ai-explain: { type: teaching, tags: [learning] }
     ai-guide: { type: teaching, tags: [onboarding] }
@@ -125,6 +136,9 @@ skills:
     ai-media: { type: writing, tags: [media, generation] }
     ai-video-editing: { type: writing, tags: [video, editing] }
     ai-eval: { type: workflow, tags: [quality, evals] }
+    # Board integration
+    ai-board-discover: { type: enterprise, tags: [board, discovery] }
+    ai-board-sync: { type: enterprise, tags: [board, sync] }
 
 # Agents (9)
 agents:

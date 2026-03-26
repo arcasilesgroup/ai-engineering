@@ -23,9 +23,9 @@ Python, .NET, React, TypeScript, Next.js, Node, NestJS, React Native, Rust, YAML
 
 ## Behavior
 
-### 1. Detect Stack
+### 1. Read Stacks from Manifest
 
-Identify technology from project files: `pyproject.toml` -> Python, `*.csproj` -> .NET, `next.config.*` -> Next.js, `Cargo.toml` -> Rust, `*.tf` -> Terraform. For polyglot projects, load all applicable standards.
+Read `.ai-engineering/manifest.yml` field `providers.stacks` to determine the project's active stacks. This is the single source of truth -- do not scan project files for stack detection. For polyglot projects the manifest lists all applicable stacks.
 
 ### 2. Load Contexts
 

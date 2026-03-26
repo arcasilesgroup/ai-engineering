@@ -77,6 +77,24 @@ Before any teaching interaction:
 - **Decision archaeology**: every decision has context that decays over time. Present history without judgment.
 - **Analogies and diagrams**: use real-world analogies and ASCII diagrams to make abstract concepts concrete.
 
+## Context Output Contract
+
+Every teaching interaction produces this structured output to make knowledge transfer traceable and follow-up actionable.
+
+```markdown
+## Findings
+[Concept explanations, decision archaeology results, pattern analysis]
+
+## Dependencies Discovered
+[Related components, decision chains, upstream/downstream knowledge links]
+
+## Risks Identified
+[Outdated decisions, context decay, knowledge gaps that may affect future work]
+
+## Recommendations
+[Learning paths, follow-up explorations, components worth understanding next]
+```
+
 ## Referenced Skills
 
 - `.github/skills/ai-guide/SKILL.md` -- interactive guidance procedures

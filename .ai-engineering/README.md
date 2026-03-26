@@ -11,7 +11,7 @@ This directory governs your AI workspace.
 /ai-commit       -- governed commit (lint + secrets + push)
 ```
 
-## Skills (38)
+## Skills (40)
 
 Invoke as `/ai-<name>`. Grouped by workflow stage.
 
@@ -35,7 +35,7 @@ Invoke as `/ai-<name>`. Grouped by workflow stage.
 | **Document** | /ai-write | Docs, changelogs, articles |
 | | /ai-explain | Technical explanations |
 | | /ai-guide | Project onboarding walkthroughs |
-| | /ai-solution-intent | Architecture document lifecycle |
+| | /ai-docs | Project documentation lifecycle (changelog, readme, solution-intent, external portal) |
 | | /ai-slides | Presentation generation (HTML/CSS) |
 | | /ai-media | Media asset generation |
 | | /ai-video-editing | Video editing and post-production |
@@ -55,6 +55,8 @@ Invoke as `/ai-<name>`. Grouped by workflow stage.
 | | /ai-autopilot | Multi-spec autonomous orchestration |
 | | /ai-eval | Skill and agent evaluation |
 | | /ai-pipeline | CI/CD pipeline generation |
+| **Board** | /ai-board-discover | Auto-discover board configuration |
+| | /ai-board-sync | Work item lifecycle state updates |
 
 ## Agents (9)
 

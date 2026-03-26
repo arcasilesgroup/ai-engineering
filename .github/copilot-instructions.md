@@ -71,7 +71,7 @@ Per-agent hooks (e.g., auto-format in Build) require `chat.useCustomAgentHooks: 
 
 ## Quick Reference
 
-- Skills (38): `.github/skills/ai-<name>/SKILL.md`
+- Skills (40): `.github/skills/ai-<name>/SKILL.md`
 - Agents (9): `.github/agents/<name>.agent.md`
 - Quality: coverage 80%, duplication ≤3%, cyclomatic ≤10, cognitive ≤15
 - Security: zero medium+ findings, zero leaks, zero dependency vulns

@@ -49,7 +49,7 @@ Telemetry is **automatic via hooks** — configured in `.github/hooks/hooks.json
 
 ## Quick Reference
 
-- Skills (38): `.github/skills/ai-<name>/SKILL.md`
+- Skills (40): `.github/skills/ai-<name>/SKILL.md`
 - Agents (9): `.github/agents/ai-<name>.agent.md`
 - Quality: coverage 80%, duplication ≤3%, cyclomatic ≤10, cognitive ≤15
 - Security: zero medium+ findings, zero leaks, zero dependency vulns

@@ -88,6 +88,7 @@ Before writing or reviewing code, load the applicable context files:
 - **Simplicity First**: Make every change as simple as possible. Impact minimal code.
 - **No Laziness**: Find root causes. No temporary fixes. Senior developer standards.
 - **Minimal Impact**: Changes should only touch what's necessary. Avoid introducing bugs.
+- **Cross-Platform**: All generated code, scripts, and paths must work on Windows, macOS, and Linux. Use platform-agnostic idioms. No OS-specific assumptions without explicit fallbacks.
 
 ## Agent Selection
 
@@ -113,13 +114,13 @@ Each IDE has its own skill and agent files. Same content, platform-native format
 | GitHub Copilot | `.github/skills/ai-*/SKILL.md` | `.github/agents/*.agent.md` |
 | Codex / Gemini | `.agents/skills/*/SKILL.md` | `.agents/agents/ai-*.md` |
 
-## Skills (38)
+## Skills (40)
 
 Grouped by type. Invoke as `/ai-<name>`.
 
 **Workflow:** brainstorm, plan, dispatch, test, debug, verify, review, eval
 **Delivery:** commit, pr, release, cleanup
-**Enterprise:** security, governance, pipeline, schema, solution-intent
+**Enterprise:** security, governance, pipeline, schema, docs, board-discover, board-sync
 **Teaching:** explain, guide, write, slides, media, video-editing
 **SDLC:** note, standup, sprint, sprint-review, postmortem, support, resolve-conflicts
 **Meta:** create, learn, prompt, onboard, analyze-permissions, instinct, autopilot, project-identity
@@ -131,8 +132,8 @@ Each skill declares `effort` in frontmatter. Assignment by cognitive weight:
 | Effort | Count |
 |--------|-------|
 | max | 11 (brainstorm, plan, review, verify, security, debug, governance, schema, instinct, eval, autopilot) |
-| high | 15 (dispatch, test, write, explain, guide, pr, solution-intent, support, postmortem, pipeline, create, prompt, slides, media, video-editing) |
-| medium | 12 (commit, cleanup, standup, note, onboard, release, resolve-conflicts, sprint, sprint-review, learn, analyze-permissions, project-identity) |
+| high | 16 (dispatch, test, write, explain, guide, pr, docs, support, postmortem, pipeline, create, prompt, slides, media, video-editing, board-discover) |
+| medium | 13 (commit, cleanup, standup, note, onboard, release, resolve-conflicts, sprint, sprint-review, learn, analyze-permissions, project-identity, board-sync) |
 
 ## Quality Gates
 
@@ -167,6 +168,7 @@ Telemetry is automatic via hooks -- no manual `ai-eng signals emit` needed.
 6. **NEVER** dismiss security findings without `state/decision-store.json` risk acceptance.
 7. **NEVER** disable or modify `.claude/settings.json` deny rules.
 8. **NEVER** add suppression comments (`# noqa`, `# nosec`, `# type: ignore`, `# pragma: no cover`, `# NOSONAR`, `// nolint`) to bypass quality gates. Fix the code. If it is a false positive, refactor to satisfy the analyzer or escalate with a full explanation.
+9. **NEVER** weaken a gate, threshold, or severity level without the full protocol: warn user of impact, generate a remediation patch, require explicit risk acceptance, persist to `state/decision-store.json`, and append to `state/audit-log.ndjson`.
 
 Gate failure: diagnose, fix, retry. Use `ai-eng doctor --fix` or `ai-eng doctor --fix --phase <name>`.
 
@@ -174,7 +176,7 @@ Gate failure: diagnose, fix, retry. Use `ai-eng doctor --fix` or `ai-eng doctor 
 
 | What | Where |
 |------|-------|
-| Skills (38) | `.claude/skills/ai-<name>/SKILL.md` |
+| Skills (40) | `.claude/skills/ai-<name>/SKILL.md` |
 | Agents (9) | `.claude/agents/ai-<name>.md` |
 | Config | `.ai-engineering/manifest.yml` |
 | Decisions | `.ai-engineering/state/decision-store.json` |

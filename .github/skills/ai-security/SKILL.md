@@ -27,7 +27,7 @@ Unified security assessment for regulated industries. Modes: `static` (SAST with
 
 ### static -- SAST
 
-1. **Detect stacks** -- read project files for active languages.
+1. **Read stacks** -- read `.ai-engineering/manifest.yml` field `providers.stacks` for active languages.
 2. **Secret detection** -- `gitleaks detect --source . --no-git`. Any finding is critical.
 3. **Semgrep** -- `semgrep scan --config auto --json`. Parse for rule IDs, severity, CWE.
 4. **Manual analysis** -- review what tools miss:
@@ -40,7 +40,7 @@ Unified security assessment for regulated industries. Modes: `static` (SAST with
 
 ### deps -- Dependency Audit
 
-1. **Detect lock files** -- `uv.lock`, `package-lock.json`, `Cargo.lock`, `*.csproj`.
+1. **Identify lock files** -- read `providers.stacks` from `.ai-engineering/manifest.yml`, then check for matching lock files (`uv.lock`, `package-lock.json`, `Cargo.lock`, `*.csproj`).
 2. **Run audit** -- Python: `pip-audit --strict --desc`. Node: `npm audit --json`. Rust: `cargo audit --json`.
 3. **Assess exploitability** -- mark unreachable paths as reduced severity with justification.
 4. **Report** with upgrade paths.

@@ -23,6 +23,7 @@ Execution engine for approved plans. Reads plan.md and tasks.md, dispatches one 
 
 1. **Load plan** -- read `specs/spec.md` -> `specs/plan.md`
 2. **Load decisions** -- read `decision-store.json` for constraints
+2.5. **Board sync (in_progress)** -- read `specs/spec.md` frontmatter `refs`; for each work item ref where the hierarchy rule is not `never_close` (i.e., user_stories, tasks, bugs, issues), invoke `/ai-board-sync in_progress <work-item-ref>`. Fail-open: do not block DAG construction if this fails.
 3. **Build DAG** -- parse task dependencies, identify parallel groups
 4. **Execute phase by phase** -- for each phase:
    a. Dispatch one subagent per task (fresh context window)
@@ -143,7 +144,7 @@ When invoked with `--resume`, read `specs/plan.md` and determine re-entry point:
 ## Integration
 
 - **Called by**: user directly (after `/ai-plan` approval)
-- **Calls**: `ai-build` (build tasks), `ai-verify` (scan tasks, quality check), `ai-review` (quality check), `ai-pr` (deliver)
+- **Calls**: `ai-build` (build tasks), `ai-verify` (scan tasks, quality check), `ai-review` (quality check), `ai-pr` (deliver), `/ai-board-sync` (in_progress transition)
 - **Reads**: `ai-verify/SKILL.md`, `ai-review/SKILL.md`, `ai-pr/SKILL.md` (thin orchestrator, embedded at dispatch time)
 - **Transitions to**: PR merge (after deliver), or back to `/ai-plan` (if re-plan needed)
 

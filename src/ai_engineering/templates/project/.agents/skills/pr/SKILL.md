@@ -31,17 +31,21 @@ Governed PR creation: run full commit pipeline, execute pre-push gates, create o
 
 READ `.agents/skills/commit/SKILL.md` and execute steps 0-6 in full. Do NOT skip any step. The documentation gate (step 5) is mandatory.
 
-### 6.5. Doc gate verification
+### 6.5. Documentation subagent dispatch
 
-Safety net: verify documentation gate executed correctly.
-- If staged changes include `src/` or `.ai-engineering/` files (excluding `state/`): CHANGELOG.md MUST be staged.
-- For governance content changes: `.ai-engineering/README.md` SHOULD be staged and mirrored.
+Dispatch up to 5 documentation subagents via `/ai-docs` handlers:
 
-### 6.7. Solution intent sync
+1. **Read flags** -- read `.ai-engineering/manifest.yml` `documentation.auto_update` flags and `external_portal` config.
 
-If staged changes include architecture files (agents/, skills/, manifest.yml, contexts/, specs/):
-- Invoke `/ai-solution-intent sync` to update `docs/solution-intent.md`
-- Stage the updated file
+2. **Dispatch subagents 1-4 in parallel** (based on flags):
+   - **Subagent CHANGELOG** (if `auto_update.changelog: true`): invoke `/ai-docs changelog` -- reads semantic diff, classifies by user impact, updates CHANGELOG.md
+   - **Subagent README** (if `auto_update.readme: true`): invoke `/ai-docs readme` -- diff-aware section targeting, updates only affected README sections
+   - **Subagent solution-intent-sync** (if `auto_update.solution_intent: true` AND staged changes include architecture files: agents/, skills/, manifest.yml, contexts/, specs/): invoke `/ai-docs solution-intent-sync` -- diff-aware rewrite of stale sections in docs/solution-intent.md
+   - **Subagent docs-portal** (if `external_portal.enabled: true`): invoke `/ai-docs docs-portal` -- updates external documentation repository via PR or push
+
+3. **After subagents 1-4 complete**, dispatch **Subagent docs-quality-gate**: invoke `/ai-docs docs-quality-gate` -- verifies all documentation outputs cover every semantic change in the diff. Zero uncovered items required.
+
+4. **Stage all documentation files** produced by subagents 1-4.
 
 ### 7. Pre-push checks
 
@@ -193,7 +197,7 @@ Same as default flow but create as draft PR.
 ## Integration
 
 - Invokes `/ai-commit` pipeline (steps 0-6) as prerequisite.
-- Auto-updates CHANGELOG.md and README.md via documentation gate.
+- Auto-updates CHANGELOG.md, README.md, and solution-intent via `/ai-docs` parallel subagent dispatch.
 - Links to work items from spec frontmatter refs (hierarchy-aware: features never closed, user stories/tasks/bugs/issues closed on merge).
 - Falls back to spec-label-based issue linking when no frontmatter refs present.
 - Step 14 monitors PR until merge, autonomously fixing CI failures, merge conflicts, and review comments from team/org-internal bots.
@@ -201,6 +205,6 @@ Same as default flow but create as draft PR.
 ## References
 
 - `.agents/skills/commit/SKILL.md` -- shared commit pipeline.
-- `.agents/skills/write/SKILL.md` -- changelog and documentation updates.
+- `.agents/skills/docs/SKILL.md` -- documentation lifecycle (changelog, readme, solution-intent, portal, quality gate).
 - `.ai-engineering/manifest.yml` -- quality gates and non-negotiables.
 $ARGUMENTS
