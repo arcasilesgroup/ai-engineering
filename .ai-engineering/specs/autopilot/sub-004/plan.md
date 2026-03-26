@@ -1,6 +1,6 @@
 ---
 total: 4
-completed: 0
+completed: 4
 ---
 
 # Plan: sub-004 /ai-code Skill Creation
@@ -61,13 +61,13 @@ Body sections (in order):
 6. `$ARGUMENTS`
 
 **Done**:
-- [ ] File exists at `.claude/skills/ai-code/SKILL.md`
-- [ ] Frontmatter has name, description, effort (high), argument-hint
-- [ ] Step 0 matches the sub-003 context loading pattern (read manifest stacks, load languages/frameworks/team with precedence)
-- [ ] Steps 1-6 cover: pre-coding checklist, file placement, interface-first, write code, backward compat, self-review
-- [ ] Self-review produces compliance trace with 3 categories (naming, anti-patterns, error handling)
-- [ ] Common Mistakes and Integration sections present
-- [ ] File ends with `$ARGUMENTS`
+- [x] File exists at `.claude/skills/ai-code/SKILL.md`
+- [x] Frontmatter has name, description, effort (high), argument-hint
+- [x] Step 0 matches the sub-003 context loading pattern (read manifest stacks, load languages/frameworks/team with precedence)
+- [x] Steps 1-6 cover: pre-coding checklist, file placement, interface-first, write code, backward compat, self-review
+- [x] Self-review produces compliance trace with 3 categories (naming, anti-patterns, error handling)
+- [x] Common Mistakes and Integration sections present
+- [x] File ends with `$ARGUMENTS`
 
 ### T-4.2: Update ai-build classify table and references
 
@@ -90,9 +90,9 @@ Update `.claude/agents/ai-build.md` to reference the new /ai-code skill.
    ```
 
 **Done**:
-- [ ] Classify table `code` row has updated description reflecting the skill's procedure
-- [ ] Referenced Skills section lists ai-code SKILL.md
-- [ ] No other lines in ai-build.md are modified
+- [x] Classify table `code` row has updated description reflecting the skill's procedure
+- [x] Referenced Skills section lists ai-code SKILL.md
+- [x] No other lines in ai-build.md are modified
 
 ### T-4.3: Add contexts.precedence to manifest.yml and schema
 
@@ -145,11 +145,11 @@ Add the `contexts` section with `precedence` field to manifest.yml and extend th
 2. The `contexts` property does NOT need to be added to the top-level `required` array (it is user configuration, not framework-mandatory). But because the top level has `additionalProperties: false`, the property MUST be declared even if not required -- otherwise validation will reject manifests that include it.
 
 **Done**:
-- [ ] manifest.yml has `contexts.precedence: [team, frameworks, languages]` in user configuration section
-- [ ] manifest.yml skills registry has `ai-code` entry with type: workflow, tags: [implementation]
-- [ ] manifest.yml skills total is 39
-- [ ] manifest.schema.json has `contexts` property definition with precedence array (enum: team, frameworks, languages)
-- [ ] Schema validation passes: `additionalProperties: false` at top level does not reject the new field
+- [x] manifest.yml has `contexts.precedence: [team, frameworks, languages]` in user configuration section
+- [x] manifest.yml skills registry has `ai-code` entry with type: workflow, tags: [implementation]
+- [x] manifest.yml skills total is 41 (was 40 at execution time, not 38 as planned; incremented by 1)
+- [x] manifest.schema.json has `contexts` property definition with precedence array (enum: team, frameworks, languages)
+- [x] Schema validation passes: `additionalProperties: false` at top level does not reject the new field
 
 ### T-4.4: Generate mirrors and validate
 
@@ -169,12 +169,12 @@ Run the mirror sync script to auto-generate all IDE surface mirrors for the new 
 3. Spot-check: confirm `.agents/skills/code/SKILL.md` uses bare name `code` (ai- prefix stripped) and `.github/skills/ai-code/SKILL.md` has `mode: agent` in frontmatter.
 
 **Done**:
-- [ ] `python scripts/sync_command_mirrors.py` completes without error
-- [ ] `python scripts/sync_command_mirrors.py --check` exits 0 (no drift)
-- [ ] `.agents/skills/code/SKILL.md` exists with stripped ai- prefix in name
-- [ ] `.github/skills/ai-code/SKILL.md` exists with `mode: agent` frontmatter
-- [ ] All 5 template mirrors exist
-- [ ] Cross-references in mirrors use platform-appropriate paths (`.agents/skills/` for generic, `.github/skills/` for Copilot)
+- [x] `python scripts/sync_command_mirrors.py` completes without error
+- [x] `python scripts/sync_command_mirrors.py --check` exits 0 (no drift)
+- [x] `.agents/skills/code/SKILL.md` exists with stripped ai- prefix in name
+- [x] `.github/skills/ai-code/SKILL.md` exists with `mode: agent` frontmatter
+- [x] All 5 template mirrors exist
+- [x] Cross-references in mirrors use platform-appropriate paths (`.agents/skills/` for generic, `.github/skills/` for Copilot)
 
 ## Confidence Assessment
 
@@ -187,4 +187,34 @@ Run the mirror sync script to auto-generate all IDE surface mirrors for the new 
 | Overall | 93% | Low-risk sub-spec with well-established patterns; main dependency (sub-003 Step 0 pattern) is complementary, not blocking |
 
 ## Self-Report
-[EMPTY -- populated by Phase 4]
+
+**Status**: COMPLETE (4/4 tasks)
+
+**Tasks executed**:
+
+| Task | Result | Notes |
+|------|--------|-------|
+| T-4.1 | PASS | Created SKILL.md with frontmatter, Steps 0-6, compliance trace, common mistakes, integration, $ARGUMENTS |
+| T-4.2 | PASS | Updated classify table description and added ai-code to Referenced Skills |
+| T-4.3 | PASS | Added contexts.precedence to manifest.yml and schema; added ai-code to registry; total 40->41 |
+| T-4.4 | PASS | Mirror sync created 6 files, updated 6 files; --check exits 0; spot-checks confirmed |
+
+**Deviation from plan**: The plan expected `skills.total` to go from 38 to 39. At execution time, the manifest was already at 40 skills (upstream changes since plan was written). Incremented to 41 to account for the new ai-code entry. The mirror sync script confirmed 41 skills discovered.
+
+**Files created** (1 canonical + 5 mirrors):
+- `.claude/skills/ai-code/SKILL.md` (canonical)
+- `.agents/skills/code/SKILL.md` (auto-generated)
+- `.github/skills/ai-code/SKILL.md` (auto-generated)
+- `src/ai_engineering/templates/project/.claude/skills/ai-code/SKILL.md` (auto-generated)
+- `src/ai_engineering/templates/project/.agents/skills/code/SKILL.md` (auto-generated)
+- `src/ai_engineering/templates/project/.github/skills/ai-code/SKILL.md` (auto-generated)
+
+**Files modified** (4 canonical + 6 mirrors):
+- `.claude/agents/ai-build.md` (classify table + referenced skills)
+- `.ai-engineering/manifest.yml` (contexts section + ai-code registry + total)
+- `.ai-engineering/schemas/manifest.schema.json` (contexts property)
+- 6 mirror files auto-updated by sync script
+
+**Exports for downstream**:
+- `.claude/skills/ai-code/SKILL.md` -- consumed by sub-005 (Build Standards Validation)
+- `contexts.precedence` manifest field -- consumed by sub-005 and all context-loading skills

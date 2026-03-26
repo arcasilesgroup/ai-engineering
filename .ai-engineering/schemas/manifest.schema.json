@@ -194,6 +194,22 @@
       "required": ["standards_url"],
       "additionalProperties": false
     },
+    "contexts": {
+      "type": "object",
+      "properties": {
+        "precedence": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["team", "frameworks", "languages"]
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        }
+      },
+      "required": ["precedence"],
+      "additionalProperties": false
+    },
     "skills": {
       "type": "object",
       "properties": {

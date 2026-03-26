@@ -83,12 +83,18 @@ documentation:
 cicd:
   standards_url: null
 
+# Context loading precedence
+# When conventions from different context layers conflict,
+# the first layer in the list wins (team overrides framework, framework overrides language).
+contexts:
+  precedence: [team, frameworks, languages]
+
 # === FRAMEWORK MANAGED (do not edit below this line) ===
 # These sections are maintained by ai-engineering automatically.
 
-# Skills registry (40 skills)
+# Skills registry (41 skills)
 skills:
-  total: 40
+  total: 41
   prefix: "ai-"
   registry:
     # Core workflow
@@ -97,6 +103,7 @@ skills:
     ai-dispatch: { type: workflow, tags: [execution] }
     ai-test: { type: workflow, tags: [quality] }
     ai-debug: { type: workflow, tags: [quality] }
+    ai-code: { type: workflow, tags: [implementation] }
     ai-verify: { type: workflow, tags: [quality] }
     ai-review: { type: workflow, tags: [quality] }
     # Delivery

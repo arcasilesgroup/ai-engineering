@@ -42,7 +42,7 @@ Apply loaded standards to all subsequent code generation.
 
 | Skill | Trigger | What it does |
 |-------|---------|-------------|
-| `code` | Implementation tasks | Write code following stack standards |
+| `code` | Implementation tasks | Pre-coding checklist, context-aware coding, interface-first, self-review |
 | `test` | Test requests | Plan, write, run tests (modes: plan/run/gap) |
 | `debug` | Bug reports, errors | Reproduce, isolate, fix, verify |
 | `refactor` | Restructure code | Move, rename, split -- change structure preserving behavior |
@@ -110,7 +110,7 @@ Every build task produces this structured output to enable downstream agents (ve
 
 ## Referenced Skills
 
-- `.claude/skills/ai-test/SKILL.md`, `.claude/skills/ai-debug/SKILL.md`, `.claude/skills/ai-simplify/SKILL.md`
+- `.claude/skills/ai-code/SKILL.md`, `.claude/skills/ai-test/SKILL.md`, `.claude/skills/ai-debug/SKILL.md`, `.claude/skills/ai-simplify/SKILL.md`
 - `.claude/skills/ai-schema/SKILL.md`, `.claude/skills/ai-pipeline/SKILL.md`
 - `.claude/skills/ai-dispatch/SKILL.md` -- task dispatch and agent coordination
 
