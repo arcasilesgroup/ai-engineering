@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **ai-eng update UX (spec-081)** -- the update command now presents an install-style preview in interactive terminals, explains protected files with structured reasons, and requires confirmation before applying writes while keeping JSON and non-TTY flows prompt-free.
+
 ### Added
 - **Codex/Copilot instruction parity (spec-080)** -- sync now generates live `.github/instructions/*.instructions.md` surfaces alongside template instructions, keeping language guidance aligned across installed projects and the dogfooded repo.
 

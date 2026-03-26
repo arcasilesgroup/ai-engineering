@@ -22,6 +22,7 @@ from ai_engineering.cli_commands import (
 from ai_engineering.policy.gates import GateCheckResult, GateHook, GateResult
 from ai_engineering.state.defaults import default_install_state
 from ai_engineering.state.service import save_install_state
+from ai_engineering.updater.service import FileChange, UpdateResult
 
 pytestmark = pytest.mark.integration
 
@@ -157,17 +158,25 @@ def test_vcs_set_primary_invalid_provider_exits(tmp_path: Path) -> None:
 def test_core_update_json_and_doctor_fail(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    fake_result = SimpleNamespace(
+    fake_result = UpdateResult(
         dry_run=True,
-        applied_count=1,
-        denied_count=0,
-        changes=[SimpleNamespace(path=Path("a"), action="update", diff="x\n" * 50)],
+        changes=[
+            FileChange(
+                path=Path("a"),
+                action="update",
+                diff="x\n" * 50,
+                reason_code="template-drift",
+                explanation="Template update available.",
+                recommended_action="Apply the update.",
+            )
+        ],
     )
     with patch("ai_engineering.cli_commands.core.update", return_value=fake_result):
         core.update_cmd(target=tmp_path, output_json=True)
     data = json.loads(capsys.readouterr().out)
     # JSON envelope wraps result under "result" key
     assert data["result"]["applied"] == 1
+    assert data["result"]["changes"][0]["reason_code"] == "template-drift"
 
     report = SimpleNamespace(
         passed=False,
@@ -217,15 +226,146 @@ def test_stack_and_ide_empty_lists_and_errors(
 
 def test_core_update_diff_truncation(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     diff_text = "\n".join([f"line-{i}" for i in range(200)])
-    fake_result = SimpleNamespace(
+    fake_result = UpdateResult(
         dry_run=True,
-        applied_count=1,
-        denied_count=0,
-        changes=[SimpleNamespace(path=Path("f"), action="update", diff=diff_text)],
+        changes=[
+            FileChange(
+                path=Path("f"),
+                action="update",
+                diff=diff_text,
+                reason_code="template-drift",
+                explanation="Template update available.",
+                recommended_action="Apply the update.",
+            )
+        ],
     )
     with patch("ai_engineering.cli_commands.core.update", return_value=fake_result):
         core.update_cmd(target=tmp_path, show_diff=True)
     assert "more lines" in capsys.readouterr().out
+
+
+def test_core_update_interactive_preview_then_apply(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    preview = UpdateResult(
+        dry_run=True,
+        changes=[
+            FileChange(
+                path=Path("f"),
+                action="update",
+                diff=None,
+                reason_code="template-drift",
+                explanation="Template update available.",
+                recommended_action="Apply the update.",
+            ),
+            FileChange(
+                path=Path("team.md"),
+                action="skip-denied",
+                reason_code="team-managed-update-protected",
+                explanation=(
+                    "This is a team-managed path, so ai-eng update intentionally "
+                    "leaves it unchanged and will not have it replaced. No action "
+                    "is required."
+                ),
+            ),
+        ],
+    )
+    applied = UpdateResult(
+        dry_run=False,
+        changes=[
+            FileChange(
+                path=Path("f"),
+                action="update",
+                diff=None,
+                reason_code="template-drift",
+                explanation=(
+                    "This installed file differs from the current bundled framework template."
+                ),
+                recommended_action=(
+                    "Apply the update to replace it with the latest framework-managed version."
+                ),
+            )
+        ],
+    )
+
+    with (
+        patch.object(core.sys.stdin, "isatty", return_value=True),
+        patch(
+            "ai_engineering.cli_commands.core.update", side_effect=[preview, applied]
+        ) as mock_update,
+        patch("ai_engineering.cli_commands.core.typer.confirm", return_value=True) as mock_confirm,
+    ):
+        core.update_cmd(target=tmp_path)
+
+    captured = capsys.readouterr()
+    assert "Update [PREVIEW]" in captured.out
+    assert "Update [APPLIED]" in captured.out
+    assert "skip-denied" not in captured.err
+    assert "team-managed-update-protected" in captured.err
+    assert "No action required" in captured.err
+    assert mock_update.call_count == 2
+    mock_confirm.assert_called_once()
+
+
+def test_core_update_interactive_decline_keeps_preview_only(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    preview = UpdateResult(
+        dry_run=True,
+        changes=[
+            FileChange(
+                path=Path("f"),
+                action="update",
+                diff=None,
+                reason_code="template-drift",
+                explanation="Template update available.",
+                recommended_action="Apply the update.",
+            )
+        ],
+    )
+
+    with (
+        patch.object(core.sys.stdin, "isatty", return_value=True),
+        patch("ai_engineering.cli_commands.core.update", return_value=preview) as mock_update,
+        patch("ai_engineering.cli_commands.core.typer.confirm", return_value=False) as mock_confirm,
+    ):
+        core.update_cmd(target=tmp_path)
+
+    captured = capsys.readouterr()
+    assert "Update [PREVIEW]" in captured.out
+    assert "Preview only. No changes were applied." in captured.err
+    assert mock_update.call_count == 1
+    mock_confirm.assert_called_once()
+
+
+def test_core_update_non_tty_apply_skips_prompt(tmp_path: Path) -> None:
+    applied = UpdateResult(
+        dry_run=False,
+        changes=[
+            FileChange(
+                path=Path("f"),
+                action="update",
+                diff=None,
+                reason_code="template-drift",
+                explanation=(
+                    "This installed file differs from the current bundled framework template."
+                ),
+                recommended_action=(
+                    "Apply the update to replace it with the latest framework-managed version."
+                ),
+            )
+        ],
+    )
+
+    with (
+        patch.object(core.sys.stdin, "isatty", return_value=False),
+        patch("ai_engineering.cli_commands.core.update", return_value=applied) as mock_update,
+        patch("ai_engineering.cli_commands.core.typer.confirm") as mock_confirm,
+    ):
+        core.update_cmd(target=tmp_path, apply=True)
+
+    mock_confirm.assert_not_called()
+    mock_update.assert_called_once_with(tmp_path, dry_run=False)
 
 
 def test_gate_pre_push_and_risk_expiring_paths(

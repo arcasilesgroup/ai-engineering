@@ -77,7 +77,7 @@ your-project/
 
 Three ownership boundaries keep your content safe:
 
-- **Framework-managed** — standards and baselines, updated by `ai-eng update`. Dry-run by default.
+- **Framework-managed** — standards and baselines, updated by `ai-eng update`. Preview-first by default, with confirmation before writes in interactive terminals.
 - **Team-managed** — your team's rules and overrides. Never overwritten by framework updates.
 - **Project-managed** — specs, product goals, decisions. Never overwritten. Your project memory stays yours.
 
@@ -92,7 +92,7 @@ Three ownership boundaries keep your content safe:
 - **Stack-aware enforcement** — tailored rules for Python, .NET, and Next.js. Each stack has its own linting, testing, and security toolchain.
 - **Content integrity validation** — 6 programmatic categories verify that governance files stay consistent across updates.
 - **Doctor diagnostics** — one command checks framework health and auto-fixes missing hooks or tools.
-- **Framework updates without risk** — `ai-eng update` previews changes. Add `--apply` to write them. Your team and project content is never touched.
+- **Framework updates without risk** — `ai-eng update` previews changes, explains protected files, and asks for confirmation before writing in interactive terminals. Your team and project content is never touched.
 
 ## The governance root — `.ai-engineering/`
 
@@ -179,8 +179,8 @@ Core commands you use daily:
 ```bash
 ai-eng install [TARGET]           # Bootstrap governance in any project
 ai-eng install --provider claude_code --provider github_copilot  # Select AI providers
-ai-eng update [TARGET]            # Preview framework updates (dry-run)
-ai-eng update [TARGET] --apply    # Apply framework updates
+ai-eng update [TARGET]            # Preview framework updates
+ai-eng update [TARGET] --apply    # Preview, confirm in TTY, then apply framework updates
 ai-eng doctor [TARGET]            # Diagnose and auto-fix framework health
 ai-eng guide [TARGET]             # View branch policy setup instructions
 ai-eng validate [TARGET]          # Validate content integrity
@@ -220,7 +220,7 @@ ai-engineering uses a content-first approach — configuration lives in `.ai-eng
 
 **At install time**, control which stacks and IDEs to enable via `--stack` and `--ide` flags. Add or remove them later with `ai-eng stack` and `ai-eng ide` commands.
 
-**Updates** are dry-run by default. Run `ai-eng update` to preview, then `ai-eng update --apply` to write. The updater only touches framework-managed files.
+**Updates** are preview-first by default. Run `ai-eng update` to inspect grouped results, or `ai-eng update --apply` to preview and then apply. In interactive terminals the CLI asks for confirmation before writing; in JSON or non-TTY mode it stays prompt-free. The updater only touches framework-managed files.
 
 **Doctor remediation** provides `--fix` to repair the framework and `--fix --phase <name>` to target a specific phase (e.g. `hooks` to reinstall git hooks, `tools` to auto-install missing tools such as `ruff`, `ty`, `gitleaks`, `semgrep`, `pip-audit`).
 

@@ -139,6 +139,8 @@ class TestOwnershipSafety:
             if c.action == "skip-denied" and "contexts" in str(c.path) and "team" in str(c.path)
         ]
         assert len(denied) >= 1, "Expected at least one denied team-managed change"
+        assert denied[0].reason_code == "team-managed-update-protected"
+        assert "No action is required" in denied[0].explanation
 
     def test_create_blocked_by_deny_ownership(self, installed_project: Path) -> None:
         """An explicit deny pattern prevents creation of a new file in team-managed paths."""
@@ -158,6 +160,7 @@ class TestOwnershipSafety:
         )
         assert match is not None, "Expected team lessons file in changes"
         assert match.action == "skip-denied"
+        assert match.reason_code == "team-managed-create-protected"
 
 
 # ---------------------------------------------------------------------------
@@ -253,6 +256,24 @@ class TestDiffGeneration:
         assert updated[0].diff is not None
         assert "---" in updated[0].diff
         assert "+++" in updated[0].diff
+        assert updated[0].reason_code == "template-drift"
+
+    def test_create_and_unchanged_changes_have_structured_explanations(
+        self, installed_project: Path
+    ) -> None:
+        missing = installed_project / ".claude" / "agents" / "ai-guide.md"
+        if missing.exists():
+            missing.unlink()
+
+        result = update(installed_project, dry_run=True)
+
+        created = next((c for c in result.changes if c.path == missing), None)
+        unchanged = next((c for c in result.changes if c.action == "skip-unchanged"), None)
+        assert created is not None
+        assert created.reason_code == "missing-framework-file"
+        assert created.recommended_action is not None
+        assert unchanged is not None
+        assert unchanged.reason_code == "already-current"
 
     def test_binary_file_diff_handling(self, installed_project: Path) -> None:
         """Non-UTF8 file should produce '[binary file]' diff."""
