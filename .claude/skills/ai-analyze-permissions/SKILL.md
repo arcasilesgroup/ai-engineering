@@ -4,6 +4,7 @@ description: "Use when Claude Code permissions have accumulated in settings.loca
 effort: medium
 argument-hint: "[analyze|apply|cleanup]"
 disable-model-invocation: true
+copilot_compatible: false
 ---
 
 # Analyze Permissions

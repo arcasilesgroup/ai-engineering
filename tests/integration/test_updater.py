@@ -197,19 +197,19 @@ class TestTemplateTrees:
         denied = [c for c in result.changes if c.path == settings and c.action == "skip-denied"]
         assert len(denied) == 1
 
-    def test_update_handles_prompt_files(self, installed_project: Path) -> None:
-        """Modify a .github/prompts/ file and verify update restores it."""
-        prompts_dir = installed_project / ".github" / "prompts"
-        if not prompts_dir.is_dir():
-            pytest.skip("prompts directory not found in installed project")
+    def test_update_handles_skill_files(self, installed_project: Path) -> None:
+        """Modify a .github/skills/ file and verify update restores it."""
+        skills_dir = installed_project / ".github" / "skills"
+        if not skills_dir.is_dir():
+            pytest.skip("skills directory not found in installed project")
 
-        prompt_files = list(prompts_dir.glob("*.prompt.md"))
-        if not prompt_files:
-            pytest.skip("no prompt files found in installed project")
+        skill_files = list(skills_dir.rglob("SKILL.md"))
+        if not skill_files:
+            pytest.skip("no skill files found in installed project")
 
-        target = prompt_files[0]
+        target = skill_files[0]
         original = target.read_bytes()
-        target.write_text("modified prompt")
+        target.write_text("modified skill")
 
         result = update(installed_project, dry_run=False)
 
@@ -303,6 +303,68 @@ class TestRollback:
 # ---------------------------------------------------------------------------
 # UpdateResult
 # ---------------------------------------------------------------------------
+
+
+class TestCleanupLegacyPrompts:
+    """Tests for _cleanup_legacy_prompts migration."""
+
+    def test_removes_legacy_prompts_when_skills_exist(self, installed_project: Path) -> None:
+        prompts = installed_project / ".github" / "prompts"
+        prompts.mkdir(parents=True, exist_ok=True)
+        (prompts / "ai-commit.prompt.md").write_text("legacy")
+        (prompts / "ai-review.prompt.md").write_text("legacy")
+
+        update(installed_project, dry_run=False)
+
+        assert not prompts.exists()
+
+    def test_keeps_prompts_when_no_skills_dir(self, tmp_path: Path) -> None:
+        install(tmp_path)
+        prompts = tmp_path / ".github" / "prompts"
+        prompts.mkdir(parents=True, exist_ok=True)
+        (prompts / "ai-commit.prompt.md").write_text("legacy")
+        skills = tmp_path / ".github" / "skills"
+        if skills.exists():
+            import shutil
+
+            shutil.rmtree(skills)
+
+        update(tmp_path, dry_run=False)
+
+        assert prompts.exists()
+        assert (prompts / "ai-commit.prompt.md").exists()
+
+    def test_noop_when_no_prompts_dir(self, installed_project: Path) -> None:
+        prompts = installed_project / ".github" / "prompts"
+        if prompts.exists():
+            import shutil
+
+            shutil.rmtree(prompts)
+
+        result = update(installed_project, dry_run=False)
+        assert not prompts.exists()
+        assert isinstance(result, UpdateResult)
+
+    def test_removes_nested_prompt_dirs(self, installed_project: Path) -> None:
+        prompts = installed_project / ".github" / "prompts"
+        nested = prompts / "subdir"
+        nested.mkdir(parents=True, exist_ok=True)
+        (nested / "file.md").write_text("nested")
+        (prompts / "top.md").write_text("top")
+
+        update(installed_project, dry_run=False)
+
+        assert not prompts.exists()
+
+    def test_dry_run_does_not_remove_prompts(self, installed_project: Path) -> None:
+        prompts = installed_project / ".github" / "prompts"
+        prompts.mkdir(parents=True, exist_ok=True)
+        (prompts / "ai-commit.prompt.md").write_text("legacy")
+
+        update(installed_project, dry_run=True)
+
+        assert prompts.exists()
+        assert (prompts / "ai-commit.prompt.md").exists()
 
 
 class TestUpdateResult:

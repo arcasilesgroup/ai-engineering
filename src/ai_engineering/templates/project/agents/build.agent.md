@@ -9,11 +9,11 @@ handoffs:
 - label: ✅ Verify Changes
   agent: Verify
   prompt: Verify the implementation changes made above.
-  send: false
+  send: true
 - label: 🔍 Review Changes
   agent: Review
   prompt: Review the code changes made above.
-  send: false
+  send: true
 hooks:
   PostToolUse:
   - type: command
@@ -105,9 +105,9 @@ For multi-task plans, use specialized agents per task with fresh context:
 
 ## Referenced Skills
 
-- `.github/prompts/ai-test.prompt.md`, `.github/prompts/ai-debug.prompt.md`, `.github/prompts/ai-simplify.prompt.md`
-- `.github/prompts/ai-schema.prompt.md`, `.github/prompts/ai-pipeline.prompt.md`
-- `.github/prompts/ai-dispatch.prompt.md` -- task dispatch and agent coordination
+- `.github/skills/ai-test/SKILL.md`, `.github/skills/ai-debug/SKILL.md`, `.github/skills/ai-simplify/SKILL.md`
+- `.github/skills/ai-schema/SKILL.md`, `.github/skills/ai-pipeline/SKILL.md`
+- `.github/skills/ai-dispatch/SKILL.md` -- task dispatch and agent coordination
 
 ## Boundaries
 

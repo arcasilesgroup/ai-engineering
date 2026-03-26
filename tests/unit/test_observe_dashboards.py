@@ -638,9 +638,6 @@ class TestHealthMultiVariable:
             patch(f"{module}.sonar_detailed_metrics", return_value={"available": False}),
             patch(f"{module}.test_confidence_metrics", return_value=_EMPTY_TEST_CONFIDENCE),
             patch(f"{module}.noise_ratio_from", return_value=_EMPTY_NOISE),
-            patch(f"{module}.load_health_history", return_value=[]),
-            patch(f"{module}.health_direction", return_value="stable"),
-            patch(f"{module}.save_health_snapshot"),
         ):
             result = observe_health(tmp_path)
 
@@ -666,9 +663,6 @@ class TestHealthMultiVariable:
             patch(f"{module}.sonar_detailed_metrics", return_value={"available": False}),
             patch(f"{module}.test_confidence_metrics", return_value=_EMPTY_TEST_CONFIDENCE),
             patch(f"{module}.noise_ratio_from", return_value=_EMPTY_NOISE),
-            patch(f"{module}.load_health_history", return_value=[]),
-            patch(f"{module}.health_direction", return_value="stable"),
-            patch(f"{module}.save_health_snapshot"),
         ):
             result = observe_health(tmp_path)
 
@@ -699,9 +693,6 @@ class TestHealthMultiVariable:
             patch(f"{module}.sonar_detailed_metrics", return_value={"available": False}),
             patch(f"{module}.test_confidence_metrics", return_value=_EMPTY_TEST_CONFIDENCE),
             patch(f"{module}.noise_ratio_from", return_value=_EMPTY_NOISE),
-            patch(f"{module}.load_health_history", return_value=[]),
-            patch(f"{module}.health_direction", return_value="stable"),
-            patch(f"{module}.save_health_snapshot"),
         ):
             result = observe_health(tmp_path)
 
@@ -727,9 +718,6 @@ class TestHealthMultiVariable:
             patch(f"{module}.sonar_detailed_metrics", return_value={"available": False}),
             patch(f"{module}.test_confidence_metrics", return_value=_EMPTY_TEST_CONFIDENCE),
             patch(f"{module}.noise_ratio_from", return_value=_EMPTY_NOISE),
-            patch(f"{module}.load_health_history", return_value=[]),
-            patch(f"{module}.health_direction", return_value="stable"),
-            patch(f"{module}.save_health_snapshot"),
         ):
             result = observe_health(tmp_path)
 
@@ -752,9 +740,6 @@ class TestHealthMultiVariable:
             patch(f"{module}.sonar_detailed_metrics", return_value={"available": False}),
             patch(f"{module}.test_confidence_metrics", return_value=_EMPTY_TEST_CONFIDENCE),
             patch(f"{module}.noise_ratio_from", return_value=_EMPTY_NOISE),
-            patch(f"{module}.load_health_history", return_value=[]),
-            patch(f"{module}.health_direction", return_value="stable"),
-            patch(f"{module}.save_health_snapshot"),
         ):
             result = observe_health(tmp_path)
 
@@ -775,9 +760,6 @@ class TestHealthMultiVariable:
             patch(f"{module}.sonar_detailed_metrics", return_value={"available": False}),
             patch(f"{module}.test_confidence_metrics", return_value=_EMPTY_TEST_CONFIDENCE),
             patch(f"{module}.noise_ratio_from", return_value=_EMPTY_NOISE),
-            patch(f"{module}.load_health_history", return_value=[]),
-            patch(f"{module}.health_direction", return_value="stable"),
-            patch(f"{module}.save_health_snapshot"),
         ):
             result = observe_health(tmp_path)
 
@@ -798,9 +780,6 @@ class TestHealthMultiVariable:
             patch(f"{module}.sonar_detailed_metrics", return_value={"available": False}),
             patch(f"{module}.test_confidence_metrics", return_value=_EMPTY_TEST_CONFIDENCE),
             patch(f"{module}.noise_ratio_from", return_value=_EMPTY_NOISE),
-            patch(f"{module}.load_health_history", return_value=[]),
-            patch(f"{module}.health_direction", return_value="stable"),
-            patch(f"{module}.save_health_snapshot"),
         ):
             result = observe_health(tmp_path)
 
@@ -823,9 +802,6 @@ class TestHealthMultiVariable:
             patch(f"{module}.sonar_detailed_metrics", return_value={"available": False}),
             patch(f"{module}.test_confidence_metrics", return_value=_EMPTY_TEST_CONFIDENCE),
             patch(f"{module}.noise_ratio_from", return_value=_EMPTY_NOISE),
-            patch(f"{module}.load_health_history", return_value=[]),
-            patch(f"{module}.health_direction", return_value="stable"),
-            patch(f"{module}.save_health_snapshot"),
         ):
             result = observe_health(tmp_path)
 
@@ -846,9 +822,6 @@ class TestHealthMultiVariable:
             patch(f"{module}.sonar_detailed_metrics", return_value={"available": False}),
             patch(f"{module}.test_confidence_metrics", return_value=_EMPTY_TEST_CONFIDENCE),
             patch(f"{module}.noise_ratio_from", return_value=_EMPTY_NOISE),
-            patch(f"{module}.load_health_history", return_value=[]),
-            patch(f"{module}.health_direction", return_value="stable"),
-            patch(f"{module}.save_health_snapshot"),
         ):
             result = observe_health(tmp_path)
 

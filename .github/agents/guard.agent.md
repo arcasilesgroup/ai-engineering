@@ -85,8 +85,8 @@ Severity scale: `info` (awareness) < `warn` (should address) < `concern` (likely
 
 ## Referenced Skills
 
-- `.github/prompts/ai-guard.prompt.md` -- primary skill with detailed procedures
-- `.github/prompts/ai-governance.prompt.md` -- shared governance validation patterns
+- `.github/skills/ai-guard/SKILL.md` -- primary skill with detailed procedures
+- `.github/skills/ai-governance/SKILL.md` -- shared governance validation patterns
 
 ## Boundaries
 

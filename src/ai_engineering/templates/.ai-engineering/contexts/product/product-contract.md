@@ -85,7 +85,6 @@ flowchart TB
     STATE --> AUDIT[audit-log.ndjson]
     STATE --> IS[install-state.json]
     STATE --> OWN[ownership-map.json]
-    STATE --> HH[health-history.json]
 
     HOOKS --> GATES[Policy Gate Engine]
     GATES --> AUDIT
@@ -379,7 +378,6 @@ mindmap
 | Audit log | NDJSON (append-only) | 90 days, weekly rotation | `state/audit-log.ndjson` |
 | Audit archive | NDJSON | 90 days | `state/audit-archive/audit-YYYY-WW.ndjson` |
 | Gate results | Structured events in audit log | 90 days | `state/audit-log.ndjson` |
-| Health history | JSON | Rolling | `state/health-history.json` |
 | Observe dashboards | Rich terminal output | Transient | stdout via `ai-eng observe` |
 | Decision store | JSON with SHA-256 hashes | Indefinite | `state/decision-store.json` |
 

@@ -9,7 +9,7 @@ handoffs:
 - label: ▶ Dispatch Implementation
   agent: Autopilot
   prompt: Execute the plan outlined above following the approved spec.
-  send: false
+  send: true
 ---
 
 
@@ -87,9 +87,9 @@ Document challenges and responses in the spec under `## Risks and Mitigations`.
 
 ## Referenced Skills
 
-- `.github/prompts/ai-plan.prompt.md` -- classification, discovery, risk
-- `.github/prompts/ai-brainstorm.prompt.md` -- divergent exploration, spec creation, branch scaffolding
-- `.github/prompts/ai-governance.prompt.md` -- governance validation, risk acceptance
+- `.github/skills/ai-plan/SKILL.md` -- classification, discovery, risk
+- `.github/skills/ai-brainstorm/SKILL.md` -- divergent exploration, spec creation, branch scaffolding
+- `.github/skills/ai-governance/SKILL.md` -- governance validation, risk acceptance
 
 ## Boundaries
 

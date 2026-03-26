@@ -52,7 +52,7 @@ Read `handlers/phase-decompose.md` and execute:
 
 Read `handlers/phase-deep-plan.md` and execute:
 
-1. Dispatch N Agent(Explore+Plan) in parallel -- one per sub-spec
+1. Dispatch the explore and plan agents in parallel (one per sub-spec)
 2. Each agent deep-explores the codebase and enriches `sub-NNN/spec.md` (Exploration) and `sub-NNN/plan.md` (checkbox-formatted tasks with exports/imports declarations)
 3. Gate: every sub-spec has enriched Exploration + Plan sections
 4. Failed agents retry once, then mark `plan-failed`
@@ -70,7 +70,7 @@ Read `handlers/phase-orchestrate.md` and execute:
 
 Read `handlers/phase-implement.md` and execute:
 
-1. For each wave in DAG order: dispatch Agent(Build) per sub-spec (parallel within wave)
+1. For each wave in DAG order: dispatch the build agent per sub-spec (parallel within wave)
 2. Each agent marks checkboxes `- [x]` in `sub-NNN/plan.md` as tasks complete, then writes a Self-Report (real/aspirational/stub/failing/invented/hallucinated) to `plan.md`
 3. Commit per wave, update manifest
 4. Cascade-block dependents of failed sub-specs
@@ -79,7 +79,7 @@ Read `handlers/phase-implement.md` and execute:
 
 Read `handlers/phase-quality.md` and execute:
 
-1. Dispatch Agent(Verify) + Agent(Guard) + Agent(Review) in parallel on full changeset
+1. Dispatch the verify agent + the guard agent + the review agent in parallel on full changeset
 2. Consolidate findings with unified severity mapping
 3. If clean (0 blockers+criticals+highs): proceed to Phase 6
 4. If issues remain and round < 3: dispatch fix agents, commit, repeat
@@ -183,7 +183,7 @@ Events emitted at each phase transition via hook system:
 
 - **Called by**: user directly (after `/ai-brainstorm` approval)
 - **Reads**: `ai-verify/SKILL.md`, `ai-review/SKILL.md`, `ai-pr/SKILL.md`, `ai-commit/SKILL.md`
-- **Delegates to**: Agent(Explore) for research, Agent(Build) for implementation, Agent(Verify) for gates, Agent(Guard) for governance advisory, Agent(Review) for code review
+- **Delegates to**: the explore agent for research, the build agent for implementation, the verify agent for gates, the guard agent for governance advisory, the review agent for code review
 - **Transitions to**: `/ai-cleanup` after merge, or back to user on failure
 
 $ARGUMENTS

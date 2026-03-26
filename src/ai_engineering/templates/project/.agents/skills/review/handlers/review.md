@@ -12,7 +12,10 @@ Before any review agent runs:
 
 1. Run `/ai-explore` on the changed files to produce an Architecture Map
 2. Identify the diff scope: `git diff --stat` for file list, `git diff` for full content
-3. Load applicable standards from `.ai-engineering/contexts/` based on file types
+3. Detect languages in the diff (file extensions) and read:
+   - `.ai-engineering/contexts/languages/{lang}.md` for each language found
+   - `.ai-engineering/contexts/frameworks/{framework}.md` if framework imports detected
+   - `.ai-engineering/contexts/team/*.md` for team conventions
 4. Read `decision-store.json` for relevant architectural decisions
 
 ### Step 2 -- Dispatch 8 Agents

@@ -227,7 +227,7 @@ graph LR
     end
 
     subgraph GitHub["GitHub Copilot (.github/)"]
-        GS["prompts/ai-*.prompt.md"]
+        GS["skills/ai-*/SKILL.md"]
         GA["agents/*.agent.md"]
         GI["copilot-instructions.md"]
     end
@@ -249,7 +249,7 @@ graph LR
 | Surface | Skills location | Agents location | Instruction file |
 |---------|----------------|----------------|-----------------|
 | `.claude/` | `skills/ai-*/SKILL.md` | `agents/ai-*.md` | `CLAUDE.md` |
-| `.github/` | `prompts/ai-*.prompt.md` | `agents/*.agent.md` | `copilot-instructions.md` |
+| `.github/` | `skills/ai-*/SKILL.md` | `agents/*.agent.md` | `copilot-instructions.md` |
 | `.agents/` | `skills/*/SKILL.md` | `agents/ai-*.md` | `AGENTS.md` |
 
 ### 4.2 Skills Registry (30)
@@ -320,7 +320,7 @@ graph TD
 
 | Path pattern | Owner | Update policy |
 |-------------|-------|---------------|
-| `.claude/**`, `.agents/**`, `.github/prompts/**` | Framework | Allow (overwrite on update) |
+| `.claude/**`, `.agents/**`, `.github/skills/**` | Framework | Allow (overwrite on update) |
 | `.ai-engineering/contexts/team/**` | Team | Deny (never overwritten) |
 | `.ai-engineering/state/**` | System | Append-only |
 | `src/**`, `tests/**`, `docs/**` | Project | Framework never touches |

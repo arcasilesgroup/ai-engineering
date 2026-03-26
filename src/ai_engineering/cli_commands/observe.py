@@ -33,12 +33,9 @@ from ai_engineering.lib.signals import (
     gate_pass_rate_from,
     guard_advisory_from,
     guard_drift_from,
-    health_direction,
     lead_time_metrics,
     load_all_events,
-    load_health_history,
     noise_ratio_from,
-    save_health_snapshot,
     scan_metrics_from,
     security_posture_metrics,
     skill_usage_from,
@@ -1027,23 +1024,6 @@ def _generate_health_actions(
     return actions
 
 
-def _compute_health_direction(
-    project_root: Path,
-    current_score: int,
-) -> str:
-    """Compute the health trend direction from stored history.
-
-    Args:
-        project_root: Repository root path.
-        current_score: The current overall health score.
-
-    Returns:
-        Direction indicator string from health_direction().
-    """
-    history = load_health_history(project_root)
-    return health_direction(history, current_score)
-
-
 def observe_health(project_root: Path) -> dict[str, Any]:
     """Generate aggregated health score data."""
     all_events = load_all_events(project_root)
@@ -1061,16 +1041,11 @@ def observe_health(project_root: Path) -> dict[str, Any]:
     )
     comp_dict = scores["components"]
     overall, semaphore = _compute_overall_health(comp_dict)
-    direction = _compute_health_direction(project_root, overall)
     actions = _generate_health_actions(comp_dict)
-
-    # Persist snapshot for trend tracking
-    save_health_snapshot(project_root, overall, semaphore, comp_dict)
 
     return {
         "score": overall,
         "semaphore": semaphore,
-        "direction": direction,
         "data_quality": dq,
         "components": comp_dict,
         "component_details": scores["details"],
@@ -1090,8 +1065,7 @@ def _render_health(data: dict[str, Any]) -> None:
         suggest_next,
     )
 
-    direction_suffix = f" {data['direction']}" if data["direction"] else ""
-    header(f"Health Score: {data['score']}/100 ({data['semaphore']}){direction_suffix}")
+    header(f"Health Score: {data['score']}/100 ({data['semaphore']})")
 
     kv("Data quality", data["data_quality"])
 

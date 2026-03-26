@@ -13,7 +13,7 @@
 # CI/CD and workflows
 /.github/workflows/                  @arcasilesgroup/ai-engineering-maintainers
 /.github/agents/                     @arcasilesgroup/ai-engineering-maintainers
-/.github/prompts/                    @arcasilesgroup/ai-engineering-maintainers
+/.github/skills/                     @arcasilesgroup/ai-engineering-maintainers
 /.github/copilot/                    @arcasilesgroup/ai-engineering-maintainers
 /.github/instructions/               @arcasilesgroup/ai-engineering-maintainers
 

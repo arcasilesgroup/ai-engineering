@@ -161,9 +161,9 @@ class TestDetectAIProviders:
         (gh / "copilot-instructions.md").touch()
         assert detect_ai_providers(tmp_path) == ["github_copilot"]
 
-    def test_copilot_prompts_directory(self, tmp_path: Path) -> None:
-        prompts = tmp_path / ".github" / "prompts"
-        prompts.mkdir(parents=True)
+    def test_copilot_skills_directory(self, tmp_path: Path) -> None:
+        skills = tmp_path / ".github" / "skills"
+        skills.mkdir(parents=True)
         assert detect_ai_providers(tmp_path) == ["github_copilot"]
 
     def test_both_providers(self, tmp_path: Path) -> None:

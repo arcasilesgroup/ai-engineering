@@ -67,11 +67,6 @@
     },
     {
       "frameworkUpdate": "allow",
-      "owner": "system-managed",
-      "pattern": ".ai-engineering/state/health-history.json"
-    },
-    {
-      "frameworkUpdate": "allow",
       "owner": "framework-managed",
       "pattern": "CLAUDE.md"
     },
@@ -128,7 +123,7 @@
     {
       "frameworkUpdate": "allow",
       "owner": "framework-managed",
-      "pattern": ".github/prompts/**"
+      "pattern": ".github/skills/**"
     },
     {
       "frameworkUpdate": "allow",

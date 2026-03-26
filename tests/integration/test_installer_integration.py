@@ -176,20 +176,20 @@ class TestCopyProjectTemplates:
         assert (tmp_path / "CLAUDE.md").read_text() == "custom"
         assert any(p.name == "CLAUDE.md" for p in result.skipped)
 
-    def test_project_template_trees_include_prompts_and_agents(self) -> None:
+    def test_project_template_trees_include_skills_and_agents(self) -> None:
         maps = resolve_template_maps()
         tree_map = dict(maps.tree_list)
-        assert "prompts" in tree_map
-        assert tree_map["prompts"] == ".github/prompts"
+        assert ".github/skills" in tree_map
+        assert tree_map[".github/skills"] == ".github/skills"
         assert "agents" in tree_map
         assert tree_map["agents"] == ".github/agents"
 
-    def test_install_creates_github_prompts_dir(self, tmp_path: Path) -> None:
+    def test_install_creates_github_skills_dir(self, tmp_path: Path) -> None:
         copy_project_templates(tmp_path)
-        prompts_dir = tmp_path / ".github" / "prompts"
-        assert prompts_dir.is_dir()
-        prompt_files = list(prompts_dir.glob("*.prompt.md"))
-        assert len(prompt_files) >= 1
+        skills_dir = tmp_path / ".github" / "skills"
+        assert skills_dir.is_dir()
+        skill_files = list(skills_dir.rglob("SKILL.md"))
+        assert len(skill_files) >= 1
 
     def test_install_creates_github_agents_dir(self, tmp_path: Path) -> None:
         copy_project_templates(tmp_path)

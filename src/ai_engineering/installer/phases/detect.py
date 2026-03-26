@@ -141,7 +141,7 @@ class DetectPhase:
         """Initialize a git repository in the target directory."""
         try:
             subprocess.run(
-                ["git", "init"],
+                ["git", "init", "-b", "main"],
                 cwd=context.target,
                 capture_output=True,
                 check=True,

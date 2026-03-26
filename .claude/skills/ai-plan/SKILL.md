@@ -30,7 +30,7 @@ HARD GATE: user must approve the plan before `/ai-dispatch` can run.
 6. **Assign agents** -- capability-match each task to the right agent
 7. **Order phases** -- define phase boundaries and gate criteria
 8. **Review plan** -- self-review with spec-reviewer pattern (max 2 iterations)
-9. **Write artifacts** -- persist plan.md via Write tool to `specs/plan.md`
+9. **Write artifacts** -- persist the plan to `specs/plan.md`
 10. **STOP** -- present plan. User runs `/ai-dispatch` to execute.
 
 ## Pipeline Classification
@@ -104,13 +104,13 @@ Each task MUST be:
 - Check off implementation tasks as completed
 
 It MAY:
-- Write plan.md via Write tool to `specs/plan.md`
+- Write the plan to `specs/plan.md`
 - Run codebase exploration (read-only)
 
 ## Integration
 
 - **Called by**: user directly, or after `/ai-brainstorm` approval
-- **Calls**: `/ai-explore` (codebase context), Write tool (artifact creation)
+- **Calls**: `/ai-explore` (codebase context), write (artifact creation)
 - **Transitions to**: `/ai-dispatch` (ONLY -- user must invoke explicitly)
 
 $ARGUMENTS

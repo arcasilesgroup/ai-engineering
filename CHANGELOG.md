@@ -8,6 +8,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Copilot Skills system (spec-077)** -- replaced `.github/prompts/*.prompt.md` (34 files) with native `.github/skills/ai-*/SKILL.md` directory structure (37 skills). Each skill now has its own directory mirroring `.claude/skills/` and `.agents/skills/`. Sync pipeline generates Copilot-native format directly instead of concatenated prompt files.
+- **`STYLE_PRESETS.md` for `/ai-slides`** -- reusable style presets for HTML presentation generation.
+- **`.ai-engineering/reviews/` directory** -- persistent storage for code review artifacts.
+
+### Removed
+- **`.github/prompts/` directory (spec-077)** -- 34 prompt.md files replaced by `.github/skills/` native format. Template mirrors also cleaned.
+- **Autopilot sub-specs** -- removed stale `.ai-engineering/specs/autopilot/` (manifest + 8 sub-specs) from completed autopilot v2 execution.
+- **`spec-066-hooks-relocation.md`** -- completed spec artifact cleaned up.
+- **`health-history.json` + `test_health_history.py` (spec-068)** -- unused state file and its tests removed as part of state unification.
+- **Health check signals** -- removed obsolete `health_check_signals` from `src/ai_engineering/lib/signals.py`.
+
+### Changed
+- **Sync script → skills output (spec-077)** -- `sync_command_mirrors.py` now generates `.github/skills/ai-*/SKILL.md` directories instead of `.github/prompts/*.prompt.md` files. Template mirrors updated accordingly.
+- **Validator mirror sync** -- `mirror_sync.py` validates skills directories across all IDE trees instead of prompt file parity.
+- **`test_template_prompt_parity.py` → `test_template_skill_parity.py`** -- renamed and rewritten to validate skill directory parity instead of prompt file byte-equality.
+- **Autopilot v2 handlers** -- quality, deep-plan, implement, decompose, orchestrate, and deliver handlers updated across all 3 IDE mirrors (`.claude/`, `.github/`, `.agents/`) with improved parallel execution and convergence loop.
+- **All 9 agent instructions updated** -- autopilot, build, explore, guard, guide, plan, review, simplify, verify agents refined for skills-based routing.
+- **CODEOWNERS, CLAUDE.md, AGENTS.md, copilot-instructions.md** -- updated references for skills system.
+
+### Fixed
+- **`git init -b main` (spec-078)** -- all `git init` calls in installer (`detect.py`, `service.py`), CI workflows (`ci.yml`, `install-smoke.yml`), and test fixtures (`test_install_matrix.py`) now explicitly set default branch to `main`.
+
+### Added
 - **Install flow redesign (spec-064)** -- replaced 4 hostile free-text prompts with auto-detection + `questionary` checkbox wizard. Auto-detects stacks (13 markers), AI providers (claude_code, github_copilot), IDEs (.vscode, .idea), and VCS (git remote). Empty repos show wizard with nothing preselected. CLI flags (`--stack`, `--provider`, `--ide`, `--vcs`) skip wizard for automation. Removed CI/CD URL prompt from install.
 - **Copilot subagent orchestration (spec-064)** -- full parity with Claude Code multi-agent delegation. 5 orchestrator agents (Autopilot, Build, Plan, Review, Verify) can now delegate to subagents via `agents` property, `handoffs` (guided transitions), and per-agent `hooks`. Sync pipeline injects Copilot-specific properties via `AGENT_METADATA` — canonical `.claude/` sources remain clean. Works across VS Code, CLI, and Coding Agent.
 - **`docs/copilot-subagents.md`** -- comprehensive guide covering sync architecture, Copilot properties, usage examples for all 3 environments, capabilities matrix, and handoff chain diagram.

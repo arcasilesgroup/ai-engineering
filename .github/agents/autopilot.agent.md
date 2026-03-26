@@ -9,7 +9,7 @@ handoffs:
 - label: 📋 Create PR
   agent: agent
   prompt: Create a PR with the changes from the autopilot execution.
-  send: false
+  send: true
 ---
 
 
@@ -108,11 +108,11 @@ If any answer is uncertain, re-verify that specific aspect before proceeding.
 
 | Skill | Phase | Usage |
 |-------|-------|-------|
-| `.github/prompts/ai-verify.prompt.md` | 5 | IRRV protocol, 7 scan modes, platform aggregation |
-| `.github/prompts/ai-review.prompt.md` | 5 | 8-agent parallel review, self-challenge, corroboration |
-| `.github/prompts/ai-pr.prompt.md` | 6 | Full PR pipeline (all steps), watch-and-fix loop |
-| `.github/prompts/ai-commit.prompt.md` | 4, 5 | Wave commits, quality-fix commits |
-| `.github/prompts/ai-dispatch.prompt.md` | 4 | Task execution patterns, two-stage review |
+| `.github/skills/ai-verify/SKILL.md` | 5 | IRRV protocol, 7 scan modes, platform aggregation |
+| `.github/skills/ai-review/SKILL.md` | 5 | 8-agent parallel review, self-challenge, corroboration |
+| `.github/skills/ai-pr/SKILL.md` | 6 | Full PR pipeline (all steps), watch-and-fix loop |
+| `.github/skills/ai-commit/SKILL.md` | 4, 5 | Wave commits, quality-fix commits |
+| `.github/skills/ai-dispatch/SKILL.md` | 4 | Task execution patterns, two-stage review |
 
 ## Boundaries
 

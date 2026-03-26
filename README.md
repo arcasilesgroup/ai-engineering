@@ -68,7 +68,7 @@ your-project/
 │   ├── context/                ← project memory: specs, goals, decisions
 │   └── state/                  ← decisions, risks, audit trail
 ├── .claude/skills/             ← 34 slash commands (Claude Code)
-├── .github/prompts/            ← 34 prompt files (GitHub Copilot)
+├── .github/skills/             ← 36 Agent Skills (GitHub Copilot)
 ├── .github/agents/             ← 8 custom agents (GitHub Copilot)
 ├── AGENTS.md                   ← instruction file (Gemini CLI / Codex / Copilot)
 ├── .git/hooks/                 ← quality gate hooks (auto-installed)
@@ -206,7 +206,7 @@ The framework generates `AGENTS.md` (instruction file) for Gemini CLI. It provid
 
 ### GitHub Copilot
 
-The framework generates `.github/copilot-instructions.md`, 34 prompt files in `.github/prompts/`, and 8 custom agents in `.github/agents/`. Use prompts like `/ai-commit` or `/ai-debug` and agents like `@build` or `@verify` directly in Copilot Chat.
+The framework generates `.github/copilot-instructions.md`, 36 Agent Skills in `.github/skills/`, and 9 custom agents in `.github/agents/`. Use skills like `/ai-commit` or `/ai-debug` and agents like `@build` or `@verify` directly in Copilot Chat.
 
 ### OpenAI Codex
 

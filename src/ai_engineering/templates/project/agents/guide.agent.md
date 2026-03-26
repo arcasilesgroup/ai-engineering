@@ -79,8 +79,8 @@ Before any teaching interaction:
 
 ## Referenced Skills
 
-- `.github/prompts/ai-guide.prompt.md` -- interactive guidance procedures
-- `.github/prompts/ai-explain.prompt.md` -- 3-tier depth model for explanations
+- `.github/skills/ai-guide/SKILL.md` -- interactive guidance procedures
+- `.github/skills/ai-explain/SKILL.md` -- 3-tier depth model for explanations
 
 ## Boundaries
 

@@ -96,5 +96,5 @@ uv run pytest -k "test_install"        # Filter by name
 
 ## Skills Reference
 
-- `.github/prompts/ai-test.prompt.md` — test design procedure.
-- `.github/prompts/ai-debug.prompt.md` — diagnosing test failures.
+- `.github/skills/ai-test/SKILL.md` — test design procedure.
+- `.github/skills/ai-debug/SKILL.md` — diagnosing test failures.

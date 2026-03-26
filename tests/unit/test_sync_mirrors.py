@@ -115,16 +115,16 @@ class TestGenerationFunctions:
         assert "tags:" in content
         assert len(content) > 100
 
-    def test_generate_copilot_prompt_includes_frontmatter(self) -> None:
-        from scripts.sync_command_mirrors import CLAUDE_SKILLS, generate_copilot_prompt
+    def test_generate_copilot_skill_includes_frontmatter(self) -> None:
+        from scripts.sync_command_mirrors import CLAUDE_SKILLS, generate_copilot_skill
 
         # Arrange
         skill_path = CLAUDE_SKILLS / "ai-commit" / "SKILL.md"
 
         # Act
-        content = generate_copilot_prompt("commit", skill_path)
+        content = generate_copilot_skill("commit", skill_path)
 
-        # Assert -- frontmatter from canonical, mode added for Copilot
+        # Assert -- standalone SKILL.md with adapted frontmatter
         assert "name: ai-commit" in content
         assert "mode: agent" in content
         assert "tags:" in content
@@ -385,7 +385,7 @@ class TestCrossReferenceTranslation:
 
         content = "Read `.claude/skills/ai-plan/SKILL.md` for details."
         result = translate_refs(content, "copilot")
-        assert "`.github/prompts/ai-plan.prompt.md`" in result
+        assert "`.github/skills/ai-plan/SKILL.md`" in result
 
     def test_translate_skill_path_generic(self) -> None:
         from scripts.sync_command_mirrors import translate_refs
@@ -427,7 +427,7 @@ class TestCrossReferenceTranslation:
 
         content = "See `.claude/skills/ai-plan/SKILL.md` and `.claude/agents/ai-build.md`."
         result = translate_refs(content, "copilot")
-        assert ".github/prompts/ai-plan.prompt.md" in result
+        assert ".github/skills/ai-plan/SKILL.md" in result
         assert ".github/agents/build.agent.md" in result
 
     def test_no_translation_for_bare_text(self) -> None:
@@ -436,3 +436,134 @@ class TestCrossReferenceTranslation:
         content = "No references here, just plain text."
         result = translate_refs(content, "claude")
         assert result == content
+
+
+# -- Platform-neutral content --
+
+
+class TestPlatformNeutralContent:
+    """Verify canonical skills avoid Claude Code-specific tool references."""
+
+    _FORBIDDEN_PATTERNS = ("Agent(", "Write tool", "Read tool", "Bash tool", "run_in_background")
+    _ALLOWED_EXCEPTIONS = frozenset({"ai-analyze-permissions"})
+
+    def test_platform_neutral_content(self) -> None:
+        from scripts.sync_command_mirrors import CLAUDE_SKILLS
+
+        violations: list[str] = []
+        for skill_dir in sorted(CLAUDE_SKILLS.iterdir()):
+            if not skill_dir.is_dir() or not skill_dir.name.startswith("ai-"):
+                continue
+            skill_file = skill_dir / "SKILL.md"
+            if not skill_file.is_file():
+                continue
+            bare_name = skill_dir.name.removeprefix("ai-")
+            if bare_name in self._ALLOWED_EXCEPTIONS:
+                continue
+            content = skill_file.read_text(encoding="utf-8")
+            for pattern in self._FORBIDDEN_PATTERNS:
+                if pattern in content:
+                    violations.append(f"{skill_dir.name}: found '{pattern}'")
+        assert not violations, (
+            f"Platform-specific patterns found in {len(violations)} skill(s):\n"
+            + "\n".join(f"  - {v}" for v in violations)
+        )
+
+
+# -- Handler parity --
+
+
+class TestHandlerParity:
+    """Verify handler mirrors exist for every canonical handler."""
+
+    def test_handler_parity(self) -> None:
+        from scripts.sync_command_mirrors import (
+            CLAUDE_SKILLS,
+            discover_handlers,
+            is_copilot_compatible,
+        )
+
+        missing: list[str] = []
+        github_skills = _PROJECT_ROOT / ".github" / "skills"
+        agents_skills = _PROJECT_ROOT / ".agents" / "skills"
+
+        for skill_dir in sorted(CLAUDE_SKILLS.iterdir()):
+            if not skill_dir.is_dir() or not skill_dir.name.startswith("ai-"):
+                continue
+            bare_name = skill_dir.name.removeprefix("ai-")
+            skill_file = skill_dir / "SKILL.md"
+            copilot_ok = skill_file.is_file() and is_copilot_compatible(skill_file)
+            handlers = discover_handlers(skill_dir)
+            for handler_name, _ in handlers:
+                # Check .github/skills mirror (only for copilot-compatible skills)
+                if copilot_ok:
+                    gh_handler = (
+                        github_skills / f"ai-{bare_name}" / "handlers" / f"{handler_name}.md"
+                    )
+                    if not gh_handler.is_file():
+                        missing.append(f".github/skills/ai-{bare_name}/handlers/{handler_name}.md")
+                # Check .agents/skills mirror (always generated)
+                ag_handler = agents_skills / bare_name / "handlers" / f"{handler_name}.md"
+                if not ag_handler.is_file():
+                    missing.append(f".agents/skills/{bare_name}/handlers/{handler_name}.md")
+        assert not missing, f"{len(missing)} handler mirror(s) missing:\n" + "\n".join(
+            f"  - {m}" for m in missing
+        )
+
+
+# -- Copilot compatibility --
+
+
+class TestCopilotCompatibility:
+    """Test is_copilot_compatible frontmatter check."""
+
+    def test_compatible_when_field_absent(self, tmp_path: Path) -> None:
+        from scripts.sync_command_mirrors import is_copilot_compatible
+
+        f = tmp_path / "SKILL.md"
+        f.write_text("---\nname: test\n---\n\n# Test\n")
+        assert is_copilot_compatible(f) is True
+
+    def test_compatible_when_explicitly_true(self, tmp_path: Path) -> None:
+        from scripts.sync_command_mirrors import is_copilot_compatible
+
+        f = tmp_path / "SKILL.md"
+        f.write_text("---\nname: test\ncopilot_compatible: true\n---\n\n# Test\n")
+        assert is_copilot_compatible(f) is True
+
+    def test_incompatible_when_false(self, tmp_path: Path) -> None:
+        from scripts.sync_command_mirrors import is_copilot_compatible
+
+        f = tmp_path / "SKILL.md"
+        f.write_text("---\nname: test\ncopilot_compatible: false\n---\n\n# Test\n")
+        assert is_copilot_compatible(f) is False
+
+    def test_incompatible_when_false_uppercase(self, tmp_path: Path) -> None:
+        from scripts.sync_command_mirrors import is_copilot_compatible
+
+        f = tmp_path / "SKILL.md"
+        f.write_text("---\nname: test\ncopilot_compatible: False\n---\n\n# Test\n")
+        assert is_copilot_compatible(f) is False
+
+
+# -- Handler generation --
+
+
+class TestCopilotHandlerGeneration:
+    """Test generate_copilot_handler cross-reference translation."""
+
+    def test_generate_copilot_handler_translates_refs(self, tmp_path: Path) -> None:
+        from scripts.sync_command_mirrors import generate_copilot_handler
+
+        handler = tmp_path / "handler.md"
+        handler.write_text(
+            "Read `.claude/skills/ai-plan/SKILL.md` for the plan.\n"
+            "Delegate to `.claude/agents/ai-build.md`.\n",
+            encoding="utf-8",
+        )
+
+        content = generate_copilot_handler(handler)
+
+        assert ".github/skills/ai-plan/SKILL.md" in content
+        assert ".github/agents/build.agent.md" in content
+        assert ".claude/" not in content

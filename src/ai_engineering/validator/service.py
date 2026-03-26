@@ -39,7 +39,7 @@ from ai_engineering.validator.categories import (
 from ai_engineering.validator.categories.mirror_sync import (
     _check_claude_commands_mirror,
     _check_copilot_agents_mirror,
-    _check_copilot_prompts_mirror,
+    _check_copilot_skills_mirror,
 )
 
 __all__ = [
@@ -51,7 +51,7 @@ __all__ = [
     "IntegrityStatus",
     "_check_claude_commands_mirror",
     "_check_copilot_agents_mirror",
-    "_check_copilot_prompts_mirror",
+    "_check_copilot_skills_mirror",
     "_check_counter_accuracy",
     "_check_cross_references",
     "_check_file_existence",

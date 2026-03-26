@@ -117,10 +117,10 @@ Every phase MUST pass before dependent phases start:
 ### 3.1 Boundaries
 
 - **framework-managed** (updatable): `standards/framework/**`, `skills/**`, `agents/**`, `runbooks/**`, `context/product/framework-contract.md`.
-- **external framework-managed** (updatable, outside `.ai-engineering/`): `CLAUDE.md`, `AGENTS.md`, `.github/copilot-instructions.md`, `.github/copilot/**`, `.github/instructions/**`, `.github/prompts/**`, `.github/agents/**`, `.github/ISSUE_TEMPLATE/**`, `.github/pull_request_template.md`, `.agents/**`, `.claude/settings.json`, `.claude/commands/**`.
+- **external framework-managed** (updatable, outside `.ai-engineering/`): `CLAUDE.md`, `AGENTS.md`, `.github/copilot-instructions.md`, `.github/copilot/**`, `.github/instructions/**`, `.github/skills/**`, `.github/agents/**`, `.github/ISSUE_TEMPLATE/**`, `.github/pull_request_template.md`, `.agents/**`, `.claude/settings.json`, `.claude/commands/**`.
 - **team-managed** (never overwritten): `standards/team/**`.
 - **project-managed** (never overwritten): `context/**` (except `context/product/framework-contract.md`).
-- **system-managed**: `state/install-state.json`, `state/ownership-map.json`, `state/decision-store.json`, `state/audit-log.ndjson`, `state/health-history.json`.
+- **system-managed**: `state/install-state.json`, `state/ownership-map.json`, `state/decision-store.json`, `state/audit-log.ndjson`.
 
 ### 3.2 Update Rules
 

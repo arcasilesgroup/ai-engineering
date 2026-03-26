@@ -73,7 +73,7 @@ After creating any skill or agent:
 - [ ] Frontmatter has `name`, `description`, `argument-hint`
 - [ ] Description is CSO-optimized (triggering conditions, not summary)
 - [ ] Registered in `manifest.yml`
-- [ ] Mirror files created for other IDE surfaces (`.agents/`, `.github/prompts/`)
+- [ ] Mirror files created for other IDE surfaces (`.agents/`, `.github/skills/`)
 - [ ] No overlap with existing skills (checked `/ai-find` or skill list)
 
 ## CSO Description Patterns

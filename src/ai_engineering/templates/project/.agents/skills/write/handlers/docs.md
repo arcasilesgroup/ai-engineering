@@ -2,6 +2,11 @@
 
 Documentation authoring for README, API docs, guides, wiki pages, and CONTRIBUTING files.
 
+## Pre-conditions
+
+1. Read `.ai-engineering/manifest.yml` — `documentation` section.
+2. Check `documentation.auto_update` flags to determine what to update.
+
 ## Process
 
 1. **Detect doc type** -- classify: tutorial, how-to, explanation, reference, ADR.
@@ -22,6 +27,19 @@ Documentation authoring for README, API docs, guides, wiki pages, and CONTRIBUTI
 - Quick start (3 steps max to "hello world").
 - Installation, usage, configuration.
 - Contributing, license.
+
+### README Update Mode
+
+Triggered when `manifest.yml` `documentation.auto_update.readme` is `true`.
+
+1. Scan project recursively for ALL README*.md files (README.md, README_es.md, etc.)
+   - **Exclude**: `.venv/`, `node_modules/`, `.git/`, `__pycache__/`, `.pytest_cache/`, `build/`, `dist/`
+2. For EACH README found:
+   a. Read the README in context of its directory (what does this directory contain?)
+   b. Read sibling files to understand the module/package purpose
+   c. Update the README to reflect current state of that directory
+   d. Preserve existing structure and formatting; update content in-place
+3. Report which READMEs were updated and which were unchanged
 
 ### API Docs
 - Endpoint/function signature.

@@ -45,7 +45,7 @@ def clean_target(tmp_path: Path) -> Path:
     """Create a minimal git repo target."""
     import subprocess
 
-    subprocess.run(["git", "init"], cwd=tmp_path, check=True, capture_output=True)
+    subprocess.run(["git", "init", "-b", "main"], cwd=tmp_path, check=True, capture_output=True)
     return tmp_path
 
 

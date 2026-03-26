@@ -88,7 +88,7 @@ If any answer is unfavorable, revert and move to the next target.
 
 ## Referenced Skills
 
-- `.github/prompts/ai-simplify.prompt.md` -- detailed simplification patterns and procedures
+- `.github/skills/ai-simplify/SKILL.md` -- detailed simplification patterns and procedures
 
 ## Referenced Standards
 

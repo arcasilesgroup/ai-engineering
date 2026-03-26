@@ -20,7 +20,7 @@ Post-creation validation. Verifies a skill or agent is correctly configured acro
 - Verify skill/agent exists in all 3 surfaces:
   - `.claude/skills/ai-<name>/SKILL.md` or `.claude/agents/ai-<name>.md`
   - `.agents/skills/<name>/SKILL.md` or `.agents/agents/ai-<name>.md`
-  - `.github/prompts/ai-<name>.prompt.md` or `.github/agents/<name>.agent.md`
+  - `.github/skills/ai-<name>/SKILL.md` or `.github/agents/<name>.agent.md`
 - Verify handlers are mirrored too (if any)
 
 ### 4. Manifest Registration

@@ -5,6 +5,11 @@ color: green
 model: opus
 tools: [codebase, githubRepo, problems, readFile, runCommands, search, agent]
 agents: [Explorer]
+handoffs:
+- label: 🔧 Fix Issues
+  agent: Build
+  prompt: Fix the issues identified in the verification above.
+  send: true
 ---
 
 
@@ -96,9 +101,9 @@ If the counter-argument is stronger than the finding, drop it. Document dropped 
 
 ## Referenced Skills
 
-- `.github/prompts/ai-security.prompt.md` -- OWASP SAST, secrets, dependency audit
-- `.github/prompts/ai-governance.prompt.md` -- compliance, ownership, risk lifecycle
-- `.github/prompts/ai-verify.prompt.md` -- self-reference for unified assessment modes
+- `.github/skills/ai-security/SKILL.md` -- OWASP SAST, secrets, dependency audit
+- `.github/skills/ai-governance/SKILL.md` -- compliance, ownership, risk lifecycle
+- `.github/skills/ai-verify/SKILL.md` -- self-reference for unified assessment modes
 
 ## Boundaries
 
