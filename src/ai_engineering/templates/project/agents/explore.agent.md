@@ -120,7 +120,7 @@ Every exploration produces this structured format. For web research scopes, ever
 
 ## Referenced Skills
 
-- `.github/prompts/ai-explore.prompt.md` -- detailed exploration procedures
+- `.github/skills/ai-explore/SKILL.md` -- detailed exploration procedures
 
 ## Boundaries
 

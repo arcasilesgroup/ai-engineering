@@ -8,7 +8,7 @@ from pathlib import Path
 from ai_engineering.validator._shared import (
     _CLAUDE_COMMANDS_MIRROR,
     _COPILOT_AGENTS_MIRROR,
-    _COPILOT_PROMPTS_MIRROR,
+    _COPILOT_SKILLS_MIRROR,
     _GOVERNANCE_MIRROR,
     FileCache,
     IntegrityCategory,
@@ -129,8 +129,8 @@ def _check_mirror_sync(
     # Claude commands mirror
     _check_claude_commands_mirror(target, report, _sha)
 
-    # Copilot prompts and agents mirrors
-    _check_copilot_prompts_mirror(target, report, _sha)
+    # Copilot skills and agents mirrors
+    _check_copilot_skills_mirror(target, report, _sha)
     _check_copilot_agents_mirror(target, report, _sha)
 
     if mismatches == 0 and not (canonical_relatives - mirror_relatives):
@@ -144,114 +144,52 @@ def _check_mirror_sync(
         )
 
 
-def _check_claude_commands_mirror(
+def _check_pair_mirror(
     target: Path,
     report: IntegrityReport,
+    canonical_rel: str,
+    mirror_rel: str,
+    glob_pattern: str,
+    label: str,
+    description: str,
     sha_fn: Callable[[Path], str] = _sha256,
 ) -> None:
-    """Check .claude/commands/ mirror sync."""
-    _sha = sha_fn
-    canonical_root = target / _CLAUDE_COMMANDS_MIRROR[0]
-    mirror_root = target / _CLAUDE_COMMANDS_MIRROR[1]
+    """Check a canonical/mirror directory pair for SHA-256 parity."""
+    canonical_root = target / canonical_rel
+    mirror_root = target / mirror_rel
 
     if not canonical_root.is_dir():
-        return  # .claude/commands/ is optional
-    if not mirror_root.is_dir():
-        report.checks.append(
-            IntegrityCheckResult(
-                category=IntegrityCategory.MIRROR_SYNC,
-                name="claude-commands-mirror-root",
-                status=IntegrityStatus.FAIL,
-                message="Claude commands mirror directory not found",
-            )
-        )
         return
-
-    canonical_files = {
-        f.relative_to(canonical_root) for f in sorted(canonical_root.rglob("*.md")) if f.is_file()
-    }
-    mirror_files = {
-        f.relative_to(mirror_root) for f in sorted(mirror_root.rglob("*.md")) if f.is_file()
-    }
-
-    mismatches = 0
-    for rel in sorted(canonical_files & mirror_files):
-        if _sha(canonical_root / rel) != _sha(mirror_root / rel):
-            mismatches += 1
-            report.checks.append(
-                IntegrityCheckResult(
-                    category=IntegrityCategory.MIRROR_SYNC,
-                    name=f"claude-cmd-desync-{rel.as_posix()}",
-                    status=IntegrityStatus.FAIL,
-                    message=f"Claude command mirror desync: {rel.as_posix()}",
-                    file_path=rel.as_posix(),
-                )
-            )
-
-    for rel in sorted(canonical_files - mirror_files):
-        report.checks.append(
-            IntegrityCheckResult(
-                category=IntegrityCategory.MIRROR_SYNC,
-                name=f"claude-cmd-missing-{rel.as_posix()}",
-                status=IntegrityStatus.FAIL,
-                message=f"Claude command has no mirror: {rel.as_posix()}",
-                file_path=rel.as_posix(),
-            )
-        )
-
-    if mismatches == 0 and not (canonical_files - mirror_files):
-        report.checks.append(
-            IntegrityCheckResult(
-                category=IntegrityCategory.MIRROR_SYNC,
-                name="claude-commands-mirrors",
-                status=IntegrityStatus.OK,
-                message=f"All {len(canonical_files & mirror_files)} Claude command mirrors in sync",
-            )
-        )
-
-
-def _check_copilot_prompts_mirror(
-    target: Path,
-    report: IntegrityReport,
-    sha_fn: Callable[[Path], str] = _sha256,
-) -> None:
-    """Check .github/prompts/ mirror sync with templates."""
-    _sha = sha_fn
-    canonical_root = target / _COPILOT_PROMPTS_MIRROR[0]
-    mirror_root = target / _COPILOT_PROMPTS_MIRROR[1]
-
-    if not canonical_root.is_dir():
-        return  # .github/prompts/ is optional
     if not mirror_root.is_dir():
         report.checks.append(
             IntegrityCheckResult(
                 category=IntegrityCategory.MIRROR_SYNC,
-                name="copilot-prompts-mirror-root",
+                name=f"{label}-mirror-root",
                 status=IntegrityStatus.FAIL,
-                message="Copilot prompts mirror directory not found",
+                message=f"{description} mirror directory not found",
             )
         )
         return
 
     canonical_files = {
         f.relative_to(canonical_root)
-        for f in sorted(canonical_root.rglob("*.prompt.md"))
+        for f in sorted(canonical_root.rglob(glob_pattern))
         if f.is_file()
     }
     mirror_files = {
-        f.relative_to(mirror_root) for f in sorted(mirror_root.rglob("*.prompt.md")) if f.is_file()
+        f.relative_to(mirror_root) for f in sorted(mirror_root.rglob(glob_pattern)) if f.is_file()
     }
 
     mismatches = 0
     for rel in sorted(canonical_files & mirror_files):
-        if _sha(canonical_root / rel) != _sha(mirror_root / rel):
+        if sha_fn(canonical_root / rel) != sha_fn(mirror_root / rel):
             mismatches += 1
             report.checks.append(
                 IntegrityCheckResult(
                     category=IntegrityCategory.MIRROR_SYNC,
-                    name=f"copilot-prompt-desync-{rel.as_posix()}",
+                    name=f"{label}-desync-{rel.as_posix()}",
                     status=IntegrityStatus.FAIL,
-                    message=f"Copilot prompt mirror desync: {rel.as_posix()}",
+                    message=f"{description} mirror desync: {rel.as_posix()}",
                     file_path=rel.as_posix(),
                 )
             )
@@ -260,9 +198,9 @@ def _check_copilot_prompts_mirror(
         report.checks.append(
             IntegrityCheckResult(
                 category=IntegrityCategory.MIRROR_SYNC,
-                name=f"copilot-prompt-missing-{rel.as_posix()}",
+                name=f"{label}-missing-{rel.as_posix()}",
                 status=IntegrityStatus.FAIL,
-                message=f"Copilot prompt has no mirror: {rel.as_posix()}",
+                message=f"{description} has no mirror: {rel.as_posix()}",
                 file_path=rel.as_posix(),
             )
         )
@@ -271,11 +209,45 @@ def _check_copilot_prompts_mirror(
         report.checks.append(
             IntegrityCheckResult(
                 category=IntegrityCategory.MIRROR_SYNC,
-                name="copilot-prompts-mirrors",
+                name=f"{label}s-mirrors",
                 status=IntegrityStatus.OK,
-                message=f"All {len(canonical_files & mirror_files)} Copilot prompt mirrors in sync",
+                message=f"All {len(canonical_files & mirror_files)} {description} mirrors in sync",
             )
         )
+
+
+def _check_claude_commands_mirror(
+    target: Path,
+    report: IntegrityReport,
+    sha_fn: Callable[[Path], str] = _sha256,
+) -> None:
+    """Check .claude/commands/ mirror sync."""
+    _check_pair_mirror(
+        target,
+        report,
+        *_CLAUDE_COMMANDS_MIRROR,
+        "*.md",
+        "claude-cmd",
+        "Claude command",
+        sha_fn=sha_fn,
+    )
+
+
+def _check_copilot_skills_mirror(
+    target: Path,
+    report: IntegrityReport,
+    sha_fn: Callable[[Path], str] = _sha256,
+) -> None:
+    """Check .github/skills/ mirror sync with templates."""
+    _check_pair_mirror(
+        target,
+        report,
+        *_COPILOT_SKILLS_MIRROR,
+        "*.md",
+        "copilot-skill",
+        "Copilot skill",
+        sha_fn=sha_fn,
+    )
 
 
 def _check_copilot_agents_mirror(
@@ -284,63 +256,12 @@ def _check_copilot_agents_mirror(
     sha_fn: Callable[[Path], str] = _sha256,
 ) -> None:
     """Check .github/agents/ mirror sync with templates."""
-    _sha = sha_fn
-    canonical_root = target / _COPILOT_AGENTS_MIRROR[0]
-    mirror_root = target / _COPILOT_AGENTS_MIRROR[1]
-
-    if not canonical_root.is_dir():
-        return  # .github/agents/ is optional
-    if not mirror_root.is_dir():
-        report.checks.append(
-            IntegrityCheckResult(
-                category=IntegrityCategory.MIRROR_SYNC,
-                name="copilot-agents-mirror-root",
-                status=IntegrityStatus.FAIL,
-                message="Copilot agents mirror directory not found",
-            )
-        )
-        return
-
-    canonical_files = {
-        f.relative_to(canonical_root)
-        for f in sorted(canonical_root.rglob("*.agent.md"))
-        if f.is_file()
-    }
-    mirror_files = {
-        f.relative_to(mirror_root) for f in sorted(mirror_root.rglob("*.agent.md")) if f.is_file()
-    }
-
-    mismatches = 0
-    for rel in sorted(canonical_files & mirror_files):
-        if _sha(canonical_root / rel) != _sha(mirror_root / rel):
-            mismatches += 1
-            report.checks.append(
-                IntegrityCheckResult(
-                    category=IntegrityCategory.MIRROR_SYNC,
-                    name=f"copilot-agent-desync-{rel.as_posix()}",
-                    status=IntegrityStatus.FAIL,
-                    message=f"Copilot agent mirror desync: {rel.as_posix()}",
-                    file_path=rel.as_posix(),
-                )
-            )
-
-    for rel in sorted(canonical_files - mirror_files):
-        report.checks.append(
-            IntegrityCheckResult(
-                category=IntegrityCategory.MIRROR_SYNC,
-                name=f"copilot-agent-missing-{rel.as_posix()}",
-                status=IntegrityStatus.FAIL,
-                message=f"Copilot agent has no mirror: {rel.as_posix()}",
-                file_path=rel.as_posix(),
-            )
-        )
-
-    if mismatches == 0 and not (canonical_files - mirror_files):
-        report.checks.append(
-            IntegrityCheckResult(
-                category=IntegrityCategory.MIRROR_SYNC,
-                name="copilot-agents-mirrors",
-                status=IntegrityStatus.OK,
-                message=f"All {len(canonical_files & mirror_files)} Copilot agent mirrors in sync",
-            )
-        )
+    _check_pair_mirror(
+        target,
+        report,
+        *_COPILOT_AGENTS_MIRROR,
+        "*.agent.md",
+        "copilot-agent",
+        "Copilot agent",
+        sha_fn=sha_fn,
+    )

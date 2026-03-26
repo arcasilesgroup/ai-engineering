@@ -4,7 +4,6 @@ on:
   push:
     branches: [main, "rewrite/**"]
     paths-ignore:
-      - '**.md'
       - '**.mdx'
       - '**.rst'
       - '**.txt'
@@ -12,7 +11,6 @@ on:
   pull_request:
     branches: [main]
     paths-ignore:
-      - '**.md'
       - '**.mdx'
       - '**.rst'
       - '**.txt'
@@ -361,7 +359,7 @@ jobs:
         run: |
           rm -rf smoke-repo
           mkdir -p smoke-repo
-          git init smoke-repo
+          git init -b main smoke-repo
           git -C smoke-repo config user.email "ci@test.com"
           git -C smoke-repo config user.name "CI"
       - name: Install framework

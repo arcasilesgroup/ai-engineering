@@ -6,15 +6,15 @@ Canonical source (repo root):
   .claude/agents/ai-*.md
 
 Generates mirrors in:
-  - .agents/skills/          (generic IDE skills -- strip ai- prefix from dir)
+  - .agents/skills/          (generic IDE skills -- strip ai- prefix from dir, + handlers/)
   - .agents/agents/          (generic IDE agents -- copy as-is)
-  - .github/prompts/         (GitHub Copilot prompt files -- flatten handlers)
+  - .github/skills/          (GitHub Copilot Agent Skills -- directory per skill, + handlers/)
   - .github/agents/          (GitHub Copilot agent personas)
   - src/ai_engineering/templates/project/.claude/skills/   (install template)
   - src/ai_engineering/templates/project/.claude/agents/   (install template)
   - src/ai_engineering/templates/project/.agents/skills/   (install template)
   - src/ai_engineering/templates/project/.agents/agents/   (install template)
-  - src/ai_engineering/templates/project/prompts/          (install template)
+  - src/ai_engineering/templates/project/.github/skills/   (install template)
   - src/ai_engineering/templates/project/agents/           (install template)
 
 Usage:
@@ -46,7 +46,7 @@ RUNBOOKS_ROOT = ROOT / ".ai-engineering" / "runbooks"
 # ── Mirror surface paths ────────────────────────────────────────────────
 AGENTS_SKILLS = ROOT / ".agents" / "skills"
 AGENTS_AGENTS = ROOT / ".agents" / "agents"
-GITHUB_PROMPTS = ROOT / ".github" / "prompts"
+GITHUB_SKILLS = ROOT / ".github" / "skills"
 GITHUB_AGENTS = ROOT / ".github" / "agents"
 
 # ── Template project paths (for ai-eng install) ────────────────────────
@@ -55,7 +55,7 @@ TPL_CLAUDE_SKILLS = TPL_PROJECT / ".claude" / "skills"
 TPL_CLAUDE_AGENTS = TPL_PROJECT / ".claude" / "agents"
 TPL_AGENTS_SKILLS = TPL_PROJECT / ".agents" / "skills"
 TPL_AGENTS_AGENTS = TPL_PROJECT / ".agents" / "agents"
-TPL_GITHUB_PROMPTS = TPL_PROJECT / "prompts"
+TPL_GITHUB_SKILLS = TPL_PROJECT / ".github" / "skills"
 TPL_GITHUB_AGENTS = TPL_PROJECT / "agents"
 
 
@@ -96,18 +96,20 @@ AGENT_METADATA: dict[str, AgentMeta] = {
         ),
         claude_tools=("Read", "Write", "Edit", "Bash", "Glob", "Grep"),
         copilot_agents=("Guard", "Explorer"),
+        # send: True is required for Copilot Agent Skills handoff buttons to
+        # auto-dispatch to the target agent (send: False only previews the prompt).
         copilot_handoffs=(
             {
                 "label": "✅ Verify Changes",
                 "agent": "Verify",
                 "prompt": "Verify the implementation changes made above.",
-                "send": False,
+                "send": True,
             },
             {
                 "label": "🔍 Review Changes",
                 "agent": "Review",
                 "prompt": "Review the code changes made above.",
-                "send": False,
+                "send": True,
             },
         ),
         copilot_hooks={"PostToolUse": [{"type": "command", "command": "ruff format --quiet"}]},
@@ -183,7 +185,7 @@ AGENT_METADATA: dict[str, AgentMeta] = {
                 "label": "▶ Dispatch Implementation",
                 "agent": "Autopilot",
                 "prompt": "Execute the plan outlined above following the approved spec.",
-                "send": False,
+                "send": True,
             },
         ),
     ),
@@ -209,7 +211,7 @@ AGENT_METADATA: dict[str, AgentMeta] = {
                 "label": "🔧 Fix Issues",
                 "agent": "Build",
                 "prompt": "Fix the issues identified in the review above.",
-                "send": False,
+                "send": True,
             },
         ),
     ),
@@ -252,6 +254,14 @@ AGENT_METADATA: dict[str, AgentMeta] = {
         ),
         claude_tools=("Read", "Glob", "Grep", "Bash"),
         copilot_agents=("Explorer",),
+        copilot_handoffs=(
+            {
+                "label": "🔧 Fix Issues",
+                "agent": "Build",
+                "prompt": "Fix the issues identified in the verification above.",
+                "send": True,
+            },
+        ),
     ),
     "autopilot": AgentMeta(
         display_name="Autopilot",
@@ -276,7 +286,7 @@ AGENT_METADATA: dict[str, AgentMeta] = {
                 "label": "📋 Create PR",
                 "agent": "agent",
                 "prompt": "Create a PR with the changes from the autopilot execution.",
-                "send": False,
+                "send": True,
             },
         ),
     ),
@@ -425,7 +435,7 @@ def translate_refs(content: str, target_ide: str) -> str:
     Canonical form: .claude/skills/ai-X/SKILL.md, .claude/agents/ai-X.md
     Target surfaces:
       - generic (.agents/): .agents/skills/X/SKILL.md, .agents/agents/ai-X.md
-      - copilot (.github/): .github/prompts/ai-X.prompt.md, .github/agents/X.agent.md
+      - copilot (.github/): .github/skills/ai-X/SKILL.md, .github/agents/X.agent.md
       - claude: unchanged (canonical)
     """
     if target_ide == "claude":
@@ -437,7 +447,7 @@ def translate_refs(content: str, target_ide: str) -> str:
         if target_ide == "generic":
             path = f".agents/skills/{name}/SKILL.md"
         else:  # copilot
-            path = f".github/prompts/ai-{name}.prompt.md"
+            path = f".github/skills/ai-{name}/SKILL.md"
         return f"{bt}{path}{bt}" if bt else path
 
     def _replace_agent(m: re.Match[str]) -> str:
@@ -459,8 +469,8 @@ def translate_refs(content: str, target_ide: str) -> str:
         # .claude/agents/ (directory) -> .agents/agents/
         content = re.sub(r"\.claude/agents/(?!ai-)", ".agents/agents/", content)
     elif target_ide == "copilot":
-        # .claude/skills/ -> .github/prompts/
-        content = re.sub(r"\.claude/skills/(?!ai-)", ".github/prompts/", content)
+        # .claude/skills/ -> .github/skills/
+        content = re.sub(r"\.claude/skills/(?!ai-)", ".github/skills/", content)
         # .claude/agents/ -> .github/agents/
         content = re.sub(r"\.claude/agents/(?!ai-)", ".github/agents/", content)
 
@@ -489,6 +499,12 @@ def parse_frontmatter_simple(path: Path) -> dict[str, str]:
         elif value is not None:
             result[key] = str(value)
     return result
+
+
+def is_copilot_compatible(skill_path: Path) -> bool:
+    """Return True if the skill's frontmatter does not opt out of Copilot."""
+    fm = read_frontmatter(skill_path)
+    return str(fm.get("copilot_compatible", "true")).lower() != "false"
 
 
 def discover_skills() -> list[tuple[str, dict[str, str], Path]]:
@@ -536,6 +552,18 @@ def discover_handlers(skill_dir: Path) -> list[tuple[str, Path]]:
     for handler_file in sorted(handlers_dir.glob("*.md")):
         handlers.append((handler_file.stem, handler_file))
     return handlers
+
+
+def discover_resources(skill_dir: Path) -> list[tuple[str, Path]]:
+    """Discover resource files at the skill root (non-SKILL.md markdown files).
+
+    Returns (filename, path) tuples sorted by name.
+    """
+    resources = []
+    for f in sorted(skill_dir.glob("*.md")):
+        if f.is_file() and f.name != "SKILL.md":
+            resources.append((f.name, f))
+    return resources
 
 
 def discover_scripts(skill_dir: Path) -> list[tuple[str, Path]]:
@@ -589,19 +617,19 @@ def generate_agents_agent(name: str, agent_path: Path) -> str:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# Generation -- .github/prompts/ and .github/agents/ (Copilot)
+# Generation -- .github/skills/ and .github/agents/ (Copilot)
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-def generate_copilot_prompt(name: str, skill_path: Path) -> str:
-    """Generate .github/prompts/ai-<name>.prompt.md.
+def generate_copilot_skill(name: str, skill_path: Path) -> str:
+    """Generate .github/skills/ai-<name>/SKILL.md -- directory-based Agent Skill.
 
-    Merges SKILL.md + handlers/ into a single flattened prompt file.
+    Keeps SKILL.md as a standalone file. Handlers are copied separately.
     """
     fm = read_frontmatter(skill_path)
     body = read_body(skill_path)
 
-    # Adapt frontmatter for Copilot
+    # Adapt frontmatter for Copilot Agent Skills
     fm["name"] = f"ai-{name}"
     fm["mode"] = "agent"
     fm.pop("metadata", None)
@@ -609,23 +637,13 @@ def generate_copilot_prompt(name: str, skill_path: Path) -> str:
     header = _serialize_frontmatter(fm)
     body = translate_refs(body, "copilot")
 
-    # Merge handlers into the body
-    skill_dir = skill_path.parent
-    handlers = discover_handlers(skill_dir)
-    handler_sections = []
-    for _handler_name, handler_path in handlers:
-        handler_content = handler_path.read_text(encoding="utf-8").rstrip()
-        handler_content = translate_refs(handler_content, "copilot")
-        handler_sections.append(handler_content)
+    return f"{header}\n\n{body.rstrip()}\n"
 
-    parts = [header, "", body.rstrip()]
-    if handler_sections:
-        parts.append("")
-        parts.append("---")
-        parts.append("")
-        parts.append(("\n\n---\n\n").join(handler_sections))
-    parts.append("")
-    return "\n".join(parts)
+
+def generate_copilot_handler(handler_path: Path) -> str:
+    """Generate a handler file for .github/skills/ai-<name>/handlers/."""
+    content = handler_path.read_text(encoding="utf-8")
+    return translate_refs(content, "copilot")
 
 
 def generate_copilot_agent(name: str, meta: AgentMeta, agent_path: Path) -> str:
@@ -873,6 +891,23 @@ def sync_all(*, check_only: bool = False, verbose: bool = False) -> int:
     agent_count = len(agents)
     print(f"Discovered: {skill_count} skills, {agent_count} agents")
 
+    # ── Pre-discover handlers/scripts/resources once per skill ───────────
+    skill_handlers: dict[str, list[tuple[str, Path]]] = {}
+    skill_scripts: dict[str, list[tuple[str, Path]]] = {}
+    skill_resources: dict[str, list[tuple[str, Path]]] = {}
+    skill_raw: dict[Path, str] = {}  # cache raw file reads
+    for name, _fm, skill_path in skills:
+        skill_handlers[name] = discover_handlers(skill_path.parent)
+        skill_scripts[name] = discover_scripts(skill_path.parent)
+        skill_resources[name] = discover_resources(skill_path.parent)
+        skill_raw[skill_path] = skill_path.read_text(encoding="utf-8")
+        for _h_name, h_path in skill_handlers[name]:
+            skill_raw[h_path] = h_path.read_text(encoding="utf-8")
+        for _s_name, s_path in skill_scripts[name]:
+            skill_raw[s_path] = s_path.read_text(encoding="utf-8")
+        for _r_name, r_path in skill_resources[name]:
+            skill_raw[r_path] = r_path.read_text(encoding="utf-8")
+
     # ── Phase 2: Generate surfaces ──────────────────────────────────────
 
     # Surface 1: .agents/skills/<name>/SKILL.md (strip ai- prefix)
@@ -883,16 +918,30 @@ def sync_all(*, check_only: bool = False, verbose: bool = False) -> int:
         _generate_surface(path, content, check_only, verbose, generated_paths, diffs)
         _generate_surface(tpl, content, check_only, verbose, generated_paths, diffs)
 
-        # Also copy scripts if they exist
-        for script_name, script_path in discover_scripts(skill_path.parent):
+        for handler_name, handler_path in skill_handlers[name]:
+            translated = translate_refs(skill_raw[handler_path], "generic")
+            for target in (
+                AGENTS_SKILLS / name / "handlers" / f"{handler_name}.md",
+                TPL_AGENTS_SKILLS / name / "handlers" / f"{handler_name}.md",
+            ):
+                _generate_surface(target, translated, check_only, verbose, generated_paths, diffs)
+
+        for script_name, script_path in skill_scripts[name]:
             for target in (
                 AGENTS_SKILLS / name / "scripts" / script_name,
                 TPL_AGENTS_SKILLS / name / "scripts" / script_name,
             ):
-                script_content = script_path.read_text(encoding="utf-8")
                 _generate_surface(
-                    target, script_content, check_only, verbose, generated_paths, diffs
+                    target, skill_raw[script_path], check_only, verbose, generated_paths, diffs
                 )
+
+        for res_name, res_path in skill_resources[name]:
+            translated = translate_refs(skill_raw[res_path], "generic")
+            for target in (
+                AGENTS_SKILLS / name / res_name,
+                TPL_AGENTS_SKILLS / name / res_name,
+            ):
+                _generate_surface(target, translated, check_only, verbose, generated_paths, diffs)
 
     # Surface 2: .agents/agents/ai-<name>.md
     for name, _fm, agent_path in agents:
@@ -902,13 +951,42 @@ def sync_all(*, check_only: bool = False, verbose: bool = False) -> int:
         _generate_surface(path, content, check_only, verbose, generated_paths, diffs)
         _generate_surface(tpl, content, check_only, verbose, generated_paths, diffs)
 
-    # Surface 3: .github/prompts/ai-<name>.prompt.md (flatten handlers)
+    # Surface 3: .github/skills/ai-<name>/SKILL.md + handlers/ (Agent Skills)
     for name, _fm, skill_path in skills:
-        path = GITHUB_PROMPTS / f"ai-{name}.prompt.md"
-        tpl = TPL_GITHUB_PROMPTS / f"ai-{name}.prompt.md"
-        content = generate_copilot_prompt(name, skill_path)
+        if not is_copilot_compatible(skill_path):
+            continue
+        path = GITHUB_SKILLS / f"ai-{name}" / "SKILL.md"
+        tpl = TPL_GITHUB_SKILLS / f"ai-{name}" / "SKILL.md"
+        content = generate_copilot_skill(name, skill_path)
         _generate_surface(path, content, check_only, verbose, generated_paths, diffs)
         _generate_surface(tpl, content, check_only, verbose, generated_paths, diffs)
+
+        for handler_name, handler_path in skill_handlers[name]:
+            handler_content = generate_copilot_handler(handler_path)
+            for target in (
+                GITHUB_SKILLS / f"ai-{name}" / "handlers" / f"{handler_name}.md",
+                TPL_GITHUB_SKILLS / f"ai-{name}" / "handlers" / f"{handler_name}.md",
+            ):
+                _generate_surface(
+                    target, handler_content, check_only, verbose, generated_paths, diffs
+                )
+
+        for script_name, script_path in skill_scripts[name]:
+            for target in (
+                GITHUB_SKILLS / f"ai-{name}" / "scripts" / script_name,
+                TPL_GITHUB_SKILLS / f"ai-{name}" / "scripts" / script_name,
+            ):
+                _generate_surface(
+                    target, skill_raw[script_path], check_only, verbose, generated_paths, diffs
+                )
+
+        for res_name, res_path in skill_resources[name]:
+            res_content = translate_refs(skill_raw[res_path], "copilot")
+            for target in (
+                GITHUB_SKILLS / f"ai-{name}" / res_name,
+                TPL_GITHUB_SKILLS / f"ai-{name}" / res_name,
+            ):
+                _generate_surface(target, res_content, check_only, verbose, generated_paths, diffs)
 
     # Surface 4: .github/agents/<name>.agent.md
     for name, _fm, agent_path in agents:
@@ -928,21 +1006,22 @@ def sync_all(*, check_only: bool = False, verbose: bool = False) -> int:
         content = generate_install_claude_skill(skill_path)
         _generate_surface(tpl, content, check_only, verbose, generated_paths, diffs)
 
-        # Also copy handlers if they exist
-        handlers = discover_handlers(skill_path.parent)
-        for handler_name, handler_path in handlers:
+        for handler_name, handler_path in skill_handlers[name]:
             tpl_handler = TPL_CLAUDE_SKILLS / f"ai-{name}" / "handlers" / f"{handler_name}.md"
-            handler_content = handler_path.read_text(encoding="utf-8")
             _generate_surface(
-                tpl_handler, handler_content, check_only, verbose, generated_paths, diffs
+                tpl_handler, skill_raw[handler_path], check_only, verbose, generated_paths, diffs
             )
 
-        # Also copy scripts if they exist
-        for script_name, script_path in discover_scripts(skill_path.parent):
+        for script_name, script_path in skill_scripts[name]:
             tpl_script = TPL_CLAUDE_SKILLS / f"ai-{name}" / "scripts" / script_name
-            script_content = script_path.read_text(encoding="utf-8")
             _generate_surface(
-                tpl_script, script_content, check_only, verbose, generated_paths, diffs
+                tpl_script, skill_raw[script_path], check_only, verbose, generated_paths, diffs
+            )
+
+        for res_name, res_path in skill_resources[name]:
+            tpl_res = TPL_CLAUDE_SKILLS / f"ai-{name}" / res_name
+            _generate_surface(
+                tpl_res, skill_raw[res_path], check_only, verbose, generated_paths, diffs
             )
 
     for name, _fm, agent_path in agents:
@@ -1021,74 +1100,44 @@ def _handle_orphans(
     check_only: bool,
     verbose: bool,
 ) -> list[str]:
-    """Find and handle orphan files across all generated surfaces."""
+    """Find and handle orphan files across all generated surfaces.
+
+    Uses a data-driven surface registry so every surface is scanned consistently.
+    Two scan modes:
+      - "glob": flat pattern match directly in the root directory
+      - "rglob_subdirs": iterate subdirectories, recursively scan all files
+    """
+    # (root, mode, prefix_filter) -- prefix_filter="" means all subdirs
+    _ORPHAN_SURFACES: list[tuple[Path, str, str]] = [
+        (AGENTS_SKILLS, "rglob_subdirs", ""),
+        (AGENTS_AGENTS, "glob", "ai-*.md"),
+        (GITHUB_SKILLS, "rglob_subdirs", "ai-"),
+        (GITHUB_AGENTS, "glob", "*.agent.md"),
+        (TPL_CLAUDE_SKILLS, "rglob_subdirs", "ai-"),
+        (TPL_CLAUDE_AGENTS, "glob", "ai-*.md"),
+        (TPL_AGENTS_SKILLS, "rglob_subdirs", ""),
+        (TPL_AGENTS_AGENTS, "glob", "ai-*.md"),
+        (TPL_GITHUB_SKILLS, "rglob_subdirs", "ai-"),
+        (TPL_GITHUB_AGENTS, "glob", "*.agent.md"),
+    ]
+
     orphans: list[Path] = []
-
-    # .agents/skills/*/SKILL.md
-    if AGENTS_SKILLS.is_dir():
-        for skill_dir in AGENTS_SKILLS.iterdir():
-            if skill_dir.is_dir():
-                skill_file = skill_dir / "SKILL.md"
-                if skill_file.is_file() and skill_file not in generated:
-                    orphans.append(skill_file)
-
-    # .agents/agents/ai-*.md
-    if AGENTS_AGENTS.is_dir():
-        for f in AGENTS_AGENTS.glob("ai-*.md"):
-            if f not in generated:
-                orphans.append(f)
-
-    # .github/prompts/*.prompt.md
-    if GITHUB_PROMPTS.is_dir():
-        for f in GITHUB_PROMPTS.glob("*.prompt.md"):
-            if f not in generated:
-                orphans.append(f)
-
-    # .github/agents/*.agent.md
-    if GITHUB_AGENTS.is_dir():
-        for f in GITHUB_AGENTS.glob("*.agent.md"):
-            if f not in generated:
-                orphans.append(f)
-
-    # templates/project/.claude/skills/ai-*/SKILL.md
-    if TPL_CLAUDE_SKILLS.is_dir():
-        for skill_dir in TPL_CLAUDE_SKILLS.iterdir():
-            if skill_dir.is_dir() and skill_dir.name.startswith("ai-"):
-                for f in skill_dir.rglob("*.md"):
-                    if f not in generated:
+    for root, mode, pattern in _ORPHAN_SURFACES:
+        if not root.is_dir():
+            continue
+        if mode == "glob":
+            for f in root.glob(pattern):
+                if f not in generated:
+                    orphans.append(f)
+        elif mode == "rglob_subdirs":
+            for sub in root.iterdir():
+                if not sub.is_dir():
+                    continue
+                if pattern and not sub.name.startswith(pattern):
+                    continue
+                for f in sub.rglob("*"):
+                    if f.is_file() and f not in generated:
                         orphans.append(f)
-
-    # templates/project/.claude/agents/ai-*.md
-    if TPL_CLAUDE_AGENTS.is_dir():
-        for f in TPL_CLAUDE_AGENTS.glob("ai-*.md"):
-            if f not in generated:
-                orphans.append(f)
-
-    # templates/project/.agents/skills/*/SKILL.md
-    if TPL_AGENTS_SKILLS.is_dir():
-        for skill_dir in TPL_AGENTS_SKILLS.iterdir():
-            if skill_dir.is_dir():
-                skill_file = skill_dir / "SKILL.md"
-                if skill_file.is_file() and skill_file not in generated:
-                    orphans.append(skill_file)
-
-    # templates/project/.agents/agents/ai-*.md
-    if TPL_AGENTS_AGENTS.is_dir():
-        for f in TPL_AGENTS_AGENTS.glob("ai-*.md"):
-            if f not in generated:
-                orphans.append(f)
-
-    # templates/project/prompts/*.prompt.md
-    if TPL_GITHUB_PROMPTS.is_dir():
-        for f in TPL_GITHUB_PROMPTS.glob("*.prompt.md"):
-            if f not in generated:
-                orphans.append(f)
-
-    # templates/project/agents/*.agent.md
-    if TPL_GITHUB_AGENTS.is_dir():
-        for f in TPL_GITHUB_AGENTS.glob("*.agent.md"):
-            if f not in generated:
-                orphans.append(f)
 
     orphans.sort()
     diffs: list[str] = []

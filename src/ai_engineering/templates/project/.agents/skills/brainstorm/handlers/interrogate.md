@@ -17,6 +17,18 @@ Before asking questions, gather context silently:
 
 Do NOT ask the user what you can learn from the code.
 
+### Step 1.5 -- Work Item Context (if provided)
+
+If a work item was fetched during context loading:
+
+1. Read the work item title, description, and acceptance criteria
+2. Read child items (tasks under a user story, stories under a feature)
+3. Read all standard and custom fields from the platform (status, priority, effort, etc.)
+4. Add to the **KNOWN** map: confirmed requirements from the work item fields
+5. Add to the **ASSUMED** map: inferences from the work item description
+6. Pre-fill the spec `refs` from the work item hierarchy
+7. Use the work item context to reduce the number of questions needed
+
 ### Step 2 -- Classify What You Know
 
 After exploration, build a requirements map:

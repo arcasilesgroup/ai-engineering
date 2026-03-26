@@ -133,6 +133,45 @@ If your liveness probe does anything beyond "is this process running," audit it 
 - **One CTA per platform**. Do not stack "follow me on X, subscribe to my newsletter, and check out my YouTube."
 - **No meta-references**. Do not say "I also posted this on LinkedIn" or "thread incoming."
 
+## API Integration
+
+### Posting Execution Patterns
+
+When the user requests actual posting (not just drafting), use the X API v2 handler for execution.
+
+**Single post:**
+```
+1. Draft and confirm content with the user.
+2. Delegate to handlers/x-api.md for X posting.
+3. Use platform-native APIs or tools for LinkedIn, Threads, Bluesky.
+4. Log post URLs and timestamps for the consistency check.
+```
+
+**Thread (X):**
+```
+1. Split content into thread segments respecting 280-char boundaries.
+2. Post the first tweet, capture the tweet ID.
+3. Reply-chain subsequent tweets using in_reply_to_tweet_id.
+4. Return the thread URL (first tweet URL).
+```
+
+**Media attachments:**
+```
+1. Upload media first (image, video, GIF) to get a media_id.
+2. Attach media_id to the post payload.
+3. Alt text is required for all images (accessibility).
+```
+
+**Stagger pattern:**
+```
+Platform 1 (primary):  T+0 minutes
+Platform 2:            T+30 minutes
+Platform 3:            T+60 minutes
+Platform 4:            T+90 minutes
+```
+
+Log each published URL. After all platforms are posted, run the consistency check: verify all versions agree on facts, numbers, and claims.
+
 ## Output
 
 - One adapted draft per target platform.

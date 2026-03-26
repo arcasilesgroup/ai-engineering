@@ -120,6 +120,10 @@ def update(
     # --- Phase 0b: migrate hooks from legacy scripts/hooks/ to .ai-engineering/ ---
     _migrate_hooks_dir(target)
 
+    # --- Phase 0c: remove legacy .github/prompts/ if .github/skills/ exists ---
+    if not dry_run:
+        _cleanup_legacy_prompts(target)
+
     # Load install state for VCS provider
     install_state = load_install_state(state_dir)
     vcs_provider = install_state.vcs_provider
@@ -480,6 +484,30 @@ def _migrate_tools_json(ai_eng_dir: Path) -> bool:
 # ---------------------------------------------------------------------------
 # Legacy migration
 # ---------------------------------------------------------------------------
+
+
+def _cleanup_legacy_prompts(target: Path) -> None:
+    """Remove legacy ``.github/prompts/`` when ``.github/skills/`` exists.
+
+    The framework migrated from flat prompt files to directory-based Agent
+    Skills in spec-077.  Projects that upgrade retain orphaned prompt files
+    that may confuse Copilot if both directories are present.
+    """
+    legacy = target / ".github" / "prompts"
+    new = target / ".github" / "skills"
+    if not legacy.is_dir() or not new.is_dir():
+        return
+    for f in sorted(legacy.rglob("*"), reverse=True):
+        if f.is_file():
+            logger.info("Removing legacy prompt: %s", f.relative_to(target))
+            f.unlink()
+    # Remove empty directories bottom-up
+    for d in sorted(legacy.rglob("*"), reverse=True):
+        if d.is_dir() and not any(d.iterdir()):
+            d.rmdir()
+    if legacy.is_dir() and not any(legacy.iterdir()):
+        legacy.rmdir()
+        logger.info("Removed legacy directory: .github/prompts/")
 
 
 def _migrate_hooks_dir(target: Path) -> None:

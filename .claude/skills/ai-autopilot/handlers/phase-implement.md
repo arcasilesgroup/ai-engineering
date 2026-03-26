@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Execute the implementation plan following the DAG. For each wave, dispatch Agent(Build) per sub-spec in parallel. Each agent receives full context (sub-spec content, decision-store constraints, stack standards) and writes a Self-Report classifying every piece of work using the Transparency Protocol. Commits are made per wave. Failed sub-specs cascade-block their dependents in later waves.
+Execute the implementation plan following the DAG. For each wave, dispatch the build agent per sub-spec in parallel. Each agent receives full context (sub-spec content, decision-store constraints, stack standards) and writes a Self-Report classifying every piece of work using the Transparency Protocol. Commits are made per wave. Failed sub-specs cascade-block their dependents in later waves.
 
 ## Prerequisites
 
@@ -44,9 +44,9 @@ WAVE W: Skipping sub-NNN (cascade-blocked by sub-XXX)
 
 If all sub-specs in the wave are blocked, the wave is empty. Log and proceed to the next wave -- cascade blocking in Step 5 will handle downstream effects.
 
-#### 2b -- Dispatch Agent(Build) Per Sub-Spec (Parallel)
+#### 2b -- Dispatch the Build Agent Per Sub-Spec (Parallel)
 
-For each non-blocked sub-spec in the wave, dispatch an Agent(Build) with a fresh context containing:
+For each non-blocked sub-spec in the wave, dispatch the build agent with a fresh context containing:
 
 1. **Sub-spec scope and exploration** -- from `specs/autopilot/sub-NNN/spec.md` (Scope, Exploration, file ownership).
 1b. **Sub-spec plan** -- from `specs/autopilot/sub-NNN/plan.md` (task checkboxes).
@@ -67,7 +67,7 @@ All agents in the wave dispatch in parallel. They do not share context with each
 
 #### 2c -- Agent Executes Plan Tasks
 
-Each Agent(Build) executes the plan tasks listed in its sub-spec's `plan.md`, in order. The agent follows standard build procedures:
+Each build agent executes the plan tasks listed in its sub-spec's `plan.md`, in order. The agent follows standard build procedures:
 
 - Write code following stack standards loaded from contexts.
 - Run post-edit validation per the stack (ruff, tsc, cargo check, etc.).

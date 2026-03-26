@@ -38,14 +38,18 @@ This is a hard gate. Do not proceed. Do not attempt to split concerns further to
 
 ### Step 3 -- Write Sub-Spec Shells
 
-For each concern, write a shell file to `specs/autopilot/sub-NNN.md` using the Shell Schema:
+For each concern, create a directory `specs/autopilot/sub-NNN/` containing two files:
+
+**`specs/autopilot/sub-NNN/spec.md`** (Shell Schema):
 
 ```markdown
 ---
 id: sub-NNN
 parent: spec-XXX
 title: "Concern title"
-files: []  # best guess -- Phase 2 refines
+status: planning
+files: []
+depends_on: []
 ---
 
 # Sub-Spec NNN: [title]
@@ -55,6 +59,17 @@ files: []  # best guess -- Phase 2 refines
 
 ## Exploration
 [EMPTY -- populated by Phase 2]
+```
+
+**`specs/autopilot/sub-NNN/plan.md`**:
+
+```markdown
+---
+total: 0
+completed: 0
+---
+
+# Plan: sub-NNN [title]
 
 ## Plan
 [EMPTY -- populated by Phase 2]
@@ -64,8 +79,9 @@ files: []  # best guess -- Phase 2 refines
 ```
 
 Rules:
-- Number sub-specs sequentially: `sub-001`, `sub-002`, ..., `sub-NNN`
-- The `files` field is a best guess based on spec mentions and project conventions. Phase 2 agents refine it after codebase exploration.
+- Number sub-spec directories sequentially: `sub-001/`, `sub-002/`, ..., `sub-NNN/`
+- The `parent`, `files`, and `depends_on` fields live in `spec.md` frontmatter. The `files` field is a best guess based on spec mentions and project conventions. Phase 2 agents refine it after codebase exploration.
+- The `plan.md` frontmatter tracks `total` and `completed` task counts (both start at 0, updated by later phases).
 - The `parent` field references the spec ID (e.g., `spec-065`)
 - Scope text must trace back to specific sections of the parent spec. Do not invent requirements.
 
@@ -85,9 +101,9 @@ Format:
 
 | # | Title | Status | Depends On | Files (best guess) |
 |---|-------|--------|------------|---------------------|
-| sub-001 | [title] | planning | None | `path/a`, `path/b` |
-| sub-002 | [title] | planning | None | `path/c` |
-| sub-003 | [title] | planning | sub-001 | `path/d`, `path/e` |
+| sub-001/ | [title] | planning | None | `path/a`, `path/b` |
+| sub-002/ | [title] | planning | None | `path/c` |
+| sub-003/ | [title] | planning | sub-001 | `path/d`, `path/e` |
 
 ## Totals
 - Sub-specs: N
@@ -101,7 +117,7 @@ Dependency rules:
 
 ### Step 5 -- Validate Coverage
 
-Walk every section and requirement of the parent spec. Confirm each maps to at least one sub-spec scope. Build a traceability check:
+Walk every section and requirement of the parent spec. Confirm each maps to at least one sub-spec's `spec.md` scope. Build a traceability check:
 
 ```
 Spec Section -> Sub-Spec(s)
@@ -112,14 +128,14 @@ Section C    -> sub-004
 ...
 ```
 
-**Orphan detection**: if any spec section or requirement does not map to a sub-spec, reassign it to the most relevant existing sub-spec. Update that sub-spec's Scope and `files` field.
+**Orphan detection**: if any spec section or requirement does not map to a sub-spec, reassign it to the most relevant existing sub-spec. Update that sub-spec's `spec.md` Scope and `files` field.
 
 If orphans remain after 2 reassignment attempts: **STOP**. Report the orphan requirements to the orchestrator for human review.
 
 ## Output
 
 Artifacts written:
-- N sub-spec shells at `specs/autopilot/sub-001.md` through `specs/autopilot/sub-NNN.md`
+- N sub-spec directories at `specs/autopilot/sub-001/` through `specs/autopilot/sub-NNN/` (each containing `spec.md` and `plan.md`)
 - Execution manifest at `specs/autopilot/manifest.md`
 
 Report to orchestrator:

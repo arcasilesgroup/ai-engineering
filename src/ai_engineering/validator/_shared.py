@@ -160,9 +160,9 @@ _CLAUDE_COMMANDS_MIRROR = (
     "src/ai_engineering/templates/project/.claude/commands",
 )
 
-_COPILOT_PROMPTS_MIRROR = (
-    ".github/prompts",
-    "src/ai_engineering/templates/project/prompts",
+_COPILOT_SKILLS_MIRROR = (
+    ".github/skills",
+    "src/ai_engineering/templates/project/.github/skills",
 )
 
 _COPILOT_AGENTS_MIRROR = (

@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Converge on quality through iterative assessment and fixing. Dispatch Agent(Verify) + Agent(Guard) + Agent(Review) in parallel on the full changeset, consolidate findings with unified severity mapping, fix issues, and iterate up to 3 rounds. This is where cross-sub-spec integration issues are caught -- the first time all sub-spec changes are evaluated as a single unit.
+Converge on quality through iterative assessment and fixing. Dispatch the verify agent + the guard agent + the review agent in parallel on the full changeset, consolidate findings with unified severity mapping, fix issues, and iterate up to 3 rounds. This is where cross-sub-spec integration issues are caught -- the first time all sub-spec changes are evaluated as a single unit.
 
 ## Prerequisites
 
@@ -46,19 +46,19 @@ Repeat the following cycle. Track the current round number (R = 1, 2, or 3).
 
 Dispatch three assessment agents simultaneously. Each gets fresh context.
 
-**Agent(Verify)** -- platform mode:
+**The verify agent** -- platform mode:
 - Read `.claude/skills/ai-verify/SKILL.md` at dispatch time.
 - Embed the IRRV protocol and the Scan Modes table into the agent prompt.
 - Run all 7 scan modes (governance, security, quality, performance, a11y, feature, architecture) on the changeset.
 - Output: scored verdict with findings per the Scan Output Contract (Score N/100, Verdict, Findings table, Gate Check).
 
-**Agent(Guard)** -- advise mode:
+**The guard agent** -- advise mode:
 - Read `.claude/skills/ai-governance/SKILL.md` at dispatch time.
 - Run governance check against `state/decision-store.json`.
 - Check for: expired risk acceptances, ownership violations, framework integrity drift.
 - Output: advisory findings with severity levels (concern, warn, info).
 
-**Agent(Review)** -- 8-agent parallel review:
+**The review agent** -- 8-agent parallel review:
 - Read `.claude/skills/ai-review/SKILL.md` at dispatch time.
 - Embed the 8 Review Agents table, self-challenge protocol, and confidence scoring rules into the agent prompt.
 - Run the full review protocol on `git diff main...HEAD`.
@@ -118,12 +118,12 @@ Decision matrix:
 
 For each finding at blocker, critical, or high unified severity:
 
-1. **Dispatch Agent(Build)** with focused context:
+1. **Dispatch the build agent** with focused context:
    - The finding: severity, description, file, line
    - The affected sub-spec context (scope from `sub-NNN/spec.md`, plan from `sub-NNN/plan.md`)
    - The Self-Report entry for that area (so the agent understands what was claimed)
 
-2. **Agent writes the fix** and updates the Self-Report classification:
+2. **The agent writes the fix** and updates the Self-Report classification:
    - `failing` -> `real` (if the fix makes a test pass)
    - `aspirational` -> `real` (if the fix implements the missing behavior)
    - `stub` -> `real` (if the fix replaces the stub with real logic)

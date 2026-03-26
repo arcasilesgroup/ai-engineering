@@ -99,7 +99,7 @@ Each IDE has its own skill and agent files. Same content, platform-native format
 | Platform | Skills | Agents |
 |----------|--------|--------|
 | Claude Code | `.claude/skills/ai-*/SKILL.md` | `.claude/agents/ai-*.md` |
-| GitHub Copilot | `.github/prompts/ai-*.prompt.md` | `.github/agents/*.agent.md` |
+| GitHub Copilot | `.github/skills/ai-*/SKILL.md` | `.github/agents/*.agent.md` |
 | Codex / Gemini | `.agents/skills/*/SKILL.md` | `.agents/agents/ai-*.md` |
 
 ## Skills (37)

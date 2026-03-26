@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Evaluate the full changeset as a unit after all dispatch tasks complete. Dispatch Agent(Verify) + Agent(Review) in parallel, consolidate findings with unified severity mapping, fix issues, and iterate up to 2 rounds. This is where cross-task integration issues are caught -- the first time all task changes are evaluated as a single unit. Proportionate to dispatch scale (typically < 3 concerns, < 10 files).
+Evaluate the full changeset as a unit after all dispatch tasks complete. Dispatch the verify agent and the review agent in parallel, consolidate findings with unified severity mapping, fix issues, and iterate up to 2 rounds. This is where cross-task integration issues are caught -- the first time all task changes are evaluated as a single unit. Proportionate to dispatch scale (typically < 3 concerns, < 10 files).
 
 ## Prerequisites
 
@@ -34,13 +34,13 @@ Repeat the following cycle. Track the current round number (R = 1 or 2).
 
 Dispatch two assessment agents simultaneously. Each gets fresh context.
 
-**Agent(Verify)** -- platform mode:
+**The verify agent** -- platform mode:
 - Read `.claude/skills/ai-verify/SKILL.md` at dispatch time.
 - Embed the IRRV protocol and the Scan Modes table into the agent prompt.
 - Run all 7 scan modes (governance, security, quality, performance, a11y, feature, architecture) on the changeset.
 - Output: scored verdict with findings per the Scan Output Contract (Score N/100, Verdict, Findings table, Gate Check).
 
-**Agent(Review)** -- 8-agent parallel review:
+**The review agent** -- 8-agent parallel review:
 - Read `.claude/skills/ai-review/SKILL.md` at dispatch time.
 - Embed the 8 Review Agents table, self-challenge protocol, and confidence scoring rules into the agent prompt.
 - Run the full review protocol on `git diff main...HEAD`.
@@ -91,11 +91,11 @@ Decision matrix:
 
 For each finding at blocker, critical, or high unified severity:
 
-1. **Dispatch Agent(Build)** with focused context:
+1. **Dispatch the build agent** with focused context:
    - The finding: severity, description, file, line
    - The affected task context from `plan.md`
 
-2. **Agent writes the fix**.
+2. **The build agent writes the fix**.
 
 3. **Commit fixes** with message format:
    ```
@@ -129,7 +129,7 @@ Round 2: 1 blocker, 0 criticals, 1 high -> STOP (blockers remain)
 
 This handler intentionally omits governance concerns. The following are outside its scope:
 
-- Decision-store constraint violations (no Agent(Guard))
+- Decision-store constraint violations (no guard agent dispatch)
 - Expired risk acceptances
 - Ownership model violations
 - Framework integrity drift

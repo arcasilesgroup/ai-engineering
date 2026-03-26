@@ -436,4 +436,4 @@ def test_validator_claude_commands_mirror_ok_path(tmp_path: Path) -> None:
 
     report = validator.IntegrityReport()
     validator._check_claude_commands_mirror(tmp_path, report)
-    assert any(check.name == "claude-commands-mirrors" for check in report.checks)
+    assert any(check.name == "claude-cmds-mirrors" for check in report.checks)

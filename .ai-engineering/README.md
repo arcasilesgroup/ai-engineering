@@ -129,7 +129,7 @@ ai-engineering supports three IDE surfaces out of the box:
 | Surface | IDE | Skills | Agents |
 |---------|-----|--------|--------|
 | `.claude/` | Claude Code | `skills/ai-*/SKILL.md` | `agents/ai-*.md` |
-| `.github/` | GitHub Copilot | `prompts/ai-*.prompt.md` | `agents/*.agent.md` |
+| `.github/` | GitHub Copilot | `skills/ai-*/SKILL.md` | `agents/*.agent.md` |
 | `.agents/` | Codex / Gemini CLI | `skills/*/SKILL.md` | `agents/ai-*.md` |
 
 For unsupported IDEs (Windsurf, Aider, Cursor, etc.):

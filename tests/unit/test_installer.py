@@ -289,7 +289,7 @@ class TestCopilotInstructionsTreeMap:
         from ai_engineering.installer.templates import _PROVIDER_TREE_MAPS
 
         copilot_trees = _PROVIDER_TREE_MAPS["github_copilot"]
-        assert ("prompts", ".github/prompts") in copilot_trees
+        assert (".github/skills", ".github/skills") in copilot_trees
         assert ("agents", ".github/agents") in copilot_trees
         assert ("instructions", ".github/instructions") in copilot_trees
 

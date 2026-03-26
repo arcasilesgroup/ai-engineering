@@ -202,8 +202,8 @@ def detect_ai_providers(root: Path) -> list[str]:
         providers.append("claude_code")
 
     copilot_instructions = (root / ".github" / "copilot-instructions.md").is_file()
-    copilot_prompts = (root / ".github" / "prompts").is_dir()
-    if copilot_instructions or copilot_prompts:
+    copilot_skills = (root / ".github" / "skills").is_dir()
+    if copilot_instructions or copilot_skills:
         providers.append("github_copilot")
 
     return sorted(providers)

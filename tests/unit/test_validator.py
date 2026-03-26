@@ -579,19 +579,28 @@ def _setup_governance_mirror(root: Path) -> None:
             dest.write_bytes(src.read_bytes())
 
 
-class TestCopilotPromptsMirror:
-    """Tests for Copilot prompts mirror-sync validation."""
+class TestCopilotSkillsMirror:
+    """Tests for Copilot skills mirror-sync validation."""
 
-    def test_copilot_prompts_mirror_sync_ok(self, tmp_path: Path) -> None:
+    def test_copilot_skills_mirror_sync_ok(self, tmp_path: Path) -> None:
         _setup_full_project(tmp_path)
         _setup_governance_mirror(tmp_path)
-        canonical = tmp_path / ".github" / "prompts"
-        mirror = tmp_path / "src" / "ai_engineering" / "templates" / "project" / "prompts"
+        canonical = tmp_path / ".github" / "skills" / "ai-test"
+        mirror = (
+            tmp_path
+            / "src"
+            / "ai_engineering"
+            / "templates"
+            / "project"
+            / ".github"
+            / "skills"
+            / "ai-test"
+        )
         canonical.mkdir(parents=True)
         mirror.mkdir(parents=True)
-        content = "---\ndescription: test\nmode: agent\n---\nTest prompt.\n"
-        (canonical / "test.prompt.md").write_text(content, encoding="utf-8")
-        (mirror / "test.prompt.md").write_text(content, encoding="utf-8")
+        content = "---\nname: ai-test\nmode: agent\n---\nTest skill.\n"
+        (canonical / "SKILL.md").write_text(content, encoding="utf-8")
+        (mirror / "SKILL.md").write_text(content, encoding="utf-8")
         report = validate_content_integrity(
             tmp_path,
             categories=[IntegrityCategory.MIRROR_SYNC],
@@ -599,19 +608,28 @@ class TestCopilotPromptsMirror:
         ok_checks = [
             c
             for c in report.checks
-            if c.name == "copilot-prompts-mirrors" and c.status == IntegrityStatus.OK
+            if c.name == "copilot-skills-mirrors" and c.status == IntegrityStatus.OK
         ]
         assert len(ok_checks) == 1
 
-    def test_copilot_prompts_mirror_desync(self, tmp_path: Path) -> None:
+    def test_copilot_skills_mirror_desync(self, tmp_path: Path) -> None:
         _setup_full_project(tmp_path)
         _setup_governance_mirror(tmp_path)
-        canonical = tmp_path / ".github" / "prompts"
-        mirror = tmp_path / "src" / "ai_engineering" / "templates" / "project" / "prompts"
+        canonical = tmp_path / ".github" / "skills" / "ai-test"
+        mirror = (
+            tmp_path
+            / "src"
+            / "ai_engineering"
+            / "templates"
+            / "project"
+            / ".github"
+            / "skills"
+            / "ai-test"
+        )
         canonical.mkdir(parents=True)
         mirror.mkdir(parents=True)
-        (canonical / "test.prompt.md").write_text("canonical", encoding="utf-8")
-        (mirror / "test.prompt.md").write_text("different", encoding="utf-8")
+        (canonical / "SKILL.md").write_text("canonical", encoding="utf-8")
+        (mirror / "SKILL.md").write_text("different", encoding="utf-8")
         report = validate_content_integrity(
             tmp_path,
             categories=[IntegrityCategory.MIRROR_SYNC],
@@ -619,17 +637,17 @@ class TestCopilotPromptsMirror:
         fail_checks = [
             c
             for c in report.checks
-            if c.status == IntegrityStatus.FAIL and "copilot-prompt-desync" in c.name
+            if c.status == IntegrityStatus.FAIL and "copilot-skill-desync" in c.name
         ]
         assert len(fail_checks) >= 1
 
-    def test_copilot_prompts_mirror_missing_root(self, tmp_path: Path) -> None:
+    def test_copilot_skills_mirror_missing_root(self, tmp_path: Path) -> None:
         _setup_full_project(tmp_path)
         _setup_governance_mirror(tmp_path)
-        # Create canonical prompts but no mirror directory
-        canonical = tmp_path / ".github" / "prompts"
+        # Create canonical skills but no mirror directory
+        canonical = tmp_path / ".github" / "skills" / "ai-test"
         canonical.mkdir(parents=True)
-        (canonical / "test.prompt.md").write_text("content", encoding="utf-8")
+        (canonical / "SKILL.md").write_text("content", encoding="utf-8")
         report = validate_content_integrity(
             tmp_path,
             categories=[IntegrityCategory.MIRROR_SYNC],
@@ -637,19 +655,21 @@ class TestCopilotPromptsMirror:
         fail_checks = [
             c
             for c in report.checks
-            if c.name == "copilot-prompts-mirror-root" and c.status == IntegrityStatus.FAIL
+            if c.name == "copilot-skill-mirror-root" and c.status == IntegrityStatus.FAIL
         ]
         assert len(fail_checks) == 1
 
-    def test_copilot_prompts_missing_mirror_file(self, tmp_path: Path) -> None:
+    def test_copilot_skills_missing_mirror_file(self, tmp_path: Path) -> None:
         _setup_full_project(tmp_path)
         _setup_governance_mirror(tmp_path)
-        canonical = tmp_path / ".github" / "prompts"
-        mirror = tmp_path / "src" / "ai_engineering" / "templates" / "project" / "prompts"
+        canonical = tmp_path / ".github" / "skills" / "ai-orphan"
+        mirror = (
+            tmp_path / "src" / "ai_engineering" / "templates" / "project" / ".github" / "skills"
+        )
         canonical.mkdir(parents=True)
         mirror.mkdir(parents=True)
         # File exists in canonical but not in mirror
-        (canonical / "orphan.prompt.md").write_text("content", encoding="utf-8")
+        (canonical / "SKILL.md").write_text("content", encoding="utf-8")
         report = validate_content_integrity(
             tmp_path,
             categories=[IntegrityCategory.MIRROR_SYNC],
@@ -657,7 +677,7 @@ class TestCopilotPromptsMirror:
         fail_checks = [
             c
             for c in report.checks
-            if c.status == IntegrityStatus.FAIL and "copilot-prompt-missing" in c.name
+            if c.status == IntegrityStatus.FAIL and "copilot-skill-missing" in c.name
         ]
         assert len(fail_checks) >= 1
 
@@ -719,7 +739,7 @@ class TestCopilotAgentsMirror:
         fail_checks = [
             c
             for c in report.checks
-            if c.name == "copilot-agents-mirror-root" and c.status == IntegrityStatus.FAIL
+            if c.name == "copilot-agent-mirror-root" and c.status == IntegrityStatus.FAIL
         ]
         assert len(fail_checks) == 1
 

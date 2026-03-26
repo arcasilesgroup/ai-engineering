@@ -9,7 +9,7 @@ handoffs:
 - label: 🔧 Fix Issues
   agent: Build
   prompt: Fix the issues identified in the review above.
-  send: false
+  send: true
 ---
 
 
@@ -98,8 +98,8 @@ APPROVE | REQUEST_CHANGES | COMMENT
 
 ## Referenced Skills
 
-- `.github/prompts/ai-review.prompt.md` -- detailed review procedures and patterns
-- `.github/prompts/ai-explore.prompt.md` -- pre-review context gathering
+- `.github/skills/ai-review/SKILL.md` -- detailed review procedures and patterns
+- `.github/skills/ai-explore/SKILL.md` -- pre-review context gathering
 
 ## Boundaries
 

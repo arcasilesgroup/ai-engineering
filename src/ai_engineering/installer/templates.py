@@ -57,7 +57,7 @@ _PROVIDER_TREE_MAPS: dict[str, list[tuple[str, str]]] = {
         (".claude", ".claude"),
     ],
     "github_copilot": [
-        ("prompts", ".github/prompts"),
+        (".github/skills", ".github/skills"),
         ("agents", ".github/agents"),
         ("instructions", ".github/instructions"),
     ],

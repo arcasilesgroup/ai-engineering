@@ -31,8 +31,12 @@ def _check_file_existence(
         )
         return
 
-    # Working Buffer model: specs are transient files, not directories
-    # No closed-spec directory exclusion needed
+    # Exclude specs/ from reference checking. Spec files contain illustrative
+    # paths (e.g., `.claude/skills/ai-X/SKILL.md`) as examples in acceptance
+    # criteria and work area descriptions. These are not real file references
+    # and trigger false positives in the path reference validator.
+    specs_dir = ai_dir / "specs"
+    specs_exists = specs_dir.is_dir()
 
     # Scan all .md files for internal references
     broken_refs: list[tuple[str, str]] = []
@@ -41,6 +45,8 @@ def _check_file_existence(
     else:
         md_files = sorted(ai_dir.rglob("*.md"))
     for md_file in md_files:
+        if specs_exists and md_file.is_relative_to(specs_dir):
+            continue
         content = md_file.read_text(encoding="utf-8", errors="replace")
         for match in _PATH_REF_PATTERN.finditer(content):
             ref_path = match.group(1) if match.group(1) else match.group(0)

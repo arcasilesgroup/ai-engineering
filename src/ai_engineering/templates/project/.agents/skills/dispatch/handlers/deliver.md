@@ -31,7 +31,7 @@ Produce a concise quality summary from Phase 3 results. This is NOT the full Int
 
 This step follows the thin orchestrator principle. Do NOT duplicate PR logic.
 
-1. Read `.claude/skills/ai-pr/SKILL.md`.
+1. Read `.agents/skills/pr/SKILL.md`.
 2. Determine entry point:
    - If unstaged changes exist (e.g., quality report files, late fixes): execute the full ai-pr pipeline starting from Step 0 (commit pipeline through Steps 0-6).
    - If all changes are already committed: **start from Step 7** (pre-push checks). Dispatch already commits per-task and per-quality-round, so this is the normal path.

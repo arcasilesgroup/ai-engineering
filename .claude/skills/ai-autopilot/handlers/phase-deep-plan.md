@@ -25,9 +25,9 @@ Dispatch N parallel agents (one per sub-spec) to deep-explore the codebase and w
 3. Verify all sub-specs are in `planning` status in the manifest. Skip any that are not.
 4. Build a dispatch list: one entry per sub-spec with its content and metadata.
 
-### Step 2: Dispatch Agent(Explore+Plan) Per Sub-Spec
+### Step 2: Dispatch the Explore and Plan Agents Per Sub-Spec
 
-Dispatch all agents in parallel using `run_in_background: true`. Each agent receives a self-contained prompt with:
+Dispatch all agents in parallel (parallel in Claude Code, sequential in other IDEs). Each agent receives a self-contained prompt with:
 
 - The full sub-spec content (frontmatter + scope)
 - The parent spec's relevant section for this concern

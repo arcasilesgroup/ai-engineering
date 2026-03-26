@@ -197,19 +197,19 @@ class TestTemplateTrees:
         denied = [c for c in result.changes if c.path == settings and c.action == "skip-denied"]
         assert len(denied) == 1
 
-    def test_update_handles_prompt_files(self, installed_project: Path) -> None:
-        """Modify a .github/prompts/ file and verify update restores it."""
-        prompts_dir = installed_project / ".github" / "prompts"
-        if not prompts_dir.is_dir():
-            pytest.skip("prompts directory not found in installed project")
+    def test_update_handles_skill_files(self, installed_project: Path) -> None:
+        """Modify a .github/skills/ file and verify update restores it."""
+        skills_dir = installed_project / ".github" / "skills"
+        if not skills_dir.is_dir():
+            pytest.skip("skills directory not found in installed project")
 
-        prompt_files = list(prompts_dir.glob("*.prompt.md"))
-        if not prompt_files:
-            pytest.skip("no prompt files found in installed project")
+        skill_files = list(skills_dir.rglob("SKILL.md"))
+        if not skill_files:
+            pytest.skip("no skill files found in installed project")
 
-        target = prompt_files[0]
+        target = skill_files[0]
         original = target.read_bytes()
-        target.write_text("modified prompt")
+        target.write_text("modified skill")
 
         result = update(installed_project, dry_run=False)
 

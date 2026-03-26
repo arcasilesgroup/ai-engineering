@@ -166,7 +166,7 @@ def install(
 
     # 5. Ensure git repo exists, then install hooks
     if not (target / ".git").is_dir():
-        subprocess.run(["git", "init"], cwd=target, capture_output=True, check=True)
+        subprocess.run(["git", "init", "-b", "main"], cwd=target, capture_output=True, check=True)
     result.hooks = install_hooks(target)
 
     # 6. Install-to-operational phases (tooling/auth/policy)
