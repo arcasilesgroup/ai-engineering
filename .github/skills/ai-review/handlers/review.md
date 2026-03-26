@@ -14,7 +14,7 @@ Read `.ai-engineering/manifest.yml` field `providers.stacks` for the project's d
 
 Before any review agent runs:
 
-1. Run `/ai-explore` on the changed files to produce an Architecture Map
+1. Dispatch the Explore agent (`ai-explore`) on the changed files to produce an Architecture Map
 2. Identify the diff scope: `git diff --stat` for file list, `git diff` for full content
 3. Supplement with languages detected in the diff (file extensions) and read:
    - `.ai-engineering/contexts/languages/{lang}.md` for each language found

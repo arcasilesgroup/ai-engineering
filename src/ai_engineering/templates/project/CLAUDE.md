@@ -101,7 +101,7 @@ Before writing or reviewing code, load the applicable context files:
 | Code review (parallel agents) | review | `/ai-review` |
 | Deep codebase research | explore | direct dispatch |
 | Onboarding, teaching | guide | `/ai-guide` |
-| Simplify/refactor code | simplify | `/ai-simplify` |
+| Simplify/refactor code | simplify | direct dispatch |
 | Multi-spec autonomous execution | autopilot | `/ai-autopilot` |
 
 ## Platform Mirrors
@@ -114,7 +114,7 @@ Each IDE has its own skill and agent files. Same content, platform-native format
 | GitHub Copilot | `.github/skills/ai-*/SKILL.md` | `.github/agents/*.agent.md` |
 | Codex / Gemini | `.agents/skills/*/SKILL.md` | `.agents/agents/ai-*.md` |
 
-## Skills (40)
+## Skills (41)
 
 Grouped by type. Invoke as `/ai-<name>`.
 
@@ -176,7 +176,7 @@ Gate failure: diagnose, fix, retry. Use `ai-eng doctor --fix` or `ai-eng doctor 
 
 | What | Where |
 |------|-------|
-| Skills (40) | `.claude/skills/ai-<name>/SKILL.md` |
+| Skills (41) | `.claude/skills/ai-<name>/SKILL.md` |
 | Agents (9) | `.claude/agents/ai-<name>.md` |
 | Config | `.ai-engineering/manifest.yml` |
 | Decisions | `.ai-engineering/state/decision-store.json` |

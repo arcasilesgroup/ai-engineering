@@ -91,10 +91,14 @@ class TestAgentSkillCrossReferences:
         broken: list[str] = []
         for agent_file in sorted(agents_dir.glob("*.md")):
             text = agent_file.read_text(encoding="utf-8")
-            for match in re.finditer(r"- skills/([^\s]+)", text):
-                skill_path = self._TEMPLATES_DIR / match.group(0).lstrip("- ")
-                if not skill_path.exists():
-                    broken.append(f"{agent_file.name}: missing '{match.group(0).lstrip('- ')}'")
+            for match in re.finditer(r"`((?:\.claude|\.agents)/skills/[^`]+/SKILL\.md)`", text):
+                skill_ref = match.group(1)
+                candidates = [
+                    _PROJECT_ROOT / skill_ref,
+                    self._TEMPLATES_DIR.parent / skill_ref,
+                ]
+                if not any(path.exists() for path in candidates):
+                    broken.append(f"{agent_file.name}: missing '{skill_ref}'")
         assert not broken, "Broken agent→skill references:\n" + "\n".join(f"  {b}" for b in broken)
 
     def test_all_agent_standard_references_exist(self) -> None:

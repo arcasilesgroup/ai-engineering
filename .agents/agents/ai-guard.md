@@ -84,7 +84,7 @@ Severity scale: `info` (awareness) < `warn` (should address) < `concern` (likely
 
 ## Referenced Skills
 
-- `.agents/skills/guard/SKILL.md` -- primary skill with detailed procedures
+- `.agents/skills/dispatch/SKILL.md` -- guard advisory entry point during build execution
 - `.agents/skills/governance/SKILL.md` -- shared governance validation patterns
 
 ## Boundaries

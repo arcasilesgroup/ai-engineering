@@ -14,12 +14,12 @@ providers:
   ides: [terminal]
   stacks: [python]
   ai_providers:
-    enabled: [claude_code, github_copilot]
+    enabled: [claude_code, github_copilot, codex]
     primary: claude_code
 
 # AI Providers
 ai_providers:
-  enabled: [claude_code, github_copilot]
+  enabled: [claude_code, github_copilot, codex]
   primary: claude_code
 
 # Artifact feeds — configure your private feed in pyproject.toml [tool.uv.index]

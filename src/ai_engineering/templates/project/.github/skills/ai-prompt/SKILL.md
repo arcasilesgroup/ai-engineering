@@ -110,7 +110,7 @@ For skills that enforce process (guard, verify, commit):
 
 ```
 /ai-prompt "check if the code follows our standards"   # optimize this text
-/ai-prompt --skill guard                                 # optimize guard's description
+/ai-prompt --skill governance                            # optimize governance's description
 /ai-prompt --skill commit                                # optimize commit's description
 ```
 

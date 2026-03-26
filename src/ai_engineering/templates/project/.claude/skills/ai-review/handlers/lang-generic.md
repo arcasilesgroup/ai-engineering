@@ -4,6 +4,8 @@
 
 Generic language review handler for languages without a dedicated `lang-{language}.md` handler. Applies standards from the language's context file (`.ai-engineering/contexts/languages/{lang}.md`) to the diff.
 
+> **Build vs Review validation**: Build-time validation in /ai-code performs a lightweight self-check of 3 critical categories (naming conventions, anti-patterns, error handling) as a first line of defense. This handler provides the exhaustive review-time validation of all 5 categories, including idiomatic patterns and testing -- the comprehensive second pass that catches anything build-time missed.
+
 ## Integration
 
 Dispatched as **Step 2b** (between Step 2 dispatch and Step 3 aggregate). Findings use the same YAML format. Language findings receive a **+10% confidence bonus** when corroborated by a concern agent.

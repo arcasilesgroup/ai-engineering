@@ -11,7 +11,7 @@ This directory governs your AI workspace.
 /ai-commit       -- governed commit (lint + secrets + push)
 ```
 
-## Skills (40)
+## Skills (41)
 
 Invoke as `/ai-<name>`. Grouped by workflow stage.
 
@@ -69,7 +69,7 @@ Invoke as `/ai-<name>`. Grouped by workflow stage.
 | review | Parallel code review | /ai-review |
 | explore | Codebase research | subagent dispatch |
 | guide | Teaching and onboarding | /ai-guide |
-| simplify | Code simplification | /ai-simplify |
+| simplify | Code simplification | direct dispatch |
 | autopilot | Multi-spec orchestration | /ai-autopilot |
 
 ## Your project, your control
@@ -98,7 +98,7 @@ Edit `manifest.yml` to customize your installation.
 |-------|-------------|---------|
 | `providers.vcs` | Version control provider | `github`, `azure_devops` |
 | `providers.stacks` | Language list for context loading | `[python, typescript]` |
-| `ai_providers.enabled` | Active IDE integrations | `[claude_code, github_copilot]` |
+| `ai_providers.enabled` | Active IDE integrations | `[claude_code, github_copilot, codex]` |
 | `work_items.provider` | Issue tracker | `github`, `azure_devops` |
 | `quality.coverage` | Minimum test coverage % | `80` |
 | `quality.duplication` | Maximum code duplication % | `3` |

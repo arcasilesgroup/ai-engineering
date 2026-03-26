@@ -48,6 +48,7 @@ AGENTS_SKILLS = ROOT / ".agents" / "skills"
 AGENTS_AGENTS = ROOT / ".agents" / "agents"
 GITHUB_SKILLS = ROOT / ".github" / "skills"
 GITHUB_AGENTS = ROOT / ".github" / "agents"
+GITHUB_INSTRUCTIONS = ROOT / ".github" / "instructions"
 
 # ── Template project paths (for ai-eng install) ────────────────────────
 TPL_PROJECT = ROOT / "src" / "ai_engineering" / "templates" / "project"
@@ -704,9 +705,19 @@ _DONT_ITEM_7_RE = re.compile(
     r"^\d+\.\s+\*\*NEVER\*\*\s+disable or modify\s+`\.claude/settings\.json`\s+deny rules\.\n",
     re.MULTILINE,
 )
+_SKILLS_HEADER_RE = re.compile(r"^## Skills \(\d+\)$", re.MULTILINE)
+_SOURCE_OF_TRUTH_SKILLS_RE = re.compile(
+    r"^\| Skills \(\d+\) \| `[^`]+` \|$",
+    re.MULTILINE,
+)
+_SOURCE_OF_TRUTH_AGENTS_RE = re.compile(
+    r"^\| Agents \(\d+\) \| `[^`]+` \|$",
+    re.MULTILINE,
+)
+_CLAUDE_PLATFORM_ROW_RE = re.compile(r"^\| Claude Code \| .* \| .* \|$", re.MULTILINE)
 
 
-def generate_agents_md() -> str:
+def generate_agents_md(*, skill_count: int, agent_count: int) -> str:
     """Generate AGENTS.md from CLAUDE.md as canonical source.
 
     Applies:
@@ -729,6 +740,22 @@ def generate_agents_md() -> str:
 
     # Translate .claude/ paths to .agents/ paths
     content = translate_refs(content, "generic")
+    content = _CLAUDE_PLATFORM_ROW_RE.sub(
+        "| Claude Code | `.claude/skills/ai-*/SKILL.md` | `.claude/agents/ai-*.md` |",
+        content,
+        count=1,
+    )
+    content = _SKILLS_HEADER_RE.sub(f"## Skills ({skill_count})", content, count=1)
+    content = _SOURCE_OF_TRUTH_SKILLS_RE.sub(
+        f"| Skills ({skill_count}) | `.agents/skills/<name>/SKILL.md` |",
+        content,
+        count=1,
+    )
+    content = _SOURCE_OF_TRUTH_AGENTS_RE.sub(
+        f"| Agents ({agent_count}) | `.agents/agents/ai-<name>.md` |",
+        content,
+        count=1,
+    )
 
     return content
 
@@ -1030,8 +1057,8 @@ def validate_cross_references(*, verbose: bool = False) -> list[str]:
         text = ref_file.read_text(encoding="utf-8")
         for match in pattern.finditer(text):
             ref_path = ROOT / ".ai-engineering" / match.group(1)
-            # Allow glob-like references and placeholders
-            if "*" in match.group(1) or "<" in match.group(1):
+            # Allow glob-like references and placeholder patterns
+            if "*" in match.group(1) or "<" in match.group(1) or "{" in match.group(1):
                 continue
             if not ref_path.exists():
                 rel_file = ref_file.relative_to(ROOT)
@@ -1250,17 +1277,42 @@ def sync_all(*, check_only: bool = False, verbose: bool = False) -> int:
         content = generate_install_claude_agent(agent_path)
         _generate_surface(tpl, content, check_only, verbose, generated_paths, diffs)
 
+    # Surface 5.5: templates/project/CLAUDE.md (canonical root instruction file)
+    _generate_surface(
+        TPL_PROJECT / "CLAUDE.md",
+        (ROOT / "CLAUDE.md").read_text(encoding="utf-8"),
+        check_only,
+        verbose,
+        generated_paths,
+        diffs,
+    )
+
     # Surface 6: instructions/{lang}.instructions.md (generated from contexts)
     if CONTEXTS_LANGUAGES.is_dir():
         for ctx_file in sorted(CONTEXTS_LANGUAGES.glob("*.md")):
             lang = ctx_file.stem
             if lang in LANG_EXTENSIONS:
-                tpl = TPL_INSTRUCTIONS / f"{lang}.instructions.md"
                 content = generate_instruction_from_context(lang, ctx_file)
-                _generate_surface(tpl, content, check_only, verbose, generated_paths, diffs)
+                for target in (
+                    GITHUB_INSTRUCTIONS / f"{lang}.instructions.md",
+                    TPL_INSTRUCTIONS / f"{lang}.instructions.md",
+                ):
+                    _generate_surface(target, content, check_only, verbose, generated_paths, diffs)
+
+    for manual_name in sorted(MANUAL_INSTRUCTIONS):
+        source = TPL_INSTRUCTIONS / manual_name
+        if source.is_file():
+            _generate_surface(
+                GITHUB_INSTRUCTIONS / manual_name,
+                source.read_text(encoding="utf-8"),
+                check_only,
+                verbose,
+                generated_paths,
+                diffs,
+            )
 
     # Surface 7: AGENTS.md (root + template, generated from CLAUDE.md)
-    agents_md_content = generate_agents_md()
+    agents_md_content = generate_agents_md(skill_count=skill_count, agent_count=agent_count)
     _generate_surface(
         ROOT / "AGENTS.md", agents_md_content, check_only, verbose, generated_paths, diffs
     )
@@ -1365,6 +1417,7 @@ def _handle_orphans(
     _ORPHAN_SURFACES: list[tuple[Path, str, str]] = [
         (AGENTS_SKILLS, "rglob_subdirs", ""),
         (AGENTS_AGENTS, "glob", "ai-*.md"),
+        (GITHUB_INSTRUCTIONS, "glob", "*.instructions.md"),
         (GITHUB_SKILLS, "rglob_subdirs", "ai-"),
         (GITHUB_AGENTS, "glob", "*.agent.md"),
         (TPL_CLAUDE_SKILLS, "rglob_subdirs", "ai-"),

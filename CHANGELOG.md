@@ -8,6 +8,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Codex/Copilot instruction parity (spec-080)** -- sync now generates live `.github/instructions/*.instructions.md` surfaces alongside template instructions, keeping language guidance aligned across installed projects and the dogfooded repo.
+
+### Changed
+- **Codex governance surfaces (spec-080)** -- instruction counts, provider tables, active integrations, and agent invocation guidance are now derived and mirrored consistently across `CLAUDE.md`, `AGENTS.md`, template instructions, and `.ai-engineering/README.md`.
+- **Repo dogfooding config (spec-080)** -- `.ai-engineering/manifest.yml`, install state, and ownership map now model Codex as an active integration and cover project identity in readiness checks.
+- **Skill status scanning (spec-080)** -- modern `.claude/` and `.agents/` skill directories only treat `SKILL.md` as executable, while legacy flat markdown scanning remains limited to `.ai-engineering/skills`.
+
+### Fixed
+- **Codex provider autodetect (spec-080)** -- installer discovery now recognizes `AGENTS.md` and `.agents/` surfaces as Codex integrations instead of reporting only Claude/Copilot.
+- **Agent/skill taxonomy drift (spec-080)** -- `guard`, `explore`, and `simplify` guidance no longer advertises nonexistent slash skills; mirrors now point to direct dispatch where those capabilities are agent-only.
+- **Mirror sync integrity (spec-080)** -- generated `AGENTS.md` preserves Claude-specific platform rows, source-of-truth counts, and cross-reference validation for templated skill paths.
+
+### Added
 - **Copilot Skills system (spec-077)** -- replaced `.github/prompts/*.prompt.md` (34 files) with native `.github/skills/ai-*/SKILL.md` directory structure (37 skills). Each skill now has its own directory mirroring `.claude/skills/` and `.agents/skills/`. Sync pipeline generates Copilot-native format directly instead of concatenated prompt files.
 - **`STYLE_PRESETS.md` for `/ai-slides`** -- reusable style presets for HTML presentation generation.
 - **`.ai-engineering/reviews/` directory** -- persistent storage for code review artifacts.

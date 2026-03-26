@@ -38,19 +38,20 @@ class SkillStatus:
     errors: list[str] = field(default_factory=list)
 
 
-def _collect_skill_files(skills_root: Path) -> list[Path]:
+def _collect_skill_files(skills_root: Path, *, include_flat_files: bool = False) -> list[Path]:
     """Collect skill definition files from a single skills directory."""
     if not skills_root.is_dir():
         return []
-    # Directory-based: skills/<category>/<name>/SKILL.md
-    # File-based: skills/<category>/<name>.md (direct children of category dirs)
+    # Directory-based: skills/<name>/SKILL.md
+    # Legacy file-based: skills/<category>/<name>.md
     skill_files: list[Path] = []
     skill_files.extend(sorted(skills_root.rglob("SKILL.md")))
-    for category_dir in sorted(skills_root.iterdir()):
-        if category_dir.is_dir():
-            for md in sorted(category_dir.glob("*.md")):
-                if md.is_file() and md.name != "SKILL.md":
-                    skill_files.append(md)
+    if include_flat_files:
+        for category_dir in sorted(skills_root.iterdir()):
+            if category_dir.is_dir():
+                for md in sorted(category_dir.glob("*.md")):
+                    if md.is_file() and md.name != "SKILL.md":
+                        skill_files.append(md)
     return skill_files
 
 
@@ -76,7 +77,8 @@ def list_local_skill_status(target: Path) -> list[SkillStatus]:
     seen_paths: set[Path] = set()
     skill_files: list[Path] = []
     for rel_dir in _SKILL_DIRS:
-        for sf in _collect_skill_files(target / rel_dir):
+        include_flat_files = rel_dir == ".ai-engineering/skills"
+        for sf in _collect_skill_files(target / rel_dir, include_flat_files=include_flat_files):
             resolved = sf.resolve()
             if resolved not in seen_paths:
                 seen_paths.add(resolved)

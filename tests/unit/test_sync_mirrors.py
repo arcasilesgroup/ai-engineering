@@ -171,6 +171,28 @@ class TestGenerationFunctions:
         # Should be an exact copy
         assert content == skill_path.read_text(encoding="utf-8")
 
+    def test_generate_agents_md_preserves_provider_rows_and_counts(self) -> None:
+        from scripts.sync_command_mirrors import (
+            discover_agents,
+            discover_skills,
+            generate_agents_md,
+        )
+
+        skills = discover_skills()
+        agents = discover_agents()
+
+        content = generate_agents_md(skill_count=len(skills), agent_count=len(agents))
+
+        assert (
+            "| Claude Code | `.claude/skills/ai-*/SKILL.md` | `.claude/agents/ai-*.md` |" in content
+        )
+        assert (
+            "| Codex / Gemini | `.agents/skills/*/SKILL.md` | `.agents/agents/ai-*.md` |" in content
+        )
+        assert f"## Skills ({len(skills)})" in content
+        assert f"| Skills ({len(skills)}) | `.agents/skills/<name>/SKILL.md` |" in content
+        assert f"| Agents ({len(agents)}) | `.agents/agents/ai-<name>.md` |" in content
+
 
 # -- Validation functions --
 

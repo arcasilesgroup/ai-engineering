@@ -125,7 +125,7 @@ Skill frontmatter follows the Anthropic skill-creator pattern with `name` and `d
 | Operate | ops |
 | Governance | lifecycle |
 
-Invoke any skill with `/ai-<name>` — for example, `/ai-debug` for systematic diagnosis, `/ai-security` for security assessment, or `/ai-guard` for proactive governance advisory.
+Invoke any skill with `/ai-<name>` — for example, `/ai-debug` for systematic diagnosis, `/ai-security` for security assessment, or `/ai-governance` for proactive governance validation.
 
 Skills are provider-agnostic — the same skill works in Claude Code, GitHub Copilot, Gemini CLI, and OpenAI Codex without modification.
 
@@ -144,7 +144,7 @@ Agents are behavioral contracts for AI (the ROLE). Skills are procedures (the HO
 | **explorer** | Context gatherer: codebase navigation, dependency mapping, architecture discovery | read-only |
 | **simplifier** | Background code cleaner: reduce complexity, guard clauses, early returns, dead code removal | read-write |
 
-Activate any agent with `/ai-<name>` — for example, `/ai-build` for implementation, `/ai-verify` for assessment, or `/ai-guard` for governance advisory.
+Activate any agent with `/ai-<name>` — for example, `/ai-build` for implementation, `/ai-verify` for assessment, or `ai-guard` as a dispatched governance advisory agent.
 
 ### Context — your project memory
 

@@ -84,7 +84,7 @@ Severity scale: `info` (awareness) < `warn` (should address) < `concern` (likely
 
 ## Referenced Skills
 
-- `.claude/skills/ai-guard/SKILL.md` -- primary skill with detailed procedures
+- `.claude/skills/ai-dispatch/SKILL.md` -- guard advisory entry point during build execution
 - `.claude/skills/ai-governance/SKILL.md` -- shared governance validation patterns
 
 ## Boundaries

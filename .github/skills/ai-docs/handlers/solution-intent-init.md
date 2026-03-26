@@ -6,7 +6,7 @@ Scaffold a comprehensive `docs/solution-intent.md` from real project state. This
 
 ## Prerequisites
 
-- Run `/ai-explore` or equivalent deep audit of the repo BEFORE writing. Every data point must come from verified sources (code, config, state files).
+- Dispatch `ai-explore` or run an equivalent deep audit of the repo BEFORE writing. Every data point must come from verified sources (code, config, state files).
 - Use `/ai-write` patterns: visual priority (diagrams > tables > text), audience = technical team, no filler.
 
 ## Procedure

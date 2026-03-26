@@ -92,7 +92,7 @@ APPROVE | REQUEST_CHANGES | COMMENT
 ## Referenced Skills
 
 - `.agents/skills/review/SKILL.md` -- detailed review procedures and patterns
-- `.agents/skills/explore/SKILL.md` -- pre-review context gathering
+- `.agents/skills/guide/SKILL.md` -- codebase discovery patterns reused during pre-review context gathering
 
 ## Boundaries
 

@@ -119,7 +119,8 @@ Every exploration produces this structured format. For web research scopes, ever
 
 ## Referenced Skills
 
-- `.agents/skills/explore/SKILL.md` -- detailed exploration procedures
+- `.agents/skills/guide/SKILL.md` -- user-facing onboarding and codebase discovery patterns
+- `.agents/skills/review/SKILL.md` -- review workflow that dispatches Explore for architecture context
 
 ## Boundaries
 

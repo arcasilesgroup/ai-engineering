@@ -111,7 +111,7 @@ It MAY:
 ## Integration
 
 - **Called by**: user directly, or after `/ai-brainstorm` approval
-- **Calls**: `/ai-explore` (codebase context), write (artifact creation)
+- **Calls**: Explore agent (`ai-explore`) for codebase context, write (artifact creation)
 - **Transitions to**: `/ai-dispatch` (ONLY -- user must invoke explicitly)
 
 $ARGUMENTS

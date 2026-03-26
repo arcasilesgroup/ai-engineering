@@ -88,7 +88,8 @@ If any answer is unfavorable, revert and move to the next target.
 
 ## Referenced Skills
 
-- `.github/skills/ai-simplify/SKILL.md` -- detailed simplification patterns and procedures
+- `.github/skills/ai-code/SKILL.md` -- change-minimization and code hygiene patterns
+- `.github/skills/ai-test/SKILL.md` -- regression-safety checks while simplifying
 
 ## Referenced Standards
 

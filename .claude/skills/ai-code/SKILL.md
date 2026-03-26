@@ -18,7 +18,7 @@ Code implementation skill. Writes code that satisfies loaded context standards o
 - Adding functionality to existing modules
 - Writing utility/helper code
 
-NOT for: tests (use /ai-test), debugging (use /ai-debug), refactoring (use /ai-simplify), schema work (use /ai-schema).
+NOT for: tests (use /ai-test), debugging (use /ai-debug), refactoring (dispatch `ai-simplify`), schema work (use /ai-schema).
 
 ## Process
 

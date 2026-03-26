@@ -37,7 +37,7 @@ Read `.ai-engineering/manifest.yml` field `providers.stacks` for the project's d
 
 ### Steps
 
-1. **Explore first** -- run `/ai-explore` on the changed files to build architectural context
+1. **Explore first** -- dispatch the Explore agent (`ai-explore`) on the changed files to build architectural context
 2. **Dispatch reviewers** -- follow `handlers/review.md` (8 parallel specialized agents)
 3. **Aggregate findings** -- correlate, deduplicate, confidence-score
 4. **Self-challenge** -- each finding is argued against by its own agent
@@ -108,7 +108,7 @@ Resolution: Finding stands but severity reduced to minor. The handler delegates
 ## Integration
 
 - **Called by**: user directly, `/ai-pr` (pre-merge review)
-- **Calls**: `/ai-explore` (context), `handlers/review.md`, `handlers/find.md`, `handlers/learn.md`
+- **Calls**: Explore agent (`ai-explore`) for context, `handlers/review.md`, `handlers/find.md`, `handlers/learn.md`
 - **Read-only**: never modifies code -- produces review findings
 
 $ARGUMENTS

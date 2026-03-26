@@ -110,7 +110,7 @@ Every build task produces this structured output to enable downstream agents (ve
 
 ## Referenced Skills
 
-- `.agents/skills/code/SKILL.md`, `.agents/skills/test/SKILL.md`, `.agents/skills/debug/SKILL.md`, `.agents/skills/simplify/SKILL.md`
+- `.agents/skills/code/SKILL.md`, `.agents/skills/test/SKILL.md`, `.agents/skills/debug/SKILL.md`
 - `.agents/skills/schema/SKILL.md`, `.agents/skills/pipeline/SKILL.md`
 - `.agents/skills/dispatch/SKILL.md` -- task dispatch and agent coordination
 

@@ -87,7 +87,8 @@ If any answer is unfavorable, revert and move to the next target.
 
 ## Referenced Skills
 
-- `.agents/skills/simplify/SKILL.md` -- detailed simplification patterns and procedures
+- `.agents/skills/code/SKILL.md` -- change-minimization and code hygiene patterns
+- `.agents/skills/test/SKILL.md` -- regression-safety checks while simplifying
 
 ## Referenced Standards
 

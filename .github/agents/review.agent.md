@@ -99,7 +99,7 @@ APPROVE | REQUEST_CHANGES | COMMENT
 ## Referenced Skills
 
 - `.github/skills/ai-review/SKILL.md` -- detailed review procedures and patterns
-- `.github/skills/ai-explore/SKILL.md` -- pre-review context gathering
+- `.github/skills/ai-guide/SKILL.md` -- codebase discovery patterns reused during pre-review context gathering
 
 ## Boundaries
 

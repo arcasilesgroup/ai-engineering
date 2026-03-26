@@ -92,7 +92,7 @@ APPROVE | REQUEST_CHANGES | COMMENT
 ## Referenced Skills
 
 - `.claude/skills/ai-review/SKILL.md` -- detailed review procedures and patterns
-- `.claude/skills/ai-explore/SKILL.md` -- pre-review context gathering
+- `.claude/skills/ai-guide/SKILL.md` -- codebase discovery patterns reused during pre-review context gathering
 
 ## Boundaries
 

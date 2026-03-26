@@ -118,6 +118,22 @@ class TestProviderTemplates:
         tmpl_check = next(r for r in results if r.name == "provider-templates")
         assert tmpl_check.status == CheckStatus.FAIL
 
+    def test_ok_when_copilot_files_present(self, tmp_path: Path, copilot_manifest: ManifestConfig):
+        (tmp_path / "AGENTS.md").write_text("# Agents\n", encoding="utf-8")
+        (tmp_path / ".gitleaks.toml").write_text("", encoding="utf-8")
+        (tmp_path / ".semgrep.yml").write_text("", encoding="utf-8")
+        github_dir = tmp_path / ".github"
+        (github_dir / "copilot-instructions.md").parent.mkdir(parents=True, exist_ok=True)
+        (github_dir / "copilot-instructions.md").write_text("# Copilot\n", encoding="utf-8")
+        (github_dir / "skills").mkdir(parents=True, exist_ok=True)
+        (github_dir / "agents").mkdir(parents=True, exist_ok=True)
+        (github_dir / "instructions").mkdir(parents=True, exist_ok=True)
+
+        ctx = DoctorContext(target=tmp_path, manifest_config=copilot_manifest)
+        results = ide_config.check(ctx)
+        tmpl_check = next(r for r in results if r.name == "provider-templates")
+        assert tmpl_check.status == CheckStatus.OK
+
     def test_fail_when_common_files_missing(self, tmp_path: Path, claude_manifest: ManifestConfig):
         # Create provider-specific but not common files
         (tmp_path / "CLAUDE.md").write_text("# Claude\n", encoding="utf-8")
