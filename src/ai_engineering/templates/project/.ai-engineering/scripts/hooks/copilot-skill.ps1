@@ -30,7 +30,7 @@ try {
 
     if (-not [string]::IsNullOrWhiteSpace($InputJson)) {
         try {
-            $Payload = $InputJson | ConvertFrom-Json -Depth 10
+            $Payload = $InputJson | ConvertFrom-Json
         } catch {
             $Payload = $null
         }

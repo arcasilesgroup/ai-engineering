@@ -28,10 +28,10 @@ try {
     $ProjectDir = [string](Resolve-Path (Join-Path $ScriptDir "../../.."))
 
     try {
-        $Payload = if ([string]::IsNullOrWhiteSpace($InputJson)) {
-            $null
+        if ([string]::IsNullOrWhiteSpace($InputJson)) {
+            $Payload = $null
         } else {
-            $InputJson | ConvertFrom-Json -Depth 10
+            $Payload = $InputJson | ConvertFrom-Json
         }
     } catch {
         $Payload = $null
@@ -67,7 +67,7 @@ try {
 
     if ($ToolArgs -is [string]) {
         try {
-            $ToolArgs = $ToolArgs | ConvertFrom-Json -Depth 10
+            $ToolArgs = $ToolArgs | ConvertFrom-Json
         } catch {
             $ToolArgs = $null
         }
