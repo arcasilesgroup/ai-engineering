@@ -24,24 +24,23 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 from _lib.audit import (
+    get_project_root,
     passthrough_stdin,
     read_stdin,
 )
 
-_STATE_DIR = Path.home() / ".ai-engineering" / "state"
-_COUNTER_FILE = _STATE_DIR / "compact-counter.json"
-
 _COMPACT_THRESHOLD = max(1, int(os.environ.get("COMPACT_THRESHOLD", "50")))
 _COMPACT_REMINDER_INTERVAL = max(1, int(os.environ.get("COMPACT_REMINDER_INTERVAL", "25")))
-
-_MATCHED_TOOLS = {"Edit", "Write", "MultiEdit"}
+_STATE_DIR: Path | None = None
+_COUNTER_FILE: Path | None = None
 
 
 def _load_counters() -> dict:
     """Load the counter state file."""
+    counter_file = _counter_file()
     try:
-        if _COUNTER_FILE.exists():
-            with open(_COUNTER_FILE, encoding="utf-8") as f:
+        if counter_file.exists():
+            with open(counter_file, encoding="utf-8") as f:
                 return json.load(f)
     except (json.JSONDecodeError, OSError):
         pass
@@ -50,18 +49,31 @@ def _load_counters() -> dict:
 
 def _save_counters(counters: dict, current_key: str) -> None:
     """Persist counter state to disk, keeping only the current session."""
+    counter_file = _counter_file()
     try:
-        _STATE_DIR.mkdir(parents=True, exist_ok=True)
+        counter_file.parent.mkdir(parents=True, exist_ok=True)
         pruned = {current_key: counters[current_key]}
-        with open(_COUNTER_FILE, "w", encoding="utf-8") as f:
+        with open(counter_file, "w", encoding="utf-8") as f:
             json.dump(pruned, f, separators=(",", ":"))
     except OSError:
         pass
 
 
+def _counter_file() -> Path:
+    if _COUNTER_FILE is not None:
+        return _COUNTER_FILE
+    if _STATE_DIR is not None:
+        return _STATE_DIR / "strategic-compact.json"
+    project_root = get_project_root()
+    return project_root / ".ai-engineering" / "state" / "strategic-compact.json"
+
+
 def _get_session_key() -> str:
     """Build a session key from CLAUDE_SESSION_ID or timestamp-based fallback."""
-    session_id = os.environ.get("CLAUDE_SESSION_ID", "")
+    session_id = os.environ.get("CLAUDE_SESSION_ID", "") or os.environ.get(
+        "GITHUB_COPILOT_SESSION_ID",
+        "",
+    )
     if session_id:
         return session_id
     # Fallback: date-hour bucket so sessions within the same hour share a counter
@@ -99,7 +111,7 @@ def main() -> None:
     data = read_stdin()
 
     tool_name = data.get("tool_name", "")
-    if tool_name not in _MATCHED_TOOLS:
+    if not tool_name:
         passthrough_stdin(data)
         return
 

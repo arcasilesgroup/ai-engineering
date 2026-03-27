@@ -21,6 +21,7 @@ from _lib.audit import (
     read_stdin,
 )
 
+from ai_engineering.state.instincts import extract_instincts, maybe_refresh_instinct_context
 from ai_engineering.state.observability import (
     emit_declared_context_loads,
     emit_framework_error,
@@ -76,6 +77,9 @@ def main() -> None:
         trace_id=os.environ.get("CLAUDE_TRACE_ID"),
         correlation_id=entry.correlation_id,
     )
+    if skill_name == "ai-onboard":
+        extract_instincts(project_root)
+        maybe_refresh_instinct_context(project_root)
 
     if is_debug_mode():
         from datetime import datetime

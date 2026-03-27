@@ -10,6 +10,7 @@ from .models import (
     DecisionStore,
     FrameworkUpdatePolicy,
     InstallState,
+    InstinctMeta,
     OwnershipEntry,
     OwnershipLevel,
     OwnershipMap,
@@ -97,6 +98,26 @@ _DEFAULT_OWNERSHIP_PATHS: list[tuple[str, OwnershipLevel, FrameworkUpdatePolicy]
         OwnershipLevel.SYSTEM_MANAGED,
         FrameworkUpdatePolicy.ALLOW,
     ),
+    (
+        ".ai-engineering/state/instinct-observations.ndjson",
+        OwnershipLevel.SYSTEM_MANAGED,
+        FrameworkUpdatePolicy.APPEND_ONLY,
+    ),
+    (
+        ".ai-engineering/instincts/instincts.yml",
+        OwnershipLevel.SYSTEM_MANAGED,
+        FrameworkUpdatePolicy.ALLOW,
+    ),
+    (
+        ".ai-engineering/instincts/context.md",
+        OwnershipLevel.SYSTEM_MANAGED,
+        FrameworkUpdatePolicy.ALLOW,
+    ),
+    (
+        ".ai-engineering/instincts/meta.json",
+        OwnershipLevel.SYSTEM_MANAGED,
+        FrameworkUpdatePolicy.ALLOW,
+    ),
     # -- project root files -------------------------------------------------
     ("CLAUDE.md", OwnershipLevel.FRAMEWORK_MANAGED, FrameworkUpdatePolicy.ALLOW),
     ("AGENTS.md", OwnershipLevel.FRAMEWORK_MANAGED, FrameworkUpdatePolicy.ALLOW),
@@ -159,3 +180,8 @@ def default_decision_store() -> DecisionStore:
         update_metadata=default_update_metadata(context="decision store"),
         decisions=[],
     )
+
+
+def default_instinct_meta() -> InstinctMeta:
+    """Create default bookkeeping for simplified instinct learning."""
+    return InstinctMeta()

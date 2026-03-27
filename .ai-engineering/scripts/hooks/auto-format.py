@@ -175,7 +175,7 @@ def main() -> None:
         except (json.JSONDecodeError, TypeError):
             tool_input = {}
 
-    file_path = tool_input.get("file_path", "")
+    file_path = tool_input.get("file_path", "") or tool_input.get("path", "")
     if not file_path:
         passthrough_stdin(data)
         return

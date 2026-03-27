@@ -43,6 +43,7 @@ from ai_engineering.state.observability import (
     emit_ide_hook_outcome,
     emit_skill_invoked,
 )
+from ai_engineering.state.instincts import extract_instincts, maybe_refresh_instinct_context
 
 entry = emit_skill_invoked(
     Path(os.environ["PROJECT_DIR"]),
@@ -75,6 +76,9 @@ emit_ide_hook_outcome(
     trace_id=os.environ.get("COPILOT_TRACE_ID") or os.environ.get("GITHUB_COPILOT_TRACE_ID"),
     correlation_id=entry.correlation_id,
 )
+if os.environ["SKILL_NAME"] == "ai-onboard":
+    extract_instincts(Path(os.environ["PROJECT_DIR"]))
+    maybe_refresh_instinct_context(Path(os.environ["PROJECT_DIR"]))
 PY
     fi
 }

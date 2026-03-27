@@ -49,9 +49,9 @@ Invoke as `/ai-<name>`. Grouped by workflow stage.
 | **Meta** | /ai-create | Create new skills and agents (TDD) |
 | | /ai-learn | Continuous improvement from outcomes |
 | | /ai-prompt | Prompt optimization and tuning |
-| | /ai-onboard | Session bootstrap and enforcement |
+| | /ai-onboard | Session bootstrap, bounded context refresh, and enforcement |
 | | /ai-analyze-permissions | Permission pattern consolidation |
-| | /ai-instinct | Behavioral pattern extraction |
+| | /ai-instinct | Project-local instinct review and consolidation |
 | | /ai-autopilot | Multi-spec autonomous orchestration |
 | | /ai-eval | Skill and agent evaluation |
 | | /ai-pipeline | CI/CD pipeline generation |
@@ -89,6 +89,10 @@ Invoke as `/ai-<name>`. Grouped by workflow stage.
 - `state/decision-store.json` -- settled architectural decisions
 - `state/framework-events.ndjson` -- canonical framework events
 - `state/framework-capabilities.json` -- registered skills, agents, contexts, hooks
+- `state/instinct-observations.ndjson` -- sanitized recent tool observations retained for 30 days
+- `instincts/instincts.yml` -- canonical project-local instinct store
+- `instincts/context.md` -- bounded instinct context loaded at session start
+- `instincts/meta.json` -- instinct consolidation checkpoints and refresh metadata
 - `state/ownership-map.json` -- materialized ownership rules
 
 ## Configuration

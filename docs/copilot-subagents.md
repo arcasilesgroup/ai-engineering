@@ -54,14 +54,11 @@ After each agent response, handoff buttons appear in the chat:
 - **@Build** → `[✅ Verify Changes]` or `[🔍 Review Changes]`
 - **@Review** → `[🔧 Fix Issues]` → **@Build**
 
-Per-agent hooks (e.g., auto-format after Build edits) require this VS Code setting:
+Retained framework hooks now run from `.github/hooks/hooks.json` without requiring VS Code per-agent hook settings. In standard installs, Copilot gets:
 
-```jsonc
-// .vscode/settings.json (optional)
-{ "chat.useCustomAgentHooks": true }
-```
-
-With hooks enabled, Build's `PostToolUse` hook runs `ruff format --quiet` after every file edit — keeping code formatted without manual intervention.
+- `preToolUse`: deny-list, `strategic-compact`, `instinct-observe`
+- `postToolUse`: `agent_dispatched`, `instinct-observe`, `auto-format`
+- `sessionEnd`: `instinct-extract`
 
 ## Copilot CLI Usage
 

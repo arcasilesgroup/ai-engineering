@@ -1,47 +1,48 @@
-# Plan: spec-082 Local-First Framework Events Reset with agentsview Integration
+# Plan: spec-080 Hook Simplification and Instinct Learning v1
 
 ## Pipeline: full
 ## Phases: 5
-## Tasks: 19 (build: 17, verify: 1, guard: 1)
+## Tasks: 18 (build: 16, verify: 1, guard: 1)
 
-### Phase 1: Lock Canonical Contract
-**Gate**: The new state artifacts, schema boundaries, and capability catalog are defined by failing tests and concrete models before host emitters or legacy removal begin.
-- [x] T-1.1: Write failing tests for `framework-events.ndjson` covering artifact path, schema versioning, append-only behavior, and the rule that new framework telemetry no longer targets `audit-log.ndjson`. (agent: build)
-- [x] T-1.2: Implement the canonical framework event models, writer, and state-path plumbing for `.ai-engineering/state/framework-events.ndjson`. (agent: build)
-- [x] T-1.3: Write failing tests for `framework-capabilities.json` generation from registered skills, agents, context classes, and hook kinds. (agent: build)
-- [x] T-1.4: Implement capability catalog generation and persistence for `.ai-engineering/state/framework-capabilities.json` using existing registries as source of truth. (agent: build)
+### Phase 1: Lock The Simplified Instinct Contract
+**Gate**: The new instinct artifact set, retention rules, and observation minimization boundaries are defined by failing tests before hook rewiring begins.
+- [x] T-1.1: Write failing state tests for `.ai-engineering/state/instinct-observations.ndjson`, `.ai-engineering/instincts/instincts.yml`, `.ai-engineering/instincts/context.md`, and `.ai-engineering/instincts/meta.json`, including project-local-only layout and 30-day retention behavior. (agent: build)
+- [x] T-1.2: Implement shared state-path helpers, default metadata, and retention or bookkeeping utilities for the simplified instinct artifact set. (agent: build)
+- [x] T-1.3: Write failing tests for sanitized pre-tool and post-tool observation capture that preserves enough signal for tool sequences, error recovery, and skill-agent preferences without transcripts, raw payloads, or secret leakage. (agent: build)
+- [x] T-1.4: Implement the canonical `instinct-observe` writer and sanitization helpers so bounded observations append to `.ai-engineering/state/instinct-observations.ndjson` with automatic local retention enforcement. (agent: build)
 
-### Phase 2: Instrument Canonical Emitters
-**Gate**: Supported host surfaces emit canonical framework events with data minimization, stable codes, and explicit degraded outcomes when host metadata is unavailable.
-- [x] T-2.1: Write failing tests for canonical `skill_invoked` and `agent_dispatched` emission across Claude Code and GitHub Copilot surfaces, plus degraded behavior expectations for Codex and Gemini. (agent: build)
-- [x] T-2.2: Implement shared canonical emitter helpers and migrate skill and agent hook writers from legacy audit output to `framework-events.ndjson`. (agent: build)
-- [x] T-2.3: Write failing tests for context-load events covering context-class distinction and initiator attribution when skill, agent, or framework component metadata is available. (agent: build)
-- [x] T-2.4: Implement context-load instrumentation for language, framework, team, project-identity, spec, plan, and decision-store events. (agent: build)
-- [x] T-2.5: Write failing tests for framework-error, IDE-hook, and git hook or gate outcome events with stable component or error or check fields and no raw payload leakage. (agent: build)
-- [x] T-2.6: Implement framework-error, IDE-hook, and git hook or gate canonical emitters with stable fields, minimization rules, and explicit degraded outcomes where hosts lack full fidelity. (agent: build)
+### Phase 2: Achieve Retained Hook Parity And Naming Cleanup
+**Gate**: Claude Code and GitHub Copilot both wire the retained capabilities automatically through canonical logic plus host adapters, with no `cost-tracker` or Copilot per-agent hook dependency.
+- [x] T-2.1: Write failing hook config and template tests for automatic Claude and Copilot activation of `auto-format`, `strategic-compact`, `instinct-observe`, and `instinct-extract`, including Bash and PowerShell adapter coverage for Copilot. (agent: build)
+- [x] T-2.2: Rename or restructure retained hook entrypoints into canonical Python logic plus Copilot adapters, and update Claude settings, Copilot hook manifests, and installer templates to reference the new names. (agent: build)
+- [x] T-2.3: Implement missing Copilot adapters for `strategic-compact`, `instinct-observe`, and retained `auto-format` or `instinct-extract` parity in both `.sh` and `.ps1`, translating host payloads to the canonical shape. (agent: build)
+- [x] T-2.4: Update the canonical `auto-format`, `strategic-compact`, and `instinct-extract` logic to use the new artifact model and host-independent session semantics while preserving fail-open behavior. (agent: build)
+- [x] T-2.5: Remove or retire obsolete hook entrypoints and compatibility shims that exist only for legacy naming, incomplete parity, or superseded session behavior, while preserving macOS, Linux, and Windows support. (agent: build)
 
-### Phase 3: Reset The Legacy Surface
-**Gate**: No supported surface exposes `observe` dashboards, `signals` telemetry, or new framework writes to `audit-log.ndjson`, and templates no longer promise the retired UX.
-- [x] T-3.1: Write failing CLI, template, and installer-state tests asserting `observe` removal, `signals` retirement, and zero new framework writes to `audit-log.ndjson`. (agent: build)
-- [x] T-3.2: Remove `observe` and `signals` CLI wiring and retire legacy aggregation modules, command routing, and next-actions tied only to dashboard UX. (agent: build)
-- [x] T-3.3: Replace or remove legacy audit writers, hook wrappers, and installer, updater, state, and ownership references so framework telemetry flows only through `framework-events.ndjson` and `framework-capabilities.json`. (agent: build)
-- [x] T-3.4: Update project templates, hook configs, instructions, and observability docs to remove `observe`, `signals emit`, and `audit-log.ndjson` as the supported framework observability surface. (agent: build)
+### Phase 3: Move Instinct Learning Into Onboard-Driven Consolidation
+**Gate**: `onboard` owns the consolidation decision, processes only recent delta plus current store, and produces a bounded context file without daemons or ECC-style evolution features.
+- [x] T-3.1: Write failing tests for the consolidation gate based on observation delta plus context age, and for bounded regeneration of `instincts.yml`, `context.md`, and `meta.json`. (agent: build)
+- [x] T-3.2: Implement consolidation bookkeeping and gating logic around `.ai-engineering/instincts/meta.json`, including concrete delta and staleness thresholds resolved during planning. (agent: build)
+- [x] T-3.3: Implement the simplified instinct consolidation flow so `onboard` consumes recent observations plus the current instinct store and emits a bounded `.ai-engineering/instincts/context.md` instead of per-instinct files or global scopes. (agent: build)
+- [x] T-3.4: Update downstream session-start or context-loading flows to consume `.ai-engineering/instincts/context.md` rather than raw observation streams or the old instinct layouts. (agent: build)
+- [x] T-3.5: Rewrite the `onboard` and `instinct` skill content and mirrors to describe the simplified review, normalize, and consolidate flow and remove outdated confidence, promotion, evolve, export/import, and global-scope behavior. (agent: build)
 
-### Phase 4: Define The agentsview Contract
-**Gate**: `ai-engineering` produces a documented native-source contract and fixtures that `agentsview` can ingest without requiring per-project manual viewer configuration.
-- [x] T-4.1: Write failing fixture and contract tests for native `agentsview` ingestion of `framework-events.ndjson` and `framework-capabilities.json`. (agent: build)
-- [x] T-4.2: Implement the `agentsview` source contract artifacts, fixture or testdata generation, and upgrade notes documenting independent `agentsview` install and the no-per-project-manual-config expectation for standard `ai-eng install` projects. (agent: build)
+### Phase 4: Remove Unsupported Surface And Align Templates Or Docs
+**Gate**: Standard install output no longer ships `cost-tracker`, stale Copilot per-agent guidance, or ECC-like instinct storage language, and all mirrors/templates stay in sync.
+- [x] T-4.1: Write failing installer, template, and docs tests asserting removal of `cost-tracker`, removal of `chat.useCustomAgentHooks` dependency for retained capabilities, and absence of deprecated ECC-like paths such as `observations.jsonl` project/global instinct trees. (agent: build)
+- [x] T-4.2: Remove `cost-tracker` scripts, hook wiring, and related references from the live repo and generated templates. (agent: build)
+- [x] T-4.3: Update mirrored instructions, templates, solution-intent, and changelog language so the supported model is observation capture plus onboard consolidation plus bounded instinct context. (agent: build)
 
-### Phase 5: Verify And Reconcile Governance
-**Gate**: Focused suites pass, spec-082 acceptance criteria are proven, and the decision and documentation surface no longer conflicts with the redesigned observability model.
-- [x] T-5.1: Run the focused unit and integration suites for event models, host emitters, state and installer changes, and legacy-surface removal; fix regressions introduced by the redesign. (agent: build)
-- [x] T-5.2: Verify spec-082 acceptance criteria for data minimization, cross-IDE degraded parity, capability catalog completeness, independent `agentsview` assumptions, and zero new writes to `audit-log.ndjson`. (agent: verify)
-- [x] T-5.3: Review governance and decision drift, revise or supersede DEC-007 and DEC-013 as needed, and confirm docs and templates no longer describe `observe` dashboards or `audit-log.ndjson` as the supported surface. (agent: guard)
+### Phase 5: Verify Acceptance And Reconcile Governance
+**Gate**: Focused suites pass, cross-IDE hook automation is proven in installed fixtures, and the narrative surface is consistent with DEC-028 and the project identity.
+- [x] T-5.1: Run focused unit and integration suites for hook state, retained hook flows, Copilot Bash/PowerShell adapters, installer templates, and instinct consolidation; fix regressions introduced by the redesign. (agent: build)
+- [x] T-5.2: Verify spec-080 acceptance criteria end-to-end for standard install on Claude Code and GitHub Copilot, including automatic retained hooks, 30-day retention, bounded context generation, and no `cost-tracker`, daemon, or per-agent dependency. (agent: verify)
+- [x] T-5.3: Review decision and documentation drift against DEC-028, project identity, and existing observability language, and confirm no supported surface still advertises the removed instinct model or Copilot per-agent hook dependency. (agent: guard)
 
 ## Notes
 
-- TDD applies to the canonical artifacts, emitter families, legacy-surface removal, and `agentsview` contract work: tests first, then implementation.
-- Phase 2 depends on the artifacts and models locked in Phase 1.
-- Phase 3 depends on Phase 1 for artifact paths and should not start removing legacy writers until canonical emitters exist from Phase 2.
-- Phase 4 depends on the canonical artifact definitions from Phase 1 and should use the real v1 artifacts instead of an intermediate export format.
-- Phase 5 runs only after build tasks are complete and includes the decision-store reconciliation required by spec-082.
+- TDD applies to artifact contracts, hook wiring, retention, and onboard consolidation: tests first, then implementation.
+- Phase 2 depends on Phase 1 for the canonical observation contract and new artifact paths.
+- Phase 3 depends on Phases 1 and 2 so `onboard` consolidates real data emitted consistently by Claude Code and GitHub Copilot.
+- Phase 4 should not remove `cost-tracker` or legacy docs until the retained hook surface and consolidation flow exist from Phases 2 and 3.
+- Phase 5 includes mirror/template verification because spec-080 changes dogfooded files and installer output at the same time.

@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - **ai-eng update UX (spec-081)** -- the update command now presents an install-style preview in interactive terminals, explains protected files with structured reasons, and requires confirmation before applying writes while keeping JSON and non-TTY flows prompt-free.
+- **Hook simplification and instinct learning (spec-080)** -- retained hook automation is now focused on `auto-format`, `strategic-compact`, `instinct-observe`, and `instinct-extract`, with project-local instinct artifacts under `.ai-engineering/instincts/` and no `cost-tracker`.
 
 ### Added
 - **Codex/Copilot instruction parity (spec-080)** -- sync now generates live `.github/instructions/*.instructions.md` surfaces alongside template instructions, keeping language guidance aligned across installed projects and the dogfooded repo.

@@ -5,10 +5,14 @@
 set -uo pipefail
 
 main() {
+    # Read JSON from stdin (userPromptSubmitted event data)
     INPUT=$(cat)
+
+    # Resolve project root from script location
     SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     PROJECT_DIR="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 
+    # Extract prompt from stdin JSON
     PROMPT=""
     if command -v jq >/dev/null 2>&1; then
         PROMPT=$(echo "$INPUT" | jq -r '.prompt // empty' 2>/dev/null)
@@ -22,8 +26,11 @@ except Exception:
 " 2>/dev/null)
     fi
 
+    # Only match /ai-* slash commands (with optional args after space)
     [[ "$PROMPT" =~ ^/ai-([a-zA-Z-]+) ]] || return 0
     RAW="${BASH_REMATCH[1]}"
+
+    # Normalize: lowercase, ensure ai- prefix
     SKILL_NAME="ai-$(echo "$RAW" | tr '[:upper:]' '[:lower:]')"
 
     if command -v python3 >/dev/null 2>&1; then
@@ -36,6 +43,7 @@ from ai_engineering.state.observability import (
     emit_ide_hook_outcome,
     emit_skill_invoked,
 )
+from ai_engineering.state.instincts import extract_instincts, maybe_refresh_instinct_context
 
 entry = emit_skill_invoked(
     Path(os.environ["PROJECT_DIR"]),
@@ -68,6 +76,9 @@ emit_ide_hook_outcome(
     trace_id=os.environ.get("COPILOT_TRACE_ID") or os.environ.get("GITHUB_COPILOT_TRACE_ID"),
     correlation_id=entry.correlation_id,
 )
+if os.environ["SKILL_NAME"] == "ai-onboard":
+    extract_instincts(Path(os.environ["PROJECT_DIR"]))
+    maybe_refresh_instinct_context(Path(os.environ["PROJECT_DIR"]))
 PY
     fi
 }

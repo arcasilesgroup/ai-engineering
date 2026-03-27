@@ -136,8 +136,14 @@ class TestStateFilesConstant:
         assert "framework-capabilities" in _STATE_FILES
         assert _STATE_FILES["framework-capabilities"] == "state/framework-capabilities.json"
 
-    def test_has_exactly_four_entries(self) -> None:
-        assert len(_STATE_FILES) == 4
+    def test_contains_instinct_artifacts(self) -> None:
+        assert _STATE_FILES["instinct-observations"] == "state/instinct-observations.ndjson"
+        assert _STATE_FILES["instincts"] == "instincts/instincts.yml"
+        assert _STATE_FILES["instinct-context"] == "instincts/context.md"
+        assert _STATE_FILES["instinct-meta"] == "instincts/meta.json"
+
+    def test_has_exactly_eight_entries(self) -> None:
+        assert len(_STATE_FILES) == 8
 
 
 class TestFrameworkCapabilitiesPath:
@@ -533,9 +539,7 @@ class TestInstallCreatesStateFiles:
             result = install(tmp_path, stacks=["python"])
 
         # Assert
-        # State files: install-state.json + ownership-map.json +
-        # decision-store.json + framework-capabilities.json
-        assert len(result.state_files) == 4
+        assert len(result.state_files) == 8
 
 
 class TestInstallSkipsExistingStateFiles:
@@ -557,14 +561,14 @@ class TestInstallCreatesDefaultState:
         with patch.object(Path, "exists", return_value=False):
             result = install(tmp_path, stacks=["python", "dotnet"], ides=["vscode", "terminal"])
 
-        assert len(result.state_files) == 4
+        assert len(result.state_files) == 8
 
     def test_default_stacks_none_passes(self, patched, tmp_path: Path) -> None:
         with patch.object(Path, "exists", return_value=False):
             result = install(tmp_path)
 
         # State files still created
-        assert len(result.state_files) == 4
+        assert len(result.state_files) == 8
 
 
 class TestInstallCallsInstallHooks:

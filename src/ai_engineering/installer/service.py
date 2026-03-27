@@ -50,6 +50,7 @@ from ai_engineering.state.defaults import (
     default_install_state,
     default_ownership_map,
 )
+from ai_engineering.state.instincts import ensure_instinct_artifacts
 from ai_engineering.state.io import write_json_model
 from ai_engineering.state.observability import (
     emit_framework_operation,
@@ -76,6 +77,10 @@ _STATE_FILES: dict[str, str] = {
     "ownership-map": "state/ownership-map.json",
     "decision-store": "state/decision-store.json",
     "framework-capabilities": "state/framework-capabilities.json",
+    "instinct-observations": "state/instinct-observations.ndjson",
+    "instincts": "instincts/instincts.yml",
+    "instinct-context": "instincts/context.md",
+    "instinct-meta": "instincts/meta.json",
 }
 
 
@@ -399,6 +404,18 @@ def _generate_state_files(
     if not capabilities_path.exists():
         write_framework_capabilities(ai_eng_dir.parent)
         created.append(capabilities_path)
+
+    instinct_paths = [
+        ai_eng_dir / _STATE_FILES["instinct-observations"],
+        ai_eng_dir / _STATE_FILES["instincts"],
+        ai_eng_dir / _STATE_FILES["instinct-context"],
+        ai_eng_dir / _STATE_FILES["instinct-meta"],
+    ]
+    if not all(path.exists() for path in instinct_paths):
+        ensure_instinct_artifacts(ai_eng_dir.parent)
+        for path in instinct_paths:
+            if path not in created:
+                created.append(path)
 
     return created
 

@@ -1,39 +1,15 @@
 #!/usr/bin/env bash
-# Copilot wrapper for instinct-extract.py: extract behavioral instincts from observations.
-# Called by GitHub Copilot hooks (agentTurnEnd event).
-# Translates Copilot JSON field names to Claude Code convention, then delegates.
-# Fail-open: exit 0 always — never blocks IDE.
+# Copilot wrapper for instinct-extract.py.
+# Fail-open: exit 0 always -- never blocks IDE.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
-# Read Copilot JSON from stdin
+PROJECT_DIR="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 INPUT=$(cat)
-
-# Translate Copilot field names to Claude Code convention:
-#   Copilot agentTurnEnd provides session summary; map to Claude Stop event shape.
-TRANSLATED=$(echo "$INPUT" | python3 -c "
-import sys, json
-try:
-    d = json.load(sys.stdin)
-    out = {}
-    for k, v in d.items():
-        if k == 'toolName':
-            out['tool_name'] = v
-        elif k == 'toolArgs':
-            out['tool_input'] = v if isinstance(v, dict) else json.loads(v) if isinstance(v, str) else v
-        else:
-            out[k] = v
-    json.dump(out, sys.stdout, separators=(',', ':'))
-except Exception:
-    sys.stdout.write(json.dumps({}))
-" 2>/dev/null) || TRANSLATED="{}"
-
-# Map Copilot event to Claude Code event name
+TRANSLATED=$(printf '%s' "$INPUT" | python3 "$SCRIPT_DIR/copilot-adapter.py" 2>/dev/null) || TRANSLATED="{}"
 export CLAUDE_HOOK_EVENT_NAME="Stop"
-
-# Pipe translated input to Python script, preserve exit code
-echo "$TRANSLATED" | python3 "$SCRIPT_DIR/instinct-extract.py"
+export CLAUDE_PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$PROJECT_DIR}"
+export AIENG_HOOK_ENGINE="github_copilot"
+printf '%s' "$TRANSLATED" | python3 "$SCRIPT_DIR/instinct-extract.py"
 EXIT_CODE=$?
-
 exit "$EXIT_CODE"

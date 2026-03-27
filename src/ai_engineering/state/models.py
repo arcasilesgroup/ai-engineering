@@ -6,6 +6,7 @@ Defines schemas for:
 - DecisionStore: risk and flow decisions with context hashing.
 - AuditEntry: legacy governance event log entries retained for historical reads.
 - FrameworkEvent / FrameworkCapabilitiesCatalog: canonical framework observability.
+- InstinctObservation / InstinctMeta: simplified project-local instinct learning state.
 
 Legacy models (InstallManifest and its sub-models) have been removed.
 The updater/service.py migration code reads old JSON directly without models.
@@ -330,6 +331,40 @@ class FrameworkCapabilitiesCatalog(BaseModel):
         default_factory=list, alias="contextClasses"
     )
     hook_kinds: list[CapabilityDescriptor] = Field(default_factory=list, alias="hookKinds")
+
+    model_config = {"populate_by_name": True}
+
+
+# --- Simplified Instinct Learning (spec-080) ---
+
+
+class InstinctObservation(BaseModel):
+    """Sanitized hook observation for local instinct learning."""
+
+    schema_version: str = Field(default="1.0", alias="schemaVersion")
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(tz=UTC))
+    engine: str
+    kind: str
+    tool: str
+    outcome: str
+    session_id: str | None = Field(default=None, alias="sessionId")
+    detail: dict[str, Any] = Field(default_factory=dict)
+
+    model_config = {"populate_by_name": True}
+
+
+class InstinctMeta(BaseModel):
+    """Bookkeeping for extraction and context refresh."""
+
+    schema_version: str = Field(default="1.0", alias="schemaVersion")
+    last_extracted_at: datetime | None = Field(default=None, alias="lastExtractedAt")
+    last_context_generated_at: datetime | None = Field(
+        default=None,
+        alias="lastContextGeneratedAt",
+    )
+    pending_context_refresh: bool = Field(default=False, alias="pendingContextRefresh")
+    delta_threshold: int = Field(default=20, alias="deltaThreshold")
+    context_max_age_hours: int = Field(default=24, alias="contextMaxAgeHours")
 
     model_config = {"populate_by_name": True}
 

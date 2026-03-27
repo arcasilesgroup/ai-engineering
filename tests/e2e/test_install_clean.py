@@ -63,10 +63,15 @@ class TestInstallClean:
             "ownership-map.json",
             "decision-store.json",
             "framework-capabilities.json",
+            "instinct-observations.ndjson",
         ]
         for fname in expected_files:
             assert (state_dir / fname).is_file(), f"Missing: {fname}"
         assert not (state_dir / "audit-log.ndjson").exists()
+        instincts_dir = tmp_path / ".ai-engineering" / "instincts"
+        assert (instincts_dir / "instincts.yml").is_file()
+        assert (instincts_dir / "context.md").is_file()
+        assert (instincts_dir / "meta.json").is_file()
 
     def test_install_state_roundtrips(
         self,
