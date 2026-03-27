@@ -11,7 +11,25 @@ try {
     $env:CLAUDE_HOOK_EVENT_NAME = "Stop"
     if (-not $env:CLAUDE_PROJECT_DIR) { $env:CLAUDE_PROJECT_DIR = $ProjectDir }
     $env:AIENG_HOOK_ENGINE = "github_copilot"
-    "{}" | & python (Join-Path $ScriptDir "instinct-extract.py") | Out-Null
+    $env:PROJECT_DIR = $ProjectDir
+    $PythonScript = @'
+import os
+from pathlib import Path
+
+from ai_engineering.state.instincts import extract_instincts
+from ai_engineering.state.observability import emit_framework_operation
+
+project_root = Path(os.environ["PROJECT_DIR"])
+if extract_instincts(project_root):
+    emit_framework_operation(
+        project_root,
+        operation="instinct-extract",
+        component="hook.instinct-extract",
+        source="hook",
+        metadata={"engine": os.environ.get("AIENG_HOOK_ENGINE", "github_copilot")},
+    )
+'@
+    $PythonScript | & python - 2>$null | Out-Null
     exit 0
 } catch {
     exit 0

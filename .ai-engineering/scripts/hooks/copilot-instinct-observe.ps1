@@ -4,63 +4,6 @@
 
 $ErrorActionPreference = "Stop"
 
-function Convert-ToSnakeCase {
-    param([string]$Value)
-
-    if ([string]::IsNullOrWhiteSpace($Value)) {
-        return $Value
-    }
-
-    $Step1 = [regex]::Replace($Value, "(.)([A-Z][a-z]+)", '$1_$2')
-    return ([regex]::Replace($Step1, "([a-z0-9])([A-Z])", '$1_$2')).ToLowerInvariant()
-}
-
-function Convert-NormalizedValue {
-    param([object]$Value)
-
-    if ($null -eq $Value) {
-        return $null
-    }
-
-    if ($Value -is [System.Management.Automation.PSCustomObject]) {
-        $Normalized = [ordered]@{}
-        foreach ($Property in $Value.PSObject.Properties) {
-            $Name = $Property.Name
-            switch ($Name) {
-                "toolArgs" { $Name = "tool_input"; break }
-                "toolName" { $Name = "tool_name"; break }
-                default { $Name = Convert-ToSnakeCase $Name }
-            }
-            $Normalized[$Name] = Convert-NormalizedValue $Property.Value
-        }
-        return [pscustomobject]$Normalized
-    }
-
-    if ($Value -is [System.Collections.IDictionary]) {
-        $Normalized = [ordered]@{}
-        foreach ($Entry in $Value.GetEnumerator()) {
-            $Name = [string]$Entry.Key
-            switch ($Name) {
-                "toolArgs" { $Name = "tool_input"; break }
-                "toolName" { $Name = "tool_name"; break }
-                default { $Name = Convert-ToSnakeCase $Name }
-            }
-            $Normalized[$Name] = Convert-NormalizedValue $Entry.Value
-        }
-        return [pscustomobject]$Normalized
-    }
-
-    if (($Value -is [System.Collections.IEnumerable]) -and -not ($Value -is [string])) {
-        $Items = @()
-        foreach ($Item in $Value) {
-            $Items += ,(Convert-NormalizedValue $Item)
-        }
-        return $Items
-    }
-
-    return $Value
-}
-
 try {
     $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
     $ProjectDir = [string](Resolve-Path (Join-Path $ScriptDir "../../.."))
@@ -74,25 +17,73 @@ try {
         exit 0
     }
 
-    if ([string]::IsNullOrWhiteSpace($InputJson)) {
-        $CanonicalJson = "{}"
-    } else {
-        try {
-            $Payload = $InputJson | ConvertFrom-Json
-            $CanonicalJson = (Convert-NormalizedValue $Payload) | ConvertTo-Json -Compress -Depth 20
-        } catch {
-            $CanonicalJson = "{}"
-        }
-    }
-
     if ($Phase -eq "pre") {
         $env:CLAUDE_HOOK_EVENT_NAME = "PreToolUse"
+        $HookEvent = "PreToolUse"
     } else {
         $env:CLAUDE_HOOK_EVENT_NAME = "PostToolUse"
+        $HookEvent = "PostToolUse"
     }
     if (-not $env:CLAUDE_PROJECT_DIR) { $env:CLAUDE_PROJECT_DIR = $ProjectDir }
     $env:AIENG_HOOK_ENGINE = "github_copilot"
-    $CanonicalJson | & python (Join-Path $ScriptDir "instinct-observe.py") | Out-Null
+    $env:PROJECT_DIR = $ProjectDir
+    $env:HOOK_EVENT = $HookEvent
+    $env:COPILOT_INPUT_JSON = $InputJson
+    $PythonScript = @'
+import json
+import os
+import re
+from pathlib import Path
+
+from ai_engineering.state.instincts import append_instinct_observation
+
+_FIRST_CAP_RE = re.compile(r"(.)([A-Z][a-z]+)")
+_ALL_CAP_RE = re.compile(r"([a-z0-9])([A-Z])")
+
+
+def _snake_case(key: str) -> str:
+    step1 = _FIRST_CAP_RE.sub(r"\1_\2", key)
+    return _ALL_CAP_RE.sub(r"\1_\2", step1).lower()
+
+
+def _normalize(value):
+    if isinstance(value, dict):
+        normalized = {}
+        for key, item in value.items():
+            if key == "toolArgs":
+                name = "tool_input"
+            elif key == "toolName":
+                name = "tool_name"
+            else:
+                name = _snake_case(key)
+            normalized[name] = _normalize(item)
+        return normalized
+    if isinstance(value, list):
+        return [_normalize(item) for item in value]
+    if isinstance(value, str):
+        try:
+            parsed = json.loads(value)
+        except json.JSONDecodeError:
+            return value
+        return _normalize(parsed)
+    return value
+
+
+raw = os.environ.get("COPILOT_INPUT_JSON", "")
+try:
+    payload = json.loads(raw) if raw.strip() else {}
+except Exception:
+    payload = {}
+
+append_instinct_observation(
+    Path(os.environ["PROJECT_DIR"]),
+    engine="github_copilot",
+    hook_event=os.environ["HOOK_EVENT"],
+    data=_normalize(payload),
+    session_id=os.environ.get("COPILOT_SESSION_ID") or os.environ.get("GITHUB_COPILOT_SESSION_ID"),
+)
+'@
+    $PythonScript | & python - 2>$null | Out-Null
     exit 0
 } catch {
     exit 0
