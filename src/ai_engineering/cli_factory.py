@@ -27,11 +27,9 @@ from ai_engineering.cli_commands import (
     gate,
     guide,
     maintenance,
-    observe,
     provider,
     release,
     setup,
-    signals_cmd,
     skills,
     spec_cmd,
     stack_ide,
@@ -118,7 +116,6 @@ def _app_callback(
                         "verify",
                         "version",
                         "guide",
-                        "observe",
                         "sync",
                         "stack",
                         "ide",
@@ -129,7 +126,6 @@ def _app_callback(
                         "vcs",
                         "setup",
                         "release",
-                        "signals",
                         "decision",
                         "work-item",
                         "workflow",
@@ -201,9 +197,6 @@ def create_app() -> typer.Typer:
     app.command("version")(core.version_cmd)
     app.command("release")(_safe(release.release_cmd))
     app.command("guide")(_safe(guide.guide_cmd))
-
-    # Observe command (v3: observability dashboards)
-    app.command("observe")(_safe(observe.observe_cmd))
 
     # Sync command (mirror management)
     app.command("sync")(_safe(sync.sync_cmd))
@@ -300,15 +293,6 @@ def create_app() -> typer.Typer:
     setup_app.command("azure-devops")(_safe(setup.setup_azure_devops_cmd))
     setup_app.command("sonarlint")(_safe(setup.setup_sonarlint_cmd))
     app.add_typer(setup_app, name="setup")
-
-    # Signals sub-group (v3: event store operations)
-    signals_app = typer.Typer(
-        name="signals",
-        help="Emit events to the audit log.",
-        no_args_is_help=True,
-    )
-    signals_app.command("emit")(_safe(signals_cmd.signals_emit))
-    app.add_typer(signals_app, name="signals")
 
     # Decision sub-group (v3: decision store management)
     decision_app = typer.Typer(

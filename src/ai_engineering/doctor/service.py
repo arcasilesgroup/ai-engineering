@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import importlib
 import logging
-from datetime import UTC, datetime
 from pathlib import Path
 
 from ai_engineering.config.loader import load_manifest_config
@@ -20,8 +19,7 @@ from ai_engineering.doctor.models import (
     PhaseReport,
 )
 from ai_engineering.installer.phases import PHASE_ORDER
-from ai_engineering.state.io import append_ndjson
-from ai_engineering.state.models import AuditEntry
+from ai_engineering.state.observability import emit_framework_operation
 from ai_engineering.state.service import load_install_state
 
 logger = logging.getLogger(__name__)
@@ -162,13 +160,13 @@ def _run_runtime_modules(
 
 
 def _emit_audit_log(target: Path, report: DoctorReport, *, fix: bool) -> None:
-    """Write a single audit log entry for this doctor invocation."""
-    audit_path = target / ".ai-engineering" / "state" / "audit-log.ndjson"
-    entry = AuditEntry(
-        event="doctor",
-        actor="ai-engineering-cli",
-        timestamp=datetime.now(tz=UTC),
-        detail={
+    """Emit a single framework operation event for this doctor invocation."""
+    emit_framework_operation(
+        target,
+        operation="doctor",
+        component="doctor",
+        source="cli",
+        metadata={
             "mode": "fix" if fix else "diagnose",
             "phases_checked": len(report.phases),
             "runtime_checked": len(report.runtime),
@@ -178,4 +176,3 @@ def _emit_audit_log(target: Path, report: DoctorReport, *, fix: bool) -> None:
             ],
         },
     )
-    append_ndjson(audit_path, entry)

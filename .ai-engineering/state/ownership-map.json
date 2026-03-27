@@ -63,7 +63,12 @@
     {
       "frameworkUpdate": "append-only",
       "owner": "system-managed",
-      "pattern": ".ai-engineering/state/audit-log.ndjson"
+      "pattern": ".ai-engineering/state/framework-events.ndjson"
+    },
+    {
+      "frameworkUpdate": "allow",
+      "owner": "system-managed",
+      "pattern": ".ai-engineering/state/framework-capabilities.json"
     },
     {
       "frameworkUpdate": "allow",

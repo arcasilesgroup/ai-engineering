@@ -4,7 +4,8 @@ Defines schemas for:
 - InstallState: runtime state (tooling, platforms, branch policy, readiness).
 - OwnershipMap: path-level ownership for safe updates.
 - DecisionStore: risk and flow decisions with context hashing.
-- AuditEntry: governance event log entries.
+- AuditEntry: legacy governance event log entries retained for historical reads.
+- FrameworkEvent / FrameworkCapabilitiesCatalog: canonical framework observability.
 
 Legacy models (InstallManifest and its sub-models) have been removed.
 The updater/service.py migration code reads old JSON directly without models.
@@ -252,9 +253,10 @@ class DecisionStore(BaseModel):
 
 
 class AuditEntry(BaseModel):
-    """A single governance event log entry.
+    """Legacy governance event log entry.
 
-    Appended to `.ai-engineering/state/audit-log.ndjson` (one JSON object per line).
+    Retained for historical reads of ``audit-log.ndjson``. New framework
+    observability writes use ``FrameworkEvent`` instead.
 
     The ``detail`` field is always a structured dict, enabling enriched events
     (scan results, gate outcomes, deploy signals) for database-ready analytics.
@@ -276,6 +278,60 @@ class AuditEntry(BaseModel):
     spec_id: str | None = None
     stack: str | None = None
     duration_ms: int | None = None
+
+
+# --- Framework Observability (spec-082) ---
+
+
+class FrameworkEvent(BaseModel):
+    """Canonical framework event entry.
+
+    Appended to ``.ai-engineering/state/framework-events.ndjson`` as the v1
+    local-first observability stream. This intentionally excludes transcripts
+    and raw tool bodies; structured metadata lives in ``detail``.
+    """
+
+    schema_version: str = Field(default="1.0", alias="schemaVersion")
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(tz=UTC))
+    project: str
+    engine: str
+    kind: str
+    outcome: str
+    component: str
+    source: str | None = None
+    correlation_id: str = Field(alias="correlationId")
+    session_id: str | None = Field(default=None, alias="sessionId")
+    trace_id: str | None = Field(default=None, alias="traceId")
+    parent_id: str | None = Field(default=None, alias="parentId")
+    detail: dict[str, Any] = Field(default_factory=dict)
+
+    model_config = {"populate_by_name": True}
+
+
+class CapabilityDescriptor(BaseModel):
+    """Single entry inside the framework capability catalog."""
+
+    name: str
+    kind: str | None = None
+    surface: str | None = None
+    tags: list[str] = Field(default_factory=list)
+
+
+class FrameworkCapabilitiesCatalog(BaseModel):
+    """Machine-readable catalog for skills, agents, contexts, and hooks."""
+
+    schema_version: str = Field(default="1.0", alias="schemaVersion")
+    generated_at: datetime = Field(
+        default_factory=lambda: datetime.now(tz=UTC), alias="generatedAt"
+    )
+    skills: list[CapabilityDescriptor] = Field(default_factory=list)
+    agents: list[CapabilityDescriptor] = Field(default_factory=list)
+    context_classes: list[CapabilityDescriptor] = Field(
+        default_factory=list, alias="contextClasses"
+    )
+    hook_kinds: list[CapabilityDescriptor] = Field(default_factory=list, alias="hookKinds")
+
+    model_config = {"populate_by_name": True}
 
 
 # --- InstallState (spec-068: state unification) ---

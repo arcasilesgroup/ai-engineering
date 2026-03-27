@@ -161,12 +161,13 @@ Any AI agent can resume work on any spec by reading `_active.md` → `spec.md` �
 
 Context is project-managed — the framework never overwrites it.
 
-### State — decisions, risks, and audit trail
+### State — decisions, risks, and framework events
 
 State files track runtime information automatically:
 
 - **decision-store.json** — decisions persist across AI sessions with SHA-256 context hashing. No repeated questions — agents check the store before asking.
-- **audit-log.ndjson** — append-only log of every governance event (gate results, commands executed, lifecycle transitions).
+- **framework-events.ndjson** — append-only canonical framework event stream for hooks, gates, governance, security, and quality outcomes.
+- **framework-capabilities.json** — machine-readable catalog of skills, agents, contexts, and hook kinds for downstream viewers.
 - **install-manifest.json** — what was installed, when, which version.
 - **ownership-map.json** — who owns each path in the governance root.
 

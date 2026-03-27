@@ -152,11 +152,12 @@ Tooling: `ruff` + `ty` (lint/format), `pytest` (test), `gitleaks` (secrets), `pi
 
 ## Observability
 
-Telemetry is automatic via hooks -- no manual `ai-eng signals emit` needed.
+Telemetry is automatic via hooks and writes only canonical framework events.
 - `UserPromptSubmit(/ai-*)` hook emits `skill_invoked` events
-- `Stop` hook emits `session_end` events
-- All events flow to `.ai-engineering/state/audit-log.ndjson`
-- Dashboards: `ai-eng observe [engineer|team|ai|dora|health]`
+- `PostToolUse` agent hooks emit `agent_dispatched` and `ide_hook` events
+- Hook, gate, governance, security, and quality outcomes flow to `.ai-engineering/state/framework-events.ndjson`
+- Registered skills, agents, contexts, and hooks are catalogued in `.ai-engineering/state/framework-capabilities.json`
+- Session discovery and transcript viewing are delegated to separately installed `agentsview`
 
 ## Don't
 
@@ -167,7 +168,7 @@ Telemetry is automatic via hooks -- no manual `ai-eng signals emit` needed.
 5. **NEVER** push to protected branches (main, master).
 6. **NEVER** dismiss security findings without `state/decision-store.json` risk acceptance.
 7. **NEVER** add suppression comments (`# noqa`, `# nosec`, `# type: ignore`, `# pragma: no cover`, `# NOSONAR`, `// nolint`) to bypass quality gates. Fix the code. If it is a false positive, refactor to satisfy the analyzer or escalate with a full explanation.
-8. **NEVER** weaken a gate, threshold, or severity level without the full protocol: warn user of impact, generate a remediation patch, require explicit risk acceptance, persist to `state/decision-store.json`, and append to `state/audit-log.ndjson`.
+8. **NEVER** weaken a gate, threshold, or severity level without the full protocol: warn user of impact, generate a remediation patch, require explicit risk acceptance, persist to `state/decision-store.json`, and emit the outcome to `state/framework-events.ndjson`.
 
 Gate failure: diagnose, fix, retry. Use `ai-eng doctor --fix` or `ai-eng doctor --fix --phase <name>`.
 

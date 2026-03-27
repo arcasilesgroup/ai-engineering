@@ -6,7 +6,7 @@
 - **Status**: active development
 
 ## Services & APIs
-- CLI: `ai-eng` (install, validate, doctor, observe, maintenance, signals)
+- CLI: `ai-eng` (install, validate, doctor, maintenance, sync, gate, decision, workflow)
 - Skills (40): invoked as `/ai-<name>` across Claude Code, GitHub Copilot, Codex, Gemini
 - Agents (9): plan, build, verify, guard, review, explore, guide, simplify, autopilot
 - Installer: governance phase seeds `.ai-engineering/` tree into consumer projects

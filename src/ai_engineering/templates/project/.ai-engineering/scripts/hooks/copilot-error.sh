@@ -5,15 +5,10 @@
 set -uo pipefail
 
 main() {
-    # Read JSON from stdin (errorOccurred event data)
     INPUT=$(cat)
-
-    # Resolve project root from script location
     SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     PROJECT_DIR="$(cd "$SCRIPT_DIR/../../.." && pwd)"
-    AUDIT_LOG="$PROJECT_DIR/.ai-engineering/state/audit-log.ndjson"
 
-    # Extract error.message and error.name from stdin JSON
     ERROR_NAME=""
     ERROR_MESSAGE=""
     if command -v jq >/dev/null 2>&1; then
@@ -36,32 +31,38 @@ except Exception:
 " 2>/dev/null)
     fi
 
-    # Default values if not provided
     [ -z "$ERROR_NAME" ] && ERROR_NAME="unknown"
     [ -z "$ERROR_MESSAGE" ] && ERROR_MESSAGE="unknown"
 
-    # Git metadata (fail gracefully if not in a repo)
-    BRANCH=$(git -C "$PROJECT_DIR" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
-    COMMIT=$(git -C "$PROJECT_DIR" rev-parse --short HEAD 2>/dev/null || echo "unknown")
+    if command -v python3 >/dev/null 2>&1; then
+        PROJECT_DIR="$PROJECT_DIR" ERROR_NAME="$ERROR_NAME" ERROR_MESSAGE="$ERROR_MESSAGE" python3 - <<'PY' >/dev/null 2>&1 || true
+import os
+from pathlib import Path
 
-    # Timestamp: use stdin JSON timestamp if available, otherwise generate ISO-8601
-    TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+from ai_engineering.state.observability import emit_framework_error, emit_ide_hook_outcome
 
-    # Emit NDJSON event to audit log
-    if command -v jq >/dev/null 2>&1; then
-        jq -n -c \
-            --arg branch "$BRANCH" \
-            --arg commit "$COMMIT" \
-            --arg ename "$ERROR_NAME" \
-            --arg emsg "$ERROR_MESSAGE" \
-            --arg ts "$TIMESTAMP" \
-            '{actor:"ai-session",branch:$branch,commit_sha:$commit,detail:{type:"error_occurred",error_name:$ename,error_message:$emsg},event:"error_occurred",source:"hook",timestamp:$ts}' \
-            >> "$AUDIT_LOG" 2>/dev/null
-    else
-        # Escape double quotes in error message for JSON safety
-        SAFE_MSG=$(echo "$ERROR_MESSAGE" | tr '"' "'")
-        printf '{"actor":"ai-session","branch":"%s","commit_sha":"%s","detail":{"type":"error_occurred","error_name":"%s","error_message":"%s"},"event":"error_occurred","source":"hook","timestamp":"%s"}\n' \
-            "$BRANCH" "$COMMIT" "$ERROR_NAME" "$SAFE_MSG" "$TIMESTAMP" >> "$AUDIT_LOG" 2>/dev/null
+project_root = Path(os.environ["PROJECT_DIR"])
+emit_ide_hook_outcome(
+    project_root,
+    engine="github_copilot",
+    hook_kind="error-occurred",
+    component="hook.copilot-error",
+    outcome="failure",
+    source="hook",
+    session_id=os.environ.get("COPILOT_SESSION_ID") or os.environ.get("GITHUB_COPILOT_SESSION_ID"),
+    trace_id=os.environ.get("COPILOT_TRACE_ID") or os.environ.get("GITHUB_COPILOT_TRACE_ID"),
+)
+emit_framework_error(
+    project_root,
+    engine="github_copilot",
+    component="hook.copilot-error",
+    error_code=os.environ["ERROR_NAME"] or "hook_error",
+    summary=os.environ["ERROR_MESSAGE"],
+    source="hook",
+    session_id=os.environ.get("COPILOT_SESSION_ID") or os.environ.get("GITHUB_COPILOT_SESSION_ID"),
+    trace_id=os.environ.get("COPILOT_TRACE_ID") or os.environ.get("GITHUB_COPILOT_TRACE_ID"),
+)
+PY
     fi
 }
 

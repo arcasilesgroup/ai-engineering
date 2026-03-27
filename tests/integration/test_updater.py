@@ -59,14 +59,14 @@ class TestDryRun:
         assert core_md.read_text() == "modified content"
         assert result.applied_count > 0  # Would have applied changes
 
-    def test_dry_run_no_audit_log(self, installed_project: Path) -> None:
-        audit_path = installed_project / ".ai-engineering" / "state" / "audit-log.ndjson"
-        lines_before = _count_lines(audit_path)
+    def test_dry_run_no_new_framework_events(self, installed_project: Path) -> None:
+        events_path = installed_project / ".ai-engineering" / "state" / "framework-events.ndjson"
+        lines_before = _count_lines(events_path)
 
         update(installed_project, dry_run=True)
 
-        lines_after = _count_lines(audit_path)
-        # The install already created 1 audit entry; dry-run should add nothing
+        lines_after = _count_lines(events_path)
+        # The install already created 1 framework event; dry-run should add nothing
         assert lines_after == lines_before
 
 
@@ -89,22 +89,31 @@ class TestApply:
         # File should be restored from template
         assert core_md.read_text() != "outdated content"
 
-    def test_apply_logs_audit_entry(self, installed_project: Path) -> None:
+    def test_apply_logs_framework_operation(self, installed_project: Path) -> None:
         # Create a diff to trigger an update
         core_md = installed_project / ".ai-engineering" / "contexts" / "languages" / "python.md"
         core_md.write_text("outdated")
 
-        audit_path = installed_project / ".ai-engineering" / "state" / "audit-log.ndjson"
-        lines_before = _count_lines(audit_path)
+        events_path = installed_project / ".ai-engineering" / "state" / "framework-events.ndjson"
+        lines_before = _count_lines(events_path)
 
         update(installed_project, dry_run=False)
 
-        lines_after = _count_lines(audit_path)
+        lines_after = _count_lines(events_path)
         assert lines_after > lines_before
 
-        last_line = audit_path.read_text().strip().splitlines()[-1]
+        last_line = events_path.read_text().strip().splitlines()[-1]
         entry = json.loads(last_line)
-        assert entry["event"] == "update"
+        assert entry["kind"] == "framework_operation"
+        assert entry["detail"]["operation"] == "update"
+
+    def test_apply_removes_legacy_audit_log(self, installed_project: Path) -> None:
+        legacy_audit_log = installed_project / ".ai-engineering" / "state" / "audit-log.ndjson"
+        legacy_audit_log.write_text('{"event":"legacy"}\n', encoding="utf-8")
+
+        update(installed_project, dry_run=False)
+
+        assert not legacy_audit_log.exists()
 
 
 # ---------------------------------------------------------------------------

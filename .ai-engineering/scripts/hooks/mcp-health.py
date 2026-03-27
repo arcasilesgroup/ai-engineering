@@ -20,13 +20,13 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 from _lib.audit import (
-    append_audit_event,
-    get_audit_log,
     get_project_root,
     is_debug_mode,
     passthrough_stdin,
     read_stdin,
 )
+
+from ai_engineering.state.observability import emit_control_outcome
 
 _STATE_FILE = Path.home() / ".ai-engineering" / "state" / "mcp-health.json"
 _STATE_VERSION = 1
@@ -189,22 +189,21 @@ def _attempt_reconnect(server_name: str) -> bool:
 def _emit_health_change(
     server_name: str, old_status: str, new_status: str, error: str = ""
 ) -> None:
-    """Emit mcp_health_change event to audit-log."""
+    """Emit a canonical control outcome for MCP health changes."""
     project_root = get_project_root()
-    audit_log = get_audit_log(project_root)
-    append_audit_event(
-        audit_log,
-        {
-            "event": "mcp_health_change",
-            "actor": "ai",
-            "detail": {
-                "server": server_name,
-                "old_status": old_status,
-                "new_status": new_status,
-                "error": error,
-            },
+    emit_control_outcome(
+        project_root,
+        category="platform",
+        control="mcp-health",
+        component="hook.mcp-health",
+        outcome="failure" if new_status == "unhealthy" else "success",
+        source="hook",
+        metadata={
+            "server": server_name,
+            "old_status": old_status,
+            "new_status": new_status,
+            "error": error,
         },
-        project_root=project_root,
     )
 
 

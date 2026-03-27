@@ -886,14 +886,22 @@ def generate_copilot_instructions(
     lines.append(
         "Telemetry is **automatic via hooks** -- configured in `.github/hooks/hooks.json`."
     )
-    lines.append("- `sessionStart` hook emits `session_start` events on session initialization")
-    lines.append("- `sessionEnd` hook emits `session_end` events on session close")
     lines.append("- `userPromptSubmitted` hook emits `skill_invoked` events on `/ai-*` commands")
     lines.append("- `preToolUse` hook enforces deny-list (blocks dangerous operations)")
-    lines.append("- `postToolUse` hook emits `agent_dispatched` events on agent use")
-    lines.append("- `errorOccurred` hook emits `error_occurred` events on failures")
-    lines.append("- All events -> `.ai-engineering/state/audit-log.ndjson`")
-    lines.append("- Dashboards: `ai-eng observe [engineer|team|ai|dora|health]`")
+    lines.append("- `postToolUse` hook emits `agent_dispatched` and `ide_hook` events on agent use")
+    lines.append("- `errorOccurred` hook emits `framework_error` and `ide_hook` events on failures")
+    lines.append(
+        "- Hook, gate, governance, security, and quality outcomes flow to "
+        "`.ai-engineering/state/framework-events.ndjson`"
+    )
+    lines.append(
+        "- Registered skills, agents, contexts, and hooks are catalogued in "
+        "`.ai-engineering/state/framework-capabilities.json`"
+    )
+    lines.append(
+        "- Session discovery and transcript viewing are delegated to separately "
+        "installed `agentsview`"
+    )
     lines.append("")
 
     # Subagent Orchestration (from AGENT_METADATA)

@@ -11,7 +11,6 @@ main() {
     # Resolve project root from script location
     SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     PROJECT_DIR="$(cd "$SCRIPT_DIR/../../.." && pwd)"
-    AUDIT_LOG="$PROJECT_DIR/.ai-engineering/state/audit-log.ndjson"
 
     # Extract prompt from stdin JSON
     PROMPT=""
@@ -34,25 +33,49 @@ except Exception:
     # Normalize: lowercase, ensure ai- prefix
     SKILL_NAME="ai-$(echo "$RAW" | tr '[:upper:]' '[:lower:]')"
 
-    # Git metadata (fail gracefully if not in a repo)
-    BRANCH=$(git -C "$PROJECT_DIR" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
-    COMMIT=$(git -C "$PROJECT_DIR" rev-parse --short HEAD 2>/dev/null || echo "unknown")
+    if command -v python3 >/dev/null 2>&1; then
+        PROJECT_DIR="$PROJECT_DIR" SKILL_NAME="$SKILL_NAME" python3 - <<'PY' >/dev/null 2>&1 || true
+import os
+from pathlib import Path
 
-    # Timestamp: use stdin JSON timestamp if available, otherwise generate ISO-8601
-    TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+from ai_engineering.state.observability import (
+    emit_declared_context_loads,
+    emit_ide_hook_outcome,
+    emit_skill_invoked,
+)
 
-    # Emit NDJSON event to audit log
-    if command -v jq >/dev/null 2>&1; then
-        jq -n -c \
-            --arg branch "$BRANCH" \
-            --arg commit "$COMMIT" \
-            --arg skill "$SKILL_NAME" \
-            --arg ts "$TIMESTAMP" \
-            '{actor:"ai",branch:$branch,commit_sha:$commit,detail:{skill:$skill},event:"skill_invoked",source:"hook",timestamp:$ts}' \
-            >> "$AUDIT_LOG" 2>/dev/null
-    else
-        printf '{"actor":"ai","branch":"%s","commit_sha":"%s","detail":{"skill":"%s"},"event":"skill_invoked","source":"hook","timestamp":"%s"}\n' \
-            "$BRANCH" "$COMMIT" "$SKILL_NAME" "$TIMESTAMP" >> "$AUDIT_LOG" 2>/dev/null
+entry = emit_skill_invoked(
+    Path(os.environ["PROJECT_DIR"]),
+    engine="github_copilot",
+    skill_name=os.environ["SKILL_NAME"],
+    component="hook.copilot-skill",
+    source="hook",
+    session_id=os.environ.get("COPILOT_SESSION_ID") or os.environ.get("GITHUB_COPILOT_SESSION_ID"),
+    trace_id=os.environ.get("COPILOT_TRACE_ID") or os.environ.get("GITHUB_COPILOT_TRACE_ID"),
+)
+emit_declared_context_loads(
+    Path(os.environ["PROJECT_DIR"]),
+    engine="github_copilot",
+    initiator_kind="skill",
+    initiator_name=os.environ["SKILL_NAME"],
+    component="hook.copilot-skill",
+    source="hook",
+    session_id=os.environ.get("COPILOT_SESSION_ID") or os.environ.get("GITHUB_COPILOT_SESSION_ID"),
+    trace_id=os.environ.get("COPILOT_TRACE_ID") or os.environ.get("GITHUB_COPILOT_TRACE_ID"),
+    correlation_id=entry.correlation_id,
+)
+emit_ide_hook_outcome(
+    Path(os.environ["PROJECT_DIR"]),
+    engine="github_copilot",
+    hook_kind="user-prompt-submit",
+    component="hook.copilot-skill",
+    outcome="success",
+    source="hook",
+    session_id=os.environ.get("COPILOT_SESSION_ID") or os.environ.get("GITHUB_COPILOT_SESSION_ID"),
+    trace_id=os.environ.get("COPILOT_TRACE_ID") or os.environ.get("GITHUB_COPILOT_TRACE_ID"),
+    correlation_id=entry.correlation_id,
+)
+PY
     fi
 }
 

@@ -88,9 +88,14 @@ _DEFAULT_OWNERSHIP_PATHS: list[tuple[str, OwnershipLevel, FrameworkUpdatePolicy]
         FrameworkUpdatePolicy.ALLOW,
     ),
     (
-        ".ai-engineering/state/audit-log.ndjson",
+        ".ai-engineering/state/framework-events.ndjson",
         OwnershipLevel.SYSTEM_MANAGED,
         FrameworkUpdatePolicy.APPEND_ONLY,
+    ),
+    (
+        ".ai-engineering/state/framework-capabilities.json",
+        OwnershipLevel.SYSTEM_MANAGED,
+        FrameworkUpdatePolicy.ALLOW,
     ),
     # -- project root files -------------------------------------------------
     ("CLAUDE.md", OwnershipLevel.FRAMEWORK_MANAGED, FrameworkUpdatePolicy.ALLOW),

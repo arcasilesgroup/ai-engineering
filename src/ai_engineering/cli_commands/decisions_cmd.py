@@ -14,6 +14,7 @@ from typing import Annotated
 import typer
 
 from ai_engineering.paths import find_project_root
+from ai_engineering.state.observability import emit_control_outcome
 from ai_engineering.state.service import StateService
 
 
@@ -122,9 +123,8 @@ def decision_record(
         typer.Option("--expires", help="Expiry date in ISO format (YYYY-MM-DD)."),
     ] = None,
 ) -> None:
-    """Record a new decision in the decision store (dual-write: JSON + audit)."""
+    """Record a new decision in the decision store."""
     from ai_engineering.state.models import (
-        AuditEntry,
         Decision,
         DecisionStatus,
         DecisionStore,
@@ -171,13 +171,21 @@ def decision_record(
     store.decisions.append(entry)
     svc.save_decisions(store)
 
-    # Dual-write: emit audit signal
-    audit = AuditEntry(
-        event="decision_recorded",
-        actor="cli",
-        spec_id=spec_id or None,
-        detail={"message": f"Recorded decision {decision_id}"},
+    emit_control_outcome(
+        root,
+        category="governance",
+        control="decision-record",
+        component="decision-store",
+        outcome="success",
+        source="cli",
+        metadata={
+            "decision_id": decision_id,
+            "context": context,
+            "spec_id": spec_id or None,
+            "severity": severity,
+            "category": category,
+            "expires": expires,
+        },
     )
-    svc.append_audit(audit)
 
-    typer.echo(f"Recorded decision '{decision_id}' → decision-store.json + audit-log.")
+    typer.echo(f"Recorded decision '{decision_id}' → decision-store.json + framework-events.")

@@ -1,5 +1,7 @@
 # Auditoría integral de ai-engineering (arquitectura + operación)
 
+> Nota de vigencia: este documento contiene una auditoría histórica previa a `spec-082`. Donde aparezcan `observe`, `signals` o `.ai-engineering/state/audit-log.ndjson`, deben leerse como antecedentes del diseño retirado. La superficie soportada hoy es `.ai-engineering/state/framework-events.ndjson` + `.ai-engineering/state/framework-capabilities.json`, con `agentsview` instalado y abierto independientemente por el usuario.
+
 ## Alcance y método
 
 Auditoría estática y funcional del repositorio `ai-engineering` con foco en:
@@ -19,8 +21,8 @@ Base analizada:
 ## Resumen ejecutivo
 
 - `ai-engineering` es un **framework de gobernanza local-first** operado por CLI (`ai-eng`) y reforzado por git hooks.
-- El núcleo operativo se divide en: `installer`, `policy/gates`, `doctor`, `validator`, `updater`, `release`, `observe`, `state`.
-- El **single source of truth** operativo es contenido en repo (`.ai-engineering/**`) + eventos en `.ai-engineering/state/audit-log.ndjson`.
+- El núcleo operativo se divide en: `installer`, `policy/gates`, `doctor`, `validator`, `updater`, `release`, `state`.
+- El **single source of truth** operativo es contenido en repo (`.ai-engineering/**`) + eventos en `.ai-engineering/state/framework-events.ndjson` y `.ai-engineering/state/framework-capabilities.json`.
 - El diseño es **provider-aware** (GitHub/Azure DevOps y múltiples AI providers) con fallback de API/CLI.
 - Se observan dos gaps operativos de entorno en esta sesión:
   - `pytest` no ejecuta por dependencia faltante (`pydantic`) en el entorno actual.
@@ -29,7 +31,7 @@ Base analizada:
 ## Inventario técnico observado
 
 - Módulos Python en `src/ai_engineering`: 33 áreas funcionales.
-- Comandos CLI: núcleo + 13 subgrupos (`stack`, `ide`, `gate`, `skill`, `maintenance`, `provider`, `vcs`, `review`, `cicd`, `setup`, `signals`, `checkpoint`, `decision`, `spec`, `scan-report`, `metrics`).
+- Comandos CLI: núcleo + subgrupos operativos (`stack`, `ide`, `gate`, `skill`, `maintenance`, `provider`, `vcs`, `review`, `cicd`, `setup`, `decision`, `spec`, `scan-report`, `metrics`, `workflow`, `work-item`).
 - Skills: 34 (flat organization).
 - Agentes: 7.
 - Runbooks: 13.
@@ -53,7 +55,8 @@ flowchart TB
     GOV --> RBS[runbooks/]
 
     STATE --> DS[decision-store.json]
-    STATE --> AUDIT[audit-log.ndjson]
+    STATE --> AUDIT[framework-events.ndjson]
+    STATE --> CAPS[framework-capabilities.json]
     STATE --> MANIFEST[install-manifest.json]
     STATE --> OWN[ownership-map.json]
     STATE --> CHECK[session-checkpoint.json]
@@ -74,7 +77,7 @@ flowchart LR
     CMDS --> VAL[validator.service]
     CMDS --> REL[release.orchestrator]
     CMDS --> POL[policy.gates]
-    CMDS --> OBS[observe + lib.signals]
+    CMDS --> OBS[framework events + agentsview contract]
     CMDS --> SKS[skills.service]
     CMDS --> MAINT[maintenance.*]
     CMDS --> VCSF[vcs.factory]
@@ -84,7 +87,7 @@ flowchart LR
     INST --> STIO[state.io + defaults]
     POL --> CHK[policy.checks/* + stack_runner]
     REL --> VPROTO[vcs.protocol + providers]
-    OBS --> AUD[state.audit + audit-log]
+    OBS --> AUD[state.audit + framework-events]
     VAL --> CAT[validator.categories/*]
 
     STIO --> MODELS[state.models]
@@ -104,24 +107,24 @@ sequenceDiagram
     participant Gate as policy.gates
     participant Checks as stack/security checks
     participant State as state/*.json
-    participant Audit as audit-log.ndjson
+    participant Audit as framework-events.ndjson
 
     Dev->>CLI: ai-eng install .
     CLI->>Inst: install(target, stacks, providers, vcs)
     Inst->>State: create manifests + ownership + decision store
     Inst->>Hooks: install managed git hooks
-    Inst->>Audit: emit install event
+    Inst->>Audit: emit framework operation
 
     Dev->>Dev: git commit / git push
     Hooks->>Gate: run_gate(pre-commit / commit-msg / pre-push)
     Gate->>Checks: ruff/ty/pytest/pip-audit/semgrep/gitleaks + commit policy
-    Gate->>Audit: emit gate_result
+    Gate->>Audit: emit git_hook outcome
 
     Dev->>CLI: ai-eng doctor
     CLI->>State: validate layout/state/tools/hooks/platform auth
 
     Dev->>CLI: ai-eng update --apply
-    CLI->>State: ownership-aware update + rollback safety + audit
+    CLI->>State: ownership-aware update + rollback safety + framework event
 ```
 
 ## Diagrama 4: Dependencias (nivel dependencias)
@@ -231,9 +234,9 @@ mindmap
       azure devops
       setup github/sonar/azure-devops/sonarlint
     Observabilidad
-      signals emit/query
-      observe engineer/team/ai/dora/health
-      audit-log.ndjson
+      framework-events.ndjson
+      framework-capabilities.json
+      agentsview companion viewer
     Operacion de conocimiento
       spec verify/catalog/list/compact
       decision list/record/expire-check
@@ -278,7 +281,8 @@ flowchart TD
     S --> T[CI/CD pipelines generated/enforced]
 
     subgraph Observability & Governance Memory
-      U1[audit-log.ndjson event stream]
+      U1[framework-events.ndjson event stream]
+      U5[framework-capabilities.json catalog]
       U2[decision-store lifecycle]
       U3[session-checkpoint recovery]
       U4[manifest + ownership map]
@@ -290,11 +294,12 @@ flowchart TD
     P --> U1
     S --> U1
     B --> U4
+    B --> U5
     F --> U2
     F --> U3
 
-    T --> V[ai-eng observe dashboards]
-    V --> W[Engineer / Team / AI / DORA / Health]
+    T --> V[agentsview]
+    V --> W[Sessions / transcripts / framework events]
     W --> Y[Continuous improvement loop]
     Y --> G
 ```
@@ -309,7 +314,7 @@ flowchart TD
    - proveedores VCS pluggable,
    - validación de integridad.
 3. El modo `update` aplica patrón seguro (dry-run + ownership + backup/rollback).
-4. `audit-log.ndjson` funciona como event store único para observabilidad y señales.
+4. `framework-events.ndjson` y `framework-capabilities.json` son ahora la base canónica de observabilidad del framework; las sesiones y transcripts viven en `agentsview`.
 5. Hay inconsistencia de entorno/comando en sesión:
    - La guía pide `ai-eng checkpoint load`; el binario ejecutado respondió “No such command 'checkpoint'”.
    - El código fuente sí registra subcomando `checkpoint` en `cli_factory.py`.
@@ -324,4 +329,3 @@ flowchart TD
 2. Corregir baseline de tipos en `ty` y fijar política de severidad/ci para evitar drift.
 3. Asegurar entorno dev reproducible (lock de deps dev y bootstrap único para tests).
 4. Añadir un comando de “self-diagnostic contract” que valide explícitamente paridad entre comandos documentados y comandos registrados.
-

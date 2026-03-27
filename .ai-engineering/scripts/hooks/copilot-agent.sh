@@ -11,7 +11,6 @@ main() {
     # Resolve project root from script location
     SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     PROJECT_DIR="$(cd "$SCRIPT_DIR/../../.." && pwd)"
-    AUDIT_LOG="$PROJECT_DIR/.ai-engineering/state/audit-log.ndjson"
 
     # Extract toolName from stdin JSON
     TOOL_NAME=""
@@ -74,25 +73,33 @@ except Exception:
     AGENT_TYPE="${AGENT_TYPE#ai:}"
     AGENT_TYPE="ai-${AGENT_TYPE}"
 
-    # Git metadata (fail gracefully if not in a repo)
-    BRANCH=$(git -C "$PROJECT_DIR" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
-    COMMIT=$(git -C "$PROJECT_DIR" rev-parse --short HEAD 2>/dev/null || echo "unknown")
+    if command -v python3 >/dev/null 2>&1; then
+        PROJECT_DIR="$PROJECT_DIR" AGENT_TYPE="$AGENT_TYPE" python3 - <<'PY' >/dev/null 2>&1 || true
+import os
+from pathlib import Path
 
-    # Timestamp: use stdin JSON timestamp if available, otherwise generate ISO-8601
-    TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+from ai_engineering.state.observability import emit_agent_dispatched, emit_ide_hook_outcome
 
-    # Emit NDJSON event to audit log
-    if command -v jq >/dev/null 2>&1; then
-        jq -n -c \
-            --arg agent "$AGENT_TYPE" \
-            --arg branch "$BRANCH" \
-            --arg commit "$COMMIT" \
-            --arg ts "$TIMESTAMP" \
-            '{actor:"ai",agent:$agent,branch:$branch,commit_sha:$commit,detail:{agent:$agent},event:"agent_dispatched",source:"hook",timestamp:$ts}' \
-            >> "$AUDIT_LOG" 2>/dev/null
-    else
-        printf '{"actor":"ai","agent":"%s","branch":"%s","commit_sha":"%s","detail":{"agent":"%s"},"event":"agent_dispatched","source":"hook","timestamp":"%s"}\n' \
-            "$AGENT_TYPE" "$BRANCH" "$COMMIT" "$AGENT_TYPE" "$TIMESTAMP" >> "$AUDIT_LOG" 2>/dev/null
+emit_agent_dispatched(
+    Path(os.environ["PROJECT_DIR"]),
+    engine="github_copilot",
+    agent_name=os.environ["AGENT_TYPE"],
+    component="hook.copilot-agent",
+    source="hook",
+    session_id=os.environ.get("COPILOT_SESSION_ID") or os.environ.get("GITHUB_COPILOT_SESSION_ID"),
+    trace_id=os.environ.get("COPILOT_TRACE_ID") or os.environ.get("GITHUB_COPILOT_TRACE_ID"),
+)
+emit_ide_hook_outcome(
+    Path(os.environ["PROJECT_DIR"]),
+    engine="github_copilot",
+    hook_kind="post-tool-use",
+    component="hook.copilot-agent",
+    outcome="success",
+    source="hook",
+    session_id=os.environ.get("COPILOT_SESSION_ID") or os.environ.get("GITHUB_COPILOT_SESSION_ID"),
+    trace_id=os.environ.get("COPILOT_TRACE_ID") or os.environ.get("GITHUB_COPILOT_TRACE_ID"),
+)
+PY
     fi
 }
 

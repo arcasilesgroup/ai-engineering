@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Stop hook: track token usage and estimate costs per session.
 
-Replaces former telemetry-session.sh. Emits session_end event to
-audit-log with token counts and estimated cost. Also appends to
-~/.claude/metrics/costs.jsonl for ECC compatibility.
+Replaces former telemetry-session.sh. Persists local cost metrics to
+~/.claude/metrics/costs.jsonl for ECC compatibility and emits a
+canonical framework operation without storing transcripts.
 
 Fail-open: exit 0 always, async.
 """
@@ -17,13 +17,13 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 from _lib.audit import (
-    append_audit_event,
-    get_audit_log,
     get_project_root,
     get_session_id,
     is_debug_mode,
     read_stdin,
 )
+
+from ai_engineering.state.observability import emit_framework_operation
 
 _RATE_TABLE = {
     "haiku": {"input": 0.80, "output": 4.00},
@@ -95,25 +95,21 @@ def main() -> None:
     estimated_cost = _estimate_cost(tokens_in, tokens_out, tier)
     session_id = get_session_id()
     project_root = get_project_root()
-    audit_log = get_audit_log(project_root)
     timestamp = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
-    append_audit_event(
-        audit_log,
-        {
-            "event": "session_end",
-            "actor": "ai-session",
-            "detail": {
-                "type": "session_end",
-                "session_id": session_id,
-                "tokens_in": tokens_in,
-                "tokens_out": tokens_out,
-                "estimated_cost_usd": estimated_cost,
-                "model": model,
-                "tier": tier,
-            },
+    emit_framework_operation(
+        project_root,
+        operation="session-cost-recorded",
+        component="hook.cost-tracker",
+        source="hook",
+        metadata={
+            "session_id": session_id,
+            "tokens_in": tokens_in,
+            "tokens_out": tokens_out,
+            "estimated_cost_usd": estimated_cost,
+            "model": model,
+            "tier": tier,
         },
-        project_root=project_root,
     )
 
     try:

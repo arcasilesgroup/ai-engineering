@@ -22,12 +22,12 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 from _lib.audit import (
-    append_audit_event,
-    get_audit_log,
     get_project_root,
     is_debug_mode,
     read_stdin,
 )
+
+from ai_engineering.state.observability import emit_framework_operation
 
 _INSTINCTS_BASE = Path.home() / ".ai-engineering" / "instincts"
 _MIN_OBSERVATIONS = 50
@@ -253,20 +253,17 @@ def main() -> None:
 
     if extracted_types:
         project_root = get_project_root()
-        audit_log = get_audit_log(project_root)
-        append_audit_event(
-            audit_log,
-            {
-                "event": "instinct_extracted",
-                "actor": "ai",
-                "detail": {
-                    "project_hash": project_hash,
-                    "instinct_types": extracted_types,
-                    "observation_count": total_count,
-                    "new_observations": new_count,
-                },
+        emit_framework_operation(
+            project_root,
+            operation="instinct-extract",
+            component="hook.instinct-extract",
+            source="hook",
+            metadata={
+                "project_hash": project_hash,
+                "instinct_types": extracted_types,
+                "observation_count": total_count,
+                "new_observations": new_count,
             },
-            project_root=project_root,
         )
 
     _update_marker(project_dir, total_count)

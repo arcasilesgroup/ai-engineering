@@ -6,7 +6,7 @@ project-managed paths are never modified.
 
 Modes:
 - **Dry-run** (default): reports what would change without writing.
-- **Apply**: writes changes to disk, with audit logging.  Uses a
+- **Apply**: writes changes to disk, with canonical framework events. Uses a
   temporary backup so that a partial failure can be rolled back.
 """
 
@@ -21,22 +21,24 @@ from dataclasses import dataclass, field
 from fnmatch import fnmatch
 from pathlib import Path
 
-from ai_engineering.git.context import get_git_context
 from ai_engineering.installer.templates import (
     get_ai_engineering_template_root,
     get_project_template_root,
     resolve_template_maps,
 )
 from ai_engineering.state.defaults import default_ownership_map
-from ai_engineering.state.io import append_ndjson, read_json_model, write_json_model
+from ai_engineering.state.io import read_json_model, write_json_model
 from ai_engineering.state.models import (
-    AuditEntry,
     InstallState,
     OwnershipEntry,
     OwnershipMap,
 )
-from ai_engineering.state.service import load_install_state, save_install_state
-from ai_engineering.vcs.repo_context import get_repo_context
+from ai_engineering.state.observability import emit_framework_operation
+from ai_engineering.state.service import (
+    load_install_state,
+    remove_legacy_audit_log,
+    save_install_state,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -205,33 +207,33 @@ def update(
     # --- Phase 2: apply with backup/rollback ---
     actionable = [c for c in changes if c.action in ("create", "update")]
 
-    if not actionable:
-        return result
-
-    backup_dir = _backup_targets(actionable, target)
-    try:
-        for change in actionable:
-            if change.src is None:
-                continue
-            change.path.parent.mkdir(parents=True, exist_ok=True)
-            change.path.write_bytes(change.src.read_bytes())
-    except Exception:
-        if backup_dir is not None:
-            _restore_backup(backup_dir, target)
-        raise
-    else:
-        if backup_dir is not None:
-            shutil.rmtree(backup_dir, ignore_errors=True)
+    if actionable:
+        backup_dir = _backup_targets(actionable, target)
+        try:
+            for change in actionable:
+                if change.src is None:
+                    continue
+                change.path.parent.mkdir(parents=True, exist_ok=True)
+                change.path.write_bytes(change.src.read_bytes())
+        except Exception:
+            if backup_dir is not None:
+                _restore_backup(backup_dir, target)
+            raise
+        else:
+            if backup_dir is not None:
+                shutil.rmtree(backup_dir, ignore_errors=True)
 
     # --- Phase 3: persist merged ownership rules ---
     if rules_added:
         write_json_model(ownership_path, ownership)
 
     # --- Phase 4: migrate legacy agents/skills directories ---
-    _migrate_legacy_dirs(target, ai_eng_dir)
+    removed_legacy_dirs = _migrate_legacy_dirs(target, ai_eng_dir)
 
-    # --- Phase 5: audit log ---
-    _log_update_event(ai_eng_dir, result)
+    # --- Phase 5: remove legacy state and emit canonical event ---
+    legacy_audit_log_removed = remove_legacy_audit_log(target)
+    if actionable or rules_added or removed_legacy_dirs or legacy_audit_log_removed:
+        _log_update_event(ai_eng_dir, result, legacy_audit_log_removed=legacy_audit_log_removed)
 
     return result
 
@@ -742,25 +744,16 @@ def _migrate_legacy_dirs(target: Path, ai_eng_dir: Path) -> list[str]:
 
 
 def _log_migration_event(ai_eng_dir: Path, removed: list[str]) -> None:
-    """Append an audit-log entry for legacy directory migration."""
-    audit_path = ai_eng_dir / "state" / "audit-log.ndjson"
-    if not audit_path.parent.exists():
+    """Emit a framework operation event for legacy directory migration."""
+    if not (ai_eng_dir / "state").exists():
         return
-    project_root = ai_eng_dir.parent
-    repo_ctx = get_repo_context(project_root)
-    git_ctx = get_git_context(project_root)
-    entry = AuditEntry(
-        event="migrate-legacy-dirs",
-        actor="ai-engineering-cli",
-        detail={"removed": list(removed)},
-        vcs_provider=repo_ctx.provider if repo_ctx else None,
-        vcs_organization=repo_ctx.organization if repo_ctx else None,
-        vcs_project=repo_ctx.project if repo_ctx else None,
-        vcs_repository=repo_ctx.repository if repo_ctx else None,
-        branch=git_ctx.branch if git_ctx else None,
-        commit_sha=git_ctx.commit_sha if git_ctx else None,
+    emit_framework_operation(
+        ai_eng_dir.parent,
+        operation="migrate-legacy-dirs",
+        component="updater",
+        source="cli",
+        metadata={"removed": list(removed)},
     )
-    append_ndjson(audit_path, entry)
 
 
 # ---------------------------------------------------------------------------
@@ -768,21 +761,21 @@ def _log_migration_event(ai_eng_dir: Path, removed: list[str]) -> None:
 # ---------------------------------------------------------------------------
 
 
-def _log_update_event(ai_eng_dir: Path, result: UpdateResult) -> None:
-    """Append an audit-log entry for the update operation."""
-    audit_path = ai_eng_dir / "state" / "audit-log.ndjson"
-    project_root = ai_eng_dir.parent
-    repo_ctx = get_repo_context(project_root)
-    git_ctx = get_git_context(project_root)
-    entry = AuditEntry(
-        event="update",
-        actor="ai-engineering-cli",
-        detail={"applied": result.applied_count, "denied": result.denied_count},
-        vcs_provider=repo_ctx.provider if repo_ctx else None,
-        vcs_organization=repo_ctx.organization if repo_ctx else None,
-        vcs_project=repo_ctx.project if repo_ctx else None,
-        vcs_repository=repo_ctx.repository if repo_ctx else None,
-        branch=git_ctx.branch if git_ctx else None,
-        commit_sha=git_ctx.commit_sha if git_ctx else None,
+def _log_update_event(
+    ai_eng_dir: Path,
+    result: UpdateResult,
+    *,
+    legacy_audit_log_removed: bool = False,
+) -> None:
+    """Emit a framework operation event for update."""
+    emit_framework_operation(
+        ai_eng_dir.parent,
+        operation="update",
+        component="updater",
+        source="cli",
+        metadata={
+            "applied": result.applied_count,
+            "denied": result.denied_count,
+            "legacy_audit_log_removed": legacy_audit_log_removed,
+        },
     )
-    append_ndjson(audit_path, entry)

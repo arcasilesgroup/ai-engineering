@@ -146,7 +146,7 @@ class TestUpdateCommand:
     ) -> None:
         result = runner.invoke(app, ["update", str(installed_dir)])
         assert result.exit_code == 0
-        assert "DRY-RUN" in result.output
+        assert "PREVIEW" in result.output
 
     def test_update_apply(
         self,

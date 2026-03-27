@@ -79,7 +79,7 @@ Project onboarding, architecture tours, and decision archaeology. Optimized for 
 
 - Uses `/ai-explain` for 3-tier depth explanations.
 - Reads `state/decision-store.json` for decision context.
-- Reads `state/audit-log.ndjson` for session context (privacy by design).
+- Reads `state/framework-events.ndjson` for framework activity context (privacy by design).
 
 ## References
 

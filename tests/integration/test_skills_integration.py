@@ -60,13 +60,13 @@ class TestGenerateReport:
         report = generate_report(tmp_path)
         assert "Framework not installed" in report.warnings
 
-    def test_report_counts_audit_events(
+    def test_report_counts_framework_events(
         self,
         installed_project: Path,
     ) -> None:
         report = generate_report(installed_project)
-        # Install creates at least one audit entry
-        assert report.recent_audit_events >= 1
+        # Install creates at least one framework event
+        assert report.recent_framework_events >= 1
 
 
 class TestStalenessDetection:

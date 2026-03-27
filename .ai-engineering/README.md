@@ -87,7 +87,8 @@ Invoke as `/ai-<name>`. Grouped by workflow stage.
 
 **AUTOMATIC** -- system-generated, do not edit:
 - `state/decision-store.json` -- settled architectural decisions
-- `state/audit-log.ndjson` -- telemetry events
+- `state/framework-events.ndjson` -- canonical framework events
+- `state/framework-capabilities.json` -- registered skills, agents, contexts, hooks
 - `state/ownership-map.json` -- materialized ownership rules
 
 ## Configuration
@@ -157,7 +158,6 @@ ai-eng doctor      -- diagnose and fix framework health
 ai-eng validate    -- verify content integrity
 ai-eng sync        -- regenerate IDE mirrors
 ai-eng gate        -- run quality gate checks
-ai-eng observe     -- observability dashboards
 ```
 
 ## Troubleshooting

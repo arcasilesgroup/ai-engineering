@@ -1,9 +1,10 @@
-"""Shared audit-log append for all Python hooks."""
+"""Shared canonical framework-event helpers for Python hooks."""
+
+from __future__ import annotations
 
 import json
 import os
 import subprocess
-from datetime import UTC, datetime
 from pathlib import Path
 
 _AIE_MARKER = ".ai-engineering"
@@ -39,35 +40,6 @@ def get_git_metadata(project_root: Path) -> tuple[str, str]:
     return _run(["git", "rev-parse", "--abbrev-ref", "HEAD"]), _run(
         ["git", "rev-parse", "--short", "HEAD"]
     )
-
-
-def get_audit_log(project_root: Path) -> Path:
-    return project_root / ".ai-engineering" / "state" / "audit-log.ndjson"
-
-
-def append_audit_event(audit_log: Path, event: dict, project_root: Path | None = None) -> None:
-    try:
-        if project_root is None:
-            project_root = get_project_root()
-        branch, commit = get_git_metadata(project_root)
-        enriched = {
-            "actor": event.get("actor", "ai"),
-            "branch": event.get("branch") or branch,
-            "commit_sha": event.get("commit_sha") or commit,
-            "detail": event.get("detail", {}),
-            "event": event["event"],
-            "source": "hook",
-            "timestamp": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
-        }
-        for k, v in event.items():
-            if k not in ("source", "timestamp", "branch", "commit_sha") and k not in enriched:
-                enriched[k] = v
-        audit_log = Path(audit_log)
-        audit_log.parent.mkdir(parents=True, exist_ok=True)
-        with open(audit_log, "a", encoding="utf-8") as f:
-            f.write(json.dumps(enriched, separators=(",", ":")) + "\n")
-    except Exception:
-        pass
 
 
 def get_session_id() -> str:

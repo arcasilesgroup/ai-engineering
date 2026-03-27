@@ -74,15 +74,10 @@ def dual_stack_project(tmp_path: Path) -> Path:
 
 @pytest.fixture()
 def mocked_audit(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Suppress audit side-effects so tests run without git/repo context."""
-    monkeypatch.setattr("ai_engineering.installer.operations.append_ndjson", MagicMock())
+    """Suppress framework-event side-effects in stack operation tests."""
     monkeypatch.setattr(
-        "ai_engineering.installer.operations.get_repo_context",
-        MagicMock(return_value=None),
-    )
-    monkeypatch.setattr(
-        "ai_engineering.installer.operations.get_git_context",
-        MagicMock(return_value=None),
+        "ai_engineering.installer.operations.emit_framework_operation",
+        MagicMock(),
     )
 
 

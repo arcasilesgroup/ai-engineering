@@ -43,14 +43,13 @@ Gate failure: diagnose -> fix -> retry.
 ## Observability
 
 Telemetry is **automatic via hooks** -- configured in `.github/hooks/hooks.json`.
-- `sessionStart` hook emits `session_start` events on session initialization
-- `sessionEnd` hook emits `session_end` events on session close
 - `userPromptSubmitted` hook emits `skill_invoked` events on `/ai-*` commands
 - `preToolUse` hook enforces deny-list (blocks dangerous operations)
-- `postToolUse` hook emits `agent_dispatched` events on agent use
-- `errorOccurred` hook emits `error_occurred` events on failures
-- All events -> `.ai-engineering/state/audit-log.ndjson`
-- Dashboards: `ai-eng observe [engineer|team|ai|dora|health]`
+- `postToolUse` hook emits `agent_dispatched` and `ide_hook` events on agent use
+- `errorOccurred` hook emits `framework_error` and `ide_hook` events on failures
+- Hook, gate, governance, security, and quality outcomes flow to `.ai-engineering/state/framework-events.ndjson`
+- Registered skills, agents, contexts, and hooks are catalogued in `.ai-engineering/state/framework-capabilities.json`
+- Session discovery and transcript viewing are delegated to separately installed `agentsview`
 
 ## Subagent Orchestration
 

@@ -12,7 +12,7 @@ Structured response to security incidents: leaked secrets, unauthorized access, 
 
 1. **Contain immediately**: Rotate compromised credentials. Revoke access tokens.
 2. **Assess scope**: What was exposed? For how long? Who had access?
-3. **Audit trail**: Check `state/audit-log.ndjson` and git history for unauthorized changes.
+3. **Audit trail**: Check `state/framework-events.ndjson`, `state/framework-capabilities.json`, and git history for unauthorized changes.
 4. **Remediate**: Fix the vulnerability. Deploy the fix.
 5. **Notify**: Inform stakeholders per compliance requirements.
 6. **Document**: Full timeline, impact assessment, remediation steps.

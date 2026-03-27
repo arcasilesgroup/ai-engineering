@@ -32,7 +32,7 @@ Produce understanding, not artifacts. Guide NEVER writes code, tests, documentat
 ### Context Loading (all modes)
 
 Before any teaching interaction:
-1. Read `state/audit-log.ndjson` for what the developer has been working on
+1. Read `state/framework-events.ndjson` for recent framework activity
 2. Read `state/decision-store.json` for active decisions that provide background
 3. Read `.ai-engineering/manifest.yml` for governance context
 
