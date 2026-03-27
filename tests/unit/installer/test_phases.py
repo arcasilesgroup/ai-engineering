@@ -218,6 +218,10 @@ class TestHooksPhase:
         plan = phase.plan(ctx)
         assert any("hooks" in a.destination for a in plan.actions)
 
+    @pytest.mark.skipif(
+        __import__("os").name == "nt",
+        reason="Unix permission semantics not available on Windows",
+    )
     def test_execute_applies_executable_permissions(self, tmp_path: Path) -> None:
         """Execute sets +x on .sh and .py hook scripts but not _lib/*.py."""
         import stat
