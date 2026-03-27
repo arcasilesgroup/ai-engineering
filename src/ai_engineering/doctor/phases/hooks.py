@@ -81,7 +81,18 @@ def _check_hooks_scripts(ctx: DoctorContext) -> CheckResult:
 
 
 def _check_hooks_executable(ctx: DoctorContext) -> CheckResult:
-    """Verify all hook scripts have executable permission."""
+    """Verify all hook scripts have executable permission.
+
+    On Windows, file-level executable bits do not exist so the check is
+    skipped with an OK status.
+    """
+    if os.name == "nt":
+        return CheckResult(
+            name="hooks-executable",
+            status=CheckStatus.OK,
+            message="executable check skipped on Windows",
+        )
+
     hooks_dir = ctx.target / ".ai-engineering" / "scripts" / "hooks"
     if not hooks_dir.is_dir():
         return CheckResult(

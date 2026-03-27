@@ -249,6 +249,7 @@ class TestHooksFix:
 # ── hooks-executable ──────────────────────────────────────────────────
 
 
+@pytest.mark.skipif(os.name == "nt", reason="Unix permission semantics not available on Windows")
 class TestHooksExecutableCheck:
     def test_hooks_executable_all_ok(self, project: Path) -> None:
         """All scripts have executable permission -> OK."""
