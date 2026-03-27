@@ -109,7 +109,7 @@ skills:
     # Delivery
     ai-commit: { type: delivery, tags: [git] }
     ai-pr: { type: delivery, tags: [git] }
-    ai-release: { type: delivery, tags: [release] }
+    ai-release-gate: { type: delivery, tags: [release] }
     ai-cleanup: { type: delivery, tags: [git] }
     # Enterprise
     ai-security: { type: enterprise, tags: [security] }
@@ -120,12 +120,12 @@ skills:
     # Teaching + Writing
     ai-explain: { type: teaching, tags: [learning] }
     ai-guide: { type: teaching, tags: [onboarding] }
-    ai-write: { type: writing, tags: [docs] }
+    ai-write: { type: writing, tags: [content] }
+    ai-market: { type: writing, tags: [marketing, go-to-market] }
     # SDLC
     ai-note: { type: sdlc, tags: [knowledge] }
     ai-standup: { type: sdlc, tags: [reporting] }
-    ai-sprint: { type: sdlc, tags: [planning] }
-    ai-sprint-review: { type: sdlc, tags: [presentation, reporting] }
+    ai-sprint: { type: sdlc, tags: [planning, presentation] }
     ai-postmortem: { type: sdlc, tags: [incident] }
     ai-support: { type: sdlc, tags: [customer] }
     ai-resolve-conflicts: { type: sdlc, tags: [git] }
@@ -156,7 +156,7 @@ agents:
 ownership:
   framework: [".claude/skills/**", ".claude/agents/**", ".ai-engineering/**", ".github/agents/**", ".github/skills/**", ".github/hooks/**", ".github/copilot-instructions.md", ".agents/**"]
   team: [".ai-engineering/contexts/team/**"]
-  system: [".ai-engineering/state/**"]
+  system: [".ai-engineering/state/**", ".ai-engineering/learnings/**"]  # learnings: PR review learnings extracted by /ai-learn
 
 # Tooling
 tooling: [uv, ruff, gitleaks, pytest, ty, pip-audit]

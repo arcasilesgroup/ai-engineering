@@ -1,6 +1,6 @@
 ---
 name: slides
-description: HTML presentations with style presets, PPT conversion, and viewport validation
+description: Use when creating a presentation deck from scratch, converting PowerPoint to browser-native HTML, or improving layout and motion in existing HTML slides. Trigger for 'create a talk deck', 'pitch deck', 'workshop slides', 'convert my PPTX', 'presentation for the all-hands'. Generates zero-dependency self-contained HTML with keyboard/touch navigation and viewport-safe layout.
 effort: high
 argument-hint: "new|convert|enhance [topic]"
 tags: [presentation, html, css]
@@ -137,6 +137,7 @@ Every presentation must include:
 - **Called by**: user directly, `/ai-dispatch`
 - **References**: `STYLE_PRESETS.md` (same directory) for CSS base, presets, and validation rules
 - **Related**: `ai-media` (generated visuals for insert shots)
+- **See also**: `/ai-write` (prose content); `/ai-slides` handles presentation format, `/ai-write` handles narrative
 
 ## Common Mistakes
 

@@ -1,6 +1,6 @@
 ---
 name: verify
-description: Use when you need to PROVE a claim with evidence, run quality/security scans, or validate that work is actually complete. Evidence before claims -- no 'should work' allowed.
+description: Use when verification with evidence is needed — not assumptions. Trigger for 'check my code', 'is this ready to merge', 'run the tests', 'is coverage good enough', 'scan for security issues', 'does this meet our standards', 'prove it works'. Runs 7 scan modes (governance, security, quality, performance, a11y, feature, architecture). For narrative code review with human judgment, use /ai-review instead.
 effort: max
 argument-hint: "claim|governance|security|quality|performance|a11y|feature|architecture|platform"
 ---
@@ -24,41 +24,11 @@ Evidence before claims. This skill has two faces: (1) a verification protocol th
 
 ### Step 0: Load Contexts
 
-Read `.ai-engineering/manifest.yml` field `providers.stacks` for the project's declared stacks. Then load the applicable context files:
-
-1. **Languages** -- read `.ai-engineering/contexts/languages/{lang}.md` for each detected language.
-   Available (14): bash, cpp, csharp, dart, go, java, javascript, kotlin, php, python, rust, sql, swift, typescript
-2. **Frameworks** -- read `.ai-engineering/contexts/frameworks/{fw}.md` for each detected framework.
-   Available (15): android, api-design, aspnetcore, backend-patterns, bun, claude-api, deployment-patterns, django, flutter, ios, mcp-sdk, nextjs, nodejs, react, react-native
-3. **Team** -- read `.ai-engineering/contexts/team/*.md` for all team conventions.
-
-Apply loaded standards to all subsequent verification and scanning.
+Follow `.ai-engineering/contexts/step-zero-protocol.md`. Apply loaded standards to all subsequent work.
 
 ### Verification Protocol (claim mode)
 
-For every claim, follow IRRV:
-
-**I -- IDENTIFY**: What command proves this claim?
-- "Tests pass" -> `uv run pytest tests/ -v`
-- "No lint errors" -> `ruff check .`
-- "No secrets" -> `gitleaks protect --staged`
-- "File exists" -> `ls -la path/to/file`
-
-**R -- RUN**: Execute the FULL command. Not a subset. Not from memory. Fresh execution.
-
-**R -- READ**: Read the FULL output. Check:
-- Exit code (0 = success, non-zero = failure)
-- Warning lines (even with exit code 0)
-- Actual numbers (test count, coverage %, finding count)
-
-**V -- VERIFY**: Does the output CONFIRM the claim?
-- If yes: report with evidence (exact command + key output lines)
-- If no: report the discrepancy. Do not claim success.
-
-**Forbidden words** (never use these without evidence):
-- "should work", "probably fine", "seems to", "looks good"
-- "Done!", "Perfect!", "All set!"
-- "I believe", "I think", "most likely"
+Load `.ai-engineering/contexts/evidence-protocol.md` for the IRRV evidence collection protocol.
 
 ### Scan Modes (7 parallel modes)
 
@@ -81,6 +51,8 @@ For every claim, follow IRRV:
 | `architecture` | `/ai-verify architecture` | Drift, coupling, cohesion, boundaries |
 
 Auto-detect: when invoked without a mode, infer from context.
+
+**Delegation**: `security` mode delegates full execution to `/ai-security`. `governance` mode delegates full execution to `/ai-governance`. ai-verify acts as the entry point; the specialist skill owns the logic.
 
 ### Scan Output Contract
 
@@ -133,6 +105,7 @@ Every scan mode produces:
 
 - **Called by**: `/ai-dispatch` (post-task review), `ai-build agent` (after implementation), user directly
 - **Calls**: stack-specific tools (pytest, ruff, gitleaks, etc.)
+- **Delegates**: `/ai-security` (security mode), `/ai-governance` (governance mode)
 - **Read-only**: never modifies source code -- produces findings with remediation
 
 $ARGUMENTS

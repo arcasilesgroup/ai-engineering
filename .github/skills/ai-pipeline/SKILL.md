@@ -1,6 +1,6 @@
 ---
 name: ai-pipeline
-description: "Use when creating or evolving CI/CD pipelines: stack-aware generation for GitHub Actions and Azure Pipelines with security enforcement."
+description: "Use for CI/CD pipeline work: generating GitHub Actions or Azure Pipelines workflows, evolving existing pipelines, or validating pipeline compliance (SHA pinning, timeouts, secret handling). Trigger for 'set up CI/CD', 'add a deployment pipeline', 'is this workflow secure?', 'check our workflow policy', 'add a security scan to CI'. Providers: GitHub Actions (default), Azure Pipelines."
 effort: high
 argument-hint: "generate|evolve|validate|--provider github|azure"
 mode: agent
@@ -24,15 +24,7 @@ Router skill for CI/CD pipeline generation. Dispatches to handler files based on
 
 ### Step 0: Load Contexts
 
-Read `.ai-engineering/manifest.yml` field `providers.stacks` for the project's declared stacks. Then load the applicable context files:
-
-1. **Languages** -- read `.ai-engineering/contexts/languages/{lang}.md` for each detected language.
-   Available (14): bash, cpp, csharp, dart, go, java, javascript, kotlin, php, python, rust, sql, swift, typescript
-2. **Frameworks** -- read `.ai-engineering/contexts/frameworks/{fw}.md` for each detected framework.
-   Available (15): android, api-design, aspnetcore, backend-patterns, bun, claude-api, deployment-patterns, django, flutter, ios, mcp-sdk, nextjs, nodejs, react, react-native
-3. **Team** -- read `.ai-engineering/contexts/team/*.md` for all team conventions.
-
-Apply loaded standards to all subsequent pipeline generation and validation.
+Follow `.ai-engineering/contexts/step-zero-protocol.md`. Apply loaded standards to all subsequent work.
 
 ## Routing
 
@@ -66,6 +58,7 @@ Default (no sub-command): `generate`.
 - Stack detection: reads `providers.stacks` from `.ai-engineering/manifest.yml`.
 - Validation: `actionlint` for GitHub Actions.
 - Policy: `scripts/check_workflow_policy.py` for SHA pinning and timeout compliance.
+- **Boundary**: `/ai-governance` validates governance process; `/ai-pipeline` generates and validates the workflow files themselves
 
 ## References
 

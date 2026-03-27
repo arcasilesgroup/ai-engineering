@@ -1,6 +1,6 @@
 ---
 name: ai-commit
-description: "Use when committing changes: governed commit workflow with staging, lint, secret scan, conventional commit message, and push."
+description: "Use when committing, saving, or pushing code to git. Trigger for 'commit my changes', 'save my work', 'push this to remote', 'stage these files', 'I'm done with this task', 'ship it'. Runs governed pipeline: auto-branch from protected branches, selective staging, ruff format+lint, gitleaks secret scan, documentation gate, conventional commit message, and push. Use /ai-pr instead when a pull request is the goal."
 effort: medium
 argument-hint: "--force|--only|[message hint]"
 tags: [git, commit, push, hooks, delivery]
@@ -13,7 +13,7 @@ requires:
 
 # Commit Workflow
 
-Governed commit pipeline: stage specific files, format, lint, secret-detect, compose message, and push. NEVER uses `--no-verify`. NEVER pushes to `main` or `master`.
+Governed commit pipeline: stage specific files, format, lint, secret-detect, compose message, and push. NEVER uses `--no-verify` -- hooks exist to catch problems before they reach the repo. NEVER pushes to `main` or `master` -- protected branches require PR review for auditability.
 
 ## When to Use
 

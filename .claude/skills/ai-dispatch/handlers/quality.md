@@ -125,16 +125,14 @@ Round 1: 2 blockers, 3 criticals, 5 highs -> FIX
 Round 2: 1 blocker, 0 criticals, 1 high -> STOP (blockers remain)
 ```
 
-## Dispatch Quality Does NOT Check
+## Governance Gate
 
-This handler intentionally omits governance concerns. The following are outside its scope:
+For governance-sensitive specs (frontmatter `regulated: true`, or spec body mentions compliance/audit/risk acceptance), run `/ai-governance` on the changeset **before** proceeding to dispatch tasks.
 
-- Decision-store constraint violations (no guard agent dispatch)
-- Expired risk acceptances
-- Ownership model violations
-- Framework integrity drift
+- **Advisory** (medium severity): logged to `plan.md` under `## Governance Findings` -- does not block dispatch.
+- **Blocking** (high/critical severity): must be resolved before implementation begins.
 
-Users working on governance-sensitive changes must run `/ai-governance` separately.
+This gate is fail-closed for blocking findings -- dispatch halts until resolved.
 
 ## Gate
 

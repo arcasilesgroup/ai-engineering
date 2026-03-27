@@ -1,6 +1,6 @@
 ---
 name: board-discover
-description: "Use after install to auto-discover board configuration: GitHub Projects v2 fields, ADO process templates, state mappings, custom fields, docs URLs, and CI/CD standards URLs."
+description: Use to discover and configure project board integration after framework install, when board config is missing or stale, or when the team switches projects. Trigger for 'set up the board', 'board sync isn't working', 'we moved to a new GitHub project', 'configure our ADO board', 'the work item states don't match'. Detects GitHub Projects v2 or Azure DevOps fields and writes atomic config to manifest.yml.
 effort: high
 argument-hint: "[--refresh]"
 tags: [board, discovery, configuration]
@@ -137,5 +137,6 @@ Uses labels with `status:` prefix: `status:refinement`, `status:ready`, `status:
 - **Called by**: user directly, `/ai-onboard` (suggestion when board config missing)
 - **Writes**: `.ai-engineering/manifest.yml` (work_items section)
 - **Transitions to**: manual -- user reviews discovered config
+- **Pair**: `/ai-board-sync` (sync uses config written by discover; run discover first if sync fails)
 
 $ARGUMENTS

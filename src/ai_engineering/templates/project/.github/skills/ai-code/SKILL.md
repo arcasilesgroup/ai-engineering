@@ -1,6 +1,6 @@
 ---
 name: ai-code
-description: Use when writing new code, implementing features, or adding functionality. Pre-coding checklist, context-aware coding with layer precedence, interface-first design, backward-compatibility checks, self-review.
+description: "Use when writing new production code: implementing features, adding functions, creating modules, or building approved plan tasks. Trigger for 'implement this', 'write the code for', 'add X to Y', 'build this function', 'make this work'. Loads language/framework context, applies interface-first design and backward-compatibility checks. Not for tests (/ai-test), debugging (/ai-debug), or refactoring (/ai-simplify)."
 effort: high
 argument-hint: "[task description or file:target]"
 mode: agent
@@ -26,15 +26,7 @@ NOT for: tests (use /ai-test), debugging (use /ai-debug), refactoring (dispatch 
 
 ### Step 0: Load Contexts
 
-Read `.ai-engineering/manifest.yml` field `providers.stacks` for the project's declared stacks. Then load the applicable context files:
-
-1. **Languages** -- read `.ai-engineering/contexts/languages/{lang}.md` for each detected language.
-   Available (14): bash, cpp, csharp, dart, go, java, javascript, kotlin, php, python, rust, sql, swift, typescript
-2. **Frameworks** -- read `.ai-engineering/contexts/frameworks/{fw}.md` for each detected framework.
-   Available (15): android, api-design, aspnetcore, backend-patterns, bun, claude-api, deployment-patterns, django, flutter, ios, mcp-sdk, nextjs, nodejs, react, react-native
-3. **Team** -- read `.ai-engineering/contexts/team/*.md` for all team conventions.
-
-Apply with precedence: **team > frameworks > languages** (declared in `manifest.yml contexts.precedence`). When a team convention conflicts with a framework default, team wins.
+Follow `.ai-engineering/contexts/step-zero-protocol.md`. Apply loaded standards to all subsequent work.
 
 ### Step 1: Pre-Coding Checklist
 

@@ -1,6 +1,6 @@
 ---
 name: ai-eval
-description: "Eval-Driven Development: capability evals, regression evals, graders (code/model/human), pass@k metrics"
+description: "Use when measuring AI system reliability over time: defining pass/fail criteria before implementation, running capability checks, detecting regressions after prompt or model changes, or tracking pass@k metrics. Trigger for 'how reliable is this', 'did my changes break anything', 'measure AI performance', 'define success criteria', 'eval this'. Distinct from /ai-test (code correctness) and /ai-verify (quality gates) — evals measure AI task completion consistency."
 effort: max
 argument-hint: "define|check|report|regression [feature]"
 mode: agent
@@ -211,6 +211,7 @@ Risk Level: LOW/MEDIUM/HIGH
 - **Called by**: user directly, `/ai-dispatch`, `/ai-verify` (can trigger regression evals)
 - **Calls**: test runners (code graders), Claude (model graders), stack-specific tools
 - **Complements**: `ai-verify` (verify = current quality gates, eval = AI reliability over time), `ai-test` (tests verify code correctness, evals verify AI task completion)
+- **See also**: `/ai-test` (write tests first; eval measures reliability of AI outputs)
 
 ## Common Mistakes
 

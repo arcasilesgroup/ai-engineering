@@ -1,6 +1,6 @@
 ---
 name: ai-support
-description: Use when investigating a customer support ticket, reproducing a reported issue, or documenting support findings.
+description: "Use when a customer or user reports a problem needing structured investigation: reproducing the issue, tracing to code, documenting resolution. Trigger for 'a user is reporting that', 'customer complaint', 'support ticket', 'investigate this bug report', 'reproduce the issue', 'search past support cases'. Builds a searchable knowledge base organized by ticket ID."
 effort: high
 argument-hint: "start <ticket-id>|find [query]"
 mode: agent

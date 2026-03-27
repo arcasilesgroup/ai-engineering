@@ -26,13 +26,14 @@ Invoke as `/ai-<name>`. Grouped by workflow stage.
 | | /ai-schema | Database schema design and migrations |
 | **Deliver** | /ai-commit | Governed commit (lint + secrets + push) |
 | | /ai-pr | Pull request with auto-generated summary |
-| | /ai-release | GO/NO-GO release gate |
+| | /ai-release-gate | GO/NO-GO release gate |
 | | /ai-cleanup | Branch cleanup and repo hygiene |
 | **Verify** | /ai-verify | Evidence-based quality scanning |
 | | /ai-review | Parallel multi-agent code review |
 | | /ai-security | SAST, dependency audit, SBOM |
 | | /ai-governance | Compliance and policy validation |
-| **Document** | /ai-write | Docs, changelogs, articles |
+| **Document** | /ai-write | Reports, blog posts, pitches, solution intent |
+| | /ai-market | Marketing and go-to-market execution |
 | | /ai-explain | Technical explanations |
 | | /ai-guide | Project onboarding walkthroughs |
 | | /ai-docs | Project documentation lifecycle (changelog, readme, solution-intent, external portal) |
@@ -42,7 +43,6 @@ Invoke as `/ai-<name>`. Grouped by workflow stage.
 | **Sprint** | /ai-note | Technical discovery notes |
 | | /ai-standup | Standup notes from PR activity |
 | | /ai-sprint | Sprint planning and retrospectives |
-| | /ai-sprint-review | Sprint review presentations |
 | | /ai-postmortem | Incident postmortems (DERP format) |
 | | /ai-support | Customer support investigation |
 | | /ai-resolve-conflicts | Git conflict resolution |
@@ -141,7 +141,7 @@ contexts/
 `/ai-security` -> `/ai-governance`
 
 **Sprint review:**
-`/ai-sprint-review`
+`/ai-sprint review`
 
 ## Multi-IDE
 

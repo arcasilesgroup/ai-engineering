@@ -1,6 +1,6 @@
 ---
 name: ai-learn
-description: "Use when analyzing merged PRs for AI blind spots, extracting patterns from human reviewer feedback, or applying accumulated learnings to context files."
+description: "Use when the AI keeps repeating the same mistakes, when you want the framework to learn from merged PR review feedback, or when enough corrections have accumulated to update standards. Trigger for 'the AI keeps doing X wrong', 'learn from this PR', 'what patterns did reviewers catch', 'update our standards from feedback'. Analyzes PRs, identifies missed checks, and synthesizes patterns into context updates."
 effort: medium
 argument-hint: "single <pr>|batch|apply"
 ---
@@ -18,6 +18,12 @@ Continuous improvement from delivery outcomes. Analyzes merged PRs to find where
 - Context: after PR merge (single), periodic review (batch), enough patterns accumulated (apply).
 
 ## Modes
+
+### Step 0 -- Initialize learnings directory (first-time use)
+
+```bash
+mkdir -p .ai-engineering/learnings/
+```
 
 ### single <pr> -- Analyze one merged PR
 
@@ -78,11 +84,9 @@ Continuous improvement from delivery outcomes. Analyzes merged PRs to find where
 - Learnings index: `.ai-engineering/learnings/index.jsonl`
 - One JSON object per line, per PR analyzed
 
-## Post-Correction Learning
+## Integration
 
-When a user corrects AI behavior during a session (not just PR review):
-1. Capture the correction: what was wrong, what the user wanted instead
-2. Append the pattern to `.ai-engineering/contexts/team/lessons.md` following the format in that file
-3. On next `/ai-learn apply`, include lesson-type decisions in synthesis
+- **See also**: `/ai-note` (save individual findings before synthesizing)
+- **Correction capture is owned by `/ai-instinct`** -- when the AI makes repeated mistakes, run /ai-instinct to consolidate observations into learned patterns.
 
 $ARGUMENTS

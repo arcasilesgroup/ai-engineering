@@ -1,6 +1,6 @@
 ---
 name: schema
-description: Use when designing schemas, writing migrations, optimizing queries, or managing data lifecycle across PostgreSQL, MySQL, SQLite, and MongoDB.
+description: "Use for database engineering: designing schemas, planning safe migrations with rollback scripts, optimizing slow queries, index recommendations, data retention policies, or GDPR right-to-erasure. Trigger for 'add a column', 'we need a migration', 'the query is slow', 'generate a migration', 'define a retention policy', 'GDPR compliance for data'. Supports PostgreSQL, MySQL, SQLite, MongoDB."
 effort: max
 argument-hint: "design|migrate|optimize|lifecycle"
 tags: [database, sql, migration, schema, optimization, enterprise]
@@ -18,21 +18,13 @@ Schema design, safe migration generation, query optimization, and data lifecycle
 - Planning safe migrations with rollback.
 - Optimizing slow queries.
 - Defining retention policies or archival strategies.
-- NOT for infrastructure provisioning -- use `/ai-infra`.
+- NOT for infrastructure provisioning -- no infra skill exists.
 
 ## Process
 
 ### Step 0: Load Contexts
 
-Read `.ai-engineering/manifest.yml` field `providers.stacks` for the project's declared stacks. Then load the applicable context files:
-
-1. **Languages** -- read `.ai-engineering/contexts/languages/{lang}.md` for each detected language.
-   Available (14): bash, cpp, csharp, dart, go, java, javascript, kotlin, php, python, rust, sql, swift, typescript
-2. **Frameworks** -- read `.ai-engineering/contexts/frameworks/{fw}.md` for each detected framework.
-   Available (15): android, api-design, aspnetcore, backend-patterns, bun, claude-api, deployment-patterns, django, flutter, ios, mcp-sdk, nextjs, nodejs, react, react-native
-3. **Team** -- read `.ai-engineering/contexts/team/*.md` for all team conventions.
-
-Apply loaded standards to all subsequent schema design and query generation.
+Follow `.ai-engineering/contexts/step-zero-protocol.md`. Apply loaded standards to all subsequent work.
 
 ## Modes
 

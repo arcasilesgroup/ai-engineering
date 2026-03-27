@@ -74,6 +74,11 @@ _DEFAULT_OWNERSHIP_PATHS: list[tuple[str, OwnershipLevel, FrameworkUpdatePolicy]
         FrameworkUpdatePolicy.DENY,
     ),
     (
+        ".ai-engineering/contexts/*.md",
+        OwnershipLevel.FRAMEWORK_MANAGED,
+        FrameworkUpdatePolicy.ALLOW,
+    ),
+    (
         ".ai-engineering/state/install-state.json",
         OwnershipLevel.SYSTEM_MANAGED,
         FrameworkUpdatePolicy.ALLOW,

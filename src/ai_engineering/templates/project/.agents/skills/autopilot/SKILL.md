@@ -1,6 +1,6 @@
 ---
 name: autopilot
-description: "Use when executing large approved specs autonomously: decomposes into focused sub-specs, deep-plans each with parallel agents, builds a DAG, implements in waves, runs a quality convergence loop (verify+guard+review x3), and delivers via PR with full integrity report. Invocation IS approval."
+description: Use after /ai-brainstorm approval when a spec is large (3+ independent concerns or 10+ files) and needs autonomous end-to-end delivery. Decomposes into sub-specs, plans with parallel agents, builds a dependency DAG, implements in waves, runs quality convergence loops, and delivers via PR. Invocation is the approval gate — no further confirmation requested. Not for small tasks — use /ai-dispatch.
 effort: max
 argument-hint: "'implement spec-NNN'|--resume|--no-watch"
 tags: [orchestration, autonomous, multi-spec, pipeline, execution, dag, transparency]

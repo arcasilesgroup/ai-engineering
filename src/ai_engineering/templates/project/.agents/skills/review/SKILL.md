@@ -1,6 +1,6 @@
 ---
 name: review
-description: Use when reviewing code changes (PRs, diffs, or files) with parallel specialized agents. 8-agent review with self-challenge protocol and cross-agent corroboration.
+description: "Use when code changes need human-quality judgment: PR reviews, file reviews, diff analysis, architecture feedback. Trigger for 'review this', 'give me feedback', 'look over my PR', 'any issues with this', 'is this merge-ready', 'code review please'. Also 'find review comments' (find mode) or 'what have past reviews taught us' (learn mode). For automated gate checking (coverage, lint, security), use /ai-verify instead."
 effort: max
 argument-hint: "review|find|learn [PR number or file paths]"
 ---
@@ -24,13 +24,7 @@ Parallel specialized code review. Dispatches 8 review agents, each analyzing the
 
 ### Step 0: Load Contexts
 
-Read `.ai-engineering/manifest.yml` field `providers.stacks` for the project's declared stacks. Then load the applicable context files:
-
-1. **Languages** -- read `.ai-engineering/contexts/languages/{lang}.md` for each detected language.
-   Available (14): bash, cpp, csharp, dart, go, java, javascript, kotlin, php, python, rust, sql, swift, typescript
-2. **Frameworks** -- read `.ai-engineering/contexts/frameworks/{fw}.md` for each detected framework.
-   Available (15): android, api-design, aspnetcore, backend-patterns, bun, claude-api, deployment-patterns, django, flutter, ios, mcp-sdk, nextjs, nodejs, react, react-native
-3. **Team** -- read `.ai-engineering/contexts/team/*.md` for all team conventions.
+Follow `.ai-engineering/contexts/step-zero-protocol.md`. Apply loaded standards to all subsequent work.
 
 **Handler delegation**: when proceeding to a handler (review, find, learn), the handler's Step 1 loads contexts -- do not duplicate. Use Step 0 only for direct invocations without a handler.
 
@@ -106,7 +100,7 @@ Resolution: Finding stands but severity reduced to minor. The handler delegates
 
 ## Integration
 
-- **Called by**: user directly, `/ai-pr` (pre-merge review)
+- **Called by**: user directly, `/ai-pr` (pre-merge review), `/ai-dispatch` (two-stage review during execution)
 - **Calls**: Explore agent (`ai-explore`) for context, `handlers/review.md`, `handlers/find.md`, `handlers/learn.md`
 - **Read-only**: never modifies code -- produces review findings
 

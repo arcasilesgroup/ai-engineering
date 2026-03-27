@@ -1,6 +1,6 @@
 ---
 name: ai-dispatch
-description: Use when an approved plan exists (plan.md + tasks.md) and you need to execute it. Dispatches subagents per task with two-stage review and progress tracking.
+description: Use when an approved plan.md exists and execution should begin. Trigger for 'go', 'start building', 'execute the plan', 'implement it', 'let's do this', 'run the plan', 'resume', or 'continue' after interruption. Not without an approved plan — run /ai-plan first. Orchestrates subagents per task with two-stage review, progress tracking, and automated delivery.
 effort: high
 argument-hint: "[spec-NNN or --resume]"
 mode: agent

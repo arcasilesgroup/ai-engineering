@@ -1,6 +1,6 @@
 ---
 name: ai-test
-description: "Use when writing tests, enforcing TDD (RED-GREEN-REFACTOR), analyzing coverage gaps, or planning test strategy. Supports Python, TypeScript, .NET, Rust, Go."
+description: "Use when working with tests: writing new tests, enforcing TDD (RED-GREEN-REFACTOR), analyzing coverage gaps, or defining test strategy. Trigger for 'add tests for', 'write a test', 'I need 80% coverage', 'test this', 'am I testing enough', 'plan my test approach'. For failing tests where the fix is not obvious, use /ai-debug instead. Supports Python, TypeScript, .NET, Rust, Go."
 effort: high
 argument-hint: "plan|run|gap|tdd [target]"
 ---
@@ -23,15 +23,7 @@ TDD enforcement and testing skill. Tests are executable specifications -- they d
 
 ### Step 0: Load Contexts
 
-Read `.ai-engineering/manifest.yml` field `providers.stacks` for the project's declared stacks. Then load the applicable context files:
-
-1. **Languages** -- read `.ai-engineering/contexts/languages/{lang}.md` for each detected language.
-   Available (14): bash, cpp, csharp, dart, go, java, javascript, kotlin, php, python, rust, sql, swift, typescript
-2. **Frameworks** -- read `.ai-engineering/contexts/frameworks/{fw}.md` for each detected framework.
-   Available (15): android, api-design, aspnetcore, backend-patterns, bun, claude-api, deployment-patterns, django, flutter, ios, mcp-sdk, nextjs, nodejs, react, react-native
-3. **Team** -- read `.ai-engineering/contexts/team/*.md` for all team conventions.
-
-Apply loaded standards to all subsequent test generation and review.
+Follow `.ai-engineering/contexts/step-zero-protocol.md`. Apply loaded standards to all subsequent work.
 
 ### Mode: tdd (RED-GREEN-REFACTOR)
 
@@ -70,7 +62,7 @@ If the test still fails: fix your code, not the test.
 **Phase REFACTOR -- Clean Up (after GREEN only)**
 
 - Remove duplication, improve names, extract helpers
-- Tests MUST stay green throughout
+- Tests MUST stay green throughout -- a failing refactor is a regression, not a refactor
 - Do NOT add behavior during refactor
 
 ### Mode: run
@@ -139,7 +131,7 @@ Mocks are acceptable ONLY for:
 
 ## Iron Law
 
-If tests are wrong, escalate to the user. NEVER weaken, skip, or modify tests to make implementation easier. "Tests are wrong" means the requirement changed -- not that passing them is hard.
+If tests are wrong, escalate to the user. NEVER weaken, skip, or modify tests to make implementation easier -- tests are the contract; bending them hides bugs. "Tests are wrong" means the requirement changed -- not that passing them is hard.
 
 ## Common Mistakes
 
@@ -161,5 +153,6 @@ If tests are wrong, escalate to the user. NEVER weaken, skip, or modify tests to
 - **Called by**: `/ai-dispatch` (build tasks), `ai-build agent` (TDD mode), user directly
 - **Calls**: stack-specific test runners
 - **Transitions to**: `ai-build` (GREEN phase), `/ai-verify` (coverage validation)
+- **See also**: `/ai-debug` (diagnose failing tests), `/ai-eval` (measure reliability over time)
 
 $ARGUMENTS

@@ -1,6 +1,6 @@
 ---
 name: ai-explain
-description: "Use when explaining code, concepts, patterns, or architecture: engineer-grade technical explanations with 3-tier depth control, ASCII diagrams, and execution traces."
+description: "Use when a developer asks 'how does this work?', 'why does it do X?', 'trace through this', 'explain this pattern', or needs engineer-grade technical explanations anchored in real codebase examples. 3-tier depth (brief/standard/deep) with ASCII diagrams and execution traces. Not for documentation (/ai-write) or fixing code (/ai-dispatch)."
 effort: high
 argument-hint: "<topic>|--depth brief|standard|deep"
 tags: [explanation, teaching, analysis, architecture]

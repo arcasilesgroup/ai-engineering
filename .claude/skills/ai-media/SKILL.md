@@ -1,7 +1,7 @@
 ---
 name: ai-media
-description: "AI media generation via fal.ai MCP: images, video, audio with progressive quality"
-effort: high
+description: "Use when generating images (thumbnails, hero images), videos (demos, b-roll, social clips), or audio (voiceover, music, SFX) using AI models. Requires fal-ai MCP server. Estimates cost before generation. Uses cheap models for iteration, production models for finals. Trigger for 'generate an image', 'create a thumbnail', 'make a voiceover', 'AI video'."
+effort: medium
 argument-hint: "image|video|audio [description]"
 tags: [media, generation, fal-ai]
 requires: { mcp: ["fal-ai"] }

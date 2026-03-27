@@ -118,11 +118,11 @@ Each IDE has its own skill and agent files. Same content, platform-native format
 
 Grouped by type. Invoke as `/ai-<name>`.
 
-**Workflow:** brainstorm, plan, dispatch, test, debug, verify, review, eval
-**Delivery:** commit, pr, release, cleanup
-**Enterprise:** security, governance, pipeline, schema, docs, board-discover, board-sync
+**Workflow:** brainstorm, plan, dispatch, code, test, debug, verify, review, eval, schema
+**Delivery:** commit, pr, release-gate, cleanup, market
+**Enterprise:** security, governance, pipeline, docs, board-discover, board-sync
 **Teaching:** explain, guide, write, slides, media, video-editing
-**SDLC:** note, standup, sprint, sprint-review, postmortem, support, resolve-conflicts
+**SDLC:** note, standup, sprint, postmortem, support, resolve-conflicts
 **Meta:** create, learn, prompt, onboard, analyze-permissions, instinct, autopilot, project-identity
 
 ## Effort Levels
@@ -131,9 +131,9 @@ Each skill declares `effort` in frontmatter. Assignment by cognitive weight:
 
 | Effort | Count |
 |--------|-------|
-| max | 11 (brainstorm, plan, review, verify, security, debug, governance, schema, instinct, eval, autopilot) |
-| high | 16 (dispatch, test, write, explain, guide, pr, docs, support, postmortem, pipeline, create, prompt, slides, media, video-editing, board-discover) |
-| medium | 13 (commit, cleanup, standup, note, onboard, release, resolve-conflicts, sprint, sprint-review, learn, analyze-permissions, project-identity, board-sync) |
+| max | 8 (brainstorm, review, verify, security, governance, schema, eval, autopilot) |
+| high | 20 (board-discover, code, create, debug, dispatch, docs, explain, guide, market, pipeline, plan, postmortem, pr, release-gate, slides, sprint, support, test, video-editing, write) |
+| medium | 13 (analyze-permissions, board-sync, cleanup, commit, instinct, learn, media, note, onboard, project-identity, prompt, resolve-conflicts, standup) |
 
 ## Quality Gates
 

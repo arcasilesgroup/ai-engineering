@@ -89,7 +89,7 @@ If `mergeable == CONFLICTING` (GitHub) or merge status indicates conflict (Azure
 
 1. `git fetch origin <target_branch>`
 2. `git rebase origin/<target_branch>`
-3. If rebase conflicts: read conflicting files, resolve, `git add <resolved_files>`, `git rebase --continue`
+3. If rebase conflicts: READ `.github/skills/ai-resolve-conflicts/SKILL.md` and delegate conflict resolution to its category-aware logic (lock files → regenerate, migrations → ask user, generated files → accept theirs, config → AI merge, code → intent-aware resolution). This ensures lock-file regeneration, migration ordering safety, and stacked-PR detection are active during automated repair.
 4. `git push origin <branch> --force-with-lease`
 5. Reset `interval = 60s`. Wait, return to Step 1.
 

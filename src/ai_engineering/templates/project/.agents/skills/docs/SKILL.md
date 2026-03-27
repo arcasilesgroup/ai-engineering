@@ -1,6 +1,6 @@
 ---
 name: docs
-description: "Use for project documentation lifecycle: changelogs, READMEs, solution intent scaffolding/sync/validation, external docs portal updates, and documentation quality gates."
+description: "Use for documentation lifecycle: updating CHANGELOG.md, refreshing README files, scaffolding or syncing solution intent architecture docs, pushing to external docs portals, and verifying documentation coverage. Also invoked automatically by /ai-pr. Trigger for 'update the changelog', 'the README is stale', 'document this feature', 'docs portal needs updating', 'did we document all changes'."
 effort: high
 argument-hint: "changelog|readme|solution-intent-init|solution-intent-sync|solution-intent-validate|docs-portal|docs-quality-gate"
 tags: [documentation, architecture, governance]
@@ -61,6 +61,7 @@ Unified documentation skill covering the full project documentation lifecycle. S
 - **Called by**: `/ai-pr` (step 6.5) via parallel subagent dispatch
 - **Calls**: `handlers/changelog.md`, `handlers/readme.md`, `handlers/solution-intent-init.md`, `handlers/solution-intent-sync.md`, `handlers/solution-intent-validate.md`, `handlers/docs-portal.md`, `handlers/docs-quality-gate.md`
 - **Reads**: `.ai-engineering/manifest.yml` (auto_update flags, external_portal config), `docs/solution-intent.md`, `.ai-engineering/state/decision-store.json`
+- **NOT** `/ai-write` -- for prose content (blog posts, pitch decks) use `/ai-write` instead
 
 ## Governance Notes
 

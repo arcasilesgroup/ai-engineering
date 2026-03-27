@@ -1,7 +1,7 @@
 ---
 name: ai-debug
-description: "Use when investigating unexpected behavior, test failures, runtime errors, or regressions. Systematic 4-phase diagnosis: symptom analysis, reproduction, root cause, solution."
-effort: max
+description: "Use when something is broken and you need to find out why: test failures, runtime errors, crashes, regressions, or unexpected behavior. Trigger for 'it's not working', 'something broke', 'this used to work', 'I'm getting an error', 'CI is failing', 'the output is wrong', or 'why is X happening'. Systematic 4-phase diagnosis — never patches symptoms without finding the root cause."
+effort: high
 argument-hint: "[error description or file:line]"
 ---
 
@@ -23,15 +23,7 @@ Systematic debugging skill. Four phases, always in order. NEVER fix symptoms -- 
 
 ### Step 0: Load Contexts
 
-Read `.ai-engineering/manifest.yml` field `providers.stacks` for the project's declared stacks. Then load the applicable context files:
-
-1. **Languages** -- read `.ai-engineering/contexts/languages/{lang}.md` for each detected language.
-   Available (14): bash, cpp, csharp, dart, go, java, javascript, kotlin, php, python, rust, sql, swift, typescript
-2. **Frameworks** -- read `.ai-engineering/contexts/frameworks/{fw}.md` for each detected framework.
-   Available (15): android, api-design, aspnetcore, backend-patterns, bun, claude-api, deployment-patterns, django, flutter, ios, mcp-sdk, nextjs, nodejs, react, react-native
-3. **Team** -- read `.ai-engineering/contexts/team/*.md` for all team conventions.
-
-Apply loaded standards to all subsequent debugging and fix implementation.
+Follow `.ai-engineering/contexts/step-zero-protocol.md`. Apply loaded standards to all subsequent work.
 
 ### Phase 1: Symptom Analysis (WHAT, WHEN, WHERE)
 
@@ -125,5 +117,6 @@ Fix: add `config = yaml.safe_load(f) or {}` instead of `config = yaml.safe_load(
 - **Called by**: `/ai-dispatch` (debug tasks), `ai-build agent` (when tests fail), user directly
 - **Calls**: test runners (to reproduce), `/ai-test` (regression test)
 - **Transitions to**: `ai-build` (fix implementation), `/ai-commit` (after verified fix)
+- **See also**: `/ai-test` (reproduce failures before fixing), `/ai-postmortem` (for production incidents)
 
 $ARGUMENTS

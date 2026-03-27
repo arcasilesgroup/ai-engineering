@@ -1,6 +1,6 @@
 ---
 name: ai-board-sync
-description: Operational skill that updates work item state at each lifecycle phase. Called by other skills (brainstorm, dispatch, pr), not directly by users.
+description: "Use to update work item state on the project board at lifecycle phase transitions. Automatically invoked by /ai-brainstorm (refinement, ready), /ai-dispatch (in_progress), and /ai-pr (in_review). Also invoke manually for 'move this issue to in-review', 'update the board', 'mark as in progress', 'sync the work item state'. Fail-open: never blocks the calling workflow."
 effort: medium
 argument-hint: "<phase> <work-item-ref> [--comment <text>]"
 mode: agent
@@ -112,10 +112,15 @@ The calling skill checks the return status for logging but NEVER stops its own e
 - Not checking if state_mapping is configured before attempting update
 - Attempting Projects v2 update without first looking up the project item ID
 
+## Scripts
+
+- `scripts/board-sync-github.sh <project-number> [--owner <org>]` -- query GitHub Projects v2 items and summarize work item states
+
 ## Integration
 
 - **Called by**: `ai-brainstorm`, `ai-dispatch`, `ai-pr` (internal calls, not user-facing)
 - **Reads**: `.ai-engineering/manifest.yml` (work_items section)
 - **Writes**: external only (provider board state, work item comments)
+- **Pair**: `/ai-board-discover` (discover writes the config this skill reads; run discover if sync fails)
 
 $ARGUMENTS

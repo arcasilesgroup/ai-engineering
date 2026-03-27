@@ -1,7 +1,7 @@
 ---
 name: instinct
-description: Use when reviewing project-local instinct observations, consolidating the canonical instinct store, or inspecting the bounded instinct context.
-effort: max
+description: "Use when you want to see what the AI has learned about your project's workflow patterns, when session context feels stale, or when enough activity has accumulated to consolidate observations. Trigger for 'what has the AI learned?', 'refresh the instinct context', 'show instinct status', 'consolidate observations'. Two modes: status (inspect current state) and review (consolidate new observations into project-local instincts)."
+effort: medium
 argument-hint: "[status|review]"
 tags: [meta, learning, continuous-improvement]
 ---
@@ -90,6 +90,10 @@ If there is no meaningful delta and the context is still fresh, report that no c
 - which sections changed
 - which noisy or duplicate entries were merged or ignored
 - whether `context.md` was regenerated
+
+## Scripts
+
+- `scripts/consolidate.py [--context PATH] [--observations PATH]` -- read instinct context and report observation counts per pattern family
 
 ## Boundaries
 

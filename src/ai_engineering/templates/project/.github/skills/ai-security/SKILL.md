@@ -1,6 +1,6 @@
 ---
 name: ai-security
-description: "Use when scanning for security vulnerabilities: SAST, dependency audit, secret detection, and SBOM generation with OWASP mapping and CWE references."
+description: "Use for any security concern: pre-release security gates, dependency vulnerability checks ('is this package safe?'), secret or credential exposure, SBOM generation for compliance, SAST with OWASP/CWE mapping. Trigger for 'is this secure?', 'audit dependencies', 'check for secrets', 'security report', 'compliance review'. Also before merging large PRs or adding external packages."
 effort: max
 argument-hint: "all|static|deps|secrets|sbom|--fix"
 mode: agent
@@ -20,22 +20,14 @@ Unified security assessment for regulated industries. Modes: `static` (SAST with
 ## When to Use
 
 - Security review, pre-release gate, dependency audit, compliance reporting.
-- NOT for code quality metrics -- use `/ai-quality`.
+- NOT for code quality metrics -- use `/ai-verify quality`.
 - NOT for governance compliance -- use `/ai-governance`.
 
 ## Process
 
 ### Step 0: Load Contexts
 
-Read `.ai-engineering/manifest.yml` field `providers.stacks` for the project's declared stacks. Then load the applicable context files:
-
-1. **Languages** -- read `.ai-engineering/contexts/languages/{lang}.md` for each detected language.
-   Available (14): bash, cpp, csharp, dart, go, java, javascript, kotlin, php, python, rust, sql, swift, typescript
-2. **Frameworks** -- read `.ai-engineering/contexts/frameworks/{fw}.md` for each detected framework.
-   Available (15): android, api-design, aspnetcore, backend-patterns, bun, claude-api, deployment-patterns, django, flutter, ios, mcp-sdk, nextjs, nodejs, react, react-native
-3. **Team** -- read `.ai-engineering/contexts/team/*.md` for all team conventions.
-
-Apply loaded standards to all subsequent security scanning and analysis.
+Follow `.ai-engineering/contexts/step-zero-protocol.md`. Apply loaded standards to all subsequent work.
 
 ## Modes
 
@@ -125,9 +117,11 @@ When `--fix` is passed, attempt automatic remediation:
 
 ## Integration
 
+- **Called by**: `/ai-verify` (security mode delegation)
+
 - Pre-commit hook runs `gitleaks protect --staged` automatically.
 - Pre-push hook runs `semgrep` and `pip-audit`.
-- Release gate (`/ai-release`) aggregates security results.
+- Release gate (`/ai-release-gate`) aggregates security results.
 - Risk acceptances go to `state/decision-store.json` via `/ai-governance risk`.
 
 ## References
