@@ -5,10 +5,14 @@
 set -uo pipefail
 
 main() {
+    # Read JSON from stdin (postToolUse event data)
     INPUT=$(cat)
+
+    # Resolve project root from script location
     SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     PROJECT_DIR="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 
+    # Extract toolName from stdin JSON
     TOOL_NAME=""
     if command -v jq >/dev/null 2>&1; then
         TOOL_NAME=$(echo "$INPUT" | jq -r '.toolName // empty' 2>/dev/null)
@@ -22,7 +26,12 @@ except Exception:
 " 2>/dev/null)
     fi
 
+    # Detect agent dispatch: match registered agent names OR generic "task"/"agent" patterns.
+    # Copilot sends the agent's registered `name` as toolName (e.g., "Build", "Explorer").
+    # Claude sends "task" or tools containing "agent" in the name.
     TOOL_LOWER=$(echo "$TOOL_NAME" | tr '[:upper:]' '[:lower:]')
+
+    # Registered agent names from .github/agents/*.agent.md
     case "$TOOL_LOWER" in
         build|explorer|plan|review|verify|guard|guide|simplifier) ;;
         task) ;;
@@ -30,6 +39,8 @@ except Exception:
         *) return 0 ;;
     esac
 
+    # Extract agent type: try toolArgs.agent_type first (Claude pattern),
+    # then fall back to toolName itself (Copilot pattern).
     AGENT_TYPE=""
     if command -v jq >/dev/null 2>&1; then
         AGENT_TYPE=$(echo "$INPUT" | jq -r '.toolArgs | if type == "string" then fromjson else . end | .agent_type // empty' 2>/dev/null)
@@ -47,11 +58,16 @@ except Exception:
 " 2>/dev/null)
     fi
 
+    # Fallback: use toolName as agent type (Copilot sends agent name directly)
     if [ -z "$AGENT_TYPE" ]; then
         AGENT_TYPE="$TOOL_NAME"
     fi
+
+
+    # Skip if no agent type extracted
     [ -z "$AGENT_TYPE" ] && return 0
 
+    # Normalize: lowercase, strip existing ai-/ai: prefix, re-add ai- prefix
     AGENT_TYPE=$(echo "$AGENT_TYPE" | tr '[:upper:]' '[:lower:]')
     AGENT_TYPE="${AGENT_TYPE#ai-}"
     AGENT_TYPE="${AGENT_TYPE#ai:}"
@@ -59,10 +75,11 @@ except Exception:
 
     if command -v python3 >/dev/null 2>&1; then
         PROJECT_DIR="$PROJECT_DIR" AGENT_TYPE="$AGENT_TYPE" python3 - <<'PY' >/dev/null 2>&1 || true
-import os
+import os, sys
 from pathlib import Path
 
-from ai_engineering.state.observability import emit_agent_dispatched, emit_ide_hook_outcome
+sys.path.insert(0, str(Path(os.environ["PROJECT_DIR"]) / ".ai-engineering" / "scripts" / "hooks"))
+from _lib.observability import emit_agent_dispatched, emit_ide_hook_outcome
 
 emit_agent_dispatched(
     Path(os.environ["PROJECT_DIR"]),

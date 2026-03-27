@@ -41,10 +41,11 @@ except Exception:
 
     if command -v python3 >/dev/null 2>&1; then
         PROJECT_DIR="$PROJECT_DIR" ERROR_NAME="$ERROR_NAME" ERROR_MESSAGE="$ERROR_MESSAGE" python3 - <<'PY' >/dev/null 2>&1 || true
-import os
+import os, sys
 from pathlib import Path
 
-from ai_engineering.state.observability import emit_framework_error, emit_ide_hook_outcome
+sys.path.insert(0, str(Path(os.environ["PROJECT_DIR"]) / ".ai-engineering" / "scripts" / "hooks"))
+from _lib.observability import emit_framework_error, emit_ide_hook_outcome
 
 project_root = Path(os.environ["PROJECT_DIR"])
 emit_ide_hook_outcome(

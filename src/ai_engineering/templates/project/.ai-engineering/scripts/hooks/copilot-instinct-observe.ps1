@@ -33,9 +33,11 @@ try {
 import json
 import os
 import re
+import sys
 from pathlib import Path
 
-from ai_engineering.state.instincts import append_instinct_observation
+sys.path.insert(0, str(Path(os.environ["PROJECT_DIR"]) / ".ai-engineering" / "scripts" / "hooks"))
+from _lib.instincts import append_instinct_observation
 
 _FIRST_CAP_RE = re.compile(r"(.)([A-Z][a-z]+)")
 _ALL_CAP_RE = re.compile(r"([a-z0-9])([A-Z])")

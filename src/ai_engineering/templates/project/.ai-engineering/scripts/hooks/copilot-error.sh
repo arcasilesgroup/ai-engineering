@@ -5,10 +5,14 @@
 set -uo pipefail
 
 main() {
+    # Read JSON from stdin (errorOccurred event data)
     INPUT=$(cat)
+
+    # Resolve project root from script location
     SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     PROJECT_DIR="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 
+    # Extract error.message and error.name from stdin JSON
     ERROR_NAME=""
     ERROR_MESSAGE=""
     if command -v jq >/dev/null 2>&1; then
@@ -31,15 +35,17 @@ except Exception:
 " 2>/dev/null)
     fi
 
+    # Default values if not provided
     [ -z "$ERROR_NAME" ] && ERROR_NAME="unknown"
     [ -z "$ERROR_MESSAGE" ] && ERROR_MESSAGE="unknown"
 
     if command -v python3 >/dev/null 2>&1; then
         PROJECT_DIR="$PROJECT_DIR" ERROR_NAME="$ERROR_NAME" ERROR_MESSAGE="$ERROR_MESSAGE" python3 - <<'PY' >/dev/null 2>&1 || true
-import os
+import os, sys
 from pathlib import Path
 
-from ai_engineering.state.observability import emit_framework_error, emit_ide_hook_outcome
+sys.path.insert(0, str(Path(os.environ["PROJECT_DIR"]) / ".ai-engineering" / "scripts" / "hooks"))
+from _lib.observability import emit_framework_error, emit_ide_hook_outcome
 
 project_root = Path(os.environ["PROJECT_DIR"])
 emit_ide_hook_outcome(

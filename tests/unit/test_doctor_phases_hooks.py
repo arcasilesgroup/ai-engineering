@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import json
+import os
+import stat
 from pathlib import Path
 from unittest.mock import patch
 
@@ -219,7 +222,7 @@ class TestHooksFix:
         assert len(fixed) == 1
         assert fixed[0].status == CheckStatus.FAIL
 
-    def test_check_returns_two_results(self, ctx: DoctorContext) -> None:
+    def test_check_returns_six_results(self, ctx: DoctorContext) -> None:
         with patch.object(
             hooks_phase,
             "verify_hooks",
@@ -231,6 +234,268 @@ class TestHooksFix:
         ):
             results = hooks_phase.check(ctx)
 
-        assert len(results) == 2
+        assert len(results) == 6
         names = {r.name for r in results}
-        assert names == {"hooks-integrity", "hooks-scripts"}
+        assert names == {
+            "hooks-integrity",
+            "hooks-scripts",
+            "hooks-executable",
+            "hooks-lib-complete",
+            "hooks-registered",
+            "hooks-python",
+        }
+
+
+# ── hooks-executable ──────────────────────────────────────────────────
+
+
+class TestHooksExecutableCheck:
+    def test_hooks_executable_all_ok(self, project: Path) -> None:
+        """All scripts have executable permission -> OK."""
+        hooks_dir = project / ".ai-engineering" / "scripts" / "hooks"
+        for name in ("pre-commit.sh", "observe.py"):
+            script = hooks_dir / name
+            script.write_text("#!/bin/sh\nexit 0\n")
+            script.chmod(script.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP)
+
+        ctx = DoctorContext(target=project)
+        with patch.object(
+            hooks_phase,
+            "verify_hooks",
+            return_value={"pre-commit": True},
+        ):
+            results = hooks_phase.check(ctx)
+
+        result = next(r for r in results if r.name == "hooks-executable")
+        assert result.status == CheckStatus.OK
+
+    def test_hooks_executable_missing_perms(self, project: Path) -> None:
+        """Some scripts lack executable permission -> FAIL + fixable."""
+        hooks_dir = project / ".ai-engineering" / "scripts" / "hooks"
+        good = hooks_dir / "good.sh"
+        good.write_text("#!/bin/sh\nexit 0\n")
+        good.chmod(good.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP)
+
+        bad = hooks_dir / "bad.sh"
+        bad.write_text("#!/bin/sh\nexit 0\n")
+        bad.chmod(stat.S_IRUSR | stat.S_IWUSR)  # no execute bit
+
+        ctx = DoctorContext(target=project)
+        with patch.object(
+            hooks_phase,
+            "verify_hooks",
+            return_value={"pre-commit": True},
+        ):
+            results = hooks_phase.check(ctx)
+
+        result = next(r for r in results if r.name == "hooks-executable")
+        assert result.status == CheckStatus.FAIL
+        assert result.fixable is True
+        assert "bad.sh" in result.message
+
+    def test_hooks_executable_excludes_lib(self, project: Path) -> None:
+        """Files inside _lib/ are excluded from the executable check."""
+        hooks_dir = project / ".ai-engineering" / "scripts" / "hooks"
+        lib_dir = hooks_dir / "_lib"
+        lib_dir.mkdir()
+        # Non-executable file in _lib should NOT trigger failure
+        lib_file = lib_dir / "audit.py"
+        lib_file.write_text("# library\n")
+        lib_file.chmod(stat.S_IRUSR | stat.S_IWUSR)  # no execute
+
+        ctx = DoctorContext(target=project)
+        with patch.object(
+            hooks_phase,
+            "verify_hooks",
+            return_value={"pre-commit": True},
+        ):
+            results = hooks_phase.check(ctx)
+
+        result = next(r for r in results if r.name == "hooks-executable")
+        assert result.status == CheckStatus.OK
+
+    def test_hooks_executable_fix(self, project: Path) -> None:
+        """Fix applies chmod +x to non-executable scripts."""
+        hooks_dir = project / ".ai-engineering" / "scripts" / "hooks"
+        bad = hooks_dir / "fix-me.sh"
+        bad.write_text("#!/bin/sh\nexit 0\n")
+        bad.chmod(stat.S_IRUSR | stat.S_IWUSR)  # no execute
+
+        ctx = DoctorContext(target=project)
+        failed = [
+            CheckResult(
+                name="hooks-executable",
+                status=CheckStatus.FAIL,
+                message=f"non-executable hook scripts: {bad.name}",
+                fixable=True,
+            )
+        ]
+
+        hooks_phase.fix(ctx, failed)
+
+        assert os.access(bad, os.X_OK), "fix should have made the script executable"
+
+
+# ── hooks-lib-complete ────────────────────────────────────────────────
+
+
+class TestHooksLibCompleteCheck:
+    def test_hooks_lib_complete_ok(self, project: Path) -> None:
+        """All 4 required library files present -> OK."""
+        lib_dir = project / ".ai-engineering" / "scripts" / "hooks" / "_lib"
+        lib_dir.mkdir(parents=True)
+        for name in ("audit.py", "observability.py", "instincts.py", "injection_patterns.py"):
+            (lib_dir / name).write_text("# lib\n")
+
+        ctx = DoctorContext(target=project)
+        with patch.object(
+            hooks_phase,
+            "verify_hooks",
+            return_value={"pre-commit": True},
+        ):
+            results = hooks_phase.check(ctx)
+
+        result = next(r for r in results if r.name == "hooks-lib-complete")
+        assert result.status == CheckStatus.OK
+
+    def test_hooks_lib_complete_missing(self, project: Path) -> None:
+        """Missing library files -> FAIL, not fixable."""
+        lib_dir = project / ".ai-engineering" / "scripts" / "hooks" / "_lib"
+        lib_dir.mkdir(parents=True)
+        # Only create 2 of 4
+        (lib_dir / "audit.py").write_text("# lib\n")
+        (lib_dir / "observability.py").write_text("# lib\n")
+
+        ctx = DoctorContext(target=project)
+        with patch.object(
+            hooks_phase,
+            "verify_hooks",
+            return_value={"pre-commit": True},
+        ):
+            results = hooks_phase.check(ctx)
+
+        result = next(r for r in results if r.name == "hooks-lib-complete")
+        assert result.status == CheckStatus.FAIL
+        assert result.fixable is False
+        assert "injection_patterns.py" in result.message
+        assert "instincts.py" in result.message
+
+
+# ── hooks-registered ──────────────────────────────────────────────────
+
+
+class TestHooksRegisteredCheck:
+    def test_hooks_registered_ok(self, project: Path) -> None:
+        """All referenced scripts exist -> OK."""
+        hooks_dir = project / ".ai-engineering" / "scripts" / "hooks"
+        (hooks_dir / "observe.py").write_text("# hook\n")
+
+        settings_dir = project / ".claude"
+        settings_dir.mkdir(parents=True)
+        settings = {
+            "hooks": {
+                "PostToolUse": [
+                    {
+                        "command": (
+                            'python3 "$CLAUDE_PROJECT_DIR/.ai-engineering/scripts/hooks/observe.py"'
+                        ),
+                    }
+                ],
+            },
+        }
+        (settings_dir / "settings.json").write_text(json.dumps(settings))
+
+        ctx = DoctorContext(target=project)
+        with patch.object(
+            hooks_phase,
+            "verify_hooks",
+            return_value={"pre-commit": True},
+        ):
+            results = hooks_phase.check(ctx)
+
+        result = next(r for r in results if r.name == "hooks-registered")
+        assert result.status == CheckStatus.OK
+
+    def test_hooks_registered_missing_script(self, project: Path) -> None:
+        """Referenced script does not exist on disk -> FAIL."""
+        settings_dir = project / ".claude"
+        settings_dir.mkdir(parents=True)
+        settings = {
+            "hooks": {
+                "PostToolUse": [
+                    {
+                        "command": (
+                            'python3 "$CLAUDE_PROJECT_DIR/.ai-engineering/scripts/hooks/missing.py"'
+                        ),
+                    }
+                ],
+            },
+        }
+        (settings_dir / "settings.json").write_text(json.dumps(settings))
+
+        ctx = DoctorContext(target=project)
+        with patch.object(
+            hooks_phase,
+            "verify_hooks",
+            return_value={"pre-commit": True},
+        ):
+            results = hooks_phase.check(ctx)
+
+        result = next(r for r in results if r.name == "hooks-registered")
+        assert result.status == CheckStatus.FAIL
+        assert result.fixable is False
+        assert "missing.py" in result.message
+
+    def test_hooks_registered_no_settings(self, project: Path) -> None:
+        """No settings.json -> WARN (non-Claude-Code IDE)."""
+        # Ensure no .claude/settings.json exists
+        ctx = DoctorContext(target=project)
+        with patch.object(
+            hooks_phase,
+            "verify_hooks",
+            return_value={"pre-commit": True},
+        ):
+            results = hooks_phase.check(ctx)
+
+        result = next(r for r in results if r.name == "hooks-registered")
+        assert result.status == CheckStatus.WARN
+
+
+# ── hooks-python ──────────────────────────────────────────────────────
+
+
+class TestHooksPythonCheck:
+    def test_hooks_python_available(self, project: Path) -> None:
+        """python3 is available -> OK with version in message."""
+        ctx = DoctorContext(target=project)
+        with (
+            patch.object(
+                hooks_phase,
+                "verify_hooks",
+                return_value={"pre-commit": True},
+            ),
+            patch("subprocess.run") as mock_run,
+        ):
+            mock_run.return_value.returncode = 0
+            mock_run.return_value.stdout = "Python 3.12.0\n"
+            results = hooks_phase.check(ctx)
+
+        result = next(r for r in results if r.name == "hooks-python")
+        assert result.status == CheckStatus.OK
+        assert "3.12.0" in result.message
+
+    def test_hooks_python_missing(self, project: Path) -> None:
+        """python3 not found -> WARN."""
+        ctx = DoctorContext(target=project)
+        with (
+            patch.object(
+                hooks_phase,
+                "verify_hooks",
+                return_value={"pre-commit": True},
+            ),
+            patch("subprocess.run", side_effect=FileNotFoundError("python3 not found")),
+        ):
+            results = hooks_phase.check(ctx)
+
+        result = next(r for r in results if r.name == "hooks-python")
+        assert result.status == CheckStatus.WARN

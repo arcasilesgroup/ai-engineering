@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import shutil
+import stat
 from pathlib import Path
 
 from ai_engineering.hooks.manager import install_hooks
@@ -81,6 +82,17 @@ class HooksPhase:
                 created=result.created,
                 skipped=result.skipped,
             )
+
+            # Restore executable permissions on hook scripts
+            # (shutil.copy2 may not preserve them on all platforms)
+            dd = context.target / dest_tree
+            for script in dd.rglob("*"):
+                if (
+                    script.is_file()
+                    and script.suffix in (".sh", ".py")
+                    and "_lib" not in script.parts
+                ):
+                    script.chmod(script.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP)
 
         hr = install_hooks(context.target)
         result.created.extend(f".git/hooks/{h}" for h in hr.installed)
