@@ -192,7 +192,7 @@ def extract_instincts(project_root: Path) -> bool:
     sessions = _group_by_session(new_observations)
     sequence_counts = _detect_tool_sequences(sessions)
     recovery_counts = _detect_error_recoveries(sessions)
-    preference_counts = _detect_skill_agent_preferences(project_root, sessions.keys())
+    preference_counts = _detect_skill_agent_preferences(project_root, set(sessions))
 
     _merge_counter(
         document["toolSequences"],
