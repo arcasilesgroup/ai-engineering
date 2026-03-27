@@ -12,8 +12,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 from _lib.audit import get_project_root, is_debug_mode, passthrough_stdin, read_stdin
-
-from ai_engineering.state.observability import (
+from _lib.observability import (
     emit_agent_dispatched,
     emit_framework_error,
     emit_ide_hook_outcome,

@@ -35,15 +35,16 @@ except Exception:
 
     if command -v python3 >/dev/null 2>&1; then
         PROJECT_DIR="$PROJECT_DIR" SKILL_NAME="$SKILL_NAME" python3 - <<'PY' >/dev/null 2>&1 || true
-import os
+import os, sys
 from pathlib import Path
 
-from ai_engineering.state.observability import (
+sys.path.insert(0, str(Path(os.environ["PROJECT_DIR"]) / ".ai-engineering" / "scripts" / "hooks"))
+from _lib.observability import (
     emit_declared_context_loads,
     emit_ide_hook_outcome,
     emit_skill_invoked,
 )
-from ai_engineering.state.instincts import extract_instincts, maybe_refresh_instinct_context
+from _lib.instincts import extract_instincts, maybe_refresh_instinct_context
 
 entry = emit_skill_invoked(
     Path(os.environ["PROJECT_DIR"]),
@@ -63,7 +64,7 @@ emit_declared_context_loads(
     source="hook",
     session_id=os.environ.get("COPILOT_SESSION_ID") or os.environ.get("GITHUB_COPILOT_SESSION_ID"),
     trace_id=os.environ.get("COPILOT_TRACE_ID") or os.environ.get("GITHUB_COPILOT_TRACE_ID"),
-    correlation_id=entry.correlation_id,
+    correlation_id=entry["correlationId"],
 )
 emit_ide_hook_outcome(
     Path(os.environ["PROJECT_DIR"]),
@@ -74,7 +75,7 @@ emit_ide_hook_outcome(
     source="hook",
     session_id=os.environ.get("COPILOT_SESSION_ID") or os.environ.get("GITHUB_COPILOT_SESSION_ID"),
     trace_id=os.environ.get("COPILOT_TRACE_ID") or os.environ.get("GITHUB_COPILOT_TRACE_ID"),
-    correlation_id=entry.correlation_id,
+    correlation_id=entry["correlationId"],
 )
 if os.environ["SKILL_NAME"] == "ai-onboard":
     extract_instincts(Path(os.environ["PROJECT_DIR"]))

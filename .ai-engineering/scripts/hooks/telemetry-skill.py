@@ -20,9 +20,8 @@ from _lib.audit import (
     is_debug_mode,
     read_stdin,
 )
-
-from ai_engineering.state.instincts import extract_instincts, maybe_refresh_instinct_context
-from ai_engineering.state.observability import (
+from _lib.instincts import extract_instincts, maybe_refresh_instinct_context
+from _lib.observability import (
     emit_declared_context_loads,
     emit_framework_error,
     emit_ide_hook_outcome,
@@ -64,7 +63,7 @@ def main() -> None:
         source="hook",
         session_id=os.environ.get("CLAUDE_SESSION_ID"),
         trace_id=os.environ.get("CLAUDE_TRACE_ID"),
-        correlation_id=entry.correlation_id,
+        correlation_id=entry["correlationId"],
     )
     emit_ide_hook_outcome(
         project_root,
@@ -75,7 +74,7 @@ def main() -> None:
         source="hook",
         session_id=os.environ.get("CLAUDE_SESSION_ID"),
         trace_id=os.environ.get("CLAUDE_TRACE_ID"),
-        correlation_id=entry.correlation_id,
+        correlation_id=entry["correlationId"],
     )
     if skill_name == "ai-onboard":
         extract_instincts(project_root)

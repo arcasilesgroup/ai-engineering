@@ -25,8 +25,7 @@ from _lib.audit import (
     passthrough_stdin,
     read_stdin,
 )
-
-from ai_engineering.state.observability import emit_control_outcome
+from _lib.observability import emit_control_outcome
 
 _STATE_FILE = Path.home() / ".ai-engineering" / "state" / "mcp-health.json"
 _STATE_VERSION = 1

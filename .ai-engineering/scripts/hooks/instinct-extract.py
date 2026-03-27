@@ -11,9 +11,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 from _lib.audit import get_project_root, is_debug_mode, read_stdin
-
-from ai_engineering.state.instincts import extract_instincts
-from ai_engineering.state.observability import emit_framework_operation
+from _lib.instincts import extract_instincts
+from _lib.observability import emit_framework_operation
 
 
 def main() -> None:

@@ -13,11 +13,12 @@ try {
     $env:AIENG_HOOK_ENGINE = "github_copilot"
     $env:PROJECT_DIR = $ProjectDir
     $PythonScript = @'
-import os
+import os, sys
 from pathlib import Path
 
-from ai_engineering.state.instincts import extract_instincts
-from ai_engineering.state.observability import emit_framework_operation
+sys.path.insert(0, str(Path(os.environ["PROJECT_DIR"]) / ".ai-engineering" / "scripts" / "hooks"))
+from _lib.instincts import extract_instincts
+from _lib.observability import emit_framework_operation
 
 project_root = Path(os.environ["PROJECT_DIR"])
 if extract_instincts(project_root):

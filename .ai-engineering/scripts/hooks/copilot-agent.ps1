@@ -102,10 +102,11 @@ try {
     $env:PROJECT_DIR = $ProjectDir
     $env:AGENT_TYPE = "ai-$AgentType"
     $PythonScript = @'
-import os
+import os, sys
 from pathlib import Path
 
-from ai_engineering.state.observability import emit_agent_dispatched, emit_ide_hook_outcome
+sys.path.insert(0, str(Path(os.environ["PROJECT_DIR"]) / ".ai-engineering" / "scripts" / "hooks"))
+from _lib.observability import emit_agent_dispatched, emit_ide_hook_outcome
 
 emit_agent_dispatched(
     Path(os.environ["PROJECT_DIR"]),

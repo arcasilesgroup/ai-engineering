@@ -218,6 +218,72 @@ class TestHooksPhase:
         plan = phase.plan(ctx)
         assert any("hooks" in a.destination for a in plan.actions)
 
+    @pytest.mark.skipif(
+        __import__("os").name == "nt",
+        reason="Unix permission semantics not available on Windows",
+    )
+    def test_execute_applies_executable_permissions(self, tmp_path: Path) -> None:
+        """Execute sets +x on .sh and .py hook scripts but not _lib/*.py."""
+        import stat
+        from unittest.mock import patch
+
+        from ai_engineering.installer.phases.hooks import HooksPhase
+
+        # Build a fake hooks source tree with .sh, .py, and _lib/*.py files
+        hooks_src = tmp_path / "template" / "scripts" / "hooks"
+        hooks_src.mkdir(parents=True)
+        (hooks_src / "run-gates.sh").write_text("#!/bin/bash\nexit 0")
+        (hooks_src / "helper.py").write_text("#!/usr/bin/env python3\n")
+        lib_dir = hooks_src / "_lib"
+        lib_dir.mkdir()
+        (lib_dir / "utils.py").write_text("# library module")
+
+        # Strip executable bits from all files to simulate copy2 losing them
+        for f in hooks_src.rglob("*"):
+            if f.is_file():
+                f.chmod(0o644)
+
+        # Target project directory
+        project = tmp_path / "project"
+        project.mkdir()
+        (project / ".git" / "hooks").mkdir(parents=True)
+
+        ctx = _ctx(project)
+
+        # Patch template maps to point at our fake source tree
+        fake_maps = type("M", (), {"common_tree_list": [("scripts/hooks", "scripts/hooks")]})()
+        with (
+            patch(
+                "ai_engineering.installer.phases.hooks.get_project_template_root",
+                return_value=tmp_path / "template",
+            ),
+            patch(
+                "ai_engineering.installer.phases.hooks.resolve_template_maps",
+                return_value=fake_maps,
+            ),
+            patch("ai_engineering.installer.phases.hooks.install_hooks") as mock_ih,
+        ):
+            mock_ih.return_value = type("R", (), {"installed": [], "skipped": []})()
+            phase = HooksPhase()
+            plan = phase.plan(ctx)
+            phase._resolved_maps = fake_maps
+            phase.execute(plan, ctx)
+
+        # .sh and .py files in the hooks dir (not _lib) must be executable
+        dest = project / "scripts" / "hooks"
+        sh_file = dest / "run-gates.sh"
+        py_file = dest / "helper.py"
+        assert sh_file.stat().st_mode & stat.S_IXUSR, "run-gates.sh should be user-executable"
+        assert sh_file.stat().st_mode & stat.S_IXGRP, "run-gates.sh should be group-executable"
+        assert py_file.stat().st_mode & stat.S_IXUSR, "helper.py should be user-executable"
+        assert py_file.stat().st_mode & stat.S_IXGRP, "helper.py should be group-executable"
+
+        # _lib/*.py must NOT have executable bits added
+        lib_file = dest / "_lib" / "utils.py"
+        assert not (lib_file.stat().st_mode & stat.S_IXUSR), (
+            "_lib/utils.py should NOT be user-executable"
+        )
+
 
 # ---------------------------------------------------------------------------
 # StatePhase

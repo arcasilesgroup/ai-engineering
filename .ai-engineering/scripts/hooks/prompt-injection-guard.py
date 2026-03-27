@@ -20,8 +20,7 @@ from _lib.audit import (
     read_stdin,
 )
 from _lib.injection_patterns import PATTERNS
-
-from ai_engineering.state.observability import emit_control_outcome
+from _lib.observability import emit_control_outcome
 
 _GUARDED_TOOLS = {"Bash", "Write", "Edit", "MultiEdit"}
 _MIN_CONTENT_LEN = 10

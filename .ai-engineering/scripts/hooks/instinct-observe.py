@@ -14,8 +14,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 from _lib.audit import passthrough_stdin, read_stdin
-
-from ai_engineering.state.instincts import append_instinct_observation
+from _lib.instincts import append_instinct_observation
 
 _SUPPORTED_EVENTS = {"PreToolUse", "PostToolUse"}
 
