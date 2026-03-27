@@ -1,6 +1,6 @@
 ---
 name: ai-standup
-description: "Use when preparing daily standup notes or summarizing recent PR and commit activity for team updates."
+description: "Use when generating standup notes, daily status updates, or recent-activity summaries from actual git commits and PRs. Trigger for 'write my standup', 'what did I do today', 'what did I ship this week', 'status update', 'handoff notes', 'end of day summary'. Reads real commit and PR history — accurate, not reconstructed from memory."
 effort: medium
 argument-hint: "--days N|--author <name>"
 ---
@@ -32,18 +32,16 @@ Generate standup notes from actual PR and commit activity. Produces concise, cop
 ## Pre-conditions (MANDATORY)
 
 1. Read `.ai-engineering/manifest.yml` — `work_items` section.
-2. Use the active provider to gather work item data:
-   - **GitHub**: `gh issue list --label <team_label> --state all --json ...`
-   - **Azure DevOps**: `az boards query --wiql "..."` filtered by `area_path` and current iteration
-3. Include work item status in standup notes when available.
+2. Read `.ai-engineering/contexts/gather-activity-data.md` for the canonical git log, PR query, and work item commands.
+3. Use the active provider to gather work item data and include status in standup notes when available.
 
 ## Procedure
 
 1. **Determine lookback** -- default: 1 working day. Override with `--days N`. Skip weekends unless `--days` explicitly covers them.
 
-2. **Collect activity** -- scan the following sources:
-   a. `git log --since="N days ago" --author="<name>"` -- local commits
-   b. `gh pr list --author="<name>" --state=all --json title,url,state,updatedAt` -- PRs
+2. **Collect activity** -- use the commands from `.ai-engineering/contexts/gather-activity-data.md` to scan:
+   a. Local commits (git log with author filter)
+   b. PRs (provider-specific query)
    c. Active spec tasks from `.ai-engineering/specs/spec.md` and `specs/plan.md` -- current work
 
 3. **Classify items** into three groups:
@@ -93,5 +91,9 @@ Generate standup notes from actual PR and commit activity. Produces concise, cop
 - Markdown to stdout (not saved to file)
 - Designed for copy-paste into Slack, Teams, or standup tools
 - Each item includes a link when available
+
+## Integration
+
+- **See also**: `/ai-sprint` (full sprint view -- standup covers daily slice)
 
 $ARGUMENTS

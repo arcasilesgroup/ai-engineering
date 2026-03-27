@@ -29,3 +29,9 @@ When the user corrects AI behavior:
 3. Clear plan.md to `# No active plan\n\nRun /ai-plan after brainstorm approval.\n`
 4. `git add` the cleared files before committing
 Never skip these steps. Verify by reading the files after clearing.
+
+### Existing PR updates must reconcile branch spec history
+
+**Context**: On long-lived branches, updating the current PR body can hide the fact that `_history.md` is still missing entries for earlier completed specs on the same branch.
+**Learning**: When a PR spans multiple specs, audit `git log origin/main..HEAD` and `_history.md` together. Do not assume the active `spec.md` is the only history entry that needs to be recorded.
+**Rule**: Before closing a PR-update task, verify `_history.md` includes every completed spec represented in the branch commits, not just the latest one.

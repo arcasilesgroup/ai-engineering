@@ -1,6 +1,6 @@
 ---
 name: video-editing
-description: "Video editing pipeline: capture, organize, FFmpeg cuts, Remotion compositions, generated assets, polish"
+description: "Use when editing real video footage: cutting recordings into highlights, transcribing and structuring raw footage, running FFmpeg operations (trim, concat, reframe, normalize audio), creating Remotion overlays, or preparing social platform cuts. Trigger for 'cut this video', 'edit the recording', 'make a highlight reel', 'reframe for TikTok'. Not for generating videos from prompts — use /ai-media."
 effort: high
 argument-hint: "plan|organize|cut|compose [source]"
 tags: [video, editing, ffmpeg]

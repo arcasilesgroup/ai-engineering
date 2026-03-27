@@ -21,22 +21,20 @@ import json
 import logging
 import subprocess
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
 from pathlib import Path
 
-from ai_engineering.git.context import get_git_context
 from ai_engineering.git.operations import (
     PROTECTED_BRANCHES,
     current_branch,
     is_branch_pushed,
 )
 from ai_engineering.policy.gates import GateHook, run_gate
-from ai_engineering.state.io import append_ndjson, read_json_model
-from ai_engineering.state.models import AuditEntry, DecisionStore
+from ai_engineering.state.io import read_json_model
+from ai_engineering.state.models import DecisionStore
+from ai_engineering.state.observability import emit_framework_operation
 from ai_engineering.vcs.factory import get_provider
 from ai_engineering.vcs.pr_description import build_pr_description, build_pr_title
 from ai_engineering.vcs.protocol import VcsContext
-from ai_engineering.vcs.repo_context import get_repo_context
 
 logger = logging.getLogger(__name__)
 
@@ -117,31 +115,16 @@ def _log_audit(
     detail: str,
     actor: str = "workflow",
 ) -> None:
-    """Append an audit log entry.
-
-    Args:
-        project_root: Root directory of the project.
-        event: Event name (e.g. "commit", "pr-created").
-        detail: Event detail text.
-        actor: Who triggered the event.
-    """
-    audit_path = project_root / ".ai-engineering" / "state" / "audit-log.ndjson"
-    if audit_path.parent.is_dir():
-        repo_ctx = get_repo_context(project_root)
-        git_ctx = get_git_context(project_root)
-        entry = AuditEntry(
-            timestamp=datetime.now(tz=UTC),
-            event=event,
-            actor=actor,
-            detail={"message": detail},
-            vcs_provider=repo_ctx.provider if repo_ctx else None,
-            vcs_organization=repo_ctx.organization if repo_ctx else None,
-            vcs_project=repo_ctx.project if repo_ctx else None,
-            vcs_repository=repo_ctx.repository if repo_ctx else None,
-            branch=git_ctx.branch if git_ctx else None,
-            commit_sha=git_ctx.commit_sha if git_ctx else None,
+    """Emit a framework operation event for workflow activity."""
+    state_dir = project_root / ".ai-engineering" / "state"
+    if state_dir.is_dir():
+        emit_framework_operation(
+            project_root,
+            operation=event,
+            component=f"workflow.{actor}",
+            source="cli",
+            metadata={"message": detail},
         )
-        append_ndjson(audit_path, entry)
 
 
 def _check_branch_protection(project_root: Path) -> StepResult:

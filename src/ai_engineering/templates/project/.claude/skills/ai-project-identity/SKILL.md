@@ -1,6 +1,6 @@
 ---
 name: ai-project-identity
-description: "Use when setting up or updating a project's identity document. Auto-detects project metadata and guides the user through a short Q&A to fill gaps."
+description: "Use when installing ai-engineering on a new project, when agents lack context about what the project does or who consumes it, or when project scope has changed. Trigger for 'set up the project identity', 'agents don't know what this project does', 'update the project context', 'new team member needs orientation'. Generates project-identity.md consumed by brainstorm, plan, and governance."
 effort: medium
 argument-hint: "[generate|update]"
 ---

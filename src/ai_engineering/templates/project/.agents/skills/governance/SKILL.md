@@ -1,6 +1,6 @@
 ---
 name: governance
-description: "Use when validating compliance, ownership, risk lifecycle, or framework integrity for regulated industries. Modes: compliance | ownership | risk | integrity."
+description: Use for framework compliance validation, ownership boundary checks, risk acceptance lifecycle, and manifest integrity verification. Trigger for 'are quality gates enforced?', 'who owns this?', 'formally accept a known risk', 'is the framework consistent?', 'pre-release compliance check', 'governance report for auditors'. Complements /ai-security (scanning) — this validates governance process, not code content.
 effort: max
 argument-hint: "all|compliance|ownership|risk|integrity|--report"
 tags: [governance, compliance, ownership, risk, integrity, enterprise]
@@ -15,7 +15,7 @@ Compliance validation for regulated industries. Modes: `compliance` (quality gat
 ## When to Use
 
 - Governance audit, pre-release check, post-install verification.
-- NOT for code quality -- use `/ai-quality`.
+- NOT for code quality -- use `/ai-verify quality`.
 - NOT for security scanning -- use `/ai-security`.
 
 ## Modes
@@ -103,9 +103,12 @@ Scoring: start at 100. Deduct: blocker -25, critical -15, major -5, minor -1. Fl
 
 ## Integration
 
+- **Called by**: `/ai-verify` (governance mode delegation)
+
 - CLI layer: `ai-eng validate --category <mode>`, `ai-eng doctor`, `ai-eng maintenance risk-status`.
 - Risk acceptances block pre-push when expired.
-- Release gate (`/ai-release`) checks governance status.
+- Release gate (`/ai-release-gate`) checks governance status.
+- **Boundary**: `/ai-pipeline` generates workflow files; `/ai-governance` validates that governance gates are enforced in them
 
 ## References
 

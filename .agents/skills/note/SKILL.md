@@ -1,6 +1,6 @@
 ---
 name: note
-description: Use when a debugging session, research, or investigation yields non-obvious findings worth preserving for future sessions.
+description: "Use when you discover something worth saving for future sessions — a debugging insight, non-obvious behavior, workaround, or integration gotcha. Also for searching existing notes: 'do we have notes on X?'. Trigger for 'save this', 'note that', 'remember this finding', 'what did we find about'. If it took more than 30 minutes to figure out, save it."
 effort: medium
 argument-hint: "find [query]|<slug>"
 ---
@@ -103,5 +103,9 @@ Knowledge management for technical discoveries. Captures debugging insights, non
 - Location: `.ai-engineering/notes/{slug}.md`
 - Naming: kebab-case slugs, descriptive, max 50 chars
 - Index: notes are flat files, searched by content -- no separate index needed
+
+## Integration
+
+- **See also**: `/ai-learn` (synthesize patterns from accumulated notes)
 
 $ARGUMENTS

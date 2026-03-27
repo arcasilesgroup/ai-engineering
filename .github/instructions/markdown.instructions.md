@@ -1,0 +1,57 @@
+---
+applyTo: "**/*.md"
+---
+
+# Markdown Instructions
+
+## Governance References
+
+- `.ai-engineering/manifest.yml` — governance structure, ownership model.
+
+## Document Categories
+
+### Framework-Managed (`.ai-engineering/contexts/**`)
+
+- Owned by the framework — updated through governed update flows.
+- Changes require rationale, expected gain, and potential impact.
+
+### Team-Managed (`.ai-engineering/contexts/team/**`)
+
+- Owned by the team — never overwritten by framework updates.
+- Team decides format and content.
+
+### Skills
+
+- Structured procedure documents with clear step-by-step flows.
+- Template: Purpose → Trigger → Procedure → Output Contract → Governance Notes → References.
+
+### Agents
+
+- Agent persona definitions.
+- Template: Identity → Capabilities → Activation → Behavior → Referenced Skills → Referenced Standards → Output Contract → Boundaries.
+
+## Formatting Conventions
+
+- Use ATX-style headers (`#`, `##`, `###`).
+- One blank line between sections.
+- Use fenced code blocks with language tags (` ```python `, ` ```bash `, ` ```yaml `).
+- Use bullet lists for enumeration, numbered lists for sequences/procedures.
+- Use bold (`**text**`) for emphasis, backticks for code references.
+- Tables: use pipe tables with header separator.
+- Keep lines reasonable length — hard wraps not required for prose.
+
+## Cross-Reference Style
+
+- Reference other governance docs with relative paths from `.ai-engineering/`: `manifest.yml`.
+- Reference skills with: `skills/debug/SKILL.md`.
+- Reference agents with: `agents/build.md`.
+- Use markdown links for external references.
+
+## Spec Documents
+
+Specs follow the structure defined in `.ai-engineering/specs/`:
+
+- `spec.md` — WHAT: problem, solution, scope, risks.
+- `plan.md` — HOW: phases, session map, dependencies.
+- `tasks.md` — DO: checkboxes, atomic commits, progress tracking.
+- `done.md` — DONE: closure summary, quality gate result, decisions.

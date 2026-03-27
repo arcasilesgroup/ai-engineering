@@ -1,7 +1,7 @@
 ---
 name: prompt
-description: Use when optimizing prompts, skill descriptions, or agent instructions for clarity, specificity, and behavioral effectiveness.
-effort: high
+description: "Use when a prompt, system message, or skill description is underperforming and needs optimization. Trigger for 'this prompt isn't working', 'optimize this skill description', 'improve triggering', 'rewrite this instruction'. Use /ai-prompt --skill <name> to optimize any skill's description field. Applies explicit-over-implicit, show-don't-tell, and rationale-embedding techniques."
+effort: medium
 argument-hint: "<text>|--skill <name>"
 ---
 
@@ -109,7 +109,7 @@ For skills that enforce process (guard, verify, commit):
 
 ```
 /ai-prompt "check if the code follows our standards"   # optimize this text
-/ai-prompt --skill guard                                 # optimize guard's description
+/ai-prompt --skill governance                            # optimize governance's description
 /ai-prompt --skill commit                                # optimize commit's description
 ```
 

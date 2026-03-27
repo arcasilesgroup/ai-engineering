@@ -1,6 +1,6 @@
 ---
 name: ai-pr
-description: "Use when creating pull requests: governed PR workflow with commit pipeline, pre-push gates, auto-generated summary, and auto-complete squash merge."
+description: Use when creating, submitting, or updating a pull request, or when ready for review. Trigger for 'open a PR', 'submit this for review', 'I'm ready for review', 'merge this into main', 'draft PR', 'update the PR'. Also after /ai-commit when work needs review. Runs commit pipeline, pre-push gates, generates structured PR body from spec, watches and fixes CI until merged.
 effort: high
 argument-hint: "review|create|update|--draft|--only|[title]"
 mode: agent
@@ -32,17 +32,21 @@ Governed PR creation: run full commit pipeline, execute pre-push gates, create o
 
 READ `.github/skills/ai-commit/SKILL.md` and execute steps 0-6 in full. Do NOT skip any step. The documentation gate (step 5) is mandatory.
 
-### 6.5. Doc gate verification
+### 6.5. Documentation subagent dispatch
 
-Safety net: verify documentation gate executed correctly.
-- If staged changes include `src/` or `.ai-engineering/` files (excluding `state/`): CHANGELOG.md MUST be staged.
-- For governance content changes: `.ai-engineering/README.md` SHOULD be staged and mirrored.
+Dispatch up to 5 documentation subagents via `/ai-docs` handlers:
 
-### 6.7. Solution intent sync
+1. **Read flags** -- read `.ai-engineering/manifest.yml` `documentation.auto_update` flags and `external_portal` config.
 
-If staged changes include architecture files (agents/, skills/, manifest.yml, contexts/, specs/):
-- Invoke `/ai-solution-intent sync` to update `docs/solution-intent.md`
-- Stage the updated file
+2. **Dispatch subagents 1-4 in parallel** (based on flags):
+   - **Subagent CHANGELOG** (if `auto_update.changelog: true`): invoke `/ai-docs changelog` -- reads semantic diff, classifies by user impact, updates CHANGELOG.md
+   - **Subagent README** (if `auto_update.readme: true`): invoke `/ai-docs readme` -- diff-aware section targeting, updates only affected README sections
+   - **Subagent solution-intent-sync** (if `auto_update.solution_intent: true` AND staged changes include architecture files: agents/, skills/, manifest.yml, contexts/, specs/): invoke `/ai-docs solution-intent-sync` -- diff-aware rewrite of stale sections in docs/solution-intent.md
+   - **Subagent docs-portal** (if `external_portal.enabled: true`): invoke `/ai-docs docs-portal` -- updates external documentation repository via PR or push
+
+3. **After subagents 1-4 complete**, dispatch **Subagent docs-quality-gate**: invoke `/ai-docs docs-quality-gate` -- verifies all documentation outputs cover every semantic change in the diff. Zero uncovered items required.
+
+4. **Stage all documentation files** produced by subagents 1-4.
 
 ### 7. Pre-push checks
 
@@ -119,6 +123,10 @@ If spec frontmatter contains `refs`:
 - Read existing body, append `\n\n---\n\n## Additional Changes` section.
 - Update via `gh pr edit` or `az repos pr update`.
 
+### 12.5. Board sync (in_review)
+
+For **new PRs only** (not extend/update): if spec frontmatter contains `refs`, invoke `/ai-board-sync in_review <work-item-ref>` for each ref where the hierarchy rule is not `never_close` (i.e., user_stories, tasks, bugs, issues). Include the PR URL as comment context. Fail-open: do not block auto-complete or the watch loop if this fails.
+
 ### 13. Enable auto-complete
 
 - **GitHub**: `gh pr merge --auto --squash --delete-branch`
@@ -194,14 +202,15 @@ Same as default flow but create as draft PR.
 ## Integration
 
 - Invokes `/ai-commit` pipeline (steps 0-6) as prerequisite.
-- Auto-updates CHANGELOG.md and README.md via documentation gate.
+- Auto-updates CHANGELOG.md, README.md, and solution-intent via `/ai-docs` parallel subagent dispatch.
 - Links to work items from spec frontmatter refs (hierarchy-aware: features never closed, user stories/tasks/bugs/issues closed on merge).
 - Falls back to spec-label-based issue linking when no frontmatter refs present.
 - Step 14 monitors PR until merge, autonomously fixing CI failures, merge conflicts, and review comments from team/org-internal bots.
+- Invokes `/ai-board-sync` (in_review transition) after new PR creation (step 12.5).
 
 ## References
 
 - `.github/skills/ai-commit/SKILL.md` -- shared commit pipeline.
-- `.github/skills/ai-write/SKILL.md` -- changelog and documentation updates.
+- `.github/skills/ai-docs/SKILL.md` -- documentation lifecycle (changelog, readme, solution-intent, portal, quality gate).
 - `.ai-engineering/manifest.yml` -- quality gates and non-negotiables.
 $ARGUMENTS

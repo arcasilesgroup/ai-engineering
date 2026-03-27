@@ -1,23 +1,22 @@
 ---
 name: ai-write
-description: "Use when writing technical content: documentation, changelogs, articles, pitches, sprint reviews, and presentation outlines. Handler-based with audience targeting."
+description: "Use when writing content: blog posts, pitch decks, sprint review summaries, architecture board reports, or solution intent documents. Audience targeting (developer/manager/executive) adjusts tone automatically. Not for documentation artifacts like changelogs or READMEs — use /ai-docs. Not for marketing content — use /ai-market."
 effort: high
-argument-hint: "docs|changelog|content <type>|content-engine|crosspost|market-research|investor-materials|--audience developer|manager|executive"
-tags: [writing, documentation, changelog, content, communication]
+argument-hint: "content <type> [--audience developer|manager|executive]"
+tags: [writing, content, communication]
 ---
 
 
 # Technical Writing
 
-Router skill for comprehensive technical writing. Dispatches to handler files based on content type. Always: clear structure, audience-appropriate, no fluff.
+Router skill for content writing. Dispatches to handler files based on content type. Always: clear structure, audience-appropriate, no fluff.
 
 ## When to Use
 
-- Writing or updating documentation (README, API docs, guides).
-- Generating changelogs from conventional commits.
-- Creating pitch decks, sprint reviews, blog posts, architecture board presentations.
+- Creating pitch decks, sprint reviews, blog posts, architecture board presentations, solution intent documents.
+- NOT for documentation artifacts (README, CHANGELOG, API docs) -- use `/ai-docs`.
+- NOT for marketing content (social posts, investor materials, outreach) -- use `/ai-market`.
 - NOT for code explanations -- use `/ai-explain`.
-- NOT for code changes -- use `ai-build agent`.
 
 ## Writing Philosophy
 
@@ -27,17 +26,9 @@ Edit, don't generate. Start from what exists: notes, transcripts, data, examples
 
 | Sub-command | Handler | Purpose |
 |-------------|---------|---------|
-| `docs` | `handlers/docs.md` | README, API docs, guides, wiki pages |
-| `changelog` | `handlers/changelog.md` | Release notes from conventional commits |
-| `content` | `handlers/content.md` | Articles, pitches, presentations, sprint reviews |
-| `content-engine` | `handlers/content-engine.md` | Platform-native social content with repurposing cascade |
-| `crosspost` | `handlers/crosspost.md` | Multi-platform content distribution and adaptation |
-| `market-research` | `handlers/market-research.md` | Research-to-decision synthesis (diligence, competitive, sizing) |
-| `investor-materials` | `handlers/investor-materials.md` | Pitch decks, one-pagers, financial models, applications |
-| `x-api` | `handlers/x-api.md` | X API v2 posting, threads, media |
-| `investor-outreach` | `handlers/investor-outreach.md` | Cold emails, warm intros, follow-ups |
+| `content` | `handlers/content.md` | Articles, pitches, presentations, sprint reviews, architecture board, solution intent |
 
-Default (no sub-command): `docs`.
+Default (no sub-command): `content`.
 
 ## Audience Targeting
 
@@ -52,20 +43,19 @@ Default: `developer`.
 ## Quick Reference
 
 ```
-/ai-write docs                              # documentation (default)
-/ai-write changelog                         # release notes from commits
 /ai-write content pitch                     # elevator pitch
 /ai-write content sprint-review             # sprint review summary
 /ai-write content blog                      # blog post
 /ai-write content presentation              # presentation outline
 /ai-write content architecture-board        # architecture decision for review
 /ai-write content solution-intent           # solution intent document
-/ai-write content-engine                    # platform-native social content
-/ai-write crosspost                         # multi-platform distribution
-/ai-write market-research                   # research synthesis (diligence, competitive, sizing)
-/ai-write investor-materials                # pitch deck, one-pager, financial model
-/ai-write docs --audience manager           # manager-targeted docs
+/ai-write content blog --audience manager   # manager-targeted blog post
 ```
+
+## Redirects
+
+- **Documentation** (CHANGELOG, README, API docs, guides): use `/ai-docs`
+- **Marketing content** (social posts, investor materials, outreach, market research): use `/ai-market`
 
 ## Shared Rules
 
@@ -77,9 +67,9 @@ Default: `developer`.
 
 ## Integration
 
-- Composes with `/ai-commit` documentation gate for auto-updates.
-- Changelog mode follows Keep a Changelog format.
 - Content mode adapts to audience tier.
+- **NOT** `/ai-docs` -- for documentation artifacts use `/ai-docs`
+- **NOT** `/ai-market` -- for marketing and go-to-market content use `/ai-market`
 
 ## References
 

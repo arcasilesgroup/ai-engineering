@@ -1,7 +1,7 @@
 ---
 name: plan
-description: Use when an approved spec exists and needs to be broken into executable tasks with agent assignments. Creates the implementation plan that /ai-dispatch executes.
-effort: max
+description: "Use when an approved spec exists and needs a phased execution plan: task decomposition, agent assignments, and gate criteria. Trigger for 'break this down', 'create a plan', 'what tasks do we need', 'let's start implementing', or when plan.md has placeholder content. Also for re-planning: 'scope changed', 'plan failed'. Not for ambiguous requirements — use /ai-brainstorm first."
+effort: high
 argument-hint: "[spec-NNN or topic]"
 ---
 
@@ -23,7 +23,7 @@ HARD GATE: user must approve the plan before `/ai-dispatch` can run.
 
 ## Process
 
-1. **Read spec** -- load `specs/spec.md`
+1. **Read spec** -- load `specs/spec.md`. If spec.md does not conform to `.ai-engineering/contexts/spec-schema.md`, flag missing sections before proceeding.
 2. **Read context** -- `docs/solution-intent.md` section 7 (roadmap), `decision-store.json` (constraints), `.ai-engineering/contexts/project-identity.md` (project boundaries)
 3. **Explore codebase** -- understand current architecture, patterns, and affected files
 4. **Classify pipeline** -- select full/standard/hotfix/trivial based on change scope
@@ -111,7 +111,7 @@ It MAY:
 ## Integration
 
 - **Called by**: user directly, or after `/ai-brainstorm` approval
-- **Calls**: `/ai-explore` (codebase context), write (artifact creation)
+- **Calls**: Explore agent (`ai-explore`) for codebase context, write (artifact creation)
 - **Transitions to**: `/ai-dispatch` (ONLY -- user must invoke explicitly)
 
 $ARGUMENTS

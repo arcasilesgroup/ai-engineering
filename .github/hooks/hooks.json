@@ -17,6 +17,13 @@
         "powershell": "./.ai-engineering/scripts/hooks/copilot-session-end.ps1",
         "timeoutSec": 10,
         "comment": "Emit session_end telemetry when session closes"
+      },
+      {
+        "type": "command",
+        "bash": "./.ai-engineering/scripts/hooks/copilot-instinct-extract.sh",
+        "powershell": "./.ai-engineering/scripts/hooks/copilot-instinct-extract.ps1",
+        "timeoutSec": 20,
+        "comment": "Aggregate recent instinct observations into the canonical project instinct store"
       }
     ],
     "userPromptSubmitted": [
@@ -35,6 +42,20 @@
         "powershell": "./.ai-engineering/scripts/hooks/copilot-deny.ps1",
         "timeoutSec": 5,
         "comment": "Enforce deny-list: block dangerous operations (rm -rf, force push, --no-verify)"
+      },
+      {
+        "type": "command",
+        "bash": "./.ai-engineering/scripts/hooks/copilot-strategic-compact.sh",
+        "powershell": "./.ai-engineering/scripts/hooks/copilot-strategic-compact.ps1",
+        "timeoutSec": 5,
+        "comment": "Advise compacting context at strategic intervals during long sessions"
+      },
+      {
+        "type": "command",
+        "bash": "./.ai-engineering/scripts/hooks/copilot-instinct-observe.sh pre",
+        "powershell": "./.ai-engineering/scripts/hooks/copilot-instinct-observe.ps1 pre",
+        "timeoutSec": 10,
+        "comment": "Capture sanitized pre-tool observations for instinct learning"
       }
     ],
     "postToolUse": [
@@ -44,6 +65,20 @@
         "powershell": "./.ai-engineering/scripts/hooks/copilot-agent.ps1",
         "timeoutSec": 10,
         "comment": "Emit agent_dispatched telemetry on agent tool use"
+      },
+      {
+        "type": "command",
+        "bash": "./.ai-engineering/scripts/hooks/copilot-instinct-observe.sh post",
+        "powershell": "./.ai-engineering/scripts/hooks/copilot-instinct-observe.ps1 post",
+        "timeoutSec": 10,
+        "comment": "Capture sanitized post-tool observations for instinct learning"
+      },
+      {
+        "type": "command",
+        "bash": "./.ai-engineering/scripts/hooks/copilot-auto-format.sh",
+        "powershell": "./.ai-engineering/scripts/hooks/copilot-auto-format.ps1",
+        "timeoutSec": 15,
+        "comment": "Auto-format edited files after tool use"
       }
     ],
     "errorOccurred": [

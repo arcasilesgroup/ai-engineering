@@ -1,6 +1,6 @@
 ---
 name: ai-onboard
-description: "Use at session start to detect available skills, load active context, and enforce skill usage discipline for the current session."
+description: "Use at the start of any coding session to bootstrap framework context: loads active spec, plan, decisions, lessons, and instinct patterns. Run before anything else when starting a new session or resuming work. Trigger for 'let's get started', 'picking up where we left off', 'what's the current state?', 'catch me up'. Not for human project orientation — use /ai-guide onboard."
 effort: medium
 argument-hint: ""
 ---
@@ -10,84 +10,74 @@ argument-hint: ""
 
 ## Purpose
 
-Framework bootstrap and enforcement. Detects available skills, loads active context (spec, tasks, decisions), presents quick status, and enforces skill usage discipline. Prevents agents from bypassing skills with rationalizations.
+Framework bootstrap and enforcement. Detect available skills, load active project context, refresh instinct context only when needed, and install the session rule that skills are mandatory when they apply.
 
 ## Trigger
 
-- Auto-triggered via SessionStart hook
+- Auto-triggered via session-start hooks when available
 - Manual: `/ai-onboard`
-- Context: beginning of any non-trivial session.
+- Context: beginning of any non-trivial session
 
 ## Procedure
 
-1. **Detect skills** -- scan `.claude/skills/` for available SKILL.md files. Build a capability map.
+1. **Detect skills**
+   - Scan the active platform skill directory and build a capability map.
 
-2. **Load active context**:
-   - Read `.ai-engineering/specs/spec.md` -- current spec
-   - Read `.ai-engineering/specs/plan.md` -- current tasks
-   - Read `.ai-engineering/state/decision-store.json` -- active decisions and risk acceptances
-   - Read `.ai-engineering/contexts/team/lessons.md` -- accumulated rules and patterns
+2. **Load active project context**
+   - Read `.ai-engineering/specs/spec.md`
+   - Read `.ai-engineering/specs/plan.md`
+   - Read `.ai-engineering/state/decision-store.json`
+   - Read `.ai-engineering/contexts/team/lessons.md`
+   - Read `.ai-engineering/manifest.yml`
+   - Read `.ai-engineering/contexts/project-identity.md` if present
 
-3. **Present status** -- concise summary to user:
-   ```
-   Active spec: spec-054 (Hooks, Security, Observability)
-   Tasks: 12/18 complete, 2 blocked
-   Decisions: 3 active, 1 expiring in 5 days
-   Skills: 29 loaded
-   ```
+3. **Refresh instinct context when needed**
+   - Inspect `.ai-engineering/instincts/meta.json`
+   - Inspect `.ai-engineering/instincts/context.md`
+   - If refresh is pending, the context is stale, or enough new observations accumulated, run `/ai-instinct review`
+   - Otherwise, load the existing bounded instinct context as-is
 
-4. **Enforce skill discipline** -- install the following rule for the session:
+4. **Present quick status**
+   - Report the active spec
+   - Report plan progress if a plan exists
+   - Report loaded skills count
+   - Report decision count or notable active risks
+   - Report instinct status: fresh, stale, or refreshed
+   - Report board configuration if present
 
-   > **If a skill applies to the current task, you MUST use it.** No exceptions. No "this is too simple" shortcuts.
+5. **Enforce skill discipline**
+   - Install this rule for the session:
 
-## Red Flags Table
+     > If a skill applies to the current task, you MUST use it. No shortcuts.
 
-Rationalization patterns agents use to skip skills. Every one of these is wrong.
+## Board Status Examples
 
-| # | Rationalization | Why it is wrong | Correct action |
-|---|----------------|-----------------|----------------|
-| 1 | "This is too simple for planning" | Simple tasks still need scope definition | Use `/ai-plan` (trivial pipeline) |
-| 2 | "I'll just make a quick fix" | Quick fixes skip root cause analysis | Use `/ai-debug` |
-| 3 | "Tests aren't needed for this change" | Every behavioral change needs verification | Use `/ai-test` |
-| 4 | "I already know the answer" | Confidence without verification is the #1 source of bugs | Use `/ai-explore` first |
-| 5 | "The user is in a hurry" | Skipping process creates more delay from rework | Follow the process faster, do not skip steps |
-| 6 | "This is just a config change" | Config changes affect runtime behavior | Use `/ai-test` to verify |
-| 7 | "I'll add tests later" | Later never comes; RED before GREEN | TDD protocol: tests first |
-| 8 | "The existing tests cover this" | Assumption without verification | Run tests, check coverage |
-| 9 | "This doesn't need a spec" | Every pipeline requires a spec, even trivial | Use `/ai-brainstorm` |
-| 10 | "I'll clean up the commit message later" | Commit messages are permanent documentation | Use `/ai-commit` |
-| 11 | "Security scanning would slow us down" | A leaked secret takes hours to rotate | Gitleaks runs in seconds |
-| 12 | "This refactor is obvious" | Obvious refactors still need test verification | Use `/ai-simplify` |
+- `Board: GitHub Projects v2 #4, 5 states mapped`
+- `Board: GitHub Labels (status: labels), 5 states mapped`
+- `Board: Azure DevOps (Agile), 5 states mapped`
+- `Board: not configured (run /ai-board-discover)`
 
-## Detection Rules
+## Session Governance
 
-When the user's request matches these patterns, enforce the corresponding skill:
-
-| User intent pattern | Required skill |
-|-------------------|----------------|
-| "implement", "build", "add feature" | `/ai-plan` then `/ai-dispatch` |
-| "fix", "bug", "broken", "not working" | `/ai-debug` |
-| "test", "coverage", "verify" | `/ai-test` |
-| "refactor", "restructure", "move" | `/ai-simplify` |
-| "explain", "how does", "what is" | `/ai-explain` |
-| "commit", "push", "save" | `/ai-commit` |
-| "PR", "pull request", "review" | `/ai-pr` |
-| "deploy", "release", "publish" | `/ai-release` |
-| "conflict", "merge conflict" | `/ai-resolve-conflicts` |
-| "incident", "outage", "postmortem" | `/ai-postmortem` |
+Load `.ai-engineering/contexts/session-governance.md` for session governance rules and red flags.
 
 ## Quick Reference
 
-```
-/ai-onboard     # manual bootstrap (usually auto-triggered)
+```text
+/ai-onboard
 ```
 
-No arguments. Reads project state and configures the session.
+No arguments. Reads project state, refreshes instinct context when warranted, and configures the session.
 
 ## Boundaries
 
-- Onboard is read-only -- it does not modify project files
-- It does not execute tasks -- it configures the session for correct execution
+- `onboard` does not execute product work
+- `onboard` should stay light; it loads context and refreshes instinct context only when the gate says it is worth doing
+- `onboard` may update `.ai-engineering/instincts/{instincts.yml,context.md,meta.json}` as an explicit exception to the usual read-only bootstrap rule
 - If no active spec exists, report it but do not block the session
+
+## Integration
+
+- **NOT** `/ai-guide` -- onboard loads AI session state; guide orients human developers
 
 $ARGUMENTS

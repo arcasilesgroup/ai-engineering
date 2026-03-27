@@ -8,36 +8,45 @@ Dispatch a spec-reviewer subagent to challenge the draft spec. The reviewer argu
 
 ### Step 1 -- Write the Spec
 
-Create `specs/spec.md` with this structure:
+Create `specs/spec.md` with a structure that conforms to `.ai-engineering/contexts/spec-schema.md`:
 
 ```markdown
-# Spec NNN: [Title]
+---
+spec: spec-NNN
+title: [Title]
+status: draft
+effort: [trivial|small|medium|large]
+refs:
+  - [Optional work item or related reference]
+---
 
-## Problem
-[What is broken or missing. 2-3 sentences.]
+# Spec NNN - [Title]
 
-## Solution
-[What we will build. Describe the WHAT, not the HOW.]
+## Summary
+[One paragraph covering the problem, why it matters, and the chosen direction at a high level.]
 
-## Scope
-### In Scope
-- [Explicit list of what is included]
+## Goals
+- [Goal 1 - specific and verifiable]
+- [Goal 2 - specific and verifiable]
 
-### Out of Scope
-- [Explicit list of what is excluded]
+## Non-Goals
+- [Explicit scope exclusion]
 
-## Acceptance Criteria
-- [ ] [Testable criterion 1]
-- [ ] [Testable criterion 2]
+## Decisions
 
-## Assumptions
-- [ASSUMPTION: ...] (carried from interrogation)
+### D-NNN-01: [Decision title]
+[Decision statement]
+
+**Rationale**: [Why this choice was made, including tradeoffs where relevant.]
 
 ## Risks
 - [Risk 1]: [mitigation]
 
-## Dependencies
-- [What must exist before this can start]
+## References
+- [Related work item, prior spec, or document]
+
+## Open Questions
+- [Optional unresolved item]
 ```
 
 ### Step 2 -- Self-Review (Subagent Role)
@@ -46,13 +55,13 @@ Adopt the spec-reviewer role. Your job is to CHALLENGE the spec:
 
 **Checklist** (evaluate each):
 
-1. **Completeness**: Are there missing acceptance criteria? Untested edge cases?
-2. **Testability**: Can every acceptance criterion be verified with a command or assertion?
-3. **Ambiguity**: Are there words like "should", "might", "ideally"? Replace with "must" or remove.
-4. **Scope creep**: Does the scope include work that could be a separate spec?
-5. **Missing negatives**: What should the system explicitly NOT do?
-6. **Dependency gaps**: Are all prerequisites identified?
-7. **Second-order effects**: What else changes when this ships? Tests? Docs? Mirrors?
+1. **Schema compliance**: Are the required frontmatter fields and required sections present?
+2. **Verifiability**: Are the goals concrete enough to prove success with commands, tests, or observable outcomes?
+3. **Decision quality**: Does every decision include a rationale instead of only the choice?
+4. **Ambiguity**: Are there words like "should", "might", or "ideally"? Replace with concrete language or remove.
+5. **Scope creep**: Do the goals include work that should be split into a separate spec?
+6. **Missing negatives**: Do the non-goals clearly state what this work will not do?
+7. **Second-order effects**: What else changes when this ships? Tests? Docs? Mirrors? Risks? References?
 
 **Output**: list of concerns, each with a proposed fix.
 
@@ -85,6 +94,6 @@ The user must explicitly approve before proceeding to `/ai-plan`.
 ### Anti-Patterns
 
 - Rubber-stamping your own spec (always find at least one real concern)
-- Softening acceptance criteria during review
+- Softening goals until they are no longer testable
 - Adding implementation details to the spec
 - Exceeding 3 iterations (if 3 rounds cannot resolve it, the spec needs human input)

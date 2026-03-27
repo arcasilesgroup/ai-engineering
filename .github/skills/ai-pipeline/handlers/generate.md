@@ -5,7 +5,7 @@ Create new CI/CD pipeline from project analysis.
 ## Process
 
 1. **Detect context**:
-   - Read project files for stacks: `pyproject.toml` (Python), `*.csproj` (.NET), `package.json` (Node), `Cargo.toml` (Rust).
+   - Read `.ai-engineering/manifest.yml` field `providers.stacks` for the project's active stacks.
    - Read `manifest.yml` for VCS provider, Sonar config.
    - Read `cicd.standards_url` from `.ai-engineering/manifest.yml`. If set, fetch and use those standards. If null, generate using AI best practices.
 

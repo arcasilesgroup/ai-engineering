@@ -14,14 +14,14 @@ sys.path.insert(0, str(Path(__file__).parent))
 from datetime import UTC
 
 from _lib.audit import (
-    append_audit_event,
-    get_audit_log,
     get_project_root,
     is_debug_mode,
     passthrough_stdin,
     read_stdin,
 )
 from _lib.injection_patterns import PATTERNS
+
+from ai_engineering.state.observability import emit_control_outcome
 
 _GUARDED_TOOLS = {"Bash", "Write", "Edit", "MultiEdit"}
 _MIN_CONTENT_LEN = 10
@@ -77,19 +77,18 @@ def main() -> None:
 
     if all_matches:
         project_root = get_project_root()
-        audit_log = get_audit_log(project_root)
-        append_audit_event(
-            audit_log,
-            {
-                "event": "injection_blocked",
-                "actor": "ai",
-                "detail": {
-                    "tool": tool_name,
-                    "matches": all_matches,
-                    "action": "blocked" if critical_matches else "warned",
-                },
+        emit_control_outcome(
+            project_root,
+            category="security",
+            control="prompt-injection-guard",
+            component="hook.prompt-injection-guard",
+            outcome="failure" if critical_matches else "warning",
+            source="hook",
+            metadata={
+                "tool": tool_name,
+                "matches": all_matches,
+                "action": "blocked" if critical_matches else "warned",
             },
-            project_root=project_root,
         )
 
         if is_debug_mode():

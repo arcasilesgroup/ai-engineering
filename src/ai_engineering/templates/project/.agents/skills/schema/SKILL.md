@@ -1,6 +1,6 @@
 ---
 name: schema
-description: Use when designing schemas, writing migrations, optimizing queries, or managing data lifecycle across PostgreSQL, MySQL, SQLite, and MongoDB.
+description: "Use for database engineering: designing schemas, planning safe migrations with rollback scripts, optimizing slow queries, index recommendations, data retention policies, or GDPR right-to-erasure. Trigger for 'add a column', 'we need a migration', 'the query is slow', 'generate a migration', 'define a retention policy', 'GDPR compliance for data'. Supports PostgreSQL, MySQL, SQLite, MongoDB."
 effort: max
 argument-hint: "design|migrate|optimize|lifecycle"
 tags: [database, sql, migration, schema, optimization, enterprise]
@@ -18,7 +18,13 @@ Schema design, safe migration generation, query optimization, and data lifecycle
 - Planning safe migrations with rollback.
 - Optimizing slow queries.
 - Defining retention policies or archival strategies.
-- NOT for infrastructure provisioning -- use `/ai-infra`.
+- NOT for infrastructure provisioning -- no infra skill exists.
+
+## Process
+
+### Step 0: Load Contexts
+
+Follow `.ai-engineering/contexts/step-zero-protocol.md`. Apply loaded standards to all subsequent work.
 
 ## Modes
 

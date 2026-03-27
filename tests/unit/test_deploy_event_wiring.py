@@ -103,8 +103,6 @@ class TestEmitDeployEventWiring:
         state_dir = tmp_path / ".ai-engineering" / "state"
         state_dir.mkdir(parents=True)
         save_install_state(state_dir, default_install_state())
-        # Create audit log directory
-        (state_dir / "audit-log.ndjson").touch()
         # Create CHANGELOG.md with [Unreleased] section
         changelog = tmp_path / "CHANGELOG.md"
         changelog.write_text(

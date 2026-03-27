@@ -1,6 +1,12 @@
 {
   "schema_version": "2.0",
   "installed_at": "2026-03-25T01:35:33.803691Z",
+  "vcs_provider": "github",
+  "ai_providers": [
+    "claude_code",
+    "github_copilot",
+    "codex"
+  ],
   "tooling": {
     "gh": {
       "installed": false,
@@ -75,7 +81,7 @@
     "manual_guide": null
   },
   "operational_readiness": {
-    "status": "pending",
+    "status": "ready",
     "pending_steps": []
   },
   "release": {

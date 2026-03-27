@@ -1,10 +1,4 @@
-"""Stack and IDE add/remove/list operations for ai-engineering.
-
-Operates on ``manifest.yml`` (via ManifestConfig) to manage which
-stacks, IDEs, and AI providers are configured for a project.
-All mutations persist to ``manifest.yml`` via ``update_manifest_field``
-and log to the audit trail.
-"""
+"""Stack, IDE, and AI provider add/remove/list operations for ai-engineering."""
 
 from __future__ import annotations
 
@@ -12,10 +6,7 @@ from pathlib import Path
 
 from ai_engineering.config.loader import load_manifest_config, update_manifest_field
 from ai_engineering.config.manifest import ManifestConfig
-from ai_engineering.git.context import get_git_context
-from ai_engineering.state.io import append_ndjson
-from ai_engineering.state.models import AuditEntry
-from ai_engineering.vcs.repo_context import get_repo_context
+from ai_engineering.state.observability import emit_framework_operation
 
 from .templates import TEMPLATES_ROOT, copy_project_templates, remove_provider_templates
 
@@ -31,8 +22,6 @@ _VALID_AI_PROVIDERS: frozenset[str] = frozenset(
         "codex",
     }
 )
-
-_AUDIT_LOG_RELATIVE: str = "state/audit-log.ndjson"
 
 
 class InstallerError(Exception):
@@ -63,23 +52,12 @@ def get_available_ides() -> list[str]:
     return sorted(_KNOWN_IDES)
 
 
-def _resolve_audit_path(target: Path) -> Path:
-    """Resolve audit-log path from the target project root.
-
-    Args:
-        target: Root directory of the target project.
-
-    Returns:
-        Path to the audit log.
-
-    Raises:
-        InstallerError: If the ``.ai-engineering/`` directory does not exist.
-    """
+def _ensure_framework_install(target: Path) -> None:
+    """Ensure the framework is installed in the target project root."""
     ai_eng_dir = target / ".ai-engineering"
     if not ai_eng_dir.is_dir():
         msg = f"Framework not installed at {target}. Run 'ai-eng install' first."
         raise InstallerError(msg)
-    return ai_eng_dir / _AUDIT_LOG_RELATIVE
 
 
 def _load_config(target: Path) -> ManifestConfig:
@@ -101,35 +79,20 @@ def _load_config(target: Path) -> ManifestConfig:
     return load_manifest_config(target)
 
 
-def _log_audit(
-    audit_path: Path,
+def _log_operation(
+    project_root: Path,
     *,
-    event: str,
+    operation: str,
     detail: str,
 ) -> None:
-    """Append an audit entry.
-
-    Args:
-        audit_path: Path to the audit log.
-        event: Audit event name.
-        detail: Audit detail string.
-    """
-    # audit_path is <project>/.ai-engineering/state/audit-log.ndjson
-    project_root = audit_path.parent.parent.parent
-    repo_ctx = get_repo_context(project_root)
-    git_ctx = get_git_context(project_root)
-    entry = AuditEntry(
-        event=event,
-        actor="ai-engineering-cli",
-        detail={"message": detail},
-        vcs_provider=repo_ctx.provider if repo_ctx else None,
-        vcs_organization=repo_ctx.organization if repo_ctx else None,
-        vcs_project=repo_ctx.project if repo_ctx else None,
-        vcs_repository=repo_ctx.repository if repo_ctx else None,
-        branch=git_ctx.branch if git_ctx else None,
-        commit_sha=git_ctx.commit_sha if git_ctx else None,
+    """Emit a canonical framework operation event."""
+    emit_framework_operation(
+        project_root,
+        operation=operation,
+        component="installer.operations",
+        source="cli",
+        metadata={"message": detail},
     )
-    append_ndjson(audit_path, entry)
 
 
 def add_stack(target: Path, stack: str) -> ManifestConfig:
@@ -151,7 +114,7 @@ def add_stack(target: Path, stack: str) -> ManifestConfig:
         msg = f"Unknown stack '{stack}'. Available stacks: {', '.join(available)}"
         raise InstallerError(msg)
 
-    audit_path = _resolve_audit_path(target)
+    _ensure_framework_install(target)
     config = _load_config(target)
 
     if stack in config.providers.stacks:
@@ -160,7 +123,7 @@ def add_stack(target: Path, stack: str) -> ManifestConfig:
 
     new_stacks = [*config.providers.stacks, stack]
     update_manifest_field(target, "providers.stacks", new_stacks)
-    _log_audit(audit_path, event="stack-add", detail=f"added stack: {stack}")
+    _log_operation(target, operation="stack-add", detail=f"added stack: {stack}")
 
     # Re-read to return updated config
     return load_manifest_config(target)
@@ -179,7 +142,7 @@ def remove_stack(target: Path, stack: str) -> ManifestConfig:
     Raises:
         InstallerError: If the framework is not installed or stack not found.
     """
-    audit_path = _resolve_audit_path(target)
+    _ensure_framework_install(target)
     config = _load_config(target)
 
     if stack not in config.providers.stacks:
@@ -188,7 +151,7 @@ def remove_stack(target: Path, stack: str) -> ManifestConfig:
 
     new_stacks = [s for s in config.providers.stacks if s != stack]
     update_manifest_field(target, "providers.stacks", new_stacks)
-    _log_audit(audit_path, event="stack-remove", detail=f"removed stack: {stack}")
+    _log_operation(target, operation="stack-remove", detail=f"removed stack: {stack}")
 
     return load_manifest_config(target)
 
@@ -212,7 +175,7 @@ def add_ide(target: Path, ide: str) -> ManifestConfig:
         msg = f"Unknown IDE '{ide}'. Available IDEs: {', '.join(available)}"
         raise InstallerError(msg)
 
-    audit_path = _resolve_audit_path(target)
+    _ensure_framework_install(target)
     config = _load_config(target)
 
     if ide in config.providers.ides:
@@ -221,7 +184,7 @@ def add_ide(target: Path, ide: str) -> ManifestConfig:
 
     new_ides = [*config.providers.ides, ide]
     update_manifest_field(target, "providers.ides", new_ides)
-    _log_audit(audit_path, event="ide-add", detail=f"added IDE: {ide}")
+    _log_operation(target, operation="ide-add", detail=f"added IDE: {ide}")
 
     return load_manifest_config(target)
 
@@ -239,7 +202,7 @@ def remove_ide(target: Path, ide: str) -> ManifestConfig:
     Raises:
         InstallerError: If the framework is not installed or IDE not found.
     """
-    audit_path = _resolve_audit_path(target)
+    _ensure_framework_install(target)
     config = _load_config(target)
 
     if ide not in config.providers.ides:
@@ -248,7 +211,7 @@ def remove_ide(target: Path, ide: str) -> ManifestConfig:
 
     new_ides = [i for i in config.providers.ides if i != ide]
     update_manifest_field(target, "providers.ides", new_ides)
-    _log_audit(audit_path, event="ide-remove", detail=f"removed IDE: {ide}")
+    _log_operation(target, operation="ide-remove", detail=f"removed IDE: {ide}")
 
     return load_manifest_config(target)
 
@@ -291,7 +254,7 @@ def add_provider(target: Path, provider: str) -> ManifestConfig:
         msg = f"Unknown provider '{provider}'. Available: {', '.join(sorted(_VALID_AI_PROVIDERS))}"
         raise InstallerError(msg)
 
-    audit_path = _resolve_audit_path(target)
+    _ensure_framework_install(target)
     config = _load_config(target)
 
     if provider in config.ai_providers.enabled:
@@ -307,7 +270,7 @@ def add_provider(target: Path, provider: str) -> ManifestConfig:
     if len(new_enabled) == 1:
         update_manifest_field(target, "ai_providers.primary", new_enabled[0])
 
-    _log_audit(audit_path, event="provider-add", detail=f"added AI provider: {provider}")
+    _log_operation(target, operation="provider-add", detail=f"added AI provider: {provider}")
 
     return load_manifest_config(target)
 
@@ -328,7 +291,7 @@ def remove_provider(target: Path, provider: str) -> ManifestConfig:
         InstallerError: If the framework is not installed, provider not found,
             or it is the last remaining provider.
     """
-    audit_path = _resolve_audit_path(target)
+    _ensure_framework_install(target)
     config = _load_config(target)
 
     if provider not in config.ai_providers.enabled:
@@ -348,6 +311,10 @@ def remove_provider(target: Path, provider: str) -> ManifestConfig:
     update_manifest_field(target, "ai_providers.enabled", remaining)
     update_manifest_field(target, "ai_providers.primary", remaining[0])
 
-    _log_audit(audit_path, event="provider-remove", detail=f"removed AI provider: {provider}")
+    _log_operation(
+        target,
+        operation="provider-remove",
+        detail=f"removed AI provider: {provider}",
+    )
 
     return load_manifest_config(target)

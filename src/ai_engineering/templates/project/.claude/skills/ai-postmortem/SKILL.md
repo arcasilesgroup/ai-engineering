@@ -1,6 +1,6 @@
 ---
 name: ai-postmortem
-description: "Use when documenting an incident, outage, or production failure using the structured DERP model (Detection, Escalation, Recovery, Prevention)."
+description: "Use when documenting a production incident, outage, degradation, or near-miss. Guides through the DERP format (Detection, Escalation, Recovery, Prevention) with targeted interview questions per phase. Trigger for 'we had an incident', 'write up the outage', 'something went wrong in prod', 'postmortem', 'near-miss analysis', 'incident report'. Modes: start, continue, find, generate."
 effort: high
 argument-hint: "start|continue <id>|find [query]|generate"
 ---
@@ -110,5 +110,9 @@ Ask ONE section at a time. Wait for answers before proceeding to the next DERP p
 
 - Location: `.ai-engineering/postmortems/{id}.md`
 - ID format: `PM-YYYY-NNN`
+
+## Integration
+
+- **See also**: `/ai-debug` (root cause analysis), `/ai-support` (customer-facing incident tracking)
 
 $ARGUMENTS

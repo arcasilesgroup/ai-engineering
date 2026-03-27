@@ -1,9 +1,15 @@
 ---
 name: ai-sprint
-description: Use when planning a new sprint, running a retrospective, or tracking sprint-level goals against actual delivery.
-effort: medium
-argument-hint: "plan|retro|goals [--sprint <name>]"
+description: "Use to manage sprint lifecycle: plan a new sprint from backlog, run a data-driven retrospective comparing planned vs shipped, check goal status mid-sprint, or generate sprint review presentations. Trigger for 'start sprint planning', 'kick off the sprint', 'let's do the retro', 'what did we deliver last sprint?', 'are we on track?', 'sprint goals check', 'generate the sprint review deck'. Works with GitHub Projects and Azure DevOps."
+effort: high
+argument-hint: "plan|retro|goals|review [--sprint <name>]"
 mode: agent
+requires:
+  anyBins:
+  - gh
+  - az
+  bins:
+  - python3
 ---
 
 
@@ -23,10 +29,11 @@ Sprint lifecycle management: plan new sprints from backlog, run data-driven retr
 
 1. Read `.ai-engineering/manifest.yml` — `work_items` section.
 2. Determine active provider (`github` or `azure_devops`).
-3. Use provider-specific config:
+3. Read `.ai-engineering/contexts/gather-activity-data.md` for the canonical git log, PR query, and work item commands.
+4. Use provider-specific config:
    - **Azure DevOps**: filter by `area_path`, auto-detect current `iteration_path`
    - **GitHub**: filter by `team_label`, use milestones for sprint boundaries
-4. Use all standard and custom fields the platform provides.
+5. Use all standard and custom fields the platform provides.
 
 ## Modes
 
@@ -57,7 +64,7 @@ Sprint lifecycle management: plan new sprints from backlog, run data-driven retr
 ### retro -- Sprint retrospective
 
 1. **Load sprint plan** -- read `.ai-engineering/sprints/{name}.md`.
-2. **Collect actuals** -- scan merged PRs, completed spec tasks, and commit history for the sprint period.
+2. **Collect actuals** -- use the commands from `.ai-engineering/contexts/gather-activity-data.md` to scan merged PRs, completed spec tasks, and commit history for the sprint period.
 3. **Compare planned vs shipped**:
    - Items completed as planned
    - Items carried over (not finished)
@@ -76,6 +83,18 @@ Sprint lifecycle management: plan new sprints from backlog, run data-driven retr
 2. **Check goal progress** -- for each goal, assess completion signals (merged PRs, closed issues, spec task status).
 3. **Report** -- traffic-light status per goal: green (on track), yellow (at risk), red (blocked/behind).
 
+### review -- Sprint review presentation
+
+Generate a branded sprint review PowerPoint deck using python-pptx. Each invocation produces a NEW script tailored to current data — never reused from a static template.
+
+1. **Determine sprint period** — resolve date range: `--sprint YYYY-MM` (calendar month), `--iteration <name>` (query provider for dates), or default to current month.
+2. **Gather data** — use commands from `.ai-engineering/contexts/gather-activity-data.md` for work items and git activity. Collect quality metrics via `pytest --co -q` and `ruff check . --statistics`. Compare against thresholds in `manifest.yml`.
+3. **Generate python-pptx script** — new script each time. Brand constants: `AI_BG_DARK=#0B1120`, `AI_ACCENT=#00D4AA`, `AI_PRIMARY=#1E3A5F`. Typography: `JetBrains Mono` (headings), `Inter` (body). Layout: 16:9, 13.333"×7.5".
+4. **Slide structure (8-14 slides)**: Title → Sprint Overview (KPI cards) → Feature Deep-Dives (one per major spec) → Quality Metrics → Risks & Next Sprint → Q&A. Every slide requires `set_notes()` for presenter view.
+5. **Execute** — write to `docs/presentations/generate_sprint_review.py`, run it, output `docs/presentations/sprint-review-YYYY-MM.pptx`.
+
+**Common mistakes**: reusing old script verbatim, missing speaker notes, wrong color palette, skipping pre-conditions, hardcoding dates.
+
 ## Arguments
 
 | Argument | Description |
@@ -83,19 +102,28 @@ Sprint lifecycle management: plan new sprints from backlog, run data-driven retr
 | `plan` | Start planning a new sprint |
 | `retro` | Run retrospective on completed sprint |
 | `goals` | Check progress on current sprint goals |
-| `--sprint <name>` | Sprint identifier (e.g., `2026-w12`). Defaults to current week. |
+| `review` | Generate PowerPoint sprint review presentation |
+| `--sprint <name>` | Sprint identifier (e.g., `2026-w12`) or month (`YYYY-MM`). Defaults to current. |
+| `--iteration <name>` | Iteration name (queries provider for dates, used with `review` mode) |
 
 ## Quick Reference
 
 ```
-/ai-sprint plan --sprint 2026-w12     # plan sprint for week 12
-/ai-sprint retro --sprint 2026-w11    # retro on last sprint
-/ai-sprint goals                      # check current sprint goals
+/ai-sprint plan --sprint 2026-w12          # plan sprint for week 12
+/ai-sprint retro --sprint 2026-w11         # retro on last sprint
+/ai-sprint goals                           # check current sprint goals
+/ai-sprint review --sprint 2026-03         # generate March 2026 review deck
+/ai-sprint review --iteration "Sprint 12"  # named iteration review deck
 ```
 
 ## Storage
 
 - Sprint files: `.ai-engineering/sprints/{name}.md`
 - Naming convention: `YYYY-wNN` (ISO week) or custom names
+
+## Integration
+
+- **See also**: `/ai-standup` (daily activity detail)
+- **Replaces**: `/ai-sprint-review` (deprecated — use `/ai-sprint review`)
 
 $ARGUMENTS

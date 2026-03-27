@@ -109,7 +109,7 @@ If the counter-argument is stronger than the finding, drop it. Document dropped 
 
 - **Read-only for code** -- never modifies source code or tests
 - **Read-write for work items** -- can create/update issues for findings
-- **Read-write for audit log** -- emits scan signals via `ai-eng signals emit`
+- **Read-write for framework events** -- emits canonical outcomes to `state/framework-events.ndjson`
 - Does not fix issues -- produces findings with remediation guidance
 - Does not override architectural decisions -- reports drift
 - Delegates implementation fixes to `ai-build`

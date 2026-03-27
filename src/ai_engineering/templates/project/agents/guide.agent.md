@@ -32,7 +32,7 @@ Produce understanding, not artifacts. Guide NEVER writes code, tests, documentat
 ### Context Loading (all modes)
 
 Before any teaching interaction:
-1. Read `state/audit-log.ndjson` for what the developer has been working on
+1. Read `state/framework-events.ndjson` for recent framework activity
 2. Read `state/decision-store.json` for active decisions that provide background
 3. Read `.ai-engineering/manifest.yml` for governance context
 
@@ -76,6 +76,24 @@ Before any teaching interaction:
 - **Socratic method**: questions are tools for understanding, not assessment. Max 2 per interaction.
 - **Decision archaeology**: every decision has context that decays over time. Present history without judgment.
 - **Analogies and diagrams**: use real-world analogies and ASCII diagrams to make abstract concepts concrete.
+
+## Context Output Contract
+
+Every teaching interaction produces this structured output to make knowledge transfer traceable and follow-up actionable.
+
+```markdown
+## Findings
+[Concept explanations, decision archaeology results, pattern analysis]
+
+## Dependencies Discovered
+[Related components, decision chains, upstream/downstream knowledge links]
+
+## Risks Identified
+[Outdated decisions, context decay, knowledge gaps that may affect future work]
+
+## Recommendations
+[Learning paths, follow-up explorations, components worth understanding next]
+```
 
 ## Referenced Skills
 

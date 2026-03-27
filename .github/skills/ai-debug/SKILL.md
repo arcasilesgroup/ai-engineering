@@ -1,7 +1,7 @@
 ---
 name: ai-debug
-description: "Use when investigating unexpected behavior, test failures, runtime errors, or regressions. Systematic 4-phase diagnosis: symptom analysis, reproduction, root cause, solution."
-effort: max
+description: "Use when something is broken and you need to find out why: test failures, runtime errors, crashes, regressions, or unexpected behavior. Trigger for 'it's not working', 'something broke', 'this used to work', 'I'm getting an error', 'CI is failing', 'the output is wrong', or 'why is X happening'. Systematic 4-phase diagnosis — never patches symptoms without finding the root cause."
+effort: high
 argument-hint: "[error description or file:line]"
 mode: agent
 ---
@@ -22,6 +22,10 @@ Systematic debugging skill. Four phases, always in order. NEVER fix symptoms -- 
 - Unexpected behavior (no error, but wrong result)
 
 ## Process
+
+### Step 0: Load Contexts
+
+Follow `.ai-engineering/contexts/step-zero-protocol.md`. Apply loaded standards to all subsequent work.
 
 ### Phase 1: Symptom Analysis (WHAT, WHEN, WHERE)
 
@@ -115,5 +119,6 @@ Fix: add `config = yaml.safe_load(f) or {}` instead of `config = yaml.safe_load(
 - **Called by**: `/ai-dispatch` (debug tasks), `ai-build agent` (when tests fail), user directly
 - **Calls**: test runners (to reproduce), `/ai-test` (regression test)
 - **Transitions to**: `ai-build` (fix implementation), `/ai-commit` (after verified fix)
+- **See also**: `/ai-test` (reproduce failures before fixing), `/ai-postmortem` (for production incidents)
 
 $ARGUMENTS

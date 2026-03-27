@@ -166,6 +166,22 @@ class TestMultiDirScanning:
         names = [s.name for s in statuses]
         assert "debug" in names
 
+    def test_helper_markdown_in_modern_skill_dirs_is_ignored(self, tmp_path: Path) -> None:
+        """Only SKILL.md is considered a runnable skill in .claude/.agents surfaces."""
+        skill_dir = tmp_path / ".claude" / "skills" / "slides"
+        skill_dir.mkdir(parents=True)
+        (skill_dir / "SKILL.md").write_text(
+            "---\nname: slides\nversion: 1.0.0\n---\n\n# Slides\n",
+            encoding="utf-8",
+        )
+        (skill_dir / "STYLE_PRESETS.md").write_text("# presets\n", encoding="utf-8")
+
+        statuses = list_local_skill_status(tmp_path)
+
+        assert len(statuses) == 1
+        assert statuses[0].name == "slides"
+        assert statuses[0].file_path.endswith(".claude/skills/slides/SKILL.md")
+
     def test_deduplicates_across_dirs(self, tmp_path: Path) -> None:
         """Same skill in multiple dirs is reported only once."""
         for rel_dir in [".claude/skills/code", ".ai-engineering/skills/code"]:

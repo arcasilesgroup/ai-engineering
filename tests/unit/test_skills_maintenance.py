@@ -232,7 +232,7 @@ class TestMaintenanceReport:
         assert report.stale_files == []
         assert report.total_governance_files == 0
         assert report.total_state_files == 0
-        assert report.recent_audit_events == 0
+        assert report.recent_framework_events == 0
         assert report.install_manifest_version == ""
         assert report.warnings == []
         assert report.risk_active == 0

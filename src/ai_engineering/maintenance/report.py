@@ -16,7 +16,7 @@ from typing import Any
 
 from ai_engineering.config.loader import load_manifest_config
 from ai_engineering.state.io import read_json_model, read_ndjson_entries
-from ai_engineering.state.models import AuditEntry, DecisionStore
+from ai_engineering.state.models import DecisionStore, FrameworkEvent
 from ai_engineering.vcs.factory import get_provider
 from ai_engineering.vcs.protocol import VcsContext
 
@@ -38,7 +38,7 @@ class MaintenanceReport:
     stale_files: list[StaleFile] = field(default_factory=list)
     total_governance_files: int = 0
     total_state_files: int = 0
-    recent_audit_events: int = 0
+    recent_framework_events: int = 0
     install_manifest_version: str = ""
     warnings: list[str] = field(default_factory=list)
     risk_active: int = 0
@@ -74,7 +74,7 @@ class MaintenanceReport:
             "health_score": round(self.health_score, 4),
             "total_governance_files": self.total_governance_files,
             "total_state_files": self.total_state_files,
-            "recent_audit_events": self.recent_audit_events,
+            "recent_framework_events": self.recent_framework_events,
             "install_manifest_version": self.install_manifest_version,
             "stale_files": [
                 {
@@ -115,7 +115,7 @@ class MaintenanceReport:
         lines.append(f"- Governance files: {self.total_governance_files}")
         lines.append(f"- State files: {self.total_state_files}")
         lines.append(f"- Stale files: {len(self.stale_files)}")
-        lines.append(f"- Recent audit events: {self.recent_audit_events}")
+        lines.append(f"- Recent framework events: {self.recent_framework_events}")
         lines.append(f"- Risk acceptances (active): {self.risk_active}")
         lines.append(f"- Risk acceptances (expiring): {self.risk_expiring}")
         lines.append(f"- Risk acceptances (expired): {self.risk_expired}")
@@ -221,11 +221,11 @@ def generate_report(
     if state_dir.is_dir():
         report.total_state_files = sum(1 for f in state_dir.iterdir() if f.is_file())
 
-    # Count recent audit events
-    audit_path = ai_eng_dir / "state" / "audit-log.ndjson"
-    if audit_path.exists():
-        entries = read_ndjson_entries(audit_path, AuditEntry)
-        report.recent_audit_events = len(entries)
+    # Count recent framework events
+    events_path = ai_eng_dir / "state" / "framework-events.ndjson"
+    if events_path.exists():
+        entries = read_ndjson_entries(events_path, FrameworkEvent)
+        report.recent_framework_events = len(entries)
 
     # Risk acceptance status
     ds_path = ai_eng_dir / "state" / "decision-store.json"

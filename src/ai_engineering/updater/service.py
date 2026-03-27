@@ -6,7 +6,7 @@ project-managed paths are never modified.
 
 Modes:
 - **Dry-run** (default): reports what would change without writing.
-- **Apply**: writes changes to disk, with audit logging.  Uses a
+- **Apply**: writes changes to disk, with canonical framework events. Uses a
   temporary backup so that a partial failure can be rolled back.
 """
 
@@ -18,23 +18,27 @@ import logging
 import shutil
 import tempfile
 from dataclasses import dataclass, field
+from fnmatch import fnmatch
 from pathlib import Path
 
-from ai_engineering.git.context import get_git_context
 from ai_engineering.installer.templates import (
     get_ai_engineering_template_root,
     get_project_template_root,
     resolve_template_maps,
 )
 from ai_engineering.state.defaults import default_ownership_map
-from ai_engineering.state.io import append_ndjson, read_json_model, write_json_model
+from ai_engineering.state.io import read_json_model, write_json_model
 from ai_engineering.state.models import (
-    AuditEntry,
     InstallState,
+    OwnershipEntry,
     OwnershipMap,
 )
-from ai_engineering.state.service import load_install_state, save_install_state
-from ai_engineering.vcs.repo_context import get_repo_context
+from ai_engineering.state.observability import emit_framework_operation
+from ai_engineering.state.service import (
+    load_install_state,
+    remove_legacy_audit_log,
+    save_install_state,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +61,31 @@ class FileChange:
     action: str  # "create", "update", "skip-denied", "skip-unchanged"
     src: Path | None = None
     diff: str | None = None
+    reason_code: str = "unspecified"
+    explanation: str = ""
+    recommended_action: str | None = None
+
+    def outcome(self, *, dry_run: bool) -> str:
+        """Return a user-facing outcome label for the change."""
+        if self.action in ("create", "update"):
+            return "available" if dry_run else "applied"
+        if self.action == "skip-denied":
+            return "protected"
+        if self.action == "skip-unchanged":
+            return "unchanged"
+        return "failed"
+
+    def to_dict(self, *, dry_run: bool) -> dict[str, str | None]:
+        """Return a structured JSON-safe representation of the change."""
+        return {
+            "path": str(self.path),
+            "action": self.action,
+            "outcome": self.outcome(dry_run=dry_run),
+            "reason_code": self.reason_code,
+            "explanation": self.explanation,
+            "recommended_action": self.recommended_action,
+            "diff": self.diff,
+        }
 
 
 @dataclass
@@ -75,6 +104,67 @@ class UpdateResult:
     def denied_count(self) -> int:
         """Number of files skipped due to ownership denial."""
         return sum(1 for c in self.changes if c.action == "skip-denied")
+
+    @property
+    def unchanged_count(self) -> int:
+        """Number of files that already match the bundled templates."""
+        return sum(1 for c in self.changes if c.action == "skip-unchanged")
+
+    @property
+    def available_count(self) -> int:
+        """Number of files that are available to create or update."""
+        return sum(1 for c in self.changes if c.action in ("create", "update"))
+
+    @property
+    def protected_count(self) -> int:
+        """Number of files intentionally protected by ownership rules."""
+        return self.denied_count
+
+    def to_dict(self) -> dict[str, object]:
+        """Return a structured summary for JSON output."""
+        return {
+            "mode": "APPLIED" if not self.dry_run else "PREVIEW",
+            "applied": self.applied_count,
+            "denied": self.denied_count,
+            "grouped_counts": {
+                "applied": self.applied_count if not self.dry_run else 0,
+                "available": self.available_count if self.dry_run else 0,
+                "protected": self.protected_count,
+                "unchanged": self.unchanged_count,
+                "failed": 0,
+            },
+            "changes": [change.to_dict(dry_run=self.dry_run) for change in self.changes],
+        }
+
+
+def _initialize_update_context(
+    target: Path,
+    *,
+    dry_run: bool,
+) -> tuple[Path, Path, OwnershipMap, bool, str | None]:
+    """Load ownership and update state before evaluating changes."""
+    ai_eng_dir = target / ".ai-engineering"
+    state_dir = ai_eng_dir / "state"
+
+    ownership_path = state_dir / "ownership-map.json"
+    if ownership_path.exists():
+        ownership = read_json_model(ownership_path, OwnershipMap)
+    else:
+        ownership = OwnershipMap()
+
+    rules_added = _merge_missing_ownership_rules(ownership)
+
+    if not dry_run:
+        _migrate_install_manifest(ai_eng_dir)
+        _migrate_tools_json(ai_eng_dir)
+
+    _migrate_hooks_dir(target)
+
+    if not dry_run:
+        _cleanup_legacy_prompts(target)
+
+    install_state = load_install_state(state_dir)
+    return ai_eng_dir, ownership_path, ownership, rules_added, install_state.vcs_provider
 
 
 def update(
@@ -99,34 +189,10 @@ def update(
     Returns:
         UpdateResult with details of all changes.
     """
-    ai_eng_dir = target / ".ai-engineering"
-    state_dir = ai_eng_dir / "state"
-
-    # Load ownership map
-    ownership_path = state_dir / "ownership-map.json"
-    if ownership_path.exists():
-        ownership = read_json_model(ownership_path, OwnershipMap)
-    else:
-        ownership = OwnershipMap()
-
-    # Auto-merge missing default rules (additive only)
-    rules_added = _merge_missing_ownership_rules(ownership)
-
-    # --- Phase 0a: migrate state files (spec-068) ---
-    if not dry_run:
-        _migrate_install_manifest(ai_eng_dir)
-        _migrate_tools_json(ai_eng_dir)
-
-    # --- Phase 0b: migrate hooks from legacy scripts/hooks/ to .ai-engineering/ ---
-    _migrate_hooks_dir(target)
-
-    # --- Phase 0c: remove legacy .github/prompts/ if .github/skills/ exists ---
-    if not dry_run:
-        _cleanup_legacy_prompts(target)
-
-    # Load install state for VCS provider
-    install_state = load_install_state(state_dir)
-    vcs_provider = install_state.vcs_provider
+    ai_eng_dir, ownership_path, ownership, rules_added, vcs_provider = _initialize_update_context(
+        target,
+        dry_run=dry_run,
+    )
 
     # --- Phase 1: evaluate all changes (pure, no disk writes) ---
     changes: list[FileChange] = []
@@ -141,33 +207,33 @@ def update(
     # --- Phase 2: apply with backup/rollback ---
     actionable = [c for c in changes if c.action in ("create", "update")]
 
-    if not actionable:
-        return result
-
-    backup_dir = _backup_targets(actionable, target)
-    try:
-        for change in actionable:
-            if change.src is None:
-                continue
-            change.path.parent.mkdir(parents=True, exist_ok=True)
-            change.path.write_bytes(change.src.read_bytes())
-    except Exception:
-        if backup_dir is not None:
-            _restore_backup(backup_dir, target)
-        raise
-    else:
-        if backup_dir is not None:
-            shutil.rmtree(backup_dir, ignore_errors=True)
+    if actionable:
+        backup_dir = _backup_targets(actionable, target)
+        try:
+            for change in actionable:
+                if change.src is None:
+                    continue
+                change.path.parent.mkdir(parents=True, exist_ok=True)
+                change.path.write_bytes(change.src.read_bytes())
+        except Exception:
+            if backup_dir is not None:
+                _restore_backup(backup_dir, target)
+            raise
+        else:
+            if backup_dir is not None:
+                shutil.rmtree(backup_dir, ignore_errors=True)
 
     # --- Phase 3: persist merged ownership rules ---
     if rules_added:
         write_json_model(ownership_path, ownership)
 
     # --- Phase 4: migrate legacy agents/skills directories ---
-    _migrate_legacy_dirs(target, ai_eng_dir)
+    removed_legacy_dirs = _migrate_legacy_dirs(target, ai_eng_dir)
 
-    # --- Phase 5: audit log ---
-    _log_update_event(ai_eng_dir, result)
+    # --- Phase 5: remove legacy state and emit canonical event ---
+    legacy_audit_log_removed = remove_legacy_audit_log(target)
+    if actionable or rules_added or removed_legacy_dirs or legacy_audit_log_removed:
+        _log_update_event(ai_eng_dir, result, legacy_audit_log_removed=legacy_audit_log_removed)
 
     return result
 
@@ -297,25 +363,119 @@ def _evaluate_file_change(
     Returns:
         FileChange describing the evaluated action.
     """
+    ownership_entry = _match_ownership_entry(ownership, ownership_path)
+
     if not dest.exists():
         # Block creation if there is an explicit deny rule
         if ownership.has_deny_rule(ownership_path):
-            return FileChange(path=dest, action="skip-denied", src=src)
-        return FileChange(path=dest, action="create", src=src)
+            return FileChange(
+                path=dest,
+                action="skip-denied",
+                src=src,
+                reason_code=_protected_reason_code(ownership_entry, is_create=True),
+                explanation=_protected_explanation(ownership_entry, is_create=True),
+            )
+        return FileChange(
+            path=dest,
+            action="create",
+            src=src,
+            reason_code="missing-framework-file",
+            explanation=(
+                "A framework-managed file is missing and can be created from the bundled template."
+            ),
+            recommended_action="Apply the update to create this file.",
+        )
 
     # Check ownership (only ALLOW permits full replacement)
     if not ownership.is_update_allowed(ownership_path):
-        return FileChange(path=dest, action="skip-denied", src=src)
+        return FileChange(
+            path=dest,
+            action="skip-denied",
+            src=src,
+            reason_code=_protected_reason_code(ownership_entry, is_create=False),
+            explanation=_protected_explanation(ownership_entry, is_create=False),
+        )
 
     # Compare content
     src_content = src.read_bytes()
     dest_content = dest.read_bytes()
 
     if src_content == dest_content:
-        return FileChange(path=dest, action="skip-unchanged", src=src)
+        return FileChange(
+            path=dest,
+            action="skip-unchanged",
+            src=src,
+            reason_code="already-current",
+            explanation="This file already matches the bundled framework template.",
+        )
 
     diff = _generate_diff(src_content, dest_content, ownership_path)
-    return FileChange(path=dest, action="update", src=src, diff=diff)
+    return FileChange(
+        path=dest,
+        action="update",
+        src=src,
+        diff=diff,
+        reason_code="template-drift",
+        explanation=("This installed file differs from the current bundled framework template."),
+        recommended_action=(
+            "Apply the update to replace it with the latest framework-managed version."
+        ),
+    )
+
+
+def _match_ownership_entry(ownership: OwnershipMap, path: str) -> OwnershipEntry | None:
+    """Return the first ownership entry matching a path, if any."""
+    for entry in ownership.paths:
+        if fnmatch(path, entry.pattern):
+            return entry
+    return None
+
+
+def _protected_reason_code(entry: OwnershipEntry | None, *, is_create: bool) -> str:
+    """Return a stable reason code for protected paths."""
+    suffix = "create" if is_create else "update"
+    if entry is None:
+        return f"protected-{suffix}"
+    if entry.owner.value == "team-managed":
+        return f"team-managed-{suffix}-protected"
+    if entry.framework_update.value == "append-only":
+        return f"append-only-{suffix}-protected"
+    if entry.framework_update.value == "deny":
+        return f"ownership-deny-{suffix}-protected"
+    return f"protected-{suffix}"
+
+
+def _protected_explanation(entry: OwnershipEntry | None, *, is_create: bool) -> str:
+    """Return a user-facing explanation for protected paths."""
+    operation = "created" if is_create else "replaced"
+    if entry is None:
+        return (
+            "This path is protected by ownership rules, so ai-eng update will not "
+            f"have it {operation}. No action is required unless you intend to "
+            "manage it manually."
+        )
+    if entry.owner.value == "team-managed":
+        return (
+            "This is a team-managed path, so ai-eng update intentionally leaves "
+            f"it unchanged and will not have it {operation}. No action is "
+            "required."
+        )
+    if entry.framework_update.value == "append-only":
+        return (
+            "This path is append-only in the ownership map, so ai-eng update "
+            "will not fully replace it. No action is required unless you intend "
+            "to update it manually."
+        )
+    if entry.framework_update.value == "deny":
+        return (
+            "An explicit ownership rule protects this path, so ai-eng update will "
+            f"not have it {operation}. No action is required unless you intend to "
+            "override the policy manually."
+        )
+    return (
+        "This path is protected by ownership rules, so ai-eng update will not "
+        f"have it {operation}. No action is required."
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -584,25 +744,16 @@ def _migrate_legacy_dirs(target: Path, ai_eng_dir: Path) -> list[str]:
 
 
 def _log_migration_event(ai_eng_dir: Path, removed: list[str]) -> None:
-    """Append an audit-log entry for legacy directory migration."""
-    audit_path = ai_eng_dir / "state" / "audit-log.ndjson"
-    if not audit_path.parent.exists():
+    """Emit a framework operation event for legacy directory migration."""
+    if not (ai_eng_dir / "state").exists():
         return
-    project_root = ai_eng_dir.parent
-    repo_ctx = get_repo_context(project_root)
-    git_ctx = get_git_context(project_root)
-    entry = AuditEntry(
-        event="migrate-legacy-dirs",
-        actor="ai-engineering-cli",
-        detail={"removed": list(removed)},
-        vcs_provider=repo_ctx.provider if repo_ctx else None,
-        vcs_organization=repo_ctx.organization if repo_ctx else None,
-        vcs_project=repo_ctx.project if repo_ctx else None,
-        vcs_repository=repo_ctx.repository if repo_ctx else None,
-        branch=git_ctx.branch if git_ctx else None,
-        commit_sha=git_ctx.commit_sha if git_ctx else None,
+    emit_framework_operation(
+        ai_eng_dir.parent,
+        operation="migrate-legacy-dirs",
+        component="updater",
+        source="cli",
+        metadata={"removed": list(removed)},
     )
-    append_ndjson(audit_path, entry)
 
 
 # ---------------------------------------------------------------------------
@@ -610,21 +761,21 @@ def _log_migration_event(ai_eng_dir: Path, removed: list[str]) -> None:
 # ---------------------------------------------------------------------------
 
 
-def _log_update_event(ai_eng_dir: Path, result: UpdateResult) -> None:
-    """Append an audit-log entry for the update operation."""
-    audit_path = ai_eng_dir / "state" / "audit-log.ndjson"
-    project_root = ai_eng_dir.parent
-    repo_ctx = get_repo_context(project_root)
-    git_ctx = get_git_context(project_root)
-    entry = AuditEntry(
-        event="update",
-        actor="ai-engineering-cli",
-        detail={"applied": result.applied_count, "denied": result.denied_count},
-        vcs_provider=repo_ctx.provider if repo_ctx else None,
-        vcs_organization=repo_ctx.organization if repo_ctx else None,
-        vcs_project=repo_ctx.project if repo_ctx else None,
-        vcs_repository=repo_ctx.repository if repo_ctx else None,
-        branch=git_ctx.branch if git_ctx else None,
-        commit_sha=git_ctx.commit_sha if git_ctx else None,
+def _log_update_event(
+    ai_eng_dir: Path,
+    result: UpdateResult,
+    *,
+    legacy_audit_log_removed: bool = False,
+) -> None:
+    """Emit a framework operation event for update."""
+    emit_framework_operation(
+        ai_eng_dir.parent,
+        operation="update",
+        component="updater",
+        source="cli",
+        metadata={
+            "applied": result.applied_count,
+            "denied": result.denied_count,
+            "legacy_audit_log_removed": legacy_audit_log_removed,
+        },
     )
-    append_ndjson(audit_path, entry)

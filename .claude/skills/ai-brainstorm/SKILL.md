@@ -1,6 +1,6 @@
 ---
 name: ai-brainstorm
-description: "Use when the user wants to design, architect, or explore a feature before building it. HARD GATE: no implementation until the user approves the spec."
+description: "Use when the user wants to think through a problem before coding: designing a feature, exploring approaches, defining requirements, or resolving ambiguity. Trigger for 'let's add X', 'how should we handle Y', 'what's the best approach', 'I'm thinking about', or any work item lacking an approved spec. Not for existing specs — use /ai-plan instead. Produces a reviewed spec; no code until user approves."
 effort: max
 argument-hint: "[feature or problem description] [optional: work item ID e.g. AB#100, #45]"
 ---
@@ -31,10 +31,12 @@ HARD GATE: this skill produces a spec. No implementation happens until the user 
      c. Walk the hierarchy: Feature → User Story → Tasks (follow parent/child relations)
      d. Use all standard and custom fields the platform provides
      e. Pre-fill `refs` section in the generated spec frontmatter
+     f. Invoke `/ai-board-sync refinement <work-item-ref>` to transition the work item to refinement state (fail-open: do not block brainstorm if this fails)
 1.5. **Enhance input** -- follow `handlers/prompt-enhance.md` to evaluate and optimize user input for clarity and specificity before interrogation
 2. **Interrogate** -- follow `handlers/interrogate.md` for the questioning flow
 3. **Propose approaches** -- present 2-3 options with trade-offs (never just one)
-4. **Draft spec** -- write spec to `specs/spec.md`
+4. **Draft spec** -- write spec to `specs/spec.md`. Validate spec against `.ai-engineering/contexts/spec-schema.md` -- all required sections must be present before marking the spec as approved.
+4.5. **Board sync (ready)** -- if a work item ID was provided in step 1, invoke `/ai-board-sync ready <work-item-ref>` to transition the work item to ready state (fail-open: do not block brainstorm if this fails)
 5. **Review spec** -- follow `handlers/spec-review.md` for the review loop (max 3 iterations)
 6. **STOP** -- present approved spec. User runs `/ai-plan` to continue.
 
@@ -69,7 +71,7 @@ HARD GATE: this skill produces a spec. No implementation happens until the user 
 ## Integration
 
 - **Called by**: user directly, or `/ai-plan` when requirements are unclear
-- **Calls**: `handlers/prompt-enhance.md`, `handlers/interrogate.md`, `handlers/spec-review.md`
+- **Calls**: `handlers/prompt-enhance.md`, `handlers/interrogate.md`, `handlers/spec-review.md`, `/ai-board-sync` (refinement + ready transitions)
 - **Transitions to**: `/ai-plan` (ONLY -- never directly to `ai-build` or `/ai-dispatch`)
 
 $ARGUMENTS

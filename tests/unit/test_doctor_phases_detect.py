@@ -7,6 +7,7 @@ from unittest.mock import patch
 
 import pytest
 
+from ai_engineering.config.manifest import ManifestConfig, ProvidersConfig
 from ai_engineering.doctor.models import CheckResult, CheckStatus, DoctorContext
 from ai_engineering.doctor.phases import detect
 from ai_engineering.state.models import InstallState
@@ -234,17 +235,117 @@ class TestDetectFix:
 
 
 # ---------------------------------------------------------------------------
-# check() returns exactly 3 results
+# check() -- stack-drift
+# ---------------------------------------------------------------------------
+
+
+class TestStackDrift:
+    def test_ok_when_stacks_match(self, project: Path, valid_state: InstallState):
+        manifest = ManifestConfig(providers=ProvidersConfig(stacks=["python"]))
+        ctx = DoctorContext(target=project, install_state=valid_state, manifest_config=manifest)
+        with (
+            patch(
+                "ai_engineering.doctor.phases.detect._detect_vcs_from_remote",
+                return_value="github",
+            ),
+            patch(
+                "ai_engineering.doctor.phases.detect.detect_stacks",
+                return_value=["python"],
+            ),
+        ):
+            results = detect.check(ctx)
+        drift = next(r for r in results if r.name == "stack-drift")
+        assert drift.status == CheckStatus.OK
+
+    def test_warn_extra_in_manifest(self, project: Path, valid_state: InstallState):
+        manifest = ManifestConfig(providers=ProvidersConfig(stacks=["python", "rust"]))
+        ctx = DoctorContext(target=project, install_state=valid_state, manifest_config=manifest)
+        with (
+            patch(
+                "ai_engineering.doctor.phases.detect._detect_vcs_from_remote",
+                return_value="github",
+            ),
+            patch(
+                "ai_engineering.doctor.phases.detect.detect_stacks",
+                return_value=["python"],
+            ),
+        ):
+            results = detect.check(ctx)
+        drift = next(r for r in results if r.name == "stack-drift")
+        assert drift.status == CheckStatus.WARN
+        assert "in manifest but not detected" in drift.message
+        assert "rust" in drift.message
+
+    def test_warn_missing_from_manifest(self, project: Path, valid_state: InstallState):
+        manifest = ManifestConfig(providers=ProvidersConfig(stacks=["python"]))
+        ctx = DoctorContext(target=project, install_state=valid_state, manifest_config=manifest)
+        with (
+            patch(
+                "ai_engineering.doctor.phases.detect._detect_vcs_from_remote",
+                return_value="github",
+            ),
+            patch(
+                "ai_engineering.doctor.phases.detect.detect_stacks",
+                return_value=["python", "typescript"],
+            ),
+        ):
+            results = detect.check(ctx)
+        drift = next(r for r in results if r.name == "stack-drift")
+        assert drift.status == CheckStatus.WARN
+        assert "detected but not in manifest" in drift.message
+        assert "typescript" in drift.message
+
+    def test_warn_empty_manifest_stacks(self, project: Path, valid_state: InstallState):
+        manifest = ManifestConfig(providers=ProvidersConfig(stacks=[]))
+        ctx = DoctorContext(target=project, install_state=valid_state, manifest_config=manifest)
+        with (
+            patch(
+                "ai_engineering.doctor.phases.detect._detect_vcs_from_remote",
+                return_value="github",
+            ),
+        ):
+            results = detect.check(ctx)
+        drift = next(r for r in results if r.name == "stack-drift")
+        assert drift.status == CheckStatus.WARN
+        assert "empty" in drift.message
+
+    def test_warn_no_manifest_config(self, project: Path, valid_state: InstallState):
+        ctx = DoctorContext(target=project, install_state=valid_state, manifest_config=None)
+        with patch(
+            "ai_engineering.doctor.phases.detect._detect_vcs_from_remote",
+            return_value="github",
+        ):
+            results = detect.check(ctx)
+        drift = next(r for r in results if r.name == "stack-drift")
+        assert drift.status == CheckStatus.WARN
+        assert "No manifest config" in drift.message
+
+
+# ---------------------------------------------------------------------------
+# check() returns exactly 4 results
 # ---------------------------------------------------------------------------
 
 
 class TestCheckReturnsAllResults:
-    def test_check_returns_three_results(self, project: Path, valid_state: InstallState):
-        ctx = DoctorContext(target=project, install_state=valid_state)
-        with patch(
-            "ai_engineering.doctor.phases.detect._detect_vcs_from_remote", return_value="github"
+    def test_check_returns_four_results(self, project: Path, valid_state: InstallState):
+        manifest = ManifestConfig(providers=ProvidersConfig(stacks=["python"]))
+        ctx = DoctorContext(target=project, install_state=valid_state, manifest_config=manifest)
+        with (
+            patch(
+                "ai_engineering.doctor.phases.detect._detect_vcs_from_remote",
+                return_value="github",
+            ),
+            patch(
+                "ai_engineering.doctor.phases.detect.detect_stacks",
+                return_value=["python"],
+            ),
         ):
             results = detect.check(ctx)
-        assert len(results) == 3
+        assert len(results) == 4
         names = {r.name for r in results}
-        assert names == {"install-state-exists", "install-state-coherent", "detection-current"}
+        assert names == {
+            "install-state-exists",
+            "install-state-coherent",
+            "detection-current",
+            "stack-drift",
+        }

@@ -1,6 +1,6 @@
 ---
 name: resolve-conflicts
-description: Use when git reports merge conflicts during rebase, merge, cherry-pick, or revert operations.
+description: Use whenever git reports conflicts, you see <<<<<<< markers, or git operations stop mid-flight. Trigger for 'I have conflicts', 'rebase failed', 'merge conflict', 'cherry-pick failed', 'unmerged paths', 'git stopped with conflicts', 'I see <<<<<<< in the file'. Categorizes conflicts by type — lock files (regenerate), migrations (ask user), generated files (accept theirs), config (AI merge), code (intent-aware resolution).
 effort: medium
 argument-hint: 
 ---
@@ -87,6 +87,12 @@ Intelligent git conflict resolution. Detects conflict type, categorizes files by
 | Auto-resolving migration conflicts | Migration order is semantic; wrong order corrupts data |
 | Keeping both sides of a lock file | Lock files must be regenerated from the manifest |
 | Resolving without reading commit messages | Loses context about intent |
+
+## Integration
+
+- **Called by**: `/ai-pr` watch-and-fix loop (Step 5, automated CI repair), user directly
+- **Calls**: git (rebase, merge, cherry-pick continuation commands)
+- **Transitions to**: calling workflow resumes after conflicts resolved
 
 ## Quick Reference
 

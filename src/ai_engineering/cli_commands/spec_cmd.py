@@ -8,7 +8,7 @@ Provides deterministic, zero-token commands for spec management:
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from contextlib import suppress
 from pathlib import Path
 from typing import Annotated
 
@@ -16,6 +16,7 @@ import typer
 
 from ai_engineering.lib.parsing import count_checkboxes, parse_frontmatter
 from ai_engineering.paths import find_project_root
+from ai_engineering.state.observability import emit_framework_operation
 
 
 def _specs_dir(root: Path) -> Path:
@@ -23,20 +24,15 @@ def _specs_dir(root: Path) -> Path:
 
 
 def _emit_signal(root: Path, event: str, detail: dict) -> None:
-    """Emit a signal to audit-log.ndjson if the state module is available."""
-    try:
-        from ai_engineering.state.models import AuditEntry
-        from ai_engineering.state.service import StateService
-
-        entry = AuditEntry(
-            timestamp=datetime.now(tz=UTC),
-            event=event,
-            actor="cli",
-            detail=detail,
+    """Emit a framework operation event if observability is available."""
+    with suppress(OSError):
+        emit_framework_operation(
+            root,
+            operation=event,
+            component="cli.spec",
+            source="cli",
+            metadata=detail,
         )
-        StateService(root).append_audit(entry)
-    except (ImportError, OSError):
-        pass
 
 
 def _auto_correct_frontmatter(root: Path, real_total: int, real_completed: int) -> bool:

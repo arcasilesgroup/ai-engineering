@@ -15,7 +15,7 @@ import pytest
 
 from ai_engineering.installer.service import install
 from ai_engineering.state.io import read_json_model, read_ndjson_entries
-from ai_engineering.state.models import AuditEntry, InstallState
+from ai_engineering.state.models import FrameworkEvent, InstallState
 
 pytestmark = pytest.mark.e2e
 
@@ -62,9 +62,16 @@ class TestInstallClean:
             "install-state.json",
             "ownership-map.json",
             "decision-store.json",
+            "framework-capabilities.json",
+            "instinct-observations.ndjson",
         ]
         for fname in expected_files:
             assert (state_dir / fname).is_file(), f"Missing: {fname}"
+        assert not (state_dir / "audit-log.ndjson").exists()
+        instincts_dir = tmp_path / ".ai-engineering" / "instincts"
+        assert (instincts_dir / "instincts.yml").is_file()
+        assert (instincts_dir / "context.md").is_file()
+        assert (instincts_dir / "meta.json").is_file()
 
     def test_install_state_roundtrips(
         self,
@@ -75,15 +82,17 @@ class TestInstallClean:
         state = read_json_model(state_path, InstallState)
         assert state.schema_version == "2.0"
 
-    def test_install_creates_audit_entry(
+    def test_install_creates_framework_operation(
         self,
         tmp_path: Path,
     ) -> None:
         install(tmp_path, stacks=["python"], ides=["vscode"])
-        audit_path = tmp_path / ".ai-engineering" / "state" / "audit-log.ndjson"
-        entries = read_ndjson_entries(audit_path, AuditEntry)
+        events_path = tmp_path / ".ai-engineering" / "state" / "framework-events.ndjson"
+        entries = read_ndjson_entries(events_path, FrameworkEvent)
         assert len(entries) >= 1
-        assert any(e.event == "install" for e in entries)
+        assert any(
+            e.kind == "framework_operation" and e.detail["operation"] == "install" for e in entries
+        )
 
     def test_install_creates_project_templates(
         self,

@@ -1,6 +1,6 @@
 ---
 name: create
-description: Use when creating a new skill or agent for the ai-engineering framework, with TDD-based pressure testing and CSO-optimized descriptions.
+description: Use when adding a new slash command, building a new agent role, or extending the ai-engineering framework with a capability it does not yet have. Trigger for 'create a new skill', 'add a slash command', 'the framework needs a capability for X', 'build a new agent'. Covers skill scaffold, TDD pressure testing, description optimization, registration, and mirror sync.
 effort: high
 argument-hint: "skill <name>|agent <name>"
 ---
@@ -72,9 +72,30 @@ After creating any skill or agent:
 - [ ] File created at correct path
 - [ ] Frontmatter has `name`, `description`, `argument-hint`
 - [ ] Description is CSO-optimized (triggering conditions, not summary)
+- [ ] IDE-compatibility fields set if needed (see table below)
 - [ ] Registered in `manifest.yml`
 - [ ] Mirror files created for other IDE surfaces (`.agents/`, `.github/skills/`)
 - [ ] No overlap with existing skills (checked `/ai-find` or skill list)
+
+### IDE-Compatibility Frontmatter Fields
+
+These optional fields are consumed by `scripts/sync_command_mirrors.py` via `is_copilot_compatible()`. When omitted, the skill is mirrored to all 4 IDEs (Claude Code, GitHub Copilot, Codex, Gemini).
+
+| Field | Type | Value | Effect |
+|-------|------|-------|--------|
+| `copilot_compatible` | bool | `false` | Excludes skill from `.github/skills/` mirror |
+| `disable-model-invocation` | bool | `true` | Tells GitHub Copilot not to invoke LLM (script-only skills) |
+
+**When to set:**
+- Most skills: omit both (mirrors to all IDEs)
+- Claude Code-only skills (use Claude Code-specific tools): set `copilot_compatible: false`
+- Script-only skills that bypass LLM entirely: also set `disable-model-invocation: true`
+
+**Example** (only `ai-analyze-permissions` currently uses this):
+```yaml
+copilot_compatible: false
+disable-model-invocation: true
+```
 
 ## CSO Description Patterns
 
@@ -83,6 +104,10 @@ After creating any skill or agent:
 | "Generates standup notes" | "Use when preparing daily standup notes or summarizing recent PR activity" |
 | "Sprint planning tool" | "Use when planning a new sprint or running a retrospective" |
 | "Resolves git conflicts" | "Use when git reports merge conflicts during rebase, merge, or cherry-pick" |
+
+## Scripts
+
+- `scripts/scaffold-skill.sh <name>` -- scaffold a new skill directory with SKILL.md template, handlers/, and scripts/
 
 ## Quick Reference
 

@@ -95,7 +95,7 @@
     {
       "id": "DEC-006",
       "title": "SonarCloud as primary quality gate platform",
-      "description": "Adopted SonarCloud for static analysis, coverage tracking, and quality gate enforcement. Integrated into CI (spec-030, spec-038) and observe dashboards. Quality gates: zero blocker/critical, coverage 80%, duplication \u22643%, complexity \u226410/\u226415.",
+      "description": "Adopted SonarCloud for static analysis, coverage tracking, and quality gate enforcement. Integrated into CI (spec-030, spec-038) and framework control outcomes. Quality gates: zero blocker/critical, coverage 80%, duplication \u22643%, complexity \u226410/\u226415.",
       "category": "tooling",
       "status": "active",
       "criticality": "high",
@@ -105,7 +105,7 @@
       "expires_at": "2027-03-09T00:00:00Z",
       "context_hash": "",
       "acknowledged_by": "plan",
-      "decision": "Adopted SonarCloud for static analysis, coverage tracking, and quality gate enforcement. Integrated into CI (spec-030, spec-038) and observe dashboards. Quality gates: zero blocker/critical, coverage 80%, duplication \u22643%, complexity \u226410/\u226415.",
+      "decision": "Adopted SonarCloud for static analysis, coverage tracking, and quality gate enforcement. Integrated into CI (spec-030, spec-038) and framework control outcomes. Quality gates: zero blocker/critical, coverage 80%, duplication \u22643%, complexity \u226410/\u226415.",
       "decidedAt": "2026-03-09T00:00:00Z",
       "context": "tooling"
     },
@@ -114,7 +114,7 @@
       "title": "Single event store \u2014 audit-log.ndjson",
       "description": "All framework events (gates, scans, builds, deploys, sessions) write to a single NDJSON file: state/audit-log.ndjson. No dual-write. Weekly rotation with 90-day retention. Query via signals.py load_all_events + filter_events pattern.",
       "category": "architecture",
-      "status": "active",
+      "status": "superseded",
       "criticality": "high",
       "source": "RECONSTRUCTED",
       "spec": "039-observe-enrichment-phase-1",
@@ -122,6 +122,7 @@
       "expires_at": "2027-03-04T00:00:00Z",
       "context_hash": "",
       "acknowledged_by": "observe",
+      "superseded_by": "DEC-028",
       "decision": "All framework events (gates, scans, builds, deploys, sessions) write to a single NDJSON file: state/audit-log.ndjson. No dual-write. Weekly rotation with 90-day retention. Query via signals.py load_all_events + filter_events pattern.",
       "decidedAt": "2026-03-04T00:00:00Z",
       "context": "architecture"
@@ -131,7 +132,7 @@
       "title": "No-suppression rule \u2014 never bypass static analysis",
       "description": "NEVER add suppression comments (# NOSONAR, # nosec, # type: ignore, # pragma: no cover, # noqa, // nolint) to bypass analysis. Fix the root cause. If false positive: refactor code to satisfy analyzer or escalate with full explanation. Added to CLAUDE.md absolute prohibitions.",
       "category": "governance",
-      "status": "active",
+      "status": "superseded",
       "criticality": "high",
       "source": "RECONSTRUCTED",
       "spec": "049-sonarcloud-quality-gate",
@@ -216,7 +217,7 @@
       "title": "Cross-IDE telemetry via ai-eng signals emit",
       "description": "All skills and agents emit telemetry via shell command: ai-eng signals emit <event> --actor=ai --detail='{...}'. Works in any IDE with shell access (Claude Code, Copilot, Gemini, Codex). Fail-open: skip if ai-eng unavailable.",
       "category": "architecture",
-      "status": "active",
+      "status": "superseded",
       "criticality": "medium",
       "source": "RECONSTRUCTED",
       "spec": "044-skill-agent-telemetry",
@@ -224,6 +225,7 @@
       "expires_at": "2027-03-07T00:00:00Z",
       "context_hash": "",
       "acknowledged_by": "observe",
+      "superseded_by": "DEC-028",
       "decision": "All skills and agents emit telemetry via shell command: ai-eng signals emit <event> --actor=ai --detail='{...}'. Works in any IDE with shell access (Claude Code, Copilot, Gemini, Codex). Fail-open: skip if ai-eng unavailable.",
       "decidedAt": "2026-03-07T00:00:00Z",
       "context": "architecture"
@@ -326,6 +328,7 @@
       "expires_at": "2027-03-15T00:00:00Z",
       "context_hash": "",
       "acknowledged_by": "guard",
+      "superseded_by": "DEC-028",
       "supersedes": "DEC-002",
       "decision": "Expanded from 7 to 10 agents via spec-051 clean-sheet redesign. 10 agents: plan (specs/plans), execute (coordination/dispatch), guard (proactive governance advisory), build (code implementation), verify (7-mode validation), ship (delivery/ALM), observe (dashboards/metrics), guide (onboarding/teaching), write (documentation), operate (runbook execution). Each agent has single responsibility with declared capabilities and boundaries.",
       "decidedAt": "2026-03-15T00:00:00Z",
@@ -466,6 +469,22 @@
       "acknowledged_by": "plan",
       "decision": "framework-contract.md and product-contract.md eliminated from templates. Governance rules now live in CLAUDE.md (prohibitions, gates), manifest.yml (counts, ownership, tooling), and project-identity.md (project name, purpose, boundaries, stakeholders). The instruction_consistency validator category was absorbed into counter_accuracy; cross-file listing comparison dropped since counter_accuracy already validates against manifest.yml as source of truth. Skill count updated from 37 to 38 with new /ai-project-identity skill.",
       "decidedAt": "2026-03-26T00:00:00Z",
+      "context": "architecture"
+    },
+    {
+      "id": "DEC-028",
+      "title": "Canonical framework-events stream plus agentsview companion viewer",
+      "category": "architecture",
+      "status": "active",
+      "criticality": "high",
+      "source": "spec-082",
+      "spec": "082",
+      "created_at": "2026-03-27",
+      "expires_at": "2027-03-27T00:00:00Z",
+      "context_hash": "",
+      "acknowledged_by": "guard",
+      "decision": "ai-engineering no longer owns dashboards or ai-eng signals emit. Canonical observability consists of .ai-engineering/state/framework-events.ndjson plus .ai-engineering/state/framework-capabilities.json, with transcript/session viewing delegated to independently installed agentsview.",
+      "decidedAt": "2026-03-27T00:00:00Z",
       "context": "architecture"
     }
   ]

@@ -152,4 +152,6 @@ credentials*.json
 # ai-engineering specific
 .ai-engineering/local.yml
 .ai-engineering/.cache/
+.ai-engineering/state/framework-events.ndjson
+.ai-engineering/state/framework-capabilities.json
 .claude/session-topics/

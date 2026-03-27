@@ -83,9 +83,9 @@ def _mock_all_modules(monkeypatch: pytest.MonkeyPatch) -> dict[str, MagicMock]:
         "ai_engineering.doctor.service.load_manifest_config",
         lambda _: MagicMock(),
     )
-    # Mock audit log emission
+    # Mock framework event emission
     monkeypatch.setattr(
-        "ai_engineering.doctor.service.append_ndjson",
+        "ai_engineering.doctor.service.emit_framework_operation",
         lambda *_a, **_kw: None,
     )
 

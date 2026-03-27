@@ -510,8 +510,8 @@ class TestDecisionRecord:
         )
         assert "2026-01-15" in data["decisions"][0]["expiresAt"]
 
-    def test_record_emits_audit_signal(self, tmp_path: Path) -> None:
-        """Record writes an audit-log entry (dual-write)."""
+    def test_record_emits_framework_event(self, tmp_path: Path) -> None:
+        """Record writes a canonical framework event."""
         # Arrange
         (tmp_path / ".ai-engineering" / "state").mkdir(parents=True)
 
@@ -535,9 +535,10 @@ class TestDecisionRecord:
             )
 
         # Assert
-        audit_path = tmp_path / ".ai-engineering" / "state" / "audit-log.ndjson"
-        assert audit_path.exists()
-        line = audit_path.read_text().strip()
-        audit = json.loads(line)
-        assert audit["event"] == "decision_recorded"
-        assert "d-test-005" in audit["detail"]["message"]
+        events_path = tmp_path / ".ai-engineering" / "state" / "framework-events.ndjson"
+        assert events_path.exists()
+        line = events_path.read_text().strip()
+        event = json.loads(line)
+        assert event["kind"] == "control_outcome"
+        assert event["detail"]["control"] == "decision-record"
+        assert event["detail"]["decision_id"] == "d-test-005"

@@ -97,6 +97,24 @@ After each phase completion, question own output:
 
 If any answer is uncertain, re-verify that specific aspect before proceeding.
 
+## Context Output Contract
+
+Every autopilot execution produces this structured output to provide full transparency on decomposition, execution, and quality outcomes.
+
+```markdown
+## Findings
+[Decomposition results, wave assignments, quality loop outcomes per round]
+
+## Dependencies Discovered
+[Cross-sub-spec file overlaps, import chains, cascade blocking relationships]
+
+## Risks Identified
+[Cascade blocking events, quality convergence failures, stubs or inventions flagged in Self-Reports]
+
+## Recommendations
+[Manual intervention points, follow-up specs needed, tech debt introduced]
+```
+
 ## Referenced Skills
 
 | Skill | Phase | Usage |

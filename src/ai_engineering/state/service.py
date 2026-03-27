@@ -12,8 +12,9 @@ from pathlib import Path
 
 from ai_engineering.state.io import append_ndjson, read_json_model, write_json_model
 from ai_engineering.state.models import (
-    AuditEntry,
     DecisionStore,
+    FrameworkCapabilitiesCatalog,
+    FrameworkEvent,
     InstallState,
     OwnershipMap,
 )
@@ -45,9 +46,13 @@ class StateService:
         """Load the ownership map."""
         return read_json_model(self._state_dir / "ownership-map.json", OwnershipMap)
 
-    def append_audit(self, entry: AuditEntry) -> None:
-        """Append an entry to the audit log."""
-        append_ndjson(self._state_dir / "audit-log.ndjson", entry)
+    def append_framework_event(self, entry: FrameworkEvent) -> None:
+        """Append an entry to the canonical framework event stream."""
+        append_ndjson(self._state_dir / "framework-events.ndjson", entry)
+
+    def save_framework_capabilities(self, catalog: FrameworkCapabilitiesCatalog) -> None:
+        """Persist the canonical framework capability catalog."""
+        write_json_model(self._state_dir / "framework-capabilities.json", catalog)
 
 
 # ---------------------------------------------------------------------------
@@ -55,6 +60,7 @@ class StateService:
 # ---------------------------------------------------------------------------
 
 _INSTALL_STATE_FILENAME = "install-state.json"
+_LEGACY_AUDIT_LOG_FILENAME = "audit-log.ndjson"
 
 
 def load_install_state(state_dir: Path) -> InstallState:
@@ -93,3 +99,21 @@ def save_install_state(state_dir: Path, state: InstallState) -> None:
         encoding="utf-8",
     )
     logger.debug("install-state.json written to %s", path)
+
+
+def legacy_audit_log_path(project_root: Path) -> Path:
+    """Return the legacy audit-log path retained only for cleanup."""
+    return project_root / ".ai-engineering" / "state" / _LEGACY_AUDIT_LOG_FILENAME
+
+
+def remove_legacy_audit_log(project_root: Path) -> bool:
+    """Delete the legacy audit-log if present.
+
+    Returns ``True`` when a file was removed and ``False`` otherwise.
+    """
+    path = legacy_audit_log_path(project_root)
+    if not path.exists():
+        return False
+    path.unlink()
+    logger.debug("Removed legacy audit log at %s", path)
+    return True

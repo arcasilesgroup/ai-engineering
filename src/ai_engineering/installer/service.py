@@ -27,7 +27,6 @@ from pathlib import Path
 
 from ai_engineering.config.loader import load_manifest_config, update_manifest_field
 from ai_engineering.detector.readiness import check_tools_for_stacks
-from ai_engineering.git.context import get_git_context
 from ai_engineering.hooks.manager import HookInstallResult, install_hooks
 from ai_engineering.installer.phases import (
     PHASE_GOVERNANCE,
@@ -51,11 +50,14 @@ from ai_engineering.state.defaults import (
     default_install_state,
     default_ownership_map,
 )
-from ai_engineering.state.io import append_ndjson, write_json_model
-from ai_engineering.state.models import AuditEntry
+from ai_engineering.state.instincts import ensure_instinct_artifacts
+from ai_engineering.state.io import write_json_model
+from ai_engineering.state.observability import (
+    emit_framework_operation,
+    write_framework_capabilities,
+)
 from ai_engineering.state.service import load_install_state, save_install_state
 from ai_engineering.vcs.factory import get_provider
-from ai_engineering.vcs.repo_context import get_repo_context
 
 from .auth import check_vcs_auth
 from .branch_policy import apply_branch_policy
@@ -74,9 +76,12 @@ _STATE_FILES: dict[str, str] = {
     "install-state": "state/install-state.json",
     "ownership-map": "state/ownership-map.json",
     "decision-store": "state/decision-store.json",
+    "framework-capabilities": "state/framework-capabilities.json",
+    "instinct-observations": "state/instinct-observations.ndjson",
+    "instincts": "instincts/instincts.yml",
+    "instinct-context": "instincts/context.md",
+    "instinct-meta": "instincts/meta.json",
 }
-
-_AUDIT_LOG_PATH: str = "state/audit-log.ndjson"
 
 
 @dataclass
@@ -161,7 +166,7 @@ def install(
     if not result.state_files and not result.governance_files.created:
         result.already_installed = True
 
-    # 4. Audit log entry
+    # 4. Canonical framework event entry
     _log_install_event(ai_eng_dir, result)
 
     # 5. Ensure git repo exists, then install hooks
@@ -395,36 +400,41 @@ def _generate_state_files(
         write_json_model(dest, model)
         created.append(dest)
 
+    capabilities_path = ai_eng_dir / _STATE_FILES["framework-capabilities"]
+    if not capabilities_path.exists():
+        write_framework_capabilities(ai_eng_dir.parent)
+        created.append(capabilities_path)
+
+    instinct_paths = [
+        ai_eng_dir / _STATE_FILES["instinct-observations"],
+        ai_eng_dir / _STATE_FILES["instincts"],
+        ai_eng_dir / _STATE_FILES["instinct-context"],
+        ai_eng_dir / _STATE_FILES["instinct-meta"],
+    ]
+    if not all(path.exists() for path in instinct_paths):
+        ensure_instinct_artifacts(ai_eng_dir.parent)
+        for path in instinct_paths:
+            if path not in created:
+                created.append(path)
+
     return created
 
 
 def _log_install_event(ai_eng_dir: Path, result: InstallResult) -> None:
-    """Append an audit-log entry for the install operation.
-
-    Args:
-        ai_eng_dir: Path to the ``.ai-engineering/`` directory.
-        result: The install result to log.
-    """
-    audit_path = ai_eng_dir / _AUDIT_LOG_PATH
+    """Emit a canonical framework operation event for install."""
     project_root = ai_eng_dir.parent
-    repo_ctx = get_repo_context(project_root)
-    git_ctx = get_git_context(project_root)
-    entry = AuditEntry(
-        event="install",
-        actor="ai-engineering-cli",
-        detail={
+    emit_framework_operation(
+        project_root,
+        operation="install",
+        component="installer",
+        source="cli",
+        metadata={
             "created": result.total_created,
             "skipped": result.total_skipped,
             "state_files": len(result.state_files),
+            "manual_steps": len(result.manual_steps),
         },
-        vcs_provider=repo_ctx.provider if repo_ctx else None,
-        vcs_organization=repo_ctx.organization if repo_ctx else None,
-        vcs_project=repo_ctx.project if repo_ctx else None,
-        vcs_repository=repo_ctx.repository if repo_ctx else None,
-        branch=git_ctx.branch if git_ctx else None,
-        commit_sha=git_ctx.commit_sha if git_ctx else None,
     )
-    append_ndjson(audit_path, entry)
 
 
 def _run_operational_phases(target: Path, *, vcs_provider: str, result: InstallResult) -> None:

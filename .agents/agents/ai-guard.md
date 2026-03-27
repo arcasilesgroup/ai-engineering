@@ -84,7 +84,7 @@ Severity scale: `info` (awareness) < `warn` (should address) < `concern` (likely
 
 ## Referenced Skills
 
-- `.agents/skills/guard/SKILL.md` -- primary skill with detailed procedures
+- `.agents/skills/dispatch/SKILL.md` -- guard advisory entry point during build execution
 - `.agents/skills/governance/SKILL.md` -- shared governance validation patterns
 
 ## Boundaries
@@ -92,7 +92,7 @@ Severity scale: `info` (awareness) < `warn` (should address) < `concern` (likely
 - **NEVER** modifies source code -- advisory only
 - **NEVER** blocks execution -- fail-open always
 - **NEVER** produces FAIL/BLOCK verdicts -- those belong to verify and git hooks
-- **Read-write** limited to `state/decision-store.json` (drift annotations) and `state/audit-log.ndjson` (signals)
+- **Read-write** limited to `state/decision-store.json` (drift annotations) and `state/framework-events.ndjson` (canonical outcomes)
 - **Read-only** for all other files
 - Does not replace verify or git hooks
 

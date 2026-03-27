@@ -1,6 +1,6 @@
 ---
 name: cleanup
-description: "Use when cleaning up the repository: safe migration to default branch, branch cleanup with merged/stale detection, and rich per-branch status report."
+description: Use after merging a PR, at session start, or to tidy up branches. Trigger for 'tidy up', 'clean up branches', 'sync to main', 'get back to main', 'delete old branches', 'what branches do I have', 'start fresh'. Also automatically invoked by /ai-pr after merge. Safely switches to default branch, prunes merged and squash-merged branches, produces per-branch status report.
 effort: medium
 argument-hint: "--branches|--sync|--all"
 tags: [git, branch, cleanup, hygiene, status, delivery]

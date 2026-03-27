@@ -88,6 +88,7 @@ Before writing or reviewing code, load the applicable context files:
 - **Simplicity First**: Make every change as simple as possible. Impact minimal code.
 - **No Laziness**: Find root causes. No temporary fixes. Senior developer standards.
 - **Minimal Impact**: Changes should only touch what's necessary. Avoid introducing bugs.
+- **Cross-Platform**: All generated code, scripts, and paths must work on Windows, macOS, and Linux. Use platform-agnostic idioms. No OS-specific assumptions without explicit fallbacks.
 
 ## Agent Selection
 
@@ -100,7 +101,7 @@ Before writing or reviewing code, load the applicable context files:
 | Code review (parallel agents) | review | `/ai-review` |
 | Deep codebase research | explore | direct dispatch |
 | Onboarding, teaching | guide | `/ai-guide` |
-| Simplify/refactor code | simplify | `/ai-simplify` |
+| Simplify/refactor code | simplify | direct dispatch |
 | Multi-spec autonomous execution | autopilot | `/ai-autopilot` |
 
 ## Platform Mirrors
@@ -113,15 +114,15 @@ Each IDE has its own skill and agent files. Same content, platform-native format
 | GitHub Copilot | `.github/skills/ai-*/SKILL.md` | `.github/agents/*.agent.md` |
 | Codex / Gemini | `.agents/skills/*/SKILL.md` | `.agents/agents/ai-*.md` |
 
-## Skills (38)
+## Skills (41)
 
 Grouped by type. Invoke as `/ai-<name>`.
 
-**Workflow:** brainstorm, plan, dispatch, test, debug, verify, review, eval
-**Delivery:** commit, pr, release, cleanup
-**Enterprise:** security, governance, pipeline, schema, solution-intent
+**Workflow:** brainstorm, plan, dispatch, code, test, debug, verify, review, eval, schema
+**Delivery:** commit, pr, release-gate, cleanup, market
+**Enterprise:** security, governance, pipeline, docs, board-discover, board-sync
 **Teaching:** explain, guide, write, slides, media, video-editing
-**SDLC:** note, standup, sprint, sprint-review, postmortem, support, resolve-conflicts
+**SDLC:** note, standup, sprint, postmortem, support, resolve-conflicts
 **Meta:** create, learn, prompt, onboard, analyze-permissions, instinct, autopilot, project-identity
 
 ## Effort Levels
@@ -130,9 +131,9 @@ Each skill declares `effort` in frontmatter. Assignment by cognitive weight:
 
 | Effort | Count |
 |--------|-------|
-| max | 11 (brainstorm, plan, review, verify, security, debug, governance, schema, instinct, eval, autopilot) |
-| high | 15 (dispatch, test, write, explain, guide, pr, solution-intent, support, postmortem, pipeline, create, prompt, slides, media, video-editing) |
-| medium | 12 (commit, cleanup, standup, note, onboard, release, resolve-conflicts, sprint, sprint-review, learn, analyze-permissions, project-identity) |
+| max | 8 (brainstorm, review, verify, security, governance, schema, eval, autopilot) |
+| high | 20 (board-discover, code, create, debug, dispatch, docs, explain, guide, market, pipeline, plan, postmortem, pr, release-gate, slides, sprint, support, test, video-editing, write) |
+| medium | 13 (analyze-permissions, board-sync, cleanup, commit, instinct, learn, media, note, onboard, project-identity, prompt, resolve-conflicts, standup) |
 
 ## Quality Gates
 
@@ -151,11 +152,12 @@ Tooling: `ruff` + `ty` (lint/format), `pytest` (test), `gitleaks` (secrets), `pi
 
 ## Observability
 
-Telemetry is automatic via hooks -- no manual `ai-eng signals emit` needed.
+Telemetry is automatic via hooks and writes only canonical framework events.
 - `UserPromptSubmit(/ai-*)` hook emits `skill_invoked` events
-- `Stop` hook emits `session_end` events
-- All events flow to `.ai-engineering/state/audit-log.ndjson`
-- Dashboards: `ai-eng observe [engineer|team|ai|dora|health]`
+- `PostToolUse` agent hooks emit `agent_dispatched` and `ide_hook` events
+- Hook, gate, governance, security, and quality outcomes flow to `.ai-engineering/state/framework-events.ndjson`
+- Registered skills, agents, contexts, and hooks are catalogued in `.ai-engineering/state/framework-capabilities.json`
+- Session discovery and transcript viewing are delegated to separately installed `agentsview`
 
 ## Don't
 
@@ -167,6 +169,7 @@ Telemetry is automatic via hooks -- no manual `ai-eng signals emit` needed.
 6. **NEVER** dismiss security findings without `state/decision-store.json` risk acceptance.
 7. **NEVER** disable or modify `.claude/settings.json` deny rules.
 8. **NEVER** add suppression comments (`# noqa`, `# nosec`, `# type: ignore`, `# pragma: no cover`, `# NOSONAR`, `// nolint`) to bypass quality gates. Fix the code. If it is a false positive, refactor to satisfy the analyzer or escalate with a full explanation.
+9. **NEVER** weaken a gate, threshold, or severity level without the full protocol: warn user of impact, generate a remediation patch, require explicit risk acceptance, persist to `state/decision-store.json`, and emit the outcome to `state/framework-events.ndjson`.
 
 Gate failure: diagnose, fix, retry. Use `ai-eng doctor --fix` or `ai-eng doctor --fix --phase <name>`.
 
@@ -174,7 +177,7 @@ Gate failure: diagnose, fix, retry. Use `ai-eng doctor --fix` or `ai-eng doctor 
 
 | What | Where |
 |------|-------|
-| Skills (38) | `.claude/skills/ai-<name>/SKILL.md` |
+| Skills (41) | `.claude/skills/ai-<name>/SKILL.md` |
 | Agents (9) | `.claude/agents/ai-<name>.md` |
 | Config | `.ai-engineering/manifest.yml` |
 | Decisions | `.ai-engineering/state/decision-store.json` |

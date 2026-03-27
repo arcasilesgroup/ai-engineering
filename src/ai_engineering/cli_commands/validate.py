@@ -80,6 +80,7 @@ def validate_cmd(
             score=score,
             findings={"pass": passed_count, "fail": total_cats - passed_count},
             duration_ms=elapsed_ms,
+            outcome="success" if report.passed else "failure",
         )
 
     with contextlib.suppress(Exception):

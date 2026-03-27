@@ -68,7 +68,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR/.ai-engineering/scripts/hooks/observe.py\"",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.ai-engineering/scripts/hooks/instinct-observe.py\"",
             "timeout": 10
           }
         ]
@@ -77,6 +77,16 @@
     "PostToolUse": [
       {
         "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.ai-engineering/scripts/hooks/instinct-observe.py\"",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "Agent",
         "hooks": [
           {
             "type": "command",
@@ -109,16 +119,6 @@
       }
     ],
     "Stop": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR/.ai-engineering/scripts/hooks/cost-tracker.py\"",
-            "timeout": 10
-          }
-        ]
-      },
       {
         "matcher": "",
         "hooks": [

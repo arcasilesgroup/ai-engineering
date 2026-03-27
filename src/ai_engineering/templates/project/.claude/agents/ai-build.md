@@ -23,9 +23,9 @@ Python, .NET, React, TypeScript, Next.js, Node, NestJS, React Native, Rust, YAML
 
 ## Behavior
 
-### 1. Detect Stack
+### 1. Read Stacks from Manifest
 
-Identify technology from project files: `pyproject.toml` -> Python, `*.csproj` -> .NET, `next.config.*` -> Next.js, `Cargo.toml` -> Rust, `*.tf` -> Terraform. For polyglot projects, load all applicable standards.
+Read `.ai-engineering/manifest.yml` field `providers.stacks` to determine the project's active stacks. This is the single source of truth -- do not scan project files for stack detection. For polyglot projects the manifest lists all applicable stacks.
 
 ### 2. Load Contexts
 
@@ -42,7 +42,7 @@ Apply loaded standards to all subsequent code generation.
 
 | Skill | Trigger | What it does |
 |-------|---------|-------------|
-| `code` | Implementation tasks | Write code following stack standards |
+| `code` | Implementation tasks | Pre-coding checklist, context-aware coding, interface-first, self-review |
 | `test` | Test requests | Plan, write, run tests (modes: plan/run/gap) |
 | `debug` | Bug reports, errors | Reproduce, isolate, fix, verify |
 | `refactor` | Restructure code | Move, rename, split -- change structure preserving behavior |
@@ -90,9 +90,27 @@ For multi-task plans, use specialized agents per task with fresh context:
 - Two-stage review per task: spec compliance + code quality
 - If stuck after 2 attempts on any task, escalate immediately
 
+## Context Output Contract
+
+Every build task produces this structured output to enable downstream agents (verify, review, guard) to assess the work without re-reading the full codebase.
+
+```markdown
+## Findings
+[Validation results, guard advisories addressed, stack-specific lint/format outcomes]
+
+## Dependencies Discovered
+[Imports added or modified, new package dependencies, cross-module coupling introduced]
+
+## Risks Identified
+[Complexity warnings, test coverage gaps, areas where implementation deviates from spec]
+
+## Recommendations
+[Follow-up tasks, refactoring opportunities, tech debt introduced intentionally]
+```
+
 ## Referenced Skills
 
-- `.claude/skills/ai-test/SKILL.md`, `.claude/skills/ai-debug/SKILL.md`, `.claude/skills/ai-simplify/SKILL.md`
+- `.claude/skills/ai-code/SKILL.md`, `.claude/skills/ai-test/SKILL.md`, `.claude/skills/ai-debug/SKILL.md`
 - `.claude/skills/ai-schema/SKILL.md`, `.claude/skills/ai-pipeline/SKILL.md`
 - `.claude/skills/ai-dispatch/SKILL.md` -- task dispatch and agent coordination
 

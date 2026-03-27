@@ -11,7 +11,7 @@ This directory governs your AI workspace.
 /ai-commit       -- governed commit (lint + secrets + push)
 ```
 
-## Skills (38)
+## Skills (41)
 
 Invoke as `/ai-<name>`. Grouped by workflow stage.
 
@@ -26,35 +26,37 @@ Invoke as `/ai-<name>`. Grouped by workflow stage.
 | | /ai-schema | Database schema design and migrations |
 | **Deliver** | /ai-commit | Governed commit (lint + secrets + push) |
 | | /ai-pr | Pull request with auto-generated summary |
-| | /ai-release | GO/NO-GO release gate |
+| | /ai-release-gate | GO/NO-GO release gate |
 | | /ai-cleanup | Branch cleanup and repo hygiene |
 | **Verify** | /ai-verify | Evidence-based quality scanning |
 | | /ai-review | Parallel multi-agent code review |
 | | /ai-security | SAST, dependency audit, SBOM |
 | | /ai-governance | Compliance and policy validation |
-| **Document** | /ai-write | Docs, changelogs, articles |
+| **Document** | /ai-write | Reports, blog posts, pitches, solution intent |
+| | /ai-market | Marketing and go-to-market execution |
 | | /ai-explain | Technical explanations |
 | | /ai-guide | Project onboarding walkthroughs |
-| | /ai-solution-intent | Architecture document lifecycle |
+| | /ai-docs | Project documentation lifecycle (changelog, readme, solution-intent, external portal) |
 | | /ai-slides | Presentation generation (HTML/CSS) |
 | | /ai-media | Media asset generation |
 | | /ai-video-editing | Video editing and post-production |
 | **Sprint** | /ai-note | Technical discovery notes |
 | | /ai-standup | Standup notes from PR activity |
 | | /ai-sprint | Sprint planning and retrospectives |
-| | /ai-sprint-review | Sprint review presentations |
 | | /ai-postmortem | Incident postmortems (DERP format) |
 | | /ai-support | Customer support investigation |
 | | /ai-resolve-conflicts | Git conflict resolution |
 | **Meta** | /ai-create | Create new skills and agents (TDD) |
 | | /ai-learn | Continuous improvement from outcomes |
 | | /ai-prompt | Prompt optimization and tuning |
-| | /ai-onboard | Session bootstrap and enforcement |
+| | /ai-onboard | Session bootstrap, bounded context refresh, and enforcement |
 | | /ai-analyze-permissions | Permission pattern consolidation |
-| | /ai-instinct | Behavioral pattern extraction |
+| | /ai-instinct | Project-local instinct review and consolidation |
 | | /ai-autopilot | Multi-spec autonomous orchestration |
 | | /ai-eval | Skill and agent evaluation |
 | | /ai-pipeline | CI/CD pipeline generation |
+| **Board** | /ai-board-discover | Auto-discover board configuration |
+| | /ai-board-sync | Work item lifecycle state updates |
 
 ## Agents (9)
 
@@ -67,7 +69,7 @@ Invoke as `/ai-<name>`. Grouped by workflow stage.
 | review | Parallel code review | /ai-review |
 | explore | Codebase research | subagent dispatch |
 | guide | Teaching and onboarding | /ai-guide |
-| simplify | Code simplification | /ai-simplify |
+| simplify | Code simplification | direct dispatch |
 | autopilot | Multi-spec orchestration | /ai-autopilot |
 
 ## Your project, your control
@@ -85,7 +87,12 @@ Invoke as `/ai-<name>`. Grouped by workflow stage.
 
 **AUTOMATIC** -- system-generated, do not edit:
 - `state/decision-store.json` -- settled architectural decisions
-- `state/audit-log.ndjson` -- telemetry events
+- `state/framework-events.ndjson` -- canonical framework events
+- `state/framework-capabilities.json` -- registered skills, agents, contexts, hooks
+- `state/instinct-observations.ndjson` -- sanitized recent tool observations retained for 30 days
+- `instincts/instincts.yml` -- canonical project-local instinct store
+- `instincts/context.md` -- bounded instinct context loaded at session start
+- `instincts/meta.json` -- instinct consolidation checkpoints and refresh metadata
 - `state/ownership-map.json` -- materialized ownership rules
 
 ## Configuration
@@ -96,7 +103,7 @@ Edit `manifest.yml` to customize your installation.
 |-------|-------------|---------|
 | `providers.vcs` | Version control provider | `github`, `azure_devops` |
 | `providers.stacks` | Language list for context loading | `[python, typescript]` |
-| `ai_providers.enabled` | Active IDE integrations | `[claude_code, github_copilot]` |
+| `ai_providers.enabled` | Active IDE integrations | `[claude_code, github_copilot, codex]` |
 | `work_items.provider` | Issue tracker | `github`, `azure_devops` |
 | `quality.coverage` | Minimum test coverage % | `80` |
 | `quality.duplication` | Maximum code duplication % | `3` |
@@ -134,7 +141,7 @@ contexts/
 `/ai-security` -> `/ai-governance`
 
 **Sprint review:**
-`/ai-sprint-review`
+`/ai-sprint review`
 
 ## Multi-IDE
 
@@ -155,7 +162,6 @@ ai-eng doctor      -- diagnose and fix framework health
 ai-eng validate    -- verify content integrity
 ai-eng sync        -- regenerate IDE mirrors
 ai-eng gate        -- run quality gate checks
-ai-eng observe     -- observability dashboards
 ```
 
 ## Troubleshooting

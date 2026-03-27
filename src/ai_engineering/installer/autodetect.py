@@ -206,6 +206,11 @@ def detect_ai_providers(root: Path) -> list[str]:
     if copilot_instructions or copilot_skills:
         providers.append("github_copilot")
 
+    generic_instruction_file = (root / "AGENTS.md").is_file()
+    generic_agents_tree = (root / ".agents").is_dir()
+    if generic_instruction_file or generic_agents_tree:
+        providers.append("codex")
+
     return sorted(providers)
 
 

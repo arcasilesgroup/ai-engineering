@@ -6,6 +6,7 @@ Human-first Rich output by default; ``--json`` for agent consumption.
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Any
 
@@ -20,7 +21,9 @@ from ai_engineering.cli_envelope import NextAction, emit_success
 from ai_engineering.cli_output import is_json_mode, set_json_mode
 from ai_engineering.cli_progress import spinner
 from ai_engineering.cli_ui import (
+    error,
     file_count,
+    info,
     kv,
     print_stdout,
     result_header,
@@ -431,6 +434,8 @@ _PROVIDER_ALIASES: dict[str, str] = {
     "codex": "codex",
 }
 
+_UPDATE_COMMAND = "ai-eng update"
+
 
 def _resolve_ai_providers(providers: list[str] | None) -> list[str]:
     """Resolve AI providers from explicit flag.
@@ -463,22 +468,65 @@ def update_cmd(
 ) -> None:
     """Update framework-managed governance files."""
     root = resolve_project_root(target)
-    with spinner("Checking for updates..."):
-        result = update(root, dry_run=not apply)
+    json_requested = is_json_mode() or output_json
+    interactive_tty = not json_requested and sys.stdin.isatty()
 
-    if is_json_mode() or output_json:
-        emit_success(
-            "ai-eng update",
-            {
-                "mode": "APPLIED" if not result.dry_run else "DRY-RUN",
-                "root": str(root),
-                "applied": result.applied_count,
-                "denied": result.denied_count,
-                "changes": [
-                    {"path": str(c.path), "action": c.action, "diff": c.diff}
-                    for c in result.changes
+    if interactive_tty:
+        with spinner("Previewing framework updates..."):
+            preview = update(root, dry_run=True)
+        _render_update_result(preview, root=root, show_diff=show_diff)
+        if preview.available_count == 0:
+            info("No framework-managed files require changes.")
+            return
+
+        should_apply = typer.confirm("Apply these framework updates now?", default=apply)
+        if not should_apply:
+            warning("Preview only. No changes were applied.")
+            suggest_next(
+                [("ai-eng update --apply", "Apply the previewed changes non-interactively")]
+            )
+            return
+
+        try:
+            with spinner("Applying framework updates..."):
+                applied_result = update(root, dry_run=False)
+        except Exception as exc:
+            error(f"Update failed while applying changes: {exc}")
+            raise typer.Exit(code=1) from exc
+
+        _render_update_result(applied_result, root=root, show_diff=show_diff)
+        return
+
+    try:
+        with spinner("Checking for updates..."):
+            result = update(root, dry_run=not apply)
+    except Exception as exc:
+        if json_requested:
+            from ai_engineering.cli_envelope import emit_error
+
+            emit_error(
+                _UPDATE_COMMAND,
+                message=str(exc),
+                code="update_failed",
+                fix=(
+                    "Review file permissions or rerun without --apply to inspect the preview first."
+                ),
+                next_actions=[
+                    NextAction(
+                        command=_UPDATE_COMMAND, description="Preview changes without writing"
+                    ),
                 ],
-            },
+            )
+            raise typer.Exit(code=1) from exc
+        error(f"Update failed while applying changes: {exc}")
+        raise typer.Exit(code=1) from exc
+
+    if json_requested:
+        result_data = result.to_dict()
+        result_data["root"] = str(root)
+        emit_success(
+            _UPDATE_COMMAND,
+            result_data,
             [
                 NextAction(command="ai-eng doctor", description="Verify framework health"),
                 NextAction(command="ai-eng update --apply", description="Apply changes"),
@@ -486,34 +534,48 @@ def update_cmd(
         )
         return
 
-    mode = "APPLIED" if not result.dry_run else "DRY-RUN"
-    # Primary result on stdout
+    _render_update_result(result, root=root, show_diff=show_diff)
+
+
+def _render_update_result(result: Any, *, root: Path, show_diff: bool) -> None:
+    """Render human-facing update results."""
+    mode = "APPLIED" if not result.dry_run else "PREVIEW"
     print_stdout(f"Update [{mode}]: {root}")
 
-    # Decorated output on stderr
-    kv("Applied", result.applied_count)
-    kv("Denied", result.denied_count)
-
-    _STATUS_MAP = {
-        "create": "ok",
-        "update": "ok",
-        "skip-unchanged": "info",
-        "skip-denied": "fail",
-    }
+    kv("Available", result.available_count if result.dry_run else 0)
+    kv("Applied", result.applied_count if not result.dry_run else 0)
+    kv("Protected", result.protected_count)
+    kv("Unchanged", result.unchanged_count)
 
     for change in result.changes:
-        st = _STATUS_MAP.get(change.action, "fail")
-        status_line(st, str(change.path), change.action)
+        _render_update_change(change, dry_run=result.dry_run, show_diff=show_diff)
 
-        if show_diff and change.diff:
-            diff_text = change.diff
-            lines = diff_text.splitlines(keepends=True)
-            if len(lines) > _DIFF_MAX_LINES:
-                lines = lines[:_DIFF_MAX_LINES]
-                remaining = len(diff_text.splitlines()) - _DIFF_MAX_LINES
-                lines.append(f"    ... ({remaining} more lines)\n")
-            for line in lines:
-                typer.echo(f"    {line}", nl=False)
+
+def _render_update_change(change: Any, *, dry_run: bool, show_diff: bool) -> None:
+    """Render a single file change for human output."""
+    outcome = change.outcome(dry_run=dry_run)
+    status = {
+        "available": "ok",
+        "applied": "ok",
+        "protected": "warn",
+        "unchanged": "info",
+        "failed": "fail",
+    }.get(outcome, "fail")
+    status_line(status, str(change.path), change.explanation)
+
+    recommendation = change.recommended_action or "No action required."
+    typer.echo(f"    Reason: {change.reason_code}", err=True)
+    typer.echo(f"    Next: {recommendation}", err=True)
+
+    if show_diff and change.diff:
+        diff_text = change.diff
+        lines = diff_text.splitlines(keepends=True)
+        if len(lines) > _DIFF_MAX_LINES:
+            lines = lines[:_DIFF_MAX_LINES]
+            remaining = len(diff_text.splitlines()) - _DIFF_MAX_LINES
+            lines.append(f"    ... ({remaining} more lines)\n")
+        for line in lines:
+            typer.echo(f"    {line}", nl=False)
 
 
 def doctor_cmd(

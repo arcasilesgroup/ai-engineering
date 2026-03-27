@@ -48,6 +48,7 @@ AGENTS_SKILLS = ROOT / ".agents" / "skills"
 AGENTS_AGENTS = ROOT / ".agents" / "agents"
 GITHUB_SKILLS = ROOT / ".github" / "skills"
 GITHUB_AGENTS = ROOT / ".github" / "agents"
+GITHUB_INSTRUCTIONS = ROOT / ".github" / "instructions"
 
 # ── Template project paths (for ai-eng install) ────────────────────────
 TPL_PROJECT = ROOT / "src" / "ai_engineering" / "templates" / "project"
@@ -696,6 +697,261 @@ def generate_copilot_agent(name: str, meta: AgentMeta, agent_path: Path) -> str:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+# Generation -- AGENTS.md (from CLAUDE.md as canonical source)
+# ═══════════════════════════════════════════════════════════════════════════
+
+# Don't item 7 references .claude/settings.json -- Claude-specific, strip for generic IDE
+_DONT_ITEM_7_RE = re.compile(
+    r"^\d+\.\s+\*\*NEVER\*\*\s+disable or modify\s+`\.claude/settings\.json`\s+deny rules\.\n",
+    re.MULTILINE,
+)
+_SKILLS_HEADER_RE = re.compile(r"^## Skills \(\d+\)$", re.MULTILINE)
+_SOURCE_OF_TRUTH_SKILLS_RE = re.compile(
+    r"^\| Skills \(\d+\) \| `[^`]+` \|$",
+    re.MULTILINE,
+)
+_SOURCE_OF_TRUTH_AGENTS_RE = re.compile(
+    r"^\| Agents \(\d+\) \| `[^`]+` \|$",
+    re.MULTILINE,
+)
+_CLAUDE_PLATFORM_ROW_RE = re.compile(r"^\| Claude Code \| .* \| .* \|$", re.MULTILINE)
+
+
+def generate_agents_md(*, skill_count: int, agent_count: int) -> str:
+    """Generate AGENTS.md from CLAUDE.md as canonical source.
+
+    Applies:
+    1. Title replacement: ``# CLAUDE.md`` -> ``# AGENTS.md``
+    2. Path translation: ``.claude/`` -> ``.agents/`` via ``translate_refs``
+    3. Strip Claude-specific Don't item 7 (``.claude/settings.json`` deny rules)
+    4. Renumber remaining Don't items
+    """
+    claude_md = ROOT / "CLAUDE.md"
+    content = claude_md.read_text(encoding="utf-8")
+
+    # Replace title
+    content = content.replace("# CLAUDE.md\n", "# AGENTS.md\n", 1)
+
+    # Strip Don't item 7 (Claude-specific .claude/settings.json deny rules)
+    content = _DONT_ITEM_7_RE.sub("", content)
+
+    # Renumber Don't items after stripping item 7
+    content = _renumber_dont_items(content)
+
+    # Translate .claude/ paths to .agents/ paths
+    content = translate_refs(content, "generic")
+    content = _CLAUDE_PLATFORM_ROW_RE.sub(
+        "| Claude Code | `.claude/skills/ai-*/SKILL.md` | `.claude/agents/ai-*.md` |",
+        content,
+        count=1,
+    )
+    content = _SKILLS_HEADER_RE.sub(f"## Skills ({skill_count})", content, count=1)
+    content = _SOURCE_OF_TRUTH_SKILLS_RE.sub(
+        f"| Skills ({skill_count}) | `.agents/skills/<name>/SKILL.md` |",
+        content,
+        count=1,
+    )
+    content = _SOURCE_OF_TRUTH_AGENTS_RE.sub(
+        f"| Agents ({agent_count}) | `.agents/agents/ai-<name>.md` |",
+        content,
+        count=1,
+    )
+
+    return content
+
+
+def _renumber_dont_items(content: str) -> str:
+    """Renumber the Don't section items sequentially after stripping."""
+    lines = content.splitlines(keepends=True)
+    in_dont = False
+    item_num = 0
+    result: list[str] = []
+
+    for line in lines:
+        if line.strip() == "## Don't":
+            in_dont = True
+            result.append(line)
+            continue
+
+        if in_dont and line.startswith("## "):
+            in_dont = False
+
+        if in_dont and re.match(r"^\d+\.\s+", line):
+            item_num += 1
+            line = re.sub(r"^\d+\.", f"{item_num}.", line, count=1)
+
+        result.append(line)
+
+    return "".join(result)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Generation -- copilot-instructions.md (from CLAUDE.md as canonical source)
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+def generate_copilot_instructions(
+    skills: list[tuple[str, dict[str, str], Path]],
+    agents: list[tuple[str, dict[str, str], Path]],
+) -> str:
+    """Generate .github/copilot-instructions.md from CLAUDE.md.
+
+    Produces a condensed Copilot-specific version with:
+    - Source of Truth (condensed)
+    - Session Start Protocol (from Workflow Orchestration + Context Loading)
+    - Plan/Execute Flow (from Task Management)
+    - Absolute Prohibitions (from Don't, excluding Claude-specific items)
+    - Observability (Copilot hook event names)
+    - Subagent Orchestration (from AGENT_METADATA)
+    - Quick Reference (counts and paths)
+    """
+    skill_count = len(skills)
+    agent_count = len(agents)
+
+    lines: list[str] = []
+
+    # Header
+    lines.append("# GitHub Copilot Instructions")
+    lines.append("")
+    lines.append("Project instructions are canonical in `.ai-engineering/`.")
+    lines.append("")
+
+    # Source of Truth (condensed)
+    lines.append("## Source of Truth")
+    lines.append("")
+    lines.append("- Config: `.ai-engineering/manifest.yml`")
+    lines.append("- Decisions: `.ai-engineering/state/decision-store.json`")
+    lines.append("- Contexts: `.ai-engineering/contexts/` (languages, frameworks, team)")
+    lines.append("")
+
+    # Session Start Protocol
+    lines.append("## Session Start Protocol")
+    lines.append("")
+    lines.append("Before non-trivial work:")
+    lines.append("")
+    lines.append(
+        "1. **Read active spec** -- `.ai-engineering/specs/spec.md`"
+        " and `.ai-engineering/specs/plan.md`."
+    )
+    lines.append("2. **Read decision store** -- `.ai-engineering/state/decision-store.json`.")
+    lines.append(
+        "3. **Read project identity** -- `.ai-engineering/contexts/project-identity.md`"
+        " (if it exists)."
+    )
+    lines.append(
+        "4. **Load contexts** -- read `.ai-engineering/contexts/languages/{lang}.md`,"
+        " `frameworks/{fw}.md`, and `team/*.md` for each detected stack before writing code."
+    )
+    lines.append("5. **Run cleanup** -- sync repo (status, git pull, prune, branch cleanup).")
+    lines.append("6. **Verify tooling** -- ruff, gitleaks, pytest, ty.")
+    lines.append("")
+
+    # Plan/Execute Flow
+    lines.append("## Plan/Execute Flow (Spec-as-Gate)")
+    lines.append("")
+    lines.append("During `/ai-plan`:")
+    lines.append("")
+    lines.append("1. **Analyze** -- read code, discover requirements, assess risk (read-only).")
+    lines.append(
+        "2. **Produce spec as text** -- write the full spec as markdown in the conversation."
+    )
+    lines.append("3. **Persist via Write tool** -- write spec.md and plan.md directly to `specs/`.")
+    lines.append("4. **Commit** -- stage and commit the new files.")
+    lines.append(
+        "5. **STOP** -- present the result and wait for the user to invoke `/ai-dispatch`."
+    )
+    lines.append("")
+
+    # Absolute Prohibitions (Don't section, excluding Claude-specific items)
+    lines.append("## Absolute Prohibitions")
+    lines.append("")
+    lines.append("1. **NEVER** `--no-verify` on any git command.")
+    lines.append("2. **NEVER** skip/silence a failing gate -- fix root cause.")
+    lines.append("3. **NEVER** weaken gate severity.")
+    lines.append("4. **NEVER** push to protected branches (main, master).")
+    lines.append(
+        "5. **NEVER** dismiss security findings without"
+        " `state/decision-store.json` risk acceptance."
+    )
+    lines.append(
+        "6. **NEVER** add suppression comments to bypass static analysis or security scanners."
+    )
+    lines.append("")
+    lines.append("Gate failure: diagnose -> fix -> retry.")
+    lines.append("")
+
+    # Observability (Copilot hook event names)
+    lines.append("## Observability")
+    lines.append("")
+    lines.append(
+        "Telemetry is **automatic via hooks** -- configured in `.github/hooks/hooks.json`."
+    )
+    lines.append("- `userPromptSubmitted` hook emits `skill_invoked` events on `/ai-*` commands")
+    lines.append("- `preToolUse` hook enforces deny-list (blocks dangerous operations)")
+    lines.append("- `postToolUse` hook emits `agent_dispatched` and `ide_hook` events on agent use")
+    lines.append("- `errorOccurred` hook emits `framework_error` and `ide_hook` events on failures")
+    lines.append(
+        "- Hook, gate, governance, security, and quality outcomes flow to "
+        "`.ai-engineering/state/framework-events.ndjson`"
+    )
+    lines.append(
+        "- Registered skills, agents, contexts, and hooks are catalogued in "
+        "`.ai-engineering/state/framework-capabilities.json`"
+    )
+    lines.append(
+        "- Session discovery and transcript viewing are delegated to separately "
+        "installed `agentsview`"
+    )
+    lines.append("")
+
+    # Subagent Orchestration (from AGENT_METADATA)
+    lines.append("## Subagent Orchestration")
+    lines.append("")
+    lines.append(
+        "Orchestrator agents can delegate tasks to specialized subagents via the `agent` tool:"
+    )
+    lines.append("")
+    lines.append("| Orchestrator | Delegates To | Handoffs |")
+    lines.append("|-------------|-------------|----------|")
+    for _name, meta in AGENT_METADATA.items():
+        if not meta.copilot_agents:
+            continue
+        delegates = ", ".join(meta.copilot_agents)
+        if meta.copilot_handoffs:
+            handoffs = ", ".join(f"-> {h['agent']}" for h in meta.copilot_handoffs)
+        else:
+            handoffs = "--"
+        lines.append(f"| {meta.display_name} | {delegates} | {handoffs} |")
+
+    # Add leaf agents note
+    leaf_agents = [meta.display_name for meta in AGENT_METADATA.values() if not meta.copilot_agents]
+    lines.append("")
+    lines.append(
+        f"Leaf agents ({', '.join(sorted(leaf_agents))})"
+        " cannot delegate -- they are terminal nodes."
+    )
+    lines.append("")
+    lines.append(
+        "Handoffs provide guided transitions between agents in VS Code (buttons after responses)."
+    )
+    lines.append(
+        "Per-agent hooks (e.g., auto-format in Build) require `chat.useCustomAgentHooks: true`."
+    )
+    lines.append("")
+
+    # Quick Reference
+    lines.append("## Quick Reference")
+    lines.append("")
+    lines.append(f"- Skills ({skill_count}): `.github/skills/ai-<name>/SKILL.md`")
+    lines.append(f"- Agents ({agent_count}): `.github/agents/<name>.agent.md`")
+    lines.append("- Quality: coverage 80%, duplication <=3%, cyclomatic <=10, cognitive <=15")
+    lines.append("- Security: zero medium+ findings, zero leaks, zero dependency vulns")
+    lines.append("")
+
+    return "\n".join(lines)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 # Generation -- templates/project/ (for ai-eng install)
 # ═══════════════════════════════════════════════════════════════════════════
 
@@ -809,8 +1065,8 @@ def validate_cross_references(*, verbose: bool = False) -> list[str]:
         text = ref_file.read_text(encoding="utf-8")
         for match in pattern.finditer(text):
             ref_path = ROOT / ".ai-engineering" / match.group(1)
-            # Allow glob-like references and placeholders
-            if "*" in match.group(1) or "<" in match.group(1):
+            # Allow glob-like references and placeholder patterns
+            if "*" in match.group(1) or "<" in match.group(1) or "{" in match.group(1):
                 continue
             if not ref_path.exists():
                 rel_file = ref_file.relative_to(ROOT)
@@ -1029,14 +1285,72 @@ def sync_all(*, check_only: bool = False, verbose: bool = False) -> int:
         content = generate_install_claude_agent(agent_path)
         _generate_surface(tpl, content, check_only, verbose, generated_paths, diffs)
 
+    # Surface 5.5: templates/project/CLAUDE.md (canonical root instruction file)
+    _generate_surface(
+        TPL_PROJECT / "CLAUDE.md",
+        (ROOT / "CLAUDE.md").read_text(encoding="utf-8"),
+        check_only,
+        verbose,
+        generated_paths,
+        diffs,
+    )
+
     # Surface 6: instructions/{lang}.instructions.md (generated from contexts)
     if CONTEXTS_LANGUAGES.is_dir():
         for ctx_file in sorted(CONTEXTS_LANGUAGES.glob("*.md")):
             lang = ctx_file.stem
             if lang in LANG_EXTENSIONS:
-                tpl = TPL_INSTRUCTIONS / f"{lang}.instructions.md"
                 content = generate_instruction_from_context(lang, ctx_file)
-                _generate_surface(tpl, content, check_only, verbose, generated_paths, diffs)
+                for target in (
+                    GITHUB_INSTRUCTIONS / f"{lang}.instructions.md",
+                    TPL_INSTRUCTIONS / f"{lang}.instructions.md",
+                ):
+                    _generate_surface(target, content, check_only, verbose, generated_paths, diffs)
+
+    for manual_name in sorted(MANUAL_INSTRUCTIONS):
+        source = TPL_INSTRUCTIONS / manual_name
+        if source.is_file():
+            _generate_surface(
+                GITHUB_INSTRUCTIONS / manual_name,
+                source.read_text(encoding="utf-8"),
+                check_only,
+                verbose,
+                generated_paths,
+                diffs,
+            )
+
+    # Surface 7: AGENTS.md (root + template, generated from CLAUDE.md)
+    agents_md_content = generate_agents_md(skill_count=skill_count, agent_count=agent_count)
+    _generate_surface(
+        ROOT / "AGENTS.md", agents_md_content, check_only, verbose, generated_paths, diffs
+    )
+    _generate_surface(
+        TPL_PROJECT / "AGENTS.md",
+        agents_md_content,
+        check_only,
+        verbose,
+        generated_paths,
+        diffs,
+    )
+
+    # Surface 8: copilot-instructions.md (root + template, generated from CLAUDE.md)
+    copilot_md_content = generate_copilot_instructions(skills, agents)
+    _generate_surface(
+        ROOT / ".github" / "copilot-instructions.md",
+        copilot_md_content,
+        check_only,
+        verbose,
+        generated_paths,
+        diffs,
+    )
+    _generate_surface(
+        TPL_PROJECT / "copilot-instructions.md",
+        copilot_md_content,
+        check_only,
+        verbose,
+        generated_paths,
+        diffs,
+    )
 
     # ── Phase 3: Orphan detection ───────────────────────────────────────
     orphan_diffs = _handle_orphans(generated_paths, check_only, verbose)
@@ -1111,6 +1425,7 @@ def _handle_orphans(
     _ORPHAN_SURFACES: list[tuple[Path, str, str]] = [
         (AGENTS_SKILLS, "rglob_subdirs", ""),
         (AGENTS_AGENTS, "glob", "ai-*.md"),
+        (GITHUB_INSTRUCTIONS, "glob", "*.instructions.md"),
         (GITHUB_SKILLS, "rglob_subdirs", "ai-"),
         (GITHUB_AGENTS, "glob", "*.agent.md"),
         (TPL_CLAUDE_SKILLS, "rglob_subdirs", "ai-"),

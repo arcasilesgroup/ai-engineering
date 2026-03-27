@@ -115,7 +115,7 @@ class TestPhaseOrdering:
         with (
             patch(f"{_SVC}.load_install_state", return_value=InstallState()),
             patch(f"{_SVC}.load_manifest_config", return_value=None),
-            patch(f"{_SVC}.append_ndjson"),
+            patch(f"{_SVC}.emit_framework_operation"),
             patch(f"{_SVC}.importlib.import_module", side_effect=mock_import),
         ):
             report = diagnose(target_dir)
@@ -148,7 +148,7 @@ class TestRuntimeChecks:
         with (
             patch(f"{_SVC}.load_install_state", return_value=InstallState()),
             patch(f"{_SVC}.load_manifest_config", return_value=None),
-            patch(f"{_SVC}.append_ndjson"),
+            patch(f"{_SVC}.emit_framework_operation"),
             patch(f"{_SVC}.importlib.import_module", side_effect=mock_import),
         ):
             report = diagnose(target_dir)
@@ -176,7 +176,7 @@ class TestPhaseFilter:
         with (
             patch(f"{_SVC}.load_install_state", return_value=InstallState()),
             patch(f"{_SVC}.load_manifest_config", return_value=None),
-            patch(f"{_SVC}.append_ndjson"),
+            patch(f"{_SVC}.emit_framework_operation"),
             patch(f"{_SVC}.importlib.import_module", side_effect=mock_import),
         ):
             report = diagnose(target_dir, phase_filter="hooks")
@@ -205,7 +205,7 @@ class TestFixMode:
         with (
             patch(f"{_SVC}.load_install_state", return_value=InstallState()),
             patch(f"{_SVC}.load_manifest_config", return_value=None),
-            patch(f"{_SVC}.append_ndjson"),
+            patch(f"{_SVC}.emit_framework_operation"),
             patch(f"{_SVC}.importlib.import_module", side_effect=lambda n: modules[n]),
         ):
             report = diagnose(target_dir, fix=True)
@@ -229,7 +229,7 @@ class TestFixMode:
         with (
             patch(f"{_SVC}.load_install_state", return_value=InstallState()),
             patch(f"{_SVC}.load_manifest_config", return_value=None),
-            patch(f"{_SVC}.append_ndjson"),
+            patch(f"{_SVC}.emit_framework_operation"),
             patch(f"{_SVC}.importlib.import_module", side_effect=lambda n: modules[n]),
         ):
             diagnose(target_dir, fix=True)
@@ -247,7 +247,7 @@ class TestFixMode:
         with (
             patch(f"{_SVC}.load_install_state", return_value=InstallState()),
             patch(f"{_SVC}.load_manifest_config", return_value=None),
-            patch(f"{_SVC}.append_ndjson"),
+            patch(f"{_SVC}.emit_framework_operation"),
             patch(f"{_SVC}.importlib.import_module", side_effect=lambda n: modules[n]),
         ):
             report = diagnose(target_dir, fix=True)
@@ -275,7 +275,7 @@ class TestDryRun:
         with (
             patch(f"{_SVC}.load_install_state", return_value=InstallState()),
             patch(f"{_SVC}.load_manifest_config", return_value=None),
-            patch(f"{_SVC}.append_ndjson"),
+            patch(f"{_SVC}.emit_framework_operation"),
             patch(f"{_SVC}.importlib.import_module", side_effect=lambda n: modules[n]),
         ):
             diagnose(target_dir, fix=True, dry_run=True)
@@ -306,7 +306,7 @@ class TestPreInstallMode:
 
         with (
             patch(f"{_SVC}.load_manifest_config", return_value=None),
-            patch(f"{_SVC}.append_ndjson"),
+            patch(f"{_SVC}.emit_framework_operation"),
             patch(f"{_SVC}.importlib.import_module", side_effect=mock_import),
         ):
             report = diagnose(target_dir_no_state)
@@ -320,84 +320,78 @@ class TestPreInstallMode:
 
 
 # ---------------------------------------------------------------------------
-# Test 7: Audit log is emitted on every call
+# Test 7: Framework event is emitted on every call
 # ---------------------------------------------------------------------------
 
 
-class TestAuditLog:
-    def test_audit_log_emitted_on_diagnose(self, target_dir: Path) -> None:
-        """diagnose() always calls append_ndjson with an AuditEntry."""
+class TestFrameworkEvents:
+    def test_framework_event_emitted_on_diagnose(self, target_dir: Path) -> None:
+        """diagnose() always emits a framework operation event."""
         modules = _build_all_modules()
-        mock_append = MagicMock()
+        mock_emit = MagicMock()
 
         with (
             patch(f"{_SVC}.load_install_state", return_value=InstallState()),
             patch(f"{_SVC}.load_manifest_config", return_value=None),
-            patch(f"{_SVC}.append_ndjson", mock_append),
+            patch(f"{_SVC}.emit_framework_operation", mock_emit),
             patch(f"{_SVC}.importlib.import_module", side_effect=lambda n: modules[n]),
         ):
             diagnose(target_dir)
 
-        mock_append.assert_called_once()
-        args = mock_append.call_args[0]
-        audit_path = args[0]
-        entry = args[1]
-        assert str(audit_path).endswith("audit-log.ndjson")
-        assert entry.event == "doctor"
-        assert entry.actor == "ai-engineering-cli"
-        assert entry.detail["mode"] == "diagnose"
+        mock_emit.assert_called_once()
+        kwargs = mock_emit.call_args.kwargs
+        assert kwargs["operation"] == "doctor"
+        assert kwargs["component"] == "doctor"
+        assert kwargs["metadata"]["mode"] == "diagnose"
 
-    def test_audit_log_fix_mode(self, target_dir: Path) -> None:
-        """Audit entry mode is 'fix' when fix=True."""
+    def test_framework_event_fix_mode(self, target_dir: Path) -> None:
+        """Framework event mode is 'fix' when fix=True."""
         modules = _build_all_modules()
-        mock_append = MagicMock()
+        mock_emit = MagicMock()
 
         with (
             patch(f"{_SVC}.load_install_state", return_value=InstallState()),
             patch(f"{_SVC}.load_manifest_config", return_value=None),
-            patch(f"{_SVC}.append_ndjson", mock_append),
+            patch(f"{_SVC}.emit_framework_operation", mock_emit),
             patch(f"{_SVC}.importlib.import_module", side_effect=lambda n: modules[n]),
         ):
             diagnose(target_dir, fix=True)
 
-        entry = mock_append.call_args[0][1]
-        assert entry.detail["mode"] == "fix"
+        assert mock_emit.call_args.kwargs["metadata"]["mode"] == "fix"
 
-    def test_audit_log_tracks_fixes_applied(self, target_dir: Path) -> None:
-        """Audit entry includes names of checks with FIXED status."""
+    def test_framework_event_tracks_fixes_applied(self, target_dir: Path) -> None:
+        """Framework event includes names of checks with FIXED status."""
         hooks_mod = _make_phase_module([_fail_result("hooks-integrity", fixable=True)])
         hooks_mod.fix = MagicMock(  # type: ignore[attr-defined]
             return_value=[_fixed_result("hooks-integrity")]
         )
         modules = _build_all_modules(phase_overrides={"hooks": hooks_mod})
-        mock_append = MagicMock()
+        mock_emit = MagicMock()
 
         with (
             patch(f"{_SVC}.load_install_state", return_value=InstallState()),
             patch(f"{_SVC}.load_manifest_config", return_value=None),
-            patch(f"{_SVC}.append_ndjson", mock_append),
+            patch(f"{_SVC}.emit_framework_operation", mock_emit),
             patch(f"{_SVC}.importlib.import_module", side_effect=lambda n: modules[n]),
         ):
             diagnose(target_dir, fix=True)
 
-        entry = mock_append.call_args[0][1]
-        assert "hooks-integrity" in entry.detail["fixes_applied"]
+        assert "hooks-integrity" in mock_emit.call_args.kwargs["metadata"]["fixes_applied"]
 
-    def test_audit_log_emitted_in_pre_install(self, target_dir_no_state: Path) -> None:
-        """Audit log is emitted even in pre-install mode."""
+    def test_framework_event_emitted_in_pre_install(self, target_dir_no_state: Path) -> None:
+        """Framework event is emitted even in pre-install mode."""
         modules = _build_all_modules()
-        mock_append = MagicMock()
+        mock_emit = MagicMock()
 
         with (
             patch(f"{_SVC}.load_manifest_config", return_value=None),
-            patch(f"{_SVC}.append_ndjson", mock_append),
+            patch(f"{_SVC}.emit_framework_operation", mock_emit),
             patch(f"{_SVC}.importlib.import_module", side_effect=lambda n: modules[n]),
         ):
             diagnose(target_dir_no_state)
 
-        mock_append.assert_called_once()
-        entry = mock_append.call_args[0][1]
-        assert entry.detail["mode"] == "diagnose"
+        mock_emit.assert_called_once()
+        assert mock_emit.call_args.kwargs["metadata"]["mode"] == "diagnose"
 
 
 # ---------------------------------------------------------------------------
@@ -421,7 +415,7 @@ class TestReportStructure:
         with (
             patch(f"{_SVC}.load_install_state", return_value=InstallState()),
             patch(f"{_SVC}.load_manifest_config", return_value=None),
-            patch(f"{_SVC}.append_ndjson"),
+            patch(f"{_SVC}.emit_framework_operation"),
             patch(f"{_SVC}.importlib.import_module", side_effect=lambda n: modules[n]),
         ):
             report = diagnose(target_dir)
@@ -441,7 +435,7 @@ class TestReportStructure:
         with (
             patch(f"{_SVC}.load_install_state", return_value=InstallState()),
             patch(f"{_SVC}.load_manifest_config", return_value=None),
-            patch(f"{_SVC}.append_ndjson"),
+            patch(f"{_SVC}.emit_framework_operation"),
             patch(f"{_SVC}.importlib.import_module", side_effect=lambda n: modules[n]),
         ):
             report = diagnose(target_dir)
@@ -459,28 +453,28 @@ class TestReportStructure:
         with (
             patch(f"{_SVC}.load_install_state", return_value=InstallState()),
             patch(f"{_SVC}.load_manifest_config", return_value=None),
-            patch(f"{_SVC}.append_ndjson"),
+            patch(f"{_SVC}.emit_framework_operation"),
             patch(f"{_SVC}.importlib.import_module", side_effect=lambda n: modules[n]),
         ):
             report = diagnose(target_dir)
 
         assert report.passed is True
 
-    def test_audit_log_summary_fields(self, target_dir: Path) -> None:
-        """Audit entry includes phases_checked and runtime_checked counts."""
+    def test_framework_event_summary_fields(self, target_dir: Path) -> None:
+        """Framework event metadata includes summary counters."""
         modules = _build_all_modules()
-        mock_append = MagicMock()
+        mock_emit = MagicMock()
 
         with (
             patch(f"{_SVC}.load_install_state", return_value=InstallState()),
             patch(f"{_SVC}.load_manifest_config", return_value=None),
-            patch(f"{_SVC}.append_ndjson", mock_append),
+            patch(f"{_SVC}.emit_framework_operation", mock_emit),
             patch(f"{_SVC}.importlib.import_module", side_effect=lambda n: modules[n]),
         ):
             diagnose(target_dir)
 
-        entry = mock_append.call_args[0][1]
-        assert entry.detail["phases_checked"] == len(PHASE_ORDER)
-        assert entry.detail["runtime_checked"] == len(_RUNTIME_MODULES)
-        assert isinstance(entry.detail["summary"], dict)
-        assert isinstance(entry.detail["fixes_applied"], list)
+        metadata = mock_emit.call_args.kwargs["metadata"]
+        assert metadata["phases_checked"] == len(PHASE_ORDER)
+        assert metadata["runtime_checked"] == len(_RUNTIME_MODULES)
+        assert isinstance(metadata["summary"], dict)
+        assert isinstance(metadata["fixes_applied"], list)

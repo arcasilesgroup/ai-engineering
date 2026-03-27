@@ -1,6 +1,6 @@
 ---
 name: ai-pipeline
-description: "Use when creating or evolving CI/CD pipelines: stack-aware generation for GitHub Actions and Azure Pipelines with security enforcement."
+description: "Use for CI/CD pipeline work: generating GitHub Actions or Azure Pipelines workflows, evolving existing pipelines, or validating pipeline compliance (SHA pinning, timeouts, secret handling). Trigger for 'set up CI/CD', 'add a deployment pipeline', 'is this workflow secure?', 'check our workflow policy', 'add a security scan to CI'. Providers: GitHub Actions (default), Azure Pipelines."
 effort: high
 argument-hint: "generate|evolve|validate|--provider github|azure"
 mode: agent
@@ -19,6 +19,12 @@ Router skill for CI/CD pipeline generation. Dispatches to handler files based on
 - Evolving existing pipelines with advanced patterns.
 - Validating pipeline compliance (SHA pinning, timeouts, concurrency).
 - NOT for running pipelines -- that is the CI system's job.
+
+## Process
+
+### Step 0: Load Contexts
+
+Follow `.ai-engineering/contexts/step-zero-protocol.md`. Apply loaded standards to all subsequent work.
 
 ## Routing
 
@@ -49,9 +55,10 @@ Default (no sub-command): `generate`.
 
 ## Integration
 
-- Stack detection: reads `pyproject.toml`, `*.csproj`, `package.json`, `Cargo.toml`.
+- Stack detection: reads `providers.stacks` from `.ai-engineering/manifest.yml`.
 - Validation: `actionlint` for GitHub Actions.
 - Policy: `scripts/check_workflow_policy.py` for SHA pinning and timeout compliance.
+- **Boundary**: `/ai-governance` validates governance process; `/ai-pipeline` generates and validates the workflow files themselves
 
 ## References
 

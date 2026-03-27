@@ -2,7 +2,7 @@
 
 Covers:
 - InstallResult dataclass defaults and properties.
-- _STATE_FILES and _AUDIT_LOG_PATH constants.
+- _STATE_FILES constants.
 - CopyResult dataclass defaults and counting.
 - install() orchestration with all dependencies mocked.
 """
@@ -16,7 +16,6 @@ import pytest
 
 from ai_engineering.hooks.manager import HookInstallResult
 from ai_engineering.installer.service import (
-    _AUDIT_LOG_PATH,
     _STATE_FILES,
     InstallResult,
     install,
@@ -133,15 +132,25 @@ class TestStateFilesConstant:
         assert "decision-store" in _STATE_FILES
         assert _STATE_FILES["decision-store"] == "state/decision-store.json"
 
-    def test_has_exactly_three_entries(self) -> None:
-        assert len(_STATE_FILES) == 3
+    def test_contains_framework_capabilities(self) -> None:
+        assert "framework-capabilities" in _STATE_FILES
+        assert _STATE_FILES["framework-capabilities"] == "state/framework-capabilities.json"
+
+    def test_contains_instinct_artifacts(self) -> None:
+        assert _STATE_FILES["instinct-observations"] == "state/instinct-observations.ndjson"
+        assert _STATE_FILES["instincts"] == "instincts/instincts.yml"
+        assert _STATE_FILES["instinct-context"] == "instincts/context.md"
+        assert _STATE_FILES["instinct-meta"] == "instincts/meta.json"
+
+    def test_has_exactly_eight_entries(self) -> None:
+        assert len(_STATE_FILES) == 8
 
 
-class TestAuditLogPath:
-    """Verify _AUDIT_LOG_PATH is correct."""
+class TestFrameworkCapabilitiesPath:
+    """Verify installer state files include the canonical capability catalog."""
 
-    def test_audit_log_path_value(self) -> None:
-        assert _AUDIT_LOG_PATH == "state/audit-log.ndjson"
+    def test_framework_capabilities_path_value(self) -> None:
+        assert _STATE_FILES["framework-capabilities"] == "state/framework-capabilities.json"
 
 
 # ---------------------------------------------------------------------------
@@ -405,7 +414,8 @@ def _build_install_mocks() -> dict[str, MagicMock]:
     mocks["copy_template_tree"] = MagicMock(return_value=CopyResult())
     mocks["copy_project_templates"] = MagicMock(return_value=CopyResult())
     mocks["write_json_model"] = MagicMock()
-    mocks["append_ndjson"] = MagicMock()
+    mocks["write_framework_capabilities"] = MagicMock()
+    mocks["emit_framework_operation"] = MagicMock()
     mocks["install_hooks"] = MagicMock(return_value=HookInstallResult())
     mocks["load_install_state"] = MagicMock()
     mocks["save_install_state"] = MagicMock()
@@ -451,7 +461,12 @@ def _apply_patches(mocks: dict[str, MagicMock]):
     stack.enter_context(patch(f"{_SVC}.copy_template_tree", mocks["copy_template_tree"]))
     stack.enter_context(patch(f"{_SVC}.copy_project_templates", mocks["copy_project_templates"]))
     stack.enter_context(patch(f"{_SVC}.write_json_model", mocks["write_json_model"]))
-    stack.enter_context(patch(f"{_SVC}.append_ndjson", mocks["append_ndjson"]))
+    stack.enter_context(
+        patch(f"{_SVC}.write_framework_capabilities", mocks["write_framework_capabilities"])
+    )
+    stack.enter_context(
+        patch(f"{_SVC}.emit_framework_operation", mocks["emit_framework_operation"])
+    )
     stack.enter_context(patch(f"{_SVC}.install_hooks", mocks["install_hooks"]))
     stack.enter_context(patch(f"{_SVC}.load_install_state", mocks["load_install_state"]))
     stack.enter_context(patch(f"{_SVC}.save_install_state", mocks["save_install_state"]))
@@ -524,8 +539,7 @@ class TestInstallCreatesStateFiles:
             result = install(tmp_path, stacks=["python"])
 
         # Assert
-        # State files: install-state.json + ownership-map.json + decision-store.json
-        assert len(result.state_files) == 3
+        assert len(result.state_files) == 8
 
 
 class TestInstallSkipsExistingStateFiles:
@@ -547,14 +561,14 @@ class TestInstallCreatesDefaultState:
         with patch.object(Path, "exists", return_value=False):
             result = install(tmp_path, stacks=["python", "dotnet"], ides=["vscode", "terminal"])
 
-        assert len(result.state_files) == 3
+        assert len(result.state_files) == 8
 
     def test_default_stacks_none_passes(self, patched, tmp_path: Path) -> None:
         with patch.object(Path, "exists", return_value=False):
             result = install(tmp_path)
 
         # State files still created
-        assert len(result.state_files) == 3
+        assert len(result.state_files) == 8
 
 
 class TestInstallCallsInstallHooks:
@@ -661,29 +675,26 @@ class TestInstallCallsApplyBranchPolicy:
         assert "ai-eng-gate" in bp_call.kwargs["required_checks"]
 
 
-class TestInstallAppendsAuditLog:
-    """install() appends an audit log entry."""
+class TestInstallEmitsFrameworkOperation:
+    """install() emits a canonical framework operation event."""
 
-    def test_append_ndjson_called(self, patched, tmp_path: Path) -> None:
+    def test_emit_framework_operation_called(self, patched, tmp_path: Path) -> None:
         # Act
         with patch.object(Path, "exists", return_value=True):
             install(tmp_path)
 
         # Assert
-        patched["append_ndjson"].assert_called_once()
-        audit_call = patched["append_ndjson"].call_args
-        audit_path = Path(audit_call[0][0])
-        assert audit_path.parts[-2:] == ("state", "audit-log.ndjson")
+        patched["emit_framework_operation"].assert_called_once()
 
-    def test_audit_entry_event_is_install(self, patched, tmp_path: Path) -> None:
+    def test_framework_operation_is_install(self, patched, tmp_path: Path) -> None:
         # Act
         with patch.object(Path, "exists", return_value=True):
             install(tmp_path)
 
         # Assert
-        audit_entry = patched["append_ndjson"].call_args[0][1]
-        assert audit_entry.event == "install"
-        assert audit_entry.actor == "ai-engineering-cli"
+        kwargs = patched["emit_framework_operation"].call_args.kwargs
+        assert kwargs["operation"] == "install"
+        assert kwargs["component"] == "installer"
 
 
 class TestInstallReturnsInstallResult:

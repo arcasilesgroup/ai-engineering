@@ -1,6 +1,6 @@
 ---
 name: security
-description: "Use when scanning for security vulnerabilities: SAST, dependency audit, secret detection, and SBOM generation with OWASP mapping and CWE references."
+description: "Use for any security concern: pre-release security gates, dependency vulnerability checks ('is this package safe?'), secret or credential exposure, SBOM generation for compliance, SAST with OWASP/CWE mapping. Trigger for 'is this secure?', 'audit dependencies', 'check for secrets', 'security report', 'compliance review'. Also before merging large PRs or adding external packages."
 effort: max
 argument-hint: "all|static|deps|secrets|sbom|--fix"
 tags: [security, sast, dependencies, sbom, owasp, enterprise]
@@ -19,14 +19,20 @@ Unified security assessment for regulated industries. Modes: `static` (SAST with
 ## When to Use
 
 - Security review, pre-release gate, dependency audit, compliance reporting.
-- NOT for code quality metrics -- use `/ai-quality`.
+- NOT for code quality metrics -- use `/ai-verify quality`.
 - NOT for governance compliance -- use `/ai-governance`.
+
+## Process
+
+### Step 0: Load Contexts
+
+Follow `.ai-engineering/contexts/step-zero-protocol.md`. Apply loaded standards to all subsequent work.
 
 ## Modes
 
 ### static -- SAST
 
-1. **Detect stacks** -- read project files for active languages.
+1. **Read stacks** -- read `.ai-engineering/manifest.yml` field `providers.stacks` for active languages.
 2. **Secret detection** -- `gitleaks detect --source . --no-git`. Any finding is critical.
 3. **Semgrep** -- `semgrep scan --config auto --json`. Parse for rule IDs, severity, CWE.
 4. **Manual analysis** -- review what tools miss:
@@ -39,7 +45,7 @@ Unified security assessment for regulated industries. Modes: `static` (SAST with
 
 ### deps -- Dependency Audit
 
-1. **Detect lock files** -- `uv.lock`, `package-lock.json`, `Cargo.lock`, `*.csproj`.
+1. **Identify lock files** -- read `providers.stacks` from `.ai-engineering/manifest.yml`, then check for matching lock files (`uv.lock`, `package-lock.json`, `Cargo.lock`, `*.csproj`).
 2. **Run audit** -- Python: `pip-audit --strict --desc`. Node: `npm audit --json`. Rust: `cargo audit --json`.
 3. **Assess exploitability** -- mark unreachable paths as reduced severity with justification.
 4. **Report** with upgrade paths.
@@ -110,9 +116,11 @@ When `--fix` is passed, attempt automatic remediation:
 
 ## Integration
 
+- **Called by**: `/ai-verify` (security mode delegation)
+
 - Pre-commit hook runs `gitleaks protect --staged` automatically.
 - Pre-push hook runs `semgrep` and `pip-audit`.
-- Release gate (`/ai-release`) aggregates security results.
+- Release gate (`/ai-release-gate`) aggregates security results.
 - Risk acceptances go to `state/decision-store.json` via `/ai-governance risk`.
 
 ## References

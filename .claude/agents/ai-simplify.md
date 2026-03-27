@@ -87,7 +87,8 @@ If any answer is unfavorable, revert and move to the next target.
 
 ## Referenced Skills
 
-- `.claude/skills/ai-simplify/SKILL.md` -- detailed simplification patterns and procedures
+- `.claude/skills/ai-code/SKILL.md` -- change-minimization and code hygiene patterns
+- `.claude/skills/ai-test/SKILL.md` -- regression-safety checks while simplifying
 
 ## Referenced Standards
 

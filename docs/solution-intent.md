@@ -173,7 +173,6 @@ mindmap
             version
             release
             guide
-            observe
             sync
         Groups
             stack(3)
@@ -186,7 +185,6 @@ mindmap
             review(1)
             cicd(1)
             setup(5)
-            signals(2)
             decision(3)
             scan-report(1)
             metrics(1)
@@ -205,10 +203,10 @@ mindmap
 | `ai-eng verify` | Execute security + quality gate checks |
 | `ai-eng gate commit-msg <path>` | Validate commit message format |
 | `ai-eng gate risk-check --strict` | Verify risk acceptances in decision-store |
-| `ai-eng observe [engineer\|team\|ai\|dora\|health]` | Dashboard views |
-| `ai-eng signals emit <event>` | Emit telemetry event to audit log |
 | `ai-eng sync [--check]` | Synchronize IDE mirror surfaces |
 | `ai-eng release <version>` | Orchestrate release (tag + changelog + PR) |
+
+Framework observability is now local-first and file-based: `ai-engineering` writes canonical framework events to `.ai-engineering/state/framework-events.ndjson` plus `.ai-engineering/state/framework-capabilities.json`, while session and transcript viewing is delegated to an independently installed `agentsview`.
 
 ---
 
@@ -606,42 +604,46 @@ mindmap
         Event Sources
             PostToolUse Skill hook
             PostToolUse Agent hook
-            Stop hook
+            Context loaders
+            Git and IDE hooks
             CLI commands
         Event Store
-            audit-log.ndjson
+            framework-events.ndjson
             Append-only NDJSON
-            Weekly rotation
-            90-day retention
+            Data minimized
+            No transcripts
+        Capability Catalog
+            framework-capabilities.json
+            skills
+            agents
+            contexts
+            hooks
         Telemetry Scripts
             telemetry-skill.py (Claude Code)
             observe.py (Claude Code)
-            cost-tracker.py (Claude Code)
             copilot-*.sh/.ps1 (GitHub Copilot)
-        Dashboards
-            ai-eng observe engineer
-            ai-eng observe team
-            ai-eng observe ai
-            ai-eng observe dora
-            ai-eng observe health
+        Viewer
+            agentsview (independent install)
+            session explorer
+            transcript viewer
+            native framework source
         Metrics
-            Lead time
-            Failure rate
-            MTTR
-            Gate pass/fail
-            Decision churn
             Skill invocation frequency
+            Agent dispatch frequency
+            Context load outcomes
+            Hook/gate failure hotspots
+            Framework error trends
 ```
 
 | Event | Hook trigger | Data captured |
 |-------|-------------|---------------|
 | `skill_invoked` | PostToolUse(Skill) | Skill name, actor, timestamp |
 | `agent_dispatched` | PostToolUse(Agent) | Agent name, actor, timestamp |
-| `session_end` | Stop | Session duration, commands executed |
+| `context_load` | Context load path | Context class, target, outcome |
+| `git_hook` / `ide_hook` | Hook execution | Hook kind, component, outcome |
+| `framework_error` | Hook or CLI failure | Stable error code, component, outcome |
 
-Telemetry is strict-opt-in, default disabled (from manifest.yml).
-
-Cross-IDE telemetry (DEC-013): all skills emit via `ai-eng signals emit <event>`, works in any IDE with shell access.
+Framework telemetry is local-first and automatic where host hooks are available. `ai-engineering` no longer owns dashboards and no longer emits via `ai-eng signals emit`; `agentsview` is the companion viewer for sessions and canonical framework events.
 
 ---
 
@@ -683,9 +685,9 @@ flowchart TD
 
 ---
 
-## 9. Decision Log (Active)
+## 9. Decision Log
 
-20 active decisions in `.ai-engineering/state/decision-store.json` (schema v1.1).
+See `.ai-engineering/state/decision-store.json` for the current active and superseded decisions.
 
 | ID | Title | Category | Criticality |
 |----|-------|----------|-------------|
@@ -694,13 +696,13 @@ flowchart TD
 | DEC-004 | Flat main with feature branches (no phase branching) | governance | medium |
 | DEC-005 | Multi-IDE governance via single-source generation | architecture | medium |
 | DEC-006 | SonarCloud as primary quality gate platform | tooling | high |
-| DEC-007 | Single event store (audit-log.ndjson) | architecture | high |
+| DEC-007 | Single event store (audit-log.ndjson) | architecture | high, superseded by DEC-028 |
 | DEC-008 | No-suppression rule (never bypass static analysis) | governance | high |
 | DEC-009 | Snyk as optional (not required for CI) | tooling | low |
 | DEC-010 | Dual VCS provider support (GitHub + Azure DevOps) | architecture | medium |
 | DEC-011 | Gitleaks at pre-commit, not pre-push | security | high |
 | DEC-012 | Release zero-rebuild (download CI artifacts) | delivery | medium |
-| DEC-013 | Cross-IDE telemetry via `ai-eng signals emit` | architecture | medium |
+| DEC-013 | Cross-IDE telemetry via `ai-eng signals emit` | architecture | medium, superseded by DEC-028 |
 | DEC-014 | Lean stack standards (max 1 page per stack) | governance | low |
 | DEC-015 | Conventional commits with `spec-NNN` prefix | delivery | medium |
 | DEC-016 | Slim root instructions (deduplicate CLAUDE.md/AGENTS.md) | governance | medium |
@@ -708,6 +710,7 @@ flowchart TD
 | DEC-018 | PR skill decomposition (extract shared pipeline) | architecture | medium |
 | DEC-019 | 8-agent architecture with SRP boundaries | architecture | high |
 | DEC-020 | Exempt automated actors from gate trailer verification | governance | medium |
+| DEC-028 | Canonical framework-events stream plus agentsview companion viewer | architecture | high |
 | DEC-021 | Skill invocation uses hyphen prefix (`ai-`) not colon (`ai:`) | architecture | medium |
 | DEC-022 | Scheduled runbooks migrated to GitHub Agentic Workflows | delivery | medium |
 
@@ -778,7 +781,7 @@ The following items require verification or team definition before they can be d
 | Current test coverage percentage | **TBD -- pending measurement** | Run `pytest --cov` and record actual value |
 | Performance SLOs for gate execution | **TBD -- pending team definition** | Historical target: < 10s pre-commit, < 60s pre-push |
 | Active epics and their current status | **TBD -- pending team definition** | Map spec backlog to strategic themes |
-| Specific KPI current values | **TBD -- pending measurement** | Run `ai-eng observe` dashboards and capture baselines |
+| Specific KPI current values | **TBD -- pending measurement** | Query `framework-events.ndjson` or inspect `agentsview` once the native source is wired |
 
 ---
 
@@ -790,8 +793,9 @@ The following items require verification or team definition before they can be d
 | Agents (8) | `.claude/agents/ai-<name>.md` |
 | Config | `.ai-engineering/manifest.yml` |
 | Decisions (20+) | `.ai-engineering/state/decision-store.json` |
-| Audit events | `.ai-engineering/state/audit-log.ndjson` |
-| Active spec | `.ai-engineering/specs/_active.md` |
+| Framework events | `.ai-engineering/state/framework-events.ndjson` |
+| Framework capabilities | `.ai-engineering/state/framework-capabilities.json` |
+| Active spec | `.ai-engineering/specs/spec.md` |
 | Contexts (26) | `.ai-engineering/contexts/{languages,frameworks,team,orgs}/` |
 | Runbooks (8) | `.ai-engineering/runbooks/` |
 | CLI source | `src/ai_engineering/` |

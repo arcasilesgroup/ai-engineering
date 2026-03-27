@@ -45,7 +45,9 @@
               "python", "dotnet", "react", "typescript", "nextjs",
               "node", "nestjs", "react_native", "rust", "yaml",
               "terraform", "astro", "github_actions", "azure_pipelines",
-              "azure", "bash", "powershell", "sql", "postgresql"
+              "azure", "bash", "powershell", "sql", "postgresql",
+              "javascript", "java", "csharp", "go", "php",
+              "ruby", "kotlin", "swift", "dart", "elixir"
             ]
           },
           "minItems": 1,
@@ -79,6 +81,46 @@
           "properties": {
             "team_label": { "type": "string" },
             "project": { "type": ["string", "integer"] }
+          },
+          "additionalProperties": false
+        },
+        "state_mapping": {
+          "type": "object",
+          "properties": {
+            "refinement": { "type": ["string", "null"] },
+            "ready": { "type": ["string", "null"] },
+            "in_progress": { "type": ["string", "null"] },
+            "in_review": { "type": ["string", "null"] },
+            "done": { "type": ["string", "null"] }
+          },
+          "additionalProperties": false
+        },
+        "process_template": {
+          "type": ["string", "null"],
+          "enum": ["basic", "agile", "scrum", "cmmi", null]
+        },
+        "custom_fields": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "name": { "type": "string" },
+              "type": { "type": "string", "enum": ["text", "number", "date", "single_select", "iteration"] }
+            },
+            "required": ["id", "name", "type"],
+            "additionalProperties": false
+          }
+        },
+        "github_project": {
+          "type": "object",
+          "properties": {
+            "number": { "type": ["integer", "null"] },
+            "status_field_id": { "type": ["string", "null"] },
+            "status_options": {
+              "type": "object",
+              "additionalProperties": { "type": "string" }
+            }
           },
           "additionalProperties": false
         },
@@ -150,6 +192,22 @@
         "standards_url": { "type": ["string", "null"] }
       },
       "required": ["standards_url"],
+      "additionalProperties": false
+    },
+    "contexts": {
+      "type": "object",
+      "properties": {
+        "precedence": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["team", "frameworks", "languages"]
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        }
+      },
+      "required": ["precedence"],
       "additionalProperties": false
     },
     "skills": {

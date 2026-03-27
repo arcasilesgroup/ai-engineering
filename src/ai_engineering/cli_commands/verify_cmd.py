@@ -62,6 +62,7 @@ def verify_cmd(
             score=result.score,
             findings=result.summary(),
             duration_ms=elapsed_ms,
+            outcome="failure" if result.verdict.value == "FAIL" else "success",
         )
 
     with contextlib.suppress(Exception):

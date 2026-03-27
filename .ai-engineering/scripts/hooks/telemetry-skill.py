@@ -6,6 +6,7 @@ Fail-open: exit 0 always -- never blocks IDE.
 Replaces former telemetry-skill.sh.
 """
 
+import os
 import re
 import sys
 from pathlib import Path
@@ -15,11 +16,17 @@ sys.path.insert(0, str(Path(__file__).parent))
 from datetime import UTC
 
 from _lib.audit import (
-    append_audit_event,
-    get_audit_log,
     get_project_root,
     is_debug_mode,
     read_stdin,
+)
+
+from ai_engineering.state.instincts import extract_instincts, maybe_refresh_instinct_context
+from ai_engineering.state.observability import (
+    emit_declared_context_loads,
+    emit_framework_error,
+    emit_ide_hook_outcome,
+    emit_skill_invoked,
 )
 
 _SKILL_RE = re.compile(r"/ai-([a-zA-Z-]+)")
@@ -39,17 +46,40 @@ def main() -> None:
     skill_name = f"ai-{raw.lower()}"
 
     project_root = get_project_root()
-    audit_log = get_audit_log(project_root)
-
-    append_audit_event(
-        audit_log,
-        {
-            "event": "skill_invoked",
-            "actor": "ai",
-            "detail": {"skill": skill_name},
-        },
-        project_root=project_root,
+    entry = emit_skill_invoked(
+        project_root,
+        engine="claude_code",
+        skill_name=skill_name,
+        component="hook.telemetry-skill",
+        source="hook",
+        session_id=os.environ.get("CLAUDE_SESSION_ID"),
+        trace_id=os.environ.get("CLAUDE_TRACE_ID"),
     )
+    emit_declared_context_loads(
+        project_root,
+        engine="claude_code",
+        initiator_kind="skill",
+        initiator_name=skill_name,
+        component="hook.telemetry-skill",
+        source="hook",
+        session_id=os.environ.get("CLAUDE_SESSION_ID"),
+        trace_id=os.environ.get("CLAUDE_TRACE_ID"),
+        correlation_id=entry.correlation_id,
+    )
+    emit_ide_hook_outcome(
+        project_root,
+        engine="claude_code",
+        hook_kind="user-prompt-submit",
+        component="hook.telemetry-skill",
+        outcome="success",
+        source="hook",
+        session_id=os.environ.get("CLAUDE_SESSION_ID"),
+        trace_id=os.environ.get("CLAUDE_TRACE_ID"),
+        correlation_id=entry.correlation_id,
+    )
+    if skill_name == "ai-onboard":
+        extract_instincts(project_root)
+        maybe_refresh_instinct_context(project_root)
 
     if is_debug_mode():
         from datetime import datetime
@@ -58,14 +88,37 @@ def main() -> None:
         try:
             timestamp = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
             with open(debug_log, "a", encoding="utf-8") as f:
-                f.write(f"[{timestamp}] skill_invoked: {skill_name} (prompt: {prompt})\n")
+                f.write(f"[{timestamp}] skill_invoked: {skill_name}\n")
         except Exception:
             pass
 
 
 if __name__ == "__main__":
-    import contextlib
-
-    with contextlib.suppress(Exception):
+    try:
         main()
+    except Exception as exc:
+        try:
+            project_root = get_project_root()
+            emit_ide_hook_outcome(
+                project_root,
+                engine="claude_code",
+                hook_kind="user-prompt-submit",
+                component="hook.telemetry-skill",
+                outcome="failure",
+                source="hook",
+                session_id=os.environ.get("CLAUDE_SESSION_ID"),
+                trace_id=os.environ.get("CLAUDE_TRACE_ID"),
+            )
+            emit_framework_error(
+                project_root,
+                engine="claude_code",
+                component="hook.telemetry-skill",
+                error_code="hook_execution_failed",
+                summary=str(exc),
+                source="hook",
+                session_id=os.environ.get("CLAUDE_SESSION_ID"),
+                trace_id=os.environ.get("CLAUDE_TRACE_ID"),
+            )
+        except Exception:
+            pass
     sys.exit(0)

@@ -32,7 +32,7 @@ Dispatch all agents in parallel (parallel in Claude Code, sequential in other ID
 - The full sub-spec content (frontmatter + scope)
 - The parent spec's relevant section for this concern
 - Decision-store constraints that apply to this sub-spec's scope
-- Stack contexts from `contexts/languages/` and `contexts/frameworks/`
+- Stack contexts from `contexts/languages/`, `contexts/frameworks/`, and `contexts/team/*.md`
 
 Each agent executes the following five-step procedure:
 
