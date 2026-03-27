@@ -130,20 +130,22 @@ def build_framework_event(
         payload["degraded_reason"] = "missing-host-metadata"
         payload["missing_fields"] = missing_fields
 
-    return FrameworkEvent(
-        schemaVersion=FRAMEWORK_EVENT_SCHEMA_VERSION,
-        timestamp=datetime.now(tz=UTC),
-        project=_project_name(project_root),
-        engine=engine,
-        kind=kind,
-        outcome=force_outcome or outcome,
-        component=component,
-        source=source,
-        correlationId=correlation_id or uuid4().hex,
-        sessionId=session_id,
-        traceId=trace_id,
-        parentId=parent_id,
-        detail=payload,
+    return FrameworkEvent.model_validate(
+        {
+            "schemaVersion": FRAMEWORK_EVENT_SCHEMA_VERSION,
+            "timestamp": datetime.now(tz=UTC),
+            "project": _project_name(project_root),
+            "engine": engine,
+            "kind": kind,
+            "outcome": force_outcome or outcome,
+            "component": component,
+            "source": source,
+            "correlationId": correlation_id or uuid4().hex,
+            "sessionId": session_id,
+            "traceId": trace_id,
+            "parentId": parent_id,
+            "detail": payload,
+        }
     )
 
 
@@ -554,12 +556,14 @@ def build_framework_capabilities(project_root: Path) -> FrameworkCapabilitiesCat
         CapabilityDescriptor(name=name, surface=surface) for name, surface in HOOK_KIND_DESCRIPTORS
     ]
 
-    return FrameworkCapabilitiesCatalog(
-        schemaVersion=FRAMEWORK_CAPABILITIES_SCHEMA_VERSION,
-        skills=skills,
-        agents=agents,
-        contextClasses=context_classes,
-        hookKinds=hook_kinds,
+    return FrameworkCapabilitiesCatalog.model_validate(
+        {
+            "schemaVersion": FRAMEWORK_CAPABILITIES_SCHEMA_VERSION,
+            "skills": skills,
+            "agents": agents,
+            "contextClasses": context_classes,
+            "hookKinds": hook_kinds,
+        }
     )
 
 
