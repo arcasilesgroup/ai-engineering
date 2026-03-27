@@ -91,7 +91,7 @@ Intelligent git conflict resolution. Detects conflict type, categorizes files by
 
 ## Integration
 
-- **Called by**: `ai-pr/handlers/watch.md` (Step 5, automated CI repair), user directly
+- **Called by**: `/ai-pr` watch-and-fix loop (Step 5, automated CI repair), user directly
 - **Calls**: git (rebase, merge, cherry-pick continuation commands)
 - **Transitions to**: calling workflow resumes after conflicts resolved
 
