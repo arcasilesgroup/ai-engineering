@@ -4,6 +4,9 @@ Completed specs. Details in git history.
 
 | ID | Title | Status | Created | Branch |
 |----|-------|--------|---------|--------|
+| 082 | Skill Surface Refactor | done | 2026-03-27 | spec/080-standards-engine-delivery-intelligence |
+| 081 | ai-eng Update UX | done | 2026-03-26 | spec/080-standards-engine-delivery-intelligence |
+| 080 | Standards Engine, Governance Parity, Delivery Intelligence | done | 2026-03-26 | spec/080-standards-engine-delivery-intelligence |
 | 079 | Install & Contexts Cleanup — Project Identity, Hooks, Orgs, Enforcement, README | done | 2026-03-26 | spec-079/install-contexts-cleanup |
 | 078 | git init -b main: Fix default branch name in installer and CI | done | 2026-03-26 | feat/prompt-to-skills-migration-cleanup |
 | 077 | Prompt-to-Skills Migration: Replace .github/prompts/ with .github/skills/ | done | 2026-03-26 | feat/prompt-to-skills-migration-cleanup |

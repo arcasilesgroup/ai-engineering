@@ -1,10 +1,75 @@
 # Copilot errorOccurred telemetry hook.
-# PowerShell stub for Windows compatibility.
+# PowerShell implementation for Windows compatibility.
 # Fail-open: exit 0 always.
 
-$ErrorActionPreference = "SilentlyContinue"
+$ErrorActionPreference = "Stop"
+
 try {
-    # TODO: implement telemetry for Windows
+    $InputJson = [Console]::In.ReadToEnd()
+    $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+    $ProjectDir = [string](Resolve-Path (Join-Path $ScriptDir "../../.."))
+    $ErrorName = "unknown"
+    $ErrorMessage = "unknown"
+
+    if (-not [string]::IsNullOrWhiteSpace($InputJson)) {
+        try {
+            $Payload = $InputJson | ConvertFrom-Json -Depth 10
+        } catch {
+            $Payload = $null
+        }
+
+        if ($null -ne $Payload) {
+            $errorProp = $Payload.PSObject.Properties["error"]
+            if ($null -ne $errorProp -and $null -ne $errorProp.Value) {
+                $ErrorObject = $errorProp.Value
+                $nameProp = $ErrorObject.PSObject.Properties["name"]
+                $messageProp = $ErrorObject.PSObject.Properties["message"]
+                if ($null -ne $nameProp -and -not [string]::IsNullOrWhiteSpace([string]$nameProp.Value)) {
+                    $ErrorName = [string]$nameProp.Value
+                }
+                if ($null -ne $messageProp -and -not [string]::IsNullOrWhiteSpace([string]$messageProp.Value)) {
+                    $ErrorMessage = [string]$messageProp.Value
+                }
+            }
+        }
+    }
+
+    if (-not (Get-Command python -ErrorAction SilentlyContinue)) {
+        exit 0
+    }
+
+    $env:PROJECT_DIR = $ProjectDir
+    $env:ERROR_NAME = $ErrorName
+    $env:ERROR_MESSAGE = $ErrorMessage
+    $PythonScript = @'
+import os
+from pathlib import Path
+
+from ai_engineering.state.observability import emit_framework_error, emit_ide_hook_outcome
+
+project_root = Path(os.environ["PROJECT_DIR"])
+emit_ide_hook_outcome(
+    project_root,
+    engine="github_copilot",
+    hook_kind="error-occurred",
+    component="hook.copilot-error",
+    outcome="failure",
+    source="hook",
+    session_id=os.environ.get("COPILOT_SESSION_ID") or os.environ.get("GITHUB_COPILOT_SESSION_ID"),
+    trace_id=os.environ.get("COPILOT_TRACE_ID") or os.environ.get("GITHUB_COPILOT_TRACE_ID"),
+)
+emit_framework_error(
+    project_root,
+    engine="github_copilot",
+    component="hook.copilot-error",
+    error_code=os.environ["ERROR_NAME"] or "hook_error",
+    summary=os.environ["ERROR_MESSAGE"],
+    source="hook",
+    session_id=os.environ.get("COPILOT_SESSION_ID") or os.environ.get("GITHUB_COPILOT_SESSION_ID"),
+    trace_id=os.environ.get("COPILOT_TRACE_ID") or os.environ.get("GITHUB_COPILOT_TRACE_ID"),
+)
+'@
+    $PythonScript | & python - 2>$null | Out-Null
     exit 0
 } catch {
     exit 0

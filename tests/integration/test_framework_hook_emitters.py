@@ -33,10 +33,15 @@ def _prepare_project(tmp_path: Path) -> Path:
         "instinct-extract.py",
         "copilot-adapter.py",
         "copilot-skill.sh",
+        "copilot-skill.ps1",
         "copilot-agent.sh",
+        "copilot-agent.ps1",
         "copilot-error.sh",
+        "copilot-error.ps1",
         "copilot-instinct-observe.sh",
+        "copilot-instinct-observe.ps1",
         "copilot-instinct-extract.sh",
+        "copilot-instinct-extract.ps1",
     ):
         target = hooks_dir / script_name
         shutil.copy2(HOOKS_ROOT / script_name, target)
@@ -54,6 +59,21 @@ def _framework_events_path(project_root: Path) -> Path:
 
 def _audit_log_path(project_root: Path) -> Path:
     return project_root / ".ai-engineering" / "state" / "audit-log.ndjson"
+
+
+def _copilot_hook_command(script: Path, *args: str) -> list[str]:
+    """Run Copilot hooks through the shell each platform advertises in hooks.json."""
+    if os.name == "nt":
+        return [
+            "powershell",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            str(script.with_suffix(".ps1")),
+            *args,
+        ]
+    return ["bash", str(script), *args]
 
 
 class TestClaudeHookEmitters:
@@ -231,7 +251,7 @@ class TestCopilotHookEmitters:
         }
 
         result = subprocess.run(
-            ["bash", str(script)],
+            _copilot_hook_command(script),
             input=json.dumps({"prompt": "/ai-dispatch"}),
             text=True,
             capture_output=True,
@@ -259,7 +279,7 @@ class TestCopilotHookEmitters:
 
         payload = {"toolName": "Build", "toolArgs": {}}
         result = subprocess.run(
-            ["bash", str(script)],
+            _copilot_hook_command(script),
             input=json.dumps(payload),
             text=True,
             capture_output=True,
@@ -289,7 +309,7 @@ class TestCopilotHookEmitters:
             "error": {"name": "HookFailure", "message": 'token="local-test-placeholder" exploded'}
         }
         result = subprocess.run(
-            ["bash", str(script)],
+            _copilot_hook_command(script),
             input=json.dumps(payload),
             text=True,
             capture_output=True,
@@ -324,7 +344,7 @@ class TestCopilotHookEmitters:
             ("pre", {"toolName": "Grep", "toolArgs": {"pattern": "TODO"}}),
         ):
             result = subprocess.run(
-                ["bash", str(observe_script), phase],
+                _copilot_hook_command(observe_script, phase),
                 input=json.dumps(payload),
                 text=True,
                 capture_output=True,
@@ -335,7 +355,7 @@ class TestCopilotHookEmitters:
             assert result.returncode == 0
 
         extract = subprocess.run(
-            ["bash", str(extract_script)],
+            _copilot_hook_command(extract_script),
             input="{}",
             text=True,
             capture_output=True,
@@ -372,7 +392,7 @@ class TestCopilotHookEmitters:
             ("pre", {"toolName": "Grep", "toolArgs": {"pattern": "TODO"}}),
         ):
             result = subprocess.run(
-                ["bash", str(observe_script), phase],
+                _copilot_hook_command(observe_script, phase),
                 input=json.dumps(payload),
                 text=True,
                 capture_output=True,
@@ -383,7 +403,7 @@ class TestCopilotHookEmitters:
             assert result.returncode == 0
 
         onboard = subprocess.run(
-            ["bash", str(skill_script)],
+            _copilot_hook_command(skill_script),
             input=json.dumps({"prompt": "/ai-onboard"}),
             text=True,
             capture_output=True,
