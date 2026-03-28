@@ -28,7 +28,7 @@ from _lib.observability import (
     emit_skill_invoked,
 )
 
-_SKILL_RE = re.compile(r"/ai-([a-zA-Z-]+)")
+_SKILL_RE = re.compile(r"^\s*/ai-([a-zA-Z-]+)")
 
 
 def main() -> None:

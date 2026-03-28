@@ -540,6 +540,25 @@ def discover_agents() -> list[tuple[str, dict[str, str], Path]]:
     return agents
 
 
+# Specialist agent prefixes dispatched by orchestrators (not user-facing).
+_SPECIALIST_PREFIXES = ("reviewer-", "verifier-", "review-", "verify-")
+
+
+def discover_specialist_agents() -> list[Path]:
+    """Discover specialist agents from .claude/agents/ (non-ai-* prefix).
+
+    These are sub-agents dispatched by orchestrator agents (ai-review, ai-verify).
+    They are mirrored as-is (byte-for-byte copy) without metadata injection.
+    """
+    specialists = []
+    for agent_file in sorted(CLAUDE_AGENTS.glob("*.md")):
+        if agent_file.stem.startswith("ai-"):
+            continue
+        if any(agent_file.stem.startswith(p) for p in _SPECIALIST_PREFIXES):
+            specialists.append(agent_file)
+    return specialists
+
+
 def discover_handlers(skill_dir: Path) -> list[tuple[str, Path]]:
     """Discover handler files under a skill's handlers/ directory.
 
@@ -1206,6 +1225,20 @@ def sync_all(*, check_only: bool = False, verbose: bool = False) -> int:
         _generate_surface(path, content, check_only, verbose, generated_paths, diffs)
         _generate_surface(tpl, content, check_only, verbose, generated_paths, diffs)
 
+    # Surface 2b: specialist agents (reviewer-*, verifier-*, review-*, verify-*)
+    # Mirrored as byte-for-byte copies (no metadata injection).
+    specialists = discover_specialist_agents()
+    for spec_path in specialists:
+        content = spec_path.read_text(encoding="utf-8")
+        for target in (
+            AGENTS_AGENTS / spec_path.name,
+            TPL_AGENTS_AGENTS / spec_path.name,
+            GITHUB_AGENTS / spec_path.name,
+            TPL_GITHUB_AGENTS / spec_path.name,
+            TPL_CLAUDE_AGENTS / spec_path.name,
+        ):
+            _generate_surface(target, content, check_only, verbose, generated_paths, diffs)
+
     # Surface 3: .github/skills/ai-<name>/SKILL.md + handlers/ (Agent Skills)
     for name, _fm, skill_path in skills:
         if not is_copilot_compatible(skill_path):
@@ -1423,16 +1456,16 @@ def _handle_orphans(
     # (root, mode, prefix_filter) -- prefix_filter="" means all subdirs
     _ORPHAN_SURFACES: list[tuple[Path, str, str]] = [
         (AGENTS_SKILLS, "rglob_subdirs", ""),
-        (AGENTS_AGENTS, "glob", "ai-*.md"),
+        (AGENTS_AGENTS, "glob", "*.md"),
         (GITHUB_INSTRUCTIONS, "glob", "*.instructions.md"),
         (GITHUB_SKILLS, "rglob_subdirs", "ai-"),
-        (GITHUB_AGENTS, "glob", "*.agent.md"),
+        (GITHUB_AGENTS, "glob", "*.md"),
         (TPL_CLAUDE_SKILLS, "rglob_subdirs", "ai-"),
-        (TPL_CLAUDE_AGENTS, "glob", "ai-*.md"),
+        (TPL_CLAUDE_AGENTS, "glob", "*.md"),
         (TPL_AGENTS_SKILLS, "rglob_subdirs", ""),
-        (TPL_AGENTS_AGENTS, "glob", "ai-*.md"),
+        (TPL_AGENTS_AGENTS, "glob", "*.md"),
         (TPL_GITHUB_SKILLS, "rglob_subdirs", "ai-"),
-        (TPL_GITHUB_AGENTS, "glob", "*.agent.md"),
+        (TPL_GITHUB_AGENTS, "glob", "*.md"),
     ]
 
     orphans: list[Path] = []

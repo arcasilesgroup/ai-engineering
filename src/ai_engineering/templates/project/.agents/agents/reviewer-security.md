@@ -82,6 +82,24 @@ Before including any finding, argue against it:
 
 Drop non-blocking findings if you cannot trace a concrete attack path. For blocking findings, report even if uncertain -- include your confidence level.
 
+## Example: Blocking Finding
+
+```
+### blocking: Command Injection via unsanitized CLI input [92% confidence]
+**Location**: cli/run.py:87
+**CWE**: CWE-78 (OS Command Injection)
+**Source**: User-supplied `--hook` argument flows into `hook_name` parameter
+**Sink**: `subprocess.run(f"bash {hook_name}", shell=True)` at line 87
+**Mitigations checked**: No input validation, no allowlist, no shlex.quote()
+**Attack scenario**: A caller passes "; rm -rf /" as the hook name.
+  The shell interprets the semicolon as a command separator and executes
+  arbitrary commands with the process privileges.
+**Remediation**:
+  1. Validate `hook_name` against a known allowlist of registered hooks
+  2. Use `subprocess.run(["bash", hook_name], shell=False)` to prevent injection
+  3. Apply `shlex.quote()` if the value must be interpolated into a shell string
+```
+
 ## Output Contract
 
 ```yaml
