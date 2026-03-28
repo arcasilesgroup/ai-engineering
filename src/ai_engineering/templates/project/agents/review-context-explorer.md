@@ -49,7 +49,17 @@ When the PR description, commit messages, or code comments indicate the changes 
 
 Spend no more than 60 seconds on this step. Focus on entry points and public API.
 
-### Step 6: Check Git History
+### Step 6: Analyze Commit Messages
+
+Run `git log --oneline -10 -- <modified_files>` to understand author intent:
+- **Spec references**: Look for `spec-NNN:` prefixes that link to the spec driving this change
+- **Conventional commit prefixes**: `feat:`, `fix:`, `refactor:` reveal whether this is new work, a bug fix, or a restructure
+- **Bug context**: `fix:` commits often reference the symptom — search for related issues or error messages
+- **Design decisions**: Commit bodies sometimes explain *why* a particular approach was chosen over alternatives
+
+When a spec reference is found, read `.ai-engineering/specs/_history.md` to confirm the spec's scope and goals. Include relevant spec context in the output.
+
+### Step 7: Check Git History
 
 For files with high recent churn:
 - Run `git log --oneline -5 <file>` to surface recent changes
@@ -78,6 +88,10 @@ For surprising or non-obvious code:
 ### Special Context
 [Database schema, API patterns, security context, etc. -- only if relevant]
 
+### Commit Context
+- **Intent**: [What the author was trying to do, derived from commit messages]
+- **Spec Reference**: [spec-NNN if found, with goals summary]
+
 ### Reference Implementation
 [Only if the changes are a port, migration, or rewrite]
 - **Original**: `path/to/original/module.py` -- [purpose and key behaviors]
@@ -92,6 +106,40 @@ For surprising or non-obvious code:
 1. `path/to/file.py` -- Modified file doing X
 2. `path/to/related.py` -- Shows existing pattern for Y
 3. `path/to/schema.sql` -- Database schema for context
+```
+
+## Example Output
+
+A realistic example for a change adding skill mirror sync to the updater:
+
+```markdown
+### Files Modified
+- `src/ai_engineering/updater/service.py`: Added `update_skill_mirrors()` that copies canonical `.claude/skills/` to `.agents/skills/` and `.github/skills/`
+- `src/ai_engineering/cli_commands/core.py`: Wired `update_skill_mirrors()` into the `update` command after template sync
+- `tests/unit/test_updater.py`: New test for mirror sync during update
+
+### Related Code
+- **Dependencies**: `service.py` imports `sync_command_mirrors.discover_skills()` and `safe_write()`
+- **Callers**: `update_cmd()` in `core.py:245` calls `update_skill_mirrors()`. No other callers yet.
+- **Similar Patterns**: `update_runbooks()` at `service.py:180` follows the same template-to-installed copy pattern with ownership checks
+
+### Architectural Context
+- **Existing Patterns**: `scripts/sync_command_mirrors.py` already handles skill sync at build time. The updater mirrors this at runtime.
+- **Conventions**: All updater functions return `list[FileChange]` and respect `OwnershipLevel` from `defaults.py`
+- **Reusable Code**: `safe_write()` at `service.py:42` handles atomic writes with rollback. `discover_skills()` at `sync_command_mirrors.py:510` enumerates canonical skills.
+
+### Commit Context
+- **Intent**: Add runtime skill sync so `ai-eng update` keeps mirrors fresh without requiring a full `sync_command_mirrors.py` run
+- **Spec Reference**: spec-080 "Standards Engine" -- goal 3: "updater propagates skill changes to all IDE surfaces"
+
+### Git History Context
+- **High-Churn Files**: `service.py` -- 8 commits in last 7 days (active feature build-up, specs 080-084)
+- **Surprising Code**: `_DENY_OVERWRITE_PATTERNS` at line 38 was added in spec-079 to protect team-managed files during update
+
+### Key Files for Review
+1. `src/ai_engineering/updater/service.py` -- Modified: new mirror sync function
+2. `scripts/sync_command_mirrors.py` -- Reference: existing build-time sync pattern
+3. `src/ai_engineering/state/defaults.py` -- Context: ownership rules for skill files
 ```
 
 ## Boundaries
