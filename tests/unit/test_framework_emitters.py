@@ -79,9 +79,8 @@ class TestCanonicalEmitters:
         assert entry.detail["degraded_reason"] == "missing-host-metadata"
         assert entry.detail["missing_fields"] == ["sessionId", "traceId"]
 
-    def test_gemini_agent_dispatch_degrades_when_host_metadata_is_missing(
-        self, tmp_path: Path
-    ) -> None:
+    def test_gemini_agent_dispatch_succeeds_with_native_hooks(self, tmp_path: Path) -> None:
+        """Gemini has native hooks (spec-087) so missing host metadata no longer degrades."""
         _write_manifest(tmp_path)
 
         entry = emit_agent_dispatched(
@@ -92,6 +91,6 @@ class TestCanonicalEmitters:
             source="compat",
         )
 
-        assert entry.outcome == "degraded"
+        assert entry.outcome == "success"
         assert entry.detail["agent"] == "ai-plan"
-        assert entry.detail["missing_fields"] == ["sessionId", "traceId"]
+        assert "missing_fields" not in entry.detail
