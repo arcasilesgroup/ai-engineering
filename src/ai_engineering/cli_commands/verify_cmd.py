@@ -26,7 +26,10 @@ def verify_cmd(
     mode: Annotated[
         str,
         typer.Argument(
-            help="Verification mode: quality | security | governance | platform",
+            help=(
+                "Verification mode: governance | security | architecture | quality | "
+                "performance | a11y | feature | platform"
+            ),
         ),
     ],
     target: Annotated[
@@ -37,6 +40,10 @@ def verify_cmd(
         bool,
         typer.Option("--json", help="Output report as JSON (deprecated: use global --json)."),
     ] = False,
+    full: Annotated[
+        bool,
+        typer.Option("--full", help="Use the expensive one-specialist-per-agent profile."),
+    ] = False,
 ) -> None:
     """Run verification in the specified mode and produce a scored report."""
     if mode not in MODES:
@@ -46,10 +53,11 @@ def verify_cmd(
 
     root = resolve_project_root(target)
     func = MODES[mode]
+    profile = "full" if full else "normal"
 
     t0 = _time.monotonic()
     with spinner(f"Running {mode} verification..."):
-        result = func(root)
+        result = func(root, profile=profile)
     elapsed_ms = int((_time.monotonic() - t0) * 1000)
 
     # Emit scan and advisory events (fail-open)
@@ -81,9 +89,23 @@ def verify_cmd(
     if is_json_mode() or output_json:
         report = {
             "mode": mode,
+            "profile": result.profile,
             "score": result.score,
             "verdict": result.verdict.value,
             "findings_summary": result.summary(),
+            "specialists": [
+                {
+                    "name": specialist.name,
+                    "label": specialist.label,
+                    "runner": specialist.runner,
+                    "applicable": specialist.applicable,
+                    "rationale": specialist.rationale,
+                    "score": specialist.score,
+                    "verdict": specialist.verdict.value,
+                    "findings_summary": specialist.summary(),
+                }
+                for specialist in result.specialists
+            ],
             "findings": [
                 {
                     "severity": f.severity.value,
@@ -91,6 +113,8 @@ def verify_cmd(
                     "message": f.message,
                     "file": f.file,
                     "line": f.line,
+                    "specialist": f.specialist,
+                    "runner": f.runner,
                 }
                 for f in result.findings
             ],
@@ -109,22 +133,49 @@ def verify_cmd(
             typer.echo(json.dumps(report, indent=2))
     else:
         result_header("Verify", result.verdict.value, f"{mode} @ {root}")
+        kv("Profile", result.profile)
         kv("Score", f"{result.score}/100")
         kv("Verdict", result.verdict.value)
 
-        if result.findings:
+        if result.specialists:
             typer.echo(err=True)
-            summary = result.summary()
-            summary_str = ", ".join(f"{k}: {v}" for k, v in sorted(summary.items()))
-            kv("Findings", f"{len(result.findings)} ({summary_str})")
+            kv("Specialists", len(result.specialists))
 
-            for f in result.findings:
-                loc = f" ({f.file}:{f.line})" if f.file else ""
-                status_line(
-                    "fail" if f.severity.value in ("blocker", "critical") else "warn",
-                    f"[{f.severity.value}] {f.category}",
-                    f"{f.message}{loc}",
+            for specialist in result.specialists:
+                if not specialist.applicable:
+                    status_line(
+                        "info",
+                        f"[{specialist.runner}] {specialist.label}",
+                        specialist.rationale or "not applicable",
+                    )
+                    continue
+
+                specialist_status = (
+                    "fail"
+                    if specialist.verdict.value == "FAIL"
+                    else "warn"
+                    if specialist.verdict.value == "WARN"
+                    else "ok"
                 )
+                specialist_summary = specialist.summary()
+                summary_str = ", ".join(
+                    f"{severity}: {count}" for severity, count in sorted(specialist_summary.items())
+                )
+                detail = f"{specialist.verdict.value} {specialist.score}/100"
+                if summary_str:
+                    detail += f" ({summary_str})"
+                status_line(
+                    specialist_status,
+                    f"[{specialist.runner}] {specialist.label}",
+                    detail,
+                )
+                for finding in result.findings_for_specialist(specialist.name):
+                    loc = f" ({finding.file}:{finding.line})" if finding.file else ""
+                    status_line(
+                        "fail" if finding.severity.value in ("blocker", "critical") else "warn",
+                        f"  [{finding.severity.value}] {finding.category}",
+                        f"{finding.message}{loc}",
+                    )
         else:
             typer.echo(err=True)
             status_line("ok", "No findings", "All checks passed")

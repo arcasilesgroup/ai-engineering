@@ -300,7 +300,12 @@ def test_core_update_interactive_preview_then_apply(
     captured = capsys.readouterr()
     assert "Update [PREVIEW]" in captured.out
     assert "Update [APPLIED]" in captured.out
-    assert "skip-denied" not in captured.err
+    assert "Available (1)" in captured.err
+    assert "Protected (1)" in captured.err
+    assert "└── f" in captured.err
+    assert "└── team.md" in captured.err
+    assert "team.md" in captured.err
+    assert "Reason: team-managed-update-protected" in captured.err
     assert "team-managed-update-protected" in captured.err
     assert "No action required" in captured.err
     assert mock_update.call_count == 2
@@ -334,6 +339,9 @@ def test_core_update_interactive_decline_keeps_preview_only(
     captured = capsys.readouterr()
     assert "Update [PREVIEW]" in captured.out
     assert "Preview only. No changes were applied." in captured.err
+    assert "Available (1)" in captured.err
+    assert "└── f" in captured.err
+    assert "Reason: template-drift" in captured.err
     assert mock_update.call_count == 1
     mock_confirm.assert_called_once()
 

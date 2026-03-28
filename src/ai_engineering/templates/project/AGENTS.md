@@ -71,8 +71,9 @@ Before writing or reviewing code, load the applicable context files:
 1. Detect the project's languages from file extensions and build config
 2. Read `.ai-engineering/contexts/languages/{language}.md` for each detected language
 3. Read `.ai-engineering/contexts/frameworks/{framework}.md` for each detected framework
-4. Read `.ai-engineering/contexts/team/*.md` for team conventions
-5. Apply loaded standards to all code generation and review
+4. Read shared framework contexts when relevant: `.ai-engineering/contexts/cli-ux.md` for CLI work and `.ai-engineering/contexts/mcp-integrations.md` for MCP/server usage
+5. Read `.ai-engineering/contexts/team/*.md` for team conventions
+6. Apply loaded standards to all code generation and review
 
 ## Task Management
 

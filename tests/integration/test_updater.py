@@ -171,6 +171,17 @@ class TestOwnershipSafety:
         assert match.action == "skip-denied"
         assert match.reason_code == "team-managed-create-protected"
 
+    def test_promoted_root_context_is_framework_managed(self, installed_project: Path) -> None:
+        promoted = installed_project / ".ai-engineering" / "contexts" / "cli-ux.md"
+        original = promoted.read_text()
+        promoted.write_text("stale promoted context")
+
+        result = update(installed_project, dry_run=False)
+
+        assert promoted.read_text() == original
+        updated = [c for c in result.changes if c.path == promoted and c.action == "update"]
+        assert len(updated) == 1
+
 
 # ---------------------------------------------------------------------------
 # Template trees (.claude/)

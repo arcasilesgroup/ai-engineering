@@ -30,7 +30,8 @@ providers:
         ".ai-engineering/contexts/languages/python.md",
         ".ai-engineering/contexts/frameworks/react.md",
         ".ai-engineering/contexts/team/lessons.md",
-        ".ai-engineering/contexts/team/cli.md",
+        ".ai-engineering/contexts/cli-ux.md",
+        ".ai-engineering/contexts/mcp-integrations.md",
         ".ai-engineering/contexts/project-identity.md",
         ".ai-engineering/specs/spec.md",
         ".ai-engineering/specs/plan.md",
@@ -65,12 +66,19 @@ class TestDeclaredContextLoads:
         assert classes == {
             "language",
             "framework",
+            "shared-framework",
             "team",
             "project-identity",
             "spec",
             "plan",
             "decision-store",
         }
+        shared_context_names = {
+            entry.detail["context_name"]
+            for entry in entries
+            if entry.detail["context_class"] == "shared-framework"
+        }
+        assert shared_context_names == {"cli-ux", "mcp-integrations"}
         assert all(entry.kind == "context_load" for entry in entries)
         assert all(entry.detail["initiator_kind"] == "skill" for entry in entries)
         assert all(entry.detail["initiator_name"] == "ai-code" for entry in entries)

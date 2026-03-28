@@ -10,13 +10,19 @@ from __future__ import annotations
 import os
 import re
 import sys
+from collections import OrderedDict
 from functools import lru_cache
+from pathlib import Path
+from typing import TYPE_CHECKING
 
 from rich.console import Console
 from rich.rule import Rule
 from rich.theme import Theme
 
 from ai_engineering.__version__ import __version__
+
+if TYPE_CHECKING:
+    from ai_engineering.updater.service import FileChange
 
 # Brand colour extracted from .github/assets/banner-dark.svg
 BRAND_TEAL = "#00D4AA"
@@ -195,6 +201,122 @@ def print_stdout(msg: str) -> None:
     """Write a plain-text line to stdout (for data/assertions)."""
     sys.stdout.write(msg + "\n")
     sys.stdout.flush()
+
+
+def render_update_tree(
+    changes: list[FileChange],
+    *,
+    root: Path,
+    dry_run: bool,
+) -> None:
+    """Render updater results as grouped file trees on stderr."""
+    grouped: OrderedDict[str, list[FileChange]] = OrderedDict(
+        [
+            ("available", []),
+            ("applied", []),
+            ("protected", []),
+            ("unchanged", []),
+            ("failed", []),
+        ]
+    )
+    for change in changes:
+        grouped.setdefault(change.outcome(dry_run=dry_run), []).append(change)
+
+    for outcome, bucket_changes in grouped.items():
+        if not bucket_changes:
+            continue
+        label, style = _bucket_label(outcome)
+        _safe_print("")
+        _safe_print(f"[{style}]{label} ({len(bucket_changes)})[/{style}]")
+        lines = _build_update_tree_lines(bucket_changes, root=root)
+        for line in lines:
+            _safe_print(f"  {line}")
+
+
+def _bucket_label(outcome: str) -> tuple[str, str]:
+    labels = {
+        "available": ("Available", "success"),
+        "applied": ("Applied", "success"),
+        "protected": ("Protected", "warning"),
+        "unchanged": ("Unchanged", "muted"),
+        "failed": ("Failed", "error"),
+    }
+    return labels.get(outcome, (outcome.title(), "info"))
+
+
+def _build_update_tree_lines(changes: list[FileChange], *, root: Path) -> list[str]:
+    tree = _TreeNode("")
+    for change in sorted(changes, key=lambda item: _tree_sort_key(item, root=root)):
+        parts = _tree_parts(change.path, root=root)
+        tree.add(parts, change)
+    return tree.render()
+
+
+def _tree_sort_key(change: FileChange, *, root: Path) -> tuple[tuple[str, ...], str]:
+    parts = _tree_parts(change.path, root=root)
+    return tuple(part.casefold() for part in parts), change.reason_code
+
+
+def _tree_parts(path: Path, *, root: Path) -> tuple[str, ...]:
+    if path.is_absolute():
+        try:
+            parts = path.relative_to(root).parts
+        except ValueError:
+            parts = (path.name,) if path.name else path.parts
+    else:
+        parts = path.parts or (path.as_posix(),)
+    return tuple(part for part in parts if part not in ("", "."))
+
+
+class _TreeNode:
+    """Minimal deterministic text tree for update previews."""
+
+    def __init__(self, name: str) -> None:
+        self.name = name
+        self.children: OrderedDict[str, _TreeNode] = OrderedDict()
+        self.change: FileChange | None = None
+
+    def add(self, parts: tuple[str, ...], change: FileChange) -> None:
+        if not parts:
+            self.change = change
+            return
+        head, *tail = parts
+        child = self.children.setdefault(head, _TreeNode(head))
+        child.add(tuple(tail), change)
+
+    def render(self) -> list[str]:
+        lines: list[str] = []
+        children = list(self.children.values())
+        for index, child in enumerate(children):
+            child._render_into(lines, prefix="", is_last=index == len(children) - 1)
+        return lines
+
+    def _render_into(self, lines: list[str], *, prefix: str, is_last: bool) -> None:
+        branch = "└──" if is_last else "├──"
+        lines.append(f"{prefix}{branch} {self.name}")
+        child_prefix = f"{prefix}{'    ' if is_last else '│   '}"
+
+        if self.change is not None:
+            recommendation = self.change.recommended_action or "No action required."
+            detail_items = [
+                f"Reason: {self.change.reason_code}",
+                f"Next: {recommendation}",
+            ]
+            if self.change.explanation:
+                detail_items.append(f"Why: {self.change.explanation}")
+            for index, detail in enumerate(detail_items):
+                detail_branch = (
+                    "└──" if index == len(detail_items) - 1 and not self.children else "├──"
+                )
+                lines.append(f"{child_prefix}{detail_branch} {detail}")
+
+        children = list(self.children.values())
+        for index, child in enumerate(children):
+            child._render_into(
+                lines,
+                prefix=child_prefix,
+                is_last=index == len(children) - 1,
+            )
 
 
 # ── Dashboard primitives (observe) ───────────────────────────────

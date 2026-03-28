@@ -12,7 +12,7 @@ tags: [board, discovery, configuration]
 
 ## Purpose
 
-LLM-assisted post-install discovery of board configuration. Detects the team's project board setup, process template, state mappings, custom fields, documentation URLs, and CI/CD standards URLs. Writes discovered configuration atomically to manifest.yml.
+LLM-assisted post-install discovery of board configuration. Detects the team's project board setup, process template, state mappings, writable custom fields, documentation URLs, and CI/CD standards URLs. Writes discovered configuration atomically to manifest.yml.
 
 ## When to Use
 
@@ -33,7 +33,7 @@ LLM-assisted post-install discovery of board configuration. Detects the team's p
    c. Discover fields: `gh project field-list <number> --owner <org> --format json`
    d. Identify the Status field (single-select type) and extract its option IDs and names
    e. Map status options to lifecycle phases: refinement, ready, in_progress, in_review, done
-   f. Discover custom fields (non-standard fields beyond Title, Status, Labels, Milestone)
+   f. Discover writable custom fields (non-standard fields beyond Title, Status, Labels, Milestone)
    g. If NO Projects v2 found: configure labels fallback (status labels like `status:refinement`, `status:ready`, etc.)
 
    **Azure DevOps path**:
@@ -77,7 +77,7 @@ LLM-assisted post-install discovery of board configuration. Detects the team's p
        done: "<option_id>"
    ```
 
-6. **Write to manifest** -- ONLY write when all discovery succeeds. Partial failure means no write. Update `.ai-engineering/manifest.yml` `work_items` section with discovered values.
+6. **Write to manifest** -- ONLY write when all discovery succeeds. Partial failure means no write. Update `.ai-engineering/manifest.yml` `work_items` section with discovered values. This data is later consumed by portable runbooks so they can populate provider-native writable fields without guessing the client's board shape.
 
 7. **Report** -- present structured summary to user:
    ```

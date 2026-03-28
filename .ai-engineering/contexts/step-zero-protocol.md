@@ -13,7 +13,10 @@ Canonical context loading sequence. Skills reference this file instead of inlini
    Available (14): bash, cpp, csharp, dart, go, java, javascript, kotlin, php, python, rust, sql, swift, typescript
 7. **Framework contexts** -- for each detected framework, read `.ai-engineering/contexts/frameworks/{fw}.md`
    Available (15): android, api-design, aspnetcore, backend-patterns, bun, claude-api, deployment-patterns, django, flutter, ios, mcp-sdk, nextjs, nodejs, react, react-native
-8. **Team conventions** -- read all files in `.ai-engineering/contexts/team/*.md`
+8. **Shared framework contexts** -- when relevant, read:
+   - `.ai-engineering/contexts/cli-ux.md` for CLI/UI output work
+   - `.ai-engineering/contexts/mcp-integrations.md` for MCP/server usage work
+9. **Team conventions** -- read all files in `.ai-engineering/contexts/team/*.md`
 
 ## Usage
 
@@ -24,4 +27,6 @@ Skills declare Step 0 as:
 Follow `.ai-engineering/contexts/step-zero-protocol.md`. Apply loaded standards to all subsequent work.
 ```
 
-Steps 1-4 establish project state. Steps 5-8 load coding standards. All steps are ordered -- later steps may depend on earlier context.
+Steps 1-4 establish project state. Steps 5-9 load coding standards. Shared
+framework contexts are explicit and selective; `contexts/team/` remains the
+local convention layer.

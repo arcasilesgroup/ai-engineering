@@ -12,7 +12,7 @@ tags: [board, sync, work-items]
 
 ## Purpose
 
-Updates work item state on the project board at each lifecycle transition. Called internally by other skills (ai-brainstorm, ai-dispatch, ai-pr) -- not typically invoked directly by users. Fail-open: never blocks the calling skill's workflow.
+Updates work item state on the project board at each lifecycle transition. Called internally by other skills (ai-brainstorm, ai-dispatch, ai-pr) and by provider-side runbooks when they need to move an item through the configured lifecycle. Fail-open: never blocks the calling skill's workflow.
 
 ## When to Use
 
@@ -77,6 +77,7 @@ Updates work item state on the project board at each lifecycle transition. Calle
 5. **Update custom fields** (if configured for this transition):
    - Read `custom_fields` from manifest for fields that should update on this phase
    - Example: set "Start Date" on `in_progress` transition, set "Target Date" on `ready`
+   - Respect hierarchy policy: feature-level records remain read-only even if the provider exposes writable fields
 
 6. **Return result** -- report success or failure to caller:
    - Success: `{ "status": "updated", "phase": "<phase>", "ref": "<ref>", "provider_state": "<mapped>" }`

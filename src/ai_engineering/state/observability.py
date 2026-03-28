@@ -24,6 +24,7 @@ FRAMEWORK_CAPABILITIES_REL = Path(".ai-engineering") / "state" / "framework-capa
 CONTEXT_CLASS_NAMES: tuple[str, ...] = (
     "language",
     "framework",
+    "shared-framework",
     "team",
     "project-identity",
     "spec",
@@ -284,6 +285,34 @@ def emit_declared_context_loads(
         ("decision-store", "decision-store", root / "state" / "decision-store.json"),
     )
     for context_class, context_name, path in fixed_contexts:
+        events.append(
+            emit_context_load(
+                project_root,
+                engine=engine,
+                context_class=context_class,
+                context_name=context_name,
+                component=component,
+                source=source,
+                initiator_kind=initiator_kind,
+                initiator_name=initiator_name,
+                load_mode="declared",
+                path=path.relative_to(project_root).as_posix(),
+                session_id=session_id,
+                trace_id=trace_id,
+                correlation_id=correlation_id,
+                force_outcome="success" if path.exists() else "failure",
+            )
+        )
+
+    shared_contexts = (
+        ("shared-framework", "cli-ux", root / "contexts" / "cli-ux.md"),
+        (
+            "shared-framework",
+            "mcp-integrations",
+            root / "contexts" / "mcp-integrations.md",
+        ),
+    )
+    for context_class, context_name, path in shared_contexts:
         events.append(
             emit_context_load(
                 project_root,

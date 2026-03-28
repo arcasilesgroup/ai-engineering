@@ -15,7 +15,11 @@ import pytest
 from ai_engineering.verify.scoring import FindingSeverity, Verdict
 from ai_engineering.verify.service import (
     MODES,
+    verify_a11y,
+    verify_architecture,
+    verify_feature,
     verify_governance,
+    verify_performance,
     verify_platform,
     verify_quality,
     verify_security,
@@ -79,6 +83,7 @@ class TestVerifyQuality:
         # Assert
         assert result.score == 100
         assert result.verdict == Verdict.PASS
+        assert result.specialists[0].name == "quality"
 
     def test_ruff_findings_reduce_score(self, fake_run: FakeSubprocess) -> None:
         # Arrange — ruff reports 2 lint violations
@@ -164,6 +169,7 @@ class TestVerifySecurity:
         dep_findings = [f for f in result.findings if f.category == "dependency"]
         assert len(dep_findings) == 1
         assert dep_findings[0].severity == FindingSeverity.CRITICAL
+        assert dep_findings[0].specialist == "security"
 
 
 # ── verify_governance ─────────────────────────────────────────────────────
@@ -288,20 +294,128 @@ class TestVerifyPlatform:
         categories = {f.category for f in result.findings}
         assert "lint" in categories
         assert "secrets" in categories
+        assert [specialist.name for specialist in result.specialists] == [
+            "governance",
+            "security",
+            "architecture",
+            "quality",
+            "performance",
+            "a11y",
+            "feature",
+        ]
+        assert {specialist.runner for specialist in result.specialists} == {
+            "macro-agent-1",
+            "macro-agent-2",
+        }
+
+    def test_normal_profile_preserves_original_specialist_attribution(
+        self, fake_run: FakeSubprocess, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        fake_run.set_response(
+            "ruff",
+            returncode=1,
+            stdout=json.dumps([{"message": "lint", "filename": "a.py", "location": {"row": 1}}]),
+        )
+        from ai_engineering.validator._shared import IntegrityReport
+
+        monkeypatch.setattr(
+            "ai_engineering.verify.service.validate_content_integrity",
+            lambda _root, **_kw: IntegrityReport(),
+        )
+
+        result = verify_platform(Path("/fake"))
+
+        lint_finding = next(finding for finding in result.findings if finding.category == "lint")
+        assert lint_finding.specialist == "quality"
+        assert lint_finding.runner == "macro-agent-2"
+
+    def test_full_profile_sets_runner_per_specialist(
+        self, fake_run: FakeSubprocess, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        fake_run.set_response("ruff", returncode=0, stdout="")
+        fake_run.set_response("gitleaks", returncode=0, stdout="")
+        fake_run.set_response("pip-audit", returncode=0, stdout="")
+        from ai_engineering.validator._shared import IntegrityReport
+
+        monkeypatch.setattr(
+            "ai_engineering.verify.service.validate_content_integrity",
+            lambda _root, **_kw: IntegrityReport(),
+        )
+
+        result = verify_platform(Path("/fake"), profile="full")
+
+        assert {specialist.runner for specialist in result.specialists} == {
+            "governance",
+            "security",
+            "architecture",
+            "quality",
+            "performance",
+            "a11y",
+            "feature",
+        }
+
+
+class TestAdditionalSpecialists:
+    def test_verify_architecture_reports_internal_cycle(self, tmp_path: Path) -> None:
+        root = tmp_path
+        package = root / "src" / "ai_engineering" / "demo"
+        package.mkdir(parents=True)
+        (package / "__init__.py").write_text("", encoding="utf-8")
+        (package / "a.py").write_text("from ai_engineering.demo import b\n", encoding="utf-8")
+        (package / "b.py").write_text("from ai_engineering.demo import a\n", encoding="utf-8")
+
+        result = verify_architecture(root)
+
+        assert result.findings
+        assert result.findings[0].category == "cycle"
+
+    def test_verify_a11y_marks_repo_without_ui_as_not_applicable(self, tmp_path: Path) -> None:
+        result = verify_a11y(tmp_path)
+
+        assert result.specialists[0].applicable is False
+        assert "No frontend or UI files" in result.specialists[0].rationale
+
+    def test_verify_performance_marks_missing_benchmarks_as_not_applicable(
+        self, tmp_path: Path
+    ) -> None:
+        result = verify_performance(tmp_path)
+
+        assert result.specialists[0].applicable is False
+        assert "No benchmark" in result.specialists[0].rationale
+
+    def test_verify_feature_reads_active_spec_and_plan(self, tmp_path: Path) -> None:
+        spec_dir = tmp_path / ".ai-engineering" / "specs"
+        spec_dir.mkdir(parents=True)
+        (spec_dir / "spec.md").write_text(
+            "---\nstatus: approved\napproval: approved\n---\n# Spec\n",
+            encoding="utf-8",
+        )
+        (spec_dir / "plan.md").write_text(
+            "---\ntotal: 1\ncompleted: 0\n---\n# Plan\n", encoding="utf-8"
+        )
+
+        result = verify_feature(tmp_path)
+
+        assert result.findings == []
+        assert result.specialists[0].applicable is True
 
 
 # ── MODES dict ────────────────────────────────────────────────────────────
 
 
 class TestModes:
-    def test_modes_has_four_entries(self) -> None:
-        assert len(MODES) == 4
+    def test_modes_has_eight_entries(self) -> None:
+        assert len(MODES) == 8
 
-    def test_modes_keys_are_quality_security_governance_platform(self) -> None:
+    def test_modes_keys_cover_all_specialists_and_platform(self) -> None:
         assert set(MODES.keys()) == {
+            "a11y",
+            "architecture",
+            "feature",
+            "governance",
+            "performance",
             "quality",
             "security",
-            "governance",
             "platform",
         }
 
@@ -324,7 +438,7 @@ class TestVerifyCmdJsonFlag:
         score = VerifyScore(raw=100, findings=[])
         monkeypatch.setattr(
             "ai_engineering.cli_commands.verify_cmd.MODES",
-            {"security": lambda _root: score},
+            {"security": lambda _root, profile="normal": score},
         )
         monkeypatch.setattr(
             "ai_engineering.cli_commands.verify_cmd.resolve_project_root",
@@ -345,5 +459,61 @@ class TestVerifyCmdJsonFlag:
         output = "\n".join(captured)
         parsed = json.loads(output)
         assert parsed["mode"] == "security"
+        assert parsed["profile"] == "normal"
         assert parsed["score"] == 100
         assert parsed["verdict"] == "PASS"
+
+    def test_local_json_flag_includes_specialist_and_runner_details(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """verify_cmd preserves specialist attribution in JSON output."""
+        from ai_engineering.cli_commands.verify_cmd import verify_cmd
+        from ai_engineering.verify.scoring import (
+            FindingSeverity,
+            SpecialistResult,
+            VerifyScore,
+        )
+
+        specialist = SpecialistResult(
+            name="security",
+            label="Security",
+            runner="macro-agent-1",
+        )
+        specialist.add(
+            FindingSeverity.BLOCKER,
+            "secrets",
+            "Leak detected",
+            file="config.py",
+            line=4,
+        )
+        score = VerifyScore(
+            mode="platform",
+            profile="normal",
+            findings=list(specialist.findings),
+            specialists=[specialist],
+        )
+        monkeypatch.setattr(
+            "ai_engineering.cli_commands.verify_cmd.MODES",
+            {"platform": lambda _root, profile="normal": score},
+        )
+        monkeypatch.setattr(
+            "ai_engineering.cli_commands.verify_cmd.resolve_project_root",
+            lambda _t: Path("/tmp"),
+        )
+        monkeypatch.setattr(
+            "ai_engineering.cli_commands.verify_cmd.is_json_mode",
+            lambda: False,
+        )
+        captured: list[str] = []
+        monkeypatch.setattr(
+            "typer.echo",
+            lambda msg=None, **_kw: captured.append(str(msg)) if msg else None,
+        )
+
+        verify_cmd(mode="platform", target=None, output_json=True)
+
+        parsed = json.loads("\n".join(captured))
+        assert parsed["specialists"][0]["name"] == "security"
+        assert parsed["specialists"][0]["runner"] == "macro-agent-1"
+        assert parsed["findings"][0]["specialist"] == "security"
+        assert parsed["findings"][0]["runner"] == "macro-agent-1"

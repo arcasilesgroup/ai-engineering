@@ -1,8 +1,8 @@
 ---
 name: verify
-description: Use when verification with evidence is needed — not assumptions. Trigger for 'check my code', 'is this ready to merge', 'run the tests', 'is coverage good enough', 'scan for security issues', 'does this meet our standards', 'prove it works'. Runs 7 scan modes (governance, security, quality, performance, a11y, feature, architecture). For narrative code review with human judgment, use /ai-review instead.
+description: "Use when verification with evidence is needed — not assumptions. Trigger for 'check my code', 'is this ready to merge', 'run the tests', 'is coverage good enough', 'scan for security issues', 'does this meet our standards', 'prove it works'. Runs 7 specialists (governance, security, architecture, quality, performance, a11y, feature) with `normal` implicit and `--full` explicit for the expensive platform pass. For narrative code review with human judgment, use /ai-review instead."
 effort: max
-argument-hint: "claim|governance|security|quality|performance|a11y|feature|architecture|platform"
+argument-hint: "claim|governance|security|quality|performance|a11y|feature|architecture|platform [--full]"
 ---
 
 
@@ -11,7 +11,7 @@ argument-hint: "claim|governance|security|quality|performance|a11y|feature|archi
 
 ## Purpose
 
-Evidence before claims. This skill has two faces: (1) a verification protocol that proves claims with commands, and (2) a multi-mode scanner for quality, security, and governance. Both share the same principle: run the command, read the output, check the exit code. No guessing.
+Evidence before claims. This skill has two faces: (1) a verification protocol that proves claims with commands, and (2) a specialist verification surface that aggregates deterministic evidence into merge-readiness judgments. Both share the same principle: run the command, read the output, check the exit code. No guessing.
 
 ## When to Use
 
@@ -30,29 +30,28 @@ Follow `.ai-engineering/contexts/step-zero-protocol.md`. Apply loaded standards 
 
 Load `.ai-engineering/contexts/evidence-protocol.md` for the IRRV evidence collection protocol.
 
-### Scan Modes (7 parallel modes)
+### Specialist Modes
 
-**CLI-backed** (run via `ai-eng verify <mode>`):
-
-| Mode | Command | What it assesses |
-|------|---------|------------------|
+| Specialist | Command | What it assesses |
+|------------|---------|------------------|
 | `governance` | `/ai-verify governance` | Integrity, compliance, ownership boundaries |
-| `security` | `/ai-verify security` | OWASP SAST, secret detection, dependency vulns |
-| `quality` | `/ai-verify quality` | Coverage, complexity, duplication, lint |
-| `platform` | `/ai-verify platform` | All 7 modes aggregated -> GO/NO-GO |
+| `security` | `/ai-verify security` | Secrets, dependency vulns, security tooling |
+| `architecture` | `/ai-verify architecture` | Cycles, boundary drift, structural issues |
+| `quality` | `/ai-verify quality` | Lint, duplication, quality gates |
+| `performance` | `/ai-verify performance` | Benchmark/perf evidence and hotspot signal |
+| `a11y` | `/ai-verify a11y` | Accessibility applicability and UI checks |
+| `feature` | `/ai-verify feature` | Spec/plan completeness and handoff readiness |
+| `platform` | `/ai-verify platform` | All 7 specialists aggregated into one verdict |
 
-**Agentic** (invoked via skill argument, no CLI backing):
+### Profiles
 
-| Mode | Command | What it assesses |
-|------|---------|------------------|
-| `performance` | `/ai-verify performance` | N+1 queries, O(n^2), memory leaks, bundle size |
-| `a11y` | `/ai-verify a11y` | WCAG 2.1 AA compliance |
-| `feature` | `/ai-verify feature` | Spec vs code gaps, disconnected implementations |
-| `architecture` | `/ai-verify architecture` | Drift, coupling, cohesion, boundaries |
+- `normal` is implicit and covers all 7 specialists through 2 fixed macro-agents:
+  - `macro-agent-1`: governance, security, architecture
+  - `macro-agent-2`: quality, performance, a11y, feature
+- `--full` is explicit and runs the same 7 specialists one per agent.
+- Output is always reported by original specialist lens, not by macro-agent bucket.
 
-Auto-detect: when invoked without a mode, infer from context.
-
-**Delegation**: `security` mode delegates full execution to `/ai-security`. `governance` mode delegates full execution to `/ai-governance`. ai-verify acts as the entry point; the specialist skill owns the logic.
+See `handlers/verify.md` for the orchestration contract.
 
 ### Scan Output Contract
 
@@ -61,9 +60,13 @@ Every scan mode produces:
 ```markdown
 ## Score: N/100
 ## Verdict: PASS | WARN | FAIL
+## Profile: normal | full
 
-## Findings
-| # | Severity | Category | Description | Location | Remediation |
+## Specialists
+| Specialist | Runner | Verdict | Score | Applicability |
+
+## Findings (grouped by specialist)
+| # | Severity | Category | Description | Location |
 
 ## Gate Check
 - Blocker findings: N (threshold: 0)
@@ -77,8 +80,8 @@ Every scan mode produces:
 | governance | Any integrity FAIL | Any compliance FAIL |
 | security | Critical/high CVE | Any secret detected |
 | quality | Coverage < 80% | Blocker/critical lint |
-| performance | N+1 in critical path | O(n^2) in hot path |
-| architecture | Circular dependency | Critical drift from spec |
+| performance | Benchmark regression with evidence | No trustworthy performance evidence path |
+| architecture | Circular dependency | Critical structural drift |
 | **platform** | Any blocker in ANY mode | Score < 60 |
 
 ## Verification Checklist (use before claiming DONE)
@@ -95,17 +98,16 @@ Every scan mode produces:
 ## Common Mistakes
 
 - Claiming success without running the command
-- Running a subset of tests instead of the full suite
+- Pretending a specialist did not run instead of reporting `not applicable`
 - Ignoring warnings when exit code is 0
 - Using forbidden words ("should work") instead of evidence
 - Not checking exit codes
-- Reporting coverage from memory instead of from the tool output
+- Reporting coverage or scan results from memory instead of from the tool output
 
 ## Integration
 
-- **Called by**: `/ai-dispatch` (post-task review), `ai-build agent` (after implementation), user directly
-- **Calls**: stack-specific tools (pytest, ruff, gitleaks, etc.)
-- **Delegates**: `/ai-security` (security mode), `/ai-governance` (governance mode)
-- **Read-only**: never modifies source code -- produces findings with remediation
+- **Called by**: `/ai-dispatch` (post-task review), `ai-build` agent handoffs, user directly
+- **Calls**: stack-specific tools (ruff, gitleaks, pip-audit, integrity validator, structural analysis)
+- **Read-only**: never modifies source code -- produces findings with remediation and evidence-backed summaries
 
 $ARGUMENTS

@@ -93,6 +93,11 @@ class TestOwnershipMap:
         om = default_ownership_map()
         assert om.is_update_allowed(".ai-engineering/contexts/languages/python.md") is True
 
+    def test_update_allowed_for_promoted_root_context(self) -> None:
+        om = default_ownership_map()
+        assert om.is_update_allowed(".ai-engineering/contexts/cli-ux.md") is True
+        assert om.is_update_allowed(".ai-engineering/contexts/mcp-integrations.md") is True
+
     def test_update_denied_for_team_managed(self) -> None:
         om = default_ownership_map()
         assert om.is_update_allowed(".ai-engineering/contexts/team/custom.md") is False

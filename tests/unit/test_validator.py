@@ -663,6 +663,160 @@ class TestCopilotSkillsMirror:
         assert len(fail_checks) >= 1
 
 
+class TestClaudeSkillsMirror:
+    """Tests for Claude skills mirror-sync validation."""
+
+    def test_claude_skills_mirror_sync_ok(self, tmp_path: Path) -> None:
+        _setup_full_project(tmp_path)
+        _setup_governance_mirror(tmp_path)
+        canonical = tmp_path / ".claude" / "skills" / "ai-test"
+        mirror = (
+            tmp_path
+            / "src"
+            / "ai_engineering"
+            / "templates"
+            / "project"
+            / ".claude"
+            / "skills"
+            / "ai-test"
+        )
+        canonical.mkdir(parents=True)
+        mirror.mkdir(parents=True)
+        content = "---\nname: ai-test\nmode: agent\n---\nTest skill.\n"
+        (canonical / "SKILL.md").write_text(content, encoding="utf-8")
+        (mirror / "SKILL.md").write_text(content, encoding="utf-8")
+        report = validate_content_integrity(tmp_path, categories=[IntegrityCategory.MIRROR_SYNC])
+        ok_checks = [
+            c
+            for c in report.checks
+            if c.name == "claude-skills-mirrors" and c.status == IntegrityStatus.OK
+        ]
+        assert len(ok_checks) == 1
+
+    def test_claude_skills_mirror_desync(self, tmp_path: Path) -> None:
+        _setup_full_project(tmp_path)
+        _setup_governance_mirror(tmp_path)
+        canonical = tmp_path / ".claude" / "skills" / "ai-test"
+        mirror = (
+            tmp_path
+            / "src"
+            / "ai_engineering"
+            / "templates"
+            / "project"
+            / ".claude"
+            / "skills"
+            / "ai-test"
+        )
+        canonical.mkdir(parents=True)
+        mirror.mkdir(parents=True)
+        (canonical / "SKILL.md").write_text("canonical", encoding="utf-8")
+        (mirror / "SKILL.md").write_text("different", encoding="utf-8")
+        report = validate_content_integrity(tmp_path, categories=[IntegrityCategory.MIRROR_SYNC])
+        fail_checks = [
+            c
+            for c in report.checks
+            if c.status == IntegrityStatus.FAIL and "claude-skill-desync" in c.name
+        ]
+        assert len(fail_checks) >= 1
+
+
+class TestClaudeAgentsMirror:
+    """Tests for Claude agents mirror-sync validation."""
+
+    def test_claude_agents_mirror_sync_ok(self, tmp_path: Path) -> None:
+        _setup_full_project(tmp_path)
+        _setup_governance_mirror(tmp_path)
+        canonical = tmp_path / ".claude" / "agents"
+        mirror = (
+            tmp_path / "src" / "ai_engineering" / "templates" / "project" / ".claude" / "agents"
+        )
+        canonical.mkdir(parents=True)
+        mirror.mkdir(parents=True)
+        content = "---\nname: ai-test\ndescription: test\n---\nAgent.\n"
+        (canonical / "ai-test.md").write_text(content, encoding="utf-8")
+        (mirror / "ai-test.md").write_text(content, encoding="utf-8")
+        report = validate_content_integrity(tmp_path, categories=[IntegrityCategory.MIRROR_SYNC])
+        ok_checks = [
+            c
+            for c in report.checks
+            if c.name == "claude-agents-mirrors" and c.status == IntegrityStatus.OK
+        ]
+        assert len(ok_checks) == 1
+
+    def test_claude_agents_missing_mirror_file(self, tmp_path: Path) -> None:
+        _setup_full_project(tmp_path)
+        _setup_governance_mirror(tmp_path)
+        canonical = tmp_path / ".claude" / "agents"
+        mirror = (
+            tmp_path / "src" / "ai_engineering" / "templates" / "project" / ".claude" / "agents"
+        )
+        canonical.mkdir(parents=True)
+        mirror.mkdir(parents=True)
+        (canonical / "ai-orphan.md").write_text("content", encoding="utf-8")
+        report = validate_content_integrity(tmp_path, categories=[IntegrityCategory.MIRROR_SYNC])
+        fail_checks = [
+            c
+            for c in report.checks
+            if c.status == IntegrityStatus.FAIL and "claude-agent-missing" in c.name
+        ]
+        assert len(fail_checks) >= 1
+
+
+class TestAgentsSkillsMirror:
+    """Tests for .agents skills mirror-sync validation."""
+
+    def test_agents_skills_mirror_sync_ok(self, tmp_path: Path) -> None:
+        _setup_full_project(tmp_path)
+        _setup_governance_mirror(tmp_path)
+        canonical = tmp_path / ".agents" / "skills" / "test"
+        mirror = (
+            tmp_path
+            / "src"
+            / "ai_engineering"
+            / "templates"
+            / "project"
+            / ".agents"
+            / "skills"
+            / "test"
+        )
+        canonical.mkdir(parents=True)
+        mirror.mkdir(parents=True)
+        content = "---\nname: test\nmode: agent\n---\nSkill.\n"
+        (canonical / "SKILL.md").write_text(content, encoding="utf-8")
+        (mirror / "SKILL.md").write_text(content, encoding="utf-8")
+        report = validate_content_integrity(tmp_path, categories=[IntegrityCategory.MIRROR_SYNC])
+        ok_checks = [
+            c
+            for c in report.checks
+            if c.name == "agents-skills-mirrors" and c.status == IntegrityStatus.OK
+        ]
+        assert len(ok_checks) == 1
+
+
+class TestAgentsAgentsMirror:
+    """Tests for .agents agents mirror-sync validation."""
+
+    def test_agents_agents_mirror_sync_ok(self, tmp_path: Path) -> None:
+        _setup_full_project(tmp_path)
+        _setup_governance_mirror(tmp_path)
+        canonical = tmp_path / ".agents" / "agents"
+        mirror = (
+            tmp_path / "src" / "ai_engineering" / "templates" / "project" / ".agents" / "agents"
+        )
+        canonical.mkdir(parents=True)
+        mirror.mkdir(parents=True)
+        content = "---\nname: ai-test\ndescription: test\n---\nAgent.\n"
+        (canonical / "ai-test.md").write_text(content, encoding="utf-8")
+        (mirror / "ai-test.md").write_text(content, encoding="utf-8")
+        report = validate_content_integrity(tmp_path, categories=[IntegrityCategory.MIRROR_SYNC])
+        ok_checks = [
+            c
+            for c in report.checks
+            if c.name == "agents-agents-mirrors" and c.status == IntegrityStatus.OK
+        ]
+        assert len(ok_checks) == 1
+
+
 class TestCopilotAgentsMirror:
     """Tests for Copilot agents mirror-sync validation."""
 

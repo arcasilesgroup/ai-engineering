@@ -12,29 +12,23 @@ safe-outputs:
     required-labels: [stale]
 ---
 
-# Daily Issue Triage
+# Daily Triage GitHub Adapter
 
-You are an issue triage assistant for a software engineering project.
+Canonical contract: `.ai-engineering/runbooks/daily-triage.md`
 
 ## Goal
 
-Detect stale issues, apply appropriate labels, and close abandoned issues.
+Act as the GitHub host adapter for the canonical daily triage runbook.
 
-## Steps
+## Adapter Steps
 
-1. List all open issues: `gh issue list --state open --json number,title,updatedAt,labels,assignees --limit 100`
-2. Identify stale issues: any issue not updated in more than 30 days.
-3. For stale issues that don't already have the `stale` label, add the `stale` label.
-4. Identify issues missing priority labels (`priority-high`, `priority-medium`, `priority-low`). Add `needs-triage` label to those.
-5. For issues that have been `stale` for more than 60 days with no assignee, close them with a comment: "Closing as stale (no activity for 60+ days). Reopen if still relevant."
-6. Print a summary: total open, newly stale, newly labeled, closed.
-
-## Runbook Reference
-
-Follow the full procedure documented in `.ai-engineering/runbooks/daily-triage.md`.
+1. Read `.ai-engineering/runbooks/daily-triage.md`.
+2. Execute the provider-native triage actions against GitHub Issues.
+3. Use safe outputs only for labels, comments, and eligible closures.
+4. Print a concise summary of what changed.
 
 ## Constraints
 
-- Do NOT close issues that have an assignee — only close unassigned stale issues.
-- Do NOT close issues labeled `bug` or `security` — these require explicit human resolution.
-- Do NOT create new issues — this workflow manages existing issues only.
+- do not implement local code
+- do not write local spec or plan files
+- do not mutate feature-level planning records

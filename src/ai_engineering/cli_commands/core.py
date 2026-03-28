@@ -26,6 +26,7 @@ from ai_engineering.cli_ui import (
     info,
     kv,
     print_stdout,
+    render_update_tree,
     result_header,
     show_logo,
     status_line,
@@ -547,12 +548,17 @@ def _render_update_result(result: Any, *, root: Path, show_diff: bool) -> None:
     kv("Protected", result.protected_count)
     kv("Unchanged", result.unchanged_count)
 
-    for change in result.changes:
-        _render_update_change(change, dry_run=result.dry_run, show_diff=show_diff)
+    render_update_tree(result.changes, root=root, dry_run=result.dry_run)
+
+    if show_diff:
+        for change in result.changes:
+            _render_update_change(change, dry_run=result.dry_run, show_diff=show_diff)
 
 
 def _render_update_change(change: Any, *, dry_run: bool, show_diff: bool) -> None:
     """Render a single file change for human output."""
+    if not show_diff:
+        return
     outcome = change.outcome(dry_run=dry_run)
     status = {
         "available": "ok",
@@ -561,13 +567,9 @@ def _render_update_change(change: Any, *, dry_run: bool, show_diff: bool) -> Non
         "unchanged": "info",
         "failed": "fail",
     }.get(outcome, "fail")
-    status_line(status, str(change.path), change.explanation)
+    status_line(status, f"diff {change.path}", change.explanation)
 
-    recommendation = change.recommended_action or "No action required."
-    typer.echo(f"    Reason: {change.reason_code}", err=True)
-    typer.echo(f"    Next: {recommendation}", err=True)
-
-    if show_diff and change.diff:
+    if change.diff:
         diff_text = change.diff
         lines = diff_text.splitlines(keepends=True)
         if len(lines) > _DIFF_MAX_LINES:
