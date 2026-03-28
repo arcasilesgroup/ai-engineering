@@ -2,25 +2,25 @@
 
 ## Purpose
 
-Run evidence-first verification through a stable specialist surface. `normal` is the default profile and covers every specialist through 2 fixed macro-agents. `--full` keeps the same specialist coverage but dispatches one specialist per agent.
+Run evidence-first verification through a specialist surface. Dispatches agents
+via the `Agent` tool for real context isolation. `normal` is the default profile.
+`--full` dispatches one specialist per agent.
 
 ## Specialist Surface
 
-| Specialist | What it verifies | `normal` runner |
-|------------|------------------|-----------------|
-| `governance` | integrity, ownership, compliance | `macro-agent-1` |
-| `security` | secrets, dependency risk, security tooling | `macro-agent-1` |
-| `architecture` | cycles, boundary drift, structural issues | `macro-agent-1` |
-| `quality` | lint, duplication, code-quality gates | `macro-agent-2` |
-| `performance` | benchmark/perf evidence, hotspot signals | `macro-agent-2` |
-| `a11y` | UI accessibility applicability and checks | `macro-agent-2` |
-| `feature` | active spec/plan completeness and handoff readiness | `macro-agent-2` |
+| Specialist | Agent | What it verifies | `normal` runner |
+|------------|-------|------------------|-----------------|
+| `deterministic` | `verify-deterministic.md` | security, quality, deps, tests, a11y | runs first (alone) |
+| `governance` | `verifier-governance.md` | integrity, ownership, compliance | `macro-agent-2` |
+| `architecture` | `verifier-architecture.md` | cycles, boundary drift, alignment | `macro-agent-2` |
+| `feature` | `verifier-feature.md` | spec/plan completeness, handoff | `macro-agent-2` |
 
 ## Procedure
 
 ### Step 0: Load contexts
 
-Follow `.ai-engineering/contexts/step-zero-protocol.md`. Load `.ai-engineering/contexts/evidence-protocol.md` before making claims.
+Follow `.ai-engineering/contexts/step-zero-protocol.md`.
+Load `.ai-engineering/contexts/evidence-protocol.md` before making claims.
 
 ### Step 1: Select profile
 
@@ -28,27 +28,66 @@ Follow `.ai-engineering/contexts/step-zero-protocol.md`. Load `.ai-engineering/c
 - Use `--full` only when the caller explicitly wants maximum decomposition.
 - Direct specialist modes stay callable without `platform`.
 
-### Step 2: Collect evidence
+### Step 2: Dispatch deterministic agent via Agent tool
 
-Run the deterministic tools each specialist owns. If a specialist does not apply to the target project, emit `not applicable` or `low signal` explicitly instead of pretending the lens did not run.
+Dispatch `verify-deterministic.md` via the **Agent** tool:
 
-### Step 3: Aggregate by specialist
+```
+Agent prompt: "You are the deterministic verification agent.
+Read and follow .agents/agents/verify-deterministic.md
+Execute all tool-driven checks against the current codebase.
+Read .ai-engineering/state/decision-store.json for accepted exceptions.
+Produce structured YAML output."
+```
 
-- Preserve original specialist attribution in both text and JSON output.
+Wait for deterministic results before dispatching LLM judgment agents.
+
+### Step 3: Dispatch LLM judgment agents via Agent tool
+
+**Normal mode** -- Dispatch 1 macro-agent with all 3 LLM specialists:
+
+```
+Agent prompt: "You are verifying this codebase with these specialist lenses:
+governance, architecture, feature.
+[deterministic evidence from Step 2]
+Read and follow these agent files:
+.agents/agents/verifier-governance.md
+.agents/agents/verifier-architecture.md
+.agents/agents/verifier-feature.md
+Produce findings in YAML format attributed by original specialist."
+```
+
+**Full mode** -- Dispatch 3 individual agents in parallel:
+
+```
+For each specialist (governance, architecture, feature):
+Agent prompt: "You are the [specialist] verification agent.
+[deterministic evidence from Step 2]
+Read and follow .agents/agents/verifier-[specialist].md
+Produce findings in YAML format."
+```
+
+### Step 4: Aggregate by specialist
+
+- Preserve original specialist attribution in both text and YAML output.
 - `platform` combines all specialist findings into one scored report.
 - `verify` does **not** run a separate finding validator stage.
 
-### Step 4: Report
+If a specialist does not apply, emit `not_applicable` explicitly.
+
+### Step 5: Report
 
 Emit:
 
-- overall score and verdict
-- profile used (`normal` or `full`)
-- specialist summaries in stable order
-- findings grouped by original specialist
+- Overall score and verdict
+- Profile used (`normal` or `full`)
+- Specialist summaries in stable order
+- Findings grouped by original specialist
+- Gate check against thresholds
 
 ## Constraints
 
 - Evidence before claims.
 - No work-item writes.
-- No confidence bonuses, dismissed-findings sections, or aspirational scoring claims the runtime cannot prove.
+- No confidence bonuses or aspirational scoring claims the runtime cannot prove.
+- All specialists dispatched via Agent tool, not read inline.
