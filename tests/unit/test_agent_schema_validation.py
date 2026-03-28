@@ -22,8 +22,8 @@ _AGENTS_DIR = (
     / "agents"
 )
 
-# Post spec-055: 8 agents
-_EXPECTED_AGENTS = frozenset(
+# Post spec-055: 9 user-facing orchestrator agents (ai-*.md)
+_EXPECTED_ORCHESTRATORS = frozenset(
     {
         "ai-build",
         "ai-explore",
@@ -37,6 +37,29 @@ _EXPECTED_AGENTS = frozenset(
     }
 )
 
+# Post spec-086: 15 specialist sub-agents dispatched by orchestrators
+_EXPECTED_SPECIALISTS = frozenset(
+    {
+        "review-context-explorer",
+        "reviewer-security",
+        "reviewer-backend",
+        "reviewer-performance",
+        "reviewer-correctness",
+        "reviewer-testing",
+        "reviewer-compatibility",
+        "reviewer-architecture",
+        "reviewer-maintainability",
+        "reviewer-frontend",
+        "review-finding-validator",
+        "verify-deterministic",
+        "verifier-governance",
+        "verifier-architecture",
+        "verifier-feature",
+    }
+)
+
+_EXPECTED_AGENTS = _EXPECTED_ORCHESTRATORS | _EXPECTED_SPECIALISTS
+
 _REQUIRED_FRONTMATTER = {"name"}
 
 
@@ -45,6 +68,13 @@ def _all_agent_files() -> list[Path]:
     if not _AGENTS_DIR.is_dir():
         return []
     return sorted(_AGENTS_DIR.glob("*.md"))
+
+
+def _orchestrator_files() -> list[Path]:
+    """Return only ai-*.md orchestrator agent files."""
+    if not _AGENTS_DIR.is_dir():
+        return []
+    return sorted(_AGENTS_DIR.glob("ai-*.md"))
 
 
 def _parse_frontmatter(text: str) -> dict[str, str]:
@@ -60,20 +90,41 @@ def _parse_frontmatter(text: str) -> dict[str, str]:
     return result
 
 
-# ── Tests ────────────────────────────────────────────────────────────────
+# -- Tests ---------------------------------------------------------------
 
 
-def test_agent_count_matches_expected() -> None:
-    """There should be exactly 8 agents on disk (architecture v3)."""
+def test_orchestrator_count_matches_expected() -> None:
+    """There should be exactly 9 orchestrator agents on disk."""
+    agents = _orchestrator_files()
+    names = {f.stem for f in agents}
+    assert len(agents) == len(_EXPECTED_ORCHESTRATORS), (
+        f"Expected {len(_EXPECTED_ORCHESTRATORS)} orchestrators, "
+        f"found {len(agents)}: {sorted(names)}"
+    )
+
+
+def test_orchestrator_names_match_expected() -> None:
+    """Orchestrator file names must match the expected set exactly."""
+    agents = _orchestrator_files()
+    names = {f.stem for f in agents}
+    assert names == _EXPECTED_ORCHESTRATORS, (
+        f"Orchestrator mismatch. "
+        f"Missing: {_EXPECTED_ORCHESTRATORS - names}, "
+        f"Extra: {names - _EXPECTED_ORCHESTRATORS}"
+    )
+
+
+def test_total_agent_count_matches_expected() -> None:
+    """Total agents (orchestrators + specialists) must match."""
     agents = _all_agent_files()
     names = {f.stem for f in agents}
     assert len(agents) == len(_EXPECTED_AGENTS), (
-        f"Expected {len(_EXPECTED_AGENTS)} agents, found {len(agents)}: {sorted(names)}"
+        f"Expected {len(_EXPECTED_AGENTS)} total agents, found {len(agents)}: {sorted(names)}"
     )
 
 
 def test_agent_names_match_expected() -> None:
-    """Agent file names must match the architecture v3 set exactly."""
+    """All agent file names must match the expected set exactly."""
     agents = _all_agent_files()
     names = {f.stem for f in agents}
     assert names == _EXPECTED_AGENTS, (
@@ -92,9 +143,24 @@ def test_agent_has_valid_frontmatter(agent_file: Path) -> None:
 
 
 @pytest.mark.parametrize("agent_file", _all_agent_files(), ids=lambda f: f.stem)
-def test_agent_has_identity_section(agent_file: Path) -> None:
-    """Every agent must have an ## Identity section."""
+def test_agent_has_identity_or_role_section(agent_file: Path) -> None:
+    """Every agent must have an Identity, Role, or Process section."""
     text = agent_file.read_text(encoding="utf-8")
-    assert "## Identity" in text or "## Supported Stacks" in text, (
-        f"{agent_file.name}: missing '## Identity' section"
+    has_section = any(
+        section in text
+        for section in [
+            "## Identity",
+            "## Supported Stacks",
+            "## Role",
+            "## Process",
+            "## Your Role",
+            "## Before You Review",
+            "## Before You Verify",
+            "## Review Scope",
+            "## Verification Scope",
+        ]
+    )
+    assert has_section, (
+        f"{agent_file.name}: missing structural section "
+        "(Identity, Role, Process, or domain-specific header)"
     )

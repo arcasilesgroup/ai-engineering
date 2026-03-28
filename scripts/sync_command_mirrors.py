@@ -193,8 +193,8 @@ AGENT_METADATA: dict[str, AgentMeta] = {
     "review": AgentMeta(
         display_name="Review",
         description=(
-            "Code review agent -- multi-pass review with"
-            " architecture, security, quality, and style checks."
+            "Code review orchestrator -- dispatches specialist agents"
+            " for deep parallel review with context isolation."
         ),
         model="opus",
         color="red",
@@ -205,7 +205,7 @@ AGENT_METADATA: dict[str, AgentMeta] = {
             "readFile",
             "search",
         ),
-        claude_tools=("Read", "Glob", "Grep"),
+        claude_tools=("Read", "Glob", "Grep", "Bash", "Agent"),
         copilot_agents=("Explorer",),
         copilot_handoffs=(
             {
@@ -239,9 +239,8 @@ AGENT_METADATA: dict[str, AgentMeta] = {
     "verify": AgentMeta(
         display_name="Verify",
         description=(
-            "7-mode assessment: governance, security, quality, performance,"
-            " a11y, feature-gap, architecture"
-            " -- produces GO/NO-GO verdicts."
+            "Evidence-first verification orchestrator -- dispatches"
+            " deterministic + LLM judgment agents for merge readiness."
         ),
         model="opus",
         color="green",
@@ -253,7 +252,7 @@ AGENT_METADATA: dict[str, AgentMeta] = {
             "runCommands",
             "search",
         ),
-        claude_tools=("Read", "Glob", "Grep", "Bash"),
+        claude_tools=("Read", "Glob", "Grep", "Bash", "Agent"),
         copilot_agents=("Explorer",),
         copilot_handoffs=(
             {

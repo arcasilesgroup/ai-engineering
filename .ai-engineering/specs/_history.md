@@ -88,3 +88,4 @@ Completed specs. Details in git history.
 | 002 | Cross-Reference Hardening + Skill Registration | done | 2026-02-09 | spec/002-cross-ref-hardening |
 | 001 | AI-Engineering Framework: Rewrite from Scratch | done | 2026-02-08 | spec/001-rewrite-v2 |
 | 055 | GitHub Copilot Parity — Hooks, Deny-List, Multi-Platform Completeness | done | 2026-03-20 | feat/spec-055-copilot-hooks-parity |
+| 086 | Review & Verify Assessment Enrichment — Deep Specialist Agents | done | 2026-03-28 | spec/086-review-verify-enrichment |

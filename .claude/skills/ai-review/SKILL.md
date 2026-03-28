@@ -41,25 +41,31 @@ Runs one agent per specialist with the same output contract and the same adversa
 
 ## Specialist Roster
 
-| Specialist | Focus |
-|------------|-------|
-| `security` | vulnerabilities, auth, data exposure, dependency risk |
-| `backend` | API boundaries, service logic, persistence, jobs, operational paths |
-| `performance` | query shape, complexity, hot paths, memory and bundle pressure |
-| `correctness` | logic bugs, null handling, races, edge cases |
-| `testing` | missing tests, weak assertions, coverage of changed behavior |
-| `compatibility` | public API breakage, migration risk, version expectations |
-| `architecture` | boundaries, layering, coupling, drift from established patterns |
-| `maintainability` | complexity, readability, naming, duplication, hidden coupling |
-| `frontend` | UX states, accessibility, rendering, responsiveness |
+| Specialist | Agent File | Focus |
+|------------|-----------|-------|
+| `security` | `reviewer-security.md` | vulnerabilities, auth, data exposure, dependency risk |
+| `backend` | `reviewer-backend.md` | API boundaries, service logic, persistence, jobs |
+| `performance` | `reviewer-performance.md` | query shape, complexity, hot paths, memory |
+| `correctness` | `reviewer-correctness.md` | logic bugs, null handling, races, edge cases |
+| `testing` | `reviewer-testing.md` | coverage, quality, edge cases, mocking patterns |
+| `compatibility` | `reviewer-compatibility.md` | breaking changes, backwards compat, migrations |
+| `architecture` | `reviewer-architecture.md` | necessity, patterns, reuse, proportionality |
+| `maintainability` | `reviewer-maintainability.md` | complexity, readability, naming, duplication |
+| `frontend` | `reviewer-frontend.md` | React, hooks, a11y, TypeScript (conditional) |
 
-## Internal Assets
+All specialist agents are dispatched via the `Agent` tool from `.claude/agents/`. They are not read inline -- each runs in its own context window.
 
-- `handlers/review.md` is the single orchestration handler
-- `context-explorer.md` gathers pre-review context before specialists run
-- `finding-validator.md` adversarially challenges every emitted finding
-- `reviewer-*.md` resources define the specialist review lenses
-- `handlers/lang-*.md` remain the language-specific supplements for diff-aware review
+## Dispatch Architecture
+
+### Pre-Review Phase
+- **Context Explorer** (`review-context-explorer.md`): Dispatched via `Agent` tool. Gathers architectural context beyond the diff. Output is serialized and passed to every specialist.
+
+### Specialist Phase
+- **Normal mode**: 3 macro-agent dispatches via `Agent` tool. Each macro-agent receives the specialist instructions for its group + shared context.
+- **Full mode**: 9 individual agent dispatches via `Agent` tool. Each specialist agent runs independently.
+
+### Validation Phase
+- **Finding Validator** (`review-finding-validator.md`): Dispatched via `Agent` tool. Receives ONLY the YAML finding blocks (no reasoning chain). Reads code fresh. Issues CONFIRMED or DISMISSED verdict per finding.
 
 ## Output Contract
 
@@ -67,8 +73,12 @@ Every report should:
 
 - group findings by severity first and specialist lens second
 - keep attribution by original specialist even in `normal`
-- include `not_applicable` or `low signal` outcomes when a specialist had little to contribute
+- include `not_applicable` or `low_signal` outcomes when a specialist had little to contribute
 - show which findings survived adversarial validation
+
+## Learn Integration
+
+After review completes, the orchestrator produces a structured findings summary. Post-merge, `/ai-learn single <pr>` consumes the review file and synthesizes patterns into context updates.
 
 ## Common Mistakes
 
@@ -77,11 +87,12 @@ Every report should:
 - Skipping context exploration before review.
 - Treating style preferences as blocking findings.
 - Leaving findings unchallenged by the validator stage.
+- Reading specialist agent files inline instead of dispatching via Agent tool.
 
 ## Integration
 
 - **Called by**: user directly, `/ai-pr`, `/ai-dispatch`
-- **Calls**: `handlers/review.md`, `context-explorer.md`, `finding-validator.md`, `reviewer-*.md`, `handlers/lang-*.md`
+- **Dispatches**: `review-context-explorer.md`, `reviewer-*.md`, `review-finding-validator.md` (all via Agent tool)
 - **Read-only**: never modifies source code
 
 $ARGUMENTS
