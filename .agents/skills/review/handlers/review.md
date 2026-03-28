@@ -2,9 +2,10 @@
 
 ## Purpose
 
-Single orchestration path for code review. It gathers context once, runs the full
-specialist surface in either `normal` or `--full`, adversarially validates every
-finding, and reports by original specialist lens.
+Single orchestration path for code review. Dispatches specialist agents via the
+`Agent` tool for real context isolation and parallelism. Gathers context once,
+runs the full specialist surface, adversarially validates every finding, and
+reports by original specialist lens.
 
 ## Procedure
 
@@ -18,95 +19,94 @@ Use that as the authoritative stack list for context loading and language-handle
 Before any specialist runs:
 
 1. Read the full diff (`git diff --stat` and `git diff`)
-2. Dispatch `context-explorer.md` to gather architectural context beyond the diff
-3. Load relevant language and framework contexts
+2. Dispatch `review-context-explorer.md` via the **Agent** tool to gather architectural context
+3. Load relevant language and framework contexts from `.ai-engineering/contexts/`
 4. Read `.ai-engineering/state/decision-store.json` for applicable architectural decisions
 
-The context explorer output is shared across every specialist. Do not re-run ad hoc exploration inside each specialist unless a finding truly requires it.
+The context explorer output is serialized and passed to every specialist in their Agent prompt. Do not re-run ad hoc exploration inside each specialist.
 
 ### Step 2 -- Choose Profile
 
 - Default: `normal`
 - Explicit expensive path: `--full`
 
-`normal` still runs every specialist. It only changes the execution grouping:
+`normal` still runs every specialist. It only changes the execution grouping.
 
-1. `correctness`, `testing`, `compatibility`
-2. `security`, `backend`, `performance`
-3. `architecture`, `maintainability`, `frontend`
+### Step 3 -- Dispatch Specialists via Agent Tool
 
-`--full` runs one specialist prompt per specialist.
+**Normal mode** -- Dispatch 3 macro-agents via the Agent tool:
 
-### Step 3 -- Dispatch Specialists
+```
+Agent 1 prompt: "You are reviewing code with these specialist lenses:
+correctness, testing, compatibility. [shared context] [diff]
+Read and follow the instructions in these agent files:
+.agents/agents/reviewer-correctness.md
+.agents/agents/reviewer-testing.md
+.agents/agents/reviewer-compatibility.md
+Produce findings in YAML format attributed by original specialist."
 
-Each specialist reviews the same diff with the shared context and returns:
-
-```yaml
-specialist: security|backend|performance|correctness|testing|compatibility|architecture|maintainability|frontend
-status: active|low_signal|not_applicable
-findings:
-  - id: security-1
-    severity: blocker|critical|major|minor|info
-    file: path/to/file
-    line: 42
-    finding: "What is wrong"
-    evidence: "Why it is a real issue"
-    remediation: "How to fix"
+Agent 2 prompt: "... security, backend, performance ..."
+Agent 3 prompt: "... architecture, maintainability, frontend ..."
 ```
 
-Use these specialist resources:
+**Full mode** -- Dispatch 9 individual agents via the Agent tool:
 
-- `reviewer-security.md`
-- `reviewer-backend.md`
-- `reviewer-performance.md`
-- `reviewer-correctness.md`
-- `reviewer-testing.md`
-- `reviewer-compatibility.md`
-- `reviewer-architecture.md`
-- `reviewer-maintainability.md`
-- `reviewer-frontend.md`
+```
+For each specialist:
+Agent prompt: "You are the [specialist] reviewer.
+[shared context] [diff]
+Read and follow .agents/agents/reviewer-[specialist].md
+Produce findings in YAML format."
+```
 
 Each specialist must:
-
-1. read the shared context before asserting any finding
-2. inspect the full changed files, not only the diff hunk
-3. prefer concrete, user-visible or operationally meaningful defects
-4. emit `low_signal` or `not_applicable` when the surface is weak instead of stretching for noise
-5. avoid style-only comments unless they hide a correctness, maintainability, or compatibility defect
+1. Read the shared context before asserting any finding
+2. Inspect the full changed files, not only the diff hunk
+3. Prefer concrete, user-visible or operationally meaningful defects
+4. Emit `low_signal` or `not_applicable` when the surface is weak
+5. Avoid style-only comments unless they hide a real defect
 
 ### Step 3b -- Language-Specific Review
 
 For each detected language:
-
-1. If a dedicated `handlers/lang-{language}.md` file exists, dispatch it
-2. Otherwise dispatch `handlers/lang-generic.md`
+1. If a dedicated `handlers/lang-{language}.md` file exists, include it as context
+2. Otherwise include `handlers/lang-generic.md`
 
 Language findings are supplemental evidence. They do not replace the specialist roster.
 
 ### Step 4 -- Aggregate by Specialist
 
-After all specialists and language supplements report:
+After all specialists report:
 
 1. Merge duplicate findings that point to the same underlying issue
 2. Keep the original specialist attribution even when execution came from a macro-agent
-3. Preserve `low_signal` and `not_applicable` specialist outcomes in the report so coverage stays explicit
+3. Preserve `low_signal` and `not_applicable` outcomes so coverage stays explicit
 
 ### Step 5 -- Adversarial Validation
 
-Run `finding-validator.md` against every emitted finding in both `normal` and `--full`.
+Dispatch `review-finding-validator.md` via the **Agent** tool.
+
+**Critical**: Pass ONLY the YAML finding blocks to the validator -- strip the
+specialist's reasoning chain. The validator reads the code fresh and attempts
+disproof without knowing why the specialist flagged it.
+
+```
+Agent prompt: "You are the finding validator.
+Read and follow .agents/agents/review-finding-validator.md
+Here are the findings to validate:
+[YAML finding blocks only -- no reasoning chain]
+For each finding, read the code at the cited location and
+issue a CONFIRMED or DISMISSED verdict."
+```
 
 Validator outcomes:
-
 - `CONFIRMED`: finding survives review
-- `DISMISSED`: finding is dropped from the final blocking report
-
-Every final finding must have survived this stage.
+- `DISMISSED`: finding is dropped from the blocking report
 
 If a finding is dismissed:
-
-1. remove it from the blocking severity buckets
-2. record the dismissal reason under `Dismissed by Validator`
-3. keep the original specialist attribution for auditability
+1. Remove it from blocking severity buckets
+2. Record the dismissal reason under `Dismissed by Validator`
+3. Keep original specialist attribution for auditability
 
 ### Step 6 -- Produce Review Report
 
@@ -115,7 +115,8 @@ If a finding is dismissed:
 
 **Profile**: normal | full
 **Files reviewed**: N
-**Specialists run**: security, backend, performance, correctness, testing, compatibility, architecture, maintainability, frontend
+**Specialists run**: security, backend, performance, correctness, testing,
+  compatibility, architecture, maintainability, frontend
 
 ### Blockers
 [grouped by specialist]

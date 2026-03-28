@@ -1,6 +1,6 @@
 ---
 name: verify
-description: "Use when verification with evidence is needed — not assumptions. Trigger for 'check my code', 'is this ready to merge', 'run the tests', 'is coverage good enough', 'scan for security issues', 'does this meet our standards', 'prove it works'. Runs 7 specialists (governance, security, architecture, quality, performance, a11y, feature) with `normal` implicit and `--full` explicit for the expensive platform pass. For narrative code review with human judgment, use /ai-review instead."
+description: "Use when verification with evidence is needed — not assumptions. Trigger for 'check my code', 'is this ready to merge', 'run the tests', 'is coverage good enough', 'scan for security issues', 'does this meet our standards', 'prove it works'. Runs 4 specialists (deterministic, governance, architecture, feature) with `normal` implicit and `--full` explicit. For narrative code review with human judgment, use /ai-review instead."
 effort: max
 argument-hint: "claim|governance|security|quality|performance|a11y|feature|architecture|platform [--full]"
 ---
@@ -30,25 +30,44 @@ Follow `.ai-engineering/contexts/step-zero-protocol.md`. Apply loaded standards 
 
 Load `.ai-engineering/contexts/evidence-protocol.md` for the IRRV evidence collection protocol.
 
-### Specialist Modes
+### Specialist Surface
 
-| Specialist | Command | What it assesses |
-|------------|---------|------------------|
-| `governance` | `/ai-verify governance` | Integrity, compliance, ownership boundaries |
-| `security` | `/ai-verify security` | Secrets, dependency vulns, security tooling |
-| `architecture` | `/ai-verify architecture` | Cycles, boundary drift, structural issues |
-| `quality` | `/ai-verify quality` | Lint, duplication, quality gates |
-| `performance` | `/ai-verify performance` | Benchmark/perf evidence and hotspot signal |
-| `a11y` | `/ai-verify a11y` | Accessibility applicability and UI checks |
-| `feature` | `/ai-verify feature` | Spec/plan completeness and handoff readiness |
-| `platform` | `/ai-verify platform` | All 7 specialists aggregated into one verdict |
+| Specialist | Agent File | What it assesses |
+|------------|-----------|------------------|
+| `deterministic` | `verify-deterministic.md` | Security, quality, dependencies, tests, a11y (tool-driven) |
+| `governance` | `verifier-governance.md` | Compliance, ownership, gate enforcement (LLM judgment) |
+| `architecture` | `verifier-architecture.md` | Solution-intent alignment, layer violations (LLM judgment) |
+| `feature` | `verifier-feature.md` | Spec coverage, acceptance criteria (LLM judgment) |
+
+All specialist agents are dispatched via the `Agent` tool from `.agents/agents/`. They are not read inline -- each runs in its own context window.
+
+### Dispatch Architecture
+
+**Normal mode** (2 macro-agents):
+1. **Deterministic** (runs first): Dispatched via Agent tool. Executes all tool-driven checks and produces structured evidence.
+2. **LLM Judgment** (runs second, consumes deterministic output): Dispatched via Agent tool with governance + architecture + feature instructions. Uses deterministic evidence as input.
+
+**Full mode** (4 individual agents):
+1. Deterministic agent dispatched first
+2. Governance, architecture, and feature agents dispatched in parallel, each receiving deterministic output
+
+### Individual Specialist Modes
+
+| Command | What it runs |
+|---------|-------------|
+| `/ai-verify governance` | Governance agent only |
+| `/ai-verify security` | Deterministic agent (security scan only) |
+| `/ai-verify architecture` | Architecture agent only |
+| `/ai-verify quality` | Deterministic agent (quality scan only) |
+| `/ai-verify performance` | Deterministic agent (test/benchmark only) |
+| `/ai-verify a11y` | Deterministic agent (accessibility only) |
+| `/ai-verify feature` | Feature agent only |
+| `/ai-verify platform` | All 4 specialists aggregated into one verdict |
 
 ### Profiles
 
-- `normal` is implicit and covers all 7 specialists through 2 fixed macro-agents:
-  - `macro-agent-1`: governance, security, architecture
-  - `macro-agent-2`: quality, performance, a11y, feature
-- `--full` is explicit and runs the same 7 specialists one per agent.
+- `normal` is implicit and covers all specialists through 2 fixed macro-agents.
+- `--full` is explicit and runs the same specialists one per agent.
 - Output is always reported by original specialist lens, not by macro-agent bucket.
 
 See `handlers/verify.md` for the orchestration contract.
@@ -77,11 +96,10 @@ Every scan mode produces:
 
 | Mode | Blocker if... | Critical if... |
 |------|--------------|----------------|
+| deterministic | Any secret detected, any test failure | Coverage < 80%, critical lint |
 | governance | Any integrity FAIL | Any compliance FAIL |
-| security | Critical/high CVE | Any secret detected |
-| quality | Coverage < 80% | Blocker/critical lint |
-| performance | Benchmark regression with evidence | No trustworthy performance evidence path |
 | architecture | Circular dependency | Critical structural drift |
+| feature | Spec goal missing | Acceptance criterion unmet |
 | **platform** | Any blocker in ANY mode | Score < 60 |
 
 ## Verification Checklist (use before claiming DONE)
@@ -101,13 +119,12 @@ Every scan mode produces:
 - Pretending a specialist did not run instead of reporting `not applicable`
 - Ignoring warnings when exit code is 0
 - Using forbidden words ("should work") instead of evidence
-- Not checking exit codes
-- Reporting coverage or scan results from memory instead of from the tool output
+- Reading specialist agent files inline instead of dispatching via Agent tool
 
 ## Integration
 
 - **Called by**: `/ai-dispatch` (post-task review), `ai-build` agent handoffs, user directly
-- **Calls**: stack-specific tools (ruff, gitleaks, pip-audit, integrity validator, structural analysis)
-- **Read-only**: never modifies source code -- produces findings with remediation and evidence-backed summaries
+- **Dispatches**: `verify-deterministic.md`, `verifier-governance.md`, `verifier-architecture.md`, `verifier-feature.md` (all via Agent tool)
+- **Read-only**: never modifies source code -- produces findings with remediation
 
 $ARGUMENTS
