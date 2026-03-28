@@ -4,6 +4,8 @@ Completed specs. Details in git history.
 
 | ID | Title | Status | Created | Branch |
 |----|-------|--------|---------|--------|
+| 085 | Runbook Catalog Redesign — From-Zero MAS+HITL Intake and Operational Automation | done | 2026-03-28 | spec/085-runbook-catalog-redesign |
+| 084 | Agentic Operations Program — MAS+HITL Orchestration | done | 2026-03-28 | main |
 | 082 | Skill Surface Refactor | done | 2026-03-27 | spec/080-standards-engine-delivery-intelligence |
 | 081 | ai-eng Update UX | done | 2026-03-26 | spec/080-standards-engine-delivery-intelligence |
 | 080 | Standards Engine, Governance Parity, Delivery Intelligence | done | 2026-03-26 | spec/080-standards-engine-delivery-intelligence |

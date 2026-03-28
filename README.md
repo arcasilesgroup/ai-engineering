@@ -101,18 +101,31 @@ The framework also installs local quality and security gates around tools such a
 
 ### Runbooks
 
-Runbooks live in `.ai-engineering/runbooks/*.md` and are now self-contained Markdown contracts. Each runbook carries its own purpose, provider scope, hierarchy rules, handoff rules, and expected outputs.
+The framework ships 12 self-contained portable runbooks in `.ai-engineering/runbooks/*.md`. Each runbook is a single Markdown contract that carries its own purpose, provider scope, hierarchy rules, cadence, handoff rules, and expected outputs. There are no separate adapter files -- the runbook itself is the portable artifact that any host can execute directly.
 
-They are for provider-side work only:
+All runbooks are human-in-the-loop (HITL): they prepare work items in the provider (triage, enrich, label, comment, move cards) but never touch code or write local `spec.md` / `plan.md`.
 
-- triage issues or work items
-- enrich writable provider fields
-- leave comments describing what changed
-- move cards toward `ready` or `handoff:ai-eng`
+**Cadences:**
 
-They do not implement code and they do not write local `spec.md` or `plan.md`.
+- **Daily** (4 runbooks): triage, refine, feature-scanner, stale-issues
+- **Weekly** (8 runbooks): dependency-health, code-quality, security-scan, docs-freshness, performance, governance-drift, architecture-drift, wiring-scanner
 
-Host-specific adapters stay thin. For example, `.github/workflows/ai-eng-weekly-health.md` points back to `.ai-engineering/runbooks/weekly-health.md` instead of becoming a second source of truth.
+**Supported hosts:** Codex App Automation, Claude scheduled tasks, GitHub Agents, Azure Foundry.
+
+| Runbook | Cadence | Purpose |
+|---------|---------|---------|
+| triage | daily | Scan backlog, classify, prioritize, label for refinement |
+| refine | daily | Gather context, draft acceptance criteria, mark `handoff:ai-eng` |
+| feature-scanner | daily | Detect spec-vs-code gaps and uncovered acceptance criteria |
+| stale-issues | daily | Label stale issues (14 d), auto-close (21 d) with grace period |
+| dependency-health | weekly | Outdated versions, CVEs, license compliance |
+| code-quality | weekly | Complexity hotspots, duplication, tech debt |
+| security-scan | weekly | Secrets, OWASP/SAST patterns, compliance gaps |
+| docs-freshness | weekly | Stale docs, coverage gaps, doc-vs-code drift |
+| performance | weekly | Test slowdowns, build time increases, regressions |
+| governance-drift | weekly | Mirror sync, quality gates, hook integrity, manifest consistency |
+| architecture-drift | weekly | Solution-intent vs codebase deviations, layer violations |
+| wiring-scanner | weekly | Disconnected code, orphaned modules, dead exports |
 
 ### Review
 
