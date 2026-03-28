@@ -165,7 +165,7 @@ class TestOwnershipMap:
 
     def test_runbooks_allowed(self) -> None:
         om = default_ownership_map()
-        assert om.is_update_allowed(".ai-engineering/runbooks/daily-triage.md") is True
+        assert om.is_update_allowed(".ai-engineering/runbooks/triage.md") is True
 
     def test_hooks_allowed(self) -> None:
         om = default_ownership_map()
