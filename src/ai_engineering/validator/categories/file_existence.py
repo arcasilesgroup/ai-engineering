@@ -59,6 +59,9 @@ def _check_file_existence(
                 continue
             if "{" in ref_path and "}" in ref_path:
                 continue
+            # Skip shell variable references like $SKILL in inline scripts
+            if "$" in ref_path:
+                continue
             # Skip IDE directory references (e.g. .agents/agents/, .agents/skills/)
             # These are matched by the regex but are not governance paths
             if ref_path.startswith(("agents/agents/", "agents/skills/")):

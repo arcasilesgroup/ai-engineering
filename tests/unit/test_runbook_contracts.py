@@ -7,32 +7,54 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
 RUNBOOK_ROOT = ROOT / ".ai-engineering" / "runbooks"
-WORKFLOW_ROOT = ROOT / ".github" / "workflows"
+TEMPLATE_ROOT = ROOT / "src" / "ai_engineering" / "templates" / ".ai-engineering" / "runbooks"
 
-PROVIDER_RUNBOOKS = (
-    ("daily-triage", "ai-eng-daily-triage"),
-    ("weekly-health", "ai-eng-weekly-health"),
-    ("perf-audit", "ai-eng-perf-audit"),
-)
+# spec-085: 12 runbooks with new contract schema
+ALL_RUNBOOKS = [
+    "triage",
+    "refine",
+    "feature-scanner",
+    "stale-issues",
+    "dependency-health",
+    "code-quality",
+    "security-scan",
+    "docs-freshness",
+    "performance",
+    "governance-drift",
+    "architecture-drift",
+    "wiring-scanner",
+]
 
-REQUIRED_RUNBOOK_KEYS = {
+REQUIRED_CONTRACT_KEYS = {
     "runbook",
+    "version",
     "purpose",
-    "host_adapters",
+    "type",
+    "cadence",
+    "hosts",
     "provider_scope",
     "feature_policy",
     "hierarchy_policy",
     "outputs",
     "handoff",
+    "guardrails",
+}
+
+VALID_TYPES = {"intake", "operational"}
+VALID_CADENCES = {"daily", "weekly"}
+REQUIRED_HOSTS = {
+    "codex-app-automation",
+    "claude-scheduled-tasks",
+    "github-agents",
+    "azure-foundry",
 }
 
 REQUIRED_SECTIONS = (
     "## Purpose",
-    "## Host Adapter",
-    "## Provider Actions",
-    "## Guardrails",
     "## Procedure",
-    "## Output",
+    "## Provider Notes",
+    "## Host Notes",
+    "## Safety",
 )
 
 
@@ -45,50 +67,74 @@ def _split_frontmatter(path: Path) -> tuple[dict[str, object], str]:
     return data, body
 
 
-@pytest.mark.parametrize(("slug", "workflow_name"), PROVIDER_RUNBOOKS)
-def test_provider_runbooks_are_self_contained_contracts(
-    slug: str,
-    workflow_name: str,
-) -> None:
+@pytest.mark.parametrize("slug", ALL_RUNBOOKS)
+def test_runbook_exists(slug: str) -> None:
+    path = RUNBOOK_ROOT / f"{slug}.md"
+    assert path.exists(), f"Runbook {slug}.md not found"
+
+
+@pytest.mark.parametrize("slug", ALL_RUNBOOKS)
+def test_template_mirror_exists(slug: str) -> None:
+    path = TEMPLATE_ROOT / f"{slug}.md"
+    assert path.exists(), f"Template mirror {slug}.md not found"
+
+
+@pytest.mark.parametrize("slug", ALL_RUNBOOKS)
+def test_runbook_contract_schema(slug: str) -> None:
     path = RUNBOOK_ROOT / f"{slug}.md"
     frontmatter, body = _split_frontmatter(path)
 
-    assert set(frontmatter) >= REQUIRED_RUNBOOK_KEYS
+    missing = REQUIRED_CONTRACT_KEYS - set(frontmatter)
+    assert not missing, f"{slug}: missing contract keys: {missing}"
+
     assert frontmatter["runbook"] == slug
+    assert frontmatter["version"] == 1
+    assert frontmatter["type"] in VALID_TYPES
+    assert frontmatter["cadence"] in VALID_CADENCES
     assert frontmatter["feature_policy"] == "read-only"
-    assert frontmatter["host_adapters"] == {"github_workflow": workflow_name}
-    assert frontmatter["provider_scope"] == {
-        "github": "issues",
-        "azure_devops": "work_items",
-    }
 
-    outputs = frontmatter["outputs"]
-    assert isinstance(outputs, dict)
-    assert "provider_updates" in outputs
-    assert "local_files" in outputs
+    hosts = frontmatter["hosts"]
+    assert isinstance(hosts, list)
+    assert set(hosts) >= REQUIRED_HOSTS, f"{slug}: missing hosts"
 
-    handoff = frontmatter["handoff"]
-    assert isinstance(handoff, dict)
-    assert handoff["lifecycle"] == "ready"
-    assert handoff["local_execution"] == "manual only"
+    guardrails = frontmatter["guardrails"]
+    assert isinstance(guardrails, dict)
+    assert guardrails.get("dry_run_default") is True
 
     for section in REQUIRED_SECTIONS:
-        assert section in body
+        assert section in body, f"{slug}: missing section '{section}'"
 
 
-@pytest.mark.parametrize(("slug", "workflow_name"), PROVIDER_RUNBOOKS)
-def test_github_workflow_adapters_reference_canonical_runbooks(
-    slug: str,
-    workflow_name: str,
-) -> None:
-    path = WORKFLOW_ROOT / f"{workflow_name}.md"
-    frontmatter, body = _split_frontmatter(path)
+@pytest.mark.parametrize("slug", ALL_RUNBOOKS)
+def test_template_matches_canonical(slug: str) -> None:
+    canonical = (RUNBOOK_ROOT / f"{slug}.md").read_bytes()
+    template = (TEMPLATE_ROOT / f"{slug}.md").read_bytes()
+    assert canonical == template, f"{slug}: template and canonical differ"
 
-    assert isinstance(frontmatter.get("name"), str)
-    workflow_on = frontmatter.get("on", frontmatter.get(True))
-    assert isinstance(workflow_on, dict)
-    assert "workflow_dispatch" in workflow_on
-    assert "permissions" in frontmatter
-    assert f"Canonical contract: `.ai-engineering/runbooks/{slug}.md`" in body
-    assert f"Read `.ai-engineering/runbooks/{slug}.md`." in body
-    assert "local spec or plan" in body
+
+def test_runbook_count() -> None:
+    actual = sorted(p.stem for p in RUNBOOK_ROOT.glob("*.md"))
+    assert actual == sorted(ALL_RUNBOOKS), (
+        f"Expected {len(ALL_RUNBOOKS)} runbooks, got {len(actual)}: {actual}"
+    )
+
+
+def test_no_legacy_runbooks() -> None:
+    legacy = {
+        "daily-triage",
+        "weekly-health",
+        "perf-audit",
+        "code-simplifier",
+        "dependency-upgrade",
+        "governance-drift-repair",
+        "incident-response",
+        "security-incident",
+    }
+    actual = {p.stem for p in RUNBOOK_ROOT.glob("*.md")}
+    overlap = legacy & actual
+    assert not overlap, f"Legacy runbooks still present: {overlap}"
+
+
+def test_no_workflow_adapters() -> None:
+    adapters = list((ROOT / ".github" / "workflows").glob("ai-eng-*.md"))
+    assert not adapters, f"Workflow adapters should be deleted: {[p.name for p in adapters]}"

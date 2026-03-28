@@ -91,23 +91,53 @@ These paths are written by the framework itself:
 
 ## Runbooks
 
-`runbooks/*.md` are the canonical automation contracts.
+`runbooks/*.md` are 12 self-contained portable runbooks. Each is a single Markdown file combining a YAML frontmatter contract, full procedure, and host notes. There are no separate adapter files.
 
-Each runbook now carries its own:
+### Contract schema
 
-- purpose
-- provider scope
-- hierarchy rules
-- handoff policy
-- expected outputs
-- host adapter mapping
+Every runbook frontmatter declares these fields:
 
-For provider-backed automations, the runbook is the source of truth and the host file stays thin. Example:
+| Field | Purpose |
+|-------|---------|
+| `runbook` | Identifier (e.g. `triage`, `code-quality`) |
+| `version` | Semver of the contract |
+| `purpose` | One-line description |
+| `type` | `intake` or `operational` |
+| `cadence` | `daily` or `weekly` |
+| `hosts` | Target platforms |
+| `provider_scope` | Work-item provider (GitHub Issues, Azure Boards) |
+| `feature_policy` | Rules for feature-level items |
+| `hierarchy_policy` | Parent/child work-item rules |
+| `scan_targets` | Files, directories, or APIs the runbook reads |
+| `tool_dependencies` | CLI tools or APIs required at runtime |
+| `thresholds` | Numeric limits that trigger findings |
+| `outputs` | Artifacts produced (labels, comments, issues) |
+| `handoff` | What happens after the runbook completes |
+| `guardrails` | Hard constraints the runbook must not violate |
 
-- canonical contract: `runbooks/weekly-health.md`
-- GitHub adapter: `../.github/workflows/ai-eng-weekly-health.md`
+### Design principles
 
-Runbooks operate on GitHub Issues or Azure Boards cards. They prepare, triage, and enrich work items. They do not implement code and they do not write local `spec.md` or `plan.md`.
+- **All HITL**: runbooks prepare work items in the provider. They never touch code and never create PRs.
+- **dry_run_default: true**: hosts must explicitly configure `--apply` to make changes.
+- **Portable**: the same runbook runs on Codex App Automation, Claude scheduled tasks, GitHub Agents, and Azure Foundry.
+- **No adapter layer**: the old thin-host-adapter pattern is eliminated. Each runbook is fully self-contained.
+
+### Catalog
+
+| Runbook | Type | Cadence | Purpose |
+|---------|------|---------|---------|
+| `triage` | intake | daily | Scan backlog, classify, prioritize |
+| `refine` | intake | daily | Gather context, draft acceptance criteria, mark ready |
+| `feature-scanner` | operational | daily | Spec-vs-code gaps |
+| `stale-issues` | operational | daily | Label/close stale issues |
+| `dependency-health` | operational | weekly | CVEs, outdated deps, licenses |
+| `code-quality` | operational | weekly | Complexity, duplication, tech debt |
+| `security-scan` | operational | weekly | Secrets, SAST, compliance |
+| `docs-freshness` | operational | weekly | Stale docs, coverage gaps |
+| `performance` | operational | weekly | Test/build regressions |
+| `governance-drift` | operational | weekly | Framework alignment |
+| `architecture-drift` | operational | weekly | Solution-intent deviations |
+| `wiring-scanner` | operational | weekly | Disconnected code |
 
 ## Specs and autopilot
 

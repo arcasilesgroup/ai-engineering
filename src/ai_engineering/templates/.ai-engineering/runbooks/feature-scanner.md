@@ -1,0 +1,201 @@
+---
+runbook: feature-scanner
+version: 1
+purpose: "Scan last 24h commits and PRs against spec history to detect unimplemented features, uncovered acceptance criteria, and spec-vs-code regressions"
+type: operational
+cadence: daily
+hosts:
+  - codex-app-automation
+  - claude-scheduled-tasks
+  - github-agents
+  - azure-foundry
+provider_scope:
+  read: [issues, pull-requests, commits, code]
+  write: [comments, work-items, labels]
+feature_policy: read-only
+hierarchy_policy:
+  create: [task]
+  mutate: [task]
+scan_targets:
+  - commits from last 24 hours
+  - merged PRs from last 24 hours
+  - spec history (.ai-engineering/specs/_history.md)
+  - archived specs (git log of specs/spec.md)
+tool_dependencies:
+  - gh
+  - az
+  - git
+thresholds:
+  lookback_hours: 24
+  min_spec_coverage: 80
+outputs:
+  work_items: true
+  comments: true
+  labels: true
+  report: detailed
+handoff:
+  marker: "feature-gap"
+  lifecycle_phase: triage
+guardrails:
+  max_mutations: 20
+  protected_labels: [p1-critical, pinned]
+  protected_states: [closed, resolved]
+  dry_run_default: true
+---
+
+# Feature Scanner
+
+## Purpose
+
+Detect unimplemented features, uncovered acceptance criteria, and spec-vs-code regressions by cross-referencing recent commits and merged PRs against completed spec history. Runs daily on a 24-hour lookback window and produces task work items for every verified gap.
+
+## Procedure
+
+### Step 1 -- Collect recent commits
+
+```bash
+git log --since="24 hours ago" --format="%H %s" --no-merges
+```
+
+Store the output as the change ledger. If no commits exist, skip to Step 9 and report "no changes in window."
+
+### Step 2 -- Collect merged PRs
+
+```bash
+# GitHub
+SINCE=$(date -u -d '24 hours ago' +%Y-%m-%dT%H:%M:%S 2>/dev/null \
+     || date -u -v-24H +%Y-%m-%dT%H:%M:%S)
+gh pr list --state merged --json number,title,mergedAt,body \
+  --jq "[.[] | select(.mergedAt >= \"$SINCE\")]"
+
+# Azure DevOps (when provider is azure_devops)
+az repos pr list --status completed \
+  --query "[?closedDate >= '$SINCE']" -o json
+```
+
+Record each PR number, title, body, and changed files (`gh pr diff <number> --name-only`).
+
+### Step 3 -- Load spec history
+
+```bash
+cat .ai-engineering/specs/_history.md
+```
+
+Extract the last 5 specs with status `done`. Record spec ID, title, and branch name.
+
+### Step 4 -- Extract acceptance criteria from spec archive
+
+For each spec, recover content from git history. Criteria appear under `## Acceptance Criteria` or `## Goals`.
+
+```bash
+SPEC_BRANCH="spec/080-standards-engine-delivery-intelligence"
+COMMIT_HASH=$(git log --all --format="%H" --grep="$SPEC_BRANCH" \
+  -- .ai-engineering/specs/spec.md | head -1)
+git show "$COMMIT_HASH:.ai-engineering/specs/spec.md"
+```
+
+Parse each criterion into `{spec_id, criterion_text, keywords[]}`. Keywords are nouns and verbs that drive codebase searches (function names, routes, CLI commands, config keys).
+
+### Step 5 -- Search for implementation evidence
+
+For each criterion, search for matching tests and implementation files.
+
+```bash
+# Test files
+git grep -l "<keyword>" -- "tests/" "test/" "**/*_test.*" "**/*.test.*"
+# Implementation files
+git grep -l "<keyword>" -- "src/" "lib/" "scripts/" "*.py" "*.ts"
+# CLI commands
+git grep -l "<keyword>" -- "**/*cli*" "**/*command*"
+```
+
+Mark each criterion: `covered` (evidence found), `partial` (some keywords match), or `gap` (no match).
+
+### Step 6 -- Identify gaps
+
+Compile every `gap` or `partial` criterion. For each, record: spec ID, criterion text, unmatched keywords, what is missing (tests, implementation, or both). Severity: `gap` = high, `partial` = medium.
+
+### Step 7 -- Check for regressions
+
+```bash
+# Files changed in recent commits
+git diff --name-only HEAD~10..HEAD
+# File scope of each recent spec
+SPEC_BRANCH="spec/080-standards-engine-delivery-intelligence"
+git diff --name-only main..."$SPEC_BRANCH" 2>/dev/null
+```
+
+When overlap exists, re-run evidence search from Step 5 against the current tree. Any criterion that was `covered` but now has no match is a regression.
+
+### Step 8 -- Create work items
+
+For each gap or regression, create a task. Respect `guardrails.max_mutations` (default 20). Dry-run unless `--apply` is passed.
+
+```bash
+# GitHub Issues
+gh issue create \
+  --title "[feature-gap] Spec-080: <criterion summary>" \
+  --body "**Spec:** 080 - Standards Engine
+**Criterion:** <full text>
+**Status:** gap | partial | regression
+**Missing:** implementation | tests | both
+**Affected files:** <file list>
+**Detected by:** feature-scanner runbook v1" \
+  --label "feature-gap"
+
+# Azure DevOps
+az boards work-item create --type Task \
+  --title "[feature-gap] Spec-080: <criterion summary>" \
+  --description "<body>" --area "Project\\TeamName"
+
+# Regression comment on source PR
+gh pr comment <pr_number> \
+  --body "feature-scanner: regression detected for spec-080 criterion '<text>'"
+```
+
+In dry-run mode, print payloads to stdout without creating them.
+
+### Step 9 -- Generate summary report
+
+```
+=== Feature Scanner Report ===
+Window:        <start> to <end>
+Commits:       12    Merged PRs: 3    Specs checked: 5
+Gaps:          2 (1 high, 1 medium)
+Regressions:   1
+Items created: 3 (dry-run: true)
+
+  [gap/high]    spec-080 | "CLI --format flag" | no implementation
+  [gap/medium]  spec-079 | "Hooks relocate"    | partial test coverage
+  [regression]  spec-077 | "Prompts migration" | broken by a1b2c3d
+```
+
+## Provider Notes
+
+| Concern | GitHub | Azure DevOps |
+|---------|--------|--------------|
+| PR listing | `gh pr list --state merged` | `az repos pr list --status completed` |
+| Work items | `gh issue create` | `az boards work-item create --type Task` |
+| Labels | `--label "feature-gap"` | Tag field or area path annotation |
+| PR comments | `gh pr comment` | `az repos pr update` with comment thread |
+| Date filter | `--jq` post-filter on `mergedAt` | `--query "[?closedDate >= 'DATE']"` |
+
+Provider is read from `manifest.yml` field `work_items.provider`. Both produce identical report output.
+
+## Host Notes
+
+| Host | Considerations |
+|------|---------------|
+| codex-app-automation | Full CLI. Scheduled task, `--dry-run` default. Override with `--apply` after review. |
+| claude-scheduled-tasks | Agent context. Use tool calls for `gh`/`git`. Report as structured markdown. |
+| github-agents | Actions scheduled workflow. Store report as artifact. Use `GITHUB_TOKEN`. |
+| azure-foundry | Pipeline task. Service connection for `az` auth. Emit to pipeline summary. |
+
+## Safety
+
+1. **Read-only by default.** `dry_run_default: true` means no work items are created unless `--apply` is passed.
+2. **Never modifies code.** Inspects the repo and creates task items only. No commits, pushes, or merges.
+3. **Explicit criteria only.** Gaps are reported only for acceptance criteria stated verbatim in the spec. No inferred or speculated requirements.
+4. **Bounded mutations.** Maximum 20 items per run. Overflow is noted in the report.
+5. **Protected states.** Items in `closed`/`resolved` are never modified. Labels `p1-critical` and `pinned` are never removed.
+6. **Idempotent.** Searches existing open issues for spec ID and criterion text before creating duplicates.
