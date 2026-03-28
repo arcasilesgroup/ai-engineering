@@ -719,11 +719,12 @@ def _migrate_legacy_dirs(target: Path, ai_eng_dir: Path) -> list[str]:
 
     # Safety check: confirm at least one IDE directory has content.
     # IDE directories live at the project root (e.g., .claude/, .github/agents/,
-    # .agents/).
+    # .codex/, .gemini/).
     ide_candidates = [
         target / ".claude",
         target / ".github" / "agents",
-        target / ".agents",
+        target / ".codex",
+        target / ".gemini",
     ]
     ide_has_content = any(d.is_dir() and any(d.rglob("*")) for d in ide_candidates)
     if not ide_has_content:

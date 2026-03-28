@@ -73,7 +73,7 @@ After creating any skill or agent:
 - [ ] Description is CSO-optimized (triggering conditions, not summary)
 - [ ] IDE-compatibility fields set if needed (see table below)
 - [ ] Registered in `manifest.yml`
-- [ ] Mirror files created for other IDE surfaces (`.agents/`, `.github/skills/`)
+- [ ] Mirror files created for other IDE surfaces (`.codex/`, `.gemini/`, `.github/skills/`)
 - [ ] No overlap with existing skills (checked `/ai-find` or skill list)
 
 ### IDE-Compatibility Frontmatter Fields

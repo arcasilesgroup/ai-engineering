@@ -1,47 +1,8 @@
 ---
-runbook: wiring-scanner
-version: 1
-purpose: "Detect implemented but disconnected code: functions, modules, or exports that exist but are not connected to any entry point, route, CLI command, or consumer"
+name: wiring-scanner
+description: "Detect implemented but disconnected code: functions, modules, or exports that exist but are not connected to any entry point, route, CLI command, or consumer"
 type: operational
 cadence: weekly
-hosts:
-  - codex-app-automation
-  - claude-scheduled-tasks
-  - github-agents
-  - azure-foundry
-provider_scope:
-  read: [issues, labels, code]
-  write: [comments, work-items, labels]
-feature_policy: read-only
-hierarchy_policy:
-  create: [task]
-  mutate: [task]
-scan_targets:
-  - src/ (all Python modules)
-  - CLI entry points (typer commands)
-  - __init__.py exports
-  - test imports (to distinguish tested-but-unwired from truly dead)
-tool_dependencies:
-  - gh
-  - az
-  - python
-  - grep
-thresholds:
-  min_confidence: 0.8
-  max_findings_per_run: 15
-outputs:
-  work_items: true
-  comments: true
-  labels: true
-  report: detailed
-handoff:
-  marker: "dead-code"
-  lifecycle_phase: triage
-guardrails:
-  max_mutations: 15
-  protected_labels: [p1-critical, pinned]
-  protected_states: [closed, resolved]
-  dry_run_default: true
 ---
 
 # Wiring Scanner
@@ -140,7 +101,7 @@ If a symbol appears in any dynamic import pattern, downgrade confidence to 0.5 a
 
 ### Step 7 -- Create work items for disconnected findings
 
-For each finding that passes the confidence filter, check for an existing open issue before creating a new one. Respect the `max_findings_per_run` limit (15). In dry-run mode, print payloads to stdout without creating them.
+For each finding that passes the confidence filter, check for an existing open issue before creating a new one. Respect the `max_findings_per_run` limit (15).
 
 ```bash
 # Deduplicate: check for existing open issue
@@ -155,7 +116,7 @@ gh issue create \
 
 Evidence: 0 import/call refs in src/, 0 refs in tests/.
 Action: wire to entry point, document as internal API, or remove.
-*Created by wiring-scanner runbook v1*"
+*Created by wiring-scanner runbook*"
 
 # Azure DevOps -- create task
 az boards work-item create --type Task \
@@ -189,7 +150,7 @@ Confidence Distribution:
   Excluded (< 0.8):       <N>
 
 Work Items:
-  Created:                <N> (dry-run: <true|false>)
+  Created:                <N>
   Skipped (existing):     <N>
   Deferred (over limit):  <N>
 
@@ -215,7 +176,7 @@ Both providers produce identical report output. The active provider is read from
 
 | Host | Considerations |
 |------|----------------|
-| `codex-app-automation` | Full CLI access. `grep` and `python` are available natively. Run with `--dry-run` default; override with `--apply` after human review. |
+| `codex-app-automation` | Full CLI access. `grep` and `python` are available natively. Mutations enabled by default. |
 | `claude-scheduled-tasks` | Operates within Claude agent context. Use tool calls for `grep` and `gh` commands. Parse grep output as structured data. Report as markdown. |
 | `github-agents` | Runs as a GitHub Actions scheduled workflow. `grep` and `python` are pre-installed on runners. Store the report as a workflow artifact. Use `GITHUB_TOKEN` for issue creation. |
 | `azure-foundry` | Runs as an Azure DevOps pipeline task. Use service connection for `az` authentication. `grep` and `python` are available on all standard agent images. Emit report to pipeline summary. |
@@ -225,7 +186,7 @@ Both providers produce identical report output. The active provider is read from
 1. **Never deletes code.** This runbook inspects source files and creates task work items. It does not commit, push, merge, or alter any source file.
 2. **Test-only wiring is reported separately.** Symbols referenced only from `tests/` are logged in the report under "Test-only" but are not escalated to work items by default. They may represent intentional internal APIs exercised through unit tests.
 3. **Dynamic imports reduce confidence.** Symbols found in `importlib`, `getattr`, or plugin registry patterns are excluded from findings to avoid false positives against pluggable architectures.
-4. **Bounded mutations.** A maximum of 15 work items are created per run (`guardrails.max_mutations`). If the finding count exceeds this limit, the report notes the overflow and defers remaining items to the next run.
-5. **Dry-run is the default.** All write operations are echoed to stdout unless the caller explicitly passes `--apply` or sets `DRY_RUN=false`.
+4. **Bounded mutations.** A maximum of 15 work items are created per run. If the finding count exceeds this limit, the report notes the overflow and defers remaining items to the next run.
+5. **Mutations enabled by default.** All qualifying findings are created as work items automatically.
 6. **Protected states.** Items in `closed` or `resolved` state are never reopened or modified. Labels `p1-critical` and `pinned` are never removed.
 7. **Idempotent.** Before creating a work item, the scanner searches existing open issues for the symbol name and file path. Duplicates are skipped and logged.

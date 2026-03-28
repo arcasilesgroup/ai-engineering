@@ -1,0 +1,103 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "matcher": "/ai-",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 .ai-engineering/scripts/hooks/telemetry-skill.py",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash|Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 .ai-engineering/scripts/hooks/prompt-injection-guard.py",
+            "timeout": 15
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 .ai-engineering/scripts/hooks/strategic-compact.py",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "mcp__",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 .ai-engineering/scripts/hooks/mcp-health.py",
+            "timeout": 15
+          }
+        ]
+      },
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 .ai-engineering/scripts/hooks/instinct-observe.py",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 .ai-engineering/scripts/hooks/instinct-observe.py",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "Agent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 .ai-engineering/scripts/hooks/observe.py",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 .ai-engineering/scripts/hooks/auto-format.py",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "SessionStart": [],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 .ai-engineering/scripts/hooks/instinct-extract.py",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}

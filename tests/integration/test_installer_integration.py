@@ -217,12 +217,12 @@ class TestCopyProjectTemplates:
         # ISSUE_TEMPLATE should not exist when vcs_provider is not set
         assert not issue_dir.exists()
 
-    def test_codex_provider_copies_agents_tree(self, tmp_path: Path) -> None:
+    def test_codex_provider_copies_codex_tree(self, tmp_path: Path) -> None:
         copy_project_templates(tmp_path, providers=["codex"])
-        agents_dir = tmp_path / ".agents" / "skills"
-        assert agents_dir.is_dir()
-        skill_files = list(agents_dir.glob("*/SKILL.md"))
-        assert len(skill_files) >= 28  # skills in .agents/skills/
+        codex_dir = tmp_path / ".codex" / "skills"
+        assert codex_dir.is_dir()
+        skill_files = list(codex_dir.glob("*/SKILL.md"))
+        assert len(skill_files) >= 28  # skills in .codex/skills/
 
 
 # ---------------------------------------------------------------------------

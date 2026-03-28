@@ -100,18 +100,18 @@ class TestSyncDriftDetection:
 class TestGenerationFunctions:
     """Test content generation -- pure functions, no filesystem access."""
 
-    def test_generate_agents_skill_includes_frontmatter(self) -> None:
-        from scripts.sync_command_mirrors import CLAUDE_SKILLS, generate_agents_skill
+    def test_generate_codex_skill_includes_frontmatter(self) -> None:
+        from scripts.sync_command_mirrors import CLAUDE_SKILLS, generate_codex_skill
 
         # Arrange -- use real canonical skill
         skill_path = CLAUDE_SKILLS / "ai-commit" / "SKILL.md"
 
         # Act
-        content = generate_agents_skill("commit", skill_path)
+        content = generate_codex_skill("commit", skill_path)
 
         # Assert -- frontmatter comes from canonical
         assert "---" in content
-        assert "name: commit" in content
+        assert "name: ai-commit" in content
         assert "tags:" in content
         assert len(content) > 100
 
@@ -130,14 +130,14 @@ class TestGenerationFunctions:
         assert "tags:" in content
         assert len(content) > 100
 
-    def test_generate_agents_agent_wrapper_format(self) -> None:
-        from scripts.sync_command_mirrors import CLAUDE_AGENTS, generate_agents_agent
+    def test_generate_codex_agent_wrapper_format(self) -> None:
+        from scripts.sync_command_mirrors import CLAUDE_AGENTS, generate_codex_agent
 
         # Arrange
         agent_path = CLAUDE_AGENTS / "ai-build.md"
 
         # Act
-        content = generate_agents_agent("build", agent_path)
+        content = generate_codex_agent("build", agent_path)
 
         # Assert -- content is fully embedded from canonical source
         assert len(content) > 100
@@ -183,15 +183,10 @@ class TestGenerationFunctions:
 
         content = generate_agents_md(skill_count=len(skills), agent_count=len(agents))
 
-        assert (
-            "| Claude Code | `.claude/skills/ai-*/SKILL.md` | `.claude/agents/ai-*.md` |" in content
-        )
-        assert (
-            "| Codex / Gemini | `.agents/skills/*/SKILL.md` | `.agents/agents/ai-*.md` |" in content
-        )
+        # Platform Mirrors table removed (spec-087) -- only check Skills header
         assert f"## Skills ({len(skills)})" in content
-        assert f"| Skills ({len(skills)}) | `.agents/skills/<name>/SKILL.md` |" in content
-        assert f"| Agents ({len(agents)}) | `.agents/agents/ai-<name>.md` |" in content
+        assert f"| Skills ({len(skills)}) | `.codex/skills/ai-<name>/SKILL.md` |" in content
+        assert f"| Agents ({len(agents)}) | `.codex/agents/ai-<name>.md` |" in content
 
 
 # -- Validation functions --
@@ -409,12 +404,12 @@ class TestCrossReferenceTranslation:
         result = translate_refs(content, "copilot")
         assert "`.github/skills/ai-plan/SKILL.md`" in result
 
-    def test_translate_skill_path_generic(self) -> None:
+    def test_translate_skill_path_codex(self) -> None:
         from scripts.sync_command_mirrors import translate_refs
 
         content = "Read `.claude/skills/ai-plan/SKILL.md` for details."
-        result = translate_refs(content, "generic")
-        assert "`.agents/skills/plan/SKILL.md`" in result
+        result = translate_refs(content, "codex")
+        assert "`.codex/skills/ai-plan/SKILL.md`" in result
 
     def test_translate_agent_path_claude(self) -> None:
         from scripts.sync_command_mirrors import translate_refs
@@ -430,12 +425,12 @@ class TestCrossReferenceTranslation:
         result = translate_refs(content, "copilot")
         assert "`.github/agents/build.agent.md`" in result
 
-    def test_translate_agent_path_generic(self) -> None:
+    def test_translate_agent_path_codex(self) -> None:
         from scripts.sync_command_mirrors import translate_refs
 
         content = "Delegates to `.claude/agents/ai-build.md`."
-        result = translate_refs(content, "generic")
-        assert "`.agents/agents/ai-build.md`" in result
+        result = translate_refs(content, "codex")
+        assert "`.codex/agents/ai-build.md`" in result
 
     def test_specs_not_translated(self) -> None:
         from scripts.sync_command_mirrors import translate_refs
@@ -507,7 +502,7 @@ class TestHandlerParity:
 
         missing: list[str] = []
         github_skills = _PROJECT_ROOT / ".github" / "skills"
-        agents_skills = _PROJECT_ROOT / ".agents" / "skills"
+        codex_skills = _PROJECT_ROOT / ".codex" / "skills"
 
         for skill_dir in sorted(CLAUDE_SKILLS.iterdir()):
             if not skill_dir.is_dir() or not skill_dir.name.startswith("ai-"):
@@ -524,10 +519,10 @@ class TestHandlerParity:
                     )
                     if not gh_handler.is_file():
                         missing.append(f".github/skills/ai-{bare_name}/handlers/{handler_name}.md")
-                # Check .agents/skills mirror (always generated)
-                ag_handler = agents_skills / bare_name / "handlers" / f"{handler_name}.md"
-                if not ag_handler.is_file():
-                    missing.append(f".agents/skills/{bare_name}/handlers/{handler_name}.md")
+                # Check .codex/skills mirror (always generated)
+                cx_handler = codex_skills / f"ai-{bare_name}" / "handlers" / f"{handler_name}.md"
+                if not cx_handler.is_file():
+                    missing.append(f".codex/skills/ai-{bare_name}/handlers/{handler_name}.md")
         assert not missing, f"{len(missing)} handler mirror(s) missing:\n" + "\n".join(
             f"  - {m}" for m in missing
         )

@@ -1,48 +1,8 @@
 ---
-runbook: code-quality
-version: 1
-purpose: "Detect complexity hotspots, duplication above threshold, cognitive complexity violations, and tech debt accumulation"
+name: code-quality
+description: "Detect complexity hotspots, duplication above threshold, cognitive complexity violations, and tech debt accumulation"
 type: operational
 cadence: weekly
-hosts:
-  - codex-app-automation
-  - claude-scheduled-tasks
-  - github-agents
-  - azure-foundry
-provider_scope:
-  read: [issues, labels, code]
-  write: [comments, work-items, labels]
-feature_policy: read-only
-hierarchy_policy:
-  create: [task]
-  mutate: [task]
-scan_targets:
-  - src/
-  - tests/
-tool_dependencies:
-  - gh
-  - az
-  - ruff
-  - ai-eng
-thresholds:
-  cyclomatic_complexity: 10
-  cognitive_complexity: 15
-  duplication_pct: 3
-  max_function_lines: 50
-  max_findings_per_run: 15
-outputs:
-  work_items: true
-  comments: true
-  labels: true
-  report: detailed
-handoff:
-  marker: "tech-debt"
-  lifecycle_phase: triage
-guardrails:
-  max_mutations: 15
-  protected_labels: [p1-critical, pinned]
-  protected_states: [closed, resolved]
-  dry_run_default: true
 ---
 
 # Code Quality Runbook
@@ -222,7 +182,6 @@ whether debt is growing or shrinking.
 - **Protected labels**: Issues with `p1-critical` or `pinned` are never modified or closed.
 - **Protected states**: `closed` / `resolved` issues are never reopened. Recurring findings
   create new issues instead.
-- **Dry run default**: First execution on any host prints actions without writing. Pass
-  `--execute` or set `DRY_RUN=false` to enable writes.
+- **Mutations enabled by default.** All qualifying findings are written immediately.
 - **No destructive operations**: Never deletes issues, removes labels, or alters existing
   work item content. Append-only.

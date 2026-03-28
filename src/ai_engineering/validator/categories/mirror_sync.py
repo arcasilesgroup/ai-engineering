@@ -7,13 +7,15 @@ from collections.abc import Callable
 from pathlib import Path
 
 from ai_engineering.validator._shared import (
-    _AGENTS_AGENTS_MIRROR,
-    _AGENTS_SKILLS_MIRROR,
     _CLAUDE_AGENTS_MIRROR,
     _CLAUDE_COMMANDS_MIRROR,
     _CLAUDE_SKILLS_MIRROR,
+    _CODEX_AGENTS_MIRROR,
+    _CODEX_SKILLS_MIRROR,
     _COPILOT_AGENTS_MIRROR,
     _COPILOT_SKILLS_MIRROR,
+    _GEMINI_AGENTS_MIRROR,
+    _GEMINI_SKILLS_MIRROR,
     _GOVERNANCE_MIRROR,
     FileCache,
     IntegrityCategory,
@@ -157,9 +159,13 @@ def _check_mirror_sync(
     _check_claude_skills_mirror(target, report, _sha)
     _check_claude_agents_mirror(target, report, _sha)
 
-    # Codex/Gemini .agents skills/agents mirrors
-    _check_agents_skills_mirror(target, report, _sha)
-    _check_agents_agents_mirror(target, report, _sha)
+    # Codex skills/agents mirrors
+    _check_codex_skills_mirror(target, report, _sha)
+    _check_codex_agents_mirror(target, report, _sha)
+
+    # Gemini skills/agents mirrors
+    _check_gemini_skills_mirror(target, report, _sha)
+    _check_gemini_agents_mirror(target, report, _sha)
 
     # Copilot skills and agents mirrors
     _check_copilot_skills_mirror(target, report, _sha)
@@ -319,36 +325,70 @@ def _check_claude_agents_mirror(
     )
 
 
-def _check_agents_skills_mirror(
+def _check_codex_skills_mirror(
     target: Path,
     report: IntegrityReport,
     sha_fn: Callable[[Path], str] = _sha256,
 ) -> None:
-    """Check .agents/skills/ mirror sync with templates."""
+    """Check .codex/skills/ mirror sync with templates."""
     _check_pair_mirror(
         target,
         report,
-        *_AGENTS_SKILLS_MIRROR,
+        *_CODEX_SKILLS_MIRROR,
         "*.md",
-        "agents-skill",
-        "Agents skill",
+        "codex-skill",
+        "Codex skill",
         sha_fn=sha_fn,
     )
 
 
-def _check_agents_agents_mirror(
+def _check_codex_agents_mirror(
     target: Path,
     report: IntegrityReport,
     sha_fn: Callable[[Path], str] = _sha256,
 ) -> None:
-    """Check .agents/agents/ mirror sync with templates."""
+    """Check .codex/agents/ mirror sync with templates."""
     _check_pair_mirror(
         target,
         report,
-        *_AGENTS_AGENTS_MIRROR,
+        *_CODEX_AGENTS_MIRROR,
         "*.md",
-        "agents-agent",
-        "Agents agent",
+        "codex-agent",
+        "Codex agent",
+        sha_fn=sha_fn,
+    )
+
+
+def _check_gemini_skills_mirror(
+    target: Path,
+    report: IntegrityReport,
+    sha_fn: Callable[[Path], str] = _sha256,
+) -> None:
+    """Check .gemini/skills/ mirror sync with templates."""
+    _check_pair_mirror(
+        target,
+        report,
+        *_GEMINI_SKILLS_MIRROR,
+        "*.md",
+        "gemini-skill",
+        "Gemini skill",
+        sha_fn=sha_fn,
+    )
+
+
+def _check_gemini_agents_mirror(
+    target: Path,
+    report: IntegrityReport,
+    sha_fn: Callable[[Path], str] = _sha256,
+) -> None:
+    """Check .gemini/agents/ mirror sync with templates."""
+    _check_pair_mirror(
+        target,
+        report,
+        *_GEMINI_AGENTS_MIRROR,
+        "*.md",
+        "gemini-agent",
+        "Gemini agent",
         sha_fn=sha_fn,
     )
 

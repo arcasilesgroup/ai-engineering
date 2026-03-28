@@ -17,9 +17,10 @@ Post-creation validation. Verifies a skill or agent is correctly configured acro
   - Skills: name, description, [optional fields], argument-hint
 
 ### 3. Mirror Parity
-- Verify skill/agent exists in all 3 surfaces:
+- Verify skill/agent exists in all 4 surfaces:
   - `.github/skills/ai-<name>/SKILL.md` or `.github/agents/<name>.agent.md`
-  - `.agents/skills/<name>/SKILL.md` or `.agents/agents/ai-<name>.md`
+  - `.codex/skills/ai-<name>/SKILL.md` or `.codex/agents/ai-<name>.md`
+  - `.gemini/skills/ai-<name>/SKILL.md` or `.gemini/agents/ai-<name>.md`
   - `.github/skills/ai-<name>/SKILL.md` or `.github/agents/<name>.agent.md`
 - Verify handlers are mirrored too (if any)
 

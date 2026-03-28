@@ -14,12 +14,12 @@ providers:
   ides: [terminal]
   stacks: [python]
   ai_providers:
-    enabled: [claude_code, github_copilot, codex]
+    enabled: [claude_code, github_copilot, gemini, codex]
     primary: claude_code
 
 # AI Providers
 ai_providers:
-  enabled: [claude_code, github_copilot, codex]
+  enabled: [claude_code, github_copilot, gemini, codex]
   primary: claude_code
 
 # Artifact feeds — configure your private feed in pyproject.toml [tool.uv.index]
@@ -154,7 +154,7 @@ agents:
 
 # Ownership
 ownership:
-  framework: [".claude/skills/**", ".claude/agents/**", ".ai-engineering/**", ".github/agents/**", ".github/skills/**", ".github/hooks/**", ".github/copilot-instructions.md", ".agents/**"]
+  framework: [".claude/skills/**", ".claude/agents/**", ".ai-engineering/**", ".github/agents/**", ".github/skills/**", ".github/hooks/**", ".github/copilot-instructions.md", ".codex/**", ".gemini/**"]
   team: [".ai-engineering/contexts/team/**"]
   system: [".ai-engineering/state/**", ".ai-engineering/learnings/**"]  # learnings: PR review learnings extracted by /ai-learn
 

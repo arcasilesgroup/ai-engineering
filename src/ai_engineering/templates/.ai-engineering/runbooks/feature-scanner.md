@@ -1,46 +1,8 @@
 ---
-runbook: feature-scanner
-version: 1
-purpose: "Scan last 24h commits and PRs against spec history to detect unimplemented features, uncovered acceptance criteria, and spec-vs-code regressions"
+name: feature-scanner
+description: "Scan last 24h commits and PRs against spec history to detect unimplemented features, uncovered acceptance criteria, and spec-vs-code regressions"
 type: operational
 cadence: daily
-hosts:
-  - codex-app-automation
-  - claude-scheduled-tasks
-  - github-agents
-  - azure-foundry
-provider_scope:
-  read: [issues, pull-requests, commits, code]
-  write: [comments, work-items, labels]
-feature_policy: read-only
-hierarchy_policy:
-  create: [task]
-  mutate: [task]
-scan_targets:
-  - commits from last 24 hours
-  - merged PRs from last 24 hours
-  - spec history (.ai-engineering/specs/_history.md)
-  - archived specs (git log of specs/spec.md)
-tool_dependencies:
-  - gh
-  - az
-  - git
-thresholds:
-  lookback_hours: 24
-  min_spec_coverage: 80
-outputs:
-  work_items: true
-  comments: true
-  labels: true
-  report: detailed
-handoff:
-  marker: "feature-gap"
-  lifecycle_phase: triage
-guardrails:
-  max_mutations: 20
-  protected_labels: [p1-critical, pinned]
-  protected_states: [closed, resolved]
-  dry_run_default: true
 ---
 
 # Feature Scanner
@@ -129,7 +91,7 @@ When overlap exists, re-run evidence search from Step 5 against the current tree
 
 ### Step 8 -- Create work items
 
-For each gap or regression, create a task. Respect `guardrails.max_mutations` (default 20). Dry-run unless `--apply` is passed.
+For each gap or regression, create a task. Respect the 20-item mutation cap.
 
 ```bash
 # GitHub Issues
@@ -140,7 +102,7 @@ gh issue create \
 **Status:** gap | partial | regression
 **Missing:** implementation | tests | both
 **Affected files:** <file list>
-**Detected by:** feature-scanner runbook v1" \
+**Detected by:** feature-scanner runbook" \
   --label "feature-gap"
 
 # Azure DevOps
@@ -153,8 +115,6 @@ gh pr comment <pr_number> \
   --body "feature-scanner: regression detected for spec-080 criterion '<text>'"
 ```
 
-In dry-run mode, print payloads to stdout without creating them.
-
 ### Step 9 -- Generate summary report
 
 ```
@@ -163,7 +123,7 @@ Window:        <start> to <end>
 Commits:       12    Merged PRs: 3    Specs checked: 5
 Gaps:          2 (1 high, 1 medium)
 Regressions:   1
-Items created: 3 (dry-run: true)
+Items created: 3
 
   [gap/high]    spec-080 | "CLI --format flag" | no implementation
   [gap/medium]  spec-079 | "Hooks relocate"    | partial test coverage
@@ -186,14 +146,14 @@ Provider is read from `manifest.yml` field `work_items.provider`. Both produce i
 
 | Host | Considerations |
 |------|---------------|
-| codex-app-automation | Full CLI. Scheduled task, `--dry-run` default. Override with `--apply` after review. |
+| codex-app-automation | Full CLI. Scheduled task, mutations enabled by default. |
 | claude-scheduled-tasks | Agent context. Use tool calls for `gh`/`git`. Report as structured markdown. |
 | github-agents | Actions scheduled workflow. Store report as artifact. Use `GITHUB_TOKEN`. |
 | azure-foundry | Pipeline task. Service connection for `az` auth. Emit to pipeline summary. |
 
 ## Safety
 
-1. **Read-only by default.** `dry_run_default: true` means no work items are created unless `--apply` is passed.
+1. **Mutations enabled by default.** Work items are created automatically for all gaps and regressions.
 2. **Never modifies code.** Inspects the repo and creates task items only. No commits, pushes, or merges.
 3. **Explicit criteria only.** Gaps are reported only for acceptance criteria stated verbatim in the spec. No inferred or speculated requirements.
 4. **Bounded mutations.** Maximum 20 items per run. Overflow is noted in the report.

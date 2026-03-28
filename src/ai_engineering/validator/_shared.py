@@ -140,7 +140,7 @@ def _instruction_files(target: Path) -> list[str]:
 
 # Mirror pairs: (canonical_root, mirror_root, glob_patterns, exclusion_prefixes)
 # Note: skills/, agents/, and evals/ are no longer in templates — skills/agents
-# live in IDE-specific directories (.claude/, .agents/), evals/ is runtime state.
+# live in IDE-specific directories (.claude/, .codex/, .gemini/), evals/ is runtime state.
 # The governance mirror only validates standards, runbooks, and the manifest.
 _GOVERNANCE_MIRROR = (
     ".ai-engineering",
@@ -169,14 +169,24 @@ _CLAUDE_AGENTS_MIRROR = (
     "src/ai_engineering/templates/project/.claude/agents",
 )
 
-_AGENTS_SKILLS_MIRROR = (
-    ".agents/skills",
-    "src/ai_engineering/templates/project/.agents/skills",
+_CODEX_SKILLS_MIRROR = (
+    ".codex/skills",
+    "src/ai_engineering/templates/project/.codex/skills",
 )
 
-_AGENTS_AGENTS_MIRROR = (
-    ".agents/agents",
-    "src/ai_engineering/templates/project/.agents/agents",
+_CODEX_AGENTS_MIRROR = (
+    ".codex/agents",
+    "src/ai_engineering/templates/project/.codex/agents",
+)
+
+_GEMINI_SKILLS_MIRROR: tuple[str, str] = (
+    ".gemini/skills",
+    "src/ai_engineering/templates/project/.gemini/skills",
+)
+
+_GEMINI_AGENTS_MIRROR: tuple[str, str] = (
+    ".gemini/agents",
+    "src/ai_engineering/templates/project/.gemini/agents",
 )
 
 _COPILOT_SKILLS_MIRROR = (
@@ -191,11 +201,11 @@ _COPILOT_AGENTS_MIRROR = (
 
 # Skill/agent listing patterns in instruction files (IDE-specific paths)
 _SKILL_PATH_PATTERN = re.compile(
-    r"^- `(?:\.claude|\.agents)/skills/([^`/]+)/SKILL\.md`",
+    r"^- `(?:\.claude|\.codex|\.gemini)/skills/([^`/]+)/SKILL\.md`",
     re.MULTILINE,
 )
 _AGENT_PATH_PATTERN = re.compile(
-    r"^- `(?:\.claude|\.agents)/agents/([^`/]+)\.md`",
+    r"^- `(?:\.claude|\.codex|\.gemini)/agents/([^`/]+)\.md`",
     re.MULTILINE,
 )
 _SKILL_NAME_PATTERN = re.compile(r"^[a-z0-9][a-z0-9-]*$")

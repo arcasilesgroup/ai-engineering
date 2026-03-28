@@ -33,9 +33,9 @@ case "$SCRIPT_PATH" in
     SKILL_DIR=".github/skills/ai-${SKILL_NAME}"
     SKILL_FRONTMATTER_NAME="ai-${SKILL_NAME}"
     ;;
-  */.agents/*)
-    SKILL_DIR=".agents/skills/${SKILL_NAME}"
-    SKILL_FRONTMATTER_NAME="${SKILL_NAME}"
+  */.codex/*)
+    SKILL_DIR=".codex/skills/ai-${SKILL_NAME}"
+    SKILL_FRONTMATTER_NAME="ai-${SKILL_NAME}"
     ;;
   *)
     echo "Error: could not determine target surface from script path: ${SCRIPT_PATH}" >&2

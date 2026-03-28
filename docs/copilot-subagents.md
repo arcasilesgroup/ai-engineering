@@ -108,7 +108,8 @@ When Coding Agent processes a GitHub issue, it discovers agents from `.github/ag
     │  + AGENT_METADATA (copilot_agents, copilot_handoffs, copilot_hooks)
     │
     ├──▶ .github/agents/*.agent.md   (with agents, handoffs, hooks)
-    ├──▶ .agents/agents/ai-*.md      (without Copilot-specific props)
+    ├──▶ .codex/agents/ai-*.md       (Codex surface, without Copilot-specific props)
+    ├──▶ .gemini/agents/ai-*.md      (Gemini surface, without Copilot-specific props)
     └──▶ templates/                   (install templates)
 ```
 

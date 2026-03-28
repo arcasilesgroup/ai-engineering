@@ -74,10 +74,12 @@ your-project/
 │   ├── state/         # decisions, events, ownership, capability catalog
 │   └── ...            # reviews/, instincts/, notes/, learnings/, schemas/ as used
 ├── .claude/
-├── .agents/
+├── .codex/
+├── .gemini/
 ├── .github/
 ├── AGENTS.md
-└── CLAUDE.md
+├── CLAUDE.md
+└── GEMINI.md
 ```
 
 Three ownership boundaries keep updates safe:
@@ -196,9 +198,10 @@ ai-engineering keeps the same workflow model across all supported coding assista
 | Surface | What it contains |
 |---------|------------------|
 | `.claude/skills/` + `.claude/agents/` | Claude Code slash commands and agents |
-| `.agents/skills/` + `.agents/agents/` | Codex and Gemini generic skill/agent surfaces |
+| `.codex/skills/` + `.codex/agents/` | Codex CLI skill/agent surface |
+| `.gemini/skills/` + `.gemini/agents/` | Gemini CLI skill/agent surface |
 | `.github/skills/` + `.github/agents/` | GitHub Copilot skills and custom agents |
-| `AGENTS.md` + `CLAUDE.md` | shared instruction files for tools that read repo guidance directly |
+| `AGENTS.md` + `CLAUDE.md` + `GEMINI.md` | instruction files per IDE |
 
 When framework content changes, run:
 

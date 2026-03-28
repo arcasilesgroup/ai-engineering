@@ -20,10 +20,10 @@ _SINGLE_PROVIDER_CASES = [
         "azure_devops",
         ["AGENTS.md", ".github/copilot-instructions.md"],
     ),
-    (["gemini"], "github", ["AGENTS.md", ".agents"]),
-    (["gemini"], "azure_devops", ["AGENTS.md", ".agents"]),
-    (["codex"], "github", ["AGENTS.md", ".agents"]),
-    (["codex"], "azure_devops", ["AGENTS.md", ".agents"]),
+    (["gemini"], "github", ["GEMINI.md", ".gemini"]),
+    (["gemini"], "azure_devops", ["GEMINI.md", ".gemini"]),
+    (["codex"], "github", ["AGENTS.md", ".codex"]),
+    (["codex"], "azure_devops", ["AGENTS.md", ".codex"]),
 ]
 
 _MULTI_PROVIDER_CASES = [
@@ -35,7 +35,7 @@ _MULTI_PROVIDER_CASES = [
     (
         ["claude_code", "gemini"],
         "github",
-        ["CLAUDE.md", "AGENTS.md", ".claude", ".agents"],
+        ["CLAUDE.md", "GEMINI.md", ".claude", ".gemini"],
     ),
 ]
 

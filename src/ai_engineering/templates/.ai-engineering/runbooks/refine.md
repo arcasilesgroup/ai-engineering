@@ -1,40 +1,8 @@
 ---
-runbook: refine
-version: 1
-purpose: "Take triaged issues, gather codebase and provider context, draft acceptance criteria, propose spec outline in comments, mark handoff:ai-eng when ready"
+name: refine
+description: "Take triaged issues, gather codebase and provider context, draft acceptance criteria, propose spec outline in comments, mark handoff:ai-eng when ready"
 type: intake
 cadence: daily
-hosts:
-  - codex-app-automation
-  - claude-scheduled-tasks
-  - github-agents
-  - azure-foundry
-provider_scope:
-  read: [issues, labels, milestones, pull-requests, commits, code]
-  write: [comments, labels, state]
-feature_policy: read-only
-hierarchy_policy:
-  create: [task]
-  mutate: [task]
-scan_targets:
-  - issues labeled needs-refinement
-tool_dependencies:
-  - gh
-  - az
-  - git
-outputs:
-  work_items: true
-  comments: true
-  labels: true
-  report: detailed
-handoff:
-  marker: "handoff:ai-eng"
-  lifecycle_phase: ready
-guardrails:
-  max_mutations: 30
-  protected_labels: [p1-critical, pinned, security]
-  protected_states: [closed, resolved]
-  dry_run_default: true
 ---
 
 
@@ -189,12 +157,12 @@ gh issue edit <NUMBER> --add-label "needs-clarification" --remove-label "needs-r
 ```
 === Refine Report ===
 Run:          <timestamp>
-Mode:         <dry-run | apply>
+Mode:         apply
 Candidates:   <N> issues scanned
 Refined:      <N> marked handoff:ai-eng
 Escalated:    <N> marked needs-clarification
 Skipped:      <N> (protected, over mutation cap, or already refined)
-Mutations:    <used>/<max_mutations>
+Mutations:    <used>/30
 
 --- Refined ---
 #<N>  <title>  ->  handoff:ai-eng  (ACs: <count>)
@@ -219,7 +187,7 @@ Mutations:    <used>/<max_mutations>
 
 ## Host Notes
 
-- **codex-app-automation**: Schedule daily. Pass `--apply` to enable mutations. Requires full repo clone for `git grep`.
+- **codex-app-automation**: Schedule daily. Mutations enabled by default. Requires full repo clone for `git grep`.
 - **claude-scheduled-tasks**: Feed this file as system prompt. Authenticate `gh` via `GITHUB_TOKEN`. Clone depth must cover 30 days for Step 2b.
 - **github-agents**: Runs in-repo. `gh` auth is automatic via GitHub App token. Requires `issues: write` permission scope.
 - **azure-foundry**: Configure PAT with `Work Items (Read & Write)` scope. Run `az devops configure --defaults organization=<org> project=<project>`.
@@ -232,5 +200,5 @@ Mutations:    <used>/<max_mutations>
 - Never closes or resolves issues. Only adds labels and comments.
 - Never removes protected labels (`p1-critical`, `pinned`, `security`).
 - Never mutates issues in `closed` or `resolved` state.
-- Enforces `max_mutations: 30` per run. Remaining candidates are skipped and reported.
-- Defaults to dry-run mode. Mutations require explicit `--apply` from the host configuration.
+- Enforces a maximum of 30 mutations per run. Remaining candidates are skipped and reported.
+- Mutations are enabled by default. All qualifying issues are labeled and commented.

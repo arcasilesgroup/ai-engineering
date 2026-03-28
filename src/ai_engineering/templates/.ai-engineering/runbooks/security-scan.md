@@ -1,47 +1,8 @@
 ---
-runbook: security-scan
-version: 1
-purpose: "Scan for secrets, OWASP/SAST code patterns, and compliance gaps; does NOT scan dependency CVEs (owned by dependency-health)"
+name: security-scan
+description: "Scan for secrets, OWASP/SAST code patterns, and compliance gaps; does NOT scan dependency CVEs (owned by dependency-health)"
 type: operational
 cadence: weekly
-hosts:
-  - codex-app-automation
-  - claude-scheduled-tasks
-  - github-agents
-  - azure-foundry
-provider_scope:
-  read: [issues, labels, code, pull-requests]
-  write: [comments, work-items, labels]
-feature_policy: read-only
-hierarchy_policy:
-  create: [task]
-  mutate: [task]
-scan_targets:
-  - src/
-  - config files (.env*, *.yml, *.json)
-  - CI/CD workflows (.github/workflows/)
-  - scripts/
-tool_dependencies:
-  - gh
-  - az
-  - gitleaks
-  - semgrep
-thresholds:
-  severity: medium
-  max_findings_per_run: 20
-outputs:
-  work_items: true
-  comments: true
-  labels: true
-  report: detailed
-handoff:
-  marker: "security-finding"
-  lifecycle_phase: triage
-guardrails:
-  max_mutations: 20
-  protected_labels: [p1-critical, pinned]
-  protected_states: [closed, resolved]
-  dry_run_default: true
 ---
 
 # Security Scan Runbook
@@ -229,6 +190,6 @@ This runbook enforces strict guardrails to prevent unintended side effects:
 - **Never** exceeds 20 work-item mutations per run -- the `max_mutations` guardrail halts execution and reports remaining findings in the summary without creating work items.
 - **Never** modifies items labeled `p1-critical` or `pinned` -- these are protected labels.
 - **Never** modifies items in `closed` or `resolved` state -- these are protected states.
-- **Never** creates or mutates feature-level work items -- `feature_policy: read-only` and `hierarchy_policy` restrict mutations to tasks only.
+- **Never** creates or mutates feature-level work items. This runbook only opens task-level follow-up items.
 - **Never** escalates findings below `medium` severity to work items -- low and info findings are logged in the report for awareness but do not generate issues or tasks.
-- **Dry-run is the default.** All write operations are echoed to stdout unless the caller explicitly passes `--arm` or sets `DRY_RUN=false`. In dry-run mode, the runbook produces the full report and logs every command it would execute, but writes nothing.
+- **Mutations enabled by default.** All qualifying findings are created as work items automatically.
