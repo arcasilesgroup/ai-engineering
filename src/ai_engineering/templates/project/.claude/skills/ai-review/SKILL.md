@@ -1,106 +1,87 @@
 ---
 name: ai-review
-description: "Use when code changes need human-quality judgment: PR reviews, file reviews, diff analysis, architecture feedback. Trigger for 'review this', 'give me feedback', 'look over my PR', 'any issues with this', 'is this merge-ready', 'code review please'. Also 'find review comments' (find mode) or 'what have past reviews taught us' (learn mode). For automated gate checking (coverage, lint, security), use /ai-verify instead."
+description: "Use when code changes need human-quality judgment: PR reviews, file reviews, diff analysis, and architecture feedback. Trigger for 'review this', 'give me feedback', 'look over my PR', 'any issues with this', or 'is this merge-ready'. Default mode runs the full specialist roster through 3 macro-agents; use `--full` to run one agent per specialist. For evidence-backed gates, use /ai-verify instead."
 effort: max
-argument-hint: "review|find|learn [PR number or file paths]"
+argument-hint: "[--full] [PR number or file paths]"
 ---
-
 
 # Review
 
 ## Purpose
 
-Parallel specialized code review. Dispatches 8 review agents, each analyzing the same code from a different angle. Every agent argues AGAINST its own findings (self-challenge). Cross-agent corroboration filters noise from signal.
+High-signal code review with full specialist coverage and aggressive false-positive control.
+`review` is review-only. It no longer owns `find` or `learn`.
 
 ## When to Use
 
 - Before merging a PR
-- After completing a feature (pre-commit review)
+- After completing a feature
 - When reviewing someone else's code
-- Periodic architecture review
+- When you need architecture-aware feedback instead of deterministic gates
 
-## Process
-
-### Step 0: Load Contexts
+## Step 0: Load Contexts
 
 Follow `.ai-engineering/contexts/step-zero-protocol.md`. Apply loaded standards to all subsequent work.
 
-**Handler delegation**: when proceeding to a handler (review, find, learn), the handler's Step 1 loads contexts -- do not duplicate. Use Step 0 only for direct invocations without a handler.
+## Profiles
 
-### Steps
+### Default: `normal`
 
-1. **Explore first** -- dispatch the Explore agent (`ai-explore`) on the changed files to build architectural context
-2. **Dispatch reviewers** -- follow `handlers/review.md` (8 parallel specialized agents)
-3. **Aggregate findings** -- correlate, deduplicate, confidence-score
-4. **Self-challenge** -- each finding is argued against by its own agent
-5. **Filter** -- drop solo findings below 40% confidence
-6. **Report** -- produce review summary with actionable findings
+Runs the full specialist roster through 3 fixed macro-agents:
 
-See `handlers/review.md` for the full review workflow, `handlers/find.md` for finding existing reviews, and `handlers/learn.md` for the continuous improvement loop.
+1. `correctness` + `testing` + `compatibility`
+2. `security` + `backend` + `performance`
+3. `architecture` + `maintainability` + `frontend`
 
-## Quick Reference
+All specialist lenses still run. The grouping controls cost only. Final output stays attributed by original specialist lens.
 
-| Mode | What it does |
-|------|-------------|
-| `review` | Full parallel review (default) |
-| `find` | Find and summarize existing review comments on a PR |
-| `learn` | Extract lessons from past reviews for future improvement |
+### Explicit: `--full`
 
-## The 8 Review Agents
+Runs one agent per specialist with the same output contract and the same adversarial validation stage.
 
-| Agent | Focus | Looks for |
-|-------|-------|-----------|
-| Security | OWASP, injection, auth | SQL injection, XSS, auth bypass, secret exposure |
-| Performance | Speed, memory, I/O | N+1 queries, O(n^2), memory leaks, blocking I/O |
-| Correctness | Logic, edge cases | Off-by-one, null handling, race conditions, missing cases |
-| Maintainability | Readability, complexity | God functions, deep nesting, unclear naming, magic numbers |
-| Testing | Coverage, quality | Missing tests, weak assertions, testing implementation |
-| Compatibility | Breaking changes, API | Public API changes, backward compat, deprecation |
-| Architecture | Boundaries, patterns | Layer violations, circular deps, pattern inconsistency |
-| Frontend | UX, a11y, rendering | Missing aria labels, layout shifts, unhandled states |
+## Specialist Roster
 
-## Confidence Scoring
+| Specialist | Focus |
+|------------|-------|
+| `security` | vulnerabilities, auth, data exposure, dependency risk |
+| `backend` | API boundaries, service logic, persistence, jobs, operational paths |
+| `performance` | query shape, complexity, hot paths, memory and bundle pressure |
+| `correctness` | logic bugs, null handling, races, edge cases |
+| `testing` | missing tests, weak assertions, coverage of changed behavior |
+| `compatibility` | public API breakage, migration risk, version expectations |
+| `architecture` | boundaries, layering, coupling, drift from established patterns |
+| `maintainability` | complexity, readability, naming, duplication, hidden coupling |
+| `frontend` | UX states, accessibility, rendering, responsiveness |
 
-Each finding gets a confidence score (20-100%):
+## Internal Assets
 
-| Score | Meaning | Action |
-|-------|---------|--------|
-| 80-100% | High confidence, clear evidence | Must address |
-| 60-79% | Moderate confidence | Should address |
-| 40-59% | Low confidence, single agent | Consider |
-| 20-39% | Solo finding, uncertain | Dropped unless critical severity |
+- `handlers/review.md` is the single orchestration handler
+- `context-explorer.md` gathers pre-review context before specialists run
+- `finding-validator.md` adversarially challenges every emitted finding
+- `reviewer-*.md` resources define the specialist review lenses
+- `handlers/lang-*.md` remain the language-specific supplements for diff-aware review
 
-**Corroboration bonus**: when 2+ agents flag the same issue, confidence increases by 20%.
-**Solo penalty**: single-agent findings below 40% are dropped from the report.
+## Output Contract
 
-## Self-Challenge Protocol
+Every report should:
 
-For each finding, the reviewing agent must:
-
-1. **State the finding** (what is wrong)
-2. **Argue against it** (why this might be acceptable)
-3. **Resolve** (finding stands, confidence adjusted, or finding withdrawn)
-
-Example:
-```
-Finding: Function handles 5 different concerns (god function)
-Counter: This is a CLI command handler -- some breadth is expected in the entry point
-Resolution: Finding stands but severity reduced to minor. The handler delegates
-  to helpers for the complex logic. Confidence: 55%
-```
+- group findings by severity first and specialist lens second
+- keep attribution by original specialist even in `normal`
+- include `not_applicable` or `low signal` outcomes when a specialist had little to contribute
+- show which findings survived adversarial validation
 
 ## Common Mistakes
 
-- Reviewing without architectural context (always explore first)
-- Treating all findings equally (use confidence scoring)
-- Not self-challenging (every finding must be argued against)
-- Reviewing only the diff without understanding the surrounding code
-- Flagging style preferences as bugs
+- Treating the 3 macro-agents in `normal` as reduced coverage. They are not.
+- Reporting by macro-agent instead of original specialist lens.
+- Skipping context exploration before review.
+- Treating style preferences as blocking findings.
+- Leaving findings unchallenged by the validator stage.
 
 ## Integration
 
-- **Called by**: user directly, `/ai-pr` (pre-merge review), `/ai-dispatch` (two-stage review during execution)
-- **Calls**: Explore agent (`ai-explore`) for context, `handlers/review.md`, `handlers/find.md`, `handlers/learn.md`
-- **Read-only**: never modifies code -- produces review findings
+- **Called by**: user directly, `/ai-pr`, `/ai-dispatch`
+- **Calls**: `handlers/review.md`, `context-explorer.md`, `finding-validator.md`, `reviewer-*.md`, `handlers/lang-*.md`
+- **Read-only**: never modifies source code
 
 $ARGUMENTS

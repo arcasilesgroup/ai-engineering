@@ -1,175 +1,184 @@
-# ai-engineering v0.4.0
+# `.ai-engineering/`
 
-This directory governs your AI workspace.
+This directory is the local governance root for an ai-engineering workspace. It is the project-facing part of the framework: specs, contexts, runbooks, hooks, state, and long-lived AI memory all live here.
 
-## Quick Start
+If you only remember one rule, remember this:
 
-```
-/ai-brainstorm   -- design interrogation, spec approval
-/ai-plan         -- task decomposition, agent assignments
-/ai-dispatch     -- execute with subagents
-/ai-commit       -- governed commit (lint + secrets + push)
-```
+- framework content is updated through `ai-eng update`
+- provider mirrors are regenerated through `ai-eng sync`
+- team and project memory stay in `.ai-engineering/`
 
-## Skills (41)
+## Installed shape
 
-Invoke as `/ai-<name>`. Grouped by workflow stage.
+Some directories are seeded at install time. Others appear only when a workflow or skill needs them.
 
-| | Skill | Purpose |
-|-|-------|---------|
-| **Design** | /ai-brainstorm | Design interrogation before implementation |
-| | /ai-plan | Task decomposition and agent assignments |
-| | /ai-project-identity | Define project essence and boundaries |
-| **Build** | /ai-dispatch | Execute plan with subagents |
-| | /ai-test | TDD enforcement (RED-GREEN-REFACTOR) |
-| | /ai-debug | Systematic 4-phase debugging |
-| | /ai-schema | Database schema design and migrations |
-| **Deliver** | /ai-commit | Governed commit (lint + secrets + push) |
-| | /ai-pr | Pull request with auto-generated summary |
-| | /ai-release-gate | GO/NO-GO release gate |
-| | /ai-cleanup | Branch cleanup and repo hygiene |
-| **Verify** | /ai-verify | Evidence-based quality scanning |
-| | /ai-review | Parallel multi-agent code review |
-| | /ai-security | SAST, dependency audit, SBOM |
-| | /ai-governance | Compliance and policy validation |
-| **Document** | /ai-write | Reports, blog posts, pitches, solution intent |
-| | /ai-market | Marketing and go-to-market execution |
-| | /ai-explain | Technical explanations |
-| | /ai-guide | Project onboarding walkthroughs |
-| | /ai-docs | Project documentation lifecycle (changelog, readme, solution-intent, external portal) |
-| | /ai-slides | Presentation generation (HTML/CSS) |
-| | /ai-media | Media asset generation |
-| | /ai-video-editing | Video editing and post-production |
-| **Sprint** | /ai-note | Technical discovery notes |
-| | /ai-standup | Standup notes from PR activity |
-| | /ai-sprint | Sprint planning and retrospectives |
-| | /ai-postmortem | Incident postmortems (DERP format) |
-| | /ai-support | Customer support investigation |
-| | /ai-resolve-conflicts | Git conflict resolution |
-| **Meta** | /ai-create | Create new skills and agents (TDD) |
-| | /ai-learn | Continuous improvement from outcomes |
-| | /ai-prompt | Prompt optimization and tuning |
-| | /ai-onboard | Session bootstrap, bounded context refresh, and enforcement |
-| | /ai-analyze-permissions | Permission pattern consolidation |
-| | /ai-instinct | Project-local instinct review and consolidation |
-| | /ai-autopilot | Multi-spec autonomous orchestration |
-| | /ai-eval | Skill and agent evaluation |
-| | /ai-pipeline | CI/CD pipeline generation |
-| **Board** | /ai-board-discover | Auto-discover board configuration |
-| | /ai-board-sync | Work item lifecycle state updates |
-
-## Agents (9)
-
-| Agent | Role | Activated by |
-|-------|------|-------------|
-| plan | Design interrogation | /ai-brainstorm, /ai-plan |
-| build | Implementation | /ai-dispatch |
-| verify | Quality scanning | /ai-verify |
-| guard | Governance advisory | /ai-governance |
-| review | Parallel code review | /ai-review |
-| explore | Codebase research | subagent dispatch |
-| guide | Teaching and onboarding | /ai-guide |
-| simplify | Code simplification | direct dispatch |
-| autopilot | Multi-spec orchestration | /ai-autopilot |
-
-## Your project, your control
-
-**YOURS** -- team-managed, never overwritten by updates:
-- `contexts/team/` -- team conventions, lessons learned
-- `contexts/project-identity.md` -- project essence and boundaries
-- `manifest.yml` user configuration section (above the line)
-
-**FRAMEWORK** -- managed by ai-engineering, updated automatically:
-- `.claude/skills/` and `.claude/agents/`
-- `.github/skills/`, `.github/agents/`, `.github/hooks/`
-- `.agents/skills/` and `.agents/agents/`
-- `manifest.yml` framework section (below the line)
-
-**AUTOMATIC** -- system-generated, do not edit:
-- `state/decision-store.json` -- settled architectural decisions
-- `state/framework-events.ndjson` -- canonical framework events
-- `state/framework-capabilities.json` -- registered skills, agents, contexts, hooks
-- `state/instinct-observations.ndjson` -- sanitized recent tool observations retained for 30 days
-- `instincts/instincts.yml` -- canonical project-local instinct store
-- `instincts/context.md` -- bounded instinct context loaded at session start
-- `instincts/meta.json` -- instinct consolidation checkpoints and refresh metadata
-- `state/ownership-map.json` -- materialized ownership rules
-
-## Configuration
-
-Edit `manifest.yml` to customize your installation.
-
-| Field | Description | Example |
-|-------|-------------|---------|
-| `providers.vcs` | Version control provider | `github`, `azure_devops` |
-| `providers.stacks` | Language list for context loading | `[python, typescript]` |
-| `ai_providers.enabled` | Active IDE integrations | `[claude_code, github_copilot, codex]` |
-| `work_items.provider` | Issue tracker | `github`, `azure_devops` |
-| `quality.coverage` | Minimum test coverage % | `80` |
-| `quality.duplication` | Maximum code duplication % | `3` |
-| `quality.cyclomatic` | Max cyclomatic complexity | `10` |
-| `quality.cognitive` | Max cognitive complexity | `15` |
-| `documentation.auto_update.*` | Auto-update readme, changelog, solution_intent | `true` / `false` |
-| `cicd.standards_url` | Team CI/CD documentation URL | `https://...` |
-
-## Contexts
-
-Contexts are loaded by AI agents before writing or reviewing code. Language and framework contexts match your stack. Team contexts capture your conventions.
-
-```
-contexts/
-  languages/       14 languages
-  frameworks/      15 frameworks
-  team/            your team conventions
-  project-identity.md
+```text
+.ai-engineering/
+├── contexts/
+├── runbooks/
+├── scripts/
+├── specs/
+├── state/
+├── instincts/      # created and refreshed by instinct/onboard flows
+├── reviews/        # review artifacts when review workflows persist output
+├── schemas/        # schema artifacts and generated database work
+├── notes/          # lazy, created by /ai-note
+├── learnings/      # lazy, created by /ai-learn
+└── ...
 ```
 
-- **Languages** (14): bash, cpp, csharp, dart, go, java, javascript, kotlin, php, python, rust, sql, swift, typescript
-- **Frameworks** (15): android, api-design, aspnetcore, backend-patterns, bun, claude-api, deployment-patterns, django, flutter, ios, mcp-sdk, nextjs, nodejs, react, react-native
-- **Team** (2 seed files): README.md, lessons.md
-- **Project identity**: what the project is, services, boundaries
+## Directory guide
 
-## Common workflows
+| Path | Lifecycle | Purpose |
+|------|-----------|---------|
+| `contexts/` | seeded | Shared framework contexts, language/framework guidance, and team-local conventions |
+| `runbooks/` | seeded | Self-contained Markdown automation contracts |
+| `scripts/` | seeded | Hook and helper scripts installed by the framework |
+| `specs/` | seeded | Active `spec.md`, `plan.md`, and child-spec workspaces such as `specs/autopilot/` |
+| `state/` | seeded | Decisions, ownership, framework events, capability catalog, install metadata |
+| `instincts/` | generated | Project-local instinct store and bounded context regenerated over time |
+| `reviews/` | generated | Saved review reports or review-side artifacts |
+| `schemas/` | generated | Schema planning or generated migration artifacts |
+| `notes/` | lazy | Notes written by `/ai-note`; not created until needed |
+| `learnings/` | lazy | Learning records written by `/ai-learn`; not created until needed |
 
-**New feature:**
-`/ai-brainstorm` -> `/ai-plan` -> `/ai-dispatch` -> `/ai-verify` -> `/ai-commit` -> `/ai-pr`
+## Ownership model
 
-**Bug fix:**
-`/ai-debug` -> `/ai-dispatch` -> `/ai-commit`
+### Framework-managed
 
-**Security audit:**
-`/ai-security` -> `/ai-governance`
+These paths are refreshed by `ai-eng update` and mirrored by `ai-eng sync`:
 
-**Sprint review:**
-`/ai-sprint review`
+- `contexts/languages/**`
+- `contexts/frameworks/**`
+- shared root contexts such as `contexts/cli-ux.md` and `contexts/mcp-integrations.md`
+- `runbooks/**`
+- `scripts/**`
+- framework parts of `state/**`
 
-## Multi-IDE
+### Team-managed
 
-| IDE | Skills | Agents |
-|-----|--------|--------|
-| Claude Code | `.claude/skills/ai-*/SKILL.md` | `.claude/agents/ai-*.md` |
-| GitHub Copilot | `.github/skills/ai-*/SKILL.md` | `.github/agents/*.agent.md` |
-| Codex / Gemini | `.agents/skills/*/SKILL.md` | `.agents/agents/ai-*.md` |
+These paths belong to the project or team and are not overwritten by framework updates:
 
-For unsupported IDEs (Cursor, Windsurf, Aider): copy `AGENTS.md` into your IDE's instruction file.
+- `contexts/team/**`
+- `contexts/project-identity.md`
+- active product work inside `specs/**`
 
-## CLI quick reference
+### System-generated
 
+These paths are written by the framework itself:
+
+- `state/decision-store.json`
+- `state/framework-events.ndjson`
+- `state/framework-capabilities.json`
+- `state/ownership-map.json`
+- `instincts/**`
+- generated review or schema artifacts
+
+## Context layout
+
+`contexts/` now has two different kinds of guidance:
+
+1. Shared framework contexts at the root.
+   - `cli-ux.md`
+   - `mcp-integrations.md`
+   - `project-identity.md` when the project defines one
+2. Structured context families.
+   - `languages/`
+   - `frameworks/`
+   - `team/`
+
+`contexts/team/` is now intentionally narrow. It is for local conventions, lessons, and project-specific norms. Reusable framework guidance that should benefit all consumers belongs at the root of `contexts/`, not under `contexts/team/`.
+
+## Runbooks
+
+`runbooks/*.md` are the canonical automation contracts.
+
+Each runbook now carries its own:
+
+- purpose
+- provider scope
+- hierarchy rules
+- handoff policy
+- expected outputs
+- host adapter mapping
+
+For provider-backed automations, the runbook is the source of truth and the host file stays thin. Example:
+
+- canonical contract: `runbooks/weekly-health.md`
+- GitHub adapter: `../.github/workflows/ai-eng-weekly-health.md`
+
+Runbooks operate on GitHub Issues or Azure Boards cards. They prepare, triage, and enrich work items. They do not implement code and they do not write local `spec.md` or `plan.md`.
+
+## Specs and autopilot
+
+`specs/` always contains the active local working set:
+
+- `spec.md`
+- `plan.md`
+
+When `/ai-autopilot` decomposes a large initiative, it also creates:
+
+- `specs/autopilot/manifest.md`
+- `specs/autopilot/sub-*/spec.md`
+- `specs/autopilot/sub-*/plan.md`
+
+That sub-tree is still project memory. It is not regenerated by `ai-eng sync`.
+
+## Reviews, notes, learnings, instincts
+
+These folders do not all exist from day one.
+
+- `reviews/` appears when review workflows persist review artifacts
+- `notes/` appears on first `/ai-note`
+- `learnings/` appears on first `/ai-learn`
+- `instincts/` is maintained by instinct consolidation and onboarding flows
+
+That is expected. A project that only uses a subset of skills should not be forced to carry every possible directory up front.
+
+## Review and verify surfaces
+
+The durable contracts for `review` and `verify` live outside this folder in the provider mirrors, but they operate against the state stored here.
+
+- `/ai-review`
+  - default `normal` profile covers every specialist through 3 macro-agents
+  - `--full` runs one agent per specialist
+  - findings are still reported by original specialist
+  - `finding-validator` is part of the review flow
+- `/ai-verify`
+  - default `normal` profile covers every specialist through 2 macro-agents
+  - `--full` runs one agent per specialist
+  - output stays attributed by specialist
+  - no separate validator stage
+
+## Mirrors outside this folder
+
+The framework also writes provider surfaces next to `.ai-engineering/`:
+
+| Path | Purpose |
+|------|---------|
+| `../.claude/skills/` and `../.claude/agents/` | Claude Code skills and agents |
+| `../.agents/skills/` and `../.agents/agents/` | Codex/Gemini skills and agents |
+| `../.github/skills/` and `../.github/agents/` | GitHub Copilot skills and agents |
+| `../AGENTS.md` and `../CLAUDE.md` | Shared instruction files |
+
+Use `ai-eng sync` after framework changes to regenerate those mirrors.
+
+## Day-to-day commands
+
+```text
+/ai-brainstorm   define or refine the spec
+/ai-plan         break the approved spec into execution work
+/ai-dispatch     execute a single approved plan
+/ai-autopilot    execute a multi-spec DAG
+/ai-review       run narrative multi-agent review
+/ai-verify       prove quality/security/completeness with evidence
 ```
-ai-eng install     -- install framework into current project
-ai-eng update      -- update framework-managed files
-ai-eng doctor      -- diagnose and fix framework health
-ai-eng validate    -- verify content integrity
-ai-eng sync        -- regenerate IDE mirrors
-ai-eng gate        -- run quality gate checks
+
+Framework maintenance stays in the CLI:
+
+```bash
+ai-eng doctor
+ai-eng update
+ai-eng sync
+ai-eng validate
 ```
-
-## Troubleshooting
-
-| Problem | Solution |
-|---------|----------|
-| Doctor reports missing files | `ai-eng doctor --fix` |
-| Skill counts don't match | `ai-eng validate` then fix the source |
-| IDE mirrors out of sync | `ai-eng sync` |
-| Pre-commit hook blocks commit | Check `gitleaks protect --staged --verbose` output |
-| Contexts not loaded by agent | Verify stack in `manifest.yml` matches your project |

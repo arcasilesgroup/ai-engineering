@@ -1,29 +1,55 @@
+---
+runbook: perf-audit
+purpose: provider-side performance and complexity reporting
+host_adapters:
+  github_workflow: ai-eng-perf-audit
+provider_scope:
+  github: issues
+  azure_devops: work_items
+feature_policy: read-only
+hierarchy_policy: may create user stories under features and tasks under user stories
+outputs:
+  local_files: generated_artifacts_only
+  provider_updates: comments, writable fields, optional follow-up work items
+handoff:
+  lifecycle: ready
+  local_execution: manual only
+---
+
 # Runbook: Performance Audit
 
 ## Purpose
 
-Weekly code quality scan: duplication analysis, cyclomatic complexity check, and artifact generation for trend tracking.
+Collect performance-adjacent evidence such as duplication and complexity
+signals, store the machine artifacts, and surface the result in the external
+provider without directly implementing changes.
 
-## Schedule
+## Host Adapter
 
-Weekly (Sunday 3AM UTC) via `ai-eng-perf-audit` agentic workflow.
+- GitHub workflow adapter: `.github/workflows/ai-eng-perf-audit.md`
+
+## Provider Actions
+
+- comment or create provider-native follow-up work when thresholds are exceeded
+- enrich writable provider fields if available
+- never mutate feature-level records
+
+## Guardrails
+
+- analysis and reporting only
+- generated artifacts are allowed; source-code changes are not
+- any new provider-native work must respect hierarchy policy
 
 ## Procedure
 
-1. **Duplication analysis**: Run `python -m ai_engineering.policy.duplication --path src/ai_engineering --threshold 3` to find duplicated code blocks exceeding 3%.
-2. **Complexity check**: Run `ruff check src/ --select C901 --output-format json` to find functions with cyclomatic complexity > 10.
-3. **Generate reports**: Save complexity findings to `complexity-report.json`.
-4. **Upload artifacts**: Store reports as workflow artifacts with 30-day retention.
-5. **Trend comparison**: Compare current findings against previous run (if available).
-
-## Metrics Tracked
-
-| Metric | Threshold | Tool |
-|--------|-----------|------|
-| Code duplication | <=3% | `ai_engineering.policy.duplication` |
-| Cyclomatic complexity | <=10 per function | `ruff --select C901` |
-| Cognitive complexity | <=15 per function | `ruff --select C901` |
+1. Run duplication analysis.
+2. Run complexity analysis.
+3. Persist machine-readable reports as artifacts.
+4. Compare current findings with previous runs when data exists.
+5. If thresholds are exceeded, create or update provider-native follow-up work within the allowed hierarchy.
+6. Emit a concise summary with top offenders and next recommended actions.
 
 ## Output
 
-Workflow artifacts (JSON reports) for trend analysis. No issue created unless thresholds are exceeded.
+- artifact reports for trend analysis
+- provider-native summary or follow-up work when warranted

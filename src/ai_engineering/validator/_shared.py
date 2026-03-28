@@ -159,6 +159,26 @@ _CLAUDE_COMMANDS_MIRROR = (
     "src/ai_engineering/templates/project/.claude/commands",
 )
 
+_CLAUDE_SKILLS_MIRROR = (
+    ".claude/skills",
+    "src/ai_engineering/templates/project/.claude/skills",
+)
+
+_CLAUDE_AGENTS_MIRROR = (
+    ".claude/agents",
+    "src/ai_engineering/templates/project/.claude/agents",
+)
+
+_AGENTS_SKILLS_MIRROR = (
+    ".agents/skills",
+    "src/ai_engineering/templates/project/.agents/skills",
+)
+
+_AGENTS_AGENTS_MIRROR = (
+    ".agents/agents",
+    "src/ai_engineering/templates/project/.agents/agents",
+)
+
 _COPILOT_SKILLS_MIRROR = (
     ".github/skills",
     "src/ai_engineering/templates/project/.github/skills",

@@ -134,6 +134,7 @@ class TestFrameworkCapabilities:
         assert {entry.name for entry in catalog.context_classes} == {
             "language",
             "framework",
+            "shared-framework",
             "team",
             "project-identity",
             "spec",

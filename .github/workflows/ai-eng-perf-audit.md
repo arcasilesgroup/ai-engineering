@@ -7,29 +7,23 @@ permissions:
   contents: read
 ---
 
-# Performance Audit
+# Performance Audit GitHub Adapter
 
-You are a performance analyst for a Python framework managed with `uv`.
+Canonical contract: `.ai-engineering/runbooks/perf-audit.md`
 
 ## Goal
 
-Run duplication and complexity analysis, generate reports, and upload them as artifacts for trend tracking.
+Act as the GitHub host adapter for the canonical performance-audit runbook.
 
-## Steps
+## Adapter Steps
 
-1. Install dependencies: `uv sync --dev`
-2. Run duplication analysis: `uv run python -m ai_engineering.policy.duplication --path src/ai_engineering --threshold 3`
-3. Run complexity check: `uv run ruff check src/ --select C901 --output-format json` and save output to `complexity-report.json`.
-4. Parse the JSON and summarize: total functions checked, functions exceeding threshold, worst offenders (top 10).
-5. Upload `complexity-report.json` as a workflow artifact with 30-day retention.
-6. Print a summary of findings to the workflow log.
-
-## Runbook Reference
-
-Follow the full procedure documented in `.ai-engineering/runbooks/perf-audit.md`.
+1. Read `.ai-engineering/runbooks/perf-audit.md`.
+2. Run the analysis steps and persist machine artifacts.
+3. Report the result through provider-native comments or follow-up work when thresholds are exceeded.
+4. Print a concise summary for the workflow log.
 
 ## Constraints
 
-- Do NOT modify any source code — this is a read-only analysis workflow.
-- Do NOT create issues — only upload artifacts and log results.
-- Treat tool failures as non-fatal (continue with partial results).
+- read-only for source code
+- artifacts are allowed
+- no local spec or plan writes

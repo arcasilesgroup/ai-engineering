@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -18,6 +19,7 @@ from ai_engineering.cli_ui import (
     info,
     kv,
     print_stdout,
+    render_update_tree,
     result_header,
     show_logo,
     status_line,
@@ -25,6 +27,7 @@ from ai_engineering.cli_ui import (
     suggest_next,
     warning,
 )
+from ai_engineering.updater.service import FileChange
 
 pytestmark = pytest.mark.unit
 
@@ -258,6 +261,62 @@ class TestShowLogoTty:
 
         # Assert
         assert "ai" in err or "engineering" in err
+
+
+class TestUpdateTreeRendering:
+    def test_render_update_tree_groups_and_nests_paths(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        get_console.cache_clear()
+        changes = [
+            FileChange(
+                path=Path("/repo/src/ai_engineering/core.py"),
+                action="update",
+                reason_code="template-drift",
+                explanation="Framework update available.",
+                recommended_action="Apply the update.",
+            ),
+            FileChange(
+                path=Path("/repo/.ai-engineering/contexts/team/lessons.md"),
+                action="skip-denied",
+                reason_code="team-managed-update-protected",
+                explanation="Protected by ownership.",
+                recommended_action="No action required.",
+            ),
+        ]
+
+        render_update_tree(changes, root=Path("/repo"), dry_run=True)
+        err = capsys.readouterr().err
+
+        assert "Available" in err
+        assert "Protected" in err
+        assert "src" in err
+        assert "ai_engineering" in err
+        assert "core.py" in err
+        assert "Reason: template-drift" in err
+        assert "Next: Apply the update." in err
+        assert "lessons.md" in err
+
+    def test_render_update_tree_handles_relative_paths(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        get_console.cache_clear()
+        changes = [
+            FileChange(
+                path=Path("docs/README.md"),
+                action="skip-unchanged",
+                reason_code="already-current",
+                explanation="Up to date.",
+            )
+        ]
+
+        render_update_tree(changes, root=Path("/repo"), dry_run=True)
+        err = capsys.readouterr().err
+
+        assert "Unchanged" in err
+        assert "docs" in err
+        assert "README.md" in err
+        assert "Reason: already-current" in err
 
     def test_show_logo_handles_import_error(self) -> None:
         get_console.cache_clear()

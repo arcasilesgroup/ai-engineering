@@ -8,7 +8,13 @@ from __future__ import annotations
 
 import pytest
 
-from ai_engineering.verify.scoring import Finding, FindingSeverity, Verdict, VerifyScore
+from ai_engineering.verify.scoring import (
+    Finding,
+    FindingSeverity,
+    SpecialistResult,
+    Verdict,
+    VerifyScore,
+)
 
 pytestmark = pytest.mark.unit
 
@@ -219,6 +225,32 @@ class TestVerifyScoreAddAndSummary:
         # Assert
         assert result == {}
 
+    def test_findings_for_specialist_filters_to_original_lens(self) -> None:
+        # Arrange
+        score = VerifyScore()
+        score.add(
+            FindingSeverity.BLOCKER,
+            "secrets",
+            "Token detected",
+            specialist="security",
+            runner="macro-agent-1",
+        )
+        score.add(
+            FindingSeverity.MAJOR,
+            "lint",
+            "Unused import",
+            specialist="quality",
+            runner="macro-agent-2",
+        )
+
+        # Act
+        result = score.findings_for_specialist("security")
+
+        # Assert
+        assert len(result) == 1
+        assert result[0].category == "secrets"
+        assert result[0].specialist == "security"
+
 
 # ── Finding dataclass ─────────────────────────────────────────────────────
 
@@ -238,6 +270,24 @@ class TestFinding:
         assert finding.message == "API key exposed"
         assert finding.file == "config.py"
         assert finding.line == 10
+
+
+class TestSpecialistResult:
+    def test_add_sets_specialist_and_runner(self) -> None:
+        specialist = SpecialistResult(name="security", label="Security", runner="macro-agent-1")
+
+        specialist.add(FindingSeverity.BLOCKER, "secrets", "Leak detected", file="x.py", line=3)
+
+        finding = specialist.findings[0]
+        assert finding.specialist == "security"
+        assert finding.runner == "macro-agent-1"
+
+    def test_summary_counts_findings(self) -> None:
+        specialist = SpecialistResult(name="quality", label="Quality", runner="macro-agent-2")
+        specialist.add(FindingSeverity.MAJOR, "lint", "Issue 1")
+        specialist.add(FindingSeverity.MINOR, "style", "Issue 2")
+
+        assert specialist.summary() == {"major": 1, "minor": 1}
 
     def test_finding_defaults_optional_fields_to_none(self) -> None:
         finding = Finding(

@@ -160,6 +160,8 @@ class TestGovernancePhase:
         # Team seed files
         assert (ai_dir / "contexts" / "team" / "README.md").is_file()
         assert (ai_dir / "contexts" / "team" / "lessons.md").is_file()
+        assert (ai_dir / "contexts" / "cli-ux.md").is_file()
+        assert (ai_dir / "contexts" / "mcp-integrations.md").is_file()
         # Specs placeholders
         assert (ai_dir / "specs" / "spec.md").is_file()
         assert (ai_dir / "specs" / "plan.md").is_file()
