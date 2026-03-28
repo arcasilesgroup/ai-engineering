@@ -571,30 +571,33 @@ graph TD
     style Build fill:#fff9c4
 ```
 
-### 7.3 Workflows (18 total)
+### 7.3 Workflows (4)
 
-| Category | Workflows | Format |
-|----------|-----------|--------|
-| Core CI | ci.yml, install-smoke.yml, release.yml | GitHub Actions YAML |
-| Agentic (gh-aw) | code-simplifier, daily-triage, governance-drift, perf-audit, security-scan, weekly-health | Markdown + YAML frontmatter |
-| Event-driven | pr-review, ci-fixer | GitHub Actions YAML |
-| Maintenance | maintenance.yml | GitHub Actions YAML |
-| Lock files | 6 `.lock.yml` (placeholder stubs for gh-aw workflows) | GitHub Actions YAML |
+| Workflow | Purpose |
+|----------|---------|
+| ci.yml | CI pipeline: lint, test, type check, security audit, coverage |
+| install-smoke.yml | Smoke test for `ai-eng install` across platforms |
+| release.yml | Release pipeline: build, publish to PyPI |
+| maintenance.yml | Dependency updates, stale branch cleanup |
 
-Agentic workflows (DEC-022) use GitHub Copilot as engine -- zero API key required.
+### 7.4 Runbooks (12)
 
-### 7.4 Runbooks (8)
+Self-contained portable Markdown contracts executed on Codex App Automation, Claude scheduled tasks, or Azure Foundry. No GitHub workflow adapters -- the runbook file is the single portable artifact.
 
-| Runbook | Trigger |
-|---------|---------|
-| code-simplifier | Scheduled (gh-aw) |
-| daily-triage | Scheduled (gh-aw) |
-| dependency-upgrade | Manual / scheduled |
-| governance-drift-repair | Scheduled (gh-aw) |
-| incident-response | Manual (on-call) |
-| perf-audit | Scheduled (gh-aw) |
-| security-incident | Manual (on-call) |
-| weekly-health | Scheduled (gh-aw) |
+| Runbook | Type | Cadence |
+|---------|------|---------|
+| triage | intake | daily |
+| refine | intake | daily |
+| feature-scanner | operational | daily |
+| stale-issues | operational | daily |
+| dependency-health | operational | weekly |
+| code-quality | operational | weekly |
+| security-scan | operational | weekly |
+| docs-freshness | operational | weekly |
+| performance | operational | weekly |
+| governance-drift | operational | weekly |
+| architecture-drift | operational | weekly |
+| wiring-scanner | operational | weekly |
 
 ### 7.5 Observability
 

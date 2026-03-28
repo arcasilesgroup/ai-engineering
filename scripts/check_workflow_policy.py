@@ -61,9 +61,7 @@ def _check_sha_pinning(workflow: Path, data: dict) -> list[str]:
 
 
 def main() -> int:
-    workflows = sorted(
-        p for p in Path(".github/workflows").glob("*.yml") if not p.name.endswith(".lock.yml")
-    )
+    workflows = sorted(p for p in Path(".github/workflows").glob("*.yml"))
     failures: list[str] = []
 
     for workflow in workflows:

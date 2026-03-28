@@ -180,7 +180,7 @@ Typical preview shape:
 Update [PREVIEW]
 Available
 ├── .claude/skills/ai-review/SKILL.md
-└── .github/workflows/ai-eng-weekly-health.md
+└── .ai-engineering/runbooks/triage.md
 Protected
 └── .ai-engineering/contexts/team/lessons.md
 Unchanged

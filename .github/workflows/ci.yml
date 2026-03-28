@@ -404,7 +404,7 @@ jobs:
       - name: Install dependencies
         run: uv sync --dev
       - name: Run actionlint
-        run: find .github/workflows -name '*.yml' ! -name '*.lock.yml' -exec ./actionlint {} +
+        run: find .github/workflows -name '*.yml' -exec ./actionlint {} +
       - name: Workflow policy checks
         run: uv run python scripts/check_workflow_policy.py
       - name: Mirror sync integrity
