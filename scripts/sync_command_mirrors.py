@@ -6,14 +6,14 @@ Canonical source (repo root):
   .claude/agents/ai-*.md
 
 Generates mirrors in:
-  - .agents/skills/          (generic IDE skills -- strip ai- prefix from dir, + handlers/)
-  - .agents/agents/          (generic IDE agents -- copy as-is)
+  - .codex/skills/           (Codex IDE skills -- keep ai- prefix, + handlers/)
+  - .codex/agents/           (Codex IDE agents -- copy as-is)
   - .github/skills/          (GitHub Copilot Agent Skills -- directory per skill, + handlers/)
   - .github/agents/          (GitHub Copilot agent personas)
   - src/ai_engineering/templates/project/.claude/skills/   (install template)
   - src/ai_engineering/templates/project/.claude/agents/   (install template)
-  - src/ai_engineering/templates/project/.agents/skills/   (install template)
-  - src/ai_engineering/templates/project/.agents/agents/   (install template)
+  - src/ai_engineering/templates/project/.codex/skills/    (install template)
+  - src/ai_engineering/templates/project/.codex/agents/    (install template)
   - src/ai_engineering/templates/project/.github/skills/   (install template)
   - src/ai_engineering/templates/project/agents/           (install template)
 
@@ -44,8 +44,10 @@ MANIFEST_PATH = ROOT / ".ai-engineering" / "manifest.yml"
 RUNBOOKS_ROOT = ROOT / ".ai-engineering" / "runbooks"
 
 # ── Mirror surface paths ────────────────────────────────────────────────
-AGENTS_SKILLS = ROOT / ".agents" / "skills"
-AGENTS_AGENTS = ROOT / ".agents" / "agents"
+CODEX_SKILLS = ROOT / ".codex" / "skills"
+CODEX_AGENTS = ROOT / ".codex" / "agents"
+GEMINI_SKILLS = ROOT / ".gemini" / "skills"
+GEMINI_AGENTS = ROOT / ".gemini" / "agents"
 GITHUB_SKILLS = ROOT / ".github" / "skills"
 GITHUB_AGENTS = ROOT / ".github" / "agents"
 GITHUB_INSTRUCTIONS = ROOT / ".github" / "instructions"
@@ -54,8 +56,10 @@ GITHUB_INSTRUCTIONS = ROOT / ".github" / "instructions"
 TPL_PROJECT = ROOT / "src" / "ai_engineering" / "templates" / "project"
 TPL_CLAUDE_SKILLS = TPL_PROJECT / ".claude" / "skills"
 TPL_CLAUDE_AGENTS = TPL_PROJECT / ".claude" / "agents"
-TPL_AGENTS_SKILLS = TPL_PROJECT / ".agents" / "skills"
-TPL_AGENTS_AGENTS = TPL_PROJECT / ".agents" / "agents"
+TPL_GEMINI_SKILLS = TPL_PROJECT / ".gemini" / "skills"
+TPL_GEMINI_AGENTS = TPL_PROJECT / ".gemini" / "agents"
+TPL_CODEX_SKILLS = TPL_PROJECT / ".codex" / "skills"
+TPL_CODEX_AGENTS = TPL_PROJECT / ".codex" / "agents"
 TPL_GITHUB_SKILLS = TPL_PROJECT / ".github" / "skills"
 TPL_GITHUB_AGENTS = TPL_PROJECT / "agents"
 
@@ -434,7 +438,8 @@ def translate_refs(content: str, target_ide: str) -> str:
 
     Canonical form: .claude/skills/ai-X/SKILL.md, .claude/agents/ai-X.md
     Target surfaces:
-      - generic (.agents/): .agents/skills/X/SKILL.md, .agents/agents/ai-X.md
+      - codex (.codex/): .codex/skills/ai-X/SKILL.md, .codex/agents/ai-X.md
+      - gemini (.gemini/): .gemini/skills/ai-X/SKILL.md, .gemini/agents/ai-X.md
       - copilot (.github/): .github/skills/ai-X/SKILL.md, .github/agents/X.agent.md
       - claude: unchanged (canonical)
     """
@@ -444,8 +449,10 @@ def translate_refs(content: str, target_ide: str) -> str:
     def _replace_skill(m: re.Match[str]) -> str:
         bt = m.group(1)
         name = m.group(2)
-        if target_ide == "generic":
-            path = f".agents/skills/{name}/SKILL.md"
+        if target_ide == "codex":
+            path = f".codex/skills/ai-{name}/SKILL.md"
+        elif target_ide == "gemini":
+            path = f".gemini/skills/ai-{name}/SKILL.md"
         else:  # copilot
             path = f".github/skills/ai-{name}/SKILL.md"
         return f"{bt}{path}{bt}" if bt else path
@@ -453,8 +460,10 @@ def translate_refs(content: str, target_ide: str) -> str:
     def _replace_agent(m: re.Match[str]) -> str:
         bt = m.group(1)
         name = m.group(2)
-        if target_ide == "generic":
-            path = f".agents/agents/ai-{name}.md"
+        if target_ide == "codex":
+            path = f".codex/agents/ai-{name}.md"
+        elif target_ide == "gemini":
+            path = f".gemini/agents/ai-{name}.md"
         else:  # copilot
             path = f".github/agents/{name}.agent.md"
         return f"{bt}{path}{bt}" if bt else path
@@ -463,11 +472,16 @@ def translate_refs(content: str, target_ide: str) -> str:
     content = _XREF_CLAUDE_AGENT.sub(_replace_agent, content)
 
     # Directory path translations (broader patterns -- run AFTER specific file translations)
-    if target_ide == "generic":
-        # .claude/skills/ (directory, not followed by ai-) -> .agents/skills/
-        content = re.sub(r"\.claude/skills/(?!ai-)", ".agents/skills/", content)
-        # .claude/agents/ (directory) -> .agents/agents/
-        content = re.sub(r"\.claude/agents/(?!ai-)", ".agents/agents/", content)
+    if target_ide == "codex":
+        # .claude/skills/ -> .codex/skills/
+        content = re.sub(r"\.claude/skills/(?!ai-)", ".codex/skills/", content)
+        # .claude/agents/ -> .codex/agents/
+        content = re.sub(r"\.claude/agents/(?!ai-)", ".codex/agents/", content)
+    elif target_ide == "gemini":
+        # .claude/skills/ -> .gemini/skills/
+        content = re.sub(r"\.claude/skills/(?!ai-)", ".gemini/skills/", content)
+        # .claude/agents/ -> .gemini/agents/
+        content = re.sub(r"\.claude/agents/(?!ai-)", ".gemini/agents/", content)
     elif target_ide == "copilot":
         # .claude/skills/ -> .github/skills/
         content = re.sub(r"\.claude/skills/(?!ai-)", ".github/skills/", content)
@@ -601,36 +615,69 @@ def discover_scripts(skill_dir: Path) -> list[tuple[str, Path]]:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# Generation -- .agents/skills/ (generic IDE)
+# Generation -- .codex/skills/ (Codex IDE)
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-def generate_agents_skill(name: str, skill_path: Path) -> str:
-    """Generate .agents/skills/<name>/SKILL.md -- translated refs, stripped ai- prefix."""
+def generate_codex_skill(name: str, skill_path: Path) -> str:
+    """Generate .codex/skills/ai-<name>/SKILL.md -- translated refs, keep ai- prefix."""
     fm = read_frontmatter(skill_path)
     body = read_body(skill_path)
 
-    # Adapt frontmatter: use bare name (no ai- prefix)
-    fm["name"] = name
+    # Keep ai- prefix for skills in .codex/ surface
+    fm["name"] = f"ai-{name}"
     fm.pop("metadata", None)
 
     header = _serialize_frontmatter(fm)
-    body = translate_refs(body, "generic")
+    body = translate_refs(body, "codex")
 
     return f"{header}\n\n{body.rstrip()}\n"
 
 
-def generate_agents_agent(name: str, agent_path: Path) -> str:
-    """Generate .agents/agents/ai-<name>.md -- translated refs."""
+def generate_codex_agent(name: str, agent_path: Path) -> str:
+    """Generate .codex/agents/ai-<name>.md -- translated refs."""
     fm = read_frontmatter(agent_path)
     body = read_body(agent_path)
 
-    # Keep ai- prefix for agents in .agents/ surface
+    # Keep ai- prefix for agents in .codex/ surface
     fm.pop("tools", None)  # tools are IDE-specific
     fm.pop("metadata", None)
 
     header = _serialize_frontmatter(fm)
-    body = translate_refs(body, "generic")
+    body = translate_refs(body, "codex")
+
+    return f"{header}\n\n{body.rstrip()}\n"
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Generation -- .gemini/skills/ and .gemini/agents/ (Gemini CLI)
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+def generate_gemini_skill(name: str, skill_path: Path) -> str:
+    """Generate .gemini/skills/ai-<name>/SKILL.md -- translated refs, strip metadata."""
+    fm = read_frontmatter(skill_path)
+    body = read_body(skill_path)
+
+    fm["name"] = f"ai-{name}"
+    fm.pop("metadata", None)
+
+    header = _serialize_frontmatter(fm)
+    body = translate_refs(body, "gemini")
+
+    return f"{header}\n\n{body.rstrip()}\n"
+
+
+def generate_gemini_agent(name: str, agent_path: Path) -> str:
+    """Generate .gemini/agents/ai-<name>.md -- translated refs, strip tools/metadata."""
+    fm = read_frontmatter(agent_path)
+    body = read_body(agent_path)
+
+    fm.pop("tools", None)  # tools are IDE-specific
+    fm.pop("metadata", None)
+
+    header = _serialize_frontmatter(fm)
+    body = translate_refs(body, "gemini")
 
     return f"{header}\n\n{body.rstrip()}\n"
 
@@ -732,7 +779,6 @@ _SOURCE_OF_TRUTH_AGENTS_RE = re.compile(
     r"^\| Agents \(\d+\) \| `[^`]+` \|$",
     re.MULTILINE,
 )
-_CLAUDE_PLATFORM_ROW_RE = re.compile(r"^\| Claude Code \| .* \| .* \|$", re.MULTILINE)
 
 
 def generate_agents_md(*, skill_count: int, agent_count: int) -> str:
@@ -740,7 +786,7 @@ def generate_agents_md(*, skill_count: int, agent_count: int) -> str:
 
     Applies:
     1. Title replacement: ``# CLAUDE.md`` -> ``# AGENTS.md``
-    2. Path translation: ``.claude/`` -> ``.agents/`` via ``translate_refs``
+    2. Path translation: ``.claude/`` -> ``.codex/`` via ``translate_refs``
     3. Strip Claude-specific Don't item 7 (``.claude/settings.json`` deny rules)
     4. Renumber remaining Don't items
     """
@@ -756,21 +802,16 @@ def generate_agents_md(*, skill_count: int, agent_count: int) -> str:
     # Renumber Don't items after stripping item 7
     content = _renumber_dont_items(content)
 
-    # Translate .claude/ paths to .agents/ paths
-    content = translate_refs(content, "generic")
-    content = _CLAUDE_PLATFORM_ROW_RE.sub(
-        "| Claude Code | `.claude/skills/ai-*/SKILL.md` | `.claude/agents/ai-*.md` |",
-        content,
-        count=1,
-    )
+    # Translate .claude/ paths to .codex/ paths
+    content = translate_refs(content, "codex")
     content = _SKILLS_HEADER_RE.sub(f"## Skills ({skill_count})", content, count=1)
     content = _SOURCE_OF_TRUTH_SKILLS_RE.sub(
-        f"| Skills ({skill_count}) | `.agents/skills/<name>/SKILL.md` |",
+        f"| Skills ({skill_count}) | `.codex/skills/ai-<name>/SKILL.md` |",
         content,
         count=1,
     )
     content = _SOURCE_OF_TRUTH_AGENTS_RE.sub(
-        f"| Agents ({agent_count}) | `.agents/agents/ai-<name>.md` |",
+        f"| Agents ({agent_count}) | `.codex/agents/ai-<name>.md` |",
         content,
         count=1,
     )
@@ -1182,46 +1223,90 @@ def sync_all(*, check_only: bool = False, verbose: bool = False) -> int:
         for _r_name, r_path in skill_resources[name]:
             skill_raw[r_path] = r_path.read_text(encoding="utf-8")
 
+    for _name, _fm, agent_path in agents:
+        skill_raw[agent_path] = agent_path.read_text(encoding="utf-8")
+
     # ── Phase 2: Generate surfaces ──────────────────────────────────────
 
-    # Surface 1: .agents/skills/<name>/SKILL.md (strip ai- prefix)
+    # Surface 1: .codex/skills/ai-<name>/SKILL.md (keep ai- prefix)
     for name, _fm, skill_path in skills:
-        path = AGENTS_SKILLS / name / "SKILL.md"
-        tpl = TPL_AGENTS_SKILLS / name / "SKILL.md"
-        content = generate_agents_skill(name, skill_path)
+        path = CODEX_SKILLS / f"ai-{name}" / "SKILL.md"
+        tpl = TPL_CODEX_SKILLS / f"ai-{name}" / "SKILL.md"
+        content = generate_codex_skill(name, skill_path)
         _generate_surface(path, content, check_only, verbose, generated_paths, diffs)
         _generate_surface(tpl, content, check_only, verbose, generated_paths, diffs)
 
         for handler_name, handler_path in skill_handlers[name]:
-            translated = translate_refs(skill_raw[handler_path], "generic")
+            translated = translate_refs(skill_raw[handler_path], "codex")
             for target in (
-                AGENTS_SKILLS / name / "handlers" / f"{handler_name}.md",
-                TPL_AGENTS_SKILLS / name / "handlers" / f"{handler_name}.md",
+                CODEX_SKILLS / f"ai-{name}" / "handlers" / f"{handler_name}.md",
+                TPL_CODEX_SKILLS / f"ai-{name}" / "handlers" / f"{handler_name}.md",
             ):
                 _generate_surface(target, translated, check_only, verbose, generated_paths, diffs)
 
         for script_name, script_path in skill_scripts[name]:
             for target in (
-                AGENTS_SKILLS / name / "scripts" / script_name,
-                TPL_AGENTS_SKILLS / name / "scripts" / script_name,
+                CODEX_SKILLS / f"ai-{name}" / "scripts" / script_name,
+                TPL_CODEX_SKILLS / f"ai-{name}" / "scripts" / script_name,
             ):
                 _generate_surface(
                     target, skill_raw[script_path], check_only, verbose, generated_paths, diffs
                 )
 
         for res_name, res_path in skill_resources[name]:
-            translated = translate_refs(skill_raw[res_path], "generic")
+            translated = translate_refs(skill_raw[res_path], "codex")
             for target in (
-                AGENTS_SKILLS / name / res_name,
-                TPL_AGENTS_SKILLS / name / res_name,
+                CODEX_SKILLS / f"ai-{name}" / res_name,
+                TPL_CODEX_SKILLS / f"ai-{name}" / res_name,
             ):
                 _generate_surface(target, translated, check_only, verbose, generated_paths, diffs)
 
-    # Surface 2: .agents/agents/ai-<name>.md
+    # Surface 2: .codex/agents/ai-<name>.md
     for name, _fm, agent_path in agents:
-        path = AGENTS_AGENTS / f"ai-{name}.md"
-        tpl = TPL_AGENTS_AGENTS / f"ai-{name}.md"
-        content = generate_agents_agent(name, agent_path)
+        path = CODEX_AGENTS / f"ai-{name}.md"
+        tpl = TPL_CODEX_AGENTS / f"ai-{name}.md"
+        content = generate_codex_agent(name, agent_path)
+        _generate_surface(path, content, check_only, verbose, generated_paths, diffs)
+        _generate_surface(tpl, content, check_only, verbose, generated_paths, diffs)
+
+    # Surface 2.1: .gemini/skills/ai-<name>/SKILL.md (keep ai- prefix, strip metadata)
+    for name, _fm, skill_path in skills:
+        path = GEMINI_SKILLS / f"ai-{name}" / "SKILL.md"
+        tpl = TPL_GEMINI_SKILLS / f"ai-{name}" / "SKILL.md"
+        content = generate_gemini_skill(name, skill_path)
+        _generate_surface(path, content, check_only, verbose, generated_paths, diffs)
+        _generate_surface(tpl, content, check_only, verbose, generated_paths, diffs)
+
+        for handler_name, handler_path in skill_handlers[name]:
+            translated = translate_refs(skill_raw[handler_path], "gemini")
+            for target in (
+                GEMINI_SKILLS / f"ai-{name}" / "handlers" / f"{handler_name}.md",
+                TPL_GEMINI_SKILLS / f"ai-{name}" / "handlers" / f"{handler_name}.md",
+            ):
+                _generate_surface(target, translated, check_only, verbose, generated_paths, diffs)
+
+        for script_name, script_path in skill_scripts[name]:
+            for target in (
+                GEMINI_SKILLS / f"ai-{name}" / "scripts" / script_name,
+                TPL_GEMINI_SKILLS / f"ai-{name}" / "scripts" / script_name,
+            ):
+                _generate_surface(
+                    target, skill_raw[script_path], check_only, verbose, generated_paths, diffs
+                )
+
+        for res_name, res_path in skill_resources[name]:
+            translated = translate_refs(skill_raw[res_path], "gemini")
+            for target in (
+                GEMINI_SKILLS / f"ai-{name}" / res_name,
+                TPL_GEMINI_SKILLS / f"ai-{name}" / res_name,
+            ):
+                _generate_surface(target, translated, check_only, verbose, generated_paths, diffs)
+
+    # Surface 2.2: .gemini/agents/ai-<name>.md (strip tools/metadata)
+    for name, _fm, agent_path in agents:
+        path = GEMINI_AGENTS / f"ai-{name}.md"
+        tpl = TPL_GEMINI_AGENTS / f"ai-{name}.md"
+        content = generate_gemini_agent(name, agent_path)
         _generate_surface(path, content, check_only, verbose, generated_paths, diffs)
         _generate_surface(tpl, content, check_only, verbose, generated_paths, diffs)
 
@@ -1231,8 +1316,10 @@ def sync_all(*, check_only: bool = False, verbose: bool = False) -> int:
     for spec_path in specialists:
         content = spec_path.read_text(encoding="utf-8")
         for target in (
-            AGENTS_AGENTS / spec_path.name,
-            TPL_AGENTS_AGENTS / spec_path.name,
+            CODEX_AGENTS / spec_path.name,
+            TPL_CODEX_AGENTS / spec_path.name,
+            GEMINI_AGENTS / spec_path.name,
+            TPL_GEMINI_AGENTS / spec_path.name,
             GITHUB_AGENTS / spec_path.name,
             TPL_GITHUB_AGENTS / spec_path.name,
             TPL_CLAUDE_AGENTS / spec_path.name,
@@ -1365,6 +1452,23 @@ def sync_all(*, check_only: bool = False, verbose: bool = False) -> int:
         diffs,
     )
 
+    # Surface 7.5: GEMINI.md (root + template, translated from TPL_PROJECT / GEMINI.md)
+    # Note: GEMINI.md template is hand-maintained but needs ref translation.
+    gemini_md_tpl = TPL_PROJECT / "GEMINI.md"
+    if gemini_md_tpl.is_file():
+        gemini_md_content = translate_refs(gemini_md_tpl.read_text(encoding="utf-8"), "gemini")
+        _generate_surface(
+            ROOT / "GEMINI.md", gemini_md_content, check_only, verbose, generated_paths, diffs
+        )
+        _generate_surface(
+            TPL_PROJECT / "GEMINI.md",
+            gemini_md_content,
+            check_only,
+            verbose,
+            generated_paths,
+            diffs,
+        )
+
     # Surface 8: copilot-instructions.md (root + template, generated from CLAUDE.md)
     copilot_md_content = generate_copilot_instructions(skills, agents)
     _generate_surface(
@@ -1455,15 +1559,19 @@ def _handle_orphans(
     """
     # (root, mode, prefix_filter) -- prefix_filter="" means all subdirs
     _ORPHAN_SURFACES: list[tuple[Path, str, str]] = [
-        (AGENTS_SKILLS, "rglob_subdirs", ""),
-        (AGENTS_AGENTS, "glob", "*.md"),
+        (CODEX_SKILLS, "rglob_subdirs", "ai-"),
+        (CODEX_AGENTS, "glob", "*.md"),
+        (GEMINI_SKILLS, "rglob_subdirs", "ai-"),
+        (GEMINI_AGENTS, "glob", "*.md"),
         (GITHUB_INSTRUCTIONS, "glob", "*.instructions.md"),
         (GITHUB_SKILLS, "rglob_subdirs", "ai-"),
         (GITHUB_AGENTS, "glob", "*.md"),
         (TPL_CLAUDE_SKILLS, "rglob_subdirs", "ai-"),
         (TPL_CLAUDE_AGENTS, "glob", "*.md"),
-        (TPL_AGENTS_SKILLS, "rglob_subdirs", ""),
-        (TPL_AGENTS_AGENTS, "glob", "*.md"),
+        (TPL_GEMINI_SKILLS, "rglob_subdirs", "ai-"),
+        (TPL_GEMINI_AGENTS, "glob", "*.md"),
+        (TPL_CODEX_SKILLS, "rglob_subdirs", "ai-"),
+        (TPL_CODEX_AGENTS, "glob", "*.md"),
         (TPL_GITHUB_SKILLS, "rglob_subdirs", "ai-"),
         (TPL_GITHUB_AGENTS, "glob", "*.md"),
     ]

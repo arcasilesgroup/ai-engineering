@@ -1,47 +1,8 @@
 ---
-runbook: docs-freshness
-version: 1
-purpose: "Detect stale documentation, missing coverage for recent features, and doc-vs-code drift"
+name: docs-freshness
+description: "Detect stale documentation, missing coverage for recent features, and doc-vs-code drift"
 type: operational
 cadence: weekly
-hosts:
-  - codex-app-automation
-  - claude-scheduled-tasks
-  - github-agents
-  - azure-foundry
-provider_scope:
-  read: [issues, labels, code, commits]
-  write: [comments, work-items, labels]
-feature_policy: read-only
-hierarchy_policy:
-  create: [task]
-  mutate: [task]
-scan_targets:
-  - README.md
-  - .ai-engineering/README.md
-  - CHANGELOG.md
-  - docs/solution-intent.md
-  - API documentation
-tool_dependencies:
-  - gh
-  - az
-  - git
-thresholds:
-  staleness_days: 30
-  max_findings_per_run: 10
-outputs:
-  work_items: true
-  comments: true
-  labels: true
-  report: detailed
-handoff:
-  marker: "docs-stale"
-  lifecycle_phase: triage
-guardrails:
-  max_mutations: 10
-  protected_labels: [p1-critical, pinned]
-  protected_states: [closed, resolved]
-  dry_run_default: true
 ---
 
 # Docs Freshness
@@ -199,7 +160,7 @@ Hosts may route this report to a Slack channel, PR comment, dashboard, or log si
 | Host | Considerations |
 |------|---------------|
 | `codex-app-automation` | Scheduled Codex task. Auth via `GITHUB_TOKEN` secret. Network sandbox: all API calls through `gh`/`az` CLI. Budget: 10 min. |
-| `claude-scheduled-tasks` | Weekly cron. Loads runbook as context. Respect `dry_run_default: true` unless `--live` is passed. Persist report to `state/docs-freshness-report.json` if writable. |
+| `claude-scheduled-tasks` | Weekly cron. Loads runbook as context. Mutations enabled. Persist report to `state/docs-freshness-report.json` if writable. |
 | `github-agents` | GitHub Actions workflow or Copilot agent. Auth: `${{ secrets.GITHUB_TOKEN }}`. Requires `issues: write` permission. Azure DevOps unavailable. |
 | `azure-foundry` | Auth via managed identity (`az login --identity`). GitHub PAT from Key Vault. Pre-install: `az extension add --name azure-devops`. |
 
@@ -209,6 +170,6 @@ Hosts may route this report to a Slack channel, PR comment, dashboard, or log si
 - **Mutation cap.** Maximum 10 work item creations per run. Excess findings are reported in the summary but not materialized. Remaining findings carry over to the next run.
 - **Protected labels.** Work items carrying `p1-critical` or `pinned` are never relabeled or commented on.
 - **Protected states.** Items in `closed` or `resolved` state are never reopened or modified.
-- **Dry-run default.** All writes are logged to stdout but not executed unless the caller passes `--arm` or sets `DRY_RUN=false`.
+- **Mutations enabled by default.** All qualifying work items are created automatically.
 - **Idempotent.** Duplicate work items are avoided by searching for existing issues with the `<!-- docs-freshness-runbook -->` marker before creating new ones.
 - **No hierarchy escalation.** Creates tasks only. Never creates or mutates features, epics, or user stories.

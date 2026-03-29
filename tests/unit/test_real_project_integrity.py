@@ -91,7 +91,9 @@ class TestAgentSkillCrossReferences:
         broken: list[str] = []
         for agent_file in sorted(agents_dir.glob("*.md")):
             text = agent_file.read_text(encoding="utf-8")
-            for match in re.finditer(r"`((?:\.claude|\.agents)/skills/[^`]+/SKILL\.md)`", text):
+            for match in re.finditer(
+                r"`((?:\.claude|\.codex|\.gemini)/skills/[^`]+/SKILL\.md)`", text
+            ):
                 skill_ref = match.group(1)
                 candidates = [
                     _PROJECT_ROOT / skill_ref,

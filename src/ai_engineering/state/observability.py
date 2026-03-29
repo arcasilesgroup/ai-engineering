@@ -45,7 +45,7 @@ HOOK_KIND_DESCRIPTORS: tuple[tuple[str, str], ...] = (
     ("pre-push", "git"),
 )
 
-_DEGRADED_HOSTS: frozenset[str] = frozenset({"codex", "gemini"})
+_DEGRADED_HOSTS: frozenset[str] = frozenset({"codex"})
 _SECRET_RE = re.compile(
     r"(?i)(api_key|token|secret|password|authorization|credentials|auth)"
     r"([\"'\s:=]+)"

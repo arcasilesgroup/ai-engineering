@@ -1,48 +1,8 @@
 ---
-runbook: governance-drift
-version: 1
-purpose: "Verify framework alignment: mirror sync, quality gate config, hook integrity, manifest consistency, and template-vs-installed drift"
+name: governance-drift
+description: "Verify framework alignment: mirror sync, quality gate config, hook integrity, manifest consistency, and template-vs-installed drift"
 type: operational
 cadence: weekly
-hosts:
-  - codex-app-automation
-  - claude-scheduled-tasks
-  - github-agents
-  - azure-foundry
-provider_scope:
-  read: [issues, labels, code]
-  write: [comments, work-items, labels]
-feature_policy: read-only
-hierarchy_policy:
-  create: [task]
-  mutate: [task]
-scan_targets:
-  - .claude/ (skills, agents)
-  - .agents/ (skills, agents)
-  - .github/ (skills, agents)
-  - .ai-engineering/ (contexts, runbooks, manifest)
-  - src/ai_engineering/templates/
-tool_dependencies:
-  - gh
-  - az
-  - python
-  - ai-eng
-thresholds:
-  max_drift_files: 0
-  max_findings_per_run: 15
-outputs:
-  work_items: true
-  comments: true
-  labels: true
-  report: detailed
-handoff:
-  marker: "governance-drift"
-  lifecycle_phase: triage
-guardrails:
-  max_mutations: 15
-  protected_labels: [p1-critical, pinned]
-  protected_states: [closed, resolved]
-  dry_run_default: true
 ---
 
 # Governance Drift
@@ -83,12 +43,12 @@ ls .claude/skills/ai-*/SKILL.md | while read -r canonical; do
   SKILL=$(basename "$(dirname "$canonical")")
   SKILL_SHORT="${SKILL#ai-}"
 
-  # Check .agents/ mirror
-  AGENTS_MIRROR=".agents/skills/$SKILL_SHORT/SKILL.md"
-  if [ ! -f "$AGENTS_MIRROR" ]; then
-    echo "DRIFT [missing] $AGENTS_MIRROR (canonical: $canonical)"
-  elif ! diff -q "$canonical" "$AGENTS_MIRROR" > /dev/null 2>&1; then
-    echo "DRIFT [content] $AGENTS_MIRROR differs from $canonical"
+  # Check .codex/ mirror
+  CODEX_MIRROR=".codex/skills/ai-$SKILL_SHORT/SKILL.md"
+  if [ ! -f "$CODEX_MIRROR" ]; then
+    echo "DRIFT [missing] $CODEX_MIRROR (canonical: $canonical)"
+  elif ! diff -q "$canonical" "$CODEX_MIRROR" > /dev/null 2>&1; then
+    echo "DRIFT [content] $CODEX_MIRROR differs from $canonical"
   fi
 
   # Check .github/ mirror
@@ -182,8 +142,8 @@ find "$TEMPLATE_ROOT/.claude" -type f | while read -r tmpl; do
   fi
 done
 
-# Compare .agents/ and .github/ templates
-for SURFACE in .agents .github; do
+# Compare .codex/, .gemini/ and .github/ templates
+for SURFACE in .codex .gemini .github; do
   find "$TEMPLATE_ROOT/$SURFACE" -type f 2>/dev/null | while read -r tmpl; do
     RELATIVE="${tmpl#$TEMPLATE_ROOT/}"
     if [ ! -f "$RELATIVE" ]; then
@@ -253,7 +213,7 @@ else:
 
 ### Step 8 -- Create work items for drift findings
 
-For each drift finding from Steps 1-7, create a task work item. Respect the `max_mutations` guardrail (15 per run). Apply dry-run mode unless explicitly overridden.
+For each drift finding from Steps 1-7, create a task work item. Respect the `max_mutations` guardrail (15 per run).
 
 ```bash
 # GitHub Issues
@@ -268,7 +228,7 @@ gh issue create \
 **Actual:** <actual_value_or_hash>
 **Remediation:** <action>
 
-**Detected by:** governance-drift runbook v1" \
+**Detected by:** governance-drift runbook" \
   --label "governance-drift"
 
 # Azure DevOps
@@ -277,8 +237,6 @@ az boards work-item create --type Task \
   --description "<body>" \
   --area "Project\\TeamName"
 ```
-
-In dry-run mode, print the work item payloads to stdout without creating them.
 
 ### Step 9 -- Generate report
 
@@ -304,7 +262,7 @@ Framework health score: 86/100
   Template alignment:   -3  (3 files diverged)
   Manifest consistency: -2  (1 orphan entry)
 
-Items created: 7 (dry-run: true)
+Items created: 7
 Mutations used: 7 / 15
 ```
 
@@ -334,7 +292,7 @@ Both providers produce identical report output. The provider is read from `manif
 
 1. **Never auto-fixes drift.** This runbook detects and reports drift. It does not run `sync_command_mirrors.py` without `--check`, does not overwrite framework files, and does not modify hook scripts.
 2. **Never modifies framework files.** No write operations target `.claude/`, `.agents/`, `.github/`, `.ai-engineering/`, or `src/ai_engineering/templates/`. Remediation is delegated to a human or to `sync_command_mirrors.py` (without `--check`) after review.
-3. **Read-only by default.** The `dry_run_default: true` guardrail means no work items are created unless the operator explicitly passes `--apply`.
+3. **Mutations enabled by default.** Work items are created automatically.
 4. **Bounded mutations.** A maximum of 15 work items are created per run. If findings exceed this limit, the report notes the overflow and stops creating items.
 5. **Protected states.** Items in `closed` or `resolved` state are never reopened or modified. Labels `p1-critical` and `pinned` are never removed.
 6. **Idempotent.** Before creating a work item, search existing open issues for the same file path and drift type. Duplicate findings are skipped.

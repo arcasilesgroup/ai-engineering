@@ -83,6 +83,11 @@
     {
       "frameworkUpdate": "allow",
       "owner": "framework-managed",
+      "pattern": "GEMINI.md"
+    },
+    {
+      "frameworkUpdate": "allow",
+      "owner": "framework-managed",
       "pattern": ".gitleaks.toml"
     },
     {
@@ -103,7 +108,12 @@
     {
       "frameworkUpdate": "allow",
       "owner": "framework-managed",
-      "pattern": ".agents/**"
+      "pattern": ".codex/**"
+    },
+    {
+      "frameworkUpdate": "allow",
+      "owner": "framework-managed",
+      "pattern": ".gemini/**"
     },
     {
       "frameworkUpdate": "allow",

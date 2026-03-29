@@ -1,48 +1,8 @@
 ---
-runbook: architecture-drift
-version: 1
-purpose: "Compare current codebase against solution-intent and project-identity for architectural deviations, layer violations, and undocumented structural changes"
+name: architecture-drift
+description: "Compare current codebase against solution-intent and project-identity for architectural deviations, layer violations, and undocumented structural changes"
 type: operational
 cadence: weekly
-hosts:
-  - codex-app-automation
-  - claude-scheduled-tasks
-  - github-agents
-  - azure-foundry
-provider_scope:
-  read: [issues, labels, code, commits]
-  write: [comments, work-items, labels]
-feature_policy: read-only
-hierarchy_policy:
-  create: [task]
-  mutate: [task]
-scan_targets:
-  - src/ (module structure, imports, layer boundaries)
-  - docs/solution-intent.md (architectural decisions)
-  - .ai-engineering/contexts/project-identity.md (project boundaries)
-  - .ai-engineering/state/decision-store.json (settled decisions)
-tool_dependencies:
-  - gh
-  - az
-  - git
-  - python
-thresholds:
-  max_import_cycles: 0
-  max_layer_violations: 0
-  max_findings_per_run: 10
-outputs:
-  work_items: true
-  comments: true
-  labels: true
-  report: detailed
-handoff:
-  marker: "architecture-drift"
-  lifecycle_phase: triage
-guardrails:
-  max_mutations: 10
-  protected_labels: [p1-critical, pinned]
-  protected_states: [closed, resolved]
-  dry_run_default: true
 ---
 
 # Architecture Drift Runbook
@@ -288,7 +248,7 @@ Each `FAIL` result is recorded as a finding with severity `high`. Each `SKIP` is
 
 ### Step 8 -- Create work items for drift findings
 
-For each finding from Steps 4-7, create a task work item. Respect the `guardrails.max_mutations` limit (default 10). Apply dry-run mode unless explicitly overridden.
+For each finding from Steps 4-7, create a task work item. Respect the 10-item mutation limit.
 
 ```bash
 # GitHub Issues
@@ -302,7 +262,7 @@ gh issue create \
 **Rule violated:** $RULE_DESCRIPTION
 **Remediation:** $SUGGESTED_FIX
 
-Detected by: architecture-drift runbook v1" \
+Detected by: architecture-drift runbook" \
   --label "architecture-drift"
 
 # Azure DevOps
@@ -312,7 +272,6 @@ az boards work-item create --type Task \
   --area "Project\\TeamName"
 ```
 
-In dry-run mode, print the work item payloads to stdout without creating them.
 
 ### Step 9 -- Generate drift report
 
@@ -339,7 +298,7 @@ Structural changes since 2026-03-19:
   + ai_engineering/new_module/ (not in solution-intent)
   ~ ai_engineering/hooks/ -> ai_engineering/hook_manager/ (rename not documented)
 
-Items created:      1 (dry-run: true)
+Items created:      1
 Mutations used:     1 / 10
 ```
 
@@ -359,7 +318,7 @@ Both providers produce identical report output. The provider is read from `manif
 
 | Host | Considerations |
 |------|---------------|
-| codex-app-automation | Full CLI access. Ensure Python 3.11+ is available in the sandbox. Run with `--dry-run` default; override with `--apply` after human review of findings. Network sandbox restricts API calls to `gh` and `az` CLI only. |
+| codex-app-automation | Full CLI access. Ensure Python 3.11+ is available in the sandbox. Mutations enabled by default. Network sandbox restricts API calls to `gh` and `az` CLI only. |
 | claude-scheduled-tasks | Operates within Claude agent context. Use tool calls for `gh`, `git`, and `python` commands. Report output as structured markdown. Respect `max_mutations` guardrail since session cost is metered. |
 | github-agents | Runs as a GitHub Actions scheduled workflow. Store report as a workflow artifact. Use `GITHUB_TOKEN` for API calls. Python is pre-installed in `ubuntu-latest` runners. Azure DevOps commands are unavailable in this host. |
 | azure-foundry | Runs as an Azure AI Foundry agent or Azure Automation runbook. Authenticate via managed identity. GitHub commands require a PAT stored in Key Vault. Use `az extension add --name azure-devops` if the extension is not pre-installed. |
@@ -368,8 +327,8 @@ Both providers produce identical report output. The provider is read from `manif
 
 1. **Never modifies code.** This runbook reads source files, parses imports, and compares structure against documentation. It does not commit, push, merge, or alter any source file.
 2. **Never modifies architecture docs.** Solution-intent, project-identity, and the decision store are read-only inputs. Updating them is a human responsibility triggered by the findings.
-3. **Read-only by default.** The `dry_run_default: true` guardrail means no work items are created unless the operator explicitly passes `--apply` or sets `DRY_RUN=false`.
-4. **Bounded mutations.** A maximum of 10 work items are created per run (`guardrails.max_mutations`). If findings exceed this limit, the report notes the overflow and stops creating items.
+3. **Mutations enabled by default.** Work items are created automatically.
+4. **Bounded mutations.** A maximum of 10 work items are created per run. If findings exceed this limit, the report notes the overflow and stops creating items.
 5. **Protected states.** Items in `closed` or `resolved` state are never reopened or modified. Labels `p1-critical` and `pinned` are never removed.
 6. **Idempotent.** Before creating a work item, the runbook searches existing open issues for the same finding signature (category + file + rule). Duplicates are skipped.
 7. **No inferred violations.** Only explicitly documented layers, boundaries, and decisions are checked. The runbook does not speculate about undeclared architectural intent.

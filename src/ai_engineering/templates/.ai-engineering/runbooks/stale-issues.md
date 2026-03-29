@@ -1,43 +1,8 @@
 ---
-runbook: stale-issues
-version: 1
-purpose: "Detect and label stale issues — open issues with no activity for 14+ days — and auto-close after 21 days with grace period"
+name: stale-issues
+description: "Detect and label stale issues — open issues with no activity for 14+ days — and auto-close after 21 days with grace period"
 type: operational
 cadence: daily
-hosts:
-  - codex-app-automation
-  - claude-scheduled-tasks
-  - github-agents
-  - azure-foundry
-provider_scope:
-  read: [issues, labels, milestones, comments]
-  write: [comments, labels, state]
-feature_policy: read-only
-hierarchy_policy:
-  create: []
-  mutate: []
-scan_targets:
-  - all open issues
-tool_dependencies:
-  - gh
-  - az
-thresholds:
-  stale_days: 14
-  close_days: 21
-outputs:
-  work_items: false
-  comments: true
-  labels: true
-  report: summary
-handoff:
-  marker: "stale"
-  lifecycle_phase: triage
-guardrails:
-  max_mutations: 30
-  protected_labels: [p1-critical, pinned, security]
-  protected_states: [closed, resolved]
-  exempt_milestoned: true
-  dry_run_default: true
 ---
 
 # Stale Issues
@@ -45,7 +10,7 @@ guardrails:
 ## Purpose
 
 Detect open issues with no activity for 14+ days, label them `stale`, and auto-close after a 7-day grace period (21 days total).
-Exempt issues are never touched. Dry-run is the default mode -- pass `--live` to apply mutations.
+Exempt issues are never touched. Mutations are applied automatically.
 
 ## Procedure
 
@@ -150,7 +115,7 @@ Azure DevOps uses tags instead of labels. The `stale` tag is appended to or remo
 | Host | Considerations |
 |------|---------------|
 | `codex-app-automation` | Runs as a scheduled Codex task. Authenticate via `GITHUB_TOKEN` environment variable. Output the summary to stdout for capture by the task runner. |
-| `claude-scheduled-tasks` | Invoked on a daily cron. The runbook is loaded as context and executed step-by-step. Respect `dry_run_default: true` unless `--live` is explicitly passed. |
+| `claude-scheduled-tasks` | Invoked on a daily cron. The runbook is loaded as context and executed step-by-step. Mutations enabled by default. |
 | `github-agents` | Runs inside a GitHub Actions workflow. Use `${{ secrets.GITHUB_TOKEN }}` for authentication. Emit the summary as a step output for downstream jobs. |
 | `azure-foundry` | Authenticate with `az login --identity` for managed identity. Use `az` CLI for all mutations. Map label operations to tag field updates. |
 
@@ -159,7 +124,7 @@ All hosts must enforce the `max_mutations` guardrail and never exceed 30 label o
 ## Safety
 
 - **Mutation cap**: Maximum 30 label additions, label removals, and issue closures combined per run. If the cap is reached, stop processing and report the remaining unprocessed issues.
-- **Dry-run default**: The runbook runs in dry-run mode unless explicitly overridden. In dry-run mode, all mutations are logged but not executed.
+- **Mutations enabled by default.** All label, comment, and close operations are applied automatically.
 - **Protected labels**: Issues carrying `p1-critical`, `pinned`, or `security` are unconditionally skipped. No label is added, no comment is posted, no state is changed.
 - **Protected states**: Issues already in `closed` or `resolved` state are never re-processed.
 - **Bot-activity filtering**: Only non-bot updates reset the staleness clock. Bot comments (from the stale label automation itself) do not count as activity.

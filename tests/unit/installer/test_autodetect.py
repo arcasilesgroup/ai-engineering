@@ -173,21 +173,27 @@ class TestDetectAIProviders:
         (gh / "copilot-instructions.md").touch()
         assert detect_ai_providers(tmp_path) == ["claude_code", "github_copilot"]
 
-    def test_codex_detected_from_agents_dir(self, tmp_path: Path) -> None:
-        (tmp_path / ".agents").mkdir()
+    def test_codex_detected_from_codex_dir(self, tmp_path: Path) -> None:
+        (tmp_path / ".codex").mkdir()
         assert detect_ai_providers(tmp_path) == ["codex"]
 
     def test_codex_detected_from_agents_md(self, tmp_path: Path) -> None:
         (tmp_path / "AGENTS.md").write_text("# AGENTS\n", encoding="utf-8")
         assert detect_ai_providers(tmp_path) == ["codex"]
 
-    def test_all_three_provider_surfaces(self, tmp_path: Path) -> None:
+    def test_all_four_provider_surfaces(self, tmp_path: Path) -> None:
         (tmp_path / ".claude").mkdir()
-        (tmp_path / ".agents").mkdir()
+        (tmp_path / ".codex").mkdir()
+        (tmp_path / ".gemini").mkdir()
         gh = tmp_path / ".github"
         gh.mkdir()
         (gh / "copilot-instructions.md").touch()
-        assert detect_ai_providers(tmp_path) == ["claude_code", "codex", "github_copilot"]
+        assert detect_ai_providers(tmp_path) == [
+            "claude_code",
+            "codex",
+            "gemini",
+            "github_copilot",
+        ]
 
     def test_empty_dir(self, tmp_path: Path) -> None:
         assert detect_ai_providers(tmp_path) == []

@@ -91,7 +91,7 @@ These paths are written by the framework itself:
 
 ## Runbooks
 
-`runbooks/*.md` are 12 self-contained portable runbooks. Each is a single Markdown file combining a YAML frontmatter contract, full procedure, and host notes. There are no separate adapter files.
+`runbooks/*.md` are 12 self-contained portable runbooks. Each is a single Markdown file combining a minimal YAML frontmatter contract, full procedure, and host notes. There are no separate adapter files.
 
 ### Contract schema
 
@@ -99,33 +99,22 @@ Every runbook frontmatter declares these fields:
 
 | Field | Purpose |
 |-------|---------|
-| `runbook` | Identifier (e.g. `triage`, `code-quality`) |
-| `version` | Semver of the contract |
-| `purpose` | One-line description |
+| `name` | Identifier slug (e.g. `triage`, `code-quality`) |
+| `description` | One-line description |
 | `type` | `intake` or `operational` |
 | `cadence` | `daily` or `weekly` |
-| `hosts` | Target platforms |
-| `provider_scope` | Work-item provider (GitHub Issues, Azure Boards) |
-| `feature_policy` | Rules for feature-level items |
-| `hierarchy_policy` | Parent/child work-item rules |
-| `scan_targets` | Files, directories, or APIs the runbook reads |
-| `tool_dependencies` | CLI tools or APIs required at runtime |
-| `thresholds` | Numeric limits that trigger findings |
-| `outputs` | Artifacts produced (labels, comments, issues) |
-| `handoff` | What happens after the runbook completes |
-| `guardrails` | Hard constraints the runbook must not violate |
 
 ### Design principles
 
 - **All HITL**: runbooks prepare work items in the provider. They never touch code and never create PRs.
-- **dry_run_default: true**: hosts must explicitly configure `--apply` to make changes.
+- **Dry-run by default**: hosts must explicitly configure `--apply`, `--arm`, or `--live` to make changes.
 - **Portable**: the same runbook runs on Codex App Automation, Claude scheduled tasks, GitHub Agents, and Azure Foundry.
 - **No adapter layer**: the old thin-host-adapter pattern is eliminated. Each runbook is fully self-contained.
 
 ### Catalog
 
-| Runbook | Type | Cadence | Purpose |
-|---------|------|---------|---------|
+| Runbook | Type | Cadence | Description |
+|---------|------|---------|-------------|
 | `triage` | intake | daily | Scan backlog, classify, prioritize |
 | `refine` | intake | daily | Gather context, draft acceptance criteria, mark ready |
 | `feature-scanner` | operational | daily | Spec-vs-code gaps |
@@ -187,9 +176,10 @@ The framework also writes provider surfaces next to `.ai-engineering/`:
 | Path | Purpose |
 |------|---------|
 | `../.claude/skills/` and `../.claude/agents/` | Claude Code skills and agents |
-| `../.agents/skills/` and `../.agents/agents/` | Codex/Gemini skills and agents |
+| `../.codex/skills/` and `../.codex/agents/` | Codex CLI skills and agents |
+| `../.gemini/skills/` and `../.gemini/agents/` | Gemini CLI skills and agents |
 | `../.github/skills/` and `../.github/agents/` | GitHub Copilot skills and agents |
-| `../AGENTS.md` and `../CLAUDE.md` | Shared instruction files |
+| `../AGENTS.md`, `../CLAUDE.md`, `../GEMINI.md` | Instruction files per IDE |
 
 Use `ai-eng sync` after framework changes to regenerate those mirrors.
 

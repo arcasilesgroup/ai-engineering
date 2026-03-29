@@ -126,6 +126,7 @@ class TestProviderTemplates:
         (github_dir / "copilot-instructions.md").parent.mkdir(parents=True, exist_ok=True)
         (github_dir / "copilot-instructions.md").write_text("# Copilot\n", encoding="utf-8")
         (github_dir / "skills").mkdir(parents=True, exist_ok=True)
+        (github_dir / "hooks").mkdir(parents=True, exist_ok=True)
         (github_dir / "agents").mkdir(parents=True, exist_ok=True)
         (github_dir / "instructions").mkdir(parents=True, exist_ok=True)
 

@@ -9,7 +9,7 @@ ROOT = Path(__file__).resolve().parents[2]
 RUNBOOK_ROOT = ROOT / ".ai-engineering" / "runbooks"
 TEMPLATE_ROOT = ROOT / "src" / "ai_engineering" / "templates" / ".ai-engineering" / "runbooks"
 
-# spec-085: 12 runbooks with new contract schema
+# spec-085: 12 runbooks with minimal frontmatter schema
 ALL_RUNBOOKS = [
     "triage",
     "refine",
@@ -26,28 +26,14 @@ ALL_RUNBOOKS = [
 ]
 
 REQUIRED_CONTRACT_KEYS = {
-    "runbook",
-    "version",
-    "purpose",
+    "name",
+    "description",
     "type",
     "cadence",
-    "hosts",
-    "provider_scope",
-    "feature_policy",
-    "hierarchy_policy",
-    "outputs",
-    "handoff",
-    "guardrails",
 }
 
 VALID_TYPES = {"intake", "operational"}
 VALID_CADENCES = {"daily", "weekly"}
-REQUIRED_HOSTS = {
-    "codex-app-automation",
-    "claude-scheduled-tasks",
-    "github-agents",
-    "azure-foundry",
-}
 
 REQUIRED_SECTIONS = (
     "## Purpose",
@@ -86,20 +72,14 @@ def test_runbook_contract_schema(slug: str) -> None:
 
     missing = REQUIRED_CONTRACT_KEYS - set(frontmatter)
     assert not missing, f"{slug}: missing contract keys: {missing}"
+    unexpected = set(frontmatter) - REQUIRED_CONTRACT_KEYS
+    assert not unexpected, f"{slug}: unexpected contract keys: {unexpected}"
 
-    assert frontmatter["runbook"] == slug
-    assert frontmatter["version"] == 1
+    assert frontmatter["name"] == slug
+    assert isinstance(frontmatter["description"], str)
+    assert frontmatter["description"], f"{slug}: description must be non-empty"
     assert frontmatter["type"] in VALID_TYPES
     assert frontmatter["cadence"] in VALID_CADENCES
-    assert frontmatter["feature_policy"] == "read-only"
-
-    hosts = frontmatter["hosts"]
-    assert isinstance(hosts, list)
-    assert set(hosts) >= REQUIRED_HOSTS, f"{slug}: missing hosts"
-
-    guardrails = frontmatter["guardrails"]
-    assert isinstance(guardrails, dict)
-    assert guardrails.get("dry_run_default") is True
 
     for section in REQUIRED_SECTIONS:
         assert section in body, f"{slug}: missing section '{section}'"

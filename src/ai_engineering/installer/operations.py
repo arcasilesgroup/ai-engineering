@@ -11,7 +11,9 @@ from ai_engineering.state.observability import emit_framework_operation
 from .templates import TEMPLATES_ROOT, copy_project_templates, remove_provider_templates
 
 # Known IDE identifiers recognised by the framework.
-_KNOWN_IDES: frozenset[str] = frozenset({"terminal", "vscode", "jetbrains", "cursor"})
+_KNOWN_IDES: frozenset[str] = frozenset(
+    {"terminal", "vscode", "jetbrains", "cursor", "antigravity"}
+)
 
 # Valid AI provider identifiers.
 _VALID_AI_PROVIDERS: frozenset[str] = frozenset(

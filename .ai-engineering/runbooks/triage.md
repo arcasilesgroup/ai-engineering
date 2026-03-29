@@ -1,51 +1,15 @@
 ---
-runbook: triage
-version: 1
-purpose: "Scan open issues and backlog, classify by type and priority, detect duplicates, discard noise, label triaged items for refinement"
+name: triage
+description: "Scan open issues and backlog, classify by type and priority, detect duplicates, discard noise, label triaged items for refinement"
 type: intake
 cadence: daily
-hosts:
-  - codex-app-automation
-  - claude-scheduled-tasks
-  - github-agents
-  - azure-foundry
-provider_scope:
-  read: [issues, labels, milestones, assignees]
-  write: [comments, labels]
-feature_policy: read-only
-hierarchy_policy:
-  create: []
-  mutate: []
-scan_targets:
-  - open issues without triage labels
-  - backlog items with no recent activity
-tool_dependencies:
-  - gh
-  - az
-thresholds:
-  duplicate_similarity: 0.8
-  noise_keywords: [test, wip, scratch, tmp]
-  max_age_untriaged_days: 7
-outputs:
-  work_items: false
-  comments: true
-  labels: true
-  report: summary
-handoff:
-  marker: "needs-refinement"
-  lifecycle_phase: triage
-guardrails:
-  max_mutations: 50
-  protected_labels: [p1-critical, pinned, security]
-  protected_states: [closed, resolved]
-  dry_run_default: true
 ---
 
 # Triage Runbook
 
 ## Purpose
 
-Scan all open issues and backlog items across GitHub and Azure DevOps, classify each by type and priority, detect duplicates, discard noise, and label triaged items for refinement. This runbook is read-only by default (dry-run) and must be explicitly armed to write labels or comments. It runs daily on any of the four registered hosts.
+Scan all open issues and backlog items across GitHub and Azure DevOps, classify each by type and priority, detect duplicates, discard noise, and label triaged items for refinement. Mutations are applied automatically. It runs daily on any of the four registered hosts.
 
 ## Procedure
 
@@ -80,7 +44,7 @@ For each issue in `$ISSUES`, inspect the title, body, and existing labels. Assig
 Apply the label `type/<classified>`:
 
 ```bash
-# GitHub -- apply type label (dry-run: echo only)
+# GitHub -- apply type label
 gh issue edit "$NUMBER" --add-label "type/$TYPE"
 ```
 
@@ -243,8 +207,7 @@ This runbook enforces strict guardrails to prevent unintended side effects:
 - **Never** modifies issues in `closed` or `resolved` state -- these are protected states.
 - **Never** assigns issues to people -- assignment is a refinement concern, not triage.
 - **Never** creates pull requests, branches, or code changes -- this is an intake runbook.
-- **Never** modifies feature work items -- `feature_policy: read-only` is enforced.
-- **Never** creates or mutates hierarchy items (epics, features) -- `hierarchy_policy` forbids it.
-- **Never** exceeds 50 mutations per run -- the `max_mutations` guardrail halts execution and reports remaining items.
+- **Never** modifies feature work items or hierarchy items such as epics and features.
+- **Never** exceeds 50 mutations per run. Once the cap is reached, it halts execution and reports remaining items.
 - **Never** removes existing labels -- it only adds labels. Relabeling is a refinement concern.
-- **Dry-run is the default.** All write operations are echoed to stdout unless the caller explicitly passes `--arm` or sets `DRY_RUN=false`. In dry-run mode, the runbook produces the full report and logs every command it would execute, but writes nothing.
+- **Mutations enabled by default.** All qualifying labels and comments are applied automatically.

@@ -32,8 +32,10 @@ def _check_cross_references(
     ide_dirs = [
         target / ".claude" / "skills",
         target / ".claude" / "agents",
-        target / ".agents" / "skills",
-        target / ".agents" / "agents",
+        target / ".codex" / "skills",
+        target / ".codex" / "agents",
+        target / ".gemini" / "skills",
+        target / ".gemini" / "agents",
     ]
 
     # Build reference map: file -> list of referenced paths

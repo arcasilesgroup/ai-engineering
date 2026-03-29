@@ -2,7 +2,7 @@
 
 Provides the ``ai-eng sync`` command that regenerates all IDE-adapted
 mirrors from canonical ``.claude/skills/`` and ``.claude/agents/``
-sources into ``.agents/``, ``.github/``, and project templates,
+sources into ``.codex/``, ``.gemini/``, ``.github/``, and project templates,
 or verifies they are in sync (``--check`` mode).
 """
 
@@ -39,8 +39,8 @@ def sync_cmd(
     """Sync command mirrors across all IDE surfaces.
 
     Regenerates skill and agent mirrors from canonical .claude/skills/
-    and .claude/agents/ sources into .agents/, .github/, and project
-    templates.
+    and .claude/agents/ sources into .codex/, .gemini/, .github/, and
+    project templates.
 
     Use --check to verify without writing changes.
     """

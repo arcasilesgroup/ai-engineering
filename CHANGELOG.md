@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- **Native IDE directory architecture (spec-087)** -- eliminated the `.agents/` directory entirely; Codex content now lives in native `.codex/` with `hooks.json` and `config.toml`. Gemini hooks rewritten to official nested `matcher/hooks` format with `hooksConfig`. GitHub Copilot hooks added under `.github/hooks/`. Installer, sync script, and validator updated for the new structure.
+
+### Changed
 - **ai-eng update UX (spec-081)** -- the update command now presents an install-style preview in interactive terminals, explains protected files with structured reasons, and requires confirmation before applying writes while keeping JSON and non-TTY flows prompt-free.
 - **Hook simplification and instinct learning (spec-080)** -- retained hook automation is now focused on `auto-format`, `strategic-compact`, `instinct-observe`, and `instinct-extract`, with project-local instinct artifacts under `.ai-engineering/instincts/` and no `cost-tracker`.
 

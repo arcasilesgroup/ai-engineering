@@ -7,9 +7,9 @@ SKILL.md that declares it.
 
 Covers all four IDE mirrors:
   - .claude/skills/ai-*/SKILL.md
-  - .agents/skills/*/SKILL.md
+  - .codex/skills/ai-*/SKILL.md
   - src/ai_engineering/templates/project/.claude/skills/ai-*/SKILL.md
-  - src/ai_engineering/templates/project/.agents/skills/*/SKILL.md
+  - src/ai_engineering/templates/project/.codex/skills/ai-*/SKILL.md
 """
 
 from __future__ import annotations
@@ -25,14 +25,14 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 
 _SKILL_ROOTS: list[tuple[str, Path]] = [
     ("root/.claude", _REPO_ROOT / ".claude" / "skills"),
-    ("root/.agents", _REPO_ROOT / ".agents" / "skills"),
+    ("root/.codex", _REPO_ROOT / ".codex" / "skills"),
     (
         "template/.claude",
         _REPO_ROOT / "src" / "ai_engineering" / "templates" / "project" / ".claude" / "skills",
     ),
     (
-        "template/.agents",
-        _REPO_ROOT / "src" / "ai_engineering" / "templates" / "project" / ".agents" / "skills",
+        "template/.codex",
+        _REPO_ROOT / "src" / "ai_engineering" / "templates" / "project" / ".codex" / "skills",
     ),
 ]
 

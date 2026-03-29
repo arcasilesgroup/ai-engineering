@@ -154,9 +154,9 @@ class TestMultiDirScanning:
         names = [s.name for s in statuses]
         assert "code" in names
 
-    def test_agents_skills_dir_found(self, tmp_path: Path) -> None:
-        """Skills in .agents/skills/ are discovered."""
-        skill_dir = tmp_path / ".agents" / "skills" / "debug"
+    def test_codex_skills_dir_found(self, tmp_path: Path) -> None:
+        """Skills in .codex/skills/ are discovered."""
+        skill_dir = tmp_path / ".codex" / "skills" / "debug"
         skill_dir.mkdir(parents=True)
         (skill_dir / "SKILL.md").write_text(
             "---\nname: debug\nversion: 1.0.0\n---\n\n# Debug\n",
@@ -167,7 +167,7 @@ class TestMultiDirScanning:
         assert "debug" in names
 
     def test_helper_markdown_in_modern_skill_dirs_is_ignored(self, tmp_path: Path) -> None:
-        """Only SKILL.md is considered a runnable skill in .claude/.agents surfaces."""
+        """Only SKILL.md is considered a runnable skill in .claude/.codex surfaces."""
         skill_dir = tmp_path / ".claude" / "skills" / "slides"
         skill_dir.mkdir(parents=True)
         (skill_dir / "SKILL.md").write_text(

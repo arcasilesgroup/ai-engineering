@@ -202,7 +202,8 @@ def _check_skill_frontmatter(
     # Skills now live in IDE-specific directories, not .ai-engineering/skills/
     ide_skill_dirs = [
         target / ".claude" / "skills",
-        target / ".agents" / "skills",
+        target / ".codex" / "skills",
+        target / ".gemini" / "skills",
     ]
     skills_roots = [d for d in ide_skill_dirs if d.is_dir()]
     if not skills_roots:
@@ -240,7 +241,7 @@ def _check_skill_frontmatter(
         # Directory layout: skills/<name>/SKILL.md (flat, no categories)
         # name = parent directory (e.g. "debug")
         skill_name = skill_file.parent.name
-        # Skills under IDE directories (.claude/, .agents/) don't require version
+        # Skills under IDE directories (.claude/, .codex/, .gemini/) don't require version
         is_ide_skill = any(skill_file.resolve().is_relative_to(root) for root in ide_roots)
         failures += _validate_skill_identity(
             frontmatter, skill_name, rel, report, require_version=not is_ide_skill

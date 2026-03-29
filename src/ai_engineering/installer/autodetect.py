@@ -54,6 +54,7 @@ _IDE_POPULARITY: tuple[str, ...] = (
     "vscode",  # ~74% market share
     "jetbrains",  # ~27%
     "cursor",  # growing
+    "antigravity",  # niche
     "terminal",  # niche
 )
 
@@ -194,21 +195,24 @@ def detect_stacks(root: Path) -> list[str]:
 def detect_ai_providers(root: Path) -> list[str]:
     """Detect AI coding assistants configured in *root*.
 
-    Root-level only — ``.claude/`` and ``.github/`` are project-root markers.
+    Root-level only — ``.claude/``, ``.github/``, and ``.gemini/`` are project-root markers.
     """
     providers: list[str] = []
 
     if (root / ".claude").is_dir():
         providers.append("claude_code")
 
+    if (root / ".gemini").is_dir() or (root / "GEMINI.md").is_file():
+        providers.append("gemini")
+
     copilot_instructions = (root / ".github" / "copilot-instructions.md").is_file()
     copilot_skills = (root / ".github" / "skills").is_dir()
     if copilot_instructions or copilot_skills:
         providers.append("github_copilot")
 
-    generic_instruction_file = (root / "AGENTS.md").is_file()
-    generic_agents_tree = (root / ".agents").is_dir()
-    if generic_instruction_file or generic_agents_tree:
+    codex_instruction_file = (root / "AGENTS.md").is_file()
+    codex_tree = (root / ".codex").is_dir()
+    if codex_instruction_file or codex_tree:
         providers.append("codex")
 
     return sorted(providers)

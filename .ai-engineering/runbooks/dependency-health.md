@@ -1,47 +1,8 @@
 ---
-runbook: dependency-health
-version: 1
-purpose: "Scan dependencies for outdated versions, known CVEs, and license compliance issues; owns all dependency-graph vulnerability findings"
+name: dependency-health
+description: "Scan dependencies for outdated versions, known CVEs, and license compliance issues; owns all dependency-graph vulnerability findings"
 type: operational
 cadence: weekly
-hosts:
-  - codex-app-automation
-  - claude-scheduled-tasks
-  - github-agents
-  - azure-foundry
-provider_scope:
-  read: [issues, labels, code]
-  write: [comments, work-items, labels]
-feature_policy: read-only
-hierarchy_policy:
-  create: [task]
-  mutate: [task]
-scan_targets:
-  - pyproject.toml / requirements.txt / uv.lock
-  - package.json / package-lock.json (if present)
-  - Cargo.toml / Cargo.lock (if present)
-tool_dependencies:
-  - gh
-  - az
-  - pip-audit
-  - uv
-thresholds:
-  severity: medium
-  outdated_days: 90
-  max_findings_per_run: 20
-outputs:
-  work_items: true
-  comments: true
-  labels: true
-  report: detailed
-handoff:
-  marker: "dependency-update"
-  lifecycle_phase: triage
-guardrails:
-  max_mutations: 20
-  protected_labels: [p1-critical, pinned]
-  protected_states: [closed, resolved]
-  dry_run_default: true
 ---
 
 # Dependency Health
@@ -222,5 +183,5 @@ Both providers are always configured in the manifest. Switching is a one-field c
 - **Max 20 work items per run.** Excess findings logged in the report, deferred to next run.
 - **Never auto-upgrades dependencies.** Creates issues for human review only.
 - **Never creates pull requests.** Upgrade PRs are authored by developers after triage.
-- **Dry-run by default.** Set `dry_run_default: false` to enable mutations.
+- **Mutations enabled by default.** All qualifying findings are created immediately.
 - **Protected labels/states untouched.** `p1-critical`, `pinned`, `closed`, `resolved` items are skipped.

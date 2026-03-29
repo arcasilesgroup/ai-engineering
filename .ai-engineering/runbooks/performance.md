@@ -1,48 +1,8 @@
 ---
-runbook: performance
-version: 1
-purpose: "Detect performance regressions, test suite slowdowns, build time increases, and bundle size growth"
+name: performance
+description: "Detect performance regressions, test suite slowdowns, build time increases, and bundle size growth"
 type: operational
 cadence: weekly
-hosts:
-  - codex-app-automation
-  - claude-scheduled-tasks
-  - github-agents
-  - azure-foundry
-provider_scope:
-  read: [issues, labels, code, pull-requests, checks]
-  write: [comments, work-items, labels]
-feature_policy: read-only
-hierarchy_policy:
-  create: [task]
-  mutate: [task]
-scan_targets:
-  - CI run timing data
-  - test suite execution times
-  - build artifacts and sizes
-  - recent PR check durations
-tool_dependencies:
-  - gh
-  - az
-  - git
-  - pytest
-thresholds:
-  test_slowdown_pct: 20
-  build_time_increase_pct: 15
-  max_findings_per_run: 10
-outputs:
-  work_items: true
-  comments: true
-  labels: true
-  report: detailed
-handoff:
-  marker: "perf-regression"
-  lifecycle_phase: triage
-guardrails:
-  max_mutations: 10
-  protected_labels: [p1-critical, pinned]
-  protected_states: [closed, resolved]
-  dry_run_default: true
 ---
 
 # Performance Runbook
@@ -206,10 +166,10 @@ Mutations:        $MUTATION_COUNT / 10
 
 ## Safety
 
-- **Read-only by default.** All write operations are logged but not executed unless the caller explicitly passes `--arm` or sets `DRY_RUN=false`. Dry-run produces the full report and logs every command it would run.
+- **Mutations enabled by default.** All qualifying work items are created automatically.
 - **Mutation cap.** Maximum 10 work item creations per run (`max_mutations`). If the cap is reached, stop creating items and report the remaining findings in the summary.
 - **Never modifies code or tests.** This runbook does not edit source files, test files, CI configuration, or build scripts. It only reads timing data and creates tracking items.
 - **Never closes or modifies existing issues.** Items labeled `p1-critical` or `pinned` are never relabeled. Issues in `closed` or `resolved` state are never touched.
 - **Never re-runs tests destructively.** The `pytest` invocation is read-only -- it runs the suite but does not modify fixtures, databases, or external services. If the test suite has side effects, the host must provide an isolated environment.
 - **Idempotent within cadence.** Running the procedure multiple times in the same week produces duplicate work items. Hosts should gate execution to once per cadence period.
-- **Threshold integrity.** The `test_slowdown_pct` and `build_time_increase_pct` thresholds are never weakened at runtime. To adjust thresholds, update the frontmatter and commit the change through the normal review process.
+- **Threshold integrity.** The `test_slowdown_pct` and `build_time_increase_pct` thresholds are never weakened at runtime. To adjust them, update this runbook and commit the change through the normal review process.

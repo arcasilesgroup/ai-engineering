@@ -762,22 +762,22 @@ class TestClaudeAgentsMirror:
         assert len(fail_checks) >= 1
 
 
-class TestAgentsSkillsMirror:
-    """Tests for .agents skills mirror-sync validation."""
+class TestCodexSkillsMirror:
+    """Tests for .codex skills mirror-sync validation."""
 
-    def test_agents_skills_mirror_sync_ok(self, tmp_path: Path) -> None:
+    def test_codex_skills_mirror_sync_ok(self, tmp_path: Path) -> None:
         _setup_full_project(tmp_path)
         _setup_governance_mirror(tmp_path)
-        canonical = tmp_path / ".agents" / "skills" / "test"
+        canonical = tmp_path / ".codex" / "skills" / "ai-test"
         mirror = (
             tmp_path
             / "src"
             / "ai_engineering"
             / "templates"
             / "project"
-            / ".agents"
+            / ".codex"
             / "skills"
-            / "test"
+            / "ai-test"
         )
         canonical.mkdir(parents=True)
         mirror.mkdir(parents=True)
@@ -788,21 +788,19 @@ class TestAgentsSkillsMirror:
         ok_checks = [
             c
             for c in report.checks
-            if c.name == "agents-skills-mirrors" and c.status == IntegrityStatus.OK
+            if c.name == "codex-skills-mirrors" and c.status == IntegrityStatus.OK
         ]
         assert len(ok_checks) == 1
 
 
-class TestAgentsAgentsMirror:
-    """Tests for .agents agents mirror-sync validation."""
+class TestCodexAgentsMirror:
+    """Tests for .codex agents mirror-sync validation."""
 
-    def test_agents_agents_mirror_sync_ok(self, tmp_path: Path) -> None:
+    def test_codex_agents_mirror_sync_ok(self, tmp_path: Path) -> None:
         _setup_full_project(tmp_path)
         _setup_governance_mirror(tmp_path)
-        canonical = tmp_path / ".agents" / "agents"
-        mirror = (
-            tmp_path / "src" / "ai_engineering" / "templates" / "project" / ".agents" / "agents"
-        )
+        canonical = tmp_path / ".codex" / "agents"
+        mirror = tmp_path / "src" / "ai_engineering" / "templates" / "project" / ".codex" / "agents"
         canonical.mkdir(parents=True)
         mirror.mkdir(parents=True)
         content = "---\nname: ai-test\ndescription: test\n---\nAgent.\n"
@@ -812,7 +810,7 @@ class TestAgentsAgentsMirror:
         ok_checks = [
             c
             for c in report.checks
-            if c.name == "agents-agents-mirrors" and c.status == IntegrityStatus.OK
+            if c.name == "codex-agents-mirrors" and c.status == IntegrityStatus.OK
         ]
         assert len(ok_checks) == 1
 
@@ -1340,7 +1338,7 @@ class TestParseNamesFromSubsection:
         assert names == {"ai-test"}
 
     def test_agent_names_from_subsection(self) -> None:
-        content = "#### Skills\n\n\n#### Agents\n\n- `.agents/agents/ai-build.md`\n"
+        content = "#### Skills\n\n\n#### Agents\n\n- `.codex/agents/ai-build.md`\n"
         names = _parse_agent_names_from_subsection(content, "Agents")
         assert names == {"ai-build"}
 
@@ -1369,7 +1367,7 @@ class TestExtractListings:
             "#### Skills\n\n"
             "- `.claude/skills/ai-debug/SKILL.md`\n\n"
             "#### Agents\n\n"
-            "- `.agents/agents/ai-plan.md`\n"
+            "- `.codex/agents/ai-plan.md`\n"
         )
         skills, agents = _extract_listings(content)
         assert skills == {"ai-debug"}

@@ -58,9 +58,9 @@ class TestMigrateLegacyDirs:
         (ai / "agents").mkdir(parents=True)
         (ai / "agents" / "build.md").write_text("old", encoding="utf-8")
 
-        # IDE content via .agents/ candidate
-        (tmp_path / ".agents" / "skills").mkdir(parents=True)
-        (tmp_path / ".agents" / "skills" / "SKILL.md").write_text("content", encoding="utf-8")
+        # IDE content via .codex/ candidate
+        (tmp_path / ".codex" / "skills").mkdir(parents=True)
+        (tmp_path / ".codex" / "skills" / "SKILL.md").write_text("content", encoding="utf-8")
 
         removed = _migrate_legacy_dirs(tmp_path, ai)
 

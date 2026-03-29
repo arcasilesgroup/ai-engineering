@@ -230,25 +230,35 @@ graph LR
         GI["copilot-instructions.md"]
     end
 
-    subgraph Agents["Codex / Others (.agents/)"]
-        AS["skills/*/SKILL.md"]
-        AA["agents/ai-*.md"]
-        AI["AGENTS.md"]
+    subgraph Codex["Codex (.codex/)"]
+        XS["skills/ai-*/SKILL.md"]
+        XA["agents/ai-*.md"]
+        XI["AGENTS.md"]
+    end
+
+    subgraph Gemini["Gemini (.gemini/)"]
+        MS["skills/ai-*/SKILL.md"]
+        MA["agents/ai-*.md"]
+        MI["GEMINI.md"]
     end
 
     CS -->|sync| GS
-    CS -->|sync| AS
+    CS -->|sync| XS
+    CS -->|sync| MS
     CA -->|sync| GA
-    CA -->|sync| AA
+    CA -->|sync| XA
+    CA -->|sync| MA
     CI -->|sync| GI
-    CI -->|sync| AI
+    CI -->|sync| XI
+    CI -->|sync| MI
 ```
 
 | Surface | Skills location | Agents location | Instruction file |
 |---------|----------------|----------------|-----------------|
 | `.claude/` | `skills/ai-*/SKILL.md` | `agents/ai-*.md` | `CLAUDE.md` |
+| `.codex/` | `skills/ai-*/SKILL.md` | `agents/ai-*.md` | `AGENTS.md` |
+| `.gemini/` | `skills/ai-*/SKILL.md` | `agents/ai-*.md` | `GEMINI.md` |
 | `.github/` | `skills/ai-*/SKILL.md` | `agents/*.agent.md` | `copilot-instructions.md` |
-| `.agents/` | `skills/*/SKILL.md` | `agents/ai-*.md` | `AGENTS.md` |
 
 ### 4.2 Skills Registry (30)
 
@@ -582,7 +592,7 @@ graph TD
 
 ### 7.4 Runbooks (12)
 
-Self-contained portable Markdown contracts executed on Codex App Automation, Claude scheduled tasks, or Azure Foundry. No GitHub workflow adapters -- the runbook file is the single portable artifact.
+Self-contained portable Markdown contracts executed on Codex App Automation, Claude scheduled tasks, or Azure Foundry. Each runbook carries only minimal frontmatter (`name`, `description`, `type`, `cadence`); operational detail lives in the body. No GitHub workflow adapters -- the runbook file is the single portable artifact.
 
 | Runbook | Type | Cadence |
 |---------|------|---------|
@@ -800,7 +810,7 @@ The following items require verification or team definition before they can be d
 | Framework capabilities | `.ai-engineering/state/framework-capabilities.json` |
 | Active spec | `.ai-engineering/specs/spec.md` |
 | Contexts (26) | `.ai-engineering/contexts/{languages,frameworks,team,orgs}/` |
-| Runbooks (8) | `.ai-engineering/runbooks/` |
+| Runbooks (12) | `.ai-engineering/runbooks/` |
 | CLI source | `src/ai_engineering/` |
 | Tests (106 files) | `tests/{unit,integration,e2e}/` |
 | This document | `docs/solution-intent.md` |

@@ -126,13 +126,16 @@ _DEFAULT_OWNERSHIP_PATHS: list[tuple[str, OwnershipLevel, FrameworkUpdatePolicy]
     # -- project root files -------------------------------------------------
     ("CLAUDE.md", OwnershipLevel.FRAMEWORK_MANAGED, FrameworkUpdatePolicy.ALLOW),
     ("AGENTS.md", OwnershipLevel.FRAMEWORK_MANAGED, FrameworkUpdatePolicy.ALLOW),
+    ("GEMINI.md", OwnershipLevel.FRAMEWORK_MANAGED, FrameworkUpdatePolicy.ALLOW),
     (".gitleaks.toml", OwnershipLevel.FRAMEWORK_MANAGED, FrameworkUpdatePolicy.ALLOW),
     (".semgrep.yml", OwnershipLevel.FRAMEWORK_MANAGED, FrameworkUpdatePolicy.ALLOW),
     # -- .claude/ (specific before glob) ------------------------------------
     (".claude/settings.json", OwnershipLevel.TEAM_MANAGED, FrameworkUpdatePolicy.DENY),
     (".claude/**", OwnershipLevel.FRAMEWORK_MANAGED, FrameworkUpdatePolicy.ALLOW),
-    # -- .agents/ -----------------------------------------------------------
-    (".agents/**", OwnershipLevel.FRAMEWORK_MANAGED, FrameworkUpdatePolicy.ALLOW),
+    # -- .codex/ ------------------------------------------------------------
+    (".codex/**", OwnershipLevel.FRAMEWORK_MANAGED, FrameworkUpdatePolicy.ALLOW),
+    # -- .gemini/ -----------------------------------------------------------
+    (".gemini/**", OwnershipLevel.FRAMEWORK_MANAGED, FrameworkUpdatePolicy.ALLOW),
     # -- .github/ (specific before globs) -----------------------------------
     (
         ".github/copilot-instructions.md",

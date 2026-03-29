@@ -40,6 +40,7 @@ _PROVIDER_FILE_MAPS: dict[str, dict[str, str]] = {
     },
     "gemini": {
         "AGENTS.md": "AGENTS.md",
+        "GEMINI.md": "GEMINI.md",
     },
     "codex": {
         "AGENTS.md": "AGENTS.md",
@@ -58,14 +59,15 @@ _PROVIDER_TREE_MAPS: dict[str, list[tuple[str, str]]] = {
     ],
     "github_copilot": [
         (".github/skills", ".github/skills"),
+        (".github/hooks", ".github/hooks"),
         ("agents", ".github/agents"),
         ("instructions", ".github/instructions"),
     ],
     "gemini": [
-        (".agents", ".agents"),
+        (".gemini", ".gemini"),
     ],
     "codex": [
-        (".agents", ".agents"),
+        (".codex", ".codex"),
     ],
 }
 

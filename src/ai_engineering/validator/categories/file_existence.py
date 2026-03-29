@@ -62,9 +62,11 @@ def _check_file_existence(
             # Skip shell variable references like $SKILL in inline scripts
             if "$" in ref_path:
                 continue
-            # Skip IDE directory references (e.g. .agents/agents/, .agents/skills/)
+            # Skip IDE directory references (e.g. codex/agents/, codex/skills/)
             # These are matched by the regex but are not governance paths
-            if ref_path.startswith(("agents/agents/", "agents/skills/")):
+            if ref_path.startswith(
+                ("agents/agents/", "agents/skills/", "codex/agents/", "codex/skills/")
+            ):
                 continue
             # Skip known-optional governance paths (exist only conditionally)
             if ref_path in _KNOWN_OPTIONAL_PATHS:
@@ -72,12 +74,13 @@ def _check_file_existence(
             full_path = ai_dir / ref_path
             if not full_path.exists():
                 # Fallback: skills/ and agents/ live in IDE-adapted mirrors
-                # (.claude/, .agents/, .github/), not in .ai-engineering/.
+                # (.claude/, .codex/, .gemini/, .github/), not in .ai-engineering/.
                 # IDE mirrors use ai- prefix (e.g. agents/build.md → .claude/agents/ai-build.md,
                 # skills/test/SKILL.md → .claude/skills/ai-test/SKILL.md).
                 fallback_roots = [
                     target / ".claude",
-                    target / ".agents",
+                    target / ".codex",
+                    target / ".gemini",
                     target / ".github",
                 ]
                 # Build IDE-adapted path variant (ai- prefix)

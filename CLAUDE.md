@@ -105,16 +105,6 @@ Before writing or reviewing code, load the applicable context files:
 | Simplify/refactor code | simplify | direct dispatch |
 | Multi-spec autonomous execution | autopilot | `/ai-autopilot` |
 
-## Platform Mirrors
-
-Each IDE has its own skill and agent files. Same content, platform-native format.
-
-| Platform | Skills | Agents |
-|----------|--------|--------|
-| Claude Code | `.claude/skills/ai-*/SKILL.md` | `.claude/agents/ai-*.md` |
-| GitHub Copilot | `.github/skills/ai-*/SKILL.md` | `.github/agents/*.agent.md` |
-| Codex / Gemini | `.agents/skills/*/SKILL.md` | `.agents/agents/ai-*.md` |
-
 ## Skills (41)
 
 Grouped by type. Invoke as `/ai-<name>`.
