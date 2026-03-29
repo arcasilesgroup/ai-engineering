@@ -7,11 +7,18 @@ cadence: weekly
 
 # Performance Runbook
 
-## Purpose
+## Objetivo
 
 Detect performance regressions across CI pipelines, test suites, and build artifacts on a weekly cadence. The runbook compares recent metrics against historical baselines, flags regressions that exceed configured thresholds, and creates task work items for each finding. It never modifies code, tests, or build configuration -- it only observes and reports.
 
-## Procedure
+## Precondiciones
+
+- `gh` or `az` CLI authenticated for fetching CI run data and creating work items.
+- `pytest` installed for test suite timing (optional; Step 3 is skipped if unavailable).
+- `python3` available for manifest parsing in Step 7.
+- `git` available for causal commit analysis in Step 6.
+
+## Procedimiento
 
 ### Step 1 -- Fetch recent CI run times
 
@@ -47,7 +54,7 @@ pytest tests/ --durations=20 -q 2>&1
 
 Parse the `slowest 20 durations` output. For each test, extract the module path, test name, and duration in seconds. Store as `$TEST_TIMINGS`.
 
-If `pytest` is unavailable on the host (see Host Notes), skip this step and note the gap in the report.
+If `pytest` is unavailable on the host (see Precondiciones), skip this step and note the gap in the report.
 
 ### Step 4 -- Compare test timing against baseline
 
@@ -102,9 +109,32 @@ git log --oneline --since="14 days ago" -- "<module_path>"
 
 ### Step 7 -- Create task work items
 
-For each regression finding (up to `max_findings_per_run`), create a task work item.
+Before creating any work items, detect which provider is configured in the project manifest:
 
-**GitHub:**
+```bash
+WORK_ITEM_PROVIDER=$(python3 - <<'EOF'
+import sys, pathlib
+try:
+    import yaml
+    manifest = pathlib.Path(".ai-engineering/manifest.yml")
+    data = yaml.safe_load(manifest.read_text()) if manifest.exists() else {}
+    print(data.get("work_items", {}).get("provider", "github"))
+except Exception:
+    print("github")
+EOF
+)
+```
+
+If `python3 -c "import yaml"` fails (PyYAML absent), fall back to a plain-text grep:
+
+```bash
+WORK_ITEM_PROVIDER=$(grep -E '^\s*provider:' .ai-engineering/manifest.yml 2>/dev/null \
+  | head -1 | sed 's/.*provider:[[:space:]]*//' | tr -d '"' | tr -d "'" || echo "github")
+```
+
+For each regression finding (up to `max_findings_per_run`), create a task work item using the detected provider.
+
+**GitHub** (`WORK_ITEM_PROVIDER=github`):
 
 ```bash
 gh issue create \
@@ -123,7 +153,7 @@ $COMMIT_LIST
   --label "perf-regression,type/bug"
 ```
 
-**Azure DevOps:**
+**Azure DevOps** (`WORK_ITEM_PROVIDER=azure_devops`):
 
 ```bash
 az boards work-item create \
@@ -133,38 +163,50 @@ az boards work-item create \
   --fields "System.Tags=perf-regression"
 ```
 
-### Step 8 -- Generate report
+If `WORK_ITEM_PROVIDER` is unrecognised, default to GitHub.
 
-Produce a detailed summary to stdout.
+### Step 8 -- Create weekly summary work item
 
+Always create one summary work item regardless of whether regressions were found. This is the single source of truth for the weekly scan result on the board.
+
+**GitHub** (`WORK_ITEM_PROVIDER=github`):
+
+```bash
+gh issue create \
+  --title "perf: weekly scan $(date -u +%Y-%m-%d) — ${REGRESSION_COUNT} regression(s)" \
+  --body "## Weekly Performance Scan
+
+**Date:** $(date -u +%Y-%m-%dT%H:%M:%SZ)
+**CI avg duration (current / previous):** ${AVG_CURRENT}s / ${AVG_PREVIOUS}s (${CI_DELTA_PCT}%)
+**Regressions found:** ${REGRESSION_COUNT}
+**Work items created:** ${ITEMS_CREATED}
+**Overflow (not created):** ${OVERFLOW_COUNT}
+
+### Slowest tests
+$SLOWEST_TESTS_LIST
+
+### Notes
+$NOTES_LIST
+
+<!-- performance-runbook:weekly-summary -->" \
+  --label "perf-weekly,type/tracking"
 ```
-=== Performance Report $(date -u +%Y-%m-%dT%H:%M:%SZ) ===
-CI Health:        $TOTAL_RUNS runs | avg ${AVG_CURRENT}s (prev ${AVG_PREVIOUS}s) | ${CI_DELTA_PCT}%
-Slowest Tests:    1. $TEST_NAME -- ${DURATION}s  ...  (top 20 listed)
-Regressions:      $REGRESSION_COUNT found | $SIZE_REGRESSION_COUNT artifact size issues
-Work Items:       $ITEMS_CREATED / $MAX_FINDINGS created | overflow: $OVERFLOW_COUNT
-Mutations:        $MUTATION_COUNT / 10
+
+**Azure DevOps** (`WORK_ITEM_PROVIDER=azure_devops`):
+
+```bash
+az boards work-item create \
+  --type Task \
+  --title "perf: weekly scan $(date -u +%Y-%m-%d) — ${REGRESSION_COUNT} regression(s)" \
+  --description "CI avg: ${AVG_CURRENT}s / ${AVG_PREVIOUS}s (${CI_DELTA_PCT}%) | Regressions: ${REGRESSION_COUNT} | Items created: ${ITEMS_CREATED} | Overflow: ${OVERFLOW_COUNT} | Slowest: $SLOWEST_TESTS_LIST | Notes: $NOTES_LIST" \
+  --fields "System.Tags=perf-weekly"
 ```
 
-## Provider Notes
+## Output
 
-| Concern | GitHub (`gh`) | Azure DevOps (`az`) |
-|---------|---------------|---------------------|
-| CI runs | `gh run list --json` with `--jq` | `az pipelines runs list --output json` |
-| Artifacts | `gh run download --name` | `az pipelines runs artifact download` |
-| Create work item | `gh issue create --label` | `az boards work-item create --type Task` |
-| Label | `--label "perf-regression"` | `--fields "System.Tags=perf-regression"` |
-| Auth | `GH_TOKEN` env var or `gh auth login` | `az login` or `AZURE_DEVOPS_EXT_PAT` |
-| Pagination | `--limit` flag (max 500) | `--top` flag on list commands |
+Performance summary to stdout. One weekly summary work item plus regression work items. No local files are written.
 
-## Host Notes
-
-- **codex-app-automation** -- Scheduled Codex task. `pytest` available if virtualenv is activated. Auth via `GITHUB_TOKEN`. 10-minute timeout budget; large suites may need `--timeout` or `-x`.
-- **claude-scheduled-tasks** -- Weekly cron. `pytest` may be absent -- skip Step 3 and note the gap. Respect `max_mutations` (session cost is metered).
-- **github-agents** -- GitHub Actions workflow. Auth with `${{ secrets.GITHUB_TOKEN }}`. `pytest` available if the workflow installs dependencies. Azure DevOps commands unavailable.
-- **azure-foundry** -- Auth with `az login --identity`. `pytest` requires provisioned environment. GitHub commands need a PAT from Key Vault.
-
-## Safety
+## Guardrails
 
 - **Mutations enabled by default.** All qualifying work items are created automatically.
 - **Mutation cap.** Maximum 10 work item creations per run (`max_mutations`). If the cap is reached, stop creating items and report the remaining findings in the summary.

@@ -7,11 +7,17 @@ cadence: daily
 
 # Triage Runbook
 
-## Purpose
+## Objetivo
 
 Scan all open issues and backlog items across GitHub and Azure DevOps, classify each by type and priority, detect duplicates, discard noise, and label triaged items for refinement. Mutations are applied automatically. It runs daily on any of the four registered hosts.
 
-## Procedure
+## Precondiciones
+
+- Authenticated CLI session: `gh auth status` (GitHub) or `az account show` (Azure DevOps).
+- Repository cloned locally with issue-tracker access (issues:write permission for GitHub, Work Items Read & Write for Azure DevOps).
+- Labels `type/*`, `priority/*`, `triaged`, `needs-refinement`, and `duplicate` exist in the issue tracker.
+
+## Procedimiento
 
 ### Step 1 -- Fetch open issues
 
@@ -155,53 +161,15 @@ gh issue comment "$NUMBER" --body "## Triage Summary
 az boards work-item update --id "$ID" --discussion "## Triage Summary\n\n- **Type:** $TYPE\n- **Priority:** $PRIORITY\n- **Duplicate:** $DUPLICATE_STATUS\n- **Age:** $AGE_DAYS days\n- **Next step:** refinement"
 ```
 
-### Step 8 -- Generate summary report
+### Step 8 -- Done
 
-Produce a summary to stdout (or write to `state/triage-report.json` if persistence is configured):
+No report is generated. The mutations applied (labels, comments, closures) are the sole output. Stop after step 7.
 
-```bash
-echo "=== Triage Report $(date -u +%Y-%m-%dT%H:%M:%SZ) ==="
-echo "Total scanned:     $TOTAL_SCANNED"
-echo "Classified:        $TOTAL_CLASSIFIED"
-echo "  bug:             $COUNT_BUG"
-echo "  feature:         $COUNT_FEATURE"
-echo "  enhancement:     $COUNT_ENHANCEMENT"
-echo "  question:        $COUNT_QUESTION"
-echo "  chore:           $COUNT_CHORE"
-echo "Duplicates found:  $COUNT_DUPLICATES"
-echo "Noise discarded:   $COUNT_NOISE"
-echo "Triaged (ready):   $COUNT_TRIAGED"
-echo "Priority breakdown:"
-echo "  p1:              $COUNT_P1"
-echo "  p2:              $COUNT_P2"
-echo "  p3:              $COUNT_P3"
-echo "  p4:              $COUNT_P4"
-echo "Mutations applied: $MUTATION_COUNT / 50"
-```
+## Output
 
-## Provider Notes
+No local files. Mutations (labels, comments, closures) are the sole output.
 
-| Concern | GitHub (`gh`) | Azure DevOps (`az boards`) |
-|---------|---------------|---------------------------|
-| Fetch issues | `gh issue list --json` with `--jq` filter | `az boards query --wiql` with OData-style WHERE |
-| Add label | `gh issue edit --add-label` | `az boards work-item update --fields "System.Tags=..."` |
-| Comment | `gh issue comment --body` | `az boards work-item update --discussion` |
-| Close | `gh issue close --reason` | Update `System.State` to `Removed` or `Closed` |
-| Priority field | Custom label `priority/pN` | Built-in `Microsoft.VSTS.Common.Priority` (1-4) |
-| Duplicate | Label `duplicate` + comment | Tag `duplicate` + discussion entry |
-| Auth | `GH_TOKEN` env var or `gh auth login` | `az login` or service principal via `AZURE_DEVOPS_EXT_PAT` |
-| Pagination | `--limit` flag (max 500 per call, paginate with `--cursor`) | WIQL `TOP` clause or `--top` flag |
-
-## Host Notes
-
-- **codex-app-automation** -- Runs as a Codex background task. Ensure `GH_TOKEN` or Azure PAT is injected via repository secrets. Codex enforces a network sandbox; all API calls must go through `gh` or `az` CLI (no raw HTTP). Timeout budget is 10 minutes.
-- **claude-scheduled-tasks** -- Runs via scheduled Claude sessions. The agent must read this runbook from the filesystem at invocation. Output goes to stdout; persist the report to `state/triage-report.json` if write access is available. Respect the `max_mutations` guardrail since session cost is metered.
-- **github-agents** -- Runs as a GitHub Actions workflow or GitHub Copilot agent. Authenticate with `${{ secrets.GITHUB_TOKEN }}`. Label creation requires the `issues: write` permission in the workflow YAML. Azure DevOps commands are unavailable in this host.
-- **azure-foundry** -- Runs as an Azure AI Foundry agent or Azure Automation runbook. Authenticate via managed identity or service principal. GitHub commands require a PAT stored in Key Vault. Use `az extension add --name azure-devops` if the extension is not pre-installed.
-
-## Safety
-
-This runbook enforces strict guardrails to prevent unintended side effects:
+## Guardrails
 
 - **Never** closes issues labeled `p1-critical`, `pinned`, or `security` -- these are protected labels.
 - **Never** modifies issues in `closed` or `resolved` state -- these are protected states.

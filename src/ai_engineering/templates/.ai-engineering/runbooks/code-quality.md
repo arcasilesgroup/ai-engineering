@@ -7,22 +7,31 @@ cadence: weekly
 
 # Code Quality Runbook
 
-## Purpose
+## Objetivo
 
 Detect complexity hotspots, duplication above threshold, cognitive complexity violations,
 and tech debt accumulation. Produce actionable work items for sprint planning.
 
-## Procedure
+## Precondiciones
+
+- `ruff` installed (minimum version 0.4.0 for JSON output). Install via `uv tool install ruff`.
+- `jq` installed for the fallback path (Step 6). Pre-installed on most CI runners.
+- `gh` or `az` CLI authenticated for work item creation and deduplication.
+- `ai-eng` CLI is optional. Step 5 replaces Steps 1-4 when available; Step 6 provides equivalent coverage via ruff alone.
+
+## Procedimiento
 
 ### Step 1 -- Run Linter
 
 Collect all lint findings with statistics and structured output for downstream parsing.
 
 ```bash
-ruff check src/ tests/ --statistics --output-format=json > /tmp/ruff-findings.json
+ruff check src/ tests/ --statistics --output-format=json
 LINT_EXIT=$?
 echo "ruff exit code: $LINT_EXIT"
 ```
+
+Note: capture output in-memory for downstream steps. Do not redirect to a local file.
 
 ### Step 2 -- Detect Complexity Violations
 
@@ -30,7 +39,7 @@ Scan for functions exceeding cyclomatic (threshold: 10) and cognitive complexity
 (threshold: 15). Ruff rules C901 and PLR0912 cover the primary signals.
 
 ```bash
-ruff check src/ --select C901,PLR0912 --output-format=json > /tmp/complexity-findings.json
+ruff check src/ --select C901,PLR0912 --output-format=json
 ```
 
 For each finding, extract file path, function name, and reported complexity value.
@@ -40,7 +49,7 @@ For each finding, extract file path, function name, and reported complexity valu
 Identify similar code blocks across files using ruff's duplication rules.
 
 ```bash
-ruff check src/ --select PLR0801 --output-format=json > /tmp/duplication-findings.json
+ruff check src/ --select PLR0801 --output-format=json
 ```
 
 Project-level duplication thresholds in `pyproject.toml` take precedence over the default 3%.
@@ -50,7 +59,7 @@ Project-level duplication thresholds in `pyproject.toml` take precedence over th
 Find functions exceeding max_function_lines (50 lines) via PLR0915 (too many statements).
 
 ```bash
-ruff check src/ --select PLR0915 --output-format=json > /tmp/length-findings.json
+ruff check src/ --select PLR0915 --output-format=json
 ```
 
 Cross-reference with PLR0913 (too many arguments) to surface high-priority refactoring candidates.
@@ -61,7 +70,7 @@ When `ai-eng` is installed, use it for a unified quality assessment covering all
 
 ```bash
 if command -v ai-eng &>/dev/null; then
-  ai-eng verify quality --json > /tmp/quality-report.json
+  ai-eng verify quality --json
   echo "ai-eng quality report generated"
 fi
 ```
@@ -74,16 +83,8 @@ When `ai-eng` is unavailable, merge ruff outputs from Steps 1-4 and apply thresh
 if ! command -v ai-eng &>/dev/null; then
   echo "ai-eng not available -- falling back to ruff + heuristics"
 
-  # Merge all ruff findings into a single report
-  jq -s 'add' \
-    /tmp/ruff-findings.json \
-    /tmp/complexity-findings.json \
-    /tmp/duplication-findings.json \
-    /tmp/length-findings.json \
-    > /tmp/merged-findings.json
-
+  # Merge all ruff findings from Steps 1-4 (captured in-memory) into a single dataset
   # Count unique files with violations
-  jq '[.[].filename] | unique | length' /tmp/merged-findings.json
 fi
 ```
 
@@ -140,14 +141,10 @@ echo "Run date: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
 echo ""
 echo "--- Hotspot Map ---"
 # Group findings by file, sorted by finding count descending
-jq -r 'group_by(.filename) | sort_by(-length) | .[] |
-  "\(length) findings: \(.[0].filename)"' /tmp/merged-findings.json
 
 echo ""
 echo "--- Worst Offenders ---"
 # Top 5 functions by complexity
-jq -r 'sort_by(-.complexity // 0) | .[0:5] | .[] |
-  "\(.filename):\(.function) -- complexity \(.complexity)"' /tmp/complexity-findings.json
 
 echo ""
 echo "--- Trend ---"
@@ -159,22 +156,11 @@ echo "Total active: $((NEW_COUNT + EXISTING_COUNT))"
 The report distinguishes new findings from pre-existing ones so the team can track
 whether debt is growing or shrinking.
 
-## Provider Notes
+## Output
 
-- **GitHub**: Issues via `gh issue create`. The `tech-debt` label must exist before first run.
-- **Azure DevOps**: Replace `gh issue create` with `az boards work-item create --type Task`.
-  Area path is read from `manifest.yml` at `work_items.azure_devops.area_path`.
-- **Switching**: `work_items.provider` in `manifest.yml` determines the active provider.
+Summary report to stdout. Work items created for violations exceeding thresholds. No local files are written.
 
-## Host Notes
-
-- **ruff**: Required. Install via `uv tool install ruff`. Minimum version 0.4.0 for JSON output.
-- **ai-eng**: Optional. Step 5 replaces Steps 1-4 when available; Step 6 provides equivalent
-  coverage via ruff alone. No step fails if ai-eng is missing.
-- **jq**: Required for the fallback path (Step 6). Pre-installed on most CI runners.
-- **gh / az**: Required for work item creation and deduplication. Auth must be pre-configured.
-
-## Safety
+## Guardrails
 
 - **Max mutations**: At most 15 work items per run. Overflow findings are logged but not filed.
 - **Read-only analysis**: Never modifies source code. Output is limited to reports, comments,

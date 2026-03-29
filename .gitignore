@@ -154,4 +154,8 @@ credentials*.json
 .ai-engineering/.cache/
 .ai-engineering/state/framework-events.ndjson
 .ai-engineering/state/framework-capabilities.json
+.ai-engineering/state/instinct-observations.ndjson
+.ai-engineering/state/strategic-compact.json
+.ai-engineering/state/*-report.json
+.ai-engineering/learnings/
 .claude/session-topics/

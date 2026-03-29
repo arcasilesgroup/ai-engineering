@@ -7,11 +7,18 @@ cadence: daily
 
 # Feature Scanner
 
-## Purpose
+## Objetivo
 
 Detect unimplemented features, uncovered acceptance criteria, and spec-vs-code regressions by cross-referencing recent commits and merged PRs against completed spec history. Runs daily on a 24-hour lookback window and produces task work items for every verified gap.
 
-## Procedure
+## Precondiciones
+
+- Git repository with commit history accessible via `git log`.
+- `.ai-engineering/specs/_history.md` exists with at least one spec in `done` status.
+- Work item provider configured in `manifest.yml` field `work_items.provider` (GitHub or Azure DevOps).
+- CLI tools available: `gh` (GitHub) or `az` (Azure DevOps) authenticated for the target repository.
+
+## Procedimiento
 
 ### Step 1 -- Collect recent commits
 
@@ -130,28 +137,11 @@ Items created: 3
   [regression]  spec-077 | "Prompts migration" | broken by a1b2c3d
 ```
 
-## Provider Notes
+## Output
 
-| Concern | GitHub | Azure DevOps |
-|---------|--------|--------------|
-| PR listing | `gh pr list --state merged` | `az repos pr list --status completed` |
-| Work items | `gh issue create` | `az boards work-item create --type Task` |
-| Labels | `--label "feature-gap"` | Tag field or area path annotation |
-| PR comments | `gh pr comment` | `az repos pr update` with comment thread |
-| Date filter | `--jq` post-filter on `mergedAt` | `--query "[?closedDate >= 'DATE']"` |
+Summary report to stdout. Work items created for unimplemented features and regressions. No local files are written.
 
-Provider is read from `manifest.yml` field `work_items.provider`. Both produce identical report output.
-
-## Host Notes
-
-| Host | Considerations |
-|------|---------------|
-| codex-app-automation | Full CLI. Scheduled task, mutations enabled by default. |
-| claude-scheduled-tasks | Agent context. Use tool calls for `gh`/`git`. Report as structured markdown. |
-| github-agents | Actions scheduled workflow. Store report as artifact. Use `GITHUB_TOKEN`. |
-| azure-foundry | Pipeline task. Service connection for `az` auth. Emit to pipeline summary. |
-
-## Safety
+## Guardrails
 
 1. **Mutations enabled by default.** Work items are created automatically for all gaps and regressions.
 2. **Never modifies code.** Inspects the repo and creates task items only. No commits, pushes, or merges.

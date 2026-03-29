@@ -5,13 +5,22 @@ type: operational
 cadence: weekly
 ---
 
-# Architecture Drift Runbook
+# Architecture Drift
 
-## Purpose
+## Objetivo
 
 Detect deviations between the running codebase and the declared architecture in `docs/solution-intent.md`, `.ai-engineering/contexts/project-identity.md`, and `.ai-engineering/state/decision-store.json`. This includes import-cycle violations, layer-boundary crossings, undocumented structural changes, and decisions that no longer match code reality. Runs weekly; produces task work items for every confirmed finding.
 
-## Procedure
+## Precondiciones
+
+- `docs/solution-intent.md` exists with a mermaid module graph (section 2.2) defining layers and allowed dependency directions
+- `.ai-engineering/contexts/project-identity.md` exists with boundary rules
+- `.ai-engineering/state/decision-store.json` exists with active architecture decisions
+- Work items provider configured in `manifest.yml` (`github` or `azure_devops`)
+- CLI access: `gh` for GitHub, `az` for Azure DevOps
+- Python 3.11+ available (Steps 4, 5, 7 use `ast` stdlib)
+
+## Procedimiento
 
 ### Step 1 -- Extract documented architecture layers
 
@@ -272,10 +281,9 @@ az boards work-item create --type Task \
   --area "Project\\TeamName"
 ```
 
-
 ### Step 9 -- Generate drift report
 
-Produce a structured report to stdout. Optionally persist to `state/architecture-drift-report.json`.
+Produce a structured report to stdout.
 
 ```
 === Architecture Drift Report ===
@@ -302,28 +310,11 @@ Items created:      1
 Mutations used:     1 / 10
 ```
 
-## Provider Notes
+## Output
 
-| Concern | GitHub (`gh`) | Azure DevOps (`az boards`) |
-|---------|---------------|---------------------------|
-| Work item creation | `gh issue create --label "architecture-drift"` | `az boards work-item create --type Task` |
-| Labels | `--label` flag, created on first use | Tag field via `System.Tags` |
-| Comments | `gh issue comment --body` | `az boards work-item update --discussion` |
-| Auth | `GH_TOKEN` env var or `gh auth login` | `az login` or `AZURE_DEVOPS_EXT_PAT` |
-| Python requirement | Steps 4, 5, 7 require Python 3.11+ with `ast` (stdlib) | Same |
+Structured report to stdout. Work items created for confirmed findings. No local files are written.
 
-Both providers produce identical report output. The provider is read from `manifest.yml` field `work_items.provider`.
-
-## Host Notes
-
-| Host | Considerations |
-|------|---------------|
-| codex-app-automation | Full CLI access. Ensure Python 3.11+ is available in the sandbox. Mutations enabled by default. Network sandbox restricts API calls to `gh` and `az` CLI only. |
-| claude-scheduled-tasks | Operates within Claude agent context. Use tool calls for `gh`, `git`, and `python` commands. Report output as structured markdown. Respect `max_mutations` guardrail since session cost is metered. |
-| github-agents | Runs as a GitHub Actions scheduled workflow. Store report as a workflow artifact. Use `GITHUB_TOKEN` for API calls. Python is pre-installed in `ubuntu-latest` runners. Azure DevOps commands are unavailable in this host. |
-| azure-foundry | Runs as an Azure AI Foundry agent or Azure Automation runbook. Authenticate via managed identity. GitHub commands require a PAT stored in Key Vault. Use `az extension add --name azure-devops` if the extension is not pre-installed. |
-
-## Safety
+## Guardrails
 
 1. **Never modifies code.** This runbook reads source files, parses imports, and compares structure against documentation. It does not commit, push, merge, or alter any source file.
 2. **Never modifies architecture docs.** Solution-intent, project-identity, and the decision store are read-only inputs. Updating them is a human responsibility triggered by the findings.

@@ -4,6 +4,7 @@ Completed specs. Details in git history.
 
 | ID | Title | Status | Created | Branch |
 |----|-------|--------|---------|--------|
+| 089 | Runbook Normalization and Scheduled Task Update | done | 2026-03-29 | chore/spec-089-runbook-normalization |
 | 085 | Runbook Catalog Redesign — From-Zero MAS+HITL Intake and Operational Automation | done | 2026-03-28 | spec/085-runbook-catalog-redesign |
 | 084 | Agentic Operations Program — MAS+HITL Orchestration | done | 2026-03-28 | main |
 | 082 | Skill Surface Refactor | done | 2026-03-27 | spec/080-standards-engine-delivery-intelligence |

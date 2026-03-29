@@ -7,12 +7,18 @@ cadence: daily
 
 # Stale Issues
 
-## Purpose
+## Objetivo
 
 Detect open issues with no activity for 14+ days, label them `stale`, and auto-close after a 7-day grace period (21 days total).
 Exempt issues are never touched. Mutations are applied automatically.
 
-## Procedure
+## Precondiciones
+
+- Work item provider configured in `manifest.yml` field `work_items.provider` (GitHub or Azure DevOps).
+- CLI tools available: `gh` (GitHub) or `az` (Azure DevOps) authenticated for the target repository.
+- Labels `stale`, `p1-critical`, `pinned`, and `security` exist in the issue tracker.
+
+## Procedimiento
 
 ### Step 1 -- Fetch all open issues
 
@@ -74,20 +80,6 @@ gh issue edit <NUMBER> --remove-label "stale"
 
 This covers cases where a human commented or pushed a linked commit after the stale label was applied.
 
-### Step 6 -- Generate summary report
-
-After processing all issues, produce a summary:
-
-```
-Stale Issues Run - <DATE>
-  Newly stale:   <N>
-  Auto-closed:   <N>
-  Reactivated:   <N>
-  Exempt skipped: <N>
-  Total scanned: <N>
-```
-
-Emit the summary to stdout. Hosts may route it to a Slack channel, PR comment, or log sink.
 
 ## Exemptions
 
@@ -101,29 +93,13 @@ The following issues are never marked stale and never auto-closed:
 
 Exemption checks run before any label or state mutation. An issue that gains a protected label or milestone while labeled `stale` will be reactivated on the next run.
 
-## Provider Notes
+## Output
 
-| Provider | Tool | Issue fetch | Label mutation | Close mutation |
-|----------|------|-------------|----------------|----------------|
-| GitHub | `gh` | `gh issue list --json ...` | `gh issue edit --add-label` / `--remove-label` | `gh issue close --comment` |
-| Azure DevOps | `az` | `az boards work-item query --wiql ...` | `az boards work-item update --fields System.Tags=...` | `az boards work-item update --fields System.State=Closed` |
+No local files. Mutations (stale labels, grace period comments, closures) are the sole output.
 
-Azure DevOps uses tags instead of labels. The `stale` tag is appended to or removed from `System.Tags`. Milestone exemption maps to `System.IterationPath` being non-empty.
+## Guardrails
 
-## Host Notes
-
-| Host | Considerations |
-|------|---------------|
-| `codex-app-automation` | Runs as a scheduled Codex task. Authenticate via `GITHUB_TOKEN` environment variable. Output the summary to stdout for capture by the task runner. |
-| `claude-scheduled-tasks` | Invoked on a daily cron. The runbook is loaded as context and executed step-by-step. Mutations enabled by default. |
-| `github-agents` | Runs inside a GitHub Actions workflow. Use `${{ secrets.GITHUB_TOKEN }}` for authentication. Emit the summary as a step output for downstream jobs. |
-| `azure-foundry` | Authenticate with `az login --identity` for managed identity. Use `az` CLI for all mutations. Map label operations to tag field updates. |
-
-All hosts must enforce the `max_mutations` guardrail and never exceed 30 label or state changes per run regardless of the number of stale issues found.
-
-## Safety
-
-- **Mutation cap**: Maximum 30 label additions, label removals, and issue closures combined per run. If the cap is reached, stop processing and report the remaining unprocessed issues.
+- **Mutation cap**: Maximum 30 label additions, label removals, and issue closures combined per run. If the cap is reached, stop processing.
 - **Mutations enabled by default.** All label, comment, and close operations are applied automatically.
 - **Protected labels**: Issues carrying `p1-critical`, `pinned`, or `security` are unconditionally skipped. No label is added, no comment is posted, no state is changed.
 - **Protected states**: Issues already in `closed` or `resolved` state are never re-processed.
