@@ -31,7 +31,7 @@ Framework bootstrap and enforcement. Detect available skills, load active projec
    - Read `.ai-engineering/state/decision-store.json`
    - Read `.ai-engineering/contexts/team/lessons.md`
    - Read `.ai-engineering/manifest.yml`
-   - Read `.ai-engineering/contexts/project-identity.md` if present
+   - Read `.ai-engineering/CONSTITUTION.md` if present
 
 3. **Refresh instinct context when needed**
    - Inspect `.ai-engineering/instincts/meta.json`

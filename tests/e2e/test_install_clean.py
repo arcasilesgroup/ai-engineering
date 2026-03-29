@@ -43,9 +43,7 @@ class TestInstallClean:
         ]
         for dirname in required_dirs:
             assert (ai_dir / dirname).is_dir(), f"Missing dir: {dirname}"
-        assert (ai_dir / "contexts" / "project-identity.md").is_file(), (
-            "Missing: contexts/project-identity.md"
-        )
+        assert (ai_dir / "CONSTITUTION.md").is_file(), "Missing: CONSTITUTION.md"
 
     def test_install_creates_state_files(
         self,

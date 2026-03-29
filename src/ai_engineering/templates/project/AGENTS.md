@@ -7,7 +7,7 @@ This file is self-contained -- no other instruction files are required.
 
 Read the active spec before touching code: `.ai-engineering/specs/spec.md` and `.ai-engineering/specs/plan.md`.
 Read the decision store to avoid repeating settled questions: `.ai-engineering/state/decision-store.json`.
-Before writing code or designing features, read `.ai-engineering/contexts/project-identity.md` if it exists.
+Before writing code or designing features, read `.ai-engineering/CONSTITUTION.md` if it exists.
 
 ### 1. Plan Mode Default
 
@@ -114,7 +114,7 @@ Grouped by type. Invoke as `/ai-<name>`.
 **Enterprise:** security, governance, pipeline, docs, board-discover, board-sync
 **Teaching:** explain, guide, write, slides, media, video-editing
 **SDLC:** note, standup, sprint, postmortem, support, resolve-conflicts
-**Meta:** create, learn, prompt, onboard, analyze-permissions, instinct, autopilot, project-identity
+**Meta:** create, learn, prompt, onboard, analyze-permissions, instinct, autopilot, constitution
 
 ## Effort Levels
 
@@ -124,7 +124,7 @@ Each skill declares `effort` in frontmatter. Assignment by cognitive weight:
 |--------|-------|
 | max | 8 (brainstorm, review, verify, security, governance, schema, eval, autopilot) |
 | high | 20 (board-discover, code, create, debug, dispatch, docs, explain, guide, market, pipeline, plan, postmortem, pr, release-gate, slides, sprint, support, test, video-editing, write) |
-| medium | 13 (analyze-permissions, board-sync, cleanup, commit, instinct, learn, media, note, onboard, project-identity, prompt, resolve-conflicts, standup) |
+| medium | 13 (analyze-permissions, board-sync, cleanup, commit, instinct, learn, media, note, onboard, constitution, prompt, resolve-conflicts, standup) |
 
 ## Quality Gates
 

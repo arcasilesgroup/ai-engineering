@@ -150,7 +150,7 @@ _GOVERNANCE_MIRROR = (
         "runbooks/**/*.md",
         "README.md",
     ],
-    ["context/", "contexts/team/", "contexts/project-identity.md", "state/", "evals/", "tasks/"],
+    ["context/", "contexts/team/", "CONSTITUTION.md", "state/", "evals/", "tasks/"],
 )
 
 _CLAUDE_COMMANDS_MIRROR = (

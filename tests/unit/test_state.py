@@ -169,10 +169,10 @@ class TestOwnershipMap:
         om = default_ownership_map()
         assert om.is_update_allowed(".ai-engineering/scripts/hooks/observe.py") is True
 
-    def test_contexts_project_identity_denied(self) -> None:
+    def test_constitution_denied(self) -> None:
         om = default_ownership_map()
-        assert om.is_update_allowed(".ai-engineering/contexts/project-identity.md") is False
-        assert om.has_deny_rule(".ai-engineering/contexts/project-identity.md") is True
+        assert om.is_update_allowed(".ai-engineering/CONSTITUTION.md") is False
+        assert om.has_deny_rule(".ai-engineering/CONSTITUTION.md") is True
 
     def test_gitleaks_allowed(self) -> None:
         om = default_ownership_map()

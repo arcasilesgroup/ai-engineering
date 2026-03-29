@@ -26,7 +26,7 @@ CONTEXT_CLASS_NAMES: tuple[str, ...] = (
     "framework",
     "shared-framework",
     "team",
-    "project-identity",
+    "constitution",
     "spec",
     "plan",
     "decision-store",
@@ -279,7 +279,7 @@ def emit_declared_context_loads(
 
     # Static state/spec contexts required by the framework workflow.
     fixed_contexts = (
-        ("project-identity", "project-identity", root / "contexts" / "project-identity.md"),
+        ("constitution", "constitution", root / "CONSTITUTION.md"),
         ("spec", "spec", root / "specs" / "spec.md"),
         ("plan", "plan", root / "specs" / "plan.md"),
         ("decision-store", "decision-store", root / "state" / "decision-store.json"),

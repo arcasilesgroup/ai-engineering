@@ -132,7 +132,7 @@ class TestFrameworkCapabilities:
             "framework",
             "shared-framework",
             "team",
-            "project-identity",
+            "constitution",
             "spec",
             "plan",
             "decision-store",
@@ -163,5 +163,5 @@ class TestFrameworkCapabilities:
         assert payload["agents"][0]["name"] == catalog.agents[0].name
         assert {entry["name"] for entry in payload["contextClasses"]} >= {
             "language",
-            "project-identity",
+            "constitution",
         }
