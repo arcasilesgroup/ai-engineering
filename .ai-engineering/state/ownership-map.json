@@ -38,7 +38,7 @@
     {
       "frameworkUpdate": "deny",
       "owner": "team-managed",
-      "pattern": ".ai-engineering/contexts/project-identity.md"
+      "pattern": ".ai-engineering/CONSTITUTION.md"
     },
     {
       "frameworkUpdate": "deny",

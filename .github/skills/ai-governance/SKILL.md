@@ -23,7 +23,7 @@ Compliance validation for regulated industries. Modes: `compliance` (quality gat
 
 ### compliance -- Quality Gate Validation
 
-Validate that rules in `CLAUDE.md`, `manifest.yml`, and boundaries in `project-identity.md` are enforced.
+Validate that rules in `CLAUDE.md`, `manifest.yml`, and boundaries in `CONSTITUTION.md` are enforced.
 
 1. **Hook enforcement** -- verify required hooks exist in `.git/hooks/`, are executable, contain no `--no-verify` escapes.
 2. **Check coverage** -- for each stack in `enforcement.checks`, confirm tool is configured and callable.

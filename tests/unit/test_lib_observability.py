@@ -40,7 +40,7 @@ def project_root(tmp_path: Path) -> Path:
     (contexts / "team").mkdir(parents=True)
     (contexts / "team" / "lessons.md").write_text("# Lessons\n")
     (contexts / "team" / "conventions.md").write_text("# Conventions\n")
-    (contexts / "project-identity.md").write_text("# Identity\n")
+    (tmp_path / ".ai-engineering" / "CONSTITUTION.md").write_text("# Identity\n")
     (tmp_path / ".ai-engineering" / "specs").mkdir(parents=True)
     (tmp_path / ".ai-engineering" / "specs" / "spec.md").write_text("# Spec\n")
     (tmp_path / ".ai-engineering" / "specs" / "plan.md").write_text("# Plan\n")
@@ -363,7 +363,7 @@ class TestEmitDeclaredContextLoads:
             component="hook/user-prompt-submit",
         )
         classes = [e["detail"]["context_class"] for e in events]
-        assert "project-identity" in classes
+        assert "constitution" in classes
         assert "spec" in classes
         assert "plan" in classes
         assert "decision-store" in classes

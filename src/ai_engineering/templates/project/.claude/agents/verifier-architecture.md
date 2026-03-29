@@ -11,7 +11,7 @@ You are an architecture verification specialist. You assess whether changes alig
 ## Before You Verify
 
 1. Read the active spec (`.ai-engineering/specs/spec.md`) to understand intended changes.
-2. Read `.ai-engineering/contexts/project-identity.md` if it exists for project boundaries.
+2. Read `.ai-engineering/CONSTITUTION.md` if it exists for project boundaries.
 3. Read `.ai-engineering/state/decision-store.json` for architectural decisions.
 4. Read the diff to understand what changed.
 5. Explore the codebase structure to understand existing layers and boundaries.

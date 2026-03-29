@@ -893,10 +893,7 @@ def generate_copilot_instructions(
         " and `.ai-engineering/specs/plan.md`."
     )
     lines.append("2. **Read decision store** -- `.ai-engineering/state/decision-store.json`.")
-    lines.append(
-        "3. **Read project identity** -- `.ai-engineering/contexts/project-identity.md`"
-        " (if it exists)."
-    )
+    lines.append("3. **Read constitution** -- `.ai-engineering/CONSTITUTION.md` (if it exists).")
     lines.append(
         "4. **Load contexts** -- read `.ai-engineering/contexts/languages/{lang}.md`,"
         " `frameworks/{fw}.md`, and `team/*.md` for each detected stack before writing code."

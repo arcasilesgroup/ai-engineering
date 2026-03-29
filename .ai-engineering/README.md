@@ -60,7 +60,7 @@ These paths are refreshed by `ai-eng update` and mirrored by `ai-eng sync`:
 These paths belong to the project or team and are not overwritten by framework updates:
 
 - `contexts/team/**`
-- `contexts/project-identity.md`
+- `CONSTITUTION.md`
 - active product work inside `specs/**`
 
 ### System-generated
@@ -81,7 +81,7 @@ These paths are written by the framework itself:
 1. Shared framework contexts at the root.
    - `cli-ux.md`
    - `mcp-integrations.md`
-   - `project-identity.md` when the project defines one
+   - `CONSTITUTION.md` when the project defines one
 2. Structured context families.
    - `languages/`
    - `frameworks/`

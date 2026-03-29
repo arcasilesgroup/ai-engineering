@@ -108,7 +108,7 @@ C4Context
 | Teaching | explain, guide | 2 |
 | Writing | write, market, slides, media, video-editing | 5 |
 | SDLC | note, standup, sprint, postmortem, support, resolve-conflicts | 6 |
-| Meta | create, learn, prompt, onboard, analyze-permissions, instinct, autopilot, project-identity | 8 |
+| Meta | create, learn, prompt, onboard, analyze-permissions, instinct, autopilot, constitution | 8 |
 
 **Effort distribution**: 8 max, 20 high, 13 medium.
 
@@ -710,7 +710,7 @@ No active spec. Run `/ai-brainstorm` to start a new spec.
 | DEC-024 | Copilot subagent orchestration via sync pipeline | architecture | high |
 | DEC-025 | Accept CVE-2026-4539 in pygments (risk acceptance) | security | low |
 | DEC-026 | contexts/orgs eliminated -- no implementation | architecture | low |
-| DEC-027 | contracts replaced by project-identity + CLAUDE.md | architecture | medium |
+| DEC-027 | contracts replaced by constitution + CLAUDE.md | architecture | medium |
 | DEC-028 | Canonical framework-events stream + agentsview | architecture | high |
 
 ---

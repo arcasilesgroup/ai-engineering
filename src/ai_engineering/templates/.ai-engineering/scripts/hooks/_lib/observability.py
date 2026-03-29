@@ -262,7 +262,7 @@ def emit_declared_context_loads(
     events: list[dict] = []
 
     fixed_contexts = (
-        ("project-identity", "project-identity", root / "contexts" / "project-identity.md"),
+        ("constitution", "constitution", root / "CONSTITUTION.md"),
         ("spec", "spec", root / "specs" / "spec.md"),
         ("plan", "plan", root / "specs" / "plan.md"),
         ("decision-store", "decision-store", root / "state" / "decision-store.json"),

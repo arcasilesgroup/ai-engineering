@@ -1,6 +1,6 @@
 ---
 name: architecture-drift
-description: "Compare current codebase against solution-intent and project-identity for architectural deviations, layer violations, and undocumented structural changes"
+description: "Compare current codebase against solution-intent and constitution for architectural deviations, layer violations, and undocumented structural changes"
 type: operational
 cadence: weekly
 ---
@@ -9,12 +9,12 @@ cadence: weekly
 
 ## Objetivo
 
-Detect deviations between the running codebase and the declared architecture in `docs/solution-intent.md`, `.ai-engineering/contexts/project-identity.md`, and `.ai-engineering/state/decision-store.json`. This includes import-cycle violations, layer-boundary crossings, undocumented structural changes, and decisions that no longer match code reality. Runs weekly; produces task work items for every confirmed finding.
+Detect deviations between the running codebase and the declared architecture in `docs/solution-intent.md`, `.ai-engineering/CONSTITUTION.md`, and `.ai-engineering/state/decision-store.json`. This includes import-cycle violations, layer-boundary crossings, undocumented structural changes, and decisions that no longer match code reality. Runs weekly; produces task work items for every confirmed finding.
 
 ## Precondiciones
 
 - `docs/solution-intent.md` exists with a mermaid module graph (section 2.2) defining layers and allowed dependency directions
-- `.ai-engineering/contexts/project-identity.md` exists with boundary rules
+- `.ai-engineering/CONSTITUTION.md` exists with boundary rules
 - `.ai-engineering/state/decision-store.json` exists with active architecture decisions
 - Work items provider configured in `manifest.yml` (`github` or `azure_devops`)
 - CLI access: `gh` for GitHub, `az` for Azure DevOps
@@ -48,7 +48,7 @@ Record this as `$LAYER_MAP` for boundary checks in Step 5.
 Read the project identity to capture hard constraints that code must not violate.
 
 ```bash
-cat .ai-engineering/contexts/project-identity.md
+cat .ai-engineering/CONSTITUTION.md
 ```
 
 Extract the boundary rules:
@@ -317,7 +317,7 @@ Structured report to stdout. Work items created for confirmed findings. No local
 ## Guardrails
 
 1. **Never modifies code.** This runbook reads source files, parses imports, and compares structure against documentation. It does not commit, push, merge, or alter any source file.
-2. **Never modifies architecture docs.** Solution-intent, project-identity, and the decision store are read-only inputs. Updating them is a human responsibility triggered by the findings.
+2. **Never modifies architecture docs.** Solution-intent, constitution, and the decision store are read-only inputs. Updating them is a human responsibility triggered by the findings.
 3. **Mutations enabled by default.** Work items are created automatically.
 4. **Bounded mutations.** A maximum of 10 work items are created per run. If findings exceed this limit, the report notes the overflow and stops creating items.
 5. **Protected states.** Items in `closed` or `resolved` state are never reopened or modified. Labels `p1-critical` and `pinned` are never removed.

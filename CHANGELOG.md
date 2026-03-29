@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **CONSTITUTION.md** -- new foundational governance document at `.ai-engineering/CONSTITUTION.md`. Replaces `project-identity.md` with a principles-first design: Identity, Mission, 8 Principles (Content Over Code, Gate Integrity, Single Source of Truth, Simplicity First, Verify Before Done, Fix Root Causes, Cross-Platform by Default, Autonomous Execution), 10 explicit Prohibitions, Quality Gates table, Boundaries, and Governance with semantic versioning. TEAM_MANAGED, never overwritten by framework updates.
+- **`/ai-constitution` skill** -- new skill for generating and amending CONSTITUTION.md. Supports `generate` (auto-detect + interview), `update` (targeted section edits), and `amend` (formal version-bump process). Called by the installer governance phase and `/ai-onboard`.
+
+### Changed
+- **`project-identity.md` → `CONSTITUTION.md`** -- file relocated from `.ai-engineering/contexts/` to `.ai-engineering/` root to reflect its foundational status. Content redesigned from scratch (removed metadata tables derivable from `pyproject.toml`; added Principles and Prohibitions sections). All skill references, Step 0 protocol, IDE mirrors (Claude, Copilot, Gemini, Codex), and template project copies updated.
+- **`ai-project-identity` → `ai-constitution`** -- skill renamed across all 8 directories (4 live IDE mirrors + 4 template copies). Context class name updated from `project-identity` to `constitution` in observability and state systems.
+
+### Added
 - **Label-sync infrastructure** -- canonical `.github/labels.yml` defines all labels (type, priority, severity, status, handoff, lifecycle, findings, protected, utility). GitHub Action (`label-sync.yml`) syncs labels on push to main using `EndBug/label-sync@v2.3.3` with SHA-pinned action.
 
 ### Changed

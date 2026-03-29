@@ -7,7 +7,7 @@ Canonical context loading sequence. Skills reference this file instead of inlini
 1. **Active spec** -- read `.ai-engineering/specs/spec.md`
 2. **Active plan** -- read `.ai-engineering/specs/plan.md`
 3. **Decisions** -- read `.ai-engineering/state/decision-store.json`
-4. **Project identity** -- read `.ai-engineering/contexts/project-identity.md` (skip if absent)
+4. **Constitution** -- read `.ai-engineering/CONSTITUTION.md` (skip if absent)
 5. **Detect stacks** -- read `.ai-engineering/manifest.yml` field `providers.stacks`
 6. **Language contexts** -- for each detected language, read `.ai-engineering/contexts/languages/{lang}.md`
    Available (14): bash, cpp, csharp, dart, go, java, javascript, kotlin, php, python, rust, sql, swift, typescript
