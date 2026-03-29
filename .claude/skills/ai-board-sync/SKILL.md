@@ -53,13 +53,13 @@ Updates work item state on the project board at each lifecycle transition. Calle
       ```
 
    **GitHub Labels** (fallback):
-   a. Remove existing `status:*` labels:
+   a. Remove existing `status-*` labels:
       ```
-      gh issue edit <number> --remove-label "status:refinement,status:ready,status:in-progress,status:in-review,status:done"
+      gh issue edit <number> --remove-label "status-refinement,status-ready,status-in-progress,status-in-review,status-done"
       ```
    b. Add new status label:
       ```
-      gh issue edit <number> --add-label "status:<phase>"
+      gh issue edit <number> --add-label "status-<phase>"
       ```
 
    **Azure DevOps**:

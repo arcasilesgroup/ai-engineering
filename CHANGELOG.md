@@ -7,7 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Label-sync infrastructure** -- canonical `.github/labels.yml` defines all labels (type, priority, severity, status, handoff, lifecycle, findings, protected, utility). GitHub Action (`label-sync.yml`) syncs labels on push to main using `EndBug/label-sync@v2.3.3` with SHA-pinned action.
+
 ### Changed
+- **Label normalization** -- replaced colon-based labels (`type:bug`, `status:ready`, `handoff:ai-eng`) with hyphen-based (`bug`, `status-ready`, `handoff-ai-eng`) across all runbooks, skills, issue templates, and templates. GitHub does not allow colons in label names.
+- **GitHub Projects v2 configuration** -- populated `manifest.yml` with real project board field IDs (status, priority, size, estimate, dates), status option IDs, and state mappings. Enables `/ai-board-sync` to move items across project columns.
+- **Issue templates simplified** -- removed Size dropdown from bug/feature/task templates (moved to GitHub Projects custom fields). Added `p4-low` priority option to task template.
 - **Native IDE directory architecture (spec-087)** -- eliminated the `.agents/` directory entirely; Codex content now lives in native `.codex/` with `hooks.json` and `config.toml`. Gemini hooks rewritten to official nested `matcher/hooks` format with `hooksConfig`. GitHub Copilot hooks added under `.github/hooks/`. Installer, sync script, and validator updated for the new structure.
 
 ### Changed

@@ -36,8 +36,8 @@ All subsequent steps run only for detected ecosystems.
 
 **Python**
 ```bash
-pip-audit --format=json --output=dep-audit-python.json
-# Alternative: uv run pip-audit --format=json --output=dep-audit-python.json
+pip-audit --format=json
+# Alternative: uv run pip-audit --format=json
 ```
 
 **Node** (if present)
@@ -56,7 +56,7 @@ Extract from each report: package name, installed version, fixed version, CVE ID
 
 **Python**
 ```bash
-uv pip list --outdated --format=json > dep-outdated-python.json
+uv pip list --outdated --format=json
 ```
 
 **Node** (if present)
@@ -104,7 +104,7 @@ gh issue list --state open --label "dependency-update" --search "in:title <PKG>"
 
 gh issue create \
   --title "dep: upgrade <PKG> from <CURRENT> to <LATEST>" \
-  --label "dependency-update,severity:<SEVERITY>" \
+  --label "dependency-update,sev-<SEVERITY>" \
   --body "**Package:** <PKG>  **Ecosystem:** <ECO>
 **Current:** <CURRENT>  **Latest:** <LATEST>
 **CVE(s):** <CVE_IDS or 'none'>  **Severity:** <SEVERITY>
@@ -116,7 +116,7 @@ gh issue create \
 az boards work-item create --type Task \
   --title "dep: upgrade <PKG> from <CURRENT> to <LATEST>" \
   --description "Package: <PKG> | CVEs: <CVE_IDS> | Severity: <SEVERITY>" \
-  --fields "System.Tags=dependency-update;severity:<SEVERITY>"
+  --fields "System.Tags=dependency-update;sev-<SEVERITY>"
 ```
 
 Stop after 20 work items per run. Remaining findings are deferred to the next run.

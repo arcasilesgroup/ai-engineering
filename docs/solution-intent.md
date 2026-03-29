@@ -1,42 +1,71 @@
-# Solution Intent — ai-engineering
+# Solution Intent -- ai-engineering
 
 > Status: Evolving
-> Last Review: 2026-03-19
+> Last Review: 2026-03-29
 
 ---
 
-## 1. Identity and Purpose
+## 1. Introduction
+
+### 1.1 Identity
 
 | Field | Value |
 |-------|-------|
 | Name | ai-engineering |
 | Organization | arcasilesgroup/ai-engineering |
-| Versions | 0.4.0 (framework), 1.0.0 (manifest schema), 0.1.0 (pyproject) |
+| Versions | 0.4.0 (framework), 2.0 (manifest schema), 0.1.0 (pyproject) |
 | Description | AI governance framework for secure software delivery |
 | License | MIT |
 | Python | >= 3.11 |
 | Entry point | `ai-eng` (via `ai_engineering.cli:app`) |
 | Distribution | PyPI (`pip install ai-engineering`) |
 | Build system | hatchling >= 1.25.0 |
-| Status | Active development -- spec-063 (ai-autopilot orchestrator) |
+| Status | Active development -- no active spec |
 | Model | Content-first, AI-governed, multi-IDE |
 
-The framework provides deterministic CLI tooling, 37 AI skills, 9 specialized agents, and a governance surface that spans Claude Code, GitHub Copilot, and Codex. It targets regulated enterprises (banking, healthcare, investment) that require auditable, governed AI-assisted software delivery.
+### 1.2 Objective
 
-### Providers (from manifest.yml)
+Deterministic CLI tooling, 41 AI skills, 24 agents (9 primary + 15 specialist), and a governance surface that spans Claude Code, GitHub Copilot, Codex, and Gemini. Targets regulated enterprises (banking, healthcare, investment) that require auditable, governed AI-assisted software delivery.
 
-| Provider type | Configured |
-|---------------|-----------|
-| VCS | GitHub |
-| IDEs | Claude Code, GitHub Copilot |
-| Stacks | Python |
-| Work items | GitHub Issues |
+### 1.3 Problem Statement
+
+AI coding assistants operate without guardrails. In regulated industries, this creates compliance gaps: unaudited changes, missing quality gates, secret leaks, and inconsistent governance across IDE surfaces. ai-engineering provides the missing governance layer.
+
+### 1.4 Desired Outcomes
+
+- Zero secret leaks in committed code
+- >= 80% test coverage enforced at every PR
+- Consistent governance across 4 IDE surfaces from a single source
+- Auditable decision trail with expiry-based lifecycle
+- Fail-open design that never blocks developer workflow
+
+### 1.5 Scope
+
+| In scope | Out of scope |
+|----------|-------------|
+| CLI tooling (`ai-eng`) | Runtime application code |
+| AI skill definitions (41) | AI model training or fine-tuning |
+| Agent orchestration (24) | Custom IDE plugin development |
+| Quality gates and hooks | SonarCloud/Snyk platform management |
+| Multi-IDE mirror generation | IDE-specific UI extensions |
+| GitHub + Azure DevOps providers | Other VCS providers |
+| Board integration (GitHub Projects v2) | Full project management features |
+
+### 1.6 Stakeholders and Personas
+
+| Persona | Journey | Primary actions |
+|---------|---------|----------------|
+| Developer | Code -> commit -> PR -> merge | `/ai-brainstorm`, `/ai-dispatch`, `/ai-commit`, `/ai-pr` |
+| Tech Lead | Review -> approve -> release | `/ai-review`, `/ai-release-gate`, `/ai-verify` |
+| Security Officer | Audit -> scan -> accept risk | `/ai-security`, `/ai-governance`, decision-store |
+| DevOps Engineer | Pipeline -> deploy -> monitor | `/ai-pipeline`, `ai-eng doctor`, runbooks |
+| New Team Member | Onboard -> learn -> contribute | `/ai-onboard`, `/ai-guide`, `/ai-explain` |
 
 ---
 
-## 2. Architecture
+## 2. Requirements (Solution Intent)
 
-### 2.1 System Context
+### 2.1 High-Level Solution Architecture
 
 ```mermaid
 C4Context
@@ -45,13 +74,15 @@ C4Context
     Person(dev, "Developer", "Uses AI assistants for governed delivery")
     System(framework, "ai-engineering", "CLI + skills + agents + governance content")
 
-    System_Ext(github, "GitHub", "VCS, Issues, Actions, Releases")
+    System_Ext(github, "GitHub", "VCS, Issues, Projects v2, Actions, Releases")
     System_Ext(azdo, "Azure DevOps", "VCS, Boards, Pipelines")
     System_Ext(pypi, "PyPI", "Package distribution")
     System_Ext(sonar, "SonarCloud", "Quality gate platform")
     System_Ext(snyk, "Snyk", "Optional security scanning")
     System_Ext(claude, "Claude Code", "Primary IDE integration")
     System_Ext(copilot, "GitHub Copilot", "Secondary IDE integration")
+    System_Ext(codex, "Codex", "Tertiary IDE integration")
+    System_Ext(gemini, "Gemini CLI", "Quaternary IDE integration")
 
     Rel(dev, framework, "ai-eng CLI + /ai-* skills")
     Rel(framework, github, "gh CLI / REST API")
@@ -60,106 +91,62 @@ C4Context
     Rel(framework, sonar, "CI coverage + analysis")
     Rel(framework, snyk, "Optional dep scanning")
     Rel(framework, claude, "Skills, agents, hooks")
-    Rel(framework, copilot, "Prompts, agents, instructions")
+    Rel(framework, copilot, "Skills, agents, instructions")
+    Rel(framework, codex, "Skills, agents")
+    Rel(framework, gemini, "Skills, agents")
 ```
 
-### 2.2 Code Module Map
+### 2.2 Functional Requirements by Domain
 
-135 Python files, 24,437 LOC across 22 modules.
+#### Skills (41)
 
-```mermaid
-graph TB
-    subgraph CLI["Interface Layer (5,918 LOC)"]
-        cli_commands["cli_commands<br/>5,282 LOC / 27 files<br/>47 CLI commands"]
-        commands["commands<br/>636 LOC<br/>Low-level wrappers"]
-    end
+| Type | Skills | Count |
+|------|--------|-------|
+| Workflow | brainstorm, plan, dispatch, code, test, debug, verify, review, eval | 9 |
+| Delivery | commit, pr, release-gate, cleanup | 4 |
+| Enterprise | security, governance, pipeline, schema, docs, board-discover, board-sync | 7 |
+| Teaching | explain, guide | 2 |
+| Writing | write, market, slides, media, video-editing | 5 |
+| SDLC | note, standup, sprint, postmortem, support, resolve-conflicts | 6 |
+| Meta | create, learn, prompt, onboard, analyze-permissions, instinct, autopilot, project-identity | 8 |
 
-    subgraph Core["Core Services (7,630 LOC)"]
-        installer["installer<br/>1,857 LOC<br/>Install orchestrator + templates"]
-        vcs["vcs<br/>1,828 LOC<br/>GitHub + Azure DevOps providers"]
-        state["state<br/>1,543 LOC<br/>Pydantic models + audit + decisions"]
-        maintenance["maintenance<br/>1,402 LOC<br/>Repo health operations"]
-        lib["lib<br/>1,213 LOC<br/>Signals, metrics, observability"]
-    end
+**Effort distribution**: 8 max, 20 high, 13 medium.
 
-    subgraph Policy["Policy and Quality (1,921 LOC)"]
-        policy["policy<br/>1,194 LOC<br/>Quality gates + compliance"]
-        validator["validator<br/>487 LOC<br/>7-category content integrity"]
-        verify["verify<br/>239 LOC<br/>Security + quality gates"]
-    end
+#### Agents (24)
 
-    subgraph Platform["Integrations (2,048 LOC)"]
-        platforms["platforms<br/>1,144 LOC<br/>GitHub, Sonar, Azure, SonarLint"]
-        release["release<br/>904 LOC<br/>Release orchestration + changelog"]
-    end
+| Agent | Model | Role | Boundary |
+|-------|-------|------|----------|
+| plan | opus | Spec creation, architecture design | Plans but does NOT execute |
+| build | opus | Code implementation | ONLY agent with write permissions |
+| verify | opus | Quality + security assessment | Read-only, dispatches 4 sub-agents |
+| guard | sonnet | Governance advisory | Advisory, never blocking |
+| review | opus | Parallel code review | Read-only, dispatches 8 specialists |
+| explore | sonnet | Deep codebase research | Read-only exploration |
+| guide | sonnet | Teaching and onboarding | Read-only, educational |
+| simplify | sonnet | Code simplification | Proposes changes, build executes |
+| autopilot | opus | Autonomous multi-spec orchestrator | Decomposes, plans, builds, verifies |
 
-    subgraph Infra["Infrastructure (1,940 LOC)"]
-        pipeline["pipeline<br/>515 LOC<br/>CI/CD compliance"]
-        updater["updater<br/>449 LOC<br/>Ownership-safe updates"]
-        hooks["hooks<br/>371 LOC<br/>Git hook management"]
-        detector["detector<br/>321 LOC<br/>Tool readiness detection"]
-        version["version<br/>282 LOC<br/>Version lifecycle"]
-    end
+**Specialist sub-agents (15):**
 
-    subgraph Auxiliary["Auxiliary (603 LOC)"]
-        git_ops["git<br/>260 LOC<br/>Git operations wrapper"]
-        credentials["credentials<br/>225 LOC<br/>Keyring-based secrets"]
-        doctor["doctor<br/>232 LOC<br/>Framework diagnostics"]
-        skills_mod["skills<br/>221 LOC<br/>Skill eligibility"]
-        work_items["work_items<br/>157 LOC<br/>Issue creation"]
-    end
+| Sub-agent | Parent | Focus |
+|-----------|--------|-------|
+| review-context-explorer | review | Pre-review architectural context |
+| review-finding-validator | review | Adversarial finding disproof |
+| reviewer-architecture | review | Necessity, simplicity, patterns |
+| reviewer-backend | review | API boundaries, persistence |
+| reviewer-compatibility | review | Breaking changes to shipped code |
+| reviewer-correctness | review | Functional correctness |
+| reviewer-frontend | review | React, hooks, accessibility |
+| reviewer-maintainability | review | Readability, clarity |
+| reviewer-performance | review | Bottlenecks, optimization |
+| reviewer-security | review | Vulnerabilities, exploits |
+| reviewer-testing | review | Test coverage, quality |
+| verify-deterministic | verify | Tool-driven checks (gitleaks, ruff, pytest) |
+| verifier-architecture | verify | Solution-intent alignment |
+| verifier-feature | verify | Spec coverage, acceptance criteria |
+| verifier-governance | verify | Compliance, integrity |
 
-    cli_commands --> Core
-    cli_commands --> Policy
-    cli_commands --> Platform
-    commands --> git_ops
-    Core --> Infra
-    Core --> Auxiliary
-    Policy --> state
-    Platform --> vcs
-```
-
-### 2.3 Runtime Dependencies (5)
-
-| Dependency | Version constraint | Purpose |
-|------------|-------------------|---------|
-| typer | >= 0.12.0, < 1.0 | CLI framework |
-| pyyaml | >= 6.0, < 7.0 | YAML parsing (manifest, skills) |
-| pydantic | >= 2.0, < 3.0 | Data models, validation |
-| keyring | >= 25.0, < 26.0 | OS-native credential storage |
-| rich | >= 13.0, < 15.0 | Terminal formatting, tables |
-
-### 2.4 Dev Dependencies (7)
-
-| Dependency | Version constraint | Purpose |
-|------------|-------------------|---------|
-| pytest | >= 8.0, < 10.0 | Test runner |
-| pytest-cov | >= 4.1, < 8.0 | Coverage reporting |
-| pytest-xdist | >= 3.5, < 4.0 | Parallel test execution |
-| ruff | >= 0.6.0 | Lint + format |
-| ty | >= 0.0.1a1 | Type checking |
-| pip-audit | >= 2.7.0 | Dependency vulnerability scanning |
-| types-pyyaml | >= 6.0, < 7.0 | Type stubs for pyyaml |
-
-### 2.5 Architecture Patterns
-
-| Pattern | Implementation |
-|---------|---------------|
-| Service + CLI Separation | Pure service modules, no CLI imports in business logic |
-| Protocol-Based Polymorphism | VCS providers via structural typing (`VcsProvider` protocol) |
-| Ownership-Safe Updates | 4-tier boundaries: framework / team / project / system |
-| Stack-Aware Gates | Policy checks filtered by installed stacks in manifest |
-| Audit-First Observability | Append-only NDJSON event log, single source of truth |
-| Fail-Open Design | Graceful degradation -- never block developer workflow |
-| Factory Pattern | VCS provider resolution: manifest-first, remote-URL-fallback |
-
----
-
-## 3. CLI Surface
-
-47 commands organized into top-level commands and 16 groups.
-
-### 3.1 CLI Command Tree
+#### CLI Commands (~47)
 
 ```mermaid
 mindmap
@@ -192,51 +179,149 @@ mindmap
             workflow(1)
 ```
 
-### 3.2 Key Commands
+### 2.3 Non-Functional Requirements
 
-| Command | Purpose |
-|---------|---------|
-| `ai-eng install <path>` | Install framework into a project |
-| `ai-eng update` | Ownership-safe update of framework files |
-| `ai-eng doctor [--fix-tools\|--fix-hooks]` | Diagnose and repair framework health |
-| `ai-eng validate [--json]` | Run 7-category content integrity validation |
-| `ai-eng verify` | Execute security + quality gate checks |
-| `ai-eng gate commit-msg <path>` | Validate commit message format |
-| `ai-eng gate risk-check --strict` | Verify risk acceptances in decision-store |
-| `ai-eng sync [--check]` | Synchronize IDE mirror surfaces |
-| `ai-eng release <version>` | Orchestrate release (tag + changelog + PR) |
+| Category | Requirement | Threshold | Measurement |
+|----------|-------------|-----------|-------------|
+| Coverage | Test coverage minimum | >= 80% | SonarCloud quality gate |
+| Duplication | Code duplication ceiling | <= 3% | CI duplication check + SonarCloud |
+| Complexity | Cyclomatic per function | <= 10 | SonarCloud |
+| Complexity | Cognitive per function | <= 15 | SonarCloud |
+| Security | Secret leaks | 0 | gitleaks (pre-commit + CI) |
+| Security | Dependency vulnerabilities | 0 | pip-audit (pre-push + CI) |
+| Security | Medium+ findings | 0 | CI security audit |
+| Reliability | Blocker/critical issues | 0 | SonarCloud |
+| Portability | Cross-platform support | 3 OS | CI matrix: ubuntu, windows, macos |
+| Portability | Python versions | 3 versions | CI matrix: 3.11, 3.12, 3.13 |
 
-Framework observability is now local-first and file-based: `ai-engineering` writes canonical framework events to `.ai-engineering/state/framework-events.ndjson` plus `.ai-engineering/state/framework-capabilities.json`, while session and transcript viewing is delegated to an independently installed `agentsview`.
+### 2.4 Integrations
+
+```mermaid
+flowchart LR
+    CLI["ai-eng CLI"] -->|gh CLI| GitHub
+    CLI -->|az CLI| AzDO["Azure DevOps"]
+    CLI -->|uv build| PyPI
+    CLI -->|coverage XML| SonarCloud
+    CLI -->|keyring| OS["OS Keyring"]
+
+    GitHub -->|Projects v2 API| Board["Project Board #4"]
+    GitHub -->|Actions| CI["CI/CD"]
+    GitHub -->|Issues| Tracker["Issue Tracker"]
+
+    Skills["/ai-* Skills"] -->|SKILL.md| Claude["Claude Code"]
+    Skills -->|SKILL.md| Copilot["GitHub Copilot"]
+    Skills -->|SKILL.md| Codex
+    Skills -->|SKILL.md| Gemini
+```
+
+| System A | System B | Protocol | Contract | SLA |
+|----------|----------|----------|----------|-----|
+| ai-eng CLI | GitHub | gh CLI / REST | Issues, PRs, Projects v2 | Best-effort, fail-open |
+| ai-eng CLI | Azure DevOps | az CLI / REST | Work items, repos, pipelines | Best-effort, fail-open |
+| ai-eng CLI | PyPI | OIDC trusted publisher | Wheel upload | Release-time only |
+| ai-eng CLI | SonarCloud | Coverage XML upload | Quality gate check | CI-time only |
+| ai-eng CLI | OS Keyring | keyring library | Credential CRUD | Local only |
+| Skills | IDE surfaces | Markdown files (SKILL.md) | Sync via `scripts/sync_command_mirrors.py` | Build-time |
 
 ---
 
-## 4. Governance Surface
+## 3. Technical Design
 
-### 4.1 IDE Mirror Architecture
+### 3.1 Stack and Architecture
+
+```mermaid
+graph TB
+    subgraph CLI["Interface Layer"]
+        cli_commands["cli_commands<br/>16 command groups, ~47 commands"]
+        commands["commands<br/>Low-level wrappers"]
+    end
+
+    subgraph Core["Core Services"]
+        installer["installer<br/>Install orchestrator + templates"]
+        vcs["vcs<br/>GitHub + Azure DevOps providers"]
+        state["state<br/>Pydantic models + audit + decisions"]
+        maintenance["maintenance<br/>Repo health operations"]
+        lib["lib<br/>Parsing, rendering, observability"]
+    end
+
+    subgraph Policy["Policy and Quality"]
+        policy["policy<br/>Quality gates + compliance"]
+        validator["validator<br/>7-category content integrity"]
+        verify["verify<br/>Security + quality gates"]
+    end
+
+    subgraph Platform["Integrations"]
+        platforms["platforms<br/>GitHub, Sonar, Azure, SonarLint"]
+        release["release<br/>Release orchestration + changelog"]
+    end
+
+    subgraph Infra["Infrastructure"]
+        pipeline["pipeline<br/>CI/CD compliance"]
+        updater["updater<br/>Ownership-safe updates"]
+        hooks["hooks<br/>Git hook management"]
+        detector["detector<br/>Tool readiness detection"]
+        version["version<br/>Version lifecycle"]
+    end
+
+    subgraph Auxiliary["Auxiliary"]
+        git_ops["git<br/>Git operations wrapper"]
+        credentials["credentials<br/>Keyring-based secrets"]
+        doctor["doctor<br/>Framework diagnostics"]
+        skills_mod["skills<br/>Skill eligibility"]
+        work_items["work_items<br/>Issue creation + board sync"]
+    end
+
+    cli_commands --> Core
+    cli_commands --> Policy
+    cli_commands --> Platform
+    commands --> git_ops
+    Core --> Infra
+    Core --> Auxiliary
+    Policy --> state
+    Platform --> vcs
+```
+
+| Layer | Component | Technology |
+|-------|-----------|------------|
+| Interface | CLI | typer + rich |
+| Core | Data models | pydantic |
+| Core | Configuration | pyyaml + ruamel-yaml |
+| Core | Credentials | keyring |
+| Policy | Lint + format | ruff |
+| Policy | Type checking | ty |
+| Policy | Secret scanning | gitleaks |
+| Policy | Dependency audit | pip-audit |
+| Policy | SAST | semgrep |
+| Testing | Runner | pytest + pytest-xdist |
+| Testing | Coverage | pytest-cov -> SonarCloud |
+| Build | Package | hatchling |
+| Build | Dependency management | uv |
+
+#### IDE Mirror Architecture
 
 Canonical source: `.claude/`. Mirrors generated by `scripts/sync_command_mirrors.py`.
 
 ```mermaid
 graph LR
-    subgraph Canonical["Canonical Source (.claude/)"]
+    subgraph Canonical[".claude/ (source of truth)"]
         CS["skills/ai-*/SKILL.md"]
         CA["agents/ai-*.md"]
         CI["CLAUDE.md"]
     end
 
-    subgraph GitHub["GitHub Copilot (.github/)"]
+    subgraph GitHub[".github/"]
         GS["skills/ai-*/SKILL.md"]
         GA["agents/*.agent.md"]
         GI["copilot-instructions.md"]
     end
 
-    subgraph Codex["Codex (.codex/)"]
+    subgraph Codex[".codex/"]
         XS["skills/ai-*/SKILL.md"]
         XA["agents/ai-*.md"]
         XI["AGENTS.md"]
     end
 
-    subgraph Gemini["Gemini (.gemini/)"]
+    subgraph Gemini[".gemini/"]
         MS["skills/ai-*/SKILL.md"]
         MA["agents/ai-*.md"]
         MI["GEMINI.md"]
@@ -253,100 +338,219 @@ graph LR
     CI -->|sync| MI
 ```
 
-| Surface | Skills location | Agents location | Instruction file |
-|---------|----------------|----------------|-----------------|
-| `.claude/` | `skills/ai-*/SKILL.md` | `agents/ai-*.md` | `CLAUDE.md` |
-| `.codex/` | `skills/ai-*/SKILL.md` | `agents/ai-*.md` | `AGENTS.md` |
-| `.gemini/` | `skills/ai-*/SKILL.md` | `agents/ai-*.md` | `GEMINI.md` |
-| `.github/` | `skills/ai-*/SKILL.md` | `agents/*.agent.md` | `copilot-instructions.md` |
+### 3.2 Environments
 
-### 4.2 Skills Registry (30)
+| Environment | Purpose | Variables | Secrets | Network |
+|-------------|---------|-----------|---------|---------|
+| Local dev | Development + testing | `AI_ENG_LIVE_TEST=1` (opt-in) | OS keyring (SonarCloud, Snyk tokens) | Internet for gh/az CLI |
+| CI (GitHub Actions) | Quality gates + build | `SONAR_TOKEN`, `SNYK_TOKEN` (optional) | GitHub Actions secrets | GitHub-hosted runners |
+| PyPI (release) | Package distribution | -- | OIDC trusted publisher (no token) | PyPI upload API |
 
-| Type | Skills | Count |
-|------|--------|-------|
-| Workflow | brainstorm, plan, dispatch, test, debug, verify, review | 7 |
-| Delivery | commit, pr, release, cleanup | 4 |
-| Enterprise | security, governance, pipeline, schema, solution-intent | 5 |
-| Teaching | explain, guide | 2 |
-| Writing | write | 1 |
-| SDLC | note, standup, sprint, postmortem, support, resolve-conflicts | 6 |
-| Meta | create, learn, prompt, onboard, analyze-permissions | 5 |
+### 3.3 API and Gateway Policies
 
-#### Skills with Handlers (6 skills, 18 handlers)
+| Surface | Auth | Rate limit | Versioning |
+|---------|------|-----------|------------|
+| `ai-eng` CLI | None (local tool) | N/A | SemVer (`pyproject.toml`) |
+| GitHub API (via gh) | OAuth token (gh auth) | GitHub API limits | REST v3 / GraphQL v4 |
+| Azure DevOps API (via az) | PAT or Azure AD | Azure rate limits | REST API versioning |
+| PyPI upload | OIDC trusted publisher | PyPI limits | Package version |
+| SonarCloud | Token (keyring) | SonarCloud limits | Web API |
 
-| Skill | Handlers | Purpose |
-|-------|----------|---------|
-| ai-brainstorm | interrogate, spec-review | Design interrogation and spec critique |
-| ai-create | create-skill, create-agent, validate | Framework authoring |
-| ai-pipeline | generate, evolve, validate | CI/CD pipeline management |
-| ai-review | find, learn, review | Code review with pattern learning |
-| ai-solution-intent | init, sync, validate | This document lifecycle |
-| ai-write | changelog, content, docs | Documentation generation |
-
-### 4.3 Agents (8)
-
-| Agent | Model | Color | Responsibility | Boundary |
-|-------|-------|-------|---------------|----------|
-| plan | opus | purple | Spec creation, architecture design | Plans but does NOT execute |
-| build | opus | blue | Code implementation | ONLY agent with write permissions |
-| verify | opus | green | Quality + security assessment | Read-only analysis |
-| guard | sonnet | yellow | Governance advisory | Advisory, never blocking |
-| review | opus | red | Parallel code review | Read-only, multi-perspective |
-| explore | sonnet | cyan | Deep codebase research | Read-only exploration |
-| guide | sonnet | cyan | Teaching and onboarding | Read-only, educational |
-| simplify | sonnet | green | Code simplification | Proposes, build executes |
-
-### 4.4 Ownership Model
+### 3.4 Publication and Deployment
 
 ```mermaid
-graph TD
-    subgraph Framework["Framework-Managed"]
-        F1[".claude/skills/**"]
-        F2[".claude/agents/**"]
-        F3[".ai-engineering/**"]
-    end
-
-    subgraph Team["Team-Managed (never overwritten)"]
-        T1[".ai-engineering/contexts/team/**"]
-    end
-
-    subgraph System["System-Managed (append-only)"]
-        S1[".ai-engineering/state/**"]
-    end
-
-    subgraph Project["Project-Managed"]
-        P1["src/**"]
-        P2["tests/**"]
-        P3["docs/**"]
-    end
-
-    Update["ai-eng update"] -->|overwrites| Framework
-    Update -->|NEVER touches| Team
-    Update -->|appends only| System
-    Update -->|NEVER touches| Project
+flowchart LR
+    Dev["Developer"] -->|PR| Main["main branch"]
+    Main -->|push| CI["CI Pipeline<br/>(14 jobs)"]
+    CI -->|build| Wheel["dist/ artifact"]
+    Dev -->|git tag v*| Tag["Release tag"]
+    Tag -->|trigger| Release["release.yml"]
+    Release -->|verify CI passed| Check{CI green?}
+    Check -->|yes| Download["Download wheel<br/>(zero-rebuild)"]
+    Download -->|OIDC| PyPI["PyPI"]
+    Download --> GHR["GitHub Release<br/>+ CHANGELOG notes"]
 ```
 
-| Path pattern | Owner | Update policy |
-|-------------|-------|---------------|
-| `.claude/**`, `.agents/**`, `.github/skills/**` | Framework | Allow (overwrite on update) |
-| `.ai-engineering/contexts/team/**` | Team | Deny (never overwritten) |
-| `.ai-engineering/state/**` | System | Append-only |
-| `src/**`, `tests/**`, `docs/**` | Project | Framework never touches |
+| Artifact | Method | Target | Trigger |
+|----------|--------|--------|---------|
+| Python wheel | `uv build` | CI artifact store | Every CI run |
+| PyPI package | Trusted publisher (OIDC) | pypi.org | Git tag `v*` |
+| GitHub Release | `gh release create` | GitHub Releases | Git tag `v*` |
 
-### 4.5 Contexts (26 files)
-
-| Category | Count | Files |
-|----------|-------|-------|
-| Languages | 15 | python, rust, bash, csharp, dart, elixir, go, java, javascript, kotlin, php, ruby, sql, swift, typescript |
-| Frameworks | 8 | django, react, nodejs, aspnetcore, flutter, android, ios, react-native |
-| Team | 2 | README.md, lessons.md |
-| Organization | 1 | README.md |
+Key decision (DEC-012): Release downloads the pre-built wheel from CI instead of rebuilding. What was tested is what ships.
 
 ---
 
-## 5. Quality Strategy
+## 4. Observability Plan
 
-### 5.1 Quality Gates
+### 4.1 What We Measure
+
+```mermaid
+mindmap
+    root((Observability))
+        Event Sources
+            UserPromptSubmit hook
+            PostToolUse hooks
+            Context loaders
+            Git hooks
+            CLI commands
+        Event Store
+            framework-events.ndjson
+            Append-only NDJSON
+            Data minimized
+            No transcripts
+        Capability Catalog
+            framework-capabilities.json
+            41 skills
+            24 agents
+            39 contexts
+            11 hooks
+        Telemetry Scripts
+            telemetry-skill.py
+            observe.py
+            copilot-*.sh/.ps1
+        Viewer
+            agentsview (independent)
+            Session explorer
+            Transcript viewer
+        Metrics
+            Skill invocation frequency
+            Agent dispatch frequency
+            Context load outcomes
+            Hook/gate failure hotspots
+```
+
+### 4.2 SLIs / SLOs / Alerts
+
+| Signal | SLI | SLO | Alert threshold | Action |
+|--------|-----|-----|-----------------|--------|
+| Pre-commit gate | Execution time | < 10s | > 15s | Investigate gitleaks/ruff performance |
+| Pre-push gate | Execution time | < 60s | > 90s | Profile slow checks |
+| CI pipeline | Total duration | < 15min | > 20min | Review job parallelism |
+| Secret scan | False positive rate | < 5% | > 10% | Update .gitleaksignore |
+| Test suite | Pass rate on main | 100% | Any failure | Immediate investigation |
+
+### 4.3 Logging and Reporting
+
+| Log type | Format | Retention | Location |
+|----------|--------|-----------|----------|
+| Framework events | NDJSON | Indefinite (append-only) | `.ai-engineering/state/framework-events.ndjson` |
+| Capability catalog | JSON | Overwritten on sync | `.ai-engineering/state/framework-capabilities.json` |
+| CI logs | GitHub Actions format | 90 days (GitHub default) | GitHub Actions |
+| Gate results | Exit code + stdout | Session-scoped | Terminal output |
+
+### 4.4 Runbooks (13)
+
+| Runbook | Type | Cadence |
+|---------|------|---------|
+| triage | intake | daily |
+| refine | intake | daily |
+| feature-scanner | operational | daily |
+| stale-issues | operational | daily |
+| consolidate | operational | weekly |
+| dependency-health | operational | weekly |
+| code-quality | operational | weekly |
+| security-scan | operational | weekly |
+| docs-freshness | operational | weekly |
+| performance | operational | weekly |
+| governance-drift | operational | weekly |
+| architecture-drift | operational | weekly |
+| wiring-scanner | operational | weekly |
+
+---
+
+## 5. Security
+
+### 5.1 Authentication and Authorization
+
+```mermaid
+sequenceDiagram
+    participant CLI as ai-eng CLI
+    participant Cred as credentials module
+    participant KR as OS Keyring
+    participant Meta as tools.json (metadata only)
+
+    CLI->>Cred: get_token("sonarcloud")
+    Cred->>KR: keyring.get_password("ai-engineering", "sonarcloud")
+    KR-->>Cred: token (macOS Keychain / Windows Credential Manager / libsecret)
+    Cred-->>CLI: token
+
+    Note over Meta: Only non-secret metadata stored<br/>(URLs, project keys, configured flags)
+    Note over KR: Tokens NEVER stored in plain-text files
+```
+
+| Provider | Auth method | Storage |
+|----------|------------|---------|
+| GitHub | `gh auth` OAuth flow | OS keyring |
+| Azure DevOps | PAT or Azure AD | OS keyring |
+| SonarCloud | API token | OS keyring |
+| Snyk | API token (optional) | OS keyring |
+| PyPI | OIDC trusted publisher | No token needed |
+
+### 5.2 Exposure Model
+
+| Surface | Visibility | Data classification | Controls |
+|---------|-----------|-------------------|----------|
+| CLI (`ai-eng`) | Local only | Internal | OS permissions |
+| Skills/Agents (SKILL.md) | Public (repo) | Public | Git access controls |
+| Decision store | Public (repo) | Internal (risk acceptances) | PR review required |
+| Framework events | Local (not committed) | Internal (telemetry) | .gitignore |
+| Credentials | Local only | Secret | OS keyring encryption |
+| CI secrets | GitHub Actions | Secret | Environment secrets |
+
+### 5.3 Compromised Process Recovery
+
+```mermaid
+sequenceDiagram
+    participant Dev as Developer
+    participant Doctor as ai-eng doctor
+    participant FixTools as --fix-tools
+    participant FixHooks as --fix-hooks
+    participant Validate as ai-eng validate
+
+    Dev->>Doctor: ai-eng doctor <project>
+    Doctor->>Doctor: Check tool readiness
+    Doctor->>Doctor: Check hook integrity (hash verify)
+    Doctor->>Doctor: Check manifest coherence
+    Doctor-->>Dev: Diagnostic report
+
+    alt Tools missing or compromised
+        Dev->>FixTools: ai-eng doctor --fix-tools
+        FixTools->>FixTools: Reinstall/configure tools
+        FixTools-->>Dev: Tools restored
+    end
+
+    alt Hooks corrupted
+        Dev->>FixHooks: ai-eng doctor --fix-hooks
+        FixHooks->>FixHooks: Reinstall hooks from source
+        FixHooks->>FixHooks: Verify hash integrity
+        FixHooks-->>Dev: Hooks restored
+    end
+
+    Dev->>Validate: ai-eng validate
+    Validate->>Validate: 7-category content integrity
+    Validate-->>Dev: Integrity report (PASS/FAIL per category)
+```
+
+### 5.4 Hardening Checklist
+
+| Check | Tool | Gate | Status |
+|-------|------|------|--------|
+| No secrets in commits | gitleaks | pre-commit + CI | Active |
+| No suppression comments | ruff + CI policy | CI + deny rules | Active (DEC-008) |
+| Dependency vulnerabilities | pip-audit | pre-push + CI | Active |
+| SAST scanning | semgrep | pre-push + CI | Active |
+| Hook integrity | Hash verification | doctor --fix-hooks | Active |
+| Destructive git operations | 19 deny rules | `.claude/settings.json` | Active |
+| Automated actor exemption | Gate trailer skip | CI (dependabot only) | Active (DEC-020) |
+| Optional deep scan | Snyk | CI (token-gated) | Optional (DEC-009) |
+| CVE-2026-4539 (pygments) | Risk acceptance | decision-store | Accepted (DEC-025) |
+
+---
+
+## 6. Quality
+
+### 6.1 Quality Gates
 
 ```mermaid
 sequenceDiagram
@@ -381,11 +585,11 @@ sequenceDiagram
     CI->>CI: Workflow Sanity
     CI->>Sonar: Coverage reports
     Sonar-->>CI: Quality gate result
-    CI-->>Dev: CI Result (aggregated)
+    CI-->>Dev: CI Result (14 jobs aggregated)
 ```
 
-| Metric | Threshold | Enforcement point |
-|--------|-----------|-------------------|
+| Metric | Threshold | Enforcement |
+|--------|-----------|-------------|
 | Test coverage | >= 80% | SonarCloud quality gate |
 | Code duplication | <= 3% | CI duplication check + SonarCloud |
 | Cyclomatic complexity | <= 10 per function | SonarCloud |
@@ -395,34 +599,31 @@ sequenceDiagram
 | Secret leaks | 0 | gitleaks (pre-commit + CI) |
 | Dependency vulnerabilities | 0 | pip-audit (pre-push + CI) |
 
-### 5.2 Tooling Matrix
+### 6.2 Architecture Patterns
 
-| Tool | Hook | CI | Purpose |
-|------|------|-----|---------|
-| gitleaks | pre-commit | Security Audit job | Secret detection |
-| ruff | pre-commit | Lint job | Lint + format (Python) |
-| semgrep | pre-push | Security Audit job | SAST |
-| pip-audit | pre-push | Security Audit job | Dependency vulnerabilities |
-| ty | pre-push | Typecheck job | Type checking |
-| pytest | pre-push | Unit/Integration/E2E jobs | Test execution |
-| SonarCloud | -- | SonarCloud job | Quality gate platform |
-| Snyk | -- | Snyk Security job (optional) | Additional security (DEC-009) |
-| actionlint | -- | Workflow Sanity job | Workflow YAML validation |
+| Pattern | Implementation |
+|---------|---------------|
+| Service + CLI Separation | Pure service modules, no CLI imports in business logic |
+| Protocol-Based Polymorphism | VCS providers via structural typing (`VcsProvider` protocol) |
+| Ownership-Safe Updates | 4-tier boundaries: framework / team / project / system |
+| Stack-Aware Gates | Policy checks filtered by installed stacks in manifest |
+| Audit-First Observability | Append-only NDJSON event log, single source of truth |
+| Fail-Open Design | Graceful degradation -- never block developer workflow |
+| Factory Pattern | VCS provider resolution: manifest-first, remote-URL-fallback |
+| Single-Source Mirror | Canonical `.claude/` generates all IDE mirrors |
 
-### 5.3 Test Strategy
+### 6.3 Testing Strategy
 
-| Tier | Marker | CI matrix | Scope |
-|------|--------|-----------|-------|
-| Unit | `@pytest.mark.unit` | 3 OS x 3 Python (3.11, 3.12, 3.13) | Pure logic, no I/O, < 1s per test |
-| Integration | `@pytest.mark.integration` | 3 OS x Python 3.12 | Local I/O (filesystem, git) |
-| E2E | `@pytest.mark.e2e` | Ubuntu x Python 3.12 | Full flows (install, CLI, hooks) |
-| Live | `@pytest.mark.live` | Manual (`AI_ENG_LIVE_TEST=1`) | External API tests |
+| Tier | Marker | CI matrix | Coverage | Count |
+|------|--------|-----------|----------|-------|
+| Unit | `@pytest.mark.unit` | 3 OS x 3 Python | Yes (ubuntu-3.12) | 94 files |
+| Integration | `@pytest.mark.integration` | 3 OS x Python 3.12 | Yes (ubuntu) | 26 files |
+| E2E | `@pytest.mark.e2e` | Ubuntu x Python 3.12 | Yes | 3 files |
+| Live | `@pytest.mark.live` | Manual (`AI_ENG_LIVE_TEST=1`) | No | On-demand |
 
-106 test files. Coverage reported per tier and merged for SonarCloud.
+**Total: 123 test files.** Coverage per tier merged for SonarCloud. Parallel execution via pytest-xdist (`-n auto --dist worksteal`).
 
-Selective test execution: `ai_engineering.policy.test_scope` computes affected tests per PR diff, with full-suite fallback on main branch and test-config changes.
-
-### 5.4 Validator (7-Category Content Integrity)
+### 6.4 Validator (7-Category Content Integrity)
 
 | Category | What it checks |
 |----------|---------------|
@@ -434,273 +635,57 @@ Selective test execution: `ai_engineering.policy.test_scope` computes affected t
 | Manifest Coherence | Ownership globs match filesystem, active spec valid |
 | Skill Frontmatter | Required YAML metadata and requirement schema validity |
 
-### 5.5 Hook Integrity
+---
 
-Git hooks are hash-verified. Modification is forbidden (enforced by DEC-008 and `.claude/settings.json` deny rules).
+## 7. Next Objectives
 
-19 explicit deny rules in `.claude/settings.json` prevent:
-- Destructive git operations (`push --force`, `reset --hard`, `checkout .`, `restore .`, `clean -f`)
-- Hook bypass (`--no-verify` on any git command)
-- Blanket file deletion (`rm -rf *`)
+### 7.1 Roadmap
+
+| Phase | Description | Status |
+|-------|-------------|--------|
+| Core framework | CLI, installer, quality gates, hooks | Complete |
+| Multi-IDE | Mirror generation for Copilot, Codex, Gemini | Complete |
+| Governance | Decision store, risk acceptance, gate trailers | Complete |
+| Observability | Framework events, capability catalog, agentsview | Complete |
+| Board integration | GitHub Projects v2 discovery and sync | Complete |
+| Autonomy | Autopilot orchestrator, scheduled runbooks | Active |
+| Enterprise hardening | SBOM, compliance reporting, audit exports | Planned |
+
+### 7.2 Active Epics / Features
+
+| Epic | Description | Priority | Status | Target |
+|------|-------------|----------|--------|--------|
+| Board lifecycle | Full issue lifecycle automation via Projects v2 | P1 | In progress | Q2 2026 |
+| Runbook automation | Scheduled execution via GitHub Agentic Workflows | P1 | In progress (DEC-022) | Q2 2026 |
+| Autopilot maturity | Multi-spec autonomous delivery refinement | P2 | Active (DEC-023) | Q2 2026 |
+
+### 7.3 KPIs
+
+| Metric | Target | Current |
+|--------|--------|---------|
+| Test coverage | >= 80% | **TBD -- pending measurement** |
+| Skills count | 41 | 41 |
+| Agent count | 24 (9 primary + 15 specialist) | 24 |
+| Active decisions | Tracked with expiry | 23 active, 5 superseded |
+| Runbook coverage | All operational areas | 13 runbooks |
+| IDE surfaces | 4 | 4 (Claude Code, Copilot, Codex, Gemini) |
+| Context files | Comprehensive | 39 (14 lang, 15 framework, 10 other) |
+
+### 7.4 Active Spec
+
+No active spec. Run `/ai-brainstorm` to start a new spec.
+
+### 7.5 Blockers and Risks
+
+| ID | Description | Severity | Owner | Expiry |
+|----|-------------|----------|-------|--------|
+| DEC-025 | CVE-2026-4539 in pygments (accepted risk) | low | team | 2027-03-24 |
 
 ---
 
-## 6. Security Posture
+## 8. Decision Log
 
-### 6.1 Defense in Depth
-
-```mermaid
-graph TB
-    subgraph Local["Local (Developer Machine)"]
-        direction TB
-        PC["Pre-Commit<br/>gitleaks + ruff"]
-        PP["Pre-Push<br/>semgrep + pip-audit + ty + pytest"]
-        DR["Deny Rules<br/>19 explicit blocks in settings.json"]
-    end
-
-    subgraph CI_Sec["CI (GitHub Actions)"]
-        direction TB
-        GL["gitleaks detect"]
-        PA["pip-audit"]
-        SG["semgrep"]
-        SK["Snyk (optional)"]
-        GT["Gate Trailer Verification"]
-    end
-
-    subgraph Platform["Platform"]
-        direction TB
-        SC["SonarCloud Analysis"]
-        KR["Keyring (OS-native secrets)"]
-        RA["Risk Acceptance (DEC-*)"]
-    end
-
-    Local --> CI_Sec
-    CI_Sec --> Platform
-```
-
-### 6.2 Authentication Flow
-
-```mermaid
-sequenceDiagram
-    participant CLI as ai-eng CLI
-    participant Cred as credentials module
-    participant KR as OS Keyring
-    participant Meta as tools.json (metadata only)
-
-    CLI->>Cred: get_token("sonarcloud")
-    Cred->>KR: keyring.get_password("ai-engineering", "sonarcloud")
-    KR-->>Cred: token (from macOS Keychain / Windows Credential Manager / libsecret)
-    Cred-->>CLI: token
-
-    Note over Meta: Only non-secret metadata stored<br/>(URLs, project keys, configured flags)
-    Note over KR: Tokens NEVER stored in plain-text files
-```
-
-### 6.3 Security Controls
-
-| Control | Mechanism | Decision |
-|---------|-----------|----------|
-| Secret scanning | gitleaks at pre-commit (`gitleaks protect --staged`) | DEC-011 |
-| SAST | semgrep at pre-push and CI | -- |
-| Dependency audit | pip-audit at pre-push and CI | -- |
-| Credential storage | OS-native keyring (never committed) | -- |
-| Suppression ban | No `# noqa`, `# nosec`, `# type: ignore` ever | DEC-008 |
-| Hook integrity | Hash-verified, modification forbidden | -- |
-| Automated actor exemption | Dependabot exempt from gate trailers (CI validates independently) | DEC-020 |
-| Snyk | Optional (SNYK_TOKEN controls activation) | DEC-009 |
-
----
-
-## 7. Delivery and Operations
-
-### 7.1 Publication Flow
-
-```mermaid
-sequenceDiagram
-    participant Dev as Developer
-    participant Main as main branch
-    participant CI as CI Pipeline
-    participant Tag as Git Tag
-    participant Release as Release Workflow
-    participant PyPI as PyPI
-
-    Dev->>Main: PR merged
-    Main->>CI: CI runs (full suite)
-    CI->>CI: Build package (uv build)
-    CI->>CI: Upload dist artifact
-
-    Dev->>Tag: git tag v0.x.0
-    Tag->>Release: Trigger release.yml
-    Release->>Release: verify-ci (wait for CI pass)
-    Release->>Release: Download dist from CI (zero-rebuild)
-    Release->>PyPI: Publish (trusted publisher, OIDC)
-    Release->>Release: Create GitHub Release + notes from CHANGELOG
-```
-
-Key decision (DEC-012): Release downloads the pre-built wheel from CI instead of rebuilding. What was tested is what ships.
-
-### 7.2 CI Pipeline Jobs (ci.yml)
-
-```mermaid
-graph TD
-    CS[Change Scope] --> Lint
-    CS --> Dup[Duplication Check]
-    CS --> RA[Risk Acceptance]
-    CS --> TC[Type Check]
-    CS --> UT["Unit Tests<br/>3 OS x 3 Python"]
-    CS --> IT["Integration Tests<br/>3 OS"]
-    CS --> E2E["E2E Tests"]
-    CS --> FS["Framework Smoke<br/>3 OS"]
-
-    UT --> SC[SonarCloud]
-    IT --> SC
-    E2E --> SC
-
-    Lint --> Build[Build Package]
-    Dup --> Build
-    RA --> Build
-    TC --> Build
-    UT --> Build
-    IT --> Build
-    E2E --> Build
-    SC --> Build
-    FS --> Build
-    Sec --> Build
-    CI_val[Content Integrity] --> Build
-    WS[Workflow Sanity] --> Build
-
-    Build --> Result[CI Result Gate]
-    Sec[Security Audit] --> Result
-    CI_val --> Result
-    WS --> Result
-    VGT[Verify Gate Trailers] --> Result
-    Snyk[Snyk Security] --> Result
-
-    style CS fill:#e1f5fe
-    style Result fill:#c8e6c9
-    style Build fill:#fff9c4
-```
-
-### 7.3 Workflows (4)
-
-| Workflow | Purpose |
-|----------|---------|
-| ci.yml | CI pipeline: lint, test, type check, security audit, coverage |
-| install-smoke.yml | Smoke test for `ai-eng install` across platforms |
-| release.yml | Release pipeline: build, publish to PyPI |
-| maintenance.yml | Dependency updates, stale branch cleanup |
-
-### 7.4 Runbooks (12)
-
-Self-contained portable Markdown contracts executed on Codex App Automation, Claude scheduled tasks, or Azure Foundry. Each runbook carries only minimal frontmatter (`name`, `description`, `type`, `cadence`); operational detail lives in the body. No GitHub workflow adapters -- the runbook file is the single portable artifact.
-
-| Runbook | Type | Cadence |
-|---------|------|---------|
-| triage | intake | daily |
-| refine | intake | daily |
-| feature-scanner | operational | daily |
-| stale-issues | operational | daily |
-| dependency-health | operational | weekly |
-| code-quality | operational | weekly |
-| security-scan | operational | weekly |
-| docs-freshness | operational | weekly |
-| performance | operational | weekly |
-| governance-drift | operational | weekly |
-| architecture-drift | operational | weekly |
-| wiring-scanner | operational | weekly |
-
-### 7.5 Observability
-
-```mermaid
-mindmap
-    root((Observability))
-        Event Sources
-            PostToolUse Skill hook
-            PostToolUse Agent hook
-            Context loaders
-            Git and IDE hooks
-            CLI commands
-        Event Store
-            framework-events.ndjson
-            Append-only NDJSON
-            Data minimized
-            No transcripts
-        Capability Catalog
-            framework-capabilities.json
-            skills
-            agents
-            contexts
-            hooks
-        Telemetry Scripts
-            telemetry-skill.py (Claude Code)
-            observe.py (Claude Code)
-            copilot-*.sh/.ps1 (GitHub Copilot)
-        Viewer
-            agentsview (independent install)
-            session explorer
-            transcript viewer
-            native framework source
-        Metrics
-            Skill invocation frequency
-            Agent dispatch frequency
-            Context load outcomes
-            Hook/gate failure hotspots
-            Framework error trends
-```
-
-| Event | Hook trigger | Data captured |
-|-------|-------------|---------------|
-| `skill_invoked` | PostToolUse(Skill) | Skill name, actor, timestamp |
-| `agent_dispatched` | PostToolUse(Agent) | Agent name, actor, timestamp |
-| `context_load` | Context load path | Context class, target, outcome |
-| `git_hook` / `ide_hook` | Hook execution | Hook kind, component, outcome |
-| `framework_error` | Hook or CLI failure | Stable error code, component, outcome |
-
-Framework telemetry is local-first and automatic where host hooks are available. `ai-engineering` no longer owns dashboards and no longer emits via `ai-eng signals emit`; `agentsview` is the companion viewer for sessions and canonical framework events.
-
----
-
-## 8. VCS Provider Architecture
-
-### 8.1 Provider Resolution
-
-```mermaid
-flowchart TD
-    Start([get_provider]) --> ReadManifest{install-manifest.json<br/>exists?}
-    ReadManifest -->|Yes| ParseProvider{providers.primary?}
-    ReadManifest -->|No| DetectRemote
-
-    ParseProvider -->|github| CheckMode{tooling_readiness<br/>gh.mode?}
-    ParseProvider -->|azure_devops| CheckModeAz{tooling_readiness<br/>az.mode?}
-    ParseProvider -->|unknown| DetectRemote
-
-    CheckMode -->|api| ApiFallback[ApiFallbackProvider]
-    CheckMode -->|cli| GitHub[GitHubProvider]
-    CheckModeAz -->|api| ApiFallback
-    CheckModeAz -->|cli| AzDO[AzureDevOpsProvider]
-
-    DetectRemote[Detect from remote URL] --> URLCheck{origin URL contains?}
-    URLCheck -->|dev.azure.com / visualstudio.com| AzDO
-    URLCheck -->|other| GitHub
-
-    style GitHub fill:#c8e6c9
-    style AzDO fill:#bbdefb
-    style ApiFallback fill:#fff9c4
-```
-
-### 8.2 Provider Implementations
-
-| Provider | Backend | Detection |
-|----------|---------|-----------|
-| GitHubProvider | `gh` CLI + REST fallback | Default, `github.com` in remote |
-| AzureDevOpsProvider | `az repos` CLI | `dev.azure.com` or `visualstudio.com` in remote |
-| ApiFallbackProvider | Generic REST | When CLI mode is `api` in install manifest |
-
----
-
-## 9. Decision Log
-
-See `.ai-engineering/state/decision-store.json` for the current active and superseded decisions.
+23 active decisions, 5 superseded. Full details in `.ai-engineering/state/decision-store.json`.
 
 | ID | Title | Category | Criticality |
 |----|-------|----------|-------------|
@@ -709,92 +694,36 @@ See `.ai-engineering/state/decision-store.json` for the current active and super
 | DEC-004 | Flat main with feature branches (no phase branching) | governance | medium |
 | DEC-005 | Multi-IDE governance via single-source generation | architecture | medium |
 | DEC-006 | SonarCloud as primary quality gate platform | tooling | high |
-| DEC-007 | Single event store (audit-log.ndjson) | architecture | high, superseded by DEC-028 |
-| DEC-008 | No-suppression rule (never bypass static analysis) | governance | high |
 | DEC-009 | Snyk as optional (not required for CI) | tooling | low |
 | DEC-010 | Dual VCS provider support (GitHub + Azure DevOps) | architecture | medium |
 | DEC-011 | Gitleaks at pre-commit, not pre-push | security | high |
 | DEC-012 | Release zero-rebuild (download CI artifacts) | delivery | medium |
-| DEC-013 | Cross-IDE telemetry via `ai-eng signals emit` | architecture | medium, superseded by DEC-028 |
 | DEC-014 | Lean stack standards (max 1 page per stack) | governance | low |
 | DEC-015 | Conventional commits with `spec-NNN` prefix | delivery | medium |
 | DEC-016 | Slim root instructions (deduplicate CLAUDE.md/AGENTS.md) | governance | medium |
 | DEC-017 | Checkpoint schema unification with namespaced sections | architecture | medium |
 | DEC-018 | PR skill decomposition (extract shared pipeline) | architecture | medium |
-| DEC-019 | 8-agent architecture with SRP boundaries | architecture | high |
 | DEC-020 | Exempt automated actors from gate trailer verification | governance | medium |
-| DEC-028 | Canonical framework-events stream plus agentsview companion viewer | architecture | high |
-| DEC-021 | Skill invocation uses hyphen prefix (`ai-`) not colon (`ai:`) | architecture | medium |
+| DEC-021 | Skill invocation uses hyphen prefix (`ai-`) not colon | architecture | medium |
 | DEC-022 | Scheduled runbooks migrated to GitHub Agentic Workflows | delivery | medium |
-
-Decisions have expiry dates (1 year from creation) and criticality-based prioritization. Superseded decisions (e.g., DEC-002 superseded by DEC-019) are preserved for audit trail.
-
----
-
-## 10. Specs and Evolution
-
-### 10.1 Spec Lifecycle
-
-~53 total specs: 15 active (041-055), 38 archived (001-040).
-
-Current active: **spec-055 -- Radical Simplification**. Redesign based on patterns from reference repos.
-
-| Dimension | Before | After |
-|-----------|--------|-------|
-| Skills | 37 | 30 |
-| Standards | 65 files | 0 (replaced by contexts/) |
-| Contracts | 2 | 0 (replaced by solution-intent) |
-| State files | 6 | 2 (decision-store + audit-log) |
-| Agents | 10 | 8 |
-
-### 10.2 Recovery Sequence
-
-```mermaid
-sequenceDiagram
-    participant Dev as Developer
-    participant Doctor as ai-eng doctor
-    participant FixTools as --fix-tools
-    participant FixHooks as --fix-hooks
-    participant Validate as ai-eng validate
-
-    Dev->>Doctor: ai-eng doctor <project>
-    Doctor->>Doctor: Check tool readiness
-    Doctor->>Doctor: Check hook integrity
-    Doctor->>Doctor: Check manifest coherence
-    Doctor-->>Dev: Diagnostic report (JSON)
-
-    alt Tools missing
-        Dev->>FixTools: ai-eng doctor --fix-tools
-        FixTools->>FixTools: Install/configure missing tools
-        FixTools-->>Dev: Tools restored
-    end
-
-    alt Hooks corrupted
-        Dev->>FixHooks: ai-eng doctor --fix-hooks
-        FixHooks->>FixHooks: Reinstall hooks from source
-        FixHooks->>FixHooks: Verify hash integrity
-        FixHooks-->>Dev: Hooks restored
-    end
-
-    Dev->>Validate: ai-eng validate
-    Validate->>Validate: 7-category content integrity
-    Validate-->>Dev: Integrity report
-```
+| DEC-023 | Autopilot governance override: invocation-as-approval | governance | high |
+| DEC-024 | Copilot subagent orchestration via sync pipeline | architecture | high |
+| DEC-025 | Accept CVE-2026-4539 in pygments (risk acceptance) | security | low |
+| DEC-026 | contexts/orgs eliminated -- no implementation | architecture | low |
+| DEC-027 | contracts replaced by project-identity + CLAUDE.md | architecture | medium |
+| DEC-028 | Canonical framework-events stream + agentsview | architecture | high |
 
 ---
 
-## 11. TBD Items
-
-The following items require verification or team definition before they can be documented as facts.
+## 9. TBD Items
 
 | Item | Status | Action needed |
 |------|--------|--------------|
-| Cross-OS CI matrix results | **TBD -- pending verification** | Run CI and verify all 3 OS x 3 Python pass |
-| SonarCloud current findings count | **TBD -- pending measurement** | Check SonarCloud dashboard for current state |
-| Current test coverage percentage | **TBD -- pending measurement** | Run `pytest --cov` and record actual value |
-| Performance SLOs for gate execution | **TBD -- pending team definition** | Historical target: < 10s pre-commit, < 60s pre-push |
-| Active epics and their current status | **TBD -- pending team definition** | Map spec backlog to strategic themes |
-| Specific KPI current values | **TBD -- pending measurement** | Query `framework-events.ndjson` or inspect `agentsview` once the native source is wired |
+| Current test coverage percentage | **TBD -- pending measurement** | Run `pytest --cov` or check SonarCloud |
+| SonarCloud current findings count | **TBD -- pending measurement** | Check SonarCloud dashboard |
+| Performance SLOs for gate execution | **TBD -- pending team definition** | Baseline pre-commit/pre-push timing |
+| Active epics priority and targets | **TBD -- pending team definition** | Map spec backlog to strategic themes |
+| SBOM generation and compliance | **TBD -- planned** | Enterprise hardening phase |
 
 ---
 
@@ -802,15 +731,15 @@ The following items require verification or team definition before they can be d
 
 | What | Where |
 |------|-------|
-| Skills (31) | `.claude/skills/ai-<name>/SKILL.md` |
-| Agents (8) | `.claude/agents/ai-<name>.md` |
+| Skills (41) | `.claude/skills/ai-<name>/SKILL.md` |
+| Agents (24) | `.claude/agents/ai-<name>.md` |
 | Config | `.ai-engineering/manifest.yml` |
-| Decisions (20+) | `.ai-engineering/state/decision-store.json` |
+| Decisions (23) | `.ai-engineering/state/decision-store.json` |
 | Framework events | `.ai-engineering/state/framework-events.ndjson` |
 | Framework capabilities | `.ai-engineering/state/framework-capabilities.json` |
-| Active spec | `.ai-engineering/specs/spec.md` |
-| Contexts (26) | `.ai-engineering/contexts/{languages,frameworks,team,orgs}/` |
-| Runbooks (12) | `.ai-engineering/runbooks/` |
+| Contexts (39) | `.ai-engineering/contexts/{languages,frameworks,team}/` |
+| Runbooks (13) | `.ai-engineering/runbooks/` |
 | CLI source | `src/ai_engineering/` |
-| Tests (106 files) | `tests/{unit,integration,e2e}/` |
+| Tests (123 files) | `tests/{unit,integration,e2e}/` |
+| Board config | `.ai-engineering/manifest.yml` (work_items section) |
 | This document | `docs/solution-intent.md` |

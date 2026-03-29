@@ -1,6 +1,6 @@
 ---
 name: refine
-description: "Take triaged issues, gather codebase and provider context, draft acceptance criteria, propose spec outline in comments, mark handoff:ai-eng when ready"
+description: "Take triaged issues, gather codebase and provider context, draft acceptance criteria, propose spec outline in comments, mark handoff-ai-eng when ready"
 type: intake
 cadence: daily
 ---
@@ -11,7 +11,7 @@ cadence: daily
 ## Objetivo
 
 Take issues labeled `needs-refinement`, gather codebase and provider context, draft
-acceptance criteria, propose a spec outline as a comment, and mark `handoff:ai-eng`
+acceptance criteria, propose a spec outline as a comment, and mark `handoff-ai-eng`
 when the issue is ready for local execution.
 
 ## Precondiciones
@@ -25,21 +25,21 @@ when the issue is ready for local execution.
 
 ### Step 1 -- Fetch refinement candidates
 
-Fetch all open issues, then filter out those already processed by this runbook (i.e., already carrying `handoff:ai-eng` or `needs-clarification`).
+Fetch all open issues, then filter out those already processed by this runbook (i.e., already carrying `handoff-ai-eng` or `needs-clarification`).
 
 ```bash
 # GitHub — fetch all open issues and filter client-side
 gh issue list --state open --json number,title,body,labels,milestone,assignees --limit 100 \
   | jq '[.[] | select(
-      (.labels | map(.name) | contains(["handoff:ai-eng"]) | not) and
+      (.labels | map(.name) | contains(["handoff-ai-eng"]) | not) and
       (.labels | map(.name) | contains(["needs-clarification"]) | not)
     )]'
 
 # Azure DevOps
-az boards query --wiql "SELECT [System.Id],[System.Title],[System.Description],[System.State],[System.Tags] FROM workitems WHERE [System.State] <> 'Closed' AND [System.Tags] NOT CONTAINS 'handoff:ai-eng' AND [System.Tags] NOT CONTAINS 'needs-clarification'" -o json
+az boards query --wiql "SELECT [System.Id],[System.Title],[System.Description],[System.State],[System.Tags] FROM workitems WHERE [System.State] <> 'Closed' AND [System.Tags] NOT CONTAINS 'handoff-ai-eng' AND [System.Tags] NOT CONTAINS 'needs-clarification'" -o json
 ```
 
-If no candidates are found, exit silently.
+If no candidates are found, output a summary report in the chat (do not save locally) explaining why: total open issues, how many were skipped and by which label (handoff-ai-eng vs needs-clarification), and confirm no action was taken.
 
 ### Step 2 -- Gather context for each issue
 
@@ -132,10 +132,10 @@ An issue qualifies for handoff when ALL conditions are met:
 
 ```bash
 # GitHub
-gh issue edit <NUMBER> --add-label "handoff:ai-eng" --remove-label "needs-refinement"
+gh issue edit <NUMBER> --add-label "handoff-ai-eng" --remove-label "needs-refinement"
 
 # Azure DevOps
-az boards work-item update --id <ID> --fields "System.Tags=handoff:ai-eng" -o json
+az boards work-item update --id <ID> --fields "System.Tags=handoff-ai-eng" -o json
 ```
 
 
@@ -165,7 +165,12 @@ gh issue edit <NUMBER> --add-label "needs-clarification" --remove-label "needs-r
 
 ## Output
 
-No local files. Issue comments with acceptance criteria and spec outlines are the sole output.
+No local files. Always output a summary report in the chat at the end of the run, including:
+- Total open issues found
+- Issues skipped by label (handoff-ai-eng count, needs-clarification count)
+- Issues processed: commented + labeled in this run
+- Which issues were marked handoff-ai-eng vs escalated needs-clarification
+- If no candidates: brief explanation and label breakdown
 
 ## Guardrails
 

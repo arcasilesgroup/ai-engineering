@@ -1,6 +1,6 @@
 name: Bug Report
 description: Report a bug in the ai-engineering framework
-labels: ["type:bug", "needs-triage"]
+labels: ["bug", "needs-triage"]
 type: Bug
 body:
   - type: markdown
@@ -48,19 +48,6 @@ body:
         - P0 — Outage / data loss (same day SLA)
         - P1 — Blocking workflow (3 days SLA)
         - P2 — Normal (next sprint SLA)
-    validations:
-      required: true
-  - type: dropdown
-    id: size
-    attributes:
-      label: Size
-      description: Estimated effort to fix.
-      options:
-        - XS (< 30min)
-        - S (< 1h)
-        - M (1-4h)
-        - L (4-8h)
-        - XL (> 8h)
     validations:
       required: true
   - type: input

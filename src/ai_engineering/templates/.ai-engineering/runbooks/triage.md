@@ -15,7 +15,7 @@ Scan all open issues and backlog items across GitHub and Azure DevOps, classify 
 
 - Authenticated CLI session: `gh auth status` (GitHub) or `az account show` (Azure DevOps).
 - Repository cloned locally with issue-tracker access (issues:write permission for GitHub, Work Items Read & Write for Azure DevOps).
-- Labels `type/*`, `priority/*`, `triaged`, `needs-refinement`, and `duplicate` exist in the issue tracker.
+- Labels `bug`, `feature`, `enhancement`, `question`, `chore`, `p1-critical`, `p2-high`, `p3-normal`, `p4-low`, `triaged`, `needs-refinement`, and `duplicate` exist in the issue tracker.
 
 ## Procedimiento
 
@@ -24,7 +24,7 @@ Scan all open issues and backlog items across GitHub and Azure DevOps, classify 
 **GitHub:**
 
 ```bash
-gh issue list --state open --limit 500 --json number,title,body,labels,createdAt,author,comments --jq '.[] | select(.labels | map(.name) | any(startswith("triaged"), startswith("priority/")) | not)'
+gh issue list --state open --limit 500 --json number,title,body,labels,createdAt,author,comments --jq '.[] | select(.labels | map(.name) | any(. == "triaged", startswith("p1-"), startswith("p2-"), startswith("p3-"), startswith("p4-")) | not)'
 ```
 
 **Azure DevOps:**
@@ -47,16 +47,16 @@ For each issue in `$ISSUES`, inspect the title, body, and existing labels. Assig
 | question | how, why, what, docs, clarify, explain, confused |
 | chore | ci, deps, bump, config, cleanup, housekeeping, lint |
 
-Apply the label `type/<classified>`:
+Apply the type label:
 
 ```bash
 # GitHub -- apply type label
-gh issue edit "$NUMBER" --add-label "type/$TYPE"
+gh issue edit "$NUMBER" --add-label "$TYPE"
 ```
 
 ```bash
 # Azure DevOps -- apply tag
-az boards work-item update --id "$ID" --fields "System.Tags=type/$TYPE"
+az boards work-item update --id "$ID" --fields "System.Tags=$TYPE"
 ```
 
 ### Step 3 -- Assign priority
@@ -74,14 +74,14 @@ Map final score to label:
 
 | Score | Label |
 |-------|-------|
-| >= 7 | priority/p1 |
-| 5-6 | priority/p2 |
-| 3-4 | priority/p3 |
-| 1-2 | priority/p4 |
+| >= 7 | p1-critical |
+| 5-6 | p2-high |
+| 3-4 | p3-normal |
+| 1-2 | p4-low |
 
 ```bash
 # GitHub
-gh issue edit "$NUMBER" --add-label "priority/$PRIORITY"
+gh issue edit "$NUMBER" --add-label "$PRIORITY"
 ```
 
 ```bash

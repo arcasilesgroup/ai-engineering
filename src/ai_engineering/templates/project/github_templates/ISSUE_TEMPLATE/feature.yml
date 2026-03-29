@@ -1,6 +1,6 @@
 name: Feature Request
 description: Propose a new feature or enhancement
-labels: ["type:feature", "needs-triage"]
+labels: ["feature", "needs-triage"]
 type: Feature
 body:
   - type: markdown
@@ -41,19 +41,6 @@ body:
         - P0 — Outage / data loss (same day SLA)
         - P1 — Blocking workflow (3 days SLA)
         - P2 — Normal (next sprint SLA)
-    validations:
-      required: true
-  - type: dropdown
-    id: size
-    attributes:
-      label: Size
-      description: Estimated effort.
-      options:
-        - XS (< 30min)
-        - S (< 1h)
-        - M (1-4h)
-        - L (4-8h)
-        - XL (> 8h)
     validations:
       required: true
   - type: dropdown
