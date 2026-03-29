@@ -19,12 +19,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-from _lib.audit import (
-    get_project_root,
-    is_debug_mode,
-    passthrough_stdin,
-    read_stdin,
-)
+from _lib.audit import is_debug_mode, passthrough_stdin
+from _lib.hook_context import get_hook_context
 from _lib.observability import emit_control_outcome
 
 _STATE_FILE = Path.home() / ".ai-engineering" / "state" / "mcp-health.json"
@@ -186,10 +182,13 @@ def _attempt_reconnect(server_name: str) -> bool:
 
 
 def _emit_health_change(
-    server_name: str, old_status: str, new_status: str, error: str = ""
+    project_root: Path,
+    server_name: str,
+    old_status: str,
+    new_status: str,
+    error: str = "",
 ) -> None:
     """Emit a canonical control outcome for MCP health changes."""
-    project_root = get_project_root()
     emit_control_outcome(
         project_root,
         category="platform",
@@ -206,7 +205,7 @@ def _emit_health_change(
     )
 
 
-def _handle_pre_tool_use(data: dict, server_name: str) -> None:
+def _handle_pre_tool_use(data: dict, server_name: str, project_root: Path) -> None:
     """Handle PreToolUse: check server health, probe if needed."""
     state = _load_state()
     server = _get_server_state(state, server_name)
@@ -238,7 +237,7 @@ def _handle_pre_tool_use(data: dict, server_name: str) -> None:
             server["checkedAt"] = _now_iso()
             server["lastError"] = "probe failed"
             _save_state(state)
-            _emit_health_change(server_name, old_status, "unhealthy", "probe failed")
+            _emit_health_change(project_root, server_name, old_status, "unhealthy", "probe failed")
 
     if server["status"] == "unhealthy":
         next_retry = server.get("nextRetryAt")
@@ -273,7 +272,7 @@ def _handle_pre_tool_use(data: dict, server_name: str) -> None:
                 "%Y-%m-%dT%H:%M:%SZ"
             )
             _save_state(state)
-            _emit_health_change(server_name, old_status, "healthy")
+            _emit_health_change(project_root, server_name, old_status, "healthy")
             passthrough_stdin(data)
             return
         else:
@@ -302,7 +301,7 @@ def _handle_pre_tool_use(data: dict, server_name: str) -> None:
             sys.exit(2)
 
 
-def _handle_post_tool_use_failure(data: dict, server_name: str) -> None:
+def _handle_post_tool_use_failure(data: dict, server_name: str, project_root: Path) -> None:
     """Handle PostToolUseFailure: detect failure, mark unhealthy, attempt reconnect."""
     error_str = ""
     tool_output = data.get("tool_output", data.get("output", data.get("error", "")))
@@ -331,7 +330,7 @@ def _handle_post_tool_use_failure(data: dict, server_name: str) -> None:
     _save_state(state)
 
     if old_status != "unhealthy":
-        _emit_health_change(server_name, old_status, "unhealthy", error_str[:200])
+        _emit_health_change(project_root, server_name, old_status, "unhealthy", error_str[:200])
 
     reconnected = _attempt_reconnect(server_name)
     if reconnected:
@@ -342,32 +341,32 @@ def _handle_post_tool_use_failure(data: dict, server_name: str) -> None:
         server["checkedAt"] = _now_iso()
         server["expiresAt"] = (now + timedelta(seconds=_TTL_SECONDS)).strftime("%Y-%m-%dT%H:%M:%SZ")
         _save_state(state)
-        _emit_health_change(server_name, "unhealthy", "healthy", "reconnect succeeded")
+        _emit_health_change(
+            project_root, server_name, "unhealthy", "healthy", "reconnect succeeded"
+        )
 
 
 def main() -> None:
-    hook_event = os.environ.get("CLAUDE_HOOK_EVENT_NAME", "")
-    data = read_stdin()
+    ctx = get_hook_context()
 
-    server_name = _extract_server_name(data)
+    server_name = _extract_server_name(ctx.data)
     if not server_name:
-        passthrough_stdin(data)
+        passthrough_stdin(ctx.data)
         return
 
-    if hook_event == "PreToolUse":
-        _handle_pre_tool_use(data, server_name)
-    elif hook_event == "PostToolUseFailure":
-        _handle_post_tool_use_failure(data, server_name)
+    if ctx.event_name == "PreToolUse":
+        _handle_pre_tool_use(ctx.data, server_name, ctx.project_root)
+    elif ctx.event_name == "PostToolUseFailure":
+        _handle_post_tool_use_failure(ctx.data, server_name, ctx.project_root)
     else:
-        passthrough_stdin(data)
+        passthrough_stdin(ctx.data)
 
     if is_debug_mode():
-        project_root = get_project_root()
-        debug_log = project_root / ".ai-engineering" / "state" / "telemetry-debug.log"
+        debug_log = ctx.project_root / ".ai-engineering" / "state" / "telemetry-debug.log"
         try:
             timestamp = _now_iso()
             with open(debug_log, "a", encoding="utf-8") as f:
-                f.write(f"[{timestamp}] mcp-health: event={hook_event} server={server_name}\n")
+                f.write(f"[{timestamp}] mcp-health: event={ctx.event_name} server={server_name}\n")
         except Exception:
             pass
 

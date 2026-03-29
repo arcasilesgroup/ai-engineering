@@ -14,8 +14,6 @@ from ai_engineering.installer.operations import (
 )
 from ai_engineering.installer.service import install
 
-pytestmark = pytest.mark.integration
-
 
 class TestProviderAdd:
     """Tests for add_provider operation."""

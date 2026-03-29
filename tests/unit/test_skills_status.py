@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
 from typer.testing import CliRunner
 
 from ai_engineering.cli_factory import create_app
@@ -13,8 +12,6 @@ from ai_engineering.skills.service import (
     _platform_matches,
     list_local_skill_status,
 )
-
-pytestmark = pytest.mark.unit
 
 runner = CliRunner()
 

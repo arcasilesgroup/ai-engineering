@@ -7,11 +7,18 @@ cadence: weekly
 
 # Docs Freshness
 
-## Purpose
+## Objetivo
 
 Detect stale documentation, missing coverage for recently shipped features, and drift between documentation claims and actual codebase state. This runbook never modifies documentation -- it reports findings and creates task work items for human authors.
 
-## Procedure
+## Precondiciones
+
+- `git` available for commit history and diff analysis.
+- `gh` or `az` CLI authenticated for merged PR queries and work item creation.
+- Scan targets exist: `README.md`, `.ai-engineering/README.md`, `CHANGELOG.md`, `docs/solution-intent.md`.
+- `.ai-engineering/manifest.yml` present for count verification in Step 4.
+
+## Procedimiento
 
 ### Step 1 -- Check doc file last-modified dates
 
@@ -127,44 +134,22 @@ az boards work-item create --type Task \
 
 Each work item includes: the file path, what is stale, what changed in code, and a suggested update direction.
 
-### Step 8 -- Generate detailed report
+### Step 8 -- Output summary to stdout
+
+Print a one-paragraph summary of the run to stdout (no file writes):
 
 ```
-=== Docs Freshness Report <DATE> ===
-Scan targets checked:    <N>
-Stale documents:         <N>
-Coverage gaps:           <N>  (specs without doc references)
-Count drift:             <N>  (README stats vs manifest)
-CHANGELOG gaps:          <N>  (merged PRs without entries)
-Architecture drift:      <N>  (solution-intent mismatches)
-Work items created:      <N> / 10
-Findings by severity:
-  warning:               <N>
-  info:                  <N>
+Run complete. Targets checked: <N>. Findings: <warning_count> warnings, <info_count> info.
+Work items created: <N>/10 — <list issue URLs>.
 ```
 
-Hosts may route this report to a Slack channel, PR comment, dashboard, or log sink.
+This is the only output. No local files are written.
 
-## Provider Notes
+## Output
 
-| Concern | GitHub (`gh`) | Azure DevOps (`az`) |
-|---------|---------------|---------------------|
-| Merged PRs | `gh pr list --state merged --json` | `az repos pr list --status completed` |
-| Create work item | `gh issue create --title --body --label` | `az boards work-item create --type Task` |
-| Label finding | `--label "docs-stale"` | `--fields "System.Tags=docs-stale"` |
-| Comment | `gh issue comment --body` | `az boards work-item update --discussion` |
-| Auth | `GH_TOKEN` or `gh auth login` | `az login` or `AZURE_DEVOPS_EXT_PAT` |
+Freshness report to stdout. Work items created for stale or missing docs. No local files are written.
 
-## Host Notes
-
-| Host | Considerations |
-|------|---------------|
-| `codex-app-automation` | Scheduled Codex task. Auth via `GITHUB_TOKEN` secret. Network sandbox: all API calls through `gh`/`az` CLI. Budget: 10 min. |
-| `claude-scheduled-tasks` | Weekly cron. Loads runbook as context. Mutations enabled. Persist report to `state/docs-freshness-report.json` if writable. |
-| `github-agents` | GitHub Actions workflow or Copilot agent. Auth: `${{ secrets.GITHUB_TOKEN }}`. Requires `issues: write` permission. Azure DevOps unavailable. |
-| `azure-foundry` | Auth via managed identity (`az login --identity`). GitHub PAT from Key Vault. Pre-install: `az extension add --name azure-devops`. |
-
-## Safety
+## Guardrails
 
 - **Never modifies documentation.** This runbook only reads docs and creates work items. No repository file is written or overwritten.
 - **Mutation cap.** Maximum 10 work item creations per run. Excess findings are reported in the summary but not materialized. Remaining findings carry over to the next run.

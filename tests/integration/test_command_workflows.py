@@ -29,9 +29,6 @@ from ai_engineering.installer.service import install
 from ai_engineering.policy.gates import GateCheckResult, GateHook, GateResult
 from ai_engineering.vcs.protocol import VcsResult
 
-pytestmark = pytest.mark.integration
-
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------

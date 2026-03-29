@@ -7,8 +7,6 @@ import pytest
 
 from ai_engineering.installer.phases import PHASE_ORDER
 
-pytestmark = pytest.mark.unit
-
 
 @pytest.mark.parametrize("phase_name", PHASE_ORDER)
 def test_every_install_phase_has_doctor_phase(phase_name):

@@ -21,8 +21,6 @@ from ai_engineering.doctor.models import CheckResult, CheckStatus, DoctorReport,
 from ai_engineering.doctor.service import diagnose
 from ai_engineering.installer.service import install
 
-pytestmark = pytest.mark.integration
-
 
 @pytest.fixture()
 def installed_project(tmp_path: Path) -> Path:

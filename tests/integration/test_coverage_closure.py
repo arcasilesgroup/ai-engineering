@@ -16,8 +16,6 @@ from ai_engineering.policy import gates
 from ai_engineering.skills import service as skills_service
 from ai_engineering.validator import service as validator
 
-pytestmark = pytest.mark.integration
-
 
 @pytest.fixture(autouse=True)
 def _reset_json_mode() -> None:

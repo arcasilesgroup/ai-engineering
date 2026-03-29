@@ -1,0 +1,68 @@
+schemaVersion: '1.0'
+updatedAt: '2026-03-29T00:49:47Z'
+toolSequences:
+- key: Bash -> Bash
+  guidance: 'Common tool sequence: Bash -> Bash.'
+  evidenceCount: 26
+  lastSeenAt: '2026-03-29T00:49:47Z'
+- key: Read -> Read
+  guidance: 'Common tool sequence: Read -> Read.'
+  evidenceCount: 7
+  lastSeenAt: '2026-03-29T00:49:47Z'
+- key: Bash -> Read
+  guidance: 'Common tool sequence: Bash -> Read.'
+  evidenceCount: 6
+  lastSeenAt: '2026-03-29T00:49:47Z'
+- key: Edit -> Bash
+  guidance: 'Common tool sequence: Edit -> Bash.'
+  evidenceCount: 4
+  lastSeenAt: '2026-03-29T00:49:47Z'
+- key: Read -> Bash
+  guidance: 'Common tool sequence: Read -> Bash.'
+  evidenceCount: 4
+  lastSeenAt: '2026-03-29T00:49:47Z'
+- key: Read -> Edit
+  guidance: 'Common tool sequence: Read -> Edit.'
+  evidenceCount: 4
+  lastSeenAt: '2026-03-29T00:49:47Z'
+- key: Write -> Write
+  guidance: 'Common tool sequence: Write -> Write.'
+  evidenceCount: 4
+  lastSeenAt: '2026-03-29T00:44:11Z'
+- key: Glob -> Glob
+  guidance: 'Common tool sequence: Glob -> Glob.'
+  evidenceCount: 2
+  lastSeenAt: '2026-03-29T00:44:11Z'
+- key: Agent -> Read
+  guidance: 'Common tool sequence: Agent -> Read.'
+  evidenceCount: 1
+  lastSeenAt: '2026-03-29T00:44:11Z'
+- key: Bash -> Agent
+  guidance: 'Common tool sequence: Bash -> Agent.'
+  evidenceCount: 1
+  lastSeenAt: '2026-03-29T00:44:11Z'
+- key: Bash -> Glob
+  guidance: 'Common tool sequence: Bash -> Glob.'
+  evidenceCount: 1
+  lastSeenAt: '2026-03-29T00:44:11Z'
+- key: Glob -> Read
+  guidance: 'Common tool sequence: Glob -> Read.'
+  evidenceCount: 1
+  lastSeenAt: '2026-03-29T00:44:11Z'
+- key: Grep -> Grep
+  guidance: 'Common tool sequence: Grep -> Grep.'
+  evidenceCount: 1
+  lastSeenAt: '2026-03-29T00:49:47Z'
+- key: Grep -> Read
+  guidance: 'Common tool sequence: Grep -> Read.'
+  evidenceCount: 1
+  lastSeenAt: '2026-03-29T00:49:47Z'
+- key: Read -> Grep
+  guidance: 'Common tool sequence: Read -> Grep.'
+  evidenceCount: 1
+  lastSeenAt: '2026-03-29T00:49:47Z'
+- key: Write -> Bash
+  guidance: 'Common tool sequence: Write -> Bash.'
+  evidenceCount: 1
+  lastSeenAt: '2026-03-29T00:44:11Z'
+errorRecoveries: []

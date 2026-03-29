@@ -24,8 +24,6 @@ from ai_engineering.state.defaults import default_install_state
 from ai_engineering.state.service import save_install_state
 from ai_engineering.updater.service import FileChange, UpdateResult
 
-pytestmark = pytest.mark.integration
-
 
 def _pass_gate_result(hook: GateHook = GateHook.PRE_COMMIT) -> GateResult:
     return GateResult(hook=hook, checks=[GateCheckResult(name="ok", passed=True, output="ok")])

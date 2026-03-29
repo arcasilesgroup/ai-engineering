@@ -7,8 +7,6 @@ from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
-
 from ai_engineering.release.orchestrator import (
     PhaseResult,
     ReleaseConfig,
@@ -38,8 +36,6 @@ from ai_engineering.vcs.protocol import (
     VcsContext,
     VcsResult,
 )
-
-pytestmark = pytest.mark.unit
 
 
 class _FakeProvider:

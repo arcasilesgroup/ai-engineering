@@ -13,8 +13,6 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from unittest.mock import patch
 
-import pytest
-
 from ai_engineering.maintenance.repo_status import (
     BranchStatus,
     PullRequestInfo,
@@ -23,8 +21,6 @@ from ai_engineering.maintenance.repo_status import (
     get_ahead_behind,
     list_open_prs,
 )
-
-pytestmark = pytest.mark.unit
 
 
 class TestGetAheadBehind:

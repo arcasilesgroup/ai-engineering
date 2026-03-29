@@ -9,9 +9,6 @@ import pytest
 
 from ai_engineering.installer.merge import merge_settings, validate_settings_structure
 
-pytestmark = pytest.mark.unit
-
-
 # ---------------------------------------------------------------------------
 # merge_settings
 # ---------------------------------------------------------------------------

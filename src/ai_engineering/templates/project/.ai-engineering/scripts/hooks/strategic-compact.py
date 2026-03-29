@@ -23,11 +23,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-from _lib.audit import (
-    get_project_root,
-    passthrough_stdin,
-    read_stdin,
-)
+from _lib.audit import passthrough_stdin
+from _lib.hook_context import get_hook_context
 
 _COMPACT_THRESHOLD = max(1, int(os.environ.get("COMPACT_THRESHOLD", "50")))
 _COMPACT_REMINDER_INTERVAL = max(1, int(os.environ.get("COMPACT_REMINDER_INTERVAL", "25")))
@@ -64,18 +61,17 @@ def _counter_file() -> Path:
         return _COUNTER_FILE
     if _STATE_DIR is not None:
         return _STATE_DIR / "strategic-compact.json"
+    # Resolved lazily via hook context fallback
+    from _lib.audit import get_project_root
+
     project_root = get_project_root()
     return project_root / ".ai-engineering" / "state" / "strategic-compact.json"
 
 
-def _get_session_key() -> str:
-    """Build a session key from CLAUDE_SESSION_ID or timestamp-based fallback."""
-    session_id = os.environ.get("CLAUDE_SESSION_ID", "") or os.environ.get(
-        "GITHUB_COPILOT_SESSION_ID",
-        "",
-    )
-    if session_id:
-        return session_id
+def _get_session_key(ctx_session_id: str | None) -> str:
+    """Build a session key from context session ID or timestamp-based fallback."""
+    if ctx_session_id:
+        return ctx_session_id
     # Fallback: date-hour bucket so sessions within the same hour share a counter
     return datetime.now(UTC).strftime("%Y%m%d-%H")
 
@@ -103,19 +99,18 @@ def _print_advisory(count: int) -> None:
 
 
 def main() -> None:
-    hook_event = os.environ.get("CLAUDE_HOOK_EVENT_NAME", "")
-    if hook_event != "PreToolUse":
-        passthrough_stdin(read_stdin())
+    ctx = get_hook_context()
+
+    if ctx.event_name != "PreToolUse":
+        passthrough_stdin(ctx.data)
         return
 
-    data = read_stdin()
-
-    tool_name = data.get("tool_name", "")
+    tool_name = ctx.data.get("tool_name", "")
     if not tool_name:
-        passthrough_stdin(data)
+        passthrough_stdin(ctx.data)
         return
 
-    session_key = _get_session_key()
+    session_key = _get_session_key(ctx.session_id)
     counters = _load_counters()
 
     current = counters.get(session_key, 0) + 1
@@ -125,7 +120,7 @@ def main() -> None:
     if _should_advise(current):
         _print_advisory(current)
 
-    passthrough_stdin(data)
+    passthrough_stdin(ctx.data)
 
 
 if __name__ == "__main__":

@@ -7,11 +7,7 @@ Covers:
 
 from __future__ import annotations
 
-import pytest
-
 from ai_engineering.lib.parsing import count_checkboxes, parse_frontmatter
-
-pytestmark = pytest.mark.unit
 
 
 class TestParseFrontmatter:

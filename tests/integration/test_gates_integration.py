@@ -38,8 +38,6 @@ from ai_engineering.policy.gates import (
 )
 from ai_engineering.state.models import GateHook
 
-pytestmark = pytest.mark.integration
-
 
 @pytest.fixture()
 def git_repo(tmp_path: Path) -> Path:

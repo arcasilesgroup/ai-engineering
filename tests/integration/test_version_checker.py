@@ -25,9 +25,6 @@ from ai_engineering.version.checker import (
 )
 from ai_engineering.version.models import VersionEntry, VersionRegistry, VersionStatus
 
-pytestmark = pytest.mark.integration
-
-
 # ---------------------------------------------------------------------------
 # Model parsing
 # ---------------------------------------------------------------------------

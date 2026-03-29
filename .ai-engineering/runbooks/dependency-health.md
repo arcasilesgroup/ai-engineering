@@ -7,11 +7,20 @@ cadence: weekly
 
 # Dependency Health
 
-## Purpose
+## Objetivo
 
 This runbook is the **single owner** of all CVE and vulnerability findings originating from the dependency graph. It scans for outdated versions, known CVEs, and license compliance issues on a weekly cadence. The companion `security-scan` runbook handles SAST and secrets detection only -- it never duplicates dependency vulnerability work.
 
-## Procedure
+## Precondiciones
+
+- Package ecosystem detection: at least one of `pyproject.toml`, `requirements.txt`, `uv.lock`, `package.json`, or `Cargo.toml` must exist.
+- `pip-audit` installed for Python CVE scanning. Install via `uv tool install pip-audit`.
+- `uv` installed for outdated package checks and license inspection.
+- `gh` or `az` CLI authenticated for work item creation and updates.
+- For Node ecosystems: `npm` available on PATH.
+- For Rust ecosystems: `cargo-audit` and `cargo-outdated` installed.
+
+## Procedimiento
 
 ### Step 1 -- Detect Package Ecosystem
 
@@ -161,24 +170,11 @@ This runbook is the **sole authority** for dependency-graph CVE findings across 
 
 If a vulnerability surfaces in both SAST and dependency analysis, the dependency-health finding takes precedence and the SAST duplicate is closed with a cross-reference.
 
-## Provider Notes
+## Output
 
-**GitHub** -- Uses `gh issue` for work item CRUD. Issues labeled `dependency-update` and `severity:<level>`. Requires `gh` authenticated with repo scope.
+Summary report to stdout. Work items created for CVEs, outdated packages, and license violations. No local files are written.
 
-**Azure DevOps** -- Uses `az boards` for work item CRUD. Tasks tagged `dependency-update`, assigned to the area path from `manifest.yml`. Requires `az` authenticated with the target organization.
-
-Both providers are always configured in the manifest. Switching is a one-field change (`work_items.provider`).
-
-## Host Notes
-
-| Host | Considerations |
-|------|----------------|
-| `codex-app-automation` | Full toolchain pre-installed. Network access for registry queries. |
-| `claude-scheduled-tasks` | Verify pip-audit on PATH; may need `uv tool install pip-audit` on first run. |
-| `github-agents` | Runs in Actions runner. Install tools via action steps. `gh` pre-authenticated. |
-| `azure-foundry` | Managed identity for `az`. Install pip-audit into task venv. Egress must allow PyPI/npm. |
-
-## Safety
+## Guardrails
 
 - **Max 20 work items per run.** Excess findings logged in the report, deferred to next run.
 - **Never auto-upgrades dependencies.** Creates issues for human review only.

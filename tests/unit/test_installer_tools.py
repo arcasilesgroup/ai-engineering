@@ -4,11 +4,7 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
-import pytest
-
 from ai_engineering.installer.tools import ToolInstallResult, ensure_tool, provider_required_tools
-
-pytestmark = pytest.mark.unit
 
 
 class TestEnsureTool:

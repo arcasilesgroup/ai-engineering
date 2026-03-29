@@ -9,8 +9,6 @@ import pytest
 
 from ai_engineering.git.context import GitContext, _reset_cache, get_git_context
 
-pytestmark = pytest.mark.unit
-
 FAKE_ROOT = Path("/fake/repo")
 
 # ---------------------------------------------------------------------------

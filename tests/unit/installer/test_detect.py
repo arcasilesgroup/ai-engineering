@@ -5,13 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
-
 from ai_engineering.installer.phases import InstallContext, InstallMode
 from ai_engineering.installer.phases.detect import DetectPhase
-
-pytestmark = pytest.mark.unit
-
 
 # ---------------------------------------------------------------------------
 # Helper

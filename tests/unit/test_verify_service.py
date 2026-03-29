@@ -25,9 +25,6 @@ from ai_engineering.verify.service import (
     verify_security,
 )
 
-pytestmark = pytest.mark.unit
-
-
 # ── Fake subprocess ───────────────────────────────────────────────────────
 
 

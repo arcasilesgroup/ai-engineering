@@ -15,8 +15,6 @@ from ai_engineering.cli_envelope import (
     truncate_list,
 )
 
-pytestmark = pytest.mark.unit
-
 
 class TestNextAction:
     """Tests for the NextAction model."""

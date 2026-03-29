@@ -22,9 +22,6 @@ from ai_engineering.installer.phases import (
 )
 from ai_engineering.installer.phases.pipeline import PipelineRunner
 
-pytestmark = pytest.mark.unit
-
-
 # ---------------------------------------------------------------------------
 # Fake phase
 # ---------------------------------------------------------------------------

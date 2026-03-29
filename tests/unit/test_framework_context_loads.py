@@ -4,13 +4,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from ai_engineering.state.io import read_ndjson_entries
 from ai_engineering.state.models import FrameworkEvent
 from ai_engineering.state.observability import emit_declared_context_loads, framework_events_path
-
-pytestmark = pytest.mark.unit
 
 
 def _seed_project(tmp_path: Path) -> None:

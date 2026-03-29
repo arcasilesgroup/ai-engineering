@@ -2,12 +2,7 @@
 
 from __future__ import annotations
 
-import pytest
-
 from ai_engineering.installer.ui import StepStatus, render_step, render_summary
-
-pytestmark = pytest.mark.unit
-
 
 # ---------------------------------------------------------------------------
 # StepStatus rendering

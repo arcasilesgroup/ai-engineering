@@ -4,11 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from ai_engineering.updater.service import _migrate_legacy_dirs
-
-pytestmark = pytest.mark.unit
 
 
 class TestMigrateLegacyDirs:

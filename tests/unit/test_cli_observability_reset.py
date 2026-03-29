@@ -4,12 +4,9 @@ from __future__ import annotations
 
 import json
 
-import pytest
 from typer.testing import CliRunner
 
 from ai_engineering.cli_factory import create_app
-
-pytestmark = pytest.mark.unit
 
 runner = CliRunner()
 

@@ -25,9 +25,6 @@ from ai_engineering.doctor.models import (
 from ai_engineering.doctor.service import diagnose
 from ai_engineering.installer.phases import PHASE_ORDER
 
-pytestmark = pytest.mark.unit
-
-
 # -- Fixture: mock phase + runtime modules -----------------------------------
 
 _RUNTIME_MODULES = ("vcs_auth", "feeds", "branch_policy", "version")

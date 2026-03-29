@@ -91,7 +91,7 @@ These paths are written by the framework itself:
 
 ## Runbooks
 
-`runbooks/*.md` are 12 self-contained portable runbooks. Each is a single Markdown file combining a minimal YAML frontmatter contract, full procedure, and host notes. There are no separate adapter files.
+`runbooks/*.md` are 13 self-contained portable runbooks. Each is a single Markdown file combining a minimal YAML frontmatter contract, full procedure, and host notes. There are no separate adapter files.
 
 ### Contract schema
 
@@ -126,6 +126,7 @@ Every runbook frontmatter declares these fields:
 | `performance` | operational | weekly | Test/build regressions |
 | `governance-drift` | operational | weekly | Framework alignment |
 | `architecture-drift` | operational | weekly | Solution-intent deviations |
+| `consolidate` | operational | weekly | Group related items into consolidated tasks |
 | `wiring-scanner` | operational | weekly | Disconnected code |
 
 ## Specs and autopilot

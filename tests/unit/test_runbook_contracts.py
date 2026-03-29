@@ -17,6 +17,7 @@ ALL_RUNBOOKS = [
     "stale-issues",
     "dependency-health",
     "code-quality",
+    "consolidate",
     "security-scan",
     "docs-freshness",
     "performance",
@@ -36,11 +37,11 @@ VALID_TYPES = {"intake", "operational"}
 VALID_CADENCES = {"daily", "weekly"}
 
 REQUIRED_SECTIONS = (
-    "## Purpose",
-    "## Procedure",
-    "## Provider Notes",
-    "## Host Notes",
-    "## Safety",
+    "## Objetivo",
+    "## Precondiciones",
+    "## Procedimiento",
+    "## Output",
+    "## Guardrails",
 )
 
 

@@ -13,8 +13,6 @@ from ai_engineering.release.version_bump import (
     validate_semver,
 )
 
-pytestmark = pytest.mark.unit
-
 
 def _write_project(tmp_path: Path, version: str = "0.1.0") -> None:
     (tmp_path / "src" / "ai_engineering").mkdir(parents=True)

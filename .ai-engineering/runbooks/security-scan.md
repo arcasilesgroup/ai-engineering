@@ -7,13 +7,20 @@ cadence: weekly
 
 # Security Scan Runbook
 
-## Purpose
+## Objetivo
 
 Detect leaked secrets, SAST/OWASP code-level vulnerabilities, and compliance gaps across source code, configuration files, CI/CD workflows, and scripts. Findings above the severity threshold are filed as task work items with full remediation context.
 
 This runbook does **not** scan for dependency CVEs or vulnerable package versions. That responsibility belongs to the `dependency-health` runbook, which owns the supply-chain surface. The boundary is strict: if the finding originates from a project dependency rather than authored code or configuration, it is out of scope here.
 
-## Procedure
+## Precondiciones
+
+- `gitleaks` installed for secret detection. Install via GitHub releases binary or package manager.
+- `semgrep` installed for SAST and OWASP scanning. Install via `pip3 install --user semgrep`.
+- `gh` or `az` CLI authenticated for work item creation and deduplication.
+- `.ai-engineering/runbooks/gitleaks-extended.toml` present for Step 3 extended config scan.
+
+## Procedimiento
 
 ### Step 1 -- Secret detection
 
@@ -115,12 +122,12 @@ az boards work-item create --type Task \
 
 Each work-item body ends with the HTML comment `<!-- security-scan:finding -->` for programmatic identification in Step 6 deduplication.
 
-### Step 8 -- Generate detailed report
+### Step 8 -- Emit run summary to stdout
 
-Produce a detailed report with findings by category, severity distribution, and new-vs-existing breakdown.
+Print a brief run summary to stdout. Do **not** write a local report file -- findings are tracked exclusively in GitHub Issues / Azure DevOps work items created in Step 7.
 
 ```bash
-echo "=== Security Scan Report $(date -u +%Y-%m-%dT%H:%M:%SZ) ==="
+echo "=== Security Scan Run $(date -u +%Y-%m-%dT%H:%M:%SZ) ==="
 echo ""
 echo "--- Findings by Category ---"
 echo "  Secrets:               $COUNT_SECRETS"
@@ -137,13 +144,14 @@ echo "  medium:                $COUNT_MEDIUM"
 echo "  low:                   $COUNT_LOW (logged, not escalated)"
 echo "  info:                  $COUNT_INFO (logged, not escalated)"
 echo ""
-echo "--- New vs Pre-existing ---"
+echo "--- Work Items ---"
 echo "  New findings:          $COUNT_NEW"
 echo "  Pre-existing:          $COUNT_PREEXISTING"
 echo "  Work items created:    $COUNT_CREATED"
 echo "  Skipped (duplicate):   $COUNT_SKIPPED"
 echo ""
 echo "Mutations applied:       $MUTATION_COUNT / 20"
+echo "Board:                   GitHub Issues (label: security-finding)"
 ```
 
 ## Scope Boundary
@@ -162,28 +170,11 @@ This runbook owns the **authored-code and configuration** security surface. The 
 
 If a semgrep rule fires on an import statement but the root cause is a vulnerable library version, defer to `dependency-health`. This runbook only acts on patterns in code the team authored or configuration the team maintains.
 
-## Provider Notes
+## Output
 
-| Concern | GitHub (`gh`) | Azure DevOps (`az boards`) |
-|---------|---------------|---------------------------|
-| Create work item | `gh issue create --label --body` | `az boards work-item create --type Task --fields --description` |
-| Search existing | `gh issue list --label --json` with `--jq` filter | `az boards query --wiql` with CONTAINS predicate |
-| Add label | `gh issue edit --add-label` | `az boards work-item update --fields "System.Tags=..."` |
-| Comment | `gh issue comment --body` | `az boards work-item update --discussion` |
-| Auth | `GH_TOKEN` env var or `gh auth login` | `az login` or service principal via `AZURE_DEVOPS_EXT_PAT` |
-| Hierarchy | Issues with labels (flat) | Tasks linked under User Stories via parent relation |
-| Rate limits | 5000 requests/hour (authenticated) | 200 requests/minute (per PAT) |
+Summary to stdout. Work items created for findings. No local files are written.
 
-## Host Notes
-
-- **codex-app-automation** -- Both gitleaks and semgrep must be pre-installed in the Codex container image. If semgrep is unavailable, fall back to gitleaks-only mode and log the gap. Timeout budget is 10 minutes; large repositories may need `--max-target-bytes` on semgrep to stay within limits. All API calls must go through `gh` or `az` CLI (Codex network sandbox prohibits raw HTTP).
-- **claude-scheduled-tasks** -- The agent reads this runbook from the filesystem at invocation. gitleaks is typically available; semgrep availability depends on the session environment. If semgrep is missing, execute Steps 1, 3, 4 only and note the degraded coverage in the report. Reports go to stdout; persist to `state/security-scan-report.json` if write access is available.
-- **github-agents** -- Runs as a GitHub Actions workflow. Install gitleaks and semgrep via their official actions (`gitleaks/gitleaks-action`, `semgrep/semgrep-action`). Authenticate with `${{ secrets.GITHUB_TOKEN }}`. Issue creation requires `issues: write` permission in the workflow YAML. Azure DevOps commands are unavailable in this host.
-- **azure-foundry** -- Runs as an Azure AI Foundry agent or Azure Automation runbook. Install gitleaks and semgrep via pip or binary download during setup phase. Authenticate via managed identity or service principal. GitHub commands require a PAT stored in Key Vault. Use `az extension add --name azure-devops` if the extension is not pre-installed.
-
-## Safety
-
-This runbook enforces strict guardrails to prevent unintended side effects:
+## Guardrails
 
 - **Never** modifies source code, configuration files, or CI/CD workflows -- this is a detection-only runbook.
 - **Never** auto-remediates findings -- remediation is a human or implementation-agent responsibility.

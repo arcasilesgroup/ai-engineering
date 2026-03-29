@@ -4,15 +4,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from ai_engineering.release.changelog import (
     extract_release_notes,
     promote_unreleased,
     validate_changelog,
 )
-
-pytestmark = pytest.mark.unit
 
 
 def _write_changelog(path: Path, unreleased_body: str = "- item\n") -> None:

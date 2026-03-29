@@ -20,7 +20,6 @@ from ai_engineering.cli_commands.setup import (
 from ai_engineering.credentials.models import PlatformKind
 
 runner = CliRunner()
-pytestmark = pytest.mark.unit
 
 
 # ---------------------------------------------------------------

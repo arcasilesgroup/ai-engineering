@@ -4,11 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from ai_engineering.validator.service import IntegrityCategory, validate_content_integrity
-
-pytestmark = pytest.mark.unit
 
 
 def _mk(root: Path) -> Path:

@@ -1,22 +1,19 @@
 ---
 id: sub-001
-parent: spec-087
-title: "Codex & Gemini Template Surface"
+parent: spec-088
+title: "Manifest Dedup"
 status: planning
 files:
-  - src/ai_engineering/templates/project/.codex/hooks.json
-  - src/ai_engineering/templates/project/.codex/config.toml
-  - src/ai_engineering/templates/project/.gemini/settings.json
+  - .ai-engineering/manifest.yml
+  - src/ai_engineering/templates/.ai-engineering/manifest.yml
 depends_on: []
 ---
 
-# Sub-Spec 001: Codex & Gemini Template Surface
+# Sub-Spec 001: Manifest Dedup
 
 ## Scope
 
-Create the new .codex/ template directory with hooks.json (5 Codex events in nested matcher/hooks format, CWD-relative paths, timeouts in seconds) and config.toml (enables codex_hooks feature flag). Rewrite .gemini/settings.json from the current incorrect flat format to the official Gemini CLI nested format with hooksConfig.enabled: true and timeouts in milliseconds. Reference: .claude/settings.json for the correct nested hook structure, adapted per IDE native schema.
-
-Decisions: D-087-02 (Gemini nested format), D-087-04 (Codex hooks.json), D-087-08 (config.toml), D-087-09 (ms vs s), D-087-10 (CWD-relative).
+Remove the dead nested `providers.ai_providers` from both manifest files (root + template). Only the top-level `ai_providers` key is read by code (13 references, confirmed by exhaustive grep). The nested version under `providers:` has zero consumers -- Pydantic `ProvidersConfig` doesn't even define the field. Decision D-088-01.
 
 ## Exploration
 [EMPTY -- populated by Phase 2]

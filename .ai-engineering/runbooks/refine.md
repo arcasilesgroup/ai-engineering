@@ -8,25 +8,38 @@ cadence: daily
 
 # Refine
 
-## Purpose
+## Objetivo
 
 Take issues labeled `needs-refinement`, gather codebase and provider context, draft
 acceptance criteria, propose a spec outline as a comment, and mark `handoff:ai-eng`
 when the issue is ready for local execution.
 
-## Procedure
+## Precondiciones
+
+- Authenticated CLI session: `gh auth status` (GitHub) or `az account show` (Azure DevOps).
+- Repository cloned locally with at least 30 days of git history (required for Step 2b codebase search).
+- Issues have been processed by the triage runbook (carrying `needs-refinement` label).
+- `.ai-engineering/contexts/project-identity.md` exists for boundary constraint extraction.
+
+## Procedimiento
 
 ### Step 1 -- Fetch refinement candidates
 
+Fetch all open issues, then filter out those already processed by this runbook (i.e., already carrying `handoff:ai-eng` or `needs-clarification`).
+
 ```bash
-# GitHub
-gh issue list --label "needs-refinement" --state open --json number,title,body,labels,milestone,assignees --limit 50
+# GitHub — fetch all open issues and filter client-side
+gh issue list --state open --json number,title,body,labels,milestone,assignees --limit 100 \
+  | jq '[.[] | select(
+      (.labels | map(.name) | contains(["handoff:ai-eng"]) | not) and
+      (.labels | map(.name) | contains(["needs-clarification"]) | not)
+    )]'
 
 # Azure DevOps
-az boards query --wiql "SELECT [System.Id],[System.Title],[System.Description],[System.State] FROM workitems WHERE [System.Tags] CONTAINS 'needs-refinement' AND [System.State] <> 'Closed'" -o json
+az boards query --wiql "SELECT [System.Id],[System.Title],[System.Description],[System.State],[System.Tags] FROM workitems WHERE [System.State] <> 'Closed' AND [System.Tags] NOT CONTAINS 'handoff:ai-eng' AND [System.Tags] NOT CONTAINS 'needs-clarification'" -o json
 ```
 
-If no candidates are found, emit the summary report (Step 7) and exit.
+If no candidates are found, exit silently.
 
 ### Step 2 -- Gather context for each issue
 
@@ -108,7 +121,6 @@ COMMENT
 # Azure DevOps: use az boards work-item update --id <ID> --discussion "<body>" -o json
 ```
 
-Increment the mutation counter after each comment posted.
 
 ### Step 5 -- Mark well-scoped issues as ready
 
@@ -126,7 +138,6 @@ gh issue edit <NUMBER> --add-label "handoff:ai-eng" --remove-label "needs-refine
 az boards work-item update --id <ID> --fields "System.Tags=handoff:ai-eng" -o json
 ```
 
-Increment the mutation counter (label add + label remove = 2 mutations).
 
 ### Step 6 -- Escalate issues needing clarification
 
@@ -152,47 +163,11 @@ gh issue edit <NUMBER> --add-label "needs-clarification" --remove-label "needs-r
 # Azure DevOps: use --discussion for comment, --fields "System.Tags=needs-clarification"
 ```
 
-### Step 7 -- Generate summary report
+## Output
 
-```
-=== Refine Report ===
-Run:          <timestamp>
-Mode:         apply
-Candidates:   <N> issues scanned
-Refined:      <N> marked handoff:ai-eng
-Escalated:    <N> marked needs-clarification
-Skipped:      <N> (protected, over mutation cap, or already refined)
-Mutations:    <used>/30
+No local files. Issue comments with acceptance criteria and spec outlines are the sole output.
 
---- Refined ---
-#<N>  <title>  ->  handoff:ai-eng  (ACs: <count>)
-
---- Escalated ---
-#<N>  <title>  ->  needs-clarification  (questions: <count>)
-
---- Skipped ---
-#<N>  <title>  ->  <reason>
-```
-
-## Provider Notes
-
-| Operation | GitHub CLI | Azure DevOps CLI |
-|-----------|-----------|-----------------|
-| List candidates | `gh issue list --label "needs-refinement"` | `az boards query --wiql "..."` |
-| Read issue | `gh issue view <N> --json ...` | `az boards work-item show --id <ID>` |
-| Linked PRs | `gh issue view <N> --json timelineItems` | `az boards work-item relation list` |
-| Post comment | `gh issue comment <N> --body "..."` | `az boards work-item update --discussion "..."` |
-| Add label | `gh issue edit <N> --add-label "..."` | `--fields "System.Tags=<tag>"` |
-| Remove label | `gh issue edit <N> --remove-label "..."` | Read-modify-write: read `System.Tags`, filter, write back |
-
-## Host Notes
-
-- **codex-app-automation**: Schedule daily. Mutations enabled by default. Requires full repo clone for `git grep`.
-- **claude-scheduled-tasks**: Feed this file as system prompt. Authenticate `gh` via `GITHUB_TOKEN`. Clone depth must cover 30 days for Step 2b.
-- **github-agents**: Runs in-repo. `gh` auth is automatic via GitHub App token. Requires `issues: write` permission scope.
-- **azure-foundry**: Configure PAT with `Work Items (Read & Write)` scope. Run `az devops configure --defaults organization=<org> project=<project>`.
-
-## Safety
+## Guardrails
 
 - Never writes to `spec.md` or `plan.md` locally. Spec outlines are proposed as issue comments only.
 - Never modifies source code, configuration files, or framework artifacts.
@@ -200,5 +175,6 @@ Mutations:    <used>/30
 - Never closes or resolves issues. Only adds labels and comments.
 - Never removes protected labels (`p1-critical`, `pinned`, `security`).
 - Never mutates issues in `closed` or `resolved` state.
-- Enforces a maximum of 30 mutations per run. Remaining candidates are skipped and reported.
+- Enforces a maximum of 30 mutations per run. Remaining candidates are skipped.
 - Mutations are enabled by default. All qualifying issues are labeled and commented.
+- Does not generate reports. Does not save output locally.

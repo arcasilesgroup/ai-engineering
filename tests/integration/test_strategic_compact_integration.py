@@ -10,8 +10,6 @@ from unittest.mock import patch
 
 import pytest
 
-pytestmark = pytest.mark.integration
-
 HOOK_DIR = Path(__file__).resolve().parents[2] / ".ai-engineering" / "scripts" / "hooks"
 
 

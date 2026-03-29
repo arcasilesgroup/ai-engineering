@@ -12,8 +12,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from ai_engineering.maintenance.spec_reset import (
     SpecResetResult,
     append_history,
@@ -21,8 +19,6 @@ from ai_engineering.maintenance.spec_reset import (
     clear_spec_buffer,
     run_spec_reset,
 )
-
-pytestmark = pytest.mark.unit
 
 
 def _create_spec_md(

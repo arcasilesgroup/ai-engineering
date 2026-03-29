@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 .ai-engineering/scripts/hooks/telemetry-skill.py",
+            "command": "AIENG_HOOK_ENGINE=codex python3 .ai-engineering/scripts/hooks/telemetry-skill.py",
             "timeout": 10
           }
         ]
@@ -18,7 +18,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 .ai-engineering/scripts/hooks/prompt-injection-guard.py",
+            "command": "AIENG_HOOK_ENGINE=codex python3 .ai-engineering/scripts/hooks/prompt-injection-guard.py",
             "timeout": 15
           }
         ]
@@ -28,7 +28,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 .ai-engineering/scripts/hooks/strategic-compact.py",
+            "command": "AIENG_HOOK_ENGINE=codex python3 .ai-engineering/scripts/hooks/strategic-compact.py",
             "timeout": 5
           }
         ]
@@ -38,7 +38,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 .ai-engineering/scripts/hooks/mcp-health.py",
+            "command": "AIENG_HOOK_ENGINE=codex python3 .ai-engineering/scripts/hooks/mcp-health.py",
             "timeout": 15
           }
         ]
@@ -48,7 +48,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 .ai-engineering/scripts/hooks/instinct-observe.py",
+            "command": "AIENG_HOOK_ENGINE=codex python3 .ai-engineering/scripts/hooks/instinct-observe.py",
             "timeout": 10
           }
         ]
@@ -60,7 +60,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 .ai-engineering/scripts/hooks/instinct-observe.py",
+            "command": "AIENG_HOOK_ENGINE=codex python3 .ai-engineering/scripts/hooks/instinct-observe.py",
             "timeout": 10
           }
         ]
@@ -70,7 +70,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 .ai-engineering/scripts/hooks/observe.py",
+            "command": "AIENG_HOOK_ENGINE=codex python3 .ai-engineering/scripts/hooks/observe.py",
             "timeout": 10
           }
         ]
@@ -80,7 +80,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 .ai-engineering/scripts/hooks/auto-format.py",
+            "command": "AIENG_HOOK_ENGINE=codex python3 .ai-engineering/scripts/hooks/auto-format.py",
             "timeout": 15
           }
         ]
@@ -93,7 +93,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 .ai-engineering/scripts/hooks/instinct-extract.py",
+            "command": "AIENG_HOOK_ENGINE=codex python3 .ai-engineering/scripts/hooks/instinct-extract.py",
             "timeout": 30
           }
         ]

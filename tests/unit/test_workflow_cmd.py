@@ -9,13 +9,10 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
-import pytest
 from typer.testing import CliRunner
 
 from ai_engineering.cli_factory import create_app
 from ai_engineering.commands.workflows import StepResult, WorkflowResult
-
-pytestmark = pytest.mark.unit
 
 runner = CliRunner()
 

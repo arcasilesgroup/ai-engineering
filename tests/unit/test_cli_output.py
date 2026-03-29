@@ -8,8 +8,6 @@ import pytest
 
 from ai_engineering.cli_output import is_json_mode, output, set_json_mode
 
-pytestmark = pytest.mark.unit
-
 
 class TestJsonModeToggle:
     """Tests for set_json_mode / is_json_mode."""

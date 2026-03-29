@@ -38,6 +38,8 @@ def _duplication_ratio(path: Path) -> tuple[float, int, int]:
     for py_file in sorted(path.rglob("*.py")):
         if py_file.name.startswith("test_"):
             continue
+        if "templates" in py_file.parts:
+            continue
         all_hashes.extend(_window_hashes(_normalized_lines(py_file)))
 
     total = len(all_hashes)

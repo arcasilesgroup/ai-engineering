@@ -5,8 +5,6 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import pytest
-
 from ai_engineering.state.agentsview import (
     AGENTSVIEW_CONTRACT_VERSION,
     AGENTSVIEW_SOURCE_NAME,
@@ -19,8 +17,6 @@ from ai_engineering.state.observability import (
     emit_skill_invoked,
     write_framework_capabilities,
 )
-
-pytestmark = pytest.mark.unit
 
 
 def _write_manifest(tmp_path: Path) -> None:

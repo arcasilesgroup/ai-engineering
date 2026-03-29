@@ -18,8 +18,6 @@ from ai_engineering.installer.operations import (
     remove_stack,
 )
 
-pytestmark = pytest.mark.unit
-
 # ---------------------------------------------------------------------------
 # Manifest YAML templates
 # ---------------------------------------------------------------------------

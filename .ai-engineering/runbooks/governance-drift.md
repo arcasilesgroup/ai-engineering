@@ -7,11 +7,20 @@ cadence: weekly
 
 # Governance Drift
 
-## Purpose
+## Objetivo
 
 Detect configuration and content drift between framework-managed surfaces: IDE mirror sync, quality gate thresholds, hook script integrity, manifest internal consistency, and template-vs-installed divergence. Runs weekly and produces task work items for every verified drift finding. This runbook is strictly read-only against framework files -- it reports drift but never auto-fixes it.
 
-## Procedure
+## Precondiciones
+
+- `python3` with `pyyaml` installed for manifest parsing.
+- `shasum` available for hook integrity verification.
+- `diff` available for file comparison.
+- `gh` or `az` CLI authenticated for work item creation.
+- `scripts/sync_command_mirrors.py` present for mirror sync checks.
+- `ai-eng` CLI is optional; Step 3 provides equivalent manual checks when unavailable.
+
+## Procedimiento
 
 ### Step 1 -- Run mirror sync check
 
@@ -268,27 +277,11 @@ Mutations used: 7 / 15
 
 The health score starts at 100 and deducts points per finding: mirror sync -3/file, threshold -5/gate, hook integrity -3/hook, template drift -1/file, manifest inconsistency -2/entry. A score below 70 indicates the framework needs immediate remediation.
 
-## Provider Notes
+## Output
 
-| Concern | GitHub (`gh`) | Azure DevOps (`az`) |
-|---------|---------------|---------------------|
-| Work item creation | `gh issue create --label "governance-drift"` | `az boards work-item create --type Task` |
-| Labels | `--label` flag on issue create | Tag field via `System.Tags` |
-| Comments | `gh issue comment --body` | `az boards work-item update --discussion` |
-| Auth | `GH_TOKEN` env var or `gh auth login` | `az login` or service principal via `AZURE_DEVOPS_EXT_PAT` |
+Framework health score and findings to stdout. Work items created for drift findings. No local files are written.
 
-Both providers produce identical report output. The provider is read from `manifest.yml` field `work_items.provider`.
-
-## Host Notes
-
-| Host | Considerations |
-|------|---------------|
-| codex-app-automation | Full CLI access. Both `python` and `ai-eng` are available. Run `sync_command_mirrors.py --check` and `ai-eng verify governance --json` natively. Timeout budget is 10 minutes. |
-| claude-scheduled-tasks | Operates within Claude agent context. Use tool calls for `python`, `gh`, and shell commands. When `ai-eng` is unavailable, fall back to Step 3 manual checks. Report output as structured markdown. |
-| github-agents | Runs as a GitHub Actions scheduled workflow. Python is available via `actions/setup-python`. The `ai-eng` CLI must be installed via `pip install ai-engineering` in the workflow. Use `GITHUB_TOKEN` for API calls. Azure DevOps commands are unavailable. |
-| azure-foundry | Authenticate via managed identity. Python is pre-installed. Install `ai-eng` via pip if not cached. GitHub commands require a PAT stored in Key Vault. |
-
-## Safety
+## Guardrails
 
 1. **Never auto-fixes drift.** This runbook detects and reports drift. It does not run `sync_command_mirrors.py` without `--check`, does not overwrite framework files, and does not modify hook scripts.
 2. **Never modifies framework files.** No write operations target `.claude/`, `.agents/`, `.github/`, `.ai-engineering/`, or `src/ai_engineering/templates/`. Remediation is delegated to a human or to `sync_command_mirrors.py` (without `--check`) after review.

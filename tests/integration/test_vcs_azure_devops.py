@@ -7,12 +7,8 @@ import subprocess
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
-
 from ai_engineering.vcs.azure_devops import AzureDevOpsProvider
 from ai_engineering.vcs.protocol import VcsContext
-
-pytestmark = pytest.mark.integration
 
 
 class TestAzureDevOpsAvailability:

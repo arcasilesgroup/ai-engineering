@@ -14,12 +14,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import pytest
-
 from ai_engineering.updater.service import _migrate_install_manifest, _migrate_tools_json
-
-pytestmark = pytest.mark.unit
-
 
 # ---------------------------------------------------------------------------
 # Fixtures

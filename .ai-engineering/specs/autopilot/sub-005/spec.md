@@ -1,19 +1,18 @@
 ---
 id: sub-005
-parent: spec-087
-title: "Validator & State Updates"
+parent: spec-088
+title: "Runbook: Work Item Consolidation"
 status: planning
 files:
-  - src/ai_engineering/validator/_shared.py, src/ai_engineering/validator/categories/mirror_sync.py, src/ai_engineering/state/defaults.py, .ai-engineering/manifest.yml, .ai-engineering/state/ownership-map.json
-depends_on:
-  - []
+  - .ai-engineering/runbooks/consolidate.md
+depends_on: []
 ---
 
-# Sub-Spec 005: Validator & State Updates
+# Sub-Spec 005: Runbook: Work Item Consolidation
 
 ## Scope
 
-Rename _AGENTS_*_MIRROR to _CODEX_*, add _GEMINI_*_MIRROR tuples (_shared.py lines 172-200). Rename _check_agents_* to _check_codex_*, add _check_gemini_* functions (mirror_sync.py lines 161-353). Update defaults.py ownership (line 135). Update manifest.yml and ownership-map.json.
+Create a new runbook `consolidate.md` following the existing runbook pattern (YAML frontmatter + markdown procedure). Type: operational, cadence: weekly. The runbook: (1) reads all open work items from GitHub Issues or Azure DevOps, (2) groups related items by semantic analysis of title+description, (3) presents groupings for user confirmation, (4) creates 1 consolidated task per confirmed group with a structured draft description (problem statement, all requirements, affected areas, acceptance criteria draft -- ready as input for /ai-brainstorm), (5) links originals to the new task via provider references, (6) closes originals with a link comment. Safety: never deletes items, always shows before confirming, bounded mutations (15 per run). Decision D-088-05.
 
 ## Exploration
 [EMPTY -- populated by Phase 2]

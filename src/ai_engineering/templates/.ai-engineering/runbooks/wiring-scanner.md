@@ -7,11 +7,18 @@ cadence: weekly
 
 # Wiring Scanner
 
-## Purpose
+## Objetivo
 
 Detect implemented but disconnected code -- functions, modules, or exports that exist in the codebase but are never reached from any entry point, CLI command, or external consumer. This runbook does not delete code; it classifies each public symbol's connectivity and creates task work items for confirmed disconnections so the team can decide whether to wire, document, or remove them.
 
-## Procedure
+## Precondiciones
+
+- `grep` available for symbol search and reference counting.
+- `python3` available if using dynamic import detection.
+- `gh` or `az` CLI authenticated for work item creation and deduplication.
+- Source code organized under `src/` with Python modules.
+
+## Procedimiento
 
 ### Step 1 -- Enumerate public functions and classes
 
@@ -160,28 +167,11 @@ Orphaned Modules:
 ==============================
 ```
 
-## Provider Notes
+## Output
 
-| Concern | GitHub | Azure DevOps |
-|---------|--------|--------------|
-| Work item creation | `gh issue create` | `az boards work-item create --type Task` |
-| Duplicate check | `gh issue list --state open --label "dead-code" --search` | `az boards query --wiql` with tag filter |
-| Labels | `--label "dead-code"` | `System.Tags=dead-code` |
-| Comments | `gh issue comment` | `az boards work-item update --discussion` |
-| Auth | `GH_TOKEN` or `gh auth login` | `az login` or `AZURE_DEVOPS_EXT_PAT` |
+Disconnected code report to stdout. Work items created for confirmed dead code. No local files are written.
 
-Both providers produce identical report output. The active provider is read from `manifest.yml` field `work_items.provider`.
-
-## Host Notes
-
-| Host | Considerations |
-|------|----------------|
-| `codex-app-automation` | Full CLI access. `grep` and `python` are available natively. Mutations enabled by default. |
-| `claude-scheduled-tasks` | Operates within Claude agent context. Use tool calls for `grep` and `gh` commands. Parse grep output as structured data. Report as markdown. |
-| `github-agents` | Runs as a GitHub Actions scheduled workflow. `grep` and `python` are pre-installed on runners. Store the report as a workflow artifact. Use `GITHUB_TOKEN` for issue creation. |
-| `azure-foundry` | Runs as an Azure DevOps pipeline task. Use service connection for `az` authentication. `grep` and `python` are available on all standard agent images. Emit report to pipeline summary. |
-
-## Safety
+## Guardrails
 
 1. **Never deletes code.** This runbook inspects source files and creates task work items. It does not commit, push, merge, or alter any source file.
 2. **Test-only wiring is reported separately.** Symbols referenced only from `tests/` are logged in the report under "Test-only" but are not escalated to work items by default. They may represent intentional internal APIs exercised through unit tests.

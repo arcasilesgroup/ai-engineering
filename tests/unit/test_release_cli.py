@@ -5,13 +5,10 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
 from typer.testing import CliRunner
 
 from ai_engineering.cli_factory import create_app
 from ai_engineering.release.orchestrator import PhaseResult, ReleaseResult
-
-pytestmark = pytest.mark.unit
 
 runner = CliRunner()
 

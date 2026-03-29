@@ -24,8 +24,6 @@ import pytest
 from ai_engineering.installer.service import install
 from ai_engineering.updater.service import FileChange, UpdateResult, update
 
-pytestmark = pytest.mark.integration
-
 
 @pytest.fixture()
 def installed_project(tmp_path: Path) -> Path:

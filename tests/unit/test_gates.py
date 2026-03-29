@@ -53,9 +53,6 @@ from ai_engineering.state.models import (
     RiskSeverity,
 )
 
-pytestmark = pytest.mark.unit
-
-
 # ── CheckConfig ──────────────────────────────────────────────────────────
 
 
@@ -729,9 +726,7 @@ class TestRegistryValidation:
         dist_idx = cmd.index("--dist")
         assert cmd[dist_idx + 1] == "worksteal", "Expected 'worksteal' distribution"
 
-        assert "-m" in cmd, "Expected -m (marker) in stack-tests cmd"
-        m_idx = cmd.index("-m")
-        assert cmd[m_idx + 1] == "unit", "Expected 'unit' marker"
+        assert "tests/unit/" in cmd, "Expected tests/unit/ directory in stack-tests cmd"
 
 
 class TestSonarGateAdvisory:

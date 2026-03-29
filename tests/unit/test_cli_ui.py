@@ -29,8 +29,6 @@ from ai_engineering.cli_ui import (
 )
 from ai_engineering.updater.service import FileChange
 
-pytestmark = pytest.mark.unit
-
 
 class TestNoColorDetection:
     """Tests for NO_COLOR / TERM=dumb detection."""

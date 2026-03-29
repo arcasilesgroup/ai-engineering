@@ -13,9 +13,6 @@ import pytest
 
 from ai_engineering.installer.autodetect import DetectionResult
 
-pytestmark = pytest.mark.unit
-
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------

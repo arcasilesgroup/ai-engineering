@@ -8,8 +8,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from ai_engineering.installer.phases import InstallContext, InstallMode
 from ai_engineering.installer.phases.detect import DetectPhase
 from ai_engineering.installer.phases.governance import GovernancePhase
@@ -18,8 +16,6 @@ from ai_engineering.installer.phases.ide_config import IdeConfigPhase
 from ai_engineering.installer.phases.pipeline import PipelineRunner
 from ai_engineering.installer.phases.state import StatePhase
 from ai_engineering.installer.phases.tools import ToolsPhase
-
-pytestmark = pytest.mark.integration
 
 
 def _make_context(tmp_path: Path) -> InstallContext:

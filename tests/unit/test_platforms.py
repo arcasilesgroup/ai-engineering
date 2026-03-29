@@ -15,8 +15,6 @@ import pytest
 from ai_engineering.credentials.models import PlatformKind
 from ai_engineering.platforms.detector import detect_platforms
 
-pytestmark = pytest.mark.unit
-
 
 class TestDetectPlatforms:
     """Tests for detect_platforms()."""

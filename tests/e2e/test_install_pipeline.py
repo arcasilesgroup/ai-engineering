@@ -17,8 +17,6 @@ from ai_engineering.installer import service
 from ai_engineering.installer.phases import PHASE_ORDER
 from ai_engineering.installer.service import install_with_pipeline
 
-pytestmark = pytest.mark.e2e
-
 
 @pytest.fixture()
 def stub_ops(monkeypatch: pytest.MonkeyPatch) -> None:

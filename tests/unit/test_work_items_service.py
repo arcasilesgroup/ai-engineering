@@ -5,8 +5,6 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from ai_engineering.vcs.protocol import VcsResult
 from ai_engineering.work_items.service import (
     SyncReport,
@@ -15,8 +13,6 @@ from ai_engineering.work_items.service import (
     resolve_closeable_refs,
     sync_spec_issues,
 )
-
-pytestmark = pytest.mark.unit
 
 
 def _make_spec_dir(root: Path, spec_id: str, *, done: bool = False, spec_text: str = "") -> Path:
