@@ -35,17 +35,39 @@ work_items:
   github:
     team_label: "team:core"
   state_mapping:
-    refinement: null
-    ready: null
-    in_progress: null
-    in_review: null
-    done: null
-  process_template: null
-  custom_fields: []
+    refinement: "Backlog"
+    ready: "Ready"
+    in_progress: "In progress"
+    in_review: "In review"
+    done: "Done"
+  process_template: "github_projects_v2"
+  custom_fields:
+    - id: "PVTSSF_lADOC-uI1c4BQt9Azg-wcuM"
+      name: "Priority"
+      type: "single_select"
+      options: ["P0", "P1", "P2"]
+    - id: "PVTSSF_lADOC-uI1c4BQt9Azg-wcuQ"
+      name: "Size"
+      type: "single_select"
+      options: ["XS", "S", "M", "L", "XL"]
+    - id: "PVTF_lADOC-uI1c4BQt9Azg-wcuU"
+      name: "Estimate"
+      type: "number"
+    - id: "PVTF_lADOC-uI1c4BQt9Azg-wcuY"
+      name: "Start date"
+      type: "date"
+    - id: "PVTF_lADOC-uI1c4BQt9Azg-wcuc"
+      name: "Target date"
+      type: "date"
   github_project:
-    number: null
-    status_field_id: null
-    status_options: {}
+    number: 4
+    status_field_id: "PVTSSF_lADOC-uI1c4BQt9Azg-wcrY"
+    status_options:
+      refinement: "f75ad846"
+      ready: "61e4505c"
+      in_progress: "47fc9ee4"
+      in_review: "df73e18b"
+      done: "98236657"
   hierarchy:
     feature: never_close # features are never closed by AI
     user_story: close_on_pr # closed when PR merges

@@ -123,7 +123,7 @@ $CODE_DIFF_SUMMARY
 $SUGGESTION
 
 <!-- docs-freshness-runbook -->" \
-  --label "docs-stale,type/chore"
+  --label "docs-stale,chore"
 
 # Azure DevOps
 az boards work-item create --type Task \

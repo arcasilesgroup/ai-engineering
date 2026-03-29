@@ -1,0 +1,195 @@
+# Canonical label definitions for ai-engineering.
+# Synced by the label-sync GitHub Action.
+# Source of truth -- all label changes go through this file.
+#
+# Categories:
+#   type      - What kind of work (no prefix)
+#   priority  - Urgency (p1-p4 prefix)
+#   severity  - Finding severity (sev- prefix)
+#   status    - Lifecycle phase (status- prefix)
+#   handoff   - Ready-state signals (handoff- prefix)
+#   lifecycle - Process labels (descriptive names)
+#   finding   - Scanner output labels (descriptive names)
+#   protected - Never auto-close (descriptive names)
+#   utility   - General-purpose (descriptive names)
+
+# ── Type ──────────────────────────────────────────────
+- name: bug
+  description: Something is not working correctly
+  color: "d73a4a"
+
+- name: feature
+  description: New capability or behavior
+  color: "0fb9b1"
+
+- name: enhancement
+  description: Improvement to existing functionality
+  color: "a2eeef"
+
+- name: question
+  description: Request for clarification or help
+  color: "d876e3"
+
+- name: chore
+  description: "CI, deps, config, cleanup, housekeeping"
+  color: "fef2c0"
+
+- name: tracking
+  description: Weekly summary or recurring report
+  color: "bfd4f2"
+
+# ── Priority ──────────────────────────────────────────
+- name: p1-critical
+  description: "Security vulns, core blockers, data loss"
+  color: "d73a4a"
+
+- name: p2-high
+  description: "Perf regressions, test failures, breaking changes"
+  color: "fbca04"
+
+- name: p3-normal
+  description: "Refactoring, improvements, tech debt"
+  color: "0366d6"
+
+- name: p4-low
+  description: "Nice-to-have, minor polish, can defer"
+  color: "0e8a16"
+
+# ── Severity (finding severity) ───────────────────────
+- name: sev-critical
+  description: Critical severity finding requiring immediate action
+  color: "b60205"
+
+- name: sev-high
+  description: High severity finding
+  color: "e11d48"
+
+- name: sev-medium
+  description: Medium severity finding
+  color: "e4e669"
+
+- name: sev-low
+  description: Low severity finding
+  color: "c2e0c6"
+
+# ── Status (lifecycle phase, ai-board-sync) ───────────
+- name: status-refinement
+  description: Work item is being refined
+  color: "c5def5"
+
+- name: status-ready
+  description: Refined and ready for implementation
+  color: "1D76DB"
+
+- name: status-in-progress
+  description: Implementation underway
+  color: "0075ca"
+
+- name: status-in-review
+  description: "PR created, awaiting review"
+  color: "5319e7"
+
+- name: status-done
+  description: Work complete and merged
+  color: "0e8a16"
+
+# ── Handoff ───────────────────────────────────────────
+- name: handoff-ai-eng
+  description: Ready for ai-eng agent execution
+  color: "0e8a16"
+
+# ── Lifecycle / Process ───────────────────────────────
+- name: needs-triage
+  description: Awaiting initial classification
+  color: "bfd4f2"
+
+- name: triaged
+  description: "Classified by type and priority, pending refinement"
+  color: "0e8a16"
+
+- name: needs-refinement
+  description: "Triaged, awaiting acceptance criteria and spec outline"
+  color: "0075ca"
+
+- name: needs-clarification
+  description: Blocked on author input before refinement can proceed
+  color: "e4e669"
+
+- name: needs-review
+  description: "Potential false positive; requires human review"
+  color: "fef2c0"
+
+- name: stale
+  description: "No activity for 14+ days; will auto-close in 7 days"
+  color: "cfd3d7"
+
+- name: consolidated
+  description: Merged into a consolidated work item
+  color: "cfd3d7"
+
+# ── Findings (scanner outputs) ────────────────────────
+- name: tech-debt
+  description: "Complexity hotspot, duplication, or cognitive complexity violation"
+  color: "e4e669"
+
+- name: dead-code
+  description: Implemented but disconnected code with no runtime consumers
+  color: "e4e669"
+
+- name: wiring-gap
+  description: Implemented code not wired to CLI commands or entry points
+  color: "D93F0B"
+
+- name: feature-gap
+  description: Gap between spec acceptance criteria and implementation
+  color: "D93F0B"
+
+- name: security-finding
+  description: Security scan finding requiring remediation
+  color: "d93f0b"
+
+- name: dependency-update
+  description: "Dependency upgrade needed (CVE, outdated, or license issue)"
+  color: "0075ca"
+
+- name: docs-stale
+  description: Documentation is stale or missing coverage for recent changes
+  color: "fef2c0"
+
+- name: perf-regression
+  description: Performance regression detected above threshold
+  color: "d73a4a"
+
+- name: governance-drift
+  description: Framework configuration or mirror sync drift detected
+  color: "e4e669"
+
+- name: architecture-drift
+  description: "Layer violation, import cycle, or undocumented structural change"
+  color: "e4e669"
+
+# ── Protected / Special ───────────────────────────────
+- name: pinned
+  description: "Never auto-close, never mark stale"
+  color: "006b75"
+
+- name: security
+  description: Security-related issue (protected from auto-close)
+  color: "d73a4a"
+
+- name: duplicate
+  description: This issue or pull request already exists
+  color: "cfd3d7"
+
+- name: regression
+  description: Regression from previously completed acceptance criteria
+  color: "b60205"
+
+# ── Utility ───────────────────────────────────────────
+- name: manual-action
+  description: "Requires manual action (UI/environment), not a code change"
+  color: "d4c5f9"
+
+- name: documentation
+  description: Improvements or additions to documentation
+  color: "0075ca"

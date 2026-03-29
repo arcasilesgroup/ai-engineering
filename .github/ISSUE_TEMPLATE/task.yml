@@ -1,6 +1,6 @@
 name: Task
 description: Track a specific unit of work
-labels: ["type:task", "needs-triage"]
+labels: ["chore", "needs-triage"]
 type: Task
 body:
   - type: markdown
@@ -30,18 +30,7 @@ body:
         - p1-critical
         - p2-high
         - p3-normal
-    validations:
-      required: true
-  - type: dropdown
-    id: size
-    attributes:
-      label: Size
-      options:
-        - XS (< 30min)
-        - S (< 1h)
-        - M (1-4h)
-        - L (4-8h)
-        - XL (> 8h)
+        - p4-low
     validations:
       required: true
   - type: input

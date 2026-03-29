@@ -150,7 +150,7 @@ gh issue create \
 $COMMIT_LIST
 
 <!-- performance-runbook:regression -->" \
-  --label "perf-regression,type/bug"
+  --label "perf-regression,bug"
 ```
 
 **Azure DevOps** (`WORK_ITEM_PROVIDER=azure_devops`):
@@ -189,7 +189,7 @@ $SLOWEST_TESTS_LIST
 $NOTES_LIST
 
 <!-- performance-runbook:weekly-summary -->" \
-  --label "perf-weekly,type/tracking"
+  --label "perf-weekly,tracking"
 ```
 
 **Azure DevOps** (`WORK_ITEM_PROVIDER=azure_devops`):

@@ -102,13 +102,13 @@ If a match is found, skip work-item creation and mark the finding as `pre-existi
 
 ### Step 7 -- Create task work items for new findings
 
-For each new finding above severity threshold, create a task work item. The title follows the pattern `security-finding: $RULE_ID in $FILE_PATH:$LINE`. The body includes: file path, line number, finding type, severity, rule ID, CWE/OWASP reference, description, and remediation guidance. Tag with `security-finding` and `severity/$SEVERITY`.
+For each new finding above severity threshold, create a task work item. The title follows the pattern `security-finding: $RULE_ID in $FILE_PATH:$LINE`. The body includes: file path, line number, finding type, severity, rule ID, CWE/OWASP reference, description, and remediation guidance. Tag with `security-finding` and `sev-$SEVERITY`.
 
 ```bash
 # GitHub
 gh issue create \
   --title "security-finding: $RULE_ID in $FILE_PATH:$LINE" \
-  --label "security-finding,severity/$SEVERITY" \
+  --label "security-finding,sev-$SEVERITY" \
   --body "$FORMATTED_BODY"
 ```
 
@@ -116,7 +116,7 @@ gh issue create \
 # Azure DevOps
 az boards work-item create --type Task \
   --title "security-finding: $RULE_ID in $FILE_PATH:$LINE" \
-  --fields "System.Tags=security-finding; severity/$SEVERITY" \
+  --fields "System.Tags=security-finding; sev-$SEVERITY" \
   --description "$FORMATTED_BODY"
 ```
 

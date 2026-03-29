@@ -148,7 +148,6 @@ _GOVERNANCE_MIRROR = (
     [
         "contexts/**/*.md",
         "runbooks/**/*.md",
-        "manifest.yml",
         "README.md",
     ],
     ["context/", "contexts/team/", "contexts/project-identity.md", "state/", "evals/", "tasks/"],

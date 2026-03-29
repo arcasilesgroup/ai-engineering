@@ -117,7 +117,7 @@ All runbooks are human-in-the-loop (HITL): they prepare work items in the provid
 | Runbook | Cadence | Purpose |
 |---------|---------|---------|
 | triage | daily | Scan backlog, classify, prioritize, label for refinement |
-| refine | daily | Gather context, draft acceptance criteria, mark `handoff:ai-eng` |
+| refine | daily | Gather context, draft acceptance criteria, mark `handoff-ai-eng` |
 | feature-scanner | daily | Detect spec-vs-code gaps and uncovered acceptance criteria |
 | stale-issues | daily | Label stale issues (14 d), auto-close (21 d) with grace period |
 | dependency-health | weekly | Outdated versions, CVEs, license compliance |
