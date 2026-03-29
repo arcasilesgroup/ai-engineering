@@ -15,8 +15,6 @@ import pytest
 from ai_engineering.installer.service import install
 from ai_engineering.updater.service import update
 
-pytestmark = pytest.mark.e2e
-
 
 class TestInstallExisting:
     """End-to-end tests for installing on a repo with existing code."""

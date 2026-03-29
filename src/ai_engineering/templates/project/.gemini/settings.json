@@ -30,7 +30,7 @@
           {
             "type": "command",
             "name": "telemetry-skill",
-            "command": "python3 \"$GEMINI_PROJECT_DIR/.ai-engineering/scripts/hooks/telemetry-skill.py\"",
+            "command": "AIENG_HOOK_ENGINE=gemini python3 \"$GEMINI_PROJECT_DIR/.ai-engineering/scripts/hooks/telemetry-skill.py\"",
             "timeout": 10000,
             "description": "Log skill invocation telemetry"
           }
@@ -44,7 +44,7 @@
           {
             "type": "command",
             "name": "prompt-injection-guard",
-            "command": "python3 \"$GEMINI_PROJECT_DIR/.ai-engineering/scripts/hooks/prompt-injection-guard.py\"",
+            "command": "AIENG_HOOK_ENGINE=gemini python3 \"$GEMINI_PROJECT_DIR/.ai-engineering/scripts/hooks/prompt-injection-guard.py\"",
             "timeout": 15000,
             "description": "Scan tool input for prompt injection"
           }
@@ -56,7 +56,7 @@
           {
             "type": "command",
             "name": "strategic-compact",
-            "command": "python3 \"$GEMINI_PROJECT_DIR/.ai-engineering/scripts/hooks/strategic-compact.py\"",
+            "command": "AIENG_HOOK_ENGINE=gemini python3 \"$GEMINI_PROJECT_DIR/.ai-engineering/scripts/hooks/strategic-compact.py\"",
             "timeout": 5000,
             "description": "Optimize context for large files"
           }
@@ -68,7 +68,7 @@
           {
             "type": "command",
             "name": "mcp-health",
-            "command": "python3 \"$GEMINI_PROJECT_DIR/.ai-engineering/scripts/hooks/mcp-health.py\"",
+            "command": "AIENG_HOOK_ENGINE=gemini python3 \"$GEMINI_PROJECT_DIR/.ai-engineering/scripts/hooks/mcp-health.py\"",
             "timeout": 15000,
             "description": "Check health of MCP servers"
           }
@@ -80,7 +80,7 @@
           {
             "type": "command",
             "name": "instinct-observe-pre",
-            "command": "python3 \"$GEMINI_PROJECT_DIR/.ai-engineering/scripts/hooks/instinct-observe.py\"",
+            "command": "AIENG_HOOK_ENGINE=gemini python3 \"$GEMINI_PROJECT_DIR/.ai-engineering/scripts/hooks/instinct-observe.py\"",
             "timeout": 10000,
             "description": "Record pre-tool state for instincts"
           }
@@ -94,7 +94,7 @@
           {
             "type": "command",
             "name": "instinct-observe-post",
-            "command": "python3 \"$GEMINI_PROJECT_DIR/.ai-engineering/scripts/hooks/instinct-observe.py\"",
+            "command": "AIENG_HOOK_ENGINE=gemini python3 \"$GEMINI_PROJECT_DIR/.ai-engineering/scripts/hooks/instinct-observe.py\"",
             "timeout": 10000,
             "description": "Record post-tool state for instincts"
           }
@@ -106,7 +106,7 @@
           {
             "type": "command",
             "name": "observe-agent",
-            "command": "python3 \"$GEMINI_PROJECT_DIR/.ai-engineering/scripts/hooks/observe.py\"",
+            "command": "AIENG_HOOK_ENGINE=gemini python3 \"$GEMINI_PROJECT_DIR/.ai-engineering/scripts/hooks/observe.py\"",
             "timeout": 10000,
             "description": "Log agent dispatch telemetry"
           }
@@ -118,7 +118,7 @@
           {
             "type": "command",
             "name": "auto-format",
-            "command": "python3 \"$GEMINI_PROJECT_DIR/.ai-engineering/scripts/hooks/auto-format.py\"",
+            "command": "AIENG_HOOK_ENGINE=gemini python3 \"$GEMINI_PROJECT_DIR/.ai-engineering/scripts/hooks/auto-format.py\"",
             "timeout": 15000,
             "description": "Auto-format edited files"
           }
@@ -132,7 +132,7 @@
           {
             "type": "command",
             "name": "instinct-extract",
-            "command": "python3 \"$GEMINI_PROJECT_DIR/.ai-engineering/scripts/hooks/instinct-extract.py\"",
+            "command": "AIENG_HOOK_ENGINE=gemini python3 \"$GEMINI_PROJECT_DIR/.ai-engineering/scripts/hooks/instinct-extract.py\"",
             "timeout": 30000,
             "description": "Extract learned instincts from session"
           }

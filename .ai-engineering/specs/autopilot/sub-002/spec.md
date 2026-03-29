@@ -1,21 +1,27 @@
 ---
 id: sub-002
-parent: spec-087
-title: "Sync Script Migration to .codex/"
+parent: spec-088
+title: "Cross-IDE Hook Compatibility"
 status: planning
 files:
-  - scripts/sync_command_mirrors.py
-depends_on:
-  - sub-001
+  - .ai-engineering/scripts/hooks/_lib/hook_context.py
+  - .ai-engineering/scripts/hooks/telemetry-skill.py
+  - .ai-engineering/scripts/hooks/prompt-injection-guard.py
+  - .ai-engineering/scripts/hooks/strategic-compact.py
+  - .ai-engineering/scripts/hooks/mcp-health.py
+  - .ai-engineering/scripts/hooks/instinct-observe.py
+  - .ai-engineering/scripts/hooks/instinct-extract.py
+  - .ai-engineering/scripts/hooks/observe.py
+  - src/ai_engineering/templates/project/.gemini/settings.json
+  - src/ai_engineering/templates/project/.codex/hooks.json
+depends_on: []
 ---
 
-# Sub-Spec 002: Sync Script Migration to .codex/
+# Sub-Spec 002: Cross-IDE Hook Compatibility
 
 ## Scope
 
-Update sync_command_mirrors.py to replace .agents/ as a generation target with .codex/. Rename constants (AGENTS_SKILLS->CODEX_SKILLS, lines 47-62), add "codex" target_ide to translate_refs() (lines 436-491, keeps ai- prefix), update generation pipeline Surfaces 1/2/2b (lines 1204-1300), update generate_agents_md() to output .codex/ paths and split Gemini/Codex rows (lines 752-792), update orphan detection surfaces (lines 1534-1550).
-
-Decisions: D-087-01 (.agents->.codex), D-087-06 (.codex/agents/ for future-proofing).
+Create a shared `_lib/hook_context.py` module providing `get_hook_context()` that returns engine, project_root, session_id, and normalized event_name. Update all 7 non-working hooks to use it instead of hardcoded Claude Code env vars. Add `AIENG_HOOK_ENGINE=gemini` / `AIENG_HOOK_ENGINE=codex` to hook command strings in .gemini/settings.json and .codex/hooks.json. Normalize Gemini event names (BeforeTool->PreToolUse, AfterTool->PostToolUse, BeforeAgent->UserPromptSubmit, AfterAgent->Stop). Decisions D-088-02, D-088-04, D-088-06.
 
 ## Exploration
 [EMPTY -- populated by Phase 2]

@@ -22,8 +22,6 @@ from ai_engineering.installer.service import (
 )
 from ai_engineering.installer.templates import CopyResult
 
-pytestmark = pytest.mark.unit
-
 # ---------------------------------------------------------------------------
 # Module-level patch prefix shortcuts
 # ---------------------------------------------------------------------------

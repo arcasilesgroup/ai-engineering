@@ -8,8 +8,6 @@ from unittest.mock import patch
 
 import pytest
 
-pytestmark = pytest.mark.unit
-
 # The hook uses sys.path.insert to import _lib.audit.
 # We patch the module-level constants and test pure functions in isolation.
 
@@ -153,14 +151,13 @@ class TestSaveCounters:
 class TestGetSessionKey:
     """Session key derivation from env or fallback."""
 
-    def test_uses_claude_session_id(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setenv("CLAUDE_SESSION_ID", "abc-123")
+    def test_uses_session_id_from_context(self) -> None:
         mod = _import_hook()
-        assert mod._get_session_key() == "abc-123"
+        assert mod._get_session_key("abc-123") == "abc-123"
 
     def test_fallback_to_date_hour(self) -> None:
         mod = _import_hook()
-        key = mod._get_session_key()
+        key = mod._get_session_key(None)
         # Format: YYYYMMDD-HH (11 chars)
         assert len(key) == 11
         assert key[8] == "-"

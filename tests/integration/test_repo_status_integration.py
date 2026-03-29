@@ -17,8 +17,6 @@ from ai_engineering.maintenance.repo_status import (
     run_repo_status,
 )
 
-pytestmark = pytest.mark.integration
-
 
 def _git(args: list[str], cwd: Path) -> None:
     """Run a git command in cwd."""

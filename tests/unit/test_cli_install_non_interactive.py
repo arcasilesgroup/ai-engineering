@@ -10,12 +10,9 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
 from typer.testing import CliRunner
 
 from ai_engineering.cli_factory import create_app
-
-pytestmark = pytest.mark.unit
 
 runner = CliRunner()
 

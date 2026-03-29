@@ -11,8 +11,6 @@ import typer
 
 import ai_engineering.cli_commands.sync as sync_module
 
-pytestmark = pytest.mark.unit
-
 
 def _create_sync_script(root: Path) -> Path:
     script = root / "scripts" / "sync_command_mirrors.py"

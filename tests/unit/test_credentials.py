@@ -13,8 +13,6 @@ import pytest
 from ai_engineering.credentials.models import PlatformKind
 from ai_engineering.credentials.service import CredentialService
 
-pytestmark = pytest.mark.unit
-
 # ---------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------

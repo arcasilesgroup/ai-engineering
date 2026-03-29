@@ -6,8 +6,6 @@ import json
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-import pytest
-
 from ai_engineering.state.instincts import (
     append_instinct_observation,
     default_instinct_context,
@@ -21,8 +19,6 @@ from ai_engineering.state.instincts import (
 )
 from ai_engineering.state.io import append_ndjson, read_ndjson_entries
 from ai_engineering.state.models import FrameworkEvent, InstinctMeta, InstinctObservation
-
-pytestmark = pytest.mark.unit
 
 
 def _seed_manifest(tmp_path: Path) -> None:

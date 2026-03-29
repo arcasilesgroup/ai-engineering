@@ -27,8 +27,6 @@ from ai_engineering.validator import service as validator
 from ai_engineering.vcs import azure_devops, factory, pr_description
 from ai_engineering.vcs.protocol import VcsContext
 
-pytestmark = pytest.mark.integration
-
 
 def test_hooks_and_installer_templates_missing_inputs(tmp_path: Path) -> None:
     state_dir = tmp_path / ".ai-engineering" / "state"

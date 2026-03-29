@@ -10,8 +10,6 @@ from typer.testing import CliRunner
 
 from ai_engineering.cli_factory import create_app
 
-pytestmark = pytest.mark.unit
-
 runner = CliRunner()
 
 

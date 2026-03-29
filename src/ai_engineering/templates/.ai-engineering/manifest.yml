@@ -13,9 +13,6 @@ providers:
   vcs: github
   ides: [terminal]
   stacks: [python]
-  ai_providers:
-    enabled: [claude_code, github_copilot, gemini, codex]
-    primary: claude_code
 
 # AI Providers
 ai_providers:

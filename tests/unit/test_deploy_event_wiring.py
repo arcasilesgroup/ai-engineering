@@ -10,8 +10,6 @@ from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from ai_engineering.release import orchestrator as orchestrator_module
 from ai_engineering.release.orchestrator import (
     ReleaseConfig,
@@ -25,9 +23,6 @@ from ai_engineering.vcs.protocol import (
     VcsContext,
     VcsResult,
 )
-
-pytestmark = pytest.mark.unit
-
 
 # ---------------------------------------------------------------------------
 # Helpers

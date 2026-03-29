@@ -16,8 +16,6 @@ from typer.testing import CliRunner
 from ai_engineering.cli_factory import create_app
 from ai_engineering.installer.operations import InstallerError
 
-pytestmark = pytest.mark.unit
-
 runner = CliRunner()
 
 # ── Fixture: centralized provider-ops patching ────────────────────────────

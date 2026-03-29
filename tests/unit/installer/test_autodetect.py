@@ -5,8 +5,6 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
-
 from ai_engineering.installer.autodetect import (
     DetectionResult,
     _order_by_popularity,
@@ -17,9 +15,6 @@ from ai_engineering.installer.autodetect import (
     detect_stacks,
     detect_vcs,
 )
-
-pytestmark = pytest.mark.unit
-
 
 # ---------------------------------------------------------------------------
 # detect_stacks — individual markers

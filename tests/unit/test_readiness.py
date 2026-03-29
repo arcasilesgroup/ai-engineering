@@ -14,8 +14,6 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from ai_engineering.detector.readiness import (
     _OPTIONAL_TOOLS,
     _STACK_TOOLS,
@@ -27,9 +25,6 @@ from ai_engineering.detector.readiness import (
     check_tools_for_stacks,
     remediate_missing_tools,
 )
-
-pytestmark = pytest.mark.unit
-
 
 # ---------------------------------------------------------------------------
 # ToolInfo

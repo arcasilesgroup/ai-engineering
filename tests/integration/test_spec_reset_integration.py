@@ -9,14 +9,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from ai_engineering.maintenance.spec_reset import (
     SpecResetResult,
     run_spec_reset,
 )
-
-pytestmark = pytest.mark.integration
 
 
 def _create_project(tmp_path: Path) -> Path:

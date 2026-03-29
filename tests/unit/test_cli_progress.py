@@ -4,11 +4,7 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from ai_engineering.cli_progress import StepTracker, spinner, step_progress
-
-pytestmark = pytest.mark.unit
 
 
 class TestSpinner:

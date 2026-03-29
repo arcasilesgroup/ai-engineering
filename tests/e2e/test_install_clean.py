@@ -11,13 +11,9 @@ import json
 import subprocess
 from pathlib import Path
 
-import pytest
-
 from ai_engineering.installer.service import install
 from ai_engineering.state.io import read_json_model, read_ndjson_entries
 from ai_engineering.state.models import FrameworkEvent, InstallState
-
-pytestmark = pytest.mark.e2e
 
 
 class TestInstallClean:

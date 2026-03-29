@@ -9,8 +9,6 @@ import pytest
 
 from ai_engineering.vcs.repo_context import RepoContext, _reset_cache, get_repo_context
 
-pytestmark = pytest.mark.unit
-
 FAKE_ROOT = Path("/fake/repo")
 
 # ---------------------------------------------------------------------------

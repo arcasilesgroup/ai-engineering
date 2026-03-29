@@ -7,8 +7,6 @@ import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from ai_engineering.commands.workflows import (
     StepResult,
     WorkflowResult,
@@ -16,8 +14,6 @@ from ai_engineering.commands.workflows import (
     _run_command,
     run_commit_workflow,
 )
-
-pytestmark = pytest.mark.unit
 
 
 class TestRunCommand:

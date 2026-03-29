@@ -27,9 +27,6 @@ from ai_engineering.installer.templates import (
     resolve_template_maps,
 )
 
-pytestmark = pytest.mark.integration
-
-
 # ---------------------------------------------------------------------------
 # Templates
 # ---------------------------------------------------------------------------

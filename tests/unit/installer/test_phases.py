@@ -12,9 +12,6 @@ from ai_engineering.installer.phases import (
     PhaseResult,
 )
 
-pytestmark = pytest.mark.unit
-
-
 # ---------------------------------------------------------------------------
 # Helper
 # ---------------------------------------------------------------------------

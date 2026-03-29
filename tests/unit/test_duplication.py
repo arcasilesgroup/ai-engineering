@@ -10,8 +10,6 @@ import pytest
 from ai_engineering.policy import duplication
 from ai_engineering.policy.duplication import _duplication_ratio
 
-pytestmark = pytest.mark.unit
-
 
 class TestDuplicationRatio:
     def test_zero_ratio_for_unique_content(self, tmp_path: Path) -> None:

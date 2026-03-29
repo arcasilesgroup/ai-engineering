@@ -17,8 +17,6 @@ from ai_engineering.vcs.protocol import (
     VcsContext,
 )
 
-pytestmark = pytest.mark.unit
-
 
 @pytest.fixture
 def ctx(tmp_path: Path) -> VcsContext:

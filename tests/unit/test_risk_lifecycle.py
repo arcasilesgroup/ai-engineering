@@ -35,8 +35,6 @@ from ai_engineering.state.models import (
     RiskSeverity,
 )
 
-pytestmark = pytest.mark.unit
-
 
 def _empty_store() -> DecisionStore:
     """Create an empty decision store for testing."""

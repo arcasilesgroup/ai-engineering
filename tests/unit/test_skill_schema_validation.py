@@ -8,8 +8,6 @@ import pytest
 
 from ai_engineering.lib.parsing import parse_frontmatter
 
-pytestmark = pytest.mark.unit
-
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 
 # Skills now live in IDE-specific directories under the template project.

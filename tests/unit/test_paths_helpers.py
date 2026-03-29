@@ -8,8 +8,6 @@ import pytest
 
 from ai_engineering.paths import ai_engineering_dir, resolve_project_root, state_dir
 
-pytestmark = pytest.mark.unit
-
 
 class TestResolveProjectRoot:
     """Tests for resolve_project_root."""

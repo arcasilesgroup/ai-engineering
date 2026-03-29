@@ -10,14 +10,11 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
-import pytest
 from typer.testing import CliRunner
 
 from ai_engineering.cli_factory import _EXEMPT_COMMANDS, create_app
 from ai_engineering.version.checker import VersionCheckResult
 from ai_engineering.version.models import VersionStatus
-
-pytestmark = pytest.mark.unit
 
 runner = CliRunner()
 

@@ -23,9 +23,6 @@ from ai_engineering.maintenance.report import (
     generate_report,
 )
 
-pytestmark = pytest.mark.integration
-
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------

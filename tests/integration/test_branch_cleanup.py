@@ -26,8 +26,6 @@ from ai_engineering.maintenance.branch_cleanup import (
     run_branch_cleanup,
 )
 
-pytestmark = pytest.mark.integration
-
 
 @pytest.fixture()
 def git_repo_with_branches(tmp_path: Path) -> Path:

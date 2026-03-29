@@ -15,8 +15,6 @@ from ai_engineering.installer.service import install, install_with_pipeline
 from ai_engineering.state.service import load_install_state
 from ai_engineering.vcs.protocol import VcsContext, VcsResult
 
-pytestmark = pytest.mark.integration
-
 
 class _StubProvider:
     def __init__(self, *, available: bool, auth_ok: bool, policy_ok: bool) -> None:

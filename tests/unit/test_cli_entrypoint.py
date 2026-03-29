@@ -5,10 +5,6 @@ from __future__ import annotations
 import runpy
 from unittest.mock import patch
 
-import pytest
-
-pytestmark = pytest.mark.unit
-
 
 def test_cli_module_import_has_app() -> None:
     mod = runpy.run_module("ai_engineering.cli", run_name="ai_engineering.cli")

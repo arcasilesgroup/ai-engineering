@@ -13,8 +13,6 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
-import pytest
-
 from ai_engineering.detector.readiness import (
     ReadinessReport,
     ToolInfo,
@@ -27,9 +25,6 @@ from ai_engineering.detector.readiness import (
     remediate_missing_tools,
 )
 from ai_engineering.state.defaults import default_install_state
-
-pytestmark = pytest.mark.integration
-
 
 # ── ToolInfo ───────────────────────────────────────────────────────────
 

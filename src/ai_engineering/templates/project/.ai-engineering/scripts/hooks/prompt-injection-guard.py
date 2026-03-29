@@ -13,12 +13,8 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from datetime import UTC
 
-from _lib.audit import (
-    get_project_root,
-    is_debug_mode,
-    passthrough_stdin,
-    read_stdin,
-)
+from _lib.audit import is_debug_mode, passthrough_stdin
+from _lib.hook_context import get_hook_context
 from _lib.injection_patterns import PATTERNS
 from _lib.observability import emit_control_outcome
 
@@ -39,14 +35,14 @@ def _extract_content(tool_name: str, tool_input: dict) -> str:
 
 
 def main() -> None:
-    data = read_stdin()
-    tool_name = data.get("tool_name", "")
+    ctx = get_hook_context()
+    tool_name = ctx.data.get("tool_name", "")
 
     if tool_name not in _GUARDED_TOOLS:
-        passthrough_stdin(data)
+        passthrough_stdin(ctx.data)
         return
 
-    tool_input = data.get("tool_input", {})
+    tool_input = ctx.data.get("tool_input", {})
     if isinstance(tool_input, str):
         try:
             tool_input = json.loads(tool_input)
@@ -56,7 +52,7 @@ def main() -> None:
     content = _extract_content(tool_name, tool_input)
 
     if len(content) < _MIN_CONTENT_LEN:
-        passthrough_stdin(data)
+        passthrough_stdin(ctx.data)
         return
 
     scan_content = content[:_MAX_CONTENT_LEN]
@@ -75,9 +71,8 @@ def main() -> None:
     all_matches = critical_matches + high_matches
 
     if all_matches:
-        project_root = get_project_root()
         emit_control_outcome(
-            project_root,
+            ctx.project_root,
             category="security",
             control="prompt-injection-guard",
             component="hook.prompt-injection-guard",
@@ -93,7 +88,7 @@ def main() -> None:
         if is_debug_mode():
             from datetime import datetime
 
-            debug_log = project_root / ".ai-engineering" / "state" / "telemetry-debug.log"
+            debug_log = ctx.project_root / ".ai-engineering" / "state" / "telemetry-debug.log"
             try:
                 timestamp = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
                 names = ", ".join(m["pattern"] for m in all_matches)
@@ -124,7 +119,7 @@ def main() -> None:
         )
         sys.stderr.flush()
 
-    passthrough_stdin(data)
+    passthrough_stdin(ctx.data)
 
 
 if __name__ == "__main__":

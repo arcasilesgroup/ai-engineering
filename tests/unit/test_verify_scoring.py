@@ -6,8 +6,6 @@ not implementation. This is the TDD-ready (Type-E) exemplar test file.
 
 from __future__ import annotations
 
-import pytest
-
 from ai_engineering.verify.scoring import (
     Finding,
     FindingSeverity,
@@ -15,9 +13,6 @@ from ai_engineering.verify.scoring import (
     Verdict,
     VerifyScore,
 )
-
-pytestmark = pytest.mark.unit
-
 
 # ── VerifyScore: score calculation ────────────────────────────────────────
 

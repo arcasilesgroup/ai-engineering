@@ -8,8 +8,6 @@ import pytest
 
 from ai_engineering.installer.service import install
 
-pytestmark = pytest.mark.integration
-
 # Matrix: (providers, vcs, expected_files)
 _SINGLE_PROVIDER_CASES = [
     (["claude_code"], "github", ["CLAUDE.md", ".claude"]),

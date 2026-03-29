@@ -14,8 +14,6 @@ import pytest
 from ai_engineering.cli_commands.spec_cmd import _auto_correct_frontmatter
 from ai_engineering.lib.parsing import count_checkboxes, parse_frontmatter
 
-pytestmark = pytest.mark.unit
-
 
 def _create_plan_md(
     root: Path,

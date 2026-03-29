@@ -24,9 +24,6 @@ from ai_engineering.skills.service import (
     list_local_skill_status,
 )
 
-pytestmark = pytest.mark.unit
-
-
 # ---------------------------------------------------------------------------
 # SkillStatus
 # ---------------------------------------------------------------------------

@@ -13,8 +13,6 @@ from __future__ import annotations
 import json
 from datetime import UTC, datetime
 
-import pytest
-
 from ai_engineering.state.models import (
     BranchPolicyState,
     CredentialRef,
@@ -24,9 +22,6 @@ from ai_engineering.state.models import (
     ReleaseState,
     ToolEntry,
 )
-
-pytestmark = pytest.mark.unit
-
 
 # -- Serialize / Deserialize Roundtrip ------------------------------------
 

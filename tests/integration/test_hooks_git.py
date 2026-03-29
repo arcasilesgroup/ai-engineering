@@ -24,8 +24,6 @@ from ai_engineering.state.defaults import default_install_state
 from ai_engineering.state.models import GateHook
 from ai_engineering.state.service import save_install_state
 
-pytestmark = pytest.mark.integration
-
 
 @pytest.fixture()
 def git_repo(tmp_path: Path) -> Path:

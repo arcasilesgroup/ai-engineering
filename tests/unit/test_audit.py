@@ -5,8 +5,6 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
-
 from ai_engineering.state.audit import (
     emit_build_event,
     emit_deploy_event,
@@ -18,8 +16,6 @@ from ai_engineering.state.audit import (
 )
 from ai_engineering.state.io import read_ndjson_entries
 from ai_engineering.state.models import FrameworkEvent, GateHook
-
-pytestmark = pytest.mark.unit
 
 
 def _entries(path: Path) -> list[FrameworkEvent]:
