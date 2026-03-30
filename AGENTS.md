@@ -12,10 +12,6 @@ If `/ai-onboard` is not available as a skill, execute its steps manually: read s
 
 ## Workflow Orchestration
 
-Read the active spec before touching code: `.ai-engineering/specs/spec.md` and `.ai-engineering/specs/plan.md`.
-Read the decision store to avoid repeating settled questions: `.ai-engineering/state/decision-store.json`.
-Before writing code or designing features, read `.ai-engineering/CONSTITUTION.md` if it exists.
-
 ### 1. Plan Mode Default
 
 - Enter plan mode for ANY non-trivial task (3+ steps or architectural decisions)
@@ -113,7 +109,7 @@ Before writing or reviewing code, load the applicable context files:
 | Multi-spec autonomous execution | autopilot | `/ai-autopilot` |
 | Autonomous backlog execution | run-orchestrator | `/ai-run` |
 
-## Skills (44)
+## Skills (47)
 
 Grouped by type. Invoke as `/ai-<name>`.
 
@@ -121,6 +117,7 @@ Grouped by type. Invoke as `/ai-<name>`.
 **Delivery:** commit, pr, release-gate, cleanup, market
 **Enterprise:** security, governance, pipeline, docs, board-discover, board-sync, platform-audit
 **Teaching:** explain, guide, write, slides, media, video-editing
+**Design:** design, animation, canvas
 **SDLC:** note, standup, sprint, postmortem, support, resolve-conflicts
 **Meta:** create, learn, prompt, onboard, analyze-permissions, instinct, autopilot, run, constitution, skill-evolve
 
@@ -131,7 +128,7 @@ Each skill declares `effort` in frontmatter. Assignment by cognitive weight:
 | Effort | Count |
 |--------|-------|
 | max | 11 (autopilot, brainstorm, governance, platform-audit, review, run, schema, security, skill-evolve, verify, eval) |
-| high | 20 (board-discover, code, create, debug, dispatch, docs, explain, guide, market, pipeline, plan, postmortem, pr, release-gate, slides, sprint, support, test, video-editing, write) |
+| high | 23 (animation, board-discover, canvas, code, create, debug, design, dispatch, docs, explain, guide, market, pipeline, plan, postmortem, pr, release-gate, slides, sprint, support, test, video-editing, write) |
 | medium | 13 (analyze-permissions, board-sync, cleanup, commit, instinct, learn, media, note, onboard, constitution, prompt, resolve-conflicts, standup) |
 
 ## Quality Gates
@@ -175,7 +172,7 @@ Gate failure: diagnose, fix, retry. Use `ai-eng doctor --fix` or `ai-eng doctor 
 
 | What | Where |
 |------|-------|
-| Skills (44) | `.codex/skills/ai-<name>/SKILL.md` |
+| Skills (47) | `.codex/skills/ai-<name>/SKILL.md` |
 | Agents (10) | `.codex/agents/ai-<name>.md` |
 | Config | `.ai-engineering/manifest.yml` |
 | Decisions | `.ai-engineering/state/decision-store.json` |

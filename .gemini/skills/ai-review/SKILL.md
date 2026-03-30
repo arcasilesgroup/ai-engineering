@@ -20,9 +20,9 @@ High-signal code review with full specialist coverage and aggressive false-posit
 - When reviewing someone else's code
 - When you need architecture-aware feedback instead of deterministic gates
 
-## Step 0: Load Contexts
+## Step 0: Load Stack Contexts
 
-Follow `.ai-engineering/contexts/step-zero-protocol.md`. Apply loaded standards to all subsequent work.
+Follow `.ai-engineering/contexts/stack-context.md`. Apply loaded standards to all subsequent work.
 
 ## Profiles
 
@@ -32,7 +32,7 @@ Runs the full specialist roster through 3 fixed macro-agents:
 
 1. `correctness` + `testing` + `compatibility`
 2. `security` + `backend` + `performance`
-3. `architecture` + `maintainability` + `frontend`
+3. `architecture` + `maintainability` + `frontend` + `design`
 
 All specialist lenses still run. The grouping controls cost only. Final output stays attributed by original specialist lens.
 
@@ -53,6 +53,7 @@ Runs one agent per specialist with the same output contract and the same adversa
 | `architecture` | `reviewer-architecture.md` | necessity, patterns, reuse, proportionality |
 | `maintainability` | `reviewer-maintainability.md` | complexity, readability, naming, duplication |
 | `frontend` | `reviewer-frontend.md` | React, hooks, a11y, TypeScript (conditional) |
+| `design` | `reviewer-design.md` | CSS, animation, UI components, visual design (conditional) |
 
 All specialist agents are dispatched via the `Agent` tool from `.gemini/agents/`. They are not read inline -- each runs in its own context window.
 
@@ -63,7 +64,7 @@ All specialist agents are dispatched via the `Agent` tool from `.gemini/agents/`
 
 ### Specialist Phase
 - **Normal mode**: 3 macro-agent dispatches via `Agent` tool. Each macro-agent receives the specialist instructions for its group + shared context.
-- **Full mode**: 9 individual agent dispatches via `Agent` tool. Each specialist agent runs independently.
+- **Full mode**: 10 individual agent dispatches via `Agent` tool. Each specialist agent runs independently.
 
 ### Validation Phase
 - **Finding Validator** (`review-finding-validator.md`): Dispatched via `Agent` tool. Receives ONLY the YAML finding blocks (no reasoning chain). Reads code fresh. Issues CONFIRMED or DISMISSED verdict per finding.
