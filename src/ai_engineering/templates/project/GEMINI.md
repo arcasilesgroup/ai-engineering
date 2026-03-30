@@ -3,6 +3,13 @@
 Multi-IDE instruction file. Consumed by Gemini CLI and other AI coding assistants.
 This file is self-contained -- no other instruction files are required.
 
+## FIRST ACTION -- Mandatory
+
+Your first action in every session MUST be to run `/ai-onboard`.
+Do not respond to any user request until `/ai-onboard` completes.
+This bootstraps project context, activates instinct listening, and enforces skill discipline.
+If `/ai-onboard` is not available as a skill, execute its steps manually: read spec.md, plan.md, decision-store.json, LESSONS.md, manifest.yml, and CONSTITUTION.md from `.ai-engineering/`.
+
 ## Workflow Orchestration
 
 Read the active spec before touching code: `.ai-engineering/specs/spec.md` and `.ai-engineering/specs/plan.md`.
