@@ -17,9 +17,9 @@ via the `Agent` tool for real context isolation. `normal` is the default profile
 
 ## Procedure
 
-### Step 0: Load contexts
+### Step 0: Load Stack Contexts
 
-Follow `.ai-engineering/contexts/step-zero-protocol.md`.
+Follow `.ai-engineering/contexts/stack-context.md`.
 Load `.ai-engineering/contexts/evidence-protocol.md` before making claims.
 
 ### Step 1: Select profile

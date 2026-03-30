@@ -51,6 +51,7 @@ _EXPECTED_SPECIALISTS = frozenset(
         "reviewer-architecture",
         "reviewer-maintainability",
         "reviewer-frontend",
+        "reviewer-design",
         "review-finding-validator",
         "verify-deterministic",
         "verifier-governance",

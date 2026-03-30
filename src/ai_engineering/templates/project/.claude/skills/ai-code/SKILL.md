@@ -22,9 +22,9 @@ NOT for: tests (use /ai-test), debugging (use /ai-debug), refactoring (dispatch 
 
 ## Process
 
-### Step 0: Load Contexts
+### Step 0: Load Stack Contexts
 
-Follow `.ai-engineering/contexts/step-zero-protocol.md`. Apply loaded standards to all subsequent work.
+Follow `.ai-engineering/contexts/stack-context.md`. Apply loaded standards to all subsequent work.
 
 ### Step 1: Pre-Coding Checklist
 

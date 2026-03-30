@@ -31,13 +31,11 @@ Autonomous execution of large approved specs via a 6-phase pipeline. Decomposes 
 
 ## Process
 
-### Step 0: Load and Validate
+### Step 0: Validate
 
-1. Read `.ai-engineering/specs/spec.md` -- confirm it is not a placeholder
-2. Read `.ai-engineering/state/decision-store.json` -- load constraints
-3. If spec is placeholder: STOP. Report: "No approved spec. Run `/ai-brainstorm` first."
-4. If `--resume` flag: read `specs/autopilot/manifest.md` and jump to the Resume Protocol (Phase 6 handler)
-5. Note: plan.md is NOT required. Phase 2 agents generate their own plans (D7).
+1. Confirm `specs/spec.md` is not a placeholder. If it is: STOP. Report: "No approved spec. Run `/ai-brainstorm` first."
+2. If `--resume` flag: read `specs/autopilot/manifest.md` and jump to the Resume Protocol (Phase 6 handler)
+3. Note: plan.md is NOT required. Phase 2 agents generate their own plans (D7).
 
 ### Step 1: DECOMPOSE
 

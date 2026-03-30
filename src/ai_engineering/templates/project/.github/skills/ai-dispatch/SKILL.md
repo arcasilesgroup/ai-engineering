@@ -22,9 +22,7 @@ Execution engine for approved plans. Reads plan.md and tasks.md, dispatches one 
 
 ## Process
 
-1. **Load plan** -- read `specs/spec.md` -> `specs/plan.md`
-2. **Load decisions** -- read `decision-store.json` for constraints
-2.5. **Board sync (in_progress)** -- read `specs/spec.md` frontmatter `refs`; for each work item ref where the hierarchy rule is not `never_close` (i.e., user_stories, tasks, bugs, issues), invoke `/ai-board-sync in_progress <work-item-ref>`. Fail-open: do not block DAG construction if this fails.
+1. **Board sync (in_progress)** -- read `specs/spec.md` frontmatter `refs`; for each work item ref where the hierarchy rule is not `never_close` (i.e., user_stories, tasks, bugs, issues), invoke `/ai-board-sync in_progress <work-item-ref>`. Fail-open: do not block DAG construction if this fails.
 3. **Guard advisory** -- before dispatching any build task, invoke the Guard agent (`ai-guard`) in `gate` mode for governance advisory. Fail-open: if guard is unavailable or errors, log warning and continue -- never block dispatch.
 4. **Build DAG** -- parse task dependencies, identify parallel groups
 5. **Execute phase by phase** -- for each phase:

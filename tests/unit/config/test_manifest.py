@@ -191,7 +191,7 @@ class TestCicd:
 class TestSkills:
     def test_total(self, real_manifest_data: dict) -> None:
         config = ManifestConfig.model_validate(real_manifest_data)
-        assert config.skills.total == len(config.skills.registry) == 44
+        assert config.skills.total == len(config.skills.registry) == 47
 
     def test_prefix(self, real_manifest_data: dict) -> None:
         config = ManifestConfig.model_validate(real_manifest_data)

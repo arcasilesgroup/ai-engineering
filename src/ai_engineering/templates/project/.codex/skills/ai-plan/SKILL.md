@@ -24,8 +24,7 @@ HARD GATE: user must approve the plan before `/ai-dispatch` can run.
 ## Process
 
 1. **Read spec** -- load `specs/spec.md`. If spec.md does not conform to `.ai-engineering/contexts/spec-schema.md`, flag missing sections before proceeding.
-2. **Read context** -- `docs/solution-intent.md` section 7 (roadmap), `decision-store.json` (constraints), `.ai-engineering/CONSTITUTION.md` (project boundaries)
-3. **Explore codebase** -- understand current architecture, patterns, and affected files
+2. **Explore codebase** -- understand current architecture, patterns, and affected files
 4. **Classify pipeline** -- select full/standard/hotfix/trivial based on change scope
 5. **Decompose into tasks** -- bite-sized (2-5 min each), single-agent, single-concern
 6. **Assign agents** -- capability-match each task to the right agent
