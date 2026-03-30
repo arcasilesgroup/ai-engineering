@@ -23,9 +23,9 @@ Schema design, safe migration generation, query optimization, and data lifecycle
 
 ## Process
 
-### Step 0: Load Contexts
+### Step 0: Load Stack Contexts
 
-Follow `.ai-engineering/contexts/step-zero-protocol.md`. Apply loaded standards to all subsequent work.
+Follow `.ai-engineering/contexts/stack-context.md`. Apply loaded standards to all subsequent work.
 
 ## Modes
 

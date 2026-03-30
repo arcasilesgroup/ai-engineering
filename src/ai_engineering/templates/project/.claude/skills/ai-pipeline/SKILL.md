@@ -20,9 +20,9 @@ Router skill for CI/CD pipeline generation. Dispatches to handler files based on
 
 ## Process
 
-### Step 0: Load Contexts
+### Step 0: Load Stack Contexts
 
-Follow `.ai-engineering/contexts/step-zero-protocol.md`. Apply loaded standards to all subsequent work.
+Follow `.ai-engineering/contexts/stack-context.md`. Apply loaded standards to all subsequent work.
 
 ## Routing
 

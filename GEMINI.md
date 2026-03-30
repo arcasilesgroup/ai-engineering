@@ -10,12 +10,6 @@ Do not respond to any user request until `/ai-onboard` completes.
 This bootstraps project context, activates instinct listening, and enforces skill discipline.
 If `/ai-onboard` is not available as a skill, execute its steps manually: read spec.md, plan.md, decision-store.json, LESSONS.md, manifest.yml, and CONSTITUTION.md from `.ai-engineering/`.
 
-## Workflow Orchestration
-
-Read the active spec before touching code: `.ai-engineering/specs/spec.md` and `.ai-engineering/specs/plan.md`.
-Read the decision store to avoid repeating settled questions: `.ai-engineering/state/decision-store.json`.
-Before writing code or designing features, read `.ai-engineering/CONSTITUTION.md` if it exists.
-
 ### 1. Plan Mode Default
 
 - Enter plan mode for ANY non-trivial task (3+ steps or architectural decisions)

@@ -41,12 +41,10 @@ Invocation is the approval gate. All later gates are machine-enforced.
 
 ## Process
 
-### Step 0: Load and Validate
+### Step 0: Validate
 
-1. Read `.ai-engineering/manifest.yml`, `.ai-engineering/state/decision-store.json`, and `.ai-engineering/CONSTITUTION.md` if present.
-2. Read `.ai-engineering/specs/spec.md` and `.ai-engineering/specs/plan.md` only when they provide useful context for the run. Do not use them as live autonomous run state.
-3. If `--resume` is present, read `.ai-engineering/runs/<run-id>/manifest.md` and jump to the Resume Protocol in `handlers/phase-deliver.md`.
-4. Read the reference bundle:
+1. If `--resume` is present, read `.ai-engineering/runs/<run-id>/manifest.md` and jump to the Resume Protocol in `handlers/phase-deliver.md`.
+2. Read the reference bundle:
    - `references/architecture.md`
    - `references/phases.md`
    - `references/run-manifest.md`

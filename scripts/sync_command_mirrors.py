@@ -896,7 +896,7 @@ def generate_copilot_instructions(
 
     Produces a condensed Copilot-specific version with:
     - Source of Truth (condensed)
-    - Session Start Protocol (from Workflow Orchestration + Context Loading)
+    - FIRST ACTION -- Mandatory (auto-trigger /ai-onboard)
     - Plan/Execute Flow (from Task Management)
     - Absolute Prohibitions (from Don't, excluding Claude-specific items)
     - Observability (Copilot hook event names)
@@ -922,23 +922,20 @@ def generate_copilot_instructions(
     lines.append("- Contexts: `.ai-engineering/contexts/` (languages, frameworks, team)")
     lines.append("")
 
-    # Session Start Protocol
-    lines.append("## Session Start Protocol")
+    # FIRST ACTION -- Mandatory
+    lines.append("## FIRST ACTION -- Mandatory")
     lines.append("")
-    lines.append("Before non-trivial work:")
-    lines.append("")
+    lines.append("Your first action in every session MUST be to run `/ai-onboard`.")
+    lines.append("Do not respond to any user request until `/ai-onboard` completes.")
     lines.append(
-        "1. **Read active spec** -- `.ai-engineering/specs/spec.md`"
-        " and `.ai-engineering/specs/plan.md`."
+        "This bootstraps project context, activates instinct listening,"
+        " and enforces skill discipline."
     )
-    lines.append("2. **Read decision store** -- `.ai-engineering/state/decision-store.json`.")
-    lines.append("3. **Read constitution** -- `.ai-engineering/CONSTITUTION.md` (if it exists).")
     lines.append(
-        "4. **Load contexts** -- read `.ai-engineering/contexts/languages/{lang}.md`,"
-        " `frameworks/{fw}.md`, and `team/*.md` for each detected stack before writing code."
+        "If `/ai-onboard` is not available as a skill, execute its steps manually:"
+        " read spec.md, plan.md, decision-store.json, LESSONS.md, manifest.yml,"
+        " and CONSTITUTION.md from `.ai-engineering/`."
     )
-    lines.append("5. **Run cleanup** -- sync repo (status, git pull, prune, branch cleanup).")
-    lines.append("6. **Verify tooling** -- ruff, gitleaks, pytest, ty.")
     lines.append("")
 
     # Plan/Execute Flow

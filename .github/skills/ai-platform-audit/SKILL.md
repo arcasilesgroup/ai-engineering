@@ -20,9 +20,9 @@ Strict evidence-based audit of IDE platform support in ai-engineering. No assump
 - When a hook exists in `scripts/hooks/` but isn't firing.
 - NOT for general code quality — use `/ai-verify`. NOT for security scanning — use `/ai-security`.
 
-## Step 0: Load Contexts
+## Step 0: Load Stack Contexts
 
-Follow `.ai-engineering/contexts/step-zero-protocol.md`.
+Follow `.ai-engineering/contexts/stack-context.md`.
 
 ---
 

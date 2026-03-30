@@ -1,82 +1,58 @@
 ---
 name: ai-onboard
-description: "Use at the start of any coding session to bootstrap framework context: loads active spec, plan, decisions, lessons, and instinct patterns. Run before anything else when starting a new session or resuming work. Trigger for 'let's get started', 'picking up where we left off', 'what's the current state?', 'catch me up'. Not for human project orientation — use /ai-guide onboard."
+description: "Invoke this skill whenever a new coding session is beginning or resuming. Covers situations like: greeting Claude at the start of a work session, saying you're picking up from previous work, asking what the current project status is, wanting to orient yourself after opening a repo, or signaling you're ready to start fresh. This skill loads project context (spec, plan, decisions, LESSONS, manifest) and presents a status summary so the session starts grounded. Use it when the user's first message implies 'get me up to speed' or 'let's start working' rather than jumping directly into a task. Also invokable mid-session with /ai-onboard to re-bootstrap. Not for human developer onboarding — use /ai-guide for that."
 effort: medium
 argument-hint: 
 ---
-
 
 
 # Onboard
 
 ## Purpose
 
-Framework bootstrap and enforcement. Detect available skills, load active project context, refresh instinct context only when needed, and install the session rule that skills are mandatory when they apply.
-
-## Trigger
-
-- Auto-triggered via session-start hooks when available
-- Manual: `/ai-onboard`
-- Context: beginning of any non-trivial session
+Session bootstrap and enforcement. Run once at session start: detect available skills, load project context, activate instinct listening, present status, and enforce skill discipline for the session.
 
 ## Procedure
 
-1. **Detect skills**
-   - Scan the active platform skill directory and build a capability map.
+1. **Detect skills** — scan the active platform skill directory and build a capability map.
 
-2. **Load active project context**
+2. **Load project context**
    - Read `.ai-engineering/specs/spec.md`
    - Read `.ai-engineering/specs/plan.md`
    - Read `.ai-engineering/state/decision-store.json`
    - Read `.ai-engineering/LESSONS.md`
    - Read `.ai-engineering/manifest.yml`
    - Read `.ai-engineering/CONSTITUTION.md` if present
+   - Read `.ai-engineering/contexts/session-governance.md`
 
-3. **Activate instinct listening mode**
-   - Run `/ai-instinct` to enter passive observation mode for the session.
-   - Instinct consolidation happens later via `/ai-instinct --review` (triggered by `/ai-commit` and `/ai-pr`).
+3. **Activate instinct listening** — run `/ai-instinct` to enter passive observation mode.
+   Consolidation is deferred to `/ai-instinct --review` (triggered by `/ai-commit` and `/ai-pr`).
 
-4. **Present quick status**
-   - Report the active spec
-   - Report plan progress if a plan exists
-   - Report loaded skills count
-   - Report decision count or notable active risks
-   - Report instinct status: listening mode activated
-   - Report board configuration if present
+4. **Present status** — report concisely:
+   - Active spec (or `no active spec — run /ai-brainstorm`)
+   - Plan progress (e.g., `3/7 tasks complete`) or `no active plan`
+   - Skills loaded count
+   - Decision count and any active risks
+   - Instinct: `listening mode active`
+   - Board: e.g., `GitHub Projects v2 #4, 5 states mapped` or `not configured (run /ai-board-discover)`
 
-5. **Enforce skill discipline**
-   - Install this rule for the session:
+5. **Enforce skill discipline** — install this session rule:
+   > If a skill applies to the current task, use it. No shortcuts.
 
-     > If a skill applies to the current task, you MUST use it. No shortcuts.
+## Scope
 
-## Board Status Examples
+**Loads here (session start, once):** project state (spec, plan, decisions, LESSONS, manifest,
+constitution), session governance, instinct listening mode, skill discipline enforcement.
 
-- `Board: GitHub Projects v2 #4, 5 states mapped`
-- `Board: GitHub Labels (status: labels), 5 states mapped`
-- `Board: Azure DevOps (Agile), 5 states mapped`
-- `Board: not configured (run /ai-board-discover)`
+**Loads on demand (per skill):** language, framework, and team coding standards — loaded by
+execution skills (ai-code, ai-review, ai-test, ai-debug, ai-verify, ai-security, ai-schema,
+ai-pipeline, ai-skill-evolve, ai-platform-audit) via `stack-context.md`.
 
-## Session Governance
-
-Load `.ai-engineering/contexts/session-governance.md` for session governance rules and red flags.
-
-## Quick Reference
-
-```text
-/ai-onboard
-```
-
-No arguments. Reads project state, refreshes instinct context when warranted, and configures the session.
-
-## Boundaries
-
-- `onboard` does not execute product work
-- `onboard` should stay light; it loads context and activates instinct listening mode
-- `onboard` does not write instinct artifacts -- consolidation is deferred to `/ai-instinct --review`
-- If no active spec exists, report it but do not block the session
+**Does not:** execute product work, write instinct artifacts, or block the session if no active
+spec exists.
 
 ## Integration
 
-- **NOT** `/ai-guide` -- onboard loads AI session state; guide orients human developers
+- **NOT** `/ai-guide` — onboard loads AI session state; guide orients human developers
 
 $ARGUMENTS

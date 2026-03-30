@@ -22,9 +22,9 @@ This skill owns **pain diagnosis and rewrite strategy**. For the eval/grade/benc
 - NOT for creating new skills from scratch — use `/ai-create`.
 - NOT for platform audit — use `/ai-platform-audit`.
 
-## Step 0: Load Contexts
+## Step 0: Load Stack Contexts
 
-Follow `.ai-engineering/contexts/step-zero-protocol.md`.
+Follow `.ai-engineering/contexts/stack-context.md`.
 
 ---
 
