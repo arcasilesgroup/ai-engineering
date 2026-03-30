@@ -41,6 +41,10 @@ If `.ai-engineering/specs/spec.md` has frontmatter with `refs`:
    ```
 3. Only include refs for items that are `close_on_pr` in the hierarchy — do NOT include features.
 
+### 0.6. Instinct consolidation
+
+If `.ai-engineering/instincts/instincts.yml` exists (listening mode was active), run `/ai-instinct --review` to consolidate session observations before committing.
+
 ### 1. Stage changes
 
 Stage specific files -- `git add <file1> <file2>`. Use `git add -A` only when user explicitly requests or all files are relevant. Review what is staged; exclude generated files, secrets, large binaries.

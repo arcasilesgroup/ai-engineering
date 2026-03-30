@@ -81,7 +81,7 @@ class TestGovernancePhase:
         ctx = _ctx(tmp_path, mode=InstallMode.INSTALL)
         plan = phase.plan(ctx)
         team_actions = [a for a in plan.actions if "contexts/team/" in a.destination]
-        assert len(team_actions) == 2
+        assert len(team_actions) == 1
         for a in team_actions:
             assert a.action_type == "create"
             assert a.rationale == "team seed file"
@@ -94,13 +94,12 @@ class TestGovernancePhase:
         team_dir = tmp_path / ".ai-engineering" / "contexts" / "team"
         team_dir.mkdir(parents=True)
         (team_dir / "README.md").write_text("custom")
-        (team_dir / "lessons.md").write_text("custom")
 
         phase = GovernancePhase()
         ctx = _ctx(tmp_path, mode=InstallMode.INSTALL)
         plan = phase.plan(ctx)
         team_actions = [a for a in plan.actions if "contexts/team/" in a.destination]
-        assert len(team_actions) == 2
+        assert len(team_actions) == 1
         for a in team_actions:
             assert a.action_type == "skip"
             assert a.rationale == "team seed already exists"
@@ -113,7 +112,7 @@ class TestGovernancePhase:
         ctx = _ctx(tmp_path, mode=InstallMode.FRESH)
         plan = phase.plan(ctx)
         team_actions = [a for a in plan.actions if "contexts/team/" in a.destination]
-        assert len(team_actions) == 2
+        assert len(team_actions) == 1
         for a in team_actions:
             assert a.action_type == "overwrite"
 
@@ -125,7 +124,7 @@ class TestGovernancePhase:
         ctx = _ctx(tmp_path, mode=InstallMode.REPAIR)
         plan = phase.plan(ctx)
         team_actions = [a for a in plan.actions if "contexts/team/" in a.destination]
-        assert len(team_actions) == 2
+        assert len(team_actions) == 1
         for a in team_actions:
             assert a.action_type == "skip"
             assert a.rationale == "team-owned file"
@@ -156,7 +155,8 @@ class TestGovernancePhase:
         ai_dir = tmp_path / ".ai-engineering"
         # Team seed files
         assert (ai_dir / "contexts" / "team" / "README.md").is_file()
-        assert (ai_dir / "contexts" / "team" / "lessons.md").is_file()
+        # LESSONS.md is now at .ai-engineering/ root
+        assert (ai_dir / "LESSONS.md").is_file()
         assert (ai_dir / "contexts" / "cli-ux.md").is_file()
         assert (ai_dir / "contexts" / "mcp-integrations.md").is_file()
         # Specs placeholders

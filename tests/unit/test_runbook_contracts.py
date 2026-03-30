@@ -9,7 +9,7 @@ ROOT = Path(__file__).resolve().parents[2]
 RUNBOOK_ROOT = ROOT / ".ai-engineering" / "runbooks"
 TEMPLATE_ROOT = ROOT / "src" / "ai_engineering" / "templates" / ".ai-engineering" / "runbooks"
 
-# spec-085: 12 runbooks with minimal frontmatter schema
+# spec-085 + spec-091: 14 runbooks with minimal frontmatter schema
 ALL_RUNBOOKS = [
     "triage",
     "refine",
@@ -24,6 +24,7 @@ ALL_RUNBOOKS = [
     "governance-drift",
     "architecture-drift",
     "wiring-scanner",
+    "work-item-audit",
 ]
 
 REQUIRED_CONTRACT_KEYS = {

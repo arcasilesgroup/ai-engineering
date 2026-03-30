@@ -14,7 +14,7 @@
     ],
     "PreToolUse": [
       {
-        "matcher": "Bash|Write|Edit|MultiEdit",
+        "matcher": "Bash",
         "hooks": [
           {
             "type": "command",
@@ -24,7 +24,7 @@
         ]
       },
       {
-        "matcher": "Edit|Write|MultiEdit",
+        "matcher": "Bash",
         "hooks": [
           {
             "type": "command",
@@ -34,17 +34,7 @@
         ]
       },
       {
-        "matcher": "mcp__",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "AIENG_HOOK_ENGINE=codex python3 .ai-engineering/scripts/hooks/mcp-health.py",
-            "timeout": 15
-          }
-        ]
-      },
-      {
-        "matcher": "",
+        "matcher": "Bash",
         "hooks": [
           {
             "type": "command",
@@ -56,32 +46,12 @@
     ],
     "PostToolUse": [
       {
-        "matcher": "",
+        "matcher": "Bash",
         "hooks": [
           {
             "type": "command",
             "command": "AIENG_HOOK_ENGINE=codex python3 .ai-engineering/scripts/hooks/instinct-observe.py",
             "timeout": 10
-          }
-        ]
-      },
-      {
-        "matcher": "Agent",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "AIENG_HOOK_ENGINE=codex python3 .ai-engineering/scripts/hooks/observe.py",
-            "timeout": 10
-          }
-        ]
-      },
-      {
-        "matcher": "Edit|Write|MultiEdit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "AIENG_HOOK_ENGINE=codex python3 .ai-engineering/scripts/hooks/auto-format.py",
-            "timeout": 15
           }
         ]
       }

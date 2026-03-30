@@ -111,9 +111,9 @@ contexts:
 # === FRAMEWORK MANAGED (do not edit below this line) ===
 # These sections are maintained by ai-engineering automatically.
 
-# Skills registry (41 skills)
+# Skills registry (44 skills)
 skills:
-  total: 41
+  total: 44
   prefix: "ai-"
   registry:
     # Core workflow
@@ -156,6 +156,7 @@ skills:
     ai-analyze-permissions: { type: meta, tags: [permissions] }
     ai-instinct: { type: meta, tags: [meta, learning, continuous-improvement] }
     ai-autopilot: { type: meta, tags: [orchestration, autonomous, multi-spec] }
+    ai-run: { type: meta, tags: [orchestration, autonomous, backlog, no-hitl] }
     ai-constitution: { type: meta, tags: [governance] }
     # ECC Integration (spec-062)
     ai-slides: { type: writing, tags: [presentation, html, css] }
@@ -165,17 +166,20 @@ skills:
     # Board integration
     ai-board-discover: { type: enterprise, tags: [board, discovery] }
     ai-board-sync: { type: enterprise, tags: [board, sync] }
+    # Platform governance
+    ai-platform-audit: { type: enterprise, tags: [audit, platform, governance] }
+    ai-skill-evolve: { type: meta, tags: [improvement, skills, optimization] }
 
-# Agents (9)
+# Agents (10)
 agents:
-  total: 9
-  names: [plan, build, verify, guard, review, explore, guide, simplify, autopilot]
+  total: 10
+  names: [plan, build, verify, guard, review, explore, guide, simplify, autopilot, run-orchestrator]
 
 # Ownership
 ownership:
   framework: [".claude/skills/**", ".claude/agents/**", ".ai-engineering/**", ".github/agents/**", ".github/skills/**", ".github/hooks/**", ".github/copilot-instructions.md", ".codex/**", ".gemini/**"]
   team: [".ai-engineering/contexts/team/**"]
-  system: [".ai-engineering/state/**", ".ai-engineering/learnings/**"]  # learnings: PR review learnings extracted by /ai-learn
+  system: [".ai-engineering/state/**"]
 
 # Tooling
 tooling: [uv, ruff, gitleaks, pytest, ty, pip-audit]

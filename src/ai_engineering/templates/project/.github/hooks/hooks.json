@@ -38,6 +38,18 @@
     "preToolUse": [
       {
         "type": "command",
+        "bash": "./.ai-engineering/scripts/hooks/copilot-injection-guard.sh",
+        "timeoutSec": 15,
+        "comment": "Scan tool inputs for prompt injection attacks before execution"
+      },
+      {
+        "type": "command",
+        "bash": "./.ai-engineering/scripts/hooks/copilot-mcp-health.sh",
+        "timeoutSec": 15,
+        "comment": "Monitor MCP server health on tool invocations"
+      },
+      {
+        "type": "command",
         "bash": "./.ai-engineering/scripts/hooks/copilot-deny.sh",
         "powershell": "./.ai-engineering/scripts/hooks/copilot-deny.ps1",
         "timeoutSec": 5,

@@ -6,12 +6,13 @@ and verifies --check mode reports zero drift against the real repo.
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
-# Expected architecture values (post spec-055 radical simplification)
-_EXPECTED_AGENT_COUNT = 9
+# Expected architecture values (post spec-091 ai-run orchestration)
+_EXPECTED_AGENT_COUNT = 10
 _EXPECTED_AGENT_NAMES = frozenset(
     {
         "autopilot",
@@ -21,6 +22,7 @@ _EXPECTED_AGENT_NAMES = frozenset(
         "guide",
         "plan",
         "review",
+        "run-orchestrator",
         "simplify",
         "verify",
     }
@@ -171,6 +173,13 @@ class TestGenerationFunctions:
         # Should be an exact copy
         assert content == skill_path.read_text(encoding="utf-8")
 
+    def test_generate_install_codex_surface_copies_content(self) -> None:
+        from scripts.sync_command_mirrors import ROOT, generate_install_codex_surface
+
+        surface_path = ROOT / ".codex" / "hooks.json"
+        content = generate_install_codex_surface(surface_path)
+        assert content == surface_path.read_text(encoding="utf-8")
+
     def test_generate_agents_md_preserves_provider_rows_and_counts(self) -> None:
         from scripts.sync_command_mirrors import (
             discover_agents,
@@ -185,8 +194,42 @@ class TestGenerationFunctions:
 
         # Platform Mirrors table removed (spec-087) -- only check Skills header
         assert f"## Skills ({len(skills)})" in content
+        # Source-of-Truth uses .codex/ paths (AGENTS.md is Codex-only)
         assert f"| Skills ({len(skills)}) | `.codex/skills/ai-<name>/SKILL.md` |" in content
         assert f"| Agents ({len(agents)}) | `.codex/agents/ai-<name>.md` |" in content
+
+    def test_codex_provider_surfaces_match_install_templates(self) -> None:
+        root_hooks = (_PROJECT_ROOT / ".codex" / "hooks.json").read_text(encoding="utf-8")
+        tpl_hooks = (
+            _PROJECT_ROOT
+            / "src"
+            / "ai_engineering"
+            / "templates"
+            / "project"
+            / ".codex"
+            / "hooks.json"
+        ).read_text(encoding="utf-8")
+        root_config = (_PROJECT_ROOT / ".codex" / "config.toml").read_text(encoding="utf-8")
+        tpl_config = (
+            _PROJECT_ROOT
+            / "src"
+            / "ai_engineering"
+            / "templates"
+            / "project"
+            / ".codex"
+            / "config.toml"
+        ).read_text(encoding="utf-8")
+
+        assert root_hooks == tpl_hooks
+        assert root_config == tpl_config
+
+    def test_codex_hooks_are_bash_only_for_tool_events(self) -> None:
+        hooks = json.loads((_PROJECT_ROOT / ".codex" / "hooks.json").read_text(encoding="utf-8"))
+        pre = hooks["hooks"]["PreToolUse"]
+        post = hooks["hooks"]["PostToolUse"]
+
+        assert all(entry["matcher"] == "Bash" for entry in pre)
+        assert all(entry["matcher"] == "Bash" for entry in post)
 
 
 # -- Validation functions --
@@ -524,6 +567,45 @@ class TestHandlerParity:
                 if not cx_handler.is_file():
                     missing.append(f".codex/skills/ai-{bare_name}/handlers/{handler_name}.md")
         assert not missing, f"{len(missing)} handler mirror(s) missing:\n" + "\n".join(
+            f"  - {m}" for m in missing
+        )
+
+
+class TestReferenceParity:
+    """Verify reference mirrors exist for every canonical reference file."""
+
+    def test_reference_parity(self) -> None:
+        from scripts.sync_command_mirrors import (
+            CLAUDE_SKILLS,
+            discover_reference_files,
+            is_copilot_compatible,
+        )
+
+        missing: list[str] = []
+        github_skills = _PROJECT_ROOT / ".github" / "skills"
+        codex_skills = _PROJECT_ROOT / ".codex" / "skills"
+        gemini_skills = _PROJECT_ROOT / ".gemini" / "skills"
+
+        for skill_dir in sorted(CLAUDE_SKILLS.iterdir()):
+            if not skill_dir.is_dir() or not skill_dir.name.startswith("ai-"):
+                continue
+            bare_name = skill_dir.name.removeprefix("ai-")
+            skill_file = skill_dir / "SKILL.md"
+            copilot_ok = skill_file.is_file() and is_copilot_compatible(skill_file)
+            references = discover_reference_files(skill_dir)
+            for ref_name, _ in references:
+                cx_ref = codex_skills / f"ai-{bare_name}" / "references" / ref_name
+                gm_ref = gemini_skills / f"ai-{bare_name}" / "references" / ref_name
+                if not cx_ref.is_file():
+                    missing.append(f".codex/skills/ai-{bare_name}/references/{ref_name}")
+                if not gm_ref.is_file():
+                    missing.append(f".gemini/skills/ai-{bare_name}/references/{ref_name}")
+                if copilot_ok:
+                    gh_ref = github_skills / f"ai-{bare_name}" / "references" / ref_name
+                    if not gh_ref.is_file():
+                        missing.append(f".github/skills/ai-{bare_name}/references/{ref_name}")
+
+        assert not missing, f"{len(missing)} reference mirror(s) missing:\n" + "\n".join(
             f"  - {m}" for m in missing
         )
 

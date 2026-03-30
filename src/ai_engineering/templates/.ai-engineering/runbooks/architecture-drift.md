@@ -255,31 +255,32 @@ for dec in active:
 
 Each `FAIL` result is recorded as a finding with severity `high`. Each `SKIP` is noted in the report without creating a work item.
 
-### Step 8 -- Create work items for drift findings
+### Step 8 -- Map findings and deduplicate via handler
 
-For each finding from Steps 4-7, create a task work item. Respect the 10-item mutation limit.
+Map each finding from Steps 4-7 to the Finding contract and route through the shared dedup handler.
 
-```bash
-# GitHub Issues
-gh issue create \
-  --title "[architecture-drift] Layer violation: $SOURCE_LAYER imports $TARGET_LAYER" \
-  --body "## Architecture Drift Finding
+**Finding mapping:**
 
-**Category:** $CATEGORY (import-cycle | layer-violation | undocumented-module | decision-mismatch)
-**Severity:** $SEVERITY
-**Evidence:** \`$FILE:$LINE\`
-**Rule violated:** $RULE_DESCRIPTION
-**Remediation:** $SUGGESTED_FIX
+```yaml
+domain_label: "architecture-drift"
+title: "[architecture-drift] $FINDING_SUMMARY"
+file_path: $FILE_PATH
+rule_id: $CATEGORY (import-cycle | layer-violation | undocumented-module | decision-mismatch)
+symbol: null
+severity: $SEVERITY (import-cycle/layer-violation = high, undocumented-module/decision-mismatch = medium)
+body: |
+  ## Architecture Drift Finding
 
-Detected by: architecture-drift runbook" \
-  --label "architecture-drift"
+  **Category:** $CATEGORY
+  **Severity:** $SEVERITY
+  **Evidence:** `$FILE:$LINE`
+  **Rule violated:** $RULE_DESCRIPTION
+  **Remediation:** $SUGGESTED_FIX
 
-# Azure DevOps
-az boards work-item create --type Task \
-  --title "[architecture-drift] $FINDING_SUMMARY" \
-  --description "<body>" \
-  --area "Project\\TeamName"
+  Detected by: architecture-drift runbook
 ```
+
+Follow `handlers/dedup-check.md` to process all findings through the dedup cascade (max 10 per run).
 
 ### Step 9 -- Generate drift report
 
@@ -321,5 +322,5 @@ Structured report to stdout. Work items created for confirmed findings. No local
 3. **Mutations enabled by default.** Work items are created automatically.
 4. **Bounded mutations.** A maximum of 10 work items are created per run. If findings exceed this limit, the report notes the overflow and stops creating items.
 5. **Protected states.** Items in `closed` or `resolved` state are never reopened or modified. Labels `p1-critical` and `pinned` are never removed.
-6. **Idempotent.** Before creating a work item, the runbook searches existing open issues for the same finding signature (category + file + rule). Duplicates are skipped.
+6. **Idempotent.** Deduplication is delegated to the shared handler (`handlers/dedup-check.md`), which checks consolidated issues first, then individual issues, before creating new items.
 7. **No inferred violations.** Only explicitly documented layers, boundaries, and decisions are checked. The runbook does not speculate about undeclared architectural intent.

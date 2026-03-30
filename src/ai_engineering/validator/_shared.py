@@ -125,6 +125,16 @@ _TEMPLATE_INSTRUCTION_FILES: list[str] = [
     "src/ai_engineering/templates/project/CLAUDE.md",
 ]
 
+# Copilot instruction files intentionally have a lower skill count because
+# copilot-incompatible skills (e.g. ai-analyze-permissions) are excluded.
+# These files are checked separately and excluded from cross-file consistency.
+_COPILOT_INSTRUCTION_FILES: frozenset[str] = frozenset(
+    {
+        ".github/copilot-instructions.md",
+        "src/ai_engineering/templates/project/copilot-instructions.md",
+    }
+)
+
 
 def _is_source_repo(target: Path) -> bool:
     """True if *target* is the ai-engineering source repository."""

@@ -152,20 +152,20 @@ class TestOwnershipSafety:
     def test_create_blocked_by_deny_ownership(self, installed_project: Path) -> None:
         """An explicit deny pattern prevents creation of a new file in team-managed paths."""
         # Delete a team-managed file that exists in templates
-        team_lessons = installed_project / ".ai-engineering" / "contexts" / "team" / "lessons.md"
-        team_lessons.parent.mkdir(parents=True, exist_ok=True)
-        if team_lessons.exists():
-            team_lessons.unlink()
+        team_readme = installed_project / ".ai-engineering" / "contexts" / "team" / "README.md"
+        team_readme.parent.mkdir(parents=True, exist_ok=True)
+        if team_readme.exists():
+            team_readme.unlink()
 
         result = update(installed_project, dry_run=True)
 
         # The file should be reported as skip-denied even though it doesn't exist,
         # because the ownership pattern denies creation on contexts/team/** paths
         match = next(
-            (c for c in result.changes if c.path == team_lessons),
+            (c for c in result.changes if c.path == team_readme),
             None,
         )
-        assert match is not None, "Expected team lessons file in changes"
+        assert match is not None, "Expected team README file in changes"
         assert match.action == "skip-denied"
         assert match.reason_code == "team-managed-create-protected"
 

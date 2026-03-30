@@ -2,13 +2,15 @@
 """Sync command mirrors across all IDE surfaces from canonical .claude/ sources.
 
 Canonical source (repo root):
-  .claude/skills/ai-*/SKILL.md   (+ optional handlers/)
+  .claude/skills/ai-*/SKILL.md   (+ optional handlers/, references/, scripts/)
   .claude/agents/ai-*.md
 
 Generates mirrors in:
-  - .codex/skills/           (Codex IDE skills -- keep ai- prefix, + handlers/)
+  - .codex/skills/           (Codex IDE skills -- keep ai- prefix, + handlers/references/)
   - .codex/agents/           (Codex IDE agents -- copy as-is)
-  - .github/skills/          (GitHub Copilot Agent Skills -- directory per skill, + handlers/)
+  - src/ai_engineering/templates/project/.codex/hooks.json
+  - src/ai_engineering/templates/project/.codex/config.toml
+  - .github/skills/          (Copilot Agent Skills -- per skill dir + handlers/)
   - .github/agents/          (GitHub Copilot agent personas)
   - src/ai_engineering/templates/project/.claude/skills/   (install template)
   - src/ai_engineering/templates/project/.claude/agents/   (install template)
@@ -60,6 +62,8 @@ TPL_GEMINI_SKILLS = TPL_PROJECT / ".gemini" / "skills"
 TPL_GEMINI_AGENTS = TPL_PROJECT / ".gemini" / "agents"
 TPL_CODEX_SKILLS = TPL_PROJECT / ".codex" / "skills"
 TPL_CODEX_AGENTS = TPL_PROJECT / ".codex" / "agents"
+TPL_CODEX_HOOKS = TPL_PROJECT / ".codex" / "hooks.json"
+TPL_CODEX_CONFIG = TPL_PROJECT / ".codex" / "config.toml"
 TPL_GITHUB_SKILLS = TPL_PROJECT / ".github" / "skills"
 TPL_GITHUB_AGENTS = TPL_PROJECT / "agents"
 
@@ -294,6 +298,25 @@ AGENT_METADATA: dict[str, AgentMeta] = {
             },
         ),
     ),
+    "run-orchestrator": AgentMeta(
+        display_name="Run",
+        description=(
+            "Autonomous backlog orchestrator -- normalizes work items,"
+            " plans safely from architectural evidence, executes through"
+            " build, consolidates locally, and delivers through PRs."
+        ),
+        model="opus",
+        color="purple",
+        copilot_tools=(
+            "codebase",
+            "githubRepo",
+            "readFile",
+            "runCommands",
+            "search",
+        ),
+        claude_tools=("Read", "Glob", "Grep", "Bash"),
+        copilot_agents=("Build", "Explorer", "Verify", "Review", "Guard"),
+    ),
 }
 
 
@@ -314,9 +337,8 @@ LANG_EXTENSIONS: dict[str, str] = {
     "csharp": "**/*.cs",
     "swift": "**/*.swift",
     "dart": "**/*.dart",
-    "ruby": "**/*.rb",
+    "cpp": "**/*.cpp,**/*.cc,**/*.cxx,**/*.h,**/*.hpp",
     "php": "**/*.php",
-    "elixir": "**/*.ex,**/*.exs",
     "bash": "**/*.sh,**/*.bash",
     "sql": "**/*.sql",
 }
@@ -599,6 +621,23 @@ def discover_resources(skill_dir: Path) -> list[tuple[str, Path]]:
     return resources
 
 
+def discover_reference_files(skill_dir: Path) -> list[tuple[str, Path]]:
+    """Discover files under a skill's references/ directory.
+
+    Returns (relative_path, absolute_path) tuples sorted by path.
+    Relative paths use POSIX separators so they can be joined onto
+    target mirror directories without additional normalization.
+    """
+    references_dir = skill_dir / "references"
+    if not references_dir.is_dir():
+        return []
+    references = []
+    for ref_file in sorted(references_dir.rglob("*")):
+        if ref_file.is_file():
+            references.append((ref_file.relative_to(references_dir).as_posix(), ref_file))
+    return references
+
+
 def discover_scripts(skill_dir: Path) -> list[tuple[str, Path]]:
     """Discover script files under a skill's scripts/ directory.
 
@@ -864,7 +903,7 @@ def generate_copilot_instructions(
     - Subagent Orchestration (from AGENT_METADATA)
     - Quick Reference (counts and paths)
     """
-    skill_count = len(skills)
+    skill_count = sum(1 for _n, _fm, sp in skills if is_copilot_compatible(sp))
     agent_count = len(agents)
 
     lines: list[str] = []
@@ -1020,6 +1059,11 @@ def generate_install_claude_skill(skill_path: Path) -> str:
 def generate_install_claude_agent(agent_path: Path) -> str:
     """Copy .claude/agents/ai-<name>.md as-is for install template."""
     return agent_path.read_text(encoding="utf-8")
+
+
+def generate_install_codex_surface(path: Path) -> str:
+    """Copy a root Codex provider surface as-is for the install template."""
+    return path.read_text(encoding="utf-8")
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -1203,18 +1247,22 @@ def sync_all(*, check_only: bool = False, verbose: bool = False) -> int:
     agent_count = len(agents)
     print(f"Discovered: {skill_count} skills, {agent_count} agents")
 
-    # ── Pre-discover handlers/scripts/resources once per skill ───────────
+    # ── Pre-discover handlers/scripts/references/resources once per skill ───────────
     skill_handlers: dict[str, list[tuple[str, Path]]] = {}
+    skill_references: dict[str, list[tuple[str, Path]]] = {}
     skill_scripts: dict[str, list[tuple[str, Path]]] = {}
     skill_resources: dict[str, list[tuple[str, Path]]] = {}
     skill_raw: dict[Path, str] = {}  # cache raw file reads
     for name, _fm, skill_path in skills:
         skill_handlers[name] = discover_handlers(skill_path.parent)
+        skill_references[name] = discover_reference_files(skill_path.parent)
         skill_scripts[name] = discover_scripts(skill_path.parent)
         skill_resources[name] = discover_resources(skill_path.parent)
         skill_raw[skill_path] = skill_path.read_text(encoding="utf-8")
         for _h_name, h_path in skill_handlers[name]:
             skill_raw[h_path] = h_path.read_text(encoding="utf-8")
+        for _r_name, r_path in skill_references[name]:
+            skill_raw[r_path] = r_path.read_text(encoding="utf-8")
         for _s_name, s_path in skill_scripts[name]:
             skill_raw[s_path] = s_path.read_text(encoding="utf-8")
         for _r_name, r_path in skill_resources[name]:
@@ -1238,6 +1286,14 @@ def sync_all(*, check_only: bool = False, verbose: bool = False) -> int:
             for target in (
                 CODEX_SKILLS / f"ai-{name}" / "handlers" / f"{handler_name}.md",
                 TPL_CODEX_SKILLS / f"ai-{name}" / "handlers" / f"{handler_name}.md",
+            ):
+                _generate_surface(target, translated, check_only, verbose, generated_paths, diffs)
+
+        for ref_name, ref_path in skill_references[name]:
+            translated = translate_refs(skill_raw[ref_path], "codex")
+            for target in (
+                CODEX_SKILLS / f"ai-{name}" / "references" / ref_name,
+                TPL_CODEX_SKILLS / f"ai-{name}" / "references" / ref_name,
             ):
                 _generate_surface(target, translated, check_only, verbose, generated_paths, diffs)
 
@@ -1266,6 +1322,14 @@ def sync_all(*, check_only: bool = False, verbose: bool = False) -> int:
         _generate_surface(path, content, check_only, verbose, generated_paths, diffs)
         _generate_surface(tpl, content, check_only, verbose, generated_paths, diffs)
 
+    # Surface 2a: provider-owned Codex config/hooks mirrored into install templates.
+    for root_path, tpl_path in (
+        (ROOT / ".codex" / "hooks.json", TPL_CODEX_HOOKS),
+        (ROOT / ".codex" / "config.toml", TPL_CODEX_CONFIG),
+    ):
+        content = generate_install_codex_surface(root_path)
+        _generate_surface(tpl_path, content, check_only, verbose, generated_paths, diffs)
+
     # Surface 2.1: .gemini/skills/ai-<name>/SKILL.md (keep ai- prefix, strip metadata)
     for name, _fm, skill_path in skills:
         path = GEMINI_SKILLS / f"ai-{name}" / "SKILL.md"
@@ -1279,6 +1343,14 @@ def sync_all(*, check_only: bool = False, verbose: bool = False) -> int:
             for target in (
                 GEMINI_SKILLS / f"ai-{name}" / "handlers" / f"{handler_name}.md",
                 TPL_GEMINI_SKILLS / f"ai-{name}" / "handlers" / f"{handler_name}.md",
+            ):
+                _generate_surface(target, translated, check_only, verbose, generated_paths, diffs)
+
+        for ref_name, ref_path in skill_references[name]:
+            translated = translate_refs(skill_raw[ref_path], "gemini")
+            for target in (
+                GEMINI_SKILLS / f"ai-{name}" / "references" / ref_name,
+                TPL_GEMINI_SKILLS / f"ai-{name}" / "references" / ref_name,
             ):
                 _generate_surface(target, translated, check_only, verbose, generated_paths, diffs)
 
@@ -1343,6 +1415,14 @@ def sync_all(*, check_only: bool = False, verbose: bool = False) -> int:
                     target, handler_content, check_only, verbose, generated_paths, diffs
                 )
 
+        for ref_name, ref_path in skill_references[name]:
+            ref_content = translate_refs(skill_raw[ref_path], "copilot")
+            for target in (
+                GITHUB_SKILLS / f"ai-{name}" / "references" / ref_name,
+                TPL_GITHUB_SKILLS / f"ai-{name}" / "references" / ref_name,
+            ):
+                _generate_surface(target, ref_content, check_only, verbose, generated_paths, diffs)
+
         for script_name, script_path in skill_scripts[name]:
             for target in (
                 GITHUB_SKILLS / f"ai-{name}" / "scripts" / script_name,
@@ -1382,6 +1462,12 @@ def sync_all(*, check_only: bool = False, verbose: bool = False) -> int:
             tpl_handler = TPL_CLAUDE_SKILLS / f"ai-{name}" / "handlers" / f"{handler_name}.md"
             _generate_surface(
                 tpl_handler, skill_raw[handler_path], check_only, verbose, generated_paths, diffs
+            )
+
+        for ref_name, ref_path in skill_references[name]:
+            tpl_ref = TPL_CLAUDE_SKILLS / f"ai-{name}" / "references" / ref_name
+            _generate_surface(
+                tpl_ref, skill_raw[ref_path], check_only, verbose, generated_paths, diffs
             )
 
         for script_name, script_path in skill_scripts[name]:
@@ -1569,6 +1655,8 @@ def _handle_orphans(
         (TPL_GEMINI_AGENTS, "glob", "*.md"),
         (TPL_CODEX_SKILLS, "rglob_subdirs", "ai-"),
         (TPL_CODEX_AGENTS, "glob", "*.md"),
+        (TPL_CODEX_HOOKS.parent, "glob", "hooks.json"),
+        (TPL_CODEX_CONFIG.parent, "glob", "config.toml"),
         (TPL_GITHUB_SKILLS, "rglob_subdirs", "ai-"),
         (TPL_GITHUB_AGENTS, "glob", "*.md"),
     ]

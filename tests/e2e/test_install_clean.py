@@ -64,7 +64,6 @@ class TestInstallClean:
         assert not (state_dir / "audit-log.ndjson").exists()
         instincts_dir = tmp_path / ".ai-engineering" / "instincts"
         assert (instincts_dir / "instincts.yml").is_file()
-        assert (instincts_dir / "context.md").is_file()
         assert (instincts_dir / "meta.json").is_file()
 
     def test_install_state_roundtrips(
@@ -115,12 +114,14 @@ class TestInstallClean:
         install(tmp_path, stacks=["python"], ides=["vscode"])
         team_dir = tmp_path / ".ai-engineering" / "contexts" / "team"
 
-        # Exactly 2 seed files
+        # Exactly 1 seed file (lessons.md moved to .ai-engineering/LESSONS.md)
         team_files = sorted(f.name for f in team_dir.iterdir() if f.is_file())
-        assert team_files == ["README.md", "lessons.md"]
+        assert team_files == ["README.md"]
 
-        # lessons.md is generic (no project-specific patterns)
-        lessons = (team_dir / "lessons.md").read_text(encoding="utf-8")
+        # LESSONS.md lives at .ai-engineering/ root
+        lessons_path = tmp_path / ".ai-engineering" / "LESSONS.md"
+        assert lessons_path.is_file()
+        lessons = lessons_path.read_text(encoding="utf-8")
         assert "## Rules & Patterns" in lessons
         assert "## How to Add Lessons" in lessons
         assert "## Patterns" in lessons

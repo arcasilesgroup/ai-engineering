@@ -1,4 +1,4 @@
-"""Project-local instinct learning artifacts for spec-080."""
+"""Project-local instinct learning artifacts for spec-080, v2 schema (spec-090)."""
 
 from __future__ import annotations
 
@@ -18,12 +18,9 @@ from ai_engineering.state.observability import framework_events_path
 
 OBSERVATION_RETENTION_DAYS = 30
 MAX_SUMMARY_LEN = 160
-MAX_CONTEXT_ITEMS = 5
-INSTINCTS_SCHEMA_VERSION = "1.0"
-INSTINCT_CONTEXT_HEADER = "# Instinct Context"
+INSTINCTS_SCHEMA_VERSION = "2.0"
 INSTINCT_OBSERVATIONS_REL = Path(".ai-engineering/state/instinct-observations.ndjson")
 INSTINCTS_REL = Path(".ai-engineering/instincts/instincts.yml")
-INSTINCT_CONTEXT_REL = Path(".ai-engineering/instincts/context.md")
 INSTINCT_META_REL = Path(".ai-engineering/instincts/meta.json")
 
 _SECRET_RE = re.compile(
@@ -53,10 +50,6 @@ def instincts_path(project_root: Path) -> Path:
     return project_root / INSTINCTS_REL
 
 
-def instinct_context_path(project_root: Path) -> Path:
-    return project_root / INSTINCT_CONTEXT_REL
-
-
 def instinct_meta_path(project_root: Path) -> Path:
     return project_root / INSTINCT_META_REL
 
@@ -65,17 +58,10 @@ def default_instincts_document() -> dict[str, Any]:
     return {
         "schemaVersion": INSTINCTS_SCHEMA_VERSION,
         "updatedAt": _iso_now(),
-        "toolSequences": [],
-        "errorRecoveries": [],
-        "skillAgentPreferences": [],
+        "corrections": [],
+        "recoveries": [],
+        "workflows": [],
     }
-
-
-def default_instinct_context() -> str:
-    return (
-        f"{INSTINCT_CONTEXT_HEADER}\n\n"
-        "No active instincts yet. Capture more sessions before loading this context.\n"
-    )
 
 
 def ensure_instinct_artifacts(project_root: Path) -> None:
@@ -91,10 +77,6 @@ def ensure_instinct_artifacts(project_root: Path) -> None:
             yaml.safe_dump(default_instincts_document(), sort_keys=False),
             encoding="utf-8",
         )
-
-    context_path = instinct_context_path(project_root)
-    if not context_path.exists():
-        context_path.write_text(default_instinct_context(), encoding="utf-8")
 
     meta_path = instinct_meta_path(project_root)
     if not meta_path.exists():
@@ -115,11 +97,13 @@ def load_instincts_document(project_root: Path) -> dict[str, Any]:
     ensure_instinct_artifacts(project_root)
     path = instincts_path(project_root)
     raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    if raw.get("schemaVersion") != "2.0":
+        raw = _migrate_v1_to_v2(raw)
     doc = default_instincts_document()
     doc.update(raw)
-    doc["toolSequences"] = list(doc.get("toolSequences", []))
-    doc["errorRecoveries"] = list(doc.get("errorRecoveries", []))
-    doc["skillAgentPreferences"] = list(doc.get("skillAgentPreferences", []))
+    doc["corrections"] = list(doc.get("corrections") or [])
+    doc["recoveries"] = list(doc.get("recoveries") or [])
+    doc["workflows"] = list(doc.get("workflows") or [])
     return doc
 
 
@@ -190,91 +174,33 @@ def extract_instincts(project_root: Path) -> bool:
 
     document = load_instincts_document(project_root)
     sessions = _group_by_session(new_observations)
-    sequence_counts = _detect_tool_sequences(sessions)
-    recovery_counts = _detect_error_recoveries(sessions)
-    preference_counts = _detect_skill_agent_preferences(project_root, set(sessions))
 
+    # Recoveries (error -> recovery tool patterns)
+    recovery_counts = _detect_error_recoveries(sessions)
     _merge_counter(
-        document["toolSequences"],
-        sequence_counts,
-        builder=lambda key, count, last_seen: {
-            "key": key,
-            "guidance": f"Common tool sequence: {key}.",
-            "evidenceCount": count,
-            "lastSeenAt": last_seen,
-        },
-    )
-    _merge_counter(
-        document["errorRecoveries"],
+        document["recoveries"],
         recovery_counts,
-        builder=_build_error_recovery_entry,
+        builder=_build_recovery_entry,
     )
+
+    # Workflows (skill -> skill sequences from framework events)
+    workflow_counts = _detect_skill_workflows(project_root)
     _merge_counter(
-        document["skillAgentPreferences"],
-        preference_counts,
-        builder=_build_skill_agent_preference_entry,
+        document["workflows"],
+        workflow_counts,
+        builder=_build_workflow_entry,
     )
+
+    # Apply confidence scoring to all merged entries
+    for family in ("recoveries", "workflows"):
+        for entry in document[family]:
+            entry["confidence"] = confidence_for_count(entry.get("evidenceCount", 1))
+
     save_instincts_document(project_root, document)
 
     newest = max((entry.timestamp for entry in new_observations), default=None)
     meta.last_extracted_at = newest
-    meta.pending_context_refresh = True
     save_instinct_meta(project_root, meta)
-    return True
-
-
-def needs_context_refresh(
-    project_root: Path,
-    *,
-    now: datetime | None = None,
-) -> tuple[bool, dict[str, Any]]:
-    ensure_instinct_artifacts(project_root)
-    current = now or datetime.now(tz=UTC)
-    meta = load_instinct_meta(project_root)
-    observations = prune_instinct_observations(project_root, now=current)
-    context_path = instinct_context_path(project_root)
-    last_context = meta.last_context_generated_at
-    delta_count = sum(
-        1 for entry in observations if last_context is None or entry.timestamp > last_context
-    )
-    stale = (
-        last_context is None
-        or not context_path.exists()
-        or (current - last_context) >= timedelta(hours=meta.context_max_age_hours)
-    )
-    should_refresh = meta.pending_context_refresh or stale or delta_count >= meta.delta_threshold
-    return should_refresh, {
-        "delta_count": delta_count,
-        "stale": stale,
-        "pending_context_refresh": meta.pending_context_refresh,
-    }
-
-
-def refresh_instinct_context(project_root: Path) -> str:
-    ensure_instinct_artifacts(project_root)
-    document = load_instincts_document(project_root)
-    lines = [INSTINCT_CONTEXT_HEADER, ""]
-    items = _select_context_items(document)
-    if not items:
-        lines.append("No active instincts yet. Capture more sessions before loading this context.")
-    else:
-        for item in items:
-            lines.append(f"- {item['guidance']} Evidence: {item['evidenceCount']} observations.")
-    content = "\n".join(lines).rstrip() + "\n"
-    instinct_context_path(project_root).write_text(content, encoding="utf-8")
-
-    meta = load_instinct_meta(project_root)
-    meta.last_context_generated_at = datetime.now(tz=UTC)
-    meta.pending_context_refresh = False
-    save_instinct_meta(project_root, meta)
-    return content
-
-
-def maybe_refresh_instinct_context(project_root: Path) -> bool:
-    should_refresh, _ = needs_context_refresh(project_root)
-    if not should_refresh:
-        return False
-    refresh_instinct_context(project_root)
     return True
 
 
@@ -433,49 +359,99 @@ def _detect_error_recoveries(
     return counts
 
 
-def _build_error_recovery_entry(key: str, count: int, last_seen: str) -> dict[str, Any]:
+def _build_recovery_entry(key: str, count: int, last_seen: str) -> dict[str, Any]:
     failed_tool, recovery_tool = key.split(" -> ", maxsplit=1)
     return {
         "key": key,
-        "guidance": (f"After {failed_tool} errors, {recovery_tool} is a common recovery step."),
+        "trigger": f"{failed_tool} failure",
+        "action": f"Invoke {recovery_tool}",
+        "guidance": f"After {failed_tool} errors, {recovery_tool} is a common recovery step.",
         "evidenceCount": count,
+        "confidence": confidence_for_count(count),
         "lastSeenAt": last_seen,
     }
 
 
-def _build_skill_agent_preference_entry(key: str, count: int, last_seen: str) -> dict[str, Any]:
-    skill_name, agent_name = key.split(" -> ", maxsplit=1)
+def _build_workflow_entry(key: str, count: int, last_seen: str) -> dict[str, Any]:
+    left_skill, right_skill = key.split(" -> ", maxsplit=1)
     return {
         "key": key,
-        "skill": skill_name,
-        "agent": agent_name,
-        "guidance": (f"Within {skill_name}, {agent_name} is the most common dispatched agent."),
+        "trigger": f"{left_skill} completed",
+        "action": f"Invoke {right_skill}",
+        "guidance": f"Common skill workflow: {key}.",
         "evidenceCount": count,
+        "confidence": confidence_for_count(count),
         "lastSeenAt": last_seen,
     }
 
 
-def _detect_skill_agent_preferences(
-    project_root: Path,
-    session_ids: set[str],
-) -> Counter[str]:
+def _detect_skill_workflows(project_root: Path) -> Counter[str]:
+    """Detect skill-to-skill workflow sequences from framework events."""
     path = framework_events_path(project_root)
-    if not path.exists() or not session_ids:
+    if not path.exists():
         return Counter()
-    counts: Counter[str] = Counter()
     events = read_ndjson_entries(path, FrameworkEvent)
-    for session_id in session_ids:
-        session_events = [event for event in events if event.session_id == session_id]
-        session_events.sort(key=lambda item: item.timestamp)
-        last_skill: str | None = None
-        for event in session_events:
-            if event.kind == "skill_invoked":
-                last_skill = str(event.detail.get("skill") or "")
-            elif event.kind == "agent_dispatched" and last_skill:
-                agent = str(event.detail.get("agent") or "")
-                if agent:
-                    counts[f"{last_skill} -> {agent}"] += 1
+    skill_events = [e for e in events if e.kind == "skill_invoked"]
+    if not skill_events:
+        return Counter()
+
+    grouped: dict[str, list[FrameworkEvent]] = defaultdict(list)
+    for event in skill_events:
+        session_key = event.correlation_id or event.session_id or "default"
+        grouped[session_key].append(event)
+
+    counts: Counter[str] = Counter()
+    for entries in grouped.values():
+        entries.sort(key=lambda e: e.timestamp)
+        skill_names = []
+        for entry in entries:
+            skill = entry.detail.get("skill") or entry.component or ""
+            if skill:
+                skill_names.append(str(skill))
+        for left, right in pairwise(skill_names):
+            counts[f"{left} -> {right}"] += 1
     return counts
+
+
+def confidence_for_count(n: int) -> float:
+    """Return a confidence score based on evidence count."""
+    if n >= 10:
+        return 0.85
+    if n >= 6:
+        return 0.7
+    if n >= 3:
+        return 0.5
+    return 0.3
+
+
+def _migrate_v1_to_v2(document: dict[str, Any]) -> dict[str, Any]:
+    """Migrate a v1 instincts document to v2 schema."""
+    workflows: list[dict[str, Any]] = []
+    for entry in document.get("toolSequences", []):
+        if int(entry.get("evidenceCount", 0)) >= 5:
+            key = str(entry.get("key", ""))
+            parts = key.split(" -> ", maxsplit=1)
+            trigger = f"{parts[0]} completed" if len(parts) == 2 else key
+            action = f"Invoke {parts[1]}" if len(parts) == 2 else key
+            workflows.append(
+                {
+                    "key": key,
+                    "trigger": trigger,
+                    "action": action,
+                    "guidance": entry.get("guidance", f"Common skill workflow: {key}."),
+                    "evidenceCount": entry.get("evidenceCount", 0),
+                    "confidence": confidence_for_count(entry.get("evidenceCount", 0)),
+                    "lastSeenAt": entry.get("lastSeenAt", _iso_now()),
+                }
+            )
+
+    return {
+        "schemaVersion": "2.0",
+        "updatedAt": document.get("updatedAt", _iso_now()),
+        "corrections": [],
+        "recoveries": [],
+        "workflows": workflows,
+    }
 
 
 def _merge_counter(
@@ -500,18 +476,3 @@ def _merge_counter(
             target.append(created)
             indexed[key] = created
     target.sort(key=lambda entry: (-int(entry.get("evidenceCount", 0)), str(entry.get("key", ""))))
-
-
-def _select_context_items(document: dict[str, Any]) -> list[dict[str, Any]]:
-    combined: list[dict[str, Any]] = []
-    for key in ("toolSequences", "errorRecoveries", "skillAgentPreferences"):
-        for item in document.get(key, []):
-            combined.append(item)
-    combined.sort(
-        key=lambda entry: (
-            -int(entry.get("evidenceCount", 0)),
-            str(entry.get("lastSeenAt", "")),
-            str(entry.get("key", "")),
-        )
-    )
-    return combined[:MAX_CONTEXT_ITEMS]

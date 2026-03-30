@@ -34,13 +34,17 @@ HARD GATE: this skill produces a spec. No implementation happens until the user 
      d. Use all standard and custom fields the platform provides
      e. Pre-fill `refs` section in the generated spec frontmatter
      f. Invoke `/ai-board-sync refinement <work-item-ref>` to transition the work item to refinement state (fail-open: do not block brainstorm if this fails)
-1.5. **Enhance input** -- follow `handlers/prompt-enhance.md` to evaluate and optimize user input for clarity and specificity before interrogation
-2. **Interrogate** -- follow `handlers/interrogate.md` for the questioning flow
-3. **Propose approaches** -- present 2-3 options with trade-offs (never just one)
-4. **Draft spec** -- write spec to `specs/spec.md`. Validate spec against `.ai-engineering/contexts/spec-schema.md` -- all required sections must be present before marking the spec as approved.
-4.5. **Board sync (ready)** -- if a work item ID was provided in step 1, invoke `/ai-board-sync ready <work-item-ref>` to transition the work item to ready state (fail-open: do not block brainstorm if this fails)
-5. **Review spec** -- follow `handlers/spec-review.md` for the review loop (max 3 iterations)
-6. **STOP** -- present approved spec. User runs `/ai-plan` to continue.
+2. **Enhance input** -- follow `handlers/prompt-enhance.md` to evaluate and optimize user input for clarity and specificity before interrogation
+3. **Interrogate** -- follow `handlers/interrogate.md` for the questioning flow
+4. **Scope check** -- if interrogation reveals the work is small enough to resolve
+   without a spec (e.g., audit questions, maintenance fixes, < 3 file changes),
+   present the resolution directly and STOP. No spec needed. Log the decision
+   in the conversation. The HARD GATE only applies to implementation-grade work.
+5. **Propose approaches** -- present 2-3 options with trade-offs (never just one)
+6. **Draft spec** -- write spec to `specs/spec.md`. Validate spec against `.ai-engineering/contexts/spec-schema.md` -- all required sections must be present before marking the spec as approved.
+7. **Board sync (ready)** -- if a work item ID was provided in step 1, invoke `/ai-board-sync ready <work-item-ref>` to transition the work item to ready state (fail-open: do not block brainstorm if this fails)
+8. **Review spec** -- follow `handlers/spec-review.md` for the review loop (max 3 iterations)
+9. **STOP** -- present approved spec. User runs `/ai-plan` to continue.
 
 ## Quick Reference
 
@@ -48,6 +52,7 @@ HARD GATE: this skill produces a spec. No implementation happens until the user 
 |------|------|--------|
 | Enhance input | Input quality checked | Optimized input (or original if already specific) |
 | Interrogate | All UNKNOWNs resolved | Requirements map |
+| Scope check | Scope justifies spec? | Resolution or continue to step 5 |
 | Propose | User selects approach | Chosen design |
 | Spec draft | Written to disk | spec.md |
 | Spec review | Subagent approves | Reviewed spec |
@@ -61,6 +66,9 @@ HARD GATE: this skill produces a spec. No implementation happens until the user 
 - Push back on scope creep. Ask: "Is this in scope for v1?"
 - Explore edge cases the user has not mentioned.
 - Max 10 questions per session. If you need more, the problem is too big -- split it.
+- When the user's input requires research to understand the current state (e.g.,
+  audits, "is this working?", "how is X organized?"), gather data first, present
+  findings, THEN interrogate. Research is not interrogation -- it precedes it.
 
 ## Common Mistakes
 

@@ -4,9 +4,16 @@ Completed specs. Details in git history.
 
 | ID | Title | Status | Created | Branch |
 |----|-------|--------|---------|--------|
+| 092 | Unified Runbook Dedup Handler — Finding Contract | done | 2026-03-30 | feat/spec-090-092-instincts-dedup-governance |
+| 091 | CONSTITUTION.md — Rename and Redesign | done | 2026-03-30 | feat/spec-090-092-instincts-dedup-governance |
+| 090 | Instincts/LESSONS Consolidation — Autopilot | done | 2026-03-30 | feat/spec-090-092-instincts-dedup-governance |
 | 089 | Runbook Normalization and Scheduled Task Update | done | 2026-03-29 | chore/spec-089-runbook-normalization |
+| 088 | Cross-IDE Hooks Unification | done | 2026-03-29 | chore/spec-089-runbook-normalization |
+| 087 | Native IDE Directories — Eliminate .agents/ | done | 2026-03-29 | spec/087-native-ide-directories |
+| 086 | Review & Verify Assessment Enrichment — Deep Specialist Agents | done | 2026-03-28 | spec/086-review-verify-enrichment |
 | 085 | Runbook Catalog Redesign — From-Zero MAS+HITL Intake and Operational Automation | done | 2026-03-28 | spec/085-runbook-catalog-redesign |
 | 084 | Agentic Operations Program — MAS+HITL Orchestration | done | 2026-03-28 | main |
+| 083 | Self-Contained Hooks + Doctor Health Check | done | 2026-03-28 | spec/083-hooks-doctor |
 | 082 | Skill Surface Refactor | done | 2026-03-27 | spec/080-standards-engine-delivery-intelligence |
 | 081 | ai-eng Update UX | done | 2026-03-26 | spec/080-standards-engine-delivery-intelligence |
 | 080 | Standards Engine, Governance Parity, Delivery Intelligence | done | 2026-03-26 | spec/080-standards-engine-delivery-intelligence |
@@ -88,5 +95,4 @@ Completed specs. Details in git history.
 | 003 | Governance Enforcement | done | 2026-02-10 | spec/003-governance-enforcement |
 | 002 | Cross-Reference Hardening + Skill Registration | done | 2026-02-09 | spec/002-cross-ref-hardening |
 | 001 | AI-Engineering Framework: Rewrite from Scratch | done | 2026-02-08 | spec/001-rewrite-v2 |
-| 055 | GitHub Copilot Parity — Hooks, Deny-List, Multi-Platform Completeness | done | 2026-03-20 | feat/spec-055-copilot-hooks-parity |
-| 086 | Review & Verify Assessment Enrichment — Deep Specialist Agents | done | 2026-03-28 | spec/086-review-verify-enrichment |
+| 055b | GitHub Copilot Parity — Hooks, Deny-List, Multi-Platform Completeness | done | 2026-03-20 | feat/spec-055-copilot-hooks-parity |

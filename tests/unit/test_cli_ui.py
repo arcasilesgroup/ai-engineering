@@ -275,7 +275,7 @@ class TestUpdateTreeRendering:
                 recommended_action="Apply the update.",
             ),
             FileChange(
-                path=Path("/repo/.ai-engineering/contexts/team/lessons.md"),
+                path=Path("/repo/.ai-engineering/LESSONS.md"),
                 action="skip-denied",
                 reason_code="team-managed-update-protected",
                 explanation="Protected by ownership.",
@@ -293,7 +293,7 @@ class TestUpdateTreeRendering:
         assert "core.py" in err
         assert "Reason: template-drift" in err
         assert "Next: Apply the update." in err
-        assert "lessons.md" in err
+        assert "LESSONS.md" in err
 
     def test_render_update_tree_handles_relative_paths(
         self, capsys: pytest.CaptureFixture[str]

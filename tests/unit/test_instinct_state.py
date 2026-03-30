@@ -1,21 +1,19 @@
-"""Tests for simplified instinct state artifacts from spec-080."""
+"""Tests for simplified instinct state artifacts (v2 schema, spec-090)."""
 
 from __future__ import annotations
 
 import json
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Any
 
 from ai_engineering.state.instincts import (
     append_instinct_observation,
-    default_instinct_context,
     ensure_instinct_artifacts,
     extract_instincts,
-    instinct_context_path,
     instinct_meta_path,
     instinct_observations_path,
     instincts_path,
-    maybe_refresh_instinct_context,
 )
 from ai_engineering.state.io import append_ndjson, read_ndjson_entries
 from ai_engineering.state.models import FrameworkEvent, InstinctMeta, InstinctObservation
@@ -35,11 +33,7 @@ class TestInstinctArtifacts:
 
         assert instinct_observations_path(tmp_path).is_file()
         assert instincts_path(tmp_path).is_file()
-        assert instinct_context_path(tmp_path).is_file()
         assert instinct_meta_path(tmp_path).is_file()
-        assert default_instinct_context() in instinct_context_path(tmp_path).read_text(
-            encoding="utf-8"
-        )
 
     def test_append_instinct_observation_sanitizes_and_prunes_old_entries(
         self, tmp_path: Path
@@ -117,28 +111,45 @@ class TestInstinctArtifacts:
             FrameworkEvent(
                 project="demo-project",
                 engine="claude_code",
-                kind="agent_dispatched",
+                kind="skill_invoked",
                 outcome="success",
-                component="hook.observe",
-                correlationId="corr-2",
+                component="hook.telemetry-skill",
+                correlationId="corr-1",
                 sessionId="session-2",
-                detail={"agent": "ai-build"},
+                detail={"skill": "ai-code"},
             ),
         )
 
         assert extract_instincts(tmp_path) is True
 
-        instincts = instincts_path(tmp_path).read_text(encoding="utf-8")
+        instincts_content = instincts_path(tmp_path).read_text(encoding="utf-8")
         meta = InstinctMeta.model_validate(json.loads(instinct_meta_path(tmp_path).read_text()))
-        assert "Read -> Grep" in instincts
-        assert "Bash -> Grep" in instincts
-        assert "ai-dispatch -> ai-build" in instincts
-        assert meta.pending_context_refresh is True
+        # v2: recoveries contain error recovery patterns
+        assert "Bash -> Grep" in instincts_content
+        # v2: workflows contain skill sequence patterns
+        assert "ai-dispatch -> ai-code" in instincts_content
         assert meta.last_extracted_at is not None
+        # v2: no skillAgentPreferences in output
+        assert "skillAgentPreferences" not in instincts_content
 
-    def test_maybe_refresh_instinct_context_writes_bounded_context(self, tmp_path: Path) -> None:
+    def test_v2_schema_in_default_document(self, tmp_path: Path) -> None:
         _seed_manifest(tmp_path)
         ensure_instinct_artifacts(tmp_path)
+
+        import yaml
+
+        doc = yaml.safe_load(instincts_path(tmp_path).read_text(encoding="utf-8"))
+        assert doc["schemaVersion"] == "2.0"
+        assert "corrections" in doc
+        assert "recoveries" in doc
+        assert "workflows" in doc
+        assert "toolSequences" not in doc
+        assert "errorRecoveries" not in doc
+
+    def test_v1_migration_on_load(self, tmp_path: Path) -> None:
+        _seed_manifest(tmp_path)
+        ensure_instinct_artifacts(tmp_path)
+        # Write a v1-style document
         instincts_path(tmp_path).write_text(
             """
 schemaVersion: "1.0"
@@ -149,7 +160,7 @@ toolSequences:
     lastSeenAt: "2026-03-27T12:00:00Z"
   - key: "Read -> Edit"
     guidance: "Common tool sequence: Read -> Edit."
-    evidenceCount: 7
+    evidenceCount: 3
     lastSeenAt: "2026-03-27T12:00:00Z"
 errorRecoveries:
   - key: "Bash -> Read"
@@ -161,32 +172,153 @@ skillAgentPreferences:
     guidance: "Within ai-dispatch, ai-build is the most common dispatched agent."
     evidenceCount: 5
     lastSeenAt: "2026-03-27T12:00:00Z"
-  - key: "ai-plan -> ai-guide"
-    guidance: "Within ai-plan, ai-guide is the most common dispatched agent."
-    evidenceCount: 4
-    lastSeenAt: "2026-03-27T12:00:00Z"
-  - key: "ai-debug -> ai-build"
-    guidance: "Within ai-debug, ai-build is the most common dispatched agent."
-    evidenceCount: 3
-    lastSeenAt: "2026-03-27T12:00:00Z"
 """.strip()
             + "\n",
             encoding="utf-8",
         )
-        meta = InstinctMeta(pendingContextRefresh=True)
-        instinct_meta_path(tmp_path).write_text(
-            meta.model_dump_json(by_alias=True, indent=2) + "\n",
-            encoding="utf-8",
-        )
 
-        refreshed = maybe_refresh_instinct_context(tmp_path)
+        from ai_engineering.state.instincts import load_instincts_document
 
-        content = instinct_context_path(tmp_path).read_text(encoding="utf-8")
-        updated_meta = InstinctMeta.model_validate(
-            json.loads(instinct_meta_path(tmp_path).read_text())
+        doc = load_instincts_document(tmp_path)
+        assert doc["schemaVersion"] == "2.0"
+        assert "corrections" in doc
+        assert "recoveries" in doc
+        assert "workflows" in doc
+        # Only Read -> Grep had evidenceCount >= 5, so only it migrates
+        assert len(doc["workflows"]) == 1
+        assert doc["workflows"][0]["key"] == "Read -> Grep"
+        assert "toolSequences" not in doc
+        assert "errorRecoveries" not in doc
+        assert "skillAgentPreferences" not in doc
+
+    def test_append_returns_none_when_tool_name_empty(self, tmp_path: Path) -> None:
+        _seed_manifest(tmp_path)
+        result = append_instinct_observation(
+            tmp_path,
+            engine="claude_code",
+            hook_event="PostToolUse",
+            session_id="session-x",
+            data={"tool_name": "", "result": {"message": "ok"}},
         )
-        assert refreshed is True
-        assert content.count("- ") <= 5
-        assert "Read -> Grep" in content
-        assert updated_meta.pending_context_refresh is False
-        assert updated_meta.last_context_generated_at is not None
+        assert result is None
+
+    def test_append_returns_none_when_tool_name_missing(self, tmp_path: Path) -> None:
+        _seed_manifest(tmp_path)
+        result = append_instinct_observation(
+            tmp_path,
+            engine="claude_code",
+            hook_event="PostToolUse",
+            session_id="session-x",
+            data={"result": {"message": "ok"}},
+        )
+        assert result is None
+
+    def test_derive_outcome_failure_from_error_key(self, tmp_path: Path) -> None:
+        _seed_manifest(tmp_path)
+        obs = append_instinct_observation(
+            tmp_path,
+            engine="claude_code",
+            hook_event="PostToolUse",
+            session_id="session-err",
+            data={"tool_name": "Bash", "error": "command failed"},
+        )
+        assert obs is not None
+        assert obs.outcome == "failure"
+
+    def test_coerce_text_with_list_and_dict_without_output_keys(self, tmp_path: Path) -> None:
+        from ai_engineering.state.instincts import _coerce_text
+
+        assert "item1" in _coerce_text(["item1", "item2"])
+        result = _coerce_text({"custom_key": "value"})
+        assert "fields=" in result
+
+    def test_summarize_mapping_fallback_to_fields(self, tmp_path: Path) -> None:
+        from ai_engineering.state.instincts import _summarize_mapping
+
+        result = _summarize_mapping({"alpha": None, "beta": None}, keys=("alpha", "beta"))
+        assert result is not None
+        assert "fields=" in result
+
+    def test_extract_session_id_from_alternate_key(self) -> None:
+        from ai_engineering.state.instincts import _extract_session_id
+
+        assert _extract_session_id({"sessionId": "abc"}) == "abc"
+        assert _extract_session_id({"session_id": "def"}) == "def"
+        assert _extract_session_id({}) is None
+
+    def test_coerce_mapping_with_json_string(self) -> None:
+        from ai_engineering.state.instincts import _coerce_mapping
+
+        assert _coerce_mapping('{"key": "val"}') == {"key": "val"}
+        assert _coerce_mapping("not json") == {}
+        assert _coerce_mapping('"just a string"') == {}
+        assert _coerce_mapping(42) == {}
+
+    def test_json_serializer_raises_for_unknown_types(self) -> None:
+        import pytest
+
+        from ai_engineering.state.instincts import _json_serializer
+
+        _json_serializer(datetime.now(tz=UTC))  # should not raise
+        with pytest.raises(TypeError, match="not JSON serializable"):
+            _json_serializer(set())
+
+    def test_detect_skill_workflows_no_events_file(self, tmp_path: Path) -> None:
+        from ai_engineering.state.instincts import _detect_skill_workflows
+
+        _seed_manifest(tmp_path)
+        result = _detect_skill_workflows(tmp_path)
+        assert len(result) == 0
+
+    def test_detect_skill_workflows_no_skill_events(self, tmp_path: Path) -> None:
+        from ai_engineering.state.instincts import _detect_skill_workflows
+
+        _seed_manifest(tmp_path)
+        events_path = tmp_path / ".ai-engineering" / "state" / "framework-events.ndjson"
+        events_path.parent.mkdir(parents=True, exist_ok=True)
+        append_ndjson(
+            events_path,
+            FrameworkEvent(
+                project="demo",
+                engine="claude_code",
+                kind="agent_dispatched",
+                outcome="success",
+                component="agent.build",
+                correlationId="corr-no-skill",
+                sessionId="session-no-skill",
+            ),
+        )
+        result = _detect_skill_workflows(tmp_path)
+        assert len(result) == 0
+
+    def test_merge_counter_updates_existing_entries(self, tmp_path: Path) -> None:
+        from collections import Counter
+
+        from ai_engineering.state.instincts import _merge_counter
+
+        target: list[dict[str, Any]] = [
+            {"key": "Read -> Edit", "evidenceCount": 3, "lastSeenAt": "2026-01-01T00:00:00Z"},
+        ]
+        counts: Counter[str] = Counter({"Read -> Edit": 2, "Bash -> Read": 1})
+        _merge_counter(
+            target,
+            counts,
+            builder=lambda k, c, t: {"key": k, "evidenceCount": c, "lastSeenAt": t},
+        )
+        assert len(target) == 2
+        existing = next(e for e in target if e["key"] == "Read -> Edit")
+        assert existing["evidenceCount"] == 5
+
+    def test_merge_counter_skips_zero_counts(self) -> None:
+        from collections import Counter
+
+        from ai_engineering.state.instincts import _merge_counter
+
+        target: list[dict[str, Any]] = []
+        counts: Counter[str] = Counter({"a": 0})
+        _merge_counter(
+            target,
+            counts,
+            builder=lambda k, c, t: {"key": k, "evidenceCount": c, "lastSeenAt": t},
+        )
+        assert len(target) == 0

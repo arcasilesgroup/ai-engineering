@@ -16,7 +16,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from datetime import UTC
 
 from _lib.hook_context import get_hook_context
-from _lib.instincts import extract_instincts, maybe_refresh_instinct_context
+from _lib.instincts import extract_instincts
 from _lib.observability import (
     emit_declared_context_loads,
     emit_framework_error,
@@ -74,7 +74,6 @@ def main() -> None:
     )
     if skill_name == "ai-onboard":
         extract_instincts(ctx.project_root)
-        maybe_refresh_instinct_context(ctx.project_root)
 
     from _lib.audit import is_debug_mode
 

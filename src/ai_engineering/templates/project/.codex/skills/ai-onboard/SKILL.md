@@ -28,22 +28,20 @@ Framework bootstrap and enforcement. Detect available skills, load active projec
    - Read `.ai-engineering/specs/spec.md`
    - Read `.ai-engineering/specs/plan.md`
    - Read `.ai-engineering/state/decision-store.json`
-   - Read `.ai-engineering/contexts/team/lessons.md`
+   - Read `.ai-engineering/LESSONS.md`
    - Read `.ai-engineering/manifest.yml`
    - Read `.ai-engineering/CONSTITUTION.md` if present
 
-3. **Refresh instinct context when needed**
-   - Inspect `.ai-engineering/instincts/meta.json`
-   - Inspect `.ai-engineering/instincts/context.md`
-   - If refresh is pending, the context is stale, or enough new observations accumulated, run `/ai-instinct review`
-   - Otherwise, load the existing bounded instinct context as-is
+3. **Activate instinct listening mode**
+   - Run `/ai-instinct` to enter passive observation mode for the session.
+   - Instinct consolidation happens later via `/ai-instinct --review` (triggered by `/ai-commit` and `/ai-pr`).
 
 4. **Present quick status**
    - Report the active spec
    - Report plan progress if a plan exists
    - Report loaded skills count
    - Report decision count or notable active risks
-   - Report instinct status: fresh, stale, or refreshed
+   - Report instinct status: listening mode activated
    - Report board configuration if present
 
 5. **Enforce skill discipline**
@@ -73,8 +71,8 @@ No arguments. Reads project state, refreshes instinct context when warranted, an
 ## Boundaries
 
 - `onboard` does not execute product work
-- `onboard` should stay light; it loads context and refreshes instinct context only when the gate says it is worth doing
-- `onboard` may update `.ai-engineering/instincts/{instincts.yml,context.md,meta.json}` as an explicit exception to the usual read-only bootstrap rule
+- `onboard` should stay light; it loads context and activates instinct listening mode
+- `onboard` does not write instinct artifacts -- consolidation is deferred to `/ai-instinct --review`
 - If no active spec exists, report it but do not block the session
 
 ## Integration

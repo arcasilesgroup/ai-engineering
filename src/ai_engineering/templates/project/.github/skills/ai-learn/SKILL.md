@@ -1,8 +1,8 @@
 ---
 name: ai-learn
-description: Use when the AI keeps repeating the same mistakes, when you want the framework to learn from merged PR review feedback, or when enough corrections have accumulated to update standards. Trigger for 'the AI keeps doing X wrong', 'learn from this PR', 'what patterns did reviewers catch', 'update our standards from feedback'. Analyzes PRs, identifies missed checks, and synthesizes patterns into context updates.
+description: Use when the AI keeps repeating the same mistakes, when you want the framework to learn from merged PR review feedback, or when enough corrections have accumulated to update standards. Trigger for 'the AI keeps doing X wrong', 'learn from this PR', 'what patterns did reviewers catch', 'update our standards from feedback'. Analyzes PRs, identifies missed checks, and writes lessons directly to LESSONS.md.
 effort: medium
-argument-hint: "single <pr>|batch|apply"
+argument-hint: "single <pr>|batch"
 mode: agent
 ---
 
@@ -12,20 +12,14 @@ mode: agent
 
 ## Purpose
 
-Continuous improvement from delivery outcomes. Analyzes merged PRs to find where AI missed what human reviewers caught, identifies false positives, and synthesizes recurring patterns into context updates. The feedback loop that makes the framework smarter over time.
+Continuous improvement from delivery outcomes. Analyzes merged PRs to find where AI missed what human reviewers caught, identifies false positives, and writes lessons directly to `.ai-engineering/LESSONS.md`. The feedback loop that makes the framework smarter over time.
 
 ## Trigger
 
-- Command: `/ai-learn single <pr>|batch|apply`
-- Context: after PR merge (single), periodic review (batch), enough patterns accumulated (apply).
+- Command: `/ai-learn single <pr>|batch`
+- Context: after PR merge (single), periodic review (batch).
 
 ## Modes
-
-### Step 0 -- Initialize learnings directory (first-time use)
-
-```bash
-mkdir -p .ai-engineering/learnings/
-```
 
 ### single <pr> -- Analyze one merged PR
 
@@ -41,54 +35,51 @@ mkdir -p .ai-engineering/learnings/
    | **AI hit** | AI flagged an issue human reviewer agreed with |
    | **Novel insight** | Human added context AI could not have known |
 
-5. **Record** -- append learning entry to `.ai-engineering/learnings/index.jsonl`:
-   ```json
-   {"pr": 123, "date": "2026-03-19", "misses": 2, "false_positives": 1, "hits": 5, "patterns": ["missed-null-check", "over-flagged-naming"]}
+5. **Write lesson** -- for each actionable pattern found (AI miss, false positive, or novel insight), append a lesson entry to `.ai-engineering/LESSONS.md`:
+
+   ```markdown
+   ### [Pattern name derived from PR analysis]
+
+   **Context**: [What happened in PR #NNN — the specific review feedback]
+   **Learning**: [The pattern or rule extracted from the feedback]
+   **Rule**: [Actionable instruction for future sessions]
    ```
 
-### batch -- Process unanalyzed PRs
+   Only write lessons for patterns that are repeatable and actionable. Skip one-off issues specific to a single PR.
 
-1. **Find unanalyzed** -- list merged PRs not yet in `index.jsonl`.
-2. **Process each** -- run single-mode analysis for each.
-3. **Summary** -- report total misses, false positives, and emerging patterns.
+### batch -- Process unanalyzed merged PRs
 
-### apply -- Synthesize into context updates
-
-1. **Load learnings** -- read `.ai-engineering/learnings/index.jsonl`.
-2. **Find recurring patterns** -- group by pattern, count occurrences.
-3. **Threshold check** -- only act on patterns with 3+ occurrences.
-4. **Propose updates** -- for each qualifying pattern:
-   - If AI consistently misses a check: propose adding it to the relevant standard or guard advisory
-   - If AI consistently false-positives: propose relaxing the rule or adding an exception
-   - If humans add the same context repeatedly: propose adding it to a skill or agent instruction
-5. **Present changes** -- show proposed updates to user for approval before modifying any files.
-6. **Apply** -- update the relevant context files (standards, skills, agent instructions).
+1. **Read tracking marker** -- check `.ai-engineering/LESSONS.md` YAML frontmatter for `lastAnalyzedAt` field. If absent, this is the first batch run.
+2. **Find unanalyzed PRs** -- `git log --merges --since=<lastAnalyzedAt> --format="%H %s"`. Extract PR numbers from merge commit messages.
+3. **Process each** -- run single-mode analysis for each unanalyzed PR.
+4. **Update marker** -- set `lastAnalyzedAt: <current ISO date>` in LESSONS.md frontmatter (add frontmatter if absent).
+5. **Summary** -- report total PRs analyzed, lessons written, and emerging patterns.
 
 ## Pattern Categories
 
 | Pattern | Example | Action |
 |---------|---------|--------|
-| Missed check | AI never flags missing error handling in async code | Add to guard advisory rules |
-| Over-flagging | AI flags every single-letter variable in list comprehensions | Add exception to naming standard |
-| Missing context | Reviewers always explain why a specific pattern is used in this codebase | Add to project context |
-| Style drift | Reviewers consistently request a style AI does not enforce | Add to stack standard |
+| Missed check | AI never flags missing error handling in async code | Write lesson with Rule for future sessions |
+| Over-flagging | AI flags every single-letter variable in list comprehensions | Write lesson noting the exception |
+| Missing context | Reviewers always explain why a specific pattern is used in this codebase | Write lesson adding the context |
+| Style drift | Reviewers consistently request a style AI does not enforce | Write lesson with the style rule |
 
 ## Quick Reference
 
 ```
-/ai-learn single 123         # analyze PR #123
+/ai-learn single 123         # analyze PR #123, write lessons to LESSONS.md
 /ai-learn batch               # process all unanalyzed merged PRs
-/ai-learn apply               # synthesize patterns into context updates
 ```
 
 ## Storage
 
-- Learnings index: `.ai-engineering/learnings/index.jsonl`
-- One JSON object per line, per PR analyzed
+- All lessons written to: `.ai-engineering/LESSONS.md`
+- Batch tracking: `lastAnalyzedAt` field in LESSONS.md YAML frontmatter
+- Format: Markdown with Context/Learning/Rule sections (same as manually-written lessons)
 
 ## Integration
 
 - **See also**: `/ai-note` (save individual findings before synthesizing)
-- **Correction capture is owned by `/ai-instinct`** -- when the AI makes repeated mistakes, run /ai-instinct to consolidate observations into learned patterns.
+- **Correction capture is owned by `/ai-instinct`** -- when the AI makes repeated mistakes, run `/ai-instinct --review` to consolidate observations into the instinct store and generate improvement proposals.
 
 $ARGUMENTS

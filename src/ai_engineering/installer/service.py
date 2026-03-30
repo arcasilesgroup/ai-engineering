@@ -79,7 +79,6 @@ _STATE_FILES: dict[str, str] = {
     "framework-capabilities": "state/framework-capabilities.json",
     "instinct-observations": "state/instinct-observations.ndjson",
     "instincts": "instincts/instincts.yml",
-    "instinct-context": "instincts/context.md",
     "instinct-meta": "instincts/meta.json",
 }
 
@@ -408,7 +407,6 @@ def _generate_state_files(
     instinct_paths = [
         ai_eng_dir / _STATE_FILES["instinct-observations"],
         ai_eng_dir / _STATE_FILES["instincts"],
-        ai_eng_dir / _STATE_FILES["instinct-context"],
         ai_eng_dir / _STATE_FILES["instinct-meta"],
     ]
     if not all(path.exists() for path in instinct_paths):

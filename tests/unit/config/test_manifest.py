@@ -191,7 +191,7 @@ class TestCicd:
 class TestSkills:
     def test_total(self, real_manifest_data: dict) -> None:
         config = ManifestConfig.model_validate(real_manifest_data)
-        assert config.skills.total == len(config.skills.registry) == 41
+        assert config.skills.total == len(config.skills.registry) == 44
 
     def test_prefix(self, real_manifest_data: dict) -> None:
         config = ManifestConfig.model_validate(real_manifest_data)
@@ -217,11 +217,12 @@ class TestSkills:
 class TestAgents:
     def test_total(self, real_manifest_data: dict) -> None:
         config = ManifestConfig.model_validate(real_manifest_data)
-        assert config.agents.total == 9
+        assert config.agents.total == 10
 
     def test_names(self, real_manifest_data: dict) -> None:
         config = ManifestConfig.model_validate(real_manifest_data)
         assert "build" in config.agents.names
+        assert "run-orchestrator" in config.agents.names
         assert "verify" in config.agents.names
 
 

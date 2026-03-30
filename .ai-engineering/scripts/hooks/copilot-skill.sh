@@ -44,7 +44,7 @@ from _lib.observability import (
     emit_ide_hook_outcome,
     emit_skill_invoked,
 )
-from _lib.instincts import extract_instincts, maybe_refresh_instinct_context
+from _lib.instincts import extract_instincts
 
 entry = emit_skill_invoked(
     Path(os.environ["PROJECT_DIR"]),
@@ -79,7 +79,6 @@ emit_ide_hook_outcome(
 )
 if os.environ["SKILL_NAME"] == "ai-onboard":
     extract_instincts(Path(os.environ["PROJECT_DIR"]))
-    maybe_refresh_instinct_context(Path(os.environ["PROJECT_DIR"]))
 PY
     fi
 }

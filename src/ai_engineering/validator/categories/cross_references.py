@@ -68,7 +68,14 @@ def _check_cross_references(
             tpl_path = (
                 target / "src" / "ai_engineering" / "templates" / ".ai-engineering" / ref_clean
             )
-            if not (ref_path.exists() or ai_eng_path.exists() or tpl_path.exists()):
+            # Skill-relative references (handlers/, references/)
+            skill_rel_path = (target / source).parent / ref_clean
+            if not (
+                ref_path.exists()
+                or ai_eng_path.exists()
+                or tpl_path.exists()
+                or skill_rel_path.exists()
+            ):
                 broken += 1
                 report.checks.append(
                     IntegrityCheckResult(

@@ -94,32 +94,28 @@ npx license-checker --json --failOn "GPL-2.0;GPL-3.0;AGPL-3.0;UNKNOWN"
 
 Flag copyleft, unknown, or proprietary licenses for manual review.
 
-### Step 5 -- Create Work Items for New Findings
+### Step 5 -- Map findings and deduplicate via handler
 
-For each finding at or above `medium` severity, check for an existing open issue before creating.
+For each finding at or above `medium` severity, map to the Finding contract and route through the shared dedup handler.
 
-**GitHub**
-```bash
-gh issue list --state open --label "dependency-update" --search "in:title <PKG>" --json number,title
+**Finding mapping:**
 
-gh issue create \
-  --title "dep: upgrade <PKG> from <CURRENT> to <LATEST>" \
-  --label "dependency-update,sev-<SEVERITY>" \
-  --body "**Package:** <PKG>  **Ecosystem:** <ECO>
-**Current:** <CURRENT>  **Latest:** <LATEST>
-**CVE(s):** <CVE_IDS or 'none'>  **Severity:** <SEVERITY>
-*Created by dependency-health runbook*"
+```yaml
+domain_label: "dependency-update"
+title: "dep: upgrade $PKG from $CURRENT to $LATEST"
+file_path: null
+rule_id: $CVE_ID (or "outdated" for non-CVE findings, "license" for license issues)
+symbol: null
+package_name: $PKG
+severity: $SEVERITY (critical | high | medium)
+body: |
+  **Package:** $PKG  **Ecosystem:** $ECO
+  **Current:** $CURRENT  **Latest:** $LATEST
+  **CVE(s):** $CVE_IDS or 'none'  **Severity:** $SEVERITY
+  *Created by dependency-health runbook*
 ```
 
-**Azure DevOps**
-```bash
-az boards work-item create --type Task \
-  --title "dep: upgrade <PKG> from <CURRENT> to <LATEST>" \
-  --description "Package: <PKG> | CVEs: <CVE_IDS> | Severity: <SEVERITY>" \
-  --fields "System.Tags=dependency-update;sev-<SEVERITY>"
-```
-
-Stop after 20 work items per run. Remaining findings are deferred to the next run.
+Follow `handlers/dedup-check.md` to process all findings through the dedup cascade (max 20 per run). The handler labels new issues with `dependency-update` and `sev-$SEVERITY`.
 
 ### Step 6 -- Update Existing Issues
 

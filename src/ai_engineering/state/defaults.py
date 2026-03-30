@@ -69,6 +69,11 @@ _DEFAULT_OWNERSHIP_PATHS: list[tuple[str, OwnershipLevel, FrameworkUpdatePolicy]
     ),
     (".ai-engineering/contexts/team/**", OwnershipLevel.TEAM_MANAGED, FrameworkUpdatePolicy.DENY),
     (
+        ".ai-engineering/LESSONS.md",
+        OwnershipLevel.TEAM_MANAGED,
+        FrameworkUpdatePolicy.APPEND_ONLY,
+    ),
+    (
         ".ai-engineering/CONSTITUTION.md",
         OwnershipLevel.TEAM_MANAGED,
         FrameworkUpdatePolicy.DENY,
@@ -114,12 +119,12 @@ _DEFAULT_OWNERSHIP_PATHS: list[tuple[str, OwnershipLevel, FrameworkUpdatePolicy]
         FrameworkUpdatePolicy.ALLOW,
     ),
     (
-        ".ai-engineering/instincts/context.md",
+        ".ai-engineering/instincts/meta.json",
         OwnershipLevel.SYSTEM_MANAGED,
         FrameworkUpdatePolicy.ALLOW,
     ),
     (
-        ".ai-engineering/instincts/meta.json",
+        ".ai-engineering/instincts/proposals.md",
         OwnershipLevel.SYSTEM_MANAGED,
         FrameworkUpdatePolicy.ALLOW,
     ),
