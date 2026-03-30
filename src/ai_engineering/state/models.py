@@ -354,17 +354,11 @@ class InstinctObservation(BaseModel):
 
 
 class InstinctMeta(BaseModel):
-    """Bookkeeping for extraction and context refresh."""
+    """Bookkeeping for extraction timing."""
 
     schema_version: str = Field(default="1.0", alias="schemaVersion")
     last_extracted_at: datetime | None = Field(default=None, alias="lastExtractedAt")
-    last_context_generated_at: datetime | None = Field(
-        default=None,
-        alias="lastContextGeneratedAt",
-    )
-    pending_context_refresh: bool = Field(default=False, alias="pendingContextRefresh")
     delta_threshold: int = Field(default=20, alias="deltaThreshold")
-    context_max_age_hours: int = Field(default=24, alias="contextMaxAgeHours")
 
     model_config = {"populate_by_name": True}
 

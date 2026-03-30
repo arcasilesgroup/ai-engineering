@@ -60,6 +60,12 @@ Your next governed workflow usually looks like this:
 /ai-brainstorm -> /ai-plan -> /ai-dispatch or /ai-autopilot -> /ai-verify -> /ai-pr
 ```
 
+Backlog-driven autonomous execution is a separate path:
+
+```text
+/ai-run -> intake -> explore -> waves -> local consolidation -> /ai-pr
+```
+
 ## How it works
 
 ai-engineering installs a governance root plus provider-specific mirrors:
@@ -68,11 +74,13 @@ ai-engineering installs a governance root plus provider-specific mirrors:
 your-project/
 ├── .ai-engineering/
 │   ├── contexts/      # shared, language, framework, and team context
+│   ├── runs/          # autonomous run manifests and per-item execution state
 │   ├── runbooks/      # self-contained Markdown automation contracts
 │   ├── scripts/       # hooks and helper scripts
 │   ├── specs/         # active spec/plan plus autopilot child specs when needed
 │   ├── state/         # decisions, events, ownership, capability catalog
-│   └── ...            # reviews/, instincts/, notes/, learnings/, schemas/ as used
+│   ├── LESSONS.md     # persistent learning context
+│   └── ...            # reviews/, instincts/, notes/, schemas/ as used
 ├── .claude/
 ├── .codex/
 ├── .gemini/
@@ -90,12 +98,12 @@ Three ownership boundaries keep updates safe:
 
 ## What ships today
 
-- 41 skills across the canonical framework surfaces
-- 9 role-based agents
-- Claude Code mirrors for all 41 skills and all 9 agents
-- Codex/Gemini mirrors for all 41 skills and all 9 agents
-- GitHub Copilot mirrors for 40 skills and all 9 agents
-- `analyze-permissions` is intentionally Claude-only, so it is not mirrored to GitHub Copilot
+- 44 skills across the canonical framework surfaces
+- 10 role-based agents
+- Claude Code mirrors for all 44 skills and all 10 agents
+- Codex/Gemini mirrors for all 44 skills and all 10 agents
+- GitHub Copilot mirrors for 43 skills and all 10 agents
+- `analyze-permissions` is intentionally Claude-only (`copilot_compatible: false`), so it is not mirrored to GitHub Copilot
 
 The framework also installs local quality and security gates around tools such as `ruff`, `ty`, `pytest`, `gitleaks`, and `pip-audit`, plus telemetry and integrity validation under `.ai-engineering/state/`.
 
@@ -233,6 +241,7 @@ For slash-command workflows, the most common ones are:
 /ai-plan         break it into executable work
 /ai-dispatch     execute one approved plan
 /ai-autopilot    execute a multi-spec DAG
+/ai-run          execute a source-driven autonomous backlog run
 /ai-review       human-quality review
 /ai-verify       evidence-backed verification
 /ai-pr           open, watch, and merge the PR
@@ -245,7 +254,7 @@ The installed `.ai-engineering/README.md` is the topology guide for consumers of
 - which directories are seeded at install time
 - which directories appear lazily as skills are used
 - which paths are framework-managed, team-managed, or system-generated
-- how runbooks, specs, reviews, instincts, notes, and learnings fit together
+- how runbooks, specs, reviews, instincts, notes, and lessons fit together
 
 ## Contributing
 

@@ -96,30 +96,37 @@ git diff --name-only main..."$SPEC_BRANCH" 2>/dev/null
 
 When overlap exists, re-run evidence search from Step 5 against the current tree. Any criterion that was `covered` but now has no match is a regression.
 
-### Step 8 -- Create work items
+### Step 8 -- Map findings and deduplicate via handler
 
-For each gap or regression, create a task. Respect the 20-item mutation cap.
+Map each gap or regression to the Finding contract and route through the shared dedup handler.
+
+**Finding mapping:**
+
+```yaml
+domain_label: "feature-gap"
+title: "[feature-gap] spec-$SPEC_ID: $CRITERION_SUMMARY"
+file_path: $AFFECTED_FILES (first file)
+rule_id: "spec-$SPEC_ID"
+symbol: null
+severity: gap = high, partial = medium, regression = high
+body: |
+  **Spec:** $SPEC_ID - $SPEC_TITLE
+  **Criterion:** $CRITERION_TEXT
+  **Status:** gap | partial | regression
+  **Missing:** implementation | tests | both
+  **Affected files:**
+  $FILE_LIST
+
+  **Detected by:** feature-scanner runbook ($RUN_DATE)
+```
+
+Follow `handlers/dedup-check.md` to process all findings through the dedup cascade (max 20 per run).
+
+For regressions, also comment on the source PR:
 
 ```bash
-# GitHub Issues
-gh issue create \
-  --title "[feature-gap] Spec-080: <criterion summary>" \
-  --body "**Spec:** 080 - Standards Engine
-**Criterion:** <full text>
-**Status:** gap | partial | regression
-**Missing:** implementation | tests | both
-**Affected files:** <file list>
-**Detected by:** feature-scanner runbook" \
-  --label "feature-gap"
-
-# Azure DevOps
-az boards work-item create --type Task \
-  --title "[feature-gap] Spec-080: <criterion summary>" \
-  --description "<body>" --area "Project\\TeamName"
-
-# Regression comment on source PR
 gh pr comment <pr_number> \
-  --body "feature-scanner: regression detected for spec-080 criterion '<text>'"
+  --body "feature-scanner: regression detected for spec-$SPEC_ID criterion '$CRITERION_TEXT'"
 ```
 
 ### Step 9 -- Generate summary report
@@ -148,4 +155,4 @@ Summary report to stdout. Work items created for unimplemented features and regr
 3. **Explicit criteria only.** Gaps are reported only for acceptance criteria stated verbatim in the spec. No inferred or speculated requirements.
 4. **Bounded mutations.** Maximum 20 items per run. Overflow is noted in the report.
 5. **Protected states.** Items in `closed`/`resolved` are never modified. Labels `p1-critical` and `pinned` are never removed.
-6. **Idempotent.** Searches existing open issues for spec ID and criterion text before creating duplicates.
+6. **Idempotent.** Deduplication is delegated to the shared handler (`handlers/dedup-check.md`), which checks consolidated issues first, then individual issues, before creating new items.

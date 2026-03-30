@@ -106,33 +106,31 @@ grep -rn "importlib\|getattr\|__import__\|globals()" src/ --include="*.py" | gre
 
 If a symbol appears in any dynamic import pattern, downgrade confidence to 0.5 and exclude it from work item creation.
 
-### Step 7 -- Create work items for disconnected findings
+### Step 7 -- Map findings and deduplicate via handler
 
-For each finding that passes the confidence filter, check for an existing open issue before creating a new one. Respect the `max_findings_per_run` limit (15).
+Map each finding that passes the confidence filter to the Finding contract. Assign the appropriate domain label per finding type:
+- **Disconnected** symbols (zero refs everywhere): `domain_label: "dead-code"`
+- **Wiring gap** symbols (exported but no external consumer): `domain_label: "wiring-gap"`
 
-```bash
-# Deduplicate: check for existing open issue
-gh issue list --state open --label "dead-code" --search "in:title SYMBOL_NAME" --json number,title
+**Finding mapping:**
 
-# GitHub -- create task
-gh issue create \
-  --title "[dead-code] SYMBOL_NAME in file_path:line" \
-  --label "dead-code" \
-  --body "**Symbol:** SYMBOL_NAME | **File:** file_path:line | **Kind:** function|class
-**Classification:** disconnected | orphaned-module | **Confidence:** 0.9
+```yaml
+domain_label: "dead-code" | "wiring-gap"  # one per finding
+title: "[$DOMAIN_LABEL] $SYMBOL_NAME in $FILE_PATH:$LINE"
+file_path: $FILE_PATH
+rule_id: null
+symbol: $SYMBOL_NAME
+severity: disconnected = high, orphaned-module = high, test-only-wiring-gap = medium
+body: |
+  **Symbol:** $SYMBOL_NAME | **File:** $FILE_PATH:$LINE | **Kind:** function|class
+  **Classification:** $CLASSIFICATION | **Confidence:** $CONFIDENCE
 
-Evidence: 0 import/call refs in src/, 0 refs in tests/.
-Action: wire to entry point, document as internal API, or remove.
-*Created by wiring-scanner runbook*"
-
-# Azure DevOps -- create task
-az boards work-item create --type Task \
-  --title "[dead-code] SYMBOL_NAME in file_path:line" \
-  --description "Symbol: SYMBOL_NAME | File: file_path:line | Classification: disconnected | Confidence: 0.9" \
-  --fields "System.Tags=dead-code"
+  Evidence: $SRC_REFS import/call refs in src/, $TEST_REFS refs in tests/.
+  Action: wire to entry point, document as internal API, or remove.
+  *Created by wiring-scanner runbook*
 ```
 
-Stop after 15 items; log any overflow in the report and defer to the next run.
+Follow `handlers/dedup-check.md` to process all findings through the dedup cascade (max 15 per run).
 
 ### Step 8 -- Generate summary report
 
@@ -179,4 +177,4 @@ Disconnected code report to stdout. Work items created for confirmed dead code. 
 4. **Bounded mutations.** A maximum of 15 work items are created per run. If the finding count exceeds this limit, the report notes the overflow and defers remaining items to the next run.
 5. **Mutations enabled by default.** All qualifying findings are created as work items automatically.
 6. **Protected states.** Items in `closed` or `resolved` state are never reopened or modified. Labels `p1-critical` and `pinned` are never removed.
-7. **Idempotent.** Before creating a work item, the scanner searches existing open issues for the symbol name and file path. Duplicates are skipped and logged.
+7. **Idempotent.** Deduplication is delegated to the shared handler (`handlers/dedup-check.md`), which checks consolidated issues first, then individual issues, before creating new items.

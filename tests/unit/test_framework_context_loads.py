@@ -25,7 +25,7 @@ providers:
     for rel in (
         ".ai-engineering/contexts/languages/python.md",
         ".ai-engineering/contexts/frameworks/react.md",
-        ".ai-engineering/contexts/team/lessons.md",
+        ".ai-engineering/contexts/team/conventions.md",
         ".ai-engineering/contexts/cli-ux.md",
         ".ai-engineering/contexts/mcp-integrations.md",
         ".ai-engineering/CONSTITUTION.md",

@@ -7,6 +7,7 @@ from pathlib import Path
 
 from ai_engineering.config.loader import load_manifest_config
 from ai_engineering.validator._shared import (
+    _COPILOT_INSTRUCTION_FILES,
     IntegrityCategory,
     IntegrityCheckResult,
     IntegrityReport,
@@ -69,12 +70,34 @@ def _check_counter_accuracy(target: Path, report: IntegrityReport, **_kwargs: ob
     canonical_skills = cfg.skills.total
     canonical_agents = cfg.agents.total
 
-    # All instruction files should report consistent counts
-    skill_counts = {f: c[0] for f, c in counts.items()}
-    agent_counts = {f: c[1] for f, c in counts.items()}
+    # Copilot files intentionally have fewer skills (platform-filtered).
+    # Exclude them from cross-file consistency so they don't cause false failures.
+    canonical_counts = {f: c for f, c in counts.items() if f not in _COPILOT_INSTRUCTION_FILES}
+    copilot_counts = {f: c for f, c in counts.items() if f in _COPILOT_INSTRUCTION_FILES}
+
+    skill_counts = {f: c[0] for f, c in canonical_counts.items()}
+    agent_counts = {f: c[1] for f, c in canonical_counts.items()}
 
     unique_skill_counts = set(skill_counts.values())
     unique_agent_counts = set(agent_counts.values())
+
+    # Validate Copilot files separately: their count must be <= canonical count
+    if copilot_counts and unique_skill_counts:
+        canonical_skill_count = next(iter(unique_skill_counts))
+        for f, (sc, _ac, _is_ptr) in copilot_counts.items():
+            if sc > canonical_skill_count:
+                report.checks.append(
+                    IntegrityCheckResult(
+                        category=IntegrityCategory.COUNTER_ACCURACY,
+                        name="copilot-skill-count-exceeds-canonical",
+                        status=IntegrityStatus.FAIL,
+                        message=(
+                            f"{f} reports {sc} skills but canonical is {canonical_skill_count}; "
+                            "Copilot count must be <= canonical (some skills are Copilot-excluded)"
+                        ),
+                        file_path=f,
+                    )
+                )
 
     if len(unique_skill_counts) > 1:
         detail = ", ".join(f"{f}: {c}" for f, c in skill_counts.items())

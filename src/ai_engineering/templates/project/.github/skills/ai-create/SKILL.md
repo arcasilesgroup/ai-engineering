@@ -12,75 +12,150 @@ mode: agent
 
 ## Purpose
 
-Create new skills and agents for the ai-engineering framework using TDD. Skills go through a pressure-test cycle (RED/GREEN/REFACTOR) to ensure they actually change agent behavior. Agents are scaffolded with mandate, self-challenge protocol, and capability declarations.
+Create new skills and agents for the ai-engineering framework. This skill owns the **ai-engineering context layer** (governance, manifest registration, IDE mirrors, pain sources). For the actual skill creation, TDD pressure testing, eval pipeline, and description optimization, it delegates to Anthropic's `skill-creator` which has the full infrastructure.
 
 ## Trigger
 
 - Command: `/ai-create skill <name>` or `/ai-create agent <name>`
 - Context: framework needs a new capability that no existing skill or agent covers.
 
-## Modes
+---
 
-### skill <name> -- Create a new skill
+## Start Here — Registration Checklist
 
-**Phase RED -- Baseline without the skill**:
+This is the invariant checklist that must be satisfied regardless of whether you're creating a skill or an agent. Write it at the top and check items off as you go:
 
-1. **Define test scenarios** -- write 3-5 prompts that the skill should handle. These are the "pressure tests."
-2. **Run baseline** -- execute the prompts WITHOUT the new skill loaded. Record how the agent behaves.
-3. **Identify gaps** -- document specific failures: wrong approach, missed steps, bad output format, skipped governance.
+```
+## Registration Checklist — [NAME]
+- [ ] No overlap with existing skills (checked skill list in manifest.yml)
+- [ ] File created at correct path (.github/skills/ai-{name}/SKILL.md or .github/agents/{name}.agent.md)
+- [ ] Frontmatter has name, description, argument-hint
+- [ ] Description is CSO-optimized (triggering conditions, not summary)
+- [ ] IDE-compatibility fields set if needed (copilot_compatible, disable-model-invocation)
+- [ ] Registered in .ai-engineering/manifest.yml (skills.registry or agents.names + total)
+- [ ] Mirror sync run: python scripts/sync_command_mirrors.py
+- [ ] Tests pass: source .venv/bin/activate && python -m pytest tests/unit/ -q
+- [ ] Pain sources consulted (decision-store, LESSONS.md) for constraints
+```
 
-**Phase GREEN -- Write minimal skill**:
+---
 
-4. **Scaffold** -- create `.github/skills/ai-{name}/SKILL.md` with frontmatter:
+## Mode: skill <name>
+
+### Phase 1 — ai-engineering Context (this skill owns this)
+
+Before creating anything, load project context:
+
+1. **Check for overlap** — read `.ai-engineering/manifest.yml` skill registry. If a skill already covers this capability, evolve it with `/ai-skill-evolve` instead of creating a new one.
+
+2. **Load pain sources** — read decision-store.json, LESSONS.md, instincts.yml for constraints that affect this skill:
+   - Decisions that limit scope (e.g., DEC-003 plan/execute split means a planning skill must not also execute)
+   - Lessons about similar skills that failed or needed correction
+   - Instinct patterns that reveal tool sequences this skill should optimize
+
+3. **Determine IDE compatibility**:
+   - Most skills: omit `copilot_compatible` (mirrors to all 4 IDEs)
+   - Skills that use Claude Code-exclusive features (e.g., reading `.claude/settings.json` deny rules): set `copilot_compatible: false`
+   - Script-only skills that bypass LLM: also set `disable-model-invocation: true`
+
+### Phase 2 — Delegate to skill-creator for TDD + Evals
+
+Invoke Anthropic's `skill-creator` with this context:
+
+```
+Create a new skill called "ai-{name}" for the ai-engineering framework.
+
+Context about the framework:
+- Skills live in .github/skills/ai-{name}/SKILL.md
+- They follow this frontmatter format: name, description (CSO-optimized), effort, argument-hint, tags
+- The description field is the primary triggering mechanism — it must describe WHEN to use, not WHAT it does
+- Pain sources found: [pass relevant lessons, decisions, instinct patterns from Phase 1]
+
+The skill should:
+[pass the user's requirements]
+
+Look at existing skills like .github/skills/ai-security/SKILL.md or .github/skills/ai-review/SKILL.md
+for format reference.
+```
+
+**What skill-creator handles:**
+- Drafting the SKILL.md content
+- TDD pressure testing (RED/GREEN/REFACTOR cycle with parallel agents)
+- Eval pipeline: grader, analyzer, benchmark aggregation, HTML viewer
+- Description optimization for triggering accuracy (run_loop.py)
+- Iterating based on user feedback
+
+**What you verify after skill-creator is done:**
+- The SKILL.md follows ai-engineering conventions (Step 0 context loading, output contract)
+- Frontmatter has all required fields
+- Description is CSO-optimized (triggering conditions, not summary)
+
+### Phase 3 — Register and Sync (this skill owns this)
+
+After skill-creator delivers the SKILL.md:
+
+1. **Verify file is at correct path**: `.github/skills/ai-{name}/SKILL.md`
+
+2. **Register in manifest** — add to `.ai-engineering/manifest.yml`:
    ```yaml
-   ---
-   name: ai-{name}
-   description: "{CSO-optimized: Use when [triggering conditions]}"
-   argument-hint: "{expected arguments}"
-   ---
+   ai-{name}: { type: <type>, tags: [<tags>] }
    ```
-5. **Write skill body** -- address ONLY the gaps found in RED phase. Include:
-   - Purpose (2-3 lines)
-   - Trigger (command + context)
-   - Procedure (numbered steps)
-   - When NOT to Use (differentiation from similar skills)
-6. **CSO-optimize description** -- the `description` field is the skill's search ranking. It must describe triggering conditions, not summarize what the skill does. Pattern: "Use when [specific situation the user is in]".
-7. **Run pressure tests again** -- verify the skill changes behavior for all test scenarios.
+   Update `skills.total` count.
 
-**Phase REFACTOR -- Close loopholes**:
+3. **Sync mirrors** — run:
+   ```bash
+   python scripts/sync_command_mirrors.py
+   ```
+   This creates mirrors in `.codex/`, `.gemini/`, `.github/skills/` (if copilot-compatible), and updates instruction files with correct counts.
 
-8. **Test edge cases** -- try prompts that should NOT trigger this skill. Verify they do not.
-9. **Add guardrails** -- if edge-case prompts incorrectly triggered the skill, add "When NOT to Use" entries.
-10. **Final validation** -- all pressure tests pass, no false triggers.
+4. **Run tests**:
+   ```bash
+   source .venv/bin/activate && python -m pytest tests/unit/ -q
+   ```
+   Fix any count mismatches in hardcoded test assertions if needed.
 
-### agent <name> -- Create a new agent
+5. **Update README.md** skill counts if they changed.
 
-1. **Define mandate** -- what is this agent's singular responsibility? An agent does ONE thing.
-2. **Scaffold** -- create `.github/agents/{name}.agent.md` with:
+6. **Check off the Registration Checklist** from Start Here.
+
+---
+
+## Mode: agent <name>
+
+Agents don't go through skill-creator (they're not skills). Create them directly:
+
+1. **Define mandate** — what is this agent's singular responsibility? An agent does ONE thing.
+
+2. **Load pain sources** — same as skill Phase 1. Check decision-store for constraints on agent architecture (e.g., DEC-019 agent boundaries).
+
+3. **Scaffold** — create `.github/agents/{name}.agent.md` with:
    - Identity (role, experience level, specialization)
    - Mandate (what it owns, what it does not own)
    - Capabilities (declared permissions: read-only, read-write, which files/paths)
    - Behavior (modes, procedures)
+   - Output Contract (structured format the agent always produces)
    - Boundaries (hard limits, escalation protocol)
    - Self-challenge protocol (questions the agent asks itself before acting)
-3. **Register** -- add to `manifest.yml` agents section.
-4. **Create skill entry point** -- create matching `/ai-{name}` skill that activates the agent.
 
-## Registration Checklist
+4. **Register** — add to `manifest.yml` agents section (names array + total count).
 
-After creating any skill or agent:
+5. **Create matching skill** — if this agent needs a `/ai-{name}` entry point, create a minimal skill that activates it. Use `/ai-create skill {name}` for that (which delegates to skill-creator).
 
-- [ ] File created at correct path
-- [ ] Frontmatter has `name`, `description`, `argument-hint`
-- [ ] Description is CSO-optimized (triggering conditions, not summary)
-- [ ] IDE-compatibility fields set if needed (see table below)
-- [ ] Registered in `manifest.yml`
-- [ ] Mirror files created for other IDE surfaces (`.codex/`, `.gemini/`, `.github/skills/`)
-- [ ] No overlap with existing skills (checked `/ai-find` or skill list)
+6. **Sync and test** — same as skill Phase 3 steps 3-6.
 
-### IDE-Compatibility Frontmatter Fields
+---
 
-These optional fields are consumed by `scripts/sync_command_mirrors.py` via `is_copilot_compatible()`. When omitted, the skill is mirrored to all 4 IDEs (Claude Code, GitHub Copilot, Codex, Gemini).
+## CSO Description Patterns
+
+The `description` field is the skill's search ranking — it determines whether the skill triggers. It must describe **triggering conditions**, not summarize functionality.
+
+| Bad (summary) | Good (CSO trigger) |
+|---------------|-------------------|
+| "Generates standup notes" | "Use when preparing daily standup notes or summarizing recent PR activity" |
+| "Sprint planning tool" | "Use when planning a new sprint or running a retrospective" |
+| "Resolves git conflicts" | "Use when git reports merge conflicts during rebase, merge, or cherry-pick" |
+
+## IDE-Compatibility Frontmatter
 
 | Field | Type | Value | Effect |
 |-------|------|-------|--------|
@@ -89,37 +164,23 @@ These optional fields are consumed by `scripts/sync_command_mirrors.py` via `is_
 
 **When to set:**
 - Most skills: omit both (mirrors to all IDEs)
-- Claude Code-only skills (use Claude Code-specific tools): set `copilot_compatible: false`
-- Script-only skills that bypass LLM entirely: also set `disable-model-invocation: true`
+- Claude Code-only skills: set `copilot_compatible: false`
+- Script-only skills: also set `disable-model-invocation: true`
 
-**Example** (only `ai-analyze-permissions` currently uses this):
-```yaml
-copilot_compatible: false
-disable-model-invocation: true
-```
-
-## CSO Description Patterns
-
-| Bad (summary) | Good (CSO trigger) |
-|---------------|-------------------|
-| "Generates standup notes" | "Use when preparing daily standup notes or summarizing recent PR activity" |
-| "Sprint planning tool" | "Use when planning a new sprint or running a retrospective" |
-| "Resolves git conflicts" | "Use when git reports merge conflicts during rebase, merge, or cherry-pick" |
-
-## Scripts
-
-- `scripts/scaffold-skill.sh <name>` -- scaffold a new skill directory with SKILL.md template, handlers/, and scripts/
+Currently only `ai-analyze-permissions` uses `copilot_compatible: false`.
 
 ## Quick Reference
 
 ```
-/ai-create skill standup     # create a new standup skill with TDD
-/ai-create agent reviewer    # create a new reviewer agent
+/ai-create skill standup     # create a new standup skill (delegates TDD to skill-creator)
+/ai-create agent reviewer    # create a new reviewer agent (direct scaffold)
 ```
 
 ## Integration
 
-- **Calls**: `handlers/create-skill.md`, `handlers/create-agent.md`, `handlers/validate.md`
+- **Delegates to**: Anthropic `skill-creator` for skill TDD, evals, description optimization
+- **Reads**: manifest.yml, decision-store.json, LESSONS.md (ai-engineering context)
 - **Triggers sync**: `python scripts/sync_command_mirrors.py` after creation
+- **Related**: `/ai-skill-evolve` for improving existing skills (also delegates to skill-creator)
 
 $ARGUMENTS

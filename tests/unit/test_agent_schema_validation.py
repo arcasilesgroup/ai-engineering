@@ -22,18 +22,19 @@ _AGENTS_DIR = (
     / "agents"
 )
 
-# Post spec-055: 9 user-facing orchestrator agents (ai-*.md)
+# Post spec-091: 10 user-facing orchestrator agents (ai-*.md)
 _EXPECTED_ORCHESTRATORS = frozenset(
     {
+        "ai-autopilot",
         "ai-build",
         "ai-explore",
         "ai-guard",
         "ai-guide",
-        "ai-plan",
         "ai-review",
+        "ai-run-orchestrator",
         "ai-simplify",
         "ai-verify",
-        "ai-autopilot",
+        "ai-plan",
     }
 )
 
@@ -94,7 +95,7 @@ def _parse_frontmatter(text: str) -> dict[str, str]:
 
 
 def test_orchestrator_count_matches_expected() -> None:
-    """There should be exactly 9 orchestrator agents on disk."""
+    """There should be exactly 10 orchestrator agents on disk."""
     agents = _orchestrator_files()
     names = {f.stem for f in agents}
     assert len(agents) == len(_EXPECTED_ORCHESTRATORS), (

@@ -1,4 +1,4 @@
-"""Tests for _lib.instincts -- stdlib-only instinct learning module."""
+"""Tests for _lib.instincts -- stdlib-only instinct learning module (v2 schema)."""
 
 from __future__ import annotations
 
@@ -56,6 +56,14 @@ def _write_obs(project: Path, entries: list[dict]) -> None:
     path = project / instincts.INSTINCT_OBSERVATIONS_REL
     path.parent.mkdir(parents=True, exist_ok=True)
     lines = [json.dumps(e, default=str) for e in entries]
+    path.write_text("\n".join(lines) + ("\n" if lines else ""), encoding="utf-8")
+
+
+def _write_framework_events(project: Path, events: list[dict]) -> None:
+    """Write framework events as NDJSON."""
+    path = project / instincts.FRAMEWORK_EVENTS_REL
+    path.parent.mkdir(parents=True, exist_ok=True)
+    lines = [json.dumps(e, default=str) for e in events]
     path.write_text("\n".join(lines) + ("\n" if lines else ""), encoding="utf-8")
 
 
@@ -191,39 +199,11 @@ class TestSanitizeText:
 
 
 # ---------------------------------------------------------------------------
-# 6. extract_instincts detects tool sequence pairs
+# 6. extract_instincts detects error recovery patterns (v2 recoveries)
 # ---------------------------------------------------------------------------
 
 
-class TestExtractInstinctsToolSequences:
-    def test_detects_tool_sequence_pairs(self, project: Path) -> None:
-        now = datetime.now(tz=UTC)
-        entries = [
-            _make_obs(tool="Read", kind="tool_start", ts=now - timedelta(seconds=3)),
-            _make_obs(tool="Grep", kind="tool_start", ts=now - timedelta(seconds=2)),
-            _make_obs(tool="Edit", kind="tool_start", ts=now - timedelta(seconds=1)),
-        ]
-        _write_obs(project, entries)
-
-        result = instincts.extract_instincts(project)
-        assert result is True
-
-        inst_path = project / instincts.INSTINCTS_REL
-        assert inst_path.exists()
-
-        # Read back the instincts document
-        content = inst_path.read_text(encoding="utf-8")
-        # Regardless of YAML/JSON format, the sequences should be present
-        assert "Read -> Grep" in content
-        assert "Grep -> Edit" in content
-
-
-# ---------------------------------------------------------------------------
-# 7. extract_instincts detects error recovery patterns
-# ---------------------------------------------------------------------------
-
-
-class TestExtractInstinctsErrorRecoveries:
+class TestExtractInstinctsRecoveries:
     def test_detects_error_recovery_patterns(self, project: Path) -> None:
         now = datetime.now(tz=UTC)
         entries = [
@@ -252,7 +232,7 @@ class TestExtractInstinctsErrorRecoveries:
 
 
 # ---------------------------------------------------------------------------
-# 8. extract_instincts returns False when no new observations
+# 7. extract_instincts returns False when no new observations
 # ---------------------------------------------------------------------------
 
 
@@ -275,51 +255,7 @@ class TestExtractInstinctsNoNew:
 
 
 # ---------------------------------------------------------------------------
-# 9. maybe_refresh_instinct_context generates markdown with top items
-# ---------------------------------------------------------------------------
-
-
-class TestMaybeRefreshInstinctContext:
-    def test_generates_context_markdown(self, project: Path) -> None:
-        now = datetime.now(tz=UTC)
-        # Build observations with repeated sequences so we get instinct entries
-        entries = []
-        for i in range(5):
-            entries.append(
-                _make_obs(
-                    tool="Read",
-                    kind="tool_start",
-                    ts=now - timedelta(seconds=20 - i * 2),
-                    session_id=f"sess-{i}",
-                )
-            )
-            entries.append(
-                _make_obs(
-                    tool="Grep",
-                    kind="tool_start",
-                    ts=now - timedelta(seconds=19 - i * 2),
-                    session_id=f"sess-{i}",
-                )
-            )
-        _write_obs(project, entries)
-
-        # Extract first to populate instincts.yml
-        instincts.extract_instincts(project)
-
-        # Now refresh context
-        result = instincts.maybe_refresh_instinct_context(project)
-        assert result is True
-
-        ctx_path = project / instincts.INSTINCT_CONTEXT_REL
-        assert ctx_path.exists()
-        content = ctx_path.read_text(encoding="utf-8")
-        assert content.startswith("# Instinct Context")
-        assert "Read -> Grep" in content
-        assert "Evidence:" in content
-
-
-# ---------------------------------------------------------------------------
-# 10. YAML fallback: mock yaml as unavailable, verify JSON write works
+# 8. YAML fallback: mock yaml as unavailable, verify JSON write works
 # ---------------------------------------------------------------------------
 
 
@@ -327,8 +263,13 @@ class TestYamlFallback:
     def test_json_fallback_when_yaml_unavailable(self, project: Path) -> None:
         now = datetime.now(tz=UTC)
         entries = [
-            _make_obs(tool="Read", kind="tool_start", ts=now - timedelta(seconds=2)),
-            _make_obs(tool="Grep", kind="tool_start", ts=now - timedelta(seconds=1)),
+            _make_obs(
+                tool="Bash",
+                kind="tool_complete",
+                outcome="failure",
+                ts=now - timedelta(seconds=2),
+            ),
+            _make_obs(tool="Read", kind="tool_start", ts=now - timedelta(seconds=1)),
         ]
         _write_obs(project, entries)
 
@@ -343,16 +284,315 @@ class TestYamlFallback:
             inst_path = project / instincts.INSTINCTS_REL
             content = inst_path.read_text(encoding="utf-8")
             doc = json.loads(content)  # should not raise
-            assert "toolSequences" in doc
+            assert "recoveries" in doc
+            assert "workflows" in doc
+            assert "corrections" in doc
         finally:
             instincts._HAS_YAML = original_has_yaml
 
 
 # ---------------------------------------------------------------------------
-# 11. _detect_skill_agent_preferences does NOT exist
+# 9. _detect_skill_agent_preferences does NOT exist
 # ---------------------------------------------------------------------------
 
 
 class TestDroppedFunction:
     def test_skill_agent_preferences_not_present(self) -> None:
         assert not hasattr(instincts, "_detect_skill_agent_preferences")
+
+
+# ---------------------------------------------------------------------------
+# 10. v2 schema version
+# ---------------------------------------------------------------------------
+
+
+class TestV2SchemaVersion:
+    def test_schema_version_is_2(self) -> None:
+        assert instincts.INSTINCTS_SCHEMA_VERSION == "2.0"
+
+    def test_default_document_has_v2_keys(self) -> None:
+        doc = instincts._default_instincts_document()
+        assert doc["schemaVersion"] == "2.0"
+        assert "corrections" in doc
+        assert "recoveries" in doc
+        assert "workflows" in doc
+        assert "toolSequences" not in doc
+        assert "errorRecoveries" not in doc
+
+
+# ---------------------------------------------------------------------------
+# 11. confidence_for_count
+# ---------------------------------------------------------------------------
+
+
+class TestConfidenceForCount:
+    def test_low_count_returns_0_3(self) -> None:
+        assert instincts.confidence_for_count(0) == 0.3
+        assert instincts.confidence_for_count(1) == 0.3
+        assert instincts.confidence_for_count(2) == 0.3
+
+    def test_mid_count_returns_0_5(self) -> None:
+        assert instincts.confidence_for_count(3) == 0.5
+        assert instincts.confidence_for_count(5) == 0.5
+
+    def test_high_count_returns_0_7(self) -> None:
+        assert instincts.confidence_for_count(6) == 0.7
+        assert instincts.confidence_for_count(9) == 0.7
+
+    def test_very_high_count_returns_0_85(self) -> None:
+        assert instincts.confidence_for_count(10) == 0.85
+        assert instincts.confidence_for_count(100) == 0.85
+
+
+# ---------------------------------------------------------------------------
+# 12. apply_confidence_decay
+# ---------------------------------------------------------------------------
+
+
+class TestApplyConfidenceDecay:
+    def test_no_decay_when_recently_seen(self) -> None:
+        now = datetime.now(tz=UTC)
+        entries = [
+            {
+                "key": "A -> B",
+                "evidenceCount": 5,
+                "confidence": 0.7,
+                "lastSeenAt": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            },
+        ]
+        result = instincts.apply_confidence_decay(entries, [now.strftime("%Y-%m-%dT%H:%M:%SZ")])
+        assert result[0]["confidence"] == 0.7
+
+    def test_decay_applied_per_week(self) -> None:
+        now = datetime.now(tz=UTC)
+        two_weeks_ago = now - timedelta(weeks=2)
+        entries = [
+            {
+                "key": "A -> B",
+                "evidenceCount": 10,
+                "confidence": 0.85,
+                "lastSeenAt": two_weeks_ago.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            },
+        ]
+        result = instincts.apply_confidence_decay(entries, [now.strftime("%Y-%m-%dT%H:%M:%SZ")])
+        # 0.85 - 0.02 * 2 = 0.81
+        assert result[0]["confidence"] == 0.81
+
+    def test_empty_entries_returns_empty(self) -> None:
+        assert instincts.apply_confidence_decay([], ["2026-01-01T00:00:00Z"]) == []
+
+    def test_empty_dates_returns_unchanged(self) -> None:
+        entries = [{"key": "A -> B", "confidence": 0.7}]
+        result = instincts.apply_confidence_decay(entries, [])
+        assert result[0]["confidence"] == 0.7
+
+
+# ---------------------------------------------------------------------------
+# 13. prune_low_confidence
+# ---------------------------------------------------------------------------
+
+
+class TestPruneLowConfidence:
+    def test_removes_entries_below_threshold(self) -> None:
+        entries = [
+            {"key": "A -> B", "confidence": 0.1},
+            {"key": "C -> D", "confidence": 0.5},
+            {"key": "E -> F", "confidence": 0.2},
+        ]
+        result = instincts.prune_low_confidence(entries)
+        assert len(result) == 2
+        keys = [e["key"] for e in result]
+        assert "A -> B" not in keys
+        assert "C -> D" in keys
+        assert "E -> F" in keys
+
+    def test_custom_threshold(self) -> None:
+        entries = [
+            {"key": "A -> B", "confidence": 0.4},
+            {"key": "C -> D", "confidence": 0.6},
+        ]
+        result = instincts.prune_low_confidence(entries, threshold=0.5)
+        assert len(result) == 1
+        assert result[0]["key"] == "C -> D"
+
+    def test_entries_without_confidence_use_default_0_3(self) -> None:
+        entries = [{"key": "A -> B"}]
+        result = instincts.prune_low_confidence(entries, threshold=0.2)
+        assert len(result) == 1  # default 0.3 >= 0.2
+
+
+# ---------------------------------------------------------------------------
+# 14. _detect_skill_workflows
+# ---------------------------------------------------------------------------
+
+
+class TestDetectSkillWorkflows:
+    def test_detects_skill_sequences(self, project: Path) -> None:
+        now = datetime.now(tz=UTC)
+        events = [
+            {
+                "schemaVersion": "1.0",
+                "timestamp": (now - timedelta(seconds=3)).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "project": "test",
+                "engine": "claude_code",
+                "kind": "skill_invoked",
+                "outcome": "success",
+                "component": "hook.telemetry",
+                "correlationId": "corr-1",
+                "sessionId": "sess-1",
+                "detail": {"skill": "ai-brainstorm"},
+            },
+            {
+                "schemaVersion": "1.0",
+                "timestamp": (now - timedelta(seconds=2)).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "project": "test",
+                "engine": "claude_code",
+                "kind": "skill_invoked",
+                "outcome": "success",
+                "component": "hook.telemetry",
+                "correlationId": "corr-1",
+                "sessionId": "sess-1",
+                "detail": {"skill": "ai-plan"},
+            },
+            {
+                "schemaVersion": "1.0",
+                "timestamp": (now - timedelta(seconds=1)).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "project": "test",
+                "engine": "claude_code",
+                "kind": "skill_invoked",
+                "outcome": "success",
+                "component": "hook.telemetry",
+                "correlationId": "corr-1",
+                "sessionId": "sess-1",
+                "detail": {"skill": "ai-dispatch"},
+            },
+        ]
+        _write_framework_events(project, events)
+
+        result = instincts._detect_skill_workflows(project)
+        assert result["ai-brainstorm -> ai-plan"] == 1
+        assert result["ai-plan -> ai-dispatch"] == 1
+
+    def test_empty_ndjson_returns_empty_counter(self, project: Path) -> None:
+        result = instincts._detect_skill_workflows(project)
+        assert len(result) == 0
+
+    def test_ignores_non_skill_events(self, project: Path) -> None:
+        now = datetime.now(tz=UTC)
+        events = [
+            {
+                "schemaVersion": "1.0",
+                "timestamp": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "project": "test",
+                "engine": "claude_code",
+                "kind": "agent_dispatched",
+                "outcome": "success",
+                "component": "hook.observe",
+                "correlationId": "corr-1",
+                "detail": {"agent": "ai-build"},
+            },
+        ]
+        _write_framework_events(project, events)
+
+        result = instincts._detect_skill_workflows(project)
+        assert len(result) == 0
+
+
+# ---------------------------------------------------------------------------
+# 15. _migrate_v1_to_v2
+# ---------------------------------------------------------------------------
+
+
+class TestMigrateV1ToV2:
+    def test_converts_high_evidence_tool_sequences_to_workflows(self) -> None:
+        v1_doc = {
+            "schemaVersion": "1.0",
+            "updatedAt": "2026-03-01T00:00:00Z",
+            "toolSequences": [
+                {
+                    "key": "Read -> Grep",
+                    "guidance": "Common tool sequence: Read -> Grep.",
+                    "evidenceCount": 8,
+                    "lastSeenAt": "2026-03-01T00:00:00Z",
+                },
+                {
+                    "key": "Read -> Edit",
+                    "guidance": "Common tool sequence: Read -> Edit.",
+                    "evidenceCount": 3,
+                    "lastSeenAt": "2026-03-01T00:00:00Z",
+                },
+            ],
+            "errorRecoveries": [
+                {
+                    "key": "Bash -> Read",
+                    "guidance": "After Bash errors, Read is a common recovery step.",
+                    "evidenceCount": 4,
+                    "lastSeenAt": "2026-03-01T00:00:00Z",
+                },
+            ],
+            "skillAgentPreferences": [
+                {
+                    "key": "ai-dispatch -> ai-build",
+                    "guidance": "...",
+                    "evidenceCount": 5,
+                    "lastSeenAt": "2026-03-01T00:00:00Z",
+                },
+            ],
+        }
+
+        result = instincts._migrate_v1_to_v2(v1_doc)
+
+        assert result["schemaVersion"] == "2.0"
+        assert result["corrections"] == []
+        assert result["recoveries"] == []
+        assert len(result["workflows"]) == 1
+        assert result["workflows"][0]["key"] == "Read -> Grep"
+        assert result["workflows"][0]["trigger"] == "Read completed"
+        assert result["workflows"][0]["action"] == "Invoke Grep"
+        assert result["workflows"][0]["confidence"] == 0.7  # count 8 -> 0.7
+        assert "toolSequences" not in result
+        assert "errorRecoveries" not in result
+        assert "skillAgentPreferences" not in result
+
+    def test_empty_v1_doc_migrates_cleanly(self) -> None:
+        v1_doc = {"schemaVersion": "1.0"}
+        result = instincts._migrate_v1_to_v2(v1_doc)
+        assert result["schemaVersion"] == "2.0"
+        assert result["corrections"] == []
+        assert result["recoveries"] == []
+        assert result["workflows"] == []
+
+    def test_discards_low_evidence_sequences(self) -> None:
+        v1_doc = {
+            "schemaVersion": "1.0",
+            "toolSequences": [
+                {"key": "A -> B", "evidenceCount": 4, "lastSeenAt": "2026-01-01T00:00:00Z"},
+            ],
+        }
+        result = instincts._migrate_v1_to_v2(v1_doc)
+        assert result["workflows"] == []
+
+
+# ---------------------------------------------------------------------------
+# 16. Context functions are removed
+# ---------------------------------------------------------------------------
+
+
+class TestContextFunctionsRemoved:
+    def test_maybe_refresh_not_present(self) -> None:
+        assert not hasattr(instincts, "maybe_refresh_instinct_context")
+
+    def test_refresh_not_present(self) -> None:
+        assert not hasattr(instincts, "_refresh_instinct_context")
+
+    def test_needs_refresh_not_present(self) -> None:
+        assert not hasattr(instincts, "_needs_context_refresh")
+
+    def test_select_context_items_not_present(self) -> None:
+        assert not hasattr(instincts, "_select_context_items")
+
+    def test_context_path_not_present(self) -> None:
+        assert not hasattr(instincts, "_context_path")
+
+    def test_context_header_not_present(self) -> None:
+        assert not hasattr(instincts, "INSTINCT_CONTEXT_HEADER")

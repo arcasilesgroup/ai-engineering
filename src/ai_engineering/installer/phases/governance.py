@@ -30,6 +30,11 @@ _TEAM_OWNED = "contexts/team/"
 _STATE_PREFIX = "state/"
 _STATE_REGENERATED = {"state/install-state.json", "state/ownership-map.json"}
 
+# Migration mappings: new_rel -> old_rel (for files that moved between versions)
+_MIGRATIONS: dict[str, str] = {
+    "LESSONS.md": "contexts/team/lessons.md",
+}
+
 
 class GovernancePhase:
     """Copy the ``.ai-engineering/`` governance tree to the target project."""
@@ -84,6 +89,23 @@ class GovernancePhase:
                 result.skipped.append(action.destination)
                 continue
 
+            if action.action_type == "migrate":
+                old_rel = _MIGRATIONS.get(action.source, "")
+                old_path = context.target / ".ai-engineering" / old_rel
+                if old_path.exists() and not dest.exists():
+                    dest.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.move(str(old_path), str(dest))
+                    result.created.append(action.destination)
+                elif not dest.exists():
+                    src = src_root / action.source
+                    if copy_file_if_missing(src, dest):
+                        result.created.append(action.destination)
+                    else:
+                        result.skipped.append(action.destination)
+                else:
+                    result.skipped.append(action.destination)
+                continue
+
             if action.action_type == "create":
                 src = src_root / action.source
                 if copy_file_if_missing(src, dest):
@@ -124,6 +146,13 @@ class GovernancePhase:
     @staticmethod
     def _classify(rel: str, dest_path: Path, mode: InstallMode) -> tuple[str, str]:
         """Return (action_type, rationale) for a single file."""
+        # Check for files that migrated to a new location
+        if rel in _MIGRATIONS and mode in (InstallMode.INSTALL, InstallMode.REPAIR):
+            old_rel = _MIGRATIONS[rel]
+            old_path = dest_path.parent / old_rel
+            if old_path.exists():
+                return "migrate", f"migrate from {old_rel} to {rel}"
+
         if rel.startswith(_TEAM_OWNED):
             if mode is InstallMode.INSTALL:
                 if dest_path.exists():

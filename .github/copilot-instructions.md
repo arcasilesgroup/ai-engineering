@@ -62,6 +62,7 @@ Orchestrator agents can delegate tasks to specialized subagents via the `agent` 
 | Review | Explorer | -> Build |
 | Verify | Explorer | -> Build |
 | Autopilot | Build, Explorer, Verify, Plan, Guard | -> agent |
+| Run | Build, Explorer, Verify, Review, Guard | -- |
 
 Leaf agents (Explorer, Guard, Guide, Simplifier) cannot delegate -- they are terminal nodes.
 
@@ -70,7 +71,7 @@ Per-agent hooks (e.g., auto-format in Build) require `chat.useCustomAgentHooks: 
 
 ## Quick Reference
 
-- Skills (41): `.github/skills/ai-<name>/SKILL.md`
-- Agents (9): `.github/agents/<name>.agent.md`
+- Skills (43): `.github/skills/ai-<name>/SKILL.md`
+- Agents (10): `.github/agents/<name>.agent.md`
 - Quality: coverage 80%, duplication <=3%, cyclomatic <=10, cognitive <=15
 - Security: zero medium+ findings, zero leaks, zero dependency vulns

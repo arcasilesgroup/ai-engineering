@@ -24,7 +24,6 @@ _DECISIONS = f"{_SD}/decision-store.json"
 _FRAMEWORK_CAPABILITIES = f"{_SD}/framework-capabilities.json"
 _INSTINCT_OBSERVATIONS = f"{_SD}/instinct-observations.ndjson"
 _INSTINCTS = ".ai-engineering/instincts/instincts.yml"
-_INSTINCT_CONTEXT = ".ai-engineering/instincts/context.md"
 _INSTINCT_META = ".ai-engineering/instincts/meta.json"
 _LEGACY_AUDIT_LOG = f"{_SD}/audit-log.ndjson"
 
@@ -44,7 +43,6 @@ class StatePhase:
             self._plan_file(context, _FRAMEWORK_CAPABILITIES, regenerate_on_fresh=True),
             self._plan_file(context, _INSTINCT_OBSERVATIONS, regenerate_on_fresh=True),
             self._plan_file(context, _INSTINCTS, regenerate_on_fresh=True),
-            self._plan_file(context, _INSTINCT_CONTEXT, regenerate_on_fresh=True),
             self._plan_file(context, _INSTINCT_META, regenerate_on_fresh=True),
         ]
         return PhasePlan(phase_name=self.name, actions=actions)
@@ -69,7 +67,6 @@ class StatePhase:
             if action.destination in {
                 _INSTINCT_OBSERVATIONS,
                 _INSTINCTS,
-                _INSTINCT_CONTEXT,
                 _INSTINCT_META,
             }:
                 if action.action_type == "skip":
@@ -111,7 +108,6 @@ class StatePhase:
                 _FRAMEWORK_CAPABILITIES,
                 _INSTINCT_OBSERVATIONS,
                 _INSTINCTS,
-                _INSTINCT_CONTEXT,
                 _INSTINCT_META,
             )
             if not (context.target / r).exists()

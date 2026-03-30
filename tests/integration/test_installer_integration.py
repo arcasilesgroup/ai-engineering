@@ -220,6 +220,8 @@ class TestCopyProjectTemplates:
         assert codex_dir.is_dir()
         skill_files = list(codex_dir.glob("*/SKILL.md"))
         assert len(skill_files) >= 28  # skills in .codex/skills/
+        assert (tmp_path / ".codex" / "hooks.json").is_file()
+        assert (tmp_path / ".codex" / "config.toml").is_file()
 
 
 # ---------------------------------------------------------------------------

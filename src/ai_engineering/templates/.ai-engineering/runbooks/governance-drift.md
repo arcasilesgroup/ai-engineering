@@ -220,32 +220,33 @@ else:
 "
 ```
 
-### Step 8 -- Create work items for drift findings
+### Step 8 -- Map findings and deduplicate via handler
 
-For each drift finding from Steps 1-7, create a task work item. Respect the `max_mutations` guardrail (15 per run).
+Map each drift finding from Steps 1-7 to the Finding contract and route through the shared dedup handler.
 
-```bash
-# GitHub Issues
-gh issue create \
-  --title "[governance-drift] <drift_type>: <file_path>" \
-  --body "## Governance Drift Finding
+**Finding mapping:**
 
-**Category:** mirror-sync | threshold | hook-integrity | template-drift | manifest-consistency
-**Drift type:** missing | content | threshold | integrity | orphan-registry | unregistered | count
-**File:** <file_path>
-**Expected:** <expected_value_or_hash>
-**Actual:** <actual_value_or_hash>
-**Remediation:** <action>
+```yaml
+domain_label: "governance-drift"
+title: "[governance-drift] $DRIFT_TYPE: $FILE_PATH"
+file_path: $FILE_PATH
+rule_id: $DRIFT_TYPE (mirror-sync | threshold | hook-integrity | template-drift | manifest-consistency)
+symbol: null
+severity: threshold/hook-integrity = high, mirror-sync/template-drift = medium, manifest-consistency = medium
+body: |
+  ## Governance Drift Finding
 
-**Detected by:** governance-drift runbook" \
-  --label "governance-drift"
+  **Category:** $CATEGORY
+  **Drift type:** $DRIFT_TYPE
+  **File:** $FILE_PATH
+  **Expected:** $EXPECTED_VALUE
+  **Actual:** $ACTUAL_VALUE
+  **Remediation:** $ACTION
 
-# Azure DevOps
-az boards work-item create --type Task \
-  --title "[governance-drift] <drift_type>: <file_path>" \
-  --description "<body>" \
-  --area "Project\\TeamName"
+  **Detected by:** governance-drift runbook
 ```
+
+Follow `handlers/dedup-check.md` to process all findings through the dedup cascade (max 15 per run).
 
 ### Step 9 -- Generate report
 
@@ -288,4 +289,4 @@ Framework health score and findings to stdout. Work items created for drift find
 3. **Mutations enabled by default.** Work items are created automatically.
 4. **Bounded mutations.** A maximum of 15 work items are created per run. If findings exceed this limit, the report notes the overflow and stops creating items.
 5. **Protected states.** Items in `closed` or `resolved` state are never reopened or modified. Labels `p1-critical` and `pinned` are never removed.
-6. **Idempotent.** Before creating a work item, search existing open issues for the same file path and drift type. Duplicate findings are skipped.
+6. **Idempotent.** Deduplication is delegated to the shared handler (`handlers/dedup-check.md`), which checks consolidated issues first, then individual issues, before creating new items.

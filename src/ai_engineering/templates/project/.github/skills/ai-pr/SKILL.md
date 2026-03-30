@@ -48,6 +48,10 @@ Dispatch up to 5 documentation subagents via `/ai-docs` handlers:
 
 4. **Stage all documentation files** produced by subagents 1-4.
 
+### 6.7. Instinct consolidation
+
+If `.ai-engineering/instincts/instincts.yml` exists (listening mode was active), run `/ai-instinct --review` to consolidate session observations before creating the PR.
+
 ### 7. Pre-push checks
 
 Execute full pre-push gate:

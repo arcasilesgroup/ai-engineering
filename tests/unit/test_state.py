@@ -119,8 +119,8 @@ class TestOwnershipMap:
     def test_update_allowed_for_instinct_artifacts(self) -> None:
         om = default_ownership_map()
         assert om.is_update_allowed(".ai-engineering/instincts/instincts.yml") is True
-        assert om.is_update_allowed(".ai-engineering/instincts/context.md") is True
         assert om.is_update_allowed(".ai-engineering/instincts/meta.json") is True
+        assert om.is_update_allowed(".ai-engineering/instincts/proposals.md") is True
 
     def test_update_denied_for_no_match(self) -> None:
         om = default_ownership_map()

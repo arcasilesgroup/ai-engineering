@@ -15,6 +15,7 @@ Reduce board noise by identifying duplicate, overlapping, or closely related wor
 
 - Work items provider configured in `manifest.yml` (`github` or `azure_devops`)
 - CLI access: `gh` for GitHub, `az` for Azure DevOps
+- `work-item-audit` has already run in the current weekly hygiene cycle; consolidate assumes invalid noise has been removed first
 - At least 5 open work items in the backlog (below this threshold, manual review is more efficient)
 
 ## Procedimiento
@@ -114,8 +115,11 @@ gh issue create \
 
 ## Notes for Brainstorm
 <Contradictions, edge cases, or open questions identified during consolidation>" \
-  --label "consolidated"
+  --label "consolidated" \
+  --label "$DOMAIN_LABEL_1" --label "$DOMAIN_LABEL_2" ...
 ```
+
+The `$DOMAIN_LABEL_N` values are the union of domain-specific labels from the grouped originals (e.g., `tech-debt`, `architecture-drift`, `security-finding`). Exclude generic labels (`triaged`, `needs-refinement`, `needs-triage`, `handoff-ai-eng`, `needs-clarification`, `needs-review`, priority labels). This ensures the consolidated issue is discoverable by the dedup handler (`handlers/dedup-check.md`).
 
 **Azure DevOps:**
 
@@ -123,7 +127,7 @@ gh issue create \
 az boards work-item create --type Task \
   --title "[consolidated] <group_title>" \
   --description "<body_as_above>" \
-  --fields "System.Tags=consolidated" \
+  --fields "System.Tags=consolidated;$DOMAIN_TAG_1;$DOMAIN_TAG_2" \
   --area "Project\\TeamName"
 ```
 
@@ -208,5 +212,5 @@ Summary report to stdout. Consolidated work items created, originals closed with
 4. **Protected states.** Items in `closed`, `resolved`, or `removed` state are never touched. Items with labels `pinned`, `p1-critical`, or `security` are excluded from grouping.
 5. **Idempotent.** Before creating a consolidated task, search for existing open items with `[consolidated]` in the title covering the same original items. If found, skip creation and report the existing task.
 6. **Audit trail.** Every closed item gets a comment linking to the consolidated task. The consolidated task body lists all originals with their titles.
-7. **Never modifies existing item content.** Original item titles, bodies, and non-consolidated labels are never changed. Only the `consolidated` label is added.
+7. **Never modifies existing item content.** Original item titles, bodies, and non-consolidated labels are never changed. The `consolidated` label plus domain-specific labels from grouped originals are added to the new consolidated issue.
 8. **Never assigns items.** Assignment is a refinement concern, not a consolidation concern.

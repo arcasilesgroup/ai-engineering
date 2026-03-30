@@ -25,10 +25,10 @@ Before writing code or designing features, read `.ai-engineering/CONSTITUTION.md
 
 ### 3. Self-Improvement Loop
 
-- After ANY correction from the user: update `.ai-engineering/contexts/team/lessons.md` with the pattern
+- After ANY correction from the user: update `.ai-engineering/LESSONS.md` with the pattern
 - Write rules for yourself that prevent the same mistake
 - Ruthlessly iterate on these lessons until mistake rate drops
-- Review lessons at session start: read `.ai-engineering/contexts/team/lessons.md` proactively
+- Review lessons at session start: read `.ai-engineering/LESSONS.md` proactively
 
 ### 4. Verification Before Done
 
@@ -63,7 +63,7 @@ Before writing code or designing features, read `.ai-engineering/CONSTITUTION.md
 
 ### 9. Proactive Memory
 
-- Read/write `.ai-engineering/contexts/team/lessons.md` to persist learnings across sessions
+- Read/write `.ai-engineering/LESSONS.md` to persist learnings across sessions
 
 ### 10. Context Loading
 
@@ -82,7 +82,7 @@ Before writing or reviewing code, load the applicable context files:
 3. **Track Progress**: Mark items complete in `.ai-engineering/specs/plan.md` as you go
 4. **Explain Changes**: High-level summary at each step
 5. **Document Results**: Add review to the spec tasks file
-6. **Capture Lessons**: Update `.ai-engineering/contexts/team/lessons.md` after corrections
+6. **Capture Lessons**: Update `.ai-engineering/LESSONS.md` after corrections
 
 ## Core Principles
 
@@ -104,17 +104,18 @@ Before writing or reviewing code, load the applicable context files:
 | Onboarding, teaching | guide | `/ai-guide` |
 | Simplify/refactor code | simplify | direct dispatch |
 | Multi-spec autonomous execution | autopilot | `/ai-autopilot` |
+| Autonomous backlog execution | run-orchestrator | `/ai-run` |
 
-## Skills (41)
+## Skills (44)
 
 Grouped by type. Invoke as `/ai-<name>`.
 
 **Workflow:** brainstorm, plan, dispatch, code, test, debug, verify, review, eval, schema
 **Delivery:** commit, pr, release-gate, cleanup, market
-**Enterprise:** security, governance, pipeline, docs, board-discover, board-sync
+**Enterprise:** security, governance, pipeline, docs, board-discover, board-sync, platform-audit
 **Teaching:** explain, guide, write, slides, media, video-editing
 **SDLC:** note, standup, sprint, postmortem, support, resolve-conflicts
-**Meta:** create, learn, prompt, onboard, analyze-permissions, instinct, autopilot, constitution
+**Meta:** create, learn, prompt, onboard, analyze-permissions, instinct, autopilot, run, constitution, skill-evolve
 
 ## Effort Levels
 
@@ -122,7 +123,7 @@ Each skill declares `effort` in frontmatter. Assignment by cognitive weight:
 
 | Effort | Count |
 |--------|-------|
-| max | 8 (brainstorm, review, verify, security, governance, schema, eval, autopilot) |
+| max | 11 (autopilot, brainstorm, governance, platform-audit, review, run, schema, security, skill-evolve, verify, eval) |
 | high | 20 (board-discover, code, create, debug, dispatch, docs, explain, guide, market, pipeline, plan, postmortem, pr, release-gate, slides, sprint, support, test, video-editing, write) |
 | medium | 13 (analyze-permissions, board-sync, cleanup, commit, instinct, learn, media, note, onboard, constitution, prompt, resolve-conflicts, standup) |
 
@@ -168,11 +169,11 @@ Gate failure: diagnose, fix, retry. Use `ai-eng doctor --fix` or `ai-eng doctor 
 
 | What | Where |
 |------|-------|
-| Skills (41) | `.claude/skills/ai-<name>/SKILL.md` |
-| Agents (9) | `.claude/agents/ai-<name>.md` |
+| Skills (44) | `.claude/skills/ai-<name>/SKILL.md` |
+| Agents (10) | `.claude/agents/ai-<name>.md` |
 | Config | `.ai-engineering/manifest.yml` |
 | Decisions | `.ai-engineering/state/decision-store.json` |
 | Active spec | `.ai-engineering/specs/spec.md` |
 | Contexts | `.ai-engineering/contexts/languages/`, `frameworks/`, `team/` |
-| Lessons | `.ai-engineering/contexts/team/lessons.md` |
+| Lessons | `.ai-engineering/LESSONS.md` |
 | CLI | `ai-eng <command>` |

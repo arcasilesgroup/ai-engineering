@@ -34,7 +34,7 @@ Base analizada:
 - Comandos CLI: núcleo + subgrupos operativos (`stack`, `ide`, `gate`, `skill`, `maintenance`, `provider`, `vcs`, `review`, `cicd`, `setup`, `decision`, `spec`, `scan-report`, `metrics`, `workflow`, `work-item`).
 - Skills: 34 (flat organization).
 - Agentes: 7.
-- Runbooks: 13.
+- Runbooks: 14.
 - Tests: 82 archivos, 124 tests detectados.
 
 ## Diagrama 1: Alto nivel (producto/sistema)
