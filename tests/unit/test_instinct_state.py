@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Any
 
 from ai_engineering.state.instincts import (
     append_instinct_observation,
@@ -189,3 +190,135 @@ skillAgentPreferences:
         assert "toolSequences" not in doc
         assert "errorRecoveries" not in doc
         assert "skillAgentPreferences" not in doc
+
+    def test_append_returns_none_when_tool_name_empty(self, tmp_path: Path) -> None:
+        _seed_manifest(tmp_path)
+        result = append_instinct_observation(
+            tmp_path,
+            engine="claude_code",
+            hook_event="PostToolUse",
+            session_id="session-x",
+            data={"tool_name": "", "result": {"message": "ok"}},
+        )
+        assert result is None
+
+    def test_append_returns_none_when_tool_name_missing(self, tmp_path: Path) -> None:
+        _seed_manifest(tmp_path)
+        result = append_instinct_observation(
+            tmp_path,
+            engine="claude_code",
+            hook_event="PostToolUse",
+            session_id="session-x",
+            data={"result": {"message": "ok"}},
+        )
+        assert result is None
+
+    def test_derive_outcome_failure_from_error_key(self, tmp_path: Path) -> None:
+        _seed_manifest(tmp_path)
+        obs = append_instinct_observation(
+            tmp_path,
+            engine="claude_code",
+            hook_event="PostToolUse",
+            session_id="session-err",
+            data={"tool_name": "Bash", "error": "command failed"},
+        )
+        assert obs is not None
+        assert obs.outcome == "failure"
+
+    def test_coerce_text_with_list_and_dict_without_output_keys(self, tmp_path: Path) -> None:
+        from ai_engineering.state.instincts import _coerce_text
+
+        assert "item1" in _coerce_text(["item1", "item2"])
+        result = _coerce_text({"custom_key": "value"})
+        assert "fields=" in result
+
+    def test_summarize_mapping_fallback_to_fields(self, tmp_path: Path) -> None:
+        from ai_engineering.state.instincts import _summarize_mapping
+
+        result = _summarize_mapping({"alpha": None, "beta": None}, keys=("alpha", "beta"))
+        assert result is not None
+        assert "fields=" in result
+
+    def test_extract_session_id_from_alternate_key(self) -> None:
+        from ai_engineering.state.instincts import _extract_session_id
+
+        assert _extract_session_id({"sessionId": "abc"}) == "abc"
+        assert _extract_session_id({"session_id": "def"}) == "def"
+        assert _extract_session_id({}) is None
+
+    def test_coerce_mapping_with_json_string(self) -> None:
+        from ai_engineering.state.instincts import _coerce_mapping
+
+        assert _coerce_mapping('{"key": "val"}') == {"key": "val"}
+        assert _coerce_mapping("not json") == {}
+        assert _coerce_mapping('"just a string"') == {}
+        assert _coerce_mapping(42) == {}
+
+    def test_json_serializer_raises_for_unknown_types(self) -> None:
+        import pytest
+
+        from ai_engineering.state.instincts import _json_serializer
+
+        _json_serializer(datetime.now(tz=UTC))  # should not raise
+        with pytest.raises(TypeError, match="not JSON serializable"):
+            _json_serializer(set())
+
+    def test_detect_skill_workflows_no_events_file(self, tmp_path: Path) -> None:
+        from ai_engineering.state.instincts import _detect_skill_workflows
+
+        _seed_manifest(tmp_path)
+        result = _detect_skill_workflows(tmp_path)
+        assert len(result) == 0
+
+    def test_detect_skill_workflows_no_skill_events(self, tmp_path: Path) -> None:
+        from ai_engineering.state.instincts import _detect_skill_workflows
+
+        _seed_manifest(tmp_path)
+        events_path = tmp_path / ".ai-engineering" / "state" / "framework-events.ndjson"
+        events_path.parent.mkdir(parents=True, exist_ok=True)
+        append_ndjson(
+            events_path,
+            FrameworkEvent(
+                project="demo",
+                engine="claude_code",
+                kind="agent_dispatched",
+                outcome="success",
+                component="agent.build",
+                correlationId="corr-no-skill",
+                sessionId="session-no-skill",
+            ),
+        )
+        result = _detect_skill_workflows(tmp_path)
+        assert len(result) == 0
+
+    def test_merge_counter_updates_existing_entries(self, tmp_path: Path) -> None:
+        from collections import Counter
+
+        from ai_engineering.state.instincts import _merge_counter
+
+        target: list[dict[str, Any]] = [
+            {"key": "Read -> Edit", "evidenceCount": 3, "lastSeenAt": "2026-01-01T00:00:00Z"},
+        ]
+        counts: Counter[str] = Counter({"Read -> Edit": 2, "Bash -> Read": 1})
+        _merge_counter(
+            target,
+            counts,
+            builder=lambda k, c, t: {"key": k, "evidenceCount": c, "lastSeenAt": t},
+        )
+        assert len(target) == 2
+        existing = next(e for e in target if e["key"] == "Read -> Edit")
+        assert existing["evidenceCount"] == 5
+
+    def test_merge_counter_skips_zero_counts(self) -> None:
+        from collections import Counter
+
+        from ai_engineering.state.instincts import _merge_counter
+
+        target: list[dict[str, Any]] = []
+        counts: Counter[str] = Counter({"a": 0})
+        _merge_counter(
+            target,
+            counts,
+            builder=lambda k, c, t: {"key": k, "evidenceCount": c, "lastSeenAt": t},
+        )
+        assert len(target) == 0
