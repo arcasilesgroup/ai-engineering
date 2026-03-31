@@ -2,31 +2,31 @@
 # See https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
 
 # Framework governance (framework-managed)
-/.ai-engineering/                    @arcasilesgroup/ai-engineering-maintainers
-/.ai-engineering/standards/          @arcasilesgroup/ai-engineering-maintainers
-/.ai-engineering/runbooks/           @arcasilesgroup/ai-engineering-maintainers
+/.ai-engineering/                    @arcasilesgroup/maintainers
+/.ai-engineering/standards/          @arcasilesgroup/maintainers
+/.ai-engineering/runbooks/           @arcasilesgroup/maintainers
 
 # Core implementation
-/src/                                @arcasilesgroup/ai-engineering-maintainers
-/tests/                              @arcasilesgroup/ai-engineering-maintainers
+/src/                                @arcasilesgroup/maintainers
+/tests/                              @arcasilesgroup/maintainers
 
 # CI/CD and workflows
-/.github/workflows/                  @arcasilesgroup/ai-engineering-maintainers
-/.github/agents/                     @arcasilesgroup/ai-engineering-maintainers
-/.github/skills/                     @arcasilesgroup/ai-engineering-maintainers
-/.github/copilot/                    @arcasilesgroup/ai-engineering-maintainers
-/.github/instructions/               @arcasilesgroup/ai-engineering-maintainers
+/.github/workflows/                  @arcasilesgroup/maintainers
+/.github/agents/                     @arcasilesgroup/maintainers
+/.github/skills/                     @arcasilesgroup/maintainers
+/.github/copilot/                    @arcasilesgroup/maintainers
+/.github/instructions/               @arcasilesgroup/maintainers
 
 # IDE mirror surfaces (generated — do not edit manually)
-/.claude/skills/                     @arcasilesgroup/ai-engineering-maintainers
-/.claude/agents/                     @arcasilesgroup/ai-engineering-maintainers
-/.agents/                            @arcasilesgroup/ai-engineering-maintainers
+/.claude/skills/                     @arcasilesgroup/maintainers
+/.claude/agents/                     @arcasilesgroup/maintainers
+/.agents/                            @arcasilesgroup/maintainers
 
 # Root governance files
-/CLAUDE.md                           @arcasilesgroup/ai-engineering-maintainers
-/AGENTS.md                           @arcasilesgroup/ai-engineering-maintainers
+/CLAUDE.md                           @arcasilesgroup/maintainers
+/AGENTS.md                           @arcasilesgroup/maintainers
 
 # Security-sensitive
-/.gitleaks.toml                      @arcasilesgroup/ai-engineering-maintainers
-/.semgrep.yml                        @arcasilesgroup/ai-engineering-maintainers
-/scripts/                            @arcasilesgroup/ai-engineering-maintainers
+/.gitleaks.toml                      @arcasilesgroup/maintainers
+/.semgrep.yml                        @arcasilesgroup/maintainers
+/scripts/                            @arcasilesgroup/maintainers
