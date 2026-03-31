@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **CI/CD Redesign (spec-097)** -- split 760-line `ci.yml` monolith into `ci-check.yml` (validation + dry build, PR + main) and `ci-build.yml` (build + supply chain, main only via `workflow_run`). Deprecated old `ci.yml`.
+- **Artifact-driven releases (spec-097)** -- rewrote `release.yml` from tag-triggered to `workflow_dispatch` with version input (default: latest tag). Supports rollback by dispatching with an older version.
+- **Conventional commits (spec-097)** -- adopted `feat(scope):` / `fix(scope):` format replacing `spec-NNN:` prefix. Updated `/ai-commit`, `/ai-pr` skills and all mirrors.
+- **Single version source (spec-097)** -- eliminated `__version__.py`, version now read from `pyproject.toml` via `importlib.metadata`. Simplified `version_bump.py` to single-file management.
+
+### Added
+- **python-semantic-release (spec-097)** -- automatic version bumping from conventional commits integrated into ci-build.yml. Creates tags and draft GitHub Releases on version bump.
+- **SLSA Build attestations (spec-097)** -- `actions/attest-build-provenance` generates provenance in the same job as `uv build`, verifiable via `gh attestation verify`.
+- **CycloneDX SBOM (spec-097)** -- generates `sbom.json` from production-only dependencies, attached to every release.
+- **SHA-256 checksums (spec-097)** -- `CHECKSUMS-SHA256.txt` generated and attached to every release.
+- **GitHub hardening (spec-097)** -- branch protection (1 required approval, code owner review, enforce for admins), tag protection (`v*` restricted to admins), PyPI environment restricted to main, Actions allowlist.
+
+### Removed
+- **`__version__.py` (spec-097)** -- replaced by `importlib.metadata.version("ai-engineering")`.
+- **`ci.yml` monolith (spec-097)** -- replaced by `ci-check.yml` + `ci-build.yml`.
+
 ### Fixed
 - **`ai-eng update` provider filtering (spec-096)** -- update now reads `ai_providers.enabled` from manifest.yml instead of processing all 4 providers. Previously ignored manifest configuration and installed/updated files for all providers regardless of user selection.
 - **Validator manifest-driven resolution (spec-096)** -- `_BASE_INSTRUCTION_FILES` in `_shared.py` and `_check_instruction_parity` in `mirror_sync.py` now dynamically resolve instruction files from `ai_providers.enabled` instead of hardcoding CLAUDE.md/AGENTS.md/copilot-instructions.md.
