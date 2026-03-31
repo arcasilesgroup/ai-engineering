@@ -209,47 +209,34 @@ def render_update_tree(
     root: Path,
     dry_run: bool,
 ) -> None:
-    """Render updater results as grouped file trees on stderr."""
-    grouped: OrderedDict[str, list[FileChange]] = OrderedDict(
-        [
-            ("available", []),
-            ("applied", []),
-            ("protected", []),
-            ("unchanged", []),
-            ("failed", []),
-        ]
-    )
-    for change in changes:
-        grouped.setdefault(change.outcome(dry_run=dry_run), []).append(change)
+    """Render updater results as a single unified file tree on stderr.
 
-    for outcome, bucket_changes in grouped.items():
-        if not bucket_changes:
-            continue
-        label, style = _bucket_label(outcome)
+    All non-unchanged changes are merged into one tree grouped by directory
+    hierarchy.  Each leaf shows an inline state label (new, updated, protected,
+    overwrite).  Unchanged files are excluded from the tree and summarised in a
+    footer line.
+    """
+    visible: list[FileChange] = []
+    unchanged_count = 0
+
+    for change in changes:
+        outcome = change.outcome(dry_run=dry_run)
+        if outcome == "unchanged":
+            unchanged_count += 1
+        else:
+            visible.append(change)
+
+    if visible:
+        tree = _TreeNode("")
+        for change in sorted(visible, key=lambda c: _tree_sort_key(c, root=root)):
+            parts = _tree_parts(change.path, root=root)
+            tree.add(parts, change)
         _safe_print("")
-        _safe_print(f"[{style}]{label} ({len(bucket_changes)})[/{style}]")
-        lines = _build_update_tree_lines(bucket_changes, root=root)
-        for line in lines:
+        for line in tree.render():
             _safe_print(f"  {line}")
 
-
-def _bucket_label(outcome: str) -> tuple[str, str]:
-    labels = {
-        "available": ("Available", "success"),
-        "applied": ("Applied", "success"),
-        "protected": ("Protected", "warning"),
-        "unchanged": ("Unchanged", "muted"),
-        "failed": ("Failed", "error"),
-    }
-    return labels.get(outcome, (outcome.title(), "info"))
-
-
-def _build_update_tree_lines(changes: list[FileChange], *, root: Path) -> list[str]:
-    tree = _TreeNode("")
-    for change in sorted(changes, key=lambda item: _tree_sort_key(item, root=root)):
-        parts = _tree_parts(change.path, root=root)
-        tree.add(parts, change)
-    return tree.render()
+    if unchanged_count:
+        _safe_print(f"  [dim]{unchanged_count} files unchanged[/dim]")
 
 
 def _tree_sort_key(change: FileChange, *, root: Path) -> tuple[tuple[str, ...], str]:
@@ -266,6 +253,16 @@ def _tree_parts(path: Path, *, root: Path) -> tuple[str, ...]:
     else:
         parts = path.parts or (path.as_posix(),)
     return tuple(part for part in parts if part not in ("", "."))
+
+
+_STATE_LABELS: dict[str, tuple[str, str]] = {
+    "create": ("new", "green"),
+    "update": ("updated", "yellow"),
+    "skip-denied": ("protected", "red"),
+    "overwrite": ("overwrite", "bold red"),
+    "skip-unchanged": ("unchanged", "dim"),
+}
+"""Map FileChange.action to (label, Rich style) for inline display."""
 
 
 class _TreeNode:
@@ -292,25 +289,25 @@ class _TreeNode:
         return lines
 
     def _render_into(self, lines: list[str], *, prefix: str, is_last: bool) -> None:
-        branch = "└──" if is_last else "├──"
-        lines.append(f"{prefix}{branch} {self.name}")
-        child_prefix = f"{prefix}{'    ' if is_last else '│   '}"
+        # Collapse single-child directory chains: a/b/c -> "a/b/c" on one line.
+        node = self
+        collapsed_name = self.name
+        while node.change is None and len(node.children) == 1:
+            only_child = next(iter(node.children.values()))
+            collapsed_name = f"{collapsed_name}/{only_child.name}"
+            node = only_child
 
-        if self.change is not None:
-            recommendation = self.change.recommended_action or "No action required."
-            detail_items = [
-                f"Reason: {self.change.reason_code}",
-                f"Next: {recommendation}",
-            ]
-            if self.change.explanation:
-                detail_items.append(f"Why: {self.change.explanation}")
-            for index, detail in enumerate(detail_items):
-                detail_branch = (
-                    "└──" if index == len(detail_items) - 1 and not self.children else "├──"
-                )
-                lines.append(f"{child_prefix}{detail_branch} {detail}")
+        branch = "\u2514\u2500\u2500" if is_last else "\u251c\u2500\u2500"
 
-        children = list(self.children.values())
+        if node.change is not None:
+            label, style = _STATE_LABELS.get(node.change.action, ("", "dim"))
+            lines.append(f"{prefix}{branch} {collapsed_name}  [{style}]{label}[/{style}]")
+        else:
+            lines.append(f"{prefix}{branch} {collapsed_name}")
+
+        pipe = "\u2502"
+        child_prefix = f"{prefix}{'    ' if is_last else f'{pipe}   '}"
+        children = list(node.children.values())
         for index, child in enumerate(children):
             child._render_into(
                 lines,

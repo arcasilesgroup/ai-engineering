@@ -48,7 +48,6 @@ from ai_engineering.installer.service import install_with_pipeline
 from ai_engineering.installer.ui import (
     StepStatus,
     render_detection,
-    render_reinstall_options,
     render_step,
     render_summary,
 )
@@ -102,6 +101,20 @@ def install_cmd(
             help="Replay a saved install plan (JSON).",
         ),
     ] = None,
+    fresh: Annotated[
+        bool,
+        typer.Option(
+            "--fresh",
+            help="Overwrite all framework files (typed confirmation required).",
+        ),
+    ] = False,
+    reconfigure: Annotated[
+        bool,
+        typer.Option(
+            "--reconfigure",
+            help="Re-run the configuration wizard to change providers/stacks/IDEs.",
+        ),
+    ] = False,
 ) -> None:
     """Install the ai-engineering governance framework."""
     if non_interactive:
@@ -140,23 +153,25 @@ def install_cmd(
         _replay_plan(root, plan_file)
         return
 
-    # Check for existing installation
-    manifest_path = root / ".ai-engineering" / "state" / "install-state.json"
+    # Detect existing installation
+    state_path = root / ".ai-engineering" / "state" / "install-state.json"
+    is_reinstall = state_path.exists()
     mode = InstallMode.INSTALL
 
-    if manifest_path.exists() and not non_interactive:
-        choice = render_reinstall_options()
-        if choice == "cancel":
-            raise typer.Exit(0)
-        mode = {
-            "fresh": InstallMode.FRESH,
-            "repair": InstallMode.REPAIR,
-            "reconfigure": InstallMode.RECONFIGURE,
-        }[choice]
-    elif manifest_path.exists() and non_interactive:
-        mode = InstallMode.REPAIR
+    if is_reinstall:
+        # --- Reinstall path: no menu, mode from flags or auto-infer ---
+        if fresh:
+            mode = InstallMode.FRESH
+        elif reconfigure:
+            mode = InstallMode.RECONFIGURE
+        else:
+            mode = InstallMode.REPAIR
 
-    # Auto-detect project configuration
+        if non_interactive:
+            mode = InstallMode.REPAIR
+    # First install: mode stays INSTALL (handled below)
+
+    # --- Resolve configuration selections ---
     from ai_engineering.installer.autodetect import detect_all
 
     detected = detect_all(root)
@@ -172,22 +187,10 @@ def install_cmd(
     if vcs is not None:
         resolved["vcs"] = "azure_devops" if vcs == "azdo" else vcs
 
-    # Determine final selections: flags > wizard > detection > defaults
-    all_resolved = all(k in resolved for k in ("stacks", "providers", "ides", "vcs"))
-
-    import sys
-
-    if all_resolved or is_json_mode() or not sys.stdin.isatty():
-        resolved_stacks = resolved.get("stacks", detected.stacks or ["python"])
-        resolved_providers = resolved.get("providers", detected.providers or ["claude_code"])
-        resolved_ides = resolved.get("ides", detected.ides or ["terminal"])
-        resolved_vcs = resolved.get("vcs", detected.vcs)
-    else:
-        # Show detection summary
+    if is_reinstall and mode == InstallMode.RECONFIGURE:
+        # --reconfigure: run wizard for new selections
         if not is_json_mode():
             _show_detection_summary(detected)
-
-        # Run wizard for unresolved categories
         from ai_engineering.installer.wizard import run_wizard
 
         wizard_result = run_wizard(detected, resolved if resolved else None)
@@ -195,6 +198,70 @@ def install_cmd(
         resolved_providers = wizard_result.providers
         resolved_ides = wizard_result.ides
         resolved_vcs = wizard_result.vcs
+    elif is_reinstall:
+        # Default/fresh reinstall: read config from existing manifest.yml
+        from ai_engineering.config.loader import load_manifest_config
+
+        config = load_manifest_config(root)
+        resolved_stacks = resolved.get("stacks", config.providers.stacks or ["python"])
+        resolved_providers = resolved.get(
+            "providers", config.ai_providers.enabled or ["claude_code"]
+        )
+        resolved_ides = resolved.get("ides", config.providers.ides or ["terminal"])
+        resolved_vcs = resolved.get("vcs", config.providers.vcs)
+    else:
+        # First install: flags > wizard > detection > defaults
+        any_resolved = bool(resolved)
+
+        if any_resolved or is_json_mode():
+            resolved_stacks = resolved.get("stacks", detected.stacks or ["python"])
+            resolved_providers = resolved.get("providers", detected.providers or ["claude_code"])
+            resolved_ides = resolved.get("ides", detected.ides or ["terminal"])
+            resolved_vcs = resolved.get("vcs", detected.vcs)
+        else:
+            # First install always runs the wizard for configuration
+            if not is_json_mode():
+                _show_detection_summary(detected)
+
+            from ai_engineering.installer.wizard import run_wizard
+
+            wizard_result = run_wizard(detected, resolved if resolved else None)
+            resolved_stacks = wizard_result.stacks
+            resolved_providers = wizard_result.providers
+            resolved_ides = wizard_result.ides
+            resolved_vcs = wizard_result.vcs
+
+    # --- Reinstall confirmation gates ---
+    if is_reinstall and not non_interactive:
+        if mode == InstallMode.FRESH:
+            # Show all files as overwrite
+            typer.echo("\nAll framework files will be overwritten:")
+            typer.echo("  [overwrite] .ai-engineering/ (all governance files)")
+            typer.echo("  [overwrite] IDE configurations")
+            typer.echo("  [overwrite] hook scripts")
+            confirmation = typer.prompt(
+                "\nType 'fresh' to confirm full overwrite, or anything else to cancel",
+                default="",
+            )
+            if confirmation != "fresh":
+                typer.echo("Cancelled. No changes were made.")
+                raise typer.Exit(0)
+        elif mode == InstallMode.RECONFIGURE:
+            # Show diff tree with added/removed markers
+            typer.echo("\nReconfiguration preview:")
+            typer.echo(f"  [added] New providers: {', '.join(resolved_providers)}")
+            typer.echo(f"  [added] New stacks: {', '.join(resolved_stacks)}")
+            typer.echo(f"  [added] New IDEs: {', '.join(resolved_ides)}")
+            if not typer.confirm("Proceed?", default=True):
+                raise typer.Exit(0)
+        else:
+            # Default REPAIR: preview + Y/n
+            typer.echo("\nReinstall preview (repair mode):")
+            typer.echo(f"  Stacks: {', '.join(resolved_stacks)}")
+            typer.echo(f"  Providers: {', '.join(resolved_providers)}")
+            typer.echo(f"  IDEs: {', '.join(resolved_ides)}")
+            if not typer.confirm("Proceed?", default=True):
+                raise typer.Exit(0)
 
     # Show tool availability in interactive mode
     if not is_json_mode():
@@ -548,7 +615,24 @@ def _render_update_result(result: Any, *, root: Path, show_diff: bool) -> None:
     kv("Protected", result.protected_count)
     kv("Unchanged", result.unchanged_count)
 
-    render_update_tree(result.changes, root=root, dry_run=result.dry_run)
+    if result.dry_run:
+        # Preview: full unified tree of all non-unchanged changes.
+        render_update_tree(result.changes, root=root, dry_run=result.dry_run)
+    else:
+        # Post-apply: check for failures.
+        failed = [c for c in result.changes if c.outcome(dry_run=False) == "failed"]
+        if failed:
+            # Show tree with only the failed changes.
+            render_update_tree(failed, root=root, dry_run=result.dry_run)
+        else:
+            # Compact one-liner summary by action type.
+            counts: dict[str, int] = {}
+            for c in result.changes:
+                counts[c.action] = counts.get(c.action, 0) + 1
+            created = counts.get("create", 0)
+            updated = counts.get("update", 0)
+            removed = counts.get("remove", 0)
+            print_stdout(f"Done. {created} created, {updated} updated, {removed} removed.")
 
     if show_diff:
         for change in result.changes:

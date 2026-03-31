@@ -296,16 +296,22 @@ def test_core_update_interactive_preview_then_apply(
         core.update_cmd(target=tmp_path)
 
     captured = capsys.readouterr()
+    # Preview header on stdout
     assert "Update [PREVIEW]" in captured.out
+    # Applied header on stdout
     assert "Update [APPLIED]" in captured.out
-    assert "Available (1)" in captured.err
-    assert "Protected (1)" in captured.err
-    assert "└── f" in captured.err
-    assert "└── team.md" in captured.err
+
+    # Preview: unified tree with inline state labels (no bucket headers)
+    assert "Available  1" in captured.err
+    assert "Protected  1" in captured.err
+    assert "f" in captured.err
+    assert "updated" in captured.err
     assert "team.md" in captured.err
-    assert "Reason: team-managed-update-protected" in captured.err
-    assert "team-managed-update-protected" in captured.err
-    assert "No action required" in captured.err
+    assert "protected" in captured.err
+
+    # Post-apply: compact one-liner summary on stdout (not a full tree)
+    assert "Done. 0 created, 1 updated, 0 removed." in captured.out
+
     assert mock_update.call_count == 2
     mock_confirm.assert_called_once()
 
@@ -335,11 +341,19 @@ def test_core_update_interactive_decline_keeps_preview_only(
         core.update_cmd(target=tmp_path)
 
     captured = capsys.readouterr()
+    # Preview header on stdout
     assert "Update [PREVIEW]" in captured.out
+    # Decline warning on stderr
     assert "Preview only. No changes were applied." in captured.err
-    assert "Available (1)" in captured.err
-    assert "└── f" in captured.err
-    assert "Reason: template-drift" in captured.err
+
+    # Preview: unified tree with inline state labels (no bucket headers)
+    assert "Available  1" in captured.err
+    assert "f" in captured.err
+    assert "updated" in captured.err
+
+    # No post-apply output (user declined)
+    assert "Update [APPLIED]" not in captured.out
+
     assert mock_update.call_count == 1
     mock_confirm.assert_called_once()
 
@@ -372,6 +386,224 @@ def test_core_update_non_tty_apply_skips_prompt(tmp_path: Path) -> None:
 
     mock_confirm.assert_not_called()
     mock_update.assert_called_once_with(tmp_path, dry_run=False)
+
+
+# -- Post-apply output tests (spec-095, Phase 2) ----------------------------------
+
+
+def test_update_post_apply_success_oneliner(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """After a successful apply (no failures), output is a summary one-liner, not a tree."""
+    preview = UpdateResult(
+        dry_run=True,
+        changes=[
+            FileChange(
+                path=Path("CLAUDE.md"),
+                action="create",
+                reason_code="new-file",
+                explanation="New governance file.",
+            ),
+            FileChange(
+                path=Path("AGENTS.md"),
+                action="create",
+                reason_code="new-file",
+                explanation="New governance file.",
+            ),
+            FileChange(
+                path=Path(".ai-engineering/manifest.yml"),
+                action="update",
+                reason_code="template-drift",
+                explanation="Template update available.",
+            ),
+        ],
+    )
+    applied = UpdateResult(
+        dry_run=False,
+        changes=[
+            FileChange(
+                path=Path("CLAUDE.md"),
+                action="create",
+                reason_code="new-file",
+                explanation="New governance file.",
+            ),
+            FileChange(
+                path=Path("AGENTS.md"),
+                action="create",
+                reason_code="new-file",
+                explanation="New governance file.",
+            ),
+            FileChange(
+                path=Path(".ai-engineering/manifest.yml"),
+                action="update",
+                reason_code="template-drift",
+                explanation="Template update available.",
+            ),
+        ],
+    )
+
+    with (
+        patch.object(core.sys.stdin, "isatty", return_value=True),
+        patch("ai_engineering.cli_commands.core.update", side_effect=[preview, applied]),
+        patch("ai_engineering.cli_commands.core.typer.confirm", return_value=True),
+    ):
+        core.update_cmd(target=tmp_path)
+
+    captured = capsys.readouterr()
+    combined = captured.out + captured.err
+
+    # Post-apply output MUST be a compact one-liner summary
+    assert "Done. 2 created, 1 updated, 0 removed." in combined
+
+    # Post-apply output MUST NOT render the full applied tree.
+    # Tree output (├── / └──) goes to stderr.  Both the preview tree and the
+    # applied tree are rendered there.  The preview has 3 visible changes so
+    # it produces 3 tree lines.  If the implementation also renders the applied
+    # tree, we get 3 more (6 total).  With the spec change we expect only 3.
+    err_lines = captured.err.strip().split("\n")
+    tree_line_count = sum(
+        1 for line in err_lines if "\u251c\u2500\u2500" in line or "\u2514\u2500\u2500" in line
+    )
+    preview_change_count = len(preview.changes)  # 3 non-unchanged files in preview
+    assert tree_line_count == preview_change_count, (
+        f"Expected {preview_change_count} tree lines (preview only), "
+        f"got {tree_line_count} (current code renders applied tree too)"
+    )
+
+
+def test_update_post_apply_failures_show_tree(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """After an apply with failures, the tree shows ONLY failed files."""
+    # Use file names unique to each result so assertions are unambiguous
+    # across the stdout/stderr split.
+    preview = UpdateResult(
+        dry_run=True,
+        changes=[
+            FileChange(
+                path=Path("preview-a.md"),
+                action="update",
+                reason_code="template-drift",
+                explanation="Template update available.",
+            ),
+            FileChange(
+                path=Path("preview-b.md"),
+                action="update",
+                reason_code="template-drift",
+                explanation="Template update available.",
+            ),
+        ],
+    )
+    # Simulate partial failure: one succeeds, one fails.
+    applied = UpdateResult(
+        dry_run=False,
+        changes=[
+            FileChange(
+                path=Path("success-file.md"),
+                action="update",
+                reason_code="template-drift",
+                explanation="Applied successfully.",
+            ),
+            FileChange(
+                path=Path("failed-file.md"),
+                action="error",  # triggers outcome() -> "failed"
+                reason_code="write-error",
+                explanation="Permission denied.",
+            ),
+        ],
+    )
+
+    with (
+        patch.object(core.sys.stdin, "isatty", return_value=True),
+        patch("ai_engineering.cli_commands.core.update", side_effect=[preview, applied]),
+        patch("ai_engineering.cli_commands.core.typer.confirm", return_value=True),
+    ):
+        core.update_cmd(target=tmp_path)
+
+    captured = capsys.readouterr()
+
+    # The failed file MUST appear in the post-apply output.
+    # "failed-file.md" is unique to the applied result, so its presence in
+    # stderr confirms the post-apply rendering includes it.
+    assert "failed-file.md" in captured.err, "Failed file should appear in post-apply output"
+
+    # The successfully applied file MUST NOT appear in the post-apply tree.
+    # "success-file.md" is unique to the applied result -- if it appears in
+    # stderr, the current code is rendering the full applied tree (wrong).
+    assert "success-file.md" not in captured.err, (
+        "Successfully applied file should not appear in the post-apply failure tree"
+    )
+
+
+def test_update_post_apply_preview_still_shows_full_tree(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The preview (before confirmation) still shows the full unified tree."""
+    preview = UpdateResult(
+        dry_run=True,
+        changes=[
+            FileChange(
+                path=Path("CLAUDE.md"),
+                action="create",
+                reason_code="new-file",
+                explanation="New governance file.",
+            ),
+            FileChange(
+                path=Path("AGENTS.md"),
+                action="update",
+                reason_code="template-drift",
+                explanation="Template update available.",
+            ),
+            FileChange(
+                path=Path("team.md"),
+                action="skip-denied",
+                reason_code="team-managed-update-protected",
+                explanation="Team-managed path.",
+            ),
+        ],
+    )
+    applied = UpdateResult(
+        dry_run=False,
+        changes=[
+            FileChange(
+                path=Path("CLAUDE.md"),
+                action="create",
+                reason_code="new-file",
+                explanation="New governance file.",
+            ),
+            FileChange(
+                path=Path("AGENTS.md"),
+                action="update",
+                reason_code="template-drift",
+                explanation="Template update available.",
+            ),
+        ],
+    )
+
+    with (
+        patch.object(core.sys.stdin, "isatty", return_value=True),
+        patch("ai_engineering.cli_commands.core.update", side_effect=[preview, applied]),
+        patch("ai_engineering.cli_commands.core.typer.confirm", return_value=True),
+    ):
+        core.update_cmd(target=tmp_path)
+
+    captured = capsys.readouterr()
+
+    # Tree output goes to stderr; both preview and applied trees are there.
+    # The preview tree MUST contain ALL non-unchanged files including protected.
+    # The protected file "team.md" is ONLY in the preview (not applied), so its
+    # presence in stderr confirms the preview tree renders the full unified set.
+    assert "CLAUDE.md" in captured.err, "Preview tree must include the new file"
+    assert "AGENTS.md" in captured.err, "Preview tree must include the updated file"
+    assert "team.md" in captured.err, "Preview tree must include the protected file"
+
+    # Verify the preview header appeared in stdout
+    assert "Update [PREVIEW]" in captured.out, "Preview header must be rendered"
+    assert "Update [APPLIED]" in captured.out, "Applied header must also be rendered"
+
+    # The kv summary for the preview must show Available and Protected counts.
+    # "Protected  1" in stderr confirms the preview section rendered ownership info.
+    assert "Protected  1" in captured.err, "Preview must report protected file count in summary"
 
 
 def test_gate_pre_push_and_risk_expiring_paths(

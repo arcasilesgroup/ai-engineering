@@ -90,44 +90,6 @@ def render_summary(
             print(f"  {i}. Run  {cmd}    {desc}", file=sys.stderr)
 
 
-def render_reinstall_options() -> str:
-    """Show re-install options and return user choice.
-
-    Returns one of: 'fresh', 'repair', 'reconfigure', 'cancel'.
-    """
-    import click
-    import click.exceptions
-    import typer
-
-    if _HAS_RICH and _console:
-        _console.print("\n[bold yellow]Existing installation detected.[/]")
-        _console.print(
-            "  [cyan]fresh[/]       \u2014 Overwrite framework files (preserves team + state)"
-        )
-        _console.print("  [cyan]repair[/]      \u2014 Fill missing files without overwriting")
-        _console.print("  [cyan]reconfigure[/] \u2014 Change providers/VCS/stacks")
-        _console.print("  [cyan]cancel[/]      \u2014 Exit without changes")
-    else:
-        print("\nExisting installation detected.", file=sys.stderr)
-        print(
-            "  fresh       \u2014 Overwrite framework files (preserves team + state)",
-            file=sys.stderr,
-        )
-        print("  repair      \u2014 Fill missing files without overwriting", file=sys.stderr)
-        print("  reconfigure \u2014 Change providers/VCS/stacks", file=sys.stderr)
-        print("  cancel      \u2014 Exit without changes", file=sys.stderr)
-
-    try:
-        choice = typer.prompt(
-            "\nChoose action",
-            default="repair",
-            type=click.Choice(["fresh", "repair", "reconfigure", "cancel"]),
-        )
-        return str(choice)
-    except (KeyboardInterrupt, EOFError, click.exceptions.Abort):
-        return "cancel"
-
-
 def render_detection(vcs: str, providers: list[str], tools: dict[str, bool]) -> None:
     """Show auto-detection results."""
     vcs_display = vcs or "none detected"

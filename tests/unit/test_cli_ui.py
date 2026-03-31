@@ -262,42 +262,11 @@ class TestShowLogoTty:
 
 
 class TestUpdateTreeRendering:
-    def test_render_update_tree_groups_and_nests_paths(
+    def test_render_update_tree_relative_path_unchanged_goes_to_footer(
         self, capsys: pytest.CaptureFixture[str]
     ) -> None:
-        get_console.cache_clear()
-        changes = [
-            FileChange(
-                path=Path("/repo/src/ai_engineering/core.py"),
-                action="update",
-                reason_code="template-drift",
-                explanation="Framework update available.",
-                recommended_action="Apply the update.",
-            ),
-            FileChange(
-                path=Path("/repo/.ai-engineering/LESSONS.md"),
-                action="skip-denied",
-                reason_code="team-managed-update-protected",
-                explanation="Protected by ownership.",
-                recommended_action="No action required.",
-            ),
-        ]
-
-        render_update_tree(changes, root=Path("/repo"), dry_run=True)
-        err = capsys.readouterr().err
-
-        assert "Available" in err
-        assert "Protected" in err
-        assert "src" in err
-        assert "ai_engineering" in err
-        assert "core.py" in err
-        assert "Reason: template-drift" in err
-        assert "Next: Apply the update." in err
-        assert "LESSONS.md" in err
-
-    def test_render_update_tree_handles_relative_paths(
-        self, capsys: pytest.CaptureFixture[str]
-    ) -> None:
+        """Relative paths with skip-unchanged action appear only in the footer count."""
+        # Arrange
         get_console.cache_clear()
         changes = [
             FileChange(
@@ -308,13 +277,14 @@ class TestUpdateTreeRendering:
             )
         ]
 
+        # Act
         render_update_tree(changes, root=Path("/repo"), dry_run=True)
         err = capsys.readouterr().err
 
-        assert "Unchanged" in err
-        assert "docs" in err
-        assert "README.md" in err
-        assert "Reason: already-current" in err
+        # Assert -- unchanged files go to the footer, not the tree
+        assert "1 files unchanged" in err
+        assert "├" not in err, "No tree structure expected for unchanged-only changes"
+        assert "└" not in err, "No tree structure expected for unchanged-only changes"
 
     def test_show_logo_handles_import_error(self) -> None:
         get_console.cache_clear()
@@ -324,6 +294,241 @@ class TestUpdateTreeRendering:
             patch.object(con, "print", side_effect=ImportError("fake")),
         ):
             show_logo()  # Should not raise
+
+
+class TestUnifiedTreeRenderer:
+    """Tests for the unified tree renderer (single tree, per-file state labels, no detail lines)."""
+
+    def test_unified_tree_single_tree_output(self, capsys: pytest.CaptureFixture[str]) -> None:
+        """Mixed outcomes produce ONE tree -- no bucket headings like 'Available (3)'."""
+        # Arrange
+        get_console.cache_clear()
+        changes = [
+            FileChange(
+                path=Path("/repo/.claude/skills/ai-start/SKILL.md"),
+                action="create",
+                reason_code="new-file",
+                explanation="New skill file.",
+            ),
+            FileChange(
+                path=Path("/repo/.claude/skills/ai-guide/SKILL.md"),
+                action="update",
+                reason_code="template-drift",
+                explanation="Framework update.",
+            ),
+            FileChange(
+                path=Path("/repo/.ai-engineering/LESSONS.md"),
+                action="skip-denied",
+                reason_code="team-managed-update-protected",
+                explanation="Protected by ownership.",
+            ),
+            FileChange(
+                path=Path("/repo/docs/README.md"),
+                action="skip-unchanged",
+                reason_code="already-current",
+                explanation="Up to date.",
+            ),
+        ]
+
+        # Act
+        render_update_tree(changes, root=Path("/repo"), dry_run=True)
+        err = capsys.readouterr().err
+
+        # Assert -- no bucket headings anywhere in the output
+        assert "Available" not in err, "Should not contain bucket heading 'Available'"
+        assert "Protected" not in err, "Should not contain bucket heading 'Protected'"
+        assert "Unchanged" not in err, "Should not contain bucket heading 'Unchanged'"
+        # Files from different buckets must still appear
+        assert "SKILL.md" in err
+        assert "LESSONS.md" in err
+
+    def test_unified_tree_directory_grouping(self, capsys: pytest.CaptureFixture[str]) -> None:
+        """Files from different directories are grouped under their parent directory."""
+        # Arrange
+        get_console.cache_clear()
+        changes = [
+            FileChange(
+                path=Path("/repo/.claude/skills/ai-start/SKILL.md"),
+                action="create",
+                reason_code="new-file",
+            ),
+            FileChange(
+                path=Path("/repo/.claude/skills/ai-guide/SKILL.md"),
+                action="update",
+                reason_code="template-drift",
+            ),
+            FileChange(
+                path=Path("/repo/.ai-engineering/contexts/stack.md"),
+                action="update",
+                reason_code="template-drift",
+            ),
+        ]
+
+        # Act
+        render_update_tree(changes, root=Path("/repo"), dry_run=True)
+        err = capsys.readouterr().err
+
+        # Assert -- both top-level directories appear as tree groups in a single tree
+        assert ".claude" in err
+        assert ".ai-engineering" in err
+        assert "ai-start" in err
+        assert "ai-guide" in err
+        assert "stack.md" in err
+        # Single unified tree -- no bucket headings separating the directories
+        assert "Available" not in err, "Should not contain bucket heading 'Available'"
+        # Both directories appear under one tree -- verify the first tree connector
+        # appears before both directory names (no heading resets the tree)
+        lines_with_connectors = [ln for ln in err.splitlines() if ("├" in ln or "└" in ln)]
+        # A unified tree has one root-level set of connectors; the current bucket
+        # renderer produces separate trees per outcome, so .claude and .ai-engineering
+        # each start a new root. In a unified tree they share the same root.
+        root_branches = [
+            ln for ln in lines_with_connectors if ln.lstrip().startswith(("├──", "└──"))
+        ]
+        # Both top-level dirs must appear as root-level branches of the same tree
+        root_text = " ".join(root_branches)
+        assert ".claude" in root_text, ".claude should be a root branch"
+        assert ".ai-engineering" in root_text, ".ai-engineering should be a root branch"
+
+    def test_unified_tree_per_file_state_labels(self, capsys: pytest.CaptureFixture[str]) -> None:
+        """Each leaf file shows its state label inline (e.g., 'SKILL.md  new')."""
+        # Arrange
+        get_console.cache_clear()
+        changes = [
+            FileChange(
+                path=Path("/repo/.claude/skills/ai-start/SKILL.md"),
+                action="create",
+                reason_code="new-file",
+            ),
+            FileChange(
+                path=Path("/repo/.claude/skills/ai-guide/SKILL.md"),
+                action="update",
+                reason_code="template-drift",
+            ),
+            FileChange(
+                path=Path("/repo/.ai-engineering/LESSONS.md"),
+                action="skip-denied",
+                reason_code="team-managed-update-protected",
+            ),
+        ]
+
+        # Act
+        render_update_tree(changes, root=Path("/repo"), dry_run=True)
+        err = capsys.readouterr().err
+
+        # Assert -- state labels appear inline on the same line as the filename
+        lines = err.splitlines()
+        skill_start_lines = [ln for ln in lines if "ai-start" in ln and "SKILL.md" in ln]
+        assert skill_start_lines, "Should find a line with ai-start/SKILL.md"
+        assert any("new" in ln for ln in skill_start_lines), (
+            "State label 'new' should appear on the same line as the file"
+        )
+
+        skill_guide_lines = [ln for ln in lines if "ai-guide" in ln and "SKILL.md" in ln]
+        assert skill_guide_lines, "Should find a line with ai-guide/SKILL.md"
+        assert any("updated" in ln for ln in skill_guide_lines), (
+            "State label 'updated' should appear on the same line as the file"
+        )
+
+        lessons_lines = [ln for ln in lines if "LESSONS.md" in ln]
+        assert lessons_lines, "Should find a line with LESSONS.md"
+        assert any("removed" in ln or "protected" in ln for ln in lessons_lines), (
+            "State label should appear on the same line as the file"
+        )
+
+    def test_unified_tree_no_detail_lines(self, capsys: pytest.CaptureFixture[str]) -> None:
+        """Tree does NOT produce 'Reason:', 'Next:', or 'Why:' detail lines."""
+        # Arrange
+        get_console.cache_clear()
+        changes = [
+            FileChange(
+                path=Path("/repo/.claude/skills/ai-start/SKILL.md"),
+                action="create",
+                reason_code="new-file",
+                explanation="New skill file.",
+                recommended_action="Review the file.",
+            ),
+            FileChange(
+                path=Path("/repo/.ai-engineering/LESSONS.md"),
+                action="skip-denied",
+                reason_code="team-managed-update-protected",
+                explanation="Protected by ownership.",
+                recommended_action="No action required.",
+            ),
+        ]
+
+        # Act
+        render_update_tree(changes, root=Path("/repo"), dry_run=True)
+        err = capsys.readouterr().err
+
+        # Assert -- none of the detail prefixes should appear
+        assert "Reason:" not in err, "Should not contain 'Reason:' detail lines"
+        assert "Next:" not in err, "Should not contain 'Next:' detail lines"
+        assert "Why:" not in err, "Should not contain 'Why:' detail lines"
+
+    def test_unified_tree_unchanged_footer(self, capsys: pytest.CaptureFixture[str]) -> None:
+        """Unchanged files appear as a footer count, not individually in the tree."""
+        # Arrange
+        get_console.cache_clear()
+        changes = [
+            FileChange(
+                path=Path("/repo/.claude/skills/ai-start/SKILL.md"),
+                action="create",
+                reason_code="new-file",
+            ),
+            FileChange(
+                path=Path("/repo/docs/README.md"),
+                action="skip-unchanged",
+                reason_code="already-current",
+            ),
+            FileChange(
+                path=Path("/repo/docs/GUIDE.md"),
+                action="skip-unchanged",
+                reason_code="already-current",
+            ),
+        ]
+
+        # Act
+        render_update_tree(changes, root=Path("/repo"), dry_run=True)
+        err = capsys.readouterr().err
+
+        # Assert -- unchanged files should NOT be in the tree
+        assert "README.md" not in err, "Unchanged file should not appear individually"
+        assert "GUIDE.md" not in err, "Unchanged file should not appear individually"
+        # Footer must summarise the count
+        assert "2 files unchanged" in err, "Footer should say '2 files unchanged'"
+
+    def test_unified_tree_empty_changes(self, capsys: pytest.CaptureFixture[str]) -> None:
+        """When all changes are unchanged, only the footer counter is shown."""
+        # Arrange
+        get_console.cache_clear()
+        changes = [
+            FileChange(
+                path=Path("/repo/docs/README.md"),
+                action="skip-unchanged",
+                reason_code="already-current",
+            ),
+            FileChange(
+                path=Path("/repo/docs/GUIDE.md"),
+                action="skip-unchanged",
+                reason_code="already-current",
+            ),
+            FileChange(
+                path=Path("/repo/docs/SETUP.md"),
+                action="skip-unchanged",
+                reason_code="already-current",
+            ),
+        ]
+
+        # Act
+        render_update_tree(changes, root=Path("/repo"), dry_run=True)
+        err = capsys.readouterr().err
+
+        # Assert -- no tree connectors should appear
+        assert "├" not in err, "No tree structure expected when all files are unchanged"
+        assert "└" not in err, "No tree structure expected when all files are unchanged"
+        # Only the footer
+        assert "3 files unchanged" in err, "Footer should say '3 files unchanged'"
 
 
 class TestHeaderFallback:
