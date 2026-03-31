@@ -2,21 +2,23 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 _GATE_TRAILER = "Ai-Eng-Gate: passed"
+
+_CONVENTIONAL_RE = re.compile(
+    r"^(feat|fix|perf|refactor|style|docs|test|build|ci|chore|revert)"
+    r"(\([^)]+\))?!?:\s+.+"
+)
+_LEGACY_SPEC_RE = re.compile(r"^spec-\d+:\s+.+")
 
 
 def validate_commit_message(msg: str) -> list[str]:
     """Validate a commit message against project conventions.
 
-    Rules:
-    - Must not be empty.
-    - First line must not exceed 72 characters.
-    - First line must start with a lowercase letter or a known prefix.
-
-    Args:
-        msg: The full commit message text.
+    Accepts both conventional commits (feat:, fix:, etc.) and legacy
+    spec-NNN: format during the transition period.
 
     Returns:
         List of validation errors (empty if valid).
@@ -35,6 +37,11 @@ def validate_commit_message(msg: str) -> list[str]:
 
     if len(first_line) > 72:
         errors.append(f"First line exceeds 72 characters ({len(first_line)} chars)")
+
+    if not _CONVENTIONAL_RE.match(first_line) and not _LEGACY_SPEC_RE.match(first_line):
+        errors.append(
+            "Commit message should follow conventional commit format: type(scope): description"
+        )
 
     return errors
 

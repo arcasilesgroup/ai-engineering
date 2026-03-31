@@ -371,9 +371,9 @@ def _prepare_branch(config: ReleaseConfig, clock: Clock) -> PhaseResult:
             output="Failed to promote [Unreleased] in CHANGELOG.md",
         )
 
-    add_ok, add_out = run_git(
-        ["add", "pyproject.toml", str(bump.files_modified[1]), "CHANGELOG.md"], config.project_root
-    )
+    files_to_add = [str(p.relative_to(config.project_root)) for p in bump.files_modified]
+    files_to_add.append("CHANGELOG.md")
+    add_ok, add_out = run_git(["add", *files_to_add], config.project_root)
     if not add_ok:
         return PhaseResult(phase="prepare", success=False, output=f"git add failed: {add_out}")
 

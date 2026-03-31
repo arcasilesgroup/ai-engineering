@@ -19,7 +19,7 @@ from rich.console import Console
 from rich.rule import Rule
 from rich.theme import Theme
 
-from ai_engineering.__version__ import __version__
+from ai_engineering import __version__
 
 if TYPE_CHECKING:
     from ai_engineering.updater.service import FileChange

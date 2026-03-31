@@ -111,26 +111,13 @@ def detect_current_version(project_root: Path) -> str:
     return match.group(1).strip()
 
 
-def _find_version_file(project_root: Path) -> Path:
-    direct = project_root / "src" / "ai_engineering" / "__version__.py"
-    if direct.exists():
-        return direct
-
-    candidates = sorted((project_root / "src").glob("*/__version__.py"))
-    if not candidates:
-        msg = "Could not locate __version__.py under src/"
-        raise FileNotFoundError(msg)
-    return candidates[0]
-
-
 def bump_python_version(project_root: Path, new_version: str) -> BumpResult:
-    """Bump version in pyproject.toml and __version__.py."""
+    """Bump version in pyproject.toml (single source of truth)."""
     if not validate_semver(new_version):
         msg = f"Invalid semver version: {new_version}"
         raise ValueError(msg)
 
     pyproject = project_root / "pyproject.toml"
-    version_file = _find_version_file(project_root)
     old_version = detect_current_version(project_root)
 
     py_text = pyproject.read_text(encoding="utf-8")
@@ -145,23 +132,10 @@ def bump_python_version(project_root: Path, new_version: str) -> BumpResult:
         msg = f"Unable to update version in {pyproject}"
         raise ValueError(msg)
 
-    ver_text = version_file.read_text(encoding="utf-8")
-    ver_updated, ver_count = re.subn(
-        r'^(__version__\s*=\s*")([^"]+)("\s*)$',
-        rf"\g<1>{new_version}\3",
-        ver_text,
-        count=1,
-        flags=re.MULTILINE,
-    )
-    if ver_count != 1:
-        msg = f"Unable to update __version__ in {version_file}"
-        raise ValueError(msg)
-
     pyproject.write_text(py_updated, encoding="utf-8")
-    version_file.write_text(ver_updated, encoding="utf-8")
 
     return BumpResult(
-        files_modified=[pyproject, version_file],
+        files_modified=[pyproject],
         old_version=old_version,
         new_version=new_version,
     )

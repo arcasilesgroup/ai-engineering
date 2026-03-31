@@ -15,7 +15,6 @@ from ai_engineering.release.version_bump import (
 
 
 def _write_project(tmp_path: Path, version: str = "0.1.0") -> None:
-    (tmp_path / "src" / "ai_engineering").mkdir(parents=True)
     (tmp_path / "pyproject.toml").write_text(
         "\n".join(
             [
@@ -25,10 +24,6 @@ def _write_project(tmp_path: Path, version: str = "0.1.0") -> None:
             ]
         )
         + "\n",
-        encoding="utf-8",
-    )
-    (tmp_path / "src" / "ai_engineering" / "__version__.py").write_text(
-        f'__version__ = "{version}"\n',
         encoding="utf-8",
     )
 
@@ -55,20 +50,15 @@ def test_detect_current_version(tmp_path: Path) -> None:
     assert detect_current_version(tmp_path) == "0.1.0"
 
 
-def test_bump_python_version_updates_pyproject_and_version_file(tmp_path: Path) -> None:
-    # Arrange
+def test_bump_python_version_updates_pyproject_only(tmp_path: Path) -> None:
     _write_project(tmp_path, "0.1.0")
 
-    # Act
     result = bump_python_version(tmp_path, "0.2.0")
 
-    # Assert
     assert result.old_version == "0.1.0"
     assert result.new_version == "0.2.0"
+    assert len(result.files_modified) == 1
     assert (tmp_path / "pyproject.toml").read_text(encoding="utf-8").find('version = "0.2.0"') >= 0
-    assert (tmp_path / "src" / "ai_engineering" / "__version__.py").read_text(
-        encoding="utf-8"
-    ).find('__version__ = "0.2.0"') >= 0
 
 
 def test_bump_python_version_rejects_invalid_semver(tmp_path: Path) -> None:
@@ -95,43 +85,15 @@ def test_detect_current_version_raises_when_missing(tmp_path: Path) -> None:
 
 
 def test_bump_python_version_raises_when_pyproject_version_line_missing(tmp_path: Path) -> None:
-    # Arrange
-    (tmp_path / "src" / "ai_engineering").mkdir(parents=True)
     (tmp_path / "pyproject.toml").write_text("[project]\nname='x'\n", encoding="utf-8")
-    (tmp_path / "src" / "ai_engineering" / "__version__.py").write_text(
-        '__version__ = "0.1.0"\n',
-        encoding="utf-8",
-    )
 
-    # Act & Assert
     with pytest.raises(ValueError):
         bump_python_version(tmp_path, "0.2.0")
 
 
-def test_bump_python_version_raises_when_version_file_missing(tmp_path: Path) -> None:
-    # Arrange
-    (tmp_path / "pyproject.toml").write_text(
-        "[project]\nname='x'\nversion = \"0.1.0\"\n",
-        encoding="utf-8",
-    )
+def test_bump_python_version_works_without_version_file(tmp_path: Path) -> None:
+    _write_project(tmp_path, "0.1.0")
 
-    # Act & Assert
-    with pytest.raises(FileNotFoundError):
-        bump_python_version(tmp_path, "0.2.0")
-
-
-def test_bump_python_version_raises_when_version_assignment_missing(tmp_path: Path) -> None:
-    # Arrange
-    (tmp_path / "src" / "ai_engineering").mkdir(parents=True)
-    (tmp_path / "pyproject.toml").write_text(
-        "[project]\nname='x'\nversion = \"0.1.0\"\n",
-        encoding="utf-8",
-    )
-    (tmp_path / "src" / "ai_engineering" / "__version__.py").write_text(
-        "VERSION = '0.1.0'\n",
-        encoding="utf-8",
-    )
-
-    # Act & Assert
-    with pytest.raises(ValueError):
-        bump_python_version(tmp_path, "0.2.0")
+    result = bump_python_version(tmp_path, "0.2.0")
+    assert result.new_version == "0.2.0"
+    assert len(result.files_modified) == 1

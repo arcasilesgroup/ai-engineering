@@ -25,6 +25,7 @@ dev = [
   "pip-audit>=2.7.0",
   "types-pyyaml>=6.0,<7.0",
   "pytest-xdist>=3.5,<4.0",
+  "python-semantic-release>=9.0,<10",
 ]
 
 # === USER CONFIGURATION: Enterprise Artifact Feed ===
@@ -99,6 +100,21 @@ markers = [
 [build-system]
 requires = ["hatchling>=1.25.0"]
 build-backend = "hatchling.build"
+
+[tool.semantic_release]
+version_toml = ["pyproject.toml:project.version"]
+commit_parser = "angular"
+tag_format = "v{version}"
+major_on_zero = false
+changelog_file = false
+
+[tool.semantic_release.branches.main]
+match = "main"
+
+[tool.semantic_release.commit_parser_options]
+allowed_types = ["feat", "fix", "perf", "refactor", "style", "docs", "test", "build", "ci", "chore", "revert"]
+minor_types = ["feat"]
+patch_types = ["fix", "perf"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/ai_engineering"]

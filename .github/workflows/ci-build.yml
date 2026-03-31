@@ -7,26 +7,71 @@ on:
     branches: [main]
 
 permissions:
-  contents: read
+  contents: write
+  id-token: write
+  attestations: write
 
 jobs:
   build:
     name: Build Package
     if: github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v6
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 0
+          token: ${{ github.token }}
+
       - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
         with:
           enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --dev
+
       - name: Build
         run: uv build
+
+      - name: Determine version bump
+        id: semrel
+        run: |
+          uv run semantic-release version --no-commit --no-push --no-vcs-release --print-tag 2>/dev/null > /tmp/new-tag.txt || true
+          NEW_TAG=$(cat /tmp/new-tag.txt | head -1)
+          if [ -n "$NEW_TAG" ] && [ "$NEW_TAG" != "$(git describe --tags --abbrev=0 2>/dev/null)" ]; then
+            echo "released=true" >> "$GITHUB_OUTPUT"
+            echo "tag=$NEW_TAG" >> "$GITHUB_OUTPUT"
+            echo "Version bump detected: $NEW_TAG"
+          else
+            echo "released=false" >> "$GITHUB_OUTPUT"
+            echo "No version bump needed"
+          fi
+
+      - name: Create tag
+        if: steps.semrel.outputs.released == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${{ steps.semrel.outputs.tag }}"
+          git tag "$TAG" "${{ github.event.workflow_run.head_sha }}"
+          git push origin "$TAG"
+
       - name: Upload dist
         uses: actions/upload-artifact@v7
         with:
           name: dist
           path: dist/
           retention-days: 90
+
+      - name: Create draft GitHub Release
+        if: steps.semrel.outputs.released == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${{ steps.semrel.outputs.tag }}"
+          gh release create "$TAG" \
+            --title "$TAG" \
+            --draft \
+            --generate-notes \
+            dist/*

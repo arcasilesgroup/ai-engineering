@@ -5,6 +5,11 @@ Provides enforceable standards, session management, and gate controls
 for AI-assisted development.
 """
 
-from ai_engineering.__version__ import __version__
+try:
+    from importlib.metadata import version
+
+    __version__ = version("ai-engineering")
+except Exception:
+    __version__ = "0.0.0"
 
 __all__ = ["__version__"]

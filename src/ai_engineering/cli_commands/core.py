@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 
 import typer
 
-from ai_engineering.__version__ import __version__
+from ai_engineering import __version__
 from ai_engineering.cli_envelope import NextAction, emit_success
 from ai_engineering.cli_output import is_json_mode, set_json_mode
 from ai_engineering.cli_progress import spinner
