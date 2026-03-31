@@ -38,7 +38,7 @@ jobs:
         id: semrel
         run: |
           uv run semantic-release version --no-commit --no-push --no-vcs-release --print-tag 2>/dev/null > /tmp/new-tag.txt || true
-          NEW_TAG=$(cat /tmp/new-tag.txt | head -1)
+          NEW_TAG=$(head -1 /tmp/new-tag.txt)
           if [ -n "$NEW_TAG" ] && [ "$NEW_TAG" != "$(git describe --tags --abbrev=0 2>/dev/null)" ]; then
             echo "released=true" >> "$GITHUB_OUTPUT"
             echo "tag=$NEW_TAG" >> "$GITHUB_OUTPUT"

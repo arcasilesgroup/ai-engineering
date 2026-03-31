@@ -106,9 +106,11 @@ jobs:
             exit 1
           fi
 
-          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
-          echo "tag_name=${TAG_NAME}" >> "$GITHUB_OUTPUT"
-          echo "ci_run_id=${RUN_ID}" >> "$GITHUB_OUTPUT"
+          {
+            echo "version=${VERSION}"
+            echo "tag_name=${TAG_NAME}"
+            echo "ci_run_id=${RUN_ID}"
+          } >> "$GITHUB_OUTPUT"
           echo "Resolved: version=${VERSION}, tag=${TAG_NAME}, ci-run=${RUN_ID}"
 
   validate-changelog:

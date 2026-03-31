@@ -381,7 +381,7 @@ jobs:
           PYTHONUTF8: "1"
       - name: Commit-msg gate smoke
         run: |
-          printf "smoke commit" > smoke-repo/.git/COMMIT_EDITMSG
+          printf "chore: smoke commit" > smoke-repo/.git/COMMIT_EDITMSG
           uv run ai-eng gate commit-msg smoke-repo/.git/COMMIT_EDITMSG --target smoke-repo
         env:
           PYTHONUTF8: "1"
