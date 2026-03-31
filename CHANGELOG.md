@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **`ai-eng update` provider filtering (spec-096)** -- update now reads `ai_providers.enabled` from manifest.yml instead of processing all 4 providers. Previously ignored manifest configuration and installed/updated files for all providers regardless of user selection.
+- **Validator manifest-driven resolution (spec-096)** -- `_BASE_INSTRUCTION_FILES` in `_shared.py` and `_check_instruction_parity` in `mirror_sync.py` now dynamically resolve instruction files from `ai_providers.enabled` instead of hardcoding CLAUDE.md/AGENTS.md/copilot-instructions.md.
+- **Obsolete path pattern (spec-096)** -- `_PATH_REF_PATTERN` in `_shared.py` dropped the `context/` (singular) branch, keeping only `contexts/` (plural) matching the actual directory structure.
+
+### Added
+- **Orphan file detection and cleanup (spec-096)** -- `ai-eng update` detects files from disabled providers as orphans, displays them in the tree with `orphan` state (dim magenta), and removes them on user confirmation. Shared files (e.g., AGENTS.md used by multiple providers) are only orphaned when no active provider needs them.
+- **Missing instruction file validation (spec-096)** -- validator emits actionable error when an enabled provider's instruction file is missing: "Fix: run ai-eng update or ai-eng install --reconfigure".
+- **Platform-filtered instruction files (spec-096)** -- expanded Copilot-only filter to include Gemini instruction files, correctly handling platforms with different skill counts.
+
 ### Added
 - **`/ai-start` skill (spec-095)** -- session bootstrap with welcome dashboard, recent activity, board status, and available commands. Replaces `/ai-onboard`.
 

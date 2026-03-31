@@ -53,7 +53,10 @@ def _check_counter_accuracy(target: Path, report: IntegrityReport, **_kwargs: ob
                     category=IntegrityCategory.COUNTER_ACCURACY,
                     name=f"missing-{file_rel}",
                     status=IntegrityStatus.FAIL,
-                    message=f"Instruction file not found: {file_rel}",
+                    message=(
+                        f"Instruction file not found: {file_rel}. "
+                        "Fix: run ai-eng update or ai-eng install --reconfigure"
+                    ),
                     file_path=file_rel,
                 )
             )
