@@ -34,7 +34,7 @@ jobs:
 
             # Find the CI workflow run for this commit
             RUN_JSON=$(gh run list \
-              --workflow=ci.yml \
+              --workflow=ci-build.yml \
               --commit="${COMMIT_SHA}" \
               --json databaseId,status,conclusion \
               --limit 1)
