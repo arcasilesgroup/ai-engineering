@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`ci.yml` monolith (spec-097)** -- replaced by `ci-check.yml` + `ci-build.yml`.
 
 ### Fixed
+- **Commit-msg gate too strict (spec-097)** -- raised first-line length limit from 72 to 100 characters (aligned with Angular/commitlint conventions). Improved error messages to show the invalid input, valid types, and a corrective example.
 - **`ai-eng update` provider filtering (spec-096)** -- update now reads `ai_providers.enabled` from manifest.yml instead of processing all 4 providers. Previously ignored manifest configuration and installed/updated files for all providers regardless of user selection.
 - **Validator manifest-driven resolution (spec-096)** -- `_BASE_INSTRUCTION_FILES` in `_shared.py` and `_check_instruction_parity` in `mirror_sync.py` now dynamically resolve instruction files from `ai_providers.enabled` instead of hardcoding CLAUDE.md/AGENTS.md/copilot-instructions.md.
 - **Obsolete path pattern (spec-096)** -- `_PATH_REF_PATTERN` in `_shared.py` dropped the `context/` (singular) branch, keeping only `contexts/` (plural) matching the actual directory structure.

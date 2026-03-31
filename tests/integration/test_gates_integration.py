@@ -109,12 +109,12 @@ class TestCommitMsgValidation:
         assert len(errors) > 0
 
     def test_first_line_too_long(self) -> None:
-        long_msg = "x" * 73
+        long_msg = "x" * 101
         errors = validate_commit_message(long_msg)
-        assert any("72" in e for e in errors)
+        assert any("100" in e for e in errors)
 
-    def test_exactly_72_chars(self) -> None:
-        msg = "fix: " + "x" * 67  # 72 chars total, conventional format
+    def test_exactly_100_chars(self) -> None:
+        msg = "fix: " + "x" * 95  # 100 chars total, conventional format
         errors = validate_commit_message(msg)
         assert errors == []
 
@@ -138,7 +138,7 @@ class TestCommitMsgGate:
 
     def test_with_invalid_msg_file(self, git_repo: Path) -> None:
         msg_file = git_repo / ".git" / "COMMIT_EDITMSG"
-        msg_file.write_text("x" * 100)
+        msg_file.write_text("x" * 101)
         result = run_gate(GateHook.COMMIT_MSG, git_repo, commit_msg_file=msg_file)
         check = _find_check(result, "commit-msg-format")
         assert not check.passed

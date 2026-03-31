@@ -31,12 +31,16 @@ def validate_commit_message(msg: str) -> list[str]:
         errors.append("First line is empty")
         return errors
 
-    if len(first_line) > 72:
-        errors.append(f"First line exceeds 72 characters ({len(first_line)} chars)")
+    if len(first_line) > 100:
+        errors.append(f"First line exceeds 100 characters ({len(first_line)} chars)")
 
     if not _CONVENTIONAL_RE.match(first_line):
+        valid_types = "feat, fix, perf, refactor, style, docs, test, build, ci, chore, revert"
         errors.append(
-            "Commit message should follow conventional commit format: type(scope): description"
+            f"Invalid commit format: '{first_line}'. "
+            f"Expected: type(scope): description. "
+            f"Valid types: {valid_types}. "
+            f"Example: feat(auth): add login validation"
         )
 
     return errors
