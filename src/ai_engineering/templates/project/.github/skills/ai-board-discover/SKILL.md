@@ -20,7 +20,7 @@ LLM-assisted post-install discovery of board configuration. Detects the team's p
 - After initial framework install (`ai-eng install`)
 - When board configuration changes (new project, new fields)
 - Manual refresh: `/ai-board-discover --refresh`
-- Suggested by `/ai-onboard` when board config is missing
+- Suggested by `/ai-start` when board config is missing
 
 ## Process
 
@@ -29,9 +29,10 @@ LLM-assisted post-install discovery of board configuration. Detects the team's p
 2. **Discover board** -- based on provider:
 
    **GitHub path**:
-   a. List projects: `gh project list --owner <org> --format json`
-   b. If projects found, select the most relevant one (by name match or ask user if ambiguous)
-   c. Discover fields: `gh project field-list <number> --owner <org> --format json`
+   a. Detect owner: if `github_project.owner` exists in manifest, use it. Otherwise, detect from git remote: `gh repo view --json owner -q '.owner.login'`
+   b. List projects: `gh project list --owner <owner> --format json`
+   c. If projects found, select the most relevant one (by name match or ask user if ambiguous)
+   d. Discover fields: `gh project field-list <number> --owner <owner> --format json`
    d. Identify the Status field (single-select type) and extract its option IDs and names
    e. Map status options to lifecycle phases: refinement, ready, in_progress, in_review, done
    f. Discover writable custom fields (non-standard fields beyond Title, Status, Labels, Milestone)
@@ -68,6 +69,7 @@ LLM-assisted post-install discovery of board configuration. Detects the team's p
        name: "<field_name>"
        type: "<field_type>"
    github_project:
+     owner: "<detected_org_or_user>"
      number: <N>
      status_field_id: "<id>"
      status_options:
@@ -135,7 +137,7 @@ Uses labels with `status:` prefix: `status:refinement`, `status:ready`, `status:
 
 ## Integration
 
-- **Called by**: user directly, `/ai-onboard` (suggestion when board config missing)
+- **Called by**: user directly, `/ai-start` (suggestion when board config missing)
 - **Writes**: `.ai-engineering/manifest.yml` (work_items section)
 - **Transitions to**: manual -- user reviews discovered config
 - **Pair**: `/ai-board-sync` (sync uses config written by discover; run discover first if sync fails)

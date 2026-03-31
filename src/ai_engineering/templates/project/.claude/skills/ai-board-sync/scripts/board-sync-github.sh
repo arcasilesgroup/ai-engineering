@@ -2,15 +2,16 @@
 # board-sync-github.sh -- Query GitHub Projects v2 for current sprint work item states.
 #
 # Usage:
-#   bash board-sync-github.sh <project-number> [--owner <org>]
+#   bash board-sync-github.sh <project-number> --owner <org>
 #
+# The --owner value comes from github_project.owner in .ai-engineering/manifest.yml.
 # Requires: gh CLI authenticated with project read scope.
 # Cross-platform: bash 4+, macOS/Linux/WSL.
 
 set -euo pipefail
 
 if [[ $# -lt 1 ]]; then
-  echo "Usage: bash board-sync-github.sh <project-number> [--owner <org>]" >&2
+  echo "Usage: bash board-sync-github.sh <project-number> --owner <org>" >&2
   exit 1
 fi
 

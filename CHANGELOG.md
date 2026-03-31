@@ -8,6 +8,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **`/ai-start` skill (spec-095)** -- session bootstrap with welcome dashboard, recent activity, board status, and available commands. Replaces `/ai-onboard`.
+
+### Changed
+- **`ai-board-discover` skill (spec-095)** -- improved board detection and configuration.
+- **`ai-board-sync` skill (spec-095)** -- updated board sync script with better error handling.
+- **`ai-constitution` skill (spec-095)** -- minor content refinements.
+- **`ai-guide` skill (spec-095)** -- updated onboarding guidance.
+- **`session-governance.md` (spec-095)** -- updated session governance context.
+- **`stack-context.md` (spec-095)** -- updated stack context.
+- **`manifest.yml` schema (spec-095)** -- updated manifest schema definition.
+- **Hook scripts (spec-095)** -- updated `copilot-skill.ps1`, `copilot-skill.sh`, and `telemetry-skill.py` hook emitters.
+- **CLAUDE.md, AGENTS.md, GEMINI.md, copilot-instructions.md (spec-095)** -- refreshed multi-IDE instruction files with latest skill set (47 skills).
+- **`sync_command_mirrors.py` (spec-095)** -- improved mirror sync script.
+- **Instincts v2 system (spec-095)** -- updated `instincts.yml`, `meta.json`, and `proposals.md`.
+
+### Removed
+- **`/ai-onboard` skill (spec-095)** -- replaced by `/ai-start`.
+
+### Added
 - **LESSONS.md relocated to `.ai-engineering/LESSONS.md` (spec-090 sub-001)** -- consolidated from `contexts/team/lessons.md` into a top-level framework artifact. Contains 30+ correction patterns, rules, and learning entries. All CLAUDE.md, AGENTS.md, GEMINI.md, and copilot-instructions references updated to the new path. Template mirrors updated accordingly.
 - **Instincts v2 schema (spec-090 sub-002)** -- schema version bumped from `1.0` to `2.0`. Replaced `toolSequences`/`errorRecoveries`/`skillAgentPreferences` families with `corrections`/`recoveries`/`workflows`. Each entry now carries `trigger`, `action`, and `confidence` fields. Added confidence scoring (evidence-count tiers: 0.3/0.5/0.7/0.85), weekly decay (`-0.02/week`), and low-confidence pruning. Automatic v1-to-v2 migration preserves high-evidence entries.
 - **Instinct skill workflow detection (spec-090 sub-002)** -- new `_detect_skill_workflows` reads `framework-events.ndjson` for `skill_invoked` events, groups by session, and counts sequential skill pairs to populate the `workflows` family.

@@ -10,10 +10,8 @@ Project instructions are canonical in `.ai-engineering/`.
 
 ## FIRST ACTION -- Mandatory
 
-Your first action in every session MUST be to run `/ai-onboard`.
-Do not respond to any user request until `/ai-onboard` completes.
-This bootstraps project context, activates instinct listening, and enforces skill discipline.
-If `/ai-onboard` is not available as a skill, execute its steps manually: read spec.md, plan.md, decision-store.json, LESSONS.md, manifest.yml, and CONSTITUTION.md from `.ai-engineering/`.
+Your first action in every session MUST be to run `/ai-start`.
+Do not respond to any user request until `/ai-start` completes.
 
 ## Plan/Execute Flow (Spec-as-Gate)
 

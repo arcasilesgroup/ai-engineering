@@ -1,6 +1,6 @@
 ---
 name: ai-guide
-description: "Use when new to a project and need orientation, want to understand component relationships, need to find where something happens ('where does auth happen?'), or understand why a technology decision was made. Modes: tour (architecture overview), find (topic search), history (decision archaeology), onboard (structured human onboarding). Read-only. Not for agent session bootstrap — use /ai-onboard."
+description: "Use when new to a project and need orientation, want to understand component relationships, need to find where something happens ('where does auth happen?'), or understand why a technology decision was made. Modes: tour (architecture overview), find (topic search), history (decision archaeology), onboard (structured human onboarding). Read-only. Not for agent session bootstrap — use /ai-start."
 effort: high
 argument-hint: "tour|find <topic>|history <decision>|onboard"
 tags: [onboarding, architecture, teaching, archaeology]
@@ -80,7 +80,7 @@ Project onboarding, architecture tours, and decision archaeology. Optimized for 
 - Uses `/ai-explain` for 3-tier depth explanations.
 - Reads `state/decision-store.json` for decision context.
 - Reads `state/framework-events.ndjson` for framework activity context (privacy by design).
-- **NOT** `/ai-onboard` -- guide is for humans exploring a codebase; onboard bootstraps AI agent session context
+- **NOT** `/ai-start` -- guide is for humans exploring a codebase; start bootstraps AI agent session context
 
 ## References
 

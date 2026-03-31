@@ -1,68 +1,116 @@
-schemaVersion: '1.0'
-updatedAt: '2026-03-29T00:49:47Z'
-toolSequences:
-- key: Bash -> Bash
-  guidance: 'Common tool sequence: Bash -> Bash.'
-  evidenceCount: 26
-  lastSeenAt: '2026-03-29T00:49:47Z'
-- key: Read -> Read
-  guidance: 'Common tool sequence: Read -> Read.'
-  evidenceCount: 7
-  lastSeenAt: '2026-03-29T00:49:47Z'
-- key: Bash -> Read
-  guidance: 'Common tool sequence: Bash -> Read.'
-  evidenceCount: 6
-  lastSeenAt: '2026-03-29T00:49:47Z'
-- key: Edit -> Bash
-  guidance: 'Common tool sequence: Edit -> Bash.'
-  evidenceCount: 4
-  lastSeenAt: '2026-03-29T00:49:47Z'
-- key: Read -> Bash
-  guidance: 'Common tool sequence: Read -> Bash.'
-  evidenceCount: 4
-  lastSeenAt: '2026-03-29T00:49:47Z'
-- key: Read -> Edit
-  guidance: 'Common tool sequence: Read -> Edit.'
-  evidenceCount: 4
-  lastSeenAt: '2026-03-29T00:49:47Z'
-- key: Write -> Write
-  guidance: 'Common tool sequence: Write -> Write.'
-  evidenceCount: 4
-  lastSeenAt: '2026-03-29T00:44:11Z'
-- key: Glob -> Glob
-  guidance: 'Common tool sequence: Glob -> Glob.'
-  evidenceCount: 2
-  lastSeenAt: '2026-03-29T00:44:11Z'
-- key: Agent -> Read
-  guidance: 'Common tool sequence: Agent -> Read.'
-  evidenceCount: 1
-  lastSeenAt: '2026-03-29T00:44:11Z'
-- key: Bash -> Agent
-  guidance: 'Common tool sequence: Bash -> Agent.'
-  evidenceCount: 1
-  lastSeenAt: '2026-03-29T00:44:11Z'
-- key: Bash -> Glob
-  guidance: 'Common tool sequence: Bash -> Glob.'
-  evidenceCount: 1
-  lastSeenAt: '2026-03-29T00:44:11Z'
-- key: Glob -> Read
-  guidance: 'Common tool sequence: Glob -> Read.'
-  evidenceCount: 1
-  lastSeenAt: '2026-03-29T00:44:11Z'
-- key: Grep -> Grep
-  guidance: 'Common tool sequence: Grep -> Grep.'
-  evidenceCount: 1
-  lastSeenAt: '2026-03-29T00:49:47Z'
-- key: Grep -> Read
-  guidance: 'Common tool sequence: Grep -> Read.'
-  evidenceCount: 1
-  lastSeenAt: '2026-03-29T00:49:47Z'
-- key: Read -> Grep
-  guidance: 'Common tool sequence: Read -> Grep.'
-  evidenceCount: 1
-  lastSeenAt: '2026-03-29T00:49:47Z'
-- key: Write -> Bash
-  guidance: 'Common tool sequence: Write -> Bash.'
-  evidenceCount: 1
-  lastSeenAt: '2026-03-29T00:44:11Z'
-errorRecoveries: []
+schemaVersion: "2.0"
+corrections:
+  - pattern: "Confundir telemetría mecánica (hooks) con observación behavioral (LLM)"
+    trigger: "Afirmar que un sistema funciona basándose solo en que los hooks escriben datos"
+    action: "Distinguir explícitamente entre datos mecánicos (hook captures) y análisis del LLM (corrections, proposals). Solo porque los hooks escriben no significa que el sistema cumple su propósito."
+    relatedSkill: "ai-instinct"
+    diagnostic: "no funciona lo de /ai-instinct, aquí no está escribiendo nunca"
+    skillIssue: "ai-instinct listening mode es puramente behavioral del LLM, no mecánico. Los hooks capturan tool sequences pero las corrections requieren LLM analysis."
+    confidence: 0.85
+    evidenceCount: 1
+    domain: "project"
+    lastSeen: "2026-03-31T00:00:00Z"
+  - pattern: "Proponer texto estático cuando se necesita una acción concreta"
+    trigger: "Proponer inline text en CLAUDE.md como solución para algo que requiere skill invocation"
+    action: "Preferir skill invocation (genera compromiso activo) sobre texto estático (es ruido de fondo entre cientos de instrucciones)."
+    relatedSkill: "ai-brainstorm"
+    diagnostic: "esto porque crees que va a funcionar? no es mejor decir /ai-instinct?"
+    skillIssue: "Texto estático no genera cambio de comportamiento. La invocación de un skill crea una acción concreta en la sesión."
+    confidence: 0.85
+    evidenceCount: 1
+    domain: "project"
+    lastSeen: "2026-03-31T00:00:00Z"
+  - pattern: "Diseñar feature solo para un provider cuando el framework es multi-provider"
+    trigger: "Proponer solución que solo menciona GitHub cuando manifest soporta GitHub + Azure DevOps"
+    action: "Siempre verificar work_items.provider en manifest y diseñar para ambos providers. El framework usa VcsProvider abstraction."
+    relatedSkill: "ai-brainstorm"
+    diagnostic: "recuerda tiene que funcionar con azure boards y github issues"
+    skillIssue: "Solo mencioné GitHub en el board display. El framework es multi-provider por diseño."
+    confidence: 0.85
+    evidenceCount: 1
+    domain: "project"
+    lastSeen: "2026-03-31T00:00:00Z"
+recoveries:
+  - pattern: "sync_command_mirrors.py overwrites manual edits from stale templates"
+    trigger: "Running sync after editing IDE files manually without updating the source templates"
+    action: "Always update source templates FIRST (src/ai_engineering/templates/project/), then run sync. Sync regenerates GEMINI.md and copilot-instructions.md from templates, not from working copies."
+    relatedSkill: "ai-dispatch"
+    diagnostic: "Sync script overwrote manual GEMINI.md edits with stale template content"
+    skillIssue: "GEMINI.md is generated from src/ai_engineering/templates/project/GEMINI.md, not copied from the root file. Manual edits to root GEMINI.md are lost on next sync."
+    confidence: 0.85
+    evidenceCount: 1
+    domain: "project"
+    lastSeen: "2026-03-31T00:00:00Z"
+  - pattern: "Board display commands need explicit owner from manifest config"
+    trigger: "gh project item-list requires --owner flag and defaults to repo owner instead of org"
+    action: "Read github_project.owner from manifest.yml. When owner is null, detect from git remote via gh repo view --json owner. Never guess owner from the authenticated user."
+    relatedSkill: "ai-start"
+    diagnostic: "User showed screenshot of 26 board items on org project but /ai-start only found 1 item on personal project — wrong --owner"
+    skillIssue: "github_project had no owner field. Skills used vague <owner> placeholder, causing board queries to hit wrong project."
+    confidence: 0.5
+    evidenceCount: 2
+    domain: "project"
+    lastSeen: "2026-03-31T00:00:00Z"
+  - pattern: "SonarCloud new-code coverage gate fails marginally on large PRs"
+    trigger: "SonarCloud quality gate reports 79-80% coverage on new code for PRs with many new Python files"
+    action: "Run pytest --cov on the specific uncovered files, identify new lines without coverage, add focused edge-case tests for those paths. Target 5-10% uplift in the uncovered module."
+    relatedSkill: "ai-pr"
+    diagnostic: "SonarCloud quality gate FAILED — new_coverage 79.5% < 80.0%"
+    skillIssue: "ai-pr watch loop detected failure but had no built-in strategy for coverage fixes. Manual investigation and test writing was needed."
+    confidence: 0.3
+    evidenceCount: 1
+    domain: "project"
+    lastSeen: "2026-03-31T00:00:00Z"
+  - pattern: "CLAUDE.md hook modifications cause mirror desync on push"
+    trigger: "Pre-push or commit hooks add content to CLAUDE.md (e.g., FIRST ACTION section), but mirrors (GEMINI.md, copilot-instructions.md) are not updated"
+    action: "After any commit where hooks modify CLAUDE.md, run `python scripts/sync_command_mirrors.py` and commit the mirror changes before pushing."
+    relatedSkill: "ai-commit"
+    diagnostic: "test_sync_mirrors failed: CLAUDE.md content differs from GEMINI.md and copilot-instructions.md"
+    skillIssue: "The commit pipeline (steps 0-6) does not re-sync mirrors after hook modifications. Hooks run between commit and push, creating a window where CLAUDE.md diverges from mirrors."
+    confidence: 0.5
+    evidenceCount: 2
+    domain: "project"
+    lastSeen: "2026-03-31T00:00:00Z"
+  - pattern: "Org vs user project owner mismatch silently returns wrong board data"
+    trigger: "gh project item-list returns unexpectedly few items or wrong project"
+    action: "Verify owner by checking the URL the user provided (orgs/<org>/projects/N vs users/<user>/projects/N). Cross-check with gh repo view --json owner."
+    relatedSkill: "ai-start"
+    diagnostic: "porque aparecen estos números? — user sees 26 items on org board but dashboard shows 1"
+    skillIssue: "No validation that the queried project matches the expected one. Silent success with wrong data."
+    confidence: 0.3
+    evidenceCount: 1
+    domain: "project"
+    lastSeen: "2026-03-31T00:00:00Z"
+workflows:
+  - pattern: "Brainstorm → Plan → Dispatch with parallel explore agents"
+    trigger: "Feature design requiring codebase research before spec"
+    action: "Launch 3+ explore agents in parallel for different aspects, synthesize findings, then interrogate user with specific options"
+    relatedSkill: "ai-brainstorm"
+    confidence: 0.7
+    evidenceCount: 5
+    domain: "project"
+    lastSeen: "2026-03-31T00:00:00Z"
+  - pattern: "Config gap → explore all surfaces → cross-cutting standardization"
+    trigger: "A missing manifest field causes incorrect behavior across multiple skills"
+    action: "Use ai-explore to audit ALL consumers (schema, Python model, skills, scripts, templates, mirrors) before fixing. Apply fix to canonical source first, then sync mirrors."
+    relatedSkill: "ai-start"
+    confidence: 0.3
+    evidenceCount: 1
+    domain: "project"
+    lastSeen: "2026-03-31T00:00:00Z"
+  - pattern: "PR watch-and-fix loop: poll → diagnose → fix → re-push → merge"
+    trigger: "CI check fails after PR creation (SonarCloud, integration tests, mirror desync)"
+    action: "Poll every 15s. On failure: read logs, diagnose root cause, fix locally (tests, sync, format), commit+push, re-enter poll loop. Don't declare done until state=MERGED."
+    relatedSkill: "ai-pr"
+    confidence: 0.5
+    evidenceCount: 2
+    domain: "project"
+    lastSeen: "2026-03-31T00:00:00Z"
+  - pattern: "/ai-design for text-based information architecture, not just web UI"
+    trigger: "User asks to make CLI/terminal output prettier or reorganize dashboard information"
+    action: "Apply design thinking framework (purpose, tone, constraints, differentiation) to text/Markdown output. Use iterative refinement via multiple /ai-design invocations."
+    relatedSkill: "ai-design"
+    confidence: 0.3
+    evidenceCount: 1
+    domain: "project"
+    lastSeen: "2026-03-31T00:00:00Z"

@@ -115,6 +115,7 @@
         "github_project": {
           "type": "object",
           "properties": {
+            "owner": { "type": ["string", "null"], "description": "GitHub org or user that owns the project board" },
             "number": { "type": ["integer", "null"] },
             "status_field_id": { "type": ["string", "null"] },
             "status_options": {
@@ -210,6 +211,20 @@
       "required": ["precedence"],
       "additionalProperties": false
     },
+    "session": {
+      "type": "object",
+      "properties": {
+        "context_files": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "minItems": 1,
+          "uniqueItems": true,
+          "description": "Files loaded by /ai-start at session start"
+        }
+      },
+      "required": ["context_files"],
+      "additionalProperties": false
+    },
     "skills": {
       "type": "object",
       "properties": {
@@ -223,7 +238,7 @@
               "properties": {
                 "type": {
                   "type": "string",
-                  "enum": ["workflow", "delivery", "enterprise", "teaching", "writing", "sdlc", "meta"]
+                  "enum": ["workflow", "delivery", "enterprise", "teaching", "writing", "sdlc", "meta", "design"]
                 },
                 "tags": {
                   "type": "array",

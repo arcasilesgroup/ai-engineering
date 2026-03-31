@@ -44,9 +44,10 @@ Updates work item state on the project board at each lifecycle transition. Calle
 3. **Update state** -- based on provider:
 
    **GitHub Projects v2** (primary):
-   a. Get the project item ID for the issue:
+   a. Read `github_project.owner` from manifest for the `--owner` flag.
+   b. Get the project item ID for the issue:
       ```
-      gh project item-list <number> --owner <org> --format json | jq '.items[] | select(.content.number == <issue_number>)'
+      gh project item-list <number> --owner <github_project.owner> --format json | jq '.items[] | select(.content.number == <issue_number>)'
       ```
    b. Update the status field:
       ```
@@ -114,7 +115,7 @@ The calling skill checks the return status for logging but NEVER stops its own e
 
 ## Scripts
 
-- `scripts/board-sync-github.sh <project-number> [--owner <org>]` -- query GitHub Projects v2 items and summarize work item states
+- `scripts/board-sync-github.sh <project-number> --owner <github_project.owner>` -- query GitHub Projects v2 items and summarize work item states. Read owner from `github_project.owner` in manifest.
 
 ## Integration
 

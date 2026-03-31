@@ -72,7 +72,7 @@ def main() -> None:
         trace_id=trace_id,
         correlation_id=entry["correlationId"],
     )
-    if skill_name == "ai-onboard":
+    if skill_name == "ai-start":
         extract_instincts(ctx.project_root)
         maybe_refresh_instinct_context(ctx.project_root)
 

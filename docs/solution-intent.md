@@ -25,7 +25,7 @@
 
 ### 1.2 Objective
 
-Deterministic CLI tooling, 44 AI skills, 25 agents (10 primary + 15 specialist), and a governance surface that spans Claude Code, GitHub Copilot, Codex, and Gemini. Targets regulated enterprises (banking, healthcare, investment) that require auditable, governed AI-assisted software delivery.
+Deterministic CLI tooling, 47 AI skills, 10 agents (+ 15 specialist sub-agents), and a governance surface that spans Claude Code, GitHub Copilot, Codex, and Gemini. Targets regulated enterprises (banking, healthcare, investment) that require auditable, governed AI-assisted software delivery.
 
 ### 1.3 Problem Statement
 
@@ -44,8 +44,8 @@ AI coding assistants operate without guardrails. In regulated industries, this c
 | In scope | Out of scope |
 |----------|-------------|
 | CLI tooling (`ai-eng`) | Runtime application code |
-| AI skill definitions (44) | AI model training or fine-tuning |
-| Agent orchestration (25) | Custom IDE plugin development |
+| AI skill definitions (47) | AI model training or fine-tuning |
+| Agent orchestration (10) | Custom IDE plugin development |
 | Quality gates and hooks | SonarCloud/Snyk platform management |
 | Multi-IDE mirror generation | IDE-specific UI extensions |
 | GitHub + Azure DevOps providers | Other VCS providers |
@@ -59,7 +59,7 @@ AI coding assistants operate without guardrails. In regulated industries, this c
 | Tech Lead | Review -> approve -> release | `/ai-review`, `/ai-release-gate`, `/ai-verify` |
 | Security Officer | Audit -> scan -> accept risk | `/ai-security`, `/ai-governance`, decision-store |
 | DevOps Engineer | Pipeline -> deploy -> monitor | `/ai-pipeline`, `ai-eng doctor`, runbooks |
-| New Team Member | Onboard -> learn -> contribute | `/ai-onboard`, `/ai-guide`, `/ai-explain` |
+| New Team Member | Onboard -> learn -> contribute | `/ai-start`, `/ai-guide`, `/ai-explain` |
 
 ---
 
@@ -98,7 +98,7 @@ C4Context
 
 ### 2.2 Functional Requirements by Domain
 
-#### Skills (44)
+#### Skills (47)
 
 | Type | Skills | Count |
 |------|--------|-------|
@@ -106,12 +106,13 @@ C4Context
 | Delivery | commit, pr, release-gate, cleanup, market | 5 |
 | Enterprise | security, governance, pipeline, docs, board-discover, board-sync, platform-audit | 7 |
 | Teaching | explain, guide, write, slides, media, video-editing | 6 |
+| Design | design, animation, canvas | 3 |
 | SDLC | note, standup, sprint, postmortem, support, resolve-conflicts | 6 |
-| Meta | create, learn, prompt, onboard, analyze-permissions, instinct, autopilot, run, constitution, skill-evolve | 10 |
+| Meta | create, learn, prompt, start, analyze-permissions, instinct, autopilot, run, constitution, skill-evolve | 10 |
 
-**Effort distribution**: 11 max, 20 high, 13 medium.
+**Effort distribution**: 11 max, 23 high, 13 medium.
 
-#### Agents (25)
+#### Agents (10)
 
 | Agent | Model | Role | Boundary |
 |-------|-------|------|----------|
@@ -401,8 +402,8 @@ mindmap
             No transcripts
         Capability Catalog
             framework-capabilities.json
-            44 skills
-            25 agents
+            47 skills
+            10 agents
             39 contexts
             11 hooks
         Telemetry Scripts
@@ -669,8 +670,8 @@ sequenceDiagram
 | Metric | Target | Current |
 |--------|--------|---------|
 | Test coverage | >= 80% | **TBD -- pending measurement** |
-| Skills count | 44 | 44 |
-| Agent count | 25 (10 primary + 15 specialist) | 25 |
+| Skills count | 47 | 47 |
+| Agent count | 10 | 10 |
 | Active decisions | Tracked with expiry | 23 active, 5 superseded |
 | Runbook coverage | All operational areas | 14 runbooks |
 | IDE surfaces | 4 | 4 (Claude Code, Copilot, Codex, Gemini) |
@@ -736,8 +737,8 @@ No active spec. Run `/ai-brainstorm` to start a new spec.
 
 | What | Where |
 |------|-------|
-| Skills (44) | `.claude/skills/ai-<name>/SKILL.md` |
-| Agents (25) | `.claude/agents/ai-<name>.md` |
+| Skills (47) | `.claude/skills/ai-<name>/SKILL.md` |
+| Agents (10) | `.claude/agents/ai-<name>.md` |
 | Config | `.ai-engineering/manifest.yml` |
 | Constitution | `.ai-engineering/CONSTITUTION.md` |
 | Lessons | `.ai-engineering/LESSONS.md` |

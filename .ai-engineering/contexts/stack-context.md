@@ -2,7 +2,7 @@
 
 Coding standards loading sequence. Skills reference this file to load language, framework, and team
 contexts on demand. Project state (spec, plan, decisions, constitution, manifest) is loaded once at
-session start by `/ai-onboard` — do not re-read those files here.
+session start by `/ai-start` — do not re-read those files here.
 
 ## Sequence
 
@@ -25,4 +25,4 @@ Skills declare Step 0 as:
 Follow `.ai-engineering/contexts/stack-context.md`. Apply loaded standards to all subsequent work.
 ```
 
-This protocol loads only coding standards. `/ai-onboard` owns project state loading at session start.
+This protocol loads only coding standards. `/ai-start` owns project state loading at session start.

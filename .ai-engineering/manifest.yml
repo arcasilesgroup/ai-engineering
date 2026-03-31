@@ -60,6 +60,7 @@ work_items:
       name: "Target date"
       type: "date"
   github_project:
+    owner: arcasilesgroup
     number: 4
     status_field_id: "PVTSSF_lADOC-uI1c4BQt9Azg-wcrY"
     status_options:
@@ -108,6 +109,14 @@ cicd:
 contexts:
   precedence: [team, frameworks, languages]
 
+# Session context — files loaded by /ai-start at session start
+session:
+  context_files:
+    - .ai-engineering/LESSONS.md
+    - .ai-engineering/CONSTITUTION.md
+    - .ai-engineering/manifest.yml
+    - .ai-engineering/state/decision-store.json
+
 # === FRAMEWORK MANAGED (do not edit below this line) ===
 # These sections are maintained by ai-engineering automatically.
 
@@ -152,7 +161,7 @@ skills:
     ai-create: { type: meta, tags: [framework] }
     ai-learn: { type: meta, tags: [improvement] }
     ai-prompt: { type: meta, tags: [optimization] }
-    ai-onboard: { type: meta, tags: [bootstrap] }
+    ai-start: { type: meta, tags: [bootstrap] }
     ai-analyze-permissions: { type: meta, tags: [permissions] }
     ai-instinct: { type: meta, tags: [meta, learning, continuous-improvement] }
     ai-autopilot: { type: meta, tags: [orchestration, autonomous, multi-spec] }

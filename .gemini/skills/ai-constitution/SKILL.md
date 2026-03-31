@@ -62,7 +62,7 @@ This is the first document loaded at Step 0 of every skill and agent invocation.
 
 ## Integration
 
-- **Called by**: installer (governance phase), `/ai-onboard`
+- **Called by**: installer (governance phase), `/ai-start`
 - **Reads**: `manifest.yml`, package files, existing `CONSTITUTION.md`
 - **Writes**: `.ai-engineering/CONSTITUTION.md`
 - **Consumed by**: ALL skills and agents via Step 0 protocol
