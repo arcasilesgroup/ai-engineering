@@ -211,14 +211,6 @@ def install_with_pipeline(
     Returns:
         Tuple of (InstallResult, PipelineSummary).
     """
-    # Auto-detect mode when caller uses the default
-    if mode is InstallMode.INSTALL:
-        state_path = target / ".ai-engineering" / "state" / "install-state.json"
-        # Also check legacy path for backward compatibility
-        legacy_path = target / ".ai-engineering" / "state" / "install-manifest.json"
-        if state_path.exists() or legacy_path.exists():
-            mode = InstallMode.REPAIR
-
     # Load existing state for REPAIR/RECONFIGURE modes
     existing_state = None
     if mode in (InstallMode.REPAIR, InstallMode.RECONFIGURE):

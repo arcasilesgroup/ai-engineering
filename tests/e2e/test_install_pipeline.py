@@ -1,8 +1,9 @@
 """E2E test: install_with_pipeline orchestrator.
 
 Validates that ``install_with_pipeline()`` correctly plans and executes
-the 6-phase install pipeline, including dry-run semantics and automatic
-REPAIR mode detection on re-install.
+the 6-phase install pipeline, including dry-run semantics and explicit
+REPAIR mode on re-install (mode is inferred by the CLI layer, not the
+service layer).
 """
 
 from __future__ import annotations
@@ -14,7 +15,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from ai_engineering.installer import service
-from ai_engineering.installer.phases import PHASE_ORDER
+from ai_engineering.installer.phases import PHASE_ORDER, InstallMode
 from ai_engineering.installer.service import install_with_pipeline
 
 
@@ -57,10 +58,12 @@ class TestInstallPipeline:
         assert result.total_created > 0
         assert summary.failed_phase is None
 
-    def test_pipeline_repair_mode_auto_detection(self, tmp_path: Path, stub_ops: None) -> None:
-        """Second install auto-detects REPAIR mode and reports already_installed."""
+    def test_pipeline_repair_mode_explicit(self, tmp_path: Path, stub_ops: None) -> None:
+        """Explicit REPAIR mode on second install reports already_installed."""
         install_with_pipeline(tmp_path, stacks=["python"])
-        result, summary = install_with_pipeline(tmp_path, stacks=["python"])
+        result, summary = install_with_pipeline(
+            tmp_path, mode=InstallMode.REPAIR, stacks=["python"]
+        )
 
         assert result.already_installed is True
         assert summary.failed_phase is None

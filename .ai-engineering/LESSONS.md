@@ -1,6 +1,6 @@
 ## Rules & Patterns
 
-Persistent learning context for AI agents. Records corrections, patterns, and rules discovered during development sessions. This file is loaded by `/ai-onboard` at session start and updated by `/ai-learn` after corrections.
+Persistent learning context for AI agents. Records corrections, patterns, and rules discovered during development sessions. This file is loaded by `/ai-start` at session start and updated by `/ai-learn` after corrections.
 
 Unlike `decision-store.json` (formal decisions with expiry and risk acceptance), this file captures informal but important patterns that should persist across sessions.
 
@@ -209,3 +209,9 @@ Never skip these steps. Verify by reading the files after clearing.
 **Context**: For `ai-eng update`, the user provided a concrete tree-view image and asked for the same shape with ai-engineering CLI branding.
 **Learning**: When the user provides a visual reference, convert it into a precise UX requirement in the spec instead of leaving it as a loose aesthetic note.
 **Rule**: Encode user-provided UI references as explicit rendering targets with project-specific branding constraints.
+
+### manifest.yml es la fuente de verdad absoluta
+
+**Context**: `_BASE_INSTRUCTION_FILES` en `validator/_shared.py` hardcodea `CLAUDE.md` sin consultar `ai_providers.enabled`, causando falsos positivos en proyectos que no usan Claude.
+**Learning**: `manifest.yml` DEBE ser consultado por TODOS los componentes del framework (CLI commands, validators, verifiers, hooks, skills, agents, installers, updaters) para cualquier decisión de configuración. NUNCA hardcodear listas de ficheros, providers, stacks, o capabilities — siempre leer de `manifest.yml`.
+**Rule**: Patrón correcto: `load_manifest_config(target)` → `cfg.ai_providers.enabled` → filtrar dinámicamente. Ningún componente debe asumir qué providers o ficheros existen sin consultar el manifiesto.
