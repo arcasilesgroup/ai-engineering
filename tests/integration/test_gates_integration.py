@@ -114,12 +114,12 @@ class TestCommitMsgValidation:
         assert any("72" in e for e in errors)
 
     def test_exactly_72_chars(self) -> None:
-        msg = "x" * 72
+        msg = "fix: " + "x" * 67  # 72 chars total, conventional format
         errors = validate_commit_message(msg)
         assert errors == []
 
     def test_multiline_message(self) -> None:
-        msg = "short subject\n\nLong body with details about the change."
+        msg = "feat: short subject\n\nLong body with details about the change."
         errors = validate_commit_message(msg)
         assert errors == []
 
@@ -129,7 +129,7 @@ class TestCommitMsgGate:
 
     def test_with_valid_msg_file(self, git_repo: Path) -> None:
         msg_file = git_repo / ".git" / "COMMIT_EDITMSG"
-        msg_file.write_text("valid commit message")
+        msg_file.write_text("chore: valid commit message")
         result = run_gate(GateHook.COMMIT_MSG, git_repo, commit_msg_file=msg_file)
         check = _find_check(result, "commit-msg-format")
         assert check.passed
