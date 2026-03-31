@@ -1,32 +1,6 @@
 # AI Engineering Framework - Code Owners
 # See https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
 
-# Framework governance (framework-managed)
-/.ai-engineering/                    @arcasilesgroup/maintainers
-/.ai-engineering/standards/          @arcasilesgroup/maintainers
-/.ai-engineering/runbooks/           @arcasilesgroup/maintainers
-
-# Core implementation
-/src/                                @arcasilesgroup/maintainers
-/tests/                              @arcasilesgroup/maintainers
-
-# CI/CD and workflows
-/.github/workflows/                  @arcasilesgroup/maintainers
-/.github/agents/                     @arcasilesgroup/maintainers
-/.github/skills/                     @arcasilesgroup/maintainers
-/.github/copilot/                    @arcasilesgroup/maintainers
-/.github/instructions/               @arcasilesgroup/maintainers
-
-# IDE mirror surfaces (generated — do not edit manually)
-/.claude/skills/                     @arcasilesgroup/maintainers
-/.claude/agents/                     @arcasilesgroup/maintainers
-/.agents/                            @arcasilesgroup/maintainers
-
-# Root governance files
-/CLAUDE.md                           @arcasilesgroup/maintainers
-/AGENTS.md                           @arcasilesgroup/maintainers
-
-# Security-sensitive
-/.gitleaks.toml                      @arcasilesgroup/maintainers
-/.semgrep.yml                        @arcasilesgroup/maintainers
-/scripts/                            @arcasilesgroup/maintainers
+# Default: maintainers own everything
+# Specific paths below can override this for finer-grained ownership
+*                                    @arcasilesgroup/maintainers
