@@ -21,7 +21,10 @@ from dataclasses import dataclass, field
 from fnmatch import fnmatch
 from pathlib import Path
 
+from ai_engineering.config.loader import load_manifest_config
 from ai_engineering.installer.templates import (
+    _PROVIDER_FILE_MAPS,
+    _PROVIDER_TREE_MAPS,
     get_ai_engineering_template_root,
     get_project_template_root,
     resolve_template_maps,
@@ -73,6 +76,8 @@ class FileChange:
             return "protected"
         if self.action == "skip-unchanged":
             return "unchanged"
+        if self.action == "orphan":
+            return "orphan" if dry_run else "removed"
         return "failed"
 
     def to_dict(self, *, dry_run: bool) -> dict[str, str | None]:
@@ -111,6 +116,11 @@ class UpdateResult:
         return sum(1 for c in self.changes if c.action == "skip-unchanged")
 
     @property
+    def orphan_count(self) -> int:
+        """Number of files detected as orphans from disabled providers."""
+        return sum(1 for c in self.changes if c.action == "orphan")
+
+    @property
     def available_count(self) -> int:
         """Number of files that are available to create or update."""
         return sum(1 for c in self.changes if c.action in ("create", "update"))
@@ -131,6 +141,7 @@ class UpdateResult:
                 "available": self.available_count if self.dry_run else 0,
                 "protected": self.protected_count,
                 "unchanged": self.unchanged_count,
+                "orphan": self.orphan_count,
                 "failed": 0,
             },
             "changes": [change.to_dict(dry_run=self.dry_run) for change in self.changes],
@@ -141,7 +152,7 @@ def _initialize_update_context(
     target: Path,
     *,
     dry_run: bool,
-) -> tuple[Path, Path, OwnershipMap, bool, str | None]:
+) -> tuple[Path, Path, OwnershipMap, bool, str | None, list[str] | None]:
     """Load ownership and update state before evaluating changes."""
     ai_eng_dir = target / ".ai-engineering"
     state_dir = ai_eng_dir / "state"
@@ -164,7 +175,18 @@ def _initialize_update_context(
         _cleanup_legacy_prompts(target)
 
     install_state = load_install_state(state_dir)
-    return ai_eng_dir, ownership_path, ownership, rules_added, install_state.vcs_provider
+
+    # Read active AI providers from manifest (source of truth).
+    # Fall back to None (all providers) when manifest is absent or has no
+    # ai_providers section, preserving backward compatibility.
+    manifest_path = ai_eng_dir / "manifest.yml"
+    if manifest_path.is_file():
+        cfg = load_manifest_config(target)
+        providers: list[str] | None = cfg.ai_providers.enabled
+    else:
+        providers = None
+
+    return ai_eng_dir, ownership_path, ownership, rules_added, install_state.vcs_provider, providers
 
 
 def update(
@@ -189,15 +211,23 @@ def update(
     Returns:
         UpdateResult with details of all changes.
     """
-    ai_eng_dir, ownership_path, ownership, rules_added, vcs_provider = _initialize_update_context(
-        target,
-        dry_run=dry_run,
+    ai_eng_dir, ownership_path, ownership, rules_added, vcs_provider, providers = (
+        _initialize_update_context(
+            target,
+            dry_run=dry_run,
+        )
     )
 
     # --- Phase 1: evaluate all changes (pure, no disk writes) ---
     changes: list[FileChange] = []
     changes.extend(_evaluate_governance_files(ai_eng_dir, ownership))
-    changes.extend(_evaluate_project_files(target, ownership, vcs_provider=vcs_provider))
+    changes.extend(
+        _evaluate_project_files(target, ownership, vcs_provider=vcs_provider, providers=providers)
+    )
+
+    # --- Phase 1b: detect orphan files from disabled providers ---
+    orphan_changes = _detect_orphan_files(target, providers)
+    changes.extend(orphan_changes)
 
     result = UpdateResult(dry_run=dry_run, changes=changes)
 
@@ -222,6 +252,10 @@ def update(
         else:
             if backup_dir is not None:
                 shutil.rmtree(backup_dir, ignore_errors=True)
+
+    # --- Phase 2b: delete orphan files ---
+    if orphan_changes:
+        _apply_orphan_deletions(orphan_changes, target)
 
     # --- Phase 3: persist merged ownership rules ---
     if rules_added:
@@ -307,10 +341,11 @@ def _evaluate_project_files(
     ownership: OwnershipMap,
     *,
     vcs_provider: str | None = None,
+    providers: list[str] | None = None,
 ) -> list[FileChange]:
     """Evaluate changes for project-level template files."""
     project_root = get_project_template_root()
-    resolved = resolve_template_maps(None, vcs_provider=vcs_provider)
+    resolved = resolve_template_maps(providers, vcs_provider=vcs_provider)
     changes: list[FileChange] = []
 
     # 1. Individual file mappings (provider + common)
@@ -344,6 +379,115 @@ def _evaluate_project_files(
             changes.append(change)
 
     return changes
+
+
+def _detect_orphan_files(
+    target: Path,
+    active_providers: list[str] | None,
+) -> list[FileChange]:
+    """Detect files on disk belonging to disabled providers.
+
+    A file is an orphan when:
+    1. It belongs to a provider that is NOT in the active providers list.
+    2. No active provider also maps to the same destination path (shared
+       file rule -- e.g., AGENTS.md is used by copilot, gemini, codex).
+    3. The file exists on disk.
+
+    Args:
+        target: Project root directory.
+        active_providers: Providers enabled in the manifest.  When None
+            (no manifest), all providers are considered active and no
+            orphans are detected.
+
+    Returns:
+        List of FileChange entries with ``action="orphan"``.
+    """
+    if active_providers is None:
+        return []
+
+    all_known = set(_PROVIDER_FILE_MAPS.keys()) | set(_PROVIDER_TREE_MAPS.keys())
+    disabled = all_known - set(active_providers)
+
+    if not disabled:
+        return []
+
+    # Build the set of destination paths used by active providers for
+    # the shared-file check.
+    active_file_dests: set[str] = set()
+    active_tree_dests: set[str] = set()
+    for prov in active_providers:
+        for _src, dst in _PROVIDER_FILE_MAPS.get(prov, {}).items():
+            active_file_dests.add(dst)
+        for _src_tree, dest_tree in _PROVIDER_TREE_MAPS.get(prov, []):
+            active_tree_dests.add(dest_tree)
+
+    orphans: list[FileChange] = []
+
+    for prov in sorted(disabled):
+        # Check individual file mappings
+        for _src, dst in _PROVIDER_FILE_MAPS.get(prov, {}).items():
+            if dst in active_file_dests:
+                continue
+            dest = target / dst
+            if dest.is_file():
+                orphans.append(
+                    FileChange(
+                        path=dest,
+                        action="orphan",
+                        reason_code="disabled-provider",
+                        explanation=f"provider '{prov}' is no longer enabled",
+                    )
+                )
+
+        # Check tree mappings
+        for _src_tree, dest_tree in _PROVIDER_TREE_MAPS.get(prov, []):
+            if dest_tree in active_tree_dests:
+                continue
+            tree_path = target / dest_tree
+            if not tree_path.is_dir():
+                continue
+            for f in sorted(tree_path.rglob("*")):
+                if f.is_file():
+                    orphans.append(
+                        FileChange(
+                            path=f,
+                            action="orphan",
+                            reason_code="disabled-provider",
+                            explanation=f"provider '{prov}' is no longer enabled",
+                        )
+                    )
+
+    return orphans
+
+
+def _apply_orphan_deletions(orphan_changes: list[FileChange], target: Path) -> None:
+    """Delete orphan files from disk and clean up empty parent directories.
+
+    Args:
+        orphan_changes: List of FileChange entries with ``action="orphan"``.
+        target: Project root directory (deletion stops at this boundary).
+    """
+    deleted_dirs: set[Path] = set()
+
+    for change in orphan_changes:
+        try:
+            change.path.unlink()
+        except FileNotFoundError:
+            pass
+        else:
+            deleted_dirs.add(change.path.parent)
+
+    # Remove empty parent directories bottom-up, stopping at target root.
+    for d in sorted(deleted_dirs, key=lambda p: len(p.parts), reverse=True):
+        current = d
+        while current != target and current.is_dir():
+            try:
+                if any(current.iterdir()):
+                    break
+                current.rmdir()
+                current = current.parent
+            except OSError:
+                break
 
 
 def _evaluate_file_change(

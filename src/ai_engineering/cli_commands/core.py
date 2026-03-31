@@ -543,11 +543,18 @@ def update_cmd(
         with spinner("Previewing framework updates..."):
             preview = update(root, dry_run=True)
         _render_update_result(preview, root=root, show_diff=show_diff)
-        if preview.available_count == 0:
+        if preview.available_count == 0 and preview.orphan_count == 0:
             info("No framework-managed files require changes.")
             return
 
-        should_apply = typer.confirm("Apply these framework updates now?", default=apply)
+        orphan_suffix = ""
+        if preview.orphan_count:
+            orphan_suffix = f", {preview.orphan_count} orphaned (will be removed)"
+        prompt_msg = (
+            f"{preview.available_count} available{orphan_suffix}. "
+            "Apply these framework updates now?"
+        )
+        should_apply = typer.confirm(prompt_msg, default=apply)
         if not should_apply:
             warning("Preview only. No changes were applied.")
             suggest_next(
@@ -614,6 +621,7 @@ def _render_update_result(result: Any, *, root: Path, show_diff: bool) -> None:
     kv("Applied", result.applied_count if not result.dry_run else 0)
     kv("Protected", result.protected_count)
     kv("Unchanged", result.unchanged_count)
+    kv("Orphan", result.orphan_count)
 
     if result.dry_run:
         # Preview: full unified tree of all non-unchanged changes.
@@ -632,7 +640,11 @@ def _render_update_result(result: Any, *, root: Path, show_diff: bool) -> None:
             created = counts.get("create", 0)
             updated = counts.get("update", 0)
             removed = counts.get("remove", 0)
-            print_stdout(f"Done. {created} created, {updated} updated, {removed} removed.")
+            orphaned = counts.get("orphan", 0)
+            print_stdout(
+                f"Done. {created} created, {updated} updated, "
+                f"{removed} removed, {orphaned} orphans deleted."
+            )
 
     if show_diff:
         for change in result.changes:
@@ -649,11 +661,28 @@ def _render_update_change(change: Any, *, dry_run: bool, show_diff: bool) -> Non
         "applied": "ok",
         "protected": "warn",
         "unchanged": "info",
+        "orphan": "warn",
+        "removed": "warn",
         "failed": "fail",
     }.get(outcome, "fail")
     status_line(status, f"diff {change.path}", change.explanation)
 
-    if change.diff:
+    if change.action == "orphan" and change.path.is_file():
+        try:
+            content = change.path.read_text(encoding="utf-8")
+        except (UnicodeDecodeError, OSError):
+            typer.echo("    [binary or unreadable file]")
+        else:
+            lines = content.splitlines(keepends=True)
+            if len(lines) > _DIFF_MAX_LINES:
+                lines = lines[:_DIFF_MAX_LINES]
+                remaining = len(content.splitlines()) - _DIFF_MAX_LINES
+                lines.append(f"    ... ({remaining} more lines)\n")
+            for line in lines:
+                typer.echo(f"    -{line}", nl=False)
+            if lines and not lines[-1].endswith("\n"):
+                typer.echo("")
+    elif change.diff:
         diff_text = change.diff
         lines = diff_text.splitlines(keepends=True)
         if len(lines) > _DIFF_MAX_LINES:

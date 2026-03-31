@@ -126,6 +126,7 @@ def _write_manifest(ai: Path) -> None:
     m = ai / "manifest.yml"
     m.write_text(
         "name: test-project\nversion: 1.0.0\n"
+        "ai_providers:\n  enabled: [claude_code, github_copilot]\n  primary: claude_code\n"
         "ownership:\n  external_framework_managed:\n"
         "    - AGENTS.md\n    - CLAUDE.md\n",
         encoding="utf-8",

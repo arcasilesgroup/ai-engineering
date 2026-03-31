@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 import re
 from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 
 class IntegrityCategory(StrEnum):
@@ -103,37 +106,86 @@ class IntegrityReport:
 _PATH_REF_PATTERN = re.compile(
     r"`?\.?(?:ai-engineering/)?(skills/[^\s`*]+\.md"
     r"|agents/[^\s`*]+\.md"
-    r"|contexts/[^\s`*]+\.md"
-    r"|context/[^\s`*]+\.md)`?"
+    r"|contexts/[^\s`*]+\.md)`?"
 )
 
 # Paths referenced in governance docs but only exist conditionally.
 # The file-existence checker skips these to avoid false positives.
 _KNOWN_OPTIONAL_PATHS: set[str] = set()
 
-# Instruction files that must stay in sync.
-# Base files exist in every governed project; template files only in the source repo.
-_BASE_INSTRUCTION_FILES: list[str] = [
+# Legacy hardcoded instruction file lists — kept as fallback when
+# manifest is absent.  New code uses ``_resolve_instruction_files``.
+_FALLBACK_BASE_INSTRUCTION_FILES: list[str] = [
     ".github/copilot-instructions.md",
     "AGENTS.md",
     "CLAUDE.md",
 ]
 
-_TEMPLATE_INSTRUCTION_FILES: list[str] = [
+_FALLBACK_TEMPLATE_INSTRUCTION_FILES: list[str] = [
     "src/ai_engineering/templates/project/copilot-instructions.md",
     "src/ai_engineering/templates/project/AGENTS.md",
     "src/ai_engineering/templates/project/CLAUDE.md",
 ]
 
-# Copilot instruction files intentionally have a lower skill count because
-# copilot-incompatible skills (e.g. ai-analyze-permissions) are excluded.
+# Template source-path → destination-path for resolving template
+# counterparts of base instruction files.
+_TPL_PREFIX = "src/ai_engineering/templates/project"
+
+_TEMPLATE_SRC_TO_DEST: dict[str, str] = {
+    "CLAUDE.md": f"{_TPL_PREFIX}/CLAUDE.md",
+    "AGENTS.md": f"{_TPL_PREFIX}/AGENTS.md",
+    ".github/copilot-instructions.md": f"{_TPL_PREFIX}/copilot-instructions.md",
+    "GEMINI.md": f"{_TPL_PREFIX}/GEMINI.md",
+}
+
+
+def _resolve_instruction_files(target: Path) -> list[str]:
+    """Resolve instruction files from ``ai_providers.enabled`` in manifest.
+
+    Falls back to the hardcoded list when no manifest is present so that
+    repositories not yet using the manifest continue to work.
+
+    Returns:
+        Deduplicated list of destination paths for enabled providers.
+    """
+    from ai_engineering.config.loader import load_manifest_config
+    from ai_engineering.installer.templates import _PROVIDER_FILE_MAPS
+
+    manifest_path = target / ".ai-engineering" / "manifest.yml"
+    if not manifest_path.is_file():
+        logger.debug("No manifest at %s — using fallback instruction files", manifest_path)
+        return list(_FALLBACK_BASE_INSTRUCTION_FILES)
+
+    cfg = load_manifest_config(target)
+    enabled = cfg.ai_providers.enabled
+
+    seen: set[str] = set()
+    files: list[str] = []
+    for provider in enabled:
+        provider_map = _PROVIDER_FILE_MAPS.get(provider, {})
+        for dest in provider_map.values():
+            if dest not in seen:
+                seen.add(dest)
+                files.append(dest)
+
+    return files
+
+
+# Platform-filtered instruction files may intentionally have a lower skill count
+# because some skills are excluded per platform (e.g. Copilot excludes
+# ai-analyze-permissions, Gemini has its own subset).
 # These files are checked separately and excluded from cross-file consistency.
-_COPILOT_INSTRUCTION_FILES: frozenset[str] = frozenset(
+_PLATFORM_FILTERED_INSTRUCTION_FILES: frozenset[str] = frozenset(
     {
         ".github/copilot-instructions.md",
         "src/ai_engineering/templates/project/copilot-instructions.md",
+        "GEMINI.md",
+        "src/ai_engineering/templates/project/GEMINI.md",
     }
 )
+
+# Backward-compatible alias used by counter_accuracy.py
+_COPILOT_INSTRUCTION_FILES = _PLATFORM_FILTERED_INSTRUCTION_FILES
 
 
 def _is_source_repo(target: Path) -> bool:
@@ -142,10 +194,23 @@ def _is_source_repo(target: Path) -> bool:
 
 
 def _instruction_files(target: Path) -> list[str]:
-    """Return the instruction file list appropriate for *target*."""
+    """Return the instruction file list appropriate for *target*.
+
+    Uses ``ai_providers.enabled`` from the manifest to resolve which
+    instruction files should exist.  In the source repo, also includes
+    the template counterparts.
+    """
+    base = _resolve_instruction_files(target)
     if _is_source_repo(target):
-        return _BASE_INSTRUCTION_FILES + _TEMPLATE_INSTRUCTION_FILES
-    return list(_BASE_INSTRUCTION_FILES)
+        template_files: list[str] = []
+        seen = set(base)
+        for dest in base:
+            tpl = _TEMPLATE_SRC_TO_DEST.get(dest)
+            if tpl and tpl not in seen:
+                seen.add(tpl)
+                template_files.append(tpl)
+        return base + template_files
+    return base
 
 
 # Mirror pairs: (canonical_root, mirror_root, glob_patterns, exclusion_prefixes)

@@ -418,19 +418,47 @@ def _check_instruction_parity(
 
     Also checks that skill/agent counts in section headers match manifest.
     This is section-level parity (not byte-level, since path translations differ).
+
+    Only checks files for providers listed in ``ai_providers.enabled``.
+    When both ``claude_code`` and a provider using ``AGENTS.md`` are enabled,
+    performs section-level parity between the two files.
     """
+    from ai_engineering.config.loader import load_manifest_config
+
+    cfg = load_manifest_config(target)
+    enabled = set(cfg.ai_providers.enabled)
+
+    # Determine which instruction files to check for parity
+    has_claude = "claude_code" in enabled
+    # Providers that use AGENTS.md: github_copilot, gemini, codex
+    has_agents_provider = bool(enabled & {"github_copilot", "gemini", "codex"})
+
     claude_md = target / "CLAUDE.md"
     agents_md = target / "AGENTS.md"
 
-    if not claude_md.is_file() or not agents_md.is_file():
-        report.checks.append(
-            IntegrityCheckResult(
-                category=IntegrityCategory.MIRROR_SYNC,
-                name="instruction-parity-skipped",
-                status=IntegrityStatus.WARN,
-                message="CLAUDE.md or AGENTS.md not found, skipping parity check",
+    # Only check parity when both claude_code and an agents-provider are enabled
+    if has_claude and has_agents_provider:
+        if not claude_md.is_file() or not agents_md.is_file():
+            report.checks.append(
+                IntegrityCheckResult(
+                    category=IntegrityCategory.MIRROR_SYNC,
+                    name="instruction-parity-skipped",
+                    status=IntegrityStatus.WARN,
+                    message="CLAUDE.md or AGENTS.md not found, skipping parity check",
+                )
             )
-        )
+            return
+    elif has_claude:
+        # Only claude_code enabled; no agents-provider, so no parity to check
+        if not claude_md.is_file():
+            return
+        # Nothing to compare against — skip silently
+        return
+    elif has_agents_provider:
+        # Only agents-provider(s); no CLAUDE.md to compare against
+        return
+    else:
+        # No relevant providers enabled
         return
 
     claude_content = claude_md.read_text(encoding="utf-8")
@@ -479,22 +507,21 @@ def _check_instruction_parity(
             )
         )
 
-    # Check skill/agent counts match manifest
-    manifest_path = target / ".ai-engineering" / "manifest.yml"
-    if not manifest_path.is_file():
+    # Check skill/agent counts match manifest using load_manifest_config
+    expected_skills = cfg.skills.total
+    expected_agents = cfg.agents.total
+
+    if expected_skills == 0 and expected_agents == 0:
         return
 
-    try:
-        import yaml
-    except ImportError:
-        return
+    # Check counts in instruction files for enabled providers
+    files_to_check: list[tuple[Path, str]] = []
+    if has_claude and claude_md.is_file():
+        files_to_check.append((claude_md, "CLAUDE.md"))
+    if has_agents_provider and agents_md.is_file():
+        files_to_check.append((agents_md, "AGENTS.md"))
 
-    manifest = yaml.safe_load(manifest_path.read_text(encoding="utf-8"))
-    expected_skills = manifest.get("skills", {}).get("total", 0)
-    expected_agents = manifest.get("agents", {}).get("total", 0)
-
-    # Check counts in both CLAUDE.md and AGENTS.md
-    for file_path, label in [(claude_md, "CLAUDE.md"), (agents_md, "AGENTS.md")]:
+    for file_path, label in files_to_check:
         content = file_path.read_text(encoding="utf-8")
 
         # Extract skill count from "## Skills (N)" header
@@ -504,7 +531,7 @@ def _check_instruction_parity(
                 skills_section_header = line
                 break
 
-        if skills_section_header:
+        if skills_section_header and expected_skills > 0:
             count_match = _SECTION_COUNT_RE.search(skills_section_header)
             if count_match:
                 found_count = int(count_match.group(1))
@@ -527,7 +554,7 @@ def _check_instruction_parity(
         if sot_section:
             skills_sot = re.search(r"Skills\s*\((\d+)\)", sot_section)
             agents_sot = re.search(r"Agents\s*\((\d+)\)", sot_section)
-            if skills_sot and int(skills_sot.group(1)) != expected_skills:
+            if skills_sot and expected_skills > 0 and int(skills_sot.group(1)) != expected_skills:
                 report.checks.append(
                     IntegrityCheckResult(
                         category=IntegrityCategory.MIRROR_SYNC,
@@ -540,7 +567,7 @@ def _check_instruction_parity(
                         file_path=label,
                     )
                 )
-            if agents_sot and int(agents_sot.group(1)) != expected_agents:
+            if agents_sot and expected_agents > 0 and int(agents_sot.group(1)) != expected_agents:
                 report.checks.append(
                     IntegrityCheckResult(
                         category=IntegrityCategory.MIRROR_SYNC,

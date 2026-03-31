@@ -261,6 +261,7 @@ _STATE_LABELS: dict[str, tuple[str, str]] = {
     "skip-denied": ("protected", "red"),
     "overwrite": ("overwrite", "bold red"),
     "skip-unchanged": ("unchanged", "dim"),
+    "orphan": ("orphan", "dim magenta"),
 }
 """Map FileChange.action to (label, Rich style) for inline display."""
 

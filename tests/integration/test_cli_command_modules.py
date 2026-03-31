@@ -310,7 +310,7 @@ def test_core_update_interactive_preview_then_apply(
     assert "protected" in captured.err
 
     # Post-apply: compact one-liner summary on stdout (not a full tree)
-    assert "Done. 0 created, 1 updated, 0 removed." in captured.out
+    assert "Done. 0 created, 1 updated, 0 removed" in captured.out
 
     assert mock_update.call_count == 2
     mock_confirm.assert_called_once()
@@ -453,7 +453,7 @@ def test_update_post_apply_success_oneliner(
     combined = captured.out + captured.err
 
     # Post-apply output MUST be a compact one-liner summary
-    assert "Done. 2 created, 1 updated, 0 removed." in combined
+    assert "Done. 2 created, 1 updated, 0 removed" in combined
 
     # Post-apply output MUST NOT render the full applied tree.
     # Tree output (├── / └──) goes to stderr.  Both the preview tree and the
