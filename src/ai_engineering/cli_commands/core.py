@@ -213,13 +213,13 @@ def install_cmd(
         # First install: flags > wizard > detection > defaults
         any_resolved = bool(resolved)
 
-        if any_resolved or is_json_mode():
+        if any_resolved or is_json_mode() or not sys.stdin.isatty():
             resolved_stacks = resolved.get("stacks", detected.stacks or ["python"])
             resolved_providers = resolved.get("providers", detected.providers or ["claude_code"])
             resolved_ides = resolved.get("ides", detected.ides or ["terminal"])
             resolved_vcs = resolved.get("vcs", detected.vcs)
         else:
-            # First install always runs the wizard for configuration
+            # First install in interactive TTY: run the wizard
             if not is_json_mode():
                 _show_detection_summary(detected)
 

@@ -297,30 +297,20 @@ class TestFirstInstallUnchanged:
     is unchanged: autodetect + wizard + install."""
 
     def test_first_install_unchanged(self, tmp_path: Path) -> None:
-        """First install (no existing .ai-engineering/) still runs autodetect + wizard."""
+        """First install (no existing .ai-engineering/) in non-TTY uses autodetect defaults."""
         # Arrange
         app = create_app()
         mock_install = _mock_install_pipeline()
 
-        mock_wizard_result = MagicMock(
-            stacks=["python"],
-            providers=["claude_code"],
-            ides=["terminal"],
-            vcs="github",
-        )
-
         with (
             patch(f"{_CORE}.install_with_pipeline", mock_install),
-            patch(
-                "ai_engineering.installer.wizard.run_wizard",
-                return_value=mock_wizard_result,
-            ) as mock_wizard,
             patch(f"{_CORE}.render_reinstall_options", create=True) as mock_menu,
         ):
-            # Act -- no .ai-engineering exists in tmp_path
+            # Act -- no .ai-engineering exists in tmp_path, CliRunner is non-TTY
             _result = runner.invoke(app, ["install", str(tmp_path)])
 
-            # Assert -- wizard MUST be called on first install
-            mock_wizard.assert_called_once()
+            # Assert -- in non-TTY, wizard is NOT called (autodetect defaults used)
             # Assert -- reinstall menu must NOT appear
             mock_menu.assert_not_called()
+            # Assert -- install_with_pipeline was called (install proceeded with defaults)
+            mock_install.assert_called_once()
