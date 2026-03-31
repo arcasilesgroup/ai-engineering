@@ -57,11 +57,47 @@ jobs:
           git tag "$TAG" "${{ github.event.workflow_run.head_sha }}"
           git push origin "$TAG"
 
+      - name: Attest build provenance
+        if: steps.semrel.outputs.released == 'true'
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: dist/*
+
+      - name: Generate CycloneDX SBOM
+        if: steps.semrel.outputs.released == 'true'
+        run: |
+          pip install cyclonedx-bom
+          uv export --no-dev --frozen > requirements-prod.txt
+          cyclonedx-py requirements requirements-prod.txt --output-format json -o sbom.json --spec-version 1.5
+
+      - name: Generate SHA-256 checksums
+        if: steps.semrel.outputs.released == 'true'
+        run: sha256sum dist/* sbom.json > CHECKSUMS-SHA256.txt
+
+      - name: Verify attestation
+        if: steps.semrel.outputs.released == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for f in dist/*; do
+            gh attestation verify "$f" --repo "${{ github.repository }}"
+          done
+
       - name: Upload dist
         uses: actions/upload-artifact@v7
         with:
           name: dist
           path: dist/
+          retention-days: 90
+
+      - name: Upload supply chain artifacts
+        if: steps.semrel.outputs.released == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: supply-chain
+          path: |
+            sbom.json
+            CHECKSUMS-SHA256.txt
           retention-days: 90
 
       - name: Create draft GitHub Release
@@ -75,3 +111,11 @@ jobs:
             --draft \
             --generate-notes \
             dist/*
+
+      - name: Attach supply chain assets to draft release
+        if: steps.semrel.outputs.released == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${{ steps.semrel.outputs.tag }}"
+          gh release upload "$TAG" sbom.json CHECKSUMS-SHA256.txt --clobber
