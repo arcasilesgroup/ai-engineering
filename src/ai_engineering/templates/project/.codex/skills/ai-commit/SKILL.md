@@ -87,8 +87,9 @@ If active spec exists, run `ai-eng spec verify` to auto-correct task counters.
 ### 7. Commit
 
 Compose message following conventions:
-- **With active spec**: `spec-NNN: Task X.Y -- <description>`
+- **With active spec**: `feat(spec-NNN): Task X.Y -- <description>` (features), `fix(spec-NNN): <description>` (fixes), `chore(spec-NNN): <description>` (internal)
 - **Without spec**: `type(scope): description` (conventional commits, imperative mood)
+- Valid types: `feat`, `fix`, `perf`, `refactor`, `style`, `docs`, `test`, `build`, `ci`, `chore`, `revert`
 - If user provides `--force`, skip preview. Otherwise, preview message and confirm.
 
 ### 8. Push

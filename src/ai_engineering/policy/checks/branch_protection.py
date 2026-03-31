@@ -32,7 +32,7 @@ def check_branch_protection(project_root: Path, result: GateResult) -> None:
 
 def check_version_deprecation(result: GateResult) -> None:
     """Block gate execution if the installed version is deprecated or EOL."""
-    from ai_engineering.__version__ import __version__
+    from ai_engineering import __version__
     from ai_engineering.version.checker import check_version
 
     check = check_version(__version__)

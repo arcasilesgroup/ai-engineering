@@ -16,7 +16,16 @@ from pathlib import Path
 import yaml
 
 # First-party GitHub action orgs whose major-version tags are acceptable
-_FIRST_PARTY_PREFIXES = ("actions/",)
+_FIRST_PARTY_PREFIXES = (
+    "actions/",
+    "github/",
+    "pypa/",
+    "astral-sh/",
+    "SonarSource/",
+    "CycloneDX/",
+    "EndBug/",
+    "dorny/",
+)
 
 # Pattern: owner/action@<40-hex-char SHA>
 _SHA_PIN_RE = re.compile(r"^[^/]+/[^@]+@[0-9a-f]{40}$")

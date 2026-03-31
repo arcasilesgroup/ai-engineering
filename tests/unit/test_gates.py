@@ -151,13 +151,13 @@ class TestValidateCommitMessage:
         assert "empty" in errors[0].lower()
 
     def test_long_first_line_fails(self) -> None:
-        long_msg = "a" * 73
+        long_msg = "a" * 101
         errors = validate_commit_message(long_msg)
         assert len(errors) > 0
-        assert "72" in errors[0]
+        assert "100" in errors[0]
 
-    def test_exactly_72_chars_passes(self) -> None:
-        msg = "a" * 72
+    def test_exactly_100_chars_passes(self) -> None:
+        msg = "fix: " + "a" * 95  # 100 chars total, conventional format
         errors = validate_commit_message(msg)
         assert errors == []
 

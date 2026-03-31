@@ -27,7 +27,9 @@ class TestCheckShaPinning:
 
     def test_tag_only_fails(self):
         data = {
-            "jobs": {"build": {"steps": [{"uses": "astral-sh/setup-uv@v5", "name": "Setup UV"}]}}
+            "jobs": {
+                "build": {"steps": [{"uses": "unknown-org/some-action@v5", "name": "Some Action"}]}
+            }
         }
         failures = _check_sha_pinning(Path("test.yml"), data)
         assert len(failures) == 1

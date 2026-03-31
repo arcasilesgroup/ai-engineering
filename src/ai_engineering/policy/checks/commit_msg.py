@@ -2,21 +2,19 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 _GATE_TRAILER = "Ai-Eng-Gate: passed"
 
+_CONVENTIONAL_RE = re.compile(
+    r"^(feat|fix|perf|refactor|style|docs|test|build|ci|chore|revert)"
+    r"(\([^)]+\))?!?:\s+.+"
+)
+
 
 def validate_commit_message(msg: str) -> list[str]:
-    """Validate a commit message against project conventions.
-
-    Rules:
-    - Must not be empty.
-    - First line must not exceed 72 characters.
-    - First line must start with a lowercase letter or a known prefix.
-
-    Args:
-        msg: The full commit message text.
+    """Validate a commit message against conventional commit format.
 
     Returns:
         List of validation errors (empty if valid).
@@ -33,8 +31,17 @@ def validate_commit_message(msg: str) -> list[str]:
         errors.append("First line is empty")
         return errors
 
-    if len(first_line) > 72:
-        errors.append(f"First line exceeds 72 characters ({len(first_line)} chars)")
+    if len(first_line) > 100:
+        errors.append(f"First line exceeds 100 characters ({len(first_line)} chars)")
+
+    if not _CONVENTIONAL_RE.match(first_line):
+        valid_types = "feat, fix, perf, refactor, style, docs, test, build, ci, chore, revert"
+        errors.append(
+            f"Invalid commit format: '{first_line}'. "
+            f"Expected: type(scope): description. "
+            f"Valid types: {valid_types}. "
+            f"Example: feat(auth): add login validation"
+        )
 
     return errors
 

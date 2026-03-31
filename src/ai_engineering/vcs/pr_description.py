@@ -22,7 +22,7 @@ from ai_engineering.git.operations import current_branch, run_git
 def build_pr_title(project_root: Path) -> str:
     """Build a PR title from the active spec and branch name.
 
-    Format: ``spec-NNN: <branch-slug-humanized>`` when a spec is active,
+    Format: ``feat(spec-NNN): <branch-slug-humanized>`` when a spec is active,
     or ``<branch-slug-humanized>`` when no spec is active.
 
     Args:
@@ -35,7 +35,7 @@ def build_pr_title(project_root: Path) -> str:
     slug = _humanize_branch(branch)
     spec = _read_active_spec(project_root)
     if spec:
-        return f"spec-{spec}: {slug}"
+        return f"feat(spec-{spec}): {slug}"
     return slug
 
 

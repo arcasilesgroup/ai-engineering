@@ -140,7 +140,7 @@ def _app_callback(
             typer.echo(ctx.get_help())
             raise typer.Exit(code=0)
 
-    from ai_engineering.__version__ import __version__
+    from ai_engineering import __version__
     from ai_engineering.version.checker import check_version
 
     result = check_version(__version__)

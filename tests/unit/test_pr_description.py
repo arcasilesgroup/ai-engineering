@@ -149,7 +149,7 @@ class TestBuildPrTitle:
             title = build_pr_title(tmp_path)
 
         # Assert
-        assert title == "spec-014: Dual vcs provider"
+        assert title == "feat(spec-014): Dual vcs provider"
 
     def test_no_spec_uses_branch_only(self, tmp_path: Path) -> None:
         with patch(
