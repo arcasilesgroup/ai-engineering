@@ -16,7 +16,7 @@ Engineer-grade technical explanations of code, concepts, patterns, and architect
 
 - "How does this work?", "What is this?", "Why does this do X?", "Trace this."
 - NOT for generating documentation -- use `/ai-write`.
-- NOT for writing/fixing code -- use `ai-build agent` or `/ai-debug`.
+- NOT for writing/fixing code -- use `/ai-dispatch` or `/ai-debug`.
 
 ## Process
 
@@ -79,9 +79,5 @@ Use Grep/Glob to find real instances. Codebase examples with `file:line` referen
 - Shared by `/ai-guide` for teaching mode.
 - References actual codebase via Grep/Glob, not idealized examples.
 - Read-only -- never writes code, tests, or documentation.
-
-## References
-
-- `.gemini/skills/ai-guide/SKILL.md` -- uses explain for teaching interactions.
-- `.gemini/skills/ai-verify/SKILL.md` -- architecture assessment mode.
+- Related: `/ai-guide` (uses explain for teaching interactions), `/ai-verify` (architecture assessment mode).
 $ARGUMENTS

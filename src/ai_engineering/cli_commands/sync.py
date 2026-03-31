@@ -57,7 +57,9 @@ def sync_cmd(
                 fix="Ensure scripts/sync_command_mirrors.py exists in the project root.",
             )
         else:
-            typer.echo(f"Error: sync script not found: {script}", err=True)
+            from ai_engineering.cli_ui import error
+
+            error(f"Sync script not found: {script}")
         raise typer.Exit(code=1)
 
     cmd = [sys.executable, str(script)]

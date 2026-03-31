@@ -67,7 +67,7 @@ Required structure:
 
 Rules (non-negotiable):
 - every `.slide` must use `height: 100vh; height: 100dvh; overflow: hidden;`
-- all type and spacing must scale with `clamp()`
+- all type and spacing must scale with `clamp()` (**Warning:** never use `-clamp(...)` -- browsers ignore negated CSS functions silently. Use `calc(-1 * clamp(...))` instead.)
 - when content does not fit, split into multiple slides
 - never solve overflow by shrinking text below readable sizes
 - never allow scrollbars inside a slide
@@ -84,11 +84,13 @@ Check the finished deck at these sizes:
 
 If browser automation is available, verify no slide overflows and that keyboard navigation works.
 
+If no browser automation is available: manually review CSS for viewport fit using the density limits in STYLE_PRESETS.md. Document which sizes were NOT verified and flag for manual QA.
+
 ### Step 7 -- Deliver
 
 At handoff:
 - delete temporary preview files unless the user wants to keep them
-- open the deck with the platform-appropriate opener (`open` on macOS, `xdg-open` on Linux)
+- open the deck with the platform-appropriate opener (`open` on macOS, `xdg-open` on Linux, `start` on Windows)
 - summarize file path, preset used, slide count, and easy theme customization points
 
 ## Quick Reference
@@ -147,7 +149,6 @@ Every presentation must include:
 - Long bullet walls that break viewport fit
 - Code blocks that need scrolling
 - Fixed-height content boxes that break on short screens
-- Using `-clamp(...)` instead of `calc(-1 * clamp(...))` -- browsers ignore negated CSS functions silently
 - Skipping the viewport validation step
 - Generating previews when the user already named a preset
 

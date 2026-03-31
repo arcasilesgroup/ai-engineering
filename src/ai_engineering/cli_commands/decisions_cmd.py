@@ -13,6 +13,7 @@ from typing import Annotated
 
 import typer
 
+from ai_engineering.cli_ui import error, header, info, kv, status_line, success
 from ai_engineering.paths import find_project_root
 from ai_engineering.state.observability import emit_control_outcome
 from ai_engineering.state.service import StateService
@@ -34,19 +35,19 @@ def decision_list() -> None:
     store = _load_store(root)
 
     if store is None or not store.decisions:
-        typer.echo("Decision store is empty.")
+        info("Decision store is empty.")
         return
 
-    typer.echo(f"# Decisions ({len(store.decisions)} total)")
-    typer.echo("")
+    header(f"Decisions ({len(store.decisions)} total)")
 
     for d in store.decisions:
         exp = d.expires_at.strftime("%Y-%m-%d") if d.expires_at else "no expiry"
         severity = d.severity.value if d.severity else "?"
-        status = d.status.value if d.status else "?"
-        typer.echo(f"  {d.id} | {status} | {severity} | expires: {exp}")
-        typer.echo(f"    Context: {d.context[:80]}")
-        typer.echo(f"    Decision: {d.decision[:80]}")
+        d_status = d.status.value if d.status else "?"
+        line_status = "ok" if d_status == "active" else "warn"
+        status_line(line_status, d.id, f"{d_status} · {severity} · expires: {exp}")
+        kv("  Context", d.context[:80])
+        kv("  Decision", d.decision[:80])
         typer.echo("")
 
 
@@ -56,7 +57,7 @@ def decision_expire_check() -> None:
     store = _load_store(root)
 
     if store is None or not store.decisions:
-        typer.echo("No decisions to check.")
+        info("No decisions to check.")
         return
 
     now = datetime.now(tz=UTC)
@@ -74,20 +75,20 @@ def decision_expire_check() -> None:
             expiring.append(d)
 
     if not expired and not expiring:
-        typer.echo("All active decisions are within validity period.")
+        status_line("ok", "Decisions", "all within validity period")
         return
 
     if expired:
-        typer.echo(f"## EXPIRED ({len(expired)})")
+        header(f"Expired ({len(expired)})")
         for d in expired:
-            typer.echo(f"  - {d.id}: expired {d.expires_at}")
+            status_line("fail", d.id, f"expired {d.expires_at}")
         typer.echo("")
 
     if expiring:
-        typer.echo(f"## EXPIRING SOON ({len(expiring)})")
+        header(f"Expiring soon ({len(expiring)})")
         for d in expiring:
             days_left = (d.expires_at - now).days if d.expires_at else 0
-            typer.echo(f"  - {d.id}: expires in {days_left} days ({d.expires_at})")
+            status_line("warn", d.id, f"expires in {days_left} days")
 
 
 def decision_record(
@@ -147,7 +148,7 @@ def decision_record(
 
     # Check for duplicate ID
     if store.find_by_id(decision_id):
-        typer.echo(f"Decision '{decision_id}' already exists. Use a unique ID.")
+        error(f"Decision '{decision_id}' already exists. Use a unique ID.")
         raise typer.Exit(code=1)
 
     # Parse optional fields
@@ -188,4 +189,4 @@ def decision_record(
         },
     )
 
-    typer.echo(f"Recorded decision '{decision_id}' → decision-store.json + framework-events.")
+    success(f"Recorded decision '{decision_id}' → decision-store.json + framework-events.")

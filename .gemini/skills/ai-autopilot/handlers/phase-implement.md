@@ -51,8 +51,9 @@ For each non-blocked sub-spec in the wave, dispatch the build agent with a fresh
 1. **Sub-spec scope and exploration** -- from `specs/autopilot/sub-NNN/spec.md` (Scope, Exploration, file ownership).
 1b. **Sub-spec plan** -- from `specs/autopilot/sub-NNN/plan.md` (task checkboxes).
 2. **Decision-store constraints** -- relevant entries from `state/decision-store.json` that apply to this sub-spec's domain.
-3. **Stack standards** -- loaded from `contexts/languages/` and `contexts/frameworks/` matching the detected stack, plus `contexts/team/*.md` for team conventions.
-4. **File boundary enforcement** -- explicit instruction embedded in the agent prompt:
+3. **Stack standards** -- passed as file path references from the `context_paths` list resolved in Phase 0. Agents read these files on demand if they need stack guidance. Do NOT embed full context file content in the dispatch prompt — pass paths only: `"Stack guidance available at: [context_paths]. Read on demand if needed."`.
+4. **Inline guard suppression** -- when dispatched by autopilot, include this directive: `"skip_inline_guard: true — governance advisory is handled at wave level, not per-file. Do NOT dispatch the guard agent on individual file edits."` This overrides the build agent's default per-file guard behavior within the autopilot context only.
+5. **File boundary enforcement** -- explicit instruction embedded in the agent prompt:
 
 ```
 HARD BOUNDARY: You may ONLY modify these files:
@@ -121,6 +122,17 @@ Commit scope:
 - Include only files owned by sub-specs in this wave.
 - Do not include manifest updates in the wave commit (those happen in Step 4).
 - If a sub-spec agent failed, its partial changes are still committed (the Self-Report documents what is incomplete).
+
+### Step 3b -- Wave-End Guard Advisory
+
+After the wave commit, dispatch a single guard advisory agent to review the wave's cumulative changes:
+
+1. Compute `git diff HEAD~1...HEAD` (the wave commit diff).
+2. Dispatch the guard agent in advise mode with the wave diff.
+3. If guard raises concerns: log them as advisory findings for Phase 5. Do NOT block the wave — guard is advisory only during implementation.
+4. If guard is unavailable or errors: log warning and continue (fail-open).
+
+This replaces per-file guard dispatches within individual build agents. One guard call per wave instead of N calls per file edit.
 
 ### Step 4 -- Update Manifest
 

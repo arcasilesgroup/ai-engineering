@@ -42,7 +42,7 @@ Structured incident postmortem using the DERP model. Guides through Detection, E
    - What changes prevent recurrence?
    - Action items with owners and deadlines
 
-Ask ONE section at a time. Wait for answers before proceeding to the next DERP phase.
+Ask ONE section at a time. Wait for answers before proceeding to the next DERP phase. If the user provides answers for multiple DERP phases at once (e.g., pastes an incident timeline), extract the relevant information into each section rather than re-asking. Only interview for sections that remain incomplete.
 
 ### continue <id> -- Resume postmortem
 
@@ -57,7 +57,7 @@ Ask ONE section at a time. Wait for answers before proceeding to the next DERP p
 
 ### generate -- Create from existing notes
 
-1. **Collect** -- gather incident-related commits, PRs, Slack threads, and notes from context.
+1. **Collect** -- gather incident-related commits, PRs, Slack threads (if provided by the user as pasted text), and notes from context.
 2. **Draft** -- populate DERP sections from available data, mark gaps as `[NEEDS INPUT]`.
 3. **Review** -- present draft for user validation before saving.
 

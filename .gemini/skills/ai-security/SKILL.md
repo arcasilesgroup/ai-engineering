@@ -5,6 +5,9 @@ effort: max
 argument-hint: "all|static|deps|secrets|sbom|--fix"
 tags: [security, sast, dependencies, sbom, owasp, enterprise]
 requires:
+  anyBins:
+  - cdxgen
+  - pip-audit
   bins:
   - gitleaks
   - semgrep
@@ -30,10 +33,14 @@ Follow `.ai-engineering/contexts/stack-context.md`. Apply loaded standards to al
 
 ## Modes
 
+### all -- Full Scan (default)
+
+The `all` mode runs static, deps, and secrets in sequence and produces an aggregated report. This is the default when `/ai-security` is invoked without a mode argument.
+
 ### static -- SAST
 
 1. **Read stacks** -- read `.ai-engineering/manifest.yml` field `providers.stacks` for active languages.
-2. **Secret detection** -- `gitleaks detect --source . --no-git`. Any finding is critical.
+2. **Secret detection** -- `gitleaks detect --source . --no-git`. Any finding is critical. Note: this is intentional for full-repo SAST scans, distinct from the `gitleaks protect --staged` pattern used in pre-commit hooks.
 3. **Semgrep** -- `semgrep scan --config auto --json`. Parse for rule IDs, severity, CWE.
 4. **Manual analysis** -- review what tools miss:
    - Authentication on every endpoint (A01)
@@ -100,7 +107,7 @@ When `--fix` is passed, attempt automatic remediation:
 ## Quick Reference
 
 ```
-/ai-security              # run all modes
+/ai-security              # run all modes (static, deps, secrets in sequence; aggregated report)
 /ai-security static       # SAST only
 /ai-security deps         # dependency audit only
 /ai-security secrets      # secret detection only

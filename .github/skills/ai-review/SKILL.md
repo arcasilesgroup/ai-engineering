@@ -79,10 +79,6 @@ Every report should:
 - include `not_applicable` or `low_signal` outcomes when a specialist had little to contribute
 - show which findings survived adversarial validation
 
-## Learn Integration
-
-After review completes, the orchestrator produces a structured findings summary. Post-merge, `/ai-learn single <pr>` consumes the review file and synthesizes patterns into context updates.
-
 ## Common Mistakes
 
 - Treating the 3 macro-agents in `normal` as reduced coverage. They are not.
@@ -92,10 +88,31 @@ After review completes, the orchestrator produces a structured findings summary.
 - Leaving findings unchallenged by the validator stage.
 - Reading specialist agent files inline instead of dispatching via Agent tool.
 
+## Handlers
+
+### Orchestration
+Load `handlers/review.md` for the main review dispatch logic.
+
+### Language-Specific Review Criteria
+For each language detected in the diff, load the corresponding handler for language-specific review criteria.
+
+| Handler | Trigger | File |
+|---------|---------|------|
+| Generic | Default for unrecognized languages | `handlers/lang-generic.md` |
+| C++ | `.cpp`, `.h`, `.hpp` files | `handlers/lang-cpp.md` |
+| Flutter | `.dart` files | `handlers/lang-flutter.md` |
+| Go | `.go` files | `handlers/lang-go.md` |
+| Java | `.java` files | `handlers/lang-java.md` |
+| Kotlin | `.kt` files | `handlers/lang-kotlin.md` |
+| Python | `.py` files | `handlers/lang-python.md` |
+| Rust | `.rs` files | `handlers/lang-rust.md` |
+| TypeScript | `.ts`, `.tsx` files | `handlers/lang-typescript.md` |
+
 ## Integration
 
 - **Called by**: user directly, `/ai-pr`, `/ai-dispatch`
 - **Dispatches**: `review-context-explorer.md`, `reviewer-*.md`, `review-finding-validator.md` (all via Agent tool)
 - **Read-only**: never modifies source code
+- **See also**: after merge, `/ai-learn single <pr>` can extract review patterns
 
 $ARGUMENTS

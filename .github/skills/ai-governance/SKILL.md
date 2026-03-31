@@ -19,6 +19,10 @@ Compliance validation for regulated industries. Modes: `compliance` (quality gat
 - NOT for code quality -- use `/ai-verify quality`.
 - NOT for security scanning -- use `/ai-security`.
 
+## Step 0: Load Stack Contexts
+
+Follow `.ai-engineering/contexts/stack-context.md`.
+
 ## Modes
 
 ### compliance -- Quality Gate Validation
@@ -67,6 +71,8 @@ Validate manifest claims match disk reality.
 
 ### `--report` -- Formal Report
 
+The `--report` flag can combine with any mode (e.g., `/ai-governance integrity --report`). Without a mode, it defaults to `compliance`.
+
 Generate structured compliance report suitable for audit:
 
 ```markdown
@@ -106,7 +112,7 @@ Scoring: start at 100. Deduct: blocker -25, critical -15, major -5, minor -1. Fl
 
 - **Called by**: `/ai-verify` (governance mode delegation)
 
-- CLI layer: `ai-eng validate --category <mode>`, `ai-eng doctor`, `ai-eng maintenance risk-status`.
+- CLI layer: `ai-eng validate --category <mode>`, `ai-eng doctor`, `ai-eng maintenance risk-status`. The LLM performs checks directly by reading files and running tools. `ai-eng validate` and `ai-eng doctor` are CLI equivalents for non-interactive use.
 - Risk acceptances block pre-push when expired.
 - Release gate (`/ai-release-gate`) checks governance status.
 - **Boundary**: `/ai-pipeline` generates workflow files; `/ai-governance` validates that governance gates are enforced in them

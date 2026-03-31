@@ -15,7 +15,7 @@ Session welcome dashboard. Loads project context, activates instinct observation
 
 ### Step 1: Load context
 
-Read `session.context_files` from `.ai-engineering/manifest.yml` to discover which files to load. Read each file. Count meaningful data for the summary line (e.g., number of lessons, number of decisions, active risks).
+Read `session.context_files` from `.ai-engineering/manifest.yml` to discover which files to load. If `manifest.yml` is missing or `session.context_files` is not defined, skip context loading and note in the dashboard: 'manifest not found — run `/ai-constitution` to initialize'. Read each file. Count meaningful data for the summary line (e.g., number of lessons, number of decisions, active risks).
 
 ### Step 2: Activate instinct
 
@@ -25,7 +25,7 @@ Run `/ai-instinct` to enter observation mode for this session.
 
 Collect these in parallel:
 
-- **Active spec**: read `.ai-engineering/specs/spec.md` frontmatter — extract title and status. If file missing or empty: `no active spec`.
+- **Active spec**: read `.ai-engineering/specs/spec.md` frontmatter — extract title and status. Spec frontmatter is YAML between `---` delimiters. Extract `title` and `status` fields. If file missing or empty: `no active spec`.
 - **Plan progress**: read `.ai-engineering/specs/plan.md` — count checked `[x]` vs total `[ ]` tasks. If missing: `no active plan`.
 - **Recent activity**: run `git log --oneline -5` and generate a 3-5 line human-readable summary. Not the raw log — explain what happened in plain language.
 - **Board status**: follow the Board Display section below.

@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Converge on quality through iterative assessment and fixing. Dispatch the verify agent + the guard agent + the review agent in parallel on the full changeset, consolidate findings with unified severity mapping, fix issues, and iterate up to 3 rounds. This is where cross-sub-spec integration issues are caught -- the first time all sub-spec changes are evaluated as a single unit.
+Converge on quality through assessment and targeted fixing. Dispatch the verify agent + the guard agent + the review agent in parallel on the full changeset, consolidate findings with unified severity mapping. Default: 1 round. Escalate to round 2-3 only when blocker-severity findings are present (max 3 rounds). This is where cross-sub-spec integration issues are caught -- the first time all sub-spec changes are evaluated as a single unit.
 
 ## Prerequisites
 
@@ -22,6 +22,8 @@ This handler does NOT contain verify, guard, or review logic. It reads:
 
 These protocols are embedded verbatim into subagent prompts at dispatch time. When those skills improve, this handler benefits automatically.
 
+**Token efficiency**: All three skill files are read ONCE at quality loop entry (before Step 2 begins) and cached for the duration of the loop. They are NOT re-read per round. The changeset diff and Self-Reports are also computed/read once and reused.
+
 ## Procedure
 
 ### Step 1 -- Scope the Changeset
@@ -36,32 +38,42 @@ Quality Scope: partial (sub-003, sub-007 blocked)
 Verified subset: sub-001, sub-002, sub-004, sub-005, sub-006
 ```
 
-Compute the changeset diff: `git diff main...HEAD` -- this is the input for all assessment agents.
+Compute the changeset diff: `git diff main...HEAD` -- this is the input for all assessment agents. Store the diff result for reuse across rounds.
 
-### Step 2 -- Iterative Assessment and Fix (round 1 to 3)
+### Step 1b -- Pre-load Shared Context (once, before loop)
 
-Repeat the following cycle. Track the current round number (R = 1, 2, or 3).
+Read the following files ONCE and cache their content for the entire quality loop:
+
+1. **Skill files**: `.codex/skills/ai-verify/SKILL.md`, `.codex/skills/ai-review/SKILL.md`, `.codex/skills/ai-governance/SKILL.md`
+2. **Self-Reports**: glob `specs/autopilot/sub-*/plan.md`, extract `## Self-Report` sections from each
+3. **Changeset diff**: the `git diff main...HEAD` computed in Step 1
+
+These are static during the quality loop. Do NOT re-read them per round. Assessment agents in round 2+ receive the cached content plus a delta of fixes applied since the previous round.
+
+### Step 2 -- Assessment and Fix (1 round default, escalate on blockers)
+
+Run 1 round by default. Escalate to round 2 only if blockers are found. Escalate to round 3 only if blockers persist after round 2. Track the current round number (R = 1, 2, or 3).
 
 #### Step 2a -- Assess (3 agents in parallel)
 
-Dispatch three assessment agents simultaneously. Each gets fresh context.
+Dispatch three assessment agents simultaneously. Each gets fresh context. Use the pre-loaded skill files and diff from Step 1b — do NOT re-read them from disk.
 
 **The verify agent** -- platform mode:
-- Read `.codex/skills/ai-verify/SKILL.md` at dispatch time.
+- Use the cached `ai-verify/SKILL.md` content.
 - Embed the IRRV protocol and the Scan Modes table into the agent prompt.
 - Run all 7 scan modes (governance, security, quality, performance, a11y, feature, architecture) on the changeset.
 - Output: scored verdict with findings per the Scan Output Contract (Score N/100, Verdict, Findings table, Gate Check).
 
 **The guard agent** -- advise mode:
-- Read `.codex/skills/ai-governance/SKILL.md` at dispatch time.
+- Use the cached `ai-governance/SKILL.md` content.
 - Run governance check against `state/decision-store.json`.
 - Check for: expired risk acceptances, ownership violations, framework integrity drift.
 - Output: advisory findings with severity levels (concern, warn, info).
 
 **The review agent** -- 8-agent parallel review:
-- Read `.codex/skills/ai-review/SKILL.md` at dispatch time.
+- Use the cached `ai-review/SKILL.md` content.
 - Embed the 8 Review Agents table, self-challenge protocol, and confidence scoring rules into the agent prompt.
-- Run the full review protocol on `git diff main...HEAD`.
+- Run the full review protocol on the cached changeset diff.
 - Output: findings with severity, confidence score, and corroboration status.
 
 If all 3 assessment agents fail in this round: retry the round once. If the second attempt also fails: **STOP**. Report the failure and escalate to user. Do not proceed.
@@ -84,7 +96,7 @@ Map all findings from the three sources to a unified severity scale:
 
 Deduplicate findings that appear in multiple sources. When two or more agents flag the same file and line with the same category, merge into a single finding and note corroboration (increases confidence).
 
-**Cross-reference against Self-Reports**: for each finding, check the corresponding sub-spec Self-Report from Phase 4.
+**Cross-reference against Self-Reports**: use the cached Self-Report data from Step 1b. For each finding, check the corresponding sub-spec Self-Report from Phase 4.
 
 - If Self-Report classifies a test as `real` but Verify finds it failing: flag the discrepancy as a blocker. The Self-Report was inaccurate.
 - If Self-Report classifies something as `aspirational` or `stub` and Verify confirms it: not a discrepancy -- the gap was declared.
@@ -109,10 +121,12 @@ Decision matrix:
 
 | Condition | Action |
 |-----------|--------|
-| 0 blockers + 0 criticals + 0 highs | **PASS**. Exit loop. Proceed to Phase 6. |
-| Issues remain AND round < 3 | Proceed to Step 2d (fix). |
+| 0 blockers | **PASS**. Exit loop. Proceed to Phase 6. Critical/high findings are documented in the PR but do NOT trigger additional rounds. |
+| Blockers found AND round < 3 | Proceed to Step 2d (fix blockers only). Then escalate to next round. |
 | Round = 3 AND blockers remain | **STOP**. Do NOT proceed to Phase 6. Do NOT create PR. Report all blockers with evidence and escalate to user. |
 | Round = 3 AND only criticals/highs remain (0 blockers) | Proceed to Phase 6 with issues documented. PR is created but flagged in the Integrity Report. |
+
+**Escalation policy**: Only blocker-severity findings trigger additional rounds. Critical and high findings are reported and documented but are non-blocking for round escalation. This reduces the common case from 3 rounds to 1 round when no blockers are present.
 
 #### Step 2d -- Fix
 
@@ -195,9 +209,11 @@ QUALITY LOOP EXHAUSTED -- FLAGGED
 
 ## Gate
 
-**Pass condition**: 0 blockers + 0 criticals + 0 highs after assessment.
+**Pass condition**: 0 blockers after assessment. Critical/high findings are documented but do not prevent passing.
 
-**Exit condition**: pass achieved OR 3 rounds exhausted.
+**Exit condition**: pass achieved (0 blockers) OR 3 rounds exhausted.
+
+**Escalation trigger**: Only blocker-severity findings trigger additional rounds. 1 round is the default.
 
 **Hard stop**: blockers remaining after round 3 prevent Phase 6 entry. No exceptions.
 

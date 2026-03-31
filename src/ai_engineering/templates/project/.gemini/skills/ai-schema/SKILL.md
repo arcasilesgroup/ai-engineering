@@ -4,6 +4,12 @@ description: "Use for database engineering: designing schemas, planning safe mig
 effort: max
 argument-hint: "design|migrate|optimize|lifecycle"
 tags: [database, sql, migration, schema, optimization, enterprise]
+requires:
+  anyBins:
+  - psql
+  - mysql
+  - sqlite3
+  - mongosh
 ---
 
 

@@ -67,7 +67,16 @@ def _cli_error_boundary(func: Callable[..., object]) -> Callable[..., object]:
     @functools.wraps(func)
     def wrapper(*args: object, **kwargs: object) -> object:
         try:
-            return func(*args, **kwargs)
+            result = func(*args, **kwargs)
+            from ai_engineering.cli_output import is_json_mode
+
+            if not is_json_mode():
+                from ai_engineering.cli_ui import get_console
+
+                con = get_console()
+                if con.is_terminal:
+                    con.print()
+            return result
         except _USER_FACING_EXCEPTIONS as exc:
             from ai_engineering.cli_output import is_json_mode
 
@@ -139,6 +148,11 @@ def _app_callback(
             show_logo()
             typer.echo(ctx.get_help())
             raise typer.Exit(code=0)
+
+    if not json_output and ctx.invoked_subcommand != "version":
+        from ai_engineering.cli_ui import show_banner
+
+        show_banner()
 
     from ai_engineering import __version__
     from ai_engineering.version.checker import check_version

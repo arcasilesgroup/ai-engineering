@@ -22,6 +22,8 @@ Full repository hygiene: safely migrate to the default branch, delete merged and
 
 ## Process
 
+Default (no flags) is equivalent to `--all`: runs sync, branch cleanup, and report.
+
 ### Phase 0: Safe Migration (`--sync` or `--all`)
 
 1. **Detect default branch** -- `git symbolic-ref refs/remotes/origin/HEAD` (main or master).

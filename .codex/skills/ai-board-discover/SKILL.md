@@ -18,10 +18,16 @@ LLM-assisted post-install discovery of board configuration. Detects the team's p
 
 - After initial framework install (`ai-eng install`)
 - When board configuration changes (new project, new fields)
-- Manual refresh: `/ai-board-discover --refresh`
+- Manual refresh: `/ai-board-discover --refresh`. `--refresh` forces re-discovery even when board config already exists in manifest, overwriting previous values.
 - Suggested by `/ai-start` when board config is missing
 
+## Step 0: Load Stack Contexts
+
+Follow `.ai-engineering/contexts/stack-context.md`. Board discovery reads manifest directly, but stack context informs field mapping conventions.
+
 ## Process
+
+1. **Auth pre-flight** -- before running provider commands, verify authentication: `gh auth status` (GitHub) or `az account show` (Azure). If not authenticated, report remediation and abort.
 
 1. **Read manifest** -- read `.ai-engineering/manifest.yml` `work_items` section. Determine active provider (`github` or `azure_devops`).
 
@@ -32,10 +38,10 @@ LLM-assisted post-install discovery of board configuration. Detects the team's p
    b. List projects: `gh project list --owner <owner> --format json`
    c. If projects found, select the most relevant one (by name match or ask user if ambiguous)
    d. Discover fields: `gh project field-list <number> --owner <owner> --format json`
-   d. Identify the Status field (single-select type) and extract its option IDs and names
-   e. Map status options to lifecycle phases: refinement, ready, in_progress, in_review, done
-   f. Discover writable custom fields (non-standard fields beyond Title, Status, Labels, Milestone)
-   g. If NO Projects v2 found: configure labels fallback (status labels like `status:refinement`, `status:ready`, etc.)
+   e. Identify the Status field (single-select type) and extract its option IDs and names
+   f. Map status options to lifecycle phases: refinement, ready, in_progress, in_review, done
+   g. Discover writable custom fields (non-standard fields beyond Title, Status, Labels, Milestone)
+   h. If NO Projects v2 found: configure labels fallback (status labels like `status:refinement`, `status:ready`, etc.)
 
    **Azure DevOps path**:
    a. List process templates: `az boards work-item type list --project <project> -o json`

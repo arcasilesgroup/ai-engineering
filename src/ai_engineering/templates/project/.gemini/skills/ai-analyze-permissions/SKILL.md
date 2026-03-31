@@ -113,40 +113,16 @@ Based on the action argument:
 
 When adding patterns:
 
-1. Read the target settings file (`~/.claude/settings.json` for global, `<project-root>/.claude/settings.json` for project)
-2. Add new entries to the `permissions.allow` JSON array
-3. Write the updated JSON back (preserving all other fields)
-4. Run cleanup to remove now-redundant entries: `<project-root>/.claude/skills/ai-analyze-permissions/scripts/cleanup-settings-local.sh`
+1. Before writing updated permissions, re-read the target file to ensure no concurrent modifications since the analysis step. If the file has changed, re-run analysis.
+2. Read the target settings file (`~/.claude/settings.json` for global, `<project-root>/.claude/settings.json` for project)
+3. Add new entries to the `permissions.allow` JSON array
+4. Write the updated JSON back (preserving all other fields)
+5. Run cleanup to remove now-redundant entries: `<project-root>/.claude/skills/ai-analyze-permissions/scripts/cleanup-settings-local.sh`
 
 **Important**: Adding patterns to `settings.json` never removes existing entries. The cleanup script only cleans `settings.local.json`. To clean `settings.json` itself, manually remove redundant entries.
 
-## Pattern Safety Guidelines
+When adding patterns to project-level `settings.json` (committed to git), warn the user that these patterns will apply to all team members who pull the change. Confirm before writing.
 
-**Safe to auto-approve (commonly needed):**
-
-- `Bash(npx:*)`, `Bash(node:*)`, `Bash(npm:*)`, `Bash(pnpm:*)` - JS/Node tooling
-- `Bash(python:*)`, `Bash(python3:*)`, `Bash(pip:*)` - Python tooling
-- `Bash(cargo :*)`, `Bash(cd :* && cargo:*)` - Rust tooling
-- `Bash(docker compose:*)`, `Bash(docker ps:*)` - Docker
-- `Bash(kubectl get:*)`, `Bash(kubectl describe:*)` - K8s read operations
-- `Bash(git:*)` subcommands (add, commit, log, diff, etc.)
-- `Bash(gh:*)` read operations (pr view, issue list, api, etc.)
-- `Bash(chmod:*)`, `Bash(ln:*)`, `Bash(wc:*)`, `Bash(which:*)` - basic utilities
-- `Bash(ssh:*)`, `Bash(tmux:*)`, `Bash(bash:*)`, `Bash(zsh:*)` - shell/system
-- `WebFetch(domain:*)`, `WebSearch` - web access
-
-**Require review (side effects):**
-
-- `Bash(kubectl delete:*)`, `Bash(kubectl apply:*)`
-- `Bash(docker rm:*)`, `Bash(docker exec:*)`
-- `Bash(aws s3 rm:*)`
-- `Bash(rm:*)`, `Bash(mv:*)`
-- `Bash(git push:*)` - consider keeping per-project in local settings
-
-**Never auto-approve:**
-
-- `Bash(sudo:*)`
-- `Bash(chmod 777:*)`
-- Patterns that could leak secrets
+See `references/pattern-safety.md` for pattern safety classifications.
 
 $ARGUMENTS

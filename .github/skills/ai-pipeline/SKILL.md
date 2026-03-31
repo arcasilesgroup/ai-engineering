@@ -5,6 +5,9 @@ effort: high
 argument-hint: "generate|evolve|validate|--provider github|azure"
 mode: agent
 tags: [ci-cd, github-actions, azure-pipelines, enterprise]
+requires:
+  bins:
+  - actionlint
 ---
 
 
@@ -30,7 +33,7 @@ Follow `.ai-engineering/contexts/stack-context.md`. Apply loaded standards to al
 
 | Sub-command | Handler | Purpose |
 |-------------|---------|---------|
-| `generate` | `handlers/generate.md` | Create new pipeline from project analysis |
+| `generate` (default) | `handlers/generate.md` | Create new pipeline from project analysis |
 | `evolve` | `handlers/evolve.md` | Add advanced patterns to existing pipeline |
 | `validate` | `handlers/validate.md` | Check pipeline compliance |
 

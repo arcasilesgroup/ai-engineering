@@ -10,7 +10,6 @@ requires:
   - az
   bins:
   - gitleaks
-  - ruff
 ---
 
 
@@ -33,19 +32,17 @@ READ `.codex/skills/ai-commit/SKILL.md` and execute steps 0-6 in full. Do NOT sk
 
 ### 6.5. Documentation subagent dispatch
 
-Dispatch up to 5 documentation subagents via `/ai-docs` handlers:
+Dispatch 2 consolidated documentation subagents via `/ai-docs` handlers. Compute the semantic diff once before dispatch and pass it to both agents — do NOT let each agent recompute the diff independently.
 
 1. **Read flags** -- read `.ai-engineering/manifest.yml` `documentation.auto_update` flags and `external_portal` config.
 
-2. **Dispatch subagents 1-4 in parallel** (based on flags):
-   - **Subagent CHANGELOG** (if `auto_update.changelog: true`): invoke `/ai-docs changelog` -- reads semantic diff, classifies by user impact, updates CHANGELOG.md
-   - **Subagent README** (if `auto_update.readme: true`): invoke `/ai-docs readme` -- diff-aware section targeting, updates only affected README sections
-   - **Subagent solution-intent-sync** (if `auto_update.solution_intent: true` AND staged changes include architecture files: agents/, skills/, manifest.yml, contexts/, specs/): invoke `/ai-docs solution-intent-sync` -- diff-aware rewrite of stale sections in docs/solution-intent.md
-   - **Subagent docs-portal** (if `external_portal.enabled: true`): invoke `/ai-docs docs-portal` -- updates external documentation repository via PR or push
+2. **Compute diff once** -- run `git diff main...HEAD` (or the semantic diff from the staged changeset). Store the result for both agents.
 
-3. **After subagents 1-4 complete**, dispatch **Subagent docs-quality-gate**: invoke `/ai-docs docs-quality-gate` -- verifies all documentation outputs cover every semantic change in the diff. Zero uncovered items required.
+3. **Dispatch 2 subagents in parallel** (based on flags):
+   - **Agent 1: CHANGELOG + README** (if `auto_update.changelog: true` OR `auto_update.readme: true`): invoke `/ai-docs changelog` and `/ai-docs readme` within a single agent context. Pass the pre-computed diff. The agent reads the diff once and produces both CHANGELOG and README updates in a single pass.
+   - **Agent 2: docs-portal + solution-intent + quality-gate** (if `external_portal.enabled: true` OR `auto_update.solution_intent: true`): invoke `/ai-docs solution-intent-sync`, `/ai-docs docs-portal`, and `/ai-docs docs-quality-gate` within a single agent context. Pass the pre-computed diff. Solution-intent-sync runs first (only if staged changes include architecture files: agents/, skills/, manifest.yml, contexts/, specs/), then docs-portal, then the quality gate verifies all documentation outputs cover every semantic change. Zero uncovered items required.
 
-4. **Stage all documentation files** produced by subagents 1-4.
+4. **Stage all documentation files** produced by agents 1-2.
 
 ### 6.7. Instinct consolidation
 
@@ -53,11 +50,15 @@ If `.ai-engineering/instincts/instincts.yml` exists (listening mode was active),
 
 ### 7. Pre-push checks
 
+Gate Python-specific checks behind `pyproject.toml` detection. For non-Python stacks, run equivalent tools from language context. `semgrep` and `gitleaks` are language-agnostic -- always run.
+
 Execute full pre-push gate:
-- `semgrep scan --config auto .`
-- `pip-audit`
-- `pytest tests/ -v`
-- `ty check src/`
+- `semgrep scan --config auto .` (language-agnostic -- always run)
+- `gitleaks protect --staged --no-banner` (language-agnostic -- always run)
+- If Python (`pyproject.toml` present): `pip-audit`, `pytest tests/ -v`, `ty check src/`
+- If JS/TS (`package.json` present): `npm audit`, `npm test` (or equivalent from language context)
+- If Rust (`Cargo.toml` present): `cargo audit`, `cargo test`, `cargo clippy`
+- If Go (`go.mod` present): `govulncheck ./...`, `go test ./...`, `go vet ./...`
 
 If any check fails, report and stop.
 
@@ -123,7 +124,8 @@ If spec frontmatter contains `refs`:
 - **Azure**: `az repos pr create --source-branch <branch> --target-branch <target> --title "<title>" --description "<body>"`
 
 **Existing PR** (extend, NEVER overwrite):
-- Read existing body, append `\n\n---\n\n## Additional Changes` section.
+- Read existing body. If an `## Additional Changes` section already exists, append under it rather than creating a duplicate heading. Use a date/commit-range sub-heading for each extension (e.g., `### 2024-03-15 / abc1234..def5678`).
+- If no `## Additional Changes` section exists, append `\n\n---\n\n## Additional Changes` followed by the date/commit-range sub-heading.
 - Update via `gh pr edit` or `az repos pr update`.
 
 ### 12.5. Board sync (in_review)
@@ -205,7 +207,7 @@ Same as default flow but create as draft PR.
 ## Integration
 
 - Invokes `/ai-commit` pipeline (steps 0-6) as prerequisite.
-- Auto-updates CHANGELOG.md, README.md, and solution-intent via `/ai-docs` parallel subagent dispatch.
+- Auto-updates CHANGELOG.md, README.md, and solution-intent via 2 consolidated `/ai-docs` subagents (CHANGELOG+README, docs-portal+quality-gate).
 - Links to work items from spec frontmatter refs (hierarchy-aware: features never closed, user stories/tasks/bugs/issues closed on merge).
 - Falls back to spec-label-based issue linking when no frontmatter refs present.
 - Step 14 monitors PR until merge, autonomously fixing CI failures, merge conflicts, and review comments from team/org-internal bots.

@@ -4,6 +4,7 @@ description: Use when adding motion, transitions, or micro-interactions to UI co
 effort: high
 argument-hint: "[component or interaction to animate]"
 mode: agent
+tags: [animation, motion, transitions, micro-interactions, css]
 ---
 
 
@@ -16,22 +17,7 @@ Motion design skill based on Emil Kowalski's design engineering philosophy. Buil
 
 ## Core Philosophy
 
-You are a design engineer with craft sensibility. Build interfaces where every detail compounds into something that feels right.
-
-### Taste is trained, not innate
-Good taste isn't personal preference--it's a trained instinct: recognizing what elevates beyond the obvious. Develop it by studying great work, reverse-engineering why things feel good, and practicing relentlessly.
-
-When building UI, don't just make it functional. Study the best interfaces. Reverse engineer animations. Inspect interactions. Maintain curiosity.
-
-### Unseen details compound
-Most details users never consciously notice. That's intentional. When features work exactly as expected, users proceed without thought. That's the goal.
-
-> "All those unseen details combine to produce something that's just stunning, like a thousand barely audible voices all singing in tune." - Paul Graham
-
-Every decision exists because invisible correctness aggregates into interfaces people love without understanding why.
-
-### Beauty is leverage
-People choose tools based on overall experience, not just functionality. Good defaults and animations differentiate. Beauty remains underutilized in software. Deploy it strategically.
+Animation is about feel, not decoration. Read `handlers/motion-principles.md` for the full design philosophy.
 
 ## When to Use
 
@@ -161,6 +147,8 @@ After: transition: transform 200ms ease-out
 
 ## Review Checklist
 
+Review checklist derived from the Animation Decision Framework above -- use this for quick code review.
+
 | Issue | Fix |
 | --- | --- |
 | `transition: all` | Specify exact properties: `transition: transform 200ms ease-out` |
@@ -252,5 +240,6 @@ For touch interactions (drawers, swipe gestures), test on physical devices. Conn
 - **Called by**: user directly, `/ai-design` (when motion is needed)
 - **Consumed by**: ai-slides (transitions), ai-code (frontend micro-interactions)
 - **Transitions to**: implementation via ai-code or ai-dispatch
+- **Step 6 -- Implementation Handoff**: Hand off animation specifications (easing curves, durations, CSS/JS code) to `/ai-code` or `/ai-dispatch` for implementation
 
 $ARGUMENTS

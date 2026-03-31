@@ -30,6 +30,8 @@ Follow `.ai-engineering/contexts/stack-context.md`. Apply loaded standards to al
 
 Load `.ai-engineering/contexts/evidence-protocol.md` for the IRRV evidence collection protocol.
 
+If the evidence-protocol file is unavailable, use this inline process: for each claim, identify the verification command (test, lint, scan), run it, capture the output and exit code, and classify the claim as CONFIRMED (exit 0 + expected output) or REFUTED (non-zero exit or unexpected output).
+
 ### Specialist Surface
 
 | Specialist | Agent File | What it assesses |

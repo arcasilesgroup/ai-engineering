@@ -27,55 +27,7 @@ Follow `.ai-engineering/contexts/stack-context.md`.
 
 ## Start Here — Output Structure
 
-**Before collecting any evidence, write this report skeleton.** You will fill it in as you gather facts. This keeps the output structured regardless of what you find.
-
-Determine the TARGET_PLATFORM from `$ARGUMENTS`. If it is a single platform (`claude-code`, `github-copilot`, `gemini`, or `codex`), the Capability Matrix has **one data column** for that platform only. If it is `all`, use four columns. Never add columns for platforms outside the scope.
-
-```
-# Platform Support Audit — [TARGET_PLATFORM] — [DATE]
-
-## Executive Summary
-[Fill last — 2–3 sentences on overall posture and gap count]
-
-## Capability Matrix
-| Capability           | [Platform(s)] |
-|---------------------|--------------|
-| Instruction Surface  | ?            |
-| Hooks Wired          | ?            |
-| Skills Distributed   | ?            |
-| Agents Distributed   | ?            |
-| Skill Count Accurate | ?            |
-| Agent Count Accurate | ?            |
-| Installer Coverage   | ?            |
-
-Replace each ? with: SUPPORTED · PARTIAL · UNSUPPORTED · NOT_APPLICABLE
-— SUPPORTED: evidence found, count matches, no gaps
-— PARTIAL: file exists but count wrong, hook exists but not wired, or mirror incomplete
-— UNSUPPORTED: no evidence at expected path
-— NOT_APPLICABLE: platform intentionally does not support this capability
-
-## Platform Inventory
-[Sub-section per platform in scope: files found, counts, verbatim paths]
-
-## What Works ✅
-[Each bullet cites a file path]
-
-## What's Wrong ❌
-[Each bullet cites a file path and assigns P0 / P1 / P2]
-
-## Remediation
-### P0 — Blocking (auto-fix or immediate action)
-### P1 — High Priority (next session)
-### P2 — Housekeeping (backlog)
-
-## Auto-Fix Log
-[Populated only if fixes were applied. Empty otherwise.]
-
-## Final Verdict
-| Platform | Verdict | Confidence |
-|---------|---------|-----------|
-| [in-scope platforms] | PRODUCTION_READY / DEGRADED / BROKEN | High / Med / Low |
-```
+**Before collecting any evidence, write this report skeleton.** Load report skeleton from `references/report-template.md`.
 
 ---
 
@@ -84,10 +36,21 @@ Replace each ? with: SUPPORTED · PARTIAL · UNSUPPORTED · NOT_APPLICABLE
 Dispatch a single `Explore` subagent. It reads the files below and returns raw facts. You classify them into the matrix.
 
 **Instruction Surfaces** — what each IDE reads as its primary directive:
-- `CLAUDE.md` → Claude Code
-- `.github/copilot-instructions.md` → GitHub Copilot
-- `AGENTS.md` → Codex only (NOT Copilot, NOT Gemini)
-- `GEMINI.md` → Gemini
+
+| File | Consumed by |
+|------|-------------|
+| `CLAUDE.md` | Claude Code only |
+| `.github/copilot-instructions.md` | GitHub Copilot only |
+| `AGENTS.md` | Codex only (NOT Copilot, NOT Gemini) |
+| `GEMINI.md` | Gemini only |
+| `.claude/settings.json` hooks | Claude Code only |
+| `.github/hooks/hooks.json` hooks | GitHub Copilot only |
+
+**Critical invariants** — any violation is at minimum PARTIAL:
+1. `AGENTS.md` Source-of-Truth table uses `.codex/` paths (never `.<ide>/`)
+2. Copilot skill count = total - count of `copilot_compatible: false` skills
+3. Every `copilot-*.sh` in `scripts/hooks/` must appear in `.github/hooks/hooks.json`
+4. `_PROVIDER_TREE_MAPS["github_copilot"]` must include `("agents", ".github/agents")`
 
 **Installer Wiring** (`src/ai_engineering/installer/templates.py`):
 - `_PROVIDER_FILE_MAPS` — instruction files per provider
@@ -139,6 +102,8 @@ Mark PARTIAL whenever you find evidence of the capability but with a measurable 
 
 ## Auto-Fix P0 Issues
 
+`--fix` only auto-remediates P0 issues. P1 and P2 are reported for manual action.
+
 When TARGET_PLATFORM matches the fix scope, auto-fix these unambiguous P0s:
 - Orphaned `copilot-*` hook → add entry to `.github/hooks/hooks.json`
 - Wrong skill count in instruction file → run `python scripts/sync_command_mirrors.py`
@@ -149,25 +114,6 @@ After fixing: re-run `python scripts/sync_command_mirrors.py` then verify:
 source .venv/bin/activate && python -m pytest tests/unit/ -q
 ```
 Do not mark the audit complete if tests fail.
-
----
-
-## Platform Governance Reference
-
-| File | Consumed by |
-|------|-------------|
-| `CLAUDE.md` | Claude Code only |
-| `.github/copilot-instructions.md` | GitHub Copilot only |
-| `AGENTS.md` | Codex only |
-| `GEMINI.md` | Gemini only |
-| `.claude/settings.json` hooks | Claude Code only |
-| `.github/hooks/hooks.json` hooks | GitHub Copilot only |
-
-**Critical invariants** — any violation is at minimum PARTIAL:
-1. `AGENTS.md` Source-of-Truth table uses `.codex/` paths (never `.<ide>/`)
-2. Copilot skill count = total − count of `copilot_compatible: false` skills
-3. Every `copilot-*.sh` in `scripts/hooks/` must appear in `.github/hooks/hooks.json`
-4. `_PROVIDER_TREE_MAPS["github_copilot"]` must include `("agents", ".github/agents")`
 
 ---
 

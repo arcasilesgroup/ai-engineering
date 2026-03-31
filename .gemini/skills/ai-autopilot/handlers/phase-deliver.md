@@ -61,7 +61,7 @@ Classification rules:
 
 This step follows the thin orchestrator principle. Do NOT duplicate PR logic.
 
-1. Read `.gemini/skills/ai-pr/SKILL.md`. Follow its FULL procedure -- all steps, in order.
+1. Read `.gemini/skills/ai-pr/SKILL.md`. Follow its FULL procedure -- all steps, in order. Note: ai-pr Step 6.5 dispatches 2 consolidated documentation subagents (CHANGELOG+README, docs-portal+quality-gate) rather than 5 separate agents.
 2. The PR body MUST include the following sections in addition to the standard ai-pr structure:
    - The `## Integrity Report` from Step 1 as a dedicated section.
    - A `## Sub-Spec Completion` table:

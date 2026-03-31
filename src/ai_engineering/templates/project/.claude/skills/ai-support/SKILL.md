@@ -28,14 +28,15 @@ Structured customer support investigation. Organizes findings by ticket, links t
 
 - **Production incidents** -- use `/ai-postmortem`
 - **Internal bugs found during development** -- use `/ai-debug`
-- **Feature requests** -- use `/ai-triage`
+- **Feature requests** -- create a GitHub Issue with the `enhancement` label
 
 ## Modes
 
 ### start <ticket-id> -- New investigation
 
-1. **Create structure** -- create `.ai-engineering/support/{date}/{ticket-id}/` directory.
-2. **Scaffold investigation** -- create `investigation.md` from template:
+1. **Check for existing investigation** -- if a `{ticket-id}` directory already exists under `.ai-engineering/support/`, resume the existing investigation rather than creating a duplicate.
+2. **Create structure** -- create `.ai-engineering/support/{date}/{ticket-id}/` directory.
+3. **Scaffold investigation** -- create `investigation.md` from template:
 
 ```markdown
 # {ticket-id}: {title}
@@ -70,8 +71,8 @@ Structured customer support investigation. Organizes findings by ticket, links t
 - Notes: {links to /ai-note entries}
 ```
 
-3. **Investigate** -- explore codebase for relevant code paths, check recent changes to affected areas, review error patterns.
-4. **Update** -- keep `investigation.md` current as findings emerge.
+4. **Investigate** -- explore codebase for relevant code paths, check recent changes to affected areas, review error patterns.
+5. **Update** -- keep `investigation.md` current as findings emerge.
 
 ### find [query] -- Search investigations
 

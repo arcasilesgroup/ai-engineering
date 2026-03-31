@@ -27,43 +27,7 @@ Follow `.ai-engineering/contexts/stack-context.md`. Apply loaded standards to al
 
 ### Mode: tdd (RED-GREEN-REFACTOR)
 
-```
-NO PRODUCTION CODE WITHOUT A FAILING TEST FIRST
-```
-
-**Phase RED -- Write Failing Test**
-
-1. Write ONE test showing what SHOULD happen
-2. Name: `test_<unit>_<scenario>_<expected_outcome>`
-3. AAA pattern: Arrange, Act, Assert (visually separated)
-4. Run test -- confirm FAIL for the expected reason (missing feature, not syntax error)
-5. Produce Implementation Contract:
-
-```markdown
-## Implementation Contract
-- Test files: [exact paths]
-- Verification: [exact command]
-- Failure reason: [why it fails -- tied to missing behavior]
-- Constraint: DO NOT modify these test files during GREEN
-```
-
-6. STOP. Do not implement.
-
-**Phase GREEN -- Minimal Code**
-
-1. Read the Implementation Contract
-2. DO NOT modify test files (they are immutable)
-3. Write the simplest code to make the test pass (YAGNI)
-4. Run test -- confirm PASS
-5. Run ALL tests -- confirm no regressions
-
-If the test still fails: fix your code, not the test.
-
-**Phase REFACTOR -- Clean Up (after GREEN only)**
-
-- Remove duplication, improve names, extract helpers
-- Tests MUST stay green throughout -- a failing refactor is a regression, not a refactor
-- Do NOT add behavior during refactor
+For TDD mode, follow `handlers/tdd.md` for the full RED-GREEN-REFACTOR flow.
 
 ### Mode: run
 
