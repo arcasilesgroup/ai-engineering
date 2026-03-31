@@ -5,10 +5,34 @@ This file is self-contained -- no other instruction files are required.
 
 ## FIRST ACTION -- Mandatory
 
-Your first action in every session MUST be to run `/ai-onboard`.
-Do not respond to any user request until `/ai-onboard` completes.
-This bootstraps project context, activates instinct listening, and enforces skill discipline.
-If `/ai-onboard` is not available as a skill, execute its steps manually: read spec.md, plan.md, decision-store.json, LESSONS.md, manifest.yml, and CONSTITUTION.md from `.ai-engineering/`.
+Your first action in every session MUST be to run `/ai-start`.
+Do not respond to any user request until `/ai-start` completes.
+
+## Session Governance
+
+If a skill applies to the current task, use it. No shortcuts.
+
+| Rationalization | Correct action |
+|----------------|----------------|
+| "This is too simple for planning" | Use `/ai-plan` |
+| "I'll just make a quick fix" | Use `/ai-debug` |
+| "Tests aren't needed for this change" | Use `/ai-test` |
+| "I already know the answer" | Use the matching skill and verify |
+| "The user is in a hurry" | Follow the process faster, do not skip it |
+| "This doesn't need a spec" | Use `/ai-brainstorm` |
+| "I'll add tests later" | Follow TDD or add coverage immediately |
+| "Security scanning would slow us down" | Use `/ai-security` or `/ai-verify` |
+
+| User intent pattern | Required skill |
+|-------------------|----------------|
+| "implement", "build", "add feature" | `/ai-brainstorm` then `/ai-plan` then `/ai-dispatch` |
+| "fix", "bug", "broken", "not working" | `/ai-debug` |
+| "test", "coverage", "verify" | `/ai-test` or `/ai-verify` |
+| "refactor", "restructure", "move" | `/ai-brainstorm` then `/ai-plan` |
+| "commit", "push", "save" | `/ai-commit` |
+| "PR", "pull request", "review" | `/ai-pr` or `/ai-review` |
+| "deploy", "release", "publish" | `/ai-release-gate` |
+| "conflict", "merge conflict" | `/ai-resolve-conflicts` |
 
 ## Workflow Orchestration
 
@@ -119,7 +143,7 @@ Grouped by type. Invoke as `/ai-<name>`.
 **Teaching:** explain, guide, write, slides, media, video-editing
 **Design:** design, animation, canvas
 **SDLC:** note, standup, sprint, postmortem, support, resolve-conflicts
-**Meta:** create, learn, prompt, onboard, analyze-permissions, instinct, autopilot, run, constitution, skill-evolve
+**Meta:** create, learn, prompt, start, analyze-permissions, instinct, autopilot, run, constitution, skill-evolve
 
 ## Effort Levels
 
@@ -129,7 +153,7 @@ Each skill declares `effort` in frontmatter. Assignment by cognitive weight:
 |--------|-------|
 | max | 11 (autopilot, brainstorm, governance, platform-audit, review, run, schema, security, skill-evolve, verify, eval) |
 | high | 23 (animation, board-discover, canvas, code, create, debug, design, dispatch, docs, explain, guide, market, pipeline, plan, postmortem, pr, release-gate, slides, sprint, support, test, video-editing, write) |
-| medium | 13 (analyze-permissions, board-sync, cleanup, commit, instinct, learn, media, note, onboard, constitution, prompt, resolve-conflicts, standup) |
+| medium | 13 (analyze-permissions, board-sync, cleanup, commit, instinct, learn, media, note, start, constitution, prompt, resolve-conflicts, standup) |
 
 ## Quality Gates
 

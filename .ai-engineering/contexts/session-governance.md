@@ -1,6 +1,6 @@
 # Session Governance
 
-Shared reference for session-level governance rules. Loaded by `/ai-onboard` during Step 2 (Load active project context) to enforce skill discipline throughout the session.
+Shared reference for session-level governance rules. Loaded by `/ai-start` during Step 2 (Load active project context) to enforce skill discipline throughout the session.
 
 ## Red Flags Table
 

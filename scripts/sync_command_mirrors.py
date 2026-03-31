@@ -896,7 +896,7 @@ def generate_copilot_instructions(
 
     Produces a condensed Copilot-specific version with:
     - Source of Truth (condensed)
-    - FIRST ACTION -- Mandatory (auto-trigger /ai-onboard)
+    - FIRST ACTION -- Mandatory (auto-trigger /ai-start)
     - Plan/Execute Flow (from Task Management)
     - Absolute Prohibitions (from Don't, excluding Claude-specific items)
     - Observability (Copilot hook event names)
@@ -925,17 +925,8 @@ def generate_copilot_instructions(
     # FIRST ACTION -- Mandatory
     lines.append("## FIRST ACTION -- Mandatory")
     lines.append("")
-    lines.append("Your first action in every session MUST be to run `/ai-onboard`.")
-    lines.append("Do not respond to any user request until `/ai-onboard` completes.")
-    lines.append(
-        "This bootstraps project context, activates instinct listening,"
-        " and enforces skill discipline."
-    )
-    lines.append(
-        "If `/ai-onboard` is not available as a skill, execute its steps manually:"
-        " read spec.md, plan.md, decision-store.json, LESSONS.md, manifest.yml,"
-        " and CONSTITUTION.md from `.ai-engineering/`."
-    )
+    lines.append("Your first action in every session MUST be to run `/ai-start`.")
+    lines.append("Do not respond to any user request until `/ai-start` completes.")
     lines.append("")
 
     # Plan/Execute Flow

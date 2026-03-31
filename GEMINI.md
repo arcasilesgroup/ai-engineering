@@ -5,10 +5,8 @@ This file is self-contained -- no other instruction files are required.
 
 ## FIRST ACTION -- Mandatory
 
-Your first action in every session MUST be to run `/ai-onboard`.
-Do not respond to any user request until `/ai-onboard` completes.
-This bootstraps project context, activates instinct listening, and enforces skill discipline.
-If `/ai-onboard` is not available as a skill, execute its steps manually: read spec.md, plan.md, decision-store.json, LESSONS.md, manifest.yml, and CONSTITUTION.md from `.ai-engineering/`.
+Your first action in every session MUST be to run `/ai-start`.
+Do not respond to any user request until `/ai-start` completes.
 
 ### 1. Plan Mode Default
 
@@ -116,7 +114,7 @@ Grouped by type. Invoke as `/ai-<name>`.
 **Enterprise:** security, governance, pipeline, docs, board-discover, board-sync, platform-audit
 **Teaching:** explain, guide, write, slides, media, video-editing
 **SDLC:** note, standup, sprint, postmortem, support, resolve-conflicts
-**Meta:** create, learn, prompt, onboard, analyze-permissions, instinct, autopilot, run, constitution, skill-evolve
+**Meta:** create, learn, prompt, start, analyze-permissions, instinct, autopilot, run, constitution, skill-evolve
 
 ## Effort Levels
 
@@ -126,7 +124,7 @@ Each skill declares `effort` in frontmatter. Assignment by cognitive weight:
 |--------|-------|
 | max | 11 (autopilot, brainstorm, governance, platform-audit, review, run, schema, security, skill-evolve, verify, eval) |
 | high | 20 (board-discover, code, create, debug, dispatch, docs, explain, guide, market, pipeline, plan, postmortem, pr, release-gate, slides, sprint, support, test, video-editing, write) |
-| medium | 13 (analyze-permissions, board-sync, cleanup, commit, instinct, learn, media, note, onboard, constitution, prompt, resolve-conflicts, standup) |
+| medium | 13 (analyze-permissions, board-sync, cleanup, commit, instinct, learn, media, note, start, constitution, prompt, resolve-conflicts, standup) |
 
 ## Quality Gates
 

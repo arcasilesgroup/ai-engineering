@@ -77,7 +77,7 @@ emit_ide_hook_outcome(
     trace_id=os.environ.get("COPILOT_TRACE_ID") or os.environ.get("GITHUB_COPILOT_TRACE_ID"),
     correlation_id=entry["correlationId"],
 )
-if os.environ["SKILL_NAME"] == "ai-onboard":
+if os.environ["SKILL_NAME"] == "ai-start":
     extract_instincts(Path(os.environ["PROJECT_DIR"]))
 PY
     fi

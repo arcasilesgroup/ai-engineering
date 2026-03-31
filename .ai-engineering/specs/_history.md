@@ -4,6 +4,7 @@ Completed specs. Details in git history.
 
 | ID | Title | Status | Created | Branch |
 |----|-------|--------|---------|--------|
+| 095 | ai-eng install: auto-infer mode, single tree UX | done | 2026-03-31 | feat/spec-095-install-auto-infer-unified-tree |
 | 092 | Unified Runbook Dedup Handler — Finding Contract | done | 2026-03-30 | feat/spec-090-092-instincts-dedup-governance |
 | 091 | CONSTITUTION.md — Rename and Redesign | done | 2026-03-30 | feat/spec-090-092-instincts-dedup-governance |
 | 090 | Instincts/LESSONS Consolidation — Autopilot | done | 2026-03-30 | feat/spec-090-092-instincts-dedup-governance |

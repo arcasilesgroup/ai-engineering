@@ -43,6 +43,7 @@ work_items:
   process_template: null
   custom_fields: []
   github_project:
+    owner: null  # GitHub org or user that owns the project board
     number: null
     status_field_id: null
     status_options: {}
@@ -130,7 +131,7 @@ skills:
     ai-create: { type: meta, tags: [framework] }
     ai-learn: { type: meta, tags: [improvement] }
     ai-prompt: { type: meta, tags: [optimization] }
-    ai-onboard: { type: meta, tags: [bootstrap] }
+    ai-start: { type: meta, tags: [bootstrap] }
     ai-analyze-permissions: { type: meta, tags: [permissions] }
     ai-instinct: { type: meta, tags: [meta, learning, continuous-improvement] }
     ai-autopilot: { type: meta, tags: [orchestration, autonomous, multi-spec] }

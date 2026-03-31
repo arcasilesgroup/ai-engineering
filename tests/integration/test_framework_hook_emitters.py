@@ -224,7 +224,7 @@ class TestClaudeHookEmitters:
 
         onboard = subprocess.run(
             [sys.executable, str(skill_script)],
-            input=json.dumps({"prompt": "/ai-onboard"}),
+            input=json.dumps({"prompt": "/ai-start"}),
             text=True,
             capture_output=True,
             cwd=project_root,
@@ -401,7 +401,7 @@ class TestCopilotHookEmitters:
 
         onboard = subprocess.run(
             _copilot_hook_command(skill_script),
-            input=json.dumps({"prompt": "/ai-onboard"}),
+            input=json.dumps({"prompt": "/ai-start"}),
             text=True,
             capture_output=True,
             cwd=project_root,
