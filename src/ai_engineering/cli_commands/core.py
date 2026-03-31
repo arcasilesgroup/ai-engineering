@@ -819,3 +819,4 @@ def version_cmd() -> None:
         )
     else:
         show_logo()
+        print_stdout(f"ai-engineering {__version__}")
