@@ -157,7 +157,7 @@ class TestValidateCommitMessage:
         assert "72" in errors[0]
 
     def test_exactly_72_chars_passes(self) -> None:
-        msg = "a" * 72
+        msg = "fix: " + "a" * 67  # 72 chars total, conventional format
         errors = validate_commit_message(msg)
         assert errors == []
 
