@@ -1,0 +1,769 @@
+# Instincts generated from https://github.com/arcasilesgroup/ai-engineering
+# Generated: 2026-04-01T01:18:41.573Z
+# Version: 2.0
+# NOTE: This file supplements (does not replace) any existing curated instincts.
+# High-confidence manually curated instincts should be preserved alongside these.
+
+---
+id: ai-engineering-commit-ticket-ref
+trigger: "when writing a commit message"
+confidence: 0.75
+domain: git
+source: repo-analysis
+source_repo: https://github.com/arcasilesgroup/ai-engineering
+---
+
+# Ai Engineering Commit Ticket Ref
+
+## Action
+
+Include ticket reference matching pattern: ^(\w+-\d+):
+
+## Evidence
+
+- Ticket pattern detected in commits
+- Pattern: ^(\w+-\d+):
+
+---
+id: ai-engineering-commit-length
+trigger: "when writing a commit message"
+confidence: 0.6
+domain: git
+source: repo-analysis
+source_repo: https://github.com/arcasilesgroup/ai-engineering
+---
+
+# Ai Engineering Commit Length
+
+## Action
+
+Write moderate-length commit messages (~65 characters)
+
+## Evidence
+
+- Average commit message length: 65 chars
+- Based on 184 commits
+
+---
+id: ai-engineering-naming-files
+trigger: "when creating a new file"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/arcasilesgroup/ai-engineering
+---
+
+# Ai Engineering Naming Files
+
+## Action
+
+Use camelCase naming convention
+
+## Evidence
+
+- Analyzed file naming patterns in repository
+- Dominant pattern: camelCase
+
+---
+id: ai-engineering-import-relative
+trigger: "when importing modules"
+confidence: 0.75
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/arcasilesgroup/ai-engineering
+---
+
+# Ai Engineering Import Relative
+
+## Action
+
+Use relative imports for project files
+
+## Evidence
+
+- Import analysis shows relative import pattern
+- Example: import { x } from '../lib/x'
+
+---
+id: ai-engineering-export-style
+trigger: "when exporting from a module"
+confidence: 0.7
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/arcasilesgroup/ai-engineering
+---
+
+# Ai Engineering Export Style
+
+## Action
+
+Prefer named exports
+
+## Evidence
+
+- Export pattern analysis
+- Dominant style: named
+
+---
+id: ai-engineering-test-separate
+trigger: "when writing tests"
+confidence: 0.8
+domain: testing
+source: repo-analysis
+source_repo: https://github.com/arcasilesgroup/ai-engineering
+---
+
+# Ai Engineering Test Separate
+
+## Action
+
+Place tests in the tests/ or __tests__/ directory, mirroring src structure
+
+## Evidence
+
+- Separate test directory pattern detected
+- Tests live in dedicated test folders
+
+---
+id: ai-engineering-test-naming
+trigger: "when creating a test file"
+confidence: 0.85
+domain: testing
+source: repo-analysis
+source_repo: https://github.com/arcasilesgroup/ai-engineering
+---
+
+# Ai Engineering Test Naming
+
+## Action
+
+Name test files using the pattern: *.test.ts
+
+## Evidence
+
+- File pattern: *.test.ts
+- Consistent across test files
+
+---
+id: ai-engineering-test-types
+trigger: "when planning tests for a feature"
+confidence: 0.7
+domain: testing
+source: repo-analysis
+source_repo: https://github.com/arcasilesgroup/ai-engineering
+---
+
+# Ai Engineering Test Types
+
+## Action
+
+Write unit, integration, e2e tests to match project standards
+
+## Evidence
+
+- Test types detected: unit, integration, e2e
+- Coverage config: yes
+
+---
+id: ai-engineering-workflow-feature-development
+trigger: "when implementing a new feature"
+confidence: 0.9
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/arcasilesgroup/ai-engineering
+---
+
+# Ai Engineering Workflow Feature Development
+
+## Action
+
+Follow the feature-development workflow:
+1. Add feature implementation
+2. Add tests for feature
+3. Update documentation
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~22x per month
+- Files: .claude/skills/ai-animation/handlers/*, .codex/skills/ai-animation/handlers/*, .gemini/skills/ai-animation/handlers/*
+
+---
+id: ai-engineering-workflow-refactoring
+trigger: "when refactoring code"
+confidence: 0.9
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/arcasilesgroup/ai-engineering
+---
+
+# Ai Engineering Workflow Refactoring
+
+## Action
+
+Follow the refactoring workflow:
+1. Ensure tests pass before refactor
+2. Refactor code structure
+3. Verify tests still pass
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~8x per month
+- Files: src/**/*
+
+---
+id: ai-engineering-workflow-skill-or-agent-addition-or-update
+trigger: "when doing skill or agent addition or update"
+confidence: 0.6
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/arcasilesgroup/ai-engineering
+---
+
+# Ai Engineering Workflow Skill Or Agent Addition Or Update
+
+## Action
+
+Follow the skill-or-agent-addition-or-update workflow:
+1. Edit or create canonical skill/agent file in .claude/skills/ or .claude/agents/
+2. Run scripts/sync_command_mirrors.py or ai-eng sync to propagate changes to .agents/, .github/, and src/ai_engineering/templates/project/ mirrors
+3. Update manifest.yml and instruction files (CLAUDE.md, AGENTS.md, copilot-instructions.md) to reflect new/changed skills/agents
+4. Update or create handler files as needed (e.g., handlers/validate.md, handlers/review.md) in all mirrors
+5. Update or create relevant tests (test_agent_schema_validation.py, test_handler_routing_completeness.py, etc.)
+6. Commit all affected files across all mirrors and templates
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~2x per month
+- Files: .claude/skills/*/SKILL.md, .claude/agents/*.md, .agents/skills/*/SKILL.md
+
+---
+id: ai-engineering-workflow-mirror-sync-and-validation
+trigger: "when doing mirror sync and validation"
+confidence: 0.6
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/arcasilesgroup/ai-engineering
+---
+
+# Ai Engineering Workflow Mirror Sync And Validation
+
+## Action
+
+Follow the mirror-sync-and-validation workflow:
+1. Run scripts/sync_command_mirrors.py or ai-eng sync to synchronize mirrors
+2. Run validation tests (test_sync_mirrors.py, test_handler_routing_completeness.py, test_template_prompt_parity.py)
+3. Fix any reported drift or missing files
+4. Commit all synchronized files and test results
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~2x per month
+- Files: scripts/sync_command_mirrors.py, src/ai_engineering/templates/project/.claude/skills/*/SKILL.md, src/ai_engineering/templates/project/.agents/skills/*/SKILL.md
+
+---
+id: ai-engineering-workflow-runbook-catalog-redesign-or-normalization
+trigger: "when doing runbook catalog redesign or normalization"
+confidence: 0.55
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/arcasilesgroup/ai-engineering
+---
+
+# Ai Engineering Workflow Runbook Catalog Redesign Or Normalization
+
+## Action
+
+Follow the runbook-catalog-redesign-or-normalization workflow:
+1. Edit or create runbook(s) in .ai-engineering/runbooks/
+2. Update frontmatter fields (owner, cadence, hosts, etc.) and section structure
+3. Sync changes to src/ai_engineering/templates/.ai-engineering/runbooks/
+4. Update or create relevant tests (test_runbook_contracts.py, etc.)
+5. Commit all affected runbook and template files
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~1x per month
+- Files: .ai-engineering/runbooks/*.md, src/ai_engineering/templates/.ai-engineering/runbooks/*.md, tests/unit/test_runbook_contracts.py
+
+---
+id: ai-engineering-workflow-manifest-schema-or-ownership-update
+trigger: "when doing manifest schema or ownership update"
+confidence: 0.6
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/arcasilesgroup/ai-engineering
+---
+
+# Ai Engineering Workflow Manifest Schema Or Ownership Update
+
+## Action
+
+Follow the manifest-schema-or-ownership-update workflow:
+1. Edit .ai-engineering/manifest.yml and/or src/ai_engineering/state/defaults.py (ownership map)
+2. Update src/ai_engineering/templates/.ai-engineering/manifest.yml
+3. Update or create schema files (schemas/manifest.schema.json, etc.)
+4. Update relevant code consuming manifest or ownership (installer, validator, etc.)
+5. Update or create relevant tests (test_manifest.py, test_state.py, etc.)
+6. Commit all affected files
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~2x per month
+- Files: .ai-engineering/manifest.yml, src/ai_engineering/templates/.ai-engineering/manifest.yml, src/ai_engineering/state/defaults.py
+
+---
+id: ai-engineering-workflow-cli-command-redesign-or-hardening
+trigger: "when doing cli command redesign or hardening"
+confidence: 0.55
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/arcasilesgroup/ai-engineering
+---
+
+# Ai Engineering Workflow Cli Command Redesign Or Hardening
+
+## Action
+
+Follow the cli-command-redesign-or-hardening workflow:
+1. Edit or refactor CLI command files in src/ai_engineering/cli_commands/
+2. Update src/ai_engineering/cli_ui.py and/or src/ai_engineering/cli_factory.py as needed
+3. Update or create relevant tests (test_cli_*.py, test_cli_ui.py, etc.)
+4. Update documentation (README.md, copilot-instructions.md, etc.) if command names/UX change
+5. Commit all affected files
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~1x per month
+- Files: src/ai_engineering/cli_commands/*.py, src/ai_engineering/cli_ui.py, src/ai_engineering/cli_factory.py
+
+---
+id: ai-engineering-workflow-multi-ide-hooks-and-telemetry-sync
+trigger: "when doing multi ide hooks and telemetry sync"
+confidence: 0.55
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/arcasilesgroup/ai-engineering
+---
+
+# Ai Engineering Workflow Multi Ide Hooks And Telemetry Sync
+
+## Action
+
+Follow the multi-ide-hooks-and-telemetry-sync workflow:
+1. Edit or create hook scripts in .ai-engineering/scripts/hooks/
+2. Update hooks.json/settings.json in .github/, .claude/, .codex/, .gemini/ as needed
+3. Sync changes to src/ai_engineering/templates/project/.ai-engineering/scripts/hooks/
+4. Update or create relevant tests (test_telemetry_canary.py, test_framework_hook_emitters.py, etc.)
+5. Commit all affected files
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~1x per month
+- Files: .ai-engineering/scripts/hooks/*.py, .ai-engineering/scripts/hooks/*.sh, .ai-engineering/scripts/hooks/*.ps1
+
+---
+id: ai-engineering-workflow-ci-cd-pipeline-or-workflow-redesign
+trigger: "when doing ci cd pipeline or workflow redesign"
+confidence: 0.55
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/arcasilesgroup/ai-engineering
+---
+
+# Ai Engineering Workflow Ci Cd Pipeline Or Workflow Redesign
+
+## Action
+
+Follow the ci-cd-pipeline-or-workflow-redesign workflow:
+1. Create or update workflow files in .github/workflows/ (e.g., ci-check.yml, ci-build.yml, release.yml)
+2. Remove or deprecate old monolithic workflows (e.g., ci.yml)
+3. Update scripts/check_workflow_policy.py and other workflow policy scripts
+4. Update README.md CI badge and documentation references
+5. Update or create relevant tests (test_check_workflow_policy.py, etc.)
+6. Commit all affected workflow and reference files
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~1x per month
+- Files: .github/workflows/*.yml, .github/workflows/*.yaml, scripts/check_workflow_policy.py
+
+---
+id: ai-engineering-naming-convention-files
+trigger: "When creating or renaming a file in the codebase"
+confidence: 0.85
+domain: code-style
+source: repo-analysis
+source_repo: arcasilesgroup/ai-engineering
+---
+
+# Ai Engineering Naming Convention Files
+
+## Action
+
+Use camelCase for file names
+
+## Evidence
+
+- Pattern in codeStyle.namingConventions.files
+- Consistent with file naming in src/ai_engineering
+
+---
+id: ai-engineering-naming-convention-functions
+trigger: "When defining a function"
+confidence: 0.85
+domain: code-style
+source: repo-analysis
+source_repo: arcasilesgroup/ai-engineering
+---
+
+# Ai Engineering Naming Convention Functions
+
+## Action
+
+Use camelCase for function names
+
+## Evidence
+
+- Pattern in codeStyle.namingConventions.functions
+
+---
+id: ai-engineering-naming-convention-classes
+trigger: "When defining a class"
+confidence: 0.85
+domain: code-style
+source: repo-analysis
+source_repo: arcasilesgroup/ai-engineering
+---
+
+# Ai Engineering Naming Convention Classes
+
+## Action
+
+Use PascalCase for class names
+
+## Evidence
+
+- Pattern in codeStyle.namingConventions.classes
+
+---
+id: ai-engineering-naming-convention-constants
+trigger: "When defining a constant"
+confidence: 0.85
+domain: code-style
+source: repo-analysis
+source_repo: arcasilesgroup/ai-engineering
+---
+
+# Ai Engineering Naming Convention Constants
+
+## Action
+
+Use SCREAMING_SNAKE_CASE for constants
+
+## Evidence
+
+- Pattern in codeStyle.namingConventions.constants
+
+---
+id: ai-engineering-import-style
+trigger: "When importing modules in Python files"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: arcasilesgroup/ai-engineering
+---
+
+# Ai Engineering Import Style
+
+## Action
+
+Use relative imports
+
+## Evidence
+
+- Pattern in codeStyle.importStyle
+
+---
+id: ai-engineering-export-style
+trigger: "When exporting functions or classes from a module"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: arcasilesgroup/ai-engineering
+---
+
+# Ai Engineering Export Style
+
+## Action
+
+Use named exports
+
+## Evidence
+
+- Pattern in codeStyle.exportStyle
+
+---
+id: ai-engineering-test-file-pattern
+trigger: "When creating a test file"
+confidence: 0.7
+domain: testing
+source: repo-analysis
+source_repo: arcasilesgroup/ai-engineering
+---
+
+# Ai Engineering Test File Pattern
+
+## Action
+
+Name test files using the pattern *.test.ts
+
+## Evidence
+
+- Pattern in testing.filePattern
+
+---
+id: ai-engineering-test-types
+trigger: "When writing tests"
+confidence: 0.8
+domain: testing
+source: repo-analysis
+source_repo: arcasilesgroup/ai-engineering
+---
+
+# Ai Engineering Test Types
+
+## Action
+
+Include unit, integration, and e2e tests as appropriate
+
+## Evidence
+
+- Pattern in testing.testTypes
+
+---
+id: ai-engineering-test-coverage-config
+trigger: "When configuring tests"
+confidence: 0.8
+domain: testing
+source: repo-analysis
+source_repo: arcasilesgroup/ai-engineering
+---
+
+# Ai Engineering Test Coverage Config
+
+## Action
+
+Ensure coverage configuration is present and enforced
+
+## Evidence
+
+- Pattern in testing.coverageConfig
+
+---
+id: ai-engineering-commit-prefix
+trigger: "When writing a commit message"
+confidence: 0.9
+domain: git
+source: repo-analysis
+source_repo: arcasilesgroup/ai-engineering
+---
+
+# Ai Engineering Commit Prefix
+
+## Action
+
+Prefix commit messages with type (feat, fix, chore, docs, refactor, etc.)
+
+## Evidence
+
+- Pattern in commits.prefixes
+- Seen in commit: 'feat(spec-098): README ecosystem rewrite, verify simplification, canvas refinement'
+
+---
+id: ai-engineering-commit-ticket-pattern
+trigger: "When referencing a ticket in a commit message"
+confidence: 0.8
+domain: git
+source: repo-analysis
+source_repo: arcasilesgroup/ai-engineering
+---
+
+# Ai Engineering Commit Ticket Pattern
+
+## Action
+
+Use the pattern ^(\w+-\d+): at the start of the commit message if applicable
+
+## Evidence
+
+- Pattern in commits.ticketPattern
+- Seen in commit: 'spec-096: manifest source of truth — provider filtering (#336)'
+
+---
+id: ai-engineering-commit-length
+trigger: "When writing a commit message"
+confidence: 0.7
+domain: git
+source: repo-analysis
+source_repo: arcasilesgroup/ai-engineering
+---
+
+# Ai Engineering Commit Length
+
+## Action
+
+Keep commit message length around 65 characters on average
+
+## Evidence
+
+- Pattern in commits.averageLength
+
+---
+id: ai-engineering-skill-or-agent-addition-or-update
+trigger: "When a new skill or agent is created, or an existing one is updated, and needs to be reflected across all supported IDEs and templates"
+confidence: 0.98
+domain: workflow
+source: repo-analysis
+source_repo: arcasilesgroup/ai-engineering
+---
+
+# Ai Engineering Skill Or Agent Addition Or Update
+
+## Action
+
+Edit or create canonical skill/agent file, run sync (ai-eng sync), update manifest/instructions, update handlers and tests, and commit all affected files across all mirrors and templates
+
+## Evidence
+
+- Workflow: skill-or-agent-addition-or-update
+- Files: .claude/skills/*/SKILL.md, .agents/skills/*/SKILL.md, src/ai_engineering/templates/project/.claude/skills/*/SKILL.md, etc.
+
+---
+id: ai-engineering-mirror-sync-and-validation
+trigger: "When skills/agents/handlers are added or updated, or when parity validation is required before a release or after bulk changes"
+confidence: 0.95
+domain: workflow
+source: repo-analysis
+source_repo: arcasilesgroup/ai-engineering
+---
+
+# Ai Engineering Mirror Sync And Validation
+
+## Action
+
+Run scripts/sync_command_mirrors.py or ai-eng sync to synchronize mirrors, run validation tests, fix drift, and commit all synchronized files and test results
+
+## Evidence
+
+- Workflow: mirror-sync-and-validation
+- Files: scripts/sync_command_mirrors.py, tests/unit/test_sync_mirrors.py, etc.
+
+---
+id: ai-engineering-runbook-catalog-redesign-or-normalization
+trigger: "When runbook templates are changed for normalization, new runbooks are added, or the contract/schema is updated"
+confidence: 0.92
+domain: workflow
+source: repo-analysis
+source_repo: arcasilesgroup/ai-engineering
+---
+
+# Ai Engineering Runbook Catalog Redesign Or Normalization
+
+## Action
+
+Edit or create runbooks, update frontmatter/sections, sync to templates, update tests, and commit all affected files
+
+## Evidence
+
+- Workflow: runbook-catalog-redesign-or-normalization
+- Files: .ai-engineering/runbooks/*.md, tests/unit/test_runbook_contracts.py
+
+---
+id: ai-engineering-manifest-schema-or-ownership-update
+trigger: "When manifest fields, schema, or ownership rules are added/changed, or when new file categories are introduced"
+confidence: 0.9
+domain: workflow
+source: repo-analysis
+source_repo: arcasilesgroup/ai-engineering
+---
+
+# Ai Engineering Manifest Schema Or Ownership Update
+
+## Action
+
+Edit manifest.yml and/or ownership map, update templates and schemas, update code/tests, and commit all affected files
+
+## Evidence
+
+- Workflow: manifest-schema-or-ownership-update
+- Files: .ai-engineering/manifest.yml, src/ai_engineering/state/defaults.py, tests/unit/config/test_manifest.py
+
+---
+id: ai-engineering-cli-command-redesign-or-hardening
+trigger: "When CLI UX is improved, commands are added/removed/renamed, or output is standardized"
+confidence: 0.88
+domain: workflow
+source: repo-analysis
+source_repo: arcasilesgroup/ai-engineering
+---
+
+# Ai Engineering Cli Command Redesign Or Hardening
+
+## Action
+
+Edit/refactor CLI command files, update UI/factory, update/create tests, update docs if needed, and commit all affected files
+
+## Evidence
+
+- Workflow: cli-command-redesign-or-hardening
+- Files: src/ai_engineering/cli_commands/*.py, tests/unit/test_cli_*.py, README.md
+
+---
+id: ai-engineering-multi-ide-hooks-and-telemetry-sync
+trigger: "When new hooks are introduced, telemetry is updated, or parity is needed across IDEs"
+confidence: 0.87
+domain: workflow
+source: repo-analysis
+source_repo: arcasilesgroup/ai-engineering
+---
+
+# Ai Engineering Multi Ide Hooks And Telemetry Sync
+
+## Action
+
+Edit/create hook scripts, update hooks.json/settings.json, sync to templates, update/create tests, and commit all affected files
+
+## Evidence
+
+- Workflow: multi-ide-hooks-and-telemetry-sync
+- Files: .ai-engineering/scripts/hooks/*.py, .github/hooks/hooks.json, tests/integration/test_telemetry_canary.py
+
+---
+id: ai-engineering-ci-cd-pipeline-or-workflow-redesign
+trigger: "When CI/CD workflows are split, hardened, or new supply chain security features are added"
+confidence: 0.85
+domain: workflow
+source: repo-analysis
+source_repo: arcasilesgroup/ai-engineering
+---
+
+# Ai Engineering Ci Cd Pipeline Or Workflow Redesign
+
+## Action
+
+Create/update workflow files, remove/deprecate old workflows, update policy scripts, update docs/tests, and commit all affected files
+
+## Evidence
+
+- Workflow: ci-cd-pipeline-or-workflow-redesign
+- Files: .github/workflows/*.yml, scripts/check_workflow_policy.py, tests/unit/test_check_workflow_policy.py
+
