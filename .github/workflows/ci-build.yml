@@ -51,34 +51,32 @@ jobs:
         if: steps.semrel.outputs.released == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          RELEASE_VERSION: ${{ steps.semrel.outputs.version }}
         run: |
-          VERSION="${{ steps.semrel.outputs.version }}"
           DATE=$(date -u +%Y-%m-%d)
 
           # Promote [Unreleased] → [VERSION] - DATE in CHANGELOG.md
-          sed -i "s/^## \[Unreleased\]/## [${VERSION}] - ${DATE}/" CHANGELOG.md
+          sed -i "s/^## \[Unreleased\]/## [${RELEASE_VERSION}] - ${DATE}/" CHANGELOG.md
           # Add new empty [Unreleased] section above
-          sed -i "/^## \[${VERSION}\]/i ## [Unreleased]\n" CHANGELOG.md
+          sed -i "/^## \[${RELEASE_VERSION}\]/i ## [Unreleased]\n" CHANGELOG.md
 
           # Bump version in pyproject.toml
-          sed -i "s/^version = \".*\"/version = \"${VERSION}\"/" pyproject.toml
+          sed -i "s/^version = \".*\"/version = \"${RELEASE_VERSION}\"/" pyproject.toml
 
-          # Commit via GitHub API (bypasses branch protection push rules)
-          TREE_SHA=$(git rev-parse HEAD^{tree})
-
-          # Stage changed files via git, then create tree from index
+          # Stage changed files and create git tree
           git add CHANGELOG.md pyproject.toml
           TREE_SHA=$(git write-tree)
 
           PARENT_SHA=$(git rev-parse HEAD)
-          COMMIT_SHA=$(gh api repos/${{ github.repository }}/git/commits \
-            -f "message=chore(release): promote changelog and bump version to ${VERSION}" \
+          COMMIT_SHA=$(gh api "repos/${REPO}/git/commits" \
+            -f "message=chore(release): promote changelog and bump version to ${RELEASE_VERSION}" \
             -f "tree=${TREE_SHA}" \
             -f "parents[]=${PARENT_SHA}" \
             --jq '.sha')
 
           # Fast-forward main to the new commit
-          gh api repos/${{ github.repository }}/git/refs/heads/main \
+          gh api "repos/${REPO}/git/refs/heads/main" \
             -X PATCH \
             -f sha="$COMMIT_SHA" \
             -f force=false
@@ -87,7 +85,7 @@ jobs:
           git fetch origin main
           git checkout main
           echo "release_sha=$COMMIT_SHA" >> "$GITHUB_OUTPUT"
-          echo "Promoted CHANGELOG and bumped version to ${VERSION}"
+          echo "Promoted CHANGELOG and bumped version to ${RELEASE_VERSION}"
 
       - name: Build from release commit
         if: steps.semrel.outputs.released == 'true'
@@ -101,11 +99,12 @@ jobs:
         if: steps.semrel.outputs.released == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          TAG: ${{ steps.semrel.outputs.tag }}
         run: |
-          TAG="${{ steps.semrel.outputs.tag }}"
           SHA=$(git rev-parse HEAD)
-          gh api repos/${{ github.repository }}/git/refs \
-            -f ref="refs/tags/$TAG" \
+          gh api "repos/${REPO}/git/refs" \
+            -f ref="refs/tags/${TAG}" \
             -f sha="$SHA"
 
       - name: Attest build provenance
@@ -129,9 +128,10 @@ jobs:
         if: steps.semrel.outputs.released == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
         run: |
           for f in dist/*; do
-            gh attestation verify "$f" --repo "${{ github.repository }}"
+            gh attestation verify "$f" --repo "$REPO"
           done
 
       - name: Upload dist
@@ -155,8 +155,8 @@ jobs:
         if: steps.semrel.outputs.released == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.semrel.outputs.tag }}
         run: |
-          TAG="${{ steps.semrel.outputs.tag }}"
           gh release create "$TAG" \
             --title "$TAG" \
             --draft \
@@ -167,6 +167,6 @@ jobs:
         if: steps.semrel.outputs.released == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.semrel.outputs.tag }}
         run: |
-          TAG="${{ steps.semrel.outputs.tag }}"
           gh release upload "$TAG" sbom.json CHECKSUMS-SHA256.txt --clobber
