@@ -15,11 +15,9 @@ import pytest
 from ai_engineering.verify.scoring import FindingSeverity, Verdict
 from ai_engineering.verify.service import (
     MODES,
-    verify_a11y,
     verify_architecture,
     verify_feature,
     verify_governance,
-    verify_performance,
     verify_platform,
     verify_quality,
     verify_security,
@@ -296,8 +294,6 @@ class TestVerifyPlatform:
             "security",
             "architecture",
             "quality",
-            "performance",
-            "a11y",
             "feature",
         ]
         assert {specialist.runner for specialist in result.specialists} == {
@@ -346,8 +342,6 @@ class TestVerifyPlatform:
             "security",
             "architecture",
             "quality",
-            "performance",
-            "a11y",
             "feature",
         }
 
@@ -365,20 +359,6 @@ class TestAdditionalSpecialists:
 
         assert result.findings
         assert result.findings[0].category == "cycle"
-
-    def test_verify_a11y_marks_repo_without_ui_as_not_applicable(self, tmp_path: Path) -> None:
-        result = verify_a11y(tmp_path)
-
-        assert result.specialists[0].applicable is False
-        assert "No frontend or UI files" in result.specialists[0].rationale
-
-    def test_verify_performance_marks_missing_benchmarks_as_not_applicable(
-        self, tmp_path: Path
-    ) -> None:
-        result = verify_performance(tmp_path)
-
-        assert result.specialists[0].applicable is False
-        assert "No benchmark" in result.specialists[0].rationale
 
     def test_verify_feature_reads_active_spec_and_plan(self, tmp_path: Path) -> None:
         spec_dir = tmp_path / ".ai-engineering" / "specs"
@@ -401,16 +381,14 @@ class TestAdditionalSpecialists:
 
 
 class TestModes:
-    def test_modes_has_eight_entries(self) -> None:
-        assert len(MODES) == 8
+    def test_modes_has_six_entries(self) -> None:
+        assert len(MODES) == 6
 
     def test_modes_keys_cover_all_specialists_and_platform(self) -> None:
         assert set(MODES.keys()) == {
-            "a11y",
             "architecture",
             "feature",
             "governance",
-            "performance",
             "quality",
             "security",
             "platform",

@@ -8,16 +8,16 @@ tags: [visual-design, poster, banner, branding, artifact]
 ---
 
 
-
 # Canvas
 
 ## Purpose
 
-Visual design artifact creation skill. Creates design philosophies (aesthetic movements articulated through form, space, color, and composition) and expresses them visually through high-quality compositions with minimal integrated text.
+Visual design artifact creation skill. Creates design philosophies (aesthetic movements articulated through form, space, color, and composition) and expresses them visually through museum-quality compositions with minimal integrated text.
 
 ## Core Understanding
 
 This skill generates custom design philosophies and expresses them visually. A design philosophy is NOT a layout -- it's a visual philosophy interpreted through:
+
 - Form, space, color, composition
 - Images, graphics, shapes, patterns
 - Minimal text as visual accent (90% visual, 10% essential text)
@@ -42,17 +42,17 @@ This skill generates custom design philosophies and expresses them visually. A d
 5. **Read handlers/canvas-creation.md** -- apply the visual standards and craftsmanship rules
 6. **Deduce the subtle reference** -- identify conceptual threads from the brief. Embed within the art -- sophisticated for those who know the subject, masterful abstract composition for others
 7. **Create the canvas** -- express the philosophy visually. 90% visual design, 10% essential text
-8. **Self-review** -- Check: (1) clear focal point, (2) consistent spacing, (3) color harmony within palette, (4) type hierarchy with max 2-3 font sizes, (5) grid-based composition. If any criterion fails, refine.
+8. **Self-review** -- does this look like it belongs in a museum or magazine? If not, refine.
 9. **Read handlers/examples.md** for inspiration if needed
 
 ## Quick Reference
 
-| Step | Gate | Output |
-|------|------|--------|
-| Brief | Audience + purpose clear | Creative direction |
-| Philosophy | Movement named + articulated | .md philosophy doc |
-| Canvas | Visual standards met | .pdf or .png artifact |
-| Review | 5-point criteria check | Refined output |
+| Step       | Gate                         | Output                |
+| ---------- | ---------------------------- | --------------------- |
+| Brief      | Audience + purpose clear     | Creative direction    |
+| Philosophy | Movement named + articulated | .md philosophy doc    |
+| Canvas     | Visual standards met         | .pdf or .png artifact |
+| Review     | Museum-quality?              | Refined output        |
 
 ## Rendering
 
@@ -61,6 +61,7 @@ Generate as self-contained HTML, then render to PDF via browser print or Puppete
 ## Refinement Rules
 
 When told work isn't perfect enough:
+
 - Refine what exists rather than adding new graphics
 - Make composition more cohesive with the art
 - Ask: "How can I make what's already here more of a piece of art?"

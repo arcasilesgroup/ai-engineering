@@ -28,7 +28,7 @@ def verify_cmd(
         typer.Argument(
             help=(
                 "Verification mode: governance | security | architecture | quality | "
-                "performance | a11y | feature | platform"
+                "feature | platform"
             ),
         ),
     ],

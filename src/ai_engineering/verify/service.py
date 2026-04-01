@@ -22,8 +22,6 @@ SPECIALIST_ORDER = (
     "security",
     "architecture",
     "quality",
-    "performance",
-    "a11y",
     "feature",
 )
 
@@ -32,14 +30,12 @@ SPECIALIST_LABELS = {
     "security": "Security",
     "architecture": "Architecture",
     "quality": "Quality",
-    "performance": "Performance",
-    "a11y": "Accessibility",
     "feature": "Feature",
 }
 
 _NORMAL_RUNNERS = {
     "macro-agent-1": ("governance", "security", "architecture"),
-    "macro-agent-2": ("quality", "performance", "a11y", "feature"),
+    "macro-agent-2": ("quality", "feature"),
 }
 
 
@@ -208,39 +204,6 @@ def verify_architecture(project_root: Path, *, profile: str = "normal") -> Verif
     return _finalize_specialist(result, specialist)
 
 
-def verify_performance(project_root: Path, *, profile: str = "normal") -> VerifyScore:
-    """Look for trustworthy performance evidence surfaces."""
-    benchmark_candidates = list(project_root.rglob("*benchmark*")) + list(
-        project_root.rglob("perf*.py")
-    )
-    if not benchmark_candidates:
-        return _not_applicable(
-            "performance",
-            profile,
-            "No benchmark or performance evidence files were detected in the target project.",
-        )
-
-    result, specialist = _start_specialist("performance", profile)
-    specialist.rationale = "Performance evidence surfaces are present for follow-up benchmarking."
-    return _finalize_specialist(result, specialist)
-
-
-def verify_a11y(project_root: Path, *, profile: str = "normal") -> VerifyScore:
-    """Check whether accessibility verification applies to this project."""
-    if not _detect_ui_files(project_root):
-        return _not_applicable(
-            "a11y",
-            profile,
-            "No frontend or UI files were detected under the project root.",
-        )
-
-    result, specialist = _start_specialist("a11y", profile)
-    specialist.rationale = (
-        "UI files are present. Run dedicated UI accessibility checks in follow-up if needed."
-    )
-    return _finalize_specialist(result, specialist)
-
-
 def verify_feature(project_root: Path, *, profile: str = "normal") -> VerifyScore:
     """Assess whether the active spec/plan handoff surface is coherent."""
     spec_path = project_root / ".ai-engineering" / "specs" / "spec.md"
@@ -304,14 +267,6 @@ def _frontmatter_value(content: str, key: str) -> str | None:
         if in_frontmatter and stripped.startswith(marker):
             return stripped.split(":", 1)[1].strip().strip("'\"")
     return None
-
-
-def _detect_ui_files(project_root: Path) -> list[Path]:
-    patterns = ("*.tsx", "*.jsx", "*.vue", "*.svelte", "*.html")
-    matches: list[Path] = []
-    for pattern in patterns:
-        matches.extend(project_root.rglob(pattern))
-    return matches
 
 
 def _detect_import_cycles(project_root: Path) -> list[list[str]]:
@@ -402,8 +357,6 @@ SPECIALIST_MODES = {
     "security": verify_security,
     "governance": verify_governance,
     "architecture": verify_architecture,
-    "performance": verify_performance,
-    "a11y": verify_a11y,
     "feature": verify_feature,
 }
 
