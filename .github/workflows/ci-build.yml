@@ -31,6 +31,9 @@ jobs:
       - name: Install dependencies
         run: uv sync --dev
 
+      - name: Build
+        run: uv build
+
       - name: Determine version bump
         id: semrel
         run: |
@@ -48,69 +51,6 @@ jobs:
             echo "released=false" >> "$GITHUB_OUTPUT"
             echo "No version bump needed"
           fi
-
-      - name: Promote CHANGELOG and bump pyproject.toml
-        if: steps.semrel.outputs.released == 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REPO: ${{ github.repository }}
-          RELEASE_VERSION: ${{ steps.semrel.outputs.version }}
-        run: |
-          DATE=$(date -u +%Y-%m-%d)
-
-          # Promote [Unreleased] → [VERSION] - DATE in CHANGELOG.md
-          sed -i "s/^## \[Unreleased\]/## [${RELEASE_VERSION}] - ${DATE}/" CHANGELOG.md
-          # Add new empty [Unreleased] section above
-          sed -i "/^## \[${RELEASE_VERSION}\]/i ## [Unreleased]\n" CHANGELOG.md
-
-          # Bump version in pyproject.toml
-          sed -i "s/^version = \".*\"/version = \"${RELEASE_VERSION}\"/" pyproject.toml
-
-          # Create blobs via API for each changed file
-          CL_BLOB=$(gh api "repos/${REPO}/git/blobs" \
-            -f content="$(base64 < CHANGELOG.md)" \
-            -f encoding=base64 --jq '.sha')
-          PT_BLOB=$(gh api "repos/${REPO}/git/blobs" \
-            -f content="$(base64 < pyproject.toml)" \
-            -f encoding=base64 --jq '.sha')
-
-          # Create tree with the two updated files
-          BASE_TREE=$(git log -1 --format=%T HEAD)
-          TREE_SHA=$(gh api "repos/${REPO}/git/trees" \
-            --input - --jq '.sha' <<PAYLOAD
-          {"base_tree":"${BASE_TREE}","tree":[
-            {"path":"CHANGELOG.md","mode":"100644","type":"blob","sha":"${CL_BLOB}"},
-            {"path":"pyproject.toml","mode":"100644","type":"blob","sha":"${PT_BLOB}"}
-          ]}
-          PAYLOAD
-          )
-
-          # Create commit
-          PARENT_SHA=$(git rev-parse HEAD)
-          COMMIT_SHA=$(gh api "repos/${REPO}/git/commits" \
-            --input - --jq '.sha' <<PAYLOAD
-          {"message":"chore(release): promote changelog and bump version to ${RELEASE_VERSION}","tree":"${TREE_SHA}","parents":["${PARENT_SHA}"]}
-          PAYLOAD
-          )
-
-          # Fast-forward main ref to the new commit
-          gh api "repos/${REPO}/git/refs/heads/main" \
-            -X PATCH --input - <<REFPATCH
-          {"sha":"${COMMIT_SHA}","force":false}
-          REFPATCH
-
-          # Update local working tree to match
-          git fetch origin main
-          git reset --hard origin/main
-          echo "Promoted CHANGELOG and bumped version to ${RELEASE_VERSION}"
-
-      - name: Build from release commit
-        if: steps.semrel.outputs.released == 'true'
-        run: uv build
-
-      - name: Build (no release)
-        if: steps.semrel.outputs.released != 'true'
-        run: uv build
 
       - name: Create tag via API
         if: steps.semrel.outputs.released == 'true'
