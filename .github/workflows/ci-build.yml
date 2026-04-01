@@ -31,9 +31,6 @@ jobs:
       - name: Install dependencies
         run: uv sync --dev
 
-      - name: Build
-        run: uv build
-
       - name: Determine version bump
         id: semrel
         run: |
@@ -51,6 +48,17 @@ jobs:
             echo "released=false" >> "$GITHUB_OUTPUT"
             echo "No version bump needed"
           fi
+
+      - name: Bump version locally for build
+        if: steps.semrel.outputs.released == 'true'
+        env:
+          RELEASE_VERSION: ${{ steps.semrel.outputs.version }}
+        run: |
+          sed -i "s/^version = \".*\"/version = \"${RELEASE_VERSION}\"/" pyproject.toml
+          echo "Bumped pyproject.toml to ${RELEASE_VERSION} (local only, not committed)"
+
+      - name: Build
+        run: uv build
 
       - name: Create tag via API
         if: steps.semrel.outputs.released == 'true'
