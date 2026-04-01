@@ -48,14 +48,16 @@ jobs:
             echo "No version bump needed"
           fi
 
-      - name: Create tag
+      - name: Create tag via API
         if: steps.semrel.outputs.released == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           TAG="${{ steps.semrel.outputs.tag }}"
-          git tag "$TAG" HEAD
-          git push origin "$TAG"
+          SHA=$(git rev-parse HEAD)
+          gh api repos/${{ github.repository }}/git/refs \
+            -f ref="refs/tags/$TAG" \
+            -f sha="$SHA"
 
       - name: Attest build provenance
         if: steps.semrel.outputs.released == 'true'
