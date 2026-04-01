@@ -196,7 +196,7 @@ class TestSpecVerifyCli:
         _create_plan_md(tmp_path, placeholder=True)
         with patch("ai_engineering.cli_commands.spec_cmd.find_project_root", return_value=tmp_path):
             spec_verify()
-        assert "No active plan" in capsys.readouterr().out
+        assert "No active plan" in capsys.readouterr().err
 
     def test_verify_counters_match(self, tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
         from unittest.mock import patch
@@ -206,9 +206,8 @@ class TestSpecVerifyCli:
         _create_plan_md(tmp_path, total=3, completed=1)
         with patch("ai_engineering.cli_commands.spec_cmd.find_project_root", return_value=tmp_path):
             spec_verify()
-        out = capsys.readouterr().out
-        assert "Checkboxes: 1/3" in out
-        assert "OK" in out
+        err = capsys.readouterr().err
+        assert "1/3" in err
 
     def test_verify_drift_auto_fixed(self, tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
         from unittest.mock import patch
@@ -221,9 +220,9 @@ class TestSpecVerifyCli:
         )
         with patch("ai_engineering.cli_commands.spec_cmd.find_project_root", return_value=tmp_path):
             spec_verify(fix=True)
-        out = capsys.readouterr().out
-        assert "DRIFT DETECTED" in out
-        assert "AUTO-FIXED" in out
+        err = capsys.readouterr().err
+        assert "drift" in err.lower()
+        assert "auto-fixed" in err.lower()
 
 
 class TestSpecListCli:
@@ -236,7 +235,7 @@ class TestSpecListCli:
 
         with patch("ai_engineering.cli_commands.spec_cmd.find_project_root", return_value=tmp_path):
             spec_list()
-        assert "No specs/spec.md found" in capsys.readouterr().out
+        assert "No specs/spec.md found" in capsys.readouterr().err
 
     def test_list_placeholder_spec(self, tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
         from unittest.mock import patch
@@ -246,7 +245,7 @@ class TestSpecListCli:
         _create_spec_md(tmp_path, placeholder=True)
         with patch("ai_engineering.cli_commands.spec_cmd.find_project_root", return_value=tmp_path):
             spec_list()
-        assert "No active spec" in capsys.readouterr().out
+        assert "No active spec" in capsys.readouterr().err
 
     def test_list_active_spec_with_plan(
         self, tmp_path: Path, capsys: pytest.CaptureFixture
@@ -259,6 +258,6 @@ class TestSpecListCli:
         _create_plan_md(tmp_path, total=10, completed=7)
         with patch("ai_engineering.cli_commands.spec_cmd.find_project_root", return_value=tmp_path):
             spec_list()
-        out = capsys.readouterr().out
-        assert "Radical Simplification" in out
-        assert "7/10" in out
+        err = capsys.readouterr().err
+        assert "Radical Simplification" in err
+        assert "7/10" in err

@@ -41,24 +41,17 @@ def test_missing_script_json_mode_emits_structured_error(
 def test_missing_script_non_json_writes_stderr(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
+    capsys: pytest.CaptureFixture,
 ) -> None:
     monkeypatch.setattr(sync_module, "resolve_project_root", lambda _: tmp_path)
     monkeypatch.setattr(sync_module, "is_json_mode", lambda: False)
-
-    output: list[tuple[str, bool]] = []
-    monkeypatch.setattr(
-        sync_module.typer,
-        "echo",
-        lambda msg, err=False: output.append((str(msg), bool(err))),
-    )
 
     with pytest.raises(typer.Exit) as exc:
         sync_module.sync_cmd()
 
     assert exc.value.exit_code == 1
-    assert output
-    assert "sync script not found" in output[0][0]
-    assert output[0][1] is True
+    err = capsys.readouterr().err
+    assert "sync script not found" in err.lower()
 
 
 def test_success_non_json_runs_check_and_verbose_flags(
