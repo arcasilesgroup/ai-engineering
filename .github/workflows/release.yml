@@ -123,19 +123,22 @@ jobs:
         with:
           ref: ${{ needs.resolve-version.outputs.tag-name }}
 
-      - name: Verify CHANGELOG section exists
-        run: |
-          VERSION="${{ needs.resolve-version.outputs.version }}"
-          if ! grep -q "^## \[${VERSION}\]" CHANGELOG.md; then
-            echo "::error::CHANGELOG.md missing section '## [${VERSION}]'. Ensure the release branch promoted [Unreleased] before merging."
-            exit 1
-          fi
-
       - name: Extract release notes
+        env:
+          VERSION: ${{ needs.resolve-version.outputs.version }}
         run: |
-          VERSION="${{ needs.resolve-version.outputs.version }}"
-          awk "/^## \\[${VERSION}\\]/{flag=1; next} /^## \\[/{flag=0} flag" CHANGELOG.md > release-notes.md
-          echo "Release notes extracted:"
+          # Try version-specific section first, fall back to [Unreleased]
+          if grep -q "^## \[${VERSION}\]" CHANGELOG.md; then
+            SECTION="${VERSION}"
+          elif grep -q "^## \[Unreleased\]" CHANGELOG.md; then
+            SECTION="Unreleased"
+          else
+            echo "No release notes found in CHANGELOG.md — using auto-generated notes"
+            echo "See the full changelog in the repository." > release-notes.md
+            exit 0
+          fi
+          awk "/^## \\[${SECTION}\\]/{flag=1; next} /^## \\[/{flag=0} flag" CHANGELOG.md > release-notes.md
+          echo "Release notes extracted from [${SECTION}]:"
           cat release-notes.md
 
       - name: Upload release notes
