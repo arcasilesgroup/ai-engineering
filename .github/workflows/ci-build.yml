@@ -52,8 +52,6 @@ jobs:
       - name: Promote CHANGELOG and bump pyproject.toml
         if: steps.semrel.outputs.released == 'true'
         env:
-          GH_TOKEN: ${{ github.token }}
-          REPO: ${{ github.repository }}
           RELEASE_VERSION: ${{ steps.semrel.outputs.version }}
         run: |
           DATE=$(date -u +%Y-%m-%d)
@@ -66,27 +64,13 @@ jobs:
           # Bump version in pyproject.toml
           sed -i "s/^version = \".*\"/version = \"${RELEASE_VERSION}\"/" pyproject.toml
 
-          # Stage changed files and create git tree
+          # Commit and push directly (rulesets allow fast-forward push to main)
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add CHANGELOG.md pyproject.toml
-          TREE_SHA=$(git write-tree)
+          git commit -m "chore(release): promote changelog and bump version to ${RELEASE_VERSION}"
+          git push origin main
 
-          PARENT_SHA=$(git rev-parse HEAD)
-          COMMIT_SHA=$(gh api "repos/${REPO}/git/commits" \
-            -f "message=chore(release): promote changelog and bump version to ${RELEASE_VERSION}" \
-            -f "tree=${TREE_SHA}" \
-            -f "parents[]=${PARENT_SHA}" \
-            --jq '.sha')
-
-          # Fast-forward main to the new commit
-          gh api "repos/${REPO}/git/refs/heads/main" \
-            -X PATCH \
-            -f sha="$COMMIT_SHA" \
-            -f force=false
-
-          # Update local HEAD to match
-          git fetch origin main
-          git checkout main
-          echo "release_sha=$COMMIT_SHA" >> "$GITHUB_OUTPUT"
           echo "Promoted CHANGELOG and bumped version to ${RELEASE_VERSION}"
 
       - name: Build from release commit
