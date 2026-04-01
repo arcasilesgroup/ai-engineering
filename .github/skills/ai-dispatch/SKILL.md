@@ -23,17 +23,17 @@ Execution engine for approved plans. Reads plan.md and tasks.md, dispatches one 
 ## Process
 
 1. **Board sync (in_progress)** -- read `specs/spec.md` frontmatter `refs`; for each work item ref where the hierarchy rule is not `never_close` (i.e., user_stories, tasks, bugs, issues), invoke `/ai-board-sync in_progress <work-item-ref>`. Fail-open: do not block DAG construction if this fails.
-3. **Guard advisory** -- before dispatching any build task, invoke the Guard agent (`ai-guard`) in `gate` mode for governance advisory. Fail-open: if guard is unavailable or errors, log warning and continue -- never block dispatch.
-4. **Build DAG** -- parse task dependencies, identify parallel groups
-5. **Execute phase by phase** -- for each phase:
+2. **Guard advisory** -- before dispatching any build task, invoke the Guard agent (`ai-guard`) in `gate` mode for governance advisory. Fail-open: if guard is unavailable or errors, log warning and continue -- never block dispatch.
+3. **Build DAG** -- parse task dependencies, identify parallel groups
+4. **Execute phase by phase** -- for each phase:
    a. Dispatch one subagent per task (fresh context window)
    b. Each subagent receives: task description, file scope, boundaries, constraints
    c. Run two-stage review on deliverable (see below)
    d. Update task status in plan.md
    e. Check phase gate before advancing
-6. **Track progress** -- update plan.md checkboxes after each task
-7. **Quality check** -- read `handlers/quality.md` and execute: Verify+Review on full changeset, max 2 rounds
-8. **Deliver** -- read `handlers/deliver.md` and execute: PR via ai-pr with quality report
+5. **Track progress** -- update plan.md checkboxes after each task
+6. **Quality check** -- read `handlers/quality.md` and execute: Verify+Review on full changeset, max 2 rounds
+7. **Deliver** -- read `handlers/deliver.md` and execute: PR via ai-pr with quality report
 
 ## Task Statuses
 
@@ -46,7 +46,7 @@ Execution engine for approved plans. Reads plan.md and tasks.md, dispatches one 
 
 ## Two-Stage Review (Per-Task)
 
-Every task deliverable goes through two reviews before marking DONE. This is the per-task quality check during Phase 4 execution. A separate full-changeset quality check runs in Phase 6 (see `handlers/quality.md`).
+Every task deliverable goes through two reviews before marking DONE. This is the per-task quality check during Phase 4 execution. A separate full-changeset quality check runs in Phase 5 (see `handlers/quality.md`).
 
 ### Stage 1: Spec Compliance
 
@@ -129,16 +129,16 @@ Update plan.md in real-time:
 When invoked with `--resume`, read `specs/plan.md` and determine re-entry point:
 
 1. **Incomplete tasks remain**: resume at the first incomplete phase. Skip completed tasks.
-2. **All tasks DONE but no quality check recorded**: resume at Phase 6 (Quality Check). Read `handlers/quality.md`.
-3. **Quality passed but no PR created**: resume at Phase 7 (Deliver). Read `handlers/deliver.md`.
+2. **All tasks DONE but no quality check recorded**: resume at Phase 5 (Quality Check). Read `handlers/quality.md`.
+3. **Quality passed but no PR created**: resume at Phase 6 (Deliver). Read `handlers/deliver.md`.
 4. **PR exists but not merged**: resume at watch-and-fix loop per `handlers/deliver.md`.
 
 ## Handler Dispatch Table
 
 | Phase | Handler | Agent Pattern |
 |-------|---------|---------------|
-| 6. Quality Check | `handlers/quality.md` | Verify + Review parallel |
-| 7. Deliver | `handlers/deliver.md` | PR pipeline + cleanup |
+| 5. Quality Check | `handlers/quality.md` | Verify + Review parallel |
+| 6. Deliver | `handlers/deliver.md` | PR pipeline + cleanup |
 
 ## Common Mistakes
 

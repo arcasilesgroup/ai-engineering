@@ -5,6 +5,12 @@ effort: max
 argument-hint: "design|migrate|optimize|lifecycle"
 mode: agent
 tags: [database, sql, migration, schema, optimization, enterprise]
+requires:
+  anyBins:
+  - psql
+  - mysql
+  - sqlite3
+  - mongosh
 ---
 
 

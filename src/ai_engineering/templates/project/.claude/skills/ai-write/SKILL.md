@@ -30,6 +30,8 @@ Edit, don't generate. Start from what exists: notes, transcripts, data, examples
 
 Default (no sub-command): `content`.
 
+The `content` handler handles all sub-type dispatch internally based on the content type specified in the user's prompt.
+
 ## Audience Targeting
 
 | Audience | Tone | Detail Level | Jargon |
@@ -52,11 +54,6 @@ Default: `developer`.
 /ai-write content blog --audience manager   # manager-targeted blog post
 ```
 
-## Redirects
-
-- **Documentation** (CHANGELOG, README, API docs, guides): use `/ai-docs`
-- **Marketing content** (social posts, investor materials, outreach, market research): use `/ai-market`
-
 ## Shared Rules
 
 - Write what users can DO, not what you BUILT.
@@ -71,7 +68,4 @@ Default: `developer`.
 - **NOT** `/ai-docs` -- for documentation artifacts use `/ai-docs`
 - **NOT** `/ai-market` -- for marketing and go-to-market content use `/ai-market`
 
-## References
-
-- `.ai-engineering/manifest.yml` -- governance documentation requirements.
 $ARGUMENTS

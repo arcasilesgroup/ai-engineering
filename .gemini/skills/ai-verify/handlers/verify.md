@@ -10,7 +10,7 @@ via the `Agent` tool for real context isolation. `normal` is the default profile
 
 | Specialist | Agent | What it verifies | `normal` runner |
 |------------|-------|------------------|-----------------|
-| `deterministic` | `verify-deterministic.md` | security, quality, deps, tests, a11y | runs first (alone) |
+| `deterministic` | `verify-deterministic.md` | security, quality, deps, tests | runs first (alone) |
 | `governance` | `verifier-governance.md` | integrity, ownership, compliance | `macro-agent-2` |
 | `architecture` | `verifier-architecture.md` | cycles, boundary drift, alignment | `macro-agent-2` |
 | `feature` | `verifier-feature.md` | spec/plan completeness, handoff | `macro-agent-2` |

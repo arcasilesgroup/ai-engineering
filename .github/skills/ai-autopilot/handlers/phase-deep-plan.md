@@ -32,7 +32,7 @@ Dispatch all agents in parallel (parallel in Claude Code, sequential in other ID
 - The full sub-spec content (frontmatter + scope)
 - The parent spec's relevant section for this concern
 - Decision-store constraints that apply to this sub-spec's scope
-- Stack contexts from `contexts/languages/`, `contexts/frameworks/`, and `contexts/team/*.md`
+- Stack context file paths from the `context_paths` list resolved in Phase 0. Pass paths only — agents read on demand if they need stack guidance: `"Stack guidance available at: [context_paths]. Read these files if you need language/framework conventions for planning decisions."`
 
 Each agent executes the following five-step procedure:
 

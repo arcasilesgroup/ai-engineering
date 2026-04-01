@@ -35,7 +35,11 @@ Autonomous execution of large approved specs via a 6-phase pipeline. Decomposes 
 
 1. Confirm `specs/spec.md` is not a placeholder. If it is: STOP. Report: "No approved spec. Run `/ai-brainstorm` first."
 2. If `--resume` flag: read `specs/autopilot/manifest.md` and jump to the Resume Protocol (Phase 6 handler)
-3. Note: plan.md is NOT required. Phase 2 agents generate their own plans (D7).
+3. Load stack contexts: follow `.ai-engineering/contexts/stack-context.md`.
+   a. **Detect**: languages/frameworks from manifest and file extensions.
+   b. **Resolve**: applicable context file paths (e.g., `contexts/languages/python.md`, `contexts/frameworks/nodejs.md`, `contexts/team/*.md`) into a `context_paths` list.
+   c. **Pass paths, not content**: subagent dispatch prompts receive `context_paths` only. Agents read the files on demand if they need stack guidance.
+4. Note: plan.md is NOT required. Phase 2 agents generate their own plans (D7).
 
 ### Step 1: DECOMPOSE
 
@@ -77,18 +81,19 @@ Read `handlers/phase-implement.md` and execute:
 
 Read `handlers/phase-quality.md` and execute:
 
-1. Dispatch the verify agent + the guard agent + the review agent in parallel on full changeset
-2. Consolidate findings with unified severity mapping
-3. If clean (0 blockers+criticals+highs): proceed to Phase 6
-4. If issues remain and round < 3: dispatch fix agents, commit, repeat
-5. If round = 3: blockers -> STOP; criticals/highs -> Phase 6 flagged
+1. Read skill files once at loop entry: ai-verify, ai-review, ai-governance SKILL.md. Compute `git diff main...HEAD` once. Read Self-Reports once. These are reused across rounds — not re-read per round.
+2. Dispatch the verify agent + the guard agent + the review agent in parallel on full changeset (1 round by default)
+3. Consolidate findings with unified severity mapping
+4. If clean (0 blockers): proceed to Phase 6. Critical/high findings are flagged in PR but do not trigger additional rounds.
+5. If blockers found and round < 3: dispatch fix agents, commit, re-assess (escalation)
+6. If round = 3: blockers -> STOP; criticals/highs -> Phase 6 flagged
 
 ### Step 6: DELIVER
 
 Read `handlers/phase-deliver.md` and execute:
 
 1. Build Integrity Report from Self-Reports (in `sub-NNN/plan.md`) + quality audit
-2. Follow `/ai-pr` SKILL.md in full
+2. Follow `/ai-pr` SKILL.md in full — ai-pr dispatches 2 consolidated documentation subagents (CHANGELOG+README, docs-portal+quality-gate) instead of 5 separate agents
 3. Cleanup: delete `specs/autopilot/` (all subdirectories), clear spec.md + plan.md, verify cleanup
 4. Resume Protocol handles mid-pipeline re-entry via `--resume`
 
@@ -114,12 +119,13 @@ Read `handlers/phase-deliver.md` and execute:
 
 This skill READS other skills' SKILL.md files and EMBEDS their instructions into subagent prompts. It does NOT contain implementation logic. The phases delegate to:
 
-- `.gemini/skills/ai-verify/SKILL.md` for quality gates (Phase 5)
-- `.gemini/skills/ai-review/SKILL.md` for code review (Phase 5)
+- `.gemini/skills/ai-verify/SKILL.md` for quality gates (Phase 5) — read once at quality loop entry, reused across rounds
+- `.gemini/skills/ai-review/SKILL.md` for code review (Phase 5) — read once at quality loop entry, reused across rounds
+- `.gemini/skills/ai-governance/SKILL.md` for governance advisory (Phase 5) — read once at quality loop entry, reused across rounds
 - `.gemini/skills/ai-pr/SKILL.md` for pull request creation and delivery (Phase 6)
 - `.gemini/skills/ai-commit/SKILL.md` for incremental commit protocol (Phase 4, 5)
 
-When those skills improve, autopilot benefits automatically. No duplication, no drift.
+When those skills improve, autopilot benefits automatically. No duplication, no drift. Skill files are read once per phase entry — not re-read per iteration within a phase.
 
 ## Governance
 
@@ -180,7 +186,7 @@ Events emitted at each phase transition via hook system:
 ## Integration
 
 - **Called by**: user directly (after `/ai-brainstorm` approval)
-- **Reads**: `ai-verify/SKILL.md`, `ai-review/SKILL.md`, `ai-pr/SKILL.md`, `ai-commit/SKILL.md`
+- **Reads**: `ai-verify/SKILL.md`, `ai-review/SKILL.md`, `ai-governance/SKILL.md`, `ai-pr/SKILL.md`, `ai-commit/SKILL.md`
 - **Delegates to**: the explore agent for research, the build agent for implementation, the verify agent for gates, the guard agent for governance advisory, the review agent for code review
 - **Transitions to**: `/ai-cleanup` after merge, or back to user on failure
 

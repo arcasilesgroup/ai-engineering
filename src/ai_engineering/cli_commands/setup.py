@@ -83,7 +83,7 @@ def setup_platforms_cmd(
     detected = detect_platforms(root)
 
     if detected:
-        typer.echo(f"Detected platforms: {', '.join(p.value for p in detected)}")
+        kv("Detected platforms", ", ".join(p.value for p in detected))
         typer.echo("")
 
         for platform in detected:
@@ -95,7 +95,7 @@ def setup_platforms_cmd(
                 _run_azure_devops_setup(root)
             typer.echo("")
     else:
-        typer.echo("No platform markers auto-detected.")
+        info("No platform markers auto-detected.")
         typer.echo("")
 
     # Offer to configure platforms that were not auto-detected.
@@ -474,8 +474,8 @@ def _run_sonarlint_setup(
     families = detect_ide_families(root)
 
     if not families:
-        typer.echo("  No IDE workspace markers detected (.vscode/, .idea/, .vs/).")
-        typer.echo("  Create the IDE config folder first, or specify IDEs manually.")
+        info("No IDE workspace markers detected (.vscode/, .idea/, .vs/).")
+        info("Create the IDE config folder first, or specify IDEs manually.")
         typer.echo("")
         if typer.confirm(
             "  Create .vscode/ for VS Code / Cursor / Windsurf / Antigravity?",
@@ -494,7 +494,7 @@ def _run_sonarlint_setup(
             families.append(IDEFamily.VS2022)
 
     if not families:
-        typer.echo("  No IDEs selected. Skipping SonarLint setup.")
+        info("No IDEs selected. Skipping SonarLint setup.")
         return
 
     kv("Detected IDEs", ", ".join(f.value for f in families))

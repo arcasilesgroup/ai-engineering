@@ -43,6 +43,8 @@ Unified documentation skill covering the full project documentation lifecycle. S
 | `docs-portal` | `handlers/docs-portal.md` | `documentation.external_portal.enabled` |
 | `docs-quality-gate` | `handlers/docs-quality-gate.md` | none (always runs when dispatched) |
 
+If no argument is provided, display the routing table above and ask the user which handler to use.
+
 ## Quick Reference
 
 ```

@@ -115,6 +115,23 @@ def show_logo() -> None:
         pass
 
 
+def show_banner() -> None:
+    """Print a compact 1-line brand banner for subcommands (TTY only)."""
+    con = get_console()
+    if not con.is_terminal:
+        return
+    try:
+        con.print()
+        con.print(
+            "  [brand]{[/brand] [bold]ai[/bold] [brand]}[/brand]"
+            " [brand]engineering[/brand]"
+            f" [muted]· v{__version__}[/muted]"
+        )
+        con.print()
+    except (ImportError, ModuleNotFoundError):
+        pass
+
+
 # ── Message helpers (all write to stderr) ─────────────────────────
 
 

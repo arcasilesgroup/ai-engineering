@@ -28,7 +28,7 @@ Updates work item state on the project board at each lifecycle transition. Calle
 |-----------|----------|-------------|
 | phase | Yes | Lifecycle phase: `refinement`, `ready`, `in_progress`, `in_review`, `done` |
 | work-item-ref | Yes | Work item reference: `#45` (GitHub issue) or `AB#100` (ADO) |
-| --comment | No | Comment to add to the work item (e.g., spec reference, PR URL) |
+| --comment | No | Comment to add to the work item (e.g., spec reference, PR URL). The `--comment` parameter is optional. "Context available" means the calling skill provides a spec URL, PR URL, or status summary in its invocation payload. |
 
 ## Process
 
@@ -50,7 +50,7 @@ Updates work item state on the project board at each lifecycle transition. Calle
       ```
       gh project item-list <number> --owner <github_project.owner> --format json | jq '.items[] | select(.content.number == <issue_number>)'
       ```
-   b. Update the status field:
+   c. Update the status field:
       ```
       gh project item-edit --project-id <project_id> --id <item_id> --field-id <status_field_id> --single-select-option-id <option_id>
       ```
@@ -116,7 +116,7 @@ The calling skill checks the return status for logging but NEVER stops its own e
 
 ## Scripts
 
-- `scripts/board-sync-github.sh <project-number> --owner <github_project.owner>` -- query GitHub Projects v2 items and summarize work item states. Read owner from `github_project.owner` in manifest.
+- `scripts/board-sync-github.sh <project-number> --owner <github_project.owner>` -- query GitHub Projects v2 items and summarize work item states. Read owner from `github_project.owner` in manifest. Path is relative to the skill directory (`.claude/skills/ai-board-sync/`).
 
 ## Integration
 

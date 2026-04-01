@@ -3,6 +3,7 @@ name: ai-prompt
 description: "Use when a prompt, system message, or skill description is underperforming and needs optimization. Trigger for 'this prompt isn't working', 'optimize this skill description', 'improve triggering', 'rewrite this instruction'. Use /ai-prompt --skill <name> to optimize any skill's description field. Applies explicit-over-implicit, show-don't-tell, and rationale-embedding techniques."
 effort: medium
 argument-hint: "<text>|--skill <name>"
+tags: [meta, optimization, prompts]
 ---
 
 
@@ -103,6 +104,7 @@ For skills that enforce process (guard, verify, commit):
 3. **CSO-optimize** -- rewrite using triggering-condition pattern.
 4. **Present** -- show before/after for approval.
 5. **Apply** -- update the frontmatter if approved.
+6. **Sync mirrors** -- run `python scripts/sync_command_mirrors.py` to propagate the updated description to `.github/`, `.codex/`, and `.gemini/` mirrors. Verify no tests break.
 
 ## Quick Reference
 

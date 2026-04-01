@@ -1,6 +1,6 @@
 ---
 name: verify-deterministic
-description: "Consolidated deterministic verification agent. Executes all tool-driven checks (gitleaks, ruff, pip-audit, pytest, a11y) and reports structured results. Dispatched by ai-verify before LLM judgment agents."
+description: "Consolidated deterministic verification agent. Executes all tool-driven checks (gitleaks, ruff, pip-audit, pytest) and reports structured results. Dispatched by ai-verify before LLM judgment agents."
 model: opus
 color: green
 tools: [Read, Glob, Grep, Bash]
@@ -49,14 +49,7 @@ python -m pytest --cov --cov-report=term-missing -q 2>&1 || true
 
 Report: overall coverage percentage, files below threshold.
 
-### Step 5: Accessibility (conditional)
-
-Only if the project contains HTML, React, or UI code:
-- Check for semantic HTML patterns
-- Verify ARIA attribute usage
-- Report findings or mark as not_applicable
-
-### Step 6: Type Checking (conditional)
+### Step 5: Type Checking (conditional)
 
 If the project uses type annotations:
 
@@ -94,9 +87,6 @@ scans:
     failed: N
     errors: N
     coverage: N%
-  accessibility:
-    verdict: PASS|FAIL|NOT_APPLICABLE
-    findings: N
   types:
     tool: ty
     verdict: PASS|FAIL|NOT_APPLICABLE
@@ -130,7 +120,6 @@ Execute scans in this order (dependencies flow downward):
 3. **Dependencies third**: Vulnerability scan requires current lockfile
 4. **Tests fourth**: Tests require passing lint and format
 5. **Types fifth**: Type checking benefits from resolved dependencies
-6. **Accessibility last**: Only relevant for UI-containing projects
 
 For each scan:
 1. Run the command

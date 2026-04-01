@@ -14,6 +14,7 @@ from typing import Annotated
 
 import typer
 
+from ai_engineering.cli_ui import error, info, kv, status_line, success, warning
 from ai_engineering.lib.parsing import count_checkboxes, parse_frontmatter
 from ai_engineering.paths import find_project_root
 from ai_engineering.state.observability import emit_framework_operation
@@ -96,14 +97,14 @@ def spec_verify(
     plan_path = _specs_dir(root) / "plan.md"
 
     if not plan_path.exists():
-        typer.echo("No specs/plan.md found.", err=True)
+        error("No specs/plan.md found.")
         raise typer.Exit(code=1)
 
     plan_text = plan_path.read_text(encoding="utf-8")
 
     # Check for placeholder content
     if plan_text.strip().startswith("# No active plan"):
-        typer.echo("No active plan.")
+        info("No active plan.")
         return
 
     # Count real checkboxes
@@ -114,17 +115,17 @@ def spec_verify(
 
     drift_detected = fm_total != str(real_total) or fm_completed != str(real_completed)
 
-    typer.echo(f"  Checkboxes: {real_completed}/{real_total}")
-    typer.echo(f"  Frontmatter: completed={fm_completed} total={fm_total}")
+    kv("Checkboxes", f"{real_completed}/{real_total}")
+    kv("Frontmatter", f"completed={fm_completed} total={fm_total}")
 
     if drift_detected:
-        typer.echo("  DRIFT DETECTED")
+        warning("Drift detected")
         if fix:
             corrected = _auto_correct_frontmatter(root, real_total, real_completed)
             if corrected:
-                typer.echo(f"  AUTO-FIXED: total={real_total}, completed={real_completed}")
+                success(f"Auto-fixed: total={real_total}, completed={real_completed}")
     else:
-        typer.echo("  OK -- counters match")
+        status_line("ok", "Counters", "match")
 
     # Emit signal
     _emit_signal(
@@ -145,14 +146,14 @@ def spec_list() -> None:
     plan_path = _specs_dir(root) / "plan.md"
 
     if not spec_path.exists():
-        typer.echo("No specs/spec.md found.")
+        info("No specs/spec.md found.")
         return
 
     spec_text = spec_path.read_text(encoding="utf-8")
 
     # Check for placeholder content
     if spec_text.strip().startswith("# No active spec"):
-        typer.echo("No active spec.")
+        info("No active spec.")
         return
 
     # Extract title from first H1 heading
@@ -174,5 +175,5 @@ def spec_list() -> None:
             else:
                 progress = "0/0"
 
-    typer.echo(f"  Title: {title}")
-    typer.echo(f"  Progress: {progress}")
+    kv("Title", title)
+    kv("Progress", progress)

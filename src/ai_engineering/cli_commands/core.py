@@ -821,4 +821,4 @@ def version_cmd() -> None:
         show_logo()
         registry = load_registry()
         result = check_version(__version__, registry)
-        typer.echo(f"ai-engineering {result.message}")
+        print_stdout(f"ai-engineering {result.message}")

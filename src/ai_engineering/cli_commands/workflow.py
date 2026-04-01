@@ -58,6 +58,7 @@ def _render_result(result: WorkflowResult) -> None:
         return
 
     info(f"Workflow: {result.workflow}")
+    typer.echo("")
     for step in result.steps:
         if step.skipped:
             status_line("ok", f"{step.name} (skipped)", step.output or "skipped")

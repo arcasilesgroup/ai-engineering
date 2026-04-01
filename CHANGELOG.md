@@ -8,12 +8,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- **CLI branded banner** -- Rich-powered banner with version, branch, and Python info on all `ai-eng` commands. Consistent visual identity across CLI surface.
+- **README ecosystem rewrite (spec-098)** -- rewrote `README.md` as GitHub landing page, `.ai-engineering/README.md` as post-install reference guide, and created `GETTING_STARTED.md` as progressive discovery tutorial (5-min win → problem-based → advanced).
+- **Verify simplification** -- removed `verify_performance` and `verify_a11y` specialists (always N/A for non-UI/non-benchmark projects). Reduced verify from 8 to 6 specialists. Updated verify-deterministic agent and all IDE mirrors.
+- **Canvas refinement** -- upgraded self-review criterion to "museum-quality" bar, formatting cleanup.
 - **CI/CD Redesign (spec-097)** -- split 760-line `ci.yml` monolith into `ci-check.yml` (validation + dry build, PR + main) and `ci-build.yml` (build + supply chain, main only via `workflow_run`). Deprecated old `ci.yml`.
 - **Artifact-driven releases (spec-097)** -- rewrote `release.yml` from tag-triggered to `workflow_dispatch` with version input (default: latest tag). Supports rollback by dispatching with an older version.
 - **Conventional commits (spec-097)** -- adopted `feat(scope):` / `fix(scope):` format replacing `spec-NNN:` prefix. Updated `/ai-commit`, `/ai-pr` skills and all mirrors.
 - **Single version source (spec-097)** -- eliminated `__version__.py`, version now read from `pyproject.toml` via `importlib.metadata`. Simplified `version_bump.py` to single-file management.
 
 ### Added
+- **GETTING_STARTED.md (spec-098)** -- progressive discovery tutorial with 3 phases: "5-minute win" (/ai-start, /ai-guide), "What do you want to do?" (problem-based), and "Unlock the full power" (autopilot, run, instinct, learn). Separate CLI and slash command references.
 - **python-semantic-release (spec-097)** -- automatic version bumping from conventional commits integrated into ci-build.yml. Creates tags and draft GitHub Releases on version bump.
 - **SLSA Build attestations (spec-097)** -- `actions/attest-build-provenance` generates provenance in the same job as `uv build`, verifiable via `gh attestation verify`.
 - **CycloneDX SBOM (spec-097)** -- generates `sbom.json` from production-only dependencies, attached to every release.

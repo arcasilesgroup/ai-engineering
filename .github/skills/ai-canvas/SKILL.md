@@ -4,19 +4,20 @@ description: "Use when creating visual design artifacts: posters, banners, flyer
 effort: high
 argument-hint: "[visual artifact description or brief]"
 mode: agent
+tags: [visual-design, poster, banner, branding, artifact]
 ---
-
 
 
 # Canvas
 
 ## Purpose
 
-Visual design artifact creation skill. Creates design philosophies (aesthetic movements articulated through form, space, color, and composition) and expresses them visually through museum-quality compositions with minimal integrated text. Absorbed COMPLETE from Anthropic's canvas-design skill.
+Visual design artifact creation skill. Creates design philosophies (aesthetic movements articulated through form, space, color, and composition) and expresses them visually through museum-quality compositions with minimal integrated text.
 
 ## Core Understanding
 
 This skill generates custom design philosophies and expresses them visually. A design philosophy is NOT a layout -- it's a visual philosophy interpreted through:
+
 - Form, space, color, composition
 - Images, graphics, shapes, patterns
 - Minimal text as visual accent (90% visual, 10% essential text)
@@ -46,16 +47,21 @@ This skill generates custom design philosophies and expresses them visually. A d
 
 ## Quick Reference
 
-| Step | Gate | Output |
-|------|------|--------|
-| Brief | Audience + purpose clear | Creative direction |
-| Philosophy | Movement named + articulated | .md philosophy doc |
-| Canvas | Visual standards met | .pdf or .png artifact |
-| Review | Museum-quality? | Refined output |
+| Step       | Gate                         | Output                |
+| ---------- | ---------------------------- | --------------------- |
+| Brief      | Audience + purpose clear     | Creative direction    |
+| Philosophy | Movement named + articulated | .md philosophy doc    |
+| Canvas     | Visual standards met         | .pdf or .png artifact |
+| Review     | Museum-quality?              | Refined output        |
+
+## Rendering
+
+Generate as self-contained HTML, then render to PDF via browser print or Puppeteer. For vector output, use SVG.
 
 ## Refinement Rules
 
 When told work isn't perfect enough:
+
 - Refine what exists rather than adding new graphics
 - Make composition more cohesive with the art
 - Ask: "How can I make what's already here more of a piece of art?"

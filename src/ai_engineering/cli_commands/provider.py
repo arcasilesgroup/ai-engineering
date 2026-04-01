@@ -12,7 +12,7 @@ import typer
 
 from ai_engineering.cli_envelope import emit_error, emit_success
 from ai_engineering.cli_output import is_json_mode
-from ai_engineering.cli_ui import error, info, kv, success
+from ai_engineering.cli_ui import error, info, kv, status_line, success
 from ai_engineering.installer.operations import (
     InstallerError,
     add_provider,
@@ -126,8 +126,10 @@ def provider_list(
             if manifest.providers.ides:
                 primary = manifest.providers.ides[0]
                 for p in manifest.providers.ides:
-                    marker = " (primary)" if p == primary else ""
-                    info(f"  - {p}{marker}")
+                    if p == primary:
+                        status_line("ok", p, "primary")
+                    else:
+                        status_line("info", p, "")
             else:
                 info("No providers configured")
     except InstallerError as exc:

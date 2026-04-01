@@ -2,7 +2,7 @@
 name: ai-verify
 description: "Use when verification with evidence is needed — not assumptions. Trigger for 'check my code', 'is this ready to merge', 'run the tests', 'is coverage good enough', 'scan for security issues', 'does this meet our standards', 'prove it works'. Runs 4 specialists (deterministic, governance, architecture, feature) with `normal` implicit and `--full` explicit. For narrative code review with human judgment, use /ai-review instead."
 effort: max
-argument-hint: "claim|governance|security|quality|performance|a11y|feature|architecture|platform [--full]"
+argument-hint: "claim|governance|security|quality|feature|architecture|platform [--full]"
 mode: agent
 ---
 
@@ -31,11 +31,13 @@ Follow `.ai-engineering/contexts/stack-context.md`. Apply loaded standards to al
 
 Load `.ai-engineering/contexts/evidence-protocol.md` for the IRRV evidence collection protocol.
 
+If the evidence-protocol file is unavailable, use this inline process: for each claim, identify the verification command (test, lint, scan), run it, capture the output and exit code, and classify the claim as CONFIRMED (exit 0 + expected output) or REFUTED (non-zero exit or unexpected output).
+
 ### Specialist Surface
 
 | Specialist | Agent File | What it assesses |
 |------------|-----------|------------------|
-| `deterministic` | `verify-deterministic.md` | Security, quality, dependencies, tests, a11y (tool-driven) |
+| `deterministic` | `verify-deterministic.md` | Security, quality, dependencies, tests (tool-driven) |
 | `governance` | `verifier-governance.md` | Compliance, ownership, gate enforcement (LLM judgment) |
 | `architecture` | `verifier-architecture.md` | Solution-intent alignment, layer violations (LLM judgment) |
 | `feature` | `verifier-feature.md` | Spec coverage, acceptance criteria (LLM judgment) |
@@ -60,8 +62,6 @@ All specialist agents are dispatched via the `Agent` tool from `.github/agents/`
 | `/ai-verify security` | Deterministic agent (security scan only) |
 | `/ai-verify architecture` | Architecture agent only |
 | `/ai-verify quality` | Deterministic agent (quality scan only) |
-| `/ai-verify performance` | Deterministic agent (test/benchmark only) |
-| `/ai-verify a11y` | Deterministic agent (accessibility only) |
 | `/ai-verify feature` | Feature agent only |
 | `/ai-verify platform` | All 4 specialists aggregated into one verdict |
 

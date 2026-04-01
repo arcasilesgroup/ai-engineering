@@ -4,6 +4,7 @@ description: Use when the AI keeps repeating the same mistakes, when you want th
 effort: medium
 argument-hint: "single <pr>|batch"
 mode: agent
+tags: [meta, learning, continuous-improvement]
 ---
 
 
@@ -18,6 +19,8 @@ Continuous improvement from delivery outcomes. Analyzes merged PRs to find where
 
 - Command: `/ai-learn single <pr>|batch`
 - Context: after PR merge (single), periodic review (batch).
+
+## Step 0: Read `.ai-engineering/LESSONS.md` to check for pre-existing patterns before writing new ones. Follow `.ai-engineering/contexts/stack-context.md`.
 
 ## Modes
 
@@ -50,7 +53,7 @@ Continuous improvement from delivery outcomes. Analyzes merged PRs to find where
 ### batch -- Process unanalyzed merged PRs
 
 1. **Read tracking marker** -- check `.ai-engineering/LESSONS.md` YAML frontmatter for `lastAnalyzedAt` field. If absent, this is the first batch run.
-2. **Find unanalyzed PRs** -- `git log --merges --since=<lastAnalyzedAt> --format="%H %s"`. Extract PR numbers from merge commit messages.
+2. **Find unanalyzed PRs** -- `git log --merges --since=<lastAnalyzedAt> --format="%H %s"`. Extract PR numbers from merge commit messages. If `git log --merges` yields no results (e.g., squash-merge workflow), fall back to `gh pr list --state merged --json number,mergedAt` filtered by `lastAnalyzedAt`.
 3. **Process each** -- run single-mode analysis for each unanalyzed PR.
 4. **Update marker** -- set `lastAnalyzedAt: <current ISO date>` in LESSONS.md frontmatter (add frontmatter if absent).
 5. **Summary** -- report total PRs analyzed, lessons written, and emerging patterns.

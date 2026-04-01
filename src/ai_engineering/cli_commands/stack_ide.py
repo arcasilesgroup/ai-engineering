@@ -12,7 +12,7 @@ import typer
 
 from ai_engineering.cli_envelope import emit_error, emit_success
 from ai_engineering.cli_output import is_json_mode
-from ai_engineering.cli_ui import error, info, kv, success
+from ai_engineering.cli_ui import error, info, kv, status_line, success
 from ai_engineering.installer.operations import (
     InstallerError,
     add_ide,
@@ -96,7 +96,7 @@ def stack_list(
         else:
             if manifest.providers.stacks:
                 for s in manifest.providers.stacks:
-                    info(f"  - {s}")
+                    status_line("ok", s, "")
             else:
                 info("No stacks configured")
     except InstallerError as exc:
@@ -179,7 +179,7 @@ def ide_list(
         else:
             if manifest.providers.ides:
                 for i in manifest.providers.ides:
-                    info(f"  - {i}")
+                    status_line("ok", i, "")
             else:
                 info("No IDEs configured")
     except InstallerError as exc:

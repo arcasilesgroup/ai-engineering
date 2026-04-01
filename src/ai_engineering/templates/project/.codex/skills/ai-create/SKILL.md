@@ -3,6 +3,7 @@ name: ai-create
 description: Use when adding a new slash command, building a new agent role, or extending the ai-engineering framework with a capability it does not yet have. Trigger for 'create a new skill', 'add a slash command', 'the framework needs a capability for X', 'build a new agent'. Covers skill scaffold, TDD pressure testing, description optimization, registration, and mirror sync.
 effort: high
 argument-hint: "skill <name>|agent <name>"
+tags: [meta, framework, creation]
 ---
 
 
@@ -42,6 +43,8 @@ This is the invariant checklist that must be satisfied regardless of whether you
 ## Mode: skill <name>
 
 ### Phase 1 — ai-engineering Context (this skill owns this)
+
+Follow `handlers/create-skill.md` for the full scaffold procedure.
 
 Before creating anything, load project context:
 
@@ -91,6 +94,8 @@ for format reference.
 
 ### Phase 3 — Register and Sync (this skill owns this)
 
+Follow `handlers/validate.md` for the validation checklist.
+
 After skill-creator delivers the SKILL.md:
 
 1. **Verify file is at correct path**: `.codex/skills/ai-{name}/SKILL.md`
@@ -120,6 +125,8 @@ After skill-creator delivers the SKILL.md:
 ---
 
 ## Mode: agent <name>
+
+Follow `handlers/create-agent.md` for the full scaffold procedure.
 
 Agents don't go through skill-creator (they're not skills). Create them directly:
 
@@ -167,6 +174,15 @@ The `description` field is the skill's search ranking — it determines whether 
 - Script-only skills: also set `disable-model-invocation: true`
 
 Currently only `ai-analyze-permissions` uses `copilot_compatible: false`.
+
+## Handlers
+
+| Handler | Phase | File |
+|---------|-------|------|
+| Skill scaffold | Phase 1 | `handlers/create-skill.md` |
+| Agent scaffold | Phase 2 | `handlers/create-agent.md` |
+| Validation | Phase 3 | `handlers/validate.md` |
+| Shell scaffold | Phase 1 | `scripts/scaffold-skill.sh` |
 
 ## Quick Reference
 

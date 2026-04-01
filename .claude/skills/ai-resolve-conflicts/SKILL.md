@@ -76,8 +76,10 @@ Intelligent git conflict resolution. Detects conflict type, categorizes files by
 7. **Continue operation**:
    ```bash
    git add <resolved-files>
-   git rebase --continue   # or merge --continue, etc.
+   git rebase --continue   # or git merge --continue / git revert --continue / git cherry-pick --continue
    ```
+
+   If the continue operation produces new conflicts (common during multi-commit rebases), loop back to the conflict detection step and resolve the next round. Repeat until the operation completes.
 
 ## Common Mistakes
 

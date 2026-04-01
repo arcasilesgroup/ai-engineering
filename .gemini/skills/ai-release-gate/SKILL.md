@@ -4,6 +4,9 @@ description: "Use when checking release readiness: 'is this ready to ship?', 'ca
 effort: high
 argument-hint: "[version]|--check-only"
 tags: [quality, release, gate, go-no-go, delivery]
+requires:
+  bins:
+  - gitleaks
 ---
 
 
@@ -19,6 +22,16 @@ Aggregated GO/NO-GO release readiness gate. Checks every quality dimension again
 - NOT for security only -- use `/ai-security`.
 
 ## Process
+
+### Step 0 -- Detect stack
+
+Read project root for build config files to determine the technology stack:
+- `pyproject.toml` --> Python
+- `package.json` --> JS/TS
+- `Cargo.toml` --> Rust
+- `go.mod` --> Go
+
+Map each gate dimension to the stack-appropriate tool. If multiple configs are found, run gates for each detected stack. If no build config found, report and ask the user before proceeding.
 
 ### Phase 1: Gate Dimensions
 

@@ -93,6 +93,8 @@ Status: READY FOR REVIEW
 
 ### Mode: regression
 
+Baseline is created automatically on the first `report` run. If `baseline.json` does not exist, the current run becomes the initial baseline.
+
 1. Load baseline from `.ai-engineering/evals/baseline.json`
 2. Run all regression evals against current state
 3. Compare against baseline results
@@ -119,11 +121,11 @@ Result: X/Y passed (previously Y/Y)
 
 ### Grader Types
 
-| Grader | How It Works | When to Use |
-|--------|-------------|-------------|
-| Code | Deterministic checks (grep, test runners, build) | Verifiable outputs, structured results |
-| Model | Claude evaluates open-ended output (score 1-5) | Prose quality, code style, creative output |
-| Human | Flag for manual review with risk level | Security decisions, UX judgment, ambiguous cases |
+| Grader | How It Works | When to Use | Example |
+|--------|-------------|-------------|---------|
+| Code | Deterministic checks (grep, test runners, build) | Verifiable outputs, structured results | `grep -q "export function handleAuth" src/auth.ts && echo "PASS"` |
+| Model | Claude evaluates open-ended output (score 1-5) | Prose quality, code style, creative output | Prompt: "Does it solve the stated problem? Score 1-5" |
+| Human | Flag for manual review with risk level | Security decisions, UX judgment, ambiguous cases | `[HUMAN REVIEW REQUIRED] Risk Level: HIGH` |
 
 ### Metrics
 
@@ -141,47 +143,6 @@ Result: X/Y passed (previously Y/Y)
 Define --> Implement --> Evaluate --> Report
   |                                    |
   +-------- regression loop -----------+
-```
-
-## Grader Details
-
-### Code-Based Grader
-
-Deterministic checks using code:
-```bash
-# Check if file contains expected pattern
-grep -q "export function handleAuth" src/auth.ts && echo "PASS" || echo "FAIL"
-
-# Check if tests pass
-npm test -- --testPathPattern="auth" && echo "PASS" || echo "FAIL"
-
-# Check if build succeeds
-npm run build && echo "PASS" || echo "FAIL"
-```
-
-### Model-Based Grader
-
-Use Claude to evaluate open-ended outputs:
-```markdown
-[MODEL GRADER PROMPT]
-Evaluate the following code change:
-1. Does it solve the stated problem?
-2. Is it well-structured?
-3. Are edge cases handled?
-4. Is error handling appropriate?
-
-Score: 1-5 (1=poor, 5=excellent)
-Reasoning: [explanation]
-```
-
-### Human Grader
-
-Flag for manual review:
-```markdown
-[HUMAN REVIEW REQUIRED]
-Change: Description of what changed
-Reason: Why human review is needed
-Risk Level: LOW/MEDIUM/HIGH
 ```
 
 ## Storage

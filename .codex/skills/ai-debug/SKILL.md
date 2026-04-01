@@ -113,6 +113,21 @@ Fix: add `config = yaml.safe_load(f) or {}` instead of `config = yaml.safe_load(
 - Retrying the same approach that already failed
 - Not checking for sibling bugs (same pattern elsewhere)
 
+## Handlers
+
+When the error involves a build or compilation failure, load the language-specific handler for resolution patterns.
+
+| Handler | Trigger | File |
+|---------|---------|------|
+| C++ | `.cpp`, `.h`, `.hpp` files or CMake/Make errors | `handlers/cpp.md` |
+| Go | `.go` files or `go build` errors | `handlers/go.md` |
+| Java | `.java` files or Maven/Gradle errors | `handlers/java.md` |
+| Kotlin | `.kt` files or Gradle/KSP errors | `handlers/kotlin.md` |
+| Python Build | `pyproject.toml`, build failures, dependency resolution | `handlers/python-build.md` |
+| PyTorch | CUDA, tensor, GPU-related errors | `handlers/pytorch.md` |
+| Rust | `.rs` files or `cargo` errors | `handlers/rust.md` |
+| TypeScript Build | `.ts`, `.tsx` files or tsc/webpack/vite errors | `handlers/typescript-build.md` |
+
 ## Integration
 
 - **Called by**: `/ai-dispatch` (debug tasks), `ai-build agent` (when tests fail), user directly

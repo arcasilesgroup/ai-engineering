@@ -38,6 +38,8 @@ Router skill for marketing content and go-to-market execution. Dispatches to han
 | `investor-outreach` | `handlers/investor-outreach.md` | Cold emails, warm intros, follow-ups |
 | `x-api` | `handlers/x-api.md` | X API v2 posting, threads, media |
 
+If no sub-command is provided, display the routing table above and ask the user which mode to use.
+
 ## Quick Reference
 
 ```

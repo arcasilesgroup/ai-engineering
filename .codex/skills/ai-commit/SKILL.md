@@ -51,11 +51,11 @@ Stage specific files -- `git add <file1> <file2>`. Use `git add -A` only when us
 
 ### 2. Format
 
-Run `ruff format .` to auto-fix formatting.
+If project is Python (detected via `pyproject.toml` or `.py` files in staged changes): run `ruff format .` to auto-fix formatting. For other stacks, run the stack-appropriate formatter from language context (e.g., `prettier` for TS/JS, `cargo fmt` for Rust, `gofmt` for Go). If no formatter configured, skip with a note.
 
 ### 3. Lint
 
-Run `ruff check . --fix` to auto-fix safe issues. If unfixable issues remain, report and stop.
+If project is Python (detected via `pyproject.toml` or `.py` files in staged changes): run `ruff check . --fix` to auto-fix safe issues. For other stacks, run the stack-appropriate linter from language context (e.g., `eslint --fix` for TS/JS, `cargo clippy --fix` for Rust, `golangci-lint run` for Go). If no linter configured, skip with a note. If unfixable issues remain, report and stop.
 
 ### 4. Secret scan
 
@@ -78,7 +78,7 @@ Evaluate staged changes and classify scope:
 
 ### 5.5. Content integrity check
 
-If any file under `.ai-engineering/` was created, deleted, or renamed in the staged changes, run `ai-eng validate` to verify manifest counters, decision-store schema, and spec structure. If validation fails, report and stop.
+If any file under `.ai-engineering/` was created, deleted, or renamed in the staged changes, run `ai-eng validate` to verify manifest counters, decision-store schema, and spec structure. If `ai-eng` is not available, skip content integrity check with a warning. If validation fails, report and stop.
 
 ### 6. Spec verify
 

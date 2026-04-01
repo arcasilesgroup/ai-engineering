@@ -1,6 +1,6 @@
 ---
 name: ai-run
-description: Use when a backlog of work items should run autonomously end to end without waiting for human checkpoints after invocation. Supports GitHub Issues, Azure Boards, and local markdown task lists; plans safely, executes through ai-build, converges with review and verify, and delivers via PR.
+description: Use when a backlog of work items should run autonomously end to end without waiting for human checkpoints after invocation. Trigger for 'run these backlog items', 'execute these GitHub issues', 'process the sprint backlog'. Not for spec-driven multi-concern work — use /ai-autopilot. Supports GitHub Issues, Azure Boards, and local markdown task lists; plans safely, executes through ai-build, converges with review and verify, and delivers via PR.
 effort: max
 argument-hint: "github|azure|markdown <source> [--single|--batch] [--resume] [--no-watch]"
 tags: [orchestration, autonomous, backlog, github, azure, delivery]
@@ -97,8 +97,11 @@ Read `handlers/phase-deliver.md` and execute:
 
 `ai-run` does not embed provider logic, build logic, review logic, or PR logic. It reads and reuses:
 
+**Agents:**
 - `.gemini/agents/ai-explore.md`
 - `.gemini/agents/ai-build.md`
+
+**Skills:**
 - `.gemini/skills/ai-review/SKILL.md`
 - `.gemini/skills/ai-verify/SKILL.md`
 - `.gemini/skills/ai-pr/SKILL.md`

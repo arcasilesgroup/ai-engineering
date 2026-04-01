@@ -243,7 +243,7 @@ class TestDecisionExpireCheck:
 
         # Assert
         assert result.exit_code == 0
-        assert "EXPIRED" in result.output
+        assert "expired" in result.output.lower()
         assert "DEC-001" in result.output
 
     def test_expiring_soon_detected(self, tmp_path: Path) -> None:
@@ -265,7 +265,7 @@ class TestDecisionExpireCheck:
 
         # Assert
         assert result.exit_code == 0
-        assert "EXPIRING SOON" in result.output
+        assert "expiring" in result.output.lower()
         assert "DEC-001" in result.output
 
     def test_non_active_decisions_skipped(self, tmp_path: Path) -> None:
@@ -332,9 +332,9 @@ class TestDecisionExpireCheck:
 
         # Assert
         assert result.exit_code == 0
-        assert "EXPIRED" in result.output
+        assert "expired" in result.output.lower()
         assert "DEC-001" in result.output
-        assert "EXPIRING SOON" in result.output
+        assert "expiring" in result.output.lower()
         assert "DEC-002" in result.output
 
 

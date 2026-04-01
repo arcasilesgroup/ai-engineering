@@ -4,6 +4,7 @@ description: Use when designing or building user interfaces, creating design sys
 effort: high
 argument-hint: "[UI or design task description]"
 mode: agent
+tags: [design, ui, ux, design-system, aesthetics]
 ---
 
 
@@ -35,6 +36,8 @@ Read `handlers/aesthetics.md` for the full aesthetic direction philosophy. This 
 Read `handlers/design-system.md` for the priority-ranked UX rule database, covering accessibility, touch targets, performance, style selection, layout, typography, animation, forms, navigation, and data visualization.
 
 ### Step 3 -- Analyze the Request
+
+If handlers are unavailable, apply the design thinking framework directly: Purpose, Tone, Constraints, Differentiation.
 
 Apply the design thinking framework from `handlers/aesthetics.md`:
 

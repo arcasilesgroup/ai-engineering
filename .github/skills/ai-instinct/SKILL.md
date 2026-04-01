@@ -113,7 +113,7 @@ workflows:
 ```
 
 Merge rules:
-- If an existing entry matches the same pattern (fuzzy match on trigger + action), increment `evidenceCount` and update `lastSeen`.
+- If an existing entry matches the same pattern (fuzzy match on trigger + action), increment `evidenceCount` and update `lastSeen`. Match if the trigger and action describe the same behavioral pattern using different wording. When in doubt, increment the existing entry rather than creating a duplicate.
 - Apply confidence scoring: `confidence_for_count(evidenceCount)` yields 0.3/0.5/0.7/0.85 at thresholds 1/2/3/5+.
 - Drop entries with confidence below 0.2 (decay threshold).
 - Update `.ai-engineering/instincts/meta.json` with new checkpoint.

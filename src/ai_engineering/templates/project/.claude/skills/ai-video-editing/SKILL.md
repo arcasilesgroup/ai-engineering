@@ -23,6 +23,10 @@ AI-assisted editing for real footage. Not generation from prompts. The core thes
 
 ## Process
 
+### Gate Check -- FFmpeg Required
+
+Verify `ffmpeg` is available: `ffmpeg -version`. If not installed, provide platform-specific install instructions (`brew install ffmpeg` / `apt install ffmpeg` / `choco install ffmpeg`).
+
 ### The 6-Layer Pipeline
 
 ```
@@ -115,7 +119,7 @@ Remotion turns editing problems into composable code. Use it when you need:
 npx remotion render src/index.ts VlogComposition output.mp4
 ```
 
-Remotion requires Node.js. Skip this layer if the user does not need programmable compositions. See the [Remotion docs](https://www.remotion.dev/docs) for API reference.
+Remotion requires Node.js. Skip this layer if the user does not need programmable compositions. See the [Remotion docs](https://www.remotion.dev/docs) (external reference -- may require manual verification) for API reference.
 
 ### Layer 5 -- Generated Assets
 

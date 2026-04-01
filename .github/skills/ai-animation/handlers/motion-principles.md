@@ -72,3 +72,20 @@ Pressing should be slow when deliberate (hold-to-delete: 2s linear), but release
 ## Review Your Work the Next Day
 
 Review animations with fresh eyes. You notice imperfections the next day that you missed during development. Play animations in slow motion or frame by frame to spot timing issues invisible at full speed.
+
+## Core Design Philosophy
+
+### Taste is trained, not innate
+Good taste isn't personal preference--it's a trained instinct: recognizing what elevates beyond the obvious. Develop it by studying great work, reverse-engineering why things feel good, and practicing relentlessly.
+
+When building UI, don't just make it functional. Study the best interfaces. Reverse engineer animations. Inspect interactions. Maintain curiosity.
+
+### Unseen details compound
+Most details users never consciously notice. That's intentional. When features work exactly as expected, users proceed without thought. That's the goal.
+
+> "All those unseen details combine to produce something that's just stunning, like a thousand barely audible voices all singing in tune." - Paul Graham
+
+Every decision exists because invisible correctness aggregates into interfaces people love without understanding why.
+
+### Beauty is leverage
+People choose tools based on overall experience, not just functionality. Good defaults and animations differentiate. Beauty remains underutilized in software. Deploy it strategically.

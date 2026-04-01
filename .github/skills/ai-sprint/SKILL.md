@@ -39,9 +39,9 @@ Sprint lifecycle management: plan new sprints from backlog, run data-driven retr
 
 ### plan -- New sprint planning
 
-1. **Review backlog** -- read open specs, GitHub Issues/Projects, and triaged items from `/ai-triage`.
+1. **Review backlog** -- read open specs, GitHub Issues/Projects, and prioritized items from the backlog (GitHub Issues with priority labels or manual ranking).
 2. **Assess capacity** -- count working days in sprint, factor in known absences or blockers from decision-store.
-3. **Select items** -- pull highest-priority items that fit capacity. Apply RICE scores from triage.
+3. **Select items** -- pull highest-priority items that fit capacity. Apply RICE scores from backlog prioritization.
 4. **Estimate effort** -- use size labels (XS/S/M/L/XL) from issue standard. Flag items missing size estimates.
 5. **Draft sprint board** -- output planned items grouped by priority:
 
@@ -124,6 +124,5 @@ Generate a branded sprint review PowerPoint deck using python-pptx. Each invocat
 ## Integration
 
 - **See also**: `/ai-standup` (daily activity detail)
-- **Replaces**: `/ai-sprint-review` (deprecated — use `/ai-sprint review`)
 
 $ARGUMENTS

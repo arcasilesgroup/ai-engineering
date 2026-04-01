@@ -62,7 +62,7 @@ Follow `.ai-engineering/contexts/stack-context.md`.
 
 ---
 
-## Phase 1 — Load Pain Context
+### Phase 1 — Load Pain Context
 
 Before touching any skill, read these 5 sources. They are the ground truth about what hurts in this project:
 
@@ -110,7 +110,7 @@ Write 2-3 test prompts that exercise the skill in contexts where the pain source
 
 ### Phase 4 — Rewrite the Skill (dry-run first)
 
-Based on the pain profile and analysis, rewrite the SKILL.md applying these principles (empirically validated during `ai-platform-audit` development):
+Based on the pain profile and analysis, rewrite the SKILL.md. Apply `/ai-prompt` techniques for general optimization, plus these skill-specific patterns (empirically validated during `ai-platform-audit` development):
 
 1. **"Start Here" pattern** — If the skill has an output contract, move it BEFORE the process instructions. The agent sees the output skeleton first and fills it in as it works.
 
