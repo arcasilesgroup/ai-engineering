@@ -52,6 +52,8 @@ jobs:
       - name: Promote CHANGELOG and bump pyproject.toml
         if: steps.semrel.outputs.released == 'true'
         env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
           RELEASE_VERSION: ${{ steps.semrel.outputs.version }}
         run: |
           DATE=$(date -u +%Y-%m-%d)
@@ -64,13 +66,40 @@ jobs:
           # Bump version in pyproject.toml
           sed -i "s/^version = \".*\"/version = \"${RELEASE_VERSION}\"/" pyproject.toml
 
-          # Commit and push directly (rulesets allow fast-forward push to main)
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add CHANGELOG.md pyproject.toml
-          git commit -m "chore(release): promote changelog and bump version to ${RELEASE_VERSION}"
-          git push origin main
+          # Create blobs via API for each changed file
+          CL_BLOB=$(gh api "repos/${REPO}/git/blobs" \
+            -f content="$(base64 < CHANGELOG.md)" \
+            -f encoding=base64 --jq '.sha')
+          PT_BLOB=$(gh api "repos/${REPO}/git/blobs" \
+            -f content="$(base64 < pyproject.toml)" \
+            -f encoding=base64 --jq '.sha')
 
+          # Create tree with the two updated files
+          BASE_TREE=$(git log -1 --format=%T HEAD)
+          TREE_SHA=$(gh api "repos/${REPO}/git/trees" \
+            --input - --jq '.sha' <<PAYLOAD
+          {"base_tree":"${BASE_TREE}","tree":[
+            {"path":"CHANGELOG.md","mode":"100644","type":"blob","sha":"${CL_BLOB}"},
+            {"path":"pyproject.toml","mode":"100644","type":"blob","sha":"${PT_BLOB}"}
+          ]}
+          PAYLOAD
+          )
+
+          # Create commit
+          PARENT_SHA=$(git rev-parse HEAD)
+          COMMIT_SHA=$(gh api "repos/${REPO}/git/commits" \
+            --input - --jq '.sha' <<PAYLOAD
+          {"message":"chore(release): promote changelog and bump version to ${RELEASE_VERSION}","tree":"${TREE_SHA}","parents":["${PARENT_SHA}"]}
+          PAYLOAD
+          )
+
+          # Fast-forward main ref to the new commit
+          gh api "repos/${REPO}/git/refs/heads/main" \
+            -X PATCH -f sha="$COMMIT_SHA" -f force=false
+
+          # Update local working tree to match
+          git fetch origin main
+          git reset --hard origin/main
           echo "Promoted CHANGELOG and bumped version to ${RELEASE_VERSION}"
 
       - name: Build from release commit
