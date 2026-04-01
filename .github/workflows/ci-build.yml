@@ -95,7 +95,9 @@ jobs:
 
           # Fast-forward main ref to the new commit
           gh api "repos/${REPO}/git/refs/heads/main" \
-            -X PATCH -f sha="$COMMIT_SHA" -f force=false
+            -X PATCH --input - <<REFPATCH
+          {"sha":"${COMMIT_SHA}","force":false}
+          REFPATCH
 
           # Update local working tree to match
           git fetch origin main
