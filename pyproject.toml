@@ -103,7 +103,7 @@ build-backend = "hatchling.build"
 
 [tool.semantic_release]
 version_toml = ["pyproject.toml:project.version"]
-commit_parser = "angular"
+commit_parser = "conventional"
 tag_format = "v{version}"
 major_on_zero = false
 changelog_file = false

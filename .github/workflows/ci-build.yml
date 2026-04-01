@@ -20,7 +20,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          ref: ${{ github.event.workflow_run.head_sha }}
+          ref: main
           fetch-depth: 0
           token: ${{ github.token }}
 
@@ -54,7 +54,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           TAG="${{ steps.semrel.outputs.tag }}"
-          git tag "$TAG" "${{ github.event.workflow_run.head_sha }}"
+          git tag "$TAG" HEAD
           git push origin "$TAG"
 
       - name: Attest build provenance
