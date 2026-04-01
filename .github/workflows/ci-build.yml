@@ -38,9 +38,11 @@ jobs:
           NEW_TAG=$(head -1 /tmp/new-tag.txt)
           if [ -n "$NEW_TAG" ] && [ "$NEW_TAG" != "$(git describe --tags --abbrev=0 2>/dev/null)" ]; then
             VERSION="${NEW_TAG#v}"
-            echo "released=true" >> "$GITHUB_OUTPUT"
-            echo "tag=$NEW_TAG" >> "$GITHUB_OUTPUT"
-            echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+            {
+              echo "released=true"
+              echo "tag=$NEW_TAG"
+              echo "version=$VERSION"
+            } >> "$GITHUB_OUTPUT"
             echo "Version bump detected: $NEW_TAG (version: $VERSION)"
           else
             echo "released=false" >> "$GITHUB_OUTPUT"
