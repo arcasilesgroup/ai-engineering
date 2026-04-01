@@ -43,7 +43,7 @@ jobs:
       tag-name: ${{ steps.resolve.outputs.tag_name }}
       ci-run-id: ${{ steps.resolve.outputs.ci_run_id }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v6.0.2
         with:
           fetch-depth: 0
 
@@ -119,7 +119,7 @@ jobs:
     timeout-minutes: 5
     needs: resolve-version
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v6.0.2
         with:
           ref: ${{ needs.resolve-version.outputs.tag-name }}
 
