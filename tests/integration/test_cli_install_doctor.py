@@ -11,6 +11,7 @@ Uses Typer's CliRunner to test CLI commands end-to-end:
 from __future__ import annotations
 
 import json
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -28,14 +29,21 @@ def app() -> object:
 
 
 @pytest.fixture()
-def installed_dir(tmp_path: Path, app: object) -> Path:
-    """Install framework to tmp_path via CLI and return the path."""
+def _project_dir(tmp_path: Path) -> Path:
+    """Create a minimal git repo so install validation and hooks setup pass."""
+    subprocess.run(["git", "init", str(tmp_path)], check=True, capture_output=True)
+    return tmp_path
+
+
+@pytest.fixture()
+def installed_dir(_project_dir: Path, app: object) -> Path:
+    """Install framework to _project_dir via CLI and return the path."""
     result = runner.invoke(
         app,
-        ["install", str(tmp_path), "--stack", "python", "--ide", "vscode"],
+        ["install", str(_project_dir), "--stack", "python", "--ide", "vscode"],
     )
     assert result.exit_code == 0, result.output
-    return tmp_path
+    return _project_dir
 
 
 # ---------------------------------------------------------------------------
@@ -68,16 +76,16 @@ class TestInstallCommand:
 
     def test_install_creates_framework(
         self,
-        tmp_path: Path,
+        _project_dir: Path,
         app: object,
     ) -> None:
         result = runner.invoke(
             app,
-            ["install", str(tmp_path), "--stack", "python"],
+            ["install", str(_project_dir), "--stack", "python"],
         )
-        assert result.exit_code == 0
+        assert result.exit_code == 0, result.output
         assert "Installed to:" in result.output
-        assert (tmp_path / ".ai-engineering" / "state").is_dir()
+        assert (_project_dir / ".ai-engineering" / "state").is_dir()
 
     def test_install_on_existing_shows_skipped(
         self,
