@@ -49,6 +49,7 @@ def _mock_install_pipeline() -> MagicMock:
 
 def _setup_existing_install(tmp_path: Path) -> Path:
     """Create a minimal .ai-engineering dir that signals an existing installation."""
+    (tmp_path / ".git").mkdir(exist_ok=True)
     state_dir = tmp_path / ".ai-engineering" / "state"
     state_dir.mkdir(parents=True, exist_ok=True)
     state_file = state_dir / "install-state.json"
@@ -301,6 +302,7 @@ class TestFirstInstallUnchanged:
         # Arrange
         app = create_app()
         mock_install = _mock_install_pipeline()
+        (tmp_path / ".git").mkdir(exist_ok=True)
 
         with (
             patch(f"{_CORE}.install_with_pipeline", mock_install),

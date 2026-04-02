@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Wizard empty selection (spec-099)** -- `questionary.checkbox` prompts now validate non-empty selection with re-prompt and display spacebar usage hint. Prevents silent empty stacks/providers/IDEs in manifest.
+- **VCS provider state gap (spec-099)** -- `state.vcs_provider` persisted during install, eliminating persistent VCS mismatch warning in doctor.
+- **Duplicate VCS warnings (spec-099)** -- removed ToolsPhase warning promotion from `_summary_to_install_result()`, VCS tool warnings now appear once.
+- **Pipeline step display order (spec-099)** -- `_render_pipeline_steps` imports `PHASE_ORDER` instead of hardcoding phase sequence.
+- **Hardcoded Python gate paths (spec-099)** -- pre-push gate checks (`stack-tests`, `ty-check`) use dynamic path detection from `pyproject.toml` instead of hardcoded `src/ai_engineering` and `tests/unit/`. Checks gracefully skip when target path does not exist.
+
+### Added
+- **Project validation (spec-099)** -- `install_cmd()` validates target directory looks like a software project before proceeding. Warns and confirms in interactive mode, aborts in `--non-interactive`.
+- **Contributor install flow (spec-099)** -- CONTRIBUTING.md documents `git clone` + source install + test workflow.
+- **Branch policy help text (spec-099)** -- expanded with actionable setup steps for GitHub and Azure DevOps.
+
+### Removed
+- **Duplication checker from user gates (spec-099)** -- `python -m ai_engineering.policy.duplication` targeted ai-engineering's own source tree, not user projects. Kept in CI only.
+- **Project-specific CVE exemption (spec-099)** -- removed `--ignore-vuln CVE-2026-4539` from user-facing `pip-audit` gate. Exemption moved to `pyproject.toml` for ai-engineering's own CI.
+
 ### Changed
 - **CLI branded banner** -- Rich-powered banner with version, branch, and Python info on all `ai-eng` commands. Consistent visual identity across CLI surface.
 - **README ecosystem rewrite (spec-098)** -- rewrote `README.md` as GitHub landing page, `.ai-engineering/README.md` as post-install reference guide, and created `GETTING_STARTED.md` as progressive discovery tutorial (5-min win → problem-based → advanced).

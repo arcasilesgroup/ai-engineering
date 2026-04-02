@@ -49,7 +49,7 @@ def _patch_tooling(monkeypatch: object, *, available: bool = True) -> None:
     monkeypatch.setattr(
         service,
         "ensure_tool",
-        lambda tool: SimpleNamespace(available=available, detail=f"{tool}-ok"),
+        lambda tool, **_kw: SimpleNamespace(available=available, detail=f"{tool}-ok"),
     )
 
 

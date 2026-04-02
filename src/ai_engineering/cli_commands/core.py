@@ -122,6 +122,23 @@ def install_cmd(
 
     root = resolve_project_root(target)
 
+    # --- Project validation guard ---
+    _PROJECT_SIGNALS = (
+        ".git",
+        "pyproject.toml",
+        "package.json",
+        "go.mod",
+        "Cargo.toml",
+        "tsconfig.json",
+    )
+    has_project = any((root / s).exists() for s in _PROJECT_SIGNALS) or list(root.glob("*.sln"))
+    if not has_project:
+        if non_interactive:
+            typer.echo(f"Error: no project files detected in {root}.", err=True)
+            raise typer.Exit(code=1)
+        if not typer.confirm(f"No project files detected in {root}. Continue anyway?", abort=True):
+            raise typer.Exit(code=1)
+
     # Dry-run mode: use pipeline, output JSON plan
     if dry_run:
         set_json_mode(True)
@@ -380,14 +397,9 @@ def _render_pipeline_steps(summary: object) -> None:
     if not isinstance(summary, PipelineSummary):
         return
 
-    phase_names = [
-        PHASE_DETECT,
-        PHASE_GOVERNANCE,
-        PHASE_IDE_CONFIG,
-        PHASE_HOOKS,
-        PHASE_STATE,
-        PHASE_TOOLS,
-    ]
+    from ai_engineering.installer.phases import PHASE_ORDER
+
+    phase_names = list(PHASE_ORDER)
     phase_labels = {
         PHASE_DETECT: "Detection",
         PHASE_GOVERNANCE: "Governance framework",

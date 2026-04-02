@@ -37,6 +37,7 @@ pip install ai-engineering
 Or with `uv`:
 
 ```bash
+uv venv
 uv pip install ai-engineering
 ```
 

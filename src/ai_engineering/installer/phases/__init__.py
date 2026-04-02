@@ -25,15 +25,17 @@ PHASE_HOOKS = "hooks"
 PHASE_STATE = "state"
 PHASE_TOOLS = "tools"
 
-# Canonical pipeline ordering.  StatePhase must run before HooksPhase so that
-# _record_hook_hashes() can find install-state.json when saving hook hashes.
+# Canonical pipeline ordering.  StatePhase must run before both ToolsPhase and
+# HooksPhase so that install-state.json exists for tool status and hook hashes.
+# ToolsPhase must run before HooksPhase so that gate-required tools (gitleaks,
+# ruff, etc.) are installed before hooks activate pre-commit/pre-push gates.
 PHASE_ORDER: tuple[str, ...] = (
     PHASE_DETECT,
     PHASE_GOVERNANCE,
     PHASE_IDE_CONFIG,
     PHASE_STATE,
-    PHASE_HOOKS,
     PHASE_TOOLS,
+    PHASE_HOOKS,
 )
 
 # ---------------------------------------------------------------------------

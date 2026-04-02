@@ -34,7 +34,6 @@ from ai_engineering.installer.phases import (
     PHASE_IDE_CONFIG,
     PHASE_ORDER,
     PHASE_STATE,
-    PHASE_TOOLS,
     InstallContext,
     InstallMode,
 )
@@ -293,9 +292,6 @@ def _summary_to_install_result(
             project_skipped.extend(Path(p) for p in phase_result.skipped)
         elif phase_result.phase_name == PHASE_STATE:
             result.state_files = [Path(p) for p in phase_result.created]
-        elif phase_result.phase_name == PHASE_TOOLS:
-            result.manual_steps.extend(phase_result.warnings)
-
     result.governance_files = CopyResult(
         created=governance_created,
         skipped=governance_skipped,
@@ -437,7 +433,7 @@ def _run_operational_phases(target: Path, *, vcs_provider: str, result: InstallR
     # Phase 2: required tooling (provider-aware + stack-aware)
     stack_report = check_tools_for_stacks(config.providers.stacks)
     for tool in provider_required_tools(vcs_provider):
-        install_result = ensure_tool(tool)
+        install_result = ensure_tool(tool, allow_install=True)
         tool_entry = state.tooling.get(tool)
         if tool_entry is not None:
             tool_entry.installed = install_result.available
@@ -453,11 +449,11 @@ def _run_operational_phases(target: Path, *, vcs_provider: str, result: InstallR
             result.manual_steps.append(f"Install or enable `{tool}` CLI")
 
     for item in stack_report.tools:
-        if not item.available and item.name in {"gitleaks", "semgrep"}:
-            # Attempt auto-install before falling back to manual step
-            sec_result = ensure_tool(item.name)
-            if not sec_result.available:
-                result.manual_steps.append(f"Install required security tool `{item.name}`")
+        if not item.available:
+            # Attempt auto-install for all missing stack tools, not just security tools
+            tool_result = ensure_tool(item.name, allow_install=True)
+            if not tool_result.available:
+                result.manual_steps.append(f"Install required tool `{item.name}`")
 
     # Deferred setup for projects without stacks
     if not config.providers.stacks:
@@ -506,5 +502,6 @@ def _run_operational_phases(target: Path, *, vcs_provider: str, result: InstallR
         result.readiness_status = "READY WITH MANUAL STEPS"
     state.operational_readiness.status = result.readiness_status
     state.operational_readiness.pending_steps = list(result.manual_steps)
+    state.vcs_provider = vcs_provider
 
     save_install_state(state_dir, state)
