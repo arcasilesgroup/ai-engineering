@@ -64,13 +64,21 @@ def detect_python_source_root(project_root: Path) -> str:
 def detect_python_test_dir(project_root: Path) -> str | None:
     """Detect Python test directory from pyproject.toml or filesystem probes.
 
+    For pre-push gates, fast feedback is critical.  When the resolved
+    test directory contains a ``unit/`` subdirectory, return that
+    narrower path so the gate runs only unit tests (CI handles the
+    full suite).
+
     Resolution order:
     1. ``[tool.pytest.ini_options] testpaths`` (first entry)
     2. ``tests/`` directory exists on disk
     3. ``test/`` directory exists on disk
     4. ``None`` (no test directory found)
+
+    After resolution, if ``<resolved>/unit/`` exists, return it instead.
     """
     pyproject = project_root / "pyproject.toml"
+    resolved: str | None = None
     try:
         data = tomllib.loads(pyproject.read_text(encoding="utf-8"))
 
@@ -79,20 +87,27 @@ def detect_python_test_dir(project_root: Path) -> str | None:
             data.get("tool", {}).get("pytest", {}).get("ini_options", {}).get("testpaths", [])
         )
         if testpaths:
-            return testpaths[0]
+            resolved = testpaths[0]
     except (FileNotFoundError, tomllib.TOMLDecodeError):
         pass
 
-    # 2. Probe: tests/ directory
-    if (project_root / "tests").is_dir():
-        return "tests"
+    if resolved is None:
+        # 2. Probe: tests/ directory
+        if (project_root / "tests").is_dir():
+            resolved = "tests"
+        # 3. Probe: test/ directory
+        elif (project_root / "test").is_dir():
+            resolved = "test"
 
-    # 3. Probe: test/ directory
-    if (project_root / "test").is_dir():
-        return "test"
+    if resolved is None:
+        return None
 
-    # 4. No test directory found
-    return None
+    # Prefer unit/ subdirectory for fast pre-push feedback
+    unit_sub = project_root / resolved / "unit"
+    if unit_sub.is_dir():
+        return f"{resolved}/unit"
+
+    return resolved
 
 
 # Pre-commit checks per stack.
@@ -145,7 +160,7 @@ PRE_PUSH_CHECKS: dict[str, list[CheckConfig]] = {
                 "--dist",
                 "worksteal",
             ],
-            timeout=300,
+            timeout=120,
         ),
         CheckConfig(name="ty-check", cmd=["ty", "check", "src/ai_engineering"]),
     ],

@@ -162,8 +162,24 @@ class TestDetectPythonTestDir:
         # Act
         result = detect_python_test_dir(tmp_path)
 
-        # Assert
+        # Assert -- no unit/ subdirectory, returns resolved path as-is
         assert result == "tests"
+
+    def test_from_pytest_config_prefers_unit_subdir(self, tmp_path: Path) -> None:
+        """When resolved dir has a unit/ subdirectory, return the narrower path."""
+        # Arrange
+        pyproject = tmp_path / "pyproject.toml"
+        pyproject.write_text(
+            '[tool.pytest.ini_options]\ntestpaths = ["tests"]\n',
+            encoding="utf-8",
+        )
+        (tmp_path / "tests" / "unit").mkdir(parents=True)
+
+        # Act
+        result = detect_python_test_dir(tmp_path)
+
+        # Assert
+        assert result == "tests/unit"
 
     def test_probe_tests_directory(self, tmp_path: Path) -> None:
         """Falls back to 'tests' when the directory exists but no config."""
