@@ -8,12 +8,12 @@
     },
     {
       "version": "0.2.0",
-      "status": "previous",
+      "status": "supported",
       "released": "2026-04-01"
     },
     {
       "version": "0.1.0",
-      "status": "previous",
+      "status": "supported",
       "released": "2026-03-01"
     }
   ]

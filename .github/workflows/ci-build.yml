@@ -169,7 +169,7 @@ jobs:
           import json, sys
           data = json.load(sys.stdin)
           for v in data['versions']:
-              v['status'] = 'previous'
+              v['status'] = 'supported'
           print(','.join(json.dumps(v) for v in data['versions']))")
             ]
           }
