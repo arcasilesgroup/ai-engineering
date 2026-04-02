@@ -4,6 +4,7 @@ Completed specs. Details in git history.
 
 | ID | Title | Status | Created | Branch |
 |----|-------|--------|---------|--------|
+| 100 | Version alignment and install story — commit-back, CHANGELOG, documentation | done | 2026-04-02 | feat/spec-100-version-alignment-install-story |
 | 099 | First-run experience — wizard validation, warnings, and gate generalization | done | 2026-04-02 | fix/spec-098-tools-before-hooks |
 | 098 | README Ecosystem Rewrite — GitHub Landing, Post-Install Reference, Getting Started | done | 2026-04-01 | feat/cli-branding-and-design-audit |
 | 097 | CI/CD Redesign — DevSecOps, Supply Chain, Artifact-Driven Releases | done | 2026-03-31 | feat/spec-097-cicd-redesign |
