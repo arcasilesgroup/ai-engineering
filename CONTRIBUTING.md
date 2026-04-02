@@ -4,29 +4,48 @@ Thank you for your interest in contributing. This guide covers everything you ne
 
 ## Development setup
 
-Clone the repository and install the project with development dependencies:
+Clone the repository:
 
 ```bash
 git clone https://github.com/arcasilesgroup/ai-engineering.git
 cd ai-engineering
 ```
 
-With `uv` (recommended):
+### With uv (recommended)
 
 ```bash
 uv sync --all-extras
 ```
 
-With `pip`:
+This creates a virtual environment and installs all dependencies automatically.
+
+### With pip
+
+Create and activate a virtual environment first:
+
+```bash
+python -m venv .venv
+source .venv/bin/activate        # macOS / Linux
+# .venv\Scripts\activate         # Windows
+```
+
+Install in editable mode with dev dependencies:
 
 ```bash
 pip install -e ".[dev]"
 ```
 
-Verify the installation:
+### Verify the installation
 
 ```bash
 ai-eng version
+```
+
+Run the test suite and linter to confirm everything works:
+
+```bash
+pytest tests/unit/ -v
+ruff check .
 ```
 
 ## Code style

@@ -610,6 +610,7 @@ class TestInstallCleanOutput:
     ) -> None:
         """When guide_text is present, only warnings are shown — not the full text block."""
         mock_resolve.return_value = tmp_path
+        (tmp_path / ".git").mkdir(exist_ok=True)
         result_obj = MagicMock()
         result_obj.governance_files.created = ["a"]
         result_obj.project_files.created = ["b"]

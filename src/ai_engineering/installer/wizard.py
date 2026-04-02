@@ -57,9 +57,21 @@ def _build_choices(
     return [questionary.Choice(name, checked=(name in detected)) for name in all_options]
 
 
+def _checkbox_validate(selection: list[str]) -> bool | str:
+    """Return ``True`` if *selection* is non-empty, otherwise an error message."""
+    if selection:
+        return True
+    return "Please select at least one option (use spacebar to toggle)"
+
+
 def _ask_checkbox(prompt: str, choices: list[questionary.Choice]) -> list[str]:
     """Run a checkbox prompt and handle None (Ctrl+C) gracefully."""
-    result = questionary.checkbox(prompt, choices=choices).ask()
+    result = questionary.checkbox(
+        prompt,
+        choices=choices,
+        validate=_checkbox_validate,
+        instruction="(spacebar to select, Enter to confirm)",
+    ).ask()
     if result is None:
         return []
     return result

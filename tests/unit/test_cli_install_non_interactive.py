@@ -81,6 +81,7 @@ class TestNonInteractiveSkipsPrompts:
         # Arrange
         app = create_app()
         mock_install = _mock_install_with_pipeline()
+        (tmp_path / ".git").mkdir(exist_ok=True)
 
         with (
             patch(f"{_CORE}.install_with_pipeline", mock_install),
@@ -107,6 +108,7 @@ class TestNonInteractiveSkipsPrompts:
         # Arrange
         app = create_app()
         mock_install = _mock_install_with_pipeline()
+        (tmp_path / ".git").mkdir(exist_ok=True)
 
         with (
             patch(f"{_CORE}.install_with_pipeline", mock_install),
@@ -132,6 +134,7 @@ class TestNonInteractiveSkipsPrompts:
         # Arrange
         app = create_app()
         mock_install = _mock_install_with_pipeline()
+        (tmp_path / ".git").mkdir(exist_ok=True)
 
         with (
             patch(f"{_CORE}.install_with_pipeline", mock_install),

@@ -28,9 +28,22 @@ _WINGET_IDS: dict[str, str] = {
     "semgrep": "Semgrep.Semgrep",
 }
 
+# Python tools that can be installed via pip/uv when OS package manager
+# has no mapping (e.g., ruff on Windows where winget has no ruff package).
+_PIP_INSTALLABLE: dict[str, str] = {
+    "ruff": "ruff",
+    "ty": "ty",
+    "pip-audit": "pip-audit",
+}
+
 
 def ensure_tool(tool: str, *, allow_install: bool | None = None) -> ToolInstallResult:
-    """Ensure a tool is available, attempting OS-specific install if missing."""
+    """Ensure a tool is available, attempting OS-specific install if missing.
+
+    Install strategy (in order):
+    1. OS package manager (brew / apt-get / winget)
+    2. pip/uv fallback for Python-installable tools (_PIP_INSTALLABLE)
+    """
     if shutil.which(tool):
         return ToolInstallResult(tool=tool, available=True, attempted=False, installed=False)
 
@@ -49,7 +62,7 @@ def ensure_tool(tool: str, *, allow_install: bool | None = None) -> ToolInstallR
     cmd: list[str] | None = None
     method = ""
 
-    if system == "darwin" and shutil.which("brew"):
+    if system in ("darwin", "linux") and shutil.which("brew"):
         cmd = ["brew", "install", tool]
         method = "brew"
     elif system == "linux" and shutil.which("apt-get"):
@@ -61,36 +74,83 @@ def ensure_tool(tool: str, *, allow_install: bool | None = None) -> ToolInstallR
             cmd = ["winget", "install", "-e", "--id", winget_id]
             method = "winget"
 
-    if cmd is None:
+    if cmd is not None:
+        try:
+            subprocess.run(cmd, check=True, capture_output=True, text=True, timeout=180)
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired, FileNotFoundError) as exc:
+            # OS install failed — fall through to pip fallback
+            if tool not in _PIP_INSTALLABLE:
+                return ToolInstallResult(
+                    tool=tool,
+                    available=False,
+                    attempted=True,
+                    installed=False,
+                    method=method,
+                    detail=str(exc),
+                )
+
+        available = shutil.which(tool) is not None
+        if available:
+            return ToolInstallResult(
+                tool=tool,
+                available=True,
+                attempted=True,
+                installed=True,
+                method=method,
+                detail="installed",
+            )
+
+    # Fallback: pip/uv install for Python-installable tools
+    package = _PIP_INSTALLABLE.get(tool)
+    if package is None:
         return ToolInstallResult(
             tool=tool,
             available=False,
-            attempted=False,
+            attempted=bool(cmd),
             installed=False,
             detail="No supported package manager available",
         )
 
-    try:
-        subprocess.run(cmd, check=True, capture_output=True, text=True, timeout=180)
-    except (subprocess.CalledProcessError, subprocess.TimeoutExpired, FileNotFoundError) as exc:
-        return ToolInstallResult(
-            tool=tool,
-            available=False,
-            attempted=True,
-            installed=False,
-            method=method,
-            detail=str(exc),
-        )
-
+    pip_result = _try_pip_install(package)
     available = shutil.which(tool) is not None
     return ToolInstallResult(
         tool=tool,
         available=available,
         attempted=True,
         installed=available,
-        method=method,
-        detail="installed" if available else "install command completed but tool not found",
+        method="pip",
+        detail="installed via pip" if available else pip_result,
     )
+
+
+def _try_pip_install(package: str) -> str:
+    """Attempt pip/uv install, return error detail on failure."""
+    if shutil.which("uv"):
+        try:
+            subprocess.run(
+                ["uv", "pip", "install", package],
+                check=True,
+                capture_output=True,
+                text=True,
+                timeout=120,
+            )
+            return "installed"
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
+            uv_err = str(exc)
+    else:
+        uv_err = "uv not available"
+
+    try:
+        subprocess.run(
+            ["pip", "install", package],
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        return "installed"
+    except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired) as exc:
+        return f"pip fallback failed: uv: {uv_err}, pip: {exc}"
 
 
 def provider_required_tools(provider: str) -> list[str]:

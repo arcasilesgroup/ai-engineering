@@ -57,7 +57,7 @@ class ToolsPhase:
         required = provider_required_tools(context.vcs_provider)
 
         for tool_name in required:
-            tool_result = ensure_tool(tool_name)
+            tool_result = ensure_tool(tool_name, allow_install=True)
             if tool_result.available:
                 result.created.append(f"tool:{tool_name}:ok")
             else:

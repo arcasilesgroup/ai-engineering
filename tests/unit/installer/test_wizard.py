@@ -658,3 +658,72 @@ class TestEmptySelection:
             assert result.providers == []
             assert result.ides == []
             assert result.vcs == "github"
+
+
+# ---------------------------------------------------------------------------
+# spec-098: Checkbox validation and instruction hint
+# ---------------------------------------------------------------------------
+
+
+class TestCheckboxValidation:
+    """spec-098: _ask_checkbox must pass validate and instruction to questionary."""
+
+    def test_checkbox_passes_validate_that_rejects_empty(self) -> None:
+        """_ask_checkbox passes a validate callback that rejects empty lists."""
+        from ai_engineering.installer.wizard import _ask_checkbox
+
+        mock_checkbox = MagicMock()
+        mock_checkbox.return_value.ask.return_value = ["python"]
+
+        with patch("ai_engineering.installer.wizard.questionary.checkbox", mock_checkbox):
+            choices = [MagicMock(name="python")]
+            _ask_checkbox("Select stacks:", choices)
+
+            call_kwargs = mock_checkbox.call_args.kwargs
+            assert "validate" in call_kwargs, (
+                "_ask_checkbox must pass a 'validate' kwarg to questionary.checkbox"
+            )
+
+            validator = call_kwargs["validate"]
+
+            # Valid selection should pass (return True or truthy)
+            valid_result = validator(["python"])
+            assert valid_result is True, "validate should return True for non-empty selections"
+
+            # Empty selection should fail (return a string message)
+            invalid_result = validator([])
+            assert isinstance(invalid_result, str), (
+                "validate should return an error string for empty selections"
+            )
+
+    def test_checkbox_passes_instruction_with_spacebar(self) -> None:
+        """_ask_checkbox passes an instruction string mentioning spacebar."""
+        from ai_engineering.installer.wizard import _ask_checkbox
+
+        mock_checkbox = MagicMock()
+        mock_checkbox.return_value.ask.return_value = ["python"]
+
+        with patch("ai_engineering.installer.wizard.questionary.checkbox", mock_checkbox):
+            choices = [MagicMock(name="python")]
+            _ask_checkbox("Select stacks:", choices)
+
+            call_kwargs = mock_checkbox.call_args.kwargs
+            assert "instruction" in call_kwargs, (
+                "_ask_checkbox must pass an 'instruction' kwarg to questionary.checkbox"
+            )
+            assert "spacebar" in call_kwargs["instruction"].lower(), (
+                "instruction must mention 'spacebar' to guide users"
+            )
+
+    def test_checkbox_ctrl_c_still_returns_empty_list(self) -> None:
+        """When questionary returns None (Ctrl+C), _ask_checkbox returns []."""
+        from ai_engineering.installer.wizard import _ask_checkbox
+
+        mock_checkbox = MagicMock()
+        mock_checkbox.return_value.ask.return_value = None
+
+        with patch("ai_engineering.installer.wizard.questionary.checkbox", mock_checkbox):
+            choices = [MagicMock(name="python")]
+            result = _ask_checkbox("Select stacks:", choices)
+
+            assert result == []

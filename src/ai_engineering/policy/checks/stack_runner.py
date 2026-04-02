@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import shutil
 import subprocess
+import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -18,6 +19,80 @@ class CheckConfig:
     cmd: list[str]
     required: bool = True
     timeout: int = 300
+
+
+def detect_python_source_root(project_root: Path) -> str:
+    """Detect Python source root from pyproject.toml or filesystem probes.
+
+    Resolution order:
+    1. ``[tool.hatch.build.targets.wheel] packages`` (first entry)
+    2. ``[tool.setuptools] packages`` (first entry)
+    3. ``src/`` directory exists on disk
+    4. Fallback ``"."``
+    """
+    pyproject = project_root / "pyproject.toml"
+    try:
+        data = tomllib.loads(pyproject.read_text(encoding="utf-8"))
+
+        # 1. Hatch build config
+        hatch_pkgs = (
+            data.get("tool", {})
+            .get("hatch", {})
+            .get("build", {})
+            .get("targets", {})
+            .get("wheel", {})
+            .get("packages", [])
+        )
+        if hatch_pkgs:
+            return hatch_pkgs[0]
+
+        # 2. Setuptools config
+        setuptools_pkgs = data.get("tool", {}).get("setuptools", {}).get("packages", [])
+        if setuptools_pkgs:
+            return setuptools_pkgs[0]
+    except (FileNotFoundError, tomllib.TOMLDecodeError):
+        pass
+
+    # 3. Probe: src/ directory
+    if (project_root / "src").is_dir():
+        return "src"
+
+    # 4. Fallback
+    return "."
+
+
+def detect_python_test_dir(project_root: Path) -> str | None:
+    """Detect Python test directory from pyproject.toml or filesystem probes.
+
+    Resolution order:
+    1. ``[tool.pytest.ini_options] testpaths`` (first entry)
+    2. ``tests/`` directory exists on disk
+    3. ``test/`` directory exists on disk
+    4. ``None`` (no test directory found)
+    """
+    pyproject = project_root / "pyproject.toml"
+    try:
+        data = tomllib.loads(pyproject.read_text(encoding="utf-8"))
+
+        # 1. pytest testpaths config
+        testpaths = (
+            data.get("tool", {}).get("pytest", {}).get("ini_options", {}).get("testpaths", [])
+        )
+        if testpaths:
+            return testpaths[0]
+    except (FileNotFoundError, tomllib.TOMLDecodeError):
+        pass
+
+    # 2. Probe: tests/ directory
+    if (project_root / "tests").is_dir():
+        return "tests"
+
+    # 3. Probe: test/ directory
+    if (project_root / "test").is_dir():
+        return "test"
+
+    # 4. No test directory found
+    return None
 
 
 # Pre-commit checks per stack.
@@ -52,8 +127,7 @@ PRE_PUSH_CHECKS: dict[str, list[CheckConfig]] = {
     "python": [
         CheckConfig(
             name="pip-audit",
-            # CVE-2026-4539: ReDoS in pygments (CVSS 3.3, no patch). DEC-025.
-            cmd=["pip-audit", "--ignore-vuln", "CVE-2026-4539"],
+            cmd=["pip-audit"],
         ),
         CheckConfig(
             name="stack-tests",
@@ -73,20 +147,6 @@ PRE_PUSH_CHECKS: dict[str, list[CheckConfig]] = {
             ],
             timeout=120,
         ),
-        CheckConfig(
-            name="duplication-check",
-            cmd=[
-                "uv",
-                "run",
-                "python",
-                "-m",
-                "ai_engineering.policy.duplication",
-                "--path",
-                "src/ai_engineering",
-                "--threshold",
-                "3",
-            ],
-        ),
         CheckConfig(name="ty-check", cmd=["ty", "check", "src/ai_engineering"]),
     ],
     "dotnet": [
@@ -100,6 +160,68 @@ PRE_PUSH_CHECKS: dict[str, list[CheckConfig]] = {
         CheckConfig(name="npm-audit", cmd=["npm", "audit"]),
     ],
 }
+
+
+def _resolve_python_checks(
+    project_root: Path,
+    checks: list[CheckConfig],
+    result: GateResult,
+) -> list[CheckConfig]:
+    """Resolve dynamic paths in Python stack checks.
+
+    Replaces hardcoded paths in ``stack-tests`` and ``ty-check`` with
+    values detected from pyproject.toml or filesystem probes.  When no
+    test directory is found, ``stack-tests`` is recorded as a skip and
+    excluded from the returned list.
+    """
+    source_root = detect_python_source_root(project_root)
+    test_dir = detect_python_test_dir(project_root)
+
+    resolved: list[CheckConfig] = []
+    for check in checks:
+        if check.name == "stack-tests":
+            if test_dir is None:
+                result.checks.append(
+                    GateCheckResult(
+                        name="stack-tests",
+                        passed=True,
+                        output="No test directory found, skipping stack-tests",
+                    )
+                )
+                continue
+            resolved.append(
+                CheckConfig(
+                    name=check.name,
+                    cmd=[
+                        "uv",
+                        "run",
+                        "pytest",
+                        test_dir,
+                        "--tb=short",
+                        "-q",
+                        "-x",
+                        "--no-cov",
+                        "-n",
+                        "auto",
+                        "--dist",
+                        "worksteal",
+                    ],
+                    required=check.required,
+                    timeout=check.timeout,
+                )
+            )
+        elif check.name == "ty-check":
+            resolved.append(
+                CheckConfig(
+                    name=check.name,
+                    cmd=["ty", "check", source_root],
+                    required=check.required,
+                    timeout=check.timeout,
+                )
+            )
+        else:
+            resolved.append(check)
+    return resolved
 
 
 def run_checks_for_stacks(
@@ -122,7 +244,10 @@ def run_checks_for_stacks(
 
     # Run per-stack checks
     for stack in stacks:
-        for check in registry.get(stack, []):
+        checks = registry.get(stack, [])
+        if stack == "python":
+            checks = _resolve_python_checks(project_root, checks, result)
+        for check in checks:
             run_tool_check(
                 result,
                 name=check.name,
