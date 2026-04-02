@@ -8,6 +8,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- **Version alignment (spec-100)** -- `pyproject.toml` now matches latest PyPI release (was stuck at `0.1.0` while PyPI had `0.3.0`). `version/registry.json` backfilled with all three published versions.
+- **CHANGELOG reorganization (spec-100)** -- entries assigned to correct `[0.3.0]` and `[0.2.0]` version headers. Previously everything was under `[Unreleased]` with no release boundaries.
+- **CI version commit-back (spec-100)** -- `ci-build.yml` now commits version bump back to main via Git Data API after tag creation, preventing version drift. Added `[skip ci]` guard on `workflow_run` trigger to prevent infinite loops.
+
+### Changed
+- **Install documentation (spec-100)** -- README Install section now recommends `pipx` (primary) and `uv tool` (alternative) instead of bare `pip install`. Prerequisites listed before install commands. Documents that `ai-eng install` auto-installs missing tools.
+- **GETTING_STARTED.md (spec-100)** -- added install preamble with link to README Install section.
+
+### Removed
+- **Spanish documentation (spec-100)** -- deleted 2 internal Spanish-language documents from `docs/` (`trabajo-humano-era-ai-native-2026-2031.md`, `ai-engineering-auditoria-diagramas.md`). All documentation is now English-only.
+
+## [0.3.0] - 2026-04-02
+
+### Fixed
 - **Wizard empty selection (spec-099)** -- `questionary.checkbox` prompts now validate non-empty selection with re-prompt and display spacebar usage hint. Prevents silent empty stacks/providers/IDEs in manifest.
 - **VCS provider state gap (spec-099)** -- `state.vcs_provider` persisted during install, eliminating persistent VCS mismatch warning in doctor.
 - **Duplicate VCS warnings (spec-099)** -- removed ToolsPhase warning promotion from `_summary_to_install_result()`, VCS tool warnings now appear once.
@@ -22,6 +36,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 - **Duplication checker from user gates (spec-099)** -- `python -m ai_engineering.policy.duplication` targeted ai-engineering's own source tree, not user projects. Kept in CI only.
 - **Project-specific CVE exemption (spec-099)** -- removed `--ignore-vuln CVE-2026-4539` from user-facing `pip-audit` gate. Exemption moved to `pyproject.toml` for ai-engineering's own CI.
+
+## [0.2.0] - 2026-04-01
 
 ### Changed
 - **CLI branded banner** -- Rich-powered banner with version, branch, and Python info on all `ai-eng` commands. Consistent visual identity across CLI surface.

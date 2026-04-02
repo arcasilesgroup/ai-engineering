@@ -14,7 +14,9 @@ permissions:
 jobs:
   build:
     name: Build Package
-    if: github.event.workflow_run.conclusion == 'success'
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      !contains(github.event.workflow_run.head_commit.message, '[skip ci]')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -135,3 +137,77 @@ jobs:
           TAG: ${{ steps.semrel.outputs.tag }}
         run: |
           gh release upload "$TAG" sbom.json CHECKSUMS-SHA256.txt --clobber
+
+      - name: Commit version bump back to main
+        if: steps.semrel.outputs.released == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          RELEASE_VERSION: ${{ steps.semrel.outputs.version }}
+        run: |
+          # Read current main HEAD
+          MAIN_SHA=$(gh api "repos/${REPO}/git/ref/heads/main" --jq '.object.sha')
+
+          # Get current tree
+          TREE_SHA=$(gh api "repos/${REPO}/git/commits/${MAIN_SHA}" --jq '.tree.sha')
+
+          # Create blob for updated pyproject.toml
+          PYPROJECT_CONTENT=$(sed "s/^version = \".*\"/version = \"${RELEASE_VERSION}\"/" pyproject.toml | base64)
+          PYPROJECT_BLOB=$(gh api "repos/${REPO}/git/blobs" \
+            -f content="$PYPROJECT_CONTENT" \
+            -f encoding="base64" \
+            --jq '.sha')
+
+          # Create blob for updated registry.json
+          REGISTRY_CONTENT=$(cat <<REGEOF | base64
+          {
+            "schemaVersion": "1.0",
+            "versions": [
+              {"version": "${RELEASE_VERSION}", "status": "current", "released": "$(date -u +%Y-%m-%d)"},
+              $(gh api "repos/${REPO}/contents/src/ai_engineering/version/registry.json?ref=main" \
+                --jq '.content' | base64 -d | python3 -c "
+          import json, sys
+          data = json.load(sys.stdin)
+          for v in data['versions']:
+              v['status'] = 'previous'
+          print(','.join(json.dumps(v) for v in data['versions']))")
+            ]
+          }
+          REGEOF
+          )
+          REGISTRY_BLOB=$(gh api "repos/${REPO}/git/blobs" \
+            -f content="$REGISTRY_CONTENT" \
+            -f encoding="base64" \
+            --jq '.sha')
+
+          # Create new tree with both updated files
+          NEW_TREE=$(gh api "repos/${REPO}/git/trees" \
+            --input - <<TREEEOF | jq -r '.sha'
+          {
+            "base_tree": "$TREE_SHA",
+            "tree": [
+              {"path": "pyproject.toml", "mode": "100644", "type": "blob", "sha": "$PYPROJECT_BLOB"},
+              {"path": "src/ai_engineering/version/registry.json", "mode": "100644", "type": "blob", "sha": "$REGISTRY_BLOB"}
+            ]
+          }
+          TREEEOF
+          )
+
+          # Create commit
+          NEW_COMMIT=$(gh api "repos/${REPO}/git/commits" \
+            --input - <<COMMITEOF | jq -r '.sha'
+          {
+            "message": "chore(release): bump version to ${RELEASE_VERSION} [skip ci]",
+            "tree": "$NEW_TREE",
+            "parents": ["$MAIN_SHA"]
+          }
+          COMMITEOF
+          )
+
+          # Update main ref
+          gh api "repos/${REPO}/git/refs/heads/main" \
+            -X PATCH \
+            -F sha="$NEW_COMMIT" \
+            -F force=true
+
+          echo "Committed version bump to ${RELEASE_VERSION} on main (${NEW_COMMIT})"

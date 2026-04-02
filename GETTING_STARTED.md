@@ -1,6 +1,17 @@
 # Getting Started with ai-engineering
 
-This guide walks you through ai-engineering after your first `ai-eng install`. Each phase builds on the last, but you can stop at any point and already have a governed AI workspace.
+## How to install
+
+If you have not installed ai-engineering yet, see the [Install section in README.md](README.md#install) for setup instructions. The recommended method is `pipx install ai-engineering`.
+
+Once installed, navigate to your project and run:
+
+```bash
+cd your-project
+ai-eng install .
+```
+
+This scaffolds the governance root, detects your stack, installs required tools, and mirrors skills to your configured IDEs.
 
 ---
 
