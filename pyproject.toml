@@ -1,6 +1,6 @@
 [project]
 name = "ai-engineering"
-version = "0.1.0"
+version = "0.3.0"
 description = "AI governance framework for secure software delivery"
 authors = [{ name = "ai-engineering maintainers" }]
 license = "MIT"

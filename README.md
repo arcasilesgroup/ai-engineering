@@ -30,18 +30,32 @@ ai-engineering turns any repository into a governed AI workspace. Governance is 
 
 ## Install
 
+**Prerequisites**: Python 3.11+ and Git.
+
+### Recommended: pipx (isolated, global)
+
 ```bash
+pipx install ai-engineering
+```
+
+### Alternative: uv
+
+```bash
+uv tool install ai-engineering
+```
+
+### Fallback: pip (requires a virtual environment)
+
+```bash
+python -m venv .venv && source .venv/bin/activate
 pip install ai-engineering
 ```
 
-Or with `uv`:
+### Verify
 
 ```bash
-uv venv
-uv pip install ai-engineering
+ai-eng version
 ```
-
-Requires Python 3.11+ and Git.
 
 ## Quick Start
 
@@ -51,7 +65,7 @@ ai-eng install .
 ai-eng doctor
 ```
 
-`install` scaffolds the governance root, detects your stack, and mirrors skills to every configured IDE. `doctor` validates the installation, checks tooling, and reports anything that needs attention.
+`install` scaffolds the governance root, detects your stack, and mirrors skills to every configured IDE. It also auto-installs missing tools (`ruff`, `gitleaks`, `ty`, `pip-audit`) via your OS package manager. `doctor` validates the installation, checks tooling, and reports anything that needs attention.
 
 See [GETTING_STARTED.md](GETTING_STARTED.md) for the full tutorial.
 
