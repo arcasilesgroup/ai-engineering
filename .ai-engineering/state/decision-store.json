@@ -429,7 +429,7 @@
             "title": "Accept CVE-2026-4539 in pygments (no patched version)",
             "description": "RESOLVED: pygments upgraded from 2.19.2 to 2.20.0 which patches CVE-2026-4539. pip-audit --ignore-vuln removed from gate checks. Zero dependency vulnerabilities confirmed.",
             "category": "security",
-            "status": "resolved",
+            "status": "remediated",
             "criticality": "low",
             "source": "pip-audit",
             "spec": "064-install-flow-redesign",
