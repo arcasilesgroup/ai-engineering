@@ -26,7 +26,12 @@ from ai_engineering.updater.service import update
 # ---------------------------------------------------------------------------
 
 _CLAUDE_PREFIXES = (".claude/", "CLAUDE.md")
-_COPILOT_PREFIXES = (".github/", "AGENTS.md", ".github/copilot-instructions.md")
+_COPILOT_PREFIXES = (
+    ".github/copilot-instructions.md",
+    ".github/skills/",
+    ".github/agents/",
+    "AGENTS.md",
+)
 _GEMINI_PREFIXES = (".gemini/", "GEMINI.md")
 _CODEX_PREFIXES = (".codex/",)
 
