@@ -57,6 +57,21 @@ pip install ai-engineering
 ai-eng version
 ```
 
+### Update to latest version
+
+```bash
+# pipx
+pipx upgrade ai-engineering
+
+# uv
+uv tool upgrade ai-engineering
+
+# pip
+pip install --upgrade ai-engineering
+```
+
+After upgrading, run `ai-eng update` in each project to pull the latest skills, contexts, and runbooks, then `ai-eng doctor` to verify.
+
 ## Quick Start
 
 ```bash
