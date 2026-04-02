@@ -14,6 +14,8 @@ permissions:
 jobs:
   build:
     name: Build Package
+    # Skip when the trigger commit is a version bump commit-back (prevents loops).
+    # Native [skip ci] does not apply to workflow_run triggers.
     if: >-
       github.event.workflow_run.conclusion == 'success' &&
       !contains(github.event.workflow_run.head_commit.message, '[skip ci]')
