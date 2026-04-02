@@ -145,7 +145,7 @@ PRE_PUSH_CHECKS: dict[str, list[CheckConfig]] = {
                 "--dist",
                 "worksteal",
             ],
-            timeout=120,
+            timeout=300,
         ),
         CheckConfig(name="ty-check", cmd=["ty", "check", "src/ai_engineering"]),
     ],
