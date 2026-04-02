@@ -142,6 +142,7 @@ jobs:
 
       - name: Commit version bump back to main
         if: steps.semrel.outputs.released == 'true'
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
