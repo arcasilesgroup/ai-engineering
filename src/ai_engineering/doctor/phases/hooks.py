@@ -214,7 +214,9 @@ def _check_hooks_runtime(ctx: DoctorContext) -> CheckResult:
             return CheckResult(
                 name="hooks-runtime",
                 status=CheckStatus.OK,
-                message=f"project runtime available: {candidate.relative_to(ctx.target)}",
+                message=(
+                    f"project runtime available: {candidate.relative_to(ctx.target).as_posix()}"
+                ),
             )
 
     if shutil.which("uv"):
