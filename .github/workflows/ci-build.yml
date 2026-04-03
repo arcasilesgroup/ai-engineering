@@ -5,6 +5,7 @@ on:
     workflows: ["CI Check"]
     types: [completed]
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -16,9 +17,11 @@ jobs:
     name: Build Package
     # Skip when the trigger commit is a version bump commit-back (prevents loops).
     # Native [skip ci] does not apply to workflow_run triggers.
+    # workflow_dispatch bypasses the conclusion check for manual recovery.
     if: >-
-      github.event.workflow_run.conclusion == 'success' &&
-      !contains(github.event.workflow_run.head_commit.message, '[skip ci]')
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       !contains(github.event.workflow_run.head_commit.message, '[skip ci]'))
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
