@@ -22,7 +22,11 @@ from ai_engineering.installer.service import install_with_pipeline
 @pytest.fixture()
 def stub_ops(monkeypatch: pytest.MonkeyPatch) -> None:
     """Stub operational phases to prevent network/tool calls."""
-    monkeypatch.setattr(service, "check_tools_for_stacks", lambda s: SimpleNamespace(tools=[]))
+    monkeypatch.setattr(
+        service,
+        "check_tools_for_stacks",
+        lambda *args, **kwargs: SimpleNamespace(tools=[]),
+    )
     monkeypatch.setattr(
         service, "ensure_tool", lambda t: SimpleNamespace(available=True, detail="ok")
     )

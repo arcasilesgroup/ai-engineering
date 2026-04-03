@@ -390,5 +390,11 @@ class TestProviderRequiredTools:
     def test_github_returns_gh(self) -> None:
         assert provider_required_tools("github") == ["gh"]
 
-    def test_azure_returns_az(self) -> None:
+    def test_azure_devops_returns_az(self) -> None:
+        assert provider_required_tools("azure_devops") == ["az"]
+
+    def test_hyphenated_azure_alias_returns_az(self) -> None:
         assert provider_required_tools("azure-devops") == ["az"]
+
+    def test_unknown_provider_returns_empty(self) -> None:
+        assert provider_required_tools("bitbucket") == []

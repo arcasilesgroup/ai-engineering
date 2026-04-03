@@ -7,15 +7,13 @@ $ErrorActionPreference = "Stop"
 try {
     $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
     $ProjectDir = [string](Resolve-Path (Join-Path $ScriptDir "../../.."))
+    . (Join-Path $ScriptDir "_lib/copilot-runtime.ps1")
     if ($args.Count -gt 0) {
         $Phase = $args[0]
     } else {
         $Phase = "post"
     }
     $InputJson = [Console]::In.ReadToEnd()
-    if (-not (Get-Command python -ErrorAction SilentlyContinue)) {
-        exit 0
-    }
 
     if ($Phase -eq "pre") {
         $env:CLAUDE_HOOK_EVENT_NAME = "PreToolUse"
@@ -85,7 +83,7 @@ append_instinct_observation(
     session_id=os.environ.get("COPILOT_SESSION_ID") or os.environ.get("GITHUB_COPILOT_SESSION_ID"),
 )
 '@
-    $PythonScript | & python - 2>$null | Out-Null
+    Invoke-CopilotFrameworkPythonInline -ProjectRoot $ProjectDir -ScriptText $PythonScript | Out-Null
     exit 0
 } catch {
     exit 0

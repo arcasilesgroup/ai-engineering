@@ -194,6 +194,22 @@ class TestCheckToolsForStacks:
         assert "gitleaks" in tool_names
         assert "semgrep" in tool_names
 
+    @patch("ai_engineering.detector.readiness.check_tool")
+    def test_scopes_vcs_tools_to_github_when_requested(self, mock_check: MagicMock) -> None:
+        mock_check.side_effect = lambda name: ToolInfo(name=name, available=True)
+        report = check_tools_for_stacks(["python"], vcs_provider="github")
+        tool_names = [t.name for t in report.tools]
+        assert "gh" in tool_names
+        assert "az" not in tool_names
+
+    @patch("ai_engineering.detector.readiness.check_tool")
+    def test_scopes_vcs_tools_to_azure_when_requested(self, mock_check: MagicMock) -> None:
+        mock_check.side_effect = lambda name: ToolInfo(name=name, available=True)
+        report = check_tools_for_stacks(["python"], vcs_provider="azure_devops")
+        tool_names = [t.name for t in report.tools]
+        assert "az" in tool_names
+        assert "gh" not in tool_names
+
 
 # ---------------------------------------------------------------------------
 # remediate_missing_tools()

@@ -6,52 +6,57 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+source "$SCRIPT_DIR/_lib/copilot-runtime.sh"
 
 # Read Copilot JSON from stdin
 INPUT=$(cat)
 
 # Detect Copilot event name from the JSON payload.
 # postToolCallFailure includes error/failure indicators; preToolCall does not.
-COPILOT_EVENT=$(echo "$INPUT" | python3 -c "
-import sys, json
+COPILOT_EVENT=$(copilot_framework_python_inline "$PROJECT_DIR" <<'PY'
+import json
+import sys
+
 try:
-    d = json.load(sys.stdin)
-    # postToolCallFailure payloads contain error info
-    if 'error' in d or 'failure' in d or 'errorMessage' in d:
-        print('PostToolUseFailure')
+    payload = json.load(sys.stdin)
+    if "error" in payload or "failure" in payload or "errorMessage" in payload:
+        print("PostToolUseFailure")
     else:
-        print('PreToolUse')
+        print("PreToolUse")
 except Exception:
-    print('PreToolUse')
-" 2>/dev/null) || COPILOT_EVENT="PreToolUse"
+    print("PreToolUse")
+PY
+) || COPILOT_EVENT="PreToolUse"
 
 # Translate Copilot field names to Claude Code convention:
 #   Copilot: { "toolName": "...", "toolArgs": {...} }
 #   Claude:  { "tool_name": "...", "tool_input": {...} }
-TRANSLATED=$(echo "$INPUT" | python3 -c "
-import sys, json
+TRANSLATED=$(copilot_framework_python_inline "$PROJECT_DIR" <<'PY'
+import json
+import sys
+
 try:
-    d = json.load(sys.stdin)
+    payload = json.load(sys.stdin)
     out = {}
-    for k, v in d.items():
-        if k == 'toolName':
-            out['tool_name'] = v
-        elif k == 'toolArgs':
-            out['tool_input'] = v if isinstance(v, dict) else json.loads(v) if isinstance(v, str) else v
-        elif k == 'toolResult':
-            out['tool_output'] = v
+    for key, value in payload.items():
+        if key == "toolName":
+            out["tool_name"] = value
+        elif key == "toolArgs":
+            out["tool_input"] = value if isinstance(value, dict) else json.loads(value) if isinstance(value, str) else value
+        elif key == "toolResult":
+            out["tool_output"] = value
         else:
-            out[k] = v
-    json.dump(out, sys.stdout, separators=(',', ':'))
+            out[key] = value
+    json.dump(out, sys.stdout, separators=(",", ":"))
 except Exception:
     sys.stdout.write(json.dumps({}))
-" 2>/dev/null) || TRANSLATED="{}"
+PY
+) || TRANSLATED="{}"
 
 # Map Copilot event to Claude Code event name
 export CLAUDE_HOOK_EVENT_NAME="$COPILOT_EVENT"
 
 # Pipe translated input to Python script, preserve exit code (2 = block)
-echo "$TRANSLATED" | python3 "$SCRIPT_DIR/mcp-health.py"
-EXIT_CODE=$?
-
-exit "$EXIT_CODE"
+echo "$TRANSLATED" | copilot_framework_python_script "$PROJECT_DIR" "$SCRIPT_DIR/mcp-health.py"
+exit $?

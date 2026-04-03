@@ -19,10 +19,18 @@ from ai_engineering.cli_commands import (
     validate,
     vcs,
 )
+from ai_engineering.cli_output import set_json_mode
 from ai_engineering.policy.gates import GateCheckResult, GateHook, GateResult
 from ai_engineering.state.defaults import default_install_state
 from ai_engineering.state.service import save_install_state
 from ai_engineering.updater.service import FileChange, UpdateResult
+
+
+@pytest.fixture(autouse=True)
+def _reset_json_mode() -> None:
+    set_json_mode(False)
+    yield
+    set_json_mode(False)
 
 
 def _pass_gate_result(hook: GateHook = GateHook.PRE_COMMIT) -> GateResult:
@@ -197,6 +205,80 @@ def test_core_update_json_and_doctor_fail(
         pytest.raises(typer.Exit),
     ):
         core.doctor_cmd(target=tmp_path)
+
+
+def test_core_doctor_json_suggests_fix_only_for_fixable_findings(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    report = SimpleNamespace(
+        passed=False,
+        installed=True,
+        summary={"warn": 1},
+        phases=[
+            SimpleNamespace(
+                name="hooks",
+                status=SimpleNamespace(value="warn"),
+                checks=[
+                    SimpleNamespace(
+                        status=SimpleNamespace(value="warn"),
+                        name="hooks-runtime",
+                        message="runtime launcher missing",
+                        fixable=True,
+                    )
+                ],
+            )
+        ],
+        runtime=[],
+        has_warnings=True,
+        to_dict=lambda: {"passed": False, "summary": {"warn": 1}},
+    )
+    with (
+        patch("ai_engineering.cli_commands.core.diagnose", return_value=report),
+        pytest.raises(typer.Exit),
+    ):
+        core.doctor_cmd(target=tmp_path, output_json=True)
+    data = json.loads(capsys.readouterr().out)
+    assert data["next_actions"] == [
+        {
+            "command": "ai-eng doctor --fix",
+            "description": "Attempt automatic repairs for fixable issues",
+            "params": None,
+        }
+    ]
+
+
+def test_core_doctor_json_omits_fix_when_follow_up_is_manual(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    report = SimpleNamespace(
+        passed=False,
+        installed=True,
+        summary={"fail": 1},
+        phases=[
+            SimpleNamespace(
+                name="runtime",
+                status=SimpleNamespace(value="fail"),
+                checks=[
+                    SimpleNamespace(
+                        status=SimpleNamespace(value="fail"),
+                        name="hooks-runtime",
+                        message="framework runtime not discoverable",
+                        fixable=False,
+                    )
+                ],
+            )
+        ],
+        runtime=[],
+        has_warnings=False,
+        to_dict=lambda: {"passed": False, "summary": {"fail": 1}},
+    )
+    with (
+        patch("ai_engineering.cli_commands.core.diagnose", return_value=report),
+        pytest.raises(typer.Exit),
+    ):
+        core.doctor_cmd(target=tmp_path, output_json=True)
+    data = json.loads(capsys.readouterr().out)
+    assert data["next_actions"] == []
 
 
 def test_stack_and_ide_empty_lists_and_errors(

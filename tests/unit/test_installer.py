@@ -595,6 +595,9 @@ class TestInstallCallsCheckToolsForStacks:
         from ai_engineering.installer.auth import AuthResult
         from ai_engineering.installer.branch_policy import BranchPolicyResult
 
+        patched["load_manifest_config"].return_value = MagicMock(
+            providers=MagicMock(stacks=["python"], vcs="github"),
+        )
         patched["check_tools_for_stacks"].return_value = MagicMock(tools=[])
         patched["check_vcs_auth"].return_value = AuthResult(
             provider="github",
@@ -613,6 +616,7 @@ class TestInstallCallsCheckToolsForStacks:
             install(tmp_path, stacks=["python"])
 
         patched["check_tools_for_stacks"].assert_called_once()
+        assert patched["check_tools_for_stacks"].call_args.kwargs["vcs_provider"] == "github"
 
 
 class TestInstallCallsCheckVcsAuth:

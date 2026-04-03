@@ -17,6 +17,7 @@ from ai_engineering.cli_commands.setup import (
     _state_dir,
     setup_app,
 )
+from ai_engineering.cli_output import set_json_mode
 from ai_engineering.credentials.models import PlatformKind
 
 runner = CliRunner()
@@ -33,6 +34,16 @@ def project_root(tmp_path: Path) -> Path:
     state = tmp_path / ".ai-engineering" / "state"
     state.mkdir(parents=True)
     return tmp_path
+
+
+@pytest.fixture(autouse=True)
+def reset_json_mode() -> None:
+    """Isolate setup CLI tests from leaked global JSON mode state."""
+    set_json_mode(False)
+    try:
+        yield
+    finally:
+        set_json_mode(False)
 
 
 # ---------------------------------------------------------------

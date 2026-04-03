@@ -17,6 +17,38 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 HOOKS_ROOT = REPO_ROOT / ".ai-engineering" / "scripts" / "hooks"
 
 
+def _project_runtime_path(project_root: Path) -> Path:
+    if os.name == "nt":
+        return project_root / ".venv" / "Scripts" / "python.exe"
+    return project_root / ".venv" / "bin" / "python"
+
+
+def _poison_host_python_path(tmp_path: Path) -> Path:
+    fake_bin = tmp_path / "host-python"
+    fake_bin.mkdir(parents=True, exist_ok=True)
+    if os.name == "nt":
+        for name in ("python.cmd", "python3.cmd"):
+            script = fake_bin / name
+            script.write_text("@echo off\r\nexit /b 99\r\n", encoding="utf-8")
+    else:
+        for name in ("python", "python3"):
+            script = fake_bin / name
+            script.write_text("#!/bin/sh\nexit 99\n", encoding="utf-8")
+            script.chmod(script.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP)
+    return fake_bin
+
+
+def _copilot_env(project_root: Path, tmp_path: Path, **extra: str) -> dict[str, str]:
+    env = os.environ | {
+        "PYTHONPATH": str(REPO_ROOT / "src"),
+        "HOME": str(project_root),
+    }
+    poisoned = _poison_host_python_path(tmp_path)
+    if poisoned is not None:
+        env["PATH"] = f"{poisoned}{os.pathsep}{env.get('PATH', '')}"
+    return env | extra
+
+
 def _prepare_project(tmp_path: Path) -> Path:
     hooks_dir = tmp_path / ".ai-engineering" / "scripts" / "hooks"
     hooks_dir.mkdir(parents=True, exist_ok=True)
@@ -38,6 +70,10 @@ def _prepare_project(tmp_path: Path) -> Path:
         "copilot-agent.ps1",
         "copilot-error.sh",
         "copilot-error.ps1",
+        "copilot-mcp-health.sh",
+        "copilot-mcp-health.ps1",
+        "copilot-injection-guard.sh",
+        "copilot-injection-guard.ps1",
         "copilot-instinct-observe.sh",
         "copilot-instinct-observe.ps1",
         "copilot-instinct-extract.sh",
@@ -46,6 +82,24 @@ def _prepare_project(tmp_path: Path) -> Path:
         target = hooks_dir / script_name
         shutil.copy2(HOOKS_ROOT / script_name, target)
         target.chmod(target.stat().st_mode | stat.S_IXUSR)
+
+    if os.name == "nt":
+        subprocess.run(
+            [sys.executable, "-m", "venv", str(tmp_path / ".venv")],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    else:
+        runtime_path = _project_runtime_path(tmp_path)
+        runtime_path.parent.mkdir(parents=True, exist_ok=True)
+        if runtime_path.exists() or runtime_path.is_symlink():
+            runtime_path.unlink()
+        try:
+            runtime_path.symlink_to(sys.executable)
+        except (OSError, NotImplementedError):
+            shutil.copy2(sys.executable, runtime_path)
+        runtime_path.chmod(runtime_path.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP)
 
     manifest_path = tmp_path / ".ai-engineering" / "manifest.yml"
     manifest_path.parent.mkdir(parents=True, exist_ok=True)
@@ -242,10 +296,7 @@ class TestCopilotHookEmitters:
     def test_skill_hook_writes_canonical_framework_event(self, tmp_path: Path) -> None:
         project_root = _prepare_project(tmp_path)
         script = project_root / ".ai-engineering" / "scripts" / "hooks" / "copilot-skill.sh"
-        env = os.environ | {
-            "PYTHONPATH": str(REPO_ROOT / "src"),
-            "HOME": str(project_root),
-        }
+        env = _copilot_env(project_root, tmp_path)
 
         result = subprocess.run(
             _copilot_hook_command(script),
@@ -269,10 +320,7 @@ class TestCopilotHookEmitters:
     def test_agent_hook_writes_canonical_framework_event(self, tmp_path: Path) -> None:
         project_root = _prepare_project(tmp_path)
         script = project_root / ".ai-engineering" / "scripts" / "hooks" / "copilot-agent.sh"
-        env = os.environ | {
-            "PYTHONPATH": str(REPO_ROOT / "src"),
-            "HOME": str(project_root),
-        }
+        env = _copilot_env(project_root, tmp_path)
 
         payload = {"toolName": "Build", "toolArgs": {}}
         result = subprocess.run(
@@ -297,10 +345,7 @@ class TestCopilotHookEmitters:
     def test_error_hook_writes_framework_error_without_audit_log(self, tmp_path: Path) -> None:
         project_root = _prepare_project(tmp_path)
         script = project_root / ".ai-engineering" / "scripts" / "hooks" / "copilot-error.sh"
-        env = os.environ | {
-            "PYTHONPATH": str(REPO_ROOT / "src"),
-            "HOME": str(project_root),
-        }
+        env = _copilot_env(project_root, tmp_path)
 
         payload = {
             "error": {"name": "HookFailure", "message": 'token="local-test-placeholder" exploded'}
@@ -330,10 +375,7 @@ class TestCopilotHookEmitters:
         extract_script = (
             project_root / ".ai-engineering" / "scripts" / "hooks" / "copilot-instinct-extract.sh"
         )
-        env = os.environ | {
-            "PYTHONPATH": str(REPO_ROOT / "src"),
-            "HOME": str(project_root),
-        }
+        env = _copilot_env(project_root, tmp_path)
 
         for phase, payload in (
             ("pre", {"toolName": "Read", "toolArgs": {"filePath": "README.md"}}),
@@ -378,10 +420,7 @@ class TestCopilotHookEmitters:
             project_root / ".ai-engineering" / "scripts" / "hooks" / "copilot-instinct-observe.sh"
         )
         skill_script = project_root / ".ai-engineering" / "scripts" / "hooks" / "copilot-skill.sh"
-        env = os.environ | {
-            "PYTHONPATH": str(REPO_ROOT / "src"),
-            "HOME": str(project_root),
-        }
+        env = _copilot_env(project_root, tmp_path)
 
         for phase, payload in (
             ("pre", {"toolName": "Read", "toolArgs": {"filePath": "README.md"}}),
@@ -413,6 +452,52 @@ class TestCopilotHookEmitters:
         assert "Bash -> Grep" in (
             project_root / ".ai-engineering" / "instincts" / "instincts.yml"
         ).read_text(encoding="utf-8")
+
+    def test_prompt_injection_guard_uses_project_runtime(self, tmp_path: Path) -> None:
+        project_root = _prepare_project(tmp_path)
+        script = (
+            project_root / ".ai-engineering" / "scripts" / "hooks" / "copilot-injection-guard.sh"
+        )
+        env = _copilot_env(project_root, tmp_path)
+
+        result = subprocess.run(
+            _copilot_hook_command(script),
+            input=json.dumps(
+                {
+                    "toolName": "Bash",
+                    "toolArgs": {"command": "echo hello"},
+                }
+            ),
+            text=True,
+            capture_output=True,
+            cwd=project_root,
+            env=env,
+            check=False,
+        )
+
+        assert result.returncode == 0
+
+    def test_mcp_health_hook_uses_project_runtime(self, tmp_path: Path) -> None:
+        project_root = _prepare_project(tmp_path)
+        script = project_root / ".ai-engineering" / "scripts" / "hooks" / "copilot-mcp-health.sh"
+        env = _copilot_env(project_root, tmp_path)
+
+        result = subprocess.run(
+            _copilot_hook_command(script),
+            input=json.dumps(
+                {
+                    "toolName": "mcp__demo__ping",
+                    "toolArgs": {},
+                }
+            ),
+            text=True,
+            capture_output=True,
+            cwd=project_root,
+            env=env,
+            check=False,
+        )
+
+        assert result.returncode == 0
 
 
 class TestCodexHookEmitters:

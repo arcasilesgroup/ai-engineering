@@ -5,9 +5,7 @@ $ErrorActionPreference = "Stop"
 try {
     $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
     $ProjectDir = [string](Resolve-Path (Join-Path $ScriptDir "../../.."))
-    if (-not (Get-Command python -ErrorAction SilentlyContinue)) {
-        exit 0
-    }
+    . (Join-Path $ScriptDir "_lib/copilot-runtime.ps1")
     $env:CLAUDE_HOOK_EVENT_NAME = "Stop"
     if (-not $env:CLAUDE_PROJECT_DIR) { $env:CLAUDE_PROJECT_DIR = $ProjectDir }
     $env:AIENG_HOOK_ENGINE = "github_copilot"
@@ -30,7 +28,7 @@ if extract_instincts(project_root):
         metadata={"engine": os.environ.get("AIENG_HOOK_ENGINE", "github_copilot")},
     )
 '@
-    $PythonScript | & python - 2>$null | Out-Null
+    Invoke-CopilotFrameworkPythonInline -ProjectRoot $ProjectDir -ScriptText $PythonScript | Out-Null
     exit 0
 } catch {
     exit 0

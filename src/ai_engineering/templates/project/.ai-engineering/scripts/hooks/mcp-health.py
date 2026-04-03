@@ -8,7 +8,6 @@ failure patterns (PostToolUseFailure).
 Uses file locking for concurrent session safety.
 """
 
-import fcntl
 import json
 import os
 import re
@@ -16,12 +15,18 @@ import subprocess
 import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Any
 
 sys.path.insert(0, str(Path(__file__).parent))
 
 from _lib.audit import is_debug_mode, passthrough_stdin
 from _lib.hook_context import get_hook_context
 from _lib.observability import emit_control_outcome
+
+try:
+    import fcntl as _fcntl
+except ImportError:  # pragma: no cover - Windows fallback
+    _fcntl: Any = None
 
 _STATE_FILE = Path.home() / ".ai-engineering" / "state" / "mcp-health.json"
 _STATE_VERSION = 1
@@ -39,6 +44,24 @@ _FAILURE_PATTERNS = re.compile(
     r"|certificate|SSL|TLS|EPIPE|broken\s+pipe)",
     re.IGNORECASE,
 )
+
+
+def _lock_shared(handle) -> None:
+    if _fcntl is None:
+        return
+    _fcntl.flock(handle.fileno(), _fcntl.LOCK_SH)
+
+
+def _lock_exclusive(handle) -> None:
+    if _fcntl is None:
+        return
+    _fcntl.flock(handle.fileno(), _fcntl.LOCK_EX)
+
+
+def _unlock(handle) -> None:
+    if _fcntl is None:
+        return
+    _fcntl.flock(handle.fileno(), _fcntl.LOCK_UN)
 
 
 def _now_utc() -> datetime:
@@ -77,11 +100,11 @@ def _load_state() -> dict:
         if not _STATE_FILE.exists():
             return {"version": _STATE_VERSION, "servers": {}}
         with open(_STATE_FILE, encoding="utf-8") as f:
-            fcntl.flock(f.fileno(), fcntl.LOCK_SH)
+            _lock_shared(f)
             try:
                 state = json.load(f)
             finally:
-                fcntl.flock(f.fileno(), fcntl.LOCK_UN)
+                _unlock(f)
         if not isinstance(state, dict) or state.get("version") != _STATE_VERSION:
             return {"version": _STATE_VERSION, "servers": {}}
         return state
@@ -94,11 +117,11 @@ def _save_state(state: dict) -> None:
     try:
         _STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
         with open(_STATE_FILE, "w", encoding="utf-8") as f:
-            fcntl.flock(f.fileno(), fcntl.LOCK_EX)
+            _lock_exclusive(f)
             try:
                 json.dump(state, f, indent=2)
             finally:
-                fcntl.flock(f.fileno(), fcntl.LOCK_UN)
+                _unlock(f)
     except Exception:
         pass
 

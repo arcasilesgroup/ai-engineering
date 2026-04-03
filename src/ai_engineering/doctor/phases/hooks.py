@@ -6,7 +6,7 @@ Checks:
 - hooks-executable: All hook scripts have executable permission.
 - hooks-lib-complete: Required library files exist in _lib/.
 - hooks-registered: All scripts referenced in settings.json exist on disk.
-- hooks-python: python3 is available on PATH.
+- hooks-runtime: Project runtime boundary exists for Copilot hook helpers.
 """
 
 from __future__ import annotations
@@ -14,8 +14,8 @@ from __future__ import annotations
 import json
 import os
 import re
+import shutil
 import stat
-import subprocess
 from pathlib import Path
 
 from ai_engineering.doctor.models import CheckResult, CheckStatus, DoctorContext
@@ -201,33 +201,37 @@ def _check_hooks_registered(ctx: DoctorContext) -> CheckResult:
     )
 
 
-def _check_hooks_python(ctx: DoctorContext) -> CheckResult:
-    """Verify python3 is available on PATH."""
-    try:
-        result = subprocess.run(
-            ["python3", "--version"],
-            capture_output=True,
-            text=True,
-            timeout=5,
-        )
-        if result.returncode == 0:
-            version = result.stdout.strip()
+def _check_hooks_runtime(ctx: DoctorContext) -> CheckResult:
+    """Verify Copilot hooks can use a project runtime instead of host python."""
+    runtime_candidates = (
+        ctx.target / ".venv" / "bin" / "python",
+        ctx.target / ".venv" / "Scripts" / "python.exe",
+        ctx.target / ".venv" / "Scripts" / "python",
+    )
+
+    for candidate in runtime_candidates:
+        if candidate.is_file() and os.access(candidate, os.X_OK):
             return CheckResult(
-                name="hooks-python",
+                name="hooks-runtime",
                 status=CheckStatus.OK,
-                message=f"python3 available: {version}",
+                message=(
+                    f"project runtime available: {candidate.relative_to(ctx.target).as_posix()}"
+                ),
             )
+
+    if shutil.which("uv"):
         return CheckResult(
-            name="hooks-python",
-            status=CheckStatus.WARN,
-            message="python3 returned non-zero exit code",
+            name="hooks-runtime",
+            status=CheckStatus.OK,
+            message="uv available; hooks can run through uv run python",
         )
-    except (FileNotFoundError, subprocess.TimeoutExpired):
-        return CheckResult(
-            name="hooks-python",
-            status=CheckStatus.WARN,
-            message="python3 not found on PATH; hooks require python3",
-        )
+
+    return CheckResult(
+        name="hooks-runtime",
+        status=CheckStatus.FAIL,
+        message="no project runtime launcher found; create .venv/python or install uv",
+        fixable=False,
+    )
 
 
 def check(ctx: DoctorContext) -> list[CheckResult]:
@@ -238,7 +242,7 @@ def check(ctx: DoctorContext) -> list[CheckResult]:
         _check_hooks_executable(ctx),
         _check_hooks_lib_complete(ctx),
         _check_hooks_registered(ctx),
-        _check_hooks_python(ctx),
+        _check_hooks_runtime(ctx),
     ]
 
 

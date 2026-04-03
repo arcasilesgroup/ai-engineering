@@ -11,6 +11,7 @@ main() {
     # Resolve project root from script location
     SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     PROJECT_DIR="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+    source "$SCRIPT_DIR/_lib/copilot-runtime.sh"
 
     # Extract error.message and error.name from stdin JSON
     ERROR_NAME=""
@@ -18,29 +19,34 @@ main() {
     if command -v jq >/dev/null 2>&1; then
         ERROR_NAME=$(echo "$INPUT" | jq -r '.error.name // empty' 2>/dev/null)
         ERROR_MESSAGE=$(echo "$INPUT" | jq -r '.error.message // empty' 2>/dev/null)
-    elif command -v python3 >/dev/null 2>&1; then
-        ERROR_NAME=$(echo "$INPUT" | python3 -c "
-import sys, json
+    else
+        ERROR_NAME=$(copilot_framework_python_inline "$PROJECT_DIR" <<'PY'
+import json
+import sys
+
 try:
-    print(json.load(sys.stdin).get('error', {}).get('name', ''))
+    print(json.load(sys.stdin).get("error", {}).get("name", ""))
 except Exception:
     pass
-" 2>/dev/null)
-        ERROR_MESSAGE=$(echo "$INPUT" | python3 -c "
-import sys, json
+PY
+) || ERROR_NAME=""
+        ERROR_MESSAGE=$(copilot_framework_python_inline "$PROJECT_DIR" <<'PY'
+import json
+import sys
+
 try:
-    print(json.load(sys.stdin).get('error', {}).get('message', ''))
+    print(json.load(sys.stdin).get("error", {}).get("message", ""))
 except Exception:
     pass
-" 2>/dev/null)
+PY
+) || ERROR_MESSAGE=""
     fi
 
     # Default values if not provided
     [ -z "$ERROR_NAME" ] && ERROR_NAME="unknown"
     [ -z "$ERROR_MESSAGE" ] && ERROR_MESSAGE="unknown"
 
-    if command -v python3 >/dev/null 2>&1; then
-        PROJECT_DIR="$PROJECT_DIR" ERROR_NAME="$ERROR_NAME" ERROR_MESSAGE="$ERROR_MESSAGE" python3 - <<'PY' >/dev/null 2>&1 || true
+    PROJECT_DIR="$PROJECT_DIR" ERROR_NAME="$ERROR_NAME" ERROR_MESSAGE="$ERROR_MESSAGE" copilot_framework_python_inline "$PROJECT_DIR" <<'PY' >/dev/null 2>&1 || true
 import os, sys
 from pathlib import Path
 
@@ -69,7 +75,6 @@ emit_framework_error(
     trace_id=os.environ.get("COPILOT_TRACE_ID") or os.environ.get("GITHUB_COPILOT_TRACE_ID"),
 )
 PY
-    fi
 }
 
 main || exit 0

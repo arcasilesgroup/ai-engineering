@@ -214,11 +214,11 @@ Skills are invoked as slash commands inside your IDE. The two primary flows:
 
 ### Spec-driven flow
 
-The default path for planned work:
+The default path for planned work after install and health-check:
 
 ```text
-/ai-brainstorm  -->  /ai-plan  -->  /ai-dispatch  -->  /ai-verify  -->  /ai-pr
-   (spec)           (plan)        (execute)          (evidence)       (ship)
+/ai-start  -->  /ai-brainstorm  -->  /ai-plan  -->  /ai-dispatch  -->  /ai-verify  -->  /ai-pr
+  (start)       (spec)              (plan)        (execute)          (evidence)       (ship)
 ```
 
 ### Backlog-driven flow
@@ -234,6 +234,7 @@ Autonomous execution against a work-item backlog:
 
 | Command | What it does |
 |---------|-------------|
+| `/ai-start` | Bootstrap the session with context, dashboard, and active work |
 | `/ai-brainstorm` | Define requirements as a structured spec |
 | `/ai-plan` | Decompose a spec into executable tasks |
 | `/ai-dispatch` | Execute one approved plan |

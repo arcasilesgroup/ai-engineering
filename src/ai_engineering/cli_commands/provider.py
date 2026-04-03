@@ -36,20 +36,22 @@ def provider_add(
     root = resolve_project_root(target)
     try:
         manifest = add_provider(root, provider)
+        enabled = list(manifest.ai_providers.enabled)
+        primary = manifest.ai_providers.primary or (enabled[0] if enabled else "none")
         if is_json_mode():
             emit_success(
                 "ai-eng provider add",
                 {
                     "action": "add",
                     "provider": provider,
-                    "active_providers": manifest.providers.ides,
-                    "primary": manifest.providers.ides[0] if manifest.providers.ides else "none",
+                    "active_providers": enabled,
+                    "primary": primary,
                 },
             )
         else:
             success(f"Added provider '{provider}'")
-            kv("Active providers", ", ".join(manifest.providers.ides))
-            kv("Primary", manifest.providers.ides[0] if manifest.providers.ides else "none")
+            kv("Active providers", ", ".join(enabled))
+            kv("Primary", primary)
     except InstallerError as exc:
         if is_json_mode():
             emit_error(
@@ -77,20 +79,22 @@ def provider_remove(
     root = resolve_project_root(target)
     try:
         manifest = remove_provider(root, provider)
+        enabled = list(manifest.ai_providers.enabled)
+        primary = manifest.ai_providers.primary or (enabled[0] if enabled else "none")
         if is_json_mode():
             emit_success(
                 "ai-eng provider remove",
                 {
                     "action": "remove",
                     "provider": provider,
-                    "active_providers": manifest.providers.ides,
-                    "primary": manifest.providers.ides[0] if manifest.providers.ides else "none",
+                    "active_providers": enabled,
+                    "primary": primary,
                 },
             )
         else:
             success(f"Removed provider '{provider}'")
-            kv("Active providers", ", ".join(manifest.providers.ides))
-            kv("Primary", manifest.providers.ides[0] if manifest.providers.ides else "none")
+            kv("Active providers", ", ".join(enabled))
+            kv("Primary", primary)
     except InstallerError as exc:
         if is_json_mode():
             emit_error(
@@ -114,18 +118,19 @@ def provider_list(
     root = resolve_project_root(target)
     try:
         manifest = list_status(root)
+        enabled = list(manifest.ai_providers.enabled)
+        primary = manifest.ai_providers.primary or (enabled[0] if enabled else "none")
         if is_json_mode():
             emit_success(
                 "ai-eng provider list",
                 {
-                    "providers": manifest.providers.ides,
-                    "primary": manifest.providers.ides[0] if manifest.providers.ides else "none",
+                    "providers": enabled,
+                    "primary": primary,
                 },
             )
         else:
-            if manifest.providers.ides:
-                primary = manifest.providers.ides[0]
-                for p in manifest.providers.ides:
+            if enabled:
+                for p in enabled:
                     if p == primary:
                         status_line("ok", p, "primary")
                     else:
