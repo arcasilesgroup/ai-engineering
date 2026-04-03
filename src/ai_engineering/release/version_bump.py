@@ -8,6 +8,10 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
+from pydantic import ValidationError
+
+from ai_engineering.version.models import VersionEntry, VersionRegistry, VersionStatus
+
 _SEMVER_RE = re.compile(
     r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)"
     r"(?:-((?:0|[1-9]\d*|[0-9A-Za-z-][0-9A-Za-z-]*)"
@@ -23,6 +27,51 @@ class BumpResult:
     files_modified: list[Path]
     old_version: str
     new_version: str
+
+
+def _validate_registry_date(value: str, *, field_name: str) -> str:
+    """Return *value* when it matches the canonical YYYY-MM-DD registry format."""
+    try:
+        datetime.strptime(value, "%Y-%m-%d")
+    except ValueError as exc:
+        msg = f"Invalid {field_name} date in version registry: {value}"
+        raise ValueError(msg) from exc
+    return value
+
+
+def _sanitize_registry_entry(entry: VersionEntry) -> VersionEntry:
+    """Rebuild a registry entry with validated fields before writing it back."""
+    if not validate_semver(entry.version):
+        msg = f"Invalid version in version registry: {entry.version}"
+        raise ValueError(msg)
+
+    deprecated_reason = entry.deprecated_reason.strip() if entry.deprecated_reason else None
+    eol_date = (
+        _validate_registry_date(entry.eol_date, field_name="eol")
+        if entry.eol_date is not None
+        else None
+    )
+    return VersionEntry(
+        version=entry.version,
+        status=entry.status,
+        released=_validate_registry_date(entry.released, field_name="released"),
+        deprecated_reason=deprecated_reason or None,
+        eol_date=eol_date,
+    )
+
+
+def _load_registry_for_update(registry_path: Path) -> VersionRegistry:
+    """Load and normalize the registry file before any mutation."""
+    try:
+        registry = VersionRegistry.model_validate_json(registry_path.read_text(encoding="utf-8"))
+    except ValidationError as exc:
+        msg = f"Invalid version registry in {registry_path}"
+        raise ValueError(msg) from exc
+
+    return VersionRegistry(
+        schema_version=registry.schema_version,
+        versions=[_sanitize_registry_entry(entry) for entry in registry.versions],
+    )
 
 
 def validate_semver(version: str) -> bool:
@@ -153,28 +202,24 @@ def bump_python_version(project_root: Path, new_version: str) -> BumpResult:
 
 def _update_registry(registry_path: Path, new_version: str) -> None:
     """Add *new_version* as ``current`` and demote the previous one."""
-    data = json.loads(registry_path.read_text(encoding="utf-8"))
-    versions: list[dict[str, str]] = data.get("versions", [])
+    registry = _load_registry_for_update(registry_path)
+    versions = [entry.model_copy(deep=True) for entry in registry.versions]
 
     # Demote existing "current" entries to "supported"
     for entry in versions:
-        if entry.get("status") == "current":
-            entry["status"] = "supported"
+        if entry.status == VersionStatus.CURRENT:
+            entry.status = VersionStatus.SUPPORTED
 
     # Skip if version already present (idempotent)
-    if not any(e["version"] == new_version for e in versions):
+    if not any(entry.version == new_version for entry in versions):
         today = datetime.now(tz=UTC).strftime("%Y-%m-%d")
         versions.insert(
             0,
-            {
-                "version": new_version,
-                "status": "current",
-                "released": today,
-            },
+            VersionEntry(version=new_version, status=VersionStatus.CURRENT, released=today),
         )
 
-    data["versions"] = versions
-    registry_path.write_text(
-        json.dumps(data, indent=2) + "\n",
-        encoding="utf-8",
-    )
+    normalized_registry = VersionRegistry(schema_version=registry.schema_version, versions=versions)
+    payload = normalized_registry.model_dump(by_alias=True, exclude_none=True)
+    with registry_path.open("w", encoding="utf-8") as handle:
+        json.dump(payload, handle, indent=2)
+        handle.write("\n")

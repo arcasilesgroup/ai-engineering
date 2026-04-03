@@ -163,3 +163,15 @@ def test_update_registry_is_idempotent(tmp_path: Path) -> None:
     data = json.loads(path.read_text(encoding="utf-8"))
     assert len(data["versions"]) == 1
     assert data["versions"][0]["version"] == "0.4.0"
+
+
+def test_update_registry_rejects_invalid_version_entries(tmp_path: Path) -> None:
+    path = _write_registry(
+        tmp_path,
+        [
+            {"version": "not-a-semver", "status": "current", "released": "2026-04-01"},
+        ],
+    )
+
+    with pytest.raises(ValueError, match="Invalid version in version registry"):
+        _update_registry(path, "0.4.0")
