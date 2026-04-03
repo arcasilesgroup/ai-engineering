@@ -15,6 +15,7 @@ import subprocess
 import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Any
 
 sys.path.insert(0, str(Path(__file__).parent))
 
@@ -23,9 +24,9 @@ from _lib.hook_context import get_hook_context
 from _lib.observability import emit_control_outcome
 
 try:
-    import fcntl
+    import fcntl as _fcntl
 except ImportError:  # pragma: no cover - Windows fallback
-    fcntl = None
+    _fcntl: Any = None
 
 _STATE_FILE = Path.home() / ".ai-engineering" / "state" / "mcp-health.json"
 _STATE_VERSION = 1
@@ -46,21 +47,21 @@ _FAILURE_PATTERNS = re.compile(
 
 
 def _lock_shared(handle) -> None:
-    if fcntl is None:
+    if _fcntl is None:
         return
-    fcntl.flock(handle.fileno(), fcntl.LOCK_SH)
+    _fcntl.flock(handle.fileno(), _fcntl.LOCK_SH)
 
 
 def _lock_exclusive(handle) -> None:
-    if fcntl is None:
+    if _fcntl is None:
         return
-    fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
+    _fcntl.flock(handle.fileno(), _fcntl.LOCK_EX)
 
 
 def _unlock(handle) -> None:
-    if fcntl is None:
+    if _fcntl is None:
         return
-    fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+    _fcntl.flock(handle.fileno(), _fcntl.LOCK_UN)
 
 
 def _now_utc() -> datetime:
