@@ -9,17 +9,40 @@ Once installed, navigate to your project and run:
 ```bash
 cd your-project
 ai-eng install .
+ai-eng doctor
 ```
 
-This scaffolds the governance root, detects your stack, installs required tools, and mirrors skills to your configured IDEs.
+Then start your first governed session with:
+
+```
+/ai-start
+```
+
+This scaffolds the governance root, validates the framework boundary, and brings you into the first guided AI session.
 
 ---
 
 ## Phase 1: Your first 5 minutes
 
-You have just installed the framework. These three steps show you what it can do before you change a single line of code.
+You have just installed the framework. These three steps establish the default first-run path before you change a single line of code.
 
-### 1. Start your session
+### 1. Check framework health
+
+```bash
+ai-eng doctor
+```
+
+This validates that everything the framework depends on is working:
+
+- Git hooks are installed and have correct permissions
+- Required tools are available (`ruff`, `gitleaks`, `pytest`, `pip-audit`, etc.)
+- Manifest is well-formed and consistent
+- State files are intact
+- IDE mirrors are in sync
+
+If anything is wrong, `doctor` tells you what is fixable with `ai-eng doctor --fix` and what requires manual follow-up.
+
+### 2. Start your session
 
 ```
 /ai-start
@@ -35,7 +58,7 @@ This is your daily entry point. Every session begins here. You will see a dashbo
 
 The dashboard is compact (under 50 lines) and renders in any IDE. Think of it as your project briefing.
 
-### 2. Tour your project
+### 3. Tour your project
 
 ```
 /ai-guide tour
@@ -44,24 +67,6 @@ The dashboard is compact (under 50 lines) and renders in any IDE. Think of it as
 The AI walks through your project architecture: directory structure, component relationships, design decisions, key patterns, and entry points. This works on any existing codebase -- you do not need to have used ai-engineering before. The tour maps what is already there and explains it back to you.
 
 This is useful when onboarding onto a new project, returning after time away, or just wanting a second opinion on how your code is organized.
-
-### 3. Check framework health
-
-```bash
-ai-eng doctor
-```
-
-This validates that everything the framework depends on is working:
-
-- Git hooks are installed and have correct permissions
-- Required tools are available (`ruff`, `gitleaks`, `pytest`, `pip-audit`, etc.)
-- Manifest is well-formed and consistent
-- State files are intact
-- IDE mirrors are in sync
-
-If anything is wrong, `doctor` tells you what and how to fix it. You can also run `ai-eng doctor --fix` to auto-repair common issues.
-
----
 
 ## Phase 2: What do you want to do?
 
@@ -410,6 +415,7 @@ The `.claude/` directory is the canonical source. All other IDE directories are 
 
 ## Next steps
 
+- Run `ai-eng doctor` to validate the framework boundary
 - Run `/ai-start` to begin your first session
 - Run `/ai-guide tour` to see your project through the framework's eyes
 - Pick a workflow from Phase 2 that matches what you need right now

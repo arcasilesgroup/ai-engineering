@@ -11,9 +11,9 @@ ai-eng update [TARGET] --apply     # Apply framework file updates
 ai-eng update [TARGET] --diff      # Show unified diffs for updated files
 ai-eng update [TARGET] --json      # Output report as JSON
 ai-eng doctor [TARGET]             # Diagnose framework health
-ai-eng doctor --fix                # Repair all phases
-ai-eng doctor --fix --phase hooks  # Reinstall git hooks only
-ai-eng doctor --fix --phase tools  # Install missing tools only
+ai-eng doctor --fix                # Attempt repairs for fixable findings
+ai-eng doctor --fix --phase hooks  # Attempt hook-specific repairs only
+ai-eng doctor --fix --phase tools  # Attempt tool-specific repairs only
 ai-eng doctor --json               # Output report as JSON
 ai-eng validate [TARGET]           # Validate content integrity (all 6 categories)
 ai-eng validate --category <cat>   # Run a specific category only
@@ -102,4 +102,3 @@ ai-eng setup sonar                 # Configure SonarCloud / SonarQube credential
 ai-eng setup azure-devops          # Configure Azure DevOps PAT credentials
 ai-eng setup sonarlint             # Configure SonarLint Connected Mode in IDEs
 ```
-

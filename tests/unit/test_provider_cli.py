@@ -49,18 +49,36 @@ class _FakeProviders:
 class _FakeManifest:
     """Minimal mock that satisfies provider CLI's ManifestConfig access."""
 
-    def __init__(self, *providers: str, primary: str = "claude_code") -> None:
-        enabled = list(providers) if providers else [primary]
-        self.providers = _FakeProviders(ides=enabled)
+    def __init__(
+        self,
+        *providers: str,
+        primary: str = "claude_code",
+        enabled: list[str] | None = None,
+        ides: list[str] | None = None,
+    ) -> None:
+        if enabled is not None:
+            active = list(enabled)
+        elif providers:
+            active = list(providers)
+        elif primary:
+            active = [primary]
+        else:
+            active = []
+        self.providers = _FakeProviders(ides=ides or ["terminal"])
         self.ai_providers = _AiProviderConfig(
-            primary=primary if primary else (enabled[0] if enabled else ""),
-            enabled=enabled,
+            primary=primary if primary else (active[0] if active else ""),
+            enabled=active,
         )
 
 
-def _manifest(*providers: str, primary: str = "claude_code") -> _FakeManifest:
+def _manifest(
+    *providers: str,
+    primary: str = "claude_code",
+    enabled: list[str] | None = None,
+    ides: list[str] | None = None,
+) -> _FakeManifest:
     """Build a minimal mock manifest with the given enabled providers."""
-    return _FakeManifest(*providers, primary=primary)
+    return _FakeManifest(*providers, primary=primary, enabled=enabled, ides=ides)
 
 
 @pytest.fixture()
@@ -94,7 +112,11 @@ class TestProviderAddCli:
     def test_add_success(self, mocked_provider_ops):
         # Arrange
         ops = mocked_provider_ops
-        ops["add"].return_value = _manifest("claude_code", "github_copilot")
+        ops["add"].return_value = _manifest(
+            "claude_code",
+            "github_copilot",
+            ides=["vscode", "terminal"],
+        )
         app = create_app()
 
         # Act
@@ -106,6 +128,8 @@ class TestProviderAddCli:
         # Assert
         assert result.exit_code == 0
         ops["add"].assert_called_once_with(ops["tmp_path"], "github_copilot")
+        assert "github_copilot" in result.output
+        assert "terminal" not in result.output
 
     def test_add_error(self, mocked_provider_ops):
         # Arrange
@@ -165,7 +189,7 @@ class TestProviderRemoveCli:
     def test_remove_success(self, mocked_provider_ops):
         # Arrange
         ops = mocked_provider_ops
-        ops["remove"].return_value = _manifest("claude_code")
+        ops["remove"].return_value = _manifest("claude_code", ides=["vscode"])
         app = create_app()
 
         # Act
@@ -177,6 +201,8 @@ class TestProviderRemoveCli:
         # Assert
         assert result.exit_code == 0
         ops["remove"].assert_called_once_with(ops["tmp_path"], "github_copilot")
+        assert "claude_code" in result.output
+        assert "vscode" not in result.output
 
     def test_remove_last_error(self, mocked_provider_ops):
         # Arrange
@@ -235,7 +261,11 @@ class TestProviderListCli:
     def test_list_shows_providers(self, mocked_provider_ops):
         # Arrange
         ops = mocked_provider_ops
-        ops["list"].return_value = _manifest("claude_code", "gemini")
+        ops["list"].return_value = _manifest(
+            "github_copilot",
+            "gemini",
+            ides=["terminal"],
+        )
         app = create_app()
 
         # Act
@@ -243,6 +273,9 @@ class TestProviderListCli:
 
         # Assert
         assert result.exit_code == 0
+        assert "github_copilot" in result.output
+        assert "gemini" in result.output
+        assert "terminal" not in result.output
 
     def test_list_empty(self, mocked_provider_ops):
         # Arrange
@@ -272,7 +305,7 @@ class TestProviderListCli:
         # Arrange
         ops = mocked_provider_ops
         ops["json_mode"].return_value = True
-        ops["list"].return_value = _manifest("claude_code")
+        ops["list"].return_value = _manifest("claude_code", ides=["vscode"])
         app = create_app()
 
         # Act
@@ -283,6 +316,7 @@ class TestProviderListCli:
         # Assert
         assert result.exit_code == 0
         assert "claude_code" in result.output
+        assert "vscode" not in result.output
 
     def test_list_error_json_mode(self, mocked_provider_ops):
         # Arrange

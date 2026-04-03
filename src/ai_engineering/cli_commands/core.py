@@ -33,6 +33,7 @@ from ai_engineering.cli_ui import (
     suggest_next,
     warning,
 )
+from ai_engineering.config.loader import load_manifest_config
 from ai_engineering.doctor.service import diagnose
 from ai_engineering.installer.phases import (
     PHASE_DETECT,
@@ -53,6 +54,29 @@ from ai_engineering.installer.ui import (
 )
 from ai_engineering.paths import resolve_project_root
 from ai_engineering.updater.service import _DIFF_MAX_LINES, update
+
+
+def _doctor_follow_up_counts(report: DoctorReport) -> tuple[int, int]:
+    """Return counts of fixable and manual follow-up issues in a doctor report."""
+    fixable = 0
+    manual = 0
+
+    for phase_report in report.phases:
+        for check in phase_report.checks:
+            status = getattr(check.status, "value", check.status)
+            if status not in {"fail", "warn"}:
+                continue
+            if getattr(check, "fixable", False):
+                fixable += 1
+            else:
+                manual += 1
+
+    for check in report.runtime:
+        status = getattr(check.status, "value", check.status)
+        if status in {"fail", "warn"}:
+            manual += 1
+
+    return fixable, manual
 
 
 def install_cmd(
@@ -217,8 +241,6 @@ def install_cmd(
         resolved_vcs = wizard_result.vcs
     elif is_reinstall:
         # Default/fresh reinstall: read config from existing manifest.yml
-        from ai_engineering.config.loader import load_manifest_config
-
         config = load_manifest_config(root)
         resolved_stacks = resolved.get("stacks", config.providers.stacks or ["python"])
         resolved_providers = resolved.get(
@@ -306,7 +328,12 @@ def install_cmd(
     if not is_json_mode():
         _render_pipeline_steps(summary)
 
-    ai_label = ", ".join(resolved_providers)
+    canonical_config = load_manifest_config(root)
+    active_providers = list(canonical_config.ai_providers.enabled)
+    primary_provider = canonical_config.ai_providers.primary or (
+        active_providers[0] if active_providers else "none"
+    )
+    ai_label = ", ".join(active_providers)
 
     if is_json_mode():
         emit_success(
@@ -317,7 +344,8 @@ def install_cmd(
                 "project_files": len(result.project_files.created),
                 "state_files": len(result.state_files),
                 "vcs_provider": resolved_vcs,
-                "ai_providers": providers or ["claude_code"],
+                "ai_providers": active_providers,
+                "primary_ai_provider": primary_provider,
                 "readiness_status": result.readiness_status,
                 "already_installed": result.already_installed,
                 "manual_steps": result.manual_steps,
@@ -325,10 +353,7 @@ def install_cmd(
             },
             [
                 NextAction(command="ai-eng doctor", description="Run health diagnostics"),
-                NextAction(
-                    command="ai-eng setup platforms",
-                    description="Configure platform credentials",
-                ),
+                NextAction(command="/ai-start", description="Begin the first governed session"),
             ],
         )
     else:
@@ -355,7 +380,7 @@ def install_cmd(
         typer.echo("")
         next_steps = [
             ("ai-eng doctor", "Run health diagnostics"),
-            ("ai-eng setup platforms", "Configure platform credentials"),
+            ("/ai-start", "Begin the first governed session"),
         ]
         if result.guide_text:
             next_steps.append(("ai-eng guide", "View branch policy setup guide"))
@@ -371,7 +396,7 @@ def install_cmd(
                 if "setup" in step.lower():
                     pending_setup.append(("ai-eng setup", step))
 
-        next_steps_list.append(("/ai-brainstorm", "Design your first spec"))
+        next_steps_list.append(("/ai-start", "Start the first governed session"))
 
         hooks_count = len(result.hooks.installed) if result.hooks.installed else 0
 
@@ -740,6 +765,7 @@ def doctor_cmd(
 
     with spinner("Running health diagnostics..."):
         report = diagnose(root, fix=fix, dry_run=dry_run, phase_filter=phase)
+    fixable_count, manual_count = _doctor_follow_up_counts(report)
 
     if fix and not dry_run and not is_json_mode():
         _interactive_fix(root, report, phase)
@@ -747,9 +773,12 @@ def doctor_cmd(
     if is_json_mode():
         report_dict = report.to_dict()
         next_actions = []
-        if not report.passed:
+        if fixable_count:
             next_actions = [
-                NextAction(command="ai-eng doctor --fix", description="Fix all issues"),
+                NextAction(
+                    command="ai-eng doctor --fix",
+                    description="Attempt automatic repairs for fixable issues",
+                ),
             ]
         emit_success("ai-eng doctor", report_dict, next_actions)
     else:
@@ -760,6 +789,10 @@ def doctor_cmd(
             warning("Framework not installed. Run 'ai-eng install' first.")
 
         kv("Summary", report.summary)
+        if fixable_count:
+            kv("Auto-fix", f"{fixable_count} issue(s) can be attempted with ai-eng doctor --fix")
+        if manual_count:
+            kv("Manual follow-up", f"{manual_count} issue(s) require manual action")
 
         for phase_report in report.phases:
             typer.echo(f"\n  {phase_report.name} [{phase_report.status.value}]")
@@ -771,8 +804,10 @@ def doctor_cmd(
             for check in report.runtime:
                 status_line(check.status.value, check.name, check.message)
 
-        if not report.passed:
-            suggest_next([("ai-eng doctor --fix", "Fix all issues")])
+        if fixable_count:
+            suggest_next([("ai-eng doctor --fix", "Attempt automatic repairs for fixable issues")])
+        elif manual_count:
+            warning("Manual follow-up required. Review the failing checks above.")
 
     if not report.passed:
         raise typer.Exit(code=1)

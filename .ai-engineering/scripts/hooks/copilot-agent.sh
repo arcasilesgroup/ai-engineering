@@ -11,19 +11,23 @@ main() {
     # Resolve project root from script location
     SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     PROJECT_DIR="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+    source "$SCRIPT_DIR/_lib/copilot-runtime.sh"
 
     # Extract toolName from stdin JSON
     TOOL_NAME=""
     if command -v jq >/dev/null 2>&1; then
         TOOL_NAME=$(echo "$INPUT" | jq -r '.toolName // empty' 2>/dev/null)
-    elif command -v python3 >/dev/null 2>&1; then
-        TOOL_NAME=$(echo "$INPUT" | python3 -c "
-import sys, json
+    else
+        TOOL_NAME=$(copilot_framework_python_inline "$PROJECT_DIR" <<'PY'
+import sys
+import json
+
 try:
-    print(json.load(sys.stdin).get('toolName', ''))
+    print(json.load(sys.stdin).get("toolName", ""))
 except Exception:
     pass
-" 2>/dev/null)
+PY
+) || TOOL_NAME=""
     fi
 
     # Detect agent dispatch: match registered agent names OR generic "task"/"agent" patterns.
@@ -44,18 +48,21 @@ except Exception:
     AGENT_TYPE=""
     if command -v jq >/dev/null 2>&1; then
         AGENT_TYPE=$(echo "$INPUT" | jq -r '.toolArgs | if type == "string" then fromjson else . end | .agent_type // empty' 2>/dev/null)
-    elif command -v python3 >/dev/null 2>&1; then
-        AGENT_TYPE=$(echo "$INPUT" | python3 -c "
-import sys, json
+    else
+        AGENT_TYPE=$(copilot_framework_python_inline "$PROJECT_DIR" <<'PY'
+import json
+import sys
+
 try:
-    d = json.load(sys.stdin)
-    args = d.get('toolArgs', {})
+    payload = json.load(sys.stdin)
+    args = payload.get("toolArgs", {})
     if isinstance(args, str):
         args = json.loads(args)
-    print(args.get('agent_type', ''))
+    print(args.get("agent_type", ""))
 except Exception:
     pass
-" 2>/dev/null)
+PY
+) || AGENT_TYPE=""
     fi
 
     # Fallback: use toolName as agent type (Copilot sends agent name directly)
@@ -73,8 +80,7 @@ except Exception:
     AGENT_TYPE="${AGENT_TYPE#ai:}"
     AGENT_TYPE="ai-${AGENT_TYPE}"
 
-    if command -v python3 >/dev/null 2>&1; then
-        PROJECT_DIR="$PROJECT_DIR" AGENT_TYPE="$AGENT_TYPE" python3 - <<'PY' >/dev/null 2>&1 || true
+    PROJECT_DIR="$PROJECT_DIR" AGENT_TYPE="$AGENT_TYPE" copilot_framework_python_inline "$PROJECT_DIR" <<'PY' >/dev/null 2>&1 || true
 import os, sys
 from pathlib import Path
 
@@ -101,7 +107,6 @@ emit_ide_hook_outcome(
     trace_id=os.environ.get("COPILOT_TRACE_ID") or os.environ.get("GITHUB_COPILOT_TRACE_ID"),
 )
 PY
-    fi
 }
 
 main || exit 0

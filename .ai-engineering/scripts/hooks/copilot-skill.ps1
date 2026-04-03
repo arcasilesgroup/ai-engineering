@@ -26,6 +26,7 @@ try {
     $InputJson = [Console]::In.ReadToEnd()
     $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
     $ProjectDir = [string](Resolve-Path (Join-Path $ScriptDir "../../.."))
+    . (Join-Path $ScriptDir "_lib/copilot-runtime.ps1")
     $Prompt = ""
 
     if (-not [string]::IsNullOrWhiteSpace($InputJson)) {
@@ -43,10 +44,6 @@ try {
 
     $Match = [regex]::Match($Prompt, "^/ai-([a-zA-Z-]+)")
     if (-not $Match.Success) {
-        exit 0
-    }
-
-    if (-not (Get-Command python -ErrorAction SilentlyContinue)) {
         exit 0
     }
 
@@ -98,7 +95,7 @@ emit_ide_hook_outcome(
 if os.environ["SKILL_NAME"] == "ai-start":
     extract_instincts(Path(os.environ["PROJECT_DIR"]))
 '@
-    $PythonScript | & python - 2>$null | Out-Null
+    Invoke-CopilotFrameworkPythonInline -ProjectRoot $ProjectDir -ScriptText $PythonScript | Out-Null
     exit 0
 } catch {
     exit 0

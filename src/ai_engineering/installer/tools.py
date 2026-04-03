@@ -28,6 +28,11 @@ _WINGET_IDS: dict[str, str] = {
     "semgrep": "Semgrep.Semgrep",
 }
 
+_VCS_PROVIDER_TOOLS: dict[str, list[str]] = {
+    "github": ["gh"],
+    "azure_devops": ["az"],
+}
+
 # Python tools that can be installed via pip/uv when OS package manager
 # has no mapping (e.g., ruff on Windows where winget has no ruff package).
 _PIP_INSTALLABLE: dict[str, str] = {
@@ -155,4 +160,5 @@ def _try_pip_install(package: str) -> str:
 
 def provider_required_tools(provider: str) -> list[str]:
     """Return provider-aware required VCS CLI tools."""
-    return ["gh"] if provider == "github" else ["az"]
+    normalized = provider.replace("-", "_").lower()
+    return list(_VCS_PROVIDER_TOOLS.get(normalized, []))

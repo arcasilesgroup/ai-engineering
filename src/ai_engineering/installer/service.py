@@ -429,10 +429,15 @@ def _run_operational_phases(target: Path, *, vcs_provider: str, result: InstallR
 
     # Read stacks from manifest.yml config (not from state)
     config = load_manifest_config(target)
+    configured_vcs = config.providers.vcs or vcs_provider
+    provider_tools = set(provider_required_tools(configured_vcs))
 
     # Phase 2: required tooling (provider-aware + stack-aware)
-    stack_report = check_tools_for_stacks(config.providers.stacks)
-    for tool in provider_required_tools(vcs_provider):
+    stack_report = check_tools_for_stacks(
+        config.providers.stacks,
+        vcs_provider=configured_vcs,
+    )
+    for tool in provider_tools:
         install_result = ensure_tool(tool, allow_install=True)
         tool_entry = state.tooling.get(tool)
         if tool_entry is not None:
@@ -449,6 +454,8 @@ def _run_operational_phases(target: Path, *, vcs_provider: str, result: InstallR
             result.manual_steps.append(f"Install or enable `{tool}` CLI")
 
     for item in stack_report.tools:
+        if item.name in provider_tools:
+            continue
         if not item.available:
             # Attempt auto-install for all missing stack tools, not just security tools
             tool_result = ensure_tool(item.name, allow_install=True)
@@ -463,8 +470,8 @@ def _run_operational_phases(target: Path, *, vcs_provider: str, result: InstallR
 
     # Phase 3: VCS auth
     provider = get_provider(target)
-    auth_result = check_vcs_auth(vcs_provider, provider, target)
-    tool_key = "gh" if vcs_provider == "github" else "az"
+    auth_result = check_vcs_auth(configured_vcs, provider, target)
+    tool_key = "gh" if configured_vcs == "github" else "az"
     vcs_entry = state.tooling.get(tool_key)
     if vcs_entry is not None:
         vcs_entry.authenticated = auth_result.authenticated
@@ -481,7 +488,7 @@ def _run_operational_phases(target: Path, *, vcs_provider: str, result: InstallR
 
     # Phase 4: branch policy apply + manual fallback
     policy_result = apply_branch_policy(
-        provider_name=vcs_provider,
+        provider_name=configured_vcs,
         provider=provider,
         project_root=target,
         branch="main",
@@ -502,6 +509,6 @@ def _run_operational_phases(target: Path, *, vcs_provider: str, result: InstallR
         result.readiness_status = "READY WITH MANUAL STEPS"
     state.operational_readiness.status = result.readiness_status
     state.operational_readiness.pending_steps = list(result.manual_steps)
-    state.vcs_provider = vcs_provider
+    state.vcs_provider = configured_vcs
 
     save_install_state(state_dir, state)

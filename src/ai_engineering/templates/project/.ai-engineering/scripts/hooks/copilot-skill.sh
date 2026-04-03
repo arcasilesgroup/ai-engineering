@@ -11,19 +11,23 @@ main() {
     # Resolve project root from script location
     SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     PROJECT_DIR="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+    source "$SCRIPT_DIR/_lib/copilot-runtime.sh"
 
     # Extract prompt from stdin JSON
     PROMPT=""
     if command -v jq >/dev/null 2>&1; then
         PROMPT=$(echo "$INPUT" | jq -r '.prompt // empty' 2>/dev/null)
-    elif command -v python3 >/dev/null 2>&1; then
-        PROMPT=$(echo "$INPUT" | python3 -c "
-import sys, json
+    else
+        PROMPT=$(copilot_framework_python_inline "$PROJECT_DIR" <<'PY'
+import json
+import sys
+
 try:
-    print(json.load(sys.stdin).get('prompt', ''))
+    print(json.load(sys.stdin).get("prompt", ""))
 except Exception:
     pass
-" 2>/dev/null)
+PY
+) || PROMPT=""
     fi
 
     # Only match /ai-* slash commands (with optional args after space)
@@ -33,8 +37,7 @@ except Exception:
     # Normalize: lowercase, ensure ai- prefix
     SKILL_NAME="ai-$(echo "$RAW" | tr '[:upper:]' '[:lower:]')"
 
-    if command -v python3 >/dev/null 2>&1; then
-        PROJECT_DIR="$PROJECT_DIR" SKILL_NAME="$SKILL_NAME" python3 - <<'PY' >/dev/null 2>&1 || true
+    PROJECT_DIR="$PROJECT_DIR" SKILL_NAME="$SKILL_NAME" copilot_framework_python_inline "$PROJECT_DIR" <<'PY' >/dev/null 2>&1 || true
 import os, sys
 from pathlib import Path
 
@@ -81,7 +84,6 @@ if os.environ["SKILL_NAME"] == "ai-start":
     extract_instincts(Path(os.environ["PROJECT_DIR"]))
     maybe_refresh_instinct_context(Path(os.environ["PROJECT_DIR"]))
 PY
-    fi
 }
 
 main || exit 0

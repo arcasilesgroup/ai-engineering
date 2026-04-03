@@ -242,7 +242,7 @@ class TestHooksFix:
             "hooks-executable",
             "hooks-lib-complete",
             "hooks-registered",
-            "hooks-python",
+            "hooks-runtime",
         }
 
 
@@ -462,12 +462,16 @@ class TestHooksRegisteredCheck:
         assert result.status == CheckStatus.WARN
 
 
-# ── hooks-python ──────────────────────────────────────────────────────
+# ── hooks-runtime ─────────────────────────────────────────────────────
 
 
-class TestHooksPythonCheck:
-    def test_hooks_python_available(self, project: Path) -> None:
-        """python3 is available -> OK with version in message."""
+class TestHooksRuntimeCheck:
+    def test_hooks_runtime_available(self, project: Path) -> None:
+        """Project runtime present -> OK with runtime in message."""
+        venv_python = project / ".venv" / "bin" / "python"
+        venv_python.parent.mkdir(parents=True, exist_ok=True)
+        venv_python.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+        venv_python.chmod(0o755)
         ctx = DoctorContext(target=project)
         with (
             patch.object(
@@ -475,18 +479,16 @@ class TestHooksPythonCheck:
                 "verify_hooks",
                 return_value={"pre-commit": True},
             ),
-            patch("subprocess.run") as mock_run,
+            patch.object(hooks_phase.shutil, "which", return_value=None),
         ):
-            mock_run.return_value.returncode = 0
-            mock_run.return_value.stdout = "Python 3.12.0\n"
             results = hooks_phase.check(ctx)
 
-        result = next(r for r in results if r.name == "hooks-python")
+        result = next(r for r in results if r.name == "hooks-runtime")
         assert result.status == CheckStatus.OK
-        assert "3.12.0" in result.message
+        assert ".venv/bin/python" in result.message
 
-    def test_hooks_python_missing(self, project: Path) -> None:
-        """python3 not found -> WARN."""
+    def test_hooks_runtime_missing(self, project: Path) -> None:
+        """No project runtime launcher -> FAIL."""
         ctx = DoctorContext(target=project)
         with (
             patch.object(
@@ -494,9 +496,9 @@ class TestHooksPythonCheck:
                 "verify_hooks",
                 return_value={"pre-commit": True},
             ),
-            patch("subprocess.run", side_effect=FileNotFoundError("python3 not found")),
+            patch.object(hooks_phase.shutil, "which", return_value=None),
         ):
             results = hooks_phase.check(ctx)
 
-        result = next(r for r in results if r.name == "hooks-python")
-        assert result.status == CheckStatus.WARN
+        result = next(r for r in results if r.name == "hooks-runtime")
+        assert result.status == CheckStatus.FAIL

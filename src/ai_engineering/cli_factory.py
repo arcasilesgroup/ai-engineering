@@ -26,6 +26,7 @@ from ai_engineering.cli_commands import (
     decisions_cmd,
     gate,
     guide,
+    internal,
     maintenance,
     provider,
     release,
@@ -42,7 +43,7 @@ from ai_engineering.cli_commands import (
 )
 
 # Commands exempt from deprecation blocking (needed for diagnosis and remediation).
-_EXEMPT_COMMANDS: frozenset[str] = frozenset({"version", "update", "doctor"})
+_EXEMPT_COMMANDS: frozenset[str] = frozenset({"version", "update", "doctor", "internal"})
 
 # Exceptions that should produce a clean one-line error instead of a traceback.
 _USER_FACING_EXCEPTIONS: tuple[type[Exception], ...] = (
@@ -149,7 +150,7 @@ def _app_callback(
             typer.echo(ctx.get_help())
             raise typer.Exit(code=0)
 
-    if not json_output and ctx.invoked_subcommand != "version":
+    if not json_output and ctx.invoked_subcommand not in {"version", "internal"}:
         from ai_engineering.cli_ui import show_banner
 
         show_banner()
@@ -348,5 +349,18 @@ def create_app() -> typer.Typer:
     workflow_app.command("pr")(_safe(workflow.workflow_pr))
     workflow_app.command("pr-only")(_safe(workflow.workflow_pr_only))
     app.add_typer(workflow_app, name="workflow")
+
+    internal_app = typer.Typer(
+        name="internal",
+        help="Internal framework commands.",
+        no_args_is_help=True,
+        hidden=True,
+    )
+    internal_app.command(
+        "python",
+        context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
+        hidden=True,
+    )(internal.internal_python)
+    app.add_typer(internal_app, name="internal", hidden=True)
 
     return app

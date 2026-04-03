@@ -44,7 +44,7 @@ def _patch_tooling(monkeypatch: object, *, available: bool = True) -> None:
     monkeypatch.setattr(
         service,
         "check_tools_for_stacks",
-        lambda stacks: SimpleNamespace(tools=[]),
+        lambda *args, **kwargs: SimpleNamespace(tools=[]),
     )
     monkeypatch.setattr(
         service,

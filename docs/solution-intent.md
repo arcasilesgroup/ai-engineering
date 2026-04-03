@@ -506,8 +506,8 @@ sequenceDiagram
 sequenceDiagram
     participant Dev as Developer
     participant Doctor as ai-eng doctor
-    participant FixTools as --fix-tools
-    participant FixHooks as --fix-hooks
+    participant FixTools as --fix --phase tools
+    participant FixHooks as --fix --phase hooks
     participant Validate as ai-eng validate
 
     Dev->>Doctor: ai-eng doctor <project>
@@ -517,13 +517,13 @@ sequenceDiagram
     Doctor-->>Dev: Diagnostic report
 
     alt Tools missing or compromised
-        Dev->>FixTools: ai-eng doctor --fix-tools
+        Dev->>FixTools: ai-eng doctor --fix --phase tools
         FixTools->>FixTools: Reinstall/configure tools
         FixTools-->>Dev: Tools restored
     end
 
     alt Hooks corrupted
-        Dev->>FixHooks: ai-eng doctor --fix-hooks
+        Dev->>FixHooks: ai-eng doctor --fix --phase hooks
         FixHooks->>FixHooks: Reinstall hooks from source
         FixHooks->>FixHooks: Verify hash integrity
         FixHooks-->>Dev: Hooks restored
@@ -542,7 +542,7 @@ sequenceDiagram
 | No suppression comments | ruff + CI policy | CI + deny rules | Active (DEC-008) |
 | Dependency vulnerabilities | pip-audit | pre-push + CI | Active |
 | SAST scanning | semgrep | pre-push + CI | Active |
-| Hook integrity | Hash verification | doctor --fix-hooks | Active |
+| Hook integrity | Hash verification | doctor --fix --phase hooks | Active |
 | Destructive git operations | 19 deny rules | `.claude/settings.json` | Active |
 | Automated actor exemption | Gate trailer skip | CI (dependabot only) | Active (DEC-020) |
 | Optional deep scan | Snyk | CI (token-gated) | Optional (DEC-009) |

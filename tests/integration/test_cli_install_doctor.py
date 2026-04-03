@@ -87,6 +87,19 @@ class TestInstallCommand:
         assert "Installed to:" in result.output
         assert (_project_dir / ".ai-engineering" / "state").is_dir()
 
+    def test_install_output_points_to_ai_start_after_doctor(
+        self,
+        _project_dir: Path,
+        app: object,
+    ) -> None:
+        result = runner.invoke(
+            app,
+            ["install", str(_project_dir), "--stack", "python"],
+        )
+        assert result.exit_code == 0, result.output
+        assert "/ai-start" in result.output
+        assert "/ai-brainstorm" not in result.output
+
     def test_install_on_existing_shows_skipped(
         self,
         installed_dir: Path,

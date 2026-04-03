@@ -17,6 +17,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from ai_engineering.config.loader import load_manifest_config
+from ai_engineering.installer.tools import provider_required_tools
 from ai_engineering.state.service import load_install_state
 
 
@@ -128,14 +129,23 @@ def check_all_tools() -> ReadinessReport:
     return report
 
 
-def check_tools_for_stacks(stacks: list[str]) -> ReadinessReport:
+def check_tools_for_stacks(
+    stacks: list[str],
+    *,
+    vcs_provider: str | None = None,
+) -> ReadinessReport:
     """Check readiness of tools required by the given stacks.
 
-    Always checks common security tools and VCS CLIs.
+    Always checks common security tools. Optionally checks VCS CLI tools:
+    when ``vcs_provider`` is provided, only that provider's CLI is checked;
+    when omitted, both GitHub and Azure DevOps CLIs are included for
+    backward compatibility.
+
     Additionally checks stack-specific tools for each active stack.
 
     Args:
         stacks: List of active stack names (e.g., ["python"], ["python", "dotnet"]).
+        vcs_provider: Optional active VCS provider used to scope VCS tooling.
 
     Returns:
         ReadinessReport with status of each relevant tool.
@@ -150,7 +160,12 @@ def check_tools_for_stacks(stacks: list[str]) -> ReadinessReport:
             seen.add(name)
 
     # VCS tools (optional)
-    for name in ("gh", "az"):
+    if vcs_provider is None:
+        vcs_tools = ("gh", "az")
+    else:
+        vcs_tools = tuple(provider_required_tools(vcs_provider))
+
+    for name in vcs_tools:
         if name not in seen:
             report.tools.append(check_tool(name))
             seen.add(name)
