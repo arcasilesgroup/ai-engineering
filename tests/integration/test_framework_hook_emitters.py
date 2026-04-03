@@ -71,7 +71,9 @@ def _prepare_project(tmp_path: Path) -> Path:
         "copilot-error.sh",
         "copilot-error.ps1",
         "copilot-mcp-health.sh",
+        "copilot-mcp-health.ps1",
         "copilot-injection-guard.sh",
+        "copilot-injection-guard.ps1",
         "copilot-instinct-observe.sh",
         "copilot-instinct-observe.ps1",
         "copilot-instinct-extract.sh",
@@ -81,11 +83,16 @@ def _prepare_project(tmp_path: Path) -> Path:
         shutil.copy2(HOOKS_ROOT / script_name, target)
         target.chmod(target.stat().st_mode | stat.S_IXUSR)
 
-    runtime_path = _project_runtime_path(tmp_path)
-    runtime_path.parent.mkdir(parents=True, exist_ok=True)
     if os.name == "nt":
-        shutil.copy2(sys.executable, runtime_path)
+        subprocess.run(
+            [sys.executable, "-m", "venv", str(tmp_path / ".venv")],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
     else:
+        runtime_path = _project_runtime_path(tmp_path)
+        runtime_path.parent.mkdir(parents=True, exist_ok=True)
         if runtime_path.exists() or runtime_path.is_symlink():
             runtime_path.unlink()
         try:
