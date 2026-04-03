@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
 
 from ai_engineering.release.version_bump import (
+    _update_registry,
     bump_python_version,
     compare_versions,
     detect_current_version,
@@ -97,3 +99,67 @@ def test_bump_python_version_works_without_version_file(tmp_path: Path) -> None:
     result = bump_python_version(tmp_path, "0.2.0")
     assert result.new_version == "0.2.0"
     assert len(result.files_modified) == 1
+
+
+def _write_registry(tmp_path: Path, versions: list[dict[str, str]]) -> Path:
+    registry_path = tmp_path / "src" / "ai_engineering" / "version" / "registry.json"
+    registry_path.parent.mkdir(parents=True, exist_ok=True)
+    registry_path.write_text(
+        json.dumps({"schemaVersion": "1.0", "versions": versions}, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    return registry_path
+
+
+def test_bump_python_version_syncs_registry(tmp_path: Path) -> None:
+    _write_project(tmp_path, "0.1.0")
+    _write_registry(
+        tmp_path,
+        [
+            {"version": "0.1.0", "status": "current", "released": "2026-01-01"},
+        ],
+    )
+
+    result = bump_python_version(tmp_path, "0.2.0")
+
+    assert len(result.files_modified) == 2
+    registry = json.loads(result.files_modified[1].read_text(encoding="utf-8"))
+    versions = registry["versions"]
+    assert versions[0]["version"] == "0.2.0"
+    assert versions[0]["status"] == "current"
+    assert versions[1]["version"] == "0.1.0"
+    assert versions[1]["status"] == "supported"
+
+
+def test_update_registry_demotes_current(tmp_path: Path) -> None:
+    path = _write_registry(
+        tmp_path,
+        [
+            {"version": "0.3.0", "status": "current", "released": "2026-03-01"},
+            {"version": "0.2.0", "status": "supported", "released": "2026-02-01"},
+        ],
+    )
+
+    _update_registry(path, "0.4.0")
+
+    data = json.loads(path.read_text(encoding="utf-8"))
+    assert data["versions"][0]["version"] == "0.4.0"
+    assert data["versions"][0]["status"] == "current"
+    assert data["versions"][1]["version"] == "0.3.0"
+    assert data["versions"][1]["status"] == "supported"
+    assert data["versions"][2]["status"] == "supported"
+
+
+def test_update_registry_is_idempotent(tmp_path: Path) -> None:
+    path = _write_registry(
+        tmp_path,
+        [
+            {"version": "0.4.0", "status": "current", "released": "2026-04-01"},
+        ],
+    )
+
+    _update_registry(path, "0.4.0")
+
+    data = json.loads(path.read_text(encoding="utf-8"))
+    assert len(data["versions"]) == 1
+    assert data["versions"][0]["version"] == "0.4.0"

@@ -55,6 +55,12 @@ Agents and skills are delivered through IDE-specific project templates
 (e.g., ``.claude/``, ``.github/agents/``), not under ``.ai-engineering/``.
 This mirrors the installer exclude in ``copy_template_tree``."""
 
+_SKIP_DIR_NAMES: frozenset[str] = frozenset({"__pycache__"})
+"""Directory names excluded from all template walks.
+
+Python bytecode caches are machine-specific and auto-generated;
+they must never be compared or synced between template and target."""
+
 
 @dataclass
 class FileChange:
@@ -321,6 +327,11 @@ def _evaluate_governance_files(
             continue
 
         relative = src_file.relative_to(template_root)
+
+        # Skip __pycache__ — machine-specific bytecode, never synced
+        if _SKIP_DIR_NAMES & set(relative.parts):
+            continue
+
         relative_posix = relative.as_posix()
 
         # Skip agents/ and skills/ — delivered via IDE project templates
@@ -372,6 +383,8 @@ def _evaluate_project_files(
             if not src_file.is_file():
                 continue
             relative_in_tree = src_file.relative_to(src_dir)
+            if _SKIP_DIR_NAMES & set(relative_in_tree.parts):
+                continue
             dest = target / dest_tree / relative_in_tree
             ownership_path = f"{dest_tree}/{relative_in_tree.as_posix()}"
 
@@ -447,15 +460,18 @@ def _detect_orphan_files(
             if not tree_path.is_dir():
                 continue
             for f in sorted(tree_path.rglob("*")):
-                if f.is_file():
-                    orphans.append(
-                        FileChange(
-                            path=f,
-                            action="orphan",
-                            reason_code="disabled-provider",
-                            explanation=f"provider '{prov}' is no longer enabled",
-                        )
+                if not f.is_file():
+                    continue
+                if _SKIP_DIR_NAMES & set(f.relative_to(tree_path).parts):
+                    continue
+                orphans.append(
+                    FileChange(
+                        path=f,
+                        action="orphan",
+                        reason_code="disabled-provider",
+                        explanation=f"provider '{prov}' is no longer enabled",
                     )
+                )
 
     return orphans
 

@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 
 _SEMVER_RE = re.compile(
@@ -134,8 +136,45 @@ def bump_python_version(project_root: Path, new_version: str) -> BumpResult:
 
     pyproject.write_text(py_updated, encoding="utf-8")
 
+    # Keep registry.json in sync — add the new version as "current"
+    # and demote the previous "current" to "supported".
+    registry_path = project_root / "src" / "ai_engineering" / "version" / "registry.json"
+    modified = [pyproject]
+    if registry_path.is_file():
+        _update_registry(registry_path, new_version)
+        modified.append(registry_path)
+
     return BumpResult(
-        files_modified=[pyproject],
+        files_modified=modified,
         old_version=old_version,
         new_version=new_version,
+    )
+
+
+def _update_registry(registry_path: Path, new_version: str) -> None:
+    """Add *new_version* as ``current`` and demote the previous one."""
+    data = json.loads(registry_path.read_text(encoding="utf-8"))
+    versions: list[dict[str, str]] = data.get("versions", [])
+
+    # Demote existing "current" entries to "supported"
+    for entry in versions:
+        if entry.get("status") == "current":
+            entry["status"] = "supported"
+
+    # Skip if version already present (idempotent)
+    if not any(e["version"] == new_version for e in versions):
+        today = datetime.now(tz=UTC).strftime("%Y-%m-%d")
+        versions.insert(
+            0,
+            {
+                "version": new_version,
+                "status": "current",
+                "released": today,
+            },
+        )
+
+    data["versions"] = versions
+    registry_path.write_text(
+        json.dumps(data, indent=2) + "\n",
+        encoding="utf-8",
     )

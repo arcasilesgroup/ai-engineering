@@ -238,6 +238,9 @@ def copy_template_tree(
         if not src_file.is_file():
             continue
         relative = src_file.relative_to(src_root)
+        # Skip __pycache__ — machine-specific bytecode, never synced
+        if "__pycache__" in relative.parts:
+            continue
         if exclude and any(relative.as_posix().startswith(e) for e in exclude):
             continue
         dest_file = dest_root / relative
