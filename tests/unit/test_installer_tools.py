@@ -343,6 +343,19 @@ class TestEnsureToolPipFallback:
         assert result.available is False
         assert result.attempted is True
 
+    def test_semgrep_windows_returns_manual_guidance(self) -> None:
+        with (
+            patch("ai_engineering.installer.tools.shutil.which", return_value=None),
+            patch("ai_engineering.installer.tools.platform.system", return_value="Windows"),
+            patch("ai_engineering.installer.tools.subprocess.run") as mock_run,
+        ):
+            result = ensure_tool("semgrep", allow_install=True)
+
+        mock_run.assert_not_called()
+        assert result.available is False
+        assert result.attempted is False
+        assert "not supported on Windows" in result.detail
+
 
 class TestPhaseOrder:
     """Tests for PHASE_ORDER constraint: tools must run before hooks."""

@@ -12,8 +12,10 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
-from ai_engineering.detector.readiness import is_tool_available, try_install
+from ai_engineering.detector.readiness import is_tool_available
 from ai_engineering.doctor.models import CheckResult, CheckStatus, DoctorContext
+from ai_engineering.doctor.remediation import RemediationEngine, RemediationStatus
+from ai_engineering.installer.tools import can_auto_install_tool, ensure_tool, manual_install_step
 
 _REQUIRED_TOOLS: list[str] = ["ruff", "ty", "gitleaks", "semgrep", "pip-audit"]
 
@@ -224,39 +226,70 @@ def _fix_tools_required(
     *,
     dry_run: bool = False,
 ) -> CheckResult:
-    """Try to install missing required tools."""
+    """Try to install missing required tools through the shared remediation engine."""
+    missing = [tool for tool in _REQUIRED_TOOLS if not is_tool_available(tool)]
+
     if dry_run:
+        auto_installable = [tool for tool in missing if can_auto_install_tool(tool)]
+        manual_only = [tool for tool in missing if tool not in auto_installable]
+        if manual_only:
+            message = "would attempt auto-install for: "
+            message += ", ".join(auto_installable) if auto_installable else "none"
+            message += f"; manual follow-up required: {', '.join(manual_only)}"
+            return CheckResult(
+                name=cr.name,
+                status=CheckStatus.WARN,
+                message=message,
+                fixable=True,
+            )
         return CheckResult(
             name=cr.name,
             status=CheckStatus.FIXED,
-            message="would attempt to install missing tools",
+            message=(
+                f"would attempt to install missing tools: {', '.join(missing)}"
+                if missing
+                else "all tools now available"
+            ),
         )
 
-    # Re-detect which tools are missing
-    missing = [t for t in _REQUIRED_TOOLS if not is_tool_available(t)]
-    installed: list[str] = []
-    still_missing: list[str] = []
+    engine = RemediationEngine(
+        tool_capability=can_auto_install_tool,
+        tool_installer=lambda tool: ensure_tool(tool, allow_install=True).available,
+        tool_manual_step=manual_install_step,
+    )
+    remediation = engine.remediate_missing_tools(missing, source="doctor.tools-required")
 
-    for tool in missing:
-        if try_install(tool):
-            installed.append(tool)
-        else:
-            still_missing.append(tool)
+    if remediation.status == RemediationStatus.REPAIRED:
+        return CheckResult(
+            name=cr.name,
+            status=CheckStatus.FIXED,
+            message=(
+                f"installed: {', '.join(remediation.repaired_items)}"
+                if remediation.repaired_items
+                else "all tools now available"
+            ),
+        )
 
-    if still_missing:
+    if remediation.status in (RemediationStatus.MANUAL, RemediationStatus.BLOCKED):
+        parts: list[str] = []
+        if remediation.repaired_items:
+            parts.append(f"installed: {', '.join(remediation.repaired_items)}")
+        if remediation.remaining_items:
+            parts.append(f"manual follow-up required: {', '.join(remediation.remaining_items)}")
+        if remediation.detail:
+            parts.append(remediation.detail)
         return CheckResult(
             name=cr.name,
             status=CheckStatus.WARN,
-            message=f"installed: {', '.join(installed)}; still missing: {', '.join(still_missing)}"
-            if installed
-            else f"could not install: {', '.join(still_missing)}",
+            message="; ".join(parts) if parts else remediation.summary,
             fixable=True,
         )
 
     return CheckResult(
         name=cr.name,
-        status=CheckStatus.FIXED,
-        message=f"installed: {', '.join(installed)}" if installed else "all tools now available",
+        status=CheckStatus.WARN,
+        message=remediation.summary,
+        fixable=True,
     )
 
 

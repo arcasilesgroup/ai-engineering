@@ -497,7 +497,7 @@ jobs:
       - name: gitleaks
         run: gitleaks detect --source . --config .gitleaks.toml --no-banner --redact
       - name: pip-audit
-        run: uv run pip-audit
+        run: uv run python -m ai_engineering.verify.tls_pip_audit
       - name: Install semgrep
         run: python -m pip install semgrep
       - name: semgrep

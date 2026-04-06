@@ -144,7 +144,8 @@ def test_doctor_remaining_branches(tmp_path: Path) -> None:
 
     with (
         patch("ai_engineering.doctor.phases.tools.is_tool_available", return_value=False),
-        patch("ai_engineering.doctor.phases.tools.try_install", return_value=False),
+        patch("ai_engineering.doctor.phases.tools.can_auto_install_tool", return_value=False),
+        patch("ai_engineering.doctor.phases.tools.manual_install_step", return_value="manual"),
     ):
         failed = [c for c in doctor_tools.check(ctx) if c.fixable and c.status == CheckStatus.WARN]
         fixed = doctor_tools.fix(ctx, failed)

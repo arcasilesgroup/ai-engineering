@@ -22,7 +22,7 @@ Create new CI/CD pipeline from project analysis.
    | Azure Pipelines | `ci.yml`, `ai-pr-review.yml` | Single-stage: stack checks, security. Triggers and pool config. |
 
 4. **Apply stack checks**:
-   - Python: `ruff check`, `ruff format --check`, `pytest`, `pip-audit`, `ty check`.
+   - Python: `ruff check`, `ruff format --check`, `pytest`, `uv run python -m ai_engineering.verify.tls_pip_audit`, `ty check`.
    - .NET: `dotnet build`, `dotnet test`, `dotnet format --verify-no-changes`.
    - Node: `eslint`, `vitest`, `npm audit`.
    - Rust: `cargo check`, `cargo clippy`, `cargo test`, `cargo audit`.
@@ -30,7 +30,7 @@ Create new CI/CD pipeline from project analysis.
 5. **Apply security**:
    - SHA pin all third-party actions (resolve latest SHA for each action).
    - Add `gitleaks` and `semgrep` jobs.
-   - Add `pip-audit` / `npm audit` / `cargo audit` per stack.
+   - Add `uv run python -m ai_engineering.verify.tls_pip_audit` / `npm audit` / `cargo audit` per stack.
    - Configure OIDC for deployment steps where possible.
 
 6. **Apply infrastructure**:

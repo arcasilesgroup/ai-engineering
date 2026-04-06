@@ -7,7 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Runtime, install, doctor, and remediation unification (spec-102)** -- added an early CLI bootstrap preflight before full app import, shared environment classification and remediation contracts, feed preflight before install and repair, dependency-closure validation for framework runtime, and a tool capability matrix with explicit Windows `semgrep` guidance.
+- **TLS-aware dependency audit path (spec-102)** -- added a Windows-friendly `pip-audit` wrapper that respects enterprise trust stores and wired it through verify, policy gates, CI, documentation, skills, and template mirrors.
+
 ### Fixed
+- **Security verification fail-closed hardening (spec-102)** -- verify now fails closed when the `pip-audit` wrapper exits without usable JSON output instead of treating the audit as inconclusive.
+- **Private feed preflight hardening (spec-102)** -- feed reachability checks now allow authentication-gated private feeds instead of blocking install or repair as unreachable.
 - **Version alignment (spec-100)** -- `pyproject.toml` now matches latest PyPI release (was stuck at `0.1.0` while PyPI had `0.3.0`). `version/registry.json` backfilled with all three published versions.
 - **CHANGELOG reorganization (spec-100)** -- entries assigned to correct `[0.3.0]` and `[0.2.0]` version headers. Previously everything was under `[Unreleased]` with no release boundaries.
 - **CI version commit-back (spec-100)** -- `ci-build.yml` now commits version bump back to main via Git Data API after tag creation, preventing version drift. Added `[skip ci]` guard on `workflow_run` trigger to prevent infinite loops.

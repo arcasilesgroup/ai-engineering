@@ -56,7 +56,7 @@ Gate Python-specific checks behind `pyproject.toml` detection. For non-Python st
 Execute full pre-push gate:
 - `semgrep scan --config auto .` (language-agnostic -- always run)
 - `gitleaks protect --staged --no-banner` (language-agnostic -- always run)
-- If Python (`pyproject.toml` present): `pip-audit`, `pytest tests/ -v`, `ty check src/`
+- If Python (`pyproject.toml` present): `uv run python -m ai_engineering.verify.tls_pip_audit`, `pytest tests/ -v`, `ty check src/`
 - If JS/TS (`package.json` present): `npm audit`, `npm test` (or equivalent from language context)
 - If Rust (`Cargo.toml` present): `cargo audit`, `cargo test`, `cargo clippy`
 - If Go (`go.mod` present): `govulncheck ./...`, `go test ./...`, `go vet ./...`

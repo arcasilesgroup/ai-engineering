@@ -1,7 +1,7 @@
 # Solution Intent -- ai-engineering
 
 > Status: Evolving
-> Last Review: 2026-03-30
+> Last Review: 2026-04-06
 
 ---
 
@@ -37,7 +37,7 @@ AI coding assistants operate without guardrails. In regulated industries, this c
 - >= 80% test coverage enforced at every PR
 - Consistent governance across 4 IDE surfaces from a single source
 - Auditable decision trail with expiry-based lifecycle
-- Fail-open design that never blocks developer workflow
+- Environment-aware failure handling: fail fast for runtime integrity, repair framework packaging drift when possible, and block only when security or feed validation cannot be trusted
 
 ### 1.5 Scope
 
@@ -189,7 +189,7 @@ mindmap
 | Complexity | Cyclomatic per function | <= 10 | SonarCloud |
 | Complexity | Cognitive per function | <= 15 | SonarCloud |
 | Security | Secret leaks | 0 | gitleaks (pre-commit + CI) |
-| Security | Dependency vulnerabilities | 0 | pip-audit (pre-push + CI) |
+| Security | Dependency vulnerabilities | 0 | TLS-aware pip-audit wrapper (pre-push + CI, fail-closed on unusable JSON) |
 | Security | Medium+ findings | 0 | CI security audit |
 | Reliability | Blocker/critical issues | 0 | SonarCloud |
 | Portability | Cross-platform support | 3 OS | CI matrix: ubuntu, windows, macos |
@@ -233,6 +233,7 @@ flowchart LR
 ```mermaid
 graph TB
     subgraph CLI["Interface Layer"]
+        cli_preflight["cli_preflight<br/>bootstrap runtime + dependency closure"]
         cli_commands["cli_commands<br/>16 command groups, ~47 commands"]
         commands["commands<br/>Low-level wrappers"]
     end
@@ -272,6 +273,7 @@ graph TB
         work_items["work_items<br/>Issue creation + board sync"]
     end
 
+    cli_preflight --> cli_commands
     cli_commands --> Core
     cli_commands --> Policy
     cli_commands --> Platform
@@ -285,18 +287,21 @@ graph TB
 | Layer | Component | Technology |
 |-------|-----------|------------|
 | Interface | CLI | typer + rich |
+| Interface | Bootstrap preflight | `cli_preflight` + dependency-closure validation |
 | Core | Data models | pydantic |
 | Core | Configuration | pyyaml + ruamel-yaml |
 | Core | Credentials | keyring |
 | Policy | Lint + format | ruff |
 | Policy | Type checking | ty |
 | Policy | Secret scanning | gitleaks |
-| Policy | Dependency audit | pip-audit |
-| Policy | SAST | semgrep |
+| Policy | Dependency audit | TLS-aware pip-audit wrapper (`uv run python -m ai_engineering.verify.tls_pip_audit`) |
+| Policy | SAST | semgrep (required; manual installation on Windows) |
 | Testing | Runner | pytest + pytest-xdist |
 | Testing | Coverage | pytest-cov -> SonarCloud |
 | Build | Package | hatchling |
 | Build | Dependency management | uv |
+
+The `ai-eng` entry point now crosses a deliberate bootstrap/runtime boundary: `cli_preflight` validates Python version, interpreter availability, and framework dependency closure before importing the full Typer application. Shared environment classification treats bootstrap packaging drift as the only auto-repairable class, using `uv sync --dev` from the repository root when the runtime is framework-managed.
 
 #### IDE Mirror Architecture
 
@@ -343,9 +348,13 @@ graph LR
 
 | Environment | Purpose | Variables | Secrets | Network |
 |-------------|---------|-----------|---------|---------|
-| Local dev | Development + testing | `AI_ENG_LIVE_TEST=1` (opt-in) | OS keyring (SonarCloud, Snyk tokens) | Internet for gh/az CLI |
-| CI (GitHub Actions) | Quality gates + build | `SONAR_TOKEN`, `SNYK_TOKEN` (optional) | GitHub Actions secrets | GitHub-hosted runners |
+| Local dev | Development + testing | `AI_ENG_LIVE_TEST=1` (opt-in) | OS keyring (SonarCloud, Snyk tokens, package-manager credentials) | Internet for gh/az CLI and private package feeds |
+| CI (GitHub Actions) | Quality gates + build | `SONAR_TOKEN`, `SNYK_TOKEN` (optional) | GitHub Actions secrets | GitHub-hosted runners; Windows dependency audit projects the OS trust store into the audit wrapper when no CA bundle is configured |
 | PyPI (release) | Package distribution | -- | OIDC trusted publisher (no token) | PyPI upload API |
+
+Shared environment handling normalizes failures into five categories: `runtime`, `packaging`, `feeds`, `tools`, and `provider-prerequisites`. The corresponding remediation policies are fail-fast, try-repair, validate-then-block, capability-check/manual follow-up, and scope-check-first.
+
+Install and doctor repair both run private-feed preflight before dependency resolution. Feeds that are unreachable block the operation; feeds that answer with an authentication challenge are accepted as reachable and deferred to `uv` plus keyring-backed credentials.
 
 ### 3.3 API and Gateway Policies
 
@@ -540,8 +549,8 @@ sequenceDiagram
 |-------|------|------|--------|
 | No secrets in commits | gitleaks | pre-commit + CI | Active |
 | No suppression comments | ruff + CI policy | CI + deny rules | Active (DEC-008) |
-| Dependency vulnerabilities | pip-audit | pre-push + CI | Active |
-| SAST scanning | semgrep | pre-push + CI | Active |
+| Dependency vulnerabilities | TLS-aware pip-audit wrapper | pre-push + CI | Active (fails closed when audit output is unusable) |
+| SAST scanning | semgrep | pre-push + CI | Active (manual install on Windows) |
 | Hook integrity | Hash verification | doctor --fix --phase hooks | Active |
 | Destructive git operations | 19 deny rules | `.claude/settings.json` | Active |
 | Automated actor exemption | Gate trailer skip | CI (dependabot only) | Active (DEC-020) |
@@ -569,7 +578,7 @@ sequenceDiagram
 
     Dev->>PrePush: git push
     PrePush->>PrePush: semgrep (SAST)
-    PrePush->>PrePush: pip-audit (deps)
+    PrePush->>PrePush: TLS-aware pip-audit wrapper (deps)
     PrePush->>PrePush: ty check (types)
     PrePush->>PrePush: pytest (tests)
     PrePush-->>Dev: PASS / FAIL
@@ -599,7 +608,7 @@ sequenceDiagram
 | Blocker/critical issues | 0 | SonarCloud |
 | Security findings (medium+) | 0 | CI security audit |
 | Secret leaks | 0 | gitleaks (pre-commit + CI) |
-| Dependency vulnerabilities | 0 | pip-audit (pre-push + CI) |
+| Dependency vulnerabilities | 0 | TLS-aware pip-audit wrapper (pre-push + CI, fail-closed on unusable JSON) |
 
 ### 6.2 Architecture Patterns
 
@@ -610,7 +619,7 @@ sequenceDiagram
 | Ownership-Safe Updates | 4-tier boundaries: framework / team / project / system |
 | Stack-Aware Gates | Policy checks filtered by installed stacks in manifest |
 | Audit-First Observability | Append-only NDJSON event log, single source of truth |
-| Fail-Open Design | Graceful degradation -- never block developer workflow |
+| Environment-Aware Failure Policy | Fail fast for bootstrap/runtime integrity, try repair for framework packaging drift, validate then block unreachable private feeds, and require manual follow-up when platform tool automation is unavailable |
 | Factory Pattern | VCS provider resolution: manifest-first, remote-URL-fallback |
 | Single-Source Mirror | Canonical `.claude/` generates all IDE mirrors via native IDE directories |
 | Constitution-Driven Governance | `CONSTITUTION.md` as foundational governance document replacing project-identity |

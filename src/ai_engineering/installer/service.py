@@ -27,6 +27,9 @@ from pathlib import Path
 
 from ai_engineering.config.loader import load_manifest_config, update_manifest_field
 from ai_engineering.detector.readiness import check_tools_for_stacks
+from ai_engineering.doctor.models import DoctorContext
+from ai_engineering.doctor.remediation import RemediationEngine
+from ai_engineering.doctor.runtime.feeds import validate_feeds_for_install
 from ai_engineering.hooks.manager import HookInstallResult, install_hooks
 from ai_engineering.installer.phases import (
     PHASE_GOVERNANCE,
@@ -36,6 +39,7 @@ from ai_engineering.installer.phases import (
     PHASE_STATE,
     InstallContext,
     InstallMode,
+    PhaseProtocol,
 )
 from ai_engineering.installer.phases.detect import DetectPhase
 from ai_engineering.installer.phases.governance import GovernancePhase
@@ -66,7 +70,13 @@ from .templates import (
     copy_template_tree,
     get_ai_engineering_template_root,
 )
-from .tools import ensure_tool, provider_required_tools
+from .tools import (
+    ToolInstallResult,
+    can_auto_install_tool,
+    ensure_tool,
+    manual_install_step,
+    provider_required_tools,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -230,6 +240,26 @@ def install_with_pipeline(
         existing_state=existing_state,
     )
 
+    if not dry_run:
+        feed_preflight = validate_feeds_for_install(
+            DoctorContext(target=target, install_state=existing_state),
+            mode=mode.value,
+        )
+        if feed_preflight.status == "blocked":
+            return (
+                InstallResult(
+                    readiness_status="blocked",
+                    manual_steps=[
+                        feed_preflight.message,
+                        *[
+                            f"Validate feed access before retrying install: {feed}"
+                            for feed in feed_preflight.feeds
+                        ],
+                    ],
+                ),
+                PipelineSummary(failed_phase="feed_preflight", dry_run=False),
+            )
+
     # Build phases in PHASE_ORDER (canonical ordering defined in phases/__init__.py).
     _phase_classes = {
         "detect": DetectPhase,
@@ -239,7 +269,7 @@ def install_with_pipeline(
         "hooks": HooksPhase,
         "tools": ToolsPhase,
     }
-    phases = [_phase_classes[name]() for name in PHASE_ORDER]
+    phases: list[PhaseProtocol] = [_phase_classes[name]() for name in PHASE_ORDER]
 
     # Run the pipeline
     runner = PipelineRunner(phases)
@@ -431,36 +461,55 @@ def _run_operational_phases(target: Path, *, vcs_provider: str, result: InstallR
     config = load_manifest_config(target)
     configured_vcs = config.providers.vcs or vcs_provider
     provider_tools = set(provider_required_tools(configured_vcs))
+    remediation_engine = RemediationEngine(
+        tool_capability=can_auto_install_tool,
+        tool_manual_step=manual_install_step,
+    )
 
     # Phase 2: required tooling (provider-aware + stack-aware)
     stack_report = check_tools_for_stacks(
         config.providers.stacks,
         vcs_provider=configured_vcs,
     )
+    provider_results = _remediate_tools(provider_tools, remediation_engine)
     for tool in provider_tools:
-        install_result = ensure_tool(tool, allow_install=True)
+        install_result = provider_results.get(tool)
+        is_available = install_result.available if install_result is not None else False
         tool_entry = state.tooling.get(tool)
         if tool_entry is not None:
-            tool_entry.installed = install_result.available
-            tool_entry.mode = "cli" if install_result.available else "api"
+            tool_entry.installed = is_available
+            tool_entry.mode = "cli" if is_available else "api"
         else:
             from ai_engineering.state.models import ToolEntry
 
             state.tooling[tool] = ToolEntry(
-                installed=install_result.available,
-                mode="cli" if install_result.available else "api",
+                installed=is_available,
+                mode="cli" if is_available else "api",
             )
-        if not install_result.available:
-            result.manual_steps.append(f"Install or enable `{tool}` CLI")
+    _extend_manual_steps(
+        result.manual_steps,
+        [
+            manual_install_step(tool)
+            for tool in provider_tools
+            if not provider_results.get(
+                tool,
+                ToolInstallResult(tool, False, False, False),
+            ).available
+        ],
+    )
 
+    missing_stack_tools = [
+        item.name
+        for item in stack_report.tools
+        if not item.available and item.name not in provider_tools
+    ]
+    stack_results = _remediate_tools(missing_stack_tools, remediation_engine)
     for item in stack_report.tools:
         if item.name in provider_tools:
             continue
-        if not item.available:
-            # Attempt auto-install for all missing stack tools, not just security tools
-            tool_result = ensure_tool(item.name, allow_install=True)
-            if not tool_result.available:
-                result.manual_steps.append(f"Install required tool `{item.name}`")
+        stack_result = stack_results.get(item.name)
+        if not item.available and (stack_result is None or not stack_result.available):
+            _extend_manual_steps(result.manual_steps, [manual_install_step(item.name)])
 
     # Deferred setup for projects without stacks
     if not config.providers.stacks:
@@ -512,3 +561,28 @@ def _run_operational_phases(target: Path, *, vcs_provider: str, result: InstallR
     state.vcs_provider = configured_vcs
 
     save_install_state(state_dir, state)
+
+
+def _remediate_tools(
+    tool_names: set[str] | list[str],
+    remediation_engine: RemediationEngine,
+) -> dict[str, ToolInstallResult]:
+    install_results: dict[str, ToolInstallResult] = {}
+
+    def _installer(tool: str) -> bool:
+        install_result = ensure_tool(tool, allow_install=True)
+        install_results[tool] = install_result
+        return install_result.available
+
+    remediation_engine.tool_installer = _installer
+    remediation_engine.remediate_missing_tools(
+        sorted(set(tool_names)),
+        source="installer.operational",
+    )
+    return install_results
+
+
+def _extend_manual_steps(existing: list[str], steps: list[str]) -> None:
+    for step in steps:
+        if step not in existing:
+            existing.append(step)

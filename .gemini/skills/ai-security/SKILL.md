@@ -53,7 +53,7 @@ The `all` mode runs static, deps, and secrets in sequence and produces an aggreg
 ### deps -- Dependency Audit
 
 1. **Identify lock files** -- read `providers.stacks` from `.ai-engineering/manifest.yml`, then check for matching lock files (`uv.lock`, `package-lock.json`, `Cargo.lock`, `*.csproj`).
-2. **Run audit** -- Python: `pip-audit --strict --desc`. Node: `npm audit --json`. Rust: `cargo audit --json`.
+2. **Run audit** -- Python: `uv run python -m ai_engineering.verify.tls_pip_audit --strict --desc`. Node: `npm audit --json`. Rust: `cargo audit --json`.
 3. **Assess exploitability** -- mark unreachable paths as reduced severity with justification.
 4. **Report** with upgrade paths.
 

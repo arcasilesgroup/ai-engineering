@@ -708,6 +708,21 @@ class TestCheckExpiredRiskAcceptances:
 class TestRegistryValidation:
     """Validate registry constants contain expected configuration."""
 
+    def test_pre_push_python_pip_audit_uses_tls_wrapper(self) -> None:
+        python_checks = PRE_PUSH_CHECKS["python"]
+        pip_audit_checks = [c for c in python_checks if c.name == "pip-audit"]
+        assert len(pip_audit_checks) == 1, "Expected exactly one pip-audit check for python"
+
+        cmd = pip_audit_checks[0].cmd
+
+        assert cmd[:5] == [
+            "uv",
+            "run",
+            "python",
+            "-m",
+            "ai_engineering.verify.tls_pip_audit",
+        ]
+
     def test_pre_push_python_stack_tests_flags(self) -> None:
         # Arrange
         python_checks = PRE_PUSH_CHECKS["python"]

@@ -13,11 +13,13 @@ from pathlib import Path
 
 from ai_engineering.config.loader import load_manifest_config
 from ai_engineering.doctor.models import (
+    CheckResult,
     CheckStatus,
     DoctorContext,
     DoctorReport,
     PhaseReport,
 )
+from ai_engineering.doctor.runtime.feeds import validate_feeds_for_install
 from ai_engineering.installer.phases import PHASE_ORDER
 from ai_engineering.state.observability import emit_framework_operation
 from ai_engineering.state.service import load_install_state
@@ -90,6 +92,19 @@ def diagnose(
     )
 
     report = DoctorReport()
+
+    if fix:
+        feed_preflight = validate_feeds_for_install(ctx, mode="repair")
+        if feed_preflight.status == "blocked":
+            report.runtime.append(
+                CheckResult(
+                    name="feed-preflight",
+                    status=CheckStatus.FAIL,
+                    message=feed_preflight.message,
+                )
+            )
+            _emit_audit_log(target, report, fix=fix)
+            return report
 
     # -- 4. Pre-install mode --------------------------------------------------
     if install_state is None:

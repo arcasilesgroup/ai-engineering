@@ -16,6 +16,7 @@ from ai_engineering.verify.scoring import (
     SpecialistResult,
     VerifyScore,
 )
+from ai_engineering.verify.tls_pip_audit import pip_audit_command
 
 SPECIALIST_ORDER = (
     "governance",
@@ -149,22 +150,34 @@ def verify_security(project_root: Path, *, profile: str = "normal") -> VerifySco
         except json.JSONDecodeError:
             pass
 
-    tool_result = _run(
-        ["uv", "run", "pip-audit", "--format", "json"],
-        project_root,
-    )
-    if tool_result.returncode != 0 and tool_result.stdout:
-        try:
-            audit = json.loads(tool_result.stdout)
-            for dependency in audit.get("dependencies", []):
-                for vulnerability in dependency.get("vulns", []):
-                    specialist.add(
-                        FindingSeverity.CRITICAL,
-                        "dependency",
-                        f"{dependency['name']}: {vulnerability.get('id', 'unknown vulnerability')}",
-                    )
-        except json.JSONDecodeError:
-            pass
+    tool_result = _run(pip_audit_command("--format", "json"), project_root)
+    if tool_result.returncode != 0:
+        if tool_result.stdout:
+            try:
+                audit = json.loads(tool_result.stdout)
+                for dependency in audit.get("dependencies", []):
+                    for vulnerability in dependency.get("vulns", []):
+                        vulnerability_id = vulnerability.get(
+                            "id",
+                            "unknown vulnerability",
+                        )
+                        specialist.add(
+                            FindingSeverity.CRITICAL,
+                            "dependency",
+                            f"{dependency['name']}: {vulnerability_id}",
+                        )
+            except json.JSONDecodeError:
+                specialist.add(
+                    FindingSeverity.CRITICAL,
+                    "dependency-audit",
+                    "pip-audit failed without valid JSON output",
+                )
+        else:
+            specialist.add(
+                FindingSeverity.CRITICAL,
+                "dependency-audit",
+                "pip-audit failed without producing output",
+            )
 
     return _finalize_specialist(report, specialist)
 

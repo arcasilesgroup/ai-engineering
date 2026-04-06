@@ -40,7 +40,7 @@ Map each gate dimension to the stack-appropriate tool. If multiple configs are f
    - Gate: coverage >= threshold from `manifest.yml` (default 80%).
 
 2. **Security** -- verify zero medium+ findings.
-   - Run `gitleaks protect --staged`, `semgrep scan --config auto .`, `pip-audit`.
+   - Run `gitleaks protect --staged`, `semgrep scan --config auto .`, `uv run python -m ai_engineering.verify.tls_pip_audit`.
    - Gate: zero critical/high findings. Medium findings documented.
 
 3. **Tests** -- verify all tests pass.
@@ -52,7 +52,7 @@ Map each gate dimension to the stack-appropriate tool. If multiple configs are f
    - Gate: zero unfixable lint errors.
 
 5. **Dependency vulnerabilities** -- verify clean dependency tree.
-   - Run `pip-audit --strict`.
+   - Run `uv run python -m ai_engineering.verify.tls_pip_audit --strict`.
    - Gate: zero known vulnerabilities. Accepted risks must be in `decision-store.json`.
 
 6. **Type checking** -- verify type correctness.

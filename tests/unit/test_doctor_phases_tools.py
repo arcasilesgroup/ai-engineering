@@ -274,7 +274,12 @@ class TestToolsFix:
                 "is_tool_available",
                 side_effect=lambda n: n not in ("gitleaks", "semgrep"),
             ),
-            patch.object(tools_phase, "try_install", return_value=True),
+            patch.object(tools_phase, "can_auto_install_tool", return_value=True),
+            patch.object(
+                tools_phase,
+                "ensure_tool",
+                return_value=type("ToolResult", (), {"available": True})(),
+            ),
         ):
             fixed = tools_phase.fix(ctx, failed)
 
@@ -300,13 +305,53 @@ class TestToolsFix:
                 "is_tool_available",
                 side_effect=lambda n: n not in ("gitleaks", "semgrep"),
             ),
-            patch.object(tools_phase, "try_install", side_effect=mock_install),
+            patch.object(
+                tools_phase,
+                "ensure_tool",
+                side_effect=lambda tool, allow_install=True: type(
+                    "ToolResult",
+                    (),
+                    {"available": mock_install(tool)},
+                )(),
+            ),
         ):
             fixed = tools_phase.fix(ctx, failed)
 
         assert len(fixed) == 1
         assert fixed[0].status == CheckStatus.WARN
-        assert "still missing" in fixed[0].message
+        assert "manual follow-up required" in fixed[0].message
+
+    def test_fix_tools_uses_manual_guidance_for_unsupported_tool(self, ctx: DoctorContext) -> None:
+        failed = [
+            CheckResult(
+                name="tools-required",
+                status=CheckStatus.WARN,
+                message="missing tools: semgrep",
+                fixable=True,
+            )
+        ]
+
+        with (
+            patch.object(
+                tools_phase,
+                "is_tool_available",
+                side_effect=lambda n: n != "semgrep",
+            ),
+            patch.object(tools_phase, "can_auto_install_tool", return_value=False),
+            patch.object(
+                tools_phase,
+                "manual_install_step",
+                return_value=(
+                    "Install `semgrep` manually. "
+                    "Automatic Semgrep installation is not supported on Windows."
+                ),
+            ),
+        ):
+            fixed = tools_phase.fix(ctx, failed)
+
+        assert len(fixed) == 1
+        assert fixed[0].status == CheckStatus.WARN
+        assert "manual follow-up required: semgrep" in fixed[0].message
 
     def test_fix_tools_dry_run(self, ctx: DoctorContext) -> None:
         failed = [
@@ -318,7 +363,14 @@ class TestToolsFix:
             )
         ]
 
-        with patch.object(tools_phase, "try_install") as mock_install:
+        with (
+            patch.object(
+                tools_phase,
+                "is_tool_available",
+                side_effect=lambda name: name != "ruff",
+            ),
+            patch.object(tools_phase, "ensure_tool") as mock_install,
+        ):
             fixed = tools_phase.fix(ctx, failed, dry_run=True)
 
         mock_install.assert_not_called()
