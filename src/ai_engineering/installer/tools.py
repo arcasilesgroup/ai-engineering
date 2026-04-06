@@ -21,6 +21,15 @@ class ToolInstallResult:
     detail: str = ""
 
 
+@dataclass(frozen=True)
+class ToolCapability:
+    """Auto-install support for a tool on the current platform."""
+
+    tool: str
+    automatic_supported: bool
+    reason: str = ""
+
+
 _WINGET_IDS: dict[str, str] = {
     "gh": "GitHub.cli",
     "az": "Microsoft.AzureCLI",
@@ -40,6 +49,46 @@ _PIP_INSTALLABLE: dict[str, str] = {
     "ty": "ty",
     "pip-audit": "pip-audit",
 }
+
+
+def get_tool_capability(tool: str, *, system: str | None = None) -> ToolCapability:
+    """Return whether the framework can auto-install a tool on this platform."""
+    normalized_system = (system or platform.system()).lower()
+
+    if normalized_system == "windows" and tool == "semgrep":
+        return ToolCapability(
+            tool=tool,
+            automatic_supported=False,
+            reason="Automatic Semgrep installation is not supported on Windows.",
+        )
+
+    if tool in _PIP_INSTALLABLE:
+        return ToolCapability(tool=tool, automatic_supported=True, reason="pip-installable")
+
+    if normalized_system in ("darwin", "linux"):
+        return ToolCapability(tool=tool, automatic_supported=True, reason="os-package-manager")
+
+    if normalized_system == "windows" and tool in _WINGET_IDS:
+        return ToolCapability(tool=tool, automatic_supported=True, reason="winget")
+
+    return ToolCapability(
+        tool=tool,
+        automatic_supported=False,
+        reason="No supported package manager available.",
+    )
+
+
+def can_auto_install_tool(tool: str, *, system: str | None = None) -> bool:
+    """Return True when the framework can attempt automatic installation."""
+    return get_tool_capability(tool, system=system).automatic_supported
+
+
+def manual_install_step(tool: str, *, system: str | None = None) -> str:
+    """Return user-facing manual guidance for a missing tool."""
+    capability = get_tool_capability(tool, system=system)
+    if capability.reason:
+        return f"Install `{tool}` manually. {capability.reason}"
+    return f"Install `{tool}` manually."
 
 
 def ensure_tool(tool: str, *, allow_install: bool | None = None) -> ToolInstallResult:
@@ -64,6 +113,16 @@ def ensure_tool(tool: str, *, allow_install: bool | None = None) -> ToolInstallR
         )
 
     system = platform.system().lower()
+    capability = get_tool_capability(tool, system=system)
+    if not capability.automatic_supported:
+        return ToolInstallResult(
+            tool=tool,
+            available=False,
+            attempted=False,
+            installed=False,
+            detail=manual_install_step(tool, system=system),
+        )
+
     cmd: list[str] | None = None
     method = ""
 

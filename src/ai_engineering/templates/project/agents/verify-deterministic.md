@@ -30,7 +30,7 @@ Report: total violations, by severity, top rule IDs. Any error-level finding is 
 ### Step 3: Dependency Audit (pip-audit)
 
 ```bash
-pip-audit --desc 2>&1 || true
+uv run python -m ai_engineering.verify.tls_pip_audit --desc 2>&1 || true
 ```
 
 Report: number of vulnerable packages, CVE IDs, severity levels. Check decision-store for accepted vulnerabilities before flagging.

@@ -12,12 +12,33 @@ supply-chain misconfigurations:
 from __future__ import annotations
 
 import os
+import re
 import shutil
 import subprocess
 import tomllib
+from dataclasses import dataclass
 from pathlib import Path
+from urllib.error import HTTPError, URLError
+from urllib.request import Request, urlopen
 
 from ai_engineering.doctor.models import CheckResult, CheckStatus, DoctorContext
+
+
+@dataclass(frozen=True)
+class FeedValidationResult:
+    """Outcome of feed preflight validation before install or repair work."""
+
+    status: str
+    feeds: list[str]
+    message: str
+
+
+@dataclass(frozen=True)
+class FeedProbeResult:
+    """Reachability/auth outcome for a configured feed probe."""
+
+    reachable: bool
+    auth_required: bool = False
 
 
 def check(ctx: DoctorContext) -> list[CheckResult]:
@@ -66,6 +87,77 @@ def check(ctx: DoctorContext) -> list[CheckResult]:
         results.append(keyring_result)
 
     return results
+
+
+def validate_feeds_for_install(ctx: DoctorContext, mode: str) -> FeedValidationResult:
+    """Validate private feeds before dependency resolution or repair begins."""
+    pyproject_path = ctx.target / "pyproject.toml"
+    configured_feeds: set[str] = set()
+
+    if pyproject_path.is_file():
+        try:
+            data = tomllib.loads(pyproject_path.read_text(encoding="utf-8"))
+        except (tomllib.TOMLDecodeError, OSError):
+            data = {}
+        indexes = _extract_uv_indexes(data)
+        configured_feeds.update(
+            idx.get("url", "")
+            for idx in indexes
+            if idx.get("url") and not _is_pypi(idx.get("url", ""))
+        )
+
+    configured_feeds.update(detect_feeds_from_lockfile(ctx.target / "uv.lock"))
+    feeds: list[str] = [feed for feed in sorted(configured_feeds) if feed]
+    if not feeds:
+        return FeedValidationResult(status="ok", feeds=[], message="No private feeds detected")
+
+    unreachable: list[str] = []
+    auth_required: list[str] = []
+    for feed in feeds:
+        probe = _probe_feed(feed)
+        if probe.reachable:
+            continue
+        if probe.auth_required:
+            auth_required.append(feed)
+            continue
+        unreachable.append(feed)
+
+    if unreachable:
+        return FeedValidationResult(
+            status="blocked",
+            feeds=unreachable,
+            message=f"Blocked {mode}: private feed preflight failed before dependency resolution.",
+        )
+
+    if auth_required:
+        return FeedValidationResult(
+            status="ok",
+            feeds=feeds,
+            message=(
+                f"Validated {len(feeds)} private feed(s) before {mode}; "
+                f"{len(auth_required)} require package-manager credentials."
+            ),
+        )
+
+    return FeedValidationResult(
+        status="ok",
+        feeds=feeds,
+        message=f"Validated {len(feeds)} private feed(s) before {mode}.",
+    )
+
+
+def detect_feeds_from_lockfile(lock_path: Path) -> set[str]:
+    """Extract private registry URLs referenced in ``uv.lock``."""
+    if not lock_path.is_file():
+        return set()
+
+    try:
+        content = lock_path.read_text(encoding="utf-8")
+    except OSError:
+        return set()
+
+    matches = re.findall(r'registry\s*=\s*"([^"]+)"', content)
+    return {match for match in matches if not _is_pypi(match)}
 
 
 def _extract_uv_indexes(data: dict) -> list[dict]:
@@ -187,3 +279,23 @@ def _check_keyring() -> CheckResult | None:
         status=CheckStatus.OK,
         message="keyring available and functional",
     )
+
+
+def _probe_feed(feed_url: str) -> FeedProbeResult:
+    """Best-effort reachability probe for a configured feed."""
+    request = Request(feed_url, method="HEAD")
+    try:
+        with urlopen(request, timeout=5) as response:
+            return FeedProbeResult(reachable=200 <= response.status < 400)
+    except HTTPError as exc:
+        if exc.code in (401, 403):
+            return FeedProbeResult(reachable=False, auth_required=True)
+        if exc.code == 405:
+            try:
+                with urlopen(Request(feed_url, method="GET"), timeout=5) as response:
+                    return FeedProbeResult(reachable=200 <= response.status < 400)
+            except (HTTPError, URLError, OSError):
+                return FeedProbeResult(reachable=False)
+        return FeedProbeResult(reachable=False)
+    except (URLError, OSError):
+        return FeedProbeResult(reachable=False)

@@ -122,7 +122,7 @@ class TestVerifySecurity:
     def test_clean_scan_returns_score_100(self, fake_run: FakeSubprocess) -> None:
         # Arrange — both tools return clean
         fake_run.set_response("gitleaks", returncode=0, stdout="")
-        fake_run.set_response("pip-audit", returncode=0, stdout="")
+        fake_run.set_response("tls_pip_audit", returncode=0, stdout="")
 
         # Act
         result = verify_security(Path("/fake"))
@@ -155,7 +155,7 @@ class TestVerifySecurity:
                 }
             ]
         }
-        fake_run.set_response("pip-audit", returncode=1, stdout=json.dumps(audit))
+        fake_run.set_response("tls_pip_audit", returncode=1, stdout=json.dumps(audit))
 
         # Act
         result = verify_security(Path("/fake"))
@@ -165,6 +165,28 @@ class TestVerifySecurity:
         assert len(dep_findings) == 1
         assert dep_findings[0].severity == FindingSeverity.CRITICAL
         assert dep_findings[0].specialist == "security"
+
+    def test_pip_audit_non_json_failure_reports_critical_audit_failure(
+        self, fake_run: FakeSubprocess
+    ) -> None:
+        fake_run.set_response("tls_pip_audit", returncode=1, stdout="tls handshake failed")
+
+        result = verify_security(Path("/fake"))
+
+        audit_findings = [f for f in result.findings if f.category == "dependency-audit"]
+        assert len(audit_findings) == 1
+        assert audit_findings[0].severity == FindingSeverity.CRITICAL
+
+    def test_pip_audit_empty_failure_reports_critical_audit_failure(
+        self, fake_run: FakeSubprocess
+    ) -> None:
+        fake_run.set_response("tls_pip_audit", returncode=1, stdout="")
+
+        result = verify_security(Path("/fake"))
+
+        audit_findings = [f for f in result.findings if f.category == "dependency-audit"]
+        assert len(audit_findings) == 1
+        assert audit_findings[0].severity == FindingSeverity.CRITICAL
 
 
 # ── verify_governance ─────────────────────────────────────────────────────
@@ -327,7 +349,7 @@ class TestVerifyPlatform:
     ) -> None:
         fake_run.set_response("ruff", returncode=0, stdout="")
         fake_run.set_response("gitleaks", returncode=0, stdout="")
-        fake_run.set_response("pip-audit", returncode=0, stdout="")
+        fake_run.set_response("tls_pip_audit", returncode=0, stdout="")
         from ai_engineering.validator._shared import IntegrityReport
 
         monkeypatch.setattr(

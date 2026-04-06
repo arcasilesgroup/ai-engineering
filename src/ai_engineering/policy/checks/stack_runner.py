@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from ai_engineering.policy.gates import GateCheckResult, GateResult
+from ai_engineering.verify.tls_pip_audit import pip_audit_command
 
 
 @dataclass
@@ -142,7 +143,7 @@ PRE_PUSH_CHECKS: dict[str, list[CheckConfig]] = {
     "python": [
         CheckConfig(
             name="pip-audit",
-            cmd=["pip-audit"],
+            cmd=pip_audit_command(),
         ),
         CheckConfig(
             name="stack-tests",

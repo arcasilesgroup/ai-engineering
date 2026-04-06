@@ -619,6 +619,77 @@ class TestInstallCallsCheckToolsForStacks:
         assert patched["check_tools_for_stacks"].call_args.kwargs["vcs_provider"] == "github"
 
 
+class TestOperationalRemediation:
+    def test_provider_tool_manual_steps_use_shared_guidance(self, patched, tmp_path: Path) -> None:
+        from ai_engineering.installer.auth import AuthResult
+        from ai_engineering.installer.branch_policy import BranchPolicyResult
+        from ai_engineering.installer.tools import ToolInstallResult
+
+        patched["load_manifest_config"].return_value = MagicMock(
+            providers=MagicMock(stacks=[], vcs="github"),
+        )
+        patched["check_tools_for_stacks"].return_value = MagicMock(tools=[])
+        patched["check_vcs_auth"].return_value = AuthResult(
+            provider="github",
+            mode="api",
+            authenticated=False,
+            message="Authenticate gh",
+        )
+        patched["apply_branch_policy"].return_value = BranchPolicyResult(
+            applied=True,
+            mode="api",
+            message="ok",
+        )
+        patched["provider_required_tools"].return_value = ["gh"]
+        patched["ensure_tool"].return_value = ToolInstallResult(
+            tool="gh",
+            available=False,
+            attempted=False,
+            installed=False,
+        )
+
+        with patch.object(Path, "exists", return_value=True):
+            result = install(tmp_path)
+
+        assert any("Install `gh` manually" in step for step in result.manual_steps)
+
+    def test_stack_tool_manual_steps_use_shared_guidance(self, patched, tmp_path: Path) -> None:
+        from ai_engineering.installer.auth import AuthResult
+        from ai_engineering.installer.branch_policy import BranchPolicyResult
+        from ai_engineering.installer.tools import ToolInstallResult
+
+        missing_tool = MagicMock(name="semgrep", available=False)
+        missing_tool.name = "semgrep"
+        missing_tool.available = False
+        patched["load_manifest_config"].return_value = MagicMock(
+            providers=MagicMock(stacks=["python"], vcs="github"),
+        )
+        patched["check_tools_for_stacks"].return_value = MagicMock(tools=[missing_tool])
+        patched["check_vcs_auth"].return_value = AuthResult(
+            provider="github",
+            mode="cli",
+            authenticated=True,
+            message="ok",
+        )
+        patched["apply_branch_policy"].return_value = BranchPolicyResult(
+            applied=True,
+            mode="cli",
+            message="ok",
+        )
+        patched["provider_required_tools"].return_value = []
+        patched["ensure_tool"].return_value = ToolInstallResult(
+            tool="semgrep",
+            available=False,
+            attempted=False,
+            installed=False,
+        )
+
+        with patch.object(Path, "exists", return_value=True):
+            result = install(tmp_path)
+
+        assert any("Install `semgrep` manually" in step for step in result.manual_steps)
+
+
 class TestInstallCallsCheckVcsAuth:
     """install() calls check_vcs_auth in operational phase."""
 

@@ -49,19 +49,31 @@ _FAILURE_PATTERNS = re.compile(
 def _lock_shared(handle) -> None:
     if _fcntl is None:
         return
-    _fcntl.flock(handle.fileno(), _fcntl.LOCK_SH)
+    flock = getattr(_fcntl, "flock", None)
+    lock_sh = getattr(_fcntl, "LOCK_SH", None)
+    if flock is None or lock_sh is None:
+        return
+    flock(handle.fileno(), lock_sh)
 
 
 def _lock_exclusive(handle) -> None:
     if _fcntl is None:
         return
-    _fcntl.flock(handle.fileno(), _fcntl.LOCK_EX)
+    flock = getattr(_fcntl, "flock", None)
+    lock_ex = getattr(_fcntl, "LOCK_EX", None)
+    if flock is None or lock_ex is None:
+        return
+    flock(handle.fileno(), lock_ex)
 
 
 def _unlock(handle) -> None:
     if _fcntl is None:
         return
-    _fcntl.flock(handle.fileno(), _fcntl.LOCK_UN)
+    flock = getattr(_fcntl, "flock", None)
+    lock_un = getattr(_fcntl, "LOCK_UN", None)
+    if flock is None or lock_un is None:
+        return
+    flock(handle.fileno(), lock_un)
 
 
 def _now_utc() -> datetime:

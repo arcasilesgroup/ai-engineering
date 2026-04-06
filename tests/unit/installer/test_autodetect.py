@@ -5,6 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
+
 from ai_engineering.installer.autodetect import (
     DetectionResult,
     _order_by_popularity,
@@ -472,7 +474,14 @@ class TestWalkMarkers:
         real_dir.mkdir()
         (real_dir / "pyproject.toml").touch()
         link = tmp_path / "linked"
-        link.symlink_to(real_dir)
+        try:
+            link.symlink_to(real_dir)
+        except OSError as exc:
+            if getattr(exc, "winerror", None) == 1314:
+                pytest.skip(
+                    "Windows symlink creation requires elevated privileges or Developer Mode"
+                )
+            raise
 
         stacks, _ides = _walk_markers(tmp_path)
         # pyproject.toml in real/ is detected, but the symlink dir itself is not walked

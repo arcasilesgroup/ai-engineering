@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import logging
 
-from ai_engineering.installer.tools import ensure_tool, provider_required_tools
+from ai_engineering.installer.tools import ensure_tool, manual_install_step, provider_required_tools
 
 from . import (
     InstallContext,
@@ -61,9 +61,7 @@ class ToolsPhase:
             if tool_result.available:
                 result.created.append(f"tool:{tool_name}:ok")
             else:
-                result.warnings.append(
-                    f"Tool {tool_name!r} not found. Run 'ai-eng setup' to install."
-                )
+                result.warnings.append(manual_install_step(tool_name))
                 result.skipped.append(f"tool:{tool_name}:missing")
 
         return result

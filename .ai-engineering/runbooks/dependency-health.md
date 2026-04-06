@@ -14,7 +14,7 @@ This runbook is the **single owner** of all CVE and vulnerability findings origi
 ## Precondiciones
 
 - Package ecosystem detection: at least one of `pyproject.toml`, `requirements.txt`, `uv.lock`, `package.json`, or `Cargo.toml` must exist.
-- `pip-audit` installed for Python CVE scanning. Install via `uv tool install pip-audit`.
+- Repo Python dependencies installed via `uv sync --dev` so the TLS-aware dependency-audit wrapper is available.
 - `uv` installed for outdated package checks and license inspection.
 - `gh` or `az` CLI authenticated for work item creation and updates.
 - For Node ecosystems: `npm` available on PATH.
@@ -36,8 +36,7 @@ All subsequent steps run only for detected ecosystems.
 
 **Python**
 ```bash
-pip-audit --format=json
-# Alternative: uv run pip-audit --format=json
+uv run python -m ai_engineering.verify.tls_pip_audit --format=json
 ```
 
 **Node** (if present)
