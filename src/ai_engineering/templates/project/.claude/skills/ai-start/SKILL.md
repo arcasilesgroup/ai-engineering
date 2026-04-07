@@ -80,18 +80,22 @@ Formatting rules:
 
 ## Board Display
 
-Read `work_items.provider` from manifest:
+1. Read `work_items.provider` from manifest. This is the ONLY field that determines which provider to use.
+2. Branch on the value:
 
-**GitHub**:
-- If `github_project.number` is set: read `github_project.owner` from manifest for the `--owner` flag. `gh project item-list <number> --owner <github_project.owner> --format json --limit 10`
+**IF `work_items.provider` is `github`**:
+- If `work_items.github_project.number` is set: read `work_items.github_project.owner` from manifest for the `--owner` flag. `gh project item-list <number> --owner <github_project.owner> --format json --limit 10`
 - Else: `gh issue list --limit 10 --json number,title,state,labels`
 
-**Azure DevOps**:
+**ELSE IF `work_items.provider` is `azure_devops`**:
+- Read `work_items.azure_devops.area_path` from manifest.
 - `az boards query --wiql "SELECT [System.Id],[System.Title],[System.State] FROM WorkItems WHERE [System.AreaPath] UNDER '<area_path>' ORDER BY [System.ChangedDate] DESC" --top 10 -o json`
+
+**ELSE**: show `board provider unknown — check work_items.provider in manifest`.
 
 Show count grouped by status. Keep it to 1-3 lines.
 
-If board not configured in manifest: show `not configured — run /ai-board-discover`.
+If `work_items` section missing from manifest: show `not configured — run /ai-board-discover`.
 If API call fails: show `board unavailable` and continue. Never block the dashboard.
 
 ## Context Budget

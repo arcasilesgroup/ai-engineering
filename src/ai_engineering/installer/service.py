@@ -360,6 +360,7 @@ def _write_providers(
             update_manifest_field(target, "providers.ides", ides)
         if vcs_provider != "github":
             update_manifest_field(target, "providers.vcs", vcs_provider)
+            update_manifest_field(target, "work_items.provider", vcs_provider)
     except KeyError:
         logger.debug("providers key not found in manifest; skipping write")
 
