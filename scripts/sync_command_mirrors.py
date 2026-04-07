@@ -927,6 +927,14 @@ def generate_copilot_instructions(
     lines.append("")
     lines.append("Your first action in every session MUST be to run `/ai-start`.")
     lines.append("Do not respond to any user request until `/ai-start` completes.")
+    lines.append(
+        "`/ai-start` and other `/ai-*` entries are IDE slash commands,"
+        " not `ai-eng` CLI subcommands."
+    )
+    lines.append(
+        "Never translate `/ai-<name>` into `ai-eng <name>` unless the CLI"
+        " reference explicitly documents that command."
+    )
     lines.append("")
 
     # Plan/Execute Flow

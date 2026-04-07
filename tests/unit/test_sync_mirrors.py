@@ -132,6 +132,18 @@ class TestGenerationFunctions:
         assert "tags:" in content
         assert len(content) > 100
 
+    def test_generate_copilot_instructions_preserves_slash_command_boundary(self) -> None:
+        from scripts.sync_command_mirrors import (
+            discover_agents,
+            discover_skills,
+            generate_copilot_instructions,
+        )
+
+        content = generate_copilot_instructions(discover_skills(), discover_agents())
+
+        assert "`/ai-start` and other `/ai-*` entries are IDE slash commands" in content
+        assert "Never translate `/ai-<name>` into `ai-eng <name>`" in content
+
     def test_generate_codex_agent_wrapper_format(self) -> None:
         from scripts.sync_command_mirrors import CLAUDE_AGENTS, generate_codex_agent
 

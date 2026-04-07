@@ -7,6 +7,8 @@ This file is self-contained -- no other instruction files are required.
 
 Your first action in every session MUST be to run `/ai-start`.
 Do not respond to any user request until `/ai-start` completes.
+`/ai-start` and the rest of `/ai-*` are slash commands in the IDE agent surface, not terminal commands.
+Do not invent `ai-eng <skill>` equivalents unless the CLI reference explicitly lists them.
 
 ### 1. Plan Mode Default
 

@@ -14,14 +14,17 @@ from __future__ import annotations
 import os
 import re
 import shutil
+import socket
+import ssl
 import subprocess
 import tomllib
 from dataclasses import dataclass
 from pathlib import Path
-from urllib.error import HTTPError, URLError
-from urllib.request import Request, urlopen
+from urllib.parse import urlparse
 
 from ai_engineering.doctor.models import CheckResult, CheckStatus, DoctorContext
+
+_ALLOWED_FEED_SCHEMES = frozenset({"https", "http"})
 
 
 @dataclass(frozen=True)
@@ -39,6 +42,13 @@ class FeedProbeResult:
 
     reachable: bool
     auth_required: bool = False
+
+
+@dataclass(frozen=True)
+class _HttpProbeResponse:
+    """Minimal HTTP response metadata for feed reachability checks."""
+
+    status: int
 
 
 def check(ctx: DoctorContext) -> list[CheckResult]:
@@ -283,19 +293,64 @@ def _check_keyring() -> CheckResult | None:
 
 def _probe_feed(feed_url: str) -> FeedProbeResult:
     """Best-effort reachability probe for a configured feed."""
-    request = Request(feed_url, method="HEAD")
     try:
-        with urlopen(request, timeout=5) as response:
-            return FeedProbeResult(reachable=200 <= response.status < 400)
-    except HTTPError as exc:
-        if exc.code in (401, 403):
+        response = _http_probe(feed_url, method="HEAD", timeout=5)
+        if response.status == 405:
+            response = _http_probe(feed_url, method="GET", timeout=5)
+        if response.status in (401, 403):
             return FeedProbeResult(reachable=False, auth_required=True)
-        if exc.code == 405:
-            try:
-                with urlopen(Request(feed_url, method="GET"), timeout=5) as response:
-                    return FeedProbeResult(reachable=200 <= response.status < 400)
-            except (HTTPError, URLError, OSError):
-                return FeedProbeResult(reachable=False)
+        return FeedProbeResult(reachable=200 <= response.status < 400)
+    except OSError:
         return FeedProbeResult(reachable=False)
-    except (URLError, OSError):
-        return FeedProbeResult(reachable=False)
+
+
+def _http_probe(url: str, *, method: str, timeout: float) -> _HttpProbeResponse:
+    """Perform a minimal validated HTTP request and return the status code."""
+    parsed = urlparse(url)
+    if parsed.scheme not in _ALLOWED_FEED_SCHEMES:
+        msg = f"Unsupported feed URL scheme: {parsed.scheme!r}"
+        raise OSError(msg)
+    if not parsed.hostname:
+        msg = "Feed URL missing hostname"
+        raise OSError(msg)
+    if parsed.username or parsed.password:
+        msg = "Feed URL must not embed credentials"
+        raise OSError(msg)
+
+    port = parsed.port or (443 if parsed.scheme == "https" else 80)
+    request_path = parsed.path or "/"
+    if parsed.query:
+        request_path = f"{request_path}?{parsed.query}"
+
+    request_bytes = (
+        f"{method} {request_path} HTTP/1.1\r\n"
+        f"Host: {parsed.hostname}\r\n"
+        "Connection: close\r\n"
+        "User-Agent: ai-engineering-feed-probe/1\r\n"
+        "\r\n"
+    ).encode("ascii")
+
+    with socket.create_connection((parsed.hostname, port), timeout=timeout) as sock:
+        if parsed.scheme == "https":
+            context = ssl.create_default_context()
+            with context.wrap_socket(sock, server_hostname=parsed.hostname) as tls_sock:
+                return _read_http_status(tls_sock, request_bytes)
+        return _read_http_status(sock, request_bytes)
+
+
+def _read_http_status(sock: socket.socket, request_bytes: bytes) -> _HttpProbeResponse:
+    """Send an HTTP request over *sock* and parse the response status line."""
+    sock.sendall(request_bytes)
+    response = bytearray()
+    while b"\r\n\r\n" not in response:
+        chunk = sock.recv(4096)
+        if not chunk:
+            break
+        response.extend(chunk)
+    header_bytes = bytes(response).split(b"\r\n\r\n", 1)[0]
+    status_line = header_bytes.split(b"\r\n", 1)[0].decode("iso-8859-1")
+    parts = status_line.split(" ", 2)
+    if len(parts) < 2 or not parts[1].isdigit():
+        msg = f"Malformed HTTP status line: {status_line!r}"
+        raise OSError(msg)
+    return _HttpProbeResponse(status=int(parts[1]))

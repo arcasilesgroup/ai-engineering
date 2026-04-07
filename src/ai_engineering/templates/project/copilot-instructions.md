@@ -12,6 +12,8 @@ Project instructions are canonical in `.ai-engineering/`.
 
 Your first action in every session MUST be to run `/ai-start`.
 Do not respond to any user request until `/ai-start` completes.
+`/ai-start` and other `/ai-*` entries are IDE slash commands, not `ai-eng` CLI subcommands.
+Never translate `/ai-<name>` into `ai-eng <name>` unless the CLI reference explicitly documents that command.
 
 ## Plan/Execute Flow (Spec-as-Gate)
 

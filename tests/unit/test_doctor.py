@@ -47,29 +47,21 @@ def _mock_all_modules(monkeypatch: pytest.MonkeyPatch) -> dict[str, MagicMock]:
     Returns a dict keyed by module name (e.g. "detect", "vcs_auth").
     """
     mocks: dict[str, MagicMock] = {}
+    phase_modules: dict[str, MagicMock] = {}
+    runtime_modules: dict[str, MagicMock] = {}
 
     for phase in PHASE_ORDER:
         m = _make_ok_check(phase)
-        monkeypatch.setattr(
-            "ai_engineering.doctor.service.importlib.import_module",
-            None,  # placeholder -- replaced below
-        )
         mocks[phase] = m
+        phase_modules[phase] = m
 
     for rt in _RUNTIME_MODULES:
-        mocks[rt] = _make_ok_check(rt)
+        m = _make_ok_check(rt)
+        mocks[rt] = m
+        runtime_modules[rt] = m
 
-    # Build a side_effect that returns the right mock per import path
-    def _import_side_effect(name: str) -> MagicMock:
-        for key, mock in mocks.items():
-            if name.endswith(f".{key}"):
-                return mock
-        return MagicMock()
-
-    monkeypatch.setattr(
-        "ai_engineering.doctor.service.importlib.import_module",
-        _import_side_effect,
-    )
+    monkeypatch.setattr("ai_engineering.doctor.service._PHASE_MODULES", phase_modules)
+    monkeypatch.setattr("ai_engineering.doctor.service._RUNTIME_CHECK_MODULES", runtime_modules)
 
     # Mock state/config loading to simulate an installed project
     monkeypatch.setattr(

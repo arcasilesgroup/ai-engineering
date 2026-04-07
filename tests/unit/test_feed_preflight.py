@@ -72,18 +72,11 @@ default = true
 
 
 def test_probe_feed_returns_false_for_auth_failure(monkeypatch: pytest.MonkeyPatch) -> None:
-    from urllib.error import HTTPError
-
-    def _raise_http_error(*args: object, **kwargs: object) -> object:
-        raise HTTPError(
-            url="https://pkgs.dev.azure.com/acme/_packaging/core/pypi/simple/",
-            code=401,
-            msg="Unauthorized",
-            hdrs=None,
-            fp=None,
-        )
-
-    monkeypatch.setattr(feeds, "urlopen", _raise_http_error, raising=False)
+    monkeypatch.setattr(
+        feeds,
+        "_http_probe",
+        lambda *_a, **_kw: feeds._HttpProbeResponse(status=401),
+    )
 
     result = feeds._probe_feed("https://pkgs.dev.azure.com/acme/_packaging/core/pypi/simple/")
 

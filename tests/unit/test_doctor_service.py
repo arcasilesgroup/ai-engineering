@@ -77,6 +77,14 @@ def _build_all_modules(
     return modules
 
 
+def _phase_module_map(modules: dict[str, ModuleType]) -> dict[str, ModuleType]:
+    return {name: modules[f"ai_engineering.doctor.phases.{name}"] for name in PHASE_ORDER}
+
+
+def _runtime_module_map(modules: dict[str, ModuleType]) -> dict[str, ModuleType]:
+    return {name: modules[f"ai_engineering.doctor.runtime.{name}"] for name in _RUNTIME_MODULES}
+
+
 @pytest.fixture()
 def target_dir(tmp_path: Path) -> Path:
     """Create a target directory with install-state.json present."""
@@ -104,23 +112,25 @@ def target_dir_no_state(tmp_path: Path) -> Path:
 class TestPhaseOrdering:
     def test_runs_all_phases_in_order(self, target_dir: Path) -> None:
         """diagnose() imports and calls check() for all 6 PHASE_ORDER phases."""
-        imported_phases: list[str] = []
+        executed_phases: list[str] = []
         modules = _build_all_modules()
-
-        def mock_import(module_name: str) -> ModuleType:
-            if module_name.startswith("ai_engineering.doctor.phases."):
-                imported_phases.append(module_name.rsplit(".", 1)[-1])
-            return modules[module_name]
+        for name in PHASE_ORDER:
+            module = modules[f"ai_engineering.doctor.phases.{name}"]
+            module.check.side_effect = lambda _ctx, phase=name: (
+                executed_phases.append(phase),
+                [_ok_result()],
+            )[1]
 
         with (
             patch(f"{_SVC}.load_install_state", return_value=InstallState()),
             patch(f"{_SVC}.load_manifest_config", return_value=None),
             patch(f"{_SVC}.emit_framework_operation"),
-            patch(f"{_SVC}.importlib.import_module", side_effect=mock_import),
+            patch(f"{_SVC}._PHASE_MODULES", _phase_module_map(modules)),
+            patch(f"{_SVC}._RUNTIME_CHECK_MODULES", _runtime_module_map(modules)),
         ):
             report = diagnose(target_dir)
 
-        assert imported_phases == list(PHASE_ORDER)
+        assert executed_phases == list(PHASE_ORDER)
         assert len(report.phases) == len(PHASE_ORDER)
         for i, phase_report in enumerate(report.phases):
             assert phase_report.name == PHASE_ORDER[i]
@@ -134,26 +144,28 @@ class TestPhaseOrdering:
 class TestRuntimeChecks:
     def test_runs_all_runtime_modules(self, target_dir: Path) -> None:
         """diagnose() runs all 4 runtime modules and appends to report.runtime."""
-        imported_runtimes: list[str] = []
+        executed_runtimes: list[str] = []
         rt_overrides = {
             name: _make_runtime_module([_ok_result(f"rt-{name}")]) for name in _RUNTIME_MODULES
         }
         modules = _build_all_modules(runtime_overrides=rt_overrides)
-
-        def mock_import(module_name: str) -> ModuleType:
-            if module_name.startswith("ai_engineering.doctor.runtime."):
-                imported_runtimes.append(module_name.rsplit(".", 1)[-1])
-            return modules[module_name]
+        for name in _RUNTIME_MODULES:
+            module = modules[f"ai_engineering.doctor.runtime.{name}"]
+            module.check.side_effect = lambda _ctx, runtime=name: (
+                executed_runtimes.append(runtime),
+                [_ok_result(f"rt-{runtime}")],
+            )[1]
 
         with (
             patch(f"{_SVC}.load_install_state", return_value=InstallState()),
             patch(f"{_SVC}.load_manifest_config", return_value=None),
             patch(f"{_SVC}.emit_framework_operation"),
-            patch(f"{_SVC}.importlib.import_module", side_effect=mock_import),
+            patch(f"{_SVC}._PHASE_MODULES", _phase_module_map(modules)),
+            patch(f"{_SVC}._RUNTIME_CHECK_MODULES", _runtime_module_map(modules)),
         ):
             report = diagnose(target_dir)
 
-        assert imported_runtimes == list(_RUNTIME_MODULES)
+        assert executed_runtimes == list(_RUNTIME_MODULES)
         assert len(report.runtime) == len(_RUNTIME_MODULES)
 
 
@@ -165,23 +177,25 @@ class TestRuntimeChecks:
 class TestPhaseFilter:
     def test_phase_filter_only_runs_matching_phase(self, target_dir: Path) -> None:
         """diagnose(phase_filter='hooks') only runs the hooks phase."""
-        imported_phases: list[str] = []
+        executed_phases: list[str] = []
         modules = _build_all_modules()
-
-        def mock_import(module_name: str) -> ModuleType:
-            if module_name.startswith("ai_engineering.doctor.phases."):
-                imported_phases.append(module_name.rsplit(".", 1)[-1])
-            return modules[module_name]
+        for name in PHASE_ORDER:
+            module = modules[f"ai_engineering.doctor.phases.{name}"]
+            module.check.side_effect = lambda _ctx, phase=name: (
+                executed_phases.append(phase),
+                [_ok_result()],
+            )[1]
 
         with (
             patch(f"{_SVC}.load_install_state", return_value=InstallState()),
             patch(f"{_SVC}.load_manifest_config", return_value=None),
             patch(f"{_SVC}.emit_framework_operation"),
-            patch(f"{_SVC}.importlib.import_module", side_effect=mock_import),
+            patch(f"{_SVC}._PHASE_MODULES", _phase_module_map(modules)),
+            patch(f"{_SVC}._RUNTIME_CHECK_MODULES", _runtime_module_map(modules)),
         ):
             report = diagnose(target_dir, phase_filter="hooks")
 
-        assert imported_phases == ["hooks"]
+        assert executed_phases == ["hooks"]
         assert len(report.phases) == 1
         assert report.phases[0].name == "hooks"
 
@@ -206,7 +220,8 @@ class TestFixMode:
             patch(f"{_SVC}.load_install_state", return_value=InstallState()),
             patch(f"{_SVC}.load_manifest_config", return_value=None),
             patch(f"{_SVC}.emit_framework_operation"),
-            patch(f"{_SVC}.importlib.import_module", side_effect=lambda n: modules[n]),
+            patch(f"{_SVC}._PHASE_MODULES", _phase_module_map(modules)),
+            patch(f"{_SVC}._RUNTIME_CHECK_MODULES", _runtime_module_map(modules)),
         ):
             report = diagnose(target_dir, fix=True)
 
@@ -230,7 +245,8 @@ class TestFixMode:
             patch(f"{_SVC}.load_install_state", return_value=InstallState()),
             patch(f"{_SVC}.load_manifest_config", return_value=None),
             patch(f"{_SVC}.emit_framework_operation"),
-            patch(f"{_SVC}.importlib.import_module", side_effect=lambda n: modules[n]),
+            patch(f"{_SVC}._PHASE_MODULES", _phase_module_map(modules)),
+            patch(f"{_SVC}._RUNTIME_CHECK_MODULES", _runtime_module_map(modules)),
         ):
             diagnose(target_dir, fix=True)
 
@@ -248,7 +264,8 @@ class TestFixMode:
             patch(f"{_SVC}.load_install_state", return_value=InstallState()),
             patch(f"{_SVC}.load_manifest_config", return_value=None),
             patch(f"{_SVC}.emit_framework_operation"),
-            patch(f"{_SVC}.importlib.import_module", side_effect=lambda n: modules[n]),
+            patch(f"{_SVC}._PHASE_MODULES", _phase_module_map(modules)),
+            patch(f"{_SVC}._RUNTIME_CHECK_MODULES", _runtime_module_map(modules)),
         ):
             report = diagnose(target_dir, fix=True)
 
@@ -276,7 +293,8 @@ class TestDryRun:
             patch(f"{_SVC}.load_install_state", return_value=InstallState()),
             patch(f"{_SVC}.load_manifest_config", return_value=None),
             patch(f"{_SVC}.emit_framework_operation"),
-            patch(f"{_SVC}.importlib.import_module", side_effect=lambda n: modules[n]),
+            patch(f"{_SVC}._PHASE_MODULES", _phase_module_map(modules)),
+            patch(f"{_SVC}._RUNTIME_CHECK_MODULES", _runtime_module_map(modules)),
         ):
             diagnose(target_dir, fix=True, dry_run=True)
 
@@ -293,27 +311,32 @@ class TestDryRun:
 class TestPreInstallMode:
     def test_pre_install_runs_tools_and_limited_runtime(self, target_dir_no_state: Path) -> None:
         """Pre-install: only tools phase + branch_policy + version runtime."""
-        imported_phases: list[str] = []
-        imported_runtimes: list[str] = []
+        executed_phases: list[str] = []
+        executed_runtimes: list[str] = []
         modules = _build_all_modules()
-
-        def mock_import(module_name: str) -> ModuleType:
-            if module_name.startswith("ai_engineering.doctor.phases."):
-                imported_phases.append(module_name.rsplit(".", 1)[-1])
-            elif module_name.startswith("ai_engineering.doctor.runtime."):
-                imported_runtimes.append(module_name.rsplit(".", 1)[-1])
-            return modules[module_name]
+        tools_module = modules["ai_engineering.doctor.phases.tools"]
+        tools_module.check.side_effect = lambda _ctx: (
+            executed_phases.append("tools"),
+            [_ok_result()],
+        )[1]
+        for name in _PRE_INSTALL_RUNTIME:
+            module = modules[f"ai_engineering.doctor.runtime.{name}"]
+            module.check.side_effect = lambda _ctx, runtime=name: (
+                executed_runtimes.append(runtime),
+                [_ok_result(f"rt-{runtime}")],
+            )[1]
 
         with (
             patch(f"{_SVC}.load_manifest_config", return_value=None),
             patch(f"{_SVC}.emit_framework_operation"),
-            patch(f"{_SVC}.importlib.import_module", side_effect=mock_import),
+            patch(f"{_SVC}._PHASE_MODULES", _phase_module_map(modules)),
+            patch(f"{_SVC}._RUNTIME_CHECK_MODULES", _runtime_module_map(modules)),
         ):
             report = diagnose(target_dir_no_state)
 
         assert report.installed is False
-        assert imported_phases == ["tools"]
-        assert imported_runtimes == list(_PRE_INSTALL_RUNTIME)
+        assert executed_phases == ["tools"]
+        assert executed_runtimes == list(_PRE_INSTALL_RUNTIME)
         assert len(report.phases) == 1
         assert report.phases[0].name == "tools"
         assert len(report.runtime) == len(_PRE_INSTALL_RUNTIME)
@@ -334,7 +357,8 @@ class TestFrameworkEvents:
             patch(f"{_SVC}.load_install_state", return_value=InstallState()),
             patch(f"{_SVC}.load_manifest_config", return_value=None),
             patch(f"{_SVC}.emit_framework_operation", mock_emit),
-            patch(f"{_SVC}.importlib.import_module", side_effect=lambda n: modules[n]),
+            patch(f"{_SVC}._PHASE_MODULES", _phase_module_map(modules)),
+            patch(f"{_SVC}._RUNTIME_CHECK_MODULES", _runtime_module_map(modules)),
         ):
             diagnose(target_dir)
 
@@ -353,7 +377,8 @@ class TestFrameworkEvents:
             patch(f"{_SVC}.load_install_state", return_value=InstallState()),
             patch(f"{_SVC}.load_manifest_config", return_value=None),
             patch(f"{_SVC}.emit_framework_operation", mock_emit),
-            patch(f"{_SVC}.importlib.import_module", side_effect=lambda n: modules[n]),
+            patch(f"{_SVC}._PHASE_MODULES", _phase_module_map(modules)),
+            patch(f"{_SVC}._RUNTIME_CHECK_MODULES", _runtime_module_map(modules)),
         ):
             diagnose(target_dir, fix=True)
 
@@ -372,7 +397,8 @@ class TestFrameworkEvents:
             patch(f"{_SVC}.load_install_state", return_value=InstallState()),
             patch(f"{_SVC}.load_manifest_config", return_value=None),
             patch(f"{_SVC}.emit_framework_operation", mock_emit),
-            patch(f"{_SVC}.importlib.import_module", side_effect=lambda n: modules[n]),
+            patch(f"{_SVC}._PHASE_MODULES", _phase_module_map(modules)),
+            patch(f"{_SVC}._RUNTIME_CHECK_MODULES", _runtime_module_map(modules)),
         ):
             diagnose(target_dir, fix=True)
 
@@ -386,7 +412,8 @@ class TestFrameworkEvents:
         with (
             patch(f"{_SVC}.load_manifest_config", return_value=None),
             patch(f"{_SVC}.emit_framework_operation", mock_emit),
-            patch(f"{_SVC}.importlib.import_module", side_effect=lambda n: modules[n]),
+            patch(f"{_SVC}._PHASE_MODULES", _phase_module_map(modules)),
+            patch(f"{_SVC}._RUNTIME_CHECK_MODULES", _runtime_module_map(modules)),
         ):
             diagnose(target_dir_no_state)
 
@@ -416,7 +443,8 @@ class TestReportStructure:
             patch(f"{_SVC}.load_install_state", return_value=InstallState()),
             patch(f"{_SVC}.load_manifest_config", return_value=None),
             patch(f"{_SVC}.emit_framework_operation"),
-            patch(f"{_SVC}.importlib.import_module", side_effect=lambda n: modules[n]),
+            patch(f"{_SVC}._PHASE_MODULES", _phase_module_map(modules)),
+            patch(f"{_SVC}._RUNTIME_CHECK_MODULES", _runtime_module_map(modules)),
         ):
             report = diagnose(target_dir)
 
@@ -436,7 +464,8 @@ class TestReportStructure:
             patch(f"{_SVC}.load_install_state", return_value=InstallState()),
             patch(f"{_SVC}.load_manifest_config", return_value=None),
             patch(f"{_SVC}.emit_framework_operation"),
-            patch(f"{_SVC}.importlib.import_module", side_effect=lambda n: modules[n]),
+            patch(f"{_SVC}._PHASE_MODULES", _phase_module_map(modules)),
+            patch(f"{_SVC}._RUNTIME_CHECK_MODULES", _runtime_module_map(modules)),
         ):
             report = diagnose(target_dir)
 
@@ -454,7 +483,8 @@ class TestReportStructure:
             patch(f"{_SVC}.load_install_state", return_value=InstallState()),
             patch(f"{_SVC}.load_manifest_config", return_value=None),
             patch(f"{_SVC}.emit_framework_operation"),
-            patch(f"{_SVC}.importlib.import_module", side_effect=lambda n: modules[n]),
+            patch(f"{_SVC}._PHASE_MODULES", _phase_module_map(modules)),
+            patch(f"{_SVC}._RUNTIME_CHECK_MODULES", _runtime_module_map(modules)),
         ):
             report = diagnose(target_dir)
 
@@ -469,7 +499,8 @@ class TestReportStructure:
             patch(f"{_SVC}.load_install_state", return_value=InstallState()),
             patch(f"{_SVC}.load_manifest_config", return_value=None),
             patch(f"{_SVC}.emit_framework_operation", mock_emit),
-            patch(f"{_SVC}.importlib.import_module", side_effect=lambda n: modules[n]),
+            patch(f"{_SVC}._PHASE_MODULES", _phase_module_map(modules)),
+            patch(f"{_SVC}._RUNTIME_CHECK_MODULES", _runtime_module_map(modules)),
         ):
             diagnose(target_dir)
 
