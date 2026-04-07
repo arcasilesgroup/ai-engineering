@@ -71,12 +71,10 @@ _PROVIDER_TREE_MAPS: dict[str, list[tuple[str, str]]] = {
     ],
 }
 
-# VCS-platform-specific templates (independent of AI provider).
-# When a VCS provider is specified, these trees are also copied.
-# Common templates copied for ALL providers (observability hooks).
-_COMMON_TREE_MAPS: list[tuple[str, str]] = [
-    (".ai-engineering/scripts/hooks", ".ai-engineering/scripts/hooks"),
-]
+# Common tree templates copied for all providers.
+# Hook runtime deployment is sourced directly from the governance template
+# tree by HooksPhase so update evaluates that surface only once.
+_COMMON_TREE_MAPS: list[tuple[str, str]] = []
 
 # VCS-platform-specific templates (independent of AI provider).
 # When a VCS provider is specified, these trees are also copied.
@@ -342,7 +340,7 @@ def copy_project_templates(
         else:
             result.skipped.append(dest_file)
 
-    # Common tree templates (observability hooks — all providers)
+    # Common tree templates (shared project content)
     for src_tree, dest_tree in _COMMON_TREE_MAPS:
         src_dir = project_root / src_tree
         if not src_dir.is_dir():

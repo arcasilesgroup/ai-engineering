@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **TLS-aware dependency audit path (spec-102)** -- added a Windows-friendly `pip-audit` wrapper that respects enterprise trust stores and wired it through verify, policy gates, CI, documentation, skills, and template mirrors.
 
 ### Fixed
+- **Install/update hook source alignment (spec-103)** -- consolidated the hook runtime into a single governance template source, eliminating false-positive drift where `ai-eng update` reported hook changes immediately after a fresh `ai-eng install`.
 - **Security verification fail-closed hardening (spec-102)** -- verify now fails closed when the `pip-audit` wrapper exits without usable JSON output instead of treating the audit as inconclusive.
 - **Private feed preflight hardening (spec-102)** -- feed reachability checks now allow authentication-gated private feeds instead of blocking install or repair as unreachable.
 - **Version alignment (spec-100)** -- `pyproject.toml` now matches latest PyPI release (was stuck at `0.1.0` while PyPI had `0.3.0`). `version/registry.json` backfilled with all three published versions.

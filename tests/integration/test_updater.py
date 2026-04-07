@@ -45,6 +45,22 @@ class TestDryRun:
         assert result.dry_run is True
         assert len(result.changes) > 0
 
+    def test_dry_run_leaves_hook_runtime_unchanged_after_install(
+        self, installed_project: Path
+    ) -> None:
+        result = update(installed_project, dry_run=True)
+
+        hook_drift = [
+            change
+            for change in result.changes
+            if change.action in {"create", "update"}
+            and change.path.is_relative_to(
+                installed_project / ".ai-engineering" / "scripts" / "hooks"
+            )
+        ]
+
+        assert hook_drift == []
+
     def test_dry_run_does_not_modify_files(self, installed_project: Path) -> None:
         # Modify a framework-managed file to create a diff
         core_md = installed_project / ".ai-engineering" / "contexts" / "languages" / "python.md"

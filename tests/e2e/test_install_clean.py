@@ -14,6 +14,7 @@ from pathlib import Path
 from ai_engineering.installer.service import install
 from ai_engineering.state.io import read_json_model, read_ndjson_entries
 from ai_engineering.state.models import FrameworkEvent, InstallState
+from ai_engineering.updater.service import update
 
 
 class TestInstallClean:
@@ -151,10 +152,24 @@ class TestInstallClean:
     ) -> None:
         result = install(tmp_path, stacks=["python"], ides=["vscode"])
         assert result.total_created > 0
-        # Project phase skips hooks already created by governance phase
-        # (governance and project templates overlap on .ai-engineering/scripts/hooks/)
         assert result.governance_files.skipped == []
         assert not result.already_installed
+
+    def test_install_leaves_hook_runtime_update_clean(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        install(tmp_path, stacks=["python"], ides=["vscode"])
+
+        result = update(tmp_path, dry_run=True)
+
+        hook_updates = [
+            change
+            for change in result.changes
+            if change.action in {"create", "update"}
+            and change.path.is_relative_to(tmp_path / ".ai-engineering" / "scripts" / "hooks")
+        ]
+        assert hook_updates == []
 
     def test_install_idempotent(self, tmp_path: Path) -> None:
         install(tmp_path, stacks=["python"], ides=["vscode"])

@@ -26,6 +26,7 @@ try {
     $InputJson = [Console]::In.ReadToEnd()
     $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
     $ProjectDir = [string](Resolve-Path (Join-Path $ScriptDir "../../.."))
+    . (Join-Path $ScriptDir "_lib/copilot-runtime.ps1")
 
     try {
         if ([string]::IsNullOrWhiteSpace($InputJson)) {
@@ -95,10 +96,6 @@ try {
         $AgentType = $AgentType.Substring(3)
     }
 
-    if (-not (Get-Command python -ErrorAction SilentlyContinue)) {
-        exit 0
-    }
-
     $env:PROJECT_DIR = $ProjectDir
     $env:AGENT_TYPE = "ai-$AgentType"
     $PythonScript = @'
@@ -128,7 +125,7 @@ emit_ide_hook_outcome(
     trace_id=os.environ.get("COPILOT_TRACE_ID") or os.environ.get("GITHUB_COPILOT_TRACE_ID"),
 )
 '@
-    $PythonScript | & python - 2>$null | Out-Null
+    Invoke-CopilotFrameworkPythonInline -ProjectRoot $ProjectDir -ScriptText $PythonScript | Out-Null
     exit 0
 } catch {
     exit 0

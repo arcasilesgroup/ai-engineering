@@ -4,6 +4,7 @@ Completed specs. Details in git history.
 
 | ID | Title | Status | Created | Branch |
 |----|-------|--------|---------|--------|
+| 103 | Install/Update Hook Source Of Truth Alignment | done | 2026-04-07 | fix/install-runtime-remediation |
 | 102 | Installation Runtime and Remediation Unification | done | 2026-04-06 | fix/install-runtime-remediation |
 | 100 | Version alignment and install story — commit-back, CHANGELOG, documentation | done | 2026-04-02 | feat/spec-100-version-alignment-install-story |
 | 099 | First-run experience — wizard validation, warnings, and gate generalization | done | 2026-04-02 | fix/spec-098-tools-before-hooks |
