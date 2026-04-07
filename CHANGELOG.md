@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Slash-command boundary clarification** -- clarified across multi-IDE instruction files, the `/ai-start` skill, and `.ai-engineering/README.md` that `/ai-*` entries are IDE slash commands and must not be inferred as `ai-eng` CLI subcommands unless explicitly documented.
+
 ## [0.4.6] - 2026-04-07
 
 ### Fixed

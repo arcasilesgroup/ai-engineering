@@ -221,3 +221,9 @@ Never skip these steps. Verify by reading the files after clearing.
 **Context**: `_BASE_INSTRUCTION_FILES` en `validator/_shared.py` hardcodea `CLAUDE.md` sin consultar `ai_providers.enabled`, causando falsos positivos en proyectos que no usan Claude.
 **Learning**: `manifest.yml` DEBE ser consultado por TODOS los componentes del framework (CLI commands, validators, verifiers, hooks, skills, agents, installers, updaters) para cualquier decisión de configuración. NUNCA hardcodear listas de ficheros, providers, stacks, o capabilities — siempre leer de `manifest.yml`.
 **Rule**: Patrón correcto: `load_manifest_config(target)` → `cfg.ai_providers.enabled` → filtrar dinámicamente. Ningún componente debe asumir qué providers o ficheros existen sin consultar el manifiesto.
+
+### `/ai-*` no se traduce a `ai-eng *`
+
+**Context**: Ante la instrucción obligatoria de ejecutar `/ai-start`, el agente intentó `ai-eng start` en terminal y recibió `No such command 'start'`.
+**Learning**: En este framework, `/ai-*` representa skills/slash commands del IDE. El CLI `ai-eng` tiene su propia superficie y no debe asumirse equivalente por nombre.
+**Rule**: Nunca inferir un fallback `ai-eng <skill>` para `/ai-*` salvo que la referencia de CLI documente explícitamente ese subcomando.

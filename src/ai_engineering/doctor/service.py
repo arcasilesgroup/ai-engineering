@@ -7,7 +7,6 @@ and single-phase filtering.
 
 from __future__ import annotations
 
-import importlib
 import logging
 from pathlib import Path
 
@@ -19,12 +18,38 @@ from ai_engineering.doctor.models import (
     DoctorReport,
     PhaseReport,
 )
+from ai_engineering.doctor.phases import detect, governance, hooks, ide_config, state, tools
+from ai_engineering.doctor.runtime import branch_policy, feeds, vcs_auth, version
 from ai_engineering.doctor.runtime.feeds import validate_feeds_for_install
-from ai_engineering.installer.phases import PHASE_ORDER
+from ai_engineering.installer.phases import (
+    PHASE_DETECT,
+    PHASE_GOVERNANCE,
+    PHASE_HOOKS,
+    PHASE_IDE_CONFIG,
+    PHASE_ORDER,
+    PHASE_STATE,
+    PHASE_TOOLS,
+)
 from ai_engineering.state.observability import emit_framework_operation
 from ai_engineering.state.service import load_install_state
 
 logger = logging.getLogger(__name__)
+
+_PHASE_MODULES = {
+    PHASE_DETECT: detect,
+    PHASE_GOVERNANCE: governance,
+    PHASE_IDE_CONFIG: ide_config,
+    PHASE_STATE: state,
+    PHASE_TOOLS: tools,
+    PHASE_HOOKS: hooks,
+}
+
+_RUNTIME_CHECK_MODULES = {
+    "vcs_auth": vcs_auth,
+    "feeds": feeds,
+    "branch_policy": branch_policy,
+    "version": version,
+}
 
 _RUNTIME_MODULES: tuple[str, ...] = (
     "vcs_auth",
@@ -143,10 +168,10 @@ def _run_phase(
     dry_run: bool,
 ) -> None:
     """Import and run a single phase module, appending to *report*."""
-    if phase_name not in PHASE_ORDER:
+    phase_mod = _PHASE_MODULES.get(phase_name)
+    if phase_mod is None:
         msg = f"Unknown phase: {phase_name}"
         raise ValueError(msg)
-    phase_mod = importlib.import_module(f"ai_engineering.doctor.phases.{phase_name}")
     results = phase_mod.check(ctx)
 
     if fix:
@@ -171,12 +196,11 @@ def _run_runtime_modules(
     report: DoctorReport,
 ) -> None:
     """Import and run runtime check modules, appending to ``report.runtime``."""
-    _ALLOWED_RUNTIME = _RUNTIME_MODULES + _PRE_INSTALL_RUNTIME
     for mod_name in modules:
-        if mod_name not in _ALLOWED_RUNTIME:
+        mod = _RUNTIME_CHECK_MODULES.get(mod_name)
+        if mod is None:
             msg = f"Unknown runtime module: {mod_name}"
             raise ValueError(msg)
-        mod = importlib.import_module(f"ai_engineering.doctor.runtime.{mod_name}")
         results = mod.check(ctx)
         report.runtime.extend(results)
 

@@ -230,6 +230,7 @@ Framework maintenance commands. Run from the project root.
 ## Slash Commands
 
 Day-to-day workflow commands invoked inside your IDE's AI assistant.
+These are chat slash commands, not terminal commands, and they do not imply matching `ai-eng` subcommands unless the CLI section explicitly documents one.
 
 | Command | Purpose |
 |---------|---------|

@@ -12,6 +12,7 @@ mode: agent
 ## Purpose
 
 Session welcome dashboard. Loads project context, activates instinct observation, and shows everything needed to begin working. Users run this because the dashboard is useful — context loading is a built-in benefit.
+This skill is invoked as an IDE slash command (`/ai-start`). It is not an `ai-eng start` terminal command, and no CLI fallback should be inferred unless the CLI docs explicitly define one.
 
 ## Process
 

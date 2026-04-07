@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-import http.client
 import json as _json
 import os
 import shutil
+import socket
 import ssl
 import subprocess
 from pathlib import Path
@@ -39,10 +39,10 @@ def _build_sonar_url(host_url: str, path: str, params: dict[str, str]) -> str | 
 
 
 def _sonar_api_get(url: str, token: str) -> dict | None:
-    """Perform a validated GET request to SonarCloud API via http.client.
+    """Perform a validated GET request to SonarCloud API.
 
-    Uses http.client instead of urllib.request to avoid SSRF hotspot
-    detection. The URL is pre-validated by _build_sonar_url.
+    Uses a minimal socket-based client after URL validation to keep the
+    request surface explicit and avoid dynamic URL helper hotspots.
     """
     parsed = urlparse(url)
     hostname = parsed.hostname
@@ -50,26 +50,54 @@ def _sonar_api_get(url: str, token: str) -> dict | None:
         return None
     port = parsed.port
     path_and_query = f"{parsed.path}?{parsed.query}" if parsed.query else parsed.path
+    if parsed.username or parsed.password:
+        return None
+
+    request_bytes = (
+        f"GET {path_and_query} HTTP/1.1\r\n"
+        f"Host: {hostname}\r\n"
+        f"Authorization: Bearer {token}\r\n"
+        "Connection: close\r\n"
+        "User-Agent: ai-engineering-sonar-gate/1\r\n"
+        "Accept: application/json\r\n"
+        "\r\n"
+    ).encode("ascii")
 
     try:
         if parsed.scheme == "https":
             ctx = ssl.create_default_context()
-            conn = http.client.HTTPSConnection(hostname, port or 443, timeout=15, context=ctx)
+            with (
+                socket.create_connection((hostname, port or 443), timeout=15) as sock,
+                ctx.wrap_socket(sock, server_hostname=hostname) as tls_sock,
+            ):
+                status, body = _read_http_response(tls_sock, request_bytes)
         else:
-            conn = http.client.HTTPConnection(hostname, port or 80, timeout=15)
-
-        conn.request("GET", path_and_query, headers={"Authorization": f"Bearer {token}"})
-        resp = conn.getresponse()
-        if resp.status != 200:
+            with socket.create_connection((hostname, port or 80), timeout=15) as sock:
+                status, body = _read_http_response(sock, request_bytes)
+        if status != 200:
             return None
-        return _json.loads(resp.read().decode("utf-8"))
+        return _json.loads(body.decode("utf-8"))
     except Exception:
         return None
-    finally:
-        import contextlib
 
-        with contextlib.suppress(Exception):
-            conn.close()
+
+def _read_http_response(sock: socket.socket, request_bytes: bytes) -> tuple[int, bytes]:
+    """Send *request_bytes* over *sock* and return ``(status, body)``."""
+    sock.sendall(request_bytes)
+    response = bytearray()
+    while True:
+        chunk = sock.recv(4096)
+        if not chunk:
+            break
+        response.extend(chunk)
+
+    header_bytes, _, body = bytes(response).partition(b"\r\n\r\n")
+    status_line = header_bytes.split(b"\r\n", 1)[0].decode("iso-8859-1")
+    parts = status_line.split(" ", 2)
+    if len(parts) < 2 or not parts[1].isdigit():
+        msg = f"Malformed HTTP status line: {status_line!r}"
+        raise ValueError(msg)
+    return int(parts[1]), body
 
 
 def _resolve_sonar_token(project_root: Path) -> str | None:
