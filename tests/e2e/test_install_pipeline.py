@@ -17,6 +17,7 @@ import pytest
 from ai_engineering.installer import service
 from ai_engineering.installer.phases import PHASE_ORDER, InstallMode
 from ai_engineering.installer.service import install_with_pipeline
+from ai_engineering.updater.service import update
 
 
 @pytest.fixture()
@@ -61,6 +62,24 @@ class TestInstallPipeline:
         assert (tmp_path / ".ai-engineering" / "state" / "install-state.json").exists()
         assert result.total_created > 0
         assert summary.failed_phase is None
+
+    def test_pipeline_install_leaves_hook_runtime_update_clean(
+        self,
+        tmp_path: Path,
+        stub_ops: None,
+    ) -> None:
+        """Fresh pipeline install should not leave hook-runtime drift for update."""
+        install_with_pipeline(tmp_path, stacks=["python"])
+
+        result = update(tmp_path, dry_run=True)
+
+        hook_updates = [
+            change
+            for change in result.changes
+            if change.action in {"create", "update"}
+            and change.path.is_relative_to(tmp_path / ".ai-engineering" / "scripts" / "hooks")
+        ]
+        assert hook_updates == []
 
     def test_pipeline_repair_mode_explicit(self, tmp_path: Path, stub_ops: None) -> None:
         """Explicit REPAIR mode on second install reports already_installed."""

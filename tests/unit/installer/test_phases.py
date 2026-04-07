@@ -228,8 +228,8 @@ class TestHooksPhase:
 
         from ai_engineering.installer.phases.hooks import HooksPhase
 
-        # Build a fake hooks source tree with .sh, .py, and _lib/*.py files
-        hooks_src = tmp_path / "template" / "scripts" / "hooks"
+        # Build a fake governance hooks source tree with .sh, .py, and _lib/*.py files
+        hooks_src = tmp_path / "governance" / "scripts" / "hooks"
         hooks_src.mkdir(parents=True)
         (hooks_src / "run-gates.sh").write_text("#!/bin/bash\nexit 0")
         (hooks_src / "helper.py").write_text("#!/usr/bin/env python3\n")
@@ -249,27 +249,24 @@ class TestHooksPhase:
 
         ctx = _ctx(project)
 
-        # Patch template maps to point at our fake source tree
-        fake_maps = type("M", (), {"common_tree_list": [("scripts/hooks", "scripts/hooks")]})()
         with (
             patch(
-                "ai_engineering.installer.phases.hooks.get_project_template_root",
-                return_value=tmp_path / "template",
+                "ai_engineering.installer.phases.hooks.get_ai_engineering_template_root",
+                return_value=tmp_path / "governance",
             ),
             patch(
-                "ai_engineering.installer.phases.hooks.resolve_template_maps",
-                return_value=fake_maps,
+                "ai_engineering.installer.phases.hooks.get_project_template_root",
+                return_value=tmp_path / "project_template",
             ),
             patch("ai_engineering.installer.phases.hooks.install_hooks") as mock_ih,
         ):
             mock_ih.return_value = type("R", (), {"installed": [], "skipped": []})()
             phase = HooksPhase()
             plan = phase.plan(ctx)
-            phase._resolved_maps = fake_maps
             phase.execute(plan, ctx)
 
         # .sh and .py files in the hooks dir (not _lib) must be executable
-        dest = project / "scripts" / "hooks"
+        dest = project / ".ai-engineering" / "scripts" / "hooks"
         sh_file = dest / "run-gates.sh"
         py_file = dest / "helper.py"
         assert sh_file.stat().st_mode & stat.S_IXUSR, "run-gates.sh should be user-executable"

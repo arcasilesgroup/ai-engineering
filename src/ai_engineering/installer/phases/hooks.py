@@ -1,6 +1,7 @@
 """Hooks phase -- deploy hook scripts, install git hooks, merge settings.
 
-Copies ``scripts/hooks/`` tree, installs gate hooks into ``.git/hooks/``,
+Copies the governance-managed hook runtime into
+``.ai-engineering/scripts/hooks/``, installs gate hooks into ``.git/hooks/``,
 and performs an intelligent merge of ``.claude/settings.json`` when the
 ``claude_code`` provider is active.
 """
@@ -18,6 +19,7 @@ from ai_engineering.installer.merge import merge_settings
 from ai_engineering.installer.templates import (
     copy_file_if_missing,
     copy_tree_for_mode,
+    get_ai_engineering_template_root,
     get_project_template_root,
     resolve_template_maps,
 )
@@ -25,6 +27,7 @@ from ai_engineering.installer.templates import (
 from . import InstallContext, InstallMode, PhasePlan, PhaseResult, PhaseVerdict, PlannedAction
 
 _SETTINGS_REL = ".claude/settings.json"
+_HOOK_RUNTIME_REL = ".ai-engineering/scripts/hooks"
 
 
 class HooksPhase:
@@ -39,13 +42,11 @@ class HooksPhase:
 
     def plan(self, context: InstallContext) -> PhasePlan:
         self._resolved_maps = resolve_template_maps(context.providers, context.vcs_provider)
-        maps = self._resolved_maps
         actions: list[PlannedAction] = []
         fresh = context.mode is InstallMode.FRESH
 
-        for src_tree, dest_tree in maps.common_tree_list:
-            at = "overwrite" if fresh else "create"
-            actions.append(PlannedAction(at, src_tree, dest_tree, "hook scripts tree"))
+        at = "overwrite" if fresh else "create"
+        actions.append(PlannedAction(at, _HOOK_RUNTIME_REL, _HOOK_RUNTIME_REL, "hook scripts tree"))
 
         actions.append(PlannedAction("create", "", ".git/hooks", "install git gate hooks"))
 
@@ -69,33 +70,31 @@ class HooksPhase:
     def execute(self, plan: PhasePlan, context: InstallContext) -> PhaseResult:
         result = PhaseResult(phase_name=self.name)
         pr = get_project_template_root()
-        maps = self._resolved_maps or resolve_template_maps(context.providers, context.vcs_provider)
+        governance_root = get_ai_engineering_template_root()
+        hook_source_dir = governance_root / "scripts" / "hooks"
+        hook_dest_dir = context.target / _HOOK_RUNTIME_REL
 
-        for src_tree, dest_tree in maps.common_tree_list:
-            sd = pr / src_tree
-            if not sd.is_dir():
-                continue
+        if hook_source_dir.is_dir():
             copy_tree_for_mode(
-                sd,
-                context.target / dest_tree,
+                hook_source_dir,
+                hook_dest_dir,
                 context.target,
                 fresh=context.mode is InstallMode.FRESH,
                 created=result.created,
                 skipped=result.skipped,
             )
 
-            # Restore executable permissions on hook scripts
-            # (shutil.copy2 may not preserve them on all platforms).
-            # Skip on Windows where Unix permission bits are not supported.
-            if os.name != "nt":
-                dd = context.target / dest_tree
-                for script in dd.rglob("*"):
-                    if (
-                        script.is_file()
-                        and script.suffix in (".sh", ".py")
-                        and "_lib" not in script.parts
-                    ):
-                        script.chmod(script.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP)
+        # Restore executable permissions on hook scripts
+        # (shutil.copy2 may not preserve them on all platforms).
+        # Skip on Windows where Unix permission bits are not supported.
+        if os.name != "nt" and hook_dest_dir.is_dir():
+            for script in hook_dest_dir.rglob("*"):
+                if (
+                    script.is_file()
+                    and script.suffix in (".sh", ".py")
+                    and "_lib" not in script.parts
+                ):
+                    script.chmod(script.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP)
 
         hr = install_hooks(context.target)
         result.created.extend(f".git/hooks/{h}" for h in hr.installed)
