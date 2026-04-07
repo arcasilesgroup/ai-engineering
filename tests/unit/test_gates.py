@@ -26,6 +26,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from ai_engineering.policy.checks import sonar as sonar_checks
 from ai_engineering.policy.checks.commit_msg import validate_commit_message
 from ai_engineering.policy.checks.risk import (
     check_expired_risk_acceptances,
@@ -869,3 +870,77 @@ class TestSonarGateAdvisory:
         # Assert
         assert result.checks[-1].passed is True
         assert "passed" in result.checks[-1].output.lower()
+
+
+class _FakeSocket:
+    def __init__(self, chunks: list[bytes]) -> None:
+        self._chunks = list(chunks)
+        self.sent = bytearray()
+
+    def __enter__(self) -> _FakeSocket:
+        return self
+
+    def __exit__(self, exc_type: object, exc: object, tb: object) -> bool:
+        return False
+
+    def sendall(self, data: bytes) -> None:
+        self.sent.extend(data)
+
+    def recv(self, _size: int) -> bytes:
+        if self._chunks:
+            return self._chunks.pop(0)
+        return b""
+
+
+class TestSonarHttpHelpers:
+    def test_read_http_response_parses_status_and_body(self) -> None:
+        sock = _FakeSocket([b"HTTP/1.1 200 OK\r\nX-Test: 1\r\n\r\nhello"])
+
+        status, body = sonar_checks._read_http_response(sock, b"GET / HTTP/1.1\r\n\r\n")
+
+        assert status == 200
+        assert body == b"hello"
+        assert sock.sent.startswith(b"GET / HTTP/1.1")
+
+    def test_read_http_response_rejects_malformed_status(self) -> None:
+        sock = _FakeSocket([b"NOT_HTTP\r\n\r\nbody"])
+
+        with pytest.raises(ValueError, match="Malformed HTTP status line"):
+            sonar_checks._read_http_response(sock, b"GET / HTTP/1.1\r\n\r\n")
+
+    def test_sonar_api_get_returns_json_for_http_endpoint(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        sock = _FakeSocket(
+            [b'HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n{"status":"OK"}']
+        )
+        monkeypatch.setattr(sonar_checks.socket, "create_connection", lambda *_, **__: sock)
+
+        response = sonar_checks._sonar_api_get(
+            "http://sonarcloud.io/api/qualitygates/project_status?projectKey=demo",
+            "token",
+        )
+
+        assert response == {"status": "OK"}
+        assert b"Authorization: Bearer token" in bytes(sock.sent)
+
+    def test_sonar_api_get_returns_none_for_non_200_status(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        sock = _FakeSocket([b"HTTP/1.1 503 Service Unavailable\r\n\r\nretry"])
+        monkeypatch.setattr(sonar_checks.socket, "create_connection", lambda *_, **__: sock)
+
+        response = sonar_checks._sonar_api_get(
+            "http://sonarcloud.io/api/qualitygates/project_status?projectKey=demo",
+            "token",
+        )
+
+        assert response is None
+
+    def test_sonar_api_get_rejects_urls_with_embedded_credentials(self) -> None:
+        response = sonar_checks._sonar_api_get(
+            "https://user:pass@sonarcloud.io/api/qualitygates/project_status?projectKey=demo",
+            "token",
+        )
+
+        assert response is None
