@@ -19,6 +19,7 @@ from collections.abc import Callable
 from typing import Annotated
 
 import typer
+import yaml
 from pydantic import ValidationError
 
 from ai_engineering.cli_commands import (
@@ -52,6 +53,7 @@ _USER_FACING_EXCEPTIONS: tuple[type[Exception], ...] = (
     PermissionError,
     json.JSONDecodeError,
     ValidationError,
+    yaml.YAMLError,
 )
 
 
@@ -188,7 +190,7 @@ def create_app() -> typer.Typer:
     - Stack/IDE commands: stack add/remove/list, ide add/remove/list.
     - Gate commands: gate pre-commit/commit-msg/pre-push/risk-check.
     - Skills commands: skill status.
-    - Maintenance commands: maintenance report/pr/branch-cleanup/risk-status/pipeline-compliance.
+    - Maintenance commands: maintenance report/pr/branch-cleanup/risk-status/repo-status/spec-reset.
 
     Returns:
         Configured Typer application instance.

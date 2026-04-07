@@ -68,6 +68,12 @@ def passthrough_stdin(data: dict) -> None:
     import sys
 
     try:
+        engine = os.environ.get("AIENG_HOOK_ENGINE", "").strip()
+        # Codex validates hook stdout as structured hook output, so echoing the
+        # input payload back is invalid there. Other providers keep the legacy
+        # behavior until their adapters are migrated.
+        if engine == "codex":
+            return
         sys.stdout.write(json.dumps(data, separators=(",", ":")))
         sys.stdout.flush()
     except Exception:

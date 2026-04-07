@@ -143,6 +143,9 @@ def _run_phase(
     dry_run: bool,
 ) -> None:
     """Import and run a single phase module, appending to *report*."""
+    if phase_name not in PHASE_ORDER:
+        msg = f"Unknown phase: {phase_name}"
+        raise ValueError(msg)
     phase_mod = importlib.import_module(f"ai_engineering.doctor.phases.{phase_name}")
     results = phase_mod.check(ctx)
 
@@ -168,7 +171,11 @@ def _run_runtime_modules(
     report: DoctorReport,
 ) -> None:
     """Import and run runtime check modules, appending to ``report.runtime``."""
+    _ALLOWED_RUNTIME = _RUNTIME_MODULES + _PRE_INSTALL_RUNTIME
     for mod_name in modules:
+        if mod_name not in _ALLOWED_RUNTIME:
+            msg = f"Unknown runtime module: {mod_name}"
+            raise ValueError(msg)
         mod = importlib.import_module(f"ai_engineering.doctor.runtime.{mod_name}")
         results = mod.check(ctx)
         report.runtime.extend(results)

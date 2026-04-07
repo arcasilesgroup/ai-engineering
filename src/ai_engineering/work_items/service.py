@@ -70,7 +70,7 @@ def sync_spec_issues(project_root: Path, *, dry_run: bool = False) -> SyncReport
     if not specs_dir.is_dir():
         return report
 
-    skip = {"_history.md", "spec.md", "plan.md"}
+    skip = {"_history.md", "spec.md", "plan.md", "archive"}
 
     for entry in sorted(specs_dir.iterdir()):
         if entry.name in skip or not entry.is_dir():

@@ -210,6 +210,12 @@ Never skip these steps. Verify by reading the files after clearing.
 **Learning**: When the user provides a visual reference, convert it into a precise UX requirement in the spec instead of leaving it as a loose aesthetic note.
 **Rule**: Encode user-provided UI references as explicit rendering targets with project-specific branding constraints.
 
+### Brainstorm parallel-explore workflow
+
+**Context**: During `/ai-brainstorm`, the agent often needs to understand multiple parts of the codebase simultaneously to evaluate approaches.
+**Learning**: Launch parallel `ai-explore` agents (via Agent tool with subagent_type=Explore) at the start of brainstorm to gather architectural context from different areas concurrently. This dramatically reduces brainstorm duration and produces better-informed specs. Each explore agent should focus on one concern (e.g., one explores the data layer, another the API layer, another the test patterns).
+**Rule**: When brainstorming features that touch 3+ modules, dispatch 2-4 parallel explore agents before writing the spec. Synthesize findings before proposing approaches.
+
 ### manifest.yml es la fuente de verdad absoluta
 
 **Context**: `_BASE_INSTRUCTION_FILES` en `validator/_shared.py` hardcodea `CLAUDE.md` sin consultar `ai_providers.enabled`, causando falsos positivos en proyectos que no usan Claude.

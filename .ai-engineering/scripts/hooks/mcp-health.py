@@ -11,6 +11,7 @@ Uses file locking for concurrent session safety.
 import json
 import os
 import re
+import shlex
 import subprocess
 import sys
 from datetime import UTC, datetime, timedelta
@@ -162,9 +163,11 @@ def _probe_server(server_name: str) -> bool:
 
     url = os.environ.get(f"AIE_MCP_URL_{env_key}")
     if url:
+        if not re.match(r"^https?://[^\s;|&$`]+$", url):
+            return False
         try:
             result = subprocess.run(
-                ["curl", "-sf", "--max-time", str(_PROBE_TIMEOUT), url],
+                ["curl", "-sf", "--max-time", str(_PROBE_TIMEOUT), "--", url],
                 capture_output=True,
                 timeout=_PROBE_TIMEOUT + 2,
             )
@@ -175,8 +178,14 @@ def _probe_server(server_name: str) -> bool:
     cmd = os.environ.get(f"AIE_MCP_CMD_{env_key}")
     if cmd:
         try:
+            args = shlex.split(cmd)
+        except ValueError:
+            return False
+        if not args:
+            return False
+        try:
             result = subprocess.run(
-                cmd.split(),
+                args,
                 capture_output=True,
                 timeout=_PROBE_TIMEOUT,
             )
@@ -194,8 +203,14 @@ def _attempt_reconnect(server_name: str) -> bool:
     if not reconnect_cmd:
         return False
     try:
+        args = shlex.split(reconnect_cmd)
+    except ValueError:
+        return False
+    if not args:
+        return False
+    try:
         result = subprocess.run(
-            reconnect_cmd.split(),
+            args,
             capture_output=True,
             timeout=_PROBE_TIMEOUT + 5,
         )
