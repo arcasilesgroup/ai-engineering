@@ -24,7 +24,7 @@ Detect configuration and content drift between framework-managed surfaces: IDE m
 
 ### Step 1 -- Run mirror sync check
 
-Verify that `.claude/` canonical sources are in sync with their mirrors in `.agents/`, `.github/`, and `src/ai_engineering/templates/`.
+Verify that `.claude/` canonical sources are in sync with their mirrors in `.codex/`, `.github/`, and `src/ai_engineering/templates/`.
 
 ```bash
 python scripts/sync_command_mirrors.py --check
@@ -72,7 +72,7 @@ done
 # Repeat for agents
 ls .claude/agents/ai-*.md | while read -r canonical; do
   AGENT=$(basename "$canonical")
-  for MIRROR_DIR in .agents/agents .github/agents; do
+  for MIRROR_DIR in .codex/agents .github/agents; do
     if [ ! -f "$MIRROR_DIR/$AGENT" ]; then
       echo "DRIFT [missing] $MIRROR_DIR/$AGENT"
     elif ! diff -q "$canonical" "$MIRROR_DIR/$AGENT" > /dev/null 2>&1; then

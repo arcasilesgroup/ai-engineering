@@ -7,9 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.6] - 2026-04-07
+
+### Fixed
+- **Hook runtime source of truth alignment** -- consolidated hook source to single governance template, fixing drift after install/update cycles.
+- **Work items provider sync** -- `work_items.provider` now syncs with VCS selection during install, board display corrected.
+- **Missing PowerShell hook entries** -- added Copilot hook entries for Windows parity.
+
+## [0.4.3] - 2026-04-06
+
+### Fixed
+- **Install runtime remediation unification (spec-102)** -- unified install/doctor runtime with early CLI bootstrap, shared environment classification, and dependency-closure validation.
+- **Registry rewrite hardening** -- sonar registry rewrite now handles edge cases safely.
+- **First-run onboarding** -- hardened hook runtime initialization during onboarding.
+- **CI manual recovery** -- added `workflow_dispatch` to ci-build for manual re-trigger.
+
+## [0.4.0] - 2026-04-02
+
 ### Changed
 - **Runtime, install, doctor, and remediation unification (spec-102)** -- added an early CLI bootstrap preflight before full app import, shared environment classification and remediation contracts, feed preflight before install and repair, dependency-closure validation for framework runtime, and a tool capability matrix with explicit Windows `semgrep` guidance.
 - **TLS-aware dependency audit path (spec-102)** -- added a Windows-friendly `pip-audit` wrapper that respects enterprise trust stores and wired it through verify, policy gates, CI, documentation, skills, and template mirrors.
+- **Install documentation (spec-100)** -- README Install section now recommends `pipx` (primary) and `uv tool` (alternative) instead of bare `pip install`. Prerequisites listed before install commands. Documents that `ai-eng install` auto-installs missing tools.
+- **GETTING_STARTED.md (spec-100)** -- added install preamble with link to README Install section.
 
 ### Fixed
 - **Install/update hook source alignment (spec-103)** -- consolidated the hook runtime into a single governance template source, eliminating false-positive drift where `ai-eng update` reported hook changes immediately after a fresh `ai-eng install`.
@@ -18,10 +37,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Version alignment (spec-100)** -- `pyproject.toml` now matches latest PyPI release (was stuck at `0.1.0` while PyPI had `0.3.0`). `version/registry.json` backfilled with all three published versions.
 - **CHANGELOG reorganization (spec-100)** -- entries assigned to correct `[0.3.0]` and `[0.2.0]` version headers. Previously everything was under `[Unreleased]` with no release boundaries.
 - **CI version commit-back (spec-100)** -- `ci-build.yml` now commits version bump back to main via Git Data API after tag creation, preventing version drift. Added `[skip ci]` guard on `workflow_run` trigger to prevent infinite loops.
-
-### Changed
-- **Install documentation (spec-100)** -- README Install section now recommends `pipx` (primary) and `uv tool` (alternative) instead of bare `pip install`. Prerequisites listed before install commands. Documents that `ai-eng install` auto-installs missing tools.
-- **GETTING_STARTED.md (spec-100)** -- added install preamble with link to README Install section.
 
 ### Removed
 - **Spanish documentation (spec-100)** -- deleted 2 internal Spanish-language documents from `docs/` (`trabajo-humano-era-ai-native-2026-2031.md`, `ai-engineering-auditoria-diagramas.md`). All documentation is now English-only.

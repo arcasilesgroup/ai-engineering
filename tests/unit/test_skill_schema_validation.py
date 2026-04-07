@@ -20,6 +20,7 @@ _MANIFEST_PATH = (
 )
 
 _REQUIRED_FIELDS = {"name"}
+_VALID_EFFORT_LEVELS = {"max", "high", "medium"}
 
 
 def _all_skill_dirs() -> list[Path]:
@@ -50,6 +51,20 @@ def test_skill_not_truncated(skill_dir: Path) -> None:
     lines = skill_file.read_text(encoding="utf-8").splitlines()
     name = skill_dir.name
     assert len(lines) >= 30, f"{name}/SKILL.md only {len(lines)} lines"
+
+
+@pytest.mark.parametrize("skill_dir", _all_skill_dirs(), ids=lambda d: d.name)
+def test_skill_has_valid_effort(skill_dir: Path) -> None:
+    """Every SKILL.md must declare a valid 'effort' level in frontmatter."""
+    skill_file = skill_dir / "SKILL.md"
+    text = skill_file.read_text(encoding="utf-8")
+    fm = parse_frontmatter(text)
+    effort = fm.get("effort")
+    assert effort, f"{skill_dir.name}/SKILL.md missing 'effort' in frontmatter"
+    assert effort in _VALID_EFFORT_LEVELS, (
+        f"{skill_dir.name}/SKILL.md has invalid effort '{effort}',"
+        f" expected one of {_VALID_EFFORT_LEVELS}"
+    )
 
 
 def test_skill_count_matches_manifest() -> None:
