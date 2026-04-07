@@ -22,7 +22,7 @@ from ai_engineering.doctor.models import (
     DoctorReport,
     PhaseReport,
 )
-from ai_engineering.doctor.service import diagnose
+from ai_engineering.doctor.service import _run_phase, _run_runtime_modules, diagnose
 from ai_engineering.installer.phases import PHASE_ORDER
 
 # -- Fixture: mock phase + runtime modules -----------------------------------
@@ -496,6 +496,22 @@ class TestDiagnose:
 
         report = diagnose(tmp_path)
         assert isinstance(report, DoctorReport)
+
+
+class TestValidationGuards:
+    """Tests for phase/runtime validation guards against non-literal imports."""
+
+    def test_run_phase_rejects_unknown_phase(self) -> None:
+        ctx = MagicMock()
+        report = DoctorReport(phases=[], runtime=[])
+        with pytest.raises(ValueError, match="Unknown phase"):
+            _run_phase(ctx, "nonexistent_phase", report, fix=False, dry_run=False)
+
+    def test_run_runtime_rejects_unknown_module(self) -> None:
+        ctx = MagicMock()
+        report = DoctorReport(phases=[], runtime=[])
+        with pytest.raises(ValueError, match="Unknown runtime module"):
+            _run_runtime_modules(ctx, ("bogus_module",), report)
 
 
 # -- doctor_cmd exit codes ----------------------------------------------------

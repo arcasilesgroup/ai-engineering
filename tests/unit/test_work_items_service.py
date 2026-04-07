@@ -195,6 +195,9 @@ class TestSyncSpecIssues:
         (specs_dir / "_history.md").write_text("# History", encoding="utf-8")
         (specs_dir / "spec.md").write_text("# No active spec", encoding="utf-8")
         (specs_dir / "plan.md").write_text("# No active plan", encoding="utf-8")
+        archive_dir = specs_dir / "archive"
+        archive_dir.mkdir()
+        (archive_dir / "spec.md").write_text("# Old spec", encoding="utf-8")
         provider = _mock_provider()
 
         # Act

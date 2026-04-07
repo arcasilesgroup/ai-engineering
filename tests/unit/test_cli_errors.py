@@ -6,6 +6,9 @@ instead of raw Python tracebacks (spec-013 finding F1).
 
 from __future__ import annotations
 
+from unittest.mock import patch
+
+import yaml
 from typer.testing import CliRunner
 
 from ai_engineering.cli_factory import create_app
@@ -63,6 +66,18 @@ class TestCleanErrorMessages:
         assert result.exit_code != 0
         assert "Traceback" not in result.output
         assert "Error" in result.output
+
+    def test_yaml_error_produces_clean_message(self) -> None:
+        app = create_app()
+
+        with patch(
+            "ai_engineering.cli_commands.core.diagnose",
+            side_effect=yaml.YAMLError("invalid YAML in manifest"),
+        ):
+            result = runner.invoke(app, ["doctor", "."])
+
+        assert result.exit_code != 0
+        assert "Traceback" not in result.output
 
     def test_error_message_includes_path(self) -> None:
         # Arrange
