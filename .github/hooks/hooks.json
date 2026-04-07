@@ -39,12 +39,14 @@
       {
         "type": "command",
         "bash": "./.ai-engineering/scripts/hooks/copilot-injection-guard.sh",
+        "powershell": "./.ai-engineering/scripts/hooks/copilot-injection-guard.ps1",
         "timeoutSec": 15,
         "comment": "Scan tool inputs for prompt injection attacks before execution"
       },
       {
         "type": "command",
         "bash": "./.ai-engineering/scripts/hooks/copilot-mcp-health.sh",
+        "powershell": "./.ai-engineering/scripts/hooks/copilot-mcp-health.ps1",
         "timeoutSec": 15,
         "comment": "Monitor MCP server health on tool invocations"
       },
