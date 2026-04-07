@@ -892,3 +892,50 @@ class TestInstallVcsProvider:
 
         # Verify install completed with azure_devops provider
         assert isinstance(result, InstallResult)
+
+    def test_write_providers_sets_work_items_provider_for_azure_devops(
+        self, tmp_path: Path
+    ) -> None:
+        """_write_providers must sync work_items.provider when vcs != github."""
+        from ai_engineering.config.loader import load_manifest_config
+        from ai_engineering.installer.service import _write_providers
+
+        manifest_dir = tmp_path / ".ai-engineering"
+        manifest_dir.mkdir(parents=True)
+        (manifest_dir / "manifest.yml").write_text(
+            "schema_version: '2.0'\n"
+            "name: test\nversion: '1.0.0'\n"
+            "providers:\n  vcs: github\n  ides: [terminal]\n  stacks: [python]\n"
+            "work_items:\n  provider: github\n"
+            "  azure_devops:\n    area_path: 'Project\\\\Team'\n"
+            "  github:\n    team_label: 'team:core'\n",
+            encoding="utf-8",
+        )
+
+        _write_providers(tmp_path, stacks=None, ides=None, vcs_provider="azure_devops")
+
+        config = load_manifest_config(tmp_path)
+        assert config.providers.vcs == "azure_devops"
+        assert config.work_items.provider == "azure_devops"
+
+    def test_write_providers_leaves_work_items_for_github(self, tmp_path: Path) -> None:
+        """_write_providers must not change work_items.provider for github default."""
+        from ai_engineering.config.loader import load_manifest_config
+        from ai_engineering.installer.service import _write_providers
+
+        manifest_dir = tmp_path / ".ai-engineering"
+        manifest_dir.mkdir(parents=True)
+        (manifest_dir / "manifest.yml").write_text(
+            "schema_version: '2.0'\n"
+            "name: test\nversion: '1.0.0'\n"
+            "providers:\n  vcs: github\n  ides: [terminal]\n  stacks: [python]\n"
+            "work_items:\n  provider: github\n"
+            "  github:\n    team_label: 'team:core'\n",
+            encoding="utf-8",
+        )
+
+        _write_providers(tmp_path, stacks=None, ides=None, vcs_provider="github")
+
+        config = load_manifest_config(tmp_path)
+        assert config.providers.vcs == "github"
+        assert config.work_items.provider == "github"
