@@ -140,10 +140,14 @@ jobs:
           git config --global user.name "CI"
 
       - name: Build and install ai-eng
+        # ``uv build`` was added in uv 0.4.16; the matrix floor 0.4.0 lacks it.
+        # Use ``python -m build`` (PEP 517) so the wheel build is uv-version
+        # agnostic across the declared 0.4.0..0.9.0 matrix range.
         run: |
-          uv build
           python -m venv .smoke-venv
           . .smoke-venv/bin/activate || . .smoke-venv/Scripts/activate
+          python -m pip install --upgrade pip build
+          python -m build --wheel
           pip install dist/*.whl
           which ai-eng
 

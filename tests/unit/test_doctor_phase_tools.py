@@ -125,6 +125,7 @@ class TestRequiredToolsManifestDriven:
                 "load_required_tools",
                 return_value=_build_load_result(*tools),
             ),
+            patch.object(tools_phase, "is_tool_available", return_value=True),
             patch.object(tools_phase, "run_verify", side_effect=_verify_pass),
         ):
             results = tools_phase.check(ctx)
@@ -155,6 +156,7 @@ class TestRequiredToolsManifestDriven:
                 "load_required_tools",
                 return_value=_build_load_result(*tools),
             ),
+            patch.object(tools_phase, "is_tool_available", return_value=True),
             patch.object(tools_phase, "run_verify", side_effect=fake_verify),
         ):
             results = tools_phase.check(ctx)
@@ -253,6 +255,7 @@ class TestRequiredToolsManifestDriven:
                 "load_required_tools",
                 return_value=_build_load_result(*tools),
             ),
+            patch.object(tools_phase, "is_tool_available", return_value=True),
             patch.object(tools_phase, "run_verify", side_effect=record_verify),
         ):
             results = tools_phase.check(ctx)
