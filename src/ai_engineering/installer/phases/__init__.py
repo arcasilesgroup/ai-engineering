@@ -178,6 +178,9 @@ class InstallContext:
     stacks: list[str] = field(default_factory=list)
     ides: list[str] = field(default_factory=list)
     existing_state: InstallState | None = None
+    # spec-101 T-2.16: ``--force`` plumbing. When True, ToolsPhase bypasses
+    # the D-101-07 skip predicate and re-installs every tool unconditionally.
+    force: bool = False
 
 
 # ---------------------------------------------------------------------------

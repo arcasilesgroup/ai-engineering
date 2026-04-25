@@ -206,4 +206,5 @@ Gate failure: diagnose, fix, retry. Use `ai-eng doctor --fix` or `ai-eng doctor 
 | Active spec | `.ai-engineering/specs/spec.md` |
 | Contexts | `.ai-engineering/contexts/languages/`, `frameworks/`, `team/` |
 | Lessons | `.ai-engineering/LESSONS.md` |
+| Installer modes | `.ai-engineering/contexts/python-env-modes.md` (spec-101: 3 modes, EXIT 80/81 hard-fail, 14-stack `required_tools` coverage) |
 | CLI | `ai-eng <command>` |

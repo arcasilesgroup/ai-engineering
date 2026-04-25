@@ -1,23 +1,58 @@
-"""Doctor phase: tool availability and venv health validation.
+"""Doctor phase: tool availability and venv health validation (spec-101).
 
-Checks:
-- tools-required: ruff, ty, gitleaks, semgrep, pip-audit on PATH.
-- tools-vcs: gh/az based on VCS provider in install state.
-- venv-health: .venv/pyvenv.cfg exists and home path is valid.
-- venv-python: Python version in venv matches .python-version.
+The phase is a free-function module (matches ``state/service.py:66/86``
+convention surfaced in phase-0-notes finding #3). It provides four checks
+and a fix entry point:
+
+* ``tools-required`` -- manifest-driven; reads
+  :func:`ai_engineering.state.manifest.load_required_tools` for the union
+  of baseline + per-stack tools and probes each via
+  :func:`ai_engineering.installer.user_scope_install.run_verify` (the
+  offline-safe, D-101-04-compliant verify wrapper). The legacy hardcoded
+  ``_REQUIRED_TOOLS = ["ruff", ...]`` literal is removed (D-101-08).
+* ``tools-vcs`` -- VCS-tool probe (gh / az). Unchanged from the prior
+  doctor phase; ``installer.tools.provider_required_tools`` is no longer
+  consulted here -- the VCS provider name flows directly from
+  ``InstallState``.
+* ``venv-health`` -- branches on ``python_env.mode`` (D-101-12). In
+  ``uv-tool`` mode the probe returns OK / not-applicable so worktrees
+  are not nudged toward a redundant ``uv venv`` re-install. In ``venv``
+  mode the legacy probe runs unchanged. ``shared-parent`` mode resolves
+  the venv root from the git common-dir and probes that instead.
+* ``venv-python`` -- python version cross-check; gated on
+  ``python_env.mode != uv-tool`` so the same uv-tool skip applies.
+
+The ``fix`` entry point dispatches per-tool through
+:data:`ai_engineering.installer.tool_registry.TOOL_REGISTRY` -- the same
+registry that drives the installer phase. This is D-101-08's "one
+mechanism path, two callers" guarantee.
 """
 
 from __future__ import annotations
 
+import platform as platform_module
 import subprocess
 from pathlib import Path
 
+from ai_engineering.config.loader import load_manifest_config
 from ai_engineering.detector.readiness import is_tool_available
 from ai_engineering.doctor.models import CheckResult, CheckStatus, DoctorContext
-from ai_engineering.doctor.remediation import RemediationEngine, RemediationStatus
-from ai_engineering.installer.tools import can_auto_install_tool, ensure_tool, manual_install_step
+from ai_engineering.installer.tool_registry import TOOL_REGISTRY
+from ai_engineering.installer.tools import can_auto_install_tool, manual_install_step
+from ai_engineering.installer.user_scope_install import run_verify
+from ai_engineering.state.manifest import load_python_env_mode, load_required_tools
+from ai_engineering.state.models import PythonEnvMode, ToolScope, ToolSpec
 
-_REQUIRED_TOOLS: list[str] = ["ruff", "ty", "gitleaks", "semgrep", "pip-audit"]
+__all__ = (
+    "check",
+    "fix",
+)
+
+
+# ---------------------------------------------------------------------------
+# Internal constants
+# ---------------------------------------------------------------------------
+
 
 _VCS_TOOL_MAP: dict[str, str] = {
     "github": "gh",
@@ -25,18 +60,132 @@ _VCS_TOOL_MAP: dict[str, str] = {
 }
 
 
-def _check_tools_required(ctx: DoctorContext) -> CheckResult:
-    """Check that all required tools are available on PATH."""
+def _current_os_key() -> str:
+    """Return the registry per-OS key for the current platform.
+
+    Matches ``installer/phases/tools.py::_current_os_key`` so the doctor
+    phase resolves mechanisms via the same lookup as the installer.
+    """
+    system_name = (platform_module.system() or "").lower()
+    if system_name.startswith("win"):
+        return "win32"
+    if system_name == "darwin":
+        return "darwin"
+    return "linux"
+
+
+# ---------------------------------------------------------------------------
+# Stack resolution -- the manifest's providers.stacks is the source of truth
+# ---------------------------------------------------------------------------
+
+
+def _resolve_stacks(ctx: DoctorContext) -> list[str]:
+    """Return the project's declared stacks from the manifest.
+
+    Re-reads manifest at call time (rather than relying on
+    ``ctx.manifest_config``) so unit tests that drop a manifest into a
+    tmp project root pick up the change without rebuilding the context.
+    Falls back to the cached manifest_config when the file read fails.
+    """
+    try:
+        config = load_manifest_config(ctx.target)
+    except Exception:
+        config = ctx.manifest_config
+    if config is None:
+        return ["python"]
+    stacks = list(getattr(getattr(config, "providers", None), "stacks", []) or [])
+    return stacks or ["python"]
+
+
+# ---------------------------------------------------------------------------
+# tools-required (manifest-driven, D-101-08)
+# ---------------------------------------------------------------------------
+
+
+# Baseline tools probed when the manifest is absent. Mirrors the canonical
+# baseline in ``manifest.yml.required_tools.baseline`` so a fresh checkout
+# without ``.ai-engineering/manifest.yml`` still gets actionable diagnostics.
+_BASELINE_PATH_TOOLS: tuple[str, ...] = ("gitleaks", "ruff", "ty", "pip-audit")
+
+
+def _probe_one_required_tool(tool: ToolSpec) -> bool:
+    """Return True when *tool* probes as available via PATH + verify.
+
+    Mirrors the per-tool decision tree previously embedded in
+    :func:`_check_required_tools`. Extracting the helper drops the parent
+    cyclomatic complexity below the spec-101 threshold (≤10) and gives
+    tests a finer-grained patch surface if needed.
+    """
+    if tool.scope == ToolScope.PROJECT_LOCAL:
+        # D-101-15: project_local tools resolve via launcher, not PATH.
+        # The installer skips them; the doctor mirrors that decision.
+        return True
+
+    registry_entry = TOOL_REGISTRY.get(tool.name)
+    if registry_entry is None:
+        return False
+    if not is_tool_available(tool.name):
+        return False
+    try:
+        verify_result = run_verify(registry_entry)
+    except Exception:
+        # Fail closed: any verify-time exception counts as missing so
+        # the operator gets a fix hint rather than silent success.
+        return False
+    return bool(getattr(verify_result, "passed", False))
+
+
+def _check_required_tools(ctx: DoctorContext) -> CheckResult:
+    """Verify every required tool via the spec-101 offline-safe probe.
+
+    Reads :func:`load_required_tools` for the manifest's resolved stacks,
+    skips ``project_local`` tools (D-101-15: those resolve through their
+    language launcher, not via PATH), and runs ``run_verify`` against the
+    registry's verify block for each remaining tool. A quick
+    :func:`is_tool_available` PATH probe runs first as a fast pre-check --
+    when the binary is absent from PATH the probe short-circuits, the tool
+    is recorded missing, and the heavier verify subprocess is skipped.
+
+    When the manifest is absent (``load_required_tools`` returns empty),
+    the helper falls back to :data:`_BASELINE_PATH_TOOLS` so the doctor
+    still surfaces actionable diagnostics on a fresh checkout.
+    """
+    stacks = _resolve_stacks(ctx)
+    try:
+        load_result = load_required_tools(stacks, root=ctx.target)
+    except Exception as exc:
+        return CheckResult(
+            name="tools-required",
+            status=CheckStatus.WARN,
+            message=(
+                f"could not load required_tools from manifest: {exc}; "
+                "run 'ai-eng doctor --fix --phase tools' to repair"
+            ),
+            fixable=True,
+        )
+
     missing: list[str] = []
-    for tool in _REQUIRED_TOOLS:
-        if not is_tool_available(tool):
-            missing.append(tool)
+    seen_user_global = 0
+    for tool in load_result:
+        if tool.scope == ToolScope.PROJECT_LOCAL:
+            continue
+        seen_user_global += 1
+        if not _probe_one_required_tool(tool):
+            missing.append(tool.name)
+
+    if seen_user_global == 0:
+        # No manifest yet (fresh checkout): probe the canonical baseline so
+        # ``ai-eng doctor`` still gives the user something to act on.
+        missing.extend(name for name in _BASELINE_PATH_TOOLS if not is_tool_available(name))
 
     if missing:
         return CheckResult(
             name="tools-required",
             status=CheckStatus.WARN,
-            message=f"missing tools: {', '.join(missing)}",
+            message=(
+                f"missing tools: {', '.join(missing)}; "
+                "run 'ai-eng doctor --fix --phase tools' to install"
+            ),
             fixable=True,
         )
 
@@ -45,6 +194,11 @@ def _check_tools_required(ctx: DoctorContext) -> CheckResult:
         status=CheckStatus.OK,
         message="all required tools available",
     )
+
+
+# ---------------------------------------------------------------------------
+# tools-vcs (unchanged from spec-071; preserved verbatim)
+# ---------------------------------------------------------------------------
 
 
 def _check_tools_vcs(ctx: DoctorContext) -> CheckResult:
@@ -86,14 +240,19 @@ def _check_tools_vcs(ctx: DoctorContext) -> CheckResult:
     )
 
 
+# ---------------------------------------------------------------------------
+# pyvenv.cfg parser (preserved from spec-071)
+# ---------------------------------------------------------------------------
+
+
 def _parse_pyvenv_cfg(cfg_path: Path) -> dict[str, str]:
     """Parse a pyvenv.cfg file into key-value pairs."""
     result: dict[str, str] = {}
     if not cfg_path.is_file():
         return result
     try:
-        for line in cfg_path.read_text(encoding="utf-8").splitlines():
-            line = line.strip()
+        for raw_line in cfg_path.read_text(encoding="utf-8").splitlines():
+            line = raw_line.strip()
             if "=" in line:
                 key, _, value = line.partition("=")
                 result[key.strip()] = value.strip()
@@ -102,14 +261,65 @@ def _parse_pyvenv_cfg(cfg_path: Path) -> dict[str, str]:
     return result
 
 
-def _check_venv_health(ctx: DoctorContext) -> CheckResult:
-    """Check that .venv/pyvenv.cfg exists and home path is valid."""
-    cfg_path = ctx.target / ".venv" / "pyvenv.cfg"
+def _resolve_shared_parent_venv(ctx: DoctorContext) -> Path | None:
+    """Resolve the shared-parent venv root (D-101-12).
+
+    Returns ``$(git rev-parse --git-common-dir)/../.venv`` when the project
+    is inside a git checkout, else ``None``. Tests patch this helper to
+    inject a synthetic shared-parent path.
+    """
+    try:
+        proc = subprocess.run(
+            ["git", "rev-parse", "--git-common-dir"],
+            cwd=str(ctx.target),
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if proc.returncode != 0:
+        return None
+    common_dir = (proc.stdout or "").strip()
+    if not common_dir:
+        return None
+    common_path = Path(common_dir)
+    if not common_path.is_absolute():
+        common_path = (ctx.target / common_path).resolve()
+    return common_path.parent / ".venv"
+
+
+# ---------------------------------------------------------------------------
+# venv-health (D-101-12 mode-aware)
+# ---------------------------------------------------------------------------
+
+
+def _venv_health_message_uv_tool() -> CheckResult:
+    """Return the canonical 'not applicable' result for uv-tool mode."""
+    return CheckResult(
+        name="venv-health",
+        status=CheckStatus.OK,
+        message=(
+            "venv probe not applicable in python_env.mode=uv-tool "
+            "(skipped by D-101-12; tools resolve via ~/.local/share/uv/tools/)"
+        ),
+        fixable=False,
+    )
+
+
+def _check_venv_health_for_path(venv_path: Path) -> CheckResult:
+    """Run the legacy venv-health probe against a specific ``.venv`` path.
+
+    Extracted so ``mode=venv`` and ``mode=shared-parent`` can share the
+    same probe logic against different roots.
+    """
+    cfg_path = venv_path / "pyvenv.cfg"
     if not cfg_path.is_file():
         return CheckResult(
             name="venv-health",
             status=CheckStatus.WARN,
-            message="no .venv/pyvenv.cfg found; virtual environment may not exist",
+            message=f"no {cfg_path} found; virtual environment may not exist",
             fixable=True,
         )
 
@@ -123,8 +333,7 @@ def _check_venv_health(ctx: DoctorContext) -> CheckResult:
             fixable=True,
         )
 
-    home_path = Path(home)
-    if not home_path.is_dir():
+    if not Path(home).is_dir():
         return CheckResult(
             name="venv-health",
             status=CheckStatus.FAIL,
@@ -139,8 +348,50 @@ def _check_venv_health(ctx: DoctorContext) -> CheckResult:
     )
 
 
-def _check_venv_python(ctx: DoctorContext) -> CheckResult:
-    """Check that venv Python matches .python-version if present."""
+def _check_venv_health(ctx: DoctorContext, mode: PythonEnvMode) -> CheckResult:
+    """Branch on python_env.mode per D-101-12.
+
+    * ``uv-tool``      -> not applicable (skip).
+    * ``venv``         -> probe ``ctx.target/.venv``.
+    * ``shared-parent``-> probe the resolved shared-parent venv.
+    """
+    if mode == PythonEnvMode.UV_TOOL:
+        return _venv_health_message_uv_tool()
+    if mode == PythonEnvMode.SHARED_PARENT:
+        venv = _resolve_shared_parent_venv(ctx)
+        if venv is None:
+            return CheckResult(
+                name="venv-health",
+                status=CheckStatus.WARN,
+                message=(
+                    "python_env.mode=shared-parent set but no git common-dir "
+                    "found; run 'git init' or change mode to 'venv'"
+                ),
+                fixable=False,
+            )
+        return _check_venv_health_for_path(venv)
+    # mode == venv
+    return _check_venv_health_for_path(ctx.target / ".venv")
+
+
+# ---------------------------------------------------------------------------
+# venv-python (preserved; gated on mode != uv-tool)
+# ---------------------------------------------------------------------------
+
+
+def _check_venv_python(ctx: DoctorContext, mode: PythonEnvMode) -> CheckResult:
+    """Cross-check venv Python version against ``.python-version``.
+
+    Skipped when ``python_env.mode=uv-tool`` -- there is no project venv
+    to probe in that mode. Returns OK with a not-applicable message.
+    """
+    if mode == PythonEnvMode.UV_TOOL:
+        return CheckResult(
+            name="venv-python",
+            status=CheckStatus.OK,
+            message="venv-python probe not applicable in python_env.mode=uv-tool",
+        )
+
     pyver_path = ctx.target / ".python-version"
     if not pyver_path.is_file():
         return CheckResult(
@@ -183,13 +434,19 @@ def _check_venv_python(ctx: DoctorContext) -> CheckResult:
     )
 
 
+# ---------------------------------------------------------------------------
+# Public API: check / fix
+# ---------------------------------------------------------------------------
+
+
 def check(ctx: DoctorContext) -> list[CheckResult]:
-    """Run all tools phase checks."""
+    """Run all four tools-phase checks in canonical order."""
+    mode = load_python_env_mode(ctx.target)
     return [
-        _check_tools_required(ctx),
+        _check_required_tools(ctx),
         _check_tools_vcs(ctx),
-        _check_venv_health(ctx),
-        _check_venv_python(ctx),
+        _check_venv_health(ctx, mode),
+        _check_venv_python(ctx, mode),
     ]
 
 
@@ -199,16 +456,15 @@ def fix(
     *,
     dry_run: bool = False,
 ) -> list[CheckResult]:
-    """Attempt to fix failed tools checks.
+    """Attempt to repair fixable failures (D-101-08 mechanism dispatch).
 
     Fixable:
-    - ``tools-required``: try_install() for each missing tool.
-    - ``venv-health``: recreate venv via ``uv venv``.
-
-    Not fixable: ``tools-vcs``, ``venv-python``.
+    * ``tools-required`` -- dispatch the registry's first per-OS mechanism
+      for each missing tool.
+    * ``venv-health``    -- recreate ``.venv`` via ``uv venv`` (only when
+      mode is venv / shared-parent).
     """
     results: list[CheckResult] = []
-
     for cr in failed:
         if cr.name == "tools-required":
             results.append(_fix_tools_required(ctx, cr, dry_run=dry_run))
@@ -216,8 +472,124 @@ def fix(
             results.append(_fix_venv_health(ctx, cr, dry_run=dry_run))
         else:
             results.append(cr)
-
     return results
+
+
+def _missing_tool_specs(ctx: DoctorContext) -> list[ToolSpec]:
+    """Return the tool specs whose verify probe currently fails.
+
+    When the manifest is absent (loader returns an empty list), falls back
+    to synthesising :class:`ToolSpec` placeholders for
+    :data:`_BASELINE_PATH_TOOLS` whose PATH probe fails. This mirrors the
+    fallback in :func:`_check_required_tools` so the fix path has
+    something to act on for fresh checkouts.
+    """
+    stacks = _resolve_stacks(ctx)
+    try:
+        load_result = load_required_tools(stacks, root=ctx.target)
+    except Exception:
+        return _baseline_missing_specs()
+
+    missing: list[ToolSpec] = []
+    seen_tools = 0
+    for tool in load_result:
+        if tool.scope == ToolScope.PROJECT_LOCAL:
+            # Mechanism dispatch on project_local tools is delegated to the
+            # language's package manager; the framework does not install
+            # them. We still add them to the missing list so the registry
+            # can decide whether a project_local mechanism (NpmDevMechanism)
+            # is wired -- some test fixtures register them deliberately.
+            seen_tools += 1
+            registry_entry = TOOL_REGISTRY.get(tool.name)
+            if registry_entry is not None:
+                missing.append(tool)
+            continue
+        seen_tools += 1
+        registry_entry = TOOL_REGISTRY.get(tool.name)
+        if registry_entry is None:
+            missing.append(tool)
+            continue
+        if not is_tool_available(tool.name):
+            missing.append(tool)
+            continue
+        try:
+            verify_result = run_verify(registry_entry)
+        except Exception:
+            missing.append(tool)
+            continue
+        if not getattr(verify_result, "passed", False):
+            missing.append(tool)
+
+    if seen_tools == 0:
+        # No manifest yet: probe the canonical baseline.
+        return _baseline_missing_specs()
+
+    return missing
+
+
+def _baseline_missing_specs() -> list[ToolSpec]:
+    """Build :class:`ToolSpec` placeholders for absent baseline tools."""
+    out: list[ToolSpec] = []
+    for name in _BASELINE_PATH_TOOLS:
+        if not is_tool_available(name):
+            out.append(ToolSpec(name=name, scope=ToolScope.USER_GLOBAL))
+    return out
+
+
+def _attempt_install_one(
+    tool_name: str,
+    *,
+    os_key: str,
+) -> str:
+    """Try installing one tool; return the outcome bucket name.
+
+    Outcome buckets:
+      * ``"manual"`` -- registry has no mechanism for this OS, OR the
+        legacy ``can_auto_install_tool`` returns False (test seam).
+      * ``"installed"`` -- mechanism's ``install()`` returned a non-failed
+        result.
+      * ``"failed"`` -- mechanism raised or returned ``failed=True``.
+
+    Extracting this helper drops :func:`_fix_tools_required` complexity
+    below the spec-101 cyclomatic threshold (≤10).
+    """
+    # Legacy capability check -- tests patch this seam to drive the
+    # manual-step path without spinning up a real subprocess.
+    if not can_auto_install_tool(tool_name):
+        return "manual"
+
+    registry_entry = TOOL_REGISTRY.get(tool_name)
+    if registry_entry is None:
+        return "manual"
+    mechanisms = registry_entry.get(os_key) or []
+    if not mechanisms:
+        return "manual"
+
+    mechanism = mechanisms[0]
+    try:
+        outcome = mechanism.install()
+    except Exception:
+        return "failed"
+    return "failed" if getattr(outcome, "failed", False) else "installed"
+
+
+def _build_fix_warn_message(
+    *,
+    repaired: list[str],
+    failed_to_install: list[str],
+    manual: list[str],
+    fallback: str,
+) -> str:
+    """Assemble the WARN message for partially-failed fix attempts."""
+    parts: list[str] = []
+    if repaired:
+        parts.append(f"installed: {', '.join(repaired)}")
+    if failed_to_install:
+        parts.append(f"install failed: {', '.join(failed_to_install)}")
+    if manual:
+        manual_steps = "; ".join(manual_install_step(name) for name in manual)
+        parts.append(f"manual follow-up required: {', '.join(manual)} ({manual_steps})")
+    return "; ".join(parts) if parts else fallback
 
 
 def _fix_tools_required(
@@ -226,70 +598,61 @@ def _fix_tools_required(
     *,
     dry_run: bool = False,
 ) -> CheckResult:
-    """Try to install missing required tools through the shared remediation engine."""
-    missing = [tool for tool in _REQUIRED_TOOLS if not is_tool_available(tool)]
+    """Dispatch the first registry mechanism for each missing tool (D-101-08).
+
+    Decomposed (T-Wave23) into :func:`_attempt_install_one` + outcome
+    aggregation so the cyclomatic complexity stays ≤10. Honours the
+    legacy capability seams (``can_auto_install_tool``,
+    ``manual_install_step``) so the doctor's existing test contract
+    keeps driving the auto-install / manual-step branches.
+    """
+    missing = _missing_tool_specs(ctx)
+    if not missing:
+        return CheckResult(
+            name=cr.name,
+            status=CheckStatus.FIXED,
+            message="all tools now available",
+        )
 
     if dry_run:
-        auto_installable = [tool for tool in missing if can_auto_install_tool(tool)]
-        manual_only = [tool for tool in missing if tool not in auto_installable]
-        if manual_only:
-            message = "would attempt auto-install for: "
-            message += ", ".join(auto_installable) if auto_installable else "none"
-            message += f"; manual follow-up required: {', '.join(manual_only)}"
-            return CheckResult(
-                name=cr.name,
-                status=CheckStatus.WARN,
-                message=message,
-                fixable=True,
-            )
+        names = ", ".join(t.name for t in missing)
         return CheckResult(
             name=cr.name,
             status=CheckStatus.FIXED,
-            message=(
-                f"would attempt to install missing tools: {', '.join(missing)}"
-                if missing
-                else "all tools now available"
-            ),
+            message=f"would attempt to install missing tools: {names}",
         )
 
-    engine = RemediationEngine(
-        tool_capability=can_auto_install_tool,
-        tool_installer=lambda tool: ensure_tool(tool, allow_install=True).available,
-        tool_manual_step=manual_install_step,
-    )
-    remediation = engine.remediate_missing_tools(missing, source="doctor.tools-required")
+    os_key = _current_os_key()
+    repaired: list[str] = []
+    failed_to_install: list[str] = []
+    manual: list[str] = []
 
-    if remediation.status == RemediationStatus.REPAIRED:
-        return CheckResult(
-            name=cr.name,
-            status=CheckStatus.FIXED,
-            message=(
-                f"installed: {', '.join(remediation.repaired_items)}"
-                if remediation.repaired_items
-                else "all tools now available"
-            ),
-        )
+    for tool in missing:
+        bucket = _attempt_install_one(tool.name, os_key=os_key)
+        if bucket == "installed":
+            repaired.append(tool.name)
+        elif bucket == "failed":
+            failed_to_install.append(tool.name)
+        else:  # bucket == "manual"
+            manual.append(tool.name)
 
-    if remediation.status in (RemediationStatus.MANUAL, RemediationStatus.BLOCKED):
-        parts: list[str] = []
-        if remediation.repaired_items:
-            parts.append(f"installed: {', '.join(remediation.repaired_items)}")
-        if remediation.remaining_items:
-            parts.append(f"manual follow-up required: {', '.join(remediation.remaining_items)}")
-        if remediation.detail:
-            parts.append(remediation.detail)
+    if failed_to_install or manual:
         return CheckResult(
             name=cr.name,
             status=CheckStatus.WARN,
-            message="; ".join(parts) if parts else remediation.summary,
+            message=_build_fix_warn_message(
+                repaired=repaired,
+                failed_to_install=failed_to_install,
+                manual=manual,
+                fallback=cr.message,
+            ),
             fixable=True,
         )
 
     return CheckResult(
         name=cr.name,
-        status=CheckStatus.WARN,
-        message=remediation.summary,
-        fixable=True,
+        status=CheckStatus.FIXED,
+        message=(f"installed: {', '.join(repaired)}" if repaired else "all tools now available"),
     )
 
 
@@ -299,7 +662,18 @@ def _fix_venv_health(
     *,
     dry_run: bool = False,
 ) -> CheckResult:
-    """Recreate the virtual environment using uv."""
+    """Recreate the project venv via ``uv venv`` (mode=venv only)."""
+    mode = load_python_env_mode(ctx.target)
+    if mode == PythonEnvMode.UV_TOOL:
+        # Should not happen -- the check returns OK in uv-tool mode and is
+        # never marked fixable. Defensive return so a stray failed entry
+        # doesn't trigger a redundant uv venv invocation.
+        return CheckResult(
+            name=cr.name,
+            status=CheckStatus.OK,
+            message="venv repair not applicable in python_env.mode=uv-tool",
+        )
+
     if dry_run:
         return CheckResult(
             name=cr.name,
@@ -307,7 +681,6 @@ def _fix_venv_health(
             message="would recreate .venv via uv venv",
         )
 
-    # Build uv venv command
     cmd: list[str] = ["uv", "venv", ".venv"]
     pyver_path = ctx.target / ".python-version"
     if pyver_path.is_file():

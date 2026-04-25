@@ -41,7 +41,8 @@ def validate_cmd(
             help=(
                 "Run a specific category only. "
                 "Values: file-existence, mirror-sync, counter-accuracy, "
-                "cross-reference, instruction-consistency, manifest-coherence, skill-frontmatter."
+                "cross-reference, instruction-consistency, manifest-coherence, "
+                "skill-frontmatter, required-tools."
             ),
         ),
     ] = None,

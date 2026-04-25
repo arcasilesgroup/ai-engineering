@@ -7,6 +7,77 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### BREAKING
+
+#### spec-101 -- Stack-Aware User-Scope Tool Bootstrap (BREAKING)
+
+This release replaces the previous best-effort tool-install path with a hard,
+data-driven contract. Three changes alter behaviour you may have depended on
+in CI scripts, install wrappers, or local tooling.
+
+- **Hard-fail on missing required tools (no silent pass).**
+  `ai-eng install` and `ai-eng doctor --fix --phase tools` now exit non-zero
+  when a required tool cannot be installed or verified. Two reserved exit
+  codes carry the diagnosis:
+  - `EXIT 80` -- a required CLI tool is missing or unverifiable after the
+    install attempt (covers ruff, ty, gitleaks, semgrep, pip-audit, prettier,
+    eslint, vitest, checkstyle, dotnet-format, staticcheck, govulncheck,
+    phpstan, php-cs-fixer, composer, cargo-audit, ktlint, swiftlint,
+    swift-format, sqlfluff, shellcheck, shfmt, clang-tidy, clang-format,
+    cppcheck, jq, pytest, tsc).
+  - `EXIT 81` -- a language SDK / prerequisite declared in
+    `prereqs.sdk_per_stack` is missing (covers JDK, Swift toolchain, Dart
+    SDK, .NET SDK, Go toolchain, Rust toolchain, PHP, clang/LLVM).
+  Migration: any `ai-eng install || true` workaround in CI must be removed.
+  Either install the prerequisites first, mark the stack-tool combo as
+  `platform_unsupported`, or pin a stack-level
+  `platform_unsupported_stack` escalation in `manifest.yml`.
+
+- **`python_env.mode` now defaults to `uv-tool`.**
+  Python tools install once into `~/.local/share/uv/tools/` instead of a
+  per-cwd `.venv/`. This is the worktree-fast default -- creating a new
+  worktree no longer triggers a multi-minute `.venv` re-install. Two
+  escape hatches remain for projects that need the legacy behaviour:
+  - `python_env.mode: venv` -- restore the pre-spec-101 per-cwd `.venv/`
+    install path. Use this when your team relies on `source .venv/bin/activate`
+    workflows or commits a project-local `.venv/` policy.
+  - `python_env.mode: shared-parent` -- worktree-aware shared `.venv` at
+    the repo root. Requires a git repo. Use this when you want a single
+    `.venv` shared across worktrees but cannot adopt `uv-tool` (e.g.,
+    enterprise tools that pin to a venv path).
+  Migration: existing repos auto-pick `uv-tool` on next install. To stay on
+  `.venv`, set `python_env.mode: venv` in `.ai-engineering/manifest.yml`
+  before running `ai-eng install` or `ai-eng doctor --fix`.
+
+- **`required_tools` now covers 14 stacks.**
+  The single source of truth in `manifest.yml > required_tools` lists tools
+  for: baseline + python, typescript, javascript, java, csharp, go, php,
+  rust, kotlin, swift, dart, sql, bash, cpp -- 14 stacks total. Adding a
+  stack to `manifest.providers.stacks` without declaring its tool block
+  is no longer possible: the governance lint refuses the manifest. The
+  hardcoded `_PIP_INSTALLABLE` and `_REQUIRED_TOOLS` literals in installer
+  and doctor are gone -- both consumers read from the same manifest block.
+  `platform_unsupported` (tool-level, max 2 of 3 OSes) and
+  `platform_unsupported_stack` (stack-level, may list all 3) require an
+  `unsupported_reason` per D-101-03 + D-101-13.
+
+##### First-run BREAKING banner
+
+The first `ai-eng install` after upgrading prints a one-shot BREAKING
+banner to stderr summarising the contract change. The banner emits exactly
+once per project; ``InstallState.breaking_banner_seen`` records the flag
+in `.ai-engineering/state/install-state.json` so subsequent runs stay
+quiet. Dry-run installs do not emit the banner.
+
+##### Migration checklist
+
+- [ ] Remove any `|| true` shielding around `ai-eng install` in CI.
+- [ ] Decide your `python_env.mode`: `uv-tool` (default), `venv`
+      (legacy per-cwd `.venv`), or `shared-parent` (worktree-aware).
+- [ ] If you stack-extend, add a matching `required_tools.<stack>`
+      block to `manifest.yml`.
+- [ ] Verify with `ai-eng doctor --fix --phase tools`.
+
 ### Changed
 - **Slash-command boundary clarification** -- clarified across multi-IDE instruction files, the `/ai-start` skill, and `.ai-engineering/README.md` that `/ai-*` entries are IDE slash commands and must not be inferred as `ai-eng` CLI subcommands unless explicitly documented.
 

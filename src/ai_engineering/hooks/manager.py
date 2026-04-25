@@ -14,7 +14,7 @@ import stat
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from ai_engineering.state.models import GateHook
+from ai_engineering.state.models import GateHook, PythonEnvMode
 
 # Third-party hook managers that may conflict with our hooks.
 _KNOWN_HOOK_MANAGERS: dict[str, list[str]] = {
@@ -52,7 +52,78 @@ class HookInstallResult:
     conflicts: list[HookConflict] = field(default_factory=list)
 
 
-def generate_bash_hook(hook: GateHook) -> str:
+def _bash_preamble_for_mode(mode: PythonEnvMode) -> str:
+    """Return the bash environment preamble for a given ``PythonEnvMode``.
+
+    Per spec-101 D-101-12 each mode needs a different shape:
+
+    * ``UV_TOOL`` -- no project venv exists; emit no preamble. The user-scope
+      ``uv tool install`` prefix is already on PATH via the operator's
+      shell rc (or surfaced via ``emit_path_snippet`` at install time).
+    * ``VENV`` -- legacy per-cwd ``.venv/``; prepend its bin/Scripts dir to
+      PATH so GUI git clients can resolve ``ai-eng`` even without an active
+      shell session.
+    * ``SHARED_PARENT`` -- export ``UV_PROJECT_ENVIRONMENT`` so ``uv run``
+      resolves the same shared venv from every worktree of the repo.
+    """
+    if mode is PythonEnvMode.UV_TOOL:
+        # Empty string -- no PATH preamble. The leading newline below in
+        # the bash template absorbs cleanly so the generated script stays
+        # readable even with an empty preamble.
+        return ""
+    if mode is PythonEnvMode.VENV:
+        # Legacy behaviour preserved verbatim for backwards-compat.
+        return (
+            "# Put project venv on PATH so ai-eng is available even from GUI git clients.\n"
+            "# Uses PATH prepend instead of source-activate to avoid setting VIRTUAL_ENV,\n"
+            "# which conflicts with uv run when CWD differs (e.g. git worktrees).\n"
+            'ROOT_DIR="$(cd "$(dirname "$0")/../.." && pwd)"\n'
+            'if [ -d "$ROOT_DIR/.venv/bin" ]; then\n'
+            '  export PATH="$ROOT_DIR/.venv/bin:$PATH"\n'
+            'elif [ -d "$ROOT_DIR/.venv/Scripts" ]; then\n'
+            '  export PATH="$ROOT_DIR/.venv/Scripts:$PATH"\n'
+            "fi\n"
+        )
+    # SHARED_PARENT -- the shared venv lives at git_common_dir/../.venv;
+    # ``uv run`` honours UV_PROJECT_ENVIRONMENT so every worktree converges
+    # on the same Python install. Computed at hook-execution time so the
+    # value tracks the active worktree and survives `git worktree add`.
+    return (
+        "# Worktree-aware shared venv (spec-101 D-101-12 mode=shared-parent).\n"
+        "# Compute the venv path at hook-execution time so every worktree\n"
+        "# resolves the same shared root via the UV_PROJECT_ENVIRONMENT var.\n"
+        'export UV_PROJECT_ENVIRONMENT="$(git rev-parse --git-common-dir)/../.venv"\n'
+    )
+
+
+def _powershell_preamble_for_mode(mode: PythonEnvMode) -> str:
+    """Return the PowerShell environment preamble for a given ``PythonEnvMode``.
+
+    Mirror of :func:`_bash_preamble_for_mode` but in pwsh syntax.
+    """
+    if mode is PythonEnvMode.UV_TOOL:
+        return ""
+    if mode is PythonEnvMode.VENV:
+        return (
+            "# Put project venv on PATH so ai-eng is available even from GUI git clients.\n"
+            "# Uses PATH prepend instead of Activate.ps1 to avoid setting VIRTUAL_ENV,\n"
+            "# which conflicts with uv run when CWD differs (e.g. git worktrees).\n"
+            '$RootDir = (Resolve-Path "$PSScriptRoot/../..").Path\n'
+            "$VenvBin = Join-Path $RootDir '.venv/Scripts'\n"
+            'if (Test-Path $VenvBin) { $env:PATH = "$VenvBin;$env:PATH" }\n'
+        )
+    # SHARED_PARENT -- pwsh subexpression invokes git rev-parse and joins
+    # the parent .venv/ path. Single quotes are deliberately avoided around
+    # the value so `$(...)` evaluates at hook-execution time.
+    return (
+        "# Worktree-aware shared venv (spec-101 D-101-12 mode=shared-parent).\n"
+        "# Compute the venv path at hook-execution time so every worktree\n"
+        "# resolves the same shared root via the UV_PROJECT_ENVIRONMENT var.\n"
+        '$env:UV_PROJECT_ENVIRONMENT = "$(git rev-parse --git-common-dir)/../.venv"\n'
+    )
+
+
+def generate_bash_hook(hook: GateHook, mode: PythonEnvMode = PythonEnvMode.UV_TOOL) -> str:
     """Generate a Bash hook script for the given gate.
 
     The script invokes ``ai-eng gate <hook-type>`` and forwards
@@ -61,8 +132,14 @@ def generate_bash_hook(hook: GateHook) -> str:
     URL from git which ``ai-eng gate pre-push`` does not accept, so
     arguments are not forwarded for that hook.
 
+    The environment preamble branches on ``mode`` per spec-101 D-101-12 --
+    see :func:`_bash_preamble_for_mode` for the per-mode shapes.
+
     Args:
         hook: The gate hook type to generate.
+        mode: The active :class:`PythonEnvMode`. Defaults to
+            ``UV_TOOL`` so callers that have not yet plumbed the mode
+            through pick up the default contract.
 
     Returns:
         Complete Bash script content.
@@ -71,55 +148,47 @@ def generate_bash_hook(hook: GateHook) -> str:
     # commit-msg needs $@ (message file path); pre-push must not
     # receive git's extra args (remote name + URL).
     args_suffix = ' "$@"' if hook == GateHook.COMMIT_MSG else ""
+    preamble = _bash_preamble_for_mode(mode)
+    # When the preamble is empty (uv-tool) we still want a single blank
+    # line between the strict-mode setup and the gate invocation so the
+    # script reads consistently across modes.
+    preamble_block = f"\n{preamble}\n" if preamble else "\n"
     return f"""\
 #!/usr/bin/env bash
 {_HOOK_MARKER}
 # Auto-generated by ai-engineering. Do not edit manually.
 set -euo pipefail
-
-# Put project venv on PATH so ai-eng is available even from GUI git clients.
-# Uses PATH prepend instead of source-activate to avoid setting VIRTUAL_ENV,
-# which conflicts with uv run when CWD differs (e.g. git worktrees).
-ROOT_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
-if [ -d "$ROOT_DIR/.venv/bin" ]; then
-  export PATH="$ROOT_DIR/.venv/bin:$PATH"
-elif [ -d "$ROOT_DIR/.venv/Scripts" ]; then
-  export PATH="$ROOT_DIR/.venv/Scripts:$PATH"
-fi
-
-{command}{args_suffix}
+{preamble_block}{command}{args_suffix}
 """
 
 
-def generate_powershell_hook(hook: GateHook) -> str:
+def generate_powershell_hook(hook: GateHook, mode: PythonEnvMode = PythonEnvMode.UV_TOOL) -> str:
     """Generate a PowerShell hook script for the given gate.
+
+    The environment preamble branches on ``mode`` per spec-101 D-101-12 --
+    see :func:`_powershell_preamble_for_mode` for the per-mode shapes.
 
     Args:
         hook: The gate hook type to generate.
+        mode: The active :class:`PythonEnvMode`. Defaults to ``UV_TOOL``.
 
     Returns:
         Complete PowerShell script content.
     """
     command = _GATE_COMMANDS[hook]
     args_suffix = " $args" if hook == GateHook.COMMIT_MSG else ""
+    preamble = _powershell_preamble_for_mode(mode)
+    preamble_block = f"\n{preamble}\n" if preamble else "\n"
     return f"""\
 {_HOOK_MARKER}
 # Auto-generated by ai-engineering. Do not edit manually.
 $ErrorActionPreference = 'Stop'
-
-# Put project venv on PATH so ai-eng is available even from GUI git clients.
-# Uses PATH prepend instead of Activate.ps1 to avoid setting VIRTUAL_ENV,
-# which conflicts with uv run when CWD differs (e.g. git worktrees).
-$RootDir = (Resolve-Path "$PSScriptRoot/../..").Path
-$VenvBin = Join-Path $RootDir '.venv/Scripts'
-if (Test-Path $VenvBin) {{ $env:PATH = "$VenvBin;$env:PATH" }}
-
-{command}{args_suffix}
+{preamble_block}{command}{args_suffix}
 if ($LASTEXITCODE -ne 0) {{ exit $LASTEXITCODE }}
 """
 
 
-def generate_dispatcher_hook(hook: GateHook) -> str:
+def generate_dispatcher_hook(hook: GateHook, mode: PythonEnvMode = PythonEnvMode.UV_TOOL) -> str:
     """Generate a cross-OS dispatcher hook script.
 
     Git on Windows uses Git Bash to execute hooks, so a Bash script
@@ -131,11 +200,13 @@ def generate_dispatcher_hook(hook: GateHook) -> str:
 
     Args:
         hook: The gate hook type to generate.
+        mode: The active :class:`PythonEnvMode`. Forwarded to
+            :func:`generate_bash_hook` so the dispatcher honours D-101-12.
 
     Returns:
         Complete dispatcher script (Bash).
     """
-    return generate_bash_hook(hook)
+    return generate_bash_hook(hook, mode=mode)
 
 
 def detect_conflicts(project_root: Path) -> list[HookConflict]:
@@ -177,11 +248,26 @@ def is_managed_hook(hook_path: Path) -> bool:
     return _HOOK_MARKER in content
 
 
+def _resolve_python_env_mode(project_root: Path) -> PythonEnvMode:
+    """Read ``manifest.python_env.mode`` for ``project_root``; default UV_TOOL.
+
+    Total -- never raises. Any manifest read error falls through to the
+    safe default so hook installation never fails on a malformed manifest.
+    """
+    try:
+        from ai_engineering.state.manifest import load_python_env_mode
+
+        return load_python_env_mode(project_root)
+    except Exception:  # pragma: no cover - defensive: never block hook install
+        return PythonEnvMode.UV_TOOL
+
+
 def install_hooks(
     project_root: Path,
     *,
     hooks: list[GateHook] | None = None,
     force: bool = False,
+    mode: PythonEnvMode | None = None,
 ) -> HookInstallResult:
     """Install git hook scripts into ``.git/hooks/``.
 
@@ -193,6 +279,9 @@ def install_hooks(
         project_root: Root directory of the git repository.
         hooks: Specific hooks to install. Defaults to all gate hooks.
         force: If True, overwrite existing non-managed hooks.
+        mode: Optional :class:`PythonEnvMode` override. When ``None``, the
+            mode is read from ``manifest.python_env.mode`` (D-101-12) and
+            falls back to ``UV_TOOL`` when the manifest is absent.
 
     Returns:
         HookInstallResult with installed, skipped, and conflict details.
@@ -209,6 +298,8 @@ def install_hooks(
     result = HookInstallResult()
     result.conflicts = detect_conflicts(project_root)
 
+    resolved_mode = mode if mode is not None else _resolve_python_env_mode(project_root)
+
     for hook in target_hooks:
         hook_path = hooks_dir / hook.value
         ps_path = hooks_dir / f"{hook.value}.ps1"
@@ -218,12 +309,12 @@ def install_hooks(
             continue
 
         # Write Bash dispatcher (primary)
-        content = generate_dispatcher_hook(hook)
+        content = generate_dispatcher_hook(hook, mode=resolved_mode)
         hook_path.write_text(content, encoding="utf-8")
         _make_executable(hook_path)
 
         # Write PowerShell companion
-        ps_content = generate_powershell_hook(hook)
+        ps_content = generate_powershell_hook(hook, mode=resolved_mode)
         ps_path.write_text(ps_content, encoding="utf-8")
 
         result.installed.append(hook.value)

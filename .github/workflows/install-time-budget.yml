@@ -1,0 +1,156 @@
+name: Install Time Budget
+
+# Spec-101 G-11 — time-to-first-commit on a clean machine with prereqs MUST
+# complete in <= 600s for any single-stack project. The matrix runs the
+# fixture across 3 OSes with median-of-3 timings to absorb runner-load
+# jitter.
+#
+# Trigger surface (T-4.7 contract):
+#   - nightly schedule (cost-controlled regression sweep)
+#   - manual workflow_dispatch (operator-driven on-demand)
+#   - PR labelled `perf` (opt-in PR feedback for changes that may move the
+#     budget; deliberately NOT every push to keep PR feedback latency low)
+
+on:
+  schedule:
+    - cron: "0 3 * * *"  # 03:00 UTC — quiet hours, before US morning
+  workflow_dispatch: {}
+  pull_request:
+    types: [labeled]
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  guard-perf-label:
+    # Cheap gate: only proceed for nightly + dispatch + `perf`-labelled PRs.
+    name: Guard perf trigger
+    runs-on: ubuntu-latest
+    timeout-minutes: 1
+    outputs:
+      eligible: ${{ steps.decide.outputs.eligible }}
+    steps:
+      - id: decide
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            if [[ "${{ github.event.label.name }}" == "perf" ]]; then
+              echo "eligible=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "eligible=false" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            echo "eligible=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  budget:
+    name: Time Budget (${{ matrix.os }})
+    needs: guard-perf-label
+    if: needs.guard-perf-label.outputs.eligible == 'true'
+    runs-on: ${{ matrix.os }}
+    # G-11 budget is 600s wall-clock per run, median of 3 — total bound on
+    # the job is ~30 minutes including matrix overhead.
+    timeout-minutes: 35
+    defaults:
+      run:
+        shell: bash
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    env:
+      AIENG_TEST: "1"
+      FIXTURE_DIR: tests/fixtures/install-time-budget/python-single-stack
+      BUDGET_SECONDS: "600"
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@cec208311dfd045dd5311c1add060b2062131d57 # v8.0.0
+        with:
+          version: "0.9.0"
+          enable-cache: true
+
+      - name: Configure git defaults
+        run: |
+          git config --global init.defaultBranch main
+          git config --global user.email "ci@test.com"
+          git config --global user.name "CI"
+
+      - name: Build and install ai-eng
+        run: |
+          uv build
+          python -m venv .smoke-venv
+          . .smoke-venv/bin/activate || . .smoke-venv/Scripts/activate
+          pip install dist/*.whl
+          which ai-eng
+
+      # T-4.7: median-of-3. Each run is `git clone <fixture> && cd <fixture>
+      # && ai-eng install . && git commit --allow-empty -m smoke`. We use a
+      # local file:// clone to keep network noise out of the wall-clock.
+      - name: T-4.7 median-of-3 install + smoke commit
+        run: |
+          . .smoke-venv/bin/activate || . .smoke-venv/Scripts/activate
+          # Stage a bare repo from the fixture so `git clone` is realistic.
+          git clone --bare "$FIXTURE_DIR" fixture.git
+          declare -a TIMINGS
+          for run in 1 2 3; do
+            rm -rf "run-$run"
+            START=$(date +%s)
+            git clone fixture.git "run-$run"
+            (cd "run-$run" && ai-eng install . --non-interactive)
+            (cd "run-$run" && git commit --allow-empty -m "smoke")
+            END=$(date +%s)
+            ELAPSED=$((END - START))
+            echo "Run $run: ${ELAPSED}s"
+            TIMINGS+=("$ELAPSED")
+          done
+          SORTED=$(printf '%s\n' "${TIMINGS[@]}" | sort -n)
+          # POSIX median-of-3: middle element after sort.
+          MEDIAN=$(printf '%s\n' "$SORTED" | sed -n '2p')
+          echo "Median: ${MEDIAN}s (budget: ${BUDGET_SECONDS}s)"
+          echo "MEDIAN_SECONDS=${MEDIAN}" >> "$GITHUB_ENV"
+          if [ "$MEDIAN" -gt "$BUDGET_SECONDS" ]; then
+            echo "G-11 budget violated: median ${MEDIAN}s > ${BUDGET_SECONDS}s"
+            exit 1
+          fi
+
+      - name: Record timing artifact
+        if: always()
+        run: |
+          mkdir -p timing-artifacts
+          {
+            echo "os=${{ matrix.os }}"
+            echo "median_seconds=${MEDIAN_SECONDS:-unknown}"
+            echo "budget_seconds=${BUDGET_SECONDS}"
+            echo "trigger=${{ github.event_name }}"
+            echo "ref=${{ github.sha }}"
+          } > "timing-artifacts/g11-${{ matrix.os }}.txt"
+
+      - name: Upload timing artifact (7-day)
+        if: always()
+        uses: actions/upload-artifact@26f96dfa697d77e81fd5907df203aa23a56210a8 # v4.6.2
+        with:
+          name: install-time-budget-${{ matrix.os }}
+          path: timing-artifacts/
+          retention-days: 7
+          if-no-files-found: ignore
+
+  install-time-budget:
+    name: install-time-budget
+    needs: [budget]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Evaluate time-budget result
+        run: |
+          if [[ "${{ needs.budget.result }}" == "skipped" ]]; then
+            echo "Budget guard suppressed run (no perf trigger)"
+            exit 0
+          fi
+          if [[ "${{ needs.budget.result }}" != "success" ]]; then
+            echo "Time-budget matrix failed: ${{ needs.budget.result }}"
+            exit 1
+          fi
+          echo "All time-budget runs within G-11 (600s median)"

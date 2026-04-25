@@ -4,3 +4,9 @@
 # Default: maintainers own everything
 # Specific paths below can override this for finer-grained ownership
 *                                    @arcasilesgroup/maintainers
+
+# spec-101 governance: required_tools + python_env.mode + platform_unsupported
+# changes go through the maintainers' review (D-101-03 + D-101-13). The
+# manifest is the single source of truth for installer + doctor tool
+# resolution -- accidental edits can break install across 14 stacks.
+.ai-engineering/manifest.yml         @arcasilesgroup/maintainers

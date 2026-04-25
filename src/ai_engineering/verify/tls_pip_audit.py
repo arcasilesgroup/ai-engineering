@@ -10,10 +10,33 @@ import sys
 import tempfile
 from pathlib import Path
 
+_RISK_ACCEPTED_CVES: tuple[str, ...] = (
+    # DEC-036 (spec-101 Wave 23): pip 26.0.1 dual-format archive parsing.
+    # No upstream fix available; installer surface uses uv (not pip) and never
+    # accepts user-supplied archive URLs. Re-evaluate when pip 26.1.0+ ships.
+    "CVE-2026-3219",
+)
+
 
 def pip_audit_command(*args: str) -> list[str]:
-    """Return the canonical command used to run pip-audit for this repo."""
-    return ["uv", "run", "python", "-m", "ai_engineering.verify.tls_pip_audit", *args]
+    """Return the canonical command used to run pip-audit for this repo.
+
+    Risk-accepted CVEs (see ``state/decision-store.json``) are passed via
+    ``--ignore-vuln`` so the gate operationalises the documented decision
+    instead of failing on every run for an acknowledged unfixed finding.
+    """
+    ignore_flags: list[str] = []
+    for cve in _RISK_ACCEPTED_CVES:
+        ignore_flags.extend(["--ignore-vuln", cve])
+    return [
+        "uv",
+        "run",
+        "python",
+        "-m",
+        "ai_engineering.verify.tls_pip_audit",
+        *ignore_flags,
+        *args,
+    ]
 
 
 def main(argv: list[str] | None = None) -> int:

@@ -1,0 +1,46 @@
+# Worktree-fast fixture for spec-101 G-12 (T-4.8).
+#
+# Purpose: prove that `git worktree add ../wt2 && cd ../wt2 && ai-eng install
+# . && git commit --allow-empty -m smoke` completes in < 30s when
+# `python_env.mode: uv-tool` (D-101-12). Tools live in
+# `~/.local/share/uv/tools/` and worktrees skip `.venv/` re-creation.
+# Median-of-3 in the workflow absorbs runner-load jitter.
+
+schema_version: "2.0"
+framework_version: "0.4.0"
+name: worktree-fast-python-multi-worktree
+version: "0.0.1"
+
+providers:
+  vcs: github
+  ides: [terminal]
+  stacks: [python]
+
+ai_providers:
+  enabled: [claude_code]
+  primary: claude_code
+
+quality:
+  coverage: 80
+  duplication: 3
+  cyclomatic: 10
+  cognitive: 15
+
+prereqs:
+  uv:
+    version_range: ">=0.4.0,<1.0"
+
+# Critical — mode=uv-tool is what makes the second-worktree install instant.
+python_env:
+  mode: uv-tool
+
+required_tools:
+  baseline:
+    - {name: gitleaks}
+    - {name: semgrep, platform_unsupported: [windows], unsupported_reason: "semgrep has no Windows release"}
+    - {name: jq}
+  python:
+    - {name: ruff}
+    - {name: ty}
+    - {name: pip-audit}
+    - {name: pytest, scope: user_global}

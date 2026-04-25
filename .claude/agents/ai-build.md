@@ -123,6 +123,30 @@ Every build task produces this structured output to enable downstream agents (ve
 - Does not execute `terraform apply` without explicit user approval
 - Records decisions in `state/decision-store.json` when risk acceptance is needed
 
+## Write Scope
+
+Build is the only code-writing agent and operates across the whole tree by default. The list below is an explicit, append-only allowlist for paths that are introduced or extended by an active spec; entries cover both repo-root files and `src/ai_engineering/`-rooted modules so spec-101's pre-existence checks succeed without ambiguity.
+
+### spec-101 — Installer Robustness (Stack-Aware User-Scope Tool Bootstrap)
+
+- `src/ai_engineering/installer/user_scope_install.py`
+- `src/ai_engineering/installer/tool_registry.py`
+- `src/ai_engineering/installer/mechanisms/**`
+- `src/ai_engineering/installer/python_env.py`
+- `src/ai_engineering/installer/launchers.py`
+- `src/ai_engineering/state/manifest.py`
+- `src/ai_engineering/prereqs/sdk.py`
+- `.github/workflows/install-smoke.yml`
+- `.github/workflows/install-time-budget.yml`
+- `.github/workflows/worktree-fast-second.yml`
+- `tests/fixtures/install-smoke/**`
+- `tests/fixtures/worktree-fast/**`
+- `tests/fixtures/install-time-budget/**`
+- `tests/integration/test_doctor_fix_node_stack.py`
+- `tests/integration/test_doctor_fix_go_stack.py`
+- `tests/integration/test_stack_runner_data_driven.py`
+- `.ai-engineering/contexts/python-env-modes.md`
+
 ### Escalation Protocol
 
 - **Iteration limit**: max 2 attempts per task before escalating to user.

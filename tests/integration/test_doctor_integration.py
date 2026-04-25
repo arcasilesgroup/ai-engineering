@@ -78,6 +78,30 @@ def _all_checks(report: DoctorReport) -> list[CheckResult]:
     return checks
 
 
+def _force_venv_mode(project: Path) -> None:
+    """Force the project's manifest into ``python_env.mode: venv``.
+
+    Spec-101 D-101-12 made ``uv-tool`` the default mode for fresh installs;
+    that mode skips the venv-health probe (which is the correct behaviour
+    for the new architecture). Tests below pin the LEGACY ``venv`` probe
+    semantics and therefore need to opt into ``mode: venv`` explicitly.
+    """
+    manifest_path = project / ".ai-engineering" / "manifest.yml"
+    text = manifest_path.read_text(encoding="utf-8")
+    if "python_env:" in text:
+        # Replace whatever mode is set with ``venv``.
+        import re
+
+        text = re.sub(
+            r"python_env:\s*\n\s*mode:\s*\S+",
+            "python_env:\n  mode: venv",
+            text,
+        )
+    else:
+        text += "\npython_env:\n  mode: venv\n"
+    manifest_path.write_text(text, encoding="utf-8")
+
+
 # ---------------------------------------------------------------------------
 # Governance phase checks (formerly layout)
 # ---------------------------------------------------------------------------
@@ -211,6 +235,7 @@ class TestVenvHealthCheck:
 
     def test_fails_when_home_path_stale(self, installed_project: Path) -> None:
         """Venv health fails when pyvenv.cfg home points to nonexistent dir."""
+        _force_venv_mode(installed_project)
         venv = installed_project / ".venv"
         venv.mkdir(exist_ok=True)
         cfg = venv / "pyvenv.cfg"
@@ -224,6 +249,7 @@ class TestVenvHealthCheck:
 
     def test_warns_when_no_venv(self, installed_project: Path) -> None:
         """Venv health warns when .venv directory is absent."""
+        _force_venv_mode(installed_project)
         venv = installed_project / ".venv"
         if venv.exists():
             import shutil
@@ -239,6 +265,7 @@ class TestVenvHealthCheck:
         """Venv health is fixed when fix recreates stale venv."""
         from unittest.mock import patch
 
+        _force_venv_mode(installed_project)
         venv = installed_project / ".venv"
         venv.mkdir(exist_ok=True)
         cfg = venv / "pyvenv.cfg"
@@ -260,6 +287,7 @@ class TestVenvHealthCheck:
 
     def test_warns_when_no_pyvenv_cfg(self, installed_project: Path) -> None:
         """Venv health warns when .venv exists but pyvenv.cfg is absent."""
+        _force_venv_mode(installed_project)
         venv = installed_project / ".venv"
         venv.mkdir(exist_ok=True)
         report = diagnose(installed_project)
@@ -271,6 +299,7 @@ class TestVenvHealthCheck:
 
     def test_fails_when_home_not_parseable(self, installed_project: Path) -> None:
         """Venv health fails when pyvenv.cfg has no home key."""
+        _force_venv_mode(installed_project)
         venv = installed_project / ".venv"
         venv.mkdir(exist_ok=True)
         cfg = venv / "pyvenv.cfg"
@@ -286,6 +315,7 @@ class TestVenvHealthCheck:
         """Venv recreation failure reports FAIL status."""
         from unittest.mock import patch
 
+        _force_venv_mode(installed_project)
         venv = installed_project / ".venv"
         venv.mkdir(exist_ok=True)
         cfg = venv / "pyvenv.cfg"

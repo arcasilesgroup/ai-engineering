@@ -586,6 +586,38 @@
             "decision": "Eliminated __version__.py. Version read from pyproject.toml via importlib.metadata.version('ai-engineering'). python-semantic-release updates pyproject.toml only. Removes dual-source sync hazard.",
             "decidedAt": "2026-03-31T00:00:00Z",
             "context": "architecture"
+        },
+        {
+            "id": "DEC-035",
+            "title": "90-day artifact retention with permanent GitHub Releases",
+            "category": "delivery",
+            "status": "active",
+            "criticality": "medium",
+            "source": "spec-097",
+            "spec": "097",
+            "created_at": "2026-04-24",
+            "expires_at": "2027-04-24T00:00:00Z",
+            "context_hash": "",
+            "acknowledged_by": "guard",
+            "decision": "CI build artifacts (wheel, sdist, SBOM, attestation, checksums) are retained for 90 days in GitHub Actions for download by the release workflow and forensic review. Permanent copies of every released version's artifacts are attached to the corresponding GitHub Release for long-term auditability. The 90-day artifact window is the maximum supported retention for actions/upload-artifact at the standard GitHub plan tier; permanent retention is delegated to GitHub Releases which has no expiry.",
+            "decidedAt": "2026-04-24T00:00:00Z",
+            "context": "delivery"
+        },
+        {
+            "id": "DEC-036",
+            "title": "Risk acceptance: pip CVE-2026-3219 (no upstream fix available)",
+            "category": "risk-acceptance",
+            "status": "active",
+            "criticality": "low",
+            "source": "spec-101-wave23",
+            "spec": "101",
+            "created_at": "2026-04-24",
+            "expires_at": "2026-07-23T00:00:00Z",
+            "context_hash": "",
+            "acknowledged_by": "build",
+            "decision": "pip 26.0.1 is the latest available version on PyPI and carries CVE-2026-3219: pip treats files that identify as both tar AND ZIP archives as ZIP files unconditionally. Exploit requires (a) the user installing a hand-crafted dual-format archive AND (b) supplying that archive via a URL or file path. Our installer surface uses uv (not pip directly) and never accepts user-supplied archive URLs, so the practical exploit window is empty in our deployment. Upstream has no patched release; tracking https://github.com/pypa/pip for a fix. Re-evaluate when a fixed pip version ships -- TTL 90 days. If pip 26.1.0+ patches the issue we will upgrade and close this DEC.",
+            "decidedAt": "2026-04-24T00:00:00Z",
+            "context": "security"
         }
     ]
 }

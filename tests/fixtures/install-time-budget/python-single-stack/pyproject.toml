@@ -1,0 +1,10 @@
+[project]
+name = "install-time-budget-python-single-stack"
+version = "0.0.1"
+description = "Time-budget fixture for spec-101 G-11 (< 600s wall-clock)."
+requires-python = ">=3.11"
+dependencies = []
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

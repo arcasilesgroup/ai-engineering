@@ -1,4 +1,20 @@
-"""Stack-aware check execution and check registry."""
+"""Stack-aware check execution and check registry.
+
+spec-101 D-101-01 + D-101-15 + R-15: the per-stage check list is now
+*data-driven* from :func:`ai_engineering.state.manifest.load_required_tools`.
+Adding a stack to ``manifest.yml`` without a matching ``required_tools.<stack>``
+entry is a hard error (loader raises :class:`UnknownStackError`) -- the legacy
+silent no-op is closed.
+
+Two parallel surfaces are exposed for the migration:
+
+* ``get_checks_for_stage(stage, stacks, *, project_root)`` -- the data-driven
+  entry-point. Returns a list of :class:`CheckSpec` derived from the resolved
+  ``ToolSpec`` set.
+* ``PRE_COMMIT_CHECKS`` / ``PRE_PUSH_CHECKS`` + ``run_checks_for_stacks`` --
+  legacy registry-driven shim retained for in-place gates.py dispatch and
+  test-suite stability. New code should call ``get_checks_for_stage``.
+"""
 
 from __future__ import annotations
 
@@ -8,7 +24,13 @@ import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 
+from ai_engineering.installer.launchers import (
+    MISSING_DEP_SENTINEL,
+    resolve_project_local,
+)
 from ai_engineering.policy.gates import GateCheckResult, GateResult
+from ai_engineering.state.manifest import load_required_tools
+from ai_engineering.state.models import GateHook, ToolScope, ToolSpec
 from ai_engineering.verify.tls_pip_audit import pip_audit_command
 
 
@@ -347,3 +369,408 @@ def run_tool_check(
             output=output,
         )
     )
+
+
+# ---------------------------------------------------------------------------
+# spec-101 T-2.24 -- data-driven dispatch (D-101-01 + D-101-15 + R-15)
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class CheckSpec:
+    """Single resolved gate check derived from a :class:`ToolSpec`.
+
+    The check is stage-classified and stack-tagged so :func:`run_checks_for_specs`
+    can dispatch ``project_local`` tools through the launcher and ``user_global``
+    tools through the legacy ``shutil.which`` path uniformly.
+    """
+
+    name: str
+    tool_spec: ToolSpec
+    stack: str
+    args: tuple[str, ...]
+    required: bool = True
+    timeout: int = 300
+
+
+# Tool-name -> argv-tail mapping. The argv-tail is appended to the launcher
+# (npx/shutil.which) head; e.g. ``ruff`` -> ``["check", "."]`` runs as
+# ``["ruff", "check", "."]`` for user_global or ``["npx", "ruff", "check", "."]``
+# for project_local. Keep this aligned with the canonical tool entries in
+# ``manifest.yml.required_tools`` so the data-driven dispatcher matches what
+# the legacy ``PRE_COMMIT_CHECKS`` / ``PRE_PUSH_CHECKS`` registry produced.
+_DEFAULT_ARGS: dict[str, tuple[str, ...]] = {
+    # Baseline / common
+    "gitleaks": ("protect", "--staged", "--no-banner"),
+    "semgrep": ("--config", ".semgrep.yml", "--error", "."),
+    "jq": ("--version",),
+    # Python (user_global / user_global_uv_tool)
+    "ruff": ("check", "."),
+    "ty": ("check",),  # source root resolved at execute-time
+    "pip-audit": (),  # cmd resolved via pip_audit_command()
+    "pytest": ("tests/unit/",),  # test dir resolved at execute-time
+    # TypeScript / JavaScript (project_local -> npx <tool> ...)
+    "eslint": (".",),
+    "prettier": ("--check", "."),
+    "tsc": ("--noEmit",),
+    "vitest": ("run",),
+    # csharp
+    "dotnet-format": ("--verify-no-changes",),
+    # go
+    "staticcheck": ("./...",),
+    "govulncheck": ("./...",),
+    # rust
+    "cargo-audit": ("audit",),
+    # bash
+    "shellcheck": ("--severity=warning",),
+    "shfmt": ("-d", "."),
+    # sql
+    "sqlfluff": ("lint",),
+    # php
+    "phpstan": ("analyse",),
+    "php-cs-fixer": ("fix", "--dry-run"),
+    # java
+    "checkstyle": ("-c", "/google_checks.xml"),
+    "google-java-format": ("--dry-run",),
+    # kotlin
+    "ktlint": (".",),
+    # swift
+    "swiftlint": ("lint",),
+    "swift-format": ("lint",),
+    # cpp
+    "clang-tidy": ("-p", "build"),
+    "clang-format": ("--dry-run",),
+    "cppcheck": ("--enable=all", "."),
+    # dart
+    "dart-stack-marker": ("--check",),
+    # composer
+    "composer": ("validate",),
+}
+
+
+# Tool names whose primary purpose is security / vulnerability scanning or
+# test execution -- those run in the pre-push stage. Anything else (linters,
+# formatters, type-checkers used for fast feedback) lands in pre-commit.
+#
+# Aligned with the legacy ``PRE_COMMIT_CHECKS`` / ``PRE_PUSH_CHECKS`` registry
+# split so the data-driven path produces the same stage assignments.
+_PRE_PUSH_TOOLS: frozenset[str] = frozenset(
+    {
+        # Security scanners + vuln-audit
+        "semgrep",
+        "pip-audit",
+        "govulncheck",
+        "cargo-audit",
+        # Test runners
+        "pytest",
+        "vitest",
+        # Type-checkers (heavier; ran at push-time per spec-101 conventions)
+        "ty",
+        "tsc",
+    }
+)
+
+
+def _classify_stage(tool_name: str) -> GateHook:
+    """Classify a tool into pre-commit vs pre-push based on its purpose.
+
+    Linters / formatters -> ``PRE_COMMIT`` (fast feedback during commit).
+    Security / test / type-check -> ``PRE_PUSH`` (heavier, run before push).
+    """
+    if tool_name in _PRE_PUSH_TOOLS:
+        return GateHook.PRE_PUSH
+    return GateHook.PRE_COMMIT
+
+
+def _check_name_for(tool: ToolSpec, stage: GateHook) -> str:
+    """Stable check-name string used in :class:`GateCheckResult`."""
+    # Map a few tool names to the canonical legacy check names so existing
+    # observability dashboards stay stable.
+    if tool.name == "pytest":
+        return "stack-tests"
+    if tool.name == "ty":
+        return "ty-check"
+    if tool.name == "tsc":
+        return "tsc-check"
+    if tool.name == "ruff" and stage == GateHook.PRE_COMMIT:
+        # Two ruff checks in pre-commit historically: format-check + lint-check.
+        # Default to lint here; format is wired separately when explicit.
+        return "ruff-lint"
+    return tool.name
+
+
+def _resolve_args(tool: ToolSpec, project_root: Path) -> tuple[str, ...]:
+    """Return the argv tail for a tool, with dynamic substitutions.
+
+    ``pytest`` and ``ty`` need filesystem-aware path resolution from
+    pyproject.toml; ``pip-audit`` uses the TLS-wrapper command. Everything
+    else falls back to the static :data:`_DEFAULT_ARGS` map.
+    """
+    if tool.name == "pip-audit":
+        # ``pip_audit_command`` returns ["uv", "run", "python", "-m", ...] --
+        # used as a complete argv. The launcher path skips ``shutil.which``
+        # because the head is ``uv``, which is a hard prereq.
+        return tuple(pip_audit_command()[1:])
+    if tool.name == "pytest":
+        test_dir = detect_python_test_dir(project_root) or "tests/unit/"
+        return (
+            test_dir,
+            "--tb=short",
+            "-q",
+            "-x",
+            "--no-cov",
+            "-n",
+            "auto",
+            "--dist",
+            "worksteal",
+        )
+    if tool.name == "ty":
+        # _DEFAULT_ARGS["ty"] = ("check",); append the dynamically-resolved
+        # source root so the final argv is ``["ty", "check", "<src>"]``.
+        return _DEFAULT_ARGS["ty"] + (detect_python_source_root(project_root),)
+    return _DEFAULT_ARGS.get(tool.name, ())
+
+
+def get_checks_for_stage(
+    stage: GateHook,
+    stacks: list[str],
+    *,
+    project_root: Path,
+) -> list[CheckSpec]:
+    """Resolve the per-stage check list from the manifest at runtime.
+
+    Reads ``manifest.yml.required_tools`` via :func:`load_required_tools`
+    and returns the subset of resolved tools whose stage classification
+    matches ``stage``. R-15 / D-101-01 close: a declared stack absent from
+    ``required_tools.<stack>`` raises :class:`UnknownStackError` (bubbled
+    from the loader); there is no silent no-op.
+
+    Args:
+        stage: ``GateHook.PRE_COMMIT`` or ``GateHook.PRE_PUSH``.
+        stacks: Stack names from ``providers.stacks`` (e.g. ``["python"]``).
+        project_root: Repository root; the loader reads
+            ``<project_root>/.ai-engineering/manifest.yml``.
+
+    Returns:
+        Ordered list of :class:`CheckSpec` instances matching ``stage``.
+    """
+    load_result = load_required_tools(stacks, root=project_root)
+
+    specs: list[CheckSpec] = []
+    for tool in load_result:
+        # Pre-classify by purpose; tag the originating stack for launcher
+        # routing of project_local tools (D-101-15).
+        tool_stage = _classify_stage(tool.name)
+        if tool_stage != stage:
+            continue
+        stack_name = _stack_for_tool(tool, stacks)
+        specs.append(
+            CheckSpec(
+                name=_check_name_for(tool, stage),
+                tool_spec=tool,
+                stack=stack_name,
+                args=_resolve_args(tool, project_root),
+                required=True,
+                timeout=120 if tool.name == "pytest" else 300,
+            )
+        )
+
+    # Special-case: ruff format-check is a SECOND pre-commit ruff invocation
+    # alongside ruff-lint. Emit it explicitly when ruff is present + pre-commit.
+    if stage == GateHook.PRE_COMMIT:
+        ruff_specs = [s for s in specs if s.tool_spec.name == "ruff"]
+        for ruff in ruff_specs:
+            specs.append(
+                CheckSpec(
+                    name="ruff-format",
+                    tool_spec=ruff.tool_spec,
+                    stack=ruff.stack,
+                    args=("format", "--check", "."),
+                    required=ruff.required,
+                    timeout=ruff.timeout,
+                )
+            )
+
+    return specs
+
+
+def _stack_for_tool(tool: ToolSpec, requested_stacks: list[str]) -> str:
+    """Return the stack name the tool belongs to (best-effort).
+
+    Used to route ``project_local`` tools through the matching launcher
+    (``typescript`` -> npx, ``php`` -> vendor/bin, etc.). Looks up the tool
+    in the canonical name->stack mapping; falls back to the first requested
+    stack so the launcher receives an actionable hint.
+    """
+    canonical = _CANONICAL_TOOL_TO_STACK.get(tool.name)
+    if canonical is not None and canonical in requested_stacks:
+        return canonical
+    if canonical is not None:
+        return canonical
+    # Fallback: caller passed a single stack so we know which stack it is.
+    if requested_stacks:
+        return requested_stacks[0]
+    return "baseline"
+
+
+# Canonical tool->stack inverse map (kept in sync with manifest.yml.required_tools).
+_CANONICAL_TOOL_TO_STACK: dict[str, str] = {
+    # Baseline (no stack -- used for launcher routing fallback).
+    "gitleaks": "baseline",
+    "semgrep": "baseline",
+    "jq": "baseline",
+    # Python
+    "ruff": "python",
+    "ty": "python",
+    "pip-audit": "python",
+    "pytest": "python",
+    # TypeScript
+    "tsc": "typescript",
+    "vitest": "typescript",
+    # JavaScript / TypeScript shared
+    "prettier": "typescript",
+    "eslint": "typescript",
+    # Java
+    "checkstyle": "java",
+    "google-java-format": "java",
+    # CSharp
+    "dotnet-format": "csharp",
+    # Go
+    "staticcheck": "go",
+    "govulncheck": "go",
+    # PHP
+    "phpstan": "php",
+    "php-cs-fixer": "php",
+    "composer": "php",
+    # Rust
+    "cargo-audit": "rust",
+    # Kotlin
+    "ktlint": "kotlin",
+    # Swift
+    "swiftlint": "swift",
+    "swift-format": "swift",
+    # Dart
+    "dart-stack-marker": "dart",
+    # SQL
+    "sqlfluff": "sql",
+    # Bash
+    "shellcheck": "bash",
+    "shfmt": "bash",
+    # CPP
+    "clang-tidy": "cpp",
+    "clang-format": "cpp",
+    "cppcheck": "cpp",
+}
+
+
+def run_tool_check_for_spec(
+    result: GateResult,
+    *,
+    tool_spec: ToolSpec,
+    stack: str,
+    check_name: str,
+    args: list[str] | tuple[str, ...],
+    cwd: Path,
+    required: bool = True,
+    timeout: int = 300,
+) -> None:
+    """Run a single tool check, dispatching by ``ToolSpec.scope``.
+
+    * ``ToolScope.PROJECT_LOCAL`` -> dispatches via
+      :func:`ai_engineering.installer.launchers.resolve_project_local` so
+      ``npx``/``./vendor/bin/...``/``./mvnw``/``./gradlew``/``cmake`` is used.
+      A ``MISSING_DEP_SENTINEL`` argv head from the launcher is surfaced as
+      a failed check whose output carries the actionable recovery message.
+    * ``ToolScope.USER_GLOBAL`` / ``USER_GLOBAL_UV_TOOL`` / ``SDK_BUNDLED``
+      -> resolves the binary via ``shutil.which`` and routes through
+      :func:`run_tool_check` (the legacy path).
+    """
+    if tool_spec.scope == ToolScope.PROJECT_LOCAL:
+        argv = resolve_project_local(tool_spec, cwd=cwd, stack=stack)
+        if argv and argv[0] == MISSING_DEP_SENTINEL:
+            # Recovery message lives in argv[1:] (split-on-whitespace per
+            # launcher contract). Re-join for a human-friendly output.
+            message = " ".join(argv[1:]) if len(argv) > 1 else "missing dependency"
+            result.checks.append(
+                GateCheckResult(
+                    name=check_name,
+                    passed=False,
+                    output=message,
+                )
+            )
+            return
+
+        full_cmd = [*argv, *args]
+        try:
+            proc = subprocess.run(
+                full_cmd,
+                cwd=cwd,
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+                encoding="utf-8",
+                errors="replace",
+            )
+            passed = proc.returncode == 0
+            output = proc.stdout.strip() or proc.stderr.strip()
+            if not output:
+                output = f"{tool_spec.name} exited with code {proc.returncode}"
+            if len(output) > 500:
+                output = output[:500] + "\n... (truncated)"
+        except subprocess.TimeoutExpired:
+            passed = False
+            output = f"{tool_spec.name} timed out after {timeout}s"
+        except FileNotFoundError:
+            passed = not required
+            output = (
+                f"{tool_spec.name} launcher head ({argv[0]!r}) not found"
+                " -- ensure node/npx/composer/etc. are installed."
+            )
+
+        result.checks.append(
+            GateCheckResult(
+                name=check_name,
+                passed=passed,
+                output=output,
+            )
+        )
+        return
+
+    # user_global / user_global_uv_tool / sdk_bundled -> shutil.which path.
+    # ``pip-audit`` is special-cased: the canonical command head is ``uv`` (a
+    # hard prereq), not the tool name. ``pip_audit_command()`` returns the
+    # complete argv ``["uv", "run", "python", "-m", ...]``; the generic
+    # ``[tool.name, *args]`` join would produce ``["pip-audit", "run", ...]``
+    # and invoke the wrong binary.
+    full_cmd = pip_audit_command() if tool_spec.name == "pip-audit" else [tool_spec.name, *args]
+    run_tool_check(
+        result,
+        name=check_name,
+        cmd=full_cmd,
+        cwd=cwd,
+        required=required,
+        timeout=timeout,
+    )
+
+
+def run_checks_for_specs(
+    project_root: Path,
+    result: GateResult,
+    specs: list[CheckSpec],
+) -> None:
+    """Execute every :class:`CheckSpec` produced by :func:`get_checks_for_stage`.
+
+    Wraps :func:`run_tool_check_for_spec` and aggregates results into the
+    shared :class:`GateResult`.
+    """
+    for spec in specs:
+        run_tool_check_for_spec(
+            result,
+            tool_spec=spec.tool_spec,
+            stack=spec.stack,
+            check_name=spec.name,
+            args=list(spec.args),
+            cwd=project_root,
+            required=spec.required,
+            timeout=spec.timeout,
+        )

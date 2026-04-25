@@ -171,3 +171,94 @@ tooling: [uv, ruff, gitleaks, pytest, ty, pip-audit]
 telemetry:
   consent: strict-opt-in
   default: disabled
+
+# === SPEC-101 INSTALL CONFIGURATION ===
+# User-edited install configuration for `ai-eng install` / `ai-eng doctor --fix`.
+# Placed at end-of-file so the spec-101 required_tools governance lint can
+# parse the block correctly (the lint's indent normaliser scans every line
+# after `required_tools:` — siblings at column 0 confuse it). Keep
+# `required_tools:` as the LAST top-level key in this file.
+
+# Prereqs — hard prerequisites the user must install before `ai-eng install`
+# (spec-101 D-101-14). `uv` covers the framework's own Python tool install
+# path; `sdk_per_stack` covers the 9 stacks whose toolchains the framework
+# never auto-installs (NG-11). Missing prereqs surface as EXIT 81.
+prereqs:
+  uv:
+    version_range: ">=0.4.0,<1.0"
+  sdk_per_stack:
+    java: {name: JDK, min_version: "21", install_link: "https://adoptium.net/"}
+    kotlin: {name: JDK, min_version: "21", install_link: "https://adoptium.net/"}
+    swift: {name: Swift toolchain, install_link: "https://www.swift.org/install/"}
+    dart: {name: Dart SDK, install_link: "https://dart.dev/get-dart"}
+    csharp: {name: ".NET SDK", min_version: "9", install_link: "https://dotnet.microsoft.com/download"}
+    go: {name: Go toolchain, install_link: "https://go.dev/dl/"}
+    rust: {name: Rust toolchain, install_link: "https://rustup.rs/"}
+    php: {name: PHP, min_version: "8.2", install_link: "https://www.php.net/downloads"}
+    cpp: {name: clang/LLVM, install_link: "https://llvm.org/builds/"}
+
+# Python environment mode (spec-101 D-101-12). `uv-tool` (default) installs
+# Python tools to `~/.local/share/uv/tools/` so worktree creation never
+# triggers a `.venv/` re-install. Alternatives: `venv` (legacy, per-cwd
+# `.venv/`) and `shared-parent` (worktree-aware, requires a git repo).
+python_env:
+  mode: uv-tool
+
+# Required tools — single source of truth for `ai-eng install` / `ai-eng doctor --fix`
+# (spec-101 D-101-01). Covers a universal `baseline` plus per-stack tools for the
+# 14 declared stacks. `platform_unsupported` (tool-level, max 2 of 3 OSes) and
+# `platform_unsupported_stack` (stack-level, may list all 3) are governed by
+# D-101-03 + D-101-13 — both require `unsupported_reason`. MUST be the last
+# top-level key in this file (see lint-normaliser note above).
+required_tools:
+  baseline:
+    - {name: gitleaks}
+    - {name: semgrep, platform_unsupported: [windows], unsupported_reason: "semgrep has no Windows release"}
+    - {name: jq}
+  python:
+    - {name: ruff}
+    - {name: ty}
+    - {name: pip-audit}
+    - {name: pytest, scope: user_global}
+  typescript:
+    - {name: prettier, scope: project_local}
+    - {name: eslint, scope: project_local}
+    - {name: tsc, scope: project_local}
+    - {name: vitest, scope: project_local}
+  javascript:
+    - {name: prettier, scope: project_local}
+    - {name: eslint, scope: project_local}
+    - {name: vitest, scope: project_local}
+  java:
+    - {name: checkstyle}
+    - {name: google-java-format}
+  csharp:
+    - {name: dotnet-format}
+  go:
+    - {name: staticcheck}
+    - {name: govulncheck}
+  php:
+    - {name: phpstan}
+    - {name: php-cs-fixer}
+    - {name: composer}
+  rust:
+    - {name: cargo-audit}
+  kotlin:
+    - {name: ktlint}
+  swift:
+    platform_unsupported_stack: [linux, windows]
+    unsupported_reason: "swiftlint and swift-format have no Linux/Windows binaries"
+    tools:
+      - {name: swiftlint}
+      - {name: swift-format}
+  dart:
+    - {name: dart-stack-marker}
+  sql:
+    - {name: sqlfluff}
+  bash:
+    - {name: shellcheck}
+    - {name: shfmt}
+  cpp:
+    - {name: clang-tidy}
+    - {name: clang-format}
+    - {name: cppcheck}

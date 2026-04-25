@@ -17,6 +17,11 @@ if TYPE_CHECKING:
 import typer
 
 from ai_engineering import __version__
+from ai_engineering.cli_commands._exit_codes import (
+    EXIT_PREREQS_MISSING,
+    EXIT_TOOLS_FAILED,
+    PrereqMissing,
+)
 from ai_engineering.cli_envelope import NextAction, emit_success
 from ai_engineering.cli_output import is_json_mode, set_json_mode
 from ai_engineering.cli_progress import spinner
@@ -45,6 +50,7 @@ from ai_engineering.installer.phases import (
     InstallMode,
     PhasePlan,
 )
+from ai_engineering.installer.phases.sdk_prereqs import check_sdk_prereqs
 from ai_engineering.installer.service import install_with_pipeline
 from ai_engineering.installer.ui import (
     StepStatus,
@@ -53,6 +59,7 @@ from ai_engineering.installer.ui import (
     render_summary,
 )
 from ai_engineering.paths import resolve_project_root
+from ai_engineering.prereqs.uv import check_uv_prereq
 from ai_engineering.updater.service import _DIFF_MAX_LINES, update
 
 
@@ -137,6 +144,13 @@ def install_cmd(
         typer.Option(
             "--reconfigure",
             help="Re-run the configuration wizard to change providers/stacks/IDEs.",
+        ),
+    ] = False,
+    force: Annotated[
+        bool,
+        typer.Option(
+            "--force",
+            help="Re-install every required tool, ignoring the idempotence skip (D-101-07).",
         ),
     ] = False,
 ) -> None:
@@ -313,6 +327,27 @@ def install_cmd(
         }
         render_detection(resolved_vcs, resolved_providers, tools)
 
+    # spec-101 D-101-11: prereqs precede tools. Missing/out-of-range uv yields
+    # EXIT 81 BEFORE the tools phase ever runs. Strict precedence -- when the
+    # user's environment is broken at the prereq layer, the tools phase never
+    # gets a chance to surface its own EXIT 80.
+    try:
+        check_uv_prereq(root)
+    except PrereqMissing as exc:
+        error(str(exc))
+        raise typer.Exit(code=EXIT_PREREQS_MISSING) from exc
+
+    # spec-101 D-101-14: per-stack SDK prereq gate. Iterates the 9 SDK-required
+    # stacks declared by the project, applies the D-101-13 stack-level carve-out
+    # (e.g. swift on linux is filtered before probing), and probes each SDK via
+    # ``prereqs/sdk.py.probe_sdk``. Any absent/out-of-range SDK aggregates into
+    # a single EXIT 81 with install links + verify commands per failing stack.
+    try:
+        check_sdk_prereqs(resolved_stacks, root=root)
+    except PrereqMissing as exc:
+        error(str(exc))
+        raise typer.Exit(code=EXIT_PREREQS_MISSING) from exc
+
     # Run pipeline with step rendering
     with spinner("Installing governance framework..."):
         result, summary = install_with_pipeline(
@@ -322,7 +357,18 @@ def install_cmd(
             ides=resolved_ides,
             vcs_provider=resolved_vcs,
             ai_providers=resolved_providers,
+            force=force,
         )
+
+    # spec-101 D-101-11: any failed required tool -> EXIT 80. Mapped from the
+    # tools phase's PhaseVerdict.passed flag (which aggregates failed tools).
+    tools_verdict = next(
+        (v for v in summary.verdicts if v.phase_name == PHASE_TOOLS),
+        None,
+    )
+    if tools_verdict is not None and not tools_verdict.passed:
+        error("Tool installation failed; see warnings above. Run 'ai-eng doctor' to retry.")
+        raise typer.Exit(code=EXIT_TOOLS_FAILED)
 
     # Render steps from pipeline summary
     if not is_json_mode():

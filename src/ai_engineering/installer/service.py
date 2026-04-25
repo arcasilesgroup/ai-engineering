@@ -198,6 +198,7 @@ def install_with_pipeline(
     ai_providers: list[str] | None = None,
     external_references: dict[str, str] | None = None,
     dry_run: bool = False,
+    force: bool = False,
 ) -> tuple[InstallResult, PipelineSummary]:
     """Run the install pipeline and return both legacy and pipeline results.
 
@@ -238,6 +239,7 @@ def install_with_pipeline(
         stacks=stacks or [],
         ides=ides or [],
         existing_state=existing_state,
+        force=force,
     )
 
     if not dry_run:

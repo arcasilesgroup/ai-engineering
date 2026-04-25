@@ -1,0 +1,10 @@
+[project]
+name = "worktree-fast-python-multi-worktree"
+version = "0.0.1"
+description = "Worktree-fast fixture for spec-101 G-12 (< 30s second-worktree wall-clock)."
+requires-python = ">=3.11"
+dependencies = []
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

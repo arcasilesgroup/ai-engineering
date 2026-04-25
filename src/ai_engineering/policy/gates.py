@@ -224,25 +224,65 @@ def _check_expired_risk_acceptances(project_root: Path, result: GateResult) -> N
 
 
 def _run_pre_commit_checks(project_root: Path, result: GateResult) -> None:
-    """Run pre-commit gate checks: common + per-stack checks + risk warnings."""
+    """Run pre-commit gate checks: common + per-stack checks + risk warnings.
+
+    spec-101 R-15 / D-101-01: dispatch goes through the data-driven
+    :func:`get_checks_for_stage` so the canonical stack names from
+    ``manifest.yml.required_tools`` (``csharp``, ``typescript``,
+    ``javascript``, ...) drive the per-stage check list. The legacy
+    registry (keyed on obsolete ``dotnet``/``nextjs``) is no longer
+    consulted -- adding a stack absent from ``required_tools.<stack>``
+    raises :class:`UnknownStackError` from the loader, closing the
+    silent-no-op gap.
+
+    When ``manifest.yml`` is absent (fresh checkout / smoke fixtures) the
+    data-driven loader returns an empty list. In that case we fall back
+    to the legacy ``PRE_COMMIT_CHECKS`` registry so the baseline gates
+    (gitleaks, ruff format/lint) keep firing -- otherwise the gate would
+    trivially pass on a project without ai-engineering installed.
+    """
     from ai_engineering.policy.checks.risk import check_expiring_risk_acceptances
-    from ai_engineering.policy.checks.stack_runner import PRE_COMMIT_CHECKS, run_checks_for_stacks
-
-    stacks = _get_active_stacks(project_root)
-    run_checks_for_stacks(project_root, result, PRE_COMMIT_CHECKS, stacks)
-    check_expiring_risk_acceptances(project_root, result)
-
-
-def _run_pre_push_checks(project_root: Path, result: GateResult) -> None:
-    """Run pre-push gate checks: common + per-stack checks + expired risks."""
-    from ai_engineering.policy.checks.sonar import check_sonar_gate
     from ai_engineering.policy.checks.stack_runner import (
-        PRE_PUSH_CHECKS,
+        PRE_COMMIT_CHECKS,
+        get_checks_for_stage,
+        run_checks_for_specs,
         run_checks_for_stacks,
     )
 
     stacks = _get_active_stacks(project_root)
+    specs = get_checks_for_stage(GateHook.PRE_COMMIT, stacks, project_root=project_root)
+    if specs:
+        run_checks_for_specs(project_root, result, specs)
+    else:
+        run_checks_for_stacks(project_root, result, PRE_COMMIT_CHECKS, stacks)
+    check_expiring_risk_acceptances(project_root, result)
 
-    run_checks_for_stacks(project_root, result, PRE_PUSH_CHECKS, stacks)
+
+def _run_pre_push_checks(project_root: Path, result: GateResult) -> None:
+    """Run pre-push gate checks: common + per-stack checks + expired risks.
+
+    spec-101 R-15 / D-101-01: dispatch goes through the data-driven
+    :func:`get_checks_for_stage` -- see :func:`_run_pre_commit_checks`
+    for the rationale. The pre-push surface adds the SonarCloud gate and
+    the expired-risk-acceptance enforcement.
+
+    Mirrors the pre-commit fallback: an empty data-driven spec list (no
+    manifest) routes through the legacy registry so semgrep, pip-audit,
+    and ty/pytest gates keep running on legacy fixtures.
+    """
+    from ai_engineering.policy.checks.sonar import check_sonar_gate
+    from ai_engineering.policy.checks.stack_runner import (
+        PRE_PUSH_CHECKS,
+        get_checks_for_stage,
+        run_checks_for_specs,
+        run_checks_for_stacks,
+    )
+
+    stacks = _get_active_stacks(project_root)
+    specs = get_checks_for_stage(GateHook.PRE_PUSH, stacks, project_root=project_root)
+    if specs:
+        run_checks_for_specs(project_root, result, specs)
+    else:
+        run_checks_for_stacks(project_root, result, PRE_PUSH_CHECKS, stacks)
     check_sonar_gate(project_root, result)
     _check_expired_risk_acceptances(project_root, result)

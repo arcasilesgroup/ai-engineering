@@ -1,0 +1,69 @@
+# Test fixture: canonical 15-key required_tools block per spec-101 D-101-01.
+# Used by tests/unit/test_manifest_load_required_tools.py to exercise the
+# state.manifest.load_required_tools(stacks) loader contract.
+#
+# Mirrors the schema declared in .ai-engineering/specs/spec.md D-101-01 and
+# D-101-13 (stack-level platform_unsupported_stack for swift).
+
+schema_version: "2.0"
+framework_version: "0.4.0"
+name: spec101-required-tools-fixture
+version: "1.0.0"
+
+providers:
+  vcs: github
+  ides: [terminal]
+  stacks: [python]
+
+required_tools:
+  baseline:
+    - {name: gitleaks}
+    - {name: semgrep, platform_unsupported: [windows], unsupported_reason: "semgrep has no Windows release"}
+    - {name: jq}
+  python:
+    - {name: ruff}
+    - {name: ty}
+    - {name: pip-audit}
+    - {name: pytest, scope: user_global}
+  typescript:
+    - {name: prettier, scope: project_local}
+    - {name: eslint, scope: project_local}
+    - {name: tsc, scope: project_local}
+    - {name: vitest, scope: project_local}
+  javascript:
+    - {name: prettier, scope: project_local}
+    - {name: eslint, scope: project_local}
+    - {name: vitest, scope: project_local}
+  java:
+    - {name: checkstyle}
+    - {name: google-java-format}
+  csharp:
+    - {name: dotnet-format}
+  go:
+    - {name: staticcheck}
+    - {name: govulncheck}
+  php:
+    - {name: phpstan}
+    - {name: php-cs-fixer}
+    - {name: composer}
+  rust:
+    - {name: cargo-audit}
+  kotlin:
+    - {name: ktlint}
+  swift:
+    platform_unsupported_stack: [linux, windows]
+    unsupported_reason: "swiftlint and swift-format have no Linux/Windows binaries"
+    tools:
+      - {name: swiftlint}
+      - {name: swift-format}
+  dart:
+    - {name: dart-stack-marker}
+  sql:
+    - {name: sqlfluff}
+  bash:
+    - {name: shellcheck}
+    - {name: shfmt}
+  cpp:
+    - {name: clang-tidy}
+    - {name: clang-format}
+    - {name: cppcheck}
