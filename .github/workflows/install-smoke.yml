@@ -24,6 +24,12 @@ jobs:
     name: Install Smoke (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 10
+    env:
+      AIENG_TEST: "1"
+      # See spec101-install-smoke for the rationale -- network-bound install
+      # mechanisms are short-circuited in the smoke matrix; verify probes
+      # still run and assert the user-scope contract.
+      AIENG_TEST_SIMULATE_INSTALL_OK: "*"
     defaults:
       run:
         shell: bash
@@ -123,6 +129,12 @@ jobs:
         uv_version: ["0.4.0", "0.9.0"]
     env:
       AIENG_TEST: "1"
+      # Smoke matrix runs in clean CI runners where the real install
+      # mechanism (GitHub releases download, brew tap, winget package) may
+      # be unavailable or rate-limited. The synthetic-OK hook records each
+      # tool as installed without invoking the network mechanism so the
+      # smoke flow exercises every code path UP TO the mechanism boundary.
+      AIENG_TEST_SIMULATE_INSTALL_OK: "*"
       FIXTURE_DIR: tests/fixtures/install-smoke/clean-project
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -157,6 +169,11 @@ jobs:
           cp -R "$FIXTURE_DIR"/. smoke-target/
           git init -b main smoke-target
           (cd smoke-target && git add -A && git commit -m "fixture init" --allow-empty)
+          # The framework's branch-protection gate (DEC: PROTECTED_BRANCHES)
+          # blocks direct commits to ``main``. The T-4.2 smoke commit MUST
+          # land on a feature branch -- create it BEFORE ``ai-eng install``
+          # so the post-install gate sees the feature-branch state.
+          (cd smoke-target && git checkout -b smoke-feature)
 
       # T-4.2: ai-eng install . exits 0 + git commit --allow-empty -m smoke
       # exits 0 (no "tool not found"). Smoke-installed tools must be runnable

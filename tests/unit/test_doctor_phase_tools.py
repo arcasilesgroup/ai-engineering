@@ -301,9 +301,20 @@ class TestFixDispatchesMechanism:
                     {"failed": False, "stderr": "", "mechanism": "_FakeMechanism"},
                 )()
 
+        # _current_os_key returns ``darwin`` / ``linux`` / ``win32``; the
+        # registry MUST cover all three so the test passes on the Windows
+        # CI runner alongside macOS and Linux.
         fake_registry = {
-            "ruff": {"darwin": [_FakeMechanism("ruff")], "linux": [_FakeMechanism("ruff")]},
-            "ty": {"darwin": [_FakeMechanism("ty")], "linux": [_FakeMechanism("ty")]},
+            "ruff": {
+                "darwin": [_FakeMechanism("ruff")],
+                "linux": [_FakeMechanism("ruff")],
+                "win32": [_FakeMechanism("ruff")],
+            },
+            "ty": {
+                "darwin": [_FakeMechanism("ty")],
+                "linux": [_FakeMechanism("ty")],
+                "win32": [_FakeMechanism("ty")],
+            },
         }
 
         load_result = _build_load_result(ToolSpec(name="ruff"), ToolSpec(name="ty"))
@@ -343,7 +354,11 @@ class TestFixDispatchesMechanism:
                 return type("_IR", (), {"failed": False, "stderr": ""})()
 
         fake_registry = {
-            "ruff": {"darwin": [_FakeMechanism()], "linux": [_FakeMechanism()]},
+            "ruff": {
+                "darwin": [_FakeMechanism()],
+                "linux": [_FakeMechanism()],
+                "win32": [_FakeMechanism()],
+            },
         }
 
         failed = [

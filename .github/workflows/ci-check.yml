@@ -325,6 +325,13 @@ jobs:
     if: needs.change-scope.outputs.code == 'true'
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
+    env:
+      AIENG_TEST: "1"
+      # Smoke jobs short-circuit network-bound install mechanisms; the
+      # synthetic-OK record lets the install pipeline pass on clean CI
+      # runners that lack brew / winget. See spec-101 install-smoke.yml
+      # for the same setup.
+      AIENG_TEST_SIMULATE_INSTALL_OK: "*"
     defaults:
       run:
         shell: bash

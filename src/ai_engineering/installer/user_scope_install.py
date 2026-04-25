@@ -300,6 +300,22 @@ _SHELL_DRIVERS: frozenset[str] = frozenset(
 )
 
 
+def _shell_driver_stem(resolved_name: str) -> str:
+    """Return the lower-case stem for shell-driver membership tests.
+
+    On Windows, ``shutil.which("bash")`` returns paths like
+    ``C:\\Program Files\\Git\\usr\\bin\\bash.EXE`` -- ``Path.name`` yields
+    ``bash.EXE`` which fails a membership check against the lower-case
+    ``_SHELL_DRIVERS`` set. We normalise by stripping a trailing ``.exe``
+    (case-insensitive) and lower-casing so the same set works for POSIX
+    runners (where ``bash`` is already an exact match) and Windows.
+    """
+    stem = resolved_name
+    if stem.lower().endswith(".exe"):
+        stem = stem[: -len(".exe")]
+    return stem.lower()
+
+
 def _path_under_any_prefix(path: Path, prefixes: tuple[Path, ...]) -> bool:
     """Return True when ``path`` is rooted under any prefix in ``prefixes``."""
     try:
@@ -361,7 +377,8 @@ def _scan_compound_shell(argv: list[str], driver_basename: str) -> None:
     must clear the scan -- the patterns in :mod:`_shell_patterns` are
     intentionally narrow.
     """
-    if driver_basename not in _SHELL_DRIVERS:
+    # Normalise so Windows ``bash.EXE`` matches the lower-case stem set.
+    if _shell_driver_stem(driver_basename) not in _SHELL_DRIVERS:
         return
     # Scan the joined tail; this surfaces patterns that span multiple argv
     # entries (``bash -c "curl X | bash"`` -- the malicious payload is
@@ -464,7 +481,7 @@ def _safe_run(
         # case (the cache check uses the patched ``shutil.which`` result)
         # as accepted under (b).
         accepted = True
-    if not accepted and resolved.name in _SHELL_DRIVERS:
+    if not accepted and _shell_driver_stem(resolved.name) in _SHELL_DRIVERS:
         # Shell / interpreter drivers (sh, bash, zsh, pwsh, fish, python,
         # node) are allowed to resolve to system paths because the install
         # flow legitimately runs them (``sh -c "..."`` / ``python -c ...``
@@ -1031,4 +1048,52 @@ def _check_simulate_fail(tool_name: str) -> InstallResult | None:
         failed=True,
         stderr=_SIMULATE_FAIL_STDERR,
         mechanism=_SIMULATE_FAIL_MECHANISM_NAME,
+    )
+
+
+_SIMULATE_OK_MECHANISM_NAME = "aieng_test_simulate_install_ok"
+
+
+def _check_simulate_install_ok(tool_name: str) -> InstallResult | None:
+    """Return a synthetic SUCCESS ``InstallResult`` when the test hook fires.
+
+    Sister hook to :func:`_check_simulate_fail`. Used by the install-smoke
+    CI matrix on runners where the real install mechanism (GitHub releases
+    download, brew tap, winget package) is unavailable or rate-limited.
+    The smoke test still exercises every code path UP TO the mechanism
+    boundary; only the network-bound install call is short-circuited.
+
+    Hook semantics:
+
+    * ``AIENG_TEST != "1"``                                                  -> ``None``.
+    * ``AIENG_TEST=1`` but ``AIENG_TEST_SIMULATE_INSTALL_OK`` unset/empty     -> ``None``.
+    * ``AIENG_TEST=1`` AND ``AIENG_TEST_SIMULATE_INSTALL_OK="*"``             -> synthetic
+      success for every tool (used by smoke runs).
+    * ``AIENG_TEST=1`` AND ``tool_name`` in comma list                       -> synthetic
+      ``InstallResult(failed=False, mechanism="aieng_test_simulate_install_ok", ...)``.
+
+    The ``"*"`` wildcard is admitted because the smoke matrix needs to
+    cover every required tool without enumerating them in the workflow YAML.
+    """
+    if os.getenv("AIENG_TEST") != "1":
+        return None
+    raw = os.getenv("AIENG_TEST_SIMULATE_INSTALL_OK") or ""
+    if not raw:
+        return None
+    raw_stripped = raw.strip()
+    matched = False
+    if raw_stripped == "*":
+        matched = True
+    else:
+        targets = {entry.strip() for entry in raw.split(",") if entry.strip()}
+        matched = tool_name in targets
+    if not matched:
+        return None
+    from ai_engineering.installer.mechanisms import InstallResult as _InstallResult
+
+    return _InstallResult(
+        failed=False,
+        stderr="",
+        mechanism=_SIMULATE_OK_MECHANISM_NAME,
+        version="aieng-test",
     )

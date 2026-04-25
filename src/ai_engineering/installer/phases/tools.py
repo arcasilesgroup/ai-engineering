@@ -47,6 +47,7 @@ from typing import TYPE_CHECKING, Any
 from ai_engineering.installer.tool_registry import TOOL_REGISTRY
 from ai_engineering.installer.user_scope_install import (
     _check_simulate_fail,
+    _check_simulate_install_ok,
     capture_os_release,
     run_verify,
 )
@@ -626,6 +627,22 @@ class ToolsPhase:
                 f"tool {tool.name!r} install simulated-failed via AIENG_TEST_SIMULATE_FAIL: "
                 f"{simulated.stderr}"
             )
+            return
+
+        # Sister hook: ``AIENG_TEST_SIMULATE_INSTALL_OK`` records a synthetic
+        # success for the named tool (or ``"*"`` for all). Used by the
+        # install-smoke matrix on runners where the real network mechanism
+        # is unavailable; the install pipeline still exercises every code
+        # path UP TO the mechanism boundary.
+        synthetic_ok = _check_simulate_install_ok(tool.name)
+        if synthetic_ok is not None:
+            state.required_tools_state[tool.name] = _build_record(
+                state=ToolInstallState.INSTALLED,
+                mechanism=synthetic_ok.mechanism or type(mechanism).__name__,
+                version=synthetic_ok.version,
+                os_release=current_os_release,
+            )
+            result.created.append(f"tool:{tool.name}:installed")
             return
 
         try:

@@ -152,6 +152,15 @@ class TestAllowlistInstallTargets:
             f"{prefix!r} — got blocked by guard"
         )
 
+    @pytest.mark.skipif(
+        __import__("sys").platform == "win32",
+        reason=(
+            "POSIX-only path: ``Path('/opt/homebrew/bin/jq')`` is treated as a "
+            "drive-relative path on Windows and resolves against CWD, breaking "
+            "the prefix match. Brew is unavailable on Windows so the carve-out "
+            "is academic."
+        ),
+    )
     def test_brew_prefix_bin_is_allowlisted(self) -> None:
         """`$(brew --prefix)/bin/...` resolves against the install-target allowlist.
 

@@ -192,7 +192,11 @@ def _migrate_legacy_install_state(path: Path, data: dict[str, Any]) -> dict[str,
         Dict shape of a fresh ``InstallState`` ready for ``model_validate``,
         with carry-forward fields populated from *data*.
     """
-    timestamp = datetime.now(tz=UTC).strftime("%Y-%m-%dT%H:%M:%S")
+    # Windows reserves ``:`` in filenames (see WinAPI naming rules), so the
+    # legacy backup uses ``-`` between H/M/S rather than the canonical ISO
+    # ``T`` + ``:`` form. The bytes still represent a UTC timestamp; only
+    # the on-disk filename changes shape.
+    timestamp = datetime.now(tz=UTC).strftime("%Y-%m-%dT%H-%M-%S")
     legacy_path = path.with_name(f"{path.name}.legacy-{timestamp}")
     path.rename(legacy_path)
 

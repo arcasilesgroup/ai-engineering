@@ -27,9 +27,12 @@ from ai_engineering.state.models import FrameworkEvent, InstallState
 from ai_engineering.state.observability import framework_events_path
 from ai_engineering.state.service import load_install_state
 
-_LEGACY_TS_RE = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}")
+# Windows-safe timestamp -- ``:`` is illegal in NTFS filenames, so the
+# legacy backup uses ``-`` separators between H/M/S. Both expressions
+# remain ISO-like (``YYYY-MM-DDTHH-MM-SS``).
+_LEGACY_TS_RE = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}")
 _LEGACY_FILENAME_RE = re.compile(
-    r"^install-state\.json\.legacy-\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$"
+    r"^install-state\.json\.legacy-\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}$"
 )
 
 

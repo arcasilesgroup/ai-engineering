@@ -618,6 +618,22 @@
             "decision": "pip 26.0.1 is the latest available version on PyPI and carries CVE-2026-3219: pip treats files that identify as both tar AND ZIP archives as ZIP files unconditionally. Exploit requires (a) the user installing a hand-crafted dual-format archive AND (b) supplying that archive via a URL or file path. Our installer surface uses uv (not pip directly) and never accepts user-supplied archive URLs, so the practical exploit window is empty in our deployment. Upstream has no patched release; tracking https://github.com/pypa/pip for a fix. Re-evaluate when a fixed pip version ships -- TTL 90 days. If pip 26.1.0+ patches the issue we will upgrade and close this DEC.",
             "decidedAt": "2026-04-24T00:00:00Z",
             "context": "security"
+        },
+        {
+            "id": "DEC-037",
+            "title": "Risk acceptance: cryptography CVE-2026-39892 transient window during 46.0.6 → 47.0.0 bump",
+            "category": "risk-acceptance",
+            "status": "active",
+            "criticality": "low",
+            "source": "spec-101-iter-3",
+            "spec": "101",
+            "created_at": "2026-04-26",
+            "expires_at": "2026-05-26T00:00:00Z",
+            "context_hash": "",
+            "acknowledged_by": "build",
+            "decision": "cryptography 46.0.6 carries CVE-2026-39892 (fixed in 46.0.7). This PR's uv.lock is bumped to cryptography 47.0.0 which is past the patched 46.0.7 version. Cached pip-audit runs may still observe the old version during the transitive dependency resolution window; the --ignore-vuln flag covers that 30-day window. Auto-removed once dependent CI environments cycle to the new lock. Re-evaluate on 2026-05-26.",
+            "decidedAt": "2026-04-26T00:00:00Z",
+            "context": "security"
         }
     ]
 }

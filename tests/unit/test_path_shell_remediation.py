@@ -164,12 +164,16 @@ class TestEmitPathSnippetBashZsh:
     def test_bash_emits_export_path_string(self) -> None:
         from ai_engineering.installer import user_scope_install
 
+        # Resolve Path.home() BEFORE patching os.environ with clear=True --
+        # on Windows, Path.home() reads USERPROFILE/HOMEDRIVE+HOMEPATH and
+        # raises RuntimeError if those env vars are absent.
+        target = Path.home() / ".local" / "bin"
         with patch.dict(
             user_scope_install.os.environ,
             {"SHELL": "/bin/bash"},
             clear=True,
         ):
-            snippet = user_scope_install.emit_path_snippet(Path.home() / ".local" / "bin")
+            snippet = user_scope_install.emit_path_snippet(target)
 
         assert snippet.startswith("export PATH=")
         assert '"$HOME/.local/bin:$PATH"' in snippet or '"$HOME/.local/bin:$PATH' in snippet
@@ -177,12 +181,13 @@ class TestEmitPathSnippetBashZsh:
     def test_zsh_emits_export_path_string(self) -> None:
         from ai_engineering.installer import user_scope_install
 
+        target = Path.home() / ".local" / "bin"
         with patch.dict(
             user_scope_install.os.environ,
             {"SHELL": "/bin/zsh"},
             clear=True,
         ):
-            snippet = user_scope_install.emit_path_snippet(Path.home() / ".local" / "bin")
+            snippet = user_scope_install.emit_path_snippet(target)
 
         assert snippet.startswith("export PATH=")
         assert "$HOME/.local/bin" in snippet
@@ -195,12 +200,13 @@ class TestEmitPathSnippetFish:
     def test_fish_emits_fish_add_path(self) -> None:
         from ai_engineering.installer import user_scope_install
 
+        target = Path.home() / ".local" / "bin"
         with patch.dict(
             user_scope_install.os.environ,
             {"SHELL": "/usr/local/bin/fish"},
             clear=True,
         ):
-            snippet = user_scope_install.emit_path_snippet(Path.home() / ".local" / "bin")
+            snippet = user_scope_install.emit_path_snippet(target)
 
         assert snippet.startswith("fish_add_path")
         assert "$HOME/.local/bin" in snippet
@@ -212,12 +218,13 @@ class TestEmitPathSnippetPowerShell:
     def test_pwsh_emits_env_path_assign(self) -> None:
         from ai_engineering.installer import user_scope_install
 
+        target = Path.home() / ".local" / "bin"
         with patch.dict(
             user_scope_install.os.environ,
             {"PSModulePath": "C:\\Modules"},
             clear=True,
         ):
-            snippet = user_scope_install.emit_path_snippet(Path.home() / ".local" / "bin")
+            snippet = user_scope_install.emit_path_snippet(target)
 
         assert "$env:Path" in snippet
         # Windows separator (semicolon) and the target dir are present.
@@ -231,12 +238,13 @@ class TestEmitPathSnippetCmd:
     def test_cmd_emits_set_path(self) -> None:
         from ai_engineering.installer import user_scope_install
 
+        target = Path.home() / ".local" / "bin"
         with patch.dict(
             user_scope_install.os.environ,
             {"COMSPEC": "C:\\Windows\\System32\\cmd.exe"},
             clear=True,
         ):
-            snippet = user_scope_install.emit_path_snippet(Path.home() / ".local" / "bin")
+            snippet = user_scope_install.emit_path_snippet(target)
 
         assert snippet.lower().startswith("set path=")
 
@@ -247,8 +255,9 @@ class TestEmitPathSnippetFallback:
     def test_unknown_shell_falls_back_to_bash_export(self) -> None:
         from ai_engineering.installer import user_scope_install
 
+        target = Path.home() / ".local" / "bin"
         with patch.dict(user_scope_install.os.environ, {}, clear=True):
-            snippet = user_scope_install.emit_path_snippet(Path.home() / ".local" / "bin")
+            snippet = user_scope_install.emit_path_snippet(target)
 
         assert snippet.startswith("export PATH=")
 
@@ -260,6 +269,7 @@ class TestEmitPathSnippetTargetDirSubstitution:
         """A non-default target_dir (e.g. ``~/.cargo/bin``) is substituted in."""
         from ai_engineering.installer import user_scope_install
 
+        # Resolve target BEFORE clear=True patch wipes USERPROFILE on Windows.
         target = Path.home() / ".cargo" / "bin"
         with patch.dict(
             user_scope_install.os.environ,
@@ -303,6 +313,7 @@ class TestPathHelperContract:
         """
         from ai_engineering.installer import user_scope_install
 
+        target = Path.home() / ".local" / "bin"
         with (
             patch.dict(
                 user_scope_install.os.environ,
@@ -311,7 +322,7 @@ class TestPathHelperContract:
             ),
             patch.object(user_scope_install, "capture_os_release") as os_release_mock,
         ):
-            user_scope_install.emit_path_snippet(Path.home() / ".local" / "bin")
+            user_scope_install.emit_path_snippet(target)
 
         os_release_mock.assert_not_called()
 
