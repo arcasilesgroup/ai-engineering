@@ -8,6 +8,7 @@ version = "0.4.0"
 source = { editable = "." }
 dependencies = [
     { name = "keyring" },
+    { name = "packaging" },
     { name = "pydantic" },
     { name = "pyyaml" },
     { name = "questionary" },
@@ -31,6 +32,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "keyring", specifier = ">=25.0,<26.0" },
+    { name = "packaging", specifier = ">=24.0,<27.0" },
     { name = "pydantic", specifier = ">=2.0,<3.0" },
     { name = "pyyaml", specifier = ">=6.0,<7.0" },
     { name = "questionary", specifier = ">=2.0,<3.0" },

@@ -250,9 +250,15 @@ jobs:
           fi
           # dtruss requires root + System Integrity Protection allowance —
           # GitHub-hosted macOS runners may refuse. continue-on-error covers
-          # both refusal and the skip-with-note path.
+          # both refusal and the skip-with-note path. Capture stderr to a
+          # separate file then merge — shellcheck SC2094 forbids reading
+          # and writing the same file in one pipeline.
           sudo dtruss -n ai-eng -f -o syscalls-darwin.log \
-            -- ai-eng install dtruss-target --non-interactive 2>>syscalls-darwin.log || true
+            -- ai-eng install dtruss-target --non-interactive 2>syscalls-darwin.err || true
+          if [ -s syscalls-darwin.err ]; then
+            cat syscalls-darwin.err >> syscalls-darwin.log
+          fi
+          rm -f syscalls-darwin.err
           test -s syscalls-darwin.log || echo "dtruss produced no output" > syscalls-darwin.log
 
       - name: T-4.4 Process Monitor evidence (Windows, skip-with-note)

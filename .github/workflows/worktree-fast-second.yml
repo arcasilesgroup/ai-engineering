@@ -111,7 +111,7 @@ jobs:
             ELAPSED=$((END - START))
             echo "Worktree run $run: ${ELAPSED}s"
             TIMINGS+=("$ELAPSED")
-            (cd primary && git worktree remove --force "$WT_PATH" || true)
+            (cd primary && { git worktree remove --force "$WT_PATH" || true; })
           done
           SORTED=$(printf '%s\n' "${TIMINGS[@]}" | sort -n)
           MEDIAN=$(printf '%s\n' "$SORTED" | sed -n '2p')
