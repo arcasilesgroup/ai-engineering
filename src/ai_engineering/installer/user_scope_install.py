@@ -331,9 +331,11 @@ _CANONICAL_SHELL_PATHS: frozenset[str] = frozenset(
         # PowerShell on Windows runners (canonical install paths)
         "C:\\Program Files\\PowerShell\\7\\pwsh.exe",
         "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
-        # Git-bash on Windows runners
+        # Git-bash on Windows runners (bash + posix sh shim)
         "C:\\Program Files\\Git\\usr\\bin\\bash.exe",
         "C:\\Program Files\\Git\\bin\\bash.exe",
+        "C:\\Program Files\\Git\\usr\\bin\\sh.exe",
+        "C:\\Program Files\\Git\\bin\\sh.exe",
     }
 )
 

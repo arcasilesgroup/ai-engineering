@@ -30,6 +30,12 @@ jobs:
       # mechanisms are short-circuited in the smoke matrix; verify probes
       # still run and assert the user-scope contract.
       AIENG_TEST_SIMULATE_INSTALL_OK: "*"
+      # Smoke matrix installs from a built wheel (``pip install dist/*.whl``)
+      # which lands ``ai_engineering`` in ``site-packages`` and so is NOT
+      # detected as a dev build. The synthetic-OK hook refuses to fire on
+      # production wheels (Wave 27 hardening). Explicitly opt the smoke
+      # matrix in -- runners are CI/test scope, not real production use.
+      AIENG_DEV_BUILD: "1"
     defaults:
       run:
         shell: bash
@@ -135,6 +141,11 @@ jobs:
       # tool as installed without invoking the network mechanism so the
       # smoke flow exercises every code path UP TO the mechanism boundary.
       AIENG_TEST_SIMULATE_INSTALL_OK: "*"
+      # Smoke matrix builds a wheel and ``pip install``s it -- the resulting
+      # ``site-packages`` install is classified as production by
+      # ``_is_dev_build()`` (Wave 27 hardening). Explicitly opt the smoke
+      # matrix in to the dev-build path so the synthetic-OK hook fires.
+      AIENG_DEV_BUILD: "1"
       FIXTURE_DIR: tests/fixtures/install-smoke/clean-project
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2

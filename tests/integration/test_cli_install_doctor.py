@@ -35,28 +35,15 @@ def _project_dir(tmp_path: Path) -> Path:
     return tmp_path
 
 
-@pytest.fixture(autouse=True)
-def _hermetic_install_env(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Force the install pipeline into the synthetic-success path.
-
-    spec-101 Wave 27 / Sec-2: every integration test in this module
-    invokes ``ai-eng install`` against an empty tmp_path. Without the
-    simulate hooks the install calls real network mechanisms (curl
-    against GitHub releases, brew, winget) which:
-
-    * Fail on CI runners that lack the required toolchain (gitleaks,
-      semgrep, etc.) -- producing EXIT 80 instead of EXIT 0.
-    * Make tests slow + flaky -- network reachability is not a property
-      of the framework under test.
-
-    The autouse fixture sets both env vars on every test so the
-    ``AIENG_TEST_SIMULATE_INSTALL_OK="*"`` wildcard short-circuits each
-    required tool to a synthetic ``InstallResult(failed=False)``. The
-    framework still exercises every code path UP TO the mechanism
-    boundary -- only the network call is replaced.
-    """
-    monkeypatch.setenv("AIENG_TEST", "1")
-    monkeypatch.setenv("AIENG_TEST_SIMULATE_INSTALL_OK", "*")
+# Use the named ``hermetic_install_env`` fixture from conftest.py so every
+# test in this module engages the spec-101 synthetic-OK simulate hooks.
+# Without these env vars the install calls real network mechanisms (curl
+# against GitHub releases, brew, winget) which:
+#   * Fail on CI runners that lack the toolchain (gitleaks, semgrep, etc.)
+#     -- producing EXIT 80 instead of EXIT 0.
+#   * Make tests slow + flaky -- network reachability is not a property
+#     of the framework under test.
+pytestmark = pytest.mark.usefixtures("hermetic_install_env")
 
 
 @pytest.fixture()
