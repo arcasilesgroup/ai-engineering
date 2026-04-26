@@ -35,6 +35,30 @@ def _project_dir(tmp_path: Path) -> Path:
     return tmp_path
 
 
+@pytest.fixture(autouse=True)
+def _hermetic_install_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Force the install pipeline into the synthetic-success path.
+
+    spec-101 Wave 27 / Sec-2: every integration test in this module
+    invokes ``ai-eng install`` against an empty tmp_path. Without the
+    simulate hooks the install calls real network mechanisms (curl
+    against GitHub releases, brew, winget) which:
+
+    * Fail on CI runners that lack the required toolchain (gitleaks,
+      semgrep, etc.) -- producing EXIT 80 instead of EXIT 0.
+    * Make tests slow + flaky -- network reachability is not a property
+      of the framework under test.
+
+    The autouse fixture sets both env vars on every test so the
+    ``AIENG_TEST_SIMULATE_INSTALL_OK="*"`` wildcard short-circuits each
+    required tool to a synthetic ``InstallResult(failed=False)``. The
+    framework still exercises every code path UP TO the mechanism
+    boundary -- only the network call is replaced.
+    """
+    monkeypatch.setenv("AIENG_TEST", "1")
+    monkeypatch.setenv("AIENG_TEST_SIMULATE_INSTALL_OK", "*")
+
+
 @pytest.fixture()
 def installed_dir(_project_dir: Path, app: object) -> Path:
     """Install framework to _project_dir via CLI and return the path."""
@@ -110,9 +134,23 @@ class TestInstallCommand:
             ["install", str(installed_dir), "--stack", "python", "--non-interactive"],
         )
         assert result.exit_code == 0
-        # Non-interactive mode produces JSON; check the already_installed field
-        data = json.loads(result.output)
+        # spec-101 Corr-1 (Wave 27): non-interactive mode now emits one
+        # ``tool:<name>:<marker>`` line per skipped tool BEFORE the JSON
+        # envelope so the smoke matrix can match the idempotence marker
+        # via a stdout regex sweep. Locate the JSON envelope by scanning
+        # for the leading ``{`` (the markers are plain text).
+        output = result.output
+        json_start = output.find("{")
+        assert json_start != -1, f"no JSON envelope found in output: {output!r}"
+        data = json.loads(output[json_start:])
         assert data["result"]["already_installed"] is True
+
+        # Verify the Corr-1 markers landed before the envelope.
+        prelude = output[:json_start]
+        assert "tool:" in prelude, (
+            "expected at least one 'tool:<name>:<marker>' line in non-interactive "
+            f"output prelude; got {prelude!r}"
+        )
 
 
 # ---------------------------------------------------------------------------

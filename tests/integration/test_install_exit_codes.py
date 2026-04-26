@@ -102,9 +102,18 @@ class TestExitZeroHappyPath:
         app: object,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        """``ai-eng install`` with mocked happy paths -> exit 0."""
-        # No simulated failures, no test mocks needed beyond ensuring uv
-        # is present (it is in the dev environment).
+        """``ai-eng install`` with mocked happy paths -> exit 0.
+
+        Wave 27 (Test-1): hermetic seam. Without
+        ``AIENG_TEST_SIMULATE_INSTALL_OK="*"`` this test ran the real
+        install pipeline (~5.65s) -- network-dependent, slow, and a
+        false-negative source on offline runners. Setting both env vars
+        forces every required-tool mechanism into the synthetic-success
+        path so the test stays under 1s and never spawns network calls.
+        """
+        monkeypatch.setenv("AIENG_TEST", "1")
+        monkeypatch.setenv("AIENG_TEST_SIMULATE_INSTALL_OK", "*")
+
         result = runner.invoke(
             app,
             ["install", str(project_dir), "--stack", "python"],

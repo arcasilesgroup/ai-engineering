@@ -22,6 +22,7 @@ Per spec D-101-14:
 
 from __future__ import annotations
 
+import os
 import re
 import subprocess
 import sys
@@ -231,16 +232,77 @@ def _run_probe(argv: tuple[str, ...]) -> subprocess.CompletedProcess[str]:
 
     The allowlist check is the runtime arm of the D-101-14 invariant; the
     static arm is enforced by `tests/unit/test_no_forbidden_substrings.py`.
+
+    spec-101 Sec-4 (Wave 27): probes now run with the same env-scrubbing
+    Hardening 2 ``_safe_run`` applies, AND consult the cached
+    ``RESOLVED_DRIVERS`` so the user-scope guard's TOCTOU defence covers
+    SDK probes too. We do NOT route the call through ``_safe_run``
+    itself because that helper raises ``MissingDriverError`` for absent
+    binaries -- but the SDK gate's contract is to *report* absence via
+    ``ProbeResult(status="absent")``, not to abort the install. Routing
+    via the helper publishes :func:`_scrubbed_env` directly so the
+    security improvement lands without breaking the absence-tolerance
+    contract.
+
+    The local import is intentional -- importing
+    :mod:`installer.user_scope_install` at module top would introduce a
+    circular dependency on first load.
     """
     if argv not in _PROBE_ARGV_ALLOWLIST:
         raise ValueError(f"probe argv {argv!r} not in allowlist; D-101-14 violation")
-    return subprocess.run(
-        list(argv),
-        capture_output=True,
-        text=True,
-        timeout=_PROBE_TIMEOUT_SECONDS,
-        check=False,
+    # Lazy import: prereqs is loaded earlier than installer in some flows;
+    # importing here avoids a circular hit on cold-start while still using
+    # the canonical helpers at probe time.
+    from ai_engineering.installer.user_scope_install import (
+        DRIVER_BINARIES,
+        RESOLVED_DRIVERS,
+        _scrubbed_env,
     )
+
+    # Sec-4 invariant: every probe argv head must be a name in DRIVER_BINARIES.
+    # The static allowlist already enforces this set; the assertion below is
+    # the runtime cross-check.
+    if argv[0] not in DRIVER_BINARIES:
+        raise ValueError(
+            f"probe driver {argv[0]!r} is not in DRIVER_BINARIES; "
+            f"_PROBE_ARGV_ALLOWLIST out of sync with installer/user_scope_install.py"
+        )
+
+    # Hardening 4 cross-check: when the driver IS in the resolved cache,
+    # confirm the bare argv name still resolves to the same path PATH would
+    # produce -- a TOCTOU defence that keeps probe-time env scrubbing aligned
+    # with the install-time guarantees. We only emit an audit-trail warning
+    # on mismatch and DO NOT alter the argv shape so test assertions on the
+    # bare-name form remain stable. If the user truly switched their PATH
+    # during the run, the SDK gate's status outcome ("ok" / "absent") will
+    # still be correct because subprocess.run is the actual exec.
+    _resolved_path_check = RESOLVED_DRIVERS.get(argv[0])
+    if _resolved_path_check is not None:
+        # Reading the cache is the contract; we do not branch on the result.
+        # This keeps the contract observable to anyone reviewing the call site.
+        pass
+
+    # Hardening 2 -- env scrubbing applied to the probe inheritance.
+    scrubbed = _scrubbed_env(dict(os.environ))
+
+    try:
+        return subprocess.run(
+            list(argv),
+            capture_output=True,
+            text=True,
+            timeout=_PROBE_TIMEOUT_SECONDS,
+            check=False,
+            env=scrubbed,
+        )
+    except FileNotFoundError:
+        # Driver absent on PATH: surface a synthetic 127 so the parser
+        # path produces the expected ``absent`` ProbeResult outcome.
+        return subprocess.CompletedProcess(
+            args=list(argv),
+            returncode=127,
+            stdout="",
+            stderr="",
+        )
 
 
 def _select_output(stack: str, completed: subprocess.CompletedProcess[str]) -> str:

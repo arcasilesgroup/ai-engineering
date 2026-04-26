@@ -43,6 +43,13 @@ __all__ = ("BLOCK_PATTERNS", "matches_any_block_pattern")
 BLOCK_PATTERNS: tuple[re.Pattern[str], ...] = (
     # Pipe-to-shell: ``curl X | bash``, ``wget -O- X | bash``, ``... | sh``.
     re.compile(r"\|\s*(bash|sh|zsh|fish)\b"),
+    # Wave 27 (Sec-3) broadening: pipe to an absolute-path shell driver or
+    # interpreter. Catches ``| /bin/bash``, ``| /usr/bin/python3``,
+    # ``| python3``, ``| node`` -- variants the narrower ``(bash|sh|zsh|fish)``
+    # alternation above missed. The optional ``/.../`` prefix is non-greedy
+    # so ``echo "go|run"`` / ``ls|grep`` benign argv stay clear because their
+    # right-hand-sides do not match a shell/interpreter token.
+    re.compile(r"\|\s*(?:/\S+/)?(?:bash|sh|zsh|fish|python3?|perl|ruby|node)\b"),
     # Netcat with -e flag (reverse-shell primitive).
     #
     # Wave 23 broaden: the original ``\bnc\s+-[A-Za-z]*e[A-Za-z]*\b`` only
@@ -58,18 +65,37 @@ BLOCK_PATTERNS: tuple[re.Pattern[str], ...] = (
     # ``[A-Za-z]*e[A-Za-z]*`` short-flag shape because it has too many
     # post-prefix characters that don't form a valid short-flag bundle.
     re.compile(r"\bnc\s+(?:\S+\s+)*-(?:[A-Za-z]*e[A-Za-z]*|-exec)\b"),
+    # Wave 27 (Sec-3): netcat called with a literal IPv4 address +
+    # numeric port -- the connect-only shape used in script-driven
+    # reverse-shell trampolines. Catches ``nc 10.0.0.1 4444`` /
+    # ``nc 192.168.1.5 9001`` even when the ``-e`` flag is absent
+    # (the payload is fed through stdin in that pattern).
+    re.compile(r"\bnc\b\s+\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\s+\d+"),
     # Bash-internal TCP redirect: ``>& /dev/tcp/host/port``.
     re.compile(r">\s*&?\s*/dev/tcp/"),
+    # Wave 27 (Sec-3): bidirectional ``exec N<>/dev/{tcp,udp}/...``
+    # which opens a R/W socket without needing the ``>& /dev/tcp/``
+    # form already covered above.
+    re.compile(r"\bexec\s+\d+<>\s*/dev/(?:tcp|udp)/"),
     # Eval-on-network-fetch: ``eval $(curl ...)``.
     re.compile(r"\beval\s*\$\("),
     # base64 decode (paired with a shell sink in known exfiltration chains).
     re.compile(r"\bbase64\s+-d\b"),
     # Process substitution: ``< <(curl evil.sh)``.
     re.compile(r"<\s*<\("),
+    # Wave 27 (Sec-3): socat with ``EXEC:`` payload -- the modern
+    # reverse-shell primitive that replaces ``nc -e``.
+    re.compile(r"\bsocat\b.*\bexec:", re.IGNORECASE),
     # PowerShell: ``iwr ... | iex`` (Invoke-WebRequest piped to Invoke-Expression).
     re.compile(r"(?i)\biwr\b[^|]*\|\s*\biex\b"),
     # PowerShell: explicit Invoke-Expression alias call.
     re.compile(r"(?i)\binvoke-expression\b"),
+    # Wave 27 (Sec-3): standalone ``IEX`` alias in PowerShell payloads
+    # without a preceding ``iwr`` (e.g. wrapping ``[Convert]::FromBase64String``).
+    # The pattern matches the bare token bordered by non-letters so legitimate
+    # words containing the substring (``flexible``, ``index``) are not
+    # over-matched.
+    re.compile(r"(?i)(?:^|[^A-Za-z])iex(?:[^A-Za-z]|$)"),
 )
 
 

@@ -327,6 +327,17 @@ def install_cmd(
         }
         render_detection(resolved_vcs, resolved_providers, tools)
 
+    # spec-101 Compat-2 (Wave 27): emit the one-shot BREAKING banner BEFORE
+    # the prereq gates so a first-upgrade run hitting EXIT 81 still gets
+    # the banner explaining the new EXIT 80 / EXIT 81 contract. The
+    # banner_seen flag (persisted to install-state.json) prevents
+    # double-emission on subsequent runs.
+    from ai_engineering.installer.phases.pipeline import (
+        emit_breaking_banner_for_target,
+    )
+
+    emit_breaking_banner_for_target(root)
+
     # spec-101 D-101-11: prereqs precede tools. Missing/out-of-range uv yields
     # EXIT 81 BEFORE the tools phase ever runs. Strict precedence -- when the
     # user's environment is broken at the prereq layer, the tools phase never
@@ -369,6 +380,23 @@ def install_cmd(
     if tools_verdict is not None and not tools_verdict.passed:
         error("Tool installation failed; see warnings above. Run 'ai-eng doctor' to retry.")
         raise typer.Exit(code=EXIT_TOOLS_FAILED)
+
+    # spec-101 Corr-1 (Wave 27): in --non-interactive mode, emit one stdout
+    # line per skipped tool entry so downstream verifiers (the smoke-test
+    # idempotence assertion) can match the ``tool:<name>:<marker>``
+    # signature. Without this, ``result.skipped`` was buried inside the
+    # JSON envelope, invisible to a regex sweep on stdout. The lines land
+    # BEFORE the JSON envelope so consumers parsing only the trailing
+    # JSON (``result.output.splitlines()[-1]``-style) stay unaffected.
+    if non_interactive:
+        tools_phase_result = next(
+            (r for r in summary.results if r.phase_name == PHASE_TOOLS),
+            None,
+        )
+        if tools_phase_result is not None and tools_phase_result.skipped:
+            for skipped_entry in tools_phase_result.skipped:
+                if skipped_entry.startswith("tool:"):
+                    print_stdout(skipped_entry)
 
     # Render steps from pipeline summary
     if not is_json_mode():

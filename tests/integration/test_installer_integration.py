@@ -278,8 +278,23 @@ class TestInstallOnEmptyRepo:
         result = install(tmp_path)
         events_path = tmp_path / ".ai-engineering" / "state" / "framework-events.ndjson"
         lines = events_path.read_text().strip().splitlines()
-        assert len(lines) == 1
-        entry = json.loads(lines[0])
+
+        # spec-101 Sec-2 (Wave 27): the audit-trail emit fires
+        # ``install_simulate_hook`` operations alongside the canonical
+        # ``install`` operation when AIENG_TEST_SIMULATE_INSTALL_OK is
+        # active. Filter for the canonical install event so the test
+        # contract -- "exactly one install event was recorded" -- stays
+        # observable without coupling to the synthetic hook count.
+        install_entries = [
+            entry
+            for entry in (json.loads(line) for line in lines)
+            if entry.get("detail", {}).get("operation") == "install"
+        ]
+        assert len(install_entries) == 1, (
+            f"expected exactly one install event, got {len(install_entries)}; "
+            f"all events: {[json.loads(line)['detail'].get('operation') for line in lines]}"
+        )
+        entry = install_entries[0]
         assert entry["kind"] == "framework_operation"
         assert entry["detail"]["operation"] == "install"
         assert entry["detail"]["created"] == result.total_created

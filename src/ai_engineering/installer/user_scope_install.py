@@ -31,16 +31,12 @@ import shutil
 import subprocess
 from pathlib import Path
 from types import MappingProxyType
-from typing import TYPE_CHECKING, Any, Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel
 
 from ai_engineering.installer import _shell_patterns
-
-if TYPE_CHECKING:
-    # Forward-reference only -- avoids the runtime cycle between
-    # ``installer.mechanisms`` (imports ``_safe_run``) and this module.
-    from ai_engineering.installer.mechanisms import InstallResult
+from ai_engineering.installer.results import InstallResult
 
 __all__ = (
     "DRIVER_BINARIES",
@@ -300,6 +296,62 @@ _SHELL_DRIVERS: frozenset[str] = frozenset(
 )
 
 
+# spec-101 Sec-5 (Wave 27): the shell-driver carve-out only accepts shell
+# binaries that resolve under one of these canonical system paths. Any
+# other shell-named binary (e.g. attacker-supplied ``/tmp/bash``) is
+# rejected even though its basename matches ``_SHELL_DRIVERS``. The set
+# enumerates the standard system-shell + interpreter locations across
+# macOS, Linux, and Windows runners.
+_CANONICAL_SHELL_PATHS: frozenset[str] = frozenset(
+    {
+        # POSIX system shells
+        "/bin/sh",
+        "/bin/bash",
+        "/bin/zsh",
+        "/bin/dash",
+        "/usr/bin/sh",
+        "/usr/bin/bash",
+        "/usr/bin/zsh",
+        "/usr/local/bin/bash",
+        "/usr/local/bin/zsh",
+        "/opt/homebrew/bin/bash",
+        "/opt/homebrew/bin/zsh",
+        # Fish (less common but legitimate)
+        "/usr/bin/fish",
+        "/usr/local/bin/fish",
+        "/opt/homebrew/bin/fish",
+        # System Python
+        "/usr/bin/python",
+        "/usr/bin/python3",
+        "/usr/local/bin/python",
+        "/usr/local/bin/python3",
+        "/opt/homebrew/bin/python3",
+        # System Node (rare, but exists on packaged distros)
+        "/usr/bin/node",
+        # PowerShell on Windows runners (canonical install paths)
+        "C:\\Program Files\\PowerShell\\7\\pwsh.exe",
+        "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+        # Git-bash on Windows runners
+        "C:\\Program Files\\Git\\usr\\bin\\bash.exe",
+        "C:\\Program Files\\Git\\bin\\bash.exe",
+    }
+)
+
+
+def _is_under_canonical_shell_allowlist(resolved: Path) -> bool:
+    """Return True when ``resolved`` matches a canonical system-shell path.
+
+    Compares both the exact string and a case-insensitive variant so the
+    Windows-style paths (which carry ``EXE`` capitalisation drift) match
+    consistently.
+    """
+    resolved_str = str(resolved)
+    if resolved_str in _CANONICAL_SHELL_PATHS:
+        return True
+    resolved_lower = resolved_str.lower()
+    return any(canonical.lower() == resolved_lower for canonical in _CANONICAL_SHELL_PATHS)
+
+
 def _shell_driver_stem(resolved_name: str) -> str:
     """Return the lower-case stem for shell-driver membership tests.
 
@@ -481,12 +533,24 @@ def _safe_run(
         # case (the cache check uses the patched ``shutil.which`` result)
         # as accepted under (b).
         accepted = True
-    if not accepted and _shell_driver_stem(resolved.name) in _SHELL_DRIVERS:
-        # Shell / interpreter drivers (sh, bash, zsh, pwsh, fish, python,
-        # node) are allowed to resolve to system paths because the install
-        # flow legitimately runs them (``sh -c "..."`` / ``python -c ...``
-        # for in-process probes). The compound-shell scan below provides
-        # the load-bearing security control for shell drivers.
+    # Shell / interpreter drivers (sh, bash, zsh, pwsh, fish, python,
+    # node) are allowed to resolve to system paths because the install
+    # flow legitimately runs them (``sh -c "..."`` / ``python -c ...``
+    # for in-process probes). The compound-shell scan below provides
+    # the load-bearing security control for shell drivers.
+    #
+    # spec-101 Sec-5 (Wave 27): the previous blanket acceptance let
+    # any path-shaped resolution slip through provided the basename
+    # matched a shell stem. Tighten by also requiring the resolved
+    # path to land under a canonical system-shell allowlist OR the
+    # install-target prefixes -- so an attacker cannot redirect a
+    # ``bash`` argv onto an arbitrary user-supplied binary just by
+    # naming it ``bash``.
+    if (
+        not accepted
+        and _shell_driver_stem(resolved.name) in _SHELL_DRIVERS
+        and (_is_under_canonical_shell_allowlist(resolved) or _is_under_user_scope(resolved))
+    ):
         accepted = True
 
     if not accepted:
@@ -1008,30 +1072,111 @@ def emit_path_snippet(target_dir: Path) -> str:
 # :class:`installer.phases.tools.ToolsPhase` calls it; mechanisms are
 # stateless and do not know their owning tool name, so the phase is the
 # natural caller.
+#
+# spec-101 Sec-2 hardening (Wave 27): the hooks are now gated by a
+# build-time check (:func:`_is_dev_build`) so they cannot fire from a
+# distributed wheel under any environment. ``AIENG_TEST=1`` alone is no
+# longer sufficient; the running install must be a development checkout
+# (editable install / source tree) OR carry the explicit
+# ``AIENG_DEV_BUILD=1`` opt-in. When the env var is set on a production
+# build the hooks raise :class:`RuntimeError` so a release wheel never
+# silently honours synthetic install instructions.
 # ---------------------------------------------------------------------------
 
 
 _SIMULATE_FAIL_STDERR = "simulated failure for testing"
 _SIMULATE_FAIL_MECHANISM_NAME = "aieng_test_simulate_fail"
+_SIMULATE_OK_MECHANISM_NAME = "aieng_test_simulate_install_ok"
+
+
+def _is_dev_build() -> bool:
+    """Return True when running from a development checkout, not a wheel.
+
+    A dev build is detected by either signal:
+
+    * The package ``__file__`` lives outside any ``site-packages`` /
+      ``dist-packages`` directory (editable install / source tree).
+    * The explicit ``AIENG_DEV_BUILD=1`` env opt-in is set (CI runners
+      that install from a built wheel for end-to-end coverage).
+
+    The check is intentionally conservative -- ambiguous cases default
+    to False so a production wheel never honours synthetic install
+    instructions even when imported from a non-standard location.
+    """
+    if os.getenv("AIENG_DEV_BUILD") == "1":
+        return True
+    # ``__file__`` is the fully-resolved path of this module. A wheel
+    # install lands the package under ``site-packages`` / ``dist-packages``;
+    # editable installs and source trees do not.
+    file_path = os.path.realpath(__file__)
+    return "site-packages" not in file_path and "dist-packages" not in file_path
+
+
+def _emit_simulate_event(*, tool_name: str, mechanism: str, outcome: str) -> None:
+    """Write an audit-trail entry to ``framework-events.ndjson`` (Sec-2 audit).
+
+    The event records every synthetic hook firing so an operator reviewing
+    a CI run can distinguish real installs from simulated ones. Failures
+    to write the event are silently swallowed -- the function is purely
+    advisory and must NEVER block the install pipeline.
+
+    Resolves the project root from the current working directory because
+    the install hook does not propagate the install target through this
+    layer; CWD matches the install target during ``ai-eng install`` runs.
+    """
+    try:
+        from ai_engineering.state.observability import emit_framework_operation
+    except ImportError:  # pragma: no cover - circular guard
+        return
+    try:
+        emit_framework_operation(
+            Path.cwd(),
+            operation="install_simulate_hook",
+            component="installer.user_scope_install",
+            outcome=outcome,
+            metadata={
+                "tool": tool_name,
+                "mechanism": mechanism,
+            },
+        )
+    except Exception:  # pragma: no cover - fail-open audit trail
+        return
+
+
+def _refuse_in_production(env_var: str) -> None:
+    """Raise when a synthetic-install env var is set on a production wheel.
+
+    A distributed wheel must NEVER honour ``AIENG_TEST_SIMULATE_*``. The
+    explicit ``RuntimeError`` makes the intent visible in stack traces
+    instead of letting a misconfigured production install silently
+    short-circuit installation.
+    """
+    if not _is_dev_build():
+        raise RuntimeError(
+            f"{env_var} is not available in production builds. "
+            f"Set AIENG_DEV_BUILD=1 (CI/test runners only) to opt in, "
+            f"OR remove the env var from the environment."
+        )
 
 
 def _check_simulate_fail(tool_name: str) -> InstallResult | None:
     """Return a synthetic ``InstallResult`` when the test hook fires; else ``None``.
 
-    Hook semantics (D-101-11):
+    Hook semantics (D-101-11 + Sec-2 dev-build gate):
 
     * ``AIENG_TEST != "1"``                                          -> ``None``.
     * ``AIENG_TEST=1`` but ``AIENG_TEST_SIMULATE_FAIL`` unset/empty   -> ``None``.
-    * ``AIENG_TEST=1`` AND ``tool_name`` is in the comma-separated
-      ``AIENG_TEST_SIMULATE_FAIL`` list                              -> synthetic
+    * ``AIENG_TEST=1`` AND ``AIENG_TEST_SIMULATE_FAIL`` set on a
+      production build                                               -> raises.
+    * ``AIENG_TEST=1`` AND dev-build AND ``tool_name`` is in the
+      comma-separated ``AIENG_TEST_SIMULATE_FAIL`` list               -> synthetic
       ``InstallResult(failed=True, stderr="simulated failure for testing", ...)``.
 
     Whitespace around each entry of the comma-separated list is
     stripped so ``"ruff,  ty "`` is honoured as ``{"ruff", "ty"}``.
 
-    The :class:`InstallResult` import is local to avoid the runtime
-    cycle between :mod:`installer.mechanisms` (which imports
-    ``_safe_run`` from this module) and this module.
+    Each synthetic firing emits an ``install_simulate_hook`` framework
+    event so the synthetic state remains auditable downstream.
     """
     if os.getenv("AIENG_TEST") != "1":
         return None
@@ -1041,17 +1186,18 @@ def _check_simulate_fail(tool_name: str) -> InstallResult | None:
     targets = {entry.strip() for entry in raw.split(",") if entry.strip()}
     if tool_name not in targets:
         return None
-    # Local import deferred to avoid the user_scope_install <-> mechanisms cycle.
-    from ai_engineering.installer.mechanisms import InstallResult as _InstallResult
-
-    return _InstallResult(
+    # Sec-2: synthetic failure must never fire from a distributed wheel.
+    _refuse_in_production("AIENG_TEST_SIMULATE_FAIL")
+    _emit_simulate_event(
+        tool_name=tool_name,
+        mechanism=_SIMULATE_FAIL_MECHANISM_NAME,
+        outcome="fail",
+    )
+    return InstallResult(
         failed=True,
         stderr=_SIMULATE_FAIL_STDERR,
         mechanism=_SIMULATE_FAIL_MECHANISM_NAME,
     )
-
-
-_SIMULATE_OK_MECHANISM_NAME = "aieng_test_simulate_install_ok"
 
 
 def _check_simulate_install_ok(tool_name: str) -> InstallResult | None:
@@ -1063,17 +1209,22 @@ def _check_simulate_install_ok(tool_name: str) -> InstallResult | None:
     The smoke test still exercises every code path UP TO the mechanism
     boundary; only the network-bound install call is short-circuited.
 
-    Hook semantics:
+    Hook semantics (Sec-2 dev-build gate):
 
     * ``AIENG_TEST != "1"``                                                  -> ``None``.
     * ``AIENG_TEST=1`` but ``AIENG_TEST_SIMULATE_INSTALL_OK`` unset/empty     -> ``None``.
-    * ``AIENG_TEST=1`` AND ``AIENG_TEST_SIMULATE_INSTALL_OK="*"``             -> synthetic
-      success for every tool (used by smoke runs).
-    * ``AIENG_TEST=1`` AND ``tool_name`` in comma list                       -> synthetic
+    * ``AIENG_TEST=1`` AND ``AIENG_TEST_SIMULATE_INSTALL_OK`` set on a
+      production build                                                       -> raises.
+    * ``AIENG_TEST=1`` AND dev-build AND ``AIENG_TEST_SIMULATE_INSTALL_OK="*"``
+      -> synthetic success for every tool (used by smoke runs).
+    * ``AIENG_TEST=1`` AND dev-build AND ``tool_name`` in comma list         -> synthetic
       ``InstallResult(failed=False, mechanism="aieng_test_simulate_install_ok", ...)``.
 
     The ``"*"`` wildcard is admitted because the smoke matrix needs to
     cover every required tool without enumerating them in the workflow YAML.
+
+    Each synthetic firing emits an ``install_simulate_hook`` framework
+    event so the synthetic state remains auditable downstream.
     """
     if os.getenv("AIENG_TEST") != "1":
         return None
@@ -1089,9 +1240,14 @@ def _check_simulate_install_ok(tool_name: str) -> InstallResult | None:
         matched = tool_name in targets
     if not matched:
         return None
-    from ai_engineering.installer.mechanisms import InstallResult as _InstallResult
-
-    return _InstallResult(
+    # Sec-2: synthetic success must never fire from a distributed wheel.
+    _refuse_in_production("AIENG_TEST_SIMULATE_INSTALL_OK")
+    _emit_simulate_event(
+        tool_name=tool_name,
+        mechanism=_SIMULATE_OK_MECHANISM_NAME,
+        outcome="ok",
+    )
+    return InstallResult(
         failed=False,
         stderr="",
         mechanism=_SIMULATE_OK_MECHANISM_NAME,

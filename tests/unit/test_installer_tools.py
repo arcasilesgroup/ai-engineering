@@ -152,15 +152,23 @@ class TestEnsureTool:
         assert result.available is False
         assert "No supported package manager" in result.detail
 
-    def test_tool_install_via_apt_success(self) -> None:
-        # Arrange
-        call_count = 0
+    def test_apt_path_removed_per_corr3(self) -> None:
+        """spec-101 Corr-3 (Wave 27): apt-get is intentionally NOT consulted.
+
+        Linux + apt-get available + brew absent must NOT invoke apt-get
+        because the framework's user-scope-only invariant (D-101-02)
+        forbids any privileged package manager from running. The previous
+        ``test_tool_install_via_apt_success`` exercised the now-removed
+        legacy path; this replacement asserts the absence of that path.
+
+        On Linux without brew, ``ensure_tool`` falls through to either
+        the pip fallback (for tools in ``_PIP_INSTALLABLE``) or returns
+        unavailable for everything else.
+        """
 
         def which_side_effect(name: str) -> str | None:
-            nonlocal call_count
             if name == "gh":
-                call_count += 1
-                return "/usr/bin/gh" if call_count > 1 else None
+                return None
             if name == "apt-get":
                 return "/usr/bin/apt-get"
             if name == "brew":
@@ -171,13 +179,22 @@ class TestEnsureTool:
         with (
             patch("ai_engineering.installer.tools.shutil.which", side_effect=which_side_effect),
             patch("ai_engineering.installer.tools.platform.system", return_value="Linux"),
-            patch("ai_engineering.installer.tools.subprocess.run"),
+            patch("ai_engineering.installer.tools.subprocess.run") as mock_run,
         ):
             result = ensure_tool("gh", allow_install=True)
 
-        # Assert
-        assert result.available is True
-        assert result.method == "apt"
+        # Assert: apt-get must never have been spawned -- the legacy path
+        # ran ``subprocess.run(["apt-get", "install", "-y", ...])`` and is
+        # now removed.
+        for call in mock_run.call_args_list:
+            cmd = call.args[0] if call.args else call.kwargs.get("cmd", [])
+            assert "apt-get" not in cmd, (
+                "apt-get must never be invoked from ensure_tool; "
+                "spec-101 Corr-3 forbids privileged package managers."
+            )
+
+        # Tool ``gh`` is not pip-installable, so result.available stays False.
+        assert result.available is False
 
     def test_tool_install_via_winget_success(self) -> None:
         # Arrange

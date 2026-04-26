@@ -271,7 +271,19 @@ class TestMigrationLogged:
 class TestMigrationIsIdempotent:
     """A second load on already-migrated state does not migrate again."""
 
-    def test_second_load_is_noop(self, tmp_path: Path) -> None:
+    def test_second_load_is_noop(self, tmp_path: Path, monkeypatch: object) -> None:
+        """Spy-asserted idempotence: ``_migrate_legacy_install_state`` runs once.
+
+        Wave 27 (Test-3): the original assertion only counted ``.legacy-*``
+        files on disk, which collapse to one when two migrations land
+        within the same second (the ISO timestamp granularity is 1s).
+        Spying on the migration helper directly distinguishes "no
+        migration" from "silent overwrite within the same second".
+        """
+        from unittest.mock import Mock
+
+        import ai_engineering.state.service as service_module
+
         # Arrange
         _write_manifest(tmp_path)
         state_dir = _state_dir(tmp_path)
@@ -281,15 +293,31 @@ class TestMigrationIsIdempotent:
             encoding="utf-8",
         )
 
+        # Wrap (not replace) so the real migration still runs on call 1.
+        spy = Mock(wraps=service_module._migrate_legacy_install_state)
+        monkeypatch.setattr(  # type: ignore[attr-defined]
+            service_module, "_migrate_legacy_install_state", spy
+        )
+
         # Act -- first load triggers migration
         load_install_state(state_dir)
+        assert spy.call_count == 1, (
+            f"first load must invoke migration helper exactly once, got {spy.call_count}"
+        )
+
         legacy_after_first = sorted(
             p.name for p in state_dir.iterdir() if p.name.startswith("install-state.json.legacy-")
         )
         assert len(legacy_after_first) == 1
 
-        # Act -- second load should be a no-op rename-wise
+        # Act -- second load should be a no-op rename-wise AND the helper
+        # must NOT be called again.
         result_second = load_install_state(state_dir)
+
+        assert spy.call_count == 1, (
+            "migration helper was invoked again on the second load -- "
+            f"call_count={spy.call_count}, expected 1 (idempotence broken)"
+        )
 
         # Assert: still exactly one .legacy-* file, fresh state returned
         legacy_after_second = sorted(

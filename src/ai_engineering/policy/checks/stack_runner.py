@@ -134,6 +134,15 @@ def detect_python_test_dir(project_root: Path) -> str | None:
 
 
 # Pre-commit checks per stack.
+#
+# spec-101 Corr-2 / Arch-1 (Wave 27): the registry is now keyed on the
+# canonical spec-101 stack names (``csharp``, ``typescript``, ``javascript``)
+# rather than the obsolete ``dotnet`` / ``nextjs`` keys. The data-driven
+# dispatcher in :func:`get_checks_for_stage` is the primary surface; this
+# registry remains as a defensive shim used only when the manifest loader
+# returns an empty spec list (legacy / fresh-checkout fixtures). When the
+# fallback fires, :func:`run_checks_for_stacks` logs a deprecation warning
+# so the silent-no-op risk surfaced by review is closed.
 PRE_COMMIT_CHECKS: dict[str, list[CheckConfig]] = {
     "common": [
         CheckConfig(
@@ -145,6 +154,22 @@ PRE_COMMIT_CHECKS: dict[str, list[CheckConfig]] = {
         CheckConfig(name="ruff-format", cmd=["ruff", "format", "--check", "."]),
         CheckConfig(name="ruff-lint", cmd=["ruff", "check", "."]),
     ],
+    # Canonical spec-101 stack names (Wave 27 migration).
+    "csharp": [
+        CheckConfig(name="dotnet-format", cmd=["dotnet", "format", "--verify-no-changes"]),
+    ],
+    "typescript": [
+        CheckConfig(name="prettier-check", cmd=["prettier", "--check", "."]),
+        CheckConfig(name="eslint", cmd=["eslint", "."]),
+    ],
+    "javascript": [
+        CheckConfig(name="prettier-check", cmd=["prettier", "--check", "."]),
+        CheckConfig(name="eslint", cmd=["eslint", "."]),
+    ],
+    # Legacy aliases retained for projects whose tests/fixtures still pass
+    # the obsolete keys. Removing them outright would break downstream
+    # consumers that import the dict directly. The aliases mirror the
+    # canonical entries above so the behaviour is identical.
     "dotnet": [
         CheckConfig(name="dotnet-format", cmd=["dotnet", "format", "--verify-no-changes"]),
     ],
@@ -154,7 +179,7 @@ PRE_COMMIT_CHECKS: dict[str, list[CheckConfig]] = {
     ],
 }
 
-# Pre-push checks per stack.
+# Pre-push checks per stack. Same migration story as PRE_COMMIT_CHECKS.
 PRE_PUSH_CHECKS: dict[str, list[CheckConfig]] = {
     "common": [
         CheckConfig(
@@ -187,6 +212,23 @@ PRE_PUSH_CHECKS: dict[str, list[CheckConfig]] = {
         ),
         CheckConfig(name="ty-check", cmd=["ty", "check", "src/ai_engineering"]),
     ],
+    # Canonical spec-101 stack names (Wave 27 migration).
+    "csharp": [
+        CheckConfig(name="dotnet-build", cmd=["dotnet", "build", "--no-restore"]),
+        CheckConfig(name="dotnet-test", cmd=["dotnet", "test", "--no-build"]),
+        CheckConfig(name="dotnet-vuln", cmd=["dotnet", "list", "package", "--vulnerable"]),
+    ],
+    "typescript": [
+        CheckConfig(name="tsc-check", cmd=["tsc", "--noEmit"]),
+        CheckConfig(name="vitest", cmd=["vitest", "run"]),
+        CheckConfig(name="npm-audit", cmd=["npm", "audit"]),
+    ],
+    "javascript": [
+        CheckConfig(name="tsc-check", cmd=["tsc", "--noEmit"]),
+        CheckConfig(name="vitest", cmd=["vitest", "run"]),
+        CheckConfig(name="npm-audit", cmd=["npm", "audit"]),
+    ],
+    # Legacy aliases (see PRE_COMMIT_CHECKS rationale).
     "dotnet": [
         CheckConfig(name="dotnet-build", cmd=["dotnet", "build", "--no-restore"]),
         CheckConfig(name="dotnet-test", cmd=["dotnet", "test", "--no-build"]),
@@ -198,6 +240,34 @@ PRE_PUSH_CHECKS: dict[str, list[CheckConfig]] = {
         CheckConfig(name="npm-audit", cmd=["npm", "audit"]),
     ],
 }
+
+
+# spec-101 Corr-2 (Wave 27): logger gated guard so the legacy fallback
+# emits a one-shot warning (per process) when it fires. Repeated calls
+# in the same run keep quiet to avoid log spam.
+_LEGACY_FALLBACK_WARNED: set[str] = set()
+
+
+def _warn_legacy_fallback(*, stage: str) -> None:
+    """Emit a one-shot deprecation warning when the legacy fallback fires.
+
+    Called by :func:`run_checks_for_stacks` whenever the data-driven
+    spec list is empty and the legacy registry path activates. The
+    warning surfaces via the standard logging channel so observability
+    pipelines can trigger on it.
+    """
+    if stage in _LEGACY_FALLBACK_WARNED:
+        return
+    _LEGACY_FALLBACK_WARNED.add(stage)
+    import logging
+
+    logging.getLogger(__name__).warning(
+        "[deprecation] legacy PRE_%s_CHECKS registry fallback fired. "
+        "Add 'required_tools.<stack>' entries to .ai-engineering/manifest.yml "
+        "to drive checks via the data-driven dispatcher (D-101-01 / R-15). "
+        "The legacy registry will be removed in a future release.",
+        stage.upper(),
+    )
 
 
 def _resolve_python_checks(
@@ -268,7 +338,18 @@ def run_checks_for_stacks(
     registry: dict[str, list[CheckConfig]],
     stacks: list[str],
 ) -> None:
-    """Execute checks from *registry* for common + each active stack."""
+    """Execute checks from *registry* for common + each active stack.
+
+    spec-101 Corr-2 (Wave 27): emits a one-shot deprecation warning each
+    time it fires so the legacy-fallback path is observable in logs.
+    Callers that have migrated to the data-driven
+    :func:`get_checks_for_specs` dispatcher never reach this function.
+    """
+    # Identify the stage from the registry identity so the deprecation
+    # warning carries the right label.
+    stage = "commit" if registry is PRE_COMMIT_CHECKS else "push"
+    _warn_legacy_fallback(stage=stage)
+
     # Always run common checks
     for check in registry.get("common", []):
         run_tool_check(

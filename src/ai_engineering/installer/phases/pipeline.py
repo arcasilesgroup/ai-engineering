@@ -94,8 +94,26 @@ def _maybe_emit_breaking_banner(context: InstallContext) -> None:
     stdout. The persistence flag is still set so an interactive re-run on the
     same project also stays quiet -- the banner remains a one-shot event.
     """
+    emit_breaking_banner_for_target(context.target)
+
+
+def emit_breaking_banner_for_target(target: Path) -> None:
+    """Public wrapper so callers outside the pipeline can fire the banner.
+
+    spec-101 Compat-2 (Wave 27): the banner used to fire from inside the
+    pipeline runner, after the prereq gates. A first-upgrade run that
+    failed at the uv / SDK prereq gate exited via ``EXIT_PREREQS_MISSING``
+    BEFORE the pipeline ran, so the user never saw the banner explaining
+    the new contract. Hoisting the emit out of the pipeline lets the CLI
+    fire it before any gate, and the existing ``breaking_banner_seen``
+    flag still prevents double-emission on subsequent re-runs.
+    """
     try:
-        state = _load_or_default_state(context.target)
+        state_dir = target / ".ai-engineering" / "state"
+        try:
+            state = load_install_state(state_dir)
+        except (OSError, ValueError):
+            state = InstallState()
     except Exception:  # pragma: no cover - defensive fail-open
         return
 
@@ -116,7 +134,6 @@ def _maybe_emit_breaking_banner(context: InstallContext) -> None:
     # any existing state already written by an earlier phase or a manual edit.
     try:
         state.breaking_banner_seen = True
-        state_dir = context.target / ".ai-engineering" / "state"
         save_install_state(state_dir, state)
     except OSError:  # pragma: no cover - defensive fail-open
         # Filesystem read-only / permission error: banner still showed,

@@ -52,12 +52,24 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from ai_engineering.installer.results import (
+    InstallResult,
+    SecurityError,
+    Sha256MismatchError,
+)
 from ai_engineering.installer.user_scope_install import _safe_run
 
 # ``__all__`` is sorted alphabetically (RUF022). The grouping rationale --
 # result + error types, the module-level test-patch handle, and the twelve
 # mechanism classes per D-101-02 -- is conveyed by the per-class docstrings
 # rather than by manual ordering.
+#
+# spec-101 Arch-2: ``InstallResult``, ``SecurityError``, and
+# ``Sha256MismatchError`` are re-exported from
+# :mod:`ai_engineering.installer.results` so the historical import surface
+# (``from installer.mechanisms import InstallResult``) continues to work
+# without reintroducing the user_scope_install <-> mechanisms cycle the
+# extraction was designed to break.
 __all__ = (
     "_PIN_REQUIRED",
     "BrewMechanism",
@@ -77,62 +89,6 @@ __all__ = (
     "WingetMechanism",
     "_verify_sha256",
 )
-
-
-# ---------------------------------------------------------------------------
-# Result + error types
-# ---------------------------------------------------------------------------
-
-
-@dataclass(frozen=True)
-class InstallResult:
-    """Structured result of a single mechanism ``install()`` call.
-
-    Built from a ``subprocess.CompletedProcess``-shaped object: ``failed``
-    is True when ``returncode != 0``; ``stderr`` carries the captured
-    stderr text (empty on success). ``mechanism`` is the simple class name
-    of the producing mechanism so callers can render diagnostics without
-    re-introspecting; ``version`` is reserved for verify-time annotation
-    and is None at install-time.
-    """
-
-    failed: bool
-    stderr: str = ""
-    mechanism: str = ""
-    version: str | None = None
-
-
-class SecurityError(RuntimeError):
-    """Base class for security-relevant install-time failures.
-
-    Distinguished from generic :class:`RuntimeError` so callers can catch
-    security failures (SHA mismatch, signature mismatch, ...) without
-    catching benign subprocess errors.
-    """
-
-
-class Sha256MismatchError(SecurityError):
-    """Raised when a downloaded artifact's SHA256 does not match the pin.
-
-    The error carries both the expected and received digests plus the
-    artifact path so the operator can manually diff them. The message
-    surface MUST include both digests -- the test asserts both substrings
-    appear in ``str(error)`` to guarantee no silent fall-through.
-    """
-
-    def __init__(
-        self,
-        *,
-        expected: str,
-        received: str,
-        path: str | Path,
-    ) -> None:
-        self.expected = expected
-        self.received = received
-        self.path = Path(path) if not isinstance(path, Path) else path
-        super().__init__(
-            f"SHA256 mismatch on {self.path}: expected {expected!r}, received {received!r}"
-        )
 
 
 # ---------------------------------------------------------------------------
