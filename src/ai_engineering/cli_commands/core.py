@@ -884,7 +884,13 @@ def doctor_cmd(
         if fixable_count:
             suggest_next([("ai-eng doctor --fix", "Attempt automatic repairs for fixable issues")])
         elif manual_count:
-            warning("Manual follow-up required. Review the failing checks above.")
+            # Distinguish failing checks (blocking) from warnings (advisory).
+            # `report.passed` is True when no FAIL exists — only WARN-level
+            # follow-ups remain, so the project is functional.
+            if report.passed:
+                warning(f"{manual_count} warning(s) for review above; project is functional.")
+            else:
+                warning("Manual follow-up required. Review the failing checks above.")
 
     if not report.passed:
         raise typer.Exit(code=1)
