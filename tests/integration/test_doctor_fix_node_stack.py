@@ -161,6 +161,14 @@ def test_doctor_fix_node_dispatches_npm_install_save_dev_prettier(
         patch.object(tools_phase, "run_verify", return_value=SimpleNamespace(passed=False)),
         patch.object(tools_phase, "load_required_tools", return_value=load_result),
         patch.object(tools_phase, "TOOL_REGISTRY", fake_registry),
+        # Bypass the platform-capability gate so the dispatch path runs on
+        # every OS. On Windows, ``prettier`` is absent from
+        # ``_WINGET_IDS`` and ``_PIP_INSTALLABLE`` so the legacy seam
+        # returns False -- shorting the dispatch to "manual" and never
+        # calling the mechanism. This patch isolates the test from that
+        # platform gate; the real D-101-08 dispatch contract is exactly
+        # what the mock ``_safe_run`` argv asserts.
+        patch.object(tools_phase, "can_auto_install_tool", return_value=True),
     ):
         fixed = tools_phase.fix(ctx, failed)
 
@@ -241,6 +249,9 @@ def test_doctor_fix_node_uses_npm_dev_mechanism_class(node_project: Path) -> Non
         patch.object(tools_phase, "run_verify", return_value=SimpleNamespace(passed=False)),
         patch.object(tools_phase, "load_required_tools", return_value=load_result),
         patch.object(tools_phase, "TOOL_REGISTRY", fake_registry),
+        # See note in the previous test -- bypass the Windows platform
+        # gate so the mechanism dispatch path is exercised uniformly.
+        patch.object(tools_phase, "can_auto_install_tool", return_value=True),
     ):
         tools_phase.fix(ctx, failed)
 
