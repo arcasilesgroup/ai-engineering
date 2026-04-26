@@ -186,6 +186,38 @@ jobs:
           # so the post-install gate sees the feature-branch state.
           (cd smoke-target && git checkout -b smoke-feature)
 
+      # Install gitleaks on the runner before T-4.2.
+      #
+      # The post-install pre-commit gate runs on the smoke commit and requires
+      # gitleaks to be on PATH. macOS runners ship gitleaks via brew prebake;
+      # ubuntu and windows runners do not. ``AIENG_TEST_SIMULATE_INSTALL_OK``
+      # short-circuits ``ai-eng install`` (no real network mechanism) but the
+      # gate runner still calls ``shutil.which("gitleaks")`` and fails when
+      # the binary is absent. Provision it deterministically here so T-4.2
+      # exercises the post-install commit path the spec contracts.
+      - name: Install gitleaks (Ubuntu)
+        if: runner.os == 'Linux'
+        env:
+          GITLEAKS_VERSION: "8.30.0"
+        run: |
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
+            | sudo tar xz -C /usr/local/bin gitleaks
+          gitleaks version
+
+      - name: Install gitleaks (Windows)
+        if: runner.os == 'Windows'
+        env:
+          GITLEAKS_VERSION: "8.30.0"
+        shell: pwsh
+        run: |
+          $url = "https://github.com/gitleaks/gitleaks/releases/download/v$env:GITLEAKS_VERSION/gitleaks_${env:GITLEAKS_VERSION}_windows_x64.zip"
+          $zip = "$env:RUNNER_TEMP\gitleaks.zip"
+          $dest = "$env:RUNNER_TEMP\gitleaks-bin"
+          Invoke-WebRequest -Uri $url -OutFile $zip
+          Expand-Archive -Path $zip -DestinationPath $dest -Force
+          Add-Content -Path $env:GITHUB_PATH -Value $dest
+          & "$dest\gitleaks.exe" version
+
       # T-4.2: ai-eng install . exits 0 + git commit --allow-empty exits 0
       # (no "tool not found"). Smoke-installed tools must be runnable from
       # the hook's resolved PATH. The commit message must satisfy the
