@@ -319,9 +319,13 @@ jobs:
           mkdir -p idemp-target
           cp -R "$FIXTURE_DIR"/. idemp-target/
           git -C idemp-target init -b main
-          ai-eng install idemp-target --non-interactive | tee install-1.log
-          ai-eng install idemp-target --non-interactive | tee install-2.log
-          # Second-run stdout must surface a "0 reinstalls" / "skipped"
+          # Capture both stdout (JSON envelope) and stderr (skip markers
+          # emitted in --non-interactive mode per Wave 28). Merging via
+          # 2>&1 ensures grep sees the ``tool:<name>:<marker>`` lines that
+          # now land on stderr to keep stdout JSON-pure.
+          ai-eng install idemp-target --non-interactive 2>&1 | tee install-1.log
+          ai-eng install idemp-target --non-interactive 2>&1 | tee install-2.log
+          # Second-run output must surface a "0 reinstalls" / "skipped"
           # marker. The exact wording lands in T-2.16 — we accept either
           # `reinstall` count of 0 or an explicit `Skipped` line.
           if ! grep -Eqi '(0 reinstall|reinstalls: 0|already installed|skipped \(verify passed\))' install-2.log; then
@@ -343,7 +347,8 @@ jobs:
                   record['os_release'] = '99.99'
           p.write_text(json.dumps(data, indent=2))
           "
-            ai-eng install idemp-target --non-interactive | tee install-3.log
+            # Merge stderr into stdout for marker visibility (see Wave 28).
+            ai-eng install idemp-target --non-interactive 2>&1 | tee install-3.log
             if ! grep -Eqi '(reverified|already-installed|os_release.*mismatch|re-?probe|re-?verify)' install-3.log; then
               echo "Third run after os_release bump did not trigger re-probe"
               cat install-3.log
@@ -361,8 +366,10 @@ jobs:
           New-Item -ItemType Directory -Force idemp-target | Out-Null
           Copy-Item -Recurse -Force "$env:FIXTURE_DIR/*" idemp-target/
           git -C idemp-target init -b main
-          ai-eng install idemp-target --non-interactive | Tee-Object install-1.log
-          ai-eng install idemp-target --non-interactive | Tee-Object install-2.log
+          # Merge stderr (markers per Wave 28) into the pipeline so
+          # grep/regex assertions see the ``tool:<name>:<marker>`` lines.
+          ai-eng install idemp-target --non-interactive 2>&1 | Tee-Object install-1.log
+          ai-eng install idemp-target --non-interactive 2>&1 | Tee-Object install-2.log
           $second = Get-Content install-2.log -Raw
           if ($second -notmatch '(?i)(0 reinstall|reinstalls: 0|already installed|skipped \(verify passed\))') {
             throw "Second run did not report 0 reinstalls"
@@ -379,7 +386,7 @@ jobs:
                   record['os_release'] = '99.99'
           p.write_text(json.dumps(data, indent=2))
           "
-            ai-eng install idemp-target --non-interactive | Tee-Object install-3.log
+            ai-eng install idemp-target --non-interactive 2>&1 | Tee-Object install-3.log
             $third = Get-Content install-3.log -Raw
             if ($third -notmatch '(?i)(reverified|already-installed|os_release.*mismatch|re-?probe|re-?verify)') {
               throw "Third run after os_release bump did not trigger re-probe"

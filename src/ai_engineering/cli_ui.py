@@ -220,6 +220,16 @@ def print_stdout(msg: str) -> None:
     sys.stdout.flush()
 
 
+def print_stderr(msg: str) -> None:
+    """Write a plain-text line to stderr (for assertion markers).
+
+    Used by callers that need a grep-able signal without contaminating
+    stdout for JSON consumers in ``--non-interactive`` mode.
+    """
+    sys.stderr.write(msg + "\n")
+    sys.stderr.flush()
+
+
 def render_update_tree(
     changes: list[FileChange],
     *,

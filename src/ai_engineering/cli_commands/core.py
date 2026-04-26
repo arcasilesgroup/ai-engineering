@@ -30,6 +30,7 @@ from ai_engineering.cli_ui import (
     file_count,
     info,
     kv,
+    print_stderr,
     print_stdout,
     render_update_tree,
     result_header,
@@ -381,13 +382,15 @@ def install_cmd(
         error("Tool installation failed; see warnings above. Run 'ai-eng doctor' to retry.")
         raise typer.Exit(code=EXIT_TOOLS_FAILED)
 
-    # spec-101 Corr-1 (Wave 27): in --non-interactive mode, emit one stdout
-    # line per skipped tool entry so downstream verifiers (the smoke-test
+    # spec-101 Corr-1 (Wave 28): in --non-interactive mode, emit one line
+    # per skipped tool entry so downstream verifiers (the smoke-test
     # idempotence assertion) can match the ``tool:<name>:<marker>``
     # signature. Without this, ``result.skipped`` was buried inside the
-    # JSON envelope, invisible to a regex sweep on stdout. The lines land
-    # BEFORE the JSON envelope so consumers parsing only the trailing
-    # JSON (``result.output.splitlines()[-1]``-style) stay unaffected.
+    # JSON envelope, invisible to a regex sweep.
+    # Markers go to stderr to preserve stdout JSON purity for
+    # --non-interactive consumers (Wave 27 emitted to stdout, which broke
+    # the smoke-test ``json.load`` parse). Smoke workflows already merge
+    # streams via ``2>&1`` so grep continues to see the markers.
     if non_interactive:
         tools_phase_result = next(
             (r for r in summary.results if r.phase_name == PHASE_TOOLS),
@@ -396,7 +399,7 @@ def install_cmd(
         if tools_phase_result is not None and tools_phase_result.skipped:
             for skipped_entry in tools_phase_result.skipped:
                 if skipped_entry.startswith("tool:"):
-                    print_stdout(skipped_entry)
+                    print_stderr(skipped_entry)
 
     # Render steps from pipeline summary
     if not is_json_mode():

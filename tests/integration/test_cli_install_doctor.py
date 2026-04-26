@@ -134,22 +134,25 @@ class TestInstallCommand:
             ["install", str(installed_dir), "--stack", "python", "--non-interactive"],
         )
         assert result.exit_code == 0
-        # spec-101 Corr-1 (Wave 27): non-interactive mode now emits one
-        # ``tool:<name>:<marker>`` line per skipped tool BEFORE the JSON
-        # envelope so the smoke matrix can match the idempotence marker
-        # via a stdout regex sweep. Locate the JSON envelope by scanning
-        # for the leading ``{`` (the markers are plain text).
-        output = result.output
-        json_start = output.find("{")
-        assert json_start != -1, f"no JSON envelope found in output: {output!r}"
-        data = json.loads(output[json_start:])
+        # spec-101 Corr-1 (Wave 28): non-interactive mode emits one
+        # ``tool:<name>:<marker>`` line per skipped tool to STDERR while
+        # the JSON envelope stays on STDOUT. This preserves stdout JSON
+        # purity so smoke-test ``json.load(...)`` consumers parse without
+        # corruption, while ``2>&1``-merged grep assertions still see the
+        # markers. Wave 27 emitted markers to stdout, which broke
+        # workflows piping stdout to ``json.load``.
+        data = json.loads(result.stdout)
         assert data["result"]["already_installed"] is True
 
-        # Verify the Corr-1 markers landed before the envelope.
-        prelude = output[:json_start]
-        assert "tool:" in prelude, (
+        # Verify the Corr-1 markers landed on STDERR (grep-able after
+        # ``2>&1`` merge) and not on STDOUT.
+        assert "tool:" in result.stderr, (
             "expected at least one 'tool:<name>:<marker>' line in non-interactive "
-            f"output prelude; got {prelude!r}"
+            f"stderr; got {result.stderr!r}"
+        )
+        assert "tool:" not in result.stdout, (
+            "tool:<name>:<marker> markers must NOT appear on stdout — JSON "
+            f"consumers parse stdout. got stdout={result.stdout!r}"
         )
 
 
