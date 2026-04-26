@@ -308,28 +308,28 @@ jobs:
       - name: T-4.4 dtruss evidence (macOS, skip-with-note when unavailable)
         if: runner.os == 'macOS'
         continue-on-error: true
+        timeout-minutes: 5
         run: |
           . .smoke-venv/bin/activate || . .smoke-venv/Scripts/activate
           mkdir -p dtruss-target
           cp -R "$FIXTURE_DIR"/. dtruss-target/
           git -C dtruss-target init -b main
-          if ! command -v dtruss >/dev/null 2>&1; then
-            echo "dtruss unavailable on this runner — recording skip note." \
-              > syscalls-darwin.log
-            exit 0
-          fi
-          # dtruss requires root + System Integrity Protection allowance —
-          # GitHub-hosted macOS runners may refuse. continue-on-error covers
-          # both refusal and the skip-with-note path. Capture stderr to a
-          # separate file then merge — shellcheck SC2094 forbids reading
-          # and writing the same file in one pipeline.
-          sudo dtruss -n ai-eng -f -o syscalls-darwin.log \
-            -- ai-eng install dtruss-target --non-interactive 2>syscalls-darwin.err || true
+          # dtruss is unusable on GitHub-hosted macOS runners: SIP is enabled
+          # (blocks dtrace probes on system binaries) and `sudo` requires an
+          # interactive password prompt that never resolves, hanging the job
+          # indefinitely. Skip dtruss capture and rely on Ubuntu strace for
+          # G-4(c) syscall evidence; still exercise the install path here so
+          # we know the macOS install works end-to-end.
+          {
+            echo "dtruss not usable on GitHub-hosted macOS runners (SIP-protected, sudo password required)."
+            echo "G-4(c) syscall evidence is provided by the Ubuntu strace job (syscalls-ubuntu.log)."
+            echo "Install path is still exercised below to confirm macOS smoke parity."
+          } > syscalls-darwin.log
+          ai-eng install dtruss-target --non-interactive >>syscalls-darwin.log 2>syscalls-darwin.err || true
           if [ -s syscalls-darwin.err ]; then
             cat syscalls-darwin.err >> syscalls-darwin.log
           fi
           rm -f syscalls-darwin.err
-          test -s syscalls-darwin.log || echo "dtruss produced no output" > syscalls-darwin.log
 
       - name: T-4.4 Process Monitor evidence (Windows, skip-with-note)
         if: runner.os == 'Windows'
