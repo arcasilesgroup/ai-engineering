@@ -81,6 +81,26 @@ quiet. Dry-run installs do not emit the banner.
 ### Changed
 - **Slash-command boundary clarification** -- clarified across multi-IDE instruction files, the `/ai-start` skill, and `.ai-engineering/README.md` that `/ai-*` entries are IDE slash commands and must not be inferred as `ai-eng` CLI subcommands unless explicitly documented.
 
+### Added
+
+#### spec-104 -- Commit/PR Pipeline Speed: Single-Pass Collector + Memoization + Bounded Watch
+
+- **Single-pass orchestrator with 2-wave dispatch (D-104-01)** -- new `src/ai_engineering/policy/orchestrator.py` replaces sequential gate flow. Wave 1 (serial fixers): `ruff format` -> `ruff check --fix` -> `spec verify --fix`. Wave 2 (parallel checkers): `gitleaks protect --staged`, `ai-eng validate`, docs gate, `ty check src/`, `pytest -m smoke`. Recolección completa en una pasada produce `.ai-engineering/state/gate-findings.json`.
+- **Local fast-slice + CI authoritative gate policy (D-104-02)** -- fixed framework policy (not configurable). Local executes only fast checks (≤60s budget); `semgrep`, `pip-audit`, `pytest` full + matrix run authoritative in CI. Watch loop autofixes CI failures. Política documented in `.ai-engineering/contexts/gate-policy.md`.
+- **Hash + max-age 24h gate cache (D-104-03)** -- new `src/ai_engineering/policy/gate_cache.py`. Cache key = sha256(tool_name ‖ tool_version ‖ sorted(staged_blob_shas) ‖ sorted(config_file_hashes) ‖ sorted(args)). Storage at `.ai-engineering/state/gate-cache/<cache-key>.json` per-cwd. Hit replay (PASS or FAIL) skips run; miss executes and persists. Invalidación: any input change OR `now() - verified_at > 24h`. LRU prune to 256 entries; cap ≤16 MB.
+- **Async parallel docs + pre-push (D-104-04)** -- `/ai-pr` step 6.5 dispatches 3 concurrent lanes (docs A1: CHANGELOG+README, docs A2: docs-portal+quality-gate, lane 3: pre-push gate Wave 2). Wall-clock = `max(docs, pre-push)` instead of `sum`. Coherence preserved: docs staged BEFORE PR creation; no fire-and-forget post-PR commits (NG-7).
+- **Watch loop wall-clock bounds (D-104-05)** -- active phase cap 30 min from `last_active_action_at`, passive phase cap 4h from `watch_started_at`. On cap: emit `.ai-engineering/state/watch-residuals.json` (gate-findings v1 schema), print actionable message, exit code 90 (distinct from spec-101 EXIT 80/81).
+- **GateFindingsDocument schema v1 contract (D-104-06)** -- canonical schema `ai-engineering/gate-findings/v1` emitted by orchestrator and watch loop. Stable `rule_id` (CVE/semgrep/gitleaks/ruff/ty rule codes — never human messages). Versioned `schema` field for non-breaking evolution. Fixture canonical at `tests/fixtures/gate_findings_v1.json`. Consumer contract for spec-105 (S3 risk-accept).
+- **SKILL.md verbosity reduction (~30%) (D-104-07)** -- ≥160 lines removed from `ai-commit/SKILL.md` + `ai-pr/SKILL.md` + `ai-pr/handlers/watch.md` (532 -> ≤372). Only verified duplicates removed (cross-referenced against CLAUDE.md Don't section, `contexts/languages/`, anti-pattern consolidation in watch.md). Mandatory sections preserved: `## Process`, `## Integration`, `## Quick Reference`, `argument-hint` frontmatter.
+- **Cross-IDE parity via CLI-layer (D-104-08)** -- toda lógica de speed-up vive en `policy/orchestrator.py` + `policy/gate_cache.py` invocados via CLI `ai-eng gate run --cache-aware --json`. Skills mirrors (`.claude/`, `.github/`, `.codex/`, `.gemini/`) instruyen al agent a invocar el CLI en lugar de herramientas individuales. Beneficio idéntico independiente del IDE driver.
+- **`gate run` CLI flags (D-104-10)** -- nuevo subcomando `ai-eng gate run` con `--cache-aware` (default ON), `--no-cache` (skip lookup, fresh run, persist), `--force` (skip lookup, clear matching entry, fresh run, persist), `--json`, `--mode={local,ci}`, `--produced-by`. Sin nuevos comandos top-level (NG-8).
+- **`gate cache` subcommands** -- `ai-eng gate cache --status` (read-only listing of entries + max-age + tamaño total) y `ai-eng gate cache --clear` (interactive confirmation o `--yes`). Sub-flags de comando existente.
+- **New env vars** -- `AIENG_LEGACY_PIPELINE=1` restores pre-spec-104 sequential gate flow. `AIENG_CACHE_DISABLED=1` global cache kill switch (equivalente a `--no-cache`). `AIENG_CACHE_DEBUG=1` enables cache hit/miss logging.
+
+##### Migration note
+
+`AIENG_LEGACY_PIPELINE=1` env var restores the pre-spec-104 sequential local-only gate behavior (no orchestrator, no cache, no parallel Wave 2). Use solo si surge una regresión que requiera audit trail comparison contra el flujo previo. CI cache reuse via `actions/cache@v4` con la misma key schema que el local; storage físico independiente (CI no monta el cache local del dev).
+
 ## [0.4.6] - 2026-04-07
 
 ### Fixed

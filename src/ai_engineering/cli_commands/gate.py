@@ -271,6 +271,7 @@ def run_orchestrator_gate(
     force: bool = False,
     cache_dir: Path,
     project_root: Path,
+    produced_by: str = "ai-commit",
 ) -> GateFindingsDocument:
     """Thin adapter from the CLI surface to ``policy.orchestrator.run_gate``.
 
@@ -280,6 +281,10 @@ def run_orchestrator_gate(
     real subprocess. In production it forwards to ``orchestrator.run_gate``;
     cache invalidation for ``force=True`` is performed by ``gate_run`` BEFORE
     invoking this adapter so it survives the patched mock.
+
+    ``produced_by`` is forwarded so the emitted document carries the correct
+    skill-caller discriminator (``ai-commit`` / ``ai-pr`` / ``watch-loop``)
+    per D-104-06 cross-IDE attribution rules.
     """
     return orchestrator_module.run_gate(
         staged_files=staged_files,
@@ -287,7 +292,57 @@ def run_orchestrator_gate(
         cache_dir=cache_dir,
         cache_disabled=disabled,
         project_root=project_root,
+        produced_by=produced_by,
     )
+
+
+# ---------------------------------------------------------------------------
+# spec-104 D-104-06: persist gate-findings.json beside any --json emission.
+# ---------------------------------------------------------------------------
+
+
+_GATE_FINDINGS_RELATIVE_PATH = Path(".ai-engineering") / "state" / "gate-findings.json"
+
+
+def _persist_gate_findings(document: GateFindingsDocument, project_root: Path) -> Path:
+    """Atomically persist the GateFindingsDocument to the canonical location.
+
+    Default path is ``<project_root>/.ai-engineering/state/gate-findings.json``.
+    Always called from ``gate_run`` (regardless of the ``--json`` flag) so the
+    ``/ai-commit`` and ``/ai-pr`` skill instructions can reliably parse the
+    JSON file after the orchestrator exits.
+
+    Uses tempfile + ``os.replace`` for atomic publish: readers either see the
+    previous version or the new one, never a partial write.
+    """
+    import os
+    import tempfile
+
+    output_path = project_root / _GATE_FINDINGS_RELATIVE_PATH
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    payload = document.model_dump_json(by_alias=True)
+
+    tmp_path: str | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            dir=str(output_path.parent),
+            prefix=f"{output_path.name}.",
+            suffix=".tmp",
+            delete=False,
+            encoding="utf-8",
+        ) as tmp:
+            tmp_path = tmp.name
+            tmp.write(payload)
+            tmp.flush()
+            os.fsync(tmp.fileno())
+    except BaseException:
+        if tmp_path is not None:
+            with contextlib.suppress(OSError):
+                os.unlink(tmp_path)
+        raise
+    os.replace(tmp_path, str(output_path))
+    return output_path
 
 
 def _force_clear_cache(cache_dir: Path) -> None:
@@ -377,6 +432,17 @@ def gate_run(
             case_sensitive=False,
         ),
     ] = "local",
+    produced_by: Annotated[
+        str,
+        typer.Option(
+            "--produced-by",
+            help=(
+                "Skill caller attribution for the emitted document. "
+                "One of 'ai-commit' (default), 'ai-pr', or 'watch-loop'."
+            ),
+            case_sensitive=False,
+        ),
+    ] = "ai-commit",
     target: Annotated[
         Path | None,
         typer.Option("--target", "-t", help="Target project root."),
@@ -402,6 +468,19 @@ def gate_run(
         sys.stderr.write(
             f"Error: invalid --mode value {mode!r}. "
             f"Legal values are: {sorted(legal_modes)} (use --mode=local or --mode=ci).\n"
+        )
+        raise typer.Exit(code=2)
+
+    # Validate --produced-by against the GateProducedBy enum so the persisted
+    # document never carries an attribution that downstream consumers can't
+    # parse. Reject early with the same exit-code convention as --mode.
+    legal_producers = {"ai-commit", "ai-pr", "watch-loop"}
+    produced_by_value = (produced_by or "").strip().lower()
+    if produced_by_value not in legal_producers:
+        sys.stderr.write(
+            f"Error: invalid --produced-by value {produced_by!r}. "
+            f"Legal values are: {sorted(legal_producers)} "
+            "(ai-commit, ai-pr, watch-loop).\n"
         )
         raise typer.Exit(code=2)
 
@@ -432,7 +511,16 @@ def gate_run(
         force=force,
         cache_dir=cache_dir,
         project_root=root,
+        produced_by=produced_by_value,
     )
+
+    # Persist the canonical gate-findings.json artefact regardless of the
+    # ``--json`` flag — /ai-commit and /ai-pr skill instructions parse the
+    # file unconditionally after this command returns. Suppress any IO
+    # failure (best-effort persist) so a read-only filesystem doesn't
+    # mask the more important findings exit-code signal.
+    with contextlib.suppress(OSError):
+        _persist_gate_findings(document, root)
 
     failed = _document_has_failure(document)
 

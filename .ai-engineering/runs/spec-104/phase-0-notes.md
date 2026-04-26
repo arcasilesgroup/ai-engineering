@@ -188,7 +188,7 @@ Total target ~375-430. Plan assumes ≤372 — needs sharper trim than the line 
 | `state/models.py` | ✓ (added spec-101 models: `Platform`, `ToolScope`, `ToolInstallState`, `PythonEnvMode`, `ToolSpec`, `StackSpec`, `RequiredToolsBlock`, `ToolInstallRecord`, `SdkPrereq`, `InstallState` extensions) | ✓ (add 4 new models at end) | **NO** — additions are append-only. |
 | `state/service.py` | ✓ (legacy migration logic) | ✗ | **NO**. |
 | `manifest.yml` | ✓ (`prereqs`, `python_env`, `required_tools`) | ✓ (POTENTIAL: `gates.policy_doc_ref` key, T-0.8 declares additive only) | **NO** — additive in different top-level key. **Test asserted by T-0.8.** |
-| `.claude/skills/ai-build.md` | ✓ (write scopes) | ✓ (T-0.1 extends scopes) | **POTENTIAL** — same file edit. **Mitigation**: T-0.1 runs first and only adds new entries to AGENT_METADATA; spec-101 changes were already merged frozen. Verify no in-flight spec-101 edits remain to ai-build.md. |
+| `.claude/agents/ai-build.md` | ✓ (write scopes) | ✓ (T-0.1 extends scopes) | **POTENTIAL** — same file edit. **Mitigation**: T-0.1 runs first and only adds new entries to AGENT_METADATA; spec-101 changes were already merged frozen. Verify no in-flight spec-101 edits remain to ai-build.md. |
 | `.claude/skills/ai-commit/SKILL.md` | ✗ | ✓ | **NO** — spec-101 never edited skill markdown. |
 | `.claude/skills/ai-pr/SKILL.md` | ✗ | ✓ | **NO**. |
 | `.claude/skills/ai-pr/handlers/watch.md` | ✗ | ✓ | **NO**. |

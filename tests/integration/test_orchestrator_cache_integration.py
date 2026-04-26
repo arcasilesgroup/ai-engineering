@@ -17,13 +17,17 @@ in ``ai_engineering.policy.orchestrator``::
 The orchestrator coordinates Wave 1 (serial fixers) → Wave 2 (parallel
 checkers per D-104-01) and consults ``gate_cache.lookup`` / ``persist`` for
 each Wave 2 check (D-104-08 — CLI-layer caching is the IDE-agnostic
-beneficiary).  The 5 Wave 2 checkers in ``mode="local"`` are::
+beneficiary). The 5 Wave 2 checkers in ``mode="local"`` (canonical set per
+spec-104 verify+review iteration) are::
 
-    gitleaks  ty  pytest-smoke  validate  docs-gate
+    gitleaks  ruff  ty  pytest-smoke  validate
 
-which match the keys of ``gate_cache._CONFIG_FILE_WHITELIST`` and are the
-strings that flow into ``cache_hits`` / ``cache_misses`` lists of the
-emitted ``gate-findings.json`` document (D-104-06).
+``docs-gate`` is intentionally excluded — its LLM dispatch is non-deterministic
+and would make CI cache hit-rate uneven; docs-gate continues to run inside the
+/ai-pr docs lanes (step 6.5 lane 2), outside the gate orchestrator. The Wave 2
+checker set above matches ``policy.orchestrator.LOCAL_CHECKERS`` and the keys
+that flow into the ``cache_hits`` / ``cache_misses`` lists of the emitted
+``gate-findings.json`` document (D-104-06).
 
 Each test currently fails with ``ImportError`` because neither
 ``policy.orchestrator`` nor its ``run_gate`` exist yet. T-2.8 GREEN will
@@ -72,7 +76,7 @@ import pytest
 # config-file whitelist keys per D-104-09 in the gate_cache module.
 # ---------------------------------------------------------------------------
 
-WAVE2_LOCAL_CHECKS = ("gitleaks", "ty", "pytest-smoke", "validate", "docs-gate")
+WAVE2_LOCAL_CHECKS = ("gitleaks", "ruff", "ty", "pytest-smoke", "validate")
 
 
 # ---------------------------------------------------------------------------

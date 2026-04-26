@@ -79,7 +79,7 @@ Commit, push to current branch (block on `main`/`master`). Detect provider via `
 
 ### 12. Create or update PR
 
-Runs AFTER step 6.5 resolves so the body is coherent (CHANGELOG/README staged, gate passed).
+Runs after the 3-lane block resolves so the body is coherent (CHANGELOG/README staged, gate passed).
 
 **New**: `gh pr create --title "<t>" --body "<b>"` or `az repos pr create --source-branch <b> --target-branch <t> --title "<t>" --description "<b>"`.
 

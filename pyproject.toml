@@ -97,6 +97,7 @@ markers = [
   "integration: Tests with local I/O (filesystem, git)",
   "e2e: End-to-end flows (install, CLI, hooks)",
   "live: External API tests (requires AI_ENG_LIVE_TEST=1)",
+  "perf: Performance benchmarks (spec-104 G-1/G-2/G-3); CI nightly only, opt-in via -m perf",
 ]
 
 [build-system]

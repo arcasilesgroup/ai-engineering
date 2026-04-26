@@ -94,7 +94,7 @@ GATE_CACHE_PATH = REPO_ROOT / "src" / "ai_engineering" / "policy" / "gate_cache.
 # Constants — Wave 2 checks (mode="local") and IDE identifiers under test.
 # ---------------------------------------------------------------------------
 
-WAVE2_LOCAL_CHECKS = ("gitleaks", "ty", "pytest-smoke", "validate", "docs-gate")
+WAVE2_LOCAL_CHECKS = ("gitleaks", "ruff", "ty", "pytest-smoke", "validate")
 
 # The four IDE identifiers spec-104 G-8 enumerates. Test parity must hold
 # for the cartesian product of these values x orchestrator behaviour.

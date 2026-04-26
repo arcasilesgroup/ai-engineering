@@ -79,37 +79,32 @@ class Wave2Result:
 
 # --- Wave 2 checker sets ----------------------------------------------------
 #
-# Two distinct sets exist because two distinct test contracts reach the
-# orchestrator from different angles:
+# Single canonical local-mode set per D-104-01 / D-104-02 (5 checkers). The
+# orchestrator runs the same 5 checkers regardless of seam (``_run_one_checker``
+# or ``_run_check``); the two seams exist solely to give the wave-2 unit test
+# (test_orchestrator_wave2.py) and the cache integration tests
+# (test_orchestrator_cache_integration.py) independent mock targets without
+# requiring shared fixtures.
 #
-#  * ``run_wave2`` unit tests (test_orchestrator_wave2.py) mock
-#    ``_run_one_checker`` and exercise the canonical local-mode 5-checker set
-#    that includes ``ruff`` (which is the wave-2 ruff lint check, distinct
-#    from wave-1 ``ruff --fix`` fixer).
-#
-#  * ``run_gate(staged_files=...)`` integration tests
-#    (test_orchestrator_cache_integration.py) mock ``_run_check`` and exercise
-#    the cache-aware single-pass collector path with the 5-checker set that
-#    includes ``docs-gate`` (LLM gate not in the wave-2 unit tests because
-#    those mock at a lower seam).
+# docs-gate is intentionally excluded from local: the LLM dispatch is non-
+# deterministic and would make CI cache hit-rate uneven; docs-gate continues
+# to run in /ai-pr docs lanes (step 6.5 lane 2) — outside the gate orchestrator.
 
-_WAVE2_LOCAL_CHECKERS: tuple[str, ...] = (
+LOCAL_CHECKERS: tuple[str, ...] = (
     "gitleaks",
     "ruff",
     "ty",
     "pytest-smoke",
     "validate",
 )
-_WAVE2_CI_EXTRA: tuple[str, ...] = ("semgrep", "pip-audit", "pytest-full")
+CI_EXTRA_CHECKERS: tuple[str, ...] = ("semgrep", "pip-audit", "pytest-full")
 
-_RUN_GATE_LOCAL_CHECKERS: tuple[str, ...] = (
-    "gitleaks",
-    "ty",
-    "pytest-smoke",
-    "validate",
-    "docs-gate",
-)
-_RUN_GATE_CI_EXTRA: tuple[str, ...] = ("semgrep", "pip-audit", "pytest-full")
+# Backwards-compatible aliases retained for any importer that referenced the
+# previous private names. New code MUST use the canonical ``LOCAL_CHECKERS``.
+_WAVE2_LOCAL_CHECKERS: tuple[str, ...] = LOCAL_CHECKERS
+_WAVE2_CI_EXTRA: tuple[str, ...] = CI_EXTRA_CHECKERS
+_RUN_GATE_LOCAL_CHECKERS: tuple[str, ...] = LOCAL_CHECKERS
+_RUN_GATE_CI_EXTRA: tuple[str, ...] = CI_EXTRA_CHECKERS
 
 
 # --- Strict env-var parsing -------------------------------------------------
@@ -362,9 +357,9 @@ def run_wave2(
         mode = "local"
 
     if mode == "ci":
-        checkers = list(_WAVE2_LOCAL_CHECKERS) + list(_WAVE2_CI_EXTRA)
+        checkers = list(LOCAL_CHECKERS) + list(CI_EXTRA_CHECKERS)
     else:
-        checkers = list(_WAVE2_LOCAL_CHECKERS)
+        checkers = list(LOCAL_CHECKERS)
 
     findings: list[GateFinding] = []
     cache_hits: list[str] = []
@@ -654,10 +649,7 @@ def _checks_for_run_gate(
     """
     if checks is not None:
         return list(checks)
-    if mode == "ci":
-        names = list(_RUN_GATE_LOCAL_CHECKERS) + list(_RUN_GATE_CI_EXTRA)
-    else:
-        names = list(_RUN_GATE_LOCAL_CHECKERS)
+    names = list(LOCAL_CHECKERS) + list(CI_EXTRA_CHECKERS) if mode == "ci" else list(LOCAL_CHECKERS)
     return [{"name": n, "wave": 2} for n in names]
 
 
