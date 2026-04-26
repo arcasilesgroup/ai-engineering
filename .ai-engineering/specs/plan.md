@@ -1,399 +1,278 @@
-# Plan: spec-101 Installer Robustness — Stack-Aware User-Scope Tool Bootstrap
+# Plan: spec-104 Commit/PR Pipeline Speed — Single-Pass Collector + Memoization + Bounded Watch
 
-## Dispatch Status (session checkpoint 2026-04-25 — Phase 0 + Phase 1 COMPLETE)
+**Spec ref**: `.ai-engineering/specs/spec.md` (status: approved, 2026-04-26)
+**Effort**: medium
+**Pipeline**: full (build + verify + guard + review)
+**Phases**: 9
+**Tasks**: 56 (build: 50, verify: 1, guard: 1, review: 1, iteration holders: 3)
 
-**Progress**: 39/102 tasks completed (38.2%) in 13 waves. Phase 0 + Phase 1 closed; Phase 2-6 pending. Active session paused for clean handoff.
+**Branch**: `feat/spec-101-installer-robustness` (umbrella branch — spec-101 frozen in `notes/spec-101-frozen-pr463.md`, accumulates spec-104..spec-107)
 
-### Phase 1 — COMPLETE (22/22 tasks; 5+ files, 591 tests, 0 regressions)
-
-| Wave | Tasks | Outcome |
-|---|---|---|
-| 9 | T-1.1, T-1.3, T-1.13, T-1.15, T-1.17 | 5 RED test files (155 tests) |
-| 10 | T-1.5, T-1.7, T-1.9, T-1.11, T-1.19, T-1.21 | 6 RED test files (189 tests) |
-| 11 | T-1.2, T-1.20, T-1.14, T-1.18 (4 parallel GREEN) | tool_registry.py + _shell_patterns.py + launchers.py + prereqs/sdk.py — 87 tests GREEN |
-| 12 | T-1.4 + T-1.6 + T-1.10 + T-1.22 + T-1.20 integration (combined) | user_scope_install.py (675 lines) — 204 tests GREEN |
-| 13 | T-1.8 (mechanisms package) | 12 mechanism classes — 51 tests GREEN, registry stubs replaced via re-export |
-
-### Phase 1 metrics
-
-- 87 tests GREEN in Phase 0 + 591 tests in Phase 1 = **678 tests added across spec-101 sessions, all GREEN**
-- 358 forbidden-substring scans clean across `installer/`, `doctor/`, `prereqs/`
-- 3399 unit tests passing in repo (sanity sweep) with 0 NEW regressions; 6 pre-existing failures unrelated
-- ruff format + check clean across all new modules
-
-### Files created in Phase 0+1 (12 new + 5 modified)
-
-**Created**:
-- `src/ai_engineering/state/manifest.py` (353 lines) — load_required_tools, load_sdk_prereqs, load_python_env_mode, LoadResult, StackSkip
-- `src/ai_engineering/installer/tool_registry.py` (453 lines) — TOOL_REGISTRY across 14 stacks, re-exports mechanisms
-- `src/ai_engineering/installer/user_scope_install.py` (675 lines) — DRIVER_BINARIES + _safe_run + run_verify + _scrubbed_env + RESOLVED_DRIVERS + compound shell guard
-- `src/ai_engineering/installer/_shell_patterns.py` (86 lines) — BLOCK_PATTERNS regex set
-- `src/ai_engineering/installer/launchers.py` (188 lines) — resolve_project_local for D-101-15
-- `src/ai_engineering/installer/mechanisms/__init__.py` (500 lines) — 12 mechanism classes + InstallResult + Sha256MismatchError
-- `src/ai_engineering/prereqs/__init__.py` + `prereqs/sdk.py` (310 lines) — probe_sdk + ProbeResult, probe-only allowlist
-- `src/ai_engineering/validator/categories/required_tools.py` (315 lines) — D-101-03+13 governance lint
-- 11 RED test files in `tests/unit/` (~3500 lines, 591 tests)
-- `tests/fixtures/test_manifests/spec101_required_tools.yml` (69 lines)
-- `.ai-engineering/runs/spec-101/phase-0-notes.md` (~500 lines exploration doc)
-
-**Modified**:
-- `src/ai_engineering/state/models.py` (+205 lines) — ToolSpec, StackSpec, RequiredToolsBlock, ToolInstallRecord, ToolInstallState, PythonEnvMode, Platform, ToolScope, SdkPrereq, InstallState extension
-- `src/ai_engineering/state/service.py` (+92 lines) — legacy state migration
-- `src/ai_engineering/cli_commands/validate.py` (+1 line for help text)
-- `src/ai_engineering/validator/_shared.py`, `validator/categories/__init__.py`, `validator/service.py` — wire required-tools lint into aggregator
-- `.ai-engineering/manifest.yml` + template (+91 lines each) — canonical 15-key required_tools + prereqs + python_env
-
-### Phase 0 — COMPLETE (17/17 tasks)
-
-| Task | Wave | State | Notes |
-|---|---|---|---|
-| T-0.1 | 1 | DONE | AGENT_METADATA + 8 mirrors (`ai-eng sync --check` exit 0) |
-| T-0.2 | 1 | DONE | `runs/spec-101/phase-0-notes.md` with 6 design corrections (Pydantic, _PIP_INSTALLABLE location, free-function pattern, etc.) |
-| T-0.3 | 2 | DONE | RED `test_required_tools_schema.py` (35 tests) |
-| T-0.4 | 3 | DONE | GREEN `state/models.py` ToolSpec/StackSpec/RequiredToolsBlock/Platform/ToolScope |
-| T-0.5 | 2 | DONE | RED `test_manifest_load_required_tools.py` (20 tests) |
-| T-0.6 | 4 | DONE | GREEN `state/manifest.py` `load_required_tools` + `LoadResult` |
-| T-0.7 | 2 | DONE | RED `test_validate_manifest_required_tools.py` (12 tests + 1 xpass) |
-| T-0.8 | 5 | DONE | GREEN `validator/categories/required_tools.py` + aggregator wire |
-| T-0.9 | 2 | DONE | RED `test_sdk_prereqs_schema.py` (31 tests) |
-| T-0.10 | 4 | DONE | GREEN `SdkPrereq` + `load_sdk_prereqs` |
-| T-0.11 | 2 | DONE | RED `test_python_env_mode_schema.py` (16 tests) |
-| T-0.12 | 4 | DONE | GREEN `PythonEnvMode` enum + `load_python_env_mode` |
-| T-0.13 | 2 | DONE | RED `test_install_state_required_tools.py` (27 tests) |
-| T-0.14 | 3 | DONE | GREEN `ToolInstallRecord` + `ToolInstallState` enum + `InstallState` extension |
-| T-0.15 | 6 | DONE | RED `test_install_state_migration.py` (6 tests) |
-| T-0.16 | 7 | DONE | GREEN legacy state migration (free-function, atomic rename, idempotent) |
-| T-0.17 | 8 | DONE_WITH_CONCERNS | manifest.yml + template canonical block (validator PASS, but lint normaliser bug logged for follow-up) |
-
-### Phase 2 — NEXT ENTRY POINT (0/28 tasks; T-1.16 also waiting on PHASE_TOOLS refactor)
-
-**Recommended Wave 14** (next session):
-
-The Phase 2 work refactors `installer/phases/tools.py` to use the new foundation modules. Approximate wave plan:
-
-1. **Wave 14 — Installer phase + exit codes** (5 tasks; sequential same file):
-   - T-2.1 RED + T-2.2 GREEN: `installer/phases/tools.py` reads `load_required_tools(resolved_stacks)` and uses `user_scope_install` mechanisms.
-   - T-2.3 RED + T-2.4 GREEN: EXIT 80/81 wiring with strict precedence.
-   - T-2.5 RED + T-2.6 GREEN: uv version-range runtime check (R-8).
-2. **Wave 15 — SDK gate + platform skips + OS release**:
-   - T-2.7 RED + T-2.8 GREEN: SDK prereq gate before tools phase (uses `prereqs/sdk.py`).
-   - T-2.9 RED + T-2.10 GREEN: platform_unsupported skip (tool + stack levels). Resolves T-1.16 deferred.
-   - T-2.11 RED + T-2.12 GREEN: OS-release capture at major.minor.
-3. **Wave 16 — PATH remediation + idempotence + simulation hook**:
-   - T-2.13 RED + T-2.14 GREEN: PATH-missing shell snippet.
-   - T-2.15 RED + T-2.16 GREEN: skip-on-verify-pass + os_release-mismatch + `--force`.
-   - T-2.17 RED + T-2.18 GREEN: `AIENG_TEST_SIMULATE_FAIL`.
-4. **Wave 17 — python_env modes + hook generator + data-driven runner**:
-   - T-2.19 RED + T-2.20 GREEN: `installer/python_env.py` with 3 modes + non-git fallback.
-   - T-2.21 RED + T-2.22 GREEN: `hooks/manager.py` mode branching (.venv/bin prepend toggle).
-   - T-2.23 RED + T-2.24 GREEN: `policy/checks/stack_runner.py` data-driven from manifest.
-   - T-2.25 RED + T-2.26 GREEN: stack_runner integration test (3 stacks via launcher).
-   - T-2.27 RED + T-2.28 GREEN: typescript-only no-op handling.
-
-### Phase 3-6 — UPCOMING (35 tasks)
-
-After Phase 2:
-- Phase 3 (4 tasks): doctor refactor parallel to Phase 2.
-- Phase 4 (9 tasks): CI matrix smoke + worktree-fast + time-budget + syscall evidence.
-- Phase 5 (13 tasks): CHANGELOG + BREAKING banner + IDE mirrors + docs + governance.
-- Phase 6 (5 tasks): quality gates + review.
-
-### Concerns logged (non-blocking, follow-up)
-
-1. **Lint normaliser bug** in `validator/categories/required_tools.py:88-115` — forces `required_tools:` as last top-level key in manifest. Latent, follow-up post-spec-101.
-2. **6 pre-existing test failures** in `main` HEAD unrelated to spec-101 (`test_real_project_integrity::test_file_existence`, `test_existing_tooling_preserved_after_tools_merge`, 3× `test_swift_stack_skip::TestInstallerPhaseEndToEnd` that resolve in T-1.16/T-2.10, plus 1 misc). Verified by stashing changes and re-running on `main` HEAD — same 6 fail.
-3. **Tool registry vs mechanisms duplication** resolved cleanly: registry now imports from mechanisms package; both surfaces expose the SAME class objects.
-4. **Apple Silicon Homebrew (`/opt/homebrew`)** is statically allowlisted; **Intel Homebrew (`/usr/local`)** intentionally NOT allowlisted because privileged binaries also live there — Intel users get acceptance via the `brew` driver entry instead.
-
-### Recommended resume command
-
-```
-/ai-autopilot --resume
-```
-
-(or `/ai-dispatch --resume` for fine-grained per-task control). The Dispatch Status block above is the source-of-truth state for the resume mechanism.
-
----
-
-
-## Pipeline: full
-## Phases: 7
-## Tasks: 102 (build: 95, verify: 1, guard: 1, review: 1, iteration holders: 4)
-
-**Spec ref**: `.ai-engineering/specs/spec.md` (status: approved, scope expanded 2026-04-25)
-**Effort**: large (borderline; staying `large` because the parallelism keeps wave depth manageable)
 **Dependency graph**:
 ```
-Phase 0 (foundation: schema + state + python_env mode + AGENT_METADATA)
+Phase 0 (foundation: schema models + cache key + AGENT_METADATA)
        │
        ▼
-Phase 1 (tool registry [14 stacks] + user-scope install module + 8+ mechanisms)
-       ├──▶ Phase 2 (installer + exit codes + python_env modes + SDK prereqs + launcher) ──┬─▶ Phase 4 (CI smoke + worktree fast + time-budget + syscall evidence)
-       │                                                                                    └─▶ Phase 5 (CHANGELOG + banner + mirrors + docs + governance)
-       └──▶ Phase 3 (doctor refactor with python_env mode awareness)
-                                                                                                                                                  ▼
-                                                                                                                                Phase 6 (quality gates + review)
+Phase 1 (gate_cache.py: persist + lookup + invalidate + prune + override flags)
+       │
+       ▼
+Phase 2 (orchestrator.py: Wave 1 fixers serial + Wave 2 checkers parallel + emit findings)
+       ├──▶ Phase 3 (CLI extensions: gate run --cache-aware/--no-cache/--force/--json + cache --status/--clear)
+       │
+       ├──▶ Phase 4 (local fast-slice policy doc + skill integration in /ai-commit + /ai-pr)
+       │
+       ├──▶ Phase 5 (async parallel docs + pre-push wiring in /ai-pr step 6.5+7)
+       │
+       ├──▶ Phase 6 (watch loop wall-clock bounds in handlers/watch.md + watch-residuals.json emit)
+       │
+       └──▶ Phase 7 (verbosity reduction in 3 SKILL.md files)
+                                                            │
+                                                            ▼
+                                          Phase 8 (CI cache wiring + cross-IDE parity test)
+                                                            │
+                                                            ▼
+                                          Phase 9 (perf benchmarks + governance + verify + review)
 ```
 
-Phase 2 & 3 parallelize after Phase 1. Phase 4 & 5 parallelize after Phase 2. Phase 6 final.
+Phases 3-7 parallelize after Phase 2. Phase 8 after Phase 7 (needs the new skill markdown for cross-IDE test). Phase 9 final.
 
-### Path notes (verified)
-- `resolved_stacks` built in `cli_commands/core.py:238+`.
-- `InstallState` in `state/models.py`; extended in Phase 0.
-- `ai-eng validate` at `cli_commands/validate.py:31` — extended.
-- `ai-eng sync --check` at `cli_commands/sync.py:26`.
-- `hooks/manager.py:83-88` (bash) and `:114-115` (PowerShell) hardcode `.venv/bin` PATH prepend — the worktree pain root cause; modified in Phase 2.
-- `doctor/phases/tools.py:107` probes `<cwd>/.venv/pyvenv.cfg` — branches on `python_env.mode` in Phase 3.
-- `policy/checks/stack_runner.py` `PRE_COMMIT_CHECKS`/`PRE_PUSH_CHECKS` registry — made data-driven from manifest in Phase 2.
-- Language context files for all 14 stacks already exist at `.ai-engineering/contexts/languages/`.
+## Path notes (verified pre-plan)
 
----
-
-### Phase 0: Foundation — 14-stack schema + SDK prereqs + python_env mode + state + AGENT_METADATA
-
-**Gate**: agent write scope covers all new paths; `required_tools` block validates for all 15 keys (baseline + 14 stacks); `python_env.mode` validates with `uv-tool|venv|shared-parent`; SDK prereq schema validates; `load_required_tools(stacks)` and `load_sdk_prereqs(stacks)` return typed specs; governance lint catches abuse cases (tool-level all-3, stack-level missing reason); `InstallState` carries `required_tools_state` + `python_env_mode_recorded`; legacy state migration works.
-
-- [ ] T-0.1: Update `AGENT_METADATA` in `.claude/agents/ai-build.md` + mirrors to include write scopes for `installer/user_scope_install.py`, `installer/tool_registry.py`, `installer/mechanisms/**`, `installer/python_env.py`, `installer/launchers.py`, `state/manifest.py`, `prereqs/sdk.py`, `.github/workflows/install-smoke.yml`, `.github/workflows/install-time-budget.yml`, `.github/workflows/worktree-fast-second.yml`, `tests/fixtures/install-smoke/**`, `tests/fixtures/worktree-fast/**`, `tests/fixtures/install-time-budget/**`, `tests/integration/test_doctor_fix_node_stack.py`, `tests/integration/test_doctor_fix_go_stack.py`, `tests/integration/test_stack_runner_data_driven.py`, `.ai-engineering/contexts/python-env-modes.md`. Run `uv run ai-eng sync` to regenerate. (agent: build)
-- [ ] T-0.2: Read `state/models.py`, `state/service.py`, `cli_commands/validate.py`, `installer/phases/tools.py`, `doctor/phases/tools.py`, `hooks/manager.py`, `policy/checks/stack_runner.py` and document extension points in `.ai-engineering/runs/spec-101/phase-0-notes.md`. (agent: build — exploration, read-only)
-- [ ] T-0.3: Write failing tests in `tests/unit/test_required_tools_schema.py` for 15-key block (baseline + 14 stacks): each stack key is recognised; missing key fails; invalid `platform_unsupported` OS values fail; tool-level all-3 OSes fails; missing `unsupported_reason` fails; `platform_unsupported_stack` recognised at stack-level. (agent: build — RED)
-- [ ] T-0.4: Add `ToolSpec` + `StackSpec` dataclasses to `state/models.py` with fields `name`, `scope` (enum: `user_global`, `user_global_uv_tool`, `project_local`, `sdk_bundled`), `platform_unsupported`, `unsupported_reason`. `StackSpec` also carries `platform_unsupported_stack`. Blocked by T-0.3. (agent: build — GREEN)
-- [ ] T-0.5: Write failing tests in `tests/unit/test_manifest_load_required_tools.py`: `load_required_tools(stacks)` returns baseline ∪ declared stacks for each of the 14 stacks; unknown stack raises `UnknownStackError`; empty stacks returns baseline only; stack with `platform_unsupported_stack` covering current OS returns empty tool list with skip-reason. (agent: build — RED)
-- [ ] T-0.6: Implement `load_required_tools(stacks: list[str]) -> list[ToolSpec]` in new `state/manifest.py`. Blocked by T-0.5. (agent: build — GREEN)
-- [ ] T-0.7: Write failing tests in `tests/unit/test_validate_manifest_required_tools.py` for governance lint: tool-level cap 2-of-3 enforced; stack-level `platform_unsupported_stack` allowed for all 3 OSes (per D-101-13); `unsupported_reason` mandatory at both levels; OS enum validated; declared stack without matching `required_tools.<stack>` entry fails (R-15). (agent: build — RED)
-- [ ] T-0.8: Extend `cli_commands/validate.py` with `required_tools` lint per D-101-03 + D-101-13. Blocked by T-0.7. (agent: build — GREEN)
-- [ ] T-0.9: Write failing tests in `tests/unit/test_sdk_prereqs_schema.py`: `prereqs.sdk_per_stack` block validates names + `min_version` semver + `install_link` URL; missing fields fail. (agent: build — RED)
-- [ ] T-0.10: Add `SdkPrereq` model + `load_sdk_prereqs(stacks)` loader to `state/manifest.py`. Blocked by T-0.9. (agent: build — GREEN)
-- [ ] T-0.11: Write failing tests in `tests/unit/test_python_env_mode_schema.py`: `python_env.mode` accepts `uv-tool|venv|shared-parent`; missing key defaults to `uv-tool`; invalid value fails. (agent: build — RED)
-- [ ] T-0.12: Add `PythonEnvMode` enum + manifest loader hook in `state/manifest.py`. Blocked by T-0.11. (agent: build — GREEN)
-- [ ] T-0.13: Write failing tests in `tests/unit/test_install_state_required_tools.py` for extended `InstallState.required_tools_state: dict[str, ToolInstallRecord]` + `python_env_mode_recorded: PythonEnvMode | None` + ToolInstallRecord fields (state, mechanism, version, verified_at, os_release). Include enum values: `installed`, `skipped_platform_unsupported`, `skipped_platform_unsupported_stack`, `not_installed_project_local`, `failed_needs_manual`. (agent: build — RED)
-- [ ] T-0.14: Extend `state/models.py` with `ToolInstallRecord` + `InstallState.required_tools_state` + `python_env_mode_recorded`. Blocked by T-0.13. (agent: build — GREEN)
-- [ ] T-0.15: Write failing tests in `tests/unit/test_install_state_migration.py` (R-10): legacy state (missing `required_tools_state` or `python_env_mode_recorded`) renames file to `install-state.json.legacy-<ts>` and returns fresh state. (agent: build — RED)
-- [ ] T-0.16: Implement legacy-state migration in `state/service.py` loader. Blocked by T-0.15. (agent: build — GREEN)
-- [ ] T-0.17: Add canonical 15-key `required_tools` block + `prereqs.sdk_per_stack` + `python_env.mode: uv-tool` to `.ai-engineering/manifest.yml` AND `src/ai_engineering/templates/.ai-engineering/manifest.yml`. Blocked by T-0.8, T-0.10, T-0.12. (agent: build)
+- `policy/gates.py` exists at `src/ai_engineering/policy/gates.py` — extended (not rewritten) by spec-104.
+- `policy/checks/stack_runner.py` made data-driven by spec-101 D-101-01; spec-104 wraps execution via orchestrator without breaking that contract.
+- `cli_commands/gate.py` exists; spec-104 extends with new flags.
+- `state/models.py` — extended with `GateFinding`, `AutoFixedEntry`, `GateFindingsDocument`, `WatchLoopState` Pydantic models.
+- `.claude/skills/ai-commit/SKILL.md` (126 lines), `.claude/skills/ai-pr/SKILL.md` (221 lines), `.claude/skills/ai-pr/handlers/watch.md` (185 lines) — exact line numbers in D-104-07 verified.
+- IDE mirrors `.github/skills/ai-commit/`, `.codex/skills/ai-commit/`, `.gemini/skills/ai-commit/` and `ai-pr/` regenerated by `uv run ai-eng sync`.
+- CI workflows at `.github/workflows/ci-build.yml`, `ci-check.yml`, `install-smoke.yml`, `install-time-budget.yml`, `worktree-fast-second.yml` — spec-104 adds cache wiring to ci-build/ci-check only.
 
 ---
 
-### Phase 1: Tool registry + user-scope install module + 8+ mechanisms (14 stacks)
+### Phase 0: Foundation — schema models + cache key + AGENT_METADATA
 
-**Gate**: `installer/tool_registry.py` maps tools for all 14 stacks; `installer/user_scope_install.py` exists with `_safe_run` runtime guard; **all 12 mechanism types** tested with mocked subprocess; offline-safe verify passes under `HTTPS_PROXY=http://127.0.0.1:1`; cross-file forbidden-substring grep covers `installer/**/*.py` AND `doctor/**/*.py` AND `prereqs/**/*.py`.
+**Gate**: agent write scope covers all new paths; `GateFinding` Pydantic model validates fixture in `tests/fixtures/gate_findings_v1.json`; `_compute_cache_key` produces deterministic hex digest given fixed inputs; ortogonalidad spec-101 verificada (no toca `installer/`, `doctor/`, `prereqs/`, `state/manifest.py`).
 
-- [ ] T-1.1: Write failing tests in `tests/unit/test_tool_registry.py`: per-tool per-OS mechanism list; verify cmd shape; regex match for ~30 tools spanning 14 stacks. (agent: build — RED)
-- [ ] T-1.2: Create `installer/tool_registry.py` with `TOOL_REGISTRY` dict + typed mechanism spec covering: gitleaks, semgrep, jq (baseline); ruff, ty, pip-audit, pytest, sqlfluff (python+sql via uv-tool); checkstyle, google-java-format (java); ktlint (kotlin); staticcheck, govulncheck (go); dotnet-format (csharp); cargo-audit (rust); phpstan, php-cs-fixer, composer (php); shellcheck, shfmt (bash); clang-tidy, clang-format, cppcheck (cpp); swiftlint, swift-format (swift, with stack-level `platform_unsupported_stack: [linux, windows]`). Blocked by T-1.1. (agent: build — GREEN)
-- [ ] T-1.3: Write failing tests in `tests/unit/test_driver_binaries.py` for `DRIVER_BINARIES` resolution: git, uv, python, node, npm/pnpm/bun, dotnet, brew, winget, scoop, curl, **java, kotlinc, swift, dart, go, rustc/cargo, php, composer, clang/llvm**; missing drivers reported with actionable error. (agent: build — RED)
-- [ ] T-1.4: Implement `DRIVER_BINARIES` + `resolve_driver(name)` in `installer/user_scope_install.py`. Blocked by T-1.3. (agent: build — GREEN)
-- [ ] T-1.5: Write failing tests in `tests/unit/test_safe_run_guard.py` for `_safe_run(argv)`: rejects paths outside allowlists; allows install-targets (`~/.local/`, `~/.cargo/`, `~/.dotnet/tools/`, `~/.composer/vendor/bin/`, `~/go/bin/`, `~/.local/share/uv/tools/`, `$(brew --prefix)/`, project venv); allows drivers; raises `UserScopeViolation`; obfuscation attempts blocked. (agent: build — RED)
-- [ ] T-1.6: Implement `_safe_run` with expanded path allowlists for the 14-stack tool ecosystem. Blocked by T-1.5. (agent: build — GREEN)
-- [ ] T-1.7: Write failing tests in `tests/unit/test_install_mechanisms.py` for each mechanism class (mocked subprocess): `BrewMechanism`, `GitHubReleaseBinaryMechanism` (SHA256-pinned), `WingetMechanism`, `ScoopMechanism`, `UvToolMechanism`, `UvPipVenvMechanism`, `NpmDevMechanism`, `DotnetToolMechanism`, **`CargoInstallMechanism`** (rust), **`GoInstallMechanism`** (go), **`ComposerGlobalMechanism`** (php), **`SdkmanMechanism`** (java/kotlin JDK helper). (agent: build — RED)
-- [ ] T-1.8: Implement the 12 mechanism classes in `installer/mechanisms/` package, each routing through `_safe_run`. Blocked by T-1.7. (agent: build — GREEN)
-- [ ] T-1.9: Write failing tests in `tests/unit/test_verify_offline_safe.py`: `HTTPS_PROXY=http://127.0.0.1:1` env forces offline; `gitleaks detect --no-git --source /dev/null` exit 0; `semgrep --version` exit 0 (no `--config auto`); regex matches; covers verify cmds for all 14 stacks (≥1 per stack). (agent: build — RED)
-- [ ] T-1.10: Implement `run_verify(tool_spec) -> VerifyResult` with 10s timeout + regex match. Blocked by T-1.9. (agent: build — GREEN)
-- [ ] T-1.11: Write failing test `tests/unit/test_no_forbidden_substrings.py` greps **all** files under `src/ai_engineering/installer/**/*.py`, `src/ai_engineering/doctor/**/*.py`, AND `src/ai_engineering/prereqs/**/*.py` for forbidden literals (`sudo`, `apt install`, `yum install`, `dnf install`, `npm install -g`, `choco install`, `Install-Package` without `-Scope CurrentUser`); test must FAIL until modules clean. (agent: build — RED)
-- [ ] T-1.12: Clean target modules to pass the grep test. Blocked by T-1.11. (agent: build — GREEN)
-- [ ] T-1.13: Write failing tests in `tests/unit/test_project_local_launcher.py` for D-101-15 launcher pattern: typescript routes via `npx`; php via `./vendor/bin/`; java via `./mvnw`/`./gradlew`; kotlin via `./gradlew`; cpp via `cmake`+`ctest`; missing launcher emits actionable "run X to install dev deps" message. (agent: build — RED)
-- [ ] T-1.14: Implement `installer/launchers.py` with `resolve_project_local(tool_spec, cwd) -> list[str]` returning the launcher cmd. Blocked by T-1.13. (agent: build — GREEN)
-- [ ] T-1.15: Write failing tests in `tests/unit/test_swift_stack_skip.py`: on linux/windows, swift stack returns empty tool list + `skipped_platform_unsupported_stack` records per declared swift tool; on darwin, normal install path runs. (agent: build — RED)
-- [ ] T-1.16: Implement stack-level platform-skip in `state/manifest.py.load_required_tools` per D-101-13. Blocked by T-1.15. (agent: build — GREEN)
-- [ ] T-1.17: Write failing tests in `tests/unit/test_sdk_prereq_probes.py` as a **parametric test** with one case per SDK-required stack — total **9 parametrised cases**, asserted via `len(_test_cases) == 9` to prevent silent omission. Cases: `java -version` parsing JDK version (java + kotlin both share this); `dotnet --version` parsing >= 9; `swift --version` (darwin only); `dart --version`; `go version`; `rustc --version`; `php --version` >= 8.2; `clang --version` OR `gcc --version` (cpp). Plus a **probe-only allowlist** test asserting `prereqs/sdk.py` subprocess argv shapes match the allowlist and reject any install-shaped command (no `install`, `add`, `download`, `curl`, etc. as args). (agent: build — RED)
-- [ ] T-1.18: Implement `prereqs/sdk.py` module with per-stack probes + EXIT 81 message templating. Probe-only invariant enforced (D-101-14): module never invokes install commands. Blocked by T-1.17. (agent: build — GREEN)
-- [ ] T-1.19: Write failing tests in `tests/unit/test_safe_run_compound_shell.py` (D-101-02 hardening 3): when `argv[0]` resolves to bash/sh/pwsh/node/python, `_safe_run` MUST inspect the full argv and reject compound-shell exfiltration patterns: `curl|bash`, `wget -O-|bash`, `nc -e`, `bash -i >& /dev/tcp/`, `eval $(curl...)`, `base64 -d | sh`, `< <(curl ...)`. Legitimate uses (`bash -c "echo ok"`, `python -c "print('hi')"`) MUST be allowed. Test asserts each blocklist pattern raises `UserScopeViolation` and each allowlisted invocation succeeds. (agent: build — RED)
-- [ ] T-1.20: Implement `installer/_shell_patterns.py` with the blocklist regex set + integrate into `_safe_run` so shell-interpreter argv values are inspected for compound chains. Blocked by T-1.19. Constraint: DO NOT modify T-1.19 tests. (agent: build — GREEN)
-- [ ] T-1.21: Write failing tests in `tests/unit/test_safe_run_env_scrub.py` (D-101-02 hardening 4): every subprocess spawned by `_safe_run` runs with a scrubbed env that strips sensitive keys matching `^(.+_API_KEY|.+_SECRET|.+_TOKEN|.+_PASSWORD|ANTHROPIC_API_KEY|AWS_SECRET_ACCESS_KEY|AWS_ACCESS_KEY_ID|GITHUB_TOKEN|DATABASE_URL|GH_TOKEN|AZURE_.+_KEY|GOOGLE_APPLICATION_CREDENTIALS)$`. Test poisons parent env with synthetic credentials, runs each mechanism + each verify cmd, asserts child process sees `KeyError` (or empty value) for every sensitive key. Standard env (`PATH`, `HOME`, `LANG`, `TZ`, `TERM`) preserved. Also asserts `RESOLVED_DRIVERS` is a frozen dict initialised at import time and that `shutil.which` is called once per driver per process (TOCTOU closure verification). (agent: build — RED)
-- [ ] T-1.22: Implement `_scrubbed_env(os.environ)` + `RESOLVED_DRIVERS` frozen dict at module load time in `installer/user_scope_install.py`; thread `env=_scrubbed_env(...)` through every `subprocess.run`/`Popen` call. Blocked by T-1.21. Constraint: DO NOT modify T-1.21 tests. (agent: build — GREEN)
+- [ ] T-0.1: Update `AGENT_METADATA` in `.claude/agents/ai-build.md` + 9 mirrors to include write scopes for `policy/orchestrator.py`, `policy/gate_cache.py`, `cli_commands/gate.py` (extension), `.ai-engineering/contexts/gate-policy.md`, `tests/unit/test_gate_*.py`, `tests/unit/test_orchestrator_*.py`, `tests/unit/test_skill_contract_completeness.py`, `tests/unit/test_skill_line_budget.py`, `tests/perf/test_ai_pr_warmcache.py`, `tests/perf/test_ai_pr_coldcache.py`, `tests/integration/test_gate_cache_hit_rate.py`, `tests/integration/test_gate_cross_ide.py`, `tests/integration/test_watch_loop_bounds.py`, `tests/fixtures/gate_findings_v1.json`. Run `uv run ai-eng sync` to regenerate. (agent: build)
+- [ ] T-0.2: Read existing `policy/`, `cli_commands/`, `state/`, `.claude/skills/` paths and document extension points + spec-101 ortogonalidad verification in `.ai-engineering/runs/spec-104/phase-0-notes.md`. (agent: build — exploration, read-only)
+- [ ] T-0.3: Write failing tests in `tests/unit/test_gate_findings_schema.py` (15 tests): `GateFinding` model accepts valid record; rejects missing required fields; `severity` enum exhaustive; `auto_fixable=true` requires `auto_fix_command` non-null; `GateFindingsDocument.schema` literal `"ai-engineering/gate-findings/v1"`; `wall_clock_ms` keys exhaustive (wave1_fixers, wave2_checkers, total). (agent: build — RED)
+- [ ] T-0.4: Add `GateFinding`, `AutoFixedEntry`, `GateFindingsDocument`, `WatchLoopState` Pydantic models to `state/models.py`. Blocked by T-0.3. (agent: build — GREEN)
+- [ ] T-0.5: Write failing tests in `tests/unit/test_gate_cache_key.py` (10 tests): `_compute_cache_key` deterministic given fixed inputs; same inputs different order yield same key (sorted); different `tool_version` yields different key; different `staged_blob_shas` yields different key; `_CONFIG_FILE_WHITELIST` lookup per check exhaustive (8 checks); 32-char filename truncation. (agent: build — RED)
+- [ ] T-0.6: Implement `gate_cache._compute_cache_key` + `_CONFIG_FILE_WHITELIST` constant per D-104-09. Blocked by T-0.5. (agent: build — GREEN)
+- [ ] T-0.7: Write canonical fixture at `tests/fixtures/gate_findings_v1.json` with all severity levels, auto_fixed entries, cache_hits/misses, wall_clock_ms; round-trip test asserts `GateFindingsDocument.parse_file().dict() == json.load(...)`. (agent: build — RED+GREEN combined; small fixture)
+- [ ] T-0.8: Confirm spec-101 ortogonalidad — write `tests/integration/test_spec104_orthogonality.py` asserting `policy/orchestrator.py` and `gate_cache.py` import nothing from `installer/` or `doctor/`; confirm `manifest.yml` change for spec-104 is additive only (`gates.policy_doc_ref` key) and does NOT alter `required_tools`/`python_env`/`prereqs`. (agent: build — RED+GREEN)
 
 ---
 
-### Phase 2: Installer phase refactor + python_env modes + SDK prereqs + exit codes + idempotence + PATH + uv range
+### Phase 1: gate_cache.py — persist, lookup, invalidate, prune, override flags
 
-**Gate**: `ai-eng install` installs baseline ∪ resolved_stacks; `python_env.mode=uv-tool` DOES NOT create `.venv/`; `mode=venv` creates `.venv/` and prepends `.venv/bin` to hook PATH; `mode=shared-parent` exports `UV_PROJECT_ENVIRONMENT`; SDK prereq gate runs BEFORE tools and exits 81 on missing SDK; exits 80 on tool failure; `platform_unsupported` and `platform_unsupported_stack` skip correctly; idempotent (verify pass + os_release match); PATH-missing produces shell-specific snippet; simulation hook gated by `AIENG_TEST=1`; data-driven `stack_runner.py` registry.
+**Gate**: cache file write atómico; corrupted JSON treated as miss; max-age 24h enforced; LRU prune to 256 entries on persist; `--no-cache`/`--force`/`AIENG_CACHE_DISABLED=1` exhaustively tested; cross-platform path handling (Windows + POSIX).
 
-- [ ] T-2.1: Write failing tests in `tests/unit/test_installer_phase_tools.py`: `PHASE_TOOLS` reads `load_required_tools(resolved_stacks)`; installs baseline ∪ stacks via `user_scope_install`; marks state per tool; respects `python_env.mode`. (agent: build — RED)
-- [ ] T-2.2: Rewrite `installer/phases/tools.py` to use `user_scope_install` for all required tools; remove hardcoded `_PIP_INSTALLABLE`; drop VCS-only scoping; branch on `python_env.mode` for Python tools. Blocked by T-2.1 AND Phase 1. (agent: build — GREEN)
-- [ ] T-2.3: Write failing tests in `tests/integration/test_install_exit_codes.py` for EXIT 80 (tool install failed) and EXIT 81 (prereq missing OR SDK missing); precedence (missing SDK → 81 before any tool install runs). (agent: build — RED)
-- [ ] T-2.4: Wire EXIT 80 / 81 in `cli_commands/core.py` install entry; enforce precedence per D-101-11 + D-101-14. Blocked by T-2.3. (agent: build — GREEN)
-- [ ] T-2.5: Write failing tests in `tests/unit/test_uv_version_range.py` (R-8): uv version outside `prereqs.uv.version_range` yields EXIT 81 with mismatch message. (agent: build — RED)
-- [ ] T-2.6: Implement uv version-range runtime check in prereqs phase. Blocked by T-2.5. (agent: build — GREEN)
-- [ ] T-2.7: Write failing tests in `tests/integration/test_sdk_prereq_gate.py`: missing JDK on a project declaring `java` stack → EXIT 81 with link to https://adoptium.net/; same for go/rust/csharp/php/dart/swift (darwin only)/cpp/kotlin. (agent: build — RED)
-- [ ] T-2.8: Wire SDK prereq gate as a phase BEFORE tools phase in `installer/pipeline.py`. Blocked by T-2.7 AND Phase 1 (T-1.18). (agent: build — GREEN)
-- [ ] T-2.9: Write failing tests in `tests/unit/test_platform_unsupported_skip.py`: tool-level `platform_unsupported` for current OS skipped + recorded; stack-level `platform_unsupported_stack` skips all stack tools + records per-tool. (agent: build — RED)
-- [ ] T-2.10: Implement skip-and-record (both levels) in `installer/phases/tools.py`. Blocked by T-2.9. (agent: build — GREEN)
-- [ ] T-2.11: Write failing tests in `tests/unit/test_install_os_release.py`: OS release captured at major.minor (sw_vers / lsb_release / VERSION_ID / OSVersion.Version). (agent: build — RED)
-- [ ] T-2.12: Implement OS-release capture helper. Blocked by T-2.11. Single concern. (agent: build — GREEN)
-- [ ] T-2.13: Write failing tests in `tests/unit/test_path_shell_remediation.py` (R-1, R-9): tool-runnable-but-not-on-PATH emits shell-specific snippet (bash/zsh/fish/PowerShell). (agent: build — RED)
-- [ ] T-2.14: Implement PATH-missing detection + shell snippet. Blocked by T-2.13. (agent: build — GREEN)
-- [ ] T-2.15: Write failing tests in `tests/integration/test_install_idempotence.py`: second run reports zero reinstalls when state `installed` + verify passes + os_release matches; synthetic os_release bump invalidates skip. Includes `python_env.mode` recorded check (mode change → re-eval). (agent: build — RED)
-- [ ] T-2.16: Implement skip-on-verify-pass + `--force` override + python_env_mode change detection. Blocked by T-2.15. (agent: build — GREEN)
-- [ ] T-2.17: Write failing tests in `tests/unit/test_aieng_test_simulate_fail.py`: `AIENG_TEST=1 AIENG_TEST_SIMULATE_FAIL=ruff` synthesizes failure for ruff only; no effect when `AIENG_TEST` unset. (agent: build — RED)
-- [ ] T-2.18: Implement `AIENG_TEST_SIMULATE_FAIL` env hook gated behind `AIENG_TEST=1`. Blocked by T-2.17. (agent: build — GREEN)
-- [ ] T-2.19: Write failing tests in `tests/unit/test_python_env_mode_install.py`: `mode=uv-tool` → no `.venv/` created, pytest installed via `uv tool install`; `mode=venv` → `.venv/` created in cwd, pytest in `.venv/bin/`; `mode=shared-parent` → venv created at `$(git rev-parse --git-common-dir)/../.venv` and `UV_PROJECT_ENVIRONMENT` exported; `mode=shared-parent` outside a git repo → EXIT 80 with the D-101-12 fallback message ("requires git repository; run `git init` or set `mode=venv`"). (agent: build — RED)
-- [ ] T-2.20: Implement `installer/python_env.py` module + branch in installer phase + non-git fallback for `shared-parent` per D-101-12. Blocked by T-2.19. (agent: build — GREEN)
-- [ ] T-2.21: Write failing tests in `tests/unit/test_hook_generator_python_env.py`: `mode=uv-tool` → hook PATH preamble OMITS `.venv/bin`; `mode=venv` → keeps current behaviour; `mode=shared-parent` → preamble exports `UV_PROJECT_ENVIRONMENT="$(git rev-parse --git-common-dir)/../.venv"`. Cover both bash and PowerShell hook templates. (agent: build — RED)
-- [ ] T-2.22: Modify `hooks/manager.py:83-88` (bash) and `:114-115` (pwsh) to branch on `python_env.mode`. Blocked by T-2.21. (agent: build — GREEN)
-- [ ] T-2.23: Write failing tests in `tests/unit/test_stack_runner_data_driven.py`: `PRE_COMMIT_CHECKS`/`PRE_PUSH_CHECKS` resolved from manifest at runtime; declared stack without `required_tools.<stack>` entry produces clear validation error (R-15); project_local tools route through launcher (D-101-15). (agent: build — RED)
-- [ ] T-2.24: Refactor `policy/checks/stack_runner.py` to be data-driven from `load_required_tools(stacks)` + dispatch project_local through `installer/launchers.py`. Blocked by T-2.23 AND T-1.14. (agent: build — GREEN)
-- [ ] T-2.25: Write failing integration test `tests/integration/test_stack_runner_data_driven.py` exercising 3 stacks end-to-end: a python-stack project triggers `ruff check` via direct PATH invocation; a typescript-stack project (with seeded `node_modules/.bin/eslint`) triggers eslint via `npx`; a go-stack project triggers `staticcheck` via `~/go/bin`. Each gate run asserts the correct launcher pattern and exit-0 on a known-good fixture. (agent: build — RED)
-- [ ] T-2.26: Verify the integration test passes (may require seeding the typescript fixture's `node_modules` and the go fixture's GOPATH). Blocked by T-2.25. (agent: build — GREEN)
-- [ ] T-2.27: Write failing tests in `tests/unit/test_typescript_stack_no_op_install.py`: `ai-eng install` on a typescript-only project (4 project_local tools, zero installer-managed) emits info-level "stack uses project-local launchers" message AND verifies `package.json` exists; if missing, EXIT 80 with `npm init -y` remediation per R-3 pattern. (agent: build — RED)
-- [ ] T-2.28: Implement project_local-only stack handling in `installer/phases/tools.py` per D-101-01 carve-out. Blocked by T-2.27. (agent: build — GREEN)
+- [ ] T-1.1: Write failing tests in `tests/unit/test_gate_cache_persist.py` (12 tests): atomic write via tempfile+rename; concurrent writes handled (last-writer-wins, no corruption); read of corrupted JSON returns miss + log warn; cross-platform path normalization. (agent: build — RED)
+- [ ] T-1.2: Implement `gate_cache._atomic_write(path, data)` + `_read_safe(path) -> CacheEntry | None`. Blocked by T-1.1. (agent: build — GREEN)
+- [ ] T-1.3: Write failing tests in `tests/unit/test_gate_cache_hit_miss.py` (15 tests): hit on PASS replays PASS; hit on FAIL replays FAIL with original findings; miss persists fresh result; replay log includes `cache_hit: true|false`; `key_inputs` field captures hash inputs for audit. (agent: build — RED)
+- [ ] T-1.4: Implement `gate_cache.lookup(check_name, args) -> CacheEntry | None` + `gate_cache.persist(check_name, args, result)`. Blocked by T-1.3 + T-0.6. (agent: build — GREEN)
+- [ ] T-1.5: Write failing tests in `tests/unit/test_gate_cache_max_age.py` (8 tests): entry within 24h returns hit; entry > 24h treated as miss + cleared; clock-skew tolerance (entry from future → treated as miss + cleared); ISO-8601 timestamp parsing edge cases. (agent: build — RED)
+- [ ] T-1.6: Implement max-age check in `gate_cache.lookup` per D-104-03. Blocked by T-1.5. (agent: build — GREEN)
+- [ ] T-1.7: Write failing tests in `tests/unit/test_gate_cache_lru_prune.py` (8 tests): LRU prune triggers at 257th write (256 cap); oldest by `verified_at` evicted first; total disk size ≤16 MB after 1000 simulated inserts; prune is idempotent. (agent: build — RED)
+- [ ] T-1.8: Implement `_prune_if_oversize(cache_dir, max_entries=256)`. Blocked by T-1.7. (agent: build — GREEN)
+- [ ] T-1.9: Write failing tests in `tests/unit/test_gate_cache_overrides.py` (10 tests): `--no-cache` skips lookup but persists; `--force` skips lookup AND clears matching entry; `AIENG_CACHE_DISABLED=1` env equivalent to `--no-cache` global; flags compose correctly with `--cache-aware` default-on. (agent: build — RED)
+- [ ] T-1.10: Implement override-flag handling in `gate_cache.lookup` and `gate_cache.persist`. Blocked by T-1.9. (agent: build — GREEN)
 
 ---
 
-### Phase 3: Doctor refactor (parallel to Phase 2)
+### Phase 2: orchestrator.py — Wave 1 fixers serial + Wave 2 checkers parallel + JSON emission
 
-**Gate**: `ai-eng doctor --fix --phase tools` uses shared module; covers all 14 stacks; respects `python_env.mode` (skips `_check_venv_health` in `mode=uv-tool`); integration test for node stack installs prettier locally; integration test for go stack runs `go install staticcheck`.
+**Gate**: Wave 2 cannot start before Wave 1 completes (race-free); 5 Wave 2 checkers run in parallel via `concurrent.futures.ThreadPoolExecutor`; gate-findings.json emitted per schema v1; `AIENG_LEGACY_PIPELINE=1` restores sequential pre-spec-104 behavior.
 
-- [ ] T-3.1: Write failing tests in `tests/unit/test_doctor_phase_tools.py`: doctor reads `load_required_tools(resolved_stacks)` and uses `user_scope_install`; respects `python_env.mode`. (agent: build — RED)
-- [ ] T-3.2: Rewrite `doctor/phases/tools.py` to delegate to `user_scope_install`; remove hardcoded `_REQUIRED_TOOLS`; branch on `python_env.mode` for venv-related checks. Blocked by T-3.1 AND Phase 1. (agent: build — GREEN)
-- [ ] T-3.3: Write failing tests in `tests/unit/test_doctor_venv_health_skip.py`: `_check_venv_health` returns `not_applicable` in `mode=uv-tool`; runs probes in `mode=venv`. (agent: build — RED)
-- [ ] T-3.4: Modify `doctor/phases/tools.py:107` `_check_venv_health` to branch on `python_env.mode`. Blocked by T-3.3. (agent: build — GREEN)
-- [ ] T-3.5: Write failing integration test `tests/integration/test_doctor_fix_node_stack.py`: node-stack project missing prettier → `ai-eng doctor --fix --phase tools` runs `npm install --save-dev prettier` and verify passes. (agent: build — RED)
-- [ ] T-3.6: Verify integration test passes (may require minimal `package.json` in fixture). Blocked by T-3.5. (agent: build — GREEN)
-- [ ] T-3.7: Write failing integration test `tests/integration/test_doctor_fix_go_stack.py`: go-stack project missing staticcheck → `ai-eng doctor --fix --phase tools` runs `go install honnef.co/go/tools/cmd/staticcheck@latest` to `~/go/bin/`. (agent: build — RED)
-- [ ] T-3.8: Verify go integration test passes. Blocked by T-3.7. (agent: build — GREEN)
-
----
-
-### Phase 4: CI matrix smoke + worktree-fast + time-budget + syscall evidence
-
-**Gate**: `.github/workflows/install-smoke.yml` green on macos/ubuntu/windows; exit 80 on PATH=""; idempotence + os_release invalidation asserted; strace/dtruss/Process Monitor logs uploaded; `install-time-budget.yml` asserts ≤10 min for python single-stack baseline (G-11); `worktree-fast-second.yml` asserts ≤30s for second worktree commit in `mode=uv-tool` (G-12).
-
-- [ ] T-4.1: Create clean-project fixture at `tests/fixtures/install-smoke/clean-project/` with minimal `.ai-engineering/manifest.yml` (baseline + python stack, `python_env.mode: uv-tool`). (agent: build)
-- [ ] T-4.2: Create `.github/workflows/install-smoke.yml` with 3-OS matrix, uv setup, `ai-eng install`, `git commit --allow-empty -m smoke` assertions. (agent: build)
-- [ ] T-4.3: Add workflow step: `env -i PATH="" ai-eng install` asserts exit 80 + stderr matches per-tool remediation regex from G-3. (agent: build)
-- [ ] T-4.4: Add workflow step for G-4(c) syscall evidence: ubuntu `strace -f -e trace=execve -o syscalls-ubuntu.log`; macOS `sudo dtruss` (skip-with-note if unavailable); Windows Process Monitor PML filtered by `ai-eng.exe`. Upload as 7-day artifacts. (agent: build)
-- [ ] T-4.5: Add workflow step: `ai-eng install && ai-eng install` asserts second run 0 reinstalls; synthetic os_release write triggers re-probe. (agent: build)
-- [ ] T-4.6: Pin `prereqs.uv.version_range` in manifest + template; CI matrix uses pinned min + max uv versions. (agent: build)
-- [ ] T-4.7: Create fixture `tests/fixtures/install-time-budget/python-single-stack/` (clean python project, no SDK install needed). Create `.github/workflows/install-time-budget.yml`: 3-OS matrix runs `time bash -c "git clone <fixture> && cd <fixture> && ai-eng install . && git commit --allow-empty -m smoke"` and asserts wall-clock < 600s (G-11). Use **median-of-3 runs** to absorb runner-load jitter. **Trigger**: nightly schedule + manual `workflow_dispatch` + PR-label `perf` only (NOT every push) to keep PR feedback latency reasonable; the install-smoke job stays on every-push. (agent: build)
-- [ ] T-4.8: Create fixture `tests/fixtures/worktree-fast/python-multi-worktree/`. Create `.github/workflows/worktree-fast-second.yml`: ubuntu only in this iteration. Job runs: clone + install primary; `time bash -c "git worktree add ../wt2 && cd ../wt2 && ai-eng install . && git commit --allow-empty -m smoke"`; asserts wall-clock < 30s in `mode=uv-tool` (G-12), **median-of-3** for jitter absorption. **Windows worktree variance is explicitly out-of-scope for this iteration** — `UV_PROJECT_ENVIRONMENT` path-separator handling needs a dedicated investigation; tracked in Out-of-scope section as a follow-up note. (agent: build)
-- [ ] T-4.9: Add a 14-stack registry-coverage test in CI: lint asserts every stack in `manifest.providers.stacks` has a corresponding `required_tools.<stack>` block AND a `prereqs.sdk_per_stack.<stack>` entry IFF the stack is in the SDK-required list. (agent: build)
+- [ ] T-2.1: Write failing tests in `tests/unit/test_orchestrator_wave1.py` (10 tests): Wave 1 runs `ruff format` → `ruff check --fix` → `spec verify --fix` strictly serial; ordering preserved across runs; on first-fixer-failure subsequent fixers still run (collect, don't bail); intra-wave re-run if first pass produced changes that second pass needs to validate. (agent: build — RED)
+- [ ] T-2.2: Implement `orchestrator.run_wave1(staged_files) -> Wave1Result`. Blocked by T-2.1. (agent: build — GREEN)
+- [ ] T-2.3: Write failing tests in `tests/unit/test_orchestrator_wave2.py` (12 tests): 5 checkers spawn in parallel (verified by mocking subprocess and asserting all started within 50ms); no race on shared filesystem (each checker reads a snapshot); aggregated result preserves per-check ordering for deterministic output; exception in one checker doesn't kill others (collect all). (agent: build — RED)
+- [ ] T-2.4: Implement `orchestrator.run_wave2(staged_files) -> Wave2Result` using `concurrent.futures.ThreadPoolExecutor(max_workers=5)`. Blocked by T-2.3. (agent: build — GREEN)
+- [ ] T-2.5: Write failing tests in `tests/unit/test_orchestrator_emit_findings.py` (10 tests): `gate-findings.json` emitted at `.ai-engineering/state/gate-findings.json`; schema v1 conforming; `wall_clock_ms` populated; `cache_hits`/`cache_misses` accurately tracked; `produced_by` reflects caller (ai-commit | ai-pr | watch-loop); `branch` and `commit_sha` captured from git. (agent: build — RED)
+- [ ] T-2.6: Implement `orchestrator._emit_findings(wave1_result, wave2_result, cache_stats)`. Blocked by T-2.5 + T-0.4. (agent: build — GREEN)
+- [ ] T-2.7: Write failing tests in `tests/integration/test_orchestrator_cache_integration.py` (8 tests): cache hit on Wave 2 checker skips run + replays; cache miss runs and persists; mixed hit/miss scenarios; cache disabled via `--no-cache` runs all fresh; debug log via `AIENG_CACHE_DEBUG=1` shows hit/miss per check. (agent: build — RED)
+- [ ] T-2.8: Wire `gate_cache.lookup`/`persist` into `orchestrator.run_wave2`. Blocked by T-2.7 + Phase 1. (agent: build — GREEN)
+- [ ] T-2.9: Write failing tests in `tests/unit/test_orchestrator_legacy_fallback.py` (6 tests): `AIENG_LEGACY_PIPELINE=1` env restores sequential behavior (no parallelism, no cache); legacy path produces same final result; warning logged about legacy mode active. (agent: build — RED)
+- [ ] T-2.10: Implement legacy fallback path in `orchestrator.run_gate`. Blocked by T-2.9. (agent: build — GREEN)
+- [ ] T-2.11: Write failing tests in `tests/unit/test_orchestrator_race_safety.py` (4 tests): with sleep injection in Wave 1 fixer, Wave 2 does NOT start until Wave 1 returns; explicit assertion via shared counter. (agent: build — RED)
+- [ ] T-2.12: Confirm wave2 gate is explicit; add `assert wave1_complete.is_set()` invariant in `run_wave2`. Blocked by T-2.11. (agent: build — GREEN)
 
 ---
 
-### Phase 5: CHANGELOG + BREAKING banner + python_env doc + IDE mirrors + governance
+### Phase 3: CLI extensions — gate run + gate cache subcommands
 
-**Gate**: `ai-eng sync --check` passes; CHANGELOG has top-level BREAKING entry covering EXIT codes + `python_env.mode` default + 14-stack manifest; first-run banner fires once; `.github/CODEOWNERS` covers manifest; `copilot-instructions.md` automated test asserts zero stale tool-list refs; `python_env` doc section in README explains the three modes.
+**Gate**: `ai-eng gate run --cache-aware --json` exists and is default behavior; `--no-cache` and `--force` work; `gate cache --status`/`--clear` exposed; help text + error messages clear.
 
-- [ ] T-5.1: Write failing tests in `tests/unit/test_breaking_banner.py`: first-run BREAKING banner seen once; state flag recorded; not repeated. (agent: build — RED)
-- [ ] T-5.2: Implement banner in `installer/pipeline.py` + state flag. Blocked by T-5.1. (agent: build — GREEN)
-- [ ] T-5.3: Add CHANGELOG.md top-level BREAKING entries: (a) `ai-eng install` hard-fails on missing required tools; EXIT 80/81 reserved; removed silent-pass; (b) `python_env.mode` defaults to `uv-tool` — users requiring `.venv/` per-cwd must opt in via `python_env.mode: venv`; (c) `required_tools` now covers 14 stacks. (agent: build)
-- [ ] T-5.4: Update README.md migration section: remove `|| true`; document EXIT 80/81; explain `platform_unsupported` (tool vs stack); explain `python_env.mode` decision tree (uv-tool/venv/shared-parent) with the 30s-worktree benefit; list the 14 stacks. (agent: build)
-- [ ] T-5.5: Write failing test `tests/unit/test_copilot_instructions_no_stale_refs.py` (G-10 automation): asserts `.github/copilot-instructions.md` zero occurrences of `_PIP_INSTALLABLE`, `_REQUIRED_TOOLS`, legacy hardcoded tool-list names. (agent: build — RED)
-- [ ] T-5.6: Run `uv run ai-eng sync` to regenerate IDE mirrors. Stage for `/ai-commit` (plan does NOT commit). (agent: build)
-- [ ] T-5.7: Run `uv run ai-eng sync --check`; rerun T-5.6 if drift. Blocked by T-5.6. (agent: build)
-- [ ] T-5.8: Edit `.github/copilot-instructions.md` to remove stale references; rerun T-5.5 to confirm GREEN. Blocked by T-5.5. (agent: build — GREEN)
-- [ ] T-5.9: Add CODEOWNERS entry for `.ai-engineering/manifest.yml` (D-101-03 + D-101-13 governance). Pause for user input on maintainer handle if ambiguous. (agent: build)
-- [ ] T-5.10: Add `.ai-engineering/contexts/python-env-modes.md` summary doc explaining the three modes, when to use each, and migration commands; reference from README and CLAUDE.md table. (agent: build)
-- [ ] T-5.11: Update `CLAUDE.md` (mandatory first-line read for every session) — append a brief "Installer modes" entry to the **Source of Truth** section pointing to `.ai-engineering/contexts/python-env-modes.md`; add EXIT-80/81 reference; mention 14-stack support. Keep additions minimal — CLAUDE.md is summary-only, details belong in contexts. (agent: build)
-- [ ] T-5.12: Write failing test `tests/unit/test_changelog_breaking_keywords.py` asserting CHANGELOG.md contains the keywords `EXIT 80`, `EXIT 81`, `python_env.mode`, and `14 stacks` in the most recent BREAKING section — guards against accidental documentation regression on the BREAKING entry from T-5.3. (agent: build — RED)
-- [ ] T-5.13: Adjust CHANGELOG entry to satisfy T-5.12 keyword test if needed. Blocked by T-5.12. (agent: build — GREEN)
+- [ ] T-3.1: Write failing tests in `tests/unit/test_cli_gate_run_flags.py` (12 tests): `--cache-aware` default-on; `--no-cache` skips lookup; `--force` skips lookup + clears entry; `--json` emits structured output to stdout; flags compose correctly; `--help` documents each flag. (agent: build — RED)
+- [ ] T-3.2: Extend `cli_commands/gate.py` with new flags + JSON output. Blocked by T-3.1 + Phase 2. (agent: build — GREEN)
+- [ ] T-3.3: Write failing tests in `tests/unit/test_cli_gate_cache_subcommands.py` (8 tests): `gate cache --status` lists entries with sizes + max-age remaining; `gate cache --clear` deletes all entries; `--clear --yes` skips interactive confirm; `--clear` without `--yes` prompts. (agent: build — RED)
+- [ ] T-3.4: Implement `gate cache --status`/`--clear` subcommands. Blocked by T-3.3. (agent: build — GREEN)
 
 ---
 
-### Phase 6: Quality gates + governance + review
+### Phase 4: Local fast-slice policy + skill integration
 
-**Gate**: all quality gates green; specialists approve; NEVER-weaken-gates intact; decision-store unchanged except spec-101 own entries.
+**Gate**: `.ai-engineering/contexts/gate-policy.md` exists with the local-vs-CI table; orchestrator local mode excludes `semgrep`/`pip-audit`/`pytest-full`; `.claude/skills/ai-commit/SKILL.md` and `ai-pr/SKILL.md` instruct agent to call `ai-eng gate run --cache-aware`; `ai-eng sync --check` PASS.
 
-- [ ] T-6.1: Dispatch `/ai-governance` advisory: NEVER-weaken-gates not violated; decision-store.json only adds spec-101 own risks; ownership boundaries respected. Output: governance report. (agent: guard — advisory)
-- [ ] T-6.2: Dispatch `/ai-verify --full`: deterministic + LLM verifiers. Zero medium+ findings; coverage ≥80% on changed files; cyclomatic ≤10; cognitive ≤15. (agent: verify)
-- [ ] T-6.3: If T-6.2 reports failures: fix root cause (no suppressions). Max 2 iterations. Blocked by T-6.2. (agent: build — iteration holder)
-- [ ] T-6.4: Dispatch `/ai-review` on full diff: reviewer-architecture, reviewer-correctness, reviewer-security, reviewer-testing, reviewer-maintainability, reviewer-compatibility specialists. (agent: review)
-- [ ] T-6.5: Address review findings; no scope creep. Max 2 iterations. Blocked by T-6.4. (agent: build — iteration holder)
+- [ ] T-4.1: Write `.ai-engineering/contexts/gate-policy.md` with the table from D-104-02 + rationale + per-check budget contract. (agent: build)
+- [ ] T-4.2: Write failing tests in `tests/unit/test_local_fast_slice_policy.py` (8 tests): orchestrator in `local` mode does NOT include `semgrep`/`pip-audit`/`pytest-full` in Wave 2; `ci` mode includes all checks; mode is selected by `ai-eng gate run --mode={local,ci}` flag (default local). (agent: build — RED)
+- [ ] T-4.3: Add `mode` parameter to `orchestrator.run_gate` + filter checks per mode. Blocked by T-4.2. (agent: build — GREEN)
+- [ ] T-4.4: Edit `.claude/skills/ai-commit/SKILL.md` — replace steps 2-6 (format → lint → secret → docs → validate → spec verify) with single instruction: "Run `ai-eng gate run --cache-aware --json --mode=local`. If exit 1, parse JSON findings and report per check; do NOT proceed to commit unless all medium+ severity resolved or accepted via spec-105 (when available)." Net change: trim steps. (agent: build)
+- [ ] T-4.5: Edit `.claude/skills/ai-pr/SKILL.md` step 7 — replace pre-push gate stack-detection block + tool list with: "Run `ai-eng gate run --cache-aware --json --mode=local` (delegates the full gate to orchestrator). CI matrix runs `--mode=ci` authoritative pre-merge." (agent: build)
+- [ ] T-4.6: Run `uv run ai-eng sync` to regenerate IDE mirrors (`.github/`, `.codex/`, `.gemini/`). Stage for `/ai-commit`. Blocked by T-4.4 + T-4.5. (agent: build)
+- [ ] T-4.7: Run `uv run ai-eng sync --check`; iterate T-4.6 if drift. Blocked by T-4.6. (agent: build)
+
+---
+
+### Phase 5: Async parallel docs + pre-push wiring in /ai-pr
+
+**Gate**: `.claude/skills/ai-pr/SKILL.md` step 6.5 dispatches docs subagentes AND step 7 orchestrator concurrently; block on `max(docs_a1, docs_a2, prepush_w2)`; PR description coherent at `gh pr create` time; `ai-eng sync --check` PASS.
+
+- [ ] T-5.1: Write failing tests in `tests/integration/test_async_parallel_dispatch.py` (6 tests): 3 concurrent tasks spawn within 100ms; total wall-clock ≈ `max(individual)` not `sum(individual)`; on early failure of one task, others continue and result aggregates correctly; PR body assembly happens after all 3 complete. (agent: build — RED)
+- [ ] T-5.2: Edit `.claude/skills/ai-pr/SKILL.md` step 6.5 + step 7 — restructure to 3 concurrent dispatch lanes (docs A1, docs A2, orchestrator wave 2). Update Process narrative + Quick Reference. (agent: build — GREEN)
+- [ ] T-5.3: Run `uv run ai-eng sync` to regenerate IDE mirrors. Blocked by T-5.2. (agent: build)
+- [ ] T-5.4: Verify `ai-eng sync --check` PASS post-changes. Blocked by T-5.3. (agent: build)
+
+---
+
+### Phase 6: Watch loop wall-clock bounds + watch-residuals.json
+
+**Gate**: `handlers/watch.md` emits `watch-residuals.json` on cap with schema v1; active phase 30min cap, passive 4h cap; exit code 90 distinct; per-check `fix_attempts >= 3` retained.
+
+- [ ] T-6.1: Write failing tests in `tests/integration/test_watch_loop_bounds.py` (10 tests): active wall-clock cap at 30 min from `last_active_action_at` triggers STOP; passive cap at 4h from `watch_started_at` triggers STOP; on cap, `watch-residuals.json` emitted with schema v1; exit 90 distinct from 0/1/80/81; per-check `fix_attempts >= 3` still triggers STOP independently of wall-clock. Use `freezegun` or equivalent to fast-forward time. (agent: build — RED)
+- [ ] T-6.2: Edit `.claude/skills/ai-pr/handlers/watch.md`:
+  - Add `watch_started_at` and `last_active_action_at` to State block.
+  - Step 7 (Print status and wait): add wall-clock cap checks before increment.
+  - Add new sub-step "Step 7.5 — Wall-clock cap" with the active/passive logic.
+  - Update Escalation rules table with wall-clock cap row.
+  - Document exit 90 contract.
+  - Specify `watch-residuals.json` emit format (reference D-104-06 schema).
+  Blocked by T-6.1. (agent: build — GREEN)
+- [ ] T-6.3: Add helper `src/ai_engineering/policy/watch_residuals.py` to emit `watch-residuals.json` from a list of failed checks (consumed by ai-eng CLI helper, used by watch loop fixer). (agent: build)
+- [ ] T-6.4: Write failing tests in `tests/unit/test_watch_residuals_emit.py` (6 tests): emit is atomic; schema v1 conforming; produced_by="watch-loop"; severity preserved from CI annotations; round-trip parse via `GateFindingsDocument` model. (agent: build — RED)
+- [ ] T-6.5: Implement `watch_residuals.emit(failed_checks, output_path)`. Blocked by T-6.4 + T-6.3. (agent: build — GREEN)
+- [ ] T-6.6: Run `uv run ai-eng sync` to regenerate watch.md mirrors. Blocked by T-6.2. (agent: build)
+
+---
+
+### Phase 7: Verbosity reduction (3 SKILL.md files, conservative)
+
+**Gate**: line count budget asserted; contract-completeness preserved; `ai-eng sync --check` PASS.
+
+- [ ] T-7.1: Write failing test `tests/unit/test_skill_contract_completeness.py` (12 tests): each of `ai-commit/SKILL.md`, `ai-pr/SKILL.md`, `ai-pr/handlers/watch.md` retains `## Process`, `## Integration`, `## Quick Reference`, `argument-hint` in frontmatter; section ordering preserved; required headings count exhaustive. (agent: build — RED)
+- [ ] T-7.2: Write failing test `tests/unit/test_skill_line_budget.py` (4 tests): combined line count across 3 files ≥160 lines below pre-spec-104 baseline (532 → ≤372); per-file caps documented in baseline-snapshot fixture; test fails if any file grows from baseline. (agent: build — RED)
+- [ ] T-7.3: Edit `.claude/skills/ai-commit/SKILL.md` — remove lines 110-119 Common Mistakes/Don't duplicate; replace with one-line pointer to CLAUDE.md. Net: -10 lines. (agent: build — GREEN)
+- [ ] T-7.4: Edit `.claude/skills/ai-pr/SKILL.md` — remove lines 53-63 stack-detection block; replace with one-line pointer to `.ai-engineering/contexts/languages/`. Net: -11 lines. (agent: build — GREEN)
+- [ ] T-7.5: Edit `.claude/skills/ai-pr/SKILL.md` lines 199-205 Common Mistakes — consolidate the duplicated anti-patterns into watch.md and link from ai-pr/SKILL.md. Net: -22 lines from ai-pr; +0 net to watch.md (reorganize, no duplication). (agent: build — GREEN)
+- [ ] T-7.6: Apply surrounding-boilerplate trim to satisfy ≥160-line target across the 3 files (orphan separators, redundant headers, duplicate examples). Run T-7.1 + T-7.2 to confirm GREEN. (agent: build — GREEN)
+- [ ] T-7.7: Run `uv run ai-eng sync` to regenerate IDE mirrors. Blocked by T-7.3..T-7.6. (agent: build)
+- [ ] T-7.8: Verify `ai-eng sync --check` PASS post-changes. Blocked by T-7.7. (agent: build)
+
+---
+
+### Phase 8: CI cache wiring + cross-IDE parity
+
+**Gate**: `actions/cache@v4` wired in `ci-build.yml` and `ci-check.yml` with key matching local hash schema; `tests/integration/test_gate_cross_ide.py` PASS for 4 IDE-emulated environments; CI run on PR shows cache hit metrics in artifacts.
+
+- [ ] T-8.1: Edit `.github/workflows/ci-build.yml` — add `actions/cache@v4` step before lint/typecheck/test jobs with key `gate-cache-${{ runner.os }}-${{ hashFiles('pyproject.toml', '.ruff.toml', '.gitleaks.toml') }}-${{ github.event.pull_request.base.sha || github.sha }}`. Path: `.ai-engineering/state/gate-cache/`. (agent: build)
+- [ ] T-8.2: Edit `.github/workflows/ci-check.yml` — same cache step for security/test jobs. (agent: build)
+- [ ] T-8.3: Write failing test `tests/integration/test_ci_cache_key_schema.py` (4 tests): CI cache key components match local `_compute_cache_key` schema (tool_version + config_file_hashes + args); test parses workflow YAML and asserts inputs are subsets/equivalents. (agent: build — RED)
+- [ ] T-8.4: Confirm cache key schema parity (run T-8.3 GREEN). Blocked by T-8.1 + T-8.2. (agent: build — GREEN)
+- [ ] T-8.5: Write failing test `tests/integration/test_gate_cross_ide.py` (8 tests): invoke `ai-eng gate run --json` 4 times with env vars simulating `claude_code`, `github_copilot`, `codex`, `gemini` (via `AIENG_IDE=...`); normalize `session_id` and timestamps; assert remaining JSON byte-identical; test fails if any IDE-specific branching detected. (agent: build — RED)
+- [ ] T-8.6: Confirm orchestrator does NOT branch on IDE env vars (pure CLI behavior). Blocked by T-8.5. (agent: build — GREEN)
+
+---
+
+### Phase 9: Perf benchmarks + governance + verify + review
+
+**Gate**: G-1 (≥40% warm-cache reduction), G-2 (≤90s cold-cache), G-3 (≥70% hit rate) verified; quality gates pass; specialists approve.
+
+- [ ] T-9.1: Write `tests/perf/test_ai_pr_warmcache.py` (G-1) — runs `ai-eng gate run --cache-aware --json` twice on identical staged files; second-run wall-clock asserted ≤60% of first; uses pytest `--benchmark` or `time.perf_counter`; runs in CI nightly only (perf-label gate). (agent: build)
+- [ ] T-9.2: Write `tests/perf/test_ai_pr_coldcache.py` (G-2) — clears cache; runs `ai-eng gate run --cache-aware --json --mode=local`; wall-clock asserted ≤90s on python single-stack baseline fixture. CI nightly only. (agent: build)
+- [ ] T-9.3: Write `tests/integration/test_gate_cache_hit_rate.py` (G-3) — runs gate 10 times with deterministic inputs; asserts hit rate ≥70% via `AIENG_CACHE_DEBUG=1` log assertions. (agent: build)
+- [ ] T-9.4: Dispatch `/ai-governance` advisory: NEVER-weaken-gates not violated; decision-store.json only adds spec-104 own entries; ownership boundaries respected; `ai_providers.enabled` consulted (LESSONS rule). Output: governance report in `runs/spec-104/governance.md`. (agent: guard — advisory)
+- [ ] T-9.5: Dispatch `/ai-verify --full`: deterministic + LLM verifiers. Zero medium+ findings; coverage ≥80% on changed files; cyclomatic ≤10; cognitive ≤15. Output: `runs/spec-104/verify.md`. (agent: verify)
+- [ ] T-9.6: If T-9.5 reports failures: fix root cause (no suppressions). Max 2 iterations. Blocked by T-9.5. (agent: build — iteration holder)
+- [ ] T-9.7: Dispatch `/ai-review` on full diff: reviewer-architecture, reviewer-correctness, reviewer-security, reviewer-testing, reviewer-maintainability, reviewer-compatibility specialists. Output: `runs/spec-104/review.md`. (agent: review)
+- [ ] T-9.8: Address review findings; no scope creep. Max 2 iterations. Blocked by T-9.7. (agent: build — iteration holder)
 
 ---
 
 ## TDD enforcement
 
-All RED tasks produce failing tests; paired GREEN task explicitly blocked + carries "DO NOT modify T-X.Y tests" constraint.
+All RED tasks produce failing tests; paired GREEN task explicitly blocked + carries "DO NOT modify T-X.Y tests" constraint where contract is finalized.
 
 ## Agent breakdown
 
 | Agent | Count |
 |---|---|
-| build | 95 |
+| build | 50 |
 | verify | 1 |
 | guard | 1 |
 | review | 1 |
-| iteration holders | 4 |
+| iteration holders | 3 |
 
 ## Out-of-scope (NOT in this plan)
 
-- S2-S5 backlog (`.ai-engineering/notes/adoption-s*.md`).
-- Auto-install of language SDKs (NG-11) — links only.
-- Auto-install of prereqs (NG-5).
-- sudo/apt/system install (NG-6).
-- New public CLI commands (NG-8).
-- `--offline` install flow (NG-10).
-- Windows-specific worktree-fast benchmark (deferred): `UV_PROJECT_ENVIRONMENT` path-separator handling and wall-clock variance bounding on Windows runners need a dedicated investigation. POSIX worktrees covered in T-4.8 (ubuntu); behaviour and correctness tests for `mode=shared-parent` on Windows are unit-tested in T-2.21/2.22 but performance benchmarking is deferred.
-- Cmake/ctest project_local doctor integration test for cpp stack (only go and node have parallel doctor integration tests in T-3.5→3.8; cpp deferred — non-blocking because launcher pattern is unit-tested in T-1.13/1.14).
-- Negative cascade test for "JDK present + kotlin tools fail to download" — covered implicitly by EXIT 80 path but not explicitly tested as a multi-stack scenario.
-- Commit of regenerated mirrors (handled by `/ai-commit`).
+- spec-105/106/107 work (S3 risk-accept CLI, S4 skills consolidation, S5 MCP Sentinel) — separate brainstorm sessions.
+- Auto-decoration of `pytest -m smoke` marker by `ai-eng install` (OQ-1, deferred).
+- Cross-machine cache content sharing (NG-9).
+- New top-level `ai-eng` subcommands (NG-8 — only flag extensions allowed).
+- `manifest.yml` per-project gate-policy configurability (NG-6).
+- Resume after orchestrator crash mid-Wave-2 (OQ-4, deferred).
+- `--offline` install flow (out of spec-104; spec-101 OQ-3).
 
 ## Spec → Plan coverage matrix
 
 | Spec item | Tasks | Status |
 |---|---|---|
-| G-1 manifest 14 stacks | T-0.3→0.17 | COVERED |
-| G-2 3-OS smoke | T-4.1/4.2 | COVERED |
-| G-3 fail with remediation | T-2.3/2.4, T-4.3 | COVERED |
-| G-4 (a)+(b)+(c) | T-1.11/1.12, T-1.5/1.6, T-4.4 | COVERED |
-| G-5 platform_unsupported governance | T-0.7/0.8, T-2.9/2.10 | COVERED |
-| G-6 doctor shared module | T-3.1→3.8 | COVERED |
-| G-7 runnable verify | T-1.9/1.10 | COVERED |
-| G-8 state record | T-0.13/0.14, T-2.11/2.12 | COVERED |
-| G-9 idempotence + os_release | T-2.15/2.16 | COVERED |
-| G-10 IDE mirrors automated | T-5.5→5.8 | COVERED |
-| G-11 ≤10 min single-stack | T-4.7 | COVERED |
-| G-12 worktree second-commit ≤30s | T-4.8 | COVERED |
-| D-101-01 14-stack manifest SoT | T-0.3→0.17, T-2.2 | COVERED |
-| D-101-02 user-scope + guard + cross-file grep + compound-shell + env-scrub | T-1.5/1.6, T-1.11/1.12, T-1.19/1.20, T-1.21/1.22 | COVERED |
-| D-101-03 platform_unsupported governance | T-0.7/0.8, T-5.9 | COVERED |
-| D-101-04 offline-safe verify | T-1.9/1.10 | COVERED |
-| D-101-05 resolved_stacks | T-2.2 | COVERED |
-| D-101-06 registry owns mechanisms | T-1.1/1.2 | COVERED |
-| D-101-07 idempotence + os_release | T-2.11→2.16 | COVERED |
-| D-101-08 doctor shares module | T-3.1/3.2 | COVERED |
-| D-101-09 BREAKING + banner | T-5.1→5.3 | COVERED |
-| D-101-10 CI matrix | T-4.1→4.9 | COVERED |
-| D-101-11 EXIT 80/81 + AIENG_TEST + uv range | T-2.3/2.4, T-2.5/2.6, T-2.17/2.18 | COVERED |
-| D-101-12 python_env.mode (uv-tool default) | T-0.11/0.12, T-2.19→2.22, T-3.3/3.4, T-5.10 | COVERED |
-| D-101-13 stack-level platform_unsupported | T-0.7/0.8, T-1.15/1.16, T-2.9/2.10 | COVERED |
-| D-101-14 SDK prereq detection | T-0.9/0.10, T-1.17/1.18, T-2.7/2.8 | COVERED |
-| D-101-15 project_local launcher | T-1.13/1.14, T-2.23→2.28 | COVERED |
-| D-101-01 project_local carve-out | T-0.13/0.14 (state value), T-2.27/2.28 (typescript no-op handling) | COVERED |
-| CLAUDE.md mandatory reference | T-5.11 | COVERED |
-| CHANGELOG keyword regression guard | T-5.12/5.13 | COVERED |
+| G-1 warm-cache ≥40% reduction | T-9.1 | COVERED |
+| G-2 cold-cache ≤90s | T-9.2 | COVERED |
+| G-3 hit rate ≥70% | T-9.3 | COVERED |
+| G-4 schema v1 | T-0.3, T-0.4, T-0.7, T-2.5, T-2.6 | COVERED |
+| G-5 watch loop bounds + exit 90 | T-6.1..T-6.6 | COVERED |
+| G-6 ≥30% line reduction | T-7.1..T-7.8 | COVERED |
+| G-7 sync --check PASS | T-4.6, T-4.7, T-5.3, T-5.4, T-7.7, T-7.8 | COVERED |
+| G-8 cross-IDE parity | T-8.5, T-8.6 | COVERED |
+| G-9 spec-101 contract intact | T-0.8 + spec-101 install-smoke CI continues unchanged | COVERED |
+| D-104-01 Wave 1 + Wave 2 | T-2.1..T-2.12 | COVERED |
+| D-104-02 local fast-slice + CI authoritative | T-4.1, T-4.2, T-4.3, T-8.1, T-8.2 | COVERED |
+| D-104-03 hash + max-age 24h | T-1.1..T-1.10 | COVERED |
+| D-104-04 async parallel docs+pre-push | T-5.1, T-5.2 | COVERED |
+| D-104-05 watch loop wall-clock bounds | T-6.1, T-6.2 | COVERED |
+| D-104-06 schema v1 contract | T-0.3, T-0.4, T-0.7, T-6.4, T-6.5 | COVERED |
+| D-104-07 verbosity reduction | T-7.1..T-7.8 | COVERED |
+| D-104-08 cross-IDE CLI-layer | T-4.4..T-4.7, T-8.5, T-8.6 | COVERED |
+| D-104-09 cache key inputs | T-0.5, T-0.6 | COVERED |
+| D-104-10 override flags | T-1.9, T-1.10, T-3.1..T-3.4 | COVERED |
 
 ## Risks tracked to tasks
 
 | Spec risk | Plan task(s) |
 |---|---|
-| R-1 PATH | T-2.13/2.14 |
-| R-2 npm/node prereqs | T-2.3/2.4 |
-| R-3 package.json missing | T-3.5/3.6 |
-| R-4 Homebrew absent | T-1.1/1.2 (macOS GitHubReleaseBinaryMechanism fallback) |
-| R-5 SHA drift | T-1.7/1.8 |
-| R-6 BREAKING disruption | T-5.1→5.3 |
-| R-7 version mismatch | T-1.9/1.10 |
-| R-8 uv range | T-2.5/2.6, T-4.6 |
-| R-9 Windows shells | T-2.13/2.14 |
-| R-10 legacy migration | T-0.15/0.16 |
-| R-11 air-gap | T-1.9/1.10 |
-| R-12 brew prefix | T-1.5/1.6 |
-| R-13 SDK prereq cascade | T-2.7/2.8, T-1.17/1.18 |
-| R-14 worktree venv | T-2.19→2.22, T-3.3/3.4, T-4.8 |
-| R-15 manifest ↔ stack_runner drift | T-0.7/0.8 (lint), T-2.23/2.24 (data-driven registry), T-4.9 (CI) |
+| R-1 cache poisoning | T-1.5, T-1.6 (max-age) + T-1.9 (--no-cache) |
+| R-2 stale tool upgrade | T-0.5, T-0.6 (tool_version in key) + T-1.9 (--force) |
+| R-3 cache size unbounded | T-1.7, T-1.8 (LRU prune) |
+| R-4 schema drift S2↔S3 | T-0.3, T-0.7 (versioned schema) |
+| R-5 wave 1 ↔ wave 2 race | T-2.11, T-2.12 (race-safety test) |
+| R-6 watch wall-clock false positive | T-6.1 (CI timing mock test) |
+| R-7 verbosity cuts break IDE | T-7.1, T-7.2 (contract-completeness + line-budget) |
+| R-8 fast-slice missing CVE | T-4.1 (gate-policy.md docs CI authoritative) |
+| R-9 cache file corruption | T-1.1, T-1.2 (atomic write + corruption recovery) |
+| R-10 spec-101 conflicts | T-0.8 (ortogonalidad test) |
+| R-11 CI cache miss rate | T-8.3, T-8.4 (key schema parity) |
+| R-12 sequential dependency | T-2.1, T-2.2 (Wave 1 serial) + T-2.10 (legacy fallback) |
+| R-13 pytest -m smoke missing | T-4.2, T-4.3 (skip-passes when 0 tests) |
+| R-14 watch-residuals before S3 | T-6.2 (fallback message includes manual recourse) |
 
 ## Open questions (tracked, not task-gated)
 
-OQ-1 GPG, OQ-2 doctor auto-install, OQ-3 `--offline`, OQ-4 brew prefix, OQ-5 Windows ~/.local/bin — unchanged from prior iteration; still deferred or addressed in tasks above.
+OQ-1 smoke marker auto-decoration, OQ-2 CI whitelist tuning, OQ-3 source field in v1.1, OQ-4 orchestrator resume, OQ-5 LRU 256→512 — all deferred per spec.
 
-## Review summary
+## Recommended dispatch
 
-- Iteration 1 (post-scope-expansion): closing the new requirements (14 stacks, worktrees, ≤10 min, python_env mode).
-- Phase 0 grew from 13 to 17 tasks (+ 4 for SDK prereq schema, python_env schema, stack-level platform_unsupported support).
-- Phase 1 grew from 12 to 18 tasks (+ 4 mechanisms: Cargo, GoInstall, ComposerGlobal, Sdkman; + project_local launcher; + stack-level platform skip; + SDK prereq probes).
-- Phase 2 grew from 16 to 24 tasks (+ python_env mode install branching; + hook generator branching; + SDK prereq gate wiring; + data-driven stack_runner registry).
-- Phase 3 grew from 4 to 8 tasks (+ python_env mode awareness in doctor; + go stack integration test).
-- Phase 4 grew from 6 to 9 tasks (+ time-budget workflow G-11; + worktree-fast workflow G-12; + 14-stack registry-coverage CI lint).
-- Phase 5 grew from 9 to 10 tasks (+ python-env-modes.md context doc).
-- Phase 6 unchanged at 5 tasks.
-- Total: **85 tasks** (vs 64 before).
+```
+/ai-dispatch
+```
+
+Foundation gate (Phase 0) opens at start; subsequent phases unlock per dependency graph above.
