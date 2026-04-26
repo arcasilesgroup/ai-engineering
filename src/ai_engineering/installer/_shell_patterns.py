@@ -64,7 +64,10 @@ BLOCK_PATTERNS: tuple[re.Pattern[str], ...] = (
     # ``nc -h``-style benign argv from matching: ``--version`` lacks the
     # ``[A-Za-z]*e[A-Za-z]*`` short-flag shape because it has too many
     # post-prefix characters that don't form a valid short-flag bundle.
-    re.compile(r"\bnc\s+(?:\S+\s+)*-(?:[A-Za-z]*e[A-Za-z]*|-exec)\b"),
+    # Bounded {0,12} prevents catastrophic backtracking on adversarial input
+    # while still covering real reverse-shell argv shapes (`nc -nlvp 4444 -e /bin/sh`
+    # has only 4 intermediate tokens; 12 is well above any observed payload).
+    re.compile(r"\bnc\s+(?:\S+\s+){0,12}-(?:[A-Za-z]*e[A-Za-z]*|-exec)\b"),
     # Wave 27 (Sec-3): netcat called with a literal IPv4 address +
     # numeric port -- the connect-only shape used in script-driven
     # reverse-shell trampolines. Catches ``nc 10.0.0.1 4444`` /

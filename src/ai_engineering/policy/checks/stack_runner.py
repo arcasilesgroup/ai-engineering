@@ -345,9 +345,10 @@ def run_checks_for_stacks(
     Callers that have migrated to the data-driven
     :func:`get_checks_for_specs` dispatcher never reach this function.
     """
-    # Identify the stage from the registry identity so the deprecation
-    # warning carries the right label.
-    stage = "commit" if registry is PRE_COMMIT_CHECKS else "push"
+    # Identify the stage by comparing against the canonical pre-commit
+    # registry; the dispatcher only ever passes one of the two module-level
+    # constants, so equality matches identity in practice.
+    stage = "commit" if registry == PRE_COMMIT_CHECKS else "push"
     _warn_legacy_fallback(stage=stage)
 
     # Always run common checks

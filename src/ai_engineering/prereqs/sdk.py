@@ -126,8 +126,13 @@ def _parse_dart(output: str) -> str | None:
 
 
 def _parse_dotnet(output: str) -> str | None:
-    """Extract the dotnet SDK version from `dotnet --version` output."""
-    match = re.search(r"([0-9]+\.[0-9]+\.[0-9]+)", output.strip())
+    """Extract the dotnet SDK version from `dotnet --version` output.
+
+    Word-boundary anchors and `{1,4}` digit caps make matching deterministic
+    on adversarial input while still accepting real semver strings such as
+    ``9.0.100`` and four-digit components like ``2024.0.1``.
+    """
+    match = re.search(r"\b([0-9]{1,4}\.[0-9]{1,4}\.[0-9]{1,4})\b", output.strip())
     return match.group(1) if match else None
 
 
