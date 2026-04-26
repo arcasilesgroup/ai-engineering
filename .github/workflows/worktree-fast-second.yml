@@ -106,7 +106,7 @@ jobs:
             START=$(date +%s)
             (cd primary && git worktree add "$WT_PATH")
             (cd "primary/$WT_PATH" && ai-eng install . --non-interactive)
-            (cd "primary/$WT_PATH" && git commit --allow-empty -m "smoke")
+            (cd "primary/$WT_PATH" && git commit --allow-empty -m "chore: smoke commit")
             END=$(date +%s)
             ELAPSED=$((END - START))
             echo "Worktree run $run: ${ELAPSED}s"

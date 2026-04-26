@@ -24,8 +24,39 @@ remain orthogonal.
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from unittest.mock import patch
+
+# ---------------------------------------------------------------------------
+# Cross-platform home-env preservation.
+#
+# ``emit_path_snippet`` calls ``Path.home()`` internally. On Windows
+# ``Path.home()`` resolves via ``USERPROFILE`` (or ``HOMEDRIVE`` +
+# ``HOMEPATH``) read from ``os.environ`` -- when a test does
+# ``patch.dict(os.environ, {...}, clear=True)`` those vars get wiped and
+# ``Path.home()`` raises ``RuntimeError: Could not determine home directory``.
+#
+# Snapshot the home-env vars at import time so the ``clear=True`` patches
+# in this module can reinstate them while still presenting the SHELL /
+# PSModulePath / COMSPEC under test as the only shell hints.
+# ---------------------------------------------------------------------------
+
+_HOME_ENV_KEYS = ("USERPROFILE", "HOMEDRIVE", "HOMEPATH", "HOME")
+_HOME_ENV: dict[str, str] = {key: os.environ[key] for key in _HOME_ENV_KEYS if key in os.environ}
+
+
+def _shell_env(**overrides: str) -> dict[str, str]:
+    """Return a clean shell env preserving OS home-dir vars.
+
+    Tests use ``patch.dict(..., clear=True)`` to assert the snippet
+    renderer reacts only to the shell hint they provide. Without the
+    home-dir vars ``Path.home()`` (called inside ``emit_path_snippet``)
+    fails on Windows. Merging ``_HOME_ENV`` lets the patch stay clean
+    while still letting ``Path.home()`` resolve.
+    """
+    return {**_HOME_ENV, **overrides}
+
 
 # ---------------------------------------------------------------------------
 # _detect_active_shell -- env-driven shell sniffer
@@ -164,13 +195,13 @@ class TestEmitPathSnippetBashZsh:
     def test_bash_emits_export_path_string(self) -> None:
         from ai_engineering.installer import user_scope_install
 
-        # Resolve Path.home() BEFORE patching os.environ with clear=True --
-        # on Windows, Path.home() reads USERPROFILE/HOMEDRIVE+HOMEPATH and
-        # raises RuntimeError if those env vars are absent.
+        # ``emit_path_snippet`` calls ``Path.home()`` internally; preserve
+        # USERPROFILE/HOMEDRIVE/HOMEPATH via ``_shell_env`` so the patched
+        # environment still resolves home on Windows.
         target = Path.home() / ".local" / "bin"
         with patch.dict(
             user_scope_install.os.environ,
-            {"SHELL": "/bin/bash"},
+            _shell_env(SHELL="/bin/bash"),
             clear=True,
         ):
             snippet = user_scope_install.emit_path_snippet(target)
@@ -184,7 +215,7 @@ class TestEmitPathSnippetBashZsh:
         target = Path.home() / ".local" / "bin"
         with patch.dict(
             user_scope_install.os.environ,
-            {"SHELL": "/bin/zsh"},
+            _shell_env(SHELL="/bin/zsh"),
             clear=True,
         ):
             snippet = user_scope_install.emit_path_snippet(target)
@@ -203,7 +234,7 @@ class TestEmitPathSnippetFish:
         target = Path.home() / ".local" / "bin"
         with patch.dict(
             user_scope_install.os.environ,
-            {"SHELL": "/usr/local/bin/fish"},
+            _shell_env(SHELL="/usr/local/bin/fish"),
             clear=True,
         ):
             snippet = user_scope_install.emit_path_snippet(target)
@@ -221,7 +252,7 @@ class TestEmitPathSnippetPowerShell:
         target = Path.home() / ".local" / "bin"
         with patch.dict(
             user_scope_install.os.environ,
-            {"PSModulePath": "C:\\Modules"},
+            _shell_env(PSModulePath="C:\\Modules"),
             clear=True,
         ):
             snippet = user_scope_install.emit_path_snippet(target)
@@ -241,7 +272,7 @@ class TestEmitPathSnippetCmd:
         target = Path.home() / ".local" / "bin"
         with patch.dict(
             user_scope_install.os.environ,
-            {"COMSPEC": "C:\\Windows\\System32\\cmd.exe"},
+            _shell_env(COMSPEC="C:\\Windows\\System32\\cmd.exe"),
             clear=True,
         ):
             snippet = user_scope_install.emit_path_snippet(target)
@@ -256,7 +287,7 @@ class TestEmitPathSnippetFallback:
         from ai_engineering.installer import user_scope_install
 
         target = Path.home() / ".local" / "bin"
-        with patch.dict(user_scope_install.os.environ, {}, clear=True):
+        with patch.dict(user_scope_install.os.environ, _shell_env(), clear=True):
             snippet = user_scope_install.emit_path_snippet(target)
 
         assert snippet.startswith("export PATH=")
@@ -269,11 +300,10 @@ class TestEmitPathSnippetTargetDirSubstitution:
         """A non-default target_dir (e.g. ``~/.cargo/bin``) is substituted in."""
         from ai_engineering.installer import user_scope_install
 
-        # Resolve target BEFORE clear=True patch wipes USERPROFILE on Windows.
         target = Path.home() / ".cargo" / "bin"
         with patch.dict(
             user_scope_install.os.environ,
-            {"SHELL": "/bin/bash"},
+            _shell_env(SHELL="/bin/bash"),
             clear=True,
         ):
             snippet = user_scope_install.emit_path_snippet(target)
@@ -288,7 +318,7 @@ class TestEmitPathSnippetTargetDirSubstitution:
         target = Path.home() / ".dotnet" / "tools"
         with patch.dict(
             user_scope_install.os.environ,
-            {"SHELL": "/bin/zsh"},
+            _shell_env(SHELL="/bin/zsh"),
             clear=True,
         ):
             snippet = user_scope_install.emit_path_snippet(target)
@@ -317,7 +347,7 @@ class TestPathHelperContract:
         with (
             patch.dict(
                 user_scope_install.os.environ,
-                {"SHELL": "/bin/bash"},
+                _shell_env(SHELL="/bin/bash"),
                 clear=True,
             ),
             patch.object(user_scope_install, "capture_os_release") as os_release_mock,

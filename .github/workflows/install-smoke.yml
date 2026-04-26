@@ -175,14 +175,16 @@ jobs:
           # so the post-install gate sees the feature-branch state.
           (cd smoke-target && git checkout -b smoke-feature)
 
-      # T-4.2: ai-eng install . exits 0 + git commit --allow-empty -m smoke
-      # exits 0 (no "tool not found"). Smoke-installed tools must be runnable
-      # from the hook's resolved PATH.
+      # T-4.2: ai-eng install . exits 0 + git commit --allow-empty exits 0
+      # (no "tool not found"). Smoke-installed tools must be runnable from
+      # the hook's resolved PATH. The commit message must satisfy the
+      # framework's own commit-msg-format gate (conventional commits) since
+      # the install lands the gate hooks before the smoke commit runs.
       - name: T-4.2 install + smoke commit
         run: |
           . .smoke-venv/bin/activate || . .smoke-venv/Scripts/activate
           (cd smoke-target && ai-eng install . --non-interactive)
-          (cd smoke-target && git commit --allow-empty -m "smoke")
+          (cd smoke-target && git commit --allow-empty -m "chore: smoke commit")
 
       # T-4.3: env -i PATH="" ai-eng install . asserts EXIT 80 + stderr matches
       # the per-tool remediation regex (G-3 contract).

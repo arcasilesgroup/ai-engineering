@@ -86,8 +86,10 @@ jobs:
           which ai-eng
 
       # T-4.7: median-of-3. Each run is `git clone <fixture> && cd <fixture>
-      # && ai-eng install . && git commit --allow-empty -m smoke`. We use a
-      # local file:// clone to keep network noise out of the wall-clock.
+      # && ai-eng install . && git commit --allow-empty -m "chore: smoke"`.
+      # The conventional-commit prefix satisfies the framework's own
+      # commit-msg-format gate, which the just-installed hooks enforce. We
+      # use a local file:// clone to keep network noise out of the wall-clock.
       - name: T-4.7 median-of-3 install + smoke commit
         run: |
           . .smoke-venv/bin/activate || . .smoke-venv/Scripts/activate
@@ -99,7 +101,7 @@ jobs:
             START=$(date +%s)
             git clone fixture.git "run-$run"
             (cd "run-$run" && ai-eng install . --non-interactive)
-            (cd "run-$run" && git commit --allow-empty -m "smoke")
+            (cd "run-$run" && git commit --allow-empty -m "chore: smoke commit")
             END=$(date +%s)
             ELAPSED=$((END - START))
             echo "Run $run: ${ELAPSED}s"
