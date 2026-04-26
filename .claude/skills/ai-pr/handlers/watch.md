@@ -17,6 +17,8 @@ Post-PR monitoring loop with autonomous repair. Fixes CI failures, resolves merg
 - `last_comment_id`: 0 (highest review comment ID seen)
 - `fix_attempts`: {} (map check_name -> attempt_count, resets when that check passes)
 - `interval`: 60s (active) or 180s (passive)
+- `watch_started_at`: ISO-8601 UTC timestamp captured on first entry (anchors the passive 4h cap)
+- `last_active_action_at`: ISO-8601 UTC timestamp updated on every active action (fix push in Step 4 or rebase push in Step 5); anchors the active 30 min cap
 
 ## Procedure
 
@@ -81,7 +83,7 @@ For each failing check:
    git push origin <branch>
    ```
 
-8. **Reset** `interval = 60s`. Wait full interval before re-polling (give CI time to pick up new commit). Return to Step 1.
+8. **Update** `last_active_action_at = now()` (active-phase 30-min cap reset). **Reset** `interval = 60s`. Wait full interval before re-polling (give CI time to pick up new commit). Return to Step 1.
 
 ### Step 5 -- Resolve merge conflicts (autonomous)
 
@@ -91,7 +93,7 @@ If `mergeable == CONFLICTING` (GitHub) or merge status indicates conflict (Azure
 2. `git rebase origin/<target_branch>`
 3. If rebase conflicts: READ `.claude/skills/ai-resolve-conflicts/SKILL.md` and delegate conflict resolution to its category-aware logic (lock files → regenerate, migrations → ask user, generated files → accept theirs, config → AI merge, code → intent-aware resolution). This ensures lock-file regeneration, migration ordering safety, and stacked-PR detection are active during automated repair.
 4. `git push origin <branch> --force-with-lease`
-5. Reset `interval = 60s`. Wait, return to Step 1.
+5. Update `last_active_action_at = now()` (active-phase 30-min cap reset). Reset `interval = 60s`. Wait, return to Step 1.
 
 ### Step 6 -- Handle review comments
 
@@ -139,6 +141,31 @@ Fallback: if API call fails or membership cannot be determined, treat as externa
 - Wait for user approval before acting
 - If user skips: mark comment as seen, continue loop
 
+### Step 6.5 -- Wall-clock cap (D-104-05)
+
+Two wall-clock bounds run BEFORE the per-iteration status print, so the loop never spins past either ceiling.
+
+**Active phase cap**: `now() - last_active_action_at > 30 min` -> STOP. Semantics: this measures **inactivity since the last active action** (the most recent fix push in Step 4 or conflict push in Step 5), NOT 30 min total since the watch started. A loop that is making progress (a fix lands every few minutes) keeps resetting `last_active_action_at` and is allowed to continue past 30 min total without truncation. The cap fires only when no active action has happened for 30 minutes (no progress / inactivity).
+
+**Passive phase cap**: `now() - watch_started_at > 4h` -> STOP. The passive loop only waits for human review. 4h is a generous bound for a working session; longer waits should re-invoke `/ai-pr` afresh.
+
+The per-check `fix_attempts >= 3` STOP rule (Step 4 escalation) is preserved unchanged — the wall-clock caps are **additive**, not a replacement.
+
+**On cap (either active or passive):**
+
+1. Emit `.ai-engineering/state/watch-residuals.json` per D-104-06 schema v1 (same envelope as `gate-findings.json`) with one `GateFinding` entry per still-failing check. The watch loop fixer agent owns this emit; the `ai-eng` CLI helper used is `ai_engineering.policy.watch_residuals.emit(failed_checks, output_path=None)`.
+
+2. Print the actionable on-cap message:
+
+   ```
+   Watch loop hit <active|passive> wall-clock cap (<minutes> min).
+   <N> checks still failing: <names>
+   Run: ai-eng risk accept-all .ai-engineering/state/watch-residuals.json --justification "..."
+   Or fix manually and re-invoke /ai-pr.
+   ```
+
+3. Exit code **90**. This is **distinct from spec-101 D-101-11 exits 80 and 81** (Python SDK gate / SDK prereq gate). Cross-spec contract: spec-101 reserves 80/81; spec-104 D-104-05 reserves 90 for the wall-clock cap. CI scripts depend on the integer to tell "watch timed out" from "real failure".
+
 ### Step 7 -- Print status and wait
 
 ```
@@ -158,7 +185,9 @@ Increment `iteration_count`. Wait `interval` seconds. Return to Step 1.
 
 | Condition | Action |
 |-----------|--------|
-| Same check fails 3x | STOP. Report: check name, error messages, fixes attempted |
+| Same check fails 3x (`fix_attempts >= 3`) | STOP. Report: check name, error messages, fixes attempted |
+| Active wall-clock cap (30 min since `last_active_action_at`) | STOP. Emit `watch-residuals.json`, print on-cap message, exit code 90 |
+| Passive wall-clock cap (4h since `watch_started_at`) | STOP. Emit `watch-residuals.json`, print on-cap message, exit code 90 |
 | Rebase conflict unresolvable | STOP. Report conflicting files |
 | User interrupt | EXIT gracefully |
 | PR closed/abandoned externally | EXIT with message |

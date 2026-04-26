@@ -30,37 +30,34 @@ Governed PR creation: run full commit pipeline, execute pre-push gates, create o
 
 READ `.claude/skills/ai-commit/SKILL.md` and execute steps 0-6 in full. Do NOT skip any step. The documentation gate (step 5) is mandatory.
 
-### 6.5. Documentation subagent dispatch
+### 6.5. Concurrent dispatch -- docs + pre-push gate (3 lanes)
 
-Dispatch 2 consolidated documentation subagents via `/ai-docs` handlers. Compute the semantic diff once before dispatch and pass it to both agents — do NOT let each agent recompute the diff independently.
+This step launches THREE concurrent lanes whose total wall-clock is `max(docs, pre-push)` -- NOT `sum(docs, pre-push)`. The 2 docs subagents and the pre-push gate (Wave 2 from step 7) run in parallel; PR description stays coherent because docs are produced and staged BEFORE PR creation, synchronously with the pre-push gate inside the concurrent block.
 
 1. **Read flags** -- read `.ai-engineering/manifest.yml` `documentation.auto_update` flags and `external_portal` config.
 
-2. **Compute diff once** -- run `git diff main...HEAD` (or the semantic diff from the staged changeset). Store the result for both agents.
+2. **Compute diff once** -- run `git diff main...HEAD` (or the semantic diff from the staged changeset). Store the result for both docs agents.
 
-3. **Dispatch 2 subagents in parallel** (based on flags):
-   - **Agent 1: CHANGELOG + README** (if `auto_update.changelog: true` OR `auto_update.readme: true`): invoke `/ai-docs changelog` and `/ai-docs readme` within a single agent context. Pass the pre-computed diff. The agent reads the diff once and produces both CHANGELOG and README updates in a single pass.
-   - **Agent 2: docs-portal + solution-intent + quality-gate** (if `external_portal.enabled: true` OR `auto_update.solution_intent: true`): invoke `/ai-docs solution-intent-sync`, `/ai-docs docs-portal`, and `/ai-docs docs-quality-gate` within a single agent context. Pass the pre-computed diff. Solution-intent-sync runs first (only if staged changes include architecture files: agents/, skills/, manifest.yml, contexts/, specs/), then docs-portal, then the quality gate verifies all documentation outputs cover every semantic change. Zero uncovered items required.
+3. **Dispatch 3 concurrent lanes** (block on `max(lane1, lane2, lane3)` -- max wall-clock semantic, not serial sum):
+   - **Lane 1 -- docs Agent 1: CHANGELOG + README** (if `auto_update.changelog: true` OR `auto_update.readme: true`): invoke `/ai-docs changelog` and `/ai-docs readme` within a single agent context. Pass the pre-computed diff. The agent reads the diff once and produces both CHANGELOG and README updates in a single pass.
+   - **Lane 2 -- docs Agent 2: docs-portal + solution-intent + quality-gate** (if `external_portal.enabled: true` OR `auto_update.solution_intent: true`): invoke `/ai-docs solution-intent-sync`, `/ai-docs docs-portal`, and `/ai-docs docs-quality-gate` within a single agent context. Pass the pre-computed diff. Solution-intent-sync runs first (only if staged changes include architecture files: agents/, skills/, manifest.yml, contexts/, specs/), then docs-portal, then the quality gate verifies all documentation outputs cover every semantic change. Zero uncovered items required.
+   - **Lane 3 -- pre-push gate Wave 2** (the orchestrator-driven gate from step 7 below; runs concurrently with the docs subagents, alongside the pre-push checks): `ai-eng gate run --cache-aware --json --mode=local`.
 
-4. **Stage all documentation files** produced by agents 1-2.
+4. **Block on max(lane1, lane2, lane3)**: wait for all 3 lanes to resolve before proceeding to step 8 (Spec operations). Wall-clock = max wall-clock of the slowest lane (typically 30-60s) -- NOT the legacy serial sum (50-100s).
+
+5. **Stage all documentation files** produced by lanes 1-2 BEFORE PR creation. Docs land synchronously with the pre-push gate inside the concurrent block; documentation is in-tree with the PR body (spec-104 NG-7 forbids deferring docs to a separate commit landing after the PR -- regulated audience requires a clean audit history).
 
 ### 6.7. Instinct consolidation
 
 If `.ai-engineering/instincts/instincts.yml` exists (listening mode was active), run `/ai-instinct --review` to consolidate session observations before creating the PR.
 
-### 7. Pre-push checks
+### 7. Pre-push gate (orchestrator-driven, Lane 3 of step 6.5)
 
-Gate Python-specific checks behind `pyproject.toml` detection. For non-Python stacks, run equivalent tools from language context. `semgrep` and `gitleaks` are language-agnostic -- always run.
+Run `ai-eng gate run --cache-aware --json --mode=local`. The orchestrator runs Wave 1 fixers (`ruff format` -> `ruff check --fix` -> `spec verify --fix`) then Wave 2 checkers (`gitleaks protect --staged`, `ty check src/`, `pytest -m smoke`, `ai-eng validate`, docs gate) in parallel. Wave 2 is dispatched concurrently with the docs subagents (lanes 1-2 of step 6.5), so total wall-clock = `max(docs, pre-push)`, not the legacy sum. CI matrix runs `--mode=ci` for the full authoritative gate including `semgrep` + `pip-audit` + `pytest` full + matrix.
 
-Execute full pre-push gate:
-- `semgrep scan --config auto .` (language-agnostic -- always run)
-- `gitleaks protect --staged --no-banner` (language-agnostic -- always run)
-- If Python (`pyproject.toml` present): `uv run python -m ai_engineering.verify.tls_pip_audit`, `pytest tests/ -v`, `ty check src/`
-- If JS/TS (`package.json` present): `npm audit`, `npm test` (or equivalent from language context)
-- If Rust (`Cargo.toml` present): `cargo audit`, `cargo test`, `cargo clippy`
-- If Go (`go.mod` present): `govulncheck ./...`, `go test ./...`, `go vet ./...`
+See `.ai-engineering/contexts/gate-policy.md` for the local-vs-CI split.
 
-If any check fails, report and stop.
+If the orchestrator exits non-zero, the JSON output at `.ai-engineering/state/gate-findings.json` lists each finding. Stop and report; do not proceed unless all medium+ severity resolved or accepted via `ai-eng risk accept-all` (spec-105, when available).
 
 ### 7.5. Pre-conditions: work items
 
@@ -118,6 +115,8 @@ If spec frontmatter contains `refs`:
 - **Azure**: `az repos pr list --source-branch <branch> --status active -o json`
 
 ### 12. Create or update PR
+
+PR creation runs AFTER the concurrent block of step 6.5 resolves -- CHANGELOG/README are already generated and staged, and the pre-push gate has passed, so the PR body is coherent at `gh pr create` time.
 
 **New PR**:
 - **GitHub**: `gh pr create --title "<title>" --body "<body>"`
@@ -197,7 +196,9 @@ Same as default flow but create as draft PR.
 
 ## Common Mistakes
 
-- Skipping pre-push checks -- `semgrep`, `pip-audit`, `pytest`, and `ty` must all pass.
+- Skipping the pre-push gate -- `ai-eng gate run --cache-aware --json --mode=local` must exit 0 (or all medium+ findings risk-accepted).
+- Serializing step 7 after step 6.5 -- the pre-push gate is Lane 3 of the concurrent block; total wall-clock = `max(docs, pre-push)`, not the sum.
+- Fire-and-forget docs commit after the PR -- spec-104 NG-7 forbids it; docs land synchronously with the pre-push gate before PR creation.
 - Overwriting existing PR body -- always extend, never replace.
 - Missing auto-complete -- squash merge with branch deletion is mandatory.
 - Skipping the commit pipeline during watch fixes -- all fixes must pass through steps 0-6.

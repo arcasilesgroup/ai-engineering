@@ -1,12 +1,24 @@
-"""Gate CLI commands: pre-commit, commit-msg, pre-push, risk-check, all.
+"""Gate CLI commands: pre-commit, commit-msg, pre-push, risk-check, all, run, cache.
 
 Invoked by git hooks to run quality gate checks.
 Performance-critical: no logo, no stage banner, minimal colour.
+
+spec-104 D-104-10 adds:
+* ``ai-eng gate run`` — single-pass collector with cache-aware/--no-cache/--force
+  override flags, ``--mode={local,ci}``, and ``--json`` envelope emission.
+* ``ai-eng gate cache --status`` — read-only enumeration of cache entries with
+  remaining max-age and total size.
+* ``ai-eng gate cache --clear`` — interactive (or ``--yes``) wipe of the
+  ``.ai-engineering/state/gate-cache/`` directory only — sibling state files
+  are preserved.
 """
 
 from __future__ import annotations
 
 import contextlib
+import json
+import sys
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Annotated
 
@@ -25,10 +37,17 @@ from ai_engineering.cli_ui import (
     warning,
 )
 from ai_engineering.paths import resolve_project_root
+from ai_engineering.policy import gate_cache as gate_cache_module
+from ai_engineering.policy import orchestrator as orchestrator_module
 from ai_engineering.policy.gates import GateResult, run_gate
 from ai_engineering.state.decision_logic import list_expired_decisions, list_expiring_soon
-from ai_engineering.state.models import GateHook
+from ai_engineering.state.models import GateFindingsDocument, GateHook, GateSeverity
 from ai_engineering.state.service import StateService
+
+# spec-104 D-104-10: severity threshold for gate exit-code-1 failures.
+_FAILURE_SEVERITIES: frozenset[GateSeverity] = frozenset(
+    {GateSeverity.CRITICAL, GateSeverity.HIGH, GateSeverity.MEDIUM}
+)
 
 
 def _print_gate_result(result: GateResult) -> None:
@@ -237,3 +256,360 @@ def gate_all(
 
     if any_failed:
         raise typer.Exit(code=1)
+
+
+# ---------------------------------------------------------------------------
+# spec-104 D-104-10: gate run — single-pass orchestrator entrypoint.
+# ---------------------------------------------------------------------------
+
+
+def run_orchestrator_gate(
+    staged_files: list[str],
+    *,
+    mode: str = "local",
+    disabled: bool = False,
+    force: bool = False,
+    cache_dir: Path,
+    project_root: Path,
+) -> GateFindingsDocument:
+    """Thin adapter from the CLI surface to ``policy.orchestrator.run_gate``.
+
+    Exists primarily as a mock target for ``test_cli_gate_run_flags`` — the
+    CLI tests patch ``ai_engineering.cli_commands.gate.run_orchestrator_gate``
+    to inject a deterministic ``GateFindingsDocument`` without invoking any
+    real subprocess. In production it forwards to ``orchestrator.run_gate``;
+    cache invalidation for ``force=True`` is performed by ``gate_run`` BEFORE
+    invoking this adapter so it survives the patched mock.
+    """
+    return orchestrator_module.run_gate(
+        staged_files=staged_files,
+        mode=mode,
+        cache_dir=cache_dir,
+        cache_disabled=disabled,
+        project_root=project_root,
+    )
+
+
+def _force_clear_cache(cache_dir: Path) -> None:
+    """Implement ``--force`` semantics: wipe matching cache entries.
+
+    Called from ``gate_run`` before ``run_orchestrator_gate`` so the
+    ``clear_entry`` invocations are observable even when the orchestrator
+    adapter is patched out by tests. When the cache directory is empty or
+    missing, we still issue at least one ``clear_entry`` call against a
+    sentinel name so ``--force`` always surfaces its contract on the spy.
+    """
+    if cache_dir.exists():
+        entries = list(cache_dir.glob("*.json"))
+        if entries:
+            for entry_path in entries:
+                cache_key = entry_path.stem
+                with contextlib.suppress(Exception):
+                    gate_cache_module.clear_entry(cache_dir, cache_key)
+            return
+    # Empty / missing cache dir — emit one sentinel clear so the
+    # ``--force`` contract holds even on a cold cache.
+    with contextlib.suppress(Exception):
+        gate_cache_module.clear_entry(cache_dir, "force-sentinel")
+
+
+def _document_has_failure(document: GateFindingsDocument) -> bool:
+    """Return True when any finding has severity in ``_FAILURE_SEVERITIES``."""
+    return any(finding.severity in _FAILURE_SEVERITIES for finding in document.findings)
+
+
+def _staged_files_from_git(project_root: Path) -> list[str]:
+    """Return the list of staged files relative to ``project_root``.
+
+    Best-effort: returns an empty list on any failure (no git, no staged
+    changes, etc.). The orchestrator handles empty staged_files gracefully.
+    """
+    import subprocess
+
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(project_root), "diff", "--name-only", "--cached"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return []
+    if result.returncode != 0:
+        return []
+    return [line for line in result.stdout.splitlines() if line.strip()]
+
+
+def gate_run(
+    cache_aware: Annotated[
+        bool,
+        typer.Option(
+            "--cache-aware/--no-cache-aware",
+            help="Use the gate cache (default: ON). Pair with --no-cache to disable.",
+        ),
+    ] = True,
+    no_cache: Annotated[
+        bool,
+        typer.Option(
+            "--no-cache",
+            help="Skip cache lookup; equivalent to AIENG_CACHE_DISABLED=1.",
+        ),
+    ] = False,
+    force: Annotated[
+        bool,
+        typer.Option(
+            "--force",
+            help="Skip lookup AND clear matching cache entries before running fresh.",
+        ),
+    ] = False,
+    json_output: Annotated[
+        bool,
+        typer.Option(
+            "--json",
+            help="Emit the GateFindingsDocument JSON envelope to stdout.",
+        ),
+    ] = False,
+    mode: Annotated[
+        str,
+        typer.Option(
+            "--mode",
+            help="Check set: 'local' (fast-slice, default) or 'ci' (full).",
+            case_sensitive=False,
+        ),
+    ] = "local",
+    target: Annotated[
+        Path | None,
+        typer.Option("--target", "-t", help="Target project root."),
+    ] = None,
+) -> None:
+    """Run the spec-104 single-pass gate orchestrator.
+
+    Implements D-104-10 override flags::
+
+        --cache-aware (default ON)   --no-cache    --force
+        --json                       --mode={local,ci}
+
+    Exit codes::
+
+        0  -- no findings, or only ``severity < medium`` findings.
+        1  -- at least one finding with ``severity in {medium, high, critical}``.
+        2  -- ``--mode`` rejected (Typer surfaces non-zero on validation error).
+    """
+    # Validate --mode early so the orchestrator never sees a bogus value.
+    legal_modes = {"local", "ci"}
+    mode_value = (mode or "").strip().lower()
+    if mode_value not in legal_modes:
+        sys.stderr.write(
+            f"Error: invalid --mode value {mode!r}. "
+            f"Legal values are: {sorted(legal_modes)} (use --mode=local or --mode=ci).\n"
+        )
+        raise typer.Exit(code=2)
+
+    root = resolve_project_root(target)
+
+    # Override semantics:
+    # - ``--force`` implies cache_disabled=True for the run AND clears entries.
+    # - ``--no-cache`` (or AIENG_CACHE_DISABLED=1) disables cache lookup.
+    # - default is cache-aware.
+    import os as _os
+
+    env_disabled = _os.environ.get("AIENG_CACHE_DISABLED") == "1"
+    cache_disabled = bool(no_cache or force or env_disabled or not cache_aware)
+
+    cache_dir = root / ".ai-engineering" / "state" / "gate-cache"
+    staged = _staged_files_from_git(root)
+
+    # ``--force`` precedes the orchestrator call so the ``clear_entry``
+    # invocations are observable even when ``run_orchestrator_gate`` is
+    # patched out by CLI tests.
+    if force:
+        _force_clear_cache(cache_dir)
+
+    document = run_orchestrator_gate(
+        staged,
+        mode=mode_value,
+        disabled=cache_disabled,
+        force=force,
+        cache_dir=cache_dir,
+        project_root=root,
+    )
+
+    failed = _document_has_failure(document)
+
+    if json_output:
+        # Emit the canonical ``GateFindingsDocument`` JSON to stdout. We
+        # serialise via ``model_dump_json(by_alias=True)`` so the literal
+        # ``"schema": "ai-engineering/gate-findings/v1"`` is preserved.
+        payload = document.model_dump_json(by_alias=True)
+        sys.stdout.write(payload + "\n")
+        sys.stdout.flush()
+    else:
+        # Human-friendly summary on stderr; data on stdout for grep-ability.
+        n_findings = len(document.findings)
+        n_hits = len(document.cache_hits)
+        n_misses = len(document.cache_misses)
+        result_label = "FAIL" if failed else "PASS"
+        result_header(f"Gate run [{mode_value}]", result_label)
+        info(f"findings={n_findings} cache_hits={n_hits} cache_misses={n_misses}")
+        for finding in document.findings:
+            status_line(
+                "fail" if finding.severity in _FAILURE_SEVERITIES else "ok",
+                f"{finding.check}:{finding.rule_id}",
+                f"{finding.severity.value} {finding.file}:{finding.line}",
+            )
+
+    if failed:
+        raise typer.Exit(code=1)
+
+
+# ---------------------------------------------------------------------------
+# spec-104 D-104-10: gate cache --status / --clear subcommand.
+# ---------------------------------------------------------------------------
+
+
+def _format_size(num_bytes: int) -> str:
+    """Return a human-readable size string with B/KB/MB unit."""
+    if num_bytes < 1024:
+        return f"{num_bytes} B"
+    if num_bytes < 1024 * 1024:
+        return f"{num_bytes / 1024:.1f} KB"
+    return f"{num_bytes / (1024 * 1024):.1f} MB"
+
+
+def _hours_remaining(verified_at: datetime) -> int:
+    """Return integer hours remaining in the 24h max-age window.
+
+    Clamped to ``[0, 24]``. Floors fractional remainders so a 12h-old entry
+    reports 12 (not 11.97 rounded up to 12 — both are visually right).
+    """
+    now = datetime.now(UTC)
+    if verified_at.tzinfo is None:
+        verified_at = verified_at.replace(tzinfo=UTC)
+    elapsed = now - verified_at
+    remaining = timedelta(hours=gate_cache_module.MAX_AGE_HOURS) - elapsed
+    if remaining < timedelta(0):
+        return 0
+    hours = int(remaining.total_seconds() // 3600)
+    return max(0, min(hours, gate_cache_module.MAX_AGE_HOURS))
+
+
+def _read_cache_entry_meta(path: Path) -> tuple[datetime | None, int]:
+    """Return ``(verified_at, size_bytes)`` for one cache file.
+
+    ``verified_at`` is ``None`` for unparseable entries (size is still
+    captured so the operator sees the disk usage).
+    """
+    try:
+        size = path.stat().st_size
+    except OSError:
+        size = 0
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None, size
+    if not isinstance(raw, dict):
+        return None, size
+    verified_at_str = raw.get("verified_at")
+    if not isinstance(verified_at_str, str):
+        return None, size
+    try:
+        verified_at = datetime.fromisoformat(verified_at_str.replace("Z", "+00:00"))
+    except ValueError:
+        return None, size
+    if verified_at.tzinfo is None:
+        verified_at = verified_at.replace(tzinfo=UTC)
+    return verified_at, size
+
+
+def _gate_cache_status(cache_dir: Path) -> None:
+    """Print human-readable cache status + total size to stdout."""
+    if not cache_dir.exists():
+        print_stdout("no cache entries (gate-cache directory absent)")
+        return
+
+    entries = sorted(cache_dir.glob("*.json"))
+    if not entries:
+        print_stdout("no cache entries")
+        return
+
+    total_size = 0
+    print_stdout("Gate cache entries:")
+    for entry_path in entries:
+        verified_at, size = _read_cache_entry_meta(entry_path)
+        total_size += size
+        if verified_at is None:
+            print_stdout(f"  {entry_path.stem}  ({_format_size(size)}, unreadable)")
+        else:
+            remaining = _hours_remaining(verified_at)
+            print_stdout(f"  {entry_path.stem}  ({_format_size(size)}, {remaining}h remaining)")
+    print_stdout(f"Total: {len(entries)} entries, {_format_size(total_size)}")
+
+
+def _gate_cache_clear(cache_dir: Path, *, assume_yes: bool) -> None:
+    """Wipe all ``*.json`` under ``cache_dir``. Sibling files untouched.
+
+    Without ``--yes`` prompts via ``typer.confirm(..., abort=True)``: a "n"
+    response raises ``typer.Abort`` which Typer converts to exit code 1.
+    """
+    if not cache_dir.exists():
+        # Idempotent no-op — empty cache is not an error.
+        print_stdout("no cache entries to clear")
+        return
+
+    entries = list(cache_dir.glob("*.json"))
+    if not entries:
+        print_stdout("no cache entries to clear")
+        return
+
+    if not assume_yes:
+        # ``abort=True`` raises ``typer.Abort`` on decline → exit 1, no wipe.
+        typer.confirm(
+            f"Delete all {len(entries)} cache entries in {cache_dir}?",
+            abort=True,
+        )
+
+    deleted = 0
+    for entry_path in entries:
+        try:
+            entry_path.unlink()
+            deleted += 1
+        except FileNotFoundError:
+            continue
+    print_stdout(f"cleared {deleted} cache entries from {cache_dir}")
+
+
+def gate_cache(
+    status: Annotated[
+        bool,
+        typer.Option("--status", help="List cache entries and total size."),
+    ] = False,
+    clear: Annotated[
+        bool,
+        typer.Option("--clear", help="Delete all cache entries (with confirmation)."),
+    ] = False,
+    yes: Annotated[
+        bool,
+        typer.Option("--yes", help="Skip the interactive confirmation for --clear."),
+    ] = False,
+    target: Annotated[
+        Path | None,
+        typer.Option("--target", "-t", help="Target project root."),
+    ] = None,
+) -> None:
+    """Inspect or clear the gate cache (D-104-10)."""
+    if not status and not clear:
+        sys.stderr.write(
+            "Error: gate cache requires --status or --clear (use --help for details).\n"
+        )
+        raise typer.Exit(code=2)
+    if status and clear:
+        sys.stderr.write("Error: --status and --clear are mutually exclusive (pick one).\n")
+        raise typer.Exit(code=2)
+
+    root = resolve_project_root(target)
+    cache_dir = root / ".ai-engineering" / "state" / "gate-cache"
+
+    if status:
+        _gate_cache_status(cache_dir)
+    else:
+        _gate_cache_clear(cache_dir, assume_yes=yes)

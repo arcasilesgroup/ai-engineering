@@ -27,6 +27,7 @@ import tempfile
 import threading
 import time
 import uuid
+import warnings
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -347,6 +348,18 @@ def run_wave2(
         "Per D-104-01 + R-5 the orchestrator MUST set wave1_complete "
         "before dispatching wave 2."
     )
+
+    # Validate mode per D-104-02 — accept "local" or "ci"; anything else
+    # falls back to the safe default (local) with an explicit UserWarning so
+    # the operator knows the intended mode was not honoured.
+    if mode not in ("local", "ci"):
+        warnings.warn(
+            f"Unknown gate mode {mode!r}; falling back to 'local' fast-slice "
+            "(D-104-02). Valid modes are 'local' and 'ci'.",
+            UserWarning,
+            stacklevel=2,
+        )
+        mode = "local"
 
     if mode == "ci":
         checkers = list(_WAVE2_LOCAL_CHECKERS) + list(_WAVE2_CI_EXTRA)

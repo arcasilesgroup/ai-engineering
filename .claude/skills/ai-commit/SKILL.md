@@ -48,40 +48,20 @@ If `.ai-engineering/instincts/instincts.yml` exists (listening mode was active),
 
 Stage specific files -- `git add <file1> <file2>`. Use `git add -A` only when user explicitly requests or all files are relevant. Review what is staged; exclude generated files, secrets, large binaries.
 
-### 2. Format
+### 2. Run gate orchestrator
 
-If project is Python (detected via `pyproject.toml` or `.py` files in staged changes): run `ruff format .` to auto-fix formatting. For other stacks, run the stack-appropriate formatter from language context (e.g., `prettier` for TS/JS, `cargo fmt` for Rust, `gofmt` for Go). If no formatter configured, skip with a note.
+Delegate the entire gate (format, lint, secret scan, documentation gate, content integrity, spec verify) to the orchestrator:
 
-### 3. Lint
+```
+ai-eng gate run --cache-aware --json --mode=local
+```
 
-If project is Python (detected via `pyproject.toml` or `.py` files in staged changes): run `ruff check . --fix` to auto-fix safe issues. For other stacks, run the stack-appropriate linter from language context (e.g., `eslint --fix` for TS/JS, `cargo clippy --fix` for Rust, `golangci-lint run` for Go). If no linter configured, skip with a note. If unfixable issues remain, report and stop.
+The orchestrator runs the 2-wave collector (Wave 1 fixers serial -> Wave 2 checkers parallel) with cache-aware lookup. It emits `.ai-engineering/state/gate-findings.json` (schema v1) covering every check.
 
-### 4. Secret scan
+- **Exit 0** -- all checks PASS or were auto-fixed. Continue to step 7.
+- **Exit non-zero** -- parse `gate-findings.json`, report failing checks per `rule_id` + `severity`, and **STOP**. Do NOT proceed to commit. Fix the root cause; re-stage; re-run `/ai-commit`. Risk-acceptance flow ships in spec-105.
 
-Run `gitleaks protect --staged --no-banner`. If secrets found, report and **stop**. No bypass.
-
-### 5. Documentation gate
-
-Evaluate staged changes and classify scope:
-
-| Scope | Trigger | Updates |
-|-------|---------|---------|
-| CHANGELOG + README | New features, breaking changes, CLI commands, skill additions/removals | Both files |
-| CHANGELOG only | Any other functional change in `src/`, API, deps, governance | CHANGELOG.md |
-| None | Typo fixes, whitespace, test-only, CI formatting | Skip silently |
-
-- If `CHANGELOG.md` exists: add entries to `[Unreleased]`. If not: create per Keep a Changelog format.
-- If README update needed and `README.md` exists: update relevant sections.
-- External portal: read `manifest.yml` -> `documentation.external_portal`. If enabled, apply `update_method` (`pr` or `push`).
-- Governance doc gate: if changes touch agents/skills/standards, update `.ai-engineering/README.md` and mirror to templates.
-
-### 5.5. Content integrity check
-
-If any file under `.ai-engineering/` was created, deleted, or renamed in the staged changes, run `ai-eng validate` to verify manifest counters, decision-store schema, and spec structure. If `ai-eng` is not available, skip content integrity check with a warning. If validation fails, report and stop.
-
-### 6. Spec verify
-
-If active spec exists, run `ai-eng spec verify` to auto-correct task counters.
+See `.ai-engineering/contexts/gate-policy.md` for the full local fast-slice + CI authoritative split.
 
 ### 7. Commit
 

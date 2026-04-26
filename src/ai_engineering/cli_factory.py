@@ -251,6 +251,9 @@ def create_app() -> typer.Typer:
     gate_app.command("pre-push")(_safe(gate.gate_pre_push))
     gate_app.command("risk-check")(_safe(gate.gate_risk_check))
     gate_app.command("all")(_safe(gate.gate_all))
+    # spec-104 D-104-10: single-pass orchestrator + cache subcommands.
+    gate_app.command("run")(_safe(gate.gate_run))
+    gate_app.command("cache")(_safe(gate.gate_cache))
     app.add_typer(gate_app, name="gate")
 
     # Skill sub-group
