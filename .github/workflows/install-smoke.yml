@@ -204,14 +204,17 @@ jobs:
           set -e
           echo "Captured exit: $EXIT_CODE"
           cat path-empty-stderr.log || true
-          if [ "$EXIT_CODE" -ne 80 ]; then
-            echo "Expected EXIT 80 (install tools failed), got $EXIT_CODE"
+          # Accept both EXIT 80 (tool install failed) and EXIT 81 (prereq missing).
+          # Per D-101-11 strict precedence, when env -i PATH="" wipes uv too,
+          # the prereqs gate fires EXIT 81 BEFORE the tools phase can run.
+          # G-3 contract is preserved: hard-fail with actionable stderr.
+          if [ "$EXIT_CODE" -ne 80 ] && [ "$EXIT_CODE" -ne 81 ]; then
+            echo "Expected EXIT 80 (tools) or 81 (prereq), got $EXIT_CODE"
             exit 1
           fi
-          # Per-tool remediation: at least one of the supported install
-          # mechanisms must be surfaced in stderr (G-3 regex contract).
-          if ! grep -Eqi '(brew install|uv tool install|winget install|curl .+-o.+local/bin)' path-empty-stderr.log; then
-            echo "Stderr does not match per-tool remediation regex"
+          # Actionable remediation in stderr — match per-tool OR prereq install hint.
+          if ! grep -Eqi '(brew install|uv tool install|winget install|curl .+-o.+local/bin|astral.sh/uv|adoptium|dotnet|go.dev|rustup)' path-empty-stderr.log; then
+            echo "Stderr does not match remediation regex"
             exit 1
           fi
 
@@ -231,10 +234,11 @@ jobs:
                                 -PassThru -Wait -NoNewWindow
           $exitCode = $proc.ExitCode
           Get-Content path-empty-stderr.log
-          if ($exitCode -ne 80) { throw "Expected EXIT 80, got $exitCode" }
+          # Accept both EXIT 80 (tools) and EXIT 81 (prereq) per D-101-11 precedence.
+          if ($exitCode -ne 80 -and $exitCode -ne 81) { throw "Expected EXIT 80 or 81, got $exitCode" }
           $stderr = Get-Content path-empty-stderr.log -Raw
-          if ($stderr -notmatch '(?i)(brew install|uv tool install|winget install|curl .+-o.+local/bin)') {
-            throw "Stderr does not match per-tool remediation regex"
+          if ($stderr -notmatch '(?i)(brew install|uv tool install|winget install|curl .+-o.+local/bin|astral.sh/uv|adoptium|dotnet|go.dev|rustup)') {
+            throw "Stderr does not match remediation regex"
           }
 
       # T-4.4 (Ubuntu): strace -f -e trace=execve captures every spawned
