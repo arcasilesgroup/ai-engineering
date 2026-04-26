@@ -634,6 +634,23 @@
             "decision": "cryptography 46.0.6 carries CVE-2026-39892 (fixed in 46.0.7). This PR's uv.lock is bumped to cryptography 47.0.0 which is past the patched 46.0.7 version. Cached pip-audit runs may still observe the old version during the transitive dependency resolution window; the --ignore-vuln flag covers that 30-day window. Auto-removed once dependent CI environments cycle to the new lock. Re-evaluate on 2026-05-26.",
             "decidedAt": "2026-04-26T00:00:00Z",
             "context": "security"
+        },
+        {
+            "id": "DEC-038",
+            "title": "spec-101 GitHubReleaseBinaryMechanism pins disabled pending pin sourcing",
+            "description": "spec-101 ships GitHubReleaseBinaryMechanism with sha256_pinned=False as a temporary measure until vetted SHA256 pins are sourced for each tool's pinned release. Upstream pin file (installer/sha256_pins.json) is the planned single-source. Until populated, downloaded binaries are NOT cryptographically verified — operationally functional but security-degraded relative to spec D-101-02 R-5.",
+            "category": "risk-acceptance",
+            "status": "active",
+            "criticality": "high",
+            "source": "spec-101",
+            "spec": "101",
+            "created_at": "2026-04-26",
+            "expires_at": "2026-07-26T00:00:00Z",
+            "decided_at": "2026-04-26T00:00:00Z",
+            "context_hash": "",
+            "acknowledged_by": "guard",
+            "decision": "Accept SHA256 pins disabled for spec-101 GitHubReleaseBinaryMechanism entries (gitleaks, jq, checkstyle, google-java-format, composer, ktlint, shellcheck, shfmt, llvm, clang-tidy, clang-format, cppcheck) for 90 days. Follow-up: source vetted pins from upstream release manifests, populate via scheduled workflow, flip sha256_pinned=True. The runtime _PIN_REQUIRED=True invariant remains intact — it correctly rejects empty pins; the registry-level disable is the controlled mitigation.",
+            "context": "governance"
         }
     ]
 }

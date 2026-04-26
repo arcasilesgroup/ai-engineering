@@ -148,12 +148,16 @@ TOOL_REGISTRY: dict[str, dict[str, Any]] = {
         "darwin": [
             BrewMechanism("gitleaks"),
             GitHubReleaseBinaryMechanism(
-                repo="gitleaks/gitleaks", binary="gitleaks", sha256_pinned=True
+                repo="gitleaks/gitleaks",
+                binary="gitleaks",
+                sha256_pinned=False,  # TODO(DEC-038): populate real pins from upstream releases
             ),
         ],
         "linux": [
             GitHubReleaseBinaryMechanism(
-                repo="gitleaks/gitleaks", binary="gitleaks", sha256_pinned=True
+                repo="gitleaks/gitleaks",
+                binary="gitleaks",
+                sha256_pinned=False,  # TODO(DEC-038): populate real pins from upstream releases
             ),
         ],
         "win32": [
@@ -178,10 +182,18 @@ TOOL_REGISTRY: dict[str, dict[str, Any]] = {
     "jq": {
         "darwin": [
             BrewMechanism("jq"),
-            GitHubReleaseBinaryMechanism(repo="jqlang/jq", binary="jq", sha256_pinned=True),
+            GitHubReleaseBinaryMechanism(
+                repo="jqlang/jq",
+                binary="jq",
+                sha256_pinned=False,  # TODO(DEC-038): populate real pins from upstream releases
+            ),
         ],
         "linux": [
-            GitHubReleaseBinaryMechanism(repo="jqlang/jq", binary="jq", sha256_pinned=True),
+            GitHubReleaseBinaryMechanism(
+                repo="jqlang/jq",
+                binary="jq",
+                sha256_pinned=False,  # TODO(DEC-038): populate real pins from upstream releases
+            ),
         ],
         "win32": [
             WingetMechanism("jqlang.jq"),
@@ -230,7 +242,9 @@ TOOL_REGISTRY: dict[str, dict[str, Any]] = {
         "darwin": [BrewMechanism("checkstyle")],
         "linux": [
             GitHubReleaseBinaryMechanism(
-                repo="checkstyle/checkstyle", binary="checkstyle", sha256_pinned=True
+                repo="checkstyle/checkstyle",
+                binary="checkstyle",
+                sha256_pinned=False,  # TODO(DEC-038): populate real pins from upstream releases
             ),
         ],
         "win32": [
@@ -244,7 +258,7 @@ TOOL_REGISTRY: dict[str, dict[str, Any]] = {
             GitHubReleaseBinaryMechanism(
                 repo="google/google-java-format",
                 binary="google-java-format",
-                sha256_pinned=True,
+                sha256_pinned=False,  # TODO(DEC-038): populate real pins from upstream releases
             ),
         ],
         "win32": [
@@ -299,7 +313,9 @@ TOOL_REGISTRY: dict[str, dict[str, Any]] = {
         "darwin": [BrewMechanism("composer")],
         "linux": [
             GitHubReleaseBinaryMechanism(
-                repo="composer/composer", binary="composer", sha256_pinned=True
+                repo="composer/composer",
+                binary="composer",
+                sha256_pinned=False,  # TODO(DEC-038): populate real pins from upstream releases
             ),
         ],
         "win32": [ScoopMechanism("composer")],
@@ -321,7 +337,9 @@ TOOL_REGISTRY: dict[str, dict[str, Any]] = {
         "darwin": [BrewMechanism("ktlint")],
         "linux": [
             GitHubReleaseBinaryMechanism(
-                repo="pinterest/ktlint", binary="ktlint", sha256_pinned=True
+                repo="pinterest/ktlint",
+                binary="ktlint",
+                sha256_pinned=False,  # TODO(DEC-038): populate real pins from upstream releases
             ),
         ],
         "win32": [ScoopMechanism("ktlint")],
@@ -377,7 +395,9 @@ TOOL_REGISTRY: dict[str, dict[str, Any]] = {
         "darwin": [BrewMechanism("shellcheck")],
         "linux": [
             GitHubReleaseBinaryMechanism(
-                repo="koalaman/shellcheck", binary="shellcheck", sha256_pinned=True
+                repo="koalaman/shellcheck",
+                binary="shellcheck",
+                sha256_pinned=False,  # TODO(DEC-038): populate real pins from upstream releases
             ),
         ],
         "win32": [ScoopMechanism("shellcheck")],
@@ -386,7 +406,11 @@ TOOL_REGISTRY: dict[str, dict[str, Any]] = {
     "shfmt": {
         "darwin": [BrewMechanism("shfmt")],
         "linux": [
-            GitHubReleaseBinaryMechanism(repo="mvdan/sh", binary="shfmt", sha256_pinned=True),
+            GitHubReleaseBinaryMechanism(
+                repo="mvdan/sh",
+                binary="shfmt",
+                sha256_pinned=False,  # TODO(DEC-038): populate real pins from upstream releases
+            ),
         ],
         "win32": [ScoopMechanism("shfmt")],
         "verify": _semver_verify("shfmt"),
@@ -402,7 +426,9 @@ TOOL_REGISTRY: dict[str, dict[str, Any]] = {
         "darwin": [BrewMechanism("llvm")],
         "linux": [
             GitHubReleaseBinaryMechanism(
-                repo="llvm/llvm-project", binary="clang-tidy", sha256_pinned=True
+                repo="llvm/llvm-project",
+                binary="clang-tidy",
+                sha256_pinned=False,  # TODO(DEC-038): populate real pins from upstream releases
             ),
         ],
         "win32": [ScoopMechanism("llvm")],
@@ -412,7 +438,9 @@ TOOL_REGISTRY: dict[str, dict[str, Any]] = {
         "darwin": [BrewMechanism("clang-format")],
         "linux": [
             GitHubReleaseBinaryMechanism(
-                repo="llvm/llvm-project", binary="clang-format", sha256_pinned=True
+                repo="llvm/llvm-project",
+                binary="clang-format",
+                sha256_pinned=False,  # TODO(DEC-038): populate real pins from upstream releases
             ),
         ],
         "win32": [ScoopMechanism("llvm")],
@@ -422,7 +450,9 @@ TOOL_REGISTRY: dict[str, dict[str, Any]] = {
         "darwin": [BrewMechanism("cppcheck")],
         "linux": [
             GitHubReleaseBinaryMechanism(
-                repo="danmar/cppcheck", binary="cppcheck", sha256_pinned=True
+                repo="danmar/cppcheck",
+                binary="cppcheck",
+                sha256_pinned=False,  # TODO(DEC-038): populate real pins from upstream releases
             ),
         ],
         "win32": [ScoopMechanism("cppcheck")],

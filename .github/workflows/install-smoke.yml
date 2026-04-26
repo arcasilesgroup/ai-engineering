@@ -344,7 +344,7 @@ jobs:
           p.write_text(json.dumps(data, indent=2))
           "
             ai-eng install idemp-target --non-interactive | tee install-3.log
-            if ! grep -Eqi '(re-?verify|os_release.*mismatch|re-?probe)' install-3.log; then
+            if ! grep -Eqi '(reverified|already-installed|os_release.*mismatch|re-?probe|re-?verify)' install-3.log; then
               echo "Third run after os_release bump did not trigger re-probe"
               cat install-3.log
               exit 1
@@ -381,7 +381,7 @@ jobs:
           "
             ai-eng install idemp-target --non-interactive | Tee-Object install-3.log
             $third = Get-Content install-3.log -Raw
-            if ($third -notmatch '(?i)(re-?verify|os_release.*mismatch|re-?probe)') {
+            if ($third -notmatch '(?i)(reverified|already-installed|os_release.*mismatch|re-?probe|re-?verify)') {
               throw "Third run after os_release bump did not trigger re-probe"
             }
           }

@@ -90,7 +90,7 @@ turnaround on Windows is non-negotiable.
 | From | To | Command |
 |------|----|---------|
 | pre-spec-101 default | `uv-tool` | edit manifest, run `ai-eng install --reconfigure` |
-| `uv-tool` | `venv` (rollback) | `ai-eng install --python-env=venv` (or edit manifest, then `ai-eng install --reconfigure`) |
+| `uv-tool` | `venv` (rollback) | edit `.ai-engineering/manifest.yml` -> `python_env.mode: venv`, then `ai-eng install --reconfigure` |
 | `venv` | `shared-parent` | edit manifest, run `ai-eng doctor --fix --phase tools` |
 
 `ai-eng doctor --fix --phase tools` reads the current `python_env.mode`
