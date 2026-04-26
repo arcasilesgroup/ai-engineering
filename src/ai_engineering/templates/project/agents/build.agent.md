@@ -162,6 +162,42 @@ Build is the only code-writing agent and operates across the whole tree by defau
 - `tests/integration/test_stack_runner_data_driven.py`
 - `.ai-engineering/contexts/python-env-modes.md`
 
+### spec-104 — Commit/PR Pipeline Speed (Single-Pass Collector + Memoization + Bounded Watch)
+
+- `src/ai_engineering/policy/orchestrator.py`
+- `src/ai_engineering/policy/gate_cache.py`
+- `src/ai_engineering/policy/watch_residuals.py`
+- `src/ai_engineering/cli_commands/gate.py`
+- `.ai-engineering/contexts/gate-policy.md`
+- `tests/unit/test_gate_findings_schema.py`
+- `tests/unit/test_gate_cache_key.py`
+- `tests/unit/test_gate_cache_persist.py`
+- `tests/unit/test_gate_cache_hit_miss.py`
+- `tests/unit/test_gate_cache_max_age.py`
+- `tests/unit/test_gate_cache_lru_prune.py`
+- `tests/unit/test_gate_cache_overrides.py`
+- `tests/unit/test_orchestrator_wave1.py`
+- `tests/unit/test_orchestrator_wave2.py`
+- `tests/unit/test_orchestrator_emit_findings.py`
+- `tests/unit/test_orchestrator_legacy_fallback.py`
+- `tests/unit/test_orchestrator_race_safety.py`
+- `tests/unit/test_cli_gate_run_flags.py`
+- `tests/unit/test_cli_gate_cache_subcommands.py`
+- `tests/unit/test_local_fast_slice_policy.py`
+- `tests/unit/test_skill_contract_completeness.py`
+- `tests/unit/test_skill_line_budget.py`
+- `tests/unit/test_watch_residuals_emit.py`
+- `tests/integration/test_orchestrator_cache_integration.py`
+- `tests/integration/test_spec104_orthogonality.py`
+- `tests/integration/test_async_parallel_dispatch.py`
+- `tests/integration/test_watch_loop_bounds.py`
+- `tests/integration/test_ci_cache_key_schema.py`
+- `tests/integration/test_gate_cross_ide.py`
+- `tests/integration/test_gate_cache_hit_rate.py`
+- `tests/perf/test_ai_pr_warmcache.py`
+- `tests/perf/test_ai_pr_coldcache.py`
+- `tests/fixtures/gate_findings_v1.json`
+
 ### Escalation Protocol
 
 - **Iteration limit**: max 2 attempts per task before escalating to user.

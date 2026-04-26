@@ -17,9 +17,9 @@ from __future__ import annotations
 import re
 from datetime import UTC, datetime
 from enum import StrEnum
-from typing import Any
+from typing import Any, Literal
 
-from pydantic import BaseModel, Field, HttpUrl, field_validator, model_validator
+from pydantic import UUID4, BaseModel, ConfigDict, Field, HttpUrl, field_validator, model_validator
 
 # --- Enums ---
 
@@ -809,3 +809,120 @@ def _extract_platforms_from_dict(tools_state_dict: dict[str, Any]) -> dict[str, 
         )
 
     return platforms
+
+
+# --- spec-104: gate-findings v1 schema ---
+
+
+class GateSeverity(StrEnum):
+    """Severity classification for a single gate finding (D-104-06)."""
+
+    CRITICAL = "critical"
+    HIGH = "high"
+    MEDIUM = "medium"
+    LOW = "low"
+    INFO = "info"
+
+
+class GateProducedBy(StrEnum):
+    """Producer of a ``gate-findings.json`` document (D-104-06)."""
+
+    AI_COMMIT = "ai-commit"
+    AI_PR = "ai-pr"
+    WATCH_LOOP = "watch-loop"
+
+
+class WallClockMs(BaseModel):
+    """Wall-clock telemetry block emitted with every gate-findings document.
+
+    Three keys exactly per D-104-06: Wave 1 fixers, Wave 2 checkers, total.
+    ``extra="forbid"`` enforces the closed schema (rejects unknown phases).
+    """
+
+    wave1_fixers: int
+    wave2_checkers: int
+    total: int
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+
+class GateFinding(BaseModel):
+    """Single check finding emitted by the orchestrator (D-104-06).
+
+    ``rule_id`` MUST be a stable identifier (CVE-XXXX, semgrep rule-id,
+    gitleaks rule-id, ruff code, ty error code) — never a human-readable
+    message. The model is frozen because findings are immutable records
+    once captured.
+    """
+
+    check: str
+    rule_id: str
+    file: str
+    line: int = Field(ge=1)
+    column: int | None = None
+    severity: GateSeverity
+    message: str
+    auto_fixable: bool
+    auto_fix_command: str | None = None
+
+    model_config = ConfigDict(frozen=True)
+
+    @model_validator(mode="after")
+    def _enforce_auto_fix_command_when_fixable(self) -> GateFinding:
+        """``auto_fixable=True`` requires a non-null ``auto_fix_command``."""
+        if self.auto_fixable and self.auto_fix_command is None:
+            raise ValueError("auto_fixable=True requires a non-null auto_fix_command (D-104-06)")
+        return self
+
+
+class AutoFixedEntry(BaseModel):
+    """Auto-fix metadata: which check repaired which files and rules."""
+
+    check: str
+    files: list[str] = Field(min_length=1)
+    rules_fixed: list[str] = Field(default_factory=list)
+
+    model_config = ConfigDict(frozen=True)
+
+
+class GateFindingsDocument(BaseModel):
+    """Top-level container for ``gate-findings.json`` schema v1 (D-104-06).
+
+    Emitted by the orchestrator at
+    ``.ai-engineering/state/gate-findings.json`` and by the watch loop
+    at ``.ai-engineering/state/watch-residuals.json``. Versioned via the
+    ``schema`` literal so consumers (spec-105 risk-accept) can reject
+    unknown versions with an actionable message.
+    """
+
+    schema_: Literal["ai-engineering/gate-findings/v1"] = Field(alias="schema")
+    session_id: UUID4
+    produced_by: GateProducedBy
+    produced_at: datetime
+    branch: str
+    commit_sha: str | None = None
+    findings: list[GateFinding] = Field(default_factory=list)
+    auto_fixed: list[AutoFixedEntry] = Field(default_factory=list)
+    cache_hits: list[str] = Field(default_factory=list)
+    cache_misses: list[str] = Field(default_factory=list)
+    wall_clock_ms: WallClockMs
+
+    model_config = ConfigDict(populate_by_name=True, frozen=True)
+
+
+class WatchLoopState(BaseModel):
+    """Watch loop runtime state used by D-104-05 wall-clock bounds.
+
+    ``watch_started_at`` anchors the passive-phase 4h cap; the orchestrator
+    updates ``last_active_action_at`` whenever the loop applies a fix or
+    resolves a conflict (active-phase 30min cap reset). ``fix_attempts``
+    tracks per-check retries (per-check >= 3 still triggers STOP).
+    """
+
+    watch_started_at: datetime
+    last_active_action_at: datetime
+    fix_attempts: dict[str, int] = Field(default_factory=dict)
+    iteration_count: int = 0
+    exit_code: int | None = None
+
+    model_config = ConfigDict(frozen=True)

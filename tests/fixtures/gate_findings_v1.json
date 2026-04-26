@@ -1,0 +1,68 @@
+{
+  "schema": "ai-engineering/gate-findings/v1",
+  "session_id": "550e8400-e29b-41d4-a716-446655440000",
+  "produced_by": "ai-pr",
+  "produced_at": "2026-04-26T22:00:00Z",
+  "branch": "feat/spec-101-installer-robustness",
+  "commit_sha": "6a2a36ef",
+  "findings": [
+    {
+      "check": "gitleaks",
+      "rule_id": "aws-access-key",
+      "file": "src/example.py",
+      "line": 42,
+      "column": 12,
+      "severity": "critical",
+      "message": "AWS access key detected",
+      "auto_fixable": false,
+      "auto_fix_command": null
+    },
+    {
+      "check": "ruff",
+      "rule_id": "E501",
+      "file": "src/long_line.py",
+      "line": 120,
+      "column": null,
+      "severity": "low",
+      "message": "line too long (132 > 100 chars)",
+      "auto_fixable": true,
+      "auto_fix_command": "ruff check --fix src/long_line.py"
+    },
+    {
+      "check": "ty",
+      "rule_id": "incompatible-return-type",
+      "file": "src/return.py",
+      "line": 15,
+      "column": null,
+      "severity": "medium",
+      "message": "return type mismatch",
+      "auto_fixable": false,
+      "auto_fix_command": null
+    },
+    {
+      "check": "semgrep",
+      "rule_id": "python.lang.security.audit.exec-detected",
+      "file": "src/exec.py",
+      "line": 7,
+      "column": null,
+      "severity": "high",
+      "message": "exec() detected",
+      "auto_fixable": false,
+      "auto_fix_command": null
+    }
+  ],
+  "auto_fixed": [
+    {
+      "check": "ruff-format",
+      "files": ["src/formatted.py"],
+      "rules_fixed": ["W291"]
+    }
+  ],
+  "cache_hits": ["ruff-format", "gitleaks"],
+  "cache_misses": ["ty"],
+  "wall_clock_ms": {
+    "wave1_fixers": 4200,
+    "wave2_checkers": 18500,
+    "total": 22700
+  }
+}
