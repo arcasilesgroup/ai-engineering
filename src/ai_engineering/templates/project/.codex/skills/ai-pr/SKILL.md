@@ -20,55 +20,39 @@ Governed PR creation: run full commit pipeline, execute pre-push gates, create o
 
 ## When to Use
 
-- Creating or updating a pull request with governance enforcement.
-- NOT for commit-only -- use `/ai-commit` instead.
-- NOT for draft explorations -- use `/ai-commit` first, then `/ai-pr` when ready.
+- Creating or updating a PR with governance enforcement. Use `/ai-commit` for commit-only or draft explorations.
 
 ## Process
 
 ### Steps 0-6: Shared Commit Pipeline
 
-READ `.codex/skills/ai-commit/SKILL.md` and execute steps 0-6 in full. Do NOT skip any step. The documentation gate (step 5) is mandatory.
+READ `.codex/skills/ai-commit/SKILL.md` and execute steps 0-6 in full. Documentation gate (step 5) is mandatory.
 
-### 6.5. Documentation subagent dispatch
+### 6.5. Concurrent dispatch -- docs + pre-push gate (3 lanes)
 
-Dispatch 2 consolidated documentation subagents via `/ai-docs` handlers. Compute the semantic diff once before dispatch and pass it to both agents — do NOT let each agent recompute the diff independently.
+Total wall-clock = `max(docs, pre-push)`, NOT `sum`. Docs subagents and the pre-push gate run in parallel; PR description stays coherent because docs are produced and staged BEFORE PR creation.
 
-1. **Read flags** -- read `.ai-engineering/manifest.yml` `documentation.auto_update` flags and `external_portal` config.
-
-2. **Compute diff once** -- run `git diff main...HEAD` (or the semantic diff from the staged changeset). Store the result for both agents.
-
-3. **Dispatch 2 subagents in parallel** (based on flags):
-   - **Agent 1: CHANGELOG + README** (if `auto_update.changelog: true` OR `auto_update.readme: true`): invoke `/ai-docs changelog` and `/ai-docs readme` within a single agent context. Pass the pre-computed diff. The agent reads the diff once and produces both CHANGELOG and README updates in a single pass.
-   - **Agent 2: docs-portal + solution-intent + quality-gate** (if `external_portal.enabled: true` OR `auto_update.solution_intent: true`): invoke `/ai-docs solution-intent-sync`, `/ai-docs docs-portal`, and `/ai-docs docs-quality-gate` within a single agent context. Pass the pre-computed diff. Solution-intent-sync runs first (only if staged changes include architecture files: agents/, skills/, manifest.yml, contexts/, specs/), then docs-portal, then the quality gate verifies all documentation outputs cover every semantic change. Zero uncovered items required.
-
-4. **Stage all documentation files** produced by agents 1-2.
+1. **Read flags** from `.ai-engineering/manifest.yml` (`documentation.auto_update`, `external_portal`).
+2. **Compute diff once** -- `git diff main...HEAD`. Pass to both docs agents.
+3. **Dispatch 3 concurrent lanes**, block on `max(lane1, lane2, lane3)`:
+   - **Lane 1 -- docs A1**: `/ai-docs changelog` + `/ai-docs readme` (if enabled).
+   - **Lane 2 -- docs A2**: `/ai-docs solution-intent-sync` (if architecture changed) + `/ai-docs docs-portal` + `/ai-docs docs-quality-gate`. Zero uncovered items required.
+   - **Lane 3 -- pre-push gate**: `ai-eng gate run --cache-aware --json --mode=local` (orchestrator delivers Wave 1 fixers serial then Wave 2 checkers parallel; see step 7).
+4. **Stage all docs files** produced by lanes 1-2 BEFORE PR creation. spec-104 NG-7 forbids deferring docs to a separate commit -- regulated audience requires clean audit history.
 
 ### 6.7. Instinct consolidation
 
-If `.ai-engineering/instincts/instincts.yml` exists (listening mode was active), run `/ai-instinct --review` to consolidate session observations before creating the PR.
+If `.ai-engineering/instincts/instincts.yml` exists, run `/ai-instinct --review`.
 
-### 7. Pre-push checks
+### 7. Pre-push gate (Lane 3 of step 6.5)
 
-Gate Python-specific checks behind `pyproject.toml` detection. For non-Python stacks, run equivalent tools from language context. `semgrep` and `gitleaks` are language-agnostic -- always run.
+`ai-eng gate run --cache-aware --json --mode=local` orchestrates Wave 1 fixers (`ruff format` -> `ruff check --fix` -> `spec verify --fix`) then Wave 2 checkers (`gitleaks protect --staged`, `ty check src/`, `pytest -m smoke`, `ai-eng validate`, docs gate) in parallel. CI matrix runs `--mode=ci` for the authoritative gate (`semgrep` + `pip-audit` + `pytest` full + matrix). See `.ai-engineering/contexts/gate-policy.md`.
 
-Execute full pre-push gate:
-- `semgrep scan --config auto .` (language-agnostic -- always run)
-- `gitleaks protect --staged --no-banner` (language-agnostic -- always run)
-- If Python (`pyproject.toml` present): `uv run python -m ai_engineering.verify.tls_pip_audit`, `pytest tests/ -v`, `ty check src/`
-- If JS/TS (`package.json` present): `npm audit`, `npm test` (or equivalent from language context)
-- If Rust (`Cargo.toml` present): `cargo audit`, `cargo test`, `cargo clippy`
-- If Go (`go.mod` present): `govulncheck ./...`, `go test ./...`, `go vet ./...`
+If exit non-zero, parse `.ai-engineering/state/gate-findings.json`, report findings, STOP. Do not proceed unless all medium+ severity resolved or accepted via `ai-eng risk accept-all` (spec-105).
 
-If any check fails, report and stop.
+### 7.5. Work item context
 
-### 7.5. Pre-conditions: work items
-
-1. Read `.ai-engineering/manifest.yml` — focus on `work_items` section (provider, hierarchy rules, team config).
-2. Read `.ai-engineering/specs/spec.md` frontmatter — extract `refs` if present.
-3. Store hierarchy rules from `work_items.hierarchy` for step 8.5.
-
-Spec frontmatter refs format:
+Read `.ai-engineering/manifest.yml` `work_items` and `.ai-engineering/specs/spec.md` frontmatter `refs`:
 ```yaml
 refs:
   features: [AB#100]        # never closed by AI
@@ -79,109 +63,53 @@ refs:
 
 ### 8. Spec operations
 
-If `.ai-engineering/specs/spec.md` has content (not placeholder):
-1. Read spec.md + plan.md to generate PR description sections
-2. Run `ai-eng spec verify --fix` to auto-correct task counts
-3. Update spec.md and plan.md to reflect ACTUAL scope of this PR
-4. Use the updated content for the PR body (Summary from spec, Test Plan from plan)
-5. Add entry to `specs/_history.md`: | ID | Title | date | branch |
-6. Clear spec.md with: `# No active spec\n\nRun /ai-brainstorm to start a new spec.\n`
-7. Clear plan.md with: `# No active plan\n\nRun /ai-plan after brainstorm approval.\n`
-8. Stage the cleared files
+If `.ai-engineering/specs/spec.md` is non-placeholder: read spec.md + plan.md to generate PR description; run `ai-eng spec verify --fix`; update spec.md/plan.md to reflect ACTUAL scope; use updated content for PR body (Summary from spec, Test Plan from plan); add entry to `specs/_history.md` (`| ID | Title | date | branch |`); clear spec.md and plan.md to placeholders; stage cleared files.
 
 ### 8.5. Work item references
 
-If spec frontmatter contains `refs`:
+If frontmatter has `refs`:
+- `close_on_pr` items (user_stories, tasks, bugs, issues): GitHub `Closes #N` per line; Azure `AB#NNN` (auto-closes on merge).
+- `never_close` items (features): `Related: AB#100` only -- NEVER close features (absolute rule).
+- No `refs`: fall back to spec-label-based linking.
 
-1. For each ref where hierarchy rule is `close_on_pr` (user_stories, tasks, bugs, issues):
-   - **GitHub**: add `Closes #N` to PR body (one per line)
-   - **Azure DevOps**: add `AB#NNN` to PR body (auto-closes on merge)
-2. For each ref where hierarchy rule is `never_close` (features):
-   - Add as mention only: `Related: AB#100` (NO close keyword)
-3. **NEVER close features** — the `never_close` rule is absolute, regardless of other configuration.
-4. If no `refs` in frontmatter, fall back to the existing spec-label-based issue linking.
+### 9-11. Commit, push, detect VCS, find existing PR
 
-### 9. Commit and push
-
-- Commit with well-formed message (spec format or conventional commits).
-- Push to current branch. Block if `main`/`master`.
-
-### 10. Detect VCS provider
-
-1. Check `manifest.yml` -> `providers.vcs.primary`.
-2. Fallback: parse `git remote get-url origin` (`github.com` -> `gh`, `dev.azure.com` -> `az repos`).
-3. Verify CLI authenticated.
-
-### 11. Check for existing PR
-
-- **GitHub**: `gh pr list --head <branch> --json number,title,body --state open`
-- **Azure**: `az repos pr list --source-branch <branch> --status active -o json`
+Commit, push to current branch (block on `main`/`master`). Detect provider via `manifest.yml` `providers.vcs.primary`, fallback to `git remote get-url origin` parsing (`github.com` -> `gh`, `dev.azure.com` -> `az repos`). Find existing PR with `gh pr list --head <branch>` or `az repos pr list --source-branch <branch>`.
 
 ### 12. Create or update PR
 
-**New PR**:
-- **GitHub**: `gh pr create --title "<title>" --body "<body>"`
-- **Azure**: `az repos pr create --source-branch <branch> --target-branch <target> --title "<title>" --description "<body>"`
+Runs AFTER step 6.5 resolves so the body is coherent (CHANGELOG/README staged, gate passed).
 
-**Existing PR** (extend, NEVER overwrite):
-- Read existing body. If an `## Additional Changes` section already exists, append under it rather than creating a duplicate heading. Use a date/commit-range sub-heading for each extension (e.g., `### 2024-03-15 / abc1234..def5678`).
-- If no `## Additional Changes` section exists, append `\n\n---\n\n## Additional Changes` followed by the date/commit-range sub-heading.
-- Update via `gh pr edit` or `az repos pr update`.
+**New**: `gh pr create --title "<t>" --body "<b>"` or `az repos pr create --source-branch <b> --target-branch <t> --title "<t>" --description "<b>"`.
 
-### 12.5. Board sync (in_review)
+**Existing** (extend, NEVER overwrite): read existing body; if `## Additional Changes` exists, append a `### <date> / <commit-range>` sub-heading underneath; otherwise append `\n\n---\n\n## Additional Changes` first. Update via `gh pr edit` or `az repos pr update`.
 
-For **new PRs only** (not extend/update): if spec frontmatter contains `refs`, invoke `/ai-board-sync in_review <work-item-ref>` for each ref where the hierarchy rule is not `never_close` (i.e., user_stories, tasks, bugs, issues). Include the PR URL as comment context. Fail-open: do not block auto-complete or the watch loop if this fails.
+### 12.5. Board sync + 13. Enable auto-complete
 
-### 13. Enable auto-complete
-
-- **GitHub**: `gh pr merge --auto --squash --delete-branch`
-- **Azure**: `az repos pr update --id <id> --auto-complete true --squash true --delete-source-branch true`
+For new PRs with `refs`: invoke `/ai-board-sync in_review <ref>` for each non-`never_close` ref (fail-open: never block on failure). Then enable auto-complete: `gh pr merge --auto --squash --delete-branch` or `az repos pr update --id <id> --auto-complete true --squash true --delete-source-branch true`.
 
 ### 14. Watch and fix until merge
 
-Do NOT declare the PR "done" at auto-complete -- auto-complete only queues the merge; CI checks must pass first.
+Auto-complete only queues the merge -- CI must pass first. Enter the watch-and-fix loop following `handlers/watch.md`. The loop polls every 1 min (active) or 3 min (passive), autonomously fixes CI failures and merge conflicts, handles team/org-internal-bot review comments, and escalates after 3 failed attempts on the same check or wall-clock cap. Drafts skip the loop entirely.
 
-Enter the watch-and-fix loop. Follow `handlers/watch.md` for the full procedure:
-- Polls every 1 min (active) or 3 min (passive -- waiting for review)
-- Autonomously fixes: failing CI checks, merge conflicts
-- Review comments: autonomous if from team member or org-internal bot, confirmation if from external
-- Escalates after 3 failed fix attempts on the same check
-- Draft PRs: skip the loop entirely (drafts cannot merge)
+Once `state == "MERGED"`: run `/ai-cleanup --all` and report.
 
-Once `state == "MERGED"`:
-1. Run `/ai-cleanup --all` -- syncs to default branch, deletes merged/squash-merged branches, produces status report.
-2. Report: PR merged, cleanup complete.
+### `/pr --only` / `/pr --draft`
 
-### `/pr --only`
-
-Create PR without commit pipeline: verify branch is pushed, detect VCS, create/update PR, enable auto-complete.
-
-### `/pr --draft`
-
-Same as default flow but create as draft PR.
+`--only`: create PR without commit pipeline (verify branch is pushed, detect VCS, create/update PR, enable auto-complete). `--draft`: same as default but create as draft.
 
 ## PR Structure
 
 ```markdown
 ## Summary
-- [2-3 bullet points: what changed and why]
-
+- [2-3 bullets: what changed and why]
 ## Test Plan
-- [ ] [Specific verification steps]
-- [ ] [Edge cases to validate]
-
+- [ ] [Specific verification steps + edge cases]
 ## Work Items
-- Closes AB#101 (user story)
-- Closes AB#102, AB#103 (tasks)
-- Closes #45, #46 (issues)
-- Related: AB#100 (feature — not closed)
-
+- Closes AB#101 (user story), Closes AB#102 (task), Closes #45 (issue)
+- Related: AB#100 (feature — never closed)
 ## Checklist
-- [ ] Lint and format pass
-- [ ] Secret scan clean
-- [ ] Tests pass
-- [ ] CHANGELOG updated
-- [ ] Breaking changes documented
+- [ ] Lint/format pass, secret scan clean, tests pass, CHANGELOG updated, breaking changes documented
 ```
 
 **Title**: `type(scope): description` or `spec-NNN: Task X.Y -- description`. Max 72 chars.
@@ -197,25 +125,15 @@ Same as default flow but create as draft PR.
 
 ## Common Mistakes
 
-- Skipping pre-push checks -- `semgrep`, `pip-audit`, `pytest`, and `ty` must all pass.
-- Overwriting existing PR body -- always extend, never replace.
-- Missing auto-complete -- squash merge with branch deletion is mandatory.
-- Skipping the commit pipeline during watch fixes -- all fixes must pass through steps 0-6.
-- Acting on external review comments without confirmation -- only team/org-internal-bot comments are autonomous.
-- Weakening test assertions to make tests pass -- fix the code, not the tests.
+- Skipping the pre-push gate -- exit 0 (or all medium+ findings risk-accepted) is required.
+- Serializing step 7 after step 6.5 -- the gate is Lane 3 of the concurrent block.
+- Fire-and-forget docs commit after the PR -- spec-104 NG-7 forbids it.
+
+See `handlers/watch.md` Behavioral negatives for anti-patterns enforced during the watch loop.
 
 ## Integration
 
-- Invokes `/ai-commit` pipeline (steps 0-6) as prerequisite.
-- Auto-updates CHANGELOG.md, README.md, and solution-intent via 2 consolidated `/ai-docs` subagents (CHANGELOG+README, docs-portal+quality-gate).
-- Links to work items from spec frontmatter refs (hierarchy-aware: features never closed, user stories/tasks/bugs/issues closed on merge).
-- Falls back to spec-label-based issue linking when no frontmatter refs present.
-- Step 14 monitors PR until merge, autonomously fixing CI failures, merge conflicts, and review comments from team/org-internal bots.
-- Invokes `/ai-board-sync` (in_review transition) after new PR creation (step 12.5).
-
-## References
-
-- `.codex/skills/ai-commit/SKILL.md` -- shared commit pipeline.
-- `.codex/skills/ai-docs/SKILL.md` -- documentation lifecycle (changelog, readme, solution-intent, portal, quality gate).
-- `.ai-engineering/manifest.yml` -- quality gates and non-negotiables.
+- Invokes `/ai-commit` pipeline (steps 0-6) as prerequisite; consolidates `/ai-docs` subagents (CHANGELOG+README, docs-portal+quality-gate); invokes `/ai-board-sync` after new PR creation (step 12.5).
+- Links work items from frontmatter refs (features never closed; user stories/tasks/bugs/issues closed on merge).
+- Step 14 monitors PR via `handlers/watch.md`. Quality gates and non-negotiables sourced from `.ai-engineering/manifest.yml`.
 $ARGUMENTS

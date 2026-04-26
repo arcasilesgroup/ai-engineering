@@ -768,12 +768,19 @@ def run_gate(
     project_root: Path | None = None,
     cache_disabled: bool = False,
     staged_files: list[str] | list[Path] | None = None,
+    produced_by: str = "ai-commit",
 ) -> GateFindingsDocument:
     """Top-level gate runner. Coordinates Wave 1 -> Wave 2 with cache.
 
     Race-safety per D-104-01 + R-5: ``wave1_complete`` is cleared at start
     and ``set()`` after Wave 1 returns. The ``assert wave1_complete`` invariant
     inside ``run_wave2`` is the source-level backstop.
+
+    ``produced_by`` attributes the emitted ``GateFindingsDocument`` to a
+    skill caller (``ai-commit`` / ``ai-pr`` / ``watch-loop``) per D-104-06.
+    Cross-IDE parity (G-8 / D-104-08): the IDE driver MUST NOT leak into
+    this field — it is a function-call argument supplied by the skill, not
+    derived from any ``AIENG_IDE`` or IDE-specific env var.
     """
     legacy = _is_legacy_mode()
     if legacy:
@@ -805,7 +812,7 @@ def run_gate(
         return _build_gate_document(
             wave1=wave1,
             wave2=wave2,
-            produced_by="ai-pr",
+            produced_by=produced_by,
         )
 
     spec_list = _checks_for_run_gate(checks, mode)
@@ -878,7 +885,7 @@ def run_gate(
     return _build_gate_document(
         wave1=wave1,
         wave2=wave2,
-        produced_by="ai-pr",
+        produced_by=produced_by,
     )
 
 

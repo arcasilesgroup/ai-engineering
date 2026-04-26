@@ -13,67 +13,53 @@ requires:
 
 # Commit Workflow
 
-Governed commit pipeline: stage specific files, format, lint, secret-detect, compose message, and push. NEVER uses `--no-verify` -- hooks exist to catch problems before they reach the repo. NEVER pushes to `main` or `master` -- protected branches require PR review for auditability.
+Governed commit pipeline: stage specific files, format, lint, secret-detect, compose message, and push. NEVER uses `--no-verify` -- hooks catch problems before the repo. NEVER pushes to `main`/`master` -- protected branches require PR review.
 
 ## When to Use
 
-- Committing current changes with quality enforcement.
-- NOT for creating PRs -- use `/ai-pr` instead.
+- Committing with quality enforcement. Use `/ai-pr` instead when the goal is a pull request.
 
 ## Process
 
 ### 0. Auto-branch from protected
 
-If current branch is `main` or `master`:
-1. Analyze pending changes to infer type (`feat/`, `fix/`, `chore/`, `docs/`, `refactor/`).
-2. Generate descriptive slug (kebab-case, max 50 chars).
-3. Create branch: `git checkout -b <prefix>/<slug>`.
-4. Report: "Auto-created branch: `<branch-name>`."
+If current branch is `main`/`master`: infer type (`feat/`, `fix/`, `chore/`, `docs/`, `refactor/`), generate descriptive slug (kebab-case, max 50 chars), `git checkout -b <prefix>/<slug>`, report new branch.
 
 ### 0.5. Work item context (optional)
 
-If `.ai-engineering/specs/spec.md` has frontmatter with `refs`:
-1. Read the refs (features, user_stories, tasks, issues)
-2. Include work item references in the commit message body as trailers:
-   ```
-   Refs: AB#101, AB#102, #45
-   ```
-3. Only include refs for items that are `close_on_pr` in the hierarchy — do NOT include features.
+If `.ai-engineering/specs/spec.md` frontmatter has `refs`: include work item refs as commit body trailers (`Refs: AB#101, AB#102, #45`). Only include `close_on_pr` items — never features.
 
 ### 0.6. Instinct consolidation
 
-If `.ai-engineering/instincts/instincts.yml` exists (listening mode was active), run `/ai-instinct --review` to consolidate session observations before committing.
+If `.ai-engineering/instincts/instincts.yml` exists, run `/ai-instinct --review` to consolidate session observations before committing.
 
 ### 1. Stage changes
 
-Stage specific files -- `git add <file1> <file2>`. Use `git add -A` only when user explicitly requests or all files are relevant. Review what is staged; exclude generated files, secrets, large binaries.
+`git add <file1> <file2>` selectively. Use `git add -A` only when explicitly requested. Exclude generated files, secrets, large binaries.
 
 ### 2. Run gate orchestrator
-
-Delegate the entire gate (format, lint, secret scan, documentation gate, content integrity, spec verify) to the orchestrator:
 
 ```
 ai-eng gate run --cache-aware --json --mode=local
 ```
 
-The orchestrator runs the 2-wave collector (Wave 1 fixers serial -> Wave 2 checkers parallel) with cache-aware lookup. It emits `.ai-engineering/state/gate-findings.json` (schema v1) covering every check.
+The orchestrator runs the 2-wave collector (Wave 1 fixers serial -> Wave 2 checkers parallel) with cache-aware lookup, emitting `.ai-engineering/state/gate-findings.json` (schema v1) covering every check.
 
-- **Exit 0** -- all checks PASS or were auto-fixed. Continue to step 7.
-- **Exit non-zero** -- parse `gate-findings.json`, report failing checks per `rule_id` + `severity`, and **STOP**. Do NOT proceed to commit. Fix the root cause; re-stage; re-run `/ai-commit`. Risk-acceptance flow ships in spec-105.
+- **Exit 0** -- all checks PASS or auto-fixed. Continue to step 7.
+- **Exit non-zero** -- parse `gate-findings.json`, report failing checks per `rule_id` + `severity`, **STOP**. Fix root cause, re-stage, re-run `/ai-commit`. Risk-acceptance ships in spec-105.
 
-See `.ai-engineering/contexts/gate-policy.md` for the full local fast-slice + CI authoritative split.
+See `.ai-engineering/contexts/gate-policy.md` for the local fast-slice + CI authoritative split.
 
 ### 7. Commit
 
-Compose message following conventions:
-- **With active spec**: `feat(spec-NNN): Task X.Y -- <description>` (features), `fix(spec-NNN): <description>` (fixes), `chore(spec-NNN): <description>` (internal)
-- **Without spec**: `type(scope): description` (conventional commits, imperative mood)
-- Valid types: `feat`, `fix`, `perf`, `refactor`, `style`, `docs`, `test`, `build`, `ci`, `chore`, `revert`
-- If user provides `--force`, skip preview. Otherwise, preview message and confirm.
+Compose message:
+- **With active spec**: `feat(spec-NNN): Task X.Y -- <desc>`, `fix(spec-NNN): <desc>`, `chore(spec-NNN): <desc>`.
+- **Without spec**: `type(scope): description` (conventional commits, imperative mood). Valid types: `feat`, `fix`, `perf`, `refactor`, `style`, `docs`, `test`, `build`, `ci`, `chore`, `revert`.
+- `--force` skips preview; otherwise preview and confirm.
 
 ### 8. Push
 
-`git push origin <current-branch>`. Block if on `main` or `master`.
+`git push origin <current-branch>`. Block if on `main`/`master`.
 
 ### `/commit --only`
 
@@ -89,18 +75,14 @@ Execute steps 1-7. Skip push.
 
 ## Common Mistakes
 
-- Using `git add -A` blindly -- always review staged files for secrets and binaries.
+- `git add -A` blindly -- always review staged files for secrets/binaries.
 - Committing on `main` -- the skill auto-branches, but verify.
 - Skipping documentation gate -- CHANGELOG updates are mandatory for functional changes.
 
 ## Integration
 
-- **Pre-commit hooks** enforce the same checks. This skill runs them explicitly for visibility.
-- **PR workflow** (`/ai-pr`) calls this pipeline as steps 0-6 before creating the PR.
-- **Spec system** auto-corrects task counters in step 6.
-
-## References
-
-- `.claude/skills/ai-write/SKILL.md` -- changelog formatting.
-- `.ai-engineering/manifest.yml` -- quality gates and non-negotiables.
+- **Pre-commit hooks** enforce the same checks; this skill runs them explicitly for visibility.
+- **PR workflow** (`/ai-pr`) calls steps 0-6 before creating the PR.
+- **Spec system** auto-corrects task counters via `ai-eng spec verify --fix` (Wave 1 fixer in step 2).
+- Quality gates and non-negotiables sourced from `.ai-engineering/manifest.yml`; changelog formatting from `.claude/skills/ai-write/SKILL.md`.
 $ARGUMENTS
