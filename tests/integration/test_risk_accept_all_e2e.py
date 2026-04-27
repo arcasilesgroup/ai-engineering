@@ -1,11 +1,15 @@
-"""RED skeleton for spec-105 Phase 2/3 — `ai-eng risk accept-all` E2E.
+"""GREEN spec-105 Phase 8 — `ai-eng risk accept-all` E2E.
 
 Covers spec-105 G-1 happy path: bulk accept findings from gate-findings.json,
 generate shared `batch_id`, write N DEC entries, emit telemetry batch event.
 
-Status: RED (CLI command does not exist yet; tests fail at import / invocation).
-Marker: `@pytest.mark.spec_105_red` — excluded by default CI run.
-Will be unmarked in Phase 3 (T-3.14) once `risk_cmd.py` is implemented.
+Status: GREEN — exercises real production code via ``CliRunner``.
+Prior history: started as a Phase 1 RED skeleton, body landed in Phase 8 once
+``cli_commands/risk_cmd.py`` and the schema additions were stable.
+
+Fixture invariant: per ``GateFinding._enforce_auto_fix_command_when_fixable``,
+``auto_fixable=True`` requires a non-null ``auto_fix_command``. The fixture
+sets ``auto_fixable=False`` to keep the model contract trivially satisfied.
 """
 
 from __future__ import annotations
@@ -18,13 +22,15 @@ from typer.testing import CliRunner
 
 from ai_engineering.cli_factory import create_app
 
-pytestmark = pytest.mark.spec_105_red
-
 runner = CliRunner()
 
 
 def _seed_findings(root: Path) -> Path:
-    """Seed a gate-findings.json v1 fixture into the project state dir."""
+    """Seed a gate-findings.json v1 fixture into the project state dir.
+
+    The two findings carry distinct severities so ``--max-severity low``
+    can demonstrate the cap behaviour without changing the fixture shape.
+    """
     state_dir = root / ".ai-engineering" / "state"
     state_dir.mkdir(parents=True, exist_ok=True)
     findings_path = state_dir / "gate-findings.json"
@@ -46,7 +52,7 @@ def _seed_findings(root: Path) -> Path:
                         "column": None,
                         "severity": "low",
                         "message": "line too long",
-                        "auto_fixable": True,
+                        "auto_fixable": False,
                         "auto_fix_command": None,
                     },
                     {
@@ -75,7 +81,7 @@ def _seed_findings(root: Path) -> Path:
 def test_risk_accept_all_creates_dec_per_finding_with_shared_batch_id(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """G-1 happy path: 2 findings → 2 DEC entries with same `batch_id`."""
+    """G-1 happy path: 2 findings -> 2 DEC entries with same `batch_id`."""
     findings_path = _seed_findings(tmp_path)
     monkeypatch.chdir(tmp_path)
     app = create_app()
@@ -102,6 +108,7 @@ def test_risk_accept_all_creates_dec_per_finding_with_shared_batch_id(
     assert len(store["decisions"]) == 2
     batch_ids = {d.get("batchId") for d in store["decisions"]}
     assert len(batch_ids) == 1, "All accepted findings must share one batch_id"
+    assert next(iter(batch_ids)) is not None, "batchId must be populated"
 
 
 def test_risk_accept_all_dry_run_emits_no_decision(
