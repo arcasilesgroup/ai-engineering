@@ -1,0 +1,16 @@
+{
+  "name": "@ai-engineering/mcp-server",
+  "version": "3.0.0-alpha.0",
+  "description": "Stateless Streamable HTTP MCP server exposing ai-engineering capabilities",
+  "type": "module",
+  "license": "MIT",
+  "main": "./src/index.ts",
+  "scripts": {
+    "build": "tsc --noEmit",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@ai-engineering/runtime": "workspace:*"
+  }
+}

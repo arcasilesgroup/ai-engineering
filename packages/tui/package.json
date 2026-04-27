@@ -1,0 +1,14 @@
+{
+  "name": "@ai-engineering/tui",
+  "version": "3.0.0-alpha.0",
+  "description": "Optional Ink-based TUI dashboard (Phase 9 in roadmap)",
+  "type": "module",
+  "license": "MIT",
+  "private": true,
+  "main": "./src/index.ts",
+  "scripts": {
+    "build": "tsc --noEmit",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit"
+  }
+}

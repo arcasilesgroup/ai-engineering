@@ -1,0 +1,14 @@
+{
+  "name": "@ai-engineering/runtime",
+  "version": "3.0.0-alpha.0",
+  "description": "Domain core, application use cases, and adapters",
+  "type": "module",
+  "license": "MIT",
+  "main": "./src/index.ts",
+  "scripts": {
+    "build": "tsc --noEmit",
+    "test": "bun test",
+    "test:coverage": "bun test --coverage",
+    "typecheck": "tsc --noEmit"
+  }
+}

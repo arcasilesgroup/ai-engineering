@@ -1,7 +1,28 @@
-# Cross-OS line ending enforcement
-*.sh   text eol=lf
-*.py   text eol=lf
-*.yml  text eol=lf
-*.yaml text eol=lf
-*.md   text eol=lf
-*.json text eol=lf
+# Line endings
+* text=auto eol=lf
+*.{cmd,bat} text eol=crlf
+*.{ps1} text eol=crlf
+
+# Binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary
+*.pdf binary
+
+# Generated mirror artifacts
+.claude/skills/** linguist-generated=true
+.claude/agents/** linguist-generated=true
+.cursor/rules/** linguist-generated=true
+.codex/skills/** linguist-generated=true
+.gemini/skills/** linguist-generated=true
+.github/skills/** linguist-generated=true
+
+# Lock files
+bun.lockb binary
+uv.lock text -diff

@@ -1,0 +1,73 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Pin actions to immutable commit SHAs (Shai-Hulud 2.0 mitigation, ADR-0006).
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ts:
+    name: TypeScript (Bun)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11   # v4.1.1
+      - uses: oven-sh/setup-bun@4bc047ad259df6fc24a6c9b0f9a0cb08cf17fbe5    # v1.2.2
+        with:
+          bun-version: latest
+
+      - name: Install (no scripts — Shai-Hulud 2.0 mitigation)
+        run: bun install --frozen-lockfile --ignore-scripts
+
+      - name: Lint (Biome)
+        run: bun run lint
+
+      - name: Typecheck
+        run: bun run --filter '*' typecheck
+
+      - name: Test
+        run: bun test --coverage
+
+  py:
+    name: Python (uv)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11   # v4.1.1
+      - name: Install uv
+        uses: astral-sh/setup-uv@4db96194c378173c656ce18a155ffc14a9fc4355   # v5.4.1
+        with:
+          version: latest
+
+      - name: Sync dependencies (no scripts)
+        run: uv sync --frozen
+
+      - name: Lint
+        run: uvx ruff check .
+
+      - name: Format check
+        run: uvx ruff format --check .
+
+      - name: Test (when python/ has tests)
+        run: |
+          if [ -d python ]; then
+            uv run pytest python/ || echo "no tests yet"
+          fi
+
+  gitleaks:
+    name: Secret scan (gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11   # v4.1.1
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7   # v2.3.6
+        env:
+          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}

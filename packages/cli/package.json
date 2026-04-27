@@ -1,0 +1,21 @@
+{
+  "name": "@ai-engineering/cli",
+  "version": "3.0.0-alpha.0",
+  "description": "ai-eng — CLI for the ai-engineering framework",
+  "type": "module",
+  "license": "MIT",
+  "main": "./src/main.ts",
+  "bin": {
+    "ai-eng": "./src/main.ts"
+  },
+  "scripts": {
+    "build": "bun build ./src/main.ts --compile --outfile=dist/ai-eng",
+    "dev": "bun run --watch ./src/main.ts",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@ai-engineering/runtime": "workspace:*",
+    "@ai-engineering/mcp-server": "workspace:*"
+  }
+}

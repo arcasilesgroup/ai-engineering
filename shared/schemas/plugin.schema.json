@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai-engineering.dev/schemas/plugin.schema.json",
+  "title": "ai-engineering Plugin Manifest",
+  "description": "Schema for `.ai-engineering/plugin.toml` shipped by every plugin.",
+  "type": "object",
+  "required": ["schema_version", "plugin", "compatibility", "provides", "trust"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "const": "1" },
+    "plugin": {
+      "type": "object",
+      "required": ["name", "version", "description", "license"],
+      "additionalProperties": true,
+      "properties": {
+        "name": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,127}$" },
+        "version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+(?:-[a-zA-Z0-9.-]+)?$" },
+        "description": { "type": "string", "maxLength": 1024 },
+        "license": { "type": "string" },
+        "homepage": { "type": "string", "format": "uri" },
+        "repository": { "type": "string", "format": "uri" },
+        "keywords": { "type": "array", "items": { "type": "string" } },
+        "categories": { "type": "array", "items": { "type": "string" } },
+        "author": {
+          "type": "object",
+          "properties": {
+            "name": { "type": "string" },
+            "email": { "type": "string", "format": "email" }
+          }
+        }
+      }
+    },
+    "compatibility": {
+      "type": "object",
+      "required": ["ai_engineering"],
+      "properties": {
+        "ai_engineering": { "type": "string" },
+        "python": { "type": "string" },
+        "ides": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "provides": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "skills": { "type": "array", "items": { "type": "string" } },
+        "agents": { "type": "array", "items": { "type": "string" } },
+        "hooks": { "type": "array", "items": { "type": "string" } },
+        "mcp": { "type": "array", "items": { "type": "string" } },
+        "templates": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "dependencies": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["plugin", "version"],
+        "properties": {
+          "plugin": { "type": "string" },
+          "version": { "type": "string" }
+        }
+      }
+    },
+    "permissions": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "read": { "type": "array", "items": { "type": "string" } },
+        "write": { "type": "array", "items": { "type": "string" } },
+        "network": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "trust": {
+      "type": "object",
+      "required": ["tier", "sigstore_keyless", "slsa_level", "sbom_format"],
+      "properties": {
+        "tier": { "enum": ["official", "verified", "community"] },
+        "sigstore_keyless": { "type": "boolean" },
+        "slsa_level": { "type": "integer", "minimum": 1, "maximum": 4 },
+        "sbom_format": { "type": "string", "pattern": "^cyclonedx-\\d+\\.\\d+$" },
+        "scorecard_min": { "type": "number", "minimum": 0, "maximum": 10 },
+        "identity": {
+          "type": "object",
+          "properties": {
+            "oidc_issuer": { "type": "string", "format": "uri" },
+            "expected_workflow": { "type": "string" }
+          }
+        }
+      }
+    }
+  }
+}

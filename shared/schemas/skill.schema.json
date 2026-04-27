@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai-engineering.dev/schemas/skill.schema.json",
+  "title": "ai-engineering Skill",
+  "description": "Frontmatter schema for skills/catalog/<name>/SKILL.md (compatible with Anthropic Agent Skills spec).",
+  "type": "object",
+  "required": ["name", "description", "effort", "tier"],
+  "additionalProperties": false,
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{0,63}$",
+      "description": "Lowercase alphanumeric with hyphens, max 64 chars (Anthropic spec)."
+    },
+    "description": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024
+    },
+    "effort": {
+      "type": "string",
+      "enum": ["max", "high", "medium", "low"]
+    },
+    "tier": {
+      "type": "string",
+      "enum": ["core", "regulated", "plugin"]
+    },
+    "capabilities": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["tool_use", "structured_output", "prompt_caching", "long_context", "vision", "streaming"]
+      },
+      "uniqueItems": true
+    },
+    "modelClass": { "type": "string" },
+    "handlers": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "governance": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "blocking": { "type": "boolean" }
+      }
+    }
+  }
+}

@@ -1,0 +1,19 @@
+# Code owners — auto-request review on PRs touching these paths.
+# Order matters: later patterns override earlier ones.
+
+# Default: everything owned by core team.
+* @soydachi
+
+# Domain core requires architecture review.
+/packages/runtime/src/skills/domain/      @soydachi
+/packages/runtime/src/governance/domain/  @soydachi
+/packages/runtime/src/agents/domain/      @soydachi
+
+# ADRs require quorum of core maintainers (when team grows).
+/docs/adr/                                 @soydachi
+
+# Constitution amendments require core team review.
+/CONSTITUTION.md                           @soydachi
+
+# CI / supply chain workflows.
+/.github/workflows/                        @soydachi

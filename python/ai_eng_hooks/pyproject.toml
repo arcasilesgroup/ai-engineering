@@ -1,0 +1,13 @@
+[project]
+name = "ai-eng-hooks"
+version = "3.0.0a0"
+description = "Battle-tested hooks for ai-engineering: PreToolUse, PostToolUse, prompt-injection-guard"
+requires-python = ">=3.13"
+license = { text = "MIT" }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ai_eng_hooks"]
