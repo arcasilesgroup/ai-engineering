@@ -1,0 +1,23 @@
+[
+  {
+    "skill": "ai-brainstorm",
+    "result": {
+      "score": 92,
+      "reason": "triggering-accuracy=24/25 boundary-clarity=23/25 verbosity=22/25 wire-integrity=23/25"
+    }
+  },
+  {
+    "skill": "ai-animation",
+    "result": {
+      "score": 58,
+      "reason": "triggering-accuracy=18/25 boundary-clarity=12/25 verbosity=10/25 wire-integrity=18/25"
+    }
+  },
+  {
+    "skill": "ai-analyze-permissions",
+    "result": {
+      "score": 0,
+      "reason": "eval-failed-cli-missing"
+    }
+  }
+]

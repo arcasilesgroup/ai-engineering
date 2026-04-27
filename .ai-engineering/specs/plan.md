@@ -67,14 +67,14 @@
 ### Phase 4: skill-audit.sh + audit-report.json contract
 **Gate**: `scripts/skill-audit.sh` exists, advisory mode works (no CI block); emits `audit-report.json` with valid schema; T-3.8/T-3.9 RED tests PASS.
 
-- [ ] T-4.1: Create `scripts/skill-audit.sh` advisory script per D-106-04 spec. Bash, `set -euo pipefail`. Iterate `.claude/skills/ai-*/SKILL.md`. For each, attempt `uv run ai-eng skill eval` (gracefully fail to `eval-failed` record if subcommand missing). Emit `audit-report.json` with array of `{skill, result: {score, reason}}` entries (agent: build)
-- [ ] T-4.2: chmod +x `scripts/skill-audit.sh` (agent: build)
-- [ ] T-4.3: Write `tests/integration/test_skill_audit_advisory.py` body — invoke `bash scripts/skill-audit.sh` via subprocess; assert exit 0 (advisory); assert `audit-report.json` created in cwd; assert JSON parsable (agent: build)
-- [ ] T-4.4: Write `tests/unit/test_audit_report_schema.py` body — load fixture audit-report.json; assert schema (list of objects, each with skill+result.score+result.reason) (agent: build)
-- [ ] T-4.5: Remove markers from these 2 test files; confirm GREEN (agent: build)
-- [ ] T-4.6: Write RED test skeleton `tests/unit/test_skill_line_budget_post_cleanup.py` marked, covering Phase 5 G-5 >=400 line reduction across 47 skills (agent: build)
-- [ ] T-4.7: Run `pytest -m 'not spec_105_red and not spec_106_red'` and confirm PASS (agent: verify)
-- [ ] T-4.8: Stage and commit `feat(spec-106): Phase 4 GREEN skill-audit advisory + Phase 5 RED line-budget test` (agent: build)
+- [x] T-4.1: Create `scripts/skill-audit.sh` advisory script per D-106-04 spec. Bash, `set -euo pipefail`. Iterate `.claude/skills/ai-*/SKILL.md`. For each, attempt `uv run ai-eng skill eval` (gracefully fail to `eval-failed` record if subcommand missing). Emit `audit-report.json` with array of `{skill, result: {score, reason}}` entries (agent: build)
+- [x] T-4.2: chmod +x `scripts/skill-audit.sh` (agent: build)
+- [x] T-4.3: Write `tests/integration/test_skill_audit_advisory.py` body — invoke `bash scripts/skill-audit.sh` via subprocess; assert exit 0 (advisory); assert `audit-report.json` created in cwd; assert JSON parsable (agent: build)
+- [x] T-4.4: Write `tests/unit/test_audit_report_schema.py` body — load fixture audit-report.json; assert schema (list of objects, each with skill+result.score+result.reason) (agent: build)
+- [x] T-4.5: Remove markers from these 2 test files; confirm GREEN (agent: build)
+- [x] T-4.6: Write RED test skeleton `tests/unit/test_skill_line_budget_post_cleanup.py` marked, covering Phase 5 G-5 >=400 line reduction across 47 skills (agent: build)
+- [x] T-4.7: Run `pytest -m 'not spec_105_red and not spec_106_red'` and confirm PASS (agent: verify)
+- [x] T-4.8: Stage and commit `feat(spec-106): Phase 4 GREEN skill-audit advisory + Phase 5 RED line-budget test` (agent: build)
 
 ---
 
