@@ -890,17 +890,46 @@ class AutoFixedEntry(BaseModel):
     model_config = ConfigDict(frozen=True)
 
 
+class AcceptedFinding(BaseModel):
+    """A gate finding that was bypassed by an active risk-acceptance Decision.
+
+    Emitted in ``gate-findings.json`` v1.1 (spec-105 D-105-08) under the
+    ``accepted_findings`` array. Each entry carries enough context to
+    audit which DEC bypassed which finding and when that bypass expires.
+    """
+
+    check: str
+    rule_id: str
+    file: str
+    line: int = Field(ge=1)
+    severity: GateSeverity
+    message: str
+    dec_id: str
+    expires_at: datetime | None = None
+
+    model_config = ConfigDict(frozen=True)
+
+
 class GateFindingsDocument(BaseModel):
-    """Top-level container for ``gate-findings.json`` schema v1 (D-104-06).
+    """Top-level container for ``gate-findings.json`` schema v1 / v1.1.
 
     Emitted by the orchestrator at
     ``.ai-engineering/state/gate-findings.json`` and by the watch loop
     at ``.ai-engineering/state/watch-residuals.json``. Versioned via the
     ``schema`` literal so consumers (spec-105 risk-accept) can reject
     unknown versions with an actionable message.
+
+    spec-105 D-105-08 broadens the accepted ``schema`` literal to a Union
+    of v1 and v1.1 and adds two additive arrays (``accepted_findings``,
+    ``expiring_soon``) to support the orchestrator-level risk-acceptance
+    lookup. ``extra="ignore"`` is set defensively so a v1 reader can
+    consume a v1.1 document by silently dropping unknown fields, and a
+    future minor version bump remains backward-compatible.
     """
 
-    schema_: Literal["ai-engineering/gate-findings/v1"] = Field(alias="schema")
+    schema_: Literal["ai-engineering/gate-findings/v1", "ai-engineering/gate-findings/v1.1"] = (
+        Field(alias="schema")
+    )
     session_id: UUID4
     produced_by: GateProducedBy
     produced_at: datetime
@@ -912,7 +941,12 @@ class GateFindingsDocument(BaseModel):
     cache_misses: list[str] = Field(default_factory=list)
     wall_clock_ms: WallClockMs
 
-    model_config = ConfigDict(populate_by_name=True, frozen=True)
+    # spec-105 v1.1 additive fields. Default empty so legacy v1 producers
+    # remain valid without modification.
+    accepted_findings: list[AcceptedFinding] = Field(default_factory=list)
+    expiring_soon: list[str] = Field(default_factory=list)
+
+    model_config = ConfigDict(populate_by_name=True, frozen=True, extra="ignore")
 
 
 class WatchLoopState(BaseModel):
