@@ -1,0 +1,10 @@
+rules:
+  - id: noqa-suppression-blocked
+    patterns:
+      - pattern-regex: "#\\s*noqa\\b"
+    message: |
+      `# noqa` suppression detected. CONSTITUTION Article VII forbids
+      bypassing quality gates with suppression comments. Refactor the
+      code or open a logged risk acceptance.
+    languages: [python]
+    severity: ERROR
