@@ -25,6 +25,9 @@
     "packages/llm-bridge": {
       "name": "@ai-engineering/llm-bridge",
       "version": "3.0.0-alpha.0",
+      "dependencies": {
+        "@ai-engineering/runtime": "workspace:*",
+      },
     },
     "packages/mcp-server": {
       "name": "@ai-engineering/mcp-server",

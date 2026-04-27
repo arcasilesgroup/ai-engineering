@@ -1,0 +1,55 @@
+# ai-engineering LiteLLM bridge — example compose file.
+#
+# Strict isolation per ADR-0008:
+#   - read_only filesystem (mount writable tmpfs only if needed)
+#   - cap_drop=ALL, no-new-privileges
+#   - unprivileged user (uid 1000)
+#   - bound to 127.0.0.1 only — NEVER 0.0.0.0
+#
+# Bring your own routes.toml and put your bearer token in `.env` next to
+# this file:
+#
+#   AI_ENGINEERING_BRIDGE_TOKEN=...   # any high-entropy string
+#
+# Then:
+#
+#   docker compose up --build
+
+services:
+  litellm-bridge:
+    build: .
+    image: ai-engineering/litellm-bridge:dev
+    # Use the default bridge network — egress is restricted by the host
+    # firewall rules in production deployments. ADR-0008 requires an
+    # outbound allowlist; we leave the policy to the operator.
+    network_mode: bridge
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges
+    user: "1000:1000"
+    # 127.0.0.1 prefix is REQUIRED. Do not change to "4848:4848" — that
+    # would expose the bridge on every interface.
+    ports:
+      - "127.0.0.1:4848:4848"
+    environment:
+      AI_ENGINEERING_BRIDGE_TOKEN: "${AI_ENGINEERING_BRIDGE_TOKEN}"
+      AI_ENGINEERING_ROUTING_PATH: "/etc/ai-eng/routes.toml"
+      AI_ENGINEERING_LLM_TPM_LIMIT: "${AI_ENGINEERING_LLM_TPM_LIMIT:-0}"
+    volumes:
+      # Mount your routing config read-only.
+      - ./routes.toml:/etc/ai-eng/routes.toml:ro
+    # Writable tmp for uvicorn + LiteLLM cache without losing read_only.
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    healthcheck:
+      test:
+        - "CMD"
+        - "python"
+        - "-c"
+        - "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:4848/health',timeout=2).status==200 else 1)"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s

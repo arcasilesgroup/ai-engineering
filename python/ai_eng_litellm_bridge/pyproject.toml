@@ -4,6 +4,15 @@ version = "3.0.0a0"
 description = "Docker-isolated LiteLLM HTTP bridge for ai-engineering multi-LLM routing"
 requires-python = ">=3.13"
 license = { text = "MIT" }
+# HARD-PINNED. LiteLLM 1.82.7/8 (March 2026) was a supply chain compromise; do
+# NOT widen the upper bound or drop pinning — see ADR-0008 for full rationale.
+dependencies = [
+  "litellm==1.51.0",
+  "fastapi>=0.115.0,<0.120.0",
+  "uvicorn[standard]>=0.32.0,<0.40.0",
+  "httpx>=0.27.0,<0.30.0",
+  "pydantic>=2.9.0,<3.0.0",
+]
 
 [build-system]
 requires = ["hatchling"]
