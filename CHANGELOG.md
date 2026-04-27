@@ -9,6 +9,88 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### BREAKING
 
+#### spec-105 -- Unified Gate + Generalized Risk Acceptance (BREAKING-LIKELY)
+
+This release introduces a new CLI namespace (`ai-eng risk *`), a new
+manifest field (`gates.mode`), an additive schema bump (`gate-findings`
+v1 -> v1.1), and an opt-out auto-stage default. The "BREAKING-LIKely"
+flag covers the manifest field default and the auto-stage flip; both
+are additive but change observable behaviour for projects that were
+relying on the legacy implicits.
+
+- **New `ai-eng risk *` namespace (D-105-05).** Seven subcommands wire
+  the existing `decision_logic` lifecycle to a public CLI: `accept`,
+  `accept-all`, `renew`, `resolve`, `revoke`, `list`, `show`. The
+  pre-spec-105 flow ("AI edits `decision-store.json` via prompt") is
+  superseded; the JSON file is no longer expected to be hand-edited.
+  Coexists with the existing `ai-eng decision *` namespace (which
+  remains for architecture-decision and flow-decision entries).
+
+- **New `manifest.yml.gates.mode` field (D-105-02).**
+  `gates.mode: regulated` (default) keeps full Tier 0+1+2 enforcement.
+  `gates.mode: prototyping` skips Tier 2 governance checks (`ai-eng
+  validate`, `ai-eng spec verify`, docs gate, risk-expiry warning) for
+  spike work. Branch-aware escalation (D-105-03) and CI override force
+  `regulated` regardless of manifest, so prototyping cannot leak to
+  protected branches or CI runs.
+
+- **`gate-findings.json` schema v1 -> v1.1 (additive, D-105-07).**
+  New optional fields `accepted_findings: [{check, rule_id, file, line,
+  severity, message, dec_id, expires_at}]` and `expiring_soon:
+  [dec_id]`. v1 readers continue to work because the schema literal is
+  a `Literal["ai-engineering/gate-findings/v1",
+  "ai-engineering/gate-findings/v1.1"]` union and unknown fields are
+  ignored.
+
+- **Auto-stage default ON for the local pre-commit gate (D-105-09).**
+  After Wave 1 fixers (ruff format, ruff check --fix, spec verify
+  --fix) modify staged files, the orchestrator re-stages the safe
+  intersection `S_pre & M_post` -- files that were already staged AND
+  were modified by the fixers. Files newly created by fixers, or
+  modified-but-unstaged files, are NEVER auto-staged. Disable with
+  `ai-eng gate run --no-auto-stage` or the manifest field
+  `gates.pre_commit.auto_stage: false`. The same shared utility
+  (`policy/auto_stage.py`) is invoked by the Claude `auto-format.py`
+  hook so orchestrator + hook produce identical results on the same
+  fixture.
+
+- **Orchestrator-level acceptance lookup (D-105-07).** After Wave 2,
+  `apply_risk_acceptances(findings, store, now=now)` partitions
+  findings into `(blocking, accepted)` lists, drops accepted items
+  from the blocking set, and emits per-acceptance telemetry events
+  (`category=risk-acceptance, control=finding-bypassed`). The CLI
+  prints a compact ACCEPTED summary plus an `expiring_soon[]` banner
+  when any DEC is within `_WARN_BEFORE_EXPIRY_DAYS=7` of expiry.
+
+- **Cross-IDE parity for `ai-eng risk *` (G-10).** All risk + gate CLI
+  output is byte-identical (after normalising session_id /
+  produced_at / wall_clock_ms / commit_sha) across Claude Code, GitHub
+  Copilot, Codex, and Gemini. The CLI is the single source of truth;
+  IDE drivers never branch the orchestrator.
+
+- **Prompt-injection-guard whitelist (G-12).** `ai-eng risk accept` and
+  `ai-eng risk accept-all` are exempted from the
+  injection-pattern scan because their inputs (gate-findings JSON)
+  legitimately embed rule names like `aws-access-token` or
+  `stripe-key`. The bypass emits a `category=security,
+  control=prompt-guard-whitelisted` telemetry event so each whitelist
+  match remains auditable.
+
+##### Migration checklist
+
+- [ ] After upgrading, run `ai-eng install` once to add `gates.mode`
+      and `gates.pre_commit.auto_stage` defaults to `manifest.yml`.
+- [ ] If you customised `auto-format.py` hook behaviour, review the
+      shared `policy/auto_stage.py` utility -- the hook now delegates
+      to it.
+- [ ] If your project intentionally hand-edited `decision-store.json`
+      to add risk acceptances, replace those flows with `ai-eng risk
+      accept-all` invocations. Existing entries remain valid; only new
+      entries gain the `finding_id` / `batch_id` fields.
+- [ ] No CI changes required -- CI auto-detects via `CI=true` /
+      `GITHUB_ACTIONS=true` / `TF_BUILD=True` and forces `regulated`
+      mode.
+
 #### spec-101 -- Stack-Aware User-Scope Tool Bootstrap (BREAKING)
 
 This release replaces the previous best-effort tool-install path with a hard,

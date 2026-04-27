@@ -101,7 +101,7 @@ The per-check `fix_attempts >= 3` STOP rule (Step 4 escalation) is preserved unc
    ```
    Watch loop hit <active|passive> wall-clock cap (<minutes> min).
    <N> checks still failing: <names>
-   Run: ai-eng risk accept-all .ai-engineering/state/watch-residuals.json --justification "..."
+   Run: ai-eng risk accept-all .ai-engineering/state/watch-residuals.json --justification "..." --spec <spec-id> --follow-up "..."
    Or fix manually and re-invoke /ai-pr.
    ```
 3. Exit code **90** (distinct from spec-101 D-101-11 exits 80/81 for Python SDK gate / SDK prereq gate). CI scripts use the integer to tell "watch timed out" from "real failure".

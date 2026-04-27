@@ -100,13 +100,52 @@ When the watch loop hits its cap with residual failures, it emits
 `gate-findings.json` (D-104-06): `{schema, session_id, produced_by:
 "watch-loop", findings, ...}`.
 
-`ai-eng risk accept-all watch-residuals.json --justification "..."` (spec-105,
-S3) consumes this artefact, persists each finding's `rule_id` to
-`state/decision-store.json` with the justification, and unblocks the merge. The
-justification is mandatory and surfaces in audit reports.
+`ai-eng risk accept-all <findings.json> --justification "..." --spec <spec-id>
+--follow-up "..."` (spec-105 D-105-05) consumes this artefact, persists each
+finding's `rule_id` to `state/decision-store.json` as a discrete `DEC-*`
+entry sharing one `batch_id`, and unblocks the merge. Justification, spec
+ref, and follow-up plan are all mandatory and surface in audit reports.
 
-Until spec-105 lands, the fallback printed by the watch loop on cap is "or fix
-manually and re-invoke `/ai-pr`".
+### Lookup flow (orchestrator-level, D-105-07)
+
+After Wave 2 collects findings, the orchestrator calls
+`ai_engineering.policy.checks._accept_lookup.apply_risk_acceptances(
+findings, store, now=now)` which:
+
+1. Builds canonical contexts of the form `f"finding:{rule_id}"` for each
+   live finding.
+2. Looks up each context in `state/decision-store.json` for an active
+   (non-expired, non-revoked) risk-acceptance DEC entry.
+3. Partitions findings into `(blocking, accepted)` lists. Accepted
+   findings are dropped from the blocking set, surfaced separately in
+   `gate-findings.json` v1.1 under `accepted_findings[]`, and emit a
+   `category=risk-acceptance, control=finding-bypassed` telemetry event
+   per acceptance.
+
+The CLI prints a compact ACCEPTED table for each bypass plus an
+`expiring_soon[]` banner when any DEC is within `_WARN_BEFORE_EXPIRY_DAYS`
+(default 7) of expiry.
+
+### Bulk acceptance (D-105-01)
+
+`accept-all` accepts findings of any severity (including critical) in a
+single pass. Per-finding TTLs follow `_SEVERITY_EXPIRY_DAYS` constants
+(critical=15d, high=30d, medium=60d, low=90d). Each acceptance persists
+its severity unchanged -- bulk acceptance is logged-acceptance, not
+severity weakening.
+
+### Dual-mode interaction (D-105-02 / D-105-03)
+
+- **Regulated mode** (default): all gates run. Risk acceptances apply
+  through `apply_risk_acceptances`; granted bypasses emit telemetry.
+- **Prototyping mode**: Tier 2 governance checks skip; Tier 0+1 always
+  block. Risk acceptances still apply for any finding that does run.
+  Branch-aware escalation + CI override force regulated execution
+  regardless of manifest, so prototyping cannot leak to protected
+  branches or to CI runs.
+
+See `.ai-engineering/contexts/risk-acceptance-flow.md` for the full
+end-to-end lifecycle (accept / renew / resolve / revoke).
 
 ## Migration note
 

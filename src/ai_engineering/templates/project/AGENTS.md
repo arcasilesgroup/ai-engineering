@@ -190,7 +190,7 @@ Telemetry is automatic via hooks and writes only canonical framework events.
 5. **NEVER** push to protected branches (main, master).
 6. **NEVER** dismiss security findings without `state/decision-store.json` risk acceptance.
 7. **NEVER** add suppression comments (`# noqa`, `# nosec`, `# type: ignore`, `# pragma: no cover`, `# NOSONAR`, `// nolint`) to bypass quality gates. Fix the code. If it is a false positive, refactor to satisfy the analyzer or escalate with a full explanation.
-8. **NEVER** weaken a gate, threshold, or severity level without the full protocol: warn user of impact, generate a remediation patch, require explicit risk acceptance, persist to `state/decision-store.json`, and emit the outcome to `state/framework-events.ndjson`.
+8. **NEVER** weaken a gate, threshold, or severity level without the full protocol: warn user of impact, generate a remediation patch, require explicit risk acceptance, persist to `state/decision-store.json`, and emit the outcome to `state/framework-events.ndjson`. NOTE (D-105-14): risk acceptance via `ai-eng risk accept` / `ai-eng risk accept-all` is **logged-acceptance** with TTL, owner, spec ref, and follow-up plan -- it is NOT weakening. Weakening means modifying `_SEVERITY_EXPIRY_DAYS`, adding suppression comments, disabling hooks, or lowering severity-class thresholds in code or config.
 
 Gate failure: diagnose, fix, retry. Use `ai-eng doctor --fix` or `ai-eng doctor --fix --phase <name>`.
 

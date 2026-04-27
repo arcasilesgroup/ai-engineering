@@ -48,7 +48,7 @@ If `.ai-engineering/instincts/instincts.yml` exists, run `/ai-instinct --review`
 
 `ai-eng gate run --cache-aware --json --mode=local` orchestrates Wave 1 fixers (`ruff format` -> `ruff check --fix` -> `spec verify --fix`) then Wave 2 checkers (`gitleaks protect --staged`, `ty check src/`, `pytest -m smoke`, `ai-eng validate`, docs gate) in parallel. CI matrix runs `--mode=ci` for the authoritative gate (`semgrep` + `pip-audit` + `pytest` full + matrix). See `.ai-engineering/contexts/gate-policy.md`.
 
-If exit non-zero, parse `.ai-engineering/state/gate-findings.json`, report findings, STOP. Do not proceed unless all medium+ severity resolved or accepted via `ai-eng risk accept-all` (spec-105).
+If exit non-zero, parse `.ai-engineering/state/gate-findings.json`, report findings, STOP. Do not proceed unless all medium+ severity findings are resolved or accepted via `ai-eng risk accept-all .ai-engineering/state/gate-findings.json --justification "<reason>" --spec <spec-id> --follow-up "<plan>"` (each acceptance creates a DEC entry with TTL; see `.ai-engineering/contexts/risk-acceptance-flow.md`).
 
 ### 7.5. Work item context
 
@@ -125,7 +125,7 @@ Once `state == "MERGED"`: run `/ai-cleanup --all` and report.
 
 ## Common Mistakes
 
-- Skipping the pre-push gate -- exit 0 (or all medium+ findings risk-accepted) is required.
+- Skipping the pre-push gate -- exit 0 (or all medium+ findings risk-accepted via `ai-eng risk accept-all`) is required.
 - Serializing step 7 after step 6.5 -- the gate is Lane 3 of the concurrent block.
 - Fire-and-forget docs commit after the PR -- spec-104 NG-7 forbids it.
 

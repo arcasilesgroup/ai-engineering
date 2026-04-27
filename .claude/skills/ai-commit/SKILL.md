@@ -46,7 +46,7 @@ ai-eng gate run --cache-aware --json --mode=local
 The orchestrator runs the 2-wave collector (Wave 1 fixers serial -> Wave 2 checkers parallel) with cache-aware lookup, emitting `.ai-engineering/state/gate-findings.json` (schema v1) covering every check. After Wave 1 fixers rewrite files, the orchestrator re-stages the safe `S_pre & M_post` intersection (spec-105 D-105-09); pass `--no-auto-stage` to disable, or set `gates.pre_commit.auto_stage: false` in the manifest.
 
 - **Exit 0** -- all checks PASS or auto-fixed. Continue to step 7.
-- **Exit non-zero** -- parse `gate-findings.json`, report failing checks per `rule_id` + `severity`, **STOP**. Fix root cause, re-stage, re-run `/ai-commit`. Risk-acceptance ships in spec-105.
+- **Exit non-zero** -- parse `gate-findings.json`, report failing checks per `rule_id` + `severity`, **STOP**. Fix root cause, re-stage, re-run `/ai-commit`. Override only when remediation is tracked elsewhere and the publish window forces it: `ai-eng risk accept-all .ai-engineering/state/gate-findings.json --justification "<reason>" --spec <spec-id> --follow-up "<plan>"` writes one DEC entry per finding with severity-default TTL (see `.ai-engineering/contexts/risk-acceptance-flow.md`).
 
 See `.ai-engineering/contexts/gate-policy.md` for the local fast-slice + CI authoritative split.
 

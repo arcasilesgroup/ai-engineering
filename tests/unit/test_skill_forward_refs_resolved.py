@@ -21,9 +21,6 @@ from pathlib import Path
 
 import pytest
 
-pytestmark = pytest.mark.spec_105_red
-
-
 _FORWARD_REF_NEEDLE = "(spec-105)"
 _SKILL_DIRS = (
     ".claude/skills/ai-commit",

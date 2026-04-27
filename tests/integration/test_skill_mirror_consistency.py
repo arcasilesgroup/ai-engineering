@@ -14,10 +14,6 @@ from __future__ import annotations
 
 import subprocess
 
-import pytest
-
-pytestmark = pytest.mark.spec_105_red
-
 
 def test_ai_eng_sync_check_returns_zero_post_phase_7() -> None:
     """G-9 -- ai-eng sync --check exits 0 after skill updates + sync run."""

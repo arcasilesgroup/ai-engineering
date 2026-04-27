@@ -3,9 +3,18 @@
 
 Blocks CRITICAL matches (exit 2), warns on HIGH matches (exit 0 advisory).
 Applies to Bash, Write, Edit, and MultiEdit tools.
+
+spec-105 G-12: ``ai-eng risk accept`` and ``ai-eng risk accept-all`` are
+explicitly whitelisted because their inputs (gate-findings.json fixtures)
+intentionally embed rule names like ``aws-access-token`` /
+``stripe-key`` / etc. that the injection-pattern set classifies as
+CRITICAL. Whitelisted invocations bypass the pattern scan but still emit
+a telemetry event so the bypass is auditable.
 """
 
+import hashlib
 import json
+import shlex
 import sys
 from pathlib import Path
 
@@ -22,6 +31,17 @@ _GUARDED_TOOLS = {"Bash", "Write", "Edit", "MultiEdit"}
 _MIN_CONTENT_LEN = 10
 _MAX_CONTENT_LEN = 4000
 
+# spec-105 G-12: commands that legitimately handle gate-findings JSON
+# embedding secret-related rule names. Match by argv[0..2] joined with
+# single spaces. Add new entries with care -- every whitelisted command
+# bypasses the injection-pattern scan.
+WHITELISTED_COMMANDS = frozenset(
+    {
+        "ai-eng risk accept-all",
+        "ai-eng risk accept",
+    }
+)
+
 
 def _extract_content(tool_name: str, tool_input: dict) -> str:
     """Extract scannable content from tool input based on tool type."""
@@ -32,6 +52,39 @@ def _extract_content(tool_name: str, tool_input: dict) -> str:
     if tool_name == "Bash":
         return tool_input.get("command", "")
     return ""
+
+
+def _parsed_command_prefix(command: str) -> str | None:
+    """Return the first three argv tokens joined with single spaces.
+
+    Used to match against ``WHITELISTED_COMMANDS``. Returns ``None`` when
+    parsing fails (malformed quoting) or the command has fewer than two
+    tokens (top-level only -- never enough to be a whitelisted invocation).
+    """
+    try:
+        tokens = shlex.split(command)
+    except ValueError:
+        return None
+    if len(tokens) < 2:
+        return None
+    return " ".join(tokens[:3])
+
+
+def _is_whitelisted(tool_name: str, content: str) -> str | None:
+    """Return the matched whitelist key, or ``None`` if not whitelisted.
+
+    Only Bash invocations can be whitelisted; Write/Edit/MultiEdit always
+    pass through the pattern scan because the whitelist contract is
+    ``ai-eng risk *`` CLI invocations -- not file edits.
+    """
+    if tool_name != "Bash":
+        return None
+    prefix = _parsed_command_prefix(content)
+    if prefix is None:
+        return None
+    if prefix in WHITELISTED_COMMANDS:
+        return prefix
+    return None
 
 
 def main() -> None:
@@ -52,6 +105,29 @@ def main() -> None:
     content = _extract_content(tool_name, tool_input)
 
     if len(content) < _MIN_CONTENT_LEN:
+        passthrough_stdin(ctx.data)
+        return
+
+    # spec-105 G-12: short-circuit pattern scan for whitelisted CLI
+    # invocations. The findings.json payload embeds rule names like
+    # ``aws-access-token`` / ``stripe-key`` that the CRITICAL pattern set
+    # would otherwise flag. Emit telemetry so the bypass remains auditable.
+    matched_command = _is_whitelisted(tool_name, content)
+    if matched_command is not None:
+        argv_hash = hashlib.sha256(content.encode("utf-8")).hexdigest()
+        emit_control_outcome(
+            ctx.project_root,
+            category="security",
+            control="prompt-guard-whitelisted",
+            component="hook.prompt-injection-guard",
+            outcome="success",
+            source="hook",
+            metadata={
+                "tool": tool_name,
+                "command": matched_command,
+                "argv_hash": argv_hash,
+            },
+        )
         passthrough_stdin(ctx.data)
         return
 
