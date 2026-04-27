@@ -1,4 +1,5 @@
 export * from "./filesystem.ts";
+export * from "./git.ts";
 export * from "./llm.ts";
 export * from "./telemetry.ts";
 export * from "./policy.ts";
