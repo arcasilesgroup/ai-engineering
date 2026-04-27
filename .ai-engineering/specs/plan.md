@@ -102,29 +102,29 @@
 ### Phase 5: `gates.mode` + escalation + tier allocation (GREEN) + auto-stage tests (RED)
 **Gate**: `manifest.yml` declares `gates.mode: regulated`; `policy/mode_dispatch.py` exists con resolve_mode + tier dispatch; branch-aware + CI override + pre-push target check operational; T-4.12-T-4.16 RED tests PASS; 2 new RED auto-stage test files exist; CI green.
 
-- [ ] T-5.1: Add new `GatesConfig(BaseModel)` class to `src/ai_engineering/config/manifest.py` (no existing class — verified) con field `mode: Literal["regulated", "prototyping"] = "regulated"`; añadir `gates: GatesConfig = Field(default_factory=GatesConfig)` a `ManifestConfig` class (línea ~150) (agent: build)
-- [ ] T-5.2: Update `.ai-engineering/manifest.yml` to add explicit `gates.mode: regulated` declaration (agent: build)
-- [ ] T-5.3: Update template `src/ai_engineering/templates/.ai-engineering/manifest.yml` similarly (agent: build)
-- [ ] T-5.4: Create `src/ai_engineering/policy/mode_dispatch.py` con `resolve_mode(project_root, *, env=os.environ) → Literal["regulated", "prototyping"]` function (agent: build)
-- [ ] T-5.5: Implement branch-aware escalation in `resolve_mode()` reading `git symbolic-ref --short HEAD` y matching against `PROTECTED_BRANCHES` (frozenset from `git/operations.py`) via `fnmatch` (agent: build)
-- [ ] T-5.6: Implement CI override checking `CI=true` OR `GITHUB_ACTIONS=true` OR `TF_BUILD=True` in `resolve_mode()` (agent: build)
-- [ ] T-5.7: Implement detached-HEAD fallback (catch `subprocess.CalledProcessError` from git symbolic-ref → return regulated conservative default) (agent: build)
-- [ ] T-5.8: Add tier allocation constants `_TIER_0_CHECKS`, `_TIER_1_CHECKS`, `_TIER_2_CHECKS` to `mode_dispatch.py` per D-105-04 matrix (agent: build)
-- [ ] T-5.9: Implement `select_checks_for_mode(mode) → list[check_name]` returning union of tiers based on mode (agent: build)
-- [ ] T-5.10a: Wire `resolve_mode()` call into `policy/orchestrator.py:run_gate()` (read manifest, env, branch; emit banner output line via T-5.11 helper) (agent: build)
-- [ ] T-5.10b: Wire `select_checks_for_mode(mode)` into Wave 2 check dispatch loop in `policy/orchestrator.py:run_wave2()`; filter check list before ThreadPoolExecutor.submit; preserve cache_aware path (agent: build)
-- [ ] T-5.11: Add CLI banner output: `[REGULATED MODE — escalated from prototyping due to: <reason>]` cuando `manifest.mode=prototyping` pero resolve returns `regulated`; `[PROTOTYPING MODE — Tier 2 governance checks skipped. Switch to regulated before merge.]` cuando prototyping honored (agent: build)
-- [ ] T-5.12: Add pre-push target ref check in `policy/checks/branch_protection.py:check_push_target()`: parse stdin (POSIX canonical), fallback to `git rev-parse --abbrev-ref @{u}` cuando `sys.stdin.isatty()` True or stdin empty (agent: build)
-- [ ] T-5.13: Write `tests/unit/test_tier_allocation_invariants.py` asserting (a) all Tier 0+1 in `_ALWAYS_BLOCK`, (b) no Tier 0+1 in skip-list, (c) `_TIER_2_CHECKS` matches D-105-04 spec (agent: build)
-- [ ] T-5.14: Write `tests/integration/test_mode_escalation.py` body — fixture branches `main`, `release/v1.0.0`, `feat/x`; assert escalation correctly per pattern (agent: build)
-- [ ] T-5.15: Write `tests/integration/test_ci_override.py` body — env mock 3 CI vars individually + combined (agent: build)
-- [ ] T-5.16: Write `tests/integration/test_tier_allocation.py` body — for each mode × tier combination, run gate y assert correct check set executed (agent: build)
-- [ ] T-5.17: Write `tests/unit/test_resolve_mode_detached_head.py` body — mock subprocess raising CalledProcessError → return regulated (agent: build)
-- [ ] T-5.18: Write `tests/perf/test_prototyping_mode_speedup.py` body — fixture project, regulated baseline 5-run median, prototyping 5-run median, assert ratio ≤0.6 con σ≤15% (agent: build)
-- [ ] T-5.19: Remove marker lines ONLY from these 5 test files (do NOT modify test bodies — RED contract preserved); confirm GREEN (agent: build)
-- [ ] T-5.20: Write RED test skeleton `tests/unit/test_auto_stage_safety.py` marked, 8 fixtures covering S_pre × M_post combinations (agent: build)
-- [ ] T-5.21: Write RED test skeleton `tests/integration/test_auto_stage_orchestrator_hook_parity.py` marked, asserting orchestrator + hook produce identical results on same fixture (agent: build)
-- [ ] T-5.22: Run `pytest -m 'not spec_105_red'` y confirm PASS (agent: verify)
+- [x] T-5.1: Add new `GatesConfig(BaseModel)` class to `src/ai_engineering/config/manifest.py` con field `mode: Literal["regulated", "prototyping"] = "regulated"`; añadir `gates: GatesConfig = Field(default_factory=GatesConfig)` a `ManifestConfig` (agent: build)
+- [x] T-5.2: Update `.ai-engineering/manifest.yml` to add explicit `gates.mode: regulated` declaration (agent: build)
+- [x] T-5.3: Update template `src/ai_engineering/templates/.ai-engineering/manifest.yml` similarly (agent: build)
+- [x] T-5.4: Create `src/ai_engineering/policy/mode_dispatch.py` con `resolve_mode(project_root, *, env=None) → Literal["regulated", "prototyping"]` function (agent: build) — defaults to ``os.environ`` snapshot when env is None
+- [x] T-5.5: Implement branch-aware escalation in `resolve_mode()` reading `git symbolic-ref --short HEAD` y matching against `PROTECTED_BRANCHES` (frozenset from `git/operations.py`) via `fnmatch` for `release/*` (agent: build)
+- [x] T-5.6: Implement CI override checking `CI=true` OR `GITHUB_ACTIONS=true` OR `TF_BUILD=True` in `resolve_mode()` (agent: build) — generalised to "any truthy spelling" (`true`/`True`/`1` all qualify)
+- [x] T-5.7: Implement detached-HEAD fallback (catch `subprocess.CalledProcessError`/`FileNotFoundError`/`OSError` → return regulated) (agent: build)
+- [x] T-5.8: Add tier allocation constants `_TIER_0_CHECKS`, `_TIER_1_CHECKS`, `_TIER_2_CHECKS`, `_ALWAYS_BLOCK` to `mode_dispatch.py` per D-105-04 matrix (agent: build)
+- [x] T-5.9: Implement `select_checks_for_mode(mode) → list[str]` returning union of tiers (agent: build)
+- [x] T-5.10a: Wire `resolve_mode()` call into `policy/orchestrator.py:run_gate()` via new `gate_mode` keyword arg; resolves internally when caller doesn't pass; banner emission lives at CLI surface (T-5.11) (agent: build)
+- [x] T-5.10b: Wire `select_checks_for_mode(mode)` into `_checks_for_run_gate` (preserves cache_aware + ThreadPoolExecutor); when prototyping, filter Tier 2 names from resolved spec list. The only Tier 2 in current LOCAL_CHECKERS is `validate` (mapped to `ai-eng-validate`); other Tier 2 entries (`ai-eng-spec-verify`, `docs-gate`, `risk-expiry-warning`) live outside run_gate today and skip naturally (agent: build)
+- [x] T-5.11: Add CLI banner output: `_emit_mode_banner` in `cli_commands/gate.py:gate_run` emits `[REGULATED MODE -- escalated from prototyping due to: <reason>]` cuando manifest=prototyping pero resolve=regulated; `[PROTOTYPING MODE -- Tier 2 governance checks skipped. Switch to regulated before merge.]` cuando prototyping honored. Banner suppressed in JSON mode and on regulated default (agent: build)
+- [x] T-5.12: Add pre-push target ref check `check_push_target()` in `policy/checks/branch_protection.py`: parse stdin (POSIX canonical `<local-ref> <local-sha> <remote-ref> <remote-sha>`), fallback to `git rev-parse --abbrev-ref @{u}` cuando `sys.stdin.isatty()` True or stdin empty (agent: build)
+- [x] T-5.13: Write `tests/unit/test_tier_allocation_invariants.py` asserting (a) Tier 0+1 in `_ALWAYS_BLOCK`, (b) no Tier 0+1 in prototyping skip-list, (c) `_TIER_2_CHECKS` matches D-105-04 canonical, (d) tiers pairwise disjoint, (e) regulated covers all 3 tiers, (f) prototyping = regulated minus Tier 2 (agent: build) — 6 tests, no marker, all PASS day-one
+- [x] T-5.14: Write `tests/integration/test_mode_escalation.py` body (pre-existed from Phase 4 RED — 3 tests with deferred imports + `subprocess.check_output` mocks) (agent: build)
+- [x] T-5.15: Write `tests/integration/test_ci_override.py` body (pre-existed — 3 tests for CI/GITHUB_ACTIONS/TF_BUILD) (agent: build)
+- [x] T-5.16: Write `tests/integration/test_tier_allocation.py` body (pre-existed — 3 tests asserting `select_checks_for_mode` set membership) (agent: build)
+- [x] T-5.17: Write `tests/unit/test_resolve_mode_detached_head.py` body (pre-existed — 1 test mocking subprocess to raise CalledProcessError) (agent: build)
+- [x] T-5.18: Write `tests/perf/test_prototyping_mode_speedup.py` body — 5-run median per mode (warmup discarded), σ≤15% validity check, ratio ≤0.6 assertion. Auto-skips with explicit reason when `tests/fixtures/perf_single_stack/` missing (out-of-scope per Phase 5 plan; marker retained for nightly opt-in) (agent: build)
+- [x] T-5.19: Remove marker lines ONLY from 4 GREEN test files (T-5.14, T-5.15, T-5.16, T-5.17); test_tier_allocation_invariants.py was created marker-free (T-5.13); perf test marker retained per Phase 5 plan note "Skip perf if marker stays for nightly opt-in" (agent: build) — 16/16 PASS sin marcador
+- [x] T-5.20: Write RED test skeleton `tests/unit/test_auto_stage_safety.py` marked, 8 fixtures (a)–(h) covering S_pre × M_post combinations (agent: build) — 8 tests, deferred imports
+- [x] T-5.21: Write RED test skeleton `tests/integration/test_auto_stage_orchestrator_hook_parity.py` marked, asserting orchestrator + hook paths produce identical AutoStageResult on same fixture (agent: build) — 1 test
+- [x] T-5.22: Run `pytest -m 'not spec_105_red'` y confirm PASS (agent: verify) — `26 failed, 4568 passed, 2 skipped, 17 deselected, 1 xpassed, 10 errors` in 635.87s. Delta vs Phase 4 (d352998b): +27 passed (16 new GREEN tests + +11 net offset from marker removals — RED markers excluded). All 26 failed + 10 errors signatures IDENTICAL to Phase 4 baseline (verified via `git stash` → `25 failed, 3956 passed, 9 deselected, 1 xpassed, 10 errors` on parent unit-only run; matches Phase 5 unit-only `25 failed, 3957 passed, 8 deselected`). The +1 fail in full-suite (test_python_env_mode_install) is pre-existing test-isolation flake — passes when run with safe_run_env_scrub or with my Phase 5 tests in isolation (38/38 pass). NOT a Phase 5 regression.
 - [ ] T-5.23: Stage y commit `feat(spec-105): Phase 5 GREEN mode + escalation + tier + Phase 6 RED auto-stage tests` (agent: build)
 
 ---

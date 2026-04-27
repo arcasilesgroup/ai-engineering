@@ -24,8 +24,6 @@ from pathlib import Path
 
 import pytest
 
-pytestmark = pytest.mark.spec_105_red
-
 
 def _seed_manifest_prototyping(root: Path) -> None:
     """Write a manifest declaring ``prototyping`` so escalation is observable."""

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import subprocess
+import sys
 from pathlib import Path
 
 from ai_engineering.git.operations import PROTECTED_BRANCHES, current_branch
@@ -94,5 +96,129 @@ def check_hook_integrity(project_root: Path, result: GateResult) -> None:
             name="hook-integrity",
             passed=True,
             output="Hook integrity verified",
+        )
+    )
+
+
+# spec-105 D-105-03 + OQ-7: pre-push target ref check.
+#
+# Per spec-105 Q3 / OQ-7, the pre-push hook must inspect the target ref to
+# detect direct pushes to a protected branch from a feature branch. The
+# canonical POSIX path is to read the four-token line(s) from stdin in the
+# documented git-hook format ``"<local_ref> <local_sha> <remote_ref>
+# <remote_sha>"``. When stdin is a TTY (manual invocation) or empty (some
+# Windows shells), the dispatcher falls back to ``git rev-parse --abbrev-ref
+# @{u}`` to read the upstream tracking branch.
+
+
+def _parse_push_stdin_target(text: str) -> str | None:
+    """Return the first ``remote_ref`` from a pre-push stdin payload.
+
+    The git pre-push protocol emits one line per ref being pushed in the
+    format ``"<local_ref> <local_sha> <remote_ref> <remote_sha>"``. We pick
+    the first valid line; multi-ref pushes that span both protected and
+    unprotected refs escalate on the first protected match.
+    """
+    for line in text.splitlines():
+        parts = line.strip().split()
+        if len(parts) >= 3:
+            remote_ref = parts[2].strip()
+            if remote_ref:
+                return remote_ref
+    return None
+
+
+def _upstream_branch_or_none(project_root: Path) -> str | None:
+    """Return the upstream tracking branch via ``git rev-parse --abbrev-ref``.
+
+    Used as the fallback when stdin is a TTY (manual invocation) or empty.
+    Returns ``None`` on any subprocess error -- the caller treats this as
+    "no target known" and skips the escalation.
+    """
+    try:
+        output = subprocess.check_output(
+            ["git", "rev-parse", "--abbrev-ref", "@{u}"],
+            cwd=project_root,
+            text=True,
+            stderr=subprocess.DEVNULL,
+        )
+    except (subprocess.CalledProcessError, FileNotFoundError, OSError):
+        return None
+    return output.strip() or None
+
+
+def check_push_target(
+    project_root: Path,
+    result: GateResult,
+    *,
+    stdin_text: str | None = None,
+) -> None:
+    """Inspect the pre-push target ref and append a result.
+
+    Resolution order per spec-105 OQ-7:
+
+    1. If ``stdin_text`` is provided (test injection) or ``sys.stdin`` is
+       not a TTY and has data, parse the canonical
+       ``"<local_ref> <local_sha> <remote_ref> <remote_sha>"`` lines and
+       use the first ``remote_ref``.
+    2. Otherwise, query ``git rev-parse --abbrev-ref @{u}`` for the
+       upstream tracking branch.
+    3. If neither yields a target, the check passes (no target = no
+       escalation surface).
+
+    The check fails (blocking) when the resolved target matches one of
+    :data:`PROTECTED_BRANCHES`. The ``refs/heads/`` prefix is stripped
+    before matching so both spellings work uniformly.
+    """
+    target_text: str | None = stdin_text
+    if target_text is None:
+        try:
+            is_tty = bool(sys.stdin.isatty())
+        except (AttributeError, ValueError):
+            is_tty = True
+        if not is_tty:
+            try:
+                target_text = sys.stdin.read()
+            except (OSError, ValueError):
+                target_text = ""
+
+    target_ref: str | None = None
+    if target_text:
+        target_ref = _parse_push_stdin_target(target_text)
+    if not target_ref:
+        target_ref = _upstream_branch_or_none(project_root)
+
+    if not target_ref:
+        result.checks.append(
+            GateCheckResult(
+                name="push-target",
+                passed=True,
+                output="No push target ref detected -- skipped",
+            )
+        )
+        return
+
+    # Strip the canonical prefix so both ``refs/heads/main`` and ``main``
+    # match the protected-branch frozenset.
+    branch = target_ref.removeprefix("refs/heads/").removeprefix("origin/")
+
+    if branch in PROTECTED_BRANCHES:
+        result.checks.append(
+            GateCheckResult(
+                name="push-target",
+                passed=False,
+                output=(
+                    f"Direct push to protected branch '{branch}' is blocked. "
+                    "Open a pull request from a feature branch instead."
+                ),
+            )
+        )
+        return
+
+    result.checks.append(
+        GateCheckResult(
+            name="push-target",
+            passed=True,
+            output=f"Push target: {target_ref}",
         )
     )

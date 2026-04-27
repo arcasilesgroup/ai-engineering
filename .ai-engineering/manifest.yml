@@ -82,6 +82,14 @@ quality:
   cyclomatic: 10
   cognitive: 15
 
+# Gate execution mode (spec-105 D-105-02)
+# - regulated (default): runs Tier 0 + Tier 1 + Tier 2 (full surface).
+# - prototyping: skips Tier 2 governance checks for fast iteration on
+#   feature branches; branch-aware + CI override + pre-push target checks
+#   automatically escalate back to regulated when leaking is detected.
+gates:
+  mode: regulated
+
 # Documentation auto-update
 # readme: true — recursively scans ALL README*.md files (root + subdirectories)
 #   and updates each in context of its directory.

@@ -38,6 +38,7 @@ from ai_engineering.cli_ui import (
 )
 from ai_engineering.paths import resolve_project_root
 from ai_engineering.policy import gate_cache as gate_cache_module
+from ai_engineering.policy import mode_dispatch
 from ai_engineering.policy import orchestrator as orchestrator_module
 from ai_engineering.policy.gates import GateResult, run_gate
 from ai_engineering.state.decision_logic import list_expired_decisions, list_expiring_soon
@@ -373,6 +374,44 @@ def _document_has_failure(document: GateFindingsDocument) -> bool:
     return any(finding.severity in _FAILURE_SEVERITIES for finding in document.findings)
 
 
+def _emit_mode_banner(project_root: Path, *, no_color: bool = False) -> None:
+    """Print the spec-105 D-105-02 / D-105-03 mode banner to stdout.
+
+    Behavior:
+      * Manifest declares ``regulated`` -> no banner (the default; quiet).
+      * Manifest declares ``prototyping``, no escalation trigger fires ->
+        emit ``[PROTOTYPING MODE -- ...]`` warning so the user remembers to
+        flip back before merge.
+      * Manifest declares ``prototyping``, escalation trigger fires ->
+        emit ``[REGULATED MODE -- escalated from prototyping due to: ...]``
+        with the human-readable reason from
+        :func:`mode_dispatch.explain_escalation_reason`.
+
+    Suppressed in JSON mode -- the banner is operator-facing UX, not part
+    of the machine-readable envelope.
+    """
+    if is_json_mode():
+        return
+    try:
+        from ai_engineering.config.loader import load_manifest_config
+
+        manifest_mode = load_manifest_config(project_root).gates.mode
+        resolved = mode_dispatch.resolve_mode(project_root)
+        reason = mode_dispatch.explain_escalation_reason(project_root)
+    except Exception:
+        # Fail-open: never let the banner crash a gate run.
+        return
+
+    text = mode_dispatch.banner_for_mode(resolved, manifest_mode=manifest_mode, reason=reason)
+    if not text:
+        return
+    # Yellow-tint when escalating; cyan-tint when prototyping warning.
+    if not no_color:
+        color_code = "33" if resolved == "regulated" else "36"
+        text = f"\033[{color_code}m{text}\033[0m"
+    print_stdout(text)
+
+
 def _staged_files_from_git(project_root: Path) -> list[str]:
     """Return the list of staged files relative to ``project_root``.
 
@@ -518,6 +557,12 @@ def gate_run(
 
     cache_dir = root / ".ai-engineering" / "state" / "gate-cache"
     staged = _staged_files_from_git(root)
+
+    # spec-105 D-105-02 / D-105-03: emit the mode banner BEFORE the run so
+    # the user sees the resolved mode in real time. The orchestrator also
+    # resolves the mode internally for tier filtering -- this surface call
+    # is purely cosmetic / informative.
+    _emit_mode_banner(root, no_color=no_color)
 
     # ``--force`` precedes the orchestrator call so the ``clear_entry``
     # invocations are observable even when ``run_orchestrator_gate`` is

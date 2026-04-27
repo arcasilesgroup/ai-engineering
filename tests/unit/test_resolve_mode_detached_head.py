@@ -25,8 +25,6 @@ from pathlib import Path
 
 import pytest
 
-pytestmark = pytest.mark.spec_105_red
-
 
 def test_resolve_mode_returns_regulated_on_detached_head(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch

@@ -27,8 +27,6 @@ from pathlib import Path
 
 import pytest
 
-pytestmark = pytest.mark.spec_105_red
-
 
 def _seed_manifest(root: Path, mode: str = "prototyping") -> None:
     """Write a minimal ``manifest.yml`` declaring the requested mode."""

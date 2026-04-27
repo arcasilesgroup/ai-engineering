@@ -7,6 +7,8 @@ degrade gracefully.
 
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 # --- Nested models ---
@@ -144,6 +146,22 @@ class TelemetryConfig(BaseModel):
     default: str = "disabled"
 
 
+class GatesConfig(BaseModel):
+    """Gate execution settings (spec-105 D-105-02).
+
+    The ``mode`` field controls the tier dispatch in
+    :mod:`ai_engineering.policy.mode_dispatch`:
+
+    * ``regulated`` (default) -- runs Tier 0 + Tier 1 + Tier 2 checks.
+    * ``prototyping`` -- runs Tier 0 + Tier 1 only (skips slow Tier 2
+      governance checks). Branch-aware escalation, CI override, and
+      pre-push target checks may force escalation back to ``regulated``
+      regardless of the manifest declaration (D-105-03).
+    """
+
+    mode: Literal["regulated", "prototyping"] = "regulated"
+
+
 # --- Root model ---
 
 
@@ -171,3 +189,4 @@ class ManifestConfig(BaseModel):
     ownership: OwnershipConfig = Field(default_factory=OwnershipConfig)
     tooling: list[str] = Field(default_factory=list)
     telemetry: TelemetryConfig = Field(default_factory=TelemetryConfig)
+    gates: GatesConfig = Field(default_factory=GatesConfig)

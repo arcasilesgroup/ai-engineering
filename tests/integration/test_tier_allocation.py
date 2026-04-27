@@ -26,8 +26,6 @@ from pathlib import Path
 
 import pytest
 
-pytestmark = pytest.mark.spec_105_red
-
 
 def test_regulated_mode_selects_all_tiers(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """``regulated`` mode runs every check from Tier 0 + 1 + 2."""

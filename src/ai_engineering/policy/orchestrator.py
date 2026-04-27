@@ -34,7 +34,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
-from ai_engineering.policy import gate_cache
+from ai_engineering.policy import gate_cache, mode_dispatch
 from ai_engineering.policy.checks._accept_lookup import apply_risk_acceptances
 from ai_engineering.state.decision_logic import _WARN_BEFORE_EXPIRY_DAYS
 from ai_engineering.state.models import (
@@ -734,19 +734,37 @@ def _config_hashes_for(check_name: str, project_root: Path) -> dict[str, str]:
     return out
 
 
+# spec-105 D-105-04: Tier 2 checker names that LOCAL_CHECKERS exposes today.
+# When gate_mode resolves to ``prototyping`` these names are dropped from the
+# dispatch list. The orchestrator's ``validate`` checker maps to the
+# ``ai-eng-validate`` Tier 2 entry; the remaining Tier 2 checks
+# (``ai-eng-spec-verify``, ``docs-gate``, ``risk-expiry-warning``) live
+# outside the run_gate loop today and are skipped naturally.
+_TIER_2_LOCAL_DISPATCH_NAMES: frozenset[str] = frozenset({"validate"})
+
+
 def _checks_for_run_gate(
     checks: list[dict[str, Any]] | None,
     mode: str,
+    *,
+    gate_mode: str = "regulated",
 ) -> list[dict[str, Any]]:
     """Return the list of check specs to dispatch.
 
     Explicit ``checks=`` wins (legacy + custom dispatch). Otherwise build a
     default list keyed by the run_gate local/ci checker constants. Each entry
     is a dict with ``name`` and (optional) ``runner`` callable.
+
+    spec-105 D-105-04: when ``gate_mode == "prototyping"`` the dispatcher
+    drops Tier 2 checker names from the default list. Explicit ``checks=``
+    overrides this -- callers that pre-built a check spec opt out of mode
+    filtering by definition.
     """
     if checks is not None:
         return list(checks)
     names = list(LOCAL_CHECKERS) + list(CI_EXTRA_CHECKERS) if mode == "ci" else list(LOCAL_CHECKERS)
+    if gate_mode == "prototyping":
+        names = [n for n in names if n not in _TIER_2_LOCAL_DISPATCH_NAMES]
     return [{"name": n, "wave": 2} for n in names]
 
 
@@ -858,6 +876,7 @@ def run_gate(
     cache_disabled: bool = False,
     staged_files: list[str] | list[Path] | None = None,
     produced_by: str = "ai-commit",
+    gate_mode: str | None = None,
 ) -> GateFindingsDocument:
     """Top-level gate runner. Coordinates Wave 1 -> Wave 2 with cache.
 
@@ -885,6 +904,21 @@ def run_gate(
     # Normalise inputs.
     project_root = _resolve_project_root(project_root, cache_dir)
     staged_str: list[str] = [str(p) for p in (staged_files or [])]
+
+    # spec-105 D-105-02 / D-105-03: resolve effective gate mode. The CLI may
+    # pass an explicit ``gate_mode``; otherwise fall back to the resolver
+    # which considers manifest + branch + CI + push-target signals. The
+    # resolved mode controls whether Tier 2 checks ship in the dispatch list.
+    if gate_mode is None:
+        try:
+            resolved_gate_mode: str = mode_dispatch.resolve_mode(project_root)
+        except Exception:
+            logger.debug(
+                "mode_dispatch.resolve_mode failed; defaulting to regulated", exc_info=True
+            )
+            resolved_gate_mode = "regulated"
+    else:
+        resolved_gate_mode = gate_mode
 
     # --- Wave 1 -------------------------------------------------------------
     wave1_paths = [Path(s) for s in staged_str]
@@ -923,7 +957,7 @@ def run_gate(
             expiring_soon=expiring,
         )
 
-    spec_list = _checks_for_run_gate(checks, mode)
+    spec_list = _checks_for_run_gate(checks, mode, gate_mode=resolved_gate_mode)
 
     # Effective cache dir (may be None when caller doesn't care).
     effective_cache_dir = cache_dir if cache_dir is not None else (project_root / ".cache")
