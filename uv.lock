@@ -7,7 +7,7 @@ members = [
     "ai-eng-evals",
     "ai-eng-hooks",
     "ai-eng-litellm-bridge",
-    "ai-engineering-python",
+    "ai-engineering",
 ]
 
 [[package]]
@@ -26,9 +26,9 @@ version = "3.0.0a0"
 source = { editable = "python/ai_eng_litellm_bridge" }
 
 [[package]]
-name = "ai-engineering-python"
+name = "ai-engineering"
 version = "3.0.0a0"
-source = { virtual = "." }
+source = { editable = "." }
 
 [package.dev-dependencies]
 dev = [
