@@ -53,24 +53,24 @@
 ### Phase 3: `ai-eng risk *` CLI surface (GREEN) + orchestrator wiring tests (RED)
 **Gate**: `cli_commands/risk_cmd.py` has 7 functions; `cli_factory.py` registers `risk_app` sub-Typer; per-command tests PASS; 3 new RED orchestrator/emit/telemetry test files exist; CI green; `ai-eng risk --help` lists 7 subcomandos.
 
-- [ ] T-3.1: Create `src/ai_engineering/cli_commands/risk_cmd.py` skeleton con 7 function signatures (`risk_accept`, `risk_accept_all`, `risk_renew`, `risk_resolve`, `risk_revoke`, `risk_list`, `risk_show`) usando `typer.Argument`/`typer.Option` per D-105-05 surface table (agent: build)
-- [ ] T-3.2: Implement `risk_accept(finding_id, severity, justification, spec, follow_up, expires_at?, accepted_by?)` calling `decision_logic.create_risk_acceptance` con `context = f"finding:{finding_id}"`; validate non-empty justification (≥10 chars); exit 2 on validation error (agent: build)
-- [ ] T-3.3: Implement `risk_accept_all(findings_path, justification, spec, follow_up, max_severity?, expires_at?, dry_run, accepted_by?)`: parse JSON via `GateFindingsDocument`, generate `batch_id = uuid4()`, iterate `findings`, create N DEC entries con shared batch_id; emit summary table (agent: build)
-- [ ] T-3.4: Implement `risk_renew(dec_id, justification, spec, actor?)` calling `decision_logic.renew_decision` con `_MAX_RENEWALS=2` cap (agent: build)
-- [ ] T-3.5: Implement `risk_resolve(dec_id, note, actor?)` calling `decision_logic.mark_remediated` (agent: build)
-- [ ] T-3.6: Implement `risk_revoke(dec_id, reason, actor?)` calling `decision_logic.revoke_decision` (agent: build)
-- [ ] T-3.7: Implement `risk_list(status?, severity?, expires_within?, format?)` filtering `DecisionStore.risk_decisions()`; format dispatch table/json/markdown (agent: build)
-- [ ] T-3.8: Implement `risk_show(dec_id, format?)` returning full Decision detail incl. `renewal_count`, `renewed_from` chain (agent: build)
-- [ ] T-3.9: Update `src/ai_engineering/cli_factory.py` to register `risk` sub-Typer app mirroring decision_app pattern (líneas ~317-326 referencia); add 7 commands (agent: build)
-- [ ] T-3.10: Run `ai-eng risk --help` manually via subprocess test y confirm 7 subcomandos listed (agent: verify)
-- [ ] T-3.11: Write `tests/integration/test_risk_cli_per_command.py` body — 7 happy-path E2Es per D-105-05 acceptance (agent: build)
-- [ ] T-3.12: Write `tests/unit/test_cli_validates_inputs.py` body — 8 edge cases (agent: build)
-- [ ] T-3.13: Write `tests/integration/test_accept_all_input_validation.py` body — 6 malformed fixtures (agent: build)
-- [ ] T-3.14: Remove `spec_105_red` marker line ONLY from these 3 CLI test files (do NOT modify test bodies — RED contract preserved); run y confirm GREEN (agent: build)
-- [ ] T-3.15: Write RED test skeleton `tests/integration/test_orchestrator_lookup.py` marked, covering G-2 (gate skips accepted findings, blocking remain) (agent: build)
-- [ ] T-3.16: Write RED test skeleton `tests/integration/test_emit_schema_version.py` marked, covering dual-emit (v1 when empty, v1.1 when populated) (agent: build)
-- [ ] T-3.17: Write RED test skeleton `tests/integration/test_gate_skip_accepted.py` marked, covering G-2 telemetry+output integration (agent: build)
-- [ ] T-3.18: Run `pytest -m 'not spec_105_red'` y confirm PASS (agent: verify)
+- [x] T-3.1: Create `src/ai_engineering/cli_commands/risk_cmd.py` skeleton con 7 function signatures (`risk_accept`, `risk_accept_all`, `risk_renew`, `risk_resolve`, `risk_revoke`, `risk_list`, `risk_show`) usando `typer.Argument`/`typer.Option` per D-105-05 surface table (agent: build)
+- [x] T-3.2: Implement `risk_accept(finding_id, severity, justification, spec, follow_up, expires_at?, accepted_by?)` calling `decision_logic.create_risk_acceptance` con `context = f"finding:{finding_id}"`; validate non-empty justification (≥10 chars); exit 2 on validation error (agent: build) — non-empty per spec D-105-01; the plan's "≥10 chars" bound conflicted with RED test happy-path "Accept." (7 chars), spec wording prevails
+- [x] T-3.3: Implement `risk_accept_all(findings_path, justification, spec, follow_up, max_severity?, expires_at?, dry_run, accepted_by?)`: parse JSON via `GateFindingsDocument`, generate `batch_id = uuid4()`, iterate `findings`, create N DEC entries con shared batch_id; emit summary table (agent: build)
+- [x] T-3.4: Implement `risk_renew(dec_id, justification, spec, actor?)` calling `decision_logic.renew_decision` con `_MAX_RENEWALS=2` cap (agent: build)
+- [x] T-3.5: Implement `risk_resolve(dec_id, note, actor?)` calling `decision_logic.mark_remediated` (agent: build)
+- [x] T-3.6: Implement `risk_revoke(dec_id, reason, actor?)` calling `decision_logic.revoke_decision` (agent: build)
+- [x] T-3.7: Implement `risk_list(status?, severity?, expires_within?, format?)` filtering `DecisionStore.risk_decisions()`; format dispatch table/json/markdown (agent: build)
+- [x] T-3.8: Implement `risk_show(dec_id, format?)` returning full Decision detail incl. `renewal_count`, `renewed_from` chain (agent: build)
+- [x] T-3.9: Update `src/ai_engineering/cli_factory.py` to register `risk` sub-Typer app mirroring decision_app pattern (líneas ~317-326 referencia); add 7 commands (agent: build)
+- [x] T-3.10: Run `ai-eng risk --help` manually via subprocess test y confirm 7 subcomandos listed (agent: verify) — confirmed: accept, accept-all, renew, resolve, revoke, list, show
+- [x] T-3.11: Write `tests/integration/test_risk_cli_per_command.py` body — 7 happy-path E2Es per D-105-05 acceptance (agent: build) — bodies pre-existed from Phase 2 RED skeletons; no body changes required
+- [x] T-3.12: Write `tests/unit/test_cli_validates_inputs.py` body — 8 edge cases (agent: build) — bodies pre-existed from Phase 2 RED skeletons
+- [x] T-3.13: Write `tests/integration/test_accept_all_input_validation.py` body — 6 malformed fixtures (agent: build) — bodies pre-existed from Phase 2 RED skeletons
+- [x] T-3.14: Remove `spec_105_red` marker line ONLY from these 3 CLI test files (do NOT modify test bodies — RED contract preserved); run y confirm GREEN (agent: build) — 21/21 PASS
+- [x] T-3.15: Write RED test skeleton `tests/integration/test_orchestrator_lookup.py` marked, covering G-2 (gate skips accepted findings, blocking remain) (agent: build) — 3 tests, deferred imports
+- [x] T-3.16: Write RED test skeleton `tests/integration/test_emit_schema_version.py` marked, covering dual-emit (v1 when empty, v1.1 when populated) (agent: build) — 4 tests
+- [x] T-3.17: Write RED test skeleton `tests/integration/test_gate_skip_accepted.py` marked, covering G-2 telemetry+output integration (agent: build) — 3 tests
+- [x] T-3.18: Run `pytest -m 'not spec_105_red'` y confirm PASS (agent: verify) — `26 failed, 4541 passed, 2 skipped, 17 deselected, 1 xpassed, 10 errors`. Delta vs Phase 2 baseline (a060427a `25 failed, 4520 passed, 2 skipped, 28 deselected, 10 errors`): +21 passed (19 GREEN + 2 net), +1 isolated env-scrub flake observed in unit ordering (pre-existing per Phase 2 lesson — passes in isolation), -11 deselected (3 CLI test files unmarked = 21 tests; offset by 10 new RED tests added for Phase 4). All FAILED/ERROR signatures identical to Phase 2 baseline (`test_safe_run_env_scrub`, `test_setup_cli`, `test_update_orphan_detection`, `test_update_provider_filtering`). NOT a Phase 3 regression.
 - [ ] T-3.19: Stage y commit `feat(spec-105): Phase 3 GREEN ai-eng risk * CLI + Phase 4 RED orchestrator wiring tests` (agent: build)
 
 ---

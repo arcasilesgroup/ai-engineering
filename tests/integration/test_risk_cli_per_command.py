@@ -20,8 +20,6 @@ from pathlib import Path
 
 import pytest
 
-pytestmark = pytest.mark.spec_105_red
-
 
 def _seed_findings(root: Path) -> Path:
     """Seed a minimal gate-findings.json v1 fixture into the project state dir."""

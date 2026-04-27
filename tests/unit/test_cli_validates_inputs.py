@@ -24,8 +24,6 @@ from pathlib import Path
 
 import pytest
 
-pytestmark = pytest.mark.spec_105_red
-
 
 def _runner_invoke(args: list[str]):
     """Invoke the CLI app. Deferred imports per Phase 1 lesson."""

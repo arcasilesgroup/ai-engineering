@@ -31,6 +31,7 @@ from ai_engineering.cli_commands import (
     maintenance,
     provider,
     release,
+    risk_cmd,
     setup,
     skills,
     spec_cmd,
@@ -324,6 +325,21 @@ def create_app() -> typer.Typer:
     decision_app.command("expire-check")(_safe(decisions_cmd.decision_expire_check))
     decision_app.command("record")(_safe(decisions_cmd.decision_record))
     app.add_typer(decision_app, name="decision")
+
+    # Risk sub-group (spec-105: risk acceptance lifecycle CLI namespace)
+    risk_app = typer.Typer(
+        name="risk",
+        help="Manage risk-acceptance decisions (accept, renew, resolve, revoke, list, show).",
+        no_args_is_help=True,
+    )
+    risk_app.command("accept")(_safe(risk_cmd.risk_accept))
+    risk_app.command("accept-all")(_safe(risk_cmd.risk_accept_all))
+    risk_app.command("renew")(_safe(risk_cmd.risk_renew))
+    risk_app.command("resolve")(_safe(risk_cmd.risk_resolve))
+    risk_app.command("revoke")(_safe(risk_cmd.risk_revoke))
+    risk_app.command("list")(_safe(risk_cmd.risk_list))
+    risk_app.command("show")(_safe(risk_cmd.risk_show))
+    app.add_typer(risk_app, name="risk")
 
     # Spec sub-group (v3: spec lifecycle management)
     spec_app = typer.Typer(
