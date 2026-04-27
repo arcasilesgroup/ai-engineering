@@ -146,8 +146,23 @@ class TelemetryConfig(BaseModel):
     default: str = "disabled"
 
 
+class PreCommitGateConfig(BaseModel):
+    """Pre-commit gate-specific settings (spec-105 D-105-09).
+
+    Currently exposes a single knob:
+
+    * ``auto_stage`` (default ``True``) -- when True, the gate orchestrator
+      and the Claude Code auto-format hook re-stage the safe intersection
+      ``S_pre & M_post`` after Wave 1 fixers rewrite files on disk.
+      When False, file modifications by fixers stay unstaged and the
+      operator must ``git add`` them manually.
+    """
+
+    auto_stage: bool = True
+
+
 class GatesConfig(BaseModel):
-    """Gate execution settings (spec-105 D-105-02).
+    """Gate execution settings (spec-105 D-105-02 + D-105-09).
 
     The ``mode`` field controls the tier dispatch in
     :mod:`ai_engineering.policy.mode_dispatch`:
@@ -157,9 +172,13 @@ class GatesConfig(BaseModel):
       governance checks). Branch-aware escalation, CI override, and
       pre-push target checks may force escalation back to ``regulated``
       regardless of the manifest declaration (D-105-03).
+
+    The ``pre_commit`` nested config carries pre-commit gate-specific
+    knobs (currently the spec-105 D-105-09 auto-stage toggle).
     """
 
     mode: Literal["regulated", "prototyping"] = "regulated"
+    pre_commit: PreCommitGateConfig = Field(default_factory=PreCommitGateConfig)
 
 
 # --- Root model ---

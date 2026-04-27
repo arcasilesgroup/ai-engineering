@@ -87,8 +87,14 @@ quality:
 # - prototyping: skips Tier 2 governance checks for fast iteration on
 #   feature branches; branch-aware + CI override + pre-push target checks
 #   automatically escalate back to regulated when leaking is detected.
+# pre_commit.auto_stage (spec-105 D-105-09):
+# - true (default): orchestrator + Claude hook re-stage S_pre & M_post
+#   after Wave 1 fixers; never touches files outside S_pre.
+# - false: files modified by fixers stay unstaged; operator stages manually.
 gates:
   mode: regulated
+  pre_commit:
+    auto_stage: true
 
 # Documentation auto-update
 # readme: true — recursively scans ALL README*.md files (root + subdirectories)

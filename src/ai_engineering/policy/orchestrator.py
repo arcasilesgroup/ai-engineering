@@ -34,7 +34,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
-from ai_engineering.policy import gate_cache, mode_dispatch
+from ai_engineering.policy import auto_stage, gate_cache, mode_dispatch
 from ai_engineering.policy.checks._accept_lookup import apply_risk_acceptances
 from ai_engineering.state.decision_logic import _WARN_BEFORE_EXPIRY_DAYS
 from ai_engineering.state.models import (
@@ -71,6 +71,9 @@ class Wave1Result:
     auto_fixed: list[Any] = field(default_factory=list)
     wall_clock_ms: int = 0
     findings: list[Any] = field(default_factory=list)
+    # spec-105 D-105-09: result of post-fixer re-stage. ``None`` when the
+    # caller disabled auto-stage or when no repo root could be inferred.
+    auto_stage_result: auto_stage.AutoStageResult | None = None
 
 
 @dataclass
@@ -205,7 +208,12 @@ def _run_pass(
         return_codes.append(result.returncode)
 
 
-def run_wave1(staged_files: list[Path]) -> Wave1Result:
+def run_wave1(
+    staged_files: list[Path],
+    *,
+    project_root: Path | None = None,
+    auto_stage_enabled: bool = True,
+) -> Wave1Result:
     """Run wave 1 fixers serially: ruff format -> ruff check --fix -> spec verify --fix.
 
     Per D-104-01:
@@ -214,6 +222,14 @@ def run_wave1(staged_files: list[Path]) -> Wave1Result:
     * Aggregate ``return_code`` is ``max`` of individual codes.
     * Convergence re-run when pass 1 modified any file (capped to one re-pass).
     * Skip rules: no-py-files skips ruff fixers; "No active spec" skips spec-verify.
+
+    spec-105 D-105-09: when ``auto_stage_enabled`` is True (default) the
+    function captures ``S_pre`` BEFORE the fixers run and re-stages the
+    safe intersection ``S_pre & M_post`` AFTER. The result is attached
+    to ``Wave1Result.auto_stage_result`` so the CLI can surface a
+    "Re-staged N files" line and an unstaged-modifications warning.
+    The caller can opt out via ``auto_stage_enabled=False`` (used by the
+    ``ai-eng gate run --no-auto-stage`` flag).
     """
     start = time.monotonic()
     fixers_run: list[str] = []
@@ -230,6 +246,18 @@ def run_wave1(staged_files: list[Path]) -> Wave1Result:
         fixer_specs.append(("ruff-check", ["ruff", "check", "--fix", *py_paths]))
     if has_active_spec:
         fixer_specs.append(("spec-verify", ["ai-eng", "spec", "verify", "--fix"]))
+
+    # spec-105 D-105-09: capture S_pre BEFORE fixers run so the post-fix
+    # re-stage can compute the strict ``S_pre & M_post`` intersection.
+    # Falls back to ``None`` (skip auto-stage) when no project_root is
+    # known or when the caller disabled the feature.
+    s_pre: set[str] | None = None
+    if auto_stage_enabled and project_root is not None:
+        try:
+            s_pre = auto_stage.capture_staged_set(project_root)
+        except Exception:
+            logger.debug("auto_stage.capture_staged_set raised", exc_info=True)
+            s_pre = None
 
     # Pass 1: snapshot mtimes, run all fixers, collect modifications.
     pre1 = _snapshot_mtimes([Path(f) for f in staged_files])
@@ -251,12 +279,22 @@ def run_wave1(staged_files: list[Path]) -> Wave1Result:
             seen.add(path)
             dedup_modified.append(path)
 
+    # spec-105 D-105-09: re-stage the safe intersection AFTER fixers.
+    auto_stage_result: auto_stage.AutoStageResult | None = None
+    if s_pre is not None and project_root is not None:
+        try:
+            auto_stage_result = auto_stage.restage_intersection(project_root, s_pre)
+        except Exception:
+            logger.debug("auto_stage.restage_intersection raised", exc_info=True)
+            auto_stage_result = None
+
     elapsed_ms = max(1, int((time.monotonic() - start) * 1000))
     return Wave1Result(
         return_code=max(return_codes) if return_codes else 0,
         fixers_run=fixers_run,
         files_modified=dedup_modified,
         wall_clock_ms=elapsed_ms,
+        auto_stage_result=auto_stage_result,
     )
 
 
@@ -877,6 +915,7 @@ def run_gate(
     staged_files: list[str] | list[Path] | None = None,
     produced_by: str = "ai-commit",
     gate_mode: str | None = None,
+    auto_stage_enabled: bool = True,
 ) -> GateFindingsDocument:
     """Top-level gate runner. Coordinates Wave 1 -> Wave 2 with cache.
 
@@ -922,7 +961,11 @@ def run_gate(
 
     # --- Wave 1 -------------------------------------------------------------
     wave1_paths = [Path(s) for s in staged_str]
-    wave1 = run_wave1(wave1_paths)
+    wave1 = run_wave1(
+        wave1_paths,
+        project_root=project_root,
+        auto_stage_enabled=auto_stage_enabled,
+    )
     wave1_complete.set()
 
     # spec-105 D-105-07: load decision-store once per run so both code paths
@@ -949,13 +992,19 @@ def run_gate(
             cache_misses=list(wave2.cache_misses),
             wall_clock_ms=wave2.wall_clock_ms,
         )
-        return _build_gate_document(
+        document = _build_gate_document(
             wave1=wave1,
             wave2=wave2_partitioned,
             produced_by=produced_by,
             accepted_findings=accepted,
             expiring_soon=expiring,
         )
+        # spec-105 D-105-09: stash the auto-stage result on the document so
+        # the CLI surface can print the "Re-staged N files" line. The model
+        # tolerates extra attribute writes; ``GateFindingsDocument`` is
+        # mutable for this purpose.
+        _attach_auto_stage_result(document, wave1.auto_stage_result)
+        return document
 
     spec_list = _checks_for_run_gate(checks, mode, gate_mode=resolved_gate_mode)
 
@@ -1039,13 +1088,32 @@ def run_gate(
         wall_clock_ms=wave2.wall_clock_ms,
     )
 
-    return _build_gate_document(
+    document = _build_gate_document(
         wave1=wave1,
         wave2=wave2_partitioned,
         produced_by=produced_by,
         accepted_findings=accepted,
         expiring_soon=expiring,
     )
+    _attach_auto_stage_result(document, wave1.auto_stage_result)
+    return document
+
+
+def _attach_auto_stage_result(
+    document: GateFindingsDocument,
+    auto_stage_result: auto_stage.AutoStageResult | None,
+) -> None:
+    """Attach a side-channel ``auto_stage_result`` to the gate document.
+
+    The pydantic model ignores unknown attributes for its serialization
+    surface, but Python lets us stash one for the immediate CLI consumer
+    via ``object.__setattr__``. Downstream JSON readers never see this
+    field -- it lives in-process only.
+    """
+    try:
+        object.__setattr__(document, "_spec105_auto_stage_result", auto_stage_result)
+    except Exception:
+        logger.debug("could not attach auto_stage_result to document", exc_info=True)
 
 
 def _merge_outcome(

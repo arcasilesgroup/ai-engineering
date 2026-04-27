@@ -273,10 +273,11 @@ def run_orchestrator_gate(
     cache_dir: Path,
     project_root: Path,
     produced_by: str = "ai-commit",
+    auto_stage_enabled: bool = True,
 ) -> GateFindingsDocument:
     """Thin adapter from the CLI surface to ``policy.orchestrator.run_gate``.
 
-    Exists primarily as a mock target for ``test_cli_gate_run_flags`` — the
+    Exists primarily as a mock target for ``test_cli_gate_run_flags`` -- the
     CLI tests patch ``ai_engineering.cli_commands.gate.run_orchestrator_gate``
     to inject a deterministic ``GateFindingsDocument`` without invoking any
     real subprocess. In production it forwards to ``orchestrator.run_gate``;
@@ -285,7 +286,8 @@ def run_orchestrator_gate(
 
     ``produced_by`` is forwarded so the emitted document carries the correct
     skill-caller discriminator (``ai-commit`` / ``ai-pr`` / ``watch-loop``)
-    per D-104-06 cross-IDE attribution rules.
+    per D-104-06 cross-IDE attribution rules. ``auto_stage_enabled`` controls
+    the spec-105 D-105-09 post-Wave-1 re-stage primitive.
     """
     return orchestrator_module.run_gate(
         staged_files=staged_files,
@@ -294,6 +296,7 @@ def run_orchestrator_gate(
         cache_disabled=disabled,
         project_root=project_root,
         produced_by=produced_by,
+        auto_stage_enabled=auto_stage_enabled,
     )
 
 
@@ -412,6 +415,59 @@ def _emit_mode_banner(project_root: Path, *, no_color: bool = False) -> None:
     print_stdout(text)
 
 
+def _resolve_auto_stage_enabled(project_root: Path, *, cli_no_auto_stage: bool) -> bool:
+    """Resolve the effective auto-stage flag (spec-105 D-105-09).
+
+    Precedence:
+      1. ``--no-auto-stage`` CLI flag wins immediately (returns False).
+      2. Manifest declaration ``gates.pre_commit.auto_stage`` (default True).
+      3. Hard default: True.
+
+    Failures while loading the manifest fall through to the hard default
+    so the CLI never blows up when the manifest is missing or partial.
+    """
+    if cli_no_auto_stage:
+        return False
+    try:
+        from ai_engineering.config.loader import load_manifest_config
+
+        manifest = load_manifest_config(project_root)
+        return bool(manifest.gates.pre_commit.auto_stage)
+    except Exception:
+        return True
+
+
+def _emit_auto_stage_lines(document: GateFindingsDocument, *, no_color: bool = False) -> None:
+    """Print the spec-105 D-105-09 re-stage / unstaged-modifications lines.
+
+    Reads the ``_spec105_auto_stage_result`` side-channel attached by
+    ``orchestrator._attach_auto_stage_result``. Suppressed in JSON mode and
+    when no auto-stage result is present.
+    """
+    if is_json_mode():
+        return
+    auto_result = getattr(document, "_spec105_auto_stage_result", None)
+    if auto_result is None:
+        return
+    restaged = list(auto_result.restaged or [])
+    unstaged = list(auto_result.unstaged_modifications or [])
+    if restaged:
+        # Emit the canonical "Re-staged N files" line per T-6.6.
+        joined = ", ".join(restaged)
+        line = (
+            f"Re-staged {len(restaged)} files modified by ruff: {joined} "
+            "(disable: gates.pre_commit.auto_stage=false)"
+        )
+        print_stdout(line)
+    if unstaged:
+        # Surface as a warning per T-6.7.
+        joined = ", ".join(unstaged)
+        warning(
+            f"{len(unstaged)} files modified by fixers but not staged: "
+            f"{joined}. They remain unstaged. Stage manually if intended."
+        )
+
+
 def _staged_files_from_git(project_root: Path) -> list[str]:
     """Return the list of staged files relative to ``project_root``.
 
@@ -503,6 +559,17 @@ def gate_run(
             case_sensitive=False,
         ),
     ] = "ai-commit",
+    no_auto_stage: Annotated[
+        bool,
+        typer.Option(
+            "--no-auto-stage",
+            help=(
+                "Disable spec-105 D-105-09 auto-stage (re-stage of "
+                "S_pre & M_post after Wave 1 fixers). Default ON. "
+                "Manifest equivalent: gates.pre_commit.auto_stage=false."
+            ),
+        ),
+    ] = False,
     target: Annotated[
         Path | None,
         typer.Option("--target", "-t", help="Target project root."),
@@ -570,6 +637,10 @@ def gate_run(
     if force:
         _force_clear_cache(cache_dir)
 
+    # spec-105 D-105-09: resolve the effective auto-stage decision.
+    # Precedence: CLI flag (--no-auto-stage) > manifest > default ON.
+    auto_stage_enabled = _resolve_auto_stage_enabled(root, cli_no_auto_stage=no_auto_stage)
+
     document = run_orchestrator_gate(
         staged,
         mode=mode_value,
@@ -578,6 +649,7 @@ def gate_run(
         cache_dir=cache_dir,
         project_root=root,
         produced_by=produced_by_value,
+        auto_stage_enabled=auto_stage_enabled,
     )
 
     # Persist the canonical gate-findings.json artefact regardless of the
@@ -587,6 +659,10 @@ def gate_run(
     # mask the more important findings exit-code signal.
     with contextlib.suppress(OSError):
         _persist_gate_findings(document, root)
+
+    # spec-105 D-105-09: emit the auto-stage CLI lines BEFORE the rest of
+    # the compact output so the operator sees what changed in the index.
+    _emit_auto_stage_lines(document, no_color=no_color)
 
     failed = _document_has_failure(document)
 

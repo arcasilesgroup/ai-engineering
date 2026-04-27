@@ -125,34 +125,34 @@
 - [x] T-5.20: Write RED test skeleton `tests/unit/test_auto_stage_safety.py` marked, 8 fixtures (a)–(h) covering S_pre × M_post combinations (agent: build) — 8 tests, deferred imports
 - [x] T-5.21: Write RED test skeleton `tests/integration/test_auto_stage_orchestrator_hook_parity.py` marked, asserting orchestrator + hook paths produce identical AutoStageResult on same fixture (agent: build) — 1 test
 - [x] T-5.22: Run `pytest -m 'not spec_105_red'` y confirm PASS (agent: verify) — `26 failed, 4568 passed, 2 skipped, 17 deselected, 1 xpassed, 10 errors` in 635.87s. Delta vs Phase 4 (d352998b): +27 passed (16 new GREEN tests + +11 net offset from marker removals — RED markers excluded). All 26 failed + 10 errors signatures IDENTICAL to Phase 4 baseline (verified via `git stash` → `25 failed, 3956 passed, 9 deselected, 1 xpassed, 10 errors` on parent unit-only run; matches Phase 5 unit-only `25 failed, 3957 passed, 8 deselected`). The +1 fail in full-suite (test_python_env_mode_install) is pre-existing test-isolation flake — passes when run with safe_run_env_scrub or with my Phase 5 tests in isolation (38/38 pass). NOT a Phase 5 regression.
-- [ ] T-5.23: Stage y commit `feat(spec-105): Phase 5 GREEN mode + escalation + tier + Phase 6 RED auto-stage tests` (agent: build)
+- [x] T-5.23: Stage y commit `feat(spec-105): Phase 5 GREEN mode + escalation + tier + Phase 6 RED auto-stage tests` (agent: build) — commit 73497a73
 
 ---
 
 ### Phase 6: Auto-stage shared utility + hook integration (GREEN) + skill/mirror tests (RED)
 **Gate**: `policy/auto_stage.py` exists con 3 functions; orchestrator Wave 1 captures S_pre + restages intersection; Claude hook auto-format.py uses shared utility; template parity verified; manifest field `gates.pre_commit.auto_stage: true` declared; T-5.20/T-5.21 RED tests PASS; 2 new RED skill/mirror test files exist; CI green.
 
-- [ ] T-6.1: Create `src/ai_engineering/policy/auto_stage.py` con `capture_staged_set(repo_root) → set[str]` usando `git diff --cached --name-only -z` (agent: build)
-- [ ] T-6.2: Add `capture_modified_set(repo_root) → set[str]` to same module usando `git diff --name-only -z` (agent: build)
-- [ ] T-6.3: Add `restage_intersection(repo_root, s_pre, *, log_warning_for_unstaged=True) → AutoStageResult` con `git add --` of `s_pre & m_post` files only (agent: build)
-- [ ] T-6.4: Add `AutoStageResult` dataclass to module (`restaged: list[str]`, `unstaged_modifications: list[str]`) (agent: build)
-- [ ] T-6.5: Wire auto_stage into `policy/orchestrator.py:run_wave1()`: capture `s_pre` antes de fixers, call `restage_intersection` after, attach result to `Wave1Result` (agent: build)
-- [ ] T-6.6: Add CLI output line: `Re-staged N files modified by ruff: file1, file2, ... (disable: gates.pre_commit.auto_stage=false)` cuando restaged non-empty (agent: build)
-- [ ] T-6.7: Add CLI warning line: `⚠ N files modified by fixers but not staged: file1, file2, ... They remain unstaged. Stage manually if intended.` cuando unstaged_modifications non-empty (agent: build)
-- [ ] T-6.8: Update `.ai-engineering/scripts/hooks/auto-format.py` to import `from ai_engineering.policy.auto_stage import capture_staged_set, restage_intersection` y apply pattern (agent: build)
-- [ ] T-6.9: Update `src/ai_engineering/templates/.ai-engineering/scripts/hooks/auto-format.py` byte-equivalent to live hook (agent: build)
-- [ ] T-6.10: Add nested `PreCommitGateConfig(BaseModel)` class in `src/ai_engineering/config/manifest.py` con field `auto_stage: bool = True`; añadir `pre_commit: PreCommitGateConfig = Field(default_factory=PreCommitGateConfig)` a `GatesConfig` (creada en T-5.1) (agent: build)
-- [ ] T-6.11: Update `.ai-engineering/manifest.yml` y template manifest to declare `gates.pre_commit.auto_stage: true` (agent: build)
-- [ ] T-6.12: Add `--no-auto-stage` flag to `ai-eng gate run` (agent: build)
-- [ ] T-6.13: Add `--no-auto-stage` mention en `/ai-commit` skill (SKILL.md update — flag mention only; functional in skill prompt) (agent: build)
-- [ ] T-6.14: Write `tests/unit/test_auto_stage_safety.py` body — 8 fixtures: (a) all in S_pre+M_post, (b) S_pre only, (c) M_post only, (d) neither, (e) empty S_pre, (f) empty M_post, (g) overlapping subset, (h) file unstaged-then-modified (agent: build)
-- [ ] T-6.15: Write `tests/integration/test_auto_stage_orchestrator_hook_parity.py` body — same fixture run via orchestrator + via hook subprocess; assert result identical (agent: build)
-- [ ] T-6.16: Write `tests/unit/test_hook_template_parity.py` asserting byte-equivalence between `.ai-engineering/scripts/hooks/auto-format.py` y `src/ai_engineering/templates/.ai-engineering/scripts/hooks/auto-format.py` (agent: build)
-- [ ] T-6.17: Remove marker lines ONLY from auto-stage test files (do NOT modify test bodies — RED contract preserved); confirm GREEN (agent: build)
-- [ ] T-6.18: Write RED test skeleton `tests/unit/test_skill_forward_refs_resolved.py` marked, asserting no `(spec-105)` forward-ref strings remain in `.claude/skills/ai-pr/` y `.claude/skills/ai-commit/` (agent: build)
-- [ ] T-6.19: Write RED test skeleton `tests/integration/test_skill_mirror_consistency.py` marked, covering G-9 (sync --check PASS post-changes) (agent: build)
-- [ ] T-6.20: Run `pytest -m 'not spec_105_red'` y confirm PASS (agent: verify)
-- [ ] T-6.21: Stage y commit `feat(spec-105): Phase 6 GREEN auto-stage utility + Phase 7 RED skills/docs tests` (agent: build)
+- [x] T-6.1: Create `src/ai_engineering/policy/auto_stage.py` con `capture_staged_set(repo_root) → set[str]` usando `git diff --cached --name-only -z` (agent: build)
+- [x] T-6.2: Add `capture_modified_set(repo_root) → set[str]` to same module usando `git diff --name-only -z` (agent: build)
+- [x] T-6.3: Add `restage_intersection(repo_root, s_pre, *, log_warning_for_unstaged=True) → AutoStageResult` con `git add --` of `s_pre & m_post` files only (agent: build)
+- [x] T-6.4: Add `AutoStageResult` dataclass to module (`restaged: list[str]`, `unstaged_modifications: list[str]`) (agent: build)
+- [x] T-6.5: Wire auto_stage into `policy/orchestrator.py:run_wave1()`: capture `s_pre` antes de fixers, call `restage_intersection` after, attach result to `Wave1Result` (agent: build)
+- [x] T-6.6: Add CLI output line: `Re-staged N files modified by ruff: file1, file2, ... (disable: gates.pre_commit.auto_stage=false)` cuando restaged non-empty (agent: build)
+- [x] T-6.7: Add CLI warning line: `⚠ N files modified by fixers but not staged: file1, file2, ... They remain unstaged. Stage manually if intended.` cuando unstaged_modifications non-empty (agent: build)
+- [x] T-6.8: Update `.ai-engineering/scripts/hooks/auto-format.py` to import `from ai_engineering.policy.auto_stage import capture_staged_set, restage_intersection` y apply pattern (agent: build)
+- [x] T-6.9: Update `src/ai_engineering/templates/.ai-engineering/scripts/hooks/auto-format.py` byte-equivalent to live hook (agent: build)
+- [x] T-6.10: Add nested `PreCommitGateConfig(BaseModel)` class in `src/ai_engineering/config/manifest.py` con field `auto_stage: bool = True`; añadir `pre_commit: PreCommitGateConfig = Field(default_factory=PreCommitGateConfig)` a `GatesConfig` (creada en T-5.1) (agent: build)
+- [x] T-6.11: Update `.ai-engineering/manifest.yml` y template manifest to declare `gates.pre_commit.auto_stage: true` (agent: build)
+- [x] T-6.12: Add `--no-auto-stage` flag to `ai-eng gate run` (agent: build)
+- [x] T-6.13: Add `--no-auto-stage` mention en `/ai-commit` skill (SKILL.md update — flag mention only; functional in skill prompt) (agent: build)
+- [x] T-6.14: Write `tests/unit/test_auto_stage_safety.py` body — 8 fixtures: (a) all in S_pre+M_post, (b) S_pre only, (c) M_post only, (d) neither, (e) empty S_pre, (f) empty M_post, (g) overlapping subset, (h) file unstaged-then-modified (agent: build)
+- [x] T-6.15: Write `tests/integration/test_auto_stage_orchestrator_hook_parity.py` body — same fixture run via orchestrator + via hook subprocess; assert result identical (agent: build)
+- [x] T-6.16: Write `tests/unit/test_hook_template_parity.py` asserting byte-equivalence between `.ai-engineering/scripts/hooks/auto-format.py` y `src/ai_engineering/templates/.ai-engineering/scripts/hooks/auto-format.py` (agent: build)
+- [x] T-6.17: Remove marker lines ONLY from auto-stage test files (do NOT modify test bodies — RED contract preserved); confirm GREEN (agent: build)
+- [x] T-6.18: Write RED test skeleton `tests/unit/test_skill_forward_refs_resolved.py` marked, asserting no `(spec-105)` forward-ref strings remain in `.claude/skills/ai-pr/` y `.claude/skills/ai-commit/` (agent: build)
+- [x] T-6.19: Write RED test skeleton `tests/integration/test_skill_mirror_consistency.py` marked, covering G-9 (sync --check PASS post-changes) (agent: build)
+- [x] T-6.20: Run `pytest -m 'not spec_105_red'` y confirm PASS (agent: verify)
+- [x] T-6.21: Stage y commit `feat(spec-105): Phase 6 GREEN auto-stage utility + Phase 7 RED skills/docs tests` (agent: build)
 
 ---
 
