@@ -562,6 +562,26 @@ def discover_skills() -> list[tuple[str, dict[str, str], Path]]:
     return skills
 
 
+def discover_shared_handlers() -> list[tuple[str, Path]]:
+    """Discover shared handlers from .claude/skills/_shared/*.md.
+
+    Shared handlers are NOT user-invocable skills; they are reusable
+    instruction modules consumed by orchestrator skills (dispatch,
+    autopilot, run). They are mirrored byte-for-byte across IDE surfaces
+    so cross-IDE consumers see the same kernel.
+
+    Returns (relative_path, absolute_path) tuples sorted by path.
+    """
+    shared_root = CLAUDE_SKILLS / "_shared"
+    if not shared_root.is_dir():
+        return []
+    handlers: list[tuple[str, Path]] = []
+    for f in sorted(shared_root.rglob("*")):
+        if f.is_file() and f.suffix == ".md":
+            handlers.append((f.relative_to(shared_root).as_posix(), f))
+    return handlers
+
+
 def discover_agents() -> list[tuple[str, dict[str, str], Path]]:
     """Discover all agents from .claude/agents/ai-*.md.
 
@@ -1493,6 +1513,42 @@ def sync_all(*, check_only: bool = False, verbose: bool = False) -> int:
         diffs,
     )
 
+    # Surface 5.6: shared handlers (.claude/skills/_shared/*.md)
+    # Mirrored byte-for-byte across all IDE surfaces + install templates so
+    # orchestrator skills (dispatch, autopilot, run) can delegate to a single
+    # canonical kernel that every IDE consumer sees identically. Refs are
+    # translated per-target so each IDE's path scheme stays consistent.
+    shared_handlers = discover_shared_handlers()
+    for rel_path, src_path in shared_handlers:
+        raw = src_path.read_text(encoding="utf-8")
+        # Canonical .claude/ surfaces (root + install template) -- as-is
+        for target in (
+            CLAUDE_SKILLS / "_shared" / rel_path,
+            TPL_CLAUDE_SKILLS / "_shared" / rel_path,
+        ):
+            _generate_surface(target, raw, check_only, verbose, generated_paths, diffs)
+        # Codex
+        codex_content = translate_refs(raw, "codex")
+        for target in (
+            CODEX_SKILLS / "_shared" / rel_path,
+            TPL_CODEX_SKILLS / "_shared" / rel_path,
+        ):
+            _generate_surface(target, codex_content, check_only, verbose, generated_paths, diffs)
+        # Gemini
+        gemini_content = translate_refs(raw, "gemini")
+        for target in (
+            GEMINI_SKILLS / "_shared" / rel_path,
+            TPL_GEMINI_SKILLS / "_shared" / rel_path,
+        ):
+            _generate_surface(target, gemini_content, check_only, verbose, generated_paths, diffs)
+        # GitHub Copilot
+        copilot_content = translate_refs(raw, "copilot")
+        for target in (
+            GITHUB_SKILLS / "_shared" / rel_path,
+            TPL_GITHUB_SKILLS / "_shared" / rel_path,
+        ):
+            _generate_surface(target, copilot_content, check_only, verbose, generated_paths, diffs)
+
     # Surface 6: instructions/{lang}.instructions.md (generated from contexts)
     if CONTEXTS_LANGUAGES.is_dir():
         for ctx_file in sorted(CONTEXTS_LANGUAGES.glob("*.md")):
@@ -1636,24 +1692,29 @@ def _handle_orphans(
       - "glob": flat pattern match directly in the root directory
       - "rglob_subdirs": iterate subdirectories, recursively scan all files
     """
-    # (root, mode, prefix_filter) -- prefix_filter="" means all subdirs
-    _ORPHAN_SURFACES: list[tuple[Path, str, str]] = [
-        (CODEX_SKILLS, "rglob_subdirs", "ai-"),
+    # (root, mode, prefix_filter) -- prefix_filter="" means all subdirs.
+    # Skill surfaces accept both "ai-" (per-skill) and "_shared" (kernel
+    # handlers consumed by orchestrators) as valid subdirectory prefixes;
+    # "rglob_subdirs_multi" iterates subdirs matching ANY of the listed
+    # prefixes, so cross-IDE shared handlers do not get flagged as orphans.
+    _SKILL_SUBDIR_PREFIXES = ("ai-", "_shared")
+    _ORPHAN_SURFACES: list[tuple[Path, str, object]] = [
+        (CODEX_SKILLS, "rglob_subdirs_multi", _SKILL_SUBDIR_PREFIXES),
         (CODEX_AGENTS, "glob", "*.md"),
-        (GEMINI_SKILLS, "rglob_subdirs", "ai-"),
+        (GEMINI_SKILLS, "rglob_subdirs_multi", _SKILL_SUBDIR_PREFIXES),
         (GEMINI_AGENTS, "glob", "*.md"),
         (GITHUB_INSTRUCTIONS, "glob", "*.instructions.md"),
-        (GITHUB_SKILLS, "rglob_subdirs", "ai-"),
+        (GITHUB_SKILLS, "rglob_subdirs_multi", _SKILL_SUBDIR_PREFIXES),
         (GITHUB_AGENTS, "glob", "*.md"),
-        (TPL_CLAUDE_SKILLS, "rglob_subdirs", "ai-"),
+        (TPL_CLAUDE_SKILLS, "rglob_subdirs_multi", _SKILL_SUBDIR_PREFIXES),
         (TPL_CLAUDE_AGENTS, "glob", "*.md"),
-        (TPL_GEMINI_SKILLS, "rglob_subdirs", "ai-"),
+        (TPL_GEMINI_SKILLS, "rglob_subdirs_multi", _SKILL_SUBDIR_PREFIXES),
         (TPL_GEMINI_AGENTS, "glob", "*.md"),
-        (TPL_CODEX_SKILLS, "rglob_subdirs", "ai-"),
+        (TPL_CODEX_SKILLS, "rglob_subdirs_multi", _SKILL_SUBDIR_PREFIXES),
         (TPL_CODEX_AGENTS, "glob", "*.md"),
         (TPL_CODEX_HOOKS.parent, "glob", "hooks.json"),
         (TPL_CODEX_CONFIG.parent, "glob", "config.toml"),
-        (TPL_GITHUB_SKILLS, "rglob_subdirs", "ai-"),
+        (TPL_GITHUB_SKILLS, "rglob_subdirs_multi", _SKILL_SUBDIR_PREFIXES),
         (TPL_GITHUB_AGENTS, "glob", "*.md"),
     ]
 
@@ -1662,14 +1723,24 @@ def _handle_orphans(
         if not root.is_dir():
             continue
         if mode == "glob":
-            for f in root.glob(pattern):
+            for f in root.glob(str(pattern)):
                 if f not in generated:
                     orphans.append(f)
         elif mode == "rglob_subdirs":
             for sub in root.iterdir():
                 if not sub.is_dir():
                     continue
-                if pattern and not sub.name.startswith(pattern):
+                if pattern and not sub.name.startswith(str(pattern)):
+                    continue
+                for f in sub.rglob("*"):
+                    if f.is_file() and f not in generated:
+                        orphans.append(f)
+        elif mode == "rglob_subdirs_multi":
+            prefixes = pattern if isinstance(pattern, tuple) else (str(pattern),)
+            for sub in root.iterdir():
+                if not sub.is_dir():
+                    continue
+                if not any(sub.name.startswith(p) for p in prefixes):
                     continue
                 for f in sub.rglob("*"):
                     if f.is_file() and f not in generated:

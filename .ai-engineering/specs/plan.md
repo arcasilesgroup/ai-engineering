@@ -13,20 +13,20 @@
 ### Phase 1: execution-kernel.md + dispatch/autopilot/run delegation
 **Gate**: `.claude/skills/_shared/execution-kernel.md` exists; 3 orchestrators delegate (no inline kernel); combined line reduction >=150; sync --check PASS; CI green.
 
-- [ ] T-1.1: Add `pytest.mark.spec_106_red` marker to `[tool.pytest.ini_options].markers` in `pyproject.toml` (agent: build)
-- [ ] T-1.2: Create `.claude/skills/_shared/execution-kernel.md` with canonical "dispatch agent per task → build-verify-review loop → artifact collection → board sync" flow extracted from current dispatch/autopilot/run overlap (agent: build)
-- [ ] T-1.3: Read `.claude/skills/ai-dispatch/SKILL.md`, identify the kernel section (Process steps), replace with delegation to `_shared/execution-kernel.md` (agent: build)
-- [ ] T-1.4: Read `.claude/skills/ai-autopilot/SKILL.md`, identify wave-execution kernel, replace with delegation reference (agent: build)
-- [ ] T-1.5: Read `.claude/skills/ai-run/SKILL.md`, identify backlog-executor kernel, replace with delegation reference (agent: build)
-- [ ] T-1.6: Verify `scripts/sync_command_mirrors.py` covers `_shared/` subdirectory; if not, extend to include (agent: build)
-- [ ] T-1.7: Run `uv run ai-eng sync` to regenerate IDE mirrors; confirm `_shared/execution-kernel.md` propagates to `.github/`, `.codex/`, `.gemini/` (agent: build)
-- [ ] T-1.8: Run `uv run ai-eng sync --check` and confirm exit 0 (agent: verify)
-- [ ] T-1.9: Write `tests/unit/test_kernel_extraction.py` (no marker, immediate GREEN) asserting (a) `_shared/execution-kernel.md` exists, (b) dispatch/autopilot/run SKILL.md contains string `_shared/execution-kernel.md`, (c) combined line count of 3 orchestrators decreased >=150 vs baseline (record baseline as constant) (agent: build)
-- [ ] T-1.10: Write `tests/integration/test_shared_handler_mirror.py` (no marker, immediate GREEN) asserting `_shared/execution-kernel.md` byte-equivalent across 4 IDE mirrors (agent: build)
-- [ ] T-1.11: Write RED test skeleton `tests/integration/test_plan_design_routing.py` marked, covering Phase 2 G-2 keyword detection + handler invocation (agent: build)
-- [ ] T-1.12: Write RED test skeleton `tests/unit/test_design_keyword_allowlist.py` marked, covering allowlist of UI keywords + false-positive cases + --skip-design override (agent: build)
-- [ ] T-1.13: Run `pytest -m 'not spec_105_red and not spec_106_red' --no-cov -q` and confirm PASS (delta vs spec-105 P8 baseline only +new GREEN tests) (agent: verify)
-- [ ] T-1.14: Stage and commit `feat(spec-106): Phase 1 GREEN execution-kernel + Phase 2 RED design-routing tests` (agent: build)
+- [x] T-1.1: Add `pytest.mark.spec_106_red` marker to `[tool.pytest.ini_options].markers` in `pyproject.toml` (agent: build)
+- [x] T-1.2: Create `.claude/skills/_shared/execution-kernel.md` with canonical "dispatch agent per task → build-verify-review loop → artifact collection → board sync" flow extracted from current dispatch/autopilot/run overlap (agent: build)
+- [x] T-1.3: Read `.claude/skills/ai-dispatch/SKILL.md`, identify the kernel section (Process steps), replace with delegation to `_shared/execution-kernel.md` (agent: build)
+- [x] T-1.4: Read `.claude/skills/ai-autopilot/SKILL.md`, identify wave-execution kernel, replace with delegation reference (agent: build)
+- [x] T-1.5: Read `.claude/skills/ai-run/SKILL.md`, identify backlog-executor kernel, replace with delegation reference (agent: build)
+- [x] T-1.6: Verify `scripts/sync_command_mirrors.py` covers `_shared/` subdirectory; if not, extend to include (agent: build)
+- [x] T-1.7: Run `uv run ai-eng sync` to regenerate IDE mirrors; confirm `_shared/execution-kernel.md` propagates to `.github/`, `.codex/`, `.gemini/` (agent: build)
+- [x] T-1.8: Run `uv run ai-eng sync --check` and confirm exit 0 (agent: verify)
+- [x] T-1.9: Write `tests/unit/test_kernel_extraction.py` (no marker, immediate GREEN) asserting (a) `_shared/execution-kernel.md` exists, (b) dispatch/autopilot/run SKILL.md contains string `_shared/execution-kernel.md`, (c) combined line count of 3 orchestrators decreased >=150 vs baseline (record baseline as constant) (agent: build)
+- [x] T-1.10: Write `tests/integration/test_shared_handler_mirror.py` (no marker, immediate GREEN) asserting `_shared/execution-kernel.md` byte-equivalent across 4 IDE mirrors (agent: build)
+- [x] T-1.11: Write RED test skeleton `tests/integration/test_plan_design_routing.py` marked, covering Phase 2 G-2 keyword detection + handler invocation (agent: build)
+- [x] T-1.12: Write RED test skeleton `tests/unit/test_design_keyword_allowlist.py` marked, covering allowlist of UI keywords + false-positive cases + --skip-design override (agent: build)
+- [x] T-1.13: Run `pytest -m 'not spec_105_red and not spec_106_red' --no-cov -q` and confirm PASS (delta vs spec-105 P8 baseline only +new GREEN tests) (agent: verify)
+- [x] T-1.14: Stage and commit `feat(spec-106): Phase 1 GREEN execution-kernel + Phase 2 RED design-routing tests` (agent: build)
 
 ---
 
