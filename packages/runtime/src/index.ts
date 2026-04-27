@@ -70,3 +70,49 @@ export { CompositeTelemetryAdapter } from "./observability/adapters/composite_te
 export { NodeFilesystemAdapter } from "./platform/adapters/node_filesystem.ts";
 export { GitAdapter } from "./platform/adapters/git.ts";
 export { SigstoreAdapter } from "./platform/adapters/sigstore.ts";
+
+// Platform domain (Phase 7 — plugins)
+export {
+  createPlugin,
+  pluginRef,
+  scorecardThresholdFor,
+  SCORECARD_THRESHOLD,
+  type Plugin,
+  type PluginTier,
+  type CreatePluginInput,
+} from "./platform/domain/plugin.ts";
+
+// Platform application use cases (Phase 7 — plugins)
+export {
+  installPlugin,
+  PluginError,
+  type PluginErrorReason,
+  type PluginInstallInput,
+  type PluginInstallDeps,
+  type PluginInstallRecord,
+  type PluginInstallDirPort,
+  type PluginRegistryEntry,
+  type PluginRegistryPort,
+  type PluginManifestRaw,
+  type MirrorGeneratorPort,
+  type SbomCheckPort,
+} from "./platform/application/plugin_install.ts";
+export {
+  searchPlugins,
+  type PluginSearchHit,
+  type PluginSearchInput,
+} from "./platform/application/plugin_search.ts";
+export {
+  verifyPlugins,
+  type PluginVerifyDeps,
+  type PluginVerifyInput,
+  type PluginVerifyOutcome,
+} from "./platform/application/plugin_verify.ts";
+export {
+  FakeSignaturePort,
+  FilesystemPluginInstallDir,
+  InMemoryFilesystem,
+  InMemoryPluginRegistry,
+  type FakeSignatureCallLog,
+  type FakeSignatureOptions,
+} from "./platform/application/_fakes.ts";
