@@ -25,12 +25,13 @@ HARD GATE: user must approve the plan before `/ai-dispatch` can run.
 1. **Read spec** -- load `specs/spec.md`. If spec.md does not conform to `.ai-engineering/contexts/spec-schema.md`, flag missing sections before proceeding.
 2. **Explore codebase** -- understand current architecture, patterns, and affected files
 3. **Classify pipeline** -- select full/standard/hotfix/trivial based on change scope
-4. **Decompose into tasks** -- bite-sized (2-5 min each), single-agent, single-concern
-5. **Assign agents** -- capability-match each task to the right agent
-6. **Order phases** -- define phase boundaries and gate criteria
-7. **Review plan** -- self-review with spec-reviewer pattern (max 2 iterations)
-8. **Write artifacts** -- persist the plan to `specs/plan.md`
-9. **STOP** -- present plan. User runs `/ai-dispatch` to execute.
+4. **Design routing** -- read `.ai-engineering/specs/spec.md` body. Invoke `handlers/design-routing.md` to detect UI keywords. If routing decision is `routed`, ensure `/ai-design` output is captured at `.ai-engineering/specs/<spec-id>/design-intent.md` and link it from `plan.md` under the `## Design` section. If `--skip-design` was passed by the user, log skip reason and proceed.
+5. **Decompose into tasks** -- bite-sized (2-5 min each), single-agent, single-concern
+6. **Assign agents** -- capability-match each task to the right agent
+7. **Order phases** -- define phase boundaries and gate criteria
+8. **Review plan** -- self-review with spec-reviewer pattern (max 2 iterations)
+9. **Write artifacts** -- persist the plan to `specs/plan.md`
+10. **STOP** -- present plan. User runs `/ai-dispatch` to execute.
 
 ## Pipeline Classification
 

@@ -33,17 +33,17 @@
 ### Phase 2: design-routing handler + /ai-plan keyword detection
 **Gate**: `.claude/skills/ai-plan/handlers/design-routing.md` exists; /ai-plan invokes handler at right step; --skip-design override works; design-intent.md emitted at known location; T-1.11/T-1.12 RED tests now PASS unmarked.
 
-- [ ] T-2.1: Create `.claude/skills/ai-plan/handlers/design-routing.md` with: (a) keyword allowlist (page, component, screen, dashboard, form, modal, design system, color palette, typography, layout, ui, ux, frontend, react component, vue component, interface, mobile screen, responsive, accessibility), (b) detection logic (case-insensitive substring match against spec.md body), (c) routing to `/ai-design`, (d) emission to `.ai-engineering/specs/<spec-id>/design-intent.md` or fallback `.ai-engineering/specs/design-intent.md`, (e) `--skip-design` override behavior (agent: build)
-- [ ] T-2.2: Modify `.claude/skills/ai-plan/SKILL.md` Process section to add step "Read spec.md; invoke design-routing handler if keywords match; if routed, ensure /ai-design output linked in plan.md under '## Design' section before task decomposition" (agent: build)
-- [ ] T-2.3: Run `uv run ai-eng sync` to regenerate mirrors; confirm `.claude/skills/ai-plan/handlers/design-routing.md` propagates (agent: build)
-- [ ] T-2.4: Run `uv run ai-eng sync --check` exit 0 (agent: verify)
-- [ ] T-2.5: Write `tests/integration/test_plan_design_routing.py` body — fixture spec.md with UI keywords; assert handler detects + plan.md contains `## Design` section (agent: build)
-- [ ] T-2.6: Write `tests/unit/test_design_keyword_allowlist.py` body — 10+ test cases for keyword detection (positive + false-positive + override) (agent: build)
-- [ ] T-2.7: Remove markers from these 2 test files; confirm GREEN (agent: build)
-- [ ] T-2.8: Write RED test skeleton `tests/integration/test_architecture_pattern_step.py` marked, covering Phase 3 G-3 `/ai-plan` reads architecture-patterns.md + records pattern in plan.md (agent: build)
-- [ ] T-2.9: Write RED test skeleton `tests/unit/test_architecture_patterns_curated_list.py` marked, asserting >=10 patterns + each has when-to-use + when-NOT-to-use (agent: build)
-- [ ] T-2.10: Run `pytest -m 'not spec_105_red and not spec_106_red'` and confirm PASS (agent: verify)
-- [ ] T-2.11: Stage and commit `feat(spec-106): Phase 2 GREEN design-routing + Phase 3 RED architecture-patterns tests` (agent: build)
+- [x] T-2.1: Create `.claude/skills/ai-plan/handlers/design-routing.md` with: (a) keyword allowlist (page, component, screen, dashboard, form, modal, design system, color palette, typography, layout, ui, ux, frontend, react component, vue component, interface, mobile screen, responsive, accessibility), (b) detection logic (case-insensitive substring match against spec.md body), (c) routing to `/ai-design`, (d) emission to `.ai-engineering/specs/<spec-id>/design-intent.md` or fallback `.ai-engineering/specs/design-intent.md`, (e) `--skip-design` override behavior (agent: build)
+- [x] T-2.2: Modify `.claude/skills/ai-plan/SKILL.md` Process section to add step "Read spec.md; invoke design-routing handler if keywords match; if routed, ensure /ai-design output linked in plan.md under '## Design' section before task decomposition" (agent: build)
+- [x] T-2.3: Run `uv run ai-eng sync` to regenerate mirrors; confirm `.claude/skills/ai-plan/handlers/design-routing.md` propagates (agent: build)
+- [x] T-2.4: Run `uv run ai-eng sync --check` exit 0 (agent: verify)
+- [x] T-2.5: Write `tests/integration/test_plan_design_routing.py` body — fixture spec.md with UI keywords; assert handler detects + plan.md contains `## Design` section (agent: build)
+- [x] T-2.6: Write `tests/unit/test_design_keyword_allowlist.py` body — 10+ test cases for keyword detection (positive + false-positive + override) (agent: build)
+- [x] T-2.7: Remove markers from these 2 test files; confirm GREEN (agent: build)
+- [x] T-2.8: Write RED test skeleton `tests/integration/test_architecture_pattern_step.py` marked, covering Phase 3 G-3 `/ai-plan` reads architecture-patterns.md + records pattern in plan.md (agent: build)
+- [x] T-2.9: Write RED test skeleton `tests/unit/test_architecture_patterns_curated_list.py` marked, asserting >=10 patterns + each has when-to-use + when-NOT-to-use (agent: build)
+- [x] T-2.10: Run `pytest -m 'not spec_105_red and not spec_106_red'` and confirm PASS (agent: verify)
+- [x] T-2.11: Stage and commit `feat(spec-106): Phase 2 GREEN design-routing + Phase 3 RED architecture-patterns tests` (agent: build)
 
 ---
 
