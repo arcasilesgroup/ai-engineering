@@ -12,12 +12,20 @@ reads the manifest and passes the enabled providers to
 
 from __future__ import annotations
 
+import subprocess
 from pathlib import Path
 
 import pytest
 
 from ai_engineering.installer.service import install
 from ai_engineering.updater.service import update
+
+
+def _ensure_git_repo(path: Path) -> None:
+    """Init a git repo so installer hook discovery does not fail."""
+    if not (path / ".git").is_dir():
+        subprocess.run(["git", "init", "-q"], cwd=path, check=True)
+
 
 # ---------------------------------------------------------------------------
 # Provider-specific path prefixes used in assertions.
@@ -67,6 +75,7 @@ def _has_provider_paths(paths: set[str], prefixes: tuple[str, ...]) -> bool:
 @pytest.fixture()
 def claude_only_project(tmp_path: Path) -> Path:
     """Install a project with only ``claude_code`` as AI provider."""
+    _ensure_git_repo(tmp_path)
     install(tmp_path, ai_providers=["claude_code"])
     return tmp_path
 
@@ -74,6 +83,7 @@ def claude_only_project(tmp_path: Path) -> Path:
 @pytest.fixture()
 def claude_copilot_project(tmp_path: Path) -> Path:
     """Install a project with ``claude_code`` and ``github_copilot``."""
+    _ensure_git_repo(tmp_path)
     install(tmp_path, ai_providers=["claude_code", "github_copilot"])
     return tmp_path
 
@@ -81,6 +91,7 @@ def claude_copilot_project(tmp_path: Path) -> Path:
 @pytest.fixture()
 def claude_gemini_project(tmp_path: Path) -> Path:
     """Install a project with ``claude_code`` and ``gemini``."""
+    _ensure_git_repo(tmp_path)
     install(tmp_path, ai_providers=["claude_code", "gemini"])
     return tmp_path
 
@@ -88,6 +99,7 @@ def claude_gemini_project(tmp_path: Path) -> Path:
 @pytest.fixture()
 def no_manifest_project(tmp_path: Path) -> Path:
     """Install a project, then remove the manifest to test fallback."""
+    _ensure_git_repo(tmp_path)
     install(tmp_path)
     manifest = tmp_path / ".ai-engineering" / "manifest.yml"
     if manifest.exists():

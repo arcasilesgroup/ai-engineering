@@ -14,6 +14,7 @@ implemented in the update service.
 
 from __future__ import annotations
 
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -21,6 +22,13 @@ import pytest
 from ai_engineering.config.loader import update_manifest_field
 from ai_engineering.installer.service import install
 from ai_engineering.updater.service import update
+
+
+def _ensure_git_repo(path: Path) -> None:
+    """Init a git repo so installer hook discovery does not fail."""
+    if not (path / ".git").is_dir():
+        subprocess.run(["git", "init", "-q"], cwd=path, check=True)
+
 
 # ---------------------------------------------------------------------------
 # Provider-specific path prefixes (mirrors test_update_provider_filtering.py).
@@ -90,6 +98,7 @@ def claude_codex_project(tmp_path: Path) -> Path:
     """Install a project with ``claude_code`` and ``codex``, then
     reconfigure to ``claude_code`` only -- leaving .codex/ files as orphans.
     """
+    _ensure_git_repo(tmp_path)
     install(tmp_path, ai_providers=["claude_code", "codex"])
     # Shrink enabled providers in the manifest to only claude_code.
     update_manifest_field(tmp_path, "ai_providers.enabled", ["claude_code"])
@@ -103,6 +112,7 @@ def claude_codex_project(tmp_path: Path) -> Path:
 @pytest.fixture()
 def claude_gemini_project(tmp_path: Path) -> Path:
     """Install a project with ``claude_code`` and ``gemini``."""
+    _ensure_git_repo(tmp_path)
     install(tmp_path, ai_providers=["claude_code", "gemini"])
     return tmp_path
 
@@ -110,6 +120,7 @@ def claude_gemini_project(tmp_path: Path) -> Path:
 @pytest.fixture()
 def claude_only_project(tmp_path: Path) -> Path:
     """Install a project with only ``claude_code``."""
+    _ensure_git_repo(tmp_path)
     install(tmp_path, ai_providers=["claude_code"])
     return tmp_path
 

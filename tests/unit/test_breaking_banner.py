@@ -21,6 +21,9 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
+from ai_engineering.cli_output import set_json_mode
 from ai_engineering.installer.phases import (
     InstallContext,
     InstallMode,
@@ -31,6 +34,18 @@ from ai_engineering.installer.phases import (
 from ai_engineering.installer.phases.pipeline import PipelineRunner
 from ai_engineering.state.models import InstallState
 from ai_engineering.state.service import load_install_state, save_install_state
+
+
+@pytest.fixture(autouse=True)
+def _reset_json_mode() -> None:
+    """Ensure module-global JSON mode is OFF before each test.
+
+    Without this, parallel test runs (-n auto) can leave the global flag
+    set to True from a sibling test that exercised JSON output, causing
+    the banner-emission tests to silently skip and assert-fail.
+    """
+    set_json_mode(False)
+
 
 # ---------------------------------------------------------------------------
 # Test fixtures

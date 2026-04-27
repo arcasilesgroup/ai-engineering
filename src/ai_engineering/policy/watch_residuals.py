@@ -25,6 +25,7 @@ from typing import Any
 from ai_engineering.state.models import (
     GateFinding,
     GateFindingsDocument,
+    GateProducedBy,
     WallClockMs,
 )
 
@@ -93,7 +94,7 @@ def emit(
     doc = GateFindingsDocument(
         schema="ai-engineering/gate-findings/v1",
         session_id=uuid.uuid4(),
-        produced_by="watch-loop",
+        produced_by=GateProducedBy.WATCH_LOOP,
         produced_at=datetime.now(UTC),
         branch=branch,
         commit_sha=sha,

@@ -85,6 +85,7 @@ class TestNonInteractiveSkipsPrompts:
 
         with (
             patch(f"{_CORE}.install_with_pipeline", mock_install),
+            patch(f"{_CORE}.check_uv_prereq", return_value=None),
             patch(f"{_CORE}.typer.prompt") as mock_prompt,
             patch(f"{_CORE}.typer.confirm") as mock_confirm,
         ):
@@ -112,6 +113,7 @@ class TestNonInteractiveSkipsPrompts:
 
         with (
             patch(f"{_CORE}.install_with_pipeline", mock_install),
+            patch(f"{_CORE}.check_uv_prereq", return_value=None),
             patch("ai_engineering.git.operations.run_git", return_value=(False, "")),
         ):
             # Act
@@ -138,6 +140,7 @@ class TestNonInteractiveSkipsPrompts:
 
         with (
             patch(f"{_CORE}.install_with_pipeline", mock_install),
+            patch(f"{_CORE}.check_uv_prereq", return_value=None),
             patch("ai_engineering.git.operations.run_git", return_value=(False, "")),
         ):
             # Act
