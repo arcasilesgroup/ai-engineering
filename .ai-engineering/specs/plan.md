@@ -50,17 +50,17 @@
 ### Phase 3: architecture-patterns.md context + /ai-plan step
 **Gate**: `.ai-engineering/contexts/architecture-patterns.md` exists with >=10 patterns; /ai-plan adds Architecture step; T-2.8/T-2.9 RED tests PASS.
 
-- [ ] T-3.1: Create `.ai-engineering/contexts/architecture-patterns.md` with curated 10+ patterns. Each entry format: `## Pattern Name` + `**Description**:` (1-2 paragraphs) + `**When to use**:` (bullet list) + `**When NOT to use**:` (bullet list) + `**Example**:` (1-paragraph). Patterns: layered, hexagonal, CQRS, event-sourcing, ports-and-adapters, clean-architecture, pipes-and-filters, repository, unit-of-work, microservices, modular-monolith. Source: `https://skills.sh/wshobson/agents/architecture-patterns` (snapshot, manual curation) (agent: build)
-- [ ] T-3.2: Modify `.claude/skills/ai-plan/SKILL.md` Process section to add step BEFORE task decomposition: "Read `.ai-engineering/contexts/architecture-patterns.md`. Identify fitting pattern for this spec. Record in `plan.md` under `## Architecture` section with justification. If none applicable, note 'ad-hoc' with explanation." (agent: build)
-- [ ] T-3.3: Run `uv run ai-eng sync` to regenerate; confirm context propagates if mirror sync covers `.ai-engineering/contexts/` (else note: contexts may not need IDE-mirroring — they're consumed via path) (agent: build)
-- [ ] T-3.4: Run `uv run ai-eng sync --check` exit 0 (agent: verify)
-- [ ] T-3.5: Write `tests/unit/test_architecture_patterns_curated_list.py` body — assert 10+ headings, each with required subsections, words count > minimum threshold per section (agent: build)
-- [ ] T-3.6: Write `tests/integration/test_architecture_pattern_step.py` body — fixture spec.md; run `/ai-plan` (or simulate); assert plan.md contains `## Architecture` section with non-empty pattern reference (agent: build)
-- [ ] T-3.7: Remove markers from these 2 test files; confirm GREEN (agent: build)
-- [ ] T-3.8: Write RED test skeleton `tests/integration/test_skill_audit_advisory.py` marked, covering Phase 4 G-4 `scripts/skill-audit.sh` execution + audit-report.json schema (agent: build)
-- [ ] T-3.9: Write RED test skeleton `tests/unit/test_audit_report_schema.py` marked, asserting JSON schema (skill, result.score, result.reason fields) (agent: build)
-- [ ] T-3.10: Run `pytest -m 'not spec_105_red and not spec_106_red'` and confirm PASS (agent: verify)
-- [ ] T-3.11: Stage and commit `feat(spec-106): Phase 3 GREEN architecture-patterns + Phase 4 RED skill-audit tests` (agent: build)
+- [x] T-3.1: Create `.ai-engineering/contexts/architecture-patterns.md` with curated 10+ patterns. Each entry format: `## Pattern Name` + `**Description**:` (1-2 paragraphs) + `**When to use**:` (bullet list) + `**When NOT to use**:` (bullet list) + `**Example**:` (1-paragraph). Patterns: layered, hexagonal, CQRS, event-sourcing, ports-and-adapters, clean-architecture, pipes-and-filters, repository, unit-of-work, microservices, modular-monolith. Source: `https://skills.sh/wshobson/agents/architecture-patterns` (snapshot, manual curation) (agent: build)
+- [x] T-3.2: Modify `.claude/skills/ai-plan/SKILL.md` Process section to add step BEFORE task decomposition: "Read `.ai-engineering/contexts/architecture-patterns.md`. Identify fitting pattern for this spec. Record in `plan.md` under `## Architecture` section with justification. If none applicable, note 'ad-hoc' with explanation." (agent: build)
+- [x] T-3.3: Run `uv run ai-eng sync` to regenerate; confirm context propagates if mirror sync covers `.ai-engineering/contexts/` (else note: contexts may not need IDE-mirroring — they're consumed via path) (agent: build)
+- [x] T-3.4: Run `uv run ai-eng sync --check` exit 0 (agent: verify)
+- [x] T-3.5: Write `tests/unit/test_architecture_patterns_curated_list.py` body — assert 10+ headings, each with required subsections, words count > minimum threshold per section (agent: build)
+- [x] T-3.6: Write `tests/integration/test_architecture_pattern_step.py` body — fixture spec.md; run `/ai-plan` (or simulate); assert plan.md contains `## Architecture` section with non-empty pattern reference (agent: build)
+- [x] T-3.7: Remove markers from these 2 test files; confirm GREEN (agent: build)
+- [x] T-3.8: Write RED test skeleton `tests/integration/test_skill_audit_advisory.py` marked, covering Phase 4 G-4 `scripts/skill-audit.sh` execution + audit-report.json schema (agent: build)
+- [x] T-3.9: Write RED test skeleton `tests/unit/test_audit_report_schema.py` marked, asserting JSON schema (skill, result.score, result.reason fields) (agent: build)
+- [x] T-3.10: Run `pytest -m 'not spec_105_red and not spec_106_red'` and confirm PASS (agent: verify)
+- [x] T-3.11: Stage and commit `feat(spec-106): Phase 3 GREEN architecture-patterns + Phase 4 RED skill-audit tests` (agent: build)
 
 ---
 
