@@ -214,6 +214,11 @@ class Decision(BaseModel):
     renewed_from: str | None = Field(default=None, alias="renewedFrom")
     renewal_count: int = Field(default=0, alias="renewalCount")
 
+    # spec-105 additive fields: link a decision to the gate finding(s) it accepts.
+    # Both optional for backward compatibility with pre-spec-105 decision-store entries.
+    finding_id: str | None = Field(default=None, alias="findingId")
+    batch_id: str | None = Field(default=None, alias="batchId")
+
     model_config = {"populate_by_name": True}
 
 
