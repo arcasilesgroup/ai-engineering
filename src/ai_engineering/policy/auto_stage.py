@@ -63,6 +63,31 @@ class AutoStageResult:
 # --- Git helpers ------------------------------------------------------------
 
 
+def _refresh_index(repo_root: Path) -> None:
+    """Force git to re-read stat info into the index before a diff.
+
+    Under heavy parallel I/O (pytest-xdist worksteal, APFS write barriers)
+    a freshly-written worktree file may not yet be visible to ``git diff``
+    on the next subprocess call. ``git update-index --refresh`` triggers
+    git's stat-cache refresh and is the canonical pre-diff sync barrier.
+
+    Exit code 1 is normal here -- it just means files differ from index,
+    which is exactly what the subsequent diff is about to enumerate.
+    Exit code other than 0/1 means git itself failed; the caller's diff
+    will then return an empty set via the standard fallback.
+    """
+    cmd = ["git", "-C", str(repo_root), "update-index", "--refresh"]
+    try:
+        subprocess.run(
+            cmd,
+            capture_output=True,
+            text=False,
+            timeout=_GIT_TIMEOUT_SECONDS,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        logger.debug("git update-index --refresh failed: %s", " ".join(cmd), exc_info=True)
+
+
 def _run_git_name_only(repo_root: Path, *args: str) -> set[str]:
     """Run ``git <args>`` returning the null-byte-split path set.
 
@@ -106,6 +131,7 @@ def capture_staged_set(repo_root: Path) -> set[str]:
     Wraps ``git diff --cached --name-only -z``. Returned paths are relative
     to ``repo_root`` and use forward slashes (git's canonical form).
     """
+    _refresh_index(repo_root)
     return _run_git_name_only(repo_root, "diff", "--cached", "--name-only", "-z")
 
 
@@ -116,6 +142,7 @@ def capture_modified_set(repo_root: Path) -> set[str]:
     contents have diverged from the index since the last add -- i.e. files
     rewritten by Wave 1 fixers or by the Claude Code edit hook.
     """
+    _refresh_index(repo_root)
     return _run_git_name_only(repo_root, "diff", "--name-only", "-z")
 
 

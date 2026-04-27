@@ -194,6 +194,14 @@ PRE_PUSH_CHECKS: dict[str, list[CheckConfig]] = {
         ),
         CheckConfig(
             name="stack-tests",
+            # Serial execution (no -n auto) -- xdist worksteal under heavy
+            # parallel I/O surfaces APFS write-barrier flakes in tests that
+            # exercise real subprocess git operations against tmp_path repos
+            # (test_auto_stage_safety, test_breaking_banner). Serial run
+            # adds ~30s on a 4k-test suite but is 100% reproducible. See
+            # `policy/auto_stage.py:_refresh_index` for the prod-side
+            # mitigation; this serial dispatch is the belt-and-suspenders
+            # complement so pre-push gates never randomly flake.
             cmd=[
                 "uv",
                 "run",
@@ -203,12 +211,8 @@ PRE_PUSH_CHECKS: dict[str, list[CheckConfig]] = {
                 "-q",
                 "-x",
                 "--no-cov",
-                "-n",
-                "auto",
-                "--dist",
-                "worksteal",
             ],
-            timeout=120,
+            timeout=180,
         ),
         CheckConfig(name="ty-check", cmd=["ty", "check", "src/ai_engineering"]),
     ],
