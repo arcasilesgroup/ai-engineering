@@ -166,7 +166,7 @@ Phase 5 sweep policy: replace each restatement with one-liner reference (e.g., "
 - P3 `19e699fa` — `.ai-engineering/contexts/architecture-patterns.md` curated (11 patterns: layered, hexagonal, CQRS, event-sourcing, ports-and-adapters, clean-architecture, pipes-and-filters, repository, unit-of-work, microservices, modular-monolith); `/ai-plan` adds Architecture step before task decomposition; pattern-step tests GREEN; skill-audit RED scaffolds.
 - P4 `246966cf` — `scripts/skill-audit.sh` advisory (threshold 80, never CI-blocking); `audit-report.json` schema (skill, result.score, result.reason); skill-audit tests GREEN; line-budget RED scaffold.
 - P5 `7740b1b1` — restatement cleanup sweep across 47 skills (4 batches a-d, e-l, m-s, t-z); BASELINE_LINES = 5736 → POST_LINES = 5335 (DELTA = 401 lines, target ≥ 400 met); 35 skills swept, 12 already minimal; line-budget test GREEN; mirror sync regenerated.
-- P6 (this commit) — verify+review convergence; mirror gap fix for `architecture-patterns.md` (template mirror added at `src/ai_engineering/templates/.ai-engineering/contexts/architecture-patterns.md`); `_history.md` updated.
+- P6 `dce384df` — verify+review convergence; mirror gap fix for `architecture-patterns.md` (template mirror added at `src/ai_engineering/templates/.ai-engineering/contexts/architecture-patterns.md`); `_history.md` updated.
 
 **Key metrics**:
 - Restatement reduction: **5736 → 5335 (-401 lines, -7.0%)** across 47 skills, 35 swept, zero functional content removed.
