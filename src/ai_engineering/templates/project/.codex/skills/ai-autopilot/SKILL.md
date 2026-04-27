@@ -35,7 +35,7 @@ Autonomous execution of large approved specs via a 6-phase pipeline. Decomposes 
 
 1. Confirm `specs/spec.md` is not a placeholder. If it is: STOP. Report: "No approved spec. Run `/ai-brainstorm` first."
 2. If `--resume` flag: read `specs/autopilot/manifest.md` and jump to the Resume Protocol (Phase 6 handler).
-3. Load stack contexts: follow `.ai-engineering/contexts/stack-context.md`. Detect languages/frameworks from manifest and file extensions, resolve applicable context file paths into a `context_paths` list, pass paths (not content) to subagent dispatch prompts.
+3. Step 0 (load contexts): per `.ai-engineering/contexts/stack-context.md`; resolve paths into `context_paths` and pass paths (not content) to subagent prompts.
 4. Note: plan.md is NOT required. Phase 2 agents generate their own plans (D7).
 
 ### Step 1: DECOMPOSE
@@ -69,16 +69,7 @@ Read `handlers/phase-quality.md` and execute:
 
 Read `handlers/phase-deliver.md` and execute. Build Integrity Report from Self-Reports + quality audit; follow `/ai-pr` SKILL.md in full; cleanup `specs/autopilot/`; clear spec.md + plan.md; verify cleanup. Resume Protocol handles mid-pipeline re-entry via `--resume`.
 
-## Handler Dispatch Table
-
-| Phase | Handler | Agent Pattern |
-|-------|---------|---------------|
-| 1. Decompose | `handlers/phase-decompose.md` | Orchestrator (read-only analysis) |
-| 2. Deep Plan | `handlers/phase-deep-plan.md` | Explore+Plan x N parallel |
-| 3. Orchestrate | `handlers/phase-orchestrate.md` | Orchestrator (DAG construction) |
-| 4. Implement | `handlers/phase-implement.md` | Build x N per wave (DAG-driven, kernel-wrapped) |
-| 5. Quality Loop | `handlers/phase-quality.md` | Verify + Guard + Review parallel, Build for fixes |
-| 6. Deliver | `handlers/phase-deliver.md` | PR pipeline + cleanup |
+Handler dispatch per phase: see Steps 1-6 above (each cites its `handlers/phase-*.md`). Agent pattern per phase: 1=orchestrator, 2=explore+plan x N parallel, 3=orchestrator, 4=build x N per wave, 5=verify+guard+review parallel (build for fixes), 6=PR pipeline + cleanup.
 
 ## Flags
 
@@ -87,16 +78,7 @@ Read `handlers/phase-deliver.md` and execute. Build Integrity Report from Self-R
 | `--resume` | Read `specs/autopilot/manifest.md`, determine pipeline state, re-enter at the correct phase/wave. Never re-executes completed phases. |
 | `--no-watch` | Create PR without the watch-and-fix loop. Useful for draft delivery or when CI is managed externally. |
 
-## Thin Orchestrator Principle
-
-This skill READS other skills' SKILL.md files and EMBEDS their instructions into subagent prompts. It does NOT contain implementation logic. The phases delegate to:
-
-- `.codex/skills/_shared/execution-kernel.md` -- per-wave per-task loop (Phase 4)
-- `.codex/skills/ai-verify/SKILL.md`, `ai-review/SKILL.md`, `ai-governance/SKILL.md` -- quality loop (Phase 5), read once at loop entry
-- `.codex/skills/ai-pr/SKILL.md` -- pull request creation (Phase 6)
-- `.codex/skills/ai-commit/SKILL.md` -- incremental commit protocol (Phases 4, 5)
-
-When those skills improve, autopilot benefits automatically. No duplication, no drift.
+Thin orchestrator: phases READ other skills' SKILL.md and EMBED instructions into subagent prompts (no inline implementation). When those skills improve, autopilot inherits the improvement.
 
 ## Governance
 

@@ -38,19 +38,15 @@ Use Grep/Glob to find real instances. Codebase examples with `file:line` referen
 
 ### 4. Deliver explanation
 
-**Summary** (all depths): 1-2 technical sentences -- what it does and why it exists.
+Sections (depth selection per step 3 table):
 
-**Walkthrough** (all depths): numbered steps with `file:line` references, following execution order. Brief: 3-5 steps max.
-
-**Diagram** (standard+deep): ASCII art reflecting actual code structure. Choose type: data flow, call chain, state machine, sequence. Width under 70 chars. No Mermaid.
-
-**Gotchas** (standard+deep): specific pitfalls in this code -- edge cases, performance traps, concurrency hazards. Not generic advice.
-
-**Trace It** (standard+deep): execution trace through a concrete scenario. Show data transformation at each step, highlight decision points.
-
-**Context Map** (deep only): when to use, when NOT to use, alternatives with tradeoff comparison.
-
-**Complexity Notes** (deep only): cyclomatic complexity, nesting depth, time/space complexity of hot paths, concurrency assessment.
+- **Summary**: 1-2 technical sentences -- what it does and why it exists.
+- **Walkthrough**: numbered steps with `file:line` references, following execution order. Brief: 3-5 steps max.
+- **Diagram**: ASCII art reflecting actual code structure. Choose type: data flow, call chain, state machine, sequence. Width under 70 chars. No Mermaid.
+- **Gotchas**: specific pitfalls in this code -- edge cases, performance traps, concurrency hazards. Not generic advice.
+- **Trace It**: execution trace through a concrete scenario. Show data transformation at each step, highlight decision points.
+- **Context Map**: when to use, when NOT to use, alternatives with tradeoff comparison.
+- **Complexity Notes**: cyclomatic complexity, nesting depth, time/space complexity of hot paths, concurrency assessment.
 
 ### 5. Follow-up
 
@@ -63,21 +59,18 @@ Use Grep/Glob to find real instances. Codebase examples with `file:line` referen
 
 ```
 /ai-explain <topic>                  # standard depth (default)
-/ai-explain <topic> --depth brief    # summary + walkthrough only
-/ai-explain <topic> --depth deep     # all sections including complexity
+/ai-explain <topic> --depth brief
+/ai-explain <topic> --depth deep
 ```
+Sections per depth: see step 3 table.
 
 ## Common Mistakes
 
 - Over-explaining standard concepts -- assume technical competence.
-- Using Mermaid diagrams -- always ASCII art for terminal readability.
 - Generic gotchas ("be careful with null") -- must be specific to the code under review.
 - Using "basically", "simply", "just" -- these minimize real complexity.
 
 ## Integration
 
-- Shared by `/ai-guide` for teaching mode.
-- References actual codebase via Grep/Glob, not idealized examples.
-- Read-only -- never writes code, tests, or documentation.
-- Related: `/ai-guide` (uses explain for teaching interactions), `/ai-verify` (architecture assessment mode).
+Read-only. Shared by `/ai-guide` for teaching mode. Related: `/ai-verify` (architecture assessment mode).
 $ARGUMENTS

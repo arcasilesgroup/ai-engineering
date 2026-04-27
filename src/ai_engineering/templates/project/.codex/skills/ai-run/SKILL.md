@@ -66,25 +66,7 @@ Read `handlers/phase-execute.md` and execute. **Per-item kernel**: see `.codex/s
 
 Read `handlers/phase-deliver.md` and execute. Delegate final PR creation and remote CI watch/fix to `ai-pr`; use `ai-board-sync` for lifecycle transitions where policy allows; use `ai-resolve-conflicts` when automated rebases or promotions hit conflicts; finalize the run manifest and cleanup after merge.
 
-## Thin Orchestrator Principle
-
-`ai-run` does not embed provider logic, build logic, review logic, or PR logic. It reads and reuses:
-
-**Shared handlers:**
-- `.codex/skills/_shared/execution-kernel.md` -- per-item per-task loop (Step 4)
-
-**Agents:**
-- `.codex/agents/ai-explore.md`
-- `.codex/agents/ai-build.md`
-
-**Skills:**
-- `.codex/skills/ai-review/SKILL.md`
-- `.codex/skills/ai-verify/SKILL.md`
-- `.codex/skills/ai-pr/SKILL.md`
-- `.codex/skills/ai-board-sync/SKILL.md`
-- `.codex/skills/ai-resolve-conflicts/SKILL.md`
-
-When those skills improve, `ai-run` inherits the improvement automatically.
+Thin orchestrator: `ai-run` does not embed provider/build/review/PR logic. It reads and reuses `_shared/execution-kernel.md` (Step 4 per-item per-task loop), the `ai-explore`/`ai-build` agents, and the `ai-review`/`ai-verify`/`ai-pr`/`ai-board-sync`/`ai-resolve-conflicts` skills. When those skills improve, `ai-run` inherits automatically.
 
 ## Governance
 

@@ -28,9 +28,7 @@ Unified security assessment for regulated industries. Modes: `static` (SAST with
 
 ## Process
 
-### Step 0: Load Stack Contexts
-
-Follow `.ai-engineering/contexts/stack-context.md`. Apply loaded standards to all subsequent work.
+Step 0 (load contexts): per `.ai-engineering/contexts/stack-context.md`.
 
 ## Modes
 

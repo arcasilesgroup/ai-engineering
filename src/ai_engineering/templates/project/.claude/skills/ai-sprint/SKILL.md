@@ -95,14 +95,9 @@ Generate a branded sprint review PowerPoint deck using python-pptx. Each invocat
 
 ## Arguments
 
-| Argument | Description |
-|----------|-------------|
-| `plan` | Start planning a new sprint |
-| `retro` | Run retrospective on completed sprint |
-| `goals` | Check progress on current sprint goals |
-| `review` | Generate PowerPoint sprint review presentation |
-| `--sprint <name>` | Sprint identifier (e.g., `2026-w12`) or month (`YYYY-MM`). Defaults to current. |
-| `--iteration <name>` | Iteration name (queries provider for dates, used with `review` mode) |
+Modes (`plan`, `retro`, `goals`, `review`) per Modes above. Flags:
+- `--sprint <name>` — sprint identifier (e.g., `2026-w12`) or month (`YYYY-MM`); defaults to current.
+- `--iteration <name>` — iteration name (queries provider for dates, used with `review` mode).
 
 ## Quick Reference
 

@@ -20,7 +20,7 @@ Continuous improvement from delivery outcomes. Analyzes merged PRs to find where
 - Command: `/ai-learn single <pr>|batch`
 - Context: after PR merge (single), periodic review (batch).
 
-## Step 0: Read `.ai-engineering/LESSONS.md` to check for pre-existing patterns before writing new ones. Follow `.ai-engineering/contexts/stack-context.md`.
+Step 0: read `.ai-engineering/LESSONS.md` for pre-existing patterns; load contexts per `.ai-engineering/contexts/stack-context.md`.
 
 ## Modes
 

@@ -32,16 +32,9 @@ Anything outside those families is out of scope.
 
 ## Commands
 
-| Command | Description |
-|---------|-------------|
-| `/ai-instinct` | Enter listening mode. Observe the session silently. |
-| `/ai-instinct --review` | 5-step consolidation: extract, enrich, write, evaluate, create work items. |
-
 ### `/ai-instinct` (listening mode)
 
-Enter passive observation mode for the current session.
-
-Output ONLY this single line, then go silent:
+Enter passive observation mode for the session. Output ONLY this single line, then go silent:
 
 > instinct is observing the session...
 
@@ -49,7 +42,7 @@ Do nothing else. Do not read files. Do not produce analysis. The LLM passively o
 
 ### `/ai-instinct --review` (consolidation)
 
-Active consolidation of session observations into the canonical instinct store. Run this before `/ai-commit` or `/ai-pr` to capture learnings.
+5-step consolidation (extract → enrich → write → evaluate → create work items). Run this before `/ai-commit` or `/ai-pr` to capture learnings.
 
 #### Step 1: EXTRACT
 
@@ -74,7 +67,7 @@ For each observation, identify:
 
 #### Step 3: WRITE
 
-Upsert entries into `.ai-engineering/instincts/instincts.yml` using the v2 schema:
+Upsert entries into `.ai-engineering/instincts/instincts.yml` using the v2 schema. Each family entry shares: `pattern`, `trigger`, `action`, `relatedSkill`, `confidence` (0.0-1.0), `evidenceCount`, `domain` (project|stack|team), `lastSeen` (ISO 8601). `corrections` and `recoveries` add `diagnostic` + `skillIssue`.
 
 ```yaml
 schemaVersion: "2.0"
@@ -85,30 +78,16 @@ corrections:
     relatedSkill: "<skill-name>"
     diagnostic: "<error or correction signal>"
     skillIssue: "<what the skill got wrong>"
-    confidence: <0.0-1.0>
-    evidenceCount: <N>
-    domain: "<project|stack|team>"
-    lastSeen: "<ISO 8601>"
+    confidence: 0.7
+    evidenceCount: 3
+    domain: "project"
+    lastSeen: "2026-04-27T00:00:00Z"
 recoveries:
   - pattern: "<description>"
-    trigger: "<error pattern>"
-    action: "<recovery steps>"
-    relatedSkill: "<skill-name>"
-    diagnostic: "<error message>"
-    skillIssue: "<root cause>"
-    confidence: <0.0-1.0>
-    evidenceCount: <N>
-    domain: "<project|stack|team>"
-    lastSeen: "<ISO 8601>"
+    # ...same fields; trigger/action/diagnostic describe error pattern + recovery steps + error message
 workflows:
   - pattern: "<description>"
-    trigger: "<when this sequence occurs>"
-    action: "<optimal sequence>"
-    relatedSkill: "<primary skill>"
-    confidence: <0.0-1.0>
-    evidenceCount: <N>
-    domain: "<project|stack|team>"
-    lastSeen: "<ISO 8601>"
+    # ...same fields except diagnostic/skillIssue; trigger/action describe the sequence
 ```
 
 Merge rules:
@@ -156,16 +135,9 @@ If `.ai-engineering/manifest.yml` has a `work_items` section, create trackable w
 5. If no `work_items` section in manifest, skip silently.
 6. Fail-open: if CLI is not authenticated, project is not found, or command fails -- log a warning with remediation hint (e.g., `gh auth login`) but do not block the review.
 
-## Output Expectations
+## Review-Mode Output
 
-**Listening mode**: single line, then silence. No analysis, no file reads.
-
-**Review mode**: structured summary:
-- Observations extracted (count per family)
-- Entries upserted (new vs. updated)
-- Proposals generated (count, titles)
-- Work items created (count, links)
-- If no meaningful observations: "No consolidation needed -- session had no corrections, recoveries, or notable workflow patterns."
+Structured summary: observations extracted (count per family), entries upserted (new vs. updated), proposals generated (count, titles), work items created (count, links). If no meaningful observations: "No consolidation needed -- session had no corrections, recoveries, or notable workflow patterns."
 
 ## Boundaries
 
@@ -175,6 +147,5 @@ If `.ai-engineering/manifest.yml` has a `work_items` section, create trackable w
 - Do not create instincts outside `.ai-engineering/instincts/`.
 - Do not invent unsupported pattern types beyond corrections/recoveries/workflows.
 - Do not claim the system supports promotion, evolution, or global libraries.
-- Listening mode must not produce any output beyond the single acknowledgment line.
 
 $ARGUMENTS

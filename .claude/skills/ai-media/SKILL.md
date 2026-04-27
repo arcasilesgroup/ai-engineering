@@ -111,14 +111,7 @@ Provide the generated media with:
 
 ## Progressive Quality Pattern
 
-```
-Iteration (cheap)          Production (expensive)
-nano-banana-2       --->   nano-banana-pro
-seedance-1-0-pro    --->   veo-3
-csm-1b              --->   ElevenLabs
-```
-
-Use `seed` for reproducible results when iterating on prompts. Lock the seed once the composition works, then switch to the production model.
+Iteration (low-cost) -> Production (high-cost): nano-banana-2 -> nano-banana-pro · seedance-1-0-pro -> veo-3 · csm-1b -> ElevenLabs. Use `seed` for reproducible results when iterating; lock once composition works, then switch to the production model.
 
 ## Image Editing
 

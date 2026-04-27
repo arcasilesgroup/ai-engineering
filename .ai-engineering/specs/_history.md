@@ -137,3 +137,18 @@ Completed specs. Details in git history.
 5. **Cross-IDE parity**: `test_risk_cross_ide.py` pivoted from subprocess `python -m ai_engineering` (no `__main__.py`) to CliRunner+`monkeypatch.setenv`; same parity contract, faster execution.
 
 **Branch consolidation status**: Tasks T-8.15–T-8.18 (rename to `feat/specs-101-104-105-adoption`, push, PR re-point, conditional stale-branch deletion) deferred to post-spec-106. Default per CLAUDE.md Don't #5 + spec D-105-13: leave the existing branch in place; never push --force or delete origin branches without explicit approval.
+
+
+## spec-106 — Phase 5 restatement patterns identified
+
+Phase 5 T-5.2 sample (top verbose: ai-animation, ai-skill-evolve, ai-pr, ai-video-editing, ai-instinct, ai-create, ai-eval, ai-slides, ai-media, ai-autopilot, ai-board-discover, ai-platform-audit, ai-pipeline, ai-test, ai-code, ai-verify, ai-review, ai-commit, ai-governance) — common restatement patterns to remove:
+
+1. **Stack-context preamble redundancy**: Many skills include a "## Step 0: Load Stack Contexts / Follow `.ai-engineering/contexts/stack-context.md`. Apply loaded standards to all subsequent work." block. The first sentence alone references the file; the second sentence ("Apply loaded standards to all subsequent work") restates a CLAUDE.md (section 10) framework rule.
+2. **CLAUDE.md Don't restatements**: ai-commit reiterates "NEVER uses `--no-verify`" and "NEVER pushes to `main`/`master`" (literally restated from CLAUDE.md Don't #1, #5).
+3. **Quality gate body restatements**: `ai-test`, `ai-pr`, `ai-commit`, `ai-release-gate` re-list `coverage >= 80`, `cyclomatic <= 10` thresholds — these live in CLAUDE.md Quality Gates and `manifest.yml`.
+4. **Hardcoded skill-list/agent-list/section-counter restatements**: skill markdown sometimes hard-codes counts (e.g., "47 skills", "10 agents", "14 stacks") instead of referencing `manifest.yml`.
+5. **Verbose process-summary blocks**: Some skills duplicate the summary in Purpose/When-to-Use/Process headers. Redundant prose can collapse to one source.
+6. **Decision-store / framework-events restatements**: skill files re-explain the canonical state-file paths and schemas already documented in CLAUDE.md "Source of Truth" + observability sections.
+7. **Sync command restatements**: `python scripts/sync_command_mirrors.py` block repeated across ai-create, ai-skill-evolve, ai-platform-audit, etc., when one canonical reference suffices.
+
+Phase 5 sweep policy: replace each restatement with one-liner reference (e.g., "Honors CLAUDE.md Don't rules (binding)") OR delete entirely when already covered by Process / Integration / external SOT, while preserving every Process step, Quick Reference, Common Mistakes, Integration, Handler-table, and Output-Contract section.

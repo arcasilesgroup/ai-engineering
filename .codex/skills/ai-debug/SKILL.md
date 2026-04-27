@@ -22,9 +22,7 @@ Systematic debugging skill. Four phases, always in order. NEVER fix symptoms -- 
 
 ## Process
 
-### Step 0: Load Stack Contexts
-
-Follow `.ai-engineering/contexts/stack-context.md`. Apply loaded standards to all subsequent work.
+Step 0 (load contexts): per `.ai-engineering/contexts/stack-context.md`.
 
 ### Phase 1: Symptom Analysis (WHAT, WHEN, WHERE)
 
@@ -75,10 +73,7 @@ Output: root cause statement (1-2 sentences, specific and testable).
 
 ### Phase 4: Solution Design (FIX + REGRESSION TEST)
 
-1. **Design the fix**: minimal change that addresses the root cause
-   - Fix the ROOT CAUSE, not the symptom
-   - One logical change only
-   - If the fix is large, the root cause analysis may be wrong -- revisit Phase 3
+1. **Design the fix**: minimal change that addresses the root cause; one logical change only. If the fix is large, the root cause analysis may be wrong — revisit Phase 3.
 2. **Write regression test**: a test that fails without the fix and passes with it
 3. **Apply the fix**
 4. **Verify**: regression test passes AND all existing tests pass
@@ -106,12 +101,9 @@ Fix: add `config = yaml.safe_load(f) or {}` instead of `config = yaml.safe_load(
 
 ## Common Mistakes
 
-- Fixing the symptom (add a try/except) instead of the root cause
-- Not writing a regression test for the fix
-- Guessing without reproducing first
-- Changing multiple things at once (change one thing, verify, repeat)
-- Retrying the same approach that already failed
-- Not checking for sibling bugs (same pattern elsewhere)
+- Fixing the symptom (e.g., add a try/except) instead of the root cause.
+- Not writing a regression test for the fix.
+- Changing multiple things at once (change one thing, verify, repeat).
 
 ## Handlers
 

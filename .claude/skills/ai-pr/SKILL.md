@@ -124,11 +124,10 @@ Once `state == "MERGED"`: run `/ai-cleanup --all` and report.
 
 ## Common Mistakes
 
-- Skipping the pre-push gate -- exit 0 (or all medium+ findings risk-accepted via `ai-eng risk accept-all`) is required.
-- Serializing step 7 after step 6.5 -- the gate is Lane 3 of the concurrent block.
-- Fire-and-forget docs commit after the PR -- spec-104 NG-7 forbids it.
-
-See `handlers/watch.md` Behavioral negatives for anti-patterns enforced during the watch loop.
+- Skipping the pre-push gate (must hit exit 0 or all medium+ risk-accepted via `ai-eng risk accept-all`).
+- Serializing step 7 after step 6.5 — the gate is Lane 3 of the concurrent block.
+- Fire-and-forget docs commit after the PR — spec-104 NG-7 forbids it.
+- `handlers/watch.md` Behavioral negatives covers anti-patterns enforced during the watch loop.
 
 ## Integration
 

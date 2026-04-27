@@ -23,9 +23,7 @@ This is the first document loaded at Step 0 of every skill and agent invocation.
 - New team member needs orientation -- review the constitution
 - Formal amendment needed -- version bump with governance trail
 
-## Step 0: Load Stack Contexts
-
-Follow `.ai-engineering/contexts/stack-context.md`.
+Step 0 (load contexts): per `.ai-engineering/contexts/stack-context.md`.
 
 ## Procedure
 

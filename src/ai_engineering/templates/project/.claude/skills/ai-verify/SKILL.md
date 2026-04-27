@@ -21,9 +21,7 @@ Evidence before claims. This skill has two faces: (1) a verification protocol th
 
 ## Process
 
-### Step 0: Load Stack Contexts
-
-Follow `.ai-engineering/contexts/stack-context.md`. Apply loaded standards to all subsequent work.
+Step 0 (load contexts): per `.ai-engineering/contexts/stack-context.md`.
 
 ### Verification Protocol (claim mode)
 

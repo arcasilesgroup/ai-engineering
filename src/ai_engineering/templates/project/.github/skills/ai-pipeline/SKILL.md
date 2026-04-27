@@ -25,9 +25,7 @@ Router skill for CI/CD pipeline generation. Dispatches to handler files based on
 
 ## Process
 
-### Step 0: Load Stack Contexts
-
-Follow `.ai-engineering/contexts/stack-context.md`. Apply loaded standards to all subsequent work.
+Step 0 (load contexts): per `.ai-engineering/contexts/stack-context.md`.
 
 ## Routing
 
@@ -63,8 +61,5 @@ Default (no sub-command): `generate`.
 - Policy: `scripts/check_workflow_policy.py` for SHA pinning and timeout compliance.
 - **Boundary**: `/ai-governance` validates governance process; `/ai-pipeline` generates and validates the workflow files themselves
 
-## References
-
-- `.ai-engineering/manifest.yml` -- CI/CD standards.
-- `.ai-engineering/contexts/` -- per-stack check definitions.
+References: `.ai-engineering/manifest.yml` (CI/CD standards) and `.ai-engineering/contexts/` (per-stack check definitions).
 $ARGUMENTS

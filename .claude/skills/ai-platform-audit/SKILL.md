@@ -18,9 +18,7 @@ Strict evidence-based audit of IDE platform support in ai-engineering. No assump
 - When a hook exists in `scripts/hooks/` but isn't firing.
 - NOT for general code quality — use `/ai-verify`. NOT for security scanning — use `/ai-security`.
 
-## Step 0: Load Stack Contexts
-
-Follow `.ai-engineering/contexts/stack-context.md`.
+Step 0 (load contexts): per `.ai-engineering/contexts/stack-context.md`.
 
 ---
 
@@ -45,11 +43,7 @@ Dispatch a single `Explore` subagent. It reads the files below and returns raw f
 | `.claude/settings.json` hooks | Claude Code only |
 | `.github/hooks/hooks.json` hooks | GitHub Copilot only |
 
-**Critical invariants** — any violation is at minimum PARTIAL:
-1. `AGENTS.md` Source-of-Truth table uses `.codex/` paths (never `.<ide>/`)
-2. Copilot skill count = total - count of `copilot_compatible: false` skills
-3. Every `copilot-*.sh` in `scripts/hooks/` must appear in `.github/hooks/hooks.json`
-4. `_PROVIDER_TREE_MAPS["github_copilot"]` must include `("agents", ".github/agents")`
+Any violation of the four checks below (paths use `.codex/`, copilot count formula, hooks not orphaned, tree maps include `.github/agents`) is at minimum PARTIAL.
 
 **Installer Wiring** (`src/ai_engineering/installer/templates.py`):
 - `_PROVIDER_FILE_MAPS` — instruction files per provider
@@ -60,20 +54,11 @@ Dispatch a single `Explore` subagent. It reads the files below and returns raw f
 - GitHub Copilot: `.github/hooks/hooks.json` → all hook types (list every entry)
 - Disk scan: list every `.sh` and `.ps1` in `.ai-engineering/scripts/hooks/` — any not referenced in either hooks file is an **orphaned hook**
 
-**Skill Compatibility**:
-- Count directories in `.claude/skills/`, `.github/skills/`, `.codex/skills/`, `.gemini/skills/`
-- Scan all `.claude/skills/*/SKILL.md` frontmatter for `copilot_compatible: false`
-- Read `skills.total` from `.ai-engineering/manifest.yml`
-- Expected: `.github/skills/` count = `.claude/skills/` count − (number of `copilot_compatible: false` skills)
-
-**Agent Distribution**:
-- Count files in `.claude/agents/`, `.github/agents/`, `.codex/agents/`, `.gemini/agents/`
-- Compare against `agents.total` in manifest
-
-**Counter Cross-Check**:
-- Extract `Skills (N)` and `Agents (N)` from each instruction file
-- Canonical files (CLAUDE.md, AGENTS.md, GEMINI.md) must match `skills.total`
-- Copilot file is allowed to be lower by exactly the number of `copilot_compatible: false` skills
+**Skill / Agent Distribution + Counter Cross-Check**:
+- Count directories in `.claude/skills/`, `.github/skills/`, `.codex/skills/`, `.gemini/skills/`; same for `.claude/agents/` etc.
+- Scan `.claude/skills/*/SKILL.md` frontmatter for `copilot_compatible: false`; read `skills.total` and `agents.total` from `.ai-engineering/manifest.yml`.
+- Expected: canonical mirrors (Claude/Codex/Gemini) match manifest totals exactly; `.github/skills/` is lower by exactly the `copilot_compatible: false` count.
+- Cross-check `Skills (N)` and `Agents (N)` extracted from each instruction file against the same formula.
 
 **Sync Script** (`scripts/sync_command_mirrors.py`):
 - `generate_agents_md()` — AGENTS.md Source-of-Truth paths must use `.codex/` (not `.<ide>/`)

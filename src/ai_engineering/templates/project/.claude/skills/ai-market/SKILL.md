@@ -52,7 +52,6 @@ If no sub-command is provided, display the routing table above and ask the user 
 
 ## Integration
 
-- **NOT** `/ai-docs` -- for documentation artifacts use `/ai-docs`
-- **NOT** `/ai-write` -- for reports, architecture board docs, or solution intent use `/ai-write`
+See When NOT to Use for boundaries with `/ai-docs`, `/ai-write`, `/ai-explain`.
 
 $ARGUMENTS

@@ -14,7 +14,7 @@ requires:
 
 # Commit Workflow
 
-Governed commit pipeline: stage specific files, format, lint, secret-detect, compose message, and push. NEVER uses `--no-verify` -- hooks catch problems before the repo. NEVER pushes to `main`/`master` -- protected branches require PR review.
+Governed commit pipeline: stage specific files, format, lint, secret-detect, compose message, and push. Honors CLAUDE.md Don't rules (binding).
 
 ## When to Use
 

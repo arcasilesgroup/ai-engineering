@@ -29,16 +29,7 @@ Verify `ffmpeg` is available: `ffmpeg -version`. If not installed, provide platf
 
 ### The 6-Layer Pipeline
 
-```
-Layer 1: Capture (Screen Studio / raw footage)
-Layer 2: Organization (Claude / transcript / edit plan)
-Layer 3: Deterministic Cuts (FFmpeg)
-Layer 4: Programmable Composition (Remotion) [optional]
-Layer 5: Generated Assets (ai-media skill)
-Layer 6: Final Polish (Descript / CapCut) [human]
-```
-
-Each layer has a specific job. Do not skip layers. Do not try to make one tool do everything.
+Six layers (do not skip; one tool does not do everything): Capture → Organization → Deterministic Cuts → Programmable Composition (optional) → Generated Assets → Final Polish (human).
 
 ### Layer 1 -- Capture
 
@@ -174,12 +165,8 @@ ffmpeg -i input.mp4 -vf "crop=ih:ih,scale=1080:1080" square.mp4
 
 ## Key Principles
 
-1. **Edit, don't generate.** This workflow is for cutting real footage, not creating from prompts.
-2. **Structure before style.** Get the story right in Layer 2 before touching anything visual.
-3. **FFmpeg is the backbone.** Boring but critical. Where long footage becomes manageable.
-4. **Remotion for repeatability.** If you will do it more than once, make it a Remotion component.
-5. **Generate selectively.** Only use AI generation for assets that don't exist, not for everything.
-6. **Taste is the last layer.** AI clears repetitive work. You make the final creative calls.
+1. **Remotion for repeatability.** If you will do it more than once, make it a Remotion component.
+2. **Generate selectively.** Only use AI generation for assets that don't exist, not for everything.
 
 ## Integration
 

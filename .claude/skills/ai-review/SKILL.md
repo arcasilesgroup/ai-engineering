@@ -19,9 +19,7 @@ High-signal code review with full specialist coverage and aggressive false-posit
 - When reviewing someone else's code
 - When you need architecture-aware feedback instead of deterministic gates
 
-## Step 0: Load Stack Contexts
-
-Follow `.ai-engineering/contexts/stack-context.md`. Apply loaded standards to all subsequent work.
+Step 0 (load contexts): per `.ai-engineering/contexts/stack-context.md`.
 
 ## Profiles
 

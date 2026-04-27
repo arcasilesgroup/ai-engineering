@@ -23,9 +23,7 @@ TDD enforcement and testing skill. Tests are executable specifications -- they d
 
 ## Process
 
-### Step 0: Load Stack Contexts
-
-Follow `.ai-engineering/contexts/stack-context.md`. Apply loaded standards to all subsequent work.
+Step 0 (load contexts): per `.ai-engineering/contexts/stack-context.md`.
 
 ### Mode: tdd (RED-GREEN-REFACTOR)
 

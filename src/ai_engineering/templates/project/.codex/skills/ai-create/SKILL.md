@@ -12,12 +12,11 @@ tags: [meta, framework, creation]
 
 ## Purpose
 
-Create new skills and agents for the ai-engineering framework. This skill owns the **ai-engineering context layer** (governance, manifest registration, IDE mirrors, pain sources). For the actual skill creation, TDD pressure testing, eval pipeline, and description optimization, it delegates to Anthropic's `skill-creator` which has the full infrastructure.
+Create new skills and agents for the ai-engineering framework. Owns the ai-engineering context layer (governance, manifest registration, IDE mirrors, pain sources). Delegates skill drafting, TDD pressure testing, eval pipeline, and description optimization to Anthropic's `skill-creator`.
 
 ## Trigger
 
-- Command: `/ai-create skill <name>` or `/ai-create agent <name>`
-- Context: framework needs a new capability that no existing skill or agent covers.
+`/ai-create skill <name>` or `/ai-create agent <name>` — when the framework needs a new capability that no existing skill or agent covers.
 
 ---
 
@@ -44,21 +43,11 @@ This is the invariant checklist that must be satisfied regardless of whether you
 
 ### Phase 1 — ai-engineering Context (this skill owns this)
 
-Follow `handlers/create-skill.md` for the full scaffold procedure.
+Follow `handlers/create-skill.md`. Before creating anything, load project context:
 
-Before creating anything, load project context:
-
-1. **Check for overlap** — read `.ai-engineering/manifest.yml` skill registry. If a skill already covers this capability, evolve it with `/ai-skill-evolve` instead of creating a new one.
-
-2. **Load pain sources** — read decision-store.json, LESSONS.md, instincts.yml for constraints that affect this skill:
-   - Decisions that limit scope (e.g., DEC-003 plan/execute split means a planning skill must not also execute)
-   - Lessons about similar skills that failed or needed correction
-   - Instinct patterns that reveal tool sequences this skill should optimize
-
-3. **Determine IDE compatibility**:
-   - Most skills: omit `copilot_compatible` (mirrors to all 4 IDEs)
-   - Skills that use Claude Code-exclusive features (e.g., reading `.claude/settings.json` deny rules): set `copilot_compatible: false`
-   - Script-only skills that bypass LLM: also set `disable-model-invocation: true`
+1. **Check for overlap** — read `.ai-engineering/manifest.yml` skill registry. If a skill already covers this capability, evolve it with `/ai-skill-evolve` instead.
+2. **Load pain sources** — read decision-store.json, LESSONS.md, instincts.yml for constraints (e.g., DEC-003 plan/execute split, similar-skill failures, instinct sequences this skill should optimize).
+3. **Determine IDE compatibility** — see IDE-Compatibility Frontmatter below.
 
 ### Phase 2 — Delegate to skill-creator for TDD + Evals
 
@@ -80,74 +69,24 @@ Look at existing skills like .codex/skills/ai-security/SKILL.md or .codex/skills
 for format reference.
 ```
 
-**What skill-creator handles:**
-- Drafting the SKILL.md content
-- TDD pressure testing (RED/GREEN/REFACTOR cycle with parallel agents)
-- Eval pipeline: grader, analyzer, benchmark aggregation, HTML viewer
-- Description optimization for triggering accuracy (run_loop.py)
-- Iterating based on user feedback
-
-**What you verify after skill-creator is done:**
-- The SKILL.md follows ai-engineering conventions (Step 0 context loading, output contract)
-- Frontmatter has all required fields
-- Description is CSO-optimized (triggering conditions, not summary)
+skill-creator owns drafting, TDD pressure testing, eval pipeline (grader/analyzer/benchmark/HTML viewer), description-optimization, and iteration. After it returns, verify the SKILL.md follows ai-engineering conventions (Step 0 context loading, output contract), frontmatter has all required fields, and description is CSO-optimized.
 
 ### Phase 3 — Register and Sync (this skill owns this)
 
-Follow `handlers/validate.md` for the validation checklist.
-
-After skill-creator delivers the SKILL.md:
-
-1. **Verify file is at correct path**: `.codex/skills/ai-{name}/SKILL.md`
-
-2. **Register in manifest** — add to `.ai-engineering/manifest.yml`:
-   ```yaml
-   ai-{name}: { type: <type>, tags: [<tags>] }
-   ```
-   Update `skills.total` count.
-
-3. **Sync mirrors** — run:
-   ```bash
-   python scripts/sync_command_mirrors.py
-   ```
-   This creates mirrors in `.codex/`, `.gemini/`, `.github/skills/` (if copilot-compatible), and updates instruction files with correct counts.
-
-4. **Run tests**:
-   ```bash
-   source .venv/bin/activate && python -m pytest tests/unit/ -q
-   ```
-   Fix any count mismatches in hardcoded test assertions if needed.
-
-5. **Update README.md** skill counts if they changed.
-
-6. **Check off the Registration Checklist** from Start Here.
+Walk the Registration Checklist (Start Here) and `handlers/validate.md`. Manifest entry shape: `ai-{name}: { type: <type>, tags: [<tags>] }`; bump `skills.total`. Mirror sync: `python scripts/sync_command_mirrors.py`. Tests: `source .venv/bin/activate && python -m pytest tests/unit/ -q`. Update README.md skill counts if they changed.
 
 ---
 
 ## Mode: agent <name>
 
-Follow `handlers/create-agent.md` for the full scaffold procedure.
+Follow `handlers/create-agent.md`. Agents don't go through skill-creator (they're not skills) — create them directly:
 
-Agents don't go through skill-creator (they're not skills). Create them directly:
-
-1. **Define mandate** — what is this agent's singular responsibility? An agent does ONE thing.
-
-2. **Load pain sources** — same as skill Phase 1. Check decision-store for constraints on agent architecture (e.g., DEC-019 agent boundaries).
-
-3. **Scaffold** — create `.codex/agents/ai-{name}.md` with:
-   - Identity (role, experience level, specialization)
-   - Mandate (what it owns, what it does not own)
-   - Capabilities (declared permissions: read-only, read-write, which files/paths)
-   - Behavior (modes, procedures)
-   - Output Contract (structured format the agent always produces)
-   - Boundaries (hard limits, escalation protocol)
-   - Self-challenge protocol (questions the agent asks itself before acting)
-
-4. **Register** — add to `manifest.yml` agents section (names array + total count).
-
-5. **Create matching skill** — if this agent needs a `/ai-{name}` entry point, create a minimal skill that activates it. Use `/ai-create skill {name}` for that (which delegates to skill-creator).
-
-6. **Sync and test** — same as skill Phase 3 steps 3-6.
+1. **Define mandate** — singular responsibility (one thing).
+2. **Load pain sources** — same as skill Phase 1; check decision-store for agent-architecture constraints (e.g., DEC-019).
+3. **Scaffold** `.codex/agents/ai-{name}.md` with: Identity (role/experience/specialization), Mandate (owns/does-not-own), Capabilities (declared permissions: read-only/read-write/paths), Behavior (modes/procedures), Output Contract (structured format), Boundaries (hard limits/escalation), Self-challenge protocol (pre-action questions).
+4. **Register** in `manifest.yml` agents section (names array + total count).
+5. **Create matching skill** — if `/ai-{name}` entry point is needed, scaffold via `/ai-create skill {name}`.
+6. **Sync and test** — same as skill Phase 3.
 
 ---
 
@@ -163,26 +102,12 @@ The `description` field is the skill's search ranking — it determines whether 
 
 ## IDE-Compatibility Frontmatter
 
-| Field | Type | Value | Effect |
-|-------|------|-------|--------|
-| `copilot_compatible` | bool | `false` | Excludes skill from `.github/skills/` mirror |
-| `disable-model-invocation` | bool | `true` | Tells GitHub Copilot not to invoke LLM (script-only skills) |
-
-**When to set:**
-- Most skills: omit both (mirrors to all IDEs)
-- Claude Code-only skills: set `copilot_compatible: false`
-- Script-only skills: also set `disable-model-invocation: true`
+| Field | Effect |
+|-------|--------|
+| `copilot_compatible: false` | Excludes from `.github/skills/` mirror (Claude Code-only skills) |
+| `disable-model-invocation: true` | Tells GitHub Copilot not to invoke LLM (script-only skills) |
 
 Currently only `ai-analyze-permissions` uses `copilot_compatible: false`.
-
-## Handlers
-
-| Handler | Phase | File |
-|---------|-------|------|
-| Skill scaffold | Phase 1 | `handlers/create-skill.md` |
-| Agent scaffold | Phase 2 | `handlers/create-agent.md` |
-| Validation | Phase 3 | `handlers/validate.md` |
-| Shell scaffold | Phase 1 | `scripts/scaffold-skill.sh` |
 
 ## Quick Reference
 
