@@ -1,6 +1,0 @@
-# AI Engineering Framework - Code Owners
-# See https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
-
-# Default: maintainers own everything
-# Specific paths below can override this for finer-grained ownership
-*                                    @arcasilesgroup/maintainers
