@@ -101,15 +101,15 @@
 ### Phase 6: verify+review convergence
 **Gate**: `pytest -m 'spec_106_red'` collects 0 tests; coverage >=80% on new modules; ai-eng validate PASS; ai-eng sync --check PASS; lint/format clean; _history.md updated.
 
-- [ ] T-6.1: Run `pytest -m 'spec_106_red' --collect-only` and confirm zero tests remain marked (agent: verify)
-- [ ] T-6.2: Run `pytest -m 'not spec_105_red and not spec_106_red' --no-cov -q` full suite; confirm pre-existing failures only (test_doctor_remaining_branches + isolation flakes) — no spec-106 regressions (agent: verify)
-- [ ] T-6.3: Run `uv run ai-eng validate` and confirm exit 0 (agent: verify)
-- [ ] T-6.4: Run `uv run ai-eng sync --check` and confirm exit 0 (agent: verify)
-- [ ] T-6.5: Run `uv run gitleaks protect --staged --no-banner` and `uv run pip-audit --strict` (gracefully accept if pip-audit network-failed); confirm zero findings introduced by spec-106 (agent: verify)
-- [ ] T-6.6: Run `uv run ruff check` and `uv run ruff format --check` on full src/ + tests/; must pass (agent: verify)
-- [ ] T-6.7: Run `uv run ty check src/` if available; note pre-existing diagnostics (out of scope) (agent: verify)
-- [ ] T-6.8: Update `.ai-engineering/specs/_history.md` with spec-106 phase summary: commit SHAs + test counts + restatement reduction metrics + lessons (e.g., "_shared/ subdirectory works for shared handlers") (agent: build)
-- [ ] T-6.9: Stage and commit `feat(spec-106): Phase 6 GREEN — verify+review convergence + history update` (agent: build)
+- [x] T-6.1: Run `pytest -m 'spec_106_red' --collect-only` and confirm zero tests remain marked (agent: verify) — 0 selected (4740 deselected)
+- [x] T-6.2: Run `pytest -m 'not spec_105_red and not spec_106_red' --no-cov -q` full suite; confirm pre-existing failures only (test_doctor_remaining_branches + isolation flakes) — no spec-106 regressions (agent: verify) — 4735 passed, 1 failed (`test_doctor_remaining_branches`, pre-existing on parent 71d38d9d), 2 skipped, 1 xpassed; 700s
+- [x] T-6.3: Run `uv run ai-eng validate` and confirm exit 0 (agent: verify) — initial FAIL on `missing-mirror-contexts/architecture-patterns.md` resolved by copying canonical to template mirror; PASS 7/7 categories
+- [x] T-6.4: Run `uv run ai-eng sync --check` and confirm exit 0 (agent: verify) — PASS (mirrors in sync)
+- [x] T-6.5: Run `uv run gitleaks protect --staged --no-banner` and `uv run pip-audit --strict` (gracefully accept if pip-audit network-failed); confirm zero findings introduced by spec-106 (agent: verify) — 0 leaks; 1 pip CVE-2026-3219 (pre-existing, accepted via spec-105 P8)
+- [x] T-6.6: Run `uv run ruff check` and `uv run ruff format --check` on full src/ + tests/; must pass (agent: verify) — `All checks passed!`; `468 files already formatted`
+- [x] T-6.7: Run `uv run ty check src/` if available; note pre-existing diagnostics (out of scope) (agent: verify) — 3 pre-existing diagnostics (cpp probe + watch-loop literal + unused type-ignore)
+- [x] T-6.8: Update `.ai-engineering/specs/_history.md` with spec-106 phase summary: commit SHAs + test counts + restatement reduction metrics + lessons (e.g., "_shared/ subdirectory works for shared handlers") (agent: build) — appended spec-106 block + table row 106
+- [x] T-6.9: Stage and commit `feat(spec-106): Phase 6 GREEN — verify+review convergence + history update` (agent: build)
 
 ---
 
