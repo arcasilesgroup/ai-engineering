@@ -1,21 +1,22 @@
-import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
+import { mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
 import { IOError } from "../../shared/kernel/errors.ts";
 import { type Result, err, ok } from "../../shared/kernel/result.ts";
+import type { FilesystemPort } from "../../shared/ports/filesystem.ts";
 import {
   type SLSAProvenance,
   SignatureError,
   type SignaturePort,
   type VerificationContext,
 } from "../../shared/ports/signature.ts";
-import type { FilesystemPort } from "../../shared/ports/filesystem.ts";
+import type { MigrationFsPort } from "./migrate_v2_to_v3.ts";
 import type {
   PluginInstallDirPort,
+  PluginInstallRecord,
   PluginRegistryEntry,
   PluginRegistryPort,
-  PluginInstallRecord,
 } from "./plugin_install.ts";
 
 /**
@@ -51,8 +52,7 @@ export interface FakeSignatureOptions {
 const defaultProvenance: SLSAProvenance = {
   builderId:
     "https://github.com/slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0",
-  buildType:
-    "https://github.com/slsa-framework/slsa-github-generator/generic@v1",
+  buildType: "https://github.com/slsa-framework/slsa-github-generator/generic@v1",
   invocation: Object.freeze({}),
   materials: Object.freeze([
     Object.freeze({
@@ -75,9 +75,7 @@ export class FakeSignaturePort implements SignaturePort {
     this.options = options;
   }
 
-  async verify(
-    ctx: VerificationContext,
-  ): Promise<Result<void, SignatureError>> {
+  async verify(ctx: VerificationContext): Promise<Result<void, SignatureError>> {
     this.verifyCalls.push(ctx);
     if (this.options.verifyShouldFail) {
       const reason = this.options.verifyFailureReason ?? "invalid-bundle";
@@ -94,10 +92,7 @@ export class FakeSignaturePort implements SignaturePort {
     this.slsaCalls.push({ artifactPath, attestationPath, sourceUri });
     if (this.options.slsaShouldFail) {
       return err(
-        new SignatureError(
-          "fake-sigstore: forced SLSA verification failure",
-          "invalid-bundle",
-        ),
+        new SignatureError("fake-sigstore: forced SLSA verification failure", "invalid-bundle"),
       );
     }
     return ok(this.options.slsaProvenance ?? defaultProvenance);
@@ -133,16 +128,10 @@ export class InMemoryPluginRegistry implements PluginRegistryPort {
     this.yanked.set(key, versions);
   }
 
-  async resolve(
-    coordinates: string,
-  ): Promise<Result<PluginRegistryEntry, IOError>> {
+  async resolve(coordinates: string): Promise<Result<PluginRegistryEntry, IOError>> {
     const found = this.entries.get(coordinates.toLowerCase());
     if (!found) {
-      return err(
-        new IOError(
-          `registry: plugin not found for coordinates "${coordinates}"`,
-        ),
-      );
+      return err(new IOError(`registry: plugin not found for coordinates "${coordinates}"`));
     }
     return ok(found);
   }
@@ -151,17 +140,13 @@ export class InMemoryPluginRegistry implements PluginRegistryPort {
     const needle = query.toLowerCase();
     return Object.freeze(
       Array.from(this.entries.values()).filter((e) => {
-        const haystack =
-          `${e.coordinates} ${e.plugin.name} ${e.tier}`.toLowerCase();
+        const haystack = `${e.coordinates} ${e.plugin.name} ${e.tier}`.toLowerCase();
         return haystack.includes(needle);
       }),
     );
   }
 
-  async isYanked(
-    coordinates: string,
-    version: string,
-  ): Promise<Result<boolean, IOError>> {
+  async isYanked(coordinates: string, version: string): Promise<Result<boolean, IOError>> {
     const set = this.yanked.get(coordinates.toLowerCase());
     return ok(set?.has(version) ?? false);
   }
@@ -206,17 +191,12 @@ export class FilesystemPluginInstallDir implements PluginInstallDirPort {
         )}\n`,
         "utf8",
       );
-      await writeFile(
-        join(dir, "tarball.bin"),
-        record.artifactBytes ?? Buffer.alloc(0),
-      );
+      await writeFile(join(dir, "tarball.bin"), record.artifactBytes ?? Buffer.alloc(0));
       return ok(undefined);
     } catch (e) {
       return err(
         new IOError(
-          `plugin install dir write failed: ${
-            e instanceof Error ? e.message : String(e)
-          }`,
+          `plugin install dir write failed: ${e instanceof Error ? e.message : String(e)}`,
         ),
       );
     }
@@ -228,9 +208,7 @@ export class FilesystemPluginInstallDir implements PluginInstallDirPort {
       const names = await readdir(this.root);
       const records: PluginInstallRecord[] = [];
       for (const name of names) {
-        const versions = await readdir(join(this.root, name)).catch(
-          () => [] as string[],
-        );
+        const versions = await readdir(join(this.root, name)).catch(() => [] as string[]);
         for (const version of versions) {
           const recordPath = join(this.root, name, version, "record.json");
           if (!existsSync(recordPath)) continue;
@@ -259,9 +237,7 @@ export class FilesystemPluginInstallDir implements PluginInstallDirPort {
               },
               coordinates: parsed.coordinates,
               installedAt: new Date(parsed.installedAt),
-              ...(parsed.scorecard !== undefined
-                ? { scorecard: parsed.scorecard }
-                : {}),
+              ...(parsed.scorecard !== undefined ? { scorecard: parsed.scorecard } : {}),
             });
           } catch {
             // skip corrupted entries — the next verify run flags them.
@@ -272,17 +248,13 @@ export class FilesystemPluginInstallDir implements PluginInstallDirPort {
     } catch (e) {
       return err(
         new IOError(
-          `plugin install dir list failed: ${
-            e instanceof Error ? e.message : String(e)
-          }`,
+          `plugin install dir list failed: ${e instanceof Error ? e.message : String(e)}`,
         ),
       );
     }
   }
 
-  async findByName(
-    name: string,
-  ): Promise<Result<PluginInstallRecord | null, IOError>> {
+  async findByName(name: string): Promise<Result<PluginInstallRecord | null, IOError>> {
     const all = await this.list();
     if (!all.ok) return all;
     const found = all.value.find((r) => r.plugin.name === name);
@@ -297,9 +269,7 @@ export class FilesystemPluginInstallDir implements PluginInstallDirPort {
     } catch (e) {
       return err(
         new IOError(
-          `plugin install dir remove failed: ${
-            e instanceof Error ? e.message : String(e)
-          }`,
+          `plugin install dir remove failed: ${e instanceof Error ? e.message : String(e)}`,
         ),
       );
     }
@@ -372,5 +342,143 @@ export class InMemoryFilesystem implements FilesystemPort {
       out += hex[idx];
     }
     return ok(out);
+  }
+}
+
+// -----------------------------------------------------------------------------
+// InMemoryMigrationFs — minimal MigrationFsPort fake.
+//
+// The migrator needs tree operations (recursive copy, recursive remove, mkdir-p).
+// We model directories as logical prefixes: any file path's parent directory
+// "exists" as soon as the file does, plus a small set of explicitly-created
+// directories. Tests can pre-seed files via `seed()`.
+// -----------------------------------------------------------------------------
+
+export class InMemoryMigrationFs implements MigrationFsPort {
+  private readonly files = new Map<string, string>();
+  private readonly dirs = new Set<string>();
+
+  /** Pre-load a file. */
+  seed(path: string, content: string): void {
+    this.files.set(path, content);
+    let cursor = path;
+    for (;;) {
+      const idx = cursor.lastIndexOf("/");
+      if (idx <= 0) break;
+      cursor = cursor.slice(0, idx);
+      this.dirs.add(cursor);
+    }
+  }
+
+  /** Snapshot current file map (read-only) — useful for assertions. */
+  snapshot(): Readonly<Record<string, string>> {
+    return Object.fromEntries(this.files.entries());
+  }
+
+  async exists(path: string): Promise<boolean> {
+    if (this.files.has(path)) return true;
+    if (this.dirs.has(path)) return true;
+    const prefix = path.endsWith("/") ? path : `${path}/`;
+    for (const k of this.files.keys()) if (k.startsWith(prefix)) return true;
+    return false;
+  }
+
+  async readText(path: string): Promise<Result<string, IOError>> {
+    const v = this.files.get(path);
+    if (v === undefined) {
+      return err(new IOError(`InMemoryMigrationFs.readText: ${path} not found`));
+    }
+    return ok(v);
+  }
+
+  async writeText(path: string, content: string): Promise<Result<void, IOError>> {
+    this.files.set(path, content);
+    let cursor = path;
+    for (;;) {
+      const idx = cursor.lastIndexOf("/");
+      if (idx <= 0) break;
+      cursor = cursor.slice(0, idx);
+      this.dirs.add(cursor);
+    }
+    return ok(undefined);
+  }
+
+  async mkdirp(path: string): Promise<Result<void, IOError>> {
+    this.dirs.add(path);
+    return ok(undefined);
+  }
+
+  async copyTree(from: string, to: string): Promise<Result<void, IOError>> {
+    const exists = await this.exists(from);
+    if (!exists) {
+      return err(new IOError(`InMemoryMigrationFs.copyTree: ${from} does not exist`));
+    }
+    const fromPrefix = from.endsWith("/") ? from : `${from}/`;
+    const toPrefix = to.endsWith("/") ? to : `${to}/`;
+    if (this.files.has(from)) {
+      const content = this.files.get(from);
+      if (content !== undefined) this.files.set(to, content);
+      return ok(undefined);
+    }
+    for (const [k, v] of this.files.entries()) {
+      if (k === from || k.startsWith(fromPrefix)) {
+        const dest = k === from ? to : `${toPrefix}${k.slice(fromPrefix.length)}`;
+        this.files.set(dest, v);
+      }
+    }
+    for (const d of this.dirs) {
+      if (d === from || d.startsWith(fromPrefix)) {
+        const dest = d === from ? to : `${toPrefix}${d.slice(fromPrefix.length)}`;
+        this.dirs.add(dest);
+      }
+    }
+    this.dirs.add(to);
+    return ok(undefined);
+  }
+
+  async removeTree(path: string): Promise<Result<void, IOError>> {
+    const prefix = path.endsWith("/") ? path : `${path}/`;
+    for (const k of [...this.files.keys()]) {
+      if (k === path || k.startsWith(prefix)) this.files.delete(k);
+    }
+    for (const d of [...this.dirs]) {
+      if (d === path || d.startsWith(prefix)) this.dirs.delete(d);
+    }
+    return ok(undefined);
+  }
+}
+
+// -----------------------------------------------------------------------------
+// CapturingTelemetry — light TelemetryPort fake for tests that just need to
+// assert which events were emitted (and in what order).
+// -----------------------------------------------------------------------------
+
+export interface CapturedEvent {
+  readonly level: string;
+  readonly type: string;
+  readonly attributes: Readonly<Record<string, unknown>>;
+}
+
+export class CapturingTelemetry {
+  readonly emitted: CapturedEvent[] = [];
+
+  async emit(event: {
+    level: string;
+    type: string;
+    attributes: Record<string, unknown>;
+  }): Promise<void> {
+    this.emitted.push({
+      level: event.level,
+      type: event.type,
+      attributes: { ...event.attributes },
+    });
+  }
+
+  startSpan(): never {
+    throw new Error("CapturingTelemetry.startSpan: not used in migration tests");
+  }
+
+  typesEmitted(): ReadonlyArray<string> {
+    return this.emitted.map((e) => e.type);
   }
 }

@@ -113,6 +113,25 @@ export {
   FilesystemPluginInstallDir,
   InMemoryFilesystem,
   InMemoryPluginRegistry,
+  InMemoryMigrationFs,
+  CapturingTelemetry,
   type FakeSignatureCallLog,
   type FakeSignatureOptions,
+  type CapturedEvent,
 } from "./platform/application/_fakes.ts";
+
+// Platform application use cases (Phase 8 — v2-to-v3 migration)
+export {
+  migrateV2ToV3,
+  rollbackV2ToV3,
+  MigrationError,
+  type MigrationFsPort,
+  type MigrationDeps,
+  type MigrationInput,
+  type MigrationReport,
+  type MigrationErrorReason,
+  type RollbackInput,
+  type RollbackReport,
+  type SkillMapEntry,
+  type SkillMapKind,
+} from "./platform/application/migrate_v2_to_v3.ts";
