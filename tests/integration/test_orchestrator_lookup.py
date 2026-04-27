@@ -23,8 +23,6 @@ from pathlib import Path
 
 import pytest
 
-pytestmark = pytest.mark.spec_105_red
-
 
 def _seed_decision_store(root: Path, dec_id: str, finding_rule_id: str) -> None:
     """Persist a single active risk-acceptance covering ``finding_rule_id``."""
@@ -137,14 +135,124 @@ def test_orchestrator_emit_telemetry_per_accepted_finding(
 def test_orchestrator_run_gate_invokes_lookup_after_wave2(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """``run_gate`` calls the lookup post-Wave 2 (Phase 4 T-4.1 wiring)."""
-    # Deferred import: the orchestrator integration lands in Phase 4 T-4.1,
-    # so this test asserts the wiring is observable from outside.
+    """``run_gate`` calls the lookup post-Wave 2 and emits v1.1 schema.
+
+    Wires a fixture project with one staged file, one active DEC covering
+    rule_id E501, mocks ``_run_check`` to return one E501 finding plus one
+    F841 finding, and asserts:
+      * ``run_gate`` returns a document with ``schema: v1.1``.
+      * The accepted finding (E501) is partitioned off the blocking surface.
+      * The blocking surface still contains F841.
+    """
+    from unittest.mock import patch
+
+    from ai_engineering.policy import orchestrator
+    from ai_engineering.state.models import GateSeverity
+
+    _seed_decision_store(tmp_path, dec_id="DEC-2026-04-26-AAAA", finding_rule_id="E501")
+    monkeypatch.chdir(tmp_path)
+
+    # Stage one file so run_gate dispatches the cache-aware path.
+    staged = ["src/example.py"]
+
+    def _fake_run_check(check_name, staged_files=None, *, cache_dir=None, mode="local"):
+        # Return findings only for the ruff check; other checks return empty.
+        if check_name == "ruff":
+            return {
+                "outcome": "fail",
+                "exit_code": 1,
+                "stdout": "",
+                "stderr": "",
+                "findings": [
+                    {
+                        "check": "ruff",
+                        "rule_id": "E501",
+                        "file": "src/example.py",
+                        "line": 1,
+                        "severity": "low",
+                        "message": "line too long",
+                        "auto_fixable": True,
+                        "auto_fix_command": "ruff check --fix",
+                    },
+                    {
+                        "check": "ruff",
+                        "rule_id": "F841",
+                        "file": "src/example.py",
+                        "line": 2,
+                        "severity": "low",
+                        "message": "unused var",
+                        "auto_fixable": True,
+                        "auto_fix_command": "ruff check --fix",
+                    },
+                ],
+            }
+        return {"outcome": "pass", "exit_code": 0, "stdout": "", "stderr": "", "findings": []}
+
+    with patch.object(orchestrator, "_run_check", side_effect=_fake_run_check):
+        document = orchestrator.run_gate(
+            staged_files=staged,
+            mode="local",
+            project_root=tmp_path,
+            cache_disabled=True,
+            produced_by="ai-pr",
+        )
+
+    # G-7: schema v1.1 because accepted_findings is populated.
+    assert document.schema_ == "ai-engineering/gate-findings/v1.1"
+    # G-2: the E501 finding is partitioned into accepted_findings.
+    assert any(a.rule_id == "E501" for a in document.accepted_findings)
+    accepted_e501 = next(a for a in document.accepted_findings if a.rule_id == "E501")
+    assert accepted_e501.dec_id == "DEC-2026-04-26-AAAA"
+    assert accepted_e501.severity == GateSeverity.LOW
+    # G-2: the F841 finding remains on the blocking surface.
+    assert any(f.rule_id == "F841" for f in document.findings)
+    assert not any(f.rule_id == "E501" for f in document.findings)
+
+
+def test_orchestrator_run_gate_emits_v1_when_no_acceptances(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """When no DECs match findings, ``run_gate`` emits ``schema: v1``."""
+    from unittest.mock import patch
+
     from ai_engineering.policy import orchestrator
 
-    # The wiring contract: the orchestrator must expose
-    # ``apply_risk_acceptances`` indirectly via a partition step that
-    # populates ``accepted_findings`` on the emitted document.
-    assert hasattr(orchestrator, "_emit_findings") or hasattr(
-        orchestrator, "build_gate_findings_document"
-    )
+    monkeypatch.chdir(tmp_path)
+    # No decision-store seeded — every finding is blocking.
+    staged = ["src/example.py"]
+
+    def _fake_run_check(check_name, staged_files=None, *, cache_dir=None, mode="local"):
+        if check_name == "ruff":
+            return {
+                "outcome": "fail",
+                "exit_code": 1,
+                "stdout": "",
+                "stderr": "",
+                "findings": [
+                    {
+                        "check": "ruff",
+                        "rule_id": "F841",
+                        "file": "src/example.py",
+                        "line": 2,
+                        "severity": "low",
+                        "message": "unused var",
+                        "auto_fixable": True,
+                        "auto_fix_command": "ruff check --fix",
+                    },
+                ],
+            }
+        return {"outcome": "pass", "exit_code": 0, "stdout": "", "stderr": "", "findings": []}
+
+    with patch.object(orchestrator, "_run_check", side_effect=_fake_run_check):
+        document = orchestrator.run_gate(
+            staged_files=staged,
+            mode="local",
+            project_root=tmp_path,
+            cache_disabled=True,
+            produced_by="ai-pr",
+        )
+
+    # No acceptances + no expiring → v1 schema (binary-equivalent).
+    assert document.schema_ == "ai-engineering/gate-findings/v1"
+    assert document.accepted_findings == []
+    assert document.expiring_soon == []

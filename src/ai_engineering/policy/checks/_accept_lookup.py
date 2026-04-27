@@ -66,13 +66,20 @@ def finding_is_accepted(
         return None
 
     reference_time = now or datetime.now(tz=UTC)
-    canonical_hash = compute_context_hash(f"finding:{rule_id}")
+    canonical_context = f"finding:{rule_id}"
+    canonical_hash = compute_context_hash(canonical_context)
 
     return next(
         (
             d
             for d in store.decisions
-            if d.context_hash == canonical_hash
+            if (
+                d.context_hash == canonical_hash
+                # Fallback: pre-spec-105 entries (and seed fixtures) may omit
+                # ``contextHash``; match by canonical context string so the
+                # lookup remains backward-compatible.
+                or (d.context_hash is None and d.context == canonical_context)
+            )
             and d.status == DecisionStatus.ACTIVE
             and d.risk_category == RiskCategory.RISK_ACCEPTANCE
             and (d.expires_at is None or d.expires_at > reference_time)

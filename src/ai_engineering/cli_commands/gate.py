@@ -424,6 +424,27 @@ def gate_run(
             help="Emit the GateFindingsDocument JSON envelope to stdout.",
         ),
     ] = False,
+    verbose: Annotated[
+        bool,
+        typer.Option(
+            "--verbose",
+            "-v",
+            help=(
+                "Verbose output: also print per-check inline detail in addition "
+                "to the spec-105 D-105-08 compact summary."
+            ),
+        ),
+    ] = False,
+    no_color: Annotated[
+        bool,
+        typer.Option(
+            "--no-color",
+            help=(
+                "Strip ANSI color codes from compact output. TTY auto-detect "
+                "default ON; honors NO_COLOR / FORCE_COLOR=1 env vars."
+            ),
+        ),
+    ] = False,
     mode: Annotated[
         str,
         typer.Option(
@@ -532,19 +553,39 @@ def gate_run(
         sys.stdout.write(payload + "\n")
         sys.stdout.flush()
     else:
-        # Human-friendly summary on stderr; data on stdout for grep-ability.
+        # spec-105 D-105-08: compact output with optional expiring banner +
+        # accepted partition. ``format_gate_result_compact`` is a pure helper
+        # that consumes the partitioned findings already serialised on the
+        # document, so we don't need to re-run the lookup.
         n_findings = len(document.findings)
         n_hits = len(document.cache_hits)
         n_misses = len(document.cache_misses)
         result_label = "FAIL" if failed else "PASS"
         result_header(f"Gate run [{mode_value}]", result_label)
         info(f"findings={n_findings} cache_hits={n_hits} cache_misses={n_misses}")
-        for finding in document.findings:
-            status_line(
-                "fail" if finding.severity in _FAILURE_SEVERITIES else "ok",
-                f"{finding.check}:{finding.rule_id}",
-                f"{finding.severity.value} {finding.file}:{finding.line}",
-            )
+
+        # Load the decision-store once for the formatter so the EXPIRING
+        # banner can enrich each DEC ID with its rule_id + days remaining.
+        decision_store = None
+        with contextlib.suppress(Exception):
+            decision_store = StateService(root).load_decisions()
+
+        compact = orchestrator_module.format_gate_result_compact(
+            list(document.findings),
+            list(document.accepted_findings),
+            list(document.expiring_soon),
+            decision_store=decision_store,
+            no_color=no_color,
+        )
+        print_stdout(compact)
+
+        if verbose:
+            for finding in document.findings:
+                status_line(
+                    "fail" if finding.severity in _FAILURE_SEVERITIES else "ok",
+                    f"{finding.check}:{finding.rule_id}",
+                    f"{finding.severity.value} {finding.file}:{finding.line}",
+                )
 
     if failed:
         raise typer.Exit(code=1)

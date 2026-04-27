@@ -71,31 +71,31 @@
 - [x] T-3.16: Write RED test skeleton `tests/integration/test_emit_schema_version.py` marked, covering dual-emit (v1 when empty, v1.1 when populated) (agent: build) — 4 tests
 - [x] T-3.17: Write RED test skeleton `tests/integration/test_gate_skip_accepted.py` marked, covering G-2 telemetry+output integration (agent: build) — 3 tests
 - [x] T-3.18: Run `pytest -m 'not spec_105_red'` y confirm PASS (agent: verify) — `26 failed, 4541 passed, 2 skipped, 17 deselected, 1 xpassed, 10 errors`. Delta vs Phase 2 baseline (a060427a `25 failed, 4520 passed, 2 skipped, 28 deselected, 10 errors`): +21 passed (19 GREEN + 2 net), +1 isolated env-scrub flake observed in unit ordering (pre-existing per Phase 2 lesson — passes in isolation), -11 deselected (3 CLI test files unmarked = 21 tests; offset by 10 new RED tests added for Phase 4). All FAILED/ERROR signatures identical to Phase 2 baseline (`test_safe_run_env_scrub`, `test_setup_cli`, `test_update_orphan_detection`, `test_update_provider_filtering`). NOT a Phase 3 regression.
-- [ ] T-3.19: Stage y commit `feat(spec-105): Phase 3 GREEN ai-eng risk * CLI + Phase 4 RED orchestrator wiring tests` (agent: build)
+- [x] T-3.19: Stage y commit `feat(spec-105): Phase 3 GREEN ai-eng risk * CLI + Phase 4 RED orchestrator wiring tests` (agent: build) — commit 4d16b7ba
 
 ---
 
 ### Phase 4: Orchestrator integration + dual emit + CLI output (GREEN) + mode tests (RED)
 **Gate**: `policy/orchestrator.py:run_gate()` invokes `apply_risk_acceptances` post-Wave2; `_emit_findings()` emits v1.1 when populated, v1 when empty; CLI prints compact tabla + expiring banner; T-3.15/T-3.16/T-3.17 RED tests PASS; 5 new RED mode test files exist; CI green.
 
-- [ ] T-4.1: Modify `policy/orchestrator.py:run_gate()` to load `DecisionStore` via `StateService` y invoke `apply_risk_acceptances(wave2_findings, store, now=now, project_root=project_root)` after Wave 2 (agent: build)
-- [ ] T-4.2: Update `_emit_findings()` signature to accept `accepted_findings` + `expiring_soon` lists; emit `schema: v1` cuando ambos empty, `schema: v1.1` cuando cualquiera populated (agent: build)
-- [ ] T-4.3: Add `_compute_expiring_soon(store, used_dec_ids, now) → list[str]` helper usando `_WARN_BEFORE_EXPIRY_DAYS=7` constant (agent: build)
-- [ ] T-4.4: Add CLI output formatter `format_gate_result_compact(blocking, accepted, expiring_soon) → str` per D-105-08 spec (agent: build)
-- [ ] T-4.5: Add `--verbose`, `--json`, `--no-color` flags to `ai-eng gate run` command in `cli_factory.py` (note: T-3.9 already added `risk_app` to same file; ensure no merge conflict — both are additive, distinct sections) (agent: build)
-- [ ] T-4.6: Implement TTY auto-detection for color (`sys.stdout.isatty()`, honor `FORCE_COLOR=1`, `NO_COLOR` env vars) (agent: build)
-- [ ] T-4.7: Add expiring banner top-of-output cuando `expiring_soon` non-empty (agent: build)
-- [ ] T-4.8: Write `tests/integration/test_orchestrator_lookup.py` body — fixture project con staged findings + active DEC, confirm gate skips, JSON emits v1.1 (agent: build)
-- [ ] T-4.9: Write `tests/integration/test_emit_schema_version.py` body — empty arrays → v1 emit, populated → v1.1 emit, fixture validation (agent: build)
-- [ ] T-4.10: Write `tests/integration/test_gate_skip_accepted.py` body — full E2E from accept-all → next gate run → assertions on output + telemetry (agent: build)
-- [ ] T-4.11: Remove marker lines ONLY from these 3 test files (do NOT modify test bodies — RED contract preserved); confirm GREEN (agent: build)
-- [ ] T-4.12: Write RED test skeleton `tests/integration/test_mode_escalation.py` marked, covering 3 escalation triggers (branch + CI + pre-push target) (agent: build)
-- [ ] T-4.13: Write RED test skeleton `tests/integration/test_ci_override.py` marked, env-mock CI=true / GITHUB_ACTIONS=true / TF_BUILD=True (agent: build)
-- [ ] T-4.14: Write RED test skeleton `tests/integration/test_tier_allocation.py` marked, matrix mode × tier validation (agent: build)
-- [ ] T-4.15: Write RED test skeleton `tests/unit/test_resolve_mode_detached_head.py` marked, fallback to regulated on subprocess error (agent: build)
-- [ ] T-4.16: Write RED test skeleton `tests/perf/test_prototyping_mode_speedup.py` marked, G-3 perf assertion `prototyping_p50 ≤ 0.6 × regulated_p50` con σ≤15% sobre `tests/fixtures/perf_single_stack/` (agent: build)
-- [ ] T-4.17: Run `pytest -m 'not spec_105_red'` y confirm PASS (agent: verify)
-- [ ] T-4.18: Stage y commit `feat(spec-105): Phase 4 GREEN orchestrator wiring + Phase 5 RED mode tests` (agent: build)
+- [x] T-4.1: Modify `policy/orchestrator.py:run_gate()` to load `DecisionStore` via `StateService` y invoke `apply_risk_acceptances(wave2_findings, store, now=now, project_root=project_root)` after Wave 2 (agent: build)
+- [x] T-4.2: Update `_emit_findings()` signature to accept `accepted_findings` + `expiring_soon` lists; emit `schema: v1` cuando ambos empty, `schema: v1.1` cuando cualquiera populated (agent: build)
+- [x] T-4.3: Add `_compute_expiring_soon(store, used_dec_ids, now) → list[str]` helper usando `_WARN_BEFORE_EXPIRY_DAYS=7` constant (agent: build)
+- [x] T-4.4: Add CLI output formatter `format_gate_result_compact(blocking, accepted, expiring_soon) → str` per D-105-08 spec (agent: build)
+- [x] T-4.5: Add `--verbose`, `--json`, `--no-color` flags to `ai-eng gate run` command in `cli_factory.py` (note: T-3.9 already added `risk_app` to same file; ensure no merge conflict — both are additive, distinct sections) (agent: build)
+- [x] T-4.6: Implement TTY auto-detection for color (`sys.stdout.isatty()`, honor `FORCE_COLOR=1`, `NO_COLOR` env vars) (agent: build)
+- [x] T-4.7: Add expiring banner top-of-output cuando `expiring_soon` non-empty (agent: build)
+- [x] T-4.8: Write `tests/integration/test_orchestrator_lookup.py` body — fixture project con staged findings + active DEC, confirm gate skips, JSON emits v1.1 (agent: build)
+- [x] T-4.9: Write `tests/integration/test_emit_schema_version.py` body — empty arrays → v1 emit, populated → v1.1 emit, fixture validation (agent: build)
+- [x] T-4.10: Write `tests/integration/test_gate_skip_accepted.py` body — full E2E from accept-all → next gate run → assertions on output + telemetry (agent: build)
+- [x] T-4.11: Remove marker lines ONLY from these 3 test files (do NOT modify test bodies — RED contract preserved); confirm GREEN (agent: build)
+- [x] T-4.12: Write RED test skeleton `tests/integration/test_mode_escalation.py` marked, covering 3 escalation triggers (branch + CI + pre-push target) (agent: build)
+- [x] T-4.13: Write RED test skeleton `tests/integration/test_ci_override.py` marked, env-mock CI=true / GITHUB_ACTIONS=true / TF_BUILD=True (agent: build)
+- [x] T-4.14: Write RED test skeleton `tests/integration/test_tier_allocation.py` marked, matrix mode × tier validation (agent: build)
+- [x] T-4.15: Write RED test skeleton `tests/unit/test_resolve_mode_detached_head.py` marked, fallback to regulated on subprocess error (agent: build)
+- [x] T-4.16: Write RED test skeleton `tests/perf/test_prototyping_mode_speedup.py` marked, G-3 perf assertion `prototyping_p50 ≤ 0.6 × regulated_p50` con σ≤15% sobre `tests/fixtures/perf_single_stack/` (agent: build)
+- [x] T-4.17: Run `pytest -m 'not spec_105_red'` y confirm PASS (agent: verify)
+- [x] T-4.18: Stage y commit `feat(spec-105): Phase 4 GREEN orchestrator wiring + Phase 5 RED mode tests` (agent: build)
 
 ---
 

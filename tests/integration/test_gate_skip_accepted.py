@@ -19,8 +19,6 @@ from pathlib import Path
 
 import pytest
 
-pytestmark = pytest.mark.spec_105_red
-
 
 def _runner_invoke(args: list[str]):
     """Invoke the CLI app. Deferred imports per Phase 1 lesson."""
@@ -59,7 +57,17 @@ def _seed_decision_for_finding(root: Path, dec_id: str, rule_id: str) -> None:
 def test_gate_run_emits_accepted_finding_after_accept(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Gate run after `ai-eng risk accept` partitions the matching finding."""
+    """Gate run after `ai-eng risk accept` partitions the matching finding.
+
+    Full E2E: invoke ``ai-eng risk accept --finding-id G2-RULE``, then
+    drive ``orchestrator.run_gate`` with a finding whose ``rule_id`` matches.
+    Assert the gate-findings.json document carries v1.1 schema and the
+    matching finding lands in ``accepted_findings`` (not ``findings``).
+    """
+    from unittest.mock import patch
+
+    from ai_engineering.policy import orchestrator
+
     monkeypatch.chdir(tmp_path)
     accept_result = _runner_invoke(
         [
@@ -79,52 +87,158 @@ def test_gate_run_emits_accepted_finding_after_accept(
     )
     assert accept_result.exit_code == 0, accept_result.output
 
-    # Phase 4 T-4.1 wires `apply_risk_acceptances` into orchestrator.run_gate;
-    # this assertion will turn green once the gate emits the accepted
-    # finding into the v1.1 schema's ``accepted_findings`` array.
-    findings_path = tmp_path / ".ai-engineering" / "state" / "gate-findings.json"
-    if findings_path.exists():
-        document = json.loads(findings_path.read_text(encoding="utf-8"))
-        assert document.get("schema", "").endswith("/v1.1") or "accepted_findings" in document
+    def _fake_run_check(check_name, staged_files=None, *, cache_dir=None, mode="local"):
+        if check_name == "ruff":
+            return {
+                "outcome": "fail",
+                "exit_code": 1,
+                "stdout": "",
+                "stderr": "",
+                "findings": [
+                    {
+                        "check": "ruff",
+                        "rule_id": "G2-RULE",
+                        "file": "src/example.py",
+                        "line": 1,
+                        "severity": "low",
+                        "message": "fixture finding",
+                        "auto_fixable": False,
+                        "auto_fix_command": None,
+                    },
+                ],
+            }
+        return {"outcome": "pass", "exit_code": 0, "stdout": "", "stderr": "", "findings": []}
+
+    with patch.object(orchestrator, "_run_check", side_effect=_fake_run_check):
+        document = orchestrator.run_gate(
+            staged_files=["src/example.py"],
+            mode="local",
+            project_root=tmp_path,
+            cache_disabled=True,
+            produced_by="ai-pr",
+        )
+
+    assert document.schema_ == "ai-engineering/gate-findings/v1.1"
+    assert any(a.rule_id == "G2-RULE" for a in document.accepted_findings)
+    assert not any(f.rule_id == "G2-RULE" for f in document.findings)
 
 
 def test_gate_run_emits_telemetry_for_accepted_finding(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Gate run emits a ``finding-bypassed`` event per accepted finding."""
+    """Gate run emits a ``finding-bypassed`` event per accepted finding.
+
+    Drives ``orchestrator.run_gate`` directly with a mocked checker; asserts
+    the framework-events.ndjson stream contains a control_outcome event
+    with ``category=risk-acceptance`` + ``control=finding-bypassed`` whose
+    metadata.dec_id matches the seeded DEC.
+    """
+    from unittest.mock import patch
+
+    from ai_engineering.policy import orchestrator
+
     monkeypatch.chdir(tmp_path)
     _seed_decision_for_finding(tmp_path, dec_id="DEC-2026-04-26-G02A", rule_id="G2-A")
-    list_result = _runner_invoke(["risk", "list", "--format", "json"])
-    assert list_result.exit_code == 0, list_result.output
 
-    # Phase 4 wiring guarantees that a gate run after accept emits
-    # ``category=risk-acceptance, control=finding-bypassed`` telemetry
-    # for each accepted finding. Until Phase 4 lands the events file
-    # may not yet contain the bypass event for a synthetic finding.
+    def _fake_run_check(check_name, staged_files=None, *, cache_dir=None, mode="local"):
+        if check_name == "ruff":
+            return {
+                "outcome": "fail",
+                "exit_code": 1,
+                "stdout": "",
+                "stderr": "",
+                "findings": [
+                    {
+                        "check": "ruff",
+                        "rule_id": "G2-A",
+                        "file": "src/example.py",
+                        "line": 5,
+                        "severity": "low",
+                        "message": "telemetry fixture",
+                        "auto_fixable": False,
+                        "auto_fix_command": None,
+                    },
+                ],
+            }
+        return {"outcome": "pass", "exit_code": 0, "stdout": "", "stderr": "", "findings": []}
+
+    with patch.object(orchestrator, "_run_check", side_effect=_fake_run_check):
+        orchestrator.run_gate(
+            staged_files=["src/example.py"],
+            mode="local",
+            project_root=tmp_path,
+            cache_disabled=True,
+            produced_by="ai-pr",
+        )
+
     events_path = tmp_path / ".ai-engineering" / "state" / "framework-events.ndjson"
-    if events_path.exists():
-        events = [
-            json.loads(ln)
-            for ln in events_path.read_text(encoding="utf-8").splitlines()
-            if ln.strip()
-        ]
-        # Existence check: at least the seed decision-store should produce
-        # *some* event flow. Detailed assertion lands in Phase 4.
-        assert isinstance(events, list)
+    assert events_path.exists()
+    events = [
+        json.loads(ln) for ln in events_path.read_text(encoding="utf-8").splitlines() if ln.strip()
+    ]
+    bypass_events = [
+        e
+        for e in events
+        if e.get("detail", {}).get("category") == "risk-acceptance"
+        and e.get("detail", {}).get("control") == "finding-bypassed"
+    ]
+    assert bypass_events, f"expected at least one bypass event, got: {events}"
+    assert any(e.get("detail", {}).get("dec_id") == "DEC-2026-04-26-G02A" for e in bypass_events)
 
 
 def test_gate_compact_output_renders_accepted_section(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Compact CLI output exposes the ``ACCEPTED`` section per D-105-08."""
+    """Compact CLI output exposes the ``ACCEPTED`` section per D-105-08.
+
+    Calls ``format_gate_result_compact`` directly with a partitioned set;
+    asserts the rendered output contains the BLOCKING + ACCEPTED sections
+    + a Next-step line.
+    """
+    from datetime import UTC, datetime
+
+    from ai_engineering.policy import orchestrator
+    from ai_engineering.state.models import (
+        AcceptedFinding,
+        GateFinding,
+        GateSeverity,
+    )
+
     monkeypatch.chdir(tmp_path)
     _seed_decision_for_finding(tmp_path, dec_id="DEC-2026-04-26-G02C", rule_id="G2-C")
-    # Phase 4 T-4.4 introduces the ``format_gate_result_compact`` formatter.
-    from ai_engineering.policy import orchestrator
 
-    # Until Phase 4 lands the exact symbol may still be `_emit_findings`;
-    # this skeleton asserts the wiring point is at minimum the existing
-    # emit helper and a future formatter declaration is the GREEN path.
-    assert hasattr(orchestrator, "_emit_findings") or hasattr(
-        orchestrator, "format_gate_result_compact"
+    blocking = [
+        GateFinding(
+            check="ruff",
+            rule_id="F841",
+            file="src/blk.py",
+            line=2,
+            severity=GateSeverity.LOW,
+            message="unused var",
+            auto_fixable=True,
+            auto_fix_command="ruff check --fix",
+        ),
+    ]
+    accepted = [
+        AcceptedFinding(
+            check="ruff",
+            rule_id="G2-C",
+            file="src/acc.py",
+            line=3,
+            severity=GateSeverity.LOW,
+            message="line too long",
+            dec_id="DEC-2026-04-26-G02C",
+            expires_at=datetime(2026, 12, 31, tzinfo=UTC),
+        ),
+    ]
+
+    text = orchestrator.format_gate_result_compact(
+        blocking, accepted, expiring_soon=[], no_color=True
     )
+    assert "Gate run: 2 findings (1 blocking, 1 accepted via decision-store)" in text
+    assert "BLOCKING (1):" in text
+    assert "F841" in text
+    assert "ACCEPTED (1)" in text
+    assert "G2-C" in text
+    assert "DEC-2026-04-26-G02C" in text
+    assert "Next: fix blockers" in text

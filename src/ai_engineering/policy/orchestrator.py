@@ -30,14 +30,20 @@ import uuid
 import warnings
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
 from ai_engineering.policy import gate_cache
+from ai_engineering.policy.checks._accept_lookup import apply_risk_acceptances
+from ai_engineering.state.decision_logic import _WARN_BEFORE_EXPIRY_DAYS
 from ai_engineering.state.models import (
+    AcceptedFinding,
+    DecisionStatus,
+    DecisionStore,
     GateFinding,
     GateFindingsDocument,
+    RiskCategory,
     WallClockMs,
 )
 
@@ -526,18 +532,97 @@ def _normalize_findings_for_emit(raw: Any) -> list[dict[str, Any]]:
     return out
 
 
+def _normalize_accepted_findings(
+    raw: list[AcceptedFinding] | None,
+) -> list[dict[str, Any]]:
+    """Convert ``AcceptedFinding`` instances to JSON-friendly dicts."""
+    out: list[dict[str, Any]] = []
+    for item in raw or []:
+        if isinstance(item, dict):
+            out.append(dict(item))
+        elif hasattr(item, "model_dump"):
+            out.append(item.model_dump(by_alias=True, mode="json"))
+    return out
+
+
+def _compute_expiring_soon(
+    store: DecisionStore | None,
+    used_dec_ids: set[str],
+    now: datetime,
+    *,
+    days: int = _WARN_BEFORE_EXPIRY_DAYS,
+) -> list[str]:
+    """Return DEC IDs that are USED in this run AND expire within ``days``.
+
+    spec-105 D-105-08: Only DECs that actually bypassed a finding in this
+    run AND are within the warning window appear in the ``expiring_soon``
+    array — the banner is contextual, not a global expiry digest.
+
+    Args:
+        store: The decision store to scan, or ``None`` (returns empty).
+        used_dec_ids: DEC IDs that bypassed at least one finding this run.
+        now: Reference time for expiry comparison.
+        days: Warning threshold (default :data:`_WARN_BEFORE_EXPIRY_DAYS`).
+
+    Returns:
+        Sorted list of DEC IDs from ``used_dec_ids`` that expire within
+        ``days`` of ``now``. Sorted for deterministic output.
+    """
+    if store is None or not used_dec_ids:
+        return []
+    threshold = now + timedelta(days=days)
+    return sorted(
+        d.id
+        for d in store.decisions
+        if d.id in used_dec_ids and d.expires_at is not None and now <= d.expires_at <= threshold
+    )
+
+
+def _load_decision_store_safely(project_root: Path | None) -> DecisionStore | None:
+    """Load a ``DecisionStore`` for ``project_root``, returning ``None`` on miss.
+
+    The orchestrator's risk-acceptance integration must remain fail-open so a
+    missing or malformed ``decision-store.json`` never breaks the gate run —
+    it simply means no acceptances are applied. Errors are logged at debug
+    level rather than warning to keep the standard run quiet.
+    """
+    if project_root is None:
+        return None
+    try:
+        from ai_engineering.state.service import StateService
+
+        return StateService(project_root).load_decisions()
+    except (FileNotFoundError, OSError):
+        return None
+    except Exception:
+        logger.debug(
+            "decision-store.json unreadable; skipping risk-acceptance lookup",
+            exc_info=True,
+        )
+        return None
+
+
 def _emit_findings(
     wave1: Wave1Result,
     wave2: Wave2Result,
     cache_stats: dict[str, list[str]] | None = None,
     output_path: Path | None = None,
     produced_by: str = "ai-pr",
+    *,
+    accepted_findings: list[AcceptedFinding] | None = None,
+    expiring_soon: list[str] | None = None,
 ) -> Path:
-    """Atomically write ``gate-findings.json`` per D-104-06 schema v1.
+    """Atomically write ``gate-findings.json`` per D-104-06 + D-105-08 dual-emit.
 
     The cache_stats dict (if provided) overrides ``wave2.cache_hits`` /
     ``wave2.cache_misses`` so callers (run_gate) can pass authoritative
     aggregate hit/miss bookkeeping that may differ from the in-wave snapshot.
+
+    spec-105 D-105-08 dual-version emit: when both ``accepted_findings`` and
+    ``expiring_soon`` are empty (default for spec-104 producers untouched by
+    spec-105 wiring), the document is emitted as ``schema: v1`` for binary-
+    equivalent backward compatibility. When either is populated, the document
+    is emitted as ``schema: v1.1`` with the additive arrays serialised.
     """
     if output_path is None:
         output_path = Path.cwd() / ".ai-engineering" / "state" / "gate-findings.json"
@@ -550,6 +635,9 @@ def _emit_findings(
         if "cache_misses" in cache_stats:
             cache_misses = list(cache_stats["cache_misses"])
 
+    accepted_list = list(accepted_findings or [])
+    expiring_list = list(expiring_soon or [])
+
     branch = _git_branch()
     sha = _git_sha()
 
@@ -561,10 +649,17 @@ def _emit_findings(
 
     findings_payload = _normalize_findings_for_emit(wave2.findings)
     auto_fixed_payload = _normalize_auto_fixed(wave1.auto_fixed)
+    accepted_payload = _normalize_accepted_findings(accepted_list)
+
+    schema_version = (
+        "ai-engineering/gate-findings/v1.1"
+        if (accepted_payload or expiring_list)
+        else "ai-engineering/gate-findings/v1"
+    )
 
     doc = GateFindingsDocument.model_validate(
         {
-            "schema": "ai-engineering/gate-findings/v1",
+            "schema": schema_version,
             "session_id": str(uuid.uuid4()),
             "produced_by": produced_by,
             "produced_at": datetime.now(UTC).isoformat(),
@@ -575,6 +670,8 @@ def _emit_findings(
             "cache_hits": cache_hits,
             "cache_misses": cache_misses,
             "wall_clock_ms": wall_clock.model_dump(),
+            "accepted_findings": accepted_payload,
+            "expiring_soon": list(expiring_list),
         }
     )
     payload = doc.model_dump_json(by_alias=True)
@@ -794,6 +891,12 @@ def run_gate(
     wave1 = run_wave1(wave1_paths)
     wave1_complete.set()
 
+    # spec-105 D-105-07: load decision-store once per run so both code paths
+    # share the same risk-acceptance lookup data. Fail-open: a missing or
+    # malformed store yields ``None`` and skips the partition silently.
+    decision_store = _load_decision_store_safely(project_root)
+    now = datetime.now(UTC)
+
     # --- Wave 2 -------------------------------------------------------------
     # When a caller passes neither ``checks`` nor ``staged_files`` (eg the
     # race-safety smoke test), we delegate Wave 2 to ``run_wave2`` so it can
@@ -801,10 +904,23 @@ def run_gate(
     # list with cache lookup so the integration tests can mock ``_run_check``.
     if checks is None and not staged_str:
         wave2 = run_wave2(wave1_paths, mode=mode)
+        blocking, accepted = apply_risk_acceptances(
+            wave2.findings, decision_store, now=now, project_root=project_root
+        )
+        used_dec_ids = {a.dec_id for a in accepted}
+        expiring = _compute_expiring_soon(decision_store, used_dec_ids, now)
+        wave2_partitioned = Wave2Result(
+            findings=blocking,
+            cache_hits=list(wave2.cache_hits),
+            cache_misses=list(wave2.cache_misses),
+            wall_clock_ms=wave2.wall_clock_ms,
+        )
         return _build_gate_document(
             wave1=wave1,
-            wave2=wave2,
+            wave2=wave2_partitioned,
             produced_by=produced_by,
+            accepted_findings=accepted,
+            expiring_soon=expiring,
         )
 
     spec_list = _checks_for_run_gate(checks, mode)
@@ -874,10 +990,27 @@ def run_gate(
         wall_clock_ms=elapsed_ms,
     )
 
+    # spec-105 D-105-07: orchestrator-level partition. The lookup is pure with
+    # respect to a missing store (returns blocking=findings, accepted=[]),
+    # so the wiring stays additive for callers that have no decision-store.
+    blocking, accepted = apply_risk_acceptances(
+        wave2.findings, decision_store, now=now, project_root=project_root
+    )
+    used_dec_ids = {a.dec_id for a in accepted}
+    expiring = _compute_expiring_soon(decision_store, used_dec_ids, now)
+    wave2_partitioned = Wave2Result(
+        findings=blocking,
+        cache_hits=list(wave2.cache_hits),
+        cache_misses=list(wave2.cache_misses),
+        wall_clock_ms=wave2.wall_clock_ms,
+    )
+
     return _build_gate_document(
         wave1=wave1,
-        wave2=wave2,
+        wave2=wave2_partitioned,
         produced_by=produced_by,
+        accepted_findings=accepted,
+        expiring_soon=expiring,
     )
 
 
@@ -908,8 +1041,21 @@ def _build_gate_document(
     wave1: Wave1Result,
     wave2: Wave2Result,
     produced_by: str,
+    *,
+    accepted_findings: list[AcceptedFinding] | None = None,
+    expiring_soon: list[str] | None = None,
 ) -> GateFindingsDocument:
-    """Assemble a ``GateFindingsDocument`` from wave 1/2 results without touching disk."""
+    """Assemble a ``GateFindingsDocument`` from wave 1/2 results without touching disk.
+
+    spec-105 D-105-08 dual-version emit: when both ``accepted_findings`` and
+    ``expiring_soon`` are empty, the document is emitted as ``schema: v1``
+    (binary-equivalent backward compatibility for spec-104 consumers). When
+    either is populated, the document is emitted as ``schema: v1.1`` with the
+    additive arrays serialised.
+    """
+    accepted_list = list(accepted_findings or [])
+    expiring_list = list(expiring_soon or [])
+
     branch = _git_branch()
     sha = _git_sha()
 
@@ -921,10 +1067,17 @@ def _build_gate_document(
 
     findings_payload = _normalize_findings_for_emit(wave2.findings)
     auto_fixed_payload = _normalize_auto_fixed(wave1.auto_fixed)
+    accepted_payload = _normalize_accepted_findings(accepted_list)
+
+    schema_version = (
+        "ai-engineering/gate-findings/v1.1"
+        if (accepted_payload or expiring_list)
+        else "ai-engineering/gate-findings/v1"
+    )
 
     return GateFindingsDocument.model_validate(
         {
-            "schema": "ai-engineering/gate-findings/v1",
+            "schema": schema_version,
             "session_id": str(uuid.uuid4()),
             "produced_by": produced_by,
             "produced_at": datetime.now(UTC).isoformat(),
@@ -935,5 +1088,190 @@ def _build_gate_document(
             "cache_hits": list(wave2.cache_hits),
             "cache_misses": list(wave2.cache_misses),
             "wall_clock_ms": wall_clock.model_dump(),
+            "accepted_findings": accepted_payload,
+            "expiring_soon": list(expiring_list),
         }
     )
+
+
+# --- spec-105 D-105-08: CLI compact formatter -------------------------------
+
+
+def _color(text: str, code: str, *, enable: bool) -> str:
+    """Wrap ``text`` with ANSI color ``code`` when ``enable`` is True."""
+    if not enable:
+        return text
+    return f"\033[{code}m{text}\033[0m"
+
+
+def _should_use_color(*, no_color: bool = False) -> bool:
+    """Return True iff ANSI color should be emitted to stdout.
+
+    Honors:
+      * Explicit ``no_color=True`` flag (highest priority).
+      * ``NO_COLOR`` env var (any value disables — per https://no-color.org).
+      * ``FORCE_COLOR=1`` env var (forces ON regardless of TTY).
+      * Otherwise: ``sys.stdout.isatty()``.
+    """
+    if no_color:
+        return False
+    if os.environ.get("NO_COLOR"):
+        return False
+    if os.environ.get("FORCE_COLOR") == "1":
+        return True
+    try:
+        import sys as _sys
+
+        return bool(getattr(_sys.stdout, "isatty", lambda: False)())
+    except Exception:
+        return False
+
+
+def _days_until(now: datetime, expires_at: datetime | None) -> int:
+    """Return integer days from ``now`` to ``expires_at`` (floored, ≥0)."""
+    if expires_at is None:
+        return 0
+    delta = expires_at - now
+    days = int(delta.total_seconds() // 86400)
+    return max(0, days)
+
+
+def format_gate_result_compact(
+    blocking: list[GateFinding] | list[Any],
+    accepted: list[AcceptedFinding] | list[Any],
+    expiring_soon: list[str],
+    *,
+    decision_store: DecisionStore | None = None,
+    now: datetime | None = None,
+    no_color: bool = False,
+) -> str:
+    """Render the spec-105 D-105-08 compact gate output.
+
+    Format:
+        [optional] ⚠ EXPIRING SOON banner with renew hint
+        Gate run: N findings (X blocking, Y accepted via decision-store)
+        ✗ BLOCKING (X): per-finding lines
+        ✓ ACCEPTED (Y) — audit logged to framework-events.ndjson: lines → DEC-X
+        Next: action hint
+
+    Pure function — no side effects, no I/O. ``decision_store`` is consulted
+    only when present to enrich the EXPIRING banner with rule_id + days
+    remaining; it is otherwise optional.
+    """
+    use_color = _should_use_color(no_color=no_color)
+    reference_now = now or datetime.now(tz=UTC)
+
+    blocking_count = len(blocking)
+    accepted_count = len(accepted)
+    total = blocking_count + accepted_count
+    lines: list[str] = []
+
+    # Top expiring banner (D-105-08).
+    if expiring_soon and decision_store is not None:
+        # Enrich each DEC ID with rule_id (best-effort) + days remaining.
+        active_total = sum(
+            1
+            for d in decision_store.decisions
+            if d.status == DecisionStatus.ACTIVE and d.risk_category == RiskCategory.RISK_ACCEPTANCE
+        )
+        header = f"EXPIRING SOON ({len(expiring_soon)} of {active_total} active acceptances):"
+        lines.append(_color(f"⚠ {header}", "33", enable=use_color))
+        # Build a name index for O(1) lookup.
+        by_id = {d.id: d for d in decision_store.decisions}
+        for dec_id in expiring_soon:
+            decision = by_id.get(dec_id)
+            if decision is None:
+                continue
+            days = _days_until(reference_now, decision.expires_at)
+            # Prefer the canonical rule_id encoded in the context: "finding:<rule>".
+            rule_label = ""
+            ctx = getattr(decision, "context", "") or ""
+            if isinstance(ctx, str) and ctx.startswith("finding:"):
+                rule_label = ctx.split(":", 1)[1]
+            label_suffix = f" · check:{rule_label}" if rule_label else ""
+            lines.append(f"  {dec_id} expires in {days} days{label_suffix}")
+            lines.append(f'  Renew: ai-eng risk renew {dec_id} --justification "..."')
+        lines.append("")
+    elif expiring_soon:
+        # No store available — emit a minimal banner so the wiring still
+        # surfaces the warning even when the formatter cannot enrich.
+        header = f"EXPIRING SOON ({len(expiring_soon)} acceptances):"
+        lines.append(_color(f"⚠ {header}", "33", enable=use_color))
+        for dec_id in expiring_soon:
+            lines.append(f"  {dec_id}")
+            lines.append(f'  Renew: ai-eng risk renew {dec_id} --justification "..."')
+        lines.append("")
+
+    # Body summary line.
+    summary = (
+        f"Gate run: {total} findings ({blocking_count} blocking, "
+        f"{accepted_count} accepted via decision-store)"
+    )
+    lines.append(summary)
+
+    # Blocking section.
+    if blocking_count:
+        lines.append("")
+        header = f"BLOCKING ({blocking_count}):"
+        lines.append(_color(f"✗ {header}", "31", enable=use_color))
+        for finding in blocking:
+            check = getattr(finding, "check", None) or (
+                finding.get("check") if isinstance(finding, dict) else "unknown"
+            )
+            rule_id = getattr(finding, "rule_id", None) or (
+                finding.get("rule_id") if isinstance(finding, dict) else "unknown"
+            )
+            file = getattr(finding, "file", None) or (
+                finding.get("file") if isinstance(finding, dict) else ""
+            )
+            line = getattr(finding, "line", None) or (
+                finding.get("line") if isinstance(finding, dict) else 0
+            )
+            lines.append(f"  {check} · {rule_id} · {file}:{line}")
+
+    # Accepted section.
+    if accepted_count:
+        lines.append("")
+        header = f"ACCEPTED ({accepted_count}) — audit logged to framework-events.ndjson:"
+        lines.append(_color(f"✓ {header}", "32", enable=use_color))
+        for entry in accepted:
+            check = getattr(entry, "check", None) or (
+                entry.get("check") if isinstance(entry, dict) else "unknown"
+            )
+            rule_id = getattr(entry, "rule_id", None) or (
+                entry.get("rule_id") if isinstance(entry, dict) else "unknown"
+            )
+            file = getattr(entry, "file", None) or (
+                entry.get("file") if isinstance(entry, dict) else ""
+            )
+            line = getattr(entry, "line", None) or (
+                entry.get("line") if isinstance(entry, dict) else 0
+            )
+            dec_id = getattr(entry, "dec_id", None) or (
+                entry.get("dec_id") if isinstance(entry, dict) else "DEC-?"
+            )
+            expires_at = getattr(entry, "expires_at", None) or (
+                entry.get("expires_at") if isinstance(entry, dict) else None
+            )
+            expires_label = ""
+            if expires_at is not None:
+                if isinstance(expires_at, str):
+                    expires_label = f" (expires {expires_at[:10]})"
+                else:
+                    try:
+                        expires_label = f" (expires {expires_at.date().isoformat()})"
+                    except Exception:
+                        expires_label = ""
+            lines.append(f"  {check} · {rule_id} · {file}:{line} → {dec_id}{expires_label}")
+
+    # Next-step line.
+    lines.append("")
+    if blocking_count:
+        lines.append(
+            "Next: fix blockers OR ai-eng risk accept-all "
+            '.ai-engineering/state/gate-findings.json --justification "..." --spec 105'
+        )
+    else:
+        lines.append("Next: gate clean — proceed with commit / push.")
+
+    return "\n".join(lines)

@@ -22,47 +22,113 @@ from pathlib import Path
 
 import pytest
 
-pytestmark = pytest.mark.spec_105_red
-
 
 def test_emit_v1_when_accepted_and_expiring_empty(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """No accepted findings AND no expiring DECs → ``schema: v1`` emitted."""
+    """No accepted findings AND no expiring DECs → ``schema: v1`` emitted.
+
+    Calls ``_build_gate_document`` with empty ``accepted_findings`` and
+    ``expiring_soon`` and asserts the emitted schema is v1 (binary-
+    equivalent backward-compatible output).
+    """
     from ai_engineering.policy import orchestrator
 
     monkeypatch.chdir(tmp_path)
-    # Phase 4 T-4.2 introduces a dual-emit helper — assert the symbol exists
-    # and that the v1 fixture survives a round-trip.
-    assert hasattr(orchestrator, "_emit_findings") or hasattr(
-        orchestrator, "build_gate_findings_document"
-    )
+    wave1 = orchestrator.Wave1Result(wall_clock_ms=10)
+    wave2 = orchestrator.Wave2Result(wall_clock_ms=20, findings=[])
 
+    document = orchestrator._build_gate_document(
+        wave1=wave1,
+        wave2=wave2,
+        produced_by="ai-pr",
+        accepted_findings=[],
+        expiring_soon=[],
+    )
+    assert document.schema_ == "ai-engineering/gate-findings/v1"
+    assert document.accepted_findings == []
+    assert document.expiring_soon == []
+
+    # The v1 fixture also round-trips via the model unchanged.
     fixture_path = Path(__file__).parent.parent / "fixtures" / "gate_findings_v1.json"
-    document = json.loads(fixture_path.read_text(encoding="utf-8"))
-    assert document["schema"] == "ai-engineering/gate-findings/v1"
-    assert "accepted_findings" not in document or not document.get("accepted_findings")
+    raw = json.loads(fixture_path.read_text(encoding="utf-8"))
+    assert raw["schema"] == "ai-engineering/gate-findings/v1"
+    assert "accepted_findings" not in raw or not raw.get("accepted_findings")
 
 
 def test_emit_v1_1_when_accepted_findings_populated(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Populated ``accepted_findings`` → ``schema: v1.1`` emitted."""
-    from ai_engineering.state.models import GateFindingsDocument
+    """Populated ``accepted_findings`` → ``schema: v1.1`` emitted.
+
+    Both directions: ``_build_gate_document`` produces v1.1 when accepted
+    is non-empty, and the canonical v1.1 fixture round-trips through the
+    pydantic model.
+    """
+    from datetime import UTC, datetime
+
+    from ai_engineering.policy import orchestrator
+    from ai_engineering.state.models import (
+        AcceptedFinding,
+        GateFindingsDocument,
+        GateSeverity,
+    )
 
     monkeypatch.chdir(tmp_path)
-    fixture_path = Path(__file__).parent.parent / "fixtures" / "gate_findings_v1_1.json"
-    document = GateFindingsDocument.model_validate_json(fixture_path.read_text(encoding="utf-8"))
+    wave1 = orchestrator.Wave1Result(wall_clock_ms=5)
+    wave2 = orchestrator.Wave2Result(wall_clock_ms=8, findings=[])
+    accepted = [
+        AcceptedFinding(
+            check="ruff",
+            rule_id="E501",
+            file="src/long.py",
+            line=1,
+            severity=GateSeverity.LOW,
+            message="line too long",
+            dec_id="DEC-2026-04-26-DEAD",
+            expires_at=datetime(2026, 12, 31, tzinfo=UTC),
+        ),
+    ]
+    document = orchestrator._build_gate_document(
+        wave1=wave1,
+        wave2=wave2,
+        produced_by="ai-pr",
+        accepted_findings=accepted,
+        expiring_soon=[],
+    )
     assert document.schema_ == "ai-engineering/gate-findings/v1.1"
-    assert document.accepted_findings, "v1.1 fixture must populate accepted_findings"
+    assert len(document.accepted_findings) == 1
+    assert document.accepted_findings[0].rule_id == "E501"
+
+    # Canonical v1.1 fixture round-trips through the model.
+    fixture_path = Path(__file__).parent.parent / "fixtures" / "gate_findings_v1_1.json"
+    fixture_doc = GateFindingsDocument.model_validate_json(fixture_path.read_text(encoding="utf-8"))
+    assert fixture_doc.schema_ == "ai-engineering/gate-findings/v1.1"
+    assert fixture_doc.accepted_findings, "v1.1 fixture must populate accepted_findings"
 
 
 def test_emit_v1_1_when_expiring_soon_populated(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Populated ``expiring_soon`` → ``schema: v1.1`` emitted even if accepted empty."""
+    from ai_engineering.policy import orchestrator
     from ai_engineering.state.models import GateFindingsDocument
 
+    # Builder path: empty accepted but non-empty expiring still bumps schema.
+    wave1 = orchestrator.Wave1Result(wall_clock_ms=1)
+    wave2 = orchestrator.Wave2Result(wall_clock_ms=2, findings=[])
+    document = orchestrator._build_gate_document(
+        wave1=wave1,
+        wave2=wave2,
+        produced_by="ai-pr",
+        accepted_findings=[],
+        expiring_soon=["DEC-2026-04-26-EXPI"],
+    )
+    assert document.schema_ == "ai-engineering/gate-findings/v1.1"
+    assert document.expiring_soon == ["DEC-2026-04-26-EXPI"]
+    assert document.accepted_findings == []
+
+    # Validator path: legacy raw JSON shape still validates.
     payload = {
         "schema": "ai-engineering/gate-findings/v1.1",
         "session_id": "00000000-0000-4000-8000-000000000040",
@@ -78,9 +144,9 @@ def test_emit_v1_1_when_expiring_soon_populated(
         "accepted_findings": [],
         "expiring_soon": ["DEC-2026-04-26-EXPI"],
     }
-    document = GateFindingsDocument.model_validate(payload)
-    assert document.schema_ == "ai-engineering/gate-findings/v1.1"
-    assert document.expiring_soon == ["DEC-2026-04-26-EXPI"]
+    raw_document = GateFindingsDocument.model_validate(payload)
+    assert raw_document.schema_ == "ai-engineering/gate-findings/v1.1"
+    assert raw_document.expiring_soon == ["DEC-2026-04-26-EXPI"]
 
 
 def test_v1_consumer_reads_v1_1_payload_silently(
