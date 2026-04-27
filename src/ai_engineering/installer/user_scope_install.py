@@ -878,7 +878,7 @@ def _capture_linux_release() -> str:
                 check=False,
             )
         except (OSError, subprocess.SubprocessError):
-            completed = None  # type: ignore[assignment]
+            completed = None
         if completed is not None:
             returncode = getattr(completed, "returncode", 0) or 0
             stdout = (getattr(completed, "stdout", "") or "").strip()
