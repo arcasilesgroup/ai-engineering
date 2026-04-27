@@ -1,0 +1,20 @@
+/*
+ * ai-engineering docs — neutral palette, hugely readable line-length.
+ * Starlight provides accessible defaults; we only nudge a few tokens.
+ */
+:root {
+  --sl-color-accent: #0f766e;
+  --sl-color-accent-low: #ccfbf1;
+  --sl-color-accent-high: #134e4a;
+  --sl-text-code: 0.92rem;
+}
+
+article p,
+article li {
+  max-width: 70ch;
+}
+
+table {
+  display: block;
+  overflow-x: auto;
+}

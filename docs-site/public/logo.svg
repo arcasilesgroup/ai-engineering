@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <title>ai-engineering</title>
+  <rect width="64" height="64" rx="12" fill="#0f766e"/>
+  <text x="32" y="40" font-family="ui-monospace, SFMono-Regular, Menlo, monospace"
+    font-size="22" font-weight="700" fill="#ecfeff" text-anchor="middle">ai</text>
+</svg>

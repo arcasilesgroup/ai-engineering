@@ -1,0 +1,11 @@
+# Astro build output
+dist/
+.astro/
+
+# Local dependency installs
+node_modules/
+
+# Environment files
+.env
+.env.local
+.env.*.local

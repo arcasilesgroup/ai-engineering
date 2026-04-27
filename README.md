@@ -213,27 +213,30 @@ ai-engineering/
 
 ---
 
-## Status (alpha — Phase 0 + Phase 1 landed)
+## Status (alpha — Phases 0–8 landed, Phase 10 in progress)
 
-This is an early-alpha redesign. Phases 0 and 1 are complete; later
-phases land iteratively.
+This is an early-alpha redesign. Phases 0 through 8 are complete;
+Phase 10 (docs site + release docs) is in progress alongside the
+`v3.0.0-alpha.0` tag. Phase 9 (Ink TUI) is optional and not started.
 
 | Phase | Scope | Status |
 |-------|-------|--------|
 | 0 — Foundation | bun + uv workspaces, ruff + Biome, CI matrix, NDJSON telemetry, CLI skeleton, manifest schema, ADRs | ✅ |
-| 0.5 — Dual-Plane scaffolding | OPA Policy port, Identity Broker port, Audit Log port, Input Guard | ✅ ports defined; adapters in Phase 3 |
+| 0.5 — Dual-Plane scaffolding | OPA Policy port, Identity Broker port, Audit Log port, Input Guard | ✅ |
 | 1 — Domain core (TDD) | Skill, Spec, Decision, Gate, Event entities + property-based tests | ✅ |
-| 2 — Application + Ports | use cases composed from ports + domain | 🚧 partial (CLI commands wire the simplest use cases) |
-| 3 — Driven adapters | FS, Git, Sigstore, OTel, GitHub Projects v2, Linear, Jira | ⏳ |
-| 4 — Driving adapters | full CLI, MCP server, IDE adapters | ⏳ |
-| 5 — LiteLLM bridge | Docker-isolated multi-LLM router | ⏳ |
-| 6 — Skills catalog | full 29 core + 4 regulated SKILL.md | 🚧 9 core skills published |
-| 7 — Plugin system | registry + Sigstore + SLSA + SBOM + Scorecard | ⏳ |
-| 8 — Migration | v2 → v3 migrator | ⏳ |
+| 2 — Application + Ports | use cases composed from ports + domain | ✅ |
+| 3 — Driven adapters | FS, Git, Sigstore, OTel, GitHub Projects v2, Linear, Jira | ✅ |
+| 4 — Driving adapters | full CLI, MCP server (Streamable HTTP stateless), IDE adapters | ✅ |
+| 5 — LiteLLM bridge | Docker-isolated multi-LLM router; TS thin client | ✅ |
+| 6 — Skills catalog | 29 core + 4 regulated SKILL.md | ✅ |
+| 7 — Plugin system | search / install / verify / uninstall / update + Sigstore + SLSA + SBOM + Scorecard verification path (registry stubbed against local fixtures) | ✅ |
+| 8 — Migration | v2 → v3 migrator scaffold (90-day compat layer ships with v3.0.0 stable) | ✅ |
 | 9 — TUI + observability | Ink dashboards | ⏳ optional |
-| 10 — Release + docs | docs site, launch | ⏳ |
+| 10 — Release + docs | Astro Starlight site, production readiness, release notes | 🚧 |
 
-The full plan with phase-level roadmap lives in
+See [`docs/PRODUCTION_READINESS.md`](./docs/PRODUCTION_READINESS.md)
+for the per-component readiness matrix, what's stubbed, and known
+limitations. The full master plan with phase-level roadmap lives in
 [`docs/architecture/master-plan.md`](./docs/architecture/master-plan.md).
 
 ---

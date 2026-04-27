@@ -58,13 +58,78 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   master plan; legacy users should expect a `--legacy` compatibility
   layer for 90 days when v3.0.0 stable ships.
 
+### Added — Phases 2–8 (post-foundation)
+
+- **Phase 2 — Application use cases**
+  - Governance, skills, and observability use cases composed from
+    ports + domain. Application layer kept fat-domain-thin to honour
+    Hexagonal Architecture (ADR-0001).
+- **Phase 3 — Driven adapters**
+  - **3.5 Sigstore signature adapter** — keyless OIDC bundle
+    verification wired into the plugin install pipeline.
+  - **3.7 Real OTel exporter + composite telemetry** — NDJSON local
+    sink + OTLP exporter coexist via a composite. `OTEL_EXPORTER_OTLP_ENDPOINT`
+    flips OTel on; the local sink stays always-on.
+- **Phase 4 — Driving adapters**
+  - **4.1 Complete CLI commands** — twelve sub-commands wired through
+    `bun packages/cli/src/main.ts`: `bootstrap`, `doctor`,
+    `sync-mirrors`, `plugin {search,install,verify,uninstall,update}`,
+    `governance`, `risk`, `release-gate`, `board {discover,sync,status,map}`,
+    `migrate`, `cleanup`, `llm`, `skill`. Runtime barrel exports
+    flattened so the CLI imports from `@ai-engineering/runtime`.
+  - **4.2 MCP server** — Streamable HTTP, stateless (per ADR-0003),
+    with SSO scaffolding for CIMD + DCR. Tools surface the runtime
+    use cases.
+- **Phase 5 — LiteLLM bridge**
+  - Docker-isolated FastAPI service running as a non-root user with
+    hard-pinned dependency hashes (mitigation for the March 2026
+    LiteLLM PyPI compromise — versions 1.82.7/8). TS thin client at
+    `packages/llm-bridge/`.
+- **Phase 6 — Skills catalog**
+  - **+10 core SKILL.md files** (additions on top of the original 9):
+    `bootstrap`, `start`, `commit`, `pr`, `release-gate`, `verify`,
+    `governance`, `data`, `migrate`, `simplify`, plus the onboarding
+    SDLC suite (`note`, `learn`, `explain`, `guide`, `hotfix`,
+    `postmortem`, `resolve`, `risk-accept`, `eval`, `constitution`).
+    Catalog now ships **29 core skills**.
+  - **+4 regulated SKILL.md files** under `skills/regulated/`:
+    `audit-trail`, `incident-respond`, `compliance-report`,
+    `data-classification`. Activated by
+    `ai-eng install --profile banking | healthcare | fintech | airgapped`.
+- **Phase 7 — Plugin system**
+  - `ai-eng plugin {search, install, verify, uninstall, update}` with
+    full Sigstore keyless OIDC + SLSA v1.0 + CycloneDX SBOM + OpenSSF
+    Scorecard ≥ 7 verification path. Registry resolver currently
+    points at local fixtures; the public registry repository ships
+    post-alpha.
+- **Phase 8 — Migration scaffold**
+  - `ai-eng migrate` v2 → v3 migrator (dry-run by default). The
+    90-day compat layer ships with v3.0.0 stable.
+
+### Added — Phase 10 (in progress)
+
+- **Astro Starlight docs site** under `docs-site/` with auto-generated
+  skill / agent / ADR indexes (`docs-site/scripts/generate.ts`).
+- **`docs/PRODUCTION_READINESS.md`** — phase status, what works today,
+  what's stubbed, known limitations, test counts, security posture,
+  compliance mappings.
+- **`RELEASE_NOTES_v3.0.0-alpha.0.md`** — short alpha release summary.
+
 ### Status
 
 - **Phase 0** (Foundation) — ✅ complete
 - **Phase 0.5** (Dual-Plane scaffolding — ports) — ✅ complete
 - **Phase 1** (Domain core, TDD) — ✅ complete
-- **Phase 2** (Application + Ports) — 🚧 partial
-- **Phase 3** (Driven adapters) — ⏳ stubs only
-- **Phase 4-10** — see [README.md status table](./README.md#status-alpha--phase-0--phase-1-landed)
+- **Phase 2** (Application + Ports) — ✅ complete
+- **Phase 3** (Driven adapters) — ✅ complete
+- **Phase 4** (Driving adapters) — ✅ complete
+- **Phase 5** (LiteLLM bridge) — ✅ complete
+- **Phase 6** (Skills catalog: 29 core + 4 regulated) — ✅ complete
+- **Phase 7** (Plugin system) — ✅ complete (registry stubbed)
+- **Phase 8** (Migration scaffold) — ✅ complete
+- **Phase 9** (TUI) — ⏳ not started (optional)
+- **Phase 10** (Docs + release) — 🚧 in progress
+- See [README.md status table](./README.md) and
+  [`docs/PRODUCTION_READINESS.md`](./docs/PRODUCTION_READINESS.md).
 
 [3.0.0-alpha.0]: https://github.com/soydachi/ai-engineering/releases/tag/v3.0.0-alpha.0

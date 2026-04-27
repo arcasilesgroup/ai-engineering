@@ -1,0 +1,19 @@
+{
+  "name": "ai-engineering-docs",
+  "type": "module",
+  "version": "3.0.0-alpha.0",
+  "private": true,
+  "description": "Public documentation site for ai-engineering — Astro Starlight",
+  "scripts": {
+    "dev": "astro dev",
+    "start": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "generate": "bun scripts/generate.ts"
+  },
+  "dependencies": {
+    "@astrojs/starlight": "^0.30.0",
+    "astro": "^5.0.0",
+    "sharp": "^0.33.0"
+  }
+}
