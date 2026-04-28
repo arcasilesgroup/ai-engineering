@@ -93,7 +93,7 @@ Highlights:
 - **Installer is a hard contract.** `ai-eng install` and `ai-eng doctor --fix --phase tools` exit `EXIT 80` (missing tool) or `EXIT 81` (missing language SDK) instead of silently passing.
 - **`ai-eng install` auto-heals.** A second-pass remediation runs automatically; opt out with `--no-auto-remediate`.
 - **Live progress UI.** Replaces the single spinner with `[N/M] phase_label`.
-- **Python tooling is worktree-fast.** `python_env > mode` defaults to `uv-tool` (tools live once in `~/.local/share/uv/tools/`). Two escape hatches remain: `venv` (legacy per-cwd) and `shared-parent` (single `.venv` shared across worktrees).
+- **Python tooling is worktree-fast.** `python_env.mode` defaults to `uv-tool` (tools live once in `~/.local/share/uv/tools/`). Two escape hatches remain: `venv` (legacy per-cwd) and `shared-parent` (single `.venv` shared across worktrees).
 - **Single-pass local gate.** Wave-1 fixers then Wave-2 checkers in parallel, with a 24h SHA-256 cache. ~2-3x faster on warm checkouts. Try `ai-eng gate run --cache-aware --json`.
 - **First-class risk acceptance.** New `ai-eng risk accept | accept-all | renew | resolve | revoke | list | show` namespace. No more hand-edited `decision-store.json`.
 - **`gates > mode: prototyping`.** Skip Tier 2 governance for spike work. CI auto-detects and forces `regulated`.
