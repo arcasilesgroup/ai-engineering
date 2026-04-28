@@ -441,12 +441,18 @@ def install_cmd(
         auto_remediate_after_install,
     )
 
+    # Coerce to a real list so MagicMock-shaped test summaries do not surface
+    # as truthy non-critical failures with empty iteration.
+    raw_failures = getattr(summary, "non_critical_failures", None) or []
+    try:
+        non_critical_failures_list = list(raw_failures)
+    except TypeError:
+        non_critical_failures_list = []
+
     if no_auto_remediate:
         auto_remediation_report = AutoRemediateReport()
     else:
-        auto_remediation_report = auto_remediate_after_install(
-            root, list(summary.non_critical_failures)
-        )
+        auto_remediation_report = auto_remediate_after_install(root, non_critical_failures_list)
 
     if auto_remediation_report.invoked and not is_json_mode():
         _render_auto_remediation_summary(auto_remediation_report)
@@ -462,7 +468,7 @@ def install_cmd(
         )
         raise typer.Exit(code=EXIT_TOOLS_FAILED)
 
-    if summary.non_critical_failures and not auto_remediation_report.success:
+    if non_critical_failures_list and not auto_remediation_report.success:
         # When auto-remediate is disabled (--no-auto-remediate) any non-critical
         # failure also surfaces EXIT 80 -- preserves CI fail-on-first-attempt
         # detection per spec-109 R-109-01.

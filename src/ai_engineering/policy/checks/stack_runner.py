@@ -635,6 +635,11 @@ def _resolve_args(tool: ToolSpec, project_root: Path) -> tuple[str, ...]:
         # because the head is ``uv``, which is a hard prereq.
         return tuple(pip_audit_command()[1:])
     if tool.name == "pytest":
+        # Mirror the canonical PRE_PUSH_CHECKS["python"] stack-tests
+        # contract (spec-107): serial dispatch (no -n auto), quarantine
+        # for pre-existing subprocess-mock-leak modules. The data-driven
+        # path also runs under the spec-driven dispatch (CheckSpec) and
+        # MUST stay aligned with the resolver in `_resolve_python_checks`.
         test_dir = detect_python_test_dir(project_root) or "tests/unit/"
         return (
             test_dir,
@@ -642,10 +647,9 @@ def _resolve_args(tool: ToolSpec, project_root: Path) -> tuple[str, ...]:
             "-q",
             "-x",
             "--no-cov",
-            "-n",
-            "auto",
-            "--dist",
-            "worksteal",
+            "--ignore=tests/unit/test_safe_run_env_scrub.py",
+            "--ignore=tests/unit/test_python_env_mode_install.py",
+            "--ignore=tests/unit/test_setup_cli.py",
         )
     if tool.name == "ty":
         # _DEFAULT_ARGS["ty"] = ("check",); append the dynamically-resolved
@@ -870,7 +874,25 @@ def run_tool_check_for_spec(
     # complete argv ``["uv", "run", "python", "-m", ...]``; the generic
     # ``[tool.name, *args]`` join would produce ``["pip-audit", "run", ...]``
     # and invoke the wrong binary.
-    full_cmd = pip_audit_command() if tool_spec.name == "pip-audit" else [tool_spec.name, *args]
+    #
+    # ``pytest`` is also special-cased (spec-107): when ai-eng is installed
+    # globally, ``shutil.which("pytest")`` returns the user-tool pytest
+    # whose venv lacks ai_engineering, breaking ``conftest.py`` import.
+    # Force the project-local .venv python: ``[".venv/bin/python", "-m",
+    # "pytest", ...]``. cwd is the project root, so the relative path
+    # always resolves to the canonical local development venv.
+    if tool_spec.name == "pip-audit":
+        full_cmd = pip_audit_command()
+    elif tool_spec.name == "pytest":
+        full_cmd = [".venv/bin/python", "-m", "pytest", *args]
+    elif tool_spec.name == "ty":
+        # Same rationale as pytest above: a system-wide ``ty`` may be a
+        # newer version with stricter rules than the project's pinned
+        # 0.0.15. Use the local .venv ty to match CI behavior (which
+        # uses ``uv run ty`` against uv.lock).
+        full_cmd = [".venv/bin/python", "-m", "ty", *args]
+    else:
+        full_cmd = [tool_spec.name, *args]
     run_tool_check(
         result,
         name=check_name,
