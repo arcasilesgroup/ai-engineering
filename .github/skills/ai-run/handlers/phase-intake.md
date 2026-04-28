@@ -8,7 +8,7 @@ Create or resume the run, fetch source work items, and build the architectural b
 
 - Invocation arguments (`github`, `azure`, or `markdown`)
 - `.ai-engineering/manifest.yml`
-- `.github/agents/explore.agent.md`
+- `.github/agents/ai-explore.agent.md`
 - `references/run-manifest.md`
 - `references/provider-matrix.md`
 
@@ -56,7 +56,7 @@ Provider-specific expectations:
 
 Before item enrichment or DAG planning:
 
-1. Read `.github/agents/explore.agent.md`.
+1. Read `.github/agents/ai-explore.agent.md`.
 2. Dispatch a repository-wide baseline exploration pass.
 3. Capture:
    - architecture map

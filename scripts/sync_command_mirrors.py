@@ -104,7 +104,7 @@ AGENT_METADATA: dict[str, AgentMeta] = {
             "testFailures",
         ),
         claude_tools=("Read", "Write", "Edit", "Bash", "Glob", "Grep"),
-        copilot_agents=("Guard", "Explorer"),
+        copilot_agents=("Guard", "ai-explore"),
         # send: True is required for Copilot Agent Skills handoff buttons to
         # auto-dispatch to the target agent (send: False only previews the prompt).
         copilot_handoffs=(
@@ -124,7 +124,7 @@ AGENT_METADATA: dict[str, AgentMeta] = {
         copilot_hooks={"PostToolUse": [{"type": "command", "command": "ruff format --quiet"}]},
     ),
     "explore": AgentMeta(
-        display_name="Explorer",
+        display_name="ai-explore",
         description=(
             "Context gatherer -- deep codebase research, architecture mapping,"
             " dependency tracing, pattern identification, risk surfacing."
@@ -188,7 +188,7 @@ AGENT_METADATA: dict[str, AgentMeta] = {
             "testFailures",
         ),
         claude_tools=("Read", "Glob", "Grep", "Bash", "Write", "Edit"),
-        copilot_agents=("Explorer", "Guard"),
+        copilot_agents=("ai-explore", "Guard"),
         copilot_handoffs=(
             {
                 "label": "▶ Dispatch Implementation",
@@ -214,7 +214,7 @@ AGENT_METADATA: dict[str, AgentMeta] = {
             "search",
         ),
         claude_tools=("Read", "Glob", "Grep", "Bash", "Agent"),
-        copilot_agents=("Explorer",),
+        copilot_agents=("ai-explore",),
         copilot_handoffs=(
             {
                 "label": "🔧 Fix Issues",
@@ -261,7 +261,7 @@ AGENT_METADATA: dict[str, AgentMeta] = {
             "search",
         ),
         claude_tools=("Read", "Glob", "Grep", "Bash", "Agent"),
-        copilot_agents=("Explorer",),
+        copilot_agents=("ai-explore",),
         copilot_handoffs=(
             {
                 "label": "🔧 Fix Issues",
@@ -288,7 +288,7 @@ AGENT_METADATA: dict[str, AgentMeta] = {
             "search",
         ),
         claude_tools=("Read", "Glob", "Grep", "Bash"),
-        copilot_agents=("Build", "Explorer", "Verify", "Plan", "Guard"),
+        copilot_agents=("Build", "ai-explore", "Verify", "Plan", "Guard"),
         copilot_handoffs=(
             {
                 "label": "📋 Create PR",
@@ -315,7 +315,7 @@ AGENT_METADATA: dict[str, AgentMeta] = {
             "search",
         ),
         claude_tools=("Read", "Glob", "Grep", "Bash"),
-        copilot_agents=("Build", "Explorer", "Verify", "Review", "Guard"),
+        copilot_agents=("Build", "ai-explore", "Verify", "Review", "Guard"),
     ),
 }
 
@@ -487,11 +487,25 @@ def translate_refs(content: str, target_ide: str) -> str:
         elif target_ide == "gemini":
             path = f".gemini/agents/ai-{name}.md"
         else:  # copilot
-            path = f".github/agents/{name}.agent.md"
+            # Spec-107 D-107-03: explore is renamed to ai-explore for cross-IDE
+            # parity. Other Copilot agents keep bare slugs (build.agent.md etc.).
+            copilot_slug = f"ai-{name}" if name == "explore" else name
+            path = f".github/agents/{copilot_slug}.agent.md"
         return f"{bt}{path}{bt}" if bt else path
 
     content = _XREF_CLAUDE_SKILL.sub(_replace_skill, content)
     content = _XREF_CLAUDE_AGENT.sub(_replace_agent, content)
+
+    # Spec-107 D-107-03: explore agent reference path adjustment for copilot.
+    # The block path translations below (.claude/agents/ -> .github/agents/)
+    # run on raw `.claude/agents/explore.md` references that miss the canonical
+    # `ai-` prefix; rewrite them to the canonical Copilot filename now.
+    if target_ide == "copilot":
+        content = re.sub(
+            r"\.github/agents/explore\.agent\.md",
+            ".github/agents/ai-explore.agent.md",
+            content,
+        )
 
     # Directory path translations (broader patterns -- run AFTER specific file translations)
     if target_ide == "codex":
@@ -511,6 +525,47 @@ def translate_refs(content: str, target_ide: str) -> str:
         content = re.sub(r"\.claude/agents/(?!ai-)", ".github/agents/", content)
 
     return content
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# GEMINI.md placeholder rendering (spec-107 D-107-04)
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+def render_gemini_md_placeholders(
+    text: str,
+    canonical_skills: list,
+    canonical_agents: list,
+) -> str:
+    """Substitute __SKILL_COUNT__ and __AGENT_COUNT__ placeholders in `text`.
+
+    Pure string substitution; no path translation. Lengths are taken from the
+    canonical discovered skill/agent collections so the rendered file always
+    matches disk reality (spec-107 G-5).
+    """
+    skill_count = len(canonical_skills)
+    agent_count = len(canonical_agents)
+    text = text.replace("__SKILL_COUNT__", str(skill_count))
+    text = text.replace("__AGENT_COUNT__", str(agent_count))
+    return text
+
+
+def write_gemini_md(canonical_skills: list, canonical_agents: list) -> str:
+    """Render the canonical GEMINI.md content for `.gemini/` and root surfaces.
+
+    Pipeline (spec-107 D-107-04, R-4 mitigation):
+      1. Read template at TPL_PROJECT / "GEMINI.md".
+      2. Substitute __SKILL_COUNT__ / __AGENT_COUNT__ placeholders FIRST.
+      3. Apply translate_refs(..., "gemini") on the substituted body.
+
+    Order matters: substitution runs first so translate_refs never sees the
+    placeholders (which contain underscores that some path regexes might
+    accidentally chew). Returned string is the final rendered content.
+    """
+    gemini_md_tpl = TPL_PROJECT / "GEMINI.md"
+    raw = gemini_md_tpl.read_text(encoding="utf-8")
+    substituted = render_gemini_md_placeholders(raw, canonical_skills, canonical_agents)
+    return translate_refs(substituted, "gemini")
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -1457,13 +1512,16 @@ def sync_all(*, check_only: bool = False, verbose: bool = False) -> int:
                 _generate_surface(target, res_content, check_only, verbose, generated_paths, diffs)
 
     # Surface 4: .github/agents/<name>.agent.md
+    # Spec-107 D-107-03: explore is renamed to ai-explore for cross-IDE parity.
+    # Other Copilot agents keep bare slugs (build.agent.md, plan.agent.md, etc.).
     for name, _fm, agent_path in agents:
         meta = AGENT_METADATA.get(name)
         if not meta:
             print(f"  WARNING: No metadata for agent '{name}', skipping .github/agents/")
             continue
-        path = GITHUB_AGENTS / f"{name}.agent.md"
-        tpl = TPL_GITHUB_AGENTS / f"{name}.agent.md"
+        copilot_slug = f"ai-{name}" if name == "explore" else name
+        path = GITHUB_AGENTS / f"{copilot_slug}.agent.md"
+        tpl = TPL_GITHUB_AGENTS / f"{copilot_slug}.agent.md"
         content = generate_copilot_agent(name, meta, agent_path)
         _generate_surface(path, content, check_only, verbose, generated_paths, diffs)
         _generate_surface(tpl, content, check_only, verbose, generated_paths, diffs)
@@ -1587,16 +1645,21 @@ def sync_all(*, check_only: bool = False, verbose: bool = False) -> int:
         diffs,
     )
 
-    # Surface 7.5: GEMINI.md (root + template, translated from TPL_PROJECT / GEMINI.md)
-    # Note: GEMINI.md template is hand-maintained but needs ref translation.
+    # Surface 7.5: GEMINI.md (root + .gemini/, rendered from TPL_PROJECT / GEMINI.md)
+    # Spec-107 D-107-04: template at src/ai_engineering/templates/project/GEMINI.md
+    # is the canonical hand-maintained source containing `__SKILL_COUNT__` /
+    # `__AGENT_COUNT__` placeholders. The template is NOT rewritten by sync;
+    # instead, write_gemini_md materializes counts + translate_refs(target=gemini)
+    # and writes to both the repo-root GEMINI.md (Gemini CLI primary directive)
+    # and `.gemini/GEMINI.md` (Gemini IDE canonical mirror).
     gemini_md_tpl = TPL_PROJECT / "GEMINI.md"
     if gemini_md_tpl.is_file():
-        gemini_md_content = translate_refs(gemini_md_tpl.read_text(encoding="utf-8"), "gemini")
+        gemini_md_content = write_gemini_md(skills, agents)
         _generate_surface(
             ROOT / "GEMINI.md", gemini_md_content, check_only, verbose, generated_paths, diffs
         )
         _generate_surface(
-            TPL_PROJECT / "GEMINI.md",
+            ROOT / ".gemini" / "GEMINI.md",
             gemini_md_content,
             check_only,
             verbose,

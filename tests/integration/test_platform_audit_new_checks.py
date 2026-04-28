@@ -19,13 +19,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PLATFORM_AUDIT_SKILL = REPO_ROOT / ".claude" / "skills" / "ai-platform-audit" / "SKILL.md"
 
 
-@pytest.mark.spec_107_red
 def test_skill_md_documents_check_6() -> None:
     """G-6: SKILL.md must document Check 6 (agent naming cross-IDE)."""
     assert PLATFORM_AUDIT_SKILL.is_file(), (
@@ -41,7 +38,6 @@ def test_skill_md_documents_check_6() -> None:
     )
 
 
-@pytest.mark.spec_107_red
 def test_skill_md_documents_check_7() -> None:
     """G-6: SKILL.md must document Check 7 (GEMINI.md skill count freshness)."""
     assert PLATFORM_AUDIT_SKILL.is_file()
@@ -53,7 +49,6 @@ def test_skill_md_documents_check_7() -> None:
     assert "GEMINI" in text, "Check 7 documentation must reference GEMINI.md by name"
 
 
-@pytest.mark.spec_107_red
 def test_skill_md_documents_check_8() -> None:
     """G-6: SKILL.md must document Check 8 (generic instruction-file scan)."""
     assert PLATFORM_AUDIT_SKILL.is_file()
@@ -71,7 +66,6 @@ def test_skill_md_documents_check_8() -> None:
         )
 
 
-@pytest.mark.spec_107_red
 def test_skill_md_advisory_severity_documented() -> None:
     """G-6 + NG-11: new checks must be flagged as advisory-only (no hard gate)."""
     assert PLATFORM_AUDIT_SKILL.is_file()
@@ -83,7 +77,6 @@ def test_skill_md_advisory_severity_documented() -> None:
     )
 
 
-@pytest.mark.spec_107_red
 def test_skill_md_references_spec_107() -> None:
     """G-6: SKILL.md must cite spec-107 as the origin for the new checks."""
     assert PLATFORM_AUDIT_SKILL.is_file()

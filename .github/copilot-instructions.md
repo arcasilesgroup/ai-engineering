@@ -53,14 +53,14 @@ Orchestrator agents can delegate tasks to specialized subagents via the `agent` 
 
 | Orchestrator | Delegates To | Handoffs |
 |-------------|-------------|----------|
-| Build | Guard, Explorer | -> Verify, -> Review |
-| Plan | Explorer, Guard | -> Autopilot |
-| Review | Explorer | -> Build |
-| Verify | Explorer | -> Build |
-| Autopilot | Build, Explorer, Verify, Plan, Guard | -> agent |
-| Run | Build, Explorer, Verify, Review, Guard | -- |
+| Build | Guard, ai-explore | -> Verify, -> Review |
+| Plan | ai-explore, Guard | -> Autopilot |
+| Review | ai-explore | -> Build |
+| Verify | ai-explore | -> Build |
+| Autopilot | Build, ai-explore, Verify, Plan, Guard | -> agent |
+| Run | Build, ai-explore, Verify, Review, Guard | -- |
 
-Leaf agents (Explorer, Guard, Guide, Simplifier) cannot delegate -- they are terminal nodes.
+Leaf agents (Guard, Guide, Simplifier, ai-explore) cannot delegate -- they are terminal nodes.
 
 Handoffs provide guided transitions between agents in VS Code (buttons after responses).
 Per-agent hooks (e.g., auto-format in Build) require `chat.useCustomAgentHooks: true`.

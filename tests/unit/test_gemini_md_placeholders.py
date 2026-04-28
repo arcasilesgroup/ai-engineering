@@ -17,14 +17,11 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-import pytest
-
 REPO_ROOT = Path(__file__).resolve().parents[2]
 GEMINI_TEMPLATE = REPO_ROOT / "src" / "ai_engineering" / "templates" / "project" / "GEMINI.md"
 GEMINI_RENDERED = REPO_ROOT / ".gemini" / "GEMINI.md"
 
 
-@pytest.mark.spec_107_red
 def test_template_uses_skill_count_placeholder() -> None:
     """G-5: template must contain `__SKILL_COUNT__` placeholder."""
     assert GEMINI_TEMPLATE.is_file(), f"template missing: {GEMINI_TEMPLATE}"
@@ -35,7 +32,6 @@ def test_template_uses_skill_count_placeholder() -> None:
     )
 
 
-@pytest.mark.spec_107_red
 def test_template_uses_agent_count_placeholder() -> None:
     """G-5: template must contain `__AGENT_COUNT__` placeholder."""
     assert GEMINI_TEMPLATE.is_file(), f"template missing: {GEMINI_TEMPLATE}"
@@ -47,7 +43,6 @@ def test_template_uses_agent_count_placeholder() -> None:
     )
 
 
-@pytest.mark.spec_107_red
 def test_template_no_hardcoded_counts() -> None:
     """G-5: template must NOT contain literal `## Skills (NN)` numeric headers."""
     assert GEMINI_TEMPLATE.is_file()
@@ -64,7 +59,6 @@ def test_template_no_hardcoded_counts() -> None:
     )
 
 
-@pytest.mark.spec_107_red
 def test_rendered_gemini_md_substitutes_placeholders() -> None:
     """G-5: post-sync `.gemini/GEMINI.md` shows numeric counts, not placeholders."""
     assert GEMINI_RENDERED.is_file(), (
@@ -89,7 +83,6 @@ def test_rendered_gemini_md_substitutes_placeholders() -> None:
     assert agent_count > 0, "rendered agent count must be a positive integer"
 
 
-@pytest.mark.spec_107_red
 def test_sync_script_exposes_write_gemini_md() -> None:
     """G-5: sync script must expose `write_gemini_md` rendering function."""
     sync_script = REPO_ROOT / "scripts" / "sync_command_mirrors.py"

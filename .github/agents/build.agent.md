@@ -4,7 +4,7 @@ description: "Implementation across all stacks -- the only code write agent"
 color: blue
 model: opus
 tools: [codebase, editFiles, fetch, githubRepo, problems, readFile, runCommands, search, terminalLastCommand, testFailures, agent]
-agents: [Guard, Explorer]
+agents: [Guard, ai-explore]
 handoffs:
 - label: ✅ Verify Changes
   agent: Verify

@@ -85,6 +85,68 @@ Mark PARTIAL whenever you find evidence of the capability but with a measurable 
 
 ---
 
+## Spec-107 Advisory Checks (6/7/8)
+
+These three checks are **advisory-only** per spec-107 NG-11. They surface
+naming + count drift across IDE surfaces but never hard-fail. Hard-gate
+enforcement lands in a future spec when ≥90% of projects pass cleanly.
+
+### Check 6 — Agent naming consistency cross-IDE
+
+For every agent file under `.codex/agents/`, `.github/agents/`,
+`.codex/agents/`, and `.gemini/agents/`, extract the front-matter
+`name:` field. Flag whenever:
+
+```
+name != basename(file).removesuffix(".agent.md").removesuffix(".md")
+```
+
+This catches future Explorer-style mismatches where the on-disk filename
+diverges from the canonical agent slug (e.g., `explore.agent.md` declaring
+`name: Explorer` instead of `ai-explore`). Spec-107 D-107-03 normalised the
+explore agent to `ai-explore`; Check 6 ensures every other Copilot agent
+keeps slug parity going forward.
+
+Severity: **advisory WARN**. Output lists the file path, observed name,
+expected slug, and remediation pointer (`scripts/sync_command_mirrors.py`).
+
+### Check 7 — GEMINI.md skill count freshness
+
+Extract the count `N` from the `## Skills (N)` header in `.gemini/GEMINI.md`.
+Compare with `len(glob(".gemini/skills/ai-*/SKILL.md"))` (the disk reality).
+Flag any mismatch.
+
+Spec-107 D-107-04 replaced the hand-maintained count with a
+`__SKILL_COUNT__` placeholder rendered by
+`scripts/sync_command_mirrors.py write_gemini_md`; Check 7 detects future
+template drift where the placeholder is accidentally removed and replaced
+with a stale literal.
+
+Severity: **advisory WARN**. Remediation: re-run `ai-eng sync`.
+
+### Check 8 — Generic instruction-file count scan
+
+Walk every canonical instruction file and extract h2 count headers. Surface
+covered:
+
+- `CLAUDE.md`
+- `AGENTS.md`
+- `.github/copilot-instructions.md`
+- `.gemini/GEMINI.md`
+
+For each file, regex match `^## Skills \((\d+)\)$` and `^## Agents \((\d+)\)$`.
+Compare each captured `N` against the canonical count from
+`.ai-engineering/manifest.yml` (`skills.total`, `agents.total`). Flag any
+mismatch with the source file path so reviewers can trace drift.
+
+This is defense-in-depth: even if a future IDE adapter introduces a new
+instruction file, the regex pattern is generic enough to catch stale counts
+across the whole surface.
+
+Severity: **advisory WARN**. Remediation: re-run `ai-eng sync`.
+
+---
+
 ## Auto-Fix P0 Issues
 
 `--fix` only auto-remediates P0 issues. P1 and P2 are reported for manual action.

@@ -9,6 +9,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### BREAKING
 
+#### spec-107 -- Copilot Explorer agent renamed (BREAKING-LIKELY, Copilot only)
+
+- **Agent `@Explorer` renamed to `@ai-explore` for cross-IDE consistency
+  (spec-107 D-107-03).** Claude Code, Codex, and Gemini already used the
+  canonical `ai-explore` slug; this rename brings GitHub Copilot Chat in
+  line. Slash command `/ai-explore` is also added via a new chatmode
+  alias at `.github/chatmodes/ai-explore.chatmode.md`, so both
+  `@ai-explore` (subagent invocation) and `/ai-explore` (Claude-style
+  slash) resolve to the same agent persona on Copilot. The legacy
+  `.github/agents/explore.agent.md` filename is replaced by
+  `.github/agents/ai-explore.agent.md`. Migration: any Copilot Chat
+  workspace prompt that hardcodes `@Explorer` must update to
+  `@ai-explore`. The agent's behaviour, tooling, and read-only contract
+  are unchanged.
+
+- **`scripts/sync_command_mirrors.py` `AGENT_METADATA["explore"]["display_name"]`
+  switched from `"Explorer"` to `"ai-explore"`.** Every IDE mirror surface
+  regenerates with the canonical slug on the next `ai-eng sync`. Anyone
+  forking the framework with custom `AGENT_METADATA` overrides should
+  audit their fork for the `Explorer` literal and update accordingly.
+
+- **`templates/project/GEMINI.md` count placeholders (spec-107 D-107-04).**
+  The template now ships with `__SKILL_COUNT__` and `__AGENT_COUNT__`
+  placeholders in the `## Skills (N)` and `## Agents (N)` h2 headers and
+  Source-of-Truth table cells. `scripts/sync_command_mirrors.py
+  write_gemini_md(...)` materialises these against the canonical
+  `.claude/skills/` + `.claude/agents/` discovery on every sync, so the
+  rendered `.gemini/GEMINI.md` and root `GEMINI.md` always match disk
+  reality. No user-visible behavioural change; placeholder leakage is
+  caught by the new `/ai-platform-audit` Check 7.
+
+- **`/ai-platform-audit` advisory checks 6/7/8 (spec-107 D-107-04, NG-11).**
+  Three new advisory-only checks land:
+  - Check 6 — agent naming consistency cross-IDE (catches future
+    Explorer-style mismatches across `.claude/`, `.github/`, `.codex/`,
+    `.gemini/` agents).
+  - Check 7 — `.gemini/GEMINI.md` skill count freshness (regression
+    detection if the template placeholder is removed and replaced with a
+    stale literal).
+  - Check 8 — generic instruction-file count scan (defense-in-depth
+    across `CLAUDE.md`, `AGENTS.md`, `.github/copilot-instructions.md`,
+    `.gemini/GEMINI.md`).
+  All three emit advisory WARN only and never hard-fail. Hard-gate
+  enforcement lands in a future spec when ≥90% of projects pass cleanly.
+
 #### spec-105 -- Unified Gate + Generalized Risk Acceptance (BREAKING-LIKELY)
 
 This release introduces a new CLI namespace (`ai-eng risk *`), a new

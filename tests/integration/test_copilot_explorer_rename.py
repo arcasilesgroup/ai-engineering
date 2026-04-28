@@ -19,14 +19,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 REPO_ROOT = Path(__file__).resolve().parents[2]
 GITHUB_AGENTS_DIR = REPO_ROOT / ".github" / "agents"
 CHATMODES_DIR = REPO_ROOT / ".github" / "chatmodes"
 
 
-@pytest.mark.spec_107_red
 def test_renamed_agent_file_exists() -> None:
     """G-4: `.github/agents/ai-explore.agent.md` must exist post-rename."""
     renamed = GITHUB_AGENTS_DIR / "ai-explore.agent.md"
@@ -36,7 +33,6 @@ def test_renamed_agent_file_exists() -> None:
     )
 
 
-@pytest.mark.spec_107_red
 def test_legacy_agent_file_removed() -> None:
     """G-4: legacy `.github/agents/explore.agent.md` must NOT linger."""
     legacy = GITHUB_AGENTS_DIR / "explore.agent.md"
@@ -46,7 +42,6 @@ def test_legacy_agent_file_removed() -> None:
     )
 
 
-@pytest.mark.spec_107_red
 def test_renamed_agent_front_matter_name() -> None:
     """G-4: front-matter `name:` must equal canonical slug `ai-explore`."""
     renamed = GITHUB_AGENTS_DIR / "ai-explore.agent.md"
@@ -60,7 +55,6 @@ def test_renamed_agent_front_matter_name() -> None:
     )
 
 
-@pytest.mark.spec_107_red
 def test_chatmode_alias_exists() -> None:
     """G-4: `.github/chatmodes/ai-explore.chatmode.md` provides slash alias."""
     chatmode = CHATMODES_DIR / "ai-explore.chatmode.md"
@@ -70,7 +64,6 @@ def test_chatmode_alias_exists() -> None:
     )
 
 
-@pytest.mark.spec_107_red
 def test_sync_metadata_canonical_name() -> None:
     """G-4: `AGENT_METADATA["explore"]["name"]` is `ai-explore`, not Explorer."""
     sync_script = REPO_ROOT / "scripts" / "sync_command_mirrors.py"

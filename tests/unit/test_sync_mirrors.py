@@ -170,8 +170,10 @@ class TestGenerationFunctions:
         # Act
         content = generate_copilot_agent("explore", meta, agent_path)
 
-        # Assert
-        assert 'name: "Explorer"' in content
+        # Assert -- spec-107 D-107-03 renamed Explorer -> ai-explore for
+        # cross-IDE parity (Claude/Codex/Gemini already used the canonical
+        # ai-explore slug).
+        assert 'name: "ai-explore"' in content
         assert "model: opus" in content
         assert "color: cyan" in content
         assert "readFile" in content  # explore has limited tools

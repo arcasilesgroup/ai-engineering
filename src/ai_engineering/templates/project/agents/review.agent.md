@@ -4,7 +4,7 @@ description: "Code review orchestrator -- dispatches specialist agents for deep 
 color: red
 model: opus
 tools: [codebase, githubRepo, problems, readFile, search, agent]
-agents: [Explorer]
+agents: [ai-explore]
 handoffs:
 - label: 🔧 Fix Issues
   agent: Build

@@ -4,7 +4,7 @@ description: "Advisory planning: classify scope, assess risks, and recommend pip
 color: purple
 model: opus
 tools: [codebase, editFiles, fetch, githubRepo, problems, readFile, runCommands, search, terminalLastCommand, testFailures, agent]
-agents: [Explorer, Guard]
+agents: [ai-explore, Guard]
 handoffs:
 - label: ▶ Dispatch Implementation
   agent: Autopilot

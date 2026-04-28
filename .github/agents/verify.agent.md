@@ -4,7 +4,7 @@ description: "Evidence-first verification orchestrator -- dispatches determinist
 color: green
 model: opus
 tools: [codebase, githubRepo, problems, readFile, runCommands, search, agent]
-agents: [Explorer]
+agents: [ai-explore]
 handoffs:
 - label: 🔧 Fix Issues
   agent: Build
