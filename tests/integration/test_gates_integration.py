@@ -374,8 +374,14 @@ class TestToolCheckRequired:
         assert not check.passed
         assert "600s" in check.output
 
-    def test_stack_tests_uses_parallel_unit_only(self) -> None:
-        """stack-tests runs unit tier only with parallel execution."""
+    def test_stack_tests_uses_serial_unit_only(self) -> None:
+        """stack-tests runs unit tier only with serial execution.
+
+        spec-107 mitigation: removed -n auto worksteal because xdist
+        worksteal under heavy parallel I/O surfaces APFS write-barrier
+        flakes in tests that exercise real subprocess git operations.
+        Serial dispatch is 100% reproducible. See stack_runner.py docstring.
+        """
         from ai_engineering.policy.checks.stack_runner import PRE_PUSH_CHECKS
 
         stack_tests = [c for c in PRE_PUSH_CHECKS.get("python", []) if c.name == "stack-tests"]
@@ -384,16 +390,22 @@ class TestToolCheckRequired:
         assert "--no-cov" in cmd, "stack-tests must skip coverage"
         assert "-x" in cmd, "stack-tests must fail fast"
         assert "unit" in " ".join(cmd), "stack-tests must select unit marker"
-        assert "-n" in cmd, "stack-tests must use parallel execution"
-        assert "worksteal" in " ".join(cmd), "stack-tests must use worksteal distribution"
+        assert "-n" not in cmd, "stack-tests must run serial (spec-107 xdist flake mitigation)"
+        assert "worksteal" not in " ".join(cmd), (
+            "stack-tests must not use worksteal (spec-107 xdist flake mitigation)"
+        )
 
     def test_stack_tests_has_optimized_timeout(self) -> None:
-        """stack-tests timeout is 120s for unit-only parallel execution."""
+        """stack-tests timeout is 180s for unit-only serial execution.
+
+        spec-107 raised from 120s to 180s to accommodate the additional
+        wall-clock cost of serial dispatch (~30s on a 4k-test suite).
+        """
         from ai_engineering.policy.checks.stack_runner import PRE_PUSH_CHECKS
 
         stack_tests = [c for c in PRE_PUSH_CHECKS.get("python", []) if c.name == "stack-tests"]
         assert stack_tests, "stack-tests must exist"
-        assert stack_tests[0].timeout == 120, "stack-tests timeout must be 120s"
+        assert stack_tests[0].timeout == 180, "stack-tests timeout must be 180s"
 
     def test_check_config_default_timeout(self) -> None:
         """CheckConfig defaults to 300s timeout."""

@@ -151,9 +151,20 @@ def test_doctor_remaining_branches(tmp_path: Path) -> None:
         fixed = doctor_tools.fix(ctx, failed)
     assert any(c.status == CheckStatus.WARN for c in fixed)
 
+    # branch_policy.check() makes TWO subprocess.run calls:
+    #   1. ``git rev-parse --is-inside-work-tree`` -- expects "true"
+    #   2. ``git symbolic-ref --short HEAD`` -- returns the branch name
+    # Single side_effect provides both responses in order. Returning the
+    # SAME SimpleNamespace for both would land "main" as the work-tree
+    # check output, which does not equal "true", so the function would
+    # short-circuit to "not a git repository" instead of reaching the
+    # protected-branch verdict.
     with patch(
         "ai_engineering.doctor.runtime.branch_policy.subprocess.run",
-        return_value=SimpleNamespace(returncode=0, stdout="main\n"),
+        side_effect=[
+            SimpleNamespace(returncode=0, stdout="true\n"),  # inside-work-tree probe
+            SimpleNamespace(returncode=0, stdout="main\n"),  # symbolic-ref HEAD
+        ],
     ):
         results3 = doctor_branch.check(ctx)
     assert any("protected branch" in c.message for c in results3)

@@ -516,7 +516,14 @@ def test_gate_run_help_documents_each_flag() -> None:
     A user running ``--help`` to discover the CLI surface MUST see all five
     flags in the rendered help text:
     ``--cache-aware``, ``--no-cache``, ``--force``, ``--json``, ``--mode``.
+
+    Normalisation: Typer's rich-help renderer wraps long option names across
+    line breaks (``-\\n-cache-aware``) and injects ANSI colour codes when
+    stdout is non-TTY in some environments. We strip ANSI sequences and
+    collapse whitespace before substring-checking the flag name.
     """
+    import re as _re
+
     # Arrange / Act
     app = create_app()
     result = runner.invoke(app, ["gate", "run", "--help"])
@@ -526,10 +533,20 @@ def test_gate_run_help_documents_each_flag() -> None:
         f"`gate run --help` must exit 0; got exit_code={result.exit_code} stdout={result.stdout!r}"
     )
 
-    text = result.output or result.stdout or ""
+    raw = result.output or result.stdout or ""
+    # Strip ANSI escape sequences (rich's colour codes).
+    no_ansi = _re.sub(r"\x1b\[[0-9;]*m", "", raw)
+    # Collapse runs of whitespace (incl. newlines) so wrapped option names
+    # like "-\n-cache-aware" become "- -cache-aware" → still searchable.
+    normalised = _re.sub(r"\s+", " ", no_ansi)
+    # Also fold split-after-dash variants explicitly to defend against
+    # Rich's word-break inside long option labels.
+    normalised_no_space_after_dash = normalised.replace("- -", "--")
+
     for flag in ("--cache-aware", "--no-cache", "--force", "--json", "--mode"):
-        assert flag in text, (
-            f"`gate run --help` MUST document the {flag!r} flag. Got help text={text!r}"
+        assert flag in normalised_no_space_after_dash, (
+            f"`gate run --help` MUST document the {flag!r} flag. "
+            f"Normalised help text=\n{normalised_no_space_after_dash[:2000]!r}"
         )
 
 

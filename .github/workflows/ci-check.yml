@@ -596,8 +596,13 @@ jobs:
           from pathlib import Path
           skills_dir = Path('src/ai_engineering/templates/project/.claude/skills')
           errors = []
+          # Skip non-skill subdirs prefixed with '_' (spec-106 D-106-01:
+          # _shared/ houses execution-kernel.md and other shared handlers
+          # consumed by orchestrators; not a skill, no SKILL.md required).
           for skill_dir in sorted(skills_dir.iterdir()):
               if not skill_dir.is_dir():
+                  continue
+              if skill_dir.name.startswith('_'):
                   continue
               skill_file = skill_dir / 'SKILL.md'
               if not skill_file.exists():
@@ -612,7 +617,8 @@ jobs:
               for e in errors:
                   print(f'ERROR: {e}')
               raise SystemExit(1)
-          print(f'All {len(list(skills_dir.iterdir()))} skills valid')
+          skills_count = sum(1 for d in skills_dir.iterdir() if d.is_dir() and not d.name.startswith('_'))
+          print(f'All {skills_count} skills valid')
           "
 
   build-check:
