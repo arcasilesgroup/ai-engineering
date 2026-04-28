@@ -27,35 +27,33 @@ from ai_engineering.state.service import load_install_state, save_install_state
 from . import InstallContext, PhasePlan, PhaseProtocol, PhaseResult, PhaseVerdict
 
 # ---------------------------------------------------------------------------
-# Spec-101 BREAKING banner copy
+# First-run welcome banner
 # ---------------------------------------------------------------------------
+# spec-109 follow-up: replaced the spec-101 [BREAKING] banner with friendlier
+# copy — same three pieces of information, no spec ID / EXIT-code jargon.
 
 _BREAKING_BANNER = """\
 ================================================================================
-[BREAKING] spec-101 -- Stack-Aware User-Scope Tool Bootstrap
+What's new in ai-engineering
 ================================================================================
-This project just received the spec-101 install contract update. Read once;
-the banner does not repeat after this run.
+Three things to know about this project (this notice appears once):
 
-  1. Hard-fail on missing tools
-     ai-eng install / ai-eng doctor --fix now exit non-zero on a missing
-     required tool. EXIT 80 = required tool missing or unverifiable.
-     EXIT 81 = SDK / language prerequisite missing (see prereqs.sdk_per_stack).
-     The previous "silent pass" behaviour and the `|| true` workaround are
-     gone.
+  1. Missing tools now stop the install
+     If a required tool can't be installed, the CLI tells you exactly what's
+     missing and how to install it — no more silent partial setups.
 
-  2. python_env.mode defaults to 'uv-tool'
-     Python tools install to ~/.local/share/uv/tools/, so worktree creation
-     no longer triggers a per-cwd .venv re-install. Opt back into the legacy
-     per-cwd .venv with `python_env.mode: venv` in .ai-engineering/manifest.yml.
-     `shared-parent` enables a worktree-aware shared .venv at the repo root.
+  2. Tools install once per machine, not per project
+     Python tools (ruff, ty, pip-audit, semgrep) live in
+     ~/.local/share/uv/tools/, so creating a new git worktree no longer
+     re-installs them. To opt back into the per-project .venv, set
+     `python_env.mode: venv` in .ai-engineering/manifest.yml.
 
-  3. required_tools covers 14 stacks
-     baseline + python, typescript, javascript, java, csharp, go, php, rust,
-     kotlin, swift, dart, sql, bash, cpp. Adding a stack to manifest without
-     declaring its tool block is now impossible by construction.
+  3. Each language stack ships with its own toolchain
+     Python, TypeScript, Java, Rust, Go, and 9 more stacks have their tool
+     lists declared in your manifest. If you add a stack later, ai-eng will
+     prompt you for the missing tools instead of failing silently.
 
-Details: .ai-engineering/contexts/python-env-modes.md and CHANGELOG.md.
+More detail: .ai-engineering/contexts/python-env-modes.md
 ================================================================================
 """
 

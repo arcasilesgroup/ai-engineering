@@ -102,7 +102,12 @@ class TestBreakingBannerFirstRun:
     """Banner emits once on first run, then never again."""
 
     def test_emits_on_fresh_install_no_state_file(self, tmp_path, capsys) -> None:
-        """When install-state.json does not exist, banner emits to stderr."""
+        """When install-state.json does not exist, banner emits to stderr.
+
+        spec-109 follow-up: banner copy reworded to be user-friendly. Tests
+        assert against the new banner heading + the three topic keywords
+        instead of the old spec-id / EXIT-code jargon.
+        """
         target = _make_target(tmp_path)
         # No state file written -- truly fresh install.
         runner = PipelineRunner([_NoopPhase("phase-a")])
@@ -110,15 +115,15 @@ class TestBreakingBannerFirstRun:
         runner.run(_make_context(target), dry_run=False)
 
         captured = capsys.readouterr()
-        assert "BREAKING" in captured.err, (
+        assert "What's new in ai-engineering" in captured.err, (
             "First-run banner must emit to stderr; "
             f"got stderr={captured.err!r} stdout={captured.out!r}"
         )
-        # Key change keywords must appear so users notice the contract change.
-        assert "EXIT 80" in captured.err
-        assert "EXIT 81" in captured.err
-        assert "python_env.mode" in captured.err
-        assert "14 stacks" in captured.err
+        # Topic keywords -- one per change. Wording is friendlier but each
+        # change is still discoverable by a clear keyword.
+        assert "Missing tools now stop the install" in captured.err
+        assert "Tools install once per machine" in captured.err
+        assert "Each language stack ships with its own toolchain" in captured.err
 
     def test_emits_when_flag_false(self, tmp_path, capsys) -> None:
         """State file exists with breaking_banner_seen=False -> banner fires."""
@@ -130,7 +135,7 @@ class TestBreakingBannerFirstRun:
         runner.run(_make_context(target), dry_run=False)
 
         captured = capsys.readouterr()
-        assert "BREAKING" in captured.err
+        assert "What's new in ai-engineering" in captured.err
 
     def test_sets_flag_after_emit(self, tmp_path, capsys) -> None:
         """After the banner fires, breaking_banner_seen must be True on disk."""
@@ -158,8 +163,8 @@ class TestBreakingBannerFirstRun:
         runner.run(_make_context(target), dry_run=False)
 
         captured = capsys.readouterr()
-        assert "BREAKING" not in captured.err
-        assert "BREAKING" not in captured.out
+        assert "What's new in ai-engineering" not in captured.err
+        assert "What's new in ai-engineering" not in captured.out
 
     def test_banner_emits_exactly_once_across_two_runs(self, tmp_path, capsys) -> None:
         """Run twice in a row; banner must only appear during the first run."""
@@ -174,9 +179,11 @@ class TestBreakingBannerFirstRun:
         runner.run(_make_context(target), dry_run=False)
         second = capsys.readouterr()
 
-        assert first.err.count("BREAKING") == 1, "Banner must emit exactly once on the first run."
-        assert "BREAKING" not in second.err
-        assert "BREAKING" not in second.out
+        assert first.err.count("What's new in ai-engineering") == 1, (
+            "Banner must emit exactly once on the first run."
+        )
+        assert "What's new in ai-engineering" not in second.err
+        assert "What's new in ai-engineering" not in second.out
 
     def test_dry_run_does_not_emit_or_persist(self, tmp_path, capsys) -> None:
         """Dry-run preview must neither show the banner nor persist the flag."""
@@ -188,8 +195,8 @@ class TestBreakingBannerFirstRun:
         runner.run(_make_context(target), dry_run=True)
 
         captured = capsys.readouterr()
-        assert "BREAKING" not in captured.err
-        assert "BREAKING" not in captured.out
+        assert "What's new in ai-engineering" not in captured.err
+        assert "What's new in ai-engineering" not in captured.out
 
         loaded = load_install_state(state_dir)
         assert loaded.breaking_banner_seen is False, "Dry-run must not flip the persistence flag."

@@ -516,7 +516,13 @@ def install_cmd(
             },
             [
                 NextAction(command="ai-eng doctor", description="Run health diagnostics"),
-                NextAction(command="/ai-start", description="Begin the first governed session"),
+                NextAction(
+                    command="/ai-start",
+                    description=(
+                        "IDE assistant slash-command (Claude Code / Copilot / Codex / "
+                        "Gemini): begin the first governed session"
+                    ),
+                ),
             ],
         )
     else:
@@ -541,13 +547,21 @@ def install_cmd(
             print_stdout("  (framework was already installed \u2014 skipped existing files)")
 
         typer.echo("")
+        # spec-109 follow-up: /ai-start is an IDE assistant slash command,
+        # NOT a shell command. Surface only ``ai-eng *`` shell commands here;
+        # the IDE-side hint is rendered as a separate guidance line below.
         next_steps = [
             ("ai-eng doctor", "Run health diagnostics"),
-            ("/ai-start", "Begin the first governed session"),
         ]
         if result.guide_text:
             next_steps.append(("ai-eng guide", "View branch policy setup guide"))
         suggest_next(next_steps)
+
+        # IDE assistant guidance (separate from shell next steps).
+        info(
+            "Open your AI assistant (Claude Code / Copilot / Codex / Gemini) "
+            "and run /ai-start to begin the first governed session."
+        )
 
         # Summary panel with next steps
         pending_setup: list[tuple[str, str]] = []
@@ -558,8 +572,6 @@ def install_cmd(
             for step in result.manual_steps:
                 if "setup" in step.lower():
                     pending_setup.append(("ai-eng setup", step))
-
-        next_steps_list.append(("/ai-start", "Start the first governed session"))
 
         hooks_count = len(result.hooks.installed) if result.hooks.installed else 0
 

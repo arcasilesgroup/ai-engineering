@@ -331,6 +331,26 @@ class TestVerifyRegexMatch:
             "even when subprocess exit code is 0 — D-101-04 demands a positive proof"
         )
 
+    def test_regex_match_on_stderr_also_marks_passed(self) -> None:
+        """spec-109 follow-up: tools that emit success markers to stderr
+        (e.g. gitleaks logs ``no leaks found`` on stderr) must still be
+        considered verified. ``run_verify`` searches both stdout and stderr.
+        """
+        run_verify = _get_run_verify()
+        spec = _CANONICAL_VERIFY_SPECS["jq"]
+        completed = MagicMock()
+        completed.returncode = 0
+        completed.stdout = ""  # nothing on stdout
+        completed.stderr = "jq-1.7.1\n"  # marker only on stderr
+
+        with patch(f"{_MODULE}._safe_run", return_value=completed):
+            result = run_verify(spec)
+
+        assert result.passed is True, (
+            "regex match against stderr must satisfy run_verify when exit is 0; "
+            "tools like gitleaks log success markers to stderr"
+        )
+
     def test_non_zero_exit_marks_failed_regardless_of_regex(self) -> None:
         run_verify = _get_run_verify()
         spec = _CANONICAL_VERIFY_SPECS["semgrep"]

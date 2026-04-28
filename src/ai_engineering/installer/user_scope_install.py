@@ -748,12 +748,14 @@ def run_verify(tool_spec: dict[str, Any]) -> VerifyResult:
     stderr: str = getattr(completed, "stderr", "") or ""
     returncode: int = getattr(completed, "returncode", 0) or 0
 
-    # Regex match against stdout. The match is the version string surfaced
-    # to the caller; non-match marks passed=False even when exit is 0
-    # (D-101-04 demands a positive proof).
+    # Regex match against stdout AND stderr (spec-109 follow-up): some tools
+    # (gitleaks, git, several ones with ANSI logs) emit success markers to
+    # stderr instead of stdout. Searching both streams catches those without
+    # weakening the "positive proof" contract -- regex still has to find the
+    # marker SOMEWHERE in the captured output.
     matched_version: str | None = None
     if regex_pattern:
-        match = re.search(regex_pattern, stdout)
+        match = re.search(regex_pattern, stdout) or re.search(regex_pattern, stderr)
         if match is not None:
             matched_version = match.group(0)
 
