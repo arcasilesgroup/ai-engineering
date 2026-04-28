@@ -10,13 +10,28 @@ Mode: advisory only (spec-106 D-106-04, NG-2). The script never blocks
 CI; sub-threshold skills are surfaced via stdout + the JSON report for
 downstream dashboards. Hard-gate enforcement is deferred to a future spec
 when >=90% of skills meet the threshold.
+
+Platform: POSIX-only. ``scripts/skill-audit.sh`` is a bash shell script
+that requires (a) the POSIX execute bit (Windows file systems do not
+preserve it across git checkout) and (b) a real bash interpreter on PATH
+(GitHub Actions ``windows-latest`` runners only ship a stub that triggers
+WSL, which has no installed distribution). The Linux + macOS integration
+matrices remain authoritative — Windows skips this module.
 """
 
 from __future__ import annotations
 
 import json
 import subprocess
+import sys
 from pathlib import Path
+
+import pytest
+
+pytestmark = pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="skill-audit.sh is a bash script; Windows runners lack execute-bit + bash",
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SKILL_AUDIT_SCRIPT = REPO_ROOT / "scripts" / "skill-audit.sh"
