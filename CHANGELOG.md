@@ -7,6 +7,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### TL;DR
+
+ai-engineering 0.5.0 turns the installer into a hard, observable contract, makes Python tooling worktree-fast, ships a single-pass local gate with caching, and graduates risk acceptance to a first-class CLI. Cross-IDE polish lands on Copilot.
+
+| What's new | Why it matters |
+| --- | --- |
+| Installer fails loudly with EXIT 80 / EXIT 81 | No more silent passes hiding broken stacks |
+| Python tools install once into `~/.local/share/uv/tools/` | New worktrees are ready in seconds, not minutes |
+| `ai-eng install` auto-heals tool failures | One command instead of three |
+| Live `[N/M] phase_label` progress | You see what step the install is on, in real time |
+| Single-pass gate orchestrator with 24h SHA-256 cache | Local pre-commit becomes 2-3x faster on warm checkouts |
+| First-class `ai-eng risk *` CLI | Risk acceptances are no longer hand-edited JSON |
+| `gates > mode: prototyping` opt-out | Spike work skips Tier 2 governance; CI always overrides |
+| Copilot `@Explorer` -> `@ai-explore` | One agent name across Claude, Copilot, Codex, Gemini |
+| `required_tools` governs 14 stacks | Adding a stack without tools is rejected by the manifest lint |
+
+### Breaking changes — read before you upgrade
+
+1. **`ai-eng install` and `ai-eng doctor --fix --phase tools` now exit non-zero on missing tooling.** Two reserved codes carry the diagnosis: `EXIT 80` (a required CLI tool failed to install or verify) and `EXIT 81` (a language SDK / prerequisite is missing). **Migration:** remove any `ai-eng install || true` shielding from CI. If a tool is genuinely unsupported on a host OS, declare `platform_unsupported` (tool-level) or `platform_unsupported_stack` (stack-level) in `manifest.yml` with a non-empty `unsupported_reason`.
+2. **`python_env.mode` defaults to `uv-tool`.** Existing projects pick `uv-tool` automatically on the next install. **Migration:** if your team relies on `source .venv/bin/activate`, set `python_env > mode: venv` in `.ai-engineering/manifest.yml` *before* running `ai-eng install`. A worktree-aware option (`mode: shared-parent`) is also available.
+3. **`required_tools` covers 14 stacks (python, typescript, javascript, java, csharp, go, php, rust, kotlin, swift, dart, sql, bash, cpp).** Adding a stack to `manifest > providers > stacks` without a matching `required_tools > <stack>` block is rejected by governance lint. **Migration:** if you stack-extend, add the matching tool block.
+4. **GitHub Copilot agent `@Explorer` is now `@ai-explore`.** Slash command `/ai-explore` is also added on Copilot. **Migration:** any Copilot Chat workspace prompt that hardcodes `@Explorer` must update to `@ai-explore`. The agent's behaviour is unchanged.
+5. **New `manifest > gates > mode` field.** Default `regulated` keeps full Tier 0+1+2 enforcement; `prototyping` skips Tier 2 governance for spike work. CI auto-detects via `CI=true` / `GITHUB_ACTIONS=true` / `TF_BUILD=True` and forces `regulated` regardless of the manifest, so prototyping mode cannot leak to protected branches or CI runs. **Migration:** none — `regulated` is the default.
+
+### Migration in 5 minutes
+
+```bash
+# 1. Upgrade the CLI
+pipx upgrade ai-engineering        # pipx
+uv tool upgrade ai-engineering     # uv
+pip install --upgrade ai-engineering  # pip in a venv
+
+# 2. Re-install in each project. Auto-remediation runs on the second pass.
+ai-eng install .
+
+# 3. Verify the install ended healthy.
+ai-eng doctor
+```
+
+Optional steps:
+
+- If you need the legacy per-cwd `.venv/`: set `python_env > mode: venv` in `.ai-engineering/manifest.yml` *before* step 2.
+- If you fork-customise Copilot agents and reference `@Explorer` literally: replace it with `@ai-explore` and rename `.github/agents/explore.agent.md` to `.github/agents/ai-explore.agent.md`.
+
+### Detailed changes
+
+The sections below preserve the full technical record (decision IDs, schema deltas, rule references). Skip these if you only needed the migration above.
+
 ### Added
 
 #### spec-109 — Installer first-install robustness (auto-remediation + live progress)
