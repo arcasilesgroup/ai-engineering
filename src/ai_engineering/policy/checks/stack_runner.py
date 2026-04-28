@@ -203,16 +203,6 @@ PRE_PUSH_CHECKS: dict[str, list[CheckConfig]] = {
             # `policy/auto_stage.py:_refresh_index` for the prod-side
             # mitigation; this serial dispatch is the belt-and-suspenders
             # complement so pre-push gates never randomly flake.
-            #
-            # Three modules carved out to `stack-tests-isolated` below: a
-            # prior test in this main suite patches `subprocess.run` via
-            # `unittest.mock.patch().start()` without paired stop() (or
-            # fails between start/stop). The leaked mock returns synthetic
-            # results to subsequent tests, breaking real-binary assertions
-            # in modules that drive subprocess (env-scrub, python-env-mode,
-            # setup-cli). Splitting them into a fresh `pytest` process is
-            # the tier-2 mitigation; the root-cause `patch().start()` test
-            # is hunted in a follow-up. See spec-107 P6 lesson + spec-108.
             cmd=[
                 # Use project-local .venv python directly instead of `uv run`.
                 # When ai-eng is installed as a global tool (~/.local/bin/ai-eng),
@@ -230,33 +220,8 @@ PRE_PUSH_CHECKS: dict[str, list[CheckConfig]] = {
                 "-q",
                 "-x",
                 "--no-cov",
-                "--ignore=tests/unit/test_safe_run_env_scrub.py",
-                "--ignore=tests/unit/test_python_env_mode_install.py",
-                "--ignore=tests/unit/test_setup_cli.py",
             ],
             timeout=180,
-        ),
-        CheckConfig(
-            name="stack-tests-isolated",
-            # Tier-2: the three modules carved out of `stack-tests` above
-            # run in a fresh pytest process so the cross-test mock leak
-            # cannot reach them. Same .venv/bin/python rationale; serial.
-            # ~4-9s wall-clock for 81 tests. Restores local coverage of
-            # secret/env scrubbing (test_safe_run_env_scrub), python-env
-            # mode install (spec-101 central feature), and setup CLI.
-            cmd=[
-                ".venv/bin/python",
-                "-m",
-                "pytest",
-                "tests/unit/test_safe_run_env_scrub.py",
-                "tests/unit/test_python_env_mode_install.py",
-                "tests/unit/test_setup_cli.py",
-                "--tb=short",
-                "-q",
-                "-x",
-                "--no-cov",
-            ],
-            timeout=120,
         ),
         CheckConfig(name="ty-check", cmd=["ty", "check", "src/ai_engineering"]),
     ],
