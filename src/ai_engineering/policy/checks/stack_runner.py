@@ -18,6 +18,7 @@ Two parallel surfaces are exposed for the migration:
 
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 import tomllib
@@ -431,6 +432,13 @@ def run_tool_check(
             )
         return
 
+    # Scrub VIRTUAL_ENV inherited from the ai-eng tool process so subprocess
+    # `uv run` resolves the project's local .venv (which contains the
+    # `ai_engineering` editable install), not the tool venv that only has
+    # ai-eng's own runtime deps. Symptom of leaked VIRTUAL_ENV:
+    # `ImportError: No module named 'ai_engineering'` while loading conftest.
+    child_env = {k: v for k, v in os.environ.items() if k != "VIRTUAL_ENV"}
+
     try:
         proc = subprocess.run(
             cmd,
@@ -440,6 +448,7 @@ def run_tool_check(
             timeout=timeout,
             encoding="utf-8",
             errors="replace",
+            env=child_env,
         )
         passed = proc.returncode == 0
         output = proc.stdout.strip() or proc.stderr.strip()
@@ -801,6 +810,10 @@ def run_tool_check_for_spec(
             return
 
         full_cmd = [*argv, *args]
+        # Same VIRTUAL_ENV scrub as the per-stack subprocess at line ~440
+        # so spec-driven check runners pick up the project venv, not the
+        # ai-eng tool venv that lacks the editable ai_engineering install.
+        child_env = {k: v for k, v in os.environ.items() if k != "VIRTUAL_ENV"}
         try:
             proc = subprocess.run(
                 full_cmd,
@@ -810,6 +823,7 @@ def run_tool_check_for_spec(
                 timeout=timeout,
                 encoding="utf-8",
                 errors="replace",
+                env=child_env,
             )
             passed = proc.returncode == 0
             output = proc.stdout.strip() or proc.stderr.strip()

@@ -384,7 +384,7 @@ def _probe_cpp() -> ProbeResult:
     try:
         completed = _run_probe(argv_clang)
     except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
-        completed = None  # type: ignore[assignment]
+        completed = None
     if completed is not None:
         output = _select_output("cpp", completed)
         version = _parse_clang(output)
