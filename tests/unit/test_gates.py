@@ -744,6 +744,19 @@ class TestRegistryValidation:
         assert "tests/unit/" in cmd, "Expected tests/unit/ directory in stack-tests cmd"
         assert "-x" in cmd, "Expected -x fail-fast in stack-tests cmd"
         assert "--no-cov" in cmd, "Expected --no-cov in stack-tests cmd (perf)"
+        # Quarantined modules: order-dependent subprocess-mock-leak flakes.
+        # Pre-push skips them; CI full suite still covers them. See
+        # stack_runner.py docstring + spec-107 final report.
+        quarantined = (
+            "test_safe_run_env_scrub.py",
+            "test_python_env_mode_install.py",
+            "test_setup_cli.py",
+        )
+        ignore_args = [arg for arg in cmd if arg.startswith("--ignore=")]
+        for module in quarantined:
+            assert any(module in arg for arg in ignore_args), (
+                f"Expected --ignore for quarantined module {module}; cmd={cmd!r}"
+            )
 
 
 class TestSonarGateAdvisory:

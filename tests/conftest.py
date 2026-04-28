@@ -22,6 +22,29 @@ TEST_GIT_USER = "Test User"
 TEST_GIT_EMAIL = "test@example.com"
 
 
+@pytest.fixture(autouse=True)
+def _stop_orphaned_mocks():
+    """Stop any unittest.mock patches that leaked across test boundaries.
+
+    Some legacy tests in the suite create patches via ``mock.patch().start()``
+    without a paired ``stop()`` (or fail before the stop runs), leaving the
+    patch active for subsequent tests. This causes order-dependent flakes
+    where ``subprocess.run`` calls in later tests get intercepted and
+    return synthetic results instead of executing real binaries.
+
+    Per-test ``patch.stopall()`` is a belt-and-suspenders cleanup: it stops
+    any patch started via ``unittest.mock.patch`` (including those started
+    by other tests) at the END of every test, so the next test starts with
+    a clean state. Tests that legitimately use ``mock.patch`` as context
+    manager or pytest's ``mocker`` fixture are unaffected -- their patches
+    are already cleaned up by their own teardown.
+    """
+    yield
+    from unittest.mock import patch as _patch
+
+    _patch.stopall()
+
+
 @pytest.fixture(autouse=True, scope="session")
 def _git_test_isolation():
     """Isolate git config so tests never read or write real global/system config.

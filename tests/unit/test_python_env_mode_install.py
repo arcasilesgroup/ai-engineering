@@ -27,7 +27,6 @@ introduced by T-2.20.
 from __future__ import annotations
 
 import os
-import subprocess
 from pathlib import Path
 
 import pytest
@@ -48,25 +47,35 @@ from ai_engineering.state.models import PythonEnvMode
 def _git_init(root: Path) -> None:
     """Initialise a bare-bones git repo at ``root`` for shared-parent tests.
 
-    Defensive against subprocess mocks leaking from prior tests: we use the
-    absolute git binary path (resolved via ``shutil.which`` at call time) so
-    the call cannot be intercepted by a stale ``subprocess.run`` mock that
-    keys on the literal "git" command.
-    """
-    import shutil as _shutil
+    Mock-immune approach: instead of calling ``subprocess.run(["git", ...])``
+    -- which can be intercepted by a stale ``subprocess.run`` mock leaked
+    from a prior test in the same xdist worker -- we materialise the
+    minimum git directory layout directly via ``Path.mkdir`` + file writes.
 
-    git_path = _shutil.which("git") or "git"
-    subprocess.run(
-        [git_path, "init", "-b", "main"],
-        cwd=root,
-        capture_output=True,
-        check=True,
+    The ``_detect_git_common_dir`` SUT then uses ``subprocess.run(["git",
+    "rev-parse", "--git-common-dir"])`` against this real .git/ on disk;
+    if THAT call is also mocked, the production-code fallback (added in
+    spec-107: scan ancestors for a real .git/ directory) covers it.
+
+    Layout produced is the minimum git accepts as "this is a repo":
+      <root>/.git/HEAD       (points at refs/heads/main)
+      <root>/.git/refs/heads/
+      <root>/.git/objects/
+      <root>/.git/config     (minimal core config)
+    """
+    git_dir = root / ".git"
+    git_dir.mkdir(parents=True, exist_ok=True)
+    (git_dir / "refs" / "heads").mkdir(parents=True, exist_ok=True)
+    (git_dir / "objects").mkdir(parents=True, exist_ok=True)
+    (git_dir / "HEAD").write_text("ref: refs/heads/main\n", encoding="utf-8")
+    (git_dir / "config").write_text(
+        "[core]\n\trepositoryformatversion = 0\n\tfilemode = true\n\tbare = false\n",
+        encoding="utf-8",
     )
-    # Belt-and-suspenders: ensure .git/ is present on disk before returning,
-    # so downstream `git rev-parse --git-common-dir` can rely on it. Some
-    # macOS APFS write-barriers under load delay directory visibility.
-    if not (root / ".git").is_dir():
-        msg = f"_git_init failed: {root / '.git'} not present after git init"
+    # Belt-and-suspenders: confirm presence before returning so failures
+    # surface here rather than in downstream subprocess code.
+    if not git_dir.is_dir():
+        msg = f"_git_init failed: {git_dir} not present after layout write"
         raise RuntimeError(msg)
 
 

@@ -12,7 +12,6 @@ reads the manifest and passes the enabled providers to
 
 from __future__ import annotations
 
-import subprocess
 from pathlib import Path
 
 import pytest
@@ -22,9 +21,24 @@ from ai_engineering.updater.service import update
 
 
 def _ensure_git_repo(path: Path) -> None:
-    """Init a git repo so installer hook discovery does not fail."""
-    if not (path / ".git").is_dir():
-        subprocess.run(["git", "init", "-q"], cwd=path, check=True)
+    """Materialise minimum git repo layout so installer hook discovery does not fail.
+
+    Mock-immune: writes the layout via Path operations directly instead of
+    calling ``subprocess.run(["git", "init"])`` which can be intercepted by
+    a leaked subprocess mock from a prior test in the same xdist worker.
+    """
+    git_dir = path / ".git"
+    if git_dir.is_dir():
+        return
+    git_dir.mkdir(parents=True, exist_ok=True)
+    (git_dir / "refs" / "heads").mkdir(parents=True, exist_ok=True)
+    (git_dir / "objects").mkdir(parents=True, exist_ok=True)
+    (git_dir / "hooks").mkdir(parents=True, exist_ok=True)
+    (git_dir / "HEAD").write_text("ref: refs/heads/main\n", encoding="utf-8")
+    (git_dir / "config").write_text(
+        "[core]\n\trepositoryformatversion = 0\n\tfilemode = true\n\tbare = false\n",
+        encoding="utf-8",
+    )
 
 
 # ---------------------------------------------------------------------------
