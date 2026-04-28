@@ -72,22 +72,22 @@
 ### Phase 4: IOC catalog vendored + prompt-injection-guard extension + sentinel risk-accept + Phase 5 RED
 **Gate**: `.ai-engineering/references/iocs.json` exists vendored; prompt-injection-guard.py loads + matches IOCs; risk-accept escape works; T-3.14/T-3.15 GREEN.
 
-- [ ] T-4.1: Vendor IOCs from `claude-mcp-sentinel/references/iocs.json` to `.ai-engineering/references/iocs.json`; preserve schema verbatim (agent: build)
-- [ ] T-4.2: Create `.ai-engineering/references/IOCS_ATTRIBUTION.md` with source URL, vendor commit hash, vendor date, license terms (agent: build)
-- [ ] T-4.3: Create `.ai-engineering/contexts/sentinel-iocs-update.md` documenting refresh cadence (quarterly manual PR) (agent: build)
-- [ ] T-4.4: Extend `.ai-engineering/scripts/hooks/prompt-injection-guard.py` con `load_iocs()` function (fallback empty if missing — fail-open) (agent: build)
-- [ ] T-4.5: Add IOC matching logic to `prompt-injection-guard.py` for 4 categories: sensitive_paths, sensitive_env_vars, malicious_domains, shell_patterns (agent: build)
-- [ ] T-4.6: Implement 3-valued decision: deny (no DEC), warn (DEC active), allow (no match) (agent: build)
-- [ ] T-4.7: Wire risk-accept lookup: compute canonical `finding_id = f"sentinel-{category}-{pattern_normalized}"`; query decision-store; warn if active (agent: build)
-- [ ] T-4.8: Update template `src/ai_engineering/templates/.ai-engineering/scripts/hooks/prompt-injection-guard.py` byte-equivalent (agent: build)
-- [ ] T-4.9: Update template `src/ai_engineering/templates/.ai-engineering/references/iocs.json` (copy from vendored) (agent: build)
-- [ ] T-4.10: Write `tests/integration/test_sentinel_runtime_iocs.py` body — 25+ fixtures: 8 sensitive paths blocked, 8 env vars blocked, 5 domains blocked, 4 shell patterns blocked (agent: build)
-- [ ] T-4.11: Write `tests/integration/test_sentinel_risk_accept.py` body — fixture: IOC match + DEC active for that finding-id → result is `warn` not `deny` (agent: build)
-- [ ] T-4.12: Remove markers from these 2 test files; confirm GREEN (agent: build)
-- [ ] T-4.13: Write RED skeleton `tests/integration/test_mcp_sentinel_skill_modes.py` marked, covering Phase 5 G-10 (3 modes: scan, audit-update, baseline) (agent: build)
-- [ ] T-4.14: Write RED skeleton `tests/integration/test_h1_rugpull_detection.py` marked, covering Phase 5 G-11 (agent: build)
-- [ ] T-4.15: Run pytest filter; confirm PASS (agent: verify)
-- [ ] T-4.16: Stage and commit `feat(spec-107): Phase 4 GREEN IOC catalog + sentinel runtime + Phase 5 RED tests` (agent: build)
+- [x] T-4.1: Vendor IOCs from `claude-mcp-sentinel/references/iocs.json` to `.ai-engineering/references/iocs.json`; preserve schema verbatim (agent: build)
+- [x] T-4.2: Create `.ai-engineering/references/IOCS_ATTRIBUTION.md` with source URL, vendor commit hash, vendor date, license terms (agent: build)
+- [x] T-4.3: Create `.ai-engineering/contexts/sentinel-iocs-update.md` documenting refresh cadence (quarterly manual PR) (agent: build)
+- [x] T-4.4: Extend `.ai-engineering/scripts/hooks/prompt-injection-guard.py` con `load_iocs()` function (fallback empty if missing — fail-open) (agent: build)
+- [x] T-4.5: Add IOC matching logic to `prompt-injection-guard.py` for 4 categories: sensitive_paths, sensitive_env_vars, malicious_domains, shell_patterns (agent: build)
+- [x] T-4.6: Implement 3-valued decision: deny (no DEC), warn (DEC active), allow (no match) (agent: build)
+- [x] T-4.7: Wire risk-accept lookup: compute canonical `finding_id = f"sentinel-{category}-{pattern_normalized}"`; query decision-store; warn if active (agent: build)
+- [x] T-4.8: Update template `src/ai_engineering/templates/.ai-engineering/scripts/hooks/prompt-injection-guard.py` byte-equivalent (agent: build)
+- [x] T-4.9: Update template `src/ai_engineering/templates/.ai-engineering/references/iocs.json` (copy from vendored) (agent: build)
+- [x] T-4.10: Write `tests/integration/test_sentinel_runtime_iocs.py` body — 25+ fixtures: 8 sensitive paths blocked, 8 env vars blocked, 5 domains blocked, 4 shell patterns blocked (agent: build)
+- [x] T-4.11: Write `tests/integration/test_sentinel_risk_accept.py` body — fixture: IOC match + DEC active for that finding-id → result is `warn` not `deny` (agent: build)
+- [x] T-4.12: Remove markers from these 2 test files; confirm GREEN (agent: build)
+- [x] T-4.13: Write RED skeleton `tests/integration/test_mcp_sentinel_skill_modes.py` marked, covering Phase 5 G-10 (3 modes: scan, audit-update, baseline) (agent: build)
+- [x] T-4.14: Write RED skeleton `tests/integration/test_h1_rugpull_detection.py` marked, covering Phase 5 G-11 (agent: build)
+- [x] T-4.15: Run pytest filter; confirm PASS (agent: verify)
+- [x] T-4.16: Stage and commit `feat(spec-107): Phase 4 GREEN IOC catalog + sentinel runtime + Phase 5 RED tests` (agent: build)
 
 ---
 
