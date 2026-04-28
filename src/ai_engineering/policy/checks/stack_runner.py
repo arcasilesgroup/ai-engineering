@@ -329,9 +329,6 @@ def _resolve_python_checks(
                         "-q",
                         "-x",
                         "--no-cov",
-                        "--ignore=tests/unit/test_safe_run_env_scrub.py",
-                        "--ignore=tests/unit/test_python_env_mode_install.py",
-                        "--ignore=tests/unit/test_setup_cli.py",
                     ],
                     required=check.required,
                     timeout=check.timeout,
@@ -622,8 +619,7 @@ def _resolve_args(tool: ToolSpec, project_root: Path) -> tuple[str, ...]:
         return tuple(pip_audit_command()[1:])
     if tool.name == "pytest":
         # Mirror the canonical PRE_PUSH_CHECKS["python"] stack-tests
-        # contract (spec-107): serial dispatch (no -n auto), quarantine
-        # for pre-existing subprocess-mock-leak modules. The data-driven
+        # contract (spec-107): serial dispatch (no -n auto). The data-driven
         # path also runs under the spec-driven dispatch (CheckSpec) and
         # MUST stay aligned with the resolver in `_resolve_python_checks`.
         test_dir = detect_python_test_dir(project_root) or "tests/unit/"
@@ -633,9 +629,6 @@ def _resolve_args(tool: ToolSpec, project_root: Path) -> tuple[str, ...]:
             "-q",
             "-x",
             "--no-cov",
-            "--ignore=tests/unit/test_safe_run_env_scrub.py",
-            "--ignore=tests/unit/test_python_env_mode_install.py",
-            "--ignore=tests/unit/test_setup_cli.py",
         )
     if tool.name == "ty":
         # _DEFAULT_ARGS["ty"] = ("check",); append the dynamically-resolved
