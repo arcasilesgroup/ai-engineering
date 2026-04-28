@@ -233,7 +233,19 @@ class TestStateFix:
         assert "install-state.json" not in result.message
 
     def test_check_returns_three_results(self, ctx: DoctorContext) -> None:
+        # spec-107 D-107-10 (T-6.5) added two WARN-only advisory checks for
+        # the H2 hash chain over events + decisions: the state phase now
+        # ships five checks instead of three. The legacy assertion is kept
+        # as the lower-bound contract (the original three remain) and the
+        # new advisory names are explicitly enumerated so future drifts
+        # surface as test failures rather than silent regressions.
         results = state_phase.check(ctx)
-        assert len(results) == 3
+        assert len(results) == 5
         names = {r.name for r in results}
-        assert names == {"state-files-parseable", "state-schema", "ownership-coverage"}
+        assert names == {
+            "state-files-parseable",
+            "state-schema",
+            "ownership-coverage",
+            "audit-chain-events",
+            "audit-chain-decisions",
+        }

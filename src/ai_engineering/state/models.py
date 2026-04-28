@@ -219,6 +219,12 @@ class Decision(BaseModel):
     finding_id: str | None = Field(default=None, alias="findingId")
     batch_id: str | None = Field(default=None, alias="batchId")
 
+    # spec-107 D-107-10 (H2) additive: hash-chain pointer over the prior
+    # decision entry's canonical-JSON payload (excluding this field).
+    # ``None`` for the chain anchor (first entry) and for legacy entries
+    # written before spec-107 landed -- additive backward-compat.
+    prev_event_hash: str | None = Field(default=None, alias="prevEventHash")
+
     model_config = {"populate_by_name": True}
 
 

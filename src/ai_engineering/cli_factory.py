@@ -23,6 +23,7 @@ import yaml
 from pydantic import ValidationError
 
 from ai_engineering.cli_commands import (
+    audit_cmd,
     core,
     decisions_cmd,
     gate,
@@ -140,6 +141,7 @@ def _app_callback(
                         "setup",
                         "release",
                         "decision",
+                        "audit",
                         "work-item",
                         "workflow",
                     ]
@@ -325,6 +327,15 @@ def create_app() -> typer.Typer:
     decision_app.command("expire-check")(_safe(decisions_cmd.decision_expire_check))
     decision_app.command("record")(_safe(decisions_cmd.decision_record))
     app.add_typer(decision_app, name="decision")
+
+    # Audit sub-group (spec-107 D-107-10: hash-chained audit trail verifier)
+    audit_app = typer.Typer(
+        name="audit",
+        help="Verify the hash-chained audit trail over events and decisions.",
+        no_args_is_help=True,
+    )
+    audit_app.command("verify")(_safe(audit_cmd.audit_verify))
+    app.add_typer(audit_app, name="audit")
 
     # Risk sub-group (spec-105: risk acceptance lifecycle CLI namespace)
     risk_app = typer.Typer(

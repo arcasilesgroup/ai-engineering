@@ -157,12 +157,87 @@ def _check_ownership_coverage(ctx: DoctorContext) -> CheckResult:
     )
 
 
+def _check_audit_chain_events(ctx: DoctorContext) -> CheckResult:
+    """Advisory check (spec-107 D-107-10 / G-12, H2): hash-chain over events.
+
+    Verifies the ``framework-events.ndjson`` audit chain by walking
+    ``prev_event_hash`` pointers. Pure WARN advisory: never FAIL, never
+    block. A missing file (no events emitted yet) is OK. A chain break
+    surfaces as WARN with the first break index + reason so operators
+    can investigate without blocking the install/doctor flow.
+    """
+    from ai_engineering.state.audit_chain import verify_audit_chain
+
+    advisory_name = "audit-chain-events"
+    sd = _state_dir(ctx)
+    events_path = sd / "framework-events.ndjson"
+    if not events_path.is_file():
+        return CheckResult(
+            name=advisory_name,
+            status=CheckStatus.OK,
+            message="framework-events.ndjson not present; chain vacuously valid",
+        )
+    verdict = verify_audit_chain(events_path, mode="ndjson")
+    if verdict.ok:
+        return CheckResult(
+            name=advisory_name,
+            status=CheckStatus.OK,
+            message=(f"events chain intact ({verdict.entries_checked} entries verified)"),
+        )
+    return CheckResult(
+        name=advisory_name,
+        status=CheckStatus.WARN,
+        message=(
+            f"events chain break at index {verdict.first_break_index}: {verdict.first_break_reason}"
+        ),
+    )
+
+
+def _check_audit_chain_decisions(ctx: DoctorContext) -> CheckResult:
+    """Advisory check (spec-107 D-107-10 / G-12, H2): hash-chain over decisions.
+
+    Verifies the ``decision-store.json`` audit chain by walking
+    ``prev_event_hash`` pointers across the ``decisions`` array. Pure
+    WARN advisory: never FAIL, never block. Legacy decisions written
+    before spec-107 lack the field and are treated as valid by the
+    verifier (additive backward-compat per D-107-10).
+    """
+    from ai_engineering.state.audit_chain import verify_audit_chain
+
+    advisory_name = "audit-chain-decisions"
+    sd = _state_dir(ctx)
+    decisions_path = sd / "decision-store.json"
+    if not decisions_path.is_file():
+        return CheckResult(
+            name=advisory_name,
+            status=CheckStatus.OK,
+            message="decision-store.json not present; chain vacuously valid",
+        )
+    verdict = verify_audit_chain(decisions_path, mode="json_array")
+    if verdict.ok:
+        return CheckResult(
+            name=advisory_name,
+            status=CheckStatus.OK,
+            message=(f"decisions chain intact ({verdict.entries_checked} entries verified)"),
+        )
+    return CheckResult(
+        name=advisory_name,
+        status=CheckStatus.WARN,
+        message=(
+            f"decisions chain break at index {verdict.first_break_index}: "
+            f"{verdict.first_break_reason}"
+        ),
+    )
+
+
 def check(ctx: DoctorContext) -> list[CheckResult]:
     """Run all state phase checks."""
     return [
         _check_files_parseable(ctx),
         _check_state_schema(ctx),
         _check_ownership_coverage(ctx),
+        _check_audit_chain_events(ctx),
+        _check_audit_chain_decisions(ctx),
     ]
 
 
