@@ -4,7 +4,7 @@ description: "Autonomous backlog orchestrator -- normalizes work items, plans sa
 color: purple
 model: opus
 tools: [codebase, githubRepo, readFile, runCommands, search, agent]
-agents: [Build, Explorer, Verify, Review, Guard]
+agents: [Build, ai-explore, Verify, Review, Guard]
 ---
 
 
@@ -116,7 +116,7 @@ Every `ai-run` execution produces:
 - `.github/skills/ai-board-sync/SKILL.md`
 - `.github/skills/ai-resolve-conflicts/SKILL.md`
 - `.github/agents/build.agent.md`
-- `.github/agents/explore.agent.md`
+- `.github/agents/ai-explore.agent.md`
 
 ## Boundaries
 

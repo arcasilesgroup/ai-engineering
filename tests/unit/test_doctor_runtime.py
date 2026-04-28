@@ -145,7 +145,10 @@ class TestBranchPolicy:
 
     @patch("ai_engineering.doctor.runtime.branch_policy.subprocess.run")
     def test_feature_branch_ok(self, mock_run: MagicMock, tmp_path: Path) -> None:
-        mock_run.return_value = MagicMock(returncode=0, stdout="feature/my-branch\n")
+        mock_run.side_effect = [
+            MagicMock(returncode=0, stdout="true\n"),
+            MagicMock(returncode=0, stdout="feature/my-branch\n"),
+        ]
         ctx = _ctx(tmp_path)
         results = branch_policy.check(ctx)
         assert len(results) == 1
@@ -154,7 +157,10 @@ class TestBranchPolicy:
 
     @patch("ai_engineering.doctor.runtime.branch_policy.subprocess.run")
     def test_main_branch_warns(self, mock_run: MagicMock, tmp_path: Path) -> None:
-        mock_run.return_value = MagicMock(returncode=0, stdout="main\n")
+        mock_run.side_effect = [
+            MagicMock(returncode=0, stdout="true\n"),
+            MagicMock(returncode=0, stdout="main\n"),
+        ]
         ctx = _ctx(tmp_path)
         results = branch_policy.check(ctx)
         assert len(results) == 1
@@ -163,7 +169,10 @@ class TestBranchPolicy:
 
     @patch("ai_engineering.doctor.runtime.branch_policy.subprocess.run")
     def test_master_branch_warns(self, mock_run: MagicMock, tmp_path: Path) -> None:
-        mock_run.return_value = MagicMock(returncode=0, stdout="master\n")
+        mock_run.side_effect = [
+            MagicMock(returncode=0, stdout="true\n"),
+            MagicMock(returncode=0, stdout="master\n"),
+        ]
         ctx = _ctx(tmp_path)
         results = branch_policy.check(ctx)
         assert len(results) == 1
@@ -171,6 +180,7 @@ class TestBranchPolicy:
 
     @patch("ai_engineering.doctor.runtime.branch_policy.subprocess.run")
     def test_not_a_git_repo_returncode(self, mock_run: MagicMock, tmp_path: Path) -> None:
+        # First call (rev-parse --is-inside-work-tree) returns non-zero.
         mock_run.return_value = MagicMock(returncode=128, stdout="")
         ctx = _ctx(tmp_path)
         results = branch_policy.check(ctx)
@@ -185,14 +195,48 @@ class TestBranchPolicy:
         results = branch_policy.check(ctx)
         assert len(results) == 1
         assert results[0].status == CheckStatus.WARN
-        assert "not a git repository" in results[0].message
+        assert "git binary not available" in results[0].message
+
+    @patch("ai_engineering.doctor.runtime.branch_policy.subprocess.run")
+    def test_unborn_head_treated_as_detached_ok(self, mock_run: MagicMock, tmp_path: Path) -> None:
+        """Freshly init'd repo with no commits: HEAD is unborn, ``symbolic-ref``
+        succeeds with the initial branch name. This was the user-reported bug
+        where ``rev-parse --abbrev-ref HEAD`` fails with 'unknown revision'."""
+        mock_run.side_effect = [
+            MagicMock(returncode=0, stdout="true\n"),
+            MagicMock(returncode=0, stdout="main\n"),
+        ]
+        ctx = _ctx(tmp_path)
+        results = branch_policy.check(ctx)
+        # Even unborn 'main' is still classified as protected — the WARN is
+        # accurate (the user IS on main).  The fix is that we no longer say
+        # "not a git repository" when the repo exists.
+        assert results[0].status == CheckStatus.WARN
+        assert "protected branch" in results[0].message
+
+    @patch("ai_engineering.doctor.runtime.branch_policy.subprocess.run")
+    def test_detached_head_ok(self, mock_run: MagicMock, tmp_path: Path) -> None:
+        """``symbolic-ref`` returns non-zero on detached HEAD; report as OK."""
+        mock_run.side_effect = [
+            MagicMock(returncode=0, stdout="true\n"),
+            MagicMock(returncode=128, stdout=""),
+        ]
+        ctx = _ctx(tmp_path)
+        results = branch_policy.check(ctx)
+        assert results[0].status == CheckStatus.OK
+        assert "detached" in results[0].message.lower()
 
     @patch("ai_engineering.doctor.runtime.branch_policy.subprocess.run")
     def test_passes_cwd_to_subprocess(self, mock_run: MagicMock, tmp_path: Path) -> None:
-        mock_run.return_value = MagicMock(returncode=0, stdout="develop\n")
+        mock_run.side_effect = [
+            MagicMock(returncode=0, stdout="true\n"),
+            MagicMock(returncode=0, stdout="develop\n"),
+        ]
         ctx = _ctx(tmp_path)
         branch_policy.check(ctx)
-        assert mock_run.call_args.kwargs["cwd"] == tmp_path
+        # Both calls should use ctx.target as cwd.
+        for call in mock_run.call_args_list:
+            assert call.kwargs["cwd"] == tmp_path
 
 
 # ===========================================================================

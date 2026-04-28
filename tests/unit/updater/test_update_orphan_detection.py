@@ -22,6 +22,28 @@ from ai_engineering.config.loader import update_manifest_field
 from ai_engineering.installer.service import install
 from ai_engineering.updater.service import update
 
+
+def _ensure_git_repo(path: Path) -> None:
+    """Materialise minimum git repo layout so installer hook discovery does not fail.
+
+    Mock-immune: writes the layout via Path operations directly instead of
+    calling ``subprocess.run(["git", "init"])`` which can be intercepted by
+    a leaked subprocess mock from a prior test in the same xdist worker.
+    """
+    git_dir = path / ".git"
+    if git_dir.is_dir():
+        return
+    git_dir.mkdir(parents=True, exist_ok=True)
+    (git_dir / "refs" / "heads").mkdir(parents=True, exist_ok=True)
+    (git_dir / "objects").mkdir(parents=True, exist_ok=True)
+    (git_dir / "hooks").mkdir(parents=True, exist_ok=True)
+    (git_dir / "HEAD").write_text("ref: refs/heads/main\n", encoding="utf-8")
+    (git_dir / "config").write_text(
+        "[core]\n\trepositoryformatversion = 0\n\tfilemode = true\n\tbare = false\n",
+        encoding="utf-8",
+    )
+
+
 # ---------------------------------------------------------------------------
 # Provider-specific path prefixes (mirrors test_update_provider_filtering.py).
 # ---------------------------------------------------------------------------
@@ -90,6 +112,7 @@ def claude_codex_project(tmp_path: Path) -> Path:
     """Install a project with ``claude_code`` and ``codex``, then
     reconfigure to ``claude_code`` only -- leaving .codex/ files as orphans.
     """
+    _ensure_git_repo(tmp_path)
     install(tmp_path, ai_providers=["claude_code", "codex"])
     # Shrink enabled providers in the manifest to only claude_code.
     update_manifest_field(tmp_path, "ai_providers.enabled", ["claude_code"])
@@ -103,6 +126,7 @@ def claude_codex_project(tmp_path: Path) -> Path:
 @pytest.fixture()
 def claude_gemini_project(tmp_path: Path) -> Path:
     """Install a project with ``claude_code`` and ``gemini``."""
+    _ensure_git_repo(tmp_path)
     install(tmp_path, ai_providers=["claude_code", "gemini"])
     return tmp_path
 
@@ -110,6 +134,7 @@ def claude_gemini_project(tmp_path: Path) -> Path:
 @pytest.fixture()
 def claude_only_project(tmp_path: Path) -> Path:
     """Install a project with only ``claude_code``."""
+    _ensure_git_repo(tmp_path)
     install(tmp_path, ai_providers=["claude_code"])
     return tmp_path
 

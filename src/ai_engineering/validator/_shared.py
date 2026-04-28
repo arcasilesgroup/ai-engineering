@@ -21,6 +21,7 @@ class IntegrityCategory(StrEnum):
     CROSS_REFERENCE = "cross-reference"
     MANIFEST_COHERENCE = "manifest-coherence"
     SKILL_FRONTMATTER = "skill-frontmatter"
+    REQUIRED_TOOLS = "required-tools"
 
 
 class IntegrityStatus(StrEnum):

@@ -17,14 +17,20 @@ if TYPE_CHECKING:
 import typer
 
 from ai_engineering import __version__
+from ai_engineering.cli_commands._exit_codes import (
+    EXIT_PREREQS_MISSING,
+    EXIT_TOOLS_FAILED,
+    PrereqMissing,
+)
 from ai_engineering.cli_envelope import NextAction, emit_success
 from ai_engineering.cli_output import is_json_mode, set_json_mode
-from ai_engineering.cli_progress import spinner
+from ai_engineering.cli_progress import spinner, step_progress
 from ai_engineering.cli_ui import (
     error,
     file_count,
     info,
     kv,
+    print_stderr,
     print_stdout,
     render_update_tree,
     result_header,
@@ -45,6 +51,7 @@ from ai_engineering.installer.phases import (
     InstallMode,
     PhasePlan,
 )
+from ai_engineering.installer.phases.sdk_prereqs import check_sdk_prereqs
 from ai_engineering.installer.service import install_with_pipeline
 from ai_engineering.installer.ui import (
     StepStatus,
@@ -53,6 +60,7 @@ from ai_engineering.installer.ui import (
     render_summary,
 )
 from ai_engineering.paths import resolve_project_root
+from ai_engineering.prereqs.uv import check_uv_prereq
 from ai_engineering.updater.service import _DIFF_MAX_LINES, update
 
 
@@ -137,6 +145,23 @@ def install_cmd(
         typer.Option(
             "--reconfigure",
             help="Re-run the configuration wizard to change providers/stacks/IDEs.",
+        ),
+    ] = False,
+    force: Annotated[
+        bool,
+        typer.Option(
+            "--force",
+            help="Re-install every required tool, ignoring the idempotence skip (D-101-07).",
+        ),
+    ] = False,
+    no_auto_remediate: Annotated[
+        bool,
+        typer.Option(
+            "--no-auto-remediate",
+            help=(
+                "Disable spec-109 D-109-05 post-pipeline auto-remediation. "
+                "Useful in CI to detect first-attempt failures."
+            ),
         ),
     ] = False,
 ) -> None:
@@ -313,8 +338,67 @@ def install_cmd(
         }
         render_detection(resolved_vcs, resolved_providers, tools)
 
-    # Run pipeline with step rendering
-    with spinner("Installing governance framework..."):
+    # spec-101 Compat-2 (Wave 27): emit the one-shot BREAKING banner BEFORE
+    # the prereq gates so a first-upgrade run hitting EXIT 81 still gets
+    # the banner explaining the new EXIT 80 / EXIT 81 contract. The
+    # banner_seen flag (persisted to install-state.json) prevents
+    # double-emission on subsequent runs.
+    from ai_engineering.installer.phases.pipeline import (
+        emit_breaking_banner_for_target,
+    )
+
+    emit_breaking_banner_for_target(root)
+
+    # spec-101 D-101-11: prereqs precede tools. Missing/out-of-range uv yields
+    # EXIT 81 BEFORE the tools phase ever runs. Strict precedence -- when the
+    # user's environment is broken at the prereq layer, the tools phase never
+    # gets a chance to surface its own EXIT 80.
+    try:
+        check_uv_prereq(root)
+    except PrereqMissing as exc:
+        error(str(exc))
+        raise typer.Exit(code=EXIT_PREREQS_MISSING) from exc
+
+    # spec-101 D-101-14: per-stack SDK prereq gate. Iterates the 9 SDK-required
+    # stacks declared by the project, applies the D-101-13 stack-level carve-out
+    # (e.g. swift on linux is filtered before probing), and probes each SDK via
+    # ``prereqs/sdk.py.probe_sdk``. Any absent/out-of-range SDK aggregates into
+    # a single EXIT 81 with install links + verify commands per failing stack.
+    try:
+        check_sdk_prereqs(resolved_stacks, root=root)
+    except PrereqMissing as exc:
+        error(str(exc))
+        raise typer.Exit(code=EXIT_PREREQS_MISSING) from exc
+
+    # spec-109 D-109-07: live multi-step progress replaces the single-spinner
+    # UX. Each phase reports its name as it begins; the CLI shows
+    # "[N/M] phase_name" so the user can see exactly what's happening.
+    from ai_engineering.installer.phases import PHASE_ORDER as _PHASE_ORDER
+
+    _phase_labels_pretty = {
+        PHASE_DETECT: "Detecting environment",
+        PHASE_GOVERNANCE: "Copying governance framework",
+        PHASE_IDE_CONFIG: "Configuring IDE integrations",
+        PHASE_STATE: "Initializing state files",
+        PHASE_TOOLS: "Installing required tools",
+        PHASE_HOOKS: "Installing git hooks",
+    }
+
+    with step_progress(
+        total=len(_PHASE_ORDER), description="Installing ai-engineering framework..."
+    ) as _tracker:
+
+        def _phase_progress(message: str) -> None:
+            # message arrives as "[i/N] phase_name"; translate phase_name to a
+            # human label when known, keep the [i/N] prefix verbatim.
+            try:
+                prefix, name = message.split(" ", 1)
+            except ValueError:
+                _tracker.step(message)
+                return
+            label = _phase_labels_pretty.get(name.strip(), name.strip())
+            _tracker.step(f"{prefix} {label}")
+
         result, summary = install_with_pipeline(
             root,
             mode=mode,
@@ -322,11 +406,85 @@ def install_cmd(
             ides=resolved_ides,
             vcs_provider=resolved_vcs,
             ai_providers=resolved_providers,
+            force=force,
+            progress_callback=_phase_progress,
         )
 
-    # Render steps from pipeline summary
+    # spec-101 Corr-1 (Wave 28): in --non-interactive mode, emit one line
+    # per skipped tool entry so downstream verifiers (the smoke-test
+    # idempotence assertion) can match the ``tool:<name>:<marker>``
+    # signature. Markers go to stderr to preserve stdout JSON purity for
+    # --non-interactive consumers.
+    if non_interactive:
+        tools_phase_result = next(
+            (r for r in summary.results if r.phase_name == PHASE_TOOLS),
+            None,
+        )
+        if tools_phase_result is not None and tools_phase_result.skipped:
+            for skipped_entry in tools_phase_result.skipped:
+                if skipped_entry.startswith("tool:"):
+                    print_stderr(skipped_entry)
+
+    # spec-109 D-109-04: ALWAYS render the pipeline step report BEFORE deciding
+    # the exit code. The pre-spec-109 flow exited 80 first and rendered later,
+    # so users saw "see warnings above" with no warnings printed.
     if not is_json_mode():
         _render_pipeline_steps(summary)
+
+    # spec-109 D-109-05: invoke auto-remediation when the pipeline recorded
+    # non-critical failures (today: ToolsPhase). Reuses doctor's fix paths
+    # so the user does not have to run `ai-eng doctor --fix` manually.
+    # spec-109 R-109-01: --no-auto-remediate disables the second pass so CI
+    # callers can detect first-attempt failures (e.g. regression detection).
+    from ai_engineering.installer.auto_remediate import (
+        AutoRemediateReport,
+        auto_remediate_after_install,
+    )
+
+    # Coerce to a real list so MagicMock-shaped test summaries do not surface
+    # as truthy non-critical failures with empty iteration.
+    raw_failures = getattr(summary, "non_critical_failures", None) or []
+    try:
+        non_critical_failures_list = list(raw_failures)
+    except TypeError:
+        non_critical_failures_list = []
+
+    if no_auto_remediate:
+        auto_remediation_report = AutoRemediateReport()
+    else:
+        auto_remediation_report = auto_remediate_after_install(root, non_critical_failures_list)
+
+    if auto_remediation_report.invoked and not is_json_mode():
+        _render_auto_remediation_summary(auto_remediation_report)
+
+    # spec-109 D-109-06: exit code reflects reality.
+    # - Critical phase failure  -> EXIT 80 (unchanged).
+    # - Non-critical failure that auto-remediated successfully -> EXIT 0.
+    # - Non-critical failure that survived remediation -> EXIT 80.
+    if summary.failed_phase is not None:
+        error(
+            f"Install pipeline failed at phase {summary.failed_phase!r}. "
+            "Run 'ai-eng doctor' for diagnostics."
+        )
+        raise typer.Exit(code=EXIT_TOOLS_FAILED)
+
+    if non_critical_failures_list and not auto_remediation_report.success:
+        # When auto-remediate is disabled (--no-auto-remediate) any non-critical
+        # failure also surfaces EXIT 80 -- preserves CI fail-on-first-attempt
+        # detection per spec-109 R-109-01.
+        if no_auto_remediate:
+            error(
+                "Install pipeline finished with non-critical failures; "
+                "auto-remediation disabled (--no-auto-remediate). "
+                "Run 'ai-eng doctor --fix' to repair."
+            )
+        else:
+            error(
+                "Install pipeline finished with unresolved issues; "
+                "auto-remediation could not fix every gap. "
+                "Run 'ai-eng doctor --fix' to retry."
+            )
+        raise typer.Exit(code=EXIT_TOOLS_FAILED)
 
     canonical_config = load_manifest_config(root)
     active_providers = list(canonical_config.ai_providers.enabled)
@@ -350,10 +508,21 @@ def install_cmd(
                 "already_installed": result.already_installed,
                 "manual_steps": result.manual_steps,
                 "guide_text": result.guide_text,
+                # spec-109 D-109-05: auto_remediation is additive; CI consumers
+                # who want to detect "first attempt failed but auto-fixed" can
+                # check `auto_remediation.invoked == True` while the install
+                # itself succeeded.
+                "auto_remediation": auto_remediation_report.to_dict(),
             },
             [
                 NextAction(command="ai-eng doctor", description="Run health diagnostics"),
-                NextAction(command="/ai-start", description="Begin the first governed session"),
+                NextAction(
+                    command="/ai-start",
+                    description=(
+                        "IDE assistant slash-command (Claude Code / Copilot / Codex / "
+                        "Gemini): begin the first governed session"
+                    ),
+                ),
             ],
         )
     else:
@@ -378,13 +547,21 @@ def install_cmd(
             print_stdout("  (framework was already installed \u2014 skipped existing files)")
 
         typer.echo("")
+        # spec-109 follow-up: /ai-start is an IDE assistant slash command,
+        # NOT a shell command. Surface only ``ai-eng *`` shell commands here;
+        # the IDE-side hint is rendered as a separate guidance line below.
         next_steps = [
             ("ai-eng doctor", "Run health diagnostics"),
-            ("/ai-start", "Begin the first governed session"),
         ]
         if result.guide_text:
             next_steps.append(("ai-eng guide", "View branch policy setup guide"))
         suggest_next(next_steps)
+
+        # IDE assistant guidance (separate from shell next steps).
+        info(
+            "Open your AI assistant (Claude Code / Copilot / Codex / Gemini) "
+            "and run /ai-start to begin the first governed session."
+        )
 
         # Summary panel with next steps
         pending_setup: list[tuple[str, str]] = []
@@ -395,8 +572,6 @@ def install_cmd(
             for step in result.manual_steps:
                 if "setup" in step.lower():
                     pending_setup.append(("ai-eng setup", step))
-
-        next_steps_list.append(("/ai-start", "Start the first governed session"))
 
         hooks_count = len(result.hooks.installed) if result.hooks.installed else 0
 
@@ -413,6 +588,36 @@ def install_cmd(
             typer.echo("")
             warning("Automatic branch policy application was not possible.")
             warning("You must configure branch protection manually to enforce governance gates.")
+
+
+def _render_auto_remediation_summary(report: object) -> None:
+    """Print a human-readable summary of auto-remediation outcomes.
+
+    spec-109 D-109-05: auto-remediation runs after the pipeline when
+    non-critical phases failed. Surface what was fixed and what survived so
+    the user can see the second-pass behaviour explicitly. Silently no-op in
+    JSON mode (caller already gates on ``not is_json_mode()``).
+    """
+    from ai_engineering.installer.auto_remediate import AutoRemediateReport
+
+    if not isinstance(report, AutoRemediateReport):
+        return
+
+    typer.echo("")
+    if report.success:
+        info("Auto-remediation: all non-critical failures repaired automatically.")
+    else:
+        warning(
+            "Auto-remediation: some issues still need manual follow-up "
+            "(run 'ai-eng doctor --fix' to retry)."
+        )
+
+    for entry in report.applied:
+        print_stderr(f"  → fixed   {entry}")
+    for entry in report.failed:
+        print_stderr(f"  → manual  {entry}")
+    for entry in report.errors:
+        print_stderr(f"  → error   {entry}")
 
 
 def _render_pipeline_steps(summary: object) -> None:
@@ -434,6 +639,8 @@ def _render_pipeline_steps(summary: object) -> None:
         PHASE_TOOLS: "Tool verification",
     }
 
+    non_critical_failures = set(getattr(summary, "non_critical_failures", []) or [])
+
     for i, name in enumerate(phase_names):
         phase_result = next((r for r in summary.results if r.phase_name == name), None)
         status = "ok"
@@ -447,7 +654,17 @@ def _render_pipeline_steps(summary: object) -> None:
             if del_count:
                 parts.append(f"{del_count} deleted")
             detail = ", ".join(parts) if parts else "up to date"
-            if phase_result.failed:
+            # spec-109 D-109-02: a non-critical failure is rendered as WARN
+            # rather than FAIL because the pipeline kept going AND auto-remediate
+            # gets a second chance. Critical failures still surface as FAIL.
+            if name in non_critical_failures:
+                status = "warn"
+                detail = (
+                    "non-critical failure (auto-remediate will retry)"
+                    if not detail or detail == "up to date"
+                    else f"{detail} — non-critical (auto-remediate will retry)"
+                )
+            elif phase_result.failed:
                 status = "fail"
             elif phase_result.warnings:
                 status = "warn"
@@ -807,7 +1024,13 @@ def doctor_cmd(
         if fixable_count:
             suggest_next([("ai-eng doctor --fix", "Attempt automatic repairs for fixable issues")])
         elif manual_count:
-            warning("Manual follow-up required. Review the failing checks above.")
+            # Distinguish failing checks (blocking) from warnings (advisory).
+            # `report.passed` is True when no FAIL exists — only WARN-level
+            # follow-ups remain, so the project is functional.
+            if report.passed:
+                warning(f"{manual_count} warning(s) for review above; project is functional.")
+            else:
+                warning("Manual follow-up required. Review the failing checks above.")
 
     if not report.passed:
         raise typer.Exit(code=1)

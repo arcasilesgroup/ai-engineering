@@ -81,14 +81,10 @@ Default (no flags) is equivalent to `--all`: runs sync, branch cleanup, and repo
 ## Common Mistakes
 
 - Force-pulling when ff-only fails -- STOP and resolve manually.
-- Deleting branches with unmerged local work -- always check content diff.
-- Running on `main` -- migration is a no-op but branch cleanup still runs.
 
 ## Integration
 
-- Run before `/ai-brainstorm` to start clean.
-- Composes with session start protocol.
-- Protected branches (`main`, `master`) are never deleted.
+Run before `/ai-brainstorm` to start clean. Composes with session start protocol.
 
 ## References
 

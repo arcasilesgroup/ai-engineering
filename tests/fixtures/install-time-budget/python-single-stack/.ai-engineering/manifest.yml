@@ -1,0 +1,44 @@
+# Time-budget fixture for spec-101 G-11 (T-4.7).
+#
+# Purpose: drive the install-time-budget workflow. Wall-clock target on a
+# clean machine with prereqs is < 600s for `git clone <fixture> && cd
+# <fixture> && ai-eng install . && git commit --allow-empty -m smoke`.
+# We use median-of-3 in the workflow to absorb runner-load jitter.
+
+schema_version: "2.0"
+framework_version: "0.4.0"
+name: install-time-budget-python-single-stack
+version: "0.0.1"
+
+providers:
+  vcs: github
+  ides: [terminal]
+  stacks: [python]
+
+ai_providers:
+  enabled: [claude_code]
+  primary: claude_code
+
+quality:
+  coverage: 80
+  duplication: 3
+  cyclomatic: 10
+  cognitive: 15
+
+prereqs:
+  uv:
+    version_range: ">=0.4.0,<1.0"
+
+python_env:
+  mode: uv-tool
+
+required_tools:
+  baseline:
+    - {name: gitleaks}
+    - {name: semgrep, platform_unsupported: [windows], unsupported_reason: "semgrep has no Windows release"}
+    - {name: jq}
+  python:
+    - {name: ruff}
+    - {name: ty}
+    - {name: pip-audit}
+    - {name: pytest, scope: user_global}

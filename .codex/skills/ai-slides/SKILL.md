@@ -105,11 +105,8 @@ At handoff:
 
 ## Non-Negotiables
 
-1. **Zero dependencies**: one self-contained HTML file with inline CSS and JS
-2. **Viewport fit is mandatory**: every slide fits inside one viewport with no internal scrolling
-3. **Show, don't tell**: use visual previews instead of abstract style questionnaires
-4. **Distinctive design**: avoid generic purple-gradient, Inter-on-white, template-looking decks
-5. **Production quality**: code commented, accessible, responsive, performant
+1. **Distinctive design**: avoid generic purple-gradient, Inter-on-white, template-looking decks
+2. **Production quality**: code commented, accessible, responsive, performant
 
 ## JavaScript Requirements
 

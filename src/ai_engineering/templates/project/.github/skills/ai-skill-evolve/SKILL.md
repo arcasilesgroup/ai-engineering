@@ -10,9 +10,7 @@ tags: [meta, improvement, skills, optimization]
 
 # ai-skill-evolve
 
-Improve existing skills using evidence from real project pain, not guesswork. Every improvement is grounded in what the decision-store, LESSONS.md, instincts, and proposals actually say about how the skill performs (or fails) in practice.
-
-This skill owns **pain diagnosis and rewrite strategy**. For the eval/grade/benchmark pipeline, it delegates to Anthropic's `skill-creator` which has the full infrastructure (grader agents, benchmark aggregation, HTML viewer, description optimization).
+Improve existing skills using evidence from real project pain (decision-store, LESSONS.md, instincts, proposals). Owns pain diagnosis and rewrite strategy; delegates the eval/grade/benchmark pipeline to Anthropic's `skill-creator` (grader agents, benchmark aggregation, HTML viewer, description optimization).
 
 ## When to Use
 
@@ -23,9 +21,7 @@ This skill owns **pain diagnosis and rewrite strategy**. For the eval/grade/benc
 - NOT for creating new skills from scratch — use `/ai-create`.
 - NOT for platform audit — use `/ai-platform-audit`.
 
-## Step 0: Load Stack Contexts
-
-Follow `.ai-engineering/contexts/stack-context.md`.
+Step 0 (load contexts): per `.ai-engineering/contexts/stack-context.md`.
 
 ---
 
@@ -65,21 +61,9 @@ Follow `.ai-engineering/contexts/stack-context.md`.
 
 ### Phase 1 — Load Pain Context
 
-Before touching any skill, read these 5 sources. They are the ground truth about what hurts in this project:
+Before touching any skill, read these ground-truth sources: `.ai-engineering/state/decision-store.json` (decisions/risks), `.ai-engineering/LESSONS.md` (corrections), `.ai-engineering/instincts/instincts.yml` (tool sequences/recoveries), `.ai-engineering/instincts/proposals.md` (improvement proposals), `.ai-engineering/instincts/meta.json` (freshness/thresholds), `.ai-engineering/manifest.yml` (registry/gates/ownership), `CLAUDE.md` (workflow rules).
 
-| Source | Path | What it tells you |
-|--------|------|-------------------|
-| Decision Store | `.ai-engineering/state/decision-store.json` | Formal governance decisions, risk acceptances, expired choices |
-| Lessons | `.ai-engineering/LESSONS.md` | Informal patterns and corrections accumulated across sessions |
-| Instincts | `.ai-engineering/instincts/instincts.yml` | Observed tool sequences and error recovery patterns |
-| Proposals | `.ai-engineering/instincts/proposals.md` | Actionable improvement proposals backed by instinct evidence |
-| Instinct Meta | `.ai-engineering/instincts/meta.json` | Freshness and thresholds — is the data stale? |
-
-Also read:
-- `.ai-engineering/manifest.yml` — skill registry, quality gates, ownership
-- `CLAUDE.md` — workflow orchestration rules and quality gates
-
-**Extract a pain profile**: For each source, note patterns that relate to skills:
+**Extract a pain profile**: for each source, note patterns that relate to skills:
 - Lessons that say "skill X keeps doing Y" or "always do Z before invoking skill X"
 - Decisions that constrain how a skill should behave (e.g., DEC-003 plan/execute split)
 - Instinct sequences that reveal tool misuse or inefficiency
@@ -87,14 +71,9 @@ Also read:
 
 ### Phase 2 — Analyze Target Skill
 
-Read the target skill's SKILL.md. If `$ARGUMENTS` is `all`, list skills from `.github/skills/` and process them in priority order: workflow skills first (plan, dispatch, review, verify, commit, pr), then enterprise, then meta.
+Read the target skill's SKILL.md. If `$ARGUMENTS` is `all`, list skills from `.github/skills/` and process them in priority order: workflow first (plan, dispatch, review, verify, commit, pr), then enterprise, then meta.
 
-For each skill, answer:
-1. **Does it reference pain sources?** Skills that load context from decision-store, lessons, or instincts are more resilient. Skills that don't are flying blind.
-2. **Is the output contract enforced?** Having an output template is useless if it's buried at the bottom. The "Start Here" pattern (skeleton before instructions) dramatically improves output adherence — we proved this empirically when building `ai-platform-audit` (from 40% to 100% pass rate by moving the output contract to the top).
-3. **Is scope controlled?** Does the skill drift into adjacent concerns when given a narrow request?
-4. **Are classifications used?** Skills that output structured verdicts (PASS/FAIL, SUPPORTED/PARTIAL, P0/P1/P2) are more actionable than prose.
-5. **Does it match LESSONS.md patterns?** Cross-reference the skill's instructions against known lessons. If LESSONS.md says "always do X" and the skill doesn't mention X, that's a gap.
+For each skill, score the five dimensions in the Current State Analysis table above (Pain Source Awareness, Output Contract Position, Scope Control, Classification Usage, LESSONS.md Alignment). The "Start Here" pattern — skeleton before instructions — dramatically improves output adherence (empirically validated during `ai-platform-audit` development: 40% → 100% pass rate by moving the output contract to the top).
 
 ### Phase 3 — Generate Test Cases
 
@@ -134,9 +113,7 @@ source .venv/bin/activate && python -m pytest tests/unit/ -q
 
 ### Phase 5 — Eval with skill-creator
 
-Delegate the eval/grade/benchmark loop to Anthropic's `skill-creator`. It has the infrastructure that would be wasteful to duplicate: parallel with/without runs, grader agents, benchmark aggregation, and an HTML viewer.
-
-Invoke `skill-creator` with this context:
+Delegate eval/grade/benchmark to Anthropic's `skill-creator` (parallel with/without runs, grader agents, benchmark aggregation, HTML viewer, description-optimization loop). Invoke with context:
 ```
 I have an existing skill at .github/skills/<name>/SKILL.md that I just rewrote
 based on pain analysis. Here are 2-3 test prompts to evaluate it:
@@ -144,18 +121,7 @@ based on pain analysis. Here are 2-3 test prompts to evaluate it:
 Run the evals, grade them, and show me the benchmark comparison.
 ```
 
-**What skill-creator provides:**
-- Parallel agent dispatch (with_skill + without_skill baseline)
-- Structured grading with assertions (`grader.md` agent)
-- Benchmark aggregation with pass rates, timing, tokens (`aggregate_benchmark`)
-- Interactive HTML viewer for qualitative + quantitative comparison (`generate_review.py`)
-- Description optimization loop for better triggering accuracy (`run_loop.py`)
-
-**What ai-skill-evolve provides:**
-- Pain-informed test cases grounded in real decision-store, LESSONS, and instincts
-- Dimensional analysis of the skill's current weaknesses
-- Rewrite strategy based on empirically validated patterns
-- Project governance context that skill-creator doesn't have
+This skill adds the pain-informed inputs (test cases from real decision-store/LESSONS/instincts, dimensional analysis, rewrite strategy, project governance) that skill-creator does not own.
 
 ### Phase 6 — Verify Improvement
 

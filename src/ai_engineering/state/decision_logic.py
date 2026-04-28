@@ -52,6 +52,24 @@ def compute_context_hash(context: str) -> str:
     return hashlib.sha256(context.encode("utf-8")).hexdigest()
 
 
+def _compute_prev_decision_hash(store: DecisionStore) -> str | None:
+    """Return the audit-chain pointer for the next decision in *store*.
+
+    Spec-107 D-107-10 (H2): each new decision carries an additive
+    ``prev_event_hash`` linking back to the canonical-JSON SHA256 of
+    the prior decision (excluding the field itself). The chain anchor
+    is ``None``; legacy stores remain untouched and the chain simply
+    starts from the next write.
+    """
+    from ai_engineering.state.audit_chain import compute_entry_hash
+
+    if not store.decisions:
+        return None
+    prior = store.decisions[-1]
+    payload = prior.model_dump(by_alias=True, exclude_none=True, mode="json")
+    return compute_entry_hash(payload)
+
+
 def find_reusable_decision(
     store: DecisionStore,
     context: str,
@@ -112,6 +130,7 @@ def create_decision(
         spec=spec,
         context_hash=compute_context_hash(context),
         expires_at=expires_at,
+        prev_event_hash=_compute_prev_decision_hash(store),
     )
     store.decisions.append(decision)
     return decision
@@ -271,6 +290,7 @@ def create_risk_acceptance(
         follow_up_action=follow_up,
         status=DecisionStatus.ACTIVE,
         renewal_count=0,
+        prev_event_hash=_compute_prev_decision_hash(store),
     )
     store.decisions.append(decision)
     return decision
@@ -350,6 +370,7 @@ def renew_decision(
         status=DecisionStatus.ACTIVE,
         renewed_from=decision_id,
         renewal_count=new_count,
+        prev_event_hash=_compute_prev_decision_hash(store),
     )
     store.decisions.append(renewed)
     return renewed

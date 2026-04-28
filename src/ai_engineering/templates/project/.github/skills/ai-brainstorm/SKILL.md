@@ -45,18 +45,6 @@ HARD GATE: this skill produces a spec. No implementation happens until the user 
 8. **Review spec** -- follow `handlers/spec-review.md` for the review loop (max 3 iterations)
 9. **STOP** -- present approved spec. User runs `/ai-plan` to continue.
 
-## Quick Reference
-
-| Step | Gate | Output |
-|------|------|--------|
-| Enhance input | Input quality checked | Optimized input (or original if already specific) |
-| Interrogate | All UNKNOWNs resolved | Requirements map |
-| Scope check | Scope justifies spec? | Resolution or continue to step 5 |
-| Propose | User selects approach | Chosen design |
-| Spec draft | Written to disk | spec.md |
-| Spec review | Subagent approves | Reviewed spec |
-| User approval | User says "approved" | HARD GATE passed |
-
 ## Questioning Rules
 
 - ONE question at a time. Never batch.

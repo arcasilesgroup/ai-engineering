@@ -15,9 +15,7 @@ tags: [animation, motion, transitions, micro-interactions, css]
 
 Motion design skill based on Emil Kowalski's design engineering philosophy. Builds interfaces where every animation detail compounds into something that feels right. In competitive markets where functionality is table-stakes, taste becomes the differentiator.
 
-## Core Philosophy
-
-Animation is about feel, not decoration. Read `handlers/motion-principles.md` for the full design philosophy.
+Core philosophy: animation is about feel, not decoration. Full design philosophy in `handlers/motion-principles.md`.
 
 ## When to Use
 
@@ -44,8 +42,6 @@ Animation is about feel, not decoration. Read `handlers/motion-principles.md` fo
 5. **Test on real devices** for gesture interactions -- simulator is not enough
 
 ## The Animation Decision Framework
-
-Before writing animation code, answer these questions IN ORDER:
 
 ### 1. Should this animate at all?
 
@@ -117,15 +113,7 @@ Is the element entering or exiting?
 | Modals, drawers | 200-500ms |
 | Marketing/explanatory | Can be longer |
 
-**Rule:** UI animations should stay under 300ms. A 180ms dropdown feels more responsive than a 400ms one. A faster-spinning spinner makes the app feel faster, even with identical load times.
-
-### Perceived performance
-Speed in animation affects how users perceive app performance:
-- A fast-spinning spinner makes loading feel faster (same load time, different perception)
-- A 180ms select animation feels more responsive than 400ms
-- Instant tooltips after the first one (skip delay + animation) make toolbars feel faster
-
-Perception of speed matters as much as actual speed. Easing amplifies this: `ease-out` at 200ms feels faster than `ease-in` at 200ms because users see immediate movement.
+**Rule:** UI animations should stay under 300ms. A 180ms dropdown feels more responsive than a 400ms one. Perception of speed matters as much as actual speed: `ease-out` at 200ms feels faster than `ease-in` at 200ms because users see immediate movement. Instant tooltips after the first one (skip delay + animation) make toolbars feel faster.
 
 ## Review Format (Required)
 
@@ -146,8 +134,6 @@ After: transition: transform 200ms ease-out
 ```
 
 ## Review Checklist
-
-Review checklist derived from the Animation Decision Framework above -- use this for quick code review.
 
 | Issue | Fix |
 | --- | --- |
@@ -237,9 +223,8 @@ For touch interactions (drawers, swipe gestures), test on physical devices. Conn
 
 ## Integration
 
-- **Called by**: user directly, `/ai-design` (when motion is needed)
-- **Consumed by**: ai-slides (transitions), ai-code (frontend micro-interactions)
-- **Transitions to**: implementation via ai-code or ai-dispatch
-- **Step 6 -- Implementation Handoff**: Hand off animation specifications (easing curves, durations, CSS/JS code) to `/ai-code` or `/ai-dispatch` for implementation
+- **Called by**: user directly, `/ai-design` (when motion is needed).
+- **Consumed by**: ai-slides (transitions), ai-code (frontend micro-interactions).
+- **Transitions to**: implementation via `/ai-code` or `/ai-dispatch` — hand off animation specifications (easing curves, durations, CSS/JS code).
 
 $ARGUMENTS

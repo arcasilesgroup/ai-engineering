@@ -12,17 +12,7 @@ tags: [visual-design, poster, banner, branding, artifact]
 
 ## Purpose
 
-Visual design artifact creation skill. Creates design philosophies (aesthetic movements articulated through form, space, color, and composition) and expresses them visually through museum-quality compositions with minimal integrated text.
-
-## Core Understanding
-
-This skill generates custom design philosophies and expresses them visually. A design philosophy is NOT a layout -- it's a visual philosophy interpreted through:
-
-- Form, space, color, composition
-- Images, graphics, shapes, patterns
-- Minimal text as visual accent (90% visual, 10% essential text)
-
-**Critical:** User input provides foundation but should not constrain creative freedom. The philosophy emphasizes visual expression, spatial communication, artistic interpretation, and minimal words.
+Visual design artifact creation. Generates custom design philosophies (aesthetic movements interpreted through form/space/color/composition + images/graphics/shapes/patterns) and expresses them visually with minimal text accent (90% visual, 10% essential text). User input is foundation, not constraint — the philosophy emphasizes visual expression and artistic interpretation.
 
 ## When to Use
 
@@ -45,15 +35,6 @@ This skill generates custom design philosophies and expresses them visually. A d
 8. **Self-review** -- does this look like it belongs in a museum or magazine? If not, refine.
 9. **Read handlers/examples.md** for inspiration if needed
 
-## Quick Reference
-
-| Step       | Gate                         | Output                |
-| ---------- | ---------------------------- | --------------------- |
-| Brief      | Audience + purpose clear     | Creative direction    |
-| Philosophy | Movement named + articulated | .md philosophy doc    |
-| Canvas     | Visual standards met         | .pdf or .png artifact |
-| Review     | Museum-quality?              | Refined output        |
-
 ## Rendering
 
 Generate as self-contained HTML, then render to PDF via browser print or Puppeteer. For vector output, use SVG.
@@ -73,16 +54,14 @@ Additional pages should follow the same design philosophy but distinctly vary. B
 
 ## Integration
 
-- **Called by**: user directly, `/ai-design` (when visual artifacts are needed), `/ai-media` (for visual direction)
-- **Consumed by**: ai-slides (aesthetic philosophy), ai-media (visual direction for generated assets)
-- **Does NOT call**: other skills -- this skill produces final artifacts
+- **Called by**: user directly, `/ai-design` (visual artifacts), `/ai-media` (visual direction).
+- **Consumed by**: ai-slides (aesthetic philosophy), ai-media (visual direction for generated assets).
+- Does NOT call other skills — produces final artifacts.
 
 ## Common Mistakes
 
 - Using generic stock photo aesthetics instead of creating a philosophy
-- Too much text -- remember: 90% visual, 10% text
 - Lack of craftsmanship -- every spacing, color choice, and alignment must scream expertise
-- Not creating a named movement -- the philosophy gives the piece coherence
 - Announcing the conceptual reference instead of embedding it subtly
 
 $ARGUMENTS

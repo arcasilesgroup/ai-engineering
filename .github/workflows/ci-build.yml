@@ -35,6 +35,15 @@ jobs:
         with:
           enable-cache: true
 
+      - name: Cache spec-104 gate-cache
+        uses: actions/cache@v4
+        with:
+          path: .ai-engineering/state/gate-cache/
+          key: gate-cache-${{ runner.os }}-${{ hashFiles('pyproject.toml', '.ruff.toml', '.gitleaks.toml') }}-${{ github.event.pull_request.base.sha || github.sha }}
+          restore-keys: |
+            gate-cache-${{ runner.os }}-${{ hashFiles('pyproject.toml', '.ruff.toml', '.gitleaks.toml') }}-
+            gate-cache-${{ runner.os }}-
+
       - name: Install dependencies
         run: uv sync --dev
 

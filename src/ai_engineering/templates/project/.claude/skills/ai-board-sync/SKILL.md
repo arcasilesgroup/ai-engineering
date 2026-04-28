@@ -95,22 +95,10 @@ This skill NEVER blocks the calling skill's workflow:
 
 The calling skill checks the return status for logging but NEVER stops its own execution based on board-sync failure.
 
-## Lifecycle Phase Reference
-
-| Phase | Trigger | Typical Caller |
-|-------|---------|---------------|
-| refinement | Work item fetched for brainstorm | ai-brainstorm (step 1) |
-| ready | Spec written and approved | ai-brainstorm (step 4) |
-| in_progress | Implementation begins | ai-dispatch (step 2.5) |
-| in_review | PR created | ai-pr (step 12.5) |
-| done | PR merged | GitHub/ADO automation (close rules) |
-
 ## Common Mistakes
 
-- Blocking the calling skill when board-sync fails (violates fail-open)
-- Using provider-specific state names instead of lifecycle phase names
-- Not checking if state_mapping is configured before attempting update
-- Attempting Projects v2 update without first looking up the project item ID
+- Using provider-specific state names instead of lifecycle phase names.
+- Attempting Projects v2 update without first looking up the project item ID.
 
 ## Scripts
 

@@ -1,0 +1,10 @@
+[project]
+name = "install-smoke-clean-project"
+version = "0.0.1"
+description = "Minimal fixture for spec-101 install-smoke CI matrix."
+requires-python = ">=3.11"
+dependencies = []
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

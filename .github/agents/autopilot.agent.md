@@ -4,7 +4,7 @@ description: "Autonomous multi-spec orchestrator -- splits large specs into focu
 color: purple
 model: opus
 tools: [codebase, githubRepo, readFile, runCommands, search, agent]
-agents: [Build, Explorer, Verify, Plan, Guard]
+agents: [Build, ai-explore, Verify, Plan, Guard]
 handoffs:
 - label: 📋 Create PR
   agent: agent

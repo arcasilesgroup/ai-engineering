@@ -7,8 +7,279 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+#### spec-109 — Installer first-install robustness (auto-remediation + live progress)
+
+- **`PhaseProtocol` opt-in `critical: bool` flag (spec-109 D-109-01, D-109-02).**
+  A phase that declares `critical = False` is recorded in
+  `PipelineSummary.non_critical_failures` when its verdict fails, but the
+  pipeline keeps going to the next phase. Phases that omit `critical` keep the
+  legacy `critical=True` behaviour automatically. `PipelineSummary` adds a
+  new additive field `non_critical_failures: list[str]`.
+
+- **`ToolsPhase.critical = False` (spec-109 D-109-03).** A failed tool
+  install no longer cascades into `HooksPhase`. Pre-spec-109 a single bad
+  tool meant `.git/hooks/` was empty, `install-state.json` lacked
+  `hook_hash:*` entries, and the next `ai-eng doctor` reported
+  `hooks-integrity FAIL`. Hooks now write unconditionally on every install,
+  regardless of tool outcomes.
+
+- **Auto-remediation in `ai-eng install` (spec-109 D-109-05).** When the
+  pipeline records non-critical failures, the install command invokes the
+  same `doctor.phases.tools.fix` + `doctor.phases.hooks.fix` paths used by
+  `ai-eng doctor --fix`. The user no longer has to follow `install` with two
+  manual remediation commands. Behaviour is reported in the JSON envelope
+  under the additive `auto_remediation: {invoked, success, applied, failed,
+  errors}` key.
+
+- **`--no-auto-remediate` flag (spec-109 R-109-01).** CI consumers that want
+  to detect "first attempt failed" disable the second-pass repair so the
+  install still surfaces EXIT 80.
+
+- **Live multi-step progress UI (spec-109 D-109-07).** The single-spinner
+  `Installing governance framework...` is replaced by
+  `step_progress(total=len(PHASE_ORDER))`. The CLI shows
+  `[N/M] phase_label` in real time. `install_with_pipeline` and
+  `PipelineRunner` both accept an optional
+  `progress_callback: Callable[[str], None]` (default `None`, so existing
+  programmatic callers are unaffected).
+
+- **Pre-install banner honesty (spec-109 D-109-08).** `Tools:` is now
+  labelled `Tools (PATH):` with a dim qualifier explaining that `✓` only
+  reflects PATH availability, not install-pipeline success. Eliminates the
+  contradiction between the green check on the banner and `tools-required`
+  failures during install.
+
+### Fixed
+
+- **Render pipeline steps BEFORE exiting on tool failure (spec-109 D-109-04).**
+  Pre-spec-109 the install command emitted `"Tool installation failed; see
+  warnings above"` and then `raise typer.Exit(80)` BEFORE the line that
+  rendered the step report. Users saw the "see warnings above" message with
+  no warnings printed. The render pass now happens unconditionally and the
+  exit (when needed) follows.
+
+### BREAKING
+
+#### spec-107 -- Copilot Explorer agent renamed (BREAKING-LIKELY, Copilot only)
+
+- **Agent `@Explorer` renamed to `@ai-explore` for cross-IDE consistency
+  (spec-107 D-107-03).** Claude Code, Codex, and Gemini already used the
+  canonical `ai-explore` slug; this rename brings GitHub Copilot Chat in
+  line. Slash command `/ai-explore` is also added via a new chatmode
+  alias at `.github/chatmodes/ai-explore.chatmode.md`, so both
+  `@ai-explore` (subagent invocation) and `/ai-explore` (Claude-style
+  slash) resolve to the same agent persona on Copilot. The legacy
+  `.github/agents/explore.agent.md` filename is replaced by
+  `.github/agents/ai-explore.agent.md`. Migration: any Copilot Chat
+  workspace prompt that hardcodes `@Explorer` must update to
+  `@ai-explore`. The agent's behaviour, tooling, and read-only contract
+  are unchanged.
+
+- **`scripts/sync_command_mirrors.py` `AGENT_METADATA["explore"]["display_name"]`
+  switched from `"Explorer"` to `"ai-explore"`.** Every IDE mirror surface
+  regenerates with the canonical slug on the next `ai-eng sync`. Anyone
+  forking the framework with custom `AGENT_METADATA` overrides should
+  audit their fork for the `Explorer` literal and update accordingly.
+
+- **`templates/project/GEMINI.md` count placeholders (spec-107 D-107-04).**
+  The template now ships with `__SKILL_COUNT__` and `__AGENT_COUNT__`
+  placeholders in the `## Skills (N)` and `## Agents (N)` h2 headers and
+  Source-of-Truth table cells. `scripts/sync_command_mirrors.py
+  write_gemini_md(...)` materialises these against the canonical
+  `.claude/skills/` + `.claude/agents/` discovery on every sync, so the
+  rendered `.gemini/GEMINI.md` and root `GEMINI.md` always match disk
+  reality. No user-visible behavioural change; placeholder leakage is
+  caught by the new `/ai-platform-audit` Check 7.
+
+- **`/ai-platform-audit` advisory checks 6/7/8 (spec-107 D-107-04, NG-11).**
+  Three new advisory-only checks land:
+  - Check 6 — agent naming consistency cross-IDE (catches future
+    Explorer-style mismatches across `.claude/`, `.github/`, `.codex/`,
+    `.gemini/` agents).
+  - Check 7 — `.gemini/GEMINI.md` skill count freshness (regression
+    detection if the template placeholder is removed and replaced with a
+    stale literal).
+  - Check 8 — generic instruction-file count scan (defense-in-depth
+    across `CLAUDE.md`, `AGENTS.md`, `.github/copilot-instructions.md`,
+    `.gemini/GEMINI.md`).
+  All three emit advisory WARN only and never hard-fail. Hard-gate
+  enforcement lands in a future spec when ≥90% of projects pass cleanly.
+
+#### spec-105 -- Unified Gate + Generalized Risk Acceptance (BREAKING-LIKELY)
+
+This release introduces a new CLI namespace (`ai-eng risk *`), a new
+manifest field (`gates.mode`), an additive schema bump (`gate-findings`
+v1 -> v1.1), and an opt-out auto-stage default. The "BREAKING-LIKely"
+flag covers the manifest field default and the auto-stage flip; both
+are additive but change observable behaviour for projects that were
+relying on the legacy implicits.
+
+- **New `ai-eng risk *` namespace (D-105-05).** Seven subcommands wire
+  the existing `decision_logic` lifecycle to a public CLI: `accept`,
+  `accept-all`, `renew`, `resolve`, `revoke`, `list`, `show`. The
+  pre-spec-105 flow ("AI edits `decision-store.json` via prompt") is
+  superseded; the JSON file is no longer expected to be hand-edited.
+  Coexists with the existing `ai-eng decision *` namespace (which
+  remains for architecture-decision and flow-decision entries).
+
+- **New `manifest.yml.gates.mode` field (D-105-02).**
+  `gates.mode: regulated` (default) keeps full Tier 0+1+2 enforcement.
+  `gates.mode: prototyping` skips Tier 2 governance checks (`ai-eng
+  validate`, `ai-eng spec verify`, docs gate, risk-expiry warning) for
+  spike work. Branch-aware escalation (D-105-03) and CI override force
+  `regulated` regardless of manifest, so prototyping cannot leak to
+  protected branches or CI runs.
+
+- **`gate-findings.json` schema v1 -> v1.1 (additive, D-105-07).**
+  New optional fields `accepted_findings: [{check, rule_id, file, line,
+  severity, message, dec_id, expires_at}]` and `expiring_soon:
+  [dec_id]`. v1 readers continue to work because the schema literal is
+  a `Literal["ai-engineering/gate-findings/v1",
+  "ai-engineering/gate-findings/v1.1"]` union and unknown fields are
+  ignored.
+
+- **Auto-stage default ON for the local pre-commit gate (D-105-09).**
+  After Wave 1 fixers (ruff format, ruff check --fix, spec verify
+  --fix) modify staged files, the orchestrator re-stages the safe
+  intersection `S_pre & M_post` -- files that were already staged AND
+  were modified by the fixers. Files newly created by fixers, or
+  modified-but-unstaged files, are NEVER auto-staged. Disable with
+  `ai-eng gate run --no-auto-stage` or the manifest field
+  `gates.pre_commit.auto_stage: false`. The same shared utility
+  (`policy/auto_stage.py`) is invoked by the Claude `auto-format.py`
+  hook so orchestrator + hook produce identical results on the same
+  fixture.
+
+- **Orchestrator-level acceptance lookup (D-105-07).** After Wave 2,
+  `apply_risk_acceptances(findings, store, now=now)` partitions
+  findings into `(blocking, accepted)` lists, drops accepted items
+  from the blocking set, and emits per-acceptance telemetry events
+  (`category=risk-acceptance, control=finding-bypassed`). The CLI
+  prints a compact ACCEPTED summary plus an `expiring_soon[]` banner
+  when any DEC is within `_WARN_BEFORE_EXPIRY_DAYS=7` of expiry.
+
+- **Cross-IDE parity for `ai-eng risk *` (G-10).** All risk + gate CLI
+  output is byte-identical (after normalising session_id /
+  produced_at / wall_clock_ms / commit_sha) across Claude Code, GitHub
+  Copilot, Codex, and Gemini. The CLI is the single source of truth;
+  IDE drivers never branch the orchestrator.
+
+- **Prompt-injection-guard whitelist (G-12).** `ai-eng risk accept` and
+  `ai-eng risk accept-all` are exempted from the
+  injection-pattern scan because their inputs (gate-findings JSON)
+  legitimately embed rule names like `aws-access-token` or
+  `stripe-key`. The bypass emits a `category=security,
+  control=prompt-guard-whitelisted` telemetry event so each whitelist
+  match remains auditable.
+
+##### Migration checklist
+
+- [ ] After upgrading, run `ai-eng install` once to add `gates.mode`
+      and `gates.pre_commit.auto_stage` defaults to `manifest.yml`.
+- [ ] If you customised `auto-format.py` hook behaviour, review the
+      shared `policy/auto_stage.py` utility -- the hook now delegates
+      to it.
+- [ ] If your project intentionally hand-edited `decision-store.json`
+      to add risk acceptances, replace those flows with `ai-eng risk
+      accept-all` invocations. Existing entries remain valid; only new
+      entries gain the `finding_id` / `batch_id` fields.
+- [ ] No CI changes required -- CI auto-detects via `CI=true` /
+      `GITHUB_ACTIONS=true` / `TF_BUILD=True` and forces `regulated`
+      mode.
+
+#### spec-101 -- Stack-Aware User-Scope Tool Bootstrap (BREAKING)
+
+This release replaces the previous best-effort tool-install path with a hard,
+data-driven contract. Three changes alter behaviour you may have depended on
+in CI scripts, install wrappers, or local tooling.
+
+- **Hard-fail on missing required tools (no silent pass).**
+  `ai-eng install` and `ai-eng doctor --fix --phase tools` now exit non-zero
+  when a required tool cannot be installed or verified. Two reserved exit
+  codes carry the diagnosis:
+  - `EXIT 80` -- a required CLI tool is missing or unverifiable after the
+    install attempt (covers ruff, ty, gitleaks, semgrep, pip-audit, prettier,
+    eslint, vitest, checkstyle, dotnet-format, staticcheck, govulncheck,
+    phpstan, php-cs-fixer, composer, cargo-audit, ktlint, swiftlint,
+    swift-format, sqlfluff, shellcheck, shfmt, clang-tidy, clang-format,
+    cppcheck, jq, pytest, tsc).
+  - `EXIT 81` -- a language SDK / prerequisite declared in
+    `prereqs.sdk_per_stack` is missing (covers JDK, Swift toolchain, Dart
+    SDK, .NET SDK, Go toolchain, Rust toolchain, PHP, clang/LLVM).
+  Migration: any `ai-eng install || true` workaround in CI must be removed.
+  Either install the prerequisites first, mark the stack-tool combo as
+  `platform_unsupported`, or pin a stack-level
+  `platform_unsupported_stack` escalation in `manifest.yml`.
+
+- **`python_env.mode` now defaults to `uv-tool`.**
+  Python tools install once into `~/.local/share/uv/tools/` instead of a
+  per-cwd `.venv/`. This is the worktree-fast default -- creating a new
+  worktree no longer triggers a multi-minute `.venv` re-install. Two
+  escape hatches remain for projects that need the legacy behaviour:
+  - `python_env.mode: venv` -- restore the pre-spec-101 per-cwd `.venv/`
+    install path. Use this when your team relies on `source .venv/bin/activate`
+    workflows or commits a project-local `.venv/` policy.
+  - `python_env.mode: shared-parent` -- worktree-aware shared `.venv` at
+    the repo root. Requires a git repo. Use this when you want a single
+    `.venv` shared across worktrees but cannot adopt `uv-tool` (e.g.,
+    enterprise tools that pin to a venv path).
+  Migration: existing repos auto-pick `uv-tool` on next install. To stay on
+  `.venv`, set `python_env.mode: venv` in `.ai-engineering/manifest.yml`
+  before running `ai-eng install` or `ai-eng doctor --fix`.
+
+- **`required_tools` now covers 14 stacks.**
+  The single source of truth in `manifest.yml > required_tools` lists tools
+  for: baseline + python, typescript, javascript, java, csharp, go, php,
+  rust, kotlin, swift, dart, sql, bash, cpp -- 14 stacks total. Adding a
+  stack to `manifest.providers.stacks` without declaring its tool block
+  is no longer possible: the governance lint refuses the manifest. The
+  hardcoded `_PIP_INSTALLABLE` and `_REQUIRED_TOOLS` literals in installer
+  and doctor are gone -- both consumers read from the same manifest block.
+  `platform_unsupported` (tool-level, max 2 of 3 OSes) and
+  `platform_unsupported_stack` (stack-level, may list all 3) require an
+  `unsupported_reason` per D-101-03 + D-101-13.
+
+##### First-run BREAKING banner
+
+The first `ai-eng install` after upgrading prints a one-shot BREAKING
+banner to stderr summarising the contract change. The banner emits exactly
+once per project; ``InstallState.breaking_banner_seen`` records the flag
+in `.ai-engineering/state/install-state.json` so subsequent runs stay
+quiet. Dry-run installs do not emit the banner.
+
+##### Migration checklist
+
+- [ ] Remove any `|| true` shielding around `ai-eng install` in CI.
+- [ ] Decide your `python_env.mode`: `uv-tool` (default), `venv`
+      (legacy per-cwd `.venv`), or `shared-parent` (worktree-aware).
+- [ ] If you stack-extend, add a matching `required_tools.<stack>`
+      block to `manifest.yml`.
+- [ ] Verify with `ai-eng doctor --fix --phase tools`.
+
 ### Changed
 - **Slash-command boundary clarification** -- clarified across multi-IDE instruction files, the `/ai-start` skill, and `.ai-engineering/README.md` that `/ai-*` entries are IDE slash commands and must not be inferred as `ai-eng` CLI subcommands unless explicitly documented.
+
+### Added
+
+#### spec-104 -- Commit/PR Pipeline Speed: Single-Pass Collector + Memoization + Bounded Watch
+
+- **Single-pass orchestrator with 2-wave dispatch (D-104-01)** -- new `src/ai_engineering/policy/orchestrator.py` replaces sequential gate flow. Wave 1 (serial fixers): `ruff format` -> `ruff check --fix` -> `spec verify --fix`. Wave 2 (parallel checkers): `gitleaks protect --staged`, `ai-eng validate`, docs gate, `ty check src/`, `pytest -m smoke`. Recolección completa en una pasada produce `.ai-engineering/state/gate-findings.json`.
+- **Local fast-slice + CI authoritative gate policy (D-104-02)** -- fixed framework policy (not configurable). Local executes only fast checks (≤60s budget); `semgrep`, `pip-audit`, `pytest` full + matrix run authoritative in CI. Watch loop autofixes CI failures. Política documented in `.ai-engineering/contexts/gate-policy.md`.
+- **Hash + max-age 24h gate cache (D-104-03)** -- new `src/ai_engineering/policy/gate_cache.py`. Cache key = sha256(tool_name ‖ tool_version ‖ sorted(staged_blob_shas) ‖ sorted(config_file_hashes) ‖ sorted(args)). Storage at `.ai-engineering/state/gate-cache/<cache-key>.json` per-cwd. Hit replay (PASS or FAIL) skips run; miss executes and persists. Invalidación: any input change OR `now() - verified_at > 24h`. LRU prune to 256 entries; cap ≤16 MB.
+- **Async parallel docs + pre-push (D-104-04)** -- `/ai-pr` step 6.5 dispatches 3 concurrent lanes (docs A1: CHANGELOG+README, docs A2: docs-portal+quality-gate, lane 3: pre-push gate Wave 2). Wall-clock = `max(docs, pre-push)` instead of `sum`. Coherence preserved: docs staged BEFORE PR creation; no fire-and-forget post-PR commits (NG-7).
+- **Watch loop wall-clock bounds (D-104-05)** -- active phase cap 30 min from `last_active_action_at`, passive phase cap 4h from `watch_started_at`. On cap: emit `.ai-engineering/state/watch-residuals.json` (gate-findings v1 schema), print actionable message, exit code 90 (distinct from spec-101 EXIT 80/81).
+- **GateFindingsDocument schema v1 contract (D-104-06)** -- canonical schema `ai-engineering/gate-findings/v1` emitted by orchestrator and watch loop. Stable `rule_id` (CVE/semgrep/gitleaks/ruff/ty rule codes — never human messages). Versioned `schema` field for non-breaking evolution. Fixture canonical at `tests/fixtures/gate_findings_v1.json`. Consumer contract for spec-105 (S3 risk-accept).
+- **SKILL.md verbosity reduction (~30%) (D-104-07)** -- ≥160 lines removed from `ai-commit/SKILL.md` + `ai-pr/SKILL.md` + `ai-pr/handlers/watch.md` (532 -> ≤372). Only verified duplicates removed (cross-referenced against CLAUDE.md Don't section, `contexts/languages/`, anti-pattern consolidation in watch.md). Mandatory sections preserved: `## Process`, `## Integration`, `## Quick Reference`, `argument-hint` frontmatter.
+- **Cross-IDE parity via CLI-layer (D-104-08)** -- toda lógica de speed-up vive en `policy/orchestrator.py` + `policy/gate_cache.py` invocados via CLI `ai-eng gate run --cache-aware --json`. Skills mirrors (`.claude/`, `.github/`, `.codex/`, `.gemini/`) instruyen al agent a invocar el CLI en lugar de herramientas individuales. Beneficio idéntico independiente del IDE driver.
+- **`gate run` CLI flags (D-104-10)** -- nuevo subcomando `ai-eng gate run` con `--cache-aware` (default ON), `--no-cache` (skip lookup, fresh run, persist), `--force` (skip lookup, clear matching entry, fresh run, persist), `--json`, `--mode={local,ci}`, `--produced-by`. Sin nuevos comandos top-level (NG-8).
+- **`gate cache` subcommands** -- `ai-eng gate cache --status` (read-only listing of entries + max-age + tamaño total) y `ai-eng gate cache --clear` (interactive confirmation o `--yes`). Sub-flags de comando existente.
+- **New env vars** -- `AIENG_LEGACY_PIPELINE=1` restores pre-spec-104 sequential gate flow. `AIENG_CACHE_DISABLED=1` global cache kill switch (equivalente a `--no-cache`). `AIENG_CACHE_DEBUG=1` enables cache hit/miss logging.
+
+##### Migration note
+
+`AIENG_LEGACY_PIPELINE=1` env var restores the pre-spec-104 sequential local-only gate behavior (no orchestrator, no cache, no parallel Wave 2). Use solo si surge una regresión que requiera audit trail comparison contra el flujo previo. CI cache reuse via `actions/cache@v4` con la misma key schema que el local; storage físico independiente (CI no monta el cache local del dev).
 
 ## [0.4.6] - 2026-04-07
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 from datetime import UTC, datetime
 from pathlib import Path
@@ -64,9 +65,48 @@ def framework_capabilities_path(project_root: Path) -> Path:
     return project_root / FRAMEWORK_CAPABILITIES_REL
 
 
+def _read_prev_event_hash(path: Path) -> str | None:
+    """Compute the SHA256 of the last entry in the events ndjson, if any.
+
+    Spec-107 D-107-10 (H2): each new event carries a ``prev_event_hash``
+    pointer to the canonical-JSON SHA256 of the prior entry, forming a
+    tamper-evident chain. Missing or empty file returns ``None`` (chain
+    anchor). Malformed last line is treated as missing -- additive
+    backward-compat: the chain restarts rather than refusing the write.
+    """
+    from ai_engineering.state.audit_chain import compute_entry_hash
+
+    if not path.exists():
+        return None
+    text = path.read_text(encoding="utf-8")
+    if not text.strip():
+        return None
+    last_line = text.strip().splitlines()[-1].strip()
+    if not last_line:
+        return None
+    try:
+        prior = json.loads(last_line)
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(prior, dict):
+        return None
+    return compute_entry_hash(prior)
+
+
 def append_framework_event(project_root: Path, entry: FrameworkEvent) -> None:
-    """Append a canonical framework event to the new NDJSON stream."""
-    append_ndjson(framework_events_path(project_root), entry)
+    """Append a canonical framework event to the new NDJSON stream.
+
+    Spec-107 H2: populates ``entry.detail['prev_event_hash']`` with the
+    SHA256 of the last entry on disk before write, anchoring the chain.
+    """
+    path = framework_events_path(project_root)
+    prev_hash = _read_prev_event_hash(path)
+    # Stamp the chain pointer into the structured detail payload so it
+    # survives the canonical JSON dump without changing the model schema.
+    if not isinstance(entry.detail, dict):  # pragma: no cover - defensive
+        entry.detail = {}
+    entry.detail["prev_event_hash"] = prev_hash
+    append_ndjson(path, entry)
 
 
 def _project_name(project_root: Path) -> str:

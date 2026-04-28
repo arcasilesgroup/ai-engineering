@@ -42,26 +42,15 @@ Intelligent git conflict resolution. Detects conflict type, categorizes files by
    | Config | `*.yml`, `*.toml`, `*.json` (non-lock) | AI merge with validation |
    | Code | everything else | AI analysis |
 
-4. **Resolve by category**:
+4. **Resolve by category** (per the strategy column above):
 
-   **Lock files**: accept incoming version, then regenerate:
-   ```bash
-   git checkout --theirs <lockfile>
-   # Then regenerate: npm install / cargo generate-lockfile / uv lock / etc.
-   ```
+   **Lock files** — `git checkout --theirs <lockfile>` then regenerate (`npm install` / `cargo generate-lockfile` / `uv lock` / etc.).
 
-   **Migrations**: present both sides to user with context. Migration ordering is semantic -- never auto-resolve. Show the migration graph and ask which order to apply.
+   **Migrations** — present both sides with the migration graph; ask which order to apply (never auto-resolve — ordering is semantic).
 
-   **Generated files**: accept theirs, rebuild from source after resolution.
+   **Config files** — merge intelligently preserving both sides' additions; validate against schema if available.
 
-   **Config files**: read both versions, merge intelligently preserving both sides' additions. Validate result against schema if available.
-
-   **Code conflicts**: for each conflict hunk:
-   a. Read surrounding context (50 lines each side)
-   b. Identify intent of each change (what was the goal?)
-   c. Check commit messages for both sides
-   d. Propose resolution preserving both intents
-   e. If intents conflict, present options to user
+   **Code conflicts** — for each hunk: (a) read 50 lines context each side, (b) identify intent per side, (c) check commit messages, (d) propose resolution preserving both intents, (e) if intents conflict, present options to user.
 
 5. **Stacked PR detection** -- if resolving conflicts between branches in a stack:
    a. Compare base, HEAD, and incoming for similarity
@@ -80,14 +69,6 @@ Intelligent git conflict resolution. Detects conflict type, categorizes files by
    ```
 
    If the continue operation produces new conflicts (common during multi-commit rebases), loop back to the conflict detection step and resolve the next round. Repeat until the operation completes.
-
-## Common Mistakes
-
-| Mistake | Why it is wrong |
-|---------|----------------|
-| Auto-resolving migration conflicts | Migration order is semantic; wrong order corrupts data |
-| Keeping both sides of a lock file | Lock files must be regenerated from the manifest |
-| Resolving without reading commit messages | Loses context about intent |
 
 ## Integration
 

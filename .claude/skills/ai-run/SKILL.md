@@ -43,71 +43,29 @@ Invocation is the approval gate. All later gates are machine-enforced.
 ### Step 0: Validate
 
 1. If `--resume` is present, read `.ai-engineering/runs/<run-id>/manifest.md` and jump to the Resume Protocol in `handlers/phase-deliver.md`.
-2. Read the reference bundle:
-   - `references/architecture.md`
-   - `references/phases.md`
-   - `references/run-manifest.md`
-   - `references/provider-matrix.md`
+2. Read the reference bundle: `references/architecture.md`, `references/phases.md`, `references/run-manifest.md`, `references/provider-matrix.md`.
 
 ### Step 1: Intake and Baseline Explore
 
-Read `handlers/phase-intake.md` and execute:
-
-1. Select the source provider (GitHub, Azure Boards, markdown).
-2. Create or resume the run-state directory.
-3. Perform mandatory repository-wide baseline exploration via `ai-explore` before any DAG or wave planning.
-4. Normalize source items into the shared item schema in the run manifest.
+Read `handlers/phase-intake.md` and execute. Select source provider; create or resume run-state directory; perform mandatory repository-wide baseline exploration via `ai-explore` before any DAG or wave planning; normalize source items into the shared item schema in the run manifest.
 
 ### Step 2: Item Planning
 
-Read `handlers/phase-item-plan.md` and execute:
-
-1. Deepen ambiguous or risky items with scoped exploration.
-2. Produce per-item `spec.md` and `plan.md` under `.ai-engineering/runs/<run-id>/items/<item-id>/`.
-3. Define file boundaries, checks, acceptance criteria, and close policy per item.
+Read `handlers/phase-item-plan.md` and execute. Deepen ambiguous or risky items with scoped exploration; produce per-item `spec.md` and `plan.md` under `.ai-engineering/runs/<run-id>/items/<item-id>/`; define file boundaries, checks, acceptance criteria, and close policy per item.
 
 ### Step 3: DAG and Wave Planning
 
-Read `handlers/phase-orchestrate.md` and execute:
-
-1. Build the overlap matrix and dependency DAG from item plans plus architectural evidence.
-2. Default to serialization when uncertainty is non-trivial.
-3. Build bounded `ai-build` task packets for each ready item.
+Read `handlers/phase-orchestrate.md` and execute. Build the overlap matrix and dependency DAG from item plans plus architectural evidence; default to serialization when uncertainty is non-trivial; build bounded `ai-build` task packets for each ready item.
 
 ### Step 4: Execute and Promote
 
-Read `handlers/phase-execute.md` and execute:
-
-1. Dispatch `ai-build` per item with scoped context and explicit post-gates.
-2. Run item-level `ai-review` and `ai-verify platform`.
-3. Promote passing item branches locally into the integration surface.
-4. Run integration gates after every promotion.
+Read `handlers/phase-execute.md` and execute. **Per-item kernel**: see `.claude/skills/_shared/execution-kernel.md`. ai-run wraps the kernel per-item -- dispatch `ai-build` with scoped context and explicit post-gates (Sub-flow 1), run item-level `ai-review` + `ai-verify platform` build-verify-review loop (Sub-flow 2), collect Self-Reports + promote passing item branches into the integration surface (Sub-flow 3), advance board state (Sub-flow 4). Run integration gates after every promotion.
 
 ### Step 5: Deliver and Resume
 
-Read `handlers/phase-deliver.md` and execute:
+Read `handlers/phase-deliver.md` and execute. Delegate final PR creation and remote CI watch/fix to `ai-pr`; use `ai-board-sync` for lifecycle transitions where policy allows; use `ai-resolve-conflicts` when automated rebases or promotions hit conflicts; finalize the run manifest and cleanup after merge.
 
-1. Delegate final PR creation and remote CI watch/fix to `ai-pr`.
-2. Use `ai-board-sync` for lifecycle transitions where policy allows.
-3. Use `ai-resolve-conflicts` when automated rebases or promotions hit conflicts.
-4. Finalize the run manifest and cleanup after merge.
-
-## Thin Orchestrator Principle
-
-`ai-run` does not embed provider logic, build logic, review logic, or PR logic. It reads and reuses:
-
-**Agents:**
-- `.claude/agents/ai-explore.md`
-- `.claude/agents/ai-build.md`
-
-**Skills:**
-- `.claude/skills/ai-review/SKILL.md`
-- `.claude/skills/ai-verify/SKILL.md`
-- `.claude/skills/ai-pr/SKILL.md`
-- `.claude/skills/ai-board-sync/SKILL.md`
-- `.claude/skills/ai-resolve-conflicts/SKILL.md`
-
-When those skills improve, `ai-run` inherits the improvement automatically.
+Thin orchestrator: `ai-run` does not embed provider/build/review/PR logic. It reads and reuses `_shared/execution-kernel.md` (Step 4 per-item per-task loop), the `ai-explore`/`ai-build` agents, and the `ai-review`/`ai-verify`/`ai-pr`/`ai-board-sync`/`ai-resolve-conflicts` skills. When those skills improve, `ai-run` inherits automatically.
 
 ## Governance
 
@@ -132,6 +90,7 @@ When those skills improve, `ai-run` inherits the improvement automatically.
 
 - **Called by**: user directly when no-HITL backlog execution is desired.
 - **Calls**: `ai-explore`, `ai-build`, `ai-review`, `ai-verify`, `ai-pr`, `ai-board-sync`, `ai-resolve-conflicts`
+- **Reads**: `.claude/skills/_shared/execution-kernel.md`, `references/*` (intake/orchestrate phase contracts)
 - **Writes state to**: `.ai-engineering/runs/<run-id>/`
 - **Transitions to**: merged PR, blocker report, or deferred run state
 

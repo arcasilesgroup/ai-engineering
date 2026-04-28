@@ -107,7 +107,11 @@ Before writing or reviewing code, load the applicable context files:
 | Multi-spec autonomous execution | autopilot | `/ai-autopilot` |
 | Autonomous backlog execution | run-orchestrator | `/ai-run` |
 
-## Skills (44)
+## Agents (__AGENT_COUNT__)
+
+The agents table above lists every agent shipped with the framework. Counts mirror `.ai-engineering/manifest.yml` (`agents.total`).
+
+## Skills (__SKILL_COUNT__)
 
 Grouped by type. Invoke as `/ai-<name>`.
 
@@ -170,8 +174,8 @@ Gate failure: diagnose, fix, retry. Use `ai-eng doctor --fix` or `ai-eng doctor 
 
 | What | Where |
 |------|-------|
-| Skills (44) | `.gemini/skills/ai-<name>/SKILL.md` |
-| Agents (10) | `.gemini/agents/ai-<name>.md` |
+| Skills (__SKILL_COUNT__) | `.gemini/skills/ai-<name>/SKILL.md` |
+| Agents (__AGENT_COUNT__) | `.gemini/agents/ai-<name>.md` |
 | Config | `.ai-engineering/manifest.yml` |
 | Decisions | `.ai-engineering/state/decision-store.json` |
 | Active spec | `.ai-engineering/specs/spec.md` |

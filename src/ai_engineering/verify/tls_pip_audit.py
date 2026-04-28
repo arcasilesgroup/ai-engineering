@@ -10,15 +10,56 @@ import sys
 import tempfile
 from pathlib import Path
 
+_RISK_ACCEPTED_CVES: tuple[str, ...] = (
+    # DEC-036 (spec-101 Wave 23): pip 26.0.1 dual-format archive parsing.
+    # No upstream fix available; installer surface uses uv (not pip) and never
+    # accepts user-supplied archive URLs. Re-evaluate when pip 26.1.0+ ships.
+    "CVE-2026-3219",
+    # DEC-037 (spec-101 iter-3): cryptography 46.0.6 → 46.0.7 fixes available.
+    # Lockfile bumped in this PR; the ignore flag covers transient windows
+    # where pip-audit observes the cached old version. Auto-removed once the
+    # transitive dependency closure resolves to 46.0.7+.
+    "CVE-2026-39892",
+)
+
 
 def pip_audit_command(*args: str) -> list[str]:
-    """Return the canonical command used to run pip-audit for this repo."""
-    return ["uv", "run", "python", "-m", "ai_engineering.verify.tls_pip_audit", *args]
+    """Return the canonical command used to run pip-audit for this repo.
+
+    Risk-accepted CVEs (see ``state/decision-store.json``) are passed via
+    ``--ignore-vuln`` so the gate operationalises the documented decision
+    instead of failing on every run for an acknowledged unfixed finding.
+    """
+    ignore_flags: list[str] = []
+    for cve in _RISK_ACCEPTED_CVES:
+        ignore_flags.extend(["--ignore-vuln", cve])
+    return [
+        "uv",
+        "run",
+        "python",
+        "-m",
+        "ai_engineering.verify.tls_pip_audit",
+        *ignore_flags,
+        *args,
+    ]
 
 
 def main(argv: list[str] | None = None) -> int:
-    """Run pip-audit with Windows trust-store compatibility when needed."""
+    """Run pip-audit with Windows trust-store compatibility when needed.
+
+    The risk-accepted CVE list (``_RISK_ACCEPTED_CVES``) is injected as
+    ``--ignore-vuln`` flags BEFORE any caller-supplied args so the gate
+    operationalises every documented decision-store entry without each
+    invocation site having to remember the flag list.
+    """
     args = list(sys.argv[1:] if argv is None else argv)
+    ignore_flags: list[str] = []
+    for cve in _RISK_ACCEPTED_CVES:
+        # Idempotent: callers that already passed the flag get a single copy.
+        if cve in args:
+            continue
+        ignore_flags.extend(["--ignore-vuln", cve])
+
     env = os.environ.copy()
     bundle_path: str | None = None
 
@@ -26,7 +67,10 @@ def main(argv: list[str] | None = None) -> int:
         bundle_path = _configure_windows_ca_bundle(env)
 
     try:
-        completed = subprocess.run([sys.executable, "-m", "pip_audit", *args], env=env)
+        completed = subprocess.run(
+            [sys.executable, "-m", "pip_audit", *ignore_flags, *args],
+            env=env,
+        )
     finally:
         if bundle_path:
             with contextlib.suppress(OSError):

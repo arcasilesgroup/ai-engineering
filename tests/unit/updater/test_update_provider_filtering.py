@@ -19,6 +19,28 @@ import pytest
 from ai_engineering.installer.service import install
 from ai_engineering.updater.service import update
 
+
+def _ensure_git_repo(path: Path) -> None:
+    """Materialise minimum git repo layout so installer hook discovery does not fail.
+
+    Mock-immune: writes the layout via Path operations directly instead of
+    calling ``subprocess.run(["git", "init"])`` which can be intercepted by
+    a leaked subprocess mock from a prior test in the same xdist worker.
+    """
+    git_dir = path / ".git"
+    if git_dir.is_dir():
+        return
+    git_dir.mkdir(parents=True, exist_ok=True)
+    (git_dir / "refs" / "heads").mkdir(parents=True, exist_ok=True)
+    (git_dir / "objects").mkdir(parents=True, exist_ok=True)
+    (git_dir / "hooks").mkdir(parents=True, exist_ok=True)
+    (git_dir / "HEAD").write_text("ref: refs/heads/main\n", encoding="utf-8")
+    (git_dir / "config").write_text(
+        "[core]\n\trepositoryformatversion = 0\n\tfilemode = true\n\tbare = false\n",
+        encoding="utf-8",
+    )
+
+
 # ---------------------------------------------------------------------------
 # Provider-specific path prefixes used in assertions.
 # Derived from ``_PROVIDER_FILE_MAPS`` and ``_PROVIDER_TREE_MAPS`` in
@@ -67,6 +89,7 @@ def _has_provider_paths(paths: set[str], prefixes: tuple[str, ...]) -> bool:
 @pytest.fixture()
 def claude_only_project(tmp_path: Path) -> Path:
     """Install a project with only ``claude_code`` as AI provider."""
+    _ensure_git_repo(tmp_path)
     install(tmp_path, ai_providers=["claude_code"])
     return tmp_path
 
@@ -74,6 +97,7 @@ def claude_only_project(tmp_path: Path) -> Path:
 @pytest.fixture()
 def claude_copilot_project(tmp_path: Path) -> Path:
     """Install a project with ``claude_code`` and ``github_copilot``."""
+    _ensure_git_repo(tmp_path)
     install(tmp_path, ai_providers=["claude_code", "github_copilot"])
     return tmp_path
 
@@ -81,6 +105,7 @@ def claude_copilot_project(tmp_path: Path) -> Path:
 @pytest.fixture()
 def claude_gemini_project(tmp_path: Path) -> Path:
     """Install a project with ``claude_code`` and ``gemini``."""
+    _ensure_git_repo(tmp_path)
     install(tmp_path, ai_providers=["claude_code", "gemini"])
     return tmp_path
 
@@ -88,6 +113,7 @@ def claude_gemini_project(tmp_path: Path) -> Path:
 @pytest.fixture()
 def no_manifest_project(tmp_path: Path) -> Path:
     """Install a project, then remove the manifest to test fallback."""
+    _ensure_git_repo(tmp_path)
     install(tmp_path)
     manifest = tmp_path / ".ai-engineering" / "manifest.yml"
     if manifest.exists():

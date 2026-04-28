@@ -106,10 +106,7 @@ Ask ONE section at a time. Wait for answers before proceeding to the next DERP p
 /ai-postmortem generate               # generate from existing context
 ```
 
-## Storage
-
-- Location: `.ai-engineering/postmortems/{id}.md`
-- ID format: `PM-YYYY-NNN`
+Storage: `.ai-engineering/postmortems/{id}.md` (ID format `PM-YYYY-NNN`).
 
 ## Integration
 

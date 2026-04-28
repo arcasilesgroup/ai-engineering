@@ -36,9 +36,7 @@ Read `handlers/design-system.md` for the priority-ranked UX rule database, cover
 
 ### Step 3 -- Analyze the Request
 
-If handlers are unavailable, apply the design thinking framework directly: Purpose, Tone, Constraints, Differentiation.
-
-Apply the design thinking framework from `handlers/aesthetics.md`:
+Apply the design thinking framework from `handlers/aesthetics.md` (or directly if the handler is unavailable):
 
 1. **Purpose** -- what problem does this interface solve? Who uses it?
 2. **Tone** -- choose an extreme direction with clear character (minimalist, maximalist, organic, luxury, playful, editorial, brutalist, etc.)
@@ -84,18 +82,6 @@ Produce specific choices, not vague guidance:
 ### Step 7 -- Pre-Delivery Quality Check
 
 Before delivering any design work, run `handlers/checklist.md` and verify all items pass. Do not deliver with unchecked items.
-
-## Quick Reference
-
-| Step | Gate | Output |
-|------|------|--------|
-| Load aesthetics | Handler read | Design thinking framework active |
-| Load design system | Handler read | UX rules loaded by priority |
-| Analyze request | Framework applied | Purpose, tone, constraints, differentiation |
-| Apply UX rules | P1-P2 hard gates | Accessibility + touch compliance |
-| Generate direction | Specific choices | Named fonts, colors, spacing, layout |
-| Delegate | Specialized skills | Animation, canvas, slides as needed |
-| Quality check | Checklist passes | All items verified |
 
 ## Integration
 

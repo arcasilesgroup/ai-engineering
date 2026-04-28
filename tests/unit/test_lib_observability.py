@@ -514,9 +514,19 @@ class TestNDJSONEquivalence:
 
     # Fields that are generated per-call and cannot match
     _VOLATILE_KEYS: ClassVar[set[str]] = {"timestamp", "correlationId"}
+    # Spec-107 H2: ``prev_event_hash`` is a write-order-dependent chain
+    # pointer (SHA256 of the prior entry on disk). When _lib writes first
+    # then pkg writes second, the pkg entry's pointer references the _lib
+    # entry, so the values differ even though the *structure* is parity.
+    # Strip the field from both sides before comparing values.
+    _DETAIL_VOLATILE_KEYS: ClassVar[set[str]] = {"prev_event_hash"}
 
     def _strip_volatile(self, d: dict) -> dict:
-        return {k: v for k, v in d.items() if k not in self._VOLATILE_KEYS}
+        out = {k: v for k, v in d.items() if k not in self._VOLATILE_KEYS}
+        detail = out.get("detail")
+        if isinstance(detail, dict):
+            out["detail"] = {k: v for k, v in detail.items() if k not in self._DETAIL_VOLATILE_KEYS}
+        return out
 
     def test_skill_invoked_key_parity(self, project_root: Path, ndjson_path: Path) -> None:
         """Both modules produce the same JSON keys for skill_invoked."""
@@ -613,8 +623,19 @@ class TestStdlibOnly:
     def test_no_third_party_imports(self) -> None:
         """Only stdlib modules should be imported."""
         source = (_HOOKS_DIR / "_lib" / "observability.py").read_text()
-        # Allowlist of stdlib modules used
-        allowed = {"json", "os", "re", "datetime", "uuid", "pathlib", "__future__"}
+        # Allowlist of stdlib modules used. Spec-107 H2 added ``hashlib``
+        # for the audit-chain pointer (SHA256 of the prior entry's
+        # canonical-JSON payload) -- pure stdlib, no third-party dep.
+        allowed = {
+            "json",
+            "os",
+            "re",
+            "datetime",
+            "uuid",
+            "pathlib",
+            "__future__",
+            "hashlib",
+        }
         import ast
 
         tree = ast.parse(source)

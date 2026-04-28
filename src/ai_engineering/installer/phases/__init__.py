@@ -178,6 +178,9 @@ class InstallContext:
     stacks: list[str] = field(default_factory=list)
     ides: list[str] = field(default_factory=list)
     existing_state: InstallState | None = None
+    # spec-101 T-2.16: ``--force`` plumbing. When True, ToolsPhase bypasses
+    # the D-101-07 skip predicate and re-installs every tool unconditionally.
+    force: bool = False
 
 
 # ---------------------------------------------------------------------------
@@ -187,7 +190,15 @@ class InstallContext:
 
 @runtime_checkable
 class PhaseProtocol(Protocol):
-    """Contract every install phase must satisfy."""
+    """Contract every install phase must satisfy.
+
+    spec-109 D-109-01: phases MAY declare a ``critical`` property
+    (default True via :func:`getattr` in ``PipelineRunner``). A non-critical
+    phase whose ``verify`` returns ``passed=False`` is recorded in
+    ``PipelineSummary.non_critical_failures`` but does NOT break the pipeline
+    -- subsequent phases still run. Phases that do not declare ``critical``
+    keep the legacy critical=True behaviour automatically.
+    """
 
     @property
     def name(self) -> str: ...

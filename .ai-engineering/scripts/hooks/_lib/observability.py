@@ -9,6 +9,7 @@ Zero imports from ai_engineering.* -- hooks can run without pip install.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 from datetime import UTC, datetime
@@ -84,9 +85,44 @@ def framework_events_path(project_root: Path) -> Path:
     return project_root / FRAMEWORK_EVENTS_REL
 
 
+def _compute_prev_event_hash(path: Path) -> str | None:
+    """Spec-107 H2: SHA256 of the canonical-JSON payload of the last entry.
+
+    Stdlib-only mirror of ``ai_engineering.state.audit_chain.compute_entry_hash``
+    so the hook-local _lib remains self-contained (no third-party imports).
+    Returns ``None`` for missing/empty/malformed-tail files -- the chain
+    re-anchors rather than refusing the write (additive backward-compat).
+    """
+    if not path.exists():
+        return None
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return None
+    if not text.strip():
+        return None
+    last_line = text.strip().splitlines()[-1].strip()
+    if not last_line:
+        return None
+    try:
+        prior = json.loads(last_line)
+    except (json.JSONDecodeError, ValueError):
+        return None
+    if not isinstance(prior, dict):
+        return None
+    stripped = {k: v for k, v in prior.items() if k not in ("prev_event_hash", "prevEventHash")}
+    canonical = json.dumps(stripped, sort_keys=True, separators=(",", ":"), default=str)
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
 def append_framework_event(project_root: Path, entry: dict) -> None:
     path = framework_events_path(project_root)
     path.parent.mkdir(parents=True, exist_ok=True)
+    # Spec-107 D-107-10 (H2): stamp the chain pointer into the entry's
+    # detail payload so the hash chain survives the canonical JSON dump.
+    detail = entry.get("detail")
+    if isinstance(detail, dict):
+        detail["prev_event_hash"] = _compute_prev_event_hash(path)
     line = json.dumps(entry, sort_keys=True, default=_json_serializer)
     with path.open("a", encoding="utf-8") as f:
         f.write(line + "\n")

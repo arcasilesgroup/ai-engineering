@@ -1,0 +1,47 @@
+{
+  "schemaVersion": "1.1",
+  "decisions": [
+    {
+      "id": "DEC-2026-001",
+      "context": "finding:gitleaks/aws-access-key",
+      "decision": "Accept temporarily; rotating key in follow-up.",
+      "decidedAt": "2026-03-15T10:00:00Z",
+      "spec": "spec-099",
+      "contextHash": "abc123def456",
+      "expiresAt": "2026-06-15T10:00:00Z",
+      "riskCategory": "risk-acceptance",
+      "severity": "high",
+      "acceptedBy": "team-platform",
+      "followUpAction": "Rotate AWS key by 2026-05-30 and remove from history.",
+      "status": "active",
+      "renewalCount": 0
+    },
+    {
+      "id": "DEC-2026-002",
+      "context": "flow:branch-protection-override",
+      "decision": "Allow direct push to main during incident response.",
+      "decidedAt": "2026-04-01T18:30:00Z",
+      "spec": "spec-100",
+      "contextHash": "789xyz012",
+      "riskCategory": "flow-decision",
+      "status": "active",
+      "renewalCount": 0
+    },
+    {
+      "id": "DEC-2026-003",
+      "context": "finding:semgrep/python.lang.security.audit.exec-detected",
+      "decision": "Accept; exec() used for sandboxed plugin loader. Threat-modeled.",
+      "decidedAt": "2026-02-20T14:15:00Z",
+      "spec": "spec-095",
+      "contextHash": "555fff666",
+      "expiresAt": "2026-05-20T14:15:00Z",
+      "riskCategory": "risk-acceptance",
+      "severity": "medium",
+      "acceptedBy": "team-security",
+      "followUpAction": "Review plugin sandbox quarterly.",
+      "status": "active",
+      "renewedFrom": null,
+      "renewalCount": 0
+    }
+  ]
+}

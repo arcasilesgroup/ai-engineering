@@ -28,8 +28,6 @@ Eval-Driven Development (EDD) treats evals as the unit tests of AI development. 
 
 ### Mode: define (Before Coding)
 
-**EDD principle: define pass/fail before code.**
-
 1. Identify the capability being built or changed
 2. Write capability evals (can the AI do this new thing?)
 3. Write regression evals (do existing things still work?)
@@ -64,9 +62,7 @@ Eval-Driven Development (EDD) treats evals as the unit tests of AI development. 
 
 ### Mode: report (After Implementation)
 
-1. Run all capability and regression evals
-2. Calculate pass@k and pass^k metrics
-3. Generate structured report
+Run all capability + regression evals (per Mode: check), calculate pass@k and pass^k metrics, then generate the structured report:
 
 ```markdown
 EVAL REPORT: feature-xyz
@@ -91,7 +87,7 @@ Metrics:
 Status: READY FOR REVIEW
 ```
 
-4. Store report at `.ai-engineering/evals/<feature-name>.log`
+Store the rendered report at `.ai-engineering/evals/<feature-name>.log`.
 
 ### Mode: regression
 
@@ -114,13 +110,6 @@ Result: X/Y passed (previously Y/Y)
 
 ## Quick Reference
 
-### Eval Types
-
-| Type | Question It Answers | When to Use |
-|------|-------------------|-------------|
-| Capability | Can the AI do this new thing? | New features, new skills |
-| Regression | Do existing things still work? | Prompt changes, model updates, agent refactors |
-
 ### Grader Types
 
 | Grader | How It Works | When to Use | Example |
@@ -139,14 +128,6 @@ Result: X/Y passed (previously Y/Y)
 | pass^3 | All 3 trials succeed | 100% for critical paths |
 | pass^k | All k trials succeed | Use for regression evals |
 
-### Eval Lifecycle
-
-```
-Define --> Implement --> Evaluate --> Report
-  |                                    |
-  +-------- regression loop -----------+
-```
-
 ## Storage
 
 ```
@@ -159,13 +140,10 @@ Define --> Implement --> Evaluate --> Report
 
 ## Best Practices
 
-1. **Define evals BEFORE coding** -- forces clear thinking about success criteria
-2. **Run evals frequently** -- catch regressions early
-3. **Track pass@k over time** -- monitor reliability trends
-4. **Use code graders when possible** -- deterministic > probabilistic
-5. **Human review for security** -- never fully automate security checks
-6. **Keep evals fast** -- slow evals don't get run
-7. **Version evals with code** -- evals are first-class artifacts
+1. **Use code graders when possible** -- deterministic > probabilistic
+2. **Human review for security** -- never fully automate security checks
+3. **Keep evals fast** -- slow evals don't get run
+4. **Version evals with code** -- evals are first-class artifacts
 
 ## Integration
 
@@ -178,10 +156,7 @@ Define --> Implement --> Evaluate --> Report
 
 - Skipping the define phase and writing evals after implementation (same anti-pattern as tests-after)
 - Using only model graders when code graders would be deterministic and faster
-- Not tracking pass@k over time (you lose the reliability trend data)
 - Conflating evals with tests (tests verify code, evals verify AI capability)
 - Setting pass@1 targets too high for genuinely hard tasks (use pass@3 instead)
-- Not running regression evals after prompt or model changes
-- Storing evals outside the project (they should version with the code)
 
 $ARGUMENTS

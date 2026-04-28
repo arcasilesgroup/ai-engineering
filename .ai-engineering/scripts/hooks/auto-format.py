@@ -3,6 +3,11 @@
 
 Detects language by file extension and runs the appropriate formatter.
 All errors silently swallowed -- exit 0 always.
+
+spec-105 D-105-09: after the formatter rewrites a file, the hook calls
+the shared ``policy/auto_stage.py`` primitive to re-stage exactly the
+``S_pre & M_post`` intersection so the user's commit reflects the
+formatted state. The intersection is set-strict; never a superset.
 """
 
 import contextlib
@@ -14,6 +19,16 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 from _lib.audit import passthrough_stdin, read_stdin
+
+# spec-105 D-105-09: best-effort import of the shared auto-stage utility.
+# When the framework package isn't on sys.path (eg the hook running from a
+# stripped-down context) we fall back to a no-op so the hook never breaks
+# the user's edit flow.
+with contextlib.suppress(Exception):
+    from ai_engineering.policy.auto_stage import (
+        capture_staged_set,
+        restage_intersection,
+    )
 
 _FORMAT_TOOLS = {"Edit", "Write", "MultiEdit"}
 _FORMATTER_TIMEOUT = 15
@@ -160,6 +175,23 @@ _EXTENSION_FORMATTERS = {
 }
 
 
+def _maybe_restage_after_format(project_root: Path) -> None:
+    """Best-effort re-stage of ``S_pre & M_post`` after the formatter ran.
+
+    spec-105 D-105-09: the hook captures S_pre once per invocation, runs
+    the formatter, and re-stages exactly the intersection. Errors are
+    silently swallowed so the hook never breaks the user's edit flow.
+    """
+    try:
+        s_pre = capture_staged_set(project_root)
+    except Exception:
+        return
+    if not s_pre:
+        return
+    with contextlib.suppress(Exception):
+        restage_intersection(project_root, s_pre)
+
+
 def main() -> None:
     data = read_stdin()
     tool_name = data.get("tool_name", "")
@@ -192,6 +224,11 @@ def main() -> None:
     project_root = _find_project_root(file_dir)
 
     formatter_fn(file_path, project_root)
+
+    # spec-105 D-105-09: re-stage the safe intersection after formatting.
+    # The formatter may have rewritten the file; the user's staged commit
+    # should reflect the formatted state without leaking unrelated files.
+    _maybe_restage_after_format(project_root)
 
     passthrough_stdin(data)
 

@@ -49,13 +49,20 @@ def test_main_sets_bundle_env_on_windows_when_missing(
     exit_code = tls_pip_audit.main(["--format", "json"])
 
     assert exit_code == 0
-    assert captured["cmd"] == [
-        tls_pip_audit.sys.executable,
-        "-m",
-        "pip_audit",
-        "--format",
-        "json",
+    # ``main`` injects ``--ignore-vuln <CVE>`` for every risk-accepted CVE
+    # before the caller-supplied args (DEC-036, DEC-037). Assert the prefix
+    # is the wrapper module + ignore flags (variable count) and the user
+    # args land at the tail.
+    cmd = captured["cmd"]
+    assert isinstance(cmd, list)
+    assert cmd[:3] == [tls_pip_audit.sys.executable, "-m", "pip_audit"]
+    # Every ``_RISK_ACCEPTED_CVES`` entry contributes exactly two argv
+    # tokens (``--ignore-vuln <id>``); the format args land at the tail.
+    expected_ignore_count = 2 * len(tls_pip_audit._RISK_ACCEPTED_CVES)
+    assert cmd[3 : 3 + expected_ignore_count] == [
+        token for cve in tls_pip_audit._RISK_ACCEPTED_CVES for token in ("--ignore-vuln", cve)
     ]
+    assert cmd[-2:] == ["--format", "json"]
     env = captured["env"]
     assert env["REQUESTS_CA_BUNDLE"] == str(bundle_path)
     assert env["SSL_CERT_FILE"] == str(bundle_path)

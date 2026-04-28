@@ -35,6 +35,17 @@ def _project_dir(tmp_path: Path) -> Path:
     return tmp_path
 
 
+# Use the named ``hermetic_install_env`` fixture from conftest.py so every
+# test in this module engages the spec-101 synthetic-OK simulate hooks.
+# Without these env vars the install calls real network mechanisms (curl
+# against GitHub releases, brew, winget) which:
+#   * Fail on CI runners that lack the toolchain (gitleaks, semgrep, etc.)
+#     -- producing EXIT 80 instead of EXIT 0.
+#   * Make tests slow + flaky -- network reachability is not a property
+#     of the framework under test.
+pytestmark = pytest.mark.usefixtures("hermetic_install_env")
+
+
 @pytest.fixture()
 def installed_dir(_project_dir: Path, app: object) -> Path:
     """Install framework to _project_dir via CLI and return the path."""
@@ -110,9 +121,26 @@ class TestInstallCommand:
             ["install", str(installed_dir), "--stack", "python", "--non-interactive"],
         )
         assert result.exit_code == 0
-        # Non-interactive mode produces JSON; check the already_installed field
-        data = json.loads(result.output)
+        # spec-101 Corr-1 (Wave 28): non-interactive mode emits one
+        # ``tool:<name>:<marker>`` line per skipped tool to STDERR while
+        # the JSON envelope stays on STDOUT. This preserves stdout JSON
+        # purity so smoke-test ``json.load(...)`` consumers parse without
+        # corruption, while ``2>&1``-merged grep assertions still see the
+        # markers. Wave 27 emitted markers to stdout, which broke
+        # workflows piping stdout to ``json.load``.
+        data = json.loads(result.stdout)
         assert data["result"]["already_installed"] is True
+
+        # Verify the Corr-1 markers landed on STDERR (grep-able after
+        # ``2>&1`` merge) and not on STDOUT.
+        assert "tool:" in result.stderr, (
+            "expected at least one 'tool:<name>:<marker>' line in non-interactive "
+            f"stderr; got {result.stderr!r}"
+        )
+        assert "tool:" not in result.stdout, (
+            "tool:<name>:<marker> markers must NOT appear on stdout — JSON "
+            f"consumers parse stdout. got stdout={result.stdout!r}"
+        )
 
 
 # ---------------------------------------------------------------------------

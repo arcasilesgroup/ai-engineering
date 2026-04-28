@@ -126,12 +126,17 @@ def ensure_tool(tool: str, *, allow_install: bool | None = None) -> ToolInstallR
     cmd: list[str] | None = None
     method = ""
 
+    # spec-101 Corr-3 (Wave 27): apt-get is intentionally NOT consulted.
+    # The framework's user-scope-only invariant (D-101-02) forbids any
+    # privileged package manager from running during install. The legacy
+    # apt-get path was removed; tools that historically went through apt
+    # must come from one of the user-scope mechanisms (brew, winget, or
+    # the pip fallback below). This module is itself slated for retirement
+    # in favour of :mod:`installer.tool_registry` (TODO(spec-102): remove
+    # this entire helper once the new registry covers the VCS tool set).
     if system in ("darwin", "linux") and shutil.which("brew"):
         cmd = ["brew", "install", tool]
         method = "brew"
-    elif system == "linux" and shutil.which("apt-get"):
-        cmd = ["apt-get", "install", "-y", tool]
-        method = "apt"
     elif system == "windows" and shutil.which("winget"):
         winget_id = _WINGET_IDS.get(tool)
         if winget_id:
@@ -140,9 +145,45 @@ def ensure_tool(tool: str, *, allow_install: bool | None = None) -> ToolInstallR
 
     if cmd is not None:
         try:
-            subprocess.run(cmd, check=True, capture_output=True, text=True, timeout=180)
+            # Route through ``_safe_run`` so the user-scope guard validates
+            # argv[0] BEFORE exec. brew / winget are both in
+            # :data:`installer.user_scope_install.DRIVER_BINARIES` so the
+            # call passes the allowlist; any future addition that is not
+            # in the allowlist will surface :class:`UserScopeViolation`
+            # instead of the silent privileged escape we just removed.
+            from ai_engineering.installer.user_scope_install import (
+                MissingDriverError,
+                UserScopeViolation,
+                _safe_run,
+            )
+
+            try:
+                _safe_run(cmd, check=True, timeout=180)
+            except UserScopeViolation as scope_exc:
+                # The argv resolved outside the user-scope allowlist. Fall
+                # through to the pip fallback if applicable; otherwise
+                # surface a clear error.
+                if tool not in _PIP_INSTALLABLE:
+                    return ToolInstallResult(
+                        tool=tool,
+                        available=False,
+                        attempted=True,
+                        installed=False,
+                        method=method,
+                        detail=f"user-scope violation: {scope_exc}",
+                    )
+            except MissingDriverError as drv_exc:
+                if tool not in _PIP_INSTALLABLE:
+                    return ToolInstallResult(
+                        tool=tool,
+                        available=False,
+                        attempted=True,
+                        installed=False,
+                        method=method,
+                        detail=str(drv_exc),
+                    )
         except (subprocess.CalledProcessError, subprocess.TimeoutExpired, FileNotFoundError) as exc:
-            # OS install failed — fall through to pip fallback
+            # OS install failed -- fall through to pip fallback
             if tool not in _PIP_INSTALLABLE:
                 return ToolInstallResult(
                     tool=tool,

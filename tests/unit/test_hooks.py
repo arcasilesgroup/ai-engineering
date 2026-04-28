@@ -27,7 +27,7 @@ from ai_engineering.hooks.manager import (
     verify_hooks,
 )
 from ai_engineering.state.defaults import default_install_state
-from ai_engineering.state.models import GateHook
+from ai_engineering.state.models import GateHook, PythonEnvMode
 from ai_engineering.state.service import save_install_state
 
 # ---------------------------------------------------------------------------
@@ -72,14 +72,16 @@ class TestGenerateBashHook:
         assert '"$@"' not in script
 
     def test_contains_venv_path_setup(self) -> None:
-        script = generate_bash_hook(GateHook.PRE_COMMIT)
+        # spec-101 D-101-12: ``.venv/bin`` PATH preamble is gated to ``mode=venv``;
+        # the legacy contract is preserved verbatim under that mode.
+        script = generate_bash_hook(GateHook.PRE_COMMIT, mode=PythonEnvMode.VENV)
         assert ".venv/bin" in script
         assert ".venv/Scripts" in script
         assert "export PATH=" in script
         assert "source " not in script
 
     def test_venv_path_before_command(self) -> None:
-        script = generate_bash_hook(GateHook.PRE_COMMIT)
+        script = generate_bash_hook(GateHook.PRE_COMMIT, mode=PythonEnvMode.VENV)
         venv_pos = script.index(".venv/bin")
         cmd_pos = script.index("ai-eng gate pre-commit")
         assert venv_pos < cmd_pos
@@ -105,13 +107,15 @@ class TestGeneratePowershellHook:
         assert "$LASTEXITCODE" in script
 
     def test_contains_venv_path_setup(self) -> None:
-        script = generate_powershell_hook(GateHook.PRE_COMMIT)
+        # spec-101 D-101-12: ``.venv/Scripts`` PATH preamble is gated to
+        # ``mode=venv``; the legacy contract is preserved verbatim there.
+        script = generate_powershell_hook(GateHook.PRE_COMMIT, mode=PythonEnvMode.VENV)
         assert ".venv/Scripts" in script
         assert "Test-Path" in script
         assert "$env:PATH" in script
 
     def test_venv_path_before_command(self) -> None:
-        script = generate_powershell_hook(GateHook.PRE_COMMIT)
+        script = generate_powershell_hook(GateHook.PRE_COMMIT, mode=PythonEnvMode.VENV)
         venv_pos = script.index(".venv/Scripts")
         cmd_pos = script.index("ai-eng gate pre-commit")
         assert venv_pos < cmd_pos

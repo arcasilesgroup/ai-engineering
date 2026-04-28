@@ -26,13 +26,7 @@ Edit, don't generate. Start from what exists: notes, transcripts, data, examples
 
 ## Routing
 
-| Sub-command | Handler | Purpose |
-|-------------|---------|---------|
-| `content` | `handlers/content.md` | Articles, pitches, presentations, sprint reviews, architecture board, solution intent |
-
-Default (no sub-command): `content`.
-
-The `content` handler handles all sub-type dispatch internally based on the content type specified in the user's prompt.
+Single sub-command `content` (default) — handler `handlers/content.md` covers articles, pitches, presentations, sprint reviews, architecture board, solution intent. The handler dispatches to sub-types internally based on the content type in the user's prompt.
 
 ## Audience Targeting
 
@@ -66,8 +60,6 @@ Default: `developer`.
 
 ## Integration
 
-- Content mode adapts to audience tier.
-- **NOT** `/ai-docs` -- for documentation artifacts use `/ai-docs`
-- **NOT** `/ai-market` -- for marketing and go-to-market content use `/ai-market`
+Content mode adapts to audience tier (developer/manager/executive). See When to Use for boundaries with `/ai-docs` and `/ai-market`.
 
 $ARGUMENTS

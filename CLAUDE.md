@@ -135,7 +135,7 @@ Before writing or reviewing code, load the applicable context files:
 | Multi-spec autonomous execution | autopilot | `/ai-autopilot` |
 | Autonomous backlog execution | run-orchestrator | `/ai-run` |
 
-## Skills (47)
+## Skills (48)
 
 Grouped by type. Invoke as `/ai-<name>`.
 
@@ -191,7 +191,7 @@ Telemetry is automatic via hooks and writes only canonical framework events.
 6. **NEVER** dismiss security findings without `state/decision-store.json` risk acceptance.
 7. **NEVER** disable or modify `.claude/settings.json` deny rules.
 8. **NEVER** add suppression comments (`# noqa`, `# nosec`, `# type: ignore`, `# pragma: no cover`, `# NOSONAR`, `// nolint`) to bypass quality gates. Fix the code. If it is a false positive, refactor to satisfy the analyzer or escalate with a full explanation.
-9. **NEVER** weaken a gate, threshold, or severity level without the full protocol: warn user of impact, generate a remediation patch, require explicit risk acceptance, persist to `state/decision-store.json`, and emit the outcome to `state/framework-events.ndjson`.
+9. **NEVER** weaken a gate, threshold, or severity level without the full protocol: warn user of impact, generate a remediation patch, require explicit risk acceptance, persist to `state/decision-store.json`, and emit the outcome to `state/framework-events.ndjson`. NOTE (D-105-14): risk acceptance via `ai-eng risk accept` / `ai-eng risk accept-all` is **logged-acceptance** with TTL, owner, spec ref, and follow-up plan -- it is NOT weakening. Weakening means modifying `_SEVERITY_EXPIRY_DAYS`, adding suppression comments, disabling hooks, or lowering severity-class thresholds in code or config.
 
 Gate failure: diagnose, fix, retry. Use `ai-eng doctor --fix` or `ai-eng doctor --fix --phase <name>`.
 
@@ -199,11 +199,12 @@ Gate failure: diagnose, fix, retry. Use `ai-eng doctor --fix` or `ai-eng doctor 
 
 | What | Where |
 |------|-------|
-| Skills (47) | `.claude/skills/ai-<name>/SKILL.md` |
+| Skills (48) | `.claude/skills/ai-<name>/SKILL.md` |
 | Agents (10) | `.claude/agents/ai-<name>.md` |
 | Config | `.ai-engineering/manifest.yml` |
 | Decisions | `.ai-engineering/state/decision-store.json` |
 | Active spec | `.ai-engineering/specs/spec.md` |
 | Contexts | `.ai-engineering/contexts/languages/`, `frameworks/`, `team/` |
 | Lessons | `.ai-engineering/LESSONS.md` |
+| Installer modes | `.ai-engineering/contexts/python-env-modes.md` (spec-101: 3 modes, EXIT 80/81 hard-fail, 14-stack `required_tools` coverage) |
 | CLI | `ai-eng <command>` |

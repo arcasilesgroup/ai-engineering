@@ -17,9 +17,7 @@ Compliance validation for regulated industries. Modes: `compliance` (quality gat
 - NOT for code quality -- use `/ai-verify quality`.
 - NOT for security scanning -- use `/ai-security`.
 
-## Step 0: Load Stack Contexts
-
-Follow `.ai-engineering/contexts/stack-context.md`.
+Step 0 (load contexts): per `.ai-engineering/contexts/stack-context.md`.
 
 ## Modes
 

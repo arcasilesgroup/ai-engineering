@@ -16,7 +16,9 @@ import pytest
 
 from ai_engineering.installer import service
 from ai_engineering.installer.phases import PHASE_ORDER, InstallMode
+from ai_engineering.installer.phases import tools as tools_phase
 from ai_engineering.installer.service import install_with_pipeline
+from ai_engineering.state.manifest import LoadResult
 from ai_engineering.updater.service import update
 
 
@@ -32,6 +34,16 @@ def stub_ops(monkeypatch: pytest.MonkeyPatch) -> None:
         service, "ensure_tool", lambda t: SimpleNamespace(available=True, detail="ok")
     )
     monkeypatch.setattr(service, "provider_required_tools", lambda v: [])
+
+    # spec-101: ToolsPhase reads load_required_tools directly from
+    # state.manifest, bypassing the legacy service-level stubs above. Stub
+    # at the import site inside installer.phases.tools so the new
+    # mechanism-driven install path becomes a no-op (empty tool list).
+    monkeypatch.setattr(
+        tools_phase,
+        "load_required_tools",
+        lambda *args, **kwargs: LoadResult(tools=[], skipped_stacks=[]),
+    )
 
     # Stub provider -- available=False short-circuits VCS auth + branch policy
     stub_prov = MagicMock()

@@ -1,0 +1,79 @@
+{
+  "schema": "ai-engineering/gate-findings/v1.1",
+  "session_id": "550e8400-e29b-41d4-a716-446655440099",
+  "produced_by": "ai-pr",
+  "produced_at": "2026-04-27T08:00:00Z",
+  "branch": "feat/spec-101-installer-robustness",
+  "commit_sha": "f6fb46cc",
+  "findings": [
+    {
+      "check": "gitleaks",
+      "rule_id": "stripe-secret-key",
+      "file": "src/billing.py",
+      "line": 89,
+      "column": null,
+      "severity": "critical",
+      "message": "Stripe secret key detected",
+      "auto_fixable": false,
+      "auto_fix_command": null
+    },
+    {
+      "check": "ruff",
+      "rule_id": "F841",
+      "file": "src/baz.py",
+      "line": 12,
+      "column": null,
+      "severity": "low",
+      "message": "Local variable 'x' assigned but never used",
+      "auto_fixable": true,
+      "auto_fix_command": "ruff check --fix src/baz.py"
+    }
+  ],
+  "auto_fixed": [
+    {
+      "check": "ruff-format",
+      "files": ["src/formatted.py"],
+      "rules_fixed": []
+    }
+  ],
+  "cache_hits": ["ruff-format"],
+  "cache_misses": ["ty"],
+  "wall_clock_ms": {
+    "wave1_fixers": 3100,
+    "wave2_checkers": 14200,
+    "total": 17300
+  },
+  "accepted_findings": [
+    {
+      "check": "gitleaks",
+      "rule_id": "aws-access-token",
+      "file": "src/legacy.py",
+      "line": 45,
+      "severity": "critical",
+      "message": "AWS access key found",
+      "dec_id": "DEC-2026-04-27-A1B2",
+      "expires_at": "2026-05-12T08:00:00Z"
+    },
+    {
+      "check": "ruff",
+      "rule_id": "E501",
+      "file": "src/foo.py",
+      "line": 42,
+      "severity": "low",
+      "message": "line too long (132 > 100 chars)",
+      "dec_id": "DEC-2026-04-27-C3D4",
+      "expires_at": "2026-07-26T08:00:00Z"
+    },
+    {
+      "check": "ruff",
+      "rule_id": "E501",
+      "file": "src/bar.py",
+      "line": 88,
+      "severity": "low",
+      "message": "line too long (118 > 100 chars)",
+      "dec_id": "DEC-2026-04-27-C3D4",
+      "expires_at": "2026-07-26T08:00:00Z"
+    }
+  ],
+  "expiring_soon": ["DEC-2026-04-27-A1B2"]
+}

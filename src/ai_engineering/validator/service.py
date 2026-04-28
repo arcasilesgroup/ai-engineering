@@ -32,6 +32,7 @@ from ai_engineering.validator.categories import (
     _check_file_existence,
     _check_manifest_coherence,
     _check_mirror_sync,
+    _check_required_tools,
     _check_skill_frontmatter,
 )
 from ai_engineering.validator.categories.mirror_sync import (
@@ -55,6 +56,7 @@ __all__ = [
     "_check_file_existence",
     "_check_manifest_coherence",
     "_check_mirror_sync",
+    "_check_required_tools",
     "_check_skill_frontmatter",
     "_parse_counter",
     "re",
@@ -95,6 +97,7 @@ def validate_content_integrity(
             IntegrityCategory.SKILL_FRONTMATTER,
             lambda t, r: _check_skill_frontmatter(t, r, cache=cache),
         ),
+        (IntegrityCategory.REQUIRED_TOOLS, _check_required_tools),
     ]
 
     active_categories = set(categories) if categories else None

@@ -733,16 +733,32 @@ class TestRegistryValidation:
         # Act
         cmd = stack_tests[0].cmd
 
-        # Assert
-        assert "-n" in cmd, "Expected -n (parallel workers) in stack-tests cmd"
-        n_idx = cmd.index("-n")
-        assert cmd[n_idx + 1] == "auto", "Expected 'auto' after -n"
-
-        assert "--dist" in cmd, "Expected --dist in stack-tests cmd"
-        dist_idx = cmd.index("--dist")
-        assert cmd[dist_idx + 1] == "worksteal", "Expected 'worksteal' distribution"
-
+        # Assert -- serial dispatch (no -n auto worksteal). Rationale: under
+        # heavy parallel I/O, real-subprocess git tests (auto_stage,
+        # breaking_banner) surface APFS write-barrier flakes. spec-105
+        # auto_stage already mitigates via _refresh_index; this serial
+        # dispatch is the belt-and-suspenders complement so pre-push gates
+        # never randomly flake. ~30s slower on the 4k-test suite.
+        assert "-n" not in cmd, "stack-tests must run serial (no -n) -- xdist flake mitigation"
+        assert "--dist" not in cmd, "stack-tests must not pass --dist -- serial only"
         assert "tests/unit/" in cmd, "Expected tests/unit/ directory in stack-tests cmd"
+        assert "-x" in cmd, "Expected -x fail-fast in stack-tests cmd"
+        assert "--no-cov" in cmd, "Expected --no-cov in stack-tests cmd (perf)"
+        # Quarantine lifted: the previously-quarantined modules now run in
+        # the main suite. Root cause was a non-thread-safe `mock.patch`
+        # inside concurrent worker threads in test_orchestrator_emit_findings;
+        # patch is now installed once around the thread fan-out so the
+        # subprocess.run mock no longer leaks across tests.
+        previously_quarantined = (
+            "test_safe_run_env_scrub.py",
+            "test_python_env_mode_install.py",
+            "test_setup_cli.py",
+        )
+        ignore_args = [arg for arg in cmd if arg.startswith("--ignore=")]
+        for module in previously_quarantined:
+            assert not any(module in arg for arg in ignore_args), (
+                f"Quarantine for {module} must NOT be reinstated; cmd={cmd!r}"
+            )
 
 
 class TestSonarGateAdvisory:

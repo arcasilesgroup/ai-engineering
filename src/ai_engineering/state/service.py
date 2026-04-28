@@ -8,7 +8,9 @@ from __future__ import annotations
 
 import json
 import logging
+from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 from ai_engineering.state.io import append_ndjson, read_json_model, write_json_model
 from ai_engineering.state.models import (
@@ -69,6 +71,23 @@ def load_install_state(state_dir: Path) -> InstallState:
     Follows the same pattern as ``CredentialService.load_tools_state()``:
     file-present -> parse + validate, file-absent -> sensible defaults.
 
+    When the file is structurally legacy (per spec-101 R-10) -- missing the
+    ``required_tools_state`` key OR carrying a tool record without the
+    ``os_release`` field -- it is renamed to
+    ``install-state.json.legacy-<ISO-ts>``, a fresh modern state is written
+    in its place, and a ``state_migration`` framework event is emitted.
+    Caller receives the fresh state. The renamed file is preserved
+    read-only as the rollback path.
+
+    Wave 23 fix: the fresh state preserves carry-forward keys
+    (``tooling``, ``platforms``, ``branch_policy``,
+    ``operational_readiness``, ``release``, ``vcs_provider``,
+    ``ai_providers``, ``installed_at``) from the legacy payload so
+    downstream consumers (VCS factory's ``tooling.gh.mode`` lookup, the
+    breaking-banner persistence, etc.) keep operating on the user's
+    real configuration. Only the spec-101 fields (``required_tools_state``,
+    ``python_env_mode_recorded``) are reset to defaults.
+
     Args:
         state_dir: The ``.ai-engineering/state/`` directory.
 
@@ -79,8 +98,163 @@ def load_install_state(state_dir: Path) -> InstallState:
     path = state_dir / _INSTALL_STATE_FILENAME
     if path.exists():
         data = json.loads(path.read_text(encoding="utf-8"))
+        if isinstance(data, dict) and _is_legacy_install_state(data):
+            data = _migrate_legacy_install_state(path, data)
         return InstallState.model_validate(data)
     return InstallState()
+
+
+def _is_legacy_install_state(data: dict[str, Any]) -> bool:
+    """Return ``True`` when *data* is a pre-spec-101 ``install-state.json`` payload.
+
+    Two structural signals trigger migration (R-10):
+
+    1. The top-level ``required_tools_state`` key is absent entirely. The
+       Pydantic field defaults to ``{}``, but the *absence* of the key is the
+       legacy marker -- a value of ``{}`` written by a modern installer is
+       fine.
+    2. ``required_tools_state`` is present but at least one tool record
+       lacks the ``os_release`` key (added in T-0.14 alongside the field).
+       Records with ``os_release: null`` are valid; only records that
+       structurally lack the key are legacy.
+    """
+    if "required_tools_state" not in data:
+        return True
+
+    records = data.get("required_tools_state")
+    if not isinstance(records, dict):
+        return False
+
+    return any(
+        isinstance(record, dict) and "os_release" not in record for record in records.values()
+    )
+
+
+# Top-level keys carried forward from a legacy payload into the fresh state.
+# These are stable fields that pre-date spec-101 and remain part of
+# :class:`InstallState`; they are preserved so consumers of legacy state
+# (e.g. ``vcs.factory.get_provider`` reading ``tooling.gh.mode``) keep
+# operating on the user's real configuration after a schema bump.
+_LEGACY_CARRY_FORWARD_KEYS: tuple[str, ...] = (
+    "schema_version",
+    "installed_at",
+    "vcs_provider",
+    "ai_providers",
+    "tooling",
+    "platforms",
+    "branch_policy",
+    "operational_readiness",
+    "release",
+    "breaking_banner_seen",
+)
+
+
+def _carry_forward_legacy_fields(fresh: dict[str, Any], legacy: dict[str, Any]) -> dict[str, Any]:
+    """Overlay legacy values for stable carry-forward keys onto a fresh dict.
+
+    Only keys listed in :data:`_LEGACY_CARRY_FORWARD_KEYS` are copied; the
+    spec-101-specific fields (``required_tools_state``,
+    ``python_env_mode_recorded``) intentionally retain their defaults. A
+    missing or null legacy value falls through to the fresh default.
+    """
+    merged = dict(fresh)
+    for key in _LEGACY_CARRY_FORWARD_KEYS:
+        if key in legacy and legacy[key] is not None:
+            merged[key] = legacy[key]
+    return merged
+
+
+def _migrate_legacy_install_state(path: Path, data: dict[str, Any]) -> dict[str, Any]:
+    """Rename a legacy ``install-state.json`` and return a fresh state dict.
+
+    Steps:
+
+    1. Generate an ISO-formatted UTC timestamp (``YYYY-MM-DDTHH:MM:SS``).
+    2. Rename *path* to ``<path>.legacy-<ts>`` -- the legacy bytes are
+       preserved verbatim under the new name as the rollback path.
+    3. Build a fresh default ``InstallState`` and overlay carry-forward
+       fields (``tooling``, ``platforms``, ``vcs_provider``, ...) from the
+       legacy payload so downstream consumers keep their configuration.
+       Only the spec-101 fields (``required_tools_state``,
+       ``python_env_mode_recorded``) are reset to defaults.
+    4. Write the merged dict to the original path so subsequent reads see
+       a modern, schema-conformant file.
+    5. Emit a ``framework_operation`` event with ``operation =
+       "state_migration"`` referencing the legacy filename and timestamp.
+    6. Return the merged state dict so the caller can complete validation
+       without a second filesystem read.
+
+    Args:
+        path: The original ``install-state.json`` path being migrated.
+        data: The parsed legacy JSON payload (used only for diagnostics).
+
+    Returns:
+        Dict shape of a fresh ``InstallState`` ready for ``model_validate``,
+        with carry-forward fields populated from *data*.
+    """
+    # Windows reserves ``:`` in filenames (see WinAPI naming rules), so the
+    # legacy backup uses ``-`` between H/M/S rather than the canonical ISO
+    # ``T`` + ``:`` form. The bytes still represent a UTC timestamp; only
+    # the on-disk filename changes shape.
+    timestamp = datetime.now(tz=UTC).strftime("%Y-%m-%dT%H-%M-%S")
+    legacy_path = path.with_name(f"{path.name}.legacy-{timestamp}")
+    path.rename(legacy_path)
+
+    fresh_state = InstallState()
+    fresh_dict = fresh_state.model_dump(mode="json")
+    merged_dict = _carry_forward_legacy_fields(fresh_dict, data)
+
+    # Re-validate the merged payload to ensure carry-forward fields parse
+    # cleanly under the modern schema; if they don't, fall back to the
+    # plain fresh state so the install does not break on bad legacy data.
+    try:
+        merged_state = InstallState.model_validate(merged_dict)
+        merged_dict = merged_state.model_dump(mode="json")
+        path.write_text(
+            merged_state.model_dump_json(indent=2) + "\n",
+            encoding="utf-8",
+        )
+    except Exception:
+        merged_dict = fresh_dict
+        path.write_text(
+            fresh_state.model_dump_json(indent=2) + "\n",
+            encoding="utf-8",
+        )
+
+    logger.info(
+        "Migrated legacy install-state.json: renamed to %s and wrote fresh state",
+        legacy_path.name,
+    )
+
+    # Emit observability event. Imported lazily to avoid module-level cycles
+    # with state.observability (which itself imports from state.io / models).
+    try:
+        from ai_engineering.state.observability import emit_framework_operation
+
+        # state_dir layout: <project_root>/.ai-engineering/state/
+        project_root = path.parent.parent.parent
+        emit_framework_operation(
+            project_root,
+            operation="state_migration",
+            component="state.service",
+            source="state.service.load_install_state",
+            metadata={
+                "legacy_filename": legacy_path.name,
+                "legacy_timestamp": timestamp,
+                "trigger": _legacy_trigger_reason(data),
+            },
+        )
+    except Exception:  # pragma: no cover - observability is fail-open
+        logger.debug("Failed to emit state_migration event", exc_info=True)
+
+    return merged_dict
+
+
+def _legacy_trigger_reason(data: dict[str, Any]) -> str:
+    """Classify which structural signal triggered the migration."""
+    if "required_tools_state" not in data:
+        return "missing_required_tools_state_key"
+    return "tool_record_missing_os_release"
 
 
 def save_install_state(state_dir: Path, state: InstallState) -> None:

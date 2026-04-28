@@ -1,0 +1,54 @@
+# Minimal install-smoke fixture (spec-101 T-4.1).
+#
+# Purpose: a clean baseline + python-only manifest used by
+# `.github/workflows/install-smoke.yml` to drive the 3-OS install matrix.
+# Kept intentionally lean so CI runs are fast and the fail surface is small.
+#
+# Layout invariants (mirrored from the canonical manifest):
+# - `required_tools:` MUST stay the LAST top-level key (lint normaliser
+#   contract — see `validator/categories/required_tools.py:88-115`).
+# - `prereqs:` and `python_env:` precede it and exercise the same loaders
+#   the production manifest uses (D-101-12 + D-101-14).
+
+schema_version: "2.0"
+framework_version: "0.4.0"
+name: install-smoke-clean-project
+version: "0.0.1"
+
+providers:
+  vcs: github
+  ides: [terminal]
+  stacks: [python]
+
+ai_providers:
+  enabled: [claude_code]
+  primary: claude_code
+
+# Quality gates — kept identical to canonical to avoid divergent thresholds.
+quality:
+  coverage: 80
+  duplication: 3
+  cyclomatic: 10
+  cognitive: 15
+
+# Prereqs — pin uv to the supported range so the install matrix exercises the
+# version-range probe (R-8). The CI matrix injects the min and max uv versions.
+prereqs:
+  uv:
+    version_range: ">=0.4.0,<1.0"
+
+# Python tools install to ~/.local/share/uv/tools/ — no per-cwd .venv/.
+python_env:
+  mode: uv-tool
+
+# Required tools — minimal baseline + python only.
+required_tools:
+  baseline:
+    - {name: gitleaks}
+    - {name: semgrep, platform_unsupported: [windows], unsupported_reason: "semgrep has no Windows release"}
+    - {name: jq}
+  python:
+    - {name: ruff}
+    - {name: ty}
+    - {name: pip-audit}
+    - {name: pytest, scope: user_global}

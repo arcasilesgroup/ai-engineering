@@ -8,6 +8,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from ai_engineering.installer.phases import InstallContext, InstallMode
 from ai_engineering.installer.phases.detect import DetectPhase
 from ai_engineering.installer.phases.governance import GovernancePhase
@@ -16,6 +18,14 @@ from ai_engineering.installer.phases.ide_config import IdeConfigPhase
 from ai_engineering.installer.phases.pipeline import PipelineRunner
 from ai_engineering.installer.phases.state import StatePhase
 from ai_engineering.installer.phases.tools import ToolsPhase
+
+# spec-101 Wave 29: ``ToolsPhase`` invokes real network install mechanisms
+# (GitHub releases download for ``gitleaks``/``jq``) which 404 on Ubuntu and
+# Windows runners -- causing the pipeline summary's ``failed_phase`` to land
+# on ``'tools'`` instead of ``None``. Engage the synthetic-OK simulate hook
+# so the install pipeline short-circuits the network call while still
+# exercising every other phase boundary.
+pytestmark = pytest.mark.usefixtures("hermetic_install_env")
 
 
 def _make_context(tmp_path: Path) -> InstallContext:

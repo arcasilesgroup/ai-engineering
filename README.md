@@ -84,6 +84,92 @@ ai-eng doctor
 
 See [GETTING_STARTED.md](GETTING_STARTED.md) for the full tutorial.
 
+## Migration -- spec-101 install contract (BREAKING)
+
+Starting with this release `ai-eng install` and `ai-eng doctor --fix --phase tools` enforce a hard, data-driven contract. If you are upgrading from a pre-spec-101 install, walk through this section once.
+
+### EXIT 80 / EXIT 81 -- hard fail on missing tooling
+
+Two reserved exit codes replace the previous best-effort silent pass:
+
+| Code | Meaning |
+|------|---------|
+| `EXIT 80` | A required CLI tool is missing or unverifiable after install. Examples: `ruff`, `ty`, `gitleaks`, `pip-audit`, `prettier`, `eslint`, `vitest`, `staticcheck`, `phpstan`, `cargo-audit`, `ktlint`, `swiftlint`, `sqlfluff`, `shellcheck`, `clang-tidy`. |
+| `EXIT 81` | A language SDK / prerequisite from `prereqs.sdk_per_stack` is missing. Examples: JDK, Swift toolchain, Dart SDK, .NET SDK, Go toolchain, Rust toolchain, PHP, clang/LLVM. |
+
+**Migration**: remove any `ai-eng install || true` shielding from your CI scripts. The framework now surfaces failures explicitly so you can fix them, not paper over them. If a tool is genuinely unsupported on a host OS, declare it via `platform_unsupported` (tool-level, max 2 of 3 OSes) or escalate via `platform_unsupported_stack` (stack-level, may list all 3) -- both require a non-empty `unsupported_reason` (D-101-03 + D-101-13). See `.ai-engineering/manifest.yml > required_tools` for working examples.
+
+### `platform_unsupported` -- tool vs stack scope
+
+Two governance keys control where unsupported markers may appear:
+
+- `platform_unsupported` lives **on a single tool** inside a stack's tool list. Caps at 2 of 3 OSes; using it for all 3 is rejected by the model validator. Example: `semgrep` carries `platform_unsupported: [windows]`.
+- `platform_unsupported_stack` lives **on the entire stack block** when the whole toolchain has no native binaries on a given OS. May list all 3 OSes. Example: the `swift` stack carries `platform_unsupported_stack: [linux, windows]` because `swiftlint` and `swift-format` ship for macOS only.
+
+Both keys require an `unsupported_reason` field; the lint refuses an unreasoned escalation.
+
+### `python_env.mode` decision tree
+
+`python_env.mode` defaults to `uv-tool`. Three values exist:
+
+```
+                       ┌──────────────────────────────────┐
+Need a fresh worktree  │  uv-tool   (default, recommended)│
+to be fast (< 30 s)?   │   tools install once into        │
+                       │   ~/.local/share/uv/tools/       │
+                       └──────────────────────────────────┘
+                                       │
+                                       ▼
+                Need .venv/ for legacy   ┌──────────────────────────┐
+                workflows                │  venv                    │
+                (source .venv/bin/...)?  │   per-cwd .venv/         │
+                                         │   classic, slow worktree │
+                                         └──────────────────────────┘
+                                       │
+                                       ▼
+                Want a single .venv      ┌──────────────────────────┐
+                shared across worktrees  │  shared-parent           │
+                (requires git repo)?     │   .venv at repo root,    │
+                                         │   linked from worktrees  │
+                                         └──────────────────────────┘
+```
+
+Set the value in `.ai-engineering/manifest.yml`:
+
+```yaml
+python_env:
+  mode: uv-tool   # or: venv | shared-parent
+```
+
+A full reference (`.ai-engineering/contexts/python-env-modes.md`) covers migration commands and trade-offs.
+
+### 14 stacks covered by `required_tools`
+
+A single `manifest.yml > required_tools` block drives both `ai-eng install` and `ai-eng doctor --fix`. The 14 supported stacks are:
+
+| # | Stack | Representative tools |
+|---|-------|----------------------|
+| 1 | python | ruff, ty, pip-audit, pytest |
+| 2 | typescript | prettier, eslint, tsc, vitest |
+| 3 | javascript | prettier, eslint, vitest |
+| 4 | java | checkstyle, google-java-format |
+| 5 | csharp | dotnet-format |
+| 6 | go | staticcheck, govulncheck |
+| 7 | php | phpstan, php-cs-fixer, composer |
+| 8 | rust | cargo-audit |
+| 9 | kotlin | ktlint |
+| 10 | swift | swiftlint, swift-format (macOS only) |
+| 11 | dart | dart-stack-marker |
+| 12 | sql | sqlfluff |
+| 13 | bash | shellcheck, shfmt |
+| 14 | cpp | clang-tidy, clang-format, cppcheck |
+
+Plus a universal `baseline` block (`gitleaks`, `semgrep`, `jq`) that applies to every stack.
+
+### First-run banner
+
+The first install after upgrading prints a one-shot BREAKING banner to stderr. The banner mentions EXIT 80/81, the `python_env.mode` flip, and the 14-stack scope. It only fires once per project -- the flag persists in `.ai-engineering/state/install-state.json` (`breaking_banner_seen`).
+
 ## What You Get
 
 ### 47 Skills

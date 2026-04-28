@@ -4,7 +4,7 @@ description: "Implementation across all stacks -- the only code write agent"
 color: blue
 model: opus
 tools: [codebase, editFiles, fetch, githubRepo, problems, readFile, runCommands, search, terminalLastCommand, testFailures, agent]
-agents: [Guard, Explorer]
+agents: [Guard, ai-explore]
 handoffs:
 - label: ✅ Verify Changes
   agent: Verify
@@ -137,6 +137,66 @@ Every build task produces this structured output to enable downstream agents (ve
 - Does not execute destructive DDL without explicit user approval
 - Does not execute `terraform apply` without explicit user approval
 - Records decisions in `state/decision-store.json` when risk acceptance is needed
+
+## Write Scope
+
+Build is the only code-writing agent and operates across the whole tree by default. The list below is an explicit, append-only allowlist for paths that are introduced or extended by an active spec; entries cover both repo-root files and `src/ai_engineering/`-rooted modules so spec-101's pre-existence checks succeed without ambiguity.
+
+### spec-101 — Installer Robustness (Stack-Aware User-Scope Tool Bootstrap)
+
+- `src/ai_engineering/installer/user_scope_install.py`
+- `src/ai_engineering/installer/tool_registry.py`
+- `src/ai_engineering/installer/mechanisms/**`
+- `src/ai_engineering/installer/python_env.py`
+- `src/ai_engineering/installer/launchers.py`
+- `src/ai_engineering/state/manifest.py`
+- `src/ai_engineering/prereqs/sdk.py`
+- `.github/workflows/install-smoke.yml`
+- `.github/workflows/install-time-budget.yml`
+- `.github/workflows/worktree-fast-second.yml`
+- `tests/fixtures/install-smoke/**`
+- `tests/fixtures/worktree-fast/**`
+- `tests/fixtures/install-time-budget/**`
+- `tests/integration/test_doctor_fix_node_stack.py`
+- `tests/integration/test_doctor_fix_go_stack.py`
+- `tests/integration/test_stack_runner_data_driven.py`
+- `.ai-engineering/contexts/python-env-modes.md`
+
+### spec-104 — Commit/PR Pipeline Speed (Single-Pass Collector + Memoization + Bounded Watch)
+
+- `src/ai_engineering/policy/orchestrator.py`
+- `src/ai_engineering/policy/gate_cache.py`
+- `src/ai_engineering/policy/watch_residuals.py`
+- `src/ai_engineering/cli_commands/gate.py`
+- `.ai-engineering/contexts/gate-policy.md`
+- `tests/unit/test_gate_findings_schema.py`
+- `tests/unit/test_gate_cache_key.py`
+- `tests/unit/test_gate_cache_persist.py`
+- `tests/unit/test_gate_cache_hit_miss.py`
+- `tests/unit/test_gate_cache_max_age.py`
+- `tests/unit/test_gate_cache_lru_prune.py`
+- `tests/unit/test_gate_cache_overrides.py`
+- `tests/unit/test_orchestrator_wave1.py`
+- `tests/unit/test_orchestrator_wave2.py`
+- `tests/unit/test_orchestrator_emit_findings.py`
+- `tests/unit/test_orchestrator_legacy_fallback.py`
+- `tests/unit/test_orchestrator_race_safety.py`
+- `tests/unit/test_cli_gate_run_flags.py`
+- `tests/unit/test_cli_gate_cache_subcommands.py`
+- `tests/unit/test_local_fast_slice_policy.py`
+- `tests/unit/test_skill_contract_completeness.py`
+- `tests/unit/test_skill_line_budget.py`
+- `tests/unit/test_watch_residuals_emit.py`
+- `tests/integration/test_orchestrator_cache_integration.py`
+- `tests/integration/test_spec104_orthogonality.py`
+- `tests/integration/test_async_parallel_dispatch.py`
+- `tests/integration/test_watch_loop_bounds.py`
+- `tests/integration/test_ci_cache_key_schema.py`
+- `tests/integration/test_gate_cross_ide.py`
+- `tests/integration/test_gate_cache_hit_rate.py`
+- `tests/perf/test_ai_pr_warmcache.py`
+- `tests/perf/test_ai_pr_coldcache.py`
+- `tests/fixtures/gate_findings_v1.json`
 
 ### Escalation Protocol
 

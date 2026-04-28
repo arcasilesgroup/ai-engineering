@@ -23,6 +23,7 @@ import yaml
 from pydantic import ValidationError
 
 from ai_engineering.cli_commands import (
+    audit_cmd,
     core,
     decisions_cmd,
     gate,
@@ -31,6 +32,7 @@ from ai_engineering.cli_commands import (
     maintenance,
     provider,
     release,
+    risk_cmd,
     setup,
     skills,
     spec_cmd,
@@ -139,6 +141,7 @@ def _app_callback(
                         "setup",
                         "release",
                         "decision",
+                        "audit",
                         "work-item",
                         "workflow",
                     ]
@@ -251,6 +254,9 @@ def create_app() -> typer.Typer:
     gate_app.command("pre-push")(_safe(gate.gate_pre_push))
     gate_app.command("risk-check")(_safe(gate.gate_risk_check))
     gate_app.command("all")(_safe(gate.gate_all))
+    # spec-104 D-104-10: single-pass orchestrator + cache subcommands.
+    gate_app.command("run")(_safe(gate.gate_run))
+    gate_app.command("cache")(_safe(gate.gate_cache))
     app.add_typer(gate_app, name="gate")
 
     # Skill sub-group
@@ -321,6 +327,30 @@ def create_app() -> typer.Typer:
     decision_app.command("expire-check")(_safe(decisions_cmd.decision_expire_check))
     decision_app.command("record")(_safe(decisions_cmd.decision_record))
     app.add_typer(decision_app, name="decision")
+
+    # Audit sub-group (spec-107 D-107-10: hash-chained audit trail verifier)
+    audit_app = typer.Typer(
+        name="audit",
+        help="Verify the hash-chained audit trail over events and decisions.",
+        no_args_is_help=True,
+    )
+    audit_app.command("verify")(_safe(audit_cmd.audit_verify))
+    app.add_typer(audit_app, name="audit")
+
+    # Risk sub-group (spec-105: risk acceptance lifecycle CLI namespace)
+    risk_app = typer.Typer(
+        name="risk",
+        help="Manage risk-acceptance decisions (accept, renew, resolve, revoke, list, show).",
+        no_args_is_help=True,
+    )
+    risk_app.command("accept")(_safe(risk_cmd.risk_accept))
+    risk_app.command("accept-all")(_safe(risk_cmd.risk_accept_all))
+    risk_app.command("renew")(_safe(risk_cmd.risk_renew))
+    risk_app.command("resolve")(_safe(risk_cmd.risk_resolve))
+    risk_app.command("revoke")(_safe(risk_cmd.risk_revoke))
+    risk_app.command("list")(_safe(risk_cmd.risk_list))
+    risk_app.command("show")(_safe(risk_cmd.risk_show))
+    app.add_typer(risk_app, name="risk")
 
     # Spec sub-group (v3: spec lifecycle management)
     spec_app = typer.Typer(

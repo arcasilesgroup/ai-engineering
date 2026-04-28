@@ -91,7 +91,13 @@ def render_summary(
 
 
 def render_detection(vcs: str, providers: list[str], tools: dict[str, bool]) -> None:
-    """Show auto-detection results."""
+    """Show auto-detection results.
+
+    spec-109 D-109-08: the ``Tools`` line is qualified with ``(PATH check)``
+    so the user understands that ``\u2713`` reflects only PATH availability;
+    the install pipeline may still need to run a different mechanism (e.g.
+    ``uv tool install``) regardless of the PATH state.
+    """
     vcs_display = vcs or "none detected"
     if _HAS_RICH and _console:
         _console.print("\n[bold]Auto-detected configuration:[/]")
@@ -101,11 +107,15 @@ def render_detection(vcs: str, providers: list[str], tools: dict[str, bool]) -> 
         for name, available in tools.items():
             status = "[green]\u2713[/]" if available else "[yellow]\u2717[/]"
             tool_lines.append(f"{status} {name}")
-        _console.print(f"  Tools:         {' | '.join(tool_lines)}")
+        _console.print(f"  Tools (PATH):  {' | '.join(tool_lines)}")
+        _console.print(
+            "  [dim](\u2713 means visible on PATH; install may use uv tool / package "
+            "manager regardless)[/]"
+        )
     else:
         print("\nAuto-detected configuration:", file=sys.stderr)
         print(f"  VCS provider:  {vcs_display}", file=sys.stderr)
         print(f"  AI providers:  {', '.join(providers)}", file=sys.stderr)
         for name, available in tools.items():
             status = "\u2713" if available else "\u2717"
-            print(f"  Tool: {status} {name}", file=sys.stderr)
+            print(f"  Tool (PATH): {status} {name}", file=sys.stderr)

@@ -1,0 +1,192 @@
+{
+  "schema_version": "1.0",
+  "description": "MCP Sentinel Indicators of Compromise (IOCs). Patterns, paths, and domains known to be associated with skill/MCP attacks. Maintained locally so runtime protection works offline. Contributions welcome via PR.",
+  "last_updated": "2026-04-17",
+  "sensitive_paths": {
+    "description": "File paths a skill should almost never touch unless that's its explicit purpose. Reading these is a near-certain signal of credential harvesting.",
+    "patterns": [
+      "~/.ssh/",
+      "~/.ssh/id_rsa",
+      "~/.ssh/id_ed25519",
+      "~/.ssh/config",
+      "~/.aws/credentials",
+      "~/.aws/config",
+      "~/.gnupg/",
+      "~/.config/gh/hosts.yml",
+      "~/.netrc",
+      "~/.pgpass",
+      "~/.docker/config.json",
+      "~/.kube/config",
+      "~/.npmrc",
+      "/etc/shadow",
+      "/etc/passwd"
+    ],
+    "regex_patterns": [
+      "\\.env(\\.|$)",
+      "(?i)credentials?\\.json",
+      "(?i)secrets?\\.(json|ya?ml|env)",
+      "(?i)api[_-]?keys?\\.(json|txt|env)",
+      "(?i)private[_-]?key"
+    ]
+  },
+  "sensitive_env_vars": {
+    "description": "Environment variables commonly containing secrets. A skill reading these AND making network calls is a strong exfiltration signal.",
+    "patterns": [
+      "AWS_SECRET_ACCESS_KEY",
+      "AWS_SESSION_TOKEN",
+      "ANTHROPIC_API_KEY",
+      "OPENAI_API_KEY",
+      "GITHUB_TOKEN",
+      "GH_TOKEN",
+      "STRIPE_SECRET_KEY",
+      "DATABASE_URL",
+      "SUPABASE_SERVICE_ROLE_KEY"
+    ],
+    "regex_patterns": [
+      "(?i).*_API_KEY$",
+      "(?i).*_SECRET$",
+      "(?i).*_TOKEN$",
+      "(?i).*_PASSWORD$"
+    ]
+  },
+  "suspicious_network": {
+    "description": "Network patterns associated with exfiltration. Known malicious domains from confirmed incidents plus generic suspicious TLDs and pastebin-style services.",
+    "known_malicious_domains": [
+      {
+        "domain": "giftshop.club",
+        "incident": "Postmark MCP backdoor (v1.0.16, Sept 2025)",
+        "reference": "https://thehackernews.com/2025/09/first-malicious-mcp-server-found.html"
+      }
+    ],
+    "suspicious_tlds": [
+      ".tk",
+      ".ml",
+      ".ga",
+      ".cf",
+      ".gq",
+      ".xyz",
+      ".top",
+      ".work",
+      ".click"
+    ],
+    "pastebin_style": [
+      "pastebin.com",
+      "paste.ee",
+      "hastebin.com",
+      "dpaste.com",
+      "termbin.com",
+      "transfer.sh",
+      "0x0.st",
+      "file.io",
+      "bashupload.com"
+    ],
+    "suspicious_patterns": [
+      "https?://\\d+\\.\\d+\\.\\d+\\.\\d+",
+      "(?i)webhook\\.site",
+      "(?i)requestbin",
+      "(?i)ngrok\\.(io|app)",
+      "(?i)serveo\\.net"
+    ]
+  },
+  "dangerous_commands": {
+    "description": "Shell command patterns indicating exfiltration, RCE, or sandbox escape. Flagged regardless of skill purpose.",
+    "patterns": [
+      "curl\\s+.*(-X\\s+POST|-d\\s|--data).*http",
+      "wget\\s+.*--post-(data|file)",
+      "curl\\s+.*\\|\\s*(bash|sh|zsh|python)",
+      "wget\\s+.*\\|\\s*(bash|sh|zsh|python)",
+      "(?i)base64\\s.*(curl|wget|nc|ncat)",
+      "(?i)(^|;|\\|)\\s*(eval|exec)\\s",
+      "(?i)nc\\s+-e",
+      "(?i)bash\\s+-i\\s+>&\\s*/dev/tcp/",
+      "(?i)python\\s+-c.*socket.*connect",
+      "(?i)(^|;|\\|)\\s*dd\\s+if=.*of=/dev/",
+      "chmod\\s+[0-7]*777",
+      ">>\\s*~/\\.(bash|zsh|profile|bashrc|zshrc)"
+    ]
+  },
+  "prompt_injection_phrases": {
+    "description": "Phrases commonly used in prompt injection attacks embedded inside SKILL.md files. Detection here is the static analysis layer, complementary to runtime protection.",
+    "patterns": [
+      "(?i)ignore\\s+(all\\s+)?previous\\s+instructions",
+      "(?i)disregard\\s+(all\\s+)?(the\\s+)?(above|previous)",
+      "(?i)act\\s+as\\s+(root|admin|superuser)",
+      "(?i)you\\s+are\\s+now\\s+in\\s+developer\\s+mode",
+      "(?i)do\\s+not\\s+(tell|show|mention)\\s+the\\s+user",
+      "(?i)hide\\s+this\\s+from\\s+the\\s+user",
+      "(?i)bypass\\s+(safety|security|guidelines)"
+    ]
+  },
+  "allowlist": {
+    "description": "Paths and domains explicitly allowed \u2014 reduces false positives. Users can extend this locally in their .security/sentinel-allowlist.json",
+    "paths": [
+      "/tmp/",
+      "/var/tmp/"
+    ],
+    "domains": [
+      "api.anthropic.com",
+      "api.github.com",
+      "github.com",
+      "raw.githubusercontent.com",
+      "registry.npmjs.org",
+      "pypi.org",
+      "files.pythonhosted.org"
+    ]
+  },
+  "malicious_domains": {
+    "description": "Network patterns associated with exfiltration. Known malicious domains from confirmed incidents plus generic suspicious TLDs and pastebin-style services.",
+    "known_malicious_domains": [
+      {
+        "domain": "giftshop.club",
+        "incident": "Postmark MCP backdoor (v1.0.16, Sept 2025)",
+        "reference": "https://thehackernews.com/2025/09/first-malicious-mcp-server-found.html"
+      }
+    ],
+    "suspicious_tlds": [
+      ".tk",
+      ".ml",
+      ".ga",
+      ".cf",
+      ".gq",
+      ".xyz",
+      ".top",
+      ".work",
+      ".click"
+    ],
+    "pastebin_style": [
+      "pastebin.com",
+      "paste.ee",
+      "hastebin.com",
+      "dpaste.com",
+      "termbin.com",
+      "transfer.sh",
+      "0x0.st",
+      "file.io",
+      "bashupload.com"
+    ],
+    "suspicious_patterns": [
+      "https?://\\d+\\.\\d+\\.\\d+\\.\\d+",
+      "(?i)webhook\\.site",
+      "(?i)requestbin",
+      "(?i)ngrok\\.(io|app)",
+      "(?i)serveo\\.net"
+    ]
+  },
+  "shell_patterns": {
+    "description": "Shell command patterns indicating exfiltration, RCE, or sandbox escape. Flagged regardless of skill purpose.",
+    "patterns": [
+      "curl\\s+.*(-X\\s+POST|-d\\s|--data).*http",
+      "wget\\s+.*--post-(data|file)",
+      "curl\\s+.*\\|\\s*(bash|sh|zsh|python)",
+      "wget\\s+.*\\|\\s*(bash|sh|zsh|python)",
+      "(?i)base64\\s.*(curl|wget|nc|ncat)",
+      "(?i)(^|;|\\|)\\s*(eval|exec)\\s",
+      "(?i)nc\\s+-e",
+      "(?i)bash\\s+-i\\s+>&\\s*/dev/tcp/",
+      "(?i)python\\s+-c.*socket.*connect",
+      "(?i)(^|;|\\|)\\s*dd\\s+if=.*of=/dev/",
+      "chmod\\s+[0-7]*777",
+      ">>\\s*~/\\.(bash|zsh|profile|bashrc|zshrc)"
+    ]
+  }
+}

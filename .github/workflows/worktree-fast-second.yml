@@ -1,0 +1,164 @@
+name: Worktree Fast (Second)
+
+# Spec-101 G-12 — second-worktree install + commit MUST complete in <= 30s
+# wall-clock when `python_env.mode: uv-tool` (D-101-12) because Python tools
+# live in `~/.local/share/uv/tools/` instead of a per-cwd `.venv/`.
+#
+# Scope:
+#   - ubuntu-latest only this iteration. Windows worktree variance is
+#     explicitly out-of-scope per the spec — `UV_PROJECT_ENVIRONMENT`
+#     path-separator handling needs a dedicated investigation tracked in
+#     plan.md "Out-of-scope".
+#
+# Trigger surface mirrors install-time-budget.yml:
+#   - nightly schedule
+#   - workflow_dispatch
+#   - PR labelled `perf`
+# Median-of-3 absorbs runner-load jitter.
+
+on:
+  schedule:
+    - cron: "30 3 * * *"  # 03:30 UTC — staggered after time-budget
+  workflow_dispatch: {}
+  pull_request:
+    types: [labeled]
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  guard-perf-label:
+    name: Guard perf trigger
+    runs-on: ubuntu-latest
+    timeout-minutes: 1
+    outputs:
+      eligible: ${{ steps.decide.outputs.eligible }}
+    steps:
+      - id: decide
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            if [[ "${{ github.event.label.name }}" == "perf" ]]; then
+              echo "eligible=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "eligible=false" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            echo "eligible=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  worktree-fast:
+    name: Worktree Fast Second (ubuntu)
+    needs: guard-perf-label
+    if: needs.guard-perf-label.outputs.eligible == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash
+    env:
+      AIENG_TEST: "1"
+      FIXTURE_DIR: tests/fixtures/worktree-fast/python-multi-worktree
+      BUDGET_SECONDS: "30"
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@cec208311dfd045dd5311c1add060b2062131d57 # v8.0.0
+        with:
+          version: "0.9.0"
+          enable-cache: true
+
+      - name: Configure git defaults
+        run: |
+          git config --global init.defaultBranch main
+          git config --global user.email "ci@test.com"
+          git config --global user.name "CI"
+
+      - name: Build and install ai-eng
+        run: |
+          uv build
+          python -m venv .smoke-venv
+          . .smoke-venv/bin/activate
+          pip install dist/*.whl
+          which ai-eng
+
+      - name: Stage primary worktree
+        run: |
+          . .smoke-venv/bin/activate
+          mkdir -p primary
+          cp -R "$FIXTURE_DIR"/. primary/
+          (cd primary && git init -b main && git add -A && git commit -m "fixture init" --allow-empty)
+          # Prime: install once so the user-global tool cache
+          # (~/.local/share/uv/tools/) is hot for subsequent worktrees.
+          (cd primary && ai-eng install . --non-interactive)
+
+      # T-4.8: median-of-3 second-worktree wall-clock. Each iteration adds a
+      # fresh worktree, runs install + smoke commit, and removes it.
+      - name: T-4.8 median-of-3 second-worktree install + commit
+        run: |
+          . .smoke-venv/bin/activate
+          declare -a TIMINGS
+          for run in 1 2 3; do
+            WT_PATH="../wt-$run"
+            rm -rf "$WT_PATH"
+            (cd primary && git worktree prune)
+            START=$(date +%s)
+            (cd primary && git worktree add "$WT_PATH")
+            (cd "primary/$WT_PATH" && ai-eng install . --non-interactive)
+            (cd "primary/$WT_PATH" && git commit --allow-empty -m "chore: smoke commit")
+            END=$(date +%s)
+            ELAPSED=$((END - START))
+            echo "Worktree run $run: ${ELAPSED}s"
+            TIMINGS+=("$ELAPSED")
+            (cd primary && { git worktree remove --force "$WT_PATH" || true; })
+          done
+          SORTED=$(printf '%s\n' "${TIMINGS[@]}" | sort -n)
+          MEDIAN=$(printf '%s\n' "$SORTED" | sed -n '2p')
+          echo "Median: ${MEDIAN}s (budget: ${BUDGET_SECONDS}s)"
+          echo "MEDIAN_SECONDS=${MEDIAN}" >> "$GITHUB_ENV"
+          if [ "$MEDIAN" -gt "$BUDGET_SECONDS" ]; then
+            echo "G-12 budget violated: median ${MEDIAN}s > ${BUDGET_SECONDS}s"
+            exit 1
+          fi
+
+      - name: Record timing artifact
+        if: always()
+        run: |
+          mkdir -p timing-artifacts
+          {
+            echo "os=ubuntu-latest"
+            echo "median_seconds=${MEDIAN_SECONDS:-unknown}"
+            echo "budget_seconds=${BUDGET_SECONDS}"
+            echo "mode=uv-tool"
+            echo "trigger=${{ github.event_name }}"
+            echo "ref=${{ github.sha }}"
+          } > "timing-artifacts/g12-ubuntu.txt"
+
+      - name: Upload timing artifact (7-day)
+        if: always()
+        uses: actions/upload-artifact@26f96dfa697d77e81fd5907df203aa23a56210a8 # v4.6.2
+        with:
+          name: worktree-fast-second-ubuntu
+          path: timing-artifacts/
+          retention-days: 7
+          if-no-files-found: ignore
+
+  worktree-fast-second:
+    name: worktree-fast-second
+    needs: [worktree-fast]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Evaluate worktree-fast result
+        run: |
+          if [[ "${{ needs.worktree-fast.result }}" == "skipped" ]]; then
+            echo "Worktree-fast guard suppressed run (no perf trigger)"
+            exit 0
+          fi
+          if [[ "${{ needs.worktree-fast.result }}" != "success" ]]; then
+            echo "Worktree-fast failed: ${{ needs.worktree-fast.result }}"
+            exit 1
+          fi
+          echo "Worktree-fast within G-12 (30s median)"

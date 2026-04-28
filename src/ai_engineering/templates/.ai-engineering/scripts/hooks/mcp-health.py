@@ -8,9 +8,11 @@ failure patterns (PostToolUseFailure).
 Uses file locking for concurrent session safety.
 """
 
+import contextlib
 import json
 import os
 import re
+import shlex
 import subprocess
 import sys
 from datetime import UTC, datetime, timedelta
@@ -45,39 +47,36 @@ _FAILURE_PATTERNS = re.compile(
     re.IGNORECASE,
 )
 
-
-def _now_utc() -> datetime:
-    return datetime.now(UTC)
+# spec-107 D-107-01: conservative allowlist of MCP server binaries.
+# Anything outside this set requires an active risk-acceptance entry in
+# ``decision-store.json`` keyed on ``mcp-binary-<binary>``. The escape
+# hatch reuses the spec-105 risk-accept lifecycle so exceptions remain
+# auditable, time-bounded, and listable via ``ai-eng risk list``.
+_ALLOWED_MCP_BINARIES: frozenset[str] = frozenset(
+    {"npx", "node", "python3", "bunx", "deno", "cargo", "go", "dotnet"}
+)
 
 
 def _lock_shared(handle) -> None:
     if _fcntl is None:
         return
-    flock = getattr(_fcntl, "flock", None)
-    lock_sh = getattr(_fcntl, "LOCK_SH", None)
-    if flock is None or lock_sh is None:
-        return
-    flock(handle.fileno(), lock_sh)
+    _fcntl.flock(handle.fileno(), _fcntl.LOCK_SH)
 
 
 def _lock_exclusive(handle) -> None:
     if _fcntl is None:
         return
-    flock = getattr(_fcntl, "flock", None)
-    lock_ex = getattr(_fcntl, "LOCK_EX", None)
-    if flock is None or lock_ex is None:
-        return
-    flock(handle.fileno(), lock_ex)
+    _fcntl.flock(handle.fileno(), _fcntl.LOCK_EX)
 
 
 def _unlock(handle) -> None:
     if _fcntl is None:
         return
-    flock = getattr(_fcntl, "flock", None)
-    lock_un = getattr(_fcntl, "LOCK_UN", None)
-    if flock is None or lock_un is None:
-        return
-    flock(handle.fileno(), lock_un)
+    _fcntl.flock(handle.fileno(), _fcntl.LOCK_UN)
+
+
+def _now_utc() -> datetime:
+    return datetime.now(UTC)
 
 
 def _now_iso() -> str:
@@ -163,20 +162,181 @@ def _calculate_backoff(failure_count: int) -> int:
     return min(delay, _BACKOFF_MAX)
 
 
-def _probe_server(server_name: str) -> bool:
+def _decision_store_path(project_root: Path) -> Path:
+    """Resolve the project decision-store.json location."""
+    return project_root / ".ai-engineering" / "state" / "decision-store.json"
+
+
+def _parse_decision_timestamp(value: Any) -> datetime | None:
+    """Parse an ISO-8601 timestamp from a decision-store entry.
+
+    Returns ``None`` for missing or unparseable values so downstream callers
+    can treat the entry as non-expiring (matches Pydantic ``Decision.expires_at``
+    semantics where ``None`` means perpetual).
+    """
+    if not value or not isinstance(value, str):
+        return None
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
+def _find_active_mcp_binary_acceptance(
+    project_root: Path,
+    binary: str,
+    *,
+    now: datetime | None = None,
+) -> dict | None:
+    """Look up an active risk-acceptance for a given MCP binary.
+
+    Mirrors the spec-105 ``find_active_risk_acceptance`` lookup primitive
+    (``policy/checks/_accept_lookup.finding_is_accepted``) but operates
+    directly on the raw decision-store JSON because the hook intentionally
+    avoids importing ``ai_engineering.*`` (stdlib-only contract per
+    ``_lib/observability.py`` header).
+
+    A match must satisfy ALL of:
+    - ``finding_id`` (or alias ``findingId``) equals ``mcp-binary-<binary>``
+    - ``status`` equals ``"active"`` (case-insensitive)
+    - ``risk_category`` (or ``riskCategory``) equals ``"risk-acceptance"``
+    - ``expires_at`` (or ``expiresAt``) is absent OR strictly greater than ``now``
+
+    Returns the matching decision dict, or ``None`` if no acceptance is active.
+    Failures opening/parsing the store are treated as "no acceptance" — the
+    hook never crashes the host on malformed state.
+    """
+    reference = now or _now_utc()
+    canonical_finding = f"mcp-binary-{binary}"
+    store_path = _decision_store_path(project_root)
+    if not store_path.exists():
+        return None
+    try:
+        raw = store_path.read_text(encoding="utf-8")
+        payload = json.loads(raw)
+    except (OSError, json.JSONDecodeError):
+        return None
+    if not isinstance(payload, dict):
+        return None
+    decisions = payload.get("decisions")
+    if not isinstance(decisions, list):
+        return None
+    for entry in decisions:
+        if not isinstance(entry, dict):
+            continue
+        finding_id = entry.get("finding_id") or entry.get("findingId")
+        if finding_id != canonical_finding:
+            continue
+        status = (entry.get("status") or "").lower()
+        if status != "active":
+            continue
+        risk_category = (entry.get("risk_category") or entry.get("riskCategory") or "").lower()
+        if risk_category != "risk-acceptance":
+            continue
+        expires_at = _parse_decision_timestamp(entry.get("expires_at") or entry.get("expiresAt"))
+        if expires_at is not None and expires_at <= reference:
+            continue
+        return entry
+    return None
+
+
+def _emit_binary_decision(
+    project_root: Path,
+    *,
+    server_name: str,
+    binary: str,
+    outcome: str,
+    control: str,
+    metadata: dict | None = None,
+) -> None:
+    """Emit a canonical control_outcome event for binary-allowlist decisions."""
+    detail: dict = {"server": server_name, "binary": binary}
+    if metadata:
+        detail.update(metadata)
+    # Telemetry must never crash the hook. Swallow defensively.
+    with contextlib.suppress(Exception):
+        emit_control_outcome(
+            project_root,
+            category="mcp-sentinel",
+            control=control,
+            component="hook.mcp-health",
+            outcome=outcome,
+            source="hook",
+            metadata=detail,
+        )
+
+
+def _binary_allowed(
+    binary: str,
+    *,
+    project_root: Path | None = None,
+    server_name: str | None = None,
+    cmd_kind: str = "probe",
+) -> bool:
+    """Return True when ``binary`` may be invoked by the MCP-health hook.
+
+    Resolution order:
+    1. ``binary in _ALLOWED_MCP_BINARIES`` → permit silently.
+    2. Active risk-acceptance ``mcp-binary-<binary>`` in decision-store →
+       permit + emit ``binary-allowed-via-dec`` telemetry event.
+    3. Otherwise → deny + log WARN with the canonical remediation hint
+       (spec-107 D-107-01).
+    """
+    if binary in _ALLOWED_MCP_BINARIES:
+        return True
+    if project_root is not None:
+        decision = _find_active_mcp_binary_acceptance(project_root, binary)
+        if decision is not None:
+            dec_id = decision.get("id") or decision.get("decision_id")
+            _emit_binary_decision(
+                project_root,
+                server_name=server_name or "<unknown>",
+                binary=binary,
+                outcome="success",
+                control="binary-allowed-via-dec",
+                metadata={
+                    "dec_id": dec_id,
+                    "cmd_kind": cmd_kind,
+                },
+            )
+            return True
+    sys.stderr.write(
+        f"WARN [mcp-health] MCP cmd binary '{binary}' not in allowlist. "
+        f"To enable, run: ai-eng risk accept --finding-id mcp-binary-{binary} "
+        '--severity low --justification "..." --spec spec-107 --follow-up "..."\n'
+    )
+    if project_root is not None:
+        _emit_binary_decision(
+            project_root,
+            server_name=server_name or "<unknown>",
+            binary=binary,
+            outcome="failure",
+            control="binary-rejected",
+            metadata={"cmd_kind": cmd_kind},
+        )
+    return False
+
+
+def _probe_server(server_name: str, project_root: Path | None = None) -> bool:
     """Probe an MCP server to check health.
 
     Uses environment variables for server connection info:
     - AIE_MCP_URL_<SERVER>: HTTP URL to probe
     - AIE_MCP_CMD_<SERVER>: Command to spawn for health check
+
+    spec-107 D-107-01: ``AIE_MCP_CMD_<SERVER>`` first token must be in
+    ``_ALLOWED_MCP_BINARIES`` OR have an active risk-acceptance entry
+    keyed on ``mcp-binary-<binary>``. Otherwise the probe is rejected.
     """
     env_key = server_name.upper().replace("-", "_")
 
     url = os.environ.get(f"AIE_MCP_URL_{env_key}")
     if url:
+        if not re.match(r"^https?://[^\s;|&$`]+$", url):
+            return False
         try:
             result = subprocess.run(
-                ["curl", "-sf", "--max-time", str(_PROBE_TIMEOUT), url],
+                ["curl", "-sf", "--max-time", str(_PROBE_TIMEOUT), "--", url],
                 capture_output=True,
                 timeout=_PROBE_TIMEOUT + 2,
             )
@@ -187,8 +347,21 @@ def _probe_server(server_name: str) -> bool:
     cmd = os.environ.get(f"AIE_MCP_CMD_{env_key}")
     if cmd:
         try:
+            args = shlex.split(cmd)
+        except ValueError:
+            return False
+        if not args:
+            return False
+        if not _binary_allowed(
+            args[0],
+            project_root=project_root,
+            server_name=server_name,
+            cmd_kind="probe",
+        ):
+            return False
+        try:
             result = subprocess.run(
-                cmd.split(),
+                args,
                 capture_output=True,
                 timeout=_PROBE_TIMEOUT,
             )
@@ -199,15 +372,32 @@ def _probe_server(server_name: str) -> bool:
     return True
 
 
-def _attempt_reconnect(server_name: str) -> bool:
-    """Attempt to reconnect an MCP server using env-configured command."""
+def _attempt_reconnect(server_name: str, project_root: Path | None = None) -> bool:
+    """Attempt to reconnect an MCP server using env-configured command.
+
+    spec-107 D-107-01: same allowlist + risk-accept escape applied to
+    ``AIE_MCP_RECONNECT_<SERVER>`` first token.
+    """
     env_key = server_name.upper().replace("-", "_")
     reconnect_cmd = os.environ.get(f"AIE_MCP_RECONNECT_{env_key}")
     if not reconnect_cmd:
         return False
     try:
+        args = shlex.split(reconnect_cmd)
+    except ValueError:
+        return False
+    if not args:
+        return False
+    if not _binary_allowed(
+        args[0],
+        project_root=project_root,
+        server_name=server_name,
+        cmd_kind="reconnect",
+    ):
+        return False
+    try:
         result = subprocess.run(
-            reconnect_cmd.split(),
+            args,
             capture_output=True,
             timeout=_PROBE_TIMEOUT + 5,
         )
@@ -252,7 +442,7 @@ def _handle_pre_tool_use(data: dict, server_name: str, project_root: Path) -> No
             passthrough_stdin(data)
             return
 
-        is_healthy = _probe_server(server_name)
+        is_healthy = _probe_server(server_name, project_root)
         if is_healthy:
             server["checkedAt"] = _now_iso()
             server["expiresAt"] = (now + timedelta(seconds=_TTL_SECONDS)).strftime(
@@ -295,7 +485,7 @@ def _handle_pre_tool_use(data: dict, server_name: str, project_root: Path) -> No
                 sys.stdout.flush()
                 sys.exit(2)
 
-        is_healthy = _probe_server(server_name)
+        is_healthy = _probe_server(server_name, project_root)
         if is_healthy:
             old_status = server["status"]
             server["status"] = "healthy"
@@ -367,7 +557,7 @@ def _handle_post_tool_use_failure(data: dict, server_name: str, project_root: Pa
     if old_status != "unhealthy":
         _emit_health_change(project_root, server_name, old_status, "unhealthy", error_str[:200])
 
-    reconnected = _attempt_reconnect(server_name)
+    reconnected = _attempt_reconnect(server_name, project_root)
     if reconnected:
         server["status"] = "healthy"
         server["failureCount"] = 0

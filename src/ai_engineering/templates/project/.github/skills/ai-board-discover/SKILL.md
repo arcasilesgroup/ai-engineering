@@ -22,15 +22,11 @@ LLM-assisted post-install discovery of board configuration. Detects the team's p
 - Manual refresh: `/ai-board-discover --refresh`. `--refresh` forces re-discovery even when board config already exists in manifest, overwriting previous values.
 - Suggested by `/ai-start` when board config is missing
 
-## Step 0: Load Stack Contexts
-
-Follow `.ai-engineering/contexts/stack-context.md`. Board discovery reads manifest directly, but stack context informs field mapping conventions.
+Step 0 (load contexts): per `.ai-engineering/contexts/stack-context.md` (informs field mapping conventions).
 
 ## Process
 
-1. **Auth pre-flight** -- before running provider commands, verify authentication: `gh auth status` (GitHub) or `az account show` (Azure). If not authenticated, report remediation and abort.
-
-1. **Read manifest** -- read `.ai-engineering/manifest.yml` `work_items` section. Determine active provider (`github` or `azure_devops`).
+1. **Auth pre-flight + manifest** -- verify authentication (`gh auth status` or `az account show`); if not authenticated, report remediation and abort. Then read `.ai-engineering/manifest.yml` `work_items` to determine active provider (`github` or `azure_devops`).
 
 2. **Discover board** -- based on provider:
 
@@ -42,7 +38,7 @@ Follow `.ai-engineering/contexts/stack-context.md`. Board discovery reads manife
    e. Identify the Status field (single-select type) and extract its option IDs and names
    f. Map status options to lifecycle phases: refinement, ready, in_progress, in_review, done
    g. Discover writable custom fields (non-standard fields beyond Title, Status, Labels, Milestone)
-   h. If NO Projects v2 found: configure labels fallback (status labels like `status:refinement`, `status:ready`, etc.)
+   h. If NO Projects v2 found: configure labels fallback (see State Mapping Conventions below).
 
    **Azure DevOps path**:
    a. List process templates: `az boards work-item type list --project <project> -o json`
@@ -124,15 +120,6 @@ Follow `.ai-engineering/contexts/stack-context.md`. Board discovery reads manife
 ### Labels Fallback (GitHub without Projects v2)
 
 Uses labels with `status:` prefix: `status:refinement`, `status:ready`, `status:in-progress`, `status:in-review`, `status:done`.
-
-## Atomic Write Protocol
-
-1. All discovery steps execute first -- results held in memory
-2. If ANY discovery step fails critically (provider CLI not authenticated, no project access):
-   - Log the failure with remediation hint
-   - Do NOT write partial results to manifest
-   - Report what succeeded and what failed
-3. Only on full success: write all fields to manifest.yml in a single edit
 
 ## Common Mistakes
 

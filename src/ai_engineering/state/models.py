@@ -14,11 +14,12 @@ The updater/service.py migration code reads old JSON directly without models.
 
 from __future__ import annotations
 
+import re
 from datetime import UTC, datetime
 from enum import StrEnum
-from typing import Any
+from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import UUID4, BaseModel, ConfigDict, Field, HttpUrl, field_validator, model_validator
 
 # --- Enums ---
 
@@ -213,6 +214,17 @@ class Decision(BaseModel):
     renewed_from: str | None = Field(default=None, alias="renewedFrom")
     renewal_count: int = Field(default=0, alias="renewalCount")
 
+    # spec-105 additive fields: link a decision to the gate finding(s) it accepts.
+    # Both optional for backward compatibility with pre-spec-105 decision-store entries.
+    finding_id: str | None = Field(default=None, alias="findingId")
+    batch_id: str | None = Field(default=None, alias="batchId")
+
+    # spec-107 D-107-10 (H2) additive: hash-chain pointer over the prior
+    # decision entry's canonical-JSON payload (excluding this field).
+    # ``None`` for the chain anchor (first entry) and for legacy entries
+    # written before spec-107 landed -- additive backward-compat.
+    prev_event_hash: str | None = Field(default=None, alias="prevEventHash")
+
     model_config = {"populate_by_name": True}
 
 
@@ -363,6 +375,218 @@ class InstinctMeta(BaseModel):
     model_config = {"populate_by_name": True}
 
 
+# --- spec-101: required_tools registry + per-tool install records ---
+
+
+class Platform(StrEnum):
+    """Supported host operating systems for tool eligibility (D-101-03)."""
+
+    DARWIN = "darwin"
+    LINUX = "linux"
+    WINDOWS = "windows"
+
+
+class ToolScope(StrEnum):
+    """Install scope for a tool entry in the required_tools registry."""
+
+    USER_GLOBAL = "user_global"
+    USER_GLOBAL_UV_TOOL = "user_global_uv_tool"
+    PROJECT_LOCAL = "project_local"
+    SDK_BUNDLED = "sdk_bundled"
+
+
+class ToolInstallState(StrEnum):
+    """Per-tool runtime install outcomes recorded after install or doctor."""
+
+    INSTALLED = "installed"
+    SKIPPED_PLATFORM_UNSUPPORTED = "skipped_platform_unsupported"
+    SKIPPED_PLATFORM_UNSUPPORTED_STACK = "skipped_platform_unsupported_stack"
+    NOT_INSTALLED_PROJECT_LOCAL = "not_installed_project_local"
+    FAILED_NEEDS_MANUAL = "failed_needs_manual"
+
+
+class PythonEnvMode(StrEnum):
+    """python_env.mode values surfaced from manifest.yml (D-101-12)."""
+
+    UV_TOOL = "uv-tool"
+    VENV = "venv"
+    SHARED_PARENT = "shared-parent"
+
+
+class ToolSpec(BaseModel):
+    """Single tool entry inside a stack's required_tools list (D-101-01)."""
+
+    name: str
+    scope: ToolScope = ToolScope.USER_GLOBAL
+    platform_unsupported: list[Platform] | None = None
+    unsupported_reason: str | None = None
+
+    model_config = {"frozen": True}
+
+    @model_validator(mode="after")
+    def _enforce_platform_invariants(self) -> ToolSpec:
+        """Tool-level cap: max 2-of-3 OSes; reason required when present."""
+        platforms = self.platform_unsupported
+        if platforms is None:
+            return self
+
+        # D-101-03 abuse-prevention: tool-level may not list all 3 OSes.
+        if len(set(platforms)) >= 3:
+            raise ValueError(
+                "platform_unsupported at tool-level may list AT MOST 2 of 3 OSes; "
+                "use stack-level platform_unsupported_stack for 3-OS escalation (D-101-13)"
+            )
+
+        # D-101-03: every platform_unsupported requires a non-empty reason.
+        reason = (self.unsupported_reason or "").strip()
+        if not reason:
+            raise ValueError(
+                "platform_unsupported requires a non-empty unsupported_reason (D-101-03)"
+            )
+
+        return self
+
+
+class StackSpec(BaseModel):
+    """Per-stack wrapper for a tool list, with optional 3-OS escalation."""
+
+    name: str
+    tools: list[ToolSpec] = Field(default_factory=list)
+    platform_unsupported_stack: list[Platform] | None = None
+    unsupported_reason: str | None = None
+
+    model_config = {"frozen": True}
+
+    @model_validator(mode="before")
+    @classmethod
+    def _coerce_raw_block(cls, data: Any) -> Any:
+        """Accept either the bare-list shape or the nested-dict shape.
+
+        Tests pass either:
+        - {"name": "<key>", "raw": [<tool dicts>]}  (bare list)
+        - {"name": "<key>", "raw": {"platform_unsupported_stack": ..., "tools": [...]}}
+        - or already-shaped dicts via standard model construction
+        """
+        if not isinstance(data, dict):
+            return data
+
+        raw = data.get("raw")
+        if raw is None:
+            return data
+
+        rest = {k: v for k, v in data.items() if k != "raw"}
+
+        if isinstance(raw, list):
+            return {**rest, "tools": raw}
+
+        if isinstance(raw, dict):
+            return {**rest, **raw}
+
+        return data
+
+    @model_validator(mode="after")
+    def _require_reason_for_stack_unsupported(self) -> StackSpec:
+        """Stack-level escalation requires a non-empty reason (D-101-13)."""
+        if self.platform_unsupported_stack is not None:
+            reason = (self.unsupported_reason or "").strip()
+            if not reason:
+                raise ValueError(
+                    "platform_unsupported_stack requires a non-empty unsupported_reason (D-101-13)"
+                )
+        return self
+
+
+class RequiredToolsBlock(BaseModel):
+    """Top-level 15-key required_tools block (baseline + 14 stacks).
+
+    Mirrors the shape declared at ``.ai-engineering/manifest.yml`` under
+    ``required_tools`` (D-101-01). The ``baseline`` key is mandatory; each
+    stack key is optional so partial declarations remain valid for projects
+    that opt out of specific stacks.
+    """
+
+    baseline: StackSpec
+    python: StackSpec | None = None
+    typescript: StackSpec | None = None
+    javascript: StackSpec | None = None
+    java: StackSpec | None = None
+    csharp: StackSpec | None = None
+    go: StackSpec | None = None
+    php: StackSpec | None = None
+    rust: StackSpec | None = None
+    kotlin: StackSpec | None = None
+    swift: StackSpec | None = None
+    dart: StackSpec | None = None
+    sql: StackSpec | None = None
+    bash: StackSpec | None = None
+    cpp: StackSpec | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _coerce_raw_blocks(cls, data: Any) -> Any:
+        """Coerce manifest-style values into StackSpec inputs.
+
+        Each key's value can be a bare list of tool dicts OR a nested dict
+        with ``platform_unsupported_stack`` + ``unsupported_reason`` + ``tools``.
+        Convert into the ``{"name": <key>, "raw": <value>}`` envelope so the
+        StackSpec ``model_validator(mode="before")`` can normalise both shapes.
+        """
+        if not isinstance(data, dict):
+            return data
+
+        coerced: dict[str, Any] = {}
+        for key, value in data.items():
+            if isinstance(value, StackSpec):
+                coerced[key] = value
+                continue
+            if isinstance(value, (list, dict)):
+                coerced[key] = {"name": key, "raw": value}
+            else:
+                coerced[key] = value
+        return coerced
+
+
+class ToolInstallRecord(BaseModel):
+    """Per-tool install outcome captured after install/doctor runs."""
+
+    state: ToolInstallState
+    mechanism: str
+    version: str | None = None
+    verified_at: datetime
+    os_release: str | None = None
+
+
+# Permissive semver-style version regex: digits with optional dotted parts.
+# Accepts "21", "8.2", "9", "1.2.3"; rejects "abc", "v1", "21.beta".
+_SDK_MIN_VERSION_RE = re.compile(r"^\d+(\.\d+)*$")
+
+
+class SdkPrereq(BaseModel):
+    """Language-SDK prerequisite descriptor (D-101-14).
+
+    Models a single entry in ``manifest.prereqs.sdk_per_stack`` — the SDK that
+    must be present before a stack's tools can be installed. ``install_link``
+    surfaces the official installer URL the user is directed to on EXIT 81.
+    """
+
+    name: str = Field(min_length=1)
+    min_version: str | None = None
+    install_link: HttpUrl
+
+    model_config = {"frozen": True}
+
+    @field_validator("min_version")
+    @classmethod
+    def _validate_min_version(cls, value: str | None) -> str | None:
+        """Reject non-semver-shaped ``min_version`` values (e.g. ``"abc"``)."""
+        if value is None:
+            return value
+        if not _SDK_MIN_VERSION_RE.match(value):
+            msg = f"min_version must be a semver-shaped string, got {value!r}"
+            raise ValueError(msg)
+        return value
+
+
 # --- InstallState (spec-068: state unification) ---
 
 
@@ -446,6 +670,20 @@ class InstallState(BaseModel):
     branch_policy: BranchPolicyState = Field(default_factory=BranchPolicyState)
     operational_readiness: OperationalState = Field(default_factory=OperationalState)
     release: ReleaseState = Field(default_factory=ReleaseState)
+    # spec-101 extensions: per-tool install outcomes + python_env mode echo.
+    required_tools_state: dict[str, ToolInstallRecord] = Field(default_factory=dict)
+    python_env_mode_recorded: PythonEnvMode | None = None
+    # spec-101 T-5.2: idempotency flag for the first-run BREAKING banner.
+    # The PipelineRunner emits the banner exactly once per project, then sets
+    # this to True so subsequent runs stay quiet. Persisted alongside the
+    # rest of install-state.json.
+    breaking_banner_seen: bool = False
+    # spec-107 D-107-09 (H1): per-tool SHA256 hash baseline for rug-pull
+    # detection. Maps "stack:tool" -> hex digest. Empty dict on first install
+    # is interpreted as "populate baseline silently"; non-empty dict triggers
+    # the H1 mismatch check on every subsequent install/sync. Additive
+    # backward-compat (default empty dict accommodates pre-spec-107 state files).
+    tool_spec_hashes: dict[str, str] = Field(default_factory=dict)
 
     @classmethod
     def from_legacy_dict(
@@ -588,3 +826,154 @@ def _extract_platforms_from_dict(tools_state_dict: dict[str, Any]) -> dict[str, 
         )
 
     return platforms
+
+
+# --- spec-104: gate-findings v1 schema ---
+
+
+class GateSeverity(StrEnum):
+    """Severity classification for a single gate finding (D-104-06)."""
+
+    CRITICAL = "critical"
+    HIGH = "high"
+    MEDIUM = "medium"
+    LOW = "low"
+    INFO = "info"
+
+
+class GateProducedBy(StrEnum):
+    """Producer of a ``gate-findings.json`` document (D-104-06)."""
+
+    AI_COMMIT = "ai-commit"
+    AI_PR = "ai-pr"
+    WATCH_LOOP = "watch-loop"
+
+
+class WallClockMs(BaseModel):
+    """Wall-clock telemetry block emitted with every gate-findings document.
+
+    Three keys exactly per D-104-06: Wave 1 fixers, Wave 2 checkers, total.
+    ``extra="forbid"`` enforces the closed schema (rejects unknown phases).
+    """
+
+    wave1_fixers: int
+    wave2_checkers: int
+    total: int
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+
+class GateFinding(BaseModel):
+    """Single check finding emitted by the orchestrator (D-104-06).
+
+    ``rule_id`` MUST be a stable identifier (CVE-XXXX, semgrep rule-id,
+    gitleaks rule-id, ruff code, ty error code) — never a human-readable
+    message. The model is frozen because findings are immutable records
+    once captured.
+    """
+
+    check: str
+    rule_id: str
+    file: str
+    line: int = Field(ge=1)
+    column: int | None = None
+    severity: GateSeverity
+    message: str
+    auto_fixable: bool
+    auto_fix_command: str | None = None
+
+    model_config = ConfigDict(frozen=True)
+
+    @model_validator(mode="after")
+    def _enforce_auto_fix_command_when_fixable(self) -> GateFinding:
+        """``auto_fixable=True`` requires a non-null ``auto_fix_command``."""
+        if self.auto_fixable and self.auto_fix_command is None:
+            raise ValueError("auto_fixable=True requires a non-null auto_fix_command (D-104-06)")
+        return self
+
+
+class AutoFixedEntry(BaseModel):
+    """Auto-fix metadata: which check repaired which files and rules."""
+
+    check: str
+    files: list[str] = Field(min_length=1)
+    rules_fixed: list[str] = Field(default_factory=list)
+
+    model_config = ConfigDict(frozen=True)
+
+
+class AcceptedFinding(BaseModel):
+    """A gate finding that was bypassed by an active risk-acceptance Decision.
+
+    Emitted in ``gate-findings.json`` v1.1 (spec-105 D-105-08) under the
+    ``accepted_findings`` array. Each entry carries enough context to
+    audit which DEC bypassed which finding and when that bypass expires.
+    """
+
+    check: str
+    rule_id: str
+    file: str
+    line: int = Field(ge=1)
+    severity: GateSeverity
+    message: str
+    dec_id: str
+    expires_at: datetime | None = None
+
+    model_config = ConfigDict(frozen=True)
+
+
+class GateFindingsDocument(BaseModel):
+    """Top-level container for ``gate-findings.json`` schema v1 / v1.1.
+
+    Emitted by the orchestrator at
+    ``.ai-engineering/state/gate-findings.json`` and by the watch loop
+    at ``.ai-engineering/state/watch-residuals.json``. Versioned via the
+    ``schema`` literal so consumers (spec-105 risk-accept) can reject
+    unknown versions with an actionable message.
+
+    spec-105 D-105-08 broadens the accepted ``schema`` literal to a Union
+    of v1 and v1.1 and adds two additive arrays (``accepted_findings``,
+    ``expiring_soon``) to support the orchestrator-level risk-acceptance
+    lookup. ``extra="ignore"`` is set defensively so a v1 reader can
+    consume a v1.1 document by silently dropping unknown fields, and a
+    future minor version bump remains backward-compatible.
+    """
+
+    schema_: Literal["ai-engineering/gate-findings/v1", "ai-engineering/gate-findings/v1.1"] = (
+        Field(alias="schema")
+    )
+    session_id: UUID4
+    produced_by: GateProducedBy
+    produced_at: datetime
+    branch: str
+    commit_sha: str | None = None
+    findings: list[GateFinding] = Field(default_factory=list)
+    auto_fixed: list[AutoFixedEntry] = Field(default_factory=list)
+    cache_hits: list[str] = Field(default_factory=list)
+    cache_misses: list[str] = Field(default_factory=list)
+    wall_clock_ms: WallClockMs
+
+    # spec-105 v1.1 additive fields. Default empty so legacy v1 producers
+    # remain valid without modification.
+    accepted_findings: list[AcceptedFinding] = Field(default_factory=list)
+    expiring_soon: list[str] = Field(default_factory=list)
+
+    model_config = ConfigDict(populate_by_name=True, frozen=True, extra="ignore")
+
+
+class WatchLoopState(BaseModel):
+    """Watch loop runtime state used by D-104-05 wall-clock bounds.
+
+    ``watch_started_at`` anchors the passive-phase 4h cap; the orchestrator
+    updates ``last_active_action_at`` whenever the loop applies a fix or
+    resolves a conflict (active-phase 30min cap reset). ``fix_attempts``
+    tracks per-check retries (per-check >= 3 still triggers STOP).
+    """
+
+    watch_started_at: datetime
+    last_active_action_at: datetime
+    fix_attempts: dict[str, int] = Field(default_factory=dict)
+    iteration_count: int = 0
+    exit_code: int | None = None
+
+    model_config = ConfigDict(frozen=True)

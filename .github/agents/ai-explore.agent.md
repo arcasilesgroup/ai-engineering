@@ -1,5 +1,5 @@
 ---
-name: "Explorer"
+name: "ai-explore"
 description: "Context gatherer -- deep codebase research, architecture mapping, dependency tracing, pattern identification, risk surfacing. Read-only."
 color: cyan
 model: opus
