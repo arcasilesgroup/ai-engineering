@@ -13,13 +13,15 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Literal, cast
 
 import typer
 
 from ai_engineering.cli_output import is_json_mode
 from ai_engineering.cli_ui import header, kv, status_line, success, warning
 from ai_engineering.state.audit_chain import AuditChainVerdict, verify_audit_chain
+
+_AuditMode = Literal["ndjson", "json_array"]
 
 
 def _resolve_project_root() -> Path:
@@ -43,7 +45,7 @@ def _verdict_payload(name: str, verdict: AuditChainVerdict) -> dict:
     }
 
 
-def _verify_one(label: str, path: Path, mode: str) -> tuple[str, AuditChainVerdict]:
+def _verify_one(label: str, path: Path, mode: _AuditMode) -> tuple[str, AuditChainVerdict]:
     """Run the verifier on a single audit file and return label/verdict."""
     if not path.exists():
         return label, AuditChainVerdict(
@@ -52,7 +54,7 @@ def _verify_one(label: str, path: Path, mode: str) -> tuple[str, AuditChainVerdi
             first_break_index=None,
             first_break_reason=None,
         )
-    return label, verify_audit_chain(path, mode=mode)  # type: ignore[arg-type]
+    return label, verify_audit_chain(path, mode=mode)
 
 
 def audit_verify(
@@ -79,11 +81,15 @@ def audit_verify(
     root = _resolve_project_root()
     state_dir = root / ".ai-engineering" / "state"
 
-    targets: list[tuple[str, Path, str]] = []
+    targets: list[tuple[str, Path, _AuditMode]] = []
     if file_filter in {"events", "all"}:
-        targets.append(("events", state_dir / "framework-events.ndjson", "ndjson"))
+        targets.append(
+            ("events", state_dir / "framework-events.ndjson", cast(_AuditMode, "ndjson"))
+        )
     if file_filter in {"decisions", "all"}:
-        targets.append(("decisions", state_dir / "decision-store.json", "json_array"))
+        targets.append(
+            ("decisions", state_dir / "decision-store.json", cast(_AuditMode, "json_array"))
+        )
 
     verdicts = [_verify_one(label, path, mode) for label, path, mode in targets]
 
@@ -128,11 +134,15 @@ def _audit_verify_machine_readable(file_filter: str = "all") -> dict:
     """
     root = _resolve_project_root()
     state_dir = root / ".ai-engineering" / "state"
-    targets: list[tuple[str, Path, str]] = []
+    targets: list[tuple[str, Path, _AuditMode]] = []
     if file_filter in {"events", "all"}:
-        targets.append(("events", state_dir / "framework-events.ndjson", "ndjson"))
+        targets.append(
+            ("events", state_dir / "framework-events.ndjson", cast(_AuditMode, "ndjson"))
+        )
     if file_filter in {"decisions", "all"}:
-        targets.append(("decisions", state_dir / "decision-store.json", "json_array"))
+        targets.append(
+            ("decisions", state_dir / "decision-store.json", cast(_AuditMode, "json_array"))
+        )
     verdicts = [_verify_one(label, path, mode) for label, path, mode in targets]
     return {
         "verdicts": [_verdict_payload(name, v) for name, v in verdicts],
