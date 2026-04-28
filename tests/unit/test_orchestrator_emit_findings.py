@@ -583,7 +583,12 @@ def test_emit_findings_atomic_write(tmp_path: Path) -> None:
         f"tempfile name must differ from final filename; got {captured['src'].name!r}"
     )
 
-    # Act — concurrent emissions on the same path.
+    # Act — concurrent emissions on the same path. The subprocess.run patch
+    # is installed ONCE around the whole thread fan-out: nested `mock.patch`
+    # contexts inside worker threads are not thread-safe (the patcher's
+    # save/restore stack is module-level), so per-thread `with mock.patch`
+    # blocks would leak the mock past test-end and contaminate later tests
+    # that drive real subprocesses (e.g. test_safe_run_env_scrub).
     concurrent_target = tmp_path / "concurrent.json"
     writers = 6
     errors: list[BaseException] = []
@@ -592,25 +597,25 @@ def test_emit_findings_atomic_write(tmp_path: Path) -> None:
     def _worker(idx: int) -> None:
         try:
             barrier.wait(timeout=10)
-            with mock.patch(
-                "subprocess.run",
-                side_effect=_make_git_runner("main", f"sha{idx}".ljust(40, "0")),
-            ):
-                _emit_findings(
-                    wave1=_make_wave1(wall_clock_ms=100 + idx),
-                    wave2=_make_wave2(wall_clock_ms=200 + idx),
-                    cache_stats=_cache_stats(),
-                    output_path=concurrent_target,
-                    produced_by="ai-pr",
-                )
+            _emit_findings(
+                wave1=_make_wave1(wall_clock_ms=100 + idx),
+                wave2=_make_wave2(wall_clock_ms=200 + idx),
+                cache_stats=_cache_stats(),
+                output_path=concurrent_target,
+                produced_by="ai-pr",
+            )
         except BaseException as exc:  # pragma: no cover — captured in assertion
             errors.append(exc)
 
-    threads = [threading.Thread(target=_worker, args=(i,)) for i in range(writers)]
-    for t in threads:
-        t.start()
-    for t in threads:
-        t.join(timeout=10)
+    with mock.patch(
+        "subprocess.run",
+        side_effect=_make_git_runner("main", "abc1234"),
+    ):
+        threads = [threading.Thread(target=_worker, args=(i,)) for i in range(writers)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join(timeout=10)
 
     # Assert — every writer finished cleanly and the surviving file is intact.
     assert not errors, f"concurrent emit raised: {errors!r}"

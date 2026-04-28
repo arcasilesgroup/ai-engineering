@@ -195,10 +195,10 @@ jobs:
       - name: Install dependencies
         run: uv sync --dev
       - name: Run unit tests
-        # spec-107: quarantine 3 modules with order-dependent
-        # subprocess-mock-leak flakes that pass in isolation but fail
-        # under -n auto worksteal. Same quarantine as pre-push gate
-        # (policy/checks/stack_runner.py). Investigation deferred.
+        # 3 modules carved out into a separate `Run isolated modules` step
+        # below: subprocess-mock-leak from a prior `patch().start()` test
+        # contaminates them under -n auto worksteal. Tier-2 fresh-process
+        # split restores their coverage without re-introducing the flake.
         # spec-104 platform/timing flakes (deselected, not ignored — keeps
         # the rest of each module running):
         #   - wave2_wall_clock: 1.5x slowest=90ms threshold too tight for
@@ -206,8 +206,10 @@ jobs:
         #   - emit_findings_atomic_write / atomic_write_atomic_under_concurrent_writes:
         #     POSIX-only os.replace semantics; Windows raises PermissionError
         #     when another writer still has the file open.
-        #   - wave1_intra_wave_rerun_on_changes: mtime-based change detection
-        #     misfires on Windows (FAT/NTFS mtime resolution ~1-2s).
+        #   - wave1_intra_wave_rerun_on_changes / wave1_records_files_modified:
+        #     mtime-based change detection misfires on Windows (FAT/NTFS
+        #     mtime resolution ~1-2s; write_text + immediate stat returns
+        #     unchanged mtime so the orchestrator records files_modified=[]).
         run: |
           uv run pytest tests/unit -v -n auto --dist worksteal --durations=25 \
             --ignore=tests/unit/test_safe_run_env_scrub.py \
@@ -217,7 +219,17 @@ jobs:
             --deselect tests/unit/test_orchestrator_emit_findings.py::test_emit_findings_atomic_write \
             --deselect tests/unit/test_gate_cache_persist.py::test_atomic_write_atomic_under_concurrent_writes \
             --deselect tests/unit/test_orchestrator_wave1.py::test_wave1_intra_wave_rerun_on_changes \
+            --deselect tests/unit/test_orchestrator_wave1.py::test_wave1_records_files_modified \
             | tee test-output.log
+      - name: Run isolated modules (fresh process, serial)
+        # Tier-2 split: these 3 modules drive real subprocesses and break
+        # under cross-test mock leak. Running them in a fresh pytest process
+        # (no -n auto) restores their coverage cleanly. ~5-10s wall-clock.
+        run: |
+          uv run pytest -v --no-cov \
+            tests/unit/test_safe_run_env_scrub.py \
+            tests/unit/test_python_env_mode_install.py \
+            tests/unit/test_setup_cli.py
       - name: Run unit tests with coverage (ubuntu/3.12 only)
         if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'
         run: |
@@ -229,7 +241,18 @@ jobs:
             --deselect tests/unit/test_orchestrator_emit_findings.py::test_emit_findings_atomic_write \
             --deselect tests/unit/test_gate_cache_persist.py::test_atomic_write_atomic_under_concurrent_writes \
             --deselect tests/unit/test_orchestrator_wave1.py::test_wave1_intra_wave_rerun_on_changes \
+            --deselect tests/unit/test_orchestrator_wave1.py::test_wave1_records_files_modified \
             --cov=src/ai_engineering --cov-report=xml:coverage-unit.xml
+      - name: Run isolated modules with coverage (ubuntu/3.12 only)
+        # Tier-2 coverage append: same 3 modules in fresh process, results
+        # merged into coverage-unit.xml via --cov-append.
+        if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'
+        run: |
+          uv run pytest -v \
+            tests/unit/test_safe_run_env_scrub.py \
+            tests/unit/test_python_env_mode_install.py \
+            tests/unit/test_setup_cli.py \
+            --cov=src/ai_engineering --cov-append --cov-report=xml:coverage-unit.xml
       - name: Upload slow-tests artifact
         if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
