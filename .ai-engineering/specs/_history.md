@@ -4,6 +4,7 @@ Completed specs. Details in git history.
 
 | ID | Title | Status | Created | Branch |
 |----|-------|--------|---------|--------|
+| 109 | Installer First-Install Robustness — Pipeline Non-Critical Phases + Render-Before-Exit + Auto-Remediation + Live Progress UI | done | 2026-04-28 | feat/spec-101-installer-robustness |
 | 107 | MCP Sentinel Hardening + IDE Parity + Hash-Chained Audit Trail | done | 2026-04-28 | feat/spec-101-installer-robustness |
 | 106 | Skills Consolidation + Architecture Thinking + skill-creator Eval | done | 2026-04-27 | feat/spec-101-installer-robustness |
 | 105 | Unified Gate + Generalized Risk Acceptance | done | 2026-04-27 | feat/spec-101-installer-robustness |

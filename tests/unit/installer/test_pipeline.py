@@ -30,13 +30,24 @@ from ai_engineering.installer.phases.pipeline import PipelineRunner
 class _FakePhase:
     """A test phase that can be configured to pass or fail."""
 
-    def __init__(self, name: str, *, fail_verify: bool = False) -> None:
+    def __init__(
+        self,
+        name: str,
+        *,
+        fail_verify: bool = False,
+        critical: bool = True,
+    ) -> None:
         self._name = name
         self._fail_verify = fail_verify
+        self._critical = critical
 
     @property
     def name(self) -> str:
         return self._name
+
+    @property
+    def critical(self) -> bool:
+        return self._critical
 
     def plan(self, context: InstallContext) -> PhasePlan:
         return PhasePlan(
@@ -110,6 +121,95 @@ class TestPipelineRunner:
         assert summary.failed_phase == "b"
         assert "a" in summary.completed_phases
         assert "c" not in summary.completed_phases
+
+    # spec-109 D-109-02 -----------------------------------------------------
+    def test_continues_past_non_critical_failure(self, tmp_path) -> None:
+        """A non-critical phase failure is recorded but does NOT stop the pipeline."""
+        runner = PipelineRunner(
+            [
+                _FakePhase("a"),
+                _FakePhase("b", fail_verify=True, critical=False),
+                _FakePhase("c"),
+            ]
+        )
+        summary = runner.run(_ctx(tmp_path))
+        # Critical failed_phase stays None because b is non-critical.
+        assert summary.failed_phase is None
+        assert "b" in summary.non_critical_failures
+        # All phases ran -- including c, which previously got skipped.
+        assert summary.completed_phases == ["a", "b", "c"]
+        assert len(summary.results) == 3
+        assert len(summary.verdicts) == 3
+
+    def test_critical_failure_still_breaks(self, tmp_path) -> None:
+        """An explicitly-critical failure must still break the pipeline."""
+        runner = PipelineRunner(
+            [
+                _FakePhase("a"),
+                _FakePhase("b", fail_verify=True, critical=True),
+                _FakePhase("c", critical=False),
+            ]
+        )
+        summary = runner.run(_ctx(tmp_path))
+        assert summary.failed_phase == "b"
+        assert "c" not in summary.completed_phases
+        assert summary.non_critical_failures == []
+
+    def test_phase_without_critical_attribute_defaults_critical(self, tmp_path) -> None:
+        """Legacy phases that omit ``critical`` keep the historical fail-stop behaviour."""
+
+        class _LegacyPhase:
+            def __init__(self, name: str, fail: bool) -> None:
+                self._n = name
+                self._fail = fail
+
+            @property
+            def name(self) -> str:
+                return self._n
+
+            def plan(self, context: InstallContext) -> PhasePlan:
+                return PhasePlan(phase_name=self._n, actions=[])
+
+            def execute(self, plan: PhasePlan, context: InstallContext) -> PhaseResult:
+                return PhaseResult(phase_name=self._n)
+
+            def verify(self, result: PhaseResult, context: InstallContext) -> PhaseVerdict:
+                return PhaseVerdict(phase_name=self._n, passed=not self._fail)
+
+        runner = PipelineRunner(
+            [
+                _LegacyPhase("legacy_a", fail=False),
+                _LegacyPhase("legacy_b", fail=True),
+                _LegacyPhase("legacy_c", fail=False),
+            ]
+        )
+        summary = runner.run(_ctx(tmp_path))
+        # No `critical` attribute => default True => pipeline breaks at b.
+        assert summary.failed_phase == "legacy_b"
+        assert "legacy_c" not in summary.completed_phases
+
+    def test_progress_callback_invoked_per_phase(self, tmp_path) -> None:
+        """spec-109 D-109-07: pipeline forwards phase-progress events."""
+        events: list[str] = []
+        runner = PipelineRunner(
+            [_FakePhase("a"), _FakePhase("b"), _FakePhase("c")],
+            progress_callback=lambda msg: events.append(msg),
+        )
+        runner.run(_ctx(tmp_path))
+        assert events == ["[1/3] a", "[2/3] b", "[3/3] c"]
+
+    def test_progress_callback_failure_does_not_break_pipeline(self, tmp_path) -> None:
+        """A raising callback must NEVER bring down the pipeline (fail-open UI)."""
+
+        def _broken_cb(_msg: str) -> None:
+            raise RuntimeError("ui broke")
+
+        runner = PipelineRunner(
+            [_FakePhase("a"), _FakePhase("b")],
+            progress_callback=_broken_cb,
+        )
+        summary = runner.run(_ctx(tmp_path))
+        assert summary.completed_phases == ["a", "b"]
 
 
 # ---------------------------------------------------------------------------

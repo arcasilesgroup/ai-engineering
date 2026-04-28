@@ -200,11 +200,24 @@ def _ensure_install_state(context: InstallContext) -> InstallState:
 
 
 class ToolsPhase:
-    """Install required CLI tools (baseline + per-stack) per spec-101."""
+    """Install required CLI tools (baseline + per-stack) per spec-101.
+
+    spec-109 D-109-03: ``critical = False`` -- a tool install failure is
+    recoverable via :func:`installer.auto_remediate.auto_remediate_after_install`
+    and does not block subsequent phases (notably ``HooksPhase``). Hooks
+    install does NOT depend on tools at install time; the tools are needed
+    only at hook *execution* time, which is post-install.
+    """
 
     @property
     def name(self) -> str:
         return "tools"
+
+    @property
+    def critical(self) -> bool:
+        # spec-109 D-109-03: non-critical so a single missing tool does not
+        # cascade-skip HooksPhase. Auto-remediate covers the recovery path.
+        return False
 
     # ------------------------------------------------------------------
     # plan

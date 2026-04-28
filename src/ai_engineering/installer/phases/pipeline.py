@@ -16,6 +16,8 @@ ever shows up once per project.
 from __future__ import annotations
 
 import sys
+from collections.abc import Callable
+from contextlib import suppress
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -143,21 +145,34 @@ def emit_breaking_banner_for_target(target: Path) -> None:
 
 @dataclass
 class PipelineSummary:
-    """Aggregated outcome of the full pipeline run."""
+    """Aggregated outcome of the full pipeline run.
+
+    spec-109 D-109-02: ``non_critical_failures`` records phases that returned
+    ``verdict.passed == False`` but were marked ``critical=False`` so the
+    runner kept going. ``failed_phase`` still names the *critical* phase that
+    broke the pipeline (or None when the pipeline ran end-to-end).
+    """
 
     plans: list[PhasePlan] = field(default_factory=list)
     results: list[PhaseResult] = field(default_factory=list)
     verdicts: list[PhaseVerdict] = field(default_factory=list)
     completed_phases: list[str] = field(default_factory=list)
     failed_phase: str | None = None
+    non_critical_failures: list[str] = field(default_factory=list)
     dry_run: bool = False
 
 
 class PipelineRunner:
     """Executes an ordered sequence of install phases."""
 
-    def __init__(self, phases: list[PhaseProtocol]) -> None:
+    def __init__(
+        self,
+        phases: list[PhaseProtocol],
+        *,
+        progress_callback: Callable[[str], None] | None = None,
+    ) -> None:
         self._phases = phases
+        self._progress_callback = progress_callback
 
     def run(self, context: InstallContext, *, dry_run: bool = False) -> PipelineSummary:
         """Run the pipeline.
@@ -175,6 +190,13 @@ class PipelineRunner:
         -------
         PipelineSummary
             Collected plans, results, and verdicts for all phases.
+
+        Notes
+        -----
+        spec-109 D-109-02: a phase whose verdict fails AND whose ``critical``
+        flag is False is logged in ``summary.non_critical_failures`` but does
+        not break the loop -- subsequent phases still run. A phase missing the
+        ``critical`` attribute defaults to True (legacy behaviour).
         """
         summary = PipelineSummary(dry_run=dry_run)
 
@@ -185,7 +207,9 @@ class PipelineRunner:
         if not dry_run:
             _maybe_emit_breaking_banner(context)
 
-        for phase in self._phases:
+        total = len(self._phases)
+        for index, phase in enumerate(self._phases, start=1):
+            self._notify(f"[{index}/{total}] {phase.name}")
             plan = phase.plan(context)
             summary.plans.append(plan)
 
@@ -200,9 +224,25 @@ class PipelineRunner:
             summary.verdicts.append(verdict)
 
             if not verdict.passed:
-                summary.failed_phase = phase.name
-                break
+                if getattr(phase, "critical", True):
+                    summary.failed_phase = phase.name
+                    break
+                summary.non_critical_failures.append(phase.name)
+                # Non-critical phase still completed its attempt; keep going.
+                summary.completed_phases.append(phase.name)
+                continue
 
             summary.completed_phases.append(phase.name)
 
         return summary
+
+    def _notify(self, message: str) -> None:
+        """Forward a phase-progress message to the optional callback.
+
+        Progress UI must never break the pipeline; any callback exception is
+        suppressed (fail-open).
+        """
+        if self._progress_callback is None:
+            return
+        with suppress(Exception):
+            self._progress_callback(message)

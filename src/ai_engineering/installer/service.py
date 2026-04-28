@@ -22,8 +22,10 @@ from __future__ import annotations
 import json
 import logging
 import subprocess
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import cast
 
 from ai_engineering.config.loader import load_manifest_config, update_manifest_field
 from ai_engineering.detector.readiness import check_tools_for_stacks
@@ -205,6 +207,7 @@ def install_with_pipeline(
     external_references: dict[str, str] | None = None,
     dry_run: bool = False,
     force: bool = False,
+    progress_callback: Callable[[str], None] | None = None,
 ) -> tuple[InstallResult, PipelineSummary]:
     """Run the install pipeline and return both legacy and pipeline results.
 
@@ -277,10 +280,17 @@ def install_with_pipeline(
         "hooks": HooksPhase,
         "tools": ToolsPhase,
     }
-    phases: list[PhaseProtocol] = [_phase_classes[name]() for name in PHASE_ORDER]
+    # ty (0.x) cannot narrow the dict-value union back to PhaseProtocol on
+    # comprehension; cast each instance explicitly so the declared type
+    # matches the inferred type. Each phase class implements PhaseProtocol
+    # by structural typing -- the cast is documentation, not coercion.
+    phases: list[PhaseProtocol] = [
+        cast(PhaseProtocol, _phase_classes[name]()) for name in PHASE_ORDER
+    ]
 
-    # Run the pipeline
-    runner = PipelineRunner(phases)
+    # Run the pipeline (spec-109 D-109-07: optional progress_callback for
+    # live multi-step UX in the CLI; backward-compatible default None).
+    runner = PipelineRunner(phases, progress_callback=progress_callback)
     summary = runner.run(context, dry_run=dry_run)
 
     # Convert PipelineSummary to InstallResult

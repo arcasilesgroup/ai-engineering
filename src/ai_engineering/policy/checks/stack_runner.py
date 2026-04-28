@@ -215,8 +215,16 @@ PRE_PUSH_CHECKS: dict[str, list[CheckConfig]] = {
             # all modules); pre-push quarantine just unblocks dev push
             # cycle. See spec-107 P6 lesson + final report.
             cmd=[
-                "uv",
-                "run",
+                # Use project-local .venv python directly instead of `uv run`.
+                # When ai-eng is installed as a global tool (~/.local/bin/ai-eng),
+                # invoking `uv run pytest` from the tool's subprocess can resolve
+                # to a different venv depending on env state, causing
+                # `ModuleNotFoundError: No module named 'ai_engineering'` because
+                # the tool venv lacks the editable install. The .venv path is
+                # relative to cwd (project_root) -- always the canonical local
+                # development venv where ai_engineering is installed editable.
+                ".venv/bin/python",
+                "-m",
                 "pytest",
                 "tests/unit/",
                 "--tb=short",
@@ -316,22 +324,28 @@ def _resolve_python_checks(
                     )
                 )
                 continue
+            # Mirror the canonical PRE_PUSH_CHECKS["python"] stack-tests
+            # contract: serial dispatch (no -n auto -- spec-107 xdist flake
+            # mitigation) + quarantine flags for pre-existing
+            # subprocess-mock-leak modules + .venv/bin/python instead of
+            # `uv run` to avoid env-driven venv-resolution failures when
+            # ai-eng is the global tool. Substitute the dynamically-detected
+            # test_dir for the hardcoded ``tests/unit/`` argument.
             resolved.append(
                 CheckConfig(
                     name=check.name,
                     cmd=[
-                        "uv",
-                        "run",
+                        ".venv/bin/python",
+                        "-m",
                         "pytest",
                         test_dir,
                         "--tb=short",
                         "-q",
                         "-x",
                         "--no-cov",
-                        "-n",
-                        "auto",
-                        "--dist",
-                        "worksteal",
+                        "--ignore=tests/unit/test_safe_run_env_scrub.py",
+                        "--ignore=tests/unit/test_python_env_mode_install.py",
+                        "--ignore=tests/unit/test_setup_cli.py",
                     ],
                     required=check.required,
                     timeout=check.timeout,

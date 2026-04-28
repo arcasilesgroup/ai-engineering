@@ -7,6 +7,59 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+#### spec-109 — Installer first-install robustness (auto-remediation + live progress)
+
+- **`PhaseProtocol` opt-in `critical: bool` flag (spec-109 D-109-01, D-109-02).**
+  A phase that declares `critical = False` is recorded in
+  `PipelineSummary.non_critical_failures` when its verdict fails, but the
+  pipeline keeps going to the next phase. Phases that omit `critical` keep the
+  legacy `critical=True` behaviour automatically. `PipelineSummary` adds a
+  new additive field `non_critical_failures: list[str]`.
+
+- **`ToolsPhase.critical = False` (spec-109 D-109-03).** A failed tool
+  install no longer cascades into `HooksPhase`. Pre-spec-109 a single bad
+  tool meant `.git/hooks/` was empty, `install-state.json` lacked
+  `hook_hash:*` entries, and the next `ai-eng doctor` reported
+  `hooks-integrity FAIL`. Hooks now write unconditionally on every install,
+  regardless of tool outcomes.
+
+- **Auto-remediation in `ai-eng install` (spec-109 D-109-05).** When the
+  pipeline records non-critical failures, the install command invokes the
+  same `doctor.phases.tools.fix` + `doctor.phases.hooks.fix` paths used by
+  `ai-eng doctor --fix`. The user no longer has to follow `install` with two
+  manual remediation commands. Behaviour is reported in the JSON envelope
+  under the additive `auto_remediation: {invoked, success, applied, failed,
+  errors}` key.
+
+- **`--no-auto-remediate` flag (spec-109 R-109-01).** CI consumers that want
+  to detect "first attempt failed" disable the second-pass repair so the
+  install still surfaces EXIT 80.
+
+- **Live multi-step progress UI (spec-109 D-109-07).** The single-spinner
+  `Installing governance framework...` is replaced by
+  `step_progress(total=len(PHASE_ORDER))`. The CLI shows
+  `[N/M] phase_label` in real time. `install_with_pipeline` and
+  `PipelineRunner` both accept an optional
+  `progress_callback: Callable[[str], None]` (default `None`, so existing
+  programmatic callers are unaffected).
+
+- **Pre-install banner honesty (spec-109 D-109-08).** `Tools:` is now
+  labelled `Tools (PATH):` with a dim qualifier explaining that `✓` only
+  reflects PATH availability, not install-pipeline success. Eliminates the
+  contradiction between the green check on the banner and `tools-required`
+  failures during install.
+
+### Fixed
+
+- **Render pipeline steps BEFORE exiting on tool failure (spec-109 D-109-04).**
+  Pre-spec-109 the install command emitted `"Tool installation failed; see
+  warnings above"` and then `raise typer.Exit(80)` BEFORE the line that
+  rendered the step report. Users saw the "see warnings above" message with
+  no warnings printed. The render pass now happens unconditionally and the
+  exit (when needed) follows.
+
 ### BREAKING
 
 #### spec-107 -- Copilot Explorer agent renamed (BREAKING-LIKELY, Copilot only)

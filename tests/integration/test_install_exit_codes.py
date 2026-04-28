@@ -127,24 +127,59 @@ class TestExitZeroHappyPath:
 
 
 class TestExitEightyToolFailure:
-    """A failed tool install surfaces EXIT 80."""
+    """A failed tool install surfaces EXIT 80 -- but only when auto-remediation can't fix it.
 
-    def test_simulated_tool_install_failure_exits_eighty(
+    spec-109 D-109-05 introduced post-pipeline auto-remediation: a tool whose
+    install mechanism fails will still get a second-pass repair via the doctor
+    fix path. To exercise the original spec-101 fail-on-first-attempt EXIT 80
+    semantics this test runs with ``--no-auto-remediate`` (R-109-01) so the
+    second pass is suppressed.
+    """
+
+    def test_simulated_tool_install_failure_exits_eighty_no_remediate(
         self,
         project_dir: Path,
         app: object,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        """``AIENG_TEST_SIMULATE_FAIL=ruff`` -> exit 80."""
+        """``AIENG_TEST_SIMULATE_FAIL=ruff`` + ``--no-auto-remediate`` -> exit 80."""
         monkeypatch.setenv("AIENG_TEST", "1")
         monkeypatch.setenv("AIENG_TEST_SIMULATE_FAIL", "ruff")
 
         result = runner.invoke(
             app,
-            ["install", str(project_dir), "--stack", "python"],
+            ["install", str(project_dir), "--stack", "python", "--no-auto-remediate"],
         )
         assert result.exit_code == EXIT_TOOLS_FAILED, (
             f"Expected EXIT 80 (tools failed); got {result.exit_code}\n{result.output}"
+        )
+
+    def test_simulated_tool_install_failure_auto_remediates_to_zero(
+        self,
+        project_dir: Path,
+        app: object,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """spec-109: simulated tool failure that auto-remediates exits 0.
+
+        Doctor's fix path also resolves to a synthetic install; this proves
+        that auto-remediation closes the loop on the same fault that EXIT 80
+        used to surface.
+        """
+        monkeypatch.setenv("AIENG_TEST", "1")
+        monkeypatch.setenv("AIENG_TEST_SIMULATE_FAIL", "ruff")
+        # Sister hook: doctor fix attempts via TOOL_REGISTRY mechanism; under
+        # AIENG_TEST=1 the registry mechanism honours AIENG_TEST_SIMULATE_INSTALL_OK
+        # to fake a successful install for the named tool.
+        monkeypatch.setenv("AIENG_TEST_SIMULATE_INSTALL_OK", "ruff")
+
+        result = runner.invoke(
+            app,
+            ["install", str(project_dir), "--stack", "python"],
+        )
+        # spec-109 D-109-06: success post-auto-remediate -> EXIT 0.
+        assert result.exit_code == 0, (
+            f"Expected EXIT 0 (auto-remediated); got {result.exit_code}\n{result.output}"
         )
 
 
@@ -189,14 +224,19 @@ class TestPrereqPrecedenceBeatsTools:
         app: object,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        """Both fail-flags set -> exit 81, never 80 (tools phase never runs)."""
+        """Both fail-flags set -> exit 81, never 80 (tools phase never runs).
+
+        ``--no-auto-remediate`` is set so a transient prereq miss does not turn
+        into an EXIT 0 via remediation -- the precedence test must still see
+        the prereq exit code.
+        """
         monkeypatch.setenv("AIENG_TEST", "1")
         monkeypatch.setenv("AIENG_TEST_SIMULATE_PREREQ_MISSING", "uv")
         monkeypatch.setenv("AIENG_TEST_SIMULATE_FAIL", "ruff")
 
         result = runner.invoke(
             app,
-            ["install", str(project_dir), "--stack", "python"],
+            ["install", str(project_dir), "--stack", "python", "--no-auto-remediate"],
         )
         assert result.exit_code == EXIT_PREREQS_MISSING, (
             f"Expected EXIT 81 (prereq precedence); got {result.exit_code}\n{result.output}"
