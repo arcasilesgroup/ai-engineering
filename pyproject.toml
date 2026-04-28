@@ -100,6 +100,7 @@ markers = [
   "perf: Performance benchmarks (spec-104 G-1/G-2/G-3); CI nightly only, opt-in via -m perf",
   "spec_105_red: spec-105 RED tests; excluded by default until corresponding GREEN phase commits",
   "spec_106_red: spec-106 RED tests; excluded by default until corresponding GREEN phase commits",
+  "spec_107_red: spec-107 RED tests; excluded by default until corresponding GREEN phase commits",
 ]
 
 [build-system]

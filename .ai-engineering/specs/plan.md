@@ -13,18 +13,18 @@
 ### Phase 1: MCP binary allowlist + escape hatch + Phase 2 RED
 **Gate**: `_ALLOWED_MCP_BINARIES` constant in `mcp-health.py`; risk-accept lookup wired; CI green.
 
-- [ ] T-1.1: Add `pytest.mark.spec_107_red` marker to `[tool.pytest.ini_options].markers` in `pyproject.toml` (agent: build)
-- [ ] T-1.2: Add `_ALLOWED_MCP_BINARIES = frozenset({"npx","node","python3","bunx","deno","cargo","go","dotnet"})` constant to `.ai-engineering/scripts/hooks/mcp-health.py` (agent: build)
-- [ ] T-1.3: Refactor `mcp-health.py` env-var resolution to validate `parts[0] in _ALLOWED_MCP_BINARIES`; on miss, lookup `find_active_risk_acceptance(finding_id=f"mcp-binary-{parts[0]}")` from decision-store (reuse spec-105 D-105-07) (agent: build)
-- [ ] T-1.4: Update template `src/ai_engineering/templates/.ai-engineering/scripts/hooks/mcp-health.py` byte-equivalent (agent: build)
-- [ ] T-1.5: Create `.ai-engineering/contexts/mcp-binary-policy.md` documenting canonical 8 binaries + extension via DEC (agent: build)
-- [ ] T-1.6: Write `tests/integration/test_mcp_binary_allowlist.py` (no marker, immediate GREEN) — 8 allowed PASS, 5 malicious DENIED (agent: build)
-- [ ] T-1.7: Write `tests/integration/test_mcp_binary_risk_accept.py` (no marker, GREEN) — DEC active concedes execution; expired DEC rejects (agent: build)
-- [ ] T-1.8: Run focused tests; confirm GREEN (agent: verify)
-- [ ] T-1.9: Write RED skeleton `tests/integration/test_settings_template_narrow.py` marked, covering Phase 2 G-3 (agent: build)
-- [ ] T-1.10: Write RED skeleton `tests/integration/test_doctor_permissions_advisory.py` marked, covering Phase 2 G-4 (agent: build)
-- [ ] T-1.11: Run `pytest -m 'not spec_105_red and not spec_106_red and not spec_107_red'` confirm PASS (agent: verify)
-- [ ] T-1.12: Stage and commit `feat(spec-107): Phase 1 GREEN MCP allowlist + Phase 2 RED tests` (agent: build)
+- [x] T-1.1: Add `pytest.mark.spec_107_red` marker to `[tool.pytest.ini_options].markers` in `pyproject.toml` (agent: build)
+- [x] T-1.2: Add `_ALLOWED_MCP_BINARIES = frozenset({"npx","node","python3","bunx","deno","cargo","go","dotnet"})` constant to `.ai-engineering/scripts/hooks/mcp-health.py` (agent: build)
+- [x] T-1.3: Refactor `mcp-health.py` env-var resolution to validate `parts[0] in _ALLOWED_MCP_BINARIES`; on miss, lookup `find_active_risk_acceptance(finding_id=f"mcp-binary-{parts[0]}")` from decision-store (reuse spec-105 D-105-07) (agent: build)
+- [x] T-1.4: Update template `src/ai_engineering/templates/.ai-engineering/scripts/hooks/mcp-health.py` byte-equivalent (agent: build)
+- [x] T-1.5: Create `.ai-engineering/contexts/mcp-binary-policy.md` documenting canonical 8 binaries + extension via DEC (agent: build)
+- [x] T-1.6: Write `tests/integration/test_mcp_binary_allowlist.py` (no marker, immediate GREEN) — 8 allowed PASS, 5 malicious DENIED (agent: build)
+- [x] T-1.7: Write `tests/integration/test_mcp_binary_risk_accept.py` (no marker, GREEN) — DEC active concedes execution; expired DEC rejects (agent: build)
+- [x] T-1.8: Run focused tests; confirm GREEN (agent: verify)
+- [x] T-1.9: Write RED skeleton `tests/integration/test_settings_template_narrow.py` marked, covering Phase 2 G-3 (agent: build)
+- [x] T-1.10: Write RED skeleton `tests/integration/test_doctor_permissions_advisory.py` marked, covering Phase 2 G-4 (agent: build)
+- [x] T-1.11: Run `pytest -m 'not spec_105_red and not spec_106_red and not spec_107_red'` confirm PASS (agent: verify)
+- [x] T-1.12: Stage and commit `feat(spec-107): Phase 1 GREEN MCP allowlist + Phase 2 RED tests` (agent: build)
 
 ---
 
