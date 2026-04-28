@@ -672,6 +672,12 @@ class InstallState(BaseModel):
     # this to True so subsequent runs stay quiet. Persisted alongside the
     # rest of install-state.json.
     breaking_banner_seen: bool = False
+    # spec-107 D-107-09 (H1): per-tool SHA256 hash baseline for rug-pull
+    # detection. Maps "stack:tool" -> hex digest. Empty dict on first install
+    # is interpreted as "populate baseline silently"; non-empty dict triggers
+    # the H1 mismatch check on every subsequent install/sync. Additive
+    # backward-compat (default empty dict accommodates pre-spec-107 state files).
+    tool_spec_hashes: dict[str, str] = Field(default_factory=dict)
 
     @classmethod
     def from_legacy_dict(

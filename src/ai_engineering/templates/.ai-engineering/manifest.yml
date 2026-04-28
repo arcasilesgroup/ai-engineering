@@ -104,9 +104,9 @@ contexts:
 # === FRAMEWORK MANAGED (do not edit below this line) ===
 # These sections are maintained by ai-engineering automatically.
 
-# Skills registry (47 skills)
+# Skills registry (48 skills)
 skills:
-  total: 47
+  total: 48
   prefix: "ai-"
   registry:
     # Core workflow
@@ -162,6 +162,8 @@ skills:
     # Platform governance
     ai-platform-audit: { type: enterprise, tags: [audit, platform, governance] }
     ai-skill-evolve: { type: meta, tags: [improvement, skills, optimization] }
+    # Security (spec-107)
+    ai-mcp-sentinel: { type: enterprise, tags: [security, mcp, audit, sentinel, governance] }
     # Design (spec-093)
     ai-design: { type: design, tags: [design, ui, ux, aesthetic] }
     ai-animation: { type: design, tags: [animation, motion, interaction] }

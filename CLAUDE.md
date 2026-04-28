@@ -135,7 +135,7 @@ Before writing or reviewing code, load the applicable context files:
 | Multi-spec autonomous execution | autopilot | `/ai-autopilot` |
 | Autonomous backlog execution | run-orchestrator | `/ai-run` |
 
-## Skills (47)
+## Skills (48)
 
 Grouped by type. Invoke as `/ai-<name>`.
 
@@ -199,7 +199,7 @@ Gate failure: diagnose, fix, retry. Use `ai-eng doctor --fix` or `ai-eng doctor 
 
 | What | Where |
 |------|-------|
-| Skills (47) | `.claude/skills/ai-<name>/SKILL.md` |
+| Skills (48) | `.claude/skills/ai-<name>/SKILL.md` |
 | Agents (10) | `.claude/agents/ai-<name>.md` |
 | Config | `.ai-engineering/manifest.yml` |
 | Decisions | `.ai-engineering/state/decision-store.json` |

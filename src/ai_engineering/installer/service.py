@@ -55,11 +55,17 @@ from ai_engineering.state.defaults import (
 )
 from ai_engineering.state.instincts import ensure_instinct_artifacts
 from ai_engineering.state.io import write_json_model
+from ai_engineering.state.manifest import compute_tool_spec_hash
+from ai_engineering.state.models import DecisionStatus, InstallState, RiskCategory
 from ai_engineering.state.observability import (
     emit_framework_operation,
     write_framework_capabilities,
 )
-from ai_engineering.state.service import load_install_state, save_install_state
+from ai_engineering.state.service import (
+    StateService,
+    load_install_state,
+    save_install_state,
+)
 from ai_engineering.vcs.factory import get_provider
 
 from .auth import check_vcs_auth
@@ -563,7 +569,184 @@ def _run_operational_phases(target: Path, *, vcs_provider: str, result: InstallR
     state.operational_readiness.pending_steps = list(result.manual_steps)
     state.vcs_provider = configured_vcs
 
+    # spec-107 D-107-09 (H1) — detect tool-spec rug-pulls.
+    _check_tool_spec_hashes(target, state, manual_steps=result.manual_steps)
+
     save_install_state(state_dir, state)
+
+
+def _check_tool_spec_hashes(
+    target: Path,
+    state: InstallState,
+    *,
+    manual_steps: list[str],
+) -> None:
+    """Spec-107 D-107-09 (H1) — rug-pull detection via SHA256 tool-spec hashing.
+
+    Walks the resolved ``required_tools`` block once per install, computing
+    ``compute_tool_spec_hash`` for each ``ToolSpec`` and comparing it against
+    ``state.tool_spec_hashes``. Behavior:
+
+    - **First run** (``state.tool_spec_hashes`` is empty): populate baseline
+      silently. No banner, no manual step. The intent is to anchor the
+      "known-good" snapshot the moment the project first installs.
+    - **Subsequent run, no mismatch**: silent no-op (most common path).
+    - **Subsequent run, mismatch detected**: lookup an active risk-acceptance
+      DEC for ``finding_id="tool-spec-mismatch-<stack>-<tool>"``. If found,
+      permit + update baseline + log telemetry. If absent, append a CLI
+      banner to ``manual_steps`` so the installer surfaces the mismatch.
+
+    The check is fail-open: any exception (manifest unreadable, decision-store
+    corrupt, etc.) is logged at debug-level and skipped. This mirrors the
+    spec-107 D-107-06 fail-open philosophy ("missed detection annoying,
+    broken installer worse").
+
+    Args:
+        target: Project root.
+        state: Mutable :class:`InstallState`. ``tool_spec_hashes`` is updated
+            in-place when first-run or DEC-permitted-mismatch.
+        manual_steps: Mutable list; H1 banner is appended when a mismatch is
+            detected without an active DEC.
+    """
+    try:
+        config = load_manifest_config(target)
+        stacks = list(config.providers.stacks)
+        if not stacks:
+            return
+    except (OSError, ValueError, KeyError) as exc:
+        logger.debug("H1 tool-spec hash check skipped: %s", exc)
+        return
+
+    # Build current hash map: "<stack>:<tool>" -> sha256. We re-walk the raw
+    # block to keep stack provenance per tool. "baseline" is the canonical
+    # stack-name for baseline tools so the composite key remains stable across
+    # stack reorderings.
+    current_hashes: dict[str, str] = {}
+    try:
+        from ai_engineering.state.manifest import (
+            _read_raw_manifest,
+            _resolve_required_tools_block,
+        )
+
+        block = _resolve_required_tools_block(_read_raw_manifest(target))
+        if block is not None:
+            for tool in block.baseline.tools:
+                current_hashes[f"baseline:{tool.name}"] = compute_tool_spec_hash(tool)
+            for stack_name in stacks:
+                stack_spec = getattr(block, stack_name, None)
+                if stack_spec is None:
+                    continue
+                for tool in stack_spec.tools:
+                    current_hashes[f"{stack_name}:{tool.name}"] = compute_tool_spec_hash(tool)
+    except (OSError, ValueError, KeyError, AttributeError) as exc:
+        logger.debug("H1 tool-spec hash walk skipped: %s", exc)
+        return
+
+    if not current_hashes:
+        return
+
+    baseline = state.tool_spec_hashes
+    if not baseline:
+        # First-run: populate baseline silently per T-5.11.
+        state.tool_spec_hashes = dict(current_hashes)
+        return
+
+    # Subsequent run: detect mismatches and resolve via DEC lookup.
+    try:
+        store = StateService(target).load_decisions()
+    except (OSError, ValueError, KeyError, json.JSONDecodeError) as exc:
+        logger.debug("H1 DEC store load skipped: %s", exc)
+        store = None
+
+    for key, current_hash in current_hashes.items():
+        baseline_hash = baseline.get(key)
+        if baseline_hash is None:
+            # New tool added since baseline; treat as additive (no alert).
+            state.tool_spec_hashes[key] = current_hash
+            continue
+        if baseline_hash == current_hash:
+            continue
+
+        # Mismatch detected — D-107-09 protocol.
+        finding_id = f"tool-spec-mismatch-{key.replace(':', '-')}"
+        if store is not None and _has_active_finding_dec(store, finding_id):
+            # DEC active → permit + update baseline + emit telemetry.
+            state.tool_spec_hashes[key] = current_hash
+            try:
+                emit_framework_operation(
+                    target / ".ai-engineering",
+                    operation="tool_spec_mismatch_accepted",
+                    component="installer",
+                    source="installer.h1",
+                    metadata={
+                        "stack_tool": key,
+                        "finding_id": finding_id,
+                        "baseline_hash": baseline_hash[:12],
+                        "current_hash": current_hash[:12],
+                    },
+                )
+            except (OSError, ValueError, KeyError) as exc:
+                logger.debug("H1 telemetry emit skipped: %s", exc)
+            continue
+
+        # No active DEC → append CLI banner to manual_steps.
+        banner = _format_tool_spec_mismatch_banner(
+            stack_tool=key,
+            baseline_hash=baseline_hash,
+            current_hash=current_hash,
+            finding_id=finding_id,
+        )
+        if banner not in manual_steps:
+            manual_steps.append(banner)
+
+
+def _has_active_finding_dec(store: object, finding_id: str) -> bool:
+    """Return True when ``store`` carries an active risk-acceptance for ``finding_id``.
+
+    Mirrors the spec-105 ``find_active_risk_acceptance`` semantics but matches
+    by ``finding_id`` directly (H1 uses canonical IDs, not gate-finding rule IDs):
+
+    - ``status == ACTIVE``
+    - ``risk_category == RISK_ACCEPTANCE``
+    - ``expires_at is None or expires_at > now``
+    - ``finding_id`` (or alias ``findingId``) equals the canonical H1 ID
+    """
+    from datetime import UTC, datetime
+
+    decisions = getattr(store, "decisions", None)
+    if not decisions:
+        return False
+    now = datetime.now(tz=UTC)
+    for d in decisions:
+        if getattr(d, "finding_id", None) != finding_id:
+            continue
+        if getattr(d, "status", None) != DecisionStatus.ACTIVE:
+            continue
+        if getattr(d, "risk_category", None) != RiskCategory.RISK_ACCEPTANCE:
+            continue
+        expires_at = getattr(d, "expires_at", None)
+        if expires_at is not None and expires_at <= now:
+            continue
+        return True
+    return False
+
+
+def _format_tool_spec_mismatch_banner(
+    *,
+    stack_tool: str,
+    baseline_hash: str,
+    current_hash: str,
+    finding_id: str,
+) -> str:
+    """Render the canonical Tool Spec Mismatch CLI banner per D-107-09."""
+    return (
+        f"Tool Spec Mismatch detected for {stack_tool} "
+        f"(baseline {baseline_hash[:12]} -> current {current_hash[:12]}). "
+        "This may indicate legitimate manifest update OR silent tampering. "
+        "To accept consciously: ai-eng risk accept "
+        f"--finding-id {finding_id} --severity high "
+        '--justification "..." --spec spec-107 --follow-up "..."'
+    )
 
 
 def _remediate_tools(

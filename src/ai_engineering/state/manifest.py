@@ -20,6 +20,8 @@ not present in the canonical 14-stack registry.
 from __future__ import annotations
 
 import dataclasses
+import hashlib
+import json
 import platform as _platform_mod
 from collections.abc import Iterator
 from pathlib import Path
@@ -46,6 +48,7 @@ __all__ = [
     "PythonEnvMode",
     "StackSkip",
     "UnknownStackError",
+    "compute_tool_spec_hash",
     "load_python_env_mode",
     "load_required_tools",
     "load_sdk_prereqs",
@@ -346,6 +349,40 @@ def load_sdk_prereqs(
             entry = _CANONICAL_SDK_PREREQS[name]
         out.append(SdkPrereq.model_validate(entry))
     return out
+
+
+def compute_tool_spec_hash(spec: Any) -> str:
+    """Return SHA256 of a canonical-JSON tool spec entry (spec-107 D-107-09).
+
+    Used by the H1 rug-pull detection wiring in :mod:`ai_engineering.installer.service`
+    to detect silent mutation of declared tool specs across install cycles. The hash
+    is stable across runs because:
+
+    - ``sort_keys=True`` produces a deterministic key ordering.
+    - ``separators=(",", ":")`` strips whitespace so cosmetic changes to the manifest
+      do not register as semantic mismatches.
+    - Pydantic model inputs (``ToolSpec``) are coerced via ``.model_dump(mode="json")``
+      so enum values serialize as their string form (D-101-01 invariants).
+
+    Returns the 64-char hex digest. The empty-spec case (``{}`` or ``None``)
+    returns the canonical SHA256 of ``"{}"`` so callers always receive a string.
+
+    Args:
+        spec: Either a raw dict (manifest YAML projection) or a Pydantic model
+            with ``.model_dump`` (e.g., :class:`ToolSpec`). ``None`` is treated
+            as an empty dict.
+
+    Returns:
+        Hex-encoded SHA256 of the canonical-JSON serialization.
+    """
+    if spec is None:
+        payload: Any = {}
+    elif hasattr(spec, "model_dump"):
+        payload = spec.model_dump(mode="json")
+    else:
+        payload = spec
+    canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
 def load_python_env_mode(root: Path) -> PythonEnvMode:
