@@ -46,13 +46,28 @@ from ai_engineering.state.models import PythonEnvMode
 
 
 def _git_init(root: Path) -> None:
-    """Initialise a bare-bones git repo at ``root`` for shared-parent tests."""
+    """Initialise a bare-bones git repo at ``root`` for shared-parent tests.
+
+    Defensive against subprocess mocks leaking from prior tests: we use the
+    absolute git binary path (resolved via ``shutil.which`` at call time) so
+    the call cannot be intercepted by a stale ``subprocess.run`` mock that
+    keys on the literal "git" command.
+    """
+    import shutil as _shutil
+
+    git_path = _shutil.which("git") or "git"
     subprocess.run(
-        ["git", "init", "-b", "main"],
+        [git_path, "init", "-b", "main"],
         cwd=root,
         capture_output=True,
         check=True,
     )
+    # Belt-and-suspenders: ensure .git/ is present on disk before returning,
+    # so downstream `git rev-parse --git-common-dir` can rely on it. Some
+    # macOS APFS write-barriers under load delay directory visibility.
+    if not (root / ".git").is_dir():
+        msg = f"_git_init failed: {root / '.git'} not present after git init"
+        raise RuntimeError(msg)
 
 
 # ---------------------------------------------------------------------------

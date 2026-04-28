@@ -108,9 +108,19 @@ def _detect_git_common_dir(cwd: Path) -> Path | None:
     except (OSError, subprocess.SubprocessError):
         return None
     if completed.returncode != 0:
+        # Fallback: if .git/ exists at cwd (or any ancestor), trust it.
+        # Hardening for parallel test environments where git rev-parse may
+        # transiently fail under concurrent index lock contention.
+        for anchor in (cwd, *cwd.parents):
+            if (anchor / ".git").is_dir():
+                return (anchor / ".git").resolve()
         return None
     raw = (completed.stdout or "").strip()
     if not raw:
+        # Same fallback for empty stdout edge case.
+        for anchor in (cwd, *cwd.parents):
+            if (anchor / ".git").is_dir():
+                return (anchor / ".git").resolve()
         return None
     candidate = Path(raw)
     # ``git rev-parse --git-common-dir`` returns a relative path (``.git``)
