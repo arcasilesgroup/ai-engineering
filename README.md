@@ -20,13 +20,13 @@
   </p>
 </div>
 
-**47 skills. 10 agents. 4 IDEs. One governed workflow.**
+**48 skills. 10 agents. 4 IDEs. One governed workflow.**
 
 AI governance that developers actually want -- for teams that ship.
 
 ai-engineering turns any repository into a governed AI workspace. Governance is content-first: policies, skills, agents, runbooks, and specs all live as versioned files inside the repo -- no hosted control plane, no vendor lock-in. It works across Claude Code, GitHub Copilot, OpenAI Codex, and Gemini CLI from the same repository.
 
-[Install](#install) · [Quick Start](#quick-start) · [What You Get](#what-you-get) · [How It Works](#how-it-works) · [CLI](#cli-commands) · [Slash Commands](#slash-commands) · [Inspirations](#standing-on-the-shoulders-of) · [Contributing](#contributing)
+[Install](#install) · [Quick Start](#quick-start) · [What's new in 0.5.0](#whats-new-in-050) · [What You Get](#what-you-get) · [How It Works](#how-it-works) · [CLI](#cli-commands) · [Slash Commands](#slash-commands) · [Inspirations](#standing-on-the-shoulders-of) · [Contributing](#contributing)
 
 ## Install
 
@@ -84,9 +84,36 @@ ai-eng doctor
 
 See [GETTING_STARTED.md](GETTING_STARTED.md) for the full tutorial.
 
-## Migration -- spec-101 install contract (BREAKING)
+## What's new in 0.5.0
 
-Starting with this release `ai-eng install` and `ai-eng doctor --fix --phase tools` enforce a hard, data-driven contract. If you are upgrading from a pre-spec-101 install, walk through this section once.
+> **Upgrading from 0.4.x?** Walk through this section once. New installs can skip ahead to [What You Get](#what-you-get) — the defaults are already right.
+
+Highlights:
+
+- **Installer is a hard contract.** `ai-eng install` and `ai-eng doctor --fix --phase tools` exit `EXIT 80` (missing tool) or `EXIT 81` (missing language SDK) instead of silently passing.
+- **`ai-eng install` auto-heals.** A second-pass remediation runs automatically; opt out with `--no-auto-remediate`.
+- **Live progress UI.** Replaces the single spinner with `[N/M] phase_label`.
+- **Python tooling is worktree-fast.** `python_env > mode` defaults to `uv-tool` (tools live once in `~/.local/share/uv/tools/`). Two escape hatches remain: `venv` (legacy per-cwd) and `shared-parent` (single `.venv` shared across worktrees).
+- **Single-pass local gate.** Wave-1 fixers then Wave-2 checkers in parallel, with a 24h SHA-256 cache. ~2-3x faster on warm checkouts. Try `ai-eng gate run --cache-aware --json`.
+- **First-class risk acceptance.** New `ai-eng risk accept | accept-all | renew | resolve | revoke | list | show` namespace. No more hand-edited `decision-store.json`.
+- **`gates > mode: prototyping`.** Skip Tier 2 governance for spike work. CI auto-detects and forces `regulated`.
+- **Copilot agent rename.** `@Explorer` is now `@ai-explore`, matching Claude / Codex / Gemini.
+
+For the full list, including decision IDs, schema deltas, and per-spec rationale, see [CHANGELOG.md](CHANGELOG.md).
+
+### Quick upgrade path
+
+```bash
+pipx upgrade ai-engineering          # or: uv tool upgrade ai-engineering
+ai-eng install .                     # in each project
+ai-eng doctor                        # verify
+```
+
+If your team relies on `source .venv/bin/activate`, set `python_env > mode: venv` in `.ai-engineering/manifest.yml` *before* the second step.
+
+The first install after upgrading prints a one-shot BREAKING banner to stderr, recorded once via `breaking_banner_seen` in `.ai-engineering/state/install-state.json`.
+
+## Upgrade reference -- spec-101 install contract (BREAKING)
 
 ### EXIT 80 / EXIT 81 -- hard fail on missing tooling
 
@@ -172,7 +199,7 @@ The first install after upgrading prints a one-shot BREAKING banner to stderr. T
 
 ## What You Get
 
-### 47 Skills
+### 48 Skills
 
 Skills are slash commands that encode team workflows as repeatable, governed procedures. Each skill carries its own trigger patterns, validation gates, and output contracts.
 

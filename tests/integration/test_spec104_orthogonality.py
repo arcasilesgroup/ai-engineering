@@ -21,7 +21,6 @@ Test layout (4 tests):
 from __future__ import annotations
 
 import ast
-import subprocess
 from pathlib import Path
 
 import pytest
@@ -67,13 +66,6 @@ SPEC_104_ALLOWED_SKILL_FILES = frozenset(
     }
 )
 
-# AGENT_METADATA companions are also permitted (T-0.1 updates).
-SPEC_104_ALLOWED_SKILL_PREFIXES = (
-    ".claude/skills/ai-commit/AGENT_METADATA",
-    ".claude/skills/ai-pr/AGENT_METADATA",
-)
-
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -110,32 +102,6 @@ def _imports_violate_orthogonality(modules: set[str]) -> list[str]:
                 violations.append(module)
                 break
     return violations
-
-
-def _spec104_changed_files() -> list[str]:
-    """Return paths changed by spec-104 commits on the current branch.
-
-    Looks at commits tagged with "spec-104" in the message since
-    2026-04-26 (when spec-104 work started — see plan.md frontmatter).
-    Returns repo-relative POSIX paths. Empty list is a valid result
-    (no spec-104 commits yet, or only spec.md/plan.md touched).
-    """
-    result = subprocess.run(
-        [
-            "git",
-            "log",
-            "--since=2026-04-26",
-            "--grep=spec-104",
-            "--name-only",
-            "--pretty=format:",
-        ],
-        cwd=REPO_ROOT,
-        capture_output=True,
-        text=True,
-        check=True,
-    )
-    files = {line.strip() for line in result.stdout.splitlines() if line.strip()}
-    return sorted(files)
 
 
 # ---------------------------------------------------------------------------
@@ -238,46 +204,22 @@ def test_manifest_yml_spec104_change_is_additive_only() -> None:
 
 
 def test_skills_unchanged_files_match_spec104_only_scope() -> None:
-    """Files spec-104 commits touch under .claude/skills/** must be whitelisted.
+    """Presence check for the three D-104-07 skill files.
 
-    D-104-07 enumerates exactly three SKILL.md files in scope:
-    `ai-commit/SKILL.md`, `ai-pr/SKILL.md`, `ai-pr/handlers/watch.md`.
-    Plus T-0.1 allows updating AGENT_METADATA companions for ai-commit
-    and ai-pr. Any other skill markdown touched by a spec-104 commit
-    is a scope violation (R-7: verbosity cuts break IDE).
+    The original git-log scope guard fired during the umbrella-branch
+    development of spec-104 to keep verbosity cuts inside the
+    `ai-commit` / `ai-pr` scope. Once the umbrella PR squash-merged into
+    main, the squash commit message ("feat(installer): spec-101 +
+    104/105/106/107 + 109") matches the `--grep=spec-104` heuristic and
+    the guard reports every file in the PR as out-of-scope. The guard
+    is a development-time invariant — no longer meaningful post-merge.
 
-    Today, only the brainstorm/plan commit has landed and it does not
-    touch .claude/skills/** — so the intersection is the empty set
-    (a subset of the allowed set). The assertion engages naturally
-    as Phase 4/5/7 commits add real skill changes.
-
-    Also asserts the three target files exist now (currently-state
-    presence check — guards against accidental deletion before
-    spec-104 has had a chance to edit them).
+    The presence check survives because the three target SKILL files
+    must keep existing for future edits.
     """
-    # Presence check: targets must exist so spec-104 can edit them.
     for relative in sorted(SPEC_104_ALLOWED_SKILL_FILES):
         absolute = REPO_ROOT / relative
         assert absolute.is_file(), (
             f"Required skill file missing: {relative}. "
-            f"spec-104 D-104-07 expects this file to exist before edits."
+            f"spec-104 D-104-07 expects this file to exist."
         )
-
-    # Scope check: any file under .claude/skills/** touched by a
-    # spec-104 commit must be in the whitelist.
-    changed = _spec104_changed_files()
-    skill_changes = [f for f in changed if f.startswith(".claude/skills/")]
-
-    out_of_scope: list[str] = []
-    for path in skill_changes:
-        if path in SPEC_104_ALLOWED_SKILL_FILES:
-            continue
-        if any(path.startswith(prefix) for prefix in SPEC_104_ALLOWED_SKILL_PREFIXES):
-            continue
-        out_of_scope.append(path)
-
-    assert not out_of_scope, (
-        f"spec-104 commits modified skill files outside D-104-07 scope: "
-        f"{out_of_scope}. Allowed: {sorted(SPEC_104_ALLOWED_SKILL_FILES)} "
-        f"plus AGENT_METADATA* under ai-commit/ and ai-pr/."
-    )
