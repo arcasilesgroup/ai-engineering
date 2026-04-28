@@ -21,6 +21,7 @@ def check(ctx: DoctorContext) -> list[CheckResult]:
     results: list[CheckResult] = []
     results.append(_check_provider_templates(ctx))
     results.append(_check_settings_merge(ctx))
+    results.append(_check_permissions_wildcard(ctx))
     return results
 
 
@@ -128,4 +129,49 @@ def _check_settings_merge(ctx: DoctorContext) -> CheckResult:
         name="settings-merge",
         status=CheckStatus.OK,
         message=".claude/settings.json contains deny rules",
+    )
+
+
+def _check_permissions_wildcard(ctx: DoctorContext) -> CheckResult:
+    """Advisory check (spec-107 D-107-02 / G-3): warn on wildcard allow.
+
+    Reads ``.claude/settings.json`` from the target project and emits a
+    WARN advisory when the ``permissions.allow`` list contains the
+    literal ``"*"`` wildcard. Pure advisory: never FAIL, never block.
+    Missing or unparseable settings produce OK because file presence
+    is governed by the existing ``settings-merge`` check.
+    """
+    advisory_name = "permissions-wildcard-detected"
+    settings_path = ctx.target / ".claude" / "settings.json"
+    if not settings_path.is_file():
+        return CheckResult(
+            name=advisory_name,
+            status=CheckStatus.OK,
+            message=".claude/settings.json not present; nothing to advise",
+        )
+    try:
+        data = json.loads(settings_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        # Parse errors are surfaced by settings-merge; stay quiet here so
+        # the advisory never doubles up failures.
+        return CheckResult(
+            name=advisory_name,
+            status=CheckStatus.OK,
+            message=".claude/settings.json not parseable; deferring to settings-merge",
+        )
+    allow = data.get("permissions", {}).get("allow", [])
+    if "*" in allow:
+        return CheckResult(
+            name=advisory_name,
+            status=CheckStatus.WARN,
+            message=(
+                "Permissions wildcard detected in .claude/settings.json. "
+                "Recommended: migrate to narrow explicit list. "
+                "See contexts/permissions-migration.md."
+            ),
+        )
+    return CheckResult(
+        name=advisory_name,
+        status=CheckStatus.OK,
+        message=".claude/settings.json uses an explicit allow list",
     )

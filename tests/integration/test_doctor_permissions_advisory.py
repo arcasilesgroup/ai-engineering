@@ -1,4 +1,4 @@
-"""RED skeleton for spec-107 G-3 (Phase 2) — doctor permissions advisory.
+"""Integration tests for spec-107 G-3 — doctor permissions advisory.
 
 Spec-107 D-107-02 requires ``ai-eng doctor`` to emit a WARN advisory
 named ``permissions-wildcard-detected`` whenever a project's
@@ -7,17 +7,15 @@ named ``permissions-wildcard-detected`` whenever a project's
 ``contexts/permissions-migration.md`` for remediation. Projects with
 explicit narrow allow lists must produce zero advisory.
 
-These tests are marked ``spec_107_red`` and excluded from CI default
-runs until Phase 2 lands the GREEN implementation. They are the
-acceptance contract for T-2.3 / T-2.6.
+GREEN as of Phase 2 (T-2.3 / T-2.7) — the
+``ide_config._check_permissions_wildcard`` advisory is wired and this
+test guards against regressions.
 """
 
 from __future__ import annotations
 
 import json
 from pathlib import Path
-
-import pytest
 
 from ai_engineering.doctor.models import CheckStatus, DoctorContext
 from ai_engineering.doctor.phases import ide_config
@@ -46,7 +44,6 @@ def _build_ctx(target: Path) -> DoctorContext:
     return DoctorContext(target=target)
 
 
-@pytest.mark.spec_107_red
 def test_wildcard_allow_emits_warn_advisory(tmp_path: Path) -> None:
     """G-3: ``["*"]`` allow list must surface a WARN advisory."""
     target = tmp_path / "project"
@@ -70,7 +67,6 @@ def test_wildcard_allow_emits_warn_advisory(tmp_path: Path) -> None:
     )
 
 
-@pytest.mark.spec_107_red
 def test_narrow_allow_emits_no_advisory(tmp_path: Path) -> None:
     """G-3: explicit narrow allow list must NOT produce an advisory."""
     target = tmp_path / "project"
@@ -99,7 +95,6 @@ def test_narrow_allow_emits_no_advisory(tmp_path: Path) -> None:
     )
 
 
-@pytest.mark.spec_107_red
 def test_missing_settings_emits_no_advisory(tmp_path: Path) -> None:
     """G-3 boundary: absence of settings.json must not produce an advisory.
 
@@ -119,7 +114,6 @@ def test_missing_settings_emits_no_advisory(tmp_path: Path) -> None:
     )
 
 
-@pytest.mark.spec_107_red
 def test_advisory_never_fails(tmp_path: Path) -> None:
     """G-3 boundary: even an egregious wildcard must NEVER FAIL doctor.
 

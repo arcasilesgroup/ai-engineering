@@ -1,7 +1,19 @@
 {
   "permissions": {
     "allow": [
-      "*"
+      "Read",
+      "Write",
+      "Edit",
+      "MultiEdit",
+      "Bash",
+      "Agent",
+      "Glob",
+      "Grep",
+      "Skill",
+      "TaskCreate",
+      "TaskUpdate",
+      "mcp__context7__*",
+      "mcp__notebooklm-mcp__*"
     ],
     "deny": [
       "Bash(rm -rf *)",

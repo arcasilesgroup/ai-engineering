@@ -1,4 +1,4 @@
-"""RED skeleton for spec-107 G-2 (Phase 2) — narrow settings.json template.
+"""Integration tests for spec-107 G-2 — narrow settings.json template.
 
 Spec-107 D-107-02 requires that
 ``src/ai_engineering/templates/.claude/settings.json`` ships with an
@@ -8,17 +8,14 @@ mcp__context7__*, mcp__notebooklm-mcp__*) instead of the over-broad
 ``["*"]`` wildcard. Existing project settings.json files MUST NOT be
 modified by ``ai-eng install`` / ``ai-eng update`` (NG-1, decision Q3-C).
 
-These tests are marked ``spec_107_red`` and excluded from CI default
-runs until Phase 2 lands the GREEN implementation. They are the
-acceptance contract for T-2.1.
+GREEN as of Phase 2 (T-2.1 / T-2.7) — the template ships narrow and
+this test guards against regressions.
 """
 
 from __future__ import annotations
 
 import json
 from pathlib import Path
-
-import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 TEMPLATE_PATH = (
@@ -45,7 +42,6 @@ EXPECTED_ALLOW = frozenset(
 )
 
 
-@pytest.mark.spec_107_red
 def test_template_no_wildcard_allow() -> None:
     """G-2: template must NOT ship with ``["*"]`` allow."""
     payload = json.loads(TEMPLATE_PATH.read_text(encoding="utf-8"))
@@ -56,7 +52,6 @@ def test_template_no_wildcard_allow() -> None:
     )
 
 
-@pytest.mark.spec_107_red
 def test_template_ships_canonical_narrow_list() -> None:
     """G-2: template ``allow`` list must be the canonical 13-entry set."""
     payload = json.loads(TEMPLATE_PATH.read_text(encoding="utf-8"))
@@ -67,7 +62,6 @@ def test_template_ships_canonical_narrow_list() -> None:
     assert not extra, f"Template has unexpected allow entries (drift): {sorted(extra)!r}"
 
 
-@pytest.mark.spec_107_red
 def test_template_preserves_existing_deny_rules() -> None:
     """G-2 + CLAUDE.md Don't #7: deny rules must remain intact."""
     payload = json.loads(TEMPLATE_PATH.read_text(encoding="utf-8"))

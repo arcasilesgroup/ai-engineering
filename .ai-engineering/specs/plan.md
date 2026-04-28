@@ -31,18 +31,18 @@
 ### Phase 2: settings.json narrow template + doctor advisory + Phase 3 RED
 **Gate**: template ships narrow; doctor advisory check `permissions-wildcard-detected`; cero existing file mutated; T-1.9/T-1.10 unmarked GREEN.
 
-- [ ] T-2.1: Update `src/ai_engineering/templates/.claude/settings.json` `allow:` from `["*"]` to explicit list (Read, Write, Edit, MultiEdit, Bash, Agent, Glob, Grep, Skill, TaskCreate, TaskUpdate, mcp__context7__*, mcp__notebooklm-mcp__*) (agent: build)
-- [ ] T-2.2: Verify other IDE settings templates (`.github/`, `.codex/`, `.gemini/`) remain consistent or N/A; update if Copilot equivalents exist (agent: build)
-- [ ] T-2.3: Add `permissions-wildcard-detected` check to `src/ai_engineering/doctor/` (find appropriate module) — reads `.claude/settings.json`, regex `["*"]` in allow → emit advisory WARN (agent: build)
-- [ ] T-2.4: Create `.ai-engineering/contexts/permissions-migration.md` con migration guide + canonical narrow list + extension example (agent: build)
-- [ ] T-2.5: Write `tests/unit/test_settings_template_narrow.py` body — assert template lacks `["*"]`, has explicit narrow list (agent: build)
-- [ ] T-2.6: Write `tests/integration/test_doctor_permissions_advisory.py` body — fixture project con `["*"]` in settings; assert doctor emits WARN advisory; another fixture con narrow list assert no advisory (agent: build)
-- [ ] T-2.7: Remove markers from these 2 test files; confirm GREEN (agent: build)
-- [ ] T-2.8: Write RED skeleton `tests/integration/test_copilot_explorer_rename.py` marked, covering Phase 3 G-5 (agent: build)
-- [ ] T-2.9: Write RED skeleton `tests/unit/test_gemini_md_placeholders.py` marked, covering Phase 3 G-6 (agent: build)
-- [ ] T-2.10: Write RED skeleton `tests/integration/test_platform_audit_new_checks.py` marked, covering Phase 3 G-7 (agent: build)
-- [ ] T-2.11: Run pytest filter; confirm PASS (agent: verify)
-- [ ] T-2.12: Stage and commit `feat(spec-107): Phase 2 GREEN narrow template + doctor advisory + Phase 3 RED tests` (agent: build)
+- [x] T-2.1: Update `src/ai_engineering/templates/.claude/settings.json` `allow:` from `["*"]` to explicit list (Read, Write, Edit, MultiEdit, Bash, Agent, Glob, Grep, Skill, TaskCreate, TaskUpdate, mcp__context7__*, mcp__notebooklm-mcp__*) (agent: build)
+- [x] T-2.2: Verify other IDE settings templates (`.github/`, `.codex/`, `.gemini/`) remain consistent or N/A; update if Copilot equivalents exist (agent: build)
+- [x] T-2.3: Add `permissions-wildcard-detected` check to `src/ai_engineering/doctor/` (find appropriate module) — reads `.claude/settings.json`, regex `["*"]` in allow → emit advisory WARN (agent: build)
+- [x] T-2.4: Create `.ai-engineering/contexts/permissions-migration.md` con migration guide + canonical narrow list + extension example (agent: build)
+- [x] T-2.5: Write `tests/unit/test_settings_template_narrow.py` body — assert template lacks `["*"]`, has explicit narrow list (agent: build)
+- [x] T-2.6: Write `tests/integration/test_doctor_permissions_advisory.py` body — fixture project con `["*"]` in settings; assert doctor emits WARN advisory; another fixture con narrow list assert no advisory (agent: build)
+- [x] T-2.7: Remove markers from these 2 test files; confirm GREEN (agent: build)
+- [x] T-2.8: Write RED skeleton `tests/integration/test_copilot_explorer_rename.py` marked, covering Phase 3 G-5 (agent: build)
+- [x] T-2.9: Write RED skeleton `tests/unit/test_gemini_md_placeholders.py` marked, covering Phase 3 G-6 (agent: build)
+- [x] T-2.10: Write RED skeleton `tests/integration/test_platform_audit_new_checks.py` marked, covering Phase 3 G-7 (agent: build)
+- [x] T-2.11: Run pytest filter; confirm PASS (agent: verify)
+- [x] T-2.12: Stage and commit `feat(spec-107): Phase 2 GREEN narrow template + doctor advisory + Phase 3 RED tests` (agent: build)
 
 ---
 

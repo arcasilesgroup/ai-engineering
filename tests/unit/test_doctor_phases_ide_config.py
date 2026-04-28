@@ -254,9 +254,16 @@ class TestIdeConfigFix:
 
 
 class TestCheckReturnsAllResults:
-    def test_check_returns_two_results(self, claude_project: Path, claude_manifest: ManifestConfig):
+    def test_check_returns_three_results(
+        self, claude_project: Path, claude_manifest: ManifestConfig
+    ):
         ctx = DoctorContext(target=claude_project, manifest_config=claude_manifest)
         results = ide_config.check(ctx)
-        assert len(results) == 2
+        # spec-107 D-107-02 added permissions-wildcard-detected advisory.
+        assert len(results) == 3
         names = {r.name for r in results}
-        assert names == {"provider-templates", "settings-merge"}
+        assert names == {
+            "provider-templates",
+            "settings-merge",
+            "permissions-wildcard-detected",
+        }
