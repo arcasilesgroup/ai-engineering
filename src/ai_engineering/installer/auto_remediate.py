@@ -58,8 +58,15 @@ class AutoRemediateReport:
 
     @property
     def success(self) -> bool:
-        """True when remediation closed every reported gap."""
-        return self.invoked and not self.failed and not self.errors
+        """True only when remediation actually repaired at least one thing.
+
+        spec-113 G-5: success requires ``applied != []`` AND ``failed == []``
+        AND ``errors == []``. The pre-spec-113 contract returned True when the
+        flow ran with no failures, even if nothing landed in ``applied`` --
+        which produced the misleading "all non-critical failures repaired
+        automatically" surface even when the framework hadn't fixed anything.
+        """
+        return self.invoked and bool(self.applied) and not self.failed and not self.errors
 
     def to_dict(self) -> dict[str, object]:
         """Serialise for the install command's JSON envelope."""
@@ -135,15 +142,32 @@ def _remediate_phase(
         report.failed.append(f"{phase_name}: check failed")
         return
 
-    failed_checks = [c for c in results if c.status == CheckStatus.FAIL and c.fixable]
+    # spec-113: also treat WARN-fixable as eligible for the fix path. The
+    # doctor surfaces missing tools as WARN (not FAIL) so a WARN with
+    # ``fixable=True`` is the same actionable condition.
+    failed_checks = [
+        c for c in results if c.status in (CheckStatus.FAIL, CheckStatus.WARN) and c.fixable
+    ]
     if not failed_checks:
         # Doctor sees no fixable failure -- maybe the phase failure was
-        # transient, or the check is non-fixable. Surface it so the user can
-        # decide.
-        non_fix = [c for c in results if c.status == CheckStatus.FAIL]
-        if non_fix:
-            for cr in non_fix:
+        # transient, the check is non-fixable, OR the install-state
+        # record-driven phase failure was reconciled by the doctor's
+        # re-evaluation (spec-113 G-12 external recovery). Three cases:
+        #
+        # 1. Non-fixable FAIL  -> surface to ``failed`` so the user sees it.
+        # 2. Non-fixable WARN  -> surface to ``failed`` (same advisory).
+        # 3. Everything OK    -> the gap closed itself; surface as
+        #    ``applied`` so the honest accounting sees a non-empty result
+        #    and the install command exits 0.
+        non_fix_failures = [c for c in results if c.status in (CheckStatus.FAIL, CheckStatus.WARN)]
+        if non_fix_failures:
+            for cr in non_fix_failures:
                 report.failed.append(f"{phase_name}.{cr.name}: {cr.message}")
+            return
+        # All clear -- treat as a self-closing gap.
+        report.applied.append(
+            f"{phase_name}: phase reconciled on re-evaluation (no remediation needed)"
+        )
         return
 
     try:
