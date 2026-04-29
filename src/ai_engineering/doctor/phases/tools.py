@@ -30,8 +30,10 @@ mechanism path, two callers" guarantee.
 
 from __future__ import annotations
 
+import logging
 import platform as platform_module
 import subprocess
+from datetime import UTC, datetime
 from pathlib import Path
 
 from ai_engineering.config.loader import load_manifest_config
@@ -39,9 +41,23 @@ from ai_engineering.detector.readiness import is_tool_available
 from ai_engineering.doctor.models import CheckResult, CheckStatus, DoctorContext
 from ai_engineering.installer.tool_registry import TOOL_REGISTRY
 from ai_engineering.installer.tools import can_auto_install_tool, manual_install_step
-from ai_engineering.installer.user_scope_install import run_verify
+from ai_engineering.installer.user_scope_install import (
+    _check_simulate_fail,
+    _check_simulate_install_ok,
+    capture_os_release,
+    run_verify,
+)
 from ai_engineering.state.manifest import load_python_env_mode, load_required_tools
-from ai_engineering.state.models import PythonEnvMode, ToolScope, ToolSpec
+from ai_engineering.state.models import (
+    PythonEnvMode,
+    ToolInstallRecord,
+    ToolInstallState,
+    ToolScope,
+    ToolSpec,
+)
+from ai_engineering.state.service import save_install_state
+
+logger = logging.getLogger(__name__)
 
 __all__ = (
     "check",
@@ -135,6 +151,82 @@ def _probe_one_required_tool(tool: ToolSpec) -> bool:
     return bool(getattr(verify_result, "passed", False))
 
 
+def _externally_installed_record(*, version: str | None) -> ToolInstallRecord:
+    """Build a :class:`ToolInstallRecord` for spec-113 G-12 external recovery.
+
+    spec-113 G-12 / D-113-10: when the doctor finds a tool present on PATH
+    that the install state had recorded as ``failed_needs_manual``, the
+    record is updated to ``INSTALLED`` with ``mechanism="external"`` so
+    subsequent runs do NOT re-attempt the failed download path.
+    """
+    return ToolInstallRecord(
+        state=ToolInstallState.INSTALLED,
+        mechanism="external",
+        version=version,
+        verified_at=datetime.now(tz=UTC),
+        os_release=capture_os_release() or None,
+    )
+
+
+def _recover_externally_installed_tools(
+    ctx: DoctorContext,
+    recovered: list[str],
+) -> None:
+    """Persist install-state record updates for tools recovered from PATH.
+
+    Only fires when *recovered* is non-empty. Failures to save are logged
+    but never raised -- the doctor must remain advisory.
+    """
+    if not recovered:
+        return
+    state = ctx.install_state
+    if state is None:
+        return
+    state_dir = ctx.target / ".ai-engineering" / "state"
+    try:
+        save_install_state(state_dir, state)
+    except OSError as exc:  # pragma: no cover - defensive fail-open
+        logger.debug("doctor: could not persist external-recovery records: %s", exc)
+
+
+def _probe_with_external_recovery(
+    tool: ToolSpec,
+    install_state: object | None,
+) -> tuple[bool, bool]:
+    """Probe *tool* and surface whether external recovery happened (G-12).
+
+    Returns ``(probe_ok, recovered)``:
+
+    * ``probe_ok``: True when ``is_tool_available`` + ``run_verify`` both
+      pass, mirroring :func:`_probe_one_required_tool`.
+    * ``recovered``: True when the install-state record had been
+      ``failed_needs_manual`` AND the probe now passes, which means the
+      operator installed the tool externally (e.g. ``apk add jq``). The
+      caller persists the upgraded record via
+      :func:`_recover_externally_installed_tools`.
+    """
+    probe_ok = _probe_one_required_tool(tool)
+    if not probe_ok or install_state is None:
+        return probe_ok, False
+
+    state_dict = getattr(install_state, "required_tools_state", None)
+    if not isinstance(state_dict, dict):
+        return probe_ok, False
+
+    record = state_dict.get(tool.name)
+    if record is None:
+        return probe_ok, False
+
+    record_state = getattr(record, "state", None)
+    if record_state != ToolInstallState.FAILED_NEEDS_MANUAL:
+        return probe_ok, False
+
+    # External recovery path: the record was failed_needs_manual but the
+    # tool now verifies. Update in place; caller persists.
+    state_dict[tool.name] = _externally_installed_record(version=None)
+    return probe_ok, True
+
+
 def _check_required_tools(ctx: DoctorContext) -> CheckResult:
     """Verify every required tool via the spec-101 offline-safe probe.
 
@@ -165,13 +257,22 @@ def _check_required_tools(ctx: DoctorContext) -> CheckResult:
         )
 
     missing: list[str] = []
+    recovered: list[str] = []
     seen_user_global = 0
     for tool in load_result:
         if tool.scope == ToolScope.PROJECT_LOCAL:
             continue
         seen_user_global += 1
-        if not _probe_one_required_tool(tool):
+        probe_ok, was_recovered = _probe_with_external_recovery(tool, ctx.install_state)
+        if not probe_ok:
             missing.append(tool.name)
+            continue
+        if was_recovered:
+            recovered.append(tool.name)
+
+    # Persist external-recovery state updates back to install-state.json so
+    # subsequent doctor runs see the upgraded record.
+    _recover_externally_installed_tools(ctx, recovered)
 
     if seen_user_global == 0:
         # No manifest yet (fresh checkout): probe the canonical baseline so
@@ -553,6 +654,20 @@ def _attempt_install_one(
     Extracting this helper drops :func:`_fix_tools_required` complexity
     below the spec-101 cyclomatic threshold (≤10).
     """
+    # spec-113: when AIENG_TEST=1 the simulate hooks are the load-bearing
+    # contract for the test surface — they must run BEFORE the legacy
+    # capability gate so a per-OS exclusion (e.g. semgrep on Windows) or a
+    # registry without WINGET id (e.g. jq) does not divert the synthetic
+    # install attempt to the ``manual`` bucket. The helpers themselves
+    # gate on AIENG_TEST and refuse on production builds, so calling them
+    # unconditionally here remains safe.
+    simulated_fail = _check_simulate_fail(tool_name)
+    if simulated_fail is not None:
+        return "failed"
+    simulated_ok = _check_simulate_install_ok(tool_name)
+    if simulated_ok is not None:
+        return "installed"
+
     # Legacy capability check -- tests patch this seam to drive the
     # manual-step path without spinning up a real subprocess.
     if not can_auto_install_tool(tool_name):

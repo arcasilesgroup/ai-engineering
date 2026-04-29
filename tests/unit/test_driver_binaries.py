@@ -69,6 +69,8 @@ EXPECTED_DRIVERS: tuple[str, ...] = (
     "winget",
     "scoop",
     "curl",
+    # spec-113 G-2: wget joined the download driver allowlist
+    "wget",
     # D-101-14 SDK probes
     "java",
     "kotlinc",
@@ -336,7 +338,6 @@ class TestResolveDriverAllowlistEnforcement:
             "sudo",
             "bash",
             "sh",
-            "wget",
             "ssh",
             "",
             "../../etc/passwd",

@@ -80,6 +80,11 @@ DRIVER_BINARIES: frozenset[str] = frozenset(
         "winget",
         "scoop",
         "curl",
+        # spec-113 G-2: wget joins the download driver allowlist so the
+        # ``GitHubReleaseBinaryMechanism`` fallback chain can reach Alpine
+        # BusyBox images (curl absent, wget shipped). Universal flag set
+        # only -- ``-O <path> <url>`` works on both GNU and BusyBox wget.
+        "wget",
         # D-101-14 SDK probes
         "java",
         "kotlinc",
@@ -105,36 +110,100 @@ class MissingDriverError(RuntimeError):
     """
 
 
-# Per-driver install hints surfaced via ``MissingDriverError``. The keys
-# cover every entry in ``DRIVER_BINARIES`` so the operator gets a precise
-# remediation pointer (Hardening 4: actionable error messages).
-_DRIVER_INSTALL_HINTS: dict[str, str] = {
-    "git": "install Git via your OS package manager (brew/winget/scoop) and ensure it is on PATH",
-    "uv": "install uv via https://docs.astral.sh/uv/getting-started/installation/",
-    "python": "install Python via uv or your OS package manager (brew/winget/scoop)",
-    "python3": "install Python 3 via uv or your OS package manager (brew/winget/scoop)",
-    "node": "install Node.js via brew/winget/scoop or https://nodejs.org/",
-    "npm": "install Node.js (which bundles npm) via brew/winget/scoop",
-    "pnpm": "install pnpm via https://pnpm.io/installation (corepack enable, or brew/scoop)",
-    "bun": "install bun via https://bun.sh/docs/installation (brew/scoop also work)",
-    "dotnet": "install the .NET SDK via brew/winget/scoop or https://dotnet.microsoft.com/",
-    "brew": "install Homebrew via https://brew.sh/ (macOS / Linux)",
-    "winget": "install winget via the App Installer in the Microsoft Store (Windows)",
-    "scoop": "install Scoop via https://scoop.sh/ (Windows)",
-    "curl": "install curl via your OS package manager (brew/winget/scoop)",
-    "java": "install a JDK via brew/scoop or https://adoptium.net/",
-    "kotlinc": "install kotlinc via brew/scoop or SDKMAN (https://sdkman.io/)",
-    "swift": "install Swift via Xcode (macOS) or https://swift.org/download/ on Linux",
-    "dart": "install Dart via brew/scoop or https://dart.dev/get-dart",
-    "go": "install Go via brew/winget/scoop or https://go.dev/doc/install",
-    "rustc": "install rustc via https://rustup.rs/ (or brew/scoop)",
-    "cargo": "install cargo via https://rustup.rs/ (rustup installs both)",
-    "php": "install PHP via brew/winget/scoop",
-    "composer": "install Composer via brew/scoop or https://getcomposer.org/download/",
-    "clang": "install clang via brew/winget/scoop (LLVM bundle)",
-    "gcc": "install gcc via brew/winget/scoop or your OS package manager",
-    "llvm-config": "install LLVM via brew/winget/scoop (provides llvm-config)",
+# spec-113 G-3 / D-113-05 / D-113-06: per-driver install hints are now
+# distro-aware. On macOS we recommend brew, on Windows winget/scoop, and
+# on Linux we read ``/etc/os-release`` to recommend the correct package
+# manager (``apk add`` on Alpine, ``apt-get install`` on Debian/Ubuntu,
+# ``dnf install`` on RHEL/Fedora/CentOS, ``pacman -S`` on Arch). The
+# linux-package-manager column is read from
+# :mod:`ai_engineering.installer.distro` so the detector logic stays
+# single-concern.
+#
+# The hint dict carries package-name aliases for drivers whose distro
+# package name differs from the binary name (e.g. ``llvm-config`` ships
+# in the ``llvm`` package on most distros). When a driver lacks a
+# Linux-package alias the binary name itself is used.
+_LINUX_PACKAGE_ALIASES: dict[str, str] = {
+    "llvm-config": "llvm",
+    "kotlinc": "kotlin",
+    "rustc": "rustup",
+    "cargo": "rustup",
+    "python": "python3",
+    "pnpm": "nodejs-pnpm",
+    "bun": "bun",
+    "dotnet": "dotnet-sdk",
 }
+
+# Macros used in macOS / Windows hints (the non-Linux fallback path).
+_MACOS_HINT_DEFAULT = "Install with: brew install {pkg}"
+_WINDOWS_HINT_DEFAULT = "Install with: winget install {pkg} (or: scoop install {pkg})"
+
+# Drivers whose recommended install path is NOT a package manager (uv,
+# rustup, brew, etc.). These short-circuit the distro lookup with a
+# direct upstream recommendation so the hint surface stays useful even
+# when the user is on a niche distro.
+_DRIVER_DIRECT_HINTS: dict[str, str] = {
+    "uv": "Install with: curl -LsSf https://astral.sh/uv/install.sh | sh",
+    "brew": "Install Homebrew from https://brew.sh/",
+    "winget": "Install via the App Installer from the Microsoft Store",
+    "scoop": "Install Scoop from https://scoop.sh/",
+    "rustc": "Install via rustup: https://rustup.rs/",
+    "cargo": "Install via rustup: https://rustup.rs/",
+    "go": "Install Go from https://go.dev/doc/install",
+    "swift": "Install Swift via Xcode (macOS) or https://swift.org/download/ (Linux)",
+    "dart": "Install Dart from https://dart.dev/get-dart",
+    "java": "Install a JDK from https://adoptium.net/",
+    "composer": "Install Composer from https://getcomposer.org/download/",
+}
+
+
+def _build_install_hint(name: str) -> str:
+    """Compose a distro-aware install hint for *name* (D-113-05, D-113-06).
+
+    Resolution order:
+
+    1. Direct-upstream hint from :data:`_DRIVER_DIRECT_HINTS` -- used for
+       drivers that ship via a dedicated installer rather than a distro
+       package (uv, rustup, brew, ...).
+    2. macOS  -> ``brew install <pkg>``.
+    3. Linux  -> distro-aware (``apk``/``apt-get``/``dnf``/``pacman``)
+                 via :func:`detect_linux_distro` + :func:`format_install_command`.
+    4. Windows -> ``winget install <pkg>`` with scoop fallback.
+    5. Fallback -> ``"Install <name> using your OS package manager"``.
+    """
+    if name in _DRIVER_DIRECT_HINTS:
+        return _DRIVER_DIRECT_HINTS[name]
+
+    package = _LINUX_PACKAGE_ALIASES.get(name, name)
+
+    # macOS: brew is the canonical user-scope install path (D-101-02).
+    system = (platform.system() or "").lower()
+    if system == "darwin":
+        return _MACOS_HINT_DEFAULT.format(pkg=package)
+
+    # Linux: distro-aware via /etc/os-release.
+    if system == "linux":
+        from ai_engineering.installer.distro import (
+            detect_linux_distro,
+            format_install_command,
+        )
+
+        distro = detect_linux_distro()
+        return f"Install with: {format_install_command(distro, package)}"
+
+    # Windows: winget preferred; scoop as fallback.
+    if system.startswith("win"):
+        return _WINDOWS_HINT_DEFAULT.format(pkg=package)
+
+    return f"Install {name} using your OS package manager"
+
+
+# Legacy hint dict retained for tests that import it; the runtime path
+# now goes through :func:`_build_install_hint` so the static text falls
+# back to the distro-aware computation when present. Kept as a module
+# constant so importers (none in the runtime tree, defensive only) keep
+# working.
+_DRIVER_INSTALL_HINTS: dict[str, str] = {}
 
 
 def _resolve_drivers_at_load() -> MappingProxyType[str, Path]:
@@ -156,13 +225,28 @@ def _resolve_drivers_at_load() -> MappingProxyType[str, Path]:
 RESOLVED_DRIVERS: MappingProxyType[str, Path] = _resolve_drivers_at_load()
 
 
-def _format_missing_driver_message(name: str) -> str:
-    """Compose an actionable ``MissingDriverError`` message for ``name``."""
-    hint = _DRIVER_INSTALL_HINTS.get(
-        name,
-        f"install {name} via your OS package manager and ensure it is on PATH",
-    )
-    return f"driver {name!r} not found on PATH -- {hint}"
+def _format_missing_driver_message(name: str, *, tool: str | None = None) -> str:
+    """Compose an actionable ``MissingDriverError`` message for ``name``.
+
+    spec-113 G-4: the user-facing message no longer leaks "driver"
+    terminology. The new shape is::
+
+        Cannot install <tool>: '<name>' is required to download release
+        binaries. <distro_command>
+
+    When *tool* is None (callers that resolve drivers directly without a
+    target tool, e.g. SDK probes) the message degrades to::
+
+        '<name>' is required by ai-engineering. <distro_command>
+
+    The distro-aware command is computed via :func:`_build_install_hint`
+    so macOS recommends brew, Linux recommends the distro package
+    manager (apk/apt/dnf/pacman), and Windows recommends winget/scoop.
+    """
+    hint = _build_install_hint(name)
+    if tool is not None:
+        return f"Cannot install {tool}: {name!r} is required to download release binaries. {hint}"
+    return f"{name!r} is required by ai-engineering. {hint}"
 
 
 def resolve_driver(name: str) -> Path:

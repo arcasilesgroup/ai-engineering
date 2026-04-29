@@ -86,10 +86,21 @@ class TestAutoRemediateClosesTheLoop:
         app: object,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        """Tool failure that is auto-remediable -> install exits 0."""
+        """Tool failure that is auto-remediable -> install exits 0.
+
+        spec-113 G-12: doctor's fix path now reaches every WARN-fixable tool
+        (not only the tool the install pipeline simulated as failed). On
+        runners without brew (CI Linux/Windows) the gitleaks/jq fallback
+        attempts a real GitHub-release download whose asset name is not
+        ``gitleaks`` (it is e.g. ``gitleaks_8.21.3_linux_x64.tar.gz``); the
+        wildcard SIMULATE_INSTALL_OK keeps the test boundary at the
+        mechanism dispatcher rather than the real network. spec-113's
+        honest auto-remediate (G-5) requires applied != [] for success, so
+        every fix-attempted tool must short-circuit to synthetic OK.
+        """
         monkeypatch.setenv("AIENG_TEST", "1")
         monkeypatch.setenv("AIENG_TEST_SIMULATE_FAIL", "ruff")
-        monkeypatch.setenv("AIENG_TEST_SIMULATE_INSTALL_OK", "ruff")
+        monkeypatch.setenv("AIENG_TEST_SIMULATE_INSTALL_OK", "*")
 
         result = runner.invoke(
             app,

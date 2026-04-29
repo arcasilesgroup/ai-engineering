@@ -106,16 +106,35 @@ def _check_install_state_coherent(ctx: DoctorContext) -> CheckResult:
 
 
 def _check_detection_current(ctx: DoctorContext) -> CheckResult:
-    """Warn if the VCS provider in install state doesn't match the current git remote."""
+    """Verify the install-state VCS provider matches the current git remote.
+
+    spec-113 G-8 / D-113-09: when ``vcs_provider`` is set in install state
+    AND the project has no git remote configured yet (typical for a freshly
+    installed repo), the check reports OK with an informative message
+    instead of warning. The pre-spec-113 behaviour fired a duplicate WARN
+    alongside ``tools-vcs`` (gh missing) and ``vcs-auth`` (cannot verify
+    auth), all rooted in the same gh-missing reality.
+    """
     if ctx.install_state is None:
         return CheckResult(
             name="detection-current",
             status=CheckStatus.WARN,
             message="No install state available; cannot verify VCS provider",
         )
-    current_vcs = _detect_vcs_from_remote(ctx.target)
     stored_vcs = ctx.install_state.vcs_provider
+    current_vcs = _detect_vcs_from_remote(ctx.target)
     if current_vcs is None:
+        # spec-113 G-8: stored provider with no remote configured is the
+        # normal post-install state. Surface OK with an actionable hint.
+        if stored_vcs:
+            return CheckResult(
+                name="detection-current",
+                status=CheckStatus.OK,
+                message=(
+                    f"VCS provider '{stored_vcs}' set; no git remote configured "
+                    "yet (run: git remote add origin <url>)"
+                ),
+            )
         return CheckResult(
             name="detection-current",
             status=CheckStatus.WARN,
@@ -135,7 +154,16 @@ def _check_detection_current(ctx: DoctorContext) -> CheckResult:
 
 
 def _check_stack_drift(ctx: DoctorContext) -> CheckResult:
-    """Warn when manifest stacks diverge from file-system-detected stacks."""
+    """Warn when manifest stacks diverge from file-system-detected stacks.
+
+    spec-113 G-7 / D-113-08: a freshly-created project (manifest declares
+    stacks but the operator has not landed any source files yet) used to
+    fire a stack-drift WARN that was just noise -- the user is doing
+    nothing wrong, the code just hasn't been written. The new
+    suppression: when manifest declares stacks AND ZERO stacks are
+    detected on disk, return OK with an informative message. Real drift
+    (manifest declares "go" but disk has "python") still fires.
+    """
     if ctx.manifest_config is None:
         return CheckResult(
             name="stack-drift",
@@ -150,6 +178,23 @@ def _check_stack_drift(ctx: DoctorContext) -> CheckResult:
             message="Manifest providers.stacks is empty",
         )
     detected = set(detect_stacks(ctx.target))
+
+    # spec-113 G-7: suppress when manifest declares stacks but disk is empty.
+    # The freshly-installed project case is genuine OK, not noise. The
+    # suppression keys on detected being empty (NO stacks present) so a
+    # manifest:[python,typescript] vs detected:[python] case still fires
+    # genuine drift on the typescript leg.
+    if not detected:
+        stacks_label = ", ".join(sorted(manifest_stacks))
+        return CheckResult(
+            name="stack-drift",
+            status=CheckStatus.OK,
+            message=(
+                f"manifest declares {stacks_label}; no source files yet -- "
+                "first commit will populate detection"
+            ),
+        )
+
     extra_in_manifest = sorted(manifest_stacks - detected)
     missing_from_manifest = sorted(detected - manifest_stacks)
     if extra_in_manifest or missing_from_manifest:
