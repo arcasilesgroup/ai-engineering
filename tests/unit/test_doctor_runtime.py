@@ -248,7 +248,10 @@ class TestVersion:
     """Tests for doctor.runtime.version.check()."""
 
     @patch("ai_engineering.doctor.runtime.version.check_version")
-    def test_registry_unavailable_warns(self, mock_check: MagicMock, tmp_path: Path) -> None:
+    def test_registry_unavailable_downgrades_to_ok(
+        self, mock_check: MagicMock, tmp_path: Path
+    ) -> None:
+        """spec-113 G-10 / D-113-13: offline registry lookup downgrades to OK."""
         mock_check.return_value = MagicMock(
             status=None,
             is_current=False,
@@ -259,7 +262,7 @@ class TestVersion:
         ctx = _ctx(tmp_path)
         results = version.check(ctx)
         assert len(results) == 1
-        assert results[0].status == CheckStatus.WARN
+        assert results[0].status == CheckStatus.OK
         assert "registry" in results[0].message.lower()
 
     @patch("ai_engineering.doctor.runtime.version.check_version")

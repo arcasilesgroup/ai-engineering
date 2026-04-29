@@ -1,8 +1,15 @@
 """Doctor runtime check: branch-policy -- warns when on a protected branch.
 
 A simple guard that alerts the developer if they are currently on ``main``
-or ``master``.  This is informational only (WARN, not FAIL) because some
+or ``master``. This is informational only (WARN, not FAIL) because some
 workflows legitimately operate on protected branches.
+
+spec-113 G-9 / D-113-12: a "first install grace period" suppresses the
+WARN for the first 5 minutes after ``install_state.installed_at``. The
+freshly-installed-repo case is the typical false-positive -- the
+operator just ran ``ai-eng install`` on the existing main checkout and
+HAS NOT had a chance to create a feature branch yet. The grace window
+is intentionally short so subsequent doctor runs do warn as expected.
 
 Robustness notes:
 - Detects git presence via ``git rev-parse --is-inside-work-tree`` so that
@@ -18,10 +25,16 @@ Robustness notes:
 from __future__ import annotations
 
 import subprocess
+from datetime import UTC, datetime, timedelta
 
 from ai_engineering.doctor.models import CheckResult, CheckStatus, DoctorContext
 
 _PROTECTED_BRANCHES = frozenset({"main", "master"})
+
+# spec-113 D-113-12: grace window during which the protected-branch warning
+# is suppressed. 5 minutes is short enough that the warning fires on
+# subsequent doctor invocations without being noisy on the install run.
+_FIRST_INSTALL_GRACE_PERIOD = timedelta(minutes=5)
 
 
 def _run_git(args: list[str], cwd) -> subprocess.CompletedProcess[str] | None:
@@ -75,6 +88,17 @@ def check(ctx: DoctorContext) -> list[CheckResult]:
 
     branch = head.stdout.strip()
     if branch in _PROTECTED_BRANCHES:
+        if _within_first_install_grace_period(ctx):
+            return [
+                CheckResult(
+                    name="branch-policy",
+                    status=CheckStatus.OK,
+                    message=(
+                        f"on protected branch '{branch}' during first-install "
+                        "grace period; create a feature branch before committing"
+                    ),
+                )
+            ]
         return [
             CheckResult(
                 name="branch-policy",
@@ -90,3 +114,22 @@ def check(ctx: DoctorContext) -> list[CheckResult]:
             message=f"on branch '{branch}'",
         )
     ]
+
+
+def _within_first_install_grace_period(ctx: DoctorContext) -> bool:
+    """Return True when ``ctx.install_state.installed_at`` is within the grace window.
+
+    spec-113 D-113-12: 5 minutes from install timestamp. Beyond that the
+    pre-spec-113 warning is restored. When ``install_state`` is missing
+    or ``installed_at`` is None, returns False -- no install state means
+    no grace period (the fresh-install signal is required).
+    """
+    state = getattr(ctx, "install_state", None)
+    if state is None:
+        return False
+    installed_at = getattr(state, "installed_at", None)
+    if installed_at is None:
+        return False
+    if installed_at.tzinfo is None:
+        installed_at = installed_at.replace(tzinfo=UTC)
+    return datetime.now(tz=UTC) - installed_at <= _FIRST_INSTALL_GRACE_PERIOD
