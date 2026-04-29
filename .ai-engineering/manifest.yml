@@ -134,9 +134,9 @@ session:
 # === FRAMEWORK MANAGED (do not edit below this line) ===
 # These sections are maintained by ai-engineering automatically.
 
-# Skills registry (48 skills)
+# Skills registry (49 skills)
 skills:
-  total: 48
+  total: 49
   prefix: "ai-"
   registry:
     # Core workflow
@@ -198,6 +198,8 @@ skills:
     ai-design: { type: design, tags: [design, ui, ux, aesthetic] }
     ai-animation: { type: design, tags: [animation, motion, interaction] }
     ai-canvas: { type: design, tags: [visual, art, composition, marketing] }
+    # Research (spec-111)
+    ai-research: { type: workflow, tags: [research, evidence, citations, multi-tier] }
 
 # Agents (10)
 agents:
