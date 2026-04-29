@@ -4,38 +4,19 @@
 # Fail-open: exit 0 always — never blocks IDE.
 set -uo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+# shellcheck source=_lib/copilot-common.sh
+source "$SCRIPT_DIR/_lib/copilot-common.sh"
+# shellcheck source=_lib/copilot-runtime.sh
+source "$SCRIPT_DIR/_lib/copilot-runtime.sh"
+COPILOT_COMPONENT="hook.copilot-skill"
+export COPILOT_COMPONENT
+
 main() {
-    # Read JSON from stdin (userPromptSubmitted event data)
-    INPUT=$(cat)
-
-    # Resolve project root from script location
-    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    PROJECT_DIR="$(cd "$SCRIPT_DIR/../../.." && pwd)"
-    source "$SCRIPT_DIR/_lib/copilot-runtime.sh"
-
-    # Extract prompt from stdin JSON
-    PROMPT=""
-    if command -v jq >/dev/null 2>&1; then
-        PROMPT=$(echo "$INPUT" | jq -r '.prompt // empty' 2>/dev/null)
-    else
-        PROMPT=$(copilot_framework_python_inline "$PROJECT_DIR" <<'PY'
-import sys
-import json
-
-try:
-    print(json.load(sys.stdin).get("prompt", ""))
-except Exception:
-    pass
-PY
-) || PROMPT=""
-    fi
-
-    # Only match /ai-* slash commands (with optional args after space)
+    PROMPT="$(read_stdin_payload .prompt)"
     [[ "$PROMPT" =~ ^/ai-([a-zA-Z-]+) ]] || return 0
-    RAW="${BASH_REMATCH[1]}"
-
-    # Normalize: lowercase, ensure ai- prefix
-    SKILL_NAME="ai-$(echo "$RAW" | tr '[:upper:]' '[:lower:]')"
+    SKILL_NAME="ai-$(echo "${BASH_REMATCH[1]}" | tr '[:upper:]' '[:lower:]')"
 
     PROJECT_DIR="$PROJECT_DIR" SKILL_NAME="$SKILL_NAME" copilot_framework_python_inline "$PROJECT_DIR" <<'PY' >/dev/null 2>&1 || true
 import os, sys

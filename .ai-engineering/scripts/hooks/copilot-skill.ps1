@@ -4,48 +4,18 @@
 
 $ErrorActionPreference = "Stop"
 
-function Get-JsonValue {
-    param(
-        [object]$Payload,
-        [string]$Property
-    )
-
-    if ($null -eq $Payload) {
-        return ""
-    }
-
-    $prop = $Payload.PSObject.Properties[$Property]
-    if ($null -eq $prop) {
-        return ""
-    }
-
-    return [string]$prop.Value
-}
-
 try {
-    $InputJson = [Console]::In.ReadToEnd()
     $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
     $ProjectDir = [string](Resolve-Path (Join-Path $ScriptDir "../../.."))
+    . (Join-Path $ScriptDir "_lib/copilot-common.ps1")
     . (Join-Path $ScriptDir "_lib/copilot-runtime.ps1")
-    $Prompt = ""
+    $script:CopilotComponent = "hook.copilot-skill"
 
-    if (-not [string]::IsNullOrWhiteSpace($InputJson)) {
-        try {
-            $Payload = $InputJson | ConvertFrom-Json
-        } catch {
-            $Payload = $null
-        }
-        $Prompt = Get-JsonValue $Payload "prompt"
-    }
-
-    if ([string]::IsNullOrWhiteSpace($Prompt)) {
-        exit 0
-    }
+    $Prompt = Read-StdinPayload -Field "prompt"
+    if ([string]::IsNullOrWhiteSpace($Prompt)) { exit 0 }
 
     $Match = [regex]::Match($Prompt, "^/ai-([a-zA-Z-]+)")
-    if (-not $Match.Success) {
-        exit 0
-    }
+    if (-not $Match.Success) { exit 0 }
 
     $env:PROJECT_DIR = $ProjectDir
     $env:SKILL_NAME = "ai-$($Match.Groups[1].Value.ToLowerInvariant())"
