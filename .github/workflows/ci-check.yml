@@ -148,7 +148,7 @@ jobs:
       - name: Install dependencies
         run: uv sync --dev
       - name: ty check
-        run: uv run ty check src/
+        run: uv run ty check --exclude 'src/ai_engineering/templates/**' src/
 
   test-unit:
     name: Unit (Python ${{ matrix.python-version }} / ${{ matrix.os }})

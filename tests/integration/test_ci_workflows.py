@@ -20,6 +20,7 @@ import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 WORKFLOW_PATH = REPO_ROOT / ".github" / "workflows" / "test-hooks-matrix.yml"
+CI_CHECK_WORKFLOW_PATH = REPO_ROOT / ".github" / "workflows" / "ci-check.yml"
 
 # 40-char lowercase hex SHA — git's full commit hash.
 _SHA_RE = re.compile(r"^[a-f0-9]{40}$")
@@ -28,6 +29,11 @@ _SHA_RE = re.compile(r"^[a-f0-9]{40}$")
 def _load_workflow() -> dict[str, Any]:
     assert WORKFLOW_PATH.exists(), f"missing workflow: {WORKFLOW_PATH}"
     return yaml.safe_load(WORKFLOW_PATH.read_text(encoding="utf-8"))
+
+
+def _load_ci_check_workflow() -> dict[str, Any]:
+    assert CI_CHECK_WORKFLOW_PATH.exists(), f"missing workflow: {CI_CHECK_WORKFLOW_PATH}"
+    return yaml.safe_load(CI_CHECK_WORKFLOW_PATH.read_text(encoding="utf-8"))
 
 
 def _iter_uses(node: Any) -> list[str]:
@@ -105,3 +111,22 @@ def test_test_hooks_matrix_workflow_present() -> None:
 
     # Smoke: the matrix job runs against itself via runs-on.
     assert "runs-on" in job, f"matrix job {job_name} must declare runs-on"
+
+
+def test_ci_typecheck_excludes_runtime_templates() -> None:
+    """CI ty scope must match the pre-push gate's runtime-template exclusion."""
+    wf = _load_ci_check_workflow()
+    typecheck_job = wf["jobs"]["typecheck"]
+    steps = typecheck_job["steps"]
+    ty_steps = [
+        step
+        for step in steps
+        if isinstance(step, dict)
+        and step.get("name") == "ty check"
+        and "uv run ty check" in str(step.get("run", ""))
+    ]
+    assert len(ty_steps) == 1, f"expected one ty check step, got {ty_steps!r}"
+
+    command = ty_steps[0]["run"]
+    assert "--exclude 'src/ai_engineering/templates/**'" in command
+    assert command.endswith(" src/")
