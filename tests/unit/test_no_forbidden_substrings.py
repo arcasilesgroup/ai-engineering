@@ -58,6 +58,29 @@ _GLOB_PATTERNS: list[str] = [
 # regex strings. Excluded via absolute path comparison.
 _SELF_PATH = Path(__file__).resolve()
 
+# spec-113 D-113-06: distro-hint files emit ``sudo apt-get install``,
+# ``sudo dnf install``, ``sudo pacman`` as user-facing TEXT recommendations
+# (template strings printed to stdout/stderr). The framework never
+# executes them -- the user reads the hint and runs the command at their
+# own elevation. D-101-02 user-scope invariant remains intact because
+# every subprocess call still flows through ``_safe_run`` whose argv
+# allowlist still rejects ``sudo`` / package-manager invocations.
+#
+# Each entry maps a relative source path to the patterns it is permitted
+# to surface as text. New files must NOT be added without spec-level
+# approval and a code review confirming the literal is text-only.
+_DISTRO_HINT_TEXT_ALLOWLIST: dict[str, frozenset[str]] = {
+    "src/ai_engineering/installer/distro.py": frozenset(
+        {r"\bsudo\b", r"\bdnf install\b", r"\bapt install\b", r"\byum install\b"}
+    ),
+    "src/ai_engineering/installer/user_scope_install.py": frozenset(
+        {r"\bsudo\b", r"\bdnf install\b", r"\bapt install\b", r"\byum install\b"}
+    ),
+    "src/ai_engineering/doctor/output_formatter.py": frozenset(
+        {r"\bsudo\b", r"\bdnf install\b", r"\bapt install\b", r"\byum install\b"}
+    ),
+}
+
 
 def _files_for_glob(glob: str) -> list[Path]:
     """Return all Python files matching `glob` under `_SRC_ROOT`, excluding self."""
@@ -97,6 +120,19 @@ class TestNoForbiddenSubstrings:
     )
     def test_file_has_no_forbidden_pattern(self, path: Path, pattern: str) -> None:
         """File must NOT contain a forbidden regex match."""
+        # Use POSIX-style relative path so Windows runners (which separate
+        # with backslashes) match the allowlist keys defined with forward
+        # slashes. The keys are the canonical declaration; the OS path
+        # separator is incidental.
+        rel = path.relative_to(_REPO_ROOT).as_posix()
+        # spec-113 D-113-06: distro-hint files publish text recommendations
+        # that include ``sudo`` / package-manager strings. Skip those
+        # (file, pattern) pairs explicitly via the allowlist.
+        allowlisted = _DISTRO_HINT_TEXT_ALLOWLIST.get(rel)
+        if allowlisted is not None and pattern in allowlisted:
+            pytest.skip(
+                f"{rel}: pattern {pattern!r} is allowed as text-only distro-install hint (D-113-06)"
+            )
         text = path.read_text(encoding="utf-8")
         match = re.search(pattern, text)
         assert match is None, (

@@ -131,6 +131,16 @@ def _atomic_write(path: Path, data: dict) -> None:
     (so ``os.replace`` does not cross filesystems and remains atomic) and then
     publishes via ``os.replace`` (atomic on both POSIX and Windows -- see
     phase-0-notes.md Risk-C).
+
+    Windows-specific retry: ``os.replace`` can raise ``PermissionError`` when
+    another process (or pytest-xdist worker) momentarily holds a handle on
+    the target path -- AV scanners, indexers, and concurrent persist() calls
+    against neighbouring keys all trigger the lock. POSIX never lifts this
+    failure mode. A bounded retry with backoff converts the transient
+    Windows lock into a successful replace; if it still fails after the
+    budget, the original exception propagates to the caller (which on the
+    orchestrator path swallows + logs, preserving the legacy contract while
+    eliminating the flake on healthy systems).
     """
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp_path: str | None = None
@@ -153,7 +163,43 @@ def _atomic_write(path: Path, data: dict) -> None:
             with contextlib.suppress(OSError):
                 os.unlink(tmp_path)
         raise
-    os.replace(tmp_path, path)
+    _replace_with_retry(tmp_path, path)
+
+
+# Windows-only transient-lock budget for ``os.replace``. 5 attempts with
+# 25/50/100/200/400 ms backoff covers typical AV-scan / indexer windows
+# without slowing the POSIX path (which never enters the loop body).
+_REPLACE_MAX_ATTEMPTS: int = 5
+_REPLACE_BACKOFF_MS: int = 25
+
+
+def _replace_with_retry(src: str, dst: Path) -> None:
+    """``os.replace(src, dst)`` with bounded retry on Windows lock errors.
+
+    Raises the last :class:`PermissionError` / :class:`OSError` if the
+    budget is exhausted -- callers that swallow exceptions retain that
+    behaviour (the orchestrator already logs and continues), so the
+    failure mode tightens but does not regress.
+    """
+    import time as _time
+
+    last_exc: OSError | None = None
+    delay_ms = _REPLACE_BACKOFF_MS
+    for _ in range(_REPLACE_MAX_ATTEMPTS):
+        try:
+            os.replace(src, dst)
+            return
+        except PermissionError as exc:
+            # Windows transient lock (AV / indexer / sibling persist call).
+            last_exc = exc
+            _time.sleep(delay_ms / 1000.0)
+            delay_ms *= 2
+        except OSError as exc:
+            # Non-Permission OSError (e.g. cross-device, EBADF) is not a
+            # lock issue; do not waste retries.
+            raise exc from None
+    if last_exc is not None:
+        raise last_exc
 
 
 def _read_safe(path: Path) -> dict | None:

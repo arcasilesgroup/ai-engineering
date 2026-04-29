@@ -597,6 +597,14 @@ def _render_auto_remediation_summary(report: object) -> None:
     non-critical phases failed. Surface what was fixed and what survived so
     the user can see the second-pass behaviour explicitly. Silently no-op in
     JSON mode (caller already gates on ``not is_json_mode()``).
+
+    spec-113 G-5: the message MUST honestly reflect what landed:
+
+    * success line ("all non-critical failures repaired automatically") only
+      fires when applied != [] AND failed == [] AND errors == [].
+    * mixed/partial outcomes use the explicit count surface
+      ``Auto-remediation: <N> repaired (<list>); <M> still require manual
+      action (<list>)`` so the operator sees exactly what survived.
     """
     from ai_engineering.installer.auto_remediate import AutoRemediateReport
 
@@ -604,13 +612,37 @@ def _render_auto_remediation_summary(report: object) -> None:
         return
 
     typer.echo("")
+
+    applied_count = len(report.applied)
+    residue_count = len(report.failed) + len(report.errors)
+
     if report.success:
+        # All gaps closed AND something actually landed.
         info("Auto-remediation: all non-critical failures repaired automatically.")
-    else:
+    elif applied_count and residue_count:
+        # Partial outcome: some repairs landed, others survived.
+        applied_labels = ", ".join(report.applied)
+        residue_entries = list(report.failed) + list(report.errors)
+        residue_labels = ", ".join(residue_entries)
         warning(
-            "Auto-remediation: some issues still need manual follow-up "
-            "(run 'ai-eng doctor --fix' to retry)."
+            f"Auto-remediation: {applied_count} repaired ({applied_labels}); "
+            f"{residue_count} still require manual action ({residue_labels})"
         )
+    elif applied_count:
+        # Repairs landed but no residue, yet success is False -- rare path
+        # (would require invoked=False which the caller short-circuits).
+        info(f"Auto-remediation: {applied_count} repaired ({', '.join(report.applied)}).")
+    else:
+        # Nothing landed -- residue-only OR fully invoked-yet-empty.
+        residue_entries = list(report.failed) + list(report.errors)
+        if residue_entries:
+            residue_labels = ", ".join(residue_entries)
+            warning(
+                f"Auto-remediation: 0 repaired; {residue_count} still require "
+                f"manual action ({residue_labels})"
+            )
+        else:
+            warning("Auto-remediation: no remediation applied; run 'ai-eng doctor --fix' to retry.")
 
     for entry in report.applied:
         print_stderr(f"  → fixed   {entry}")

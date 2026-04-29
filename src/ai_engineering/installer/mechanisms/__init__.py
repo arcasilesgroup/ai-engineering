@@ -46,11 +46,19 @@ Design choices
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
+import os
+import shutil
+import ssl
 import subprocess
+import sys
+import urllib.error
+import urllib.request
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 from ai_engineering.installer.results import (
     InstallResult,
@@ -71,6 +79,8 @@ from ai_engineering.installer.user_scope_install import _safe_run
 # without reintroducing the user_scope_install <-> mechanisms cycle the
 # extraction was designed to break.
 __all__ = (
+    "_DOWNLOAD_DRIVER_HOSTNAME_ALLOWLIST",
+    "_DOWNLOAD_DRIVER_PREFERENCE",
     "_PIN_REQUIRED",
     "BrewMechanism",
     "CargoInstallMechanism",
@@ -87,6 +97,9 @@ __all__ = (
     "UvPipVenvMechanism",
     "UvToolMechanism",
     "WingetMechanism",
+    "_download_release_binary",
+    "_emit_sha_pin_skipped_audit",
+    "_resolve_download_driver",
     "_verify_sha256",
 )
 
@@ -193,7 +206,343 @@ class BrewMechanism:
 
 
 # ---------------------------------------------------------------------------
-# 2. GitHubReleaseBinaryMechanism
+# 2. GitHubReleaseBinaryMechanism support helpers (spec-113 SS1)
+# ---------------------------------------------------------------------------
+#
+# spec-113 D-113-03 / D-113-04 carry the download fallback chain:
+#
+#     curl  ->  wget  ->  urllib.request.urlopen
+#
+# Each driver is tried in order; failure (non-zero exit, missing binary,
+# raised exception) advances to the next. The urllib path is the
+# Python-builtin last resort so a Linux minimal image with neither curl
+# nor wget can still pull the release binary.
+#
+# Hostname allowlist is the load-bearing security guard: GitHub hosts
+# release downloads on ``objects.githubusercontent.com`` after a
+# redirect, so both names are required. Any other host trips
+# :class:`SecurityError`.
+#
+# spec-113 D-113-02 also adds a session-scoped audit-event sink so the
+# ``sha_pin_skipped`` event fires at most once per (tool, mechanism)
+# pair within a single Python process (R-10).
+
+
+# Hostnames the urllib fallback is allowed to talk to. ``github.com`` is
+# the canonical release endpoint; ``objects.githubusercontent.com`` is
+# the asset CDN GitHub redirects to. Both are required for the fallback
+# to actually complete a download in production.
+_DOWNLOAD_DRIVER_HOSTNAME_ALLOWLIST: frozenset[str] = frozenset(
+    {
+        "github.com",
+        "objects.githubusercontent.com",
+    }
+)
+
+
+# Order in which download drivers are attempted. Names must match
+# ``DRIVER_BINARIES`` membership tests in ``user_scope_install`` -- both
+# entries land in the allowlist there. ``urllib`` is a sentinel value
+# (NOT a binary name); the resolver maps it to the in-process fallback.
+_DOWNLOAD_DRIVER_PREFERENCE: tuple[str, ...] = ("curl", "wget", "urllib")
+
+
+# Per-process dedup set for ``sha_pin_skipped`` audit events (R-10). Keys
+# are ``"<tool>:<mechanism>:<sha_pin_status>"`` strings; once a key
+# lands here the matching event is suppressed for the rest of the
+# process so ``framework-events.ndjson`` does not balloon when the same
+# tool installs across multiple stacks.
+_SHA_PIN_SKIPPED_AUDIT_SEEN: set[str] = set()
+
+
+# Maximum download size enforced on the urllib path (D-113-04). 100 MiB
+# covers every GitHub release binary the framework currently consumes
+# (largest is the LLVM-toolchain pull at ~80 MiB). Hard-limited to keep
+# a runaway download from filling ``~/.local/bin``.
+_URLLIB_MAX_BYTES: int = 100 * 1024 * 1024  # 100 MiB
+
+# Per-call timeout for the urllib path. 60 s is generous for the asset
+# CDN; subprocess curl/wget honour their own defaults via the OS.
+_URLLIB_TIMEOUT_SECONDS: int = 60
+
+# Maximum redirects honoured on the urllib path. GitHub typically
+# redirects releases to ``objects.githubusercontent.com`` (1 hop); we
+# bound the chain at 5 to avoid loop-back malice.
+_URLLIB_MAX_REDIRECTS: int = 5
+
+# Read-buffer size for the urllib download stream.
+_URLLIB_CHUNK_SIZE: int = 64 * 1024  # 64 KiB
+
+
+def _emit_sha_pin_skipped_audit(*, tool: str, mechanism: str) -> None:
+    """Emit the ``sha_pin_skipped`` framework event (D-113-02, R-10).
+
+    The event records the (tool, mechanism) pair plus the static reason
+    ``"DEC-038 pending"``. Per-process deduplication keys on the same
+    triple so a multi-stack install of the same tool emits the event
+    once. Failures to write the event are swallowed -- the audit trail
+    is advisory and must NEVER block install.
+    """
+    key = f"{tool}:{mechanism}:sha_pin_skipped"
+    if key in _SHA_PIN_SKIPPED_AUDIT_SEEN:
+        return
+    _SHA_PIN_SKIPPED_AUDIT_SEEN.add(key)
+    try:
+        from ai_engineering.state.observability import emit_framework_operation
+    except ImportError:  # pragma: no cover - circular guard
+        return
+    try:
+        emit_framework_operation(
+            Path.cwd(),
+            operation="sha_pin_skipped",
+            component="installer.mechanisms.GitHubReleaseBinaryMechanism",
+            outcome="warn",
+            metadata={
+                "tool": tool,
+                "mechanism": mechanism,
+                "reason": "DEC-038 pending",
+                "type": "sha_pin_skipped",
+            },
+        )
+    except Exception:  # pragma: no cover - fail-open audit trail
+        return
+
+
+def _resolve_download_driver() -> str | None:
+    """Return the first download driver from preference order that resolves.
+
+    The resolver consults ``shutil.which`` for ``curl`` and ``wget``
+    (subprocess drivers), and treats ``"urllib"`` as the in-process
+    fallback that is always available because Python is a hard
+    prereq of the framework. Returns ``None`` only if every driver in
+    :data:`_DOWNLOAD_DRIVER_PREFERENCE` is unresolvable, which on a
+    healthy Python install is impossible -- the urllib sentinel
+    guarantees a non-None tail.
+    """
+    for name in _DOWNLOAD_DRIVER_PREFERENCE:
+        if name == "urllib":
+            return "urllib"
+        if shutil.which(name) is not None:
+            return name
+    return None
+
+
+def _format_proxy_handler() -> urllib.request.ProxyHandler:
+    """Build a :class:`ProxyHandler` honoring ``HTTP(S)_PROXY`` env vars (D-113-14).
+
+    Keeps proxy resolution explicit so corporate networks that allow
+    egress only via proxy can complete the urllib fallback. Supports
+    both upper-case and lower-case env var spellings (curl/wget convention).
+    """
+    proxies: dict[str, str] = {}
+    for scheme in ("http", "https"):
+        for env_name in (f"{scheme.upper()}_PROXY", f"{scheme}_proxy"):
+            value = os.environ.get(env_name)
+            if value:
+                proxies[scheme] = value
+                break
+    return urllib.request.ProxyHandler(proxies)
+
+
+def _ensure_https_and_allowed(url: str) -> None:
+    """Reject non-HTTPS schemes and non-allowlisted hostnames.
+
+    Raises :class:`SecurityError` when the URL fails either guard so
+    the urllib fallback never punches through to an arbitrary host.
+    """
+    parsed = urlparse(url)
+    if parsed.scheme != "https":
+        raise SecurityError(f"download URL must use https; got scheme={parsed.scheme!r}")
+    hostname = (parsed.hostname or "").lower()
+    if hostname not in _DOWNLOAD_DRIVER_HOSTNAME_ALLOWLIST:
+        allowed = sorted(_DOWNLOAD_DRIVER_HOSTNAME_ALLOWLIST)
+        raise SecurityError(f"download hostname {hostname!r} not in allowlist {allowed}")
+
+
+def _stream_to_disk(response: Any, target_path: Path) -> int:
+    """Copy *response* into *target_path*, enforcing the byte cap.
+
+    Returns the bytes written. Raises :class:`SecurityError` when the
+    download exceeds :data:`_URLLIB_MAX_BYTES` (likely a malicious or
+    misconfigured asset). Streams in 64 KiB chunks so memory stays
+    bounded even on minimal Linux images.
+    """
+    target_path.parent.mkdir(parents=True, exist_ok=True)
+    written = 0
+    with target_path.open("wb") as handle:
+        while True:
+            chunk = response.read(_URLLIB_CHUNK_SIZE)
+            if not chunk:
+                break
+            written += len(chunk)
+            if written > _URLLIB_MAX_BYTES:
+                raise SecurityError(
+                    f"download exceeded {_URLLIB_MAX_BYTES} byte cap (received >{written} bytes)"
+                )
+            handle.write(chunk)
+    return written
+
+
+def _download_via_urllib(url: str, target_path: Path) -> InstallResult:
+    """Download *url* into *target_path* using the urllib fallback (D-113-04).
+
+    Guards: HTTPS-only, hostname allowlist, byte cap, redirect cap,
+    proxy env support. Returns a successful :class:`InstallResult` on
+    completion; returns a failed :class:`InstallResult` (not a raise)
+    for benign network/IO errors so the caller's contract matches the
+    subprocess paths.
+    """
+    _ensure_https_and_allowed(url)
+
+    # Build an opener that:
+    # - honours HTTPS_PROXY / HTTP_PROXY (D-113-14)
+    # - re-checks redirected URLs against the allowlist (defense in depth)
+    proxy_handler = _format_proxy_handler()
+    redirect_handler = _AllowlistRedirectHandler(max_redirects=_URLLIB_MAX_REDIRECTS)
+    # ``ssl.create_default_context()`` already returns a context with
+    # ``verify_mode = CERT_REQUIRED`` and ``check_hostname = True``, but
+    # Sonar's S4830 pattern-matcher cannot reason transitively about that
+    # default. Make the contract explicit (defence-in-depth + linter
+    # clarity) so a future refactor cannot silently drop verification.
+    ssl_context = ssl.create_default_context()
+    ssl_context.check_hostname = True
+    ssl_context.verify_mode = ssl.CERT_REQUIRED
+    https_handler = urllib.request.HTTPSHandler(context=ssl_context)
+    opener = urllib.request.build_opener(proxy_handler, redirect_handler, https_handler)
+
+    request = urllib.request.Request(url, headers={"User-Agent": "ai-engineering"})
+    try:
+        with opener.open(request, timeout=_URLLIB_TIMEOUT_SECONDS) as response:
+            _stream_to_disk(response, target_path)
+    except SecurityError:
+        raise
+    except (TimeoutError, urllib.error.URLError, ssl.SSLError, OSError) as exc:
+        return InstallResult(
+            failed=True,
+            stderr=f"urllib download failed: {exc}",
+            mechanism="GitHubReleaseBinaryMechanism",
+        )
+    # Make the binary executable so callers can invoke it directly. Same
+    # bit pattern curl + wget land under their default modes.
+    with contextlib.suppress(OSError):
+        target_path.chmod(0o755)
+    return InstallResult(failed=False, mechanism="GitHubReleaseBinaryMechanism")
+
+
+class _AllowlistRedirectHandler(urllib.request.HTTPRedirectHandler):
+    """:class:`HTTPRedirectHandler` re-validating each redirect target."""
+
+    def __init__(self, *, max_redirects: int) -> None:
+        super().__init__()
+        self._max_redirects = max_redirects
+        self._redirect_count = 0
+
+    def redirect_request(
+        self,
+        req: urllib.request.Request,
+        fp: Any,
+        code: int,
+        msg: str,
+        headers: Any,
+        newurl: str,
+    ) -> urllib.request.Request | None:  # pragma: no cover - thin wrapper
+        self._redirect_count += 1
+        if self._redirect_count > self._max_redirects:
+            raise SecurityError(f"download exceeded redirect cap of {self._max_redirects}")
+        _ensure_https_and_allowed(newurl)
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+def _try_subprocess_download(
+    driver: str,
+    url: str,
+    target_path: Path,
+) -> InstallResult:
+    """Run *driver* (curl|wget) via ``_safe_run`` to download *url*.
+
+    Builds a flag set tuned to the driver:
+
+    * curl: ``--fail --location --silent --show-error --output <path> <url>``
+    * wget: ``-O <path> <url>`` (universal flags only -- BusyBox-safe)
+
+    Returns the :class:`InstallResult` view of the subprocess outcome.
+    """
+    target_path.parent.mkdir(parents=True, exist_ok=True)
+    if driver == "curl":
+        argv = [
+            "curl",
+            "--fail",
+            "--location",
+            "--silent",
+            "--show-error",
+            "--output",
+            str(target_path),
+            url,
+        ]
+    elif driver == "wget":
+        # NG-8: only flags both GNU wget and BusyBox wget honour are used
+        # (-O <path> <url>). No --show-progress / --no-verbose / etc.
+        argv = ["wget", "-O", str(target_path), url]
+    else:  # pragma: no cover - defensive guard
+        return InstallResult(
+            failed=True,
+            stderr=f"unsupported subprocess driver {driver!r}",
+            mechanism="GitHubReleaseBinaryMechanism",
+        )
+    proc = _safe_run(argv)
+    return _install_result_from_proc(proc, mechanism="GitHubReleaseBinaryMechanism")
+
+
+def _download_release_binary(url: str, target_path: Path) -> InstallResult:
+    """Drive the curl -> wget -> urllib fallback chain for a single download.
+
+    Returns the first successful :class:`InstallResult`. Records the
+    driver actually used inside ``stderr`` of a failed result so callers
+    can surface the diagnostic. Raises :class:`SecurityError` only when
+    the urllib path triggers a hostname / scheme / cap guard.
+    """
+    last_failure: InstallResult | None = None
+    for driver in _DOWNLOAD_DRIVER_PREFERENCE:
+        if driver in {"curl", "wget"}:
+            if shutil.which(driver) is None:
+                last_failure = InstallResult(
+                    failed=True,
+                    stderr=f"download driver {driver!r} not on PATH",
+                    mechanism="GitHubReleaseBinaryMechanism",
+                )
+                continue
+            try:
+                outcome = _try_subprocess_download(driver, url, target_path)
+            except Exception as exc:
+                # _safe_run can raise UserScopeViolation / MissingDriverError
+                # before any subprocess fires. Treat as soft failure so the
+                # next driver in the chain gets a chance.
+                last_failure = InstallResult(
+                    failed=True,
+                    stderr=f"{driver}: {exc}",
+                    mechanism="GitHubReleaseBinaryMechanism",
+                )
+                continue
+            if not outcome.failed:
+                return outcome
+            last_failure = outcome
+            continue
+        # urllib branch
+        outcome = _download_via_urllib(url, target_path)
+        if not outcome.failed:
+            return outcome
+        last_failure = outcome
+    if last_failure is None:  # pragma: no cover - urllib always returns something
+        return InstallResult(
+            failed=True,
+            stderr="no download driver available",
+            mechanism="GitHubReleaseBinaryMechanism",
+        )
+    return last_failure
+
+
+# ---------------------------------------------------------------------------
+# GitHubReleaseBinaryMechanism (refactored for spec-113)
 # ---------------------------------------------------------------------------
 
 
@@ -201,11 +550,17 @@ class BrewMechanism:
 class GitHubReleaseBinaryMechanism:
     """Download a signed GitHub-release binary into ``~/.local/bin``.
 
-    SHA256 verification is mandatory by default (``sha256_pinned=True``).
-    The download flows through ``curl`` (an allowlisted driver) routed
-    through ``_safe_run`` so the user-scope guard sees every byte. After
-    download, :func:`_verify_sha256` validates the artifact against the
-    pinned digest; mismatch raises :class:`Sha256MismatchError`.
+    Default behaviour (``sha256_pinned=True``): mandatory SHA256 pin --
+    :func:`_verify_sha256` raises :class:`Sha256MismatchError` if the
+    pin is empty (defence-in-depth against a registry regression).
+
+    spec-113 / D-113-01: when ``sha256_pinned=False`` the descriptor
+    declares the pin as intentionally absent (DEC-038 backlog). The
+    install path skips ``_verify_sha256`` entirely, emits a WARNING
+    to stderr, and writes a ``sha_pin_skipped`` audit event to
+    ``framework-events.ndjson`` so the risk surface stays visible.
+    The download flows through :func:`_download_release_binary`'s
+    fallback chain: curl -> wget -> urllib.
     """
 
     repo: str
@@ -214,30 +569,34 @@ class GitHubReleaseBinaryMechanism:
     expected_sha256: str | None = None
 
     def install(self) -> InstallResult:
-        """Download via curl -> verify SHA256 -> place in ``~/.local/bin``."""
+        """Download via curl/wget/urllib, conditionally verify, place in ``~/.local/bin``."""
         target_dir = Path.home() / ".local" / "bin"
         target_path = target_dir / self.binary
         url = f"https://github.com/{self.repo}/releases/latest/download/{self.binary}"
-        # First subprocess call MUST be curl per the test contract; the
-        # ``_safe_run`` allowlist covers ``curl`` via DRIVER_BINARIES.
-        proc = _safe_run(
-            [
-                "curl",
-                "--fail",
-                "--location",
-                "--silent",
-                "--show-error",
-                "--output",
-                str(target_path),
-                url,
-            ]
-        )
-        result = _install_result_from_proc(proc, mechanism=type(self).__name__)
+        # First call route: curl when on PATH (preserves the spec-101 test
+        # contract that asserts argv[0]==curl); falls back to wget then
+        # urllib when curl is absent (Alpine BusyBox case).
+        result = _download_release_binary(url, target_path)
         if result.failed:
             return result
+        if not self.sha256_pinned:
+            # spec-113 D-113-01: pin not declared (DEC-038 follow-up).
+            # Skip the digest check, surface a WARNING to stderr, and
+            # emit a ``sha_pin_skipped`` audit event so the operator
+            # can see the risk acceptance landed.
+            sys.stderr.write(
+                f"WARNING: {self.binary}: SHA256 pin missing (sha256_pinned=False); "
+                "install proceeded without digest verification (DEC-038 pending).\n"
+            )
+            sys.stderr.flush()
+            _emit_sha_pin_skipped_audit(
+                tool=self.binary,
+                mechanism=type(self).__name__,
+            )
+            return result
         # SHA256 verification (digest mismatch raises Sha256MismatchError).
-        # The expected digest is supplied either by the descriptor itself
-        # or, in tests, the helper is patched to inject the mismatch.
+        # Empty expected_sha256 with sha256_pinned=True still raises -- the
+        # defence-in-depth contract for unpopulated pins is preserved.
         expected = self.expected_sha256 or ""
         _verify_sha256(target_path, expected)
         return result

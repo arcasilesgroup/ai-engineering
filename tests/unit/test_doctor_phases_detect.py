@@ -151,13 +151,15 @@ class TestDetectionCurrent:
         assert current_check.status == CheckStatus.WARN
         assert "mismatch" in current_check.message.lower()
 
-    def test_warn_when_no_remote(self, project: Path, valid_state: InstallState):
+    def test_ok_when_stored_provider_and_no_remote(self, project: Path, valid_state: InstallState):
+        """spec-113 G-8 / D-113-09: stored vcs + no remote => OK with hint."""
         ctx = DoctorContext(target=project, install_state=valid_state)
         with patch("ai_engineering.doctor.phases.detect._detect_vcs_from_remote") as mock:
             mock.return_value = None
             results = detect.check(ctx)
         current_check = next(r for r in results if r.name == "detection-current")
-        assert current_check.status == CheckStatus.WARN
+        assert current_check.status == CheckStatus.OK
+        assert "no git remote configured" in current_check.message
 
     def test_warn_when_no_install_state(self, tmp_path: Path):
         ctx = DoctorContext(target=tmp_path, install_state=None)
