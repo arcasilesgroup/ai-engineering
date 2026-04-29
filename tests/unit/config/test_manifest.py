@@ -21,6 +21,7 @@ from ai_engineering.config.manifest import (
     AgentsConfig,
     CicdConfig,
     DocumentationConfig,
+    HotPathSlosConfig,
     ManifestConfig,
     OwnershipConfig,
     ProvidersConfig,
@@ -192,7 +193,8 @@ class TestSkills:
     def test_total(self, real_manifest_data: dict) -> None:
         config = ManifestConfig.model_validate(real_manifest_data)
         # spec-107: bumped 47 -> 48 with addition of /ai-mcp-sentinel skill.
-        assert config.skills.total == len(config.skills.registry) == 48
+        # spec-111: bumped 48 -> 49 with addition of /ai-research skill.
+        assert config.skills.total == len(config.skills.registry) == 49
 
     def test_prefix(self, real_manifest_data: dict) -> None:
         config = ManifestConfig.model_validate(real_manifest_data)
@@ -273,6 +275,43 @@ class TestTelemetry:
     def test_default(self, real_manifest_data: dict) -> None:
         config = ManifestConfig.model_validate(real_manifest_data)
         assert config.telemetry.default == "disabled"
+
+
+# ---------------------------------------------------------------------------
+# Hot-path SLOs (spec-114 D-114-02)
+# ---------------------------------------------------------------------------
+
+
+class TestHotPathSlos:
+    """Hot-path SLO budgets driving ``ai-eng doctor --check hot-path`` (G-2)."""
+
+    def test_defaults_present(self) -> None:
+        """An empty manifest still exposes the spec-112 D-112-08 budgets."""
+        config = ManifestConfig()
+        assert config.hot_path_slos.pre_commit_p95_ms == 1000
+        assert config.hot_path_slos.pre_push_p95_ms == 5000
+        assert config.hot_path_slos.skill_invocation_overhead_p95_ms == 200
+        assert config.hot_path_slos.rolling_window_events == 100
+
+    def test_real_manifest_block(self, real_manifest_data: dict) -> None:
+        """The canonical manifest opts into the same budgets explicitly."""
+        config = ManifestConfig.model_validate(real_manifest_data)
+        assert isinstance(config.hot_path_slos, HotPathSlosConfig)
+        assert config.hot_path_slos.pre_commit_p95_ms == 1000
+        assert config.hot_path_slos.pre_push_p95_ms == 5000
+        assert config.hot_path_slos.skill_invocation_overhead_p95_ms == 200
+        assert config.hot_path_slos.rolling_window_events == 100
+
+    def test_partial_override(self, tmp_project: Path) -> None:
+        """Operators can tighten a single budget without restating the rest."""
+        manifest = tmp_project / ".ai-engineering" / "manifest.yml"
+        manifest.write_text("hot_path_slos:\n  pre_commit_p95_ms: 750\n")
+        config = load_manifest_config(tmp_project)
+        assert config.hot_path_slos.pre_commit_p95_ms == 750
+        # Untouched fields fall back to spec defaults.
+        assert config.hot_path_slos.pre_push_p95_ms == 5000
+        assert config.hot_path_slos.skill_invocation_overhead_p95_ms == 200
+        assert config.hot_path_slos.rolling_window_events == 100
 
 
 # ---------------------------------------------------------------------------

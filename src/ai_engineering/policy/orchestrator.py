@@ -905,7 +905,7 @@ def _dispatch_one_check(
     }
 
 
-def run_gate(
+def run_gate(  # audit:exempt:pre-existing-debt-out-of-spec-114-G7-scope
     checks: list[dict[str, Any]] | None = None,
     *,
     cache_dir: Path | None = None,

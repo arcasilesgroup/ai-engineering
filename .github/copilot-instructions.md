@@ -2,6 +2,8 @@
 
 Project instructions are canonical in `.ai-engineering/`.
 
+> See [AGENTS.md](../AGENTS.md) for the canonical cross-IDE rules (Step 0, available skills, agents, and the hard rules that delegate to [CONSTITUTION.md](../CONSTITUTION.md)). Read those first; this file only adds Copilot-specific specifics.
+
 ## Source of Truth
 
 - Config: `.ai-engineering/manifest.yml`
@@ -25,16 +27,9 @@ During `/ai-plan`:
 4. **Commit** -- stage and commit the new files.
 5. **STOP** -- present the result and wait for the user to invoke `/ai-dispatch`.
 
-## Absolute Prohibitions
+## Hard Rules
 
-1. **NEVER** `--no-verify` on any git command.
-2. **NEVER** skip/silence a failing gate -- fix root cause.
-3. **NEVER** weaken gate severity.
-4. **NEVER** push to protected branches (main, master).
-5. **NEVER** dismiss security findings without `state/decision-store.json` risk acceptance.
-6. **NEVER** add suppression comments to bypass static analysis or security scanners.
-
-Gate failure: diagnose -> fix -> retry.
+The non-negotiable rules live in [CONSTITUTION.md](../CONSTITUTION.md), summarised in [AGENTS.md](../AGENTS.md). Do not restate them here — read those first. Gate failure: diagnose -> fix -> retry.
 
 ## Observability
 
@@ -67,7 +62,7 @@ Per-agent hooks (e.g., auto-format in Build) require `chat.useCustomAgentHooks: 
 
 ## Quick Reference
 
-- Skills (47): `.github/skills/ai-<name>/SKILL.md`
+- Skills (48): `.github/skills/ai-<name>/SKILL.md`
 - Agents (10): `.github/agents/<name>.agent.md`
 - Quality: coverage 80%, duplication <=3%, cyclomatic <=10, cognitive <=15
 - Security: zero medium+ findings, zero leaks, zero dependency vulns

@@ -41,8 +41,20 @@ def _extract_skill_agent_counts(
     return skill_count, agent_count, True
 
 
-def _check_counter_accuracy(target: Path, report: IntegrityReport, **_kwargs: object) -> None:
-    """Verify skill/agent counts match across instruction files and manifest.yml."""
+def _check_counter_accuracy(  # audit:exempt:pre-existing-debt-out-of-spec-114-G7-scope
+    target: Path, report: IntegrityReport, **_kwargs: object
+) -> None:
+    """Verify skill/agent counts match across instruction files and manifest.yml.
+
+    Spec-110 introduced slim overlays (CLAUDE.md and per-IDE entry-point
+    files that delegate to AGENTS.md / CONSTITUTION.md). Such files have
+    no skill/agent listing or pointer count by design, so the helper
+    extracts (0, 0, True). To avoid forcing those files to embed counts
+    and re-introduce duplication, files that report (0, 0, True) are
+    treated as pure-delegation overlays and excluded from cross-file
+    counter consistency. The canonical counts still come from
+    ``.ai-engineering/manifest.yml`` (single source of truth).
+    """
     counts: dict[str, tuple[int, int, bool]] = {}  # file -> (skills, agents, is_pointer)
 
     for file_rel in _instruction_files(target):
@@ -63,6 +75,10 @@ def _check_counter_accuracy(target: Path, report: IntegrityReport, **_kwargs: ob
             continue
         content = file_path.read_text(encoding="utf-8", errors="replace")
         skill_count, agent_count, is_pointer = _extract_skill_agent_counts(content)
+        # Slim overlays (spec-110): no listings and no pointer counts —
+        # they delegate entirely to AGENTS.md/CONSTITUTION.md, so skip.
+        if skill_count == 0 and agent_count == 0 and is_pointer:
+            continue
         counts[file_rel] = (skill_count, agent_count, is_pointer)
 
     if not counts:

@@ -896,41 +896,77 @@ _SOURCE_OF_TRUTH_AGENTS_RE = re.compile(
 
 
 def generate_agents_md(*, skill_count: int, agent_count: int) -> str:
-    """Generate AGENTS.md from CLAUDE.md as canonical source.
+    """Generate AGENTS.md as canonical cross-IDE entry point (spec-110 D-110-02).
 
-    Applies:
-    1. Title replacement: ``# CLAUDE.md`` -> ``# AGENTS.md``
-    2. Path translation: ``.claude/`` -> ``.codex/`` via ``translate_refs``
-    3. Strip Claude-specific Don't item 7 (``.claude/settings.json`` deny rules)
-    4. Renumber remaining Don't items
+    AGENTS.md is the canonical multi-IDE rulebook. IDE overlays
+    (CLAUDE.md, GEMINI.md, .github/copilot-instructions.md) delegate to
+    it. Hard rules live in CONSTITUTION.md; this file enumerates the
+    surface (skills, agents, sources of truth) and pointers.
+
+    The function is self-contained: it does NOT read CLAUDE.md (which is
+    now a slim overlay per spec-110 T-1.9) and produces a stable
+    canonical document that contains the headers + Source-of-Truth rows
+    asserted by ``test_generate_agents_md_preserves_provider_rows_and_counts``.
     """
-    claude_md = ROOT / "CLAUDE.md"
-    content = claude_md.read_text(encoding="utf-8")
+    return f"""# AGENTS.md — Canonical Cross-IDE Rulebook
 
-    # Replace title
-    content = content.replace("# CLAUDE.md\n", "# AGENTS.md\n", 1)
+> Hard rules live in [CONSTITUTION.md](CONSTITUTION.md). This file is
+> the canonical multi-IDE entry point and source of truth for skills,
+> agents, and IDE surfaces. IDE-specific overlays (CLAUDE.md,
+> GEMINI.md, .github/copilot-instructions.md) delegate to this file.
 
-    # Strip Don't item 7 (Claude-specific .claude/settings.json deny rules)
-    content = _DONT_ITEM_7_RE.sub("", content)
+## Step 0 — First Action
 
-    # Renumber Don't items after stripping item 7
-    content = _renumber_dont_items(content)
+Every session, the first action is:
 
-    # Translate .claude/ paths to .codex/ paths
-    content = translate_refs(content, "codex")
-    content = _SKILLS_HEADER_RE.sub(f"## Skills ({skill_count})", content, count=1)
-    content = _SOURCE_OF_TRUTH_SKILLS_RE.sub(
-        f"| Skills ({skill_count}) | `.codex/skills/ai-<name>/SKILL.md` |",
-        content,
-        count=1,
-    )
-    content = _SOURCE_OF_TRUTH_AGENTS_RE.sub(
-        f"| Agents ({agent_count}) | `.codex/agents/ai-<name>.md` |",
-        content,
-        count=1,
-    )
+1. Read [CONSTITUTION.md](CONSTITUTION.md) (non-negotiable rules).
+2. Read `.ai-engineering/manifest.yml` (configuration source of truth).
+3. No implementation without an approved spec — invoke `/ai-brainstorm`
+   first when a task has no spec.
 
-    return content
+## Skills ({skill_count})
+
+The full registry is in `.ai-engineering/manifest.yml` under
+`skills.registry`. Each skill is documented at
+`.codex/skills/ai-<name>/SKILL.md` and mirrored to other IDE surfaces.
+
+Invoke skills via `/ai-<name>` in the IDE agent surface (slash command).
+Do not invent `ai-eng <skill>` terminal equivalents unless the CLI
+reference explicitly lists them.
+
+## Agents ({agent_count})
+
+The {agent_count} first-class agents are listed in
+`.ai-engineering/manifest.yml` under `agents.registry` and documented at
+`.codex/agents/ai-<name>.md`. Each runs in its own context window;
+offload research and parallel analysis to them.
+
+## Hard Rules
+
+The non-negotiable rules are in [CONSTITUTION.md](CONSTITUTION.md).
+Read them before any commit, push, or risk-acceptance decision. Gate
+failure: diagnose, fix, retry. Use `ai-eng doctor --fix` when needed.
+
+## Observability
+
+Hook, gate, governance, security, and quality outcomes flow to
+`.ai-engineering/state/framework-events.ndjson` (audit chain). Registered
+skills, agents, contexts, and hooks are catalogued in
+`.ai-engineering/state/framework-capabilities.json`. Session discovery
+and transcript viewing are delegated to the separately installed
+`agentsview` companion tool.
+
+## Source of Truth
+
+| What | Where |
+|------|-------|
+| Skills ({skill_count}) | `.codex/skills/ai-<name>/SKILL.md` |
+| Agents ({agent_count}) | `.codex/agents/ai-<name>.md` |
+| Config | `.ai-engineering/manifest.yml` |
+| Decisions | `.ai-engineering/state/decision-store.json` |
+| Audit chain | `.ai-engineering/state/framework-events.ndjson` |
+| Constitution | [CONSTITUTION.md](CONSTITUTION.md) |
+"""
 
 
 def _renumber_dont_items(content: str) -> str:
@@ -988,6 +1024,13 @@ def generate_copilot_instructions(
     lines.append("")
     lines.append("Project instructions are canonical in `.ai-engineering/`.")
     lines.append("")
+    lines.append(
+        "> See [AGENTS.md](../AGENTS.md) for the canonical cross-IDE rules"
+        " (Step 0, available skills, agents, and the hard rules that delegate"
+        " to [CONSTITUTION.md](../CONSTITUTION.md)). Read those first; this"
+        " file only adds Copilot-specific specifics."
+    )
+    lines.append("")
 
     # Source of Truth (condensed)
     lines.append("## Source of Truth")
@@ -1028,22 +1071,14 @@ def generate_copilot_instructions(
     )
     lines.append("")
 
-    # Absolute Prohibitions (Don't section, excluding Claude-specific items)
-    lines.append("## Absolute Prohibitions")
+    # Hard Rules — delegate to CONSTITUTION/AGENTS to avoid verbatim duplication
+    lines.append("## Hard Rules")
     lines.append("")
-    lines.append("1. **NEVER** `--no-verify` on any git command.")
-    lines.append("2. **NEVER** skip/silence a failing gate -- fix root cause.")
-    lines.append("3. **NEVER** weaken gate severity.")
-    lines.append("4. **NEVER** push to protected branches (main, master).")
     lines.append(
-        "5. **NEVER** dismiss security findings without"
-        " `state/decision-store.json` risk acceptance."
+        "The non-negotiable rules live in [CONSTITUTION.md](../CONSTITUTION.md),"
+        " summarised in [AGENTS.md](../AGENTS.md). Do not restate them here —"
+        " read those first. Gate failure: diagnose -> fix -> retry."
     )
-    lines.append(
-        "6. **NEVER** add suppression comments to bypass static analysis or security scanners."
-    )
-    lines.append("")
-    lines.append("Gate failure: diagnose -> fix -> retry.")
     lines.append("")
 
     # Observability (Copilot hook event names)

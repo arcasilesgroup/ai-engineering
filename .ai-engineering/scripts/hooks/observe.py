@@ -12,10 +12,10 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 from _lib.audit import is_debug_mode, passthrough_stdin
+from _lib.hook_common import run_hook_safe
 from _lib.hook_context import get_hook_context
 from _lib.observability import (
     emit_agent_dispatched,
-    emit_framework_error,
     emit_ide_hook_outcome,
 )
 
@@ -101,36 +101,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    try:
-        main()
-    except Exception as exc:
-        try:
-            from _lib.audit import get_project_root
-
-            project_root = get_project_root()
-            engine = os.environ.get("AIENG_HOOK_ENGINE", "claude_code")
-            session_id = os.environ.get("CLAUDE_SESSION_ID") or os.environ.get("GEMINI_SESSION_ID")
-            trace_id = os.environ.get("CLAUDE_TRACE_ID")
-            emit_ide_hook_outcome(
-                project_root,
-                engine=engine,
-                hook_kind="post-tool-use",
-                component="hook.observe",
-                outcome="failure",
-                source="hook",
-                session_id=session_id,
-                trace_id=trace_id,
-            )
-            emit_framework_error(
-                project_root,
-                engine=engine,
-                component="hook.observe",
-                error_code="hook_execution_failed",
-                summary=str(exc),
-                source="hook",
-                session_id=session_id,
-                trace_id=trace_id,
-            )
-        except Exception:
-            pass
-    sys.exit(0)
+    run_hook_safe(main, component="hook.observe", hook_kind="post-tool-use")

@@ -5,6 +5,7 @@ $ErrorActionPreference = "Stop"
 try {
     $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
     $ProjectDir = [string](Resolve-Path (Join-Path $ScriptDir "../../.."))
+    . (Join-Path $ScriptDir "_lib/copilot-common.ps1")
     . (Join-Path $ScriptDir "_lib/copilot-runtime.ps1")
     $env:CLAUDE_HOOK_EVENT_NAME = "Stop"
     if (-not $env:CLAUDE_PROJECT_DIR) { $env:CLAUDE_PROJECT_DIR = $ProjectDir }

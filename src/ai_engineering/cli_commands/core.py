@@ -87,7 +87,7 @@ def _doctor_follow_up_counts(report: DoctorReport) -> tuple[int, int]:
     return fixable, manual
 
 
-def install_cmd(
+def install_cmd(  # audit:exempt:pre-existing-debt-out-of-spec-114-G7-scope
     target: Annotated[
         Path | None,
         typer.Argument(help="Target project root. Defaults to cwd."),
@@ -1000,14 +1000,32 @@ def doctor_cmd(
         bool,
         typer.Option("--json", help="Output report as JSON for agent consumption."),
     ] = False,
+    focused_check: Annotated[
+        str | None,
+        typer.Option(
+            "--check",
+            help="Run a focused sub-check (e.g., 'hot-path' for SLO budgets).",
+        ),
+    ] = None,
 ) -> None:
     """Diagnose and optionally fix framework health.
 
-    Exit codes: 0 (pass), 1 (fail), 2 (warnings only).
+    Exit codes: 0 (pass), 1 (fail), 2 (warnings only). When ``--check
+    hot-path`` is passed, runs the spec-114 advisory hot-path SLO
+    audit and always exits 0 per D-114-03 (advisory through
+    2026-05-31).
     """
     if output_json:
         set_json_mode(True)
     root = resolve_project_root(target)
+
+    if focused_check == "hot-path":
+        from ai_engineering.cli_commands.doctor_hot_path import run_hot_path_check
+
+        run_hot_path_check(root)
+        return
+    if focused_check is not None:
+        raise typer.BadParameter(f"Unknown --check value: {focused_check!r}. Supported: hot-path.")
 
     if dry_run and not fix:
         fix = True  # --dry-run implies --fix
@@ -1045,13 +1063,21 @@ def doctor_cmd(
 
         for phase_report in report.phases:
             typer.echo(f"\n  {phase_report.name} [{phase_report.status.value}]")
-            for check in phase_report.checks:
-                status_line(check.status.value, check.name, check.message)
+            for doctor_check in phase_report.checks:
+                status_line(
+                    doctor_check.status.value,
+                    doctor_check.name,
+                    doctor_check.message,
+                )
 
         if report.runtime:
             typer.echo("\n  runtime")
-            for check in report.runtime:
-                status_line(check.status.value, check.name, check.message)
+            for doctor_check in report.runtime:
+                status_line(
+                    doctor_check.status.value,
+                    doctor_check.name,
+                    doctor_check.message,
+                )
 
         if fixable_count:
             suggest_next([("ai-eng doctor --fix", "Attempt automatic repairs for fixable issues")])

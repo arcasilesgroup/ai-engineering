@@ -10,6 +10,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 from _lib.audit import is_debug_mode
+from _lib.hook_common import run_hook_safe
 from _lib.hook_context import get_hook_context
 from _lib.instincts import extract_instincts
 from _lib.observability import emit_framework_operation
@@ -39,6 +40,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    with contextlib.suppress(Exception):
-        main()
-    sys.exit(0)
+    run_hook_safe(main, component="hook.instinct-extract", hook_kind="stop")

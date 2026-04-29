@@ -7,26 +7,18 @@ $ErrorActionPreference = "Stop"
 try {
     $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
     $ProjectDir = [string](Resolve-Path (Join-Path $ScriptDir "../../.."))
+    . (Join-Path $ScriptDir "_lib/copilot-common.ps1")
     . (Join-Path $ScriptDir "_lib/copilot-runtime.ps1")
-    if ($args.Count -gt 0) {
-        $Phase = $args[0]
-    } else {
-        $Phase = "post"
-    }
-    $InputJson = [Console]::In.ReadToEnd()
+    $Phase = if ($args.Count -gt 0) { $args[0] } else { "post" }
 
-    if ($Phase -eq "pre") {
-        $env:CLAUDE_HOOK_EVENT_NAME = "PreToolUse"
-        $HookEvent = "PreToolUse"
-    } else {
-        $env:CLAUDE_HOOK_EVENT_NAME = "PostToolUse"
-        $HookEvent = "PostToolUse"
-    }
+    Read-StdinPayload | Out-Null
+    $HookEvent = if ($Phase -eq "pre") { "PreToolUse" } else { "PostToolUse" }
+    $env:CLAUDE_HOOK_EVENT_NAME = $HookEvent
     if (-not $env:CLAUDE_PROJECT_DIR) { $env:CLAUDE_PROJECT_DIR = $ProjectDir }
     $env:AIENG_HOOK_ENGINE = "github_copilot"
     $env:PROJECT_DIR = $ProjectDir
     $env:HOOK_EVENT = $HookEvent
-    $env:COPILOT_INPUT_JSON = $InputJson
+    $env:COPILOT_INPUT_JSON = $script:CopilotPayloadRaw
     $PythonScript = @'
 import json
 import os

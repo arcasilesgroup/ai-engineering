@@ -223,7 +223,16 @@ PRE_PUSH_CHECKS: dict[str, list[CheckConfig]] = {
             ],
             timeout=180,
         ),
-        CheckConfig(name="ty-check", cmd=["ty", "check", "src/ai_engineering"]),
+        CheckConfig(
+            name="ty-check",
+            cmd=[
+                "ty",
+                "check",
+                "--exclude",
+                "src/ai_engineering/templates/**",
+                "src/ai_engineering",
+            ],
+        ),
     ],
     # Canonical spec-101 stack names (Wave 27 migration).
     "csharp": [
@@ -335,10 +344,22 @@ def _resolve_python_checks(
                 )
             )
         elif check.name == "ty-check":
+            # Exclude templates/ — the template hook scripts import
+            # `_lib.hook_common` which resolves at runtime via an
+            # `__init__.py` shim re-exporting `hook-common.py` (hyphen
+            # filename per spec-112 G-12). ty cannot follow runtime
+            # importlib magic; the canonical hooks are byte-equivalent
+            # and live outside the ty scope, so coverage is preserved.
             resolved.append(
                 CheckConfig(
                     name=check.name,
-                    cmd=["ty", "check", source_root],
+                    cmd=[
+                        "ty",
+                        "check",
+                        "--exclude",
+                        f"{source_root}/templates/**",
+                        source_root,
+                    ],
                     required=check.required,
                     timeout=check.timeout,
                 )
@@ -642,7 +663,18 @@ def _resolve_args(tool: ToolSpec, project_root: Path) -> tuple[str, ...]:
     if tool.name == "ty":
         # _DEFAULT_ARGS["ty"] = ("check",); append the dynamically-resolved
         # source root so the final argv is ``["ty", "check", "<src>"]``.
-        return _DEFAULT_ARGS["ty"] + (detect_python_source_root(project_root),)
+        # Templates/ are excluded — the template hooks import
+        # `_lib.hook_common` which resolves at runtime via an
+        # `__init__.py` shim re-exporting `hook-common.py` (hyphen
+        # filename per spec-112 G-12). ty cannot follow runtime
+        # importlib magic; canonical hooks are byte-equivalent and
+        # live outside the ty source root, so coverage is preserved.
+        source_root = detect_python_source_root(project_root)
+        return _DEFAULT_ARGS["ty"] + (
+            "--exclude",
+            f"{source_root}/templates/**",
+            source_root,
+        )
     return _DEFAULT_ARGS.get(tool.name, ())
 
 

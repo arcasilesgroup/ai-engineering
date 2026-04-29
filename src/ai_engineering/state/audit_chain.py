@@ -34,9 +34,13 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
+from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
+
+logger = logging.getLogger(__name__)
 
 # Field name carrying the chain pointer in canonical-JSON entries.
 _CHAIN_FIELD = "prev_event_hash"
@@ -100,6 +104,240 @@ def compute_entry_hash(entry: dict) -> str:
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
+def compute_event_hash(event_dict: dict) -> str:
+    """Canonical-JSON SHA-256 of an audit event payload (spec-110).
+
+    Spec-110 vocabulary aligns on "events" (writer + reader streaming
+    surface) where the existing audit-chain code uses "entries". The
+    hashing contract is identical: sorted keys, compact separators,
+    UTF-8 bytes, with chain-pointer fields stripped before hashing so
+    that round-tripping ``prev_event_hash`` through the payload is
+    stable.
+
+    This function is a thin wrapper over :func:`compute_entry_hash` --
+    the underlying byte canonicalization is the same -- exposed under
+    the spec-110 name so callers (writer migration, streaming reader)
+    can use the vocabulary the spec adopted without coupling to the
+    legacy "entry" name.
+
+    Args:
+        event_dict: Mapping payload of a single audit event.
+
+    Returns:
+        Hex-encoded SHA-256 (64 lowercase hex chars) of the canonical
+        JSON payload (sorted keys, compact separators, UTF-8 encoded),
+        with ``prev_event_hash`` and its camelCase alias stripped prior
+        to hashing.
+    """
+    return compute_entry_hash(event_dict)
+
+
+@dataclass(frozen=True)
+class ValidationResult:
+    """Per-event outcome from :func:`iter_validate_chain` (spec-110 D-110-03).
+
+    The streaming validator yields one :class:`ValidationResult` per
+    NDJSON event so callers can stop at the first break (forensic UX) or
+    aggregate every break (audit reports). The dataclass is frozen so
+    instances are hashable and safe to pass through async pipelines.
+
+    Attributes
+    ----------
+    valid:
+        ``True`` when the event's declared ``prev_event_hash`` matches
+        the computed hash of the prior event (or this is the first
+        event, which establishes the chain anchor).
+    line:
+        1-indexed line number in the source NDJSON file. ``0`` is
+        reserved for synthetic results (e.g. unparseable file).
+    event_id:
+        Identifier extracted from the event payload (``id`` field), or
+        ``None`` when absent. Useful for log forensics without leaking
+        the full event detail into validator output.
+    reason:
+        Human-readable description of why the event is invalid. ``None``
+        when ``valid`` is ``True``.
+    expected_hash:
+        Hash the validator computed for the prior event. ``None`` when
+        ``valid`` is ``True`` or no prior event exists.
+    actual_hash:
+        Value the event declared in its ``prev_event_hash`` pointer.
+        ``None`` when ``valid`` is ``True`` or the field was absent.
+    """
+
+    valid: bool
+    line: int
+    event_id: str | None
+    reason: str | None
+    expected_hash: str | None
+    actual_hash: str | None
+
+
+def _extract_chain_pointer(event: dict) -> tuple[str | None, bool, bool]:
+    """Locate the ``prev_event_hash`` pointer on ``event``.
+
+    Resolves the chain pointer in priority order:
+
+    1. Root-level ``prev_event_hash`` (canonical, post-spec-110).
+    2. Root-level ``prevEventHash`` (camelCase Pydantic alias).
+    3. ``detail.prev_event_hash`` (legacy, pre-spec-110 dual-read).
+
+    Returns
+    -------
+    tuple
+        ``(declared, present, legacy)`` where ``declared`` is the value
+        (may be ``None`` when the field is explicitly null), ``present``
+        is ``True`` when any of the three locations carried the field,
+        and ``legacy`` is ``True`` only when the value was sourced from
+        ``detail.prev_event_hash`` (so callers can warn under D-110-03).
+    """
+    if _CHAIN_FIELD in event:
+        return event[_CHAIN_FIELD], True, False
+    if _CHAIN_FIELD_ALIAS in event:
+        return event[_CHAIN_FIELD_ALIAS], True, False
+    detail = event.get("detail")
+    if isinstance(detail, dict) and _CHAIN_FIELD in detail:
+        return detail[_CHAIN_FIELD], True, True
+    return None, False, False
+
+
+def iter_validate_chain(
+    path: Path,
+) -> Iterator[
+    ValidationResult
+]:  # audit:exempt:streaming-state-machine-anchor-legacy-mismatch-branches
+    """Stream-validate a hash-chained NDJSON audit log (spec-110 D-110-03).
+
+    Walks ``path`` line-by-line, computing :func:`compute_event_hash`
+    for each event and comparing the next event's declared
+    ``prev_event_hash`` against the computed hash. Yields one
+    :class:`ValidationResult` per event so consumers can short-circuit
+    on the first break or accumulate every break.
+
+    Decision protocol:
+
+    * Empty/missing file -> no results yielded.
+    * Malformed JSON line -> single ``valid=False`` result with reason
+      ``"malformed JSON"``; iteration stops.
+    * First event (line 1) -> always ``valid=True``; establishes anchor.
+    * Subsequent events -> compare declared pointer vs computed hash of
+      prior event:
+        - Match (or both ``None``) -> ``valid=True``.
+        - Mismatch -> ``valid=False`` with ``reason="hash mismatch"``,
+          ``expected_hash`` = computed prior hash, ``actual_hash`` =
+          declared pointer.
+    * Legacy ``detail.prev_event_hash`` -> value is read transparently
+      (T-3.3 supports the read; T-3.4 emits the deprecation warning).
+
+    Args:
+        path: Path to the NDJSON audit log (one event per line).
+
+    Yields:
+        :class:`ValidationResult` per event, in file order.
+    """
+    if not path.exists():
+        return
+    text = path.read_text(encoding="utf-8")
+    if not text.strip():
+        return
+
+    prior_hash: str | None = None
+    prior_was_first = True
+    for lineno, raw_line in enumerate(text.splitlines(), start=1):
+        stripped = raw_line.strip()
+        if not stripped:
+            continue
+        try:
+            event = json.loads(stripped)
+        except json.JSONDecodeError as exc:
+            yield ValidationResult(
+                valid=False,
+                line=lineno,
+                event_id=None,
+                reason=f"malformed JSON: {exc.msg}",
+                expected_hash=None,
+                actual_hash=None,
+            )
+            return
+        if not isinstance(event, dict):
+            yield ValidationResult(
+                valid=False,
+                line=lineno,
+                event_id=None,
+                reason="event is not a JSON object",
+                expected_hash=None,
+                actual_hash=None,
+            )
+            return
+
+        event_id = event.get("id") if isinstance(event.get("id"), str) else None
+        declared, present, legacy = _extract_chain_pointer(event)
+        if legacy:
+            # ----------------------------------------------------------
+            # SUNSET 2026-05-29 (spec-114 T-3.6 marker, spec-115 follow-up)
+            # ----------------------------------------------------------
+            # D-110-03 dual-read warning: the writer migrated to root-level
+            # ``prev_event_hash`` but this event still carries the pointer
+            # only under ``detail.prev_event_hash``. Surface a deprecation
+            # nag so operators migrate before the 30-day grace window
+            # closes (2026-05-29; spec-110 + 30 days from 2026-04-29).
+            #
+            # Sunset plan (spec-115 / `/ai-skill-sharpen` x49):
+            #   - On 2026-05-29 (or after a clean ``ai-eng maintenance
+            #     reset-events`` run -- whichever comes first) drop the
+            #     ``legacy`` branch in :func:`_extract_chain_pointer` so
+            #     ``detail.prev_event_hash`` is no longer read, and remove
+            #     this warning + the marker that ``maintenance reset-events``
+            #     scans for in NDJSON. After that point a single chain
+            #     pointer location remains (root ``prev_event_hash``).
+            #   - The exact substring "legacy hash location detected" is
+            #     the same string that
+            #     ``ai_engineering.cli_commands.maintenance._has_recent_legacy_reads``
+            #     greps for in the NDJSON to gate ``reset-events``; both
+            #     must be retired together.
+            logger.warning(
+                "legacy hash location detected at line %d, migrate by 2026-05-29",
+                lineno,
+            )
+
+        if prior_was_first:
+            # First event in the file establishes the chain anchor.
+            # Any declared pointer is informational only -- a non-null
+            # head pointer is still legal in a sub-chain dump (e.g. a
+            # tail slice for forensic review). We do not flag here.
+            yield ValidationResult(
+                valid=True,
+                line=lineno,
+                event_id=event_id,
+                reason=None,
+                expected_hash=None,
+                actual_hash=declared if present else None,
+            )
+            prior_hash = compute_event_hash(event)
+            prior_was_first = False
+            continue
+
+        if declared == prior_hash:
+            yield ValidationResult(
+                valid=True,
+                line=lineno,
+                event_id=event_id,
+                reason=None,
+                expected_hash=prior_hash,
+                actual_hash=declared,
+            )
+        else:
+            yield ValidationResult(
+                valid=False,
+                line=lineno,
+                event_id=event_id,
+                reason="hash mismatch",
+                expected_hash=prior_hash,
+                actual_hash=declared,
+            )
+        prior_hash = compute_event_hash(event)
+
+
 def _load_entries(
     file_path: Path,
     mode: Literal["ndjson", "json_array"],
@@ -156,7 +394,7 @@ def _load_entries(
     return list(candidate), None
 
 
-def verify_audit_chain(
+def verify_audit_chain(  # audit:exempt:hash-chain-walker-head-truncation-mismatch-branches
     file_path: Path,
     mode: Literal["ndjson", "json_array"] = "ndjson",
 ) -> AuditChainVerdict:
@@ -240,6 +478,9 @@ def verify_audit_chain(
 
 __all__ = [
     "AuditChainVerdict",
+    "ValidationResult",
     "compute_entry_hash",
+    "compute_event_hash",
+    "iter_validate_chain",
     "verify_audit_chain",
 ]

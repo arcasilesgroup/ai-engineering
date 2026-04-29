@@ -1,209 +1,58 @@
-# AGENTS.md
+# AGENTS.md — Canonical Cross-IDE Rulebook
 
-Multi-IDE instruction file. Consumed by Claude Code, GitHub Copilot, Codex, Gemini CLI, and other AI coding assistants.
-This file is self-contained -- no other instruction files are required.
+> Hard rules live in [CONSTITUTION.md](CONSTITUTION.md). This file is
+> the canonical multi-IDE entry point and source of truth for skills,
+> agents, and IDE surfaces. IDE-specific overlays (CLAUDE.md,
+> GEMINI.md, .github/copilot-instructions.md) delegate to this file.
 
-## FIRST ACTION -- Mandatory
+## Step 0 — First Action
 
-Your first action in every session MUST be to run `/ai-start`.
-Do not respond to any user request until `/ai-start` completes.
-`/ai-start` and the rest of `/ai-*` are slash commands in the IDE agent surface, not terminal commands.
-Do not invent `ai-eng <skill>` equivalents unless the CLI reference explicitly lists them.
+Every session, the first action is:
 
-## Session Governance
+1. Read [CONSTITUTION.md](CONSTITUTION.md) (non-negotiable rules).
+2. Read `.ai-engineering/manifest.yml` (configuration source of truth).
+3. No implementation without an approved spec — invoke `/ai-brainstorm`
+   first when a task has no spec.
 
-If a skill applies to the current task, use it. No shortcuts.
+## Skills (49)
 
-| Rationalization | Correct action |
-|----------------|----------------|
-| "This is too simple for planning" | Use `/ai-plan` |
-| "I'll just make a quick fix" | Use `/ai-debug` |
-| "Tests aren't needed for this change" | Use `/ai-test` |
-| "I already know the answer" | Use the matching skill and verify |
-| "The user is in a hurry" | Follow the process faster, do not skip it |
-| "This doesn't need a spec" | Use `/ai-brainstorm` |
-| "I'll add tests later" | Follow TDD or add coverage immediately |
-| "Security scanning would slow us down" | Use `/ai-security` or `/ai-verify` |
+The full registry is in `.ai-engineering/manifest.yml` under
+`skills.registry`. Each skill is documented at
+`.codex/skills/ai-<name>/SKILL.md` and mirrored to other IDE surfaces.
 
-| User intent pattern | Required skill |
-|-------------------|----------------|
-| "implement", "build", "add feature" | `/ai-brainstorm` then `/ai-plan` then `/ai-dispatch` |
-| "fix", "bug", "broken", "not working" | `/ai-debug` |
-| "test", "coverage", "verify" | `/ai-test` or `/ai-verify` |
-| "refactor", "restructure", "move" | `/ai-brainstorm` then `/ai-plan` |
-| "commit", "push", "save" | `/ai-commit` |
-| "PR", "pull request", "review" | `/ai-pr` or `/ai-review` |
-| "deploy", "release", "publish" | `/ai-release-gate` |
-| "conflict", "merge conflict" | `/ai-resolve-conflicts` |
+Invoke skills via `/ai-<name>` in the IDE agent surface (slash command).
+Do not invent `ai-eng <skill>` terminal equivalents unless the CLI
+reference explicitly lists them.
 
-## Workflow Orchestration
+## Agents (10)
 
-### 1. Plan Mode Default
+The 10 first-class agents are listed in
+`.ai-engineering/manifest.yml` under `agents.registry` and documented at
+`.codex/agents/ai-<name>.md`. Each runs in its own context window;
+offload research and parallel analysis to them.
 
-- Enter plan mode for ANY non-trivial task (3+ steps or architectural decisions)
-- If something goes sideways, STOP and re-plan immediately -- don't keep pushing
-- Use plan mode for verification steps, not just building
-- Write detailed specs upfront to reduce ambiguity via `/ai-brainstorm`
+## Hard Rules
 
-### 2. Subagent Strategy
-
-- Offload research, exploration, and parallel analysis to subagents
-- For complex problems, throw more compute at it via subagents
-- One task per subagent for focused execution
-- Never have a subagent do two unrelated things
-
-### 3. Self-Improvement Loop
-
-- After ANY correction from the user: update `.ai-engineering/LESSONS.md` with the pattern
-- Write rules for yourself that prevent the same mistake
-- Ruthlessly iterate on these lessons until mistake rate drops
-- Review lessons at session start: read `.ai-engineering/LESSONS.md` proactively
-
-### 4. Verification Before Done
-
-- Never mark a task complete without proving it works
-- Run the tests. Run the linter. Check the output
-- Diff behavior between main and your changes when relevant
-- Ask yourself: "Would a staff engineer approve this?"
-
-### 5. Demand Elegance (Balanced)
-
-- For non-trivial changes: pause and ask "is there a more elegant way?"
-- If a fix feels hacky: "Knowing everything I know now, implement the elegant solution"
-- Skip this for simple, obvious fixes -- don't over-engineer
-- Clever is bad. Simple and clear is elegant
-
-### 6. Autonomous Bug Fixing
-
-- When given a bug report: just fix it. Don't ask for hand-holding
-- Point at logs, errors, failing tests -- then resolve them
-- If you see a bug while working on something else -- fix it and mention it in the commit
-- Zero context switching required from the user
-
-### 7. Parallel Execution
-
-- Batch independent operations into simultaneous tool calls
-- Never go sequential when you can go parallel
-
-### 8. Context Efficiency
-
-- Never re-read files already in context. Never dump code the user did not ask for
-- Use `startLine:endLine:filepath` to cite. Use `// ... existing code ...` for omissions
-
-### 9. Proactive Memory
-
-- Read/write `.ai-engineering/LESSONS.md` to persist learnings across sessions
-
-### 10. Context Loading
-
-Before writing or reviewing code, load the applicable context files:
-1. Detect the project's languages from file extensions and build config
-2. Read `.ai-engineering/contexts/languages/{language}.md` for each detected language
-3. Read `.ai-engineering/contexts/frameworks/{framework}.md` for each detected framework
-4. Read shared framework contexts when relevant: `.ai-engineering/contexts/cli-ux.md` for CLI work and `.ai-engineering/contexts/mcp-integrations.md` for MCP/server usage
-5. Read `.ai-engineering/contexts/team/*.md` for team conventions
-6. Apply loaded standards to all code generation and review
-
-## Task Management
-
-1. **Plan First**: Write plan via `/ai-plan` to `.ai-engineering/specs/plan.md` with checkable items
-2. **Verify Plan**: Check in before starting implementation
-3. **Track Progress**: Mark items complete in `.ai-engineering/specs/plan.md` as you go
-4. **Explain Changes**: High-level summary at each step
-5. **Document Results**: Add review to the spec tasks file
-6. **Capture Lessons**: Update `.ai-engineering/LESSONS.md` after corrections
-
-## Core Principles
-
-- **Simplicity First**: Make every change as simple as possible. Impact minimal code.
-- **No Laziness**: Find root causes. No temporary fixes. Senior developer standards.
-- **Minimal Impact**: Changes should only touch what's necessary. Avoid introducing bugs.
-- **Cross-Platform**: All generated code, scripts, and paths must work on Windows, macOS, and Linux. Use platform-agnostic idioms. No OS-specific assumptions without explicit fallbacks.
-
-## Agent Selection
-
-| Task | Agent | Invoke |
-|------|-------|--------|
-| Planning, specs, architecture | plan | `/ai-brainstorm` |
-| Writing/editing code | build | `/ai-dispatch` (after plan) |
-| Quality + security scanning | verify | `/ai-verify` |
-| Governance, compliance | guard | `/ai-governance` |
-| Code review (parallel agents) | review | `/ai-review` |
-| Deep codebase research | explore | direct dispatch |
-| Onboarding, teaching | guide | `/ai-guide` |
-| Simplify/refactor code | simplify | direct dispatch |
-| Multi-spec autonomous execution | autopilot | `/ai-autopilot` |
-| Autonomous backlog execution | run-orchestrator | `/ai-run` |
-
-## Skills (48)
-
-Grouped by type. Invoke as `/ai-<name>`.
-
-**Workflow:** brainstorm, plan, dispatch, code, test, debug, verify, review, eval, schema
-**Delivery:** commit, pr, release-gate, cleanup, market
-**Enterprise:** security, governance, pipeline, docs, board-discover, board-sync, platform-audit
-**Teaching:** explain, guide, write, slides, media, video-editing
-**Design:** design, animation, canvas
-**SDLC:** note, standup, sprint, postmortem, support, resolve-conflicts
-**Meta:** create, learn, prompt, start, analyze-permissions, instinct, autopilot, run, constitution, skill-evolve
-
-## Effort Levels
-
-Each skill declares `effort` in frontmatter. Assignment by cognitive weight:
-
-| Effort | Count |
-|--------|-------|
-| max | 11 (autopilot, brainstorm, governance, platform-audit, review, run, schema, security, skill-evolve, verify, eval) |
-| high | 23 (animation, board-discover, canvas, code, create, debug, design, dispatch, docs, explain, guide, market, pipeline, plan, postmortem, pr, release-gate, slides, sprint, support, test, video-editing, write) |
-| medium | 13 (analyze-permissions, board-sync, cleanup, commit, instinct, learn, media, note, start, constitution, prompt, resolve-conflicts, standup) |
-
-## Quality Gates
-
-| Metric | Threshold |
-|--------|-----------|
-| Test coverage | >= 80% |
-| Code duplication | <= 3% |
-| Cyclomatic complexity | <= 10 per function |
-| Cognitive complexity | <= 15 per function |
-| Blocker/critical issues | 0 |
-| Security findings (medium+) | 0 |
-| Secret leaks | 0 |
-| Dependency vulnerabilities | 0 |
-
-Tooling: `ruff` + `ty` (lint/format), `pytest` (test), `gitleaks` (secrets), `pip-audit` (deps).
+The non-negotiable rules are in [CONSTITUTION.md](CONSTITUTION.md).
+Read them before any commit, push, or risk-acceptance decision. Gate
+failure: diagnose, fix, retry. Use `ai-eng doctor --fix` when needed.
 
 ## Observability
 
-Telemetry is automatic via hooks and writes only canonical framework events.
-- `UserPromptSubmit(/ai-*)` hook emits `skill_invoked` events
-- `PostToolUse` agent hooks emit `agent_dispatched` and `ide_hook` events
-- Hook, gate, governance, security, and quality outcomes flow to `.ai-engineering/state/framework-events.ndjson`
-- Registered skills, agents, contexts, and hooks are catalogued in `.ai-engineering/state/framework-capabilities.json`
-- Session discovery and transcript viewing are delegated to separately installed `agentsview`
-
-## Don't
-
-1. **NEVER** `--no-verify` on any git command.
-2. **NEVER** skip or silence a failing gate -- fix the root cause.
-3. **NEVER** weaken gate severity or coverage thresholds.
-4. **NEVER** modify hook scripts -- they are hash-verified.
-5. **NEVER** push to protected branches (main, master).
-6. **NEVER** dismiss security findings without `state/decision-store.json` risk acceptance.
-7. **NEVER** add suppression comments (`# noqa`, `# nosec`, `# type: ignore`, `# pragma: no cover`, `# NOSONAR`, `// nolint`) to bypass quality gates. Fix the code. If it is a false positive, refactor to satisfy the analyzer or escalate with a full explanation.
-8. **NEVER** weaken a gate, threshold, or severity level without the full protocol: warn user of impact, generate a remediation patch, require explicit risk acceptance, persist to `state/decision-store.json`, and emit the outcome to `state/framework-events.ndjson`. NOTE (D-105-14): risk acceptance via `ai-eng risk accept` / `ai-eng risk accept-all` is **logged-acceptance** with TTL, owner, spec ref, and follow-up plan -- it is NOT weakening. Weakening means modifying `_SEVERITY_EXPIRY_DAYS`, adding suppression comments, disabling hooks, or lowering severity-class thresholds in code or config.
-
-Gate failure: diagnose, fix, retry. Use `ai-eng doctor --fix` or `ai-eng doctor --fix --phase <name>`.
+Hook, gate, governance, security, and quality outcomes flow to
+`.ai-engineering/state/framework-events.ndjson` (audit chain). Registered
+skills, agents, contexts, and hooks are catalogued in
+`.ai-engineering/state/framework-capabilities.json`. Session discovery
+and transcript viewing are delegated to the separately installed
+`agentsview` companion tool.
 
 ## Source of Truth
 
 | What | Where |
 |------|-------|
-| Skills (48) | `.codex/skills/ai-<name>/SKILL.md` |
+| Skills (49) | `.codex/skills/ai-<name>/SKILL.md` |
 | Agents (10) | `.codex/agents/ai-<name>.md` |
 | Config | `.ai-engineering/manifest.yml` |
 | Decisions | `.ai-engineering/state/decision-store.json` |
-| Active spec | `.ai-engineering/specs/spec.md` |
-| Contexts | `.ai-engineering/contexts/languages/`, `frameworks/`, `team/` |
-| Lessons | `.ai-engineering/LESSONS.md` |
-| Installer modes | `.ai-engineering/contexts/python-env-modes.md` (spec-101: 3 modes, EXIT 80/81 hard-fail, 14-stack `required_tools` coverage) |
-| CLI | `ai-eng <command>` |
+| Audit chain | `.ai-engineering/state/framework-events.ndjson` |
+| Constitution | [CONSTITUTION.md](CONSTITUTION.md) |

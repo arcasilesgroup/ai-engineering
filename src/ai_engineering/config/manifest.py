@@ -181,6 +181,29 @@ class GatesConfig(BaseModel):
     pre_commit: PreCommitGateConfig = Field(default_factory=PreCommitGateConfig)
 
 
+class HotPathSlosConfig(BaseModel):
+    """Hot-path SLO budgets driving ``ai-eng doctor --check hot-path``.
+
+    Spec-114 D-114-02 ports the spec-112 D-112-08 latency budgets into
+    the manifest so operators can tune them without code changes.
+
+    * ``pre_commit_p95_ms`` -- p95 budget for pre-commit hooks (default
+      1000 ms; CLAUDE.md hot-path discipline).
+    * ``pre_push_p95_ms`` -- p95 budget for pre-push hooks (default
+      5000 ms).
+    * ``skill_invocation_overhead_p95_ms`` -- p95 budget for the
+      ``UserPromptSubmit`` skill dispatcher (default 200 ms; the work
+      itself runs after dispatch and is not in scope).
+    * ``rolling_window_events`` -- how many recent events per hook the
+      doctor pulls from the NDJSON when computing p95 (default 100).
+    """
+
+    pre_commit_p95_ms: int = 1000
+    pre_push_p95_ms: int = 5000
+    skill_invocation_overhead_p95_ms: int = 200
+    rolling_window_events: int = 100
+
+
 # --- Root model ---
 
 
@@ -209,3 +232,4 @@ class ManifestConfig(BaseModel):
     tooling: list[str] = Field(default_factory=list)
     telemetry: TelemetryConfig = Field(default_factory=TelemetryConfig)
     gates: GatesConfig = Field(default_factory=GatesConfig)
+    hot_path_slos: HotPathSlosConfig = Field(default_factory=HotPathSlosConfig)
