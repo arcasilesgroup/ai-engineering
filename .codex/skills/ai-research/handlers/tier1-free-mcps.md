@@ -76,7 +76,12 @@ Return `Tier1Result(hits=deduped, degraded_sources=names)`. The synthesizer in `
 
 ## Resilience
 
-On any per-source failure, log a visible warning, append the source to `degraded_sources`, and continue. Phase 4 (T-4.9) implements degraded-mode user-facing surfacing.
+On any per-source failure (Context7 MCP down, MS Learn timeout, gh CLI rate-limited), the helper catches the exception, appends the source name to `degraded_sources`, and continues with the surviving futures. The synthesizer in `synthesize-with-citations.md` reads `degraded_sources` and surfaces a visible warning to the user, e.g.:
+
+- A single source down -> "Tier 1 degraded: <source> unavailable; results from <surviving sources>".
+- All three sources down -> "Tier 1 degraded: all external MCPs unavailable; falling back to local context (Tier 0)".
+
+The helper never re-raises; the skill is responsible for routing degraded-mode warnings into the synthesizer's `warnings` list. This guarantees a query still returns useful output when one source fails transiently.
 
 ## Implementation Reference
 

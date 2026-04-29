@@ -37,6 +37,8 @@ class Tier3Result:
     notebook_id: str = ""
     conversation_id: str = ""
     sources_added: list[str] = field(default_factory=list)
+    degraded: bool = False
+    warnings: list[str] = field(default_factory=list)
 
 
 # --- T-3.3: topic-slug generator --------------------------------------------
@@ -121,6 +123,13 @@ _CITATION_INSTRUCTION = " Answer with citations to the provided sources, using `
 _NotebookCreateCallable = Callable[..., dict]
 _SourceAddCallable = Callable[..., dict]
 _NotebookQueryCallable = Callable[..., dict]
+_ServerInfoCallable = Callable[[], dict]
+
+
+_AUTH_EXPIRED_WARNING = (
+    "notebooklm auth expired -- run `nlm login` to re-authenticate; "
+    "Tier 3 skipped, falling back to Tier 2 sources"
+)
 
 
 def tier3_notebooklm(
@@ -132,25 +141,46 @@ def tier3_notebooklm(
     source_add: _SourceAddCallable,
     notebook_query: _NotebookQueryCallable,
     reuse_notebook: str | None = None,
+    server_info: _ServerInfoCallable | None = None,
 ) -> Tier3Result:
     """Run the Tier 3 NotebookLM flow.
 
     Sequence (mirrors ``tier3-notebooklm.md`` §"Sequence"):
 
-    1. If ``reuse_notebook`` is provided, use that ID; else call
+    1. (T-4.9) If ``server_info`` is provided, probe it first. If the
+       probe returns ``authenticated: False``, return immediately with
+       ``degraded=True`` and the auth-expired warning. ``notebook_create``,
+       ``source_add``, ``notebook_query`` are NOT called in this case.
+    2. If ``reuse_notebook`` is provided, use that ID; else call
        ``notebook_create(title=...)`` with the templated title and capture
        the returned ID.
-    2. Call ``source_add`` for each URL in ``sources``, capped at the first
+    3. Call ``source_add`` for each URL in ``sources``, capped at the first
        20 entries.
-    3. Call ``notebook_query`` with the user query plus the citation
+    4. Call ``notebook_query`` with the user query plus the citation
        instruction; capture ``answer`` and ``conversation_id``.
-    4. Return a :class:`Tier3Result`.
+    5. Return a :class:`Tier3Result`.
 
-    Resilience is intentionally NOT modeled here -- the ``server_info``
-    auth probe and degraded-mode fallback land in T-4.9 (see handler).
-    Tests for this helper therefore do not exercise auth-expired paths.
+    Resilience: a single per-call exception during ``source_add`` or
+    ``notebook_query`` is captured and surfaced via ``degraded=True`` plus
+    the corresponding warning, but does not propagate to the caller -- the
+    skill should fall back to Tier 2 results in that case.
     """
-    # Step 1: notebook id.
+    # Step 1 (T-4.9): auth probe.
+    if server_info is not None:
+        try:
+            info = server_info() or {}
+        except Exception as exc:
+            return Tier3Result(
+                degraded=True,
+                warnings=[
+                    f"notebooklm server_info probe failed: {exc!r} -- "
+                    "Tier 3 skipped, run `nlm login` and retry"
+                ],
+            )
+        if not info.get("authenticated", True):
+            return Tier3Result(degraded=True, warnings=[_AUTH_EXPIRED_WARNING])
+
+    # Step 2: notebook id.
     if reuse_notebook is not None:
         notebook_id = reuse_notebook
     else:
@@ -158,12 +188,12 @@ def tier3_notebooklm(
         created = notebook_create(title=title)
         notebook_id = created["notebook_id"]
 
-    # Step 2: add sources, capped at 20.
+    # Step 3: add sources, capped at 20.
     capped_sources = list(sources)[:_MAX_SOURCES]
     for url in capped_sources:
         source_add(notebook_id=notebook_id, source_type="url", url=url)
 
-    # Step 3: query with citation instruction appended.
+    # Step 4: query with citation instruction appended.
     query_payload = f"{query}{_CITATION_INSTRUCTION}"
     queried = notebook_query(notebook_id=notebook_id, query=query_payload)
 

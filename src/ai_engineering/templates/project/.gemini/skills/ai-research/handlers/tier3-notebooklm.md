@@ -44,14 +44,15 @@ Implemented by `should_invoke_tier3(query, *, depth, tier12_source_count)`:
 
 Helpers `topic_slug`, `hash6`, and `notebook_title` are exported from the lockstep module.
 
-### Sequence (T-3.5)
+### Sequence (T-3.5 + T-4.9)
 
-1. **Resolve notebook id**:
+1. **(T-4.9) Auth probe**: if a `server_info` callable is provided, invoke `mcp__notebooklm-mcp__server_info()` first. If the probe raises OR returns `{"authenticated": false}`, short-circuit Tier 3 with `degraded=True` and warning `notebooklm auth expired -- run \`nlm login\` to re-authenticate; Tier 3 skipped, falling back to Tier 2 sources`. The skill MUST NOT call `notebook_create`, `source_add`, or `notebook_query` in this branch. The user receives the warning visibly so they can recover.
+2. **Resolve notebook id**:
    * If `reuse_notebook` was provided -> use that string directly.
    * Else call `mcp__notebooklm-mcp__notebook_create(title=notebook_title(...))` and read `notebook_id` from the response.
-2. **Add sources, capped at 20**: take the first 20 entries from `sources` and call `mcp__notebooklm-mcp__source_add(notebook_id=..., source_type='url', url=<each>)` per URL, in input order.
-3. **Query with citation instruction**: call `mcp__notebooklm-mcp__notebook_query(notebook_id=..., query=f"{query} Answer with citations to the provided sources, using `[N]` notation.")`. Capture `answer` and `conversation_id`.
-4. **Return** `Tier3Result(synthesized_response=answer, notebook_id=..., conversation_id=..., sources_added=capped)`.
+3. **Add sources, capped at 20**: take the first 20 entries from `sources` and call `mcp__notebooklm-mcp__source_add(notebook_id=..., source_type='url', url=<each>)` per URL, in input order.
+4. **Query with citation instruction**: call `mcp__notebooklm-mcp__notebook_query(notebook_id=..., query=f"{query} Answer with citations to the provided sources, using `[N]` notation.")`. Capture `answer` and `conversation_id`.
+5. **Return** `Tier3Result(synthesized_response=answer, notebook_id=..., conversation_id=..., sources_added=capped, degraded=False, warnings=[])`.
 
 ### Cap on Source Count
 
@@ -59,7 +60,9 @@ Helpers `topic_slug`, `hash6`, and `notebook_title` are exported from the lockst
 
 ## Resilience
 
-NotebookLM auth expiry is the most common failure mode. The Phase-3 lockstep helper does NOT model the auth probe -- that lands in T-4.9 alongside the user-facing degraded-mode banner. The `server_info` probe will short-circuit Tier 3 with `degraded=True` and surface a warning suggesting `nlm login`.
+NotebookLM auth expiry is the most common failure mode. The auth probe in step 1 short-circuits Tier 3 with `degraded=True` and surfaces a warning suggesting `nlm login`. The synthesizer then falls back to the Tier 2 corpus.
+
+When the probe itself raises (network error, MCP server unavailable), Tier 3 is also marked degraded with a corresponding warning so the user knows the answer is missing the deep-corpus tier.
 
 ## Implementation Reference
 
