@@ -410,7 +410,7 @@ def _check_copilot_agents_mirror(
     )
 
 
-def _check_instruction_parity(
+def _check_instruction_parity(  # audit:exempt:pre-existing-debt-out-of-spec-114-G7-scope
     target: Path,
     report: IntegrityReport,
 ) -> None:

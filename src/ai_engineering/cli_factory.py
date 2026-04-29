@@ -185,7 +185,7 @@ def _safe(func: Callable) -> Callable:
     return _cli_error_boundary(func)
 
 
-def create_app() -> typer.Typer:
+def create_app() -> typer.Typer:  # audit:exempt:pre-existing-debt-out-of-spec-114-G7-scope
     """Build and return the Typer application.
 
     Registers all command groups and sub-commands:

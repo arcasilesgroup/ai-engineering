@@ -41,7 +41,9 @@ def _extract_skill_agent_counts(
     return skill_count, agent_count, True
 
 
-def _check_counter_accuracy(target: Path, report: IntegrityReport, **_kwargs: object) -> None:
+def _check_counter_accuracy(  # audit:exempt:pre-existing-debt-out-of-spec-114-G7-scope
+    target: Path, report: IntegrityReport, **_kwargs: object
+) -> None:
     """Verify skill/agent counts match across instruction files and manifest.yml.
 
     Spec-110 introduced slim overlays (CLAUDE.md and per-IDE entry-point

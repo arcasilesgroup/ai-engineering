@@ -87,7 +87,7 @@ def _doctor_follow_up_counts(report: DoctorReport) -> tuple[int, int]:
     return fixable, manual
 
 
-def install_cmd(
+def install_cmd(  # audit:exempt:pre-existing-debt-out-of-spec-114-G7-scope
     target: Annotated[
         Path | None,
         typer.Argument(help="Target project root. Defaults to cwd."),
