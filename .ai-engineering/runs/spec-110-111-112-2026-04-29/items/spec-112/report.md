@@ -1,9 +1,13 @@
-# spec-112 Telemetry Foundation — Final Report (PARTIAL DELIVERY)
+# spec-112 Telemetry Foundation — Final Report
 
 **Branch**: `work/spec-110-111-112-2026-04-29/spec-112/telemetry-foundation`
-**Closed**: 2026-04-29 (partial)
+**Closed**: 2026-04-29 (partial), reopened/closed 2026-04-29 (complete via spec-114)
 
-## Verdict: PARTIAL — high-value pieces shipped, lower-value/hygiene deferred to spec-114
+## Verdict: COMPLETE (closed via spec-114)
+
+The original delivery was PARTIAL. The deferred Phase 3 / Phase 4 backlog
+shipped under spec-114 in the same run window, so spec-112 is now closed
+in full. See the [spec-114 closure section](#spec-114-closure) below.
 
 ## Goals coverage
 
@@ -74,3 +78,36 @@ These are all SAFE to defer because they're additive/hygienic. The critical tele
 ## Promotion
 
 Branch ready for promotion to `run/spec-110-111-112-2026-04-29` integration branch as PARTIAL spec-112 delivery.
+
+## Spec-114 closure
+
+**Date**: 2026-04-29
+**Closure spec**: [spec-114 — Telemetry Foundation Completion](../../../../specs/spec-114-telemetry-foundation-completion.md)
+**Closure plan**: [plan-114.md](../../../../specs/plan-114.md)
+**Closure run-state**: [items/spec-114/](../spec-114/report.md)
+
+The deferred backlog (T-2.9..T-2.14, T-3.1..T-3.16, T-4.1..T-4.7,
+T-4.9..T-4.17) shipped under spec-114 across 4 phases. Notable closure
+commits:
+
+```
+bf856bc1  refactor(spec-114): T-1.6 copilot-skill.{sh,ps1} adopt copilot-common
+57b8174b  refactor(spec-114): T-1.7..T-1.8 refactor 11 Copilot adapter pairs to lib
+215385f2  feat(spec-114): T-2.1..T-2.3 hot_path_slos manifest schema
+a20d6484  refactor(spec-114): T-2.4..T-2.6 run_hook_safe records duration_ms
+587957d6  feat(spec-114): T-2.7..T-2.8 doctor --check hot-path advisory audit
+1d908512  feat(spec-114): T-2.9..T-2.10 cross-OS test-hooks-matrix workflow
+8d096e3d  test(spec-114): T-3.1..T-3.3 maintenance reset-events RED tests
+94893f86  feat(spec-114): T-3.4..T-3.5 maintenance reset-events subcommand
+2efe744b  refactor(spec-114): T-3.6 document 2026-05-29 sunset on legacy hash dual-read
+7eee5af3  chore(spec-114): T-4.1 audit_function_size script + spec-114 exempts
+e5bb40b7  chore(spec-114): T-4.2 annotate worst-5 pre-existing 50-LOC offenders
+```
+
+With those commits in `run/spec-110-111-112-2026-04-29`, all spec-112
+goals (G-1..G-6 from the original spec + G-7..G-9 carried by spec-114)
+are satisfied: telemetry capture is correct, the hook-common port is
+complete, Codex/Gemini bridges are live, the Copilot DRY refactor and
+cross-OS CI matrix landed, hot-path SLO instrumentation is wired, the
+NDJSON reset command exists with both fail-closed gates, and the
+clean-code audit + final gates passed. PR #489 carries both specs.
