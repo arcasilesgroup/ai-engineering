@@ -267,7 +267,17 @@ def iter_validate_chain(path: Path) -> Iterator[ValidationResult]:
             return
 
         event_id = event.get("id") if isinstance(event.get("id"), str) else None
-        declared, present, _legacy = _extract_chain_pointer(event)
+        declared, present, legacy = _extract_chain_pointer(event)
+        if legacy:
+            # D-110-03 dual-read warning: the writer migrated to root-level
+            # ``prev_event_hash`` but this event still carries the pointer
+            # only under ``detail.prev_event_hash``. Surface a deprecation
+            # nag so operators migrate before the 30-day grace window
+            # closes (2026-05-29; spec-110 + 30 days from 2026-04-29).
+            logger.warning(
+                "legacy hash location detected at line %d, migrate by 2026-05-29",
+                lineno,
+            )
 
         if prior_was_first:
             # First event in the file establishes the chain anchor.
