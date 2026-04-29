@@ -62,6 +62,28 @@ def test_branch_protection_deny_main_push() -> None:
     assert decision.allow is False
 
 
+def test_inline_deny_message_parses_without_regex_header(tmp_path: Path) -> None:
+    """Inline deny headers are parsed deterministically without regex matching."""
+    from ai_engineering.governance.policy_engine import evaluate
+
+    policy = tmp_path / "inline_deny.rego"
+    policy.write_text(
+        "\n".join(
+            [
+                "package ai_engineering.test",
+                "default allow := true",
+                'deny["blocked branch"] if input.branch == "main"',
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    decision = evaluate(policy, {"branch": "main"})
+
+    assert decision.allow is False
+    assert decision.reason == "blocked branch"
+
+
 # ---------------------------------------------------------------------------
 # commit_conventional.rego — subject must match Conventional Commits prefix.
 # ---------------------------------------------------------------------------

@@ -54,6 +54,7 @@ Notes
 
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -440,9 +441,6 @@ class _Policy:
 
 _DEFAULT_RE = re.compile(r"^default\s+allow\s*:?=\s*(true|false)\s*$")
 _PACKAGE_RE = re.compile(r"^package\s+([A-Za-z_][A-Za-z0-9_.]*)\s*$")
-_ALLOW_RE = re.compile(r"^allow\s+if\s+(.+)$")
-_DENY_INLINE_RE = re.compile(r'^deny\[\s*"([^"]*)"\s*\]\s+if\s+(.+)$')
-_DENY_RE = re.compile(r"^deny\s+if\s+(.+)$")
 
 
 def _strip_comment(line: str) -> str:
@@ -464,6 +462,73 @@ def _strip_comment(line: str) -> str:
     return "".join(out).rstrip()
 
 
+def _parse_rule_line(line: str) -> _Rule | None:
+    """Parse allow/deny rule headers without regex backtracking risk."""
+
+    fields = line.split(maxsplit=2)
+    if len(fields) == 3 and fields[0] == "allow" and fields[1] == "if":
+        body = _Parser(_tokenize(fields[2])).parse()
+        return _Rule(kind="allow", body=body, message=None)
+
+    if len(fields) == 3 and fields[0] == "deny" and fields[1] == "if":
+        body = _Parser(_tokenize(fields[2])).parse()
+        return _Rule(kind="deny", body=body, message=None)
+
+    inline = _parse_inline_deny(line)
+    if inline is None:
+        return None
+    message, expr = inline
+    body = _Parser(_tokenize(expr)).parse()
+    return _Rule(kind="deny", body=body, message=message)
+
+
+def _parse_inline_deny(line: str) -> tuple[str, str] | None:
+    """Return ``(message, expr)`` for ``deny["msg"] if <expr>`` lines."""
+
+    if not line.startswith("deny"):
+        return None
+    rest = line[len("deny") :].lstrip()
+    if not rest.startswith("["):
+        return None
+    rest = rest[1:].lstrip()
+    if not rest.startswith('"'):
+        raise PolicyError(f"unsupported deny message syntax: {line!r}")
+
+    quote_end = _find_json_string_end(rest)
+    if quote_end is None:
+        raise PolicyError(f"unterminated deny message: {line!r}")
+    message_literal = rest[: quote_end + 1]
+    try:
+        message = json.loads(message_literal)
+    except json.JSONDecodeError as exc:
+        raise PolicyError(f"invalid deny message string: {line!r}") from exc
+    if not isinstance(message, str):  # pragma: no cover - JSON string guard
+        raise PolicyError(f"deny message must be a string: {line!r}")
+
+    rest = rest[quote_end + 1 :].lstrip()
+    if not rest.startswith("]"):
+        raise PolicyError(f"missing closing deny bracket: {line!r}")
+    rest = rest[1:].lstrip()
+    fields = rest.split(maxsplit=1)
+    if len(fields) != 2 or fields[0] != "if":
+        raise PolicyError(f"inline deny must use `if <expr>`: {line!r}")
+    return message, fields[1]
+
+
+def _find_json_string_end(text: str) -> int | None:
+    escaped = False
+    for index, char in enumerate(text[1:], start=1):
+        if escaped:
+            escaped = False
+            continue
+        if char == "\\":
+            escaped = True
+            continue
+        if char == '"':
+            return index
+    return None
+
+
 def _parse_policy(source: str) -> _Policy:
     package: str | None = None
     default_allow = False
@@ -482,20 +547,8 @@ def _parse_policy(source: str) -> _Policy:
             default_allow = match.group(1) == "true"
             continue
 
-        if (match := _ALLOW_RE.match(line)) is not None:
-            body = _Parser(_tokenize(match.group(1))).parse()
-            rules.append(_Rule(kind="allow", body=body, message=None))
-            continue
-
-        if (match := _DENY_INLINE_RE.match(line)) is not None:
-            message, expr = match.group(1), match.group(2)
-            body = _Parser(_tokenize(expr)).parse()
-            rules.append(_Rule(kind="deny", body=body, message=message))
-            continue
-
-        if (match := _DENY_RE.match(line)) is not None:
-            body = _Parser(_tokenize(match.group(1))).parse()
-            rules.append(_Rule(kind="deny", body=body, message=None))
+        if (rule := _parse_rule_line(line)) is not None:
+            rules.append(rule)
             continue
 
         raise PolicyError(f"unsupported policy line: {raw_line!r}")
