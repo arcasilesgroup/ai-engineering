@@ -1,70 +1,58 @@
-# CLAUDE.md — Claude Code Overlay
+# AGENTS.md — Canonical Cross-IDE Rulebook
 
-> See [AGENTS.md](./AGENTS.md) for the canonical cross-IDE rules (Step 0,
-> available skills, agents, and the hard rules that delegate to
-> [CONSTITUTION.md](./CONSTITUTION.md)). Read those first; this file
-> only adds Claude-Code-specific specifics.
+> Hard rules live in [CONSTITUTION.md](CONSTITUTION.md). This file is
+> the canonical multi-IDE entry point and source of truth for skills,
+> agents, and IDE surfaces. IDE-specific overlays (CLAUDE.md,
+> GEMINI.md, .github/copilot-instructions.md) delegate to this file.
 
-## Native Surface
+## Step 0 — First Action
 
-- **Slash commands** — invoke skills via `/ai-<name>` in the Claude Code agent
-  surface. Do not invent `ai-eng <skill>` terminal equivalents that are not
-  listed in the CLI reference.
-- **Skill location** — Claude Code project-scope skills live under
-  `.codex/skills/` (one directory per skill, `SKILL.md` inside). User-scope
-  copies live under `~/.codex/skills/` and are loaded as a fallback. The
-  authoritative path is the one referenced from
-  [AGENTS.md → Skills Available](./AGENTS.md#skills-available); see
-  Article V of [CONSTITUTION.md](./CONSTITUTION.md) for the SSOT contract.
-- **Subagents** — the dispatch surface is the 10 first-class agents listed in
-  [AGENTS.md → Agents Available](./AGENTS.md#agents-available). Each runs in
-  its own context window; offload research and parallel analysis to them.
+Every session, the first action is:
 
-## Hooks Configuration
+1. Read [CONSTITUTION.md](CONSTITUTION.md) (non-negotiable rules).
+2. Read `.ai-engineering/manifest.yml` (configuration source of truth).
+3. No implementation without an approved spec — invoke `/ai-brainstorm`
+   first when a task has no spec.
 
-Claude Code reads its hook wiring from `.claude/settings.json`:
+## Skills (49)
 
-- `UserPromptSubmit` runs the `/ai-*` dispatcher and emits `skill_invoked`
-  telemetry events.
-- `PostToolUse` runs the agent observability hooks (`agent_dispatched`,
-  `ide_hook` events).
-- All hook outcomes flow to `.ai-engineering/state/framework-events.ndjson`
-  for the audit chain.
+The full registry is in `.ai-engineering/manifest.yml` under
+`skills.registry`. Each skill is documented at
+`.codex/skills/ai-<name>/SKILL.md` and mirrored to other IDE surfaces.
 
-Hook scripts are hash-verified and the deny rules in `.claude/settings.json`
-are tracked in source control — treat both as read-only at the IDE layer.
+Invoke skills via `/ai-<name>` in the IDE agent surface (slash command).
+Do not invent `ai-eng <skill>` terminal equivalents unless the CLI
+reference explicitly lists them.
 
-## Hot-Path Discipline
+## Agents (10)
 
-Claude Code triggers pre-commit and pre-push hooks on every save/commit, so
-the local critical path must stay fast:
+The 10 first-class agents are listed in
+`.ai-engineering/manifest.yml` under `agents.registry` and documented at
+`.codex/agents/ai-<name>.md`. Each runs in its own context window;
+offload research and parallel analysis to them.
 
-- **Pre-commit budget**: under 1 second wall-clock for the deterministic
-  Layer-1 gate (lint, format check, secret scan on staged hunks only).
-- **Pre-push budget**: under 5 seconds for the residual checks before the
-  push pipeline takes over.
-- Anything heavier (full test suite, dependency audit, governance
-  evaluation) belongs in CI, not on the local hot path.
+## Hard Rules
 
-If a check exceeds budget, profile it and move work off the hot path before
-adding new logic to the hook.
-
-## Token Efficiency Tips
-
-- Use `/clear` when context is no longer load-bearing rather than letting
-  the conversation balloon — Claude Code keeps the full transcript in
-  context until cleared.
-- For deep codebase research, dispatch the `ai-explore` agent (read-only,
-  fresh context) instead of having the main thread read the whole tree.
-- Cite files with `startLine:endLine:filepath`; never paste large code
-  blocks the user did not ask for.
-- Treat `/ai-start` as the session bootstrap — it loads only what the
-  current task needs and avoids re-reading already-loaded context.
+The non-negotiable rules are in [CONSTITUTION.md](CONSTITUTION.md).
+Read them before any commit, push, or risk-acceptance decision. Gate
+failure: diagnose, fix, retry. Use `ai-eng doctor --fix` when needed.
 
 ## Observability
 
-Telemetry is automatic — refer to
-[AGENTS.md → Skills Available → `/ai-start`](./AGENTS.md#skills-available)
-for the bootstrap that registers hooks. Session discovery and transcript
-viewing are delegated to the separately installed `agentsview` companion
-tool.
+Hook, gate, governance, security, and quality outcomes flow to
+`.ai-engineering/state/framework-events.ndjson` (audit chain). Registered
+skills, agents, contexts, and hooks are catalogued in
+`.ai-engineering/state/framework-capabilities.json`. Session discovery
+and transcript viewing are delegated to the separately installed
+`agentsview` companion tool.
+
+## Source of Truth
+
+| What | Where |
+|------|-------|
+| Skills (49) | `.codex/skills/ai-<name>/SKILL.md` |
+| Agents (10) | `.codex/agents/ai-<name>.md` |
+| Config | `.ai-engineering/manifest.yml` |
+| Decisions | `.ai-engineering/state/decision-store.json` |
+| Audit chain | `.ai-engineering/state/framework-events.ndjson` |
+| Constitution | [CONSTITUTION.md](CONSTITUTION.md) |

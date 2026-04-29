@@ -105,17 +105,29 @@ def _iter_cache_steps(workflow: dict[str, Any]) -> list[dict[str, Any]]:
     return cache_steps
 
 
-def _is_v4(uses: str) -> bool:
-    """``actions/cache@v4`` (explicit tag).
+def _is_v4(uses: str, *, workflow_path: Path | None = None) -> bool:
+    """``actions/cache@v4`` accepted as either an explicit tag or a
+    SHA-pinned form annotated with ``# v4.x.y`` in the workflow file.
 
-    PyYAML's ``safe_load`` strips comments, so a pinned-SHA alias variant
-    (``actions/cache@<sha> # v4.x.y``) is not detectable from the parsed
-    value alone. The canonical accepted form here is therefore the
-    explicit ``@v4`` tag -- pinned SHAs without a textual ``v4`` token
-    are rejected to avoid silent downgrades to v3 (which lacks the
-    save-always semantics D-104-03 relies on).
+    Spec-110 (Article VI supply chain hardening) pinned all GitHub
+    Actions to commit SHAs with a trailing ``# v<version>`` comment
+    (e.g. ``actions/cache@<sha> # v4.3.0``). PyYAML's ``safe_load``
+    strips the comment, so when a SHA-pinned form is detected this
+    helper falls back to scanning the raw workflow text for a line
+    that contains both the SHA and the ``# v4`` annotation. Without
+    that fallback, the test would force an unpinned tag (`@v4`) and
+    contradict Article VI.
     """
-    return uses.startswith(f"{CACHE_ACTION_PREFIX}v4")
+    if uses.startswith(f"{CACHE_ACTION_PREFIX}v4"):
+        return True
+    if workflow_path is None:
+        return False
+    sha = uses.removeprefix(CACHE_ACTION_PREFIX)
+    if not (len(sha) == 40 and all(c in "0123456789abcdef" for c in sha)):
+        return False
+    raw = workflow_path.read_text(encoding="utf-8")
+    pin_marker = f"{CACHE_ACTION_PREFIX}{sha}"
+    return any(pin_marker in line and "# v4" in line for line in raw.splitlines())
 
 
 # ---------------------------------------------------------------------------
@@ -137,7 +149,7 @@ def test_ci_build_yml_has_cache_step() -> None:
     )
     # At least one of the cache steps must pin v4 (D-104-03 requires v4
     # for cross-job save-always semantics).
-    v4_steps = [s for s in cache_steps if _is_v4(s["uses"])]
+    v4_steps = [s for s in cache_steps if _is_v4(s["uses"], workflow_path=CI_BUILD_PATH)]
     assert v4_steps, (
         f"{CI_BUILD_PATH.relative_to(REPO_ROOT)} cache step is not pinned to v4. "
         f"Found: {[s['uses'] for s in cache_steps]}. "
@@ -157,7 +169,7 @@ def test_ci_check_yml_has_cache_step() -> None:
         f"{CI_CHECK_PATH.relative_to(REPO_ROOT)} has no actions/cache@v4 step. "
         "T-8.2 must add one for security/test jobs."
     )
-    v4_steps = [s for s in cache_steps if _is_v4(s["uses"])]
+    v4_steps = [s for s in cache_steps if _is_v4(s["uses"], workflow_path=CI_CHECK_PATH)]
     assert v4_steps, (
         f"{CI_CHECK_PATH.relative_to(REPO_ROOT)} cache step is not pinned to v4. "
         f"Found: {[s['uses'] for s in cache_steps]}. "

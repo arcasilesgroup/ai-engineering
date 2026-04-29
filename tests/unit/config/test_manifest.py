@@ -192,7 +192,8 @@ class TestSkills:
     def test_total(self, real_manifest_data: dict) -> None:
         config = ManifestConfig.model_validate(real_manifest_data)
         # spec-107: bumped 47 -> 48 with addition of /ai-mcp-sentinel skill.
-        assert config.skills.total == len(config.skills.registry) == 48
+        # spec-111: bumped 48 -> 49 with addition of /ai-research skill.
+        assert config.skills.total == len(config.skills.registry) == 49
 
     def test_prefix(self, real_manifest_data: dict) -> None:
         config = ManifestConfig.model_validate(real_manifest_data)

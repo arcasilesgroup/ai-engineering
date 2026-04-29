@@ -29,6 +29,7 @@ import sys
 import time
 import uuid
 from pathlib import Path
+from typing import cast
 
 logger = logging.getLogger("aieng.hook_common")
 
@@ -62,16 +63,17 @@ def validate_event_schema(event: object) -> bool:
     """Return True iff event matches the unified schema (spec-112 G-4)."""
     if not isinstance(event, dict):
         return False
+    event_dict = cast("dict[str, object]", event)
     for key in _REQUIRED_KEYS:
-        if key not in event:
+        if key not in event_dict:
             return False
-        value = event[key]
+        value = event_dict[key]
         if value is None or value == "":
             return False
-    engine = event.get("engine")
+    engine = event_dict.get("engine")
     if not isinstance(engine, str) or engine not in _ALLOWED_ENGINES:
         return False
-    detail = event.get("detail", {})
+    detail = event_dict.get("detail", {})
     return isinstance(detail, dict)
 
 

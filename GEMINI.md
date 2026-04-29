@@ -1,7 +1,9 @@
-# GEMINI.md
+# GEMINI.md — Gemini CLI Overlay
 
-Multi-IDE instruction file. Consumed by Gemini CLI and other AI coding assistants.
-This file is self-contained -- no other instruction files are required.
+> See [AGENTS.md](AGENTS.md) for the canonical cross-IDE rules (Step 0,
+> available skills, agents, and the hard rules that delegate to
+> [CONSTITUTION.md](CONSTITUTION.md)). Read those first; this file
+> only adds Gemini-CLI-specific specifics.
 
 ## FIRST ACTION -- Mandatory
 
@@ -156,17 +158,12 @@ Telemetry is automatic via hooks and writes only canonical framework events.
 - Registered skills, agents, contexts, and hooks are catalogued in `.ai-engineering/state/framework-capabilities.json`
 - Session discovery and transcript viewing are delegated to separately installed `agentsview`
 
-## Don't
+## Hard Rules
 
-1. **NEVER** `--no-verify` on any git command.
-2. **NEVER** skip or silence a failing gate -- fix the root cause.
-3. **NEVER** weaken gate severity or coverage thresholds.
-4. **NEVER** modify hook scripts -- they are hash-verified.
-5. **NEVER** push to protected branches (main, master).
-6. **NEVER** dismiss security findings without `state/decision-store.json` risk acceptance.
-7. **NEVER** disable or modify `.gemini/settings.json` deny rules.
-8. **NEVER** add suppression comments (`# noqa`, `# nosec`, `# type: ignore`, `# pragma: no cover`, `# NOSONAR`, `// nolint`) to bypass quality gates. Fix the code. If it is a false positive, refactor to satisfy the analyzer or escalate with a full explanation.
-9. **NEVER** weaken a gate, threshold, or severity level without the full protocol: warn user of impact, generate a remediation patch, require explicit risk acceptance, persist to `state/decision-store.json`, and emit the outcome to `state/framework-events.ndjson`.
+The non-negotiable rules live in [CONSTITUTION.md](CONSTITUTION.md), with the
+canonical cross-IDE summary in [AGENTS.md](AGENTS.md). Do not restate them
+here — read those first. This overlay only adds Gemini-CLI-specific notes
+below.
 
 Gate failure: diagnose, fix, retry. Use `ai-eng doctor --fix` or `ai-eng doctor --fix --phase <name>`.
 

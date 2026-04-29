@@ -70,7 +70,7 @@ Synthesized response in agent context PLUS, when persisted, a Markdown artifact 
 
 ## Integration
 
-- **Called by**: user directly, or `/ai-brainstorm`'s `handlers/interrogate.md` when a question requires external evidence.
+- **Called by**: user directly, or `/ai-brainstorm` (its interrogate handler) when a question requires external evidence.
 - **Calls**: `handlers/classify-query.md`, `handlers/tier0-local.md`, `handlers/tier1-free-mcps.md`, `handlers/tier2-web.md`, `handlers/tier3-notebooklm.md`, `handlers/synthesize-with-citations.md`, `handlers/persist-artifact.md`.
 - **Produces**: `.ai-engineering/research/<topic-slug>-<YYYY-MM-DD>.md` (when Tier 3 invoked or `--persist`).
 
