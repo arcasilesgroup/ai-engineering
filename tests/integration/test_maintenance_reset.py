@@ -101,7 +101,7 @@ def test_reset_archives_and_creates_fresh_ndjson(
         detail={"note": "predates the reset"},
     )
     events_path = _write_events(project, [original_event])
-    original_text = events_path.read_text(encoding="utf-8")
+    original_bytes = events_path.read_bytes()
 
     monkeypatch.setattr(maintenance_module, "_spec_110_in_main", lambda _root: True)
 
@@ -126,8 +126,8 @@ def test_reset_archives_and_creates_fresh_ndjson(
     assert ":" not in archive.name, "archive name must not contain ':' (cross-OS safety)"
 
     with gzip.open(archive, "rb") as gz:
-        archived_bytes = gz.read().decode("utf-8")
-    assert archived_bytes == original_text
+        archived_bytes = gz.read()
+    assert archived_bytes == original_bytes
 
     fresh_text = events_path.read_text(encoding="utf-8")
     fresh_lines = [line for line in fresh_text.splitlines() if line.strip()]
