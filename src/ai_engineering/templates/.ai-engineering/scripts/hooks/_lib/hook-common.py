@@ -214,51 +214,102 @@ def now_monotonic_ms() -> int:
 # ---------------------------------------------------------------------------
 
 
-def run_hook_safe(main_fn, *, component: str, hook_kind: str) -> None:
-    """Run `main_fn` and on any exception emit ide_hook(failure)+framework_error.
+def _emit_hook_heartbeat(*, component: str, hook_kind: str, duration_ms: int, outcome: str) -> None:
+    """Append a hot-path heartbeat event carrying duration_ms (spec-114 G-2).
 
-    Always returns 0 to the OS so hooks remain fail-open (D-105-09 + spec
-    R-1: hooks must never block IDE flow). The error event is appended
-    via `emit_event()` so the chain stays valid even on failure paths.
-
-    Imported lazily by hooks; the seal contract still holds because this
-    function performs no `ai_engineering.*` imports.
+    Best-effort: any failure here is swallowed so the hook still exits 0.
+    The event uses `kind: ide_hook` so existing readers (doctor, audit
+    chain) treat it as a normal hook outcome record.
     """
+    try:
+        project_root = _resolve_project_root()
+        engine = os.environ.get("AIENG_HOOK_ENGINE") or "claude_code"
+        event = {
+            "kind": "ide_hook",
+            "engine": engine,
+            "timestamp": _now_iso(),
+            "component": component,
+            "outcome": outcome,
+            "correlationId": get_correlation_id(),
+            "schemaVersion": "1.0",
+            "project": project_root.name,
+            "source": "hook",
+            "detail": {
+                "hook_kind": hook_kind,
+                "outcome": outcome,
+                "duration_ms": duration_ms,
+            },
+        }
+        session_id = get_session_id()
+        if session_id:
+            event["sessionId"] = session_id
+        emit_event(project_root, event)
+    except Exception:
+        pass
+
+
+def _emit_hook_error(*, component: str, hook_kind: str, exc: BaseException) -> None:
+    """Append the framework_error event when main_fn raised (spec-112 D-112-04)."""
+    try:
+        project_root = _resolve_project_root()
+        engine = os.environ.get("AIENG_HOOK_ENGINE") or "claude_code"
+        event = {
+            "kind": "framework_error",
+            "engine": engine,
+            "timestamp": _now_iso(),
+            "component": component,
+            "outcome": "failure",
+            "correlationId": get_correlation_id(),
+            "schemaVersion": "1.0",
+            "project": project_root.name,
+            "source": "hook",
+            "detail": {
+                "error_code": "hook_execution_failed",
+                "summary": str(exc)[:200],
+                "hook_kind": hook_kind,
+            },
+        }
+        session_id = get_session_id()
+        if session_id:
+            event["sessionId"] = session_id
+        emit_event(project_root, event)
+    except Exception:
+        pass
+
+
+def run_hook_safe(main_fn, *, component: str, hook_kind: str) -> None:
+    """Run `main_fn` with hot-path instrumentation; always exit 0.
+
+    Spec-112 T-1.10 introduced this wrapper to centralise the fail-open
+    boilerplate. Spec-114 G-2 extends it with `time.perf_counter()`
+    measurement and a heartbeat event carrying `detail.duration_ms` so
+    `ai-eng doctor --check hot-path` can compute rolling p95 per hook.
+
+    Hooks may exit non-zero intentionally via `SystemExit` (e.g.
+    injection-guard deny); we re-raise without writing the heartbeat
+    so deny semantics stay legible to operators reading the NDJSON.
+
+    Imported lazily by hooks; the seal contract still holds because
+    this function performs no `ai_engineering.*` imports.
+    """
+    start = time.perf_counter()
+    outcome = "success"
+    raised: BaseException | None = None
     try:
         main_fn()
     except SystemExit:
-        # Hooks may exit non-zero intentionally (e.g. injection-guard deny);
-        # propagate the explicit code without recording an error event.
+        # Intentional exit (e.g. injection deny) — bypass heartbeat
+        # so the explicit exit code is preserved without an extra event.
         raise
     except Exception as exc:
-        # Best-effort error reporting; if even this fails (e.g. disk full)
-        # we still exit 0.
-        try:
-            project_root = _resolve_project_root()
-            engine = os.environ.get("AIENG_HOOK_ENGINE") or "claude_code"
-            session_id = get_session_id()
-            correlation_id = get_correlation_id()
-            error_event = {
-                "kind": "framework_error",
-                "engine": engine,
-                "timestamp": _now_iso(),
-                "component": component,
-                "outcome": "failure",
-                "correlationId": correlation_id,
-                "schemaVersion": "1.0",
-                "project": project_root.name,
-                "source": "hook",
-                "detail": {
-                    "error_code": "hook_execution_failed",
-                    "summary": str(exc)[:200],
-                    "hook_kind": hook_kind,
-                },
-            }
-            if session_id:
-                error_event["sessionId"] = session_id
-            emit_event(project_root, error_event)
-        except Exception:
-            pass
+        outcome = "failure"
+        raised = exc
+    duration_ms = max(0, round((time.perf_counter() - start) * 1000))
+    _emit_hook_heartbeat(
+        component=component, hook_kind=hook_kind, duration_ms=duration_ms, outcome=outcome
+    )
+    if raised is not None:
+        _emit_hook_error(component=component, hook_kind=hook_kind, exc=raised)
     sys.exit(0)
 
 
