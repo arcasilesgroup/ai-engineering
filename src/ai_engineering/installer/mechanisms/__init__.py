@@ -399,7 +399,15 @@ def _download_via_urllib(url: str, target_path: Path) -> InstallResult:
     # - re-checks redirected URLs against the allowlist (defense in depth)
     proxy_handler = _format_proxy_handler()
     redirect_handler = _AllowlistRedirectHandler(max_redirects=_URLLIB_MAX_REDIRECTS)
-    https_handler = urllib.request.HTTPSHandler(context=ssl.create_default_context())
+    # ``ssl.create_default_context()`` already returns a context with
+    # ``verify_mode = CERT_REQUIRED`` and ``check_hostname = True``, but
+    # Sonar's S4830 pattern-matcher cannot reason transitively about that
+    # default. Make the contract explicit (defence-in-depth + linter
+    # clarity) so a future refactor cannot silently drop verification.
+    ssl_context = ssl.create_default_context()
+    ssl_context.check_hostname = True
+    ssl_context.verify_mode = ssl.CERT_REQUIRED
+    https_handler = urllib.request.HTTPSHandler(context=ssl_context)
     opener = urllib.request.build_opener(proxy_handler, redirect_handler, https_handler)
 
     request = urllib.request.Request(url, headers={"User-Agent": "ai-engineering"})
