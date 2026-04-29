@@ -269,11 +269,28 @@ def iter_validate_chain(path: Path) -> Iterator[ValidationResult]:
         event_id = event.get("id") if isinstance(event.get("id"), str) else None
         declared, present, legacy = _extract_chain_pointer(event)
         if legacy:
+            # ----------------------------------------------------------
+            # SUNSET 2026-05-29 (spec-114 T-3.6 marker, spec-115 follow-up)
+            # ----------------------------------------------------------
             # D-110-03 dual-read warning: the writer migrated to root-level
             # ``prev_event_hash`` but this event still carries the pointer
             # only under ``detail.prev_event_hash``. Surface a deprecation
             # nag so operators migrate before the 30-day grace window
             # closes (2026-05-29; spec-110 + 30 days from 2026-04-29).
+            #
+            # Sunset plan (spec-115 / `/ai-skill-sharpen` x49):
+            #   - On 2026-05-29 (or after a clean ``ai-eng maintenance
+            #     reset-events`` run -- whichever comes first) drop the
+            #     ``legacy`` branch in :func:`_extract_chain_pointer` so
+            #     ``detail.prev_event_hash`` is no longer read, and remove
+            #     this warning + the marker that ``maintenance reset-events``
+            #     scans for in NDJSON. After that point a single chain
+            #     pointer location remains (root ``prev_event_hash``).
+            #   - The exact substring "legacy hash location detected" is
+            #     the same string that
+            #     ``ai_engineering.cli_commands.maintenance._has_recent_legacy_reads``
+            #     greps for in the NDJSON to gate ``reset-events``; both
+            #     must be retired together.
             logger.warning(
                 "legacy hash location detected at line %d, migrate by 2026-05-29",
                 lineno,
