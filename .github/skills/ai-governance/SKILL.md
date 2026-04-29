@@ -67,6 +67,49 @@ Validate manifest claims match disk reality.
 3. **State file schemas** -- confirm `state/` files are valid JSON/NDJSON with required keys.
 4. **Command file existence** -- verify each SKILL.md has valid YAML frontmatter.
 
+## Policy Engine Integration
+
+Spec-110 Phase 3 ships a Rego-subset evaluator at
+`src/ai_engineering/governance/policy_engine.py`. Use it whenever a gate
+can be expressed as a `.rego` rule under `.ai-engineering/policies/` rather
+than ad-hoc Python.
+
+### Active Policies
+
+| Policy file | Input shape | Purpose |
+|-------------|-------------|---------|
+| `branch_protection.rego` | `{"branch": str, "action": str}` | Deny pushes to `main`/`master`. |
+| `commit_conventional.rego` | `{"subject": str}` | Require Conventional Commits subject. |
+| `risk_acceptance_ttl.rego` | `{"now": RFC-3339, "ttl_expires_at": RFC-3339}` | Allow only while not expired. |
+
+### Invocation
+
+```python
+from pathlib import Path
+from ai_engineering.governance.policy_engine import evaluate, Decision
+
+policy = Path(".ai-engineering/policies/branch_protection.rego")
+decision: Decision = evaluate(policy, {"branch": "main", "action": "push"})
+if not decision.allow:
+    raise SystemExit(f"governance gate failed: {decision.reason}")
+```
+
+The first firing `allow if` wins; otherwise the first firing `deny if`
+wins (its message becomes `reason`); otherwise `default allow := <bool>`
+applies.
+
+### Engine Scope (per D-110-04)
+
+The evaluator is a *subset* of OPA Rego, not a full OPA daemon -- this
+avoids a Go runtime in CI and Claude hooks. New policies must stay in
+grammar: `package`/`default allow`, `allow if`/`deny[<msg>] if`/`deny if`,
+`input.<dotted.path>`, literals (numbers, bools, `null`, strings),
+comparisons (`==`/`!=`/`<`/`<=`/`>`/`>=`), boolean ops (`and`/`or`/`not`)
+with parentheses, and built-ins `regex.match` and `time.parse_rfc3339_ns`.
+Anything outside raises `PolicyError`; escalate per spec-110 R-4 instead
+of extending silently. Cover new policies with `tests/unit/governance/`
+and update the Active Policies table.
+
 ### `--report` -- Formal Report
 
 The `--report` flag can combine with any mode (e.g., `/ai-governance integrity --report`). Without a mode, it defaults to `compliance`.
@@ -119,4 +162,9 @@ Scoring: start at 100. Deduct: blocker -25, critical -15, major -5, minor -1. Fl
 
 - `.ai-engineering/manifest.yml` -- governance non-negotiables and quality thresholds.
 - `state/decision-store.json` -- risk acceptance records.
+- `.ai-engineering/policies/branch_protection.rego` -- branch-push policy (spec-110 Phase 3).
+- `.ai-engineering/policies/commit_conventional.rego` -- conventional-commits policy.
+- `.ai-engineering/policies/risk_acceptance_ttl.rego` -- risk-acceptance TTL policy.
+- `src/ai_engineering/governance/policy_engine.py` -- Rego-subset evaluator (spec-110 T-3.8..T-3.10).
+- `.ai-engineering/specs/spec-110-governance-v3-harvest.md` -- lineage and D-110-04.
 $ARGUMENTS

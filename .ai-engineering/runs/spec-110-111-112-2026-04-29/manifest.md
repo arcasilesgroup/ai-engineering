@@ -131,7 +131,7 @@ main (protected)
 
 | Time | Item | Target | Result |
 |---|---|---|---|
-| (none yet) | — | — | — |
+| 2026-04-29T01:42Z | spec-110 T-1.1 | work/.../spec-110/governance-v3-harvest @ commit `8449b901` | RED test created — failing as expected (TDD RED phase clean) |
 
 ## Quality
 
@@ -145,9 +145,13 @@ main (protected)
 
 ## Resume
 
-- **Re-enter at**: Phase 3 — DAG and Wave Planning complete. Phase 4 Wave 1 dispatch pending.
-- **Next action**: dispatch `ai-build` for spec-110 Phase 1 Task T-1.1 (write failing test for CONSTITUTION presence) on branch `work/spec-110-111-112-2026-04-29/spec-110/governance-v3-harvest` (to be created from `run/spec-110-111-112-2026-04-29` integration branch, which is created from `main`).
-- **Checkpoint state**: items/<id>/spec.md and items/<id>/plan.md populated. Reports not yet generated. Branches not yet created (will be created in Phase 4 Step 1).
+- **Re-enter at**: Phase 4 Wave 1 — spec-110 Phase 1 in progress (1/14 tasks done). spec-111 Phase 1 dispatch pending (parallel work branch not yet created).
+- **Next action**: dispatch `ai-build` for spec-110 T-1.2 (`test_each_article_has_at_least_one_numbered_rule`, blocked by T-1.1 done — now ready). Continue T-1.3 → T-1.5 (GREEN phase: invoke `/ai-constitution` to generate CONSTITUTION.md, then adapt per D-110-01) → T-1.6 → ... per plan-110.md sequential dependencies. In parallel (separate work branch `work/spec-110-111-112-2026-04-29/spec-111/ai-research-skill`), can begin spec-111 T-1.1 (skill scaffold test).
+- **Checkpoint state**: 
+  - Run branch `run/spec-110-111-112-2026-04-29` (commit `0a54d59e`) contains all run state + specs + plans.
+  - Work branch `work/spec-110-111-112-2026-04-29/spec-110/governance-v3-harvest` (commit `8449b901`) has 1 RED test passing the gate.
+  - 13 + 1 files committed; pre-existing untracked files (install-state, spec-113, scripts/clean-install-test.sh) remain untouched and outside the run scope.
+- **Resume command**: `/ai-run --resume` should re-enter Phase 4 Wave 1, read manifest, locate the work branch, and continue with T-1.2.
 
 ## Final Delivery State
 

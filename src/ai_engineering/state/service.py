@@ -12,7 +12,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from ai_engineering.state.io import append_ndjson, read_json_model, write_json_model
+from ai_engineering.state.io import read_json_model, write_json_model
 from ai_engineering.state.models import (
     DecisionStore,
     FrameworkCapabilitiesCatalog,
@@ -49,8 +49,20 @@ class StateService:
         return read_json_model(self._state_dir / "ownership-map.json", OwnershipMap)
 
     def append_framework_event(self, entry: FrameworkEvent) -> None:
-        """Append an entry to the canonical framework event stream."""
-        append_ndjson(self._state_dir / "framework-events.ndjson", entry)
+        """Append an entry to the canonical framework event stream.
+
+        Spec-110 D-110-03: writes ``prev_event_hash`` at the root of the
+        emitted JSON object (sibling of ``kind`` / ``detail``) so the
+        tamper-evident chain in ``audit_chain.iter_validate_chain`` finds
+        the pointer at the canonical location. Delegates to the
+        canonical writer in :mod:`ai_engineering.state.observability` so
+        the chain-pointer logic stays single-sourced. Imported lazily to
+        avoid a module-level cycle (``observability`` imports from
+        ``state.io`` and ``state.models``).
+        """
+        from ai_engineering.state.observability import append_framework_event
+
+        append_framework_event(self._root, entry)
 
     def save_framework_capabilities(self, catalog: FrameworkCapabilitiesCatalog) -> None:
         """Persist the canonical framework capability catalog."""

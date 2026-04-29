@@ -1,210 +1,70 @@
-# CLAUDE.md
+# CLAUDE.md — Claude Code Overlay
 
-Multi-IDE instruction file. Consumed by Claude Code, GitHub Copilot, Codex, Gemini CLI, and other AI coding assistants.
-This file is self-contained -- no other instruction files are required.
+> See [AGENTS.md](./AGENTS.md) for the canonical cross-IDE rules (Step 0,
+> available skills, agents, and the hard rules that delegate to
+> [CONSTITUTION.md](./CONSTITUTION.md)). Read those first; this file
+> only adds Claude-Code-specific specifics.
 
-## FIRST ACTION -- Mandatory
+## Native Surface
 
-Your first action in every session MUST be to run `/ai-start`.
-Do not respond to any user request until `/ai-start` completes.
-`/ai-start` and the rest of `/ai-*` are slash commands in the IDE agent surface, not terminal commands.
-Do not invent `ai-eng <skill>` equivalents unless the CLI reference explicitly lists them.
+- **Slash commands** — invoke skills via `/ai-<name>` in the Claude Code agent
+  surface. Do not invent `ai-eng <skill>` terminal equivalents that are not
+  listed in the CLI reference.
+- **Skill location** — Claude Code project-scope skills live under
+  `.claude/skills/` (one directory per skill, `SKILL.md` inside). User-scope
+  copies live under `~/.claude/skills/` and are loaded as a fallback. The
+  authoritative path is the one referenced from
+  [AGENTS.md → Skills Available](./AGENTS.md#skills-available); see
+  Article V of [CONSTITUTION.md](./CONSTITUTION.md) for the SSOT contract.
+- **Subagents** — the dispatch surface is the 10 first-class agents listed in
+  [AGENTS.md → Agents Available](./AGENTS.md#agents-available). Each runs in
+  its own context window; offload research and parallel analysis to them.
 
-## Session Governance
+## Hooks Configuration
 
-If a skill applies to the current task, use it. No shortcuts.
+Claude Code reads its hook wiring from `.claude/settings.json`:
 
-| Rationalization | Correct action |
-|----------------|----------------|
-| "This is too simple for planning" | Use `/ai-plan` |
-| "I'll just make a quick fix" | Use `/ai-debug` |
-| "Tests aren't needed for this change" | Use `/ai-test` |
-| "I already know the answer" | Use the matching skill and verify |
-| "The user is in a hurry" | Follow the process faster, do not skip it |
-| "This doesn't need a spec" | Use `/ai-brainstorm` |
-| "I'll add tests later" | Follow TDD or add coverage immediately |
-| "Security scanning would slow us down" | Use `/ai-security` or `/ai-verify` |
+- `UserPromptSubmit` runs the `/ai-*` dispatcher and emits `skill_invoked`
+  telemetry events.
+- `PostToolUse` runs the agent observability hooks (`agent_dispatched`,
+  `ide_hook` events).
+- All hook outcomes flow to `.ai-engineering/state/framework-events.ndjson`
+  for the audit chain.
 
-| User intent pattern | Required skill |
-|-------------------|----------------|
-| "implement", "build", "add feature" | `/ai-brainstorm` then `/ai-plan` then `/ai-dispatch` |
-| "fix", "bug", "broken", "not working" | `/ai-debug` |
-| "test", "coverage", "verify" | `/ai-test` or `/ai-verify` |
-| "refactor", "restructure", "move" | `/ai-brainstorm` then `/ai-plan` |
-| "commit", "push", "save" | `/ai-commit` |
-| "PR", "pull request", "review" | `/ai-pr` or `/ai-review` |
-| "deploy", "release", "publish" | `/ai-release-gate` |
-| "conflict", "merge conflict" | `/ai-resolve-conflicts` |
+Hook scripts are hash-verified and the deny rules in `.claude/settings.json`
+are tracked in source control — treat both as read-only at the IDE layer.
 
-## Workflow Orchestration
+## Hot-Path Discipline
 
-### 1. Plan Mode Default
+Claude Code triggers pre-commit and pre-push hooks on every save/commit, so
+the local critical path must stay fast:
 
-- Enter plan mode for ANY non-trivial task (3+ steps or architectural decisions)
-- If something goes sideways, STOP and re-plan immediately -- don't keep pushing
-- Use plan mode for verification steps, not just building
-- Write detailed specs upfront to reduce ambiguity via `/ai-brainstorm`
+- **Pre-commit budget**: under 1 second wall-clock for the deterministic
+  Layer-1 gate (lint, format check, secret scan on staged hunks only).
+- **Pre-push budget**: under 5 seconds for the residual checks before the
+  push pipeline takes over.
+- Anything heavier (full test suite, dependency audit, governance
+  evaluation) belongs in CI, not on the local hot path.
 
-### 2. Subagent Strategy
+If a check exceeds budget, profile it and move work off the hot path before
+adding new logic to the hook.
 
-- Offload research, exploration, and parallel analysis to subagents
-- For complex problems, throw more compute at it via subagents
-- One task per subagent for focused execution
-- Never have a subagent do two unrelated things
+## Token Efficiency Tips
 
-### 3. Self-Improvement Loop
-
-- After ANY correction from the user: update `.ai-engineering/LESSONS.md` with the pattern
-- Write rules for yourself that prevent the same mistake
-- Ruthlessly iterate on these lessons until mistake rate drops
-- Review lessons at session start: read `.ai-engineering/LESSONS.md` proactively
-
-### 4. Verification Before Done
-
-- Never mark a task complete without proving it works
-- Run the tests. Run the linter. Check the output
-- Diff behavior between main and your changes when relevant
-- Ask yourself: "Would a staff engineer approve this?"
-
-### 5. Demand Elegance (Balanced)
-
-- For non-trivial changes: pause and ask "is there a more elegant way?"
-- If a fix feels hacky: "Knowing everything I know now, implement the elegant solution"
-- Skip this for simple, obvious fixes -- don't over-engineer
-- Clever is bad. Simple and clear is elegant
-
-### 6. Autonomous Bug Fixing
-
-- When given a bug report: just fix it. Don't ask for hand-holding
-- Point at logs, errors, failing tests -- then resolve them
-- If you see a bug while working on something else -- fix it and mention it in the commit
-- Zero context switching required from the user
-
-### 7. Parallel Execution
-
-- Batch independent operations into simultaneous tool calls
-- Never go sequential when you can go parallel
-
-### 8. Context Efficiency
-
-- Never re-read files already in context. Never dump code the user did not ask for
-- Use `startLine:endLine:filepath` to cite. Use `// ... existing code ...` for omissions
-
-### 9. Proactive Memory
-
-- Read/write `.ai-engineering/LESSONS.md` to persist learnings across sessions
-
-### 10. Context Loading
-
-Before writing or reviewing code, load the applicable context files:
-1. Detect the project's languages from file extensions and build config
-2. Read `.ai-engineering/contexts/languages/{language}.md` for each detected language
-3. Read `.ai-engineering/contexts/frameworks/{framework}.md` for each detected framework
-4. Read shared framework contexts when relevant: `.ai-engineering/contexts/cli-ux.md` for CLI work and `.ai-engineering/contexts/mcp-integrations.md` for MCP/server usage
-5. Read `.ai-engineering/contexts/team/*.md` for team conventions
-6. Apply loaded standards to all code generation and review
-
-## Task Management
-
-1. **Plan First**: Write plan via `/ai-plan` to `.ai-engineering/specs/plan.md` with checkable items
-2. **Verify Plan**: Check in before starting implementation
-3. **Track Progress**: Mark items complete in `.ai-engineering/specs/plan.md` as you go
-4. **Explain Changes**: High-level summary at each step
-5. **Document Results**: Add review to the spec tasks file
-6. **Capture Lessons**: Update `.ai-engineering/LESSONS.md` after corrections
-
-## Core Principles
-
-- **Simplicity First**: Make every change as simple as possible. Impact minimal code.
-- **No Laziness**: Find root causes. No temporary fixes. Senior developer standards.
-- **Minimal Impact**: Changes should only touch what's necessary. Avoid introducing bugs.
-- **Cross-Platform**: All generated code, scripts, and paths must work on Windows, macOS, and Linux. Use platform-agnostic idioms. No OS-specific assumptions without explicit fallbacks.
-
-## Agent Selection
-
-| Task | Agent | Invoke |
-|------|-------|--------|
-| Planning, specs, architecture | plan | `/ai-brainstorm` |
-| Writing/editing code | build | `/ai-dispatch` (after plan) |
-| Quality + security scanning | verify | `/ai-verify` |
-| Governance, compliance | guard | `/ai-governance` |
-| Code review (parallel agents) | review | `/ai-review` |
-| Deep codebase research | explore | direct dispatch |
-| Onboarding, teaching | guide | `/ai-guide` |
-| Simplify/refactor code | simplify | direct dispatch |
-| Multi-spec autonomous execution | autopilot | `/ai-autopilot` |
-| Autonomous backlog execution | run-orchestrator | `/ai-run` |
-
-## Skills (48)
-
-Grouped by type. Invoke as `/ai-<name>`.
-
-**Workflow:** brainstorm, plan, dispatch, code, test, debug, verify, review, eval, schema
-**Delivery:** commit, pr, release-gate, cleanup, market
-**Enterprise:** security, governance, pipeline, docs, board-discover, board-sync, platform-audit
-**Teaching:** explain, guide, write, slides, media, video-editing
-**Design:** design, animation, canvas
-**SDLC:** note, standup, sprint, postmortem, support, resolve-conflicts
-**Meta:** create, learn, prompt, start, analyze-permissions, instinct, autopilot, run, constitution, skill-evolve
-
-## Effort Levels
-
-Each skill declares `effort` in frontmatter. Assignment by cognitive weight:
-
-| Effort | Count |
-|--------|-------|
-| max | 11 (autopilot, brainstorm, governance, platform-audit, review, run, schema, security, skill-evolve, verify, eval) |
-| high | 23 (animation, board-discover, canvas, code, create, debug, design, dispatch, docs, explain, guide, market, pipeline, plan, postmortem, pr, release-gate, slides, sprint, support, test, video-editing, write) |
-| medium | 13 (analyze-permissions, board-sync, cleanup, commit, instinct, learn, media, note, start, constitution, prompt, resolve-conflicts, standup) |
-
-## Quality Gates
-
-| Metric | Threshold |
-|--------|-----------|
-| Test coverage | >= 80% |
-| Code duplication | <= 3% |
-| Cyclomatic complexity | <= 10 per function |
-| Cognitive complexity | <= 15 per function |
-| Blocker/critical issues | 0 |
-| Security findings (medium+) | 0 |
-| Secret leaks | 0 |
-| Dependency vulnerabilities | 0 |
-
-Tooling: `ruff` + `ty` (lint/format), `pytest` (test), `gitleaks` (secrets), `pip-audit` (deps).
+- Use `/clear` when context is no longer load-bearing rather than letting
+  the conversation balloon — Claude Code keeps the full transcript in
+  context until cleared.
+- For deep codebase research, dispatch the `ai-explore` agent (read-only,
+  fresh context) instead of having the main thread read the whole tree.
+- Cite files with `startLine:endLine:filepath`; never paste large code
+  blocks the user did not ask for.
+- Treat `/ai-start` as the session bootstrap — it loads only what the
+  current task needs and avoids re-reading already-loaded context.
 
 ## Observability
 
-Telemetry is automatic via hooks and writes only canonical framework events.
-- `UserPromptSubmit(/ai-*)` hook emits `skill_invoked` events
-- `PostToolUse` agent hooks emit `agent_dispatched` and `ide_hook` events
-- Hook, gate, governance, security, and quality outcomes flow to `.ai-engineering/state/framework-events.ndjson`
-- Registered skills, agents, contexts, and hooks are catalogued in `.ai-engineering/state/framework-capabilities.json`
-- Session discovery and transcript viewing are delegated to separately installed `agentsview`
-
-## Don't
-
-1. **NEVER** `--no-verify` on any git command.
-2. **NEVER** skip or silence a failing gate -- fix the root cause.
-3. **NEVER** weaken gate severity or coverage thresholds.
-4. **NEVER** modify hook scripts -- they are hash-verified.
-5. **NEVER** push to protected branches (main, master).
-6. **NEVER** dismiss security findings without `state/decision-store.json` risk acceptance.
-7. **NEVER** disable or modify `.claude/settings.json` deny rules.
-8. **NEVER** add suppression comments (`# noqa`, `# nosec`, `# type: ignore`, `# pragma: no cover`, `# NOSONAR`, `// nolint`) to bypass quality gates. Fix the code. If it is a false positive, refactor to satisfy the analyzer or escalate with a full explanation.
-9. **NEVER** weaken a gate, threshold, or severity level without the full protocol: warn user of impact, generate a remediation patch, require explicit risk acceptance, persist to `state/decision-store.json`, and emit the outcome to `state/framework-events.ndjson`. NOTE (D-105-14): risk acceptance via `ai-eng risk accept` / `ai-eng risk accept-all` is **logged-acceptance** with TTL, owner, spec ref, and follow-up plan -- it is NOT weakening. Weakening means modifying `_SEVERITY_EXPIRY_DAYS`, adding suppression comments, disabling hooks, or lowering severity-class thresholds in code or config.
-
-Gate failure: diagnose, fix, retry. Use `ai-eng doctor --fix` or `ai-eng doctor --fix --phase <name>`.
-
-## Source of Truth
-
-| What | Where |
-|------|-------|
-| Skills (48) | `.claude/skills/ai-<name>/SKILL.md` |
-| Agents (10) | `.claude/agents/ai-<name>.md` |
-| Config | `.ai-engineering/manifest.yml` |
-| Decisions | `.ai-engineering/state/decision-store.json` |
-| Active spec | `.ai-engineering/specs/spec.md` |
-| Contexts | `.ai-engineering/contexts/languages/`, `frameworks/`, `team/` |
-| Lessons | `.ai-engineering/LESSONS.md` |
-| Installer modes | `.ai-engineering/contexts/python-env-modes.md` (spec-101: 3 modes, EXIT 80/81 hard-fail, 14-stack `required_tools` coverage) |
-| CLI | `ai-eng <command>` |
+Telemetry is automatic — refer to
+[AGENTS.md → Skills Available → `/ai-start`](./AGENTS.md#skills-available)
+for the bootstrap that registers hooks. Session discovery and transcript
+viewing are delegated to the separately installed `agentsview` companion
+tool.

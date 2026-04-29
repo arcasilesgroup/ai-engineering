@@ -55,7 +55,20 @@ def _git_test_isolation():
 
 @pytest.fixture(autouse=True, scope="session")
 def _detect_git_config_contamination():
-    """Warn if tests modify the real repo's .git/config."""
+    """Detect, warn, AND AUTO-RESTORE the real repo's .git/config if tests pollute it.
+
+    Tests that run `git config user.email ...` (or any other config write) without
+    `-C tmp_path` write to the real repo's .git/config. Past pollutions observed:
+    `[core] bare = true`, `[core] worktree = <sibling-path>`, `[user] email/name`
+    overrides — each individually capable of breaking the entire repo for the
+    developer (commits fail, work tree mis-resolves, author identity changes).
+
+    This fixture snapshots .git/config at session start and restores it verbatim
+    at session end if any difference is detected. The warning is preserved as the
+    bisection signal: run with `pytest -W error::UserWarning` to fail loudly on
+    the offending test and identify which test needs to be fixed (typically by
+    adding `cwd=tmp_path` or `-C tmp_path` to its subprocess calls).
+    """
     repo_config = Path.cwd() / ".git" / "config"
     before = repo_config.read_text(encoding="utf-8") if repo_config.exists() else None
 
@@ -64,10 +77,12 @@ def _detect_git_config_contamination():
     if before is not None and repo_config.exists():
         after = repo_config.read_text(encoding="utf-8")
         if before != after:
+            repo_config.write_text(before, encoding="utf-8")
             warnings.warn(
-                "Tests modified the real repo .git/config! "
-                "Run: git config --local --unset user.name && "
-                "git config --local --unset user.email",
+                "Tests modified the real repo .git/config — AUTO-RESTORED to pre-session state. "
+                "Bisect the offending test with: pytest -W error::UserWarning. "
+                "The fix is usually adding `cwd=tmp_path` (or `-C tmp_path`) to "
+                "subprocess calls that invoke `git config`.",
                 stacklevel=1,
             )
 
