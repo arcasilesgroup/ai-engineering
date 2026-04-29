@@ -1,121 +1,73 @@
-# GitHub Copilot Instructions — Copilot Overlay
+# GitHub Copilot Instructions
 
-> See [AGENTS.md](../AGENTS.md) for the canonical cross-IDE rules
-> (Step 0, available skills, agents, and the hard rules that delegate
-> to [CONSTITUTION.md](../CONSTITUTION.md)). Read those first; this
-> file only adds GitHub-Copilot-specific specifics.
+Project instructions are canonical in `.ai-engineering/`.
 
-## Native Surface
+## Source of Truth
 
-- **Slash commands** — invoke skills via `/ai-<name>` in the GitHub
-  Copilot agent surface (Copilot Chat, agent mode, or any
-  Copilot-aware editor). Do not invent terminal equivalents that are
-  not listed in the CLI reference.
-- **Agent mode** — Copilot's autonomous edit/run/iterate loop is the
-  intended driver for `/ai-dispatch`, `/ai-pr`, `/ai-run`, and the
-  other agent skills documented in
-  [AGENTS.md → Skills Available](../AGENTS.md#skills-available). The
-  10-agent dispatch surface from
-  [AGENTS.md → Agents Available](../AGENTS.md#agents-available)
-  applies here exactly as it does in other IDEs.
+- Config: `.ai-engineering/manifest.yml`
+- Decisions: `.ai-engineering/state/decision-store.json`
+- Contexts: `.ai-engineering/contexts/` (languages, frameworks, team)
 
-## Agent Skills (Open Standard)
+## FIRST ACTION -- Mandatory
 
-GitHub Copilot adopts the open Agent Skills format: a discoverable
-package of instructions, optional resources, and metadata that
-extends the agent's capabilities without modifying the host. Skills
-in this framework follow the format and live under
-`.github/skills/ai-<name>/SKILL.md` — one directory per skill, the
-`SKILL.md` document inside, plus any sibling resources the skill
-needs.
+Your first action in every session MUST be to run `/ai-start`.
+Do not respond to any user request until `/ai-start` completes.
+`/ai-start` and other `/ai-*` entries are IDE slash commands, not `ai-eng` CLI subcommands.
+Never translate `/ai-<name>` into `ai-eng <name>` unless the CLI reference explicitly documents that command.
 
-These mirror files are **generated**, never edited by hand. They
-carry the `DO NOT EDIT` header and `linguist-generated=true`
-attribute per Article V of the
-[Constitution](../CONSTITUTION.md#article-v--single-source-of-truth);
-the sync command listed in
-[AGENTS.md → Skills Available](../AGENTS.md#skills-available)
-regenerates the mirrors from their authoritative source. Manual
-edits to `.github/skills/` are reverted on the next sync.
+## Plan/Execute Flow (Spec-as-Gate)
 
-## Agent Hooks (VS Code v1.110+ Preview)
+During `/ai-plan`:
 
-Copilot's per-agent hook surface (Preview in VS Code v1.110 and
-later) lets the IDE host invoke shell commands at well-known
-lifecycle points. The framework's wiring lives in
-`.github/hooks/hooks.json` and registers commands at the events
-Copilot exposes:
+1. **Analyze** -- read code, discover requirements, assess risk (read-only).
+2. **Produce spec as text** -- write the full spec as markdown in the conversation.
+3. **Persist via Write tool** -- write spec.md and plan.md directly to `specs/`.
+4. **Commit** -- stage and commit the new files.
+5. **STOP** -- present the result and wait for the user to invoke `/ai-dispatch`.
 
-- `sessionStart`, `sessionEnd` — session boundary observability
-  (skill telemetry, instinct extraction).
-- `userPromptSubmitted` — emits the canonical `skill_invoked`
-  telemetry event when the user issues a `/ai-*` command.
-- `preToolUse` — pre-flight policy enforcement (deny-list, prompt
-  hygiene checks) before a tool call reaches the host.
-- `postToolUse` — emits `agent_dispatched` and `ide_hook` events
-  after agent or tool invocation.
-- `errorOccurred` — emits `framework_error` and `ide_hook` events
-  when the host surfaces a failure.
+## Absolute Prohibitions
 
-Each hook entry declares both a `bash` and a `powershell` command
-plus a `timeoutSec` budget so the same registry works on
-macOS/Linux/WSL and native Windows.
+1. **NEVER** `--no-verify` on any git command.
+2. **NEVER** skip/silence a failing gate -- fix root cause.
+3. **NEVER** weaken gate severity.
+4. **NEVER** push to protected branches (main, master).
+5. **NEVER** dismiss security findings without `state/decision-store.json` risk acceptance.
+6. **NEVER** add suppression comments to bypass static analysis or security scanners.
 
-Activating per-agent hooks requires the user setting
-`chat.useCustomAgentHooks: true` in VS Code; without it Copilot
-falls back to no-op behavior. The deny rules and the
-hooks-registry file are tracked in source control — treat both as
-read-only at the IDE layer.
-
-## Agent Plugins (Extensions View)
-
-Copilot exposes Agent Plugins through the VS Code Extensions view:
-plugin bundles can register tools, prompts, and command surfaces
-that Copilot agents can call. This framework does not bundle a
-plugin today — the entire dispatch surface is delivered through
-Agent Skills and Agent Hooks. If you install a third-party Agent
-Plugin alongside this framework, prefer plugins whose tool
-contracts can be filtered by the host's policy engine (see
-[CONSTITUTION.md Article III](../CONSTITUTION.md#article-iii--dual-plane-security))
-rather than ones that bypass the host.
-
-## Hot-Path Discipline
-
-Copilot agent mode fires hooks on every tool call and every commit,
-so the local critical path must stay fast:
-
-- **Pre-commit budget**: under 1 second wall-clock for the
-  deterministic Layer-1 gate (lint, format check, secret scan on
-  staged hunks only).
-- **Pre-push budget**: under 5 seconds for the residual checks
-  before the push pipeline takes over.
-- Anything heavier (full test suite, dependency audit, governance
-  evaluation) belongs in CI, not on the local hot path.
-
-If a check exceeds budget, profile it and move work off the hot
-path before adding new logic to the hook.
-
-## Token Efficiency Tips
-
-- Use Copilot's "New Conversation" / clear-context action when the
-  current conversation no longer carries load-bearing state — agent
-  mode keeps the full transcript in context until cleared.
-- For deep codebase research, dispatch the `ai-explore` agent
-  (read-only, fresh context) instead of having the main thread read
-  the whole tree.
-- Cite files with `startLine:endLine:filepath`; never paste large
-  code blocks the user did not ask for.
-- Treat `/ai-start` as the session bootstrap — it loads only what
-  the current task needs and avoids re-reading already-loaded
-  context.
+Gate failure: diagnose -> fix -> retry.
 
 ## Observability
 
-Telemetry is automatic. The hooks registered by
-`.github/hooks/hooks.json` write canonical framework events to the
-audit log under `.ai-engineering/state/` for the chain documented in
-[AGENTS.md → Observability](../AGENTS.md#observability). Refer to
-[AGENTS.md → Skills Available → `/ai-start`](../AGENTS.md#skills-available)
-for the bootstrap that registers hooks. Session discovery and
-transcript viewing are delegated to the separately installed
-`agentsview` companion tool.
+Telemetry is **automatic via hooks** -- configured in `.github/hooks/hooks.json`.
+- `userPromptSubmitted` hook emits `skill_invoked` events on `/ai-*` commands
+- `preToolUse` hook enforces deny-list (blocks dangerous operations)
+- `postToolUse` hook emits `agent_dispatched` and `ide_hook` events on agent use
+- `errorOccurred` hook emits `framework_error` and `ide_hook` events on failures
+- Hook, gate, governance, security, and quality outcomes flow to `.ai-engineering/state/framework-events.ndjson`
+- Registered skills, agents, contexts, and hooks are catalogued in `.ai-engineering/state/framework-capabilities.json`
+- Session discovery and transcript viewing are delegated to separately installed `agentsview`
+
+## Subagent Orchestration
+
+Orchestrator agents can delegate tasks to specialized subagents via the `agent` tool:
+
+| Orchestrator | Delegates To | Handoffs |
+|-------------|-------------|----------|
+| Build | Guard, ai-explore | -> Verify, -> Review |
+| Plan | ai-explore, Guard | -> Autopilot |
+| Review | ai-explore | -> Build |
+| Verify | ai-explore | -> Build |
+| Autopilot | Build, ai-explore, Verify, Plan, Guard | -> agent |
+| Run | Build, ai-explore, Verify, Review, Guard | -- |
+
+Leaf agents (Guard, Guide, Simplifier, ai-explore) cannot delegate -- they are terminal nodes.
+
+Handoffs provide guided transitions between agents in VS Code (buttons after responses).
+Per-agent hooks (e.g., auto-format in Build) require `chat.useCustomAgentHooks: true`.
+
+## Quick Reference
+
+- Skills (47): `.github/skills/ai-<name>/SKILL.md`
+- Agents (10): `.github/agents/<name>.agent.md`
+- Quality: coverage 80%, duplication <=3%, cyclomatic <=10, cognitive <=15
+- Security: zero medium+ findings, zero leaks, zero dependency vulns

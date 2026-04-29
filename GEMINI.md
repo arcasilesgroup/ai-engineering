@@ -1,107 +1,184 @@
-# GEMINI.md — Gemini CLI Overlay
+# GEMINI.md
 
-> See [AGENTS.md](./AGENTS.md) for the canonical cross-IDE rules (Step 0,
-> available skills, agents, and the hard rules that delegate to
-> [CONSTITUTION.md](./CONSTITUTION.md)). Read those first; this file
-> only adds Gemini-CLI-specific specifics.
+Multi-IDE instruction file. Consumed by Gemini CLI and other AI coding assistants.
+This file is self-contained -- no other instruction files are required.
 
-## Native Surface
+## FIRST ACTION -- Mandatory
 
-- **Slash commands** — invoke skills via `/ai-<name>` in the Gemini CLI
-  agent surface. Do not invent terminal equivalents that are not listed
-  in the CLI reference.
-- **Skill mirrors** — Gemini CLI loads skill mirrors from `.gemini/skills/`
-  (project scope) and `~/.gemini/skills/` (user scope). These mirrors are
-  generated, never edited by hand; the authoritative skill definition is
-  the path referenced from
-  [AGENTS.md → Skills Available](./AGENTS.md#skills-available). See
-  Article V of [CONSTITUTION.md](./CONSTITUTION.md) for the SSOT contract.
-- **Agent mirrors** — agent mirrors live under `.gemini/agents/`. The
-  dispatch surface is the 10 first-class agents listed in
-  [AGENTS.md → Agents Available](./AGENTS.md#agents-available); each runs
-  in its own context window.
+Your first action in every session MUST be to run `/ai-start`.
+Do not respond to any user request until `/ai-start` completes.
+`/ai-start` and the rest of `/ai-*` are slash commands in the IDE agent surface, not terminal commands.
+Do not invent `ai-eng <skill>` equivalents unless the CLI reference explicitly lists them.
 
-## Settings & Hook Wiring
+### 1. Plan Mode Default
 
-Gemini CLI reads its hook configuration from `.gemini/settings.json` with
-two-tier precedence: the user-scope file at `~/.gemini/settings.json` is
-loaded first and the project-scope `.gemini/settings.json` is merged on
-top, so project-level entries override user defaults. The framework's
-audit chain depends on the project file remaining authoritative for hook
-declarations and deny rules — both are tracked in source control.
+- Enter plan mode for ANY non-trivial task (3+ steps or architectural decisions)
+- If something goes sideways, STOP and re-plan immediately -- don't keep pushing
+- Use plan mode for verification steps, not just building
+- Write detailed specs upfront to reduce ambiguity via `/ai-brainstorm`
 
-The framework registers hooks across the 11 lifecycle events Gemini CLI
-exposes:
+### 2. Subagent Strategy
 
-- `SessionStart`, `SessionEnd` — session boundary observability.
-- `BeforeAgent`, `AfterAgent` — skill invocation telemetry and instinct
-  extraction.
-- `BeforeTool`, `AfterTool` — prompt-injection guard, MCP health check,
-  strategic-compact, and auto-format wiring.
-- `BeforeToolSelection` — pre-flight guidance before the model chooses a
-  tool.
-- `BeforeModel`, `AfterModel` — model-call envelopes for cost and trace
-  capture.
-- `PreCompress` — context-window compression hook.
-- `Notification` — user-facing notification routing.
+- Offload research, exploration, and parallel analysis to subagents
+- For complex problems, throw more compute at it via subagents
+- One task per subagent for focused execution
+- Never have a subagent do two unrelated things
 
-Hook commands receive `AIENG_HOOK_ENGINE=gemini` as an environment signal
-so the shared hook scripts under `.ai-engineering/scripts/hooks/` can
-adapt their I/O envelope without duplicating logic per IDE.
+### 3. Self-Improvement Loop
 
-## Stdin/Stdout JSON Contract
+- After ANY correction from the user: update `.ai-engineering/LESSONS.md` with the pattern
+- Write rules for yourself that prevent the same mistake
+- Ruthlessly iterate on these lessons until mistake rate drops
+- Review lessons at session start: read `.ai-engineering/LESSONS.md` proactively
 
-Gemini CLI hooks communicate with the host through a strict JSON envelope
-on stdin and stdout — plain text or partial JSON is rejected. Every hook
-script in `.ai-engineering/scripts/hooks/` therefore:
+### 4. Verification Before Done
 
-- Reads the full stdin payload, parses it as JSON, and never logs to
-  stdout in non-JSON form (diagnostics go to stderr).
-- Emits a single JSON object on stdout with the documented Gemini CLI
-  fields (e.g. `decision`, `reason`, `output`) plus the framework's own
-  metadata for the local audit chain.
-- Returns a non-zero exit code only when the hook itself fails; policy
-  decisions are encoded in the JSON body so Gemini CLI can route them
-  deterministically.
+- Never mark a task complete without proving it works
+- Run the tests. Run the linter. Check the output
+- Diff behavior between main and your changes when relevant
+- Ask yourself: "Would a staff engineer approve this?"
 
-This contract is the reason the framework cannot share the IDE-host log
-stream for hook output — the audit trail flows to the framework events
-file instead (see Observability below).
+### 5. Demand Elegance (Balanced)
 
-## Hot-Path Discipline
+- For non-trivial changes: pause and ask "is there a more elegant way?"
+- If a fix feels hacky: "Knowing everything I know now, implement the elegant solution"
+- Skip this for simple, obvious fixes -- don't over-engineer
+- Clever is bad. Simple and clear is elegant
 
-Gemini CLI fires hooks on every tool call and every commit, so the local
-critical path must stay fast:
+### 6. Autonomous Bug Fixing
 
-- **Pre-commit budget**: under 1 second wall-clock for the deterministic
-  Layer-1 gate (lint, format check, secret scan on staged hunks only).
-- **Pre-push budget**: under 5 seconds for the residual checks before the
-  push pipeline takes over.
-- Anything heavier (full test suite, dependency audit, governance
-  evaluation) belongs in CI, not on the local hot path.
+- When given a bug report: just fix it. Don't ask for hand-holding
+- Point at logs, errors, failing tests -- then resolve them
+- If you see a bug while working on something else -- fix it and mention it in the commit
+- Zero context switching required from the user
 
-If a check exceeds budget, profile it and move work off the hot path
-before adding new logic to the hook.
+### 7. Parallel Execution
 
-## Token Efficiency Tips
+- Batch independent operations into simultaneous tool calls
+- Never go sequential when you can go parallel
 
-- Use Gemini CLI's `/clear` (or its session-reset equivalent) when
-  context is no longer load-bearing instead of letting the conversation
-  balloon.
-- For deep codebase research, dispatch the `ai-explore` agent (read-only,
-  fresh context) instead of having the main thread read the whole tree.
-- Cite files with `startLine:endLine:filepath`; never paste large code
-  blocks the user did not ask for.
-- Treat `/ai-start` as the session bootstrap — it loads only what the
-  current task needs and avoids re-reading already-loaded context.
+### 8. Context Efficiency
+
+- Never re-read files already in context. Never dump code the user did not ask for
+- Use `startLine:endLine:filepath` to cite. Use `// ... existing code ...` for omissions
+
+### 9. Proactive Memory
+
+- Read/write `.ai-engineering/LESSONS.md` to persist learnings across sessions
+
+### 10. Context Loading
+
+Before writing or reviewing code, load the applicable context files:
+1. Detect the project's languages from file extensions and build config
+2. Read `.ai-engineering/contexts/languages/{language}.md` for each detected language
+3. Read `.ai-engineering/contexts/frameworks/{framework}.md` for each detected framework
+4. Read shared framework contexts when relevant: `.ai-engineering/contexts/cli-ux.md` for CLI work and `.ai-engineering/contexts/mcp-integrations.md` for MCP/server usage
+5. Read `.ai-engineering/contexts/team/*.md` for team conventions
+6. Apply loaded standards to all code generation and review
+
+## Task Management
+
+1. **Plan First**: Write plan via `/ai-plan` to `.ai-engineering/specs/plan.md` with checkable items
+2. **Verify Plan**: Check in before starting implementation
+3. **Track Progress**: Mark items complete in `.ai-engineering/specs/plan.md` as you go
+4. **Explain Changes**: High-level summary at each step
+5. **Document Results**: Add review to the spec tasks file
+6. **Capture Lessons**: Update `.ai-engineering/LESSONS.md` after corrections
+
+## Core Principles
+
+- **Simplicity First**: Make every change as simple as possible. Impact minimal code.
+- **No Laziness**: Find root causes. No temporary fixes. Senior developer standards.
+- **Minimal Impact**: Changes should only touch what's necessary. Avoid introducing bugs.
+- **Cross-Platform**: All generated code, scripts, and paths must work on Windows, macOS, and Linux. Use platform-agnostic idioms. No OS-specific assumptions without explicit fallbacks.
+
+## Agent Selection
+
+| Task | Agent | Invoke |
+|------|-------|--------|
+| Planning, specs, architecture | plan | `/ai-brainstorm` |
+| Writing/editing code | build | `/ai-dispatch` (after plan) |
+| Quality + security scanning | verify | `/ai-verify` |
+| Governance, compliance | guard | `/ai-governance` |
+| Code review (parallel agents) | review | `/ai-review` |
+| Deep codebase research | explore | direct dispatch |
+| Onboarding, teaching | guide | `/ai-guide` |
+| Simplify/refactor code | simplify | direct dispatch |
+| Multi-spec autonomous execution | autopilot | `/ai-autopilot` |
+| Autonomous backlog execution | run-orchestrator | `/ai-run` |
+
+## Agents (10)
+
+The agents table above lists every agent shipped with the framework. Counts mirror `.ai-engineering/manifest.yml` (`agents.total`).
+
+## Skills (48)
+
+Grouped by type. Invoke as `/ai-<name>`.
+
+**Workflow:** brainstorm, plan, dispatch, code, test, debug, verify, review, eval, schema
+**Delivery:** commit, pr, release-gate, cleanup, market
+**Enterprise:** security, governance, pipeline, docs, board-discover, board-sync, platform-audit
+**Teaching:** explain, guide, write, slides, media, video-editing
+**SDLC:** note, standup, sprint, postmortem, support, resolve-conflicts
+**Meta:** create, learn, prompt, start, analyze-permissions, instinct, autopilot, run, constitution, skill-evolve
+
+## Effort Levels
+
+Each skill declares `effort` in frontmatter. Assignment by cognitive weight:
+
+| Effort | Count |
+|--------|-------|
+| max | 11 (autopilot, brainstorm, governance, platform-audit, review, run, schema, security, skill-evolve, verify, eval) |
+| high | 20 (board-discover, code, create, debug, dispatch, docs, explain, guide, market, pipeline, plan, postmortem, pr, release-gate, slides, sprint, support, test, video-editing, write) |
+| medium | 13 (analyze-permissions, board-sync, cleanup, commit, instinct, learn, media, note, start, constitution, prompt, resolve-conflicts, standup) |
+
+## Quality Gates
+
+| Metric | Threshold |
+|--------|-----------|
+| Test coverage | >= 80% |
+| Code duplication | <= 3% |
+| Cyclomatic complexity | <= 10 per function |
+| Cognitive complexity | <= 15 per function |
+| Blocker/critical issues | 0 |
+| Security findings (medium+) | 0 |
+| Secret leaks | 0 |
+| Dependency vulnerabilities | 0 |
+
+Tooling: `ruff` + `ty` (lint/format), `pytest` (test), `gitleaks` (secrets), `pip-audit` (deps).
 
 ## Observability
 
-Telemetry is automatic. The hook chain registered by the project's
-`.gemini/settings.json` writes canonical framework events to
-`.ai-engineering/state/framework-events.ndjson` for the audit chain.
-Refer to
-[AGENTS.md → Skills Available → `/ai-start`](./AGENTS.md#skills-available)
-for the bootstrap that registers hooks. Session discovery and transcript
-viewing are delegated to the separately installed `agentsview` companion
-tool.
+Telemetry is automatic via hooks and writes only canonical framework events.
+- `BeforeAgent(/ai-*)` hook emits `skill_invoked` events
+- `AfterTool` agent hooks emit `agent_dispatched` and `ide_hook` events
+- Hook, gate, governance, security, and quality outcomes flow to `.ai-engineering/state/framework-events.ndjson`
+- Registered skills, agents, contexts, and hooks are catalogued in `.ai-engineering/state/framework-capabilities.json`
+- Session discovery and transcript viewing are delegated to separately installed `agentsview`
+
+## Don't
+
+1. **NEVER** `--no-verify` on any git command.
+2. **NEVER** skip or silence a failing gate -- fix the root cause.
+3. **NEVER** weaken gate severity or coverage thresholds.
+4. **NEVER** modify hook scripts -- they are hash-verified.
+5. **NEVER** push to protected branches (main, master).
+6. **NEVER** dismiss security findings without `state/decision-store.json` risk acceptance.
+7. **NEVER** disable or modify `.gemini/settings.json` deny rules.
+8. **NEVER** add suppression comments (`# noqa`, `# nosec`, `# type: ignore`, `# pragma: no cover`, `# NOSONAR`, `// nolint`) to bypass quality gates. Fix the code. If it is a false positive, refactor to satisfy the analyzer or escalate with a full explanation.
+9. **NEVER** weaken a gate, threshold, or severity level without the full protocol: warn user of impact, generate a remediation patch, require explicit risk acceptance, persist to `state/decision-store.json`, and emit the outcome to `state/framework-events.ndjson`.
+
+Gate failure: diagnose, fix, retry. Use `ai-eng doctor --fix` or `ai-eng doctor --fix --phase <name>`.
+
+## Source of Truth
+
+| What | Where |
+|------|-------|
+| Skills (48) | `.gemini/skills/ai-<name>/SKILL.md` |
+| Agents (10) | `.gemini/agents/ai-<name>.md` |
+| Config | `.ai-engineering/manifest.yml` |
+| Decisions | `.ai-engineering/state/decision-store.json` |
+| Active spec | `.ai-engineering/specs/spec.md` |
+| Contexts | `.ai-engineering/contexts/languages/`, `frameworks/`, `team/` |
+| Lessons | `.ai-engineering/LESSONS.md` |
+| CLI | `ai-eng <command>` |
