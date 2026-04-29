@@ -46,6 +46,15 @@ FUNCTIONAL_ADDITIONS_POST_BASELINE: dict[str, tuple[str, int]] = {
     # count scan) to /ai-platform-audit. These are new functional checks,
     # not restatement. ~60 lines of new content.
     "ai-platform-audit": ("spec-107 D-107-04", 65),
+    # spec-110 T-3.10 added the Policy Engine Integration section to
+    # /ai-governance: documents the Rego-subset evaluator at
+    # src/ai_engineering/governance/policy_engine.py and the three
+    # .ai-engineering/policies/*.rego files (branch_protection,
+    # commit_conventional, risk_acceptance_ttl) shipped in spec-110 Phase 3.
+    # New functional content (engine invocation contract + grammar scope per
+    # D-110-04), not restatement of CLAUDE.md Don't rules. Net additions to
+    # the canonical SKILL.md measured at ~48 lines.
+    "ai-governance": ("spec-110 T-3.10 / D-110-04", 48),
 }
 
 
