@@ -2,27 +2,41 @@
 
 ## Purpose
 
-Write `.ai-engineering/research/<topic-slug>-<YYYY-MM-DD>.md` with deterministic frontmatter and body sections. Auto-persist when Tier 3 was invoked; opt-in via `--persist` for quick/standard depth.
+Write `.ai-engineering/research/<topic-slug>-<YYYY-MM-DD>.md` with deterministic frontmatter and body sections so subsequent sessions short-circuit at Tier 0 over the persisted corpus. Auto-persist when Tier 3 was invoked; opt-in via `--persist` for quick/standard depth.
 
-## Procedure
+## Algorithm
 
-Phase 1 ships this handler as a placeholder; full persistence logic is implemented in Phase 3 (T-3.8 through T-3.11).
+This handler documents the algorithm that the agent (and the lockstep helper at `tests/integration/_ai_research_persist_helper.py`) implements.
 
-### Inputs
+### Inputs (`PersistInputs`)
 
-- `query` (string).
-- `slug` (string) -- topic slug from Tier 3 generator.
+- `query` (string) -- verbatim user query.
 - `depth` (string) -- `quick|standard|deep`.
-- `tiers_invoked` (list of int).
-- `sources_used` (list of `{title, url, accessed_at}`).
+- `tiers_invoked` (list[int]).
+- `sources_used` (list[`Source`]) -- each with `title`, `url`, `accessed_at`.
 - `notebook_id` (string|None).
-- `findings` (string with citations from synthesizer).
+- `findings` (string with `[N]` citations from the synthesizer).
+- `created_at` (ISO 8601 UTC string).
 
-### Output File
+### Trigger Conditions (T-3.9)
 
-Path: `.ai-engineering/research/<slug>-<YYYY-MM-DD>.md`
+`should_persist(*, tier3_invoked, persist_flag)`:
 
-Format:
+- Tier 3 invoked -> auto-persist.
+- `--persist` flag -> persist regardless of tier.
+- Otherwise -> do not persist.
+
+### Output Path
+
+`<repo_root>/.ai-engineering/research/<slug>-<YYYY-MM-DD>.md`
+
+- `slug` = `topic_slug(query)` (re-uses the Tier 3 helper so the slug matches the NotebookLM title).
+- `<YYYY-MM-DD>` = first 10 chars of `created_at`.
+- The directory is created if missing; existing files at the same path are overwritten.
+
+### File Format
+
+The helper hand-formats the artifact so the produced bytes are stable for tests (no PyYAML import).
 
 ```markdown
 ---
@@ -30,9 +44,10 @@ query: "<verbatim user query>"
 depth: <quick|standard|deep>
 tiers_invoked: [0, 1, 2, 3]
 sources_used:
-  - title: ...
-    url: ...
-    accessed_at: ...
+  - title: <title>
+    url: <url>
+    accessed_at: <iso8601>
+  - ...
 notebook_id: <string|null>
 created_at: <ISO 8601 UTC>
 slug: <topic-slug>
@@ -42,22 +57,22 @@ slug: <topic-slug>
 <verbatim query>
 
 ## Findings
-<findings with [N] inline>
+<findings string with inline [N]>
 
 ## Sources
-1. <title> -- <url> (accessed <date>)
+1. <title> -- <url> (accessed <accessed_at>)
 2. ...
 
 ## Notebook Reference
-<NotebookLM URL if applicable>
+NotebookLM notebook: <notebook_id>      # or "_(none)_" when null
 ```
 
-### Trigger Conditions
+The four body sections (`## Question`, `## Findings`, `## Sources`, `## Notebook Reference`) are ALWAYS present so Tier 0 readers can rely on a stable layout.
 
-- Tier 3 invoked -> auto-persist.
-- `--persist` flag -> persist regardless of tier.
-- Otherwise -> do not persist.
+## Implementation Reference
+
+The Python lockstep implementation lives at `tests/integration/_ai_research_persist_helper.py`. The helper and this handler stay in sync by design -- if either changes, the other must follow.
 
 ## Status
 
-Phase 1 placeholder. Logic implemented in Phase 3 (T-3.10).
+Phase 3 (T-3.10) implementation. Validator coupling with the synthesizer ships in Phase 4.
