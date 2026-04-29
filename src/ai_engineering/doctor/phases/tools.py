@@ -654,6 +654,20 @@ def _attempt_install_one(
     Extracting this helper drops :func:`_fix_tools_required` complexity
     below the spec-101 cyclomatic threshold (≤10).
     """
+    # spec-113: when AIENG_TEST=1 the simulate hooks are the load-bearing
+    # contract for the test surface — they must run BEFORE the legacy
+    # capability gate so a per-OS exclusion (e.g. semgrep on Windows) or a
+    # registry without WINGET id (e.g. jq) does not divert the synthetic
+    # install attempt to the ``manual`` bucket. The helpers themselves
+    # gate on AIENG_TEST and refuse on production builds, so calling them
+    # unconditionally here remains safe.
+    simulated_fail = _check_simulate_fail(tool_name)
+    if simulated_fail is not None:
+        return "failed"
+    simulated_ok = _check_simulate_install_ok(tool_name)
+    if simulated_ok is not None:
+        return "installed"
+
     # Legacy capability check -- tests patch this seam to drive the
     # manual-step path without spinning up a real subprocess.
     if not can_auto_install_tool(tool_name):
@@ -667,17 +681,6 @@ def _attempt_install_one(
         return "manual"
 
     mechanism = mechanisms[0]
-    # spec-113: doctor honours the same test seams as the installer phase.
-    # ``_check_simulate_install_ok`` short-circuits to a synthetic success
-    # when the env var is set + the running build is a dev checkout (the
-    # production-build refusal lives inside the helper). ``_check_simulate_fail``
-    # short-circuits to a synthetic failure for the reverse seam.
-    simulated_fail = _check_simulate_fail(tool_name)
-    if simulated_fail is not None:
-        return "failed"
-    simulated_ok = _check_simulate_install_ok(tool_name)
-    if simulated_ok is not None:
-        return "installed"
     try:
         outcome = mechanism.install()
     except Exception:
