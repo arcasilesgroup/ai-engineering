@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "AIENG_HOOK_ENGINE=codex python3 .ai-engineering/scripts/hooks/telemetry-skill.py",
+            "command": "AIENG_HOOK_ENGINE=codex python3 .ai-engineering/scripts/hooks/codex-hook-bridge.py",
             "timeout": 10
           }
         ]
@@ -18,24 +18,19 @@
         "hooks": [
           {
             "type": "command",
+            "command": "AIENG_HOOK_ENGINE=codex python3 .ai-engineering/scripts/hooks/codex-hook-bridge.py",
+            "timeout": 10
+          },
+          {
+            "type": "command",
             "command": "AIENG_HOOK_ENGINE=codex python3 .ai-engineering/scripts/hooks/prompt-injection-guard.py",
             "timeout": 15
-          }
-        ]
-      },
-      {
-        "matcher": "Bash",
-        "hooks": [
+          },
           {
             "type": "command",
             "command": "AIENG_HOOK_ENGINE=codex python3 .ai-engineering/scripts/hooks/strategic-compact.py",
             "timeout": 5
-          }
-        ]
-      },
-      {
-        "matcher": "Bash",
-        "hooks": [
+          },
           {
             "type": "command",
             "command": "AIENG_HOOK_ENGINE=codex python3 .ai-engineering/scripts/hooks/instinct-observe.py",
@@ -61,6 +56,11 @@
       {
         "matcher": "",
         "hooks": [
+          {
+            "type": "command",
+            "command": "AIENG_HOOK_ENGINE=codex python3 .ai-engineering/scripts/hooks/codex-hook-bridge.py",
+            "timeout": 5
+          },
           {
             "type": "command",
             "command": "AIENG_HOOK_ENGINE=codex python3 .ai-engineering/scripts/hooks/instinct-extract.py",

@@ -45,6 +45,7 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).parent))
 
 from _lib.audit import is_debug_mode, passthrough_stdin
+from _lib.hook_common import run_hook_safe
 from _lib.hook_context import get_hook_context
 from _lib.injection_patterns import PATTERNS
 from _lib.observability import emit_control_outcome
@@ -619,9 +620,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    try:
-        main()
-    except SystemExit as e:
-        sys.exit(e.code)
-    except Exception:
-        sys.exit(0)
+    run_hook_safe(main, component="hook.prompt-injection-guard", hook_kind="pre-tool-use")
