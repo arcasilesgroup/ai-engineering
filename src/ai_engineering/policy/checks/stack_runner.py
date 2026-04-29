@@ -434,7 +434,16 @@ def run_tool_check(
     # `ai_engineering` editable install), not the tool venv that only has
     # ai-eng's own runtime deps. Symptom of leaked VIRTUAL_ENV:
     # `ImportError: No module named 'ai_engineering'` while loading conftest.
-    child_env = {k: v for k, v in os.environ.items() if k != "VIRTUAL_ENV"}
+    #
+    # spec-113 follow-up: also scrub GIT_* keys. git push sets GIT_DIR,
+    # GIT_WORK_TREE, GIT_INDEX_FILE, GIT_PREFIX in the pre-push hook env;
+    # these leak into pytest subprocess and override the ``-C <tmp_path>``
+    # flag in test fixtures (test_auto_stage_safety, test_breaking_banner,
+    # ...). Stripping them lets the same pytest invocation pass both
+    # under direct ``ai-eng gate pre-push`` and the git-push hook.
+    child_env = {
+        k: v for k, v in os.environ.items() if k != "VIRTUAL_ENV" and not k.startswith("GIT_")
+    }
 
     try:
         proc = subprocess.run(
@@ -810,7 +819,10 @@ def run_tool_check_for_spec(
         # Same VIRTUAL_ENV scrub as the per-stack subprocess at line ~440
         # so spec-driven check runners pick up the project venv, not the
         # ai-eng tool venv that lacks the editable ai_engineering install.
-        child_env = {k: v for k, v in os.environ.items() if k != "VIRTUAL_ENV"}
+        # spec-113 follow-up: also drop GIT_* keys (see line ~437 comment).
+        child_env = {
+            k: v for k, v in os.environ.items() if k != "VIRTUAL_ENV" and not k.startswith("GIT_")
+        }
         try:
             proc = subprocess.run(
                 full_cmd,
