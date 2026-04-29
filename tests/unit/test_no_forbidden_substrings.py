@@ -120,7 +120,11 @@ class TestNoForbiddenSubstrings:
     )
     def test_file_has_no_forbidden_pattern(self, path: Path, pattern: str) -> None:
         """File must NOT contain a forbidden regex match."""
-        rel = str(path.relative_to(_REPO_ROOT))
+        # Use POSIX-style relative path so Windows runners (which separate
+        # with backslashes) match the allowlist keys defined with forward
+        # slashes. The keys are the canonical declaration; the OS path
+        # separator is incidental.
+        rel = path.relative_to(_REPO_ROOT).as_posix()
         # spec-113 D-113-06: distro-hint files publish text recommendations
         # that include ``sudo`` / package-manager strings. Skip those
         # (file, pattern) pairs explicitly via the allowlist.

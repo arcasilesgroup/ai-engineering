@@ -165,13 +165,21 @@ class TestExitEightyToolFailure:
         Doctor's fix path also resolves to a synthetic install; this proves
         that auto-remediation closes the loop on the same fault that EXIT 80
         used to surface.
+
+        spec-113 G-12: the fix path now reaches every WARN-fixable tool, so
+        the SIMULATE_INSTALL_OK wildcard is required on runners without
+        brew where the real GitHubReleaseBinaryMechanism cannot satisfy
+        gitleaks/jq from the latest-release asset URL.
         """
         monkeypatch.setenv("AIENG_TEST", "1")
         monkeypatch.setenv("AIENG_TEST_SIMULATE_FAIL", "ruff")
         # Sister hook: doctor fix attempts via TOOL_REGISTRY mechanism; under
         # AIENG_TEST=1 the registry mechanism honours AIENG_TEST_SIMULATE_INSTALL_OK
-        # to fake a successful install for the named tool.
-        monkeypatch.setenv("AIENG_TEST_SIMULATE_INSTALL_OK", "ruff")
+        # to fake a successful install for the named tool. Wildcard ``*`` is
+        # used here because spec-113 widened the fix path beyond the simulated
+        # tool; without the wildcard, gitleaks/jq attempt real network downloads
+        # whose asset names do not match the registry's ``binary`` field.
+        monkeypatch.setenv("AIENG_TEST_SIMULATE_INSTALL_OK", "*")
 
         result = runner.invoke(
             app,
