@@ -56,3 +56,45 @@ def test_constitution_has_all_articles() -> None:
         f"CONSTITUTION.md is missing article headings for: {missing}. "
         f"Expected all of {list(EXPECTED_ARTICLES)}; found {matched_articles}."
     )
+
+
+def test_each_article_has_at_least_one_numbered_rule() -> None:
+    """Each Article body in CONSTITUTION.md contains at least one ``1.`` rule.
+
+    Asserts:
+    1. ``CONSTITUTION.md`` is present at the repository root.
+    2. For every article heading ``^## Article (I|...|X) —`` matched, the
+       article body (text from that heading up to the next ``## Article``
+       heading or end of file) contains at least one line starting with
+       the literal numbered-rule marker ``1.`` (i.e. ``^1\\.`` per line).
+    """
+    assert CONSTITUTION_PATH.is_file(), (
+        f"CONSTITUTION.md must exist at repo root: {CONSTITUTION_PATH}. "
+        "Generate it via /ai-constitution per spec-110 G-1."
+    )
+
+    content = CONSTITUTION_PATH.read_text(encoding="utf-8")
+    numbered_rule_re = re.compile(r"^1\.", re.MULTILINE)
+
+    # Collect (roman, start, end) spans for each article body so we can
+    # check rules on a per-article basis.
+    matches = list(ARTICLE_HEADING_RE.finditer(content))
+    assert matches, (
+        "CONSTITUTION.md does not contain any '## Article (I|...|X) —' "
+        "headings; cannot validate numbered rules per article."
+    )
+
+    articles_without_rule: list[str] = []
+    for index, match in enumerate(matches):
+        roman = match.group(1)
+        body_start = match.end()
+        body_end = matches[index + 1].start() if index + 1 < len(matches) else len(content)
+        body = content[body_start:body_end]
+        if not numbered_rule_re.search(body):
+            articles_without_rule.append(roman)
+
+    assert not articles_without_rule, (
+        "Each Article body in CONSTITUTION.md must contain at least one "
+        f"numbered rule starting with '1.'. Articles missing a '1.' rule: "
+        f"{articles_without_rule}."
+    )
