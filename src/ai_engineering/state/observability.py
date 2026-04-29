@@ -9,7 +9,7 @@ from pathlib import Path
 from uuid import uuid4
 
 from ai_engineering.config.loader import load_manifest_config
-from ai_engineering.state.io import append_ndjson, write_json_model
+from ai_engineering.state.io import _json_serializer, write_json_model
 from ai_engineering.state.models import (
     CapabilityDescriptor,
     FrameworkCapabilitiesCatalog,
@@ -94,19 +94,36 @@ def _read_prev_event_hash(path: Path) -> str | None:
 
 
 def append_framework_event(project_root: Path, entry: FrameworkEvent) -> None:
-    """Append a canonical framework event to the new NDJSON stream.
+    """Append a canonical framework event to the NDJSON stream.
 
-    Spec-107 H2: populates ``entry.detail['prev_event_hash']`` with the
-    SHA256 of the last entry on disk before write, anchoring the chain.
+    Spec-110 D-110-03: stamps the ``prev_event_hash`` chain pointer at
+    the *root* of the on-disk JSON object (sibling of ``kind`` /
+    ``detail``) rather than nesting it under ``detail``. The pointer is
+    the SHA256 of the last entry on disk, anchoring the tamper-evident
+    chain. The pre-spec-110 layout placed the pointer inside
+    ``detail.prev_event_hash`` -- the dual-read in ``audit_chain``
+    transparently consumes both layouts during the 30-day grace window
+    that closes 2026-05-29 (T-3.4).
+
+    The :class:`FrameworkEvent` model is intentionally not extended with
+    a ``prev_event_hash`` field; the pointer lives only on disk. This
+    keeps the in-memory model parity with the stdlib ``_lib`` mirror
+    used by hooks (which also returns the pointer-free dict from
+    ``emit_*`` helpers and stamps the pointer in :func:`append_framework_event`
+    only on the on-disk copy).
     """
     path = framework_events_path(project_root)
-    prev_hash = _read_prev_event_hash(path)
-    # Stamp the chain pointer into the structured detail payload so it
-    # survives the canonical JSON dump without changing the model schema.
-    if not isinstance(entry.detail, dict):  # pragma: no cover - defensive
-        entry.detail = {}
-    entry.detail["prev_event_hash"] = prev_hash
-    append_ndjson(path, entry)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    # Serialize the model first so the on-disk dict carries the canonical
+    # alias-based shape (e.g. ``correlationId``). We then add the chain
+    # pointer at the *root* of the dict before writing the line so that
+    # round-trip readers (state.audit_chain) find ``prev_event_hash`` as
+    # a top-level key.
+    data = entry.model_dump(by_alias=True, exclude_none=True)
+    data["prev_event_hash"] = _read_prev_event_hash(path)
+    line = json.dumps(data, sort_keys=True, default=_json_serializer)
+    with path.open("a", encoding="utf-8") as f:
+        f.write(line + "\n")
 
 
 def _project_name(project_root: Path) -> str:

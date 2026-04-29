@@ -118,12 +118,17 @@ def _compute_prev_event_hash(path: Path) -> str | None:
 def append_framework_event(project_root: Path, entry: dict) -> None:
     path = framework_events_path(project_root)
     path.parent.mkdir(parents=True, exist_ok=True)
-    # Spec-107 D-107-10 (H2): stamp the chain pointer into the entry's
-    # detail payload so the hash chain survives the canonical JSON dump.
-    detail = entry.get("detail")
-    if isinstance(detail, dict):
-        detail["prev_event_hash"] = _compute_prev_event_hash(path)
-    line = json.dumps(entry, sort_keys=True, default=_json_serializer)
+    # Spec-110 D-110-03: stamp the chain pointer at the *root* of the
+    # on-disk JSON object (sibling of ``kind`` / ``detail``) rather than
+    # nested under ``detail``. The reader (``audit_chain.iter_validate_chain``)
+    # supports both locations during the 30-day dual-read window that
+    # closes 2026-05-29. Build a shallow copy so ``entry`` (the caller's
+    # in-memory dict) stays free of the disk-only chain pointer; this
+    # mirrors the package writer's behavior and keeps parity with the
+    # ``model_dump``-based pkg path.
+    payload = dict(entry)
+    payload["prev_event_hash"] = _compute_prev_event_hash(path)
+    line = json.dumps(payload, sort_keys=True, default=_json_serializer)
     with path.open("a", encoding="utf-8") as f:
         f.write(line + "\n")
 
