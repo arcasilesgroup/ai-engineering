@@ -8,58 +8,41 @@ $ErrorActionPreference = "Stop"
 try {
     $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
     $ProjectDir = [string](Resolve-Path (Join-Path $ScriptDir "../../.."))
+    . (Join-Path $ScriptDir "_lib/copilot-common.ps1")
     . (Join-Path $ScriptDir "_lib/copilot-runtime.ps1")
 
-    $InputJson = [Console]::In.ReadToEnd()
+    Read-StdinPayload | Out-Null
     $TranslatedJson = "{}"
     $CopilotEvent = "PreToolUse"
 
-    if (-not [string]::IsNullOrWhiteSpace($InputJson)) {
-        try {
-            $Payload = $InputJson | ConvertFrom-Json
-            if (
-                $null -ne $Payload.PSObject.Properties["error"] -or
-                $null -ne $Payload.PSObject.Properties["failure"] -or
-                $null -ne $Payload.PSObject.Properties["errorMessage"]
-            ) {
-                $CopilotEvent = "PostToolUseFailure"
-            }
+    if ($null -ne $script:CopilotPayload) {
+        $payload = $script:CopilotPayload
+        if (
+            $null -ne $payload.PSObject.Properties["error"] -or
+            $null -ne $payload.PSObject.Properties["failure"] -or
+            $null -ne $payload.PSObject.Properties["errorMessage"]
+        ) {
+            $CopilotEvent = "PostToolUseFailure"
+        }
 
-            $Translated = [ordered]@{}
-            foreach ($Property in $Payload.PSObject.Properties) {
-                $Name = $Property.Name
-                $Value = $Property.Value
-
-                if ($Name -eq "toolName") {
-                    $Translated["tool_name"] = $Value
-                    continue
+        $Translated = [ordered]@{}
+        foreach ($Property in $payload.PSObject.Properties) {
+            $Name = $Property.Name
+            $Value = $Property.Value
+            if ($Name -eq "toolName") {
+                $Translated["tool_name"] = $Value
+            } elseif ($Name -eq "toolArgs") {
+                if ($Value -is [string]) {
+                    try { $Value = $Value | ConvertFrom-Json } catch { }
                 }
-
-                if ($Name -eq "toolArgs") {
-                    if ($Value -is [string]) {
-                        try {
-                            $Value = $Value | ConvertFrom-Json
-                        } catch {
-                            # Preserve the original string if it is not valid JSON.
-                        }
-                    }
-                    $Translated["tool_input"] = $Value
-                    continue
-                }
-
-                if ($Name -eq "toolResult") {
-                    $Translated["tool_output"] = $Value
-                    continue
-                }
-
+                $Translated["tool_input"] = $Value
+            } elseif ($Name -eq "toolResult") {
+                $Translated["tool_output"] = $Value
+            } else {
                 $Translated[$Name] = $Value
             }
-
-            $TranslatedJson = $Translated | ConvertTo-Json -Compress -Depth 20
-        } catch {
-            $TranslatedJson = "{}"
-            $CopilotEvent = "PreToolUse"
         }
+        $TranslatedJson = $Translated | ConvertTo-Json -Compress -Depth 20
     }
 
     $env:CLAUDE_HOOK_EVENT_NAME = $CopilotEvent
@@ -70,9 +53,7 @@ try {
         -ProjectRoot $ProjectDir `
         -ScriptPath (Join-Path $ScriptDir "mcp-health.py") | Out-Null
 
-    if ($null -ne $LASTEXITCODE) {
-        exit $LASTEXITCODE
-    }
+    if ($null -ne $LASTEXITCODE) { exit $LASTEXITCODE }
     exit 0
 } catch {
     exit 0

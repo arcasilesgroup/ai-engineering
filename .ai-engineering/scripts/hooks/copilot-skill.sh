@@ -6,10 +6,8 @@ set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/../../.." && pwd)"
-# shellcheck source=_lib/copilot-common.sh
-source "$SCRIPT_DIR/_lib/copilot-common.sh"
-# shellcheck source=_lib/copilot-runtime.sh
-source "$SCRIPT_DIR/_lib/copilot-runtime.sh"
+. "$SCRIPT_DIR/_lib/copilot-common.sh"
+. "$SCRIPT_DIR/_lib/copilot-runtime.sh"
 COPILOT_COMPONENT="hook.copilot-skill"
 export COPILOT_COMPONENT
 
@@ -23,46 +21,20 @@ import os, sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(os.environ["PROJECT_DIR"]) / ".ai-engineering" / "scripts" / "hooks"))
-from _lib.observability import (
-    emit_declared_context_loads,
-    emit_ide_hook_outcome,
-    emit_skill_invoked,
-)
+from _lib.observability import emit_declared_context_loads, emit_ide_hook_outcome, emit_skill_invoked
 from _lib.instincts import extract_instincts
 
-entry = emit_skill_invoked(
-    Path(os.environ["PROJECT_DIR"]),
-    engine="github_copilot",
-    skill_name=os.environ["SKILL_NAME"],
-    component="hook.copilot-skill",
-    source="hook",
-    session_id=os.environ.get("COPILOT_SESSION_ID") or os.environ.get("GITHUB_COPILOT_SESSION_ID"),
-    trace_id=os.environ.get("COPILOT_TRACE_ID") or os.environ.get("GITHUB_COPILOT_TRACE_ID"),
-)
-emit_declared_context_loads(
-    Path(os.environ["PROJECT_DIR"]),
-    engine="github_copilot",
-    initiator_kind="skill",
-    initiator_name=os.environ["SKILL_NAME"],
-    component="hook.copilot-skill",
-    source="hook",
-    session_id=os.environ.get("COPILOT_SESSION_ID") or os.environ.get("GITHUB_COPILOT_SESSION_ID"),
-    trace_id=os.environ.get("COPILOT_TRACE_ID") or os.environ.get("GITHUB_COPILOT_TRACE_ID"),
-    correlation_id=entry["correlationId"],
-)
-emit_ide_hook_outcome(
-    Path(os.environ["PROJECT_DIR"]),
-    engine="github_copilot",
-    hook_kind="user-prompt-submit",
-    component="hook.copilot-skill",
-    outcome="success",
-    source="hook",
-    session_id=os.environ.get("COPILOT_SESSION_ID") or os.environ.get("GITHUB_COPILOT_SESSION_ID"),
-    trace_id=os.environ.get("COPILOT_TRACE_ID") or os.environ.get("GITHUB_COPILOT_TRACE_ID"),
-    correlation_id=entry["correlationId"],
-)
-if os.environ["SKILL_NAME"] == "ai-start":
-    extract_instincts(Path(os.environ["PROJECT_DIR"]))
+PR = Path(os.environ["PROJECT_DIR"])
+SK = os.environ["SKILL_NAME"]
+SID = os.environ.get("COPILOT_SESSION_ID") or os.environ.get("GITHUB_COPILOT_SESSION_ID")
+TID = os.environ.get("COPILOT_TRACE_ID") or os.environ.get("GITHUB_COPILOT_TRACE_ID")
+COMMON = dict(engine="github_copilot", component="hook.copilot-skill", source="hook", session_id=SID, trace_id=TID)
+
+entry = emit_skill_invoked(PR, skill_name=SK, **COMMON)
+emit_declared_context_loads(PR, initiator_kind="skill", initiator_name=SK, correlation_id=entry["correlationId"], **COMMON)
+emit_ide_hook_outcome(PR, hook_kind="user-prompt-submit", outcome="success", correlation_id=entry["correlationId"], **COMMON)
+if SK == "ai-start":
+    extract_instincts(PR)
 PY
 }
 

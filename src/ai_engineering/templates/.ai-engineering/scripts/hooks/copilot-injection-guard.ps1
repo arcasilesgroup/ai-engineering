@@ -8,44 +8,28 @@ $ErrorActionPreference = "Stop"
 try {
     $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
     $ProjectDir = [string](Resolve-Path (Join-Path $ScriptDir "../../.."))
+    . (Join-Path $ScriptDir "_lib/copilot-common.ps1")
     . (Join-Path $ScriptDir "_lib/copilot-runtime.ps1")
 
-    $InputJson = [Console]::In.ReadToEnd()
+    Read-StdinPayload | Out-Null
     $TranslatedJson = "{}"
-
-    if (-not [string]::IsNullOrWhiteSpace($InputJson)) {
-        try {
-            $Payload = $InputJson | ConvertFrom-Json
-            $Translated = [ordered]@{}
-
-            foreach ($Property in $Payload.PSObject.Properties) {
-                $Name = $Property.Name
-                $Value = $Property.Value
-
-                if ($Name -eq "toolName") {
-                    $Translated["tool_name"] = $Value
-                    continue
+    if ($null -ne $script:CopilotPayload) {
+        $Translated = [ordered]@{}
+        foreach ($Property in $script:CopilotPayload.PSObject.Properties) {
+            $Name = $Property.Name
+            $Value = $Property.Value
+            if ($Name -eq "toolName") {
+                $Translated["tool_name"] = $Value
+            } elseif ($Name -eq "toolArgs") {
+                if ($Value -is [string]) {
+                    try { $Value = $Value | ConvertFrom-Json } catch { }
                 }
-
-                if ($Name -eq "toolArgs") {
-                    if ($Value -is [string]) {
-                        try {
-                            $Value = $Value | ConvertFrom-Json
-                        } catch {
-                            # Preserve the original string if it is not valid JSON.
-                        }
-                    }
-                    $Translated["tool_input"] = $Value
-                    continue
-                }
-
+                $Translated["tool_input"] = $Value
+            } else {
                 $Translated[$Name] = $Value
             }
-
-            $TranslatedJson = $Translated | ConvertTo-Json -Compress -Depth 20
-        } catch {
-            $TranslatedJson = "{}"
         }
+        $TranslatedJson = $Translated | ConvertTo-Json -Compress -Depth 20
     }
 
     $env:CLAUDE_HOOK_EVENT_NAME = "PreToolUse"
@@ -56,9 +40,7 @@ try {
         -ProjectRoot $ProjectDir `
         -ScriptPath (Join-Path $ScriptDir "prompt-injection-guard.py") | Out-Null
 
-    if ($null -ne $LASTEXITCODE) {
-        exit $LASTEXITCODE
-    }
+    if ($null -ne $LASTEXITCODE) { exit $LASTEXITCODE }
     exit 0
 } catch {
     exit 0

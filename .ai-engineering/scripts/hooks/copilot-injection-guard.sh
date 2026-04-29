@@ -7,15 +7,11 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/../../.." && pwd)"
-source "$SCRIPT_DIR/_lib/copilot-runtime.sh"
+. "$SCRIPT_DIR/_lib/copilot-common.sh"
+. "$SCRIPT_DIR/_lib/copilot-runtime.sh"
 
-# Read Copilot JSON from stdin
-INPUT=$(cat)
-
-# Translate Copilot field names to Claude Code convention:
-#   Copilot: { "toolName": "...", "toolArgs": {...} }
-#   Claude:  { "tool_name": "...", "tool_input": {...} }
-TRANSLATED=$(copilot_framework_python_inline "$PROJECT_DIR" <<'PY'
+read_stdin_payload >/dev/null
+TRANSLATED=$(printf '%s' "$PAYLOAD" | copilot_framework_python_inline "$PROJECT_DIR" <<'PY'
 import json
 import sys
 
@@ -35,9 +31,6 @@ except Exception:
 PY
 ) || TRANSLATED="{}"
 
-# Map Copilot event to Claude Code event name
 export CLAUDE_HOOK_EVENT_NAME="PreToolUse"
-
-# Pipe translated input to Python script, preserve exit code (2 = block)
 echo "$TRANSLATED" | copilot_framework_python_script "$PROJECT_DIR" "$SCRIPT_DIR/prompt-injection-guard.py"
 exit $?

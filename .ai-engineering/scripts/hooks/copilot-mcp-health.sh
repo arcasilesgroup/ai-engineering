@@ -7,32 +7,20 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/../../.." && pwd)"
-source "$SCRIPT_DIR/_lib/copilot-runtime.sh"
+. "$SCRIPT_DIR/_lib/copilot-common.sh"
+. "$SCRIPT_DIR/_lib/copilot-runtime.sh"
 
-# Read Copilot JSON from stdin
-INPUT=$(cat)
+read_stdin_payload >/dev/null
 
-# Detect Copilot event name from the JSON payload.
-# postToolCallFailure includes error/failure indicators; preToolCall does not.
-COPILOT_EVENT=$(copilot_framework_python_inline "$PROJECT_DIR" <<'PY'
-import json
-import sys
+# Detect Copilot event from payload (postToolCallFailure carries error fields).
+COPILOT_EVENT="PreToolUse"
+if command -v jq >/dev/null 2>&1 && [ -n "$PAYLOAD" ]; then
+    if printf '%s' "$PAYLOAD" | jq -e 'has("error") or has("failure") or has("errorMessage")' >/dev/null 2>&1; then
+        COPILOT_EVENT="PostToolUseFailure"
+    fi
+fi
 
-try:
-    payload = json.load(sys.stdin)
-    if "error" in payload or "failure" in payload or "errorMessage" in payload:
-        print("PostToolUseFailure")
-    else:
-        print("PreToolUse")
-except Exception:
-    print("PreToolUse")
-PY
-) || COPILOT_EVENT="PreToolUse"
-
-# Translate Copilot field names to Claude Code convention:
-#   Copilot: { "toolName": "...", "toolArgs": {...} }
-#   Claude:  { "tool_name": "...", "tool_input": {...} }
-TRANSLATED=$(copilot_framework_python_inline "$PROJECT_DIR" <<'PY'
+TRANSLATED=$(printf '%s' "$PAYLOAD" | copilot_framework_python_inline "$PROJECT_DIR" <<'PY'
 import json
 import sys
 
@@ -54,9 +42,6 @@ except Exception:
 PY
 ) || TRANSLATED="{}"
 
-# Map Copilot event to Claude Code event name
 export CLAUDE_HOOK_EVENT_NAME="$COPILOT_EVENT"
-
-# Pipe translated input to Python script, preserve exit code (2 = block)
 echo "$TRANSLATED" | copilot_framework_python_script "$PROJECT_DIR" "$SCRIPT_DIR/mcp-health.py"
 exit $?
