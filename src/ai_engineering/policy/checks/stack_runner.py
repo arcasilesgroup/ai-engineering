@@ -223,7 +223,16 @@ PRE_PUSH_CHECKS: dict[str, list[CheckConfig]] = {
             ],
             timeout=180,
         ),
-        CheckConfig(name="ty-check", cmd=["ty", "check", "src/ai_engineering"]),
+        CheckConfig(
+            name="ty-check",
+            cmd=[
+                "ty",
+                "check",
+                "--exclude",
+                "src/ai_engineering/templates/**",
+                "src/ai_engineering",
+            ],
+        ),
     ],
     # Canonical spec-101 stack names (Wave 27 migration).
     "csharp": [
@@ -335,10 +344,22 @@ def _resolve_python_checks(
                 )
             )
         elif check.name == "ty-check":
+            # Exclude templates/ — the template hook scripts import
+            # `_lib.hook_common` which resolves at runtime via an
+            # `__init__.py` shim re-exporting `hook-common.py` (hyphen
+            # filename per spec-112 G-12). ty cannot follow runtime
+            # importlib magic; the canonical hooks are byte-equivalent
+            # and live outside the ty scope, so coverage is preserved.
             resolved.append(
                 CheckConfig(
                     name=check.name,
-                    cmd=["ty", "check", source_root],
+                    cmd=[
+                        "ty",
+                        "check",
+                        "--exclude",
+                        f"{source_root}/templates/**",
+                        source_root,
+                    ],
                     required=check.required,
                     timeout=check.timeout,
                 )
