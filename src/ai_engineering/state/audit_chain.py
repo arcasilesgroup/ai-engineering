@@ -201,7 +201,11 @@ def _extract_chain_pointer(event: dict) -> tuple[str | None, bool, bool]:
     return None, False, False
 
 
-def iter_validate_chain(path: Path) -> Iterator[ValidationResult]:
+def iter_validate_chain(
+    path: Path,
+) -> Iterator[
+    ValidationResult
+]:  # audit:exempt:streaming-state-machine-anchor-legacy-mismatch-branches
     """Stream-validate a hash-chained NDJSON audit log (spec-110 D-110-03).
 
     Walks ``path`` line-by-line, computing :func:`compute_event_hash`
@@ -390,7 +394,7 @@ def _load_entries(
     return list(candidate), None
 
 
-def verify_audit_chain(
+def verify_audit_chain(  # audit:exempt:hash-chain-walker-head-truncation-mismatch-branches
     file_path: Path,
     mode: Literal["ndjson", "json_array"] = "ndjson",
 ) -> AuditChainVerdict:

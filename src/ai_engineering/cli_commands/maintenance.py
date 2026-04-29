@@ -424,7 +424,7 @@ def _write_seed_event(events_path: Path, *, archive_name: str) -> dict:
     return seed
 
 
-def maintenance_reset_events(
+def maintenance_reset_events(  # audit:exempt:typer-cli-3-fail-closed-gates-json-text-dual
     target: Annotated[
         Path | None,
         typer.Option("--target", "-t", help="Target project root."),
@@ -545,7 +545,7 @@ def maintenance_reset_events(
         )
 
 
-def maintenance_all(
+def maintenance_all(  # audit:exempt:typer-cli-aggregator-4-subcommands-json-text-dual
     target: Annotated[
         Path | None,
         typer.Option("--target", "-t", help="Target project root."),
