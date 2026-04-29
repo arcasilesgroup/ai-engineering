@@ -280,6 +280,7 @@ def create_app() -> typer.Typer:
     maint_app.command("risk-status")(_safe(maintenance.maintenance_risk_status))
     maint_app.command("repo-status")(_safe(maintenance.maintenance_repo_status))
     maint_app.command("spec-reset")(_safe(maintenance.maintenance_spec_reset))
+    maint_app.command("reset-events")(_safe(maintenance.maintenance_reset_events))
     maint_app.command("all")(_safe(maintenance.maintenance_all))
     app.add_typer(maint_app, name="maintenance")
 
