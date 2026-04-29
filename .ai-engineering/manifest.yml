@@ -220,6 +220,16 @@ telemetry:
   consent: strict-opt-in
   default: disabled
 
+# Hot-path SLO budgets (spec-114 D-114-02). Drive `ai-eng doctor --check hot-path`
+# reporting and emit `hot_path_violation` events with `bug_tag: infra:slow-hook`
+# when the rolling p95 exceeds the budget. Defaults match spec-112 D-112-08
+# and CLAUDE.md hot-path discipline (≤1 s pre-commit, ≤5 s pre-push).
+hot_path_slos:
+  pre_commit_p95_ms: 1000
+  pre_push_p95_ms: 5000
+  skill_invocation_overhead_p95_ms: 200
+  rolling_window_events: 100
+
 # === SPEC-101 INSTALL CONFIGURATION ===
 # User-edited install configuration for `ai-eng install` / `ai-eng doctor --fix`.
 # Placed at end-of-file so the spec-101 required_tools governance lint can
