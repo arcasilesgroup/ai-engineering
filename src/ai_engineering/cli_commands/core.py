@@ -968,14 +968,32 @@ def doctor_cmd(
         bool,
         typer.Option("--json", help="Output report as JSON for agent consumption."),
     ] = False,
+    check: Annotated[
+        str | None,
+        typer.Option(
+            "--check",
+            help="Run a focused sub-check (e.g., 'hot-path' for SLO budgets).",
+        ),
+    ] = None,
 ) -> None:
     """Diagnose and optionally fix framework health.
 
-    Exit codes: 0 (pass), 1 (fail), 2 (warnings only).
+    Exit codes: 0 (pass), 1 (fail), 2 (warnings only). When ``--check
+    hot-path`` is passed, runs the spec-114 advisory hot-path SLO
+    audit and always exits 0 per D-114-03 (advisory through
+    2026-05-31).
     """
     if output_json:
         set_json_mode(True)
     root = resolve_project_root(target)
+
+    if check == "hot-path":
+        from ai_engineering.cli_commands.doctor_hot_path import run_hot_path_check
+
+        run_hot_path_check(root)
+        return
+    if check is not None:
+        raise typer.BadParameter(f"Unknown --check value: {check!r}. Supported: hot-path.")
 
     if dry_run and not fix:
         fix = True  # --dry-run implies --fix
