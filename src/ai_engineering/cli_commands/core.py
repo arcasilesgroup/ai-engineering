@@ -968,7 +968,7 @@ def doctor_cmd(
         bool,
         typer.Option("--json", help="Output report as JSON for agent consumption."),
     ] = False,
-    check: Annotated[
+    focused_check: Annotated[
         str | None,
         typer.Option(
             "--check",
@@ -987,13 +987,13 @@ def doctor_cmd(
         set_json_mode(True)
     root = resolve_project_root(target)
 
-    if check == "hot-path":
+    if focused_check == "hot-path":
         from ai_engineering.cli_commands.doctor_hot_path import run_hot_path_check
 
         run_hot_path_check(root)
         return
-    if check is not None:
-        raise typer.BadParameter(f"Unknown --check value: {check!r}. Supported: hot-path.")
+    if focused_check is not None:
+        raise typer.BadParameter(f"Unknown --check value: {focused_check!r}. Supported: hot-path.")
 
     if dry_run and not fix:
         fix = True  # --dry-run implies --fix
@@ -1031,13 +1031,21 @@ def doctor_cmd(
 
         for phase_report in report.phases:
             typer.echo(f"\n  {phase_report.name} [{phase_report.status.value}]")
-            for check in phase_report.checks:
-                status_line(check.status.value, check.name, check.message)
+            for doctor_check in phase_report.checks:
+                status_line(
+                    doctor_check.status.value,
+                    doctor_check.name,
+                    doctor_check.message,
+                )
 
         if report.runtime:
             typer.echo("\n  runtime")
-            for check in report.runtime:
-                status_line(check.status.value, check.name, check.message)
+            for doctor_check in report.runtime:
+                status_line(
+                    doctor_check.status.value,
+                    doctor_check.name,
+                    doctor_check.message,
+                )
 
         if fixable_count:
             suggest_next([("ai-eng doctor --fix", "Attempt automatic repairs for fixable issues")])
