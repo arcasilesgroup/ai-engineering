@@ -19,6 +19,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 from _lib.audit import passthrough_stdin, read_stdin
+from _lib.hook_common import run_hook_safe
 
 # spec-105 D-105-09: best-effort import of the shared auto-stage utility.
 # When the framework package isn't on sys.path (eg the hook running from a
@@ -234,6 +235,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    with contextlib.suppress(Exception):
-        main()
-    sys.exit(0)
+    run_hook_safe(main, component="hook.auto-format", hook_kind="post-tool-use")
