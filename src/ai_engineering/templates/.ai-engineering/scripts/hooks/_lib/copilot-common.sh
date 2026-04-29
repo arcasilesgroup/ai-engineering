@@ -124,9 +124,6 @@ emit_event() {
     local detail_json="$detail"
     printf '%s' "$detail_json" | jq -e . >/dev/null 2>&1 || detail_json="{}"
 
-    local session_arg=""
-    [ -n "$session_id" ] && session_arg="--arg sessionId \"$session_id\""
-
     local entry
     entry="$(jq -nc \
         --arg kind "$kind" \
