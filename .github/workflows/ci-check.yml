@@ -519,7 +519,7 @@ jobs:
       - name: Install dependencies
         run: uv sync --dev
       - name: Install Snyk CLI
-        run: npm install -g snyk
+        run: npm install -g snyk --ignore-scripts
       - name: Export pinned requirements for Snyk
         run: |
           uv pip freeze > requirements.txt
