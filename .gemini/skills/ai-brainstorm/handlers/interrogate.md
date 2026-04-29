@@ -62,6 +62,24 @@ D) Something else -- describe
 - Push back when appropriate: "That adds significant complexity. Is it worth it for v1?"
 - Explore what the user has NOT mentioned: "What happens when X fails?"
 
+### Step 3.5 -- Escalate to Research When Evidence Is Required
+
+Si la pregunta requiere evidencia externa que el modelo no puede confirmar (e.g., "qué patrones usa la industria", "qué dice el state of the art", "cómo lo hacen otros proyectos open source", "external evidence about library X"), invocar `/ai-research --depth=standard <subquery>` antes de seguir interrogando al usuario y consumir el artifact resultante.
+
+**Heuristic for "evidence required"**:
+
+- The user asks for "industry patterns" / "patrones usa la industria" / "what do other projects do".
+- The user asks about "state of the art" / "best practices for X" where X is a library or pattern outside the agent's confident grasp.
+- The model's training data is likely outdated for the topic (recent SDK releases, new pattern adoption).
+- A multiple-choice answer would be a guess without external corroboration.
+
+When invoked, `/ai-research` writes a Markdown artifact to `.ai-engineering/research/<topic-slug>-<YYYY-MM-DD>.md`. After consuming it:
+
+1. Cite the artifact in the spec under `## References` with prefix `research:` -- e.g., `- research: .ai-engineering/research/state-of-the-art-retries-2026-04-28.md`.
+2. Use the artifact's `## Findings` section verbatim (with `[N]` citations preserved) as the basis for the multiple-choice options in the next question.
+
+Default to `--depth=standard` so brainstorm does not auto-trigger Tier 3 NotebookLM (which is reserved for explicit deep research). The user can pass `--depth=deep` manually when invoking research outside brainstorm.
+
 ### Step 4 -- Track Progress
 
 After each answer, update the map:
