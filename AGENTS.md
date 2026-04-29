@@ -1,209 +1,118 @@
-# AGENTS.md
+# AGENTS.md — Canonical Cross-IDE Entry Point
 
-Multi-IDE instruction file. Consumed by Claude Code, GitHub Copilot, Codex, Gemini CLI, and other AI coding assistants.
-This file is self-contained -- no other instruction files are required.
+> Open standard adopted in 2026-04 by Codex CLI, Cursor, Claude Code, and Gemini CLI.
+> This file is the single source of truth for cross-IDE agent rules.
+> CLAUDE.md, GEMINI.md (root), .github/copilot-instructions.md and .codex/AGENTS.md
+> are overlays that reference this file and add only IDE-specific specifics.
 
-## FIRST ACTION -- Mandatory
+## Step 0 — Always
 
-Your first action in every session MUST be to run `/ai-start`.
-Do not respond to any user request until `/ai-start` completes.
-`/ai-start` and the rest of `/ai-*` are slash commands in the IDE agent surface, not terminal commands.
-Do not invent `ai-eng <skill>` equivalents unless the CLI reference explicitly lists them.
+1. Read [CONSTITUTION.md](./CONSTITUTION.md). Apply Articles I–X to every action.
+2. Read project manifest at `.ai-engineering/manifest.yml` for active providers/work_items config.
+3. No implementation work without an approved spec at `.ai-engineering/specs/spec-NNN-*.md` with `status: approved`.
 
-## Session Governance
+## Skills Available
 
-If a skill applies to the current task, use it. No shortcuts.
+Invoke as `/ai-<name>`. Each skill declares its own trigger phrases and effort level in frontmatter.
+Source of truth: the canonical skill path declared in [Article V](./CONSTITUTION.md#article-v--single-source-of-truth). Mirrors for other IDEs are generated, never edited by hand.
 
-| Rationalization | Correct action |
-|----------------|----------------|
-| "This is too simple for planning" | Use `/ai-plan` |
-| "I'll just make a quick fix" | Use `/ai-debug` |
-| "Tests aren't needed for this change" | Use `/ai-test` |
-| "I already know the answer" | Use the matching skill and verify |
-| "The user is in a hurry" | Follow the process faster, do not skip it |
-| "This doesn't need a spec" | Use `/ai-brainstorm` |
-| "I'll add tests later" | Follow TDD or add coverage immediately |
-| "Security scanning would slow us down" | Use `/ai-security` or `/ai-verify` |
+| Skill | Trigger | Notes |
+|---|---|---|
+| `/ai-analyze-permissions` | "too many permission prompts", "consolidate allow rules" | Audit and consolidate IDE permission grants. Claude Code only. |
+| `/ai-animation` | "animate this", "add transitions", "micro-interactions" | Motion, transitions, gestures. Not for design systems or visual art. |
+| `/ai-autopilot` | "ship the whole thing", spec is large (3+ concerns / 10+ files) | Autonomous end-to-end delivery. Decompose, plan, DAG, waves, PR. |
+| `/ai-board-discover` | "set up the board", "configure our ADO board" | Detects GitHub Projects v2 / Azure DevOps fields and writes manifest. |
+| `/ai-board-sync` | "move this issue to in-review", "update the board" | Lifecycle state sync. Fail-open. Auto-invoked by brainstorm/dispatch/pr. |
+| `/ai-brainstorm` | "let's add X", "how should we", any work without an approved spec | HARD GATE — produces a reviewed spec. No code until user approves. |
+| `/ai-canvas` | "create a poster", "design a banner", "branding piece" | Static visual artifacts (PDF/PNG). Not for UI, animation, or AI media. |
+| `/ai-cleanup` | "tidy up", "clean up branches", "sync to main" | Branch hygiene. Auto-invoked after PR merge. |
+| `/ai-code` | "implement this", "write the code for", "build this function" | Production code with interface-first design. Not for tests or debugging. |
+| `/ai-commit` | "commit my changes", "save my work", "ship it" | Governed pipeline: format, lint, secrets, conventional commit, push. |
+| `/ai-constitution` | "draft the constitution", "amend Article X" | Generate / update `CONSTITUTION.md` via ADR. |
+| `/ai-create` | "create a new skill", "add a slash command" | Extend the framework with a new skill, agent, or capability. |
+| `/ai-debug` | "it's not working", "I'm getting an error", "CI is failing" | Systematic 4-phase root-cause diagnosis. Never patches symptoms. |
+| `/ai-design` | "design this page", "create a design system", "color palette for" | UI design, design systems, aesthetic direction. |
+| `/ai-dispatch` | "go", "execute the plan", "start building" | HARD GATE — produces plan. Orchestrates subagents per task with two-stage review. Requires an approved plan from `/ai-plan`. |
+| `/ai-docs` | "update the changelog", "the README is stale", "document this feature" | Documentation lifecycle. Auto-invoked by `/ai-pr`. |
+| `/ai-eval` | "how reliable is this", "did my changes break anything" | AI system reliability metrics — distinct from `/ai-test` and `/ai-verify`. |
+| `/ai-explain` | "how does this work?", "trace through this", "explain this pattern" | Engineer-grade explanations with diagrams and execution traces. |
+| `/ai-governance` | "are quality gates enforced?", "governance report for auditors" | Governance process validation. Complements `/ai-security`. |
+| `/ai-guide` | "where does auth happen?", "I'm new to this project" | Architecture tours, decision archaeology, onboarding. Read-only. |
+| `/ai-instinct` | "start observing", "consolidate instincts", "instinct review" | Observe corrections and consolidate workflow patterns. |
+| `/ai-learn` | "the AI keeps doing X wrong", "learn from this PR" | Analyzes merged PR review feedback and writes lessons. |
+| `/ai-market` | "write a blog post to publish", "investor deck", "post to X" | Marketing and go-to-market execution. Not for internal docs. |
+| `/ai-mcp-sentinel` | "review this skill before install", "post-update audit" | Cold-path MCP/skill security audit via LLM coherence. |
+| `/ai-media` | "generate an image", "create a thumbnail", "AI video" | AI-generated images/video/audio. Cost-aware. Requires fal-ai MCP. |
+| `/ai-note` | "save this", "remember this finding", "what did we find about" | Cross-session knowledge. Save anything that took >30 minutes to figure out. |
+| `/ai-pipeline` | "set up CI/CD", "is this workflow secure?" | GitHub Actions / Azure Pipelines workflows with policy validation. |
+| `/ai-plan` | "break this down", "create a plan", "what tasks do we need" | HARD GATE — produces plan. Phased execution from approved spec. |
+| `/ai-platform-audit` | "audit platform support", "are skill counts correct per platform?" | Verify IDE platform integration end-to-end. |
+| `/ai-postmortem` | "we had an incident", "write up the outage", "near-miss analysis" | DERP format (Detection, Escalation, Recovery, Prevention). |
+| `/ai-pr` | "open a PR", "submit this for review", "draft PR" | Pre-push gates, structured PR body, watches and fixes CI until merged. |
+| `/ai-prompt` | "this prompt isn't working", "optimize this skill description" | Optimize prompts and skill descriptions. |
+| `/ai-release-gate` | "is this ready to ship?", "GO/NO-GO" | Aggregated 8-dimension release readiness verdict. |
+| `/ai-resolve-conflicts` | "I have conflicts", "rebase failed", "I see <<<<<<< in the file" | Type-aware conflict resolution by category. |
+| `/ai-review` | "review this", "give me feedback", "is this merge-ready" | Specialist roster code review. Use `/ai-verify` for evidence-backed gates. |
+| `/ai-run` | "run these backlog items", "execute these GitHub issues" | Autonomous backlog execution end-to-end. |
+| `/ai-schema` | "add a column", "we need a migration", "the query is slow" | Schema design, safe migrations with rollback, query optimization. |
+| `/ai-security` | "is this secure?", "audit dependencies", "check for secrets" | Pre-release security gate, SBOM, SAST with OWASP/CWE mapping. |
+| `/ai-skill-evolve` | "evolve this skill", "improve /ai-plan", "make /ai-review better" | Improves an existing skill from real project pain — not theory. |
+| `/ai-slides` | "create a talk deck", "pitch deck", "convert my PPTX" | Zero-dependency self-contained HTML decks. |
+| `/ai-sprint` | "start sprint planning", "let's do the retro", "sprint goals check" | Sprint lifecycle: plan, retro, review deck. |
+| `/ai-standup` | "write my standup", "what did I ship this week" | Status update from real git/PR history. |
+| `/ai-start` | "hello", "let's start", "good morning", "what's the status" | Session bootstrap. Loads context, activates instinct, shows dashboard. |
+| `/ai-support` | "a user is reporting that", "investigate this bug report" | Customer issue triage and knowledge base. |
+| `/ai-test` | "add tests for", "I need 80% coverage", "test this" | TDD (RED-GREEN-REFACTOR), coverage gaps, test strategy. |
+| `/ai-verify` | "check my code", "is this ready to merge", "prove it works" | Evidence-first verification by 4 specialists. |
+| `/ai-video-editing` | "cut this video", "make a highlight reel", "reframe for TikTok" | Real footage editing with FFmpeg/Remotion. Not for generated video. |
+| `/ai-write` | "write a blog post", "pitch deck", "solution intent doc" | Audience-aware content (developer/manager/executive). |
 
-| User intent pattern | Required skill |
-|-------------------|----------------|
-| "implement", "build", "add feature" | `/ai-brainstorm` then `/ai-plan` then `/ai-dispatch` |
-| "fix", "bug", "broken", "not working" | `/ai-debug` |
-| "test", "coverage", "verify" | `/ai-test` or `/ai-verify` |
-| "refactor", "restructure", "move" | `/ai-brainstorm` then `/ai-plan` |
-| "commit", "push", "save" | `/ai-commit` |
-| "PR", "pull request", "review" | `/ai-pr` or `/ai-review` |
-| "deploy", "release", "publish" | `/ai-release-gate` |
-| "conflict", "merge conflict" | `/ai-resolve-conflicts` |
+## Agents Available
 
-## Workflow Orchestration
+Source of truth: `.claude/agents/ai-<name>.md`. Mirrors for other IDEs are generated.
+The 10 first-class agents below are the dispatch surface; specialist sub-agents (reviewers, verifiers) are invoked indirectly through these.
 
-### 1. Plan Mode Default
+- `ai-build` — Implementation coordinator. **The ONLY agent with code write permissions.** Test-first, dispatch-driven, quality-gated.
+- `ai-explore` — Deep codebase research, architecture mapping, dependency tracing, pattern identification. **Read-only.**
+- `ai-guard` — Proactive governance advisor. Checks standards, decisions, and quality trends during development. **Always advisory, NEVER blocks.**
+- `ai-guide` — Project onboarding and teaching. Architecture tours, decision archaeology, knowledge transfer. **Reads everything, writes nothing.**
+- `ai-plan` — Relentless interrogator. Extracts every detail, assumption, and blind spot before anything gets built.
+- `ai-review` — Code review orchestrator. Dispatches specialist agents via Agent tool for real parallel review with context isolation.
+- `ai-run-orchestrator` — Autonomous backlog orchestrator. Normalizes work items, plans a DAG, dispatches ai-build packets, coordinates local promotion, delivers through the PR workflow.
+- `ai-simplify` — Code simplification and complexity reduction. Guard clauses, method extraction, nesting flattening, dead code removal. **Behavior preserved.**
+- `ai-verify` — Evidence-first verification orchestrator. Dispatches 1 deterministic agent (tool execution) + 3 LLM judgment agents (governance, architecture, feature).
+- `ai-autopilot` — Autonomous 6-phase orchestrator. Decomposes specs into sub-specs, deep-plans each with parallel agents, builds a DAG, implements in waves, runs quality convergence loops (verify+guard+review x3), and delivers via PR with full integrity report.
 
-- Enter plan mode for ANY non-trivial task (3+ steps or architectural decisions)
-- If something goes sideways, STOP and re-plan immediately -- don't keep pushing
-- Use plan mode for verification steps, not just building
-- Write detailed specs upfront to reduce ambiguity via `/ai-brainstorm`
+## Hard Rules
 
-### 2. Subagent Strategy
+These are the non-negotiables. Each rule references the CONSTITUTION article that establishes it. Do NOT restate the rule prose here — that lives in CONSTITUTION.md.
 
-- Offload research, exploration, and parallel analysis to subagents
-- For complex problems, throw more compute at it via subagents
-- One task per subagent for focused execution
-- Never have a subagent do two unrelated things
+- See [Article I](./CONSTITUTION.md#article-i--spec-driven-development-hard-gate) — Spec-Driven Development
+- See [Article II](./CONSTITUTION.md#article-ii--test-driven-development-hard) — TDD
+- See [Article III](./CONSTITUTION.md#article-iii--dual-plane-security) — Dual-Plane Security
+- See [Article IV](./CONSTITUTION.md#article-iv--subscription-piggyback) — No API keys default path
+- See [Article V](./CONSTITUTION.md#article-v--single-source-of-truth) — Single Source of Truth
+- See [Article VI](./CONSTITUTION.md#article-vi--supply-chain-integrity) — Supply Chain
+- See [Article VII](./CONSTITUTION.md#article-vii--no-suppression) — No Suppression
+- See [Article VIII](./CONSTITUTION.md#article-viii--conventional-commits) — Conventional Commits
+- See [Article IX](./CONSTITUTION.md#article-ix--cognitive-debt) — Telemetry
+- See [Article X](./CONSTITUTION.md#article-x--right-to-evolve) — Amendment process
 
-### 3. Self-Improvement Loop
+## Subscription Piggyback
 
-- After ANY correction from the user: update `.ai-engineering/LESSONS.md` with the pattern
-- Write rules for yourself that prevent the same mistake
-- Ruthlessly iterate on these lessons until mistake rate drops
-- Review lessons at session start: read `.ai-engineering/LESSONS.md` proactively
+The framework runs inside the developer's IDE host and avoids BYOK credentials in the default path
+(see [Article IV](./CONSTITUTION.md#article-iv--subscription-piggyback) for the binding rules).
+Three layers compose the model:
 
-### 4. Verification Before Done
+- **Layer 1 (deterministic)** — pure rules and tools, no LLM call.
+- **Layer 2 (workflow)** — inference is delegated to the IDE host subscription (Claude Code, GitHub
+  Copilot, Cursor, Gemini CLI), so authoring flows reuse the developer's existing entitlement.
+- **Layer 3 (BYOK CI)** — opt-in for CI; the pattern is documented but not yet active at the current
+  scale, and any vendor choice is a deployment-time decision captured by ADR.
 
-- Never mark a task complete without proving it works
-- Run the tests. Run the linter. Check the output
-- Diff behavior between main and your changes when relevant
-- Ask yourself: "Would a staff engineer approve this?"
+## IDE-Specific Overlays
 
-### 5. Demand Elegance (Balanced)
-
-- For non-trivial changes: pause and ask "is there a more elegant way?"
-- If a fix feels hacky: "Knowing everything I know now, implement the elegant solution"
-- Skip this for simple, obvious fixes -- don't over-engineer
-- Clever is bad. Simple and clear is elegant
-
-### 6. Autonomous Bug Fixing
-
-- When given a bug report: just fix it. Don't ask for hand-holding
-- Point at logs, errors, failing tests -- then resolve them
-- If you see a bug while working on something else -- fix it and mention it in the commit
-- Zero context switching required from the user
-
-### 7. Parallel Execution
-
-- Batch independent operations into simultaneous tool calls
-- Never go sequential when you can go parallel
-
-### 8. Context Efficiency
-
-- Never re-read files already in context. Never dump code the user did not ask for
-- Use `startLine:endLine:filepath` to cite. Use `// ... existing code ...` for omissions
-
-### 9. Proactive Memory
-
-- Read/write `.ai-engineering/LESSONS.md` to persist learnings across sessions
-
-### 10. Context Loading
-
-Before writing or reviewing code, load the applicable context files:
-1. Detect the project's languages from file extensions and build config
-2. Read `.ai-engineering/contexts/languages/{language}.md` for each detected language
-3. Read `.ai-engineering/contexts/frameworks/{framework}.md` for each detected framework
-4. Read shared framework contexts when relevant: `.ai-engineering/contexts/cli-ux.md` for CLI work and `.ai-engineering/contexts/mcp-integrations.md` for MCP/server usage
-5. Read `.ai-engineering/contexts/team/*.md` for team conventions
-6. Apply loaded standards to all code generation and review
-
-## Task Management
-
-1. **Plan First**: Write plan via `/ai-plan` to `.ai-engineering/specs/plan.md` with checkable items
-2. **Verify Plan**: Check in before starting implementation
-3. **Track Progress**: Mark items complete in `.ai-engineering/specs/plan.md` as you go
-4. **Explain Changes**: High-level summary at each step
-5. **Document Results**: Add review to the spec tasks file
-6. **Capture Lessons**: Update `.ai-engineering/LESSONS.md` after corrections
-
-## Core Principles
-
-- **Simplicity First**: Make every change as simple as possible. Impact minimal code.
-- **No Laziness**: Find root causes. No temporary fixes. Senior developer standards.
-- **Minimal Impact**: Changes should only touch what's necessary. Avoid introducing bugs.
-- **Cross-Platform**: All generated code, scripts, and paths must work on Windows, macOS, and Linux. Use platform-agnostic idioms. No OS-specific assumptions without explicit fallbacks.
-
-## Agent Selection
-
-| Task | Agent | Invoke |
-|------|-------|--------|
-| Planning, specs, architecture | plan | `/ai-brainstorm` |
-| Writing/editing code | build | `/ai-dispatch` (after plan) |
-| Quality + security scanning | verify | `/ai-verify` |
-| Governance, compliance | guard | `/ai-governance` |
-| Code review (parallel agents) | review | `/ai-review` |
-| Deep codebase research | explore | direct dispatch |
-| Onboarding, teaching | guide | `/ai-guide` |
-| Simplify/refactor code | simplify | direct dispatch |
-| Multi-spec autonomous execution | autopilot | `/ai-autopilot` |
-| Autonomous backlog execution | run-orchestrator | `/ai-run` |
-
-## Skills (48)
-
-Grouped by type. Invoke as `/ai-<name>`.
-
-**Workflow:** brainstorm, plan, dispatch, code, test, debug, verify, review, eval, schema
-**Delivery:** commit, pr, release-gate, cleanup, market
-**Enterprise:** security, governance, pipeline, docs, board-discover, board-sync, platform-audit
-**Teaching:** explain, guide, write, slides, media, video-editing
-**Design:** design, animation, canvas
-**SDLC:** note, standup, sprint, postmortem, support, resolve-conflicts
-**Meta:** create, learn, prompt, start, analyze-permissions, instinct, autopilot, run, constitution, skill-evolve
-
-## Effort Levels
-
-Each skill declares `effort` in frontmatter. Assignment by cognitive weight:
-
-| Effort | Count |
-|--------|-------|
-| max | 11 (autopilot, brainstorm, governance, platform-audit, review, run, schema, security, skill-evolve, verify, eval) |
-| high | 23 (animation, board-discover, canvas, code, create, debug, design, dispatch, docs, explain, guide, market, pipeline, plan, postmortem, pr, release-gate, slides, sprint, support, test, video-editing, write) |
-| medium | 13 (analyze-permissions, board-sync, cleanup, commit, instinct, learn, media, note, start, constitution, prompt, resolve-conflicts, standup) |
-
-## Quality Gates
-
-| Metric | Threshold |
-|--------|-----------|
-| Test coverage | >= 80% |
-| Code duplication | <= 3% |
-| Cyclomatic complexity | <= 10 per function |
-| Cognitive complexity | <= 15 per function |
-| Blocker/critical issues | 0 |
-| Security findings (medium+) | 0 |
-| Secret leaks | 0 |
-| Dependency vulnerabilities | 0 |
-
-Tooling: `ruff` + `ty` (lint/format), `pytest` (test), `gitleaks` (secrets), `pip-audit` (deps).
-
-## Observability
-
-Telemetry is automatic via hooks and writes only canonical framework events.
-- `UserPromptSubmit(/ai-*)` hook emits `skill_invoked` events
-- `PostToolUse` agent hooks emit `agent_dispatched` and `ide_hook` events
-- Hook, gate, governance, security, and quality outcomes flow to `.ai-engineering/state/framework-events.ndjson`
-- Registered skills, agents, contexts, and hooks are catalogued in `.ai-engineering/state/framework-capabilities.json`
-- Session discovery and transcript viewing are delegated to separately installed `agentsview`
-
-## Don't
-
-1. **NEVER** `--no-verify` on any git command.
-2. **NEVER** skip or silence a failing gate -- fix the root cause.
-3. **NEVER** weaken gate severity or coverage thresholds.
-4. **NEVER** modify hook scripts -- they are hash-verified.
-5. **NEVER** push to protected branches (main, master).
-6. **NEVER** dismiss security findings without `state/decision-store.json` risk acceptance.
-7. **NEVER** add suppression comments (`# noqa`, `# nosec`, `# type: ignore`, `# pragma: no cover`, `# NOSONAR`, `// nolint`) to bypass quality gates. Fix the code. If it is a false positive, refactor to satisfy the analyzer or escalate with a full explanation.
-8. **NEVER** weaken a gate, threshold, or severity level without the full protocol: warn user of impact, generate a remediation patch, require explicit risk acceptance, persist to `state/decision-store.json`, and emit the outcome to `state/framework-events.ndjson`. NOTE (D-105-14): risk acceptance via `ai-eng risk accept` / `ai-eng risk accept-all` is **logged-acceptance** with TTL, owner, spec ref, and follow-up plan -- it is NOT weakening. Weakening means modifying `_SEVERITY_EXPIRY_DAYS`, adding suppression comments, disabling hooks, or lowering severity-class thresholds in code or config.
-
-Gate failure: diagnose, fix, retry. Use `ai-eng doctor --fix` or `ai-eng doctor --fix --phase <name>`.
-
-## Source of Truth
-
-| What | Where |
-|------|-------|
-| Skills (48) | `.codex/skills/ai-<name>/SKILL.md` |
-| Agents (10) | `.codex/agents/ai-<name>.md` |
-| Config | `.ai-engineering/manifest.yml` |
-| Decisions | `.ai-engineering/state/decision-store.json` |
-| Active spec | `.ai-engineering/specs/spec.md` |
-| Contexts | `.ai-engineering/contexts/languages/`, `frameworks/`, `team/` |
-| Lessons | `.ai-engineering/LESSONS.md` |
-| Installer modes | `.ai-engineering/contexts/python-env-modes.md` (spec-101: 3 modes, EXIT 80/81 hard-fail, 14-stack `required_tools` coverage) |
-| CLI | `ai-eng <command>` |
+- [CLAUDE.md](./CLAUDE.md) — Claude Code specifics (hooks config, hot-path discipline)
+- [GEMINI.md](./GEMINI.md) — Gemini CLI specifics (stdin/stdout JSON contract)
+- [.github/copilot-instructions.md](./.github/copilot-instructions.md) — GitHub Copilot specifics
+- `.codex/AGENTS.md` (if Codex requires its own — Codex auto-loads root AGENTS.md by default, see [Codex docs](https://developers.openai.com/codex/guides/agents-md))
