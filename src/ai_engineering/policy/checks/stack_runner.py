@@ -654,7 +654,18 @@ def _resolve_args(tool: ToolSpec, project_root: Path) -> tuple[str, ...]:
     if tool.name == "ty":
         # _DEFAULT_ARGS["ty"] = ("check",); append the dynamically-resolved
         # source root so the final argv is ``["ty", "check", "<src>"]``.
-        return _DEFAULT_ARGS["ty"] + (detect_python_source_root(project_root),)
+        # Templates/ are excluded — the template hooks import
+        # `_lib.hook_common` which resolves at runtime via an
+        # `__init__.py` shim re-exporting `hook-common.py` (hyphen
+        # filename per spec-112 G-12). ty cannot follow runtime
+        # importlib magic; canonical hooks are byte-equivalent and
+        # live outside the ty source root, so coverage is preserved.
+        source_root = detect_python_source_root(project_root)
+        return _DEFAULT_ARGS["ty"] + (
+            "--exclude",
+            f"{source_root}/templates/**",
+            source_root,
+        )
     return _DEFAULT_ARGS.get(tool.name, ())
 
 
