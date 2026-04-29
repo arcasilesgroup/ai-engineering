@@ -48,34 +48,37 @@ def test_lib_file_exists() -> None:
     assert LIB_PATH.is_file(), f"missing shared lib: {LIB_PATH}"
 
 
-@pytest.mark.parametrize("canonical", list(_FUNCTION_ALIASES.keys()))
-def test_lib_exports_required_functions(pwsh_path: str | None, canonical: str) -> None:
+def test_lib_exports_required_functions(pwsh_path: str | None) -> None:
     """Each required function must be defined in the lib (any allowed alias)."""
-    aliases = _FUNCTION_ALIASES[canonical]
-
     if pwsh_path is not None:
-        # Preferred path: ask pwsh to confirm Get-Command sees the function
-        # under any allowed name. The script dot-sources the lib then probes.
-        get_command_probe = "; ".join(
+        # Preferred path: ask pwsh once to confirm Get-Command sees every
+        # required function. A single process avoids cold-start flake on
+        # Windows CI where PowerShell startup can exceed a tight per-alias
+        # timeout under the Python 3.11 unit matrix.
+        probe_lines = [f". '{LIB_PATH}'", "$missing = @()"]
+        for canonical, aliases in _FUNCTION_ALIASES.items():
+            checks = " -or ".join(
+                f"(Get-Command '{name}' -ErrorAction SilentlyContinue)" for name in aliases
+            )
+            probe_lines.append(f"if (-not ({checks})) {{ $missing += '{canonical}' }}")
+        probe_lines.extend(
             [
-                f". '{LIB_PATH}'",
-                "$found = $false",
-                *[
-                    f"if (Get-Command '{name}' -ErrorAction SilentlyContinue) {{ $found = $true }}"
-                    for name in aliases
-                ],
-                "if (-not $found) { exit 1 }",
+                "if ($missing.Count -gt 0) {",
+                "  Write-Error ('Missing functions: ' + ($missing -join ', '))",
+                "  exit 1",
+                "}",
                 "exit 0",
             ]
         )
+        get_command_probe = "; ".join(probe_lines)
         result = subprocess.run(
             [pwsh_path, "-NoProfile", "-NonInteractive", "-Command", get_command_probe],
             capture_output=True,
             text=True,
-            timeout=15,
+            timeout=60,
         )
         assert result.returncode == 0, (
-            f"function `{canonical}` (aliases={aliases}) missing from {LIB_PATH.name}\n"
+            f"required function aliases missing from {LIB_PATH.name}\n"
             f"stdout: {result.stdout}\n"
             f"stderr: {result.stderr}"
         )
@@ -83,14 +86,15 @@ def test_lib_exports_required_functions(pwsh_path: str | None, canonical: str) -
 
     # Fallback: source grep when pwsh is unavailable.
     text = LIB_PATH.read_text(encoding="utf-8")
-    pattern = re.compile(
-        r"^\s*function\s+(?:" + "|".join(re.escape(a) for a in aliases) + r")\b",
-        re.IGNORECASE | re.MULTILINE,
-    )
-    assert pattern.search(text), (
-        f"function `{canonical}` (aliases={aliases}) not declared in {LIB_PATH.name}; "
-        "expected a `function <name>` declaration."
-    )
+    for canonical, aliases in _FUNCTION_ALIASES.items():
+        pattern = re.compile(
+            r"^\s*function\s+(?:" + "|".join(re.escape(a) for a in aliases) + r")\b",
+            re.IGNORECASE | re.MULTILINE,
+        )
+        assert pattern.search(text), (
+            f"function `{canonical}` (aliases={aliases}) not declared in {LIB_PATH.name}; "
+            "expected a `function <name>` declaration."
+        )
 
 
 def test_lib_uses_only_sealed_dependencies() -> None:
