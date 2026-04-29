@@ -100,6 +100,34 @@ def compute_entry_hash(entry: dict) -> str:
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
+def compute_event_hash(event_dict: dict) -> str:
+    """Canonical-JSON SHA-256 of an audit event payload (spec-110).
+
+    Spec-110 vocabulary aligns on "events" (writer + reader streaming
+    surface) where the existing audit-chain code uses "entries". The
+    hashing contract is identical: sorted keys, compact separators,
+    UTF-8 bytes, with chain-pointer fields stripped before hashing so
+    that round-tripping ``prev_event_hash`` through the payload is
+    stable.
+
+    This function is a thin wrapper over :func:`compute_entry_hash` --
+    the underlying byte canonicalization is the same -- exposed under
+    the spec-110 name so callers (writer migration, streaming reader)
+    can use the vocabulary the spec adopted without coupling to the
+    legacy "entry" name.
+
+    Args:
+        event_dict: Mapping payload of a single audit event.
+
+    Returns:
+        Hex-encoded SHA-256 (64 lowercase hex chars) of the canonical
+        JSON payload (sorted keys, compact separators, UTF-8 encoded),
+        with ``prev_event_hash`` and its camelCase alias stripped prior
+        to hashing.
+    """
+    return compute_entry_hash(event_dict)
+
+
 def _load_entries(
     file_path: Path,
     mode: Literal["ndjson", "json_array"],
@@ -241,5 +269,6 @@ def verify_audit_chain(
 __all__ = [
     "AuditChainVerdict",
     "compute_entry_hash",
+    "compute_event_hash",
     "verify_audit_chain",
 ]
