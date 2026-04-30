@@ -181,12 +181,6 @@ ffmpeg -i input.mp4 -vf "crop=ih:ih,scale=1080:1080" square.mp4
 
 ## Common Mistakes
 
-- Trying to generate the whole video instead of editing real footage
-- Skipping Layer 2 (organization) and jumping straight to cuts
-- Making one tool do everything instead of respecting layer boundaries
-- Using AI generation for assets that already exist as footage
-- Forgetting to normalize audio levels before final assembly
-- Not creating proxies for large files (FFmpeg editing on 4K originals is slow)
-- Skipping the human polish layer -- AI handles structure, humans handle taste
+Do not try to generate the whole video, skip organization or polish, force one tool to do every layer, ignore proxy/audio normalization hygiene, or replace usable footage with generated assets.
 
 $ARGUMENTS

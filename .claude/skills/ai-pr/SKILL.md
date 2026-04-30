@@ -125,19 +125,7 @@ Once `state == "MERGED"`: run `/ai-cleanup --all` and report.
 
 ## Quick Reference
 
-```
-/ai-pr                  # full: commit pipeline + pre-push + create PR
-/ai-pr --only           # create PR only (no commit pipeline)
-/ai-pr --draft          # create as draft PR
-/ai-pr "fix login flow" # with title hint
-```
-
-## Common Mistakes
-
-- Skipping the pre-push gate (must hit exit 0 or all medium+ risk-accepted via `ai-eng risk accept-all`).
-- Serializing step 9 after step 7 — the gate is Lane 3 of the concurrent block.
-- Fire-and-forget docs commit after the PR — spec-104 NG-7 forbids it.
-- `handlers/watch.md` Behavioral negatives covers anti-patterns enforced during the watch loop.
+`/ai-pr` runs the full commit pipeline + pre-push gate + PR flow; `/ai-pr --only` skips the commit pipeline; `/ai-pr --draft` opens a draft; `/ai-pr "title hint"` seeds the PR title.
 
 ## Integration
 

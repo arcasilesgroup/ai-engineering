@@ -70,22 +70,11 @@ Compose message:
 `git push origin <current-branch>`. Block if on `main`/`master`.
 
 ### `/commit --only`
-
 Execute the full pipeline through Commit. Skip Push.
 
 ## Quick Reference
 
-```
-/ai-commit                   # full: stage + lint + scan + commit + push
-/ai-commit --only            # commit without push
-/ai-commit --force "msg"     # skip preview, use provided message hint
-```
-
-## Common Mistakes
-
-- `git add -A` blindly -- always review staged files for secrets/binaries.
-- Committing on `main` -- the skill auto-branches, but verify.
-- Skipping documentation gate -- CHANGELOG updates are mandatory for functional changes.
+`/ai-commit` runs the full pipeline; `/ai-commit --only` stops before push; `/ai-commit --force "msg"` skips preview and uses the provided hint.
 
 ## Integration
 

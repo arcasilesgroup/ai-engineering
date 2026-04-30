@@ -154,9 +154,6 @@ Result: X/Y passed (previously Y/Y)
 
 ## Common Mistakes
 
-- Skipping the define phase and writing evals after implementation (same anti-pattern as tests-after)
-- Using only model graders when code graders would be deterministic and faster
-- Conflating evals with tests (tests verify code, evals verify AI capability)
-- Setting pass@1 targets too high for genuinely hard tasks (use pass@3 instead)
+Do not write evals after implementation, rely on model graders when code graders exist, conflate evals with tests, or set unrealistic `pass@1` targets for hard tasks.
 
 $ARGUMENTS

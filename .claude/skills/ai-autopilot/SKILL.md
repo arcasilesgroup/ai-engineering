@@ -116,21 +116,11 @@ Events emitted at each phase transition via hook system: `autopilot.started`, `a
 
 ## Quick Reference
 
-```
-/ai-autopilot "implement spec-065"     # full 6-phase pipeline
-/ai-autopilot --resume                  # continue from failure point
-/ai-autopilot "spec" --no-watch         # skip PR watch loop
-```
+`/ai-autopilot "implement spec-065"` runs the full 6-phase pipeline; `--resume` continues from failure; `--no-watch` skips the PR watch loop.
 
 ## Common Mistakes
 
-- Running on draft or unapproved specs -- brainstorm approval is a hard prerequisite.
-- Running on specs with < 3 concerns -- use `/ai-dispatch` instead.
-- Cross-repo work -- autopilot operates within a single repository.
-- Expecting plan.md to exist -- v2 does NOT require it.
-- Carrying context between sub-specs -- each build agent gets fresh context by design.
-- Attempting to fix failures after quality loop exhaustion with blockers -- escalate, do not compound errors.
-- Hand-editing mirrors instead of running `sync_command_mirrors.py` after changes.
+Do not run on draft or under-scoped specs, cross repositories, carry context between sub-specs, hand-edit mirrors, or keep patching after the quality loop says escalate.
 
 ## Integration
 

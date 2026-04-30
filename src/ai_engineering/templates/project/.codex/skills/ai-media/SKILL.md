@@ -138,11 +138,6 @@ For non-MCP integrations (ElevenLabs, VideoDB), follow `handlers/external-apis.m
 
 ## Common Mistakes
 
-- Running expensive video generations without checking `estimate_cost` first
-- Using production models (nano-banana-pro, veo-3) for initial prompt iteration
-- Not using `seed` for reproducibility when iterating
-- Pure text-to-video when image-to-video would give more controlled results
-- Generating media without confirming MCP availability first
-- Forgetting that ElevenLabs requires a separate API key (not fal.ai)
+Do not skip `estimate_cost`, use production models for first-pass iteration, ignore `seed`, choose pure text-to-video when image-to-video is more controlled, or assume fal.ai access covers ElevenLabs credentials.
 
 $ARGUMENTS
