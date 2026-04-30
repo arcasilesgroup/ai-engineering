@@ -5,7 +5,6 @@ effort: high
 argument-hint: "[task description or file:target]"
 ---
 
-
 # Code
 
 ## Purpose
@@ -49,7 +48,7 @@ Before writing any code:
 
 ### Step 4: Write Code
 
-Implement following all loaded context standards. Apply stack-specific conventions from Step 0. Use YAGNI -- write the minimal code that satisfies the requirement.
+Implement following all loaded context standards. Apply stack-specific conventions from Step 0 and `.ai-engineering/contexts/operational-principles.md`. Write the minimal code that satisfies the requirement.
 
 ### Step 5: Backward Compatibility Check
 

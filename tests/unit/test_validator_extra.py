@@ -173,6 +173,57 @@ def test_manifest_coherence_placeholder_spec_passes(tmp_path: Path) -> None:
     assert report.category_passed(IntegrityCategory.MANIFEST_COHERENCE)
 
 
+def test_manifest_coherence_checks_framework_version_for_source_repo(tmp_path: Path) -> None:
+    ai = _mk(tmp_path)
+    (tmp_path / "pyproject.toml").write_text(
+        '[project]\nname = "ai-engineering"\nversion = "0.4.0"\n',
+        encoding="utf-8",
+    )
+    (ai / "manifest.yml").write_text(
+        'framework_version: "0.4.0"\nname: x\n',
+        encoding="utf-8",
+    )
+    (ai / "specs" / "spec.md").write_text("# No active spec\n", encoding="utf-8")
+    template_manifest = (
+        tmp_path / "src" / "ai_engineering" / "templates" / ".ai-engineering" / "manifest.yml"
+    )
+    template_manifest.parent.mkdir(parents=True, exist_ok=True)
+    template_manifest.write_text('framework_version: "0.4.0"\n', encoding="utf-8")
+
+    report = validate_content_integrity(tmp_path, categories=[IntegrityCategory.MANIFEST_COHERENCE])
+
+    assert report.category_passed(IntegrityCategory.MANIFEST_COHERENCE)
+
+
+def test_manifest_coherence_fails_when_source_repo_framework_version_drifts(tmp_path: Path) -> None:
+    ai = _mk(tmp_path)
+    (tmp_path / "pyproject.toml").write_text(
+        '[project]\nname = "ai-engineering"\nversion = "0.5.0"\n',
+        encoding="utf-8",
+    )
+    (ai / "manifest.yml").write_text(
+        'framework_version: "0.4.0"\nname: x\n',
+        encoding="utf-8",
+    )
+    (ai / "specs" / "spec.md").write_text("# No active spec\n", encoding="utf-8")
+    template_manifest = (
+        tmp_path / "src" / "ai_engineering" / "templates" / ".ai-engineering" / "manifest.yml"
+    )
+    template_manifest.parent.mkdir(parents=True, exist_ok=True)
+    template_manifest.write_text('framework_version: "0.4.0"\n', encoding="utf-8")
+
+    report = validate_content_integrity(tmp_path, categories=[IntegrityCategory.MANIFEST_COHERENCE])
+
+    assert report.category_passed(IntegrityCategory.MANIFEST_COHERENCE) is False
+    drift_checks = [
+        c
+        for c in report.checks
+        if c.name in {"framework-version-root", "framework-version-template"}
+        and c.status.value == "fail"
+    ]
+    assert len(drift_checks) == 2
+
+
 def test_file_existence_resolves_via_ide_fallback(tmp_path: Path) -> None:
     """Refs to skills/ in .ai-engineering/ docs resolve via .claude/ fallback."""
     ai = _mk(tmp_path)

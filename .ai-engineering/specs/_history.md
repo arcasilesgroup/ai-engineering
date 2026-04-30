@@ -4,7 +4,13 @@ Completed specs. Details in git history.
 
 | ID | Title | Status | Created | Branch |
 |----|-------|--------|---------|--------|
+| 114 | Telemetry Foundation Completion — Copilot DRY + Hot-Path SLO + NDJSON Reset + Clean Code | done | 2026-04-29 | run/spec-110-111-112-2026-04-29 |
+| 113 | Linux Install Robustness + UX Polish (Alpine Validation) | approved | 2026-04-29 | run/spec-110-111-112-2026-04-29 |
+| 112 | Telemetry Foundation — Fix + Cross-OS + Multi-IDE Unified + Reset + DRY + Hot-Path SLO + Clean Code Audit | done | 2026-04-29 | run/spec-110-111-112-2026-04-29 |
+| 111 | AI Research Skill — Multi-Tier Multi-Source with NotebookLM Persistence | done | 2026-04-29 | run/spec-110-111-112-2026-04-29 |
+| 110 | Governance v3 Harvest — CONSTITUTION + AGENTS.md Cross-IDE + Supply Chain + Dual-Plane MVP | done | 2026-04-29 | run/spec-110-111-112-2026-04-29 |
 | 109 | Installer First-Install Robustness — Pipeline Non-Critical Phases + Render-Before-Exit + Auto-Remediation + Live Progress UI | done | 2026-04-28 | feat/spec-101-installer-robustness |
+| 108 | PM Backlog & Branch Comparative Insights (2026-04) | draft-pending-review | 2026-04-28 | feat/spec-101-installer-robustness |
 | 107 | MCP Sentinel Hardening + IDE Parity + Hash-Chained Audit Trail | done | 2026-04-28 | feat/spec-101-installer-robustness |
 | 106 | Skills Consolidation + Architecture Thinking + skill-creator Eval | done | 2026-04-27 | feat/spec-101-installer-robustness |
 | 105 | Unified Gate + Generalized Risk Acceptance | done | 2026-04-27 | feat/spec-101-installer-robustness |

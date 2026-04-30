@@ -57,6 +57,37 @@ def test_shared_execution_kernel_exists() -> None:
     )
 
 
+def test_shared_kernel_requires_immediate_plan_updates() -> None:
+    """The kernel must forbid batching task-status writes until the end.
+
+    Resume logic depends on plan.md reflecting reality between tasks, not only
+    after the whole spec completes.
+    """
+    body = SHARED_KERNEL.read_text(encoding="utf-8")
+    assert "update `plan.md` checkboxes in real time" in body, (
+        "execution-kernel.md must require real-time plan.md updates so resume "
+        "and progress visibility stay accurate"
+    )
+    assert "Never batch checkbox/status updates" in body, (
+        "execution-kernel.md must explicitly forbid batching plan.md status "
+        "writes until phase end or spec completion"
+    )
+
+
+def test_dispatch_explicitly_forbids_deferred_plan_updates() -> None:
+    """Top-level dispatch guidance must reinforce immediate plan writes."""
+    text = DISPATCH.read_text(encoding="utf-8")
+    assert "update `specs/plan.md` immediately before dispatching the next task" in text, (
+        "ai-dispatch/SKILL.md must require immediate plan.md updates after each terminal task state"
+    )
+    assert (
+        "Do not defer checkbox/status writes to the end of the phase or the end of the spec" in text
+    ), (
+        "ai-dispatch/SKILL.md must explicitly forbid end-of-phase/end-of-spec "
+        "batch updates to plan.md"
+    )
+
+
 def test_dispatch_delegates_to_kernel() -> None:
     """ai-dispatch must reference the shared kernel (no inline duplication)."""
     assert DISPATCH.exists(), f"missing skill file: {DISPATCH}"

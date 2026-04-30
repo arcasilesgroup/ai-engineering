@@ -11,7 +11,7 @@ version: "1.0.0"
 # Providers
 providers:
   vcs: github
-  ides: [terminal]
+  ides: [terminal, vscode]
   stacks: [python]
 
 # AI Providers
@@ -22,7 +22,7 @@ ai_providers:
 # Artifact feeds — configure your private feed in pyproject.toml [tool.uv.index]
 # See the commented section in pyproject.toml for instructions.
 artifact_feeds:
-  python: pyproject.toml  # pointer to actual config location
+  python: pyproject.toml # pointer to actual config location
 
 # Work items — board/issue tracker integration
 # Configure your team's area path (Azure DevOps) or team label (GitHub Issues).
@@ -158,7 +158,8 @@ skills:
     ai-governance: { type: enterprise, tags: [compliance] }
     ai-pipeline: { type: enterprise, tags: [cicd] }
     ai-schema: { type: enterprise, tags: [database] }
-    ai-docs: { type: enterprise, tags: [documentation, architecture, governance] }
+    ai-docs:
+      { type: enterprise, tags: [documentation, architecture, governance] }
     # Teaching + Writing
     ai-explain: { type: teaching, tags: [learning] }
     ai-guide: { type: teaching, tags: [onboarding] }
@@ -193,22 +194,80 @@ skills:
     ai-platform-audit: { type: enterprise, tags: [audit, platform, governance] }
     ai-skill-evolve: { type: meta, tags: [improvement, skills, optimization] }
     # Security (spec-107)
-    ai-mcp-sentinel: { type: enterprise, tags: [security, mcp, audit, sentinel, governance] }
+    ai-mcp-sentinel:
+      { type: enterprise, tags: [security, mcp, audit, sentinel, governance] }
     # Design (spec-093)
     ai-design: { type: design, tags: [design, ui, ux, aesthetic] }
     ai-animation: { type: design, tags: [animation, motion, interaction] }
     ai-canvas: { type: design, tags: [visual, art, composition, marketing] }
     # Research (spec-111)
-    ai-research: { type: workflow, tags: [research, evidence, citations, multi-tier] }
+    ai-research:
+      { type: workflow, tags: [research, evidence, citations, multi-tier] }
 
 # Agents (10)
 agents:
   total: 10
-  names: [plan, build, verify, guard, review, explore, guide, simplify, autopilot, run-orchestrator]
+  names:
+    [
+      plan,
+      build,
+      verify,
+      guard,
+      review,
+      explore,
+      guide,
+      simplify,
+      autopilot,
+      run-orchestrator,
+    ]
 
 # Ownership
 ownership:
-  framework: [".claude/skills/**", ".claude/agents/**", ".ai-engineering/**", ".github/agents/**", ".github/skills/**", ".github/hooks/**", ".github/copilot-instructions.md", ".codex/**", ".gemini/**"]
+  framework:
+    [
+      ".claude/skills/**",
+      ".claude/agents/**",
+      ".ai-engineering/**",
+      ".github/agents/**",
+      ".github/skills/**",
+      ".github/hooks/**",
+      ".github/copilot-instructions.md",
+      ".codex/**",
+      ".gemini/**",
+    ]
+  root_entry_points:
+    CLAUDE.md:
+      owner: framework
+      canonical_source: CLAUDE.md
+      runtime_role: ide-overlay
+      sync:
+        mode: copy
+        template_path: src/ai_engineering/templates/project/CLAUDE.md
+        mirror_paths: []
+    AGENTS.md:
+      owner: framework
+      canonical_source: scripts/sync_command_mirrors.py:generate_agents_md
+      runtime_role: shared-runtime-contract
+      sync:
+        mode: generate
+        template_path: src/ai_engineering/templates/project/AGENTS.md
+        mirror_paths: []
+    GEMINI.md:
+      owner: framework
+      canonical_source: src/ai_engineering/templates/project/GEMINI.md
+      runtime_role: ide-overlay
+      sync:
+        mode: render
+        template_path: src/ai_engineering/templates/project/GEMINI.md
+        mirror_paths: [.gemini/GEMINI.md]
+    ".github/copilot-instructions.md":
+      owner: framework
+      canonical_source: CLAUDE.md
+      runtime_role: ide-overlay
+      sync:
+        mode: generate
+        template_path: src/ai_engineering/templates/project/copilot-instructions.md
+        mirror_paths: []
   team: [".ai-engineering/contexts/team/**"]
   system: [".ai-engineering/state/**"]
 
@@ -245,15 +304,28 @@ prereqs:
   uv:
     version_range: ">=0.4.0,<1.0"
   sdk_per_stack:
-    java: {name: JDK, min_version: "21", install_link: "https://adoptium.net/"}
-    kotlin: {name: JDK, min_version: "21", install_link: "https://adoptium.net/"}
-    swift: {name: Swift toolchain, install_link: "https://www.swift.org/install/"}
-    dart: {name: Dart SDK, install_link: "https://dart.dev/get-dart"}
-    csharp: {name: ".NET SDK", min_version: "9", install_link: "https://dotnet.microsoft.com/download"}
-    go: {name: Go toolchain, install_link: "https://go.dev/dl/"}
-    rust: {name: Rust toolchain, install_link: "https://rustup.rs/"}
-    php: {name: PHP, min_version: "8.2", install_link: "https://www.php.net/downloads"}
-    cpp: {name: clang/LLVM, install_link: "https://llvm.org/builds/"}
+    java:
+      { name: JDK, min_version: "21", install_link: "https://adoptium.net/" }
+    kotlin:
+      { name: JDK, min_version: "21", install_link: "https://adoptium.net/" }
+    swift:
+      { name: Swift toolchain, install_link: "https://www.swift.org/install/" }
+    dart: { name: Dart SDK, install_link: "https://dart.dev/get-dart" }
+    csharp:
+      {
+        name: ".NET SDK",
+        min_version: "9",
+        install_link: "https://dotnet.microsoft.com/download",
+      }
+    go: { name: Go toolchain, install_link: "https://go.dev/dl/" }
+    rust: { name: Rust toolchain, install_link: "https://rustup.rs/" }
+    php:
+      {
+        name: PHP,
+        min_version: "8.2",
+        install_link: "https://www.php.net/downloads",
+      }
+    cpp: { name: clang/LLVM, install_link: "https://llvm.org/builds/" }
 
 # Python environment mode (spec-101 D-101-12). `uv-tool` (default) installs
 # Python tools to `~/.local/share/uv/tools/` so worktree creation never
@@ -270,53 +342,57 @@ python_env:
 # top-level key in this file (see lint-normaliser note above).
 required_tools:
   baseline:
-    - {name: gitleaks}
-    - {name: semgrep, platform_unsupported: [windows], unsupported_reason: "semgrep has no Windows release"}
-    - {name: jq}
+    - { name: gitleaks }
+    - {
+        name: semgrep,
+        platform_unsupported: [windows],
+        unsupported_reason: "semgrep has no Windows release",
+      }
+    - { name: jq }
   python:
-    - {name: ruff}
-    - {name: ty}
-    - {name: pip-audit}
-    - {name: pytest, scope: user_global}
+    - { name: ruff }
+    - { name: ty }
+    - { name: pip-audit }
+    - { name: pytest, scope: user_global }
   typescript:
-    - {name: prettier, scope: project_local}
-    - {name: eslint, scope: project_local}
-    - {name: tsc, scope: project_local}
-    - {name: vitest, scope: project_local}
+    - { name: prettier, scope: project_local }
+    - { name: eslint, scope: project_local }
+    - { name: tsc, scope: project_local }
+    - { name: vitest, scope: project_local }
   javascript:
-    - {name: prettier, scope: project_local}
-    - {name: eslint, scope: project_local}
-    - {name: vitest, scope: project_local}
+    - { name: prettier, scope: project_local }
+    - { name: eslint, scope: project_local }
+    - { name: vitest, scope: project_local }
   java:
-    - {name: checkstyle}
-    - {name: google-java-format}
+    - { name: checkstyle }
+    - { name: google-java-format }
   csharp:
-    - {name: dotnet-format}
+    - { name: dotnet-format }
   go:
-    - {name: staticcheck}
-    - {name: govulncheck}
+    - { name: staticcheck }
+    - { name: govulncheck }
   php:
-    - {name: phpstan}
-    - {name: php-cs-fixer}
-    - {name: composer}
+    - { name: phpstan }
+    - { name: php-cs-fixer }
+    - { name: composer }
   rust:
-    - {name: cargo-audit}
+    - { name: cargo-audit }
   kotlin:
-    - {name: ktlint}
+    - { name: ktlint }
   swift:
     platform_unsupported_stack: [linux, windows]
     unsupported_reason: "swiftlint and swift-format have no Linux/Windows binaries"
     tools:
-      - {name: swiftlint}
-      - {name: swift-format}
+      - { name: swiftlint }
+      - { name: swift-format }
   dart:
-    - {name: dart-stack-marker}
+    - { name: dart-stack-marker }
   sql:
-    - {name: sqlfluff}
+    - { name: sqlfluff }
   bash:
-    - {name: shellcheck}
-    - {name: shfmt}
+    - { name: shellcheck }
+    - { name: shfmt }
   cpp:
-    - {name: clang-tidy}
-    - {name: clang-format}
-    - {name: cppcheck}
+    - { name: clang-tidy }
+    - { name: clang-format }
+    - { name: cppcheck }

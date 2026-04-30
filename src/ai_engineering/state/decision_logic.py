@@ -37,6 +37,15 @@ _MAX_RENEWALS: int = 2
 _WARN_BEFORE_EXPIRY_DAYS: int = 7
 
 
+def _lineage_source(*, source: str | None, spec: str) -> str:
+    """Return a non-placeholder lineage source for derived active decisions."""
+    if isinstance(source, str):
+        value = source.strip()
+        if value and value != "RECONSTRUCTED":
+            return value
+    return spec
+
+
 def compute_context_hash(context: str) -> str:
     """Compute a SHA-256 hash of a decision context string.
 
@@ -282,6 +291,7 @@ def create_risk_acceptance(
         decision=decision_text,
         decidedAt=datetime.now(tz=UTC),
         spec=spec,
+        source=_lineage_source(source=None, spec=spec),
         context_hash=compute_context_hash(context),
         expires_at=expires_at,
         risk_category=RiskCategory.RISK_ACCEPTANCE,
@@ -293,6 +303,7 @@ def create_risk_acceptance(
         prev_event_hash=_compute_prev_decision_hash(store),
     )
     store.decisions.append(decision)
+    store.refresh_active_decisions()
     return decision
 
 
@@ -345,9 +356,6 @@ def renew_decision(
         )
         raise ValueError(msg)
 
-    # Mark original as superseded
-    original.status = DecisionStatus.SUPERSEDED
-
     severity = original.severity or RiskSeverity.MEDIUM
     expires_at = datetime.now(tz=UTC) + default_expiry_for_severity(
         severity,
@@ -355,12 +363,18 @@ def renew_decision(
     )
 
     new_id = next_decision_id(store, spec)
+
+    # Mark original as superseded and preserve the successor link on the ledger.
+    original.status = DecisionStatus.SUPERSEDED
+    original.superseded_by = new_id
+
     renewed = Decision(
         id=new_id,
         context=original.context,
         decision=f"Renewed: {justification}",
         decidedAt=datetime.now(tz=UTC),
         spec=spec,
+        source=_lineage_source(source=original.source, spec=spec),
         context_hash=original.context_hash,
         expires_at=expires_at,
         risk_category=RiskCategory.RISK_ACCEPTANCE,
@@ -373,6 +387,7 @@ def renew_decision(
         prev_event_hash=_compute_prev_decision_hash(store),
     )
     store.decisions.append(renewed)
+    store.refresh_active_decisions()
     return renewed
 
 
@@ -394,6 +409,7 @@ def revoke_decision(store: DecisionStore, *, decision_id: str) -> Decision:
         msg = f"Decision '{decision_id}' not found"
         raise ValueError(msg)
     decision.status = DecisionStatus.REVOKED
+    store.refresh_active_decisions()
     return decision
 
 
@@ -415,4 +431,5 @@ def mark_remediated(store: DecisionStore, *, decision_id: str) -> Decision:
         msg = f"Decision '{decision_id}' not found"
         raise ValueError(msg)
     decision.status = DecisionStatus.REMEDIATED
+    store.refresh_active_decisions()
     return decision

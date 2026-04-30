@@ -17,15 +17,7 @@ Do not respond to any user request until `/ai-start` completes.
 `/ai-start` and other `/ai-*` entries are IDE slash commands, not `ai-eng` CLI subcommands.
 Never translate `/ai-<name>` into `ai-eng <name>` unless the CLI reference explicitly documents that command.
 
-## Plan/Execute Flow (Spec-as-Gate)
-
-During `/ai-plan`:
-
-1. **Analyze** -- read code, discover requirements, assess risk (read-only).
-2. **Produce spec as text** -- write the full spec as markdown in the conversation.
-3. **Persist via Write tool** -- write spec.md and plan.md directly to `specs/`.
-4. **Commit** -- stage and commit the new files.
-5. **STOP** -- present the result and wait for the user to invoke `/ai-dispatch`.
+Cross-IDE workflow rules, including the spec-gated `/ai-brainstorm` -> `/ai-plan` -> `/ai-dispatch` flow, live in [AGENTS.md](../AGENTS.md).
 
 ## Hard Rules
 

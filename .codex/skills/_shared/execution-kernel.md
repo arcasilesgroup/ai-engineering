@@ -75,7 +75,7 @@ Each task contributes artifacts that the next phase or consumer-specific quality
 - **Code changes** -- staged in working tree, batched by consumer (per-task for dispatch, per-wave for autopilot, per-item for run).
 - **Self-Report** -- the agent writes a real/aspirational/stub/failing/invented/hallucinated classification for what it produced. Stored alongside the task deliverable (e.g., `sub-NNN/plan.md` for autopilot, `items/<id>/plan.md` for run, inline checkbox notes for dispatch).
 - **Telemetry events** -- emitted via the hook system at phase transitions (e.g., `subspec_complete`, `quality_round`, `subspec_failed`). Never recorded only in agent memory.
-- **Progress** -- update `plan.md` checkboxes in real time so the user can see current state at a glance:
+- **Progress** -- update `plan.md` checkboxes in real time so the user can see current state at a glance. The moment a task reaches a terminal state (`DONE`, `DONE_WITH_CONCERNS`, `NEEDS_CONTEXT`, or `BLOCKED`), write that status to disk before dispatching the next task. Never batch checkbox/status updates at phase end, quality time, or only after the whole spec finishes:
 
 ```markdown
 - [x] T-1.1: Create config module @ai-build -- DONE

@@ -11,6 +11,56 @@ from pathlib import Path
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
+_MANIFEST_TEMPLATE = """\
+name: test-project
+version: 1.0.0
+ai_providers:
+    enabled: [{providers}]
+    primary: {primary}
+"""
+
+_ROOT_ENTRY_POINTS_MANIFEST_TEMPLATE = """\
+name: test-project
+version: 1.0.0
+ai_providers:
+    enabled: [{providers}]
+    primary: {primary}
+ownership:
+    root_entry_points:
+        "CLAUDE.md":
+            owner: framework
+            canonical_source: CLAUDE.md
+            runtime_role: ide-overlay
+            sync:
+                mode: copy
+                template_path: src/ai_engineering/templates/project/CLAUDE.md
+                mirror_paths: [".claude/ignored-CLAUDE.md"]
+        "AGENTS.md":
+            owner: framework
+            canonical_source: scripts/sync_command_mirrors.py:generate_agents_md
+            runtime_role: shared-runtime-contract
+            sync:
+                mode: generate
+                template_path: src/ai_engineering/templates/project/AGENTS.md
+                mirror_paths: []
+        "GEMINI.md":
+            owner: framework
+            canonical_source: src/ai_engineering/templates/project/GEMINI.md
+            runtime_role: ide-overlay
+            sync:
+                mode: render
+                template_path: src/ai_engineering/templates/project/GEMINI.md
+                mirror_paths: [".gemini/custom-GEMINI.md"]
+        ".github/copilot-instructions.md":
+            owner: framework
+            canonical_source: src/ai_engineering/templates/project/copilot-instructions.md
+            runtime_role: ide-overlay
+            sync:
+                mode: render
+                template_path: src/ai_engineering/templates/project/copilot-instructions.md
+                mirror_paths: []
+"""
+
 # Expected architecture values (post spec-091 ai-run orchestration)
 _EXPECTED_AGENT_COUNT = 10
 _EXPECTED_AGENT_NAMES = frozenset(
@@ -57,6 +107,90 @@ class TestSyncScriptMetadata:
             assert meta.color, f"{name}: missing color"
             assert meta.copilot_tools, f"{name}: empty copilot_tools"
             assert meta.claude_tools, f"{name}: empty claude_tools"
+
+
+class TestCrossReferenceResolution:
+    """Verify sync cross-reference validation follows enabled root surfaces."""
+
+    def _write_manifest(self, root: Path, providers: list[str]) -> None:
+        manifest = root / ".ai-engineering" / "manifest.yml"
+        manifest.parent.mkdir(parents=True, exist_ok=True)
+        manifest.write_text(
+            _MANIFEST_TEMPLATE.format(
+                providers=", ".join(providers),
+                primary=providers[0],
+            ),
+            encoding="utf-8",
+        )
+
+    def _write_manifest_with_root_entry_points(self, root: Path, providers: list[str]) -> None:
+        manifest = root / ".ai-engineering" / "manifest.yml"
+        manifest.parent.mkdir(parents=True, exist_ok=True)
+        manifest.write_text(
+            _ROOT_ENTRY_POINTS_MANIFEST_TEMPLATE.format(
+                providers=", ".join(providers),
+                primary=providers[0],
+            ),
+            encoding="utf-8",
+        )
+
+    def test_resolve_cross_reference_files_includes_gemini_when_enabled(
+        self, tmp_path: Path
+    ) -> None:
+        self._write_manifest(tmp_path, ["claude_code", "github_copilot", "gemini"])
+
+        from scripts.sync_command_mirrors import _resolve_cross_reference_files
+
+        resolved = {
+            str(path.relative_to(tmp_path)) for path in _resolve_cross_reference_files(tmp_path)
+        }
+
+        assert resolved == {
+            ".github/copilot-instructions.md",
+            "AGENTS.md",
+            "CLAUDE.md",
+            "GEMINI.md",
+        }
+
+    def test_resolve_cross_reference_files_uses_enabled_providers_only(
+        self, tmp_path: Path
+    ) -> None:
+        self._write_manifest(tmp_path, ["github_copilot"])
+
+        from scripts.sync_command_mirrors import _resolve_cross_reference_files
+
+        resolved = {
+            str(path.relative_to(tmp_path)) for path in _resolve_cross_reference_files(tmp_path)
+        }
+
+        assert resolved == {
+            ".github/copilot-instructions.md",
+            "AGENTS.md",
+        }
+
+    def test_resolve_cross_reference_files_includes_manifest_declared_mirror_paths(
+        self, tmp_path: Path
+    ) -> None:
+        self._write_manifest_with_root_entry_points(
+            tmp_path,
+            ["github_copilot", "gemini"],
+        )
+
+        from scripts.sync_command_mirrors import _resolve_cross_reference_files
+
+        resolved = {
+            str(path.relative_to(tmp_path)) for path in _resolve_cross_reference_files(tmp_path)
+        }
+
+        assert resolved == {
+            ".gemini/custom-GEMINI.md",
+            ".github/copilot-instructions.md",
+            "AGENTS.md",
+            "GEMINI.md",
+        }, (
+            "_resolve_cross_reference_files should include manifest-declared mirror_paths "
+            "for enabled root entry points and ignore disabled-provider root surfaces"
+        )
 
 
 class TestSyncDriftDetection:
@@ -206,11 +340,15 @@ class TestGenerationFunctions:
 
         content = generate_agents_md(skill_count=len(skills), agent_count=len(agents))
 
-        # Platform Mirrors table removed (spec-087) -- only check Skills header
+        # Platform Mirrors table removed (spec-087) -- only check the current
+        # shared runtime contract content.
         assert f"## Skills ({len(skills)})" in content
-        # Source-of-Truth uses .codex/ paths (AGENTS.md is Codex-only)
-        assert f"| Skills ({len(skills)}) | `.codex/skills/ai-<name>/SKILL.md` |" in content
-        assert f"| Agents ({len(agents)}) | `.codex/agents/ai-<name>.md` |" in content
+        assert "Canonical skills and agents live under `.claude/`" in content
+        assert f"| Skills ({len(skills)}) | `.claude/skills/ai-<name>/SKILL.md` |" in content
+        assert f"| Agents ({len(agents)}) | `.claude/agents/ai-<name>.md` |" in content
+        assert (
+            "| Placement contract | `.ai-engineering/contexts/knowledge-placement.md` |" in content
+        )
 
     def test_codex_provider_surfaces_match_install_templates(self) -> None:
         root_hooks = (_PROJECT_ROOT / ".codex" / "hooks.json").read_text(encoding="utf-8")

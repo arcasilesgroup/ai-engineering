@@ -8,7 +8,6 @@ tags: [governance, compliance, ownership, risk, integrity, enterprise]
 ---
 
 
-
 # Governance
 
 Compliance validation for regulated industries. Modes: `compliance` (quality gates), `ownership` (boundary verification), `risk` (decision-store lifecycle), `integrity` (framework consistency). Default: compliance.
@@ -47,14 +46,17 @@ Verify files live in correct ownership zones.
 Sub-modes: `accept`, `resolve`, `renew`.
 
 **Accept**: record time-limited risk in `decision-store.json`.
+
 - Classify finding, determine severity, register with mandatory `follow_up_action`.
 - Auto-expiry: Critical 15d, High 30d, Medium 60d, Low 90d.
 
 **Resolve**: close after remediation.
+
 - Validate fix committed, scan clean, no regression.
 - Mark `remediated` (preserved for audit trail, not deleted).
 
 **Renew**: extend before expiry (max 2 renewals).
+
 - Check eligibility (`renewal_count < 2`). Require justification.
 - Create new decision with `renewed_from` reference.
 
@@ -69,46 +71,15 @@ Validate manifest claims match disk reality.
 
 ## Policy Engine Integration
 
-Spec-110 Phase 3 ships a Rego-subset evaluator at
-`src/ai_engineering/governance/policy_engine.py`. Use it whenever a gate
-can be expressed as a `.rego` rule under `.ai-engineering/policies/` rather
-than ad-hoc Python.
+Use the policy engine when a governance gate already exists, or can be expressed cleanly, as a `.rego` policy under `.ai-engineering/policies/` rather than ad-hoc procedural checks.
 
-### Active Policies
+Operational contract for this skill:
 
-| Policy file | Input shape | Purpose |
-|-------------|-------------|---------|
-| `branch_protection.rego` | `{"branch": str, "action": str}` | Deny pushes to `main`/`master`. |
-| `commit_conventional.rego` | `{"subject": str}` | Require Conventional Commits subject. |
-| `risk_acceptance_ttl.rego` | `{"now": RFC-3339, "ttl_expires_at": RFC-3339}` | Allow only while not expired. |
+- Prefer existing policy files over re-implementing the same gate in skill prose.
+- Treat the evaluator as an implementation detail owned by the governance code, not by this skill.
+- If a needed rule appears to require grammar or engine capabilities beyond what the current evaluator supports, STOP and escalate to spec/implementation work instead of extending policy behavior inline from the skill.
 
-### Invocation
-
-```python
-from pathlib import Path
-from ai_engineering.governance.policy_engine import evaluate, Decision
-
-policy = Path(".ai-engineering/policies/branch_protection.rego")
-decision: Decision = evaluate(policy, {"branch": "main", "action": "push"})
-if not decision.allow:
-    raise SystemExit(f"governance gate failed: {decision.reason}")
-```
-
-The first firing `allow if` wins; otherwise the first firing `deny if`
-wins (its message becomes `reason`); otherwise `default allow := <bool>`
-applies.
-
-### Engine Scope (per D-110-04)
-
-The evaluator is a *subset* of OPA Rego, not a full OPA daemon -- this
-avoids a Go runtime in CI and Claude hooks. New policies must stay in
-grammar: `package`/`default allow`, `allow if`/`deny[<msg>] if`/`deny if`,
-`input.<dotted.path>`, literals (numbers, bools, `null`, strings),
-comparisons (`==`/`!=`/`<`/`<=`/`>`/`>=`), boolean ops (`and`/`or`/`not`)
-with parentheses, and built-ins `regex.match` and `time.parse_rfc3339_ns`.
-Anything outside raises `PolicyError`; escalate per spec-110 R-4 instead
-of extending silently. Cover new policies with `tests/unit/governance/`
-and update the Active Policies table.
+For engine behavior and supported grammar, use the referenced source of truth in `src/ai_engineering/governance/policy_engine.py`. For DEC lineage and risk-acceptance lifecycle details, use `.ai-engineering/contexts/risk-acceptance-flow.md`.
 
 ### `--report` -- Formal Report
 
@@ -120,12 +91,15 @@ Generate structured compliance report suitable for audit:
 # Governance Report: [mode]
 
 ## Score: N/100
+
 ## Verdict: PASS (>=90) | WARN (>=70) | FAIL (<70)
 
 ## Findings
+
 | # | Severity | Category | Description | Location | Remediation |
 
 ## Gate Check
+
 - Blocker: N (threshold: 0)
 - Critical: N (threshold: 0)
 ```
@@ -166,5 +140,5 @@ Scoring: start at 100. Deduct: blocker -25, critical -15, major -5, minor -1. Fl
 - `.ai-engineering/policies/commit_conventional.rego` -- conventional-commits policy.
 - `.ai-engineering/policies/risk_acceptance_ttl.rego` -- risk-acceptance TTL policy.
 - `src/ai_engineering/governance/policy_engine.py` -- Rego-subset evaluator (spec-110 T-3.8..T-3.10).
-- `.ai-engineering/specs/spec-110-governance-v3-harvest.md` -- lineage and D-110-04.
-$ARGUMENTS
+- `.ai-engineering/contexts/risk-acceptance-flow.md` -- DEC lineage and risk-acceptance lifecycle.
+  $ARGUMENTS

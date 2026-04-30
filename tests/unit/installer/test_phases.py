@@ -73,21 +73,18 @@ class TestGovernancePhase:
         verdict = phase.verify(result, ctx)
         assert verdict.passed
 
-    def test_plan_install_creates_team_seed_actions(self, tmp_path: Path) -> None:
-        """INSTALL mode produces create actions for team seed files."""
+    def test_plan_install_has_no_team_seed_actions(self, tmp_path: Path) -> None:
+        """INSTALL mode no longer seeds team files."""
         from ai_engineering.installer.phases.governance import GovernancePhase
 
         phase = GovernancePhase()
         ctx = _ctx(tmp_path, mode=InstallMode.INSTALL)
         plan = phase.plan(ctx)
         team_actions = [a for a in plan.actions if "contexts/team/" in a.destination]
-        assert len(team_actions) == 1
-        for a in team_actions:
-            assert a.action_type == "create"
-            assert a.rationale == "team seed file"
+        assert team_actions == []
 
-    def test_plan_install_skips_team_if_exists(self, tmp_path: Path) -> None:
-        """INSTALL mode with existing team files produces skip actions."""
+    def test_plan_install_ignores_existing_team_files(self, tmp_path: Path) -> None:
+        """INSTALL mode does not plan team actions even if team files already exist."""
         from ai_engineering.installer.phases.governance import GovernancePhase
 
         # Pre-create team files
@@ -99,35 +96,27 @@ class TestGovernancePhase:
         ctx = _ctx(tmp_path, mode=InstallMode.INSTALL)
         plan = phase.plan(ctx)
         team_actions = [a for a in plan.actions if "contexts/team/" in a.destination]
-        assert len(team_actions) == 1
-        for a in team_actions:
-            assert a.action_type == "skip"
-            assert a.rationale == "team seed already exists"
+        assert team_actions == []
 
-    def test_plan_fresh_overwrites_team_seeds(self, tmp_path: Path) -> None:
-        """FRESH mode produces overwrite actions for team files."""
+    def test_plan_fresh_has_no_team_seed_actions(self, tmp_path: Path) -> None:
+        """FRESH mode does not plan team seed files."""
         from ai_engineering.installer.phases.governance import GovernancePhase
 
         phase = GovernancePhase()
         ctx = _ctx(tmp_path, mode=InstallMode.FRESH)
         plan = phase.plan(ctx)
         team_actions = [a for a in plan.actions if "contexts/team/" in a.destination]
-        assert len(team_actions) == 1
-        for a in team_actions:
-            assert a.action_type == "overwrite"
+        assert team_actions == []
 
-    def test_plan_repair_skips_team(self, tmp_path: Path) -> None:
-        """REPAIR mode skips team files."""
+    def test_plan_repair_has_no_team_seed_actions(self, tmp_path: Path) -> None:
+        """REPAIR mode does not plan team seed files."""
         from ai_engineering.installer.phases.governance import GovernancePhase
 
         phase = GovernancePhase()
         ctx = _ctx(tmp_path, mode=InstallMode.REPAIR)
         plan = phase.plan(ctx)
         team_actions = [a for a in plan.actions if "contexts/team/" in a.destination]
-        assert len(team_actions) == 1
-        for a in team_actions:
-            assert a.action_type == "skip"
-            assert a.rationale == "team-owned file"
+        assert team_actions == []
 
     def test_plan_includes_specs_directory_files(self, tmp_path: Path) -> None:
         """Plan includes specs/spec.md and specs/plan.md as create actions."""
@@ -143,8 +132,8 @@ class TestGovernancePhase:
         for a in specs_actions:
             assert a.action_type == "create"
 
-    def test_execute_creates_team_and_specs(self, tmp_path: Path) -> None:
-        """Execute in INSTALL mode creates team seed files and specs placeholders."""
+    def test_execute_creates_specs_without_team_seed_files(self, tmp_path: Path) -> None:
+        """Execute in INSTALL mode creates specs placeholders without seeding team files."""
         from ai_engineering.installer.phases.governance import GovernancePhase
 
         phase = GovernancePhase()
@@ -153,8 +142,8 @@ class TestGovernancePhase:
         phase.execute(plan, ctx)
 
         ai_dir = tmp_path / ".ai-engineering"
-        # Team seed files
-        assert (ai_dir / "contexts" / "team" / "README.md").is_file()
+        # Team context remains an optional user-owned layer and is not seeded.
+        assert not (ai_dir / "contexts" / "team").exists()
         # LESSONS.md is now at .ai-engineering/ root
         assert (ai_dir / "LESSONS.md").is_file()
         assert (ai_dir / "contexts" / "cli-ux.md").is_file()

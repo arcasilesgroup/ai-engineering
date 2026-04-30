@@ -26,6 +26,7 @@ from ai_engineering.validator._shared import (
     _glob_files,
     _is_excluded,
     _is_source_repo,
+    _resolve_instruction_files,
     _sha256,
 )
 
@@ -46,6 +47,13 @@ _REQUIRED_AGENTS_SECTIONS: list[str] = [
 
 # Pattern to extract skill/agent count from section header like "## Skills (40)"
 _SECTION_COUNT_RE = re.compile(r"\((\d+)\)")
+
+_ROOT_PARITY_SOURCE_FALLBACKS: dict[str, str] = {
+    "CLAUDE.md": "CLAUDE.md",
+    "AGENTS.md": "CLAUDE.md",
+    "GEMINI.md": "AGENTS.md",
+    ".github/copilot-instructions.md": "CLAUDE.md",
+}
 
 
 def _check_mirror_sync(
@@ -414,19 +422,133 @@ def _check_instruction_parity(  # audit:exempt:pre-existing-debt-out-of-spec-114
     target: Path,
     report: IntegrityReport,
 ) -> None:
-    """Verify AGENTS.md contains all required sections from CLAUDE.md.
+    """Verify enabled root instruction surfaces have parity coverage.
 
     Also checks that skill/agent counts in section headers match manifest.
     This is section-level parity (not byte-level, since path translations differ).
 
     Only checks files for providers listed in ``ai_providers.enabled``.
-    When both ``claude_code`` and a provider using ``AGENTS.md`` are enabled,
-    performs section-level parity between the two files.
+    Missing enabled-provider root surfaces are reported explicitly instead of
+    being skipped behind the CLAUDE.md -> AGENTS.md path.
     """
     from ai_engineering.config.loader import load_manifest_config
 
     cfg = load_manifest_config(target)
     enabled = set(cfg.ai_providers.enabled)
+
+    enabled_root_surfaces = [
+        file_rel
+        for file_rel in _resolve_instruction_files(target)
+        if file_rel in _ROOT_PARITY_SOURCE_FALLBACKS
+    ]
+
+    if not enabled_root_surfaces:
+        return
+
+    for surface_rel in enabled_root_surfaces:
+        surface_path = target / surface_rel
+        if not surface_path.is_file():
+            report.checks.append(
+                IntegrityCheckResult(
+                    category=IntegrityCategory.MIRROR_SYNC,
+                    name=(
+                        "instruction-missing-root-surface-"
+                        f"{surface_rel.lower().replace('/', '-').replace('.', '-')}"
+                    ),
+                    status=IntegrityStatus.FAIL,
+                    message=f"Enabled provider root instruction surface missing: {surface_rel}",
+                    file_path=surface_rel,
+                )
+            )
+            continue
+
+        source_rel = _ROOT_PARITY_SOURCE_FALLBACKS[surface_rel]
+        source_path = target / source_rel
+        if not source_path.is_file():
+            if source_rel != surface_rel:
+                source_rel = surface_rel
+                source_path = surface_path
+            else:
+                report.checks.append(
+                    IntegrityCheckResult(
+                        category=IntegrityCategory.MIRROR_SYNC,
+                        name=(
+                            "instruction-missing-parity-source-"
+                            f"{surface_rel.lower().replace('/', '-').replace('.', '-')}"
+                        ),
+                        status=IntegrityStatus.WARN,
+                        message=(
+                            f"Cannot validate {surface_rel} parity because canonical "
+                            f"source {source_rel} is missing"
+                        ),
+                        file_path=surface_rel,
+                    )
+                )
+                continue
+
+        source_content = source_path.read_text(encoding="utf-8")
+        surface_content = surface_path.read_text(encoding="utf-8")
+
+        required_sections = [
+            section
+            for section in _REQUIRED_AGENTS_SECTIONS
+            if _extract_section(source_content, section).strip()
+        ]
+
+        if not required_sections:
+            report.checks.append(
+                IntegrityCheckResult(
+                    category=IntegrityCategory.MIRROR_SYNC,
+                    name=(
+                        "instruction-root-surface-missing-parity-sections-"
+                        f"{surface_rel.lower().replace('/', '-').replace('.', '-')}"
+                    ),
+                    status=IntegrityStatus.WARN,
+                    message=(
+                        f"{surface_rel} is an enabled root instruction surface but "
+                        "contains none of the required parity sections"
+                    ),
+                    file_path=surface_rel,
+                )
+            )
+            continue
+
+        missing_sections = [
+            section
+            for section in required_sections
+            if not _extract_section(surface_content, section).strip()
+        ]
+
+        if missing_sections:
+            for section in missing_sections:
+                report.checks.append(
+                    IntegrityCheckResult(
+                        category=IntegrityCategory.MIRROR_SYNC,
+                        name=(
+                            "instruction-missing-section-"
+                            f"{surface_rel.lower().replace('/', '-').replace('.', '-')}"
+                            f"-{section.lower().replace(' ', '-')}"
+                        ),
+                        status=IntegrityStatus.FAIL,
+                        message=f"{surface_rel} missing section: {section}",
+                        file_path=surface_rel,
+                    )
+                )
+        elif source_rel != surface_rel:
+            report.checks.append(
+                IntegrityCheckResult(
+                    category=IntegrityCategory.MIRROR_SYNC,
+                    name=(
+                        "instruction-section-parity-"
+                        f"{surface_rel.lower().replace('/', '-').replace('.', '-')}"
+                    ),
+                    status=IntegrityStatus.OK,
+                    message=(
+                        f"{surface_rel} contains all {len(required_sections)}"
+                        f" required sections from {source_rel}"
+                    ),
+                )
+            )
 
     # Determine which instruction files to check for parity
     has_claude = "claude_code" in enabled
@@ -435,77 +557,6 @@ def _check_instruction_parity(  # audit:exempt:pre-existing-debt-out-of-spec-114
 
     claude_md = target / "CLAUDE.md"
     agents_md = target / "AGENTS.md"
-
-    # Only check parity when both claude_code and an agents-provider are enabled
-    if has_claude and has_agents_provider:
-        if not claude_md.is_file() or not agents_md.is_file():
-            report.checks.append(
-                IntegrityCheckResult(
-                    category=IntegrityCategory.MIRROR_SYNC,
-                    name="instruction-parity-skipped",
-                    status=IntegrityStatus.WARN,
-                    message="CLAUDE.md or AGENTS.md not found, skipping parity check",
-                )
-            )
-            return
-    elif has_claude:
-        # Only claude_code enabled; no agents-provider, so no parity to check
-        if not claude_md.is_file():
-            return
-        # Nothing to compare against — skip silently
-        return
-    elif has_agents_provider:
-        # Only agents-provider(s); no CLAUDE.md to compare against
-        return
-    else:
-        # No relevant providers enabled
-        return
-
-    claude_content = claude_md.read_text(encoding="utf-8")
-    agents_content = agents_md.read_text(encoding="utf-8")
-
-    # Only check sections that actually exist in CLAUDE.md
-    # (test environments may use minimal instruction files)
-    present_in_claude = [
-        section
-        for section in _REQUIRED_AGENTS_SECTIONS
-        if _extract_section(claude_content, section).strip()
-    ]
-
-    if not present_in_claude:
-        # CLAUDE.md has none of the expected sections -- skip parity check
-        return
-
-    # Check required sections exist in AGENTS.md
-    missing_sections: list[str] = []
-    for section in present_in_claude:
-        extracted = _extract_section(agents_content, section)
-        if not extracted.strip():
-            missing_sections.append(section)
-
-    if missing_sections:
-        for section in missing_sections:
-            report.checks.append(
-                IntegrityCheckResult(
-                    category=IntegrityCategory.MIRROR_SYNC,
-                    name=f"instruction-missing-section-{section.lower().replace(' ', '-')}",
-                    status=IntegrityStatus.FAIL,
-                    message=f"AGENTS.md missing section: {section}",
-                    file_path="AGENTS.md",
-                )
-            )
-    else:
-        report.checks.append(
-            IntegrityCheckResult(
-                category=IntegrityCategory.MIRROR_SYNC,
-                name="instruction-section-parity",
-                status=IntegrityStatus.OK,
-                message=(
-                    f"AGENTS.md contains all {len(present_in_claude)}"
-                    " required sections from CLAUDE.md"
-                ),
-            )
-        )
 
     # Check skill/agent counts match manifest using load_manifest_config
     expected_skills = cfg.skills.total

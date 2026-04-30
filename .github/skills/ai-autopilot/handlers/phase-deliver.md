@@ -61,7 +61,7 @@ Classification rules:
 
 This step follows the thin orchestrator principle. Do NOT duplicate PR logic.
 
-1. Read `.github/skills/ai-pr/SKILL.md`. Follow its FULL procedure -- all steps, in order. Note: ai-pr Step 6.5 dispatches 2 consolidated documentation subagents (CHANGELOG+README, docs-portal+quality-gate) rather than 5 separate agents.
+1. Read `.github/skills/ai-pr/SKILL.md`. Follow its FULL procedure -- all steps, in order. Note: ai-pr Step 7 dispatches 2 consolidated documentation subagents (CHANGELOG+README, docs-portal+quality-gate) rather than 5 separate agents.
 2. The PR body MUST include the following sections in addition to the standard ai-pr structure:
    - The `## Integrity Report` from Step 1 as a dedicated section.
    - A `## Sub-Spec Completion` table:
@@ -74,8 +74,8 @@ This step follows the thin orchestrator principle. Do NOT duplicate PR logic.
      | sub-003 | [title] | blocked | -- |
      ```
    - Standard PR sections (Summary, Test Plan, Checklist) per ai-pr protocol.
-3. Enable auto-complete with squash merge per ai-pr Step 13.
-4. Enter the watch-and-fix loop per ai-pr Step 14, unless `--no-watch` flag was passed. If `--no-watch`: skip the loop and proceed directly to Step 3 (Cleanup).
+3. Enable auto-complete with squash merge per ai-pr Step 15.
+4. Enter the watch-and-fix loop per ai-pr Step 16, unless `--no-watch` flag was passed. If `--no-watch`: skip the loop and proceed directly to Step 3 (Cleanup).
 
 ### Step 3: Cleanup
 

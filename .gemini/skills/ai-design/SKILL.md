@@ -1,6 +1,6 @@
 ---
 name: ai-design
-description: Use when designing or building user interfaces, creating design systems, choosing aesthetic direction, defining color palettes, typography, or spatial composition for web or mobile. Trigger for 'design this page', 'create a design system', 'what style should we use', 'UI for this feature', 'color palette for', 'typography for', 'diseña la interfaz', 'estilo para'. Not for animation-specific work (use /ai-animation) or visual art/posters/banners (use /ai-canvas).
+description: Use when designing or building user interfaces, creating design systems, choosing aesthetic direction, defining color palettes, typography, spatial composition, or structuring text-based information architecture for web, mobile, CLI, or documentation-heavy experiences. Trigger for 'design this page', 'create a design system', 'what style should we use', 'UI for this feature', 'color palette for', 'typography for', 'diseña la interfaz', 'estilo para', or requests where hierarchy, flow, and presentation are the design problem. Not for animation-specific work (use /ai-animation) or visual art/posters/banners (use /ai-canvas).
 effort: high
 argument-hint: "[UI or design task description]"
 tags: [design, ui, ux, design-system, aesthetics]
@@ -12,13 +12,14 @@ tags: [design, ui, ux, design-system, aesthetics]
 
 ## Purpose
 
-Master design skill. Aesthetic direction + design systems + component design + UI/UX guidance. Translates user intent into specific, opinionated design decisions -- never vague suggestions. Every output has a clear conceptual direction executed with precision.
+Master design skill. Aesthetic direction + design systems + component design + UI/UX and information-architecture guidance. Translates user intent into specific, opinionated design decisions -- never vague suggestions. Every output has a clear conceptual direction executed with precision.
 
 ## When to Use
 
 - Designing interfaces (web or mobile)
 - Creating or extending a design system
 - Choosing aesthetic direction for a project
+- Structuring text-heavy or CLI-facing information architecture when hierarchy, framing, and flow are design problems
 - Component design and layout decisions
 - Responsive design strategy
 - Typography and color palette selection

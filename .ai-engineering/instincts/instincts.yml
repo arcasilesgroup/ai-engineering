@@ -36,12 +36,12 @@ corrections:
   action: When the user names a specific tool or skill, use THAT tool. Do not substitute with a framework-internal alternative unless the user agrees. External skills (e.g., from ~/.agents/skills/) have
     different processes and outputs.
   relatedSkill: ai-brainstorm
-  diagnostic: No quiero que uses la skill-sharpen que está como skills.sh
+  diagnostic: No quiero que uses la skill-sharpen que está como skills.sh / aquí quiero ejecutar /skill-sharpen y que lo hagas con eso
   skillIssue: AI assumed project's ai-skill-evolve was equivalent to the external skill-sharpen. They have different diagnostic processes.
-  confidence: 0.3
-  evidenceCount: 1
+  confidence: 0.5
+  evidenceCount: 2
   domain: project
-  lastSeen: '2026-04-01T00:00:00Z'
+  lastSeen: '2026-04-29T00:00:00Z'
 - pattern: No abreviar elementos de marca del producto sin aprobación
   trigger: 'Proponer versiones cortas de nombres de marca (ej: ''eng'' en vez de ''engineering'')'
   action: Usar siempre el nombre completo de marca. No abreviar por cuenta propia.
@@ -113,7 +113,57 @@ corrections:
   evidenceCount: 1
   domain: project
   lastSeen: '2026-04-01T00:00:00Z'
+- pattern: Verify data integrity BEFORE audit-driven decisions
+  trigger: AI proposes a decision (delete, consolidate, deprecate) that depends on telemetry/metrics/git data
+  action: Audit the data source itself first. If telemetry has bugs (e.g., the skill-name field hardcoded to project name), broken signals will produce wrong decisions. Make data-fix the prerequisite spec, not the consequence.
+  relatedSkill: ai-brainstorm
+  diagnostic: 'creo que la telemetry no refleja el uso de las skills y agents por completo, no se, parece que haya a la hora de registrarlo'
+  skillIssue: Brainstorm proposed telemetry-driven hard delete of skills before verifying telemetry was working. The bug hardcoded the project name in detail-skill for 32 days corrupting all 196 skill_invoked events. Hard delete based on that data would have removed legitimate skills.
+  confidence: 0.85
+  evidenceCount: 1
+  domain: project
+  lastSeen: '2026-04-29T00:00:00Z'
+- pattern: Audit existing infrastructure BEFORE proposing new construction
+  trigger: AI proposes (a) instruction-based, (b) CLI wrapper, (c) signals-derived as alternatives without checking what hooks/adapters already exist
+  action: When the user asks 'no tenemos ya X?' STOP and audit the codebase. Each IDE has its own hook system in 2026; if the adapters already exist (codex hooks json, gemini settings json, copilot shell+powershell pairs), the right work is auditing parity and unifying schema, not building from scratch.
+  relatedSkill: ai-brainstorm
+  diagnostic: 'no tenemos ahora prehooks y demás por cada IDE y LLM? rollo para github copilot, codex, gemini y claude? Sería así la manera no?'
+  skillIssue: Proposed instruction-based / CLI wrapper / signals-derived as a tradeoff space when the framework already had per-IDE hook adapters that just needed unification. User's intuition was 2 steps ahead.
+  confidence: 0.85
+  evidenceCount: 1
+  domain: project
+  lastSeen: '2026-04-29T00:00:00Z'
 recoveries:
+- pattern: 'Repo git-config pollution from test sweep (bare flag, worktree pointer, user identity overrides)'
+  trigger: pytest sweep runs tests that mutate the real repo''s git-config without proper isolation; subsequent git commands fail (work tree mis-resolves, commits mis-attributed, push blocked)
+  action: Fix tests/conftest.py to AUTO-RESTORE git-config at session end (not just warn). Snapshot at session start, write back at session end if differs. Run pytest -W error::UserWarning to bisect the offending test. Common offenders run `git config user-email ...` without `cwd=tmp_path` or `-C tmp_path`.
+  relatedSkill: ai-debug
+  diagnostic: 'fatal: this operation must be run in a tree'
+  skillIssue: conftest fixture only WARNED about pollution; didn't restore. Caused multi-step debugging spiral when bare-true plus the worktree pointer to a sibling path appeared mid-session.
+  confidence: 0.85
+  evidenceCount: 1
+  domain: project
+  lastSeen: '2026-04-29T00:00:00Z'
+- pattern: Gitleaks false positive on high-entropy product name slashes
+  trigger: gitleaks generic-api-key rule matches strings like 'Tavily/Exa/Perplexity' due to entropy of slash-separated brand names
+  action: Refactor text to use ' / ' (with spaces) or ', ' separators instead of '/' between proper nouns. The space breaks the entropy signature without weakening the analyzer.
+  relatedSkill: ai-commit
+  diagnostic: 'Finding Tavily-slash-Exa-slash-Perplexity comparisons; RuleID generic-api-key; Entropy 3.725'
+  skillIssue: Documentation referencing multiple AI search APIs by name in slash-separated lists triggered gitleaks. False positive but the gate is correctly strict; refactor satisfies analyzer.
+  confidence: 0.7
+  evidenceCount: 1
+  domain: project
+  lastSeen: '2026-04-29T00:00:00Z'
+- pattern: PreToolUse hook blocks legitimate substrings matching TLD malicious-domain patterns
+  trigger: Bash or Edit command contains a substring that happens to match a registered TLD pattern even when used inside a legitimate git config key, file path, or product reference
+  action: Workaround NOT ALLOWED via string concatenation (sandbox flags as evasion). Documented escalation path is `ai-eng risk accept --finding-id sentinel-malicious-domains-<tld>` with justification + spec ref + TTL. Direct file Edit may also be denied as security-sensitive. When all paths blocked, escalate to user for manual fix outside the harness.
+  relatedSkill: ai-commit
+  diagnostic: 'Sentinel IOC match malicious-domains pattern on legitimate substring'
+  skillIssue: TLD pattern matches legitimate config keys, branded product paths, file system identifiers. Needs context-aware detection (substring inside quoted git config arg vs URL). Until that lands, escalation path required.
+  confidence: 0.85
+  evidenceCount: 1
+  domain: project
+  lastSeen: '2026-04-29T00:00:00Z'
 - pattern: Edit tool fails after linter modifies file between read and edit
   trigger: Edit tool returns File has been modified since read error
   action: Re-read the file immediately, then re-apply the edit. Batch edits to minimize linter race window.
@@ -227,14 +277,6 @@ recoveries:
   domain: project
   lastSeen: '2026-04-01T00:00:00Z'
 workflows:
-- pattern: Brainstorm → Plan → Dispatch with parallel explore agents
-  trigger: Feature design requiring codebase research before spec
-  action: Launch 3+ explore agents in parallel for different aspects, synthesize findings, then interrogate user with specific options
-  relatedSkill: ai-brainstorm
-  confidence: 0.85
-  evidenceCount: 7
-  domain: project
-  lastSeen: '2026-04-01T00:00:00Z'
 - pattern: Mass skill maintenance via parallel diagnostic agents + consolidated spec
   trigger: User requests batch analysis or improvement of all skills
   action: Distribute skills across 6 agents by category (workflow, delivery, enterprise, teaching, sdlc, meta). Each agent runs skill-sharpen --diagnose. Consolidate findings into cross-cutting patterns.
@@ -260,11 +302,28 @@ workflows:
   evidenceCount: 2
   domain: project
   lastSeen: '2026-03-31T00:00:00Z'
-- pattern: /ai-design for text-based information architecture, not just web UI
-  trigger: User asks to make CLI/terminal output prettier or reorganize dashboard information
-  action: Apply design thinking framework (purpose, tone, constraints, differentiation) to text/Markdown output. Use iterative refinement via multiple /ai-design invocations.
-  relatedSkill: ai-design
-  confidence: 0.5
-  evidenceCount: 2
+- pattern: 'Spec-driven autonomous chain: brainstorm -> plan -> run with phase-bundled dispatch'
+  trigger: User wants 3+ specs delivered end-to-end without per-task confirmation; budget pressure on context
+  action: 'Sequence: /ai-brainstorm produces 3 specs -> /ai-plan produces 3 plans -> /ai-run sets up integration branch + work branches per item. Phase 4 execution bundles tasks per TDD-coherent phase (e.g., spec-111 Phase 1 = T-1.2..T-1.8 in one ai-build dispatch) instead of strict per-task isolation. Bundling cuts orchestration overhead while preserving TDD RED-GREEN ordering inside the agent context. Reserve strict per-task dispatch only when tasks are truly independent or context isolation matters.'
+  relatedSkill: ai-run
+  confidence: 0.85
+  evidenceCount: 1
   domain: project
+  lastSeen: '2026-04-29T00:00:00Z'
+- pattern: 'Work-branch -> integration-branch promotion via merge --no-ff per item'
+  trigger: Multi-item run completes one work item; need to consolidate to integration before next item starts
+  action: '`git checkout run/<run-id>` then `git merge --no-ff work/<run-id>/<item-id>/<slug> -m "<promotion message>"`. Preserves item-level history with explicit merge commit. Run integration gates after each promotion; if conflicts, /ai-resolve-conflicts.'
+  relatedSkill: ai-run
+  confidence: 0.7
+  evidenceCount: 1
+  domain: project
+  lastSeen: '2026-04-29T00:00:00Z'
+- pattern: 'ai-explore baseline before DAG/wave planning'
+  trigger: /ai-run Phase 1 needs to understand overlap between items before assigning waves
+  action: Dispatch ai-explore agent for repo-wide baseline (architecture map, hot spots, shared artifacts, coupling between items, generated zones, conflict clusters). Persist to manifest.md `## Baseline Exploration`. Use overlap matrix evidence to drive serialize-on-uncertainty rule.
+  relatedSkill: ai-run
+  confidence: 0.85
+  evidenceCount: 1
+  domain: project
+  lastSeen: '2026-04-29T00:00:00Z'
   lastSeen: '2026-04-01T00:00:00Z'

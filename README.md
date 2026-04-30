@@ -321,6 +321,11 @@ your-project/
 | `ai-eng vcs status\|set-primary` | Version control configuration |
 | `ai-eng guide` | Interactive onboarding |
 
+Release discipline: do not bump framework versions by hand across files. Use `ai-eng release <VERSION>`
+as the single operational entry point. The release workflow updates the package version in
+`pyproject.toml`, syncs the bundled version registry and source-repo `framework_version` manifests,
+promotes `CHANGELOG.md`, and records release metadata in install state.
+
 ## Slash Commands
 
 Skills are invoked as slash commands inside your IDE. The two primary flows:

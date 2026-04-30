@@ -128,17 +128,6 @@ _FALLBACK_TEMPLATE_INSTRUCTION_FILES: list[str] = [
     "src/ai_engineering/templates/project/CLAUDE.md",
 ]
 
-# Template source-path → destination-path for resolving template
-# counterparts of base instruction files.
-_TPL_PREFIX = "src/ai_engineering/templates/project"
-
-_TEMPLATE_SRC_TO_DEST: dict[str, str] = {
-    "CLAUDE.md": f"{_TPL_PREFIX}/CLAUDE.md",
-    "AGENTS.md": f"{_TPL_PREFIX}/AGENTS.md",
-    ".github/copilot-instructions.md": f"{_TPL_PREFIX}/copilot-instructions.md",
-    "GEMINI.md": f"{_TPL_PREFIX}/GEMINI.md",
-}
-
 
 def _resolve_instruction_files(target: Path) -> list[str]:
     """Resolve instruction files from ``ai_providers.enabled`` in manifest.
@@ -150,7 +139,7 @@ def _resolve_instruction_files(target: Path) -> list[str]:
         Deduplicated list of destination paths for enabled providers.
     """
     from ai_engineering.config.loader import load_manifest_config
-    from ai_engineering.installer.templates import _PROVIDER_FILE_MAPS
+    from ai_engineering.installer.templates import resolve_instruction_file_destinations
 
     manifest_path = target / ".ai-engineering" / "manifest.yml"
     if not manifest_path.is_file():
@@ -158,18 +147,10 @@ def _resolve_instruction_files(target: Path) -> list[str]:
         return list(_FALLBACK_BASE_INSTRUCTION_FILES)
 
     cfg = load_manifest_config(target)
-    enabled = cfg.ai_providers.enabled
-
-    seen: set[str] = set()
-    files: list[str] = []
-    for provider in enabled:
-        provider_map = _PROVIDER_FILE_MAPS.get(provider, {})
-        for dest in provider_map.values():
-            if dest not in seen:
-                seen.add(dest)
-                files.append(dest)
-
-    return files
+    return resolve_instruction_file_destinations(
+        cfg.ai_providers.enabled,
+        root_entry_points=cfg.ownership.root_entry_points,
+    )
 
 
 # Platform-filtered instruction files may intentionally have a lower skill count
@@ -201,15 +182,27 @@ def _instruction_files(target: Path) -> list[str]:
     instruction files should exist.  In the source repo, also includes
     the template counterparts.
     """
+    from ai_engineering.config.loader import load_manifest_config
+    from ai_engineering.installer.templates import resolve_instruction_template_sources
+
+    manifest_path = target / ".ai-engineering" / "manifest.yml"
+    root_entry_points = None
+    if manifest_path.is_file():
+        cfg = load_manifest_config(target)
+        root_entry_points = cfg.ownership.root_entry_points
+
     base = _resolve_instruction_files(target)
     if _is_source_repo(target):
-        template_files: list[str] = []
         seen = set(base)
-        for dest in base:
-            tpl = _TEMPLATE_SRC_TO_DEST.get(dest)
-            if tpl and tpl not in seen:
-                seen.add(tpl)
-                template_files.append(tpl)
+        template_files: list[str] = []
+        for template_path in resolve_instruction_template_sources(
+            base,
+            root_entry_points=root_entry_points,
+        ):
+            if template_path in seen:
+                continue
+            seen.add(template_path)
+            template_files.append(template_path)
         return base + template_files
     return base
 

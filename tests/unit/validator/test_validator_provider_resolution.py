@@ -34,6 +34,32 @@ ai_providers:
   primary: {primary}
 """
 
+_ROOT_ENTRY_POINTS_MANIFEST_TEMPLATE = """\
+name: test-project
+version: 1.0.0
+ai_providers:
+    enabled: [{providers}]
+    primary: {primary}
+ownership:
+    root_entry_points:
+        "AGENTS.md":
+            owner: framework
+            canonical_source: scripts/sync_command_mirrors.py:generate_agents_md
+            runtime_role: shared-runtime-contract
+            sync:
+                mode: generate
+                template_path: {agents_template_path}
+                mirror_paths: []
+        ".github/copilot-instructions.md":
+            owner: framework
+            canonical_source: src/ai_engineering/templates/project/copilot-instructions.md
+            runtime_role: ide-overlay
+            sync:
+                mode: render
+                template_path: src/ai_engineering/templates/project/copilot-instructions.md
+                mirror_paths: []
+"""
+
 
 def _write_manifest(ai: Path, providers: list[str]) -> None:
     """Write a manifest.yml with the given AI providers."""
@@ -41,6 +67,24 @@ def _write_manifest(ai: Path, providers: list[str]) -> None:
     content = _MANIFEST_TEMPLATE.format(
         providers=", ".join(providers),
         primary=primary,
+    )
+    manifest = ai / "manifest.yml"
+    manifest.parent.mkdir(parents=True, exist_ok=True)
+    manifest.write_text(content, encoding="utf-8")
+
+
+def _write_manifest_with_root_entry_points(
+    ai: Path,
+    providers: list[str],
+    *,
+    agents_template_path: str,
+) -> None:
+    """Write a manifest.yml that declares root entry point sync metadata."""
+    primary = providers[0] if providers else "claude_code"
+    content = _ROOT_ENTRY_POINTS_MANIFEST_TEMPLATE.format(
+        providers=", ".join(providers),
+        primary=primary,
+        agents_template_path=agents_template_path,
     )
     manifest = ai / "manifest.yml"
     manifest.parent.mkdir(parents=True, exist_ok=True)
@@ -125,6 +169,33 @@ class TestInstructionFilesClaudeCopilot:
         assert not any("CLAUDE.md" in f for f in files), (
             "_instruction_files must not return CLAUDE.md "
             "when claude_code is not in ai_providers.enabled"
+        )
+
+
+class TestInstructionFilesRootEntryPointMetadata:
+    """Source-repo template counterparts should come from manifest metadata."""
+
+    def test_instruction_files_uses_manifest_declared_template_path(self, tmp_path: Path) -> None:
+        ai = _make_governance(tmp_path)
+        custom_template_path = "src/ai_engineering/templates/project/custom/AGENTS.custom.md"
+        _write_manifest_with_root_entry_points(
+            ai,
+            ["github_copilot"],
+            agents_template_path=custom_template_path,
+        )
+        (tmp_path / "src" / "ai_engineering" / "templates").mkdir(parents=True, exist_ok=True)
+
+        files = _instruction_files(tmp_path)
+
+        assert "AGENTS.md" in files
+        assert ".github/copilot-instructions.md" in files
+        assert custom_template_path in files, (
+            "_instruction_files should include the manifest-declared template_path "
+            "for AGENTS.md in a source-repo layout"
+        )
+        assert "src/ai_engineering/templates/project/AGENTS.md" not in files, (
+            "_instruction_files should not derive the AGENTS.md template counterpart "
+            "from the hardcoded default map when the manifest declares a custom template_path"
         )
 
 

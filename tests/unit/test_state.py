@@ -308,6 +308,42 @@ class TestJsonIO:
         write_json_model(path, store)
         assert path.exists()
 
+    def test_decision_store_roundtrip_preserves_active_decisions(self, tmp_path: Path) -> None:
+        path = tmp_path / "state" / "decision-store.json"
+        payload = {
+            "schemaVersion": "1.1",
+            "decisions": [
+                {
+                    "id": "DEC-900",
+                    "context": "governance",
+                    "decision": "Keep the full ledger intact.",
+                    "decidedAt": "2026-04-30T00:00:00Z",
+                    "spec": "116",
+                    "title": "Historical title",
+                }
+            ],
+            "active_decisions": [
+                {
+                    "id": "DEC-900",
+                    "context": "governance",
+                    "decision": "Keep the full ledger intact.",
+                    "decidedAt": "2026-04-30T00:00:00Z",
+                    "spec": "116",
+                    "status": "active",
+                }
+            ],
+        }
+
+        store = DecisionStore.model_validate(payload)
+        write_json_model(path, store)
+
+        written = json.loads(path.read_text(encoding="utf-8"))
+        assert written["decisions"][0]["title"] == "Historical title"
+        assert written["active_decisions"][0]["id"] == "DEC-900"
+
+        loaded = read_json_model(path, DecisionStore)
+        assert loaded.active_decisions[0].id == "DEC-900"
+
     def test_stable_formatting(self, tmp_path: Path) -> None:
         path = tmp_path / "test.json"
         store = default_decision_store()

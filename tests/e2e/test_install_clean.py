@@ -38,7 +38,6 @@ class TestInstallClean:
         required_dirs = [
             "contexts",
             "contexts/languages",
-            "contexts/team",
             "specs",
             "state",
         ]
@@ -108,16 +107,15 @@ class TestInstallClean:
         # Should have language contexts
         assert (ai_dir / "contexts" / "languages" / "python.md").is_file()
 
-    def test_install_creates_team_seed_files(
+    def test_install_does_not_seed_team_context_files(
         self,
         tmp_path: Path,
     ) -> None:
         install(tmp_path, stacks=["python"], ides=["vscode"])
         team_dir = tmp_path / ".ai-engineering" / "contexts" / "team"
 
-        # Exactly 1 seed file (lessons.md moved to .ai-engineering/LESSONS.md)
-        team_files = sorted(f.name for f in team_dir.iterdir() if f.is_file())
-        assert team_files == ["README.md"]
+        # Team context remains an optional user-owned layer and is no longer seeded.
+        assert not team_dir.exists()
 
         # LESSONS.md lives at .ai-engineering/ root
         lessons_path = tmp_path / ".ai-engineering" / "LESSONS.md"

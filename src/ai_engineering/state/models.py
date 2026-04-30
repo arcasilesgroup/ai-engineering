@@ -21,6 +21,8 @@ from typing import Any, Literal
 
 from pydantic import UUID4, BaseModel, ConfigDict, Field, HttpUrl, field_validator, model_validator
 
+_PLACEHOLDER_LINEAGE_VALUES = frozenset({"", "RECONSTRUCTED"})
+
 # --- Enums ---
 
 
@@ -195,6 +197,10 @@ class Decision(BaseModel):
 
     Schema 1.1 adds risk lifecycle fields. All new fields are optional
     for backward compatibility with schema 1.0 data.
+
+    The on-disk decision ledger also carries richer historical metadata
+    (for example titles, descriptions, and legacy source annotations).
+    Those additive fields are preserved during load/save round-trips.
     """
 
     id: str
@@ -204,6 +210,7 @@ class Decision(BaseModel):
     spec: str
     context_hash: str | None = Field(default=None, alias="contextHash")
     expires_at: datetime | None = Field(default=None, alias="expiresAt")
+    source: str | None = None
 
     # Risk lifecycle fields (schema 1.1)
     risk_category: RiskCategory | None = Field(default=None, alias="riskCategory")
@@ -225,7 +232,17 @@ class Decision(BaseModel):
     # written before spec-107 landed -- additive backward-compat.
     prev_event_hash: str | None = Field(default=None, alias="prevEventHash")
 
-    model_config = {"populate_by_name": True}
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
+
+    def lineage_value(self, field_name: Literal["source", "spec"]) -> str | None:
+        """Return a normalized lineage field, or ``None`` for placeholders."""
+        raw_value = getattr(self, field_name, None)
+        if not isinstance(raw_value, str):
+            return None
+        value = raw_value.strip()
+        if not value or value in _PLACEHOLDER_LINEAGE_VALUES:
+            return None
+        return value
 
 
 class DecisionStore(BaseModel):
@@ -234,14 +251,28 @@ class DecisionStore(BaseModel):
     Prevents prompt fatigue by reusing previously-made decisions.
     Supports context hashing for decision relevance tracking.
     Schema 1.1 adds risk lifecycle support.
+    The full ``decisions`` ledger remains the canonical historical record;
+    ``active_decisions`` is an additive normalized slice of the current
+    governance posture.
     Stored at ``.ai-engineering/state/decision-store.json``.
     """
 
     schema_version: str = Field(default="1.1", alias="schemaVersion")
     update_metadata: UpdateMetadata | None = Field(default=None, alias="updateMetadata")
     decisions: list[Decision] = Field(default_factory=list)
+    active_decisions: list[Decision] | None = None
 
-    model_config = {"populate_by_name": True}
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
+
+    def refresh_active_decisions(self) -> None:
+        """Rebuild the operational active-decision view from the full ledger."""
+        self.active_decisions = [
+            decision
+            for decision in self.decisions
+            if decision.status == DecisionStatus.ACTIVE
+            and decision.lineage_value("source") is not None
+            and decision.lineage_value("spec") is not None
+        ]
 
     def find_by_context_hash(self, context_hash: str) -> Decision | None:
         """Find a decision by its context hash."""

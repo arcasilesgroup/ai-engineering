@@ -30,6 +30,7 @@ from ai_engineering.config.manifest import (
     TelemetryConfig,
     WorkItemsConfig,
 )
+from ai_engineering.release.version_bump import detect_current_version
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -79,7 +80,7 @@ class TestRealManifest:
 
     def test_framework_version(self, real_manifest_data: dict) -> None:
         config = ManifestConfig.model_validate(real_manifest_data)
-        assert config.framework_version == "0.4.0"
+        assert config.framework_version == detect_current_version(REPO_ROOT)
 
     def test_name_and_version(self, real_manifest_data: dict) -> None:
         config = ManifestConfig.model_validate(real_manifest_data)

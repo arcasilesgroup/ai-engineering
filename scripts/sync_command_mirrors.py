@@ -363,11 +363,36 @@ def generate_instruction_from_context(lang: str, context_path: Path) -> str:
     return f'---\napplyTo: "{apply_to}"\n---\n\n{header}\n\nGenerated from `{source}`.\n\n{content}'
 
 
-CROSS_REFERENCE_FILES: list[Path] = [
+_FALLBACK_CROSS_REFERENCE_FILES: list[Path] = [
     ROOT / "CLAUDE.md",
     ROOT / "AGENTS.md",
     ROOT / ".github" / "copilot-instructions.md",
 ]
+
+
+def _resolve_cross_reference_files(target: Path) -> list[Path]:
+    """Return enabled root instruction surfaces for cross-reference validation.
+
+    Uses the manifest provider set when available so provider-specific root
+    surfaces like GEMINI.md are validated only when they are actually enabled.
+    Falls back to the historical hardcoded list when the manifest is absent.
+    """
+    manifest_path = target / ".ai-engineering" / "manifest.yml"
+    if not manifest_path.is_file():
+        return list(_FALLBACK_CROSS_REFERENCE_FILES)
+
+    from ai_engineering.config.loader import load_manifest_config
+    from ai_engineering.installer.templates import resolve_instruction_file_destinations
+
+    cfg = load_manifest_config(target)
+    return [
+        target / destination
+        for destination in resolve_instruction_file_destinations(
+            cfg.ai_providers.enabled,
+            root_entry_points=cfg.ownership.root_entry_points,
+            include_mirror_paths=True,
+        )
+    ]
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -898,10 +923,11 @@ _SOURCE_OF_TRUTH_AGENTS_RE = re.compile(
 def generate_agents_md(*, skill_count: int, agent_count: int) -> str:
     """Generate AGENTS.md as canonical cross-IDE entry point (spec-110 D-110-02).
 
-    AGENTS.md is the canonical multi-IDE rulebook. IDE overlays
-    (CLAUDE.md, GEMINI.md, .github/copilot-instructions.md) delegate to
-    it. Hard rules live in CONSTITUTION.md; this file enumerates the
-    surface (skills, agents, sources of truth) and pointers.
+    AGENTS.md is the canonical multi-IDE rulebook for shared root runtime
+    behavior. Canonical skill and agent content still lives under
+    ``.claude/``; IDE overlays delegate to this file for cross-IDE entry
+    point behavior. Hard rules live in CONSTITUTION.md; this file
+    enumerates the shared workflow contract and canonical pointers.
 
     The function is self-contained: it does NOT read CLAUDE.md (which is
     now a slim overlay per spec-110 T-1.9) and produces a stable
@@ -911,9 +937,10 @@ def generate_agents_md(*, skill_count: int, agent_count: int) -> str:
     return f"""# AGENTS.md — Canonical Cross-IDE Rulebook
 
 > Hard rules live in [CONSTITUTION.md](CONSTITUTION.md). This file is
-> the canonical multi-IDE entry point and source of truth for skills,
-> agents, and IDE surfaces. IDE-specific overlays (CLAUDE.md,
-> GEMINI.md, .github/copilot-instructions.md) delegate to this file.
+> the canonical multi-IDE entry point and shared runtime contract for
+> root IDE behavior. Canonical skills and agents live under `.claude/`;
+> IDE-specific overlays (CLAUDE.md, GEMINI.md,
+> .github/copilot-instructions.md) delegate to this file.
 
 ## Step 0 — First Action
 
@@ -921,14 +948,26 @@ Every session, the first action is:
 
 1. Read [CONSTITUTION.md](CONSTITUTION.md) (non-negotiable rules).
 2. Read `.ai-engineering/manifest.yml` (configuration source of truth).
-3. No implementation without an approved spec — invoke `/ai-brainstorm`
+3. Read `.ai-engineering/state/decision-store.json` (active decisions and risk posture).
+4. No implementation without an approved spec — invoke `/ai-brainstorm`
    first when a task has no spec.
+
+## Workflow
+
+Implementation is spec-gated by default:
+
+1. `/ai-brainstorm` produces or refines the approved spec when scope is unclear or missing.
+2. `/ai-plan` decomposes the approved spec into concrete tasks without writing production code.
+3. `/ai-dispatch` executes the approved plan for standard scoped work.
+4. `/ai-autopilot` executes the approved spec autonomously for large multi-concern work.
+5. If no approved spec exists, stop and return to `/ai-brainstorm` before implementation.
 
 ## Skills ({skill_count})
 
 The full registry is in `.ai-engineering/manifest.yml` under
-`skills.registry`. Each skill is documented at
-`.codex/skills/ai-<name>/SKILL.md` and mirrored to other IDE surfaces.
+`skills.registry`. Canonical skill definitions live under
+`.claude/skills/ai-<name>/SKILL.md`; other IDE skill surfaces are
+generated mirrors.
 
 Invoke skills via `/ai-<name>` in the IDE agent surface (slash command).
 Do not invent `ai-eng <skill>` terminal equivalents unless the CLI
@@ -938,8 +977,9 @@ reference explicitly lists them.
 
 The {agent_count} first-class agents are listed in
 `.ai-engineering/manifest.yml` under `agents.registry` and documented at
-`.codex/agents/ai-<name>.md`. Each runs in its own context window;
-offload research and parallel analysis to them.
+`.claude/agents/ai-<name>.md`. Other IDE agent surfaces are generated
+mirrors; each runs in its own context window, so offload research and
+parallel analysis to them.
 
 ## Hard Rules
 
@@ -960,8 +1000,9 @@ and transcript viewing are delegated to the separately installed
 
 | What | Where |
 |------|-------|
-| Skills ({skill_count}) | `.codex/skills/ai-<name>/SKILL.md` |
-| Agents ({agent_count}) | `.codex/agents/ai-<name>.md` |
+| Skills ({skill_count}) | `.claude/skills/ai-<name>/SKILL.md` |
+| Agents ({agent_count}) | `.claude/agents/ai-<name>.md` |
+| Placement contract | `.ai-engineering/contexts/knowledge-placement.md` |
 | Config | `.ai-engineering/manifest.yml` |
 | Decisions | `.ai-engineering/state/decision-store.json` |
 | Audit chain | `.ai-engineering/state/framework-events.ndjson` |
@@ -1055,19 +1096,10 @@ def generate_copilot_instructions(
     )
     lines.append("")
 
-    # Plan/Execute Flow
-    lines.append("## Plan/Execute Flow (Spec-as-Gate)")
-    lines.append("")
-    lines.append("During `/ai-plan`:")
-    lines.append("")
-    lines.append("1. **Analyze** -- read code, discover requirements, assess risk (read-only).")
     lines.append(
-        "2. **Produce spec as text** -- write the full spec as markdown in the conversation."
-    )
-    lines.append("3. **Persist via Write tool** -- write spec.md and plan.md directly to `specs/`.")
-    lines.append("4. **Commit** -- stage and commit the new files.")
-    lines.append(
-        "5. **STOP** -- present the result and wait for the user to invoke `/ai-dispatch`."
+        "Cross-IDE workflow rules, including the spec-gated `/ai-brainstorm`"
+        " -> `/ai-plan` -> `/ai-dispatch` flow, live in"
+        " [AGENTS.md](../AGENTS.md)."
     )
     lines.append("")
 
@@ -1265,7 +1297,7 @@ def validate_cross_references(*, verbose: bool = False) -> list[str]:
     warnings: list[str] = []
     pattern = re.compile(r"`\.ai-engineering/([^`]+)`")
 
-    for ref_file in CROSS_REFERENCE_FILES:
+    for ref_file in _resolve_cross_reference_files(ROOT):
         if not ref_file.is_file():
             continue
         text = ref_file.read_text(encoding="utf-8")

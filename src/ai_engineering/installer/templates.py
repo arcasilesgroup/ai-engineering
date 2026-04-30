@@ -10,8 +10,11 @@ Provides:
 from __future__ import annotations
 
 import shutil
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
+
+from ai_engineering.config.manifest import RootEntryPointConfig
 
 TEMPLATES_ROOT: Path = Path(__file__).resolve().parent.parent / "templates"
 """Root directory containing bundled template trees."""
@@ -46,6 +49,86 @@ _PROVIDER_FILE_MAPS: dict[str, dict[str, str]] = {
         "AGENTS.md": "AGENTS.md",
     },
 }
+
+_DEFAULT_ROOT_TEMPLATE_PATHS: dict[str, str] = {}
+for provider_file_map in _PROVIDER_FILE_MAPS.values():
+    for src_relative, dest_relative in provider_file_map.items():
+        _DEFAULT_ROOT_TEMPLATE_PATHS.setdefault(
+            dest_relative,
+            f"src/ai_engineering/templates/project/{src_relative}",
+        )
+
+
+def resolve_instruction_file_destinations(
+    providers: list[str] | None = None,
+    *,
+    root_entry_points: Mapping[str, RootEntryPointConfig] | None = None,
+    include_mirror_paths: bool = False,
+) -> list[str]:
+    """Return metadata-aware root instruction destinations for the providers.
+
+    This is the shared source for provider-aware root instruction surfaces used
+    by install, validator, and sync workflows.
+
+    When ``include_mirror_paths`` is true, manifest-declared
+    ``ownership.root_entry_points[*].sync.mirror_paths`` are appended only for
+    root destinations enabled by the selected providers.
+    """
+    if providers is None:
+        providers = list(_PROVIDER_FILE_MAPS.keys())
+
+    seen: set[str] = set()
+    destinations: list[str] = []
+    for provider in providers:
+        for dest in _PROVIDER_FILE_MAPS.get(provider, {}).values():
+            if dest in seen:
+                continue
+            seen.add(dest)
+            destinations.append(dest)
+
+    if include_mirror_paths and root_entry_points:
+        for destination in list(destinations):
+            root_entry = root_entry_points.get(destination)
+            if root_entry is None:
+                continue
+            for mirror_path in root_entry.sync.mirror_paths:
+                if mirror_path in seen:
+                    continue
+                seen.add(mirror_path)
+                destinations.append(mirror_path)
+
+    return destinations
+
+
+def resolve_instruction_template_sources(
+    destinations: list[str],
+    *,
+    root_entry_points: Mapping[str, RootEntryPointConfig] | None = None,
+) -> list[str]:
+    """Return template counterparts for governed root instruction destinations.
+
+    Manifest-declared ``sync.template_path`` values take precedence when
+    present; otherwise the bundled provider template map is used as the
+    compatibility fallback.
+    """
+    seen: set[str] = set()
+    template_paths: list[str] = []
+
+    for destination in destinations:
+        template_path = ""
+        if root_entry_points:
+            root_entry = root_entry_points.get(destination)
+            if root_entry is not None:
+                template_path = root_entry.sync.template_path
+        if not template_path:
+            template_path = _DEFAULT_ROOT_TEMPLATE_PATHS.get(destination, "")
+        if not template_path or template_path in seen:
+            continue
+        seen.add(template_path)
+        template_paths.append(template_path)
+
+    return template_paths
+
 
 # Files deployed regardless of AI provider (security, quality tooling).
 _COMMON_FILE_MAPS: dict[str, str] = {

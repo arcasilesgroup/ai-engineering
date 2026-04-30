@@ -77,7 +77,7 @@ Naming convention: `test_<unit>_<scenario>_<expected_outcome>` (Python) or descr
 
 1. Read the Implementation Contract
 2. DO NOT modify test files (they are immutable in this phase)
-3. Write the simplest code that makes the test pass (YAGNI)
+3. Write the simplest code that makes the test pass, following `.ai-engineering/contexts/operational-principles.md`
 4. If the test still fails: fix your code, not the test
 
 ### Step 5 -- GREEN Phase (Confirm Pass)

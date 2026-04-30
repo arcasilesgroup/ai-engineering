@@ -1,102 +1,97 @@
 ---
-spec: spec-113
-title: Linux Install Robustness + UX Polish (Alpine Validation)
+spec: spec-116
+title: Framework Knowledge Consolidation, Canonical Placement, and Governance Cleanup
 status: approved
-effort: medium
-refs:
-  - .ai-engineering/specs/spec-101-installer-bootstrap.md
-  - .ai-engineering/specs/spec-109-installer-first-install-robustness.md
-  - src/ai_engineering/installer/mechanisms/__init__.py
-  - src/ai_engineering/installer/tool_registry.py
-  - src/ai_engineering/installer/user_scope_install.py
-  - src/ai_engineering/installer/auto_remediate.py
-  - src/ai_engineering/doctor/phases/tools.py
-  - src/ai_engineering/doctor/phases/detect.py
+effort: large
 ---
 
-# Spec 113 — Linux Install Robustness + UX Polish (Alpine Validation)
+# Spec 116 - Framework Knowledge Consolidation, Canonical Placement, and Governance Cleanup
 
 ## Summary
 
-`ai-eng install` y `ai-eng doctor` se rompen sistemáticamente en Linux producción por un bug latente que la validación en Alpine Docker minimal expuso. El `GitHubReleaseBinaryMechanism` lleva `sha256_pinned=False` con `expected_sha256=None` en los 13 entries del `tool_registry.py` (gitleaks, jq, checkstyle, google-java-format, composer, ktlint, shellcheck, shfmt, clang-tidy, clang-format, cppcheck, dos shellcheck variants), pero `install()` solo consulta `self.expected_sha256` — el campo `sha256_pinned` es decorativo. Como `expected_sha256` es `None`, `expected = ""`, `_PIN_REQUIRED = True` (default producción), y `_verify_sha256(path, "")` siempre lanza `Sha256MismatchError`. El test `test_sha256_pinned_implies_expected_sha256_present` solo audita cuando `sha256_pinned=True`, así que pasa con el bug presente; en runtime ningún binario GitHub-release se instala en Linux. Tras `apk add curl` el download SÍ funciona pero el SHA mismatch lanza la excepción y la herramienta queda `failed_needs_manual` permanentemente. A esto se suma una capa de fricción en UX: `DRIVER_BINARIES` solo permite `curl` (no `wget`, presente en Alpine BusyBox) y nunca cae a `urllib`; los hints de `_DRIVER_INSTALL_HINTS` recomiendan brew/winget/scoop incluso en Linux donde la respuesta correcta es `apk`/`apt-get`/`dnf`/`pacman`; el banner "What's new" se imprime entre las fases numeradas `[1/6]…[6/6]` rompiendo el flujo visual; `auto_remediate_after_install` reporta "all non-critical failures repaired automatically" cuando en realidad gitleaks/jq siguen ausentes; el doctor emite tres warnings duplicados (`tools-vcs`, `vcs-auth`, `detection-current`) por la misma realidad (gh ausente / sin remote); `branch-policy` warna "on protected branch 'main'" en repo recién instalado; `version` warna "not found in registry" cuando el lookup remoto falla por red; `stack-drift` warna en proyectos vacíos cuyo manifest declara stacks que aún no tienen código; el doctor `_check_required_tools` no logra graduar de `failed_needs_manual` a `INSTALLED` aunque el binario esté en PATH y verifique OK (caso jq instalado vía apk); y el mensaje de error usa terminología interna ("driver") expuesta al operador. spec-113 cierra todos estos puntos en un cambio coherente: hace `sha256_pinned=False` load-bearing en runtime con WARNING auditado, añade cadena de fallback `curl → wget → urllib` para descargas, distro-aware install hints leyendo `/etc/os-release`, idempotencia genuina del doctor, mensajería honesta de auto-remediation, banner reposicionado, supresión de warnings duplicados/falsos en repo nuevo, y validación end-to-end en Alpine Docker como guarda de regresión. DEC-038 (pinning real de SHA256s) sigue siendo workstream paralelo — este spec destraba Linux producción mientras DEC-038 progresa.
+ai-engineering now has enough accumulated guidance across `LESSONS.md`, `instincts.yml`, `proposals.md`, `decision-store.json`, skills, agents, contexts, and root IDE overlays that the main problem is no longer missing knowledge but misplaced knowledge. Durable, repeatable framework behavior still lives partly in soft-memory artifacts and prose-only overlays, which makes it hard to validate mechanically, easy to leave stale, and risky to clean up without losing important rules. This work defines a governed consolidation pass that promotes repeatable behavior into the correct canonical home (`SKILL.md`, agent docs, `manifest.yml`, contexts, or root entry points), leaves heuristic discovery and audit backlog content in the learning artifacts, formalizes only real decisions and active risks in `decision-store.json`, and then removes stale or redundant artifacts once their signal is preserved elsewhere.
 
 ## Goals
 
-- G-1: `GitHubReleaseBinaryMechanism.install()` respeta `sha256_pinned=False` saltando `_verify_sha256` y emitiendo `WARNING` a stderr + audit event a `framework-events.ndjson` con shape `{"type":"sha_pin_skipped","tool":"<name>","mechanism":"GitHubReleaseBinaryMechanism","reason":"DEC-038 pending"}`. Cuando `sha256_pinned=True` y `expected_sha256` está vacío sigue lanzando `Sha256MismatchError` (defensa actual preservada). Verificable por `tests/unit/test_mechanisms_sha_skip_when_unpinned.py` (instalación pasa sin error + WARNING emitido + evento auditado) y `tests/unit/test_mechanisms_sha_required_when_pinned.py` (pinned+empty sigue fallando).
-- G-2: `DRIVER_BINARIES` incluye `wget`. `GitHubReleaseBinaryMechanism.install()` resuelve el driver dinámicamente con cadena de fallback: `curl` (preferido) → `wget` (cualquier variante, incluyendo BusyBox) → `urllib.request.urlopen` (fallback Python builtin con guard `https-only` + hostname allowlist `{github.com, objects.githubusercontent.com}` + max body 100 MiB + timeout 60s). Verificable por `tests/unit/test_github_release_binary_fallback.py` que cubre las tres rutas y la denegación de hostname inválido.
-- G-3: `_DRIVER_INSTALL_HINTS` distro-aware en Linux. Nuevo helper `detect_linux_distro()` parsea `/etc/os-release` campo `ID=` y devuelve uno de `{"alpine","debian","ubuntu","rhel","fedora","centos","arch","linux"}` o `None`. Hint resultante: Alpine→`apk add <pkg>`, Debian/Ubuntu→`sudo apt-get install -y <pkg>`, RHEL/Fedora/CentOS→`sudo dnf install -y <pkg>`, Arch→`sudo pacman -S <pkg>`. Fallback genérico cuando `os-release` ausente: `Install <name> using your distro's package manager`. macOS y Windows mantienen su hint actual. Verificable por `tests/unit/test_install_hints_distro_aware.py` con fixtures por distro.
-- G-4: Mensaje de error de install reescrito sin terminología "driver". Nueva forma: `Cannot install <tool>: '<driver>' is required to download release binaries. <distro_command>`. Ej. en Alpine: `Cannot install gitleaks: 'curl' is required to download release binaries. Install with: apk add curl`. Verificable por `tests/integration/test_install_error_messages.py`.
-- G-5: `auto_remediate_after_install` reporte honesto. La frase "all non-critical failures repaired automatically" solo se emite si `applied != []` AND `failed == []` AND `errors == []`. Cuando hay residuo, el reporte dice: `Auto-remediation: <N> repaired (<list>); <M> still require manual action (<list>)`. Verificable por `tests/integration/test_auto_remediate_message.py` con fixtures de éxito total, parcial y nulo.
-- G-6: Banner "What's new" se imprime ANTES del progreso numerado, no entre `[1/6]…[6/6]`. Sigue siendo "show once" (flag persistente en state). Verificable por `tests/integration/test_install_output_order.py` que captura stdout y asegura `What's new` precede a `[1/6]`.
-- G-7: `_check_stack_drift` suprime el warning cuando los stacks declarados en manifest están ausentes en disco AND ningún stack se detecta en disco (proyecto recién creado sin código). En su lugar emite `OK` con mensaje informativo `manifest declares <stacks>; no source files yet — first commit will populate detection`. Si detecta stacks distintos a los declarados, el warning genuino se mantiene. Verificable por `tests/unit/test_stack_drift_empty_project.py` (suprimido) + `tests/unit/test_stack_drift_real_drift.py` (emitido).
-- G-8: `_check_detection_current` no warna cuando `vcs_provider` está set en install state AND no hay remote git configurado. Mensaje OK: `VCS provider '<provider>' set; no git remote configured yet (run: git remote add origin <url>)`. Verificable por `tests/unit/test_detection_current_no_remote.py`.
-- G-9: `branch-policy` runtime check no warna durante "first install grace period" — los primeros 5 minutos después de `install_state.installed_at`. Pasado ese plazo el comportamiento actual se preserva. Verificable por `tests/unit/test_branch_policy_grace_period.py`.
-- G-10: `version` runtime check downgradea a INFO cuando lookup al registry falla por red (DNS, HTTP error, timeout). Mantiene WARN solo cuando la respuesta del registry confirma deprecation/yank explícito. Verificable por `tests/unit/test_version_check_offline.py`.
-- G-11: Doctor consolida los 3 warnings VCS duplicados (`tools-vcs`, `vcs-auth`, `detection-current` cuando los tres apuntan al mismo gh-missing) en una sola línea de output humana: `VCS '<provider>' tooling: gh missing — install with <distro_command>; auth not verifiable until installed`. Los nombres de check internos siguen distintos (compatibilidad telemetría); solo la presentación al usuario se consolida via `doctor/output_formatter.py`. Verificable por `tests/integration/test_doctor_vcs_consolidation.py`.
-- G-12: Doctor `_check_required_tools` re-evalúa `is_tool_available` + `run_verify` ANTES de respetar el record `failed_needs_manual` del install-state. Si el binario está en PATH y verifica OK, el record se actualiza a `INSTALLED` (con `mechanism="external"`, `verified_at=now`) y la herramienta deja de aparecer como missing. Verificable por `tests/integration/test_doctor_recovers_externally_installed_tool.py` (caso jq vía apk).
-- G-13: Helper `detect_linux_distro() -> str | None` extraído a `installer/distro.py` (módulo nuevo). Reutilizable en hints + futuras integraciones. Verificable por `tests/unit/test_detect_linux_distro.py` con fixtures de `/etc/os-release` por distro.
-- G-14: Validación end-to-end en Alpine Docker minimal: nuevo `tests/integration/test_install_alpine_smoke.sh` (gateado por `AIENG_TEST_ALPINE_SMOKE=1` para correr opcional en CI) ejecuta `docker run alpine:3 sh -c "apk add git python3 py3-pip uv && pip install -e <repo> && cd /tmp/x && git init && ai-eng install --no-interactive && ai-eng doctor"` y asserta exit-code 0 + ausencia de `install failed` strings. Verificable por la propia ejecución del script + un job CI opcional documentado en `docs/ci-alpine-smoke.md`.
-- G-15: 0 secrets, 0 vulnerabilities, 0 lint errors introducidos; pre-existing failures unchanged.
-- G-16: Coverage ≥80% on new modules (`installer/distro.py`, fallback chain en `mechanisms/__init__.py`, output_formatter consolidation logic).
+- Define an explicit canonical-placement matrix for framework knowledge so the team can decide whether a rule belongs in a skill, an agent, a context, `manifest.yml`, a root entry-point file, or a governance artifact without case-by-case guesswork.
+- Enrich `manifest.yml` with machine-readable metadata for the framework surfaces that currently exist only as prose, such as handler dependencies, profile semantics, decision references, and mirror ownership where that metadata can be validated automatically.
+- Promote the highest-value repeatable patterns from `LESSONS.md`, `instincts.yml`, and `proposals.md` into the canonical skills, agents, and entry points that actually govern runtime behavior.
+- Audit `decision-store.json` so it contains only formal decisions, live governance constraints, and active/accepted risks, while stale, superseded, or already-remediated entries are clarified, archived, or removed from the active surface.
+- Clean up redundant or stale learning/governance artifacts only after their important signal has been preserved in the correct canonical surface.
+- End with deterministic validation proving that mirrors, references, manifests, and canonical docs stay coherent after the consolidation.
 
 ## Non-Goals
 
-- NG-1: Generar pins SHA256 reales para DEC-038. Workstream paralelo. Este spec destraba Linux producción mientras DEC-038 progresa por su lado.
-- NG-2: Añadir mecanismos `AptMechanism`/`ApkMechanism`/`DnfMechanism`/`PacmanMechanism` que ejecuten el package manager del distro. La invariante D-101-02 (user-scope only, no sudo) prohíbe esto. El framework solo *recomienda* el comando; el operador lo ejecuta.
-- NG-3: Auto-detectar y elegir mecanismos por distro (e.g., en Alpine usar `apk` en lugar de `GitHubReleaseBinaryMechanism`). Mismo motivo que NG-2: requiere sudo → fuera del invariant.
-- NG-4: Reescribir `tool_registry.py` con keys per-distro (`linux_alpine`, `linux_debian`). La estructura `darwin/linux/win32` se preserva; el fallback `curl→wget→urllib` resuelve el problema sin balcanizar el registry.
-- NG-5: Reformular el wizard interactivo. UX del wizard fuera de scope (separate spec).
-- NG-6: Cambiar valor default de `_PIN_REQUIRED` global. Sigue siendo `True`; la semántica honesta de `sha256_pinned=False` es la palanca correcta y dejar que `True+empty` siga lanzando `Sha256MismatchError` preserva la defensa.
-- NG-7: Implementar nuevo `--offline` mode o `--air-gapped` mode. La cadena de fallback urllib + warnings ya cubre la realidad de redes restringidas; un modo dedicado es separate spec.
-- NG-8: Soporte completo de `wget` GNU vs `wget` BusyBox feature-parity. Solo flags universales (`-O <path> <url>`), nada de `--show-progress` u otras gnu-isms.
-- NG-9: Migración del `install-state.json` legacy schema. spec-109 cubrió eso; los record state transitions añadidos aquí son schema-additive.
+- Rewriting the full framework runtime, agent system, or installer architecture.
+- Turning every heuristic, instinct, or review preference into a constitutional hard rule.
+- Deleting skills, agents, or governance artifacts based only on telemetry or audit impressions without verifying the underlying data source first.
+- Introducing new root IDE surfaces such as a dedicated `CODEX.md` when the current governance model already routes Codex through existing entry points.
+- Replacing the current sync system with a full universal documentation generator in this spec.
 
 ## Decisions
 
-- D-113-01: `sha256_pinned=False` se respeta en runtime — `install()` salta `_verify_sha256` cuando el descriptor declara `sha256_pinned=False`. Razón: el campo era decorativo (bug latente); debe ser load-bearing. Alternativas consideradas: (a) generar pins reales hoy → demasiado trabajo manual de pin generation, retrasaría el unblock de Linux que es prioridad; (b) bajar `_PIN_REQUIRED=False` global → debilita defensa para todos los binarios incluyendo los que en el futuro queremos pinned; (c) aceptar el bug → inaceptable, Linux producción permanece roto. La opción elegida hace explícito el riesgo aceptado por DEC-038 sin debilitar la defensa para entries futuras pinned.
-- D-113-02: Cuando `sha256_pinned=False`, emitir WARNING en stderr Y log audit event a `framework-events.ndjson`. Razón: visibilidad criptográfica del riesgo aceptado. Sin esto, los pins faltantes son silentes y DEC-038 nunca sale del backlog. El WARNING también se surface en `ai-eng doctor` como advisory (`sha-pin-pending` check) listando los tools sin pin para que el operator pueda accept-risk explícitamente o esperar pinned release. spec-105 risk-acceptance lifecycle aplica directamente para estos.
-- D-113-03: Driver fallback chain: `curl` → `wget` → Python `urllib`. Razón: cobertura máxima sin escalar privilegios. `curl` ubiquo en macOS/Windows-with-Git/most full Linux. `wget` en Alpine BusyBox y Linux minimal. `urllib` siempre disponible si Python corre (ya es prereq del framework). Alternativas: (a) solo curl + mejor mensaje → no resuelve Alpine; (b) curl→wget sin urllib → falla en imágenes 100% busybox sin wget completo; (c) urllib first → desperdicia caching/redirects/UX de curl/wget; (d) añadir aria2/httpie → over-engineering, no presente by default en distros target.
-- D-113-04: `urllib.request.urlopen` con guards: solo HTTPS, hostname allowlist `{github.com, objects.githubusercontent.com}`, max body 100 MiB, timeout 60s, sigue redirects (limitando a 5 hops). Razón: no introducir nueva superficie de exfil. Subprocess sigue siendo preferred path porque el guard ya cubre argv allowlist; urllib es fallback con sus propias guards isomórficas. Hostname restringido porque GitHub redirige releases a `objects.githubusercontent.com`.
-- D-113-05: Distro detection via parseo de `/etc/os-release` (`ID=` campo). Razón: estándar systemd, presente en Alpine/Debian/Ubuntu/RHEL/Fedora/Arch/CentOS por más de una década. Fallback a hint genérico cuando ausente (containers ultra-minimalistas o non-Linux Unix). Alternativas rechazadas: (a) `lsb_release` CLI → no presente en Alpine por default; (b) hardcoding por kernel → impreciso; (c) detectar package manager por `which apk/apt/dnf` → funciona pero menos declarativo que el ID estándar.
-- D-113-06: Hint commands distro-aware INCLUYEN el `sudo` cuando el package manager lo requiere (apt/dnf/pacman). Razón: el operador necesita el comando completo y correcto. Alpine `apk` no necesita sudo en containers root-by-default; las distros con user-namespacing sí. Esto NO contradice D-101-02 — es texto al usuario, no ejecución por el framework.
-- D-113-07: Banner "What's new" ubicación: ANTES del progreso numerado. Razón: el usuario merece contexto antes de ver qué pasa. Después del summary lo enterramos. Entre fases es disruptivo. El banner sigue siendo "show once" — flag persistente en state existente (`whats_new_seen_v0_5_0`).
-- D-113-08: Doctor `stack-drift` suprime warning cuando manifest declara stacks pero ningún stack se detecta en disco (proyecto vacío). Razón: caso típico de proyecto recién creado donde el wizard pidió la stack pero el código aún no llega. Se mantiene `OK` con mensaje informativo; el WARN genuino sigue activo cuando hay drift real (manifest dice "go" pero código es python).
-- D-113-09: Doctor consolidación de warnings VCS — emitir UN warning agregado para presentación humana cuando los tres checks (`tools-vcs`, `vcs-auth`, `detection-current`) apuntan a la misma raíz (gh ausente). Razón: tres warnings idénticos son ruido. El telemetry layer sigue viendo los tres checks distintos (compatibilidad). Solo la salida humana se consolida via `doctor/output_formatter.py`.
-- D-113-10: Doctor recovery de `failed_needs_manual` cuando binario externo está OK — re-evaluar PRIMERO, dispatch DESPUÉS. Razón: idempotencia genuina. Si el operador instaló jq vía apk a mano, el doctor debe reconocerlo y graduarlo a `INSTALLED` con `mechanism="external"`, no reintentar download GitHub que ya no aplica. El record `external` permite trazar provenance ("the user installed this themselves, not the framework").
-- D-113-11: Validación end-to-end con Alpine Docker. Razón: regresión-proof. Sin un caso reproducible en CI/local, el bug del SHA-mismatch volverá. Alpine es el caso más estricto (busybox-only Linux): si funciona ahí, funciona en cualquier Linux. El job CI es OPCIONAL (gateado por env var) para no añadir tiempo de CI obligatorio; documentado en `docs/ci-alpine-smoke.md` para que cualquier mantainer pueda invocarlo localmente.
-- D-113-12: `branch-policy` no warna durante "first install grace period" (5 minutos post-install, leído de `install_state.installed_at`). Razón: el operador acaba de instalar; el repo está en main porque AÚN no creó branch. El warning genuino aparece en sesiones futuras. Alternativa: detectar HEAD == initial commit → menos confiable (algunos repos tienen commits previos no relacionados).
-- D-113-13: `version` registry warning downgradea a INFO cuando lookup falla por red (DNS, HTTP, timeout). Mantiene WARN solo cuando la respuesta del registry confirma deprecation/yank. Razón: sin red ≠ versión deprecada. Alpine Docker offline no debe generar 0 ruido falso. El downgrade preserva trazabilidad ("intentamos contactar al registry y no pudimos") sin alarmar.
-- D-113-14: `urllib` fallback respeta `HTTPS_PROXY` y `HTTP_PROXY` env vars vía `urllib.request.ProxyHandler`. Razón: redes corporativas que SÍ permiten descargas pero solo vía proxy. Sin esto el fallback urllib sería peor que curl/wget que respetan estas vars por default. Test fixture cubre el caso.
+### D-116-01: Adopt a canonical placement matrix for framework knowledge
+
+The framework will define one explicit placement model for each class of knowledge: user-facing operational contracts live in canonical `SKILL.md` files; agent-specific orchestration behavior lives in agent docs; machine-readable metadata lives in `manifest.yml` only when validators can consume it; cross-IDE governance rules live in `AGENTS.md` or the appropriate root entry-point overlay; contexts hold reusable framework guidance; `LESSONS.md`, `instincts.yml`, and `proposals.md` remain discovery and refinement surfaces rather than the final runtime contract.
+
+**Rationale**: The current repository contains the same rule in multiple forms because the destination decision is implicit. Making placement explicit is the prerequisite for both safe cleanup and deterministic validation.
+
+### D-116-02: `manifest.yml` will hold structured metadata, not freeform operational prose
+
+This spec will enrich `manifest.yml` only with metadata that downstream tooling can validate or consume directly, such as handler registries, profile/mode semantics, decision references, provider/mirror ownership, and similar structured declarations. Behavioral explanations and human-facing process guidance will stay in skills, agents, contexts, or entry-point documents.
+
+**Rationale**: The manifest is the configuration source of truth, but turning it into a prose dump would make it harder to validate and easier to drift. The goal is stronger determinism, not a new dumping ground.
+
+### D-116-03: Learning artifacts are a promotion funnel, not the canonical runtime surface
+
+`LESSONS.md`, `instincts.yml`, and `proposals.md` will remain the place where the framework captures discoveries, corrections, and candidate improvements. A pattern only graduates out of those files when it is repeatable, broadly applicable, and better enforced in a canonical surface.
+
+**Rationale**: Not every correction deserves permanent codification. Keeping the learning artifacts as a funnel preserves experimentation while preventing important recurring rules from getting trapped in soft memory.
+
+### D-116-04: `decision-store.json` is reserved for formal decisions and live governance risk
+
+The decision store will contain formal architectural/governance decisions, accepted or active risks, and other audit-grade records that need lifecycle metadata. Tactical heuristics, style preferences, and solved implementation notes will not be promoted there. Existing stale, superseded, or remediated entries must be made explicit rather than left ambiguous.
+
+**Rationale**: The decision store loses value if it becomes a second `LESSONS.md`. It must stay narrow enough to support audits, expiry checks, and real governance review.
+
+### D-116-05: Cleanup happens only after promotion and verification
+
+No learning or governance artifact will be deleted, slimmed, or de-emphasized until the useful signal it carries has been promoted to the correct canonical surface and the resulting mirrors and validators remain green.
+
+**Rationale**: The failure mode here is “clean but dumber.” Promotion-first cleanup keeps the framework simpler without silently discarding operating knowledge.
 
 ## Risks
 
-- R-1: Saltar verify cuando `sha256_pinned=False` debilita seguridad. **Mitigación:** WARNING explícito a stderr + audit event auditado + advisory dedicado en `ai-eng doctor` (`sha-pin-pending`) + DEC-038 mantiene prioridad activa. La situación actual (siempre fail) no es más segura — solo más rota; usuarios desactivan `_PIN_REQUIRED` como workaround o fork del registry, ambos peores. Esta semántica honesta hace visible el riesgo aceptado.
-- R-2: `urllib` fallback puede ser bloqueado por proxy corporativo que SÍ permite curl/wget con configuración previa. **Mitigación:** D-113-14 — respetar `HTTPS_PROXY` env var; emitir hint específico `urllib download failed; configure HTTPS_PROXY env or install curl/wget` cuando falla.
-- R-3: Detección distro errónea (e.g., `/etc/os-release` apuntando a host del container en algunos setups híbridos como `--privileged` con bind mounts). **Mitigación:** la falla cae al hint genérico, no al silencio. Operator ve `Install <name> using your distro's package manager` como último recurso. Bug raro y no bloqueante.
-- R-4: Doctor recovery de `failed_needs_manual` puede ocultar real failures (instalación corrupta que pasa el regex pero no funciona). **Mitigación:** verify regex se ejecuta en cada doctor run, no solo una vez. Si el binario corrupto no matchea el regex, vuelve a fail. Idempotencia genuina, no soft-amnesia.
-- R-5: Banner reposicionado puede quedar enterrado si el output del install es muy largo. **Mitigación:** colocarlo ANTES del progreso numerado garantiza visibilidad como primer contenido sustantivo. Test que valida orden del output.
-- R-6: stack-drift suppression puede tapar drift real (manifest dice "go" pero carpeta es python). **Mitigación:** suppress solo cuando NINGÚN stack se detecta. Si detectas python pero manifest dice go, el warning sigue activo (drift legítimo).
-- R-7: `wget` BusyBox tiene flags ligeramente distintos de wget GNU. **Mitigación:** D-113-03 — usar solo flags universales (`-O <path> <url>`); evitar `--show-progress` y similares. Test fixture cubre BusyBox case.
-- R-8: `urllib` fallback pierde feature parity con curl en HTTPS edge cases (TLS chain custom, cert pinning corporativo). **Mitigación:** este caso es exactamente cuando curl/wget ya están instalados; urllib es last-resort. El warning emitido cuando se usa urllib hace explícito el camino tomado para que el operador pueda diagnosticar.
-- R-9: "First install grace period" de 5 minutos puede tapar warnings legítimos si el operador deja la sesión abierta y vuelve después. **Mitigación:** 5 minutos es ventana corta; pasado eso el comportamiento current se restaura. Si el operador genuinamente está en main commiteando código, el warning aparecerá en doctor runs subsiguientes.
-- R-10: Audit event `sha_pin_skipped` añade ruido a `framework-events.ndjson` para usuarios que no activaron pinning. **Mitigación:** evento se emite UNA VEZ por tool por sesión (deduplicación por hash de `tool+mechanism+sha_pin_status`), no por cada install attempt.
-- R-11: Cambio en mensaje de error puede romper grep-patterns que usuarios/scripts construyeron sobre la salida actual. **Mitigación:** los scripts actuales falla ya por el SHA-mismatch — nadie tiene grep estable hoy. Documentar el nuevo formato en CHANGELOG con ejemplos before/after.
+- **Over-promotion risk**: if too many tactical lessons are codified as permanent framework behavior, the framework will become rigid and noisy. **Mitigation**: apply the placement matrix strictly and require a repeatability/value test before promotion.
+- **Manifest bloat**: adding too much metadata to `manifest.yml` could make it harder to maintain and easier to misuse. **Mitigation**: only add machine-readable fields with a validator or consuming tool behind them.
+- **Historical-loss risk**: cleanup of stale proposals or decisions could remove useful context for future archaeology. **Mitigation**: preserve promoted signal in canonical files and keep archival/history pointers where needed.
+- **Mirror/validator drift**: moving rules across skills, contexts, and entry points can desynchronize mirrors or cross-reference validation. **Mitigation**: include sync and validation as explicit acceptance criteria for the spec.
 
 ## References
 
-- `.ai-engineering/specs/spec-101-installer-bootstrap.md` — D-101-02 user-scope invariant que limita lo que ai-eng puede ejecutar
-- `.ai-engineering/specs/spec-109-installer-first-install-robustness.md` — auto-remediation flow base
-- `.ai-engineering/state/decision-store.json` DEC-038 — pinning real de SHA256s (workstream paralelo)
-- `src/ai_engineering/installer/mechanisms/__init__.py:200-243` — locus del bug SHA mismatch + driver fallback chain target
-- `src/ai_engineering/installer/tool_registry.py` — los 13 `GitHubReleaseBinaryMechanism` con `sha256_pinned=False` afectados
-- `src/ai_engineering/installer/user_scope_install.py:67` — DRIVER_BINARIES allowlist (añadir `wget`)
-- `src/ai_engineering/installer/user_scope_install.py:111-137` — `_DRIVER_INSTALL_HINTS` (distro-aware refactor)
-- `src/ai_engineering/installer/auto_remediate.py` — reporte honesto de remediación
-- `src/ai_engineering/doctor/phases/tools.py:138-196` — `_check_required_tools` recovery de `failed_needs_manual`
-- `src/ai_engineering/doctor/phases/detect.py:108-170` — `_check_detection_current` + `_check_stack_drift` suppression conditions
-- `src/ai_engineering/doctor/runtime/branch_policy.py` — grace period gate
-- `src/ai_engineering/doctor/runtime/version.py` — offline downgrade
+- doc: .ai-engineering/manifest.yml
+- doc: .ai-engineering/LESSONS.md
+- doc: .ai-engineering/instincts/instincts.yml
+- doc: .ai-engineering/instincts/proposals.md
+- doc: .ai-engineering/state/decision-store.json
+- doc: AGENTS.md
+- doc: CLAUDE.md
+- doc: GEMINI.md
+- doc: .github/copilot-instructions.md
+- doc: .ai-engineering/contexts/spec-schema.md
+- doc: .ai-engineering/contexts/mcp-integrations.md
+- doc: .claude/skills/ai-brainstorm/SKILL.md
+- doc: .claude/skills/ai-plan/SKILL.md
+- doc: .claude/skills/ai-pr/SKILL.md
+- doc: .claude/skills/ai-review/SKILL.md
+- doc: .claude/skills/ai-verify/SKILL.md
+- doc: .claude/skills/ai-autopilot/SKILL.md
+- doc: scripts/sync_command_mirrors.py
+- doc: .ai-engineering/specs/spec-115-cross-ide-entry-point-governance-and-engineering-principles-standard.md
+- doc: .ai-engineering/specs/spec-096-manifest-source-of-truth.md
+- doc: .ai-engineering/specs/spec-090-instincts-lessons-consolidation.md
 
 ## Open Questions
 
-(ninguna pendiente — el usuario aprobó el scope A+B con semántica de saltar verify cuando `sha256_pinned=False`)
+- Should handler/profile metadata be authored directly in `manifest.yml`, generated into it from canonical skill metadata, or managed as a separate generated section with manifest-level ownership?
+- Which currently active decision-store entries should remain active after codification into skills or entry points, and which should be archived as completed cleanup outcomes?
