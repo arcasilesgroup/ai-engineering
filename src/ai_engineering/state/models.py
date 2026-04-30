@@ -218,6 +218,7 @@ class Decision(BaseModel):
     accepted_by: str | None = Field(default=None, alias="acceptedBy")
     follow_up_action: str | None = Field(default=None, alias="followUpAction")
     status: DecisionStatus = Field(default=DecisionStatus.ACTIVE)
+    superseded_by: str | None = None
     renewed_from: str | None = Field(default=None, alias="renewedFrom")
     renewal_count: int = Field(default=0, alias="renewalCount")
 

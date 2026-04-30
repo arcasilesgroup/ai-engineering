@@ -9,7 +9,7 @@
         "superseded_history": 8,
         "completed_cleanup": 3,
         "archive_candidate": 4,
-        "ambiguous_or_inconsistent": 7,
+        "ambiguous_or_inconsistent": 7
     },
     "entries": [
         {
@@ -19,9 +19,9 @@
             "evidence_paths": [
                 ".ai-engineering/state/decision-store.json",
                 ".ai-engineering/manifest.yml",
-                "AGENTS.md",
+                "AGENTS.md"
             ],
-            "recommended_action": "archive",
+            "recommended_action": "archive"
         },
         {
             "id": "DEC-002,DEC-007,DEC-012,DEC-013,DEC-015,DEC-018",
@@ -33,12 +33,12 @@
                 ".ai-engineering/specs/_history.md",
                 "AGENTS.md",
                 ".github/workflows/release.yml",
-                ".github/workflows/ci-build.yml",
+                ".github/workflows/ci-build.yml"
             ],
             "recommended_action": "keep",
             "notes": [
                 "Grouped because all members are already displaced by a clearly newer canonical surface."
-            ],
+            ]
         },
         {
             "id": "DEC-003",
@@ -47,10 +47,10 @@
             "evidence_paths": [
                 ".ai-engineering/state/decision-store.json",
                 "AGENTS.md",
-                ".ai-engineering/specs/_history.md",
+                ".ai-engineering/specs/_history.md"
             ],
             "recommended_action": "fix-linkage",
-            "notes": ["Normalize the command reference to the current approved execution surface."],
+            "notes": ["Normalize the command reference to the current approved execution surface."]
         },
         {
             "id": "DEC-004,DEC-014,DEC-016",
@@ -61,9 +61,9 @@
                 "AGENTS.md",
                 "CLAUDE.md",
                 ".ai-engineering/contexts/languages/python.md",
-                ".ai-engineering/specs/_history.md",
+                ".ai-engineering/specs/_history.md"
             ],
-            "recommended_action": "keep",
+            "recommended_action": "keep"
         },
         {
             "id": "DEC-005",
@@ -72,10 +72,10 @@
             "evidence_paths": [
                 ".ai-engineering/state/decision-store.json",
                 "CONSTITUTION.md",
-                "AGENTS.md",
+                "AGENTS.md"
             ],
             "recommended_action": "reclassify",
-            "notes": ["Move the remaining intent to spec or backlog history if it still matters."],
+            "notes": ["Move the remaining intent to spec or backlog history if it still matters."]
         },
         {
             "id": "DEC-006,DEC-009,DEC-010,DEC-011",
@@ -88,9 +88,9 @@
                 "src/ai_engineering/policy/checks/sonar.py",
                 "src/ai_engineering/platforms/detector.py",
                 "src/ai_engineering/policy/checks/stack_runner.py",
-                ".ai-engineering/contexts/gate-policy.md",
+                ".ai-engineering/contexts/gate-policy.md"
             ],
-            "recommended_action": "keep",
+            "recommended_action": "keep"
         },
         {
             "id": "DEC-008",
@@ -100,7 +100,7 @@
             "recommended_action": "fix-linkage",
             "notes": [
                 "Point the historical record at the constitutional replacement or explicit successor record."
-            ],
+            ]
         },
         {
             "id": "DEC-017",
@@ -109,9 +109,9 @@
             "evidence_paths": [
                 ".ai-engineering/state/decision-store.json",
                 ".ai-engineering/manifest.yml",
-                "AGENTS.md",
+                "AGENTS.md"
             ],
-            "recommended_action": "archive",
+            "recommended_action": "archive"
         },
         {
             "id": "DEC-019",
@@ -120,12 +120,12 @@
             "evidence_paths": [
                 ".ai-engineering/state/decision-store.json",
                 ".ai-engineering/manifest.yml",
-                "AGENTS.md",
+                "AGENTS.md"
             ],
             "recommended_action": "fix-linkage",
             "notes": [
                 "Current roster: plan, build, verify, guard, review, explore, guide, simplify, autopilot, run-orchestrator."
-            ],
+            ]
         },
         {
             "id": "DEC-020,DEC-021,DEC-023,DEC-024,DEC-028",
@@ -137,9 +137,9 @@
                 ".ai-engineering/manifest.yml",
                 "AGENTS.md",
                 "CLAUDE.md",
-                "scripts/sync_command_mirrors.py",
+                "scripts/sync_command_mirrors.py"
             ],
-            "recommended_action": "keep",
+            "recommended_action": "keep"
         },
         {
             "id": "DEC-022",
@@ -148,12 +148,12 @@
             "evidence_paths": [
                 ".ai-engineering/state/decision-store.json",
                 ".github/aw/",
-                "docs/solution-intent.md",
+                "docs/solution-intent.md"
             ],
             "recommended_action": "reclassify",
             "notes": [
                 "If the migration is still desired, track it in spec/backlog state instead of the active decision store."
-            ],
+            ]
         },
         {
             "id": "DEC-025,DEC-026",
@@ -164,9 +164,9 @@
                 ".ai-engineering/state/decision-store.json",
                 "src/ai_engineering/verify/tls_pip_audit.py",
                 ".ai-engineering/contexts/",
-                ".ai-engineering/specs/_history.md",
+                ".ai-engineering/specs/_history.md"
             ],
-            "recommended_action": "archive",
+            "recommended_action": "archive"
         },
         {
             "id": "DEC-027",
@@ -175,12 +175,12 @@
             "evidence_paths": [
                 ".ai-engineering/state/decision-store.json",
                 "docs/solution-intent.md",
-                "AGENTS.md",
+                "AGENTS.md"
             ],
             "recommended_action": "fix-linkage",
             "notes": [
                 "Normalize the replacement mapping to the Constitution plus current root entry-point surfaces."
-            ],
+            ]
         },
         {
             "id": "DEC-029-DEC-035",
@@ -191,7 +191,7 @@
                 "DEC-032",
                 "DEC-033",
                 "DEC-034",
-                "DEC-035",
+                "DEC-035"
             ],
             "classification_bucket": "formal decision",
             "rationale": "Current release and build workflows align with these delivery decisions: artifact-driven releases, conventional commits, CI Check and CI Build decomposition, attestation and SBOM generation, a single version source rooted in pyproject.toml, and 90-day workflow artifact retention with release attachment for permanence.",
@@ -199,9 +199,9 @@
                 ".github/workflows/release.yml",
                 ".github/workflows/ci-build.yml",
                 "pyproject.toml",
-                "docs/solution-intent.md",
+                "docs/solution-intent.md"
             ],
-            "recommended_action": "keep",
+            "recommended_action": "keep"
         },
         {
             "id": "DEC-036",
@@ -210,9 +210,9 @@
             "evidence_paths": [
                 ".ai-engineering/state/decision-store.json",
                 "src/ai_engineering/verify/tls_pip_audit.py",
-                ".ai-engineering/specs/_history.md",
+                ".ai-engineering/specs/_history.md"
             ],
-            "recommended_action": "keep",
+            "recommended_action": "keep"
         },
         {
             "id": "DEC-037",
@@ -220,9 +220,9 @@
             "rationale": "This risk is still active and referenced in the current pip-audit allow-list, but the decision text describes a transient upgrade window that should be re-evaluated before the 2026-05-26 expiry. It is live risk now, but it is the closest candidate for closure or renewal review.",
             "evidence_paths": [
                 ".ai-engineering/state/decision-store.json",
-                "src/ai_engineering/verify/tls_pip_audit.py",
+                "src/ai_engineering/verify/tls_pip_audit.py"
             ],
-            "recommended_action": "review-expiry",
+            "recommended_action": "review-expiry"
         },
         {
             "id": "DEC-038",
@@ -232,9 +232,9 @@
                 ".ai-engineering/state/decision-store.json",
                 "src/ai_engineering/installer/tool_registry.py",
                 "src/ai_engineering/installer/mechanisms/__init__.py",
-                "docs/ci-alpine-smoke.md",
+                "docs/ci-alpine-smoke.md"
             ],
-            "recommended_action": "keep",
+            "recommended_action": "keep"
         },
         {
             "id": "DEC-039-DEC-041",
@@ -245,10 +245,10 @@
                 ".ai-engineering/state/decision-store.json",
                 "src/ai_engineering/policy/orchestrator.py",
                 "src/ai_engineering/policy/gate_cache.py",
-                ".ai-engineering/contexts/gate-policy.md",
+                ".ai-engineering/contexts/gate-policy.md"
             ],
-            "recommended_action": "keep",
-        },
+            "recommended_action": "keep"
+        }
     ],
     "highlights": [
         {
@@ -257,13 +257,13 @@
             "evidence_paths": [
                 ".ai-engineering/manifest.yml",
                 ".ai-engineering/state/decision-store.json",
-                "AGENTS.md",
-            ],
+                "AGENTS.md"
+            ]
         },
         {
             "id": "DEC-003",
             "issue": "The stored workflow still names /ai-execute, but the current approved execution surface is /ai-dispatch.",
-            "evidence_paths": [".ai-engineering/state/decision-store.json", "AGENTS.md"],
+            "evidence_paths": [".ai-engineering/state/decision-store.json", "AGENTS.md"]
         },
         {
             "id": "DEC-005",
@@ -271,8 +271,8 @@
             "evidence_paths": [
                 ".ai-engineering/state/decision-store.json",
                 "CONSTITUTION.md",
-                "AGENTS.md",
-            ],
+                "AGENTS.md"
+            ]
         },
         {
             "id": "DEC-017",
@@ -280,8 +280,8 @@
             "evidence_paths": [
                 ".ai-engineering/state/decision-store.json",
                 ".ai-engineering/manifest.yml",
-                "AGENTS.md",
-            ],
+                "AGENTS.md"
+            ]
         },
         {
             "id": "DEC-019",
@@ -289,8 +289,8 @@
             "evidence_paths": [
                 ".ai-engineering/state/decision-store.json",
                 ".ai-engineering/manifest.yml",
-                "AGENTS.md",
-            ],
+                "AGENTS.md"
+            ]
         },
         {
             "id": "DEC-022",
@@ -298,17 +298,17 @@
             "evidence_paths": [
                 ".ai-engineering/state/decision-store.json",
                 ".github/aw/",
-                "docs/solution-intent.md",
-            ],
+                "docs/solution-intent.md"
+            ]
         },
         {
             "id": "DEC-027",
             "issue": "The replacement mapping still points at project-identity even though current documentation says Constitution-driven governance replaced that surface.",
             "evidence_paths": [
                 ".ai-engineering/state/decision-store.json",
-                "docs/solution-intent.md",
-            ],
-        },
+                "docs/solution-intent.md"
+            ]
+        }
     ],
     "invariants": [
         {
@@ -317,16 +317,16 @@
             "evidence_paths": [
                 ".ai-engineering/contexts/risk-acceptance-flow.md",
                 "src/ai_engineering/state/models.py",
-                "src/ai_engineering/state/decision_logic.py",
-            ],
+                "src/ai_engineering/state/decision_logic.py"
+            ]
         },
         {
             "id": "INV-02",
             "rule": "No expired risk-acceptance may remain in the live-risk slice after normalization; expired active risks must fail the invariant and require review or reclassification.",
             "evidence_paths": [
                 ".ai-engineering/contexts/risk-acceptance-flow.md",
-                "src/ai_engineering/state/decision_logic.py",
-            ],
+                "src/ai_engineering/state/decision_logic.py"
+            ]
         },
         {
             "id": "INV-03",
@@ -334,8 +334,8 @@
             "evidence_paths": [
                 ".ai-engineering/state/decision-store.json",
                 "AGENTS.md",
-                ".ai-engineering/specs/_history.md",
-            ],
+                ".ai-engineering/specs/_history.md"
+            ]
         },
         {
             "id": "INV-04",
@@ -344,8 +344,8 @@
                 ".ai-engineering/state/decision-store.json",
                 ".ai-engineering/manifest.yml",
                 "AGENTS.md",
-                "CONSTITUTION.md",
-            ],
+                "CONSTITUTION.md"
+            ]
         },
         {
             "id": "INV-05",
@@ -353,16 +353,16 @@
             "evidence_paths": [
                 ".ai-engineering/contexts/risk-acceptance-flow.md",
                 "src/ai_engineering/state/models.py",
-                "src/ai_engineering/state/decision_logic.py",
-            ],
+                "src/ai_engineering/state/decision_logic.py"
+            ]
         },
         {
             "id": "INV-06",
             "rule": "Every retained formal decision and live risk must have normalized lineage: non-empty spec/source metadata, no placeholder RECONSTRUCTED marker unless the entry is explicitly archived, and a source that matches current repo history.",
             "evidence_paths": [
                 ".ai-engineering/state/decision-store.json",
-                ".ai-engineering/specs/_history.md",
-            ],
+                ".ai-engineering/specs/_history.md"
+            ]
         },
         {
             "id": "INV-07",
@@ -370,8 +370,8 @@
             "evidence_paths": [
                 ".ai-engineering/specs/plan.md",
                 ".ai-engineering/specs/spec-116-framework-knowledge-consolidation-canonical-placement-and-governance-cleanup.md",
-                ".ai-engineering/state/decision-store.json",
-            ],
+                ".ai-engineering/state/decision-store.json"
+            ]
         },
         {
             "id": "INV-08",
@@ -380,8 +380,8 @@
                 ".ai-engineering/state/decision-store.json",
                 "AGENTS.md",
                 "docs/solution-intent.md",
-                ".github/aw/",
-            ],
-        },
-    ],
+                ".github/aw/"
+            ]
+        }
+    ]
 }

@@ -3,7 +3,7 @@
     "updateMetadata": {
         "rationale": "persist risk and flow decisions for prompt reuse; v1.1 adds criticality and acknowledged_by fields, formalizes expires_at with severity-based defaults",
         "expectedGain": "lower prompt fatigue, stronger auditability, expiry-aware session checks, and criticality-based prioritization",
-        "potentialImpact": "decision expiry and context-hash logic becomes mandatory; expired decisions surface warnings at session start",
+        "potentialImpact": "decision expiry and context-hash logic becomes mandatory; expired decisions surface warnings at session start"
     },
     "decisions": [
         {
@@ -21,7 +21,7 @@
             "acknowledged_by": "plan",
             "decision": "Migrated from nested skill hierarchy (19 agents with embedded skills) to flat layout: skills/<name>/SKILL.md with unified /ai-<name> invocation. Reduces cognitive load and enables cross-IDE portability.",
             "decidedAt": "2026-03-02T00:00:00Z",
-            "context": "architecture",
+            "context": "architecture"
         },
         {
             "id": "DEC-002",
@@ -39,7 +39,7 @@
             "superseded_by": "DEC-019",
             "decision": "Consolidated from 19 agents to 6, then expanded to 7 (plan, execute, build, scan, release, write, observe). Each agent has a single responsibility. Plan plans, execute coordinates, build implements, scan validates, release ships, write documents, observe measures.",
             "decidedAt": "2026-03-04T00:00:00Z",
-            "context": "architecture",
+            "context": "architecture"
         },
         {
             "id": "DEC-003",
@@ -56,7 +56,7 @@
             "acknowledged_by": "plan",
             "decision": "Plan agent produces specs and execution plans then STOPS. User must explicitly invoke /ai-dispatch to begin implementation. This creates a human gate between planning and execution, enabling review before action. Cross-IDE compatible — works with Write/Edit tools, no IDE plan mode required.",
             "decidedAt": "2026-03-05T00:00:00Z",
-            "context": "governance",
+            "context": "governance"
         },
         {
             "id": "DEC-004",
@@ -73,7 +73,7 @@
             "acknowledged_by": "plan",
             "decision": "Framework-contract.md described phase branching (phase/2.x branches) but this was never implemented and adds unnecessary complexity at current project scale. Decision: use flat main with feature branches per spec. Revisit when team size exceeds 3 concurrent contributors.",
             "decidedAt": "2026-03-12T00:00:00Z",
-            "context": "governance",
+            "context": "governance"
         },
         {
             "id": "DEC-005",
@@ -90,7 +90,7 @@
             "acknowledged_by": "plan",
             "decision": "Instead of manually maintaining CLAUDE.md, AGENTS.md, GEMINI.md, COPILOT.md, and .cursorrules independently (causing ~60% content overlap and drift), adopt a single GOVERNANCE_SOURCE.md and generate per-IDE files. This is a future implementation target tracked in spec-050 Phase 5.",
             "decidedAt": "2026-03-12T00:00:00Z",
-            "context": "architecture",
+            "context": "architecture"
         },
         {
             "id": "DEC-006",
@@ -107,7 +107,7 @@
             "acknowledged_by": "plan",
             "decision": "Adopted SonarCloud for static analysis, coverage tracking, and quality gate enforcement. Integrated into CI (spec-030, spec-038) and framework control outcomes. Quality gates: zero blocker/critical, coverage 80%, duplication ≤3%, complexity ≤10/≤15.",
             "decidedAt": "2026-03-09T00:00:00Z",
-            "context": "tooling",
+            "context": "tooling"
         },
         {
             "id": "DEC-007",
@@ -125,7 +125,7 @@
             "superseded_by": "DEC-028",
             "decision": "All framework events (gates, scans, builds, deploys, sessions) write to a single NDJSON file: state/audit-log.ndjson. No dual-write. Weekly rotation with 90-day retention. Query via signals.py load_all_events + filter_events pattern.",
             "decidedAt": "2026-03-04T00:00:00Z",
-            "context": "architecture",
+            "context": "architecture"
         },
         {
             "id": "DEC-008",
@@ -142,7 +142,7 @@
             "acknowledged_by": "plan",
             "decision": "NEVER add suppression comments (# NOSONAR, # nosec, # type: ignore, # pragma: no cover, # noqa, // nolint) to bypass analysis. Fix the root cause. If false positive: refactor code to satisfy analyzer or escalate with full explanation. Added to CLAUDE.md absolute prohibitions.",
             "decidedAt": "2026-03-10T00:00:00Z",
-            "context": "governance",
+            "context": "governance"
         },
         {
             "id": "DEC-009",
@@ -159,7 +159,7 @@
             "acknowledged_by": "plan",
             "decision": "Snyk CI/CD integration is optional (SNYK_TOKEN secret controls activation). Core security scanning uses gitleaks (secrets), semgrep (SAST), and pip-audit (dependencies). Snyk adds value but is not a gate blocker.",
             "decidedAt": "2026-03-10T00:00:00Z",
-            "context": "tooling",
+            "context": "tooling"
         },
         {
             "id": "DEC-010",
@@ -176,7 +176,7 @@
             "acknowledged_by": "plan",
             "decision": "Framework supports both GitHub and Azure DevOps as VCS providers. Provider detection via manifest.yml or remote URL parsing. CLI commands (gh/az) are conditionally required based on configured provider. Implemented in spec-014.",
             "decidedAt": "2026-02-22T00:00:00Z",
-            "context": "architecture",
+            "context": "architecture"
         },
         {
             "id": "DEC-011",
@@ -193,7 +193,7 @@
             "acknowledged_by": "plan",
             "decision": "Secret detection runs at pre-commit (gitleaks protect --staged) for immediate feedback. Previously was at pre-push which was too late. Catches secrets before they enter git history.",
             "decidedAt": "2026-02-10T00:00:00Z",
-            "context": "security",
+            "context": "security"
         },
         {
             "id": "DEC-012",
@@ -211,7 +211,7 @@
             "acknowledged_by": "release",
             "decision": "Release workflow downloads the pre-built wheel from CI instead of rebuilding from source. Eliminates build divergence between CI and release, reduces release time, and ensures what was tested is what ships.",
             "decidedAt": "2026-03-08T00:00:00Z",
-            "context": "delivery",
+            "context": "delivery"
         },
         {
             "id": "DEC-013",
@@ -229,7 +229,7 @@
             "superseded_by": "DEC-028",
             "decision": "All skills and agents emit telemetry via shell command: ai-eng signals emit <event> --actor=ai --detail='{...}'. Works in any IDE with shell access (Claude Code, Copilot, Gemini, Codex). Fail-open: skip if ai-eng unavailable.",
             "decidedAt": "2026-03-07T00:00:00Z",
-            "context": "architecture",
+            "context": "architecture"
         },
         {
             "id": "DEC-014",
@@ -246,7 +246,7 @@
             "acknowledged_by": "plan",
             "decision": "Stack standards should be concise and actionable (≤1 page). Template: Toolchain, Quality Gates, Security, CI Integration. Avoids standards fatigue. Detailed patterns belong in cross-cutting standards.",
             "decidedAt": "2026-03-12T00:00:00Z",
-            "context": "governance",
+            "context": "governance"
         },
         {
             "id": "DEC-015",
@@ -264,7 +264,7 @@
             "acknowledged_by": "release",
             "decision": "Commit format: spec-NNN: Task X.Y — description (when spec active) or type(scope): description (conventional commits). Enables changelog generation, DORA metrics, and semantic version detection.",
             "decidedAt": "2026-02-10T00:00:00Z",
-            "context": "delivery",
+            "context": "delivery"
         },
         {
             "id": "DEC-016",
@@ -281,7 +281,7 @@
             "acknowledged_by": "plan",
             "decision": "Root instruction files (CLAUDE.md, AGENTS.md) kept minimal with pointers to .ai-engineering/ as source of truth. Reduces duplication between IDE instruction files. Implemented in spec-043.",
             "decidedAt": "2026-03-06T00:00:00Z",
-            "context": "governance",
+            "context": "governance"
         },
         {
             "id": "DEC-017",
@@ -298,7 +298,7 @@
             "acknowledged_by": "plan",
             "decision": "Unified session-checkpoint.json schema with namespaced sections per agent (checkpoint.execute, checkpoint.release). Resolves write conflict between execute and release agents. Implemented in spec-050 Phase 1.",
             "decidedAt": "2026-03-12T00:00:00Z",
-            "context": "architecture",
+            "context": "architecture"
         },
         {
             "id": "DEC-018",
@@ -316,7 +316,7 @@
             "superseded_by": "DEC-039",
             "decision": "The commit and PR skills share ~60% of their procedure (auto-branch, stage, format, lint, secrets, doc gate, spec verify). Extract shared pipeline as referenced behavior rather than duplicated code. PR = shared pipeline + PR creation + auto-complete.",
             "decidedAt": "2026-03-12T00:00:00Z",
-            "context": "architecture",
+            "context": "architecture"
         },
         {
             "id": "DEC-019",
@@ -334,7 +334,7 @@
             "supersedes": "DEC-002",
             "decision": "Expanded from 7 to 10 agents via spec-051 clean-sheet redesign. 10 agents: plan (specs/plans), execute (coordination/dispatch), guard (proactive governance advisory), build (code implementation), verify (7-mode validation), ship (delivery/ALM), observe (dashboards/metrics), guide (onboarding/teaching), write (documentation), operate (runbook execution). Each agent has single responsibility with declared capabilities and boundaries.",
             "decidedAt": "2026-03-15T00:00:00Z",
-            "context": "architecture",
+            "context": "architecture"
         },
         {
             "id": "DEC-020",
@@ -351,7 +351,7 @@
             "acknowledged_by": "guard",
             "decision": "Skip verify-gate-trailers CI job when github.actor is dependabot[bot]. The Ai-Eng-Gate trailer proves a commit traversed local hooks — Dependabot creates commits server-side and cannot satisfy this requirement. CI independently validates all Dependabot PRs via gitleaks, pip-audit, semgrep, and Snyk. Additionally, Dependabot PRs are grouped by ecosystem (pip, github-actions) to consolidate ~7 individual PRs into max 2 per week.",
             "decidedAt": "2026-03-16T00:00:00Z",
-            "context": "governance",
+            "context": "governance"
         },
         {
             "id": "DEC-021",
@@ -368,7 +368,7 @@
             "acknowledged_by": "plan",
             "decision": "All skill and agent references standardized to /ai-<name> (hyphen) syntax. Colon syntax /ai:<name> was inconsistent with IDE registration. Bulk rename applied to canonical templates, live files, and mirrors. sync_command_mirrors.py workflow alias generation (Surface 4b) removed — only ai-prefixed prompts are generated.",
             "decidedAt": "2026-03-17T00:00:00Z",
-            "context": "architecture",
+            "context": "architecture"
         },
         {
             "id": "DEC-022",
@@ -385,7 +385,7 @@
             "acknowledged_by": "plan",
             "decision": "Migrated 6 scheduled runbook workflows to gh-aw markdown format with YAML frontmatter (triggers, permissions, safe-outputs) and natural language instructions. Created 3 missing runbooks (daily-triage, perf-audit, weekly-health). GitHub Copilot as default engine — no API key required, included with GitHub subscription. Claude Max used for IDE work only.",
             "decidedAt": "2026-03-17T00:00:00Z",
-            "context": "delivery",
+            "context": "delivery"
         },
         {
             "id": "DEC-023",
@@ -402,7 +402,7 @@
             "acknowledged_by": "plan",
             "decision": "When invoked via /ai-autopilot, the user invocation serves as the single approval gate for the entire pipeline (brainstorm split -> plan -> dispatch -> verify -> PR). This overrides DEC-003 human gates between phases. Automatic spec-review and verify gates compensate. Failure after 2 retries restores manual control.",
             "decidedAt": "2026-03-24T00:00:00Z",
-            "context": "governance",
+            "context": "governance"
         },
         {
             "id": "DEC-024",
@@ -420,7 +420,7 @@
             "decision": "Copilot-specific subagent properties (agents, handoffs, hooks) are injected via AGENT_METADATA in scripts/sync_command_mirrors.py during mirror generation. This keeps .claude/ canonical sources clean of platform-specific properties while enabling full orchestration in GitHub Copilot VS Code, CLI, and Coding Agent. Properties: agents (allowlist of delegatable subagents), handoffs (guided workflow transitions), hooks (per-agent lifecycle hooks). Based on official VS Code docs (Mar 2026) — uses modern properties instead of deprecated infer.",
             "decidedAt": "2026-03-24T00:00:00Z",
             "context": "architecture",
-            "refs": ["https://code.visualstudio.com/docs/copilot/customization/custom-agents"],
+            "refs": ["https://code.visualstudio.com/docs/copilot/customization/custom-agents"]
         },
         {
             "id": "DEC-025",
@@ -437,7 +437,7 @@
             "acknowledged_by": "ai-engineering-cli",
             "decision": "Resolved by upgrading pygments to 2.20.0. DEC-025 closed.",
             "decidedAt": "2026-03-24T00:00:00Z",
-            "context": "security",
+            "context": "security"
         },
         {
             "id": "DEC-026",
@@ -453,7 +453,7 @@
             "acknowledged_by": "plan",
             "decision": "contexts/orgs eliminated -- aspirational stub with no implementation. The directory promised 'Auto-detected from git remote' organization conventions but zero skills, agents, or CLI commands ever referenced it. Use contexts/team/ for team-wide conventions.",
             "decidedAt": "2026-03-26T00:00:00Z",
-            "context": "architecture",
+            "context": "architecture"
         },
         {
             "id": "DEC-027",
@@ -469,7 +469,7 @@
             "acknowledged_by": "plan",
             "decision": "framework-contract.md and product-contract.md eliminated from templates. Governance rules now live in CLAUDE.md (prohibitions, gates), manifest.yml (counts, ownership, tooling), and project-identity.md (project name, purpose, boundaries, stakeholders). The instruction_consistency validator category was absorbed into counter_accuracy; cross-file listing comparison dropped since counter_accuracy already validates against manifest.yml as source of truth. Skill count updated from 37 to 38 with new /ai-project-identity skill.",
             "decidedAt": "2026-03-26T00:00:00Z",
-            "context": "architecture",
+            "context": "architecture"
         },
         {
             "id": "DEC-028",
@@ -485,7 +485,7 @@
             "acknowledged_by": "guard",
             "decision": "ai-engineering no longer owns dashboards or ai-eng signals emit. Canonical observability consists of .ai-engineering/state/framework-events.ndjson plus .ai-engineering/state/framework-capabilities.json, with transcript/session viewing delegated to independently installed agentsview.",
             "decidedAt": "2026-03-27T00:00:00Z",
-            "context": "architecture",
+            "context": "architecture"
         },
         {
             "id": "DEC-029",
@@ -502,7 +502,7 @@
             "supersedes": "DEC-012",
             "decision": "Release decoupled from build. release.yml uses workflow_dispatch with version input (default: latest tag). Downloads pre-built artifact from ci-build, validates CHANGELOG, publishes to PyPI via OIDC, finalizes GitHub Release. Rollback via same workflow with older version. Extends zero-rebuild principle (DEC-012) into artifact-driven model.",
             "decidedAt": "2026-03-31T00:00:00Z",
-            "context": "delivery",
+            "context": "delivery"
         },
         {
             "id": "DEC-030",
@@ -519,7 +519,7 @@
             "supersedes": "DEC-015",
             "decision": "Commit format standardized to conventional commits: feat(scope):, fix(scope):, chore:, etc. Spec number preserved in scope parenthetical (feat(spec-NNN):). Enables python-semantic-release for automatic version bumping. Legacy spec-NNN: format removed.",
             "decidedAt": "2026-03-31T00:00:00Z",
-            "context": "delivery",
+            "context": "delivery"
         },
         {
             "id": "DEC-031",
@@ -535,7 +535,7 @@
             "acknowledged_by": "plan",
             "decision": "Split 760-line ci.yml monolith into ci-check.yml (validation + dry build, PR + main) and ci-build.yml (build + supply chain, main only via workflow_run). PRs never produce deployable artifacts. ci-build triggers sequentially after ci-check success using head_sha for exact commit tracking.",
             "decidedAt": "2026-03-31T00:00:00Z",
-            "context": "architecture",
+            "context": "architecture"
         },
         {
             "id": "DEC-032",
@@ -551,7 +551,7 @@
             "acknowledged_by": "plan",
             "decision": "actions/attest-build-provenance generates SLSA Build provenance in the same job as uv build. CycloneDX SBOM from production-only deps. SHA-256 checksums for all artifacts. All gated on version bump. Attached to draft GitHub Release.",
             "decidedAt": "2026-03-31T00:00:00Z",
-            "context": "security",
+            "context": "security"
         },
         {
             "id": "DEC-033",
@@ -567,7 +567,7 @@
             "acknowledged_by": "plan",
             "decision": "Branch protection: 1 required approval, code owner review, enforce for admins, last-push approval. Tag protection: v* restricted to admin role via ruleset. PyPI environment: branch restriction to main only. Actions: selected orgs allowlist. Open-source defense in depth.",
             "decidedAt": "2026-03-31T00:00:00Z",
-            "context": "governance",
+            "context": "governance"
         },
         {
             "id": "DEC-034",
@@ -583,7 +583,7 @@
             "acknowledged_by": "plan",
             "decision": "Eliminated __version__.py. Version read from pyproject.toml via importlib.metadata.version('ai-engineering'). python-semantic-release updates pyproject.toml only. Removes dual-source sync hazard.",
             "decidedAt": "2026-03-31T00:00:00Z",
-            "context": "architecture",
+            "context": "architecture"
         },
         {
             "id": "DEC-035",
@@ -599,7 +599,7 @@
             "acknowledged_by": "guard",
             "decision": "CI build artifacts (wheel, sdist, SBOM, attestation, checksums) are retained for 90 days in GitHub Actions for download by the release workflow and forensic review. Permanent copies of every released version's artifacts are attached to the corresponding GitHub Release for long-term auditability. The 90-day artifact window is the maximum supported retention for actions/upload-artifact at the standard GitHub plan tier; permanent retention is delegated to GitHub Releases which has no expiry.",
             "decidedAt": "2026-04-24T00:00:00Z",
-            "context": "delivery",
+            "context": "delivery"
         },
         {
             "id": "DEC-036",
@@ -615,7 +615,7 @@
             "acknowledged_by": "build",
             "decision": "pip 26.0.1 is the latest available version on PyPI and carries CVE-2026-3219: pip treats files that identify as both tar AND ZIP archives as ZIP files unconditionally. Exploit requires (a) the user installing a hand-crafted dual-format archive AND (b) supplying that archive via a URL or file path. Our installer surface uses uv (not pip directly) and never accepts user-supplied archive URLs, so the practical exploit window is empty in our deployment. Upstream has no patched release; tracking https://github.com/pypa/pip for a fix. Re-evaluate when a fixed pip version ships -- TTL 90 days. If pip 26.1.0+ patches the issue we will upgrade and close this DEC.",
             "decidedAt": "2026-04-24T00:00:00Z",
-            "context": "security",
+            "context": "security"
         },
         {
             "id": "DEC-037",
@@ -631,7 +631,7 @@
             "acknowledged_by": "build",
             "decision": "cryptography 46.0.6 carries CVE-2026-39892 (fixed in 46.0.7). This PR's uv.lock is bumped to cryptography 47.0.0 which is past the patched 46.0.7 version. Cached pip-audit runs may still observe the old version during the transitive dependency resolution window; the --ignore-vuln flag covers that 30-day window. Auto-removed once dependent CI environments cycle to the new lock. Re-evaluate on 2026-05-26.",
             "decidedAt": "2026-04-26T00:00:00Z",
-            "context": "security",
+            "context": "security"
         },
         {
             "id": "DEC-038",
@@ -648,7 +648,7 @@
             "context_hash": "",
             "acknowledged_by": "guard",
             "decision": "Accept SHA256 pins disabled for spec-101 GitHubReleaseBinaryMechanism entries (gitleaks, jq, checkstyle, google-java-format, composer, ktlint, shellcheck, shfmt, llvm, clang-tidy, clang-format, cppcheck) for 90 days. Follow-up: source vetted pins from upstream release manifests, populate via scheduled workflow, flip sha256_pinned=True. The runtime _PIN_REQUIRED=True invariant remains intact — it correctly rejects empty pins; the registry-level disable is the controlled mitigation.",
-            "context": "governance",
+            "context": "governance"
         },
         {
             "id": "DEC-039",
@@ -667,7 +667,7 @@
             "supersedes": "DEC-018",
             "decision": "Adopt orchestrator.py as the canonical gate dispatcher with Wave 1 serial fixers + Wave 2 parallel checkers; emit gate-findings.json v1; provide AIENG_LEGACY_PIPELINE=1 env as fallback. Supersedes the skill-markdown shared-pipeline pattern from DEC-018.",
             "decidedAt": "2026-04-26T00:00:00Z",
-            "context": "architecture",
+            "context": "architecture"
         },
         {
             "id": "DEC-040",
@@ -685,7 +685,7 @@
             "acknowledged_by": "guard",
             "decision": "Adopt fixed framework policy: local fast-slice (<=60s budget) for {gitleaks, ruff, ty, pytest-smoke, validate, docs-gate}; CI authoritative for {semgrep, pip-audit, pytest full + matrix}. Documented in contexts/gate-policy.md; not configurable per-project via manifest.yml.",
             "decidedAt": "2026-04-26T00:00:00Z",
-            "context": "governance",
+            "context": "governance"
         },
         {
             "id": "DEC-041",
@@ -703,8 +703,8 @@
             "acknowledged_by": "build",
             "decision": "Adopt gate-cache with sha256 hash key (tool+version+staged-blobs+config-files+args) and max-age 24h invalidation. Per-cwd storage. Atomic writes with os.replace. LRU 256/16MB cap. Override flags --no-cache/--force/AIENG_CACHE_DISABLED=1. CI reuse via actions/cache@v4 with identical key schema, independent storage.",
             "decidedAt": "2026-04-26T00:00:00Z",
-            "context": "architecture",
-        },
+            "context": "architecture"
+        }
     ],
     "active_decisions": [
         {
@@ -723,7 +723,7 @@
             "category": "governance",
             "criticality": "medium",
             "created_at": "2026-03-12",
-            "acknowledged_by": "plan",
+            "acknowledged_by": "plan"
         },
         {
             "id": "DEC-014",
@@ -741,7 +741,7 @@
             "category": "governance",
             "criticality": "low",
             "created_at": "2026-03-12",
-            "acknowledged_by": "plan",
+            "acknowledged_by": "plan"
         },
         {
             "id": "DEC-021",
@@ -759,7 +759,7 @@
             "category": "architecture",
             "criticality": "medium",
             "created_at": "2026-03-17",
-            "acknowledged_by": "plan",
+            "acknowledged_by": "plan"
         },
         {
             "id": "DEC-023",
@@ -777,7 +777,7 @@
             "category": "governance",
             "criticality": "high",
             "created_at": "2026-03-24",
-            "acknowledged_by": "plan",
+            "acknowledged_by": "plan"
         },
         {
             "id": "DEC-024",
@@ -796,7 +796,7 @@
             "criticality": "high",
             "created_at": "2026-03-24",
             "acknowledged_by": "plan",
-            "refs": ["https://code.visualstudio.com/docs/copilot/customization/custom-agents"],
+            "refs": ["https://code.visualstudio.com/docs/copilot/customization/custom-agents"]
         },
         {
             "id": "DEC-028",
@@ -813,7 +813,7 @@
             "category": "architecture",
             "criticality": "high",
             "created_at": "2026-03-27",
-            "acknowledged_by": "guard",
+            "acknowledged_by": "guard"
         },
         {
             "id": "DEC-029",
@@ -831,7 +831,7 @@
             "criticality": "high",
             "created_at": "2026-03-31",
             "acknowledged_by": "plan",
-            "supersedes": "DEC-012",
+            "supersedes": "DEC-012"
         },
         {
             "id": "DEC-030",
@@ -849,7 +849,7 @@
             "criticality": "medium",
             "created_at": "2026-03-31",
             "acknowledged_by": "plan",
-            "supersedes": "DEC-015",
+            "supersedes": "DEC-015"
         },
         {
             "id": "DEC-031",
@@ -866,7 +866,7 @@
             "category": "architecture",
             "criticality": "high",
             "created_at": "2026-03-31",
-            "acknowledged_by": "plan",
+            "acknowledged_by": "plan"
         },
         {
             "id": "DEC-032",
@@ -883,7 +883,7 @@
             "category": "security",
             "criticality": "high",
             "created_at": "2026-03-31",
-            "acknowledged_by": "plan",
+            "acknowledged_by": "plan"
         },
         {
             "id": "DEC-033",
@@ -900,7 +900,7 @@
             "category": "governance",
             "criticality": "high",
             "created_at": "2026-03-31",
-            "acknowledged_by": "plan",
+            "acknowledged_by": "plan"
         },
         {
             "id": "DEC-034",
@@ -917,7 +917,7 @@
             "category": "architecture",
             "criticality": "medium",
             "created_at": "2026-03-31",
-            "acknowledged_by": "plan",
+            "acknowledged_by": "plan"
         },
         {
             "id": "DEC-035",
@@ -934,7 +934,7 @@
             "category": "delivery",
             "criticality": "medium",
             "created_at": "2026-04-24",
-            "acknowledged_by": "guard",
+            "acknowledged_by": "guard"
         },
         {
             "id": "DEC-036",
@@ -951,7 +951,7 @@
             "category": "risk-acceptance",
             "criticality": "low",
             "created_at": "2026-04-24",
-            "acknowledged_by": "build",
+            "acknowledged_by": "build"
         },
         {
             "id": "DEC-037",
@@ -968,7 +968,7 @@
             "category": "risk-acceptance",
             "criticality": "low",
             "created_at": "2026-04-26",
-            "acknowledged_by": "build",
+            "acknowledged_by": "build"
         },
         {
             "id": "DEC-038",
@@ -986,7 +986,7 @@
             "category": "risk-acceptance",
             "criticality": "high",
             "created_at": "2026-04-26",
-            "acknowledged_by": "guard",
+            "acknowledged_by": "guard"
         },
         {
             "id": "DEC-039",
@@ -1006,7 +1006,7 @@
             "created_at": "2026-04-26",
             "decided_at": "2026-04-26T00:00:00Z",
             "acknowledged_by": "build",
-            "supersedes": "DEC-018",
+            "supersedes": "DEC-018"
         },
         {
             "id": "DEC-040",
@@ -1025,7 +1025,7 @@
             "criticality": "high",
             "created_at": "2026-04-26",
             "decided_at": "2026-04-26T00:00:00Z",
-            "acknowledged_by": "guard",
+            "acknowledged_by": "guard"
         },
         {
             "id": "DEC-041",
@@ -1044,7 +1044,7 @@
             "criticality": "high",
             "created_at": "2026-04-26",
             "decided_at": "2026-04-26T00:00:00Z",
-            "acknowledged_by": "build",
-        },
-    ],
+            "acknowledged_by": "build"
+        }
+    ]
 }
